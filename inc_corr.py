@@ -416,7 +416,7 @@ def inc_corr_chk_conv(order,thres,e_inc,conv):
    #
    return conv
 
-def inc_corr_summary(nocc,core,thres,n_tuples,time,e_inc,e_ref,conv,ref,error):
+def inc_corr_summary(nocc,core,thres,n_tuples,time,e_inc,e_ref,ref,error):
    print('\n')
    print(' ** RESULTS **\n')
    print('   frozen core        =  {0:}'.format(core[0] > 0))
@@ -480,8 +480,6 @@ def inc_corr_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,co
       ax1.set_title('{0:}/{1:} energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
    #
    ax1.plot(nocc_list,e_inc,marker='x',linewidth=2,color='red',linestyle='-',label='inc-corr')
-   if (conv[0]):
-      ax1.text(nocc_list[-1]+0.1,e_inc[-1],'$\checkmark$',color='black',size=32)
    ax1.set_xlim([0.5,(nocc[0]-core[0])+0.5])
    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
    ax1.set_xlabel('Inc.-corr. order')
