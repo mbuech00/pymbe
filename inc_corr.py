@@ -442,9 +442,10 @@ def inc_corr_summary(nocc,core,thres,n_tuples,time,e_inc,e_ref,conv,ref,error):
       print('   final difference   =  {0:9.4e}'.format(e_ref[0]-e_inc[-1]))
    print('\n')
 
-def inc_corr_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,ref,error):
+def inc_corr_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,conv,ref,error):
    #
    fig = plt.figure()
+   #
    if (ref[0] and (not error[0])):
       ax1 = plt.subplot2grid((2,2),(0,0),colspan=2)
       ax2 = plt.subplot2grid((2,2),(1,0))
@@ -479,10 +480,10 @@ def inc_corr_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,re
       ax1.set_title('{0:}/{1:} energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
    #
    ax1.plot(nocc_list,e_inc,marker='x',linewidth=2,color='red',linestyle='-',label='inc-corr')
+   if (conv[0]):
+      ax1.text(nocc_list[-1]+0.1,e_inc[-1],'$\checkmark$',color='black',size=32)
    ax1.set_xlim([0.5,(nocc[0]-core[0])+0.5])
-   ax1.xaxis.grid(True)
    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
-   ax1.grid()
    ax1.set_xlabel('Inc.-corr. order')
    ax1.set_ylabel('Energy (in Hartree)')
    #
@@ -530,7 +531,7 @@ def main():
    #
    if len(sys.argv) != 9:
       print ('wrong number of arguments ...')
-      print ('correct sequence: python .//inc_corr.py $MODEL $BAS $MOL $THRES $FROZEN $REF $MEMORY $SCRATCH')
+      print ('correct sequence: python ./inc_corr.py $MODEL $BAS $MOL $THRES $FROZEN $REF $MEMORY $SCRATCH')
       sys.exit(10)
    #
    model = sys.argv[1]
@@ -621,7 +622,7 @@ def main():
    #
    inc_corr_summary(nocc,core,thres,n_tuples,time,e_inc,e_ref,conv,ref,error)
    #
-   inc_corr_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,ref,error)
+   inc_corr_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,conv,ref,error)
    #
    print(' ** END OF INC.-CORR. ('+model+') CALCULATION **\n')
    print('\n')
