@@ -9,18 +9,13 @@
 
 import sys
 from sys import stdin
+import re
 import argparse
 import os
-import re
 import math
-import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.text import Text
-from matplotlib.ticker import MaxNLocator
 from timeit import default_timer as timer
+
+from inc_corr_plot import ic_plot
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
@@ -629,11 +624,12 @@ def main():
    #
    inc_corr_summary(nocc,core,thres,n_tuples,time,e_inc,e_ref,conv,ref,error)
    #
-   inc_corr_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,conv,ref,error)
+   ic_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,(ref[0] and (not error[0])))
    #
    print(' ** END OF INC.-CORR. ('+model+') CALCULATION **\n')
    print('\n')
 
 if __name__ == '__main__':
+   #
    main()
 
