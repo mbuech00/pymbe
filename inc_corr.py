@@ -309,43 +309,83 @@ def write_energy(order,model,regex,e_vec,e_ref,error,ref):
    #
    return e_ref, e_vec
 
-def inc_corr_tuple(mol_string,nocc,core,thres,order,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem):
-   #
-   exp_ctrl = []
-   if ((thres > 0.0) and (order == 0)):
-      exp_ctrl.append(True)
-   else:
-      exp_ctrl.append(False)
+def inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem):
    #
    drop_string = [[]]
    #
    print(' STATUS:  start preparing DROP_MO list...')
+   #
    for k in range(0,(nocc[0]-core[0])-1):
+      #
       drop_string.append([])
+   #
    generate_drop(core[0]+1,1,nocc,core,list_drop,drop_string,n_tuples)
+   #
    print(' STATUS:  done preparing DROP_MO list\n')
    #
    for k in range(0,nocc[0]-core[0]):
+      #
       start = timer()
+      #
       for i in range(0,len(drop_string[k])):
+         #
          run_calc(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False,mem)
+         #
          if (error[0]):
             return n_tuples, time, e_inc, error
       #
       inc_corr_order(k+1,nocc[0]-core[0],e_vec,e_inc)
       #
-      if ((k > 0) and exp_ctrl[0]):
+      if (k > 0):
          inc_corr_chk_conv(k,thres,e_inc,conv)
       #
-      time[k] = timer()-start
+      time[k] = timer() - start
+      #
       if (k == 0):
          print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds'.format(k+1,nocc[0]-core[0],time[k]))
       else:
-         if (exp_ctrl[0]):
-            print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  convergence =  {3:}'.format(k+1,nocc[0]-core[0],time[k],conv[0]))
-         else:
-            print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  energy diff =  {3:9.4e}'.format(k+1,nocc[0]-core[0],time[k],e_inc[k]-e_inc[k-1]))
-      if (conv[0] or (k == order-1)):
+         print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  convergence =  {3:}'.format(k+1,nocc[0]-core[0],time[k],conv[0]))
+      #
+      if (conv[0]):
+         return n_tuples, time, e_inc, error
+   #
+   return n_tuples, time, e_inc, error
+
+def inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem):
+   #
+   drop_string = [[]]
+   #
+   print(' STATUS:  start preparing DROP_MO list...')
+   #
+   for k in range(0,(nocc[0]-core[0])-1):
+      #
+      drop_string.append([])
+   #
+   generate_drop(core[0]+1,1,nocc,core,list_drop,drop_string,n_tuples)
+   #
+   print(' STATUS:  done preparing DROP_MO list\n')
+   #
+   for k in range(0,nocc[0]-core[0]):
+      #
+      start = timer()
+      #
+      for i in range(0,len(drop_string[k])):
+         #
+         run_calc(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False,mem)
+         #
+         if (error[0]):
+            return n_tuples, time, e_inc, error
+      #
+      inc_corr_order(k+1,nocc[0]-core[0],e_vec,e_inc)
+      #
+      time[k] = timer() - start
+      #
+      if (k == 0):
+         print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds'.format(k+1,nocc[0]-core[0],time[k]))
+      else:
+         print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  energy diff =  {3:9.4e}'.format(k+1,nocc[0]-core[0],time[k],e_inc[k]-e_inc[k-1]))
+      #
+      if (k == order-1):
          return n_tuples, time, e_inc, error
    #
    return n_tuples, time, e_inc, error
@@ -496,10 +536,12 @@ def main():
    scr_dir = args.scr
    wrk_dir=os.getcwd()
    #
+   exp_ctrl = False
    if ((args.thres is None) and (args.order is None)):
       print 'either the convergence threshold (--thres) OR the inc.-corr. order (--order) must be set, aborting ...'
       sys.exit(10)
    elif (args.order is None):
+      exp_ctrl = True
       thres = float(args.thres)
       order = 0
    elif (args.thres is None):
@@ -540,7 +582,10 @@ def main():
    for i in range(0,nocc[0]):
       list_drop.append(i+1)
    #
-   inc_corr_tuple(mol_string,nocc,core,thres,order,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem)
+   if (exp_ctrl):
+      inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem)
+   else:
+      inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem)
    #
    if (ref[0] and (not error[0])):
       start = timer()
