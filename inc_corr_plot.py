@@ -15,7 +15,7 @@ from matplotlib.ticker import MaxNLocator
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
-def ic_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,ref):
+def ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,ref):
    #
    fig = plt.figure()
    #
@@ -47,12 +47,18 @@ def ic_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,ref):
          e_inc_abs.append((e_inc[i]-e_ref[0])/kcal_mol)
          e_inc_rel.append((e_inc[i]/e_ref[0])*100.)
    #
-   if (core[0] > 0):
-      ax1.set_title('{0:}/{1:}/FC energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+   if (thres > 0.0):
+      if (core[0] > 0):
+         ax1.set_title('{0:}/{1:}/FC energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+      else:
+         ax1.set_title('{0:}/{1:} energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
    else:
-      ax1.set_title('{0:}/{1:} energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+      if (core[0] > 0):
+         ax1.set_title('{0:}/{1:}/FC energy (final order = {2:})'.format(model,basis,order))
+      else:
+         ax1.set_title('{0:}/{1:} energy (final order = {2:})'.format(model,basis,order))
    #
-   ax1.plot(nocc_list,e_inc,marker='x',linewidth=2,color='red',linestyle='-',label='inc-corr')
+   ax1.plot(nocc_list,e_inc,marker='x',linewidth=2,color='red',linestyle='-')
    ax1.set_xlim([0.5,(nocc[0]-core[0])+0.5])
    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
    ax1.set_xlabel('Inc.-corr. order')
@@ -69,7 +75,7 @@ def ic_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,ref):
    if (ref):
       ax2.set_title('Absolute difference from E('+model+')')
       ax2.axhline(0.0,color='black',linewidth=2)
-      ax2.plot(nocc_list,e_inc_abs,marker='x',linewidth=2,color='red',linestyle='-',label='inc-corr')
+      ax2.plot(nocc_list,e_inc_abs,marker='x',linewidth=2,color='red',linestyle='-')
       ax2.axhspan(-error_abs,error_abs,color='green',alpha=0.2)
       ax2.set_xlim([0.5,(nocc[0]-core[0])+0.5])
       ax2.xaxis.grid(True)
@@ -81,7 +87,7 @@ def ic_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,ref):
       #
       ax3.set_title('Relative recovery of E('+model+')')
       ax3.axhline(100.0,color='black',linewidth=2)
-      ax3.plot(nocc_list,e_inc_rel,marker='x',linewidth=2,color='red',linestyle='-',label='inc-corr')
+      ax3.plot(nocc_list,e_inc_rel,marker='x',linewidth=2,color='red',linestyle='-')
       ax3.axhspan(error_rel_m,error_rel_p,color='green',alpha=0.2)
       ax3.set_xlim([0.5,(nocc[0]-core[0])+0.5])
       ax3.xaxis.grid(True)
@@ -93,10 +99,16 @@ def ic_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,ref):
    #
    fig.tight_layout()
    #
-   if (core[0] > 0):
-      plt.savefig(mol_string+'_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
+   if (thres > 0.0):
+      if (core[0] > 0):
+         plt.savefig(mol_string+'_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
+      else:
+         plt.savefig(mol_string+'_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
    else:
-      plt.savefig(mol_string+'_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
+      if (core[0] > 0):
+         plt.savefig(mol_string+'_'+model+'_'+basis+'_FC_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
+      else:
+         plt.savefig(mol_string+'_'+model+'_'+basis+'_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
 
 def main():
    #
