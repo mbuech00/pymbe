@@ -283,7 +283,7 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
    #
    return mol, nocc, core, mult
 
-def write_energy(order,model,regex,e_vec,e_ref,error,ref):
+def write_energy(k,model,regex,e_vec,e_ref,error,ref):
    #
    inp=open('CFOUR.OUT','r')
    #
@@ -299,7 +299,7 @@ def write_energy(order,model,regex,e_vec,e_ref,error,ref):
          if (ref):
             e_ref.append(float(energy))
          else:
-            e_vec[order-1] += float(energy)
+            e_vec[k-1] += float(energy)
          break
       elif re.match(regex_2,line) is not None:
          print('problem with '+model+' calculation, aborting ...')
@@ -344,7 +344,7 @@ def inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mo
       if (k == 0):
          print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds'.format(k+1,nocc[0]-core[0],time[k]))
       else:
-         print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  convergence =  {3:}'.format(k+1,nocc[0]-core[0],time[k],conv[0]))
+         print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k+1,nocc[0]-core[0],time[k],e_inc[k]-e_inc[k-1],conv[0]))
       #
       if (conv[0]):
          return n_tuples, time, e_inc, error
@@ -365,28 +365,26 @@ def inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mo
    #
    print(' STATUS:  done preparing DROP_MO list\n')
    #
-   for k in range(0,nocc[0]-core[0]):
+   for k in range(order,0,-1):
       #
       start = timer()
       #
-      for i in range(0,len(drop_string[k])):
+      for i in range(0,len(drop_string[k-1])):
          #
-         run_calc(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False,mem)
+         run_calc(k,mult,False,model,basis,regex,mol,drop_string[k-1][i],e_vec,e_ref,error,False,mem)
          #
          if (error[0]):
             return n_tuples, time, e_inc, error
       #
-      inc_corr_order(k+1,nocc[0]-core[0],e_vec,e_inc)
-      #
       time[k] = timer() - start
       #
-      if (k == 0):
-         print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds'.format(k+1,nocc[0]-core[0],time[k]))
-      else:
-         print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  energy diff =  {3:9.4e}'.format(k+1,nocc[0]-core[0],time[k],e_inc[k]-e_inc[k-1]))
+      print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds'.format(k,nocc[0]-core[0],time[k]))
+   #
+   for k in range(0,order):
       #
-      if (k == order-1):
-         return n_tuples, time, e_inc, error
+      inc_corr_order(k+1,nocc[0]-core[0],e_vec,e_inc)
+   #
+   time += [time.pop(0)] # permute all elements one time to the left in the list
    #
    return n_tuples, time, e_inc, error
 
@@ -424,13 +422,13 @@ def generate_drop(start,order,nocc,core,list_drop,drop_string,n_tuples):
    #
    return drop_string, n_tuples
 
-def inc_corr_order(order,n,e_vec,e_inc):
+def inc_corr_order(k,n,e_vec,e_inc):
    #
    e_sum = 0.0
    #
-   for m in range(1,order+1):
-      e_sum += (-1)**(m) * (1.0 / math.factorial(m)) * prefactor(n,order,m-1) * e_vec[(order-m)-1]
-   e_inc.append(e_vec[order-1]+e_sum)
+   for m in range(1,k+1):
+      e_sum += (-1)**(m) * (1.0 / math.factorial(m)) * prefactor(n,k,m-1) * e_vec[(k-m)-1]
+   e_inc.append(e_vec[k-1]+e_sum)
    #
    return e_inc
 
