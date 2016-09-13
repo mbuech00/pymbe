@@ -6,19 +6,10 @@
 #
 # Requires the path of the cfour basis GENBAS file ($CFOURBASIS) and bin directory ($CFOURBIN)
 #
-# Input:
-#     $1: method (CCSD, CISD, CCSDT, or FCI)
-#     $2: one-electron basis set
-#     $3: molecular input
-#     $4: inc.-corr. convergence threshold
-#     $5: frozen core logical
-#     $6: logical for reference calc
-#     $7: memory for the calcs (MEMORY keyword in ZMAT file)
-#     $8: scratch folder
-#
 
 import sys
 from sys import stdin
+import argparse
 import os
 import re
 import math
@@ -30,6 +21,8 @@ from matplotlib.lines import Line2D
 from matplotlib.text import Text
 from matplotlib.ticker import MaxNLocator
 from timeit import default_timer as timer
+
+__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
 CFOUR_BASIS='$CFOURBASIS'
 CFOUR_BIN='$CFOURBIN'
@@ -60,9 +53,9 @@ def end_calc():
    command='rm *'
    os.system(command)
 
-def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,ref):
+def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,ref,mem):
    # 
-   write_zmat(mult,fc,model,basis,mol,drop_string)
+   write_zmat(mult,fc,model,basis,mol,drop_string,mem)
    #
    command='xcfour &> CFOUR.OUT'
    os.system(command)
@@ -75,7 +68,7 @@ def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,r
    #
    return e_vec, e_ref, error
 
-def write_zmat(mult,fc,model,basis,mol,drop_string):
+def write_zmat(mult,fc,model,basis,mol,drop_string,mem):
    #
    out=open('ZMAT','w')
    #
@@ -107,7 +100,7 @@ def write_zmat(mult,fc,model,basis,mol,drop_string):
    #
    out.write('BASIS='+basis+'\n')
    #
-   out.write('MEMORY='+sys.argv[7]+'\n')
+   out.write('MEMORY='+mem+'\n')
    out.write('MEM_UNIT=GB)\n')
    #
    out.write('\n')
@@ -320,7 +313,7 @@ def write_energy(order,model,regex,e_vec,e_ref,error,ref):
    #
    return e_ref, e_vec
 
-def inc_corr_tuple(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error):
+def inc_corr_tuple(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem):
    #
    drop_string = [[]]
    #
@@ -333,7 +326,7 @@ def inc_corr_tuple(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list
    for k in range(0,nocc[0]-core[0]):
       start = timer()
       for i in range(0,len(drop_string[k])):
-         run_calc(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False)
+         run_calc(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False,mem)
          if (error[0]):
             return n_tuples, time, e_inc, error
       #
@@ -416,7 +409,7 @@ def inc_corr_chk_conv(order,thres,e_inc,conv):
    #
    return conv
 
-def inc_corr_summary(nocc,core,thres,n_tuples,time,e_inc,e_ref,ref,error):
+def inc_corr_summary(nocc,core,thres,n_tuples,time,e_inc,e_ref,conv,ref,error):
    print('\n')
    print(' ** RESULTS **\n')
    print('   frozen core        =  {0:}'.format(core[0] > 0))
@@ -527,32 +520,32 @@ def inc_corr_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,co
 
 def main():
    #
-   if len(sys.argv) != 9:
-      print ('wrong number of arguments ...')
-      print ('correct sequence: python ./inc_corr.py $MODEL $BAS $MOL $THRES $FROZEN $REF $MEMORY $SCRATCH')
-      sys.exit(10)
+   parser = argparse.ArgumentParser(description='This is an CCSD/CISD/CCSDT/FCI inc.-corr. Python script (with CFOUR backend) written by Dr. Janus Juul Eriksen, JGU Mainz, September 2016')
+   parser.add_argument('--model', help='electronic structure model (CCSD, CISD, CCSDT, or FCI)',required=True)
+   parser.add_argument('--basis', help='one-electron basis set', required=True)
+   parser.add_argument('--mol', help='molecule (H2O, C2H2, N2, O2, SiH4, CO2, C4H6, or C6H6)', required=True)
+   parser.add_argument('--frozen', help='frozen-core logical', required=True)
+   parser.add_argument('--ref', help='reference calc. logical', required=True)
+   parser.add_argument('--mem', help='amount of virtual memory', required=True)
+   parser.add_argument('--scr', help='location of scratch folder', required=True)
+   parser.add_argument('--thres', help='convergence threshold', required=False)
+   parser.add_argument('--order', help='inc.-corr. order', required=False)
+   args = parser.parse_args()
    #
-   model = sys.argv[1]
+   model = args.model
    if (not ((model == 'CCSD') or (model == 'CISD') or (model == 'CCSDT') or (model == 'FCI'))):
       print 'wrong choice of model (CCSD, CISD, CCSDT, or FCI), aborting ...'
       sys.exit(10)
-   #
-   basis = sys.argv[2]
-   #
-   print('\n')
-   print(' ** START INC.-CORR. ('+model+') CALCULATION **\n')
-   # 
-   mol_string = sys.argv[3]
-   mol = []
-   #
    if (model == 'FCI'):
       regex = '\s+Final Correlation Energy'
    else:
       regex = '\s+The correlation energy is'
    #
-   thres = float(sys.argv[4])
+   basis = args.basis
    #
-   fc_string = sys.argv[5]
+   mol_string = args.mol
+   #
+   fc_string = args.frozen
    fc = []
    if (fc_string == 'True'):
       fc.append(True)
@@ -560,14 +553,9 @@ def main():
       fc.append(False)
    else:
       print 'wrong input argument for frozen core (True/False), aborting ...'
-      sys.exit(10)
+      sys.exit(10)   
    #
-   nocc = []
-   core = []
-   mult = []
-   init_zmat(mol_string,mol,nocc,fc[0],core,mult)
-   #
-   ref_string = sys.argv[6]
+   ref_string = args.ref
    ref = []
    if (ref_string == 'True'):
       ref.append(True)
@@ -577,8 +565,29 @@ def main():
       print 'wrong input argument for reference calc (True/False), aborting ...'
       sys.exit(10)
    #
-   scr_dir=sys.argv[8]
+   mem = args.mem
+   #
+   scr_dir = args.scr
    wrk_dir=os.getcwd()
+   #
+   if ((args.thres is None) and (args.order is None)):
+      print 'either the convergence threshold (--thres) OR the inc.-corr. order (--order) must be set, aborting ...'
+      sys.exit(10)
+   elif (args.order is None):
+      thres = float(args.thres)
+      order = 0
+   elif (args.thres is None):
+      order = int(args.order)
+      thres = 0.0
+   #
+   print('\n')
+   print(' ** START INC.-CORR. ('+model+') CALCULATION **\n')
+   # 
+   mol = []
+   nocc = []
+   core = []
+   mult = []
+   init_zmat(mol_string,mol,nocc,fc[0],core,mult)
    #
    mk_scr_dir(scr_dir)
    #
@@ -605,11 +614,11 @@ def main():
    for i in range(0,nocc[0]):
       list_drop.append(i+1)
    #
-   inc_corr_tuple(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error)
+   inc_corr_tuple(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem)
    #
    if (ref[0] and (not error[0])):
       start = timer()
-      run_calc(nocc,mult,fc[0],model,basis,regex,mol,'',e_vec,e_ref,error,True)
+      run_calc(nocc,mult,fc[0],model,basis,regex,mol,'',e_vec,e_ref,error,True,mem)
       time.append(timer()-start)
    #
    end_calc()
