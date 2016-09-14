@@ -37,16 +37,16 @@ def cd_dir(directive):
    #
    os.chdir(directive)
 
+def save_err_out(directive):
+   #
+   command='cp '+directive+'/CFOUR.OUT .'
+   os.system(command)
+
 def prepare_calc():
    #
    command='cp '+CFOUR_BASIS+' .'
    os.system(command)
    command='cp '+CFOUR_BIN+'/x* .'
-   os.system(command)
-
-def end_calc():
-   #
-   command='rm *'
    os.system(command)
 
 def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,ref,mem):
@@ -76,6 +76,8 @@ def write_zmat(mult,fc,model,basis,mol,drop_string,mem):
    else:
       out.write('*CFOUR(CALC='+model+'\n')
       out.write('CC_PROG=VCC\n')
+      out.write('CC_EXPORDER=10\n')
+      out.write('CC_MAXCYC=200\n')
    #
    if (drop_string != '\n'):
       out.write(drop_string)
@@ -304,10 +306,11 @@ def write_energy(k,model,regex,e_vec,e_ref,error,ref):
       elif re.match(regex_2,line) is not None:
          print('problem with '+model+' calculation, aborting ...')
          error[0] = True
+         return e_ref, e_vec, error
    #
    inp.close()
    #
-   return e_ref, e_vec
+   return e_ref, e_vec, error
 
 def inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem):
    #
@@ -474,7 +477,8 @@ def inc_corr_summary(nocc,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,er
       total_time += time[i]
       print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,e_inc[i],total_time))
    print('   --------------------------------------------------------------')
-   print('   final convergence  =  {0:9.4e}'.format(e_inc[-1]-e_inc[-2]))
+   if (len(e_inc) >= 2):
+      print('   final convergence  =  {0:9.4e}'.format(e_inc[-1]-e_inc[-2]))
    if (ref[0] and (not error[0])):
       print('   --------------------------------------------------------------')
       print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(nocc[0]-core[0],e_ref[0],time[-1]))
@@ -590,9 +594,10 @@ def main():
       run_calc(nocc,mult,fc[0],model,basis,regex,mol,'',e_vec,e_ref,error,True,mem)
       time.append(timer()-start)
    #
-   end_calc()
-   #
    cd_dir(wrk_dir)
+   #
+   if (error[0]):
+      save_err_out(scr_dir)
    #
    rm_scr_dir(scr_dir)
    #
