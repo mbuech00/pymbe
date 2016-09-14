@@ -107,7 +107,7 @@ def write_zmat(mult,fc,model,basis,mol,drop_string,mem):
 
 def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
    #
-   if (mol_string == 'water'):
+   if (mol_string == 'h2o'):
       s = 'ZMAT file for H2O\n'
       s += 'H\n'
       s += 'O 1 ROH\n'
@@ -127,7 +127,7 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
          core.append(1)
       else:
          core.append(0)
-   elif (mol_string == 'acetylene'):
+   elif (mol_string == 'c2h2'):
       s = 'ZMAT file for acetylene\n'
       s += 'C\n'
       s += 'C 1 RCC\n'
@@ -153,7 +153,7 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
          core.append(2)
       else:
          core.append(0)
-   elif (mol_string == 'nitrogen'):
+   elif (mol_string == 'n2'):
       s = 'ZMAT file for nitrogen (N2)\n'
       s += 'N\n'
       s += 'N 1 RNN\n'
@@ -171,7 +171,7 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
          core.append(2)
       else:
          core.append(0)
-   elif (mol_string == 'oxygen'):
+   elif (mol_string == 'o2'):
       s = 'ZMAT file for (triplet) oxygen (O2)\n'
       s += 'O\n'
       s += 'O 1 ROO\n'
@@ -189,7 +189,7 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
          core.append(2)
       else:
          core.append(0)
-   elif (mol_string == 'silane'):
+   elif (mol_string == 'sih4'):
       s = 'ZMAT file for silane\n'
       s += 'Si\n'
       s += 'H 1 R\n'
@@ -212,7 +212,7 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
          core.append(5)
       else:
          core.append(0)
-   elif (mol_string == 'carbondioxide'):
+   elif (mol_string == 'co2'):
       s = 'ZMAT file for carbon dioxide\n'
       s += 'C\n'
       s += 'X 1 RCX\n'
@@ -235,7 +235,7 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
          core.append(3)
       else:
          core.append(0)
-   elif (mol_string == 'butadiene'):
+   elif (mol_string == 'c4h6'):
       s = 'ZMAT file for trans-1,3-butadiene\n'
       s += 'C\n'
       s += 'C 1 CDC\n'
@@ -268,7 +268,7 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
          core.append(4)
       else:
          core.append(0)
-   elif (mol_string == 'benzene'):
+   elif (mol_string == 'c6h6'):
       s = 'ZMAT file for benzene\n'
       s += 'X\n'
       s += 'C 1 RCC\n'
