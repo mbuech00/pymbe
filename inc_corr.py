@@ -105,7 +105,7 @@ def write_zmat(mult,fc,model,basis,mol,drop_string,mem):
    #
    out.close()
 
-def init_zmat(mol_string,mol,nocc,frozen,core,mult):
+def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
    #
    if (mol_string == 'water'):
       s = 'ZMAT file for H2O\n'
@@ -113,7 +113,10 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
       s += 'O 1 ROH\n'
       s += 'H 2 ROH 1 AHOH\n'
       s += '\n'
-      s += 'ROH = 0.957\n'
+      if (bond[0] != 0.0):
+         s += 'ROH = '+str(bond[0])+'\n'
+      else:
+         s += 'ROH = 0.957\n'
       s += 'AHOH = 104.2\n'
       s += '\n'
       mol.append(s)
@@ -135,7 +138,10 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
       s += '\n'
       s += 'RCH = 1.08\n'
       s += 'RX = 1.0\n'
-      s += 'RCC = 1.2\n'
+      if (bond[0] != 0.0):
+         s += 'RCC = '+str(bond[0])+'\n'
+      else:
+         s += 'RCC = 1.2\n'
       s += 'A90 = 90.\n'
       s += 'A180 = 180.\n'
       s += '\n'
@@ -152,7 +158,10 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
       s += 'N\n'
       s += 'N 1 RNN\n'
       s += '\n'
-      s += 'RNN = 1.098\n'
+      if (bond[0] != 0.0):
+         s += 'RNN = '+str(bond[0])+'\n'
+      else:
+         s += 'RNN = 1.098\n'
       s += '\n'
       mol.append(s)
       #
@@ -167,7 +176,10 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
       s += 'O\n'
       s += 'O 1 ROO\n'
       s += '\n'
-      s += 'ROO = 1.205771156354447\n'
+      if (bond[0] != 0.0):
+         s += 'ROO = '+str(bond[0])+'\n'
+      else:
+         s += 'ROO = 1.205771156354447\n'
       s += '\n'
       mol.append(s)
       #
@@ -185,9 +197,12 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
       s += 'H 1 R 2 TDA 3 D120\n'
       s += 'H 1 R 2 TDA 4 D120\n'
       s += '\n'
-      s += 'R=1.48598655\n'
-      s += 'TDA=109.471221\n'
-      s += 'D120=120.\n'
+      if (bond[0] != 0.0):
+         s += 'R = '+str(bond[0])+'\n'
+      else:
+         s += 'R = 1.48598655\n'
+      s += 'TDA = 109.471221\n'
+      s += 'D120 = 120.\n'
       s += '\n'
       mol.append(s)
       #
@@ -205,9 +220,12 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
       s += 'O 1 RCO 2 A90 3 A180\n'
       s += '\n'
       s += 'RCX=1.0\n'
-      s += 'RCO=1.16\n'
-      s += 'A90=90.0\n'
-      s += 'A180=180.0\n'
+      if (bond[0] != 0.0):
+         s += 'RCO = '+str(bond[0])+'\n'
+      else:
+         s += 'RCO = 1.16\n'
+      s += 'A90 = 90.0\n'
+      s += 'A180 = 180.0\n'
       s += '\n'
       mol.append(s)
       #
@@ -230,17 +248,17 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
       s += 'H 4 CH2 3 CC2 2 A0\n'
       s += 'H 4 CH1 3 CC1 2 A180\n'
       s += '\n'
-      s += 'CDC=1.34054111\n' 
-      s += 'CSC=1.45747113\n'
-      s += 'CH1=1.08576026\n'
-      s += 'CH2=1.08793795\n'
-      s += 'CH3=1.09045613\n'
-      s += 'CCC=124.31048212\n' 
-      s += 'CC1=121.82705922\n'
-      s += 'CC2=121.53880082\n'
-      s += 'CC3=119.43908311\n'
-      s += 'A0 = 0.\n'
-      s += 'A180 = 180.\n'
+      s += 'CDC = 1.34054111\n' 
+      s += 'CSC = 1.45747113\n'
+      s += 'CH1 = 1.08576026\n'
+      s += 'CH2 = 1.08793795\n'
+      s += 'CH3 = 1.09045613\n'
+      s += 'CCC = 124.31048212\n' 
+      s += 'CC1 = 121.82705922\n'
+      s += 'CC2 = 121.53880082\n'
+      s += 'CC3 = 119.43908311\n'
+      s += 'A0 = 0.0\n'
+      s += 'A180 = 180.0\n'
       s += '\n'
       mol.append(s)
       #
@@ -266,9 +284,12 @@ def init_zmat(mol_string,mol,nocc,frozen,core,mult):
       s += 'H 1 RXH 6 A60 5 D180\n'
       s += 'H 1 RXH 7 A60 6 D180\n'
       s += '\n'
-      s += 'A60 = 60.\n'
-      s += 'D180 = 180.\n'
-      s += 'RCC = 1.3914\n'
+      s += 'A60 = 60.0\n'
+      s += 'D180 = 180.0\n'
+      if (bond[0] != 0.0):
+         s += 'RCC = '+str(bond[0])+'\n'
+      else:
+         s += 'RCC = 1.3914\n'
       s += 'RXH = 2.4716\n'
       s += '\n'
       mol.append(s)
@@ -498,6 +519,7 @@ def main():
    parser.add_argument('--scr', help='location of scratch folder', required=True)
    parser.add_argument('--thres', help='convergence threshold', required=False)
    parser.add_argument('--order', help='inc.-corr. order', required=False)
+   parser.add_argument('--bond', help='bond length parameter for PES generation, experimental use only', required=False)
    args = parser.parse_args()
    #
    model = args.model
@@ -550,6 +572,12 @@ def main():
       order = int(args.order)
       thres = 0.0
    #
+   bond = []
+   if (args.bond is None):
+      bond.append(0.0)
+   else:
+      bond.append(float(args.bond))
+   #
    print('\n')
    print(' ** START INC.-CORR. ('+model+') CALCULATION **\n')
    # 
@@ -557,7 +585,7 @@ def main():
    nocc = []
    core = []
    mult = []
-   init_zmat(mol_string,mol,nocc,fc[0],core,mult)
+   init_zmat(mol_string,bond,mol,nocc,fc[0],core,mult)
    #
    mk_scr_dir(scr_dir)
    #
