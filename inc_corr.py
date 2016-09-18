@@ -73,6 +73,7 @@ def write_zmat(mult,fc,model,basis,mol,drop_string,mem):
    if (model == 'FCI'):
       out.write('*CFOUR(CALC=FULLCI\n')
       out.write('CAS_MMAX=10\n')
+      out.write('CAS_MITMAX=200\n')
    else:
       out.write('*CFOUR(CALC='+model+'\n')
       out.write('CC_PROG=VCC\n')
