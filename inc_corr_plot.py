@@ -15,7 +15,7 @@ from matplotlib.ticker import MaxNLocator
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
-def ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,ref):
+def ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,ref,local):
    #
    fig = plt.figure()
    #
@@ -51,12 +51,18 @@ def ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,re
       if (core[0] > 0):
          ax1.set_title('{0:}/{1:}/FC energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
       else:
-         ax1.set_title('{0:}/{1:} energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+         if (local):
+            ax1.set_title('{0:}/{1:}/LOCAL energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+         else:
+            ax1.set_title('{0:}/{1:} energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
    else:
       if (core[0] > 0):
          ax1.set_title('{0:}/{1:}/FC energy (final order = {2:})'.format(model,basis,order))
       else:
-         ax1.set_title('{0:}/{1:} energy (final order = {2:})'.format(model,basis,order))
+         if (local):
+            ax1.set_title('{0:}/{1:}/LOCAL energy (final order = {2:})'.format(model,basis,order))
+         else:
+            ax1.set_title('{0:}/{1:} energy (final order = {2:})'.format(model,basis,order))
    #
    ax1.plot(nocc_list,e_inc,marker='x',linewidth=2,color='red',linestyle='-')
    ax1.set_xlim([0.5,(nocc[0]-core[0])+0.5])
@@ -103,12 +109,18 @@ def ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,re
       if (core[0] > 0):
          plt.savefig(mol_string+'_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
       else:
-         plt.savefig(mol_string+'_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
+         if (local):
+            plt.savefig(mol_string+'_'+model+'_'+basis+'_thres_{0:6.1e}_LOCAL.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
+         else:
+            plt.savefig(mol_string+'_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
    else:
       if (core[0] > 0):
          plt.savefig(mol_string+'_'+model+'_'+basis+'_FC_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
       else:
-         plt.savefig(mol_string+'_'+model+'_'+basis+'_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
+         if (local):
+            plt.savefig(mol_string+'_'+model+'_'+basis+'_order_{0:}_LOCAL.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
+         else:
+            plt.savefig(mol_string+'_'+model+'_'+basis+'_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
 
 def main():
    #
@@ -137,7 +149,10 @@ def main():
    e_ref = []
    e_ref.append(1.0)
    #
-   ic_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,True)
+   local = []
+   local.append(False)
+   #
+   ic_plot(mol_string,nocc,core,thres,n_tuples,model,basis,e_inc,e_ref,True,local[0])
 
 if __name__ == '__main__':
    #

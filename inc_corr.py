@@ -49,9 +49,9 @@ def prepare_calc():
    command='cp '+CFOUR_BIN+'/x* .'
    os.system(command)
 
-def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,ref,mem):
+def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,ref,mem,local):
    # 
-   write_zmat(mult,fc,model,basis,mol,drop_string,mem)
+   write_zmat(mult,fc,model,basis,mol,drop_string,mem,local)
    #
    command='xcfour &> CFOUR.OUT'
    os.system(command)
@@ -64,7 +64,7 @@ def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,r
    #
    return e_vec, e_ref, error
 
-def write_zmat(mult,fc,model,basis,mol,drop_string,mem):
+def write_zmat(mult,fc,model,basis,mol,drop_string,mem,local):
    #
    out=open('ZMAT','w')
    #
@@ -86,6 +86,10 @@ def write_zmat(mult,fc,model,basis,mol,drop_string,mem):
    out.write('SCF_CONV=9\n')
    out.write('LINEQ_CONV=9\n')
    out.write('CC_CONV=9\n')
+   #
+   if (local):
+      out.write('SYMMETRY=OFF\n')
+      out.write('ORBITALS=LOCAL\n')
    #
    if (fc):
       out.write('FROZEN_CORE=ON\n')
@@ -334,7 +338,7 @@ def write_energy(k,model,regex,e_vec,e_ref,error,ref):
    #
    return e_ref, e_vec, error
 
-def inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem):
+def inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local):
    #
    drop_string = [[]]
    #
@@ -354,7 +358,7 @@ def inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mo
       #
       for i in range(0,len(drop_string[k])):
          #
-         run_calc(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False,mem)
+         run_calc(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False,mem,local)
          #
          if (error[0]):
             return n_tuples, time, e_inc, error
@@ -376,7 +380,7 @@ def inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mo
    #
    return n_tuples, time, e_inc, error
 
-def inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem):
+def inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local):
    #
    drop_string = [[]]
    #
@@ -396,7 +400,7 @@ def inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mo
       #
       for i in range(0,len(drop_string[k-1])):
          #
-         run_calc(k,mult,False,model,basis,regex,mol,drop_string[k-1][i],e_vec,e_ref,error,False,mem)
+         run_calc(k,mult,False,model,basis,regex,mol,drop_string[k-1][i],e_vec,e_ref,error,False,mem,local)
          #
          if (error[0]):
             return n_tuples, time, e_inc, error
@@ -477,10 +481,11 @@ def inc_corr_chk_conv(order,thres,e_inc,conv):
    #
    return conv
 
-def inc_corr_summary(nocc,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error):
+def inc_corr_summary(nocc,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local):
    print('\n')
    print(' ** RESULTS **\n')
    print('   frozen core        =  {0:}'.format(core[0] > 0))
+   print('   local orbitals     =  {0:}'.format(local))
    print('   occupied orbitals  =  {0:}'.format(nocc[0]-core[0]))
    if (thres > 0.0):
       print('   conv. thres.       =  {0:6.1e}'.format(thres))
@@ -520,7 +525,8 @@ def main():
    parser.add_argument('--scr', help='location of scratch folder', required=True)
    parser.add_argument('--thres', help='convergence threshold', required=False)
    parser.add_argument('--order', help='inc.-corr. order', required=False)
-   parser.add_argument('--bond', help='bond length parameter for PES generation, experimental use only', required=False)
+   parser.add_argument('--bond', help='bond length parameter for PES generation', required=False)
+   parser.add_argument('--local', help='local orbitals logical', required=False)
    args = parser.parse_args()
    #
    model = args.model
@@ -579,6 +585,15 @@ def main():
    else:
       bond.append(float(args.bond))
    #
+   local = []
+   if (args.local is None):
+      local.append(False)
+   else:
+      local.append(args.local)
+   if (fc[0] and local[0]):
+      print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
+      sys.exit(10)
+   #
    print('\n')
    print(' ** START INC.-CORR. ('+model+') CALCULATION **\n')
    # 
@@ -614,13 +629,13 @@ def main():
       list_drop.append(i+1)
    #
    if (exp_ctrl):
-      inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem)
+      inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local[0])
    else:
-      inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem)
+      inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local[0])
    #
    if (ref[0] and (not error[0])):
       start = timer()
-      run_calc(nocc,mult,fc[0],model,basis,regex,mol,'',e_vec,e_ref,error,True,mem)
+      run_calc(nocc,mult,fc[0],model,basis,regex,mol,'',e_vec,e_ref,error,True,mem,local[0])
       time.append(timer()-start)
    #
    cd_dir(wrk_dir)
@@ -630,9 +645,9 @@ def main():
    #
    rm_scr_dir(scr_dir)
    #
-   inc_corr_summary(nocc,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error)
+   inc_corr_summary(nocc,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local[0])
    #
-   inc_corr_plot.ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,(ref[0] and (not error[0])))
+   inc_corr_plot.ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,(ref[0] and (not error[0])),local[0])
    #
    print(' ** END OF INC.-CORR. ('+model+') CALCULATION **\n')
    print('\n')
