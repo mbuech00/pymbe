@@ -603,6 +603,10 @@ def main():
    mult = []
    init_zmat(mol_string,bond,mol,nocc,fc[0],core,mult)
    #
+   if (order > (nocc[0] - core[0])):
+      print 'wrong input argument for total order (must be .le. number of available occ. orbitals), aborting ...'
+      sys.exit(10)
+   #
    mk_scr_dir(scr_dir)
    #
    cd_dir(scr_dir)
@@ -618,14 +622,12 @@ def main():
    error.append(False)
    conv = []
    conv.append(False)
+   list_drop = []
    #
-   for i in range(0,nocc[0]-core[0]):
+   for i in range(0,nocc[0]):
       n_tuples.append(0)
       time.append(0.0)
       e_vec.append(0.0)
-   #
-   list_drop = []
-   for i in range(0,nocc[0]):
       list_drop.append(i+1)
    #
    if (exp_ctrl):
