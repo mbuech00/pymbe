@@ -49,9 +49,24 @@ def prepare_calc():
    command='cp '+CFOUR_BIN+'/x* .'
    os.system(command)
 
-def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,ref,mem,local):
+def run_calc_hf(mult,basis,mol,nocc,nvirt,error,mem):
+   #
+   write_zmat_hf(mult,basis,mol,mem)
+   #
+   command='xcfour &> CFOUR.OUT'
+   os.system(command)
+   #
+   get_dim(nocc,nvirt,error)
+   #
+   if (not error[0]):
+      command='xclean'
+      os.system(command)
+   #
+   return nocc, nvirt, error
+
+def run_calc_corr(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,ref,mem,local):
    # 
-   write_zmat(mult,fc,model,basis,mol,drop_string,mem,local)
+   write_zmat_corr(mult,fc,model,basis,mol,drop_string,mem,local)
    #
    command='xcfour &> CFOUR.OUT'
    os.system(command)
@@ -64,7 +79,33 @@ def run_calc(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,r
    #
    return e_vec, e_ref, error
 
-def write_zmat(mult,fc,model,basis,mol,drop_string,mem,local):
+def write_zmat_hf(mult,basis,mol,mem):
+   #
+   out=open('ZMAT','w')
+   #
+   out.write(mol[0])
+   #
+   out.write('*CFOUR(CALC=HF\n')
+   out.write('SCF_CONV=9\n')
+   out.write('LINEQ_CONV=9\n')
+   #
+   out.write('MULTIPLICITY='+str(mult[0])+'\n')
+   #
+   if (mult[0] == 1):
+      out.write('REF=RHF\n')
+   else:
+      out.write('REF=UHF\n')
+   #
+   out.write('BASIS='+basis+'\n')
+   #
+   out.write('MEMORY='+mem+'\n')
+   out.write('MEM_UNIT=GB)\n')
+   #
+   out.write('\n')
+   #
+   out.close()
+
+def write_zmat_corr(mult,fc,model,basis,mol,drop_string,mem,local):
    #
    out=open('ZMAT','w')
    #
@@ -110,7 +151,7 @@ def write_zmat(mult,fc,model,basis,mol,drop_string,mem,local):
    #
    out.close()
 
-def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
+def init_zmat(mol_string,bond,mol,frozen,core,mult):
    #
    if (mol_string == 'h2o'):
       s = 'ZMAT file for H2O\n'
@@ -127,7 +168,6 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       mol.append(s)
       #
       mult.append(1)
-      nocc.append(5)
       if (frozen):
          core.append(1)
       else:
@@ -153,7 +193,6 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       mol.append(s)
       #
       mult.append(1)
-      nocc.append(7)
       if (frozen):
          core.append(2)
       else:
@@ -171,7 +210,6 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       mol.append(s)
       #
       mult.append(1)
-      nocc.append(7)
       if (frozen):
          core.append(2)
       else:
@@ -189,7 +227,6 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       mol.append(s)
       #
       mult.append(3)
-      nocc.append(7)
       if (frozen):
          core.append(2)
       else:
@@ -212,7 +249,6 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       mol.append(s)
       #
       mult.append(1)
-      nocc.append(9)
       if (frozen):
          core.append(5)
       else:
@@ -235,7 +271,6 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       mol.append(s)
       #
       mult.append(1)
-      nocc.append(11)
       if (frozen):
          core.append(3)
       else:
@@ -268,7 +303,6 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       mol.append(s)
       #
       mult.append(1)
-      nocc.append(15)
       if (frozen):
          core.append(4)
       else:
@@ -300,7 +334,6 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       mol.append(s)
       #
       mult.append(1)
-      nocc.append(21)
       if (frozen):
          core.append(6)
       else:
@@ -309,27 +342,65 @@ def init_zmat(mol_string,bond,mol,nocc,frozen,core,mult):
       print('molecular input not recognized, aborting ...')
       sys.exit(10)
    #
-   return mol, nocc, core, mult
+   return mol, core, mult
+
+def get_dim(nocc,nvirt,error):
+   #
+   inp=open('CFOUR.OUT','r')
+   #
+   regex_err = '\s+ERROR ERROR'
+   #
+   regex = 'basis functions'
+   #
+   while 1:
+      line=inp.readline()
+      if regex in line:
+         [bf] = line.split()[2:3]
+         break
+      elif re.match(regex_err,line) is not None:
+         print('problem with HF calculation, aborting ...')
+         error[0] = True
+         return nocc, nvirt, error
+   #
+   inp.seek(0)
+   #
+   regex_2 = '\s+Alpha population by irrep:'
+   #
+   while 1:
+      line=inp.readline()
+      if re.match(regex_2,line) is not None:
+         pop = line.split()
+         break
+   #
+   tmp = 0
+   #
+   for i in range(4,len(pop)):
+      tmp += int(pop[i])
+   #
+   nocc.append(tmp)
+   nvirt.append(int(bf) - nocc[0])
+   #
+   return nocc, nvirt, error
 
 def write_energy(k,model,regex,e_vec,e_ref,error,ref):
    #
    inp=open('CFOUR.OUT','r')
    #
-   regex_2 = '\s+ERROR ERROR'
+   regex_err = '\s+ERROR ERROR'
    #
    while 1:
       line=inp.readline()
       if re.match(regex,line) is not None:
          if (model == 'FCI'):
-            [energy]=line.split()[3:4]
+            [energy] = line.split()[3:4]
          else:
-            [energy]=line.split()[4:5]
+            [energy] = line.split()[4:5]
          if (ref):
             e_ref.append(float(energy))
          else:
             e_vec[k-1] += float(energy)
          break
-      elif re.match(regex_2,line) is not None:
+      elif re.match(regex_err,line) is not None:
          print('problem with '+model+' calculation, aborting ...')
          error[0] = True
          return e_ref, e_vec, error
@@ -358,7 +429,7 @@ def inc_corr_tuple_thres(mol_string,nocc,core,thres,mult,fc,model,basis,regex,mo
       #
       for i in range(0,len(drop_string[k])):
          #
-         run_calc(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False,mem,local)
+         run_calc_corr(k+1,mult,False,model,basis,regex,mol,drop_string[k][i],e_vec,e_ref,error,False,mem,local)
          #
          if (error[0]):
             return n_tuples, time, e_inc, error
@@ -400,7 +471,7 @@ def inc_corr_tuple_order(mol_string,nocc,core,order,mult,fc,model,basis,regex,mo
       #
       for i in range(0,len(drop_string[k-1])):
          #
-         run_calc(k,mult,False,model,basis,regex,mol,drop_string[k-1][i],e_vec,e_ref,error,False,mem,local)
+         run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[k-1][i],e_vec,e_ref,error,False,mem,local)
          #
          if (error[0]):
             return n_tuples, time, e_inc, error
@@ -481,12 +552,13 @@ def inc_corr_chk_conv(order,thres,e_inc,conv):
    #
    return conv
 
-def inc_corr_summary(nocc,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local):
+def inc_corr_summary(nocc,nvirt,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local):
    print('\n')
    print(' ** RESULTS **\n')
    print('   frozen core        =  {0:}'.format(core[0] > 0))
    print('   local orbitals     =  {0:}'.format(local))
    print('   occupied orbitals  =  {0:}'.format(nocc[0]-core[0]))
+   print('   virtual orbitals   =  {0:}'.format(nvirt[0]))
    if (thres > 0.0):
       print('   conv. thres.       =  {0:6.1e}'.format(thres))
    else:
@@ -596,16 +668,15 @@ def main():
    #
    print('\n')
    print(' ** START INC.-CORR. ('+model+') CALCULATION **\n')
+   #
+   error = []
+   error.append(False)
    # 
    mol = []
-   nocc = []
    core = []
    mult = []
-   init_zmat(mol_string,bond,mol,nocc,fc[0],core,mult)
    #
-   if (order > (nocc[0] - core[0])):
-      print 'wrong input argument for total order (must be .le. number of available occ. orbitals), aborting ...'
-      sys.exit(10)
+   init_zmat(mol_string,bond,mol,fc[0],core,mult)
    #
    mk_scr_dir(scr_dir)
    #
@@ -613,13 +684,20 @@ def main():
    #
    prepare_calc()
    #
+   nocc = []
+   nvirt = []
+   #
+   run_calc_hf(mult,basis,mol,nocc,nvirt,error,mem)
+   #
+   if (order > (nocc[0] - core[0])):
+      print 'wrong input argument for total order (must be .le. number of available occ. orbitals), aborting ...'
+      sys.exit(10)
+   #
    n_tuples = []
    time = []
    e_vec = []
    e_inc = []
    e_ref = []
-   error = []
-   error.append(False)
    conv = []
    conv.append(False)
    list_drop = []
@@ -637,7 +715,7 @@ def main():
    #
    if (ref[0] and (not error[0])):
       start = timer()
-      run_calc(nocc,mult,fc[0],model,basis,regex,mol,'',e_vec,e_ref,error,True,mem,local[0])
+      run_calc_corr(nocc,mult,fc[0],model,basis,regex,mol,'',e_vec,e_ref,error,True,mem,local[0])
       time.append(timer()-start)
    #
    cd_dir(wrk_dir)
@@ -647,7 +725,7 @@ def main():
    #
    rm_scr_dir(scr_dir)
    #
-   inc_corr_summary(nocc,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local[0])
+   inc_corr_summary(nocc,nvirt,core,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local[0])
    #
    inc_corr_plot.ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,(ref[0] and (not error[0])),local[0])
    #
