@@ -49,20 +49,20 @@ def ic_plot(mol_string,nocc,core,thres,order,n_tuples,model,basis,e_inc,e_ref,re
    #
    if (thres > 0.0):
       if (core[0] > 0):
-         ax1.set_title('{0:}/{1:}/FC energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+         ax1.set_title('{0:}/{1:}/FC energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
       else:
          if (local):
-            ax1.set_title('{0:}/{1:}/LOCAL energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+            ax1.set_title('{0:}/{1:}/local energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
          else:
-            ax1.set_title('{0:}/{1:} energy (conv. thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+            ax1.set_title('{0:}/{1:} energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
    else:
       if (core[0] > 0):
-         ax1.set_title('{0:}/{1:}/FC energy (final order = {2:})'.format(model,basis,order))
+         ax1.set_title('{0:}/{1:}/FC energy (order = {2:})'.format(model,basis,order))
       else:
          if (local):
-            ax1.set_title('{0:}/{1:}/LOCAL energy (final order = {2:})'.format(model,basis,order))
+            ax1.set_title('{0:}/{1:}/local energy (order = {2:})'.format(model,basis,order))
          else:
-            ax1.set_title('{0:}/{1:} energy (final order = {2:})'.format(model,basis,order))
+            ax1.set_title('{0:}/{1:} energy (order = {2:})'.format(model,basis,order))
    #
    ax1.plot(nocc_list,e_inc,marker='x',linewidth=2,color='red',linestyle='-')
    ax1.set_xlim([0.5,(nocc[0]-core[0])+0.5])
