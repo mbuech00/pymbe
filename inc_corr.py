@@ -415,7 +415,7 @@ def write_energy(k,model,regex,e_vec,e_ref,error,ref):
 
 def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local):
    #
-   drop_string = []
+   drop_string = [[]]
    #
    if (exp[0] == 1):
       u_limit = nocc[0]-core[0]
@@ -436,9 +436,9 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          elif (exp[0] == 2):
             generate_drop_virt(nocc[0]+1,1,k,nocc,nvirt,list_drop,drop_string,n_tuples)
          #
-         for i in range(0,n_tuples[k-1]):
+         for i in range(0,n_tuples[0][k-1]):
             #
-            run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[i],e_vec,e_ref,error,False,mem,local)
+            run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[0][i],e_vec,e_ref,error,False,mem,local)
             #
             if (error[0]):
                return n_tuples, time, e_inc, error
@@ -451,15 +451,9 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          time[k-1] = timer() - start
          #
          if (k == 1):
-            if (exp[0] == 1):
-               print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds'.format(k,nocc[0]-core[0],time[k-1]))
-            elif (exp[0] == 2):
-               print(' STATUS:  order = {0:4d} / nvirt = {1:4d}  done in {2:10.2e} seconds'.format(k,nvirt[0],time[k-1]))
+            print(' STATUS:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit,time[k-1]))
          else:
-            if (exp[0] == 1):
-               print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,nocc[0]-core[0],time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
-            elif (exp[0] == 2):
-               print(' STATUS:  order = {0:4d} / nvirt = {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,nvirt[0],time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
+            print(' STATUS:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,u_limit,time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
          #
          if (conv[0]):
             return n_tuples, time, e_inc, error
@@ -489,15 +483,9 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
             time[k-1] = timer() - start
             #
             if (k == 1):
-               if (exp[0] == 1):
-                  print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds'.format(k,nocc[0]-core[0],time[k-1]))
-               elif (exp[0] == 2):
-                  print(' STATUS:  order = {0:4d} / nvirt = {1:4d}  done in {2:10.2e} seconds'.format(k,nvirt[0],time[k-1]))
+               print(' STATUS:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit,time[k-1]))
             else:
-               if (exp[0] == 1):
-                  print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,nocc[0]-core[0],time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
-               elif (exp[0] == 2):
-                  print(' STATUS:  order = {0:4d} / nvirt = {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,nvirt[0],time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
+               print(' STATUS:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,u_limit,time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
             #
             if (conv[0]):
                return n_tuples, time, e_inc, error
@@ -506,7 +494,10 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
 
 def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basis,regex,mol,list_drop,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local):
    #
-   drop_string = []
+   drop_string = [[]]
+   #
+   for i in range(0,order):
+      n_tuples[0].append(0)
    #
    if (exp[0] == 1):
       u_limit = nocc[0]-core[0]
@@ -522,21 +513,16 @@ def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basi
       elif (exp[0] == 2):
          generate_drop_virt(nocc[0]+1,1,k,nocc,nvirt,list_drop,drop_string,n_tuples)
       #
-      for i in range(0,n_tuples[k-1]):
+      for i in range(0,n_tuples[0][k-1]):
          #
-         print('drop_string = '+drop_string[i])
-         #
-         run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[i],e_vec,e_ref,error,False,mem,local)
+         run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[0][i],e_vec,e_ref,error,False,mem,local)
          #
          if (error[0]):
             return n_tuples, time, e_inc, error
       #
       time[k] = timer() - start
       #
-      if (exp[0] == 1):
-         print(' STATUS:  order = {0:4d} / nocc = {1:4d}  done in {2:10.2e} seconds'.format(k,nocc[0]-core[0],time[k]))
-      elif (exp[0] == 2):
-         print(' STATUS:  order = {0:4d} / nvirt = {1:4d}  done in {2:10.2e} seconds'.format(k,nvirt[0],time[k]))
+      print(' STATUS:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit,time[k]))
    #
    for k in range(1,order+1):
       #
@@ -572,12 +558,15 @@ def generate_drop_occ(start,order,final,nocc,core,list_drop,drop_string,n_tuples
                      s+='-'+str(list_drop[m])
                   inc += 1
             #
-            n_tuples[order-1] += 1
-            #
-            if (len(drop_string) >= n_tuples[order-1]):
-               drop_string[n_tuples[order-1]-1] = s+'\n'
+            if (len(n_tuples[0]) >= order):
+               n_tuples[0][order-1] += 1
             else:
-               drop_string.append(s+'\n')
+               n_tuples[0].append(1)
+            #
+            if (len(drop_string[0]) >= n_tuples[0][order-1]):
+               drop_string[0][n_tuples[0][order-1]-1] = s+'\n'
+            else:
+               drop_string[0].append(s+'\n')
          #
          generate_drop_occ(i+1,order+1,final,nocc,core,list_drop,drop_string,n_tuples)
          #
@@ -604,12 +593,15 @@ def generate_drop_virt(start,order,final,nocc,nvirt,list_drop,drop_string,n_tupl
                      s+='-'+str(list_drop[m])
                   inc += 1
             #
-            n_tuples[order-1] += 1
-            #
-            if (len(drop_string) >= n_tuples[order-1]):
-               drop_string[n_tuples[order-1]-1] = s+'\n'
+            if (len(n_tuples[0]) >= order):
+               n_tuples[0][order-1] += 1
             else:
-               drop_string.append(s+'\n')
+               n_tuples[0].append(1)
+            #
+            if (len(drop_string[0]) >= n_tuples[0][order-1]):
+               drop_string[0][n_tuples[0][order-1]-1] = s+'\n'
+            else:
+               drop_string[0].append(s+'\n')
          #
          generate_drop_virt(i+1,order+1,final,nocc,nvirt,list_drop,drop_string,n_tuples)
          #
@@ -668,7 +660,7 @@ def inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,c
    print('   error in calc.     =  {0:}'.format(error[0]))
    print('')
    for i in range(0,len(e_inc)):
-      print('{0:4d} - # orb. tuples  =  {1:}'.format(i+1,n_tuples[i]))
+      print('{0:4d} - # orb. tuples  =  {1:}'.format(i+1,n_tuples[0][i]))
    print('   --------------------------------------------------------------')
    total_time = 0.0
    for i in range(0,len(e_inc)):
@@ -822,29 +814,30 @@ def main():
          #
          sys.exit(10)
    #
-   n_tuples = []
+   n_tuples = [[]]
+   list_drop = []
    time = []
    e_vec = []
    e_inc = []
    e_ref = []
    conv = []
    conv.append(False)
-   list_drop = []
    #
    if (exp[0] == 1):
       for i in range(0,nocc[0]):
-         n_tuples.append(0)
          time.append(0.0)
          e_vec.append(0.0)
    elif (exp[0] == 2):
       for i in range(0,nvirt[0]):
-         n_tuples.append(0)
          time.append(0.0)
          e_vec.append(0.0)
    #
    for i in range(0,nocc[0]+nvirt[0]):
       list_drop.append(i+1)
-   if (exp[0] == 2):
+   if (exp[0] == 1):
+      for i in range(nocc[0]+1,nocc[0]+nvirt[0]):
+         list_drop[i] = 0
+   elif (exp[0] == 2):
       for i in range(core[0],nocc[0]):
          list_drop[i] = 0
    #

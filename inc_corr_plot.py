@@ -93,7 +93,7 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
    #
    ax12 = ax1.twinx()
    ax12.set_yscale('log')
-   ax12.bar(dim_list_2,n_tuples[0:len(e_inc)],width,color='blue',alpha=0.3,log=True)
+   ax12.bar(dim_list_2,n_tuples[0][0:len(e_inc)],width,color='blue',alpha=0.3,log=True)
    if (exp[0] == 1):
       ax12.set_xlim([0.5,(dim[0]-core[0])+0.5])
    elif (exp[0] == 2):
@@ -190,8 +190,8 @@ def main():
    #
    order = 0
    #
-   n_tuples = []
-   n_tuples.append(1)
+   n_tuples = [[]]
+   n_tuples[0].append(1)
    #
    model = ''
    #
