@@ -19,6 +19,13 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
    #
    fig = plt.figure()
    #
+   if (exp[0] == 1):
+      exp_mode = 'occ'
+   elif (exp[0] == 2):
+      exp_mode = 'virt'
+   elif (exp[0] == 3):
+      exp_mode = 'comb'
+   #
    if (ref):
       ax1 = plt.subplot2grid((2,2),(0,0),colspan=2)
       ax2 = plt.subplot2grid((2,2),(1,0))
@@ -30,9 +37,14 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
    kcal_mol = 0.001594
    #
    if (ref):
-      error_abs = (thres/kcal_mol)/2.0
-      error_rel_p = ((e_ref[0]+(thres/2.0))/e_ref[0])*100.
-      error_rel_m = ((e_ref[0]-(thres/2.0))/e_ref[0])*100.
+      if ((exp[0] == 1) or (exp[0] == 3)):
+         error_abs = (thres[0]/kcal_mol)/2.0
+         error_rel_p = ((e_ref[0]+(thres[0]/2.0))/e_ref[0])*100.
+         error_rel_m = ((e_ref[0]-(thres[0]/2.0))/e_ref[0])*100.
+      if (exp[0] == 2):
+         error_abs = (thres[1]/kcal_mol)/2.0
+         error_rel_p = ((e_ref[0]+(thres[1]/2.0))/e_ref[0])*100.
+         error_rel_m = ((e_ref[0]-(thres[1]/2.0))/e_ref[0])*100.
    #
    dim_list = []
    dim_list_2 = []
@@ -47,43 +59,16 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
          e_inc_abs.append((e_inc[i]-e_ref[0])/kcal_mol)
          e_inc_rel.append((e_inc[i]/e_ref[0])*100.)
    #
-   if (thres > 0.0):
-      if (core[0] > 0):
-         if (exp[0] == 1):
-            ax1.set_title('occ/{0:}/{1:}/FC energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
-         elif (exp[0] == 2):
-            ax1.set_title('virt/{0:}/{1:}/FC energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
-      else:
-         if (local):
-            if (exp[0] == 1):
-               ax1.set_title('occ/{0:}/{1:}/local energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
-            elif (exp[0] == 2):
-               ax1.set_title('virt/{0:}/{1:}/local energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
-         else:
-            if (exp[0] == 1):
-               ax1.set_title('occ/{0:}/{1:} energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
-            elif (exp[0] == 2):
-               ax1.set_title('virt/{0:}/{1:} energy (thres. = {2:6.1e} Hartree)'.format(model,basis,thres))
+   if (core[0] > 0):
+      ax1.set_title(exp_mode+'/{0:}/{1:}/FC energy'.format(model,basis))
    else:
-      if (core[0] > 0):
-         if (exp[0] == 1):
-            ax1.set_title('occ/{0:}/{1:}/FC energy (order = {2:})'.format(model,basis,order))
-         elif (exp[0] == 2):
-            ax1.set_title('virt/{0:}/{1:}/FC energy (order = {2:})'.format(model,basis,order))
+      if (local):
+         ax1.set_title(exp_mode+'/{0:}/{1:}/local energy'.format(model,basis))
       else:
-         if (local):
-            if (exp[0] == 1):
-               ax1.set_title('occ/{0:}/{1:}/local energy (order = {2:})'.format(model,basis,order))
-            elif (exp[0] == 2):
-               ax1.set_title('virt/{0:}/{1:}/local energy (order = {2:})'.format(model,basis,order))
-         else:
-            if (exp[0] == 1):
-               ax1.set_title('occ/{0:}/{1:} energy (order = {2:})'.format(model,basis,order))
-            elif (exp[0] == 2):
-               ax1.set_title('virt/{0:}/{1:} energy (order = {2:})'.format(model,basis,order))
+         ax1.set_title(exp_mode+'/{0:}/{1:} energy'.format(model,basis))
    #
    ax1.plot(dim_list,e_inc,marker='x',linewidth=2,color='red',linestyle='-')
-   if (exp[0] == 1):
+   if ((exp[0] == 1) or (exp[0] == 3)):
       ax1.set_xlim([0.5,(dim[0]-core[0])+0.5])
    elif (exp[0] == 2):
       ax1.set_xlim([0.5,dim[0]+0.5])
@@ -93,8 +78,8 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
    #
    ax12 = ax1.twinx()
    ax12.set_yscale('log')
-   ax12.bar(dim_list_2,n_tuples[0][0:len(e_inc)],width,color='blue',alpha=0.3,log=True)
-   if (exp[0] == 1):
+   ax12.bar(dim_list_2,n_tuples[0:len(e_inc)],width,color='blue',alpha=0.3,log=True)
+   if ((exp[0] == 1) or (exp[0] == 3)):
       ax12.set_xlim([0.5,(dim[0]-core[0])+0.5])
    elif (exp[0] == 2):
       ax12.set_xlim([0.5,dim[0]+0.5])
@@ -107,7 +92,7 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
       ax2.axhline(0.0,color='black',linewidth=2)
       ax2.plot(dim_list,e_inc_abs,marker='x',linewidth=2,color='red',linestyle='-')
       ax2.axhspan(-error_abs,error_abs,color='green',alpha=0.2)
-      if (exp[0] == 1):
+      if ((exp[0] == 1) or (exp[0] == 3)):
          ax2.set_xlim([0.5,(dim[0]-core[0])+0.5])
       elif (exp[0] == 2):
          ax2.set_xlim([0.5,dim[0]+0.5])
@@ -122,7 +107,7 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
       ax3.axhline(100.0,color='black',linewidth=2)
       ax3.plot(dim_list,e_inc_rel,marker='x',linewidth=2,color='red',linestyle='-')
       ax3.axhspan(error_rel_m,error_rel_p,color='green',alpha=0.2)
-      if (exp[0] == 1):
+      if ((exp[0] == 1) or (exp[0] == 3)):
          ax3.set_xlim([0.5,(dim[0]-core[0])+0.5])
       elif (exp[0] == 2):
          ax3.set_xlim([0.5,dim[0]+0.5])
@@ -135,40 +120,38 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
    #
    fig.tight_layout()
    #
-   if (thres > 0.0):
+   if ((order == 0) and (exp_mode == 'occ')):
       if (core[0] > 0):
-         if (exp[0] == 1):
-            plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
-         elif (exp[0] == 2):
-            plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
+         plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres[0]), bbox_inches = 'tight', dpi=1000)
       else:
          if (local):
-            if (exp[0] == 1):
-               plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_thres_{0:6.1e}_LOCAL.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
-            elif (exp[0] == 2):
-               plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_thres_{0:6.1e}_LOCAL.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
+            plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_thres_{0:6.1e}_LOCAL.pdf'.format(thres[0]), bbox_inches = 'tight', dpi=1000)
          else:
-            if (exp[0] == 1):
-               plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
-            elif (exp[0] == 2):
-               plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres), bbox_inches = 'tight', dpi=1000)
+            plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres[0]), bbox_inches = 'tight', dpi=1000)
+   elif ((order == 0) and (exp_mode == 'virt')):
+      if (core[0] > 0):
+         plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres[1]), bbox_inches = 'tight', dpi=1000)
+      else:
+         if (local):
+            plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_thres_{0:6.1e}_LOCAL.pdf'.format(thres[1]), bbox_inches = 'tight', dpi=1000)
+         else:
+            plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres[1]), bbox_inches = 'tight', dpi=1000)
+   elif ((order == 0) and (exp_mode == 'comb')):
+      if (core[0] > 0):
+         plt.savefig(mol_string+'_comb_'+model+'_'+basis+'_FC_thres_{0:6.1e}_{1:6.1e}.pdf'.format(thres[0],thres[1]), bbox_inches = 'tight', dpi=1000)
+      else:
+         if (local):
+            plt.savefig(mol_string+'_comb_'+model+'_'+basis+'_thres_{0:6.1e}_{1:6.1e}_LOCAL.pdf'.format(thres[0],thres[1]), bbox_inches = 'tight', dpi=1000)
+         else:
+            plt.savefig(mol_string+'_comb_'+model+'_'+basis+'_thres_{0:6.1e}_{1:6.1e}.pdf'.format(thres[0],thres[1]), bbox_inches = 'tight', dpi=1000)
    else:
       if (core[0] > 0):
-         if (exp[0] == 1):
-            plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_FC_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
-         elif (exp[0] == 2):
-            plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_FC_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
+         plt.savefig(mol_string+'_'+exp_mode+'_'+model+'_'+basis+'_FC_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
       else:
          if (local):
-            if (exp[0] == 1):
-               plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_order_{0:}_LOCAL.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
-            elif (exp[0] == 2):
-               plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_order_{0:}_LOCAL.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
+            plt.savefig(mol_string+'_'+exp_mode+'_'+model+'_'+basis+'_order_{0:}_LOCAL.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
          else:
-            if (exp[0] == 1):
-               plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
-            elif (exp[0] == 2):
-               plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
+            plt.savefig(mol_string+'_'+exp_mode+'_'+model+'_'+basis+'_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
 
 def main():
    #
@@ -186,12 +169,14 @@ def main():
    core = []
    core.append(0)
    #
-   thres = 0.0
+   thres = []
+   thres.append(0.0)
+   thres.append(0.0)
    #
    order = 0
    #
-   n_tuples = [[]]
-   n_tuples[0].append(1)
+   n_tuples = []
+   n_tuples.append(1)
    #
    model = ''
    #
