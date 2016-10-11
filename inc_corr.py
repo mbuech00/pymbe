@@ -431,10 +431,8 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
       tmp = []
       e_vec_2 = []
       e_inc_2 = []
-      time_2 = []
       for _ in range(0,nvirt[0]):
          e_vec_2.append(0.0)
-         time_2.append(0.0)
       #
       conv_2 = []
       conv_2.append(False)
@@ -527,9 +525,7 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
                   e_vec[k-1] += e_inc_2[l-1]
                   break
             #
-            time_2[j] = timer() - start_2
-            #
-            print('      STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'.format(j+1,n_tuples[k-1],nv_order,nvirt[0],time_2[j],e_inc_2[l-1]-e_inc_2[l-2],conv_2[0]))
+            print('      STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'.format(j+1,n_tuples[k-1],nv_order,nvirt[0],timer()-start_2,e_inc_2[l-1]-e_inc_2[l-2],conv_2[0]))
          #
          inc_corr_order(k,u_limit_1,e_vec,e_inc)
          #
