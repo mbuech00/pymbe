@@ -13,6 +13,7 @@ import re
 import argparse
 import os
 import math
+import numpy
 from timeit import default_timer as timer
 
 import inc_corr_plot
@@ -426,6 +427,8 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
       u_limit_1 = nocc[0]-core[0]
       u_limit_2 = nvirt[0]
       #
+      e_tup = []
+      #
       n_tuples_2 = []
       drop_string_2 = []
       tmp = []
@@ -479,11 +482,16 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
       #
       for k in range(1,u_limit_1+1):
          #
+         print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(k,u_limit_1))
+         print(' -------------------------------------------')
+         #
          start = timer()
          #
          drop_string[:] = []
          #
          generate_drop_occ(core[0]+1,1,k,nocc,core,list_drop,drop_string,n_tuples,exp[0])
+         #
+         e_tup[:] = []
          #
          for j in range(0,n_tuples[k-1]):
             #
@@ -509,7 +517,12 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
                #
                for i in range(0,n_tuples_2[l-1]):
                   #
-                  run_calc_corr(l,mult,False,model,basis,regex,mol,drop_string[j]+drop_string_2[i],e_vec_2,e_ref,error,False,mem,local)
+                  if (drop_string[j] == ''):
+                     string = 'DROP_MO='+drop_string_2[i][1:]
+                  else:
+                     string = drop_string[j]+drop_string_2[i]
+                  #
+                  run_calc_corr(l,mult,False,model,basis,regex,mol,string,e_vec_2,e_ref,error,False,mem,local)
                   #
                   if (error[0]):
                      return n_tuples, time, e_inc, error
@@ -523,9 +536,10 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
                #
                if (conv_2[0]):
                   e_vec[k-1] += e_inc_2[l-1]
+                  e_tup.append(e_inc_2[l-1])
                   break
             #
-            print('      STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'.format(j+1,n_tuples[k-1],nv_order,nvirt[0],timer()-start_2,e_inc_2[l-1]-e_inc_2[l-2],conv_2[0]))
+            print('       STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'.format(j+1,n_tuples[k-1],nv_order,nvirt[0],timer()-start_2,e_inc_2[l-1]-e_inc_2[l-2],conv_2[0]))
          #
          inc_corr_order(k,u_limit_1,e_vec,e_inc)
          #
@@ -534,11 +548,18 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          #
          time[k-1] = timer() - start
          #
+         print('')
+         #
          if (k == 1):
             print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit_1,time[k-1]))
+            print(' --------------------------------------------------------------')
          else:
             print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,u_limit_1,time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
+            print(' ------------------------------------------------------------------------------------------------------------')
          #
+         inc_corr_stat(k-1,nocc,n_tuples,drop_string,e_tup)
+         #
+         print('')
          if (conv[0]):
             return n_tuples, time, e_inc, error
    #
@@ -660,6 +681,46 @@ def generate_drop_virt(start,order,final,nocc,nvirt,list_drop,drop_string,n_tupl
    #
    return drop_string, n_tuples
 
+def inc_corr_stat(k,nocc,n,string,e):
+   #
+   if (n[k] > 1):
+      #
+      mean = numpy.mean(e)
+      #
+      stdev = numpy.std(e,ddof=1)
+      #
+      excl_list = [[]]
+      incl_list = [[]]
+      #
+      string_length = len(string[0][8:])
+      #
+      for i in range(0,n[k]):
+         if (i > 0):
+            excl_list.append([])
+         for j in range(0,string_length,2):
+            excl_list[i].append(int(string[i][8+j:8+j+1]))
+      #
+      for i in range(0,n[k]):
+         if (i > 0):
+            incl_list.append([])
+         for l in range(1,nocc[0]+1):
+            if (not (l in excl_list[i])):
+               incl_list[i].append(l)
+      #
+      one_list = []
+      two_list = []
+      #
+      for i in range(0,n[k]):
+         one_list.append(e[i] > mean+stdev)
+         two_list.append(e[i] > mean+2.0*stdev)
+      #
+      for i in range(0,n[k]):
+         print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}  ,  abs/mean = {4:7.2f} %  ,  < 68 % int. = {5:}  ,  < 95 % int. = {6:}'.format(i+1,n[k],incl_list[i],e[i],(e[i]/mean)*100.0,one_list[i],two_list[i]))
+   else:
+      print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.format(1,1,list(range(1,nocc[0]+1)),e[0]))
+   #
+   return
+
 def inc_corr_order(k,n,e_vec,e_inc):
    #
    e_sum = 0.0
@@ -691,7 +752,7 @@ def inc_corr_chk_conv(order,thres,e_inc,conv):
    return conv
 
 def inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local):
-   print('\n')
+   #
    print(' ** RESULTS **\n')
    if (exp[0] == 1):
       print('   OCCUPIED expansion')
@@ -699,6 +760,7 @@ def inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,c
       print('   VIRTUAL expansion')
    elif (exp[0] == 3):
       print('   Combined OCCUPIED/VIRTUAL expansion')
+   print('   -----------------------------')
    print('   frozen core        =  {0:}'.format(core[0] > 0))
    print('   local orbitals     =  {0:}'.format(local))
    print('   occupied orbitals  =  {0:}'.format(nocc[0]-core[0]))
