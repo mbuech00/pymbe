@@ -453,7 +453,7 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          if (exp[0] == 1):
             generate_drop_occ(core[0]+1,1,k,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp[0])
          elif (exp[0] == 2):
-            generate_drop_virt(nocc[0]+1,1,k,nocc,nvirt,list_drop,drop_string,n_tuples,exp[0])
+            generate_drop_virt(nocc[0]+1,1,k,nocc,core,nvirt,list_drop,drop_string,n_tuples,exp[0])
          #
          if (k > 1):
             e_tup.append([[]])
@@ -557,7 +557,7 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
                #
                drop_string_2[:] = []
                #
-               generate_drop_virt(nocc[0]+1,1,l,nocc,nvirt,list_drop,drop_string_2,n_tuples_2,exp[0])
+               generate_drop_virt(nocc[0]+1,1,l,nocc,core,nvirt,list_drop,drop_string_2,n_tuples_2,exp[0])
                #
                if (l > 1):
                   e_tup_2.append([[]])
@@ -666,7 +666,7 @@ def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basi
       if (exp[0] == 1):
          generate_drop_occ(core[0]+1,1,k,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp[0])
       elif (exp[0] == 2):
-         generate_drop_virt(nocc[0]+1,1,k,nocc,nvirt,list_drop,drop_string,n_tuples,exp[0])
+         generate_drop_virt(nocc[0]+1,1,k,nocc,core,nvirt,list_drop,drop_string,n_tuples,exp[0])
       #
       if (n_tuples[k-1] == 0):
          #
@@ -784,7 +784,7 @@ def generate_drop_occ(start,order,final,nocc,core,list_drop,list_excl,drop_strin
    #
    return drop_string, n_tuples
 
-def generate_drop_virt(start,order,final,nocc,nvirt,list_drop,drop_string,n_tuples,exp):
+def generate_drop_virt(start,order,final,nocc,core,nvirt,list_drop,drop_string,n_tuples,exp):
    #
    if (order > nvirt[0]):
       return drop_string, n_tuples
@@ -797,6 +797,15 @@ def generate_drop_virt(start,order,final,nocc,nvirt,list_drop,drop_string,n_tupl
             inc += 1
          #
          if (order == final):
+            #
+            if (core[0] > 0): # exclude core orbitals
+               for m in range(0,core[0]):
+                  if (inc == 0):
+                     s = 'DROP_MO='+str(list_drop[m])
+                  else:
+                     s += '-'+str(list_drop[m])
+                  inc += 1
+            #
             for m in range(nocc[0],nocc[0]+nvirt[0]):
                if (list_drop[m] != 0):
                   if (inc == 0):
@@ -812,7 +821,7 @@ def generate_drop_virt(start,order,final,nocc,nvirt,list_drop,drop_string,n_tupl
             #
             drop_string.append(s+'\n')
          #
-         generate_drop_virt(i+1,order+1,final,nocc,nvirt,list_drop,drop_string,n_tuples,exp)
+         generate_drop_virt(i+1,order+1,final,nocc,core,nvirt,list_drop,drop_string,n_tuples,exp)
          #
          list_drop[i-1] = i
    #
@@ -1173,7 +1182,7 @@ def main():
       for i in range(nocc[0],nocc[0]+nvirt[0]):
          list_drop[i] = 0
    elif (exp[0] == 2):
-      for i in range(core[0]-1,nocc[0]):
+      for i in range(core[0],nocc[0]):
          list_drop[i] = 0
    #
    screen = []
