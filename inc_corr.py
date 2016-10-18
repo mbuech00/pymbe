@@ -65,20 +65,20 @@ def run_calc_hf(mult,basis,mol,nocc,nvirt,error,mem):
    #
    return nocc, nvirt, error
 
-def run_calc_corr(order,mult,fc,model,basis,regex,mol,drop_string,e_vec,e_ref,error,ref,mem,local):
+def run_calc_corr(order,mult,fc,model,basis,regex,mol,drop_string,energy,error,ref,mem,local):
    # 
    write_zmat_corr(mult,fc,model,basis,mol,drop_string,mem,local)
    #
    command='xcfour &> CFOUR.OUT'
    os.system(command)
    #
-   write_energy(order,model,regex,e_vec,e_ref,error,ref)
+   write_energy(order,model,regex,energy,error,ref)
    #
    if (not error[0]):
       command='xclean'
       os.system(command)
    #
-   return e_vec, e_ref, error
+   return energy, error
 
 def write_zmat_hf(mult,basis,mol,mem):
    #
@@ -386,7 +386,7 @@ def get_dim(nocc,nvirt,error):
    #
    return nocc, nvirt, error
 
-def write_energy(k,model,regex,e_vec,e_ref,error,ref):
+def write_energy(k,model,regex,energy,error,ref):
    #
    inp=open('CFOUR.OUT','r')
    #
@@ -396,29 +396,31 @@ def write_energy(k,model,regex,e_vec,e_ref,error,ref):
       line=inp.readline()
       if re.match(regex,line) is not None:
          if (model == 'FCI'):
-            [energy] = line.split()[3:4]
+            [tmp] = line.split()[3:4]
          else:
-            [energy] = line.split()[4:5]
+            [tmp] = line.split()[4:5]
          if (ref):
-            e_ref.append(float(energy))
+            energy[1] = float(tmp)
          else:
-            e_vec[k-1] += float(energy)
+            energy[0] = float(tmp)
          break
       elif re.match(regex_err,line) is not None:
          print('problem with '+model+' calculation, aborting ...')
          error[0] = True
          inp.close()
-         return e_ref, e_vec, error
+         return energy, error
    #
    inp.close()
    #
-   return e_ref, e_vec, error
+   return energy, error
 
-def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local):
+def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,energy,e_inc,conv,error,mem,local):
    #
    drop_string = []
    #
-   e_tup = []
+   incl_list = [[]]
+   #
+   e_tup = [[[]]]
    #
    if (exp[0] == 1):
       u_limit = nocc[0]-core[0]
@@ -429,12 +431,13 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
       u_limit_1 = nocc[0]-core[0]
       u_limit_2 = nvirt[0]
       #
-      n_tuples_2 = []
       drop_string_2 = []
-      e_vec_2 = []
+      n_tuples_2 = []
+      #
+      incl_list_2 = [[]]
+      e_tup_2 = [[[]]]
+      #
       e_inc_2 = []
-      for _ in range(0,nvirt[0]):
-         e_vec_2.append(0.0)
       #
       conv_2 = []
       conv_2.append(False)
@@ -452,7 +455,8 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          elif (exp[0] == 2):
             generate_drop_virt(nocc[0]+1,1,k,nocc,nvirt,list_drop,drop_string,n_tuples,exp[0])
          #
-         e_tup[:] = []
+         if (k > 1):
+            e_tup.append([[]])
          #
          if (len(n_tuples) < k):
             #
@@ -464,19 +468,27 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(k,u_limit))
          print(' -------------------------------------------')
          #
+         incl_list[:] = [[]]
+         #
          for i in range(0,n_tuples[k-1]):
             #
-            run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[i],e_vec,e_ref,error,False,mem,local)
+            run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[i],energy,error,False,mem,local)
+            #
+            if (i > 0):
+               incl_list.append([])
+            #
+            orbs_incl(nocc,nvirt,drop_string[i],incl_list[i],exp[0])
             #
             if (i == 0):
-               e_tup.append(e_vec[k-1])
+               e_tup[k-1][0].append(incl_list[i])
+               e_tup[k-1][0].append(energy[0])
             else:
-               e_tup.append(e_vec[k-1]-sum(e_tup[:i-1]))
+               e_tup[k-1].append([incl_list[i],energy[0]])
             #
             if (error[0]):
                return n_tuples, time, e_inc, error
          #
-         inc_corr_order(k,u_limit,e_vec,e_inc)
+         inc_corr_order(k,n_tuples,e_tup,e_inc)
          #
          if (k > 1):
             if (exp[0] == 1):
@@ -493,7 +505,8 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
             print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,u_limit,time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
             print(' ------------------------------------------------------------------------------------------------------------')
          #
-         inc_corr_stat(k-1,nocc,nvirt,n_tuples,drop_string,e_tup,exp[0])
+         for i in range(0,n_tuples[k-1]):
+            print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.format(i+1,n_tuples[k-1],e_tup[k-1][i][0],e_tup[k-1][i][1]))
          #
          print('')
          #
@@ -510,7 +523,8 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          #
          generate_drop_occ(core[0]+1,1,k,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp[0])
          #
-         e_tup[:] = []
+         if (k > 1):
+            e_tup.append([[]])
          #
          if (len(n_tuples) < k):
             #
@@ -522,6 +536,8 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(k,u_limit_1))
          print(' -------------------------------------------')
          #
+         incl_list[:] = [[]]
+         #
          for j in range(0,n_tuples[k-1]):
             #
             start_2 = timer()
@@ -530,8 +546,7 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
             #
             e_inc_2[:] = []
             #
-            for a in range(0,nvirt[0]):
-               e_vec_2[a] = 0.0
+            e_tup_2[:] = [[[]]]
             #
             conv_2[0] = False
             #
@@ -544,6 +559,11 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
                #
                generate_drop_virt(nocc[0]+1,1,l,nocc,nvirt,list_drop,drop_string_2,n_tuples_2,exp[0])
                #
+               if (l > 1):
+                  e_tup_2.append([[]])
+               #
+               incl_list_2[:] = [[]]
+               #
                for i in range(0,n_tuples_2[l-1]):
                   #
                   if (drop_string[j] == ''):
@@ -551,12 +571,24 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
                   else:
                      string = drop_string[j]+drop_string_2[i]
                   #
-                  run_calc_corr(l,mult,False,model,basis,regex,mol,string,e_vec_2,e_ref,error,False,mem,local)
+                  run_calc_corr(l,mult,False,model,basis,regex,mol,string,energy,error,False,mem,local)
+                  #
+                  if (i > 0):
+                     incl_list_2.append([])
+                  #
+                  orbs_incl(nocc,nvirt,string,incl_list_2[i],2)
+                  #
+                  #
+                  if (i == 0):
+                     e_tup_2[l-1][0].append(incl_list_2[i])
+                     e_tup_2[l-1][0].append(energy[0])
+                  else:
+                     e_tup_2[l-1].append([incl_list_2[i],energy[0]])
                   #
                   if (error[0]):
                      return n_tuples, time, e_inc, error
                #
-               inc_corr_order(l,u_limit_2,e_vec_2,e_inc_2)
+               inc_corr_order(l,n_tuples_2,e_tup_2,e_inc_2)
                #
                if (l > 1):
                   inc_corr_chk_conv(l,thres[1],e_inc_2,conv_2)
@@ -564,13 +596,23 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
                nv_order = l
                #
                if (conv_2[0]):
-                  e_vec[k-1] += e_inc_2[l-1]
-                  e_tup.append(e_inc_2[l-1])
+                  #
+                  if (j > 0):
+                     incl_list.append([])
+                  #
+                  orbs_incl(nocc,nvirt,drop_string[j],incl_list[j],exp[0])
+                  #
+                  if (j == 0):
+                     e_tup[k-1][0].append(incl_list[j])
+                     e_tup[k-1][0].append(e_inc_2[l-1])
+                  else:
+                     e_tup[k-1].append([incl_list[j],e_inc_2[l-1]])
                   break
             #
-            print('       STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'.format(j+1,n_tuples[k-1],nv_order,nvirt[0],timer()-start_2,e_inc_2[l-1]-e_inc_2[l-2],conv_2[0]))
+            print('       STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'\
+                             .format(j+1,n_tuples[k-1],nv_order,nvirt[0],timer()-start_2,e_inc_2[l-1]-e_inc_2[l-2],conv_2[0]))
          #
-         inc_corr_order(k,u_limit_1,e_vec,e_inc)
+         inc_corr_order(k,n_tuples,e_tup,e_inc)
          #
          if (k > 1):
             inc_corr_chk_conv(k,thres[0],e_inc,conv)
@@ -586,7 +628,8 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
             print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,u_limit_1,time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
             print(' ------------------------------------------------------------------------------------------------------------')
          #
-         inc_corr_stat(k-1,nocc,nvirt,n_tuples,drop_string,e_tup,exp[0])
+         for i in range(0,n_tuples[k-1]):
+            print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.format(i+1,n_tuples[k-1],e_tup[k-1][i][0],e_tup[k-1][i][1]))
          #
          print('')
          #
@@ -595,11 +638,13 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
    #
    return n_tuples, time, e_inc, error
 
-def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local):
+def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,energy,e_inc,conv,error,mem,local):
    #
    drop_string = []
    #
-   e_tup = []
+   incl_list = [[]]
+   #
+   e_tup = [[[]]]
    #
    if (exp[0] == 1):
       u_limit = nocc[0]-core[0]
@@ -608,6 +653,9 @@ def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basi
    #
    for _ in range(0,u_limit):
       n_tuples.append(0)
+   #
+   for _ in range(0,order):
+      e_tup.append([[]])
    #
    for k in range(order,0,-1):
       #
@@ -620,9 +668,7 @@ def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basi
       elif (exp[0] == 2):
          generate_drop_virt(nocc[0]+1,1,k,nocc,nvirt,list_drop,drop_string,n_tuples,exp[0])
       #
-      e_tup[:] = []
-      #
-      if (len(n_tuples) < k):
+      if (n_tuples[k-1] == 0):
          #
          print(' STATUS:  order = {0:4d} / {1:4d}  has no contributions'.format(k,u_limit))
          print(' --------------------------------------------------')
@@ -632,14 +678,22 @@ def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basi
       print(' STATUS:  order = {0:4d} / {1:4d}  started'.format(k,u_limit))
       print(' -------------------------------------')
       #
+      incl_list[:] = [[]]
+      #
       for i in range(0,n_tuples[k-1]):
          #
-         run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[i],e_vec,e_ref,error,False,mem,local)
+         run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[i],energy,error,False,mem,local)
+         #
+         if (i > 0):
+            incl_list.append([])
+         #
+         orbs_incl(nocc,nvirt,drop_string[i],incl_list[i],exp[0])
          #
          if (i == 0):
-            e_tup.append(e_vec[k-1])
+            e_tup[k-1][0].append(incl_list[i])
+            e_tup[k-1][0].append(energy[0])
          else:
-            e_tup.append(e_vec[k-1]-sum(e_tup[:i-1]))
+            e_tup[k-1].append([incl_list[i],energy[0]])
          #
          if (error[0]):
             return n_tuples, time, e_inc, error
@@ -649,13 +703,12 @@ def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basi
       print(' STATUS:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit,time[k]))
       print(' --------------------------------------------------------')
       #
-      inc_corr_stat(k-1,nocc,nvirt,n_tuples,drop_string,e_tup,exp[0])
-      #
       print('')
    #
    for k in range(1,order+1):
       #
-      inc_corr_order(k,u_limit,e_vec,e_inc)
+      if (n_tuples[k-1] > 0):
+         inc_corr_order(k,n_tuples,e_tup,e_inc)
    #
    time += [time.pop(0)] # permute all elements one time to the left in the list
    #
@@ -666,33 +719,48 @@ def generate_drop_occ(start,order,final,nocc,core,list_drop,list_excl,drop_strin
    if (order > (nocc[0]-core[0])):
       return drop_string, n_tuples
    else:
-      for i in range(start,nocc[0]+1):
+      for i in range(start,nocc[0]+1): # loop over the occupied orbs
          #
-         list_drop[i-1] = 0
+         n = list_drop[core[0]:nocc[0]].count(0) # count the number of zeros
+         #
+         if (n == 0):
+            list_drop[i-1] = 0 # singles correlation
+         #
+         if (n > 0):
+            if (not list_excl):
+               list_drop[i-1] = 0 # no screening
+            else:
+               if (not list_excl[i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                  continue
+               else:
+                  list_drop[i-1] = 0 # attempt to correlate orbital 'i'
+                  idx = [j for j, val in enumerate(list_drop) if val == 0] # make list containing indices with zeros in list_drop
+                  idx_2 = [j for j, val in enumerate(list_excl[i-1]) if val != 0] # make list containing indices with non-zeros in list_excl
+                  if ((set(idx) > set(idx_2)) and (len(idx_2) > 0)): # check whether idx_2 is a subset of idx
+                     list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+         #
          s = ''
          inc = 0
          #
-         if (order == final):
-            if (core[0] > 0):
+         if ((order == final) and (list_drop[core[0]:nocc[0]].count(0) == final)): # number of zeros in list_drop must match the final order
+            #
+            if (core[0] > 0): # exclude core orbitals
                for m in range(0,core[0]):
                   if (inc == 0):
-                     s='DROP_MO='+str(list_drop[m])
+                     s = 'DROP_MO='+str(list_drop[m])
                   else:
-                     s+='-'+str(list_drop[m])
+                     s += '-'+str(list_drop[m])
                   inc += 1
-            for m in range(core[0],nocc[0]):
-               idx = list_drop.index(0)
-               if ((not list_excl) or (not (idx+1 in list_excl[idx])) or (i == 1)):
-                  if (list_drop[m] != 0):
-                     if (inc == 0):
-                        s='DROP_MO='+str(list_drop[m])
-                     else:
-                        s+='-'+str(list_drop[m])
-                     inc += 1
-               else:
-                  s = 'none'
             #
-            if (s != 'none'):
+            for m in range(core[0],nocc[0]): # start to exclude valence occupied orbitals
+               if (list_drop[m] != 0):
+                  if (inc == 0):
+                     s = 'DROP_MO='+str(list_drop[m])
+                  else:
+                     s += '-'+str(list_drop[m])
+                  inc += 1
+            #
+            if (s != ''):
                #
                if (len(n_tuples) >= order):
                   n_tuples[order-1] += 1
@@ -703,10 +771,16 @@ def generate_drop_occ(start,order,final,nocc,core,list_drop,list_excl,drop_strin
                   drop_string.append(s+'\n')
                elif (exp == 3):
                   drop_string.append(s)
+            #
+            elif (order == nocc[0]): # full system correlation, i.e., equal to standard N-electron calculation
+               #
+               n_tuples.append(1)
+               #
+               drop_string.append(''+'\n')
          #
-         generate_drop_occ(i+1,order+1,final,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp)
+         generate_drop_occ(i+1,order+1,final,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp) # recursion
          #
-         list_drop[i-1] = i
+         list_drop[i-1] = i # include orb back into list of orbs to drop from the calculation
    #
    return drop_string, n_tuples
 
@@ -726,9 +800,9 @@ def generate_drop_virt(start,order,final,nocc,nvirt,list_drop,drop_string,n_tupl
             for m in range(nocc[0],nocc[0]+nvirt[0]):
                if (list_drop[m] != 0):
                   if (inc == 0):
-                     s='DROP_MO='+str(list_drop[m])
+                     s = 'DROP_MO='+str(list_drop[m])
                   else:
-                     s+='-'+str(list_drop[m])
+                     s += '-'+str(list_drop[m])
                   inc += 1
             #
             if (len(n_tuples) >= order):
@@ -746,49 +820,31 @@ def generate_drop_virt(start,order,final,nocc,nvirt,list_drop,drop_string,n_tupl
 
 def screen_occ(nocc,list_excl):
    #
-   for i in range(0,nocc[0]):
-      #
-      if (i > 0):
-         list_excl.append([])
-      #
-      list_excl[i].append(1)
-      list_excl[i].append(0)
-      list_excl[i].append(0)
-      list_excl[i].append(0)
-      list_excl[i].append(0)
+   # screen away all interactions between orb 1 and any of the other orbs --- corresponds to a minor improvement over a frozen-core calculation
+   #
+#   list_excl[0]   = []
+#   list_excl.append([1,0,0,0,0])
+#   list_excl.append([1,0,0,0,0])
+#   list_excl.append([1,0,0,0,0])
+#   list_excl.append([1,0,0,0,0])
+   #
+   # screen away all interactions between orb 2 and any of the other orbs
+   #
+#   list_excl[0]   = [0,2,0,0,0]
+#   list_excl.append([])
+#   list_excl.append([0,2,0,0,0])
+#   list_excl.append([0,2,0,0,0])
+#   list_excl.append([0,2,0,0,0])
+   #
+   # screen away interactions between orbs 1/2 and between orbs 4/5
+   #
+   list_excl[0]   = [0,2,0,0,0]
+   list_excl.append([1,0,0,0,0])
+   list_excl.append([0,0,0,0,0])
+   list_excl.append([0,0,0,0,5])
+   list_excl.append([0,0,0,4,0])
    #
    return list_excl
-
-def inc_corr_stat(k,nocc,nvirt,n,string,e,exp):
-   #
-   incl_list = [[]]
-   #
-   for i in range(0,n[k]):
-      #
-      if (i > 0):
-         incl_list.append([])
-      #
-      orbs_incl(nocc,nvirt,string[i],incl_list[i],exp)
-   #
-   if (n[k] > 1):
-      #
-      mean = numpy.mean(e)
-      #
-      stdev = numpy.std(e,ddof=1)
-      #
-      one_list = []
-      two_list = []
-      #
-      for i in range(0,n[k]):
-         one_list.append(e[i] > mean+stdev)
-         two_list.append(e[i] > mean+2.0*stdev)
-      #
-      for i in range(0,n[k]):
-         print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}  ,  abs/mean = {4:7.2f} %  ,  < 68 % int. = {5:}  ,  < 95 % int. = {6:}'.format(i+1,n[k],incl_list[i],e[i],(e[i]/mean)*100.0,one_list[i],two_list[i]))
-   else:
-      print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.format(1,1,incl_list[0],e[0]))
-   #
-   return
 
 def orbs_incl(nocc,nvirt,string_excl,string_incl,exp):
    #
@@ -811,24 +867,49 @@ def orbs_incl(nocc,nvirt,string_excl,string_incl,exp):
    #
    return string_incl
 
-def inc_corr_order(k,n,e_vec,e_inc):
+#def inc_corr_order(k,n,e_vec,e_inc):
+#   #
+#   e_sum = 0.0
+#   #
+#   for m in range(1,k+1):
+#      e_sum += (-1)**(m) * (1.0 / math.factorial(m)) * prefactor(n,k,m-1) * e_vec[(k-m)-1]
+#   e_inc.append(e_vec[k-1]+e_sum)
+#   #
+#   return e_inc
+#
+#def prefactor(n,order,m):
+#   #
+#   pre = 1
+#   #
+#   for i in range(m,-1,-1):
+#      pre = pre * (n - order + i)
+#   #
+#   return pre
+
+def inc_corr_order(k,n_tup,e_tup,e_inc):
    #
-   e_sum = 0.0
+   for j in range(0,n_tup[k-1]):
+      #
+      for i in range(k-1,0,-1):
+         #
+         for l in range(0,n_tup[i-1]):
+            #
+            if (set(e_tup[i-1][l][0]) < set(e_tup[k-1][j][0])):
+               #
+               e_tup[k-1][j][1] -= e_tup[i-1][l][1]
    #
-   for m in range(1,k+1):
-      e_sum += (-1)**(m) * (1.0 / math.factorial(m)) * prefactor(n,k,m-1) * e_vec[(k-m)-1]
-   e_inc.append(e_vec[k-1]+e_sum)
+   e_tmp = 0.0
+   #
+   for j in range(0,n_tup[k-1]):
+      #
+      e_tmp += e_tup[k-1][j][1]
+   #
+   if (k > 1):
+      e_tmp += e_inc[k-2]
+   #
+   e_inc.append(e_tmp)
    #
    return e_inc
-
-def prefactor(n,order,m):
-   #
-   pre = 1
-   #
-   for i in range(m,-1,-1):
-      pre = pre * (n - order + i)
-   #
-   return pre
 
 def inc_corr_chk_conv(order,thres,e_inc,conv):
    #
@@ -841,49 +922,74 @@ def inc_corr_chk_conv(order,thres,e_inc,conv):
    #
    return conv
 
-def inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local):
+def inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local,screen):
    #
-   print(' ** RESULTS **\n')
+   print('')
+   print(' *******************************')
+   print(' ********    RESULTS    ********')
+   print(' *******************************\n')
+   #
    if (exp[0] == 1):
       print('   OCCUPIED expansion')
    elif (exp[0] == 2):
       print('   VIRTUAL expansion')
    elif (exp[0] == 3):
       print('   Combined OCCUPIED/VIRTUAL expansion')
+   #
    print('   -----------------------------')
    print('   frozen core        =  {0:}'.format(core[0] > 0))
    print('   local orbitals     =  {0:}'.format(local))
    print('   occupied orbitals  =  {0:}'.format(nocc[0]-core[0]))
    print('   virtual orbitals   =  {0:}'.format(nvirt[0]))
+   print('   screening (occ.)   =  {0:}'.format(screen[0]))
+   print('   screening (virt.)  =  {0:}'.format(screen[1]))
+   #
    if (thres[0] > 0.0):
       print('   thres. (occ.)      =  {0:6.1e}'.format(thres[0]))
    if (thres[1] > 0.0):
       print('   thres. (virt.)     =  {0:6.1e}'.format(thres[1]))
    if ((thres[0] == 0.0) and (thres[1] == 0.0)):
       print('   conv. thres.       =  NONE')
+   #
    print('   inc.-corr. order   =  {0:}'.format(len(e_inc)))
+   #
    if ((thres[0] > 0.0) or (thres[1] > 0.0)):
       print('   convergence met    =  {0:}'.format(conv[0]))
+   #
    print('   error in calc.     =  {0:}'.format(error[0]))
+   #
    print('')
+   #
    for i in range(0,len(e_inc)):
       print('{0:4d} - # orb. tuples  =  {1:}'.format(i+1,n_tuples[i]))
    print('   --------------------------------------------------------------')
+   #
    total_time = 0.0
+   #
    for i in range(0,len(e_inc)):
+      #
       total_time += time[i]
       print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,e_inc[i],total_time))
+   #
    print('   --------------------------------------------------------------')
+   #
    if (len(e_inc) >= 2):
+      #
       print('   final convergence  =  {0:9.4e}'.format(e_inc[-1]-e_inc[-2]))
+   #
    if (ref[0] and (not error[0])):
+      #
       print('   --------------------------------------------------------------')
+      #
       if ((exp[0] == 1) or (exp[0] == 3)):
          print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(nocc[0]-core[0],e_ref[0],time[-1]))
       elif (exp[0] == 2):
          print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(nvirt[0],e_ref[0],time[-1]))
+      #
       print('   --------------------------------------------------------------')
+      #
       print('   final difference   =  {0:9.4e}'.format(e_ref[0]-e_inc[-1]))
+   #
    print('\n')
 
 def main():
@@ -1047,22 +1153,21 @@ def main():
    n_tuples = []
    list_drop = []
    time = []
-   e_vec = []
+   energy = []
+   for _ in range(0,2):
+      energy.append(0.0)   
    e_inc = []
-   e_ref = []
    conv = []
    conv.append(False)
    #
    if ((exp[0] == 1) or (exp[0] == 3)):
       for _ in range(0,nocc[0]):
          time.append(0.0)
-         e_vec.append(0.0)
    elif (exp[0] == 2):
       for _ in range(0,nvirt[0]):
          time.append(0.0)
-         e_vec.append(0.0)
    #
-   for i in range(0,nocc[0]+nvirt[0]+1):
+   for i in range(0,nocc[0]+nvirt[0]):
       list_drop.append(i+1)
    if (exp[0] == 1):
       for i in range(nocc[0],nocc[0]+nvirt[0]):
@@ -1071,21 +1176,43 @@ def main():
       for i in range(core[0]-1,nocc[0]):
          list_drop[i] = 0
    #
-   if (args.screen_occ is None):
-      list_excl_occ = []
+   screen = []
+   for _ in range(0,2):
+      screen.append(False)
+   #
+   if (args.screen_occ):
+      list_excl = [[]]
+      screen_occ(nocc,list_excl)
+      screen[0] = True
+#   elif (args.screen_virt):
+#      list_excl = [[]]
+#      screen_virt(nocc,nvirt,list_excl)
+#      screen[1] = True
    else:
-      list_excl_occ = [[]]
-      screen_occ(nocc,list_excl_occ)
+      list_excl = []
    #
    if (exp_ctrl):
-      inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl_occ,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local[0])
+      inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,energy,e_inc,conv,error,mem,local[0])
    else:
-      inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl_occ,n_tuples,time,e_vec,e_inc,e_ref,conv,error,mem,local[0])
+      inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,energy,e_inc,conv,error,mem,local[0])
    #
    if (ref[0] and (not error[0])):
+      #
       start = timer()
-      run_calc_corr(nocc,mult,fc[0],model,basis,regex,mol,'',e_vec,e_ref,error,True,mem,local[0])
+      #
+      print(' STATUS:  Full reference calc.  started')
+      print(' --------------------------------------')
+      #
+      run_calc_corr(nocc,mult,fc[0],model,basis,regex,mol,'',energy,error,True,mem,local[0])
+      #
+      e_ref = []
+      e_ref.append(energy[1])
+      #
       time.append(timer()-start)
+      #
+      print(' STATUS:  Full reference calc.  done in {0:10.2e} seconds'.format(time[-1]))
+      print(' ---------------------------------------------------------')
+      print('')
    #
    cd_dir(wrk_dir)
    #
@@ -1094,7 +1221,7 @@ def main():
    #
    rm_scr_dir(scr_dir)
    #
-   inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local[0])
+   inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local[0],screen)
    #
    if (not error[0]):
       if ((exp[0] == 1) or (exp[0] == 3)):
