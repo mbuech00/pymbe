@@ -120,38 +120,7 @@ def ic_plot(mol_string,dim,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref
    #
    fig.tight_layout()
    #
-   if ((order == 0) and (exp_mode == 'occ')):
-      if (core[0] > 0):
-         plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres[0]), bbox_inches = 'tight', dpi=1000)
-      else:
-         if (local):
-            plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_thres_{0:6.1e}_LOCAL.pdf'.format(thres[0]), bbox_inches = 'tight', dpi=1000)
-         else:
-            plt.savefig(mol_string+'_occ_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres[0]), bbox_inches = 'tight', dpi=1000)
-   elif ((order == 0) and (exp_mode == 'virt')):
-      if (core[0] > 0):
-         plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_FC_thres_{0:6.1e}.pdf'.format(thres[1]), bbox_inches = 'tight', dpi=1000)
-      else:
-         if (local):
-            plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_thres_{0:6.1e}_LOCAL.pdf'.format(thres[1]), bbox_inches = 'tight', dpi=1000)
-         else:
-            plt.savefig(mol_string+'_virt_'+model+'_'+basis+'_thres_{0:6.1e}.pdf'.format(thres[1]), bbox_inches = 'tight', dpi=1000)
-   elif ((order == 0) and (exp_mode == 'comb')):
-      if (core[0] > 0):
-         plt.savefig(mol_string+'_comb_'+model+'_'+basis+'_FC_thres_{0:6.1e}_{1:6.1e}.pdf'.format(thres[0],thres[1]), bbox_inches = 'tight', dpi=1000)
-      else:
-         if (local):
-            plt.savefig(mol_string+'_comb_'+model+'_'+basis+'_thres_{0:6.1e}_{1:6.1e}_LOCAL.pdf'.format(thres[0],thres[1]), bbox_inches = 'tight', dpi=1000)
-         else:
-            plt.savefig(mol_string+'_comb_'+model+'_'+basis+'_thres_{0:6.1e}_{1:6.1e}.pdf'.format(thres[0],thres[1]), bbox_inches = 'tight', dpi=1000)
-   else:
-      if (core[0] > 0):
-         plt.savefig(mol_string+'_'+exp_mode+'_'+model+'_'+basis+'_FC_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
-      else:
-         if (local):
-            plt.savefig(mol_string+'_'+exp_mode+'_'+model+'_'+basis+'_order_{0:}_LOCAL.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
-         else:
-            plt.savefig(mol_string+'_'+exp_mode+'_'+model+'_'+basis+'_order_{0:}.pdf'.format(order), bbox_inches = 'tight', dpi=1000)
+   plt.savefig('output.pdf', bbox_inches = 'tight', dpi=1000)
 
 def main():
    #

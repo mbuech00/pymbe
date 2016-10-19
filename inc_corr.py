@@ -9,11 +9,11 @@
 
 import sys
 from sys import stdin
+import os
+import os.path
 import re
 import argparse
-import os
 import math
-import numpy
 from timeit import default_timer as timer
 
 import inc_corr_plot
@@ -839,19 +839,19 @@ def screen_occ(nocc,list_excl):
    #
    # screen away all interactions between orb 2 and any of the other orbs
    #
-#   list_excl[0]   = [0,2,0,0,0]
-#   list_excl.append([])
-#   list_excl.append([0,2,0,0,0])
-#   list_excl.append([0,2,0,0,0])
-#   list_excl.append([0,2,0,0,0])
+   list_excl[0]   = [0,2,0,0,0]
+   list_excl.append([])
+   list_excl.append([0,2,0,0,0])
+   list_excl.append([0,2,0,0,0])
+   list_excl.append([0,2,0,0,0])
    #
    # screen away interactions between orbs 1/2 and between orbs 4/5
    #
-   list_excl[0]   = [0,2,0,0,0]
-   list_excl.append([1,0,0,0,0])
-   list_excl.append([0,0,0,0,0])
-   list_excl.append([0,0,0,0,5])
-   list_excl.append([0,0,0,4,0])
+#   list_excl[0]   = [0,2,0,0,0]
+#   list_excl.append([1,0,0,0,0])
+#   list_excl.append([0,0,0,0,0])
+#   list_excl.append([0,0,0,0,5])
+#   list_excl.append([0,0,0,4,0])
    #
    return list_excl
 
@@ -1001,6 +1001,15 @@ def inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,c
    #
    print('\n')
 
+class logger(object):
+    def __init__(self, filename="Default.log"):
+        self.terminal = sys.stdout
+        self.log = open(filename, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
 def main():
    #
    parser = argparse.ArgumentParser(description='This is an CCSD/CISD/CCSDT/FCI inc.-corr. Python script (with CFOUR backend) written by Dr. Janus Juul Eriksen, JGU Mainz, Fall 2016')
@@ -1019,6 +1028,18 @@ def main():
    parser.add_argument('--bond', help='bond length parameter for PES generation (real number)', required=False)
    parser.add_argument('--local', help='local orbitals logical ("True" or "False")', required=False)
    args = parser.parse_args()
+   #
+   if (os.path.isfile('output.out')):
+      #
+      command='rm output.out'
+      os.system(command)
+   #
+   if (os.path.isfile('output.pdf')):
+      #
+      command='rm output.pdf'
+      os.system(command)
+   #
+   sys.stdout = logger('output.out')
    #
    model = args.model
    if (not ((model == 'CCSD') or (model == 'CISD') or (model == 'CCSDT') or (model == 'FCI'))):
