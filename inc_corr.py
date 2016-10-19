@@ -28,324 +28,565 @@ def mk_scr_dir(directive):
    #
    command='mkdir '+directive
    os.system(command)
+   #
+   return
 
 def rm_scr_dir(directive):
    #
    command='rm -rf '+directive
    os.system(command)
+   #
+   return
 
 def cd_dir(directive):
    #
    os.chdir(directive)
+   #
+   return
 
 def save_err_out(directive):
    #
    command='cp '+directive+'/CFOUR.OUT .'
    os.system(command)
+   #
+   return
 
 def prepare_calc():
    #
    command='cp '+CFOUR_BASIS+' .'
    os.system(command)
+   #
    command='cp '+CFOUR_BIN+'/x* .'
    os.system(command)
-
-def run_calc_hf(mult,basis,mol,nocc,nvirt,error,mem):
    #
-   write_zmat_hf(mult,basis,mol,mem)
+   return
+
+def setup_calc(molecule):
+   #
+   mk_scr_dir(molecule['scr'])
+   #
+   cd_dir(molecule['scr'])
+   #
+   prepare_calc()
+   #
+   return
+
+def term_calc(molecule):
+   #
+   cd_dir(molecule['wrk'])
+   #
+   if (molecule['error']):
+      #
+      save_err_out(molecule['scr'])
+   #
+   rm_scr_dir(molecule['scr'])
+   #
+   return
+
+def init_calc(molecule):
+   #
+   parser = argparse.ArgumentParser(description='This is an CCSD/CISD/CCSDT/FCI inc.-corr. Python script (with CFOUR backend) written by Dr. Janus Juul Eriksen, JGU Mainz, Fall 2016')
+   parser.add_argument('--exp', help='type of expansion ("OCC", "VIRT", or "COMB")',required=True)
+   parser.add_argument('--model', help='electronic structure model ("CCSD", "CISD", "CCSDT", or "FCI")',required=True)
+   parser.add_argument('--basis', help='one-electron basis set (e.g., "cc-pVTZ")', required=True)
+   parser.add_argument('--mol', help='molecule ("H2O", "C2H2", "N2", "O2", "SiH4", "CO2", "C4H6", or "C6H6")', required=True)
+   parser.add_argument('--frozen', help='frozen-core logical ("True" or "False")', required=True)
+   parser.add_argument('--ref', help='reference calc. logical ("True" or "False")', required=True)
+   parser.add_argument('--mem', help='amount of virtual memory in GB (integer number)', required=True)
+   parser.add_argument('--scr', help='location of scratch folder', required=True)
+   parser.add_argument('--thres_occ', help='convergence threshold for occupied expansion (real number in scientific format, e.g., "1.0e-03")', required=False)
+   parser.add_argument('--thres_virt', help='convergence threshold for virtual expansion (real number in scientific format, e.g., "1.0e-03")', required=False)
+   parser.add_argument('--screen_occ', help='enable screening in the occupied expansion ("True" or "False")', required=False)
+   parser.add_argument('--screen_virt', help='enable screening in the virtual expansion ("True" or "False")', required=False)
+   parser.add_argument('--order', help='inc.-corr. order (integer number)', required=False)
+   parser.add_argument('--bond', help='bond length parameter for PES generation (real number)', required=False)
+   parser.add_argument('--local', help='local orbitals logical ("True" or "False")', required=False)
+   args = parser.parse_args()
+   #
+   molecule['model'] = args.model
+   #
+   if (not ((molecule['model'] == 'CCSD') or (molecule['model'] == 'CISD') or (molecule['model'] == 'CCSDT') or (molecule['model'] == 'FCI'))):
+      #
+      print 'wrong choice of model (CCSD, CISD, CCSDT, or FCI), aborting ...'
+      sys.exit(10)
+   #
+   if (molecule['model'] == 'FCI'):
+      #
+      molecule['regex'] = '\s+Final Correlation Energy'
+   #
+   else:
+      #
+      molecule['regex'] = '\s+The correlation energy is'
+   #
+   molecule['exp'] = args.exp
+   #
+   if (not ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'VIRT') or (molecule['exp'] == 'COMB'))):
+      #
+      print 'wrong choice of expansion type (OCC, VIRT, or COMB), aborting ...'
+      sys.exit(10)
+   #
+   molecule['basis'] = args.basis
+   #
+   molecule['mol_string'] = args.mol
+   #
+   molecule['fc'] = (args.frozen == 'True')
+   #
+   if ((args.frozen != 'True') and (args.frozen != 'False')):
+      #
+      print 'wrong input argument for frozen core (True/False), aborting ...'
+      sys.exit(10)
+   #
+   molecule['ref'] = (args.ref == 'True')
+   #
+   if ((args.ref != 'True') and (args.ref != 'False')):
+      #
+      print 'wrong input argument for reference calc (True/False), aborting ...'
+      sys.exit(10)
+   #
+   molecule['mem'] = args.mem
+   #
+   molecule['scr'] = args.scr
+   #
+   molecule['wrk'] = os.getcwd()
+   #
+   molecule['exp_ctrl'] = False
+   #
+   if ((args.thres_occ is None) and (args.thres_virt is None) and (args.order is None)):
+      #
+      print 'either the convergence threshold(s) (--thres_occ/--thres_virt) OR the inc.-corr. order (--order) must be set, aborting ...'
+      sys.exit(10)
+   #
+   elif (args.order is None):
+      #
+      molecule['exp_ctrl'] = True
+      molecule['order'] = 0
+      #
+      if (args.thres_occ is None):
+         #
+         molecule['thres'] = [0.0,float(args.thres_virt)]
+         #
+         if (molecule['exp'] == 'COMB'):
+            #
+            print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
+            sys.exit(10)
+      #
+      elif (args.thres_virt is None):
+         #
+         molecule['thres'] = [float(args.thres_occ),0.0]
+         #
+         if (molecule['exp'] == 'COMB'):
+            #
+            print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
+            sys.exit(10)
+      #
+      else:
+         #
+         molecule['thres'] = [float(args.thres_occ),float(args.thres_virt)]
+   #
+   elif ((args.thres_occ is None) and (args.thres_virt is None)):
+      #
+      molecule['order'] = int(args.order)
+      #
+      if (molecule['exp'] == 'COMB'):
+         #
+         print('expansion scheme "COMB" is currently not implemented for fixed order expansion, aborting ...')
+         sys.exit(10)
+   #
+   if (args.local is None):
+      #
+      molecule['local'] = False
+   #
+   else:
+      #
+      molecule['local'] = (args.local == 'True')
+   #
+   if (molecule['fc'] and molecule['local']):
+      #
+      print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
+      sys.exit(10)
+   #
+   if ((args.screen_occ == 'True') and (args.screen_virt is None)):
+      #
+      molecule['screen'] = [True,False]
+   #
+   elif ((args.screen_virt == 'True') and (args.screen_occ is None)):
+      #
+      molecule['screen'] = [False,True]
+   #
+   elif ((args.screen_virt == 'True') and (args.screen_occ == 'True')):
+      #
+      molecule['screen'] = [True,True]
+   #
+   else:
+      #
+      molecule['screen'] = [False,False]
+   #
+   molecule['error'] = False
+   #
+   init_zmat(molecule)
+   #
+   return molecule
+
+def sanity_chk(molecule):
+   #
+   if (molecule['exp'] == 'OCC'):
+      #
+      if (molecule['order'] >= (molecule['nocc'] - molecule['core'])):
+         #
+         print 'wrong input argument for total order (must be .lt. number of available occupied orbitals), aborting ...'
+         #
+         cd_dir(molecule['wrk'])
+         rm_scr_dir(molecule['scr'])
+         sys.exit(10)
+   #
+   elif (molecule['exp'] == 'VIRT'):
+      #
+      if (order >= nvirt[0]):
+         #
+         print 'wrong input argument for total order (must be .lt. number of virtual orbitals), aborting ...'
+         #
+         cd_dir(molecule['wrk'])
+         rm_scr_dir(molecule['scr'])
+         sys.exit(10)
+   #
+   return molecule
+
+def init_screen(molecule):
+   #
+   if (molecule['screen'][0] and (not molecule['screen'][1])):
+      #
+      molecule['list_excl'] = [[]]
+      screen_occ(molecule)
+   #
+   elif (molecule['screen'][1] and (not molecule['screen'][0])):
+      #
+      molecule['list_excl'] = [[]]
+#      screen_virt(molecule)
+   #
+   elif (molecule['screen'][0] and molecule[screen][1]):
+      #
+      molecule['list_excl'] = [[]]
+      screen_occ(molecule)
+#      screen_virt(molecule)
+   #
+   else:
+      #
+      molecule['list_excl'] = []
+   #
+   return molecule
+
+def run_calc_hf(molecule):
+   #
+   write_zmat_hf(molecule)
    #
    command='xcfour &> CFOUR.OUT'
    os.system(command)
    #
-   get_dim(nocc,nvirt,error)
+   get_dim(molecule)
    #
-   if (not error[0]):
+   if (not molecule['error']):
+      #
       command='xclean'
       os.system(command)
    #
-   return nocc, nvirt, error
+   return molecule
 
-def run_calc_corr(order,mult,fc,model,basis,regex,mol,drop_string,energy,error,ref,mem,local):
+def run_calc_corr(molecule,drop_string,ref):
    # 
-   write_zmat_corr(mult,fc,model,basis,mol,drop_string,mem,local)
+   write_zmat_corr(molecule,drop_string,ref)
    #
    command='xcfour &> CFOUR.OUT'
    os.system(command)
    #
-   write_energy(order,model,regex,energy,error,ref)
+   write_energy(molecule,ref)
    #
-   if (not error[0]):
+   if (not molecule['error']):
       command='xclean'
       os.system(command)
    #
-   return energy, error
+   return molecule
 
-def write_zmat_hf(mult,basis,mol,mem):
+def write_zmat_hf(molecule):
    #
    out=open('ZMAT','w')
    #
-   out.write(mol[0])
+   out.write(molecule['mol'])
    #
    out.write('*CFOUR(CALC=HF\n')
    out.write('SCF_CONV=9\n')
    out.write('LINEQ_CONV=9\n')
    #
-   out.write('MULTIPLICITY='+str(mult[0])+'\n')
+   out.write('MULTIPLICITY='+str(molecule['mult'])+'\n')
    #
-   if (mult[0] == 1):
+   if (molecule['mult'] == 1):
+      #
       out.write('REF=RHF\n')
+   #
    else:
+      #
       out.write('REF=UHF\n')
    #
-   out.write('BASIS='+basis+'\n')
+   out.write('BASIS='+molecule['basis']+'\n')
    #
-   out.write('MEMORY='+mem+'\n')
+   out.write('MEMORY='+molecule['mem']+'\n')
    out.write('MEM_UNIT=GB)\n')
    #
    out.write('\n')
    #
    out.close()
 
-def write_zmat_corr(mult,fc,model,basis,mol,drop_string,mem,local):
+def write_zmat_corr(molecule,drop_string,ref):
    #
    out=open('ZMAT','w')
    #
-   out.write(mol[0])
+   out.write(molecule['mol'])
    #
-   if (model == 'FCI'):
+   if (molecule['model'] == 'FCI'):
+      #
       out.write('*CFOUR(CALC=FULLCI\n')
       out.write('CAS_MMAX=10\n')
       out.write('CAS_MITMAX=200\n')
+   #
    else:
-      out.write('*CFOUR(CALC='+model+'\n')
+      #
+      out.write('*CFOUR(CALC='+molecule['model']+'\n')
       out.write('CC_PROG=VCC\n')
       out.write('CC_EXPORDER=10\n')
       out.write('CC_MAXCYC=200\n')
    #
    if (drop_string != '\n'):
+      #
       out.write(drop_string)
    #
    out.write('SCF_CONV=9\n')
    out.write('LINEQ_CONV=9\n')
    out.write('CC_CONV=9\n')
    #
-   if (local):
+   if (molecule['local']):
+      #
       out.write('SYMMETRY=OFF\n')
       out.write('ORBITALS=LOCAL\n')
    #
-   if (fc):
+   if (molecule['fc'] and ref):
+      #
       out.write('FROZEN_CORE=ON\n')
    #
-   out.write('MULTIPLICITY='+str(mult[0])+'\n')
+   out.write('MULTIPLICITY='+str(molecule['mult'])+'\n')
    #
-   if (mult[0] == 1):
+   if (molecule['mult'] == 1):
+      #
       out.write('REF=RHF\n')
+   #
    else:
+      #
       out.write('REF=UHF\n')
    #
-   out.write('BASIS='+basis+'\n')
+   out.write('BASIS='+molecule['basis']+'\n')
    #
-   out.write('MEMORY='+mem+'\n')
+   out.write('MEMORY='+molecule['mem']+'\n')
    out.write('MEM_UNIT=GB)\n')
    #
    out.write('\n')
    #
    out.close()
 
-def init_zmat(mol_string,bond,mol,frozen,core,mult):
+def init_zmat(molecule):
    #
-   if (mol_string == 'H2O'):
+   if (molecule['mol_string'] == 'H2O'):
+      #
       s = 'ZMAT file for H2O\n'
       s += 'H\n'
       s += 'O 1 ROH\n'
       s += 'H 2 ROH 1 AHOH\n'
       s += '\n'
-      if (bond[0] != 0.0):
-         s += 'ROH = '+str(bond[0])+'\n'
-      else:
-         s += 'ROH = 0.957\n'
+      s += 'ROH = 0.957\n'
       s += 'AHOH = 104.2\n'
       s += '\n'
-      mol.append(s)
       #
-      mult.append(1)
-      if (frozen):
-         core.append(1)
-      else:
-         core.append(0)
-   elif (mol_string == 'C2H2'):
-      s = 'ZMAT file for acetylene\n'
-      s += 'C\n'
-      s += 'C 1 RCC\n'
-      s += 'X 1 RX 2 A90\n'
-      s += 'H 1 RCH 3 A90 2 A180\n'
-      s += 'X 2 RX 1 A90 3 A180\n'
-      s += 'H 2 RCH 5 A90 1 A180\n'
-      s += '\n'
-      s += 'RCH = 1.08\n'
-      s += 'RX = 1.0\n'
-      if (bond[0] != 0.0):
-         s += 'RCC = '+str(bond[0])+'\n'
-      else:
-         s += 'RCC = 1.2\n'
-      s += 'A90 = 90.\n'
-      s += 'A180 = 180.\n'
-      s += '\n'
-      mol.append(s)
+      molecule['mol'] = s
       #
-      mult.append(1)
-      if (frozen):
-         core.append(2)
-      else:
-         core.append(0)
-   elif (mol_string == 'N2'):
-      s = 'ZMAT file for nitrogen (N2)\n'
-      s += 'N\n'
-      s += 'N 1 RNN\n'
-      s += '\n'
-      if (bond[0] != 0.0):
-         s += 'RNN = '+str(bond[0])+'\n'
-      else:
-         s += 'RNN = 1.098\n'
-      s += '\n'
-      mol.append(s)
+      molecule['mult'] = 1
       #
-      mult.append(1)
-      if (frozen):
-         core.append(2)
-      else:
-         core.append(0)
-   elif (mol_string == 'O2'):
-      s = 'ZMAT file for (triplet) oxygen (O2)\n'
-      s += 'O\n'
-      s += 'O 1 ROO\n'
-      s += '\n'
-      if (bond[0] != 0.0):
-         s += 'ROO = '+str(bond[0])+'\n'
-      else:
-         s += 'ROO = 1.205771156354447\n'
-      s += '\n'
-      mol.append(s)
+      if (molecule['fc']):
+         #
+         molecule['core'] = 1
       #
-      mult.append(3)
-      if (frozen):
-         core.append(2)
       else:
-         core.append(0)
-   elif (mol_string == 'SiH4'):
-      s = 'ZMAT file for silane\n'
-      s += 'Si\n'
-      s += 'H 1 R\n'
-      s += 'H 1 R 2 TDA\n'
-      s += 'H 1 R 2 TDA 3 D120\n'
-      s += 'H 1 R 2 TDA 4 D120\n'
-      s += '\n'
-      if (bond[0] != 0.0):
-         s += 'R = '+str(bond[0])+'\n'
-      else:
-         s += 'R = 1.48598655\n'
-      s += 'TDA = 109.471221\n'
-      s += 'D120 = 120.\n'
-      s += '\n'
-      mol.append(s)
-      #
-      mult.append(1)
-      if (frozen):
-         core.append(5)
-      else:
-         core.append(0)
-   elif (mol_string == 'CO2'):
-      s = 'ZMAT file for carbon dioxide\n'
-      s += 'C\n'
-      s += 'X 1 RCX\n'
-      s += 'O 1 RCO 2 A90\n'
-      s += 'O 1 RCO 2 A90 3 A180\n'
-      s += '\n'
-      s += 'RCX=1.0\n'
-      if (bond[0] != 0.0):
-         s += 'RCO = '+str(bond[0])+'\n'
-      else:
-         s += 'RCO = 1.16\n'
-      s += 'A90 = 90.0\n'
-      s += 'A180 = 180.0\n'
-      s += '\n'
-      mol.append(s)
-      #
-      mult.append(1)
-      if (frozen):
-         core.append(3)
-      else:
-         core.append(0)
-   elif (mol_string == 'C4H6'):
-      s = 'ZMAT file for trans-1,3-butadiene\n'
-      s += 'C\n'
-      s += 'C 1 CDC\n'
-      s += 'C 2 CSC 1 CCC\n'
-      s += 'C 3 CDC 2 CCC 1 A180\n'
-      s += 'H 1 CH1 2 CC1 3 A180\n'
-      s += 'H 1 CH2 2 CC2 3 A0\n'
-      s += 'H 2 CH3 1 CC3 3 A180\n'
-      s += 'H 3 CH3 4 CC3 2 A180\n'
-      s += 'H 4 CH2 3 CC2 2 A0\n'
-      s += 'H 4 CH1 3 CC1 2 A180\n'
-      s += '\n'
-      s += 'CDC = 1.34054111\n' 
-      s += 'CSC = 1.45747113\n'
-      s += 'CH1 = 1.08576026\n'
-      s += 'CH2 = 1.08793795\n'
-      s += 'CH3 = 1.09045613\n'
-      s += 'CCC = 124.31048212\n' 
-      s += 'CC1 = 121.82705922\n'
-      s += 'CC2 = 121.53880082\n'
-      s += 'CC3 = 119.43908311\n'
-      s += 'A0 = 0.0\n'
-      s += 'A180 = 180.0\n'
-      s += '\n'
-      mol.append(s)
-      #
-      mult.append(1)
-      if (frozen):
-         core.append(4)
-      else:
-         core.append(0)
-   elif (mol_string == 'C6H6'):
-      s = 'ZMAT file for benzene\n'
-      s += 'X\n'
-      s += 'C 1 RCC\n'
-      s += 'C 1 RCC 2 A60\n'
-      s += 'C 1 RCC 3 A60 2 D180\n' 
-      s += 'C 1 RCC 4 A60 3 D180\n'
-      s += 'C 1 RCC 5 A60 4 D180\n'
-      s += 'C 1 RCC 6 A60 5 D180\n'
-      s += 'H 1 RXH 2 A60 7 D180\n'
-      s += 'H 1 RXH 3 A60 2 D180\n'
-      s += 'H 1 RXH 4 A60 3 D180\n'
-      s += 'H 1 RXH 5 A60 4 D180\n'
-      s += 'H 1 RXH 6 A60 5 D180\n'
-      s += 'H 1 RXH 7 A60 6 D180\n'
-      s += '\n'
-      s += 'A60 = 60.0\n'
-      s += 'D180 = 180.0\n'
-      if (bond[0] != 0.0):
-         s += 'RCC = '+str(bond[0])+'\n'
-      else:
-         s += 'RCC = 1.3914\n'
-      s += 'RXH = 2.4716\n'
-      s += '\n'
-      mol.append(s)
-      #
-      mult.append(1)
-      if (frozen):
-         core.append(6)
-      else:
-         core.append(0) 
-   else:
-      print('molecular input not recognized, aborting ...')
-      sys.exit(10)
+         #
+         molecule['core'] = 0
+#   elif (mol_string == 'C2H2'):
+#      s = 'ZMAT file for acetylene\n'
+#      s += 'C\n'
+#      s += 'C 1 RCC\n'
+#      s += 'X 1 RX 2 A90\n'
+#      s += 'H 1 RCH 3 A90 2 A180\n'
+#      s += 'X 2 RX 1 A90 3 A180\n'
+#      s += 'H 2 RCH 5 A90 1 A180\n'
+#      s += '\n'
+#      s += 'RCH = 1.08\n'
+#      s += 'RX = 1.0\n'
+#      if (bond[0] != 0.0):
+#         s += 'RCC = '+str(bond[0])+'\n'
+#      else:
+#         s += 'RCC = 1.2\n'
+#      s += 'A90 = 90.\n'
+#      s += 'A180 = 180.\n'
+#      s += '\n'
+#      mol.append(s)
+#      #
+#      mult.append(1)
+#      if (frozen):
+#         core.append(2)
+#      else:
+#         core.append(0)
+#   elif (mol_string == 'N2'):
+#      s = 'ZMAT file for nitrogen (N2)\n'
+#      s += 'N\n'
+#      s += 'N 1 RNN\n'
+#      s += '\n'
+#      if (bond[0] != 0.0):
+#         s += 'RNN = '+str(bond[0])+'\n'
+#      else:
+#         s += 'RNN = 1.098\n'
+#      s += '\n'
+#      mol.append(s)
+#      #
+#      mult.append(1)
+#      if (frozen):
+#         core.append(2)
+#      else:
+#         core.append(0)
+#   elif (mol_string == 'O2'):
+#      s = 'ZMAT file for (triplet) oxygen (O2)\n'
+#      s += 'O\n'
+#      s += 'O 1 ROO\n'
+#      s += '\n'
+#      if (bond[0] != 0.0):
+#         s += 'ROO = '+str(bond[0])+'\n'
+#      else:
+#         s += 'ROO = 1.205771156354447\n'
+#      s += '\n'
+#      mol.append(s)
+#      #
+#      mult.append(3)
+#      if (frozen):
+#         core.append(2)
+#      else:
+#         core.append(0)
+#   elif (mol_string == 'SiH4'):
+#      s = 'ZMAT file for silane\n'
+#      s += 'Si\n'
+#      s += 'H 1 R\n'
+#      s += 'H 1 R 2 TDA\n'
+#      s += 'H 1 R 2 TDA 3 D120\n'
+#      s += 'H 1 R 2 TDA 4 D120\n'
+#      s += '\n'
+#      if (bond[0] != 0.0):
+#         s += 'R = '+str(bond[0])+'\n'
+#      else:
+#         s += 'R = 1.48598655\n'
+#      s += 'TDA = 109.471221\n'
+#      s += 'D120 = 120.\n'
+#      s += '\n'
+#      mol.append(s)
+#      #
+#      mult.append(1)
+#      if (frozen):
+#         core.append(5)
+#      else:
+#         core.append(0)
+#   elif (mol_string == 'CO2'):
+#      s = 'ZMAT file for carbon dioxide\n'
+#      s += 'C\n'
+#      s += 'X 1 RCX\n'
+#      s += 'O 1 RCO 2 A90\n'
+#      s += 'O 1 RCO 2 A90 3 A180\n'
+#      s += '\n'
+#      s += 'RCX=1.0\n'
+#      if (bond[0] != 0.0):
+#         s += 'RCO = '+str(bond[0])+'\n'
+#      else:
+#         s += 'RCO = 1.16\n'
+#      s += 'A90 = 90.0\n'
+#      s += 'A180 = 180.0\n'
+#      s += '\n'
+#      mol.append(s)
+#      #
+#      mult.append(1)
+#      if (frozen):
+#         core.append(3)
+#      else:
+#         core.append(0)
+#   elif (mol_string == 'C4H6'):
+#      s = 'ZMAT file for trans-1,3-butadiene\n'
+#      s += 'C\n'
+#      s += 'C 1 CDC\n'
+#      s += 'C 2 CSC 1 CCC\n'
+#      s += 'C 3 CDC 2 CCC 1 A180\n'
+#      s += 'H 1 CH1 2 CC1 3 A180\n'
+#      s += 'H 1 CH2 2 CC2 3 A0\n'
+#      s += 'H 2 CH3 1 CC3 3 A180\n'
+#      s += 'H 3 CH3 4 CC3 2 A180\n'
+#      s += 'H 4 CH2 3 CC2 2 A0\n'
+#      s += 'H 4 CH1 3 CC1 2 A180\n'
+#      s += '\n'
+#      s += 'CDC = 1.34054111\n' 
+#      s += 'CSC = 1.45747113\n'
+#      s += 'CH1 = 1.08576026\n'
+#      s += 'CH2 = 1.08793795\n'
+#      s += 'CH3 = 1.09045613\n'
+#      s += 'CCC = 124.31048212\n' 
+#      s += 'CC1 = 121.82705922\n'
+#      s += 'CC2 = 121.53880082\n'
+#      s += 'CC3 = 119.43908311\n'
+#      s += 'A0 = 0.0\n'
+#      s += 'A180 = 180.0\n'
+#      s += '\n'
+#      mol.append(s)
+#      #
+#      mult.append(1)
+#      if (frozen):
+#         core.append(4)
+#      else:
+#         core.append(0)
+#   elif (mol_string == 'C6H6'):
+#      s = 'ZMAT file for benzene\n'
+#      s += 'X\n'
+#      s += 'C 1 RCC\n'
+#      s += 'C 1 RCC 2 A60\n'
+#      s += 'C 1 RCC 3 A60 2 D180\n' 
+#      s += 'C 1 RCC 4 A60 3 D180\n'
+#      s += 'C 1 RCC 5 A60 4 D180\n'
+#      s += 'C 1 RCC 6 A60 5 D180\n'
+#      s += 'H 1 RXH 2 A60 7 D180\n'
+#      s += 'H 1 RXH 3 A60 2 D180\n'
+#      s += 'H 1 RXH 4 A60 3 D180\n'
+#      s += 'H 1 RXH 5 A60 4 D180\n'
+#      s += 'H 1 RXH 6 A60 5 D180\n'
+#      s += 'H 1 RXH 7 A60 6 D180\n'
+#      s += '\n'
+#      s += 'A60 = 60.0\n'
+#      s += 'D180 = 180.0\n'
+#      if (bond[0] != 0.0):
+#         s += 'RCC = '+str(bond[0])+'\n'
+#      else:
+#         s += 'RCC = 1.3914\n'
+#      s += 'RXH = 2.4716\n'
+#      s += '\n'
+#      mol.append(s)
+#      #
+#      mult.append(1)
+#      if (frozen):
+#         core.append(6)
+#      else:
+#         core.append(0) 
+#   else:
+#      print('molecular input not recognized, aborting ...')
+#      sys.exit(10)
    #
-   return mol, core, mult
+   return molecule
 
-def get_dim(nocc,nvirt,error):
+def get_dim(molecule):
    #
    inp=open('CFOUR.OUT','r')
    #
@@ -354,13 +595,18 @@ def get_dim(nocc,nvirt,error):
    regex = 'basis functions'
    #
    while 1:
+      #
       line=inp.readline()
+      #
       if regex in line:
+         #
          [bf] = line.split()[2:3]
          break
+      #
       elif re.match(regex_err,line) is not None:
+         #
          print('problem with HF calculation, aborting ...')
-         error[0] = True
+         molecule['error'] = True
          inp.close()
          return nocc, nvirt, error
    #
@@ -369,8 +615,11 @@ def get_dim(nocc,nvirt,error):
    regex_2 = '\s+Alpha population by irrep:'
    #
    while 1:
+      #
       line=inp.readline()
+      #
       if re.match(regex_2,line) is not None:
+         #
          pop = line.split()
          break
    #
@@ -379,70 +628,117 @@ def get_dim(nocc,nvirt,error):
    for i in range(4,len(pop)):
       tmp += int(pop[i])
    #
-   nocc.append(tmp)
-   nvirt.append(int(bf) - nocc[0])
+   molecule['nocc'] = tmp
+   molecule['nvirt'] = int(bf) - molecule['nocc']
    #
    inp.close()
    #
-   return nocc, nvirt, error
+   return molecule
 
-def write_energy(k,model,regex,energy,error,ref):
+def write_energy(molecule,ref):
    #
    inp=open('CFOUR.OUT','r')
    #
    regex_err = '\s+ERROR ERROR'
    #
    while 1:
+      #
       line=inp.readline()
-      if re.match(regex,line) is not None:
-         if (model == 'FCI'):
+      #
+      if re.match(molecule['regex'],line) is not None:
+         #
+         if (molecule['model'] == 'FCI'):
+            #
             [tmp] = line.split()[3:4]
+         #
          else:
+            #
             [tmp] = line.split()[4:5]
+         #
          if (ref):
-            energy[1] = float(tmp)
+            #
+            molecule['e_ref'] = float(tmp)
+         #
          else:
-            energy[0] = float(tmp)
+            #
+            molecule['e_tmp'] = float(tmp)
+         #
          break
+      #
       elif re.match(regex_err,line) is not None:
-         print('problem with '+model+' calculation, aborting ...')
-         error[0] = True
+         #
+         print('problem with '+molecule['model']+' calculation, aborting ...')
+         molecule['error'] = True
          inp.close()
-         return energy, error
+         #
+         return molecule
    #
    inp.close()
    #
-   return energy, error
+   return molecule
 
-def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,energy,e_inc,conv,error,mem,local):
+def inc_corr_tuple_thres(molecule):
+   #
+   if (molecule['exp'] == 'OCC'):
+      #
+      u_limit = molecule['nocc']-molecule['core']
+   #
+   elif (molecule['exp'] == 'VIRT'):
+      #
+      u_limit = molecule['nvirt']
+   #
+   elif (molecule['exp'] == 'COMB'):
+      #
+      u_limit_1 = molecule['nocc']-molecule['core']
+      u_limit_2 = molecule['nvirt']
+   #
+   list_drop = []
+   #
+   for i in range(0,molecule['nocc']+molecule['nvirt']):
+      #
+      list_drop.append(i+1)
+   #
+   if (molecule['exp'] == 'OCC'):
+      #
+      for i in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
+         #
+         list_drop[i] = 0
+   #
+   elif (molecule['exp'] == 'VIRT'):
+      #
+      for i in range(molecule['core'],molecule['nocc']):
+         #
+         list_drop[i] = 0
    #
    drop_string = []
    #
    incl_list = [[]]
    #
-   e_tup = [[[]]]
+   if (molecule['exp'] == 'COMB'):
+      #
+      drop_string_comb = []
+      n_contrib_comb = []
+      #
+      incl_list_comb = [[]]
+      e_contrib_comb = [[[]]]
+      #
+      e_fin_comb = []
+      #
+      conv_comb = [False]
    #
-   if (exp[0] == 1):
-      u_limit = nocc[0]-core[0]
-   elif (exp[0] == 2):
-      u_limit = nvirt[0]
+   molecule['e_tmp'] = 0.0
    #
-   if (exp[0] == 3):
-      u_limit_1 = nocc[0]-core[0]
-      u_limit_2 = nvirt[0]
-      #
-      drop_string_2 = []
-      n_tuples_2 = []
-      #
-      incl_list_2 = [[]]
-      e_tup_2 = [[[]]]
-      #
-      e_inc_2 = []
-      #
-      conv_2 = []
-      conv_2.append(False)
+   molecule['e_contrib'] = [[[]]]
    #
-   if (exp[0] <= 2):
+   molecule['n_contrib'] = []
+   #
+   molecule['e_fin'] = []
+   #
+   molecule['time'] = []
+   #
+   molecule['conv'] = False
+   #
+   if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'VIRT')):
       #
       for k in range(1,u_limit+1):
          #
@@ -450,15 +746,19 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          #
          drop_string[:] = []
          #
-         if (exp[0] == 1):
-            generate_drop_occ(core[0]+1,1,k,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp[0])
-         elif (exp[0] == 2):
-            generate_drop_virt(nocc[0]+1,1,k,nocc,core,nvirt,list_drop,drop_string,n_tuples,exp[0])
+         if (molecule['exp'] == 'OCC'):
+            #
+            generate_drop_occ(molecule['core']+1,1,k,molecule,list_drop,drop_string,molecule['n_contrib'])
+         #
+         elif (molecule['exp'] == 'VIRT'):
+            #
+            generate_drop_virt(molecule['nocc']+1,1,k,molecule,list_drop,drop_string,molecule['n_contrib'])
          #
          if (k > 1):
-            e_tup.append([[]])
+            #
+            molecule['e_contrib'].append([[]])
          #
-         if (len(n_tuples) < k):
+         if (len(molecule['n_contrib']) < k):
             #
             print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  has no contributions'.format(k,u_limit))
             print(' --------------------------------------------------------')
@@ -470,50 +770,65 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          #
          incl_list[:] = [[]]
          #
-         for i in range(0,n_tuples[k-1]):
+         for i in range(0,molecule['n_contrib'][k-1]):
             #
-            run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[i],energy,error,False,mem,local)
+            run_calc_corr(molecule,drop_string[i],False)
             #
             if (i > 0):
                incl_list.append([])
             #
-            orbs_incl(nocc,nvirt,drop_string[i],incl_list[i],exp[0])
+            orbs_incl(molecule,drop_string[i],incl_list[i],False)
             #
             if (i == 0):
-               e_tup[k-1][0].append(incl_list[i])
-               e_tup[k-1][0].append(energy[0])
-            else:
-               e_tup[k-1].append([incl_list[i],energy[0]])
+               #
+               molecule['e_contrib'][k-1][0].append(incl_list[i])
+               molecule['e_contrib'][k-1][0].append(molecule['e_tmp'])
             #
-            if (error[0]):
-               return n_tuples, time, e_inc, error
+            else:
+               #
+               molecule['e_contrib'][k-1].append([incl_list[i],molecule['e_tmp']])
+            #
+            if (molecule['error']):
+               #
+               return molecule
          #
-         inc_corr_order(k,n_tuples,e_tup,e_inc)
+         inc_corr_order(k,molecule['n_contrib'],molecule['e_contrib'],molecule['e_fin'])
          #
          if (k > 1):
-            if (exp[0] == 1):
-               inc_corr_chk_conv(k,thres[0],e_inc,conv)
-            elif (exp[0] == 2):
-               inc_corr_chk_conv(k,thres[1],e_inc,conv)
+            #
+            if (molecule['exp'] == 'OCC'):
+               #
+               inc_corr_chk_conv(k,molecule['thres'][0],molecule['e_fin'],molecule['conv'])
+            #
+            elif (molecule['exp'] == 'VIRT'):
+               #
+               inc_corr_chk_conv(k,molecule['thres'][1],molecule['e_fin'],molecule['conv'])
          #
-         time[k-1] = timer() - start
+         molecule['time'].append(timer()-start)
          #
          if (k == 1):
-            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit,time[k-1]))
+            #
+            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit,molecule['time'][k-1]))
             print(' --------------------------------------------------------------')
+         #
          else:
-            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,u_limit,time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
+            #
+            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.\
+                             format(k,u_limit,molecule['time'][k-1],molecule['e_fin'][k-1]-molecule['e_fin'][k-2],molecule['conv']))
             print(' ------------------------------------------------------------------------------------------------------------')
          #
-         for i in range(0,n_tuples[k-1]):
-            print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.format(i+1,n_tuples[k-1],e_tup[k-1][i][0],e_tup[k-1][i][1]))
+         for i in range(0,molecule['n_contrib'][k-1]):
+            #
+            print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.\
+                             format(i+1,molecule['n_contrib'][k-1],molecule['e_contrib'][k-1][i][0],molecule['e_contrib'][k-1][i][1]))
          #
          print('')
          #
-         if (conv[0]):
-            return n_tuples, time, e_inc, error
+         if (molecule['conv']):
+            #
+            return molecule
    #
-   elif (exp[0] == 3):
+   elif (molecule['exp'] == 'COMB'):
       #
       for k in range(1,u_limit_1+1):
          #
@@ -521,12 +836,13 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          #
          drop_string[:] = []
          #
-         generate_drop_occ(core[0]+1,1,k,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp[0])
+         generate_drop_occ(molecule['core']+1,1,k,molecule,list_drop,drop_string,molecule['n_contrib'])
          #
          if (k > 1):
-            e_tup.append([[]])
+            #
+            molecule['e_contrib'].append([[]])
          #
-         if (len(n_tuples) < k):
+         if (len(molecule['n_contrib']) < k):
             #
             print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  has no contributions'.format(k,u_limit_1))
             print(' --------------------------------------------------------')
@@ -538,137 +854,196 @@ def inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basi
          #
          incl_list[:] = [[]]
          #
-         for j in range(0,n_tuples[k-1]):
+         for j in range(0,molecule['n_contrib'][k-1]):
             #
-            start_2 = timer()
+            start_comb = timer()
             #
-            n_tuples_2[:] = []
+            n_contrib_comb[:] = []
             #
-            e_inc_2[:] = []
+            e_inc_comb[:] = []
             #
-            e_tup_2[:] = [[[]]]
+            e_contrib_comb[:] = [[[]]]
             #
-            conv_2[0] = False
+            conv_comb[0] = False
             #
             for l in range(1,u_limit_2+1):
                #
-               for a in range(nocc[0],nocc[0]+nvirt[0]):
+               for a in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
+                  #
                   list_drop[a] = a+1
                #
-               drop_string_2[:] = []
+               drop_string_comb[:] = []
                #
-               generate_drop_virt(nocc[0]+1,1,l,nocc,core,nvirt,list_drop,drop_string_2,n_tuples_2,exp[0])
+               generate_drop_virt(molecule['nocc']+1,1,l,molecule,list_drop,drop_string_comb,n_contrib_comb)
                #
                if (l > 1):
-                  e_tup_2.append([[]])
+                  #
+                  e_contrib_comb.append([[]])
                #
-               incl_list_2[:] = [[]]
+               incl_list_comb[:] = [[]]
                #
-               for i in range(0,n_tuples_2[l-1]):
+               for i in range(0,n_contrib_comb[l-1]):
                   #
                   if (drop_string[j] == ''):
-                     string = 'DROP_MO='+drop_string_2[i][1:]
-                  else:
-                     string = drop_string[j]+drop_string_2[i]
+                     #
+                     string = 'DROP_MO='+drop_string_comb[i][1:]
                   #
-                  run_calc_corr(l,mult,False,model,basis,regex,mol,string,energy,error,False,mem,local)
+                  else:
+                     #
+                     string = drop_string[j]+drop_string_comb[i]
+                  #
+                  run_calc_corr(molecule,string,False)
                   #
                   if (i > 0):
-                     incl_list_2.append([])
+                     #
+                     incl_list_comb.append([])
                   #
-                  orbs_incl(nocc,nvirt,string,incl_list_2[i],2)
-                  #
+                  orbs_incl(molecule,string,incl_list_comb[i],True)
                   #
                   if (i == 0):
-                     e_tup_2[l-1][0].append(incl_list_2[i])
-                     e_tup_2[l-1][0].append(energy[0])
-                  else:
-                     e_tup_2[l-1].append([incl_list_2[i],energy[0]])
+                     #
+                     e_contrib_comb[l-1][0].append(incl_list_comb[i])
+                     e_contrib_comb[l-1][0].append(molecule['e_tmp'])
                   #
-                  if (error[0]):
-                     return n_tuples, time, e_inc, error
+                  else:
+                     #
+                     e_contrib_comb[l-1].append([incl_list_comb[i],molecule['e_tmp']])
+                  #
+                  if (molecule['error']):
+                     #
+                     return molecule
                #
-               inc_corr_order(l,n_tuples_2,e_tup_2,e_inc_2)
+               inc_corr_order(l,n_contrib_comb,e_contrib_comb,e_fin_comb)
                #
                if (l > 1):
-                  inc_corr_chk_conv(l,thres[1],e_inc_2,conv_2)
+                  #
+                  inc_corr_chk_conv(l,molecule['thres'][1],e_fin_comb,conv_comb[0])
                #
                nv_order = l
                #
-               if (conv_2[0]):
+               if (conv_comb[0]):
                   #
                   if (j > 0):
+                     #
                      incl_list.append([])
                   #
-                  orbs_incl(nocc,nvirt,drop_string[j],incl_list[j],exp[0])
+                  orbs_incl(molecule,drop_string[j],incl_list[j],False)
                   #
                   if (j == 0):
-                     e_tup[k-1][0].append(incl_list[j])
-                     e_tup[k-1][0].append(e_inc_2[l-1])
+                     #
+                     molecule['e_contrib'][k-1][0].append(incl_list[j])
+                     molecule['e_contrib'][k-1][0].append(e_inc_comb[l-1])
+                  #
                   else:
-                     e_tup[k-1].append([incl_list[j],e_inc_2[l-1]])
+                     #
+                     molecule['e_contrib'][k-1].append([incl_list[j],e_inc_comb[l-1]])
+                  #
                   break
             #
             print('       STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'\
-                             .format(j+1,n_tuples[k-1],nv_order,nvirt[0],timer()-start_2,e_inc_2[l-1]-e_inc_2[l-2],conv_2[0]))
+                             .format(j+1,molecule['n_contrib'][k-1],nv_order,molecule['nvirt'],timer()-start_comb,e_inc_comb[l-1]-e_inc_comb[l-2],conv_comb[0]))
          #
-         inc_corr_order(k,n_tuples,e_tup,e_inc)
+         inc_corr_order(k,molecule['n_contrib'],molecule['e_contrib'],molecule['e_fin'])
          #
          if (k > 1):
-            inc_corr_chk_conv(k,thres[0],e_inc,conv)
+            #
+            inc_corr_chk_conv(k,molecule['thres'][0],molecule['e_fin'],molecule['conv'])
          #
-         time[k-1] = timer() - start
+         molecule['time'].append(timer()-start)
          #
          print('')
          #
          if (k == 1):
-            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit_1,time[k-1]))
+            #
+            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit_1,molecule['time'][k-1]))
             print(' --------------------------------------------------------------')
+         #
          else:
-            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.format(k,u_limit_1,time[k-1],e_inc[k-1]-e_inc[k-2],conv[0]))
+            #
+            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.\
+                             format(k,u_limit_1,molecule['time'][k-1],molecule['e_fin'][k-1]-molecule['e_fin'][k-2],molecule['conv']))
             print(' ------------------------------------------------------------------------------------------------------------')
          #
-         for i in range(0,n_tuples[k-1]):
-            print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.format(i+1,n_tuples[k-1],e_tup[k-1][i][0],e_tup[k-1][i][1]))
+         for i in range(0,molecule['n_contrib'][k-1]):
+            #
+            print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.\
+                             format(i+1,molecule['n_contrib'][k-1],molecule['e_contrib'][k-1][i][0],molecule['e_contrib'][k-1][i][1]))
          #
          print('')
          #
-         if (conv[0]):
-            return n_tuples, time, e_inc, error
+         if (molecule['conv']):
+            #
+            return molecule
    #
-   return n_tuples, time, e_inc, error
+   return molecule
 
-def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,energy,e_inc,conv,error,mem,local):
+def inc_corr_tuple_order(molecule):
+   #
+   if (molecule['exp'] == 'OCC'):
+      #
+      u_limit = molecule['nocc']-molecule['core']
+   #
+   elif (molecule['exp'] == 'VIRT'):
+      #
+      u_limit = molecule['nvirt']
+   #
+   list_drop = []
+   #
+   for i in range(0,molecule['nocc']+molecule['nvirt']):
+      #
+      list_drop.append(i+1)
+   #
+   if (molecule['exp'] == 'OCC'):
+      #
+      for i in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
+         #
+         list_drop[i] = 0
+   #
+   elif (molecule['exp'] == 'VIRT'):
+      #
+      for i in range(molecule['core'],molecule['nocc']):
+         #
+         list_drop[i] = 0
    #
    drop_string = []
    #
    incl_list = [[]]
    #
-   e_tup = [[[]]]
+   molecule['e_contrib'] = [[[]]]
    #
-   if (exp[0] == 1):
-      u_limit = nocc[0]-core[0]
-   elif (exp[0] == 2):
-      u_limit = nvirt[0]
+   for _ in range(0,molecule['order']):
+      #
+      molecule['e_contrib'].append([[]])
+   #
+   molecule['n_contrib'] = []
    #
    for _ in range(0,u_limit):
-      n_tuples.append(0)
+      #
+      molecule['n_contrib'].append(0)
    #
-   for _ in range(0,order):
-      e_tup.append([[]])
+   molecule['e_tmp'] = 0.0
    #
-   for k in range(order,0,-1):
+   molecule['e_fin'] = []
+   #
+   molecule['time'] = []
+   #
+   molecule['conv'] = False
+   #
+   for k in range(molecule['order'],0,-1):
       #
       start = timer()
       #
       drop_string[:] = []
       #
-      if (exp[0] == 1):
-         generate_drop_occ(core[0]+1,1,k,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp[0])
-      elif (exp[0] == 2):
-         generate_drop_virt(nocc[0]+1,1,k,nocc,core,nvirt,list_drop,drop_string,n_tuples,exp[0])
+      if (molecule['exp'] == 'OCC'):
+         #
+         generate_drop_occ(molecule['core']+1,1,k,molecule,list_drop,drop_string,molecule['n_contrib'])
       #
-      if (n_tuples[k-1] == 0):
+      elif (molecule['exp'] == 'VIRT'):
+         #
+         generate_drop_virt(molecule['nocc']+1,1,k,molecule,list_drop,drop_string,molecule['n_contrib'])
+      #
+      if (molecule['n_contrib'][k-1] == 0):
          #
          print(' STATUS:  order = {0:4d} / {1:4d}  has no contributions'.format(k,u_limit))
          print(' --------------------------------------------------')
@@ -680,198 +1055,266 @@ def inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basi
       #
       incl_list[:] = [[]]
       #
-      for i in range(0,n_tuples[k-1]):
+      for i in range(0,molecule['n_contrib'][k-1]):
          #
-         run_calc_corr(k,mult,False,model,basis,regex,mol,drop_string[i],energy,error,False,mem,local)
+         run_calc_corr(molecule,drop_string[i],False)
          #
          if (i > 0):
+            #
             incl_list.append([])
          #
-         orbs_incl(nocc,nvirt,drop_string[i],incl_list[i],exp[0])
+         orbs_incl(molecule,drop_string[i],incl_list[i],False)
          #
          if (i == 0):
-            e_tup[k-1][0].append(incl_list[i])
-            e_tup[k-1][0].append(energy[0])
-         else:
-            e_tup[k-1].append([incl_list[i],energy[0]])
+            #
+            molecule['e_contrib'][k-1][0].append(incl_list[i])
+            molecule['e_contrib'][k-1][0].append(molecule['e_tmp'])
          #
-         if (error[0]):
-            return n_tuples, time, e_inc, error
+         else:
+            #
+            molecule['e_contrib'][k-1].append([incl_list[i],molecule['e_tmp']])
+         #
+         if (molecule['error']):
+            #
+            return molecule
       #
-      time[k] = timer() - start
+      molecule['time'].append(timer()-start)
       #
-      print(' STATUS:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit,time[k]))
+      print(' STATUS:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit,molecule['time'][-1]))
       print(' --------------------------------------------------------')
       #
       print('')
    #
-   for k in range(1,order+1):
+   for k in range(1,molecule['order']+1):
       #
-      if (n_tuples[k-1] > 0):
-         inc_corr_order(k,n_tuples,e_tup,e_inc)
-   #
-   time += [time.pop(0)] # permute all elements one time to the left in the list
-   #
-   return n_tuples, time, e_inc, error
-
-def generate_drop_occ(start,order,final,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp):
-   #
-   if (order > (nocc[0]-core[0])):
-      return drop_string, n_tuples
-   else:
-      for i in range(start,nocc[0]+1): # loop over the occupied orbs
+      if (molecule['n_contrib'][k-1] > 0):
          #
-         n = list_drop[core[0]:nocc[0]].count(0) # count the number of zeros
+         inc_corr_order(k,molecule['n_contrib'],molecule['e_contrib'],molecule['e_fin'])
+   #
+   molecule['time'].reverse()
+   #
+   return molecule
+
+def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib):
+   #
+   if (order > (molecule['nocc']-molecule['core'])):
+      #
+      return drop_string, n_contrib
+   #
+   else:
+      #
+      for i in range(start,molecule['nocc']+1): # loop over the occupied orbs
+         #
+         n = list_drop[molecule['core']:molecule['nocc']].count(0) # count the number of zeros
          #
          if (n == 0):
+            #
             list_drop[i-1] = 0 # singles correlation
          #
          if (n > 0):
-            if (not list_excl):
+            #
+            if (not molecule['list_excl']):
+               #
                list_drop[i-1] = 0 # no screening
+            #
             else:
-               if (not list_excl[i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+               #
+               if (not molecule['list_excl'][i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                  #
                   continue
+               #
                else:
+                  #
                   list_drop[i-1] = 0 # attempt to correlate orbital 'i'
                   idx = [j for j, val in enumerate(list_drop) if val == 0] # make list containing indices with zeros in list_drop
-                  idx_2 = [j for j, val in enumerate(list_excl[i-1]) if val != 0] # make list containing indices with non-zeros in list_excl
+                  idx_2 = [j for j, val in enumerate(molecule['list_excl'][i-1]) if val != 0] # make list containing indices with non-zeros in list_excl
+                  #
                   if ((set(idx) > set(idx_2)) and (len(idx_2) > 0)): # check whether idx_2 is a subset of idx
+                     #
                      list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
          #
          s = ''
          inc = 0
          #
-         if ((order == final) and (list_drop[core[0]:nocc[0]].count(0) == final)): # number of zeros in list_drop must match the final order
+         if ((order == final) and (list_drop[molecule['core']:molecule['nocc']].count(0) == final)): # number of zeros in list_drop must match the final order
             #
-            if (core[0] > 0): # exclude core orbitals
-               for m in range(0,core[0]):
+            if (molecule['fc']): # exclude core orbitals
+               #
+               for m in range(0,molecule['core']):
+                  #
                   if (inc == 0):
+                     #
                      s = 'DROP_MO='+str(list_drop[m])
+                  #
                   else:
+                     #
                      s += '-'+str(list_drop[m])
+                  #
                   inc += 1
             #
-            for m in range(core[0],nocc[0]): # start to exclude valence occupied orbitals
+            for m in range(molecule['core'],molecule['nocc']): # start to exclude valence occupied orbitals
+               #
                if (list_drop[m] != 0):
+                  #
                   if (inc == 0):
+                     #
                      s = 'DROP_MO='+str(list_drop[m])
+                  #
                   else:
+                     #
                      s += '-'+str(list_drop[m])
+                  #
                   inc += 1
             #
             if (s != ''):
                #
-               if (len(n_tuples) >= order):
-                  n_tuples[order-1] += 1
-               else:
-                  n_tuples.append(1)
+               if (len(n_contrib) >= order):
+                  #
+                  n_contrib[order-1] += 1
                #
-               if (exp == 1):
+               else:
+                  #
+                  n_contrib.append(1)
+               #
+               if (molecule['exp'] == 'OCC'):
+                  #
                   drop_string.append(s+'\n')
-               elif (exp == 3):
+               #
+               elif (molecule['exp' == 'COMB']):
+                  #
                   drop_string.append(s)
             #
-            elif (order == nocc[0]): # full system correlation, i.e., equal to standard N-electron calculation
+            elif (order == molecule['nocc']): # full system correlation, i.e., equal to standard N-electron calculation
                #
-               n_tuples.append(1)
+               n_contrib.append(1)
                #
                drop_string.append(''+'\n')
          #
-         generate_drop_occ(i+1,order+1,final,nocc,core,list_drop,list_excl,drop_string,n_tuples,exp) # recursion
+         generate_drop_occ(i+1,order+1,final,molecule,list_drop,drop_string,n_contrib) # recursion
          #
          list_drop[i-1] = i # include orb back into list of orbs to drop from the calculation
    #
-   return drop_string, n_tuples
+   return drop_string, n_contrib
 
-def generate_drop_virt(start,order,final,nocc,core,nvirt,list_drop,drop_string,n_tuples,exp):
+def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contrib):
    #
-   if (order > nvirt[0]):
-      return drop_string, n_tuples
+   if (order > molecule['nvirt']):
+      #
+      return drop_string, n_contrib
+   #
    else:
-      for i in range(start,(nocc[0]+nvirt[0])+1):
+      #
+      for i in range(start,(molecule['nocc']+molecule['nvirt'])+1):
+         #
          list_drop[i-1] = 0
          s = ''
          inc = 0
-         if (exp == 3):
+         #
+         if (molecule['exp'] == 'COMB'):
+            #
             inc += 1
          #
          if (order == final):
             #
-            if (core[0] > 0): # exclude core orbitals
-               for m in range(0,core[0]):
+            if (molecule['fc']): # exclude core orbitals
+               #
+               for m in range(0,molecule['core']):
+                  #
                   if (inc == 0):
+                     #
                      s = 'DROP_MO='+str(list_drop[m])
+                  #
                   else:
+                     #
                      s += '-'+str(list_drop[m])
+                  #
                   inc += 1
             #
-            for m in range(nocc[0],nocc[0]+nvirt[0]):
+            for m in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
+               #
                if (list_drop[m] != 0):
+                  #
                   if (inc == 0):
+                     #
                      s = 'DROP_MO='+str(list_drop[m])
+                  #
                   else:
+                     #
                      s += '-'+str(list_drop[m])
+                  #
                   inc += 1
             #
-            if (len(n_tuples) >= order):
-               n_tuples[order-1] += 1
+            if (len(n_contrib) >= order):
+               #
+               n_contrib[order-1] += 1
+            #
             else:
-               n_tuples.append(1)
+               #
+               n_contrib.append(1)
             #
             drop_string.append(s+'\n')
          #
-         generate_drop_virt(i+1,order+1,final,nocc,core,nvirt,list_drop,drop_string,n_tuples,exp)
+         generate_drop_virt(i+1,order+1,final,molecule,list_drop,drop_string,n_contrib)
          #
          list_drop[i-1] = i
    #
-   return drop_string, n_tuples
+   return drop_string, n_contrib
 
-def screen_occ(nocc,list_excl):
+def screen_occ(molecule):
    #
    # screen away all interactions between orb 1 and any of the other orbs --- corresponds to a minor improvement over a frozen-core calculation
    #
-#   list_excl[0]   = []
-#   list_excl.append([1,0,0,0,0])
-#   list_excl.append([1,0,0,0,0])
-#   list_excl.append([1,0,0,0,0])
-#   list_excl.append([1,0,0,0,0])
+#   molecule['list_excl'][0]   = []
+#   molecule['list_excl'].append([1,0,0,0,0])
+#   molecule['list_excl'].append([1,0,0,0,0])
+#   molecule['list_excl'].append([1,0,0,0,0])
+#   molecule['list_excl'].append([1,0,0,0,0])
    #
    # screen away all interactions between orb 2 and any of the other orbs
    #
-   list_excl[0]   = [0,2,0,0,0]
-   list_excl.append([])
-   list_excl.append([0,2,0,0,0])
-   list_excl.append([0,2,0,0,0])
-   list_excl.append([0,2,0,0,0])
+   molecule['list_excl'][0]   = [0,2,0,0,0]
+   molecule['list_excl'].append([])
+   molecule['list_excl'].append([0,2,0,0,0])
+   molecule['list_excl'].append([0,2,0,0,0])
+   molecule['list_excl'].append([0,2,0,0,0])
    #
    # screen away interactions between orbs 1/2 and between orbs 4/5
    #
-#   list_excl[0]   = [0,2,0,0,0]
-#   list_excl.append([1,0,0,0,0])
-#   list_excl.append([0,0,0,0,0])
-#   list_excl.append([0,0,0,0,5])
-#   list_excl.append([0,0,0,4,0])
+#   molecule['list_excl'][0]   = [0,2,0,0,0]
+#   molecule['list_excl'].append([1,0,0,0,0])
+#   molecule['list_excl'].append([0,0,0,0,0])
+#   molecule['list_excl'].append([0,0,0,0,5])
+#   molecule['list_excl'].append([0,0,0,4,0])
    #
-   return list_excl
+   return molecule
 
-def orbs_incl(nocc,nvirt,string_excl,string_incl,exp):
+def orbs_incl(molecule,string_excl,string_incl,comb):
    #
    excl_list = []
    #
    sub_string = string_excl[8:] # remove the 'DROP_MO=' part of the string
    sub_list = sub_string.split("-") # remove all the hyphens
+   #
    for j in range(0,len(sub_list)):
+      #
       if (sub_list[j] != ''):
+         #
          excl_list.append(int(sub_list[j]))
    #
-   if ((exp == 1) or (exp == 3)):
-      for l in range(1,nocc[0]+1):
+   if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
+      #
+      for l in range(1,molecule['nocc']+1):
+         #
          if (not (l in excl_list)):
+            #
             string_incl.append(l)
-   elif (exp == 2):
-      for l in range(nocc[0]+1,nocc[0]+nvirt[0]+1):
+   #
+   elif ((molecule['exp'] == 'VIRT') or comb):
+      #
+      for l in range(molecule['nocc']+1,molecule['nocc']+molecule['nvirt']+1):
+         #
          if (not (l in excl_list)):
+            #
             string_incl.append(l)
    #
    return string_incl
@@ -895,139 +1338,165 @@ def orbs_incl(nocc,nvirt,string_excl,string_incl,exp):
 #   #
 #   return pre
 
-def inc_corr_order(k,n_tup,e_tup,e_inc):
+def inc_corr_order(k,n_contrib,e_contrib,e_fin):
    #
-   for j in range(0,n_tup[k-1]):
+   for j in range(0,n_contrib[k-1]):
       #
       for i in range(k-1,0,-1):
          #
-         for l in range(0,n_tup[i-1]):
+         for l in range(0,n_contrib[i-1]):
             #
-            if (set(e_tup[i-1][l][0]) < set(e_tup[k-1][j][0])):
+            if (set(e_contrib[i-1][l][0]) < set(e_contrib[k-1][j][0])):
                #
-               e_tup[k-1][j][1] -= e_tup[i-1][l][1]
+               e_contrib[k-1][j][1] -= e_contrib[i-1][l][1]
    #
    e_tmp = 0.0
    #
-   for j in range(0,n_tup[k-1]):
+   for j in range(0,n_contrib[k-1]):
       #
-      e_tmp += e_tup[k-1][j][1]
+      e_tmp += e_contrib[k-1][j][1]
    #
    if (k > 1):
-      e_tmp += e_inc[k-2]
+      #
+      e_tmp += e_fin[k-2]
    #
-   e_inc.append(e_tmp)
+   e_fin.append(e_tmp)
    #
-   return e_inc
+   return e_fin
 
-def inc_corr_chk_conv(order,thres,e_inc,conv):
+def inc_corr_chk_conv(order,thres,e_fin,conv):
    #
-   e_diff = e_inc[order-1] - e_inc[order-2]
+   e_diff = e_fin[order-1] - e_fin[order-2]
    #
    if (abs(e_diff) < thres):
-      conv[0] = True
+      #
+      conv = True
+   #
    else:
-      conv[0] = False
+      #
+      conv = False
    #
    return conv
 
-def inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local,screen):
+def ref_calc(molecule):
+   #
+   start = timer()
+   #
+   print(' STATUS:  Full reference calc.  started')
+   print(' --------------------------------------')
+   #
+   run_calc_corr(molecule,'',True)
+   #
+   molecule['time'].append(timer()-start)
+   #
+   print(' STATUS:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][-1]))
+   print(' ---------------------------------------------------------')
+   print('')
+   #
+   return molecule
+
+def inc_corr_summary(molecule):
    #
    print('')
    print(' *******************************')
    print(' ********    RESULTS    ********')
    print(' *******************************\n')
    #
-   if (exp[0] == 1):
-      print('   OCCUPIED expansion')
-   elif (exp[0] == 2):
-      print('   VIRTUAL expansion')
-   elif (exp[0] == 3):
-      print('   Combined OCCUPIED/VIRTUAL expansion')
+   print('   {0:} expansion'.format(molecule['exp']))
    #
    print('   -----------------------------')
-   print('   frozen core        =  {0:}'.format(core[0] > 0))
-   print('   local orbitals     =  {0:}'.format(local))
-   print('   occupied orbitals  =  {0:}'.format(nocc[0]-core[0]))
-   print('   virtual orbitals   =  {0:}'.format(nvirt[0]))
-   print('   screening (occ.)   =  {0:}'.format(screen[0]))
-   print('   screening (virt.)  =  {0:}'.format(screen[1]))
+   print('   frozen core        =  {0:}'.format(molecule['fc']))
+   print('   local orbitals     =  {0:}'.format(molecule['local']))
+   print('   occupied orbitals  =  {0:}'.format(molecule['nocc']-molecule['core']))
+   print('   virtual orbitals   =  {0:}'.format(molecule['nvirt']))
+   print('   screening (occ.)   =  {0:}'.format(molecule['screen'][0]))
+   print('   screening (virt.)  =  {0:}'.format(molecule['screen'][1]))
    #
-   if (thres[0] > 0.0):
-      print('   thres. (occ.)      =  {0:6.1e}'.format(thres[0]))
-   if (thres[1] > 0.0):
-      print('   thres. (virt.)     =  {0:6.1e}'.format(thres[1]))
-   if ((thres[0] == 0.0) and (thres[1] == 0.0)):
-      print('   conv. thres.       =  NONE')
+   if (molecule['exp_ctrl']):
+      #
+      if (molecule['thres'][0] > 0.0):
+         #
+         print('   thres. (occ.)      =  {0:6.1e}'.format(molecule['thres'][0]))
+      #
+      else:
+         #
+         print('   thres. (occ.)      =  N/A')
+      #
+      if (molecule['thres'][1] > 0.0):
+         #
+         print('   thres. (virt.)     =  {0:6.1e}'.format(molecule['thres'][1]))
+      #
+      else:
+         #
+         print('   thres. (virt.)     =  N/A')
    #
-   print('   inc.-corr. order   =  {0:}'.format(len(e_inc)))
+   else:
+      #
+      print('   thres. (occ.)      =  N/A')
+      print('   thres. (virt.)     =  N/A')
    #
-   if ((thres[0] > 0.0) or (thres[1] > 0.0)):
-      print('   convergence met    =  {0:}'.format(conv[0]))
+   print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'])))
    #
-   print('   error in calc.     =  {0:}'.format(error[0]))
+   if (molecule['exp_ctrl']):
+      #
+      print('   convergence met    =  {0:}'.format(molecule['conv']))
+   #
+   print('   error in calc.     =  {0:}'.format(molecule['error']))
    #
    print('')
    #
-   for i in range(0,len(e_inc)):
-      print('{0:4d} - # orb. tuples  =  {1:}'.format(i+1,n_tuples[i]))
+   for i in range(0,len(molecule['e_fin'])):
+      #
+      print('{0:4d} - # orb. tuples  =  {1:}'.format(i+1,molecule['n_contrib'][i]))
+   #
    print('   --------------------------------------------------------------')
    #
    total_time = 0.0
    #
-   for i in range(0,len(e_inc)):
+   for i in range(0,len(molecule['e_fin'])):
       #
-      total_time += time[i]
-      print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,e_inc[i],total_time))
+      total_time += molecule['time'][i]
+      print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,molecule['e_fin'][i],total_time))
    #
    print('   --------------------------------------------------------------')
    #
-   if (len(e_inc) >= 2):
+   if (len(molecule['e_fin']) >= 2):
       #
-      print('   final convergence  =  {0:9.4e}'.format(e_inc[-1]-e_inc[-2]))
+      print('   final convergence  =  {0:9.4e}'.format(molecule['e_fin'][-1]-molecule['e_fin'][-2]))
    #
-   if (ref[0] and (not error[0])):
+   if (molecule['ref'] and (not molecule['error'])):
       #
       print('   --------------------------------------------------------------')
       #
-      if ((exp[0] == 1) or (exp[0] == 3)):
-         print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(nocc[0]-core[0],e_ref[0],time[-1]))
-      elif (exp[0] == 2):
-         print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(nvirt[0],e_ref[0],time[-1]))
+      if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
+         #
+         print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(molecule['nocc']-molecule['core'],molecule['e_ref'],molecule['time'][-1]))
+      #
+      elif (molecule['exp'] == 'VIRT'):
+         #
+         print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(molecule['nvirt'],molecule['e_ref'],molecule['time'][-1]))
       #
       print('   --------------------------------------------------------------')
       #
-      print('   final difference   =  {0:9.4e}'.format(e_ref[0]-e_inc[-1]))
+      print('   final difference   =  {0:9.4e}'.format(molecule['e_ref']-molecule['e_fin'][-1]))
    #
    print('\n')
 
 class logger(object):
-    def __init__(self, filename="Default.log"):
-        self.terminal = sys.stdout
-        self.log = open(filename, "a")
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
+   #
+   def __init__(self, filename="default.log"):
+      #
+      self.terminal = sys.stdout
+      self.log = open(filename, "a")
+   #
+   def write(self, message):
+      #
+      self.terminal.write(message)
+      self.log.write(message)
 
 def main():
    #
-   parser = argparse.ArgumentParser(description='This is an CCSD/CISD/CCSDT/FCI inc.-corr. Python script (with CFOUR backend) written by Dr. Janus Juul Eriksen, JGU Mainz, Fall 2016')
-   parser.add_argument('--exp', help='type of expansion ("OCC", "VIRT", or "COMB")',required=True)
-   parser.add_argument('--model', help='electronic structure model ("CCSD", "CISD", "CCSDT", or "FCI")',required=True)
-   parser.add_argument('--basis', help='one-electron basis set (e.g., "cc-pVTZ")', required=True)
-   parser.add_argument('--mol', help='molecule ("H2O", "C2H2", "N2", "O2", "SiH4", "CO2", "C4H6", or "C6H6")', required=True)
-   parser.add_argument('--frozen', help='frozen-core logical ("True" or "False")', required=True)
-   parser.add_argument('--ref', help='reference calc. logical ("True" or "False")', required=True)
-   parser.add_argument('--mem', help='amount of virtual memory in GB (integer number)', required=True)
-   parser.add_argument('--scr', help='location of scratch folder', required=True)
-   parser.add_argument('--thres_occ', help='convergence threshold for occupied expansion (real number in scientific format, e.g., "1.0e-03")', required=False)
-   parser.add_argument('--thres_virt', help='convergence threshold for virtual expansion (real number in scientific format, e.g., "1.0e-03")', required=False)
-   parser.add_argument('--screen_occ', help='enable screening in the occupied expansion ("True" or "False")', required=False)
-   parser.add_argument('--order', help='inc.-corr. order (integer number)', required=False)
-   parser.add_argument('--bond', help='bond length parameter for PES generation (real number)', required=False)
-   parser.add_argument('--local', help='local orbitals logical ("True" or "False")', required=False)
-   args = parser.parse_args()
+   #  ---  redirect stdout to output.out - if present in wrk dir (alongside plotting output), delete these files before proceeding...  ---
    #
    if (os.path.isfile('output.out')):
       #
@@ -1041,225 +1510,64 @@ def main():
    #
    sys.stdout = logger('output.out')
    #
-   model = args.model
-   if (not ((model == 'CCSD') or (model == 'CISD') or (model == 'CCSDT') or (model == 'FCI'))):
-      print 'wrong choice of model (CCSD, CISD, CCSDT, or FCI), aborting ...'
-      sys.exit(10)
-   if (model == 'FCI'):
-      regex = '\s+Final Correlation Energy'
-   else:
-      regex = '\s+The correlation energy is'
+   #  ---  initialize the calculation...  ---
    #
-   exp_string = args.exp
-   if (not ((exp_string == 'OCC') or (exp_string == 'VIRT') or (exp_string == 'COMB'))):
-      print 'wrong choice of expansion type (OCC, VIRT, or COMB), aborting ...'
-      sys.exit(10)
-   exp = []
-   if ((exp_string == 'OCC')):
-      exp.append(1)
-   elif ((exp_string == 'VIRT')):
-      exp.append(2)
-   elif ((exp_string == 'COMB')):
-      exp.append(3)
+   molecule = {}
    #
-   basis = args.basis
-   #
-   mol_string = args.mol
-   #
-   fc_string = args.frozen
-   fc = []
-   if (fc_string == 'True'):
-      fc.append(True)
-   elif (fc_string == 'False'):
-      fc.append(False)
-   else:
-      print 'wrong input argument for frozen core (True/False), aborting ...'
-      sys.exit(10)   
-   #
-   ref_string = args.ref
-   ref = []
-   if (ref_string == 'True'):
-      ref.append(True)
-   elif (ref_string == 'False'):
-      ref.append(False)
-   else:
-      print 'wrong input argument for reference calc (True/False), aborting ...'
-      sys.exit(10)
-   #
-   mem = args.mem
-   #
-   scr_dir = args.scr
-   wrk_dir = os.getcwd()
-   #
-   exp_ctrl = False
-   thres = []
-   if ((args.thres_occ is None) and (args.thres_virt is None) and (args.order is None)):
-      print 'either the convergence threshold(s) (--thres_occ/--thres_virt) OR the inc.-corr. order (--order) must be set, aborting ...'
-      sys.exit(10)
-   elif (args.order is None):
-      exp_ctrl = True
-      order = 0
-      if (args.thres_occ is None):
-         thres.append(0.0)
-         thres.append(float(args.thres_virt))
-         if (exp[0] == 3):
-            print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
-            sys.exit(10)
-      elif (args.thres_virt is None):
-         thres.append(float(args.thres_occ))
-         thres.append(0.0)
-         if (exp[0] == 3):
-            print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
-            sys.exit(10)
-      else:
-         thres.append(float(args.thres_occ))
-         thres.append(float(args.thres_virt))
-   elif ((args.thres_occ is None) and (args.thres_virt is None)):
-      order = int(args.order)
-      thres.append(0.0)
-      thres.append(0.0)
-      if (exp[0] == 3):
-         print('expansion scheme "COMB" is currently not implemented for fixed order expansion, aborting ...')
-         sys.exit(10)
-   #
-   bond = []
-   if (args.bond is None):
-      bond.append(0.0)
-   else:
-      bond.append(float(args.bond))
-   #
-   local = []
-   if (args.local is None):
-      local.append(False)
-   else:
-      local.append(args.local)
-   if (fc[0] and local[0]):
-      print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
-      sys.exit(10)
+   init_calc(molecule)
    #
    print('\n')
-   print(' ** START INC.-CORR. ('+model+') CALCULATION **\n')
+   print(' ** START INC.-CORR. ('+molecule['model']+') CALCULATION **\n')
    #
-   error = []
-   error.append(False)
-   # 
-   mol = []
-   core = []
-   mult = []
+   #  ---  setup of scratch directory...  ---
    #
-   init_zmat(mol_string,bond,mol,fc[0],core,mult)
+   setup_calc(molecule)
    #
-   mk_scr_dir(scr_dir)
+   #  ---  run HF calc to determine problem size parameters...  ---
    #
-   cd_dir(scr_dir)
+   run_calc_hf(molecule)
    #
-   prepare_calc()
+   #  ---  run a few sanity checks...  ---
    #
-   nocc = []
-   nvirt = []
+   sanity_chk(molecule)
    #
-   run_calc_hf(mult,basis,mol,nocc,nvirt,error,mem)
+   #  ---  initialize (potential) screening...  ---
    #
-   if (exp[0] == 1):
-      if (order >= (nocc[0] - core[0])):
-         print 'wrong input argument for total order (must be .lt. number of available occupied orbitals), aborting ...'
-         #
-         cd_dir(wrk_dir)
-         #
-         rm_scr_dir(scr_dir)
-         #
-         sys.exit(10)
+   init_screen(molecule)
    #
-   elif (exp[0] == 2):
-      if (order >= nvirt[0]):
-         print 'wrong input argument for total order (must be .lt. number of virtual orbitals), aborting ...'
-         #
-         cd_dir(wrk_dir)
-         #
-         rm_scr_dir(scr_dir)
-         #
-         sys.exit(10)
+   #  ---  initialization done - start the calculation...  ---
    #
-   n_tuples = []
-   list_drop = []
-   time = []
-   energy = []
-   for _ in range(0,2):
-      energy.append(0.0)   
-   e_inc = []
-   conv = []
-   conv.append(False)
+   if (molecule['exp_ctrl']):
+      #
+      inc_corr_tuple_thres(molecule)
    #
-   if ((exp[0] == 1) or (exp[0] == 3)):
-      for _ in range(0,nocc[0]):
-         time.append(0.0)
-   elif (exp[0] == 2):
-      for _ in range(0,nvirt[0]):
-         time.append(0.0)
-   #
-   for i in range(0,nocc[0]+nvirt[0]):
-      list_drop.append(i+1)
-   if (exp[0] == 1):
-      for i in range(nocc[0],nocc[0]+nvirt[0]):
-         list_drop[i] = 0
-   elif (exp[0] == 2):
-      for i in range(core[0],nocc[0]):
-         list_drop[i] = 0
-   #
-   screen = []
-   for _ in range(0,2):
-      screen.append(False)
-   #
-   if (args.screen_occ):
-      list_excl = [[]]
-      screen_occ(nocc,list_excl)
-      screen[0] = True
-#   elif (args.screen_virt):
-#      list_excl = [[]]
-#      screen_virt(nocc,nvirt,list_excl)
-#      screen[1] = True
    else:
-      list_excl = []
-   #
-   if (exp_ctrl):
-      inc_corr_tuple_thres(mol_string,nocc,nvirt,core,thres,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,energy,e_inc,conv,error,mem,local[0])
-   else:
-      inc_corr_tuple_order(mol_string,nocc,nvirt,core,order,mult,fc,exp,model,basis,regex,mol,list_drop,list_excl,n_tuples,time,energy,e_inc,conv,error,mem,local[0])
-   #
-   if (ref[0] and (not error[0])):
       #
-      start = timer()
+      inc_corr_tuple_order(molecule)
+   #
+   #  ---  start (potential) reference calculation...  ---
+   #
+   if (molecule['ref'] and (not molecule['error'])):
       #
-      print(' STATUS:  Full reference calc.  started')
-      print(' --------------------------------------')
+      ref_calc(molecule)
+   #
+   #  ---  clean up...  ---
+   #
+   term_calc(molecule)
+   #
+   #  ---  print summary of the calculation  ---
+   #
+   inc_corr_summary(molecule)
+   #
+   #  ---  plot the results of the calculation  ---
+   #
+   if (not molecule['error']):
       #
-      run_calc_corr(nocc,mult,fc[0],model,basis,regex,mol,'',energy,error,True,mem,local[0])
-      #
-      e_ref = []
-      e_ref.append(energy[1])
-      #
-      time.append(timer()-start)
-      #
-      print(' STATUS:  Full reference calc.  done in {0:10.2e} seconds'.format(time[-1]))
-      print(' ---------------------------------------------------------')
-      print('')
+      inc_corr_plot.ic_plot(molecule)
    #
-   cd_dir(wrk_dir)
+   #  ---  calculation done - terminating...  ---
    #
-   if (error[0]):
-      save_err_out(scr_dir)
-   #
-   rm_scr_dir(scr_dir)
-   #
-   inc_corr_summary(nocc,nvirt,core,exp,thres,order,n_tuples,time,e_inc,e_ref,conv,ref,error,local[0],screen)
-   #
-   if (not error[0]):
-      if ((exp[0] == 1) or (exp[0] == 3)):
-         inc_corr_plot.ic_plot(mol_string,nocc,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref,(ref[0] and (not error[0])),local[0])
-      elif (exp[0] == 2):
-         inc_corr_plot.ic_plot(mol_string,nvirt,core,exp,thres,order,n_tuples,model,basis,e_inc,e_ref,(ref[0] and (not error[0])),local[0])
-   #
-   print(' ** END OF INC.-CORR. ('+model+') CALCULATION **\n')
+   print(' ** END OF INC.-CORR. ('+molecule['model']+') CALCULATION **\n')
    print('\n')
 
 if __name__ == '__main__':
