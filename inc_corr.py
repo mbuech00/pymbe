@@ -1440,6 +1440,9 @@ def inc_corr_summary(molecule):
    if (molecule['exp_ctrl']):
       #
       print('   convergence met    =  {0:}'.format(molecule['conv']))
+   else:
+      #
+      print('   convergence met    =  N/A')
    #
    print('   error in calc.     =  {0:}'.format(molecule['error']))
    #
