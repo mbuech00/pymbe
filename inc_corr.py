@@ -83,32 +83,144 @@ def term_calc(molecule):
    #
    return
 
-def init_calc(molecule):
+def init_mol(molecule):
    #
-   parser = argparse.ArgumentParser(description='This is an CCSD/CISD/CCSDT/FCI inc.-corr. Python script (with CFOUR backend) written by Dr. Janus Juul Eriksen, JGU Mainz, Fall 2016')
-   parser.add_argument('--exp', help='type of expansion ("OCC", "VIRT", or "COMB")',required=True)
-   parser.add_argument('--model', help='electronic structure model ("CCSD", "CISD", "CCSDT", or "FCI")',required=True)
-   parser.add_argument('--basis', help='one-electron basis set (e.g., "cc-pVTZ")', required=True)
-   parser.add_argument('--mol', help='molecule ("H2O", "C2H2", "N2", "O2", "SiH4", "CO2", "C4H6", or "C6H6")', required=True)
-   parser.add_argument('--frozen', help='frozen-core logical ("True" or "False")', required=True)
-   parser.add_argument('--ref', help='reference calc. logical ("True" or "False")', required=True)
-   parser.add_argument('--mem', help='amount of virtual memory in GB (integer number)', required=True)
-   parser.add_argument('--scr', help='location of scratch folder', required=True)
-   parser.add_argument('--thres_occ', help='convergence threshold for occupied expansion (real number in scientific format, e.g., "1.0e-03")', required=False)
-   parser.add_argument('--thres_virt', help='convergence threshold for virtual expansion (real number in scientific format, e.g., "1.0e-03")', required=False)
-   parser.add_argument('--screen_occ', help='enable screening in the occupied expansion ("True" or "False")', required=False)
-   parser.add_argument('--screen_virt', help='enable screening in the virtual expansion ("True" or "False")', required=False)
-   parser.add_argument('--order', help='inc.-corr. order (integer number)', required=False)
-   parser.add_argument('--bond', help='bond length parameter for PES generation (real number)', required=False)
-   parser.add_argument('--local', help='local orbitals logical ("True" or "False")', required=False)
-   args = parser.parse_args()
-   #
-   molecule['model'] = args.model
-   #
-   if (not ((molecule['model'] == 'CCSD') or (molecule['model'] == 'CISD') or (molecule['model'] == 'CCSDT') or (molecule['model'] == 'FCI'))):
+   if (not os.path.isfile('input-mol.inp')):
       #
-      print 'wrong choice of model (CCSD, CISD, CCSDT, or FCI), aborting ...'
+      print('input-mol.inp not found, aborting ...')
       sys.exit(10)
+   #
+   else:
+      #
+      with open('input-mol.inp') as f:
+         #
+         content = f.readlines()
+         #
+         for i in range(0,len(content)-2):
+            #
+            if (i == 0):
+               #
+               molecule['mol'] = str(content[i])
+            else:
+               #
+               molecule['mol'] += str(content[i])
+         #
+         for j in range(1,3):
+            #
+            molecule[content[-j].split()[0]] = int(content[-j].split()[1])
+   #
+   chk = ['mult','core','mol']
+   #
+   for k in range(0,len(chk)-1):
+      #
+      if (not (chk[k] in molecule.keys())):
+         #
+         print('any of '+str(chk[0:2])+' keywords missing in input-mol.inp, aborting ...')
+         sys.exit(10)
+   #
+   if (molecule['core'] > 0):
+      #
+      molecule['fc'] = True
+   #
+   else:
+      #
+      molecule['fc'] = False
+   #
+   return molecule
+
+def init_param(molecule):
+   #
+   if (not os.path.isfile('input-param.inp')):
+      #
+      print('input-param.inp not found, aborting ...')
+      sys.exit(10)
+   #
+   else:
+      #
+      with open('input-param.inp') as f:
+         #
+         content = f.readlines()
+         #
+         for i in range(0,len(content)):
+            #
+            if (content[i].split()[0] == 'scr'):
+               #
+               molecule['scr'] = content[i].split()[1]
+            #
+            elif (content[i].split()[0] == 'exp'):
+               #
+               molecule['exp'] = content[i].split()[1]
+            #
+            elif (content[i].split()[0] == 'model'):
+               #
+               molecule['model'] = content[i].split()[1]
+            #
+            elif (content[i].split()[0] == 'basis'):
+               #
+               molecule['basis'] = content[i].split()[1]
+            #
+            elif (content[i].split()[0] == 'ref'):
+               #
+               molecule['ref'] = (content[i].split()[1] == 'True')
+            #
+            elif (content[i].split()[0] == 'local'):
+               #
+               molecule['local'] = (content[i].split()[1] == 'True')
+            #
+            elif (content[i].split()[0] == 'mem'):
+               #
+               molecule['mem'] = int(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'thres_occ'):
+               #
+               thres_occ = float(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'thres_virt'):
+               #
+               thres_virt = float(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'order'):
+               #
+               molecule['order'] = int(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'screen_occ'):
+               #
+               screen_occ = (content[i].split()[1] == 'True')
+            #
+            elif (content[i].split()[0] == 'screen_virt'):
+               #
+               screen_virt = (content[i].split()[1] == 'True')
+            #
+            else:
+               #
+               print(str(content[i].split()[1])+' keyword in input-param.inp not recognized, aborting ...')
+               sys.exit(10)
+   #
+   molecule['thres'] = [thres_occ,thres_virt]
+   #
+   molecule['screen'] = [screen_occ,screen_virt]
+   #
+   chk = ['mol','core','fc','mult','scr','exp','model','basis','ref','local','mem','thres','order','screen']
+   #
+   inc = 0
+   #
+   for k in range(0,len(chk)):
+      #
+      if (not (chk[k] in molecule.keys())):
+         #
+         print(str(chk[k])+' keyword missing in either input-mol.inp or input-param.inp, aborting ...')
+   #
+   if (inc > 0):
+      #
+      sys.exit(10)
+   #
+   if ((molecule['thres'][0] > 0.0) or (molecule['thres'][1] > 0.0)):
+      #
+      molecule['exp_ctrl'] = True
+   #
+   else:
+      #
+      molecule['exp_ctrl'] = False
    #
    if (molecule['model'] == 'FCI'):
       #
@@ -118,112 +230,19 @@ def init_calc(molecule):
       #
       molecule['regex'] = '\s+The correlation energy is'
    #
-   molecule['exp'] = args.exp
-   #
-   if (not ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'VIRT') or (molecule['exp'] == 'COMB'))):
-      #
-      print 'wrong choice of expansion type (OCC, VIRT, or COMB), aborting ...'
-      sys.exit(10)
-   #
-   molecule['basis'] = args.basis
-   #
-   molecule['mol_string'] = args.mol
-   #
-   molecule['fc'] = (args.frozen == 'True')
-   #
-   if ((args.frozen != 'True') and (args.frozen != 'False')):
-      #
-      print 'wrong input argument for frozen core (True/False), aborting ...'
-      sys.exit(10)
-   #
-   molecule['ref'] = (args.ref == 'True')
-   #
-   if ((args.ref != 'True') and (args.ref != 'False')):
-      #
-      print 'wrong input argument for reference calc (True/False), aborting ...'
-      sys.exit(10)
-   #
-   molecule['mem'] = args.mem
-   #
-   molecule['scr'] = args.scr
+   return molecule
+
+def init_calc(molecule):
    #
    molecule['wrk'] = os.getcwd()
    #
-   molecule['exp_ctrl'] = False
-   #
-   if ((args.thres_occ is None) and (args.thres_virt is None) and (args.order is None)):
-      #
-      print 'either the convergence threshold(s) (--thres_occ/--thres_virt) OR the inc.-corr. order (--order) must be set, aborting ...'
-      sys.exit(10)
-   #
-   elif (args.order is None):
-      #
-      molecule['exp_ctrl'] = True
-      molecule['order'] = 0
-      #
-      if (args.thres_occ is None):
-         #
-         molecule['thres'] = [0.0,float(args.thres_virt)]
-         #
-         if (molecule['exp'] == 'COMB'):
-            #
-            print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
-            sys.exit(10)
-      #
-      elif (args.thres_virt is None):
-         #
-         molecule['thres'] = [float(args.thres_occ),0.0]
-         #
-         if (molecule['exp'] == 'COMB'):
-            #
-            print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
-            sys.exit(10)
-      #
-      else:
-         #
-         molecule['thres'] = [float(args.thres_occ),float(args.thres_virt)]
-   #
-   elif ((args.thres_occ is None) and (args.thres_virt is None)):
-      #
-      molecule['order'] = int(args.order)
-      #
-      if (molecule['exp'] == 'COMB'):
-         #
-         print('expansion scheme "COMB" is currently not implemented for fixed order expansion, aborting ...')
-         sys.exit(10)
-   #
-   if (args.local is None):
-      #
-      molecule['local'] = False
-   #
-   else:
-      #
-      molecule['local'] = (args.local == 'True')
-   #
-   if (molecule['fc'] and molecule['local']):
-      #
-      print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
-      sys.exit(10)
-   #
-   if ((args.screen_occ == 'True') and (args.screen_virt is None)):
-      #
-      molecule['screen'] = [True,False]
-   #
-   elif ((args.screen_virt == 'True') and (args.screen_occ is None)):
-      #
-      molecule['screen'] = [False,True]
-   #
-   elif ((args.screen_virt == 'True') and (args.screen_occ == 'True')):
-      #
-      molecule['screen'] = [True,True]
-   #
-   else:
-      #
-      molecule['screen'] = [False,False]
-   #
    molecule['error'] = False
    #
-   init_zmat(molecule)
+   molecule['conv'] = False
+   #
+   init_mol(molecule)
+   #
+   init_param(molecule)
    #
    return molecule
 
@@ -234,20 +253,37 @@ def sanity_chk(molecule):
       if (molecule['order'] >= (molecule['nocc'] - molecule['core'])):
          #
          print 'wrong input argument for total order (must be .lt. number of available occupied orbitals), aborting ...'
-         #
-         cd_dir(molecule['wrk'])
-         rm_scr_dir(molecule['scr'])
-         sys.exit(10)
+         molecule['error'] = True
    #
    elif (molecule['exp'] == 'VIRT'):
       #
-      if (order >= nvirt[0]):
+      if (order >= molecule['nvirt']):
          #
          print 'wrong input argument for total order (must be .lt. number of virtual orbitals), aborting ...'
+         molecule['error'] = True
+   #
+   elif (molecule['exp'] == 'COMB'):
+      #
+      if ((molecule['thres'][0] == 0.0) or (molecule['thres'][1] == 0.0)):
          #
-         cd_dir(molecule['wrk'])
-         rm_scr_dir(molecule['scr'])
-         sys.exit(10)
+         print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
+         molecule['error'] = True
+      #
+      if (not molecule['exp_ctrl']):
+         #
+         print('expansion scheme "COMB" is currently not implemented for fixed order expansion, aborting ...')
+         molecule['error'] = True
+   #
+   if (molecule['fc'] and molecule['local']):
+      #
+      print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
+      molecule['error'] = True
+   #
+   if (molecule['error']):
+      #
+      cd_dir(molecule['wrk'])
+      rm_scr_dir(molecule['scr'])
+      sys.exit(10)
    #
    return molecule
 
@@ -328,7 +364,7 @@ def write_zmat_hf(molecule):
    #
    out.write('BASIS='+molecule['basis']+'\n')
    #
-   out.write('MEMORY='+molecule['mem']+'\n')
+   out.write('MEMORY='+str(molecule['mem'])+'\n')
    out.write('MEM_UNIT=GB)\n')
    #
    out.write('\n')
@@ -383,208 +419,14 @@ def write_zmat_corr(molecule,drop_string,ref):
    #
    out.write('BASIS='+molecule['basis']+'\n')
    #
-   out.write('MEMORY='+molecule['mem']+'\n')
+   out.write('MEMORY='+str(molecule['mem'])+'\n')
    out.write('MEM_UNIT=GB)\n')
    #
    out.write('\n')
    #
    out.close()
-
-def init_zmat(molecule):
    #
-   if (molecule['mol_string'] == 'H2O'):
-      #
-      s = 'ZMAT file for H2O\n'
-      s += 'H\n'
-      s += 'O 1 ROH\n'
-      s += 'H 2 ROH 1 AHOH\n'
-      s += '\n'
-      s += 'ROH = 0.957\n'
-      s += 'AHOH = 104.2\n'
-      s += '\n'
-      #
-      molecule['mol'] = s
-      #
-      molecule['mult'] = 1
-      #
-      if (molecule['fc']):
-         #
-         molecule['core'] = 1
-      #
-      else:
-         #
-         molecule['core'] = 0
-#   elif (mol_string == 'C2H2'):
-#      s = 'ZMAT file for acetylene\n'
-#      s += 'C\n'
-#      s += 'C 1 RCC\n'
-#      s += 'X 1 RX 2 A90\n'
-#      s += 'H 1 RCH 3 A90 2 A180\n'
-#      s += 'X 2 RX 1 A90 3 A180\n'
-#      s += 'H 2 RCH 5 A90 1 A180\n'
-#      s += '\n'
-#      s += 'RCH = 1.08\n'
-#      s += 'RX = 1.0\n'
-#      if (bond[0] != 0.0):
-#         s += 'RCC = '+str(bond[0])+'\n'
-#      else:
-#         s += 'RCC = 1.2\n'
-#      s += 'A90 = 90.\n'
-#      s += 'A180 = 180.\n'
-#      s += '\n'
-#      mol.append(s)
-#      #
-#      mult.append(1)
-#      if (frozen):
-#         core.append(2)
-#      else:
-#         core.append(0)
-#   elif (mol_string == 'N2'):
-#      s = 'ZMAT file for nitrogen (N2)\n'
-#      s += 'N\n'
-#      s += 'N 1 RNN\n'
-#      s += '\n'
-#      if (bond[0] != 0.0):
-#         s += 'RNN = '+str(bond[0])+'\n'
-#      else:
-#         s += 'RNN = 1.098\n'
-#      s += '\n'
-#      mol.append(s)
-#      #
-#      mult.append(1)
-#      if (frozen):
-#         core.append(2)
-#      else:
-#         core.append(0)
-#   elif (mol_string == 'O2'):
-#      s = 'ZMAT file for (triplet) oxygen (O2)\n'
-#      s += 'O\n'
-#      s += 'O 1 ROO\n'
-#      s += '\n'
-#      if (bond[0] != 0.0):
-#         s += 'ROO = '+str(bond[0])+'\n'
-#      else:
-#         s += 'ROO = 1.205771156354447\n'
-#      s += '\n'
-#      mol.append(s)
-#      #
-#      mult.append(3)
-#      if (frozen):
-#         core.append(2)
-#      else:
-#         core.append(0)
-#   elif (mol_string == 'SiH4'):
-#      s = 'ZMAT file for silane\n'
-#      s += 'Si\n'
-#      s += 'H 1 R\n'
-#      s += 'H 1 R 2 TDA\n'
-#      s += 'H 1 R 2 TDA 3 D120\n'
-#      s += 'H 1 R 2 TDA 4 D120\n'
-#      s += '\n'
-#      if (bond[0] != 0.0):
-#         s += 'R = '+str(bond[0])+'\n'
-#      else:
-#         s += 'R = 1.48598655\n'
-#      s += 'TDA = 109.471221\n'
-#      s += 'D120 = 120.\n'
-#      s += '\n'
-#      mol.append(s)
-#      #
-#      mult.append(1)
-#      if (frozen):
-#         core.append(5)
-#      else:
-#         core.append(0)
-#   elif (mol_string == 'CO2'):
-#      s = 'ZMAT file for carbon dioxide\n'
-#      s += 'C\n'
-#      s += 'X 1 RCX\n'
-#      s += 'O 1 RCO 2 A90\n'
-#      s += 'O 1 RCO 2 A90 3 A180\n'
-#      s += '\n'
-#      s += 'RCX=1.0\n'
-#      if (bond[0] != 0.0):
-#         s += 'RCO = '+str(bond[0])+'\n'
-#      else:
-#         s += 'RCO = 1.16\n'
-#      s += 'A90 = 90.0\n'
-#      s += 'A180 = 180.0\n'
-#      s += '\n'
-#      mol.append(s)
-#      #
-#      mult.append(1)
-#      if (frozen):
-#         core.append(3)
-#      else:
-#         core.append(0)
-#   elif (mol_string == 'C4H6'):
-#      s = 'ZMAT file for trans-1,3-butadiene\n'
-#      s += 'C\n'
-#      s += 'C 1 CDC\n'
-#      s += 'C 2 CSC 1 CCC\n'
-#      s += 'C 3 CDC 2 CCC 1 A180\n'
-#      s += 'H 1 CH1 2 CC1 3 A180\n'
-#      s += 'H 1 CH2 2 CC2 3 A0\n'
-#      s += 'H 2 CH3 1 CC3 3 A180\n'
-#      s += 'H 3 CH3 4 CC3 2 A180\n'
-#      s += 'H 4 CH2 3 CC2 2 A0\n'
-#      s += 'H 4 CH1 3 CC1 2 A180\n'
-#      s += '\n'
-#      s += 'CDC = 1.34054111\n' 
-#      s += 'CSC = 1.45747113\n'
-#      s += 'CH1 = 1.08576026\n'
-#      s += 'CH2 = 1.08793795\n'
-#      s += 'CH3 = 1.09045613\n'
-#      s += 'CCC = 124.31048212\n' 
-#      s += 'CC1 = 121.82705922\n'
-#      s += 'CC2 = 121.53880082\n'
-#      s += 'CC3 = 119.43908311\n'
-#      s += 'A0 = 0.0\n'
-#      s += 'A180 = 180.0\n'
-#      s += '\n'
-#      mol.append(s)
-#      #
-#      mult.append(1)
-#      if (frozen):
-#         core.append(4)
-#      else:
-#         core.append(0)
-#   elif (mol_string == 'C6H6'):
-#      s = 'ZMAT file for benzene\n'
-#      s += 'X\n'
-#      s += 'C 1 RCC\n'
-#      s += 'C 1 RCC 2 A60\n'
-#      s += 'C 1 RCC 3 A60 2 D180\n' 
-#      s += 'C 1 RCC 4 A60 3 D180\n'
-#      s += 'C 1 RCC 5 A60 4 D180\n'
-#      s += 'C 1 RCC 6 A60 5 D180\n'
-#      s += 'H 1 RXH 2 A60 7 D180\n'
-#      s += 'H 1 RXH 3 A60 2 D180\n'
-#      s += 'H 1 RXH 4 A60 3 D180\n'
-#      s += 'H 1 RXH 5 A60 4 D180\n'
-#      s += 'H 1 RXH 6 A60 5 D180\n'
-#      s += 'H 1 RXH 7 A60 6 D180\n'
-#      s += '\n'
-#      s += 'A60 = 60.0\n'
-#      s += 'D180 = 180.0\n'
-#      if (bond[0] != 0.0):
-#         s += 'RCC = '+str(bond[0])+'\n'
-#      else:
-#         s += 'RCC = 1.3914\n'
-#      s += 'RXH = 2.4716\n'
-#      s += '\n'
-#      mol.append(s)
-#      #
-#      mult.append(1)
-#      if (frozen):
-#         core.append(6)
-#      else:
-#         core.append(0) 
-#   else:
-#      print('molecular input not recognized, aborting ...')
-#      sys.exit(10)
-   #
-   return molecule
+   return
 
 def get_dim(molecule):
    #
