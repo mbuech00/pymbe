@@ -2,7 +2,7 @@
 
 #
 # python driver for inc.-corr. calculations using CFOUR as backend program.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), August 2016, Mainz, Germnay.
+# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
 # Requires the path of the cfour basis GENBAS file ($CFOURBASIS) and bin directory ($CFOURBIN)
 #
@@ -273,6 +273,16 @@ def sanity_chk(molecule):
          #
          print('expansion scheme "COMB" is currently not implemented for fixed order expansion, aborting ...')
          molecule['error'] = True
+   #
+   if ((molecule['order'] > 0) and molecule['exp_ctrl']):
+      #
+      print('fixed order expansion requested, but expansion thresholds provided, aborting ...')
+      molecule['error'] = True
+   #
+   if ((molecule['order'] == 0) and (not molecule['exp_ctrl'])):
+      #
+      print('neither fixed order nor threshold-governed expansion requested, aborting ...')
+      molecule['error'] = True
    #
    if (molecule['fc'] and molecule['local']):
       #
@@ -1258,7 +1268,13 @@ def inc_corr_summary(molecule):
       #
       if (molecule['thres'][0] > 0.0):
          #
-         print('   thres. (occ.)      =  {0:6.1e}'.format(molecule['thres'][0]))
+         if (molecule['exp'] == 'VIRT'):
+            #
+            print('   thres. (occ.)      =  N/A')
+         #
+         else:
+            #
+            print('   thres. (occ.)      =  {0:6.1e}'.format(molecule['thres'][0]))
       #
       else:
          #
@@ -1266,7 +1282,13 @@ def inc_corr_summary(molecule):
       #
       if (molecule['thres'][1] > 0.0):
          #
-         print('   thres. (virt.)     =  {0:6.1e}'.format(molecule['thres'][1]))
+         if (molecule['exp'] == 'OCC'):
+            #
+            print('   thres. (virt.)     =  N/A')
+         #
+         else:
+            #
+            print('   thres. (virt.)     =  {0:6.1e}'.format(molecule['thres'][1]))
       #
       else:
          #
