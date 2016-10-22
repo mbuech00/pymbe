@@ -24,6 +24,24 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 CFOUR_BASIS='$CFOURBASIS'
 CFOUR_BIN='$CFOURBIN'
 
+def redirect_stdout(molecule):
+   #
+   molecule['wrk'] = os.getcwd()
+   #
+   if (os.path.isfile(molecule['wrk']+'/output.out')):
+      #
+      command='rm '+molecule['wrk']+'/output.out'
+      os.system(command)
+   #
+   if (os.path.isfile(molecule['wrk']+'/output.pdf')):
+      #
+      command='rm '+molecule['wrk']+'/output.pdf'
+      os.system(command)
+   #
+   sys.stdout = logger(molecule['wrk']+'/output.out')
+   #
+   return molecule
+
 def mk_scr_dir(directive):
    #
    command='mkdir '+directive
@@ -80,6 +98,9 @@ def term_calc(molecule):
       save_err_out(molecule['scr'])
    #
    rm_scr_dir(molecule['scr'])
+   #
+   print(' ** END OF INC.-CORR. ('+molecule['model']+') CALCULATION **\n')
+   print('\n')
    #
    return
 
@@ -234,8 +255,6 @@ def init_param(molecule):
 
 def init_calc(molecule):
    #
-   molecule['wrk'] = os.getcwd()
-   #
    molecule['error'] = False
    #
    molecule['conv'] = False
@@ -243,6 +262,9 @@ def init_calc(molecule):
    init_mol(molecule)
    #
    init_param(molecule)
+   #
+   print('\n')
+   print(' ** START INC.-CORR. ('+molecule['model']+') CALCULATION **\n')
    #
    return molecule
 
@@ -1363,28 +1385,17 @@ class logger(object):
 
 def main():
    #
-   #  ---  redirect stdout to output.out - if present in wrk dir (alongside plotting output), delete these files before proceeding...  ---
-   #
-   if (os.path.isfile('output.out')):
-      #
-      command='rm output.out'
-      os.system(command)
-   #
-   if (os.path.isfile('output.pdf')):
-      #
-      command='rm output.pdf'
-      os.system(command)
-   #
-   sys.stdout = logger('output.out')
-   #
-   #  ---  initialize the calculation...  ---
+   #  ---  init molecule dictionary... ---
    #
    molecule = {}
    #
-   init_calc(molecule)
+   #  ---  redirect stdout to output.out - if present in wrk dir (alongside plotting output), delete these files before proceeding...  ---
    #
-   print('\n')
-   print(' ** START INC.-CORR. ('+molecule['model']+') CALCULATION **\n')
+   redirect_stdout(molecule)
+   #
+   #  ---  initialize the calculation...  ---
+   #
+   init_calc(molecule)
    #
    #  ---  setup of scratch directory...  ---
    #
@@ -1418,10 +1429,6 @@ def main():
       #
       ref_calc(molecule)
    #
-   #  ---  clean up...  ---
-   #
-   term_calc(molecule)
-   #
    #  ---  print summary of the calculation  ---
    #
    inc_corr_summary(molecule)
@@ -1432,10 +1439,10 @@ def main():
       #
       inc_corr_plot.ic_plot(molecule)
    #
-   #  ---  calculation done - terminating...  ---
+   #  ---  terminate calculation and clean up...  ---
    #
-   print(' ** END OF INC.-CORR. ('+molecule['model']+') CALCULATION **\n')
-   print('\n')
+   term_calc(molecule)
+   #
 
 if __name__ == '__main__':
    #

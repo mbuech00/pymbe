@@ -2,7 +2,7 @@
 
 #
 # python plotting program for inc.-corr. calculations 
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), August 2016, Mainz, Germnay.
+# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
 
 import sys
@@ -166,5 +166,6 @@ def ic_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig('output.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output.pdf', bbox_inches = 'tight', dpi=1000)
+   #
 
