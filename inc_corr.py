@@ -995,7 +995,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
                #
                if (not molecule['list_excl'][i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                   #
-                  continue
+                  list_drop[i-1] = i
                #
                else:
                   #
