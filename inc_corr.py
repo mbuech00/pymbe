@@ -1000,10 +1000,9 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
                else:
                   #
                   list_drop[i-1] = 0 # attempt to correlate orbital 'i'
-                  idx = [j for j, val in enumerate(list_drop) if val == 0] # make list containing indices with zeros in list_drop
-                  idx_2 = [j for j, val in enumerate(molecule['list_excl'][i-1]) if val != 0] # make list containing indices with non-zeros in list_excl
+                  idx = [j+1 for j, val in enumerate(list_drop) if val == 0] # make list containing indices (+1) with zeros in list_drop
                   #
-                  if ((set(idx) > set(idx_2)) and (len(idx_2) > 0)): # check whether idx_2 is a subset of idx
+                  if (set(idx) > set(molecule['list_excl'][i-1])): # check whether molecule['list_excl'][i-1] is a subset of idx
                      #
                      list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
          #
@@ -1139,26 +1138,26 @@ def screen_occ(molecule):
    # screen away all interactions between orb 1 and any of the other orbs --- corresponds to a minor improvement over a frozen-core calculation
    #
 #   molecule['list_excl'][0]   = []
-#   molecule['list_excl'].append([1,0,0,0,0])
-#   molecule['list_excl'].append([1,0,0,0,0])
-#   molecule['list_excl'].append([1,0,0,0,0])
-#   molecule['list_excl'].append([1,0,0,0,0])
+#   molecule['list_excl'].append([1])
+#   molecule['list_excl'].append([1])
+#   molecule['list_excl'].append([1])
+#   molecule['list_excl'].append([1])
    #
    # screen away all interactions between orb 2 and any of the other orbs
    #
-   molecule['list_excl'][0]   = [0,2,0,0,0]
-   molecule['list_excl'].append([])
-   molecule['list_excl'].append([0,2,0,0,0])
-   molecule['list_excl'].append([0,2,0,0,0])
-   molecule['list_excl'].append([0,2,0,0,0])
+#   molecule['list_excl'][0]   = [2]
+#   molecule['list_excl'].append([])
+#   molecule['list_excl'].append([2])
+#   molecule['list_excl'].append([2])
+#   molecule['list_excl'].append([2])
    #
    # screen away interactions between orbs 1/2 and between orbs 4/5
    #
-#   molecule['list_excl'][0]   = [0,2,0,0,0]
-#   molecule['list_excl'].append([1,0,0,0,0])
-#   molecule['list_excl'].append([0,0,0,0,0])
-#   molecule['list_excl'].append([0,0,0,0,5])
-#   molecule['list_excl'].append([0,0,0,4,0])
+   molecule['list_excl'][0]   = [2]
+   molecule['list_excl'].append([1])
+   molecule['list_excl'].append([0,0,0,0,0])
+   molecule['list_excl'].append([5])
+   molecule['list_excl'].append([4])
    #
    return molecule
 
