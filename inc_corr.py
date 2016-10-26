@@ -319,27 +319,32 @@ def sanity_chk(molecule):
    #
    return molecule
 
-def init_screen(molecule):
+def init_domains(molecule):
    #
    if (molecule['screen'][0] and (not molecule['screen'][1])):
       #
-      molecule['list_excl'] = [[]]
-      screen_occ(molecule)
+      molecule['occ_domain'] = [[]]
+      #
+      init_occ_domains(molecule)
    #
    elif (molecule['screen'][1] and (not molecule['screen'][0])):
       #
-      molecule['list_excl'] = [[]]
-#      screen_virt(molecule)
+      molecule['virt_domain'] = [[]]
+      #
+#      init_virt_domains(molecule)
    #
    elif (molecule['screen'][0] and molecule[screen][1]):
       #
-      molecule['list_excl'] = [[]]
-      screen_occ(molecule)
-#      screen_virt(molecule)
+      molecule['occ_domain'] = [[]]
+      molecule['virt_domain'] = [[]]
+      #
+      init_occ_domains(molecule)
+#      init_virt_domains(molecule)
    #
    else:
       #
-      molecule['list_excl'] = []
+      molecule['occ_domain'] = []
+      molecule['virt_domain'] = []
    #
    return molecule
 
@@ -979,13 +984,13 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
          #
          if (n > 0):
             #
-            if (not molecule['list_excl']):
+            if (not molecule['occ_domain']):
                #
                list_drop[i-1] = 0 # no screening
             #
             else:
                #
-               if (not molecule['list_excl'][i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+               if (not molecule['occ_domain'][i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                   #
                   list_drop[i-1] = i
                #
@@ -996,7 +1001,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
                   #
                   for k in range(0,len(idx)):
                      #
-                     if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['list_excl'][idx[k]-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
+                     if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['occ_domain'][idx[k]-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
                         #
                         list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                         break
@@ -1128,33 +1133,33 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
    #
    return drop_string, n_contrib
 
-def screen_occ(molecule):
+def init_occ_domains(molecule):
    #
    # define domains (currently only for the water case)
    #
    # screen away all interactions between orb 1 and any of the other orbs --- corresponds to a minor improvement over a frozen-core calculation
    #
-#   molecule['list_excl']      = [[]]
-#   molecule['list_excl'].append([3,4,5])
-#   molecule['list_excl'].append([2,4,5])
-#   molecule['list_excl'].append([2,3,5])
-#   molecule['list_excl'].append([2,3,4])
+#   molecule['occ_domain']      = [[]]
+#   molecule['occ_domain'].append([3,4,5])
+#   molecule['occ_domain'].append([2,4,5])
+#   molecule['occ_domain'].append([2,3,5])
+#   molecule['occ_domain'].append([2,3,4])
    #
    # screen away all interactions between orb 2 and any of the other orbs
    #
-#   molecule['list_excl']      = [[3,4,5]]
-#   molecule['list_excl'].append([])
-#   molecule['list_excl'].append([1,4,5])
-#   molecule['list_excl'].append([1,3,5])
-#   molecule['list_excl'].append([1,3,4])
+#   molecule['occ_domain']      = [[3,4,5]]
+#   molecule['occ_domain'].append([])
+#   molecule['occ_domain'].append([1,4,5])
+#   molecule['occ_domain'].append([1,3,5])
+#   molecule['occ_domain'].append([1,3,4])
    #
    # screen away interactions between orbs 1/2 and between orbs 4/5
    #
-   molecule['list_excl']      = [[3,4,5]]
-   molecule['list_excl'].append([3,4,5])
-   molecule['list_excl'].append([1,2,4,5])
-   molecule['list_excl'].append([1,2,3])
-   molecule['list_excl'].append([1,2,3])
+   molecule['occ_domain']     = [[3,4,5]]
+   molecule['occ_domain'].append([3,4,5])
+   molecule['occ_domain'].append([1,2,4,5])
+   molecule['occ_domain'].append([1,2,3])
+   molecule['occ_domain'].append([1,2,3])
    #
    return molecule
 
@@ -1407,9 +1412,9 @@ def main():
    #
    sanity_chk(molecule)
    #
-   #  ---  initialize (potential) screening...  ---
+   #  ---  initialize (potential) domains...  ---
    #
-   init_screen(molecule)
+   init_domains(molecule)
    #
    #  ---  initialization done - start the calculation...  ---
    #
