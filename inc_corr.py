@@ -93,7 +93,7 @@ def term_calc(molecule):
    #
    cd_dir(molecule['wrk'])
    #
-   if (molecule['error']):
+   if ((molecule['error'][0][-1])):
       #
       save_err_out(molecule['scr'])
    #
@@ -255,9 +255,9 @@ def init_param(molecule):
 
 def init_calc(molecule):
    #
-   molecule['error'] = False
+   molecule['error'] = [[False]]
    #
-   molecule['conv'] = False
+   molecule['conv'] = [[False],[False]]
    #
    init_mol(molecule)
    #
@@ -275,43 +275,43 @@ def sanity_chk(molecule):
       if (molecule['order'] >= (molecule['nocc'] - molecule['core'])):
          #
          print 'wrong input argument for total order (must be .lt. number of available occupied orbitals), aborting ...'
-         molecule['error'] = True
+         molecule['error'].append(True)
    #
    elif (molecule['exp'] == 'VIRT'):
       #
       if (order >= molecule['nvirt']):
          #
          print 'wrong input argument for total order (must be .lt. number of virtual orbitals), aborting ...'
-         molecule['error'] = True
+         molecule['error'].append(True)
    #
    elif (molecule['exp'] == 'COMB'):
       #
       if ((molecule['thres'][0] == 0.0) or (molecule['thres'][1] == 0.0)):
          #
          print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
-         molecule['error'] = True
+         molecule['error'].append(True)
       #
       if (not molecule['exp_ctrl']):
          #
          print('expansion scheme "COMB" is currently not implemented for fixed order expansion, aborting ...')
-         molecule['error'] = True
+         molecule['error'].append(True)
    #
    if ((molecule['order'] > 0) and molecule['exp_ctrl']):
       #
       print('fixed order expansion requested, but expansion thresholds provided, aborting ...')
-      molecule['error'] = True
+      molecule['error'].append(True)
    #
    if ((molecule['order'] == 0) and (not molecule['exp_ctrl'])):
       #
       print('neither fixed order nor threshold-governed expansion requested, aborting ...')
-      molecule['error'] = True
+      molecule['error'].append(True)
    #
    if (molecule['fc'] and molecule['local']):
       #
       print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
-      molecule['error'] = True
+      molecule['error'].append(True)
    #
-   if (molecule['error']):
+   if (molecule['error'][0][-1]):
       #
       cd_dir(molecule['wrk'])
       rm_scr_dir(molecule['scr'])
@@ -352,7 +352,7 @@ def run_calc_hf(molecule):
    #
    get_dim(molecule)
    #
-   if (not molecule['error']):
+   if (molecule['error'][0][-1]):
       #
       command='xclean'
       os.system(command)
@@ -368,7 +368,7 @@ def run_calc_corr(molecule,drop_string,ref):
    #
    write_energy(molecule,ref)
    #
-   if (not molecule['error']):
+   if (molecule['error'][0][-1]):
       command='xclean'
       os.system(command)
    #
@@ -480,9 +480,9 @@ def get_dim(molecule):
       elif re.match(regex_err,line) is not None:
          #
          print('problem with HF calculation, aborting ...')
-         molecule['error'] = True
+         molecule['error'].append(True)
          inp.close()
-         return nocc, nvirt, error
+         return molecule
    #
    inp.seek(0)
    #
@@ -542,7 +542,7 @@ def write_energy(molecule,ref):
       elif re.match(regex_err,line) is not None:
          #
          print('problem with '+molecule['model']+' calculation, aborting ...')
-         molecule['error'] = True
+         molecule['error'].append(True)
          inp.close()
          #
          return molecule
@@ -598,8 +598,6 @@ def inc_corr_tuple_thres(molecule):
       #
       e_fin_comb = []
       #
-      conv_comb = [False]
-   #
    molecule['e_tmp'] = 0.0
    #
    molecule['e_contrib'] = [[[]]]
@@ -609,8 +607,6 @@ def inc_corr_tuple_thres(molecule):
    molecule['e_fin'] = []
    #
    molecule['time'] = []
-   #
-   molecule['conv'] = False
    #
    if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'VIRT')):
       #
@@ -662,7 +658,7 @@ def inc_corr_tuple_thres(molecule):
                #
                molecule['e_contrib'][k-1].append([incl_list[i],molecule['e_tmp']])
             #
-            if (molecule['error']):
+            if (molecule['error'][0][-1]):
                #
                return molecule
          #
@@ -672,11 +668,11 @@ def inc_corr_tuple_thres(molecule):
             #
             if (molecule['exp'] == 'OCC'):
                #
-               inc_corr_chk_conv(k,molecule['thres'][0],molecule['e_fin'],molecule['conv'])
+               inc_corr_chk_conv(k,molecule['thres'][0],molecule['e_fin'],molecule,False)
             #
             elif (molecule['exp'] == 'VIRT'):
                #
-               inc_corr_chk_conv(k,molecule['thres'][1],molecule['e_fin'],molecule['conv'])
+               inc_corr_chk_conv(k,molecule['thres'][1],molecule['e_fin'],molecule,False)
          #
          molecule['time'].append(timer()-start)
          #
@@ -688,7 +684,7 @@ def inc_corr_tuple_thres(molecule):
          else:
             #
             print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.\
-                             format(k,u_limit,molecule['time'][k-1],molecule['e_fin'][k-1]-molecule['e_fin'][k-2],molecule['conv']))
+                             format(k,u_limit,molecule['time'][k-1],molecule['e_fin'][k-1]-molecule['e_fin'][k-2],molecule['conv'][0][-1]))
             print(' ------------------------------------------------------------------------------------------------------------')
          #
          for i in range(0,molecule['n_contrib'][k-1]):
@@ -698,7 +694,7 @@ def inc_corr_tuple_thres(molecule):
          #
          print('')
          #
-         if (molecule['conv']):
+         if (molecule['conv'][0][-1]):
             #
             return molecule
    #
@@ -737,8 +733,6 @@ def inc_corr_tuple_thres(molecule):
             e_inc_comb[:] = []
             #
             e_contrib_comb[:] = [[[]]]
-            #
-            conv_comb[0] = False
             #
             for l in range(1,u_limit_2+1):
                #
@@ -783,7 +777,7 @@ def inc_corr_tuple_thres(molecule):
                      #
                      e_contrib_comb[l-1].append([incl_list_comb[i],molecule['e_tmp']])
                   #
-                  if (molecule['error']):
+                  if (molecule['error'][0][-1]):
                      #
                      return molecule
                #
@@ -791,11 +785,11 @@ def inc_corr_tuple_thres(molecule):
                #
                if (l > 1):
                   #
-                  inc_corr_chk_conv(l,molecule['thres'][1],e_fin_comb,conv_comb[0])
+                  inc_corr_chk_conv(l,molecule['thres'][1],e_fin_comb,molecule,True)
                #
                nv_order = l
                #
-               if (conv_comb[0]):
+               if (molecule['conv'][1][-1]):
                   #
                   if (j > 0):
                      #
@@ -815,13 +809,13 @@ def inc_corr_tuple_thres(molecule):
                   break
             #
             print('       STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'\
-                             .format(j+1,molecule['n_contrib'][k-1],nv_order,molecule['nvirt'],timer()-start_comb,e_inc_comb[l-1]-e_inc_comb[l-2],conv_comb[0]))
+                             .format(j+1,molecule['n_contrib'][k-1],nv_order,molecule['nvirt'],timer()-start_comb,e_inc_comb[l-1]-e_inc_comb[l-2],molecule['conv'][1][-1]))
          #
          inc_corr_order(k,molecule['n_contrib'],molecule['e_contrib'],molecule['e_fin'])
          #
          if (k > 1):
             #
-            inc_corr_chk_conv(k,molecule['thres'][0],molecule['e_fin'],molecule['conv'])
+            inc_corr_chk_conv(k,molecule['thres'][0],molecule['e_fin'],molecule,False)
          #
          molecule['time'].append(timer()-start)
          #
@@ -835,7 +829,7 @@ def inc_corr_tuple_thres(molecule):
          else:
             #
             print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.\
-                             format(k,u_limit_1,molecule['time'][k-1],molecule['e_fin'][k-1]-molecule['e_fin'][k-2],molecule['conv']))
+                             format(k,u_limit_1,molecule['time'][k-1],molecule['e_fin'][k-1]-molecule['e_fin'][k-2],molecule['conv'][0][-1]))
             print(' ------------------------------------------------------------------------------------------------------------')
          #
          for i in range(0,molecule['n_contrib'][k-1]):
@@ -845,7 +839,7 @@ def inc_corr_tuple_thres(molecule):
          #
          print('')
          #
-         if (molecule['conv']):
+         if (molecule['conv'][0][-1]):
             #
             return molecule
    #
@@ -901,8 +895,6 @@ def inc_corr_tuple_order(molecule):
    #
    molecule['time'] = []
    #
-   molecule['conv'] = False
-   #
    for k in range(molecule['order'],0,-1):
       #
       start = timer()
@@ -948,7 +940,7 @@ def inc_corr_tuple_order(molecule):
             #
             molecule['e_contrib'][k-1].append([incl_list[i],molecule['e_tmp']])
          #
-         if (molecule['error']):
+         if (molecule['error'][0][-1]):
             #
             return molecule
       #
@@ -1000,11 +992,14 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
                else:
                   #
                   list_drop[i-1] = 0 # attempt to correlate orbital 'i'
-                  idx = [j+1 for j, val in enumerate(list_drop) if val == 0] # make list containing indices (+1) with zeros in list_drop
+                  idx = [j+1 for j, val in enumerate(list_drop[molecule['core']:molecule['nocc']]) if val == 0] # make list containing indices (+1) with zeros in list_drop
                   #
-                  if (set(idx) > set(molecule['list_excl'][i-1])): # check whether molecule['list_excl'][i-1] is a subset of idx
+                  for k in range(0,len(idx)):
                      #
-                     list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                     if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['list_excl'][idx[k]-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
+                        #
+                        list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                        break
          #
          s = ''
          inc = 0
@@ -1135,29 +1130,31 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
 
 def screen_occ(molecule):
    #
+   # define domains (currently only for the water case)
+   #
    # screen away all interactions between orb 1 and any of the other orbs --- corresponds to a minor improvement over a frozen-core calculation
    #
-#   molecule['list_excl'][0]   = []
-#   molecule['list_excl'].append([1])
-#   molecule['list_excl'].append([1])
-#   molecule['list_excl'].append([1])
-#   molecule['list_excl'].append([1])
+#   molecule['list_excl']      = [[]]
+#   molecule['list_excl'].append([3,4,5])
+#   molecule['list_excl'].append([2,4,5])
+#   molecule['list_excl'].append([2,3,5])
+#   molecule['list_excl'].append([2,3,4])
    #
    # screen away all interactions between orb 2 and any of the other orbs
    #
-#   molecule['list_excl'][0]   = [2]
+#   molecule['list_excl']      = [[3,4,5]]
 #   molecule['list_excl'].append([])
-#   molecule['list_excl'].append([2])
-#   molecule['list_excl'].append([2])
-#   molecule['list_excl'].append([2])
+#   molecule['list_excl'].append([1,4,5])
+#   molecule['list_excl'].append([1,3,5])
+#   molecule['list_excl'].append([1,3,4])
    #
    # screen away interactions between orbs 1/2 and between orbs 4/5
    #
-   molecule['list_excl'][0]   = [2]
-   molecule['list_excl'].append([1])
-   molecule['list_excl'].append([0,0,0,0,0])
-   molecule['list_excl'].append([5])
-   molecule['list_excl'].append([4])
+   molecule['list_excl']      = [[3,4,5]]
+   molecule['list_excl'].append([3,4,5])
+   molecule['list_excl'].append([1,2,4,5])
+   molecule['list_excl'].append([1,2,3])
+   molecule['list_excl'].append([1,2,3])
    #
    return molecule
 
@@ -1237,19 +1234,21 @@ def inc_corr_order(k,n_contrib,e_contrib,e_fin):
    #
    return e_fin
 
-def inc_corr_chk_conv(order,thres,e_fin,conv):
+def inc_corr_chk_conv(order,thres,e_fin,molecule,comb):
    #
    e_diff = e_fin[order-1] - e_fin[order-2]
    #
    if (abs(e_diff) < thres):
       #
-      conv = True
-   #
-   else:
+      if (comb):
+         #
+         molecule['conv'][1].append(True)
       #
-      conv = False
+      else:
+         #
+         molecule['conv'][0].append(True)
    #
-   return conv
+   return molecule
 
 def ref_calc(molecule):
    #
@@ -1324,12 +1323,12 @@ def inc_corr_summary(molecule):
    #
    if (molecule['exp_ctrl']):
       #
-      print('   convergence met    =  {0:}'.format(molecule['conv']))
+      print('   convergence met    =  {0:}'.format(molecule['conv'][0][-1]))
    else:
       #
       print('   convergence met    =  N/A')
    #
-   print('   error in calc.     =  {0:}'.format(molecule['error']))
+   print('   error in calc.     =  {0:}'.format(molecule['error'][0][-1]))
    #
    print('')
    #
@@ -1352,7 +1351,7 @@ def inc_corr_summary(molecule):
       #
       print('   final convergence  =  {0:9.4e}'.format(molecule['e_fin'][-1]-molecule['e_fin'][-2]))
    #
-   if (molecule['ref'] and (not molecule['error'])):
+   if (molecule['ref'] and (not molecule['error'][0][-1])):
       #
       print('   --------------------------------------------------------------')
       #
@@ -1424,7 +1423,7 @@ def main():
    #
    #  ---  start (potential) reference calculation...  ---
    #
-   if (molecule['ref'] and (not molecule['error'])):
+   if (molecule['ref'] and (not molecule['error'][0][-1])):
       #
       ref_calc(molecule)
    #
@@ -1434,7 +1433,7 @@ def main():
    #
    #  ---  plot the results of the calculation  ---
    #
-   if (not molecule['error']):
+   if (not molecule['error'][0][-1]):
       #
       inc_corr_plot.ic_plot(molecule)
    #
