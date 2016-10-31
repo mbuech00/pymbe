@@ -721,13 +721,13 @@ def inc_corr_tuple_thres(molecule):
          #
          if (len(molecule['n_contrib']) < k):
             #
-            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  has no contributions'.format(k,u_limit_1))
-            print(' --------------------------------------------------------')
+            print('       STATUS-MACRO:  order = {0:4d} / {1:4d}  has no contributions'.format(k,u_limit_1))
+            print('       --------------------------------------------------------')
             print('')
             continue
          #
-         print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(k,u_limit_1))
-         print(' -------------------------------------------')
+         print('       STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(k,u_limit_1))
+         print('       -------------------------------------------')
          #
          incl_list[:] = [[]]
          #
@@ -1337,14 +1337,14 @@ def ref_calc(molecule):
    #
    start = timer()
    #
-   print(' STATUS:  Full reference calc.  started')
+   print(' STATUS-REF:  Full reference calc.  started')
    print(' --------------------------------------')
    #
    run_calc_corr(molecule,'',True)
    #
    molecule['time'].append(timer()-start)
    #
-   print(' STATUS:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][-1]))
+   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][-1]))
    print(' ---------------------------------------------------------')
    print('')
    #
