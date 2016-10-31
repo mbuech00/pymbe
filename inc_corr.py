@@ -93,7 +93,7 @@ def term_calc(molecule):
    #
    cd_dir(molecule['wrk'])
    #
-   if ((molecule['error'][0][-1])):
+   if (molecule['error'][0][-1]):
       #
       save_err_out(molecule['scr'])
    #
@@ -275,41 +275,41 @@ def sanity_chk(molecule):
       if (molecule['order'] >= (molecule['nocc'] - molecule['core'])):
          #
          print 'wrong input argument for total order (must be .lt. number of available occupied orbitals), aborting ...'
-         molecule['error'].append(True)
+         molecule['error'][0].append(True)
    #
    elif (molecule['exp'] == 'VIRT'):
       #
       if (molecule['order'] >= molecule['nvirt']):
          #
          print 'wrong input argument for total order (must be .lt. number of virtual orbitals), aborting ...'
-         molecule['error'].append(True)
+         molecule['error'][0].append(True)
    #
    elif (molecule['exp'] == 'COMB'):
       #
       if ((molecule['thres'][0] == 0.0) or (molecule['thres'][1] == 0.0)):
          #
          print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
-         molecule['error'].append(True)
+         molecule['error'][0].append(True)
       #
       if (not molecule['exp_ctrl']):
          #
          print('expansion scheme "COMB" is currently not implemented for fixed order expansion, aborting ...')
-         molecule['error'].append(True)
+         molecule['error'][0].append(True)
    #
    if ((molecule['order'] > 0) and molecule['exp_ctrl']):
       #
       print('fixed order expansion requested, but expansion thresholds provided, aborting ...')
-      molecule['error'].append(True)
+      molecule['error'][0].append(True)
    #
    if ((molecule['order'] == 0) and (not molecule['exp_ctrl'])):
       #
       print('neither fixed order nor threshold-governed expansion requested, aborting ...')
-      molecule['error'].append(True)
+      molecule['error'][0].append(True)
    #
    if (molecule['fc'] and molecule['local']):
       #
       print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
-      molecule['error'].append(True)
+      molecule['error'][0].append(True)
    #
    if (molecule['error'][0][-1]):
       #
@@ -359,7 +359,7 @@ def run_calc_hf(molecule):
    #
    get_dim(molecule)
    #
-   if (molecule['error'][0][-1]):
+   if (not molecule['error'][0][-1]):
       #
       command='xclean'
       os.system(command)
@@ -375,7 +375,7 @@ def run_calc_corr(molecule,drop_string,ref):
    #
    write_energy(molecule,ref)
    #
-   if (molecule['error'][0][-1]):
+   if (not molecule['error'][0][-1]):
       command='xclean'
       os.system(command)
    #
@@ -487,7 +487,7 @@ def get_dim(molecule):
       elif re.match(regex_err,line) is not None:
          #
          print('problem with HF calculation, aborting ...')
-         molecule['error'].append(True)
+         molecule['error'][0].append(True)
          inp.close()
          return molecule
    #
@@ -549,7 +549,7 @@ def write_energy(molecule,ref):
       elif re.match(regex_err,line) is not None:
          #
          print('problem with '+molecule['model']+' calculation, aborting ...')
-         molecule['error'].append(True)
+         molecule['error'][0].append(True)
          inp.close()
          #
          return molecule
@@ -1338,14 +1338,14 @@ def ref_calc(molecule):
    start = timer()
    #
    print(' STATUS-REF:  Full reference calc.  started')
-   print(' --------------------------------------')
+   print(' ------------------------------------------')
    #
    run_calc_corr(molecule,'',True)
    #
    molecule['time'].append(timer()-start)
    #
    print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][-1]))
-   print(' ---------------------------------------------------------')
+   print(' -------------------------------------------------------------')
    print('')
    #
    return molecule
