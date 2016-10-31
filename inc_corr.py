@@ -279,7 +279,7 @@ def sanity_chk(molecule):
    #
    elif (molecule['exp'] == 'VIRT'):
       #
-      if (order >= molecule['nvirt']):
+      if (molecule['order'] >= molecule['nvirt']):
          #
          print 'wrong input argument for total order (must be .lt. number of virtual orbitals), aborting ...'
          molecule['error'].append(True)
@@ -324,22 +324,24 @@ def init_domains(molecule):
    if (molecule['screen'][0] and (not molecule['screen'][1])):
       #
       molecule['occ_domain'] = [[]]
+      molecule['virt_domain'] = []
       #
       init_occ_domains(molecule)
    #
    elif (molecule['screen'][1] and (not molecule['screen'][0])):
       #
+      molecule['occ_domain'] = []
       molecule['virt_domain'] = [[]]
       #
-#      init_virt_domains(molecule)
+      init_virt_domains(molecule)
    #
-   elif (molecule['screen'][0] and molecule[screen][1]):
+   elif (molecule['screen'][0] and molecule['screen'][1]):
       #
       molecule['occ_domain'] = [[]]
       molecule['virt_domain'] = [[]]
       #
       init_occ_domains(molecule)
-#      init_virt_domains(molecule)
+      init_virt_domains(molecule)
    #
    else:
       #
@@ -735,9 +737,11 @@ def inc_corr_tuple_thres(molecule):
             #
             n_contrib_comb[:] = []
             #
-            e_inc_comb[:] = []
+            e_fin_comb[:] = []
             #
             e_contrib_comb[:] = [[[]]]
+            #
+            molecule['conv'][1].append(False)
             #
             for l in range(1,u_limit_2+1):
                #
@@ -757,7 +761,7 @@ def inc_corr_tuple_thres(molecule):
                #
                for i in range(0,n_contrib_comb[l-1]):
                   #
-                  if (drop_string[j] == ''):
+                  if (drop_string[j] == '\n'):
                      #
                      string = 'DROP_MO='+drop_string_comb[i][1:]
                   #
@@ -805,16 +809,16 @@ def inc_corr_tuple_thres(molecule):
                   if (j == 0):
                      #
                      molecule['e_contrib'][k-1][0].append(incl_list[j])
-                     molecule['e_contrib'][k-1][0].append(e_inc_comb[l-1])
+                     molecule['e_contrib'][k-1][0].append(e_fin_comb[l-1])
                   #
                   else:
                      #
-                     molecule['e_contrib'][k-1].append([incl_list[j],e_inc_comb[l-1]])
+                     molecule['e_contrib'][k-1].append([incl_list[j],e_fin_comb[l-1]])
                   #
                   break
             #
             print('       STATUS-MICRO:  tuple = {0:4d} / {1:4d}  (order = {2:4d} / {3:4d})  done in {4:10.2e} seconds  ---  diff =  {5:9.4e}  ---  conv =  {6:}'\
-                             .format(j+1,molecule['n_contrib'][k-1],nv_order,molecule['nvirt'],timer()-start_comb,e_inc_comb[l-1]-e_inc_comb[l-2],molecule['conv'][1][-1]))
+                             .format(j+1,molecule['n_contrib'][k-1],nv_order,molecule['nvirt'],timer()-start_comb,e_fin_comb[l-1]-e_fin_comb[l-2],molecule['conv'][1][-1]))
          #
          inc_corr_order(k,molecule['n_contrib'],molecule['e_contrib'],molecule['e_fin'])
          #
@@ -1053,7 +1057,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
                   #
                   drop_string.append(s+'\n')
                #
-               elif (molecule['exp' == 'COMB']):
+               elif (molecule['exp'] == 'COMB'):
                   #
                   drop_string.append(s)
             #
@@ -1061,7 +1065,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
                #
                n_contrib.append(1)
                #
-               drop_string.append(''+'\n')
+               drop_string.append('\n')
          #
          generate_drop_occ(i+1,order+1,final,molecule,list_drop,drop_string,n_contrib) # recursion
          #
@@ -1079,7 +1083,35 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
       #
       for i in range(start,(molecule['nocc']+molecule['nvirt'])+1):
          #
-         list_drop[i-1] = 0
+         n = list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])].count(0) # count the number of zeros
+         #
+         if (n == 0):
+            #
+            list_drop[i-1] = 0 # singles correlation
+         #
+         if (n > 0):
+            #
+            if (not molecule['virt_domain']):
+               #
+               list_drop[i-1] = 0 # no screening
+            #
+            else:
+               #
+               if (not molecule['virt_domain'][(i-molecule['nocc'])-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                  #
+                  list_drop[i-1] = i
+               #
+               else:
+                  #
+                  list_drop[i-1] = 0 # attempt to correlate orbital 'i'
+                  idx = [(j+molecule['nocc'])+1 for j, val in enumerate(list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])]) if val == 0] # make list containing indices (+1) with zeros in list_drop
+                  #
+                  for k in range(0,len(idx)):
+                     #
+                     if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['virt_domain'][(idx[k]-molecule['nocc'])-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
+                        #
+                        list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                        break
          s = ''
          inc = 0
          #
@@ -1087,7 +1119,7 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
             #
             inc += 1
          #
-         if (order == final):
+         if ((order == final) and (list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])].count(0) == final)): # number of zeros in list_drop must match the final order
             #
             if (molecule['fc']): # exclude core orbitals
                #
@@ -1135,17 +1167,17 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
 
 def init_occ_domains(molecule):
    #
-   # define domains (currently only for the water case)
+   # define occupied domains (currently only for the water case)
    #
-   # screen away all interactions between orb 1 and any of the other orbs --- corresponds to a minor improvement over a frozen-core calculation
+   # screen away all interactions between orb 1 and any of the other occupied orbs --- corresponds to a minor improvement over a frozen-core calculation
    #
-#   molecule['occ_domain']      = [[]]
-#   molecule['occ_domain'].append([3,4,5])
-#   molecule['occ_domain'].append([2,4,5])
-#   molecule['occ_domain'].append([2,3,5])
-#   molecule['occ_domain'].append([2,3,4])
+   molecule['occ_domain']      = [[]]
+   molecule['occ_domain'].append([3,4,5])
+   molecule['occ_domain'].append([2,4,5])
+   molecule['occ_domain'].append([2,3,5])
+   molecule['occ_domain'].append([2,3,4])
    #
-   # screen away all interactions between orb 2 and any of the other orbs
+   # screen away all interactions between orb 2 and any of the other occupied orbs
    #
 #   molecule['occ_domain']      = [[3,4,5]]
 #   molecule['occ_domain'].append([])
@@ -1153,13 +1185,49 @@ def init_occ_domains(molecule):
 #   molecule['occ_domain'].append([1,3,5])
 #   molecule['occ_domain'].append([1,3,4])
    #
+   # screen away all interactions between orb 5 (HOMO) and any of the other occupied orbs
+   #
+#   molecule['occ_domain']      = [[2,3,4]]
+#   molecule['occ_domain'].append([1,3,4])
+#   molecule['occ_domain'].append([1,2,4])
+#   molecule['occ_domain'].append([1,2,3])
+#   molecule['occ_domain'].append([])
+   #
    # screen away interactions between orbs 1/2 and between orbs 4/5
    #
-   molecule['occ_domain']     = [[3,4,5]]
-   molecule['occ_domain'].append([3,4,5])
-   molecule['occ_domain'].append([1,2,4,5])
-   molecule['occ_domain'].append([1,2,3])
-   molecule['occ_domain'].append([1,2,3])
+#   molecule['occ_domain']     = [[3,4,5]]
+#   molecule['occ_domain'].append([3,4,5])
+#   molecule['occ_domain'].append([1,2,4,5])
+#   molecule['occ_domain'].append([1,2,3])
+#   molecule['occ_domain'].append([1,2,3])
+   #
+   return molecule
+
+def init_virt_domains(molecule):
+   #
+   # define virtual domains (currently only for the water case)
+   #
+   # screen away all interactions between orb 6 (LUMO) and any of the other virtual orbs
+   #
+   molecule['virt_domain']     = [[]]
+   molecule['virt_domain'].append([8,9,10,11,12,13])
+   molecule['virt_domain'].append([7,9,10,11,12,13])
+   molecule['virt_domain'].append([7,8,10,11,12,13])
+   molecule['virt_domain'].append([7,8,9,11,12,13])
+   molecule['virt_domain'].append([7,8,9,10,12,13])
+   molecule['virt_domain'].append([7,8,9,10,11,13])
+   molecule['virt_domain'].append([7,8,9,10,11,12])
+   #
+   # screen away all interactions between orb 13 and any of the other virtual orbs
+   #
+#   molecule['virt_domain']     = [[7,8,9,10,11,12]]
+#   molecule['virt_domain'].append([6,8,9,10,11,12])
+#   molecule['virt_domain'].append([6,7,9,10,11,12])
+#   molecule['virt_domain'].append([6,7,8,10,11,12])
+#   molecule['virt_domain'].append([6,7,8,9,11,12])
+#   molecule['virt_domain'].append([6,7,8,9,10,12])
+#   molecule['virt_domain'].append([6,7,8,9,10,11])
+#   molecule['virt_domain'].append([])
    #
    return molecule
 
@@ -1176,7 +1244,7 @@ def orbs_incl(molecule,string_excl,string_incl,comb):
          #
          excl_list.append(int(sub_list[j]))
    #
-   if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
+   if ((molecule['exp'] == 'OCC') or ((molecule['exp'] == 'COMB') and (not comb))):
       #
       for l in range(1,molecule['nocc']+1):
          #
@@ -1253,6 +1321,16 @@ def inc_corr_chk_conv(order,thres,e_fin,molecule,comb):
          #
          molecule['conv'][0].append(True)
    #
+   else:
+      #
+      if (comb):
+         #
+         molecule['conv'][1].append(False)
+      #
+      else:
+         #
+         molecule['conv'][0].append(False)
+   #
    return molecule
 
 def ref_calc(molecule):
@@ -1286,8 +1364,16 @@ def inc_corr_summary(molecule):
    print('   local orbitals     =  {0:}'.format(molecule['local']))
    print('   occupied orbitals  =  {0:}'.format(molecule['nocc']-molecule['core']))
    print('   virtual orbitals   =  {0:}'.format(molecule['nvirt']))
-   print('   screening (occ.)   =  {0:}'.format(molecule['screen'][0]))
-   print('   screening (virt.)  =  {0:}'.format(molecule['screen'][1]))
+   #
+   if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
+      #
+      print('   screening (occ.)   =  {0:}'.format(molecule['screen'][0]))
+      print('   screening (virt.)  =  N/A')
+   #
+   elif (molecule['exp'] == 'VIRT'):
+      #
+      print('   screening (occ.)   =  N/A')
+      print('   screening (virt.)  =  {0:}'.format(molecule['screen'][1]))
    #
    if (molecule['exp_ctrl']):
       #
