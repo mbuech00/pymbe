@@ -1,20 +1,15 @@
 #!/usr/bin/env python
 
 #
-# python driver for inc.-corr. calculations using CFOUR as backend program.
+# generel utilities for inc-corr calcs.
 # written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
 # Requires the path of the cfour basis GENBAS file ($CFOURBASIS) and bin directory ($CFOURBIN)
 #
 
 import sys
-from sys import stdin
 import os
-import os.path
 import re
-import argparse
-import math
-from timeit import default_timer as timer
 
 CFOUR_BASIS='$CFOURBASIS'
 CFOUR_BIN='$CFOURBIN'

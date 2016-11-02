@@ -5,7 +5,6 @@
 # written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
 
-import sys
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
