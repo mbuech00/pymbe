@@ -94,7 +94,6 @@ def e_contrib_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   orb_contrib = []
    orb_contrib_sum = []
    dim_list = []
    #
@@ -102,35 +101,19 @@ def e_contrib_plot(molecule):
    #
    if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
       #
-      l_limit = molecule['core']
       u_limit = molecule['nocc']-molecule['core']
    #
    elif (molecule['exp'] == 'VIRT'):
       #
-      l_limit = molecule['nocc']
       u_limit = molecule['nvirt']
    #
    for i in range(0,u_limit):
       #
       dim_list.append(i+0.7)
-      #
-   for _ in range(0,u_limit):
-      #
-      orb_contrib.append([])
-   #
-   for j in range(l_limit,l_limit+u_limit):
-      # 
-      for k in range(0,len(molecule['e_contrib'])):
-         #
-         for l in range(0,len(molecule['e_contrib'][k])):
-            #
-            if (set([j+1]) <= set(molecule['e_contrib'][k][l][0])):
-               #
-               orb_contrib[j-l_limit].append(molecule['e_contrib'][k][l][1])
    #
    for i in range(0,u_limit):
       #
-      orb_contrib_sum.append(sum(orb_contrib[i]))
+      orb_contrib_sum.append(sum(molecule['orb_contrib'][i]))
    #
    ax.bar(dim_list,orb_contrib_sum,width,color='green',alpha=0.3)
    #
