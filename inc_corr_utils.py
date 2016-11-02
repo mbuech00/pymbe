@@ -11,6 +11,8 @@ import sys
 import os
 import re
 
+import inc_corr_orb_rout
+
 CFOUR_BASIS='$CFOURBASIS'
 CFOUR_BIN='$CFOURBIN'
 
@@ -315,7 +317,7 @@ def init_domains(molecule):
       molecule['occ_domain'] = [[]]
       molecule['virt_domain'] = []
       #
-      init_occ_domains(molecule)
+      inc_corr_orb_rout.init_occ_domains(molecule)
    #
    elif (molecule['screen'][1] and (not molecule['screen'][0])):
       #
@@ -329,8 +331,8 @@ def init_domains(molecule):
       molecule['occ_domain'] = [[]]
       molecule['virt_domain'] = [[]]
       #
-      init_occ_domains(molecule)
-      init_virt_domains(molecule)
+      inc_corr_orb_rout.init_occ_domains(molecule)
+      inc_corr_orb_rout.init_virt_domains(molecule)
    #
    else:
       #
