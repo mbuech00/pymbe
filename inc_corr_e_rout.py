@@ -517,18 +517,16 @@ def orb_contrib_rout(molecule,e_contrib,orb_contrib,comb):
    if ((molecule['exp'] == 'OCC') or ((molecule['exp'] == 'COMB') and (not comb))):
       #
       l_limit = molecule['core']
-      u_limit = molecule['nocc']-molecule['core']
+      u_limit = molecule['nocc']
    #
    elif ((molecule['exp'] == 'VIRT') or ((molecule['exp'] == 'COMB') and comb)):
       #
       l_limit = molecule['nocc']
       u_limit = molecule['nvirt']
    #
-   for _ in range(0,u_limit):
+   for j in range(l_limit,u_limit):
       #
-      orb_contrib.append([])
-   #
-   for j in range(l_limit,l_limit+u_limit):
+      inc = 0
       #
       for k in range(0,len(e_contrib)):
          #
@@ -536,7 +534,14 @@ def orb_contrib_rout(molecule,e_contrib,orb_contrib,comb):
             #
             if (set([j+1]) <= set(e_contrib[k][l][0])):
                #
-               orb_contrib[j-l_limit].append(e_contrib[k][l][1])
+               if (inc == 0):
+                  #
+                  orb_contrib.append(e_contrib[k][l][1])
+               else:
+                  #
+                  orb_contrib[-1] += e_contrib[k][l][1]
+               #
+               inc += 1
    #
    return orb_contrib
 
