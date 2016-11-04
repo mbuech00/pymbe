@@ -1,0 +1,12 @@
+exp VIRT
+model FCI
+basis 6-31G
+mem 6 
+scr scr
+thres_occ 0.0e-03
+thres_virt 0.0e-03
+order 4
+screen_occ False
+screen_virt False
+ref True
+local False

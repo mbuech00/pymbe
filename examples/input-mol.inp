@@ -1,0 +1,10 @@
+ZMAT file for H2O
+H
+O 1 ROH
+H 2 ROH 1 AHOH
+
+ROH = 0.957
+AHOH = 104.2
+
+mult 1
+core 1
