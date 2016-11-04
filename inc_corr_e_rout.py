@@ -27,11 +27,7 @@ def inc_corr_tuple_thres(molecule):
       u_limit_1 = molecule['nocc']-molecule['core']
       u_limit_2 = molecule['nvirt']
    #
-   list_drop = []
-   #
-   for i in range(0,molecule['nocc']+molecule['nvirt']):
-      #
-      list_drop.append(i+1)
+   list_drop = list(range(1,(molecule['nocc']+molecule['nvirt'])+1))
    #
    if (molecule['exp'] == 'OCC'):
       #
@@ -47,21 +43,21 @@ def inc_corr_tuple_thres(molecule):
    #
    drop_string = []
    #
-   incl_list = [[]]
+   incl_list = []
    #
    if (molecule['exp'] == 'COMB'):
       #
       drop_string_comb = []
       n_contrib_comb = []
       #
-      incl_list_comb = [[]]
-      e_contrib_comb = [[[]]]
+      incl_list_comb = []
+      e_contrib_comb = []
       #
       e_fin_comb = []
    #
    molecule['e_tmp'] = 0.0
    #
-   molecule['e_contrib'] = [[[]]]
+   molecule['e_contrib'] = []
    #
    molecule['n_contrib'] = []
    #
@@ -85,9 +81,7 @@ def inc_corr_tuple_thres(molecule):
             #
             inc_corr_orb_rout.generate_drop_virt(molecule['nocc']+1,1,k,molecule,list_drop,drop_string,molecule['n_contrib'])
          #
-         if (k > 1):
-            #
-            molecule['e_contrib'].append([[]])
+         molecule['e_contrib'].append([])
          #
          if (len(molecule['n_contrib']) < k):
             #
@@ -99,25 +93,17 @@ def inc_corr_tuple_thres(molecule):
          print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(k,u_limit))
          print(' -------------------------------------------')
          #
-         incl_list[:] = [[]]
+         incl_list[:] = []
          #
          for i in range(0,molecule['n_contrib'][k-1]):
             #
             inc_corr_gen_rout.run_calc_corr(molecule,drop_string[i],False)
             #
-            if (i > 0):
-               incl_list.append([])
+            incl_list.append([])
             #
             inc_corr_orb_rout.orbs_incl(molecule,drop_string[i],incl_list[i],False)
             #
-            if (i == 0):
-               #
-               molecule['e_contrib'][k-1][0].append(incl_list[i])
-               molecule['e_contrib'][k-1][0].append(molecule['e_tmp'])
-            #
-            else:
-               #
-               molecule['e_contrib'][k-1].append([incl_list[i],molecule['e_tmp']])
+            molecule['e_contrib'][k-1].append([incl_list[i],molecule['e_tmp']])
             #
             if (molecule['error'][0][-1]):
                #
@@ -172,9 +158,7 @@ def inc_corr_tuple_thres(molecule):
          #
          inc_corr_orb_rout.generate_drop_occ(molecule['core']+1,1,k,molecule,list_drop,drop_string,molecule['n_contrib'])
          #
-         if (k > 1):
-            #
-            molecule['e_contrib'].append([[]])
+         molecule['e_contrib'].append([])
          #
          if (len(molecule['n_contrib']) < k):
             #
@@ -186,7 +170,7 @@ def inc_corr_tuple_thres(molecule):
          print('       STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(k,u_limit_1))
          print('       -------------------------------------------')
          #
-         incl_list[:] = [[]]
+         incl_list[:] = []
          #
          for j in range(0,molecule['n_contrib'][k-1]):
             #
@@ -196,7 +180,7 @@ def inc_corr_tuple_thres(molecule):
             #
             e_fin_comb[:] = []
             #
-            e_contrib_comb[:] = [[[]]]
+            e_contrib_comb[:] = []
             #
             molecule['conv'][1].append(False)
             #
@@ -210,11 +194,9 @@ def inc_corr_tuple_thres(molecule):
                #
                inc_corr_orb_rout.generate_drop_virt(molecule['nocc']+1,1,l,molecule,list_drop,drop_string_comb,n_contrib_comb)
                #
-               if (l > 1):
-                  #
-                  e_contrib_comb.append([[]])
+               e_contrib_comb.append([])
                #
-               incl_list_comb[:] = [[]]
+               incl_list_comb[:] = []
                #
                for i in range(0,n_contrib_comb[l-1]):
                   #
@@ -228,20 +210,11 @@ def inc_corr_tuple_thres(molecule):
                   #
                   inc_corr_gen_rout.run_calc_corr(molecule,string,False)
                   #
-                  if (i > 0):
-                     #
-                     incl_list_comb.append([])
+                  incl_list_comb.append([])
                   #
                   inc_corr_orb_rout.orbs_incl(molecule,string,incl_list_comb[i],True)
                   #
-                  if (i == 0):
-                     #
-                     e_contrib_comb[l-1][0].append(incl_list_comb[i])
-                     e_contrib_comb[l-1][0].append(molecule['e_tmp'])
-                  #
-                  else:
-                     #
-                     e_contrib_comb[l-1].append([incl_list_comb[i],molecule['e_tmp']])
+                  e_contrib_comb[l-1].append([incl_list_comb[i],molecule['e_tmp']])
                   #
                   if (molecule['error'][0][-1]):
                      #
@@ -257,21 +230,11 @@ def inc_corr_tuple_thres(molecule):
                #
                if (molecule['conv'][1][-1]):
                   #
-                  if (j > 0):
-                     #
-                     incl_list.append([])
+                  incl_list.append([])
                   #
                   inc_corr_orb_rout.orbs_incl(molecule,drop_string[j],incl_list[j],False)
                   #
-                  if (j == 0):
-                     #
-                     molecule['e_contrib'][k-1][0].append(incl_list[j])
-                     molecule['e_contrib'][k-1][0].append(e_fin_comb[l-1])
-                     molecule['e_contrib'][k-1][0].append([])
-                  #
-                  else:
-                     #
-                     molecule['e_contrib'][k-1].append([incl_list[j],e_fin_comb[l-1],[]])
+                  molecule['e_contrib'][k-1].append([incl_list[j],e_fin_comb[l-1],[]])
                   #
                   orb_contrib_rout(molecule,e_contrib_comb,True)
                   #
@@ -330,11 +293,7 @@ def inc_corr_tuple_order(molecule):
       #
       u_limit = molecule['nvirt']
    #
-   list_drop = []
-   #
-   for i in range(0,molecule['nocc']+molecule['nvirt']):
-      #
-      list_drop.append(i+1)
+   list_drop = list(range(1,(molecule['nocc']+molecule['nvirt'])+1))
    #
    if (molecule['exp'] == 'OCC'):
       #
@@ -350,19 +309,15 @@ def inc_corr_tuple_order(molecule):
    #
    drop_string = []
    #
-   incl_list = [[]]
+   incl_list = []
    #
-   molecule['e_contrib'] = [[[]]]
+   molecule['e_contrib'] = []
    #
-   for _ in range(0,molecule['order']-1):
+   for _ in range(0,molecule['order']):
       #
-      molecule['e_contrib'].append([[]])
+      molecule['e_contrib'].append([])
    #
-   molecule['n_contrib'] = []
-   #
-   for _ in range(0,u_limit):
-      #
-      molecule['n_contrib'].append(0)
+   molecule['n_contrib'] = [0] * u_limit
    #
    molecule['e_tmp'] = 0.0
    #
@@ -394,26 +349,17 @@ def inc_corr_tuple_order(molecule):
       print(' STATUS:  order = {0:4d} / {1:4d}  started'.format(k,u_limit))
       print(' -------------------------------------')
       #
-      incl_list[:] = [[]]
+      incl_list[:] = []
       #
       for i in range(0,molecule['n_contrib'][k-1]):
          #
          inc_corr_gen_rout.run_calc_corr(molecule,drop_string[i],False)
          #
-         if (i > 0):
-            #
-            incl_list.append([])
+         incl_list.append([])
          #
          inc_corr_orb_rout.orbs_incl(molecule,drop_string[i],incl_list[i],False)
          #
-         if (i == 0):
-            #
-            molecule['e_contrib'][k-1][0].append(incl_list[i])
-            molecule['e_contrib'][k-1][0].append(molecule['e_tmp'])
-         #
-         else:
-            #
-            molecule['e_contrib'][k-1].append([incl_list[i],molecule['e_tmp']])
+         molecule['e_contrib'][k-1].append([incl_list[i],molecule['e_tmp']])
          #
          if (molecule['error'][0][-1]):
             #
