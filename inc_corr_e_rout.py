@@ -57,8 +57,6 @@ def inc_corr_tuple_thres(molecule):
       incl_list_comb = [[]]
       e_contrib_comb = [[[]]]
       #
-      orb_contrib_comb = []
-      #
       e_fin_comb = []
    #
    molecule['e_tmp'] = 0.0
@@ -160,7 +158,7 @@ def inc_corr_tuple_thres(molecule):
          if (molecule['conv'][0][-1]):
             #
             molecule['orb_contrib'] = []
-            orb_contrib_rout(molecule,molecule['e_contrib'],molecule['orb_contrib'],False)
+            orb_contrib_rout(molecule,molecule['e_contrib'],False)
             #
             return molecule
    #
@@ -265,18 +263,17 @@ def inc_corr_tuple_thres(molecule):
                   #
                   inc_corr_orb_rout.orbs_incl(molecule,drop_string[j],incl_list[j],False)
                   #
-                  orb_contrib_comb[:] = []
-                  orb_contrib_rout(molecule,e_contrib_comb,orb_contrib_comb,True)
-                  #
                   if (j == 0):
                      #
                      molecule['e_contrib'][k-1][0].append(incl_list[j])
                      molecule['e_contrib'][k-1][0].append(e_fin_comb[l-1])
-                     molecule['e_contrib'][k-1][0].append(orb_contrib_comb)
+                     molecule['e_contrib'][k-1][0].append([])
                   #
                   else:
                      #
-                     molecule['e_contrib'][k-1].append([incl_list[j],e_fin_comb[l-1],orb_contrib_comb])
+                     molecule['e_contrib'][k-1].append([incl_list[j],e_fin_comb[l-1],[]])
+                  #
+                  orb_contrib_rout(molecule,e_contrib_comb,True)
                   #
                   break
             #
@@ -311,33 +308,15 @@ def inc_corr_tuple_thres(molecule):
          #
          print('')
          #
-         if (k == 1):
-            #
-            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(k,u_limit_1,molecule['time'][k-1]))
-            print(' --------------------------------------------------------------')
-         #
-         else:
-            #
-            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}  ---  conv =  {4:}'.\
-                             format(k,u_limit_1,molecule['time'][k-1],molecule['e_fin'][k-1]-molecule['e_fin'][k-2],molecule['conv'][0][-1]))
-            print(' ------------------------------------------------------------------------------------------------------------')
-         #
-         for i in range(0,molecule['n_contrib'][k-1]):
-            #
-            print(' RESULT-MACRO:  tuple = {0:4d} / {1:4d}  ,  corr. orbs. = {2:}  ,  abs = {3:9.4e}'.\
-                             format(i+1,molecule['n_contrib'][k-1],molecule['e_contrib'][k-1][i][0],molecule['e_contrib'][k-1][i][1]))
-         #
-         print('')
-         #
          if (molecule['conv'][0][-1]):
             #
             molecule['orb_contrib'] = []
-            orb_contrib_rout(molecule,molecule['e_contrib'],molecule['orb_contrib'],False)
+            orb_contrib_rout(molecule,molecule['e_contrib'],False)
             #
             return molecule
    #
    molecule['orb_contrib'] = []
-   orb_contrib_rout(molecule,molecule['e_contrib'],molecule['orb_contrib'],False)
+   orb_contrib_rout(molecule,molecule['e_contrib'],False)
    #
    return molecule
 
@@ -456,7 +435,7 @@ def inc_corr_tuple_order(molecule):
    molecule['time'].reverse()
    #
    molecule['orb_contrib'] = []
-   orb_contrib_rout(molecule,molecule['e_contrib'],molecule['orb_contrib'],False)
+   orb_contrib_rout(molecule,molecule['e_contrib'],False)
    #
    return molecule
 
@@ -512,7 +491,7 @@ def inc_corr_chk_conv(order,thres,e_fin,molecule,comb):
    #
    return molecule
 
-def orb_contrib_rout(molecule,e_contrib,orb_contrib,comb):
+def orb_contrib_rout(molecule,e_contrib,comb):
    #
    if ((molecule['exp'] == 'OCC') or ((molecule['exp'] == 'COMB') and (not comb))):
       #
@@ -522,7 +501,7 @@ def orb_contrib_rout(molecule,e_contrib,orb_contrib,comb):
    elif ((molecule['exp'] == 'VIRT') or ((molecule['exp'] == 'COMB') and comb)):
       #
       l_limit = molecule['nocc']
-      u_limit = molecule['nvirt']
+      u_limit = molecule['nocc']+molecule['nvirt']
    #
    for j in range(l_limit,u_limit):
       #
@@ -536,14 +515,27 @@ def orb_contrib_rout(molecule,e_contrib,orb_contrib,comb):
                #
                if (inc == 0):
                   #
-                  orb_contrib.append(e_contrib[k][l][1])
+                  if (comb):
+                     #
+                     molecule['e_contrib'][-1][-1][-1].append(e_contrib[k][l][1])
+                  #
+                  else:
+                     #
+                     molecule['orb_contrib'].append(e_contrib[k][l][1])
+               #
                else:
                   #
-                  orb_contrib[-1] += e_contrib[k][l][1]
+                  if (comb):
+                     #
+                     molecule['e_contrib'][-1][-1][-1][-1] += e_contrib[k][l][1]
+                  #
+                  else:
+                     #
+                     molecule['orb_contrib'][-1] += e_contrib[k][l][1]
                #
                inc += 1
    #
-   return orb_contrib
+   return molecule
 
 #def inc_corr_order(k,n,e_vec,e_inc):
 #   #

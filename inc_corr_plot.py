@@ -5,6 +5,7 @@
 # written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
 
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -17,7 +18,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
 def abs_energy_plot(molecule):
    #
-   sns.set(style='white',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2')
    #
    fig, ax = plt.subplots()
    #
@@ -33,7 +34,6 @@ def abs_energy_plot(molecule):
       #
       ax.set_xlim([0.5,molecule['nvirt']+0.5])
    #
-   ax.grid()
    ax.xaxis.grid(False)
    #
    ax.set_xlabel('Expansion order')
@@ -51,13 +51,13 @@ def abs_energy_plot(molecule):
 
 def n_contrib_plot(molecule):
    #
-   sns.set(style='white',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2')
    #
    fig, ax = plt.subplots()
    #
    ax.set_title('Total number of '+molecule['model']+' tuples')
    #
-   sns.barplot(list(range(1,len(molecule['e_fin'])+1)),molecule['n_contrib'][0:len(molecule['e_fin'])],palette='BuGn_d',alpha=0.7,log=True)
+   sns.barplot(list(range(1,len(molecule['e_fin'])+1)),molecule['n_contrib'][0:len(molecule['e_fin'])],palette='BuGn_d',log=True)
    #
    ax.xaxis.grid(False)
    #
@@ -76,7 +76,7 @@ def n_contrib_plot(molecule):
 
 def e_contrib_plot(molecule):
    #
-   sns.set(style='white',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2')
    #
    fig, ax = plt.subplots()
    #
@@ -90,7 +90,7 @@ def e_contrib_plot(molecule):
       #
       u_limit = molecule['nvirt']
    #
-   sns.barplot(list(range(1,u_limit+1)),molecule['orb_contrib'],palette='BuPu',alpha=0.7)
+   sns.barplot(list(range(1,u_limit+1)),molecule['orb_contrib'],palette='BuPu')
    #
    ax.set_ylim(top=0.0)
    #
@@ -105,63 +105,60 @@ def e_contrib_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/e_contrib_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_fin'])), bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
-#def e_contrib_comb_plot(molecule):
-#   #
-##   sns.set()
-#   sns.set(style='ticks', palette='Set2')
-#   sns.despine()
-#   #
-#   fig, ax = plt.subplots()
-#   #
-#   orb_contrib_sum = [[]]
-#   dim_list = []
-#   #
-#   for i in range(0,molecule['nocc']-molecule['core']):
-#      #
-#      if (i > 0):
-#         #
-#         orb_contrib_sum.append([])
-#      #
-#      for j in range(0,len(molecule['e_contrib'])):
-#         #
-#         for k in range(0,len(molecule['e_contrib'][i])):
-#            #
-#            if (set([i+1]) <= set(e_contrib[j][k][0])):
-#               #
-#               for l in range(0,molecule['nvirt']):
-#                  #
-#                  orb_contrib_sum[i].append(sum(molecule['e_contrib'][j][k][2][l]))
-#
-#
-#   #
-#   sns.heatmap(orb_contrib_arr,annot=True,linewidths=.5,xticklabels=range(1,molecule['nvirt']+1),yticklabels=range(1,molecule['nocc']+1))
-#   #
-#   ax.set_xlim([0.5,u_limit+0.5])
-#   #
-#   ax.set_ylim(top=0.0)
-#   #
-#   ax.set_xlabel('Virtual orbital')
-#   ax.set_ylabel('Occupied contribution')
-#   #
-#   plt.gca().invert_yaxis()
-#   #
-#   ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-#   #
-#   plt.yticks(rotation=0)
-#   #
-#   fig.tight_layout()
-#   #
-#   plt.savefig(molecule['wrk']+'/output/e_contrib_comb_plot.pdf', bbox_inches = 'tight', dpi=1000)
-#   #
-#   return molecule
+def e_contrib_comb_plot(molecule):
+   #
+   sns.set(style='darkgrid')
+   #
+   fig, ax = plt.subplots()
+   #
+   orb_contrib_comb = []
+   #
+   for i in range(molecule['core'],molecule['nocc']):
+      #
+      orb_contrib_comb.append([0.0] * molecule['nvirt'])
+      #
+      for j in range(0,len(molecule['e_contrib'])):
+         #
+         for k in range(0,len(molecule['e_contrib'][j])):
+            #
+            if (set([i+1]) <= set(molecule['e_contrib'][j][k][0])):
+               #
+               for l in range(0,molecule['nvirt']):
+                  #
+                  orb_contrib_comb[i-molecule['core']][l] += molecule['e_contrib'][j][k][2][l]
+   #
+   orb_contrib_arr = np.asarray(orb_contrib_comb)
+   #
+   ax = sns.heatmap(orb_contrib_arr,linewidths=.5,xticklabels=range(1,molecule['nvirt']+1),\
+                    yticklabels=range(molecule['core']+1,molecule['nocc']+1),cmap='RdYlBu',cbar=False)
+   #
+   cbar = ax.figure.colorbar(ax.collections[0],orientation='horizontal')
+   cbar.solids.set_rasterized(True)
+   cbar.set_ticks([np.amin(orb_contrib_arr),(np.amin(orb_contrib_arr)+np.amax(orb_contrib_arr))/2.0,np.amax(orb_contrib_arr)])
+   cbar.set_ticklabels(['high','medium','low'])
+   #
+   ax.set_xlabel('Virtual orbital')
+   ax.set_ylabel('Occupied orbital')
+   #
+   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule['e_fin']))+')')
+   #
+   plt.yticks(rotation=0)
+   #
+   sns.despine(left=True,bottom=True)
+   #
+   fig.tight_layout()
+   #
+   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_fin'])), bbox_inches = 'tight', dpi=1000)
+   #
+   return molecule
 
 def dev_ref_plot(molecule):
    #
-   sns.set(style='white',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2')
    sns.despine()
    #
    fig, ( ax1, ax2 ) = plt.subplots(2, 1, sharex='col', sharey='row')
@@ -205,7 +202,6 @@ def dev_ref_plot(molecule):
    #
    ax1.set_ylim([-3.4,3.4])
    #
-   ax1.grid()
    ax1.xaxis.grid(False)
    #
    ax1.set_ylabel('Difference (in kcal/mol)')
@@ -228,7 +224,6 @@ def dev_ref_plot(molecule):
       #
       ax2.set_xlim([0.5,molecule['nvirt']+0.5])
    #
-   ax2.grid()
    ax2.xaxis.grid(False)
    #
    ax2.set_ylim([93.,107.])
@@ -259,6 +254,10 @@ def ic_plot(molecule):
    #  ---  plot energy contributions from each orbital  ---
    #
    e_contrib_plot(molecule)
+   #
+   if (molecule['exp'] == 'COMB'):
+      #
+      e_contrib_comb_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #

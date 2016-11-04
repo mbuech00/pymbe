@@ -159,7 +159,7 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
          #
          if ((order == final) and (list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])].count(0) == final)): # number of zeros in list_drop must match the final order
             #
-            if (molecule['fc']): # exclude core orbitals
+            if (molecule['fc'] and (not (molecule['exp'] == 'COMB'))): # exclude core orbitals
                #
                for m in range(0,molecule['core']):
                   #
