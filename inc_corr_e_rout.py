@@ -118,7 +118,7 @@ def inc_corr_tuple_thres(molecule):
          #
          orb_contrib_rout(molecule,molecule['e_contrib'][k-1],molecule['orb_contrib'][k-1])
          #
-         inc_corr_plot.e_contrib_plot(molecule)
+#         inc_corr_plot.e_contrib_plot(molecule)
          #
          if (k > 1):
             #

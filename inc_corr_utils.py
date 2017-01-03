@@ -317,27 +317,51 @@ def init_domains(molecule):
       molecule['occ_domain'] = [[]]
       molecule['virt_domain'] = []
       #
-      inc_corr_orb_rout.init_occ_domains(molecule)
+      for i in range(0,molecule['nvirt']):
+         #
+         molecule['virt_domain'].append(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1))
+         #
+         molecule['virt_domain'][i].pop(i)
+      #
+      inc_corr_orb_rout.init_occ_screen(molecule)
    #
    elif (molecule['screen'][1] and (not molecule['screen'][0])):
       #
       molecule['occ_domain'] = []
       molecule['virt_domain'] = [[]]
       #
-      init_virt_domains(molecule)
+      for i in range(0,molecule['nocc']):
+         #
+         molecule['occ_domain'].append(range(1,molecule['nocc']+1))
+         #
+         molecule['occ_domain'][i].pop(i)
+      #
+      init_virt_screen(molecule)
    #
    elif (molecule['screen'][0] and molecule['screen'][1]):
       #
       molecule['occ_domain'] = [[]]
       molecule['virt_domain'] = [[]]
       #
-      inc_corr_orb_rout.init_occ_domains(molecule)
-      inc_corr_orb_rout.init_virt_domains(molecule)
+      inc_corr_orb_rout.init_occ_screen(molecule)
+      inc_corr_orb_rout.init_virt_screen(molecule)
    #
    else:
       #
       molecule['occ_domain'] = []
       molecule['virt_domain'] = []
+      #
+      for i in range(0,molecule['nocc']):
+         #
+         molecule['occ_domain'].append(range(1,molecule['nocc']+1))
+         #
+         molecule['occ_domain'][i].pop(i)
+      #
+      for i in range(0,molecule['nvirt']):
+         #
+         molecule['virt_domain'].append(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1))
+         #
+         molecule['virt_domain'][i].pop(i)
    #
    return molecule
 

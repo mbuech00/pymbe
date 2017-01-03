@@ -25,27 +25,21 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
          #
          if (n > 0):
             #
-            if (not molecule['occ_domain']):
+            if (not molecule['occ_domain'][i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                #
-               list_drop[i-1] = 0 # no screening
+               list_drop[i-1] = i
             #
             else:
                #
-               if (not molecule['occ_domain'][i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
-                  #
-                  list_drop[i-1] = i
+               list_drop[i-1] = 0 # attempt to correlate orbital 'i'
+               idx = [j+1 for j, val in enumerate(list_drop[molecule['core']:molecule['nocc']]) if val == 0] # make list containing indices (+1) with zeros in list_drop
                #
-               else:
+               for k in range(0,len(idx)):
                   #
-                  list_drop[i-1] = 0 # attempt to correlate orbital 'i'
-                  idx = [j+1 for j, val in enumerate(list_drop[molecule['core']:molecule['nocc']]) if val == 0] # make list containing indices (+1) with zeros in list_drop
-                  #
-                  for k in range(0,len(idx)):
+                  if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['occ_domain'][idx[k]-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
                      #
-                     if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['occ_domain'][idx[k]-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
-                        #
-                        list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
-                        break
+                     list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                     break
          #
          s = ''
          inc = 0
@@ -128,27 +122,21 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
          #
          if (n > 0):
             #
-            if (not molecule['virt_domain']):
+            if (not molecule['virt_domain'][(i-molecule['nocc'])-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                #
-               list_drop[i-1] = 0 # no screening
+               list_drop[i-1] = i
             #
             else:
                #
-               if (not molecule['virt_domain'][(i-molecule['nocc'])-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
-                  #
-                  list_drop[i-1] = i
+               list_drop[i-1] = 0 # attempt to correlate orbital 'i'
+               idx = [(j+molecule['nocc'])+1 for j, val in enumerate(list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])]) if val == 0] # make list containing indices (+1) with zeros in list_drop
                #
-               else:
+               for k in range(0,len(idx)):
                   #
-                  list_drop[i-1] = 0 # attempt to correlate orbital 'i'
-                  idx = [(j+molecule['nocc'])+1 for j, val in enumerate(list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])]) if val == 0] # make list containing indices (+1) with zeros in list_drop
-                  #
-                  for k in range(0,len(idx)):
+                  if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['virt_domain'][(idx[k]-molecule['nocc'])-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
                      #
-                     if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['virt_domain'][(idx[k]-molecule['nocc'])-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
-                        #
-                        list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
-                        break
+                     list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                     break
          #
          s = ''
          inc = 0
@@ -203,25 +191,25 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
    #
    return drop_string, n_contrib
 
-def init_occ_domains(molecule):
+def init_occ_screen(molecule):
    #
    # define occupied domains (currently only for the water case)
    #
    # screen away all interactions between orb 1 and any of the other occupied orbs --- corresponds to a minor improvement over a frozen-core calculation
    #
-#   molecule['occ_domain']      = [[]]
-#   molecule['occ_domain'].append([3,4,5])
-#   molecule['occ_domain'].append([2,4,5])
-#   molecule['occ_domain'].append([2,3,5])
-#   molecule['occ_domain'].append([2,3,4])
+   molecule['occ_domain']      = [[]]
+   molecule['occ_domain'].append([3,4,5])
+   molecule['occ_domain'].append([2,4,5])
+   molecule['occ_domain'].append([2,3,5])
+   molecule['occ_domain'].append([2,3,4])
    #
    # screen away all interactions between orb 2 and any of the other occupied orbs
    #
-   molecule['occ_domain']      = [[3,4,5]]
-   molecule['occ_domain'].append([])
-   molecule['occ_domain'].append([1,4,5])
-   molecule['occ_domain'].append([1,3,5])
-   molecule['occ_domain'].append([1,3,4])
+#   molecule['occ_domain']      = [[3,4,5]]
+#   molecule['occ_domain'].append([])
+#   molecule['occ_domain'].append([1,4,5])
+#   molecule['occ_domain'].append([1,3,5])
+#   molecule['occ_domain'].append([1,3,4])
    #
    # screen away all interactions between orb 5 (HOMO) and any of the other occupied orbs
    #
@@ -241,7 +229,7 @@ def init_occ_domains(molecule):
    #
    return molecule
 
-def init_virt_domains(molecule):
+def init_virt_screen(molecule):
    #
    # define virtual domains (currently only for the water case)
    #
