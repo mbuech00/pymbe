@@ -440,7 +440,7 @@ def inc_corr_summary(molecule):
    #
    for i in range(0,len(molecule['e_fin'])):
       #
-      print('{0:4d} - # orb. tuples  =  {1:}'.format(i+1,molecule['n_contrib'][i]))
+      print('{0:4d} - # orb. tuples  =  {1:}'.format(i+1,molecule['n_tuples'][i]))
    #
    print('   --------------------------------------------------------------')
    #

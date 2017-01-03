@@ -49,7 +49,7 @@ def abs_energy_plot(molecule):
    #
    return molecule
 
-def n_contrib_plot(molecule):
+def n_tuples_plot(molecule):
    #
    sns.set(style='darkgrid',palette='Set2')
    #
@@ -57,7 +57,7 @@ def n_contrib_plot(molecule):
    #
    ax.set_title('Total number of '+molecule['model']+' tuples')
    #
-   sns.barplot(list(range(1,len(molecule['e_fin'])+1)),molecule['n_contrib'][0:len(molecule['e_fin'])],palette='BuGn_d',log=True)
+   sns.barplot(list(range(1,len(molecule['e_fin'])+1)),molecule['n_tuples'][0:len(molecule['e_fin'])],palette='BuGn_d',log=True)
    #
    ax.xaxis.grid(False)
    #
@@ -70,7 +70,7 @@ def n_contrib_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/n_contrib_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output/n_tuples_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -216,7 +216,7 @@ def ic_plot(molecule):
    #
 #   #  ---  plot number of calculations from each orbital  ---
 #   #
-#   n_contrib_plot(molecule)
+#   n_tuples_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #

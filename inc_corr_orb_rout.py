@@ -7,11 +7,11 @@
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
-def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib):
+def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples):
    #
    if (order > (molecule['nocc']-molecule['core'])):
       #
-      return drop_string, n_contrib
+      return drop_string, n_tuples
    #
    else:
       #
@@ -76,13 +76,13 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
             #
             if (s != ''):
                #
-               if (len(n_contrib) >= order):
+               if (len(n_tuples) >= order):
                   #
-                  n_contrib[order-1] += 1
+                  n_tuples[order-1] += 1
                #
                else:
                   #
-                  n_contrib.append(1)
+                  n_tuples.append(1)
                #
                if (molecule['exp'] == 'OCC'):
                   #
@@ -94,21 +94,21 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_contrib
             #
             elif (order == molecule['nocc']): # full system correlation, i.e., equal to standard N-electron calculation
                #
-               n_contrib.append(1)
+               n_tuples.append(1)
                #
                drop_string.append('\n')
          #
-         generate_drop_occ(i+1,order+1,final,molecule,list_drop,drop_string,n_contrib) # recursion
+         generate_drop_occ(i+1,order+1,final,molecule,list_drop,drop_string,n_tuples) # recursion
          #
          list_drop[i-1] = i # include orb back into list of orbs to drop from the calculation
    #
-   return drop_string, n_contrib
+   return drop_string, n_tuples
 
-def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contrib):
+def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_tuples):
    #
    if (order > molecule['nvirt']):
       #
-      return drop_string, n_contrib
+      return drop_string, n_tuples
    #
    else:
       #
@@ -175,21 +175,21 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_contri
                   #
                   inc += 1
             #
-            if (len(n_contrib) >= order):
+            if (len(n_tuples) >= order):
                #
-               n_contrib[order-1] += 1
+               n_tuples[order-1] += 1
             #
             else:
                #
-               n_contrib.append(1)
+               n_tuples.append(1)
             #
             drop_string.append(s+'\n')
          #
-         generate_drop_virt(i+1,order+1,final,molecule,list_drop,drop_string,n_contrib)
+         generate_drop_virt(i+1,order+1,final,molecule,list_drop,drop_string,n_tuples)
          #
          list_drop[i-1] = i
    #
-   return drop_string, n_contrib
+   return drop_string, n_tuples
 
 def init_occ_screen(molecule):
    #
