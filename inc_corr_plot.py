@@ -123,53 +123,6 @@ def e_contrib_plot(molecule):
    #
    return molecule
 
-def e_contrib_comb_plot(molecule):
-   #
-   sns.set(style='darkgrid')
-   #
-   fig, ax = plt.subplots()
-   #
-   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule['e_fin']))+')')
-   #
-   orb_contrib_comb = []
-   #
-   for i in range(molecule['core'],molecule['nocc']):
-      #
-      orb_contrib_comb.append([0.0] * molecule['nvirt'])
-      #
-      for j in range(0,len(molecule['e_contrib'])):
-         #
-         for k in range(0,len(molecule['e_contrib'][j])):
-            #
-            if (set([i+1]) <= set(molecule['e_contrib'][j][k][0])):
-               #
-               for l in range(0,molecule['nvirt']):
-                  #
-                  orb_contrib_comb[i-molecule['core']][l] += molecule['e_contrib'][j][k][2][l]
-   #
-   orb_contrib_arr = np.asarray(orb_contrib_comb)
-   #
-   ax = sns.heatmap(orb_contrib_arr,linewidths=.5,xticklabels=range(1,molecule['nvirt']+1),\
-                    yticklabels=range(molecule['core']+1,molecule['nocc']+1),cmap='RdYlBu',cbar=False)
-   #
-   cbar = ax.figure.colorbar(ax.collections[0],orientation='horizontal')
-   cbar.solids.set_rasterized(True)
-   cbar.set_ticks([np.amin(orb_contrib_arr),(np.amin(orb_contrib_arr)+np.amax(orb_contrib_arr))/2.0,np.amax(orb_contrib_arr)])
-   cbar.set_ticklabels(['high','medium','low'])
-   #
-   ax.set_xlabel('Virtual orbital')
-   ax.set_ylabel('Occupied orbital')
-   #
-   plt.yticks(rotation=0)
-   #
-   sns.despine(left=True,bottom=True)
-   #
-   fig.tight_layout()
-   #
-   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_fin'])), bbox_inches = 'tight', dpi=1000)
-   #
-   return molecule
-
 def dev_ref_plot(molecule):
    #
    sns.set(style='darkgrid',palette='Set2')
@@ -264,10 +217,6 @@ def ic_plot(molecule):
 #   #  ---  plot number of calculations from each orbital  ---
 #   #
 #   n_contrib_plot(molecule)
-#   #
-#   if (molecule['exp'] == 'COMB'):
-#      #
-#      e_contrib_comb_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #
