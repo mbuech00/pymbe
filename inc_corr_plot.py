@@ -80,28 +80,42 @@ def e_contrib_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Individual orbital contributions to E('+molecule['model']+')')
+   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule["e_fin"]))+')')
    #
    if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
       #
-      u_limit = molecule['nocc']-molecule['core']
+      u_limit = molecule['nocc']
    #
    elif (molecule['exp'] == 'VIRT'):
       #
       u_limit = molecule['nvirt']
    #
-   sns.barplot(list(range(1,u_limit+1)),molecule['orb_contrib'],palette='BuPu')
+   orb_contrib_arr = np.asarray(molecule['orb_contrib'])
    #
-   ax.set_ylim(top=0.0)
+   # calculate realtive contributions
+   #
+   tot_sum = 0.0
+   #
+   for i in range(0,len(molecule['e_fin'])):
+      #
+      tot_sum += sum(orb_contrib_arr[i,0:])
+   #
+   for i in range(0,len(molecule['e_fin'])):
+      #
+      for j in range(0,u_limit):
+         #
+         orb_contrib_arr[i,j] = (orb_contrib_arr[i,j] / tot_sum) * 100.0
+   #
+   ax = sns.heatmap(orb_contrib_arr,linewidths=.5,xticklabels=range(1,u_limit+1),\
+                    yticklabels=range(1,len(molecule['e_fin'])+1),cmap='coolwarm',cbar=False,\
+                    annot=True,fmt='.1f',vmin=-np.amax(orb_contrib_arr),vmax=np.amax(orb_contrib_arr))
    #
    ax.set_xlabel('Orbital')
-   ax.set_ylabel('Energy contribution')
+   ax.set_ylabel('Order')
    #
-   ax.xaxis.grid(False)
+   plt.yticks(rotation=0)
    #
-   plt.gca().invert_yaxis()
-   #
-   sns.despine()
+   sns.despine(left=True,bottom=True)
    #
    fig.tight_layout()
    #
@@ -114,6 +128,8 @@ def e_contrib_comb_plot(molecule):
    sns.set(style='darkgrid')
    #
    fig, ax = plt.subplots()
+   #
+   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule['e_fin']))+')')
    #
    orb_contrib_comb = []
    #
@@ -143,8 +159,6 @@ def e_contrib_comb_plot(molecule):
    #
    ax.set_xlabel('Virtual orbital')
    ax.set_ylabel('Occupied orbital')
-   #
-   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule['e_fin']))+')')
    #
    plt.yticks(rotation=0)
    #
@@ -247,17 +261,13 @@ def ic_plot(molecule):
    #
    abs_energy_plot(molecule)
    #
-   #  ---  plot number of calculations from each orbital  ---
-   #
-   n_contrib_plot(molecule)
-   #
-   #  ---  plot energy contributions from each orbital  ---
-   #
-   e_contrib_plot(molecule)
-   #
-   if (molecule['exp'] == 'COMB'):
-      #
-      e_contrib_comb_plot(molecule)
+#   #  ---  plot number of calculations from each orbital  ---
+#   #
+#   n_contrib_plot(molecule)
+#   #
+#   if (molecule['exp'] == 'COMB'):
+#      #
+#      e_contrib_comb_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #

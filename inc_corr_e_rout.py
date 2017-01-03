@@ -9,6 +9,7 @@ from timeit import default_timer as timer
 
 import inc_corr_gen_rout
 import inc_corr_orb_rout
+import inc_corr_plot
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
@@ -61,6 +62,8 @@ def inc_corr_tuple_thres(molecule):
    #
    molecule['n_contrib'] = []
    #
+   molecule['orb_contrib'] = []
+   #
    molecule['e_fin'] = []
    #
    molecule['time'] = []
@@ -111,6 +114,12 @@ def inc_corr_tuple_thres(molecule):
          #
          inc_corr_order(k,molecule['n_contrib'],molecule['e_contrib'],molecule['e_fin'])
          #
+         molecule['orb_contrib'].append([])
+         #
+         orb_contrib_rout(molecule,molecule['e_contrib'][k-1],molecule['orb_contrib'][k-1])
+         #
+         inc_corr_plot.e_contrib_plot(molecule)
+         #
          if (k > 1):
             #
             if (molecule['exp'] == 'OCC'):
@@ -142,9 +151,6 @@ def inc_corr_tuple_thres(molecule):
          print('')
          #
          if (molecule['conv'][0][-1]):
-            #
-            molecule['orb_contrib'] = []
-            orb_contrib_rout(molecule,molecule['e_contrib'],False)
             #
             return molecule
    #
@@ -236,7 +242,7 @@ def inc_corr_tuple_thres(molecule):
                   #
                   molecule['e_contrib'][k-1].append([incl_list[j],e_fin_comb[l-1],[]])
                   #
-                  orb_contrib_rout(molecule,e_contrib_comb,True)
+#                  orb_contrib_rout(molecule,e_contrib_comb,True)
                   #
                   break
             #
@@ -273,13 +279,10 @@ def inc_corr_tuple_thres(molecule):
          #
          if (molecule['conv'][0][-1]):
             #
-            molecule['orb_contrib'] = []
-            orb_contrib_rout(molecule,molecule['e_contrib'],False)
+#            molecule['orb_contrib'] = []
+#            orb_contrib_rout(molecule,molecule['e_contrib'],False)
             #
             return molecule
-   #
-   molecule['orb_contrib'] = []
-   orb_contrib_rout(molecule,molecule['e_contrib'],False)
    #
    return molecule
 
@@ -380,8 +383,8 @@ def inc_corr_tuple_order(molecule):
    #
    molecule['time'].reverse()
    #
-   molecule['orb_contrib'] = []
-   orb_contrib_rout(molecule,molecule['e_contrib'],False)
+#   molecule['orb_contrib'] = []
+#   orb_contrib_rout(molecule,molecule['e_contrib'],False)
    #
    return molecule
 
@@ -437,7 +440,7 @@ def inc_corr_chk_conv(order,thres,e_fin,molecule,comb):
    #
    return molecule
 
-def orb_contrib_rout(molecule,e_contrib,comb):
+def orb_contrib_rout(molecule,e_contrib,orb_contrib):
    #
    if ((molecule['exp'] == 'OCC') or ((molecule['exp'] == 'COMB') and (not comb))):
       #
@@ -451,35 +454,15 @@ def orb_contrib_rout(molecule,e_contrib,comb):
    #
    for j in range(l_limit,u_limit):
       #
-      inc = 0
+      tmp = 0.0
       #
-      for k in range(0,len(e_contrib)):
+      for l in range(0,len(e_contrib)):
          #
-         for l in range(0,len(e_contrib[k])):
+         if (set([j+1]) <= set(e_contrib[l][0])):
             #
-            if (set([j+1]) <= set(e_contrib[k][l][0])):
-               #
-               if (inc == 0):
-                  #
-                  if (comb):
-                     #
-                     molecule['e_contrib'][-1][-1][-1].append(e_contrib[k][l][1])
-                  #
-                  else:
-                     #
-                     molecule['orb_contrib'].append(e_contrib[k][l][1])
-               #
-               else:
-                  #
-                  if (comb):
-                     #
-                     molecule['e_contrib'][-1][-1][-1][-1] += e_contrib[k][l][1]
-                  #
-                  else:
-                     #
-                     molecule['orb_contrib'][-1] += e_contrib[k][l][1]
-               #
-               inc += 1
+            tmp += e_contrib[l][1]
+      #
+      orb_contrib.append(tmp)
    #
    return molecule
 
