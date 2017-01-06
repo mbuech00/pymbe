@@ -191,18 +191,6 @@ def init_param(molecule):
                #
                thres_virt = float(content[i].split()[1])
             #
-            elif (content[i].split()[0] == 'order'):
-               #
-               molecule['order'] = int(content[i].split()[1])
-            #
-            elif (content[i].split()[0] == 'screen_occ'):
-               #
-               screen_occ = (content[i].split()[1] == 'True')
-            #
-            elif (content[i].split()[0] == 'screen_virt'):
-               #
-               screen_virt = (content[i].split()[1] == 'True')
-            #
             else:
                #
                print(str(content[i].split()[1])+' keyword in input-param.inp not recognized, aborting ...')
@@ -210,9 +198,7 @@ def init_param(molecule):
    #
    molecule['thres'] = [thres_occ,thres_virt]
    #
-   molecule['screen'] = [screen_occ,screen_virt]
-   #
-   chk = ['mol','core','fc','mult','scr','exp','model','basis','ref','local','mem','thres','order','screen']
+   chk = ['mol','core','fc','mult','scr','exp','model','basis','ref','local','mem','thres']
    #
    inc = 0
    #
@@ -221,18 +207,16 @@ def init_param(molecule):
       if (not (chk[k] in molecule.keys())):
          #
          print(str(chk[k])+' keyword missing in either input-mol.inp or input-param.inp, aborting ...')
+         #
+         inc += 1
+   #
+   if ((molecule['thres'][0] == 0.0) and (molecule['thres'][1] == 0.0)):
+      #
+      inc += 1
    #
    if (inc > 0):
       #
       sys.exit(10)
-   #
-   if ((molecule['thres'][0] > 0.0) or (molecule['thres'][1] > 0.0)):
-      #
-      molecule['exp_ctrl'] = True
-   #
-   else:
-      #
-      molecule['exp_ctrl'] = False
    #
    if (molecule['model'] == 'FCI'):
       #
@@ -261,41 +245,12 @@ def init_calc(molecule):
 
 def sanity_chk(molecule):
    #
-   if (molecule['exp'] == 'OCC'):
-      #
-      if (molecule['order'] >= (molecule['nocc'] - molecule['core'])):
-         #
-         print 'wrong input argument for total order (must be .lt. number of available occupied orbitals), aborting ...'
-         molecule['error'][0].append(True)
-   #
-   elif (molecule['exp'] == 'VIRT'):
-      #
-      if (molecule['order'] >= molecule['nvirt']):
-         #
-         print 'wrong input argument for total order (must be .lt. number of virtual orbitals), aborting ...'
-         molecule['error'][0].append(True)
-   #
-   elif (molecule['exp'] == 'COMB'):
+   if (molecule['exp'] == 'COMB'):
       #
       if ((molecule['thres'][0] == 0.0) or (molecule['thres'][1] == 0.0)):
          #
          print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
          molecule['error'][0].append(True)
-      #
-      if (not molecule['exp_ctrl']):
-         #
-         print('expansion scheme "COMB" is currently not implemented for fixed order expansion, aborting ...')
-         molecule['error'][0].append(True)
-   #
-   if ((molecule['order'] > 0) and molecule['exp_ctrl']):
-      #
-      print('fixed order expansion requested, but expansion thresholds provided, aborting ...')
-      molecule['error'][0].append(True)
-   #
-   if ((molecule['order'] == 0) and (not molecule['exp_ctrl'])):
-      #
-      print('neither fixed order nor threshold-governed expansion requested, aborting ...')
-      molecule['error'][0].append(True)
    #
    if (molecule['fc'] and molecule['local']):
       #
@@ -307,61 +262,6 @@ def sanity_chk(molecule):
       cd_dir(molecule['wrk'])
       rm_scr_dir(molecule['scr'])
       sys.exit(10)
-   #
-   return molecule
-
-def init_domains(molecule):
-   #
-   if (molecule['screen'][0] and (not molecule['screen'][1])):
-      #
-      molecule['occ_domain'] = [[]]
-      molecule['virt_domain'] = []
-      #
-      for i in range(0,molecule['nvirt']):
-         #
-         molecule['virt_domain'].append(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1))
-         #
-         molecule['virt_domain'][i].pop(i)
-      #
-      inc_corr_orb_rout.init_occ_screen(molecule)
-   #
-   elif (molecule['screen'][1] and (not molecule['screen'][0])):
-      #
-      molecule['occ_domain'] = []
-      molecule['virt_domain'] = [[]]
-      #
-      for i in range(0,molecule['nocc']):
-         #
-         molecule['occ_domain'].append(range(1,molecule['nocc']+1))
-         #
-         molecule['occ_domain'][i].pop(i)
-      #
-      init_virt_screen(molecule)
-   #
-   elif (molecule['screen'][0] and molecule['screen'][1]):
-      #
-      molecule['occ_domain'] = [[]]
-      molecule['virt_domain'] = [[]]
-      #
-      inc_corr_orb_rout.init_occ_screen(molecule)
-      inc_corr_orb_rout.init_virt_screen(molecule)
-   #
-   else:
-      #
-      molecule['occ_domain'] = []
-      molecule['virt_domain'] = []
-      #
-      for i in range(0,molecule['nocc']):
-         #
-         molecule['occ_domain'].append(range(1,molecule['nocc']+1))
-         #
-         molecule['occ_domain'][i].pop(i)
-      #
-      for i in range(0,molecule['nvirt']):
-         #
-         molecule['virt_domain'].append(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1))
-         #
-         molecule['virt_domain'][i].pop(i)
    #
    return molecule
 
@@ -380,59 +280,31 @@ def inc_corr_summary(molecule):
    print('   occupied orbitals  =  {0:}'.format(molecule['nocc']-molecule['core']))
    print('   virtual orbitals   =  {0:}'.format(molecule['nvirt']))
    #
-   if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
+   if (molecule['thres'][0] > 0.0):
       #
-      print('   screening (occ.)   =  {0:}'.format(molecule['screen'][0]))
-      print('   screening (virt.)  =  N/A')
-   #
-   elif (molecule['exp'] == 'VIRT'):
-      #
-      print('   screening (occ.)   =  N/A')
-      print('   screening (virt.)  =  {0:}'.format(molecule['screen'][1]))
-   #
-   if (molecule['exp_ctrl']):
-      #
-      if (molecule['thres'][0] > 0.0):
-         #
-         if (molecule['exp'] == 'VIRT'):
-            #
-            print('   thres. (occ.)      =  N/A')
-         #
-         else:
-            #
-            print('   thres. (occ.)      =  {0:6.1e}'.format(molecule['thres'][0]))
-      #
-      else:
+      if (molecule['exp'] == 'VIRT'):
          #
          print('   thres. (occ.)      =  N/A')
       #
-      if (molecule['thres'][1] > 0.0):
-         #
-         if (molecule['exp'] == 'OCC'):
-            #
-            print('   thres. (virt.)     =  N/A')
-         #
-         else:
-            #
-            print('   thres. (virt.)     =  {0:6.1e}'.format(molecule['thres'][1]))
-      #
       else:
          #
-         print('   thres. (virt.)     =  N/A')
+         print('   thres. (occ.)      =  {0:4.2f}'.format(molecule['thres'][0]))
    #
    else:
       #
       print('   thres. (occ.)      =  N/A')
-      print('   thres. (virt.)     =  N/A')
+   #
+   if (molecule['thres'][1] > 0.0):
+      #
+      if (molecule['exp'] == 'OCC'):
+         #
+         print('   thres. (virt.)     =  N/A')
+      #
+      else:
+         #
+         print('   thres. (virt.)     =  {0:4.2f}'.format(molecule['thres'][1]))
    #
    print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'])))
-   #
-   if (molecule['exp_ctrl']):
-      #
-      print('   convergence met    =  {0:}'.format(molecule['conv'][0][-1]))
-   else:
-      #
-      print('   convergence met    =  N/A')
    #
    print('   error in calc.     =  {0:}'.format(molecule['error'][0][-1]))
    #
@@ -440,7 +312,8 @@ def inc_corr_summary(molecule):
    #
    for i in range(0,len(molecule['e_fin'])):
       #
-      print('{0:4d} - # orb. tuples  =  {1:}'.format(i+1,molecule['n_tuples'][i]))
+      print('{0:4d} - # orb. tuples  =  {1:} / {2:} ({3:5.2f} %)'.format(i+1,molecule['n_tuples'][i],molecule['theo_work'][i],\
+                                                     (float(molecule['n_tuples'][i])/float(molecule['theo_work'][i])*100.00)))
    #
    print('   --------------------------------------------------------------')
    #

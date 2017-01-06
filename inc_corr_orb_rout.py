@@ -7,6 +7,8 @@
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
+import math
+
 def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples):
    #
    if (order > (molecule['nocc']-molecule['core'])):
@@ -25,7 +27,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples)
          #
          if (n > 0):
             #
-            if (not molecule['occ_domain'][i-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+            if (not molecule['occ_domain'][i-1][-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                #
                list_drop[i-1] = i
             #
@@ -36,7 +38,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples)
                #
                for k in range(0,len(idx)):
                   #
-                  if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['occ_domain'][idx[k]-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
+                  if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['occ_domain'][idx[k]-1][-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
                      #
                      list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                      break
@@ -122,7 +124,7 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_tuples
          #
          if (n > 0):
             #
-            if (not molecule['virt_domain'][(i-molecule['nocc'])-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+            if (not molecule['virt_domain'][(i-molecule['nocc'])-1][-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                #
                list_drop[i-1] = i
             #
@@ -133,7 +135,7 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_tuples
                #
                for k in range(0,len(idx)):
                   #
-                  if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['virt_domain'][(idx[k]-molecule['nocc'])-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
+                  if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['virt_domain'][(idx[k]-molecule['nocc'])-1][-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
                      #
                      list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
                      break
@@ -191,71 +193,72 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_tuples
    #
    return drop_string, n_tuples
 
-def init_occ_screen(molecule):
+def init_domains(molecule):
    #
-   # define occupied domains (currently only for the water case)
+   molecule['occ_domain'] = []
+   molecule['virt_domain'] = []
    #
-   # screen away all interactions between orb 1 and any of the other occupied orbs --- corresponds to a minor improvement over a frozen-core calculation
+   for i in range(0,molecule['nocc']):
+      #
+      molecule['occ_domain'].append([range(1,molecule['nocc']+1)])
+      #
+      molecule['occ_domain'][i][-1].pop(i)
    #
-   molecule['occ_domain']      = [[]]
-   molecule['occ_domain'].append([3,4,5])
-   molecule['occ_domain'].append([2,4,5])
-   molecule['occ_domain'].append([2,3,5])
-   molecule['occ_domain'].append([2,3,4])
-   #
-   # screen away all interactions between orb 2 and any of the other occupied orbs
-   #
-#   molecule['occ_domain']      = [[3,4,5]]
-#   molecule['occ_domain'].append([])
-#   molecule['occ_domain'].append([1,4,5])
-#   molecule['occ_domain'].append([1,3,5])
-#   molecule['occ_domain'].append([1,3,4])
-   #
-   # screen away all interactions between orb 5 (HOMO) and any of the other occupied orbs
-   #
-#   molecule['occ_domain']      = [[2,3,4]]
-#   molecule['occ_domain'].append([1,3,4])
-#   molecule['occ_domain'].append([1,2,4])
-#   molecule['occ_domain'].append([1,2,3])
-#   molecule['occ_domain'].append([])
-   #
-   # screen away interactions between orbs 1/2 and between orbs 4/5
-   #
-#   molecule['occ_domain']     = [[3,4,5]]
-#   molecule['occ_domain'].append([3,4,5])
-#   molecule['occ_domain'].append([1,2,4,5])
-#   molecule['occ_domain'].append([1,2,3])
-#   molecule['occ_domain'].append([1,2,3])
+   for i in range(0,molecule['nvirt']):
+      #
+      molecule['virt_domain'].append([range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)])
+      #
+      molecule['virt_domain'][i][-1].pop(i)
    #
    return molecule
 
-def init_virt_screen(molecule):
+def excl_list(orb,thres,excl):
    #
-   # define virtual domains (currently only for the water case)
+   for i in range(0,len(orb)):
+      #
+      excl.append([orb[i][0][0]])
+      #
+      for j in range(0,len(orb[i])-1):
+         #
+         if ((orb[i][j+1][1][1] < thres) and (orb[i][j+1][1][1] != 0.0)):
+            #
+            excl[i].append(orb[i][j+1][0][0])
    #
-   # screen away all interactions between orb 6 (LUMO) and any of the other virtual orbs
+   for k in range(0,len(excl)):
+      #
+      excl[k].sort()
    #
-   molecule['virt_domain']     = [[]]
-   molecule['virt_domain'].append([8,9,10,11,12,13])
-   molecule['virt_domain'].append([7,9,10,11,12,13])
-   molecule['virt_domain'].append([7,8,10,11,12,13])
-   molecule['virt_domain'].append([7,8,9,11,12,13])
-   molecule['virt_domain'].append([7,8,9,10,12,13])
-   molecule['virt_domain'].append([7,8,9,10,11,13])
-   molecule['virt_domain'].append([7,8,9,10,11,12])
+   return excl
+
+def update_domains(molecule,domain,excl):
    #
-   # screen away all interactions between orb 13 and any of the other virtual orbs
+   if (molecule['exp'] == 'OCC'):
+      #
+      l_limit = 0
    #
-#   molecule['virt_domain']     = [[7,8,9,10,11,12]]
-#   molecule['virt_domain'].append([6,8,9,10,11,12])
-#   molecule['virt_domain'].append([6,7,9,10,11,12])
-#   molecule['virt_domain'].append([6,7,8,10,11,12])
-#   molecule['virt_domain'].append([6,7,8,9,11,12])
-#   molecule['virt_domain'].append([6,7,8,9,10,12])
-#   molecule['virt_domain'].append([6,7,8,9,10,11])
-#   molecule['virt_domain'].append([])
+   elif (molecule['exp'] == 'VIRT'):
+      #
+      l_limit = molecule['nocc']
    #
-   return molecule
+   for l in range(0,len(domain)):
+      #
+      domain[l].append(list(domain[l][-1]))
+   #
+   for i in range(0,len(excl)):
+      #
+      for j in range(0,len(excl[i])):
+         #
+         for k in range(j+1,len(excl[i])):
+            #
+            if (excl[i][j] in domain[((excl[i][k]-l_limit)-1)][-1]):
+               #
+               domain[((excl[i][k]-l_limit)-1)][-1].remove(excl[i][j])
+            #
+            if (excl[i][k] in domain[((excl[i][j]-l_limit)-1)][-1]):
+               #
+               domain[((excl[i][j]-l_limit)-1)][-1].remove(excl[i][k])
+   #
+   return domain
 
 def orbs_incl(molecule,string_excl,string_incl,comb):
    #
@@ -288,4 +291,9 @@ def orbs_incl(molecule,string_excl,string_incl,comb):
    #
    return string_incl
 
+def n_theo_tuples(dim,k,theo_work):
+   #
+   theo_work.append(math.factorial(dim)/(math.factorial(k)*math.factorial(dim-k)))
+   #
+   return theo_work
 

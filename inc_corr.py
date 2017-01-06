@@ -8,6 +8,7 @@
 #
 
 import inc_corr_utils
+import inc_corr_orb_rout
 import inc_corr_gen_rout
 import inc_corr_e_rout
 import inc_corr_plot
@@ -42,17 +43,11 @@ def main():
    #
    #  ---  initialize (potential) domains...  ---
    #
-   inc_corr_utils.init_domains(molecule)
+   inc_corr_orb_rout.init_domains(molecule)
    #
    #  ---  initialization done - start the calculation...  ---
    #
-   if (molecule['exp_ctrl']):
-      #
-      inc_corr_e_rout.inc_corr_tuple_thres(molecule)
-   #
-   else:
-      #
-      inc_corr_e_rout.inc_corr_tuple_order(molecule)
+   inc_corr_e_rout.inc_corr_main(molecule)
    #
    #  ---  start (potential) reference calculation...  ---
    #

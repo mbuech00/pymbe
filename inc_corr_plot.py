@@ -90,7 +90,7 @@ def e_contrib_plot(molecule):
       #
       u_limit = molecule['nvirt']
    #
-   orb_contrib_arr = np.asarray(molecule['orb_contrib'])
+   orbital_arr = np.asarray(molecule['orbital'])
    #
    # calculate realtive contributions
    #
@@ -98,17 +98,17 @@ def e_contrib_plot(molecule):
    #
    for i in range(0,len(molecule['e_fin'])):
       #
-      tot_sum += sum(orb_contrib_arr[i,0:])
+      tot_sum += sum(orbital_arr[i,0:])
    #
    for i in range(0,len(molecule['e_fin'])):
       #
       for j in range(0,u_limit):
          #
-         orb_contrib_arr[i,j] = (orb_contrib_arr[i,j] / tot_sum) * 100.0
+         orbital_arr[i,j] = (orbital_arr[i,j] / tot_sum) * 100.0
    #
-   ax = sns.heatmap(orb_contrib_arr,linewidths=.5,xticklabels=range(1,u_limit+1),\
+   ax = sns.heatmap(orbital_arr,linewidths=.5,xticklabels=range(1,u_limit+1),\
                     yticklabels=range(1,len(molecule['e_fin'])+1),cmap='coolwarm',cbar=False,\
-                    annot=True,fmt='.1f',vmin=-np.amax(orb_contrib_arr),vmax=np.amax(orb_contrib_arr))
+                    annot=True,fmt='.1f',vmin=-np.amax(orbital_arr),vmax=np.amax(orbital_arr))
    #
    ax.set_xlabel('Orbital')
    ax.set_ylabel('Order')
@@ -132,24 +132,17 @@ def dev_ref_plot(molecule):
    #
    kcal_mol = 0.001594
    #
-   if (molecule['exp_ctrl']):
+   if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
       #
-      if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
-         #
-         error_abs = (molecule['thres'][0]/kcal_mol)/2.0
-         error_rel_p = ((molecule['e_ref']+(molecule['thres'][0]/2.0))/molecule['e_ref'])*100.
-         error_rel_m = ((molecule['e_ref']-(molecule['thres'][0]/2.0))/molecule['e_ref'])*100.
+      error_abs = (molecule['thres'][0]/kcal_mol)/2.0
+      error_rel_p = ((molecule['e_ref']+(molecule['thres'][0]/2.0))/molecule['e_ref'])*100.
+      error_rel_m = ((molecule['e_ref']-(molecule['thres'][0]/2.0))/molecule['e_ref'])*100.
+   #
+   elif (molecule['exp'] == 'VIRT'):
       #
-      elif (molecule['exp'] == 'VIRT'):
-         #
-         error_abs = (molecule['thres'][1]/kcal_mol)/2.0
-         error_rel_p = ((molecule['e_ref']+(molecule['thres'][1]/2.0))/molecule['e_ref'])*100.
-         error_rel_m = ((molecule['e_ref']-(molecule['thres'][1]/2.0))/molecule['e_ref'])*100.
-   else:
-      #
-      error_abs = 0.0
-      error_rel_p = 0.0
-      error_rel_m = 0.0
+      error_abs = (molecule['thres'][1]/kcal_mol)/2.0
+      error_rel_p = ((molecule['e_ref']+(molecule['thres'][1]/2.0))/molecule['e_ref'])*100.
+      error_rel_m = ((molecule['e_ref']-(molecule['thres'][1]/2.0))/molecule['e_ref'])*100.
    #
    e_diff_abs = []
    e_diff_rel = []
