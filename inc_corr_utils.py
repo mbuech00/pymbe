@@ -251,7 +251,7 @@ def init_calc(molecule):
    init_param(molecule)
    #
    print('\n')
-   print(' ** START INC.-CORR. ('+molecule['model']+') CALCULATION **\n')
+   print(' ** START INC.-CORR. ('+molecule['model']+') CALCULATION  ---  '+str(molecule['exp'])+' EXPANSION SCHEME **\n')
    #
    return molecule
 
