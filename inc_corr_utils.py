@@ -179,6 +179,14 @@ def init_param(molecule):
                #
                molecule['local'] = (content[i].split()[1] == 'True')
             #
+            elif (content[i].split()[0] == 'zmat'):
+               #
+               molecule['zmat'] = (content[i].split()[1] == 'True')
+            #
+            elif (content[i].split()[0] == 'units'):
+               #
+               molecule['units'] = content[i].split()[1]
+            #
             elif (content[i].split()[0] == 'mem'):
                #
                molecule['mem'] = int(content[i].split()[1])
@@ -191,6 +199,10 @@ def init_param(molecule):
                #
                thres_virt = float(content[i].split()[1])
             #
+            elif (content[i].split()[0] == 'debug'):
+               #
+               molecule['debug'] = (content[i].split()[1] == 'True')
+            #
             else:
                #
                print(str(content[i].split()[1])+' keyword in input-param.inp not recognized, aborting ...')
@@ -198,7 +210,7 @@ def init_param(molecule):
    #
    molecule['thres'] = [thres_occ,thres_virt]
    #
-   chk = ['mol','core','fc','mult','scr','exp','model','basis','ref','local','mem','thres']
+   chk = ['mol','core','fc','mult','scr','exp','model','basis','ref','local','zmat','units','mem','debug','thres']
    #
    inc = 0
    #
@@ -245,6 +257,11 @@ def init_calc(molecule):
 
 def sanity_chk(molecule):
    #
+   if ((molecule['exp'] != 'OCC') and (molecule['exp'] != 'VIRT') and (molecule['exp'] != 'COMB')):
+      #
+      print 'wrong input -- valid choices for expansion scheme are OCC, VIRT, or COMB, aborting ...'
+      molecule['error'][0].append(True)
+   #
    if (molecule['exp'] == 'COMB'):
       #
       if ((molecule['thres'][0] == 0.0) or (molecule['thres'][1] == 0.0)):
@@ -255,6 +272,11 @@ def sanity_chk(molecule):
    if (molecule['fc'] and molecule['local']):
       #
       print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
+      molecule['error'][0].append(True)
+   #
+   if ((molecule['units'] != 'angstrom') and (molecule['units'] != 'bohr')):
+      #
+      print 'wrong input -- valid choices of units are angstrom or bohr, aborting ...'
       molecule['error'][0].append(True)
    #
    if (molecule['error'][0][-1]):
@@ -288,7 +310,7 @@ def inc_corr_summary(molecule):
       #
       else:
          #
-         print('   thres. (occ.)      =  {0:4.2f}'.format(molecule['thres'][0]))
+         print('   thres. (occ.)      =  {0:5.3f}'.format(molecule['thres'][0]))
    #
    else:
       #
@@ -302,7 +324,7 @@ def inc_corr_summary(molecule):
       #
       else:
          #
-         print('   thres. (virt.)     =  {0:4.2f}'.format(molecule['thres'][1]))
+         print('   thres. (virt.)     =  {0:5.3f}'.format(molecule['thres'][1]))
    #
    print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'])))
    #

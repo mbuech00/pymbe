@@ -214,15 +214,15 @@ def init_domains(molecule):
 
 def excl_list(orb,thres,excl):
    #
-   for i in range(0,len(orb)):
+   for i in range(0,len(orb[-1])):
       #
-      excl.append([orb[i][0][0]])
+      excl.append([])
       #
-      for j in range(0,len(orb[i])-1):
+      for j in range(0,len(orb[-1][i])-1):
          #
-         if ((orb[i][j+1][1][1] < thres) and (orb[i][j+1][1][1] != 0.0)):
+         if ((abs(orb[-1][i][j+1][1][-1]) < thres) and (abs(orb[-1][i][j+1][1][-1]) != 0.0)):
             #
-            excl[i].append(orb[i][j+1][0][0])
+            excl[i].append(orb[-1][i][j+1][0][0])
    #
    for k in range(0,len(excl)):
       #
@@ -230,7 +230,7 @@ def excl_list(orb,thres,excl):
    #
    return excl
 
-def update_domains(molecule,domain,excl):
+def update_domains(molecule,domain,thres,excl):
    #
    if (molecule['exp'] == 'OCC'):
       #
@@ -244,19 +244,36 @@ def update_domains(molecule,domain,excl):
       #
       domain[l].append(list(domain[l][-1]))
    #
-   for i in range(0,len(excl)):
+   if (len(molecule['tuple']) == 1):
       #
-      for j in range(0,len(excl[i])):
+      e_sum = 0.0
+      #
+      for i in range(0,len(molecule['tuple'][0])):
          #
-         for k in range(j+1,len(excl[i])):
+         e_sum += molecule['tuple'][0][i][1]
+      #
+      for i in range(0,len(molecule['tuple'][0])):
+         #
+         if (abs(molecule['tuple'][0][i][1] / e_sum) < thres):
             #
-            if (excl[i][j] in domain[((excl[i][k]-l_limit)-1)][-1]):
+            for j in range(0,len(domain[i][-1])):
                #
-               domain[((excl[i][k]-l_limit)-1)][-1].remove(excl[i][j])
+               domain[(domain[i][-1][j]-l_limit)-1][-1].remove((i+l_limit)+1)
             #
-            if (excl[i][k] in domain[((excl[i][j]-l_limit)-1)][-1]):
+            domain[i][-1][:] = []
+   #
+   else:
+      #
+      for i in range(0,len(excl)):
+         #
+         for j in range(0,len(excl[i])):
+            #
+            if ((i+l_limit)+1 in excl[(excl[i][j]-l_limit)-1]):
                #
-               domain[((excl[i][j]-l_limit)-1)][-1].remove(excl[i][k])
+               domain[i][-1].remove(excl[i][j])
+               domain[(excl[i][j]-l_limit)-1][-1].remove((i+l_limit)+1)
+               #
+               excl[(excl[i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
    return domain
 

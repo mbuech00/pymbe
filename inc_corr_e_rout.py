@@ -101,10 +101,10 @@ def inc_corr_main(molecule):
          #
          if (len(molecule['n_tuples']) < k):
             #
-            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  has no contributions'.format(k,u_limit))
-            print(' --------------------------------------------------------')
+            print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  has no contributions --- calculation has converged'.format(k,u_limit))
+            print(' --------------------------------------------------------------------------------------')
             print('')
-            continue
+            return molecule
          #
          print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(k,u_limit))
          print(' -------------------------------------------')
@@ -131,13 +131,13 @@ def inc_corr_main(molecule):
             #
             molecule['orbital'].append([])
             #
-            orbital_rout(molecule,molecule['tuple'][k-1],molecule['orbital'])
+            orbital_rout(molecule,molecule['tuple'],molecule['orbital'])
             #
             excl_list[:] = []
             #
-            inc_corr_orb_rout.excl_list(molecule['orbital'][k-2],thres,excl_list)
-            #
-            inc_corr_orb_rout.update_domains(molecule,domain,excl_list)
+            inc_corr_orb_rout.excl_list(molecule['orbital'],thres,excl_list)
+         #
+         inc_corr_orb_rout.update_domains(molecule,domain,thres,excl_list)
          #
          inc_corr_orb_rout.n_theo_tuples(dim,k,molecule['theo_work'])
          #
@@ -163,30 +163,28 @@ def inc_corr_main(molecule):
             print(' RESULT-MACRO:  {0:3d} / {1:3d}        {2:9.4e}          {3:}'.\
                              format(i+1,molecule['n_tuples'][k-1],molecule['tuple'][k-1][i][1],molecule['tuple'][k-1][i][0]))
          #
-         if (k >= 2):
+         print(' ----------------------------------------------------------------------------------------')
+         print(' ----------------------------------------------------------------------------------------')
+         print(' UPDATE-MACRO:   orb. domain  |  relat. red.  |   total red.  |  screened orbs. ')
+         print(' ----------------------------------------------------------------------------------------')
+         #
+         for j in range(0,u_limit):
             #
-            print(' ----------------------------------------------------------------------------------------')
-            print(' ----------------------------------------------------------------------------------------')
-            print(' UPDATE-MACRO:   orb. domain  |  relat. red.  |   total red.  |  screened orbs. ')
-            print(' ----------------------------------------------------------------------------------------')
+            cont = False
             #
-            for j in range(0,u_limit):
+            for l in range(0,molecule['n_tuples'][k-1]):
                #
-               cont = False
-               #
-               for l in range(0,molecule['n_tuples'][k-1]):
+               if (set([(j+l_limit)+1]) < set(molecule['tuple'][k-1][l][0])):
                   #
-                  if (set([(j+l_limit)+1]) < set(molecule['tuple'][k-1][l][0])):
-                     #
-                     cont = True
+                  cont = True
+            #
+            if (cont or (k == 1)): 
                #
-               if (cont): 
-                  #
-                  print(' UPDATE-MACRO:     {0:}             {1:5.2f}            {2:5.2f}         {3:}'.\
-                                format([(j+l_limit)+1],\
-                                       (1.0-float(len(domain[j][-1]))/float(len(domain[j][-2]))),\
-                                       (1.0-float(len(domain[j][-1]))/float(len(domain[j][0]))),\
-                                       list(set(domain[j][-2])-set(domain[j][-1]))))
+               print(' UPDATE-MACRO:     {0:}             {1:5.2f}            {2:5.2f}         {3:}'.\
+                             format([(j+l_limit)+1],\
+                                    (1.0-float(len(domain[j][-1]))/float(len(domain[j][-2]))),\
+                                    (1.0-float(len(domain[j][-1]))/float(len(domain[j][0]))),\
+                                    sorted(list(set(domain[j][-2])-set(domain[j][-1])))))
          #
          print('')
          print('')
@@ -397,11 +395,11 @@ def orbital_rout(molecule,tup,orb):
             #
             e_abs = 0.0
             #
-            for k in range(0,len(tup)):
+            for k in range(0,len(tup[-1])):
                #
-               if ((set([i+1]) <= set(tup[k][0])) and (set([j+1]) <= set(tup[k][0]))):
+               if ((set([i+1]) <= set(tup[-1][k][0])) and (set([j+1]) <= set(tup[-1][k][0]))):
                   #
-                  e_abs += tup[k][1]
+                  e_abs += tup[-1][k][1]
             #
             orb[-1][i-l_limit].append([[j+1],[e_abs]])
    #
@@ -409,21 +407,48 @@ def orbital_rout(molecule,tup,orb):
       #
       e_sum = 0.0
       #
-      for j in range(l_limit,u_limit-1):
+      for j in range(0,len(orb)):
          #
-         e_sum += orb[-1][i-l_limit][(j-l_limit)+1][1][0]
-      #
-      if (e_sum != 0.0):
-         #
-         for j in range(l_limit,u_limit-1):
+         for k in range(l_limit,u_limit-1):
             #
-            orb[-1][i-l_limit][(j-l_limit)+1][1].append(orb[-1][i-l_limit][(j-l_limit)+1][1][0] / e_sum)
+            e_sum += orb[j][i-l_limit][(k-l_limit)+1][1][0]
       #
-      else:
+      for j in range(0,len(orb)):
          #
-         for j in range(l_limit,u_limit-1):
+         for k in range(l_limit,u_limit-1):
             #
-            orb[-1][i-l_limit][(j-l_limit)+1][1].append(0.0)
+            if (orb[j][i-l_limit][(k-l_limit)+1][1][0] != 0.0):
+               #
+               orb[j][i-l_limit][(k-l_limit)+1][1].append(orb[j][i-l_limit][(k-l_limit)+1][1][0] / e_sum)
+            #
+            else:
+               #
+               orb[j][i-l_limit][(k-l_limit)+1][1].append(0.0)
+   #
+   if (molecule['debug']):
+      #
+      print('')
+      print(' --- relative contributions ---')
+      #
+      for i in range(0,len(orb)):
+         #
+         print('')
+         print(' * order = '+str(i+2))
+         print('')
+         #
+         tmp = []
+         #
+         for j in range(0,len(orb[i])):
+            #
+            tmp.append([])
+            #
+            for k in range(0,len(orb[i][j])-1):
+               #
+               tmp[j].append(orb[i][j][k+1][1][-1])
+            #
+            print(' {0:}'.format(j+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
+      #
+      print('')
    #
    return orb
 

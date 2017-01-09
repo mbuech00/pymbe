@@ -49,8 +49,16 @@ def write_zmat_hf(molecule):
    out.write(molecule['mol'])
    #
    out.write('*CFOUR(CALC=HF\n')
-   out.write('SCF_CONV=9\n')
+   out.write('SCF_CONV=10\n')
    out.write('LINEQ_CONV=9\n')
+   #
+   if (not molecule['zmat']):
+      #
+      out.write('COORD=CARTESIAN\n')
+   #
+   if (molecule['units'] == 'bohr'):
+      #
+      out.write('UNITS=BOHR\n')
    #
    out.write('MULTIPLICITY='+str(molecule['mult'])+'\n')
    #
@@ -94,9 +102,17 @@ def write_zmat_corr(molecule,drop_string,ref):
       #
       out.write(drop_string)
    #
-   out.write('SCF_CONV=9\n')
+   out.write('SCF_CONV=10\n')
    out.write('LINEQ_CONV=9\n')
    out.write('CC_CONV=9\n')
+   #
+   if (not molecule['zmat']):
+      #
+      out.write('COORD=CARTESIAN\n')
+   #
+   if (molecule['units'] == 'bohr'):
+      #
+      out.write('UNITS=BOHR\n')
    #
    if (molecule['local']):
       #
