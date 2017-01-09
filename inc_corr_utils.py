@@ -310,7 +310,7 @@ def inc_corr_summary(molecule):
       #
       else:
          #
-         print('   thres. (occ.)      =  {0:5.3f}'.format(molecule['thres'][0]))
+         print('   thres. (occ.)      =  {0:4.2f} %'.format(molecule['thres'][0]*100.00))
    #
    else:
       #
@@ -324,7 +324,7 @@ def inc_corr_summary(molecule):
       #
       else:
          #
-         print('   thres. (virt.)     =  {0:5.3f}'.format(molecule['thres'][1]))
+         print('   thres. (virt.)     =  {0:4.2f} %'.format(molecule['thres'][1]*100.00))
    #
    print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'])))
    #
