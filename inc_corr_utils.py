@@ -316,47 +316,41 @@ def inc_corr_summary(molecule):
       print('   thres. (occ.)      =  {0:4.2f} %'.format(molecule['thres'][0]*100.00))
       print('   thres. (virt.)     =  {0:4.2f} %'.format(molecule['thres'][1]*100.00))
    #
-   print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'])))
+   print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'][0])))
    #
    print('   error in calc.     =  {0:}'.format(molecule['error'][0][-1]))
    #
    print('')
    #
-   for i in range(0,len(molecule['e_fin'])):
+   for i in range(0,len(molecule['e_fin'][0])):
       #
-      print('{0:4d} - # orb. tuples  =  {1:} / {2:} ({3:5.2f} %)'.format(i+1,molecule['n_tuples'][i],molecule['theo_work'][i],\
-                                                     (float(molecule['n_tuples'][i])/float(molecule['theo_work'][i])*100.00)))
+      print('{0:4d} - # orb. tuples  =  {1:} / {2:} ({3:5.2f} %)'.format(i+1,molecule['n_tuples'][0][i],molecule['theo_work'][i],\
+                                                     (float(molecule['n_tuples'][0][i])/float(molecule['theo_work'][i])*100.00)))
    #
    print('   --------------------------------------------------------------')
    #
    total_time = 0.0
    #
-   for i in range(0,len(molecule['e_fin'])):
+   for i in range(0,len(molecule['e_fin'][0])):
       #
-      total_time += molecule['time'][i]
-      print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,molecule['e_fin'][i],total_time))
+      total_time += molecule['time'][0][i]
+      print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,molecule['e_fin'][0][i],total_time))
    #
    print('   --------------------------------------------------------------')
    #
-   if (len(molecule['e_fin']) >= 2):
+   if (len(molecule['e_fin'][0]) >= 2):
       #
-      print('   final convergence  =  {0:9.4e}'.format(molecule['e_fin'][-1]-molecule['e_fin'][-2]))
+      print('   final convergence  =  {0:9.4e}'.format(molecule['e_fin'][0][-1]-molecule['e_fin'][0][-2]))
    #
    if (molecule['ref'] and (not molecule['error'][0][-1])):
       #
       print('   --------------------------------------------------------------')
       #
-      if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
-         #
-         print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(molecule['nocc']-molecule['core'],molecule['e_ref'],molecule['time'][-1]))
-      #
-      elif (molecule['exp'] == 'VIRT'):
-         #
-         print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(molecule['nvirt'],molecule['e_ref'],molecule['time'][-1]))
+      print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(molecule['u_limit'][0],molecule['e_ref'],molecule['time'][0][-1]))
       #
       print('   --------------------------------------------------------------')
       #
-      print('   final difference   =  {0:9.4e}'.format(molecule['e_ref']-molecule['e_fin'][-1]))
+      print('   final difference   =  {0:9.4e}'.format(molecule['e_ref']-molecule['e_fin'][0][-1]))
    #
    print('\n')
    #

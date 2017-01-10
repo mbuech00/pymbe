@@ -230,7 +230,7 @@ def excl_rout(orb,thres,excl):
    #
    return excl
 
-def update_domains(molecule,domain,thres,excl):
+def update_domains(molecule,tup,domain,thres,excl):
    #
    if (molecule['exp'] == 'OCC'):
       #
@@ -244,17 +244,17 @@ def update_domains(molecule,domain,thres,excl):
       #
       domain[l].append(list(domain[l][-1]))
    #
-   if (len(molecule['tuple']) == 1):
+   if (len(tup) == 1):
       #
       e_sum = 0.0
       #
-      for i in range(0,len(molecule['tuple'][0])):
+      for i in range(0,len(tup[0])):
          #
-         e_sum += molecule['tuple'][0][i][1]
+         e_sum += tup[0][i][1]
       #
-      for i in range(0,len(molecule['tuple'][0])):
+      for i in range(0,len(tup[0])):
          #
-         if (abs(molecule['tuple'][0][i][1] / e_sum) < thres):
+         if (abs(tup[0][i][1] / e_sum) < thres):
             #
             for j in range(0,len(domain[i][-1])):
                #

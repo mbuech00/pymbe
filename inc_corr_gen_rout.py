@@ -237,16 +237,16 @@ def write_energy(molecule,ref):
 
 def ref_calc(molecule):
    #
-   start = timer()
-   #
    print(' STATUS-REF:  Full reference calc.  started')
    print(' ------------------------------------------')
    #
+   start = timer()
+   #
    run_calc_corr(molecule,'',True)
    #
-   molecule['time'].append(timer()-start)
+   molecule['time'][0].append(timer()-start)
    #
-   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][-1]))
+   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][0][-1]))
    print(' -------------------------------------------------------------')
    print('')
    #

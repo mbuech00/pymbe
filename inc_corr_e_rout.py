@@ -171,43 +171,43 @@ def inc_corr_main(molecule):
 
 def inc_corr_mono_exp(molecule):
    #
-   for k in range(1,molecule['u_limit']+1):
+   for k in range(1,molecule['u_limit'][0]+1):
       #
       # generate the tuples at order k
       #
-      molecule['drop_string'][:] = []
+      molecule['drop_string'][0][:] = []
       #
-      molecule['generate_drop'](molecule['l_limit']+1,1,k,molecule,molecule['list_drop'],molecule['drop_string'],molecule['n_tuples'])
+      molecule['generate_drop'](molecule['l_limit'][0]+1,1,k,molecule,molecule['list_drop'],molecule['drop_string'][0],molecule['n_tuples'][0])
       #
       # print status header
       #
-      print_status_header(molecule,k,molecule['u_limit'])
+      print_status_header(molecule,molecule['n_tuples'][0],k,molecule['u_limit'][0])
       #
       # check for convergence
       #
-      if (len(molecule['n_tuples']) < k):
+      if (len(molecule['n_tuples'][0]) < k):
          #
          return molecule
       #
       # init/append lists and start time
       #
-      molecule['tuple'].append([])
+      molecule['tuple'][0].append([])
       #
-      molecule['incl_list'][:] = []
+      molecule['incl_list'][0][:] = []
       #
       start = timer()
       #
       # run the calculations
       #
-      for i in range(0,molecule['n_tuples'][k-1]):
+      for i in range(0,molecule['n_tuples'][0][k-1]):
          #
-         inc_corr_gen_rout.run_calc_corr(molecule,molecule['drop_string'][i],False)
+         inc_corr_gen_rout.run_calc_corr(molecule,molecule['drop_string'][0][i],False)
          #
-         molecule['incl_list'].append([])
+         molecule['incl_list'][0].append([])
          #
-         inc_corr_orb_rout.orbs_incl(molecule,molecule['drop_string'][i],molecule['incl_list'][i],False)
+         inc_corr_orb_rout.orbs_incl(molecule,molecule['drop_string'][0][i],molecule['incl_list'][0][i],False)
          #
-         molecule['tuple'][k-1].append([molecule['incl_list'][i],molecule['e_tmp']])
+         molecule['tuple'][0][k-1].append([molecule['incl_list'][0][i],molecule['e_tmp']])
          #
          if (molecule['error'][0][-1]):
             #
@@ -215,7 +215,7 @@ def inc_corr_mono_exp(molecule):
       #
       # calculate the energy at order k
       #
-      inc_corr_order(k,molecule['n_tuples'],molecule['tuple'],molecule['e_fin'])
+      inc_corr_order(k,molecule['n_tuples'][0],molecule['tuple'][0],molecule['e_fin'][0])
       #
       # set up entanglement and exclusion lists
       #
@@ -223,7 +223,7 @@ def inc_corr_mono_exp(molecule):
          #
          molecule['orbital'].append([])
          #
-         orbital_rout(molecule,molecule['tuple'],molecule['orbital'])
+         orbital_rout(molecule,molecule['tuple'][0],molecule['orbital'])
          #
          molecule['excl_list'][:] = []
          #
@@ -231,23 +231,23 @@ def inc_corr_mono_exp(molecule):
       #
       # update domains
       #
-      inc_corr_orb_rout.update_domains(molecule,molecule['domain'],molecule['thres'][0],molecule['excl_list'])
+      inc_corr_orb_rout.update_domains(molecule,molecule['tuple'][0],molecule['domain'],molecule['thres'][0],molecule['excl_list'])
       #
       # calculate theoretical number of tuples at order k
       #
-      inc_corr_orb_rout.n_theo_tuples(molecule['u_limit'],k,molecule['theo_work'])
+      inc_corr_orb_rout.n_theo_tuples(molecule['u_limit'][0],k,molecule['theo_work'])
       #
       # collect time
       #
-      molecule['time'].append(timer()-start)
+      molecule['time'][0].append(timer()-start)
       #
       # print status end, results, and domain updates
       #
-      print_status_end(molecule,k,molecule['u_limit'])
+      print_status_end(molecule,k,molecule['e_fin'][0],molecule['time'][0],molecule['u_limit'][0])
       #
-      print_result(molecule,k)
+      print_result(molecule,molecule['tuple'][0],molecule['n_tuples'][0],k)
       #
-      print_update(molecule,molecule['domain'],k,molecule['l_limit'],molecule['u_limit'])
+      print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'],k,molecule['l_limit'][0],molecule['u_limit'][0])
    #
    return molecule
 
@@ -388,8 +388,8 @@ def inc_corr_prepare(molecule):
    #
    if (molecule['exp'] == 'OCC'):
       #
-      molecule['l_limit'] = molecule['core']
-      molecule['u_limit'] = molecule['nocc']-molecule['core']
+      molecule['l_limit'] = [molecule['core']]
+      molecule['u_limit'] = [molecule['nocc']-molecule['core']]
       #
       molecule['domain'] = molecule['occ_domain']
       #
@@ -401,8 +401,8 @@ def inc_corr_prepare(molecule):
    #
    elif (molecule['exp'] == 'VIRT'):
       #
-      molecule['l_limit'] = molecule['nocc']
-      molecule['u_limit'] = molecule['nvirt']
+      molecule['l_limit'] = [molecule['nocc']]
+      molecule['u_limit'] = [molecule['nvirt']]
       #
       molecule['domain'] = molecule['virt_domain']
       #
@@ -414,29 +414,29 @@ def inc_corr_prepare(molecule):
    #
    molecule['e_tmp'] = 0.0
    #
-   molecule['tuple'] = []
+   molecule['tuple'] = [[]]
    #
-   molecule['n_tuples'] = []
+   molecule['n_tuples'] = [[]]
    #
    molecule['orbital'] = []
    #
-   molecule['e_fin'] = []
+   molecule['e_fin'] = [[]]
    #
-   molecule['drop_string'] = []
+   molecule['drop_string'] = [[]]
    #
-   molecule['incl_list'] = []
+   molecule['incl_list'] = [[]]
    #
    molecule['excl_list'] = []
    #
    molecule['theo_work'] = []
    #
-   molecule['time'] = []
+   molecule['time'] = [[]]
    #
    return molecule
 
-def print_status_header(molecule,order,u_limit):
+def print_status_header(molecule,n_tup,order,u_limit):
    #
-   if (len(molecule['n_tuples']) < order):
+   if (len(n_tup) < order):
       #
       print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  has no contributions --- calculation has converged'.format(order,u_limit))
       print(' --------------------------------------------------------------------------------------')
@@ -449,38 +449,38 @@ def print_status_header(molecule,order,u_limit):
    #
    return
 
-def print_status_end(molecule,order,u_limit):
+def print_status_end(molecule,order,e_fin,time,u_limit):
    #
    if (order == 1):
       #
-      print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(order,u_limit,molecule['time'][order-1]))
+      print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds'.format(order,u_limit,time[order-1]))
       print(' --------------------------------------------------------------')
    #
    else:
       #
       print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}'.\
-                       format(order,u_limit,molecule['time'][order-1],molecule['e_fin'][order-1]-molecule['e_fin'][order-2]))
+                       format(order,u_limit,time[order-1],e_fin[order-1]-e_fin[order-2]))
       print(' ----------------------------------------------------------------------------------------')
       print(' ----------------------------------------------------------------------------------------')
    #
    return
 
-def print_result(molecule,order):
+def print_result(molecule,tup,n_tup,order):
    #
    print(' RESULT-MACRO:     tuple    |    abs. energy    |    corr. orbs.')
    print(' ----------------------------------------------------------------------------------------')
    #
-   for i in range(0,molecule['n_tuples'][order-1]):
+   for i in range(0,n_tup[order-1]):
       #
       print(' RESULT-MACRO:  {0:3d} / {1:3d}        {2:9.4e}          {3:}'.\
-                       format(i+1,molecule['n_tuples'][order-1],molecule['tuple'][order-1][i][1],molecule['tuple'][order-1][i][0]))
+                       format(i+1,n_tup[order-1],tup[order-1][i][1],tup[order-1][i][0]))
    #
    print(' ----------------------------------------------------------------------------------------')
    print(' ----------------------------------------------------------------------------------------')
    #
    return
 
-def print_update(molecule,domain,order,l_limit,u_limit):
+def print_update(molecule,tup,n_tup,domain,order,l_limit,u_limit):
    #
    print(' UPDATE-MACRO:   orb. domain  |  relat. red.  |   total red.  |  screened orbs. ')
    print(' ----------------------------------------------------------------------------------------')
@@ -489,9 +489,9 @@ def print_update(molecule,domain,order,l_limit,u_limit):
       #
       cont = False
       #
-      for l in range(0,molecule['n_tuples'][order-1]):
+      for l in range(0,n_tup[order-1]):
          #
-         if (set([(j+l_limit)+1]) < set(molecule['tuple'][order-1][l][0])):
+         if (set([(j+l_limit)+1]) < set(tup[order-1][l][0])):
             #
             cont = True
       #
