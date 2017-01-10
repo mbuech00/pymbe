@@ -212,7 +212,7 @@ def init_domains(molecule):
    #
    return molecule
 
-def excl_list(orb,thres,excl):
+def excl_rout(orb,thres,excl):
    #
    for i in range(0,len(orb[-1])):
       #

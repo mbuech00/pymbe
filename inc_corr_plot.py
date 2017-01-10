@@ -132,17 +132,9 @@ def dev_ref_plot(molecule):
    #
    kcal_mol = 0.001594
    #
-   if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'COMB')):
-      #
-      error_abs = (molecule['thres'][0]/kcal_mol)/2.0
-      error_rel_p = ((molecule['e_ref']+(molecule['thres'][0]/2.0))/molecule['e_ref'])*100.
-      error_rel_m = ((molecule['e_ref']-(molecule['thres'][0]/2.0))/molecule['e_ref'])*100.
-   #
-   elif (molecule['exp'] == 'VIRT'):
-      #
-      error_abs = (molecule['thres'][1]/kcal_mol)/2.0
-      error_rel_p = ((molecule['e_ref']+(molecule['thres'][1]/2.0))/molecule['e_ref'])*100.
-      error_rel_m = ((molecule['e_ref']-(molecule['thres'][1]/2.0))/molecule['e_ref'])*100.
+   error_abs = (molecule['thres'][0]/kcal_mol)/2.0
+   error_rel_p = ((molecule['e_ref']+(molecule['thres'][0]/2.0))/molecule['e_ref'])*100.
+   error_rel_m = ((molecule['e_ref']-(molecule['thres'][0]/2.0))/molecule['e_ref'])*100.
    #
    e_diff_abs = []
    e_diff_rel = []

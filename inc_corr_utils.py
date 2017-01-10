@@ -208,7 +208,17 @@ def init_param(molecule):
                print(str(content[i].split()[1])+' keyword in input-param.inp not recognized, aborting ...')
                sys.exit(10)
    #
-   molecule['thres'] = [thres_occ,thres_virt]
+   if (molecule['exp'] == 'OCC'):
+      #
+      molecule['thres'] = [thres_occ]
+   #
+   elif (molecule['exp'] == 'VIRT'):
+      #
+      molecule['thres'] = [thres_virt]
+   #
+   elif (molecule['exp'] == 'COMB'):
+      #
+      molecule['thres'] = [thres_occ,thres_virt]
    #
    chk = ['mol','core','fc','mult','scr','exp','model','basis','ref','local','zmat','units','mem','debug','thres']
    #
@@ -221,10 +231,6 @@ def init_param(molecule):
          print(str(chk[k])+' keyword missing in either input-mol.inp or input-param.inp, aborting ...')
          #
          inc += 1
-   #
-   if ((molecule['thres'][0] == 0.0) and (molecule['thres'][1] == 0.0)):
-      #
-      inc += 1
    #
    if (inc > 0):
       #
@@ -262,13 +268,6 @@ def sanity_chk(molecule):
       print 'wrong input -- valid choices for expansion scheme are OCC, VIRT, or COMB, aborting ...'
       molecule['error'][0].append(True)
    #
-   if (molecule['exp'] == 'COMB'):
-      #
-      if ((molecule['thres'][0] == 0.0) or (molecule['thres'][1] == 0.0)):
-         #
-         print('expansion scheme "COMB" requires both an occupied and a virtual expansion threshold, aborting ...')
-         molecule['error'][0].append(True)
-   #
    if (molecule['fc'] and molecule['local']):
       #
       print 'wrong input -- comb. of frozen core and local orbitals not implemented, aborting ...'
@@ -302,29 +301,20 @@ def inc_corr_summary(molecule):
    print('   occupied orbitals  =  {0:}'.format(molecule['nocc']-molecule['core']))
    print('   virtual orbitals   =  {0:}'.format(molecule['nvirt']))
    #
-   if (molecule['thres'][0] > 0.0):
+   if (molecule['exp'] == 'OCC'):
       #
-      if (molecule['exp'] == 'VIRT'):
-         #
-         print('   thres. (occ.)      =  N/A')
-      #
-      else:
-         #
-         print('   thres. (occ.)      =  {0:4.2f} %'.format(molecule['thres'][0]*100.00))
+      print('   thres. (occ.)      =  {0:4.2f} %'.format(molecule['thres'][0]*100.00))
+      print('   thres. (virt.)     =  N/A')
    #
-   else:
+   elif (molecule['exp'] == 'VIRT'):
       #
       print('   thres. (occ.)      =  N/A')
+      print('   thres. (virt.)     =  {0:4.2f} %'.format(molecule['thres'][0]*100.00))
    #
-   if (molecule['thres'][1] > 0.0):
+   elif (molecule['exp'] == 'COMB'):
       #
-      if (molecule['exp'] == 'OCC'):
-         #
-         print('   thres. (virt.)     =  N/A')
-      #
-      else:
-         #
-         print('   thres. (virt.)     =  {0:4.2f} %'.format(molecule['thres'][1]*100.00))
+      print('   thres. (occ.)      =  {0:4.2f} %'.format(molecule['thres'][0]*100.00))
+      print('   thres. (virt.)     =  {0:4.2f} %'.format(molecule['thres'][1]*100.00))
    #
    print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'])))
    #
