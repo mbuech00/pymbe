@@ -35,83 +35,7 @@ def inc_corr_main(molecule):
    #
    if ((molecule['exp'] == 'OCC') or (molecule['exp'] == 'VIRT')):
       #
-      for k in range(1,molecule['u_limit']+1):
-         #
-         # generate the tuples at order k
-         #
-         molecule['drop_string'][:] = []
-         #
-         molecule['generate_drop'](molecule['l_limit']+1,1,k,molecule,molecule['list_drop'],molecule['drop_string'],molecule['n_tuples'])
-         #
-         # print status header
-         #
-         print_status_header(molecule,k,molecule['u_limit'])
-         #
-         # check for convergence
-         #
-         if (len(molecule['n_tuples']) < k):
-            #
-            return molecule
-         #
-         # init/append lists and start time
-         #
-         molecule['tuple'].append([])
-         #
-         molecule['incl_list'][:] = []
-         #
-         start = timer()
-         #
-         # run the calculations
-         #
-         for i in range(0,molecule['n_tuples'][k-1]):
-            #
-            inc_corr_gen_rout.run_calc_corr(molecule,molecule['drop_string'][i],False)
-            #
-            molecule['incl_list'].append([])
-            #
-            inc_corr_orb_rout.orbs_incl(molecule,molecule['drop_string'][i],molecule['incl_list'][i],False)
-            #
-            molecule['tuple'][k-1].append([molecule['incl_list'][i],molecule['e_tmp']])
-            #
-            if (molecule['error'][0][-1]):
-               #
-               return molecule
-         #
-         # calculate the energy at order k
-         #
-         inc_corr_order(k,molecule['n_tuples'],molecule['tuple'],molecule['e_fin'])
-         #
-         # set up entanglement and exclusion lists
-         #
-         if (k >= 2):
-            #
-            molecule['orbital'].append([])
-            #
-            orbital_rout(molecule,molecule['tuple'],molecule['orbital'])
-            #
-            molecule['excl_list'][:] = []
-            #
-            inc_corr_orb_rout.excl_rout(molecule['orbital'],molecule['thres'][0],molecule['excl_list'])
-         #
-         # update domains
-         #
-         inc_corr_orb_rout.update_domains(molecule,molecule['domain'],molecule['thres'][0],molecule['excl_list'])
-         #
-         # calculate theoretical number of tuples at order k
-         #
-         inc_corr_orb_rout.n_theo_tuples(molecule['u_limit'],k,molecule['theo_work'])
-         #
-         # collect time
-         #
-         molecule['time'].append(timer()-start)
-         #
-         # print status end, results, and domain updates
-         #
-         print_status_end(molecule,k,molecule['u_limit'])
-         #
-         print_result(molecule,k)
-         #
-         print_update(molecule,molecule['domain'],k,molecule['l_limit'],molecule['u_limit'])
+      inc_corr_mono_exp(molecule)
    #
    elif (molecule['exp'] == 'COMB'):
       #
@@ -242,6 +166,88 @@ def inc_corr_main(molecule):
 #            orbital_rout(molecule,molecule['tuple'],False)
             #
             return molecule
+   #
+   return molecule
+
+def inc_corr_mono_exp(molecule):
+   #
+   for k in range(1,molecule['u_limit']+1):
+      #
+      # generate the tuples at order k
+      #
+      molecule['drop_string'][:] = []
+      #
+      molecule['generate_drop'](molecule['l_limit']+1,1,k,molecule,molecule['list_drop'],molecule['drop_string'],molecule['n_tuples'])
+      #
+      # print status header
+      #
+      print_status_header(molecule,k,molecule['u_limit'])
+      #
+      # check for convergence
+      #
+      if (len(molecule['n_tuples']) < k):
+         #
+         return molecule
+      #
+      # init/append lists and start time
+      #
+      molecule['tuple'].append([])
+      #
+      molecule['incl_list'][:] = []
+      #
+      start = timer()
+      #
+      # run the calculations
+      #
+      for i in range(0,molecule['n_tuples'][k-1]):
+         #
+         inc_corr_gen_rout.run_calc_corr(molecule,molecule['drop_string'][i],False)
+         #
+         molecule['incl_list'].append([])
+         #
+         inc_corr_orb_rout.orbs_incl(molecule,molecule['drop_string'][i],molecule['incl_list'][i],False)
+         #
+         molecule['tuple'][k-1].append([molecule['incl_list'][i],molecule['e_tmp']])
+         #
+         if (molecule['error'][0][-1]):
+            #
+            return molecule
+      #
+      # calculate the energy at order k
+      #
+      inc_corr_order(k,molecule['n_tuples'],molecule['tuple'],molecule['e_fin'])
+      #
+      # set up entanglement and exclusion lists
+      #
+      if (k >= 2):
+         #
+         molecule['orbital'].append([])
+         #
+         orbital_rout(molecule,molecule['tuple'],molecule['orbital'])
+         #
+         molecule['excl_list'][:] = []
+         #
+         inc_corr_orb_rout.excl_rout(molecule['orbital'],molecule['thres'][0],molecule['excl_list'])
+      #
+      # update domains
+      #
+      inc_corr_orb_rout.update_domains(molecule,molecule['domain'],molecule['thres'][0],molecule['excl_list'])
+      #
+      # calculate theoretical number of tuples at order k
+      #
+      inc_corr_orb_rout.n_theo_tuples(molecule['u_limit'],k,molecule['theo_work'])
+      #
+      # collect time
+      #
+      molecule['time'].append(timer()-start)
+      #
+      # print status end, results, and domain updates
+      #
+      print_status_end(molecule,k,molecule['u_limit'])
+      #
+      print_result(molecule,k)
+      #
+      print_update(molecule,molecule['domain'],k,molecule['l_limit'],molecule['u_limit'])
    #
    return molecule
 
@@ -436,8 +442,10 @@ def print_status_header(molecule,order,u_limit):
       print(' --------------------------------------------------------------------------------------')
       print('')
    #
-   print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(order,u_limit))
-   print(' -------------------------------------------')
+   else:
+      #
+      print(' STATUS-MACRO:  order = {0:4d} / {1:4d}  started'.format(order,u_limit))
+      print(' -------------------------------------------')
    #
    return
 
