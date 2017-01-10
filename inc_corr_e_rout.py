@@ -97,7 +97,7 @@ def inc_corr_main(molecule):
                      #
                      string = molecule['drop_string'][j]+drop_string_comb[i]
                   #
-                  inc_corr_gen_rout.run_calc_corr(molecule,string,False)
+                  inc_corr_gen_rout.run_calc_corr(molecule,string,molecule['e_tmp'][0],False)
                   #
                   incl_list_comb.append([])
                   #
@@ -177,7 +177,7 @@ def inc_corr_mono_exp(molecule):
       #
       molecule['drop_string'][0][:] = []
       #
-      molecule['generate_drop'](molecule['l_limit'][0]+1,1,k,molecule,molecule['list_drop'],molecule['drop_string'][0],molecule['n_tuples'][0])
+      molecule['generate_drop'][0](molecule['l_limit'][0]+1,1,k,molecule,molecule['list_drop'][0],molecule['drop_string'][0],molecule['n_tuples'][0])
       #
       # print status header
       #
@@ -221,21 +221,21 @@ def inc_corr_mono_exp(molecule):
       #
       if (k >= 2):
          #
-         molecule['orbital'].append([])
+         molecule['orbital'][0].append([])
          #
-         orbital_rout(molecule,molecule['tuple'][0],molecule['orbital'])
+         orbital_rout(molecule,molecule['tuple'][0],molecule['orbital'][0])
          #
-         molecule['excl_list'][:] = []
+         molecule['excl_list'][0][:] = []
          #
-         inc_corr_orb_rout.excl_rout(molecule['orbital'],molecule['thres'][0],molecule['excl_list'])
+         inc_corr_orb_rout.excl_rout(molecule['orbital'][0],molecule['thres'][0],molecule['excl_list'][0])
       #
       # update domains
       #
-      inc_corr_orb_rout.update_domains(molecule,molecule['tuple'][0],molecule['domain'],molecule['thres'][0],molecule['excl_list'])
+      inc_corr_orb_rout.update_domains(molecule,molecule['tuple'][0],molecule['domain'][0],molecule['thres'][0],molecule['excl_list'][0])
       #
       # calculate theoretical number of tuples at order k
       #
-      inc_corr_orb_rout.n_theo_tuples(molecule['u_limit'][0],k,molecule['theo_work'])
+      inc_corr_orb_rout.n_theo_tuples(molecule['u_limit'][0],k,molecule['theo_work'][0])
       #
       # collect time
       #
@@ -247,7 +247,7 @@ def inc_corr_mono_exp(molecule):
       #
       print_result(molecule,molecule['tuple'][0],molecule['n_tuples'][0],k)
       #
-      print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'],k,molecule['l_limit'][0],molecule['u_limit'][0])
+      print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
    #
    return molecule
 
@@ -384,33 +384,33 @@ def orbital_rout(molecule,tup,orb):
 
 def inc_corr_prepare(molecule):
    #
-   molecule['list_drop'] = list(range(1,(molecule['nocc']+molecule['nvirt'])+1))
+   molecule['list_drop'] = [list(range(1,(molecule['nocc']+molecule['nvirt'])+1))]
    #
    if (molecule['exp'] == 'OCC'):
       #
       molecule['l_limit'] = [molecule['core']]
       molecule['u_limit'] = [molecule['nocc']-molecule['core']]
       #
-      molecule['domain'] = molecule['occ_domain']
+      molecule['domain'] = [molecule['occ_domain']]
       #
-      molecule['generate_drop'] = inc_corr_orb_rout.generate_drop_occ
+      molecule['generate_drop'] = [inc_corr_orb_rout.generate_drop_occ]
       #
       for i in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
          #
-         molecule['list_drop'][i] = 0
+         molecule['list_drop'][0][i] = 0
    #
    elif (molecule['exp'] == 'VIRT'):
       #
       molecule['l_limit'] = [molecule['nocc']]
       molecule['u_limit'] = [molecule['nvirt']]
       #
-      molecule['domain'] = molecule['virt_domain']
+      molecule['domain'] = [molecule['virt_domain']]
       #
-      molecule['generate_drop'] = inc_corr_orb_rout.generate_drop_virt
+      molecule['generate_drop'] = [inc_corr_orb_rout.generate_drop_virt]
       #
       for i in range(molecule['core'],molecule['nocc']):
          #
-         molecule['list_drop'][i] = 0
+         molecule['list_drop'][0][i] = 0
    #
    molecule['e_tmp'] = 0.0
    #
@@ -418,7 +418,7 @@ def inc_corr_prepare(molecule):
    #
    molecule['n_tuples'] = [[]]
    #
-   molecule['orbital'] = []
+   molecule['orbital'] = [[]]
    #
    molecule['e_fin'] = [[]]
    #
@@ -426,9 +426,9 @@ def inc_corr_prepare(molecule):
    #
    molecule['incl_list'] = [[]]
    #
-   molecule['excl_list'] = []
+   molecule['excl_list'] = [[]]
    #
-   molecule['theo_work'] = []
+   molecule['theo_work'] = [[]]
    #
    molecule['time'] = [[]]
    #
