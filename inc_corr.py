@@ -41,6 +41,10 @@ def main():
    #
    inc_corr_utils.sanity_chk(molecule)
    #
+   #  ---  print program header
+   #
+   inc_corr_utils.print_header(molecule)
+   #
    #  ---  initialization done - start the calculation...  ---
    #
    inc_corr_e_rout.inc_corr_main(molecule)

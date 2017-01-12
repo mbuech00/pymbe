@@ -90,7 +90,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples)
                   #
                   drop_string.append(s+'\n')
                #
-               elif (molecule['exp'] == 'COMB'):
+               elif ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')):
                   #
                   drop_string.append(s)
             #
@@ -143,13 +143,13 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_tuples
          s = ''
          inc = 0
          #
-         if (molecule['exp'] == 'COMB'):
+         if ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')):
             #
             inc += 1
          #
          if ((order == final) and (list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])].count(0) == final)): # number of zeros in list_drop must match the final order
             #
-            if (molecule['fc'] and (not (molecule['exp'] == 'COMB'))): # exclude core orbitals
+            if (molecule['fc'] and (not ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')))): # exclude core orbitals
                #
                for m in range(0,molecule['core']):
                   #
@@ -216,13 +216,21 @@ def reinit_domains(molecule,domain):
    #
    domain[:] = []
    #
-   if (molecule['exp'] == 'COMB'):
+   if (molecule['exp'] == 'COMB-OV'):
       #
       for i in range(0,molecule['nvirt']):
          #
          domain.append([range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)])
          #
          domain[i][-1].pop(i)  
+   #
+   elif (molecule['exp'] == 'COMB-VO'):
+      #
+      for i in range(0,molecule['nocc']):
+         #
+         domain.append([range(1,molecule['nocc']+1)])
+         #
+         domain[i][-1].pop(i)
    #
    return molecule
 
@@ -287,7 +295,14 @@ def orbs_incl(string_excl,string_incl,l_limit,u_limit):
    #
    excl_list = []
    #
-   sub_string = string_excl[8:] # remove the 'DROP_MO=' part of the string
+   if (string_excl[0] == 'D'):
+      #
+      sub_string = string_excl[8:] # remove the 'DROP_MO=' part of the string
+   #
+   else:
+      #
+      sub_string = string_excl
+   #
    sub_list = sub_string.split("-") # remove all the hyphens
    #
    for j in range(0,len(sub_list)):

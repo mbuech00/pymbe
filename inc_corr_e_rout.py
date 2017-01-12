@@ -30,7 +30,7 @@ def inc_corr_main(molecule):
       #
       inc_corr_mono_exp(molecule)
    #
-   elif (molecule['exp'] == 'COMB'):
+   elif ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')):
       #
       inc_corr_dual_exp(molecule)
    #
@@ -222,19 +222,13 @@ def inc_corr_dual_exp(molecule):
             #
             for j in range(0,molecule['n_tuples'][1][l-1]):
                #
-               if (molecule['drop_string'][0][i] == '\n'):
-                  #
-                  string = 'DROP_MO='+molecule['drop_string'][1][i][1:]
+               collect_drop_strings(molecule,i,j)
                #
-               else:
-                  #
-                  string = molecule['drop_string'][0][i]+molecule['drop_string'][1][j]
-               #
-               inc_corr_gen_rout.run_calc_corr(molecule,string,False)
+               inc_corr_gen_rout.run_calc_corr(molecule,molecule['collect_string'],False)
                #
                molecule['incl_list'][1].append([])
                #
-               inc_corr_orb_rout.orbs_incl(string,molecule['incl_list'][1][j],molecule['l_limit'][1],molecule['u_limit'][1])
+               inc_corr_orb_rout.orbs_incl(molecule['collect_string'],molecule['incl_list'][1][j],molecule['l_limit'][1],molecule['u_limit'][1])
                #
                molecule['tuple'][1][l-1].append([molecule['incl_list'][1][j],molecule['e_tmp']])
                #
@@ -267,6 +261,20 @@ def inc_corr_dual_exp(molecule):
             # calculate theoretical number of tuples at order l (for inner expansion)
             #
             inc_corr_orb_rout.n_theo_tuples(molecule['u_limit'][1],l,molecule['theo_work'][1])
+            #
+            # check for maximum order (for inner expansion)
+            #
+            if (l == molecule['u_limit'][1]):
+               #
+               molecule['incl_list'][0].append([])
+               #
+               inc_corr_orb_rout.orbs_incl(molecule['drop_string'][0][i],molecule['incl_list'][0][i],molecule['l_limit'][0],molecule['u_limit'][0])
+               #
+               molecule['tuple'][0][k-1].append([molecule['incl_list'][0][i],molecule['e_fin'][1][-1]])
+               #
+               print_result(i,molecule['tuple'][0][k-1][i])
+               #
+               break
          #
          # collect time, energy diff, and relative work (for inner expansion)
          #
@@ -329,6 +337,30 @@ def inc_corr_dual_exp(molecule):
    #
    return molecule
 
+def collect_drop_strings(molecule,i,j):
+   #
+   if (molecule['exp'] == 'COMB-OV'):
+      #
+      if (molecule['drop_string'][0][i] == '\n'):
+         #
+         molecule['collect_string'] = 'DROP_MO='+molecule['drop_string'][1][j][1:]
+      #
+      else:
+         #
+         molecule['collect_string'] = molecule['drop_string'][0][i]+molecule['drop_string'][1][j]
+   #
+   elif (molecule['exp'] == 'COMB-VO'):
+      #
+      if (molecule['drop_string'][1][j] == '\n'):
+         #
+         molecule['collect_string'] = 'DROP_MO='+molecule['drop_string'][0][i][1:]
+      #
+      else:
+         #
+         molecule['collect_string'] = molecule['drop_string'][1][j]+molecule['drop_string'][0][i]
+   #
+   return molecule
+
 def inc_corr_order(k,n_tuples,tup,e_fin):
    #
    for j in range(0,n_tuples[k-1]):
@@ -354,32 +386,6 @@ def inc_corr_order(k,n_tuples,tup,e_fin):
    e_fin.append(e_tmp)
    #
    return e_fin
-
-def inc_corr_chk_conv(order,thres,e_fin,molecule,comb):
-   #
-   e_diff = e_fin[order-1] - e_fin[order-2]
-   #
-   if (abs(e_diff) < thres):
-      #
-      if (comb):
-         #
-         molecule['conv'][1].append(True)
-      #
-      else:
-         #
-         molecule['conv'][0].append(True)
-   #
-   else:
-      #
-      if (comb):
-         #
-         molecule['conv'][1].append(False)
-      #
-      else:
-         #
-         molecule['conv'][0].append(False)
-   #
-   return molecule
 
 def orbital_rout(molecule,tup,orb,l_limit,u_limit):
    #
@@ -480,7 +486,7 @@ def inc_corr_prepare(molecule):
          #
          molecule['list_drop'][0][i] = 0
    #
-   elif (molecule['exp'] == 'COMB'):
+   elif (molecule['exp'] == 'COMB-OV'):
       #
       molecule['l_limit'] = [molecule['core'],molecule['nocc']]
       molecule['u_limit'] = [molecule['nocc']-molecule['core'],molecule['nvirt']]
@@ -494,6 +500,27 @@ def inc_corr_prepare(molecule):
          molecule['list_drop'][0][i] = 0
       #
       for i in range(molecule['core'],molecule['nocc']):
+         #
+         molecule['list_drop'][1][i] = 0
+      #
+      molecule['e_diff_in'] = []
+      #
+      molecule['rel_work_in'] = []
+   #
+   elif (molecule['exp'] == 'COMB-VO'):
+      #
+      molecule['l_limit'] = [molecule['nocc'],molecule['core']]
+      molecule['u_limit'] = [molecule['nvirt'],molecule['nocc']-molecule['core']]
+      #
+      molecule['domain'] = [molecule['virt_domain'],molecule['occ_domain']]
+      #
+      molecule['generate_drop'] = [inc_corr_orb_rout.generate_drop_virt,inc_corr_orb_rout.generate_drop_occ]
+      #
+      for i in range(molecule['core'],molecule['nocc']):
+         #
+         molecule['list_drop'][0][i] = 0
+      #
+      for i in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
          #
          molecule['list_drop'][1][i] = 0
       #
@@ -639,23 +666,4 @@ def print_update(molecule,tup,n_tup,domain,order,l_limit,u_limit):
       print(' --------------------------------------------------------------------------------------------')
    #
    return
-
-#def inc_corr_order(k,n,e_vec,e_inc):
-#   #
-#   e_sum = 0.0
-#   #
-#   for m in range(1,k+1):
-#      e_sum += (-1)**(m) * (1.0 / math.factorial(m)) * prefactor(n,k,m-1) * e_vec[(k-m)-1]
-#   e_inc.append(e_vec[k-1]+e_sum)
-#   #
-#   return e_inc
-#
-#def prefactor(n,order,m):
-#   #
-#   pre = 1
-#   #
-#   for i in range(m,-1,-1):
-#      pre = pre * (n - order + i)
-#   #
-#   return pre
 
