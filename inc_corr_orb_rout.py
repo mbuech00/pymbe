@@ -11,7 +11,7 @@ import math
 
 def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples):
    #
-   if (order > (molecule['nocc']-molecule['core'])):
+   if (order > molecule['u_limit'][0]):
       #
       return drop_string, n_tuples
    #
@@ -19,9 +19,9 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples)
       #
       for i in range(start,molecule['nocc']+1): # loop over the occupied orbs
          #
-         n = list_drop[molecule['core']:molecule['nocc']].count(0) # count the number of zeros
+         n = list_drop[0:molecule['nocc']].count(0) # count the number of zeros
          #
-         if (n == 0):
+         if ((n == 0) and not (not molecule['occ_domain'][i-1][-1])):
             #
             list_drop[i-1] = 0 # singles correlation
          #
@@ -34,7 +34,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples)
             else:
                #
                list_drop[i-1] = 0 # attempt to correlate orbital 'i'
-               idx = [j+1 for j, val in enumerate(list_drop[molecule['core']:molecule['nocc']]) if val == 0] # make list containing indices (+1) with zeros in list_drop
+               idx = [j+1 for j, val in enumerate(list_drop[molecule['l_limit'][0]:molecule['nocc']]) if val == 0] # make list containing indices (+1) with zeros in list_drop
                #
                for k in range(0,len(idx)):
                   #
@@ -46,23 +46,9 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples)
          s = ''
          inc = 0
          #
-         if ((order == final) and (list_drop[molecule['core']:molecule['nocc']].count(0) == final)): # number of zeros in list_drop must match the final order
+         if ((order == final) and (list_drop[molecule['l_limit'][0]:molecule['nocc']].count(0) == final)): # number of zeros in list_drop must match the final order
             #
-            if (molecule['fc']): # exclude core orbitals
-               #
-               for m in range(0,molecule['core']):
-                  #
-                  if (inc == 0):
-                     #
-                     s = 'DROP_MO='+str(list_drop[m])
-                  #
-                  else:
-                     #
-                     s += '-'+str(list_drop[m])
-                  #
-                  inc += 1
-            #
-            for m in range(molecule['core'],molecule['nocc']): # start to exclude valence occupied orbitals
+            for m in range(molecule['l_limit'][0],molecule['nocc']): # start to exclude valence occupied orbitals
                #
                if (list_drop[m] != 0):
                   #
@@ -149,7 +135,7 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_tuples
          #
          if ((order == final) and (list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])].count(0) == final)): # number of zeros in list_drop must match the final order
             #
-            if (molecule['fc'] and (not ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')))): # exclude core orbitals
+            if ((molecule['frozen'] == 'TRAD') and (not ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')))): # exclude core orbitals
                #
                for m in range(0,molecule['core']):
                   #
@@ -177,15 +163,23 @@ def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_tuples
                   #
                   inc += 1
             #
-            if (len(n_tuples) >= order):
+            if (s != ''):
                #
-               n_tuples[order-1] += 1
+               if (len(n_tuples) >= order):
+                  #
+                  n_tuples[order-1] += 1
+               #
+               else:
+                  #
+                  n_tuples.append(1)
+               #
+               drop_string.append(s+'\n')
             #
-            else:
+            elif (order == molecule['nvirt']): # full system correlation, i.e., equal to standard N-electron calculation
                #
                n_tuples.append(1)
-            #
-            drop_string.append(s+'\n')
+               #
+               drop_string.append('\n')
          #
          generate_drop_virt(i+1,order+1,final,molecule,list_drop,drop_string,n_tuples)
          #
@@ -203,6 +197,18 @@ def init_domains(molecule):
       molecule['occ_domain'].append([range(1,molecule['nocc']+1)])
       #
       molecule['occ_domain'][i][-1].pop(i)
+   #
+   if (molecule['frozen'] == 'TRAD'):
+      #
+      for i in range(0,molecule['core']):
+         #
+         molecule['occ_domain'][i][-1][:] = []
+      #
+      for j in range(molecule['core'],molecule['nocc']):
+         #
+         for i in range(0,molecule['core']):
+            #
+            molecule['occ_domain'][j][-1].pop(i)
    #
    for i in range(0,molecule['nvirt']):
       #
@@ -231,10 +237,22 @@ def reinit_domains(molecule,domain):
          domain.append([range(1,molecule['nocc']+1)])
          #
          domain[i][-1].pop(i)
+      #
+      if (molecule['frozen'] == 'TRAD'):
+         #
+         for i in range(0,molecule['core']):
+            #
+            molecule['occ_domain'][i][-1][:] = []
+         #
+         for j in range(molecule['core'],molecule['nocc']):
+            #
+            for i in range(0,molecule['core']):
+               #
+               molecule['occ_domain'][j][-1].pop(i)
    #
    return molecule
 
-def excl_rout(orb,thres,excl):
+def excl_rout(molecule,tup,orb,thres,excl):
    #
    for i in range(0,len(orb[-1])):
       #
@@ -246,48 +264,48 @@ def excl_rout(orb,thres,excl):
             #
             excl[i].append(orb[-1][i][j+1][0][0])
    #
-   for k in range(0,len(excl)):
+   if ((len(tup) == 2) and (molecule['frozen'] == 'SCREEN')):
       #
-      excl[k].sort()
+      for i in range(0,len(excl)):
+         #
+         if (i < molecule['core']):
+            #
+            for j in range(i+1,len(excl)):
+               #
+               if (not (j+1 in excl[i])):
+                  #
+                  excl[i].append(j+1)
+         #
+         else:
+            #
+            for j in range(0,molecule['core']):
+               #
+               if (not (j+1 in excl[i])):
+                  #
+                  excl[i].append(j+1)
+   #
+   for i in range(0,len(excl)):
+      #
+      excl[i].sort()
    #
    return excl
 
-def update_domains(molecule,tup,domain,thres,l_limit,excl):
+def update_domains(domain,l_limit,excl):
    #
    for l in range(0,len(domain)):
       #
       domain[l].append(list(domain[l][-1]))
    #
-   if (len(tup) == 1):
+   for i in range(0,len(excl)):
       #
-      e_sum = 0.0
-      #
-      for i in range(0,len(tup[0])):
+      for j in range(0,len(excl[i])):
          #
-         e_sum += tup[0][i][1]
-      #
-      for i in range(0,len(tup[0])):
-         #
-         if (abs(tup[0][i][1] / e_sum) < thres):
+         if ((i+l_limit)+1 in excl[(excl[i][j]-l_limit)-1]):
             #
-            for j in range(0,len(domain[i][-1])):
-               #
-               domain[(domain[i][-1][j]-l_limit)-1][-1].remove((i+l_limit)+1)
+            domain[i][-1].remove(excl[i][j])
+            domain[(excl[i][j]-l_limit)-1][-1].remove((i+l_limit)+1)
             #
-            domain[i][-1][:] = []
-   #
-   else:
-      #
-      for i in range(0,len(excl)):
-         #
-         for j in range(0,len(excl[i])):
-            #
-            if ((i+l_limit)+1 in excl[(excl[i][j]-l_limit)-1]):
-               #
-               domain[i][-1].remove(excl[i][j])
-               domain[(excl[i][j]-l_limit)-1][-1].remove((i+l_limit)+1)
-               #
-               excl[(excl[i][j]-l_limit)-1].remove((i+l_limit)+1)
+            excl[(excl[i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
    return domain
 
@@ -307,7 +325,7 @@ def orbs_incl(string_excl,string_incl,l_limit,u_limit):
    #
    for j in range(0,len(sub_list)):
       #
-      if (sub_list[j] != ''):
+      if ((sub_list[j] != '') and (sub_list[j] != '\n')):
          #
          excl_list.append(int(sub_list[j]))
    #

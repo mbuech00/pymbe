@@ -119,7 +119,7 @@ def write_zmat_corr(molecule,drop_string,ref):
       out.write('SYMMETRY=OFF\n')
       out.write('ORBITALS=LOCAL\n')
    #
-   if (molecule['fc'] and ref):
+   if ((molecule['frozen'] == 'TRAD') and ref):
       #
       out.write('FROZEN_CORE=ON\n')
    #
