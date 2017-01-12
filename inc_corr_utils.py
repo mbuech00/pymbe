@@ -324,8 +324,8 @@ def inc_corr_summary(molecule):
    #
    for i in range(0,len(molecule['e_fin'][0])):
       #
-      print('{0:4d} - # orb. tuples  =  {1:} / {2:} ({3:5.2f} %)'.format(i+1,molecule['n_tuples'][0][i],molecule['theo_work'][0][i],\
-                                                     (float(molecule['n_tuples'][0][i])/float(molecule['theo_work'][0][i])*100.00)))
+      print('{0:4d} - # orb. tuples  =  {1:<6d}  ---  {2:>6.2f} %'.format(i+1,molecule['theo_work'][0][i],\
+                                                                          (float(molecule['n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00))
    #
    print('   --------------------------------------------------------------')
    #

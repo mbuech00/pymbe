@@ -41,10 +41,6 @@ def main():
    #
    inc_corr_utils.sanity_chk(molecule)
    #
-   #  ---  initialize (potential) domains...  ---
-   #
-   inc_corr_orb_rout.init_domains(molecule)
-   #
    #  ---  initialization done - start the calculation...  ---
    #
    inc_corr_e_rout.inc_corr_main(molecule)

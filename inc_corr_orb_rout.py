@@ -212,6 +212,20 @@ def init_domains(molecule):
    #
    return molecule
 
+def reinit_domains(molecule,domain):
+   #
+   domain[:] = []
+   #
+   if (molecule['exp'] == 'COMB'):
+      #
+      for i in range(0,molecule['nvirt']):
+         #
+         domain.append([range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)])
+         #
+         domain[i][-1].pop(i)  
+   #
+   return molecule
+
 def excl_rout(orb,thres,excl):
    #
    for i in range(0,len(orb[-1])):
@@ -230,15 +244,7 @@ def excl_rout(orb,thres,excl):
    #
    return excl
 
-def update_domains(molecule,tup,domain,thres,excl):
-   #
-   if (molecule['exp'] == 'OCC'):
-      #
-      l_limit = 0
-   #
-   elif (molecule['exp'] == 'VIRT'):
-      #
-      l_limit = molecule['nocc']
+def update_domains(molecule,tup,domain,thres,l_limit,excl):
    #
    for l in range(0,len(domain)):
       #
@@ -277,7 +283,7 @@ def update_domains(molecule,tup,domain,thres,excl):
    #
    return domain
 
-def orbs_incl(molecule,string_excl,string_incl,comb):
+def orbs_incl(string_excl,string_incl,l_limit,u_limit):
    #
    excl_list = []
    #
@@ -290,21 +296,11 @@ def orbs_incl(molecule,string_excl,string_incl,comb):
          #
          excl_list.append(int(sub_list[j]))
    #
-   if ((molecule['exp'] == 'OCC') or ((molecule['exp'] == 'COMB') and (not comb))):
+   for l in range(l_limit+1,(l_limit+u_limit)+1):
       #
-      for l in range(1,molecule['nocc']+1):
+      if (not (l in excl_list)):
          #
-         if (not (l in excl_list)):
-            #
-            string_incl.append(l)
-   #
-   elif ((molecule['exp'] == 'VIRT') or comb):
-      #
-      for l in range(molecule['nocc']+1,molecule['nocc']+molecule['nvirt']+1):
-         #
-         if (not (l in excl_list)):
-            #
-            string_incl.append(l)
+         string_incl.append(l)
    #
    return string_incl
 

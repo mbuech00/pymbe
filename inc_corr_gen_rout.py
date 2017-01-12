@@ -237,6 +237,7 @@ def write_energy(molecule,ref):
 
 def ref_calc(molecule):
    #
+   print(' ------------------------------------------')
    print(' STATUS-REF:  Full reference calc.  started')
    print(' ------------------------------------------')
    #
