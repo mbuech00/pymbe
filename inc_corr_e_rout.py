@@ -105,10 +105,10 @@ def inc_corr_mono_exp(molecule):
          molecule['excl_list'][0][:] = []
          #
          inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][0],molecule['orbital'][0],molecule['thres'][0],molecule['excl_list'][0])
-      #
-      # update domains
-      #
-      inc_corr_orb_rout.update_domains(molecule['domain'][0],molecule['l_limit'][0],molecule['excl_list'][0])
+         #
+         # update domains
+         #
+         inc_corr_orb_rout.update_domains(molecule['domain'][0],molecule['l_limit'][0],molecule['excl_list'][0])
       #
       # calculate theoretical number of tuples at order k
       #
@@ -122,7 +122,9 @@ def inc_corr_mono_exp(molecule):
       #
       print_status_end(molecule,k,molecule['e_fin'][0],molecule['time'][0],molecule['n_tuples'][0])
       #
-      print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
+      if (k >= 2):
+         #
+         print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
       #
       # check for maximum order
       #
@@ -260,10 +262,10 @@ def inc_corr_dual_exp(molecule):
                molecule['excl_list'][1][:] = []
                #
                inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][1],molecule['orbital'][1],molecule['thres'][1],molecule['excl_list'][1])
-            #
-            # update domains (for inner expansion)
-            #
-            inc_corr_orb_rout.update_domains(molecule['domain'][1],molecule['l_limit'][1],molecule['excl_list'][1])
+               #
+               # update domains (for inner expansion)
+               #
+               inc_corr_orb_rout.update_domains(molecule['domain'][1],molecule['l_limit'][1],molecule['excl_list'][1])
             #
             # calculate theoretical number of tuples at order l (for inner expansion)
             #
@@ -315,10 +317,10 @@ def inc_corr_dual_exp(molecule):
          molecule['excl_list'][0][:] = []
          #
          inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][0],molecule['orbital'][0],molecule['thres'][0],molecule['excl_list'][0])
-      #
-      # update domains (for outer expansion)
-      #
-      inc_corr_orb_rout.update_domains(molecule['domain'][0],molecule['l_limit'][0],molecule['excl_list'][0])
+         #
+         # update domains (for outer expansion)
+         #
+         inc_corr_orb_rout.update_domains(molecule['domain'][0],molecule['l_limit'][0],molecule['excl_list'][0])
       #
       # calculate theoretical number of tuples at order k (for outer expansion)
       #
@@ -338,7 +340,9 @@ def inc_corr_dual_exp(molecule):
       #
       # print domain updates (for outer expansion)
       #
-      print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
+      if (k >= 2):
+         #
+         print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
    #
    return molecule
 

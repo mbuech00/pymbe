@@ -11,7 +11,7 @@ import math
 
 def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples):
    #
-   if (order > molecule['u_limit'][0]):
+   if (order > molecule['nocc']):
       #
       return drop_string, n_tuples
    #
@@ -34,7 +34,7 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples)
             else:
                #
                list_drop[i-1] = 0 # attempt to correlate orbital 'i'
-               idx = [j+1 for j, val in enumerate(list_drop[molecule['l_limit'][0]:molecule['nocc']]) if val == 0] # make list containing indices (+1) with zeros in list_drop
+               idx = [j+1 for j, val in enumerate(list_drop[0:molecule['nocc']]) if val == 0] # make list containing indices (+1) with zeros in list_drop
                #
                for k in range(0,len(idx)):
                   #
@@ -46,9 +46,9 @@ def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples)
          s = ''
          inc = 0
          #
-         if ((order == final) and (list_drop[molecule['l_limit'][0]:molecule['nocc']].count(0) == final)): # number of zeros in list_drop must match the final order
+         if ((order == final) and (list_drop[0:molecule['nocc']].count(0) == final)): # number of zeros in list_drop must match the final order
             #
-            for m in range(molecule['l_limit'][0],molecule['nocc']): # start to exclude valence occupied orbitals
+            for m in range(0,molecule['nocc']): # start to exclude valence occupied orbitals
                #
                if (list_drop[m] != 0):
                   #
@@ -264,7 +264,7 @@ def excl_rout(molecule,tup,orb,thres,excl):
             #
             excl[i].append(orb[-1][i][j+1][0][0])
    #
-   if ((len(tup) == 2) and (molecule['frozen'] == 'SCREEN')):
+   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'SCREEN')):
       #
       for i in range(0,len(excl)):
          #
