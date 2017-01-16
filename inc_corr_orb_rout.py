@@ -7,185 +7,115 @@
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
+import itertools
 import math
 
-def generate_drop_occ(start,order,final,molecule,list_drop,drop_string,n_tuples):
+def orb_generator(molecule,dom,tup,l_limit,k):
    #
-   if (order > molecule['nocc']):
-      #
-      return drop_string, n_tuples
+   incl = []
+   incl_2 = []
    #
-   else:
+   full_space = []
+   #
+   for i in range(0,len(dom)):
       #
-      for i in range(start,molecule['nocc']+1): # loop over the occupied orbs
+      # construct union space of all orbitals in i-th domain + the i-th orbital itself (if not traditional frozen core scheme)
+      #
+      if (not ((molecule['frozen'] == 'TRAD') and (((i+l_limit)+1) <= molecule['core']))):
          #
-         n = list_drop[0:molecule['nocc']].count(0) # count the number of zeros
+         full_space = sorted(list(set(dom[i][-1]).union(set([(l_limit+i)+1]))))
          #
-         if ((n == 0) and not (not molecule['occ_domain'][i-1][-1])):
-            #
-            list_drop[i-1] = 0 # singles correlation
+         # generate all k-combinations in the space
          #
-         if (n > 0):
+         incl_tmp = list(list(comb) for comb in itertools.combinations(full_space,k))
+         #
+         for j in range(0,len(incl_tmp)):
             #
-            if (not molecule['occ_domain'][i-1][-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
-               #
-               list_drop[i-1] = i
+            # is the i-th orbital in the given combination?
             #
-            else:
+            if (set([(l_limit+i)+1]) <= set(incl_tmp[j])):
                #
-               list_drop[i-1] = 0 # attempt to correlate orbital 'i'
-               idx = [j+1 for j, val in enumerate(list_drop[0:molecule['nocc']]) if val == 0] # make list containing indices (+1) with zeros in list_drop
+               mask = True
                #
-               for k in range(0,len(idx)):
+               # loop through the given combination to check whether all orbitals are part of each other domains
+               #
+               for l in range(0,len(incl_tmp[j])):
                   #
-                  if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['occ_domain'][idx[k]-1][-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
+                  for m in range(0,len(incl_tmp[j])):
                      #
-                     list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
+                     if (m != l):
+                        #
+                        # domain check
+                        #
+                        if (not (set([incl_tmp[j][m]]) <= set(dom[(incl_tmp[j][l]-l_limit)-1][-1]))):
+                           #
+                           mask = False
+                           #
+                           break
+                  #
+                  if (not mask):
+                     #
                      break
-         #
-         s = ''
-         inc = 0
-         #
-         if ((order == final) and (list_drop[0:molecule['nocc']].count(0) == final)): # number of zeros in list_drop must match the final order
-            #
-            for m in range(0,molecule['nocc']): # start to exclude valence occupied orbitals
                #
-               if (list_drop[m] != 0):
+               if (mask):
                   #
-                  if (inc == 0):
-                     #
-                     s = 'DROP_MO='+str(list_drop[m])
+                  # the given tuple is allowed
                   #
-                  else:
-                     #
-                     s += '-'+str(list_drop[m])
-                  #
-                  inc += 1
-            #
-            if (s != ''):
-               #
-               if (len(n_tuples) >= order):
-                  #
-                  n_tuples[order-1] += 1
-               #
-               else:
-                  #
-                  n_tuples.append(1)
-               #
-               if (molecule['exp'] == 'OCC'):
-                  #
-                  drop_string.append(s+'\n')
-               #
-               elif ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')):
-                  #
-                  drop_string.append(s)
-            #
-            elif (order == molecule['nocc']): # full system correlation, i.e., equal to standard N-electron calculation
-               #
-               n_tuples.append(1)
-               #
-               drop_string.append('\n')
-         #
-         generate_drop_occ(i+1,order+1,final,molecule,list_drop,drop_string,n_tuples) # recursion
-         #
-         list_drop[i-1] = i # include orb back into list of orbs to drop from the calculation
+                  incl.append(incl_tmp[j])
    #
-   return drop_string, n_tuples
+   # remove duplicates
+   #
+   for i in range(0,len(incl)):
+      #
+      if (incl[i] not in incl_2):
+         #
+         incl_2.append(incl[i])
+   #
+   # write to molecule['tuple']
+   #
+   for i in range(0,len(incl_2)):
+      #
+      tup.append([incl_2[i]])
+   #
+   return tup
 
-def generate_drop_virt(start,order,final,molecule,list_drop,drop_string,n_tuples):
+def orb_string(molecule,l_limit,u_limit,tup):
    #
-   if (order > molecule['nvirt']):
+   # generate list with all occ/virt orbitals
+   #
+   dim = range(l_limit+1,(l_limit+u_limit)+1)
+   #
+   # generate list with all orbs the should be dropped (not part of the current tuple)
+   #
+   drop = sorted(list(set(dim)-set(tup)))
+   #
+   # for VIRT scheme, explicitly drop the core orbitals for traditional frozen core scheme
+   #
+   if ((molecule['exp'] == 'VIRT') and (molecule['frozen'] == 'TRAD')):
       #
-      return drop_string, n_tuples
+      for i in range(molecule['core'],0,-1):
+         #
+         drop.insert(0,i)
    #
-   else:
+   # now write the string
+   #
+   inc = 0
+   #
+   for i in range(0,len(drop)):
       #
-      for i in range(start,(molecule['nocc']+molecule['nvirt'])+1):
+      if (inc == 0):
          #
-         n = list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])].count(0) # count the number of zeros
+         molecule['string'] = 'DROP_MO='+str(drop[i])
+      #
+      else:
          #
-         if (n == 0):
-            #
-            list_drop[i-1] = 0 # singles correlation
-         #
-         if (n > 0):
-            #
-            if (not molecule['virt_domain'][(i-molecule['nocc'])-1][-1]): # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
-               #
-               list_drop[i-1] = i
-            #
-            else:
-               #
-               list_drop[i-1] = 0 # attempt to correlate orbital 'i'
-               idx = [(j+molecule['nocc'])+1 for j, val in enumerate(list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])]) if val == 0] # make list containing indices (+1) with zeros in list_drop
-               #
-               for k in range(0,len(idx)):
-                  #
-                  if (not (set(idx[:k]+idx[k+1:]) <= set(molecule['virt_domain'][(idx[k]-molecule['nocc'])-1][-1]))): # check whether the combinations of orbs are included in the domains for each of the orbs
-                     #
-                     list_drop[i-1] = i # this contribution (tuple) should be screened away, i.e., do not correlate orbital 'i' in the current tuple
-                     break
-         #
-         s = ''
-         inc = 0
-         #
-         if ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')):
-            #
-            inc += 1
-         #
-         if ((order == final) and (list_drop[molecule['nocc']:(molecule['nocc']+molecule['nvirt'])].count(0) == final)): # number of zeros in list_drop must match the final order
-            #
-            if ((molecule['frozen'] == 'TRAD') and (not ((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')))): # exclude core orbitals
-               #
-               for m in range(0,molecule['core']):
-                  #
-                  if (inc == 0):
-                     #
-                     s = 'DROP_MO='+str(list_drop[m])
-                  #
-                  else:
-                     #
-                     s += '-'+str(list_drop[m])
-                  #
-                  inc += 1
-            #
-            for m in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
-               #
-               if (list_drop[m] != 0):
-                  #
-                  if (inc == 0):
-                     #
-                     s = 'DROP_MO='+str(list_drop[m])
-                  #
-                  else:
-                     #
-                     s += '-'+str(list_drop[m])
-                  #
-                  inc += 1
-            #
-            if (s != ''):
-               #
-               if (len(n_tuples) >= order):
-                  #
-                  n_tuples[order-1] += 1
-               #
-               else:
-                  #
-                  n_tuples.append(1)
-               #
-               drop_string.append(s+'\n')
-            #
-            elif (order == molecule['nvirt']): # full system correlation, i.e., equal to standard N-electron calculation
-               #
-               n_tuples.append(1)
-               #
-               drop_string.append('\n')
-         #
-         generate_drop_virt(i+1,order+1,final,molecule,list_drop,drop_string,n_tuples)
-         #
-         list_drop[i-1] = i
+         molecule['string'] += '-'+str(drop[i])
+      #
+      inc += 1
    #
-   return drop_string, n_tuples
+   molecule['string'] += '\n'
+   #
+   return molecule
 
 def init_domains(molecule):
    #

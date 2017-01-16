@@ -40,11 +40,15 @@ def inc_corr_mono_exp(molecule):
    #
    for k in range(1,molecule['u_limit'][0]+1):
       #
-      # generate the tuples at order k
+      # append tuple list and generate all tuples at order k
       #
-      molecule['drop_string'][0][:] = []
+      molecule['tuple'][0].append([])
       #
-      molecule['generate_drop'][0](molecule['l_limit'][0]+1,1,k,molecule,molecule['list_drop'][0],molecule['drop_string'][0],molecule['n_tuples'][0])
+      inc_corr_orb_rout.orb_generator(molecule,molecule['domain'][0],molecule['tuple'][0][k-1],molecule['l_limit'][0],k)
+      #
+      # determine number of tuples at order k
+      #
+      molecule['n_tuples'][0].append(len(molecule['tuple'][0][k-1]))
       #
       # print status header
       #
@@ -52,15 +56,11 @@ def inc_corr_mono_exp(molecule):
       #
       # check for convergence
       #
-      if (len(molecule['n_tuples'][0]) < k):
+      if (molecule['n_tuples'][0][k-1] == 0):
          #
          return molecule
       #
-      # init/append lists and start time
-      #
-      molecule['tuple'][0].append([])
-      #
-      molecule['incl_list'][0][:] = []
+      # start time
       #
       start = timer()
       #
@@ -72,15 +72,24 @@ def inc_corr_mono_exp(molecule):
       #
       for i in range(0,molecule['n_tuples'][0][k-1]):
          #
-         inc_corr_gen_rout.run_calc_corr(molecule,molecule['drop_string'][0][i],False)
+         # write string
          #
-         molecule['incl_list'][0].append([])
+         inc_corr_orb_rout.orb_string(molecule,molecule['l_limit'][0],molecule['u_limit'][0],molecule['tuple'][0][k-1][i][0])
          #
-         inc_corr_orb_rout.orbs_incl(molecule['drop_string'][0][i],molecule['incl_list'][0][i],molecule['l_limit'][0],molecule['u_limit'][0])
+         # run correlated calc
          #
-         molecule['tuple'][0][k-1].append([molecule['incl_list'][0][i],molecule['e_tmp']])
+         print(str(molecule['string']))
+         inc_corr_gen_rout.run_calc_corr(molecule,molecule['string'],False)
+         #
+         # write tuple energy
+         #
+         molecule['tuple'][0][k-1][i].append(molecule['e_tmp'])
+         #
+         # print result
          #
          print_result(i,molecule['tuple'][0][k-1][i])
+         #
+         # error check
          #
          if (molecule['error'][0][-1]):
             #
@@ -100,7 +109,7 @@ def inc_corr_mono_exp(molecule):
          #
          molecule['orbital'][0].append([])
          #
-         orbital_rout(molecule,molecule['tuple'][0],molecule['orbital'][0],molecule['l_limit'][0],molecule['u_limit'][0])
+         e_orb_rout(molecule,molecule['tuple'][0],molecule['orbital'][0],molecule['l_limit'][0],molecule['u_limit'][0])
          #
          molecule['excl_list'][0][:] = []
          #
@@ -141,11 +150,15 @@ def inc_corr_dual_exp(molecule):
    #
    for k in range(1,molecule['u_limit'][0]+1):
       #
-      # generate the tuples at order k (for outer expansion)
+      # append tuple list and generate all tuples at order k
       #
-      molecule['drop_string'][0][:] = []
+      molecule['tuple'][0].append([])
       #
-      molecule['generate_drop'][0](molecule['l_limit'][0]+1,1,k,molecule,molecule['list_drop'][0],molecule['drop_string'][0],molecule['n_tuples'][0])
+      inc_corr_orb_rout.orb_generator(molecule,molecule['domain'][0],molecule['tuple'][0][k-1],molecule['l_limit'][0],k)
+      #
+      # determine number of tuples at order k
+      #
+      molecule['n_tuples'][0].append(len(molecule['tuple'][0][k-1]))
       #
       # print status header (for outer expansion)
       #
@@ -153,15 +166,9 @@ def inc_corr_dual_exp(molecule):
       #
       # check for convergence (for outer expansion)
       #
-      if (len(molecule['n_tuples'][0]) < k):
+      if (molecule['n_tuples'][0][k-1] == 0):
          #
          return molecule
-      #
-      # init/append lists and start time (for outer expansion)
-      #
-      molecule['tuple'][0].append([])
-      #
-      molecule['incl_list'][0][:] = []
       #
       # init time, energy diff, and relative work (for inner expansion)
       #
@@ -201,47 +208,46 @@ def inc_corr_dual_exp(molecule):
          #
          for l in range(1,molecule['u_limit'][1]+1):
             #
-            for a in range(molecule['l_limit'][1],molecule['l_limit'][1]+molecule['u_limit'][1]):
-               #
-               molecule['list_drop'][1][a] = a+1
-            #
-            molecule['drop_string'][1][:] = []
-            #
-            molecule['generate_drop'][1](molecule['l_limit'][1]+1,1,l,molecule,molecule['list_drop'][1],molecule['drop_string'][1],molecule['n_tuples'][1])
-            #
-            # check for convergence (for inner expansion)
-            #
-            if (len(molecule['n_tuples'][1]) < l):
-               #
-               molecule['incl_list'][0].append([])
-               #
-               inc_corr_orb_rout.orbs_incl(molecule['drop_string'][0][i],molecule['incl_list'][0][i],molecule['l_limit'][0],molecule['u_limit'][0])
-               #
-               molecule['tuple'][0][k-1].append([molecule['incl_list'][0][i],molecule['e_fin'][1][-1]])
-               #
-               print_result(i,molecule['tuple'][0][k-1][i])
-               #
-               break
-            # 
-            # init/append lists (for inner expansion)
+            # append tuple list and generate all tuples at order l
             #
             molecule['tuple'][1].append([])
             #
-            molecule['incl_list'][1][:] = []
+            inc_corr_orb_rout.orb_generator(molecule,molecule['domain'][1],molecule['tuple'][1][l-1],molecule['l_limit'][1],l)
             #
+            # determine number of tuples at order l
+            #
+            molecule['n_tuples'][1].append(len(molecule['tuple'][1][l-1]))
+            #
+            # check for convergence (for inner expansion)
+            #
+            if (molecule['n_tuples'][1][l-1] == 0):
+               #
+               molecule['tuple'][0][k-1][i].append(molecule['e_fin'][1][-1])
+               #
+               print_result(i,molecule['tuple'][0][k-1][i])
+               #
+               molecule['n_tuples'][1].pop()
+               #
+               break
+            # 
             # run the calculations (for inner expansion)
             #
             for j in range(0,molecule['n_tuples'][1][l-1]):
                #
-               collect_drop_strings(molecule,i,j)
+               # write string
                #
-               inc_corr_gen_rout.run_calc_corr(molecule,molecule['collect_string'],False)
+               inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][0][k-1][i][0]+molecule['tuple'][1][l-1][j][0])
                #
-               molecule['incl_list'][1].append([])
+               # run correlated calc
                #
-               inc_corr_orb_rout.orbs_incl(molecule['collect_string'],molecule['incl_list'][1][j],molecule['l_limit'][1],molecule['u_limit'][1])
+               print(str(molecule['string']))
+               inc_corr_gen_rout.run_calc_corr(molecule,molecule['string'],False)
                #
-               molecule['tuple'][1][l-1].append([molecule['incl_list'][1][j],molecule['e_tmp']])
+               # write tuple energy
+               #
+               molecule['tuple'][1][l-1][j].append(molecule['e_tmp'])
+               #
+               # error check
                #
                if (molecule['error'][0][-1]):
                   #
@@ -257,7 +263,7 @@ def inc_corr_dual_exp(molecule):
                #
                molecule['orbital'][1].append([])
                #
-               orbital_rout(molecule,molecule['tuple'][1],molecule['orbital'][1],molecule['l_limit'][1],molecule['u_limit'][1])
+               e_orb_rout(molecule,molecule['tuple'][1],molecule['orbital'][1],molecule['l_limit'][1],molecule['u_limit'][1])
                #
                molecule['excl_list'][1][:] = []
                #
@@ -275,11 +281,7 @@ def inc_corr_dual_exp(molecule):
             #
             if (l == molecule['u_limit'][1]):
                #
-               molecule['incl_list'][0].append([])
-               #
-               inc_corr_orb_rout.orbs_incl(molecule['drop_string'][0][i],molecule['incl_list'][0][i],molecule['l_limit'][0],molecule['u_limit'][0])
-               #
-               molecule['tuple'][0][k-1].append([molecule['incl_list'][0][i],molecule['e_fin'][1][-1]])
+               molecule['tuple'][0][k-1][i].append(molecule['e_fin'][1][-1])
                #
                print_result(i,molecule['tuple'][0][k-1][i])
                #
@@ -312,7 +314,7 @@ def inc_corr_dual_exp(molecule):
          #
          molecule['orbital'][0].append([])
          #
-         orbital_rout(molecule,molecule['tuple'][0],molecule['orbital'][0],molecule['l_limit'][0],molecule['u_limit'][0])
+         e_orb_rout(molecule,molecule['tuple'][0],molecule['orbital'][0],molecule['l_limit'][0],molecule['u_limit'][0])
          #
          molecule['excl_list'][0][:] = []
          #
@@ -346,30 +348,6 @@ def inc_corr_dual_exp(molecule):
    #
    return molecule
 
-def collect_drop_strings(molecule,i,j):
-   #
-   if (molecule['exp'] == 'COMB-OV'):
-      #
-      if (molecule['drop_string'][0][i] == '\n'):
-         #
-         molecule['collect_string'] = 'DROP_MO='+molecule['drop_string'][1][j][1:]
-      #
-      else:
-         #
-         molecule['collect_string'] = molecule['drop_string'][0][i]+molecule['drop_string'][1][j]
-   #
-   elif (molecule['exp'] == 'COMB-VO'):
-      #
-      if (molecule['drop_string'][1][j] == '\n'):
-         #
-         molecule['collect_string'] = 'DROP_MO='+molecule['drop_string'][0][i][1:]
-      #
-      else:
-         #
-         molecule['collect_string'] = molecule['drop_string'][1][j]+molecule['drop_string'][0][i]
-   #
-   return molecule
-
 def inc_corr_order(k,n_tuples,tup,e_fin):
    #
    for j in range(0,n_tuples[k-1]):
@@ -396,7 +374,7 @@ def inc_corr_order(k,n_tuples,tup,e_fin):
    #
    return e_fin
 
-def orbital_rout(molecule,tup,orb,l_limit,u_limit):
+def e_orb_rout(molecule,tup,orb,l_limit,u_limit):
    #
    for i in range(l_limit,l_limit+u_limit):
       #
@@ -467,20 +445,12 @@ def orbital_rout(molecule,tup,orb,l_limit,u_limit):
 
 def inc_corr_prepare(molecule):
    #
-   molecule['list_drop'] = [list(range(1,(molecule['nocc']+molecule['nvirt'])+1)),list(range(1,(molecule['nocc']+molecule['nvirt'])+1))]
-   #
    if (molecule['exp'] == 'OCC'):
       #
       molecule['l_limit'] = [0]
       molecule['u_limit'] = [molecule['nocc']]
       #
       molecule['domain'] = [molecule['occ_domain']]
-      #
-      molecule['generate_drop'] = [inc_corr_orb_rout.generate_drop_occ]
-      #
-      for i in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
-         #
-         molecule['list_drop'][0][i] = 0
    #
    elif (molecule['exp'] == 'VIRT'):
       #
@@ -489,19 +459,6 @@ def inc_corr_prepare(molecule):
       #
       molecule['domain'] = [molecule['virt_domain']]
       #
-      molecule['generate_drop'] = [inc_corr_orb_rout.generate_drop_virt]
-      #
-      if (molecule['frozen'] == 'TRAD'):
-         #
-         for i in range(molecule['core'],molecule['nocc']):
-            #
-            molecule['list_drop'][0][i] = 0
-      #
-      else: 
-         #
-         for i in range(0,molecule['nocc']):
-            #
-            molecule['list_drop'][0][i] = 0
    #
    elif (molecule['exp'] == 'COMB-OV'):
       #
@@ -509,24 +466,6 @@ def inc_corr_prepare(molecule):
       molecule['u_limit'] = [molecule['nocc'],molecule['nvirt']]
       #
       molecule['domain'] = [molecule['occ_domain'],molecule['virt_domain']]
-      #
-      molecule['generate_drop'] = [inc_corr_orb_rout.generate_drop_occ,inc_corr_orb_rout.generate_drop_virt]
-      #
-      for i in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
-         #
-         molecule['list_drop'][0][i] = 0
-      #
-      if (molecule['frozen'] == 'TRAD'):
-         #
-         for i in range(molecule['core'],molecule['nocc']):
-            #
-            molecule['list_drop'][1][i] = 0
-      #
-      else:
-         #
-         for i in range(0,molecule['nocc']):
-            #
-            molecule['list_drop'][1][i] = 0
       #
       molecule['e_diff_in'] = []
       #
@@ -538,24 +477,6 @@ def inc_corr_prepare(molecule):
       molecule['u_limit'] = [molecule['nvirt'],molecule['nocc']]
       #
       molecule['domain'] = [molecule['virt_domain'],molecule['occ_domain']]
-      #
-      molecule['generate_drop'] = [inc_corr_orb_rout.generate_drop_virt,inc_corr_orb_rout.generate_drop_occ]
-      #
-      if (molecule['frozen'] == 'TRAD'):
-         #
-         for i in range(molecule['core'],molecule['nocc']):
-            #
-            molecule['list_drop'][0][i] = 0
-      #
-      else:
-         #
-         for i in range(0,molecule['nocc']):
-            #
-            molecule['list_drop'][0][i] = 0
-      #
-      for i in range(molecule['nocc'],molecule['nocc']+molecule['nvirt']):
-         #
-         molecule['list_drop'][1][i] = 0
       #
       molecule['e_diff_in'] = []
       #
@@ -571,10 +492,6 @@ def inc_corr_prepare(molecule):
    #
    molecule['e_fin'] = [[],[]]
    #
-   molecule['drop_string'] = [[],[]]
-   #
-   molecule['incl_list'] = [[],[]]
-   #
    molecule['excl_list'] = [[],[]]
    #
    molecule['theo_work'] = [[],[]]
@@ -589,7 +506,7 @@ def print_status_header(molecule,n_tup,order):
    print('')
    print(' --------------------------------------------------------------------------------------------')
    #
-   if (len(n_tup) < order):
+   if (n_tup[order-1] == 0):
       #
       print(' STATUS-MACRO:  order =  {0:>d} / {1:<d}  has no contributions --- *** calculation has converged ***'.format(order,n_tup[0]))
       print(' --------------------------------------------------------------------------------------------')
