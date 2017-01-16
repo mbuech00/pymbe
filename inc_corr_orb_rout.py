@@ -109,7 +109,21 @@ def orb_string(molecule,l_limit,u_limit,tup):
       #
       else:
          #
-         molecule['string'] += '-'+str(drop[i])
+         if (drop[i] == (drop[i-1]+1)):
+            #
+            if (i < (len(drop)-1)):
+               #
+               if (drop[i] != (drop[i+1]-1)):
+                  #
+                  molecule['string'] += '>'+str(drop[i])
+            #
+            else:
+               #
+               molecule['string'] += '>'+str(drop[i])
+         #
+         else:
+            #
+            molecule['string'] += '-'+str(drop[i])
       #
       inc += 1
    #
