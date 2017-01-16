@@ -78,7 +78,6 @@ def inc_corr_mono_exp(molecule):
          #
          # run correlated calc
          #
-         print(str(molecule['string']))
          inc_corr_gen_rout.run_calc_corr(molecule,molecule['string'],False)
          #
          # write tuple energy
@@ -236,11 +235,16 @@ def inc_corr_dual_exp(molecule):
                #
                # write string
                #
-               inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][0][k-1][i][0]+molecule['tuple'][1][l-1][j][0])
+               if (molecule['exp'] == 'COMB-OV'):
+                  #
+                  inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][0][k-1][i][0]+molecule['tuple'][1][l-1][j][0])
+               #
+               elif (molecule['exp'] == 'COMB-VO'):
+                  #
+                  inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][1][l-1][j][0]+molecule['tuple'][0][k-1][i][0])
                #
                # run correlated calc
                #
-               print(str(molecule['string']))
                inc_corr_gen_rout.run_calc_corr(molecule,molecule['string'],False)
                #
                # write tuple energy
@@ -600,7 +604,7 @@ def print_update(molecule,tup,n_tup,domain,order,l_limit,u_limit):
    if (any(count)):
       #
       print(' --------------------------------------------------------------------------------------------')
-      print(' UPDATE-MACRO:   orb. domain  |  relat. red. (in %)  |   total red. (in %)  |  screened orbs. ')
+      print(' UPDATE-MACRO:   orb. domain  |  relat. red. (in %)  |   total red. (in %)  |  screened orbs.  ')
       print(' --------------------------------------------------------------------------------------------')
       #
       for j in range(0,u_limit):
