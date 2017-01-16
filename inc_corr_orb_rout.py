@@ -150,9 +150,9 @@ def init_domains(molecule):
       #
       for j in range(molecule['core'],molecule['nocc']):
          #
-         for i in range(0,molecule['core']):
+         for _ in range(0,molecule['core']):
             #
-            molecule['occ_domain'][j][-1].pop(i)
+            molecule['occ_domain'][j][-1].pop(0)
    #
    for i in range(0,molecule['nvirt']):
       #
