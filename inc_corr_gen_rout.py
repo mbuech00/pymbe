@@ -49,8 +49,16 @@ def write_zmat_hf(molecule):
    out.write(molecule['mol'])
    #
    out.write('*CFOUR(CALC=HF\n')
-   out.write('SCF_CONV=9\n')
+   out.write('SCF_CONV=10\n')
    out.write('LINEQ_CONV=9\n')
+   #
+   if (not molecule['zmat']):
+      #
+      out.write('COORD=CARTESIAN\n')
+   #
+   if (molecule['units'] == 'bohr'):
+      #
+      out.write('UNITS=BOHR\n')
    #
    out.write('MULTIPLICITY='+str(molecule['mult'])+'\n')
    #
@@ -94,16 +102,24 @@ def write_zmat_corr(molecule,drop_string,ref):
       #
       out.write(drop_string)
    #
-   out.write('SCF_CONV=9\n')
+   out.write('SCF_CONV=10\n')
    out.write('LINEQ_CONV=9\n')
    out.write('CC_CONV=9\n')
+   #
+   if (not molecule['zmat']):
+      #
+      out.write('COORD=CARTESIAN\n')
+   #
+   if (molecule['units'] == 'bohr'):
+      #
+      out.write('UNITS=BOHR\n')
    #
    if (molecule['local']):
       #
       out.write('SYMMETRY=OFF\n')
       out.write('ORBITALS=LOCAL\n')
    #
-   if (molecule['fc'] and ref):
+   if ((molecule['frozen'] == 'TRAD') and ref):
       #
       out.write('FROZEN_CORE=ON\n')
    #
@@ -221,16 +237,17 @@ def write_energy(molecule,ref):
 
 def ref_calc(molecule):
    #
-   start = timer()
-   #
+   print(' ------------------------------------------')
    print(' STATUS-REF:  Full reference calc.  started')
    print(' ------------------------------------------')
    #
+   start = timer()
+   #
    run_calc_corr(molecule,'',True)
    #
-   molecule['time'].append(timer()-start)
+   molecule['time'][0].append(timer()-start)
    #
-   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][-1]))
+   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][0][-1]))
    print(' -------------------------------------------------------------')
    print('')
    #
