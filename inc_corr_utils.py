@@ -130,6 +130,10 @@ def init_mol(molecule):
          print('any of '+str(chk[0:2])+' keywords missing in input-mol.inp, aborting ...')
          sys.exit(10)
    #
+   # rename 'core' to 'ncore' internally in the code (to adapt with convention: 'nocc'/'nvirt')
+   #
+   molecule['ncore'] = molecule.pop('core')
+   #
    return molecule
 
 def init_param(molecule):
@@ -232,7 +236,7 @@ def init_param(molecule):
       #
       molecule['scheme'] = 'COMBINED VIRTUAL/OCCUPIED'
    #
-   chk = ['mol','core','frozen','mult','scr','exp','model','basis','ref','local','zmat','units','mem','thres','debug']
+   chk = ['mol','ncore','frozen','mult','scr','exp','model','basis','ref','local','zmat','units','mem','thres','debug']
    #
    inc = 0
    #
@@ -299,7 +303,7 @@ def sanity_chk(molecule):
       print('wrong input -- valid choices for frozen core are NONE or TRAD --- aborting ...')
       molecule['error'][0].append(True)
    #
-   if (((molecule['frozen'] == 'TRAD') or (molecule['frozen'] == 'SCREEN')) and (molecule['core'] == 0)):
+   if (((molecule['frozen'] == 'TRAD') or (molecule['frozen'] == 'SCREEN')) and (molecule['ncore'] == 0)):
       #
       print('wrong input -- frozen core requested ('+molecule['frozen_scheme']+' scheme), but no core orbitals specified --- aborting ...')
       molecule['error'][0].append(True)

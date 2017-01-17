@@ -21,7 +21,7 @@ def orb_generator(molecule,dom,tup,l_limit,k):
       #
       # construct union space of all orbitals in i-th domain + the i-th orbital itself (if not traditional frozen core scheme)
       #
-      if (not ((molecule['frozen'] == 'TRAD') and (((i+l_limit)+1) <= molecule['core']))):
+      if (not ((molecule['frozen'] == 'TRAD') and (((i+l_limit)+1) <= molecule['ncore']))):
          #
          full_space = sorted(list(set(dom[i][-1]).union(set([(l_limit+i)+1]))))
          #
@@ -93,7 +93,7 @@ def orb_string(molecule,l_limit,u_limit,tup):
    #
    if ((molecule['exp'] == 'VIRT') and (molecule['frozen'] == 'TRAD')):
       #
-      for i in range(molecule['core'],0,-1):
+      for i in range(molecule['ncore'],0,-1):
          #
          drop.insert(0,i)
    #
@@ -144,13 +144,13 @@ def init_domains(molecule):
    #
    if (molecule['frozen'] == 'TRAD'):
       #
-      for i in range(0,molecule['core']):
+      for i in range(0,molecule['ncore']):
          #
          molecule['occ_domain'][i][-1][:] = []
       #
-      for j in range(molecule['core'],molecule['nocc']):
+      for j in range(molecule['ncore'],molecule['nocc']):
          #
-         for _ in range(0,molecule['core']):
+         for _ in range(0,molecule['ncore']):
             #
             molecule['occ_domain'][j][-1].pop(0)
    #
@@ -184,13 +184,13 @@ def reinit_domains(molecule,domain):
       #
       if (molecule['frozen'] == 'TRAD'):
          #
-         for i in range(0,molecule['core']):
+         for i in range(0,molecule['ncore']):
             #
             molecule['occ_domain'][i][-1][:] = []
          #
-         for j in range(molecule['core'],molecule['nocc']):
+         for j in range(molecule['ncore'],molecule['nocc']):
             #
-            for i in range(0,molecule['core']):
+            for i in range(0,molecule['ncore']):
                #
                molecule['occ_domain'][j][-1].pop(i)
    #
@@ -212,7 +212,7 @@ def excl_rout(molecule,tup,orb,thres,excl):
       #
       for i in range(0,len(excl)):
          #
-         if (i < molecule['core']):
+         if (i < molecule['ncore']):
             #
             for j in range(i+1,len(excl)):
                #
@@ -222,7 +222,7 @@ def excl_rout(molecule,tup,orb,thres,excl):
          #
          else:
             #
-            for j in range(0,molecule['core']):
+            for j in range(0,molecule['ncore']):
                #
                if (not (j+1 in excl[i])):
                   #
