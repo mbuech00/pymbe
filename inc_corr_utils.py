@@ -256,7 +256,11 @@ def init_param(molecule):
       #
       molecule['regex'] = '\s+Final Correlation Energy'
    #
-   else:
+   elif (molecule['model'] == 'MP2'):
+      #
+      molecule['regex'] = '\s+E2\(TOT\)'
+   #
+   else: # CC
       #
       molecule['regex'] = '\s+The correlation energy is'
    #

@@ -100,7 +100,7 @@ def inc_corr_mono_exp(molecule):
       #
       # calculate the energy at order k
       #
-      inc_corr_order(k,molecule['n_tuples'][0],molecule['tuple'][0],molecule['e_fin'][0])
+      inc_corr_order(k,molecule['tuple'][0],molecule['e_fin'][0])
       #
       # set up entanglement and exclusion lists
       #
@@ -259,7 +259,7 @@ def inc_corr_dual_exp(molecule):
             #
             # calculate the energy at order l (for inner expansion)
             #
-            inc_corr_order(l,molecule['n_tuples'][1],molecule['tuple'][1],molecule['e_fin'][1])
+            inc_corr_order(l,molecule['tuple'][1],molecule['e_fin'][1])
             #
             # set up entanglement and exclusion lists (for inner expansion)
             #
@@ -310,7 +310,7 @@ def inc_corr_dual_exp(molecule):
       #
       # calculate the energy at order k (for outer expansion)
       #
-      inc_corr_order(k,molecule['n_tuples'][0],molecule['tuple'][0],molecule['e_fin'][0])
+      inc_corr_order(k,molecule['tuple'][0],molecule['e_fin'][0])
       #
       # set up entanglement and exclusion lists (for outer expansion)
       #
@@ -352,13 +352,13 @@ def inc_corr_dual_exp(molecule):
    #
    return molecule
 
-def inc_corr_order(k,n_tuples,tup,e_fin):
+def inc_corr_order(k,tup,e_fin):
    #
-   for j in range(0,n_tuples[k-1]):
+   for j in range(0,len(tup[k-1])):
       #
       for i in range(k-1,0,-1):
          #
-         for l in range(0,n_tuples[i-1]):
+         for l in range(0,len(tup[i-1])):
             #
             if (set(tup[i-1][l][0]) < set(tup[k-1][j][0])):
                #
@@ -366,7 +366,33 @@ def inc_corr_order(k,n_tuples,tup,e_fin):
    #
    e_tmp = 0.0
    #
-   for j in range(0,n_tuples[k-1]):
+   for j in range(0,len(tup[k-1])):
+      #
+      e_tmp += tup[k-1][j][1]
+   #
+   if (k > 1):
+      #
+      e_tmp += e_fin[k-2]
+   #
+   e_fin.append(e_tmp)
+   #
+   return e_fin
+
+def inc_corr_order_est(k,tup,e_fin):
+   #
+   for j in range(0,len(tup[k-1])):
+      #
+      for i in range(k-1,0,-1):
+         #
+         for l in range(0,len(tup[i-1])):
+            #
+            if (set(tup[i-1][l][0]) < set(tup[k-1][j][0])):
+               #
+               tup[k-1][j][1] -= tup[i-1][l][1]
+   #
+   e_tmp = 0.0
+   #
+   for j in range(0,len(tup[k-1])):
       #
       e_tmp += tup[k-1][j][1]
    #

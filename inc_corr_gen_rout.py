@@ -209,7 +209,11 @@ def write_energy(molecule,ref):
             #
             [tmp] = line.split()[3:4]
          #
-         else:
+         elif (molecule['model'] == 'MP2'):
+            #
+            [tmp] = line.split()[2:3]
+         #
+         else: # CC
             #
             [tmp] = line.split()[4:5]
          #
