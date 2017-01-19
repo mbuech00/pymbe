@@ -145,23 +145,49 @@ def init_param(molecule):
    #
    else:
       #
+      # init a few keys
+      #
+      thres_occ = 0.0
+      thres_virt = 0.0
+      molecule['est'] = False
+      molecule['est_model'] = ''
+      molecule['basis'] = ''
+      molecule['ref'] = False
+      molecule['debug'] = False
+      molecule['local'] = False
+      molecule['zmat'] = False
+      molecule['mem'] = 0
+      molecule['scr'] = ''
+      #
       with open('input-param.inp') as f:
          #
          content = f.readlines()
          #
          for i in range(0,len(content)):
             #
-            if (content[i].split()[0] == 'scr'):
-               #
-               molecule['scr'] = content[i].split()[1]
-            #
-            elif (content[i].split()[0] == 'exp'):
+            if (content[i].split()[0] == 'exp'):
                #
                molecule['exp'] = content[i].split()[1]
+            #
+            elif (content[i].split()[0] == 'thres_occ'):
+               #
+               thres_occ = float(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'thres_virt'):
+               #
+               thres_virt = float(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'est'):
+               #
+               molecule['est'] = (content[i].split()[1] == 'True')
             #
             elif (content[i].split()[0] == 'model'):
                #
                molecule['model'] = content[i].split()[1]
+            #
+            elif (content[i].split()[0] == 'est_model'):
+               #
+               molecule['est_model'] = content[i].split()[1]
             #
             elif (content[i].split()[0] == 'basis'):
                #
@@ -191,13 +217,9 @@ def init_param(molecule):
                #
                molecule['mem'] = int(content[i].split()[1])
             #
-            elif (content[i].split()[0] == 'thres_occ'):
+            elif (content[i].split()[0] == 'scr'):
                #
-               thres_occ = float(content[i].split()[1])
-            #
-            elif (content[i].split()[0] == 'thres_virt'):
-               #
-               thres_virt = float(content[i].split()[1])
+               molecule['scr'] = content[i].split()[1]
             #
             elif (content[i].split()[0] == 'debug'):
                #
@@ -208,35 +230,35 @@ def init_param(molecule):
                print(str(content[i].split()[1])+' keyword in input-param.inp not recognized, aborting ...')
                sys.exit(10)
    #
-   molecule['thres'] = []
+   molecule['prim_thres'] = []
    #
    if (molecule['exp'] == 'OCC'):
       #
-      molecule['thres'].append(thres_occ)
+      molecule['prim_thres'].append(thres_occ)
       #
       molecule['scheme'] = 'OCCUPIED'
    #
    elif (molecule['exp'] == 'VIRT'):
       #
-      molecule['thres'].append(thres_virt)
+      molecule['prim_thres'].append(thres_virt)
       #
       molecule['scheme'] = 'VIRTUAL'
    #
    elif (molecule['exp'] == 'COMB-OV'):
       #
-      molecule['thres'].append(thres_occ)
-      molecule['thres'].append(thres_virt)
+      molecule['prim_thres'].append(thres_occ)
+      molecule['prim_thres'].append(thres_virt)
       #
       molecule['scheme'] = 'COMBINED OCCUPIED/VIRTUAL'
    #
    elif (molecule['exp'] == 'COMB-VO'):
       #
-      molecule['thres'].append(thres_virt)
-      molecule['thres'].append(thres_occ)
+      molecule['prim_thres'].append(thres_virt)
+      molecule['prim_thres'].append(thres_occ)
       #
       molecule['scheme'] = 'COMBINED VIRTUAL/OCCUPIED'
    #
-   chk = ['mol','ncore','frozen','mult','scr','exp','model','basis','ref','local','zmat','units','mem','thres','debug']
+   chk = ['mol','ncore','frozen','mult','scr','exp','est','model','basis','ref','local','zmat','units','mem','prim_thres','debug']
    #
    inc = 0
    #
@@ -297,10 +319,52 @@ def print_header(molecule):
 
 def sanity_chk(molecule):
    #
+   # type of expansion
+   #
    if ((molecule['exp'] != 'OCC') and (molecule['exp'] != 'VIRT') and (molecule['exp'] != 'COMB-OV') and (molecule['exp'] != 'COMB-VO')):
       #
       print('wrong input -- valid choices for expansion scheme are OCC, VIRT, COMB-OV, or COMB-VO --- aborting ...')
       molecule['error'][0].append(True)
+   #
+   # expansion model
+   #
+   if (not ((molecule['model'] == 'FCI') or (molecule['model'] == 'MP2') or (molecule['model'] == 'CCSD') or (molecule['model'] == 'CCSDT'))):
+      #
+      print('wrong input -- valid expansion models are currently: FCI, MP2, CCSD, and CCSDT --- aborting ...')
+      molecule['error'][0].append(True)
+   #
+   # expansion thresholds
+   #
+   if (((molecule['exp'] == 'OCC') or (molecule['exp'] == 'VIRT')) and (molecule['prim_thres'][0] == 0.0)):
+      #
+      print('wrong input -- no expansion threshold supplied --- aborting ...')
+      molecule['error'][0].append(True)
+   #
+   if (((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')) and ((molecule['prim_thres'][0] == 0.0) and (molecule['prim_thres'][1] == 0.0))):
+      #
+      print('wrong input -- expansion thresholds for both the OCC and the VIRT expansions need be supplied --- aborting ...')
+      molecule['error'][0].append(True)
+   #
+   # energy estimation
+   #
+   if (molecule['est']):
+      #
+      if (molecule['est_model'] == ''):
+         #
+         print('wrong input -- energy estimation requested, but no estimation model supplied --- aborting ...')
+         molecule['error'][0].append(True)
+      #
+      elif (not ((molecule['est_model'] == 'FCI') or (molecule['est_model'] == 'CCSD') or (molecule['est_model'] == 'CCSDT'))):
+         #
+         print('wrong input -- valid energy estimation models are currently: FCI, CCSD, and CCSDT --- aborting ...')
+         molecule['error'][0].append(True)
+      #
+      if (molecule['model'] == molecule['est_model']):
+         #
+         print('wrong input -- expansion and energy estimation models are the same --- aborting ...')
+         molecule['error'][0].append(True)
+   #
+   # frozen core threatment
    #
    if ((molecule['frozen'] != 'NONE') and (molecule['frozen'] != 'TRAD') and (molecule['frozen'] != 'SCREEN')):
       #
@@ -323,10 +387,35 @@ def sanity_chk(molecule):
       print('wrong input -- comb. of frozen core and local orbitals not implemented --- aborting ...')
       molecule['error'][0].append(True)
    #
+   # units
+   #
    if ((molecule['units'] != 'angstrom') and (molecule['units'] != 'bohr')):
       #
       print('wrong input -- valid choices of units are angstrom or bohr --- aborting ...')
       molecule['error'][0].append(True)
+   #
+   # memory
+   #
+   if (molecule['mem'] == 0):
+      #
+      print('wrong input -- memory input not supplied --- aborting ...')
+      molecule['error'][0].append(True)
+   #
+   # basis set
+   #
+   if (molecule['basis'] == ''):
+      #
+      print('wrong input -- basis set not supplied --- aborting ...')
+      molecule['error'][0].append(True)
+   #
+   # scratch folder
+   #
+   if (molecule['scr'] == ''):
+      #
+      print('wrong input -- scratch folder not supplied --- aborting ...')
+      molecule['error'][0].append(True)
+   #
+   # quit upon error
    #
    if (molecule['error'][0][-1]):
       #
@@ -348,28 +437,28 @@ def inc_corr_summary(molecule):
    print('   -----------------------------')
    print('   frozen core        =  {0:} ({1:})'.format((molecule['frozen'] != 'NONE'),molecule['frozen_scheme']))
    print('   local orbitals     =  {0:}'.format(molecule['local']))
-   print('   occupied orbitals  =  {0:}'.format(molecule['n_tuples'][0][0]))
+   print('   occupied orbitals  =  {0:}'.format(molecule['nocc']))
    print('   virtual orbitals   =  {0:}'.format(molecule['nvirt']))
    #
    if (molecule['exp'] == 'OCC'):
       #
-      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['thres'][0]*100.00))
+      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
       print('   thres. (virt.)     =  N/A')
    #
    elif (molecule['exp'] == 'VIRT'):
       #
       print('   thres. (occ.)      =  N/A')
-      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['thres'][0]*100.00))
+      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
    #
    elif (molecule['exp'] == 'COMB-OV'):
       #
-      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['thres'][0]*100.00))
-      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['thres'][1]*100.00))
+      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
+      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
    #
    elif (molecule['exp'] == 'COMB-VO'):
       #
-      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['thres'][1]*100.00))
-      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['thres'][0]*100.00))
+      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
+      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
    #
    print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'][0])))
    #
@@ -379,8 +468,8 @@ def inc_corr_summary(molecule):
    #
    for i in range(0,len(molecule['e_fin'][0])):
       #
-      print('{0:4d} - # orb. tuples  =  {1:<7d}  ---  {2:>6.2f} %'.format(i+1,molecule['n_tuples'][0][i],\
-                                                                          (float(molecule['n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00))
+      print('{0:4d} - # orb. tuples  =  {1:<7d}  ---  {2:>6.2f} %'.format(i+1,molecule['prim_n_tuples'][0][i],\
+                                                                          (float(molecule['prim_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00))
    #
    print('   --------------------------------------------------------------')
    #
@@ -388,7 +477,7 @@ def inc_corr_summary(molecule):
    #
    for i in range(0,len(molecule['e_fin'][0])):
       #
-      total_time += molecule['time'][0][i]
+      total_time += molecule['prim_time'][0][i]
       #
       print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,molecule['e_fin'][0][i],total_time))
    #
@@ -402,11 +491,17 @@ def inc_corr_summary(molecule):
       #
       print('   --------------------------------------------------------------')
       #
-      print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(molecule['n_tuples'][0][0],molecule['e_ref'],molecule['time'][0][-1]))
+      print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(molecule['prim_n_tuples'][0][0],molecule['e_ref'],molecule['prim_time'][0][-1]))
       #
       print('   --------------------------------------------------------------')
       #
-      print('   final difference   =  {0:9.4e}'.format(molecule['e_ref']-molecule['e_fin'][0][-1]))
+      final_diff = molecule['e_ref']-molecule['e_fin'][0][-1]
+      #
+      if (final_diff < 1.0e-10):
+         #
+         final_diff = 0.0
+      #
+      print('   final difference   =  {0:9.4e}'.format(final_diff))
    #
    print('\n')
    #
