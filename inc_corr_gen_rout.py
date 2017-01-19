@@ -27,14 +27,14 @@ def run_calc_hf(molecule):
    #
    return molecule
 
-def run_calc_corr(molecule,drop_string,ref):
+def run_calc_corr(molecule,drop_string,level):
    #
-   write_zmat_corr(molecule,drop_string,ref)
+   write_zmat_corr(molecule,drop_string,level)
    #
    command='xcfour &> CFOUR.OUT'
    os.system(command)
    #
-   write_energy(molecule,ref)
+   write_energy(molecule,level)
    #
    if (not molecule['error'][0][-1]):
       command='xclean'
@@ -79,24 +79,33 @@ def write_zmat_hf(molecule):
    #
    out.close()
 
-def write_zmat_corr(molecule,drop_string,ref):
+def write_zmat_corr(molecule,drop_string,level):
    #
    out=open('ZMAT','w')
    #
    out.write(molecule['mol'])
    #
-   if (molecule['model'] == 'FCI'):
+   if (level == 'ESTIM'):
       #
-      out.write('*CFOUR(CALC=FULLCI\n')
-      out.write('CAS_MMAX=10\n')
-      out.write('CAS_MITMAX=200\n')
-   #
-   else:
-      #
-      out.write('*CFOUR(CALC='+molecule['model']+'\n')
+      out.write('*CFOUR(CALC='+molecule['est_model']+'\n')
       out.write('CC_PROG=VCC\n')
       out.write('CC_EXPORDER=10\n')
       out.write('CC_MAXCYC=200\n')
+   #
+   else:
+      #
+      if (molecule['model'] == 'FCI'):
+         #
+         out.write('*CFOUR(CALC=FULLCI\n')
+         out.write('CAS_MMAX=10\n')
+         out.write('CAS_MITMAX=200\n')
+      #
+      else:
+         #
+         out.write('*CFOUR(CALC='+molecule['model']+'\n')
+         out.write('CC_PROG=VCC\n')
+         out.write('CC_EXPORDER=10\n')
+         out.write('CC_MAXCYC=200\n')
    #
    if (drop_string != '\n'):
       #
@@ -119,7 +128,7 @@ def write_zmat_corr(molecule,drop_string,ref):
       out.write('SYMMETRY=OFF\n')
       out.write('ORBITALS=LOCAL\n')
    #
-   if ((molecule['frozen'] == 'TRAD') and ref):
+   if ((molecule['frozen'] == 'TRAD') and (level == 'REF')):
       #
       out.write('FROZEN_CORE=ON\n')
    #
@@ -193,11 +202,19 @@ def get_dim(molecule):
    #
    return molecule
 
-def write_energy(molecule,ref):
+def write_energy(molecule,level):
    #
    inp=open('CFOUR.OUT','r')
    #
    regex_err = '\s+ERROR ERROR'
+   #
+   if ((level == 'MACRO') or (level == 'REF')):
+      #
+      model = molecule['model']
+   #
+   elif (level == 'ESTIM'):
+      #
+      model = molecule['est_model']
    #
    while 1:
       #
@@ -205,11 +222,11 @@ def write_energy(molecule,ref):
       #
       if re.match(molecule['regex'],line) is not None:
          #
-         if (molecule['model'] == 'FCI'):
+         if (model == 'FCI'):
             #
             [tmp] = line.split()[3:4]
          #
-         elif (molecule['model'] == 'MP2'):
+         elif (model == 'MP2'):
             #
             [tmp] = line.split()[2:3]
          #
@@ -217,7 +234,7 @@ def write_energy(molecule,ref):
             #
             [tmp] = line.split()[4:5]
          #
-         if (ref):
+         if (level == 'REF'):
             #
             molecule['e_ref'] = float(tmp)
          #
@@ -229,7 +246,7 @@ def write_energy(molecule,ref):
       #
       elif re.match(regex_err,line) is not None:
          #
-         print('problem with '+molecule['model']+' calculation, aborting ...')
+         print('problem with '+model+' calculation, aborting ...')
          molecule['error'][0].append(True)
          inp.close()
          #
@@ -247,11 +264,11 @@ def ref_calc(molecule):
    #
    start = timer()
    #
-   run_calc_corr(molecule,'',True)
+   run_calc_corr(molecule,'','REF')
    #
-   molecule['time'][0].append(timer()-start)
+   molecule['prim_time'][0].append(timer()-start)
    #
-   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][0][-1]))
+   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['prim_time'][0][-1]))
    print(' -------------------------------------------------------------')
    print('')
    #
