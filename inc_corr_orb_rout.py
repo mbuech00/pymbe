@@ -100,12 +100,13 @@ def orb_string(molecule,l_limit,u_limit,tup):
    # now write the string
    #
    inc = 0
+   molecule['string'] = ''
    #
    for i in range(0,len(drop)):
       #
       if (inc == 0):
          #
-         molecule['string'] = 'DROP_MO='+str(drop[i])
+         molecule['string'] += 'DROP_MO='+str(drop[i])
       #
       else:
          #
@@ -127,9 +128,64 @@ def orb_string(molecule,l_limit,u_limit,tup):
       #
       inc += 1
    #
-   molecule['string'] += '\n'
+   if (molecule['string'] != ''):
+      #
+      molecule['string'] += '\n'
    #
    return molecule
+
+def select_est_tuples(prim_tup,sec_tup,k):
+   #
+   pop_list = []
+   #
+   for i in range(0,len(sec_tup[k-1])):
+      #
+      found = False
+      #
+      for j in range(0,len(prim_tup[k-1])):
+         #
+         if (set(sec_tup[k-1][i][0]) <= set(prim_tup[k-1][j][0])):
+            #
+            found = True
+            #
+            break
+      #
+      if (found):
+         #
+         pop_list.append(i)
+   #
+   for l in range(0,len(pop_list)):
+      #
+      sec_tup[k-1].pop(pop_list[l]-l)
+   #
+   return sec_tup
+
+def merge_tuples(prim_tup,sec_tup,k):
+   #
+   incl_list = []
+   #
+   for i in range(0,len(prim_tup[k-2])):
+      #
+      found = False
+      #
+      for j in range(0,len(sec_tup[k-2])):
+         #
+         if (set(prim_tup[k-2][i][0]) == set(sec_tup[k-2][j][0])):
+            #
+            found = True
+            #
+            break
+      #
+      if (not found):
+         #
+         incl_list.append(i)
+   #
+   for l in range(0,len(incl_list)):
+      #
+      sec_tup[k-2].append(prim_tup[k-2][incl_list[l]])
+   #
+   return sec_tup
+
 
 def init_domains(molecule):
    #
@@ -186,13 +242,13 @@ def reinit_domains(molecule,domain):
          #
          for i in range(0,molecule['ncore']):
             #
-            molecule['occ_domain'][i][-1][:] = []
+            domain[i][-1][:] = []
          #
          for j in range(molecule['ncore'],molecule['nocc']):
             #
             for i in range(0,molecule['ncore']):
                #
-               molecule['occ_domain'][j][-1].pop(i)
+               domain[j][-1].pop(i)
    #
    return molecule
 

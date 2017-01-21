@@ -211,16 +211,18 @@ def write_energy(molecule,level):
    if ((level == 'MACRO') or (level == 'REF')):
       #
       model = molecule['model']
+      regex = molecule['regex']
    #
    elif (level == 'ESTIM'):
       #
       model = molecule['est_model']
+      regex = molecule['est_regex']
    #
    while 1:
       #
       line=inp.readline()
       #
-      if re.match(molecule['regex'],line) is not None:
+      if re.match(regex,line) is not None:
          #
          if (model == 'FCI'):
             #

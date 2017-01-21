@@ -230,6 +230,36 @@ def init_param(molecule):
                print(str(content[i].split()[1])+' keyword in input-param.inp not recognized, aborting ...')
                sys.exit(10)
    #
+   set_prim_exp(thres_occ,thres_virt,molecule)
+   #
+   if (molecule['est']):
+      #
+      set_energy_est(molecule)
+   #
+   chk = ['mol','ncore','frozen','mult','scr','exp','est','model','est_model','basis','ref','local','zmat','units','mem','prim_thres','debug']
+   #
+   inc = 0
+   #
+   for k in range(0,len(chk)):
+      #
+      if (not (chk[k] in molecule.keys())):
+         #
+         print(str(chk[k])+' keyword missing in either input-mol.inp or input-param.inp, aborting ...')
+         #
+         inc += 1
+   #
+   if (inc > 0):
+      #
+      sys.exit(10)
+   #
+   set_fc_scheme(molecule)
+   #
+   return molecule
+
+def set_prim_exp(thres_occ,thres_virt,molecule):
+   #
+   # set thresholds and scheme
+   #
    molecule['prim_thres'] = []
    #
    if (molecule['exp'] == 'OCC'):
@@ -258,21 +288,7 @@ def init_param(molecule):
       #
       molecule['scheme'] = 'COMBINED VIRTUAL/OCCUPIED'
    #
-   chk = ['mol','ncore','frozen','mult','scr','exp','est','model','basis','ref','local','zmat','units','mem','prim_thres','debug']
-   #
-   inc = 0
-   #
-   for k in range(0,len(chk)):
-      #
-      if (not (chk[k] in molecule.keys())):
-         #
-         print(str(chk[k])+' keyword missing in either input-mol.inp or input-param.inp, aborting ...')
-         #
-         inc += 1
-   #
-   if (inc > 0):
-      #
-      sys.exit(10)
+   # set regex for expansion model
    #
    if (molecule['model'] == 'FCI'):
       #
@@ -285,6 +301,18 @@ def init_param(molecule):
    else: # CC
       #
       molecule['regex'] = '\s+The correlation energy is'
+   #
+   return molecule
+
+def set_energy_est(molecule):
+   #
+   # set regex for energy estimation model
+   #
+   molecule['est_regex'] = '\s+The correlation energy is'
+   #
+   return molecule   
+
+def set_fc_scheme(molecule):
    #
    if (molecule['frozen'] == 'NONE'):
       #
@@ -328,9 +356,9 @@ def sanity_chk(molecule):
    #
    # expansion model
    #
-   if (not ((molecule['model'] == 'FCI') or (molecule['model'] == 'MP2') or (molecule['model'] == 'CCSD') or (molecule['model'] == 'CCSDT'))):
+   if (not ((molecule['model'] == 'FCI') or (molecule['model'] == 'MP2') or (molecule['model'] == 'CISD') or (molecule['model'] == 'CCSD') or (molecule['model'] == 'CCSDT'))):
       #
-      print('wrong input -- valid expansion models are currently: FCI, MP2, CCSD, and CCSDT --- aborting ...')
+      print('wrong input -- valid expansion models are currently: FCI, MP2, CISD, CCSD, and CCSDT --- aborting ...')
       molecule['error'][0].append(True)
    #
    # expansion thresholds
@@ -354,9 +382,9 @@ def sanity_chk(molecule):
          print('wrong input -- energy estimation requested, but no estimation model supplied --- aborting ...')
          molecule['error'][0].append(True)
       #
-      elif (not ((molecule['est_model'] == 'FCI') or (molecule['est_model'] == 'CCSD') or (molecule['est_model'] == 'CCSDT'))):
+      elif (not ((molecule['est_model'] == 'FCI') or (molecule['est_model'] == 'CISD') or (molecule['est_model'] == 'CCSD') or (molecule['est_model'] == 'CCSDT'))):
          #
-         print('wrong input -- valid energy estimation models are currently: FCI, CCSD, and CCSDT --- aborting ...')
+         print('wrong input -- valid energy estimation models are currently: FCI, CISD, CCSD, and CCSDT --- aborting ...')
          molecule['error'][0].append(True)
       #
       if (molecule['model'] == molecule['est_model']):
@@ -460,32 +488,40 @@ def inc_corr_summary(molecule):
       print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
       print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
    #
-   print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_fin'][0])))
+   print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_tot'][0])))
    #
    print('   error in calc.     =  {0:}'.format(molecule['error'][0][-1]))
    #
    print('')
    #
-   for i in range(0,len(molecule['e_fin'][0])):
+   for i in range(0,15):
       #
-      print('{0:4d} - # orb. tuples  =  {1:<7d}  ---  {2:>6.2f} %'.format(i+1,molecule['prim_n_tuples'][0][i],\
-                                                                          (float(molecule['prim_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00))
+      if ((max(molecule['prim_n_tuples'][0]) - 10**i) < 0):
+         #
+         width = i
+         #
+         break
+   #
+   for i in range(0,len(molecule['e_tot'][0])):
+      #
+      print('{0:4d} - # orb. tuples  =  {1:>{w}d}  ---  {2:>6.2f} %'.format(i+1,molecule['prim_n_tuples'][0][i],\
+                                                                          (float(molecule['prim_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00,w=width))
    #
    print('   --------------------------------------------------------------')
    #
    total_time = 0.0
    #
-   for i in range(0,len(molecule['e_fin'][0])):
+   for i in range(0,len(molecule['e_tot'][0])):
       #
       total_time += molecule['prim_time'][0][i]
       #
-      print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,molecule['e_fin'][0][i],total_time))
+      print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,molecule['e_tot'][0][i][0],total_time))
    #
    print('   --------------------------------------------------------------')
    #
-   if (len(molecule['e_fin'][0]) >= 2):
+   if (len(molecule['e_tot'][0]) >= 2):
       #
-      print('   final convergence  =  {0:9.4e}'.format(molecule['e_fin'][0][-1]-molecule['e_fin'][0][-2]))
+      print('   final convergence  =  {0:9.4e}'.format(molecule['e_tot'][0][-1][0]-molecule['e_tot'][0][-2][0]))
    #
    if (molecule['ref'] and (not molecule['error'][0][-1])):
       #
@@ -495,9 +531,9 @@ def inc_corr_summary(molecule):
       #
       print('   --------------------------------------------------------------')
       #
-      final_diff = molecule['e_ref']-molecule['e_fin'][0][-1]
+      final_diff = molecule['e_ref']-molecule['e_tot'][0][-1][0]
       #
-      if (final_diff < 1.0e-10):
+      if (abs(final_diff) < 1.0e-10):
          #
          final_diff = 0.0
       #
@@ -506,6 +542,140 @@ def inc_corr_summary(molecule):
    print('\n')
    #
    return molecule
+
+def print_status_header(molecule,n_tup,order,level):
+   #
+   if (level == 'MACRO'):
+      #
+      print('')
+      print('')
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   if (n_tup[order-1] == 0):
+      #
+      if (level == 'MACRO'):
+         #
+         molecule['conv'].append(True)
+      #
+      print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  has no contributions --- *** calculation has converged ***'.format(order,molecule['theo_work'][0][0]))
+      print(' --------------------------------------------------------------------------------------------')
+   #
+   else:
+      #
+      print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  started  ---  {2:d}  correlated tuples in total'.format(order,molecule['theo_work'][0][0],n_tup[-1]))
+      print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_status(prog,level):
+   #
+   bar_length = 50
+   #
+   status = ""
+   #
+   block = int(round(bar_length * prog))
+   #
+   print(' STATUS-'+level+':   [{0}]   ---  {1:>6.2f} % {2}'.format('#' * block + '-' * (bar_length - block), prog * 100, status))
+   #
+   return
+
+def print_status_end(molecule,order,e_tot,time,n_tup,level):
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   if (order == 1):
+      #
+      print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  done in {2:10.2e} seconds'.format(order,n_tup[0],time[order-1]))
+   #
+   else:
+      #
+      if (n_tup[order-1] == 1):
+         #
+         if (level == 'MACRO'):
+            #
+            molecule['conv'].append(True)
+      #
+      print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  done in {2:10.2e} seconds  ---  diff =  {3:9.4e}'.\
+                       format(order,n_tup[0],time[order-1],e_tot[order-1][0]-e_tot[order-2][0]))
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_result(tup,level):
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   print(' --------------------------------------------------------------------------------------------')
+   print(' RESULT-'+level+':     tuple    |    energy incr.   |    corr. orbs.')
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   for i in range(0,len(tup)):
+      #
+      print(' RESULT-'+level+':  {0:>6d}           {1:> 8.4e}         {2:<}'.\
+                       format(i+1,tup[i][1],tup[i][0]))
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_inner_result(molecule):
+   #
+   rel_work_in = []
+   #
+   for m in range(0,len(molecule['rel_work_in'])):
+      #
+      rel_work_in.append([])
+      #
+      for n in range(0,len(molecule['rel_work_in'][m])):
+         #
+         rel_work_in[m].append('{0:.2f}'.format(molecule['rel_work_in'][m][n]))
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   print(' RESULT-MICRO:     tuple    |   abs. energy diff.   |    relat. no. tuples (in %)')
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   for i in range(0,molecule['n_tuples'][0][-1]):
+      #
+      print(' RESULT-MICRO:  {0:>6d}            {1:> 8.4e}            '.\
+                       format(i+1,molecule['e_diff_in'][i])+'[{0:<}]'.format(', '.join(str(idx) for idx in rel_work_in[i])))
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_update(molecule,tup,n_tup,domain,order,l_limit,u_limit,level):
+   #
+   count = []
+   #
+   for j in range(0,u_limit):
+      #
+      if ((len(domain[j][-2]) >= 1) and (float(len(domain[j][-1]))/float(len(domain[j][-2])) != 1.0)):
+         #
+         count.append(True)
+      #
+      else:
+         #
+         count.append(False)
+   #
+   if (any(count)):
+      #
+      print(' --------------------------------------------------------------------------------------------')
+      print(' UPDATE-'+level+':   orb. domain  |  relat. red. (in %)  |   total red. (in %)  |  screened orbs.  ')
+      print(' --------------------------------------------------------------------------------------------')
+      #
+      for j in range(0,u_limit):
+         #
+         if (count[j]):
+            #
+            print(' UPDATE-MACRO:     {0:>5}              {1:>6.2f}                 {2:>6.2f}            {3:<}'.\
+                          format([(j+l_limit)+1],\
+                                 (1.0-float(len(domain[j][-1]))/float(len(domain[j][-2])))*100.00,\
+                                 (1.0-float(len(domain[j][-1]))/float(len(domain[j][0])))*100.00,\
+                                 sorted(list(set(domain[j][-2])-set(domain[j][-1])))))
+      #
+      print(' --------------------------------------------------------------------------------------------')
+   #
+   return
 
 class logger(object):
    #

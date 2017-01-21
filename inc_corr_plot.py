@@ -24,7 +24,19 @@ def abs_energy_plot(molecule):
    #
    ax.set_title('Total '+molecule['model']+' energy')
    #
-   ax.plot(list(range(1,len(molecule['e_fin'][0])+1)),molecule['e_fin'][0],marker='x',linewidth=2,color='red',linestyle='-')
+   e_tot = []
+   #
+   for i in range(0,len(molecule['e_tot'][0])):
+      #
+      if (molecule['est']):
+         #
+         e_tot.append(molecule['e_tot'][0][i][1])
+      #
+      else:
+         #
+         e_tot.append(molecule['e_tot'][0][i][0])
+   #
+   ax.plot(list(range(1,len(e_tot)+1)),e_tot,marker='x',linewidth=2,color='red',linestyle='-')
    #
    ax.set_xlim([0.5,molecule['u_limit'][0]+0.5])
    #
@@ -51,7 +63,7 @@ def n_tuples_plot(molecule):
    #
    ax.set_title('Total number of '+molecule['model']+' tuples')
    #
-   sns.barplot(list(range(1,len(molecule['e_fin'][0])+1)),molecule['n_tuples'][0][0:len(molecule['e_fin'][0])],palette='BuGn_d',log=True)
+   sns.barplot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['n_tuples'][0][0:len(molecule['e_tot'][0])],palette='BuGn_d',log=True)
    #
    ax.xaxis.grid(False)
    #
@@ -74,7 +86,7 @@ def e_contrib_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule["e_fin"][0]))+')')
+   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule["e_tot"][0]))+')')
    #
    orbital_arr = np.asarray(molecule['orbital'])
    #
@@ -82,18 +94,18 @@ def e_contrib_plot(molecule):
    #
    tot_sum = 0.0
    #
-   for i in range(0,len(molecule['e_fin'][0])):
+   for i in range(0,len(molecule['e_tot'][0])):
       #
       tot_sum += sum(orbital_arr[i,0:])
    #
-   for i in range(0,len(molecule['e_fin'][0])):
+   for i in range(0,len(molecule['e_tot'][0])):
       #
       for j in range(0,molecule['u_limit'][0]):
          #
          orbital_arr[i,j] = (orbital_arr[i,j] / tot_sum) * 100.0
    #
    ax = sns.heatmap(orbital_arr,linewidths=.5,xticklabels=range(1,u_limit+1),\
-                    yticklabels=range(1,len(molecule['e_fin'][0])+1),cmap='coolwarm',cbar=False,\
+                    yticklabels=range(1,len(molecule['e_tot'][0])+1),cmap='coolwarm',cbar=False,\
                     annot=True,fmt='.1f',vmin=-np.amax(orbital_arr),vmax=np.amax(orbital_arr))
    #
    ax.set_xlabel('Orbital')
@@ -105,7 +117,7 @@ def e_contrib_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_fin'][0])), bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_tot'][0])), bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -121,16 +133,23 @@ def dev_ref_plot(molecule):
    e_diff_abs = []
    e_diff_rel = []
    #
-   for i in range(0,len(molecule['e_fin'][0])):
+   for i in range(0,len(molecule['e_tot'][0])):
       #
-      e_diff_abs.append((molecule['e_fin'][0][i]-molecule['e_ref'])/kcal_mol)
-      e_diff_rel.append((molecule['e_fin'][0][i]/molecule['e_ref'])*100.)
+      if (molecule['est']):
+         #
+         e_diff_abs.append((molecule['e_tot'][0][i][1]-molecule['e_ref'])/kcal_mol)
+         e_diff_rel.append((molecule['e_tot'][0][i][1]/molecule['e_ref'])*100.)
+      #
+      else:
+      #
+         e_diff_abs.append((molecule['e_tot'][0][i][0]-molecule['e_ref'])/kcal_mol)
+         e_diff_rel.append((molecule['e_tot'][0][i][0]/molecule['e_ref'])*100.)
    #
    ax1.set_title('Absolute difference from E('+molecule['model']+')')
    #
    ax1.axhline(0.0,color='black',linewidth=2)
    #
-   ax1.plot(list(range(1,len(molecule['e_fin'][0])+1)),e_diff_abs,marker='x',linewidth=2,color='red',linestyle='-')
+   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_abs,marker='x',linewidth=2,color='red',linestyle='-')
    #
    ax1.set_ylim([-3.4,3.4])
    #
@@ -144,7 +163,7 @@ def dev_ref_plot(molecule):
    #
    ax2.axhline(100.0,color='black',linewidth=2)
    #
-   ax2.plot(list(range(1,len(molecule['e_fin'][0])+1)),e_diff_rel,marker='x',linewidth=2,color='red',linestyle='-')
+   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_rel,marker='x',linewidth=2,color='red',linestyle='-')
    #
    ax2.set_xlim([0.5,molecule['u_limit'][0]+0.5])
    #
