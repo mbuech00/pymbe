@@ -253,32 +253,6 @@ def select_est_tuples(prim_tup,sec_tup,k):
    #
    return sec_tup
 
-def merge_tuples(prim_tup,sec_tup,k):
-   #
-   incl_list = []
-   #
-   for i in range(0,len(prim_tup[k-2])):
-      #
-      found = False
-      #
-      for j in range(0,len(sec_tup[k-2])):
-         #
-         if (set(prim_tup[k-2][i][0]) == set(sec_tup[k-2][j][0])):
-            #
-            found = True
-            #
-            break
-      #
-      if (not found):
-         #
-         incl_list.append(i)
-   #
-   for l in range(0,len(incl_list)):
-      #
-      sec_tup[k-2].append(prim_tup[k-2][incl_list[l]])
-   #
-   return sec_tup
-
 def init_domains(molecule):
    #
    molecule['occ_domain'] = []
