@@ -45,8 +45,7 @@ def inc_corr_mono_exp(molecule):
       #
       # call mono expansion kernel
       #
-      inc_corr_mono_exp_kernel(molecule,molecule['prim_tuple'][0],molecule['prim_domain'],molecule['prim_n_tuples'][0],\
-                               molecule['prim_orbital'][0],molecule['prim_thres'][0],molecule['prim_time'][0],k)
+      inc_corr_mono_exp_kernel(molecule,molecule['prim_tuple'][0],molecule['prim_domain'],molecule['prim_n_tuples'][0],molecule['prim_time'][0],k)
       #
       # check for convergence
       #
@@ -56,10 +55,99 @@ def inc_corr_mono_exp(molecule):
          print('')
          #
          return molecule
+      #
+      # orbital screening
+      #
+      if (k >= 2):
+         #
+         inc_corr_orb_rout.orb_screen_rout(molecule,molecule['e_inc'][0],molecule['prim_orbital'][0],molecule['prim_domain'],\
+                                           molecule['prim_thres'][0],molecule['l_limit'][0],molecule['u_limit'][0],'MACRO')
+      #
+      # print status end
+      #
+      inc_corr_utils.print_status_end(molecule,k,molecule['e_tot'][0],molecule['prim_time'][0],molecule['prim_n_tuples'][0],'MACRO')
    #
    return molecule
  
-def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,orb,thres,time,k,level='MACRO'):
+def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,time,k):
+   #
+   # define level
+   #
+   level = 'MACRO'
+   #
+   # generate all tuples at order k
+   #
+   tup.append([])
+   #
+   inc_corr_orb_rout.orb_generator(molecule,dom,tup[k-1],molecule['l_limit'][0],k)
+   #
+   # determine number of tuples at order k
+   #
+   n_tup.append(len(tup[k-1]))
+   #
+   # calculate theoretical number of tuples at order k
+   #
+   inc_corr_orb_rout.n_theo_tuples(n_tup[0],k,molecule['theo_work'][0])
+   #
+   # print status header
+   #
+   inc_corr_utils.print_status_header(molecule,n_tup,k,level)
+   #
+   # check for convergence
+   #
+   if (molecule['conv'][-1]):
+      #
+      return molecule
+   #
+   # start time
+   #
+   start = timer()
+   #
+   # run the calculations
+   #
+   for i in range(0,n_tup[k-1]):
+      #
+      # write string
+      #
+      inc_corr_orb_rout.orb_string(molecule,molecule['l_limit'][0],molecule['u_limit'][0],tup[k-1][i][0])
+      #
+      # run correlated calc
+      #
+      inc_corr_gen_rout.run_calc_corr(molecule,molecule['string'],level)
+      #
+      # write tuple energy
+      #
+      tup[k-1][i].append(molecule['e_tmp'])
+      #
+      # print status
+      #
+      inc_corr_utils.print_status(float(i+1)/float(n_tup[k-1]),level)
+      #
+      # error check
+      #
+      if (molecule['error'][0][-1]):
+         #
+         return molecule
+   #
+   # calculate the energy at order k
+   #
+   inc_corr_order(k,tup,molecule['e_inc'][0],molecule['e_tot'][0],level)
+   #
+   # collect time
+   #
+   time.append(timer()-start)
+   #
+   # print results
+   #
+   inc_corr_utils.print_result(molecule['e_inc'][0][k-1],level)
+   #
+   return molecule
+
+def inc_corr_mono_exp_est_kernel(molecule,tup,dom,n_tup,orb,thres,time,k):
+   #
+   # define level
+   #
+   level = 'ESTIM'
    #
    # generate all tuples at order k
    #
@@ -438,75 +526,6 @@ def inc_corr_order(k,tup,e_inc,e_tot,level):
       e_tot[k-1] += e_tmp
    #
    return e_tot
-
-def e_orb_rout(molecule,tup,orb,l_limit,u_limit):
-   #
-   for i in range(l_limit,l_limit+u_limit):
-      #
-      orb[-1].append([[i+1]])
-      #
-      for j in range(l_limit,l_limit+u_limit):
-         #
-         if (j != i):
-            #
-            e_abs = 0.0
-            #
-            for k in range(0,len(tup[-1])):
-               #
-               if ((set([i+1]) <= set(tup[-1][k][0])) and (set([j+1]) <= set(tup[-1][k][0]))):
-                  #
-                  e_abs += tup[-1][k][1]
-            #
-            orb[-1][i-l_limit].append([[j+1],[e_abs]])
-   #
-   for i in range(l_limit,l_limit+u_limit):
-      #
-      e_sum = 0.0
-      #
-      for j in range(0,len(orb)):
-         #
-         for k in range(l_limit,(l_limit+u_limit)-1):
-            #
-            e_sum += orb[j][i-l_limit][(k-l_limit)+1][1][0]
-      #
-      for j in range(0,len(orb)):
-         #
-         for k in range(l_limit,(l_limit+u_limit)-1):
-            #
-            if (orb[j][i-l_limit][(k-l_limit)+1][1][0] != 0.0):
-               #
-               orb[j][i-l_limit][(k-l_limit)+1][1].append(orb[j][i-l_limit][(k-l_limit)+1][1][0] / e_sum)
-            #
-            else:
-               #
-               orb[j][i-l_limit][(k-l_limit)+1][1].append(0.0)
-   #
-   if (molecule['debug']):
-      #
-      print('')
-      print(' --- relative contributions ---')
-      #
-      for i in range(0,len(orb)):
-         #
-         print('')
-         print(' * order = '+str(i+2))
-         print('')
-         #
-         tmp = []
-         #
-         for j in range(0,len(orb[i])):
-            #
-            tmp.append([])
-            #
-            for k in range(0,len(orb[i][j])-1):
-               #
-               tmp[j].append(orb[i][j][k+1][1][-1])
-            #
-            print(' {0:}'.format(j+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
-      #
-      print('')
-   #
-   return orb
 
 def inc_corr_prepare(molecule):
    #

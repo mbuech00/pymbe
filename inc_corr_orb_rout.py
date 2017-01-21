@@ -10,6 +10,8 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 import itertools
 import math
 
+import inc_corr_utils
+
 def orb_generator(molecule,dom,tup,l_limit,k):
    #
    incl = []
@@ -134,6 +136,97 @@ def orb_string(molecule,l_limit,u_limit,tup):
    #
    return molecule
 
+def orb_screen_rout(molecule,e_inc,orb,dom,thres,l_limit,u_limit,level):
+   #
+   # set up entanglement and exclusion lists
+   #
+   orb.append([])
+   #
+   orb_entang_rout(molecule,e_inc,orb,l_limit,u_limit)
+   #
+   molecule['excl_list'][0][:] = []
+   #
+   excl_rout(molecule,e_inc,orb,thres,molecule['excl_list'][0])
+   #
+   # update domains
+   #
+   update_domains(dom,l_limit,molecule['excl_list'][0])
+   #
+   # print domain updates
+   #
+   inc_corr_utils.print_update(dom,l_limit,u_limit,level)
+   #
+   return molecule, dom
+
+def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
+   #
+   for i in range(l_limit,l_limit+u_limit):
+      #
+      orb[-1].append([[i+1]])
+      #
+      for j in range(l_limit,l_limit+u_limit):
+         #
+         if (j != i):
+            #
+            e_abs = 0.0
+            #
+            for k in range(0,len(tup[-1])):
+               #
+               if ((set([i+1]) <= set(tup[-1][k][0])) and (set([j+1]) <= set(tup[-1][k][0]))):
+                  #
+                  e_abs += tup[-1][k][1]
+            #
+            orb[-1][i-l_limit].append([[j+1],[e_abs]])
+   #
+   for i in range(l_limit,l_limit+u_limit):
+      #
+      e_sum = 0.0
+      #
+      for j in range(0,len(orb)):
+         #
+         for k in range(l_limit,(l_limit+u_limit)-1):
+            #
+            e_sum += orb[j][i-l_limit][(k-l_limit)+1][1][0]
+      #
+      for j in range(0,len(orb)):
+         #
+         for k in range(l_limit,(l_limit+u_limit)-1):
+            #
+            if (orb[j][i-l_limit][(k-l_limit)+1][1][0] != 0.0):
+               #
+               orb[j][i-l_limit][(k-l_limit)+1][1].append(orb[j][i-l_limit][(k-l_limit)+1][1][0] / e_sum)
+            #
+            else:
+               #
+               orb[j][i-l_limit][(k-l_limit)+1][1].append(0.0)
+   #
+   if (molecule['debug']):
+      #
+      print('')
+      print(' --- relative contributions ---')
+      #
+      for i in range(0,len(orb)):
+         #
+         print('')
+         print(' * order = '+str(i+2))
+         print('')
+         #
+         tmp = []
+         #
+         for j in range(0,len(orb[i])):
+            #
+            tmp.append([])
+            #
+            for k in range(0,len(orb[i][j])-1):
+               #
+               tmp[j].append(orb[i][j][k+1][1][-1])
+            #
+            print(' {0:}'.format(j+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
+      #
+      print('')
+   #
+   return orb
+
 def select_est_tuples(prim_tup,sec_tup,k):
    #
    pop_list = []
@@ -185,7 +278,6 @@ def merge_tuples(prim_tup,sec_tup,k):
       sec_tup[k-2].append(prim_tup[k-2][incl_list[l]])
    #
    return sec_tup
-
 
 def init_domains(molecule):
    #
@@ -308,34 +400,6 @@ def update_domains(domain,l_limit,excl):
             excl[(excl[i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
    return domain
-
-def orbs_incl(string_excl,string_incl,l_limit,u_limit):
-   #
-   excl_list = []
-   #
-   if (string_excl[0] == 'D'):
-      #
-      sub_string = string_excl[8:] # remove the 'DROP_MO=' part of the string
-   #
-   else:
-      #
-      sub_string = string_excl
-   #
-   sub_list = sub_string.split("-") # remove all the hyphens
-   #
-   for j in range(0,len(sub_list)):
-      #
-      if ((sub_list[j] != '') and (sub_list[j] != '\n')):
-         #
-         excl_list.append(int(sub_list[j]))
-   #
-   for l in range(l_limit+1,(l_limit+u_limit)+1):
-      #
-      if (not (l in excl_list)):
-         #
-         string_incl.append(l)
-   #
-   return string_incl
 
 def n_theo_tuples(dim,k,theo_work):
    #

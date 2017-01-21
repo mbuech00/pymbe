@@ -643,7 +643,7 @@ def print_inner_result(molecule):
    #
    return
 
-def print_update(molecule,tup,n_tup,domain,order,l_limit,u_limit,level):
+def print_update(domain,l_limit,u_limit,level):
    #
    count = []
    #
@@ -667,7 +667,7 @@ def print_update(molecule,tup,n_tup,domain,order,l_limit,u_limit,level):
          #
          if (count[j]):
             #
-            print(' UPDATE-MACRO:     {0:>5}              {1:>6.2f}                 {2:>6.2f}            {3:<}'.\
+            print(' UPDATE-'+level+':     {0:>5}              {1:>6.2f}                 {2:>6.2f}            {3:<}'.\
                           format([(j+l_limit)+1],\
                                  (1.0-float(len(domain[j][-1]))/float(len(domain[j][-2])))*100.00,\
                                  (1.0-float(len(domain[j][-1]))/float(len(domain[j][0])))*100.00,\
