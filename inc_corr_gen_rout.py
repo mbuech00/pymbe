@@ -87,25 +87,24 @@ def write_zmat_corr(molecule,drop_string,level):
    #
    if (level == 'ESTIM'):
       #
-      out.write('*CFOUR(CALC='+molecule['est_model']+'\n')
-      out.write('CC_PROG=VCC\n')
-      out.write('CC_EXPORDER=10\n')
-      out.write('CC_MAXCYC=200\n')
+      model = molecule['est_model']
    #
    else:
       #
-      if (molecule['model'] == 'FCI'):
-         #
-         out.write('*CFOUR(CALC=FULLCI\n')
-         out.write('CAS_MMAX=10\n')
-         out.write('CAS_MITMAX=200\n')
+      model = molecule['model']
+   #
+   if (model == 'FCI'):
       #
-      else:
-         #
-         out.write('*CFOUR(CALC='+molecule['model']+'\n')
-         out.write('CC_PROG=VCC\n')
-         out.write('CC_EXPORDER=10\n')
-         out.write('CC_MAXCYC=200\n')
+      out.write('*CFOUR(CALC=FULLCI\n')
+      out.write('CAS_MMAX=10\n')
+      out.write('CAS_MITMAX=200\n')
+   #
+   else:
+      #
+      out.write('*CFOUR(CALC='+molecule['model']+'\n')
+      out.write('CC_PROG=VCC\n')
+      out.write('CC_EXPORDER=10\n')
+      out.write('CC_MAXCYC=200\n')
    #
    if (drop_string != '\n'):
       #
@@ -128,7 +127,7 @@ def write_zmat_corr(molecule,drop_string,level):
       out.write('SYMMETRY=OFF\n')
       out.write('ORBITALS=LOCAL\n')
    #
-   if ((molecule['frozen'] == 'TRAD') and (level == 'REF')):
+   if ((molecule['frozen'] == 'CONV') and (level == 'REF')):
       #
       out.write('FROZEN_CORE=ON\n')
    #
@@ -260,9 +259,9 @@ def write_energy(molecule,level):
 
 def ref_calc(molecule):
    #
-   print(' ------------------------------------------')
-   print(' STATUS-REF:  Full reference calc.  started')
-   print(' ------------------------------------------')
+   print(' -----------------------------------------------')
+   print(' STATUS-REF:  full reference calculation started')
+   print(' ------------------------------------------------------------------')
    #
    start = timer()
    #
@@ -270,8 +269,8 @@ def ref_calc(molecule):
    #
    molecule['prim_time'][0].append(timer()-start)
    #
-   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['prim_time'][0][-1]))
-   print(' -------------------------------------------------------------')
+   print(' STATUS-REF:  full reference calculation done in {0:10.2e} seconds'.format(molecule['prim_time'][0][-1]))
+   print(' ------------------------------------------------------------------')
    print('')
    #
    return molecule

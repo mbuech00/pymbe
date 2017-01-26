@@ -24,19 +24,7 @@ def abs_energy_plot(molecule):
    #
    ax.set_title('Total '+molecule['model']+' energy')
    #
-   e_tot = []
-   #
-   for i in range(0,len(molecule['e_tot'][0])):
-      #
-      if (molecule['est']):
-         #
-         e_tot.append(molecule['e_tot'][0][i][1])
-      #
-      else:
-         #
-         e_tot.append(molecule['e_tot'][0][i][0])
-   #
-   ax.plot(list(range(1,len(e_tot)+1)),e_tot,marker='x',linewidth=2,color='red',linestyle='-')
+   ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0],marker='x',linewidth=2,color='red',linestyle='-')
    #
    ax.set_xlim([0.5,molecule['u_limit'][0]+0.5])
    #
@@ -135,15 +123,8 @@ def dev_ref_plot(molecule):
    #
    for i in range(0,len(molecule['e_tot'][0])):
       #
-      if (molecule['est']):
-         #
-         e_diff_abs.append((molecule['e_tot'][0][i][1]-molecule['e_ref'])/kcal_mol)
-         e_diff_rel.append((molecule['e_tot'][0][i][1]/molecule['e_ref'])*100.)
-      #
-      else:
-      #
-         e_diff_abs.append((molecule['e_tot'][0][i][0]-molecule['e_ref'])/kcal_mol)
-         e_diff_rel.append((molecule['e_tot'][0][i][0]/molecule['e_ref'])*100.)
+      e_diff_abs.append((molecule['e_tot'][0][i]-molecule['e_ref'])/kcal_mol)
+      e_diff_rel.append((molecule['e_tot'][0][i]/molecule['e_ref'])*100.)
    #
    ax1.set_title('Absolute difference from E('+molecule['model']+')')
    #
