@@ -123,6 +123,12 @@ def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,time,k):
    #
    if (molecule['conv'][-1]):
       #
+      for l in range(k+1,molecule['u_limit'][0]+1):
+         #
+         n_tup.append(0)
+         #
+         inc_corr_orb_rout.n_theo_tuples(n_tup[0],l,molecule['theo_work'][0])
+      #
       return molecule
    #
    # start time
@@ -301,17 +307,19 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
    #
    inc_corr_utils.print_status_end_est(molecule['theo_work'][0][0],molecule['max_est_order'],time)
    #
-   # make the n_tup, e_est, and sec_time lists of the same length as the e_tot list
+   # make the e_est and sec_time lists of the same length as the e_tot list
    #
-   l_diff = len(molecule['e_tot'][0]) - len(molecule['e_est'][0])
-   #
-   for _ in range(0,l_diff):
-      #
-      n_tup.append(0)
+   for _ in range(molecule['max_est_order'],len(molecule['e_tot'][0])):
       #
       molecule['e_est'][0].append(molecule['e_est'][0][-1])
       #
       time.append(0.0)
+   #
+   # make molecule['sec_n_tuples'] of the same length as molecule['prim_n_tuples']
+   #
+   for _ in range(molecule['max_est_order'],len(molecule['prim_n_tuples'][0])):
+      #
+      n_tup.append(0)
    #
    return molecule
 
@@ -628,9 +636,7 @@ def inc_corr_prepare(molecule):
    #
    molecule['e_tot'] = [[],[]]
    #
-   if (molecule['est']):
-      #
-      molecule['e_est'] = [[],[]]
+   molecule['e_est'] = [[],[]]
    #
    molecule['excl_list'] = [[],[]]
    #

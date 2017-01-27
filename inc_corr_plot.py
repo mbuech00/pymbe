@@ -24,9 +24,15 @@ def abs_energy_plot(molecule):
    #
    ax.set_title('Total '+molecule['model']+' energy')
    #
+   u_limit = molecule['u_limit'][0]
+   #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+      #
+      u_limit -= molecule['ncore']
+   #
    ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0],marker='x',linewidth=2,color='red',linestyle='-')
    #
-   ax.set_xlim([0.5,molecule['u_limit'][0]+0.5])
+   ax.set_xlim([0.5,u_limit+0.5])
    #
    ax.xaxis.grid(False)
    #
@@ -49,9 +55,58 @@ def n_tuples_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Total number of '+molecule['model']+' tuples')
+   ax.set_title('Total number of '+molecule['model'].upper()+' tuples')
    #
-   sns.barplot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['n_tuples'][0][0:len(molecule['e_tot'][0])],palette='BuGn_d',log=True)
+   u_limit = molecule['u_limit'][0]
+   #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+      #
+      u_limit -= molecule['ncore']
+   #
+   if (molecule['est']):
+      #
+      sec_prim = []
+      theo_sec = []
+      #
+      for i in range(0,u_limit):
+         #
+         if (molecule['prim_n_tuples'][0][i] < molecule['theo_work'][0][i]):
+            #
+            if (molecule['sec_n_tuples'][0][i] > 0):
+               #
+               if (molecule['sec_n_tuples'][0][i] == molecule['theo_work'][0][i]):
+                  #
+                  sec_prim.append(molecule['sec_n_tuples'][0][i]-molecule['prim_n_tuples'][0][i])
+               #
+               else:
+                  #
+                  sec_prim.append(molecule['theo_work'][0][i]-molecule['prim_n_tuples'][0][i])
+               #
+               theo_sec.append(0)
+            #
+            else:
+               #
+               sec_prim.append(0)
+               theo_sec.append(molecule['theo_work'][0][i]-molecule['prim_n_tuples'][0][i])
+         #
+         else:
+            #
+            sec_prim.append(0)
+            theo_sec.append(0)
+      #
+      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues',label='BG('+molecule['model'].upper()+') expansion',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),sec_prim,bottom=molecule['prim_n_tuples'][0],palette='RdPu',label='Energy est. ('+molecule['est_model'].upper()+')',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),theo_sec,bottom=[(i + j) for i,j in zip(sec_prim,molecule['prim_n_tuples'][0])],\
+                  palette='BuGn_d',label='Theoretical number',log=True)
+   #
+   else:
+      #
+      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues',label='BG('+molecule['model'].upper()+') expansion',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),[(i - j) for i,j in zip(molecule['theo_work'][0],molecule['prim_n_tuples'][0])],\
+                  bottom=molecule['prim_n_tuples'][0],palette='BuGn_d',label='Theoretical number',log=True)
    #
    ax.xaxis.grid(False)
    #
@@ -59,6 +114,8 @@ def n_tuples_plot(molecule):
    #
    ax.set_xlabel('Expansion order')
    ax.set_ylabel('Number of correlated tuples')
+   #
+   plt.legend(loc=1)
    #
    sns.despine()
    #
@@ -128,6 +185,12 @@ def dev_ref_plot(molecule):
    #
    ax1.set_title('Absolute difference from E('+molecule['model']+')')
    #
+   u_limit = molecule['u_limit'][0]
+   #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+      #
+      u_limit -= molecule['ncore']
+   #
    ax1.axhline(0.0,color='black',linewidth=2)
    #
    ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_abs,marker='x',linewidth=2,color='red',linestyle='-')
@@ -146,7 +209,7 @@ def dev_ref_plot(molecule):
    #
    ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_rel,marker='x',linewidth=2,color='red',linestyle='-')
    #
-   ax2.set_xlim([0.5,molecule['u_limit'][0]+0.5])
+   ax2.set_xlim([0.5,u_limit+0.5])
    #
    ax2.xaxis.grid(False)
    #
@@ -171,9 +234,9 @@ def ic_plot(molecule):
    #
    abs_energy_plot(molecule)
    #
-#   #  ---  plot number of calculations from each orbital  ---
-#   #
-#   n_tuples_plot(molecule)
+   #  ---  plot number of calculations from each orbital  ---
+   #
+   n_tuples_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #

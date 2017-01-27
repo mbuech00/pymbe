@@ -538,7 +538,13 @@ def inc_corr_summary(molecule):
    #
    print('   energy estimation         =  {0:}'.format(molecule['est']))
    #
-   print('   energy estimation model   =  {0:}'.format(molecule['est_model']))
+   if (molecule['est']):
+      #
+      print('   energy estimation model   =  {0:}'.format(molecule['est_model']))
+   #
+   else:
+      #
+      print('   energy estimation model   =  N/A')
    #
    print('   error in calculation      =  {0:}'.format(molecule['error'][0][-1]))
    #
@@ -546,7 +552,13 @@ def inc_corr_summary(molecule):
    #
    print('   bethe-goldstone order     =  {0:}'.format(len(molecule['e_tot'][0])))
    #
-   print('   energy estimation order   =  {0:}'.format(molecule['max_est_order']))
+   if (molecule['est']):
+      #
+      print('   energy estimation order   =  {0:}'.format(molecule['max_est_order']))
+   #
+   else:
+      #
+      print('   energy estimation order   =  N/A')
    #
    print('   ---------------------------------------------')
    #
@@ -586,10 +598,7 @@ def inc_corr_summary(molecule):
                                                                                  (float(molecule['sec_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00))
    #
    total_time = 0.0
-   #
-   if (molecule['est']):
-      #
-      total_time_est = 0.0
+   total_time_est = 0.0
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('   |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
@@ -600,10 +609,7 @@ def inc_corr_summary(molecule):
    for i in range(0,len(molecule['e_tot'][0])):
       #
       total_time += molecule['prim_time'][0][i]
-      #
-      if (molecule['est']):
-         #
-         total_time_est += molecule['sec_time'][0][i]
+      total_time_est += molecule['sec_time'][0][i]
       #
       print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
                                                                           format(i+1,molecule['e_tot'][0][i],molecule['e_tot'][0][i]+molecule['e_est'][0][i],\
