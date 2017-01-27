@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*
 #!/usr/bin/env python
 
 #
@@ -90,7 +91,7 @@ def term_calc(molecule):
    #
    rm_scr_dir(molecule['scr'])
    #
-   print(' ** END OF INC.-CORR. ('+molecule['model']+') CALCULATION **\n')
+   print(' ** end of bethe-goldstone '+molecule['model']+' calculation **\n')
    print('\n')
    #
    return
@@ -242,9 +243,7 @@ def init_param(molecule):
    #
    set_prim_exp(thres_occ,thres_virt,molecule)
    #
-   if (molecule['est']):
-      #
-      set_energy_est(molecule)
+   set_energy_est(molecule)
    #
    chk = ['mol','ncore','frozen','mult','scr','exp','max_order','est','est_order','model','est_model',\
           'basis','ref','local','zmat','units','mem','prim_thres','debug']
@@ -273,39 +272,39 @@ def set_prim_exp(thres_occ,thres_virt,molecule):
    #
    molecule['prim_thres'] = []
    #
-   if (molecule['exp'] == 'OCC'):
+   if (molecule['exp'] == 'occ'):
       #
       molecule['prim_thres'].append(thres_occ)
       #
-      molecule['scheme'] = 'OCCUPIED'
+      molecule['scheme'] = 'occupied'
    #
-   elif (molecule['exp'] == 'VIRT'):
+   elif (molecule['exp'] == 'virt'):
       #
       molecule['prim_thres'].append(thres_virt)
       #
-      molecule['scheme'] = 'VIRTUAL'
+      molecule['scheme'] = 'virtual'
    #
-   elif (molecule['exp'] == 'COMB-OV'):
+   elif (molecule['exp'] == 'comb-ov'):
       #
       molecule['prim_thres'].append(thres_occ)
       molecule['prim_thres'].append(thres_virt)
       #
-      molecule['scheme'] = 'COMBINED OCCUPIED/VIRTUAL'
+      molecule['scheme'] = 'combined occupied/virtual'
    #
-   elif (molecule['exp'] == 'COMB-VO'):
+   elif (molecule['exp'] == 'comb-vo'):
       #
       molecule['prim_thres'].append(thres_virt)
       molecule['prim_thres'].append(thres_occ)
       #
-      molecule['scheme'] = 'COMBINED VIRTUAL/OCCUPIED'
+      molecule['scheme'] = 'combined virtual/occupied'
    #
    # set regex for expansion model
    #
-   if (molecule['model'] == 'FCI'):
+   if (molecule['model'] == 'fci'):
       #
       molecule['regex'] = '\s+Final Correlation Energy'
    #
-   elif (molecule['model'] == 'MP2'):
+   elif (molecule['model'] == 'mp2'):
       #
       molecule['regex'] = '\s+E2\(TOT\)'
    #
@@ -319,27 +318,35 @@ def set_energy_est(molecule):
    #
    # set regex for energy estimation model
    #
-   if (molecule['est_model'] == 'FCI'):
+   if (molecule['est']):
       #
-      molecule['est_regex'] = '\s+Final Correlation Energy'
+      if (molecule['est_model'] == 'fci'):
+         #
+         molecule['est_regex'] = '\s+Final Correlation Energy'
+      #
+      else: # CC
+         #
+         molecule['est_regex'] = '\s+The correlation energy is' 
    #
-   else: # CC
+   else:
       #
-      molecule['est_regex'] = '\s+The correlation energy is' 
+      molecule['est_model'] == 'N/A'
+      #
+      molecule['est_order'] = 'N/A'
    #
    return molecule   
 
 def set_fc_scheme(molecule):
    #
-   if (molecule['frozen'] == 'NONE'):
+   if (molecule['frozen'] == 'none'):
       #
       molecule['frozen_scheme'] = ''
    #
-   elif (molecule['frozen'] == 'CONV'):
+   elif (molecule['frozen'] == 'conv'):
       #
       molecule['frozen_scheme'] = '(conventional)'
    #
-   elif (molecule['frozen'] == 'SCREEN'):
+   elif (molecule['frozen'] == 'screen'):
       #
       molecule['frozen_scheme'] = '(screened)'
    #
@@ -358,7 +365,7 @@ def init_calc(molecule):
 def print_header(molecule):
    #
    print('\n')
-   print(' ** START INC.-CORR. ('+molecule['model']+') CALCULATION  ---  '+str(molecule['scheme'])+' EXPANSION SCHEME **\n')
+   print(' ** start bethe-goldstone '+molecule['model']+' calculation  ---  '+str(molecule['scheme'])+' expansion scheme **')
    #
    return
 
@@ -366,16 +373,16 @@ def sanity_chk(molecule):
    #
    # type of expansion
    #
-   if ((molecule['exp'] != 'OCC') and (molecule['exp'] != 'VIRT') and (molecule['exp'] != 'COMB-OV') and (molecule['exp'] != 'COMB-VO')):
+   if ((molecule['exp'] != 'occ') and (molecule['exp'] != 'virt') and (molecule['exp'] != 'comb-ov') and (molecule['exp'] != 'comb-vo')):
       #
-      print('wrong input -- valid choices for expansion scheme are OCC, VIRT, COMB-OV, or COMB-VO --- aborting ...')
+      print('wrong input -- valid choices for expansion scheme are occ, virt, comb-ov, or comb-vo --- aborting ...')
       molecule['error'][0].append(True)
    #
    # expansion model
    #
-   if (not ((molecule['model'] == 'FCI') or (molecule['model'] == 'MP2') or (molecule['model'] == 'CISD') or (molecule['model'] == 'CCSD') or (molecule['model'] == 'CCSDT'))):
+   if (not ((molecule['model'] == 'fci') or (molecule['model'] == 'mp2') or (molecule['model'] == 'cisd') or (molecule['model'] == 'ccsd') or (molecule['model'] == 'ccsdt'))):
       #
-      print('wrong input -- valid expansion models are currently: FCI, MP2, CISD, CCSD, and CCSDT --- aborting ...')
+      print('wrong input -- valid expansion models are currently: fci, mp2, cisd, ccsd, and ccsdt --- aborting ...')
       molecule['error'][0].append(True)
    #
    # max order
@@ -387,22 +394,22 @@ def sanity_chk(molecule):
    #
    # expansion thresholds
    #
-   if (((molecule['exp'] == 'OCC') or (molecule['exp'] == 'VIRT')) and ((molecule['prim_thres'][0] == 0.0) and (molecule['max_order'] == 0))):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and ((molecule['prim_thres'][0] == 0.0) and (molecule['max_order'] == 0))):
       #
       print('wrong input -- no expansion threshold supplied and no max_order set (either or both must be set) --- aborting ...')
       molecule['error'][0].append(True)
    #
-   if (((molecule['exp'] == 'OCC') or (molecule['exp'] == 'VIRT')) and (molecule['prim_thres'][0] < 0.0)):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and (molecule['prim_thres'][0] < 0.0)):
       #
       print('wrong input -- expansion threshold must be float >= 0.0 --- aborting ...')
       molecule['error'][0].append(True)
    #
-   if (((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')) and ((molecule['prim_thres'][0] == 0.0) and (molecule['prim_thres'][1] == 0.0))):
+   if (((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')) and ((molecule['prim_thres'][0] == 0.0) and (molecule['prim_thres'][1] == 0.0))):
       #
-      print('wrong input -- expansion thresholds for both the OCC and the VIRT expansions need be supplied --- aborting ...')
+      print('wrong input -- expansion thresholds for both the occ and the virt expansions need be supplied --- aborting ...')
       molecule['error'][0].append(True)
    #
-   if (((molecule['exp'] == 'COMB-OV') or (molecule['exp'] == 'COMB-VO')) and ((molecule['prim_thres'][0] < 0.0) or (molecule['prim_thres'][1] < 0.0))):
+   if (((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')) and ((molecule['prim_thres'][0] < 0.0) or (molecule['prim_thres'][1] < 0.0))):
       #
       print('wrong input -- expansion thresholds must be floats >= 0.0 --- aborting ...')
       molecule['error'][0].append(True)
@@ -416,9 +423,9 @@ def sanity_chk(molecule):
          print('wrong input -- energy estimation requested, but no estimation model supplied --- aborting ...')
          molecule['error'][0].append(True)
       #
-      elif (not ((molecule['est_model'] == 'FCI') or (molecule['est_model'] == 'CISD') or (molecule['est_model'] == 'CCSD') or (molecule['est_model'] == 'CCSDT'))):
+      elif (not ((molecule['est_model'] == 'fci') or (molecule['est_model'] == 'cisd') or (molecule['est_model'] == 'ccsd') or (molecule['est_model'] == 'ccsdt'))):
          #
-         print('wrong input -- valid energy estimation models are currently: FCI, CISD, CCSD, and CCSDT --- aborting ...')
+         print('wrong input -- valid energy estimation models are currently: fci, cisd, ccsd, and ccsdt --- aborting ...')
          molecule['error'][0].append(True)
       #
       if (molecule['model'] == molecule['est_model']):
@@ -433,23 +440,23 @@ def sanity_chk(molecule):
    #
    # frozen core threatment
    #
-   if ((molecule['frozen'] != 'NONE') and (molecule['frozen'] != 'CONV') and (molecule['frozen'] != 'SCREEN')):
+   if ((molecule['frozen'] != 'none') and (molecule['frozen'] != 'conv') and (molecule['frozen'] != 'screen')):
       #
-      print('wrong input -- valid choices for frozen core are NONE, CONV, or SCREEN --- aborting ...')
+      print('wrong input -- valid choices for frozen core are none, conv, or screen --- aborting ...')
       molecule['error'][0].append(True)
    #
-   if (((molecule['frozen'] == 'CONV') or (molecule['frozen'] == 'SCREEN')) and (molecule['ncore'] == 0)):
+   if (((molecule['frozen'] == 'conv') or (molecule['frozen'] == 'screen')) and (molecule['ncore'] == 0)):
       #
       print('wrong input -- frozen core requested ('+molecule['frozen_scheme']+' scheme), but no core orbitals specified --- aborting ...')
       molecule['error'][0].append(True)
    #
-   if ((molecule['frozen'] == 'SCREEN') and (molecule['exp'] == 'VIRT')):
+   if ((molecule['frozen'] == 'screen') and (molecule['exp'] == 'virt')):
       #
       print('wrong input -- '+molecule['frozen_scheme']+' frozen core scheme does not make sense with the virtual expansion scheme')
       print('            -- please use the conventional frozen core scheme instead --- aborting ...')
       molecule['error'][0].append(True)
    #
-   if ((molecule['frozen'] == 'CONV') and molecule['local']):
+   if ((molecule['frozen'] == 'conv') and molecule['local']):
       #
       print('wrong input -- comb. of frozen core and local orbitals not implemented --- aborting ...')
       molecule['error'][0].append(True)
@@ -495,72 +502,100 @@ def sanity_chk(molecule):
 def inc_corr_summary(molecule):
    #
    print('')
-   print(' *******************************')
-   print(' ********    RESULTS    ********')
-   print(' *******************************\n')
+   print('   *************************************************')
+   print('   ****************                 ****************')
+   print('   ***********          RESULTS          ***********')
+   print('   ****************                 ****************')
+   print('   *************************************************\n')
    #
-   print('   {0:} expansion'.format(molecule['scheme']))
+   print('   {0:} {1:} bethe-goldstone expansion'.format(molecule['scheme'],molecule['model']))
    #
-   print('   -----------------------------')
-   print('   frozen core        =  {0:} {1:}'.format((molecule['frozen'] != 'NONE'),molecule['frozen_scheme']))
-   print('   local orbitals     =  {0:}'.format(molecule['local']))
-   print('   occupied orbitals  =  {0:}'.format(molecule['nocc']))
-   print('   virtual orbitals   =  {0:}'.format(molecule['nvirt']))
+   print('   ---------------------------------------------')
+   print('   frozen core               =  {0:} {1:}'.format((molecule['frozen'] != 'none'),molecule['frozen_scheme']))
+   print('   local orbitals            =  {0:}'.format(molecule['local']))
+   print('   occupied orbitals         =  {0:}'.format(molecule['nocc']))
+   print('   virtual orbitals          =  {0:}'.format(molecule['nvirt']))
    #
-   if (molecule['exp'] == 'OCC'):
+   if (molecule['exp'] == 'occ'):
       #
-      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
-      print('   thres. (virt.)     =  N/A')
+      print('   exp. threshold (occ.)     =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
+      print('   exp. threshold (virt.)    =  N/A')
    #
-   elif (molecule['exp'] == 'VIRT'):
+   elif (molecule['exp'] == 'virt'):
       #
-      print('   thres. (occ.)      =  N/A')
-      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
+      print('   exp. threshold (occ.)     =  N/A')
+      print('   exp. threshold (virt.)    =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
    #
-   elif (molecule['exp'] == 'COMB-OV'):
+   elif (molecule['exp'] == 'comb-ov'):
       #
-      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
-      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
+      print('   exp. threshold (occ.)     =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
+      print('   exp. threshold (virt.)    =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
    #
-   elif (molecule['exp'] == 'COMB-VO'):
+   elif (molecule['exp'] == 'comb-vo'):
       #
-      print('   thres. (occ.)      =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
-      print('   thres. (virt.)     =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
+      print('   exp. threshold (occ.)     =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
+      print('   exp. threshold (virt.)    =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
    #
-   print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_tot'][0])))
+   print('   energy estimation         =  {0:}'.format(molecule['est']))
    #
-   print('   energy estimation  =  {0:}'.format(molecule['est']))
+   print('   energy estimation model   =  {0:}'.format(molecule['est_model']))
    #
-   if (molecule['est']):
+   print('   error in calculation      =  {0:}'.format(molecule['error'][0][-1]))
+   #
+   print('   ---------------------------------------------')
+   #
+   print('   bethe-goldstone order     =  {0:}'.format(len(molecule['e_tot'][0])))
+   #
+   print('   energy estimation order   =  {0:}'.format(molecule['max_est_order']))
+   #
+   print('   ---------------------------------------------')
+   #
+   print('   final conv. (excl. est.)  =  {0:>12.5e}'.format(molecule['e_tot'][0][-1]-molecule['e_tot'][0][-2]))
+   print('   final conv. (incl. est.)  =  {0:>12.5e}'.format((molecule['e_tot'][0][-1]+molecule['e_est'][0][-1])-(molecule['e_tot'][0][-2]+molecule['e_est'][0][-2])))
+   #
+   print('   ---------------------------------------------')
+   #
+   if (molecule['ref'] and (not molecule['error'][0][-1])):
       #
-      print('   energy est. model  =  {0:}'.format(molecule['est_model']))
+      final_diff = molecule['e_ref']-molecule['e_tot'][0][-1]
+      final_diff_est = molecule['e_ref']-(molecule['e_tot'][0][-1]+molecule['e_est'][0][-1])
       #
-      print('   energy est. order  =  {0:}'.format(molecule['est_order']))
-   #
-   print('   error in calc.     =  {0:}'.format(molecule['error'][0][-1]))
+      if (abs(final_diff) < 1.0e-10):
+         #
+         final_diff = 0.0
+      #
+      if (abs(final_diff_est) < 1.0e-10):
+         #
+         final_diff_est = 0.0
+      #
+      print('   final diff. (excl. est.)  =  {0:>12.5e}'.format(final_diff))
+      print('   final diff. (incl. est.)  =  {0:>12.5e}'.format(final_diff_est))
    #
    print('')
+   print('')
    #
-   for i in range(0,15):
-      #
-      if ((max(molecule['prim_n_tuples'][0]) - 10**i) < 0):
-         #
-         width = i
-         #
-         break
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   print('   correlated orbitals   |   # of correlated tuples   |   # of est. tuples   |   perc. of total # of tuples   |   perc. of total # of tuples')
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['e_tot'][0])):
       #
-      print('{0:4d} - # orb. tuples  =  {1:>{w}d}  ---  {2:>6.2f} %'.format(i+1,molecule['prim_n_tuples'][0][i],\
-                                                                          (float(molecule['prim_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00,w=width))
-   #
-   print('   --------------------------------------------------------------')
+      print('          {0:>4d}                     {1:>4.2e}                   {2:>4.2e}                    {3:>6.2f} %                         {4:>6.2f} %'.\
+                                                                          format(i+1,molecule['prim_n_tuples'][0][i],molecule['sec_n_tuples'][0][i],\
+                                                                                 (float(molecule['prim_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00,\
+                                                                                 (float(molecule['sec_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00))
    #
    total_time = 0.0
    #
    if (molecule['est']):
       #
       total_time_est = 0.0
+   #
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   print('   |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   print('   correlated orbitals   |   total correlated energy   |    total energy incl. energy est.    |    total time    |    total time incl. est. ')
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['e_tot'][0])):
       #
@@ -569,57 +604,12 @@ def inc_corr_summary(molecule):
       if (molecule['est']):
          #
          total_time_est += molecule['sec_time'][0][i]
-         #
-         print('{0:4d} - E (inc-corr)   = {1:13.9f} ({2:13.9f})  done in {3:10.2e} ({4:10.2e}) seconds'.\
-               format(i+1,molecule['e_tot'][0][i],molecule['e_tot'][0][i]+molecule['e_est'][0][i],total_time,total_time+total_time_est))
       #
-      else:
-         #
-         print('{0:4d} - E (inc-corr)   = {1:13.9f}  done in {2:10.2e} seconds'.format(i+1,molecule['e_tot'][0][i],total_time))
+      print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
+                                                                          format(i+1,molecule['e_tot'][0][i],molecule['e_tot'][0][i]+molecule['e_est'][0][i],\
+                                                                                 total_time,total_time+total_time_est))
    #
-   print('   --------------------------------------------------------------')
-   #
-   if (len(molecule['e_tot'][0]) >= 2):
-      #
-      if (molecule['est']):
-         #
-         print('   final convergence  =  {0:9.4e} ({1:9.4e})'.\
-               format(molecule['e_tot'][0][-1]-molecule['e_tot'][0][-2],\
-               (molecule['e_tot'][0][-1]+molecule['e_est'][0][-1])-(molecule['e_tot'][0][-2]+molecule['e_est'][0][-2])))
-      #
-      else:
-         #
-         print('   final convergence  =  {0:9.4e}'.format(molecule['e_tot'][0][-1]-molecule['e_tot'][0][-2]))
-   #
-   if (molecule['ref'] and (not molecule['error'][0][-1])):
-      #
-      print('   --------------------------------------------------------------')
-      #
-      print('{0:4d} - E (ref)        = {1:13.9f}  done in {2:10.2e} seconds'.format(molecule['prim_n_tuples'][0][0],molecule['e_ref'],molecule['prim_time'][0][-1]))
-      #
-      print('   --------------------------------------------------------------')
-      #
-      final_diff = molecule['e_ref']-molecule['e_tot'][0][-1]
-      #
-      if (abs(final_diff) < 1.0e-10):
-         #
-         final_diff = 0.0
-      #
-      if (molecule['est']):
-         #
-         final_diff_est = molecule['e_ref']-(molecule['e_tot'][0][-1]+molecule['e_est'][0][-1])
-         #
-         if (abs(final_diff_est) < 1.0e-10):
-            #
-            final_diff_est = 0.0
-      #
-      if (molecule['est']):
-         #
-         print('   final difference   =  {0:9.4e} ({1:9.4e})'.format(final_diff,final_diff_est))
-      #
-      else:
-         #
-         print('   final difference   =  {0:9.4e}'.format(final_diff))
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    print('\n')
    #
@@ -666,7 +656,13 @@ def print_status(prog,level):
 def print_status_end(molecule,order,time,n_tup,level):
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  done in {2:10.2e} seconds'.format(order,n_tup[0],time[-1]))
+   if (n_tup[-1] == 0):
+      #
+      print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  done'.format(order,n_tup[0]))
+   #
+   else:
+      #
+      print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  done in {2:10.2e} seconds'.format(order,n_tup[0],time[-1]))
    print(' --------------------------------------------------------------------------------------------')
    #
    return

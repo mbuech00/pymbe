@@ -23,7 +23,7 @@ def orb_generator(molecule,dom,tup,l_limit,k):
       #
       # construct union space of all orbitals in i-th domain + the i-th orbital itself (if not conventional frozen core scheme)
       #
-      if (not ((molecule['frozen'] == 'CONV') and (((i+l_limit)+1) <= molecule['ncore']))):
+      if (not ((molecule['frozen'] == 'conv') and (((i+l_limit)+1) <= molecule['ncore']))):
          #
          full_space = sorted(list(set(dom[i][-1]).union(set([(l_limit+i)+1]))))
          #
@@ -91,9 +91,9 @@ def orb_string(molecule,l_limit,u_limit,tup):
    #
    drop = sorted(list(set(dim)-set(tup)))
    #
-   # for VIRT scheme, explicitly drop the core orbitals for conventional frozen core scheme
+   # for virt scheme, explicitly drop the core orbitals for conventional frozen core scheme
    #
-   if ((molecule['exp'] == 'VIRT') and (molecule['frozen'] == 'CONV')):
+   if ((molecule['exp'] == 'virt') and (molecule['frozen'] == 'conv')):
       #
       for i in range(molecule['ncore'],0,-1):
          #
@@ -264,7 +264,7 @@ def init_domains(molecule):
       #
       molecule['occ_domain'][i][-1].pop(i)
    #
-   if (molecule['frozen'] == 'CONV'):
+   if (molecule['frozen'] == 'conv'):
       #
       for i in range(0,molecule['ncore']):
          #
@@ -288,7 +288,7 @@ def reinit_domains(molecule,domain):
    #
    domain[:] = []
    #
-   if (molecule['exp'] == 'COMB-OV'):
+   if (molecule['exp'] == 'comb-ov'):
       #
       for i in range(0,molecule['nvirt']):
          #
@@ -296,7 +296,7 @@ def reinit_domains(molecule,domain):
          #
          domain[i][-1].pop(i)  
    #
-   elif (molecule['exp'] == 'COMB-VO'):
+   elif (molecule['exp'] == 'comb-vo'):
       #
       for i in range(0,molecule['nocc']):
          #
@@ -304,7 +304,7 @@ def reinit_domains(molecule,domain):
          #
          domain[i][-1].pop(i)
       #
-      if (molecule['frozen'] == 'CONV'):
+      if (molecule['frozen'] == 'conv'):
          #
          for i in range(0,molecule['ncore']):
             #
@@ -330,7 +330,7 @@ def excl_rout(molecule,tup,orb,thres,excl,level):
             #
             excl[i].append(orb[-1][i][j+1][0][0])
    #
-   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'SCREEN') and (level != 'ESTIM')):
+   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'screen') and (level != 'ESTIM')):
       #
       for i in range(0,len(excl)):
          #
