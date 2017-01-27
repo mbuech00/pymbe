@@ -529,7 +529,11 @@ def inc_corr_summary(molecule):
    #
    print('   inc.-corr. order   =  {0:}'.format(len(molecule['e_tot'][0])))
    #
+   print('   energy estimation  =  {0:}'.format(molecule['est']))
+   #
    if (molecule['est']):
+      #
+      print('   energy est. model  =  {0:}'.format(molecule['est_model']))
       #
       print('   energy est. order  =  {0:}'.format(molecule['est_order']))
    #

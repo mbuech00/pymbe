@@ -101,7 +101,7 @@ def write_zmat_corr(molecule,drop_string,level):
    #
    else:
       #
-      out.write('*CFOUR(CALC='+molecule['model']+'\n')
+      out.write('*CFOUR(CALC='+model+'\n')
       out.write('CC_PROG=VCC\n')
       out.write('CC_EXPORDER=10\n')
       out.write('CC_MAXCYC=200\n')
