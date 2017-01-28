@@ -22,7 +22,7 @@ def abs_energy_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Total '+molecule['model']+' energy')
+   ax.set_title('Total '+molecule['model'].upper()+' energy')
    #
    u_limit = molecule['u_limit'][0]
    #
@@ -43,7 +43,19 @@ def abs_energy_plot(molecule):
    #
    sns.despine()
    #
-   fig.tight_layout()
+   with sns.axes_style("whitegrid"):
+      #
+      insert = plt.axes([.35, .6, .5, .25],frameon=True)
+      #
+      insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0][1:],marker='x',linewidth=2,color='red',linestyle='-')
+      #
+      plt.setp(insert,xticks=list(range(3,len(molecule['e_tot'][0])+1)))
+      #
+      insert.set_xlim([2.5,len(molecule['e_tot'][0])+0.5])
+      #
+      insert.locator_params(axis='y',nbins=3)
+      #
+      insert.xaxis.grid(False)
    #
    plt.savefig(molecule['wrk']+'/output/abs_energy_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
@@ -94,7 +106,7 @@ def n_tuples_plot(molecule):
             sec_prim.append(0)
             theo_sec.append(0)
       #
-      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues',label='BG('+molecule['model'].upper()+') expansion',log=True)
+      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',label='BG('+molecule['model'].upper()+') expansion',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),sec_prim,bottom=molecule['prim_n_tuples'][0],palette='RdPu',label='Energy est. ('+molecule['est_model'].upper()+')',log=True)
       #
@@ -103,7 +115,7 @@ def n_tuples_plot(molecule):
    #
    else:
       #
-      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues',label='BG('+molecule['model'].upper()+') expansion',log=True)
+      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',label='BG('+molecule['model'].upper()+') expansion',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),[(i - j) for i,j in zip(molecule['theo_work'][0],molecule['prim_n_tuples'][0])],\
                   bottom=molecule['prim_n_tuples'][0],palette='BuGn_d',label='Theoretical number',log=True)
@@ -183,7 +195,7 @@ def dev_ref_plot(molecule):
       e_diff_abs.append((molecule['e_tot'][0][i]-molecule['e_ref'])/kcal_mol)
       e_diff_rel.append((molecule['e_tot'][0][i]/molecule['e_ref'])*100.)
    #
-   ax1.set_title('Absolute difference from E('+molecule['model']+')')
+   ax1.set_title('Absolute difference from E('+molecule['model'].upper()+')')
    #
    u_limit = molecule['u_limit'][0]
    #
@@ -203,7 +215,7 @@ def dev_ref_plot(molecule):
    #
    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
    #
-   ax2.set_title('Relative recovery of E('+molecule['model']+')')
+   ax2.set_title('Relative recovery of E('+molecule['model'].upper()+')')
    #
    ax2.axhline(100.0,color='black',linewidth=2)
    #
