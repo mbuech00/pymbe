@@ -66,8 +66,8 @@ def abs_energy_plot(molecule):
       #
       insert.locator_params(axis='y',nbins=6)
       #
-      insert.set_ylim([molecule['e_tot'][0][2]-2.0*abs((molecule['e_tot'][0][2]-molecule['e_tot'][0][3])),\
-                       molecule['e_tot'][0][2]+2.0*abs((molecule['e_tot'][0][2]-molecule['e_tot'][0][3]))])
+      insert.set_ylim([molecule['e_tot'][0][-1]-0.01,\
+                       molecule['e_tot'][0][-1]+0.01])
       #
       insert.xaxis.grid(False)
    #
