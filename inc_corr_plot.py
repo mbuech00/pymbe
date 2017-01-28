@@ -30,7 +30,13 @@ def abs_energy_plot(molecule):
       #
       u_limit -= molecule['ncore']
    #
-   ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0],marker='x',linewidth=2,color='red',linestyle='-')
+   ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0],marker='x',linewidth=2,color='blue',linestyle='-',\
+           label='BG('+molecule['model'].upper()+')')
+   #
+   if (molecule['est']):
+      #
+      ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0],molecule['e_est'][0])],\
+              marker='x',linewidth=2,color='red',linestyle='-',label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
    #
    ax.set_xlim([0.5,u_limit+0.5])
    #
@@ -45,17 +51,27 @@ def abs_energy_plot(molecule):
    #
    with sns.axes_style("whitegrid"):
       #
-      insert = plt.axes([.35, .6, .5, .25],frameon=True)
+      insert = plt.axes([.35, .50, .50, .30],frameon=True)
       #
-      insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0][1:],marker='x',linewidth=2,color='red',linestyle='-')
+      insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0][1:],marker='x',linewidth=2,color='blue',linestyle='-')
+      #
+      if (molecule['est']):
+         #
+         insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0][1:],molecule['e_est'][0][1:])],\
+                     marker='x',linewidth=2,color='red',linestyle='-')
       #
       plt.setp(insert,xticks=list(range(3,len(molecule['e_tot'][0])+1)))
       #
       insert.set_xlim([2.5,len(molecule['e_tot'][0])+0.5])
       #
-      insert.locator_params(axis='y',nbins=3)
+      insert.locator_params(axis='y',nbins=6)
+      #
+      insert.set_ylim([molecule['e_tot'][0][2]-2.0*abs((molecule['e_tot'][0][2]-molecule['e_tot'][0][3])),\
+                       molecule['e_tot'][0][2]+2.0*abs((molecule['e_tot'][0][2]-molecule['e_tot'][0][3]))])
       #
       insert.xaxis.grid(False)
+   #
+   ax.legend(loc=1,ncol=2)
    #
    plt.savefig(molecule['wrk']+'/output/abs_energy_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
@@ -106,19 +122,22 @@ def n_tuples_plot(molecule):
             sec_prim.append(0)
             theo_sec.append(0)
       #
-      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',label='BG('+molecule['model'].upper()+') expansion',log=True)
-      #
-      sns.barplot(list(range(1,u_limit+1)),sec_prim,bottom=molecule['prim_n_tuples'][0],palette='RdPu',label='Energy est. ('+molecule['est_model'].upper()+')',log=True)
-      #
       sns.barplot(list(range(1,u_limit+1)),theo_sec,bottom=[(i + j) for i,j in zip(sec_prim,molecule['prim_n_tuples'][0])],\
                   palette='BuGn_d',label='Theoretical number',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),sec_prim,bottom=molecule['prim_n_tuples'][0],palette='Reds_r',\
+                  label='Energy est. ('+molecule['est_model'].upper()+')',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',\
+                  label='BG('+molecule['model'].upper()+') expansion',log=True)
    #
    else:
       #
-      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',label='BG('+molecule['model'].upper()+') expansion',log=True)
-      #
       sns.barplot(list(range(1,u_limit+1)),[(i - j) for i,j in zip(molecule['theo_work'][0],molecule['prim_n_tuples'][0])],\
                   bottom=molecule['prim_n_tuples'][0],palette='BuGn_d',label='Theoretical number',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',\
+                  label='BG('+molecule['model'].upper()+') expansion',log=True)
    #
    ax.xaxis.grid(False)
    #
@@ -187,13 +206,17 @@ def dev_ref_plot(molecule):
    #
    kcal_mol = 0.001594
    #
-   e_diff_abs = []
-   e_diff_rel = []
+   e_diff_tot_abs = []
+   e_diff_est_abs = []
+   e_diff_tot_rel = []
+   e_diff_est_rel = []
    #
    for i in range(0,len(molecule['e_tot'][0])):
       #
-      e_diff_abs.append((molecule['e_tot'][0][i]-molecule['e_ref'])/kcal_mol)
-      e_diff_rel.append((molecule['e_tot'][0][i]/molecule['e_ref'])*100.)
+      e_diff_tot_abs.append((molecule['e_tot'][0][i]-molecule['e_ref'])/kcal_mol)
+      e_diff_est_abs.append(((molecule['e_tot'][0][i]+molecule['e_est'][0][i])-molecule['e_ref'])/kcal_mol)
+      e_diff_tot_rel.append((molecule['e_tot'][0][i]/molecule['e_ref'])*100.)
+      e_diff_est_rel.append(((molecule['e_tot'][0][i]+molecule['e_est'][0][i])/molecule['e_ref'])*100.)
    #
    ax1.set_title('Absolute difference from E('+molecule['model'].upper()+')')
    #
@@ -205,7 +228,10 @@ def dev_ref_plot(molecule):
    #
    ax1.axhline(0.0,color='black',linewidth=2)
    #
-   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_abs,marker='x',linewidth=2,color='red',linestyle='-')
+   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_abs,marker='x',linewidth=2,color='blue',linestyle='-',\
+            label='BG('+molecule['model'].upper()+')')
+   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_est_abs,marker='x',linewidth=2,color='red',linestyle='-',\
+            label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
    #
    ax1.set_ylim([-3.4,3.4])
    #
@@ -215,11 +241,16 @@ def dev_ref_plot(molecule):
    #
    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
    #
+   ax1.legend(loc=1)
+   #
    ax2.set_title('Relative recovery of E('+molecule['model'].upper()+')')
    #
    ax2.axhline(100.0,color='black',linewidth=2)
    #
-   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_rel,marker='x',linewidth=2,color='red',linestyle='-')
+   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_rel,marker='x',linewidth=2,color='blue',linestyle='-',\
+            label='BG('+molecule['model'].upper()+')')
+   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_est_rel,marker='x',linewidth=2,color='red',linestyle='-',\
+            label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
    #
    ax2.set_xlim([0.5,u_limit+0.5])
    #
@@ -231,6 +262,8 @@ def dev_ref_plot(molecule):
    ax2.set_xlabel('Expansion order')
    #
    ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+   #
+   ax2.legend(loc=1)
    #
    sns.despine()
    #
