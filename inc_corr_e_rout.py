@@ -163,7 +163,7 @@ def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,time,k):
    #
    # calculate the energy at order k
    #
-   inc_corr_order(molecule,k,n_tup,tup,molecule['e_tot'][0],level)
+   inc_corr_order(molecule,k,n_tup,tup,molecule['e_tot'][0])
    #
    # collect time
    #
@@ -291,13 +291,13 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
             #
             return molecule
       #
-      # calculate the energy at order k
-      #
-      inc_corr_order(molecule,k,n_tup,tup,molecule['e_est'][0],level)
-      #
       # collect time
       #
       time.append(timer()-start)
+   #
+   # calculate the energies at all order k <= max_est_order
+   #
+   inc_corr_order_est(molecule,n_tup,tup,molecule['e_est'][0])
    #
    # print results
    #
@@ -530,7 +530,7 @@ def inc_corr_dual_exp(molecule):
    #
    return molecule
 
-def inc_corr_order(molecule,k,n_tup,tup,e_tot,level):
+def inc_corr_order(molecule,k,n_tup,tup,e_tot):
    #
    for j in range(0,n_tup[k-1]):
       #
@@ -544,13 +544,35 @@ def inc_corr_order(molecule,k,n_tup,tup,e_tot,level):
    #
    e_tmp = 0.0
    #
-   if (level == 'MACRO'):
+   for j in range(0,n_tup[k-1]):
+      #
+      e_tmp += tup[k-1][j][1]
+   #
+   if (k > 1):
+      #
+      e_tmp += e_tot[k-2]
+   #
+   e_tot.append(e_tmp)
+   #
+   return e_tot
+
+def inc_corr_order_est(molecule,n_tup,tup,e_est):
+   #
+   for k in range(1,molecule['max_est_order']+1):
       #
       for j in range(0,n_tup[k-1]):
          #
-         e_tmp += tup[k-1][j][1]
+         for i in range(k-1,0,-1):
+            #
+            for l in range(0,n_tup[i-1]):
+               #
+               if (set(tup[i-1][l][0]) < set(tup[k-1][j][0])):
+                  #
+                  tup[k-1][j][1] -= tup[i-1][l][1]
    #
-   elif (level == 'ESTIM'):
+   for k in range(1,molecule['max_est_order']+1):
+      #
+      e_tmp = 0.0
       #
       for j in range(0,n_tup[k-1]):
          #
@@ -567,14 +589,14 @@ def inc_corr_order(molecule,k,n_tup,tup,e_tot,level):
          if (not found):
             #
             e_tmp += tup[k-1][j][1]
-   #
-   if (k > 1):
       #
-      e_tmp += e_tot[k-2]
+      if (k > 1):
+         #
+         e_tmp += e_est[k-2]
+      #
+      e_est.append(e_tmp)
    #
-   e_tot.append(e_tmp)
-   #
-   return e_tot
+   return e_est
 
 def inc_corr_prepare(molecule):
    #
