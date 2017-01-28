@@ -621,28 +621,48 @@ def inc_corr_summary(molecule):
    #
    return molecule
 
-def print_status_header(molecule,num,order):
+def print_status_header_1(order):
    #
    print('')
    print('')
    print(' --------------------------------------------------------------------------------------------')
+   print(' STATUS-MACRO: order = {0:>d} tuple generation started'.format(order))
    #
-   if (molecule['conv'][-1]):
+   return
+
+def print_status_header_2(num,order,conv,time_gen):
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   print(' STATUS-MACRO: order = {0:>d} tuple generation done in {1:8.2e} seconds'.format(order,time_gen))
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   if (conv):
       #
-      print(' STATUS-MACRO:  order =  {0:>d} / {1:<d}  has no contributions --- *** calculation has converged ***'.format(order,molecule['theo_work'][0][0]))
+      print(' STATUS-MACRO: order = {0:>d} has no contributions --- *** calculation has converged ***'.format(order))
       print(' --------------------------------------------------------------------------------------------')
    #
    else:
       #
-      print(' STATUS-MACRO:  order =  {0:>d} / {1:<d}  started  ---  {2:d}  tuples in total'.format(order,molecule['theo_work'][0][0],num))
+      print(' STATUS-MACRO: order = {0:>d} energy calculation started  ---  {1:d} tuples in total'.format(order,num))
       print(' --------------------------------------------------------------------------------------------')
    #
    return
 
-def print_status_header_est(theo_order,max_order,num):
+def print_status_header_est_1(max_order):
+   #
+   print('')
+   print('')
+   print(' --------------------------------------------------------------------------------------------')
+   print(' STATUS-ESTIM: energy estimation through order = {0:>d} tuple generation started'.format(max_order))
+   #
+   return
+
+def print_status_header_est_2(max_order,num,time_gen):
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-ESTIM:  energy est. through order =  {0:>d} / {1:<d}  started  ---  {2:d}  tuples in total'.format(max_order,theo_order,num))
+   print(' STATUS-ESTIM: energy estimation through order = {0:>d} tuple generation done in {1:8.2e} seconds'.format(max_order,time_gen))
+   print(' --------------------------------------------------------------------------------------------')
+   print(' STATUS-ESTIM: energy estimation through order = {0:>d} started  ---  {1:d} tuples in total'.format(max_order,num))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -659,24 +679,25 @@ def print_status(prog,level):
    #
    return
 
-def print_status_end(molecule,order,time,n_tup,level):
+def print_status_end(order,time,n_tup,level):
    #
    print(' --------------------------------------------------------------------------------------------')
+   #
    if (n_tup[-1] == 0):
       #
-      print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  done'.format(order,n_tup[0]))
+      print(' STATUS-'+level+': order = {0:>d} energy calculation done'.format(order))
    #
    else:
       #
-      print(' STATUS-'+level+':  order =  {0:>d} / {1:<d}  done in {2:10.2e} seconds'.format(order,n_tup[0],time[-1]))
+      print(' STATUS-'+level+': order = {0:>d} energy calculation done in {1:8.2e} seconds'.format(order,time[-1]))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
 
-def print_status_end_est(theo_order,max_order,time):
+def print_status_end_est(max_order,time):
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-ESTIM:  energy est. through order =  {0:>d} / {1:<d}  done in {2:10.2e} seconds'.format(max_order,theo_order,sum(time)))
+   print(' STATUS-ESTIM: energy estimation through order = {0:>d} done in {1:8.2e} seconds'.format(max_order,sum(time)))
    print(' --------------------------------------------------------------------------------------------')
    print('')
    print('')

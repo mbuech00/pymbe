@@ -69,7 +69,7 @@ def inc_corr_mono_exp(molecule):
       #
       # print status end
       #
-      inc_corr_utils.print_status_end(molecule,k,molecule['prim_time'][0],molecule['prim_n_tuples'][0],'MACRO')
+      inc_corr_utils.print_status_end(k,molecule['prim_time'][0],molecule['prim_n_tuples'][0],'MACRO')
       #
       # return if converged
       #
@@ -99,7 +99,19 @@ def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,time,k):
    #
    tup.append([])
    #
+   # print status header-1
+   #
+   inc_corr_utils.print_status_header_1(k)
+   #
+   # start time
+   #
+   start = timer()
+   #
    inc_corr_orb_rout.orb_generator(molecule,dom,tup[k-1],molecule['l_limit'][0],k)
+   #
+   # collect time_gen
+   #
+   time_gen = timer() - start
    #
    # determine number of tuples at order k
    #
@@ -115,9 +127,9 @@ def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,time,k):
    #
    inc_corr_orb_rout.n_theo_tuples(n_tup[0],k,molecule['theo_work'][0])
    #
-   # print status header
+   # print status header-2
    #
-   inc_corr_utils.print_status_header(molecule,n_tup[k-1],k)
+   inc_corr_utils.print_status_header_2(n_tup[k-1],k,molecule['conv'][-1],time_gen)
    #
    # return if converged
    #
@@ -229,6 +241,14 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
    #
    # generate all tuples required for energy estimation
    #
+   # print status header-1
+   #
+   inc_corr_utils.print_status_header_est_1(molecule['max_est_order'])
+   #
+   # start time
+   #
+   start = timer()
+   #
    for k in range(1,molecule['max_est_order']+1):
       #
       # generate all tuples at order k
@@ -247,9 +267,13 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
       #
       n_tup.append(len(tup[k-1]))
    #
-   # print status header
+   # collect time_gen
    #
-   inc_corr_utils.print_status_header_est(molecule['theo_work'][0][0],molecule['max_est_order'],sum(n_tup))
+   time_gen = timer() - start
+   #
+   # print status header-2
+   #
+   inc_corr_utils.print_status_header_est_2(molecule['max_est_order'],sum(n_tup),time_gen)
    #
    # init counter for STATUS-ESTIM
    #
@@ -305,7 +329,7 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
    #
    # print status end
    #
-   inc_corr_utils.print_status_end_est(molecule['theo_work'][0][0],molecule['max_est_order'],time)
+   inc_corr_utils.print_status_end_est(molecule['max_est_order'],time)
    #
    # make the e_est and sec_time lists of the same length as the e_tot list
    #
