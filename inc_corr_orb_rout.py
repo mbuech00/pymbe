@@ -260,7 +260,7 @@ def init_domains(molecule):
    #
    for i in range(0,molecule['nocc']):
       #
-      molecule['occ_domain'].append([range(1,molecule['nocc']+1)])
+      molecule['occ_domain'].append([list(range(1,molecule['nocc']+1))])
       #
       molecule['occ_domain'][i][-1].pop(i)
    #
@@ -278,7 +278,7 @@ def init_domains(molecule):
    #
    for i in range(0,molecule['nvirt']):
       #
-      molecule['virt_domain'].append([range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)])
+      molecule['virt_domain'].append([list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1))])
       #
       molecule['virt_domain'][i][-1].pop(i)
    #
@@ -292,7 +292,7 @@ def reinit_domains(molecule,domain):
       #
       for i in range(0,molecule['nvirt']):
          #
-         domain.append([range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)])
+         domain.append([list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1))])
          #
          domain[i][-1].pop(i)  
    #
@@ -300,7 +300,7 @@ def reinit_domains(molecule,domain):
       #
       for i in range(0,molecule['nocc']):
          #
-         domain.append([range(1,molecule['nocc']+1)])
+         domain.append([list(range(1,molecule['nocc']+1))])
          #
          domain[i][-1].pop(i)
       #

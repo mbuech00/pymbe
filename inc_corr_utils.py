@@ -713,7 +713,7 @@ def print_result(tup):
    #
    for i in range(0,len(tup)):
       #
-      print(' RESULT-MACRO:  {0:>6d}           {1:> 8.4e}         {2:<}'.format(i+1,tup[i][1],tup[i][0]))
+      print(' RESULT-MACRO:  {0:>6d}           {1:> 8.4e}         {2!s:<}'.format(i+1,tup[i][1],tup[i][0]))
    #
    print(' --------------------------------------------------------------------------------------------')
    #
@@ -746,7 +746,7 @@ def print_result_est(molecule,sec_tup):
             #
             counter += 1
             #
-            print(' RESULT-ESTIM:  {0:>6d}           {1:> 8.4e}         {2:<}'.format(counter,sec_tup[i][j][1],sec_tup[i][j][0]))
+            print(' RESULT-ESTIM:  {0:>6d}           {1:> 8.4e}         {2!s:<}'.format(counter,sec_tup[i][j][1],sec_tup[i][j][0]))
    #
    print(' --------------------------------------------------------------------------------------------')
    #
@@ -771,7 +771,7 @@ def print_inner_result(molecule):
    for i in range(0,molecule['n_tuples'][0][-1]):
       #
       print(' RESULT-MICRO:  {0:>6d}            {1:> 8.4e}            '.\
-                       format(i+1,molecule['e_diff_in'][i])+'[{0:<}]'.format(', '.join(str(idx) for idx in rel_work_in[i])))
+                       format(i+1,molecule['e_diff_in'][i])+'[{0!s:<}]'.format(', '.join(str(idx) for idx in rel_work_in[i])))
    #
    print(' --------------------------------------------------------------------------------------------')
    #
@@ -801,7 +801,7 @@ def print_update(domain,l_limit,u_limit,level):
          #
          if (count[j]):
             #
-            print(' UPDATE-'+level+':     {0:>5}              {1:>6.2f}                 {2:>6.2f}            {3:<}'.\
+            print(' UPDATE-'+level+':     {0!s:>5}              {1:>6.2f}                 {2:>6.2f}            {3!s:<}'.\
                           format([(j+l_limit)+1],\
                                  (1.0-float(len(domain[j][-1]))/float(len(domain[j][-2])))*100.00,\
                                  (1.0-float(len(domain[j][-1]))/float(len(domain[j][0])))*100.00,\
@@ -822,5 +822,9 @@ class logger(object):
       #
       self.terminal.write(message)
       self.log.write(message)
+   #
+   def flush(self):
+      #
+      pass
 
 
