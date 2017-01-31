@@ -25,25 +25,32 @@ def redirect_stdout(molecule):
    #
    if (os.path.isdir(molecule['wrk']+'/output')):
       #
-      command='rm -rf '+molecule['wrk']+'/output'
+      command = 'rm -rf '+molecule['wrk']+'/output'
       os.system(command)
    #
-   mk_scr_dir(molecule['wrk']+'/output')
+   mk_out_dir(molecule['wrk']+'/output')
    #
    sys.stdout = logger(molecule['wrk']+'/output/stdout.out')
    #
    return molecule
 
+def mk_out_dir(directive):
+   #
+   command = 'mkdir '+directive
+   os.system(command)
+   #
+   return
+
 def mk_scr_dir(directive):
    #
-   command='mkdir '+directive
+   command = 'mkdir '+directive
    os.system(command)
    #
    return
 
 def rm_scr_dir(directive):
    #
-   command='rm -rf '+directive
+   command = 'rm -rf '+directive
    os.system(command)
    #
    return
@@ -56,17 +63,17 @@ def cd_dir(directive):
 
 def save_err_out(directive):
    #
-   command='cp '+directive+'/CFOUR.OUT .'
+   command = 'cp '+directive+'/CFOUR.OUT .'
    os.system(command)
    #
    return
 
 def prepare_calc():
    #
-   command='cp '+CFOUR_BASIS+' .'
+   command = 'cp '+CFOUR_BASIS+' .'
    os.system(command)
    #
-   command='cp '+CFOUR_BIN+'/x* .'
+   command = 'cp '+CFOUR_BIN+'/x* .'
    os.system(command)
    #
    return
@@ -231,6 +238,8 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'scr'):
                #
                molecule['scr'] = content[i].split()[1]
+               #
+               molecule['scr'] += '-'+str(molecule['rank'])
             #
             elif (content[i].split()[0] == 'debug'):
                #
