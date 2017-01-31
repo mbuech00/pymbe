@@ -22,11 +22,23 @@ def abs_energy_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Total '+molecule['model']+' energy')
+   ax.set_title('Total '+molecule['model'].upper()+' energy')
    #
-   ax.plot(list(range(1,len(molecule['e_fin'][0])+1)),molecule['e_fin'][0],marker='x',linewidth=2,color='red',linestyle='-')
+   u_limit = molecule['u_limit'][0]
    #
-   ax.set_xlim([0.5,molecule['u_limit'][0]+0.5])
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+      #
+      u_limit -= molecule['ncore']
+   #
+   ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0],marker='x',linewidth=2,color='blue',linestyle='-',\
+           label='BG('+molecule['model'].upper()+')')
+   #
+   if (molecule['est']):
+      #
+      ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0],molecule['e_est'][0])],\
+              marker='x',linewidth=2,color='red',linestyle='-',label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
+   #
+   ax.set_xlim([0.5,u_limit+0.5])
    #
    ax.xaxis.grid(False)
    #
@@ -37,7 +49,29 @@ def abs_energy_plot(molecule):
    #
    sns.despine()
    #
-   fig.tight_layout()
+   with sns.axes_style("whitegrid"):
+      #
+      insert = plt.axes([.35, .50, .50, .30],frameon=True)
+      #
+      insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0][1:],marker='x',linewidth=2,color='blue',linestyle='-')
+      #
+      if (molecule['est']):
+         #
+         insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0][1:],molecule['e_est'][0][1:])],\
+                     marker='x',linewidth=2,color='red',linestyle='-')
+      #
+      plt.setp(insert,xticks=list(range(3,len(molecule['e_tot'][0])+1)))
+      #
+      insert.set_xlim([2.5,len(molecule['e_tot'][0])+0.5])
+      #
+      insert.locator_params(axis='y',nbins=6)
+      #
+      insert.set_ylim([molecule['e_tot'][0][-1]-0.01,\
+                       molecule['e_tot'][0][-1]+0.01])
+      #
+      insert.xaxis.grid(False)
+   #
+   ax.legend(loc=1,ncol=2)
    #
    plt.savefig(molecule['wrk']+'/output/abs_energy_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
@@ -49,9 +83,61 @@ def n_tuples_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Total number of '+molecule['model']+' tuples')
+   ax.set_title('Total number of '+molecule['model'].upper()+' tuples')
    #
-   sns.barplot(list(range(1,len(molecule['e_fin'][0])+1)),molecule['n_tuples'][0][0:len(molecule['e_fin'][0])],palette='BuGn_d',log=True)
+   u_limit = molecule['u_limit'][0]
+   #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+      #
+      u_limit -= molecule['ncore']
+   #
+   if (molecule['est']):
+      #
+      sec_prim = []
+      theo_sec = []
+      #
+      for i in range(0,u_limit):
+         #
+         if (molecule['prim_n_tuples'][0][i] < molecule['theo_work'][0][i]):
+            #
+            if (molecule['sec_n_tuples'][0][i] > 0):
+               #
+               if (molecule['sec_n_tuples'][0][i] == molecule['theo_work'][0][i]):
+                  #
+                  sec_prim.append(molecule['sec_n_tuples'][0][i]-molecule['prim_n_tuples'][0][i])
+               #
+               else:
+                  #
+                  sec_prim.append(molecule['theo_work'][0][i]-molecule['prim_n_tuples'][0][i])
+               #
+               theo_sec.append(0)
+            #
+            else:
+               #
+               sec_prim.append(0)
+               theo_sec.append(molecule['theo_work'][0][i]-molecule['prim_n_tuples'][0][i])
+         #
+         else:
+            #
+            sec_prim.append(0)
+            theo_sec.append(0)
+      #
+      sns.barplot(list(range(1,u_limit+1)),theo_sec,bottom=[(i + j) for i,j in zip(sec_prim,molecule['prim_n_tuples'][0])],\
+                  palette='BuGn_d',label='Theoretical number',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),sec_prim,bottom=molecule['prim_n_tuples'][0],palette='Reds_r',\
+                  label='Energy est. ('+molecule['est_model'].upper()+')',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',\
+                  label='BG('+molecule['model'].upper()+') expansion',log=True)
+   #
+   else:
+      #
+      sns.barplot(list(range(1,u_limit+1)),[(i - j) for i,j in zip(molecule['theo_work'][0],molecule['prim_n_tuples'][0])],\
+                  bottom=molecule['prim_n_tuples'][0],palette='BuGn_d',label='Theoretical number',log=True)
+      #
+      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',\
+                  label='BG('+molecule['model'].upper()+') expansion',log=True)
    #
    ax.xaxis.grid(False)
    #
@@ -59,6 +145,8 @@ def n_tuples_plot(molecule):
    #
    ax.set_xlabel('Expansion order')
    ax.set_ylabel('Number of correlated tuples')
+   #
+   plt.legend(loc=1)
    #
    sns.despine()
    #
@@ -74,7 +162,7 @@ def e_contrib_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule["e_fin"][0]))+')')
+   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule["e_tot"][0]))+')')
    #
    orbital_arr = np.asarray(molecule['orbital'])
    #
@@ -82,18 +170,18 @@ def e_contrib_plot(molecule):
    #
    tot_sum = 0.0
    #
-   for i in range(0,len(molecule['e_fin'][0])):
+   for i in range(0,len(molecule['e_tot'][0])):
       #
       tot_sum += sum(orbital_arr[i,0:])
    #
-   for i in range(0,len(molecule['e_fin'][0])):
+   for i in range(0,len(molecule['e_tot'][0])):
       #
       for j in range(0,molecule['u_limit'][0]):
          #
          orbital_arr[i,j] = (orbital_arr[i,j] / tot_sum) * 100.0
    #
    ax = sns.heatmap(orbital_arr,linewidths=.5,xticklabels=range(1,u_limit+1),\
-                    yticklabels=range(1,len(molecule['e_fin'][0])+1),cmap='coolwarm',cbar=False,\
+                    yticklabels=range(1,len(molecule['e_tot'][0])+1),cmap='coolwarm',cbar=False,\
                     annot=True,fmt='.1f',vmin=-np.amax(orbital_arr),vmax=np.amax(orbital_arr))
    #
    ax.set_xlabel('Orbital')
@@ -105,7 +193,7 @@ def e_contrib_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_fin'][0])), bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_tot'][0])), bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -118,19 +206,32 @@ def dev_ref_plot(molecule):
    #
    kcal_mol = 0.001594
    #
-   e_diff_abs = []
-   e_diff_rel = []
+   e_diff_tot_abs = []
+   e_diff_est_abs = []
+   e_diff_tot_rel = []
+   e_diff_est_rel = []
    #
-   for i in range(0,len(molecule['e_fin'][0])):
+   for i in range(0,len(molecule['e_tot'][0])):
       #
-      e_diff_abs.append((molecule['e_fin'][0][i]-molecule['e_ref'])/kcal_mol)
-      e_diff_rel.append((molecule['e_fin'][0][i]/molecule['e_ref'])*100.)
+      e_diff_tot_abs.append((molecule['e_tot'][0][i]-molecule['e_ref'])/kcal_mol)
+      e_diff_est_abs.append(((molecule['e_tot'][0][i]+molecule['e_est'][0][i])-molecule['e_ref'])/kcal_mol)
+      e_diff_tot_rel.append((molecule['e_tot'][0][i]/molecule['e_ref'])*100.)
+      e_diff_est_rel.append(((molecule['e_tot'][0][i]+molecule['e_est'][0][i])/molecule['e_ref'])*100.)
    #
-   ax1.set_title('Absolute difference from E('+molecule['model']+')')
+   ax1.set_title('Absolute difference from E('+molecule['model'].upper()+')')
+   #
+   u_limit = molecule['u_limit'][0]
+   #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+      #
+      u_limit -= molecule['ncore']
    #
    ax1.axhline(0.0,color='black',linewidth=2)
    #
-   ax1.plot(list(range(1,len(molecule['e_fin'][0])+1)),e_diff_abs,marker='x',linewidth=2,color='red',linestyle='-')
+   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_abs,marker='x',linewidth=2,color='blue',linestyle='-',\
+            label='BG('+molecule['model'].upper()+')')
+   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_est_abs,marker='x',linewidth=2,color='red',linestyle='-',\
+            label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
    #
    ax1.set_ylim([-3.4,3.4])
    #
@@ -140,13 +241,18 @@ def dev_ref_plot(molecule):
    #
    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
    #
-   ax2.set_title('Relative recovery of E('+molecule['model']+')')
+   ax1.legend(loc=1)
+   #
+   ax2.set_title('Relative recovery of E('+molecule['model'].upper()+')')
    #
    ax2.axhline(100.0,color='black',linewidth=2)
    #
-   ax2.plot(list(range(1,len(molecule['e_fin'][0])+1)),e_diff_rel,marker='x',linewidth=2,color='red',linestyle='-')
+   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_rel,marker='x',linewidth=2,color='blue',linestyle='-',\
+            label='BG('+molecule['model'].upper()+')')
+   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_est_rel,marker='x',linewidth=2,color='red',linestyle='-',\
+            label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
    #
-   ax2.set_xlim([0.5,molecule['u_limit'][0]+0.5])
+   ax2.set_xlim([0.5,u_limit+0.5])
    #
    ax2.xaxis.grid(False)
    #
@@ -156,6 +262,8 @@ def dev_ref_plot(molecule):
    ax2.set_xlabel('Expansion order')
    #
    ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+   #
+   ax2.legend(loc=1)
    #
    sns.despine()
    #
@@ -171,9 +279,9 @@ def ic_plot(molecule):
    #
    abs_energy_plot(molecule)
    #
-#   #  ---  plot number of calculations from each orbital  ---
-#   #
-#   n_tuples_plot(molecule)
+   #  ---  plot number of calculations from each orbital  ---
+   #
+   n_tuples_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #

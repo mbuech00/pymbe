@@ -27,14 +27,14 @@ def run_calc_hf(molecule):
    #
    return molecule
 
-def run_calc_corr(molecule,drop_string,ref):
+def run_calc_corr(molecule,drop_string,level):
    #
-   write_zmat_corr(molecule,drop_string,ref)
+   write_zmat_corr(molecule,drop_string,level)
    #
    command='xcfour &> CFOUR.OUT'
    os.system(command)
    #
-   write_energy(molecule,ref)
+   write_energy(molecule,level)
    #
    if (not molecule['error'][0][-1]):
       command='xclean'
@@ -70,7 +70,7 @@ def write_zmat_hf(molecule):
       #
       out.write('REF=UHF\n')
    #
-   out.write('BASIS='+molecule['basis']+'\n')
+   out.write('BASIS='+molecule['basis'].upper()+'\n')
    #
    out.write('MEMORY='+str(molecule['mem'])+'\n')
    out.write('MEM_UNIT=GB)\n')
@@ -79,13 +79,21 @@ def write_zmat_hf(molecule):
    #
    out.close()
 
-def write_zmat_corr(molecule,drop_string,ref):
+def write_zmat_corr(molecule,drop_string,level):
    #
    out=open('ZMAT','w')
    #
    out.write(molecule['mol'])
    #
-   if (molecule['model'] == 'FCI'):
+   if (level == 'ESTIM'):
+      #
+      model = molecule['est_model'].upper()
+   #
+   else:
+      #
+      model = molecule['model'].upper()
+   #
+   if (model.lower() == 'fci'):
       #
       out.write('*CFOUR(CALC=FULLCI\n')
       out.write('CAS_MMAX=10\n')
@@ -93,7 +101,7 @@ def write_zmat_corr(molecule,drop_string,ref):
    #
    else:
       #
-      out.write('*CFOUR(CALC='+molecule['model']+'\n')
+      out.write('*CFOUR(CALC='+model+'\n')
       out.write('CC_PROG=VCC\n')
       out.write('CC_EXPORDER=10\n')
       out.write('CC_MAXCYC=200\n')
@@ -119,7 +127,7 @@ def write_zmat_corr(molecule,drop_string,ref):
       out.write('SYMMETRY=OFF\n')
       out.write('ORBITALS=LOCAL\n')
    #
-   if ((molecule['frozen'] == 'TRAD') and ref):
+   if ((molecule['frozen'] == 'conv') and (level == 'REF')):
       #
       out.write('FROZEN_CORE=ON\n')
    #
@@ -133,7 +141,7 @@ def write_zmat_corr(molecule,drop_string,ref):
       #
       out.write('REF=UHF\n')
    #
-   out.write('BASIS='+molecule['basis']+'\n')
+   out.write('BASIS='+molecule['basis'].upper()+'\n')
    #
    out.write('MEMORY='+str(molecule['mem'])+'\n')
    out.write('MEM_UNIT=GB)\n')
@@ -193,27 +201,41 @@ def get_dim(molecule):
    #
    return molecule
 
-def write_energy(molecule,ref):
+def write_energy(molecule,level):
    #
    inp=open('CFOUR.OUT','r')
    #
    regex_err = '\s+ERROR ERROR'
    #
+   if ((level == 'MACRO') or (level == 'REF')):
+      #
+      model = molecule['model']
+      regex = molecule['regex']
+   #
+   elif (level == 'ESTIM'):
+      #
+      model = molecule['est_model']
+      regex = molecule['est_regex']
+   #
    while 1:
       #
       line=inp.readline()
       #
-      if re.match(molecule['regex'],line) is not None:
+      if re.match(regex,line) is not None:
          #
-         if (molecule['model'] == 'FCI'):
+         if (model == 'fci'):
             #
             [tmp] = line.split()[3:4]
          #
-         else:
+         elif (model == 'mp2'):
+            #
+            [tmp] = line.split()[2:3]
+         #
+         else: # CC
             #
             [tmp] = line.split()[4:5]
          #
-         if (ref):
+         if (level == 'REF'):
             #
             molecule['e_ref'] = float(tmp)
          #
@@ -225,7 +247,7 @@ def write_energy(molecule,ref):
       #
       elif re.match(regex_err,line) is not None:
          #
-         print('problem with '+molecule['model']+' calculation, aborting ...')
+         print('problem with '+model+' calculation, aborting ...')
          molecule['error'][0].append(True)
          inp.close()
          #
@@ -237,18 +259,18 @@ def write_energy(molecule,ref):
 
 def ref_calc(molecule):
    #
-   print(' ------------------------------------------')
-   print(' STATUS-REF:  Full reference calc.  started')
-   print(' ------------------------------------------')
+   print(' --------------------------------------------------------------------------------------------')
+   print(' STATUS-REF: full reference calculation started')
+   print(' --------------------------------------------------------------------------------------------')
    #
    start = timer()
    #
-   run_calc_corr(molecule,'',True)
+   run_calc_corr(molecule,'','REF')
    #
-   molecule['time'][0].append(timer()-start)
+   molecule['prim_time'][0].append(timer()-start)
    #
-   print(' STATUS-REF:  Full reference calc.  done in {0:10.2e} seconds'.format(molecule['time'][0][-1]))
-   print(' -------------------------------------------------------------')
+   print(' STATUS-REF: full reference calculation done in {0:10.2e} seconds'.format(molecule['prim_time'][0][-1]))
+   print(' --------------------------------------------------------------------------------------------')
    print('')
    #
    return molecule
