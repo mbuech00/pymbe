@@ -7,6 +7,8 @@
 # Requires the path of the cfour basis GENBAS file ($CFOURBASIS) and bin directory ($CFOURBIN) in inc_corr_utils.py
 #
 
+from mpi4py import MPI
+
 import inc_corr_mpi
 import inc_corr_utils
 import inc_corr_orb_rout
@@ -18,19 +20,19 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
 def main():
    #
-   #  ---  init molecule dictionary... ---
+   #  ---  init molecule dict...  ---
    #
    molecule = {}
    #
-   #  ---  init MPI info
+   #  ---  init mpi...  ---
    #
-   inc_corr_mpi.init_mpi_info(molecule)
+   inc_corr_mpi.init_mpi(molecule)
    #
-   #  ---  master only
+   #  ---  master only...  ---
    #
-   if (molecule['master']):
+   if (MPI.COMM_WORLD.Get_rank() == 0):
       #
-      #  ---  redirect stdout to output.out - if present in wrk dir (alongside plotting output), delete these files before proceeding...  ---
+      #  ---  redirect stdout to output.out...  ---
       #
       inc_corr_utils.redirect_stdout(molecule)
       #
@@ -40,7 +42,7 @@ def main():
       #
       #  ---  setup of scratch directory...  ---
       #
-      inc_corr_utils.setup_calc(molecule)
+      inc_corr_utils.setup_calc(molecule['scr'])
       #
       #  ---  run HF calc to determine problem size parameters...  ---
       #
@@ -77,8 +79,10 @@ def main():
       #  ---  terminate calculation and clean up...  ---
       #
       inc_corr_utils.term_calc(molecule)
-      #
-      inc_corr_mpi.finalize_mpi(molecule)
+   #
+   #  ---  finalize mpi...  ---
+   #
+   inc_corr_mpi.finalize_mpi(molecule)
 
 if __name__ == '__main__':
    #

@@ -12,6 +12,7 @@ import sys
 import os
 import re
 
+import inc_corr_mpi
 import inc_corr_orb_rout
 
 CFOUR_BASIS='$CFOURBASIS'
@@ -34,36 +35,36 @@ def redirect_stdout(molecule):
    #
    return molecule
 
-def mk_out_dir(directive):
+def mk_out_dir(directory):
    #
-   command = 'mkdir '+directive
+   command = 'mkdir '+directory
    os.system(command)
    #
    return
 
-def mk_scr_dir(directive):
+def mk_scr_dir(directory):
    #
-   command = 'mkdir '+directive
+   command = 'mkdir '+directory
    os.system(command)
    #
    return
 
-def rm_scr_dir(directive):
+def rm_scr_dir(directory):
    #
-   command = 'rm -rf '+directive
+   command = 'rm -rf '+directory
    os.system(command)
    #
    return
 
-def cd_dir(directive):
+def cd_dir(directory):
    #
-   os.chdir(directive)
+   os.chdir(directory)
    #
    return
 
-def save_err_out(directive):
+def save_err_out(directory):
    #
-   command = 'cp '+directive+'/CFOUR.OUT .'
+   command = 'cp '+directory+'/CFOUR.OUT .'
    os.system(command)
    #
    return
@@ -78,11 +79,11 @@ def prepare_calc():
    #
    return
 
-def setup_calc(molecule):
+def setup_calc(directory):
    #
-   mk_scr_dir(molecule['scr'])
+   mk_scr_dir(directory)
    #
-   cd_dir(molecule['scr'])
+   cd_dir(directory)
    #
    prepare_calc()
    #
@@ -98,8 +99,10 @@ def term_calc(molecule):
    #
    rm_scr_dir(molecule['scr'])
    #
-   print(' ** end of bethe-goldstone '+molecule['model']+' calculation **\n')
-   print('\n')
+   if (molecule['mpi_master']):
+      #
+      print(' ** end of bethe-goldstone '+molecule['model']+' calculation **\n')
+      print('\n')
    #
    return
 
@@ -238,8 +241,6 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'scr'):
                #
                molecule['scr'] = content[i].split()[1]
-               #
-               molecule['scr'] += '-'+str(molecule['rank'])
             #
             elif (content[i].split()[0] == 'debug'):
                #
@@ -363,11 +364,23 @@ def set_fc_scheme(molecule):
 
 def init_calc(molecule):
    #
+   # init error list
+   #
    molecule['error'] = [[False]]
+   #
+   # init molecular info
    #
    init_mol(molecule)
    #
+   # init expansion parameters et al.
+   #
    init_param(molecule)
+   #
+   # if mpi parallel run, bcast the molecular dictionary
+   #
+   if (molecule['mpi_parallel']):
+      #
+      inc_corr_mpi.bcast_mol_dict(molecule)
    #
    return molecule
 
@@ -517,13 +530,40 @@ def inc_corr_summary(molecule):
    print('   ****************                 ****************')
    print('   *************************************************\n')
    #
-   print('   {0:} {1:} bethe-goldstone expansion'.format(molecule['scheme'],molecule['model']))
+   print('            bethe-goldstone {0:} expansion\n'.format(molecule['model']))
    #
    print('   ---------------------------------------------')
+   print('              molecular information             ')
+   print('   ---------------------------------------------')
+   print('')
    print('   frozen core               =  {0:} {1:}'.format((molecule['frozen'] != 'none'),molecule['frozen_scheme']))
    print('   local orbitals            =  {0:}'.format(molecule['local']))
    print('   occupied orbitals         =  {0:}'.format(molecule['nocc']))
    print('   virtual orbitals          =  {0:}'.format(molecule['nvirt']))
+   #
+   print('')
+   print('   ---------------------------------------------')
+   print('              expansion information             ')
+   print('   ---------------------------------------------')
+   print('')
+   #
+   print('   type of expansion         =  {0:}'.format(molecule['scheme']))
+   #
+   print('   bethe-goldstone order     =  {0:}'.format(len(molecule['e_tot'][0])))
+   #
+   print('   energy estimation         =  {0:}'.format(molecule['est']))
+   #
+   if (molecule['est']):
+      #
+      print('   energy estimation model   =  {0:}'.format(molecule['est_model']))
+      #
+      print('   energy estimation order   =  {0:}'.format(molecule['max_est_order']))
+   #
+   else:
+      #
+      print('   energy estimation model   =  N/A')
+      #
+      print('   energy estimation order   =  N/A')
    #
    if (molecule['exp'] == 'occ'):
       #
@@ -545,31 +585,21 @@ def inc_corr_summary(molecule):
       print('   exp. threshold (occ.)     =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
       print('   exp. threshold (virt.)    =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
    #
-   print('   energy estimation         =  {0:}'.format(molecule['est']))
-   #
-   if (molecule['est']):
-      #
-      print('   energy estimation model   =  {0:}'.format(molecule['est_model']))
-   #
-   else:
-      #
-      print('   energy estimation model   =  N/A')
-   #
    print('   error in calculation      =  {0:}'.format(molecule['error'][0][-1]))
    #
+   print('')
    print('   ---------------------------------------------')
-   #
-   print('   bethe-goldstone order     =  {0:}'.format(len(molecule['e_tot'][0])))
-   #
-   if (molecule['est']):
-      #
-      print('   energy estimation order   =  {0:}'.format(molecule['max_est_order']))
-   #
-   else:
-      #
-      print('   energy estimation order   =  N/A')
-   #
+   print('                  mpi information               ')
    print('   ---------------------------------------------')
+   print('')
+   #
+   print(' write me...')
+   #
+   print('')
+   print('   ---------------------------------------------')
+   print('                   final results                ')
+   print('   ---------------------------------------------')
+   print('')
    #
    print('   final conv. (excl. est.)  =  {0:>12.5e}'.format(molecule['e_tot'][0][-1]-molecule['e_tot'][0][-2]))
    print('   final conv. (incl. est.)  =  {0:>12.5e}'.format((molecule['e_tot'][0][-1]+molecule['e_est'][0][-1])-(molecule['e_tot'][0][-2]+molecule['e_est'][0][-2])))
@@ -593,6 +623,10 @@ def inc_corr_summary(molecule):
       print('   final diff. (incl. est.)  =  {0:>12.5e}'.format(final_diff_est))
    #
    print('')
+   print('')
+   print('                                              ---------------------------------------------                                                 ')
+   print('                                                             detailed results                                                               ')
+   print('                                              ---------------------------------------------                                                 ')
    print('')
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
@@ -819,6 +853,12 @@ def print_update(domain,l_limit,u_limit,level):
       print(' --------------------------------------------------------------------------------------------')
    #
    return
+
+def enum(*sequential,**named):
+   #
+   enums = dict(zip(sequential,range(len(sequential))),**named)
+   #
+   return type('Enum',(), enums)
 
 class logger(object):
    #

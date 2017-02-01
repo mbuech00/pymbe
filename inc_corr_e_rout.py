@@ -9,11 +9,12 @@
 import sys
 import copy
 from timeit import default_timer as timer
+from mpi4py import MPI
 
 import inc_corr_gen_rout
 import inc_corr_orb_rout
 import inc_corr_utils
-import inc_corr_plot
+import inc_corr_mpi
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
@@ -149,29 +150,13 @@ def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,time,k):
    #
    # run the calculations
    #
-   for i in range(0,n_tup[k-1]):
+   if (molecule['mpi_parallel']):
       #
-      # write string
+      energy_calc_mono_exp_par(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
+   #
+   else:
       #
-      inc_corr_orb_rout.orb_string(molecule,molecule['l_limit'][0],molecule['u_limit'][0],tup[k-1][i][0])
-      #
-      # run correlated calc
-      #
-      inc_corr_gen_rout.run_calc_corr(molecule,molecule['string'],level)
-      #
-      # write tuple energy
-      #
-      tup[k-1][i].append(molecule['e_tmp'])
-      #
-      # print status
-      #
-      inc_corr_utils.print_status(float(i+1)/float(n_tup[k-1]),level)
-      #
-      # error check
-      #
-      if (molecule['error'][0][-1]):
-         #
-         return molecule
+      energy_calc_mono_exp_ser(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
    #
    # calculate the energy at order k
    #
@@ -281,6 +266,8 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
    #
    # perform energy estimation
    #
+   string = ''
+   #
    for k in range(1,molecule['max_est_order']+1):
       #
       # start time
@@ -295,11 +282,11 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
          #
          # write string
          #
-         inc_corr_orb_rout.orb_string(molecule,molecule['l_limit'][0],molecule['u_limit'][0],tup[k-1][i][0])
+         inc_corr_orb_rout.orb_string(molecule,molecule['l_limit'][0],molecule['u_limit'][0],tup[k-1][i][0],string)
          #
          # run correlated calc
          #
-         inc_corr_gen_rout.run_calc_corr(molecule,molecule['string'],level)
+         inc_corr_gen_rout.run_calc_corr(molecule,string,level)
          #
          # write tuple energy
          #
@@ -433,21 +420,23 @@ def inc_corr_dual_exp(molecule):
             # 
             # run the calculations (for inner expansion)
             #
+            string = ''
+            #
             for j in range(0,molecule['n_tuples'][1][l-1]):
                #
                # write string
                #
                if (molecule['exp'] == 'comb-ov'):
                   #
-                  inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][0][k-1][i][0]+molecule['tuple'][1][l-1][j][0])
+                  inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][0][k-1][i][0]+molecule['tuple'][1][l-1][j][0],string)
                #
                elif (molecule['exp'] == 'comb-vo'):
                   #
-                  inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][1][l-1][j][0]+molecule['tuple'][0][k-1][i][0])
+                  inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][1][l-1][j][0]+molecule['tuple'][0][k-1][i][0],string)
                #
                # run correlated calc
                #
-               inc_corr_gen_rout.run_calc_corr(molecule,molecule['string'],False)
+               inc_corr_gen_rout.run_calc_corr(molecule,string,False)
                #
                # write tuple energy
                #
@@ -553,6 +542,150 @@ def inc_corr_dual_exp(molecule):
          inc_corr_utils.print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
    #
    return molecule
+
+def energy_calc_mono_exp_ser(molecule,order,tup,n_tup,l_limit,u_limit,level):
+   #
+   string = {'drop': ''}
+   #
+   for i in range(0,n_tup[order-1]):
+      #
+      # write string
+      #
+      inc_corr_orb_rout.orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
+      #
+      # run correlated calc
+      #
+      inc_corr_gen_rout.run_calc_corr(molecule,string['drop'],level)
+      #
+      # write tuple energy
+      #
+      tup[order-1][i].append(molecule['e_tmp'])
+      #
+      # print status
+      #
+      inc_corr_utils.print_status(float(i+1)/float(n_tup[order-1]),level)
+      #
+      # error check
+      #
+      if (molecule['error'][0][-1]):
+         #
+         return molecule, tup
+   #
+   return molecule, tup
+
+def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
+   #
+   string = {'drop': ''}
+   #
+   # number of slaves
+   #
+   num_slaves = molecule['mpi_size'] - 1
+   #
+   # number of available slaves
+   #
+   slaves_avail = num_slaves
+   #
+   # define mpi message tags
+   #
+   tags = inc_corr_utils.enum('ready','done','exit','start')
+   #
+   # init job index
+   #
+   i = 0
+   #
+   # init stat counter
+   #
+   counter = 0
+   #
+   # wake up slaves
+   #
+   msg = {'task': 'energy_calc_mono_exp'}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   while (slaves_avail >= 1):
+      #
+      # write string
+      #
+      if (i <= (n_tup[order-1]-1)):
+         #
+         inc_corr_orb_rout.orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
+      #
+      # run correlated calc
+      #
+      # receive data dict
+      #
+      data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=molecule['mpi_stat'])
+      #
+      # probe for source
+      #
+      source = molecule['mpi_stat'].Get_source()
+      #
+      # probe for tag
+      #
+      tag = molecule['mpi_stat'].Get_tag()
+      #
+      if (tag == tags.ready):
+         #
+         if (i <= (n_tup[order-1]-1)):
+            #
+            # store job index
+            #
+            string['index'] = i
+            #
+            # send string dict
+            #
+            molecule['mpi_comm'].send(string, dest=source, tag=tags.start)
+            #
+            # increment job index
+            #
+            i += 1
+            #
+            if (molecule['debug']):
+               #
+               print('sending slave '+str(source)+' the following string = '+str(string))
+         #
+         else:
+            #
+            molecule['mpi_comm'].send(None, dest=source, tag=tags.exit)
+      #
+      elif (tag == tags.done):
+         #
+         # write tuple energy
+         #
+         tup[order-1][data['index']].append(data['e_tmp'])
+         #
+         # increment stat counter
+         #
+         counter += 1
+         #
+         # print status
+         #
+         inc_corr_utils.print_status(float(counter)/float(n_tup[order-1]),level)
+         #
+         # error check
+         #
+         if (data['error']):
+            #
+            print('problem with slave '+str(source)+' -- aborting...')
+            #
+            molecule['error'][0].append(True)
+            #
+            return molecule, tup
+         #
+         if (molecule['debug']):
+            #
+            print('received from slave '+str(source)+' the following data = '+str(data))
+      #
+      elif (tag == tags.exit):
+         #
+         slaves_avail -= 1
+         #
+         if (molecule['debug']):
+            #
+            print('slave '+str(source)+' exited')
+   #
+   return molecule, tup
 
 def inc_corr_order(molecule,k,n_tup,tup,e_tot):
    #
