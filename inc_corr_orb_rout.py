@@ -81,7 +81,7 @@ def orb_generator(molecule,dom,tup,l_limit,k):
    #
    return tup
 
-def orb_string(molecule,l_limit,u_limit,tup):
+def orb_string(molecule,l_limit,u_limit,tup,string):
    #
    # generate list with all occ/virt orbitals
    #
@@ -102,13 +102,14 @@ def orb_string(molecule,l_limit,u_limit,tup):
    # now write the string
    #
    inc = 0
-   molecule['string'] = ''
+   #
+   string['drop'] = ''
    #
    for i in range(0,len(drop)):
       #
       if (inc == 0):
          #
-         molecule['string'] += 'DROP_MO='+str(drop[i])
+         string['drop'] += 'DROP_MO='+str(drop[i])
       #
       else:
          #
@@ -118,23 +119,23 @@ def orb_string(molecule,l_limit,u_limit,tup):
                #
                if (drop[i] != (drop[i+1]-1)):
                   #
-                  molecule['string'] += '>'+str(drop[i])
+                  string['drop'] += '>'+str(drop[i])
             #
             else:
                #
-               molecule['string'] += '>'+str(drop[i])
+               string['drop'] += '>'+str(drop[i])
          #
          else:
             #
-            molecule['string'] += '-'+str(drop[i])
+            string['drop'] += '-'+str(drop[i])
       #
       inc += 1
    #
-   if (molecule['string'] != ''):
+   if (string['drop'] != ''):
       #
-      molecule['string'] += '\n'
+      string['drop'] += '\n'
    #
-   return molecule
+   return string
 
 def orb_screen_rout(molecule,tup,orb,dom,thres,l_limit,u_limit,level):
    #
@@ -203,12 +204,14 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
    if (molecule['debug']):
       #
       print('')
-      print(' --- relative contributions ---')
+      print('   ---------------------------------------------')
+      print('           relative orb. contributions          ')
+      print('   ---------------------------------------------')
       #
       for i in range(0,len(orb)):
          #
          print('')
-         print(' * order = '+str(i+2))
+         print(' * BG exp. order = '+str(i+2))
          print('')
          #
          tmp = []
@@ -222,8 +225,6 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
                tmp[j].append(orb[i][j][k+1][1][-1])
             #
             print(' {0:}'.format(j+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
-      #
-      print('')
    #
    return orb
 

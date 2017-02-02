@@ -93,7 +93,7 @@ def write_zmat_corr(molecule,drop_string,level):
       #
       model = molecule['model'].upper()
    #
-   if (model.lower() == 'fci'):
+   if (model == 'FCI'):
       #
       out.write('*CFOUR(CALC=FULLCI\n')
       out.write('CAS_MMAX=10\n')
