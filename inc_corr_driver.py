@@ -158,7 +158,7 @@ def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,time,k):
    #
    # calculate the energy at order k
    #
-   inc_corr_e_rout.inc_corr_order(molecule,k,n_tup,tup,molecule['e_tot'][0])
+   inc_corr_e_rout.inc_corr_order(molecule,k,tup,molecule['e_tot'][0])
    #
    # collect time
    #
@@ -184,9 +184,13 @@ def inc_corr_mono_exp_corr(molecule,tup,dom,n_tup,time):
    #
    level = 'CORR '
    #
-   # set molecule['max_corr_order']
+   # set min and max _corr_order
    #
-   inc_corr_e_rout.set_max_corr_order(molecule,n_tup,time)
+   inc_corr_e_rout.set_corr_order(molecule,n_tup,time)
+   #
+   if (molecule['max_corr_order'] == 0):
+      #
+      return molecule
    #
    # generate all tuples required for energy correction
    #
@@ -199,16 +203,22 @@ def inc_corr_mono_exp_corr(molecule,tup,dom,n_tup,time):
    start = timer()
    #
    for k in range(1,molecule['max_corr_order']+1):
-      #
-      # generate all tuples at order k
-      #
+      # 
       tup.append([])
       #
-      inc_corr_orb_rout.orb_generator(molecule,dom,tup[k-1],molecule['l_limit'][0],k)
+      if (k < molecule['min_corr_order']):
+         #
+         molecule['e_corr'][0].append(0.0)
+         #
+         time.append(0.0)
       #
-      # only calculate required tuples at order k == molecule['max_corr_order']
-      #
-      if (k == molecule['max_corr_order']):
+      else:
+         #
+         # generate all tuples at order k
+         #
+         inc_corr_orb_rout.orb_generator(molecule,dom,tup[k-1],molecule['l_limit'][0],k)
+         #
+         # only calculate required tuples at order k == molecule['max_corr_order']
          #
          inc_corr_orb_rout.select_corr_tuples(molecule['prim_tuple'][0],tup,k)
       #
@@ -236,7 +246,7 @@ def inc_corr_mono_exp_corr(molecule,tup,dom,n_tup,time):
    #
    # calculate the energies at all order k <= max_corr_order
    #
-   inc_corr_e_rout.inc_corr_order_corr(molecule,n_tup,tup,molecule['e_corr'][0])
+   inc_corr_e_rout.inc_corr_order_corr(molecule,tup,molecule['e_corr'][0])
    #
    # print results
    #
@@ -378,7 +388,7 @@ def inc_corr_dual_exp(molecule):
             #
             # calculate the energy at order l (for inner expansion)
             #
-            inc_corr_e_rout.inc_corr_order(l,molecule['tuple'][1],molecule['e_tot'][1])
+            inc_corr_e_rout.inc_corr_order(molecule,l,molecule['tuple'][1],molecule['e_tot'][1])
             #
             # set up entanglement and exclusion lists (for inner expansion)
             #
@@ -429,7 +439,7 @@ def inc_corr_dual_exp(molecule):
       #
       # calculate the energy at order k (for outer expansion)
       #
-      inc_corr_e_rout.inc_corr_order(k,molecule['tuple'][0],molecule['e_tot'][0])
+      inc_corr_e_rout.inc_corr_order(molecule,k,molecule['tuple'][0],molecule['e_tot'][0])
       #
       # set up entanglement and exclusion lists (for outer expansion)
       #

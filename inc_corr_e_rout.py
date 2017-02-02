@@ -152,7 +152,7 @@ def energy_calc_mono_exp_corr_ser(molecule,tup,n_tup,l_limit,u_limit,time,level)
    #
    counter = 0
    #
-   for k in range(1,molecule['max_corr_order']+1):
+   for k in range(molecule['min_corr_order'],molecule['max_corr_order']+1):
       #
       # start time
       #
@@ -267,7 +267,7 @@ def energy_calc_mono_exp_corr_par(molecule,tup,n_tup,l_limit,u_limit,time,level)
             #
             else:
                #
-               if (k > 1):
+               if (k > molecule['min_corr_order']):
                   #
                   k -= 1
                   #
@@ -323,19 +323,21 @@ def energy_calc_mono_exp_corr_par(molecule,tup,n_tup,l_limit,u_limit,time,level)
    #
    return molecule, tup
 
-def set_max_corr_order(molecule,n_tup,time):
+def set_corr_order(molecule,n_tup,time):
    #
-   diff_order = 0
+   molecule['min_corr_order'] = 0
    #
    for i in range(0,len(molecule['prim_n_tuples'][0])):
       #
       if ((molecule['prim_n_tuples'][0][i] < molecule['theo_work'][0][i]) and (molecule['prim_n_tuples'][0][i] > 0)):
          #
-         diff_order = i
+         molecule['min_corr_order'] = i+1
          #
          break
    #
-   if (diff_order == 0):
+   if (molecule['min_corr_order'] == 0):
+      #
+      molecule['corr'] = False
       #
       molecule['max_corr_order'] = 0
       #
@@ -343,33 +345,35 @@ def set_max_corr_order(molecule,n_tup,time):
       #
       for _ in range(0,len(molecule['e_tot'][0])):
          #
-         n_tup.append(0)
-         #
          molecule['e_corr'][0].append(0.0)
          #
          time.append(0.0)
       #
+      for _ in range(0,len(molecule['prim_n_tuples'][0])):
+         #
+         n_tup.append(0)
+      #
       return molecule
    #
-   elif ((diff_order + molecule['corr_order']) > (len(molecule['prim_tuple'][0])-1)):
+   elif ((molecule['min_corr_order'] + (molecule['corr_order']-1)) > (len(molecule['prim_tuple'][0])-1)):
       #
       molecule['max_corr_order'] = len(molecule['prim_tuple'][0])-1
       #
-      molecule['corr_order'] = (len(molecule['prim_tuple'][0])-1) - diff_order
+      molecule['corr_order'] = (len(molecule['prim_tuple'][0])-1) - molecule['min_corr_order']
    #
    else:
       #
-      molecule['max_corr_order'] = diff_order + molecule['corr_order']
+      molecule['max_corr_order'] = molecule['min_corr_order'] + (molecule['corr_order']-1)
    #
    return molecule
 
-def inc_corr_order(molecule,k,n_tup,tup,e_tot):
+def inc_corr_order(molecule,k,tup,e_tot):
    #
-   for j in range(0,n_tup[k-1]):
+   for j in range(0,len(tup[k-1])):
       #
       for i in range(k-1,0,-1):
          #
-         for l in range(0,n_tup[i-1]):
+         for l in range(0,len(tup[i-1])):
             #
             if (set(tup[i-1][l][0]) < set(tup[k-1][j][0])):
                #
@@ -377,7 +381,7 @@ def inc_corr_order(molecule,k,n_tup,tup,e_tot):
    #
    e_tmp = 0.0
    #
-   for j in range(0,n_tup[k-1]):
+   for j in range(0,len(tup[k-1])):
       #
       e_tmp += tup[k-1][j][1]
    #
@@ -389,43 +393,35 @@ def inc_corr_order(molecule,k,n_tup,tup,e_tot):
    #
    return e_tot
 
-def inc_corr_order_corr(molecule,n_tup,tup,e_corr):
+def inc_corr_order_corr(molecule,tup,e_corr):
    #
-   for k in range(1,molecule['max_corr_order']+1):
+   for k in range(molecule['min_corr_order'],molecule['max_corr_order']+1):
       #
-      for j in range(0,n_tup[k-1]):
+      for j in range(0,len(tup[k-1])):
          #
          for i in range(k-1,0,-1):
             #
-            for l in range(0,n_tup[i-1]):
+            for l in range(0,len(tup[i-1])):
                #
                if (set(tup[i-1][l][0]) < set(tup[k-1][j][0])):
                   #
                   tup[k-1][j][1] -= tup[i-1][l][1]
+            #
+            for l in range(0,len(molecule['prim_tuple'][0][i-1])):
+               #
+               if (set(molecule['prim_tuple'][0][i-1][l][0]) < set(tup[k-1][j][0])):
+                  #
+                  tup[k-1][j][1] -= molecule['prim_tuple'][0][i-1][l][1]
    #
-   for k in range(1,molecule['max_corr_order']+1):
+   for k in range(molecule['min_corr_order'],molecule['max_corr_order']+1):
       #
       e_tmp = 0.0
       #
-      for j in range(0,n_tup[k-1]):
+      for j in range(0,len(tup[k-1])):
          #
-         found = False
-         #
-         for l in range(0,molecule['prim_n_tuples'][0][k-1]):
-            #
-            if (set(tup[k-1][j][0]) == set(molecule['prim_tuple'][0][k-1][l][0])):
-               #
-               found = True
-               #
-               break
-         #
-         if (not found):
-            #
-            e_tmp += tup[k-1][j][1]
+         e_tmp += tup[k-1][j][1]
       #
-      if (k > 1):
-         #
-         e_tmp += e_corr[k-2]
+      e_tmp += e_corr[k-2]
       #
       e_corr.append(e_tmp)
    #

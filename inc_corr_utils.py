@@ -611,7 +611,7 @@ def inc_corr_summary(molecule):
    #
    tot_n_tup = []
    #
-   for i in range(0,len(molecule['prim_n_tuples'][0])):
+   for i in range(0,len(molecule['e_tot'][0])):
       #
       if (molecule['prim_n_tuples'][0][i] == molecule['theo_work'][0][i]):
          #
@@ -622,7 +622,7 @@ def inc_corr_summary(molecule):
          tot_n_tup.append(molecule['prim_n_tuples'][0][i]+molecule['sec_n_tuples'][0][i])
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('     BG expansion order  |   # of correlated tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr.  ')
+   print('     BG expansion order  |   # of prim. exp. tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr.  ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['e_tot'][0])):
@@ -638,7 +638,7 @@ def inc_corr_summary(molecule):
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('   |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('     BG expansion order  |   total correlated energy   |    total energy incl. energy corr.   |    total time    |    total time incl. corr.')
+   print('     BG expansion order  |   total prim. exp. energy   |    total energy incl. energy corr.   |    total time    |    total time incl. corr.')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['e_tot'][0])):
@@ -761,25 +761,13 @@ def print_result_corr(molecule,sec_tup):
    #
    counter = 0
    #
-   for i in range(0,len(sec_tup)):
+   for k in range(molecule['min_corr_order'],molecule['max_corr_order']+1):
       #
-      for j in range(0,len(sec_tup[i])):
+      for j in range(0,len(sec_tup[k-1])):
          #
-         found = False
+         counter += 1
          #
-         for k in range(0,len(molecule['prim_tuple'][0][i])):
-            #
-            if (set(sec_tup[i][j][0]) == set(molecule['prim_tuple'][0][i][k][0])):
-               #
-               found = True
-               #
-               break
-         #
-         if (not found):
-            #
-            counter += 1
-            #
-            print(' RESULT-CORR :  {0:>6d}           {1:> 8.4e}         {2!s:<}'.format(counter,sec_tup[i][j][1],sec_tup[i][j][0]))
+         print(' RESULT-CORR :  {0:>6d}           {1:> 8.4e}         {2!s:<}'.format(counter,sec_tup[k-1][j][1],sec_tup[k-1][j][0]))
    #
    print(' --------------------------------------------------------------------------------------------')
    #
