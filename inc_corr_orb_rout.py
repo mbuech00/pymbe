@@ -204,7 +204,9 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
    if (molecule['debug']):
       #
       print('')
-      print(' --- relative contributions ---')
+      print('   ---------------------------------------------')
+      print('           relative orb. contributions          ')
+      print('   ---------------------------------------------')
       #
       for i in range(0,len(orb)):
          #
@@ -223,8 +225,6 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
                tmp[j].append(orb[i][j][k+1][1][-1])
             #
             print(' {0:}'.format(j+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
-      #
-      print('')
    #
    return orb
 

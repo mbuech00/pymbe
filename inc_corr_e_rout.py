@@ -640,10 +640,6 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
             # increment job index
             #
             i += 1
-            #
-            if (molecule['debug']):
-               #
-               print('sending slave '+str(source)+' the following string = '+str(string))
          #
          else:
             #
@@ -672,18 +668,10 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
             molecule['error'][0].append(True)
             #
             return molecule, tup
-         #
-         if (molecule['debug']):
-            #
-            print('received from slave '+str(source)+' the following data = '+str(data))
       #
       elif (tag == tags.exit):
          #
          slaves_avail -= 1
-         #
-         if (molecule['debug']):
-            #
-            print('slave '+str(source)+' exited')
    #
    return molecule, tup
 

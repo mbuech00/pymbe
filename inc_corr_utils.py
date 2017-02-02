@@ -381,6 +381,10 @@ def init_calc(molecule):
    if (molecule['mpi_parallel']):
       #
       inc_corr_mpi.bcast_mol_dict(molecule)
+      #
+      if (molecule['debug']):
+         #
+         inc_corr_mpi.print_mpi_table(molecule)
    #
    return molecule
 

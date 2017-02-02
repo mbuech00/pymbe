@@ -73,6 +73,10 @@ def main_slave_rout(molecule):
          #
          molecule['scr'] += '-'+str(molecule['mpi_rank'])
       #
+      elif (msg['task'] == 'print_mpi_table'):
+         #
+         print_mpi_table(molecule)
+      #
       elif (msg['task'] == 'energy_calc_mono_exp'):
          #
          level = 'MACRO'
@@ -117,10 +121,6 @@ def energy_calc_mono_exp_slave(molecule,level):
    #
    data = {}
    #
-   if (molecule['debug']):
-      #
-      print('slave no. '+str(molecule['mpi_rank'])+' on node '+str(molecule['mpi_name'])+' with scr dir = '+str(molecule['scr']))
-   #
    while True:
       #
       # ready for task
@@ -130,10 +130,6 @@ def energy_calc_mono_exp_slave(molecule,level):
       # receive drop string
       #
       string = molecule['mpi_comm'].recv(source=0, tag=MPI.ANY_SOURCE, status=molecule['mpi_stat'])
-      #
-      if (molecule['debug']):
-         #
-         print('slave no. '+str(molecule['mpi_rank'])+' on node '+str(molecule['mpi_name'])+' with string = '+str(string))
       #
       # recover tag
       #
@@ -174,6 +170,49 @@ def energy_calc_mono_exp_slave(molecule,level):
    inc_corr_utils.term_calc(molecule)
    #
    return molecule
+
+def print_mpi_table(molecule):
+   #
+   if (molecule['mpi_master']):
+      #
+      msg = {'task': 'print_mpi_table'}
+      #
+      molecule['mpi_comm'].bcast(msg,root=0)
+      #
+      full_info = []
+      #
+      for i in range(0,molecule['mpi_size']-1):
+         #
+         info = molecule['mpi_comm'].recv(source=i+1, status=molecule['mpi_stat'])
+         #
+         full_info.append([info['rank'],info['name']])
+   #
+   else:
+      #
+      info = {}
+      #
+      info['rank'] = molecule['mpi_rank']
+      #
+      info['name'] = molecule['mpi_name']
+      #
+      molecule['mpi_comm'].send(info, dest=0)
+      #
+      return
+   #
+   print('')
+   print('')
+   print('   ---------------------------------------------')
+   print('                mpi rank/node info              ')
+   print('   ---------------------------------------------')
+   print('')
+   #
+   print('master  ---  proc =  {0:}  ---  node =  {1:}'.format(molecule['mpi_rank'],molecule['mpi_name']))
+   #
+   for j in range(0,len(full_info)):
+      #
+      print('slave   ---  proc =  {0:}  ---  node =  {1:}'.format(full_info[j][0],full_info[j][1]))
+   #
+   return
 
 def finalize_mpi(molecule):
    #
