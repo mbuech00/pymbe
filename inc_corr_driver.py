@@ -226,7 +226,13 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
    #
    # run the calculations
    #
-   inc_corr_e_rout.energy_calc_mono_exp_est(molecule,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],time,level)
+   if (molecule['mpi_parallel']):
+      #
+      inc_corr_e_rout.energy_calc_mono_exp_est_par(molecule,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],time,level)
+   #
+   else:
+      #
+      inc_corr_e_rout.energy_calc_mono_exp_est_ser(molecule,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],time,level)
    #
    # calculate the energies at all order k <= max_est_order
    #

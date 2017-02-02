@@ -710,8 +710,6 @@ def print_status_header_2(num,order,conv,time_gen):
 
 def print_status_header_est_1(max_order):
    #
-   print('')
-   print('')
    print(' --------------------------------------------------------------------------------------------')
    print(' STATUS-ESTIM: energy estimation through order = {0:>d} tuple generation started'.format(max_order))
    #

@@ -80,11 +80,7 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
       #
       # write string
       #
-      if (i <= (n_tup[order-1]-1)):
-         #
-         inc_corr_orb_rout.orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
-      #
-      # run correlated calc
+      if (i <= (n_tup[order-1]-1)): inc_corr_orb_rout.orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
       #
       # receive data dict
       #
@@ -136,7 +132,7 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          if (data['error']):
             #
-            print('problem with slave '+str(source)+' -- aborting...')
+            print('problem with slave '+str(source)+' in energy_calc_mono_exp_par  ---  aborting...')
             #
             molecule['error'][0].append(True)
             #
@@ -148,7 +144,7 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    return molecule, tup
 
-def energy_calc_mono_exp_est(molecule,tup,n_tup,l_limit,u_limit,time,level):
+def energy_calc_mono_exp_est_ser(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    string = {'drop': ''}
    #
@@ -193,6 +189,133 @@ def energy_calc_mono_exp_est(molecule,tup,n_tup,l_limit,u_limit,time,level):
       # collect time
       #
       time.append(timer()-start)
+   #
+   return molecule, tup
+
+def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
+   #
+   string = {'drop': ''}
+   #
+   # number of slaves
+   #
+   num_slaves = molecule['mpi_size'] - 1
+   #
+   # number of available slaves
+   #
+   slaves_avail = num_slaves
+   #
+   # define mpi message tags
+   #
+   tags = inc_corr_utils.enum('ready','done','exit','start')
+   #
+   # init job indices
+   #
+   k = 1
+   i = 0
+   #
+   # init stat counter
+   #
+   counter = 0
+   #
+   # wake up slaves
+   #
+   msg = {'task': 'energy_calc_mono_exp_est'}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   # start time
+   #
+   start = timer()
+   #
+   while (slaves_avail >= 1):
+      #
+      # write string
+      #
+      if (i <= (n_tup[k-1]-1)): inc_corr_orb_rout.orb_string(molecule,l_limit,u_limit,tup[k-1][i][0],string)
+      #
+      # receive data dict
+      #
+      data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=molecule['mpi_stat'])
+      #
+      # probe for source
+      #
+      source = molecule['mpi_stat'].Get_source()
+      #
+      # probe for tag
+      #
+      tag = molecule['mpi_stat'].Get_tag()
+      #
+      if (tag == tags.ready):
+         #
+         if (i <= (n_tup[k-1]-1)):
+            #
+            # store job indices
+            #
+            string['index-1'] = k
+            #
+            string['index-2'] = i
+            #
+            # send string dict
+            #
+            molecule['mpi_comm'].send(string, dest=source, tag=tags.start)
+            #
+            # increment job indices
+            #
+            if (i < (n_tup[k-1]-1)):
+               #
+               i += 1
+            #
+            else:
+               #
+               if (k < molecule['max_est_order']):
+                  #
+                  k += 1
+                  #
+                  i = 0
+               #
+               else:
+                  #
+                  i += 1
+         #
+         else:
+            #
+            molecule['mpi_comm'].send(None, dest=source, tag=tags.exit)
+      #
+      elif (tag == tags.done):
+         #
+         # write tuple energy
+         #
+         tup[data['index-1']-1][data['index-2']].append(data['e_tmp'])
+         #
+         # increment stat counter
+         #
+         counter += 1
+         #
+         # print status
+         #
+         inc_corr_utils.print_status(float(counter)/float(sum(n_tup)),level)
+         #
+         # collect time and restart
+         #
+         if (data['index-2'] == (n_tup[data['index-1']-1]-1)):
+            #
+            time.append(timer()-start)
+            #
+            start = timer()
+         #
+         # error check
+         #
+         if (data['error']):
+            #
+            print('problem with slave '+str(source)+' in energy_calc_mono_exp_est_par  ---  aborting...')
+            #
+            molecule['error'][0].append(True)
+            #
+            return molecule, tup
+      #
+      elif (tag == tags.exit):
+         #
+         slaves_avail -= 1
    #
    return molecule, tup
 

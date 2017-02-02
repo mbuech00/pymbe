@@ -82,6 +82,12 @@ def main_slave_rout(molecule):
          #
          energy_calc_slave(molecule,level)
       #
+      elif (msg['task'] == 'energy_calc_mono_exp_est'):
+         #
+         level = 'ESTIM'
+         #
+         energy_calc_slave(molecule,level)
+      #
       elif (msg['task'] == 'finalize'):
          #
          slave = False
@@ -140,15 +146,23 @@ def energy_calc_slave(molecule,level):
          #
          inc_corr_gen_rout.run_calc_corr(molecule,string['drop'],level)
          #
-         # copy e_tmp
+         # write e_tmp
          #
          data['e_tmp'] = molecule['e_tmp']
          #
-         # copy job index
+         # copy job index / indices
          #
-         data['index'] = string['index']
+         if (level == 'MACRO'):
+            #
+            data['index'] = string['index']
          #
-         # copy error logical
+         elif (level == 'ESTIM'):
+            #
+            data['index-1'] = string['index-1']
+            #
+            data['index-2'] = string['index-2']
+         #
+         # write error logical
          #
          data['error'] = molecule['error'][0][-1]
          #
