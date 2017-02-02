@@ -211,7 +211,7 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
       for i in range(0,len(orb)):
          #
          print('')
-         print(' * order = '+str(i+2))
+         print(' * BG exp. order = '+str(i+2))
          print('')
          #
          tmp = []

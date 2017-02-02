@@ -206,11 +206,27 @@ def print_mpi_table(molecule):
    print('   ---------------------------------------------')
    print('')
    #
-   print('master  ---  proc =  {0:}  ---  node =  {1:}'.format(molecule['mpi_rank'],molecule['mpi_name']))
+   idx = 0
+   #
+   while True:
+      #
+      if ((molecule['mpi_size']-10**idx) < 0):
+         #
+         width_int = idx+1
+         #
+         break
+      #
+      else:
+         #
+         idx += 1
+   #
+   width_str = max(map(lambda x: len(x[1]), full_info))
+   #
+   print(' master  ---  proc =  {0:>{w_int}d}  ---  node =  {1:>{w_str}s}'.format(molecule['mpi_rank'],molecule['mpi_name'],w_int=width_int,w_str=width_str))
    #
    for j in range(0,len(full_info)):
       #
-      print('slave   ---  proc =  {0:}  ---  node =  {1:}'.format(full_info[j][0],full_info[j][1]))
+      print(' slave   ---  proc =  {0:>{w_int}d}  ---  node =  {1:>{w_str}s}'.format(full_info[j][0],full_info[j][1],w_int=width_int,w_str=width_str))
    #
    return
 
