@@ -210,7 +210,7 @@ def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    # init job indices
    #
-   k = 1
+   k = molecule['max_est_order']
    i = 0
    #
    # init stat counter
@@ -267,9 +267,9 @@ def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
             #
             else:
                #
-               if (k < molecule['max_est_order']):
+               if (k > 1):
                   #
-                  k += 1
+                  k -= 1
                   #
                   i = 0
                #
@@ -316,6 +316,10 @@ def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
       elif (tag == tags.exit):
          #
          slaves_avail -= 1
+   #
+   # reverse the time list
+   #
+   time.reverse()
    #
    return molecule, tup
 

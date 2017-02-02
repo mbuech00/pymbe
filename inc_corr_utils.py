@@ -646,16 +646,28 @@ def inc_corr_summary(molecule):
    print('                                              ---------------------------------------------                                                 ')
    print('')
    #
+   tot_n_tup = []
+   #
+   for i in range(0,len(molecule['prim_n_tuples'][0])):
+      #
+      if (molecule['prim_n_tuples'][0][i] == molecule['theo_work'][0][i]):
+         #
+         tot_n_tup.append(molecule['prim_n_tuples'][0][i])
+      #
+      else:
+         #
+         tot_n_tup.append(molecule['prim_n_tuples'][0][i]+molecule['sec_n_tuples'][0][i])
+   #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('     BG expansion order  |   # of correlated tuples   |   # of est. tuples   |   perc. of total # of tuples   |   perc. of total # of tuples')
+   print('     BG expansion order  |   # of correlated tuples   |   # of est. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr.  ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['e_tot'][0])):
       #
-      print('          {0:>4d}                     {1:>4.2e}                   {2:>4.2e}                    {3:>6.2f} %                         {4:>6.2f} %'.\
+      print('          {0:>4d}                     {1:>4.2e}                   {2:>4.2e}                                           {3:>6.2f} %        {4:>6.2f} %'.\
                                                                           format(i+1,molecule['prim_n_tuples'][0][i],molecule['sec_n_tuples'][0][i],\
                                                                                  (float(molecule['prim_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00,\
-                                                                                 (float(molecule['sec_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00))
+                                                                                 (float(tot_n_tup[i])/float(molecule['theo_work'][0][i]))*100.00))
    #
    total_time = 0.0
    total_time_est = 0.0
