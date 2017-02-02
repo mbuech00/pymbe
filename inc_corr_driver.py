@@ -182,7 +182,7 @@ def inc_corr_mono_exp_corr(molecule,tup,dom,n_tup,time):
    #
    # define level
    #
-   level = 'CORR '
+   level = 'CORR'
    #
    # set min and max _corr_order
    #

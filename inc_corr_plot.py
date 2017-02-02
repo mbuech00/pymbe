@@ -5,6 +5,7 @@
 # written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
 
+import copy
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -30,13 +31,37 @@ def abs_energy_plot(molecule):
       #
       u_limit -= molecule['ncore']
    #
-   ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0],marker='x',linewidth=2,color='blue',linestyle='-',\
+   if (molecule['corr']):
+      #
+      colours = ['red','green','orange','lightblue','limegreen']
+      #
+      e_corr = []
+      #
+      for i in range(0,molecule['corr_order']):
+         #
+         e_corr.append([])
+         #
+         if (i == 0):
+            #
+            e_corr[i] = copy.deepcopy(molecule['e_tot'][0])
+         #
+         else:
+            #
+            e_corr[i] = copy.deepcopy(e_corr[i-1])
+         #
+         for j in range((molecule['min_corr_order']+i)-1,len(e_corr[i])):
+            #
+            e_corr[i][j] += (molecule['e_corr'][0][(molecule['min_corr_order']+i)-1]-molecule['e_corr'][0][(molecule['min_corr_order']+i)-2])
+   #
+   ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0],marker='x',linewidth=2,\
            label='BG('+molecule['model'].upper()+')')
    #
    if (molecule['corr']):
       #
-      ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0],molecule['e_corr'][0])],\
-              marker='x',linewidth=2,color='red',linestyle='-',label='BG('+molecule['model'].upper()+')/'+molecule['corr_model'].upper()+' energy corr.')
+      for i in range(0,molecule['corr_order']):
+         #
+         ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_corr[i],\
+                 marker='x',linewidth=2,label='BG('+molecule['model'].upper()+')-'+str(i+1))
    #
    ax.set_xlim([0.5,u_limit+0.5])
    #
@@ -53,12 +78,14 @@ def abs_energy_plot(molecule):
       #
       insert = plt.axes([.35, .50, .50, .30],frameon=True)
       #
-      insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0][1:],marker='x',linewidth=2,color='blue',linestyle='-')
+      insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0][1:],marker='x',linewidth=2)
       #
       if (molecule['corr']):
          #
-         insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0][1:],molecule['e_corr'][0][1:])],\
-                     marker='x',linewidth=2,color='red',linestyle='-')
+         for i in range(0,molecule['corr_order']):
+            #
+            insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),e_corr[i][1:],\
+                     marker='x',linewidth=2)
       #
       plt.setp(insert,xticks=list(range(3,len(molecule['e_tot'][0])+1)))
       #
@@ -71,7 +98,7 @@ def abs_energy_plot(molecule):
       #
       insert.xaxis.grid(False)
    #
-   ax.legend(loc=1,ncol=2)
+   ax.legend(loc=1,ncol=molecule['corr_order']+1)
    #
    plt.savefig(molecule['wrk']+'/output/abs_energy_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
@@ -206,17 +233,45 @@ def dev_ref_plot(molecule):
    #
    kcal_mol = 0.001594
    #
+   if (molecule['corr']):
+      #
+      e_corr = []
+      #
+      for i in range(0,molecule['corr_order']):
+         #
+         e_corr.append([])
+         #
+         if (i == 0):
+            #
+            e_corr[i] = copy.deepcopy(molecule['e_tot'][0])
+         #
+         else:
+            #
+            e_corr[i] = copy.deepcopy(e_corr[i-1])
+         #
+         for j in range((molecule['min_corr_order']+i)-1,len(e_corr[i])):
+            #
+            e_corr[i][j] += (molecule['e_corr'][0][(molecule['min_corr_order']+i)-1]-molecule['e_corr'][0][(molecule['min_corr_order']+i)-2])
+   #
    e_diff_tot_abs = []
    e_diff_corr_abs = []
    e_diff_tot_rel = []
    e_diff_corr_rel = []
    #
-   for i in range(0,len(molecule['e_tot'][0])):
+   for j in range(0,len(molecule['e_tot'][0])):
       #
-      e_diff_tot_abs.append((molecule['e_tot'][0][i]-molecule['e_ref'])/kcal_mol)
-      e_diff_corr_abs.append(((molecule['e_tot'][0][i]+molecule['e_corr'][0][i])-molecule['e_ref'])/kcal_mol)
-      e_diff_tot_rel.append((molecule['e_tot'][0][i]/molecule['e_ref'])*100.)
-      e_diff_corr_rel.append(((molecule['e_tot'][0][i]+molecule['e_corr'][0][i])/molecule['e_ref'])*100.)
+      e_diff_tot_abs.append((molecule['e_tot'][0][j]-molecule['e_ref'])/kcal_mol)
+      e_diff_tot_rel.append((molecule['e_tot'][0][j]/molecule['e_ref'])*100.)
+      #
+   for i in range(0,molecule['corr_order']):
+      #
+      e_diff_corr_abs.append([])
+      e_diff_corr_rel.append([])
+      #
+      for j in range(0,len(molecule['e_tot'][0])):
+         #
+         e_diff_corr_abs[i].append((e_corr[i][j]-molecule['e_ref'])/kcal_mol)
+         e_diff_corr_rel[i].append((e_corr[i][j]/molecule['e_ref'])*100.)
    #
    ax1.set_title('Absolute difference from E('+molecule['model'].upper()+')')
    #
@@ -228,10 +283,13 @@ def dev_ref_plot(molecule):
    #
    ax1.axhline(0.0,color='black',linewidth=2)
    #
-   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_abs,marker='x',linewidth=2,color='blue',linestyle='-',\
+   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_abs,marker='x',linewidth=2,\
             label='BG('+molecule['model'].upper()+')')
-   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_corr_abs,marker='x',linewidth=2,color='red',linestyle='-',\
-            label='BG('+molecule['model'].upper()+') incl. energy corr.')
+   #
+   for i in range(0,molecule['corr_order']):
+      #
+      ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_corr_abs[i],marker='x',linewidth=2,\
+               label='BG('+molecule['model'].upper()+')-'+str(i+1))
    #
    ax1.set_ylim([-3.4,3.4])
    #
@@ -247,10 +305,13 @@ def dev_ref_plot(molecule):
    #
    ax2.axhline(100.0,color='black',linewidth=2)
    #
-   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_rel,marker='x',linewidth=2,color='blue',linestyle='-',\
+   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_rel,marker='x',linewidth=2,\
             label='BG('+molecule['model'].upper()+')')
-   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_corr_rel,marker='x',linewidth=2,color='red',linestyle='-',\
-            label='BG('+molecule['model'].upper()+') incl. energy corr.')
+   #
+   for i in range(0,molecule['corr_order']):
+      #
+      ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_corr_rel[i],marker='x',linewidth=2,\
+               label='BG('+molecule['model'].upper()+')-'+str(i+1))
    #
    ax2.set_xlim([0.5,u_limit+0.5])
    #

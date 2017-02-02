@@ -331,7 +331,7 @@ def excl_rout(molecule,tup,orb,thres,excl,level):
             #
             excl[i].append(orb[-1][i][j+1][0][0])
    #
-   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'screen') and (level != 'CORR ')):
+   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'screen') and (level != 'CORR')):
       #
       for i in range(0,len(excl)):
          #
