@@ -11,9 +11,8 @@ from mpi4py import MPI
 
 import inc_corr_mpi
 import inc_corr_utils
-import inc_corr_orb_rout
 import inc_corr_gen_rout
-import inc_corr_e_rout
+import inc_corr_driver
 import inc_corr_plot
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -58,7 +57,7 @@ def main():
       #
       #  ---  initialization done - start the calculation...  ---
       #
-      inc_corr_e_rout.inc_corr_main(molecule)
+      inc_corr_driver.inc_corr_main(molecule)
       #
       #  ---  start (potential) reference calculation...  ---
       #

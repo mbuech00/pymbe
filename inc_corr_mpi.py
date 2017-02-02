@@ -10,7 +10,6 @@ from mpi4py import MPI
 
 import inc_corr_utils
 import inc_corr_gen_rout
-import inc_corr_e_rout
 
 def init_mpi(molecule):
    #
@@ -81,7 +80,7 @@ def main_slave_rout(molecule):
          #
          level = 'MACRO'
          #
-         energy_calc_mono_exp_slave(molecule,level)
+         energy_calc_slave(molecule,level)
       #
       elif (msg['task'] == 'finalize'):
          #
@@ -105,7 +104,7 @@ def bcast_mol_dict(molecule):
    #
    return molecule
 
-def energy_calc_mono_exp_slave(molecule,level):
+def energy_calc_slave(molecule,level):
    #
    #  ---  slave routine
    #
