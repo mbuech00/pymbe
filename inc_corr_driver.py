@@ -186,41 +186,7 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
    #
    # set molecule['max_est_order']
    #
-   diff_order = 0
-   #
-   for i in range(0,len(molecule['prim_n_tuples'][0])):
-      #
-      if ((molecule['prim_n_tuples'][0][i] < molecule['theo_work'][0][i]) and (molecule['prim_n_tuples'][0][i] > 0)):
-         #
-         diff_order = i
-         #
-         break
-   #
-   if (diff_order == 0):
-      #
-      molecule['max_est_order'] = 0
-      #
-      molecule['est_order'] = 0
-      #
-      for _ in range(0,len(molecule['e_tot'][0])):
-         #
-         n_tup.append(0)
-         #
-         molecule['e_est'][0].append(0.0)
-         #
-         time.append(0.0)
-      #
-      return molecule
-   #
-   elif ((diff_order + molecule['est_order']) > (len(molecule['prim_tuple'][0])-1)):
-      #
-      molecule['max_est_order'] = len(molecule['prim_tuple'][0])-1
-      #
-      molecule['est_order'] = (len(molecule['prim_tuple'][0])-1) - diff_order
-   #
-   else:
-      #
-      molecule['max_est_order'] = diff_order + molecule['est_order']
+   inc_corr_e_rout.set_max_est_order(molecule,n_tup,time)
    #
    # generate all tuples required for energy estimation
    #
@@ -258,51 +224,9 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
    #
    inc_corr_utils.print_status_header_est_2(molecule['max_est_order'],sum(n_tup),time_gen)
    #
-   # init counter for STATUS-ESTIM
+   # run the calculations
    #
-   counter = 0
-   #
-   # perform energy estimation
-   #
-   string = ''
-   #
-   for k in range(1,molecule['max_est_order']+1):
-      #
-      # start time
-      #
-      start = timer()
-      #
-      for i in range(0,n_tup[k-1]):
-         #
-         # increment counter
-         #
-         counter += 1
-         #
-         # write string
-         #
-         inc_corr_orb_rout.orb_string(molecule,molecule['l_limit'][0],molecule['u_limit'][0],tup[k-1][i][0],string)
-         #
-         # run correlated calc
-         #
-         inc_corr_gen_rout.run_calc_corr(molecule,string,level)
-         #
-         # write tuple energy
-         #
-         tup[k-1][i].append(molecule['e_tmp'])
-         #
-         # print status
-         #
-         inc_corr_utils.print_status(float(counter)/float(sum(n_tup)),level)
-         #
-         # error check
-         #
-         if (molecule['error'][0][-1]):
-            #
-            return molecule
-      #
-      # collect time
-      #
-      time.append(timer()-start)
+   inc_corr_e_rout.energy_calc_mono_exp_est(molecule,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],time,level)
    #
    # calculate the energies at all order k <= max_est_order
    #
