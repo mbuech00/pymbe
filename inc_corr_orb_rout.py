@@ -228,7 +228,7 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
    #
    return orb
 
-def select_est_tuples(prim_tup,sec_tup,k):
+def select_corr_tuples(prim_tup,sec_tup,k):
    #
    pop_list = []
    #
@@ -331,7 +331,7 @@ def excl_rout(molecule,tup,orb,thres,excl,level):
             #
             excl[i].append(orb[-1][i][j+1][0][0])
    #
-   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'screen') and (level != 'ESTIM')):
+   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'screen') and (level != 'CORR ')):
       #
       for i in range(0,len(excl)):
          #

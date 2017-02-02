@@ -34,11 +34,11 @@ def inc_corr_main(molecule):
       #
       inc_corr_mono_exp(molecule)
       #
-      # energy estimation for mono expansion
+      # energy correction for mono expansion
       #
-      if (molecule['est']):
+      if (molecule['corr']):
          #
-         inc_corr_mono_exp_est(molecule,molecule['sec_tuple'][0],molecule['sec_domain'],molecule['sec_n_tuples'][0],molecule['sec_time'][0])
+         inc_corr_mono_exp_corr(molecule,molecule['sec_tuple'][0],molecule['sec_domain'],molecule['sec_n_tuples'][0],molecule['sec_time'][0])
       #
       else:
          #
@@ -46,7 +46,7 @@ def inc_corr_main(molecule):
             #
             molecule['sec_n_tuples'][0].append(0)
             #
-            molecule['e_est'][0].append(0.0)
+            molecule['e_corr'][0].append(0.0)
             #
             molecule['sec_time'][0].append(0.0)
    #
@@ -178,27 +178,27 @@ def inc_corr_mono_exp_kernel(molecule,tup,dom,n_tup,time,k):
    #
    return molecule
 
-def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
+def inc_corr_mono_exp_corr(molecule,tup,dom,n_tup,time):
    #
    # define level
    #
-   level = 'ESTIM'
+   level = 'CORR '
    #
-   # set molecule['max_est_order']
+   # set molecule['max_corr_order']
    #
-   inc_corr_e_rout.set_max_est_order(molecule,n_tup,time)
+   inc_corr_e_rout.set_max_corr_order(molecule,n_tup,time)
    #
-   # generate all tuples required for energy estimation
+   # generate all tuples required for energy correction
    #
    # print status header-1
    #
-   inc_corr_utils.print_status_header_est_1(molecule['max_est_order'])
+   inc_corr_utils.print_status_header_corr_1(molecule['max_corr_order'])
    #
    # start time
    #
    start = timer()
    #
-   for k in range(1,molecule['max_est_order']+1):
+   for k in range(1,molecule['max_corr_order']+1):
       #
       # generate all tuples at order k
       #
@@ -206,11 +206,11 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
       #
       inc_corr_orb_rout.orb_generator(molecule,dom,tup[k-1],molecule['l_limit'][0],k)
       #
-      # only calculate required tuples at order k == molecule['max_est_order']
+      # only calculate required tuples at order k == molecule['max_corr_order']
       #
-      if (k == molecule['max_est_order']):
+      if (k == molecule['max_corr_order']):
          #
-         inc_corr_orb_rout.select_est_tuples(molecule['prim_tuple'][0],tup,k)
+         inc_corr_orb_rout.select_corr_tuples(molecule['prim_tuple'][0],tup,k)
       #
       # determine number of tuples at order k
       #
@@ -222,41 +222,41 @@ def inc_corr_mono_exp_est(molecule,tup,dom,n_tup,time):
    #
    # print status header-2
    #
-   inc_corr_utils.print_status_header_est_2(molecule['max_est_order'],sum(n_tup),time_gen)
+   inc_corr_utils.print_status_header_corr_2(molecule['max_corr_order'],sum(n_tup),time_gen)
    #
    # run the calculations
    #
    if (molecule['mpi_parallel']):
       #
-      inc_corr_e_rout.energy_calc_mono_exp_est_par(molecule,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],time,level)
+      inc_corr_e_rout.energy_calc_mono_exp_corr_par(molecule,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],time,level)
    #
    else:
       #
-      inc_corr_e_rout.energy_calc_mono_exp_est_ser(molecule,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],time,level)
+      inc_corr_e_rout.energy_calc_mono_exp_corr_ser(molecule,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],time,level)
    #
-   # calculate the energies at all order k <= max_est_order
+   # calculate the energies at all order k <= max_corr_order
    #
-   inc_corr_e_rout.inc_corr_order_est(molecule,n_tup,tup,molecule['e_est'][0])
+   inc_corr_e_rout.inc_corr_order_corr(molecule,n_tup,tup,molecule['e_corr'][0])
    #
    # print results
    #
-   inc_corr_utils.print_result_est(molecule,tup)
+   inc_corr_utils.print_result_corr(molecule,tup)
    #
    # print status end
    #
-   inc_corr_utils.print_status_end_est(molecule['max_est_order'],time)
+   inc_corr_utils.print_status_end_corr(molecule['max_corr_order'],time)
    #
-   # make the e_est and sec_time lists of the same length as the e_tot list
+   # make the e_corr and sec_time lists of the same length as the e_tot list
    #
-   for _ in range(molecule['max_est_order'],len(molecule['e_tot'][0])):
+   for _ in range(molecule['max_corr_order'],len(molecule['e_tot'][0])):
       #
-      molecule['e_est'][0].append(molecule['e_est'][0][-1])
+      molecule['e_corr'][0].append(molecule['e_corr'][0][-1])
       #
       time.append(0.0)
    #
    # make molecule['sec_n_tuples'] of the same length as molecule['prim_n_tuples']
    #
-   for _ in range(molecule['max_est_order'],len(molecule['prim_n_tuples'][0])):
+   for _ in range(molecule['max_corr_order'],len(molecule['prim_n_tuples'][0])):
       #
       n_tup.append(0)
    #
@@ -531,7 +531,7 @@ def inc_corr_prepare(molecule):
    #
    molecule['e_tot'] = [[],[]]
    #
-   molecule['e_est'] = [[],[]]
+   molecule['e_corr'] = [[],[]]
    #
    molecule['excl_list'] = [[],[]]
    #

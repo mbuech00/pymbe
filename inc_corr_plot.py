@@ -33,10 +33,10 @@ def abs_energy_plot(molecule):
    ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0],marker='x',linewidth=2,color='blue',linestyle='-',\
            label='BG('+molecule['model'].upper()+')')
    #
-   if (molecule['est']):
+   if (molecule['corr']):
       #
-      ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0],molecule['e_est'][0])],\
-              marker='x',linewidth=2,color='red',linestyle='-',label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
+      ax.plot(list(range(1,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0],molecule['e_corr'][0])],\
+              marker='x',linewidth=2,color='red',linestyle='-',label='BG('+molecule['model'].upper()+')/'+molecule['corr_model'].upper()+' energy corr.')
    #
    ax.set_xlim([0.5,u_limit+0.5])
    #
@@ -55,9 +55,9 @@ def abs_energy_plot(molecule):
       #
       insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),molecule['e_tot'][0][1:],marker='x',linewidth=2,color='blue',linestyle='-')
       #
-      if (molecule['est']):
+      if (molecule['corr']):
          #
-         insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0][1:],molecule['e_est'][0][1:])],\
+         insert.plot(list(range(2,len(molecule['e_tot'][0])+1)),[(i + j) for i,j in zip(molecule['e_tot'][0][1:],molecule['e_corr'][0][1:])],\
                      marker='x',linewidth=2,color='red',linestyle='-')
       #
       plt.setp(insert,xticks=list(range(3,len(molecule['e_tot'][0])+1)))
@@ -91,7 +91,7 @@ def n_tuples_plot(molecule):
       #
       u_limit -= molecule['ncore']
    #
-   if (molecule['est']):
+   if (molecule['corr']):
       #
       sec_prim = []
       theo_sec = []
@@ -126,7 +126,7 @@ def n_tuples_plot(molecule):
                   palette='BuGn_d',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),sec_prim,bottom=molecule['prim_n_tuples'][0],palette='Reds_r',\
-                  label='Energy est. ('+molecule['est_model'].upper()+')',log=True)
+                  label='Energy corr.',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
@@ -207,16 +207,16 @@ def dev_ref_plot(molecule):
    kcal_mol = 0.001594
    #
    e_diff_tot_abs = []
-   e_diff_est_abs = []
+   e_diff_corr_abs = []
    e_diff_tot_rel = []
-   e_diff_est_rel = []
+   e_diff_corr_rel = []
    #
    for i in range(0,len(molecule['e_tot'][0])):
       #
       e_diff_tot_abs.append((molecule['e_tot'][0][i]-molecule['e_ref'])/kcal_mol)
-      e_diff_est_abs.append(((molecule['e_tot'][0][i]+molecule['e_est'][0][i])-molecule['e_ref'])/kcal_mol)
+      e_diff_corr_abs.append(((molecule['e_tot'][0][i]+molecule['e_corr'][0][i])-molecule['e_ref'])/kcal_mol)
       e_diff_tot_rel.append((molecule['e_tot'][0][i]/molecule['e_ref'])*100.)
-      e_diff_est_rel.append(((molecule['e_tot'][0][i]+molecule['e_est'][0][i])/molecule['e_ref'])*100.)
+      e_diff_corr_rel.append(((molecule['e_tot'][0][i]+molecule['e_corr'][0][i])/molecule['e_ref'])*100.)
    #
    ax1.set_title('Absolute difference from E('+molecule['model'].upper()+')')
    #
@@ -230,8 +230,8 @@ def dev_ref_plot(molecule):
    #
    ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_abs,marker='x',linewidth=2,color='blue',linestyle='-',\
             label='BG('+molecule['model'].upper()+')')
-   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_est_abs,marker='x',linewidth=2,color='red',linestyle='-',\
-            label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
+   ax1.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_corr_abs,marker='x',linewidth=2,color='red',linestyle='-',\
+            label='BG('+molecule['model'].upper()+') incl. energy corr.')
    #
    ax1.set_ylim([-3.4,3.4])
    #
@@ -249,8 +249,8 @@ def dev_ref_plot(molecule):
    #
    ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_tot_rel,marker='x',linewidth=2,color='blue',linestyle='-',\
             label='BG('+molecule['model'].upper()+')')
-   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_est_rel,marker='x',linewidth=2,color='red',linestyle='-',\
-            label='BG('+molecule['model'].upper()+')/'+molecule['est_model'].upper()+' energy est.')
+   ax2.plot(list(range(1,len(molecule['e_tot'][0])+1)),e_diff_corr_rel,marker='x',linewidth=2,color='red',linestyle='-',\
+            label='BG('+molecule['model'].upper()+') incl. energy corr.')
    #
    ax2.set_xlim([0.5,u_limit+0.5])
    #

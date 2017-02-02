@@ -144,7 +144,7 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    return molecule, tup
 
-def energy_calc_mono_exp_est_ser(molecule,tup,n_tup,l_limit,u_limit,time,level):
+def energy_calc_mono_exp_corr_ser(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    string = {'drop': ''}
    #
@@ -152,7 +152,7 @@ def energy_calc_mono_exp_est_ser(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    counter = 0
    #
-   for k in range(1,molecule['max_est_order']+1):
+   for k in range(1,molecule['max_corr_order']+1):
       #
       # start time
       #
@@ -192,7 +192,7 @@ def energy_calc_mono_exp_est_ser(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    return molecule, tup
 
-def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
+def energy_calc_mono_exp_corr_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    string = {'drop': ''}
    #
@@ -210,7 +210,7 @@ def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    # init job indices
    #
-   k = molecule['max_est_order']
+   k = molecule['max_corr_order']
    i = 0
    #
    # init stat counter
@@ -219,7 +219,7 @@ def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    # wake up slaves
    #
-   msg = {'task': 'energy_calc_mono_exp_est'}
+   msg = {'task': 'energy_calc_mono_exp_corr'}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
@@ -307,7 +307,7 @@ def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
          #
          if (data['error']):
             #
-            print('problem with slave '+str(source)+' in energy_calc_mono_exp_est_par  ---  aborting...')
+            print('problem with slave '+str(source)+' in energy_calc_mono_exp_corr_par  ---  aborting...')
             #
             molecule['error'][0].append(True)
             #
@@ -323,7 +323,7 @@ def energy_calc_mono_exp_est_par(molecule,tup,n_tup,l_limit,u_limit,time,level):
    #
    return molecule, tup
 
-def set_max_est_order(molecule,n_tup,time):
+def set_max_corr_order(molecule,n_tup,time):
    #
    diff_order = 0
    #
@@ -337,29 +337,29 @@ def set_max_est_order(molecule,n_tup,time):
    #
    if (diff_order == 0):
       #
-      molecule['max_est_order'] = 0
+      molecule['max_corr_order'] = 0
       #
-      molecule['est_order'] = 0
+      molecule['corr_order'] = 0
       #
       for _ in range(0,len(molecule['e_tot'][0])):
          #
          n_tup.append(0)
          #
-         molecule['e_est'][0].append(0.0)
+         molecule['e_corr'][0].append(0.0)
          #
          time.append(0.0)
       #
       return molecule
    #
-   elif ((diff_order + molecule['est_order']) > (len(molecule['prim_tuple'][0])-1)):
+   elif ((diff_order + molecule['corr_order']) > (len(molecule['prim_tuple'][0])-1)):
       #
-      molecule['max_est_order'] = len(molecule['prim_tuple'][0])-1
+      molecule['max_corr_order'] = len(molecule['prim_tuple'][0])-1
       #
-      molecule['est_order'] = (len(molecule['prim_tuple'][0])-1) - diff_order
+      molecule['corr_order'] = (len(molecule['prim_tuple'][0])-1) - diff_order
    #
    else:
       #
-      molecule['max_est_order'] = diff_order + molecule['est_order']
+      molecule['max_corr_order'] = diff_order + molecule['corr_order']
    #
    return molecule
 
@@ -389,9 +389,9 @@ def inc_corr_order(molecule,k,n_tup,tup,e_tot):
    #
    return e_tot
 
-def inc_corr_order_est(molecule,n_tup,tup,e_est):
+def inc_corr_order_corr(molecule,n_tup,tup,e_corr):
    #
-   for k in range(1,molecule['max_est_order']+1):
+   for k in range(1,molecule['max_corr_order']+1):
       #
       for j in range(0,n_tup[k-1]):
          #
@@ -403,7 +403,7 @@ def inc_corr_order_est(molecule,n_tup,tup,e_est):
                   #
                   tup[k-1][j][1] -= tup[i-1][l][1]
    #
-   for k in range(1,molecule['max_est_order']+1):
+   for k in range(1,molecule['max_corr_order']+1):
       #
       e_tmp = 0.0
       #
@@ -425,9 +425,9 @@ def inc_corr_order_est(molecule,n_tup,tup,e_est):
       #
       if (k > 1):
          #
-         e_tmp += e_est[k-2]
+         e_tmp += e_corr[k-2]
       #
-      e_est.append(e_tmp)
+      e_corr.append(e_tmp)
    #
-   return e_est
+   return e_corr
 
