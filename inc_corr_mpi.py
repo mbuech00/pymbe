@@ -84,7 +84,7 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'energy_calc_mono_exp_corr'):
          #
-         level = 'CORR'
+         level = 'CORRE'
          #
          energy_calc_slave(molecule,level)
       #
@@ -156,7 +156,7 @@ def energy_calc_slave(molecule,level):
             #
             data['index'] = string['index']
          #
-         elif (level == 'CORR'):
+         elif (level == 'CORRE'):
             #
             data['index-1'] = string['index-1']
             #

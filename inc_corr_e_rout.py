@@ -323,50 +323,6 @@ def energy_calc_mono_exp_corr_par(molecule,tup,n_tup,l_limit,u_limit,time,level)
    #
    return molecule, tup
 
-def set_corr_order(molecule,n_tup,time):
-   #
-   molecule['min_corr_order'] = 0
-   #
-   for i in range(0,len(molecule['prim_n_tuples'][0])):
-      #
-      if ((molecule['prim_n_tuples'][0][i] < molecule['theo_work'][0][i]) and (molecule['prim_n_tuples'][0][i] > 0)):
-         #
-         molecule['min_corr_order'] = i+1
-         #
-         break
-   #
-   if (molecule['min_corr_order'] == 0):
-      #
-      molecule['corr'] = False
-      #
-      molecule['max_corr_order'] = 0
-      #
-      molecule['corr_order'] = 0
-      #
-      for _ in range(0,len(molecule['e_tot'][0])):
-         #
-         molecule['e_corr'][0].append(0.0)
-         #
-         time.append(0.0)
-      #
-      for _ in range(0,len(molecule['prim_n_tuples'][0])):
-         #
-         n_tup.append(0)
-      #
-      return molecule
-   #
-   elif ((molecule['min_corr_order'] + (molecule['corr_order']-1)) > (len(molecule['prim_tuple'][0])-1)):
-      #
-      molecule['max_corr_order'] = len(molecule['prim_tuple'][0])-1
-      #
-      molecule['corr_order'] = (len(molecule['prim_tuple'][0])-1) - molecule['min_corr_order']
-   #
-   else:
-      #
-      molecule['max_corr_order'] = molecule['min_corr_order'] + (molecule['corr_order']-1)
-   #
-   return molecule
-
 def inc_corr_order(molecule,k,tup,e_tot):
    #
    for j in range(0,len(tup[k-1])):

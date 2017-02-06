@@ -656,29 +656,29 @@ def inc_corr_summary(molecule):
    #
    return molecule
 
-def print_status_header_1(order):
+def print_status_header_1(order,level):
    #
    print('')
    print('')
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-MACRO: order = {0:>d} tuple generation started'.format(order))
+   print(' STATUS-{0:}: order = {1:>d} tuple generation started'.format(level,order))
    #
    return
 
-def print_status_header_2(num,order,conv,time_gen):
+def print_status_header_2(num,order,conv,time_gen,level):
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-MACRO: order = {0:>d} tuple generation done in {1:8.2e} seconds'.format(order,time_gen))
+   print(' STATUS-{0:}: order = {1:>d} tuple generation done in {2:8.2e} seconds'.format(level,order,time_gen))
    print(' --------------------------------------------------------------------------------------------')
    #
    if (conv):
       #
-      print(' STATUS-MACRO: order = {0:>d} has no contributions --- *** calculation has converged ***'.format(order))
+      print(' STATUS-{0:}: order = {1:>d} has no contributions --- *** calculation has converged ***'.format(level,order))
       print(' --------------------------------------------------------------------------------------------')
    #
    else:
       #
-      print(' STATUS-MACRO: order = {0:>d} energy calculation started  ---  {1:d} tuples in total'.format(order,num))
+      print(' STATUS-{0:}: order = {1:>d} energy calculation started  ---  {2:d} tuples in total'.format(level,order,num))
       print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -714,7 +714,7 @@ def print_status(prog,level):
    #
    else:
       #
-      print(' STATUS-'+level+':   [{0}]   ---  {1:>6.2f} % {2}'.format('#' * block + '-' * (bar_length - block), prog * 100, status))
+      print(' STATUS-{0:}:   [{1}]   ---  {2:>6.2f} % {3}'.format(level,'#' * block + '-' * (bar_length - block), prog * 100, status))
    #
    return
 
@@ -724,11 +724,11 @@ def print_status_end(order,time,n_tup,level):
    #
    if (n_tup[-1] == 0):
       #
-      print(' STATUS-'+level+': order = {0:>d} energy calculation done'.format(order))
+      print(' STATUS-{0:}: order = {1:>d} energy calculation done'.format(level,order))
    #
    else:
       #
-      print(' STATUS-'+level+': order = {0:>d} energy calculation done in {1:8.2e} seconds'.format(order,time[-1]))
+      print(' STATUS-{0:}: order = {1:>d} energy calculation done in {2:8.2e} seconds'.format(level,order,time[-1]))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -743,16 +743,16 @@ def print_status_end_corr(max_order,time):
    #
    return
 
-def print_result(tup):
+def print_result(tup,level):
    #
    print(' --------------------------------------------------------------------------------------------')
    print(' --------------------------------------------------------------------------------------------')
-   print(' RESULT-MACRO:     tuple    |    energy incr.   |    corr. orbs.')
+   print(' RESULT-{0:}:     tuple    |    energy incr.   |    corr. orbs.'.format(level))
    print(' --------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(tup)):
       #
-      print(' RESULT-MACRO:  {0:>6d}           {1:> 8.4e}         {2!s:<}'.format(i+1,tup[i][1],tup[i][0]))
+      print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,tup[i][1],tup[i][0]))
    #
    print(' --------------------------------------------------------------------------------------------')
    #
@@ -804,13 +804,13 @@ def print_inner_result(molecule):
    #
    return
 
-def print_update(domain,l_limit,u_limit,level):
+def print_update(dom,l_limit,u_limit,level):
    #
    count = []
    #
    for j in range(0,u_limit):
       #
-      if ((len(domain[j][-2]) >= 1) and (float(len(domain[j][-1]))/float(len(domain[j][-2])) != 1.0)):
+      if ((len(dom[-2][j]) >= 1) and (float(len(dom[-1][j]))/float(len(dom[-2][j])) != 1.0)):
          #
          count.append(True)
       #
@@ -821,18 +821,18 @@ def print_update(domain,l_limit,u_limit,level):
    if (any(count)):
       #
       print(' --------------------------------------------------------------------------------------------')
-      print(' UPDATE-'+level+':   orb. domain  |  relat. red. (in %)  |   total red. (in %)  |  screened orbs.  ')
+      print(' UPDATE-{0:}:   orb. domain  |  relat. red. (in %)  |   total red. (in %)  |  screened orbs.  '.format(level))
       print(' --------------------------------------------------------------------------------------------')
       #
       for j in range(0,u_limit):
          #
          if (count[j]):
             #
-            print(' UPDATE-'+level+':     {0!s:>5}              {1:>6.2f}                 {2:>6.2f}            {3!s:<}'.\
-                          format([(j+l_limit)+1],\
-                                 (1.0-float(len(domain[j][-1]))/float(len(domain[j][-2])))*100.00,\
-                                 (1.0-float(len(domain[j][-1]))/float(len(domain[j][0])))*100.00,\
-                                 sorted(list(set(domain[j][-2])-set(domain[j][-1])))))
+            print(' UPDATE-{0:}:     {1!s:>5}              {2:>6.2f}                 {3:>6.2f}            {4!s:<}'.\
+                          format(level,[(j+l_limit)+1],\
+                                 (1.0-float(len(dom[-1][j]))/float(len(dom[-2][j])))*100.00,\
+                                 (1.0-float(len(dom[-1][j]))/float(len(dom[0][j])))*100.00,\
+                                 sorted(list(set(dom[-2][j])-set(dom[-1][j])))))
       #
       print(' --------------------------------------------------------------------------------------------')
    #
