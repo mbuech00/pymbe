@@ -12,72 +12,73 @@ import math
 
 import inc_corr_utils
 
-def orb_generator(molecule,dom,tup,l_limit,k):
+def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
    #
-   incl = []
-   incl_2 = []
-   #
-   full_space = []
-   #
-   for i in range(0,len(dom)):
+   if (k == 1):
       #
-      # construct union space of all orbitals in i-th domain + the i-th orbital itself (if not conventional frozen core scheme)
+      for i in range(0,len(dom)):
+         #
+         # all singles contributions 
+         #
+         tup[k-1].append([[(i+l_limit)+1]])
+   #
+   elif (k == 2):
       #
-      if (not ((molecule['frozen'] == 'conv') and (((i+l_limit)+1) <= molecule['ncore']))):
+      # generate all possible (unique) pairs
+      #
+      incl = list(list(comb) for comb in itertools.combinations(range(1+l_limit,(l_limit+u_limit)+1),2))
+      #
+      for i in range(0,len(incl)):
          #
-         full_space = sorted(list(set(dom[i]).union(set([(l_limit+i)+1]))))
+         tup[k-1].append([incl[i]])
+   #
+   else:
+      #
+      select = []
+      #
+      for i in range(0,len(dom)-1):
          #
-         # generate all k-combinations in the space
+         # generate list of indices where val is greater than orb index = (i+l_limit)+1
          #
-         incl_tmp = list(list(comb) for comb in itertools.combinations(full_space,k))
+         idx = [x for x in range(0,len(dom[i])) if dom[i][x] > ((i+l_limit)+1)]
          #
-         for j in range(0,len(incl_tmp)):
+         if (len(idx) > 0):
             #
-            # is the i-th orbital in the given combination?
+            # generate complete set of (k-1)-combinations
             #
-            if (set([(l_limit+i)+1]) <= set(incl_tmp[j])):
+            tmp = list(list(comb) for comb in itertools.combinations(dom[i][idx[0]:],k-1))
+            #
+            select[:] = []
+            #
+            for j in range(0,len(tmp)):
                #
-               mask = True
+               # generate subset of all pairs within the given (k-1)-combination
                #
-               # loop through the given combination to check whether all orbitals are part of each other domains
+               tmp_sub = list(list(comb) for comb in itertools.combinations(tmp[j],2))
                #
-               for l in range(0,len(incl_tmp[j])):
+               select.append(True)
+               #
+               for l in range(0,len(tmp_sub)):
                   #
-                  for m in range(0,len(incl_tmp[j])):
+                  # is the specific tuple in tmp allowed?
+                  #
+                  if (tmp_sub[l][1] not in dom[(tmp_sub[l][0]-l_limit)-1]):
                      #
-                     if (m != l):
-                        #
-                        # domain check
-                        #
-                        if (not (set([incl_tmp[j][m]]) <= set(dom[(incl_tmp[j][l]-l_limit)-1]))):
-                           #
-                           mask = False
-                           #
-                           break
-                  #
-                  if (not mask):
+                     select[-1] = False
                      #
                      break
+            #
+            for m in range(0,len(tmp)):
                #
-               if (mask):
+               if (select[m]):
                   #
-                  # the given tuple is allowed
+                  # complete k-combination by appending orb index = (i+l_limit)+1
                   #
-                  incl.append(incl_tmp[j])
-   #
-   # remove duplicates
-   #
-   for i in range(0,len(incl)):
-      #
-      if (incl[i] not in incl_2):
-         #
-         incl_2.append(incl[i])
-   #
-   # write to molecule['tuple']
-   #
-   for i in range(0,len(incl_2)):
-      #
-      tup.append([incl_2[i]])
+                  tmp[m].append((i+l_limit)+1)
+                  #
+                  # finally, add the ordered tuple to the tuple list
+                  #
+                  tup[k-1].append([sorted(tmp[m])])
    #
    return tup
 

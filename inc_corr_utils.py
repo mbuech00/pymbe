@@ -661,17 +661,17 @@ def print_status_header_1(order,level):
    print('')
    print('')
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} tuple generation started'.format(level,order))
+   print(' STATUS-{0:}: order = {1:>d} initialization started'.format(level,order))
    #
    return
 
 def print_status_header_2(num,order,conv,time_gen,level):
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} tuple generation done in {2:8.2e} seconds'.format(level,order,time_gen))
+   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_gen))
    print(' --------------------------------------------------------------------------------------------')
    #
-   if (conv):
+   if ((level == 'MACRO') and conv):
       #
       print(' STATUS-{0:}: order = {1:>d} has no contributions --- *** calculation has converged ***'.format(level,order))
       print(' --------------------------------------------------------------------------------------------')
@@ -683,23 +683,6 @@ def print_status_header_2(num,order,conv,time_gen,level):
    #
    return
 
-def print_status_header_corr_1(max_order):
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-CORR:  energy correction through order = {0:>d} tuple generation started'.format(max_order))
-   #
-   return
-
-def print_status_header_corr_2(max_order,num,time_gen):
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-CORR:  energy correction through order = {0:>d} tuple generation done in {1:8.2e} seconds'.format(max_order,time_gen))
-   print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-CORR:  energy correction through order = {0:>d} started  ---  {1:d} tuples in total'.format(max_order,num))
-   print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
 def print_status(prog,level):
    #
    bar_length = 50
@@ -708,13 +691,7 @@ def print_status(prog,level):
    #
    block = int(round(bar_length * prog))
    #
-   if (level == 'CORR'):
-      #
-      print(' STATUS-CORR:    [{0}]   ---  {1:>6.2f} % {2}'.format('#' * block + '-' * (bar_length - block), prog * 100, status))
-   #
-   else:
-      #
-      print(' STATUS-{0:}:   [{1}]   ---  {2:>6.2f} % {3}'.format(level,'#' * block + '-' * (bar_length - block), prog * 100, status))
+   print(' STATUS-{0:}:   [{1}]   ---  {2:>6.2f} % {3}'.format(level,'#' * block + '-' * (bar_length - block), prog * 100, status))
    #
    return
 
@@ -733,16 +710,6 @@ def print_status_end(order,time,n_tup,level):
    #
    return
 
-def print_status_end_corr(max_order,time):
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-CORR:  energy correction through order = {0:>d} done in {1:8.2e} seconds'.format(max_order,sum(time)))
-   print(' --------------------------------------------------------------------------------------------')
-   print('')
-   print('')
-   #
-   return
-
 def print_result(tup,level):
    #
    print(' --------------------------------------------------------------------------------------------')
@@ -753,27 +720,6 @@ def print_result(tup,level):
    for i in range(0,len(tup)):
       #
       print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,tup[i][1],tup[i][0]))
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
-def print_result_corr(molecule,sec_tup):
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   print(' --------------------------------------------------------------------------------------------')
-   print(' RESULT-CORR:      tuple    |    energy incr.   |    corr. orbs.')
-   print(' --------------------------------------------------------------------------------------------')
-   #
-   counter = 0
-   #
-   for k in range(molecule['min_corr_order'],molecule['max_corr_order']+1):
-      #
-      for j in range(0,len(sec_tup[k-1])):
-         #
-         counter += 1
-         #
-         print(' RESULT-CORR:   {0:>6d}           {1:> 8.4e}         {2!s:<}'.format(counter,sec_tup[k-1][j][1],sec_tup[k-1][j][0]))
    #
    print(' --------------------------------------------------------------------------------------------')
    #

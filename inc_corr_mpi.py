@@ -78,15 +78,7 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'energy_calc_mono_exp'):
          #
-         level = 'MACRO'
-         #
-         energy_calc_slave(molecule,level)
-      #
-      elif (msg['task'] == 'energy_calc_mono_exp_corr'):
-         #
-         level = 'CORRE'
-         #
-         energy_calc_slave(molecule,level)
+         energy_calc_slave(molecule)
       #
       elif (msg['task'] == 'finalize'):
          #
@@ -110,9 +102,11 @@ def bcast_mol_dict(molecule):
    #
    return molecule
 
-def energy_calc_slave(molecule,level):
+def energy_calc_slave(molecule):
    #
    #  ---  slave routine
+   #
+   level = 'SLAVE'
    #
    # init scr env
    #
@@ -130,11 +124,11 @@ def energy_calc_slave(molecule,level):
       #
       # ready for task
       #
-      molecule['mpi_comm'].send(None, dest=0, tag=tags.ready)
+      molecule['mpi_comm'].send(None,dest=0,tag=tags.ready)
       #
       # receive drop string
       #
-      string = molecule['mpi_comm'].recv(source=0, tag=MPI.ANY_SOURCE, status=molecule['mpi_stat'])
+      string = molecule['mpi_comm'].recv(source=0,tag=MPI.ANY_SOURCE,status=molecule['mpi_stat'])
       #
       # recover tag
       #
@@ -152,15 +146,7 @@ def energy_calc_slave(molecule,level):
          #
          # copy job index / indices
          #
-         if (level == 'MACRO'):
-            #
-            data['index'] = string['index']
-         #
-         elif (level == 'CORRE'):
-            #
-            data['index-1'] = string['index-1']
-            #
-            data['index-2'] = string['index-2']
+         data['index'] = string['index']
          #
          # write error logical
          #
@@ -168,7 +154,7 @@ def energy_calc_slave(molecule,level):
          #
          # send data back to master
          #
-         molecule['mpi_comm'].send(data, dest=0, tag=tags.done)
+         molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
       #
       elif (tag == tags.exit):
          #    
@@ -176,7 +162,7 @@ def energy_calc_slave(molecule,level):
    #
    # exit
    #
-   molecule['mpi_comm'].send(None, dest=0, tag=tags.exit)
+   molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
    #
    # remove scr env
    #
@@ -196,7 +182,7 @@ def print_mpi_table(molecule):
       #
       for i in range(0,molecule['mpi_size']-1):
          #
-         info = molecule['mpi_comm'].recv(source=i+1, status=molecule['mpi_stat'])
+         info = molecule['mpi_comm'].recv(source=i+1,status=molecule['mpi_stat'])
          #
          full_info.append([info['rank'],info['name']])
    #
@@ -233,7 +219,7 @@ def print_mpi_table(molecule):
          #
          idx += 1
    #
-   width_str = max(map(lambda x: len(x[1]), full_info))
+   width_str = max(map(lambda x: len(x[1]),full_info))
    #
    print(' master  ---  proc =  {0:>{w_int}d}  ---  node =  {1:>{w_str}s}'.format(molecule['mpi_rank'],molecule['mpi_name'],w_int=width_int,w_str=width_str))
    #
