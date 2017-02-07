@@ -131,29 +131,8 @@ def n_tuples_plot(molecule):
       #
       for i in range(0,u_limit):
          #
-         if (molecule['prim_n_tuples'][0][i] < molecule['theo_work'][0][i]):
-            #
-            if (molecule['sec_n_tuples'][0][i] > 0):
-               #
-               if (molecule['sec_n_tuples'][0][i] == molecule['theo_work'][0][i]):
-                  #
-                  sec_prim.append(molecule['sec_n_tuples'][0][i]-molecule['prim_n_tuples'][0][i])
-               #
-               else:
-                  #
-                  sec_prim.append(molecule['theo_work'][0][i]-molecule['prim_n_tuples'][0][i])
-               #
-               theo_sec.append(0)
-            #
-            else:
-               #
-               sec_prim.append(0)
-               theo_sec.append(molecule['theo_work'][0][i]-molecule['prim_n_tuples'][0][i])
-         #
-         else:
-            #
-            sec_prim.append(0)
-            theo_sec.append(0)
+         sec_prim.append(molecule['sec_n_tuples'][0][i])
+         theo_sec.append(molecule['theo_work'][0][i]-(molecule['prim_n_tuples'][0][i]+molecule['sec_n_tuples'][0][i]))
       #
       sns.barplot(list(range(1,u_limit+1)),theo_sec,bottom=[(i + j) for i,j in zip(sec_prim,molecule['prim_n_tuples'][0])],\
                   palette='BuGn_d',label='Theoretical number',log=True)

@@ -53,7 +53,7 @@ def main_drv(molecule):
          print('                                   energy correction                              ')
          print('                     ---------------------------------------------                ')
          #
-         merge_info(molecule)
+         mono_exp_merge_info(molecule)
          #
          mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
    #
@@ -83,13 +83,17 @@ def mono_exp_drv(molecule,start,end,level):
       n_tup = molecule['sec_n_tuples'][0]
       time = molecule['sec_time'][0]
       orb = molecule['sec_orbital'][0]
-      thres = 0.0
+      thres = 0.5*molecule['prim_thres'][0]
    #
    for k in range(start,end+1):
       #
-      # call mono expansion kernel
+      # mono expansion initialization
       #
-      mono_exp_kernel(molecule,tup,dom,n_tup,time,k,level)
+      mono_exp_init(molecule,tup,n_tup,orb,dom,thres,k,level)
+      #
+      # mono expansion kernel
+      #
+      mono_exp_kernel(molecule,tup,n_tup,time,k,level)
       #
       # print status end
       #
@@ -104,10 +108,6 @@ def mono_exp_drv(molecule,start,end,level):
          if ((level == 'MACRO') and (not molecule['corr'])): print('')
          #
          break
-      #
-      # orbital screening
-      #
-      inc_corr_orb_rout.orb_screen_rout(molecule,k,tup,orb,dom,thres,molecule['l_limit'][0],molecule['u_limit'][0],level)
    #
    # make the e_corr and sec_time lists of the same length as the e_tot list
    # 
@@ -127,61 +127,11 @@ def mono_exp_drv(molecule,start,end,level):
    #
    return molecule
 
-def mono_exp_kernel(molecule,tup,dom,n_tup,time,k,level):
-   #
-   # generate all tuples at order k
-   #
-   tup.append([])
-   #
-   # print status header-1
-   #
-   inc_corr_utils.print_status_header_1(k,level)
-   #
-   # start time
-   #
-   start = timer()
-   #
-   inc_corr_orb_rout.orb_generator(molecule,dom[k-1],tup,molecule['l_limit'][0],molecule['u_limit'][0],k)
-   #
-   if (level == 'CORRE'):
-      #
-      inc_corr_orb_rout.select_corr_tuples(molecule['prim_tuple'][0],tup,k)
-   #
-   # collect time_gen
-   #
-   time_gen = timer() - start
-   #
-   # determine number of tuples at order k
-   #
-   n_tup.append(len(tup[k-1]))
-   #
-   if (level == 'MACRO'):
-      #
-      # check for convergence
-      #
-      if (n_tup[k-1] == 0):
-         #
-         molecule['conv'].append(True)
-      #
-      # calculate theoretical number of tuples at order k
-      #
-      inc_corr_orb_rout.n_theo_tuples(n_tup[0],k,molecule['theo_work'][0])
-   #
-   # print status header-2
-   #
-   inc_corr_utils.print_status_header_2(n_tup[k-1],k,molecule['conv'][-1],time_gen,level)
-   #
-   # return if converged
+def mono_exp_kernel(molecule,tup,n_tup,time,k,level):
    #
    if ((level == 'MACRO') and molecule['conv'][-1]):
       #
-      for l in range(k+1,molecule['u_limit'][0]+1):
-         #
-         n_tup.append(0)
-         #
-         inc_corr_orb_rout.n_theo_tuples(n_tup[0],l,molecule['theo_work'][0])
-      #
-      return molecule
+      return molecule, tup, time
    #
    # start time
    #
@@ -231,7 +181,7 @@ def mono_exp_kernel(molecule,tup,dom,n_tup,time,k,level):
       #
       molecule['conv'].append(True)
    #
-   return molecule
+   return molecule, tup, time
 
 def inc_corr_dual_exp(molecule):
    #
@@ -442,6 +392,70 @@ def inc_corr_dual_exp(molecule):
    #
    return molecule
 
+def mono_exp_init(molecule,tup,n_tup,orb,dom,thres,k,level):
+   #
+   # print status header-1
+   #
+   inc_corr_utils.print_status_header_1(k,level)
+   #
+   # start time
+   #
+   start = timer()
+   #
+   if (k >= 2):
+      #
+      # orbital screening
+      #
+      inc_corr_orb_rout.orb_screen_rout(molecule,k-1,tup,orb,dom,thres,molecule['l_limit'][0],molecule['u_limit'][0],level)
+   #
+   # generate all tuples at order k
+   #
+   tup.append([])
+   #
+   inc_corr_orb_rout.orb_generator(molecule,dom[k-1],tup,molecule['l_limit'][0],molecule['u_limit'][0],k)
+   #
+   if (level == 'CORRE'):
+      #
+      inc_corr_orb_rout.select_corr_tuples(molecule['prim_tuple'][0],tup,k)
+   #
+   # collect time_gen
+   #
+   time_gen = timer() - start
+   #
+   # determine number of tuples at order k
+   #
+   n_tup.append(len(tup[k-1]))
+   #
+   if (level == 'MACRO'):
+      #
+      # check for convergence
+      #
+      if (n_tup[k-1] == 0):
+         #
+         molecule['conv'].append(True)
+      #
+      # calculate theoretical number of tuples at order k
+      #
+      inc_corr_orb_rout.n_theo_tuples(n_tup[0],k,molecule['theo_work'][0])
+   #
+   # print status header-2
+   #
+   inc_corr_utils.print_status_header_2(n_tup[k-1],k,molecule['conv'][-1],time_gen,level)
+   #
+   # if converged, pop last element of tup list and append to n_tup list
+   #
+   if ((level == 'MACRO') and molecule['conv'][-1]):
+      #
+      tup.pop(-1)
+      #
+      for l in range(k+1,molecule['u_limit'][0]+1):
+         #
+         n_tup.append(0)
+         #
+         inc_corr_orb_rout.n_theo_tuples(n_tup[0],l,molecule['theo_work'][0])
+   #
+   return molecule, tup, n_tup, orb, dom
+
 def inc_corr_prepare(molecule):
    #
    if (molecule['exp'] == 'occ'):
@@ -561,9 +575,9 @@ def set_corr_order(molecule):
       #
       return molecule
    #
-   elif ((molecule['min_corr_order'] + (molecule['corr_order']-1)) > (len(molecule['prim_tuple'][0])-1)):
+   elif ((molecule['min_corr_order'] + (molecule['corr_order']-1)) > len(molecule['prim_tuple'][0])):
       #
-      molecule['max_corr_order'] = len(molecule['prim_tuple'][0])-1
+      molecule['max_corr_order'] = len(molecule['prim_tuple'][0])
       #
       molecule['corr_order'] = (len(molecule['prim_tuple'][0])-1) - molecule['min_corr_order']
    #
@@ -581,7 +595,7 @@ def set_corr_order(molecule):
    #
    return molecule
 
-def merge_info(molecule):
+def mono_exp_merge_info(molecule):
    #
    for k in range(1,molecule['min_corr_order']):
       #
@@ -590,7 +604,4 @@ def merge_info(molecule):
       molecule['sec_domain'][0].append(molecule['prim_domain'][0][k-1])
    #
    return molecule
-
-
-
 

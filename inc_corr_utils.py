@@ -366,9 +366,7 @@ def init_calc(molecule):
       #
       inc_corr_mpi.bcast_mol_dict(molecule)
       #
-      if (molecule['debug']):
-         #
-         inc_corr_mpi.print_mpi_table(molecule)
+      inc_corr_mpi.print_mpi_table(molecule)
    #
    return molecule
 
@@ -662,6 +660,7 @@ def print_status_header_1(order,level):
    print('')
    print(' --------------------------------------------------------------------------------------------')
    print(' STATUS-{0:}: order = {1:>d} initialization started'.format(level,order))
+   print(' --------------------------------------------------------------------------------------------')
    #
    return
 
@@ -669,6 +668,7 @@ def print_status_header_2(num,order,conv,time_gen,level):
    #
    print(' --------------------------------------------------------------------------------------------')
    print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_gen))
+   print(' --------------------------------------------------------------------------------------------')
    print(' --------------------------------------------------------------------------------------------')
    #
    if ((level == 'MACRO') and conv):
