@@ -67,10 +67,16 @@ def main_slave_rout(molecule):
          molecule['mpi_name'] = MPI.Get_processor_name()
          molecule['mpi_stat'] = MPI.Status()
          molecule['mpi_master'] = False
+      #
+      elif (msg['task'] == 'init_slave_env'):
          #
          # private scr dir
          #
          molecule['scr'] += '-'+str(molecule['mpi_rank'])
+         #
+         # init scr env
+         #
+         inc_corr_utils.setup_calc(molecule['scr'])
       #
       elif (msg['task'] == 'print_mpi_table'):
          #
@@ -80,7 +86,13 @@ def main_slave_rout(molecule):
          #
          energy_calc_slave(molecule)
       #
-      elif (msg['task'] == 'finalize'):
+      elif (msg['task'] == 'remove_slave_env'):
+         #
+         # remove scr env
+         #
+         inc_corr_utils.term_calc(molecule)
+      #
+      elif (msg['task'] == 'finalize_mpi'):
          #
          slave = False
    #
@@ -94,23 +106,47 @@ def bcast_mol_dict(molecule):
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
+   # bcast molecule dict
+   #
    molecule['mpi_comm'].bcast(molecule,root=0)
+   #
+   # private mpi info
    #
    molecule['mpi_rank'] = molecule['mpi_comm'].Get_rank()
    molecule['mpi_name'] = MPI.Get_processor_name()
    molecule['mpi_stat'] = MPI.Status()
    #
+   # private scr dir
+   #
+   molecule['scr'] += '-'+str(molecule['mpi_rank'])
+   #
    return molecule
+
+def init_slave_env(molecule):
+   #
+   #  ---  master routine
+   #
+   msg = {'task': 'init_slave_env'}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   return
+
+def remove_slave_env(molecule):
+   #
+   #  ---  master routine
+   #
+   msg = {'task': 'remove_slave_env'}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   return
 
 def energy_calc_slave(molecule):
    #
    #  ---  slave routine
    #
    level = 'SLAVE'
-   #
-   # init scr env
-   #
-   inc_corr_utils.setup_calc(molecule['scr'])
    #
    # define mpi message tags
    #
@@ -163,10 +199,6 @@ def energy_calc_slave(molecule):
    # exit
    #
    molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
-   #
-   # remove scr env
-   #
-   inc_corr_utils.term_calc(molecule)
    #
    return molecule
 
@@ -235,7 +267,7 @@ def finalize_mpi(molecule):
    #
    if (MPI.COMM_WORLD.Get_rank() == 0):
       #
-      msg = {'task': 'finalize'}
+      msg = {'task': 'finalize_mpi'}
       #
       MPI.COMM_WORLD.bcast(msg,root=0)
    #

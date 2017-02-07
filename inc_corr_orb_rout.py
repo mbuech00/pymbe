@@ -178,11 +178,11 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
             #
             e_abs = 0.0
             #
-            for k in range(0,len(tup[-1])):
+            for l in range(0,len(tup[-1])):
                #
-               if ((set([i+1]) <= set(tup[-1][k][0])) and (set([j+1]) <= set(tup[-1][k][0]))):
+               if ((set([i+1]) <= set(tup[-1][l][0])) and (set([j+1]) <= set(tup[-1][l][0]))):
                   #
-                  e_abs += tup[-1][k][1]
+                  e_abs += tup[-1][l][1]
             #
             orb[-1][i-l_limit].append([[j+1],[e_abs]])
    #
@@ -192,21 +192,19 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
       #
       for j in range(0,len(orb)):
          #
-         for k in range(l_limit,(l_limit+u_limit)-1):
+         for l in range(l_limit,(l_limit+u_limit)-1):
             #
-            e_sum += orb[j][i-l_limit][(k-l_limit)+1][1][0]
+            e_sum += orb[j][i-l_limit][(l-l_limit)+1][1][0]
       #
-      for j in range(0,len(orb)):
+      for l in range(l_limit,(l_limit+u_limit)-1):
          #
-         for k in range(l_limit,(l_limit+u_limit)-1):
+         if (orb[-1][i-l_limit][(l-l_limit)+1][1][0] != 0.0):
             #
-            if (orb[j][i-l_limit][(k-l_limit)+1][1][0] != 0.0):
-               #
-               orb[j][i-l_limit][(k-l_limit)+1][1].append(orb[j][i-l_limit][(k-l_limit)+1][1][0] / e_sum)
+            orb[-1][i-l_limit][(l-l_limit)+1][1].append(orb[-1][i-l_limit][(l-l_limit)+1][1][0] / e_sum)
+         #
+         else:
             #
-            else:
-               #
-               orb[j][i-l_limit][(k-l_limit)+1][1].append(0.0)
+            orb[-1][i-l_limit][(l-l_limit)+1][1].append(0.0)  
    #
    if (molecule['debug']):
       #
@@ -229,9 +227,9 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
             #
             for k in range(0,len(orb[i][j])-1):
                #
-               tmp[j].append(orb[i][j][k+1][1][-1])
+               tmp[j].append(orb[i][j][k+1][1][1])
             #
-            print(' {0:}'.format(j+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
+            print(' {0:>3d}'.format((j+l_limit)+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
       #
       print('')
    #

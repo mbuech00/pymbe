@@ -101,6 +101,8 @@ def term_calc(molecule):
    #
    if (molecule['mpi_master']):
       #
+      inc_corr_mpi.remove_slave_env(molecule)
+      #
       print(' ** end of bethe-goldstone '+molecule['model']+' calculation **\n')
       print('\n')
    #
@@ -365,6 +367,8 @@ def init_calc(molecule):
    if (molecule['mpi_parallel']):
       #
       inc_corr_mpi.bcast_mol_dict(molecule)
+      #
+      inc_corr_mpi.init_slave_env(molecule)
       #
       inc_corr_mpi.print_mpi_table(molecule)
    #

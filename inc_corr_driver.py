@@ -83,7 +83,7 @@ def mono_exp_drv(molecule,start,end,level):
       n_tup = molecule['sec_n_tuples'][0]
       time = molecule['sec_time'][0]
       orb = molecule['sec_orbital'][0]
-      thres = 0.5*molecule['prim_thres'][0]
+      thres = 0.2*molecule['prim_thres'][0]
    #
    for k in range(start,end+1):
       #
@@ -600,8 +600,14 @@ def mono_exp_merge_info(molecule):
    for k in range(1,molecule['min_corr_order']):
       #
       molecule['sec_tuple'][0].append(molecule['prim_tuple'][0][k-1])
-      molecule['sec_orbital'][0].append(molecule['prim_orbital'][0][k-1])
+   #
+   for k in range(1,molecule['min_corr_order']-1):
+      #
       molecule['sec_domain'][0].append(molecule['prim_domain'][0][k-1])
+   #
+   for k in range(1,molecule['min_corr_order']-2):
+      #
+      molecule['sec_orbital'][0].append(molecule['prim_orbital'][0][k-1])
    #
    return molecule
 
