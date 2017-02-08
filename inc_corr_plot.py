@@ -168,36 +168,50 @@ def n_tuples_plot(molecule):
    #
    return molecule
 
-def e_contrib_plot(molecule):
+def orb_entangl_plot(molecule):
    #
    sns.set(style='darkgrid',palette='Set2')
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule["e_tot"][0]))+')')
+   tot_plots = len(molecule['prim_orbital'][0])
+   tot_cols = 1
    #
-   orbital_arr = np.asarray(molecule['orbital'])
+   tot_rows = tot_plots // tot_cols
+   tot_rows += tot_plots % tot_cols
    #
-   # calculate realtive contributions
+   position = range(1,tot_plots+1)
    #
-   tot_sum = 0.0
+   print('tot_plots = {0:} , tot_cols = {1:} , tot_rows = {2:}'.format(tot_plots,tot_cols,tot_rows))
    #
-   for i in range(0,len(molecule['e_tot'][0])):
+   arr_list = []
+   #
+   h_map = []
+   #
+   for i in range(0,tot_plots):
       #
-      tot_sum += sum(orbital_arr[i,0:])
-   #
-   for i in range(0,len(molecule['e_tot'][0])):
+      arr_list[:] = []
       #
-      for j in range(0,molecule['u_limit'][0]):
+      for j in range(0,len(molecule['prim_orbital'][0][i])):
          #
-         orbital_arr[i,j] = (orbital_arr[i,j] / tot_sum) * 100.0
-   #
-   ax = sns.heatmap(orbital_arr,linewidths=.5,xticklabels=range(1,u_limit+1),\
-                    yticklabels=range(1,len(molecule['e_tot'][0])+1),cmap='coolwarm',cbar=False,\
-                    annot=True,fmt='.1f',vmin=-np.amax(orbital_arr),vmax=np.amax(orbital_arr))
-   #
-   ax.set_xlabel('Orbital')
-   ax.set_ylabel('Order')
+         arr_list.append([])
+         #
+         for k in range(0,len(molecule['prim_orbital'][0][i][j])-1):
+            #
+            arr_list[j].append(molecule['prim_orbital'][0][i][j][k+1][1][1]*100.0)
+      #
+      orbital_arr = np.asarray(arr_list)
+      #
+      h_map.append(fig.add_subplot(tot_rows,tot_cols,position[i]))
+      #
+      h_map[i] = sns.heatmap(orbital_arr,linewidths=.5,xticklabels=range(molecule['l_limit'][0]+1,(molecule['l_limit'][0]+molecule['u_limit'][0])+1),\
+                       yticklabels=range(1,len(molecule['e_tot'][0])+1),cmap='coolwarm',cbar=False,\
+                       annot=True,fmt='.1f',vmin=-np.amax(orbital_arr),vmax=np.amax(orbital_arr))
+      #
+      h_map[i].set_title('orbital entanglement matrix (k = '+str(i+2))
+      #
+#      ax.set_xlabel('Orbital')
+#      ax.set_ylabel('Order')
    #
    plt.yticks(rotation=0)
    #
@@ -205,7 +219,7 @@ def e_contrib_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_tot'][0])), bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output/orb_entangl_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -336,6 +350,10 @@ def ic_plot(molecule):
    #  ---  plot number of calculations from each orbital  ---
    #
    n_tuples_plot(molecule)
+   #
+   #  ---  plot orbital entanglement matrices  ---
+   #
+#   orb_entangl_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #
