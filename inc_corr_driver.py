@@ -74,7 +74,7 @@ def mono_exp_drv(molecule,start,end,level):
       n_tup = molecule['prim_n_tuples'][0]
       time = molecule['prim_time'][0]
       orb = molecule['prim_orbital'][0]
-      thres = molecule['prim_thres'][0]
+      thres = molecule['prim_thres']
    #
    else:
       #
@@ -83,7 +83,7 @@ def mono_exp_drv(molecule,start,end,level):
       n_tup = molecule['sec_n_tuples'][0]
       time = molecule['sec_time'][0]
       orb = molecule['sec_orbital'][0]
-      thres = 0.2*molecule['prim_thres'][0]
+      thres = molecule['corr_thres']
    #
    for k in range(start,end+1):
       #
@@ -311,7 +311,7 @@ def inc_corr_dual_exp(molecule):
                #
                molecule['excl_list'][1][:] = []
                #
-               inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][1],molecule['orbital'][1],molecule['thres'][1],molecule['excl_list'][1])
+               inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][1],molecule['orbital'][1],molecule['sec_thres'],molecule['excl_list'][1])
                #
                # update domains (for inner expansion)
                #
@@ -362,7 +362,7 @@ def inc_corr_dual_exp(molecule):
          #
          molecule['excl_list'][0][:] = []
          #
-         inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][0],molecule['orbital'][0],molecule['thres'][0],molecule['excl_list'][0])
+         inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][0],molecule['orbital'][0],molecule['prim_thres'],molecule['excl_list'][0])
          #
          # update domains (for outer expansion)
          #

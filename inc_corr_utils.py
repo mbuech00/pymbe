@@ -113,7 +113,8 @@ def init_mol(molecule):
    if (not os.path.isfile('input-mol.inp')):
       #
       print('input-mol.inp not found, aborting ...')
-      sys.exit(10)
+      #
+      inc_corr_mpi.abort_mpi(molecule)
    #
    else:
       #
@@ -141,7 +142,8 @@ def init_mol(molecule):
       if (not (chk[k] in molecule.keys())):
          #
          print('any of '+str(chk[0:2])+' keywords missing in input-mol.inp, aborting ...')
-         sys.exit(10)
+         #
+         inc_corr_mpi.abort_mpi(molecule)
    #
    # rename 'core' to 'ncore' internally in the code (to adapt with convention: 'nocc'/'nvirt')
    #
@@ -154,18 +156,20 @@ def init_param(molecule):
    if (not os.path.isfile('input-param.inp')):
       #
       print('input-param.inp not found, aborting ...')
-      sys.exit(10)
+      #
+      inc_corr_mpi.abort_mpi(molecule)
    #
    else:
       #
       # init keys
       #
-      thres_occ = 0.0
-      thres_virt = 0.0
       molecule['max_order'] = 0
+      molecule['prim_thres'] = 0.0
+      molecule['sec_thres'] = 0.0
       molecule['corr'] = False
       molecule['corr_model'] = ''
       molecule['corr_order'] = 0
+      molecule['corr_thres'] = 0.0
       molecule['basis'] = ''
       molecule['ref'] = False
       molecule['debug'] = False
@@ -188,13 +192,13 @@ def init_param(molecule):
                #
                molecule['max_order'] = int(content[i].split()[1])
             #
-            elif (content[i].split()[0] == 'thres_occ'):
+            elif (content[i].split()[0] == 'prim_thres'):
                #
-               thres_occ = float(content[i].split()[1])
+               molecule['prim_thres'] = float(content[i].split()[1])
             #
-            elif (content[i].split()[0] == 'thres_virt'):
+            elif (content[i].split()[0] == 'sec_thres'):
                #
-               thres_virt = float(content[i].split()[1])
+               molecule['sec_thres'] = float(content[i].split()[1])
             #
             elif (content[i].split()[0] == 'corr'):
                #
@@ -203,6 +207,10 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'corr_order'):
                #
                molecule['corr_order'] = int(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'corr_thres'):
+               #
+               molecule['corr_thres'] = float(content[i].split()[1])
             #
             elif (content[i].split()[0] == 'model'):
                #
@@ -250,13 +258,14 @@ def init_param(molecule):
             #
             else:
                #
-               print(str(content[i].split()[1])+' keyword in input-param.inp not recognized, aborting ...')
-               sys.exit(10)
+               print(str(content[i].split()[0])+' keyword in input-param.inp not recognized, aborting ...')
+               #
+               inc_corr_mpi.abort_mpi(molecule)
    #
-   set_exp(thres_occ,thres_virt,molecule)
+   set_exp(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','scr','exp','max_order','corr','corr_order','model','corr_model',\
-          'basis','ref','local','zmat','units','mem','prim_thres','debug']
+   chk = ['mol','ncore','frozen','mult','scr','exp','max_order','prim_thres','sec_thres','corr','corr_order','corr_thres','model','corr_model',\
+          'basis','ref','local','zmat','units','mem','debug']
    #
    inc = 0
    #
@@ -270,41 +279,29 @@ def init_param(molecule):
    #
    if (inc > 0):
       #
-      sys.exit(10)
+      inc_corr_mpi.abort_mpi(molecule)
    #
    set_fc_scheme(molecule)
    #
    return molecule
 
-def set_exp(thres_occ,thres_virt,molecule):
+def set_exp(molecule):
    #
    # set thresholds and scheme
    #
-   molecule['prim_thres'] = []
-   #
    if (molecule['exp'] == 'occ'):
-      #
-      molecule['prim_thres'].append(thres_occ)
       #
       molecule['scheme'] = 'occupied'
    #
    elif (molecule['exp'] == 'virt'):
       #
-      molecule['prim_thres'].append(thres_virt)
-      #
       molecule['scheme'] = 'virtual'
    #
    elif (molecule['exp'] == 'comb-ov'):
       #
-      molecule['prim_thres'].append(thres_occ)
-      molecule['prim_thres'].append(thres_virt)
-      #
       molecule['scheme'] = 'combined occupied/virtual'
    #
    elif (molecule['exp'] == 'comb-vo'):
-      #
-      molecule['prim_thres'].append(thres_virt)
-      molecule['prim_thres'].append(thres_occ)
       #
       molecule['scheme'] = 'combined virtual/occupied'
    #
@@ -388,6 +385,7 @@ def sanity_chk(molecule):
    if ((molecule['exp'] != 'occ') and (molecule['exp'] != 'virt') and (molecule['exp'] != 'comb-ov') and (molecule['exp'] != 'comb-vo')):
       #
       print('wrong input -- valid choices for expansion scheme are occ, virt, comb-ov, or comb-vo --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # expansion model
@@ -395,6 +393,7 @@ def sanity_chk(molecule):
    if (not ((molecule['model'] == 'fci') or (molecule['model'] == 'mp2') or (molecule['model'] == 'cisd') or (molecule['model'] == 'ccsd') or (molecule['model'] == 'ccsdt'))):
       #
       print('wrong input -- valid expansion models are currently: fci, mp2, cisd, ccsd, and ccsdt --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # max order
@@ -402,58 +401,82 @@ def sanity_chk(molecule):
    if (molecule['max_order'] < 0):
       #
       print('wrong input -- wrong maximum expansion order (must be integer >= 1) --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # expansion thresholds
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and ((molecule['prim_thres'][0] == 0.0) and (molecule['max_order'] == 0))):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and ((molecule['prim_thres'] == 0.0) and (molecule['max_order'] == 0))):
       #
-      print('wrong input -- no expansion threshold supplied and no max_order set (either or both must be set) --- aborting ...')
+      print('wrong input -- no expansion threshold (prim_thres) supplied and no max_order set (either or both must be set) --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and (molecule['prim_thres'][0] < 0.0)):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and (molecule['prim_thres'] < 0.0)):
       #
-      print('wrong input -- expansion threshold must be float >= 0.0 --- aborting ...')
+      print('wrong input -- expansion threshold (prim_thres) must be float >= 0.0 --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
-   if (((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')) and ((molecule['prim_thres'][0] == 0.0) and (molecule['prim_thres'][1] == 0.0))):
+   if (((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')) and ((molecule['prim_thres'] == 0.0) and (molecule['sec_thres'] == 0.0))):
       #
-      print('wrong input -- expansion thresholds for both the occ and the virt expansions need be supplied --- aborting ...')
+      print('wrong input -- expansion thresholds for both the occ and the virt expansions need be supplied (prim_thres / sec_thres) --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
-   if (((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')) and ((molecule['prim_thres'][0] < 0.0) or (molecule['prim_thres'][1] < 0.0))):
+   if (((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')) and ((molecule['prim_thres'] < 0.0) or (molecule['prim_thres'] < 0.0))):
       #
-      print('wrong input -- expansion thresholds must be floats >= 0.0 --- aborting ...')
+      print('wrong input -- expansion thresholds (prim_thres / sec_thres) must be floats >= 0.0 --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # energy correction
    #
-   if (molecule['corr'] and (molecule['corr_order'] == 0)):
+   if (molecule['corr']):
       #
-      print('wrong input -- energy correction requested, but no correction order (integer >= 1) supplied --- aborting ...')
-      molecule['error'][0].append(True)
+      if (molecule['corr_order'] == 0):
+         #
+         print('wrong input -- energy correction requested, but no correction order (integer >= 1) supplied --- aborting ...')
+         #
+         molecule['error'][0].append(True)
+      #
+      if (molecule['corr_thres'] <= 0.0):
+         #
+         print('wrong input -- correction threshold (corr_thres, float >= 0.0) must be supplied --- aborting ...')
+         #
+         molecule['error'][0].append(True)
+      #
+      if (molecule['corr_thres'] > molecule['prim_thres']):
+         #
+         print('wrong input -- correction threshold (corr_thres) must be tighter than the primary expansion threshold (prim_thres) --- aborting ...')
+         #
+         molecule['error'][0].append(True)
    #
    # frozen core threatment
    #
    if ((molecule['frozen'] != 'none') and (molecule['frozen'] != 'conv') and (molecule['frozen'] != 'screen')):
       #
       print('wrong input -- valid choices for frozen core are none, conv, or screen --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    if (((molecule['frozen'] == 'conv') or (molecule['frozen'] == 'screen')) and (molecule['ncore'] == 0)):
       #
       print('wrong input -- frozen core requested ('+molecule['frozen_scheme']+' scheme), but no core orbitals specified --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    if ((molecule['frozen'] == 'screen') and (molecule['exp'] == 'virt')):
       #
       print('wrong input -- '+molecule['frozen_scheme']+' frozen core scheme does not make sense with the virtual expansion scheme')
       print('            -- please use the conventional frozen core scheme instead --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    if ((molecule['frozen'] == 'conv') and molecule['local']):
       #
       print('wrong input -- comb. of frozen core and local orbitals not implemented --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # units
@@ -461,6 +484,7 @@ def sanity_chk(molecule):
    if ((molecule['units'] != 'angstrom') and (molecule['units'] != 'bohr')):
       #
       print('wrong input -- valid choices of units are angstrom or bohr --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # memory
@@ -468,6 +492,7 @@ def sanity_chk(molecule):
    if (molecule['mem'] == 0):
       #
       print('wrong input -- memory input not supplied --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # basis set
@@ -475,6 +500,7 @@ def sanity_chk(molecule):
    if (molecule['basis'] == ''):
       #
       print('wrong input -- basis set not supplied --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # scratch folder
@@ -482,6 +508,7 @@ def sanity_chk(molecule):
    if (molecule['scr'] == ''):
       #
       print('wrong input -- scratch folder not supplied --- aborting ...')
+      #
       molecule['error'][0].append(True)
    #
    # quit upon error
@@ -489,8 +516,10 @@ def sanity_chk(molecule):
    if (molecule['error'][0][-1]):
       #
       cd_dir(molecule['wrk'])
+      #
       rm_scr_dir(molecule['scr'])
-      sys.exit(10)
+      #
+      inc_corr_mpi.abort_mpi(molecule)
    #
    return molecule
 
@@ -509,10 +538,10 @@ def inc_corr_summary(molecule):
    print('              molecular information             ')
    print('   ---------------------------------------------')
    print('')
-   print('   frozen core                 =  {0:} {1:}'.format((molecule['frozen'] != 'none'),molecule['frozen_scheme']))
-   print('   local orbitals              =  {0:}'.format(molecule['local']))
-   print('   occupied orbitals           =  {0:}'.format(molecule['nocc']))
-   print('   virtual orbitals            =  {0:}'.format(molecule['nvirt']))
+   print('   frozen core                  =  {0:} {1:}'.format((molecule['frozen'] != 'none'),molecule['frozen_scheme']))
+   print('   local orbitals               =  {0:}'.format(molecule['local']))
+   print('   occupied orbitals            =  {0:}'.format(molecule['nocc']))
+   print('   virtual orbitals             =  {0:}'.format(molecule['nvirt']))
    #
    print('')
    print('   ---------------------------------------------')
@@ -520,41 +549,28 @@ def inc_corr_summary(molecule):
    print('   ---------------------------------------------')
    print('')
    #
-   print('   type of expansion           =  {0:}'.format(molecule['scheme']))
+   print('   type of expansion            =  {0:}'.format(molecule['scheme']))
    #
-   print('   bethe-goldstone order       =  {0:}'.format(len(molecule['e_tot'][0])))
+   print('   bethe-goldstone order        =  {0:}'.format(len(molecule['e_tot'][0])))
    #
-   print('   energy correction           =  {0:}'.format(molecule['corr']))
+   print('   prim. exp. threshold         =  {0:5.3f} %'.format(molecule['prim_thres']*100.00))
+   #
+   if ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
+      #
+      print('   sec. exp. threshold          =  {0:5.3f} %'.format(molecule['sec_thres']*100.00))
+   #
+   print('   energy correction            =  {0:}'.format(molecule['corr']))
    #
    if (molecule['corr']):
       #
-      print('   energy correction order     =  {0:}'.format(molecule['max_corr_order']))
+      print('   energy correction order      =  {0:}'.format(molecule['max_corr_order']))
+      print('   energy correction threshold  =  {0:5.3f} %'.format(molecule['corr_thres']*100.00))
    #
    else:
       #
-      print('   energy correction order     =  N/A')
+      print('   energy correction order      =  N/A')
    #
-   if (molecule['exp'] == 'occ'):
-      #
-      print('   exp. threshold (occ.)       =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
-      print('   exp. threshold (virt.)      =  N/A')
-   #
-   elif (molecule['exp'] == 'virt'):
-      #
-      print('   exp. threshold (occ.)       =  N/A')
-      print('   exp. threshold (virt.)      =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
-   #
-   elif (molecule['exp'] == 'comb-ov'):
-      #
-      print('   exp. threshold (occ.)       =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
-      print('   exp. threshold (virt.)      =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
-   #
-   elif (molecule['exp'] == 'comb-vo'):
-      #
-      print('   exp. threshold (occ.)       =  {0:5.3f} %'.format(molecule['prim_thres'][1]*100.00))
-      print('   exp. threshold (virt.)      =  {0:5.3f} %'.format(molecule['prim_thres'][0]*100.00))
-   #
-   print('   error in calculation        =  {0:}'.format(molecule['error'][0][-1]))
+   print('   error in calculation         =  {0:}'.format(molecule['error'][0][-1]))
    #
    print('')
    print('   ---------------------------------------------')
@@ -562,15 +578,15 @@ def inc_corr_summary(molecule):
    print('   ---------------------------------------------')
    print('')
    #
-   print('   mpi parallel run            =  {0:}'.format(molecule['mpi_parallel']))
+   print('   mpi parallel run             =  {0:}'.format(molecule['mpi_parallel']))
    #
    if (molecule['mpi_parallel']):
       #
-      print('   number of mpi processes     =  {0:}'.format(molecule['mpi_size']))
+      print('   number of mpi processes      =  {0:}'.format(molecule['mpi_size']))
       #
-      print('   number of mpi masters       =  {0:}'.format(1))
+      print('   number of mpi masters        =  {0:}'.format(1))
       #
-      print('   number of mpi slaves        =  {0:}'.format(molecule['mpi_size']-1))
+      print('   number of mpi slaves         =  {0:}'.format(molecule['mpi_size']-1))
    #
    print('')
    print('   ---------------------------------------------')
@@ -578,13 +594,13 @@ def inc_corr_summary(molecule):
    print('   ---------------------------------------------')
    print('')
    #
-   print('   final energy (excl. corr.)  =  {0:>12.5e}'.format(molecule['e_tot'][0][-1]))
-   print('   final energy (incl. corr.)  =  {0:>12.5e}'.format(molecule['e_tot'][0][-1]+molecule['e_corr'][0][-1]))
+   print('   final energy (excl. corr.)   =  {0:>12.5e}'.format(molecule['e_tot'][0][-1]))
+   print('   final energy (incl. corr.)   =  {0:>12.5e}'.format(molecule['e_tot'][0][-1]+molecule['e_corr'][0][-1]))
    #
    print('   ---------------------------------------------')
    #
-   print('   final conv. (excl. corr.)   =  {0:>12.5e}'.format(molecule['e_tot'][0][-1]-molecule['e_tot'][0][-2]))
-   print('   final conv. (incl. corr.)   =  {0:>12.5e}'.format((molecule['e_tot'][0][-1]+molecule['e_corr'][0][-1])-(molecule['e_tot'][0][-2]+molecule['e_corr'][0][-2])))
+   print('   final conv. (excl. corr.)    =  {0:>12.5e}'.format(molecule['e_tot'][0][-1]-molecule['e_tot'][0][-2]))
+   print('   final conv. (incl. corr.)    =  {0:>12.5e}'.format((molecule['e_tot'][0][-1]+molecule['e_corr'][0][-1])-(molecule['e_tot'][0][-2]+molecule['e_corr'][0][-2])))
    #
    print('   ---------------------------------------------')
    #
@@ -601,8 +617,8 @@ def inc_corr_summary(molecule):
          #
          final_diff_corr = 0.0
       #
-      print('   final diff. (excl. corr.)   =  {0:>12.5e}'.format(final_diff))
-      print('   final diff. (incl. corr.)   =  {0:>12.5e}'.format(final_diff_corr))
+      print('   final diff. (excl. corr.)    =  {0:>12.5e}'.format(final_diff))
+      print('   final diff. (incl. corr.)    =  {0:>12.5e}'.format(final_diff_corr))
    #
    print('')
    print('')

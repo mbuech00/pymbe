@@ -261,6 +261,14 @@ def print_mpi_table(molecule):
    #
    return
 
+def abort_mpi(molecule):
+   #
+   #  ---  master routine
+   #
+   molecule['mpi_comm'].Abort()
+   #
+   return
+
 def finalize_mpi(molecule):
    #
    #  ---  master and slave routine
