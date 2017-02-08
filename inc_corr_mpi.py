@@ -67,10 +67,16 @@ def main_slave_rout(molecule):
          molecule['mpi_name'] = MPI.Get_processor_name()
          molecule['mpi_stat'] = MPI.Status()
          molecule['mpi_master'] = False
+      #
+      elif (msg['task'] == 'init_slave_env'):
          #
          # private scr dir
          #
          molecule['scr'] += '-'+str(molecule['mpi_rank'])
+         #
+         # init scr env
+         #
+         inc_corr_utils.setup_calc(molecule['scr'])
       #
       elif (msg['task'] == 'print_mpi_table'):
          #
@@ -78,17 +84,15 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'energy_calc_mono_exp'):
          #
-         level = 'MACRO'
-         #
-         energy_calc_slave(molecule,level)
+         energy_calc_slave(molecule)
       #
-      elif (msg['task'] == 'energy_calc_mono_exp_est'):
+      elif (msg['task'] == 'remove_slave_env'):
          #
-         level = 'ESTIM'
+         # remove scr env
          #
-         energy_calc_slave(molecule,level)
+         inc_corr_utils.term_calc(molecule)
       #
-      elif (msg['task'] == 'finalize'):
+      elif (msg['task'] == 'finalize_mpi'):
          #
          slave = False
    #
@@ -102,21 +106,47 @@ def bcast_mol_dict(molecule):
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
+   # bcast molecule dict
+   #
    molecule['mpi_comm'].bcast(molecule,root=0)
+   #
+   # private mpi info
    #
    molecule['mpi_rank'] = molecule['mpi_comm'].Get_rank()
    molecule['mpi_name'] = MPI.Get_processor_name()
    molecule['mpi_stat'] = MPI.Status()
    #
+   # private scr dir
+   #
+   molecule['scr'] += '-'+str(molecule['mpi_rank'])
+   #
    return molecule
 
-def energy_calc_slave(molecule,level):
+def init_slave_env(molecule):
+   #
+   #  ---  master routine
+   #
+   msg = {'task': 'init_slave_env'}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   return
+
+def remove_slave_env(molecule):
+   #
+   #  ---  master routine
+   #
+   msg = {'task': 'remove_slave_env'}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   return
+
+def energy_calc_slave(molecule):
    #
    #  ---  slave routine
    #
-   # init scr env
-   #
-   inc_corr_utils.setup_calc(molecule['scr'])
+   level = 'SLAVE'
    #
    # define mpi message tags
    #
@@ -130,11 +160,11 @@ def energy_calc_slave(molecule,level):
       #
       # ready for task
       #
-      molecule['mpi_comm'].send(None, dest=0, tag=tags.ready)
+      molecule['mpi_comm'].send(None,dest=0,tag=tags.ready)
       #
       # receive drop string
       #
-      string = molecule['mpi_comm'].recv(source=0, tag=MPI.ANY_SOURCE, status=molecule['mpi_stat'])
+      string = molecule['mpi_comm'].recv(source=0,tag=MPI.ANY_SOURCE,status=molecule['mpi_stat'])
       #
       # recover tag
       #
@@ -152,15 +182,7 @@ def energy_calc_slave(molecule,level):
          #
          # copy job index / indices
          #
-         if (level == 'MACRO'):
-            #
-            data['index'] = string['index']
-         #
-         elif (level == 'ESTIM'):
-            #
-            data['index-1'] = string['index-1']
-            #
-            data['index-2'] = string['index-2']
+         data['index'] = string['index']
          #
          # write error logical
          #
@@ -168,7 +190,7 @@ def energy_calc_slave(molecule,level):
          #
          # send data back to master
          #
-         molecule['mpi_comm'].send(data, dest=0, tag=tags.done)
+         molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
       #
       elif (tag == tags.exit):
          #    
@@ -176,11 +198,7 @@ def energy_calc_slave(molecule,level):
    #
    # exit
    #
-   molecule['mpi_comm'].send(None, dest=0, tag=tags.exit)
-   #
-   # remove scr env
-   #
-   inc_corr_utils.term_calc(molecule)
+   molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
    #
    return molecule
 
@@ -196,7 +214,7 @@ def print_mpi_table(molecule):
       #
       for i in range(0,molecule['mpi_size']-1):
          #
-         info = molecule['mpi_comm'].recv(source=i+1, status=molecule['mpi_stat'])
+         info = molecule['mpi_comm'].recv(source=i+1,status=molecule['mpi_stat'])
          #
          full_info.append([info['rank'],info['name']])
    #
@@ -214,9 +232,9 @@ def print_mpi_table(molecule):
    #
    print('')
    print('')
-   print('   ---------------------------------------------')
-   print('                mpi rank/node info              ')
-   print('   ---------------------------------------------')
+   print('                     ---------------------------------------------                ')
+   print('                                  mpi rank/node info                              ')
+   print('                     ---------------------------------------------                ')
    print('')
    #
    idx = 0
@@ -233,7 +251,7 @@ def print_mpi_table(molecule):
          #
          idx += 1
    #
-   width_str = max(map(lambda x: len(x[1]), full_info))
+   width_str = max(map(lambda x: len(x[1]),full_info))
    #
    print(' master  ---  proc =  {0:>{w_int}d}  ---  node =  {1:>{w_str}s}'.format(molecule['mpi_rank'],molecule['mpi_name'],w_int=width_int,w_str=width_str))
    #
@@ -243,13 +261,21 @@ def print_mpi_table(molecule):
    #
    return
 
+def abort_mpi(molecule):
+   #
+   #  ---  master routine
+   #
+   molecule['mpi_comm'].Abort()
+   #
+   return
+
 def finalize_mpi(molecule):
    #
    #  ---  master and slave routine
    #
    if (MPI.COMM_WORLD.Get_rank() == 0):
       #
-      msg = {'task': 'finalize'}
+      msg = {'task': 'finalize_mpi'}
       #
       MPI.COMM_WORLD.bcast(msg,root=0)
    #

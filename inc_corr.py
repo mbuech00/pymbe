@@ -57,7 +57,7 @@ def main():
       #
       #  ---  initialization done - start the calculation...  ---
       #
-      inc_corr_driver.inc_corr_main(molecule)
+      inc_corr_driver.main_drv(molecule)
       #
       #  ---  start (potential) reference calculation...  ---
       #

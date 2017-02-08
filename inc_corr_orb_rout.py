@@ -12,72 +12,73 @@ import math
 
 import inc_corr_utils
 
-def orb_generator(molecule,dom,tup,l_limit,k):
+def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
    #
-   incl = []
-   incl_2 = []
-   #
-   full_space = []
-   #
-   for i in range(0,len(dom)):
+   if (k == 1):
       #
-      # construct union space of all orbitals in i-th domain + the i-th orbital itself (if not conventional frozen core scheme)
+      for i in range(0,len(dom)):
+         #
+         # all singles contributions 
+         #
+         tup[k-1].append([[(i+l_limit)+1]])
+   #
+   elif (k == 2):
       #
-      if (not ((molecule['frozen'] == 'conv') and (((i+l_limit)+1) <= molecule['ncore']))):
+      # generate all possible (unique) pairs
+      #
+      incl = list(list(comb) for comb in itertools.combinations(range(1+l_limit,(l_limit+u_limit)+1),2))
+      #
+      for i in range(0,len(incl)):
          #
-         full_space = sorted(list(set(dom[i][-1]).union(set([(l_limit+i)+1]))))
+         tup[k-1].append([incl[i]])
+   #
+   else:
+      #
+      select = []
+      #
+      for i in range(0,len(dom)-1):
          #
-         # generate all k-combinations in the space
+         # generate list of indices where val is greater than orb index = (i+l_limit)+1
          #
-         incl_tmp = list(list(comb) for comb in itertools.combinations(full_space,k))
+         idx = [x for x in range(0,len(dom[i])) if dom[i][x] > ((i+l_limit)+1)]
          #
-         for j in range(0,len(incl_tmp)):
+         if (len(idx) > 0):
             #
-            # is the i-th orbital in the given combination?
+            # generate complete set of (k-1)-combinations
             #
-            if (set([(l_limit+i)+1]) <= set(incl_tmp[j])):
+            tmp = list(list(comb) for comb in itertools.combinations(dom[i][idx[0]:],k-1))
+            #
+            select[:] = []
+            #
+            for j in range(0,len(tmp)):
                #
-               mask = True
+               # generate subset of all pairs within the given (k-1)-combination
                #
-               # loop through the given combination to check whether all orbitals are part of each other domains
+               tmp_sub = list(list(comb) for comb in itertools.combinations(tmp[j],2))
                #
-               for l in range(0,len(incl_tmp[j])):
+               select.append(True)
+               #
+               for l in range(0,len(tmp_sub)):
                   #
-                  for m in range(0,len(incl_tmp[j])):
+                  # is the specific tuple in tmp allowed?
+                  #
+                  if (tmp_sub[l][1] not in dom[(tmp_sub[l][0]-l_limit)-1]):
                      #
-                     if (m != l):
-                        #
-                        # domain check
-                        #
-                        if (not (set([incl_tmp[j][m]]) <= set(dom[(incl_tmp[j][l]-l_limit)-1][-1]))):
-                           #
-                           mask = False
-                           #
-                           break
-                  #
-                  if (not mask):
+                     select[-1] = False
                      #
                      break
+            #
+            for m in range(0,len(tmp)):
                #
-               if (mask):
+               if (select[m]):
                   #
-                  # the given tuple is allowed
+                  # complete k-combination by appending orb index = (i+l_limit)+1
                   #
-                  incl.append(incl_tmp[j])
-   #
-   # remove duplicates
-   #
-   for i in range(0,len(incl)):
-      #
-      if (incl[i] not in incl_2):
-         #
-         incl_2.append(incl[i])
-   #
-   # write to molecule['tuple']
-   #
-   for i in range(0,len(incl_2)):
-      #
-      tup.append([incl_2[i]])
+                  tmp[m].append((i+l_limit)+1)
+                  #
+                  # finally, add the ordered tuple to the tuple list
+                  #
+                  tup[k-1].append([sorted(tmp[m])])
    #
    return tup
 
@@ -137,25 +138,31 @@ def orb_string(molecule,l_limit,u_limit,tup,string):
    #
    return string
 
-def orb_screen_rout(molecule,tup,orb,dom,thres,l_limit,u_limit,level):
+def orb_screen_rout(molecule,order,tup,orb,dom,thres,l_limit,u_limit,level):
    #
-   # set up entanglement and exclusion lists
+   if ((order == 1) or (thres == 0.0)):
+      #
+      update_domains(dom,l_limit,[])
    #
-   orb.append([])
-   #
-   orb_entang_rout(molecule,tup,orb,l_limit,u_limit)
-   #
-   molecule['excl_list'][0][:] = []
-   #
-   excl_rout(molecule,tup,orb,thres,molecule['excl_list'][0],level)
-   #
-   # update domains
-   #
-   update_domains(dom,l_limit,molecule['excl_list'][0])
-   #
-   # print domain updates
-   #
-   inc_corr_utils.print_update(dom,l_limit,u_limit,level)
+   else:
+      #
+      # set up entanglement and exclusion lists
+      #
+      orb.append([])
+      #
+      orb_entang_rout(molecule,tup,orb,l_limit,u_limit)
+      #
+      molecule['excl_list'][0][:] = []
+      #
+      excl_rout(molecule,tup,orb,thres,molecule['excl_list'][0],level)
+      #
+      # update domains
+      #
+      update_domains(dom,l_limit,molecule['excl_list'][0])
+      #
+      # print domain updates
+      #
+      inc_corr_utils.print_update(dom,l_limit,u_limit,level)
    #
    return molecule, dom
 
@@ -171,11 +178,11 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
             #
             e_abs = 0.0
             #
-            for k in range(0,len(tup[-1])):
+            for l in range(0,len(tup[-1])):
                #
-               if ((set([i+1]) <= set(tup[-1][k][0])) and (set([j+1]) <= set(tup[-1][k][0]))):
+               if ((set([i+1]) <= set(tup[-1][l][0])) and (set([j+1]) <= set(tup[-1][l][0]))):
                   #
-                  e_abs += tup[-1][k][1]
+                  e_abs += tup[-1][l][1]
             #
             orb[-1][i-l_limit].append([[j+1],[e_abs]])
    #
@@ -185,21 +192,19 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
       #
       for j in range(0,len(orb)):
          #
-         for k in range(l_limit,(l_limit+u_limit)-1):
+         for l in range(l_limit,(l_limit+u_limit)-1):
             #
-            e_sum += orb[j][i-l_limit][(k-l_limit)+1][1][0]
+            e_sum += orb[j][i-l_limit][(l-l_limit)+1][1][0]
       #
-      for j in range(0,len(orb)):
+      for l in range(l_limit,(l_limit+u_limit)-1):
          #
-         for k in range(l_limit,(l_limit+u_limit)-1):
+         if (orb[-1][i-l_limit][(l-l_limit)+1][1][0] != 0.0):
             #
-            if (orb[j][i-l_limit][(k-l_limit)+1][1][0] != 0.0):
-               #
-               orb[j][i-l_limit][(k-l_limit)+1][1].append(orb[j][i-l_limit][(k-l_limit)+1][1][0] / e_sum)
+            orb[-1][i-l_limit][(l-l_limit)+1][1].append(orb[-1][i-l_limit][(l-l_limit)+1][1][0] / e_sum)
+         #
+         else:
             #
-            else:
-               #
-               orb[j][i-l_limit][(k-l_limit)+1][1].append(0.0)
+            orb[-1][i-l_limit][(l-l_limit)+1][1].append(0.0)  
    #
    if (molecule['debug']):
       #
@@ -222,13 +227,15 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
             #
             for k in range(0,len(orb[i][j])-1):
                #
-               tmp[j].append(orb[i][j][k+1][1][-1])
+               tmp[j].append(orb[i][j][k+1][1][1])
             #
-            print(' {0:}'.format(j+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
+            print(' {0:>3d}'.format((j+l_limit)+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
+      #
+      print('')
    #
    return orb
 
-def select_est_tuples(prim_tup,sec_tup,k):
+def select_corr_tuples(prim_tup,sec_tup,k):
    #
    pop_list = []
    #
@@ -256,66 +263,66 @@ def select_est_tuples(prim_tup,sec_tup,k):
 
 def init_domains(molecule):
    #
-   molecule['occ_domain'] = []
-   molecule['virt_domain'] = []
+   molecule['occ_domain'] = [[]]
+   molecule['virt_domain'] = [[]]
    #
    for i in range(0,molecule['nocc']):
       #
-      molecule['occ_domain'].append([list(range(1,molecule['nocc']+1))])
+      molecule['occ_domain'][0].append(list(range(1,molecule['nocc']+1)))
       #
-      molecule['occ_domain'][i][-1].pop(i)
+      molecule['occ_domain'][0][i].pop(i)
    #
    if (molecule['frozen'] == 'conv'):
       #
       for i in range(0,molecule['ncore']):
          #
-         molecule['occ_domain'][i][-1][:] = []
+         molecule['occ_domain'][0][i][:] = []
       #
       for j in range(molecule['ncore'],molecule['nocc']):
          #
          for _ in range(0,molecule['ncore']):
             #
-            molecule['occ_domain'][j][-1].pop(0)
+            molecule['occ_domain'][0][j].pop(0)
    #
    for i in range(0,molecule['nvirt']):
       #
-      molecule['virt_domain'].append([list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1))])
+      molecule['virt_domain'][0].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
       #
-      molecule['virt_domain'][i][-1].pop(i)
+      molecule['virt_domain'][0][i].pop(i)
    #
    return molecule
 
-def reinit_domains(molecule,domain):
+def reinit_domains(molecule,dom):
    #
-   domain[:] = []
+   dom[:] = [[]]
    #
    if (molecule['exp'] == 'comb-ov'):
       #
       for i in range(0,molecule['nvirt']):
          #
-         domain.append([list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1))])
+         dom[0].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
          #
-         domain[i][-1].pop(i)  
+         dom[0][i].pop(i)  
    #
    elif (molecule['exp'] == 'comb-vo'):
       #
       for i in range(0,molecule['nocc']):
          #
-         domain.append([list(range(1,molecule['nocc']+1))])
+         dom[0].append(list(range(1,molecule['nocc']+1)))
          #
-         domain[i][-1].pop(i)
+         dom[0][i].pop(i)
       #
       if (molecule['frozen'] == 'conv'):
          #
          for i in range(0,molecule['ncore']):
             #
-            domain[i][-1][:] = []
+            dom[0][i][:] = []
          #
          for j in range(molecule['ncore'],molecule['nocc']):
             #
             for i in range(0,molecule['ncore']):
                #
-               domain[j][-1].pop(i)
+               dom[0][j].pop(i)
    #
    return molecule
 
@@ -331,7 +338,7 @@ def excl_rout(molecule,tup,orb,thres,excl,level):
             #
             excl[i].append(orb[-1][i][j+1][0][0])
    #
-   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'screen') and (level != 'ESTIM')):
+   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'screen') and (level != 'CORRE')):
       #
       for i in range(0,len(excl)):
          #
@@ -357,11 +364,13 @@ def excl_rout(molecule,tup,orb,thres,excl,level):
    #
    return excl
 
-def update_domains(domain,l_limit,excl):
+def update_domains(dom,l_limit,excl):
    #
-   for l in range(0,len(domain)):
+   dom.append([])
+   #
+   for l in range(0,len(dom[0])):
       #
-      domain[l].append(list(domain[l][-1]))
+      dom[-1].append(list(dom[-2][l]))
    #
    for i in range(0,len(excl)):
       #
@@ -369,12 +378,12 @@ def update_domains(domain,l_limit,excl):
          #
          if ((i+l_limit)+1 in excl[(excl[i][j]-l_limit)-1]):
             #
-            domain[i][-1].remove(excl[i][j])
-            domain[(excl[i][j]-l_limit)-1][-1].remove((i+l_limit)+1)
+            dom[-1][i].remove(excl[i][j])
+            dom[-1][(excl[i][j]-l_limit)-1].remove((i+l_limit)+1)
             #
             excl[(excl[i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
-   return domain
+   return dom
 
 def n_theo_tuples(dim,k,theo_work):
    #

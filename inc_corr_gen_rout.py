@@ -85,13 +85,7 @@ def write_zmat_corr(molecule,drop_string,level):
    #
    out.write(molecule['mol'])
    #
-   if (level == 'ESTIM'):
-      #
-      model = molecule['est_model'].upper()
-   #
-   else:
-      #
-      model = molecule['model'].upper()
+   model = molecule['model'].upper()
    #
    if (model == 'FCI'):
       #
@@ -207,15 +201,8 @@ def write_energy(molecule,level):
    #
    regex_err = '\s+ERROR ERROR'
    #
-   if ((level == 'MACRO') or (level == 'REF')):
-      #
-      model = molecule['model']
-      regex = molecule['regex']
-   #
-   elif (level == 'ESTIM'):
-      #
-      model = molecule['est_model']
-      regex = molecule['est_regex']
+   model = molecule['model']
+   regex = molecule['regex']
    #
    while 1:
       #
@@ -259,6 +246,12 @@ def write_energy(molecule,level):
 
 def ref_calc(molecule):
    #
+   print('')
+   print('                     ---------------------------------------------                ')
+   print('                                reference calculation                             ')
+   print('                     ---------------------------------------------                ')
+   print('')
+   print('')
    print(' --------------------------------------------------------------------------------------------')
    print(' STATUS-REF: full reference calculation started')
    print(' --------------------------------------------------------------------------------------------')
