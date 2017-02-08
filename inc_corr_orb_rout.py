@@ -176,6 +176,12 @@ def orb_screen_rout(molecule,order,tup,orb,dom,thres,l_limit,u_limit,level):
 
 def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
    #
+   orb_arr = molecule['prim_orb_arr']
+   orb_con = molecule['prim_orb_con']
+   #
+   orb_arr[:] = []
+   orb_con[:] = []
+   #
    for i in range(l_limit,l_limit+u_limit):
       #
       orb[-1].append([])
@@ -242,6 +248,47 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
                   #
                   orb[m][i-l_limit][j-l_limit].append(0.0)
    #
+   # write orbital entanglement matrices and total orbital contributions
+   #
+   tmp = []
+   #
+   for i in range(0,len(orb)):
+      #
+      orb_arr.append([])
+      orb_con.append([])
+      #
+      tmp[:] = []
+      #
+      for j in range(0,len(orb[i])):
+         #
+         orb_arr[i].append([])
+         #
+         for k in range(0,len(orb[i][j])):
+            #
+            orb_arr[i][j].append(orb[i][j][k][1])
+      #
+      for k in range(0,len(orb[i][j])):
+         #
+         e_sum = 0.0
+         #
+         for j in range(0,len(orb[i])):
+            #
+            e_sum += orb_arr[i][j][k]
+         #
+         tmp.append(e_sum)
+      #
+      e_sum = sum(tmp)
+      #
+      for k in range(0,len(tmp)):
+         #
+         if (tmp[k] == 0.0):
+            #
+            orb_con[i].append(0.0)
+         #
+         else:
+            #
+            orb_con[i].append(tmp[k]/e_sum)
+   #
    if (molecule['debug']):
       #
       print('')
@@ -269,21 +316,25 @@ def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
          #
          print('')
          print(' * BG exp. order = '+str(i+2))
+         print(' -------------------')
          print('')
          #
-         tmp = []
+         print('      --- entanglement matrix ---')
+         print('')
          #
          print(index)
          #
-         for j in range(0,len(orb[i])):
+         for j in range(0,len(orb_arr[i])):
             #
-            tmp.append([])
-            #
-            for k in range(0,len(orb[i][j])):
-               #
-               tmp[j].append(orb[i][j][k][1])
-            #
-            print(' {0:>3d}'.format((j+l_limit)+1)+' '+str(['{0:6.3f}'.format(m) for m in tmp[j]]))
+            print(' {0:>3d}'.format((j+l_limit)+1)+' '+str(['{0:6.3f}'.format(m) for m in orb_arr[i][j]]))
+         #
+         print('')
+         print('      --- total orbital contributions ---')
+         print('')
+         #
+         print(index)
+         #
+         print('     '+str(['{0:6.3f}'.format(m) for m in orb_con[i]]))
       #
       print('')
    #

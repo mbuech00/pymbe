@@ -514,6 +514,12 @@ def inc_corr_prepare(molecule):
    molecule['prim_orbital'] = [[],[]]
    molecule['sec_orbital'] = [[],[]]
    #
+   molecule['prim_orb_arr'] = []
+   molecule['sec_orb_arr'] = []
+   #
+   molecule['prim_orb_con'] = []
+   molecule['sec_orb_con'] = []
+   #
    molecule['e_tot'] = [[],[]]
    #
    molecule['e_corr'] = [[],[]]
