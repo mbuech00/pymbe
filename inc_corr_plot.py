@@ -126,18 +126,18 @@ def n_tuples_plot(molecule):
    #
    if (molecule['corr']):
       #
-      sec_prim = []
-      theo_sec = []
+      corr_prim = []
+      theo_corr = []
       #
       for i in range(0,u_limit):
          #
-         sec_prim.append(molecule['sec_n_tuples'][0][i])
-         theo_sec.append(molecule['theo_work'][0][i]-(molecule['prim_n_tuples'][0][i]+molecule['sec_n_tuples'][0][i]))
+         corr_prim.append(molecule['corr_n_tuples'][0][i])
+         theo_corr.append(molecule['theo_work'][0][i]-(molecule['prim_n_tuples'][0][i]+molecule['corr_n_tuples'][0][i]))
       #
-      sns.barplot(list(range(1,u_limit+1)),theo_sec,bottom=[(i + j) for i,j in zip(sec_prim,molecule['prim_n_tuples'][0])],\
+      sns.barplot(list(range(1,u_limit+1)),theo_corr,bottom=[(i + j) for i,j in zip(corr_prim,molecule['prim_n_tuples'][0])],\
                   palette='BuGn_d',label='Theoretical number',log=True)
       #
-      sns.barplot(list(range(1,u_limit+1)),sec_prim,bottom=molecule['prim_n_tuples'][0],palette='Reds_r',\
+      sns.barplot(list(range(1,u_limit+1)),corr_prim,bottom=molecule['prim_n_tuples'][0],palette='Reds_r',\
                   label='Energy corr.',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',\

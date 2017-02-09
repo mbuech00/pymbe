@@ -67,37 +67,19 @@ def main_drv(molecule):
 
 def mono_exp_drv(molecule,start,end,level):
    #
-   if (level == 'MACRO'):
-      #
-      tup = molecule['prim_tuple'][0]
-      dom = molecule['prim_domain'][0]
-      n_tup = molecule['prim_n_tuples'][0]
-      time = molecule['prim_time'][0]
-      orb = molecule['prim_orbital'][0]
-      thres = molecule['prim_thres']
-   #
-   else:
-      #
-      tup = molecule['sec_tuple'][0]
-      dom = molecule['sec_domain'][0]
-      n_tup = molecule['sec_n_tuples'][0]
-      time = molecule['sec_time'][0]
-      orb = molecule['sec_orbital'][0]
-      thres = molecule['corr_thres']
-   #
    for k in range(start,end+1):
       #
       # mono expansion initialization
       #
-      mono_exp_init(molecule,tup,n_tup,orb,dom,thres,k,level)
+      mono_exp_init(molecule,k,level)
       #
       # mono expansion kernel
       #
-      mono_exp_kernel(molecule,tup,n_tup,time,k,level)
+      mono_exp_kernel(molecule,k,level)
       #
       # print status end
       #
-      inc_corr_utils.print_status_end(k,time,n_tup,level)
+      inc_corr_utils.print_status_end(molecule,k,level)
       #
       # return if converged
       #
@@ -109,7 +91,7 @@ def mono_exp_drv(molecule,start,end,level):
          #
          break
    #
-   # make the e_corr and sec_time lists of the same length as the e_tot list
+   # make the e_corr and corr_time lists of the same length as the e_tot list
    # 
    if (level == 'CORRE'):
       #
@@ -117,21 +99,39 @@ def mono_exp_drv(molecule,start,end,level):
          #
          molecule['e_corr'][0].append(molecule['e_corr'][0][-1])
          #
-         molecule['sec_time'][0].append(0.0)
+         molecule['corr_time'][0].append(0.0)
       #
-      # make molecule['sec_n_tuples'] of the same length as molecule['prim_n_tuples']
+      # make molecule['corr_n_tuples'] of the same length as molecule['prim_n_tuples']
       #
       for _ in range(molecule['max_corr_order'],len(molecule['prim_n_tuples'][0])):
          #
-         molecule['sec_n_tuples'][0].append(0)
+         molecule['corr_n_tuples'][0].append(0)
    #
    return molecule
 
-def mono_exp_kernel(molecule,tup,n_tup,time,k,level):
+def mono_exp_kernel(molecule,k,level):
+   #
+   if (level == 'MACRO'):
+      #
+      if (molecule['conv'][-1]):
+         #
+         return molecule
+      #
+      else:
+         #
+         tup = molecule['prim_tuple'][0]
+         n_tup = molecule['prim_n_tuples'][0]
+         time = molecule['prim_time'][0]
+   #
+   elif (level == 'CORRE'):
+      #
+      tup = molecule['corr_tuple'][0]
+      n_tup = molecule['corr_n_tuples'][0]
+      time = molecule['corr_time'][0]
    #
    if ((level == 'MACRO') and molecule['conv'][-1]):
       #
-      return molecule, tup, time
+      return molecule
    #
    # start time
    #
@@ -165,7 +165,7 @@ def mono_exp_kernel(molecule,tup,n_tup,time,k,level):
    #
    inc_corr_utils.print_result(tup[-1],level)
    #
-   # merge tuples from primary exp. into molecule['sec_tuple']
+   # merge tuples from primary exp. into molecule['corr_tuple']
    #
    if (level == 'CORRE'):
       #
@@ -181,7 +181,7 @@ def mono_exp_kernel(molecule,tup,n_tup,time,k,level):
       #
       molecule['conv'].append(True)
    #
-   return molecule, tup, time
+   return molecule
 
 def inc_corr_dual_exp(molecule):
    #
@@ -311,7 +311,7 @@ def inc_corr_dual_exp(molecule):
                #
                molecule['excl_list'][1][:] = []
                #
-               inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][1],molecule['orbital'][1],molecule['sec_thres'],molecule['excl_list'][1])
+               inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][1],molecule['orbital'][1],molecule['corr_thres'],molecule['excl_list'][1])
                #
                # update domains (for inner expansion)
                #
@@ -392,7 +392,23 @@ def inc_corr_dual_exp(molecule):
    #
    return molecule
 
-def mono_exp_init(molecule,tup,n_tup,orb,dom,thres,k,level):
+def mono_exp_init(molecule,k,level):
+   #
+   if (level == 'MACRO'):
+      #
+      tup = molecule['prim_tuple'][0]
+      dom = molecule['prim_domain'][0]
+      n_tup = molecule['prim_n_tuples'][0]
+      orb = molecule['prim_orbital'][0]
+      thres = molecule['prim_thres']
+   #
+   elif (level == 'CORRE'):
+      #
+      tup = molecule['corr_tuple'][0]
+      dom = molecule['corr_domain'][0]
+      n_tup = molecule['corr_n_tuples'][0]
+      orb = molecule['corr_orbital'][0]
+      thres = molecule['corr_thres']
    #
    # print status header-1
    #
@@ -406,7 +422,7 @@ def mono_exp_init(molecule,tup,n_tup,orb,dom,thres,k,level):
       #
       # orbital screening
       #
-      inc_corr_orb_rout.orb_screen_rout(molecule,k-1,tup,orb,dom,thres,molecule['l_limit'][0],molecule['u_limit'][0],level)
+      inc_corr_orb_rout.orb_screen_rout(molecule,k-1,molecule['l_limit'][0],molecule['u_limit'][0],level)
    #
    # generate all tuples at order k
    #
@@ -454,7 +470,7 @@ def mono_exp_init(molecule,tup,n_tup,orb,dom,thres,k,level):
          #
          inc_corr_orb_rout.n_theo_tuples(n_tup[0],l,molecule['theo_work'][0])
    #
-   return molecule, tup, n_tup, orb, dom
+   return molecule
 
 def inc_corr_prepare(molecule):
    #
@@ -464,7 +480,7 @@ def inc_corr_prepare(molecule):
       molecule['u_limit'] = [molecule['nocc']]
       #
       molecule['prim_domain'] = copy.deepcopy([molecule['occ_domain']])
-      molecule['sec_domain'] = copy.deepcopy([molecule['occ_domain']])
+      molecule['corr_domain'] = copy.deepcopy([molecule['occ_domain']])
    #
    elif (molecule['exp'] == 'virt'):
       #
@@ -472,7 +488,7 @@ def inc_corr_prepare(molecule):
       molecule['u_limit'] = [molecule['nvirt']]
       #
       molecule['prim_domain'] = copy.deepcopy([molecule['virt_domain']])
-      molecule['sec_domain'] = copy.deepcopy([molecule['virt_domain']])
+      molecule['corr_domain'] = copy.deepcopy([molecule['virt_domain']])
       #
    #
    elif (molecule['exp'] == 'comb-ov'):
@@ -506,30 +522,30 @@ def inc_corr_prepare(molecule):
    molecule['e_tmp'] = 0.0
    #
    molecule['prim_tuple'] = [[],[]]
-   molecule['sec_tuple'] = [[],[]]
+   molecule['corr_tuple'] = [[],[]]
    #
    molecule['prim_n_tuples'] = [[],[]]
-   molecule['sec_n_tuples'] = [[],[]]
+   molecule['corr_n_tuples'] = [[],[]]
    #
    molecule['prim_orbital'] = [[],[]]
-   molecule['sec_orbital'] = [[],[]]
+   molecule['corr_orbital'] = [[],[]]
    #
-   molecule['prim_orb_arr'] = []
-   molecule['sec_orb_arr'] = []
+   molecule['prim_orb_arr'] = [[],[]]
+   molecule['corr_orb_arr'] = [[],[]]
    #
-   molecule['prim_orb_con'] = []
-   molecule['sec_orb_con'] = []
+   molecule['prim_orb_con'] = [[],[]]
+   molecule['corr_orb_con'] = [[],[]]
    #
    molecule['e_tot'] = [[],[]]
    #
    molecule['e_corr'] = [[],[]]
    #
-   molecule['excl_list'] = [[],[]]
+   molecule['excl_list'] = []
    #
    molecule['theo_work'] = [[],[]]
    #
    molecule['prim_time'] = [[],[]]
-   molecule['sec_time'] = [[],[]]
+   molecule['corr_time'] = [[],[]]
    #
    return molecule
 
@@ -543,11 +559,11 @@ def set_corr_order(molecule):
       #
       for _ in range(0,len(molecule['e_tot'][0])):
          #
-         molecule['sec_n_tuples'][0].append(0)
+         molecule['corr_n_tuples'][0].append(0)
          #
          molecule['e_corr'][0].append(0.0)
          #
-         molecule['sec_time'][0].append(0.0)
+         molecule['corr_time'][0].append(0.0)
       #
       return molecule
    #
@@ -573,11 +589,11 @@ def set_corr_order(molecule):
          #
          molecule['e_corr'][0].append(0.0)
          #
-         molecule['sec_time'][0].append(0.0)
+         molecule['corr_time'][0].append(0.0)
       #
       for _ in range(0,len(molecule['prim_n_tuples'][0])):
          #
-         molecule['sec_n_tuples'][0].append(0)
+         molecule['corr_n_tuples'][0].append(0)
       #
       return molecule
    #
@@ -593,11 +609,11 @@ def set_corr_order(molecule):
    #
    for _ in range(1,molecule['min_corr_order']):
       #
-      molecule['sec_n_tuples'][0].append(0)
+      molecule['corr_n_tuples'][0].append(0)
       #
       molecule['e_corr'][0].append(0.0)
       #
-      molecule['sec_time'][0].append(0.0)
+      molecule['corr_time'][0].append(0.0)
    #
    return molecule
 
@@ -605,15 +621,15 @@ def mono_exp_merge_info(molecule):
    #
    for k in range(1,molecule['min_corr_order']):
       #
-      molecule['sec_tuple'][0].append(molecule['prim_tuple'][0][k-1])
+      molecule['corr_tuple'][0].append(molecule['prim_tuple'][0][k-1])
    #
    for k in range(1,molecule['min_corr_order']-1):
       #
-      molecule['sec_domain'][0].append(molecule['prim_domain'][0][k-1])
+      molecule['corr_domain'][0].append(molecule['prim_domain'][0][k-1])
    #
    for k in range(1,molecule['min_corr_order']-2):
       #
-      molecule['sec_orbital'][0].append(molecule['prim_orbital'][0][k-1])
+      molecule['corr_orbital'][0].append(molecule['prim_orbital'][0][k-1])
    #
    return molecule
 

@@ -637,7 +637,7 @@ def inc_corr_summary(molecule):
       #
       else:
          #
-         tot_n_tup.append(molecule['prim_n_tuples'][0][i]+molecule['sec_n_tuples'][0][i])
+         tot_n_tup.append(molecule['prim_n_tuples'][0][i]+molecule['corr_n_tuples'][0][i])
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('     BG expansion order  |   # of prim. exp. tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr.  ')
@@ -646,7 +646,7 @@ def inc_corr_summary(molecule):
    for i in range(0,len(molecule['e_tot'][0])):
       #
       print('          {0:>4d}                     {1:>4.2e}                    {2:>4.2e}                                           {3:>6.2f} %        {4:>6.2f} %'.\
-                                                                          format(i+1,molecule['prim_n_tuples'][0][i],molecule['sec_n_tuples'][0][i],\
+                                                                          format(i+1,molecule['prim_n_tuples'][0][i],molecule['corr_n_tuples'][0][i],\
                                                                                  (float(molecule['prim_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00,\
                                                                                  (float(tot_n_tup[i])/float(molecule['theo_work'][0][i]))*100.00))
    #
@@ -662,7 +662,7 @@ def inc_corr_summary(molecule):
    for i in range(0,len(molecule['e_tot'][0])):
       #
       total_time += molecule['prim_time'][0][i]
-      total_time_corr += molecule['sec_time'][0][i]
+      total_time_corr += molecule['corr_time'][0][i]
       #
       print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
                                                                           format(i+1,molecule['e_tot'][0][i],molecule['e_tot'][0][i]+molecule['e_corr'][0][i],\
@@ -715,7 +715,17 @@ def print_status(prog,level):
    #
    return
 
-def print_status_end(order,time,n_tup,level):
+def print_status_end(molecule,order,level):
+   #
+   if (level == 'MACRO'):
+      #
+      n_tup = molecule['prim_n_tuples'][0]
+      time = molecule['prim_time'][0]
+   #
+   elif (level == 'CORRE'):
+      #
+      n_tup = molecule['corr_n_tuples'][0]
+      time = molecule['corr_time'][0]
    #
    print(' --------------------------------------------------------------------------------------------')
    #
@@ -770,7 +780,15 @@ def print_inner_result(molecule):
    #
    return
 
-def print_update(dom,l_limit,u_limit,level):
+def print_update(molecule,l_limit,u_limit,level):
+   #
+   if (level == 'MACRO'):
+      #
+      dom = molecule['prim_domain'][0]
+   #
+   elif (level == 'CORRE'):
+      #
+      dom = molecule['corr_domain'][0]
    #
    count = []
    #
