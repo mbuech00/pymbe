@@ -277,11 +277,11 @@ def orb_entang_rout(molecule,l_limit,u_limit,level):
    #
    tmp = []
    #
-   for k in range(0,len(orb[-1])):
+   for j in range(0,len(orb[-1])):
       #
       e_sum = 0.0
       #
-      for j in range(0,len(orb[-1])):
+      for k in range(0,len(orb[-1][j])):
          #
          e_sum += orb[-1][j][k][0]
       #
@@ -289,15 +289,15 @@ def orb_entang_rout(molecule,l_limit,u_limit,level):
    #
    e_sum = sum(tmp)
    #
-   for k in range(0,len(tmp)):
+   for j in range(0,len(tmp)):
       #
-      if (tmp[k] == 0.0):
+      if (tmp[j] == 0.0):
          #
          orb_con[-1].append(0.0)
       #
       else:
          #
-         orb_con[-1].append(tmp[k]/e_sum)
+         orb_con[-1].append(tmp[j]/e_sum)
    #
    if (molecule['debug']):
       #
