@@ -27,7 +27,7 @@ def abs_energy_plot(molecule):
    #
    u_limit = molecule['u_limit'][0]
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
       u_limit -= molecule['ncore']
    #
@@ -120,7 +120,7 @@ def n_tuples_plot(molecule):
    #
    u_limit = molecule['u_limit'][0]
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
       u_limit -= molecule['ncore']
    #
@@ -280,7 +280,7 @@ def dev_ref_plot(molecule):
    #
    u_limit = molecule['u_limit'][0]
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
       u_limit -= molecule['ncore']
    #

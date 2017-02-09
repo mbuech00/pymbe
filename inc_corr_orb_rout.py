@@ -14,7 +14,7 @@ import inc_corr_utils
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
       start = molecule['ncore']
    #
@@ -100,9 +100,9 @@ def orb_string(molecule,l_limit,u_limit,tup,string):
    #
    drop = sorted(list(set(dim)-set(tup)))
    #
-   # for virt scheme, explicitly drop the core orbitals for conventional frozen core scheme
+   # for virt scheme, explicitly drop the core orbitals for frozen core
    #
-   if ((molecule['exp'] == 'virt') and (molecule['frozen'] == 'conv')):
+   if ((molecule['exp'] == 'virt') and molecule['frozen']):
       #
       for i in range(molecule['ncore'],0,-1):
          #
@@ -182,7 +182,7 @@ def orb_entang_rout(molecule,l_limit,u_limit,level):
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple'][0]
-      orb = molecule['cor_orbital'][0]
+      orb = molecule['corr_orbital'][0]
       orb_arr = molecule['corr_orb_arr'][0]
       orb_con = molecule['corr_orb_con'][0]
    #
@@ -387,7 +387,7 @@ def init_domains(molecule):
       #
       molecule['occ_domain'][0][i].pop(i)
    #
-   if (molecule['frozen'] == 'conv'):
+   if (molecule['frozen']):
       #
       for i in range(0,molecule['ncore']):
          #
@@ -427,7 +427,7 @@ def reinit_domains(molecule,dom):
          #
          dom[0][i].pop(i)
       #
-      if (molecule['frozen'] == 'conv'):
+      if (molecule['frozen']):
          #
          for i in range(0,molecule['ncore']):
             #
@@ -471,21 +471,23 @@ def excl_rout(molecule,l_limit,level):
    #
    # screening in all domains based on total orbital contributions
    #
-   for i in range(0,len(orb_con[-1])):
+   if (molecule['screen-tot']):
       #
-      if ((abs(orb_con[-1][i]) < thres) and (abs(orb_con[-1][i]) != 0.0)):
+      for i in range(0,len(orb_con[-1])):
          #
-         for j in range(0,len(orb_con[-1])):
+         if ((abs(orb_con[-1][i]) < thres) and (abs(orb_con[-1][i]) != 0.0)):
             #
-            if (i != j):
+            for j in range(0,len(orb_con[-1])):
                #
-               if (not (set([(j+l_limit)+1]) <= set(molecule['excl_list'][i]))):
+               if (i != j):
                   #
-                  molecule['excl_list'][i].append((j+l_limit)+1)
-               #
-               if (not (set([(i+l_limit)+1]) <= set(molecule['excl_list'][j]))):
+                  if (not (set([(j+l_limit)+1]) <= set(molecule['excl_list'][i]))):
+                     #
+                     molecule['excl_list'][i].append((j+l_limit)+1)
                   #
-                  molecule['excl_list'][j].append((i+l_limit)+1)
+                  if (not (set([(i+l_limit)+1]) <= set(molecule['excl_list'][j]))):
+                     #
+                     molecule['excl_list'][j].append((i+l_limit)+1)
    #
    for i in range(0,len(molecule['excl_list'])):
       #

@@ -630,6 +630,8 @@ def mono_exp_merge_info(molecule):
    for k in range(1,molecule['min_corr_order']-2):
       #
       molecule['corr_orbital'][0].append(molecule['prim_orbital'][0][k-1])
+      molecule['corr_orb_arr'][0].append(molecule['prim_orb_arr'][0][k-1])
+      molecule['corr_orb_con'][0].append(molecule['prim_orb_con'][0][k-1])
    #
    return molecule
 

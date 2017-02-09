@@ -166,12 +166,14 @@ def init_param(molecule):
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
       molecule['sec_thres'] = 0.0
+      molecule['screen-tot'] = False
       molecule['corr'] = False
       molecule['corr_model'] = ''
       molecule['corr_order'] = 0
       molecule['corr_thres'] = 0.0
       molecule['basis'] = ''
       molecule['ref'] = False
+      molecule['frozen'] = False
       molecule['debug'] = False
       molecule['local'] = False
       molecule['zmat'] = False
@@ -199,6 +201,10 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'sec_thres'):
                #
                molecule['sec_thres'] = float(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'screen-tot'):
+               #
+               molecule['screen-tot'] = (content[i].split()[1] == 'True')
             #
             elif (content[i].split()[0] == 'corr'):
                #
@@ -230,7 +236,7 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'frozen'):
                #
-               molecule['frozen'] = content[i].split()[1]
+               molecule['frozen'] = (content[i].split()[1] == 'True')
             #
             elif (content[i].split()[0] == 'local'):
                #
@@ -264,7 +270,7 @@ def init_param(molecule):
    #
    set_exp(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','scr','exp','max_order','prim_thres','sec_thres','corr','corr_order','corr_thres','model','corr_model',\
+   chk = ['mol','ncore','frozen','mult','scr','exp','max_order','prim_thres','sec_thres','screen-tot','corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
    inc = 0
@@ -280,8 +286,6 @@ def init_param(molecule):
    if (inc > 0):
       #
       inc_corr_mpi.abort_mpi(molecule)
-   #
-   set_fc_scheme(molecule)
    #
    return molecule
 
@@ -326,22 +330,6 @@ def set_exp(molecule):
       molecule['corr_model'] = 'N/A'
       #
       molecule['corr_order'] = 'N/A'
-   #
-   return molecule
-
-def set_fc_scheme(molecule):
-   #
-   if (molecule['frozen'] == 'none'):
-      #
-      molecule['frozen_scheme'] = ''
-   #
-   elif (molecule['frozen'] == 'conv'):
-      #
-      molecule['frozen_scheme'] = '(conventional)'
-   #
-   elif (molecule['frozen'] == 'screen'):
-      #
-      molecule['frozen_scheme'] = '(screened)'
    #
    return molecule
 
@@ -454,26 +442,13 @@ def sanity_chk(molecule):
    #
    # frozen core threatment
    #
-   if ((molecule['frozen'] != 'none') and (molecule['frozen'] != 'conv') and (molecule['frozen'] != 'screen')):
+   if (molecule['frozen'] and (molecule['ncore'] == 0)):
       #
-      print('wrong input -- valid choices for frozen core are none, conv, or screen --- aborting ...')
-      #
-      molecule['error'][0].append(True)
-   #
-   if (((molecule['frozen'] == 'conv') or (molecule['frozen'] == 'screen')) and (molecule['ncore'] == 0)):
-      #
-      print('wrong input -- frozen core requested ('+molecule['frozen_scheme']+' scheme), but no core orbitals specified --- aborting ...')
+      print('wrong input -- frozen core requested, but no core orbitals specified --- aborting ...')
       #
       molecule['error'][0].append(True)
    #
-   if ((molecule['frozen'] == 'screen') and (molecule['exp'] == 'virt')):
-      #
-      print('wrong input -- '+molecule['frozen_scheme']+' frozen core scheme does not make sense with the virtual expansion scheme')
-      print('            -- please use the conventional frozen core scheme instead --- aborting ...')
-      #
-      molecule['error'][0].append(True)
-   #
-   if ((molecule['frozen'] == 'conv') and molecule['local']):
+   if (molecule['frozen'] and molecule['local']):
       #
       print('wrong input -- comb. of frozen core and local orbitals not implemented --- aborting ...')
       #
@@ -538,7 +513,7 @@ def inc_corr_summary(molecule):
    print('              molecular information             ')
    print('   ---------------------------------------------')
    print('')
-   print('   frozen core                  =  {0:} {1:}'.format((molecule['frozen'] != 'none'),molecule['frozen_scheme']))
+   print('   frozen core                  =  {0:}'.format(molecule['frozen']))
    print('   local orbitals               =  {0:}'.format(molecule['local']))
    print('   occupied orbitals            =  {0:}'.format(molecule['nocc']))
    print('   virtual orbitals             =  {0:}'.format(molecule['nvirt']))
