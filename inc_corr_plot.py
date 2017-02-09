@@ -168,58 +168,101 @@ def n_tuples_plot(molecule):
    #
    return molecule
 
-def orb_entangl_plot(molecule):
+def orb_con_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+#   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='whitegrid')
    #
-   fig, ax = plt.subplots()
-   #
-   tot_plots = len(molecule['prim_orbital'][0])
-   tot_cols = 1
-   #
-   tot_rows = tot_plots // tot_cols
-   tot_rows += tot_plots % tot_cols
-   #
-   position = range(1,tot_plots+1)
-   #
-   print('tot_plots = {0:} , tot_cols = {1:} , tot_rows = {2:}'.format(tot_plots,tot_cols,tot_rows))
-   #
-   arr_list = []
-   #
-   h_map = []
-   #
-   for i in range(0,tot_plots):
+   if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')):
       #
-      arr_list[:] = []
+      orbital_type = 'occupied'
+   #
+   elif ((molecule['exp'] == 'virt') or (molecule['exp'] == 'comb-vo')):
       #
-      for j in range(0,len(molecule['prim_orbital'][0][i])):
+      orbital_type = 'virtual'
+   #
+   if (molecule['corr']):
+      #
+      fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+   #
+   else:
+      #
+      fig, ax1 = plt.subplots()
+   #
+   if (molecule['corr']):
+      #
+      # primary expansion
+      #
+      orbital_arr = 100.0 * np.asarray(molecule['prim_orb_con'][0])
+      #
+      mask_list = []
+      #
+      for i in range(0,len(molecule['prim_orb_con'][0])):
          #
-         arr_list.append([])
+         mask_list.append([])
          #
-         for k in range(0,len(molecule['prim_orbital'][0][i][j])-1):
+         for j in range(0,len(molecule['prim_orb_con'][0][i])):
             #
-            arr_list[j].append(molecule['prim_orbital'][0][i][j][k+1][1][1]*100.0)
+            if (molecule['prim_orb_con'][0][i][j] == 0.0):
+               #
+               mask_list[i].append(True)
+            #
+            else:
+               #
+               mask_list[i].append(False)
       #
-      orbital_arr = np.asarray(arr_list)
+      mask_arr = np.asarray(mask_list)
       #
-      h_map.append(fig.add_subplot(tot_rows,tot_cols,position[i]))
+      sns.heatmap(orbital_arr,ax=ax1,\
+                       linewidths=.5,xticklabels=False,\
+                       yticklabels=range(1,len(molecule['prim_orb_con'][0])+1),cmap='coolwarm',cbar=False,\
+                       center=0.0,annot=False,fmt='.1f',mask=mask_arr)
       #
-      h_map[i] = sns.heatmap(orbital_arr,linewidths=.5,xticklabels=range(molecule['l_limit'][0]+1,(molecule['l_limit'][0]+molecule['u_limit'][0])+1),\
-                       yticklabels=range(1,len(molecule['e_tot'][0])+1),cmap='coolwarm',cbar=False,\
-                       annot=True,fmt='.1f',vmin=-np.amax(orbital_arr),vmax=np.amax(orbital_arr))
+      ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
       #
-      h_map[i].set_title('orbital entanglement matrix (k = '+str(i+2))
+      ax1.set_title('Primary BG expansion')
       #
-#      ax.set_xlabel('Orbital')
-#      ax.set_ylabel('Order')
+      # energy correction
+      #
+      orbital_arr = 100.0 * np.asarray(molecule['corr_orb_con'][0])
+      #
+      sns.heatmap(orbital_arr,ax=ax2,\
+                       linewidths=.5,xticklabels=False,\
+                       yticklabels=range(1,len(molecule['corr_orb_con'][0])+1),cmap='coolwarm',cbar=False,\
+                       center=0.0,annot=False,fmt='.1f')
+      #
+      ax2.set_yticklabels(ax2.get_yticklabels(),rotation=0)
+      #
+      ax2.xaxis.set_major_locator(MaxNLocator(10,integer=True))
+      #
+      ax2.set_title('Energy correction')
+      #
+      fig.text(0.5,0.0,'Relative contribution (in %) from individual {0:} orbitals'.format(orbital_type),ha='center',va='center')
+      fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
    #
-   plt.yticks(rotation=0)
+   else:
+      #
+      # primary expansion
+      #
+      orbital_arr = 100.0 * np.asarray(molecule['prim_orb_con'][0])
+      #
+      sns.heatmap(orbital_arr,ax=ax1,\
+                       linewidths=.5,xticklabels=False,\
+                       yticklabels=range(1,len(molecule['e_tot'][0])+1),cmap='coolwarm',cbar=False,\
+                       center=0.0,annot=False,fmt='.1f')
+      #
+      ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
+      #
+      ax1.set_title('Primary BG expansion')
+      #
+      ax1.set_xlabel('Relative contribution (in %) from individual {0:} orbitals'.format(orbital_type))
+      ax1.set_ylabel('Bethe-Goldstone order')
    #
    sns.despine(left=True,bottom=True)
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/orb_entangl_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output/orb_con_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -351,9 +394,9 @@ def ic_plot(molecule):
    #
    n_tuples_plot(molecule)
    #
-   #  ---  plot orbital entanglement matrices  ---
+   #  ---  plot total orbital contribution matrix  ---
    #
-#   orb_entangl_plot(molecule)
+   orb_con_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #

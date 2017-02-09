@@ -89,6 +89,10 @@ def mono_exp_drv(molecule,start,end,level):
          #
          if ((level == 'MACRO') and (not molecule['corr'])): print('')
          #
+         if (level == 'CORRE'):
+            #
+            inc_corr_orb_rout.orb_entang_rout(molecule,molecule['l_limit'][0],molecule['u_limit'][0],level)
+         #
          break
    #
    # make the e_corr and corr_time lists of the same length as the e_tot list
@@ -626,12 +630,12 @@ def mono_exp_merge_info(molecule):
    for k in range(1,molecule['min_corr_order']-1):
       #
       molecule['corr_domain'][0].append(molecule['prim_domain'][0][k-1])
+      molecule['corr_orb_con'][0].append(molecule['prim_orb_con'][0][k-1])
    #
    for k in range(1,molecule['min_corr_order']-2):
       #
       molecule['corr_orbital'][0].append(molecule['prim_orbital'][0][k-1])
       molecule['corr_orb_arr'][0].append(molecule['prim_orb_arr'][0][k-1])
-      molecule['corr_orb_con'][0].append(molecule['prim_orb_con'][0][k-1])
    #
    return molecule
 

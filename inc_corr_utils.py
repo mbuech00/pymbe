@@ -797,6 +797,84 @@ def print_update(molecule,l_limit,u_limit,level):
    #
    return
 
+def orb_print(molecule,l_limit,u_limit,level):
+   #
+   if (level == 'MACRO'):
+      #
+      orb = molecule['prim_orbital'][0]
+      orb_arr = molecule['prim_orb_arr'][0]
+      orb_con = molecule['prim_orb_con'][0]
+   #
+   elif (level == 'CORRE'):
+      #
+      orb = molecule['corr_orbital'][0]
+      orb_arr = molecule['corr_orb_arr'][0]
+      orb_con = molecule['corr_orb_con'][0]
+   #
+   #
+   print('')
+   print('   ---------------------------------------------')
+   print('           relative orb. contributions          ')
+   print('   ---------------------------------------------')
+   #
+   index = '          '
+   #
+   for m in range(l_limit+1,(l_limit+u_limit)+1):
+      #
+      if (m < 10):
+         #
+         index += str(m)+'         '
+      #
+      elif ((m >= 10) and (m < 100)):
+         #
+         index += str(m)+'        '
+      #
+      elif ((m >= 100)):
+         #
+         index += str(m)+'       '
+   #
+   print('')
+   print(' * BG exp. order = 1')
+   print(' -------------------')
+   print('')
+   #
+   print('      --- total orbital contributions ---')
+   print('')
+   #
+   print(index)
+   #
+   print('     '+str(['{0:6.3f}'.format(m) for m in orb_con[0]]))
+   #
+   print('')
+   #
+   for i in range(0,len(orb)):
+      #
+      print('')
+      print(' * BG exp. order = '+str(i+2))
+      print(' -------------------')
+      print('')
+      #
+      print('      --- entanglement matrix ---')
+      print('')
+      #
+      print(index)
+      #
+      for j in range(0,len(orb_arr[i])):
+         #
+         print(' {0:>3d}'.format((j+l_limit)+1)+' '+str(['{0:6.3f}'.format(m) for m in orb_arr[i][j]]))
+      #
+      print('')
+      print('      --- total orbital contributions ---')
+      print('')
+      #
+      print(index)
+      #
+      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con[i+1]]))
+   #
+   print('')
+   #
+   return
+
 def enum(*sequential,**named):
    #
    enums = dict(zip(sequential,range(len(sequential))),**named)
