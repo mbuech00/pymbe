@@ -7,4 +7,4 @@ program as backend. The currently supported models are:
  - CCSDT
  - FCI
 
-here: mention CFOUR paths and mpi4py + python version 3.+
+here: mention CFOUR paths + mpi4py + seaborn + python version 3.+
