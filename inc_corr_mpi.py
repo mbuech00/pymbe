@@ -48,13 +48,21 @@ def main_slave_rout(molecule):
    #
    while (slave):
       #
+      # start time
+      #
+      start_idle = MPI.Wtime()
+      #
       msg = MPI.COMM_WORLD.bcast(None,root=0)
       #
       if (msg['task'] == 'bcast_mol_dict'):
          #
          # receive molecule dict from master
          #
+         start_comm = MPI.Wtime()
+         #
          molecule = MPI.COMM_WORLD.bcast(None,root=0)
+         #
+         molecule['mpi_time_comm'] = MPI.Wtime()-start_comm
          #
          # overwrite wrk_dir in case this is different from the one on the master node
          #
@@ -68,7 +76,15 @@ def main_slave_rout(molecule):
          molecule['mpi_stat'] = MPI.Status()
          molecule['mpi_master'] = False
       #
+      elif (msg['task'] == 'print_mpi_table'):
+         #
+         print_mpi_table(molecule)
+      #
       elif (msg['task'] == 'init_slave_env'):
+         #
+         molecule['mpi_time_idle'] = MPI.Wtime()-start_idle
+         #
+         start_work = MPI.Wtime()
          #
          # private scr dir
          #
@@ -77,21 +93,47 @@ def main_slave_rout(molecule):
          # init scr env
          #
          inc_corr_utils.setup_calc(molecule['scr'])
-      #
-      elif (msg['task'] == 'print_mpi_table'):
          #
-         print_mpi_table(molecule)
+         molecule['mpi_time_work'] = MPI.Wtime()-start_work
       #
       elif (msg['task'] == 'energy_calc_mono_exp'):
+         #
+         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
          #
          energy_calc_slave(molecule)
       #
       elif (msg['task'] == 'remove_slave_env'):
          #
+         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
+         #
+         start_work = MPI.Wtime()
+         #
          # remove scr env
          #
          inc_corr_utils.term_calc(molecule)
+         #
+         molecule['mpi_time_work'] += MPI.Wtime()-start_work
       #
+      elif (msg['task'] == 'red_mpi_timings'):
+         #
+         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
+         #
+         # reduce mpi timings onto master (cannot time this reduction)
+         #
+         # define sum operation for dicts
+         #
+         dict_sum_op = MPI.Op.Create(add_dict,commute=True)
+         #
+         time = {}
+         #
+         time['time_idle'] = molecule['mpi_time_idle']
+         #
+         time['time_comm'] = molecule['mpi_time_comm']
+         #
+         time['time_work'] = molecule['mpi_time_work']
+         #
+         molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
+         #
       elif (msg['task'] == 'finalize_mpi'):
          #
          slave = False
@@ -160,11 +202,17 @@ def energy_calc_slave(molecule):
       #
       # ready for task
       #
+      start_comm = MPI.Wtime()
+      #
       molecule['mpi_comm'].send(None,dest=0,tag=tags.ready)
       #
       # receive drop string
       #
       string = molecule['mpi_comm'].recv(source=0,tag=MPI.ANY_SOURCE,status=molecule['mpi_stat'])
+      #
+      molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
+      #
+      start_work = MPI.Wtime()
       #
       # recover tag
       #
@@ -188,17 +236,29 @@ def energy_calc_slave(molecule):
          #
          data['error'] = molecule['error'][0][-1]
          #
+         molecule['mpi_time_work'] += MPI.Wtime()-start_work
+         #
+         start_comm = MPI.Wtime()
+         #
          # send data back to master
          #
          molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
+         #
+         molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
       #
       elif (tag == tags.exit):
          #    
+         molecule['mpi_time_work'] += MPI.Wtime()-start_work
+         #
          break
    #
    # exit
    #
+   start_comm = MPI.Wtime()
+   #
    molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
+   #
+   molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
    #
    return molecule
 
@@ -269,6 +329,32 @@ def abort_mpi(molecule):
    #
    return
 
+def red_mpi_timings(molecule):
+   #
+   #  ---  master routine
+   #
+   # define sum operation for dicts
+   #
+   dict_sum_op = MPI.Op.Create(add_dict,commute=True)
+   #
+   msg = {'task': 'red_mpi_timings'}
+   #
+   # wake up slaves
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   # receive timings
+   #
+   time = molecule['mpi_comm'].reduce({},op=dict_sum_op,root=0)
+   #
+   molecule['mpi_time_idle'] = [(time['time_idle']/float(molecule['mpi_size']-1)),(time['time_idle']/(time['time_idle']+time['time_comm']+time['time_work']))*100.0]
+   #
+   molecule['mpi_time_comm'] = [(time['time_comm']/float(molecule['mpi_size']-1)),(time['time_comm']/(time['time_idle']+time['time_comm']+time['time_work']))*100.0]
+   #
+   molecule['mpi_time_work'] = [(time['time_work']/float(molecule['mpi_size']-1)),(time['time_work']/(time['time_idle']+time['time_comm']+time['time_work']))*100.0]
+   #
+   return
+
 def finalize_mpi(molecule):
    #
    #  ---  master and slave routine
@@ -284,4 +370,19 @@ def finalize_mpi(molecule):
    MPI.Finalize()
    #
    return
+
+def add_dict(dict_1, dict_2, datatype):
+   #
+   for item in dict_2:
+      # 
+      if (item in dict_1):
+         #
+         dict_1[item] += dict_2[item]
+      #
+      else:
+         #
+         dict_1[item] = dict_2[item]
+   #
+   return dict_1
+
 

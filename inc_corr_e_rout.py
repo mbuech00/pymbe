@@ -6,7 +6,6 @@
 # written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
 
-from timeit import default_timer as timer
 from mpi4py import MPI
 
 import inc_corr_gen_rout
