@@ -557,6 +557,12 @@ def inc_corr_summary(molecule):
       print('   number of mpi masters        =  {0:}'.format(1))
       #
       print('   number of mpi slaves         =  {0:}'.format(molecule['mpi_size']-1))
+      #
+      print('   -- time (idle)               =  {0:<d} %'.format(int(molecule['mpi_time_idle'][1]+0.5)))
+      #
+      print('   -- time (communication)      =  {0:<d} %'.format(int(molecule['mpi_time_comm'][1]+0.5)))
+      #
+      print('   -- time (comp. work)         =  {0:<d} %'.format(int(molecule['mpi_time_work'][1]+0.5)))
    #
    print('')
    print('   ---------------------------------------------')
