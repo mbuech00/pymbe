@@ -170,8 +170,9 @@ def n_tuples_plot(molecule):
 
 def orb_con_plot(molecule):
    #
-#   sns.set(style='darkgrid',palette='Set2')
    sns.set(style='whitegrid')
+   #
+   cmap = sns.cubehelix_palette(as_cmap=True)
    #
    if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')):
       #
@@ -193,30 +194,12 @@ def orb_con_plot(molecule):
       #
       # primary expansion
       #
-      orbital_arr = 100.0 * np.asarray(molecule['prim_orb_con'][0])
+      orb_arr = 100.0 * np.asarray(molecule['prim_orb_con_rel'][0])
       #
-      mask_list = []
-      #
-      for i in range(0,len(molecule['prim_orb_con'][0])):
-         #
-         mask_list.append([])
-         #
-         for j in range(0,len(molecule['prim_orb_con'][0][i])):
-            #
-            if (molecule['prim_orb_con'][0][i][j] == 0.0):
-               #
-               mask_list[i].append(True)
-            #
-            else:
-               #
-               mask_list[i].append(False)
-      #
-      mask_arr = np.asarray(mask_list)
-      #
-      sns.heatmap(orbital_arr,ax=ax1,\
-                       linewidths=.5,xticklabels=False,\
-                       yticklabels=range(1,len(molecule['prim_orb_con'][0])+1),cmap='coolwarm',cbar=False,\
-                       center=0.0,annot=False,fmt='.1f',mask=mask_arr)
+      sns.heatmap(orb_arr,ax=ax1,cmap=cmap,cbar_kws={'format':'%.0f'},\
+                       xticklabels=False,\
+                       yticklabels=range(1,len(molecule['prim_orb_con_rel'][0])+1),cbar=True,\
+                       annot=False,fmt='.1f',vmin=0.0,vmax=np.amax(orb_arr))
       #
       ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
       #
@@ -224,32 +207,34 @@ def orb_con_plot(molecule):
       #
       # energy correction
       #
-      orbital_arr = 100.0 * np.asarray(molecule['corr_orb_con'][0])
+      orb_arr_corr = 100.0 * np.asarray(molecule['corr_orb_con_rel'][0])
       #
-      sns.heatmap(orbital_arr,ax=ax2,\
-                       linewidths=.5,xticklabels=False,\
-                       yticklabels=range(1,len(molecule['corr_orb_con'][0])+1),cmap='coolwarm',cbar=False,\
-                       center=0.0,annot=False,fmt='.1f')
+      diff_arr = orb_arr_corr - orb_arr
+      #
+      mask_arr = (diff_arr == 0.0)
+      #
+      sns.heatmap(diff_arr,ax=ax2,mask=mask_arr,cmap='coolwarm',cbar_kws={'format':'%.1f'},\
+                       xticklabels=False,\
+                       yticklabels=range(1,len(molecule['corr_orb_con_rel'][0])+1),cbar=True,\
+                       annot=False,fmt='.1f',vmax=np.amax(diff_arr))
       #
       ax2.set_yticklabels(ax2.get_yticklabels(),rotation=0)
       #
-      ax2.xaxis.set_major_locator(MaxNLocator(10,integer=True))
-      #
       ax2.set_title('Energy correction')
       #
-      fig.text(0.5,0.0,'Relative contribution (in %) from individual {0:} orbitals'.format(orbital_type),ha='center',va='center')
+      fig.text(0.42,0.0,'Relative contribution (in %) from individual {0:} orbitals'.format(orbital_type),ha='center',va='center')
       fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
    #
    else:
       #
       # primary expansion
       #
-      orbital_arr = 100.0 * np.asarray(molecule['prim_orb_con'][0])
+      orb_arr = 100.0 * np.asarray(molecule['prim_orb_con_rel'][0])
       #
-      sns.heatmap(orbital_arr,ax=ax1,\
-                       linewidths=.5,xticklabels=False,\
-                       yticklabels=range(1,len(molecule['e_tot'][0])+1),cmap='coolwarm',cbar=False,\
-                       center=0.0,annot=False,fmt='.1f')
+      sns.heatmap(orb_arr,ax=ax1,cmap=cmap,cbar_kws={'format':'%.0f'},\
+                       xticklabels=False,\
+                       yticklabels=range(1,len(molecule['prim_orb_con_rel'][0])+1),cbar=True,\
+                       annot=False,fmt='.1f',vmin=0.0,vmax=np.amax(orb_arr))
       #
       ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
       #

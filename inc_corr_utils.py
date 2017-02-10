@@ -166,7 +166,6 @@ def init_param(molecule):
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
       molecule['sec_thres'] = 0.0
-      molecule['screen-tot'] = False
       molecule['corr'] = False
       molecule['corr_model'] = ''
       molecule['corr_order'] = 0
@@ -201,10 +200,6 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'sec_thres'):
                #
                molecule['sec_thres'] = float(content[i].split()[1])
-            #
-            elif (content[i].split()[0] == 'screen-tot'):
-               #
-               molecule['screen-tot'] = (content[i].split()[1] == 'True')
             #
             elif (content[i].split()[0] == 'corr'):
                #
@@ -270,7 +265,7 @@ def init_param(molecule):
    #
    set_exp(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','scr','exp','max_order','prim_thres','sec_thres','screen-tot','corr','corr_order','corr_thres','model','corr_model',\
+   chk = ['mol','ncore','frozen','mult','scr','exp','max_order','prim_thres','sec_thres','corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
    inc = 0
@@ -801,21 +796,15 @@ def orb_print(molecule,l_limit,u_limit,level):
    #
    if (level == 'MACRO'):
       #
-      orb = molecule['prim_orbital'][0]
+      orb = molecule['prim_orb_ent'][0]
       orb_arr = molecule['prim_orb_arr'][0]
-      orb_con = molecule['prim_orb_con'][0]
+      orb_con_rel = molecule['prim_orb_con_rel'][0]
    #
    elif (level == 'CORRE'):
       #
-      orb = molecule['corr_orbital'][0]
+      orb = molecule['corr_orb_ent'][0]
       orb_arr = molecule['corr_orb_arr'][0]
-      orb_con = molecule['corr_orb_con'][0]
-   #
-   #
-   print('')
-   print('   ---------------------------------------------')
-   print('           relative orb. contributions          ')
-   print('   ---------------------------------------------')
+      orb_con_rel = molecule['corr_orb_con_rel'][0]
    #
    index = '          '
    #
@@ -833,21 +822,43 @@ def orb_print(molecule,l_limit,u_limit,level):
          #
          index += str(m)+'       '
    #
-   print('')
-   print(' * BG exp. order = 1')
-   print(' -------------------')
-   print('')
+   if (level == 'MACRO'):
+      #
+      print('')
+      print('   ---------------------------------------------')
+      print('         individual orbital contributions       ')
+      print('   ---------------------------------------------')
+      #
+      print('')
+      print(' * BG exp. order = 1')
+      print(' -------------------')
+      print('')
+      #
+      print('      --- relative orbital contributions ---')
+      print('')
+      #
+      print(index)
+      #
+      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con_rel[0]]))
+      #
+      print('')
    #
-   print('      --- total orbital contributions ---')
-   print('')
+   if (level == 'MACRO'):
+      #
+      start = 0
    #
-   print(index)
+   elif ((level == 'CORRE') and (molecule['min_corr_order'] > 0)):
+      #
+      start = molecule['min_corr_order']-2
+      #
+      if (start <= (len(orb)-1)):
+         #
+         print('')
+         print('   ---------------------------------------------')
+         print('         individual orbital contributions       ')
+         print('   ---------------------------------------------')
    #
-   print('     '+str(['{0:6.3f}'.format(m) for m in orb_con[0]]))
-   #
-   print('')
-   #
-   for i in range(0,len(orb)):
+   for i in range(start,len(orb)):
       #
       print('')
       print(' * BG exp. order = '+str(i+2))
@@ -864,14 +875,14 @@ def orb_print(molecule,l_limit,u_limit,level):
          print(' {0:>3d}'.format((j+l_limit)+1)+' '+str(['{0:6.3f}'.format(m) for m in orb_arr[i][j]]))
       #
       print('')
-      print('      --- total orbital contributions ---')
+      print('      --- relative orbital contributions ---')
       print('')
       #
       print(index)
       #
-      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con[i+1]]))
-   #
-   print('')
+      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con_rel[i+1]]))
+      #
+      if (i == (len(orb)-1)): print('')
    #
    return
 
