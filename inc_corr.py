@@ -65,6 +65,10 @@ def main():
          #
          inc_corr_gen_rout.ref_calc(molecule)
       #
+      #  ---  collect mpi timings from slaves  ---
+      #
+      if (molecule['mpi_parallel']): inc_corr_mpi.red_mpi_timings(molecule)
+      #
       #  ---  print summary of the calculation  ---
       #
       inc_corr_utils.inc_corr_summary(molecule)

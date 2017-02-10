@@ -369,6 +369,28 @@ def dev_ref_plot(molecule):
    #
    return molecule
 
+def mpi_time_plot(molecule):
+   #
+   fig, ax = plt.subplots()
+   #
+   ax.set_title('MPI timings')
+   #
+   labels = 'Idle ({0:.0f} %)'.format(molecule['mpi_time_idle'][1]),'Comm ({0:.0f} %)'.format(molecule['mpi_time_comm'][1]),'Work ({0:.0f} %)'.format(molecule['mpi_time_work'][1])
+   #
+   sizes = [molecule['mpi_time_idle'][1],molecule['mpi_time_comm'][1],molecule['mpi_time_work'][1]]
+   #
+   ax.pie(sizes,colors=sns.color_palette("Set2",3),shadow=True,startangle=45)
+   #
+   plt.legend(labels,frameon=True,fancybox=True,shadow=True,loc=6,bbox_to_anchor=(0.3, 0.4))
+   #
+   ax.axis('equal') # equal aspect ratio ensures that pie is drawn as a circle.
+   #
+   fig.tight_layout()
+   #
+   plt.savefig(molecule['wrk']+'/output/mpi_time_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   return molecule
+
 def ic_plot(molecule):
    #
    #  ---  plot total energies  ---
@@ -385,9 +407,11 @@ def ic_plot(molecule):
    #
    #  ---  plot deviation from reference calc  ---
    #
-   if (molecule['ref']):
-      #
-      dev_ref_plot(molecule)
+   if (molecule['ref']): dev_ref_plot(molecule)
+   #
+   #  ---  plot mpi timings  ---
+   #
+   if (molecule['mpi_parallel']): mpi_time_plot(molecule)
    #
    return molecule
 
