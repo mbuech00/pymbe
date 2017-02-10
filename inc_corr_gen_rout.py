@@ -121,7 +121,7 @@ def write_zmat_corr(molecule,drop_string,level):
       out.write('SYMMETRY=OFF\n')
       out.write('ORBITALS=LOCAL\n')
    #
-   if ((molecule['frozen'] == 'conv') and (level == 'REF')):
+   if (molecule['frozen'] and (level == 'REF')):
       #
       out.write('FROZEN_CORE=ON\n')
    #

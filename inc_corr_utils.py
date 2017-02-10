@@ -172,6 +172,7 @@ def init_param(molecule):
       molecule['corr_thres'] = 0.0
       molecule['basis'] = ''
       molecule['ref'] = False
+      molecule['frozen'] = False
       molecule['debug'] = False
       molecule['local'] = False
       molecule['zmat'] = False
@@ -230,7 +231,7 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'frozen'):
                #
-               molecule['frozen'] = content[i].split()[1]
+               molecule['frozen'] = (content[i].split()[1] == 'True')
             #
             elif (content[i].split()[0] == 'local'):
                #
@@ -281,8 +282,6 @@ def init_param(molecule):
       #
       inc_corr_mpi.abort_mpi(molecule)
    #
-   set_fc_scheme(molecule)
-   #
    return molecule
 
 def set_exp(molecule):
@@ -326,22 +325,6 @@ def set_exp(molecule):
       molecule['corr_model'] = 'N/A'
       #
       molecule['corr_order'] = 'N/A'
-   #
-   return molecule
-
-def set_fc_scheme(molecule):
-   #
-   if (molecule['frozen'] == 'none'):
-      #
-      molecule['frozen_scheme'] = ''
-   #
-   elif (molecule['frozen'] == 'conv'):
-      #
-      molecule['frozen_scheme'] = '(conventional)'
-   #
-   elif (molecule['frozen'] == 'screen'):
-      #
-      molecule['frozen_scheme'] = '(screened)'
    #
    return molecule
 
@@ -454,26 +437,13 @@ def sanity_chk(molecule):
    #
    # frozen core threatment
    #
-   if ((molecule['frozen'] != 'none') and (molecule['frozen'] != 'conv') and (molecule['frozen'] != 'screen')):
+   if (molecule['frozen'] and (molecule['ncore'] == 0)):
       #
-      print('wrong input -- valid choices for frozen core are none, conv, or screen --- aborting ...')
-      #
-      molecule['error'][0].append(True)
-   #
-   if (((molecule['frozen'] == 'conv') or (molecule['frozen'] == 'screen')) and (molecule['ncore'] == 0)):
-      #
-      print('wrong input -- frozen core requested ('+molecule['frozen_scheme']+' scheme), but no core orbitals specified --- aborting ...')
+      print('wrong input -- frozen core requested, but no core orbitals specified --- aborting ...')
       #
       molecule['error'][0].append(True)
    #
-   if ((molecule['frozen'] == 'screen') and (molecule['exp'] == 'virt')):
-      #
-      print('wrong input -- '+molecule['frozen_scheme']+' frozen core scheme does not make sense with the virtual expansion scheme')
-      print('            -- please use the conventional frozen core scheme instead --- aborting ...')
-      #
-      molecule['error'][0].append(True)
-   #
-   if ((molecule['frozen'] == 'conv') and molecule['local']):
+   if (molecule['frozen'] and molecule['local']):
       #
       print('wrong input -- comb. of frozen core and local orbitals not implemented --- aborting ...')
       #
@@ -538,7 +508,7 @@ def inc_corr_summary(molecule):
    print('              molecular information             ')
    print('   ---------------------------------------------')
    print('')
-   print('   frozen core                  =  {0:} {1:}'.format((molecule['frozen'] != 'none'),molecule['frozen_scheme']))
+   print('   frozen core                  =  {0:}'.format(molecule['frozen']))
    print('   local orbitals               =  {0:}'.format(molecule['local']))
    print('   occupied orbitals            =  {0:}'.format(molecule['nocc']))
    print('   virtual orbitals             =  {0:}'.format(molecule['nvirt']))
@@ -637,7 +607,7 @@ def inc_corr_summary(molecule):
       #
       else:
          #
-         tot_n_tup.append(molecule['prim_n_tuples'][0][i]+molecule['sec_n_tuples'][0][i])
+         tot_n_tup.append(molecule['prim_n_tuples'][0][i]+molecule['corr_n_tuples'][0][i])
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('     BG expansion order  |   # of prim. exp. tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr.  ')
@@ -646,7 +616,7 @@ def inc_corr_summary(molecule):
    for i in range(0,len(molecule['e_tot'][0])):
       #
       print('          {0:>4d}                     {1:>4.2e}                    {2:>4.2e}                                           {3:>6.2f} %        {4:>6.2f} %'.\
-                                                                          format(i+1,molecule['prim_n_tuples'][0][i],molecule['sec_n_tuples'][0][i],\
+                                                                          format(i+1,molecule['prim_n_tuples'][0][i],molecule['corr_n_tuples'][0][i],\
                                                                                  (float(molecule['prim_n_tuples'][0][i])/float(molecule['theo_work'][0][i]))*100.00,\
                                                                                  (float(tot_n_tup[i])/float(molecule['theo_work'][0][i]))*100.00))
    #
@@ -662,7 +632,7 @@ def inc_corr_summary(molecule):
    for i in range(0,len(molecule['e_tot'][0])):
       #
       total_time += molecule['prim_time'][0][i]
-      total_time_corr += molecule['sec_time'][0][i]
+      total_time_corr += molecule['corr_time'][0][i]
       #
       print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
                                                                           format(i+1,molecule['e_tot'][0][i],molecule['e_tot'][0][i]+molecule['e_corr'][0][i],\
@@ -715,7 +685,17 @@ def print_status(prog,level):
    #
    return
 
-def print_status_end(order,time,n_tup,level):
+def print_status_end(molecule,order,level):
+   #
+   if (level == 'MACRO'):
+      #
+      n_tup = molecule['prim_n_tuples'][0]
+      time = molecule['prim_time'][0]
+   #
+   elif (level == 'CORRE'):
+      #
+      n_tup = molecule['corr_n_tuples'][0]
+      time = molecule['corr_time'][0]
    #
    print(' --------------------------------------------------------------------------------------------')
    #
@@ -770,7 +750,15 @@ def print_inner_result(molecule):
    #
    return
 
-def print_update(dom,l_limit,u_limit,level):
+def print_update(molecule,l_limit,u_limit,level):
+   #
+   if (level == 'MACRO'):
+      #
+      dom = molecule['prim_domain'][0]
+   #
+   elif (level == 'CORRE'):
+      #
+      dom = molecule['corr_domain'][0]
    #
    count = []
    #
@@ -801,6 +789,100 @@ def print_update(dom,l_limit,u_limit,level):
                                  sorted(list(set(dom[-2][j])-set(dom[-1][j])))))
       #
       print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def orb_print(molecule,l_limit,u_limit,level):
+   #
+   if (level == 'MACRO'):
+      #
+      orb = molecule['prim_orb_ent'][0]
+      orb_arr = molecule['prim_orb_arr'][0]
+      orb_con_rel = molecule['prim_orb_con_rel'][0]
+   #
+   elif (level == 'CORRE'):
+      #
+      orb = molecule['corr_orb_ent'][0]
+      orb_arr = molecule['corr_orb_arr'][0]
+      orb_con_rel = molecule['corr_orb_con_rel'][0]
+   #
+   index = '          '
+   #
+   for m in range(l_limit+1,(l_limit+u_limit)+1):
+      #
+      if (m < 10):
+         #
+         index += str(m)+'         '
+      #
+      elif ((m >= 10) and (m < 100)):
+         #
+         index += str(m)+'        '
+      #
+      elif ((m >= 100)):
+         #
+         index += str(m)+'       '
+   #
+   if (level == 'MACRO'):
+      #
+      print('')
+      print('   ---------------------------------------------')
+      print('         individual orbital contributions       ')
+      print('   ---------------------------------------------')
+      #
+      print('')
+      print(' * BG exp. order = 1')
+      print(' -------------------')
+      print('')
+      #
+      print('      --- relative orbital contributions ---')
+      print('')
+      #
+      print(index)
+      #
+      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con_rel[0]]))
+      #
+      print('')
+   #
+   if (level == 'MACRO'):
+      #
+      start = 0
+   #
+   elif ((level == 'CORRE') and (molecule['min_corr_order'] > 0)):
+      #
+      start = molecule['min_corr_order']-2
+      #
+      if (start <= (len(orb)-1)):
+         #
+         print('')
+         print('   ---------------------------------------------')
+         print('         individual orbital contributions       ')
+         print('   ---------------------------------------------')
+   #
+   for i in range(start,len(orb)):
+      #
+      print('')
+      print(' * BG exp. order = '+str(i+2))
+      print(' -------------------')
+      print('')
+      #
+      print('      --- entanglement matrix ---')
+      print('')
+      #
+      print(index)
+      #
+      for j in range(0,len(orb_arr[i])):
+         #
+         print(' {0:>3d}'.format((j+l_limit)+1)+' '+str(['{0:6.3f}'.format(m) for m in orb_arr[i][j]]))
+      #
+      print('')
+      print('      --- relative orbital contributions ---')
+      print('')
+      #
+      print(index)
+      #
+      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con_rel[i+1]]))
+      #
+      if (i == (len(orb)-1)): print('')
    #
    return
 

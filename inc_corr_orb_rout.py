@@ -14,9 +14,17 @@ import inc_corr_utils
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
    #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
+      #
+      start = molecule['ncore']
+   #
+   else:
+      #
+      start = 0
+   #
    if (k == 1):
       #
-      for i in range(0,len(dom)):
+      for i in range(start,len(dom)):
          #
          # all singles contributions 
          #
@@ -26,7 +34,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
       #
       # generate all possible (unique) pairs
       #
-      incl = list(list(comb) for comb in itertools.combinations(range(1+l_limit,(l_limit+u_limit)+1),2))
+      incl = list(list(comb) for comb in itertools.combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
       #
       for i in range(0,len(incl)):
          #
@@ -92,9 +100,9 @@ def orb_string(molecule,l_limit,u_limit,tup,string):
    #
    drop = sorted(list(set(dim)-set(tup)))
    #
-   # for virt scheme, explicitly drop the core orbitals for conventional frozen core scheme
+   # for virt scheme, explicitly drop the core orbitals for frozen core
    #
-   if ((molecule['exp'] == 'virt') and (molecule['frozen'] == 'conv')):
+   if ((molecule['exp'] == 'virt') and molecule['frozen']):
       #
       for i in range(molecule['ncore'],0,-1):
          #
@@ -138,114 +146,213 @@ def orb_string(molecule,l_limit,u_limit,tup,string):
    #
    return string
 
-def orb_screen_rout(molecule,order,tup,orb,dom,thres,l_limit,u_limit,level):
+def orb_screen_rout(molecule,order,l_limit,u_limit,level):
    #
-   if ((order == 1) or (thres == 0.0)):
+   if (order == 1):
       #
-      update_domains(dom,l_limit,[])
+      # add singles contributions to orb_con list
+      #
+      orb_entang_rout(molecule,l_limit,u_limit,level,True)
+      #
+      # print orb info
+      #
+      if (molecule['debug']): inc_corr_utils.orb_print(molecule,l_limit,u_limit,level)
+      #
+      # update domains
+      #
+      update_domains(molecule,l_limit,level,True)
    #
    else:
       #
       # set up entanglement and exclusion lists
       #
-      orb.append([])
+      orb_entang_rout(molecule,l_limit,u_limit,level)
       #
-      orb_entang_rout(molecule,tup,orb,l_limit,u_limit)
+      # print orb info
       #
-      molecule['excl_list'][0][:] = []
+      if (molecule['debug']): inc_corr_utils.orb_print(molecule,l_limit,u_limit,level)
       #
-      excl_rout(molecule,tup,orb,thres,molecule['excl_list'][0],level)
+      # construct exclusion list
+      #
+      excl_rout(molecule,l_limit,level)
       #
       # update domains
       #
-      update_domains(dom,l_limit,molecule['excl_list'][0])
+      update_domains(molecule,l_limit,level)
       #
       # print domain updates
       #
-      inc_corr_utils.print_update(dom,l_limit,u_limit,level)
+      inc_corr_utils.print_update(molecule,l_limit,u_limit,level)
    #
-   return molecule, dom
+   return molecule
 
-def orb_entang_rout(molecule,tup,orb,l_limit,u_limit):
+def orb_entang_rout(molecule,l_limit,u_limit,level,singles=False):
    #
-   for i in range(l_limit,l_limit+u_limit):
+   if (level == 'MACRO'):
       #
-      orb[-1].append([[i+1]])
-      #
-      for j in range(l_limit,l_limit+u_limit):
-         #
-         if (j != i):
-            #
-            e_abs = 0.0
-            #
-            for l in range(0,len(tup[-1])):
-               #
-               if ((set([i+1]) <= set(tup[-1][l][0])) and (set([j+1]) <= set(tup[-1][l][0]))):
-                  #
-                  e_abs += tup[-1][l][1]
-            #
-            orb[-1][i-l_limit].append([[j+1],[e_abs]])
+      tup = molecule['prim_tuple'][0]
+      orb = molecule['prim_orb_ent'][0]
+      orb_arr = molecule['prim_orb_arr'][0]
+      orb_con_abs = molecule['prim_orb_con_abs'][0]
+      orb_con_rel = molecule['prim_orb_con_rel'][0]
    #
-   for i in range(l_limit,l_limit+u_limit):
+   elif (level == 'CORRE'):
+      #
+      tup = molecule['corr_tuple'][0]
+      orb = molecule['corr_orb_ent'][0]
+      orb_arr = molecule['corr_orb_arr'][0]
+      orb_con_abs = molecule['corr_orb_con_abs'][0]
+      orb_con_rel = molecule['corr_orb_con_rel'][0]
+   #
+   if (singles):
+      #
+      # total orbital contribution
+      #
+      orb_con_abs.append([])
+      orb_con_rel.append([])
       #
       e_sum = 0.0
       #
-      for j in range(0,len(orb)):
+      for i in range(0,len(tup[-1])):
          #
-         for l in range(l_limit,(l_limit+u_limit)-1):
-            #
-            e_sum += orb[j][i-l_limit][(l-l_limit)+1][1][0]
+         e_sum += tup[-1][i][1]
       #
-      for l in range(l_limit,(l_limit+u_limit)-1):
+      for i in range(0,len(tup[-1])):
          #
-         if (orb[-1][i-l_limit][(l-l_limit)+1][1][0] != 0.0):
-            #
-            orb[-1][i-l_limit][(l-l_limit)+1][1].append(orb[-1][i-l_limit][(l-l_limit)+1][1][0] / e_sum)
+         orb_con_abs[-1].append(tup[-1][i][1])
          #
-         else:
-            #
-            orb[-1][i-l_limit][(l-l_limit)+1][1].append(0.0)  
+         orb_con_rel[-1].append(orb_con_abs[-1][i]/e_sum)
    #
-   if (molecule['debug']):
+   else:
       #
-      print('')
-      print('   ---------------------------------------------')
-      print('           relative orb. contributions          ')
-      print('   ---------------------------------------------')
+      orb.append([])
+      #
+      orb_con_abs.append([])
+      orb_con_rel.append([])
+      #
+      orb_arr[:] = []
+      #
+      for i in range(l_limit,l_limit+u_limit):
+         #
+         orb[-1].append([])
+         #
+         for j in range(l_limit,l_limit+u_limit):
+            #
+            orb[-1][i-l_limit].append([])
+            #
+            e_abs = 0.0
+            #
+            if (i != j):
+               #
+               # add up contributions from the correlation between orbs i and j at current order
+               #
+               for l in range(0,len(tup[-1])):
+                  #
+                  if ((set([i+1]) <= set(tup[-1][l][0])) and (set([j+1]) <= set(tup[-1][l][0]))):
+                     #
+                     e_abs += tup[-1][l][1] 
+            #
+            # write to orb list
+            #
+            orb[-1][i-l_limit][j-l_limit].append(e_abs)
+      #
+      for i in range(l_limit,l_limit+u_limit):
+         #
+         e_sum = 0.0
+         #
+         # calculate sum of contributions from all orbitals to orb i
+         #
+         for j in range(l_limit,l_limit+u_limit):
+            #
+            e_sum += orb[-1][i-l_limit][j-l_limit][0]
+            #
+            # add the contributions from lower orders
+            #
+            for m in range(0,len(orb)-1):
+               #
+               e_sum += orb[m][i-l_limit][j-l_limit][0]
+         #
+         # calculate relative contributions
+         #
+         for m in range(0,len(orb)):
+            #
+            for j in range(l_limit,l_limit+u_limit):
+               #
+               if (len(orb[m][i-l_limit][j-l_limit]) == 2):
+                  #
+                  if (orb[m][i-l_limit][j-l_limit][0] != 0.0):
+                     #
+                     orb[m][i-l_limit][j-l_limit][1] = orb[m][i-l_limit][j-l_limit][0]/e_sum
+                  #
+                  else:
+                     #
+                     orb[m][i-l_limit][j-l_limit][1] = 0.0
+               #
+               else:
+                  #
+                  if (orb[m][i-l_limit][j-l_limit][0] != 0.0):
+                     #
+                     orb[m][i-l_limit][j-l_limit].append(orb[m][i-l_limit][j-l_limit][0]/e_sum)
+                  #
+                  else:
+                     #
+                     orb[m][i-l_limit][j-l_limit].append(0.0)
+      #
+      # orbital entanglement matrix
       #
       for i in range(0,len(orb)):
          #
-         print('')
-         print(' * BG exp. order = '+str(i+2))
-         print('')
-         #
-         tmp = []
+         orb_arr.append([])
          #
          for j in range(0,len(orb[i])):
             #
-            tmp.append([])
+            orb_arr[i].append([])
             #
-            for k in range(0,len(orb[i][j])-1):
+            for k in range(0,len(orb[i][j])):
                #
-               tmp[j].append(orb[i][j][k+1][1][1])
-            #
-            print(' {0:>3d}'.format((j+l_limit)+1)+' : '+str(['{0:6.3f}'.format(m) for m in tmp[-1]]))
+               orb_arr[i][j].append(orb[i][j][k][1])
       #
-      print('')
+      # total orbital contribution
+      #
+      tmp = []
+      #
+      for j in range(0,len(orb[-1])):
+         #
+         e_sum = 0.0
+         #
+         for k in range(0,len(orb[-1][j])):
+            #
+            e_sum += orb[-1][j][k][0]
+         #
+         tmp.append(e_sum)
+      #
+      for j in range(0,len(tmp)):
+         #
+         orb_con_abs[-1].append(orb_con_abs[-2][j]+tmp[j])
+      #
+      e_sum = 0.0
+      #
+      for j in range(0,len(orb_con_abs[-1])):
+         #
+         e_sum += orb_con_abs[-1][j]
+      #
+      for j in range(0,len(orb_con_abs[-1])):
+         #
+         orb_con_rel[-1].append(orb_con_abs[-1][j]/e_sum)
    #
-   return orb
+   return molecule
 
-def select_corr_tuples(prim_tup,sec_tup,k):
+def select_corr_tuples(prim_tup,corr_tup,k):
    #
    pop_list = []
    #
-   for i in range(0,len(sec_tup[k-1])):
+   for i in range(0,len(corr_tup[k-1])):
       #
       found = False
       #
       for j in range(0,len(prim_tup[k-1])):
          #
-         if (set(sec_tup[k-1][i][0]) <= set(prim_tup[k-1][j][0])):
+         if (set(corr_tup[k-1][i][0]) <= set(prim_tup[k-1][j][0])):
             #
             found = True
             #
@@ -257,9 +364,9 @@ def select_corr_tuples(prim_tup,sec_tup,k):
    #
    for l in range(0,len(pop_list)):
       #
-      sec_tup[k-1].pop(pop_list[l]-l)
+      corr_tup[k-1].pop(pop_list[l]-l)
    #
-   return sec_tup
+   return corr_tup
 
 def init_domains(molecule):
    #
@@ -272,7 +379,7 @@ def init_domains(molecule):
       #
       molecule['occ_domain'][0][i].pop(i)
    #
-   if (molecule['frozen'] == 'conv'):
+   if (molecule['frozen']):
       #
       for i in range(0,molecule['ncore']):
          #
@@ -312,7 +419,7 @@ def reinit_domains(molecule,dom):
          #
          dom[0][i].pop(i)
       #
-      if (molecule['frozen'] == 'conv'):
+      if (molecule['frozen']):
          #
          for i in range(0,molecule['ncore']):
             #
@@ -326,45 +433,69 @@ def reinit_domains(molecule,dom):
    #
    return molecule
 
-def excl_rout(molecule,tup,orb,thres,excl,level):
+def excl_rout(molecule,l_limit,level):
+   #
+   if (level == 'MACRO'):
+      #
+      orb = molecule['prim_orb_ent'][0]
+      orb_arr = molecule['prim_orb_arr'][0]
+      orb_con_rel = molecule['prim_orb_con_rel'][0]
+      thres = molecule['prim_thres']
+   #
+   else:
+      #
+      orb = molecule['corr_orb_ent'][0]
+      orb_arr = molecule['corr_orb_arr'][0]
+      orb_con_rel = molecule['corr_orb_con_rel'][0]
+      thres = molecule['corr_thres']
+   #
+   molecule['excl_list'][:] = []
+   #
+   # screening in individual domains based on orbital entanglement 
    #
    for i in range(0,len(orb[-1])):
       #
-      excl.append([])
+      molecule['excl_list'].append([])
       #
-      for j in range(0,len(orb[-1][i])-1):
+      for j in range(0,len(orb[-1][i])):
          #
-         if ((abs(orb[-1][i][j+1][1][-1]) < thres) and (abs(orb[-1][i][j+1][1][-1]) != 0.0)):
+         if ((abs(orb[-1][i][j][1]) < thres) and (abs(orb[-1][i][j][1]) != 0.0)):
             #
-            excl[i].append(orb[-1][i][j+1][0][0])
+            molecule['excl_list'][i].append((j+l_limit)+1)
    #
-   if ((len(tup) == 2) and (len(tup[0]) == molecule['nocc']) and (molecule['frozen'] == 'screen') and (level != 'CORRE')):
+   # screening in all domains based on total orbital contributions
+   #
+   for i in range(0,len(orb_con_rel[-1])):
       #
-      for i in range(0,len(excl)):
+      if ((orb_con_rel[-1][i] < thres) and (sum(orb_arr[-1][i]) != 0.0)):
          #
-         if (i < molecule['ncore']):
+         for j in range(0,len(orb_con_rel[-1])):
             #
-            for j in range(i+1,len(excl)):
+            if (i != j):
                #
-               if (not (j+1 in excl[i])):
+               if (not (set([(j+l_limit)+1]) <= set(molecule['excl_list'][i]))):
                   #
-                  excl[i].append(j+1)
-         #
-         else:
-            #
-            for j in range(0,molecule['ncore']):
+                  molecule['excl_list'][i].append((j+l_limit)+1)
                #
-               if (not (j+1 in excl[i])):
+               if (not (set([(i+l_limit)+1]) <= set(molecule['excl_list'][j]))):
                   #
-                  excl[i].append(j+1)
+                  molecule['excl_list'][j].append((i+l_limit)+1)
    #
-   for i in range(0,len(excl)):
+   for i in range(0,len(molecule['excl_list'])):
       #
-      excl[i].sort()
+      molecule['excl_list'][i].sort()
    #
-   return excl
+   return molecule
 
-def update_domains(dom,l_limit,excl):
+def update_domains(molecule,l_limit,level,singles=False):
+   #
+   if (level == 'MACRO'):
+      #
+      dom = molecule['prim_domain'][0]
+   #
+   elif (level == 'CORRE'):
+      #
+      dom = molecule['corr_domain'][0]
    #
    dom.append([])
    #
@@ -372,18 +503,20 @@ def update_domains(dom,l_limit,excl):
       #
       dom[-1].append(list(dom[-2][l]))
    #
-   for i in range(0,len(excl)):
+   if (not singles):
       #
-      for j in range(0,len(excl[i])):
+      for i in range(0,len(molecule['excl_list'])):
          #
-         if ((i+l_limit)+1 in excl[(excl[i][j]-l_limit)-1]):
+         for j in range(0,len(molecule['excl_list'][i])):
             #
-            dom[-1][i].remove(excl[i][j])
-            dom[-1][(excl[i][j]-l_limit)-1].remove((i+l_limit)+1)
-            #
-            excl[(excl[i][j]-l_limit)-1].remove((i+l_limit)+1)
+            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
+               #
+               dom[-1][i].remove(molecule['excl_list'][i][j])
+               dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+               #
+               molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
-   return dom
+   return molecule
 
 def n_theo_tuples(dim,k,theo_work):
    #

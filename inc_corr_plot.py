@@ -27,7 +27,7 @@ def abs_energy_plot(molecule):
    #
    u_limit = molecule['u_limit'][0]
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
       u_limit -= molecule['ncore']
    #
@@ -120,24 +120,24 @@ def n_tuples_plot(molecule):
    #
    u_limit = molecule['u_limit'][0]
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
       u_limit -= molecule['ncore']
    #
    if (molecule['corr']):
       #
-      sec_prim = []
-      theo_sec = []
+      corr_prim = []
+      theo_corr = []
       #
       for i in range(0,u_limit):
          #
-         sec_prim.append(molecule['sec_n_tuples'][0][i])
-         theo_sec.append(molecule['theo_work'][0][i]-(molecule['prim_n_tuples'][0][i]+molecule['sec_n_tuples'][0][i]))
+         corr_prim.append(molecule['corr_n_tuples'][0][i])
+         theo_corr.append(molecule['theo_work'][0][i]-(molecule['prim_n_tuples'][0][i]+molecule['corr_n_tuples'][0][i]))
       #
-      sns.barplot(list(range(1,u_limit+1)),theo_sec,bottom=[(i + j) for i,j in zip(sec_prim,molecule['prim_n_tuples'][0])],\
+      sns.barplot(list(range(1,u_limit+1)),theo_corr,bottom=[(i + j) for i,j in zip(corr_prim,molecule['prim_n_tuples'][0])],\
                   palette='BuGn_d',label='Theoretical number',log=True)
       #
-      sns.barplot(list(range(1,u_limit+1)),sec_prim,bottom=molecule['prim_n_tuples'][0],palette='Reds_r',\
+      sns.barplot(list(range(1,u_limit+1)),corr_prim,bottom=molecule['prim_n_tuples'][0],palette='Reds_r',\
                   label='Energy corr.',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'][0],palette='Blues_r',\
@@ -168,44 +168,86 @@ def n_tuples_plot(molecule):
    #
    return molecule
 
-def e_contrib_plot(molecule):
+def orb_con_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='whitegrid')
    #
-   fig, ax = plt.subplots()
+   cmap = sns.cubehelix_palette(as_cmap=True)
    #
-   ax.set_title(str(molecule['exp'])+' scheme: orbital entanglement matrix (order = '+str(len(molecule["e_tot"][0]))+')')
-   #
-   orbital_arr = np.asarray(molecule['orbital'])
-   #
-   # calculate realtive contributions
-   #
-   tot_sum = 0.0
-   #
-   for i in range(0,len(molecule['e_tot'][0])):
+   if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')):
       #
-      tot_sum += sum(orbital_arr[i,0:])
+      orbital_type = 'occupied'
    #
-   for i in range(0,len(molecule['e_tot'][0])):
+   elif ((molecule['exp'] == 'virt') or (molecule['exp'] == 'comb-vo')):
       #
-      for j in range(0,molecule['u_limit'][0]):
-         #
-         orbital_arr[i,j] = (orbital_arr[i,j] / tot_sum) * 100.0
+      orbital_type = 'virtual'
    #
-   ax = sns.heatmap(orbital_arr,linewidths=.5,xticklabels=range(1,u_limit+1),\
-                    yticklabels=range(1,len(molecule['e_tot'][0])+1),cmap='coolwarm',cbar=False,\
-                    annot=True,fmt='.1f',vmin=-np.amax(orbital_arr),vmax=np.amax(orbital_arr))
+   if (molecule['corr']):
+      #
+      fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
    #
-   ax.set_xlabel('Orbital')
-   ax.set_ylabel('Order')
+   else:
+      #
+      fig, ax1 = plt.subplots()
    #
-   plt.yticks(rotation=0)
+   if (molecule['corr']):
+      #
+      # primary expansion
+      #
+      orb_arr = 100.0 * np.asarray(molecule['prim_orb_con_rel'][0])
+      #
+      sns.heatmap(orb_arr,ax=ax1,cmap=cmap,cbar_kws={'format':'%.0f'},\
+                       xticklabels=False,\
+                       yticklabels=range(1,len(molecule['prim_orb_con_rel'][0])+1),cbar=True,\
+                       annot=False,fmt='.1f',vmin=0.0,vmax=np.amax(orb_arr))
+      #
+      ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
+      #
+      ax1.set_title('Primary BG expansion')
+      #
+      # energy correction
+      #
+      orb_arr_corr = 100.0 * np.asarray(molecule['corr_orb_con_rel'][0])
+      #
+      diff_arr = orb_arr_corr - orb_arr
+      #
+      mask_arr = (diff_arr == 0.0)
+      #
+      sns.heatmap(diff_arr,ax=ax2,mask=mask_arr,cmap='coolwarm',cbar_kws={'format':'%.1f'},\
+                       xticklabels=False,\
+                       yticklabels=range(1,len(molecule['corr_orb_con_rel'][0])+1),cbar=True,\
+                       annot=False,fmt='.1f',vmax=np.amax(diff_arr))
+      #
+      ax2.set_yticklabels(ax2.get_yticklabels(),rotation=0)
+      #
+      ax2.set_title('Energy correction')
+      #
+      fig.text(0.42,0.0,'Relative contribution (in %) from individual {0:} orbitals'.format(orbital_type),ha='center',va='center')
+      fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
+   #
+   else:
+      #
+      # primary expansion
+      #
+      orb_arr = 100.0 * np.asarray(molecule['prim_orb_con_rel'][0])
+      #
+      sns.heatmap(orb_arr,ax=ax1,cmap=cmap,cbar_kws={'format':'%.0f'},\
+                       xticklabels=False,\
+                       yticklabels=range(1,len(molecule['prim_orb_con_rel'][0])+1),cbar=True,\
+                       annot=False,fmt='.1f',vmin=0.0,vmax=np.amax(orb_arr))
+      #
+      ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
+      #
+      ax1.set_title('Primary BG expansion')
+      #
+      ax1.set_xlabel('Relative contribution (in %) from individual {0:} orbitals'.format(orbital_type))
+      ax1.set_ylabel('Bethe-Goldstone order')
    #
    sns.despine(left=True,bottom=True)
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/e_contrib_plot_{0:}_{1:}.pdf'.format(molecule['exp'],len(molecule['e_tot'][0])), bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output/orb_con_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -266,7 +308,7 @@ def dev_ref_plot(molecule):
    #
    u_limit = molecule['u_limit'][0]
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'] == 'conv')):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
       u_limit -= molecule['ncore']
    #
@@ -336,6 +378,10 @@ def ic_plot(molecule):
    #  ---  plot number of calculations from each orbital  ---
    #
    n_tuples_plot(molecule)
+   #
+   #  ---  plot total orbital contribution matrix  ---
+   #
+   orb_con_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #
