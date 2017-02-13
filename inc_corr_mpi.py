@@ -9,7 +9,6 @@ import os
 from mpi4py import MPI
 
 import inc_corr_utils
-import inc_corr_gen_rout
 
 def init_mpi(molecule):
    #
@@ -88,11 +87,13 @@ def main_slave_rout(molecule):
          #
          # private scr dir
          #
-         molecule['scr'] += '-'+str(molecule['mpi_rank'])
+         molecule['scr'] = molecule['wrk']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
          #
          # init scr env
          #
-         inc_corr_utils.setup_calc(molecule['scr'])
+         os.mkdir(molecule['scr'])
+         #
+         os.chdir(molecule['scr'])
          #
          molecule['mpi_time_work'] = MPI.Wtime()-start_work
       #
@@ -160,7 +161,7 @@ def bcast_mol_dict(molecule):
    #
    # private scr dir
    #
-   molecule['scr'] += '-'+str(molecule['mpi_rank'])
+   molecule['scr'] = molecule['wrk']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
    #
    return molecule
 
@@ -192,7 +193,7 @@ def energy_calc_slave(molecule):
    #
    # define mpi message tags
    #
-   tags = inc_corr_utils.enum('ready','done','exit','start')
+   tags = enum('ready','done','exit','start')
    #
    # init data dict
    #
@@ -222,7 +223,7 @@ def energy_calc_slave(molecule):
       #
       if (tag == tags.start):
          #
-         inc_corr_gen_rout.run_calc_corr(molecule,string['drop'],level)
+         inc_corr_utils.run_calc_corr(molecule,string['drop'],level)
          #
          # write e_tmp
          #
@@ -384,5 +385,11 @@ def add_dict(dict_1, dict_2, datatype):
          dict_1[item] = dict_2[item]
    #
    return dict_1
+
+def enum(*sequential,**named):
+   #
+   enums = dict(zip(sequential,range(len(sequential))),**named)
+   #
+   return type('Enum',(), enums)
 
 

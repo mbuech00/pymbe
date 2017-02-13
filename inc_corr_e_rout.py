@@ -8,9 +8,9 @@
 
 from mpi4py import MPI
 
-import inc_corr_gen_rout
 import inc_corr_orb_rout
 import inc_corr_utils
+import inc_corr_print
 import inc_corr_mpi
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -41,7 +41,7 @@ def energy_calc_mono_exp_ser(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          # run correlated calc
          #
-         inc_corr_gen_rout.run_calc_corr(molecule,string['drop'],level)
+         inc_corr_utils.run_calc_corr(molecule,string['drop'],level)
          #
          # write tuple energy
          #
@@ -49,7 +49,7 @@ def energy_calc_mono_exp_ser(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          # print status
          #
-         inc_corr_utils.print_status(float(counter)/float(n_tup[order-1]),level)
+         inc_corr_print.print_status(float(counter)/float(n_tup[order-1]),level)
          #
          # error check
          #
@@ -73,7 +73,7 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    # define mpi message tags
    #
-   tags = inc_corr_utils.enum('ready','done','exit','start')
+   tags = inc_corr_mpi.enum('ready','done','exit','start')
    #
    # init job index
    #
@@ -139,7 +139,7 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          # print status
          #
-         inc_corr_utils.print_status(float(counter)/float(n_tup[order-1]),level)
+         inc_corr_print.print_status(float(counter)/float(n_tup[order-1]),level)
          #
          # error check
          #

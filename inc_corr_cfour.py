@@ -1,17 +1,15 @@
 #!/usr/bin/env python
 
 #
-# generel, yet specific routines for inc-corr calcs.
+# cfour-related routines for inc-corr calcs.
 # written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
 
-import os
 import re
-from timeit import default_timer as timer
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
-def write_zmat_hf(molecule):
+def cfour_input_hf(molecule):
    #
    out=open('ZMAT','w')
    #
@@ -48,7 +46,7 @@ def write_zmat_hf(molecule):
    #
    out.close()
 
-def write_zmat_corr(molecule,drop_string,level):
+def cfour_input_corr(molecule,drop_string,level):
    #
    out=open('ZMAT','w')
    #
@@ -115,7 +113,7 @@ def write_zmat_corr(molecule,drop_string,level):
    #
    return molecule
 
-def get_dim(molecule):
+def cfour_get_dim(molecule):
    #
    inp=open('OUTPUT.OUT','r')
    #
@@ -164,7 +162,7 @@ def get_dim(molecule):
    #
    return molecule
 
-def write_energy(molecule,level):
+def cfour_write_energy(molecule,level):
    #
    inp=open('OUTPUT.OUT','r')
    #
