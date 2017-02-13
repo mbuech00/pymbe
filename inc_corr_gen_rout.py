@@ -4,6 +4,8 @@
 # generel, yet specific routines for inc-corr calcs.
 # written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
+# Requires the path of the cfour basis GENBAS file ($CFOURBASIS) and bin directory ($CFOURBIN)
+#
 
 import os
 import re
@@ -11,18 +13,20 @@ from timeit import default_timer as timer
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
+CFOUR_BIN='$CFOURBIN'
+
 def run_calc_hf(molecule):
    #
    write_zmat_hf(molecule)
    #
-   command='xcfour &> CFOUR.OUT'
+   command = CFOUR_BIN+'/xcfour &> CFOUR.OUT'
    os.system(command)
    #
    get_dim(molecule)
    #
    if (not molecule['error'][0][-1]):
       #
-      command='xclean'
+      command = CFOUR_BIN+'/xclean'
       os.system(command)
    #
    return molecule
@@ -31,13 +35,13 @@ def run_calc_corr(molecule,drop_string,level):
    #
    write_zmat_corr(molecule,drop_string,level)
    #
-   command='xcfour &> CFOUR.OUT'
+   command = CFOUR_BIN+'/xcfour &> CFOUR.OUT'
    os.system(command)
    #
    write_energy(molecule,level)
    #
    if (not molecule['error'][0][-1]):
-      command='xclean'
+      command = CFOUR_BIN+'/xclean'
       os.system(command)
    #
    return molecule

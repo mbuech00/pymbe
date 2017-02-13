@@ -5,8 +5,6 @@
 # generel utilities for inc-corr calcs.
 # written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
 #
-# Requires the path of the cfour basis GENBAS file ($CFOURBASIS) and bin directory ($CFOURBIN)
-#
 
 import sys
 import os
@@ -14,9 +12,6 @@ import re
 
 import inc_corr_mpi
 import inc_corr_orb_rout
-
-CFOUR_BASIS='$CFOURBASIS'
-CFOUR_BIN='$CFOURBIN'
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
@@ -69,23 +64,11 @@ def save_err_out(directory):
    #
    return
 
-def prepare_calc():
-   #
-   command = 'cp '+CFOUR_BASIS+' .'
-   os.system(command)
-   #
-   command = 'cp '+CFOUR_BIN+'/x* .'
-   os.system(command)
-   #
-   return
-
 def setup_calc(directory):
    #
    mk_scr_dir(directory)
    #
    cd_dir(directory)
-   #
-   prepare_calc()
    #
    return
 
