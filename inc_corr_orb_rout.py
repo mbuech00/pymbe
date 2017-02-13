@@ -217,11 +217,19 @@ def orb_entang_rout(molecule,l_limit,u_limit,level,singles=False):
          #
          e_sum += tup[-1][i][1]
       #
+      if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'])):
+         #
+         for _ in range(0,molecule['ncore']):
+            #
+            orb_con_abs[-1].append(0.0)
+            #
+            orb_con_rel[-1].append(0.0)
+      #
       for i in range(0,len(tup[-1])):
          #
          orb_con_abs[-1].append(tup[-1][i][1])
          #
-         orb_con_rel[-1].append(orb_con_abs[-1][i]/e_sum)
+         orb_con_rel[-1].append(orb_con_abs[-1][-1]/e_sum)
    #
    else:
       #
@@ -262,13 +270,9 @@ def orb_entang_rout(molecule,l_limit,u_limit,level,singles=False):
          #
          # calculate sum of contributions from all orbitals to orb i
          #
-         for j in range(l_limit,l_limit+u_limit):
+         for m in range(0,len(orb)):
             #
-            e_sum += orb[-1][i-l_limit][j-l_limit][0]
-            #
-            # add the contributions from lower orders
-            #
-            for m in range(0,len(orb)-1):
+            for j in range(l_limit,l_limit+u_limit):
                #
                e_sum += orb[m][i-l_limit][j-l_limit][0]
          #
@@ -298,7 +302,7 @@ def orb_entang_rout(molecule,l_limit,u_limit,level,singles=False):
                      #
                      orb[m][i-l_limit][j-l_limit].append(0.0)
       #
-      # orbital entanglement matrix
+      # orbital entanglement matrices for orders: 2 <= k <= current
       #
       for i in range(0,len(orb)):
          #
@@ -338,7 +342,13 @@ def orb_entang_rout(molecule,l_limit,u_limit,level,singles=False):
       #
       for j in range(0,len(orb_con_abs[-1])):
          #
-         orb_con_rel[-1].append(orb_con_abs[-1][j]/e_sum)
+         if (orb_con_abs[-1][j] == 0.0):
+            #
+            orb_con_rel[-1].append(0.0)
+         #
+         else:
+            #
+            orb_con_rel[-1].append(orb_con_abs[-1][j]/e_sum)
    #
    return molecule
 
