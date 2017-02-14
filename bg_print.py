@@ -1,25 +1,30 @@
-# -*- coding: utf-8 -*
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
-#
-# print utilities for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_print.py: print utilities for Bethe-Goldstone correlation calculations."""
 
-import sys
-import os
-import shutil
+from sys import stdout
+from os import getcwd, mkdir
+from os.path import isdir
+from shutil import rmtree
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
-def print_bg_header(molecule):
+def print_main_header(molecule):
    #
    print('\n')
    print(' ** start bethe-goldstone '+molecule['model']+' calculation  ---  '+str(molecule['scheme'])+' expansion scheme **')
    #
    return
 
-def print_bg_end(molecule):
+def print_main_end(molecule):
    #
    print(' ** end of bethe-goldstone '+molecule['model']+' calculation **\n')
    print('\n')
@@ -183,7 +188,7 @@ def print_summary(molecule):
    #
    return molecule
 
-def print_status_header_1(order,level):
+def print_init_header(order,level):
    #
    print('')
    print('')
@@ -193,20 +198,25 @@ def print_status_header_1(order,level):
    #
    return
 
-def print_status_header_2(num,order,conv,time_gen,level):
+def print_init_end(order,time_gen,level):
    #
    print(' --------------------------------------------------------------------------------------------')
    print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_gen))
    print(' --------------------------------------------------------------------------------------------')
-   print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_status_header(num,order,conv,level):
    #
    if ((level == 'MACRO') and conv):
       #
+      print(' --------------------------------------------------------------------------------------------')
       print(' STATUS-{0:}: order = {1:>d} has no contributions --- *** calculation has converged ***'.format(level,order))
       print(' --------------------------------------------------------------------------------------------')
    #
    else:
       #
+      print(' --------------------------------------------------------------------------------------------')
       print(' STATUS-{0:}: order = {1:>d} energy calculation started  ---  {2:d} tuples in total'.format(level,order,num))
       print(' --------------------------------------------------------------------------------------------')
    #
@@ -449,13 +459,13 @@ def print_orb_info(molecule,l_limit,u_limit,level):
 
 def redirect_stdout(molecule):
    #
-   molecule['wrk'] = os.getcwd()
+   molecule['wrk'] = getcwd()
    #
-   if (os.path.isdir(molecule['wrk']+'/output')): shutil.rmtree(molecule['wrk']+'/output',ignore_errors=True)
+   if (isdir(molecule['wrk']+'/output')): rmtree(molecule['wrk']+'/output',ignore_errors=True)
    #
-   os.mkdir(molecule['wrk']+'/output')
+   mkdir(molecule['wrk']+'/output')
    #
-   sys.stdout = logger(molecule['wrk']+'/output/stdout.out')
+   stdout = logger(molecule['wrk']+'/output/stdout.out')
    #
    return molecule
 
@@ -463,7 +473,7 @@ class logger(object):
    #
    def __init__(self, filename="default.log"):
       #
-      self.terminal = sys.stdout
+      self.terminal = stdout
       self.log = open(filename, "a")
    #
    def write(self, message):

@@ -11,7 +11,7 @@ from timeit import default_timer as timer
 
 import inc_corr_orb_rout
 import inc_corr_utils
-import inc_corr_print
+from bg_print import print_status_header, print_status_end, print_result, print_init_header, print_init_end
 import inc_corr_e_rout
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -79,7 +79,7 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # print status end
       #
-      inc_corr_print.print_status_end(molecule,k,level)
+      print_status_end(molecule,k,level)
       #
       # return if converged
       #
@@ -103,21 +103,17 @@ def mono_exp_kernel(molecule,k,level):
    #
    if (level == 'MACRO'):
       #
-      if (molecule['conv'][-1]):
-         #
-         return molecule
-      #
-      else:
-         #
-         tup = molecule['prim_tuple'][0]
-         n_tup = molecule['prim_n_tuples'][0]
-         time = molecule['prim_time'][0]
+      tup = molecule['prim_tuple'][0]
+      n_tup = molecule['prim_n_tuples'][0]
+      time = molecule['prim_time'][0]
    #
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple'][0]
       n_tup = molecule['corr_n_tuples'][0]
       time = molecule['corr_time'][0]
+   #
+   print_status_header(n_tup[k-1],k,molecule['conv'][-1],level)
    #
    if ((level == 'MACRO') and molecule['conv'][-1]):
       #
@@ -153,7 +149,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # print results
    #
-   inc_corr_print.print_result(tup[-1],level)
+   print_result(tup[-1],level)
    #
    # merge tuples from primary exp. into molecule['corr_tuple']
    #
@@ -189,7 +185,7 @@ def inc_corr_dual_exp(molecule):
       #
       # print status header (for outer expansion)
       #
-      inc_corr_print.print_status_header(molecule,molecule['n_tuples'][0],k)
+      print_status_header(molecule,molecule['n_tuples'][0],k)
       #
       # check for convergence (for outer expansion)
       #
@@ -211,7 +207,7 @@ def inc_corr_dual_exp(molecule):
       #
       # print result header (for outer expansion)
       #
-      inc_corr_print.print_result_header()
+#      print_result_header()
       #
       # run the calculations (for outer expansion)
       #
@@ -251,7 +247,7 @@ def inc_corr_dual_exp(molecule):
                #
                molecule['tuple'][0][k-1][i].append(molecule['e_tot'][1][-1])
                #
-               inc_corr_print.print_result(i,molecule['tuple'][0][k-1][i])
+               print_result(i,molecule['tuple'][0][k-1][i])
                #
                molecule['n_tuples'][1].pop()
                #
@@ -317,7 +313,7 @@ def inc_corr_dual_exp(molecule):
                #
                molecule['tuple'][0][k-1][i].append(molecule['e_tot'][1][-1])
                #
-               inc_corr_print.print_result(i,molecule['tuple'][0][k-1][i])
+               print_result(i,molecule['tuple'][0][k-1][i])
                #
                break
          #
@@ -336,7 +332,7 @@ def inc_corr_dual_exp(molecule):
       #
       # print result end (for outer expansion)
       #
-      inc_corr_print.print_result_end()
+#      print_result_end()
       #
       # calculate the energy at order k (for outer expansion)
       #
@@ -368,17 +364,17 @@ def inc_corr_dual_exp(molecule):
       #
       # print status end (for outer expansion)
       #
-      inc_corr_print.print_status_end(molecule,k,molecule['time'][0],molecule['n_tuples'][0])
+      print_status_end(molecule,k,molecule['time'][0],molecule['n_tuples'][0])
       #
       # print results (for inner expansion)
       #
-      inc_corr_print.print_inner_result(molecule)
-      #
-      # print domain updates (for outer expansion)
-      #
-      if (k >= 2):
-         #
-         inc_corr_print.print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
+#      print_inner_result(molecule)
+#      #
+#      # print domain updates (for outer expansion)
+#      #
+#      if (k >= 2):
+#         #
+#         inc_corr_print.print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
    #
    return molecule
 
@@ -400,9 +396,9 @@ def mono_exp_init(molecule,k,level):
       orb = molecule['corr_orb_ent'][0]
       thres = molecule['corr_thres']
    #
-   # print status header-1
+   # print init header
    #
-   inc_corr_print.print_status_header_1(k,level)
+   print_init_header(k,level)
    #
    # start time
    #
@@ -444,9 +440,9 @@ def mono_exp_init(molecule,k,level):
       #
       inc_corr_orb_rout.n_theo_tuples(n_tup[0],k,molecule['theo_work'][0])
    #
-   # print status header-2
+   # print init end
    #
-   inc_corr_print.print_status_header_2(n_tup[k-1],k,molecule['conv'][-1],time_gen,level)
+   print_init_end(k,time_gen,level)
    #
    # if converged, pop last element of tup list and append to n_tup list
    #

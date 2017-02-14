@@ -10,7 +10,7 @@ from mpi4py import MPI
 
 import inc_corr_orb_rout
 import inc_corr_utils
-import inc_corr_print
+from bg_print import print_status
 import inc_corr_mpi
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -49,7 +49,7 @@ def energy_calc_mono_exp_ser(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          # print status
          #
-         inc_corr_print.print_status(float(counter)/float(n_tup[order-1]),level)
+         print_status(float(counter)/float(n_tup[order-1]),level)
          #
          # error check
          #
@@ -139,7 +139,7 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          # print status
          #
-         inc_corr_print.print_status(float(counter)/float(n_tup[order-1]),level)
+         print_status(float(counter)/float(n_tup[order-1]),level)
          #
          # error check
          #

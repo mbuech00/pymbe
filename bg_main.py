@@ -1,20 +1,27 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
-#
-# python driver for inc.-corr. calculations.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall/Winter 2016 + Winter/Spring 2017, Mainz, Germnay.
-#
+""" bg_main.py: python driver for Bethe-Goldstone correlation calculations.
+
+written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall/Winter 2016 + Winter/Spring 2017, Mainz, Germany."""
 
 from mpi4py import MPI
 
 from inc_corr_mpi import init_mpi, red_mpi_timings, finalize_mpi
 from inc_corr_utils import init_calc, ref_calc, term_calc
 from inc_corr_info import sanity_chk
-from inc_corr_print import print_bg_header, print_summary, print_bg_end 
+from bg_print import print_main_header, print_summary, print_main_end 
 from inc_corr_driver import main_drv
 from inc_corr_plot import ic_plot
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def main():
    #
@@ -36,7 +43,7 @@ def main():
       #
       #  ---  print program header...  ---
       #
-      print_bg_header(molecule)
+      print_main_header(molecule)
       #
       #  ---  initialization done - start the calculation...  ---
       #
@@ -64,7 +71,7 @@ def main():
       #
       #  ---  print program end...  ---
       #
-      print_bg_end(molecule)
+      print_main_end(molecule)
    #
    #  ---  finalize mpi...  ---
    #

@@ -13,7 +13,7 @@ from timeit import default_timer as timer
 
 import inc_corr_info
 import inc_corr_mpi
-import inc_corr_print
+from bg_print import redirect_stdout, print_ref_header, print_ref_end
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
@@ -21,7 +21,7 @@ def init_calc(molecule):
    #
    # redirect stdout to output.out
    #
-   inc_corr_print.redirect_stdout(molecule)
+   redirect_stdout(molecule)
    #
    # init error list
    #
@@ -129,7 +129,7 @@ def rm_dir_content(molecule):
 
 def ref_calc(molecule):
    #
-   inc_corr_print.print_ref_header()
+   print_ref_header()
    #
    start = timer()
    #
@@ -137,7 +137,7 @@ def ref_calc(molecule):
    #
    molecule['prim_time'][0].append(timer()-start)
    #
-   inc_corr_print.print_ref_end(molecule)
+   print_ref_end(molecule)
    #
    return molecule
 

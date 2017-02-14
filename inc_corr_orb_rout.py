@@ -11,7 +11,7 @@ import itertools
 import math
 
 import inc_corr_utils
-import inc_corr_print
+from bg_print import print_orb_info, print_update
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
    #
@@ -157,7 +157,7 @@ def orb_screen_rout(molecule,order,l_limit,u_limit,level):
       #
       # print orb info
       #
-      if (molecule['debug']): inc_corr_print.print_orb_info(molecule,l_limit,u_limit,level)
+      if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
       #
       # update domains
       #
@@ -171,7 +171,7 @@ def orb_screen_rout(molecule,order,l_limit,u_limit,level):
       #
       # print orb info
       #
-      if (molecule['debug']): inc_corr_print.print_orb_info(molecule,l_limit,u_limit,level)
+      if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
       #
       # construct exclusion list
       #
@@ -183,7 +183,7 @@ def orb_screen_rout(molecule,order,l_limit,u_limit,level):
       #
       # print domain updates
       #
-      inc_corr_print.print_update(molecule,l_limit,u_limit,level)
+      print_update(molecule,l_limit,u_limit,level)
    #
    return molecule
 
