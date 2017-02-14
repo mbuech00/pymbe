@@ -6,6 +6,7 @@
 from os import listdir, unlink
 from os.path import join, isfile
 from subprocess import call
+from math import factorial
 from timeit import default_timer
 
 from bg_print import print_ref_header, print_ref_end
@@ -74,5 +75,67 @@ def ref_calc(molecule):
    print_ref_end(molecule)
    #
    return molecule
+
+def orb_string(molecule,l_limit,u_limit,tup,string):
+   #
+   # generate list with all occ/virt orbitals
+   #
+   dim = range(l_limit+1,(l_limit+u_limit)+1)
+   #
+   # generate list with all orbs the should be dropped (not part of the current tuple)
+   #
+   drop = sorted(list(set(dim)-set(tup)))
+   #
+   # for virt scheme, explicitly drop the core orbitals for frozen core
+   #
+   if ((molecule['exp'] == 'virt') and molecule['frozen']):
+      #
+      for i in range(molecule['ncore'],0,-1):
+         #
+         drop.insert(0,i)
+   #
+   # now write the string
+   #
+   inc = 0
+   #
+   string['drop'] = ''
+   #
+   for i in range(0,len(drop)):
+      #
+      if (inc == 0):
+         #
+         string['drop'] += 'DROP_MO='+str(drop[i])
+      #
+      else:
+         #
+         if (drop[i] == (drop[i-1]+1)):
+            #
+            if (i < (len(drop)-1)):
+               #
+               if (drop[i] != (drop[i+1]-1)):
+                  #
+                  string['drop'] += '>'+str(drop[i])
+            #
+            else:
+               #
+               string['drop'] += '>'+str(drop[i])
+         #
+         else:
+            #
+            string['drop'] += '-'+str(drop[i])
+      #
+      inc += 1
+   #
+   if (string['drop'] != ''):
+      #
+      string['drop'] += '\n'
+   #
+   return string
+
+def n_theo_tuples(dim,k,theo_work):
+   #
+   theo_work.append(factorial(dim)/(factorial(k)*factorial(dim-k)))
+   #
+   return theo_work
 
 

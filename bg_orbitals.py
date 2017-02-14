@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-#
-# orbital-related routines for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_orbitals.py: orbital-related routines for Bethe-Goldstone correlation calculations."""
 
-__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-
-import itertools
-import math
+from itertools import combinations 
 
 from bg_print import print_orb_info, print_update
+
+__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
    #
@@ -35,7 +38,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
       #
       # generate all possible (unique) pairs
       #
-      incl = list(list(comb) for comb in itertools.combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
+      incl = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
       #
       for i in range(0,len(incl)):
          #
@@ -55,7 +58,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
             #
             # generate complete set of (k-1)-combinations
             #
-            tmp = list(list(comb) for comb in itertools.combinations(dom[i][idx[0]:],k-1))
+            tmp = list(list(comb) for comb in combinations(dom[i][idx[0]:],k-1))
             #
             select[:] = []
             #
@@ -63,7 +66,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
                #
                # generate subset of all pairs within the given (k-1)-combination
                #
-               tmp_sub = list(list(comb) for comb in itertools.combinations(tmp[j],2))
+               tmp_sub = list(list(comb) for comb in combinations(tmp[j],2))
                #
                select.append(True)
                #
@@ -91,69 +94,13 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
    #
    return tup
 
-def orb_string(molecule,l_limit,u_limit,tup,string):
-   #
-   # generate list with all occ/virt orbitals
-   #
-   dim = range(l_limit+1,(l_limit+u_limit)+1)
-   #
-   # generate list with all orbs the should be dropped (not part of the current tuple)
-   #
-   drop = sorted(list(set(dim)-set(tup)))
-   #
-   # for virt scheme, explicitly drop the core orbitals for frozen core
-   #
-   if ((molecule['exp'] == 'virt') and molecule['frozen']):
-      #
-      for i in range(molecule['ncore'],0,-1):
-         #
-         drop.insert(0,i)
-   #
-   # now write the string
-   #
-   inc = 0
-   #
-   string['drop'] = ''
-   #
-   for i in range(0,len(drop)):
-      #
-      if (inc == 0):
-         #
-         string['drop'] += 'DROP_MO='+str(drop[i])
-      #
-      else:
-         #
-         if (drop[i] == (drop[i-1]+1)):
-            #
-            if (i < (len(drop)-1)):
-               #
-               if (drop[i] != (drop[i+1]-1)):
-                  #
-                  string['drop'] += '>'+str(drop[i])
-            #
-            else:
-               #
-               string['drop'] += '>'+str(drop[i])
-         #
-         else:
-            #
-            string['drop'] += '-'+str(drop[i])
-      #
-      inc += 1
-   #
-   if (string['drop'] != ''):
-      #
-      string['drop'] += '\n'
-   #
-   return string
-
-def orb_screen_rout(molecule,order,l_limit,u_limit,level):
+def orb_screening(molecule,order,l_limit,u_limit,level):
    #
    if (order == 1):
       #
       # add singles contributions to orb_con list
       #
-      orb_entang_rout(molecule,l_limit,u_limit,level,True)
+      orb_entanglement(molecule,l_limit,u_limit,level,True)
       #
       # print orb info
       #
@@ -167,7 +114,7 @@ def orb_screen_rout(molecule,order,l_limit,u_limit,level):
       #
       # set up entanglement and exclusion lists
       #
-      orb_entang_rout(molecule,l_limit,u_limit,level)
+      orb_entanglement(molecule,l_limit,u_limit,level)
       #
       # print orb info
       #
@@ -175,7 +122,7 @@ def orb_screen_rout(molecule,order,l_limit,u_limit,level):
       #
       # construct exclusion list
       #
-      excl_rout(molecule,l_limit,level)
+      orb_exclusion(molecule,l_limit,level)
       #
       # update domains
       #
@@ -187,7 +134,7 @@ def orb_screen_rout(molecule,order,l_limit,u_limit,level):
    #
    return molecule
 
-def orb_entang_rout(molecule,l_limit,u_limit,level,singles=False):
+def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
    #
    if (level == 'MACRO'):
       #
@@ -444,7 +391,7 @@ def reinit_domains(molecule,dom):
    #
    return molecule
 
-def excl_rout(molecule,l_limit,level):
+def orb_exclusion(molecule,l_limit,level):
    #
    if (level == 'MACRO'):
       #
@@ -529,9 +476,4 @@ def update_domains(molecule,l_limit,level,singles=False):
    #
    return molecule
 
-def n_theo_tuples(dim,k,theo_work):
-   #
-   theo_work.append(math.factorial(dim)/(math.factorial(k)*math.factorial(dim-k)))
-   #
-   return theo_work
 

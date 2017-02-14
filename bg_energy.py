@@ -5,8 +5,7 @@
 
 from mpi4py import MPI
 
-import inc_corr_orb_rout
-from bg_utilities import run_calc_corr 
+from bg_utilities import run_calc_corr, orb_string 
 from bg_print import print_status
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -40,7 +39,7 @@ def energy_calc_mono_exp_ser(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          counter += 1
          #
-         inc_corr_orb_rout.orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
+         orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
          #
          # run correlated calc
          #

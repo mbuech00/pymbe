@@ -67,18 +67,4 @@ def finalize_mpi(molecule):
    #
    return
 
-def add_dict(dict_1, dict_2, datatype):
-   #
-   for item in dict_2:
-      # 
-      if (item in dict_1):
-         #
-         dict_1[item] += dict_2[item]
-      #
-      else:
-         #
-         dict_1[item] = dict_2[item]
-   #
-   return dict_1
-
 

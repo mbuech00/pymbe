@@ -7,7 +7,8 @@ from os import getcwd, mkdir, chdir
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_utilities import run_calc_corr 
+from bg_utilities import run_calc_corr, orb_string 
+from bg_print import print_status 
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -208,7 +209,7 @@ def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
       #
       # write string
       #
-      if (i <= (n_tup[order-1]-1)): inc_corr_orb_rout.orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
+      if (i <= (n_tup[order-1]-1)): orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
       #
       # receive data dict
       #
@@ -440,5 +441,19 @@ def enum(*sequential,**named):
    enums = dict(zip(sequential,range(len(sequential))),**named)
    #
    return type('Enum',(), enums)
+
+def add_dict(dict_1, dict_2, datatype):
+   #
+   for item in dict_2:
+      #
+      if (item in dict_1):
+         #
+         dict_1[item] += dict_2[item]
+      #
+      else:
+         #
+         dict_1[item] = dict_2[item]
+   #
+   return dict_1
 
 

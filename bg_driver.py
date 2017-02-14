@@ -6,10 +6,11 @@
 from copy import deepcopy
 from timeit import default_timer
 
-import inc_corr_orb_rout
-from bg_utilities import run_calc_corr 
+from bg_utilities import run_calc_corr, orb_string, n_theo_tuples
 from bg_print import print_status_header, print_status_end, print_result, print_init_header, print_init_end
 from bg_energy import energy_calc_mono_exp_ser, bg_order
+from bg_orbitals import init_domains, update_domains, orb_generator,\
+                        orb_screening, orb_entanglement, orb_exclusion, select_corr_tuples
 from bg_mpi_kernels import energy_calc_mono_exp_master
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -25,7 +26,7 @@ def main_drv(molecule):
    #
    # initialize domains
    #
-   inc_corr_orb_rout.init_domains(molecule)
+   init_domains(molecule)
    #
    # initialize variable and lists
    #
@@ -96,7 +97,7 @@ def mono_exp_drv(molecule,start,end,level):
          #
          if (level == 'CORRE'):
             #
-            inc_corr_orb_rout.orb_entang_rout(molecule,molecule['l_limit'][0],molecule['u_limit'][0],level)
+            orb_entanglement(molecule,molecule['l_limit'][0],molecule['u_limit'][0],level)
          #
          break
    #
@@ -182,7 +183,7 @@ def inc_corr_dual_exp(molecule):
       #
       molecule['tuple'][0].append([])
       #
-      inc_corr_orb_rout.orb_generator(molecule,molecule['domain'][0],molecule['tuple'][0],molecule['l_limit'][0],molecule['u_limit'][0],k)
+      orb_generator(molecule,molecule['domain'][0],molecule['tuple'][0],molecule['l_limit'][0],molecule['u_limit'][0],k)
       #
       # determine number of tuples at order k
       #
@@ -228,7 +229,7 @@ def inc_corr_dual_exp(molecule):
          #
          # re-initialize the inner domain
          #
-         inc_corr_orb_rout.reinit_domains(molecule,molecule['domain'][1])
+#         reinit_domains(molecule,molecule['domain'][1])
          #
          # start time (for inner expansion)
          #
@@ -240,7 +241,7 @@ def inc_corr_dual_exp(molecule):
             #
             molecule['tuple'][1].append([])
             #
-            inc_corr_orb_rout.orb_generator(molecule,molecule['domain'][1],molecule['tuple'][1],molecule['l_limit'][1],molecule['u_limit'][1],l)
+            orb_generator(molecule,molecule['domain'][1],molecule['tuple'][1],molecule['l_limit'][1],molecule['u_limit'][1],l)
             #
             # determine number of tuples at order l
             #
@@ -268,11 +269,11 @@ def inc_corr_dual_exp(molecule):
                #
                if (molecule['exp'] == 'comb-ov'):
                   #
-                  inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][0][k-1][i][0]+molecule['tuple'][1][l-1][j][0],string)
+                  orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][0][k-1][i][0]+molecule['tuple'][1][l-1][j][0],string)
                #
                elif (molecule['exp'] == 'comb-vo'):
                   #
-                  inc_corr_orb_rout.orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][1][l-1][j][0]+molecule['tuple'][0][k-1][i][0],string)
+                  orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][1][l-1][j][0]+molecule['tuple'][0][k-1][i][0],string)
                #
                # run correlated calc
                #
@@ -302,15 +303,15 @@ def inc_corr_dual_exp(molecule):
                #
                molecule['excl_list'][1][:] = []
                #
-               inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][1],molecule['sec_orb_ent'][1],molecule['corr_thres'],molecule['excl_list'][1])
+               orb_exclusion(molecule,molecule['tuple'][1],molecule['sec_orb_ent'][1],molecule['corr_thres'],molecule['excl_list'][1])
                #
                # update domains (for inner expansion)
                #
-               inc_corr_orb_rout.update_domains(molecule['domain'][1],molecule['l_limit'][1],molecule['excl_list'][1])
+               update_domains(molecule['domain'][1],molecule['l_limit'][1],molecule['excl_list'][1])
             #
             # calculate theoretical number of tuples at order l (for inner expansion)
             #
-            inc_corr_orb_rout.n_theo_tuples(molecule['n_tuples'][1][0],l,molecule['theo_work'][1])
+            n_theo_tuples(molecule['n_tuples'][1][0],l,molecule['theo_work'][1])
             #
             # check for maximum order (for inner expansion)
             #
@@ -353,15 +354,15 @@ def inc_corr_dual_exp(molecule):
          #
          molecule['excl_list'][0][:] = []
          #
-         inc_corr_orb_rout.excl_rout(molecule,molecule['tuple'][0],molecule['prim_orb_ent'][0],molecule['prim_thres'],molecule['excl_list'][0])
+         orb_exclusion(molecule,molecule['tuple'][0],molecule['prim_orb_ent'][0],molecule['prim_thres'],molecule['excl_list'][0])
          #
          # update domains (for outer expansion)
          #
-         inc_corr_orb_rout.update_domains(molecule['domain'][0],molecule['l_limit'][0],molecule['excl_list'][0])
+         update_domains(molecule['domain'][0],molecule['l_limit'][0],molecule['excl_list'][0])
       #
       # calculate theoretical number of tuples at order k (for outer expansion)
       #
-      inc_corr_orb_rout.n_theo_tuples(molecule['n_tuples'][0][0],k,molecule['theo_work'][0])
+      n_theo_tuples(molecule['n_tuples'][0][0],k,molecule['theo_work'][0])
       #
       # collect time (for outer expansion)
       #
@@ -413,17 +414,17 @@ def mono_exp_init(molecule,k,level):
       #
       # orbital screening
       #
-      inc_corr_orb_rout.orb_screen_rout(molecule,k-1,molecule['l_limit'][0],molecule['u_limit'][0],level)
+      orb_screening(molecule,k-1,molecule['l_limit'][0],molecule['u_limit'][0],level)
    #
    # generate all tuples at order k
    #
    tup.append([])
    #
-   inc_corr_orb_rout.orb_generator(molecule,dom[k-1],tup,molecule['l_limit'][0],molecule['u_limit'][0],k)
+   orb_generator(molecule,dom[k-1],tup,molecule['l_limit'][0],molecule['u_limit'][0],k)
    #
    if (level == 'CORRE'):
       #
-      inc_corr_orb_rout.select_corr_tuples(molecule['prim_tuple'][0],tup,k)
+      select_corr_tuples(molecule['prim_tuple'][0],tup,k)
    #
    # collect time_gen
    #
@@ -443,7 +444,7 @@ def mono_exp_init(molecule,k,level):
       #
       # calculate theoretical number of tuples at order k
       #
-      inc_corr_orb_rout.n_theo_tuples(n_tup[0],k,molecule['theo_work'][0])
+      n_theo_tuples(n_tup[0],k,molecule['theo_work'][0])
    #
    # print init end
    #
@@ -459,7 +460,7 @@ def mono_exp_init(molecule,k,level):
          #
          n_tup.append(0)
          #
-         inc_corr_orb_rout.n_theo_tuples(n_tup[0],l,molecule['theo_work'][0])
+         n_theo_tuples(n_tup[0],l,molecule['theo_work'][0])
    #
    return molecule
 
