@@ -9,7 +9,7 @@ from subprocess import call
 from shutil import copy, rmtree 
 from timeit import default_timer
 
-import inc_corr_info
+from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 import inc_corr_mpi
 from bg_print import redirect_stdout, print_ref_header, print_ref_end
 
@@ -34,15 +34,15 @@ def init_calc(molecule):
    #
    # init molecular info
    #
-   inc_corr_info.init_mol(molecule)
+   init_mol(molecule)
    #
    # init expansion parameters et al.
    #
-   inc_corr_info.init_param(molecule)
+   init_param(molecule)
    #
    # init backend program
    #
-   inc_corr_info.init_backend_prog(molecule)
+   init_backend_prog(molecule)
    #
    # if mpi parallel run, bcast the molecular dictionary
    #
@@ -70,7 +70,7 @@ def init_calc(molecule):
    #
    # perform a few sanity checks
    #
-   inc_corr_info.sanity_chk(molecule)
+   sanity_chk(molecule)
    #
    return molecule
 

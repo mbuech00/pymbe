@@ -1,22 +1,27 @@
-# -*- coding: utf-8 -*
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
-#
-# info handling for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_info.py: info handling for Bethe-Goldstone correlation calculations."""
 
-import os
-import shutil
+from os import chdir
+from os.path import isfile
+from shutil import which
 
 import inc_corr_mpi
 from bg_cfour import cfour_input_hf, cfour_input_corr, cfour_get_dim, cfour_write_energy
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def init_mol(molecule):
    #
-   if (not os.path.isfile('input-mol.inp')):
+   if (not isfile('input-mol.inp')):
       #
       print('input-mol.inp not found, aborting ...')
       #
@@ -59,7 +64,7 @@ def init_mol(molecule):
 
 def init_param(molecule):
    #
-   if (not os.path.isfile('input-param.inp')):
+   if (not isfile('input-param.inp')):
       #
       print('input-param.inp not found, aborting ...')
       #
@@ -229,7 +234,7 @@ def init_backend_prog(molecule):
    #
    if (molecule['backend_prog'] == 'cfour'):
       #
-      if (shutil.which('xcfour') is None):
+      if (which('xcfour') is None):
          #
          print('no xcfour executable found in PATH env, aborting ...')
          #
@@ -239,7 +244,7 @@ def init_backend_prog(molecule):
          #
          # set path to executable
          # 
-         molecule['backend_prog_exe'] = shutil.which('xcfour')
+         molecule['backend_prog_exe'] = which('xcfour')
          #
          # set backend module routines
          #
@@ -394,7 +399,7 @@ def sanity_chk(molecule):
    #
    if (molecule['error'][0][-1]):
       #
-      os.chdir(molecule['wrk'])
+      chdir(molecule['wrk'])
       #
       inc_corr_mpi.abort_mpi(molecule)
    #
