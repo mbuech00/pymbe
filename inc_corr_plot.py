@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
 #
 # python plotting program for inc.-corr. calculations 

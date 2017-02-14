@@ -11,7 +11,7 @@ from inc_corr_mpi import init_mpi, red_mpi_timings, finalize_mpi
 from bg_utilities import init_calc, ref_calc, term_calc
 from bg_info import sanity_chk
 from bg_print import print_main_header, print_summary, print_main_end 
-from inc_corr_driver import main_drv
+from bg_driver import main_drv
 from inc_corr_plot import ic_plot
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'

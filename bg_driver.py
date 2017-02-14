@@ -1,13 +1,10 @@
-# -*- coding: utf-8 -*
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
-#
-# energy driver routines for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_driver.py: driver routines for Bethe-Goldstone correlation calculations."""
 
-import copy
-from timeit import default_timer as timer
+from copy import deepcopy
+from timeit import default_timer
 
 import inc_corr_orb_rout
 from bg_utilities import run_calc_corr 
@@ -15,6 +12,13 @@ from bg_print import print_status_header, print_status_end, print_result, print_
 from bg_energy import energy_calc_mono_exp_ser, energy_calc_mono_exp_par, bg_order
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def main_drv(molecule):
    #
@@ -121,7 +125,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # start time
    #
-   start = timer()
+   start = default_timer()
    #
    # run the calculations
    #
@@ -145,7 +149,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # collect time
    #
-   time.append(timer()-start)
+   time.append(default_timer()-start)
    #
    # print results
    #
@@ -203,7 +207,7 @@ def inc_corr_dual_exp(molecule):
       #
       # start time (for outer expansion)
       #
-      start_out = timer()
+      start_out = default_timer()
       #
       # print result header (for outer expansion)
       #
@@ -227,7 +231,7 @@ def inc_corr_dual_exp(molecule):
          #
          # start time (for inner expansion)
          #
-         start_in = timer()
+         start_in = default_timer()
          #
          for l in range(1,molecule['u_limit'][1]+1):
             #
@@ -319,7 +323,7 @@ def inc_corr_dual_exp(molecule):
          #
          # collect time, energy diff, and relative work (for inner expansion)
          #
-         molecule['time'][1].append(timer()-start_in)
+         molecule['time'][1].append(default_timer()-start_in)
          #
          molecule['e_diff_in'].append(molecule['e_tot'][1][-1]-molecule['e_tot'][1][-2])
          #
@@ -360,7 +364,7 @@ def inc_corr_dual_exp(molecule):
       #
       # collect time (for outer expansion)
       #
-      molecule['time'][0].append(timer()-start_out)
+      molecule['time'][0].append(default_timer()-start_out)
       #
       # print status end (for outer expansion)
       #
@@ -402,7 +406,7 @@ def mono_exp_init(molecule,k,level):
    #
    # start time
    #
-   start = timer()
+   start = default_timer()
    #
    if (k >= 2):
       #
@@ -422,7 +426,7 @@ def mono_exp_init(molecule,k,level):
    #
    # collect time_gen
    #
-   time_gen = timer() - start
+   time_gen = default_timer() - start
    #
    # determine number of tuples at order k
    #
@@ -518,16 +522,16 @@ def inc_corr_prepare(molecule):
       molecule['l_limit'] = [0]
       molecule['u_limit'] = [molecule['nocc']]
       #
-      molecule['prim_domain'] = copy.deepcopy([molecule['occ_domain']])
-      molecule['corr_domain'] = copy.deepcopy([molecule['occ_domain']])
+      molecule['prim_domain'] = deepcopy([molecule['occ_domain']])
+      molecule['corr_domain'] = deepcopy([molecule['occ_domain']])
    #
    elif (molecule['exp'] == 'virt'):
       #
       molecule['l_limit'] = [molecule['nocc']]
       molecule['u_limit'] = [molecule['nvirt']]
       #
-      molecule['prim_domain'] = copy.deepcopy([molecule['virt_domain']])
-      molecule['corr_domain'] = copy.deepcopy([molecule['virt_domain']])
+      molecule['prim_domain'] = deepcopy([molecule['virt_domain']])
+      molecule['corr_domain'] = deepcopy([molecule['virt_domain']])
       #
    #
    elif (molecule['exp'] == 'comb-ov'):

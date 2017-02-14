@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
 #
 # MPI-related routines for inc-corr calcs.

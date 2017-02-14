@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
 #
 # orbital-related routines for inc-corr calcs.
