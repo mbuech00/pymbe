@@ -79,7 +79,7 @@ def term_calc(molecule):
    #
    shutil.rmtree(molecule['scr'],ignore_errors=True)
    #
-   if (molecule['mpi_master']):
+   if (molecule['mpi_master'] and molecule['mpi_parallel']):
       #
       inc_corr_mpi.remove_slave_env(molecule)
    #

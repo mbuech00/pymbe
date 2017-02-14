@@ -30,11 +30,6 @@ def init_mpi(molecule):
    #
    else:
       #
-      # init basic mpi info
-      #
-      molecule['mpi_comm'] = MPI.COMM_WORLD
-      molecule['mpi_size'] = molecule['mpi_comm'].Get_size()
-      #
       molecule['mpi_master'] = True
    #
    return molecule
@@ -70,9 +65,11 @@ def main_slave_rout(molecule):
          # update with private mpi info
          #
          molecule['mpi_comm'] = MPI.COMM_WORLD
+         molecule['mpi_size'] = molecule['mpi_comm'].Get_size()
          molecule['mpi_rank'] = molecule['mpi_comm'].Get_rank()
          molecule['mpi_name'] = MPI.Get_processor_name()
          molecule['mpi_stat'] = MPI.Status()
+         #
          molecule['mpi_master'] = False
       #
       elif (msg['task'] == 'print_mpi_table'):
@@ -147,14 +144,16 @@ def bcast_mol_dict(molecule):
    #
    msg = {'task': 'bcast_mol_dict'}
    #
-   molecule['mpi_comm'].bcast(msg,root=0)
+   MPI.COMM_WORLD.bcast(msg,root=0)
    #
    # bcast molecule dict
    #
-   molecule['mpi_comm'].bcast(molecule,root=0)
+   MPI.COMM_WORLD.bcast(molecule,root=0)
    #
    # private mpi info
    #
+   molecule['mpi_comm'] = MPI.COMM_WORLD
+   molecule['mpi_size'] = molecule['mpi_comm'].Get_size()
    molecule['mpi_rank'] = molecule['mpi_comm'].Get_rank()
    molecule['mpi_name'] = MPI.Get_processor_name()
    molecule['mpi_stat'] = MPI.Status()
