@@ -37,7 +37,7 @@ def cfour_input_hf(molecule):
       #
       out.write('REF=UHF\n')
    #
-   out.write('BASIS='+molecule['basis'].upper()+'\n')
+   out.write('BASIS='+molecule['basis']+'\n')
    #
    out.write('MEMORY='+str(molecule['mem'])+'\n')
    out.write('MEM_UNIT=GB)\n')
@@ -102,7 +102,7 @@ def cfour_input_corr(molecule,drop_string,level):
       #
       out.write('REF=UHF\n')
    #
-   out.write('BASIS='+molecule['basis'].upper()+'\n')
+   out.write('BASIS='+molecule['basis']+'\n')
    #
    out.write('MEMORY='+str(molecule['mem'])+'\n')
    out.write('MEM_UNIT=GB)\n')
