@@ -133,13 +133,17 @@ def cfour_get_dim(molecule):
       if regex in line:
          #
          [bf] = line.split()[2:3]
+         #
          break
       #
       elif match(regex_err,line) is not None:
          #
          print('problem with HF calculation, aborting ...')
+         #
          molecule['error'][0].append(True)
+         #
          inp.close()
+         #
          return molecule
    #
    inp.seek(0)
@@ -153,14 +157,17 @@ def cfour_get_dim(molecule):
       if match(regex_2,line) is not None:
          #
          pop = line.split()
+         #
          break
    #
    tmp = 0
    #
    for i in range(4,len(pop)):
+      #
       tmp += int(pop[i])
    #
    molecule['nocc'] = tmp
+   #
    molecule['nvirt'] = int(bf) - molecule['nocc']
    #
    inp.close()
@@ -174,6 +181,7 @@ def cfour_write_energy(molecule,level):
    regex_err = '\s+ERROR ERROR'
    #
    model = molecule['model']
+   #
    regex = molecule['regex']
    #
    while 1:
@@ -207,7 +215,9 @@ def cfour_write_energy(molecule,level):
       elif match(regex_err,line) is not None:
          #
          print('problem with '+model+' calculation, aborting ...')
+         #
          molecule['error'][0].append(True)
+         #
          inp.close()
          #
          return molecule
