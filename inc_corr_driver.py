@@ -12,7 +12,7 @@ from timeit import default_timer as timer
 import inc_corr_orb_rout
 from bg_utilities import run_calc_corr 
 from bg_print import print_status_header, print_status_end, print_result, print_init_header, print_init_end
-import inc_corr_e_rout
+from bg_energy import energy_calc_mono_exp_ser, energy_calc_mono_exp_par, bg_order
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
@@ -127,21 +127,21 @@ def mono_exp_kernel(molecule,k,level):
    #
    if (molecule['mpi_parallel']):
       #
-      inc_corr_e_rout.energy_calc_mono_exp_par(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
+      energy_calc_mono_exp_par(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
    #
    else:
       #
-      inc_corr_e_rout.energy_calc_mono_exp_ser(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
+      energy_calc_mono_exp_ser(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
    #
    # calculate the energy at order k
    #
    if (level == 'MACRO'):
       #
-      inc_corr_e_rout.inc_corr_order(molecule,k,tup,molecule['e_tot'][0])
+      bg_order(molecule,k,tup,molecule['e_tot'][0])
    #
    elif (level == 'CORRE'):
       #
-      inc_corr_e_rout.inc_corr_order(molecule,k,tup,molecule['e_corr'][0])
+      bg_order(molecule,k,tup,molecule['e_corr'][0])
    #
    # collect time
    #
@@ -285,7 +285,7 @@ def inc_corr_dual_exp(molecule):
             #
             # calculate the energy at order l (for inner expansion)
             #
-            inc_corr_e_rout.inc_corr_order(molecule,l,molecule['tuple'][1],molecule['e_tot'][1])
+            bg_order(molecule,l,molecule['tuple'][1],molecule['e_tot'][1])
             #
             # set up entanglement and exclusion lists (for inner expansion)
             #
@@ -336,7 +336,7 @@ def inc_corr_dual_exp(molecule):
       #
       # calculate the energy at order k (for outer expansion)
       #
-      inc_corr_e_rout.inc_corr_order(molecule,k,molecule['tuple'][0],molecule['e_tot'][0])
+      bg_order(molecule,k,molecule['tuple'][0],molecule['e_tot'][0])
       #
       # set up entanglement and exclusion lists (for outer expansion)
       #

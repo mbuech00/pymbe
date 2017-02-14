@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
-#
-# energy-related routines for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_energy.py: energy-related routines for Bethe-Goldstone correlation calculations."""
 
 from mpi4py import MPI
 
@@ -14,6 +11,13 @@ from bg_print import print_status
 import inc_corr_mpi
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def energy_calc_mono_exp_ser(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
@@ -157,7 +161,7 @@ def energy_calc_mono_exp_par(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    return molecule, tup
 
-def inc_corr_order(molecule,k,tup,energy):
+def bg_order(molecule,k,tup,energy):
    #
    for j in range(0,len(tup[k-1])):
       #
