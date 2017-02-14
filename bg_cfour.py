@@ -1,13 +1,18 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
-#
-# cfour-related routines for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_cfour.py: cfour-related routines for Bethe-Goldstone correlation calculations."""
 
-import re
+from re import match
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def cfour_input_hf(molecule):
    #
@@ -130,7 +135,7 @@ def cfour_get_dim(molecule):
          [bf] = line.split()[2:3]
          break
       #
-      elif re.match(regex_err,line) is not None:
+      elif match(regex_err,line) is not None:
          #
          print('problem with HF calculation, aborting ...')
          molecule['error'][0].append(True)
@@ -145,7 +150,7 @@ def cfour_get_dim(molecule):
       #
       line=inp.readline()
       #
-      if re.match(regex_2,line) is not None:
+      if match(regex_2,line) is not None:
          #
          pop = line.split()
          break
@@ -175,7 +180,7 @@ def cfour_write_energy(molecule,level):
       #
       line=inp.readline()
       #
-      if re.match(regex,line) is not None:
+      if match(regex,line) is not None:
          #
          if (model == 'fci'):
             #
@@ -199,7 +204,7 @@ def cfour_write_energy(molecule,level):
          #
          break
       #
-      elif re.match(regex_err,line) is not None:
+      elif match(regex_err,line) is not None:
          #
          print('problem with '+model+' calculation, aborting ...')
          molecule['error'][0].append(True)

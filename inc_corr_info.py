@@ -10,7 +10,7 @@ import os
 import shutil
 
 import inc_corr_mpi
-import inc_corr_cfour
+from bg_cfour import cfour_input_hf, cfour_input_corr, cfour_get_dim, cfour_write_energy
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 
@@ -243,10 +243,10 @@ def init_backend_prog(molecule):
          #
          # set backend module routines
          #
-         molecule['input_hf'] = inc_corr_cfour.cfour_input_hf
-         molecule['input_corr'] = inc_corr_cfour.cfour_input_corr
-         molecule['get_dim'] = inc_corr_cfour.cfour_get_dim
-         molecule['write_energy'] = inc_corr_cfour.cfour_write_energy
+         molecule['input_hf'] = cfour_input_hf
+         molecule['input_corr'] = cfour_input_corr
+         molecule['get_dim'] = cfour_get_dim
+         molecule['write_energy'] = cfour_write_energy
          #
          # set regex for expansion model
          #

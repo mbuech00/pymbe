@@ -3,7 +3,7 @@
 
 """ bg_main.py: python driver for Bethe-Goldstone correlation calculations.
 
-written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall/Winter 2016 + Winter/Spring 2017, Mainz, Germany."""
+written by Janus J. Eriksen (jeriksen@uni-mainz.de), 2016-2017, Mainz, Germany."""
 
 from mpi4py import MPI
 
