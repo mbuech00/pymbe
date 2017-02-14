@@ -622,6 +622,8 @@ def set_corr_order(molecule):
             #
             break
    #
+   # no energy correction possible
+   #
    if (molecule['min_corr_order'] == 0):
       #
       molecule['corr'] = False
@@ -642,11 +644,15 @@ def set_corr_order(molecule):
       #
       return molecule
    #
+   # the input corr_order is too high, so we correct everything
+   #
    elif ((molecule['min_corr_order'] + (molecule['corr_order']-1)) > len(molecule['prim_tuple'][0])):
       #
       molecule['max_corr_order'] = len(molecule['prim_tuple'][0])
       #
-      molecule['corr_order'] = (len(molecule['prim_tuple'][0])-1) - molecule['min_corr_order']
+      molecule['corr_order'] = (molecule['max_corr_order'] - molecule['min_corr_order']) + 1
+   #
+   # default, set max_corr_order according to input corr_order
    #
    else:
       #
