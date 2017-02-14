@@ -5,6 +5,7 @@
 
 from mpi4py import MPI
 
+from bg_mpi_kernels import energy_calc_mono_exp_master
 from bg_utilities import run_calc_corr, orb_string 
 from bg_print import print_status
 
@@ -17,47 +18,53 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_calc_mono_exp_ser(molecule,order,tup,n_tup,l_limit,u_limit,level):
+def energy_calc_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
-   string = {'drop': ''}
-   #
-   if (level == 'MACRO'):
+   if (molecule['mpi_parallel']):
       #
-      end = n_tup[order-1]
+      energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level)
    #
-   elif (level == 'CORRE'):
+   else:
       #
-      end = len(tup[order-1])
-   #
-   counter = 0
-   #
-   for i in range(0,end):
+      string = {'drop': ''}
       #
-      # write string
+      if (level == 'MACRO'):
+         #
+         end = n_tup[order-1]
       #
-      if ((level == 'MACRO') or ((level == 'CORRE') and (len(tup[order-1][i]) == 1))):
+      elif (level == 'CORRE'):
          #
-         counter += 1
+         end = len(tup[order-1])
+      #
+      counter = 0
+      #
+      for i in range(0,end):
          #
-         orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
+         # write string
          #
-         # run correlated calc
-         #
-         run_calc_corr(molecule,string['drop'],level)
-         #
-         # write tuple energy
-         #
-         tup[order-1][i].append(molecule['e_tmp'])
-         #
-         # print status
-         #
-         print_status(float(counter)/float(n_tup[order-1]),level)
-         #
-         # error check
-         #
-         if (molecule['error'][0][-1]):
+         if ((level == 'MACRO') or ((level == 'CORRE') and (len(tup[order-1][i]) == 1))):
             #
-            return molecule, tup
+            counter += 1
+            #
+            orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
+            #
+            # run correlated calc
+            #
+            run_calc_corr(molecule,string['drop'],level)
+            #
+            # write tuple energy
+            #
+            tup[order-1][i].append(molecule['e_tmp'])
+            #
+            # print status
+            #
+            print_status(float(counter)/float(n_tup[order-1]),level)
+            #
+            # error check
+            #
+            if (molecule['error'][0][-1]):
+               #
+               return molecule, tup
    #
    return molecule, tup
 

@@ -8,10 +8,9 @@ from timeit import default_timer
 
 from bg_utilities import run_calc_corr, orb_string, n_theo_tuples
 from bg_print import print_status_header, print_status_end, print_result, print_init_header, print_init_end
-from bg_energy import energy_calc_mono_exp_ser, bg_order
+from bg_energy import energy_calc_mono_exp, bg_order
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_entanglement, orb_exclusion, select_corr_tuples
-from bg_mpi_kernels import energy_calc_mono_exp_master
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -131,13 +130,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # run the calculations
    #
-   if (molecule['mpi_parallel']):
-      #
-      energy_calc_mono_exp_master(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
-   #
-   else:
-      #
-      energy_calc_mono_exp_ser(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
+   energy_calc_mono_exp(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
    #
    # calculate the energy at order k
    #
