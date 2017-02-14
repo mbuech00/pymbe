@@ -30,7 +30,7 @@ def main_drv(molecule):
    #
    # initialize variable and lists
    #
-   inc_corr_prepare(molecule)   
+   prepare_calc(molecule)   
    #
    # run the specified calculation
    #
@@ -67,7 +67,7 @@ def main_drv(molecule):
       #
       # run dual expansion
       #
-      inc_corr_dual_exp(molecule)
+      dual_exp_drv(molecule)
    #
    return molecule
 
@@ -175,7 +175,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    return molecule
 
-def inc_corr_dual_exp(molecule):
+def dual_exp_drv(molecule):
    #
    for k in range(1,molecule['u_limit'][0]+1):
       #
@@ -371,16 +371,6 @@ def inc_corr_dual_exp(molecule):
       # print status end (for outer expansion)
       #
       print_status_end(molecule,k,molecule['time'][0],molecule['n_tuples'][0])
-      #
-      # print results (for inner expansion)
-      #
-#      print_inner_result(molecule)
-#      #
-#      # print domain updates (for outer expansion)
-#      #
-#      if (k >= 2):
-#         #
-#         inc_corr_print.print_update(molecule,molecule['tuple'][0],molecule['n_tuples'][0],molecule['domain'][0],k,molecule['l_limit'][0],molecule['u_limit'][0])
    #
    return molecule
 
@@ -517,7 +507,7 @@ def mono_exp_finish(molecule):
    #
    return molecule
 
-def inc_corr_prepare(molecule):
+def prepare_calc(molecule):
    #
    if (molecule['exp'] == 'occ'):
       #
