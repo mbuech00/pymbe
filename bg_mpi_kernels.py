@@ -59,6 +59,8 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'print_mpi_table'):
          #
+         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
+         #
          print_mpi_table(molecule)
       #
       elif (msg['task'] == 'init_slave_env'):
