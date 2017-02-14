@@ -7,9 +7,10 @@ written by Janus J. Eriksen (jeriksen@uni-mainz.de), 2016-2017, Mainz, Germany."
 
 from mpi4py import MPI
 
-from inc_corr_mpi import init_mpi, red_mpi_timings, finalize_mpi
-from bg_utilities import init_calc, ref_calc, term_calc
-from bg_info import sanity_chk
+from bg_mpi_utilities import init_mpi, finalize_mpi, abort_mpi
+from bg_mpi_kernels import red_mpi_timings
+from bg_setup import init_calc, term_calc
+from bg_utilities import ref_calc
 from bg_print import print_main_header, print_summary, print_main_end 
 from bg_driver import main_drv
 from inc_corr_plot import ic_plot
@@ -40,6 +41,9 @@ def main():
       #  ---  initialize the calculation...  ---
       #
       init_calc(molecule)
+      #
+      #
+      if (molecule['error'][0][-1]): abort_mpi(molecule)
       #
       #  ---  print program header...  ---
       #

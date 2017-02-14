@@ -3,11 +3,9 @@
 
 """ bg_info.py: info handling for Bethe-Goldstone correlation calculations."""
 
-from os import chdir
 from os.path import isfile
 from shutil import which
 
-import inc_corr_mpi
 from bg_cfour import cfour_input_hf, cfour_input_corr, cfour_get_dim, cfour_write_energy
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -25,7 +23,7 @@ def init_mol(molecule):
       #
       print('input-mol.inp not found, aborting ...')
       #
-      inc_corr_mpi.abort_mpi(molecule)
+      molecule['error'][0].append(True)
    #
    else:
       #
@@ -54,7 +52,7 @@ def init_mol(molecule):
          #
          print('any of '+str(chk[0:2])+' keywords missing in input-mol.inp, aborting ...')
          #
-         inc_corr_mpi.abort_mpi(molecule)
+         molecule['error'][0].append(True)
    #
    # rename 'core' to 'ncore' internally in the code (to adapt with convention: 'nocc'/'nvirt')
    #
@@ -68,7 +66,7 @@ def init_param(molecule):
       #
       print('input-param.inp not found, aborting ...')
       #
-      inc_corr_mpi.abort_mpi(molecule)
+      molecule['error'][0].append(True)
    #
    else:
       #
@@ -177,7 +175,7 @@ def init_param(molecule):
                #
                print(str(content[i].split()[0])+' keyword in input-param.inp not recognized, aborting ...')
                #
-               inc_corr_mpi.abort_mpi(molecule)
+               molecule['error'][0].append(True)
    #
    set_exp(molecule)
    #
@@ -196,7 +194,7 @@ def init_param(molecule):
    #
    if (inc > 0):
       #
-      inc_corr_mpi.abort_mpi(molecule)
+      molecule['error'][0].append(True)
    #
    return molecule
 
@@ -238,7 +236,7 @@ def init_backend_prog(molecule):
          #
          print('no xcfour executable found in PATH env, aborting ...')
          #
-         inc_corr_mpi.abort_mpi(molecule)
+         molecule['error'][0].append(True)
       #
       else:
          #
@@ -271,7 +269,7 @@ def init_backend_prog(molecule):
       #
       print('choice of backend program not recognized, aborting ...')
       #
-      inc_corr_mpi.abort_mpi(molecule)
+      molecule['error'][0].append(True)
    #
    return molecule
 
@@ -399,9 +397,7 @@ def sanity_chk(molecule):
    #
    if (molecule['error'][0][-1]):
       #
-      chdir(molecule['wrk'])
-      #
-      inc_corr_mpi.abort_mpi(molecule)
+      molecule['error'][0].append(True)
    #
    return molecule
 

@@ -9,7 +9,8 @@ from timeit import default_timer
 import inc_corr_orb_rout
 from bg_utilities import run_calc_corr 
 from bg_print import print_status_header, print_status_end, print_result, print_init_header, print_init_end
-from bg_energy import energy_calc_mono_exp_ser, energy_calc_mono_exp_par, bg_order
+from bg_energy import energy_calc_mono_exp_ser, bg_order
+from bg_mpi_kernels import energy_calc_mono_exp_master
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -131,7 +132,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    if (molecule['mpi_parallel']):
       #
-      energy_calc_mono_exp_par(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
+      energy_calc_mono_exp_master(molecule,k,tup,n_tup,molecule['l_limit'][0],molecule['u_limit'][0],level)
    #
    else:
       #

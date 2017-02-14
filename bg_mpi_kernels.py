@@ -1,39 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-#
-# MPI-related routines for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall/Winter 2016 + Winter/Spring 2017, Mainz, Germnay.
-#
+""" bg_mpi_kernels.py: MPI kernels for Bethe-Goldstone correlation calculations."""
 
-import os
+from os import getcwd, mkdir, chdir
+from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_utilities import term_calc, run_calc_corr 
+from bg_utilities import run_calc_corr 
 
-def init_mpi(molecule):
-   #
-   #  ---  master and slave routine
-   #
-   if (MPI.COMM_WORLD.Get_size() > 1):
-      #
-      molecule['mpi_parallel'] = True
-   #
-   else:
-      #
-      molecule['mpi_parallel'] = False
-   #
-   # slave proceed to the main slave routine
-   #
-   if (MPI.COMM_WORLD.Get_rank() != 0):
-      #
-      main_slave_rout(molecule)
-   #
-   else:
-      #
-      molecule['mpi_master'] = True
-   #
-   return molecule
+__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def main_slave_rout(molecule):
    #
@@ -61,7 +44,7 @@ def main_slave_rout(molecule):
          #
          # overwrite wrk_dir in case this is different from the one on the master node
          #
-         molecule['wrk'] = os.getcwd()
+         molecule['wrk'] = getcwd()
          #
          # update with private mpi info
          #
@@ -89,9 +72,9 @@ def main_slave_rout(molecule):
          #
          # init scr env
          #
-         os.mkdir(molecule['scr'])
+         mkdir(molecule['scr'])
          #
-         os.chdir(molecule['scr'])
+         chdir(molecule['scr'])
          #
          molecule['mpi_time_work'] = MPI.Wtime()-start_work
       #
@@ -109,7 +92,13 @@ def main_slave_rout(molecule):
          #
          # remove scr env
          #
-         term_calc(molecule)
+         chdir(molecule['wrk'])
+         #
+         if (molecule['error'][0][-1]):
+            #
+            copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
+         #
+         rmtree(molecule['scr'],ignore_errors=True)
          #
          molecule['mpi_time_work'] += MPI.Wtime()-start_work
       #
@@ -184,6 +173,104 @@ def remove_slave_env(molecule):
    molecule['mpi_comm'].bcast(msg,root=0)
    #
    return
+
+def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
+   #
+   string = {'drop': ''}
+   #
+   # number of slaves
+   #
+   num_slaves = molecule['mpi_size'] - 1
+   #
+   # number of available slaves
+   #
+   slaves_avail = num_slaves
+   #
+   # define mpi message tags
+   #
+   tags = enum('ready','done','exit','start')
+   #
+   # init job index
+   #
+   i = 0
+   #
+   # init stat counter
+   #
+   counter = 0
+   #
+   # wake up slaves
+   #
+   msg = {'task': 'energy_calc_mono_exp'}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   while (slaves_avail >= 1):
+      #
+      # write string
+      #
+      if (i <= (n_tup[order-1]-1)): inc_corr_orb_rout.orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
+      #
+      # receive data dict
+      #
+      data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE,tag=MPI.ANY_TAG,status=molecule['mpi_stat'])
+      #
+      # probe for source
+      #
+      source = molecule['mpi_stat'].Get_source()
+      #
+      # probe for tag
+      #
+      tag = molecule['mpi_stat'].Get_tag()
+      #
+      if (tag == tags.ready):
+         #
+         if (i <= (n_tup[order-1]-1)):
+            #
+            # store job index
+            #
+            string['index'] = i
+            #
+            # send string dict
+            #
+            molecule['mpi_comm'].send(string,dest=source,tag=tags.start)
+            #
+            # increment job index
+            #
+            i += 1
+         #
+         else:
+            #
+            molecule['mpi_comm'].send(None,dest=source,tag=tags.exit)
+      #
+      elif (tag == tags.done):
+         #
+         # write tuple energy
+         #
+         tup[order-1][data['index']].append(data['e_tmp'])
+         #
+         # increment stat counter
+         #
+         counter += 1
+         #
+         # print status
+         #
+         print_status(float(counter)/float(n_tup[order-1]),level)
+         #
+         # error check
+         #
+         if (data['error']):
+            #
+            print('problem with slave '+str(source)+' in energy_calc_mono_exp_par  ---  aborting...')
+            #
+            molecule['error'][0].append(True)
+            #
+            return molecule, tup
+      #
+      elif (tag == tags.exit):
+         #
+         slaves_avail -= 1
+   #
+   return molecule, tup
 
 def energy_calc_slave(molecule):
    #
@@ -322,14 +409,6 @@ def print_mpi_table(molecule):
    #
    return
 
-def abort_mpi(molecule):
-   #
-   #  ---  master routine
-   #
-   molecule['mpi_comm'].Abort()
-   #
-   return
-
 def red_mpi_timings(molecule):
    #
    #  ---  master routine
@@ -355,36 +434,6 @@ def red_mpi_timings(molecule):
    molecule['mpi_time_work'] = [(time['time_work']/float(molecule['mpi_size']-1)),(time['time_work']/(time['time_idle']+time['time_comm']+time['time_work']))*100.0]
    #
    return
-
-def finalize_mpi(molecule):
-   #
-   #  ---  master and slave routine
-   #
-   if (MPI.COMM_WORLD.Get_rank() == 0):
-      #
-      msg = {'task': 'finalize_mpi'}
-      #
-      MPI.COMM_WORLD.bcast(msg,root=0)
-   #
-   MPI.COMM_WORLD.Barrier()
-   #
-   MPI.Finalize()
-   #
-   return
-
-def add_dict(dict_1, dict_2, datatype):
-   #
-   for item in dict_2:
-      # 
-      if (item in dict_1):
-         #
-         dict_1[item] += dict_2[item]
-      #
-      else:
-         #
-         dict_1[item] = dict_2[item]
-   #
-   return dict_1
 
 def enum(*sequential,**named):
    #
