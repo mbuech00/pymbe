@@ -43,10 +43,15 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
       for i in range(0,len(incl)):
          #
          tup[k-1].append([incl[i]])
+      #
+      del incl
    #
    else:
       #
       select = []
+      idx = []
+      tmp = []
+      tmp_sub = []
       #
       for i in range(0,len(dom)-1):
          #
@@ -91,6 +96,11 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
                   # finally, add the ordered tuple to the tuple list
                   #
                   tup[k-1].append([sorted(tmp[m])])
+      #
+      del select
+      del idx
+      del tmp
+      del tmp_sub
    #
    return tup
 
@@ -297,6 +307,8 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
          else:
             #
             orb_con_rel[-1].append(orb_con_abs[-1][j]/e_sum)
+      #
+      del tmp
    #
    return molecule
 
@@ -323,6 +335,8 @@ def select_corr_tuples(prim_tup,corr_tup,k):
    for l in range(0,len(pop_list)):
       #
       corr_tup[k-1].pop(pop_list[l]-l)
+   #
+   del pop_list
    #
    return corr_tup
 

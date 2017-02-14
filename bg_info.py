@@ -341,7 +341,7 @@ def sanity_chk(molecule):
          #
          molecule['error'][0].append(True)
       #
-      if (molecule['corr_thres'] > molecule['prim_thres']):
+      if (molecule['corr_thres'] >= molecule['prim_thres']):
          #
          print('wrong input -- correction threshold (corr_thres) must be tighter than the primary expansion threshold (prim_thres) --- aborting ...')
          #
