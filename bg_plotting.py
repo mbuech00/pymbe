@@ -1,22 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-#
-# python plotting program for inc.-corr. calculations 
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_plotting.py: plotting utilities for Bethe-Goldstone correlation calculations."""
 
-import copy
-import numpy as np
+from copy import deepcopy
+from numpy import asarray, amax
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.text import Text
 from matplotlib.ticker import MaxNLocator
 import seaborn as sns
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def abs_energy_plot(molecule):
    #
@@ -44,11 +46,11 @@ def abs_energy_plot(molecule):
          #
          if (i == 0):
             #
-            e_corr[i] = copy.deepcopy(molecule['e_tot'][0])
+            e_corr[i] = deepcopy(molecule['e_tot'][0])
          #
          else:
             #
-            e_corr[i] = copy.deepcopy(e_corr[i-1])
+            e_corr[i] = deepcopy(e_corr[i-1])
          #
          for j in range((molecule['min_corr_order']+i)-1,len(e_corr[i])):
             #
@@ -195,12 +197,12 @@ def orb_con_plot(molecule):
       #
       # primary expansion
       #
-      orb_arr = 100.0 * np.asarray(molecule['prim_orb_con_rel'][0])
+      orb_arr = 100.0 * asarray(molecule['prim_orb_con_rel'][0])
       #
       sns.heatmap(orb_arr,ax=ax1,cmap=cmap,cbar_kws={'format':'%.0f'},\
                        xticklabels=False,\
                        yticklabels=range(1,len(molecule['prim_orb_con_rel'][0])+1),cbar=True,\
-                       annot=False,fmt='.1f',vmin=0.0,vmax=np.amax(orb_arr))
+                       annot=False,fmt='.1f',vmin=0.0,vmax=amax(orb_arr))
       #
       ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
       #
@@ -208,7 +210,7 @@ def orb_con_plot(molecule):
       #
       # energy correction
       #
-      orb_arr_corr = 100.0 * np.asarray(molecule['corr_orb_con_rel'][0])
+      orb_arr_corr = 100.0 * asarray(molecule['corr_orb_con_rel'][0])
       #
       diff_arr = orb_arr_corr - orb_arr
       #
@@ -217,7 +219,7 @@ def orb_con_plot(molecule):
       sns.heatmap(diff_arr,ax=ax2,mask=mask_arr,cmap='coolwarm',cbar_kws={'format':'%.1f'},\
                        xticklabels=False,\
                        yticklabels=range(1,len(molecule['corr_orb_con_rel'][0])+1),cbar=True,\
-                       annot=False,fmt='.1f',vmax=np.amax(diff_arr))
+                       annot=False,fmt='.1f',vmax=amax(diff_arr))
       #
       ax2.set_yticklabels(ax2.get_yticklabels(),rotation=0)
       #
@@ -230,12 +232,12 @@ def orb_con_plot(molecule):
       #
       # primary expansion
       #
-      orb_arr = 100.0 * np.asarray(molecule['prim_orb_con_rel'][0])
+      orb_arr = 100.0 * asarray(molecule['prim_orb_con_rel'][0])
       #
       sns.heatmap(orb_arr,ax=ax1,cmap=cmap,cbar_kws={'format':'%.0f'},\
                        xticklabels=False,\
                        yticklabels=range(1,len(molecule['prim_orb_con_rel'][0])+1),cbar=True,\
-                       annot=False,fmt='.1f',vmin=0.0,vmax=np.amax(orb_arr))
+                       annot=False,fmt='.1f',vmin=0.0,vmax=amax(orb_arr))
       #
       ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
       #
@@ -273,11 +275,11 @@ def dev_ref_plot(molecule):
          #
          if (i == 0):
             #
-            e_corr[i] = copy.deepcopy(molecule['e_tot'][0])
+            e_corr[i] = deepcopy(molecule['e_tot'][0])
          #
          else:
             #
-            e_corr[i] = copy.deepcopy(e_corr[i-1])
+            e_corr[i] = deepcopy(e_corr[i-1])
          #
          for j in range((molecule['min_corr_order']+i)-1,len(e_corr[i])):
             #

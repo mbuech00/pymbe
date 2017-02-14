@@ -13,7 +13,7 @@ from bg_setup import init_calc, term_calc
 from bg_utilities import ref_calc
 from bg_print import print_main_header, print_summary, print_main_end 
 from bg_driver import main_drv
-from inc_corr_plot import ic_plot
+from bg_plotting import ic_plot
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
