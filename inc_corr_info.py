@@ -332,7 +332,7 @@ def sanity_chk(molecule):
          #
          molecule['error'][0].append(True)
       #
-      if (molecule['corr_thres'] <= 0.0):
+      if (molecule['corr_thres'] < 0.0):
          #
          print('wrong input -- correction threshold (corr_thres, float >= 0.0) must be supplied --- aborting ...')
          #
