@@ -10,7 +10,6 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 import itertools
 import math
 
-import inc_corr_utils
 from bg_print import print_orb_info, print_update
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k):

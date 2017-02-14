@@ -10,7 +10,7 @@ import copy
 from timeit import default_timer as timer
 
 import inc_corr_orb_rout
-import inc_corr_utils
+from bg_utilities import run_calc_corr 
 from bg_print import print_status_header, print_status_end, print_result, print_init_header, print_init_end
 import inc_corr_e_rout
 
@@ -271,7 +271,7 @@ def inc_corr_dual_exp(molecule):
                #
                # run correlated calc
                #
-               inc_corr_utils.run_calc_corr(molecule,string,False)
+               run_calc_corr(molecule,string,False)
                #
                # write tuple energy
                #

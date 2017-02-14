@@ -8,7 +8,7 @@
 import os
 from mpi4py import MPI
 
-import inc_corr_utils
+from bg_utilities import term_calc, run_calc_corr 
 
 def init_mpi(molecule):
    #
@@ -108,7 +108,7 @@ def main_slave_rout(molecule):
          #
          # remove scr env
          #
-         inc_corr_utils.term_calc(molecule)
+         term_calc(molecule)
          #
          molecule['mpi_time_work'] += MPI.Wtime()-start_work
       #
@@ -222,7 +222,7 @@ def energy_calc_slave(molecule):
       #
       if (tag == tags.start):
          #
-         inc_corr_utils.run_calc_corr(molecule,string['drop'],level)
+         run_calc_corr(molecule,string['drop'],level)
          #
          # write e_tmp
          #

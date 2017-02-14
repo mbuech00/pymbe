@@ -8,7 +8,7 @@ written by Janus J. Eriksen (jeriksen@uni-mainz.de), 2016-2017, Mainz, Germany."
 from mpi4py import MPI
 
 from inc_corr_mpi import init_mpi, red_mpi_timings, finalize_mpi
-from inc_corr_utils import init_calc, ref_calc, term_calc
+from bg_utilities import init_calc, ref_calc, term_calc
 from inc_corr_info import sanity_chk
 from bg_print import print_main_header, print_summary, print_main_end 
 from inc_corr_driver import main_drv

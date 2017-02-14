@@ -1,21 +1,26 @@
-# -*- coding: utf-8 -*
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
-#
-# general utilities for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_utilities.py: general utilities for Bethe-Goldstone correlation calculation."""
 
-import os
-import subprocess
-import shutil
-from timeit import default_timer as timer
+from os import mkdir, chdir, listdir, unlink
+from os.path import join, isfile
+from subprocess import call
+from shutil import copy, rmtree 
+from timeit import default_timer
 
 import inc_corr_info
 import inc_corr_mpi
 from bg_print import redirect_stdout, print_ref_header, print_ref_end
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
 def init_calc(molecule):
    #
@@ -55,9 +60,9 @@ def init_calc(molecule):
    #
    # init scr env
    #
-   os.mkdir(molecule['scr'])
+   mkdir(molecule['scr'])
    #
-   os.chdir(molecule['scr']) 
+   chdir(molecule['scr']) 
    #
    # run hf calc to determine dimensions
    #
@@ -71,13 +76,13 @@ def init_calc(molecule):
 
 def term_calc(molecule):
    #
-   os.chdir(molecule['wrk'])
+   chdir(molecule['wrk'])
    #
    if (molecule['error'][0][-1]):
       #
-      shutil.copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
+      copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
    #
-   shutil.rmtree(molecule['scr'],ignore_errors=True)
+   rmtree(molecule['scr'],ignore_errors=True)
    #
    if (molecule['mpi_master'] and molecule['mpi_parallel']):
       #
@@ -89,7 +94,7 @@ def run_calc_hf(molecule):
    #
    molecule['input_hf'](molecule)
    #
-   subprocess.call(molecule['backend_prog_exe']+' &> OUTPUT.OUT',shell=True) 
+   call(molecule['backend_prog_exe']+' &> OUTPUT.OUT',shell=True) 
    #
    molecule['get_dim'](molecule)
    #
@@ -101,7 +106,7 @@ def run_calc_corr(molecule,drop_string,level):
    #
    molecule['input_corr'](molecule,drop_string,level)
    #
-   subprocess.call(molecule['backend_prog_exe']+' &> OUTPUT.OUT',shell=True)
+   call(molecule['backend_prog_exe']+' &> OUTPUT.OUT',shell=True)
    #
    molecule['write_energy'](molecule,level)
    #
@@ -111,15 +116,15 @@ def run_calc_corr(molecule,drop_string,level):
 
 def rm_dir_content(molecule):
    #
-   for the_file in os.listdir(molecule['scr']):
+   for the_file in listdir(molecule['scr']):
       #
-      file_path = os.path.join(molecule['scr'],the_file)
+      file_path = join(molecule['scr'],the_file)
       #
       try:
          #
-         if os.path.isfile(file_path):
+         if isfile(file_path):
             #
-            os.unlink(file_path)
+            unlink(file_path)
       #
       except Exception as e:
          #
@@ -131,11 +136,11 @@ def ref_calc(molecule):
    #
    print_ref_header()
    #
-   start = timer()
+   start = default_timer()
    #
    run_calc_corr(molecule,'','REF')
    #
-   molecule['prim_time'][0].append(timer()-start)
+   molecule['prim_time'][0].append(default_timer()-start)
    #
    print_ref_end(molecule)
    #

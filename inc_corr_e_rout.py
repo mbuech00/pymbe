@@ -9,7 +9,7 @@
 from mpi4py import MPI
 
 import inc_corr_orb_rout
-import inc_corr_utils
+from bg_utilities import run_calc_corr 
 from bg_print import print_status
 import inc_corr_mpi
 
@@ -41,7 +41,7 @@ def energy_calc_mono_exp_ser(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          # run correlated calc
          #
-         inc_corr_utils.run_calc_corr(molecule,string['drop'],level)
+         run_calc_corr(molecule,string['drop'],level)
          #
          # write tuple energy
          #
