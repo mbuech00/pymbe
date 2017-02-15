@@ -1,3 +1,4 @@
+prog cfour
 exp virt
 model fci
 prim_thres 0.01
@@ -9,7 +10,7 @@ mem 10
 scr scr
 units angstrom
 zmat True
-ref False
+ref True
 frozen True
 local False
 debug True
