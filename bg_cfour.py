@@ -1,48 +1,20 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*
 
-#
-# generel, yet specific routines for inc-corr calcs.
-# written by Janus J. Eriksen (jeriksen@uni-mainz.de), Fall 2016, Mainz, Germnay.
-#
+""" bg_cfour.py: cfour-related routines for Bethe-Goldstone correlation calculations."""
 
-import os
-import re
-from timeit import default_timer as timer
+from re import match
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
+__copyright__ = 'Copyright 2017'
+__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
+__license__ = '???'
+__version__ = '0.3'
+__maintainer__ = 'Dr. Janus Juul Eriksen'
+__email__ = 'jeriksen@uni-mainz.de'
+__status__ = 'Development'
 
-def run_calc_hf(molecule):
-   #
-   write_zmat_hf(molecule)
-   #
-   command='xcfour &> CFOUR.OUT'
-   os.system(command)
-   #
-   get_dim(molecule)
-   #
-   if (not molecule['error'][0][-1]):
-      #
-      command='xclean'
-      os.system(command)
-   #
-   return molecule
-
-def run_calc_corr(molecule,drop_string,level):
-   #
-   write_zmat_corr(molecule,drop_string,level)
-   #
-   command='xcfour &> CFOUR.OUT'
-   os.system(command)
-   #
-   write_energy(molecule,level)
-   #
-   if (not molecule['error'][0][-1]):
-      command='xclean'
-      os.system(command)
-   #
-   return molecule
-
-def write_zmat_hf(molecule):
+def cfour_input_hf(molecule):
    #
    out=open('ZMAT','w')
    #
@@ -70,7 +42,7 @@ def write_zmat_hf(molecule):
       #
       out.write('REF=UHF\n')
    #
-   out.write('BASIS='+molecule['basis'].upper()+'\n')
+   out.write('BASIS='+molecule['basis']+'\n')
    #
    out.write('MEMORY='+str(molecule['mem'])+'\n')
    out.write('MEM_UNIT=GB)\n')
@@ -79,7 +51,7 @@ def write_zmat_hf(molecule):
    #
    out.close()
 
-def write_zmat_corr(molecule,drop_string,level):
+def cfour_input_corr(molecule,drop_string,level):
    #
    out=open('ZMAT','w')
    #
@@ -135,7 +107,7 @@ def write_zmat_corr(molecule,drop_string,level):
       #
       out.write('REF=UHF\n')
    #
-   out.write('BASIS='+molecule['basis'].upper()+'\n')
+   out.write('BASIS='+molecule['basis']+'\n')
    #
    out.write('MEMORY='+str(molecule['mem'])+'\n')
    out.write('MEM_UNIT=GB)\n')
@@ -146,9 +118,9 @@ def write_zmat_corr(molecule,drop_string,level):
    #
    return molecule
 
-def get_dim(molecule):
+def cfour_get_dim(molecule):
    #
-   inp=open('CFOUR.OUT','r')
+   inp=open('OUTPUT.OUT','r')
    #
    regex_err = '\s+ERROR ERROR'
    #
@@ -161,13 +133,17 @@ def get_dim(molecule):
       if regex in line:
          #
          [bf] = line.split()[2:3]
+         #
          break
       #
-      elif re.match(regex_err,line) is not None:
+      elif match(regex_err,line) is not None:
          #
          print('problem with HF calculation, aborting ...')
-         molecule['error'][0].append(True)
+         #
+         molecule['error'].append(True)
+         #
          inp.close()
+         #
          return molecule
    #
    inp.seek(0)
@@ -178,37 +154,41 @@ def get_dim(molecule):
       #
       line=inp.readline()
       #
-      if re.match(regex_2,line) is not None:
+      if match(regex_2,line) is not None:
          #
          pop = line.split()
+         #
          break
    #
    tmp = 0
    #
    for i in range(4,len(pop)):
+      #
       tmp += int(pop[i])
    #
    molecule['nocc'] = tmp
+   #
    molecule['nvirt'] = int(bf) - molecule['nocc']
    #
    inp.close()
    #
    return molecule
 
-def write_energy(molecule,level):
+def cfour_write_energy(molecule,level):
    #
-   inp=open('CFOUR.OUT','r')
+   inp=open('OUTPUT.OUT','r')
    #
    regex_err = '\s+ERROR ERROR'
    #
    model = molecule['model']
+   #
    regex = molecule['regex']
    #
    while 1:
       #
       line=inp.readline()
       #
-      if re.match(regex,line) is not None:
+      if match(regex,line) is not None:
          #
          if (model == 'fci'):
             #
@@ -232,39 +212,17 @@ def write_energy(molecule,level):
          #
          break
       #
-      elif re.match(regex_err,line) is not None:
+      elif match(regex_err,line) is not None:
          #
          print('problem with '+model+' calculation, aborting ...')
-         molecule['error'][0].append(True)
+         #
+         molecule['error'].append(True)
+         #
          inp.close()
          #
          return molecule
    #
    inp.close()
-   #
-   return molecule
-
-def ref_calc(molecule):
-   #
-   print('')
-   print('                     ---------------------------------------------                ')
-   print('                                reference calculation                             ')
-   print('                     ---------------------------------------------                ')
-   print('')
-   print('')
-   print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-REF: full reference calculation started')
-   print(' --------------------------------------------------------------------------------------------')
-   #
-   start = timer()
-   #
-   run_calc_corr(molecule,'','REF')
-   #
-   molecule['prim_time'][0].append(timer()-start)
-   #
-   print(' STATUS-REF: full reference calculation done in {0:10.2e} seconds'.format(molecule['prim_time'][0][-1]))
-   print(' --------------------------------------------------------------------------------------------')
-   print('')
    #
    return molecule
 
