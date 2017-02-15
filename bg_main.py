@@ -53,13 +53,13 @@ def main():
       #
       main_drv(molecule)
       #
-      #  ---  start (potential) reference calculation...  ---
-      #
-      if (molecule['ref'] and (not molecule['error'][-1])): ref_calc(molecule)
-      #
       #  ---  collect mpi timings from slaves  ---
       #
       if (molecule['mpi_parallel']): red_mpi_timings(molecule)
+      #
+      #  ---  start (potential) reference calculation...  ---
+      #
+      if (molecule['ref'] and (not molecule['error'][-1])): ref_calc(molecule)
       #
       #  ---  print summary of the calculation  ---
       #

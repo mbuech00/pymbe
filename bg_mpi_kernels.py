@@ -89,10 +89,6 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'remove_slave_env'):
          #
-         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
-         #
-         start_work = MPI.Wtime()
-         #
          # remove scr env
          #
          chdir(molecule['wrk'])
@@ -102,16 +98,12 @@ def main_slave_rout(molecule):
             copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
          #
          rmtree(molecule['scr'],ignore_errors=True)
-         #
-         molecule['mpi_time_work'] += MPI.Wtime()-start_work
       #
       elif (msg['task'] == 'red_mpi_timings'):
          #
          molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
          #
-         # reduce mpi timings onto master (cannot time this reduction)
-         #
-         # define sum operation for dicts
+         # reduce mpi timings onto master
          #
          dict_sum_op = MPI.Op.Create(add_dict,commute=True)
          #
