@@ -3,7 +3,7 @@
 
 """ bg_print.py: print utilities for Bethe-Goldstone correlation calculations."""
 
-from sys import stdout
+import sys
 from os import getcwd, mkdir
 from os.path import isdir
 from shutil import rmtree
@@ -465,7 +465,7 @@ def redirect_stdout(molecule):
    #
    mkdir(molecule['wrk']+'/output')
    #
-   stdout = logger(molecule['wrk']+'/output/stdout.out')
+   sys.stdout = logger(molecule['wrk']+'/output/stdout.out')
    #
    return molecule
 
@@ -473,7 +473,7 @@ class logger(object):
    #
    def __init__(self, filename="default.log"):
       #
-      self.terminal = stdout
+      self.terminal = sys.stdout
       self.log = open(filename, "a")
    #
    def write(self, message):
