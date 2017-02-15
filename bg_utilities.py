@@ -28,7 +28,7 @@ def run_calc_hf(molecule):
    #
    molecule['get_dim'](molecule)
    #
-   if (not molecule['error'][0][-1]): rm_dir_content(molecule)
+   if (not molecule['error'][-1]): rm_dir_content(molecule)
    #
    return molecule
 
@@ -40,7 +40,7 @@ def run_calc_corr(molecule,drop_string,level):
    #
    molecule['write_energy'](molecule,level)
    #
-   if (not molecule['error'][0][-1]): rm_dir_content(molecule)
+   if (not molecule['error'][-1]): rm_dir_content(molecule)
    #
    return molecule
 
@@ -70,7 +70,7 @@ def ref_calc(molecule):
    #
    run_calc_corr(molecule,'','REF')
    #
-   molecule['prim_time'][0].append(default_timer()-start)
+   molecule['prim_time'].append(default_timer()-start)
    #
    print_ref_end(molecule)
    #

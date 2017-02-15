@@ -28,7 +28,7 @@ def init_calc(molecule):
    #
    # init error list
    #
-   molecule['error'] = [[False]]
+   molecule['error'] = [False]
    #
    # init molecular info
    #
@@ -76,7 +76,7 @@ def term_calc(molecule):
    #
    chdir(molecule['wrk'])
    #
-   if (molecule['error'][0][-1]):
+   if (molecule['error'][-1]):
       #
       copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
    #

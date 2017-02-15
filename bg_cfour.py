@@ -140,7 +140,7 @@ def cfour_get_dim(molecule):
          #
          print('problem with HF calculation, aborting ...')
          #
-         molecule['error'][0].append(True)
+         molecule['error'].append(True)
          #
          inp.close()
          #
@@ -216,7 +216,7 @@ def cfour_write_energy(molecule,level):
          #
          print('problem with '+model+' calculation, aborting ...')
          #
-         molecule['error'][0].append(True)
+         molecule['error'].append(True)
          #
          inp.close()
          #

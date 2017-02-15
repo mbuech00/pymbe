@@ -43,7 +43,7 @@ def main():
       init_calc(molecule)
       #
       #
-      if (molecule['error'][0][-1]): abort_mpi(molecule)
+      if (molecule['error'][-1]): abort_mpi(molecule)
       #
       #  ---  print program header...  ---
       #
@@ -55,7 +55,7 @@ def main():
       #
       #  ---  start (potential) reference calculation...  ---
       #
-      if (molecule['ref'] and (not molecule['error'][0][-1])): ref_calc(molecule)
+      if (molecule['ref'] and (not molecule['error'][-1])): ref_calc(molecule)
       #
       #  ---  collect mpi timings from slaves  ---
       #
@@ -67,7 +67,7 @@ def main():
       #
       #  ---  plot the results of the calculation  ---
       #
-      if (not molecule['error'][0][-1]): ic_plot(molecule)
+      if (not molecule['error'][-1]): ic_plot(molecule)
       #
       #  ---  terminate calculation and clean up...  ---
       #

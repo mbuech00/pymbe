@@ -148,19 +148,19 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
    #
    if (level == 'MACRO'):
       #
-      tup = molecule['prim_tuple'][0]
-      orb = molecule['prim_orb_ent'][0]
-      orb_arr = molecule['prim_orb_arr'][0]
-      orb_con_abs = molecule['prim_orb_con_abs'][0]
-      orb_con_rel = molecule['prim_orb_con_rel'][0]
+      tup = molecule['prim_tuple']
+      orb = molecule['prim_orb_ent']
+      orb_arr = molecule['prim_orb_arr']
+      orb_con_abs = molecule['prim_orb_con_abs']
+      orb_con_rel = molecule['prim_orb_con_rel']
    #
    elif (level == 'CORRE'):
       #
-      tup = molecule['corr_tuple'][0]
-      orb = molecule['corr_orb_ent'][0]
-      orb_arr = molecule['corr_orb_arr'][0]
-      orb_con_abs = molecule['corr_orb_con_abs'][0]
-      orb_con_rel = molecule['corr_orb_con_rel'][0]
+      tup = molecule['corr_tuple']
+      orb = molecule['corr_orb_ent']
+      orb_arr = molecule['corr_orb_arr']
+      orb_con_abs = molecule['corr_orb_con_abs']
+      orb_con_rel = molecule['corr_orb_con_rel']
    #
    if (singles):
       #
@@ -342,32 +342,32 @@ def select_corr_tuples(prim_tup,corr_tup,k):
 
 def init_domains(molecule):
    #
-   molecule['occ_domain'] = [[]]
-   molecule['virt_domain'] = [[]]
+   molecule['occ_domain'] = []
+   molecule['virt_domain'] = []
    #
    for i in range(0,molecule['nocc']):
       #
-      molecule['occ_domain'][0].append(list(range(1,molecule['nocc']+1)))
+      molecule['occ_domain'].append(list(range(1,molecule['nocc']+1)))
       #
-      molecule['occ_domain'][0][i].pop(i)
+      molecule['occ_domain'][i].pop(i)
    #
    if (molecule['frozen']):
       #
       for i in range(0,molecule['ncore']):
          #
-         molecule['occ_domain'][0][i][:] = []
+         molecule['occ_domain'][i][:] = []
       #
       for j in range(molecule['ncore'],molecule['nocc']):
          #
          for _ in range(0,molecule['ncore']):
             #
-            molecule['occ_domain'][0][j].pop(0)
+            molecule['occ_domain'][j].pop(0)
    #
    for i in range(0,molecule['nvirt']):
       #
-      molecule['virt_domain'][0].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
+      molecule['virt_domain'].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
       #
-      molecule['virt_domain'][0][i].pop(i)
+      molecule['virt_domain'][i].pop(i)
    #
    return molecule
 
@@ -379,29 +379,29 @@ def reinit_domains(molecule,dom):
       #
       for i in range(0,molecule['nvirt']):
          #
-         dom[0].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
+         dom.append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
          #
-         dom[0][i].pop(i)  
+         dom[i].pop(i)  
    #
    elif (molecule['exp'] == 'comb-vo'):
       #
       for i in range(0,molecule['nocc']):
          #
-         dom[0].append(list(range(1,molecule['nocc']+1)))
+         dom.append(list(range(1,molecule['nocc']+1)))
          #
-         dom[0][i].pop(i)
+         dom[i].pop(i)
       #
       if (molecule['frozen']):
          #
          for i in range(0,molecule['ncore']):
             #
-            dom[0][i][:] = []
+            dom[i][:] = []
          #
          for j in range(molecule['ncore'],molecule['nocc']):
             #
             for i in range(0,molecule['ncore']):
                #
-               dom[0][j].pop(i)
+               dom[j].pop(i)
    #
    return molecule
 
@@ -409,16 +409,16 @@ def orb_exclusion(molecule,l_limit,level):
    #
    if (level == 'MACRO'):
       #
-      orb = molecule['prim_orb_ent'][0]
-      orb_arr = molecule['prim_orb_arr'][0]
-      orb_con_rel = molecule['prim_orb_con_rel'][0]
+      orb = molecule['prim_orb_ent']
+      orb_arr = molecule['prim_orb_arr']
+      orb_con_rel = molecule['prim_orb_con_rel']
       thres = molecule['prim_thres']
    #
    else:
       #
-      orb = molecule['corr_orb_ent'][0]
-      orb_arr = molecule['corr_orb_arr'][0]
-      orb_con_rel = molecule['corr_orb_con_rel'][0]
+      orb = molecule['corr_orb_ent']
+      orb_arr = molecule['corr_orb_arr']
+      orb_con_rel = molecule['corr_orb_con_rel']
       thres = molecule['corr_thres']
    #
    molecule['excl_list'][:] = []
@@ -463,11 +463,11 @@ def update_domains(molecule,l_limit,level,singles=False):
    #
    if (level == 'MACRO'):
       #
-      dom = molecule['prim_domain'][0]
+      dom = molecule['prim_domain']
    #
    elif (level == 'CORRE'):
       #
-      dom = molecule['corr_domain'][0]
+      dom = molecule['corr_domain']
    #
    dom.append([])
    #

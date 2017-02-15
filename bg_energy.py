@@ -62,7 +62,7 @@ def energy_calc_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
             #
             # error check
             #
-            if (molecule['error'][0][-1]):
+            if (molecule['error'][-1]):
                #
                return molecule, tup
    #

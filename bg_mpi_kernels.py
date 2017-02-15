@@ -97,7 +97,7 @@ def main_slave_rout(molecule):
          #
          chdir(molecule['wrk'])
          #
-         if (molecule['error'][0][-1]):
+         if (molecule['error'][-1]):
             #
             copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
          #
@@ -265,7 +265,7 @@ def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
             #
             print('problem with slave '+str(source)+' in energy_calc_mono_exp_par  ---  aborting...')
             #
-            molecule['error'][0].append(True)
+            molecule['error'].append(True)
             #
             return molecule, tup
       #
@@ -325,7 +325,7 @@ def energy_calc_slave(molecule):
          #
          # write error logical
          #
-         data['error'] = molecule['error'][0][-1]
+         data['error'] = molecule['error'][-1]
          #
          molecule['mpi_time_work'] += MPI.Wtime()-start_work
          #
