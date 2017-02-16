@@ -4,6 +4,7 @@
 """ bg_orbitals.py: orbital-related routines for Bethe-Goldstone correlation calculations."""
 
 from itertools import combinations 
+from copy import deepcopy
 
 from bg_print import print_orb_info, print_update
 
@@ -38,69 +39,61 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
       #
       # generate all possible (unique) pairs
       #
-      incl = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
+      tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
       #
-      for i in range(0,len(incl)):
+      for i in range(0,len(tmp)):
          #
-         tup[k-1].append([incl[i]])
+         tup[k-1].append([tmp[i]])
       #
-      del incl
+      del tmp
    #
    else:
       #
-      select = []
-      idx = []
-      tmp = []
-      tmp_sub = []
-      #
-      for i in range(0,len(dom)-1):
+      for i in range(0,len(tup[k-2])):
          #
-         # generate list of indices where val is greater than orb index = (i+l_limit)+1
+         # generate subset of all pairs within the parent tuple
          #
-         idx = [x for x in range(0,len(dom[i])) if dom[i][x] > ((i+l_limit)+1)]
+         tmp = list(list(comb) for comb in combinations(tup[k-2][i][0],2))
          #
-         if (len(idx) > 0):
+         mask = True
+         #
+         for j in range(0,len(tmp)):
             #
-            # generate complete set of (k-1)-combinations
+            # is the parent tuple still allowed?
             #
-            tmp = list(list(comb) for comb in combinations(dom[i][idx[0]:],k-1))
+            if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
+               #
+               mask = False
+               #
+               break
+         #
+         if (mask):
             #
-            select[:] = []
+            # loop through possible orbitals to augment the parent tuple with
             #
-            for j in range(0,len(tmp)):
+            for m in range(tup[k-2][i][0][-1]+1,(l_limit+u_limit)+1):
                #
-               # generate subset of all pairs within the given (k-1)-combination
+               mask2 = True
                #
-               tmp_sub = list(list(comb) for comb in combinations(tmp[j],2))
-               #
-               select.append(True)
-               #
-               for l in range(0,len(tmp_sub)):
+               for l in tup[k-2][i][0]:
                   #
-                  # is the specific tuple in tmp allowed?
+                  # is the new child tuple allowed?
                   #
-                  if (tmp_sub[l][1] not in dom[(tmp_sub[l][0]-l_limit)-1]):
+                  if (not (set([m]) < set(dom[(l-l_limit)-1]))):
                      #
-                     select[-1] = False
+                     mask2 = False
                      #
                      break
-            #
-            for m in range(0,len(tmp)):
                #
-               if (select[m]):
+               if (mask2):
                   #
-                  # complete k-combination by appending orb index = (i+l_limit)+1
+                  # append the child tuple to the tup list
                   #
-                  tmp[m].append((i+l_limit)+1)
+                  tup[k-1].append([deepcopy(tup[k-2][i][0])])
                   #
-                  # finally, add the ordered tuple to the tuple list
-                  #
-                  tup[k-1].append([sorted(tmp[m])])
+                  tup[k-1][-1][0].append(m)
       #
-      del select
-      del idx
       del tmp
-      del tmp_sub
    #
    return tup
 
