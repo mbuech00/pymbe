@@ -8,7 +8,7 @@ from shutil import copy, rmtree
 
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utilities import run_calc_hf
-from bg_mpi_kernels import bcast_mol_dict, init_slave_env, print_mpi_table, remove_slave_env 
+from bg_mpi_main import bcast_mol_dict, init_slave_env, print_mpi_table, remove_slave_env 
 from bg_print import redirect_stdout
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
