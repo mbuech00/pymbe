@@ -106,17 +106,23 @@ def main_slave_rout(molecule):
          #
          molecule['mpi_time_work'] = MPI.Wtime()-start_work
       #
-      elif (msg['task'] == 'energy_calc_mono_exp'):
+      elif (msg['task'] == 'energy_calc_mono_exp_par'):
          #
          molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
          #
          energy_calc_slave(molecule)
       #
-      elif (msg['task'] == 'orb_generator'):
+      elif (msg['task'] == 'orb_generator_par'):
          #
          molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
          #
-         orb_generator_slave(molecule,msg['dom'],msg['l_limit'],msg['u_limit'])
+         start_comm = MPI.Wtime()
+         #
+         dom_info = MPI.COMM_WORLD.bcast(None,root=0)
+         #
+         molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
+         #
+         orb_generator_slave(molecule,dom_info['dom'],dom_info['l_limit'],dom_info['u_limit'])
       #
       elif (msg['task'] == 'remove_slave_env'):
          #

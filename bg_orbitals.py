@@ -6,6 +6,7 @@
 from itertools import combinations 
 from copy import deepcopy
 
+from bg_mpi_orbitals import orb_generator_master
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -19,81 +20,87 @@ __status__ = 'Development'
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
+   if (molecule['mpi_parallel'] and (k >= 3)):
       #
-      start = molecule['ncore']
+      orb_generator_master(molecule,dom,tup,l_limit,u_limit,k)
    #
    else:
       #
-      start = 0
-   #
-   if (k == 1):
+      if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
+         #
+         start = molecule['ncore']
       #
-      for i in range(start,len(dom)):
+      else:
          #
-         # all singles contributions 
-         #
-         tup[k-1].append([[(i+l_limit)+1]])
-   #
-   elif (k == 2):
+         start = 0
       #
-      # generate all possible (unique) pairs
-      #
-      tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
-      #
-      for i in range(0,len(tmp)):
+      if (k == 1):
          #
-         tup[k-1].append([tmp[i]])
-      #
-      del tmp
-   #
-   else:
-      #
-      for i in range(0,len(tup[k-2])):
-         #
-         # generate subset of all pairs within the parent tuple
-         #
-         tmp = list(list(comb) for comb in combinations(tup[k-2][i][0],2))
-         #
-         mask = True
-         #
-         for j in range(0,len(tmp)):
+         for i in range(start,len(dom)):
             #
-            # is the parent tuple still allowed?
+            # all singles contributions 
             #
-            if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
-               #
-               mask = False
-               #
-               break
+            tup[k-1].append([[(i+l_limit)+1]])
+      #
+      elif (k == 2):
          #
-         if (mask):
+         # generate all possible (unique) pairs
+         #
+         tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
+         #
+         for i in range(0,len(tmp)):
             #
-            # loop through possible orbitals to augment the parent tuple with
+            tup[k-1].append([tmp[i]])
+         #
+         del tmp
+      #
+      else:
+         #
+         for i in range(0,len(tup[k-2])):
             #
-            for m in range(tup[k-2][i][0][-1]+1,(l_limit+u_limit)+1):
+            # generate subset of all pairs within the parent tuple
+            #
+            tmp = list(list(comb) for comb in combinations(tup[k-2][i][0],2))
+            #
+            mask = True
+            #
+            for j in range(0,len(tmp)):
                #
-               mask2 = True
+               # is the parent tuple still allowed?
                #
-               for l in tup[k-2][i][0]:
+               if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
                   #
-                  # is the new child tuple allowed?
+                  mask = False
                   #
-                  if (not (set([m]) < set(dom[(l-l_limit)-1]))):
+                  break
+            #
+            if (mask):
+               #
+               # loop through possible orbitals to augment the parent tuple with
+               #
+               for m in range(tup[k-2][i][0][-1]+1,(l_limit+u_limit)+1):
+                  #
+                  mask2 = True
+                  #
+                  for l in tup[k-2][i][0]:
                      #
-                     mask2 = False
+                     # is the new child tuple allowed?
                      #
-                     break
-               #
-               if (mask2):
+                     if (not (set([m]) < set(dom[(l-l_limit)-1]))):
+                        #
+                        mask2 = False
+                        #
+                        break
                   #
-                  # append the child tuple to the tup list
-                  #
-                  tup[k-1].append([deepcopy(tup[k-2][i][0])])
-                  #
-                  tup[k-1][-1][0].append(m)
-      #
-      del tmp
+                  if (mask2):
+                     #
+                     # append the child tuple to the tup list
+                     #
+                     tup[k-1].append([deepcopy(tup[k-2][i][0])])
+                     #
+                     tup[k-1][-1][0].append(m)
+         #
+         del tmp
    #
    return tup
 

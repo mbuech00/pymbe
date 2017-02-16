@@ -22,7 +22,9 @@ def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    #  ---  master routine
    #
-   job_info = {'drop': ''}
+   # init job_info dictionary
+   #
+   job_info = {}
    #
    # number of slaves
    #
@@ -46,7 +48,7 @@ def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    # wake up slaves
    #
-   msg = {'task': 'energy_calc_mono_exp'}
+   msg = {'task': 'energy_calc_mono_exp_par'}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #

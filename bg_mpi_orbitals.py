@@ -22,6 +22,10 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
    #
    #  ---  master routine
    #
+   # init job_info dictionary
+   #
+   job_info = {}
+   #
    # number of slaves
    #
    num_slaves = molecule['mpi_size'] - 1
@@ -38,11 +42,17 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
    #
    i = 0
    #
-   # wake up slaves and bcast current order and orbital domains
+   # wake up slaves
    #
-   msg = {'task': 'orb_generator_par', 'dom': dom, 'l_limit': l_limit, 'u_limit': u_limit}
+   msg = {'task': 'orb_generator_par'}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   # bcast orbital domains and lower/upper limits
+   #
+   dom_info = {'dom': dom, 'l_limit': l_limit, 'u_limit': u_limit}
+   #
+   molecule['mpi_comm'].bcast(dom_info,root=0)
    #
    while (slaves_avail >= 1):
       #
@@ -80,17 +90,9 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
          #
          # write child tuple
          #
-         tup[order-1].append([data['tup_child']])
-         #
-         # error check
-         #
-         if (data['error']):
+         for j in range(0,len(data['tup_child'])):
             #
-            print('problem with slave '+str(source)+' in orb_generator_master  ---  aborting...')
-            #
-            molecule['error'].append(True)
-            #
-            return molecule, tup
+            tup[order-1].append([data['tup_child'][j]])
       #
       elif (tag == tags.exit):
          #
@@ -138,6 +140,8 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
       #
       if (tag == tags.start):
          #
+         data['tup_child'] = []
+         #
          tmp = list(list(comb) for comb in combinations(job_info['tup_parent'],2))
          #
          mask = True
@@ -174,9 +178,9 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
                   #
                   # append the child tuple to the tup list
                   #
-                  data['tup_child'] = deepcopy(job_info['tup_parent'])
+                  data['tup_child'].append(deepcopy(job_info['tup_parent']))
                   #
-                  data['tup_child'].append(m)
+                  data['tup_child'][-1].append(m)
          #
          molecule['mpi_time_work'] += MPI.Wtime()-start_work
          #
