@@ -98,6 +98,10 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
          #
          slaves_avail -= 1
    #
+   # finally we sort the tuples
+   #
+   tup[order-1].sort(key=lambda x: x[0])
+   #
    return tup
 
 def orb_generator_slave(molecule,dom,l_limit,u_limit):
