@@ -5,7 +5,7 @@
 
 from mpi4py import MPI
 
-from bg_mpi_energy import energy_calc_mono_exp_master
+from bg_mpi_energy import energy_kernel_mono_exp_master
 from bg_utilities import run_calc_corr, orb_string 
 from bg_print import print_status
 
@@ -18,11 +18,11 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_calc_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
+def energy_kernel_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    if (molecule['mpi_parallel']):
       #
-      energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level)
+      energy_kernel_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level)
    #
    else:
       #
@@ -68,7 +68,7 @@ def energy_calc_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    return molecule, tup
 
-def bg_order(molecule,k,tup,energy):
+def energy_summation(molecule,k,tup,energy):
    #
    for j in range(0,len(tup[k-1])):
       #

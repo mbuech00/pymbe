@@ -7,7 +7,7 @@ from os import getcwd, mkdir, chdir
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_mpi_energy import energy_calc_slave
+from bg_mpi_energy import energy_kernel_slave
 from bg_mpi_orbitals import orb_generator_slave 
 from bg_mpi_utilities import add_dict 
 
@@ -112,11 +112,11 @@ def main_slave_rout(molecule):
          #
          print_mpi_table(molecule)
       #
-      elif (msg['task'] == 'energy_calc_mono_exp_par'):
+      elif (msg['task'] == 'energy_kernel_mono_exp_par'):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
-         energy_calc_slave(molecule)
+         energy_kernel_slave(molecule)
       #
       elif (msg['task'] == 'orb_generator_par'):
          #

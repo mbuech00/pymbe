@@ -18,7 +18,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
+def energy_kernel_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    #  ---  master routine
    #
@@ -48,7 +48,7 @@ def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    # wake up slaves
    #
-   msg = {'task': 'energy_calc_mono_exp_par'}
+   msg = {'task': 'energy_kernel_mono_exp_par'}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
@@ -108,7 +108,7 @@ def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          if (data['error']):
             #
-            print('problem with slave '+str(source)+' in energy_calc_mono_exp_master  ---  aborting...')
+            print('problem with slave '+str(source)+' in energy_kernel_mono_exp_master  ---  aborting...')
             #
             molecule['error'].append(True)
             #
@@ -120,7 +120,7 @@ def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    return molecule, tup
 
-def energy_calc_slave(molecule):
+def energy_kernel_slave(molecule):
    #
    #  ---  slave routine
    #
