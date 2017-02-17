@@ -66,7 +66,9 @@ def main_slave_rout(molecule):
          #
          molecule = MPI.COMM_WORLD.bcast(None,root=0)
          #
-         molecule['mpi_time_comm'] = MPI.Wtime()-start_comm
+         # init mpi_time_comm_slave
+         #
+         molecule['mpi_time_comm_slave'] = MPI.Wtime()-start_comm
          #
          # overwrite wrk_dir in case this is different from the one on the master node
          #
@@ -82,15 +84,11 @@ def main_slave_rout(molecule):
          #
          molecule['mpi_master'] = False
       #
-      elif (msg['task'] == 'print_mpi_table'):
-         #
-         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
-         #
-         print_mpi_table(molecule)
-      #
       elif (msg['task'] == 'init_slave_env'):
          #
-         molecule['mpi_time_idle'] = MPI.Wtime()-start_idle
+         # init mpi_time_idle_slave
+         #
+         molecule['mpi_time_idle_slave'] = MPI.Wtime()-start_idle
          #
          start_work = MPI.Wtime()
          #
@@ -104,23 +102,29 @@ def main_slave_rout(molecule):
          #
          chdir(molecule['scr'])
          #
-         molecule['mpi_time_work'] = MPI.Wtime()-start_work
+         # init mpi_time_work_slave
+         #
+         molecule['mpi_time_work_slave'] = MPI.Wtime()-start_work
+      #
+      elif (msg['task'] == 'print_mpi_table'):
+         #
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
+         #
+         print_mpi_table(molecule)
       #
       elif (msg['task'] == 'energy_calc_mono_exp_par'):
          #
-         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
          energy_calc_slave(molecule)
       #
       elif (msg['task'] == 'orb_generator_par'):
          #
-         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
-         start_comm = MPI.Wtime()
+         # receive domain information
          #
          dom_info = MPI.COMM_WORLD.bcast(None,root=0)
-         #
-         molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
          #
          orb_generator_slave(molecule,dom_info['dom'],dom_info['l_limit'],dom_info['u_limit'])
       #
@@ -138,7 +142,7 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'red_mpi_timings'):
          #
-         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
          # reduce mpi timings onto master
          #
@@ -146,11 +150,11 @@ def main_slave_rout(molecule):
          #
          time = {}
          #
-         time['time_idle'] = molecule['mpi_time_idle']
+         time['time_idle'] = molecule['mpi_time_idle_slave']
          #
-         time['time_comm'] = molecule['mpi_time_comm']
+         time['time_comm'] = molecule['mpi_time_comm_slave']
          #
-         time['time_work'] = molecule['mpi_time_work']
+         time['time_work'] = molecule['mpi_time_work_slave']
          #
          molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
          #

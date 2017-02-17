@@ -132,7 +132,7 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
       #
       job_info = molecule['mpi_comm'].recv(source=0,tag=MPI.ANY_SOURCE,status=molecule['mpi_stat'])
       #
-      molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
+      molecule['mpi_time_comm_slave'] += MPI.Wtime()-start_comm
       #
       start_work = MPI.Wtime()
       #
@@ -186,7 +186,7 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
                   #
                   data['tup_child'][-1].append(m)
          #
-         molecule['mpi_time_work'] += MPI.Wtime()-start_work
+         molecule['mpi_time_work_slave'] += MPI.Wtime()-start_work
          #
          start_comm = MPI.Wtime()
          #
@@ -194,11 +194,11 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
          #
          molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
          #
-         molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
+         molecule['mpi_time_comm_slave'] += MPI.Wtime()-start_comm
       #
       elif (tag == tags.exit):
          #
-         molecule['mpi_time_work'] += MPI.Wtime()-start_work
+         molecule['mpi_time_work_slave'] += MPI.Wtime()-start_work
          #
          break
    #
@@ -208,7 +208,7 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
    #
    molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
    #
-   molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
+   molecule['mpi_time_comm_slave'] += MPI.Wtime()-start_comm
    #
    del tmp
    #

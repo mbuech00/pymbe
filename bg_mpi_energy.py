@@ -146,7 +146,7 @@ def energy_calc_slave(molecule):
       #
       job_info = molecule['mpi_comm'].recv(source=0,tag=MPI.ANY_SOURCE,status=molecule['mpi_stat'])
       #
-      molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
+      molecule['mpi_time_comm_slave'] += MPI.Wtime()-start_comm
       #
       start_work = MPI.Wtime()
       #
@@ -172,7 +172,7 @@ def energy_calc_slave(molecule):
          #
          data['error'] = molecule['error'][-1]
          #
-         molecule['mpi_time_work'] += MPI.Wtime()-start_work
+         molecule['mpi_time_work_slave'] += MPI.Wtime()-start_work
          #
          start_comm = MPI.Wtime()
          #
@@ -180,11 +180,11 @@ def energy_calc_slave(molecule):
          #
          molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
          #
-         molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
+         molecule['mpi_time_comm_slave'] += MPI.Wtime()-start_comm
       #
       elif (tag == tags.exit):
          #    
-         molecule['mpi_time_work'] += MPI.Wtime()-start_work
+         molecule['mpi_time_work_slave'] += MPI.Wtime()-start_work
          #
          break
    #
@@ -194,7 +194,7 @@ def energy_calc_slave(molecule):
    #
    molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
    #
-   molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
+   molecule['mpi_time_comm_slave'] += MPI.Wtime()-start_comm
    #
    return molecule
 
