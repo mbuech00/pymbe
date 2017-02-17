@@ -198,10 +198,26 @@ def print_init_header(order,level):
    #
    return
 
-def print_init_end(order,time_gen,level):
+def print_init_end(order,time_init,level):
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_gen))
+   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_init))
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_final_header(order,level):
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   print(' STATUS-{0:}: order = {1:>d} finalization started'.format(level,order))
+   print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_final_end(order,time_final,level):
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   print(' STATUS-{0:}: order = {1:>d} finalization done in {2:8.2e} seconds'.format(level,order,time_final))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -261,7 +277,6 @@ def print_status_end(molecule,order,level):
 
 def print_result(tup,level):
    #
-   print(' --------------------------------------------------------------------------------------------')
    print(' --------------------------------------------------------------------------------------------')
    print(' RESULT-{0:}:     tuple    |    energy incr.   |    corr. orbs.'.format(level))
    print(' --------------------------------------------------------------------------------------------')

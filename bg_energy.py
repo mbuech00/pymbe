@@ -5,7 +5,7 @@
 
 from mpi4py import MPI
 
-from bg_mpi_kernels import energy_calc_mono_exp_master
+from bg_mpi_energy import energy_calc_mono_exp_master
 from bg_utilities import run_calc_corr, orb_string 
 from bg_print import print_status
 

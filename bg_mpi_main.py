@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_mpi_kernels.py: MPI kernels for Bethe-Goldstone correlation calculations."""
+""" bg_mpi_main.py: main MPI driver routined for Bethe-Goldstone correlation calculations."""
 
 from os import getcwd, mkdir, chdir
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_utilities import run_calc_corr, orb_string 
-from bg_print import print_status 
+from bg_mpi_energy import energy_calc_slave
+from bg_mpi_orbitals import orb_generator_slave 
+from bg_mpi_utilities import add_dict 
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -18,6 +19,30 @@ __version__ = '0.4'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
+
+def init_mpi(molecule):
+   #
+   #  ---  master and slave routine
+   #
+   if (MPI.COMM_WORLD.Get_size() > 1):
+      #
+      molecule['mpi_parallel'] = True
+   #
+   else:
+      #
+      molecule['mpi_parallel'] = False
+   #
+   # slave proceed to the main slave routine
+   #
+   if (MPI.COMM_WORLD.Get_rank() != 0):
+      #
+      main_slave_rout(molecule)
+   #
+   else:
+      #
+      molecule['mpi_master'] = True
+   #
+   return molecule
 
 def main_slave_rout(molecule):
    #
@@ -41,7 +66,9 @@ def main_slave_rout(molecule):
          #
          molecule = MPI.COMM_WORLD.bcast(None,root=0)
          #
-         molecule['mpi_time_comm'] = MPI.Wtime()-start_comm
+         # init mpi_time_comm_slave
+         #
+         molecule['mpi_time_comm_slave'] = MPI.Wtime()-start_comm
          #
          # overwrite wrk_dir in case this is different from the one on the master node
          #
@@ -57,15 +84,11 @@ def main_slave_rout(molecule):
          #
          molecule['mpi_master'] = False
       #
-      elif (msg['task'] == 'print_mpi_table'):
-         #
-         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
-         #
-         print_mpi_table(molecule)
-      #
       elif (msg['task'] == 'init_slave_env'):
          #
-         molecule['mpi_time_idle'] = MPI.Wtime()-start_idle
+         # init mpi_time_idle_slave
+         #
+         molecule['mpi_time_idle_slave'] = MPI.Wtime()-start_idle
          #
          start_work = MPI.Wtime()
          #
@@ -79,13 +102,31 @@ def main_slave_rout(molecule):
          #
          chdir(molecule['scr'])
          #
-         molecule['mpi_time_work'] = MPI.Wtime()-start_work
-      #
-      elif (msg['task'] == 'energy_calc_mono_exp'):
+         # init mpi_time_work_slave
          #
-         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
+         molecule['mpi_time_work_slave'] = MPI.Wtime()-start_work
+      #
+      elif (msg['task'] == 'print_mpi_table'):
+         #
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
+         #
+         print_mpi_table(molecule)
+      #
+      elif (msg['task'] == 'energy_calc_mono_exp_par'):
+         #
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
          energy_calc_slave(molecule)
+      #
+      elif (msg['task'] == 'orb_generator_par'):
+         #
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
+         #
+         # receive domain information
+         #
+         dom_info = MPI.COMM_WORLD.bcast(None,root=0)
+         #
+         orb_generator_slave(molecule,dom_info['dom'],dom_info['l_limit'],dom_info['u_limit'])
       #
       elif (msg['task'] == 'remove_slave_env'):
          #
@@ -101,7 +142,7 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'red_mpi_timings'):
          #
-         molecule['mpi_time_idle'] += MPI.Wtime()-start_idle
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
          # reduce mpi timings onto master
          #
@@ -109,11 +150,11 @@ def main_slave_rout(molecule):
          #
          time = {}
          #
-         time['time_idle'] = molecule['mpi_time_idle']
+         time['time_idle'] = molecule['mpi_time_idle_slave']
          #
-         time['time_comm'] = molecule['mpi_time_comm']
+         time['time_comm'] = molecule['mpi_time_comm_slave']
          #
-         time['time_work'] = molecule['mpi_time_work']
+         time['time_work'] = molecule['mpi_time_work_slave']
          #
          molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
          #
@@ -169,183 +210,9 @@ def remove_slave_env(molecule):
    #
    return
 
-def energy_calc_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
-   #
-   string = {'drop': ''}
-   #
-   # number of slaves
-   #
-   num_slaves = molecule['mpi_size'] - 1
-   #
-   # number of available slaves
-   #
-   slaves_avail = num_slaves
-   #
-   # define mpi message tags
-   #
-   tags = enum('ready','done','exit','start')
-   #
-   # init job index
-   #
-   i = 0
-   #
-   # init stat counter
-   #
-   counter = 0
-   #
-   # wake up slaves
-   #
-   msg = {'task': 'energy_calc_mono_exp'}
-   #
-   molecule['mpi_comm'].bcast(msg,root=0)
-   #
-   while (slaves_avail >= 1):
-      #
-      # write string
-      #
-      if (i <= (n_tup[order-1]-1)): orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
-      #
-      # receive data dict
-      #
-      data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE,tag=MPI.ANY_TAG,status=molecule['mpi_stat'])
-      #
-      # probe for source
-      #
-      source = molecule['mpi_stat'].Get_source()
-      #
-      # probe for tag
-      #
-      tag = molecule['mpi_stat'].Get_tag()
-      #
-      if (tag == tags.ready):
-         #
-         if (i <= (n_tup[order-1]-1)):
-            #
-            # store job index
-            #
-            string['index'] = i
-            #
-            # send string dict
-            #
-            molecule['mpi_comm'].send(string,dest=source,tag=tags.start)
-            #
-            # increment job index
-            #
-            i += 1
-         #
-         else:
-            #
-            molecule['mpi_comm'].send(None,dest=source,tag=tags.exit)
-      #
-      elif (tag == tags.done):
-         #
-         # write tuple energy
-         #
-         tup[order-1][data['index']].append(data['e_tmp'])
-         #
-         # increment stat counter
-         #
-         counter += 1
-         #
-         # print status
-         #
-         print_status(float(counter)/float(n_tup[order-1]),level)
-         #
-         # error check
-         #
-         if (data['error']):
-            #
-            print('problem with slave '+str(source)+' in energy_calc_mono_exp_par  ---  aborting...')
-            #
-            molecule['error'].append(True)
-            #
-            return molecule, tup
-      #
-      elif (tag == tags.exit):
-         #
-         slaves_avail -= 1
-   #
-   return molecule, tup
-
-def energy_calc_slave(molecule):
-   #
-   #  ---  slave routine
-   #
-   level = 'SLAVE'
-   #
-   # define mpi message tags
-   #
-   tags = enum('ready','done','exit','start')
-   #
-   # init data dict
-   #
-   data = {}
-   #
-   while True:
-      #
-      # ready for task
-      #
-      start_comm = MPI.Wtime()
-      #
-      molecule['mpi_comm'].send(None,dest=0,tag=tags.ready)
-      #
-      # receive drop string
-      #
-      string = molecule['mpi_comm'].recv(source=0,tag=MPI.ANY_SOURCE,status=molecule['mpi_stat'])
-      #
-      molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
-      #
-      start_work = MPI.Wtime()
-      #
-      # recover tag
-      #
-      tag = molecule['mpi_stat'].Get_tag()
-      #
-      # do job or break out (exit)
-      #
-      if (tag == tags.start):
-         #
-         run_calc_corr(molecule,string['drop'],level)
-         #
-         # write e_tmp
-         #
-         data['e_tmp'] = molecule['e_tmp']
-         #
-         # copy job index / indices
-         #
-         data['index'] = string['index']
-         #
-         # write error logical
-         #
-         data['error'] = molecule['error'][-1]
-         #
-         molecule['mpi_time_work'] += MPI.Wtime()-start_work
-         #
-         start_comm = MPI.Wtime()
-         #
-         # send data back to master
-         #
-         molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
-         #
-         molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
-      #
-      elif (tag == tags.exit):
-         #    
-         molecule['mpi_time_work'] += MPI.Wtime()-start_work
-         #
-         break
-   #
-   # exit
-   #
-   start_comm = MPI.Wtime()
-   #
-   molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
-   #
-   molecule['mpi_time_comm'] += MPI.Wtime()-start_comm
-   #
-   return molecule
-
 def print_mpi_table(molecule):
+   #
+   #  ---  master/slave routine
    #
    if (molecule['mpi_master']):
       #
@@ -429,25 +296,4 @@ def red_mpi_timings(molecule):
    molecule['mpi_time_work'] = [(time['time_work']/float(molecule['mpi_size']-1)),(time['time_work']/(time['time_idle']+time['time_comm']+time['time_work']))*100.0]
    #
    return
-
-def enum(*sequential,**named):
-   #
-   enums = dict(zip(sequential,range(len(sequential))),**named)
-   #
-   return type('Enum',(), enums)
-
-def add_dict(dict_1, dict_2, datatype):
-   #
-   for item in dict_2:
-      #
-      if (item in dict_1):
-         #
-         dict_1[item] += dict_2[item]
-      #
-      else:
-         #
-         dict_1[item] = dict_2[item]
-   #
-   return dict_1
-
 

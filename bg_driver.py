@@ -7,7 +7,8 @@ from copy import deepcopy
 from timeit import default_timer
 
 from bg_utilities import run_calc_corr, orb_string, n_theo_tuples
-from bg_print import print_status_header, print_status_end, print_result, print_init_header, print_init_end
+from bg_print import print_status_header, print_status_end, print_result,\
+                     print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_calc_mono_exp, bg_order
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_entanglement, orb_exclusion, select_corr_tuples
@@ -82,10 +83,6 @@ def mono_exp_drv(molecule,start,end,level):
       #
       mono_exp_kernel(molecule,k,level)
       #
-      # print status end
-      #
-      print_status_end(molecule,k,level)
-      #
       # return if converged
       #
       if (((level == 'MACRO') and molecule['conv'][-1]) or ((level == 'CORRE') and (k == end))):
@@ -132,6 +129,18 @@ def mono_exp_kernel(molecule,k,level):
    #
    energy_calc_mono_exp(molecule,k,tup,n_tup,molecule['l_limit'],molecule['u_limit'],level)
    #
+   # collect time
+   #
+   time.append(default_timer()-start)
+   #
+   # print status end
+   #
+   print_status_end(molecule,k,level)
+   #
+   print_final_header(k,level)
+   #
+   start = default_timer()
+   #
    # calculate the energy at order k
    #
    if (level == 'MACRO'):
@@ -142,10 +151,10 @@ def mono_exp_kernel(molecule,k,level):
       #
       bg_order(molecule,k,tup,molecule['e_corr'])
    #
-   # collect time
+   time_final = default_timer() - start
    #
-   time.append(default_timer()-start)
-   #
+   print_final_end(k,time_final,level)
+   # 
    # print results
    #
    print_result(tup[-1],level)
@@ -409,9 +418,9 @@ def mono_exp_init(molecule,k,level):
       #
       select_corr_tuples(molecule['prim_tuple'],tup,k)
    #
-   # collect time_gen
+   # collect time_init
    #
-   time_gen = default_timer() - start
+   time_init = default_timer() - start
    #
    # determine number of tuples at order k
    #
@@ -431,7 +440,7 @@ def mono_exp_init(molecule,k,level):
    #
    # print init end
    #
-   print_init_end(k,time_gen,level)
+   print_init_end(k,time_init,level)
    #
    # if converged, pop last element of tup list and append to n_tup list
    #
