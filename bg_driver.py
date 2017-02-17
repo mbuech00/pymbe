@@ -9,7 +9,7 @@ from timeit import default_timer
 from bg_utilities import run_calc_corr, orb_string, n_theo_tuples
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
-from bg_energy import energy_calc_mono_exp, bg_order
+from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_entanglement, orb_exclusion, select_corr_tuples
 
@@ -127,7 +127,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # run the calculations
    #
-   energy_calc_mono_exp(molecule,k,tup,n_tup,molecule['l_limit'],molecule['u_limit'],level)
+   energy_kernel_mono_exp(molecule,k,tup,n_tup,molecule['l_limit'],molecule['u_limit'],level)
    #
    # collect time
    #
@@ -145,11 +145,11 @@ def mono_exp_kernel(molecule,k,level):
    #
    if (level == 'MACRO'):
       #
-      bg_order(molecule,k,tup,molecule['e_tot'])
+      energy_summation(molecule,k,tup,molecule['e_tot'],level)
    #
    elif (level == 'CORRE'):
       #
-      bg_order(molecule,k,tup,molecule['e_corr'])
+      energy_summation(molecule,k,tup,molecule['e_corr'],level)
    #
    time_final = default_timer() - start
    #

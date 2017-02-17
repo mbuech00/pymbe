@@ -20,9 +20,25 @@ def enum(*sequential,**named):
    #
    return type('Enum',(), enums)
 
-def add_dict(dict_1, dict_2, datatype):
+def add_tup(dict_1,dict_2,data_type):
    #
-   # MPI.SUM for dictionaries
+   # MPI.SUM for dictionaries of tuples
+   #
+   for item in dict_2:
+      #
+      if (item in dict_1):
+         #
+         dict_1[item] = [[a[0],a[1]+b[1]] for a,b in zip(dict_1[item],dict_2[item])]
+      #
+      else:
+         #
+         dict_1[item] = dict_2[item]
+   #
+   return dict_1
+
+def add_time(dict_1,dict_2,data_type):
+   #
+   # MPI.SUM for dictionaries of timings
    #
    for item in dict_2:
       #
@@ -35,5 +51,4 @@ def add_dict(dict_1, dict_2, datatype):
          dict_1[item] = dict_2[item]
    #
    return dict_1
-
 

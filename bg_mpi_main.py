@@ -7,9 +7,9 @@ from os import getcwd, mkdir, chdir
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_mpi_energy import energy_calc_slave
+from bg_mpi_energy import energy_kernel_slave, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave 
-from bg_mpi_utilities import add_dict 
+from bg_mpi_utilities import add_time 
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -105,18 +105,17 @@ def main_slave_rout(molecule):
          # init mpi_time_work_slave
          #
          molecule['mpi_time_work_slave'] = MPI.Wtime()-start_work
+         #
+         # init tuple lists
+         #
+         molecule['prim_tuple'] = []
+         molecule['corr_tuple'] = []
       #
       elif (msg['task'] == 'print_mpi_table'):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
          print_mpi_table(molecule)
-      #
-      elif (msg['task'] == 'energy_calc_mono_exp_par'):
-         #
-         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
-         #
-         energy_calc_slave(molecule)
       #
       elif (msg['task'] == 'orb_generator_par'):
          #
@@ -127,6 +126,40 @@ def main_slave_rout(molecule):
          dom_info = MPI.COMM_WORLD.bcast(None,root=0)
          #
          orb_generator_slave(molecule,dom_info['dom'],dom_info['l_limit'],dom_info['u_limit'])
+         #
+         dom_info.clear()
+      #
+      elif (msg['task'] == 'energy_kernel_mono_exp_par'):
+         #
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
+         #
+         energy_kernel_slave(molecule)
+      #
+      elif (msg['task'] == 'energy_summation_par'):
+         #
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
+         #
+         # receive tuple information
+         #
+         tup_info = MPI.COMM_WORLD.bcast(None,root=0)
+         #
+         if (tup_info['level'] == 'MACRO'):
+            #
+            molecule['prim_tuple'].append([])
+            #
+            molecule['prim_tuple'][tup_info['order']-1] = tup_info['tup']
+            #
+            energy_summation_par(molecule,tup_info['order'],molecule['prim_tuple'],tup_info['energy'],'MACRO')
+         #
+         elif (tup_info['level'] == 'CORRE'):
+            #
+            molecule['corr_tuple'].append([])
+            #
+            molecule['corr_tuple'][tup_info['order']-1] = tup_info['tup']
+            #
+            energy_summation_par(molecule,tup_info['order'],molecule['corr_tuple'],tup_info['energy'],'CORRE')
+         #
+         tup_info.clear()
       #
       elif (msg['task'] == 'remove_slave_env'):
          #
@@ -146,18 +179,20 @@ def main_slave_rout(molecule):
          #
          # reduce mpi timings onto master
          #
-         dict_sum_op = MPI.Op.Create(add_dict,commute=True)
+         dict_sum_op = MPI.Op.Create(add_time,commute=True)
          #
          time = {}
          #
-         time['time_idle'] = molecule['mpi_time_idle_slave']
+         time['time_idle_slave'] = molecule['mpi_time_idle_slave']
          #
-         time['time_comm'] = molecule['mpi_time_comm_slave']
+         time['time_comm_slave'] = molecule['mpi_time_comm_slave']
          #
-         time['time_work'] = molecule['mpi_time_work_slave']
+         time['time_work_slave'] = molecule['mpi_time_work_slave']
          #
          molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
          #
+         time.clear()
+      #
       elif (msg['task'] == 'finalize_mpi'):
          #
          slave = False
@@ -269,6 +304,8 @@ def print_mpi_table(molecule):
       #
       print(' slave   ---  proc =  {0:>{w_int}d}  ---  node =  {1:>{w_str}s}'.format(full_info[j][0],full_info[j][1],w_int=width_int,w_str=width_str))
    #
+   info.clear()
+   #
    return
 
 def red_mpi_timings(molecule):
@@ -277,7 +314,7 @@ def red_mpi_timings(molecule):
    #
    # define sum operation for dicts
    #
-   dict_sum_op = MPI.Op.Create(add_dict,commute=True)
+   time_sum_op = MPI.Op.Create(add_time,commute=True)
    #
    msg = {'task': 'red_mpi_timings'}
    #
@@ -287,13 +324,17 @@ def red_mpi_timings(molecule):
    #
    # receive timings
    #
-   time = molecule['mpi_comm'].reduce({},op=dict_sum_op,root=0)
+   time = molecule['mpi_comm'].reduce({},op=time_sum_op,root=0)
    #
-   molecule['mpi_time_idle'] = [(time['time_idle']/float(molecule['mpi_size']-1)),(time['time_idle']/(time['time_idle']+time['time_comm']+time['time_work']))*100.0]
+   sum_slave = time['time_idle_slave']+time['time_comm_slave']+time['time_work_slave']
    #
-   molecule['mpi_time_comm'] = [(time['time_comm']/float(molecule['mpi_size']-1)),(time['time_comm']/(time['time_idle']+time['time_comm']+time['time_work']))*100.0]
+   molecule['mpi_time_idle'] = [(time['time_idle_slave']/float(molecule['mpi_size']-1)),(time['time_idle_slave']/sum_slave)*100.0]
    #
-   molecule['mpi_time_work'] = [(time['time_work']/float(molecule['mpi_size']-1)),(time['time_work']/(time['time_idle']+time['time_comm']+time['time_work']))*100.0]
+   molecule['mpi_time_comm'] = [(time['time_comm_slave']/float(molecule['mpi_size']-1)),(time['time_comm_slave']/sum_slave)*100.0]
+   #
+   molecule['mpi_time_work'] = [(time['time_work_slave']/float(molecule['mpi_size']-1)),(time['time_work_slave']/sum_slave)*100.0]
+   #
+   time.clear()
    #
    return
 

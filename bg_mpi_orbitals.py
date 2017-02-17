@@ -54,6 +54,8 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
    #
    molecule['mpi_comm'].bcast(dom_info,root=0)
    #
+   dom_info.clear()
+   #
    while (slaves_avail >= 1):
       #
       # receive data dict
@@ -213,4 +215,6 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
    del tmp
    #
    return molecule
+
+
 
