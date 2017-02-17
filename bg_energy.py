@@ -70,19 +70,27 @@ def energy_kernel_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
 
 def energy_summation(molecule,k,tup,energy):
    #
+   # compute energy increments at level k
+   #
    for j in range(0,len(tup[k-1])):
       #
       for i in range(k-1,0,-1):
          #
          for l in range(0,len(tup[i-1])):
             #
-            energy_summation_rec(tup[k-1][j],tup[i-1][l],0)
+            # is tup[i-1][l][0] a subset of tup[k-1][j][0]?
+            #
+            if (all(idx in iter(tup[k-1][j][0]) for idx in tup[i-1][l][0])): tup[k-1][j][1] -= tup[i-1][l][1]
    #
    e_tmp = 0.0
+   #
+   # sum of energy increment of level k
    #
    for j in range(0,len(tup[k-1])):
       #
       e_tmp += tup[k-1][j][1]
+   #
+   # sum of total energy
    #
    if (k > 1):
       #
@@ -91,27 +99,4 @@ def energy_summation(molecule,k,tup,energy):
    energy.append(e_tmp)
    #
    return energy
-
-def energy_summation_rec(tup_j,tup_l,j_pos):
-   #
-   # does the first index of the lower-order tuple, tup_l, match the first index of the tuple, tup_j[j_pos:] 
-   #
-   if (tup_l[0][0] == tup_j[0][j_pos]):
-      #
-      if (set(tup_l[0]) < set(tup_j[0])):
-         #
-         tup_j[1] -= tup_l[1]
-   #
-   # if the first index of tup_l is greater, then recursively move through tup_j
-   #
-   elif (tup_l[0][0] > tup_j[0][j_pos]):
-      #
-      j_pos += 1
-      #
-      if (len(tup_j[0][j_pos:]) >= len(tup_l[0])): energy_summation_rec(tup_j,tup_l,j_pos)
-   #
-   # default: the first index of tup_l is less in value than the first index of tup_j[j_pos:]
-   #
-   return tup_j, j_pos
-
 
