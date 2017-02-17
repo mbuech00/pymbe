@@ -76,9 +76,7 @@ def energy_summation(molecule,k,tup,energy):
          #
          for l in range(0,len(tup[i-1])):
             #
-            if (set(tup[i-1][l][0]) < set(tup[k-1][j][0])):
-               #
-               tup[k-1][j][1] -= tup[i-1][l][1]
+            energy_summation_rec(tup[k-1][j],tup[i-1][l],0)
    #
    e_tmp = 0.0
    #
@@ -93,4 +91,27 @@ def energy_summation(molecule,k,tup,energy):
    energy.append(e_tmp)
    #
    return energy
+
+def energy_summation_rec(tup_j,tup_l,j_pos):
+   #
+   # does the first index of the lower-order tuple, tup_l, match the first index of the tuple, tup_j[j_pos:] 
+   #
+   if (tup_l[0][0] == tup_j[0][j_pos]):
+      #
+      if (set(tup_l[0]) < set(tup_j[0])):
+         #
+         tup_j[1] -= tup_l[1]
+   #
+   # if the first index of tup_l is greater, then recursively move through tup_j
+   #
+   elif (tup_l[0][0] > tup_j[0][j_pos]):
+      #
+      j_pos += 1
+      #
+      if (len(tup_j[0][j_pos:]) >= len(tup_l[0])): energy_summation_rec(tup_j,tup_l,j_pos)
+   #
+   # default: the first index of tup_l is less in value than the first index of tup_j[j_pos:]
+   #
+   return tup_j, j_pos
+
 
