@@ -5,7 +5,7 @@
 
 from mpi4py import MPI
 
-from bg_mpi_energy import energy_kernel_mono_exp_master
+from bg_mpi_energy import energy_kernel_mono_exp_master, energy_summation_par
 from bg_utilities import run_calc_corr, orb_string 
 from bg_print import print_status
 
@@ -68,35 +68,42 @@ def energy_kernel_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
    #
    return molecule, tup
 
-def energy_summation(molecule,k,tup,energy):
+def energy_summation(molecule,k,tup,energy,level):
    #
-   # compute energy increments at level k
-   #
-   for j in range(0,len(tup[k-1])):
+   if (molecule['mpi_parallel']):
       #
-      for i in range(k-1,0,-1):
+      energy_summation_par(molecule,k,tup,energy,level)
+   #
+   else:
+      #
+      # compute energy increments at level k
+      #
+      for j in range(0,len(tup[k-1])):
          #
-         for l in range(0,len(tup[i-1])):
+         for i in range(k-1,0,-1):
             #
-            # is tup[i-1][l][0] a subset of tup[k-1][j][0]?
-            #
-            if (all(idx in iter(tup[k-1][j][0]) for idx in tup[i-1][l][0])): tup[k-1][j][1] -= tup[i-1][l][1]
-   #
-   e_tmp = 0.0
-   #
-   # sum of energy increment of level k
-   #
-   for j in range(0,len(tup[k-1])):
+            for l in range(0,len(tup[i-1])):
+               #
+               # is tup[i-1][l][0] a subset of tup[k-1][j][0]?
+               #
+               if (all(idx in iter(tup[k-1][j][0]) for idx in tup[i-1][l][0])): tup[k-1][j][1] -= tup[i-1][l][1]
       #
-      e_tmp += tup[k-1][j][1]
-   #
-   # sum of total energy
-   #
-   if (k > 1):
+      e_tmp = 0.0
       #
-      e_tmp += energy[k-2]
+      # sum of energy increment of level k
+      #
+      for j in range(0,len(tup[k-1])):
+         #
+         e_tmp += tup[k-1][j][1]
+      #
+      # sum of total energy
+      #
+      if (k > 1):
+         #
+         e_tmp += energy[k-2]
+      #
+      energy.append(e_tmp)
    #
-   energy.append(e_tmp)
-   #
-   return energy
+   return tup, energy
+
 

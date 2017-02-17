@@ -7,7 +7,7 @@ from mpi4py import MPI
 
 from bg_utilities import run_calc_corr, orb_string 
 from bg_print import print_status 
-from bg_mpi_utilities import enum
+from bg_mpi_utilities import enum, add_tup
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -197,4 +197,86 @@ def energy_kernel_slave(molecule):
    molecule['mpi_time_comm_slave'] += MPI.Wtime()-start_comm
    #
    return molecule
+
+def energy_summation_par(molecule,k,tup,energy,level):
+   #
+   if (molecule['mpi_master']):
+      #
+      # wake up slaves
+      #
+      msg = {'task': 'energy_summation_par'}
+      #
+      molecule['mpi_comm'].bcast(msg,root=0)
+      #
+      # bcast tup[k-1] to slaves
+      #
+      job_info = {'tup': tup[k-1], 'order': k, 'energy': None, 'level': level}
+      #
+      molecule['mpi_comm'].bcast(job_info,root=0)
+      #
+      job_info.clear()
+   #
+   # compute energy increments at level k
+   #
+   for j in range(0,len(tup[k-1])):
+      #
+      if ((j % molecule['mpi_size']) == molecule['mpi_rank']):
+         #
+         for i in range(k-1,0,-1):
+            #
+            for l in range(0,len(tup[i-1])):
+               #
+               # is tup[i-1][l][0] a subset of tup[k-1][j][0]?
+               #
+               if (all(idx in iter(tup[k-1][j][0]) for idx in tup[i-1][l][0])): tup[k-1][j][1] -= tup[i-1][l][1]
+      #
+      else:
+         #
+         tup[k-1][j][1] = 0.0
+   #
+   # define sum operation for dicts
+   #
+   tup_sum_op = MPI.Op.Create(add_tup,commute=True)
+   #
+   # allreduce the results
+   #
+   data = {'tup': tup[k-1]}
+   #
+   data = molecule['mpi_comm'].allreduce(data,op=tup_sum_op)
+   #
+   # update the energy increments
+   #
+   if (level == 'MACRO'):
+      #
+      molecule['prim_tuple'][k-1] = data['tup']
+   #
+   elif (level == 'CORRE'):
+      #
+      molecule['corr_tuple'][k-1] = data['tup']
+   #
+   # let master calculate the total energy
+   #
+   if (molecule['mpi_master']):
+      #
+      e_tmp = 0.0
+      #
+      # sum of energy increment of level k
+      #
+      for j in range(0,len(tup[k-1])):
+         #
+         e_tmp += tup[k-1][j][1]
+      #
+      # sum of total energy
+      #
+      if (k > 1):
+         #
+         e_tmp += energy[k-2]
+      #
+      energy.append(e_tmp)
+   #
+   data.clear()
+   #
+   return tup, energy
+
+
 

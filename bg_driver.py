@@ -145,11 +145,11 @@ def mono_exp_kernel(molecule,k,level):
    #
    if (level == 'MACRO'):
       #
-      energy_summation(molecule,k,tup,molecule['e_tot'])
+      energy_summation(molecule,k,tup,molecule['e_tot'],level)
    #
    elif (level == 'CORRE'):
       #
-      energy_summation(molecule,k,tup,molecule['e_corr'])
+      energy_summation(molecule,k,tup,molecule['e_corr'],level)
    #
    time_final = default_timer() - start
    #
