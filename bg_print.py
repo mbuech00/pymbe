@@ -59,7 +59,7 @@ def print_summary(molecule):
    #
    print('   type of expansion            =  {0:}'.format(molecule['scheme']))
    #
-   print('   bethe-goldstone order        =  {0:}'.format(len(molecule['e_tot'])))
+   print('   bethe-goldstone order        =  {0:}'.format(len(molecule['prim_energy'])))
    #
    print('   prim. exp. threshold         =  {0:5.3f} %'.format(molecule['prim_thres']*100.00))
    #
@@ -108,20 +108,20 @@ def print_summary(molecule):
    print('   ---------------------------------------------')
    print('')
    #
-   print('   final energy (excl. corr.)   =  {0:>12.5e}'.format(molecule['e_tot'][-1]))
-   print('   final energy (incl. corr.)   =  {0:>12.5e}'.format(molecule['e_tot'][-1]+molecule['e_corr'][-1]))
+   print('   final energy (excl. corr.)   =  {0:>12.5e}'.format(molecule['prim_energy'][-1]))
+   print('   final energy (incl. corr.)   =  {0:>12.5e}'.format(molecule['prim_energy'][-1]+molecule['corr_energy'][-1]))
    #
    print('   ---------------------------------------------')
    #
-   print('   final conv. (excl. corr.)    =  {0:>12.5e}'.format(molecule['e_tot'][-1]-molecule['e_tot'][-2]))
-   print('   final conv. (incl. corr.)    =  {0:>12.5e}'.format((molecule['e_tot'][-1]+molecule['e_corr'][-1])-(molecule['e_tot'][-2]+molecule['e_corr'][-2])))
+   print('   final conv. (excl. corr.)    =  {0:>12.5e}'.format(molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
+   print('   final conv. (incl. corr.)    =  {0:>12.5e}'.format((molecule['prim_energy'][-1]+molecule['corr_energy'][-1])-(molecule['prim_energy'][-2]+molecule['corr_energy'][-2])))
    #
    print('   ---------------------------------------------')
    #
    if (molecule['ref'] and (not molecule['error'][-1])):
       #
-      final_diff = molecule['e_ref']-molecule['e_tot'][-1]
-      final_diff_corr = molecule['e_ref']-(molecule['e_tot'][-1]+molecule['e_corr'][-1])
+      final_diff = molecule['e_ref']-molecule['prim_energy'][-1]
+      final_diff_corr = molecule['e_ref']-(molecule['prim_energy'][-1]+molecule['corr_energy'][-1])
       #
       if (abs(final_diff) < 1.0e-10):
          #
@@ -143,7 +143,7 @@ def print_summary(molecule):
    #
    tot_n_tup = []
    #
-   for i in range(0,len(molecule['e_tot'])):
+   for i in range(0,len(molecule['prim_energy'])):
       #
       if (molecule['prim_n_tuples'][i] == molecule['theo_work'][i]):
          #
@@ -157,7 +157,7 @@ def print_summary(molecule):
    print('     BG expansion order  |   # of prim. exp. tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr.  ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
-   for i in range(0,len(molecule['e_tot'])):
+   for i in range(0,len(molecule['prim_energy'])):
       #
       print('          {0:>4d}                     {1:>4.2e}                    {2:>4.2e}                                           {3:>6.2f} %        {4:>6.2f} %'.\
                                                                           format(i+1,molecule['prim_n_tuples'][i],molecule['corr_n_tuples'][i],\
@@ -173,13 +173,13 @@ def print_summary(molecule):
    print('     BG expansion order  |   total prim. exp. energy   |    total energy incl. energy corr.   |    total time    |    total time incl. corr.')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
-   for i in range(0,len(molecule['e_tot'])):
+   for i in range(0,len(molecule['prim_energy'])):
       #
       total_time += molecule['prim_time'][i]
       total_time_corr += molecule['corr_time'][i]
       #
       print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
-                                                                          format(i+1,molecule['e_tot'][i],molecule['e_tot'][i]+molecule['e_corr'][i],\
+                                                                          format(i+1,molecule['prim_energy'][i],molecule['prim_energy'][i]+molecule['corr_energy'][i],\
                                                                                  total_time,total_time+total_time_corr))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
