@@ -18,11 +18,11 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_kernel_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
+def energy_kernel_mono_exp(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level):
    #
    if (molecule['mpi_parallel']):
       #
-      energy_kernel_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level)
+      energy_kernel_mono_exp_master(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level)
    #
    else:
       #
@@ -42,37 +42,35 @@ def energy_kernel_mono_exp(molecule,order,tup,n_tup,l_limit,u_limit,level):
          #
          # write string
          #
-         if ((level == 'MACRO') or ((level == 'CORRE') and (len(tup[order-1][i]) == 1))):
+         counter += 1
+         #
+         orb_string(molecule,l_limit,u_limit,tup[order-1][i],string)
+         #
+         # run correlated calc
+         #
+         run_calc_corr(molecule,string['drop'],level)
+         #
+         # write tuple energy
+         #
+         e_inc[order-1][i] = molecule['e_tmp']
+         #
+         # print status
+         #
+         print_status(float(counter)/float(n_tup[order-1]),level)
+         #
+         # error check
+         #
+         if (molecule['error'][-1]):
             #
-            counter += 1
-            #
-            orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],string)
-            #
-            # run correlated calc
-            #
-            run_calc_corr(molecule,string['drop'],level)
-            #
-            # write tuple energy
-            #
-            tup[order-1][i].append(molecule['e_tmp'])
-            #
-            # print status
-            #
-            print_status(float(counter)/float(n_tup[order-1]),level)
-            #
-            # error check
-            #
-            if (molecule['error'][-1]):
-               #
-               return molecule, tup
+            return molecule, tup, e_inc
    #
-   return molecule, tup
+   return molecule, tup, e_inc
 
-def energy_summation(molecule,k,tup,energy,level):
+def energy_summation(molecule,k,tup,e_inc,energy,level):
    #
    if (molecule['mpi_parallel']):
       #
-      energy_summation_par(molecule,k,tup,energy,level)
+      energy_summation_par(molecule,k,tup,e_inc,energy,level)
    #
    else:
       #
@@ -84,17 +82,11 @@ def energy_summation(molecule,k,tup,energy,level):
             #
             for l in range(0,len(tup[i-1])):
                #
-               # is tup[i-1][l][0] a subset of tup[k-1][j][0]?
+               # is tup[i-1][l] a subset of tup[k-1][j] ?
                #
-               if (all(idx in iter(tup[k-1][j][0]) for idx in tup[i-1][l][0])): tup[k-1][j][1] -= tup[i-1][l][1]
+               if (all(idx in iter(tup[k-1][j]) for idx in tup[i-1][l])): e_inc[k-1][j] -= e_inc[i-1][l]
       #
-      e_tmp = 0.0
-      #
-      # sum of energy increment of level k
-      #
-      for j in range(0,len(tup[k-1])):
-         #
-         e_tmp += tup[k-1][j][1]
+      e_tmp = sum(e_inc[k-1])
       #
       # sum of total energy
       #
@@ -104,6 +96,6 @@ def energy_summation(molecule,k,tup,energy,level):
       #
       energy.append(e_tmp)
    #
-   return tup, energy
+   return e_inc, energy
 
 

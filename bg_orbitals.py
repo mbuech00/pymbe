@@ -40,7 +40,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
             #
             # all singles contributions 
             #
-            tup[k-1].append([[(i+l_limit)+1]])
+            tup[k-1].append([(i+l_limit)+1])
       #
       elif (k == 2):
          #
@@ -50,7 +50,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
          #
          for i in range(0,len(tmp)):
             #
-            tup[k-1].append([tmp[i]])
+            tup[k-1].append(tmp[i])
          #
          del tmp
       #
@@ -60,7 +60,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
             #
             # generate subset of all pairs within the parent tuple
             #
-            tmp = list(list(comb) for comb in combinations(tup[k-2][i][0],2))
+            tmp = list(list(comb) for comb in combinations(tup[k-2][i],2))
             #
             mask = True
             #
@@ -78,11 +78,11 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
                #
                # loop through possible orbitals to augment the parent tuple with
                #
-               for m in range(tup[k-2][i][0][-1]+1,(l_limit+u_limit)+1):
+               for m in range(tup[k-2][i][-1]+1,(l_limit+u_limit)+1):
                   #
                   mask2 = True
                   #
-                  for l in tup[k-2][i][0]:
+                  for l in tup[k-2][i]:
                      #
                      # is the new child tuple allowed?
                      #
@@ -96,9 +96,9 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
                      #
                      # append the child tuple to the tup list
                      #
-                     tup[k-1].append([deepcopy(tup[k-2][i][0])])
+                     tup[k-1].append(deepcopy(tup[k-2][i]))
                      #
-                     tup[k-1][-1][0].append(m)
+                     tup[k-1][-1].append(m)
          #
          del tmp
    #
@@ -149,6 +149,7 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
    if (level == 'MACRO'):
       #
       tup = molecule['prim_tuple']
+      e_inc = molecule['prim_energy_inc']
       orb = molecule['prim_orb_ent']
       orb_arr = molecule['prim_orb_arr']
       orb_con_abs = molecule['prim_orb_con_abs']
@@ -157,6 +158,7 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple']
+      e_inc = molecule['corr_energy_inc']
       orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
       orb_con_abs = molecule['corr_orb_con_abs']
@@ -169,11 +171,7 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
       orb_con_abs.append([])
       orb_con_rel.append([])
       #
-      e_sum = 0.0
-      #
-      for i in range(0,len(tup[-1])):
-         #
-         e_sum += tup[-1][i][1]
+      e_sum = sum(e_inc[-1])
       #
       if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'])):
          #
@@ -183,9 +181,9 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
             #
             orb_con_rel[-1].append(0.0)
       #
-      for i in range(0,len(tup[-1])):
+      for i in range(0,len(e_inc[-1])):
          #
-         orb_con_abs[-1].append(tup[-1][i][1])
+         orb_con_abs[-1].append(e_inc[-1][i])
          #
          orb_con_rel[-1].append(orb_con_abs[-1][-1]/e_sum)
    #
@@ -212,11 +210,11 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
                #
                # add up contributions from the correlation between orbs i and j at current order
                #
-               for l in range(0,len(tup[-1])):
+               for l in range(0,len(e_inc[-1])):
                   #
-                  if ((set([i+1]) <= set(tup[-1][l][0])) and (set([j+1]) <= set(tup[-1][l][0]))):
+                  if ((set([i+1]) <= set(tup[-1][l])) and (set([j+1]) <= set(tup[-1][l]))):
                      #
-                     e_abs += tup[-1][l][1] 
+                     e_abs += e_inc[-1][l] 
             #
             # write to orb list
             #
@@ -322,7 +320,7 @@ def select_corr_tuples(prim_tup,corr_tup,k):
       #
       for j in range(0,len(prim_tup[k-1])):
          #
-         if (set(corr_tup[k-1][i][0]) <= set(prim_tup[k-1][j][0])):
+         if (set(corr_tup[k-1][i]) <= set(prim_tup[k-1][j])):
             #
             found = True
             #

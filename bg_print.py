@@ -275,7 +275,7 @@ def print_status_end(molecule,order,level):
    #
    return
 
-def print_result(tup,level):
+def print_result(tup,e_inc,level):
    #
    print(' --------------------------------------------------------------------------------------------')
    print(' RESULT-{0:}:     tuple    |    energy incr.   |    corr. orbs.'.format(level))
@@ -283,32 +283,7 @@ def print_result(tup,level):
    #
    for i in range(0,len(tup)):
       #
-      print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,tup[i][1],tup[i][0]))
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
-def print_inner_result(molecule):
-   #
-   rel_work_in = []
-   #
-   for m in range(0,len(molecule['rel_work_in'])):
-      #
-      rel_work_in.append([])
-      #
-      for n in range(0,len(molecule['rel_work_in'][m])):
-         #
-         rel_work_in[m].append('{0:.2f}'.format(molecule['rel_work_in'][m][n]))
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   print(' RESULT-MICRO:     tuple    |   abs. energy diff.   |    relat. no. tuples (in %)')
-   print(' --------------------------------------------------------------------------------------------')
-   #
-   for i in range(0,molecule['n_tuples'][-1]):
-      #
-      print(' RESULT-MICRO:  {0:>6d}            {1:> 8.4e}            '.\
-                       format(i+1,molecule['e_diff_in'][i])+'[{0!s:<}]'.format(', '.join(str(idx) for idx in rel_work_in[i])))
+      print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,e_inc[i],tup[i]))
    #
    print(' --------------------------------------------------------------------------------------------')
    #

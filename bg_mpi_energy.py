@@ -18,7 +18,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_kernel_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level):
+def energy_kernel_mono_exp_master(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level):
    #
    #  ---  master routine
    #
@@ -56,7 +56,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level
       #
       # write string
       #
-      if (i <= (n_tup[order-1]-1)): orb_string(molecule,l_limit,u_limit,tup[order-1][i][0],job_info)
+      if (i <= (n_tup[order-1]-1)): orb_string(molecule,l_limit,u_limit,tup[order-1][i],job_info)
       #
       # receive data dict
       #
@@ -94,7 +94,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level
          #
          # write tuple energy
          #
-         tup[order-1][data['index']].append(data['e_tmp'])
+         e_inc[order-1][data['index']] = data['e_tmp']
          #
          # increment stat counter
          #
@@ -112,13 +112,13 @@ def energy_kernel_mono_exp_master(molecule,order,tup,n_tup,l_limit,u_limit,level
             #
             molecule['error'].append(True)
             #
-            return molecule, tup
+            return molecule, tup, e_inc
       #
       elif (tag == tags.exit):
          #
          slaves_avail -= 1
    #
-   return molecule, tup
+   return molecule, tup, e_inc
 
 def energy_kernel_slave(molecule):
    #
@@ -198,7 +198,7 @@ def energy_kernel_slave(molecule):
    #
    return molecule
 
-def energy_summation_par(molecule,k,tup,energy,level):
+def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
    if (molecule['mpi_master']):
       #
@@ -210,7 +210,7 @@ def energy_summation_par(molecule,k,tup,energy,level):
       #
       # bcast tup[k-1] to slaves
       #
-      job_info = {'tup': tup[k-1], 'order': k, 'energy': None, 'level': level}
+      job_info = {'tup': tup[k-1], 'e_inc': e_inc[k-1], 'order': k, 'energy': None, 'level': level}
       #
       molecule['mpi_comm'].bcast(job_info,root=0)
       #
@@ -226,13 +226,13 @@ def energy_summation_par(molecule,k,tup,energy,level):
             #
             for l in range(0,len(tup[i-1])):
                #
-               # is tup[i-1][l][0] a subset of tup[k-1][j][0]?
+               # is tup[i-1][l] a subset of tup[k-1][j] ?
                #
-               if (all(idx in iter(tup[k-1][j][0]) for idx in tup[i-1][l][0])): tup[k-1][j][1] -= tup[i-1][l][1]
+               if (all(idx in iter(tup[k-1][j]) for idx in tup[i-1][l])): e_inc[k-1][j] -= e_inc[i-1][l]
       #
       else:
          #
-         tup[k-1][j][1] = 0.0
+         e_inc[k-1][j] = 0.0
    #
    # define sum operation for dicts
    #
@@ -240,7 +240,7 @@ def energy_summation_par(molecule,k,tup,energy,level):
    #
    # allreduce the results
    #
-   data = {'tup': tup[k-1]}
+   data = {'tup': tup[k-1], 'e_inc': e_inc[k-1]}
    #
    data = molecule['mpi_comm'].allreduce(data,op=tup_sum_op)
    #
@@ -249,22 +249,20 @@ def energy_summation_par(molecule,k,tup,energy,level):
    if (level == 'MACRO'):
       #
       molecule['prim_tuple'][k-1] = data['tup']
+      molecule['prim_energy_inc'][k-1] = data['e_inc']
    #
    elif (level == 'CORRE'):
       #
       molecule['corr_tuple'][k-1] = data['tup']
+      molecule['corr_energy_inc'][k-1] = data['e_inc']
    #
    # let master calculate the total energy
    #
    if (molecule['mpi_master']):
       #
-      e_tmp = 0.0
-      #
       # sum of energy increment of level k
       #
-      for j in range(0,len(tup[k-1])):
-         #
-         e_tmp += tup[k-1][j][1]
+      e_tmp = sum(e_inc[k-1])
       #
       # sum of total energy
       #
@@ -276,7 +274,7 @@ def energy_summation_par(molecule,k,tup,energy,level):
    #
    data.clear()
    #
-   return tup, energy
+   return e_inc, energy
 
 
 

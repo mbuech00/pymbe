@@ -107,12 +107,16 @@ def mono_exp_kernel(molecule,k,level):
       #
       tup = molecule['prim_tuple']
       n_tup = molecule['prim_n_tuples']
+      e_inc = molecule['prim_energy_inc']
+      e_tot = molecule['prim_energy']
       time = molecule['prim_time']
    #
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple']
       n_tup = molecule['corr_n_tuples']
+      e_inc = molecule['corr_energy_inc']
+      e_tot = molecule['corr_energy']
       time = molecule['corr_time']
    #
    print_status_header(n_tup[k-1],k,molecule['conv'][-1],level)
@@ -127,7 +131,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # run the calculations
    #
-   energy_kernel_mono_exp(molecule,k,tup,n_tup,molecule['l_limit'],molecule['u_limit'],level)
+   energy_kernel_mono_exp(molecule,k,tup,n_tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
    #
    # collect time
    #
@@ -143,13 +147,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # calculate the energy at order k
    #
-   if (level == 'MACRO'):
-      #
-      energy_summation(molecule,k,tup,molecule['prim_energy'],level)
-   #
-   elif (level == 'CORRE'):
-      #
-      energy_summation(molecule,k,tup,molecule['corr_energy'],level)
+   energy_summation(molecule,k,tup,e_inc,e_tot,level)
    #
    time_final = default_timer() - start
    #
@@ -157,7 +155,7 @@ def mono_exp_kernel(molecule,k,level):
    # 
    # print results
    #
-   print_result(tup[-1],level)
+   print_result(tup[k-1],e_inc[k-1],level)
    #
    # merge tuples from primary exp. into molecule['corr_tuple']
    #
@@ -166,12 +164,14 @@ def mono_exp_kernel(molecule,k,level):
       for i in range(0,len(molecule['prim_tuple'][k-1])):
          #
          tup[k-1].append(molecule['prim_tuple'][k-1][i])
+         e_inc[k-1][len(tup[k-1])-1] = molecule['prim_energy_inc'][k-1][i]
    #
    # check for convergence
    #
    if ((k == n_tup[0]) or (k == molecule['max_order'])):
       #
       tup.append([])
+      e_inc.append([])
       #
       molecule['conv'].append(True)
    #
@@ -182,16 +182,18 @@ def mono_exp_init(molecule,k,level):
    if (level == 'MACRO'):
       #
       tup = molecule['prim_tuple']
-      dom = molecule['prim_domain']
       n_tup = molecule['prim_n_tuples']
+      e_inc = molecule['prim_energy_inc']
+      dom = molecule['prim_domain']
       orb = molecule['prim_orb_ent']
       thres = molecule['prim_thres']
    #
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple']
-      dom = molecule['corr_domain']
       n_tup = molecule['corr_n_tuples']
+      e_inc = molecule['corr_energy_inc']
+      dom = molecule['corr_domain']
       orb = molecule['corr_orb_ent']
       thres = molecule['corr_thres']
    #
@@ -242,6 +244,16 @@ def mono_exp_init(molecule,k,level):
    # print init end
    #
    print_init_end(k,time_init,level)
+   #
+   # init e_inc list
+   #
+   if (level == 'MACRO'):
+      #
+      e_inc.append([0.0]*len(tup[k-1]))
+   #
+   else:
+      #
+      e_inc.append([0.0]*(len(tup[k-1])+len(molecule['prim_tuple'][k-1])))
    #
    # if converged, pop last element of tup list and append to n_tup list
    #
@@ -366,6 +378,9 @@ def prepare_calc(molecule):
    molecule['prim_n_tuples'] = []
    molecule['corr_n_tuples'] = []
    #
+   molecule['prim_energy_inc'] = []
+   molecule['corr_energy_inc'] = []
+   #
    molecule['prim_orb_ent'] = []
    molecule['corr_orb_ent'] = []
    #
@@ -469,6 +484,7 @@ def mono_exp_merge_info(molecule):
    for k in range(1,molecule['min_corr_order']):
       #
       molecule['corr_tuple'].append(molecule['prim_tuple'][k-1])
+      molecule['corr_energy_inc'].append(molecule['prim_energy_inc'][k-1])
    #
    for k in range(1,molecule['min_corr_order']-1):
       #
