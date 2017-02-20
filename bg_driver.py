@@ -3,15 +3,16 @@
 
 """ bg_driver.py: driver routines for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from copy import deepcopy
 from timeit import default_timer
 
-from bg_utilities import run_calc_corr, orb_string, n_theo_tuples
+from bg_utilities import run_calc_corr, n_theo_tuples
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
-                        orb_screening, orb_entanglement, orb_exclusion, select_corr_tuples
+                        orb_screening, orb_entanglement, orb_exclusion
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -93,7 +94,7 @@ def mono_exp_drv(molecule,start,end,level):
          #
          if (level == 'CORRE'):
             #
-            orb_entanglement(molecule,molecule['l_limit'],molecule['u_limit'],level)
+            orb_entanglement(molecule,molecule['l_limit'],molecule['u_limit'],k,level)
          #
          break
    #
@@ -107,12 +108,16 @@ def mono_exp_kernel(molecule,k,level):
       #
       tup = molecule['prim_tuple']
       n_tup = molecule['prim_n_tuples']
+      e_inc = molecule['prim_energy_inc']
+      e_tot = molecule['prim_energy']
       time = molecule['prim_time']
    #
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple']
       n_tup = molecule['corr_n_tuples']
+      e_inc = molecule['corr_energy_inc']
+      e_tot = molecule['corr_energy']
       time = molecule['corr_time']
    #
    print_status_header(n_tup[k-1],k,molecule['conv'][-1],level)
@@ -127,7 +132,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # run the calculations
    #
-   energy_kernel_mono_exp(molecule,k,tup,n_tup,molecule['l_limit'],molecule['u_limit'],level)
+   energy_kernel_mono_exp(molecule,k,tup,n_tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
    #
    # collect time
    #
@@ -143,13 +148,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # calculate the energy at order k
    #
-   if (level == 'MACRO'):
-      #
-      energy_summation(molecule,k,tup,molecule['e_tot'],level)
-   #
-   elif (level == 'CORRE'):
-      #
-      energy_summation(molecule,k,tup,molecule['e_corr'],level)
+   energy_summation(molecule,k,tup,e_inc,e_tot,level)
    #
    time_final = default_timer() - start
    #
@@ -157,240 +156,36 @@ def mono_exp_kernel(molecule,k,level):
    # 
    # print results
    #
-   print_result(tup[-1],level)
-   #
-   # merge tuples from primary exp. into molecule['corr_tuple']
-   #
-   if (level == 'CORRE'):
-      #
-      for i in range(0,len(molecule['prim_tuple'][k-1])):
-         #
-         tup[k-1].append(molecule['prim_tuple'][k-1][i])
+   print_result(tup[k-1],e_inc[k-1],level)
    #
    # check for convergence
    #
    if ((k == n_tup[0]) or (k == molecule['max_order'])):
       #
-      tup.append([])
+      tup.append(np.array([],dtype=np.int))
+      e_inc.append(np.array([],dtype=np.int))
       #
       molecule['conv'].append(True)
    #
    return molecule
-
-#def dual_exp_drv(molecule):
-#   #
-#   for k in range(1,molecule['u_limit'][0]+1):
-#      #
-#      # append tuple list and generate all tuples at order k
-#      #
-#      molecule['tuple'][0].append([])
-#      #
-#      orb_generator(molecule,molecule['domain'][0],molecule['tuple'][0],molecule['l_limit'][0],molecule['u_limit'][0],k)
-#      #
-#      # determine number of tuples at order k
-#      #
-#      molecule['n_tuples'][0].append(len(molecule['tuple'][0][k-1]))
-#      #
-#      # print status header (for outer expansion)
-#      #
-#      print_status_header(molecule,molecule['n_tuples'][0],k)
-#      #
-#      # check for convergence (for outer expansion)
-#      #
-#      if (molecule['n_tuples'][0][k-1] == 0):
-#         #
-#         return molecule
-#      #
-#      # init time, energy diff, and relative work (for inner expansion)
-#      #
-#      molecule['time'][1][:] = []
-#      #
-#      molecule['e_diff_in'][:] = []
-#      #
-#      molecule['rel_work_in'][:] = []
-#      #
-#      # start time (for outer expansion)
-#      #
-#      start_out = default_timer()
-#      #
-#      # print result header (for outer expansion)
-#      #
-##      print_result_header()
-#      #
-#      # run the calculations (for outer expansion)
-#      #
-#      for i in range(0,molecule['n_tuples'][0][k-1]):
-#         #
-#         molecule['e_tot'][1][:] = []
-#         #
-#         molecule['tuple'][1][:] = []
-#         #
-#         molecule['n_tuples'][1][:] = []
-#         #
-#         molecule['theo_work'][1][:] = []
-#         #
-#         # re-initialize the inner domain
-#         #
-##         reinit_domains(molecule,molecule['domain'][1])
-#         #
-#         # start time (for inner expansion)
-#         #
-#         start_in = default_timer()
-#         #
-#         for l in range(1,molecule['u_limit'][1]+1):
-#            #
-#            # append tuple list and generate all tuples at order l
-#            #
-#            molecule['tuple'][1].append([])
-#            #
-#            orb_generator(molecule,molecule['domain'][1],molecule['tuple'][1],molecule['l_limit'][1],molecule['u_limit'][1],l)
-#            #
-#            # determine number of tuples at order l
-#            #
-#            molecule['n_tuples'][1].append(len(molecule['tuple'][1][l-1]))
-#            #
-#            # check for convergence (for inner expansion)
-#            #
-#            if (molecule['n_tuples'][1][l-1] == 0):
-#               #
-#               molecule['tuple'][0][k-1][i].append(molecule['e_tot'][1][-1])
-#               #
-#               print_result(i,molecule['tuple'][0][k-1][i])
-#               #
-#               molecule['n_tuples'][1].pop()
-#               #
-#               break
-#            # 
-#            # run the calculations (for inner expansion)
-#            #
-#            string = ''
-#            #
-#            for j in range(0,molecule['n_tuples'][1][l-1]):
-#               #
-#               # write string
-#               #
-#               if (molecule['exp'] == 'comb-ov'):
-#                  #
-#                  orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][0][k-1][i][0]+molecule['tuple'][1][l-1][j][0],string)
-#               #
-#               elif (molecule['exp'] == 'comb-vo'):
-#                  #
-#                  orb_string(molecule,0,molecule['nocc']+molecule['nvirt'],molecule['tuple'][1][l-1][j][0]+molecule['tuple'][0][k-1][i][0],string)
-#               #
-#               # run correlated calc
-#               #
-#               run_calc_corr(molecule,string,False)
-#               #
-#               # write tuple energy
-#               #
-#               molecule['tuple'][1][l-1][j].append(molecule['e_tmp'])
-#               #
-#               # error check
-#               #
-#               if (molecule['error'][0][-1]):
-#                  #
-#                  return molecule
-#            #
-#            # calculate the energy at order l (for inner expansion)
-#            #
-#            bg_order(molecule,l,molecule['tuple'][1],molecule['e_tot'][1])
-#            #
-#            # set up entanglement and exclusion lists (for inner expansion)
-#            #
-#            if (l >= 2):
-#               #
-#               molecule['sec_orb_ent'][1].append([])
-#               #
-#               e_orb_rout(molecule,molecule['tuple'][1],molecule['sec_orb_ent'][1],molecule['l_limit'][1],molecule['u_limit'][1])
-#               #
-#               molecule['excl_list'][1][:] = []
-#               #
-#               orb_exclusion(molecule,molecule['tuple'][1],molecule['sec_orb_ent'][1],molecule['corr_thres'],molecule['excl_list'][1])
-#               #
-#               # update domains (for inner expansion)
-#               #
-#               update_domains(molecule['domain'][1],molecule['l_limit'][1],molecule['excl_list'][1])
-#            #
-#            # calculate theoretical number of tuples at order l (for inner expansion)
-#            #
-#            n_theo_tuples(molecule['n_tuples'][1][0],l,molecule['theo_work'][1])
-#            #
-#            # check for maximum order (for inner expansion)
-#            #
-#            if (l == molecule['u_limit'][1]):
-#               #
-#               molecule['tuple'][0][k-1][i].append(molecule['e_tot'][1][-1])
-#               #
-#               print_result(i,molecule['tuple'][0][k-1][i])
-#               #
-#               break
-#         #
-#         # collect time, energy diff, and relative work (for inner expansion)
-#         #
-#         molecule['time'][1].append(default_timer()-start_in)
-#         #
-#         molecule['e_diff_in'].append(molecule['e_tot'][1][-1]-molecule['e_tot'][1][-2])
-#         #
-#         molecule['rel_work_in'].append([])
-#         #
-#         for m in range(0,len(molecule['n_tuples'][1])):
-#            #
-#            molecule['rel_work_in'][-1].append((float(molecule['n_tuples'][1][m])/float(molecule['theo_work'][1][m]))*100.00)
-#            #
-#      #
-#      # print result end (for outer expansion)
-#      #
-##      print_result_end()
-#      #
-#      # calculate the energy at order k (for outer expansion)
-#      #
-#      bg_order(molecule,k,molecule['tuple'][0],molecule['e_tot'][0])
-#      #
-#      # set up entanglement and exclusion lists (for outer expansion)
-#      #
-#      if (k >= 2):
-#         #
-#         molecule['prim_orb_ent'][0].append([])
-#         #
-#         e_orb_rout(molecule,molecule['tuple'][0],molecule['prim_orb_ent'][0],molecule['l_limit'][0],molecule['u_limit'][0])
-#         #
-#         molecule['excl_list'][0][:] = []
-#         #
-#         orb_exclusion(molecule,molecule['tuple'][0],molecule['prim_orb_ent'][0],molecule['prim_thres'],molecule['excl_list'][0])
-#         #
-#         # update domains (for outer expansion)
-#         #
-#         update_domains(molecule['domain'][0],molecule['l_limit'][0],molecule['excl_list'][0])
-#      #
-#      # calculate theoretical number of tuples at order k (for outer expansion)
-#      #
-#      n_theo_tuples(molecule['n_tuples'][0][0],k,molecule['theo_work'][0])
-#      #
-#      # collect time (for outer expansion)
-#      #
-#      molecule['time'][0].append(default_timer()-start_out)
-#      #
-#      # print status end (for outer expansion)
-#      #
-#      print_status_end(molecule,k,molecule['time'][0],molecule['n_tuples'][0])
-#   #
-#   return molecule
 
 def mono_exp_init(molecule,k,level):
    #
    if (level == 'MACRO'):
       #
       tup = molecule['prim_tuple']
-      dom = molecule['prim_domain']
       n_tup = molecule['prim_n_tuples']
+      e_inc = molecule['prim_energy_inc']
+      dom = molecule['prim_domain']
       orb = molecule['prim_orb_ent']
       thres = molecule['prim_thres']
    #
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple']
-      dom = molecule['corr_domain']
       n_tup = molecule['corr_n_tuples']
+      e_inc = molecule['corr_energy_inc']
+      dom = molecule['corr_domain']
       orb = molecule['corr_orb_ent']
       thres = molecule['corr_thres']
    #
@@ -410,13 +205,7 @@ def mono_exp_init(molecule,k,level):
    #
    # generate all tuples at order k
    #
-   tup.append([])
-   #
-   orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k)
-   #
-   if (level == 'CORRE'):
-      #
-      select_corr_tuples(molecule['prim_tuple'],tup,k)
+   orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
    #
    # collect time_init
    #
@@ -442,6 +231,10 @@ def mono_exp_init(molecule,k,level):
    #
    print_init_end(k,time_init,level)
    #
+   # init e_inc list
+   #
+   e_inc.append(np.empty(len(tup[k-1]),dtype=np.float64))
+   #
    # if converged, pop last element of tup list and append to n_tup list
    #
    if ((level == 'MACRO') and molecule['conv'][-1]):
@@ -458,11 +251,11 @@ def mono_exp_init(molecule,k,level):
 
 def mono_exp_finish(molecule):
    #
-   # make the e_corr and corr_time lists of the same length as the e_tot list
+   # make the corr_energy and corr_time lists of the same length as the prim_energy list
    #
-   for _ in range(molecule['max_corr_order'],len(molecule['e_tot'])):
+   for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])):
       #
-      molecule['e_corr'].append(molecule['e_corr'][-1])
+      molecule['corr_energy'].append(molecule['corr_energy'][-1])
       #
       molecule['corr_time'].append(0.0)
    #
@@ -565,6 +358,9 @@ def prepare_calc(molecule):
    molecule['prim_n_tuples'] = []
    molecule['corr_n_tuples'] = []
    #
+   molecule['prim_energy_inc'] = []
+   molecule['corr_energy_inc'] = []
+   #
    molecule['prim_orb_ent'] = []
    molecule['corr_orb_ent'] = []
    #
@@ -576,9 +372,9 @@ def prepare_calc(molecule):
    molecule['corr_orb_con_abs'] = []
    molecule['corr_orb_con_rel'] = []
    #
-   molecule['e_tot'] = []
+   molecule['prim_energy'] = []
    #
-   molecule['e_corr'] = []
+   molecule['corr_energy'] = []
    #
    molecule['excl_list'] = []
    #
@@ -597,11 +393,11 @@ def set_corr_order(molecule):
       #
       molecule['max_corr_order'] = 0
       #
-      for _ in range(0,len(molecule['e_tot'])):
+      for _ in range(0,len(molecule['prim_energy'])):
          #
          molecule['corr_n_tuples'].append(0)
          #
-         molecule['e_corr'].append(0.0)
+         molecule['corr_energy'].append(0.0)
          #
          molecule['corr_time'].append(0.0)
       #
@@ -627,9 +423,9 @@ def set_corr_order(molecule):
       #
       molecule['corr_order'] = 0
       #
-      for _ in range(0,len(molecule['e_tot'])):
+      for _ in range(0,len(molecule['prim_energy'])):
          #
-         molecule['e_corr'].append(0.0)
+         molecule['corr_energy'].append(0.0)
          #
          molecule['corr_time'].append(0.0)
       #
@@ -657,7 +453,7 @@ def set_corr_order(molecule):
       #
       molecule['corr_n_tuples'].append(0)
       #
-      molecule['e_corr'].append(0.0)
+      molecule['corr_energy'].append(0.0)
       #
       molecule['corr_time'].append(0.0)
    #
@@ -667,7 +463,8 @@ def mono_exp_merge_info(molecule):
    #
    for k in range(1,molecule['min_corr_order']):
       #
-      molecule['corr_tuple'].append(molecule['prim_tuple'][k-1])
+      molecule['corr_tuple'].append(np.array([],dtype=np.int))
+      molecule['corr_energy_inc'].append(np.array([],dtype=np.int))
    #
    for k in range(1,molecule['min_corr_order']-1):
       #

@@ -59,7 +59,7 @@ def print_summary(molecule):
    #
    print('   type of expansion            =  {0:}'.format(molecule['scheme']))
    #
-   print('   bethe-goldstone order        =  {0:}'.format(len(molecule['e_tot'])))
+   print('   bethe-goldstone order        =  {0:}'.format(len(molecule['prim_energy'])))
    #
    print('   prim. exp. threshold         =  {0:5.3f} %'.format(molecule['prim_thres']*100.00))
    #
@@ -108,20 +108,20 @@ def print_summary(molecule):
    print('   ---------------------------------------------')
    print('')
    #
-   print('   final energy (excl. corr.)   =  {0:>12.5e}'.format(molecule['e_tot'][-1]))
-   print('   final energy (incl. corr.)   =  {0:>12.5e}'.format(molecule['e_tot'][-1]+molecule['e_corr'][-1]))
+   print('   final energy (excl. corr.)   =  {0:>12.5e}'.format(molecule['prim_energy'][-1]))
+   print('   final energy (incl. corr.)   =  {0:>12.5e}'.format(molecule['prim_energy'][-1]+molecule['corr_energy'][-1]))
    #
    print('   ---------------------------------------------')
    #
-   print('   final conv. (excl. corr.)    =  {0:>12.5e}'.format(molecule['e_tot'][-1]-molecule['e_tot'][-2]))
-   print('   final conv. (incl. corr.)    =  {0:>12.5e}'.format((molecule['e_tot'][-1]+molecule['e_corr'][-1])-(molecule['e_tot'][-2]+molecule['e_corr'][-2])))
+   print('   final conv. (excl. corr.)    =  {0:>12.5e}'.format(molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
+   print('   final conv. (incl. corr.)    =  {0:>12.5e}'.format((molecule['prim_energy'][-1]+molecule['corr_energy'][-1])-(molecule['prim_energy'][-2]+molecule['corr_energy'][-2])))
    #
    print('   ---------------------------------------------')
    #
    if (molecule['ref'] and (not molecule['error'][-1])):
       #
-      final_diff = molecule['e_ref']-molecule['e_tot'][-1]
-      final_diff_corr = molecule['e_ref']-(molecule['e_tot'][-1]+molecule['e_corr'][-1])
+      final_diff = molecule['e_ref']-molecule['prim_energy'][-1]
+      final_diff_corr = molecule['e_ref']-(molecule['prim_energy'][-1]+molecule['corr_energy'][-1])
       #
       if (abs(final_diff) < 1.0e-10):
          #
@@ -143,7 +143,7 @@ def print_summary(molecule):
    #
    tot_n_tup = []
    #
-   for i in range(0,len(molecule['e_tot'])):
+   for i in range(0,len(molecule['prim_energy'])):
       #
       if (molecule['prim_n_tuples'][i] == molecule['theo_work'][i]):
          #
@@ -157,7 +157,7 @@ def print_summary(molecule):
    print('     BG expansion order  |   # of prim. exp. tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr.  ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
-   for i in range(0,len(molecule['e_tot'])):
+   for i in range(0,len(molecule['prim_energy'])):
       #
       print('          {0:>4d}                     {1:>4.2e}                    {2:>4.2e}                                           {3:>6.2f} %        {4:>6.2f} %'.\
                                                                           format(i+1,molecule['prim_n_tuples'][i],molecule['corr_n_tuples'][i],\
@@ -173,13 +173,13 @@ def print_summary(molecule):
    print('     BG expansion order  |   total prim. exp. energy   |    total energy incl. energy corr.   |    total time    |    total time incl. corr.')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
-   for i in range(0,len(molecule['e_tot'])):
+   for i in range(0,len(molecule['prim_energy'])):
       #
       total_time += molecule['prim_time'][i]
       total_time_corr += molecule['corr_time'][i]
       #
       print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
-                                                                          format(i+1,molecule['e_tot'][i],molecule['e_tot'][i]+molecule['e_corr'][i],\
+                                                                          format(i+1,molecule['prim_energy'][i],molecule['prim_energy'][i]+molecule['corr_energy'][i],\
                                                                                  total_time,total_time+total_time_corr))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
@@ -275,7 +275,7 @@ def print_status_end(molecule,order,level):
    #
    return
 
-def print_result(tup,level):
+def print_result(tup,e_inc,level):
    #
    print(' --------------------------------------------------------------------------------------------')
    print(' RESULT-{0:}:     tuple    |    energy incr.   |    corr. orbs.'.format(level))
@@ -283,32 +283,7 @@ def print_result(tup,level):
    #
    for i in range(0,len(tup)):
       #
-      print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,tup[i][1],tup[i][0]))
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
-def print_inner_result(molecule):
-   #
-   rel_work_in = []
-   #
-   for m in range(0,len(molecule['rel_work_in'])):
-      #
-      rel_work_in.append([])
-      #
-      for n in range(0,len(molecule['rel_work_in'][m])):
-         #
-         rel_work_in[m].append('{0:.2f}'.format(molecule['rel_work_in'][m][n]))
-   #
-   print(' --------------------------------------------------------------------------------------------')
-   print(' RESULT-MICRO:     tuple    |   abs. energy diff.   |    relat. no. tuples (in %)')
-   print(' --------------------------------------------------------------------------------------------')
-   #
-   for i in range(0,molecule['n_tuples'][-1]):
-      #
-      print(' RESULT-MICRO:  {0:>6d}            {1:> 8.4e}            '.\
-                       format(i+1,molecule['e_diff_in'][i])+'[{0!s:<}]'.format(', '.join(str(idx) for idx in rel_work_in[i])))
+      print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,e_inc[i],tup[i].tolist()))
    #
    print(' --------------------------------------------------------------------------------------------')
    #

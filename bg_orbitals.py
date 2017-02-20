@@ -3,6 +3,7 @@
 
 """ bg_orbitals.py: orbital-related routines for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from itertools import combinations 
 from copy import deepcopy
 
@@ -18,7 +19,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
+def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    if (molecule['mpi_parallel'] and (k >= 3)):
       #
@@ -36,11 +37,15 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
       #
       if (k == 1):
          #
+         # all singles contributions 
+         #
+         tmp = []
+         #
          for i in range(start,len(dom)):
             #
-            # all singles contributions 
-            #
-            tup[k-1].append([[(i+l_limit)+1]])
+            tmp.append([(i+l_limit)+1])
+         #
+         tup.append(np.array(tmp,dtype=np.int))
       #
       elif (k == 2):
          #
@@ -48,19 +53,31 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
          #
          tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
          #
-         for i in range(0,len(tmp)):
-            #
-            tup[k-1].append([tmp[i]])
-         #
-         del tmp
+         tup.append(np.array(tmp,dtype=np.int))
       #
       else:
          #
-         for i in range(0,len(tup[k-2])):
+         tmp_2 = []
+         #
+         if (level == 'MACRO'):
+            #
+            parent_tup = tup[k-2]
+         #
+         elif (level == 'CORRE'):
+            #
+            if (k == molecule['min_corr_order']):
+               #
+               parent_tup = molecule['prim_tuple'][k-2]
+            #
+            else:
+               #
+               parent_tup = np.vstack((tup[k-2],molecule['prim_tuple'][k-2]))
+         #
+         for i in range(0,len(parent_tup)):
             #
             # generate subset of all pairs within the parent tuple
             #
-            tmp = list(list(comb) for comb in combinations(tup[k-2][i][0],2))
+            tmp = list(list(comb) for comb in combinations(parent_tup[i],2))
             #
             mask = True
             #
@@ -78,29 +95,41 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k):
                #
                # loop through possible orbitals to augment the parent tuple with
                #
-               for m in range(tup[k-2][i][0][-1]+1,(l_limit+u_limit)+1):
+               for m in range(parent_tup[i][-1]+1,(l_limit+u_limit)+1):
                   #
-                  mask2 = True
+                  mask_2 = True
                   #
-                  for l in tup[k-2][i][0]:
+                  for l in parent_tup[i]:
                      #
                      # is the new child tuple allowed?
                      #
                      if (not (set([m]) < set(dom[(l-l_limit)-1]))):
                         #
-                        mask2 = False
+                        mask_2 = False
                         #
                         break
                   #
-                  if (mask2):
+                  if (mask_2):
                      #
                      # append the child tuple to the tup list
                      #
-                     tup[k-1].append([deepcopy(tup[k-2][i][0])])
+                     tmp_2.append(list(deepcopy(parent_tup[i])))
                      #
-                     tup[k-1][-1][0].append(m)
+                     tmp_2[-1].append(m)
+                     #
+                     # check whether this tuple has already been accounted for in the primary expansion
+                     #
+                     if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
+                        #
+                        tmp_2.pop(-1)
          #
-         del tmp
+         tup.append(np.array(tmp_2,dtype=np.int))
+         #
+         del tmp_2
+         #
+         if ((level == 'CORRE') and (k > molecule['min_corr_order'])): del parent_tup
+   #
+   del tmp
    #
    return tup
 
@@ -110,7 +139,7 @@ def orb_screening(molecule,order,l_limit,u_limit,level):
       #
       # add singles contributions to orb_con list
       #
-      orb_entanglement(molecule,l_limit,u_limit,level,True)
+      orb_entanglement(molecule,l_limit,u_limit,order,level,True)
       #
       # print orb info
       #
@@ -124,7 +153,7 @@ def orb_screening(molecule,order,l_limit,u_limit,level):
       #
       # set up entanglement and exclusion lists
       #
-      orb_entanglement(molecule,l_limit,u_limit,level)
+      orb_entanglement(molecule,l_limit,u_limit,order,level)
       #
       # print orb info
       #
@@ -144,11 +173,12 @@ def orb_screening(molecule,order,l_limit,u_limit,level):
    #
    return molecule
 
-def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
+def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
    #
    if (level == 'MACRO'):
       #
-      tup = molecule['prim_tuple']
+      tup = molecule['prim_tuple'][order-1]
+      e_inc = molecule['prim_energy_inc'][order-1]
       orb = molecule['prim_orb_ent']
       orb_arr = molecule['prim_orb_arr']
       orb_con_abs = molecule['prim_orb_con_abs']
@@ -156,7 +186,16 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
    #
    elif (level == 'CORRE'):
       #
-      tup = molecule['corr_tuple']
+      if (order == (molecule['min_corr_order']-1)):
+         #
+         tup = molecule['prim_tuple'][order-1]
+         e_inc = molecule['prim_energy_inc'][order-1]
+      #
+      else:
+         #
+         tup = np.vstack((molecule['prim_tuple'][order-1],molecule['corr_tuple'][order-1]))
+         e_inc = np.concatenate((molecule['prim_energy_inc'][order-1],molecule['corr_energy_inc'][order-1]))
+      #
       orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
       orb_con_abs = molecule['corr_orb_con_abs']
@@ -169,11 +208,7 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
       orb_con_abs.append([])
       orb_con_rel.append([])
       #
-      e_sum = 0.0
-      #
-      for i in range(0,len(tup[-1])):
-         #
-         e_sum += tup[-1][i][1]
+      e_sum = np.sum(e_inc)
       #
       if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'])):
          #
@@ -183,9 +218,9 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
             #
             orb_con_rel[-1].append(0.0)
       #
-      for i in range(0,len(tup[-1])):
+      for i in range(0,len(e_inc)):
          #
-         orb_con_abs[-1].append(tup[-1][i][1])
+         orb_con_abs[-1].append(e_inc[i])
          #
          orb_con_rel[-1].append(orb_con_abs[-1][-1]/e_sum)
    #
@@ -212,15 +247,20 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
                #
                # add up contributions from the correlation between orbs i and j at current order
                #
-               for l in range(0,len(tup[-1])):
+               for l in range(0,len(e_inc)):
                   #
-                  if ((set([i+1]) <= set(tup[-1][l][0])) and (set([j+1]) <= set(tup[-1][l][0]))):
+                  if ((set([i+1]) <= set(tup[l])) and (set([j+1]) <= set(tup[l]))):
                      #
-                     e_abs += tup[-1][l][1] 
+                     e_abs += e_inc[l] 
             #
             # write to orb list
             #
             orb[-1][i-l_limit][j-l_limit].append(e_abs)
+      #
+      if (level == 'CORRE'):
+         #
+         del tup
+         del e_inc
       #
       for i in range(l_limit,l_limit+u_limit):
          #
@@ -292,11 +332,7 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
          #
          orb_con_abs[-1].append(orb_con_abs[-2][j]+tmp[j])
       #
-      e_sum = 0.0
-      #
-      for j in range(0,len(orb_con_abs[-1])):
-         #
-         e_sum += orb_con_abs[-1][j]
+      e_sum = sum(orb_con_abs[-1])
       #
       for j in range(0,len(orb_con_abs[-1])):
          #
@@ -311,34 +347,6 @@ def orb_entanglement(molecule,l_limit,u_limit,level,singles=False):
       del tmp
    #
    return molecule
-
-def select_corr_tuples(prim_tup,corr_tup,k):
-   #
-   pop_list = []
-   #
-   for i in range(0,len(corr_tup[k-1])):
-      #
-      found = False
-      #
-      for j in range(0,len(prim_tup[k-1])):
-         #
-         if (set(corr_tup[k-1][i][0]) <= set(prim_tup[k-1][j][0])):
-            #
-            found = True
-            #
-            break
-      #
-      if (found):
-         #
-         pop_list.append(i)
-   #
-   for l in range(0,len(pop_list)):
-      #
-      corr_tup[k-1].pop(pop_list[l]-l)
-   #
-   del pop_list
-   #
-   return corr_tup
 
 def init_domains(molecule):
    #

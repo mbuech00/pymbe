@@ -56,6 +56,8 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
    #
    dom_info.clear()
    #
+   tmp = []
+   #
    while (slaves_avail >= 1):
       #
       # receive data dict
@@ -74,7 +76,7 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
          #
          if (i <= (len(tup[order-2])-1)):
             #
-            job_info['tup_parent'] = tup[order-2][i][0]
+            job_info['tup_parent'] = tup[order-2][i]
             #
             # send parent tuple
             #
@@ -94,7 +96,7 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
          #
          for j in range(0,len(data['tup_child'])):
             #
-            tup[order-1].append([data['tup_child'][j]])
+            if ((level == 'MACRO') or ((level == 'CORRE') and (not (data['tup_child'][j] in molecule['prim_tuple'][order-1])))): tmp.append(data['tup_child'][j])
       #
       elif (tag == tags.exit):
          #
@@ -102,7 +104,11 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
    #
    # finally we sort the tuples
    #
-   tup[order-1].sort(key=lambda x: x[0])
+   if (len(tmp) >= 1): tmp.sort()
+   #
+   tup[order-1].append(tmp)
+   #
+   del tmp
    #
    return tup
 

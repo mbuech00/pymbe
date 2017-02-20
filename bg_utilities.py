@@ -84,7 +84,7 @@ def orb_string(molecule,l_limit,u_limit,tup,string):
    #
    # generate list with all orbs the should be dropped (not part of the current tuple)
    #
-   drop = sorted(list(set(dim)-set(tup)))
+   drop = sorted(list(set(dim)-set(tup.tolist())))
    #
    # for virt scheme, explicitly drop the core orbitals for frozen core
    #
