@@ -11,7 +11,7 @@ from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
-                        orb_screening, orb_entanglement, orb_exclusion, select_corr_tuples
+                        orb_screening, orb_entanglement, orb_exclusion
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -93,7 +93,7 @@ def mono_exp_drv(molecule,start,end,level):
          #
          if (level == 'CORRE'):
             #
-            orb_entanglement(molecule,molecule['l_limit'],molecule['u_limit'],level)
+            orb_entanglement(molecule,molecule['l_limit'],molecule['u_limit'],k,level)
          #
          break
    #
@@ -157,15 +157,6 @@ def mono_exp_kernel(molecule,k,level):
    #
    print_result(tup[k-1],e_inc[k-1],level)
    #
-   # merge tuples from primary exp. into molecule['corr_tuple']
-   #
-   if (level == 'CORRE'):
-      #
-      for i in range(0,len(molecule['prim_tuple'][k-1])):
-         #
-         tup[k-1].append(molecule['prim_tuple'][k-1][i])
-         e_inc[k-1][len(tup[k-1])-1] = molecule['prim_energy_inc'][k-1][i]
-   #
    # check for convergence
    #
    if ((k == n_tup[0]) or (k == molecule['max_order'])):
@@ -213,13 +204,7 @@ def mono_exp_init(molecule,k,level):
    #
    # generate all tuples at order k
    #
-   tup.append([])
-   #
-   orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k)
-   #
-   if (level == 'CORRE'):
-      #
-      select_corr_tuples(molecule['prim_tuple'],tup,k)
+   orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
    #
    # collect time_init
    #
@@ -247,13 +232,7 @@ def mono_exp_init(molecule,k,level):
    #
    # init e_inc list
    #
-   if (level == 'MACRO'):
-      #
-      e_inc.append([0.0]*len(tup[k-1]))
-   #
-   else:
-      #
-      e_inc.append([0.0]*(len(tup[k-1])+len(molecule['prim_tuple'][k-1])))
+   e_inc.append([0.0]*len(tup[k-1]))
    #
    # if converged, pop last element of tup list and append to n_tup list
    #
@@ -483,8 +462,8 @@ def mono_exp_merge_info(molecule):
    #
    for k in range(1,molecule['min_corr_order']):
       #
-      molecule['corr_tuple'].append(molecule['prim_tuple'][k-1])
-      molecule['corr_energy_inc'].append(molecule['prim_energy_inc'][k-1])
+      molecule['corr_tuple'].append([])
+      molecule['corr_energy_inc'].append([])
    #
    for k in range(1,molecule['min_corr_order']-1):
       #

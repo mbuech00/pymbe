@@ -85,6 +85,14 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
                # is tup[i-1][l] a subset of tup[k-1][j] ?
                #
                if (all(idx in iter(tup[k-1][j]) for idx in tup[i-1][l])): e_inc[k-1][j] -= e_inc[i-1][l]
+            #
+            if (level == 'CORRE'):
+               #
+               for l in range(0,len(molecule['prim_tuple'][i-1])):
+                  #
+                  # is molecule['prim_tuple'][i-1][l] a subset of tup[k-1][j] ?
+                  #
+                  if (all(idx in iter(tup[k-1][j]) for idx in molecule['prim_tuple'][i-1][l])): e_inc[k-1][j] -= molecule['prim_energy_inc'][i-1][l]
       #
       e_tmp = sum(e_inc[k-1])
       #
