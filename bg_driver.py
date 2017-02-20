@@ -3,10 +3,11 @@
 
 """ bg_driver.py: driver routines for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from copy import deepcopy
 from timeit import default_timer
 
-from bg_utilities import run_calc_corr, orb_string, n_theo_tuples
+from bg_utilities import run_calc_corr, n_theo_tuples
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
@@ -161,8 +162,8 @@ def mono_exp_kernel(molecule,k,level):
    #
    if ((k == n_tup[0]) or (k == molecule['max_order'])):
       #
-      tup.append([])
-      e_inc.append([])
+      tup.append(np.array([],dtype=np.int))
+      e_inc.append(np.array([],dtype=np.int))
       #
       molecule['conv'].append(True)
    #
@@ -232,7 +233,7 @@ def mono_exp_init(molecule,k,level):
    #
    # init e_inc list
    #
-   e_inc.append([0.0]*len(tup[k-1]))
+   e_inc.append(np.empty(len(tup[k-1]),dtype=np.float64))
    #
    # if converged, pop last element of tup list and append to n_tup list
    #
@@ -462,8 +463,8 @@ def mono_exp_merge_info(molecule):
    #
    for k in range(1,molecule['min_corr_order']):
       #
-      molecule['corr_tuple'].append([])
-      molecule['corr_energy_inc'].append([])
+      molecule['corr_tuple'].append(np.array([],dtype=np.int))
+      molecule['corr_energy_inc'].append(np.array([],dtype=np.int))
    #
    for k in range(1,molecule['min_corr_order']-1):
       #

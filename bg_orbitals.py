@@ -3,6 +3,7 @@
 
 """ bg_orbitals.py: orbital-related routines for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from itertools import combinations 
 from copy import deepcopy
 
@@ -38,7 +39,13 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
          #
          # all singles contributions 
          #
-         tup.append([[(i+l_limit)+1] for i in range(start,len(dom))])
+         tmp = []
+         #
+         for i in range(start,len(dom)):
+            #
+            tmp.append([(i+l_limit)+1])
+         #
+         tup.append(np.array(tmp,dtype=np.int))
       #
       elif (k == 2):
          #
@@ -46,9 +53,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
          #
          tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
          #
-         tup.append([tmp[i] for i in range(0,len(tmp))])
-         #
-         del tmp
+         tup.append(np.array(tmp,dtype=np.int))
       #
       else:
          #
@@ -60,7 +65,13 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
          #
          elif (level == 'CORRE'):
             #
-            parent_tup = tup[k-2]+molecule['prim_tuple'][k-2]
+            if (k == molecule['min_corr_order']):
+               #
+               parent_tup = molecule['prim_tuple'][k-2]
+            #
+            else:
+               #
+               parent_tup = np.vstack((tup[k-2],molecule['prim_tuple'][k-2]))
          #
          for i in range(0,len(parent_tup)):
             #
@@ -102,18 +113,21 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
                      #
                      # append the child tuple to the tup list
                      #
-                     tmp_2.append(deepcopy(parent_tup[i]))
+                     tmp_2.append(list(deepcopy(parent_tup[i])))
                      #
                      tmp_2[-1].append(m)
                      #
                      # check whether this tuple has already been accounted for in the primary expansion
                      #
-                     if ((level == 'CORRE') and (tmp_2[-1] in molecule['prim_tuple'][k-1])): tmp_2.pop(-1)
+                     if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
+                        #
+                        tmp_2.pop(-1)
          #
-         tup.append(tmp_2)
+         tup.append(np.array(tmp_2,dtype=np.int))
          #
-         del tmp
          del tmp_2
+   #
+   del tmp
    #
    return tup
 
@@ -170,8 +184,16 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
    #
    elif (level == 'CORRE'):
       #
-      tup = molecule['prim_tuple'][order-1]+molecule['corr_tuple'][order-1]
-      e_inc = molecule['prim_energy_inc'][order-1]+molecule['corr_energy_inc'][order-1]
+      if (order == (molecule['min_corr_order']-1)):
+         #
+         tup = molecule['prim_tuple'][order-1]
+         e_inc = molecule['prim_energy_inc'][order-1]
+      #
+      else:
+         #
+         tup = np.vstack((molecule['prim_tuple'][order-1],molecule['corr_tuple'][order-1]))
+         e_inc = np.concatenate((molecule['prim_energy_inc'][order-1],molecule['corr_energy_inc'][order-1]))
+      #
       orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
       orb_con_abs = molecule['corr_orb_con_abs']
@@ -184,7 +206,7 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
       orb_con_abs.append([])
       orb_con_rel.append([])
       #
-      e_sum = sum(e_inc)
+      e_sum = np.sum(e_inc)
       #
       if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'])):
          #

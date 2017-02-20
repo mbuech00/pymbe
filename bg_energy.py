@@ -3,6 +3,7 @@
 
 """ bg_energy.py: energy-related routines for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from mpi4py import MPI
 
 from bg_mpi_energy import energy_kernel_mono_exp_master, energy_summation_par
@@ -94,7 +95,7 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
                   #
                   if (all(idx in iter(tup[k-1][j]) for idx in molecule['prim_tuple'][i-1][l])): e_inc[k-1][j] -= molecule['prim_energy_inc'][i-1][l]
       #
-      e_tmp = sum(e_inc[k-1])
+      e_tmp = np.sum(e_inc[k-1])
       #
       # sum of total energy
       #
