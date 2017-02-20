@@ -126,6 +126,8 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
          tup.append(np.array(tmp_2,dtype=np.int))
          #
          del tmp_2
+         #
+         if ((level == 'CORRE') and (k > molecule['min_corr_order'])): del parent_tup
    #
    del tmp
    #
@@ -254,6 +256,11 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
             # write to orb list
             #
             orb[-1][i-l_limit][j-l_limit].append(e_abs)
+      #
+      if (level == 'CORRE'):
+         #
+         del tup
+         del e_inc
       #
       for i in range(l_limit,l_limit+u_limit):
          #

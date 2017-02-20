@@ -283,7 +283,7 @@ def print_result(tup,e_inc,level):
    #
    for i in range(0,len(tup)):
       #
-      print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,e_inc[i],tup[i]))
+      print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,e_inc[i],tup[i].tolist()))
    #
    print(' --------------------------------------------------------------------------------------------')
    #
