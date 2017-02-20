@@ -332,11 +332,7 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
          #
          orb_con_abs[-1].append(orb_con_abs[-2][j]+tmp[j])
       #
-      e_sum = 0.0
-      #
-      for j in range(0,len(orb_con_abs[-1])):
-         #
-         e_sum += orb_con_abs[-1][j]
+      e_sum = sum(orb_con_abs[-1])
       #
       for j in range(0,len(orb_con_abs[-1])):
          #
