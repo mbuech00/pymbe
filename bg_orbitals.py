@@ -379,40 +379,6 @@ def init_domains(molecule):
    #
    return molecule
 
-def reinit_domains(molecule,dom):
-   #
-   dom[:] = [[]]
-   #
-   if (molecule['exp'] == 'comb-ov'):
-      #
-      for i in range(0,molecule['nvirt']):
-         #
-         dom.append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
-         #
-         dom[i].pop(i)  
-   #
-   elif (molecule['exp'] == 'comb-vo'):
-      #
-      for i in range(0,molecule['nocc']):
-         #
-         dom.append(list(range(1,molecule['nocc']+1)))
-         #
-         dom[i].pop(i)
-      #
-      if (molecule['frozen']):
-         #
-         for i in range(0,molecule['ncore']):
-            #
-            dom[i][:] = []
-         #
-         for j in range(molecule['ncore'],molecule['nocc']):
-            #
-            for i in range(0,molecule['ncore']):
-               #
-               dom[j].pop(i)
-   #
-   return molecule
-
 def orb_exclusion(molecule,l_limit,level):
    #
    if (level == 'MACRO'):

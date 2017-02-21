@@ -120,11 +120,6 @@ def main_slave_rout(molecule):
          #
          molecule['prim_energy_inc'] = []
          molecule['corr_energy_inc'] = []
-         #
-         # init domains
-         #
-         molecule['prim_domain'] = []
-         molecule['corr_domain'] = []
       #
       # print_mpi_table
       #
@@ -176,9 +171,7 @@ def main_slave_rout(molecule):
          #
          if (msg['level'] == 'MACRO'):
             #
-            molecule['prim_domain'].append(dom_info['dom'])
-            #
-            orb_generator_slave(molecule,molecule['prim_domain'][-1],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
+            orb_generator_slave(molecule,dom_info['dom'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
             #
             # receive the total number of tuples
             #
@@ -194,9 +187,7 @@ def main_slave_rout(molecule):
          #
          elif (msg['level'] == 'CORRE'):
             #
-            molecule['corr_domain'].append(dom_info['dom'])
-            #
-            orb_generator_slave(molecule,molecule['corr_domain'][-1],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'CORRE')
+            orb_generator_slave(molecule,dom_info['dom'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'CORRE')
             #
             # receive the total number of tuples
             #
@@ -409,16 +400,13 @@ def mono_exp_merge_info(molecule):
    for k in range(1,molecule['min_corr_order']):
       #
       molecule['corr_tuple'].append(np.array([],dtype=np.int))
-      molecule['corr_energy_inc'].append(np.array([],dtype=np.int))
-   #
-   for k in range(1,molecule['min_corr_order']-1):
-      #
-      molecule['corr_domain'].append(molecule['prim_domain'][k-1])
+      molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
    #
    if (molecule['mpi_master']):
       #
       for k in range(1,molecule['min_corr_order']-1):
          #
+         molecule['corr_domain'].append(molecule['prim_domain'][k-1])
          molecule['corr_orb_con_abs'].append(molecule['prim_orb_con_abs'][k-1])
          molecule['corr_orb_con_rel'].append(molecule['prim_orb_con_rel'][k-1])
       #
