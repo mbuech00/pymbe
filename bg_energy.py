@@ -6,7 +6,7 @@
 import numpy as np
 from mpi4py import MPI
 
-from bg_mpi_energy import energy_kernel_mono_exp_master, energy_summation_par
+from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
 from bg_utilities import run_calc_corr, orb_string 
 from bg_print import print_status
 
@@ -23,23 +23,15 @@ def energy_kernel_mono_exp(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level)
    #
    if (molecule['mpi_parallel']):
       #
-      energy_kernel_mono_exp_master(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level)
+      energy_kernel_mono_exp_par(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level)
    #
    else:
       #
       string = {'drop': ''}
       #
-      if (level == 'MACRO'):
-         #
-         end = n_tup[order-1]
-      #
-      elif (level == 'CORRE'):
-         #
-         end = len(tup[order-1])
-      #
       counter = 0
       #
-      for i in range(0,end):
+      for i in range(0,len(tup[order-1])):
          #
          # write string
          #

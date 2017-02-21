@@ -13,6 +13,7 @@ from bg_print import print_status_header, print_status_end, print_result,\
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_entanglement, orb_exclusion
+from bg_mpi_main import mono_exp_merge_info
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -163,7 +164,7 @@ def mono_exp_kernel(molecule,k,level):
    if ((k == n_tup[0]) or (k == molecule['max_order'])):
       #
       tup.append(np.array([],dtype=np.int))
-      e_inc.append(np.array([],dtype=np.int))
+      e_inc.append(np.array([],dtype=np.float64))
       #
       molecule['conv'].append(True)
    #
@@ -233,7 +234,7 @@ def mono_exp_init(molecule,k,level):
    #
    # init e_inc list
    #
-   e_inc.append(np.empty(len(tup[k-1]),dtype=np.float64))
+   e_inc.append(np.zeros(len(tup[k-1]),dtype=np.float64))
    #
    # if converged, pop last element of tup list and append to n_tup list
    #
@@ -456,26 +457,6 @@ def set_corr_order(molecule):
       molecule['corr_energy'].append(0.0)
       #
       molecule['corr_time'].append(0.0)
-   #
-   return molecule
-
-def mono_exp_merge_info(molecule):
-   #
-   for k in range(1,molecule['min_corr_order']):
-      #
-      molecule['corr_tuple'].append(np.array([],dtype=np.int))
-      molecule['corr_energy_inc'].append(np.array([],dtype=np.int))
-   #
-   for k in range(1,molecule['min_corr_order']-1):
-      #
-      molecule['corr_domain'].append(molecule['prim_domain'][k-1])
-      molecule['corr_orb_con_abs'].append(molecule['prim_orb_con_abs'][k-1])
-      molecule['corr_orb_con_rel'].append(molecule['prim_orb_con_rel'][k-1])
-   #
-   for k in range(1,molecule['min_corr_order']-2):
-      #
-      molecule['corr_orb_ent'].append(molecule['prim_orb_ent'][k-1])
-      molecule['corr_orb_arr'].append(molecule['prim_orb_arr'][k-1])
    #
    return molecule
 

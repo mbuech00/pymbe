@@ -3,6 +3,7 @@
 
 """ bg_mpi_orbitals.py: MPI orbital-related routines for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from mpi4py import MPI
 from itertools import combinations
 from copy import deepcopy
@@ -18,105 +19,181 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
+def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    #  ---  master routine
    #
-   # init job_info dictionary
-   #
-   job_info = {}
-   #
-   # number of slaves
-   #
-   num_slaves = molecule['mpi_size'] - 1
-   #
-   # number of available slaves
-   #
-   slaves_avail = num_slaves
-   #
-   # define mpi message tags
-   #
-   tags = enum('ready','done','exit','start')
-   #
-   # init job index
-   #
-   i = 0
-   #
-   # wake up slaves
-   #
-   msg = {'task': 'orb_generator_par'}
-   #
-   molecule['mpi_comm'].bcast(msg,root=0)
-   #
-   # bcast orbital domains and lower/upper limits
-   #
-   dom_info = {'dom': dom, 'l_limit': l_limit, 'u_limit': u_limit}
-   #
-   molecule['mpi_comm'].bcast(dom_info,root=0)
-   #
-   dom_info.clear()
-   #
-   tmp = []
-   #
-   while (slaves_avail >= 1):
+   if ((k <= 2) and molecule['mpi_master']):
       #
-      # receive data dict
-      #
-      data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE,tag=MPI.ANY_TAG,status=molecule['mpi_stat'])
-      #
-      # probe for source
-      #
-      source = molecule['mpi_stat'].Get_source()
-      #
-      # probe for tag
-      #
-      tag = molecule['mpi_stat'].Get_tag()
-      #
-      if (tag == tags.ready):
+      if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
          #
-         if (i <= (len(tup[order-2])-1)):
+         start = molecule['ncore']
+      #
+      else:
+         #
+         start = 0
+      #
+      if (k == 1):
+         #
+         # all singles contributions
+         #
+         tmp = []
+         #
+         for i in range(start,len(dom)):
             #
-            job_info['tup_parent'] = tup[order-2][i]
+            tmp.append([(i+l_limit)+1])
+         #
+         tup.append(np.array(tmp,dtype=np.int))
+      #
+      elif (k == 2):
+         #
+         # generate all possible (unique) pairs
+         #
+         tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
+         #
+         tup.append(np.array(tmp,dtype=np.int))
+      #
+      # wake up slaves
+      #
+      msg = {'task': 'bcast_tuples', 'order': k}
+      #
+      molecule['mpi_comm'].bcast(msg,root=0)
+      #
+      # bcast total number of tuples
+      #
+      tup_info = {'tot_tup': len(tup[k-1])}
+      #
+      molecule['mpi_comm'].bcast(tup_info,root=0)
+      #
+      # bcast the tuples
+      #
+      molecule['mpi_comm'].Bcast([tup[k-1],MPI.INT],root=0)
+   #
+   else:
+      #
+      # init job_info dictionary
+      #
+      job_info = {}
+      #
+      # number of slaves
+      #
+      num_slaves = molecule['mpi_size'] - 1
+      #
+      # number of available slaves
+      #
+      slaves_avail = num_slaves
+      #
+      # define mpi message tags
+      #
+      tags = enum('ready','done','exit','start')
+      #
+      # init job index
+      #
+      i = 0
+      #
+      # wake up slaves
+      #
+      msg = {'task': 'orb_generator_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': k, 'level': level}
+      #
+      molecule['mpi_comm'].bcast(msg,root=0)
+      #
+      # bcast orbital domains and lower/upper limits
+      #
+      dom_info = {'dom': dom}
+      #
+      molecule['mpi_comm'].bcast(dom_info,root=0)
+      #
+      tmp = []
+      #
+      # init parent_tup
+      #
+      if (level == 'MACRO'):
+         #
+         parent_tup = tup[k-2]
+      #
+      elif (level == 'CORRE'):
+         #
+         if (k == molecule['min_corr_order']):
             #
-            # send parent tuple
-            #
-            molecule['mpi_comm'].send(job_info,dest=source,tag=tags.start)
-            #
-            # increment job index
-            #
-            i += 1
+            parent_tup = molecule['prim_tuple'][k-2]
          #
          else:
             #
-            molecule['mpi_comm'].send(None,dest=source,tag=tags.exit)
+            parent_tup = np.vstack((tup[k-2],molecule['prim_tuple'][k-2]))
       #
-      elif (tag == tags.done):
+      while (slaves_avail >= 1):
          #
-         # write child tuple
+         # receive data dict
          #
-         for j in range(0,len(data['tup_child'])):
+         data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE,tag=MPI.ANY_TAG,status=molecule['mpi_stat'])
+         #
+         # probe for source
+         #
+         source = molecule['mpi_stat'].Get_source()
+         #
+         # probe for tag
+         #
+         tag = molecule['mpi_stat'].Get_tag()
+         #
+         if (tag == tags.ready):
             #
-            if ((level == 'MACRO') or ((level == 'CORRE') and (not (data['tup_child'][j] in molecule['prim_tuple'][order-1])))): tmp.append(data['tup_child'][j])
-      #
-      elif (tag == tags.exit):
+            if (i <= (len(parent_tup)-1)):
+               #
+               job_info['index'] = i
+               #
+               # send parent tuple
+               #
+               molecule['mpi_comm'].send(job_info,dest=source,tag=tags.start)
+               #
+               # increment job index
+               #
+               i += 1
+            #
+            else:
+               #
+               molecule['mpi_comm'].send(None,dest=source,tag=tags.exit)
          #
-         slaves_avail -= 1
+         elif (tag == tags.done):
+            #
+            # write tmp child tuple list
+            #
+            tmp += data['child_tup'] 
+         #
+         elif (tag == tags.exit):
+            #
+            slaves_avail -= 1
+      #
+      # finally we sort the tuples
+      #
+      if (len(tmp) >= 1): tmp.sort()
+      #
+      # append tup[k-1] with numpy array of tmp list
+      #
+      tup.append(np.array(tmp,dtype=np.int))
+      #
+      # bcast total number of tuples
+      #
+      tup_info = {'tot_tup': len(tup[k-1])}
+      #
+      molecule['mpi_comm'].bcast(tup_info,root=0)
+      #
+      # bcast the tuples
+      #
+      molecule['mpi_comm'].Bcast([tup[k-1],MPI.INT],root=0)
+      #
+      dom_info.clear()
+      #
+      del parent_tup
    #
-   # finally we sort the tuples
-   #
-   if (len(tmp) >= 1): tmp.sort()
-   #
-   tup[order-1].append(tmp)
+   tup_info.clear()
    #
    del tmp
    #
    return tup
 
-def orb_generator_slave(molecule,dom,l_limit,u_limit):
+def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    #  ---  slave routine
-   #
-   level = 'SLAVE'
    #
    # define mpi message tags
    #
@@ -124,9 +201,27 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
    #
    # init data dict
    #
-   data = {}
+   data = {'child_tup': []}
+   #
+   # init tmp lists
    #
    tmp = []
+   #
+   # init parent_tup
+   #
+   if (level == 'MACRO'):
+      #
+      parent_tup = tup[k-2]
+   #
+   elif (level == 'CORRE'):
+      #
+      if (k == molecule['min_corr_order']):
+         #
+         parent_tup = molecule['prim_tuple'][k-2]
+      #
+      else:
+         #
+         parent_tup = np.vstack((tup[k-2],molecule['prim_tuple'][k-2]))
    #
    while True:
       #
@@ -152,9 +247,11 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
       #
       if (tag == tags.start):
          #
-         data['tup_child'] = []
+         data['child_tup'][:] = []
          #
-         tmp = list(list(comb) for comb in combinations(job_info['tup_parent'],2))
+         # generate subset of all pairs within the parent tuple
+         #
+         tmp = list(list(comb) for comb in combinations(parent_tup[job_info['index']],2))
          #
          mask = True
          #
@@ -172,27 +269,33 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
             #
             # loop through possible orbitals to augment the parent tuple with
             #
-            for m in range(job_info['tup_parent'][-1]+1,(l_limit+u_limit)+1):
+            for m in range(parent_tup[job_info['index']][-1]+1,(l_limit+u_limit)+1):
                #
-               mask2 = True
+               mask_2 = True
                #
-               for l in job_info['tup_parent']:
+               for l in parent_tup[job_info['index']]:
                   #
                   # is the new child tuple allowed?
                   #
                   if (not (set([m]) < set(dom[(l-l_limit)-1]))):
                      #
-                     mask2 = False
+                     mask_2 = False
                      #
                      break
                #
-               if (mask2):
+               if (mask_2):
                   #
                   # append the child tuple to the tup list
                   #
-                  data['tup_child'].append(deepcopy(job_info['tup_parent']))
+                  data['child_tup'].append(list(deepcopy(parent_tup[job_info['index']])))
                   #
-                  data['tup_child'][-1].append(m)
+                  data['child_tup'][-1].append(m)
+                  #
+                  # check whether this tuple has already been accounted for in the primary expansion
+                  #
+                  if ((level == 'CORRE') and (np.equal(data['child_tup'][-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
+                     #
+                     data['child_tup'].pop(-1)
          #
          molecule['mpi_time_work_slave'] += MPI.Wtime()-start_work
          #
@@ -218,7 +321,9 @@ def orb_generator_slave(molecule,dom,l_limit,u_limit):
    #
    molecule['mpi_time_comm_slave'] += MPI.Wtime()-start_comm
    #
+   data.clear()
    del tmp
+   del parent_tup
    #
    return molecule
 

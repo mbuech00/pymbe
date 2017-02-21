@@ -3,11 +3,12 @@
 
 """ bg_mpi_main.py: main MPI driver routined for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from os import getcwd, mkdir, chdir
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_mpi_energy import energy_kernel_slave, energy_summation_par
+from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave 
 from bg_mpi_utilities import add_time 
 
@@ -58,6 +59,8 @@ def main_slave_rout(molecule):
       #
       msg = MPI.COMM_WORLD.bcast(None,root=0)
       #
+      # bcast_mol_dict
+      #
       if (msg['task'] == 'bcast_mol_dict'):
          #
          # receive molecule dict from master
@@ -83,6 +86,8 @@ def main_slave_rout(molecule):
          molecule['mpi_stat'] = MPI.Status()
          #
          molecule['mpi_master'] = False
+      #
+      # init_slave_env
       #
       elif (msg['task'] == 'init_slave_env'):
          #
@@ -110,12 +115,51 @@ def main_slave_rout(molecule):
          #
          molecule['prim_tuple'] = []
          molecule['corr_tuple'] = []
+         #
+         # init e_inc lists
+         #
+         molecule['prim_energy_inc'] = []
+         molecule['corr_energy_inc'] = []
+      #
+      # print_mpi_table
       #
       elif (msg['task'] == 'print_mpi_table'):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
          print_mpi_table(molecule)
+      #
+      # mono_exp_merge_info
+      #
+      elif (msg['task'] == 'mono_exp_merge_info'):
+         #
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
+         #
+         molecule['min_corr_order'] = msg['min_corr_order']
+         #
+         mono_exp_merge_info(molecule)
+      #
+      # bcast_tuples
+      #
+      elif (msg['task'] == 'bcast_tuples'):
+         #
+         molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
+         #
+         # receive the total number of tuples
+         #
+         tup_info = MPI.COMM_WORLD.bcast(None,root=0)
+         #
+         # init tup[k-1]
+         #
+         molecule['prim_tuple'].append(np.empty([tup_info['tot_tup'],msg['order']],dtype=np.int))
+         #
+         # receive the tuples
+         #
+         MPI.COMM_WORLD.Bcast([molecule['prim_tuple'][-1],MPI.INT],root=0)
+         #
+         tup_info.clear()
+      #
+      # orb_generator_par
       #
       elif (msg['task'] == 'orb_generator_par'):
          #
@@ -125,41 +169,70 @@ def main_slave_rout(molecule):
          #
          dom_info = MPI.COMM_WORLD.bcast(None,root=0)
          #
-         orb_generator_slave(molecule,dom_info['dom'],dom_info['l_limit'],dom_info['u_limit'])
+         if (msg['level'] == 'MACRO'):
+            #
+            orb_generator_slave(molecule,dom_info['dom'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
+            #
+            # receive the total number of tuples
+            #
+            tup_info = MPI.COMM_WORLD.bcast(None,root=0)
+            #
+            # init tup[k-1]
+            #
+            molecule['prim_tuple'].append(np.empty([tup_info['tot_tup'],msg['order']],dtype=np.int))
+            #
+            # receive the tuples
+            #
+            MPI.COMM_WORLD.Bcast([molecule['prim_tuple'][-1],MPI.INT],root=0)
+         #
+         elif (msg['level'] == 'CORRE'):
+            #
+            orb_generator_slave(molecule,dom_info['dom'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'CORRE')
+            #
+            # receive the total number of tuples
+            #
+            tup_info = MPI.COMM_WORLD.bcast(None,root=0)
+            #
+            # init tup[k-1]
+            #
+            molecule['corr_tuple'].append(np.empty([tup_info['tot_tup'],msg['order']],dtype=np.int))
+            #
+            # receive the tuples
+            #
+            MPI.COMM_WORLD.Bcast([molecule['corr_tuple'][-1],MPI.INT],root=0)
          #
          dom_info.clear()
+         tup_info.clear()
+      #
+      # energy_kernel_mono_exp_par
       #
       elif (msg['task'] == 'energy_kernel_mono_exp_par'):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
-         energy_kernel_slave(molecule)
+         if (msg['level'] == 'MACRO'):
+            #
+            energy_kernel_mono_exp_par(molecule,msg['order'],molecule['prim_tuple'],None,molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],'MACRO')
+         #
+         elif (msg['level'] == 'CORRE'):
+            #
+            energy_kernel_mono_exp_par(molecule,msg['order'],molecule['corr_tuple'],None,molecule['corr_energy_inc'],msg['l_limit'],msg['u_limit'],'CORRE')
+      #
+      # energy_summation_par
       #
       elif (msg['task'] == 'energy_summation_par'):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
-         # receive tuple information
+         if (msg['level'] == 'MACRO'):
+            #
+            energy_summation_par(molecule,msg['order'],molecule['prim_tuple'],molecule['prim_energy_inc'],None,'MACRO')
          #
-         tup_info = MPI.COMM_WORLD.bcast(None,root=0)
-         #
-         if (tup_info['level'] == 'MACRO'):
+         elif (msg['level'] == 'CORRE'):
             #
-            molecule['prim_tuple'].append([])
-            #
-            molecule['prim_tuple'][tup_info['order']-1] = tup_info['tup']
-            #
-            energy_summation_par(molecule,tup_info['order'],molecule['prim_tuple'],tup_info['energy'],'MACRO')
-         #
-         elif (tup_info['level'] == 'CORRE'):
-            #
-            molecule['corr_tuple'].append([])
-            #
-            molecule['corr_tuple'][tup_info['order']-1] = tup_info['tup']
-            #
-            energy_summation_par(molecule,tup_info['order'],molecule['corr_tuple'],tup_info['energy'],'CORRE')
-         #
-         tup_info.clear()
+            energy_summation_par(molecule,msg['order'],molecule['corr_tuple'],molecule['corr_energy_inc'],None,'CORRE')
+      #
+      # remove_slave_env
       #
       elif (msg['task'] == 'remove_slave_env'):
          #
@@ -172,6 +245,8 @@ def main_slave_rout(molecule):
             copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
          #
          rmtree(molecule['scr'],ignore_errors=True)
+      #
+      # red_mpi_timings
       #
       elif (msg['task'] == 'red_mpi_timings'):
          #
@@ -192,6 +267,8 @@ def main_slave_rout(molecule):
          molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
          #
          time.clear()
+      #
+      # finalize_mpi
       #
       elif (msg['task'] == 'finalize_mpi'):
          #
@@ -307,6 +384,38 @@ def print_mpi_table(molecule):
    info.clear()
    #
    return
+
+def mono_exp_merge_info(molecule):
+   #
+   #  ---  master/slave routine
+   #
+   if (molecule['mpi_parallel'] and molecule['mpi_master']):
+      #
+      # wake up slaves
+      #
+      msg = {'task': 'mono_exp_merge_info', 'min_corr_order': molecule['min_corr_order']}
+      #
+      molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   for k in range(1,molecule['min_corr_order']):
+      #
+      molecule['corr_tuple'].append(np.array([],dtype=np.int))
+      molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
+   #
+   if (molecule['mpi_master']):
+      #
+      for k in range(1,molecule['min_corr_order']-1):
+         #
+         molecule['corr_domain'].append(molecule['prim_domain'][k-1])
+         molecule['corr_orb_con_abs'].append(molecule['prim_orb_con_abs'][k-1])
+         molecule['corr_orb_con_rel'].append(molecule['prim_orb_con_rel'][k-1])
+      #
+      for k in range(1,molecule['min_corr_order']-2):
+         #
+         molecule['corr_orb_ent'].append(molecule['prim_orb_ent'][k-1])
+         molecule['corr_orb_arr'].append(molecule['prim_orb_arr'][k-1])
+   #
+   return molecule
 
 def red_mpi_timings(molecule):
    #

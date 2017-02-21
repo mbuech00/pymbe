@@ -21,9 +21,9 @@ __status__ = 'Development'
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
-   if (molecule['mpi_parallel'] and (k >= 3)):
+   if (molecule['mpi_parallel']):
       #
-      orb_generator_master(molecule,dom,tup,l_limit,u_limit,k)
+      orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level)
    #
    else:
       #
@@ -128,8 +128,8 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
          del tmp_2
          #
          if ((level == 'CORRE') and (k > molecule['min_corr_order'])): del parent_tup
-   #
-   del tmp
+      #
+      del tmp
    #
    return tup
 
@@ -376,40 +376,6 @@ def init_domains(molecule):
       molecule['virt_domain'].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
       #
       molecule['virt_domain'][i].pop(i)
-   #
-   return molecule
-
-def reinit_domains(molecule,dom):
-   #
-   dom[:] = [[]]
-   #
-   if (molecule['exp'] == 'comb-ov'):
-      #
-      for i in range(0,molecule['nvirt']):
-         #
-         dom.append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
-         #
-         dom[i].pop(i)  
-   #
-   elif (molecule['exp'] == 'comb-vo'):
-      #
-      for i in range(0,molecule['nocc']):
-         #
-         dom.append(list(range(1,molecule['nocc']+1)))
-         #
-         dom[i].pop(i)
-      #
-      if (molecule['frozen']):
-         #
-         for i in range(0,molecule['ncore']):
-            #
-            dom[i][:] = []
-         #
-         for j in range(molecule['ncore'],molecule['nocc']):
-            #
-            for i in range(0,molecule['ncore']):
-               #
-               dom[j].pop(i)
    #
    return molecule
 
