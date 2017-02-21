@@ -46,13 +46,13 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,order):
    #
    msg = {'task': 'orb_generator_par'}
    #
-   molecule['mpi_comm'].bcast(msg,root=0)
+   molecule['mpi_comm'].bcast(msg,root=MPI.ROOT)
    #
    # bcast orbital domains and lower/upper limits
    #
    dom_info = {'dom': dom, 'l_limit': l_limit, 'u_limit': u_limit}
    #
-   molecule['mpi_comm'].bcast(dom_info,root=0)
+   molecule['mpi_comm'].bcast(dom_info,root=MPI.ROOT)
    #
    dom_info.clear()
    #

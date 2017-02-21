@@ -33,7 +33,7 @@ def finalize_mpi(molecule):
       #
       msg = {'task': 'finalize_mpi'}
       #
-      MPI.COMM_WORLD.bcast(msg,root=0)
+      MPI.COMM_WORLD.bcast(msg,root=MPI.ROOT)
    #
    MPI.COMM_WORLD.Barrier()
    #

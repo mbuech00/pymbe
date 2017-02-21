@@ -21,113 +21,113 @@ __status__ = 'Development'
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
-   if (molecule['mpi_parallel'] and (k >= 3)):
+#   if (molecule['mpi_parallel'] and (k >= 3)):
+#      #
+#      orb_generator_master(molecule,dom,tup,l_limit,u_limit,k)
+#   #
+#   else:
+   #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
-      orb_generator_master(molecule,dom,tup,l_limit,u_limit,k)
+      start = molecule['ncore']
    #
    else:
       #
-      if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
-         #
-         start = molecule['ncore']
+      start = 0
+   #
+   if (k == 1):
       #
-      else:
-         #
-         start = 0
+      # all singles contributions 
       #
-      if (k == 1):
-         #
-         # all singles contributions 
-         #
-         tmp = []
-         #
-         for i in range(start,len(dom)):
-            #
-            tmp.append([(i+l_limit)+1])
-         #
-         tup.append(np.array(tmp,dtype=np.int))
+      tmp = []
       #
-      elif (k == 2):
+      for i in range(start,len(dom)):
          #
-         # generate all possible (unique) pairs
-         #
-         tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
-         #
-         tup.append(np.array(tmp,dtype=np.int))
+         tmp.append([(i+l_limit)+1])
       #
-      else:
+      tup.append(np.array(tmp,dtype=np.int))
+   #
+   elif (k == 2):
+      #
+      # generate all possible (unique) pairs
+      #
+      tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
+      #
+      tup.append(np.array(tmp,dtype=np.int))
+   #
+   else:
+      #
+      tmp_2 = []
+      #
+      if (level == 'MACRO'):
          #
-         tmp_2 = []
+         parent_tup = tup[k-2]
+      #
+      elif (level == 'CORRE'):
          #
-         if (level == 'MACRO'):
+         if (k == molecule['min_corr_order']):
             #
-            parent_tup = tup[k-2]
+            parent_tup = molecule['prim_tuple'][k-2]
          #
-         elif (level == 'CORRE'):
+         else:
             #
-            if (k == molecule['min_corr_order']):
-               #
-               parent_tup = molecule['prim_tuple'][k-2]
-            #
-            else:
-               #
-               parent_tup = np.vstack((tup[k-2],molecule['prim_tuple'][k-2]))
+            parent_tup = np.vstack((tup[k-2],molecule['prim_tuple'][k-2]))
+      #
+      for i in range(0,len(parent_tup)):
          #
-         for i in range(0,len(parent_tup)):
+         # generate subset of all pairs within the parent tuple
+         #
+         tmp = list(list(comb) for comb in combinations(parent_tup[i],2))
+         #
+         mask = True
+         #
+         for j in range(0,len(tmp)):
             #
-            # generate subset of all pairs within the parent tuple
+            # is the parent tuple still allowed?
             #
-            tmp = list(list(comb) for comb in combinations(parent_tup[i],2))
-            #
-            mask = True
-            #
-            for j in range(0,len(tmp)):
+            if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
                #
-               # is the parent tuple still allowed?
+               mask = False
                #
-               if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
+               break
+         #
+         if (mask):
+            #
+            # loop through possible orbitals to augment the parent tuple with
+            #
+            for m in range(parent_tup[i][-1]+1,(l_limit+u_limit)+1):
+               #
+               mask_2 = True
+               #
+               for l in parent_tup[i]:
                   #
-                  mask = False
+                  # is the new child tuple allowed?
                   #
-                  break
-            #
-            if (mask):
+                  if (not (set([m]) < set(dom[(l-l_limit)-1]))):
+                     #
+                     mask_2 = False
+                     #
+                     break
                #
-               # loop through possible orbitals to augment the parent tuple with
-               #
-               for m in range(parent_tup[i][-1]+1,(l_limit+u_limit)+1):
+               if (mask_2):
                   #
-                  mask_2 = True
+                  # append the child tuple to the tup list
                   #
-                  for l in parent_tup[i]:
-                     #
-                     # is the new child tuple allowed?
-                     #
-                     if (not (set([m]) < set(dom[(l-l_limit)-1]))):
-                        #
-                        mask_2 = False
-                        #
-                        break
+                  tmp_2.append(list(deepcopy(parent_tup[i])))
                   #
-                  if (mask_2):
+                  tmp_2[-1].append(m)
+                  #
+                  # check whether this tuple has already been accounted for in the primary expansion
+                  #
+                  if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
                      #
-                     # append the child tuple to the tup list
-                     #
-                     tmp_2.append(list(deepcopy(parent_tup[i])))
-                     #
-                     tmp_2[-1].append(m)
-                     #
-                     # check whether this tuple has already been accounted for in the primary expansion
-                     #
-                     if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
-                        #
-                        tmp_2.pop(-1)
-         #
-         tup.append(np.array(tmp_2,dtype=np.int))
-         #
-         del tmp_2
-         #
-         if ((level == 'CORRE') and (k > molecule['min_corr_order'])): del parent_tup
+                     tmp_2.pop(-1)
+      #
+      tup.append(np.array(tmp_2,dtype=np.int))
+      #
+      del tmp_2
+      #
+      if ((level == 'CORRE') and (k > molecule['min_corr_order'])): del parent_tup
    #
    del tmp
    #

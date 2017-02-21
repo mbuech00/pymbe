@@ -3,6 +3,7 @@
 
 """ bg_mpi_energy.py: MPI energy-related routines for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from mpi4py import MPI
 
 from bg_utilities import run_calc_corr, orb_string 
@@ -50,7 +51,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,n_tup,e_inc,l_limit,u_limit
    #
    msg = {'task': 'energy_kernel_mono_exp_par'}
    #
-   molecule['mpi_comm'].bcast(msg,root=0)
+   molecule['mpi_comm'].bcast(msg,root=MPI.ROOT)
    #
    while (slaves_avail >= 1):
       #
@@ -204,23 +205,13 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       # wake up slaves
       #
-      msg = {'task': 'energy_summation_par'}
+      msg = {'task': 'energy_summation_par', 'order': k, 'level': level}
       #
-      molecule['mpi_comm'].bcast(msg,root=0)
-      #
-      # bcast tup[k-1] to slaves
-      #
-      job_info = {'tup': tup[k-1], 'e_inc': e_inc[k-1], 'order': k, 'energy': None, 'level': level}
-      #
-      molecule['mpi_comm'].bcast(job_info,root=0)
-      #
-      job_info.clear()
-   #
-   # compute energy increments at level k
+      molecule['mpi_comm'].bcast(msg,root=MPI.ROOT)
    #
    for j in range(0,len(tup[k-1])):
       #
-      if ((j % molecule['mpi_size']) == molecule['mpi_rank']):
+      if (e_inc[k-1][j] != 0.0):
          #
          for i in range(k-1,0,-1):
             #
@@ -228,33 +219,19 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
                #
                # is tup[i-1][l] a subset of tup[k-1][j] ?
                #
-               if (all(idx in iter(tup[k-1][j]) for idx in tup[i-1][l])): e_inc[k-1][j] -= e_inc[i-1][l]
-      #
-      else:
-         #
-         e_inc[k-1][j] = 0.0
+               if (all(idx in iter(loc[k-1][j]) for idx in tup[i-1][l])): e_inc[k-1][j] -= e_inc[i-1][l]
+            #
+            if (level == 'CORRE'):
+               #
+               for l in range(0,len(molecule['prim_tuple'][i-1])):
+                  #
+                  # is molecule['prim_tuple'][i-1][l] a subset of tup[k-1][j] ?
+                  #
+                  if (all(idx in iter(tup[k-1][j]) for idx in molecule['prim_tuple'][i-1][l])): e_inc[k-1][j] -= molecule['prim_energy_inc'][i-1][l]
    #
-   # define sum operation for dicts
+   # allreduce e_inc[k-1]
    #
-   tup_sum_op = MPI.Op.Create(add_tup,commute=True)
-   #
-   # allreduce the results
-   #
-   data = {'tup': tup[k-1], 'e_inc': e_inc[k-1]}
-   #
-   data = molecule['mpi_comm'].allreduce(data,op=tup_sum_op)
-   #
-   # update the energy increments
-   #
-   if (level == 'MACRO'):
-      #
-      molecule['prim_tuple'][k-1] = data['tup']
-      molecule['prim_energy_inc'][k-1] = data['e_inc']
-   #
-   elif (level == 'CORRE'):
-      #
-      molecule['corr_tuple'][k-1] = data['tup']
-      molecule['corr_energy_inc'][k-1] = data['e_inc']
+   molecule['mpi_comm'].Allreduce([e_inc[k-1],MPI.DOUBLE],[e_inc[k-1],MPI.DOUBLE],op=MPI.SUM)
    #
    # let master calculate the total energy
    #
@@ -262,7 +239,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       # sum of energy increment of level k
       #
-      e_tmp = sum(e_inc[k-1])
+      e_tmp = np.sum(e_inc[k-1])
       #
       # sum of total energy
       #
@@ -271,8 +248,6 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
          e_tmp += energy[k-2]
       #
       energy.append(e_tmp)
-   #
-   data.clear()
    #
    return e_inc, energy
 

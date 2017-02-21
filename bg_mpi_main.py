@@ -56,7 +56,9 @@ def main_slave_rout(molecule):
       #
       start_idle = MPI.Wtime()
       #
-      msg = MPI.COMM_WORLD.bcast(None,root=0)
+      msg = MPI.COMM_WORLD.bcast(None,root=MPI.ROOT)
+      #
+      # bcast_mol_dict
       #
       if (msg['task'] == 'bcast_mol_dict'):
          #
@@ -64,7 +66,7 @@ def main_slave_rout(molecule):
          #
          start_comm = MPI.Wtime()
          #
-         molecule = MPI.COMM_WORLD.bcast(None,root=0)
+         molecule = MPI.COMM_WORLD.bcast(None,root=MPI.ROOT)
          #
          # init mpi_time_comm_slave
          #
@@ -83,6 +85,8 @@ def main_slave_rout(molecule):
          molecule['mpi_stat'] = MPI.Status()
          #
          molecule['mpi_master'] = False
+      #
+      # init_slave_env
       #
       elif (msg['task'] == 'init_slave_env'):
          #
@@ -111,11 +115,15 @@ def main_slave_rout(molecule):
          molecule['prim_tuple'] = []
          molecule['corr_tuple'] = []
       #
+      # print_mpi_table
+      #
       elif (msg['task'] == 'print_mpi_table'):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
          print_mpi_table(molecule)
+      #
+      # orb_generator_par
       #
       elif (msg['task'] == 'orb_generator_par'):
          #
@@ -123,11 +131,13 @@ def main_slave_rout(molecule):
          #
          # receive domain information
          #
-         dom_info = MPI.COMM_WORLD.bcast(None,root=0)
+         dom_info = MPI.COMM_WORLD.bcast(None,root=MPI.ROOT)
          #
          orb_generator_slave(molecule,dom_info['dom'],dom_info['l_limit'],dom_info['u_limit'])
          #
          dom_info.clear()
+      #
+      # energy_kernel_mono_exp_par
       #
       elif (msg['task'] == 'energy_kernel_mono_exp_par'):
          #
@@ -135,31 +145,21 @@ def main_slave_rout(molecule):
          #
          energy_kernel_slave(molecule)
       #
+      # energy_summation_par
+      #
       elif (msg['task'] == 'energy_summation_par'):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
-         # receive tuple information
+         if (msg['level'] == 'MACRO'):
+            #
+            energy_summation_par(molecule,msg['order'],molecule['prim_tuple'],molecule['prim_energy_inc'],None,'MACRO')
          #
-         tup_info = MPI.COMM_WORLD.bcast(None,root=0)
-         #
-         if (tup_info['level'] == 'MACRO'):
+         elif (msg['level' == 'CORRE']):
             #
-            molecule['prim_tuple'].append([])
-            #
-            molecule['prim_tuple'][tup_info['order']-1] = tup_info['tup']
-            #
-            energy_summation_par(molecule,tup_info['order'],molecule['prim_tuple'],tup_info['energy'],'MACRO')
-         #
-         elif (tup_info['level'] == 'CORRE'):
-            #
-            molecule['corr_tuple'].append([])
-            #
-            molecule['corr_tuple'][tup_info['order']-1] = tup_info['tup']
-            #
-            energy_summation_par(molecule,tup_info['order'],molecule['corr_tuple'],tup_info['energy'],'CORRE')
-         #
-         tup_info.clear()
+            energy_summation_par(molecule,msg['order'],molecule['corr_tuple'],molecule['corr_energy_inc'],None,'CORRE')
+      #
+      # remove_slave_env
       #
       elif (msg['task'] == 'remove_slave_env'):
          #
@@ -172,6 +172,8 @@ def main_slave_rout(molecule):
             copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
          #
          rmtree(molecule['scr'],ignore_errors=True)
+      #
+      # red_mpi_timings
       #
       elif (msg['task'] == 'red_mpi_timings'):
          #
@@ -189,9 +191,11 @@ def main_slave_rout(molecule):
          #
          time['time_work_slave'] = molecule['mpi_time_work_slave']
          #
-         molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
+         molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=MPI.ROOT)
          #
          time.clear()
+      #
+      # finalize_mpi
       #
       elif (msg['task'] == 'finalize_mpi'):
          #
@@ -205,11 +209,11 @@ def bcast_mol_dict(molecule):
    #
    msg = {'task': 'bcast_mol_dict'}
    #
-   MPI.COMM_WORLD.bcast(msg,root=0)
+   MPI.COMM_WORLD.bcast(msg,root=MPI.ROOT)
    #
    # bcast molecule dict
    #
-   MPI.COMM_WORLD.bcast(molecule,root=0)
+   MPI.COMM_WORLD.bcast(molecule,root=MPI.ROOT)
    #
    # private mpi info
    #
@@ -231,7 +235,7 @@ def init_slave_env(molecule):
    #
    msg = {'task': 'init_slave_env'}
    #
-   molecule['mpi_comm'].bcast(msg,root=0)
+   molecule['mpi_comm'].bcast(msg,root=MPI.ROOT)
    #
    return
 
@@ -241,7 +245,7 @@ def remove_slave_env(molecule):
    #
    msg = {'task': 'remove_slave_env'}
    #
-   molecule['mpi_comm'].bcast(msg,root=0)
+   molecule['mpi_comm'].bcast(msg,root=MPI.ROOT)
    #
    return
 
@@ -253,7 +257,7 @@ def print_mpi_table(molecule):
       #
       msg = {'task': 'print_mpi_table'}
       #
-      molecule['mpi_comm'].bcast(msg,root=0)
+      molecule['mpi_comm'].bcast(msg,root=MPI.ROOT)
       #
       full_info = []
       #
@@ -320,11 +324,11 @@ def red_mpi_timings(molecule):
    #
    # wake up slaves
    #
-   molecule['mpi_comm'].bcast(msg,root=0)
+   molecule['mpi_comm'].bcast(msg,root=MPI.ROOT)
    #
    # receive timings
    #
-   time = molecule['mpi_comm'].reduce({},op=time_sum_op,root=0)
+   time = molecule['mpi_comm'].reduce({},op=time_sum_op,root=MPI.ROOT)
    #
    sum_slave = time['time_idle_slave']+time['time_comm_slave']+time['time_work_slave']
    #
