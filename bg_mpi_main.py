@@ -10,7 +10,7 @@ from mpi4py import MPI
 
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave 
-from bg_mpi_utilities import add_time 
+from bg_mpi_utils import add_time 
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'

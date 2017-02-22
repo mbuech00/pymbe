@@ -7,7 +7,7 @@ import numpy as np
 from copy import deepcopy
 from timeit import default_timer
 
-from bg_utilities import run_calc_corr, n_theo_tuples
+from bg_utils import run_calc_corr, n_theo_tuples
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation

@@ -8,7 +8,7 @@ from mpi4py import MPI
 from itertools import combinations
 from copy import deepcopy
 
-from bg_mpi_utilities import enum
+from bg_mpi_utils import enum
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'

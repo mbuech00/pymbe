@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_utilities.py: general utilities for Bethe-Goldstone correlation calculation."""
+""" bg_utils.py: general utilities for Bethe-Goldstone correlation calculation."""
 
 from os import listdir, unlink
 from os.path import join, isfile
