@@ -8,7 +8,6 @@ from mpi4py import MPI
 
 from bg_utils import run_calc_corr, orb_string 
 from bg_print import print_status 
-from bg_mpi_utils import enum, add_tup
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'

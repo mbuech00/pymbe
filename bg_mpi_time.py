@@ -6,8 +6,6 @@
 import numpy as np
 from mpi4py import MPI
 
-from bg_mpi_utils import add_time 
-
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
@@ -53,55 +51,56 @@ def init_mpi_timings(molecule):
 
 def collect_mpi_timings(molecule):
    #
-   # reduce mpi timings onto master
    #
-   dict_sum_op = MPI.Op.Create(add_time,commute=True)
+   #  ---  master/slave routine
    #
-   time = {}
+   if (molecule['mpi_master']):
+      #
+      # wake up slaves
+      #
+      msg = {'task': 'collect_mpi_timings'}
+      #
+      molecule['mpi_comm'].bcast(msg,root=0)
+      #
+      # first, calculate time_remainder
+      #
+      molecule['time_remainder'] = molecule['time_total']-(molecule['time_init']+molecule['time_kernel']+molecule['time_final'])
+      #
+      # next, collect mpi timings
+      #
+      # init mpi lists with master timings
+      #
+      molecule['mpi_time_idle'] = [[molecule['mpi_time_idle_init']],[molecule['mpi_time_idle_kernel']],[molecule['mpi_time_idle_final']]]
+      molecule['mpi_time_comm'] = [[molecule['mpi_time_comm_init']],[molecule['mpi_time_comm_kernel']],[molecule['mpi_time_comm_final']]]
+      molecule['mpi_time_work'] = [[molecule['mpi_time_work_init']],[molecule['mpi_time_work_kernel']],[molecule['mpi_time_work_final']]]
+      #
+      # receive individual timings (in ordered sequence)
+      #
+      for i in range(0,molecule['mpi_size']-1):
+         #
+         time = molecule['mpi_comm'].recv(source=i+1,status=molecule['mpi_stat'])
+         #
+         for j in range(0,3):
+            #
+            molecule['mpi_time_idle'][j].append(time['time_idle'][j])
+            molecule['mpi_time_comm'][j].append(time['time_comm'][j])
+            molecule['mpi_time_work'][j].append(time['time_work'][j])
    #
-   time['time_idle_slave'] = molecule['mpi_time_idle_slave']
-   #
-   time['time_comm_slave'] = molecule['mpi_time_comm_slave']
-   #
-   time['time_work_slave'] = molecule['mpi_time_work_slave']
-   #
-   molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
-   #
-   time.clear()
-   #
-   return
-
-def red_mpi_timings(molecule):
-   #
-   #  ---  master routine
-   #
-   start_comm = MPI.Wtime()
-   #
-   # define sum operation for dicts
-   #
-   time_sum_op = MPI.Op.Create(add_time,commute=True)
-   #
-   msg = {'task': 'collect_mpi_timings'}
-   #
-   # wake up slaves
-   #
-   molecule['mpi_comm'].bcast(msg,root=0)
-   #
-   # receive timings
-   #
-   time = molecule['mpi_comm'].reduce({},op=time_sum_op,root=0)
-   #
-   # collect mpi_time_comm_master
-   #
-   molecule['mpi_time_comm_master'] += MPI.Wtime()-start_comm
-   #
-   sum_slave = time['time_idle_slave']+time['time_comm_slave']+time['time_work_slave']
-   #
-   molecule['mpi_time_idle'] = [(time['time_idle_slave']/float(molecule['mpi_size']-1)),(time['time_idle_slave']/sum_slave)*100.0]
-   #
-   molecule['mpi_time_comm'] = [(time['time_comm_slave']/float(molecule['mpi_size']-1)),(time['time_comm_slave']/sum_slave)*100.0]
-   #
-   molecule['mpi_time_work'] = [(time['time_work_slave']/float(molecule['mpi_size']-1)),(time['time_work_slave']/sum_slave)*100.0]
+   else:
+      #
+      # send mpi timings to master
+      #
+      time = {}
+      #
+      time['time_idle'] = [molecule['mpi_time_idle_init'],molecule['mpi_time_idle_kernel'],molecule['mpi_time_idle_final']]
+      time['time_comm'] = [molecule['mpi_time_comm_init'],molecule['mpi_time_comm_kernel'],molecule['mpi_time_comm_final']]
+      time['time_work'] = [molecule['mpi_time_work_init'],molecule['mpi_time_work_kernel'],molecule['mpi_time_work_final']]
+      #
+      molecule['mpi_comm'].send(time,dest=0)
+      #
+      time.clear()
+      #
+      return
    #
    time.clear()
    #

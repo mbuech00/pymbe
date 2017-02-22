@@ -8,8 +8,6 @@ from mpi4py import MPI
 from itertools import combinations
 from copy import deepcopy
 
-from bg_mpi_utils import enum
-
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
@@ -470,5 +468,12 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    return molecule
 
+def enum(*sequential,**named):
+   #
+   # hardcoded enums
+   #
+   enums = dict(zip(sequential,range(len(sequential))),**named)
+   #
+   return type('Enum',(), enums)
 
 
