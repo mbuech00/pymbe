@@ -30,6 +30,10 @@ def main():
    #
    molecule = {}
    #
+   # start time_tot
+   #
+   start_time = MPI.Wtime() 
+   #
    #  ---  init mpi...  ---
    #
    init_mpi(molecule)
@@ -52,6 +56,10 @@ def main():
       #  ---  initialization done - start the calculation...  ---
       #
       main_drv(molecule)
+      #
+      # collect time_tot
+      #
+      molecule['time_tot'] = MPI.Wtime()-start_time
       #
       #  ---  collect mpi timings from slaves  ---
       #

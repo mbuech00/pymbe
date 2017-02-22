@@ -26,7 +26,6 @@ def init_mpi_timings(molecule):
       molecule['time_init'] = 0.0
       molecule['time_kernel'] = 0.0
       molecule['time_final'] = 0.0
-      molecule['time_remainder'] = 0.0
    #
    # mpi distribution
    #
