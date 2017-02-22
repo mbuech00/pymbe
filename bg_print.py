@@ -148,7 +148,7 @@ def print_summary(molecule):
          tot_n_tup.append(molecule['prim_n_tuples'][i]+molecule['corr_n_tuples'][i])
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('     BG expansion order  |   # of prim. exp. tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr.  ')
+   print('     BG expansion order  |   # of prim. exp. tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr. ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['prim_energy'])):
@@ -185,28 +185,32 @@ def print_summary(molecule):
    print('                                              ---------------------------------------------                                                 ')
    print('')
    #
-   print('')
-   print('   time_total  = '+str(molecule['time_tot']))
-   print('   time_init   = '+str(molecule['time_init']))
-   print('   time_kernel = '+str(molecule['time_kernel']))
-   print('   time_final  = '+str(molecule['time_final']))
-   print('   time_remain = '+str(molecule['time_remain']))
-   print('')
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   print('     BG expansion order  |   time init  (in s / %)   |   time kernel  (in s / %)   |   time final  (in s / %)   |   time remain  (in s / %) ')
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   print('          {0:>4d}                  {1:>4.2e} / {2:>4.2f}              {3:>4.2e} / {4:>4.2f}              {5:>4.2e} / {6:>4.2f}             {7:>4.2e} / {8:>4.2f}'.\
+             format(1,molecule['time_init'],(molecule['time_init']/molecule['time_tot'])*100.0,\
+                    molecule['time_kernel'],(molecule['time_kernel']/molecule['time_tot'])*100.0,\
+                    molecule['time_final'],(molecule['time_final']/molecule['time_tot'])*100.0,\
+                    molecule['time_remain'],(molecule['time_remain']/molecule['time_tot'])*100.0))
+   #
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    if (molecule['mpi_parallel']):
       #
+      print('   |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
       print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-      print('      mpi processor    |    timings init (work/comm/idle)    |    timings kernel (work/comm/idle)    |    timings final (work/comm/idle)     ')
+      print('      mpi processor    |   time init in s (work/comm/idle)   |   time kernel in s (work/comm/idle)   |   time final in s (work/comm/idle)   ')
       print('   -----------------------------------------------------------------------------------------------------------------------------------------')
       #
-      print('    master -- {0:<8d}      {1:4.2e} / {2:4.2e} / {3:4.2e}        {4:4.2e} / {5:4.2e} / {6:4.2e}          {7:4.2e} / {8:4.2e} / {9:4.2e}'.\
+      print('    master -- {0:<8d}     {1:>4.2e} / {2:>4.2e} / {3:>4.2e}         {4:>4.2e} / {5:>4.2e} / {6:>4.2e}          {7:>4.2e} / {8:>4.2e} / {9:>4.2e}'.\
              format(0,molecule['mpi_time_work'][0][0],molecule['mpi_time_comm'][0][0],molecule['mpi_time_idle'][0][0],\
                     molecule['mpi_time_work'][1][0],molecule['mpi_time_comm'][1][0],molecule['mpi_time_idle'][1][0],\
                     molecule['mpi_time_work'][2][0],molecule['mpi_time_comm'][2][0],molecule['mpi_time_idle'][2][0]))
       #
       for i in range(1,molecule['mpi_size']):
          #
-         print('    slave  -- {0:<8d}      {1:4.2e} / {2:4.2e} / {3:4.2e}        {4:4.2e} / {5:4.2e} / {6:4.2e}          {7:4.2e} / {8:4.2e} / {9:4.2e}'.\
+         print('    slave  -- {0:<8d}     {1:>4.2e} / {2:>4.2e} / {3:>4.2e}         {4:>4.2e} / {5:>4.2e} / {6:>4.2e}          {7:>4.2e} / {8:>4.2e} / {9:>4.2e}'.\
                 format(i,molecule['mpi_time_work'][0][i],molecule['mpi_time_comm'][0][i],molecule['mpi_time_idle'][0][i],\
                        molecule['mpi_time_work'][1][i],molecule['mpi_time_comm'][1][i],molecule['mpi_time_idle'][1][i],\
                        molecule['mpi_time_work'][2][i],molecule['mpi_time_comm'][2][i],molecule['mpi_time_idle'][2][i]))
