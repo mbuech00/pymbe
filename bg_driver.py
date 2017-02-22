@@ -13,7 +13,7 @@ from bg_print import print_status_header, print_status_end, print_result,\
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_entanglement, orb_exclusion
-from bg_mpi_main import mono_exp_merge_info
+from bg_mpi_misc import mono_exp_merge_info
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
