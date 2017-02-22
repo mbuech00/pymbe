@@ -95,12 +95,6 @@ def print_summary(molecule):
       print('   number of mpi masters        =  {0:}'.format(1))
       #
       print('   number of mpi slaves         =  {0:}'.format(molecule['mpi_size']-1))
-      #
-      print('   -- time (idle)               =  {0:<d} %'.format(int(molecule['mpi_time_idle'][1]+0.5)))
-      #
-      print('   -- time (communication)      =  {0:<d} %'.format(int(molecule['mpi_time_comm'][1]+0.5)))
-      #
-      print('   -- time (comp. work)         =  {0:<d} %'.format(int(molecule['mpi_time_work'][1]+0.5)))
    #
    print('')
    print('   ---------------------------------------------')
@@ -183,6 +177,41 @@ def print_summary(molecule):
                                                                                  total_time,total_time+total_time_corr))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   #
+   print('')
+   print('')
+   print('                                              ---------------------------------------------                                                 ')
+   print('                                                          phase and mpi timings                                                             ')
+   print('                                              ---------------------------------------------                                                 ')
+   print('')
+   #
+   print('')
+   print('   time_total  = '+str(molecule['time_tot']))
+   print('   time_init   = '+str(molecule['time_init']))
+   print('   time_kernel = '+str(molecule['time_kernel']))
+   print('   time_final  = '+str(molecule['time_final']))
+   print('   time_remain = '+str(molecule['time_remain']))
+   print('')
+   #
+   if (molecule['mpi_parallel']):
+      #
+      print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+      print('      mpi processor    |    timings init (work/comm/idle)    |    timings kernel (work/comm/idle)    |    timings final (work/comm/idle)     ')
+      print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+      #
+      print('    master -- {0:<8d}      {1:4.2e} / {2:4.2e} / {3:4.2e}        {4:4.2e} / {5:4.2e} / {6:4.2e}          {7:4.2e} / {8:4.2e} / {9:4.2e}'.\
+             format(0,molecule['mpi_time_work'][0][0],molecule['mpi_time_comm'][0][0],molecule['mpi_time_idle'][0][0],\
+                    molecule['mpi_time_work'][1][0],molecule['mpi_time_comm'][1][0],molecule['mpi_time_idle'][1][0],\
+                    molecule['mpi_time_work'][2][0],molecule['mpi_time_comm'][2][0],molecule['mpi_time_idle'][2][0]))
+      #
+      for i in range(1,molecule['mpi_size']):
+         #
+         print('    slave  -- {0:<8d}      {1:4.2e} / {2:4.2e} / {3:4.2e}        {4:4.2e} / {5:4.2e} / {6:4.2e}          {7:4.2e} / {8:4.2e} / {9:4.2e}'.\
+                format(i,molecule['mpi_time_work'][0][i],molecule['mpi_time_comm'][0][i],molecule['mpi_time_idle'][0][i],\
+                       molecule['mpi_time_work'][1][i],molecule['mpi_time_comm'][1][i],molecule['mpi_time_idle'][1][i],\
+                       molecule['mpi_time_work'][2][i],molecule['mpi_time_comm'][2][i],molecule['mpi_time_idle'][2][i]))
+      #
+      print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    print('\n')
    #

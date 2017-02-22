@@ -414,7 +414,7 @@ def ic_plot(molecule):
    #
    #  ---  plot mpi timings  ---
    #
-   if (molecule['mpi_parallel']): mpi_time_plot(molecule)
+#   if (molecule['mpi_parallel']): mpi_time_plot(molecule)
    #
    return molecule
 

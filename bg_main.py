@@ -7,7 +7,7 @@ written by Janus J. Eriksen (jeriksen@uni-mainz.de), 2016-2017, Mainz, Germany."
 
 from mpi4py import MPI
 
-from bg_mpi_wrapper import finalize_mpi, abort_mpi
+from bg_mpi_wrapper import finalize_mpi
 from bg_mpi_main import init_mpi
 from bg_mpi_time import collect_mpi_timings
 from bg_setup import init_calc, term_calc
@@ -31,10 +31,6 @@ def main():
    #
    molecule = {}
    #
-   # start time_tot
-   #
-   start_time = MPI.Wtime() 
-   #
    #  ---  init mpi...  ---
    #
    init_mpi(molecule)
@@ -47,9 +43,6 @@ def main():
       #
       init_calc(molecule)
       #
-      #
-      if (molecule['error'][-1]): abort_mpi(molecule)
-      #
       #  ---  print program header...  ---
       #
       print_main_header(molecule)
@@ -58,13 +51,9 @@ def main():
       #
       main_drv(molecule)
       #
-      # collect time_tot
-      #
-      molecule['time_tot'] = MPI.Wtime()-start_time
-      #
       #  ---  collect mpi timings from slaves  ---
       #
-      if (molecule['mpi_parallel']): collect_mpi_timings(molecule)
+      collect_mpi_timings(molecule)
       #
       #  ---  start (potential) reference calculation...  ---
       #

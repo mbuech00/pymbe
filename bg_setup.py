@@ -6,9 +6,10 @@
 from os import mkdir, chdir
 from shutil import copy, rmtree 
 
+from bg_mpi_wrapper import abort_mpi
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utils import run_calc_hf
-from bg_mpi_misc import bcast_mol_dict, init_slave_env, print_mpi_table, remove_slave_env 
+from bg_mpi_utils import bcast_mol_dict, init_slave_env, print_mpi_table, remove_slave_env 
 from bg_mpi_time import init_mpi_timings
 from bg_print import redirect_stdout
 
@@ -83,6 +84,8 @@ def init_calc(molecule):
    #
    sanity_chk(molecule)
    #
+   if (molecule['error'][-1]): abort_mpi(molecule)
+   #
    return molecule
 
 def term_calc(molecule):
@@ -98,6 +101,8 @@ def term_calc(molecule):
    if (molecule['mpi_master'] and molecule['mpi_parallel']):
       #
       remove_slave_env(molecule)
+   #
+   if (molecule['error'][-1]): abort_mpi(molecule)
    #
    return
 

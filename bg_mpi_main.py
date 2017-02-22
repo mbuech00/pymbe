@@ -8,7 +8,7 @@ from os import getcwd, mkdir, chdir
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_mpi_misc import print_mpi_table, mono_exp_merge_info
+from bg_mpi_utils import print_mpi_table, mono_exp_merge_info
 from bg_mpi_time import init_mpi_timings, collect_mpi_timings
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave 
@@ -109,10 +109,6 @@ def main_slave_rout(molecule):
          #
          molecule['prim_energy_inc'] = []
          molecule['corr_energy_inc'] = []
-         #
-         # collect mpi_time_work_slave
-         #
-         molecule['mpi_time_work_slave'] += MPI.Wtime()-start_work
       #
       # print_mpi_table
       #

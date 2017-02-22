@@ -4,6 +4,7 @@
 """ bg_driver.py: driver routines for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
+from mpi4py import MPI
 from copy import deepcopy
 from timeit import default_timer
 
@@ -13,7 +14,7 @@ from bg_print import print_status_header, print_status_end, print_result,\
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_entanglement, orb_exclusion
-from bg_mpi_misc import mono_exp_merge_info
+from bg_mpi_utils import mono_exp_merge_info
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -46,11 +47,17 @@ def main_drv(molecule):
       print('                                   primary expansion                              ')
       print('                     ---------------------------------------------                ')
       #
+      start_phase = MPI.Wtime()
+      #
       mono_exp_drv(molecule,1,molecule['max_order'],'MACRO')
       #
       # set min and max _corr_order
       #
       set_corr_order(molecule)
+      #
+      # collect time_tot
+      #
+      molecule['time_tot'] = MPI.Wtime()-start_phase
       #
       if (molecule['corr']):
          #
@@ -61,9 +68,15 @@ def main_drv(molecule):
          print('                                   energy correction                              ')
          print('                     ---------------------------------------------                ')
          #
+         start_phase = MPI.Wtime()
+         #
          mono_exp_merge_info(molecule)
          #
          mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
+         #
+         # collect time_tot
+         #
+         molecule['time_tot'] += MPI.Wtime()-start_phase
    #
    elif ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
@@ -133,7 +146,13 @@ def mono_exp_kernel(molecule,k,level):
    #
    # run the calculations
    #
+   start_phase = MPI.Wtime()
+   #
    energy_kernel_mono_exp(molecule,k,tup,n_tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
+   #
+   # collect time_kernel
+   #
+   molecule['time_kernel'] += MPI.Wtime()-start_phase
    #
    # collect time
    #
@@ -149,7 +168,13 @@ def mono_exp_kernel(molecule,k,level):
    #
    # calculate the energy at order k
    #
+   start_phase = MPI.Wtime()
+   #
    energy_summation(molecule,k,tup,e_inc,e_tot,level)
+   #
+   # collect time_final
+   #
+   molecule['time_final'] += MPI.Wtime()-start_phase
    #
    time_final = default_timer() - start
    #
@@ -206,7 +231,13 @@ def mono_exp_init(molecule,k,level):
    #
    # generate all tuples at order k
    #
+   start_phase = MPI.Wtime()
+   #
    orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
+   #
+   # collect time_init
+   #
+   molecule['time_init'] += MPI.Wtime()-start_phase
    #
    # collect time_init
    #
