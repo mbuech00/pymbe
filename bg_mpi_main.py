@@ -8,8 +8,9 @@ from os import getcwd, mkdir, chdir
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_mpi_misc import bcast_mol_dict, init_slave_env, remove_slave_env,\
-                        print_mpi_table, mono_exp_merge_info, red_mpi_timings 
+from bg_mpi_misc import print_mpi_table, mono_exp_merge_info
+from bg_mpi_time import init_mpi_timings, red_mpi_timings
+from bg_mpi_utils import add_time
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave 
 
@@ -74,6 +75,14 @@ def main_slave_rout(molecule):
          #
          molecule = MPI.COMM_WORLD.bcast(None,root=0)
          #
+         # set current mpi proc to 'slave'
+         #
+         molecule['mpi_master'] = False
+         #
+         # init slave mpi timings
+         #
+         init_mpi_timings(molecule)
+         #
          # collect mpi_time_idle_slave
          #
          molecule['mpi_time_idle_slave'] += end_idle
@@ -95,8 +104,6 @@ def main_slave_rout(molecule):
          molecule['mpi_rank'] = molecule['mpi_comm'].Get_rank()
          molecule['mpi_name'] = MPI.Get_processor_name()
          molecule['mpi_stat'] = MPI.Status()
-         #
-         molecule['mpi_master'] = False
          #
          # collect mpi_time_work_slave
          #

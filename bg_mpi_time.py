@@ -17,6 +17,57 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
+def init_mpi_timings(molecule):
+   #
+   # program phase distribution
+   #
+   if (molecule['mpi_master']):
+      #
+      molecule['time_init'] = 0.0
+      molecule['time_kernel'] = 0.0
+      molecule['time_final'] = 0.0
+      molecule['time_remainder'] = 0.0
+   #
+   # mpi distribution
+   #
+   if (molecule['mpi_parallel']):
+      #
+      if (molecule['mpi_master']):
+         #
+         # master rout timings
+         #
+         molecule['mpi_time_idle_master'] = 0.0
+         molecule['mpi_time_comm_master'] = 0.0
+         molecule['mpi_time_work_master'] = 0.0
+      #
+      else:
+         #
+         # main_slave_rout timings 
+         #
+         molecule['mpi_time_idle_slave'] = 0.0
+         molecule['mpi_time_comm_slave'] = 0.0
+         molecule['mpi_time_work_slave'] = 0.0   
+      #
+      # init timings
+      #
+      molecule['mpi_time_idle_init'] = 0.0
+      molecule['mpi_time_comm_init'] = 0.0
+      molecule['mpi_time_work_init'] = 0.0
+      #
+      # energy kernel timings
+      #
+      molecule['mpi_time_idle_kernel'] = 0.0
+      molecule['mpi_time_comm_kernel'] = 0.0
+      molecule['mpi_time_work_kernel'] = 0.0
+      #
+      # energy summation timings
+      #
+      molecule['mpi_time_idle_final'] = 0.0
+      molecule['mpi_time_comm_final'] = 0.0
+      molecule['mpi_time_work_final'] = 0.0
+   #
+   return molecule
+
 def red_mpi_timings(molecule):
    #
    #  ---  master routine
@@ -51,5 +102,5 @@ def red_mpi_timings(molecule):
    #
    time.clear()
    #
-   return
+   return molecule
 
