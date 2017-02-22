@@ -67,6 +67,26 @@ def init_mpi_timings(molecule):
    #
    return molecule
 
+def collect_mpi_timings(molecule):
+   #
+   # reduce mpi timings onto master
+   #
+   dict_sum_op = MPI.Op.Create(add_time,commute=True)
+   #
+   time = {}
+   #
+   time['time_idle_slave'] = molecule['mpi_time_idle_slave']
+   #
+   time['time_comm_slave'] = molecule['mpi_time_comm_slave']
+   #
+   time['time_work_slave'] = molecule['mpi_time_work_slave']
+   #
+   molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
+   #
+   time.clear()
+   #
+   return
+
 def red_mpi_timings(molecule):
    #
    #  ---  master routine
@@ -77,7 +97,7 @@ def red_mpi_timings(molecule):
    #
    time_sum_op = MPI.Op.Create(add_time,commute=True)
    #
-   msg = {'task': 'red_mpi_timings'}
+   msg = {'task': 'collect_mpi_timings'}
    #
    # wake up slaves
    #

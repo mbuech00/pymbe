@@ -172,6 +172,8 @@ def mono_exp_merge_info(molecule):
       #
       molecule['mpi_time_comm_master'] += MPI.Wtime()-start_comm
    #
+   start_work = MPI.Wtime()
+   #
    for k in range(1,molecule['min_corr_order']):
       #
       molecule['corr_tuple'].append(np.array([],dtype=np.int))
@@ -189,6 +191,8 @@ def mono_exp_merge_info(molecule):
          #
          molecule['corr_orb_ent'].append(molecule['prim_orb_ent'][k-1])
          molecule['corr_orb_arr'].append(molecule['prim_orb_arr'][k-1])
+   #
+   molecule['mpi_time_work_init'] += MPI.Wtime()-start_work
    #
    return molecule
 

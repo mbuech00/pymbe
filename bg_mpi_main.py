@@ -9,8 +9,7 @@ from shutil import copy, rmtree
 from mpi4py import MPI
 
 from bg_mpi_misc import print_mpi_table, mono_exp_merge_info
-from bg_mpi_time import init_mpi_timings, red_mpi_timings
-from bg_mpi_utils import add_time
+from bg_mpi_time import init_mpi_timings, collect_mpi_timings
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave 
 
@@ -167,15 +166,9 @@ def main_slave_rout(molecule):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
-         start_work = MPI.Wtime()
-         #
          molecule['min_corr_order'] = msg['min_corr_order']
          #
          mono_exp_merge_info(molecule)
-         #
-         # collect mpi_time_work_slave
-         #
-         molecule['mpi_time_work_slave'] += MPI.Wtime()-start_work
       #
       # bcast_tuples
       #
@@ -362,29 +355,15 @@ def main_slave_rout(molecule):
          #
          molecule['mpi_time_work_slave'] += MPI.Wtime()-start_work
       #
-      # red_mpi_timings
+      # collect_mpi_timings
       #
-      elif (msg['task'] == 'red_mpi_timings'):
+      elif (msg['task'] == 'collect_mpi_timings'):
          #
          # collect mpi_time_idle_slave
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
-         # reduce mpi timings onto master
-         #
-         dict_sum_op = MPI.Op.Create(add_time,commute=True)
-         #
-         time = {}
-         #
-         time['time_idle_slave'] = molecule['mpi_time_idle_slave']
-         #
-         time['time_comm_slave'] = molecule['mpi_time_comm_slave']
-         #
-         time['time_work_slave'] = molecule['mpi_time_work_slave']
-         #
-         molecule['mpi_comm'].reduce(time,op=dict_sum_op,root=0)
-         #
-         time.clear()
+         collect_mpi_timings(molecule)
       #
       # finalize_mpi
       #
