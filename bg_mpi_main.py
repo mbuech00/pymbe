@@ -178,6 +178,14 @@ def main_slave_rout(molecule):
          #
          molecule['mpi_time_idle_slave'] += MPI.Wtime()-start_idle
          #
+         start_idle = MPI.Wtime()
+         #
+         final_msg = MPI.COMM_WORLD.bcast(None,root=0)
+         #
+         # collect mpi_time_idle_init
+         #
+         molecule['mpi_time_idle_init'] += MPI.Wtime()-start_idle
+         #
          start_comm = MPI.Wtime()
          #
          # receive the total number of tuples
@@ -209,6 +217,7 @@ def main_slave_rout(molecule):
          molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
          #
          tup_info.clear()
+         final_msg.clear()
       #
       # orb_generator_par
       #
@@ -232,6 +241,14 @@ def main_slave_rout(molecule):
             #
             orb_generator_slave(molecule,dom_info['dom'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
             #
+            start_idle = MPI.Wtime()
+            #
+            final_msg = MPI.COMM_WORLD.bcast(None,root=0)
+            #
+            # collect mpi_time_idle_init
+            #
+            molecule['mpi_time_idle_init'] += MPI.Wtime()-start_idle
+            #   
             # receive the total number of tuples
             #
             start_comm = MPI.Wtime()
@@ -266,6 +283,14 @@ def main_slave_rout(molecule):
             #
             orb_generator_slave(molecule,dom_info['dom'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'CORRE')
             #
+            start_idle = MPI.Wtime()
+            #
+            final_msg = MPI.COMM_WORLD.bcast(None,root=0)
+            #
+            # collect mpi_time_idle_init
+            #
+            molecule['mpi_time_idle_init'] += MPI.Wtime()-start_idle
+            #
             # receive the total number of tuples
             #
             start_comm = MPI.Wtime()
@@ -298,6 +323,7 @@ def main_slave_rout(molecule):
          #
          dom_info.clear()
          tup_info.clear()
+         final_msg.clear()
       #
       # energy_kernel_mono_exp_par
       #

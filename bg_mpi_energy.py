@@ -63,6 +63,14 @@ def energy_kernel_mono_exp_par(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,le
             #
             return molecule, tup, e_inc
    #
+   start_idle = MPI.Wtime()
+   #
+   molecule['mpi_comm'].Barrier()
+   #
+   # collect mpi_time_idle_kernel
+   #
+   molecule['mpi_time_idle_kernel'] += MPI.Wtime()-start_idle
+   #
    # make sure that STATUS = 100.00 % has been written
    #
    if (molecule['mpi_master']): print_status(1.0,level)
@@ -103,13 +111,33 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
    e_inc_tmp = np.empty(len(e_inc[k-1]),dtype=np.float64)
    #
+   start_idle = MPI.Wtime()
+   #
+   molecule['mpi_comm'].Barrier()
+   #
+   # collect mpi_time_idle_final
+   #
+   molecule['mpi_time_idle_final'] += MPI.Wtime()-start_idle
+   #
    # allreduce e_inc[k-1]
+   #
+   start_comm = MPI.Wtime()
    #
    molecule['mpi_comm'].Allreduce([e_inc[k-1],MPI.DOUBLE],[e_inc_tmp,MPI.DOUBLE],op=MPI.SUM)
    #
+   # collect mpi_time_comm_final
+   #
+   molecule['mpi_time_comm_final'] += MPI.Wtime()-start_comm
+   #
    # update e_inc[k-1]
    #
+   start_work = MPI.Wtime()
+   #
    e_inc[k-1] = e_inc_tmp
+   #
+   # collect mpi_time_comm_final
+   #
+   molecule['mpi_time_work_final'] += MPI.Wtime()-start_work
    #
    # let master calculate the total energy
    #
@@ -126,6 +154,18 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
          e_tmp += energy[k-2]
       #
       energy.append(e_tmp)
+   #
+   else:
+      #
+      start_idle = MPI.Wtime()
+   #
+   molecule['mpi_comm'].Barrier()
+   #
+   if (not molecule['mpi_master']):
+      #
+      # collect mpi_time_idle_final
+      #
+      molecule['mpi_time_idle_final'] += MPI.Wtime()-start_idle
    #
    del e_inc_tmp
    #
