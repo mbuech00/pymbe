@@ -9,7 +9,7 @@ from shutil import copy, rmtree
 from bg_mpi_wrapper import abort_mpi
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utils import run_calc_hf
-from bg_mpi_utils import bcast_mol_dict, init_slave_env, print_mpi_table, remove_slave_env 
+from bg_mpi_utils import bcast_mol_dict, init_slave_env, remove_slave_env 
 from bg_mpi_time import init_mpi_timings
 from bg_print import redirect_stdout
 
@@ -55,10 +55,6 @@ def init_calc(molecule):
       # init the prog env on the slaves
       #
       init_slave_env(molecule)
-      #
-      # print a table with mpi information
-      #
-      print_mpi_table(molecule)
    #
    else:
       #

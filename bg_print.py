@@ -8,6 +8,8 @@ from os import getcwd, mkdir
 from os.path import isdir
 from shutil import rmtree
 
+from bg_mpi_utils import print_mpi_table
+
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
@@ -21,6 +23,10 @@ def print_main_header(molecule):
    #
    print('\n')
    print(' ** start bethe-goldstone '+molecule['model']+' calculation  ---  '+str(molecule['scheme'])+' expansion scheme **')
+   #
+   # print a table with mpi information
+   #
+   print_mpi_table(molecule)
    #
    return
 
