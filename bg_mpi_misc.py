@@ -21,8 +21,6 @@ def bcast_mol_dict(molecule):
    #
    #  ---  master routine
    #
-   start_comm = MPI.Wtime()
-   #
    msg = {'task': 'bcast_mol_dict'}
    #
    MPI.COMM_WORLD.bcast(msg,root=0)
@@ -34,10 +32,6 @@ def bcast_mol_dict(molecule):
    # init program phase timings and mpi master timings
    #
    init_mpi_timings(molecule)
-   #
-   # collect mpi_time_comm_master
-   #
-   molecule['mpi_time_comm_master'] += MPI.Wtime()-start_comm
    #
    # private mpi info
    #
@@ -57,15 +51,9 @@ def init_slave_env(molecule):
    #
    #  ---  master routine
    #
-   start_comm = MPI.Wtime()
-   #
    msg = {'task': 'init_slave_env'}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
-   #
-   # collect mpi_time_comm_master
-   #
-   molecule['mpi_time_comm_master'] += MPI.Wtime()-start_comm
    #
    return
 
@@ -73,15 +61,9 @@ def remove_slave_env(molecule):
    #
    #  ---  master routine
    #
-   start_comm = MPI.Wtime()
-   #
    msg = {'task': 'remove_slave_env'}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
-   #
-   # collect mpi_time_comm_master
-   #
-   molecule['mpi_time_comm_master'] += MPI.Wtime()-start_comm
    #
    return
 
@@ -90,8 +72,6 @@ def print_mpi_table(molecule):
    #  ---  master/slave routine
    #
    if (molecule['mpi_master']):
-      #
-      start_comm = MPI.Wtime()
       #
       msg = {'task': 'print_mpi_table'}
       #
@@ -104,10 +84,6 @@ def print_mpi_table(molecule):
          info = molecule['mpi_comm'].recv(source=i+1,status=molecule['mpi_stat'])
          #
          full_info.append([info['rank'],info['name']])
-      #
-      # collect mpi_time_comm_master
-      #
-      molecule['mpi_time_comm_master'] += MPI.Wtime()-start_comm
    #
    else:
       #
@@ -168,9 +144,9 @@ def mono_exp_merge_info(molecule):
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #
-      # collect mpi_time_comm_master
+      # collect mpi_time_comm_init
       #
-      molecule['mpi_time_comm_master'] += MPI.Wtime()-start_comm
+      molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
    #
    start_work = MPI.Wtime()
    #

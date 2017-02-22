@@ -31,22 +31,6 @@ def init_mpi_timings(molecule):
    #
    if (molecule['mpi_parallel']):
       #
-      if (molecule['mpi_master']):
-         #
-         # master rout timings
-         #
-         molecule['mpi_time_idle_master'] = 0.0
-         molecule['mpi_time_comm_master'] = 0.0
-         molecule['mpi_time_work_master'] = 0.0
-      #
-      else:
-         #
-         # main_slave_rout timings 
-         #
-         molecule['mpi_time_idle_slave'] = 0.0
-         molecule['mpi_time_comm_slave'] = 0.0
-         molecule['mpi_time_work_slave'] = 0.0   
-      #
       # init timings
       #
       molecule['mpi_time_idle_init'] = 0.0
