@@ -6,7 +6,7 @@
 import numpy as np
 from mpi4py import MPI
 
-from bg_mpi_time import init_mpi_timings
+from bg_mpi_time import init_phase_timings, init_mpi_timings
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -30,6 +30,8 @@ def bcast_mol_dict(molecule):
    MPI.COMM_WORLD.bcast(molecule,root=0)
    #
    # init program phase timings and mpi master timings
+   #
+   init_phase_timings(molecule)
    #
    init_mpi_timings(molecule)
    #

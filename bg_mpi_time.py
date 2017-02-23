@@ -77,6 +77,28 @@ def timer_mpi(molecule,key,order,end=False):
    #
    return molecule
 
+def init_phase_timings(molecule):
+   #
+   # program phase distribution
+   #
+   molecule['prim_time_tot'] = []
+   molecule['prim_time_init'] = []
+   molecule['prim_time_kernel'] = []
+   molecule['prim_time_final'] = []
+   #
+   if (molecule['corr']):
+      #
+      molecule['corr_time_tot'] = []
+      molecule['corr_time_init'] = []
+      molecule['corr_time_kernel'] = []
+      molecule['corr_time_final'] = []
+   #
+   if (molecule['ref']):
+      #
+      molecule['ref_time_tot'] = []
+   #
+   return molecule
+
 def init_mpi_timings(molecule):
    #
    # init tmp time and time label
@@ -85,47 +107,25 @@ def init_mpi_timings(molecule):
    #
    molecule['store_key'] = ''
    #
-   # program phase distribution
-   #
-   if (molecule['mpi_master']):
-      #
-      molecule['prim_time_tot'] = []
-      molecule['prim_time_init'] = []
-      molecule['prim_time_kernel'] = []
-      molecule['prim_time_final'] = []
-      #
-      if (molecule['corr']):
-         #
-         molecule['corr_time_tot'] = []
-         molecule['corr_time_init'] = []
-         molecule['corr_time_kernel'] = []
-         molecule['corr_time_final'] = []
-      #
-      if (molecule['ref']):
-         #
-         molecule['ref_time_tot'] = []
-   #
    # mpi distribution
    #
-   if (molecule['mpi_parallel']):
-      #
-      # init timings
-      #
-      molecule['mpi_time_idle_init'] = []
-      molecule['mpi_time_comm_init'] = []
-      molecule['mpi_time_work_init'] = []
-      #
-      # energy kernel timings
-      #
-      molecule['mpi_time_idle_kernel'] = []
-      molecule['mpi_time_comm_kernel'] = []
-      molecule['mpi_time_work_kernel'] = []
-      #
-      # energy summation timings
-      #
-      molecule['mpi_time_idle_final'] = []
-      molecule['mpi_time_comm_final'] = []
-      molecule['mpi_time_work_final'] = []
+   # 'init' timings
+   #
+   molecule['mpi_time_idle_init'] = []
+   molecule['mpi_time_comm_init'] = []
+   molecule['mpi_time_work_init'] = []
+   #
+   # 'energy kernel' timings
+   #
+   molecule['mpi_time_idle_kernel'] = []
+   molecule['mpi_time_comm_kernel'] = []
+   molecule['mpi_time_work_kernel'] = []
+   #
+   # 'energy summation' timings
+   #
+   molecule['mpi_time_idle_final'] = []
+   molecule['mpi_time_comm_final'] = []
+   molecule['mpi_time_work_final'] = []
    #
    return molecule
 

@@ -10,7 +10,7 @@ from bg_mpi_wrapper import abort_mpi
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utils import run_calc_hf
 from bg_mpi_utils import bcast_mol_dict, init_slave_env, remove_slave_env 
-from bg_mpi_time import init_mpi_timings
+from bg_mpi_time import init_phase_timings
 from bg_print import redirect_stdout
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -64,7 +64,7 @@ def init_calc(molecule):
       #
       # init program phase timings
       #
-      init_mpi_timings(molecule)
+      init_phase_timings(molecule)
    #
    # init scr env
    #

@@ -26,7 +26,7 @@ def print_main_header(molecule):
    #
    # print a table with mpi information
    #
-   print_mpi_table(molecule)
+   if (molecule['mpi_parallel']): print_mpi_table(molecule)
    #
    return
 
