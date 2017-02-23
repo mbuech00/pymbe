@@ -210,10 +210,8 @@ def print_summary(molecule):
       time_remain += time_tot-(time_init+time_kernel+time_final)
       #
       print('          {0:>4d}                  {1:>4.2e} / {2:>4.2f}              {3:>4.2e} / {4:>4.2f}              {5:>4.2e} / {6:>4.2f}             {7:>4.2e} / {8:>4.2f}'.\
-                format(i+1,time_init,(time_init/time_tot)*100.0,\
-                       time_kernel,(time_kernel/time_tot)*100.0,\
-                       time_final,(time_final/time_tot)*100.0,\
-                       time_remain,(time_remain/time_tot)*100.0))
+                format(i+1,time_init,(time_init/time_tot)*100.0,time_kernel,(time_kernel/time_tot)*100.0,\
+                       time_final,(time_final/time_tot)*100.0,time_remain,(time_remain/time_tot)*100.0))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
@@ -225,16 +223,16 @@ def print_summary(molecule):
       print('   -----------------------------------------------------------------------------------------------------------------------------------------')
       #
       print('    master -- {0:<8d}     {1:>4.2e} / {2:>4.2e} / {3:>4.2e}         {4:>4.2e} / {5:>4.2e} / {6:>4.2e}          {7:>4.2e} / {8:>4.2e} / {9:>4.2e}'.\
-             format(0,molecule['mpi_time_work'][0][0],molecule['mpi_time_comm'][0][0],molecule['mpi_time_idle'][0][0],\
-                    molecule['mpi_time_work'][1][0],molecule['mpi_time_comm'][1][0],molecule['mpi_time_idle'][1][0],\
-                    molecule['mpi_time_work'][2][0],molecule['mpi_time_comm'][2][0],molecule['mpi_time_idle'][2][0]))
+             format(0,sum(molecule['mpi_time_work'][0][0]),sum(molecule['mpi_time_comm'][0][0]),sum(molecule['mpi_time_idle'][0][0]),\
+                    sum(molecule['mpi_time_work'][1][0]),sum(molecule['mpi_time_comm'][1][0]),sum(molecule['mpi_time_idle'][1][0]),\
+                    sum(molecule['mpi_time_work'][2][0]),sum(molecule['mpi_time_comm'][2][0]),sum(molecule['mpi_time_idle'][2][0])))
       #
       for i in range(1,molecule['mpi_size']):
          #
          print('    slave  -- {0:<8d}     {1:>4.2e} / {2:>4.2e} / {3:>4.2e}         {4:>4.2e} / {5:>4.2e} / {6:>4.2e}          {7:>4.2e} / {8:>4.2e} / {9:>4.2e}'.\
-                format(i,molecule['mpi_time_work'][0][i],molecule['mpi_time_comm'][0][i],molecule['mpi_time_idle'][0][i],\
-                       molecule['mpi_time_work'][1][i],molecule['mpi_time_comm'][1][i],molecule['mpi_time_idle'][1][i],\
-                       molecule['mpi_time_work'][2][i],molecule['mpi_time_comm'][2][i],molecule['mpi_time_idle'][2][i]))
+                format(i,sum(molecule['mpi_time_work'][0][i]),sum(molecule['mpi_time_comm'][0][i]),sum(molecule['mpi_time_idle'][0][i]),\
+                       sum(molecule['mpi_time_work'][1][i]),sum(molecule['mpi_time_comm'][1][i]),sum(molecule['mpi_time_idle'][1][i]),\
+                       sum(molecule['mpi_time_work'][2][i]),sum(molecule['mpi_time_comm'][2][i]),sum(molecule['mpi_time_idle'][2][i])))
       #
       print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
@@ -263,7 +261,7 @@ def print_init_end(molecule,order,level):
       time_init = molecule['corr_time_init']
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_int[order-1]))
+   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_init[order-1]))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -325,12 +323,12 @@ def print_status_end(molecule,order,level):
    if (level == 'MACRO'):
       #
       n_tup = molecule['prim_n_tuples']
-      time = molecule['prim_time']
+      time = molecule['prim_time_kernel']
    #
    elif (level == 'CORRE'):
       #
       n_tup = molecule['corr_n_tuples']
-      time = molecule['corr_time']
+      time = molecule['corr_time_kernel']
    #
    print(' --------------------------------------------------------------------------------------------')
    #

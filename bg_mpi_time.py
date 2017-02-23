@@ -39,13 +39,13 @@ def timer_phase(molecule,key,order,level):
    #
    return molecule
 
-def timer_mpi(molecule,key,order):
+def timer_mpi(molecule,key,order,end=False):
    #
    if (key != molecule['store_key']):
       #
       if (molecule['store_key'] != ''):
          #
-         if (len(molecule[key]) < order):
+         if (len(molecule[molecule['store_key']]) < order):
             #
             molecule[molecule['store_key']].append(MPI.Wtime()-molecule['store_time'])
          #
@@ -62,6 +62,16 @@ def timer_mpi(molecule,key,order):
          molecule['store_time'] = MPI.Wtime()
          #
          molecule['store_key'] = key
+   #
+   elif ((key == molecule['store_key']) and end):
+      #
+      if (len(molecule[key]) < order):
+         #
+         molecule[key].append(MPI.Wtime()-molecule['store_time'])
+      #
+      else:
+         #
+         molecule[key][order-1] += MPI.Wtime()-molecule['store_time']
    #
    return molecule
 

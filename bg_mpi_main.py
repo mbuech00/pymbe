@@ -11,7 +11,7 @@ from mpi4py import MPI
 from bg_mpi_utils import print_mpi_table, mono_exp_merge_info
 from bg_mpi_time import init_mpi_timings, collect_mpi_timings
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
-from bg_mpi_orbitals import orb_generator_slave 
+from bg_mpi_orbitals import bcast_tuples, bcast_dom, orb_generator_slave 
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -128,154 +128,27 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'bcast_tuples'):
          #
-         # measure idle time
+         # receive tuples
          #
-         start_idle = MPI.Wtime()
-         #
-         final_msg = MPI.COMM_WORLD.bcast(None,root=0)
-         #
-         # collect mpi_time_idle_init
-         #
-         molecule['mpi_time_idle_init'] += MPI.Wtime()-start_idle
-         #
-         start_comm = MPI.Wtime()
-         #
-         # receive the total number of tuples
-         #
-         tup_info = MPI.COMM_WORLD.bcast(None,root=0)
-         #
-         # collect mpi_time_comm_init
-         #
-         molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
-         #
-         start_work = MPI.Wtime()
-         #
-         # init tup[k-1]
-         #
-         molecule['prim_tuple'].append(np.empty([tup_info['tot_tup'],msg['order']],dtype=np.int))
-         #
-         # collect mpi_time_work_init
-         #
-         molecule['mpi_time_work_init'] += MPI.Wtime()-start_work
-         #
-         # receive the tuples
-         #
-         start_comm = MPI.Wtime()
-         #
-         MPI.COMM_WORLD.Bcast([molecule['prim_tuple'][-1],MPI.INT],root=0)
-         #
-         # collect mpi_time_comm_init
-         #
-         molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
-         #
-         tup_info.clear()
-         final_msg.clear()
+         bcast_tuples(molecule,msg['order'])
       #
       # orb_generator_par
       #
       elif (msg['task'] == 'orb_generator_par'):
          #
-         # receive domain information
+         # receive domains
          #
-         start_comm = MPI.Wtime()
-         #
-         dom_info = MPI.COMM_WORLD.bcast(None,root=0)
-         #
-         # collect mpi_time_comm_init
-         #
-         molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
+         bcast_dom(molecule,msg['order'])
          #
          if (msg['level'] == 'MACRO'):
             #
-            orb_generator_slave(molecule,dom_info['dom'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
-            #
-            # measure idle time
-            #
-            start_idle = MPI.Wtime()
-            #
-            final_msg = MPI.COMM_WORLD.bcast(None,root=0)
-            #
-            # collect mpi_time_idle_init
-            #
-            molecule['mpi_time_idle_init'] += MPI.Wtime()-start_idle
-            #   
-            # receive the total number of tuples
-            #
-            start_comm = MPI.Wtime()
-            #
-            tup_info = MPI.COMM_WORLD.bcast(None,root=0)
-            #
-            # collect mpi_time_comm_init
-            #
-            molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
-            #
-            # init tup[k-1]
-            #
-            start_work = MPI.Wtime()
-            #
-            molecule['prim_tuple'].append(np.empty([tup_info['tot_tup'],msg['order']],dtype=np.int))
-            #
-            # collect mpi_time_work_init
-            #
-            molecule['mpi_time_work_init'] += MPI.Wtime()-start_work
-            #
-            # receive the tuples
-            #
-            start_comm = MPI.Wtime()
-            #
-            MPI.COMM_WORLD.Bcast([molecule['prim_tuple'][-1],MPI.INT],root=0)
-            #
-            # collect mpi_time_comm_init
-            #
-            molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
+            orb_generator_slave(molecule,molecule['dom_info']['dom'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
          #
          elif (msg['level'] == 'CORRE'):
             #
-            orb_generator_slave(molecule,dom_info['dom'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'CORRE')
-            #
-            # measure idle time
-            #
-            start_idle = MPI.Wtime()
-            #
-            final_msg = MPI.COMM_WORLD.bcast(None,root=0)
-            #
-            # collect mpi_time_idle_init
-            #
-            molecule['mpi_time_idle_init'] += MPI.Wtime()-start_idle
-            #
-            # receive the total number of tuples
-            #
-            start_comm = MPI.Wtime()
-            #
-            tup_info = MPI.COMM_WORLD.bcast(None,root=0)
-            #
-            # collect mpi_time_comm_init
-            #
-            molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
-            #
-            # init tup[k-1]
-            #
-            start_work = MPI.Wtime()
-            #
-            molecule['corr_tuple'].append(np.empty([tup_info['tot_tup'],msg['order']],dtype=np.int))
-            #
-            # collect mpi_time_work_init
-            #
-            molecule['mpi_time_work_init'] += MPI.Wtime()-start_work
-            #
-            # receive the tuples
-            #
-            start_comm = MPI.Wtime()
-            #
-            MPI.COMM_WORLD.Bcast([molecule['corr_tuple'][-1],MPI.INT],root=0)
-            #
-            # collect mpi_time_comm_init
-            #
-            molecule['mpi_time_comm_init'] += MPI.Wtime()-start_comm
+            orb_generator_slave(molecule,molecule['dom_info']['dom'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'CORRE')
          #
-         dom_info.clear()
-         tup_info.clear()
-         final_msg.clear()
+         molecule['dom_info'].clear()
       #
       # energy_kernel_mono_exp_par
       #
