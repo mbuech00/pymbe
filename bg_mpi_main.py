@@ -74,8 +74,6 @@ def main_slave_rout(molecule):
          #
          # overwrite wrk_dir in case this is different from the one on the master node
          #
-         start_work = MPI.Wtime()
-         #
          molecule['wrk'] = getcwd()
          #
          # update with private mpi info

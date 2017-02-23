@@ -72,6 +72,8 @@ def timer_mpi(molecule,key,order,end=False):
       else:
          #
          molecule[key][order-1] += MPI.Wtime()-molecule['store_time']
+      #
+      molecule['store_key'] = ''
    #
    return molecule
 

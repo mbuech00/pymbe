@@ -205,7 +205,7 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       # bcast final dummy message to collect idle slave time
       #
-      timer_mpi(molecule,'mpi_time_comm_init',k)
+      timer_mpi(molecule,'mpi_time_idle_init',k)
       #
       final_msg = {'done': None}
       #

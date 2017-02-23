@@ -191,23 +191,17 @@ def print_summary(molecule):
    print('                                              ---------------------------------------------                                                 ')
    print('')
    #
-   time_tot = 0.0
-   time_init = 0.0
-   time_kernel = 0.0
-   time_final = 0.0
-   time_remain = 0.0
-   #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('     BG expansion order  |   time init  (in s / %)   |   time kernel  (in s / %)   |   time final  (in s / %)   |   time remain  (in s / %) ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['prim_energy'])):
       #
-      time_tot += molecule['prim_time_tot'][i]+molecule['corr_time_tot'][i]
-      time_init += molecule['prim_time_init'][i]+molecule['corr_time_init'][i]
-      time_kernel += molecule['prim_time_kernel'][i]+molecule['corr_time_kernel'][i]
-      time_final += molecule['prim_time_final'][i]+molecule['corr_time_final'][i]
-      time_remain += time_tot-(time_init+time_kernel+time_final)
+      time_tot = molecule['prim_time_tot'][i]+molecule['corr_time_tot'][i]
+      time_init = molecule['prim_time_init'][i]+molecule['corr_time_init'][i]
+      time_kernel = molecule['prim_time_kernel'][i]+molecule['corr_time_kernel'][i]
+      time_final = molecule['prim_time_final'][i]+molecule['corr_time_final'][i]
+      time_remain = time_tot-(time_init+time_kernel+time_final)
       #
       print('          {0:>4d}                  {1:>4.2e} / {2:>4.2f}              {3:>4.2e} / {4:>4.2f}              {5:>4.2e} / {6:>4.2f}             {7:>4.2e} / {8:>4.2f}'.\
                 format(i+1,time_init,(time_init/time_tot)*100.0,time_kernel,(time_kernel/time_tot)*100.0,\
