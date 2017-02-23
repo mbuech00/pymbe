@@ -212,7 +212,7 @@ def print_ref_header():
 
 def print_ref_end(molecule):
    #
-   print(' STATUS-REF: full reference calculation done in {0:10.2e} seconds'.format(molecule['ref_time_tot'][0]))
+   print(' STATUS-REF: full reference calculation done in {0:8.2e} seconds'.format(molecule['ref_time_tot'][0]))
    print(' --------------------------------------------------------------------------------------------')
    print('')
    #
