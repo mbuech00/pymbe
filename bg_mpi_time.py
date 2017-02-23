@@ -15,15 +15,59 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
+def timer_phase(molecule,key,order):
+   #
+   if (len(molecule[key]) < order):
+      #
+      molecule[key].append(-1.0*MPI.Wtime())
+   #
+   else:
+      #
+      molecule[key][order-1] += MPI.Wtime()
+   #
+   return molecule
+
+def timer_mpi(molecule,key,order):
+   #
+   if (key != molecule['store_key']):
+      #
+      if (molecule['store_key'] != ''):
+         #
+         if (len(molecule[key]) < order):
+            #
+            molecule[molecule['store_key']].append(MPI.Wtime()-molecule['store_time'])
+         #
+         else:
+            #
+            molecule[molecule['store_key']][order-1] += MPI.Wtime()-molecule['store_time']
+         #
+         molecule['store_time'] = MPI.Wtime()
+         #
+         molecule['store_key'] = key
+      #
+      else:
+         #
+         molecule['store_time'] = MPI.Wtime()
+         #
+         molecule['store_key'] = key
+   #
+   return molecule
+
 def init_mpi_timings(molecule):
+   #
+   # init tmp time and time label
+   #
+   molecule['store_time'] = 0.0
+   #
+   molecule['store_key'] = ''
    #
    # program phase distribution
    #
    if (molecule['mpi_master']):
       #
-      molecule['time_init'] = 0.0
-      molecule['time_kernel'] = 0.0
-      molecule['time_final'] = 0.0
+      molecule['time_init'] = [0.0]
+      molecule['time_kernel'] = [0.0]
+      molecule['time_final'] = [0.0]
    #
    # mpi distribution
    #
@@ -31,21 +75,21 @@ def init_mpi_timings(molecule):
       #
       # init timings
       #
-      molecule['mpi_time_idle_init'] = 0.0
-      molecule['mpi_time_comm_init'] = 0.0
-      molecule['mpi_time_work_init'] = 0.0
+      molecule['mpi_time_idle_init'] = [0.0]
+      molecule['mpi_time_comm_init'] = [0.0]
+      molecule['mpi_time_work_init'] = [0.0]
       #
       # energy kernel timings
       #
-      molecule['mpi_time_idle_kernel'] = 0.0
-      molecule['mpi_time_comm_kernel'] = 0.0
-      molecule['mpi_time_work_kernel'] = 0.0
+      molecule['mpi_time_idle_kernel'] = [0.0]
+      molecule['mpi_time_comm_kernel'] = [0.0]
+      molecule['mpi_time_work_kernel'] = [0.0]
       #
       # energy summation timings
       #
-      molecule['mpi_time_idle_final'] = 0.0
-      molecule['mpi_time_comm_final'] = 0.0
-      molecule['mpi_time_work_final'] = 0.0
+      molecule['mpi_time_idle_final'] = [0.0]
+      molecule['mpi_time_comm_final'] = [0.0]
+      molecule['mpi_time_work_final'] = [0.0]
    #
    return molecule
 
