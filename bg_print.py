@@ -175,8 +175,8 @@ def print_summary(molecule):
    #
    for i in range(0,len(molecule['prim_energy'])):
       #
-      total_time += molecule['prim_time'][i]
-      total_time_corr += molecule['corr_time'][i]
+      total_time += molecule['prim_time_tot'][i]
+      total_time_corr += molecule['corr_time_tot'][i]
       #
       print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
                                                                           format(i+1,molecule['prim_energy'][i],molecule['prim_energy'][i]+molecule['corr_energy'][i],\
@@ -191,14 +191,29 @@ def print_summary(molecule):
    print('                                              ---------------------------------------------                                                 ')
    print('')
    #
+   time_tot = 0.0
+   time_init = 0.0
+   time_kernel = 0.0
+   time_final = 0.0
+   time_remain = 0.0
+   #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('     BG expansion order  |   time init  (in s / %)   |   time kernel  (in s / %)   |   time final  (in s / %)   |   time remain  (in s / %) ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('          {0:>4d}                  {1:>4.2e} / {2:>4.2f}              {3:>4.2e} / {4:>4.2f}              {5:>4.2e} / {6:>4.2f}             {7:>4.2e} / {8:>4.2f}'.\
-             format(1,molecule['time_init'],(molecule['time_init']/molecule['time_tot'])*100.0,\
-                    molecule['time_kernel'],(molecule['time_kernel']/molecule['time_tot'])*100.0,\
-                    molecule['time_final'],(molecule['time_final']/molecule['time_tot'])*100.0,\
-                    molecule['time_remain'],(molecule['time_remain']/molecule['time_tot'])*100.0))
+   #
+   for i in range(0,len(molecule['prim_energy'])):
+      #
+      time_tot += molecule['prim_time_tot'][i]+molecule['corr_time_tot'][i]
+      time_init += molecule['prim_time_init'][i]+molecule['corr_time_init'][i]
+      time_kernel += molecule['prim_time_kernel'][i]+molecule['corr_time_kernel'][i]
+      time_final += molecule['prim_time_final'][i]+molecule['corr_time_final'][i]
+      time_remain += time_tot-(time_init+time_kernel+time_final)
+      #
+      print('          {0:>4d}                  {1:>4.2e} / {2:>4.2f}              {3:>4.2e} / {4:>4.2f}              {5:>4.2e} / {6:>4.2f}             {7:>4.2e} / {8:>4.2f}'.\
+                format(i+1,time_init,(time_init/time_tot)*100.0,\
+                       time_kernel,(time_kernel/time_tot)*100.0,\
+                       time_final,(time_final/time_tot)*100.0,\
+                       time_remain,(time_remain/time_tot)*100.0))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
@@ -237,10 +252,18 @@ def print_init_header(order,level):
    #
    return
 
-def print_init_end(order,time_init,level):
+def print_init_end(molecule,order,level):
+   #
+   if (level == 'MACRO'):
+      #
+      time_init = molecule['prim_time_init']
+   #
+   elif (level == 'CORRE'):
+      #
+      time_init = molecule['corr_time_init']
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_init))
+   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_int[order-1]))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -253,10 +276,18 @@ def print_final_header(order,level):
    #
    return
 
-def print_final_end(order,time_final,level):
+def print_final_end(molecule,order,level):
+   #
+   if (level == 'MACRO'):
+      #
+      time_final = molecule['prim_time_final']
+   #
+   elif (level == 'CORRE'):
+      #
+      time_final = molecule['corr_time_final']
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} finalization done in {2:8.2e} seconds'.format(level,order,time_final))
+   print(' STATUS-{0:}: order = {1:>d} finalization done in {2:8.2e} seconds'.format(level,order,time_final[order-1]))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -386,7 +417,7 @@ def print_ref_header():
 
 def print_ref_end(molecule):
    #
-   print(' STATUS-REF: full reference calculation done in {0:10.2e} seconds'.format(molecule['prim_time'][-1]))
+   print(' STATUS-REF: full reference calculation done in {0:10.2e} seconds'.format(molecule['ref_time_tot'][0]))
    print(' --------------------------------------------------------------------------------------------')
    print('')
    #

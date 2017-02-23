@@ -4,17 +4,16 @@
 """ bg_driver.py: driver routines for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
-from mpi4py import MPI
 from copy import deepcopy
-from timeit import default_timer
 
+from bg_mpi_time import timer_phase
+from bg_mpi_utils import mono_exp_merge_info
 from bg_utils import run_calc_corr, n_theo_tuples
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_entanglement, orb_exclusion
-from bg_mpi_utils import mono_exp_merge_info
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -47,17 +46,11 @@ def main_drv(molecule):
       print('                                   primary expansion                              ')
       print('                     ---------------------------------------------                ')
       #
-      start_phase = MPI.Wtime()
-      #
       mono_exp_drv(molecule,1,molecule['max_order'],'MACRO')
       #
       # set min and max _corr_order
       #
       set_corr_order(molecule)
-      #
-      # collect time_tot
-      #
-      molecule['time_tot'] = MPI.Wtime()-start_phase
       #
       if (molecule['corr']):
          #
@@ -68,15 +61,9 @@ def main_drv(molecule):
          print('                                   energy correction                              ')
          print('                     ---------------------------------------------                ')
          #
-         start_phase = MPI.Wtime()
-         #
          mono_exp_merge_info(molecule)
          #
          mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
-         #
-         # collect time_tot
-         #
-         molecule['time_tot'] += MPI.Wtime()-start_phase
    #
    elif ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
@@ -89,6 +76,8 @@ def main_drv(molecule):
 def mono_exp_drv(molecule,start,end,level):
    #
    for k in range(start,end+1):
+      #
+      timer_phase(molecule,'time_tot',k,level)
       #
       # mono expansion initialization
       #
@@ -110,7 +99,11 @@ def mono_exp_drv(molecule,start,end,level):
             #
             orb_entanglement(molecule,molecule['l_limit'],molecule['u_limit'],k,level)
          #
+         timer_phase(molecule,'time_tot',k,level)
+         #
          break
+      #
+      timer_phase(molecule,'time_tot',k,level)
    #
    if (level == 'CORRE'): mono_exp_finish(molecule)
    #
@@ -124,7 +117,6 @@ def mono_exp_kernel(molecule,k,level):
       n_tup = molecule['prim_n_tuples']
       e_inc = molecule['prim_energy_inc']
       e_tot = molecule['prim_energy']
-      time = molecule['prim_time']
    #
    elif (level == 'CORRE'):
       #
@@ -132,7 +124,6 @@ def mono_exp_kernel(molecule,k,level):
       n_tup = molecule['corr_n_tuples']
       e_inc = molecule['corr_energy_inc']
       e_tot = molecule['corr_energy']
-      time = molecule['corr_time']
    #
    print_status_header(n_tup[k-1],k,molecule['conv'][-1],level)
    #
@@ -140,23 +131,13 @@ def mono_exp_kernel(molecule,k,level):
       #
       return molecule
    #
-   # start time
-   #
-   start = default_timer()
-   #
    # run the calculations
    #
-   start_phase = MPI.Wtime()
+   timer_phase(molecule,'time_kernel',k,level)
    #
    energy_kernel_mono_exp(molecule,k,tup,n_tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
    #
-   # collect time_kernel
-   #
-   molecule['time_kernel'] += MPI.Wtime()-start_phase
-   #
-   # collect time
-   #
-   time.append(default_timer()-start)
+   timer_phase(molecule,'time_kernel',k,level)
    #
    # print status end
    #
@@ -164,21 +145,15 @@ def mono_exp_kernel(molecule,k,level):
    #
    print_final_header(k,level)
    #
-   start = default_timer()
-   #
    # calculate the energy at order k
    #
-   start_phase = MPI.Wtime()
+   timer_phase(molecule,'time_final',k,level)
    #
    energy_summation(molecule,k,tup,e_inc,e_tot,level)
    #
-   # collect time_final
+   timer_phase(molecule,'time_final',k,level)
    #
-   molecule['time_final'] += MPI.Wtime()-start_phase
-   #
-   time_final = default_timer() - start
-   #
-   print_final_end(k,time_final,level)
+   print_final_end(molecule,k,level)
    # 
    # print results
    #
@@ -219,10 +194,6 @@ def mono_exp_init(molecule,k,level):
    #
    print_init_header(k,level)
    #
-   # start time
-   #
-   start = default_timer()
-   #
    if (k >= 2):
       #
       # orbital screening
@@ -231,17 +202,11 @@ def mono_exp_init(molecule,k,level):
    #
    # generate all tuples at order k
    #
-   start_phase = MPI.Wtime()
+   timer_phase(molecule,'time_init',k,level)
    #
    orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
    #
-   # collect time_init
-   #
-   molecule['time_init'] += MPI.Wtime()-start_phase
-   #
-   # collect time_init
-   #
-   time_init = default_timer() - start
+   timer_phase(molecule,'time_init',k,level)
    #
    # determine number of tuples at order k
    #
@@ -261,7 +226,7 @@ def mono_exp_init(molecule,k,level):
    #
    # print init end
    #
-   print_init_end(k,time_init,level)
+   print_init_end(molecule,k,level)
    #
    # init e_inc list
    #
@@ -289,7 +254,10 @@ def mono_exp_finish(molecule):
       #
       molecule['corr_energy'].append(molecule['corr_energy'][-1])
       #
-      molecule['corr_time'].append(0.0)
+      molecule['corr_time_tot'].append(0.0)
+      molecule['corr_time_init'].append(0.0)
+      molecule['corr_time_kernel'].append(0.0)
+      molecule['corr_time_final'].append(0.0)
    #
    # make corr_n_tuples of the same length as prim_n_tuples
    #
@@ -412,9 +380,6 @@ def prepare_calc(molecule):
    #
    molecule['theo_work'] = []
    #
-   molecule['prim_time'] = []
-   molecule['corr_time'] = []
-   #
    return molecule
 
 def set_corr_order(molecule):
@@ -431,7 +396,10 @@ def set_corr_order(molecule):
          #
          molecule['corr_energy'].append(0.0)
          #
-         molecule['corr_time'].append(0.0)
+         molecule['corr_time_tot'].append(0.0)
+         molecule['corr_time_init'].append(0.0)
+         molecule['corr_time_kernel'].append(0.0)
+         molecule['corr_time_final'].append(0.0)
       #
       return molecule
    #
@@ -459,7 +427,10 @@ def set_corr_order(molecule):
          #
          molecule['corr_energy'].append(0.0)
          #
-         molecule['corr_time'].append(0.0)
+         molecule['corr_time_tot'].append(0.0)
+         molecule['corr_time_init'].append(0.0)
+         molecule['corr_time_kernel'].append(0.0)
+         molecule['corr_time_final'].append(0.0)
       #
       for _ in range(0,len(molecule['prim_n_tuples'])):
          #
@@ -487,7 +458,10 @@ def set_corr_order(molecule):
       #
       molecule['corr_energy'].append(0.0)
       #
-      molecule['corr_time'].append(0.0)
+      molecule['corr_time_tot'].append(0.0)
+      molecule['corr_time_init'].append(0.0)
+      molecule['corr_time_kernel'].append(0.0)
+      molecule['corr_time_final'].append(0.0)
    #
    return molecule
 
