@@ -15,30 +15,6 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def timer_phase(molecule,key,order,level):
-   #
-   if (level == 'MACRO'):
-      #
-      key = 'prim_'+key
-   #
-   elif (level == 'CORRE'):
-      #
-      key = 'corr_'+key
-   #
-   elif (level == 'REF'):
-      #
-      key = 'ref_'+key
-   #
-   if (len(molecule[key]) < order):
-      #
-      molecule[key].append(-1.0*MPI.Wtime())
-   #
-   else:
-      #
-      molecule[key][order-1] += MPI.Wtime()
-   #
-   return molecule
-
 def timer_mpi(molecule,key,order,end=False):
    #
    if (key != molecule['store_key']):
@@ -77,28 +53,6 @@ def timer_mpi(molecule,key,order,end=False):
    #
    return molecule
 
-def init_phase_timings(molecule):
-   #
-   # program phase distribution
-   #
-   molecule['prim_time_tot'] = []
-   molecule['prim_time_init'] = []
-   molecule['prim_time_kernel'] = []
-   molecule['prim_time_final'] = []
-   #
-   if (molecule['corr']):
-      #
-      molecule['corr_time_tot'] = []
-      molecule['corr_time_init'] = []
-      molecule['corr_time_kernel'] = []
-      molecule['corr_time_final'] = []
-   #
-   if (molecule['ref']):
-      #
-      molecule['ref_time_tot'] = []
-   #
-   return molecule
-
 def init_mpi_timings(molecule):
    #
    # init tmp time and time label
@@ -131,20 +85,7 @@ def init_mpi_timings(molecule):
 
 def collect_mpi_timings(molecule):
    #
-   #
    #  ---  master/slave routine
-   #
-   # first, check if *_init lists contain contribution from order k > max_order
-   #
-   if (len(molecule['mpi_time_work_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_work_init'].pop(-1)
-   if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].pop(-1)
-   if (len(molecule['mpi_time_idle_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_idle_init'].pop(-1)
-   #
-   # next, check if mpi_time_comm_kernel is empty
-   #
-   if (len(molecule['mpi_time_comm_kernel']) == 0): molecule['mpi_time_comm_kernel'] = [0.0]*len(molecule['mpi_time_comm_init'])
-   #
-   # now, send/recv data as numpy arrays
    #
    if (molecule['mpi_master']):
       #
@@ -193,4 +134,47 @@ def collect_mpi_timings(molecule):
    del time
    #
    return molecule
+
+def calc_mpi_timings(molecule):
+   #
+   #  ---  master routine
+   #
+   molecule['sum_work_abs'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+   molecule['sum_comm_abs'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+   molecule['sum_idle_abs'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+   #
+   for i in range(0,3):
+      #
+      for j in range(0,molecule['mpi_size']):
+         #
+         molecule['sum_work_abs'][i][j] = np.sum(molecule['mpi_time_work'][i][j])
+         molecule['sum_comm_abs'][i][j] = np.sum(molecule['mpi_time_comm'][i][j])
+         molecule['sum_idle_abs'][i][j] = np.sum(molecule['mpi_time_idle'][i][j])
+   #
+   molecule['dist_init'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
+   molecule['dist_kernel'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
+   molecule['dist_final'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
+   #
+   for i in range(0,3):
+      #
+      if (i == 0):
+         #
+         dist = molecule['dist_init']
+      #
+      elif (i == 1):
+         #
+         dist = molecule['dist_kernel']
+      #
+      elif (i == 2):
+         #
+         dist = molecule['dist_final']
+      #
+      for j in range(1,molecule['mpi_size']):
+         #
+         dist[0][j-1] = (molecule['sum_work_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+         dist[1][j-1] = (molecule['sum_comm_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+         dist[2][j-1] = (molecule['sum_idle_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+   #
+   return molecule
+
 

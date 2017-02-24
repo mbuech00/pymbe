@@ -226,15 +226,11 @@ def summary_phase_time(molecule):
    #
    for i in range(0,len(molecule['prim_energy'])):
       #
-      time_tot = molecule['prim_time_tot'][i]+molecule['corr_time_tot'][i]
-      time_init = molecule['prim_time_init'][i]+molecule['corr_time_init'][i]
-      time_kernel = molecule['prim_time_kernel'][i]+molecule['corr_time_kernel'][i]
-      time_final = molecule['prim_time_final'][i]+molecule['corr_time_final'][i]
-      time_remain = time_tot-(time_init+time_kernel+time_final)
-      #
       print('          {0:>4d}                  {1:>4.2e} / {2:>5.2f}             {3:>4.2e} / {4:>5.2f}             {5:>4.2e} / {6:>5.2f}            {7:>4.2e} / {8:>5.2f}'.\
-                format(i+1,time_init,(time_init/time_tot)*100.0,time_kernel,(time_kernel/time_tot)*100.0,\
-                       time_final,(time_final/time_tot)*100.0,time_remain,(time_remain/time_tot)*100.0))
+                format(i+1,molecule['time_init'][i],(molecule['time_init'][i]/molecule['time_tot'][i])*100.0,\
+                       molecule['time_kernel'][i],(molecule['time_kernel'][i]/molecule['time_tot'][i])*100.0,\
+                       molecule['time_final'][i],(molecule['time_final'][i]/molecule['time_tot'][i])*100.0,\
+                       molecule['time_remain'][i],(molecule['time_remain'][i]/molecule['time_tot'][i])*100.0))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
@@ -247,92 +243,47 @@ def summary_mpi_time(molecule):
    print('      mpi processor    |  time: init (work/comm/idle, in s)  |  time: kernel(work/comm/idle, in s)  |  time: final (work/comm/idle, in s)   ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
-   sum_work_abs = np.empty([3,molecule['mpi_size']],dtype=np.float64)  
-   sum_comm_abs = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-   sum_idle_abs = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-   #
-   for i in range(0,3):
-      #
-      for j in range(0,molecule['mpi_size']):
-         #
-         sum_work_abs[i][j] = np.sum(molecule['mpi_time_work'][i][j])
-         sum_comm_abs[i][j] = np.sum(molecule['mpi_time_comm'][i][j])
-         sum_idle_abs[i][j] = np.sum(molecule['mpi_time_idle'][i][j])
-   #
-   dist_init = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
-   dist_kernel = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
-   dist_final = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
-   #
-   for i in range(0,3):
-      #
-      if (i == 0):
-         #
-         dist = dist_init
-      #
-      elif (i == 1):
-         #
-         dist = dist_kernel
-      #
-      elif (i == 2):
-         #
-         dist = dist_final
-      #
-      for j in range(1,molecule['mpi_size']):
-         #
-         dist[0][j-1] = (sum_work_abs[i][j]/(sum_work_abs[i][j]+sum_comm_abs[i][j]+sum_idle_abs[i][j]))*100.0
-         dist[1][j-1] = (sum_comm_abs[i][j]/(sum_work_abs[i][j]+sum_comm_abs[i][j]+sum_idle_abs[i][j]))*100.0
-         dist[2][j-1] = (sum_idle_abs[i][j]/(sum_work_abs[i][j]+sum_comm_abs[i][j]+sum_idle_abs[i][j]))*100.0
-   #
    print('    master -- {0:<8d}     {1:>4.2e} / {2:>4.2e} / {3:>4.2e}         {4:>4.2e} / {5:>4.2e} / {6:>4.2e}          {7:>4.2e} / {8:>4.2e} / {9:>4.2e}'.\
-          format(0,sum_work_abs[0][0],sum_comm_abs[0][0],sum_idle_abs[0][0],\
-                 sum_work_abs[1][0],sum_comm_abs[1][0],sum_idle_abs[1][0],\
-                 sum_work_abs[2][0],sum_comm_abs[2][0],sum_idle_abs[2][0]))
+          format(0,molecule['sum_work_abs'][0][0],molecule['sum_comm_abs'][0][0],molecule['sum_idle_abs'][0][0],\
+                 molecule['sum_work_abs'][1][0],molecule['sum_comm_abs'][1][0],molecule['sum_idle_abs'][1][0],\
+                 molecule['sum_work_abs'][2][0],molecule['sum_comm_abs'][2][0],molecule['sum_idle_abs'][2][0]))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(1,molecule['mpi_size']):
       #
       print('    slave  -- {0:<8d}     {1:>4.2e} / {2:>4.2e} / {3:>4.2e}         {4:>4.2e} / {5:>4.2e} / {6:>4.2e}          {7:>4.2e} / {8:>4.2e} / {9:>4.2e}'.\
-          format(i,sum_work_abs[0][i],sum_comm_abs[0][i],sum_idle_abs[0][i],\
-                 sum_work_abs[1][i],sum_comm_abs[1][i],sum_idle_abs[1][i],\
-                 sum_work_abs[2][i],sum_comm_abs[2][i],sum_idle_abs[2][i]))
+          format(i,molecule['sum_work_abs'][0][i],molecule['sum_comm_abs'][0][i],molecule['sum_idle_abs'][0][i],\
+                 molecule['sum_work_abs'][1][i],molecule['sum_comm_abs'][1][i],molecule['sum_idle_abs'][1][i],\
+                 molecule['sum_work_abs'][2][i],molecule['sum_comm_abs'][2][i],molecule['sum_idle_abs'][2][i]))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    print('    mean: slave (in s)     {0:>4.2e} / {1:>4.2e} / {2:>4.2e}         {3:>4.2e} / {4:>4.2e} / {5:>4.2e}          {6:>4.2e} / {7:>4.2e} / {8:>4.2e}'.\
-          format(np.mean(sum_work_abs[0]),np.mean(sum_comm_abs[0]),np.mean(sum_idle_abs[0]),\
-                 np.mean(sum_work_abs[1]),np.mean(sum_comm_abs[1]),np.mean(sum_idle_abs[1]),\
-                 np.mean(sum_work_abs[2]),np.mean(sum_comm_abs[2]),np.mean(sum_idle_abs[2])))
+          format(np.mean(molecule['sum_work_abs'][0]),np.mean(molecule['sum_comm_abs'][0]),np.mean(molecule['sum_idle_abs'][0]),\
+                 np.mean(molecule['sum_work_abs'][1]),np.mean(molecule['sum_comm_abs'][1]),np.mean(molecule['sum_idle_abs'][1]),\
+                 np.mean(molecule['sum_work_abs'][2]),np.mean(molecule['sum_comm_abs'][2]),np.mean(molecule['sum_idle_abs'][2])))
    #
    print('    stdev.: slave (in s)   {0:>4.2e} / {1:>4.2e} / {2:>4.2e}         {3:>4.2e} / {4:>4.2e} / {5:>4.2e}          {6:>4.2e} / {7:>4.2e} / {8:>4.2e}'.\
-          format(np.std(sum_work_abs[0],ddof=1),np.std(sum_comm_abs[0],ddof=1),np.std(sum_idle_abs[0],ddof=1),\
-                 np.std(sum_work_abs[1],ddof=1),np.std(sum_comm_abs[1],ddof=1),np.std(sum_idle_abs[1],ddof=1),\
-                 np.std(sum_work_abs[2],ddof=1),np.std(sum_comm_abs[2],ddof=1),np.std(sum_idle_abs[2],ddof=1)))
+          format(np.std(molecule['sum_work_abs'][0],ddof=1),np.std(molecule['sum_comm_abs'][0],ddof=1),np.std(molecule['sum_idle_abs'][0],ddof=1),\
+                 np.std(molecule['sum_work_abs'][1],ddof=1),np.std(molecule['sum_comm_abs'][1],ddof=1),np.std(molecule['sum_idle_abs'][1],ddof=1),\
+                 np.std(molecule['sum_work_abs'][2],ddof=1),np.std(molecule['sum_comm_abs'][2],ddof=1),np.std(molecule['sum_idle_abs'][2],ddof=1)))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    print('    mean: slave (in %)         {0:>5.2f} / {1:>5.2f} / {2:>5.2f}                  {3:>5.2f} / {4:>5.2f} / {5:>5.2f}                   {6:>5.2f} / {7:>5.2f} / {8:>5.2f}'.\
-          format(np.mean(dist_init[0]),np.mean(dist_init[1]),np.mean(dist_init[2]),\
-                 np.mean(dist_kernel[0]),np.mean(dist_kernel[1]),np.mean(dist_kernel[2]),\
-                 np.mean(dist_final[0]),np.mean(dist_final[1]),np.mean(dist_final[2])))
+          format(np.mean(molecule['dist_init'][0]),np.mean(molecule['dist_init'][1]),np.mean(molecule['dist_init'][2]),\
+                 np.mean(molecule['dist_kernel'][0]),np.mean(molecule['dist_kernel'][1]),np.mean(molecule['dist_kernel'][2]),\
+                 np.mean(molecule['dist_final'][0]),np.mean(molecule['dist_final'][1]),np.mean(molecule['dist_final'][2])))
    #
    print('    stdev.: slave (in %)       {0:>5.2f} / {1:>5.2f} / {2:>5.2f}                  {3:>5.2f} / {4:>5.2f} / {5:>5.2f}                   {6:>5.2f} / {7:>5.2f} / {8:>5.2f}'.\
-          format(np.std(dist_init[0],ddof=1),np.std(dist_init[1],ddof=1),np.std(dist_init[2],ddof=1),\
-                 np.std(dist_kernel[0],ddof=1),np.std(dist_kernel[1],ddof=1),np.std(dist_kernel[2],ddof=1),\
-                 np.std(dist_final[0],ddof=1),np.std(dist_final[1],ddof=1),np.std(dist_final[2],ddof=1)))
+          format(np.std(molecule['dist_init'][0],ddof=1),np.std(molecule['dist_init'][1],ddof=1),np.std(molecule['dist_init'][2],ddof=1),\
+                 np.std(molecule['dist_kernel'][0],ddof=1),np.std(molecule['dist_kernel'][1],ddof=1),np.std(molecule['dist_kernel'][2],ddof=1),\
+                 np.std(molecule['dist_final'][0],ddof=1),np.std(molecule['dist_final'][1],ddof=1),np.std(molecule['dist_final'][2],ddof=1)))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   #
-   del sum_work_abs
-   del sum_comm_abs
-   del sum_idle_abs
-   #
-   del dist_init
-   del dist_kernel
-   del dist_final
-   del dist
    #
    return
 

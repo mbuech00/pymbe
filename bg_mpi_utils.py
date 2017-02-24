@@ -6,7 +6,8 @@
 import numpy as np
 from mpi4py import MPI
 
-from bg_mpi_time import init_phase_timings, init_mpi_timings
+from bg_mpi_time import init_mpi_timings
+from bg_time import init_phase_timings
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'

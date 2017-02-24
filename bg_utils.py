@@ -8,7 +8,7 @@ from os.path import join, isfile
 from subprocess import call
 from math import factorial
 
-from bg_mpi_time import timer_phase
+from bg_time import timer_phase
 from bg_print import print_ref_header, print_ref_end
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
