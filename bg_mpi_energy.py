@@ -115,25 +115,31 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
    timer_mpi(molecule,'mpi_time_work_final',k)
    #
-   # init e_inc_tmp
+   # init e_inc_tmp on master
    #
-   e_inc_tmp = np.empty(len(e_inc[k-1]),dtype=np.float64)
+   if (molecule['mpi_master']): e_inc_tmp = np.empty(len(e_inc[k-1]),dtype=np.float64)
    #
    timer_mpi(molecule,'mpi_time_idle_final',k)
    #
    molecule['mpi_comm'].Barrier()
    #
-   # allreduce e_inc[k-1]
+   # allreduce e_inc[k-1] (here: do explicit Reduce+Bcast, as the Allreduce has been observed to hang)
    #
    timer_mpi(molecule,'mpi_time_comm_final',k)
    #
-   molecule['mpi_comm'].Allreduce([e_inc[k-1],MPI.DOUBLE],[e_inc_tmp,MPI.DOUBLE],op=MPI.SUM)
+   molecule['mpi_comm'].Reduce([e_inc[k-1],MPI.DOUBLE],[e_inc_tmp,MPI.DOUBLE],op=MPI.SUM,root=0)
    #
-   # update e_inc[k-1]
+   if (molecule['mpi_master']):
+      #
+      timer_mpi(molecule,'mpi_time_work_final',k)
+      #
+      e_inc[k-1] = e_inc_tmp
+      #
+      timer_mpi(molecule,'mpi_time_comm_final',k)
+   #
+   molecule['mpi_comm'].Bcast([e_inc[k-1],MPI.DOUBLE],root=0)
    #
    timer_mpi(molecule,'mpi_time_work_final',k)
-   #
-   e_inc[k-1] = e_inc_tmp
    #
    # let master calculate the total energy
    #
@@ -157,7 +163,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
    timer_mpi(molecule,'mpi_time_idle_final',k,True)
    #
-   del e_inc_tmp
+   if (molecule['mpi_master']): del e_inc_tmp
    #
    return e_inc, energy
 
