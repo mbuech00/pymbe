@@ -3,6 +3,7 @@
 
 """ bg_time.py: time-related routines for Bethe-Goldstone correlation calculations."""
 
+import numpy as np
 from mpi4py import MPI
 
 from bg_mpi_time import collect_mpi_timings, calc_mpi_timings
@@ -64,19 +65,26 @@ def init_phase_timings(molecule):
 
 def timings_main(molecule):
    #
-   # first, check if *_init lists contain contribution from order k > max_order
+   # check if *_time_tot and *_time_init lists contain contribution from order k > max_order
    #
-   if (len(molecule['mpi_time_work_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_work_init'].pop(-1)
-   if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].pop(-1)
-   if (len(molecule['mpi_time_idle_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_idle_init'].pop(-1)
-   #
-   # next, check if mpi_time_comm_kernel is empty
-   #
-   if (len(molecule['mpi_time_comm_kernel']) == 0): molecule['mpi_time_comm_kernel'] = [0.0]*len(molecule['mpi_time_comm_init'])
+   if (len(molecule['prim_time_tot']) > len(molecule['prim_energy'])): molecule['prim_time_tot'].pop(-1)
+   if (len(molecule['prim_time_init']) > len(molecule['prim_energy'])): molecule['prim_time_init'].pop(-1)
+   if (len(molecule['corr_time_tot']) > len(molecule['prim_energy'])): molecule['corr_time_tot'].pop(-1)
+   if (len(molecule['corr_time_init']) > len(molecule['prim_energy'])): molecule['corr_time_init'].pop(-1)
    #
    calc_phase_timings(molecule)
    #
    if (molecule['mpi_parallel']):
+      #
+      # check if *_init lists contain contribution from order k > max_order
+      #
+      if (len(molecule['mpi_time_work_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_work_init'].pop(-1)
+      if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].pop(-1)
+      if (len(molecule['mpi_time_idle_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_idle_init'].pop(-1)
+      #
+      # check if mpi_time_comm_kernel is empty
+      #
+      if (len(molecule['mpi_time_comm_kernel']) == 0): molecule['mpi_time_comm_kernel'] = [0.0]*len(molecule['mpi_time_comm_init'])
       #
       collect_mpi_timings(molecule)
       #
@@ -86,19 +94,11 @@ def timings_main(molecule):
 
 def calc_phase_timings(molecule):
    #
-   molecule['time_tot'] = []
-   molecule['time_init'] = []
-   molecule['time_kernel'] = []
-   molecule['time_final'] = []
-   molecule['time_remain'] = []
-   #
-   for i in range(0,len(molecule['prim_energy'])):
-      #
-      molecule['time_tot'].append(molecule['prim_time_tot'][i]+molecule['corr_time_tot'][i])
-      molecule['time_init'].append(molecule['prim_time_init'][i]+molecule['corr_time_init'][i])
-      molecule['time_kernel'].append(molecule['prim_time_kernel'][i]+molecule['corr_time_kernel'][i])
-      molecule['time_final'].append(molecule['prim_time_final'][i]+molecule['corr_time_final'][i])
-      molecule['time_remain'].append(molecule['time_tot'][i]-(molecule['time_init'][i]+molecule['time_kernel'][i]+molecule['time_final'][i]))
+   molecule['time_tot'] = np.asarray(molecule['prim_time_tot'])+np.asarray(molecule['corr_time_tot'])
+   molecule['time_init'] = np.asarray(molecule['prim_time_init'])+np.asarray(molecule['corr_time_init'])
+   molecule['time_kernel'] = np.asarray(molecule['prim_time_kernel'])+np.asarray(molecule['corr_time_kernel'])
+   molecule['time_final'] = np.asarray(molecule['prim_time_final'])+np.asarray(molecule['corr_time_final'])
+   molecule['time_remain'] = molecule['time_tot']-(molecule['time_init']+molecule['time_kernel']+molecule['time_final'])
    #
    return molecule
 

@@ -372,25 +372,60 @@ def dev_ref_plot(molecule):
    #
    return molecule
 
-def mpi_time_plot(molecule):
+def time_plot(molecule):
+   #
+   sns.set(style='whitegrid',palette='Set2')
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('MPI timings')
+   sns.set_color_codes('pastel')
    #
-   labels = 'Idle ({0:.0f} %)'.format(molecule['mpi_time_idle'][1]),'Comm ({0:.0f} %)'.format(molecule['mpi_time_comm'][1]),'Work ({0:.0f} %)'.format(molecule['mpi_time_work'][1])
+   u_limit = molecule['u_limit']
    #
-   sizes = [molecule['mpi_time_idle'][1],molecule['mpi_time_comm'][1],molecule['mpi_time_work'][1]]
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
+      #
+      u_limit -= molecule['ncore']
    #
-   ax.pie(sizes,colors=sns.color_palette("Set2",3),shadow=True,startangle=45)
+   ax.set_title('Phase timings')
    #
-   plt.legend(labels,frameon=True,fancybox=True,shadow=True,loc=6,bbox_to_anchor=(0.3, 0.4))
+   kernel_dat = (molecule['time_kernel']/molecule['time_tot'])*100.0
+   init_dat = kernel_dat + (molecule['time_init']/molecule['time_tot'])*100.0
+   final_dat = init_dat + (molecule['time_final']/molecule['time_tot'])*100.0
+   remain_dat = final_dat + (molecule['time_remain']/molecule['time_tot'])*100.0
    #
-   ax.axis('equal')
+   order = list(range(1,len(molecule['prim_energy'])+1))
+   #
+   remain = sns.barplot(remain_dat,order,orient='h',label='remain',color=sns.xkcd_rgb['salmon'])
+   #
+   final = sns.barplot(final_dat,order,orient='h',label='final',color=sns.xkcd_rgb['faded green'])
+   #
+   init = sns.barplot(init_dat,order,orient='h',label='init',color=sns.xkcd_rgb['amber'])
+   #
+   kernel = sns.barplot(kernel_dat,order,orient='h',label='kernel',color=sns.xkcd_rgb['windows blue'])
+   #
+   ax.set_ylim([-0.5,len(molecule['prim_energy'])-0.5])
+   ax.set_xlim([0.0,100.0])
+   #
+   ax.set_xlabel('Distribution (in %)')
+   ax.set_ylabel('BG order')
+   #
+   handles,labels = ax.get_legend_handles_labels()
+   #
+   handles = [handles[3],handles[2],handles[1],handles[0]]
+   labels = [labels[3],labels[2],labels[1],labels[0]]
+   #
+   ax.legend(handles,labels,ncol=4,loc='lower left',frameon=True)
+   #
+   sns.despine(left=True,bottom=True)
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/mpi_time_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk']+'/output/time_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del init_dat
+   del kernel_dat
+   del final_dat
+   del remain_dat
    #
    return molecule
 
@@ -412,9 +447,9 @@ def ic_plot(molecule):
    #
    if (molecule['ref']): dev_ref_plot(molecule)
    #
-   #  ---  plot mpi timings  ---
+   #  ---  plot timings  ---
    #
-#   if (molecule['mpi_parallel']): mpi_time_plot(molecule)
+   time_plot(molecule)
    #
    return molecule
 
