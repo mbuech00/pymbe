@@ -226,7 +226,7 @@ def summary_phase_time(molecule):
    #
    for i in range(0,len(molecule['prim_energy'])):
       #
-      print('          {0:>4d}                  {1:>4.2e} / {2:>5.2f}             {3:>4.2e} / {4:>5.2f}             {5:>4.2e} / {6:>5.2f}            {7:>4.2e} / {8:>5.2f}'.\
+      print('          {0:>4d}                  {1:>4.2e} / {2:>5.2f}             {3:>4.2e} / {4:>5.2f}             {5:>4.2e} / {6:>5.2f}             {7:>4.2e} / {8:>5.2f}'.\
                 format(i+1,molecule['time_init'][i],(molecule['time_init'][i]/molecule['time_tot'][i])*100.0,\
                        molecule['time_kernel'][i],(molecule['time_kernel'][i]/molecule['time_tot'][i])*100.0,\
                        molecule['time_final'][i],(molecule['time_final'][i]/molecule['time_tot'][i])*100.0,\
