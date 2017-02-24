@@ -17,6 +17,8 @@ __status__ = 'Development'
 
 def timer_mpi(molecule,key,order,end=False):
    #
+   #  ---  master/slave routine
+   #
    if (key != molecule['store_key']):
       #
       if (molecule['store_key'] != ''):
@@ -54,6 +56,8 @@ def timer_mpi(molecule,key,order,end=False):
    return molecule
 
 def init_mpi_timings(molecule):
+   #
+   #  ---  master/slave routine
    #
    # init tmp time and time label
    #
@@ -143,6 +147,8 @@ def calc_mpi_timings(molecule):
    molecule['sum_comm_abs'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
    molecule['sum_idle_abs'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
    #
+   # sum up work/comm/idle contributions from all orders for the individual mpi procs
+   #
    for i in range(0,3):
       #
       for j in range(0,molecule['mpi_size']):
@@ -150,6 +156,8 @@ def calc_mpi_timings(molecule):
          molecule['sum_work_abs'][i][j] = np.sum(molecule['mpi_time_work'][i][j])
          molecule['sum_comm_abs'][i][j] = np.sum(molecule['mpi_time_comm'][i][j])
          molecule['sum_idle_abs'][i][j] = np.sum(molecule['mpi_time_idle'][i][j])
+   #
+   # only count slave timings
    #
    molecule['dist_init'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
    molecule['dist_kernel'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
@@ -168,6 +176,8 @@ def calc_mpi_timings(molecule):
       elif (i == 2):
          #
          dist = molecule['dist_final']
+      #
+      # for init/kernel/final, calculate the relative distribution between work/comm/idle for the individual slaves
       #
       for j in range(1,molecule['mpi_size']):
          #
