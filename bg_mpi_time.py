@@ -157,25 +157,25 @@ def calc_mpi_timings(molecule):
          molecule['sum_comm_abs'][i][j] = np.sum(molecule['mpi_time_comm'][i][j])
          molecule['sum_idle_abs'][i][j] = np.sum(molecule['mpi_time_idle'][i][j])
    #
-   # only count slave timings
+   # mpi distribution - slave (only count slave timings)
    #
-   molecule['dist_init'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
-   molecule['dist_kernel'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
-   molecule['dist_final'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
+   molecule['dist_init_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
+   molecule['dist_kernel_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
+   molecule['dist_final_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
    #
    for i in range(0,3):
       #
       if (i == 0):
          #
-         dist = molecule['dist_init']
+         dist = molecule['dist_init_slave']
       #
       elif (i == 1):
          #
-         dist = molecule['dist_kernel']
+         dist = molecule['dist_kernel_slave']
       #
       elif (i == 2):
          #
-         dist = molecule['dist_final']
+         dist = molecule['dist_final_slave']
       #
       # for init/kernel/final, calculate the relative distribution between work/comm/idle for the individual slaves
       #
@@ -184,6 +184,32 @@ def calc_mpi_timings(molecule):
          dist[0][j-1] = (molecule['sum_work_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
          dist[1][j-1] = (molecule['sum_comm_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
          dist[2][j-1] = (molecule['sum_idle_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+   #
+   # mpi distribution - order (only count slave timings)
+   #
+   molecule['dist_order'] = np.zeros([3,len(molecule['prim_energy'])],dtype=np.float64)
+   #
+   # absolute amount of work/comm/idle at each order
+   #
+   for k in range(0,len(molecule['prim_energy'])):
+      #
+      for i in range(0,3):
+         #
+         for j in range(1,molecule['mpi_size']):
+            #
+            molecule['dist_order'][0][k] += molecule['mpi_time_work'][i][j][k]
+            molecule['dist_order'][1][k] += molecule['mpi_time_comm'][i][j][k]
+            molecule['dist_order'][2][k] += molecule['mpi_time_idle'][i][j][k]
+   #
+   # calculate relative results
+   #
+   for k in range(0,len(molecule['prim_energy'])):
+      #
+      sum_k = molecule['dist_order'][0][k]+molecule['dist_order'][1][k]+molecule['dist_order'][2][k]
+      #
+      molecule['dist_order'][0][k] = (molecule['dist_order'][0][k]/sum_k)*100.0
+      molecule['dist_order'][1][k] = (molecule['dist_order'][1][k]/sum_k)*100.0
+      molecule['dist_order'][2][k] = (molecule['dist_order'][2][k]/sum_k)*100.0
    #
    return molecule
 

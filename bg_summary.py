@@ -274,14 +274,14 @@ def summary_mpi_time(molecule):
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    print('    mean: slave (in %)         {0:>5.2f} / {1:>5.2f} / {2:>5.2f}                  {3:>5.2f} / {4:>5.2f} / {5:>5.2f}                   {6:>5.2f} / {7:>5.2f} / {8:>5.2f}'.\
-          format(np.mean(molecule['dist_init'][0]),np.mean(molecule['dist_init'][1]),np.mean(molecule['dist_init'][2]),\
-                 np.mean(molecule['dist_kernel'][0]),np.mean(molecule['dist_kernel'][1]),np.mean(molecule['dist_kernel'][2]),\
-                 np.mean(molecule['dist_final'][0]),np.mean(molecule['dist_final'][1]),np.mean(molecule['dist_final'][2])))
+          format(np.mean(molecule['dist_init_slave'][0]),np.mean(molecule['dist_init_slave'][1]),np.mean(molecule['dist_init_slave'][2]),\
+                 np.mean(molecule['dist_kernel_slave'][0]),np.mean(molecule['dist_kernel_slave'][1]),np.mean(molecule['dist_kernel_slave'][2]),\
+                 np.mean(molecule['dist_final_slave'][0]),np.mean(molecule['dist_final_slave'][1]),np.mean(molecule['dist_final_slave'][2])))
    #
    print('    stdev.: slave (in %)       {0:>5.2f} / {1:>5.2f} / {2:>5.2f}                  {3:>5.2f} / {4:>5.2f} / {5:>5.2f}                   {6:>5.2f} / {7:>5.2f} / {8:>5.2f}'.\
-          format(np.std(molecule['dist_init'][0],ddof=1),np.std(molecule['dist_init'][1],ddof=1),np.std(molecule['dist_init'][2],ddof=1),\
-                 np.std(molecule['dist_kernel'][0],ddof=1),np.std(molecule['dist_kernel'][1],ddof=1),np.std(molecule['dist_kernel'][2],ddof=1),\
-                 np.std(molecule['dist_final'][0],ddof=1),np.std(molecule['dist_final'][1],ddof=1),np.std(molecule['dist_final'][2],ddof=1)))
+          format(np.std(molecule['dist_init_slave'][0],ddof=1),np.std(molecule['dist_init_slave'][1],ddof=1),np.std(molecule['dist_init_slave'][2],ddof=1),\
+                 np.std(molecule['dist_kernel_slave'][0],ddof=1),np.std(molecule['dist_kernel_slave'][1],ddof=1),np.std(molecule['dist_kernel_slave'][2],ddof=1),\
+                 np.std(molecule['dist_final_slave'][0],ddof=1),np.std(molecule['dist_final_slave'][1],ddof=1),np.std(molecule['dist_final_slave'][2],ddof=1)))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
