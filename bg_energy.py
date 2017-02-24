@@ -4,10 +4,9 @@
 """ bg_energy.py: energy-related routines for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
-from mpi4py import MPI
 
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
-from bg_utilities import run_calc_corr, orb_string 
+from bg_utils import run_calc_corr, orb_string 
 from bg_print import print_status
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'

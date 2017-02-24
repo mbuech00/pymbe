@@ -7,11 +7,13 @@ written by Janus J. Eriksen (jeriksen@uni-mainz.de), 2016-2017, Mainz, Germany."
 
 from mpi4py import MPI
 
-from bg_mpi_wrapper import finalize_mpi, abort_mpi
-from bg_mpi_main import init_mpi, red_mpi_timings
+from bg_mpi_wrapper import finalize_mpi
+from bg_mpi_main import init_mpi
+from bg_time import timings_main
 from bg_setup import init_calc, term_calc
-from bg_utilities import ref_calc
-from bg_print import print_main_header, print_summary, print_main_end 
+from bg_utils import ref_calc
+from bg_print import print_main_header, print_main_end 
+from bg_summary import summary_main
 from bg_driver import main_drv
 from bg_plotting import ic_plot
 
@@ -42,9 +44,6 @@ def main():
       #
       init_calc(molecule)
       #
-      #
-      if (molecule['error'][-1]): abort_mpi(molecule)
-      #
       #  ---  print program header...  ---
       #
       print_main_header(molecule)
@@ -53,9 +52,9 @@ def main():
       #
       main_drv(molecule)
       #
-      #  ---  collect mpi timings from slaves  ---
+      #  ---  collect timings...  ---
       #
-      if (molecule['mpi_parallel']): red_mpi_timings(molecule)
+      timings_main(molecule)
       #
       #  ---  start (potential) reference calculation...  ---
       #
@@ -63,7 +62,7 @@ def main():
       #
       #  ---  print summary of the calculation  ---
       #
-      print_summary(molecule)
+      summary_main(molecule)
       #
       #  ---  plot the results of the calculation  ---
       #

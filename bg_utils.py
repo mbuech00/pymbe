@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_utilities.py: general utilities for Bethe-Goldstone correlation calculation."""
+""" bg_utils.py: general utilities for Bethe-Goldstone correlation calculation."""
 
 from os import listdir, unlink
 from os.path import join, isfile
 from subprocess import call
 from math import factorial
-from timeit import default_timer
 
+from bg_time import timer_phase
 from bg_print import print_ref_header, print_ref_end
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -66,11 +66,11 @@ def ref_calc(molecule):
    #
    print_ref_header()
    #
-   start = default_timer()
+   timer_phase(molecule,'time_tot',1,'REF')
    #
    run_calc_corr(molecule,'','REF')
    #
-   molecule['prim_time'].append(default_timer()-start)
+   timer_phase(molecule,'time_tot',1,'REF')
    #
    print_ref_end(molecule)
    #

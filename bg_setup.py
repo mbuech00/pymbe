@@ -6,9 +6,11 @@
 from os import mkdir, chdir
 from shutil import copy, rmtree 
 
+from bg_mpi_wrapper import abort_mpi
+from bg_mpi_utils import bcast_mol_dict, init_slave_env, remove_slave_env
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
-from bg_utilities import run_calc_hf
-from bg_mpi_main import bcast_mol_dict, init_slave_env, print_mpi_table, remove_slave_env 
+from bg_utils import run_calc_hf
+from bg_time import init_phase_timings
 from bg_print import redirect_stdout
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -46,15 +48,23 @@ def init_calc(molecule):
    #
    if (molecule['mpi_parallel']):
       #
+      # bcast mol dict
+      #
       bcast_mol_dict(molecule)
       #
-      init_slave_env(molecule)
+      # init the prog env on the slaves
       #
-      print_mpi_table(molecule)
+      init_slave_env(molecule)
    #
    else:
       #
+      # init private scr dir
+      #
       molecule['scr'] = molecule['wrk']+'/'+molecule['scr_name']
+      #
+      # init program phase timings
+      #
+      init_phase_timings(molecule)
    #
    # init scr env
    #
@@ -69,6 +79,8 @@ def init_calc(molecule):
    # perform a few sanity checks
    #
    sanity_chk(molecule)
+   #
+   if (molecule['error'][-1]): abort_mpi(molecule)
    #
    return molecule
 
@@ -85,6 +97,8 @@ def term_calc(molecule):
    if (molecule['mpi_master'] and molecule['mpi_parallel']):
       #
       remove_slave_env(molecule)
+   #
+   if (molecule['error'][-1]): abort_mpi(molecule)
    #
    return
 
