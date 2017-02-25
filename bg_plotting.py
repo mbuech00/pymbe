@@ -435,7 +435,7 @@ def time_plot(molecule):
    #
    ax2.legend(handles,labels,ncol=3,loc='lower left',frameon=True)
    #
-   fig.text(0.5,0.0,'Distribution (in %)',ha='center',va='center')
+   fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
    fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
    #
    sns.despine(left=True,bottom=True)
