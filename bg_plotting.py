@@ -411,7 +411,7 @@ def time_plot(molecule):
    handles = [handles[3],handles[2],handles[1],handles[0]]
    labels = [labels[3],labels[2],labels[1],labels[0]]
    #
-   ax1.legend(handles,labels,ncol=4,loc='lower left',frameon=True,fancybox=True,framealpha=0.5)
+   ax1.legend(handles,labels,ncol=4,loc='lower left',frameon=True,fancybox=True,framealpha=0.6)
    #
    ax2.set_title('MPI timings')
    #
@@ -433,7 +433,7 @@ def time_plot(molecule):
    handles = [handles[2],handles[1],handles[0]]
    labels = [labels[2],labels[1],labels[0]]
    #
-   ax2.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.5)
+   ax2.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.6)
    #
    fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
    fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
