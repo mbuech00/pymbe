@@ -6,7 +6,7 @@
 import numpy as np
 
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
-from bg_utils import run_calc_corr, orb_string 
+from bg_utils import run_calc_corr, orb_string, comb_index 
 from bg_print import print_status
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -72,19 +72,31 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
          #
          for i in range(k-1,0,-1):
             #
-            for l in range(0,len(tup[i-1])):
-               #
-               # is tup[i-1][l] a subset of tup[k-1][j] ?
-               #
-               if (all(idx in iter(tup[k-1][j]) for idx in tup[i-1][l])): e_inc[k-1][j] -= e_inc[i-1][l]
+            combs = tup[k-1][j,comb_index(k,i)]
             #
             if (level == 'CORRE'):
                #
-               for l in range(0,len(molecule['prim_tuple'][i-1])):
+               if (len(tup[i-1]) > 0):
                   #
-                  # is molecule['prim_tuple'][i-1][l] a subset of tup[k-1][j] ?
+                  dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
                   #
-                  if (all(idx in iter(tup[k-1][j]) for idx in molecule['prim_tuple'][i-1][l])): e_inc[k-1][j] -= molecule['prim_energy_inc'][i-1][l]
+                  idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
+                  #
+                  for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
+               #
+               dt = np.dtype((np.void,molecule['prim_tuple'][i-1].dtype.itemsize*molecule['prim_tuple'][i-1].shape[1]))
+               #
+               idx = np.nonzero(np.in1d(molecule['prim_tuple'][i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
+               #
+               for l in idx: e_inc[k-1][j] -= molecule['prim_energy_inc'][i-1][l]
+            #
+            else:
+               #
+               dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
+               #
+               idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
+               #
+               for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
       #
       e_tmp = np.sum(e_inc[k-1])
       #

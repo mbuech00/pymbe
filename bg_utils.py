@@ -3,10 +3,13 @@
 
 """ bg_utils.py: general utilities for Bethe-Goldstone correlation calculation."""
 
+import numpy as np
+from itertools import combinations, chain
+from scipy.misc import comb
+from math import factorial
 from os import listdir, unlink
 from os.path import join, isfile
 from subprocess import call
-from math import factorial
 
 from bg_time import timer_phase
 from bg_print import print_ref_header, print_ref_end
@@ -137,5 +140,14 @@ def n_theo_tuples(dim,k,theo_work):
    theo_work.append(factorial(dim)/(factorial(k)*factorial(dim-k)))
    #
    return theo_work
+
+def comb_index(n,k):
+   #
+   count = comb(n,k,exact=True)
+   #
+   index = np.fromiter(chain.from_iterable(combinations(range(n),k)),int,count=count*k)
+   #
+   return index.reshape(-1,k)
+
 
 
