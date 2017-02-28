@@ -85,11 +85,21 @@ def init_mpi_timings(molecule):
    molecule['mpi_time_comm_final'] = []
    molecule['mpi_time_work_final'] = []
    #
+   # 'main_slave' timings
+   #
+   molecule['mpi_time_idle_main'] = []
+   molecule['mpi_time_comm_main'] = []
+   molecule['mpi_time_work_main'] = []
+   #
    return molecule
 
 def collect_mpi_timings(molecule):
    #
    #  ---  master/slave routine
+   #
+   # first, check if mpi_time_comm_init list contain contribution from order k > max_order
+   #
+   if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].pop(-1)
    #
    if (molecule['mpi_master']):
       #
@@ -103,31 +113,31 @@ def collect_mpi_timings(molecule):
       #
       # init mpi lists with master timings
       #
-      molecule['mpi_time_work'] = [[np.asarray(molecule['mpi_time_work_init'])],[np.asarray(molecule['mpi_time_work_kernel'])],[np.asarray(molecule['mpi_time_work_final'])]]
-      molecule['mpi_time_idle'] = [[np.asarray(molecule['mpi_time_idle_init'])],[np.asarray(molecule['mpi_time_idle_kernel'])],[np.asarray(molecule['mpi_time_idle_final'])]]
-      molecule['mpi_time_comm'] = [[np.asarray(molecule['mpi_time_comm_init'])],[np.asarray(molecule['mpi_time_comm_kernel'])],[np.asarray(molecule['mpi_time_comm_final'])]]
+      molecule['mpi_time_work'] = [[[0.0]*len(molecule['mpi_time_work_kernel'])],[np.asarray(molecule['mpi_time_work_kernel'])],[np.asarray(molecule['mpi_time_work_final'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))]]
+      molecule['mpi_time_comm'] = [[np.asarray(molecule['mpi_time_comm_init'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))],[np.asarray(molecule['mpi_time_comm_final'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))]]
+      molecule['mpi_time_idle'] = [[[0.0]*len(molecule['mpi_time_work_kernel'])],[np.asarray(molecule['mpi_time_idle_kernel'])],[np.asarray(molecule['mpi_time_idle_final'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))]]
       #
       # receive individual timings (in ordered sequence)
       #
-      time = np.empty([9,len(molecule['prim_energy'])],dtype=np.float64)
+      time = np.empty([12,len(molecule['prim_energy'])],dtype=np.float64)
       #
       for i in range(1,molecule['mpi_size']):
          #
          molecule['mpi_comm'].Recv([time,MPI.DOUBLE],source=i,status=molecule['mpi_stat'])
          #
-         for j in range(0,3):
+         for j in range(0,4):
             #
             molecule['mpi_time_work'][j].append(np.copy(time[j]))
-            molecule['mpi_time_comm'][j].append(np.copy(time[j+3]))
-            molecule['mpi_time_idle'][j].append(np.copy(time[j+6]))
+            molecule['mpi_time_comm'][j].append(np.copy(time[j+4]))
+            molecule['mpi_time_idle'][j].append(np.copy(time[j+8]))
    #
    else:
       #
       # send mpi timings to master
       #
-      time = np.array([molecule['mpi_time_work_init'],molecule['mpi_time_work_kernel'],molecule['mpi_time_work_final'],\
-             molecule['mpi_time_comm_init'],molecule['mpi_time_comm_kernel'],molecule['mpi_time_comm_final'],\
-             molecule['mpi_time_idle_init'],molecule['mpi_time_idle_kernel'],molecule['mpi_time_idle_final']])
+      time = np.array([[0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_work_kernel'],molecule['mpi_time_work_final'],[0.0]*len(molecule['mpi_time_work_kernel']),\
+             molecule['mpi_time_comm_init'],[0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_comm_final'],[0.0]*len(molecule['mpi_time_work_kernel']),\
+             [0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_idle_kernel'],molecule['mpi_time_idle_final'],[0.0]*len(molecule['mpi_time_work_kernel'])])
       #
       molecule['mpi_comm'].Send([time,MPI.DOUBLE],dest=0)
       #
@@ -143,13 +153,13 @@ def calc_mpi_timings(molecule):
    #
    #  ---  master routine
    #
-   molecule['sum_work_abs'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-   molecule['sum_comm_abs'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-   molecule['sum_idle_abs'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+   molecule['sum_work_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
+   molecule['sum_comm_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
+   molecule['sum_idle_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
    #
    # sum up work/comm/idle contributions from all orders for the individual mpi procs
    #
-   for i in range(0,3):
+   for i in range(0,4):
       #
       for j in range(0,molecule['mpi_size']):
          #
@@ -162,8 +172,9 @@ def calc_mpi_timings(molecule):
    molecule['dist_init_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
    molecule['dist_kernel_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
    molecule['dist_final_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
+   molecule['dist_main_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
    #
-   for i in range(0,3):
+   for i in range(0,4):
       #
       if (i == 0):
          #
@@ -176,6 +187,10 @@ def calc_mpi_timings(molecule):
       elif (i == 2):
          #
          dist = molecule['dist_final_slave']
+      #
+      elif (i == 3):
+         #
+         dist = molecule['dist_main_slave']
       #
       # for init/kernel/final, calculate the relative distribution between work/comm/idle for the individual slaves
       #
@@ -193,7 +208,7 @@ def calc_mpi_timings(molecule):
    #
    for k in range(0,len(molecule['prim_energy'])):
       #
-      for i in range(0,3):
+      for i in range(0,4):
          #
          for j in range(1,molecule['mpi_size']):
             #

@@ -21,8 +21,6 @@ def bcast_tuples_master(molecule,tup,k,level):
    #
    #  ---  master routine
    #
-   print('master in bcast_tuples_master')
-   #
    # wake up slaves
    #
    timer_mpi(molecule,'mpi_time_comm_init',k)
@@ -52,23 +50,17 @@ def bcast_tuples_slave(molecule,tup,k):
    #
    #  ---  slave routine
    #
-   print('slave {0:} in bcast_tuples_slave'.format(molecule['mpi_rank']))
-   #
    # receive the total number of tuples
    #
-   timer_mpi(molecule,'mpi_time_idle_init',k)
+   timer_mpi(molecule,'mpi_time_comm_init',k)
    #
    tup_info = MPI.COMM_WORLD.bcast(None,root=0)
    #
    # init tup[k-1]
    #
-   timer_mpi(molecule,'mpi_time_work_init',k)
-   #
    tup.append(np.empty([tup_info['tot_tup'],k],dtype=np.int))
    #
    # receive the tuples
-   #
-   timer_mpi(molecule,'mpi_time_comm_init',k)
    #
    MPI.COMM_WORLD.Bcast([tup[k-1],MPI.INT],root=0)
    #

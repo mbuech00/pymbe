@@ -261,14 +261,14 @@ def summary_mpi_time(molecule):
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    print('    mean: slave (in s)     {0:>4.2e} / {1:>4.2e} / {2:>4.2e}         {3:>4.2e} / {4:>4.2e} / {5:>4.2e}          {6:>4.2e} / {7:>4.2e} / {8:>4.2e}'.\
-          format(np.mean(molecule['sum_work_abs'][0]),np.mean(molecule['sum_comm_abs'][0]),np.mean(molecule['sum_idle_abs'][0]),\
-                 np.mean(molecule['sum_work_abs'][1]),np.mean(molecule['sum_comm_abs'][1]),np.mean(molecule['sum_idle_abs'][1]),\
-                 np.mean(molecule['sum_work_abs'][2]),np.mean(molecule['sum_comm_abs'][2]),np.mean(molecule['sum_idle_abs'][2])))
+          format(np.mean(molecule['sum_work_abs'][0][1:]),np.mean(molecule['sum_comm_abs'][0][1:]),np.mean(molecule['sum_idle_abs'][0][1:]),\
+                 np.mean(molecule['sum_work_abs'][1][1:]),np.mean(molecule['sum_comm_abs'][1][1:]),np.mean(molecule['sum_idle_abs'][1][1:]),\
+                 np.mean(molecule['sum_work_abs'][2][1:]),np.mean(molecule['sum_comm_abs'][2][1:]),np.mean(molecule['sum_idle_abs'][2][1:])))
    #
    print('    stdev.: slave (in s)   {0:>4.2e} / {1:>4.2e} / {2:>4.2e}         {3:>4.2e} / {4:>4.2e} / {5:>4.2e}          {6:>4.2e} / {7:>4.2e} / {8:>4.2e}'.\
-          format(np.std(molecule['sum_work_abs'][0],ddof=1),np.std(molecule['sum_comm_abs'][0],ddof=1),np.std(molecule['sum_idle_abs'][0],ddof=1),\
-                 np.std(molecule['sum_work_abs'][1],ddof=1),np.std(molecule['sum_comm_abs'][1],ddof=1),np.std(molecule['sum_idle_abs'][1],ddof=1),\
-                 np.std(molecule['sum_work_abs'][2],ddof=1),np.std(molecule['sum_comm_abs'][2],ddof=1),np.std(molecule['sum_idle_abs'][2],ddof=1)))
+          format(np.std(molecule['sum_work_abs'][0][1:],ddof=1),np.std(molecule['sum_comm_abs'][0][1:],ddof=1),np.std(molecule['sum_idle_abs'][0][1:],ddof=1),\
+                 np.std(molecule['sum_work_abs'][1][1:],ddof=1),np.std(molecule['sum_comm_abs'][1][1:],ddof=1),np.std(molecule['sum_idle_abs'][1][1:],ddof=1),\
+                 np.std(molecule['sum_work_abs'][2][1:],ddof=1),np.std(molecule['sum_comm_abs'][2][1:],ddof=1),np.std(molecule['sum_idle_abs'][2][1:],ddof=1)))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')

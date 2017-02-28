@@ -76,16 +76,6 @@ def timings_main(molecule):
    #
    if (molecule['mpi_parallel']):
       #
-      # check if *_init lists contain contribution from order k > max_order
-      #
-      if (len(molecule['mpi_time_work_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_work_init'].pop(-1)
-      if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].pop(-1)
-      if (len(molecule['mpi_time_idle_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_idle_init'].pop(-1)
-      #
-      # check if mpi_time_comm_kernel is empty
-      #
-      if (len(molecule['mpi_time_comm_kernel']) == 0): molecule['mpi_time_comm_kernel'] = [0.0]*len(molecule['mpi_time_comm_init'])
-      #
       collect_mpi_timings(molecule)
       #
       calc_mpi_timings(molecule)
