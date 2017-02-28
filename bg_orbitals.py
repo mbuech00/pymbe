@@ -136,7 +136,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    # bcast tup[k-1] to the slaves
    #
-   if (molecule['mpi_parallel']): bcast_tuples_master(molecule,tup,k,level)
+   if (molecule['mpi_parallel'] and (len(tup[k-1]) > 0)): bcast_tuples_master(molecule,tup,k,level)
    #
    return tup
 

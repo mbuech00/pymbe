@@ -67,10 +67,25 @@ def timings_main(molecule):
    #
    # check if *_time_tot and *_time_init lists contain contribution from order k > max_order
    #
-   if (len(molecule['prim_time_tot']) > len(molecule['prim_energy'])): molecule['prim_time_tot'].pop(-1)
-   if (len(molecule['prim_time_init']) > len(molecule['prim_energy'])): molecule['prim_time_init'].pop(-1)
-   if (len(molecule['corr_time_tot']) > len(molecule['prim_energy'])): molecule['corr_time_tot'].pop(-1)
-   if (len(molecule['corr_time_init']) > len(molecule['prim_energy'])): molecule['corr_time_init'].pop(-1)
+   if (len(molecule['prim_time_tot']) > len(molecule['prim_energy'])):
+      #
+      molecule['prim_time_tot'][-2] += molecule['prim_time_tot'][-1]
+      molecule['prim_time_tot'].pop(-1)
+   #
+   if (len(molecule['prim_time_init']) > len(molecule['prim_energy'])):
+      #
+      molecule['prim_time_init'][-2] += molecule['prim_time_init'][-1]
+      molecule['prim_time_init'].pop(-1)
+   #
+   if (len(molecule['corr_time_tot']) > len(molecule['prim_energy'])):
+      #
+      molecule['corr_time_tot'][-2] += molecule['corr_time_tot'][-1]
+      molecule['corr_time_tot'].pop(-1)
+   #
+   if (len(molecule['corr_time_init']) > len(molecule['prim_energy'])):
+      #
+      molecule['corr_time_init'][-2] += molecule['corr_time_init'][-1]
+      molecule['corr_time_init'].pop(-1)
    #
    calc_phase_timings(molecule)
    #
