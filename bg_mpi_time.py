@@ -85,27 +85,29 @@ def init_mpi_timings(molecule):
    molecule['mpi_time_comm_final'] = []
    molecule['mpi_time_work_final'] = []
    #
-   # 'main_slave' timings
-   #
-   molecule['mpi_time_idle_main'] = []
-   molecule['mpi_time_comm_main'] = []
-   molecule['mpi_time_work_main'] = []
-   #
    return molecule
 
 def collect_mpi_timings(molecule):
    #
    #  ---  master/slave routine
    #
-   # first, check if mpi_time_comm_init list contain contribution from order k > max_order
+   # note: the correct length of any of the timing lists is len(molecule['mpi_time_work_kernel'])  --  (which is, of course, equal to len(molecule['prim_energy']), but only on master)
+   #
+   # first, check if mpi_time_comm_init list contains contribution from order k > max_order
    #
    if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].pop(-1)
+   #
+   # next, check if this is true for mpi_time_idle_main list
+   #
+   if (not molecule['mpi_master']):
+      #
+      if (len(molecule['mpi_time_idle_main']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_idle_main'].pop(-1)
    #
    if (molecule['mpi_master']):
       #
       # wake up slaves
       #
-      msg = {'task': 'collect_mpi_timings'}
+      msg = {'task': 'collect_mpi_timings', 'order': len(molecule['prim_energy'])}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #
@@ -137,7 +139,7 @@ def collect_mpi_timings(molecule):
       #
       time = np.array([[0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_work_kernel'],molecule['mpi_time_work_final'],[0.0]*len(molecule['mpi_time_work_kernel']),\
              molecule['mpi_time_comm_init'],[0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_comm_final'],[0.0]*len(molecule['mpi_time_work_kernel']),\
-             [0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_idle_kernel'],molecule['mpi_time_idle_final'],[0.0]*len(molecule['mpi_time_work_kernel'])])
+             [0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_idle_kernel'],molecule['mpi_time_idle_final'],molecule['mpi_time_idle_main']])
       #
       molecule['mpi_comm'].Send([time,MPI.DOUBLE],dest=0)
       #

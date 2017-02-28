@@ -22,7 +22,7 @@ def bcast_mol_dict(molecule):
    #
    #  ---  master routine
    #
-   msg = {'task': 'bcast_mol_dict'}
+   msg = {'task': 'bcast_mol_dict', 'order': 1}
    #
    MPI.COMM_WORLD.bcast(msg,root=0)
    #
@@ -54,7 +54,7 @@ def init_slave_env(molecule):
    #
    #  ---  master routine
    #
-   msg = {'task': 'init_slave_env'}
+   msg = {'task': 'init_slave_env', 'order': 1}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
@@ -64,7 +64,7 @@ def remove_slave_env(molecule):
    #
    #  ---  master routine
    #
-   msg = {'task': 'remove_slave_env'}
+   msg = {'task': 'remove_slave_env', 'order': len(molecule['prim_energy'])}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
@@ -78,7 +78,7 @@ def print_mpi_table(molecule):
       #
       # wake up slaves
       #
-      msg = {'task': 'print_mpi_table'}
+      msg = {'task': 'print_mpi_table', 'order': 1}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #
@@ -153,7 +153,7 @@ def mono_exp_merge_info(molecule):
       #
       # wake up slaves
       #
-      msg = {'task': 'mono_exp_merge_info', 'min_corr_order': molecule['min_corr_order']}
+      msg = {'task': 'mono_exp_merge_info', 'min_corr_order': molecule['min_corr_order'], 'order': molecule['min_corr_order']}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
    #

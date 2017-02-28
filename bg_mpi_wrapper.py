@@ -31,7 +31,7 @@ def finalize_mpi(molecule):
    #
    if (MPI.COMM_WORLD.Get_rank() == 0):
       #
-      msg = {'task': 'finalize_mpi'}
+      msg = {'task': 'finalize_mpi', 'order': len(molecule['prim_energy'])}
       #
       MPI.COMM_WORLD.bcast(msg,root=0)
    #
