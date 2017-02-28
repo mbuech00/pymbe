@@ -38,7 +38,7 @@ def init_mpi(molecule):
    #
    if (MPI.COMM_WORLD.Get_rank() != 0):
       #
-      main_slave_rout(molecule)
+      main_slave(molecule)
    #
    else:
       #
@@ -46,7 +46,7 @@ def init_mpi(molecule):
    #
    return molecule
 
-def main_slave_rout(molecule):
+def main_slave(molecule):
    #
    #  ---  slave routine
    #
