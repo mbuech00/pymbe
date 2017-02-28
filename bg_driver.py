@@ -97,15 +97,23 @@ def mono_exp_drv(molecule,start,end,level):
          #
          if (level == 'CORRE'):
             #
+            timer_phase(molecule,'time_tot',k+1,level)
+            #
+            timer_phase(molecule,'time_init',k+1,level)
+            #
             orb_entanglement(molecule,molecule['l_limit'],molecule['u_limit'],k,level)
-         #
-         timer_phase(molecule,'time_tot',k,level)
+            #
+            mono_exp_finish(molecule)
+            #
+            timer_phase(molecule,'time_init',k+1,level)
+            #
+            timer_phase(molecule,'time_tot',k+1,level)
          #
          break
       #
       timer_phase(molecule,'time_tot',k,level)
    #
-   if (level == 'CORRE'): mono_exp_finish(molecule)
+   timer_phase(molecule,'time_tot',k,level)
    #
    return molecule
 
@@ -194,6 +202,8 @@ def mono_exp_init(molecule,k,level):
    #
    print_init_header(k,level)
    #
+   timer_phase(molecule,'time_init',k,level)
+   #
    if (k >= 2):
       #
       # orbital screening
@@ -202,11 +212,7 @@ def mono_exp_init(molecule,k,level):
    #
    # generate all tuples at order k
    #
-   timer_phase(molecule,'time_init',k,level)
-   #
    orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
-   #
-   timer_phase(molecule,'time_init',k,level)
    #
    # determine number of tuples at order k
    #
@@ -232,6 +238,8 @@ def mono_exp_init(molecule,k,level):
    #
    e_inc.append(np.zeros(len(tup[k-1]),dtype=np.float64))
    #
+   timer_phase(molecule,'time_init',k,level)
+   #
    # if converged, pop last element of tup list and append to n_tup list
    #
    if ((level == 'MACRO') and molecule['conv'][-1]):
@@ -254,10 +262,22 @@ def mono_exp_finish(molecule):
       #
       molecule['corr_energy'].append(molecule['corr_energy'][-1])
       #
-      molecule['corr_time_tot'].append(0.0)
-      molecule['corr_time_init'].append(0.0)
       molecule['corr_time_kernel'].append(0.0)
       molecule['corr_time_final'].append(0.0)
+   #
+   if (molecule['corr'] and (molecule['min_corr_order'] != 0)):
+      #
+      for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])-1):
+         #
+         molecule['corr_time_tot'].append(0.0)
+         molecule['corr_time_init'].append(0.0)
+   #
+   else:
+      #
+      for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])):
+         #
+         molecule['corr_time_tot'].append(0.0)
+         molecule['corr_time_init'].append(0.0)
    #
    # make corr_n_tuples of the same length as prim_n_tuples
    #

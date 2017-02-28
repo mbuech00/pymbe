@@ -11,7 +11,7 @@ from mpi4py import MPI
 from bg_mpi_utils import print_mpi_table, mono_exp_merge_info
 from bg_mpi_time import init_mpi_timings, collect_mpi_timings
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
-from bg_mpi_orbitals import bcast_tuples, bcast_dom, orb_generator_slave 
+from bg_mpi_orbitals import bcast_tuples_slave
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -38,7 +38,7 @@ def init_mpi(molecule):
    #
    if (MPI.COMM_WORLD.Get_rank() != 0):
       #
-      main_slave_rout(molecule)
+      main_slave(molecule)
    #
    else:
       #
@@ -46,15 +46,29 @@ def init_mpi(molecule):
    #
    return molecule
 
-def main_slave_rout(molecule):
+def main_slave(molecule):
    #
    #  ---  slave routine
    #
    slave = True
    #
+   time_slave = {}
+   #
+   time_slave['mpi_time_idle_main'] = [0.0]
+   #
    while (slave):
       #
+      start_idle = MPI.Wtime()
+      #
       msg = MPI.COMM_WORLD.bcast(None,root=0)
+      #
+      if (len(time_slave['mpi_time_idle_main']) < msg['order']):
+         #
+         time_slave['mpi_time_idle_main'].append(MPI.Wtime()-start_idle)
+      #
+      else:
+         #
+         time_slave['mpi_time_idle_main'][msg['order']-1] += MPI.Wtime()-start_idle
       #
       # bcast_mol_dict
       #
@@ -128,25 +142,13 @@ def main_slave_rout(molecule):
          #
          # receive tuples
          #
-         bcast_tuples(molecule,msg['order'])
-      #
-      # orb_generator_par
-      #
-      elif (msg['task'] == 'orb_generator_par'):
-         #
-         # receive domains
-         #
-         bcast_dom(molecule,msg['order'])
-         #
          if (msg['level'] == 'MACRO'):
             #
-            orb_generator_slave(molecule,molecule['dom_info']['dom'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
+            bcast_tuples_slave(molecule,molecule['prim_tuple'],msg['order'])
          #
          elif (msg['level'] == 'CORRE'):
             #
-            orb_generator_slave(molecule,molecule['dom_info']['dom'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'CORRE')
-         #
-         molecule['dom_info'].clear()
+            bcast_tuples_slave(molecule,molecule['corr_tuple'],msg['order'])
       #
       # energy_kernel_mono_exp_par
       #
@@ -190,15 +192,7 @@ def main_slave_rout(molecule):
       #
       elif (msg['task'] == 'collect_mpi_timings'):
          #
-         # first, check if *_init lists contain contribution from order k > max_order
-         #
-         if (len(molecule['mpi_time_work_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_work_init'].pop(-1)
-         if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].pop(-1)
-         if (len(molecule['mpi_time_idle_init']) > len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_idle_init'].pop(-1)
-         #
-         # next, check if mpi_time_comm_kernel is empty
-         #
-         if (len(molecule['mpi_time_comm_kernel']) == 0): molecule['mpi_time_comm_kernel'] = [0.0]*len(molecule['mpi_time_comm_init'])
+         molecule['mpi_time_idle_main'] = time_slave['mpi_time_idle_main']
          #
          collect_mpi_timings(molecule)
       #
