@@ -56,23 +56,31 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       if (level == 'MACRO'):
          #
-         parent_tup = tup[k-2]
+         end = len(tup[k-2])
       #
       elif (level == 'CORRE'):
          #
-         if (k == molecule['min_corr_order']):
-            #
-            parent_tup = molecule['prim_tuple'][k-2]
-         #
-         else:
-            #
-            parent_tup = np.vstack((tup[k-2],molecule['prim_tuple'][k-2]))
+         end = len(tup[k-2])+len(molecule['prim_tuple'][k-2])
       #
-      for i in range(0,len(parent_tup)):
+      for i in range(0,end):
          #
          # generate subset of all pairs within the parent tuple
          #
-         tmp = list(list(comb) for comb in combinations(parent_tup[i],2))
+         if (level == 'MACRO'):
+            #
+            parent_tup = tup[k-2][i]
+         #
+         elif (level == 'CORRE'):
+            #
+            if (i <= (len(tup[k-2])-1)):
+               #
+               parent_tup = tup[k-2][i]
+            #
+            else:
+               #
+               parent_tup = molecule['prim_tuple'][k-2][i-len(tup[k-2])]
+         #
+         tmp = list(list(comb) for comb in combinations(parent_tup,2))
          #
          mask = True
          #
@@ -90,11 +98,11 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
             #
             # loop through possible orbitals to augment the parent tuple with
             #
-            for m in range(parent_tup[i][-1]+1,(l_limit+u_limit)+1):
+            for m in range(parent_tup[-1]+1,(l_limit+u_limit)+1):
                #
                mask_2 = True
                #
-               for l in parent_tup[i]:
+               for l in parent_tup:
                   #
                   # is the new child tuple allowed?
                   #
@@ -108,7 +116,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
                   #
                   # append the child tuple to the tup list
                   #
-                  tmp_2.append(list(deepcopy(parent_tup[i])))
+                  tmp_2.append(list(deepcopy(parent_tup)))
                   #
                   tmp_2[-1].append(m)
                   #
@@ -118,11 +126,11 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
                      #
                      tmp_2.pop(-1)
       #
+      if (len(tmp_2) > 1): tmp_2.sort()
+      #
       tup.append(np.array(tmp_2,dtype=np.int))
       #
       del tmp_2
-      #
-      if ((level == 'CORRE') and (k > molecule['min_corr_order'])): del parent_tup
    #
    del tmp
    #
