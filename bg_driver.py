@@ -232,13 +232,13 @@ def mono_exp_init(molecule,k,level):
    #
    # print init end
    #
+   timer_phase(molecule,'time_init',k,level)
+   #
    print_init_end(molecule,k,level)
    #
    # init e_inc list
    #
    e_inc.append(np.zeros(len(tup[k-1]),dtype=np.float64))
-   #
-   timer_phase(molecule,'time_init',k,level)
    #
    # if converged, pop last element of tup list and append to n_tup list
    #

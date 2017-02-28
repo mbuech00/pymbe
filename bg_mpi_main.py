@@ -11,7 +11,8 @@ from mpi4py import MPI
 from bg_mpi_utils import print_mpi_table, mono_exp_merge_info
 from bg_mpi_time import init_mpi_timings, collect_mpi_timings
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
-from bg_mpi_orbitals import bcast_tuples_slave
+from bg_mpi_orbitals import bcast_dom_slave
+from bg_orbitals import orb_generator
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -138,17 +139,21 @@ def main_slave(molecule):
       #
       # bcast_tuples
       #
-      elif (msg['task'] == 'bcast_tuples'):
+      elif (msg['task'] == 'orb_generator_par'):
          #
-         # receive tuples
+         # receive domains
+         #
+         bcast_dom_slave(molecule,msg['order'])
+         #
+         # compute tuples
          #
          if (msg['level'] == 'MACRO'):
             #
-            bcast_tuples_slave(molecule,molecule['prim_tuple'],msg['order'])
+            orb_generator(molecule,molecule['dom'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
          #
          elif (msg['level'] == 'CORRE'):
             #
-            bcast_tuples_slave(molecule,molecule['corr_tuple'],msg['order'])
+            orb_generator(molecule,molecule['dom'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
       #
       # energy_kernel_mono_exp_par
       #

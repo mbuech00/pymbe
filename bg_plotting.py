@@ -376,7 +376,13 @@ def time_plot(molecule):
    #
    sns.set(style='whitegrid',palette='Set2')
    #
-   fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+   if (molecule['mpi_parallel']):
+      #
+      fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+   #
+   else:
+      #
+      fig, ax1 = plt.subplots()
    #
    sns.set_color_codes('pastel')
    #
@@ -413,30 +419,37 @@ def time_plot(molecule):
    #
    ax1.legend(handles,labels,ncol=4,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
    #
-   ax2.set_title('MPI timings')
+   if (not molecule['mpi_parallel']):
+      #
+      ax1.set_xlabel('Distribution (in %)')
+      ax1.set_ylabel('Bethe-Goldstone order')
    #
-   work_dat = molecule['dist_order'][0]
-   comm_dat = work_dat + molecule['dist_order'][1]
-   idle_dat = comm_dat + molecule['dist_order'][2]
-   #
-   idle = sns.barplot(idle_dat,order,ax=ax2,orient='h',label='idle',color=sns.xkcd_rgb['sage'])
-   #
-   comm = sns.barplot(comm_dat,order,ax=ax2,orient='h',label='comm',color=sns.xkcd_rgb['pastel blue'])
-   #
-   work = sns.barplot(work_dat,order,ax=ax2,orient='h',label='work',color=sns.xkcd_rgb['wine'])
-   #
-   ax2.set_ylim([-0.5,len(molecule['prim_energy'])-0.5])
-   ax2.set_xlim([0.0,100.0])
-   #
-   handles,labels = ax2.get_legend_handles_labels()
-   #
-   handles = [handles[2],handles[1],handles[0]]
-   labels = [labels[2],labels[1],labels[0]]
-   #
-   ax2.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
-   #
-   fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
-   fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
+   else:
+      #
+      ax2.set_title('MPI timings')
+      #
+      work_dat = molecule['dist_order'][0]
+      comm_dat = work_dat + molecule['dist_order'][1]
+      idle_dat = comm_dat + molecule['dist_order'][2]
+      #
+      idle = sns.barplot(idle_dat,order,ax=ax2,orient='h',label='idle',color=sns.xkcd_rgb['sage'])
+      #
+      comm = sns.barplot(comm_dat,order,ax=ax2,orient='h',label='comm',color=sns.xkcd_rgb['pastel blue'])
+      #
+      work = sns.barplot(work_dat,order,ax=ax2,orient='h',label='work',color=sns.xkcd_rgb['wine'])
+      #
+      ax2.set_ylim([-0.5,len(molecule['prim_energy'])-0.5])
+      ax2.set_xlim([0.0,100.0])
+      #
+      handles,labels = ax2.get_legend_handles_labels()
+      #
+      handles = [handles[2],handles[1],handles[0]]
+      labels = [labels[2],labels[1],labels[0]]
+      #
+      ax2.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
+      #
+      fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
+      fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
    #
    sns.despine(left=True,bottom=True)
    #
@@ -449,9 +462,11 @@ def time_plot(molecule):
    del final_dat
    del remain_dat
    #
-   del work_dat
-   del comm_dat
-   del idle_dat
+   if (molecule['mpi_parallel']):
+      #
+      del work_dat
+      del comm_dat
+      del idle_dat
    #
    return molecule
 
