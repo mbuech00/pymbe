@@ -17,7 +17,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def bcast_tuples_master(molecule,tup,k,level):
+def bcast_dom_master(molecule,dom,l_limit,u_limit,k,level):
    #
    #  ---  master routine
    #
@@ -25,49 +25,37 @@ def bcast_tuples_master(molecule,tup,k,level):
    #
    timer_mpi(molecule,'mpi_time_comm_init',k)
    #
-   msg = {'task': 'bcast_tuples', 'order': k, 'level': level}
+   msg = {'task': 'orb_generator_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': k, 'level': level}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
-   # bcast total number of tuples
+   # bcast orbital domains and lower/upper limits
    #
-   tup_info = {'tot_tup': len(tup[k-1])}
+   dom_info = {'dom': dom}
    #
-   molecule['mpi_comm'].bcast(tup_info,root=0)
-   #
-   # bcast the tuples
-   #
-   molecule['mpi_comm'].Bcast([tup[k-1],MPI.INT],root=0)
+   molecule['mpi_comm'].bcast(dom_info,root=0)
    #
    timer_mpi(molecule,'mpi_time_comm_init',k,True)
    #
-   msg.clear()
-   tup_info.clear()
+   dom_info.clear()
    #
    return
 
-def bcast_tuples_slave(molecule,tup,k):
+def bcast_dom_slave(molecule,k):
    #
    #  ---  slave routine
    #
-   # receive the total number of tuples
-   #
    timer_mpi(molecule,'mpi_time_comm_init',k)
    #
-   tup_info = MPI.COMM_WORLD.bcast(None,root=0)
+   # receive domains
    #
-   # init tup[k-1]
+   dom_info = MPI.COMM_WORLD.bcast(None,root=0)
    #
-   tup.append(np.empty([tup_info['tot_tup'],k],dtype=np.int))
-   #
-   # receive the tuples
-   #
-   MPI.COMM_WORLD.Bcast([tup[k-1],MPI.INT],root=0)
+   molecule['dom'] = dom_info['dom']
    #
    timer_mpi(molecule,'mpi_time_comm_init',k,True)
    #
-   tup_info.clear()
+   dom_info.clear()
    #
    return molecule
-
 

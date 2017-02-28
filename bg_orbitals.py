@@ -8,7 +8,7 @@ from mpi4py import MPI
 from itertools import combinations 
 from copy import deepcopy
 
-from bg_mpi_orbitals import bcast_tuples_master
+from bg_mpi_orbitals import bcast_dom_master
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -21,6 +21,8 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
+   #
+   if (molecule['mpi_parallel'] and molecule['mpi_master']): bcast_dom_master(molecule,dom,l_limit,u_limit,k,level)
    #
    if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
@@ -133,10 +135,6 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       del tmp_2
    #
    del tmp
-   #
-   # bcast tup[k-1] to the slaves
-   #
-   if (molecule['mpi_parallel'] and (len(tup[k-1]) > 0)): bcast_tuples_master(molecule,tup,k,level)
    #
    return tup
 

@@ -93,6 +93,22 @@ def collect_mpi_timings(molecule):
    #
    # note: the correct length of any of the timing lists is len(molecule['mpi_time_work_kernel'])  --  (which is, of course, equal to len(molecule['prim_energy']), but only on master)
    #
+   # make sure mpi_time_comm_init list is not too long
+   #
+   if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])):
+      #
+      molecule['mpi_time_comm_init'][-2] += molecule['mpi_time_comm_init'][-1]
+      molecule['mpi_time_comm_init'].pop(-1)
+   #
+   # make sure mpi_time_idle_main is not too long
+   #
+   if (not molecule['mpi_master']):
+      #
+      if (len(molecule['mpi_time_idle_main']) > len(molecule['mpi_time_work_kernel'])):
+         #
+         molecule['mpi_time_idle_main'][-2] += molecule['mpi_time_idle_main'][-1]
+         molecule['mpi_time_idle_main'].pop(-1)
+   #
    if (molecule['mpi_master']):
       #
       # wake up slaves
