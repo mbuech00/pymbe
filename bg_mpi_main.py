@@ -193,7 +193,6 @@ def main_slave(molecule):
       elif (msg['task'] == 'collect_mpi_timings'):
          #
          molecule['mpi_time_idle_main'] = time_slave['mpi_time_idle_main']
-         print('mpi_time_idle_main = '+str(molecule['mpi_time_idle_main']))
          #
          collect_mpi_timings(molecule)
       #

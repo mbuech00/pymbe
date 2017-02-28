@@ -171,36 +171,36 @@ def calc_mpi_timings(molecule):
    #
    # mpi distribution - slave (only count slave timings)
    #
-   molecule['dist_init_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
-   molecule['dist_kernel_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
-   molecule['dist_final_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
-   molecule['dist_main_slave'] = np.empty([3,molecule['mpi_size']-1],dtype=np.float64)
+   molecule['dist_init'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+   molecule['dist_kernel'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+   molecule['dist_final'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+   molecule['dist_main'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
    #
    for i in range(0,4):
       #
       if (i == 0):
          #
-         dist = molecule['dist_init_slave']
+         dist = molecule['dist_init']
       #
       elif (i == 1):
          #
-         dist = molecule['dist_kernel_slave']
+         dist = molecule['dist_kernel']
       #
       elif (i == 2):
          #
-         dist = molecule['dist_final_slave']
+         dist = molecule['dist_final']
       #
       elif (i == 3):
          #
-         dist = molecule['dist_main_slave']
+         dist = molecule['dist_main']
       #
       # for init/kernel/final, calculate the relative distribution between work/comm/idle for the individual slaves
       #
-      for j in range(1,molecule['mpi_size']):
+      for j in range(0,molecule['mpi_size']):
          #
-         dist[0][j-1] = (molecule['sum_work_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
-         dist[1][j-1] = (molecule['sum_comm_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
-         dist[2][j-1] = (molecule['sum_idle_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+         dist[0][j] = (molecule['sum_work_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+         dist[1][j] = (molecule['sum_comm_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+         dist[2][j] = (molecule['sum_idle_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
    #
    # mpi distribution - order (only count slave timings)
    #
