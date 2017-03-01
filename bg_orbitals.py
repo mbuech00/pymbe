@@ -238,27 +238,28 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
       orb_con_abs.append([])
       orb_con_rel.append([])
       #
+      start_time = MPI.Wtime()
+      #
       for i in range(l_limit,l_limit+u_limit):
          #
          orb[-1][i-l_limit][i-l_limit] = 0.0
          #
-         for j in range(l_limit,l_limit+u_limit):
+         for j in range(i+1,l_limit+u_limit):
             #
             e_abs = 0.0
             #
-            if (i != j):
+            # add up contributions from the correlation between orbs i and j at current order
+            #
+            for l in range(0,len(e_inc)):
                #
-               # add up contributions from the correlation between orbs i and j at current order
-               #
-               for l in range(0,len(e_inc)):
-                  #
-                  if ((set([i+1]) <= set(tup[l])) and (set([j+1]) <= set(tup[l]))):
-                     #
-                     e_abs += e_inc[l] 
+               if (set([i+1,j+1]) <= set(tup[l])): e_abs += e_inc[l]
             #
             # write to orb list
             #
             orb[-1][i-l_limit][j-l_limit] = e_abs
+            orb[-1][j-l_limit][i-l_limit] = e_abs
+      #
+      print('time: orb_ent.1 = '+str(MPI.Wtime()-start_time))
       #
       if (level == 'CORRE'):
          #
