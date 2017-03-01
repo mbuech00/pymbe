@@ -91,6 +91,8 @@ def mono_exp_drv(molecule,start,end,level):
       #
       if (((level == 'MACRO') and molecule['conv'][-1]) or ((level == 'CORRE') and (k == end))):
          #
+         timer_phase(molecule,'time_tot',k,level)
+         #
          print('')
          #
          if ((level == 'MACRO') and (not molecule['corr'])): print('')
@@ -112,8 +114,6 @@ def mono_exp_drv(molecule,start,end,level):
          break
       #
       timer_phase(molecule,'time_tot',k,level)
-   #
-   timer_phase(molecule,'time_tot',k,level)
    #
    return molecule
 
