@@ -115,7 +115,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
                #
                for l in idx: e_inc[k-1][j] -= molecule['prim_energy_inc'][i-1][l]
             #
-            else:
+            elif (level == 'MACRO'):
                #
                dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
                #
