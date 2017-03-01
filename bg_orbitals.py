@@ -231,20 +231,18 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
    #
    else:
       #
-      orb.append([])
+      orb.append(np.empty([molecule['u_limit'],molecule['u_limit']],dtype=np.float64))
+      #
+      orb_arr.append(np.empty([molecule['u_limit'],molecule['u_limit']],dtype=np.float64))
       #
       orb_con_abs.append([])
       orb_con_rel.append([])
       #
-      orb_arr[:] = []
-      #
       for i in range(l_limit,l_limit+u_limit):
          #
-         orb[-1].append([])
+         orb[-1][i-l_limit][i-l_limit] = 0.0
          #
          for j in range(l_limit,l_limit+u_limit):
-            #
-            orb[-1][i-l_limit].append([])
             #
             e_abs = 0.0
             #
@@ -260,7 +258,7 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
             #
             # write to orb list
             #
-            orb[-1][i-l_limit][j-l_limit].append(e_abs)
+            orb[-1][i-l_limit][j-l_limit] = e_abs
       #
       if (level == 'CORRE'):
          #
@@ -277,7 +275,7 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
             #
             for j in range(l_limit,l_limit+u_limit):
                #
-               e_sum += orb[m][i-l_limit][j-l_limit][0]
+               e_sum += orb[m][i-l_limit][j-l_limit]
          #
          # calculate relative contributions
          #
@@ -285,39 +283,13 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
             #
             for j in range(l_limit,l_limit+u_limit):
                #
-               if (len(orb[m][i-l_limit][j-l_limit]) == 2):
+               if (orb[m][i-l_limit][j-l_limit] != 0.0):
                   #
-                  if (orb[m][i-l_limit][j-l_limit][0] != 0.0):
-                     #
-                     orb[m][i-l_limit][j-l_limit][1] = orb[m][i-l_limit][j-l_limit][0]/e_sum
-                  #
-                  else:
-                     #
-                     orb[m][i-l_limit][j-l_limit][1] = 0.0
+                  orb_arr[m][i-l_limit][j-l_limit] = orb[m][i-l_limit][j-l_limit]/e_sum
                #
                else:
                   #
-                  if (orb[m][i-l_limit][j-l_limit][0] != 0.0):
-                     #
-                     orb[m][i-l_limit][j-l_limit].append(orb[m][i-l_limit][j-l_limit][0]/e_sum)
-                  #
-                  else:
-                     #
-                     orb[m][i-l_limit][j-l_limit].append(0.0)
-      #
-      # orbital entanglement matrices for orders: 2 <= k <= current
-      #
-      for i in range(0,len(orb)):
-         #
-         orb_arr.append([])
-         #
-         for j in range(0,len(orb[i])):
-            #
-            orb_arr[i].append([])
-            #
-            for k in range(0,len(orb[i][j])):
-               #
-               orb_arr[i][j].append(orb[i][j][k][1])
+                  orb_arr[m][i-l_limit][j-l_limit] = 0.0
       #
       # total orbital contribution
       #
@@ -329,7 +301,7 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
          #
          for k in range(0,len(orb[-1][j])):
             #
-            e_sum += orb[-1][j][k][0]
+            e_sum += orb[-1][j][k]
          #
          tmp.append(e_sum)
       #
@@ -410,7 +382,7 @@ def orb_exclusion(molecule,l_limit,level):
       #
       for j in range(0,len(orb[-1][i])):
          #
-         if ((abs(orb[-1][i][j][1]) < thres) and (abs(orb[-1][i][j][1]) != 0.0)):
+         if ((abs(orb_arr[-1][i][j]) < thres) and (abs(orb_arr[-1][i][j]) != 0.0)):
             #
             molecule['excl_list'][i].append((j+l_limit)+1)
    #
