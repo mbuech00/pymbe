@@ -234,8 +234,6 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
       orb_con_abs.append([])
       orb_con_rel.append([])
       #
-      start_time = MPI.Wtime()
-      #
       for i in range(l_limit,l_limit+u_limit):
          #
          orb[-1][i-l_limit][i-l_limit] = 0.0
@@ -266,8 +264,6 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
             #
             orb[-1][i-l_limit][j-l_limit] = e_abs
             orb[-1][j-l_limit][i-l_limit] = e_abs
-      #
-      print('time: orb_ent.1 = '+str(MPI.Wtime()-start_time))
       #
       for i in range(l_limit,l_limit+u_limit):
          #
