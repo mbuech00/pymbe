@@ -93,13 +93,6 @@ def collect_mpi_timings(molecule):
    #
    # note: the correct length of any of the timing lists is len(molecule['mpi_time_work_kernel'])  --  (which is, of course, equal to len(molecule['prim_energy']), but only on master)
    #
-   # make sure mpi_time_comm_init list is not too long
-   #
-   if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])):
-      #
-      molecule['mpi_time_comm_init'][-2] += molecule['mpi_time_comm_init'][-1]
-      molecule['mpi_time_comm_init'].pop(-1)
-   #
    # make sure mpi_time_idle_main is not too long
    #
    if (not molecule['mpi_master']):
@@ -121,9 +114,9 @@ def collect_mpi_timings(molecule):
       #
       # init mpi lists with master timings
       #
-      molecule['mpi_time_work'] = [[[0.0]*len(molecule['mpi_time_work_kernel'])],[np.asarray(molecule['mpi_time_work_kernel'])],[np.asarray(molecule['mpi_time_work_final'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))]]
+      molecule['mpi_time_work'] = [[np.asarray(molecule['mpi_time_work_init'])],[np.asarray(molecule['mpi_time_work_kernel'])],[np.asarray(molecule['mpi_time_work_final'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))]]
       molecule['mpi_time_comm'] = [[np.asarray(molecule['mpi_time_comm_init'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))],[np.asarray(molecule['mpi_time_comm_final'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))]]
-      molecule['mpi_time_idle'] = [[[0.0]*len(molecule['mpi_time_work_kernel'])],[np.asarray(molecule['mpi_time_idle_kernel'])],[np.asarray(molecule['mpi_time_idle_final'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))]]
+      molecule['mpi_time_idle'] = [[np.asarray(molecule['mpi_time_idle_init'])],[np.asarray(molecule['mpi_time_idle_kernel'])],[np.asarray(molecule['mpi_time_idle_final'])],[np.asarray([0.0]*len(molecule['mpi_time_work_kernel']))]]
       #
       # receive individual timings (in ordered sequence)
       #
@@ -143,9 +136,9 @@ def collect_mpi_timings(molecule):
       #
       # send mpi timings to master
       #
-      time = np.array([[0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_work_kernel'],molecule['mpi_time_work_final'],[0.0]*len(molecule['mpi_time_work_kernel']),\
+      time = np.array([molecule['mpi_time_work_init'],molecule['mpi_time_work_kernel'],molecule['mpi_time_work_final'],[0.0]*len(molecule['mpi_time_work_kernel']),\
              molecule['mpi_time_comm_init'],[0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_comm_final'],[0.0]*len(molecule['mpi_time_work_kernel']),\
-             [0.0]*len(molecule['mpi_time_work_kernel']),molecule['mpi_time_idle_kernel'],molecule['mpi_time_idle_final'],molecule['mpi_time_idle_main']])
+             molecule['mpi_time_idle_init'],molecule['mpi_time_idle_kernel'],molecule['mpi_time_idle_final'],molecule['mpi_time_idle_main']])
       #
       molecule['mpi_comm'].Send([time,MPI.DOUBLE],dest=0)
       #
