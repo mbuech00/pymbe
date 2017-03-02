@@ -182,27 +182,25 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
    #
    if (level == 'MACRO'):
       #
-      tup = molecule['prim_tuple'][order-1]
-      e_inc = molecule['prim_energy_inc'][order-1]
       orb = molecule['prim_orb_ent']
       orb_arr = molecule['prim_orb_arr']
       orb_con_abs = molecule['prim_orb_con_abs']
       orb_con_rel = molecule['prim_orb_con_rel']
       #
-      end = len(tup)
+      end = len(molecule['prim_tuple'][order-1])
    #
    elif (level == 'CORRE'):
       #
-      tup = molecule['corr_tuple'][order-1]
-      e_inc = molecule['corr_energy_inc'][order-1]
       orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
       orb_con_abs = molecule['corr_orb_con_abs']
       orb_con_rel = molecule['corr_orb_con_rel']
       #
-      end = len(tup)+len(molecule['prim_tuple'][order-1])
+      end = len(molecule['corr_tuple'][order-1])+len(molecule['prim_tuple'][order-1])
    #
    if (singles):
+      #
+      e_inc = molecule['prim_energy_inc'][order-1]
       #
       # total orbital contribution
       #
@@ -227,43 +225,41 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
    #
    else:
       #
-      orb.append(np.empty([molecule['u_limit'],molecule['u_limit']],dtype=np.float64))
+      orb.append(np.zeros([molecule['u_limit'],molecule['u_limit']],dtype=np.float64))
       #
       orb_arr.append(np.empty([molecule['u_limit'],molecule['u_limit']],dtype=np.float64))
       #
       orb_con_abs.append([])
       orb_con_rel.append([])
       #
-      for i in range(l_limit,l_limit+u_limit):
+      start_time = MPI.Wtime()
+      #
+      for l in range(0,end):
          #
-         orb[-1][i-l_limit][i-l_limit] = 0.0
+         if ((level == 'CORRE') and (l >= len(molecule['prim_tuple'][order-1]))):
+            #
+            tup = molecule['corr_tuple'][order-1]
+            e_inc = molecule['corr_energy_inc'][order-1]
+            ldx = l-len(molecule['prim_tuple'][order-1])
          #
-         for j in range(i+1,l_limit+u_limit):
+         else:
             #
-            e_abs = 0.0
+            tup = molecule['prim_tuple'][order-1]           
+            e_inc = molecule['prim_energy_inc'][order-1]
+            ldx = l
+         # 
+         for i in range(l_limit,l_limit+u_limit):
             #
-            # add up contributions from the correlation between orbs i and j at current order
-            #
-            for l in range(0,end):
+            for j in range(i+1,l_limit+u_limit):
                #
-               if (level == 'CORRE'):
-                  #
-                  if (l <= (len(tup)-1)):
-                     #
-                     if (set([i+1,j+1]) <= set(tup[l])): e_abs += e_inc[l]
-                  #
-                  else:
-                     #
-                     if (set([i+1,j+1]) <= set(molecule['prim_tuple'][order-1][l-len(tup)])): e_abs += molecule['prim_energy_inc'][order-1][l-len(tup)]
+               # add up contributions from the correlation between orbs i and j at current order
                #
-               elif (level == 'MACRO'):
+               if (set([i+1,j+1]) <= set(tup[ldx])):
                   #
-                  if (set([i+1,j+1]) <= set(tup[l])): e_abs += e_inc[l]
-            #
-            # write to orb list
-            #
-            orb[-1][i-l_limit][j-l_limit] = e_abs
-            orb[-1][j-l_limit][i-l_limit] = e_abs
+                  orb[-1][i-l_limit][j-l_limit] += e_inc[ldx]
+                  orb[-1][j-l_limit][i-l_limit] = orb[-1][i-l_limit][j-l_limit]
+      #
+      print('time: orb_ent.1 = '+str(MPI.Wtime()-start_time))
       #
       for i in range(l_limit,l_limit+u_limit):
          #
