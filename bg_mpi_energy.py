@@ -21,13 +21,19 @@ __status__ = 'Development'
 
 def energy_kernel_mono_exp_par(molecule,k,tup,n_tup,e_inc,l_limit,u_limit,level):
    #
+   #  ---  master/slave routine
+   #
    if (molecule['mpi_master']):
       #
       # wake up slaves
       #
+      timer_mpi(molecule,'mpi_time_comm_kernel',k)
+      #
       msg = {'task': 'energy_kernel_mono_exp_par', 'order': k, 'level': level, 'l_limit': l_limit, 'u_limit': u_limit}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   timer_mpi(molecule,'mpi_time_work_kernel',k)
    #
    # slaves init e_inc[k-1]
    #
@@ -41,8 +47,6 @@ def energy_kernel_mono_exp_par(molecule,k,tup,n_tup,e_inc,l_limit,u_limit,level)
       #
       if ((i % molecule['mpi_size']) == molecule['mpi_rank']):
          #
-         timer_mpi(molecule,'mpi_time_work_kernel',k)
-         #
          # write string
          #
          orb_string(molecule,l_limit,u_limit,tup[k-1][i],string)
@@ -54,8 +58,6 @@ def energy_kernel_mono_exp_par(molecule,k,tup,n_tup,e_inc,l_limit,u_limit,level)
          # write tuple energy
          #
          e_inc[k-1][i] = molecule['e_tmp']
-         #
-         timer_mpi(molecule,'mpi_time_work_kernel',k,True)
          #
          # print status (master)
          #
@@ -81,19 +83,23 @@ def energy_kernel_mono_exp_par(molecule,k,tup,n_tup,e_inc,l_limit,u_limit,level)
 
 def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
+   #  ---  master/slave routine
+   #
    if (molecule['mpi_master']):
       #
       # wake up slaves
+      #
+      timer_mpi(molecule,'mpi_time_comm_final',k)
       #
       msg = {'task': 'energy_summation_par', 'order': k, 'level': level}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
    #
+   timer_mpi(molecule,'mpi_time_work_final',k)
+   #
    for j in range(0,len(tup[k-1])):
       #
       if (e_inc[k-1][j] != 0.0):
-         #
-         timer_mpi(molecule,'mpi_time_work_final',k)
          #
          for i in range(k-1,0,-1):
             #
@@ -122,16 +128,12 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
                idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
                #
                for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
-         #
-         timer_mpi(molecule,'mpi_time_work_final',k,True)
-   #
-   timer_mpi(molecule,'mpi_time_work_final',k)
    #
    timer_mpi(molecule,'mpi_time_idle_final',k)
    #
    molecule['mpi_comm'].Barrier()
    #
-   # allreduce e_inc[k-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
+   # allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
    #
    timer_mpi(molecule,'mpi_time_comm_final',k)
    #

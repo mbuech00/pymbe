@@ -8,7 +8,8 @@ from mpi4py import MPI
 from itertools import combinations 
 from copy import deepcopy
 
-from bg_mpi_orbitals import bcast_dom_master
+from bg_mpi_time import timer_mpi
+from bg_mpi_orbitals import bcast_dom_master, orb_entanglement_main_par, collect_init_mpi_time
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -23,6 +24,8 @@ __status__ = 'Development'
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    if (molecule['mpi_parallel'] and molecule['mpi_master']): bcast_dom_master(molecule,dom,l_limit,u_limit,k,level)
+   #
+   if (molecule['mpi_parallel'] and (k >= 2)): timer_mpi(molecule,'mpi_time_work_init',k-1) 
    #
    if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
@@ -134,17 +137,19 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       del tmp_2
    #
+   if (molecule['mpi_parallel'] and (k >= 2)): timer_mpi(molecule,'mpi_time_work_init',k-1,True)
+   #
    del tmp
    #
    return tup
 
-def orb_screening(molecule,order,l_limit,u_limit,level):
+def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
    #
    if (order == 1):
       #
       # add singles contributions to orb_con list
       #
-      orb_entanglement_drv(molecule,l_limit,u_limit,order,level,True)
+      orb_contributions(molecule,order,level,True)
       #
       # print orb info
       #
@@ -158,35 +163,47 @@ def orb_screening(molecule,order,l_limit,u_limit,level):
       #
       # set up entanglement and exclusion lists
       #
-      orb_entanglement_drv(molecule,l_limit,u_limit,order,level)
+      if (molecule['mpi_parallel']):
+         #
+         orb_entanglement_main_par(molecule,l_limit,u_limit,order,level)
       #
-      # print orb info
+      else:
+         #
+         orb_entanglement_main(molecule,l_limit,u_limit,order,level)
       #
-      if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
-      #
-      # construct exclusion list
-      #
-      orb_exclusion(molecule,l_limit,level)
-      #
-      # update domains
-      #
-      update_domains(molecule,l_limit,level)
-      #
-      # print domain updates
-      #
-      print_update(molecule,l_limit,u_limit,level)
-   #
-   return molecule
-
-def orb_entanglement_drv(molecule,l_limit,u_limit,order,level,singles=False):
-   #
-   if (not singles):
-      #
-      orb_entanglement_main(molecule,l_limit,u_limit,order,level)
+      timer_mpi(molecule,'mpi_time_work_init',order)
       #
       orb_entanglement_arr(molecule,l_limit,u_limit,level)
-   #
-   orb_contributions(molecule,order,level,singles)
+      #
+      orb_contributions(molecule,order,level)
+      #
+      if (calc_end):
+         #
+         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         #
+         collect_init_mpi_time(molecule,order)
+      #
+      else:
+         #
+         # print orb info
+         #
+         if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
+         #
+         # construct exclusion list
+         #
+         orb_exclusion(molecule,l_limit,level)
+         #
+         # update domains
+         #
+         update_domains(molecule,l_limit,level)
+         #
+         # print domain updates
+         #
+         print_update(molecule,l_limit,u_limit,level)
+         #
+         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         #
+         collect_init_mpi_time(molecule,order)
    #
    return molecule
 
@@ -275,7 +292,7 @@ def orb_entanglement_arr(molecule,l_limit,u_limit,level):
    #
    return molecule
 
-def orb_contributions(molecule,order,level,singles):
+def orb_contributions(molecule,order,level,singles=False):
    #
    if (level == 'MACRO'):
       #

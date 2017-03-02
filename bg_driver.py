@@ -13,7 +13,7 @@ from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
-                        orb_screening, orb_entanglement_drv, orb_exclusion
+                        orb_screening, orb_exclusion
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -103,7 +103,7 @@ def mono_exp_drv(molecule,start,end,level):
             #
             timer_phase(molecule,'time_init',k+1,level)
             #
-            orb_entanglement_drv(molecule,molecule['l_limit'],molecule['u_limit'],k,level)
+            orb_screening(molecule,k,molecule['l_limit'],molecule['u_limit'],level,True)
             #
             mono_exp_finish(molecule)
             #

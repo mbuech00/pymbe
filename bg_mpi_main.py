@@ -11,7 +11,7 @@ from mpi4py import MPI
 from bg_mpi_utils import print_mpi_table, mono_exp_merge_info
 from bg_mpi_time import init_mpi_timings, collect_mpi_timings
 from bg_mpi_energy import energy_kernel_mono_exp_par, energy_summation_par
-from bg_mpi_orbitals import bcast_dom_slave
+from bg_mpi_orbitals import bcast_dom_slave, orb_entanglement_main_par, collect_init_mpi_time
 from bg_orbitals import orb_generator
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -137,7 +137,15 @@ def main_slave(molecule):
          #
          mono_exp_merge_info(molecule)
       #
-      # bcast_tuples
+      # orbital entanglement
+      #
+      elif (msg['task'] == 'orb_entanglement_par'):
+         #
+         orb_entanglement_main_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
+         #
+         collect_init_mpi_time(molecule,msg['order'])
+      #
+      # generate tuples
       #
       elif (msg['task'] == 'orb_generator_par'):
          #
