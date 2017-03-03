@@ -260,7 +260,7 @@ def mono_exp_finish(molecule):
          #
          for k in range(0,len(molecule['prim_orb_ent'][i][j])):
             #
-            e_sum += molecule['prim_orb_ent'][i][j][k][0]
+            e_sum += molecule['prim_orb_ent'][i][j][k]
          #
          tmp.append(e_sum)
       #
