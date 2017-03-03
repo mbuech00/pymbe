@@ -315,8 +315,6 @@ def orb_contributions(molecule,order,level,singles=False):
       orb_con_abs.append([])
       orb_con_rel.append([])
       #
-      e_sum = np.sum(e_inc)
-      #
       if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and (molecule['frozen'])):
          #
          for _ in range(0,molecule['ncore']):
@@ -329,7 +327,7 @@ def orb_contributions(molecule,order,level,singles=False):
          #
          orb_con_abs[-1].append(e_inc[i])
          #
-         orb_con_rel[-1].append(orb_con_abs[-1][-1]/e_sum)
+         orb_con_rel[-1].append(orb_con_abs[-1][-1]/np.sum(e_inc))
    #
    else:
       #
@@ -338,26 +336,9 @@ def orb_contributions(molecule,order,level,singles=False):
       #
       # total orbital contribution
       #
-      tmp = []
-      #
       for j in range(0,len(orb[-1])):
          #
-         e_sum = 0.0
-         #
-         for k in range(0,len(orb[-1][j])):
-            #
-            e_sum += orb[-1][j][k]
-         #
-         tmp.append(e_sum)
-      #
-      for j in range(0,len(tmp)):
-         #
-         orb_con_abs[-1].append(orb_con_abs[-2][j]+tmp[j])
-#      for j in range(0,len(orb[-1])):
-#         #
-#         orb_con_abs[-1].append(orb_con_abs[-2][j]+np.sum(orb[-1][j]))
-      #
-      e_sum = sum(orb_con_abs[-1])
+         orb_con_abs[-1].append(orb_con_abs[-2][j]+np.sum(orb[-1][j]))
       #
       for j in range(0,len(orb_con_abs[-1])):
          #
@@ -367,9 +348,7 @@ def orb_contributions(molecule,order,level,singles=False):
          #
          else:
             #
-            orb_con_rel[-1].append(orb_con_abs[-1][j]/e_sum)
-      #
-      del tmp
+            orb_con_rel[-1].append(orb_con_abs[-1][j]/sum(orb_con_abs[-1]))
    #
    return molecule
 

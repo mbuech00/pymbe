@@ -243,42 +243,36 @@ def mono_exp_finish(molecule):
          #
          molecule['corr_time_init'].append(0.0)
    #
-   # make cor_orb_con lists of same length as orb_con lists for prim exp
+   # make corr_tuple and corr_energy_inc lists of the same length as prim_tuple and prim_energy_inc
    #
-   tmp = []
+   for _ in range(len(molecule['corr_tuple']),len(molecule['prim_tuple'])):
+      #
+      molecule['corr_tuple'].append(np.array([],dtype=np.int))
+   #
+   for _ in range(len(molecule['corr_energy_inc']),len(molecule['prim_energy_inc'])):
+      #
+      molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
+   #
+   # make cor_orb_con lists of same length as orb_con lists for prim exp
    #
    for i in range(len(molecule['corr_orb_ent']),len(molecule['prim_orb_ent'])):
       #
       molecule['corr_orb_con_abs'].append([])
       molecule['corr_orb_con_rel'].append([])
       #
-      tmp[:] = []
-      #
       for j in range(0,len(molecule['prim_orb_ent'][i])):
          #
-         e_sum = 0.0
+         molecule['corr_orb_con_abs'][-1].append(molecule['corr_orb_con_abs'][-2][j]+np.sum(molecule['prim_orb_ent'][i][j]))
+      #
+      for j in range(0,len(molecule['corr_orb_con_abs'][-1])):
          #
-         for k in range(0,len(molecule['prim_orb_ent'][i][j])):
+         if (molecule['corr_orb_con_abs'][-1][j] == 0.0):
             #
-            e_sum += molecule['prim_orb_ent'][i][j][k]
+            molecule['corr_orb_con_rel'][-1].append(0.0)
          #
-         tmp.append(e_sum)
-      #
-      for j in range(0,len(tmp)):
-         #
-         molecule['corr_orb_con_abs'][-1].append(molecule['corr_orb_con_abs'][-2][j]+tmp[j])
-      #
-      e_sum = 0.0
-      #
-      for j in range(0,len(molecule['corr_orb_con_abs'][-1])):
-         #
-         e_sum += molecule['corr_orb_con_abs'][-1][j]
-      #
-      for j in range(0,len(molecule['corr_orb_con_abs'][-1])):
-         #
-         molecule['corr_orb_con_rel'][-1].append(molecule['corr_orb_con_abs'][-1][j]/e_sum)
-   #
-   del tmp
+         else:
+            #
+            molecule['corr_orb_con_rel'][-1].append(molecule['corr_orb_con_abs'][-1][j]/sum(molecule['corr_orb_con_abs'][-1]))
    #
    return molecule
 
