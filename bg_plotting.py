@@ -402,13 +402,16 @@ def time_plot(molecule):
       #
       u_limit -= molecule['ncore']
    #
+   order = list(range(1,len(molecule['prim_energy'])+2))
+   #
+   y_labels = list(range(1,len(molecule['prim_energy'])+1))
+   y_labels.append('total')
+   #
    ax1.set_title('Phase timings')
    #
    init_dat = (molecule['time_init']/molecule['time_tot'])*100.0
    kernel_dat = init_dat + (molecule['time_kernel']/molecule['time_tot'])*100.0
    final_dat = kernel_dat + (molecule['time_final']/molecule['time_tot'])*100.0
-   #
-   order = list(range(1,len(molecule['prim_energy'])+1))
    #
    final = sns.barplot(final_dat,order,ax=ax1,orient='h',label='final',color=sns.xkcd_rgb['faded green'])
    #
@@ -416,15 +419,17 @@ def time_plot(molecule):
    #
    init = sns.barplot(init_dat,order,ax=ax1,orient='h',label='init',color=sns.xkcd_rgb['amber'])
    #
-   ax1.set_ylim([-0.5,len(molecule['prim_energy'])-0.5])
+   ax1.set_ylim([-0.5,(len(molecule['prim_energy'])+1)-0.5])
    ax1.set_xlim([0.0,100.0])
+   #
+   ax1.set_yticklabels(y_labels)
    #
    handles,labels = ax1.get_legend_handles_labels()
    #
    handles = [handles[2],handles[1],handles[0]]
    labels = [labels[2],labels[1],labels[0]]
    #
-   ax1.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
+   ax1.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.14))
    #
    ax1.invert_yaxis()
    #
@@ -441,8 +446,6 @@ def time_plot(molecule):
       comm_dat = work_dat + molecule['dist_order'][1]
       idle_dat = comm_dat + molecule['dist_order'][2]
       #
-      order = list(range(1,len(molecule['prim_energy'])+2))
-      #
       idle = sns.barplot(idle_dat,order,ax=ax2,orient='h',label='idle',color=sns.xkcd_rgb['sage'])
       #
       comm = sns.barplot(comm_dat,order,ax=ax2,orient='h',label='comm',color=sns.xkcd_rgb['pastel blue'])
@@ -452,9 +455,6 @@ def time_plot(molecule):
       ax2.set_ylim([-0.5,(len(molecule['prim_energy'])+1)-0.5])
       ax2.set_xlim([0.0,100.0])
       #
-      y_labels = list(range(1,len(molecule['prim_energy'])+1))
-      y_labels.append('total')
-      #
       ax2.set_yticklabels(y_labels)
       #
       handles,labels = ax2.get_legend_handles_labels()
@@ -462,7 +462,7 @@ def time_plot(molecule):
       handles = [handles[2],handles[1],handles[0]]
       labels = [labels[2],labels[1],labels[0]]
       #
-      ax2.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
+      ax2.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.14))
       #
       fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
       fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')

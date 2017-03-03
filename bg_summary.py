@@ -229,9 +229,9 @@ def summary_phase_time(molecule):
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    print('          total                      {0:>4.2e} / {1:>5.2f}                       {2:>4.2e} / {3:>5.2f}                       {4:>4.2e} / {5:>5.2f}'.\
-             format(np.sum(molecule['time_init']),(np.sum(molecule['time_init'])/np.sum(molecule['time_tot']))*100.0,\
-                    np.sum(molecule['time_kernel']),(np.sum(molecule['time_kernel'])/np.sum(molecule['time_tot']))*100.0,\
-                    np.sum(molecule['time_final']),(np.sum(molecule['time_final'])/np.sum(molecule['time_tot']))*100.0))
+             format(molecule['time_init'][-1],(molecule['time_init'][-1]/molecule['time_tot'][-1])*100.0,\
+                    molecule['time_kernel'][-1],(molecule['time_kernel'][-1]/molecule['time_tot'][-1])*100.0,\
+                    molecule['time_final'][-1],(molecule['time_final'][-1]/molecule['time_tot'][-1])*100.0))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
