@@ -23,7 +23,7 @@ def bcast_dom_master(molecule,dom,l_limit,u_limit,k,level):
    #
    # wake up slaves
    #
-   if (k >= 2): timer_mpi(molecule,'mpi_time_comm_init',k-1)
+   timer_mpi(molecule,'mpi_time_comm_init',k)
    #
    msg = {'task': 'orb_generator_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': k, 'level': level}
    #
@@ -35,7 +35,7 @@ def bcast_dom_master(molecule,dom,l_limit,u_limit,k,level):
    #
    molecule['mpi_comm'].bcast(dom_info,root=0)
    #
-   if (k >= 2): timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
+   timer_mpi(molecule,'mpi_time_comm_init',k,True)
    #
    dom_info.clear()
    #
@@ -45,7 +45,7 @@ def bcast_dom_slave(molecule,k):
    #
    #  ---  slave routine
    #
-   if (k >= 2): timer_mpi(molecule,'mpi_time_comm_init',k-1)
+   timer_mpi(molecule,'mpi_time_comm_init',k)
    #
    # receive domains
    #
@@ -53,7 +53,7 @@ def bcast_dom_slave(molecule,k):
    #
    molecule['dom'] = dom_info['dom']
    #
-   if (k >= 2): timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
+   timer_mpi(molecule,'mpi_time_comm_init',k,True)
    #
    dom_info.clear()
    #
@@ -67,7 +67,7 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
       #
       # wake up slaves
       #
-      timer_mpi(molecule,'mpi_time_comm_init',order)
+      timer_mpi(molecule,'mpi_time_comm_init',order+1)
       #
       if (level == 'MACRO'):
          #
@@ -87,7 +87,7 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
       #
       molecule['mpi_comm'].bcast(msg,root=0)
    #
-   timer_mpi(molecule,'mpi_time_work_init',order)
+   timer_mpi(molecule,'mpi_time_work_init',order+1)
    #
    if (level == 'MACRO'):
       #
@@ -128,13 +128,13 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
                   tmp[i-l_limit][j-l_limit] += e_inc[ldx]
                   tmp[j-l_limit][i-l_limit] = tmp[i-l_limit][j-l_limit]
    #
-   timer_mpi(molecule,'mpi_time_idle_init',order)
+   timer_mpi(molecule,'mpi_time_idle_init',order+1)
    #
    molecule['mpi_comm'].Barrier()
    #
    # reduce orb[-1]
    #
-   timer_mpi(molecule,'mpi_time_comm_init',order)
+   timer_mpi(molecule,'mpi_time_comm_init',order+1)
    #
    if (molecule['mpi_master']):
       #
@@ -146,19 +146,7 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
    #
    molecule['mpi_comm'].Reduce([tmp,MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
    #
-   timer_mpi(molecule,'mpi_time_comm_init',order,True)
-   #
-   return molecule
-
-def collect_init_mpi_time(molecule,k):
-   #
-   #  ---  master/slave routine
-   #
-   timer_mpi(molecule,'mpi_time_idle_init',k)
-   #
-   molecule['mpi_comm'].Barrier()
-   #
-   timer_mpi(molecule,'mpi_time_idle_init',k,True)
+   timer_mpi(molecule,'mpi_time_comm_init',order+1,True)
    #
    return molecule
 

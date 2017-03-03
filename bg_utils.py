@@ -69,11 +69,11 @@ def ref_calc(molecule):
    #
    print_ref_header()
    #
-   timer_phase(molecule,'time_tot',1,'REF')
+   timer_phase(molecule,'ref_time',1,'REF')
    #
    run_calc_corr(molecule,'','REF')
    #
-   timer_phase(molecule,'time_tot',1,'REF')
+   timer_phase(molecule,'ref_time',1,'REF')
    #
    print_ref_end(molecule)
    #

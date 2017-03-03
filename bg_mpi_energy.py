@@ -7,6 +7,7 @@ import numpy as np
 from mpi4py import MPI
 
 from bg_mpi_time import timer_mpi
+from bg_mpi_utils import enum
 from bg_utils import run_calc_corr, orb_string, comb_index
 from bg_print import print_status 
 
@@ -19,67 +20,195 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_kernel_mono_exp_par(molecule,k,tup,e_inc,l_limit,u_limit,level):
+def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level):
    #
-   #  ---  master/slave routine
+   #  ---  master routine
    #
-   if (molecule['mpi_master']):
+   timer_mpi(molecule,'mpi_time_work_kernel',order)
+   #
+   # init job_info dictionary
+   #
+   job_info = {}
+   #
+   # number of slaves
+   #
+   num_slaves = molecule['mpi_size'] - 1
+   #
+   # number of available slaves
+   #
+   slaves_avail = num_slaves
+   #
+   # define mpi message tags
+   #
+   tags = enum('ready','done','exit','start')
+   #
+   # init job index
+   #
+   i = 0
+   #
+   # init stat counter
+   #
+   counter = 0
+   #
+   # wake up slaves
+   #
+   msg = {'task': 'energy_kernel_mono_exp_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   while (slaves_avail >= 1):
       #
-      # wake up slaves
+      # receive data dict
       #
-      timer_mpi(molecule,'mpi_time_comm_kernel',k)
+      timer_mpi(molecule,'mpi_time_idle_kernel',order)
       #
-      msg = {'task': 'energy_kernel_mono_exp_par', 'order': k, 'level': level, 'l_limit': l_limit, 'u_limit': u_limit}
+      data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE,tag=MPI.ANY_TAG,status=molecule['mpi_stat'])
       #
-      molecule['mpi_comm'].bcast(msg,root=0)
+      timer_mpi(molecule,'mpi_time_work_kernel',order)
+      #
+      # probe for source
+      #
+      source = molecule['mpi_stat'].Get_source()
+      #
+      # probe for tag
+      #
+      tag = molecule['mpi_stat'].Get_tag()
+      #
+      if (tag == tags.ready):
+         #
+         if (i <= (len(tup[order-1])-1)):
+            #
+            # store job index
+            #
+            job_info['index'] = i
+            #
+            # send string dict
+            #
+            timer_mpi(molecule,'mpi_time_comm_kernel',order)
+            #
+            molecule['mpi_comm'].send(job_info,dest=source,tag=tags.start)
+            #
+            timer_mpi(molecule,'mpi_time_work_kernel',order)
+            #
+            # increment job index
+            #
+            i += 1
+         #
+         else:
+            #
+            timer_mpi(molecule,'mpi_time_comm_kernel',order)
+            #
+            molecule['mpi_comm'].send(None,dest=source,tag=tags.exit)
+            #
+            timer_mpi(molecule,'mpi_time_work_kernel',order)
+      #
+      elif (tag == tags.done):
+         #
+         # increment stat counter
+         #
+         counter += 1
+         #
+         # print status
+         #
+         print_status(float(counter)/float(len(tup[order-1])),level)
+         #
+         # error check
+         #
+         if (data['error']):
+            #
+            print('problem with slave '+str(source)+' in energy_kernel_mono_exp_master  ---  aborting...')
+            #
+            molecule['error'].append(True)
+            #
+            return molecule, tup
+      #
+      elif (tag == tags.exit):
+         #
+         slaves_avail -= 1
    #
-   timer_mpi(molecule,'mpi_time_work_kernel',k)
+   timer_mpi(molecule,'mpi_time_work_kernel',order,True)
    #
-   # slaves init e_inc[k-1]
+   return molecule, e_inc
+
+def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level):
    #
-   if (not molecule['mpi_master']): e_inc.append(np.zeros(len(tup[k-1]),dtype=np.float64))
+   #  ---  slave routine
+   #
+   timer_mpi(molecule,'mpi_time_work_kernel',order)
+   #
+   # init e_inc list
+   #
+   e_inc.append(np.zeros(len(tup[order-1]),dtype=np.float64))
+   #
+   # define mpi message tags
+   #
+   tags = enum('ready','done','exit','start')
+   #
+   # init string dict
    #
    string = {'drop': ''}
    #
-   for i in range(0,len(tup[k-1])):
+   # init data dict
+   #
+   data = {}
+   #
+   while True:
       #
-      # simple modulo distribution of tasks
+      # ready for task
       #
-      if ((i % molecule['mpi_size']) == molecule['mpi_rank']):
+      timer_mpi(molecule,'mpi_time_comm_kernel',order)
+      #
+      molecule['mpi_comm'].send(None,dest=0,tag=tags.ready)
+      #
+      # receive drop string
+      #
+      job_info = molecule['mpi_comm'].recv(source=0,tag=MPI.ANY_SOURCE,status=molecule['mpi_stat'])
+      #
+      timer_mpi(molecule,'mpi_time_work_kernel',order)
+      #
+      # recover tag
+      #
+      tag = molecule['mpi_stat'].Get_tag()
+      #
+      # do job or break out (exit)
+      #
+      if (tag == tags.start):
          #
          # write string
          #
-         orb_string(molecule,l_limit,u_limit,tup[k-1][i],string)
-         #
-         # run correlated calc
+         orb_string(molecule,l_limit,u_limit,tup[order-1][job_info['index']],string)
          #
          run_calc_corr(molecule,string['drop'],level)
          #
          # write tuple energy
          #
-         e_inc[k-1][i] = molecule['e_tmp']
+         e_inc[order-1][job_info['index']] = molecule['e_tmp']
          #
-         # print status (master)
+         # write error logical
          #
-         if (molecule['mpi_master']): print_status(float(i+1)/float(len(tup[k-1])),level)
+         data['error'] = molecule['error'][-1]
          #
-         # error check
+         # send data back to master
          #
-         if (molecule['error'][-1]):
-            #
-            return molecule, tup, e_inc
+         timer_mpi(molecule,'mpi_time_comm_kernel',order)
+         #
+         molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
+         #
+         timer_mpi(molecule,'mpi_time_work_kernel',order)
+      #
+      elif (tag == tags.exit):
+         #    
+         break
    #
-   timer_mpi(molecule,'mpi_time_idle_kernel',k)
+   # exit
    #
-   molecule['mpi_comm'].Barrier()
+   timer_mpi(molecule,'mpi_time_comm_kernel',order)
    #
-   timer_mpi(molecule,'mpi_time_idle_kernel',k,True)
+   molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
    #
-   # make sure that STATUS = 100.00 % has been written
+   timer_mpi(molecule,'mpi_time_comm_kernel',order,True)
    #
-   if (molecule['mpi_master']): print_status(1.0,level)
-   #
-   return molecule, tup, e_inc
+   return molecule, e_inc
 
 def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #

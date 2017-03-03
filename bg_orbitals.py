@@ -8,8 +8,8 @@ from mpi4py import MPI
 from itertools import combinations 
 from copy import deepcopy
 
-from bg_mpi_time import timer_mpi
-from bg_mpi_orbitals import bcast_dom_master, orb_entanglement_main_par, collect_init_mpi_time
+from bg_mpi_time import timer_mpi, collect_init_mpi_time
+from bg_mpi_orbitals import bcast_dom_master, orb_entanglement_main_par
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -25,7 +25,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    if (molecule['mpi_parallel'] and molecule['mpi_master']): bcast_dom_master(molecule,dom,l_limit,u_limit,k,level)
    #
-   if (molecule['mpi_parallel'] and (k >= 2)): timer_mpi(molecule,'mpi_time_work_init',k-1) 
+   if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',k) 
    #
    if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
@@ -137,7 +137,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       del tmp_2
    #
-   if (molecule['mpi_parallel'] and (k >= 2)): timer_mpi(molecule,'mpi_time_work_init',k-1,True)
+   if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',k,True)
    #
    del tmp
    #
@@ -171,7 +171,7 @@ def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
          #
          orb_entanglement_main(molecule,l_limit,u_limit,order,level)
       #
-      timer_mpi(molecule,'mpi_time_work_init',order)
+      timer_mpi(molecule,'mpi_time_work_init',order+1)
       #
       orb_entanglement_arr(molecule,l_limit,u_limit,level)
       #
@@ -179,9 +179,9 @@ def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
       #
       if (calc_end):
          #
-         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         timer_mpi(molecule,'mpi_time_work_init',order+1,True)
          #
-         collect_init_mpi_time(molecule,order)
+         collect_init_mpi_time(molecule,order+1)
       #
       else:
          #
@@ -201,9 +201,9 @@ def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
          #
          print_update(molecule,l_limit,u_limit,level)
          #
-         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         timer_mpi(molecule,'mpi_time_work_init',order+1,True)
          #
-         collect_init_mpi_time(molecule,order)
+         collect_init_mpi_time(molecule,order+1)
    #
    return molecule
 

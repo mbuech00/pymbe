@@ -69,21 +69,27 @@ def init_mpi_timings(molecule):
    #
    # 'init' timings
    #
-   molecule['mpi_time_idle_init'] = []
-   molecule['mpi_time_comm_init'] = []
-   molecule['mpi_time_work_init'] = []
+   molecule['mpi_time_idle_init'] = [0.0]
+   molecule['mpi_time_comm_init'] = [0.0]
+   molecule['mpi_time_work_init'] = [0.0]
    #
    # 'energy kernel' timings
    #
-   molecule['mpi_time_idle_kernel'] = []
-   molecule['mpi_time_comm_kernel'] = []
-   molecule['mpi_time_work_kernel'] = []
+   molecule['mpi_time_idle_kernel'] = [0.0]
+   molecule['mpi_time_comm_kernel'] = [0.0]
+   molecule['mpi_time_work_kernel'] = [0.0]
    #
    # 'energy summation' timings
    #
-   molecule['mpi_time_idle_final'] = []
-   molecule['mpi_time_comm_final'] = []
-   molecule['mpi_time_work_final'] = []
+   molecule['mpi_time_idle_final'] = [0.0]
+   molecule['mpi_time_comm_final'] = [0.0]
+   molecule['mpi_time_work_final'] = [0.0]
+   #
+   # 'main_slave' timings
+   #
+   molecule['mpi_time_idle_main'] = [0.0]
+   molecule['mpi_time_comm_main'] = [0.0]
+   molecule['mpi_time_work_main'] = [0.0]
    #
    return molecule
 
@@ -93,14 +99,44 @@ def collect_mpi_timings(molecule):
    #
    # note: the correct length of any of the timing lists is len(molecule['mpi_time_work_kernel'])  --  (which is, of course, equal to len(molecule['prim_energy']), but only on master)
    #
-   # make sure mpi_time_idle_main is not too long
+   # make sure mpi_time_*_init lists are not too long
+   #
+#   print('proc. no. {0:} has mpi_time_work_init   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_work_init']))
+#   print('proc. no. {0:} has mpi_time_comm_init   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_comm_init']))
+#   print('proc. no. {0:} has mpi_time_idle_init   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_idle_init']))
+#   print('proc. no. {0:} has mpi_time_work_kernel = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_work_kernel']))
+#   print('proc. no. {0:} has mpi_time_comm_kernel = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_comm_kernel']))
+   print('proc. no. {0:} has mpi_time_idle_kernel = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_idle_kernel']))
+#   print('proc. no. {0:} has mpi_time_work_final  = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_work_final']))
+#   print('proc. no. {0:} has mpi_time_comm_final  = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_comm_final']))
+#   print('proc. no. {0:} has mpi_time_idle_final  = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_idle_final']))
+#   print('proc. no. {0:} has mpi_time_work_main   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_work_main']))
+#   print('proc. no. {0:} has mpi_time_comm_main   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_comm_main']))
+#   print('proc. no. {0:} has mpi_time_idle_main   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_idle_main']))
+   #
+   if (len(molecule['mpi_time_work_init']) > len(molecule['mpi_time_work_kernel'])):
+      #
+      molecule['mpi_time_work_init'][1] += molecule['mpi_time_work_init'][0]
+      molecule['mpi_time_work_init'].pop(0)
+   #
+   if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])):
+      #
+      molecule['mpi_time_comm_init'][1] += molecule['mpi_time_comm_init'][0]
+      molecule['mpi_time_comm_init'].pop(0)
+   #
+   if (len(molecule['mpi_time_idle_init']) > len(molecule['mpi_time_work_kernel'])):
+      #
+      molecule['mpi_time_idle_init'][1] += molecule['mpi_time_idle_init'][0]
+      molecule['mpi_time_idle_init'].pop(0)
+   #
+   # make sure mpi_time_idle_main list is not too long
    #
    if (not molecule['mpi_master']):
       #
       if (len(molecule['mpi_time_idle_main']) > len(molecule['mpi_time_work_kernel'])):
          #
-         molecule['mpi_time_idle_main'][-2] += molecule['mpi_time_idle_main'][-1]
-         molecule['mpi_time_idle_main'].pop(-1)
+         molecule['mpi_time_idle_main'][1] += molecule['mpi_time_idle_main'][0]
+         molecule['mpi_time_idle_main'].pop(0)
    #
    if (molecule['mpi_master']):
       #
@@ -226,6 +262,30 @@ def calc_mpi_timings(molecule):
       molecule['dist_order'][0][k] = (molecule['dist_order'][0][k]/sum_k)*100.0
       molecule['dist_order'][1][k] = (molecule['dist_order'][1][k]/sum_k)*100.0
       molecule['dist_order'][2][k] = (molecule['dist_order'][2][k]/sum_k)*100.0
+   #
+   return molecule
+
+def collect_init_mpi_time(molecule,k):
+   #
+   #  ---  master/slave routine
+   #
+   timer_mpi(molecule,'mpi_time_idle_init',k)
+   #
+   molecule['mpi_comm'].Barrier()
+   #
+   timer_mpi(molecule,'mpi_time_idle_init',k,True)
+   #
+   return molecule
+
+def collect_kernel_mpi_time(molecule,k):
+   #
+   #  ---  master/slave routine
+   #
+   timer_mpi(molecule,'mpi_time_idle_kernel',k)
+   #
+   molecule['mpi_comm'].Barrier()
+   #
+   timer_mpi(molecule,'mpi_time_idle_kernel',k,True)
    #
    return molecule
 

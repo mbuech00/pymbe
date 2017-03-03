@@ -404,30 +404,27 @@ def time_plot(molecule):
    #
    ax1.set_title('Phase timings')
    #
-   kernel_dat = (molecule['time_kernel']/molecule['time_tot'])*100.0
-   init_dat = kernel_dat + (molecule['time_init']/molecule['time_tot'])*100.0
-   final_dat = init_dat + (molecule['time_final']/molecule['time_tot'])*100.0
-   remain_dat = final_dat + (molecule['time_remain']/molecule['time_tot'])*100.0
+   init_dat = (molecule['time_init']/molecule['time_tot'])*100.0
+   kernel_dat = init_dat + (molecule['time_kernel']/molecule['time_tot'])*100.0
+   final_dat = kernel_dat + (molecule['time_final']/molecule['time_tot'])*100.0
    #
    order = list(range(1,len(molecule['prim_energy'])+1))
    #
-   remain = sns.barplot(remain_dat,order,ax=ax1,orient='h',label='remain',color=sns.xkcd_rgb['salmon'])
-   #
    final = sns.barplot(final_dat,order,ax=ax1,orient='h',label='final',color=sns.xkcd_rgb['faded green'])
    #
-   init = sns.barplot(init_dat,order,ax=ax1,orient='h',label='init',color=sns.xkcd_rgb['amber'])
-   #
    kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['windows blue'])
+   #
+   init = sns.barplot(init_dat,order,ax=ax1,orient='h',label='init',color=sns.xkcd_rgb['amber'])
    #
    ax1.set_ylim([-0.5,len(molecule['prim_energy'])-0.5])
    ax1.set_xlim([0.0,100.0])
    #
    handles,labels = ax1.get_legend_handles_labels()
    #
-   handles = [handles[3],handles[2],handles[1],handles[0]]
-   labels = [labels[3],labels[2],labels[1],labels[0]]
+   handles = [handles[2],handles[1],handles[0]]
+   labels = [labels[2],labels[1],labels[0]]
    #
-   ax1.legend(handles,labels,ncol=4,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
+   ax1.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
    #
    if (not molecule['mpi_parallel']):
       #
@@ -470,7 +467,6 @@ def time_plot(molecule):
    del init_dat
    del kernel_dat
    del final_dat
-   del remain_dat
    #
    if (molecule['mpi_parallel']):
       #

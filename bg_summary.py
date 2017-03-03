@@ -189,9 +189,6 @@ def summary_detail_res_1(molecule):
 
 def summary_detail_res_2(molecule):
    #
-   total_time = 0.0
-   total_time_corr = 0.0
-   #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('   |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
@@ -200,12 +197,9 @@ def summary_detail_res_2(molecule):
    #
    for i in range(0,len(molecule['prim_energy'])):
       #
-      total_time += molecule['prim_time_tot'][i]
-      total_time_corr += molecule['corr_time_tot'][i]
-      #
       print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
                                                                           format(i+1,molecule['prim_energy'][i],molecule['prim_energy'][i]+molecule['corr_energy'][i],\
-                                                                                 total_time,total_time+total_time_corr))
+                                                                                 molecule['prim_time_tot'][i],molecule['prim_time_tot'][i]+molecule['corr_time_tot'][i]))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
@@ -221,16 +215,23 @@ def summary_phase_time(molecule):
    print('')
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('     BG expansion order  |   time: init (in s / %)   |   time: kernel (in s / %)   |   time: final (in s / %)   |   time: remain (in s / %) ')
+   print('     BG expansion order  |        time: init (in s / %)        |        time: kernel (in s / %)        |        time: final (in s / %)      ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['prim_energy'])):
       #
-      print('          {0:>4d}                  {1:>4.2e} / {2:>5.2f}             {3:>4.2e} / {4:>5.2f}             {5:>4.2e} / {6:>5.2f}             {7:>4.2e} / {8:>5.2f}'.\
+      print('          {0:>4d}                       {1:>4.2e} / {2:>5.2f}                       {3:>4.2e} / {4:>5.2f}                       {5:>4.2e} / {6:>5.2f}'.\
                 format(i+1,molecule['time_init'][i],(molecule['time_init'][i]/molecule['time_tot'][i])*100.0,\
                        molecule['time_kernel'][i],(molecule['time_kernel'][i]/molecule['time_tot'][i])*100.0,\
-                       molecule['time_final'][i],(molecule['time_final'][i]/molecule['time_tot'][i])*100.0,\
-                       molecule['time_remain'][i],(molecule['time_remain'][i]/molecule['time_tot'][i])*100.0))
+                       molecule['time_final'][i],(molecule['time_final'][i]/molecule['time_tot'][i])*100.0))
+   #
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   #
+   print('          total                      {0:>4.2e} / {1:>5.2f}                       {2:>4.2e} / {3:>5.2f}                       {4:>4.2e} / {5:>5.2f}'.\
+             format(np.sum(molecule['time_init']),(np.sum(molecule['time_init'])/np.sum(molecule['time_tot']))*100.0,\
+                    np.sum(molecule['time_kernel']),(np.sum(molecule['time_kernel'])/np.sum(molecule['time_tot']))*100.0,\
+                    np.sum(molecule['time_final']),(np.sum(molecule['time_final'])/np.sum(molecule['time_tot']))*100.0))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #

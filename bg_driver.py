@@ -77,8 +77,6 @@ def mono_exp_drv(molecule,start,end,level):
    #
    for k in range(start,end+1):
       #
-      timer_phase(molecule,'time_tot',k,level)
-      #
       # mono expansion initialization
       #
       mono_exp_init(molecule,k,level)
@@ -91,15 +89,11 @@ def mono_exp_drv(molecule,start,end,level):
       #
       if (((level == 'MACRO') and molecule['conv'][-1]) or ((level == 'CORRE') and (k == end))):
          #
-         timer_phase(molecule,'time_tot',k,level)
-         #
          print('')
          #
          if ((level == 'MACRO') and (not molecule['corr'])): print('')
          #
          if (level == 'CORRE'):
-            #
-            timer_phase(molecule,'time_tot',k+1,level)
             #
             timer_phase(molecule,'time_init',k+1,level)
             #
@@ -108,12 +102,8 @@ def mono_exp_drv(molecule,start,end,level):
             mono_exp_finish(molecule)
             #
             timer_phase(molecule,'time_init',k+1,level)
-            #
-            timer_phase(molecule,'time_tot',k+1,level)
          #
          break
-      #
-      timer_phase(molecule,'time_tot',k,level)
    #
    return molecule
 
@@ -245,14 +235,12 @@ def mono_exp_finish(molecule):
       #
       for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])-1):
          #
-         molecule['corr_time_tot'].append(0.0)
          molecule['corr_time_init'].append(0.0)
    #
    else:
       #
       for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])):
          #
-         molecule['corr_time_tot'].append(0.0)
          molecule['corr_time_init'].append(0.0)
    #
    # make cor_orb_con lists of same length as orb_con lists for prim exp
@@ -383,7 +371,6 @@ def set_corr_order(molecule):
          #
          molecule['corr_energy'].append(0.0)
          #
-         molecule['corr_time_tot'].append(0.0)
          molecule['corr_time_init'].append(0.0)
          molecule['corr_time_kernel'].append(0.0)
          molecule['corr_time_final'].append(0.0)
@@ -394,9 +381,6 @@ def set_corr_order(molecule):
       #
       for i in range(0,len(molecule['prim_tuple'])):
          #
-         print('theo_work = '+str(molecule['theo_work']))
-         print('len(prim_tuple) = '+str(len(molecule['prim_tuple'])))
-         print('len(prim_tuple[i]) = '+str(len(molecule['prim_tuple'][i])))
          if ((len(molecule['prim_tuple'][i]) < molecule['theo_work'][i]) and (len(molecule['prim_tuple'][i]) > 0)):
             #
             molecule['min_corr_order'] = i+1
@@ -417,7 +401,6 @@ def set_corr_order(molecule):
          #
          molecule['corr_energy'].append(0.0)
          #
-         molecule['corr_time_tot'].append(0.0)
          molecule['corr_time_init'].append(0.0)
          molecule['corr_time_kernel'].append(0.0)
          molecule['corr_time_final'].append(0.0)
@@ -442,7 +425,6 @@ def set_corr_order(molecule):
       #
       molecule['corr_energy'].append(0.0)
       #
-      molecule['corr_time_tot'].append(0.0)
       molecule['corr_time_init'].append(0.0)
       molecule['corr_time_kernel'].append(0.0)
       molecule['corr_time_final'].append(0.0)
