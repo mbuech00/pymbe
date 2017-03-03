@@ -8,7 +8,8 @@ from mpi4py import MPI
 from itertools import combinations 
 from copy import deepcopy
 
-from bg_mpi_orbitals import bcast_dom_master
+from bg_mpi_time import timer_mpi, collect_init_mpi_time
+from bg_mpi_orbitals import bcast_dom_master, orb_entanglement_main_par
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -23,6 +24,8 @@ __status__ = 'Development'
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    if (molecule['mpi_parallel'] and molecule['mpi_master']): bcast_dom_master(molecule,dom,l_limit,u_limit,k,level)
+   #
+   if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',k) 
    #
    if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
       #
@@ -134,17 +137,19 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       del tmp_2
    #
+   if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',k,True)
+   #
    del tmp
    #
    return tup
 
-def orb_screening(molecule,order,l_limit,u_limit,level):
+def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
    #
    if (order == 1):
       #
       # add singles contributions to orb_con list
       #
-      orb_entanglement(molecule,l_limit,u_limit,order,level,True)
+      orb_contributions(molecule,order,level,True)
       #
       # print orb info
       #
@@ -158,51 +163,152 @@ def orb_screening(molecule,order,l_limit,u_limit,level):
       #
       # set up entanglement and exclusion lists
       #
-      orb_entanglement(molecule,l_limit,u_limit,order,level)
+      if (molecule['mpi_parallel']):
+         #
+         orb_entanglement_main_par(molecule,l_limit,u_limit,order,level)
       #
-      # print orb info
+      else:
+         #
+         orb_entanglement_main(molecule,l_limit,u_limit,order,level)
       #
-      if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
+      timer_mpi(molecule,'mpi_time_work_init',order+1)
       #
-      # construct exclusion list
+      orb_entanglement_arr(molecule,l_limit,u_limit,level)
       #
-      orb_exclusion(molecule,l_limit,level)
+      orb_contributions(molecule,order,level)
       #
-      # update domains
+      if (calc_end):
+         #
+         timer_mpi(molecule,'mpi_time_work_init',order+1,True)
+         #
+         collect_init_mpi_time(molecule,order+1)
       #
-      update_domains(molecule,l_limit,level)
-      #
-      # print domain updates
-      #
-      print_update(molecule,l_limit,u_limit,level)
+      else:
+         #
+         # print orb info
+         #
+         if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
+         #
+         # construct exclusion list
+         #
+         orb_exclusion(molecule,l_limit,level)
+         #
+         # update domains
+         #
+         update_domains(molecule,l_limit,level)
+         #
+         # print domain updates
+         #
+         print_update(molecule,l_limit,u_limit,level)
+         #
+         timer_mpi(molecule,'mpi_time_work_init',order+1,True)
+         #
+         collect_init_mpi_time(molecule,order+1)
    #
    return molecule
 
-def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
+def orb_entanglement_main(molecule,l_limit,u_limit,order,level):
    #
    if (level == 'MACRO'):
       #
-      tup = molecule['prim_tuple'][order-1]
-      e_inc = molecule['prim_energy_inc'][order-1]
       orb = molecule['prim_orb_ent']
-      orb_arr = molecule['prim_orb_arr']
-      orb_con_abs = molecule['prim_orb_con_abs']
-      orb_con_rel = molecule['prim_orb_con_rel']
       #
-      end = len(tup)
+      end = len(molecule['prim_tuple'][order-1])
    #
    elif (level == 'CORRE'):
       #
-      tup = molecule['corr_tuple'][order-1]
-      e_inc = molecule['corr_energy_inc'][order-1]
+      orb = molecule['corr_orb_ent']
+      #
+      end = len(molecule['corr_tuple'][order-1])+len(molecule['prim_tuple'][order-1])
+   #
+   orb.append(np.zeros([u_limit,u_limit],dtype=np.float64))
+   #
+   for l in range(0,end):
+      #
+      if ((level == 'CORRE') and (l >= len(molecule['prim_tuple'][order-1]))):
+         #
+         tup = molecule['corr_tuple'][order-1]
+         e_inc = molecule['corr_energy_inc'][order-1]
+         ldx = l-len(molecule['prim_tuple'][order-1])
+      #
+      else:
+         #
+         tup = molecule['prim_tuple'][order-1]           
+         e_inc = molecule['prim_energy_inc'][order-1]
+         ldx = l
+      # 
+      for i in range(l_limit,l_limit+u_limit):
+         #
+         for j in range(i+1,l_limit+u_limit):
+            #
+            # add up contributions from the correlation between orbs i and j at current order
+            #
+            if (set([i+1,j+1]) <= set(tup[ldx])):
+               #
+               orb[-1][i-l_limit][j-l_limit] += e_inc[ldx]
+               orb[-1][j-l_limit][i-l_limit] = orb[-1][i-l_limit][j-l_limit]
+   #
+   return molecule
+      
+def orb_entanglement_arr(molecule,l_limit,u_limit,level):
+   #
+   if (level == 'MACRO'):
+      #
+      orb = molecule['prim_orb_ent']
+      orb_arr = molecule['prim_orb_arr']
+   #
+   elif (level == 'CORRE'):
+      #
       orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
+   #
+   orb_arr.append(np.empty([u_limit,u_limit],dtype=np.float64))
+   #
+   for i in range(l_limit,l_limit+u_limit):
+      #
+      e_sum = 0.0
+      #
+      # calculate sum of contributions from all orbitals to orb i
+      #
+      for m in range(0,len(orb)):
+         #
+         for j in range(l_limit,l_limit+u_limit):
+            #
+            e_sum += orb[m][i-l_limit][j-l_limit]
+      #
+      # calculate relative contributions
+      #
+      for m in range(0,len(orb)):
+         #
+         for j in range(l_limit,l_limit+u_limit):
+            #
+            if (orb[m][i-l_limit][j-l_limit] != 0.0):
+               #
+               orb_arr[m][i-l_limit][j-l_limit] = orb[m][i-l_limit][j-l_limit]/e_sum
+            #
+            else:
+               #
+               orb_arr[m][i-l_limit][j-l_limit] = 0.0
+   #
+   return molecule
+
+def orb_contributions(molecule,order,level,singles=False):
+   #
+   if (level == 'MACRO'):
+      #
+      orb = molecule['prim_orb_ent']
+      orb_con_abs = molecule['prim_orb_con_abs']
+      orb_con_rel = molecule['prim_orb_con_rel']
+   #
+   elif (level == 'CORRE'):
+      #
+      orb = molecule['corr_orb_ent']
       orb_con_abs = molecule['corr_orb_con_abs']
       orb_con_rel = molecule['corr_orb_con_rel']
-      #
-      end = len(tup)+len(molecule['prim_tuple'][order-1])
    #
    if (singles):
+      #
+      e_inc = molecule['prim_energy_inc'][order-1]
       #
       # total orbital contribution
       #
@@ -227,69 +333,8 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
    #
    else:
       #
-      orb.append(np.empty([molecule['u_limit'],molecule['u_limit']],dtype=np.float64))
-      #
-      orb_arr.append(np.empty([molecule['u_limit'],molecule['u_limit']],dtype=np.float64))
-      #
       orb_con_abs.append([])
       orb_con_rel.append([])
-      #
-      for i in range(l_limit,l_limit+u_limit):
-         #
-         orb[-1][i-l_limit][i-l_limit] = 0.0
-         #
-         for j in range(i+1,l_limit+u_limit):
-            #
-            e_abs = 0.0
-            #
-            # add up contributions from the correlation between orbs i and j at current order
-            #
-            for l in range(0,end):
-               #
-               if (level == 'CORRE'):
-                  #
-                  if (l <= (len(tup)-1)):
-                     #
-                     if (set([i+1,j+1]) <= set(tup[l])): e_abs += e_inc[l]
-                  #
-                  else:
-                     #
-                     if (set([i+1,j+1]) <= set(molecule['prim_tuple'][order-1][l-len(tup)])): e_abs += molecule['prim_energy_inc'][order-1][l-len(tup)]
-               #
-               elif (level == 'MACRO'):
-                  #
-                  if (set([i+1,j+1]) <= set(tup[l])): e_abs += e_inc[l]
-            #
-            # write to orb list
-            #
-            orb[-1][i-l_limit][j-l_limit] = e_abs
-            orb[-1][j-l_limit][i-l_limit] = e_abs
-      #
-      for i in range(l_limit,l_limit+u_limit):
-         #
-         e_sum = 0.0
-         #
-         # calculate sum of contributions from all orbitals to orb i
-         #
-         for m in range(0,len(orb)):
-            #
-            for j in range(l_limit,l_limit+u_limit):
-               #
-               e_sum += orb[m][i-l_limit][j-l_limit]
-         #
-         # calculate relative contributions
-         #
-         for m in range(0,len(orb)):
-            #
-            for j in range(l_limit,l_limit+u_limit):
-               #
-               if (orb[m][i-l_limit][j-l_limit] != 0.0):
-                  #
-                  orb_arr[m][i-l_limit][j-l_limit] = orb[m][i-l_limit][j-l_limit]/e_sum
-               #
-               else:
-                  #
-                  orb_arr[m][i-l_limit][j-l_limit] = 0.0
       #
       # total orbital contribution
       #
@@ -308,6 +353,9 @@ def orb_entanglement(molecule,l_limit,u_limit,order,level,singles=False):
       for j in range(0,len(tmp)):
          #
          orb_con_abs[-1].append(orb_con_abs[-2][j]+tmp[j])
+#      for j in range(0,len(orb[-1])):
+#         #
+#         orb_con_abs[-1].append(orb_con_abs[-2][j]+np.sum(orb[-1][j]))
       #
       e_sum = sum(orb_con_abs[-1])
       #

@@ -177,3 +177,11 @@ def mono_exp_merge_info(molecule):
    #
    return molecule
 
+def enum(*sequential,**named):
+   #
+   # hardcoded enums
+   #
+   enums = dict(zip(sequential,range(len(sequential))),**named)
+   #
+   return type('Enum',(), enums)
+

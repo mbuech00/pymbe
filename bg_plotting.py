@@ -129,29 +129,36 @@ def n_tuples_plot(molecule):
    #
    if (molecule['corr']):
       #
-      corr_prim = []
-      theo_corr = []
+      prim = []
+      corr = []
       #
       for i in range(0,u_limit):
          #
-         corr_prim.append(molecule['corr_n_tuples'][i])
-         theo_corr.append(molecule['theo_work'][i]-(molecule['prim_n_tuples'][i]+molecule['corr_n_tuples'][i]))
+         if (i < len(molecule['prim_tuple'])):
+            #
+            prim.append(len(molecule['prim_tuple'][i]))
+            corr.append(prim[i]+len(molecule['corr_tuple'][i]))
+         #
+         else:
+            #
+            prim.append(0)
+            corr.append(0)
       #
-      sns.barplot(list(range(1,u_limit+1)),theo_corr,bottom=[(i + j) for i,j in zip(corr_prim,molecule['prim_n_tuples'])],\
+      sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
                   palette='BuGn_d',label='Theoretical number',log=True)
       #
-      sns.barplot(list(range(1,u_limit+1)),corr_prim,bottom=molecule['prim_n_tuples'],palette='Reds_r',\
+      sns.barplot(list(range(1,u_limit+1)),corr,palette='Reds_r',\
                   label='Energy corr.',log=True)
       #
-      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'],palette='Blues_r',\
+      sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
    #
    else:
       #
-      sns.barplot(list(range(1,u_limit+1)),[(i - j) for i,j in zip(molecule['theo_work'],molecule['prim_n_tuples'])],\
-                  bottom=molecule['prim_n_tuples'],palette='BuGn_d',label='Theoretical number',log=True)
+      sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
+                  bottom=prim,palette='BuGn_d',label='Theoretical number',log=True)
       #
-      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'],palette='Blues_r',\
+      sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
    #
    ax.xaxis.grid(False)
@@ -168,6 +175,9 @@ def n_tuples_plot(molecule):
    fig.tight_layout()
    #
    plt.savefig(molecule['wrk']+'/output/n_tuples_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del prim
+   del corr
    #
    return molecule
 
@@ -394,30 +404,27 @@ def time_plot(molecule):
    #
    ax1.set_title('Phase timings')
    #
-   kernel_dat = (molecule['time_kernel']/molecule['time_tot'])*100.0
-   init_dat = kernel_dat + (molecule['time_init']/molecule['time_tot'])*100.0
-   final_dat = init_dat + (molecule['time_final']/molecule['time_tot'])*100.0
-   remain_dat = final_dat + (molecule['time_remain']/molecule['time_tot'])*100.0
+   init_dat = (molecule['time_init']/molecule['time_tot'])*100.0
+   kernel_dat = init_dat + (molecule['time_kernel']/molecule['time_tot'])*100.0
+   final_dat = kernel_dat + (molecule['time_final']/molecule['time_tot'])*100.0
    #
    order = list(range(1,len(molecule['prim_energy'])+1))
    #
-   remain = sns.barplot(remain_dat,order,ax=ax1,orient='h',label='remain',color=sns.xkcd_rgb['salmon'])
-   #
    final = sns.barplot(final_dat,order,ax=ax1,orient='h',label='final',color=sns.xkcd_rgb['faded green'])
    #
-   init = sns.barplot(init_dat,order,ax=ax1,orient='h',label='init',color=sns.xkcd_rgb['amber'])
-   #
    kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['windows blue'])
+   #
+   init = sns.barplot(init_dat,order,ax=ax1,orient='h',label='init',color=sns.xkcd_rgb['amber'])
    #
    ax1.set_ylim([-0.5,len(molecule['prim_energy'])-0.5])
    ax1.set_xlim([0.0,100.0])
    #
    handles,labels = ax1.get_legend_handles_labels()
    #
-   handles = [handles[3],handles[2],handles[1],handles[0]]
-   labels = [labels[3],labels[2],labels[1],labels[0]]
+   handles = [handles[2],handles[1],handles[0]]
+   labels = [labels[2],labels[1],labels[0]]
    #
-   ax1.legend(handles,labels,ncol=4,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
+   ax1.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
    #
    if (not molecule['mpi_parallel']):
       #
@@ -460,7 +467,6 @@ def time_plot(molecule):
    del init_dat
    del kernel_dat
    del final_dat
-   del remain_dat
    #
    if (molecule['mpi_parallel']):
       #
