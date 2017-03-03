@@ -243,6 +243,16 @@ def mono_exp_finish(molecule):
          #
          molecule['corr_time_init'].append(0.0)
    #
+   # make corr_tuple and corr_energy_inc lists of the same length as prim_tuple and prim_energy_inc
+   #
+   for _ in range(len(molecule['corr_tuple']),len(molecule['prim_tuple'])):
+      #
+      molecule['corr_tuple'].append(np.array([],dtype=np.int))
+   #
+   for _ in range(len(molecule['corr_energy_inc']),len(molecule['prim_energy_inc'])):
+      #
+      molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
+   #
    # make cor_orb_con lists of same length as orb_con lists for prim exp
    #
    for i in range(len(molecule['corr_orb_ent']),len(molecule['prim_orb_ent'])):
