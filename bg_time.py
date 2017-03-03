@@ -45,11 +45,9 @@ def init_phase_timings(molecule):
    molecule['prim_time_kernel'] = []
    molecule['prim_time_final'] = []
    #
-   if (molecule['corr']):
-      #
-      molecule['corr_time_init'] = []
-      molecule['corr_time_kernel'] = []
-      molecule['corr_time_final'] = []
+   molecule['corr_time_init'] = []
+   molecule['corr_time_kernel'] = []
+   molecule['corr_time_final'] = []
    #
    if (molecule['ref']):
       #

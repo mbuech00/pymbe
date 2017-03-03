@@ -127,21 +127,30 @@ def n_tuples_plot(molecule):
       #
       u_limit -= molecule['ncore']
    #
+   prim = []
+   #
+   for i in range(0,u_limit):
+      #
+      if (i < len(molecule['prim_tuple'])):
+         #
+         prim.append(len(molecule['prim_tuple'][i]))
+      #
+      else:
+         #
+         prim.append(0)
+   #
    if (molecule['corr']):
       #
-      prim = []
       corr = []
       #
       for i in range(0,u_limit):
          #
          if (i < len(molecule['prim_tuple'])):
             #
-            prim.append(len(molecule['prim_tuple'][i]))
             corr.append(prim[i]+len(molecule['corr_tuple'][i]))
          #
          else:
             #
-            prim.append(0)
             corr.append(0)
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
@@ -156,7 +165,7 @@ def n_tuples_plot(molecule):
    else:
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
-                  bottom=prim,palette='BuGn_d',label='Theoretical number',log=True)
+                  palette='BuGn_d',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
@@ -177,7 +186,7 @@ def n_tuples_plot(molecule):
    plt.savefig(molecule['wrk']+'/output/n_tuples_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    del prim
-   del corr
+   if (molecule['corr']): del corr
    #
    return molecule
 
@@ -429,7 +438,13 @@ def time_plot(molecule):
    handles = [handles[2],handles[1],handles[0]]
    labels = [labels[2],labels[1],labels[0]]
    #
-   ax1.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.14))
+   if (molecule['mpi_parallel']):
+      #
+      ax1.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.14))
+   #
+   else:
+      #
+      ax1.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.065))
    #
    ax1.invert_yaxis()
    #
