@@ -199,7 +199,7 @@ def summary_detail_res_2(molecule):
       #
       print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                   {3:4.2e} s              {4:4.2e} s'.\
                                                                           format(i+1,molecule['prim_energy'][i],molecule['prim_energy'][i]+molecule['corr_energy'][i],\
-                                                                                 molecule['prim_time_tot'][i],molecule['prim_time_tot'][i]+molecule['corr_time_tot'][i]))
+                                                                                 sum(molecule['prim_time_tot'][:i+1]),sum(molecule['prim_time_tot'][:i+1])+sum(molecule['corr_time_tot'][:i+1])))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
@@ -229,9 +229,9 @@ def summary_phase_time(molecule):
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    print('          total                      {0:>4.2e} / {1:>5.2f}                       {2:>4.2e} / {3:>5.2f}                       {4:>4.2e} / {5:>5.2f}'.\
-             format(np.sum(molecule['time_init']),(np.sum(molecule['time_init'])/np.sum(molecule['time_tot']))*100.0,\
-                    np.sum(molecule['time_kernel']),(np.sum(molecule['time_kernel'])/np.sum(molecule['time_tot']))*100.0,\
-                    np.sum(molecule['time_final']),(np.sum(molecule['time_final'])/np.sum(molecule['time_tot']))*100.0))
+             format(molecule['time_init'][-1],(molecule['time_init'][-1]/molecule['time_tot'][-1])*100.0,\
+                    molecule['time_kernel'][-1],(molecule['time_kernel'][-1]/molecule['time_tot'][-1])*100.0,\
+                    molecule['time_final'][-1],(molecule['time_final'][-1]/molecule['time_tot'][-1])*100.0))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #

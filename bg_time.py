@@ -45,11 +45,9 @@ def init_phase_timings(molecule):
    molecule['prim_time_kernel'] = []
    molecule['prim_time_final'] = []
    #
-   if (molecule['corr']):
-      #
-      molecule['corr_time_init'] = []
-      molecule['corr_time_kernel'] = []
-      molecule['corr_time_final'] = []
+   molecule['corr_time_init'] = []
+   molecule['corr_time_kernel'] = []
+   molecule['corr_time_final'] = []
    #
    if (molecule['ref']):
       #
@@ -82,6 +80,16 @@ def timings_main(molecule):
    return molecule
 
 def calc_phase_timings(molecule):
+   #
+   # total results are stored as the last entry
+   #
+   molecule['prim_time_init'].append(sum(molecule['prim_time_init']))
+   molecule['prim_time_kernel'].append(sum(molecule['prim_time_kernel']))
+   molecule['prim_time_final'].append(sum(molecule['prim_time_final']))
+   #
+   molecule['corr_time_init'].append(sum(molecule['corr_time_init']))
+   molecule['corr_time_kernel'].append(sum(molecule['corr_time_kernel']))
+   molecule['corr_time_final'].append(sum(molecule['corr_time_final']))
    #
    molecule['time_init'] = np.asarray(molecule['prim_time_init'])+np.asarray(molecule['corr_time_init'])
    molecule['time_kernel'] = np.asarray(molecule['prim_time_kernel'])+np.asarray(molecule['corr_time_kernel'])

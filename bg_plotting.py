@@ -127,21 +127,30 @@ def n_tuples_plot(molecule):
       #
       u_limit -= molecule['ncore']
    #
+   prim = []
+   #
+   for i in range(0,u_limit):
+      #
+      if (i < len(molecule['prim_tuple'])):
+         #
+         prim.append(len(molecule['prim_tuple'][i]))
+      #
+      else:
+         #
+         prim.append(0)
+   #
    if (molecule['corr']):
       #
-      prim = []
       corr = []
       #
       for i in range(0,u_limit):
          #
          if (i < len(molecule['prim_tuple'])):
             #
-            prim.append(len(molecule['prim_tuple'][i]))
             corr.append(prim[i]+len(molecule['corr_tuple'][i]))
          #
          else:
             #
-            prim.append(0)
             corr.append(0)
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
@@ -156,7 +165,7 @@ def n_tuples_plot(molecule):
    else:
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
-                  bottom=prim,palette='BuGn_d',label='Theoretical number',log=True)
+                  palette='BuGn_d',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
@@ -177,7 +186,7 @@ def n_tuples_plot(molecule):
    plt.savefig(molecule['wrk']+'/output/n_tuples_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    del prim
-   del corr
+   if (molecule['corr']): del corr
    #
    return molecule
 
@@ -402,29 +411,42 @@ def time_plot(molecule):
       #
       u_limit -= molecule['ncore']
    #
+   order = list(range(1,len(molecule['prim_energy'])+2))
+   #
+   y_labels = list(range(1,len(molecule['prim_energy'])+1))
+   y_labels.append('total')
+   #
    ax1.set_title('Phase timings')
    #
    init_dat = (molecule['time_init']/molecule['time_tot'])*100.0
    kernel_dat = init_dat + (molecule['time_kernel']/molecule['time_tot'])*100.0
    final_dat = kernel_dat + (molecule['time_final']/molecule['time_tot'])*100.0
    #
-   order = list(range(1,len(molecule['prim_energy'])+1))
-   #
-   final = sns.barplot(final_dat,order,ax=ax1,orient='h',label='final',color=sns.xkcd_rgb['faded green'])
+   final = sns.barplot(final_dat,order,ax=ax1,orient='h',label='final',color=sns.xkcd_rgb['salmon'])
    #
    kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['windows blue'])
    #
    init = sns.barplot(init_dat,order,ax=ax1,orient='h',label='init',color=sns.xkcd_rgb['amber'])
    #
-   ax1.set_ylim([-0.5,len(molecule['prim_energy'])-0.5])
+   ax1.set_ylim([-0.5,(len(molecule['prim_energy'])+1)-0.5])
    ax1.set_xlim([0.0,100.0])
+   #
+   ax1.set_yticklabels(y_labels)
    #
    handles,labels = ax1.get_legend_handles_labels()
    #
    handles = [handles[2],handles[1],handles[0]]
    labels = [labels[2],labels[1],labels[0]]
    #
-   ax1.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
+   if (molecule['mpi_parallel']):
+      #
+      ax1.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.14))
+   #
+   else:
+      #
+      ax1.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.065))
+   #
+   ax1.invert_yaxis()
    #
    if (not molecule['mpi_parallel']):
       #
@@ -441,22 +463,26 @@ def time_plot(molecule):
       #
       idle = sns.barplot(idle_dat,order,ax=ax2,orient='h',label='idle',color=sns.xkcd_rgb['sage'])
       #
-      comm = sns.barplot(comm_dat,order,ax=ax2,orient='h',label='comm',color=sns.xkcd_rgb['pastel blue'])
+      comm = sns.barplot(comm_dat,order,ax=ax2,orient='h',label='comm',color=sns.xkcd_rgb['baby blue'])
       #
       work = sns.barplot(work_dat,order,ax=ax2,orient='h',label='work',color=sns.xkcd_rgb['wine'])
       #
-      ax2.set_ylim([-0.5,len(molecule['prim_energy'])-0.5])
+      ax2.set_ylim([-0.5,(len(molecule['prim_energy'])+1)-0.5])
       ax2.set_xlim([0.0,100.0])
+      #
+      ax2.set_yticklabels(y_labels)
       #
       handles,labels = ax2.get_legend_handles_labels()
       #
       handles = [handles[2],handles[1],handles[0]]
       labels = [labels[2],labels[1],labels[0]]
       #
-      ax2.legend(handles,labels,ncol=3,loc='lower left',frameon=True,fancybox=True,framealpha=0.65)
+      ax2.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.14))
       #
       fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
       fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
+      #
+      ax2.invert_yaxis()
    #
    sns.despine(left=True,bottom=True)
    #
