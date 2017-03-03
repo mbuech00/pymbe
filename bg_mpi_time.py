@@ -101,19 +101,6 @@ def collect_mpi_timings(molecule):
    #
    # make sure mpi_time_*_init lists are not too long
    #
-#   print('proc. no. {0:} has mpi_time_work_init   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_work_init']))
-#   print('proc. no. {0:} has mpi_time_comm_init   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_comm_init']))
-#   print('proc. no. {0:} has mpi_time_idle_init   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_idle_init']))
-#   print('proc. no. {0:} has mpi_time_work_kernel = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_work_kernel']))
-#   print('proc. no. {0:} has mpi_time_comm_kernel = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_comm_kernel']))
-   print('proc. no. {0:} has mpi_time_idle_kernel = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_idle_kernel']))
-#   print('proc. no. {0:} has mpi_time_work_final  = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_work_final']))
-#   print('proc. no. {0:} has mpi_time_comm_final  = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_comm_final']))
-#   print('proc. no. {0:} has mpi_time_idle_final  = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_idle_final']))
-#   print('proc. no. {0:} has mpi_time_work_main   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_work_main']))
-#   print('proc. no. {0:} has mpi_time_comm_main   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_comm_main']))
-#   print('proc. no. {0:} has mpi_time_idle_main   = {1:}'.format(molecule['mpi_rank'],molecule['mpi_time_idle_main']))
-   #
    if (len(molecule['mpi_time_work_init']) > len(molecule['mpi_time_work_kernel'])):
       #
       molecule['mpi_time_work_init'][1] += molecule['mpi_time_work_init'][0]
