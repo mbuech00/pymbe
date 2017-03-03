@@ -129,29 +129,36 @@ def n_tuples_plot(molecule):
    #
    if (molecule['corr']):
       #
-      corr_prim = []
-      theo_corr = []
+      prim = []
+      corr = []
       #
       for i in range(0,u_limit):
          #
-         corr_prim.append(molecule['corr_n_tuples'][i])
-         theo_corr.append(molecule['theo_work'][i]-(molecule['prim_n_tuples'][i]+molecule['corr_n_tuples'][i]))
+         if (i < len(molecule['prim_tuple'])):
+            #
+            prim.append(len(molecule['prim_tuple'][i]))
+            corr.append(prim[i]+len(molecule['corr_tuple'][i]))
+         #
+         else:
+            #
+            prim.append(0)
+            corr.append(0)
       #
-      sns.barplot(list(range(1,u_limit+1)),theo_corr,bottom=[(i + j) for i,j in zip(corr_prim,molecule['prim_n_tuples'])],\
+      sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
                   palette='BuGn_d',label='Theoretical number',log=True)
       #
-      sns.barplot(list(range(1,u_limit+1)),corr_prim,bottom=molecule['prim_n_tuples'],palette='Reds_r',\
+      sns.barplot(list(range(1,u_limit+1)),corr,palette='Reds_r',\
                   label='Energy corr.',log=True)
       #
-      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'],palette='Blues_r',\
+      sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
    #
    else:
       #
-      sns.barplot(list(range(1,u_limit+1)),[(i - j) for i,j in zip(molecule['theo_work'],molecule['prim_n_tuples'])],\
-                  bottom=molecule['prim_n_tuples'],palette='BuGn_d',label='Theoretical number',log=True)
+      sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
+                  bottom=prim,palette='BuGn_d',label='Theoretical number',log=True)
       #
-      sns.barplot(list(range(1,u_limit+1)),molecule['prim_n_tuples'],palette='Blues_r',\
+      sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
    #
    ax.xaxis.grid(False)
@@ -168,6 +175,9 @@ def n_tuples_plot(molecule):
    fig.tight_layout()
    #
    plt.savefig(molecule['wrk']+'/output/n_tuples_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del prim
+   del corr
    #
    return molecule
 

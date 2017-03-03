@@ -8,7 +8,7 @@ from copy import deepcopy
 
 from bg_mpi_utils import mono_exp_merge_info
 from bg_time import timer_phase
-from bg_utils import run_calc_corr, n_theo_tuples
+from bg_utils import theo_work
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
@@ -122,18 +122,16 @@ def mono_exp_kernel(molecule,k,level):
    if (level == 'MACRO'):
       #
       tup = molecule['prim_tuple']
-      n_tup = molecule['prim_n_tuples']
       e_inc = molecule['prim_energy_inc']
       e_tot = molecule['prim_energy']
    #
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple']
-      n_tup = molecule['corr_n_tuples']
       e_inc = molecule['corr_energy_inc']
       e_tot = molecule['corr_energy']
    #
-   print_status_header(n_tup[k-1],k,molecule['conv'][-1],level)
+   print_status_header(tup[-1],k,molecule['conv'][-1],level)
    #
    if ((level == 'MACRO') and molecule['conv'][-1]):
       #
@@ -143,7 +141,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    timer_phase(molecule,'time_kernel',k,level)
    #
-   energy_kernel_mono_exp(molecule,k,tup,n_tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
+   energy_kernel_mono_exp(molecule,k,tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
    #
    timer_phase(molecule,'time_kernel',k,level)
    #
@@ -169,7 +167,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # check for convergence
    #
-   if ((k == n_tup[0]) or (k == molecule['max_order'])):
+   if ((k == len(tup[0])) or (k == molecule['max_order'])):
       #
       tup.append(np.array([],dtype=np.int))
       e_inc.append(np.array([],dtype=np.float64))
@@ -183,7 +181,6 @@ def mono_exp_init(molecule,k,level):
    if (level == 'MACRO'):
       #
       tup = molecule['prim_tuple']
-      n_tup = molecule['prim_n_tuples']
       e_inc = molecule['prim_energy_inc']
       dom = molecule['prim_domain']
       orb = molecule['prim_orb_ent']
@@ -192,7 +189,6 @@ def mono_exp_init(molecule,k,level):
    elif (level == 'CORRE'):
       #
       tup = molecule['corr_tuple']
-      n_tup = molecule['corr_n_tuples']
       e_inc = molecule['corr_energy_inc']
       dom = molecule['corr_domain']
       orb = molecule['corr_orb_ent']
@@ -214,21 +210,9 @@ def mono_exp_init(molecule,k,level):
    #
    orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
    #
-   # determine number of tuples at order k
+   # check for convergence
    #
-   n_tup.append(len(tup[k-1]))
-   #
-   if (level == 'MACRO'):
-      #
-      # check for convergence
-      #
-      if (n_tup[k-1] == 0):
-         #
-         molecule['conv'].append(True)
-      #
-      # calculate theoretical number of tuples at order k
-      #
-      n_theo_tuples(n_tup[0],k,molecule['theo_work'])
+   if ((level == 'MACRO') and (len(tup[k-1]) == 0)): molecule['conv'].append(True)
    #
    # print init end
    #
@@ -240,17 +224,9 @@ def mono_exp_init(molecule,k,level):
    #
    e_inc.append(np.zeros(len(tup[k-1]),dtype=np.float64))
    #
-   # if converged, pop last element of tup list and append to n_tup list
+   # if converged, pop last element of tup list
    #
-   if ((level == 'MACRO') and molecule['conv'][-1]):
-      #
-      tup.pop(-1)
-      #
-      for l in range(k+1,molecule['u_limit']+1):
-         #
-         n_tup.append(0)
-         #
-         n_theo_tuples(n_tup[0],l,molecule['theo_work'])
+   if ((level == 'MACRO') and molecule['conv'][-1]): tup.pop(-1)
    #
    return molecule
 
@@ -278,12 +254,6 @@ def mono_exp_finish(molecule):
          #
          molecule['corr_time_tot'].append(0.0)
          molecule['corr_time_init'].append(0.0)
-   #
-   # make corr_n_tuples of the same length as prim_n_tuples
-   #
-   for _ in range(molecule['max_corr_order'],len(molecule['prim_n_tuples'])):
-      #
-      molecule['corr_n_tuples'].append(0)
    #
    # make cor_orb_con lists of same length as orb_con lists for prim exp
    #
@@ -368,15 +338,16 @@ def prepare_calc(molecule):
       #
       molecule['max_order'] = molecule['u_limit']
    #
+   # determine max theoretical work
+   #
+   theo_work(molecule)
+   #
    molecule['conv'] = [False]
    #
    molecule['e_tmp'] = 0.0
    #
    molecule['prim_tuple'] = []
    molecule['corr_tuple'] = []
-   #
-   molecule['prim_n_tuples'] = []
-   molecule['corr_n_tuples'] = []
    #
    molecule['prim_energy_inc'] = []
    molecule['corr_energy_inc'] = []
@@ -398,8 +369,6 @@ def prepare_calc(molecule):
    #
    molecule['excl_list'] = []
    #
-   molecule['theo_work'] = []
-   #
    return molecule
 
 def set_corr_order(molecule):
@@ -412,8 +381,6 @@ def set_corr_order(molecule):
       #
       for _ in range(0,len(molecule['prim_energy'])):
          #
-         molecule['corr_n_tuples'].append(0)
-         #
          molecule['corr_energy'].append(0.0)
          #
          molecule['corr_time_tot'].append(0.0)
@@ -425,9 +392,12 @@ def set_corr_order(molecule):
    #
    else:
       #
-      for i in range(0,len(molecule['prim_n_tuples'])):
+      for i in range(0,len(molecule['prim_tuple'])):
          #
-         if ((molecule['prim_n_tuples'][i] < molecule['theo_work'][i]) and (molecule['prim_n_tuples'][i] > 0)):
+         print('theo_work = '+str(molecule['theo_work']))
+         print('len(prim_tuple) = '+str(len(molecule['prim_tuple'])))
+         print('len(prim_tuple[i]) = '+str(len(molecule['prim_tuple'][i])))
+         if ((len(molecule['prim_tuple'][i]) < molecule['theo_work'][i]) and (len(molecule['prim_tuple'][i]) > 0)):
             #
             molecule['min_corr_order'] = i+1
             #
@@ -452,10 +422,6 @@ def set_corr_order(molecule):
          molecule['corr_time_kernel'].append(0.0)
          molecule['corr_time_final'].append(0.0)
       #
-      for _ in range(0,len(molecule['prim_n_tuples'])):
-         #
-         molecule['corr_n_tuples'].append(0)
-      #
       return molecule
    #
    # the input corr_order is too high, so we correct everything
@@ -473,8 +439,6 @@ def set_corr_order(molecule):
       molecule['max_corr_order'] = molecule['min_corr_order'] + (molecule['corr_order']-1)
    #
    for _ in range(1,molecule['min_corr_order']):
-      #
-      molecule['corr_n_tuples'].append(0)
       #
       molecule['corr_energy'].append(0.0)
       #

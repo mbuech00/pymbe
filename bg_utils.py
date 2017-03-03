@@ -135,11 +135,17 @@ def orb_string(molecule,l_limit,u_limit,tup,string):
    #
    return string
 
-def n_theo_tuples(dim,k,theo_work):
+def theo_work(molecule):
    #
-   theo_work.append(factorial(dim)/(factorial(k)*factorial(dim-k)))
+   molecule['theo_work'] = []
    #
-   return theo_work
+   dim = molecule['u_limit']
+   #
+   for k in range(0,dim):
+      #
+      molecule['theo_work'].append(int(factorial(dim)/(factorial(k+1)*factorial(dim-(k+1)))))
+   #
+   return molecule
 
 def comb_index(n,k):
    #

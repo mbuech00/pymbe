@@ -169,11 +169,11 @@ def main_slave(molecule):
          #
          if (msg['level'] == 'MACRO'):
             #
-            energy_kernel_mono_exp_par(molecule,msg['order'],molecule['prim_tuple'],None,molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],'MACRO')
+            energy_kernel_mono_exp_par(molecule,msg['order'],molecule['prim_tuple'],molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],'MACRO')
          #
          elif (msg['level'] == 'CORRE'):
             #
-            energy_kernel_mono_exp_par(molecule,msg['order'],molecule['corr_tuple'],None,molecule['corr_energy_inc'],msg['l_limit'],msg['u_limit'],'CORRE')
+            energy_kernel_mono_exp_par(molecule,msg['order'],molecule['corr_tuple'],molecule['corr_energy_inc'],msg['l_limit'],msg['u_limit'],'CORRE')
       #
       # energy_summation_par
       #

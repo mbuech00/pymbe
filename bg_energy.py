@@ -18,11 +18,11 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_kernel_mono_exp(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level):
+def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
    #
    if (molecule['mpi_parallel']):
       #
-      energy_kernel_mono_exp_par(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level)
+      energy_kernel_mono_exp_par(molecule,order,tup,e_inc,l_limit,u_limit,level)
    #
    else:
       #
@@ -48,7 +48,7 @@ def energy_kernel_mono_exp(molecule,order,tup,n_tup,e_inc,l_limit,u_limit,level)
          #
          # print status
          #
-         print_status(float(counter)/float(n_tup[order-1]),level)
+         print_status(float(counter)/float(len(tup[order-1])),level)
          #
          # error check
          #

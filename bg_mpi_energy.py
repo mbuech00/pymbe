@@ -19,7 +19,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_kernel_mono_exp_par(molecule,k,tup,n_tup,e_inc,l_limit,u_limit,level):
+def energy_kernel_mono_exp_par(molecule,k,tup,e_inc,l_limit,u_limit,level):
    #
    #  ---  master/slave routine
    #
@@ -61,7 +61,7 @@ def energy_kernel_mono_exp_par(molecule,k,tup,n_tup,e_inc,l_limit,u_limit,level)
          #
          # print status (master)
          #
-         if (molecule['mpi_master']): print_status(float(i+1)/float(n_tup[k-1]),level)
+         if (molecule['mpi_master']): print_status(float(i+1)/float(len(tup[k-1])),level)
          #
          # error check
          #

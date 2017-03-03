@@ -353,6 +353,9 @@ def orb_contributions(molecule,order,level,singles=False):
       for j in range(0,len(tmp)):
          #
          orb_con_abs[-1].append(orb_con_abs[-2][j]+tmp[j])
+#      for j in range(0,len(orb[-1])):
+#         #
+#         orb_con_abs[-1].append(orb_con_abs[-2][j]+np.sum(orb[-1][j]))
       #
       e_sum = sum(orb_con_abs[-1])
       #
