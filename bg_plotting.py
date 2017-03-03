@@ -422,7 +422,7 @@ def time_plot(molecule):
    kernel_dat = init_dat + (molecule['time_kernel']/molecule['time_tot'])*100.0
    final_dat = kernel_dat + (molecule['time_final']/molecule['time_tot'])*100.0
    #
-   final = sns.barplot(final_dat,order,ax=ax1,orient='h',label='final',color=sns.xkcd_rgb['faded green'])
+   final = sns.barplot(final_dat,order,ax=ax1,orient='h',label='final',color=sns.xkcd_rgb['salmon'])
    #
    kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['windows blue'])
    #
@@ -463,7 +463,7 @@ def time_plot(molecule):
       #
       idle = sns.barplot(idle_dat,order,ax=ax2,orient='h',label='idle',color=sns.xkcd_rgb['sage'])
       #
-      comm = sns.barplot(comm_dat,order,ax=ax2,orient='h',label='comm',color=sns.xkcd_rgb['pastel blue'])
+      comm = sns.barplot(comm_dat,order,ax=ax2,orient='h',label='comm',color=sns.xkcd_rgb['baby blue'])
       #
       work = sns.barplot(work_dat,order,ax=ax2,orient='h',label='work',color=sns.xkcd_rgb['wine'])
       #
