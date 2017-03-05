@@ -266,8 +266,6 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
    timer_mpi(molecule,'mpi_time_comm_final',k)
    #
-   max_int = 10000
-   #
    if (molecule['mpi_master']):
       #
       recv_buff = np.zeros(len(e_inc[k-1]),dtype=np.float64)
@@ -276,17 +274,17 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       recv_buff = None
    #
-   count = int(len(e_inc[k-1])/max_int)
+   count = int(len(e_inc[k-1])/molecule['mpi_max_elms'])
    #
-   if (len(e_inc[k-1]) % max_int != 0): count += 1
+   if (len(e_inc[k-1]) % molecule['mpi_max_elms'] != 0): count += 1
    #
    for i in range(0,count):
       #
-      start = i*max_int
+      start = i*molecule['mpi_max_elms']
       #
       if (i < (count-1)):
          #
-         end = (i+1)*max_int
+         end = (i+1)*molecule['mpi_max_elms']
       #
       else:
          #
