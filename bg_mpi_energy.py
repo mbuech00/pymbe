@@ -274,7 +274,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       recv_buff = None
    #
-   count = int(len(e_inc[k-1])/molecule['mpi_max_elms'])
+   count = len(e_inc[k-1])//molecule['mpi_max_elms']
    #
    if (len(e_inc[k-1]) % molecule['mpi_max_elms'] != 0): count += 1
    #
