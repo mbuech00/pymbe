@@ -7,7 +7,7 @@ from os import mkdir, chdir
 from shutil import copy, rmtree 
 
 from bg_mpi_wrapper import abort_mpi
-from bg_mpi_utils import bcast_mol_dict, init_slave_env, remove_slave_env
+from bg_mpi_utils import bcast_mol_dict, init_mpi_vars, init_slave_env, remove_slave_env
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utils import run_calc_hf
 from bg_time import init_phase_timings
@@ -47,6 +47,10 @@ def init_calc(molecule):
    # if mpi parallel run, bcast the molecular dictionary
    #
    if (molecule['mpi_parallel']):
+      #
+      # mpi handcoded variables
+      #
+      init_mpi_vars(molecule)
       #
       # bcast mol dict
       #

@@ -274,17 +274,33 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       recv_buff = None
    #
-   molecule['mpi_comm'].Reduce([e_inc[k-1],MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
+   count = int(len(e_inc[k-1])/molecule['mpi_max_elms'])
    #
-   if (molecule['mpi_master']):
-      #
-      timer_mpi(molecule,'mpi_time_work_final',k)
-      #
-      e_inc[k-1] = recv_buff
-      #
-      timer_mpi(molecule,'mpi_time_comm_final',k)
+   if (len(e_inc[k-1]) % molecule['mpi_max_elms'] != 0): count += 1
    #
-   molecule['mpi_comm'].Bcast([e_inc[k-1],MPI.DOUBLE],root=0)
+   for i in range(0,count):
+      #
+      start = i*molecule['mpi_max_elms']
+      #
+      if (i < (count-1)):
+         #
+         end = (i+1)*molecule['mpi_max_elms']
+      #
+      else:
+         #
+         end = len(e_inc[k-1])
+      #
+      if (molecule['mpi_master']):
+         #
+         molecule['mpi_comm'].Reduce([e_inc[k-1][start:end],MPI.DOUBLE],[recv_buff[start:end],MPI.DOUBLE],op=MPI.SUM,root=0)
+         #
+         e_inc[k-1][start:end] = recv_buff[start:end]
+      #
+      else:
+         #
+         molecule['mpi_comm'].Reduce([e_inc[k-1][start:end],MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
+      #
+      molecule['mpi_comm'].Bcast([e_inc[k-1][start:end],MPI.DOUBLE],root=0)
    #
    timer_mpi(molecule,'mpi_time_work_final',k)
    #

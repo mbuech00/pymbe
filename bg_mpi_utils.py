@@ -50,6 +50,14 @@ def bcast_mol_dict(molecule):
    #
    return molecule
 
+def init_mpi_vars(molecule):
+   #
+   # batching of collective comm. routines - max number of elements
+   #
+   molecule['mpi_max_elms'] = 10000
+   #
+   return molecule
+
 def init_slave_env(molecule):
    #
    #  ---  master routine
