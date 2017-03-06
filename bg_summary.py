@@ -162,35 +162,6 @@ def summary_detail_res_1(molecule):
    print('                                              ---------------------------------------------                                                 ')
    print('')
    #
-   tot_n_tup = []
-   #
-   for i in range(0,len(molecule['prim_energy'])):
-      #
-      if (len(molecule['prim_tuple'][i]) == molecule['theo_work'][i]):
-         #
-         tot_n_tup.append(len(molecule['prim_tuple'][i]))
-      #
-      else:
-         #
-         tot_n_tup.append(len(molecule['prim_tuple'][i])+len(molecule['corr_tuple'][i]))
-   #
-   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('     BG expansion order  |   # of prim. exp. tuples   |   # of corr. tuples   |   perc. of total # of tuples:   excl. corr.  |  incl. corr. ')
-   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   #
-   for i in range(0,len(molecule['prim_energy'])):
-      #
-      print('          {0:>4d}                     {1:>4.2e}                    {2:>4.2e}                                           {3:>6.2f} %        {4:>6.2f} %'.\
-                                                                          format(i+1,len(molecule['prim_tuple'][i]),len(molecule['corr_tuple'][i]),\
-                                                                                 (float(len(molecule['prim_tuple'][i]))/float(molecule['theo_work'][i]))*100.00,\
-                                                                                 (float(tot_n_tup[i])/float(molecule['theo_work'][i]))*100.00))
-   #
-   return
-
-def summary_detail_res_2(molecule):
-   #
-   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('   |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    print('     BG expansion order  |   total prim. exp. energy   |    total energy incl. energy corr.   |    total time    |    total time incl. corr.')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
@@ -204,6 +175,28 @@ def summary_detail_res_2(molecule):
                                         format(i+1,molecule['prim_energy'][i],molecule['prim_energy'][i]+molecule['corr_energy'][i],\
                                                int(prim_time/3600),int((prim_time-int(prim_time/3600)*3600.)/60),int(prim_time-int(prim_time/3600)*3600.-int(prim_time/60)*60.),\
                                                int(total_time/3600),int((total_time-int(total_time/3600)*3600.)/60),int(total_time-int(total_time/3600)*3600.-int(total_time/60)*60.)))
+   #
+   return
+
+def summary_detail_res_2(molecule):
+   #
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   print('   |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||')
+   #
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   print('     BG expansion order  |  number of calcs. in prim. exp. (total/in %)  |  number of calcs. incl. energy corr. (total/in %)  |     total   ')
+   print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+   #
+   total_all = 0
+   #
+   for i in range(0,len(molecule['prim_energy'])):
+      #
+      total_order = len(molecule['prim_tuple'][i])+len(molecule['corr_tuple'][i])
+      total_all += total_order
+      #
+      print('          {0:>4d}                        {1:>9d} / {2:>6.2f}                                {3:>9d} / {4:>6.2f}                       {5:>9d}'.\
+                                                         format(i+1,len(molecule['prim_tuple'][i]),(float(len(molecule['prim_tuple'][i]))/float(molecule['theo_work'][i]))*100.00,\
+                                                                total_order,(float(total_order)/float(molecule['theo_work'][i]))*100.00,total_all))
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
