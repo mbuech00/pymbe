@@ -262,9 +262,11 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
    molecule['mpi_comm'].Barrier()
    #
-   # allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
+   # Allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
    #
    timer_mpi(molecule,'mpi_time_comm_final',k)
+   #
+   # init receive buffer
    #
    if (molecule['mpi_master']):
       #
@@ -274,15 +276,21 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       recv_buff = None
    #
-   count = len(e_inc[k-1])//molecule['mpi_max_elms']
+   # do batching of Reduce+Bcast because of annoying mpi problem
    #
-   if (len(e_inc[k-1]) % molecule['mpi_max_elms'] != 0): count += 1
+   # calculate number of batches
    #
-   for i in range(0,count):
+   n_batch = len(e_inc[k-1])//molecule['mpi_max_elms']
+   #
+   if (len(e_inc[k-1]) % molecule['mpi_max_elms'] != 0): n_batch += 1
+   #
+   # now perform batched collective comm
+   #
+   for i in range(0,n_batch):
       #
       start = i*molecule['mpi_max_elms']
       #
-      if (i < (count-1)):
+      if (i < (n_batch-1)):
          #
          end = (i+1)*molecule['mpi_max_elms']
       #
