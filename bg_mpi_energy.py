@@ -258,11 +258,43 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
                #
                for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
    #
+   # allreduce e_inc[-1]
+   #
+   allred_e_inc(molecule,e_inc,k)
+   #
+   timer_mpi(molecule,'mpi_time_work_final',k)
+   #
+   # let master calculate the total energy
+   #
+   if (molecule['mpi_master']):
+      #
+      # sum of energy increment of level k
+      #
+      e_tmp = np.sum(e_inc[k-1])
+      #
+      # sum of total energy
+      #
+      if (k > 1):
+         #
+         e_tmp += energy[k-2]
+      #
+      energy.append(e_tmp)
+   #
    timer_mpi(molecule,'mpi_time_idle_final',k)
    #
    molecule['mpi_comm'].Barrier()
    #
+   timer_mpi(molecule,'mpi_time_idle_final',k,True)
+   #
+   return e_inc, energy
+
+def allred_e_inc(molecule,e_inc,k):
+   #
    # Allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
+   #
+   timer_mpi(molecule,'mpi_time_idle_final',k)
+   #
+   molecule['mpi_comm'].Barrier()
    #
    timer_mpi(molecule,'mpi_time_comm_final',k)
    #
@@ -276,7 +308,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       recv_buff = None
    #
-   # do batching of Reduce+Bcast because of annoying mpi problem
+   # do batching of Reduce+Bcast because of annoying mpi stalling problems
    #
    # calculate number of batches
    #
@@ -310,33 +342,8 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       molecule['mpi_comm'].Bcast([e_inc[k-1][start:end],MPI.DOUBLE],root=0)
    #
-   timer_mpi(molecule,'mpi_time_work_final',k)
-   #
-   # let master calculate the total energy
-   #
-   if (molecule['mpi_master']):
-      #
-      # sum of energy increment of level k
-      #
-      e_tmp = np.sum(e_inc[k-1])
-      #
-      # sum of total energy
-      #
-      if (k > 1):
-         #
-         e_tmp += energy[k-2]
-      #
-      energy.append(e_tmp)
-   #
-   timer_mpi(molecule,'mpi_time_idle_final',k)
-   #
-   molecule['mpi_comm'].Barrier()
-   #
-   timer_mpi(molecule,'mpi_time_idle_final',k,True)
-   #
    del recv_buff
    #
-   return e_inc, energy
-
+   return e_inc
 
 
