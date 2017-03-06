@@ -99,22 +99,13 @@ def collect_mpi_timings(molecule):
    #
    # note: the correct length of any of the timing lists is len(molecule['mpi_time_work_kernel'])  --  (which is, of course, equal to len(molecule['prim_energy']), but only on master)
    #
-   # make sure mpi_time_*_init lists are not too long
+   # make sure mpi_time_*_init lists are not too short (i.e., if no reduction at all was possible in prim. exp.)
    #
-   if (len(molecule['mpi_time_work_init']) > len(molecule['mpi_time_work_kernel'])):
-      #
-      molecule['mpi_time_work_init'][1] += molecule['mpi_time_work_init'][0]
-      molecule['mpi_time_work_init'].pop(0)
+   if (len(molecule['mpi_time_work_init']) < len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_work_init'].append(0.0)
    #
-   if (len(molecule['mpi_time_comm_init']) > len(molecule['mpi_time_work_kernel'])):
-      #
-      molecule['mpi_time_comm_init'][1] += molecule['mpi_time_comm_init'][0]
-      molecule['mpi_time_comm_init'].pop(0)
+   if (len(molecule['mpi_time_comm_init']) < len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].append(0.0)
    #
-   if (len(molecule['mpi_time_idle_init']) > len(molecule['mpi_time_work_kernel'])):
-      #
-      molecule['mpi_time_idle_init'][1] += molecule['mpi_time_idle_init'][0]
-      molecule['mpi_time_idle_init'].pop(0)
+   if (len(molecule['mpi_time_idle_init']) < len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_idle_init'].append(0.0)
    #
    # make sure mpi_time_idle_main list is not too long
    #

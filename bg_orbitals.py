@@ -9,7 +9,7 @@ from itertools import combinations
 from copy import deepcopy
 
 from bg_mpi_time import timer_mpi, collect_init_mpi_time
-from bg_mpi_orbitals import bcast_dom_master, orb_entanglement_main_par
+from bg_mpi_orbitals import bcast_dom_master, orb_generator_master, bcast_tuple_master, orb_entanglement_main_par
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -23,127 +23,104 @@ __status__ = 'Development'
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
-   if (molecule['mpi_parallel'] and molecule['mpi_master']): bcast_dom_master(molecule,dom,l_limit,u_limit,k,level)
-   #
-   if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',k) 
-   #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']):
+   if (molecule['mpi_parallel'] and molecule['mpi_master']):
       #
-      start = molecule['ncore']
-   #
-   else:
-      #
-      start = 0
-   #
-   if (k == 1):
-      #
-      # all singles contributions 
-      #
-      tmp = []
-      #
-      for i in range(start,len(dom)):
+      if (k >= 2):
          #
-         tmp.append([(i+l_limit)+1])
+         bcast_dom_master(molecule,dom,k)
+         #
+         orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level)
       #
-      tup.append(np.array(tmp,dtype=np.int))
+      bcast_tuple_master(molecule,tup,k,level)
+      #
+      return tup
    #
-   elif (k == 2):
-      #
-      # generate all possible (unique) pairs
-      #
-      tmp = list(list(comb) for comb in combinations(range(start+(1+l_limit),(l_limit+u_limit)+1),2))
-      #
-      tup.append(np.array(tmp,dtype=np.int))
+   if (k == 1): return tup
    #
-   else:
+   tmp_2 = []
+   #
+   if (level == 'MACRO'):
       #
-      tmp_2 = []
+      end = len(tup[k-2])
+   #
+   elif (level == 'CORRE'):
+      #
+      end = len(tup[k-2])+len(molecule['prim_tuple'][k-2])
+   #
+   for i in range(0,end):
+      #
+      # generate subset of all pairs within the parent tuple
       #
       if (level == 'MACRO'):
          #
-         end = len(tup[k-2])
+         parent_tup = tup[k-2][i]
       #
       elif (level == 'CORRE'):
          #
-         end = len(tup[k-2])+len(molecule['prim_tuple'][k-2])
-      #
-      for i in range(0,end):
-         #
-         # generate subset of all pairs within the parent tuple
-         #
-         if (level == 'MACRO'):
+         if (i <= (len(tup[k-2])-1)):
             #
             parent_tup = tup[k-2][i]
          #
-         elif (level == 'CORRE'):
+         else:
             #
-            if (i <= (len(tup[k-2])-1)):
-               #
-               parent_tup = tup[k-2][i]
-            #
-            else:
-               #
-               parent_tup = molecule['prim_tuple'][k-2][i-len(tup[k-2])]
-         #
-         tmp = list(list(comb) for comb in combinations(parent_tup,2))
-         #
-         mask = True
-         #
-         for j in range(0,len(tmp)):
-            #
-            # is the parent tuple still allowed?
-            #
-            if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
-               #
-               mask = False
-               #
-               break
-         #
-         if (mask):
-            #
-            # loop through possible orbitals to augment the parent tuple with
-            #
-            for m in range(parent_tup[-1]+1,(l_limit+u_limit)+1):
-               #
-               mask_2 = True
-               #
-               for l in parent_tup:
-                  #
-                  # is the new child tuple allowed?
-                  #
-                  if (not (set([m]) < set(dom[(l-l_limit)-1]))):
-                     #
-                     mask_2 = False
-                     #
-                     break
-               #
-               if (mask_2):
-                  #
-                  # append the child tuple to the tup list
-                  #
-                  tmp_2.append(list(deepcopy(parent_tup)))
-                  #
-                  tmp_2[-1].append(m)
-                  #
-                  # check whether this tuple has already been accounted for in the primary expansion
-                  #
-                  if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
-                     #
-                     tmp_2.pop(-1)
+            parent_tup = molecule['prim_tuple'][k-2][i-len(tup[k-2])]
       #
-      if (len(tmp_2) > 1): tmp_2.sort()
+      tmp = list(list(comb) for comb in combinations(parent_tup,2))
       #
-      tup.append(np.array(tmp_2,dtype=np.int))
+      mask = True
       #
-      del tmp_2
+      for j in range(0,len(tmp)):
+         #
+         # is the parent tuple still allowed?
+         #
+         if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
+            #
+            mask = False
+            #
+            break
+      #
+      if (mask):
+         #
+         # loop through possible orbitals to augment the parent tuple with
+         #
+         for m in range(parent_tup[-1]+1,(l_limit+u_limit)+1):
+            #
+            mask_2 = True
+            #
+            for l in parent_tup:
+               #
+               # is the new child tuple allowed?
+               #
+               if (not (set([m]) < set(dom[(l-l_limit)-1]))):
+                  #
+                  mask_2 = False
+                  #
+                  break
+            #
+            if (mask_2):
+               #
+               # append the child tuple to the tup list
+               #
+               tmp_2.append(list(deepcopy(parent_tup)))
+               #
+               tmp_2[-1].append(m)
+               #
+               # check whether this tuple has already been accounted for in the primary expansion
+               #
+               if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
+                  #
+                  tmp_2.pop(-1)
    #
-   if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',k,True)
+   if (len(tmp_2) > 1): tmp_2.sort()
+   #
+   tup.append(np.array(tmp_2,dtype=np.int))
    #
    del tmp
+   del tmp_2
    #
    return tup
 
-def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
+def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
    #
    if (order == 1):
       #
@@ -163,15 +140,9 @@ def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
       #
       # set up entanglement and exclusion lists
       #
-      if (molecule['mpi_parallel']):
-         #
-         orb_entanglement_main_par(molecule,l_limit,u_limit,order,level)
+      orb_entanglement_main(molecule,l_limit,u_limit,order,level)
       #
-      else:
-         #
-         orb_entanglement_main(molecule,l_limit,u_limit,order,level)
-      #
-      if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',order+1)
+      if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',order)
       #
       orb_entanglement_arr(molecule,l_limit,u_limit,level)
       #
@@ -181,9 +152,9 @@ def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
          #
          if (molecule['mpi_parallel']):
             #
-            timer_mpi(molecule,'mpi_time_work_init',order+1,True)
+            timer_mpi(molecule,'mpi_time_work_init',order,True)
             #
-            collect_init_mpi_time(molecule,order+1)
+            collect_init_mpi_time(molecule,order)
       #
       else:
          #
@@ -205,13 +176,19 @@ def orb_screening(molecule,order,l_limit,u_limit,level,calc_end=False):
          #
          if (molecule['mpi_parallel']):
             #
-            timer_mpi(molecule,'mpi_time_work_init',order+1,True)
+            timer_mpi(molecule,'mpi_time_work_init',order,True)
             #
-            collect_init_mpi_time(molecule,order+1)
+            collect_init_mpi_time(molecule,order)
    #
    return molecule
 
 def orb_entanglement_main(molecule,l_limit,u_limit,order,level):
+   #
+   if (molecule['mpi_parallel']):
+      #
+      orb_entanglement_main_par(molecule,l_limit,u_limit,order,level)
+      #
+      return molecule
    #
    if (level == 'MACRO'):
       #

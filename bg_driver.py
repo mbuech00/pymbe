@@ -52,11 +52,6 @@ def main_drv(molecule):
          #
          # energy correction for mono expansion
          #
-         print('')
-         print('                     ---------------------------------------------                ')
-         print('                                   energy correction                              ')
-         print('                     ---------------------------------------------                ')
-         #
          # set min and max _corr_order
          #
          set_corr_order(molecule)
@@ -65,9 +60,16 @@ def main_drv(molecule):
          #
          mono_exp_merge_info(molecule)
          #
-         # calculate correction
+         # calculate correction (if possible)
          #
-         mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
+         if (molecule['corr']):
+            #
+            print('')
+            print('                     ---------------------------------------------                ')
+            print('                                   energy correction                              ')
+            print('                     ---------------------------------------------                ')
+            #
+            mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
       #
       else:
          #
@@ -105,7 +107,7 @@ def mono_exp_drv(molecule,start,end,level):
             #
             timer_phase(molecule,'time_init',k+1,level)
             #
-            orb_screening(molecule,k,molecule['l_limit'],molecule['u_limit'],level,True)
+            orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
             #
             mono_exp_finish(molecule)
             #
@@ -165,12 +167,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # check for convergence
    #
-   if ((k == len(tup[0])) or (k == molecule['max_order'])):
-      #
-      tup.append(np.array([],dtype=np.int))
-      e_inc.append(np.array([],dtype=np.float64))
-      #
-      molecule['conv'].append(True)
+   if (k == molecule['max_order']): molecule['conv'].append(True)
    #
    return molecule
 
@@ -202,7 +199,7 @@ def mono_exp_init(molecule,k,level):
       #
       # orbital screening
       #
-      orb_screening(molecule,k-1,molecule['l_limit'],molecule['u_limit'],level)
+      orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k-1,level)
    #
    # generate all tuples at order k
    #
@@ -309,6 +306,8 @@ def prepare_calc(molecule):
       #
       molecule['prim_domain'] = deepcopy([molecule['occ_domain']])
       molecule['corr_domain'] = deepcopy([molecule['occ_domain']])
+      #
+      molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['ncore'],molecule['u_limit'])),dtype=np.int)]
    #
    elif (molecule['exp'] == 'virt'):
       #
@@ -317,28 +316,30 @@ def prepare_calc(molecule):
       #
       molecule['prim_domain'] = deepcopy([molecule['virt_domain']])
       molecule['corr_domain'] = deepcopy([molecule['virt_domain']])
+      #
+      molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['l_limit'],molecule['l_limit']+molecule['u_limit'])),dtype=np.int)]
    #
-   elif (molecule['exp'] == 'comb-ov'):
-      #
-      molecule['l_limit'] = [0,molecule['nocc']]
-      molecule['u_limit'] = [molecule['nocc'],molecule['nvirt']]
-      #
-      molecule['domain'] = [molecule['occ_domain'],molecule['virt_domain']]
-      #
-      molecule['e_diff_in'] = []
-      #
-      molecule['rel_work_in'] = []
-   #
-   elif (molecule['exp'] == 'comb-vo'):
-      #
-      molecule['l_limit'] = [molecule['nocc'],0]
-      molecule['u_limit'] = [molecule['nvirt'],molecule['nocc']]
-      #
-      molecule['domain'] = [molecule['virt_domain'],molecule['occ_domain']]
-      #
-      molecule['e_diff_in'] = []
-      #
-      molecule['rel_work_in'] = []
+#   elif (molecule['exp'] == 'comb-ov'):
+#      #
+#      molecule['l_limit'] = [0,molecule['nocc']]
+#      molecule['u_limit'] = [molecule['nocc'],molecule['nvirt']]
+#      #
+#      molecule['domain'] = [molecule['occ_domain'],molecule['virt_domain']]
+#      #
+#      molecule['e_diff_in'] = []
+#      #
+#      molecule['rel_work_in'] = []
+#   #
+#   elif (molecule['exp'] == 'comb-vo'):
+#      #
+#      molecule['l_limit'] = [molecule['nocc'],0]
+#      molecule['u_limit'] = [molecule['nvirt'],molecule['nocc']]
+#      #
+#      molecule['domain'] = [molecule['virt_domain'],molecule['occ_domain']]
+#      #
+#      molecule['e_diff_in'] = []
+#      #
+#      molecule['rel_work_in'] = []
    #
    if ((molecule['max_order'] == 0) or (molecule['max_order'] > molecule['u_limit'])):
       #
@@ -352,7 +353,6 @@ def prepare_calc(molecule):
    #
    molecule['e_tmp'] = 0.0
    #
-   molecule['prim_tuple'] = []
    molecule['corr_tuple'] = []
    #
    molecule['prim_energy_inc'] = []
@@ -400,6 +400,9 @@ def set_corr_order(molecule):
       molecule['corr_order'] = 0
       #
       for _ in range(0,len(molecule['prim_energy'])):
+         #
+         molecule['corr_tuple'].append(np.array([],dtype=np.int))
+         molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
          #
          molecule['corr_energy'].append(0.0)
          #

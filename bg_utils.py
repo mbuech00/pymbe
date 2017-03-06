@@ -141,6 +141,8 @@ def theo_work(molecule):
    #
    dim = molecule['u_limit']
    #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']): dim -= molecule['ncore']
+   #
    for k in range(0,dim):
       #
       molecule['theo_work'].append(int(factorial(dim)/(factorial(k+1)*factorial(dim-(k+1)))))
