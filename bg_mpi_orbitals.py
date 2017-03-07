@@ -108,7 +108,7 @@ def bcast_tuples(molecule,tup,k):
       #
       # bcast tuples
       #
-      molecule['mpi_comm'].Bcast([tup[k-1][start:end][:],MPI.INT],root=0)
+      molecule['mpi_comm'].Bcast([tup[k-1][start:end,:],MPI.INT],root=0)
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
    #
@@ -368,6 +368,22 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    return molecule
 
+def red_orb_ent(molecule,tmp,recv_buff,k):
+   #
+   timer_mpi(molecule,'mpi_time_idle_init',k)
+   #
+   molecule['mpi_comm'].Barrier()
+   #
+   # reduce orb[-1]
+   #
+   timer_mpi(molecule,'mpi_time_comm_init',k)
+   #
+   molecule['mpi_comm'].Reduce([tmp,MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
+   #
+   timer_mpi(molecule,'mpi_time_comm_init',k,True)
+   #
+   return recv_buff
+
 def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
    #
    #  ---  master/slave routine
@@ -381,14 +397,10 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
       if (level == 'MACRO'):
          #
          orb = molecule['prim_orb_ent']
-         #
-         end = len(molecule['prim_tuple'][order-1])
       #
       elif (level == 'CORRE'):
          #
          orb = molecule['corr_orb_ent']
-         #
-         end = len(molecule['corr_tuple'][order-1])+len(molecule['prim_tuple'][order-1])
       #
       orb.append(np.zeros([u_limit,u_limit],dtype=np.float64))
       #
@@ -434,28 +446,20 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
                #
                if (set([i+1,j+1]) <= set(tup[ldx])):
                   #
-                  tmp[i-l_limit][j-l_limit] += e_inc[ldx]
-                  tmp[j-l_limit][i-l_limit] = tmp[i-l_limit][j-l_limit]
+                  tmp[i-l_limit,j-l_limit] += e_inc[ldx]
+                  tmp[j-l_limit,i-l_limit] = tmp[i-l_limit,j-l_limit]
    #
-   timer_mpi(molecule,'mpi_time_idle_init',order)
-   #
-   molecule['mpi_comm'].Barrier()
-   #
-   # reduce orb[-1]
-   #
-   timer_mpi(molecule,'mpi_time_comm_init',order)
+   # reduce orb_ent onto master
    #
    if (molecule['mpi_master']):
       #
-      recv_buff = orb[-1] 
+      recv_buff = orb[-1]
    #
    else:
       #
       recv_buff = None
    #
-   molecule['mpi_comm'].Reduce([tmp,MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
-   #
-   timer_mpi(molecule,'mpi_time_comm_init',order,True)
+   red_orb_ent(molecule,tmp,recv_buff,order)
    #
    return molecule
 
