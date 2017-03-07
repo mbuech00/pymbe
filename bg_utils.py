@@ -6,7 +6,6 @@
 import numpy as np
 from itertools import combinations, chain
 from scipy.misc import comb
-from math import factorial
 from os import listdir, unlink
 from os.path import join, isfile
 from subprocess import call
@@ -134,18 +133,6 @@ def orb_string(molecule,l_limit,u_limit,tup,string):
       string['drop'] += '\n'
    #
    return string
-
-def theo_work(molecule):
-   #
-   molecule['theo_work'] = []
-   #
-   dim = molecule['u_limit']
-   #
-   for k in range(0,dim):
-      #
-      molecule['theo_work'].append(int(factorial(dim)/(factorial(k+1)*factorial(dim-(k+1)))))
-   #
-   return molecule
 
 def comb_index(n,k):
    #

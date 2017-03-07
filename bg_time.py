@@ -57,17 +57,7 @@ def init_phase_timings(molecule):
 
 def timings_main(molecule):
    #
-   # check if *_time_init lists contain contribution from order k > max_order
-   #
-   if (len(molecule['prim_time_init']) > len(molecule['prim_energy'])):
-      #
-      molecule['prim_time_init'][1] += molecule['prim_time_init'][0]
-      molecule['prim_time_init'].pop(0)
-   #
-   if (len(molecule['corr_time_init']) > len(molecule['prim_energy'])):
-      #
-      molecule['corr_time_init'][1] += molecule['corr_time_init'][0]
-      molecule['corr_time_init'].pop(0)
+   align_phase_timings(molecule)
    #
    calc_phase_timings(molecule)
    #
@@ -76,6 +66,44 @@ def timings_main(molecule):
       collect_mpi_timings(molecule)
       #
       calc_mpi_timings(molecule)
+   #
+   return molecule
+
+def align_phase_timings(molecule):
+   #
+   if (not molecule['corr']):
+      #
+      for _ in range(0,len(molecule['prim_energy'])):
+         #
+         molecule['corr_time_init'].append(0.0)
+         molecule['corr_time_kernel'].append(0.0)
+         molecule['corr_time_final'].append(0.0)
+   #
+   else:
+      #
+      # for corr_time_init, we add the final entry to the second-to-last, pop the last entry, and add a zero as the first to match orders with the prim exp
+      #
+      molecule['corr_time_init'][-2] += molecule['corr_time_init'][-1]
+      molecule['corr_time_init'].pop(-1)
+      molecule['corr_time_init'].insert(0,0.0)
+      #
+      # make sure prim_time_init list is not too short (i.e., if no reduction was possible in prim. exp.)
+      #
+      if (len(molecule['prim_time_init']) < len(molecule['prim_energy'])): molecule['prim_time_init'].append(0.0)
+      #
+      # now, align lists
+      #
+      for _ in range(len(molecule['corr_time_init']),len(molecule['prim_energy'])):
+         #
+         molecule['corr_time_init'].append(0.0)
+      #
+      for _ in range(len(molecule['corr_time_kernel']),len(molecule['prim_energy'])):
+         #
+         molecule['corr_time_kernel'].append(0.0)
+      #
+      for _ in range(len(molecule['corr_time_final']),len(molecule['prim_energy'])):
+         #
+         molecule['corr_time_final'].append(0.0)
    #
    return molecule
 

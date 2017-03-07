@@ -8,11 +8,10 @@ from os import getcwd, mkdir, chdir
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_mpi_utils import print_mpi_table, mono_exp_merge_info
+from bg_mpi_utils import print_mpi_table, mono_exp_merge_info, prepare_calc
 from bg_mpi_time import init_mpi_timings, collect_init_mpi_time, collect_kernel_mpi_time, collect_mpi_timings
 from bg_mpi_energy import energy_kernel_mono_exp_slave, energy_summation_par
-from bg_mpi_orbitals import bcast_dom_slave, orb_entanglement_main_par
-from bg_orbitals import orb_generator
+from bg_mpi_orbitals import orb_generator_slave, orb_entanglement_main_par
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -129,6 +128,18 @@ def main_slave(molecule):
          #
          print_mpi_table(molecule)
       #
+      # prepare_calc_par
+      #
+      elif (msg['task'] == 'prepare_calc_par'):
+         #
+         # set mol params
+         #
+         molecule['nocc'] = msg['nocc']
+         molecule['nvirt'] = msg['nvirt']
+         molecule['ncore'] = msg['ncore']
+         #
+         prepare_calc(molecule)
+      #
       # mono_exp_merge_info
       #
       elif (msg['task'] == 'mono_exp_merge_info'):
@@ -145,23 +156,19 @@ def main_slave(molecule):
          #
          collect_init_mpi_time(molecule,msg['order'])
       #
-      # generate tuples
+      # orb_generator_slave
       #
-      elif (msg['task'] == 'orb_generator_par'):
+      elif (msg['task'] == 'orb_generator_slave'):
          #
-         # receive domains
-         #
-         bcast_dom_slave(molecule,msg['order'])
-         #
-         # compute tuples
+         # generate tuples
          #
          if (msg['level'] == 'MACRO'):
             #
-            orb_generator(molecule,molecule['dom'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
+            orb_generator_slave(molecule,molecule['prim_domain'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
          #
          elif (msg['level'] == 'CORRE'):
             #
-            orb_generator(molecule,molecule['dom'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
+            orb_generator_slave(molecule,molecule['corr_domain'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
       #
       # energy_kernel_mono_exp_par
       #

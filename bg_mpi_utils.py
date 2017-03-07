@@ -4,6 +4,8 @@
 """ bg_mpi_utils.py: MPI utilities for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
+from copy import deepcopy
+from math import factorial
 from mpi4py import MPI
 
 from bg_mpi_time import init_mpi_timings
@@ -153,6 +155,115 @@ def print_mpi_table(molecule):
    #
    return
 
+def prepare_calc(molecule):
+   #
+   #  --- master/slave routine
+   #
+   if (molecule['mpi_parallel'] and molecule['mpi_master']):
+      #
+      # wake up slaves
+      #
+      msg = {'task': 'prepare_calc_par', 'nocc': molecule['nocc'], 'nvirt': molecule['nvirt'], 'ncore': molecule['ncore'], 'order': 1}
+      #
+      molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   # set params and lists for occ expansion
+   #
+   if (molecule['exp'] == 'occ'):
+      #
+      # set lower and upper limits
+      #
+      molecule['l_limit'] = 0
+      molecule['u_limit'] = molecule['nocc']
+      #
+      # init prim and corr domains on master
+      #
+      if (molecule['mpi_master']):
+         #
+         molecule['prim_domain'] = deepcopy([molecule['occ_domain']])
+         molecule['corr_domain'] = deepcopy([molecule['occ_domain']])
+      #
+      else:
+         #
+         molecule['prim_domain'] = []
+         molecule['corr_domain'] = []
+      #
+      # init prim tuple and e_inc
+      #
+      molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['ncore'],molecule['u_limit'])),dtype=np.int)]
+      molecule['prim_energy_inc'] = [np.zeros(len(molecule['prim_tuple'][0]),dtype=np.float64)]
+   #
+   # set params and lists for virt expansion
+   #
+   elif (molecule['exp'] == 'virt'):
+      #
+      # set lower and upper limits
+      #
+      molecule['l_limit'] = molecule['nocc']
+      molecule['u_limit'] = molecule['nvirt']
+      #
+      # init prim and corr domains on master
+      #
+      if (molecule['mpi_master']):
+         #
+         molecule['prim_domain'] = deepcopy([molecule['virt_domain']])
+         molecule['corr_domain'] = deepcopy([molecule['virt_domain']])
+      #
+      else:
+         #
+         molecule['prim_domain'] = []
+         molecule['corr_domain'] = []
+      #
+      # init prim tuple and e_inc
+      #
+      molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['l_limit'],molecule['l_limit']+molecule['u_limit'])),dtype=np.int)]
+      molecule['prim_energy_inc'] = [np.zeros(len(molecule['prim_tuple'][0]),dtype=np.float64)]
+   #
+   # set max_order
+   #
+   if ((molecule['max_order'] == 0) or (molecule['max_order'] > molecule['u_limit'])):
+      #
+      molecule['max_order'] = molecule['u_limit']
+   #
+   # determine max theoretical work
+   #
+   theo_work(molecule)
+   #
+   # init convergence list
+   #
+   molecule['conv'] = [False]
+   #
+   # init corr_tuple and corr_e_inc lists
+   #
+   molecule['corr_tuple'] = []
+   molecule['corr_energy_inc'] = []
+   #
+   # init orb_ent and orb_con lists
+   #
+   molecule['prim_orb_ent'] = []
+   molecule['corr_orb_ent'] = []
+   #
+   molecule['prim_orb_arr'] = []
+   molecule['corr_orb_arr'] = []
+   #
+   molecule['prim_orb_con_abs'] = []
+   molecule['prim_orb_con_rel'] = []
+   molecule['corr_orb_con_abs'] = []
+   molecule['corr_orb_con_rel'] = []
+   #
+   # init total energy lists for prim exp and energy correction
+   #
+   molecule['prim_energy'] = []
+   #
+   molecule['corr_energy'] = []
+   #
+   # init exclusion list and e_tmp
+   #
+   molecule['e_tmp'] = 0.0
+   molecule['excl_list'] = []
+   #
+   return molecule
+
 def mono_exp_merge_info(molecule):
    #
    #  ---  master/slave routine
@@ -182,6 +293,20 @@ def mono_exp_merge_info(molecule):
          #
          molecule['corr_orb_ent'].append(molecule['prim_orb_ent'][k-1])
          molecule['corr_orb_arr'].append(molecule['prim_orb_arr'][k-1])
+   #
+   return molecule
+
+def theo_work(molecule):
+   #
+   molecule['theo_work'] = []
+   #
+   dim = molecule['u_limit']
+   #
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']): dim -= molecule['ncore']
+   #
+   for k in range(0,dim):
+      #
+      molecule['theo_work'].append(int(factorial(dim)/(factorial(k+1)*factorial(dim-(k+1)))))
    #
    return molecule
 

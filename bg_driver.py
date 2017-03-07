@@ -4,11 +4,9 @@
 """ bg_driver.py: driver routines for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
-from copy import deepcopy
 
-from bg_mpi_utils import mono_exp_merge_info
+from bg_mpi_utils import prepare_calc, mono_exp_merge_info
 from bg_time import timer_phase
-from bg_utils import theo_work
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
@@ -52,11 +50,6 @@ def main_drv(molecule):
          #
          # energy correction for mono expansion
          #
-         print('')
-         print('                     ---------------------------------------------                ')
-         print('                                   energy correction                              ')
-         print('                     ---------------------------------------------                ')
-         #
          # set min and max _corr_order
          #
          set_corr_order(molecule)
@@ -65,9 +58,16 @@ def main_drv(molecule):
          #
          mono_exp_merge_info(molecule)
          #
-         # calculate correction
+         # calculate correction (if possible)
          #
-         mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
+         if (molecule['corr']):
+            #
+            print('')
+            print('                     ---------------------------------------------                ')
+            print('                                   energy correction                              ')
+            print('                     ---------------------------------------------                ')
+            #
+            mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
       #
       else:
          #
@@ -87,7 +87,13 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # mono expansion initialization
       #
-      mono_exp_init(molecule,k,level)
+      if (k == 1):
+         #
+         print('')
+      #
+      else:
+         #
+         mono_exp_init(molecule,k,level)
       #
       # mono expansion kernel
       #
@@ -103,13 +109,13 @@ def mono_exp_drv(molecule,start,end,level):
          #
          if (level == 'CORRE'):
             #
-            timer_phase(molecule,'time_init',k+1,level)
+            timer_phase(molecule,'time_init',k,level)
             #
-            orb_screening(molecule,k,molecule['l_limit'],molecule['u_limit'],level,True)
+            orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
             #
             mono_exp_finish(molecule)
             #
-            timer_phase(molecule,'time_init',k+1,level)
+            timer_phase(molecule,'time_init',k,level)
          #
          break
    #
@@ -165,12 +171,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # check for convergence
    #
-   if ((k == len(tup[0])) or (k == molecule['max_order'])):
-      #
-      tup.append(np.array([],dtype=np.int))
-      e_inc.append(np.array([],dtype=np.float64))
-      #
-      molecule['conv'].append(True)
+   if (k == molecule['max_order']): molecule['conv'].append(True)
    #
    return molecule
 
@@ -196,13 +197,11 @@ def mono_exp_init(molecule,k,level):
    #
    print_init_header(k,level)
    #
-   timer_phase(molecule,'time_init',k,level)
+   timer_phase(molecule,'time_init',k-1,level)
    #
-   if (k >= 2):
-      #
-      # orbital screening
-      #
-      orb_screening(molecule,k-1,molecule['l_limit'],molecule['u_limit'],level)
+   # orbital screening (using info from order k-1)
+   #
+   orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k-1,level)
    #
    # generate all tuples at order k
    #
@@ -214,7 +213,7 @@ def mono_exp_init(molecule,k,level):
    #
    # print init end
    #
-   timer_phase(molecule,'time_init',k,level)
+   timer_phase(molecule,'time_init',k-1,level)
    #
    print_init_end(molecule,k,level)
    #
@@ -238,7 +237,7 @@ def mono_exp_finish(molecule):
       molecule['min_corr_order'] = 0
       molecule['max_corr_order'] = 0
    #
-   # make the corr_energy and corr_time lists of the same length as the prim_energy list
+   # make the corr_energy list of the same length as the prim_energy list
    #
    for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])):
       #
@@ -249,21 +248,6 @@ def mono_exp_finish(molecule):
       else:
          #
          molecule['corr_energy'].append(0.0)
-      #
-      molecule['corr_time_kernel'].append(0.0)
-      molecule['corr_time_final'].append(0.0)
-   #
-   if (molecule['corr'] and (molecule['min_corr_order'] != 0)):
-      #
-      for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])-1):
-         #
-         molecule['corr_time_init'].append(0.0)
-   #
-   else:
-      #
-      for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])):
-         #
-         molecule['corr_time_init'].append(0.0)
    #
    # make corr_tuple and corr_energy_inc lists of the same length as prim_tuple and prim_energy_inc
    #
@@ -300,83 +284,6 @@ def mono_exp_finish(molecule):
    #
    return molecule
 
-def prepare_calc(molecule):
-   #
-   if (molecule['exp'] == 'occ'):
-      #
-      molecule['l_limit'] = 0
-      molecule['u_limit'] = molecule['nocc']
-      #
-      molecule['prim_domain'] = deepcopy([molecule['occ_domain']])
-      molecule['corr_domain'] = deepcopy([molecule['occ_domain']])
-   #
-   elif (molecule['exp'] == 'virt'):
-      #
-      molecule['l_limit'] = molecule['nocc']
-      molecule['u_limit'] = molecule['nvirt']
-      #
-      molecule['prim_domain'] = deepcopy([molecule['virt_domain']])
-      molecule['corr_domain'] = deepcopy([molecule['virt_domain']])
-   #
-   elif (molecule['exp'] == 'comb-ov'):
-      #
-      molecule['l_limit'] = [0,molecule['nocc']]
-      molecule['u_limit'] = [molecule['nocc'],molecule['nvirt']]
-      #
-      molecule['domain'] = [molecule['occ_domain'],molecule['virt_domain']]
-      #
-      molecule['e_diff_in'] = []
-      #
-      molecule['rel_work_in'] = []
-   #
-   elif (molecule['exp'] == 'comb-vo'):
-      #
-      molecule['l_limit'] = [molecule['nocc'],0]
-      molecule['u_limit'] = [molecule['nvirt'],molecule['nocc']]
-      #
-      molecule['domain'] = [molecule['virt_domain'],molecule['occ_domain']]
-      #
-      molecule['e_diff_in'] = []
-      #
-      molecule['rel_work_in'] = []
-   #
-   if ((molecule['max_order'] == 0) or (molecule['max_order'] > molecule['u_limit'])):
-      #
-      molecule['max_order'] = molecule['u_limit']
-   #
-   # determine max theoretical work
-   #
-   theo_work(molecule)
-   #
-   molecule['conv'] = [False]
-   #
-   molecule['e_tmp'] = 0.0
-   #
-   molecule['prim_tuple'] = []
-   molecule['corr_tuple'] = []
-   #
-   molecule['prim_energy_inc'] = []
-   molecule['corr_energy_inc'] = []
-   #
-   molecule['prim_orb_ent'] = []
-   molecule['corr_orb_ent'] = []
-   #
-   molecule['prim_orb_arr'] = []
-   molecule['corr_orb_arr'] = []
-   #
-   molecule['prim_orb_con_abs'] = []
-   molecule['prim_orb_con_rel'] = []
-   molecule['corr_orb_con_abs'] = []
-   molecule['corr_orb_con_rel'] = []
-   #
-   molecule['prim_energy'] = []
-   #
-   molecule['corr_energy'] = []
-   #
-   molecule['excl_list'] = []
-   #
-   return molecule
-
 def set_corr_order(molecule):
    #
    molecule['min_corr_order'] = 0
@@ -401,11 +308,10 @@ def set_corr_order(molecule):
       #
       for _ in range(0,len(molecule['prim_energy'])):
          #
-         molecule['corr_energy'].append(0.0)
+         molecule['corr_tuple'].append(np.array([],dtype=np.int))
+         molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
          #
-         molecule['corr_time_init'].append(0.0)
-         molecule['corr_time_kernel'].append(0.0)
-         molecule['corr_time_final'].append(0.0)
+         molecule['corr_energy'].append(0.0)
       #
       return molecule
    #
@@ -423,13 +329,16 @@ def set_corr_order(molecule):
       #
       molecule['max_corr_order'] = molecule['min_corr_order'] + (molecule['corr_order']-1)
    #
-   for _ in range(1,molecule['min_corr_order']):
+   for _ in range(0,molecule['min_corr_order']-1):
       #
       molecule['corr_energy'].append(0.0)
       #
-      molecule['corr_time_init'].append(0.0)
       molecule['corr_time_kernel'].append(0.0)
       molecule['corr_time_final'].append(0.0)
+   #
+   for _ in range(0,molecule['min_corr_order']-2):
+      #
+      molecule['corr_time_init'].append(0.0)
    #
    return molecule
 

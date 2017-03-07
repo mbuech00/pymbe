@@ -24,6 +24,14 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    #  ---  master routine
    #
+   # wake up slaves
+   #
+   timer_mpi(molecule,'mpi_time_idle_kernel',order)
+   #
+   msg = {'task': 'energy_kernel_mono_exp_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
    timer_mpi(molecule,'mpi_time_work_kernel',order)
    #
    # init job_info dictionary
@@ -49,12 +57,6 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    # init stat counter
    #
    counter = 0
-   #
-   # wake up slaves
-   #
-   msg = {'task': 'energy_kernel_mono_exp_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
-   #
-   molecule['mpi_comm'].bcast(msg,root=0)
    #
    while (slaves_avail >= 1):
       #
@@ -138,7 +140,7 @@ def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level)
    #
    # init e_inc list
    #
-   e_inc.append(np.zeros(len(tup[order-1]),dtype=np.float64))
+   if (order >= 2): e_inc.append(np.zeros(len(tup[order-1]),dtype=np.float64))
    #
    # define mpi message tags
    #
@@ -218,7 +220,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       # wake up slaves
       #
-      timer_mpi(molecule,'mpi_time_comm_final',k)
+      timer_mpi(molecule,'mpi_time_idle_final',k)
       #
       msg = {'task': 'energy_summation_par', 'order': k, 'level': level}
       #
@@ -258,49 +260,9 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
                #
                for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
    #
-   timer_mpi(molecule,'mpi_time_idle_final',k)
+   # allreduce e_inc[-1]
    #
-   molecule['mpi_comm'].Barrier()
-   #
-   # allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
-   #
-   timer_mpi(molecule,'mpi_time_comm_final',k)
-   #
-   if (molecule['mpi_master']):
-      #
-      recv_buff = np.zeros(len(e_inc[k-1]),dtype=np.float64)
-   #
-   else:
-      #
-      recv_buff = None
-   #
-   count = int(len(e_inc[k-1])/molecule['mpi_max_elms'])
-   #
-   if (len(e_inc[k-1]) % molecule['mpi_max_elms'] != 0): count += 1
-   #
-   for i in range(0,count):
-      #
-      start = i*molecule['mpi_max_elms']
-      #
-      if (i < (count-1)):
-         #
-         end = (i+1)*molecule['mpi_max_elms']
-      #
-      else:
-         #
-         end = len(e_inc[k-1])
-      #
-      if (molecule['mpi_master']):
-         #
-         molecule['mpi_comm'].Reduce([e_inc[k-1][start:end],MPI.DOUBLE],[recv_buff[start:end],MPI.DOUBLE],op=MPI.SUM,root=0)
-         #
-         e_inc[k-1][start:end] = recv_buff[start:end]
-      #
-      else:
-         #
-         molecule['mpi_comm'].Reduce([e_inc[k-1][start:end],MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
-      #
-      molecule['mpi_comm'].Bcast([e_inc[k-1][start:end],MPI.DOUBLE],root=0)
+   allred_e_inc(molecule,e_inc,k)
    #
    timer_mpi(molecule,'mpi_time_work_final',k)
    #
@@ -326,9 +288,64 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
    timer_mpi(molecule,'mpi_time_idle_final',k,True)
    #
-   del recv_buff
-   #
    return e_inc, energy
 
+def allred_e_inc(molecule,e_inc,k):
+   #
+   # Allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
+   #
+   timer_mpi(molecule,'mpi_time_idle_final',k)
+   #
+   molecule['mpi_comm'].Barrier()
+   #
+   timer_mpi(molecule,'mpi_time_comm_final',k)
+   #
+   # init receive buffer
+   #
+   if (molecule['mpi_master']):
+      #
+      recv_buff = np.zeros(len(e_inc[k-1]),dtype=np.float64)
+   #
+   else:
+      #
+      recv_buff = None
+   #
+   # do batching of Reduce+Bcast because of annoying mpi stalling problems
+   #
+   # calculate number of batches
+   #
+   n_batch = len(e_inc[k-1])//molecule['mpi_max_elms']
+   #
+   if (len(e_inc[k-1]) % molecule['mpi_max_elms'] != 0): n_batch += 1
+   #
+   # now perform batched collective comm
+   #
+   for i in range(0,n_batch):
+      #
+      start = i*molecule['mpi_max_elms']
+      #
+      if (i < (n_batch-1)):
+         #
+         end = (i+1)*molecule['mpi_max_elms']
+      #
+      else:
+         #
+         end = len(e_inc[k-1])
+      #
+      if (molecule['mpi_master']):
+         #
+         molecule['mpi_comm'].Reduce([e_inc[k-1][start:end],MPI.DOUBLE],[recv_buff[start:end],MPI.DOUBLE],op=MPI.SUM,root=0)
+         #
+         e_inc[k-1][start:end] = recv_buff[start:end]
+      #
+      else:
+         #
+         molecule['mpi_comm'].Reduce([e_inc[k-1][start:end],MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
+      #
+      molecule['mpi_comm'].Bcast([e_inc[k-1][start:end],MPI.DOUBLE],root=0)
+   #
+   del recv_buff
+   #
+   return e_inc
 
 
