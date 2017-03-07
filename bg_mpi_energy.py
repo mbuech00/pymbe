@@ -24,6 +24,14 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    #  ---  master routine
    #
+   # wake up slaves
+   #
+   timer_mpi(molecule,'mpi_time_idle_kernel',order)
+   #
+   msg = {'task': 'energy_kernel_mono_exp_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
    timer_mpi(molecule,'mpi_time_work_kernel',order)
    #
    # init job_info dictionary
@@ -49,12 +57,6 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    # init stat counter
    #
    counter = 0
-   #
-   # wake up slaves
-   #
-   msg = {'task': 'energy_kernel_mono_exp_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
-   #
-   molecule['mpi_comm'].bcast(msg,root=0)
    #
    while (slaves_avail >= 1):
       #
@@ -218,7 +220,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       # wake up slaves
       #
-      timer_mpi(molecule,'mpi_time_comm_final',k)
+      timer_mpi(molecule,'mpi_time_idle_final',k)
       #
       msg = {'task': 'energy_summation_par', 'order': k, 'level': level}
       #

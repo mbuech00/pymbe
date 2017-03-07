@@ -120,9 +120,13 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    # wake up slaves
    #
+   timer_mpi(molecule,'mpi_time_idle_init',k-1)
+   #
    msg = {'task': 'orb_generator_slave', 'l_limit': l_limit, 'u_limit': u_limit, 'order': k, 'level': level}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   timer_mpi(molecule,'mpi_time_work_init',k-1)
    #
    # bcast domains
    #
@@ -392,7 +396,15 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
       #
       # wake up slaves
       #
-      timer_mpi(molecule,'mpi_time_comm_init',order)
+      timer_mpi(molecule,'mpi_time_idle_init',order)
+      #
+      msg = {'task': 'orb_entanglement_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
+      #
+      molecule['mpi_comm'].bcast(msg,root=0)
+      #
+      timer_mpi(molecule,'mpi_time_work_init',order)
+      #
+      # init orb[-1]
       #
       if (level == 'MACRO'):
          #
@@ -403,12 +415,10 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
          orb = molecule['corr_orb_ent']
       #
       orb.append(np.zeros([u_limit,u_limit],dtype=np.float64))
-      #
-      msg = {'task': 'orb_entanglement_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
-      #
-      molecule['mpi_comm'].bcast(msg,root=0)
    #
-   timer_mpi(molecule,'mpi_time_work_init',order)
+   else:
+      #
+      timer_mpi(molecule,'mpi_time_work_init',order)
    #
    if (level == 'MACRO'):
       #
