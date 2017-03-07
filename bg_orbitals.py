@@ -9,7 +9,7 @@ from itertools import combinations
 from copy import deepcopy
 
 from bg_mpi_time import timer_mpi, collect_init_mpi_time
-from bg_mpi_orbitals import bcast_dom_master, orb_generator_master, bcast_tuple_master, orb_entanglement_main_par
+from bg_mpi_orbitals import orb_generator_master, orb_entanglement_main_par
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -23,100 +23,92 @@ __status__ = 'Development'
 
 def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
-   if (molecule['mpi_parallel'] and molecule['mpi_master']):
+   if (molecule['mpi_parallel']):
       #
-      if (k >= 2):
-         #
-         bcast_dom_master(molecule,dom,k)
-         #
-         orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level)
-      #
-      bcast_tuple_master(molecule,tup,k,level)
-      #
-      return tup
+      orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level)
    #
-   if (k == 1): return tup
-   #
-   tmp_2 = []
-   #
-   if (level == 'MACRO'):
+   else:
       #
-      end = len(tup[k-2])
-   #
-   elif (level == 'CORRE'):
-      #
-      end = len(tup[k-2])+len(molecule['prim_tuple'][k-2])
-   #
-   for i in range(0,end):
-      #
-      # generate subset of all pairs within the parent tuple
+      tmp_2 = []
       #
       if (level == 'MACRO'):
          #
-         parent_tup = tup[k-2][i]
+         end = len(tup[k-2])
       #
       elif (level == 'CORRE'):
          #
-         if (i <= (len(tup[k-2])-1)):
+         end = len(tup[k-2])+len(molecule['prim_tuple'][k-2])
+      #
+      for i in range(0,end):
+         #
+         # generate subset of all pairs within the parent tuple
+         #
+         if (level == 'MACRO'):
             #
             parent_tup = tup[k-2][i]
          #
-         else:
+         elif (level == 'CORRE'):
             #
-            parent_tup = molecule['prim_tuple'][k-2][i-len(tup[k-2])]
-      #
-      tmp = list(list(comb) for comb in combinations(parent_tup,2))
-      #
-      mask = True
-      #
-      for j in range(0,len(tmp)):
-         #
-         # is the parent tuple still allowed?
-         #
-         if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
-            #
-            mask = False
-            #
-            break
-      #
-      if (mask):
-         #
-         # loop through possible orbitals to augment the parent tuple with
-         #
-         for m in range(parent_tup[-1]+1,(l_limit+u_limit)+1):
-            #
-            mask_2 = True
-            #
-            for l in parent_tup:
+            if (i <= (len(tup[k-2])-1)):
                #
-               # is the new child tuple allowed?
+               parent_tup = tup[k-2][i]
+            #
+            else:
                #
-               if (not (set([m]) < set(dom[(l-l_limit)-1]))):
+               parent_tup = molecule['prim_tuple'][k-2][i-len(tup[k-2])]
+         #
+         tmp = list(list(comb) for comb in combinations(parent_tup,2))
+         #
+         mask = True
+         #
+         for j in range(0,len(tmp)):
+            #
+            # is the parent tuple still allowed?
+            #
+            if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
+               #
+               mask = False
+               #
+               break
+         #
+         if (mask):
+            #
+            # loop through possible orbitals to augment the parent tuple with
+            #
+            for m in range(parent_tup[-1]+1,(l_limit+u_limit)+1):
+               #
+               mask_2 = True
+               #
+               for l in parent_tup:
                   #
-                  mask_2 = False
+                  # is the new child tuple allowed?
                   #
-                  break
-            #
-            if (mask_2):
+                  if (not (set([m]) < set(dom[(l-l_limit)-1]))):
+                     #
+                     mask_2 = False
+                     #
+                     break
                #
-               # append the child tuple to the tup list
-               #
-               tmp_2.append(list(deepcopy(parent_tup)))
-               #
-               tmp_2[-1].append(m)
-               #
-               # check whether this tuple has already been accounted for in the primary expansion
-               #
-               if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
+               if (mask_2):
                   #
-                  tmp_2.pop(-1)
-   #
-   if (len(tmp_2) > 1): tmp_2.sort()
-   #
-   tup.append(np.array(tmp_2,dtype=np.int))
-   #
-   del tmp
-   del tmp_2
+                  # append the child tuple to the tup list
+                  #
+                  tmp_2.append(list(deepcopy(parent_tup)))
+                  #
+                  tmp_2[-1].append(m)
+                  #
+                  # check whether this tuple has already been accounted for in the primary expansion
+                  #
+                  if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
+                     #
+                     tmp_2.pop(-1)
+      #
+      if (len(tmp_2) > 1): tmp_2.sort()
+      #
+      tup.append(np.array(tmp_2,dtype=np.int))
+      #
+      del tmp
+      del tmp_2
    #
    return tup
 

@@ -138,7 +138,7 @@ def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level)
    #
    # init e_inc list
    #
-   e_inc.append(np.zeros(len(tup[order-1]),dtype=np.float64))
+   if (order >= 2): e_inc.append(np.zeros(len(tup[order-1]),dtype=np.float64))
    #
    # define mpi message tags
    #

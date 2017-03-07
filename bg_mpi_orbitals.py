@@ -20,99 +20,115 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def bcast_dom_master(molecule,dom,k):
+def bcast_domains(molecule,dom,k):
    #
-   #  ---  master routine
+   #  ---  master/slave routine
    #
-   # wake up slaves
+   timer_mpi(molecule,'mpi_time_idle_init',k-1)
+   #
+   molecule['mpi_comm'].Barrier()
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1)
    #
-   msg = {'task': 'bcast_dom_slave', 'order': k}
+   # bcast domains
    #
-   molecule['mpi_comm'].bcast(msg,root=0)
+   if (molecule['mpi_master']):
+      #
+      dom_info = {'dom': dom}
+      #
+      molecule['mpi_comm'].bcast(dom_info,root=0)
    #
-   # bcast orbital domains and lower/upper limits
-   #
-   dom_info = {'dom': dom}
-   #
-   molecule['mpi_comm'].bcast(dom_info,root=0)
+   else:
+      #
+      dom_info = molecule['mpi_comm'].bcast(None,root=0)
+      #
+      dom[:] = []
+      #
+      dom += dom_info['dom']
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
    #
    dom_info.clear()
    #
-   return
+   return dom
 
-def bcast_dom_slave(molecule,k):
+def bcast_tuples(molecule,tup,k):
    #
-   #  ---  slave routine
+   #  ---  master/slave routine
+   #
+   timer_mpi(molecule,'mpi_time_idle_init',k-1)
+   #
+   molecule['mpi_comm'].Barrier()
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1)
-   #
-   # receive domains
-   #
-   dom_info = molecule['mpi_comm'].bcast(None,root=0)
-   #
-   molecule['dom'] = dom_info['dom']
-   #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
-   #
-   dom_info.clear()
-   #
-   return molecule
-
-def bcast_tuple_master(molecule,tup,k,level):
-   #
-   #  ---  master routine
-   #
-   # wake up slaves
-   #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1)
-   #
-   msg = {'task': 'bcast_tuple_slave', 'order': k, 'level': level}
-   #
-   molecule['mpi_comm'].bcast(msg,root=0)
    #
    # bcast total number of tuples
    #
-   tup_info = {'tup_len': len(tup[k-1])}
+   if (molecule['mpi_master']):
+      #
+      tup_info = {'tup_len': len(tup[k-1])}
+      #
+      molecule['mpi_comm'].bcast(tup_info,root=0)
+      #
+      timer_mpi(molecule,'mpi_time_work_init',k-1)
    #
-   molecule['mpi_comm'].bcast(tup_info,root=0)
+   else:
+      #
+      tup_info = molecule['mpi_comm'].bcast(None,root=0)
+      #
+      timer_mpi(molecule,'mpi_time_work_init',k-1)
+      #
+      tup.append(np.empty([tup_info['tup_len'],k],dtype=np.int))
    #
-   # bcast tuples
+   # do batching of Bcast because of annoying mpi stalling problems
    #
-   molecule['mpi_comm'].Bcast([tup[k-1],MPI.INT],root=0)
+   # calculate number of batches
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
+   n_row = molecule['mpi_max_elms']//k 
    #
-   tup_info.clear()
+   n_batch = tup_info['tup_len']//n_row
    #
-   return
-
-def bcast_tuple_slave(molecule,tup,k):
+   if (tup_info['tup_len'] % n_row != 0): n_batch += 1
    #
-   #  ---  slave routine
+   # now perform batched collective comm
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1)
    #
-   tup_info = molecule['mpi_comm'].bcast(None,root=0)
-   #
-   tup.append(np.empty([tup_info['tup_len'],k],dtype=np.int))
-   #
-   # receive tuples
-   #
-   molecule['mpi_comm'].Bcast([tup[k-1],MPI.INT],root=0)
+   for i in range(0,n_batch):
+      #
+      start = i*n_row
+      #
+      if (i < (n_batch-1)):
+         #
+         end = (i+1)*n_row
+      #
+      else:
+         #
+         end = tup_info['tup_len']
+      #
+      # bcast tuples
+      #
+      molecule['mpi_comm'].Bcast([tup[k-1][start:end][:],MPI.INT],root=0)
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
    #
-   tup_info.clear()
-   #
-   return molecule
+   return tup
 
 def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    #  ---  master routine
+   #
+   # wake up slaves
+   #
+   msg = {'task': 'orb_generator_slave', 'l_limit': l_limit, 'u_limit': u_limit, 'order': k, 'level': level}
+   #
+   molecule['mpi_comm'].bcast(msg,root=0)
+   #
+   # bcast domains
+   #
+   bcast_domains(molecule,dom,k)
+   #
+   timer_mpi(molecule,'mpi_time_work_init',k-1)
    #
    # init job_info dictionary
    #
@@ -133,12 +149,6 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    # init job index
    #
    i = 0
-   #
-   # wake up slaves
-   #
-   msg = {'task': 'orb_generator_slave', 'l_limit': l_limit, 'u_limit': u_limit, 'order': k, 'level': level}
-   #
-   molecule['mpi_comm'].bcast(msg,root=0)
    #
    if (level == 'MACRO'):
       #
@@ -214,7 +224,9 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    tup.append(np.array(tmp,dtype=np.int))
    #
-   timer_mpi(molecule,'mpi_time_work_init',k-1,True)
+   # bcast tuples
+   #
+   bcast_tuples(molecule,tup,k)
    #
    del tmp
    #
@@ -223,6 +235,12 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
 def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    #  ---  slave routine
+   #
+   # receive domains
+   #
+   bcast_domains(molecule,dom,k)
+   #
+   timer_mpi(molecule,'mpi_time_work_init',k-1)
    #
    # define mpi message tags
    #
@@ -340,7 +358,9 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
+   # receive tuples
+   #
+   bcast_tuples(molecule,tup,k)
    #
    data.clear()
    #

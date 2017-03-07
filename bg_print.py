@@ -58,7 +58,7 @@ def print_init_end(molecule,order,level):
       time_init = molecule['corr_time_init']
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_init[order-1]))
+   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_init[order-2]))
    print(' --------------------------------------------------------------------------------------------')
    #
    return

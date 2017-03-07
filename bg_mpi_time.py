@@ -102,9 +102,7 @@ def collect_mpi_timings(molecule):
    # make sure mpi_time_*_init lists are not too short (i.e., if no reduction at all was possible in prim. exp.)
    #
    if (len(molecule['mpi_time_work_init']) < len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_work_init'].append(0.0)
-   #
    if (len(molecule['mpi_time_comm_init']) < len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_comm_init'].append(0.0)
-   #
    if (len(molecule['mpi_time_idle_init']) < len(molecule['mpi_time_work_kernel'])): molecule['mpi_time_idle_init'].append(0.0)
    #
    # make sure mpi_time_idle_main list is not too long
