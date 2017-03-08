@@ -80,31 +80,17 @@ def bcast_tuples(molecule,tup,k):
       #
       tup.append(np.empty([tup_info['tup_len'],k],dtype=np.int32))
    #
-   # do batching of Bcast because of annoying mpi stalling problems
-   #
-   # calculate number of batches
-   #
-   n_row = molecule['mpi_max_elms']//k 
-   #
-   n_batch = tup_info['tup_len']//n_row
-   #
-   if (tup_info['tup_len'] % n_row != 0): n_batch += 1
-   #
-   # now perform batched collective comm
-   #
    timer_mpi(molecule,'mpi_time_comm_init',k-1)
    #
-   end = 0
+   # bcast tuples
    #
-   for i in range(0,n_batch):
+   if (molecule['mpi_master']):
       #
-      start = end
+      molecule['mpi_comm'].bcast(tup[k-1],root=0)
+   #
+   else:
       #
-      end = min(tup_info['tup_len'],(i+1)*n_row)
-      #
-      # bcast tuples
-      #
-      molecule['mpi_comm'].Bcast([tup[k-1][start:end,:],MPI.INT],root=0)
+      tup[k-1] = molecule['mpi_comm'].bcast(None,root=0)
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
    #
