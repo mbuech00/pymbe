@@ -320,17 +320,13 @@ def allred_e_inc(molecule,e_inc,k):
    #
    # now perform batched collective comm
    #
+   end = 0
+   #
    for i in range(0,n_batch):
       #
-      start = i*molecule['mpi_max_elms']
+      start = end
       #
-      if (i < (n_batch-1)):
-         #
-         end = (i+1)*molecule['mpi_max_elms']
-      #
-      else:
-         #
-         end = len(e_inc[k-1])
+      end = min(len(e_inc[k-1]),(i+1)*molecule['mpi_max_elms'])
       #
       if (molecule['mpi_master']):
          #

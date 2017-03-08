@@ -190,7 +190,7 @@ def prepare_calc(molecule):
       #
       # init prim tuple and e_inc
       #
-      molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['ncore'],molecule['u_limit'])),dtype=np.int)]
+      molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['ncore'],molecule['u_limit'])),dtype=np.int32)]
       molecule['prim_energy_inc'] = [np.zeros(len(molecule['prim_tuple'][0]),dtype=np.float64)]
    #
    # set params and lists for virt expansion
@@ -216,7 +216,7 @@ def prepare_calc(molecule):
       #
       # init prim tuple and e_inc
       #
-      molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['l_limit'],molecule['l_limit']+molecule['u_limit'])),dtype=np.int)]
+      molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['l_limit'],molecule['l_limit']+molecule['u_limit'])),dtype=np.int32)]
       molecule['prim_energy_inc'] = [np.zeros(len(molecule['prim_tuple'][0]),dtype=np.float64)]
    #
    # set max_order
@@ -278,7 +278,7 @@ def mono_exp_merge_info(molecule):
    #
    for k in range(1,molecule['min_corr_order']):
       #
-      molecule['corr_tuple'].append(np.array([],dtype=np.int))
+      molecule['corr_tuple'].append(np.array([],dtype=np.int32))
       molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
    #
    if (molecule['mpi_master']):

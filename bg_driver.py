@@ -253,7 +253,7 @@ def mono_exp_finish(molecule):
    #
    for _ in range(len(molecule['corr_tuple']),len(molecule['prim_tuple'])):
       #
-      molecule['corr_tuple'].append(np.array([],dtype=np.int))
+      molecule['corr_tuple'].append(np.array([],dtype=np.int32))
    #
    for _ in range(len(molecule['corr_energy_inc']),len(molecule['prim_energy_inc'])):
       #
@@ -308,7 +308,7 @@ def set_corr_order(molecule):
       #
       for _ in range(0,len(molecule['prim_energy'])):
          #
-         molecule['corr_tuple'].append(np.array([],dtype=np.int))
+         molecule['corr_tuple'].append(np.array([],dtype=np.int32))
          molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
          #
          molecule['corr_energy'].append(0.0)
