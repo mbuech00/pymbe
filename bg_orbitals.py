@@ -105,7 +105,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       if (len(tmp_2) > 1): tmp_2.sort()
       #
-      tup.append(np.array(tmp_2,dtype=np.int))
+      tup.append(np.array(tmp_2,dtype=np.int32))
       #
       del tmp
       del tmp_2

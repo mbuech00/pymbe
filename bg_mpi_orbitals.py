@@ -78,7 +78,7 @@ def bcast_tuples(molecule,tup,k):
       #
       timer_mpi(molecule,'mpi_time_work_init',k-1)
       #
-      tup.append(np.empty([tup_info['tup_len'],k],dtype=np.int))
+      tup.append(np.empty([tup_info['tup_len'],k],dtype=np.int32))
    #
    # do batching of Bcast because of annoying mpi stalling problems
    #
@@ -94,17 +94,13 @@ def bcast_tuples(molecule,tup,k):
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1)
    #
+   end = 0
+   #
    for i in range(0,n_batch):
       #
-      start = i*n_row
+      start = end
       #
-      if (i < (n_batch-1)):
-         #
-         end = (i+1)*n_row
-      #
-      else:
-         #
-         end = tup_info['tup_len']
+      end = min(tup_info['tup_len'],(i+1)*n_row)
       #
       # bcast tuples
       #
@@ -226,7 +222,7 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    # append tup[k-1] with numpy array of tmp list
    #
-   tup.append(np.array(tmp,dtype=np.int))
+   tup.append(np.array(tmp,dtype=np.int32))
    #
    # bcast tuples
    #
