@@ -9,7 +9,6 @@ from math import factorial
 from mpi4py import MPI
 
 from bg_mpi_time import init_mpi_timings
-from bg_time import init_phase_timings
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -32,9 +31,7 @@ def bcast_mol_dict(molecule):
    #
    MPI.COMM_WORLD.bcast(molecule,root=0)
    #
-   # init program phase timings and mpi master timings
-   #
-   init_phase_timings(molecule)
+   # init mpi master timings
    #
    init_mpi_timings(molecule)
    #
@@ -49,14 +46,6 @@ def bcast_mol_dict(molecule):
    # private scr dir
    #
    molecule['scr'] = molecule['wrk']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
-   #
-   return molecule
-
-def init_mpi_vars(molecule):
-   #
-   # batching of collective comm. routines - max number of elements
-   #
-   molecule['mpi_max_elms'] = 10000
    #
    return molecule
 

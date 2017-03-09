@@ -9,7 +9,7 @@ from mpi4py import MPI
 
 from bg_mpi_wrapper import finalize_mpi
 from bg_mpi_main import init_mpi
-from bg_time import timings_main
+from bg_mpi_time import collect_mpi_timings, calc_mpi_timings
 from bg_setup import init_calc, term_calc
 from bg_utils import ref_calc
 from bg_print import print_main_header, print_main_end 
@@ -54,7 +54,9 @@ def main():
       #
       #  ---  collect timings...  ---
       #
-      timings_main(molecule)
+      collect_mpi_timings(molecule)
+      #
+      calc_mpi_timings(molecule)
       #
       #  ---  start (potential) reference calculation...  ---
       #

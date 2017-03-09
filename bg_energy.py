@@ -29,6 +29,8 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
    #
    else:
       #
+      timer_mpi(molecule,'mpi_time_work_kernel',order)
+      #
       string = {'drop': ''}
       #
       counter = 0
@@ -58,6 +60,8 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
          if (molecule['error'][-1]):
             #
             return molecule, tup, e_inc
+      #
+      timer_mpi(molecule,'mpi_time_work_kernel',order,True)
    #
    return molecule, tup, e_inc
 
@@ -68,6 +72,8 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
       energy_summation_par(molecule,k,tup,e_inc,energy,level)
    #
    else:
+      #
+      timer_mpi(molecule,'mpi_time_work_final',k)
       #
       # compute energy increments at level k
       #
@@ -110,6 +116,8 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
          e_tmp += energy[k-2]
       #
       energy.append(e_tmp)
+      #
+      timer_mpi(molecule,'mpi_time_work_final',k,True)
    #
    return e_inc, energy
 

@@ -49,16 +49,8 @@ def print_init_header(order,level):
 
 def print_init_end(molecule,order,level):
    #
-   if (level == 'MACRO'):
-      #
-      time_init = molecule['prim_time_init']
-   #
-   elif (level == 'CORRE'):
-      #
-      time_init = molecule['corr_time_init']
-   #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} initialization done in {2:8.2e} seconds'.format(level,order,time_init[order-2]))
+   print(' STATUS-{0:}: order = {1:>d} initialization done'.format(level,order))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -73,16 +65,8 @@ def print_final_header(order,level):
 
 def print_final_end(molecule,order,level):
    #
-   if (level == 'MACRO'):
-      #
-      time_final = molecule['prim_time_final']
-   #
-   elif (level == 'CORRE'):
-      #
-      time_final = molecule['corr_time_final']
-   #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} finalization done in {2:8.2e} seconds'.format(level,order,time_final[order-1]))
+   print(' STATUS-{0:}: order = {1:>d} finalization done'.format(level,order))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -119,23 +103,14 @@ def print_status_end(molecule,order,level):
    #
    if (level == 'MACRO'):
       #
-      time = molecule['prim_time_kernel']
       tup = molecule['prim_tuple']
    #
    elif (level == 'CORRE'):
       #
-      time = molecule['corr_time_kernel']
       tup = molecule['corr_tuple']
    #
    print(' --------------------------------------------------------------------------------------------')
-   #
-   if (len(tup[-1]) == 0):
-      #
-      print(' STATUS-{0:}: order = {1:>d} energy calculation done'.format(level,order))
-   #
-   else:
-      #
-      print(' STATUS-{0:}: order = {1:>d} energy calculation done in {2:8.2e} seconds'.format(level,order,time[-1]))
+   print(' STATUS-{0:}: order = {1:>d} energy calculation done'.format(level,order))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -212,7 +187,7 @@ def print_ref_header():
 
 def print_ref_end(molecule):
    #
-   print(' STATUS-REF: full reference calculation done in {0:8.2e} seconds'.format(molecule['ref_time'][0]))
+   print(' STATUS-REF: full reference calculation done in {0:8.2e} seconds'.format(molecule['ref_time']))
    print(' --------------------------------------------------------------------------------------------')
    print('')
    #

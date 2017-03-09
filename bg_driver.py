@@ -6,7 +6,6 @@
 import numpy as np
 
 from bg_mpi_utils import prepare_calc, mono_exp_merge_info
-from bg_time import timer_phase
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
@@ -109,13 +108,9 @@ def mono_exp_drv(molecule,start,end,level):
          #
          if (level == 'CORRE'):
             #
-            timer_phase(molecule,'time_init',k,level)
-            #
             orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
             #
             mono_exp_finish(molecule)
-            #
-            timer_phase(molecule,'time_init',k,level)
          #
          break
    #
@@ -143,11 +138,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # run the calculations
    #
-   timer_phase(molecule,'time_kernel',k,level)
-   #
    energy_kernel_mono_exp(molecule,k,tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
-   #
-   timer_phase(molecule,'time_kernel',k,level)
    #
    # print status end
    #
@@ -157,11 +148,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # calculate the energy at order k
    #
-   timer_phase(molecule,'time_final',k,level)
-   #
    energy_summation(molecule,k,tup,e_inc,e_tot,level)
-   #
-   timer_phase(molecule,'time_final',k,level)
    #
    print_final_end(molecule,k,level)
    # 
@@ -197,8 +184,6 @@ def mono_exp_init(molecule,k,level):
    #
    print_init_header(k,level)
    #
-   timer_phase(molecule,'time_init',k-1,level)
-   #
    # orbital screening (using info from order k-1)
    #
    orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k-1,level)
@@ -212,8 +197,6 @@ def mono_exp_init(molecule,k,level):
    if ((level == 'MACRO') and (len(tup[k-1]) == 0)): molecule['conv'].append(True)
    #
    # print init end
-   #
-   timer_phase(molecule,'time_init',k-1,level)
    #
    print_init_end(molecule,k,level)
    #
@@ -332,13 +315,6 @@ def set_corr_order(molecule):
    for _ in range(0,molecule['min_corr_order']-1):
       #
       molecule['corr_energy'].append(0.0)
-      #
-      molecule['corr_time_kernel'].append(0.0)
-      molecule['corr_time_final'].append(0.0)
-   #
-   for _ in range(0,molecule['min_corr_order']-2):
-      #
-      molecule['corr_time_init'].append(0.0)
    #
    return molecule
 

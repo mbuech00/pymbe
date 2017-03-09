@@ -122,6 +122,19 @@ def collect_mpi_timings(molecule):
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #
+      # now, use master timings to calculate overall phase timings
+      #
+      molecule['time_init'] = np.asarray(molecule['mpi_time_work_init']+[sum(molecule['mpi_time_work_init'])])\
+                              +np.asarray(molecule['mpi_time_comm_init']+[sum(molecule['mpi_time_comm_init'])])\
+                               +np.asarray(molecule['mpi_time_idle_init']+[sum(molecule['mpi_time_idle_init'])])
+      molecule['time_kernel'] = np.asarray(molecule['mpi_time_work_kernel']+[sum(molecule['mpi_time_work_kernel'])])\
+                                +np.asarray(molecule['mpi_time_comm_kernel']+[sum(molecule['mpi_time_comm_kernel'])])\
+                                 +np.asarray(molecule['mpi_time_idle_kernel']+[sum(molecule['mpi_time_idle_kernel'])])
+      molecule['time_final'] = np.asarray(molecule['mpi_time_work_final']+[sum(molecule['mpi_time_work_final'])])\
+                               +np.asarray(molecule['mpi_time_comm_final']+[sum(molecule['mpi_time_comm_final'])])\
+                                +np.asarray(molecule['mpi_time_idle_final']+[sum(molecule['mpi_time_idle_final'])])
+      molecule['time_tot'] = molecule['time_init']+molecule['time_kernel']+molecule['time_final']
+      #
       # next, collect mpi timings
       #
       # init mpi lists with master timings

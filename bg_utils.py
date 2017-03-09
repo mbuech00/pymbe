@@ -4,13 +4,13 @@
 """ bg_utils.py: general utilities for Bethe-Goldstone correlation calculation."""
 
 import numpy as np
+from mpi4py import MPI
 from itertools import combinations, chain
 from scipy.misc import comb
 from os import listdir, unlink
 from os.path import join, isfile
 from subprocess import call
 
-from bg_time import timer_phase
 from bg_print import print_ref_header, print_ref_end
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -68,11 +68,11 @@ def ref_calc(molecule):
    #
    print_ref_header()
    #
-   timer_phase(molecule,'ref_time',1,'REF')
+   start_time = MPI.Wtime()
    #
    run_calc_corr(molecule,'','REF')
    #
-   timer_phase(molecule,'ref_time',1,'REF')
+   molecule['ref_time'] = MPI.Wtime()-start_time
    #
    print_ref_end(molecule)
    #
