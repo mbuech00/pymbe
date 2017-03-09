@@ -7,10 +7,10 @@ from os import mkdir, chdir
 from shutil import copy, rmtree 
 
 from bg_mpi_wrapper import abort_mpi
-from bg_mpi_utils import bcast_mol_dict, init_mpi_vars, init_slave_env, remove_slave_env
+from bg_mpi_utils import bcast_mol_dict, init_slave_env, remove_slave_env
+from bg_mpi_time import init_mpi_timings
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utils import run_calc_hf
-from bg_time import init_phase_timings
 from bg_print import redirect_stdout
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -48,10 +48,6 @@ def init_calc(molecule):
    #
    if (molecule['mpi_parallel']):
       #
-      # mpi handcoded variables
-      #
-      init_mpi_vars(molecule)
-      #
       # bcast mol dict
       #
       bcast_mol_dict(molecule)
@@ -62,19 +58,19 @@ def init_calc(molecule):
    #
    else:
       #
+      # init timings
+      #
+      init_mpi_timings(molecule)
+      #
       # init private scr dir
       #
-      molecule['scr'] = molecule['wrk']+'/'+molecule['scr_name']
-      #
-      # init program phase timings
-      #
-      init_phase_timings(molecule)
+      molecule['scr_dir'] = molecule['wrk_dir']+'/'+molecule['scr_name']
    #
    # init scr env
    #
-   mkdir(molecule['scr'])
+   mkdir(molecule['scr_dir'])
    #
-   chdir(molecule['scr']) 
+   chdir(molecule['scr_dir']) 
    #
    # run hf calc to determine dimensions
    #
@@ -90,13 +86,13 @@ def init_calc(molecule):
 
 def term_calc(molecule):
    #
-   chdir(molecule['wrk'])
+   chdir(molecule['wrk_dir'])
    #
    if (molecule['error'][-1]):
       #
-      copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
+      copy(molecule['scr_dir']+'/OUTPUT.OUT',molecule['wrk_dir']+'/OUTPUT.OUT')
    #
-   rmtree(molecule['scr'],ignore_errors=True)
+   rmtree(molecule['scr_dir'],ignore_errors=True)
    #
    if (molecule['mpi_master'] and molecule['mpi_parallel']):
       #

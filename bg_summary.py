@@ -163,17 +163,15 @@ def summary_detail_res_1(molecule):
    print('')
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('     BG expansion order  |   total prim. exp. energy   |    total energy incl. energy corr.   |    total time    |    total time incl. corr.')
+   print('     BG expansion order  |   total prim. exp. energy   |    total energy incl. energy corr.   |    total time incl. corr. (HHH : MM : SS)   ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['prim_energy'])):
       #
-      prim_time = sum(molecule['prim_time_tot'][:i+1])
-      total_time = sum(molecule['prim_time_tot'][:i+1])+sum(molecule['corr_time_tot'][:i+1])
+      total_time = np.sum(molecule['time_init'][:i+1])+np.sum(molecule['time_kernel'][:i+1])+np.sum(molecule['time_final'][:i+1])
       #
-      print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                  {3:03d} : {4:02d} : {5:02d}          {6:03d} : {7:02d} : {8:02d}'.\
+      print('          {0:>4d}                    {1:>7.5e}                      {2:>7.5e}                                {3:03d} : {4:02d} : {5:02d}'.\
                                         format(i+1,molecule['prim_energy'][i],molecule['prim_energy'][i]+molecule['corr_energy'][i],\
-                                               int(prim_time//3600),int((prim_time-(prim_time//3600)*3600.)//60),int(prim_time-(prim_time//3600)*3600.-((prim_time-(prim_time//3600)*3600.)//60)*60.),\
                                                int(total_time//3600),int((total_time-(total_time//3600)*3600.)//60),int(total_time-(total_time//3600)*3600.-((total_time-(total_time//3600)*3600.)//60)*60.)))
    #
    return
@@ -212,7 +210,7 @@ def summary_phase_time(molecule):
    print('')
    #
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-   print('     BG expansion order  |        time: init (in s / %)        |        time: kernel (in s / %)        |        time: final (in s / %)      ')
+   print('     BG expansion order  |   time: init (HHH : MM : SS / %)   |   time: kernel (HHH : MM : SS / %)   |    time: final (HHH : MM : SS / %)   ')
    print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    for i in range(0,len(molecule['prim_energy'])):
@@ -222,7 +220,7 @@ def summary_phase_time(molecule):
       time_f = molecule['time_final'][i]
       time_t = molecule['time_tot'][i]
       #
-      print('          {0:>4d}                    {1:03d} : {2:02d} : {3:02d} / {4:>6.2f}                {5:03d} : {6:02d} : {7:02d} / {8:>6.2f}                  {9:03d} : {10:02d} : {11:02d} / {12:>6.2f}'.\
+      print('          {0:>4d}                   {1:03d} : {2:02d} : {3:02d} / {4:>6.2f}                {5:03d} : {6:02d} : {7:02d} / {8:>6.2f}                  {9:03d} : {10:02d} : {11:02d} / {12:>6.2f}'.\
                 format(i+1,int(time_i//3600),int((time_i-(time_i//3600)*3600.)//60),int(time_i-(time_i//3600)*3600.-((time_i-(time_i//3600)*3600.)//60)*60.),(time_i/time_t)*100.0,\
                        int(time_k//3600),int((time_k-(time_k//3600)*3600.)//60),int(time_k-(time_k//3600)*3600.-((time_k-(time_k//3600)*3600.)//60)*60.),(time_k/time_t)*100.0,\
                        int(time_f//3600),int((time_f-(time_f//3600)*3600.)//60),int(time_f-(time_f//3600)*3600.-((time_f-(time_f//3600)*3600.)//60)*60.),(time_f/time_t)*100.0))
@@ -235,7 +233,7 @@ def summary_phase_time(molecule):
    time_f = molecule['time_final'][-1]
    time_t = molecule['time_tot'][-1]
    #
-   print('           total                  {0:03d} : {1:02d} : {2:02d} / {3:>6.2f}                {4:03d} : {5:02d} : {6:02d} / {7:>6.2f}                  {8:03d} : {9:02d} : {10:02d} / {11:>6.2f}'.\
+   print('           total                 {0:03d} : {1:02d} : {2:02d} / {3:>6.2f}                {4:03d} : {5:02d} : {6:02d} / {7:>6.2f}                  {8:03d} : {9:02d} : {10:02d} / {11:>6.2f}'.\
              format(int(time_i//3600),int((time_i-(time_i//3600)*3600.)//60),int(time_i-(time_i//3600)*3600.-((time_i-(time_i//3600)*3600.)//60)*60.),(time_i/time_t)*100.0,\
                     int(time_k//3600),int((time_k-(time_k//3600)*3600.)//60),int(time_k-(time_k//3600)*3600.-((time_k-(time_k//3600)*3600.)//60)*60.),(time_k/time_t)*100.0,\
                     int(time_f//3600),int((time_f-(time_f//3600)*3600.)//60),int(time_f-(time_f//3600)*3600.-((time_f-(time_f//3600)*3600.)//60)*60.),(time_f/time_t)*100.0))

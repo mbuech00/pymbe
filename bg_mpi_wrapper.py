@@ -19,7 +19,7 @@ def abort_mpi(molecule):
    #
    #  ---  master routine
    #
-   chdir(molecule['wrk'])
+   chdir(molecule['wrk_dir'])
    #
    molecule['mpi_comm'].Abort()
    #

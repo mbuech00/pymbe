@@ -29,6 +29,8 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    else:
       #
+      timer_mpi(molecule,'mpi_time_work_init',k-1)
+      #
       tmp_2 = []
       #
       if (level == 'MACRO'):
@@ -109,6 +111,8 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       del tmp
       del tmp_2
+      #
+      timer_mpi(molecule,'mpi_time_work_init',k-1,True)
    #
    return tup
 
@@ -134,7 +138,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       orb_entanglement_main(molecule,l_limit,u_limit,order,level)
       #
-      if (molecule['mpi_parallel']): timer_mpi(molecule,'mpi_time_work_init',order)
+      timer_mpi(molecule,'mpi_time_work_init',order)
       #
       orb_entanglement_arr(molecule,l_limit,u_limit,level)
       #
@@ -142,11 +146,9 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       if (calc_end):
          #
-         if (molecule['mpi_parallel']):
-            #
-            timer_mpi(molecule,'mpi_time_work_init',order,True)
-            #
-            collect_init_mpi_time(molecule,order)
+         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         #
+         if (molecule['mpi_parallel']): collect_init_mpi_time(molecule,order)
       #
       else:
          #
@@ -166,11 +168,9 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          print_update(molecule,l_limit,u_limit,level)
          #
-         if (molecule['mpi_parallel']):
-            #
-            timer_mpi(molecule,'mpi_time_work_init',order,True)
-            #
-            collect_init_mpi_time(molecule,order)
+         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         #
+         if (molecule['mpi_parallel']): collect_init_mpi_time(molecule,order)
    #
    return molecule
 
@@ -179,47 +179,51 @@ def orb_entanglement_main(molecule,l_limit,u_limit,order,level):
    if (molecule['mpi_parallel']):
       #
       orb_entanglement_main_par(molecule,l_limit,u_limit,order,level)
-      #
-      return molecule
    #
-   if (level == 'MACRO'):
+   else:
       #
-      orb = molecule['prim_orb_ent']
+      timer_mpi(molecule,'mpi_time_work_init',order)
       #
-      end = len(molecule['prim_tuple'][order-1])
-   #
-   elif (level == 'CORRE'):
-      #
-      orb = molecule['corr_orb_ent']
-      #
-      end = len(molecule['corr_tuple'][order-1])+len(molecule['prim_tuple'][order-1])
-   #
-   orb.append(np.zeros([u_limit,u_limit],dtype=np.float64))
-   #
-   for l in range(0,end):
-      #
-      if ((level == 'CORRE') and (l >= len(molecule['prim_tuple'][order-1]))):
+      if (level == 'MACRO'):
          #
-         tup = molecule['corr_tuple'][order-1]
-         e_inc = molecule['corr_energy_inc'][order-1]
-         ldx = l-len(molecule['prim_tuple'][order-1])
+         orb = molecule['prim_orb_ent']
+         #
+         end = len(molecule['prim_tuple'][order-1])
       #
-      else:
+      elif (level == 'CORRE'):
          #
-         tup = molecule['prim_tuple'][order-1]           
-         e_inc = molecule['prim_energy_inc'][order-1]
-         ldx = l
-      # 
-      for i in range(l_limit,l_limit+u_limit):
+         orb = molecule['corr_orb_ent']
          #
-         for j in range(i+1,l_limit+u_limit):
+         end = len(molecule['corr_tuple'][order-1])+len(molecule['prim_tuple'][order-1])
+      #
+      orb.append(np.zeros([u_limit,u_limit],dtype=np.float64))
+      #
+      for l in range(0,end):
+         #
+         if ((level == 'CORRE') and (l >= len(molecule['prim_tuple'][order-1]))):
             #
-            # add up contributions from the correlation between orbs i and j at current order
+            tup = molecule['corr_tuple'][order-1]
+            e_inc = molecule['corr_energy_inc'][order-1]
+            ldx = l-len(molecule['prim_tuple'][order-1])
+         #
+         else:
             #
-            if (set([i+1,j+1]) <= set(tup[ldx])):
+            tup = molecule['prim_tuple'][order-1]           
+            e_inc = molecule['prim_energy_inc'][order-1]
+            ldx = l
+         # 
+         for i in range(l_limit,l_limit+u_limit):
+            #
+            for j in range(i+1,l_limit+u_limit):
                #
-               orb[-1][i-l_limit][j-l_limit] += e_inc[ldx]
-               orb[-1][j-l_limit][i-l_limit] = orb[-1][i-l_limit][j-l_limit]
+               # add up contributions from the correlation between orbs i and j at current order
+               #
+               if (set([i+1,j+1]) <= set(tup[ldx])):
+                  #
+                  orb[-1][i-l_limit][j-l_limit] += e_inc[ldx]
+                  orb[-1][j-l_limit][i-l_limit] = orb[-1][i-l_limit][j-l_limit]
+      #
+      timer_mpi(molecule,'mpi_time_work_init',order,True)
    #
    return molecule
       

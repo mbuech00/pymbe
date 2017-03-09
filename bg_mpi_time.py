@@ -122,7 +122,7 @@ def collect_mpi_timings(molecule):
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #
-      # next, collect mpi timings
+      # collect mpi timings
       #
       # init mpi lists with master timings
       #
@@ -169,82 +169,106 @@ def calc_mpi_timings(molecule):
    #
    #  ---  master routine
    #
-   molecule['sum_work_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
-   molecule['sum_comm_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
-   molecule['sum_idle_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
+   # use master timings to calculate overall phase timings
    #
-   # sum up work/comm/idle contributions from all orders for the individual mpi procs
-   #
-   for i in range(0,4):
+   if (not molecule['mpi_parallel']):
       #
-      for j in range(0,molecule['mpi_size']):
-         #
-         molecule['sum_work_abs'][i][j] = np.sum(molecule['mpi_time_work'][i][j])
-         molecule['sum_comm_abs'][i][j] = np.sum(molecule['mpi_time_comm'][i][j])
-         molecule['sum_idle_abs'][i][j] = np.sum(molecule['mpi_time_idle'][i][j])
+      molecule['time_init'] = np.asarray(molecule['mpi_time_work_init']+[sum(molecule['mpi_time_work_init'])])
+      molecule['time_kernel'] = np.asarray(molecule['mpi_time_work_kernel']+[sum(molecule['mpi_time_work_kernel'])])
+      molecule['time_final'] = np.asarray(molecule['mpi_time_work_final']+[sum(molecule['mpi_time_work_final'])])
+      molecule['time_tot'] = molecule['time_init']+molecule['time_kernel']+molecule['time_final']
    #
-   # mpi distribution - slave (only count slave timings)
-   #
-   molecule['dist_init'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-   molecule['dist_kernel'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-   molecule['dist_final'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-   molecule['dist_main'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-   #
-   for i in range(0,4):
+   else:
       #
-      if (i == 0):
-         #
-         dist = molecule['dist_init']
+      molecule['time_init'] = np.asarray(molecule['mpi_time_work_init']+[sum(molecule['mpi_time_work_init'])])\
+                              +np.asarray(molecule['mpi_time_comm_init']+[sum(molecule['mpi_time_comm_init'])])\
+                               +np.asarray(molecule['mpi_time_idle_init']+[sum(molecule['mpi_time_idle_init'])])
+      molecule['time_kernel'] = np.asarray(molecule['mpi_time_work_kernel']+[sum(molecule['mpi_time_work_kernel'])])\
+                                +np.asarray(molecule['mpi_time_comm_kernel']+[sum(molecule['mpi_time_comm_kernel'])])\
+                                 +np.asarray(molecule['mpi_time_idle_kernel']+[sum(molecule['mpi_time_idle_kernel'])])
+      molecule['time_final'] = np.asarray(molecule['mpi_time_work_final']+[sum(molecule['mpi_time_work_final'])])\
+                               +np.asarray(molecule['mpi_time_comm_final']+[sum(molecule['mpi_time_comm_final'])])\
+                                +np.asarray(molecule['mpi_time_idle_final']+[sum(molecule['mpi_time_idle_final'])])
+      molecule['time_tot'] = molecule['time_init']+molecule['time_kernel']+molecule['time_final']
       #
-      elif (i == 1):
-         #
-         dist = molecule['dist_kernel']
+      # init summation arrays
       #
-      elif (i == 2):
-         #
-         dist = molecule['dist_final']
+      molecule['sum_work_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
+      molecule['sum_comm_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
+      molecule['sum_idle_abs'] = np.empty([4,molecule['mpi_size']],dtype=np.float64)
       #
-      elif (i == 3):
-         #
-         dist = molecule['dist_main']
-      #
-      # for init/kernel/final, calculate the relative distribution between work/comm/idle for the individual slaves
-      #
-      for j in range(0,molecule['mpi_size']):
-         #
-         dist[0][j] = (molecule['sum_work_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
-         dist[1][j] = (molecule['sum_comm_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
-         dist[2][j] = (molecule['sum_idle_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
-   #
-   # mpi distribution - order (only count slave timings - total results are stored as the last entry)
-   #
-   molecule['dist_order'] = np.zeros([3,len(molecule['prim_energy'])+1],dtype=np.float64)
-   #
-   # absolute amount of work/comm/idle at each order
-   #
-   for k in range(0,len(molecule['prim_energy'])):
+      # sum up work/comm/idle contributions from all orders for the individual mpi procs
       #
       for i in range(0,4):
          #
-         for j in range(1,molecule['mpi_size']):
+         for j in range(0,molecule['mpi_size']):
             #
-            molecule['dist_order'][0][k] += molecule['mpi_time_work'][i][j][k]
-            molecule['dist_order'][1][k] += molecule['mpi_time_comm'][i][j][k]
-            molecule['dist_order'][2][k] += molecule['mpi_time_idle'][i][j][k]
-   #
-   molecule['dist_order'][0][-1] = np.sum(molecule['dist_order'][0][:-1])
-   molecule['dist_order'][1][-1] = np.sum(molecule['dist_order'][1][:-1]) 
-   molecule['dist_order'][2][-1] = np.sum(molecule['dist_order'][2][:-1])
-   #
-   # calculate relative results
-   #
-   for k in range(0,len(molecule['prim_energy'])+1):
+            molecule['sum_work_abs'][i][j] = np.sum(molecule['mpi_time_work'][i][j])
+            molecule['sum_comm_abs'][i][j] = np.sum(molecule['mpi_time_comm'][i][j])
+            molecule['sum_idle_abs'][i][j] = np.sum(molecule['mpi_time_idle'][i][j])
       #
-      sum_k = molecule['dist_order'][0][k]+molecule['dist_order'][1][k]+molecule['dist_order'][2][k]
+      # mpi distribution - slave (only count slave timings)
       #
-      molecule['dist_order'][0][k] = (molecule['dist_order'][0][k]/sum_k)*100.0
-      molecule['dist_order'][1][k] = (molecule['dist_order'][1][k]/sum_k)*100.0
-      molecule['dist_order'][2][k] = (molecule['dist_order'][2][k]/sum_k)*100.0
+      molecule['dist_init'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+      molecule['dist_kernel'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+      molecule['dist_final'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+      molecule['dist_main'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
+      #
+      for i in range(0,4):
+         #
+         if (i == 0):
+            #
+            dist = molecule['dist_init']
+         #
+         elif (i == 1):
+            #
+            dist = molecule['dist_kernel']
+         #
+         elif (i == 2):
+            #
+            dist = molecule['dist_final']
+         #
+         elif (i == 3):
+            #
+            dist = molecule['dist_main']
+         #
+         # for init/kernel/final, calculate the relative distribution between work/comm/idle for the individual slaves
+         #
+         for j in range(0,molecule['mpi_size']):
+            #
+            dist[0][j] = (molecule['sum_work_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+            dist[1][j] = (molecule['sum_comm_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+            dist[2][j] = (molecule['sum_idle_abs'][i][j]/(molecule['sum_work_abs'][i][j]+molecule['sum_comm_abs'][i][j]+molecule['sum_idle_abs'][i][j]))*100.0
+      #
+      # mpi distribution - order (only count slave timings - total results are stored as the last entry)
+      #
+      molecule['dist_order'] = np.zeros([3,len(molecule['prim_energy'])+1],dtype=np.float64)
+      #
+      # absolute amount of work/comm/idle at each order
+      #
+      for k in range(0,len(molecule['prim_energy'])):
+         #
+         for i in range(0,4):
+            #
+            for j in range(1,molecule['mpi_size']):
+               #
+               molecule['dist_order'][0][k] += molecule['mpi_time_work'][i][j][k]
+               molecule['dist_order'][1][k] += molecule['mpi_time_comm'][i][j][k]
+               molecule['dist_order'][2][k] += molecule['mpi_time_idle'][i][j][k]
+      #
+      molecule['dist_order'][0][-1] = np.sum(molecule['dist_order'][0][:-1])
+      molecule['dist_order'][1][-1] = np.sum(molecule['dist_order'][1][:-1]) 
+      molecule['dist_order'][2][-1] = np.sum(molecule['dist_order'][2][:-1])
+      #
+      # calculate relative results
+      #
+      for k in range(0,len(molecule['prim_energy'])+1):
+         #
+         sum_k = molecule['dist_order'][0][k]+molecule['dist_order'][1][k]+molecule['dist_order'][2][k]
+         #
+         molecule['dist_order'][0][k] = (molecule['dist_order'][0][k]/sum_k)*100.0
+         molecule['dist_order'][1][k] = (molecule['dist_order'][1][k]/sum_k)*100.0
+         molecule['dist_order'][2][k] = (molecule['dist_order'][2][k]/sum_k)*100.0
    #
    return molecule
 
