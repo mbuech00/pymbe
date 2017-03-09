@@ -52,9 +52,19 @@ def bcast_domains(molecule,dom,k):
    #
    return dom
 
-def bcast_tuples(molecule,tup,k):
+def bcast_tuples(molecule,buff,tup,k):
    #
    #  ---  master/slave routine
+   #
+   # bcast total number of tuples
+   #
+   if (molecule['mpi_master']):
+      #
+      timer_mpi(molecule,'mpi_time_comm_init',k-1)
+      #
+      tup_info = {'tup_len': len(buff)}
+      #
+      molecule['mpi_comm'].bcast(tup_info,root=0)
    #
    timer_mpi(molecule,'mpi_time_idle_init',k-1)
    #
@@ -62,37 +72,17 @@ def bcast_tuples(molecule,tup,k):
    #
    timer_mpi(molecule,'mpi_time_comm_init',k-1)
    #
-   # bcast total number of tuples
+   # bcast buffer
    #
-   if (molecule['mpi_master']):
-      #
-      tup_info = {'tup_len': len(tup[k-1])}
-      #
-      molecule['mpi_comm'].bcast(tup_info,root=0)
-      #
-      timer_mpi(molecule,'mpi_time_work_init',k-1)
+   molecule['mpi_comm'].Bcast([buff,MPI.INT],root=0)
    #
-   else:
-      #
-      tup_info = molecule['mpi_comm'].bcast(None,root=0)
-      #
-      timer_mpi(molecule,'mpi_time_work_init',k-1)
-      #
-      tup.append(np.empty([tup_info['tup_len'],k],dtype=np.int32))
+   timer_mpi(molecule,'mpi_time_work_init',k-1)
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1)
+   # append tup[k-1] with buff
    #
-   # bcast tuples
+   tup.append(buff)
    #
-   if (molecule['mpi_master']):
-      #
-      molecule['mpi_comm'].bcast(tup[k-1],root=0)
-   #
-   else:
-      #
-      tup[k-1] = molecule['mpi_comm'].bcast(None,root=0)
-   #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
+   timer_mpi(molecule,'mpi_time_work_init',k-1,True)
    #
    return tup
 
@@ -206,13 +196,13 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    if (len(tmp) >= 1): tmp.sort()
    #
-   # append tup[k-1] with numpy array of tmp list
+   # make numpy array out of tmp
    #
-   tup.append(np.array(tmp,dtype=np.int32))
+   buff = np.array(tmp,dtype=np.int32)
    #
-   # bcast tuples
+   # bcast buff
    #
-   bcast_tuples(molecule,tup,k)
+   bcast_tuples(molecule,buff,tup,k)
    #
    del tmp
    #
@@ -344,9 +334,17 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
    #
-   # receive tuples
+   # init buffer
    #
-   bcast_tuples(molecule,tup,k)
+   tup_info = molecule['mpi_comm'].bcast(None,root=0)
+   #
+   timer_mpi(molecule,'mpi_time_work_init',k-1)
+   #
+   buff = np.empty([tup_info['tup_len'],k],dtype=np.int32)
+   #
+   # receive buffer
+   #
+   bcast_tuples(molecule,buff,tup,k)
    #
    data.clear()
    #
@@ -360,7 +358,7 @@ def red_orb_ent(molecule,tmp,recv_buff,k):
    #
    molecule['mpi_comm'].Barrier()
    #
-   # reduce orb[-1]
+   # reduce tmp into recv_buff
    #
    timer_mpi(molecule,'mpi_time_comm_init',k)
    #
@@ -385,18 +383,6 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
       molecule['mpi_comm'].bcast(msg,root=0)
       #
       timer_mpi(molecule,'mpi_time_work_init',order)
-      #
-      # init orb[-1]
-      #
-      if (level == 'MACRO'):
-         #
-         orb = molecule['prim_orb_ent']
-      #
-      elif (level == 'CORRE'):
-         #
-         orb = molecule['corr_orb_ent']
-      #
-      orb.append(np.zeros([u_limit,u_limit],dtype=np.float64))
    #
    else:
       #
@@ -441,17 +427,33 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
                   tmp[i-l_limit,j-l_limit] += e_inc[ldx]
                   tmp[j-l_limit,i-l_limit] = tmp[i-l_limit,j-l_limit]
    #
-   # reduce orb_ent onto master
+   # init recv_buff
    #
    if (molecule['mpi_master']):
       #
-      recv_buff = orb[-1]
+      recv_buff = np.zeros([u_limit,u_limit],dtype=np.float64)
    #
    else:
       #
       recv_buff = None
    #
+   # reduce tmp onto master
+   #
    red_orb_ent(molecule,tmp,recv_buff,order)
+   #
+   if (molecule['mpi_master']):
+      #
+      timer_mpi(molecule,'mpi_time_work_init',order)
+      #
+      if (level == 'MACRO'):
+         #
+         molecule['prim_orb_ent'].append(recv_buff)
+      #
+      elif (level == 'CORRE'):
+         #
+         molecule['corr_orb_ent'].append(recv_buff)
+      #
+      timer_mpi(molecule,'mpi_time_work_init',order,True)
    #
    return molecule
 
