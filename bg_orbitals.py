@@ -29,7 +29,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    else:
       #
-      timer_mpi(molecule,'mpi_time_work_init',order-1)
+      timer_mpi(molecule,'mpi_time_work_init',k-1)
       #
       tmp_2 = []
       #
@@ -112,7 +112,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       del tmp
       del tmp_2
       #
-      timer_mpi(molecule,'mpi_time_work_init',order-1,True)
+      timer_mpi(molecule,'mpi_time_work_init',k-1,True)
    #
    return tup
 
