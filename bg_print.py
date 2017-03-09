@@ -289,13 +289,13 @@ def print_orb_info(molecule,l_limit,u_limit,level):
 
 def redirect_stdout(molecule):
    #
-   molecule['wrk'] = getcwd()
+   molecule['wrk_dir'] = getcwd()
    #
-   if (isdir(molecule['wrk']+'/output')): rmtree(molecule['wrk']+'/output',ignore_errors=True)
+   if (isdir(molecule['wrk_dir']+'/output')): rmtree(molecule['wrk_dir']+'/output',ignore_errors=True)
    #
-   mkdir(molecule['wrk']+'/output')
+   mkdir(molecule['wrk_dir']+'/output')
    #
-   sys.stdout = logger(molecule['wrk']+'/output/stdout.out')
+   sys.stdout = logger(molecule['wrk_dir']+'/output/stdout.out')
    #
    return molecule
 

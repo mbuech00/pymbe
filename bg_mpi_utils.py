@@ -45,7 +45,7 @@ def bcast_mol_dict(molecule):
    #
    # private scr dir
    #
-   molecule['scr'] = molecule['wrk']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
+   molecule['scr_dir'] = molecule['wrk_dir']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
    #
    return molecule
 

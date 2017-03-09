@@ -48,9 +48,9 @@ def run_calc_corr(molecule,drop_string,level):
 
 def rm_dir_content(molecule):
    #
-   for the_file in listdir(molecule['scr']):
+   for the_file in listdir(molecule['scr_dir']):
       #
-      file_path = join(molecule['scr'],the_file)
+      file_path = join(molecule['scr_dir'],the_file)
       #
       try:
          #

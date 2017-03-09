@@ -88,7 +88,7 @@ def main_slave(molecule):
          #
          # overwrite wrk_dir in case this is different from the one on the master node
          #
-         molecule['wrk'] = getcwd()
+         molecule['wrk_dir'] = getcwd()
          #
          # update with private mpi info
          #
@@ -104,13 +104,13 @@ def main_slave(molecule):
          #
          # private scr dir
          #
-         molecule['scr'] = molecule['wrk']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
+         molecule['scr_dir'] = molecule['wrk_dir']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
          #
          # init scr env
          #
-         mkdir(molecule['scr'])
+         mkdir(molecule['scr_dir'])
          #
-         chdir(molecule['scr'])
+         chdir(molecule['scr_dir'])
          #
          # init tuple lists
          #
@@ -202,13 +202,13 @@ def main_slave(molecule):
          #
          # remove scr env
          #
-         chdir(molecule['wrk'])
+         chdir(molecule['wrk_dir'])
          #
          if (molecule['error'][-1]):
             #
-            copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
+            copy(molecule['scr_dir']+'/OUTPUT.OUT',molecule['wrk_dir']+'/OUTPUT.OUT')
          #
-         rmtree(molecule['scr'],ignore_errors=True)
+         rmtree(molecule['scr_dir'],ignore_errors=True)
       #
       # collect_mpi_timings
       #

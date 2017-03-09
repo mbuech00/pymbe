@@ -64,13 +64,13 @@ def init_calc(molecule):
       #
       # init private scr dir
       #
-      molecule['scr'] = molecule['wrk']+'/'+molecule['scr_name']
+      molecule['scr_dir'] = molecule['wrk_dir']+'/'+molecule['scr_name']
    #
    # init scr env
    #
-   mkdir(molecule['scr'])
+   mkdir(molecule['scr_dir'])
    #
-   chdir(molecule['scr']) 
+   chdir(molecule['scr_dir']) 
    #
    # run hf calc to determine dimensions
    #
@@ -86,13 +86,13 @@ def init_calc(molecule):
 
 def term_calc(molecule):
    #
-   chdir(molecule['wrk'])
+   chdir(molecule['wrk_dir'])
    #
    if (molecule['error'][-1]):
       #
-      copy(molecule['scr']+'/OUTPUT.OUT',molecule['wrk']+'/OUTPUT.OUT')
+      copy(molecule['scr_dir']+'/OUTPUT.OUT',molecule['wrk_dir']+'/OUTPUT.OUT')
    #
-   rmtree(molecule['scr'],ignore_errors=True)
+   rmtree(molecule['scr_dir'],ignore_errors=True)
    #
    if (molecule['mpi_master'] and molecule['mpi_parallel']):
       #

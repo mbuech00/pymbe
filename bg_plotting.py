@@ -109,7 +109,7 @@ def abs_energy_plot(molecule):
       #
       ax.legend(loc=1)
    #
-   plt.savefig(molecule['wrk']+'/output/abs_energy_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk_dir']+'/output/abs_energy_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -183,7 +183,7 @@ def n_tuples_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/n_tuples_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk_dir']+'/output/n_tuples_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    del prim
    if (molecule['corr']): del corr
@@ -269,7 +269,7 @@ def orb_con_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/orb_con_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk_dir']+'/output/orb_con_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -387,7 +387,7 @@ def dev_ref_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/dev_ref_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk_dir']+'/output/dev_ref_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    return molecule
 
@@ -488,7 +488,7 @@ def time_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk']+'/output/time_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk_dir']+'/output/time_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    del init_dat
    del kernel_dat
