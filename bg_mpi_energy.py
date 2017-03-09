@@ -302,43 +302,15 @@ def allred_e_inc(molecule,e_inc,k):
    #
    # init receive buffer
    #
-   if (molecule['mpi_master']):
-      #
-      recv_buff = np.zeros(len(e_inc[k-1]),dtype=np.float64)
+   recv_buff = np.zeros(len(e_inc[k-1]),dtype=np.float64)
    #
-   else:
-      #
-      recv_buff = None
+   # now do Allreduce
    #
-   # do batching of Reduce+Bcast because of annoying mpi stalling problems
+   molecule['mpi_comm'].Allreduce([e_inc[k-1],MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM)
    #
-   # calculate number of batches
+   # finally, overwrite e_inc[k-1]
    #
-   n_batch = len(e_inc[k-1])//molecule['mpi_max_elms']
-   #
-   if (len(e_inc[k-1]) % molecule['mpi_max_elms'] != 0): n_batch += 1
-   #
-   # now perform batched collective comm
-   #
-   end = 0
-   #
-   for i in range(0,n_batch):
-      #
-      start = end
-      #
-      end = min(len(e_inc[k-1]),(i+1)*molecule['mpi_max_elms'])
-      #
-      if (molecule['mpi_master']):
-         #
-         molecule['mpi_comm'].Reduce([e_inc[k-1][start:end],MPI.DOUBLE],[recv_buff[start:end],MPI.DOUBLE],op=MPI.SUM,root=0)
-         #
-         e_inc[k-1][start:end] = recv_buff[start:end]
-      #
-      else:
-         #
-         molecule['mpi_comm'].Reduce([e_inc[k-1][start:end],MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
-      #
-      molecule['mpi_comm'].Bcast([e_inc[k-1][start:end],MPI.DOUBLE],root=0)
+   e_inc[k-1] = recv_buff
    #
    del recv_buff
    #
