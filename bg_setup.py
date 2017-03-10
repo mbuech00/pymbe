@@ -12,6 +12,7 @@ from bg_mpi_time import init_mpi_timings
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utils import run_calc_hf
 from bg_print import redirect_stdout
+from bg_restart import init_restart_dirs
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -66,7 +67,11 @@ def init_calc(molecule):
       #
       molecule['scr_dir'] = molecule['wrk_dir']+'/'+molecule['scr_name']
    #
-   # init scr env
+   # init restart env
+   #
+   init_restart_dirs(molecule)
+   #
+   # init scr env and change into this
    #
    mkdir(molecule['scr_dir'])
    #
@@ -93,6 +98,8 @@ def term_calc(molecule):
       copy(molecule['scr_dir']+'/OUTPUT.OUT',molecule['wrk_dir']+'/OUTPUT.OUT')
    #
    rmtree(molecule['scr_dir'],ignore_errors=True)
+   #
+   if (not molecule['rst_keep']): rmtree(molecule['rst_dir'],ignore_errors=True)
    #
    if (molecule['mpi_master'] and molecule['mpi_parallel']):
       #

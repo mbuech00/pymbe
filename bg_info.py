@@ -87,7 +87,9 @@ def init_param(molecule):
       molecule['local'] = False
       molecule['zmat'] = False
       molecule['mem'] = 0
-      molecule['scr_name'] = ''
+      molecule['scr_name'] = 'scr'
+      molecule['rst'] = False
+      molecule['rst_keep'] = True
       #
       with open('input-param.inp') as f:
          #
@@ -167,6 +169,14 @@ def init_param(molecule):
                #
                molecule['scr_name'] = content[i].split()[1]
             #
+            elif (content[i].split()[0] == 'restart'):
+               #
+               molecule['rst'] = (content[i].split()[1] == 'True')
+            #
+            elif (content[i].split()[0] == 'rst_keep'):
+               #
+               molecule['rst_keep'] = (content[i].split()[1] == 'True')
+            #
             elif (content[i].split()[0] == 'debug'):
                #
                molecule['debug'] = (content[i].split()[1] == 'True')
@@ -179,7 +189,7 @@ def init_param(molecule):
    #
    set_exp(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','max_order','prim_thres','sec_thres','corr','corr_order','corr_thres','model','corr_model',\
+   chk = ['mol','ncore','frozen','mult','scr_name','rst','rst_keep','exp','backend_prog','max_order','prim_thres','sec_thres','corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
    inc = 0

@@ -6,11 +6,13 @@
 import numpy as np
 
 from bg_mpi_utils import prepare_calc, mono_exp_merge_info
+from bg_mpi_time import timer_mpi
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_exclusion
+from bg_restart import write_init_restart
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -42,6 +44,8 @@ def main_drv(molecule):
       print('                     ---------------------------------------------                ')
       print('                                   primary expansion                              ')
       print('                     ---------------------------------------------                ')
+      #
+      restart_main(molecule,'MACRO')
       #
       mono_exp_drv(molecule,1,molecule['max_order'],'MACRO')
       #
@@ -192,6 +196,8 @@ def mono_exp_init(molecule,k,level):
    #
    orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
    #
+   timer_mpi(molecule,'mpi_time_work_init',k-1)
+   #
    # check for convergence
    #
    if ((level == 'MACRO') and (len(tup[k-1]) == 0)): molecule['conv'].append(True)
@@ -210,6 +216,12 @@ def mono_exp_init(molecule,k,level):
       #
       tup.pop(-1)
       e_inc.pop(-1)
+   #
+   # write restart files
+   #
+   write_init_restart(molecule,tup,k,level)
+   #
+   timer_mpi(molecule,'mpi_time_work_init',k-1,True)
    #
    return molecule
 
