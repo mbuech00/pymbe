@@ -5,7 +5,7 @@
 
 from os.path import isfile, exists
 
-from bg_cfour import cfour_input_hf, cfour_input_corr, cfour_get_dim, cfour_write_energy, cfour_copy_exe, cfour_clean_up
+from bg_cfour import cfour_input_hf, cfour_input_corr, cfour_get_dim, cfour_write_energy, cfour_clean_up
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -243,7 +243,6 @@ def init_backend_prog(molecule):
          #
          # set backend module routines
          #
-         molecule['copy_exe'] = cfour_copy_exe
          molecule['input_hf'] = cfour_input_hf
          molecule['input_corr'] = cfour_input_corr
          molecule['get_dim'] = cfour_get_dim

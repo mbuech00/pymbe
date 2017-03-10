@@ -229,17 +229,9 @@ def cfour_write_energy(molecule,level):
    #
    return molecule
 
-def cfour_copy_exe(molecule):
-   #
-   for exe in glob(molecule['wrk_dir']+'/x*'):
-      #
-      copy(exe,molecule['scr_dir'])
-   #
-   return
-
 def cfour_clean_up(molecule):
    #
-   call('xclean',shell=True)
+   call(molecule['wrk_dir']+'/xclean',shell=True)
    #
    return
 
