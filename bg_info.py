@@ -3,10 +3,9 @@
 
 """ bg_info.py: info handling for Bethe-Goldstone correlation calculations."""
 
-from os.path import isfile
-from shutil import which
+from os.path import isfile, exists
 
-from bg_cfour import cfour_input_hf, cfour_input_corr, cfour_get_dim, cfour_write_energy
+from bg_cfour import cfour_input_hf, cfour_input_corr, cfour_get_dim, cfour_write_energy, cfour_copy_exe, cfour_clean_up
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -232,24 +231,24 @@ def init_backend_prog(molecule):
    #
    if (molecule['backend_prog'] == 'cfour'):
       #
-      if (which('xcfour') is None):
+      molecule['backend_prog_exe'] = 'xcfour'
+      #
+      if (not exists(molecule['wrk_dir']+'/'+molecule['backend_prog_exe'])):
          #
-         print('no xcfour executable found in PATH env, aborting ...')
+         print('no '+molecule['backend_prog_exe']+' executable found in wrk dir, aborting ...')
          #
          molecule['error'].append(True)
       #
       else:
          #
-         # set path to executable
-         # 
-         molecule['backend_prog_exe'] = which('xcfour')
-         #
          # set backend module routines
          #
+         molecule['copy_exe'] = cfour_copy_exe
          molecule['input_hf'] = cfour_input_hf
          molecule['input_corr'] = cfour_input_corr
          molecule['get_dim'] = cfour_get_dim
          molecule['write_energy'] = cfour_write_energy
+         molecule['clean_up'] = cfour_clean_up
          #
          # set regex for expansion model
          #
