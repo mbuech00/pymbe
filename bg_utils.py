@@ -26,7 +26,7 @@ def run_calc_hf(molecule):
    #
    molecule['input_hf'](molecule)
    #
-   call(molecule['backend_prog_exe']+' &> OUTPUT.OUT',shell=True) 
+   with open('OUTPUT.OUT','w') as output: call(molecule['backend_prog_exe'],stdout=output,stderr=output)
    #
    molecule['get_dim'](molecule)
    #
@@ -38,7 +38,7 @@ def run_calc_corr(molecule,drop_string,level):
    #
    molecule['input_corr'](molecule,drop_string,level)
    #
-   call(molecule['backend_prog_exe']+' &> OUTPUT.OUT',shell=True)
+   with open('OUTPUT.OUT','w') as output: call(molecule['backend_prog_exe'],stdout=output,stderr=output)
    #
    molecule['write_energy'](molecule,level)
    #
