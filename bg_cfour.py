@@ -120,7 +120,7 @@ def cfour_input_corr(molecule,drop_string,level):
 
 def cfour_get_dim(molecule):
    #
-   inp=open('OUTPUT.OUT','r')
+   inp=open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','r')
    #
    regex_err = '\s+ERROR ERROR'
    #
@@ -176,7 +176,7 @@ def cfour_get_dim(molecule):
 
 def cfour_write_energy(molecule,level):
    #
-   inp=open('OUTPUT.OUT','r')
+   inp=open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','r')
    #
    regex_err = '\s+ERROR ERROR'
    #

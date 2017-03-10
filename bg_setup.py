@@ -64,7 +64,7 @@ def init_calc(molecule):
       #
       # init private scr dir
       #
-      molecule['scr_dir'] = molecule['wrk_dir']+'/'+molecule['scr_name']
+      molecule['scr_dir'] = molecule['wrk_dir']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
    #
    # init scr env
    #
@@ -90,7 +90,7 @@ def term_calc(molecule):
    #
    if (molecule['error'][-1]):
       #
-      copy(molecule['scr_dir']+'/OUTPUT.OUT',molecule['wrk_dir']+'/OUTPUT.OUT')
+      copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
    #
    rmtree(molecule['scr_dir'],ignore_errors=True)
    #
