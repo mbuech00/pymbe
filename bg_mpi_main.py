@@ -114,10 +114,6 @@ def main_slave(molecule):
          #
          chdir(molecule['scr_dir'])
          #
-         # copy backend prog(s) to scr dir
-         #
-         molecule['copy_exe'](molecule)
-         #
          # init tuple lists
          #
          molecule['prim_tuple'] = []

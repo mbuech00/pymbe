@@ -72,10 +72,6 @@ def init_calc(molecule):
    #
    chdir(molecule['scr_dir']) 
    #
-   # copy backend prog(s) to scr dir
-   #
-   molecule['copy_exe'](molecule)
-   #
    # run hf calc to determine dimensions
    #
    run_calc_hf(molecule)
