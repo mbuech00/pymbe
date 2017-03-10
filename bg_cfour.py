@@ -5,8 +5,6 @@
 
 from re import match
 from shutil import copy
-from glob import glob
-from subprocess import call
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -228,11 +226,4 @@ def cfour_write_energy(molecule,level):
    inp.close()
    #
    return molecule
-
-def cfour_clean_up(molecule):
-   #
-   call(molecule['wrk_dir']+'/xclean',shell=True)
-   #
-   return
-
 
