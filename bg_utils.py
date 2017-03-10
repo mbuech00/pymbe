@@ -26,11 +26,11 @@ def run_calc_hf(molecule):
    #
    molecule['input_hf'](molecule)
    #
-   with open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','w') as output: call(molecule['wrk_dir']+'/'+molecule['backend_prog_exe'],stdout=output,stderr=output)
+   with open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','w') as output: call(molecule['backend_prog_exe'],stdout=output,stderr=output)
    #
    molecule['get_dim'](molecule)
    #
-   if (not molecule['error'][-1]): molecule['clean_up'](molecule)
+   if (not molecule['error'][-1]): rm_dir_content(molecule)
    #
    return molecule
 
@@ -38,11 +38,11 @@ def run_calc_corr(molecule,drop_string,level):
    #
    molecule['input_corr'](molecule,drop_string,level)
    #
-   with open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','w') as output: call(molecule['wrk_dir']+'/'+molecule['backend_prog_exe'],stdout=output,stderr=output)
+   with open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','w') as output: call(molecule['backend_prog_exe'],stdout=output,stderr=output)
    #
    molecule['write_energy'](molecule,level)
    #
-   if (not molecule['error'][-1]): molecule['clean_up'](molecule)
+   if (not molecule['error'][-1]): rm_dir_content(molecule)
    #
    return molecule
 
