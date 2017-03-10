@@ -4,6 +4,9 @@
 """ bg_cfour.py: cfour-related routines for Bethe-Goldstone correlation calculations."""
 
 from re import match
+from shutil import copy
+from glob import glob
+from subprocess import call
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -225,4 +228,19 @@ def cfour_write_energy(molecule,level):
    inp.close()
    #
    return molecule
+
+def cfour_copy_exe(molecule):
+   #
+   for exe in glob(molecule['wrk_dir']+'/x*'):
+      #
+      copy(exe,molecule['scr_dir'])
+   #
+   return
+
+def cfour_clean_up(molecule):
+   #
+   call('xclean',shell=True)
+   #
+   return
+
 
