@@ -26,7 +26,7 @@ def run_calc_hf(molecule):
    #
    molecule['input_hf'](molecule)
    #
-   with open('OUTPUT.OUT','w') as output: call(molecule['backend_prog_exe'],stdout=output,stderr=output)
+   with open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','w') as output: call(molecule['backend_prog_exe'],stdout=output,stderr=output)
    #
    molecule['get_dim'](molecule)
    #
@@ -38,7 +38,7 @@ def run_calc_corr(molecule,drop_string,level):
    #
    molecule['input_corr'](molecule,drop_string,level)
    #
-   with open('OUTPUT.OUT','w') as output: call(molecule['backend_prog_exe'],stdout=output,stderr=output)
+   with open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','w') as output: call(molecule['backend_prog_exe'],stdout=output,stderr=output)
    #
    molecule['write_energy'](molecule,level)
    #

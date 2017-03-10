@@ -43,6 +43,8 @@ def init_mpi(molecule):
    else:
       #
       molecule['mpi_master'] = True
+      #
+      molecule['mpi_rank'] = 0
    #
    return molecule
 
@@ -206,7 +208,7 @@ def main_slave(molecule):
          #
          if (molecule['error'][-1]):
             #
-            copy(molecule['scr_dir']+'/OUTPUT.OUT',molecule['wrk_dir']+'/OUTPUT.OUT')
+            copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
          #
          rmtree(molecule['scr_dir'],ignore_errors=True)
       #
