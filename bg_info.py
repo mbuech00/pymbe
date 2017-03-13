@@ -179,6 +179,8 @@ def init_param(molecule):
    #
    set_exp(molecule)
    #
+   set_fc(molecule)
+   #
    chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','max_order','prim_thres','sec_thres','corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
@@ -225,6 +227,12 @@ def set_exp(molecule):
       molecule['corr_model'] = 'N/A'
       #
       molecule['corr_order'] = 'N/A'
+   #
+   return molecule
+
+def set_fc(molecule):
+   #
+   if (not molecule['frozen']): molecule['ncore'] = 0
    #
    return molecule
 
