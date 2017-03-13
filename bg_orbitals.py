@@ -364,49 +364,27 @@ def orb_exclusion(molecule,l_limit,level):
    #
    if (level == 'MACRO'):
       #
-      orb = molecule['prim_orb_ent']
       orb_arr = molecule['prim_orb_arr']
-      orb_con_rel = molecule['prim_orb_con_rel']
       thres = molecule['prim_thres']
    #
    else:
       #
-      orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
-      orb_con_rel = molecule['corr_orb_con_rel']
       thres = molecule['corr_thres']
    #
    molecule['excl_list'][:] = []
    #
    # screening in individual domains based on orbital entanglement 
    #
-   for i in range(0,len(orb[-1])):
+   for i in range(0,len(orb_arr[-1])):
       #
       molecule['excl_list'].append([])
       #
-      for j in range(0,len(orb[-1][i])):
+      for j in range(0,len(orb_arr[-1][i])):
          #
          if ((abs(orb_arr[-1][i][j]) < thres) and (abs(orb_arr[-1][i][j]) != 0.0)):
             #
             molecule['excl_list'][i].append((j+l_limit)+1)
-   #
-   # screening in all domains based on total orbital contributions
-   #
-   for i in range(0,len(orb_con_rel[-1])):
-      #
-      if ((orb_con_rel[-1][i] < thres) and (sum(orb_arr[-1][i]) != 0.0)):
-         #
-         for j in range(0,len(orb_con_rel[-1])):
-            #
-            if (i != j):
-               #
-               if (not (set([(j+l_limit)+1]) <= set(molecule['excl_list'][i]))):
-                  #
-                  molecule['excl_list'][i].append((j+l_limit)+1)
-               #
-               if (not (set([(i+l_limit)+1]) <= set(molecule['excl_list'][j]))):
-                  #
-                  molecule['excl_list'][j].append((i+l_limit)+1)
    #
    for i in range(0,len(molecule['excl_list'])):
       #
