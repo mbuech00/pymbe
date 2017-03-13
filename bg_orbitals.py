@@ -414,12 +414,12 @@ def update_domains(molecule,l_limit,level,singles=False):
          #
          for j in range(0,len(molecule['excl_list'][i])):
             #
-            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
-               #
-               dom[-1][i].remove(molecule['excl_list'][i][j])
-               dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
-               #
-               molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+#            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
+#               #
+            dom[-1][i].remove(molecule['excl_list'][i][j])
+            dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+            #
+            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]): molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
    return molecule
 
