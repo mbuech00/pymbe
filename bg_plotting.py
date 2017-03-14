@@ -154,7 +154,7 @@ def n_tuples_plot(molecule):
             corr.append(0)
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
-                  palette='BuGn_d',label='Theoretical number',log=True)
+                  palette='Greens_r',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),corr,palette='Reds_r',\
                   label='Energy corr.',log=True)
@@ -165,7 +165,7 @@ def n_tuples_plot(molecule):
    else:
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
-                  palette='BuGn_d',label='Theoretical number',log=True)
+                  palette='Greens_r',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
@@ -176,6 +176,10 @@ def n_tuples_plot(molecule):
    #
    ax.set_xlabel('Expansion order')
    ax.set_ylabel('Number of correlated tuples')
+   #
+   ax.set_xlim([-0.5,u_limit-0.5])
+   #
+   ax.locator_params(axis='x',nbins=10)
    #
    plt.legend(loc=1)
    #

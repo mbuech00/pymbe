@@ -207,7 +207,7 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       orb_arr = molecule['corr_orb_arr']
       orb_con_rel = molecule['corr_orb_con_rel']
    #
-   index = ' orb. index     '
+   index = ' orb. index:     '
    #
    for m in range(l_limit+1,(l_limit+u_limit)+1):
       #
@@ -249,7 +249,7 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       #
       print(index)
       #
-      print(' contrib.    '+str(['{0:2d}'.format(int(m*100.0)) for m in orb_con_rel[0]]))
+      print(' contrib.:    '+str(['{0:2d}'.format(int(m*100.0)) for m in orb_con_rel[0]]))
       #
       print('')
    #
@@ -277,7 +277,7 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       #
       print(index)
       #
-      print(' contrib.    '+str(['{0:2d}'.format(int(m*100.0)) for m in orb_con_rel[i+1]]))
+      print(' contrib.:    '+str(['{0:2d}'.format(int(m*100.0)) for m in orb_con_rel[i+1]]))
       print('')
    #
    return
