@@ -5,6 +5,8 @@
 
 from os.path import isfile
 from shutil import which
+from scipy.special import erfinv
+from numpy import sqrt
 
 from bg_cfour import cfour_input_hf, cfour_input_corr, cfour_get_dim, cfour_write_energy
 
@@ -181,6 +183,8 @@ def init_param(molecule):
    #
    set_fc(molecule)
    #
+   set_std_factors(molecule)
+   #
    chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','max_order','prim_thres','sec_thres','corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
@@ -233,6 +237,17 @@ def set_exp(molecule):
 def set_fc(molecule):
    #
    if (not molecule['frozen']): molecule['ncore'] = 0
+   #
+   return molecule
+
+def set_std_factors(molecule):
+   #
+   # F(mean+n*std) - F(mean-n*std) = erf(n/sqrt(2)) = thres
+   #   => n = erfinv(thres)*sqrt(2)
+   #
+   molecule['prim_std_factor'] = erfinv(molecule['prim_thres']/100.0)*sqrt(2)
+   #
+   molecule['corr_std_factor'] = erfinv(molecule['corr_thres']/100.0)*sqrt(2)
    #
    return molecule
 
@@ -309,7 +324,7 @@ def sanity_chk(molecule):
    #
    # expansion thresholds
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and ((molecule['prim_thres'] == 0.0) and (molecule['max_order'] == 0))):
+   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and ((molecule['prim_thres'] == 100.0) and (molecule['max_order'] == 0))):
       #
       print('wrong input -- no expansion threshold (prim_thres) supplied and no max_order set (either or both must be set) --- aborting ...')
       #

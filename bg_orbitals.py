@@ -233,13 +233,13 @@ def orb_entanglement_arr(molecule,l_limit,u_limit,level):
       #
       orb = molecule['prim_orb_ent']
       orb_arr = molecule['prim_orb_arr']
-      thres = molecule['prim_thres']
+      factor = molecule['prim_std_factor']
    #
    elif (level == 'CORRE'):
       #
       orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
-      thres = molecule['corr_thres']
+      factor = molecule['corr_std_factor']
    #
    # write orbital entanglement matrix
    #
@@ -260,7 +260,7 @@ def orb_entanglement_arr(molecule,l_limit,u_limit,level):
             #
             if (orb[-1][i,j] != 0.0):
                #
-               if ((np.absolute(mean)-thres*std) <= np.absolute(orb[-1][i,j]) <= (np.absolute(mean)+thres*std)):
+               if ((np.absolute(mean)-factor*std) <= np.absolute(orb[-1][i,j]) <= (np.absolute(mean)+factor*std)):
                   #
                   orb_arr[-1][i,j] = 1
                #

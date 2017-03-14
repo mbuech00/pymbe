@@ -5,7 +5,7 @@
 
 import numpy as np
 from copy import deepcopy
-from math import factorial
+from scipy.misc import factorial
 from mpi4py import MPI
 
 from bg_mpi_time import init_mpi_timings
