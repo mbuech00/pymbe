@@ -207,27 +207,39 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       orb_arr = molecule['corr_orb_arr']
       orb_con_rel = molecule['corr_orb_con_rel']
    #
-   index = '          '
+   index = ' orb. index     '
    #
    for m in range(l_limit+1,(l_limit+u_limit)+1):
       #
       if (m < 10):
          #
-         index += str(m)+'         '
+         if (m == 9):
+            #
+            index += str(m)+'    '
+         #
+         else:
+            #
+            index += str(m)+'     '
       #
       elif ((m >= 10) and (m < 100)):
          #
-         index += str(m)+'        '
+         if (m == 99):
+            #
+            index += str(m)+'   '
+         #
+         else:
+            #
+            index += str(m)+'    '
       #
       elif ((m >= 100)):
          #
-         index += str(m)+'       '
+         index += str(m)+'   '
    #
    if (level == 'MACRO'):
       #
       print('')
       print('   ---------------------------------------------')
-      print('         individual orbital contributions       ')
+      print('      individual orbital contributions (in %)   ')
       print('   ---------------------------------------------')
       #
       print('')
@@ -235,12 +247,9 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       print(' -------------------')
       print('')
       #
-      print('      --- relative orbital contributions ---')
-      print('')
-      #
       print(index)
       #
-      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con_rel[0]]))
+      print(' contrib.    '+str(['{0:2d}'.format(int(m*100.0)) for m in orb_con_rel[0]]))
       #
       print('')
    #
@@ -256,7 +265,7 @@ def print_orb_info(molecule,l_limit,u_limit,level):
          #
          print('')
          print('   ---------------------------------------------')
-         print('         individual orbital contributions       ')
+         print('      individual orbital contributions (in %)   ')
          print('   ---------------------------------------------')
    #
    for i in range(start,len(orb)):
@@ -266,24 +275,10 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       print(' -------------------')
       print('')
       #
-      print('      --- entanglement matrix ---')
-      print('')
-      #
       print(index)
       #
-      for j in range(0,len(orb_arr[i])):
-         #
-         print(' {0:>3d}'.format((j+l_limit)+1)+' '+str(['{0:6.3f}'.format(m) for m in orb_arr[i][j]]))
-      #
+      print(' contrib.    '+str(['{0:2d}'.format(int(m*100.0)) for m in orb_con_rel[i+1]]))
       print('')
-      print('      --- relative orbital contributions ---')
-      print('')
-      #
-      print(index)
-      #
-      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con_rel[i+1]]))
-      #
-      if (i == (len(orb)-1)): print('')
    #
    return
 
