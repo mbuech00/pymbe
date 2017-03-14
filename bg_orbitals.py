@@ -126,7 +126,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       # print orb info
       #
-      if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
+#      if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
       #
       # update domains
       #
@@ -154,7 +154,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          # print orb info
          #
-         if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
+#         if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
          #
          # construct exclusion list
          #
@@ -233,39 +233,48 @@ def orb_entanglement_arr(molecule,l_limit,u_limit,level):
       #
       orb = molecule['prim_orb_ent']
       orb_arr = molecule['prim_orb_arr']
+      thres = molecule['prim_thres']
    #
    elif (level == 'CORRE'):
       #
       orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
+      thres = molecule['corr_thres']
    #
-   orb_arr.append(np.empty([u_limit,u_limit],dtype=np.float64))
+   # write orbital entanglement matrix
    #
-   for i in range(l_limit,l_limit+u_limit):
+   orb_arr.append(np.empty([molecule['u_limit'],molecule['u_limit']],dtype=np.int32))
+   #
+   # 0: already screened away
+   # 1: keep
+   # 2: screen
+   #
+   for i in range(0,len(orb[-1])):
       #
-      e_sum = 0.0
-      #
-      # calculate sum of contributions from all orbitals to orb i
-      #
-      for m in range(0,len(orb)):
+      if (np.sum(orb[-1][i,:]) != 0.0):
          #
-         for j in range(l_limit,l_limit+u_limit):
-            #
-            e_sum += orb[m][i-l_limit][j-l_limit]
-      #
-      # calculate relative contributions
-      #
-      for m in range(0,len(orb)):
+         mean = np.mean(np.absolute(orb[-1][i,np.nonzero(orb[-1][i,:])]))
+         std = np.std(np.absolute(orb[-1][i,np.nonzero(orb[-1][i,:])]),ddof=1)
          #
-         for j in range(l_limit,l_limit+u_limit):
+         for j in range(0,len(orb[-1][i])):
             #
-            if (orb[m][i-l_limit][j-l_limit] != 0.0):
+            if (orb[-1][i,j] != 0.0):
                #
-               orb_arr[m][i-l_limit][j-l_limit] = orb[m][i-l_limit][j-l_limit]/e_sum
+               if ((np.absolute(mean)-thres*std) <= np.absolute(orb[-1][i,j]) <= (np.absolute(mean)+thres*std)):
+                  #
+                  orb_arr[-1][i,j] = 1
+               #
+               else:
+                  #
+                  orb_arr[-1][i,j] = 2
             #
             else:
                #
-               orb_arr[m][i-l_limit][j-l_limit] = 0.0
+               orb_arr[-1][i,j] = 0
+      #
+      else:
+         #
+         orb_arr[-1][i,:] = 0
    #
    return molecule
 
@@ -329,48 +338,15 @@ def orb_contributions(molecule,order,level,singles=False):
    #
    return molecule
 
-def init_domains(molecule):
-   #
-   molecule['occ_domain'] = []
-   molecule['virt_domain'] = []
-   #
-   for i in range(0,molecule['nocc']):
-      #
-      molecule['occ_domain'].append(list(range(1,molecule['nocc']+1)))
-      #
-      molecule['occ_domain'][i].pop(i)
-   #
-   if (molecule['frozen']):
-      #
-      for i in range(0,molecule['ncore']):
-         #
-         molecule['occ_domain'][i][:] = []
-      #
-      for j in range(molecule['ncore'],molecule['nocc']):
-         #
-         for _ in range(0,molecule['ncore']):
-            #
-            molecule['occ_domain'][j].pop(0)
-   #
-   for i in range(0,molecule['nvirt']):
-      #
-      molecule['virt_domain'].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
-      #
-      molecule['virt_domain'][i].pop(i)
-   #
-   return molecule
-
 def orb_exclusion(molecule,l_limit,level):
    #
    if (level == 'MACRO'):
       #
       orb_arr = molecule['prim_orb_arr']
-      thres = molecule['prim_thres']
    #
-   else:
+   elif (level == 'CORRE'):
       #
       orb_arr = molecule['corr_orb_arr']
-      thres = molecule['corr_thres']
    #
    molecule['excl_list'][:] = []
    #
@@ -382,9 +358,7 @@ def orb_exclusion(molecule,l_limit,level):
       #
       for j in range(0,len(orb_arr[-1][i])):
          #
-         if ((abs(orb_arr[-1][i][j]) < thres) and (abs(orb_arr[-1][i][j]) != 0.0)):
-            #
-            molecule['excl_list'][i].append((j+l_limit)+1)
+         if (orb_arr[-1][i,j] == 2): molecule['excl_list'][i].append((j+l_limit)+1)
    #
    for i in range(0,len(molecule['excl_list'])):
       #
@@ -414,12 +388,43 @@ def update_domains(molecule,l_limit,level,singles=False):
          #
          for j in range(0,len(molecule['excl_list'][i])):
             #
-#            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
-#               #
-            dom[-1][i].remove(molecule['excl_list'][i][j])
-            dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
+               #
+               dom[-1][i].remove(molecule['excl_list'][i][j])
+               dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+               #
+               molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+   #
+   return molecule
+
+def init_domains(molecule):
+   #
+   molecule['occ_domain'] = []
+   molecule['virt_domain'] = []
+   #
+   for i in range(0,molecule['nocc']):
+      #
+      molecule['occ_domain'].append(list(range(1,molecule['nocc']+1)))
+      #
+      molecule['occ_domain'][i].pop(i)
+   #
+   if (molecule['frozen']):
+      #
+      for i in range(0,molecule['ncore']):
+         #
+         molecule['occ_domain'][i][:] = []
+      #
+      for j in range(molecule['ncore'],molecule['nocc']):
+         #
+         for _ in range(0,molecule['ncore']):
             #
-            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]): molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+            molecule['occ_domain'][j].pop(0)
+   #
+   for i in range(0,molecule['nvirt']):
+      #
+      molecule['virt_domain'].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
+      #
+      molecule['virt_domain'][i].pop(i)
    #
    return molecule
 
