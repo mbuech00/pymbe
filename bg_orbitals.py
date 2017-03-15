@@ -220,8 +220,8 @@ def orb_entanglement_main(molecule,l_limit,u_limit,order,level):
                #
                if (set([i+1,j+1]) <= set(tup[ldx])):
                   #
-                  orb[-1][i-l_limit][j-l_limit] += e_inc[ldx]
-                  orb[-1][j-l_limit][i-l_limit] = orb[-1][i-l_limit][j-l_limit]
+                  orb[-1][i-l_limit,j-l_limit] += e_inc[ldx]
+                  orb[-1][j-l_limit,i-l_limit] = orb[-1][i-l_limit,j-l_limit]
       #
       timer_mpi(molecule,'mpi_time_work_init',order,True)
    #
@@ -243,38 +243,28 @@ def orb_entanglement_arr(molecule,l_limit,u_limit,level):
    #
    # write orbital entanglement matrix
    #
-   orb_arr.append(np.empty([molecule['u_limit'],molecule['u_limit']],dtype=np.int32))
+   orb_arr.append(np.zeros([molecule['u_limit'],molecule['u_limit']],dtype=np.bool))
    #
-   # 0: already screened away
-   # 1: keep
-   # 2: screen
+   tmp = np.zeros(molecule['u_limit'],dtype=np.float64)
    #
    for i in range(0,len(orb[-1])):
       #
-      if (np.sum(orb[-1][i,:]) != 0.0):
-         #
-         mean = np.mean(np.absolute(orb[-1][i,np.nonzero(orb[-1][i,:])]))
-         std = np.std(np.absolute(orb[-1][i,np.nonzero(orb[-1][i,:])]),ddof=1)
+      tmp.fill(0.0)
+      #
+      for k in range(0,len(orb)):
          #
          for j in range(0,len(orb[-1][i])):
             #
-            if (orb[-1][i,j] != 0.0):
-               #
-               if ((np.absolute(mean)-factor*std) <= np.absolute(orb[-1][i,j]) <= (np.absolute(mean)+factor*std)):
-                  #
-                  orb_arr[-1][i,j] = 1
-               #
-               else:
-                  #
-                  orb_arr[-1][i,j] = 2
-            #
-            else:
-               #
-               orb_arr[-1][i,j] = 0
+            tmp[j] += orb[k][i,j]
       #
-      else:
+      mean = np.mean(np.absolute(tmp[np.nonzero(tmp)]))
+      std = np.std(np.absolute(tmp[np.nonzero(tmp)]),ddof=1)
+      #
+      for j in range(0,len(orb[-1][i])):
          #
-         orb_arr[-1][i,:] = 0
+         if ((i != j) and ((mean-factor*std) <= np.absolute(tmp[j]))): orb_arr[-1][i,j] = True
+   #
+   del tmp
    #
    return molecule
 
@@ -342,10 +332,12 @@ def orb_exclusion(molecule,l_limit,level):
    #
    if (level == 'MACRO'):
       #
+      orb = molecule['prim_orb_ent']
       orb_arr = molecule['prim_orb_arr']
    #
    elif (level == 'CORRE'):
       #
+      orb = molecule['corr_orb_ent']
       orb_arr = molecule['corr_orb_arr']
    #
    molecule['excl_list'][:] = []
@@ -358,7 +350,7 @@ def orb_exclusion(molecule,l_limit,level):
       #
       for j in range(0,len(orb_arr[-1][i])):
          #
-         if (orb_arr[-1][i,j] == 2): molecule['excl_list'][i].append((j+l_limit)+1)
+         if ((not orb_arr[-1][i,j]) and (orb[-1][i,j] != 0.0)): molecule['excl_list'][i].append((j+l_limit)+1)
    #
    for i in range(0,len(molecule['excl_list'])):
       #
@@ -388,12 +380,18 @@ def update_domains(molecule,l_limit,level,singles=False):
          #
          for j in range(0,len(molecule['excl_list'][i])):
             #
+            dom[-1][i].remove(molecule['excl_list'][i][j])
+            dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+            #
             if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
                #
-               dom[-1][i].remove(molecule['excl_list'][i][j])
-               dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
-               #
                molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+#            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
+#               #
+#               dom[-1][i].remove(molecule['excl_list'][i][j])
+#               dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+#               #
+#               molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
    return molecule
 
