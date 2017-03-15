@@ -442,13 +442,7 @@ def time_plot(molecule):
    handles = [handles[2],handles[1],handles[0]]
    labels = [labels[2],labels[1],labels[0]]
    #
-   if (molecule['mpi_parallel']):
-      #
-      ax1.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.14))
-   #
-   else:
-      #
-      ax1.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.065))
+   ax1.legend(handles,labels,ncol=3,loc=9,fancybox=True,frameon=True)
    #
    ax1.invert_yaxis()
    #
@@ -481,7 +475,7 @@ def time_plot(molecule):
       handles = [handles[2],handles[1],handles[0]]
       labels = [labels[2],labels[1],labels[0]]
       #
-      ax2.legend(handles,labels,ncol=3,bbox_to_anchor=(0.4,1.14))
+      ax2.legend(handles,labels,ncol=3,loc=9,fancybox=True,frameon=True)
       #
       fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
       fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
