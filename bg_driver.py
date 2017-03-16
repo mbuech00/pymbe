@@ -100,7 +100,7 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # return if converged
       #
-      if (((level == 'MACRO') and (molecule['conv'][-1] or (k == molecule['max_order']))) or ((level == 'CORRE') and (k == end))):
+      if (((level == 'MACRO') and molecule['conv'][-1]) or (k == end)):
          #
          print('')
          #
