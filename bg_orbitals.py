@@ -158,7 +158,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          # construct exclusion list
          #
-         orb_exclusion(molecule,l_limit,level)
+         orb_exclusion(molecule,l_limit,order,level)
          #
          # update domains
          #
@@ -347,7 +347,7 @@ def orb_contributions(molecule,order,level,singles=False):
    #
    return molecule
 
-def orb_exclusion(molecule,l_limit,level):
+def orb_exclusion(molecule,l_limit,order,level):
    #
    if (level == 'MACRO'):
       #
@@ -379,6 +379,16 @@ def orb_exclusion(molecule,l_limit,level):
       #
       molecule['excl_list'][i].sort()
    #
+   # update threshold
+   #
+   if (level == 'MACRO'):
+      #
+      molecule['prim_thres'] += molecule['prim_thres']
+   #
+   elif (level == 'CORRE'):
+      #
+      molecule['corr_thres'] += molecule['corr_thres']
+   #
    return molecule
 
 def update_domains(molecule,l_limit,level,singles=False):
@@ -403,12 +413,18 @@ def update_domains(molecule,l_limit,level,singles=False):
          #
          for j in range(0,len(molecule['excl_list'][i])):
             #
+            dom[-1][i].remove(molecule['excl_list'][i][j])
+            dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+            #
             if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
                #
-               dom[-1][i].remove(molecule['excl_list'][i][j])
-               dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
-               #
                molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+#            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
+#               #
+#               dom[-1][i].remove(molecule['excl_list'][i][j])
+#               dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+#               #
+#               molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
    return molecule
 
