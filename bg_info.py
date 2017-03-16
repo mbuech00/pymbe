@@ -117,7 +117,7 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'prim_step'):
                #
                molecule['prim_step'] = float(content[i].split()[1])
-               molecule['prim_step_count'] = 0
+               molecule['prim_step_count'] = 1
             #
             elif (content[i].split()[0] == 'sec_thres'):
                #
@@ -139,7 +139,7 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'corr_step'):
                #
                molecule['corr_step'] = float(content[i].split()[1])
-               molecule['corr_step_count'] = 0
+               molecule['corr_step_count'] = 1
             #
             elif (content[i].split()[0] == 'model'):
                #
