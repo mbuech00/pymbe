@@ -76,22 +76,27 @@ def summary_exp(molecule):
    #
    print('   bethe-goldstone order        =  {0:}'.format(len(molecule['prim_energy'])))
    #
-   print('   prim. exp. threshold         =  {0:<3.1f} %'.format(molecule['prim_thres']))
+   print('   prim. exp. threshold         =  {0:<5.3f} %'.format(molecule['prim_thres_init']))
+   #
+   print('   prim. exp. threshold step    =  {0:<3.1f}'.format(molecule['prim_step']))
    #
    if ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
-      print('   sec. exp. threshold          =  {0:<3.1f} %'.format(molecule['sec_thres']))
+      print('   sec. exp. threshold          =  {0:<5.3f} %'.format(molecule['sec_thres']))
    #
    print('   energy correction            =  {0:}'.format(molecule['corr']))
    #
    if (molecule['corr']):
       #
-      print('   energy correction order      =  {0:}'.format(molecule['max_corr_order']))
-      print('   energy correction threshold  =  {0:<3.1f} %'.format(molecule['corr_thres']))
+      print('   energy corr. order           =  {0:}'.format(molecule['max_corr_order']))
+      #
+      print('   energy corr. threshold       =  {0:<5.3f} %'.format(molecule['corr_thres_init']))
+      #
+      print('   energy corr. threshold step  =  {0:<3.1f}'.format(molecule['corr_step']))
    #
    else:
       #
-      print('   energy correction order      =  N/A')
+      print('   energy corr. order           =  N/A')
    #
    print('   error in calculation         =  {0:}'.format(molecule['error'][-1]))
    #

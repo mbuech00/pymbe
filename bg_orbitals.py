@@ -168,6 +168,10 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          print_update(molecule,l_limit,u_limit,level)
          #
+         # update threshold
+         #
+         update_thres(molecule,level)
+         #
          timer_mpi(molecule,'mpi_time_work_init',order,True)
          #
          if (molecule['mpi_parallel']): collect_init_mpi_time(molecule,order)
@@ -379,16 +383,6 @@ def orb_exclusion(molecule,l_limit,order,level):
       #
       molecule['excl_list'][i].sort()
    #
-   # update threshold
-   #
-   if (level == 'MACRO'):
-      #
-      molecule['prim_thres'] += molecule['prim_thres']
-   #
-   elif (level == 'CORRE'):
-      #
-      molecule['corr_thres'] += molecule['corr_thres']
-   #
    return molecule
 
 def update_domains(molecule,l_limit,level,singles=False):
@@ -450,6 +444,24 @@ def init_domains(molecule):
       molecule['virt_domain'].append(list(range(molecule['nocc']+1,(molecule['nocc']+molecule['nvirt'])+1)))
       #
       molecule['virt_domain'][i].pop(i)
+   #
+   return molecule
+
+def update_thres(molecule,level):
+   #
+   # update threshold
+   #
+   if (level == 'MACRO'):
+      #
+      molecule['prim_step_count'] += 1
+      #
+      molecule['prim_thres'] = molecule['prim_step_count']*molecule['prim_step']*molecule['prim_thres_init']
+   #
+   elif (level == 'CORRE'):
+      #
+      molecule['corr_step_count'] += 1
+      #
+      molecule['corr_thres'] = molecule['corr_step_count']*molecule['corr_step']*molecule['corr_thres_init']
    #
    return molecule
 
