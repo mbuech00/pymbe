@@ -8,7 +8,8 @@ from numpy import asarray, amax
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import MaxNLocator, FormatStrFormatter
+from mpl_toolkits.axes_grid.inset_locator import inset_axes
 import seaborn as sns
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -348,7 +349,7 @@ def dev_ref_plot(molecule):
          ax1.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_corr_abs[i],marker='x',linewidth=2,linestyle=styles[i],\
                   label='BG('+molecule['model'].upper()+')-'+str(i+1))
    #
-   ax1.set_ylim([-3.4,3.4])
+   ax1.set_ylim([-1.1,3.4])
    #
    ax1.xaxis.grid(False)
    #
@@ -356,7 +357,39 @@ def dev_ref_plot(molecule):
    #
    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
    #
-   ax1.legend(loc=1)
+   if (molecule['corr']):
+      #
+      ax1.legend(loc=4,ncol=molecule['corr_order']+1)
+   #
+   else:
+      #
+      ax1.legend(loc=4)
+   #
+   with sns.axes_style("whitegrid"):
+      #
+      insert = inset_axes(ax1,width='40%',height=1.1,loc=1)
+      #
+      insert.axhline(0.0,color='black',linewidth=2)
+      #
+      insert.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_tot_abs,marker='x',linewidth=2,linestyle='-')
+      #
+      if (molecule['corr']):
+         #
+         for i in range(0,molecule['corr_order']):
+            #
+            insert.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_corr_abs[i],marker='x',linewidth=2,linestyle=styles[i])
+      #
+      plt.setp(insert,xticks=list(range(3,len(molecule['prim_energy'])+1)))
+      #
+      insert.set_xlim([3.5,len(molecule['prim_energy'])+0.5])
+      #
+      insert.locator_params(axis='y',nbins=4)
+      #
+      insert.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+      #
+      insert.set_ylim([-0.6,0.6])
+      #
+      insert.xaxis.grid(False)
    #
    ax2.set_title('Relative recovery of E('+molecule['model'].upper()+')')
    #
@@ -376,14 +409,46 @@ def dev_ref_plot(molecule):
    #
    ax2.xaxis.grid(False)
    #
-   ax2.set_ylim([93.,107.])
+   ax2.set_ylim([97.5,107.])
    #
    ax2.set_ylabel('Recovery (in %)')
    ax2.set_xlabel('Expansion order')
    #
    ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
    #
-   ax2.legend(loc=1)
+   if (molecule['corr']):
+      #
+      ax2.legend(loc=4,ncol=molecule['corr_order']+1)
+   #
+   else:
+      #
+      ax2.legend(loc=4)
+   #
+   with sns.axes_style("whitegrid"):
+      #
+      insert = inset_axes(ax2,width='40%',height=1.1,loc=1)
+      #
+      insert.axhline(100.0,color='black',linewidth=2)
+      #
+      insert.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_tot_rel,marker='x',linewidth=2,linestyle='-')
+      #
+      if (molecule['corr']):
+         #
+         for i in range(0,molecule['corr_order']):
+            #
+            insert.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_corr_rel[i],marker='x',linewidth=2,linestyle=styles[i])
+      #
+      plt.setp(insert,xticks=list(range(3,len(molecule['prim_energy'])+1)))
+      #
+      insert.set_xlim([3.5,len(molecule['prim_energy'])+0.5])
+      #
+      insert.locator_params(axis='y',nbins=4)
+      #
+      insert.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+      #
+      insert.set_ylim([99.7,100.3])
+      #
+      insert.xaxis.grid(False)
    #
    sns.despine()
    #
