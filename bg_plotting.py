@@ -177,8 +177,6 @@ def n_tuples_plot(molecule):
    ax.set_xlabel('Expansion order')
    ax.set_ylabel('Number of correlated tuples')
    #
-   ax.set_xlim([-0.5,u_limit-0.5])
-   #
    ax.locator_params(axis='x',nbins=10)
    #
    plt.legend(loc=1)
@@ -512,7 +510,7 @@ def ic_plot(molecule):
    #
    #  ---  plot total orbital contribution matrix  ---
    #
-   orb_con_plot(molecule)
+#   orb_con_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #
