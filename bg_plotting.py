@@ -237,9 +237,9 @@ def orb_ent_plot(molecule):
    #
    del mask_arr
    #
-   return molecule
+   return
 
-def orb_con_plot(molecule):
+def orb_con_tot_plot(molecule):
    #
    sns.set(style='whitegrid')
    #
@@ -261,7 +261,38 @@ def orb_con_plot(molecule):
    #
    fig.tight_layout()
    #
-   plt.savefig(molecule['wrk_dir']+'/output/orb_con_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   plt.savefig(molecule['wrk_dir']+'/output/orb_con_tot_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del orb_con_arr
+   #
+   return
+
+def orb_con_order_plot(molecule):
+   #
+   sns.set(style='darkgrid',palette='Set2')
+   #
+   fig, ax = plt.subplots()
+   #
+   orb_con_arr = np.transpose(np.asarray(molecule['prim_orb_con_abs']))
+   #
+   for i in range(0,len(orb_con_arr)):
+      #
+      ax.plot(list(range(1,len(molecule['prim_energy'])+1)),orb_con_arr[i],linewidth=2)
+   #
+   ax.set_xlim([0.5,len(molecule['prim_energy'])+0.5])
+   #
+   ax.xaxis.grid(False)
+   #
+   ax.set_xlabel('Expansion order')
+   ax.set_ylabel('Accumulated orbital contribution (in Hartree)')
+   #
+   ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+   #
+   sns.despine()
+   #
+   fig.tight_layout()
+   #
+   plt.savefig(molecule['wrk_dir']+'/output/orb_con_order_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    del orb_con_arr
    #
@@ -567,9 +598,13 @@ def ic_plot(molecule):
    #
    orb_ent_plot(molecule)
    #
+   #  ---  plot individual orbital contributions by order  ---
+   #
+   orb_con_order_plot(molecule)
+   #
    #  ---  plot total orbital contributions  ---
    #
-   orb_con_plot(molecule)
+   orb_con_tot_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #

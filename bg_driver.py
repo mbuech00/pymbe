@@ -104,13 +104,13 @@ def mono_exp_drv(molecule,start,end,level):
          #
          print('')
          #
-         if ((level == 'MACRO') and (not molecule['corr'])): print('')
-         #
-         if (level == 'CORRE'):
+         if (k == end):
             #
             orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
             #
             mono_exp_finish(molecule)
+         #
+         if ((level == 'MACRO') and (not molecule['corr'])): print('')
          #
          break
    #
