@@ -212,9 +212,8 @@ def calc_mpi_timings(molecule):
       molecule['dist_init'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
       molecule['dist_kernel'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
       molecule['dist_final'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
-      molecule['dist_main'] = np.empty([3,molecule['mpi_size']],dtype=np.float64)
       #
-      for i in range(0,4):
+      for i in range(0,3):
          #
          if (i == 0):
             #
@@ -227,10 +226,6 @@ def calc_mpi_timings(molecule):
          elif (i == 2):
             #
             dist = molecule['dist_final']
-         #
-         elif (i == 3):
-            #
-            dist = molecule['dist_main']
          #
          # for init/kernel/final, calculate the relative distribution between work/comm/idle for the individual slaves
          #

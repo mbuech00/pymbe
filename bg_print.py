@@ -4,6 +4,7 @@
 """ bg_print.py: general print utilities for Bethe-Goldstone correlation calculations."""
 
 import sys
+import numpy as np
 from os import getcwd, mkdir
 from os.path import isdir
 from shutil import rmtree
@@ -207,41 +208,26 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       orb_arr = molecule['corr_orb_arr']
       orb_con_rel = molecule['corr_orb_con_rel']
    #
-   index = '          '
+   tmp = np.empty(u_limit,dtype=object)
    #
-   for m in range(l_limit+1,(l_limit+u_limit)+1):
-      #
-      if (m < 10):
-         #
-         index += str(m)+'         '
-      #
-      elif ((m >= 10) and (m < 100)):
-         #
-         index += str(m)+'        '
-      #
-      elif ((m >= 100)):
-         #
-         index += str(m)+'       '
+   index = []
+   #
+   index_strings(l_limit,u_limit,index)
    #
    if (level == 'MACRO'):
       #
       print('')
       print('   ---------------------------------------------')
-      print('         individual orbital contributions       ')
+      print('      individual orbital contributions (in %)   ')
       print('   ---------------------------------------------')
       #
       print('')
       print(' * BG exp. order = 1')
       print(' -------------------')
+      #
       print('')
-      #
-      print('      --- relative orbital contributions ---')
-      print('')
-      #
-      print(index)
-      #
-      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con_rel[0]]))
-      #
+      print(index[0])
+      print('               '+str(['{0:3d}'.format(int(m*100.0)) for m in orb_con_rel[0]]))
       print('')
    #
    if (level == 'MACRO'):
@@ -256,7 +242,7 @@ def print_orb_info(molecule,l_limit,u_limit,level):
          #
          print('')
          print('   ---------------------------------------------')
-         print('         individual orbital contributions       ')
+         print('      individual orbital contributions (in %)   ')
          print('   ---------------------------------------------')
    #
    for i in range(start,len(orb)):
@@ -264,28 +250,60 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       print('')
       print(' * BG exp. order = '+str(i+2))
       print(' -------------------')
-      print('')
       #
-      print('      --- entanglement matrix ---')
       print('')
-      #
-      print(index)
+      print(index[1])
       #
       for j in range(0,len(orb_arr[i])):
          #
-         print(' {0:>3d}'.format((j+l_limit)+1)+' '+str(['{0:6.3f}'.format(m) for m in orb_arr[i][j]]))
+         for l in range(0,len(orb_arr[i][j])):
+            #
+            if (orb_arr[i][j,l] == 0.0):
+               #
+               tmp[l] = '   '
+            #
+            else:
+               #
+               tmp[l] = int(orb_arr[i][j,l]*100.0)
+         #
+         print('          {0:>3d}  '.format((j+l_limit)+1)+str(['{0:3}'.format(m) for m in tmp]))
       #
       print('')
-      print('      --- relative orbital contributions ---')
+      print(index[0])
+      print('               '+str(['{0:3d}'.format(int(m*100.0)) for m in orb_con_rel[i+1]]))
       print('')
-      #
-      print(index)
-      #
-      print('     '+str(['{0:6.3f}'.format(m) for m in orb_con_rel[i+1]]))
-      #
-      if (i == (len(orb)-1)): print('')
+   #
+   del tmp
    #
    return
+
+def index_strings(l_limit,u_limit,index):
+   #
+   for i in range(0,2):
+      #
+      if (i == 0):
+         #
+         index.append(' tot. contrib.    ')
+      #
+      elif (i == 1):
+         #
+         index.append(' entanglement     ')
+      #
+      for m in range(l_limit+1,(l_limit+u_limit)+1):
+         #
+         if (m < 10):
+            #
+            index[i] += str(m)+'      '
+         #
+         elif ((m >= 10) and (m < 100)):
+            #
+            index[i] += str(m)+'     '
+         #
+         elif ((m >= 100)):
+            #
+            index[i] += str(m)+'    '
+   #
+   return index
 
 def redirect_stdout(molecule):
    #
