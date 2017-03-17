@@ -104,7 +104,7 @@ def mono_exp_drv(molecule,start,end,level):
          #
          print('')
          #
-         if (k == end):
+         if ((k == end) and (not ((level == 'MACRO') and molecule['conv'][-1]))):
             #
             orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
             #
