@@ -195,33 +195,43 @@ def n_tuples_plot(molecule):
 
 def orb_ent_plot(molecule):
    #
-   sns.set(style='whitegrid')
+   sns.set(style='white')
    #
    cmap = sns.cubehelix_palette(as_cmap=True)
    #
    h_length = len(molecule['prim_orb_arr'])//2
    #
-   if (len(molecule['prim_orb_arr']) % h_length != 0): h_length += 1
+   if (len(molecule['prim_orb_arr']) % 2 != 0): h_length += 1
    #
-   fig, ax = plt.subplots(h_length, 2, sharex='col', sharey='row')
+   ratio = 0.95/float(h_length)
+   #
+   fig, ax = plt.subplots(h_length+1, 2, sharex='col', sharey='row', gridspec_kw = {'height_ratios': [ratio]*h_length+[0.05]})
    #
    fig.set_size_inches([8.268,11.693])
    #
+   cbar_ax = fig.add_axes([0.06,0.02,0.88,0.05])
+   #
    mask_arr = np.zeros_like(molecule['prim_orb_arr'][0],dtype=np.bool)
+   #
+   fig.suptitle('Orbital entanglement matrices')
    #
    for i in range(0,len(molecule['prim_orb_arr'])):
       #
       mask_arr = (molecule['prim_orb_arr'][i] == 0.0)
       #
-      sns.heatmap(np.absolute(molecule['prim_orb_arr'][i]*100.0),ax=ax.flat[i],mask=mask_arr,cmap=cmap,cbar_kws={'format':'%.0f'},\
-                       xticklabels=False,yticklabels=False,cbar=False,\
+      sns.heatmap(np.abs(molecule['prim_orb_arr'][i]*100.0),ax=ax.flat[i],mask=mask_arr,cmap=cmap,\
+                       xticklabels=False,yticklabels=False,cbar=True,cbar_ax=cbar_ax,cbar_kws={'format':'%.0f', 'orientation': 'horizontal'},\
                        annot=False,vmin=0.0,vmax=100.0)
       #
       ax.flat[i].set_title('BG order = '+str(i+2))
    #
-   sns.despine(left=True,bottom=True)
+   ax[-1,0].set_yticklabels([]); ax[-1,1].set_yticklabels([])
+   #
+   sns.despine(left=True,right=True,top=True,bottom=True)
    #
    fig.tight_layout()
+   #
+   plt.subplots_adjust(top=0.95)
    #
    plt.savefig(molecule['wrk_dir']+'/output/orb_ent_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
@@ -243,7 +253,7 @@ def orb_con_plot(molecule):
    #
    ax.set_title('Total orbital contributions (in %)')
    #
-   ax.set_ylabel('Bethe-Goldstone order')
+   ax.set_ylabel('Expansion order')
    #
    ax.set_yticklabels(ax.get_yticklabels(),rotation=0)
    #

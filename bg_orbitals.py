@@ -317,16 +317,14 @@ def orb_contributions(molecule,order,level,singles=False):
          for _ in range(0,molecule['ncore']):
             #
             orb_con_abs[-1].append(0.0)
-            #
-            orb_con_rel[-1].append(0.0)
       #
       for i in range(0,len(e_inc)):
          #
          orb_con_abs[-1].append(e_inc[i])
       #
       for i in range(0,len(orb_con_abs[-1])):
-      #
-         orb_con_rel[-1].append(orb_con_abs[-1][i]/np.sum(e_inc))
+         #
+         orb_con_rel[-1].append(abs(orb_con_abs[-1][i])/np.abs(np.sum(e_inc)))
    #
    else:
       #
