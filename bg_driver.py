@@ -104,7 +104,7 @@ def mono_exp_drv(molecule,start,end,level):
          #
          print('')
          #
-         if ((k == end) and (not ((level == 'MACRO') and molecule['conv'][-1]))):
+         if (k == end):
             #
             orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
             #
@@ -156,9 +156,9 @@ def mono_exp_kernel(molecule,k,level):
    #
    print_result(tup[k-1],e_inc[k-1],level)
    #
-   # check for convergence
-   #
-   if (k == molecule['max_order']): molecule['conv'].append(True)
+#   # check for convergence
+#   #
+#   if (k == molecule['max_order']): molecule['conv'].append(True)
    #
    return molecule
 
