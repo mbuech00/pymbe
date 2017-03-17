@@ -4,6 +4,7 @@
 """ bg_cfour.py: cfour-related routines for Bethe-Goldstone correlation calculations."""
 
 from re import match
+from shutil import copy
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
