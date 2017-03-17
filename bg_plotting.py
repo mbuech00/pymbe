@@ -213,7 +213,7 @@ def orb_ent_plot(molecule):
    #
    mask_arr = np.zeros_like(molecule['prim_orb_arr'][0],dtype=np.bool)
    #
-   fig.suptitle('Orbital entanglement matrices')
+   fig.suptitle('Entanglement matrices')
    #
    for i in range(0,len(molecule['prim_orb_arr'])):
       #
