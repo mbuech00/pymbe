@@ -4,7 +4,7 @@
 """ bg_plotting.py: plotting utilities for Bethe-Goldstone correlation calculations."""
 
 from copy import deepcopy
-from numpy import asarray, amax
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -193,80 +193,59 @@ def n_tuples_plot(molecule):
    #
    return molecule
 
-def orb_con_plot(molecule):
+def orb_ent_plot(molecule):
    #
    sns.set(style='whitegrid')
    #
    cmap = sns.cubehelix_palette(as_cmap=True)
    #
-   if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')):
-      #
-      orbital_type = 'occupied'
+   h_length = len(molecule['prim_orb_arr'])//2
    #
-   elif ((molecule['exp'] == 'virt') or (molecule['exp'] == 'comb-vo')):
-      #
-      orbital_type = 'virtual'
+   if (len(molecule['prim_orb_arr']) % h_length != 0): h_length += 1
    #
-   if (molecule['corr']):
-      #
-      fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+   fig, ax = plt.subplots(h_length, 2, sharex='col', sharey='row')
    #
-   else:
-      #
-      fig, ax1 = plt.subplots()
+   fig.set_size_inches([8.268,11.693])
    #
-   if (molecule['corr']):
-      #
-      # primary expansion
-      #
-      orb_arr = 100.0 * asarray(molecule['prim_orb_con_rel'])
-      #
-      sns.heatmap(orb_arr,ax=ax1,cmap=cmap,cbar_kws={'format':'%.0f'},\
-                       xticklabels=False,\
-                       yticklabels=range(1,len(molecule['prim_orb_con_rel'])+1),cbar=True,\
-                       annot=False,fmt='.1f',vmin=0.0,vmax=amax(orb_arr))
-      #
-      ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
-      #
-      ax1.set_title('Primary BG expansion')
-      #
-      # energy correction
-      #
-      orb_arr_corr = 100.0 * asarray(molecule['corr_orb_con_rel'])
-      #
-      diff_arr = orb_arr_corr - orb_arr
-      #
-      mask_arr = (diff_arr == 0.0)
-      #
-      sns.heatmap(diff_arr,ax=ax2,mask=mask_arr,cmap='coolwarm',cbar_kws={'format':'%.1f'},\
-                       xticklabels=False,\
-                       yticklabels=range(1,len(molecule['corr_orb_con_rel'])+1),cbar=True,\
-                       annot=False,fmt='.1f',vmax=amax(diff_arr))
-      #
-      ax2.set_yticklabels(ax2.get_yticklabels(),rotation=0)
-      #
-      ax2.set_title('Energy correction')
-      #
-      fig.text(0.42,0.0,'Relative contribution (in %) from individual {0:} orbitals'.format(orbital_type),ha='center',va='center')
-      fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
+   mask_arr = np.zeros_like(molecule['prim_orb_arr'][0],dtype=np.bool)
    #
-   else:
+   for i in range(0,len(molecule['prim_orb_arr'])):
       #
-      # primary expansion
+      mask_arr = (molecule['prim_orb_arr'][i] == 0.0)
       #
-      orb_arr = 100.0 * asarray(molecule['prim_orb_con_rel'])
+      sns.heatmap(np.absolute(molecule['prim_orb_arr'][i]*100.0),ax=ax.flat[i],mask=mask_arr,cmap=cmap,cbar_kws={'format':'%.0f'},\
+                       xticklabels=False,yticklabels=False,cbar=False,\
+                       annot=False,vmin=0.0,vmax=100.0)
       #
-      sns.heatmap(orb_arr,ax=ax1,cmap=cmap,cbar_kws={'format':'%.0f'},\
-                       xticklabels=False,\
-                       yticklabels=range(1,len(molecule['prim_orb_con_rel'])+1),cbar=True,\
-                       annot=False,fmt='.1f',vmin=0.0,vmax=amax(orb_arr))
-      #
-      ax1.set_yticklabels(ax1.get_yticklabels(),rotation=0)
-      #
-      ax1.set_title('Primary BG expansion')
-      #
-      ax1.set_xlabel('Relative contribution (in %) from individual {0:} orbitals'.format(orbital_type))
-      ax1.set_ylabel('Bethe-Goldstone order')
+      ax.flat[i].set_title('BG order = '+str(i+2))
+   #
+   sns.despine(left=True,bottom=True)
+   #
+   fig.tight_layout()
+   #
+   plt.savefig(molecule['wrk_dir']+'/output/orb_ent_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del mask_arr
+   #
+   return molecule
+
+def orb_con_plot(molecule):
+   #
+   sns.set(style='whitegrid')
+   #
+   fig, ax = plt.subplots()
+   #
+   orb_con_arr = 100.0*np.array(molecule['prim_orb_con_rel'])
+   #
+   sns.heatmap(orb_con_arr,ax=ax,cmap='coolwarm',cbar_kws={'format':'%.0f'},\
+                    xticklabels=False,yticklabels=range(1,len(molecule['prim_orb_con_rel'])+1),cbar=True,\
+                    annot=False,vmin=0.0,vmax=np.amax(orb_con_arr))
+   #
+   ax.set_title('Total orbital contributions (in %)')
+   #
+   ax.set_ylabel('Bethe-Goldstone order')
+   #
+   ax.set_yticklabels(ax.get_yticklabels(),rotation=0)
    #
    sns.despine(left=True,bottom=True)
    #
@@ -274,12 +253,13 @@ def orb_con_plot(molecule):
    #
    plt.savefig(molecule['wrk_dir']+'/output/orb_con_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
-   return molecule
+   del orb_con_arr
+   #
+   return
 
 def dev_ref_plot(molecule):
    #
    sns.set(style='darkgrid',palette='Set2')
-   sns.despine()
    #
    fig, ( ax1, ax2 ) = plt.subplots(2, 1, sharex='col', sharey='row')
    #
@@ -573,9 +553,13 @@ def ic_plot(molecule):
    #
    n_tuples_plot(molecule)
    #
-   #  ---  plot total orbital contribution matrix  ---
+   #  ---  plot orbital entanglement matrices  ---
    #
-#   orb_con_plot(molecule)
+   orb_ent_plot(molecule)
+   #
+   #  ---  plot total orbital contributions  ---
+   #
+   orb_con_plot(molecule)
    #
    #  ---  plot deviation from reference calc  ---
    #
