@@ -126,7 +126,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       # print orb info
       #
-      print_orb_info(molecule,l_limit,u_limit,level)
+      if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
       #
       # update domains
       #
@@ -154,7 +154,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          # print orb info
          #
-         print_orb_info(molecule,l_limit,u_limit,level)
+         if (molecule['debug']): print_orb_info(molecule,l_limit,u_limit,level)
          #
          # construct exclusion list
          #
