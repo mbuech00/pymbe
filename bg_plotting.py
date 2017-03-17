@@ -277,7 +277,17 @@ def orb_con_order_plot(molecule):
    #
    for i in range(0,len(orb_con_arr)):
       #
-      ax.plot(list(range(1,len(molecule['prim_energy'])+1)),orb_con_arr[i],linewidth=2)
+      end = len(molecule['prim_energy'])
+      #
+      for j in range(1,len(orb_con_arr[i])):
+         #
+         if ((orb_con_arr[i,j]-orb_con_arr[i,j-1]) == 0.0):
+            #
+            end = j-1
+            #
+            break
+      #
+      ax.plot(list(range(1,end+1)),orb_con_arr[i,:end],linewidth=2)
    #
    ax.set_xlim([0.5,len(molecule['prim_energy'])+0.5])
    #
