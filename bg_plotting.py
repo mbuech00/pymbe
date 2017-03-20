@@ -193,7 +193,7 @@ def n_tuples_plot(molecule):
    #
    return molecule
 
-def orb_ent_plot(molecule):
+def orb_ent_all_plot(molecule):
    #
    sns.set(style='white')
    #
@@ -232,6 +232,42 @@ def orb_ent_plot(molecule):
    fig.tight_layout()
    #
    plt.subplots_adjust(top=0.95)
+   #
+   plt.savefig(molecule['wrk_dir']+'/output/orb_ent_all_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del mask_arr
+   #
+   return
+
+def orb_ent_plot(molecule):
+   #
+   sns.set(style='white')
+   #
+   cmap = sns.cubehelix_palette(as_cmap=True)
+   #
+   fig, (ax1, ax2, cbar_ax) = plt.subplots(1, 3, gridspec_kw={'width_ratios':[1.0,1.0,0.08]})
+   #
+   ax1.get_shared_y_axes().join(ax2)
+   #
+   mask_arr = (molecule['prim_orb_arr'][0] == 0.0)
+   #
+   sns.heatmap(np.abs(molecule['prim_orb_arr'][0]*100.0),ax=ax1,mask=mask_arr,cmap=cmap,\
+                    xticklabels=False,yticklabels=False,cbar=False,\
+                       annot=False,vmin=0.0,vmax=100.0)
+   #
+   ax1.set_title('Entanglement matrix, order = 2')
+   #
+   mask_arr = (molecule['prim_orb_arr'][-1] == 0.0)
+   #
+   sns.heatmap(np.abs(molecule['prim_orb_arr'][-1]*100.0),ax=ax2,mask=mask_arr,cmap=cmap,\
+                    xticklabels=False,yticklabels=False,cbar=True,cbar_ax=cbar_ax,cbar_kws={'format':'%.0f'},\
+                       annot=False,vmin=0.0,vmax=100.0)
+   #
+   ax2.set_title('Entanglement matrix, order = '+str(len(molecule['prim_energy'])))
+   #
+   sns.despine(left=True,right=True,top=True,bottom=True)
+   #
+   fig.tight_layout()
    #
    plt.savefig(molecule['wrk_dir']+'/output/orb_ent_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
@@ -606,6 +642,7 @@ def ic_plot(molecule):
    #
    #  ---  plot orbital entanglement matrices  ---
    #
+   orb_ent_all_plot(molecule)
    orb_ent_plot(molecule)
    #
    #  ---  plot individual orbital contributions by order  ---
