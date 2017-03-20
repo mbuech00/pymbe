@@ -543,7 +543,7 @@ def time_plot(molecule):
    if (not molecule['mpi_parallel']):
       #
       ax1.set_xlabel('Distribution (in %)')
-      ax1.set_ylabel('Bethe-Goldstone order')
+      ax1.set_ylabel('Expansion order')
    #
    else:
       #
@@ -572,7 +572,7 @@ def time_plot(molecule):
       ax2.legend(handles,labels,ncol=3,loc=9,fancybox=True,frameon=True)
       #
       fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
-      fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
+      fig.text(0.0,0.5,'Expansion order',ha='center',va='center',rotation='vertical')
       #
       ax2.invert_yaxis()
    #
