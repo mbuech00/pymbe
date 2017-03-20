@@ -130,7 +130,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       # update domains
       #
-      update_domains(molecule,l_limit,level,True)
+      update_domains(molecule,l_limit,level,False)
    #
    else:
       #
@@ -162,7 +162,13 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          # update domains
          #
-         update_domains(molecule,l_limit,level)
+         if (order == 2):
+            #
+            update_domains(molecule,l_limit,level,False)
+         #
+         else:
+            #
+            update_domains(molecule,l_limit,level)
          #
          # print domain updates
          #
@@ -363,27 +369,27 @@ def orb_exclusion(molecule,l_limit,order,level):
       orb_arr = molecule['corr_orb_arr']
       thres = (molecule['corr_thres']/100.0)
    #
-   molecule['excl_list'][:] = []
+   molecule['excl_list'].append([])
    #
    # screening in individual domains based on orbital entanglement 
    #
    for i in range(0,len(orb_arr[-1])):
       #
-      molecule['excl_list'].append([])
+      molecule['excl_list'][-1].append([])
       #
       if (np.sum(orb_arr[-1][i]) > 0.0):
          #
          for j in range(0,len(orb_arr[-1][i])):
             #
-            if ((np.abs(orb_arr[-1][i,j]) < thres) and (orb[-1][i,j] != 0.0)): molecule['excl_list'][i].append((j+l_limit)+1)
+            if ((np.abs(orb_arr[-1][i,j]) < thres) and (orb[-1][i,j] != 0.0)): molecule['excl_list'][-1][i].append((j+l_limit)+1)
    #
-   for i in range(0,len(molecule['excl_list'])):
+   for i in range(0,len(molecule['excl_list'][-1])):
       #
-      molecule['excl_list'][i].sort()
+      molecule['excl_list'][-1][i].sort()
    #
    return molecule
 
-def update_domains(molecule,l_limit,level,singles=False):
+def update_domains(molecule,l_limit,level,screen=True):
    #
    if (level == 'MACRO'):
       #
@@ -399,18 +405,20 @@ def update_domains(molecule,l_limit,level,singles=False):
       #
       dom[-1].append(list(dom[-2][l]))
    #
-   if (not singles):
+   if (screen):
       #
-      for i in range(0,len(molecule['excl_list'])):
+      for i in range(0,len(molecule['excl_list'][-1])):
          #
-         for j in range(0,len(molecule['excl_list'][i])):
+         for j in range(0,len(molecule['excl_list'][-1][i])):
             #
-            dom[-1][i].remove(molecule['excl_list'][i][j])
-            dom[-1][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
-            #
-            if ((i+l_limit)+1 in molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1]):
+            if (molecule['excl_list'][-1][i][j] in molecule['excl_list'][-2][i]):
                #
-               molecule['excl_list'][(molecule['excl_list'][i][j]-l_limit)-1].remove((i+l_limit)+1)
+               dom[-1][i].remove(molecule['excl_list'][-1][i][j])
+               dom[-1][(molecule['excl_list'][-1][i][j]-l_limit)-1].remove((i+l_limit)+1)
+               #
+               if ((i+l_limit)+1 in molecule['excl_list'][-1][(molecule['excl_list'][-1][i][j]-l_limit)-1]):
+                  #
+                  molecule['excl_list'][-1][(molecule['excl_list'][-1][i][j]-l_limit)-1].remove((i+l_limit)+1)
    #
    return molecule
 
