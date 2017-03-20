@@ -173,12 +173,14 @@ def n_tuples_plot(molecule):
    #
    ax.xaxis.grid(False)
    #
+   ax.set_xlim([-0.5,u_limit-0.5])
    ax.set_ylim(bottom=0.7)
+   #
+   ax.set_xticks(list(range(0,u_limit,u_limit//8)))
+   ax.set_xticklabels(list(range(1,u_limit+1,u_limit//8)))
    #
    ax.set_xlabel('Expansion order')
    ax.set_ylabel('Number of correlated tuples')
-   #
-   ax.locator_params(axis='x',nbins=10)
    #
    plt.legend(loc=1)
    #
