@@ -78,8 +78,6 @@ def summary_exp(molecule):
    #
    print('   prim. exp. threshold         =  {0:<5.3f} %'.format(molecule['prim_thres_init']))
    #
-   print('   prim. exp. threshold step    =  {0:<3.1f}'.format(molecule['prim_step']))
-   #
    if ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
       print('   sec. exp. threshold          =  {0:<5.3f} %'.format(molecule['sec_thres']))
@@ -91,8 +89,6 @@ def summary_exp(molecule):
       print('   energy corr. order           =  {0:}'.format(molecule['max_corr_order']))
       #
       print('   energy corr. threshold       =  {0:<5.3f} %'.format(molecule['corr_thres_init']))
-      #
-      print('   energy corr. threshold step  =  {0:<3.1f}'.format(molecule['corr_step']))
    #
    else:
       #

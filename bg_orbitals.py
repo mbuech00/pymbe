@@ -455,19 +455,15 @@ def init_domains(molecule):
 
 def update_thres(molecule,level):
    #
-   # update threshold
+   # update threshold by doubling it
    #
    if (level == 'MACRO'):
       #
-      molecule['prim_step_count'] += 1
-      #
-      molecule['prim_thres'] = molecule['prim_step_count']*molecule['prim_step']*molecule['prim_thres_init']
+      molecule['prim_thres'] += molecule['prim_thres']
    #
    elif (level == 'CORRE'):
       #
-      molecule['corr_step_count'] += 1
-      #
-      molecule['corr_thres'] = molecule['corr_step_count']*molecule['corr_step']*molecule['corr_thres_init']
+      molecule['corr_thres'] += molecule['corr_thres']
    #
    return molecule
 
