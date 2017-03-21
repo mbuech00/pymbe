@@ -75,13 +75,12 @@ def init_param(molecule):
       molecule['backend_prog'] = ''
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
-      molecule['prim_step'] = 0.0
+      molecule['prim_e_thres'] = 1.0e-04
       molecule['sec_thres'] = 0.0
       molecule['corr'] = False
       molecule['corr_model'] = ''
       molecule['corr_order'] = 0
       molecule['corr_thres'] = 0.0
-      molecule['corr_step'] = 0.0
       molecule['basis'] = ''
       molecule['ref'] = False
       molecule['frozen'] = False
@@ -114,10 +113,9 @@ def init_param(molecule):
                molecule['prim_thres'] = float(content[i].split()[1])
                molecule['prim_thres_init'] = molecule['prim_thres']
             #
-            elif (content[i].split()[0] == 'prim_step'):
+            elif (content[i].split()[0] == 'prim_e_thres'):
                #
-               molecule['prim_step'] = float(content[i].split()[1])
-               molecule['prim_step_count'] = 1
+               molecule['prim_e_thres'] = float(content[i].split()[1])
             #
             elif (content[i].split()[0] == 'sec_thres'):
                #
@@ -135,11 +133,6 @@ def init_param(molecule):
                #
                molecule['corr_thres'] = float(content[i].split()[1])
                molecule['corr_thres_init'] = molecule['corr_thres']
-            #
-            elif (content[i].split()[0] == 'corr_step'):
-               #
-               molecule['corr_step'] = float(content[i].split()[1])
-               molecule['corr_step_count'] = 1
             #
             elif (content[i].split()[0] == 'model'):
                #
@@ -195,8 +188,8 @@ def init_param(molecule):
    #
    set_fc(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','max_order','prim_thres','prim_step','sec_thres',\
-          'corr','corr_order','corr_thres','corr_step','model','corr_model',\
+   chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','max_order','prim_thres','prim_e_thres','sec_thres',\
+          'corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
    inc = 0
@@ -337,12 +330,6 @@ def sanity_chk(molecule):
          print('wrong input -- expansion threshold (prim_thres) must be float >= 0.0 --- aborting ...')
          #
          molecule['error'].append(True)
-      #
-      if (molecule['prim_step'] < 1.0):
-         #
-         print('wrong input -- expansion threshold step (prim_step) must be float >= 1.0 --- aborting ...')
-         #
-         molecule['error'].append(True)
    #
    if ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
@@ -377,18 +364,6 @@ def sanity_chk(molecule):
       if (molecule['corr_thres'] >= molecule['prim_thres']):
          #
          print('wrong input -- correction threshold (corr_thres) must be tighter than the primary expansion threshold (prim_thres) --- aborting ...')
-         #
-         molecule['error'].append(True)
-      #
-      if (molecule['corr_step'] < 1.0):
-         #
-         print('wrong input -- expansion threshold step (corr_step) must be float >= 1.0 --- aborting ...')
-         #
-         molecule['error'].append(True)
-      #
-      if (molecule['corr_step'] > molecule['prim_step']):
-         #
-         print('wrong input -- expansion threshold step (corr_step) must be smaller than or equal to primary expansion threshold step (prim_step) --- aborting ...')
          #
          molecule['error'].append(True)
    #

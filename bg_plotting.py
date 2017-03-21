@@ -155,7 +155,7 @@ def n_tuples_plot(molecule):
             corr.append(0)
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
-                  palette='Greens_r',label='Theoretical number',log=True)
+                  palette='Greens',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),corr,palette='Reds_r',\
                   label='Energy corr.',log=True)
@@ -166,19 +166,21 @@ def n_tuples_plot(molecule):
    else:
       #
       sns.barplot(list(range(1,u_limit+1)),molecule['theo_work'],\
-                  palette='Greens_r',label='Theoretical number',log=True)
+                  palette='Greens',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
                   label='BG('+molecule['model'].upper()+') expansion',log=True)
    #
    ax.xaxis.grid(False)
    #
+   ax.set_xlim([-0.5,u_limit-0.5])
    ax.set_ylim(bottom=0.7)
+   #
+   ax.set_xticks(list(range(0,u_limit,u_limit//8)))
+   ax.set_xticklabels(list(range(1,u_limit+1,u_limit//8)))
    #
    ax.set_xlabel('Expansion order')
    ax.set_ylabel('Number of correlated tuples')
-   #
-   ax.locator_params(axis='x',nbins=10)
    #
    plt.legend(loc=1)
    #
@@ -193,7 +195,7 @@ def n_tuples_plot(molecule):
    #
    return molecule
 
-def orb_ent_plot(molecule):
+def orb_ent_all_plot(molecule):
    #
    sns.set(style='white')
    #
@@ -213,7 +215,7 @@ def orb_ent_plot(molecule):
    #
    mask_arr = np.zeros_like(molecule['prim_orb_arr'][0],dtype=np.bool)
    #
-   fig.suptitle('Orbital entanglement matrices')
+   fig.suptitle('Entanglement matrices')
    #
    for i in range(0,len(molecule['prim_orb_arr'])):
       #
@@ -232,6 +234,42 @@ def orb_ent_plot(molecule):
    fig.tight_layout()
    #
    plt.subplots_adjust(top=0.95)
+   #
+   plt.savefig(molecule['wrk_dir']+'/output/orb_ent_all_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del mask_arr
+   #
+   return
+
+def orb_ent_plot(molecule):
+   #
+   sns.set(style='white')
+   #
+   cmap = sns.cubehelix_palette(as_cmap=True)
+   #
+   fig, (ax1, ax2, cbar_ax) = plt.subplots(1, 3, gridspec_kw={'width_ratios':[1.0,1.0,0.08]})
+   #
+   ax1.get_shared_y_axes().join(ax2)
+   #
+   mask_arr = (molecule['prim_orb_arr'][0] == 0.0)
+   #
+   sns.heatmap(np.abs(molecule['prim_orb_arr'][0]*100.0),ax=ax1,mask=mask_arr,cmap=cmap,\
+                    xticklabels=False,yticklabels=False,cbar=False,\
+                       annot=False,vmin=0.0,vmax=100.0)
+   #
+   ax1.set_title('Entanglement matrix, order = 2')
+   #
+   mask_arr = (molecule['prim_orb_arr'][-1] == 0.0)
+   #
+   sns.heatmap(np.abs(molecule['prim_orb_arr'][-1]*100.0),ax=ax2,mask=mask_arr,cmap=cmap,\
+                    xticklabels=False,yticklabels=False,cbar=True,cbar_ax=cbar_ax,cbar_kws={'format':'%.0f'},\
+                       annot=False,vmin=0.0,vmax=100.0)
+   #
+   ax2.set_title('Entanglement matrix, order = '+str(len(molecule['prim_energy'])))
+   #
+   sns.despine(left=True,right=True,top=True,bottom=True)
+   #
+   fig.tight_layout()
    #
    plt.savefig(molecule['wrk_dir']+'/output/orb_ent_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
@@ -277,7 +315,17 @@ def orb_con_order_plot(molecule):
    #
    for i in range(0,len(orb_con_arr)):
       #
-      ax.plot(list(range(1,len(molecule['prim_energy'])+1)),orb_con_arr[i],linewidth=2)
+      end = len(molecule['prim_energy'])
+      #
+      for j in range(1,len(orb_con_arr[i])):
+         #
+         if ((orb_con_arr[i,j]-orb_con_arr[i,j-1]) == 0.0):
+            #
+            end = j-1
+            #
+            break
+      #
+      ax.plot(list(range(1,end+1)),orb_con_arr[i,:end],linewidth=2)
    #
    ax.set_xlim([0.5,len(molecule['prim_energy'])+0.5])
    #
@@ -533,7 +581,7 @@ def time_plot(molecule):
    if (not molecule['mpi_parallel']):
       #
       ax1.set_xlabel('Distribution (in %)')
-      ax1.set_ylabel('Bethe-Goldstone order')
+      ax1.set_ylabel('Expansion order')
    #
    else:
       #
@@ -562,7 +610,7 @@ def time_plot(molecule):
       ax2.legend(handles,labels,ncol=3,loc=9,fancybox=True,frameon=True)
       #
       fig.text(0.52,0.0,'Distribution (in %)',ha='center',va='center')
-      fig.text(0.0,0.5,'Bethe-Goldstone order',ha='center',va='center',rotation='vertical')
+      fig.text(0.0,0.5,'Expansion order',ha='center',va='center',rotation='vertical')
       #
       ax2.invert_yaxis()
    #
@@ -596,6 +644,7 @@ def ic_plot(molecule):
    #
    #  ---  plot orbital entanglement matrices  ---
    #
+   orb_ent_all_plot(molecule)
    orb_ent_plot(molecule)
    #
    #  ---  plot individual orbital contributions by order  ---
