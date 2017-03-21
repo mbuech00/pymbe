@@ -64,11 +64,19 @@ def print_final_header(order,level):
    #
    return
 
-def print_final_end(molecule,order,level):
+def print_final_end(molecule,order,conv,level):
    #
-   print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} finalization done'.format(level,order))
-   print(' --------------------------------------------------------------------------------------------')
+   if ((level == 'MACRO') and conv):
+      #
+      print(' --------------------------------------------------------------------------------------------')
+      print(' STATUS-{0:}: order = {1:>d} finalization done --- *** calculation has converged ***'.format(level,order))
+      print(' --------------------------------------------------------------------------------------------')
+   #
+   else:
+      #
+      print(' --------------------------------------------------------------------------------------------')
+      print(' STATUS-{0:}: order = {1:>d} finalization done'.format(level,order))
+      print(' --------------------------------------------------------------------------------------------')
    #
    return
 

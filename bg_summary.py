@@ -78,6 +78,8 @@ def summary_exp(molecule):
    #
    print('   prim. exp. threshold         =  {0:<5.3f} %'.format(molecule['prim_thres_init']))
    #
+   print('   prim. energy threshold       =  {0:<5.2e}'.format(molecule['prim_e_thres']))
+   #
    if ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
       print('   sec. exp. threshold          =  {0:<5.3f} %'.format(molecule['sec_thres']))

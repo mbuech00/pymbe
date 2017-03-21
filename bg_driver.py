@@ -100,11 +100,11 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # return if converged
       #
-      if (((level == 'MACRO') and molecule['conv'][-1]) or (k == end)):
+      if (((level == 'MACRO') and molecule['conv_orb'][-1]) or ((level == 'MACRO') and molecule['conv_energy'][-1]) or (k == end)):
          #
          print('')
          #
-         if ((k == end) and (not ((level == 'MACRO') and molecule['conv'][-1]))):
+         if (((k == end) and (not ((level == 'MACRO') and molecule['conv_orb'][-1]))) or ((level == 'MACRO') and molecule['conv_energy'][-1])):
             #
             orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
             #
@@ -130,11 +130,9 @@ def mono_exp_kernel(molecule,k,level):
       e_inc = molecule['corr_energy_inc']
       e_tot = molecule['corr_energy']
    #
-   print_status_header(tup[-1],k,molecule['conv'][-1],level)
+   print_status_header(tup[-1],k,molecule['conv_orb'][-1],level)
    #
-   if ((level == 'MACRO') and molecule['conv'][-1]):
-      #
-      return molecule
+   if ((level == 'MACRO') and molecule['conv_orb'][-1]): return molecule
    #
    # run the calculations
    #
@@ -150,15 +148,13 @@ def mono_exp_kernel(molecule,k,level):
    #
    energy_summation(molecule,k,tup,e_inc,e_tot,level)
    #
-   print_final_end(molecule,k,level)
+   if ((k >= 2) and (abs(e_tot[-1]-e_tot[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
+   #
+   print_final_end(molecule,k,molecule['conv_energy'][-1],level)
    # 
    # print results
    #
    print_result(tup[k-1],e_inc[k-1],level)
-   #
-#   # check for convergence
-#   #
-#   if (k == molecule['max_order']): molecule['conv'].append(True)
    #
    return molecule
 
@@ -194,7 +190,7 @@ def mono_exp_init(molecule,k,level):
    #
    # check for convergence
    #
-   if ((level == 'MACRO') and (len(tup[k-1]) == 0)): molecule['conv'].append(True)
+   if ((level == 'MACRO') and (len(tup[k-1]) == 0)): molecule['conv_orb'].append(True)
    #
    # print init end
    #
@@ -206,7 +202,7 @@ def mono_exp_init(molecule,k,level):
    #
    # if converged, pop last element of tup and e_inc lists
    #
-   if ((level == 'MACRO') and molecule['conv'][-1]):
+   if ((level == 'MACRO') and molecule['conv_orb'][-1]):
       #
       tup.pop(-1)
       e_inc.pop(-1)

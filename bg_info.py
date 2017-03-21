@@ -75,6 +75,7 @@ def init_param(molecule):
       molecule['backend_prog'] = ''
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
+      molecule['prim_e_thres'] = 1.0e-04
       molecule['sec_thres'] = 0.0
       molecule['corr'] = False
       molecule['corr_model'] = ''
@@ -111,6 +112,10 @@ def init_param(molecule):
                #
                molecule['prim_thres'] = float(content[i].split()[1])
                molecule['prim_thres_init'] = molecule['prim_thres']
+            #
+            elif (content[i].split()[0] == 'prim_e_thres'):
+               #
+               molecule['prim_e_thres'] = float(content[i].split()[1])
             #
             elif (content[i].split()[0] == 'sec_thres'):
                #
@@ -183,7 +188,7 @@ def init_param(molecule):
    #
    set_fc(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','max_order','prim_thres','sec_thres',\
+   chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','max_order','prim_thres','prim_e_thres','sec_thres',\
           'corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
