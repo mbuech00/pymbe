@@ -72,16 +72,34 @@ def write_init_restart(molecule,tup,order,level):
    #
    return
 
+def restart_main(molecule,level):
+   #
+   if (not molecule['rst']):
+      #
+      molecule['min_order'] = 1
+   #
+   else:
+      #
+      if (level == 'MACRO'):
+         #
+         read_init_restart_prim(molecule)
+      #
+      elif (level == 'CORRE'):
+         #
+         read_init_restart_corr(molecule)
+   #
+   return molecule
+
 def read_init_restart_prim(molecule):
    #
    # list filenames in files list
    #
    files = [f for f in os.listdir(molecule['rst_dir_init']) if os.path.isfile(os.path.join(molecule['rst_dir_init'],f))]
    #
+   print('files = '+str(files))
+   #
    tup_order = 0
    time_order_work = 0; time_order_comm = 0; time_order_idle = 0
-   #
-   # read tuples
    #
    for i in range(0,len(files)):
       #
@@ -116,6 +134,9 @@ def read_init_restart_prim(molecule):
             molecule['mpi_time_idle_init'] = np.load(os.path.join(molecule['rst_dir_init'],files[i])).tolist()
    #
    # does the orders match up?
+   #
+   print('tup_order = '+str(tup_order))
+   print('time_order_work = {0:} , time_order_comm = {1:} , time_order_idle = {2:}'.format(time_order_work,time_order_comm,time_order_idle))
    #
    fail = False
    #
