@@ -5,7 +5,7 @@
 
 import numpy as np
 from copy import deepcopy
-from math import factorial
+from scipy.misc import factorial
 from mpi4py import MPI
 
 from bg_mpi_time import init_mpi_timings
@@ -218,9 +218,10 @@ def prepare_calc(molecule):
    #
    theo_work(molecule)
    #
-   # init convergence list
+   # init convergence lists
    #
-   molecule['conv'] = [False]
+   molecule['conv_orb'] = [False]
+   molecule['conv_energy'] = [False]
    #
    # init corr_tuple and corr_e_inc lists
    #

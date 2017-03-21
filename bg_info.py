@@ -75,6 +75,7 @@ def init_param(molecule):
       molecule['backend_prog'] = ''
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
+      molecule['prim_e_thres'] = 1.0e-04
       molecule['sec_thres'] = 0.0
       molecule['corr'] = False
       molecule['corr_model'] = ''
@@ -112,6 +113,11 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'prim_thres'):
                #
                molecule['prim_thres'] = float(content[i].split()[1])
+               molecule['prim_thres_init'] = molecule['prim_thres']
+            #
+            elif (content[i].split()[0] == 'prim_e_thres'):
+               #
+               molecule['prim_e_thres'] = float(content[i].split()[1])
             #
             elif (content[i].split()[0] == 'sec_thres'):
                #
@@ -128,6 +134,7 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'corr_thres'):
                #
                molecule['corr_thres'] = float(content[i].split()[1])
+               molecule['corr_thres_init'] = molecule['corr_thres']
             #
             elif (content[i].split()[0] == 'model'):
                #
@@ -189,7 +196,11 @@ def init_param(molecule):
    #
    set_exp(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','scr_name','rst','rst_keep','exp','backend_prog','max_order','prim_thres','sec_thres','corr','corr_order','corr_thres','model','corr_model',\
+   set_fc(molecule)
+   #
+   chk = ['mol','ncore','frozen','mult','scr_name','rst','rst_keep','exp','backend_prog',\
+          'max_order','prim_thres','prim_e_thres','sec_thres',\
+          'corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
    inc = 0
@@ -235,6 +246,12 @@ def set_exp(molecule):
       molecule['corr_model'] = 'N/A'
       #
       molecule['corr_order'] = 'N/A'
+   #
+   return molecule
+
+def set_fc(molecule):
+   #
+   if (not molecule['frozen']): molecule['ncore'] = 0
    #
    return molecule
 
@@ -311,29 +328,33 @@ def sanity_chk(molecule):
    #
    # expansion thresholds
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and ((molecule['prim_thres'] == 0.0) and (molecule['max_order'] == 0))):
+   if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')):
       #
-      print('wrong input -- no expansion threshold (prim_thres) supplied and no max_order set (either or both must be set) --- aborting ...')
+      if ((molecule['prim_thres'] == 100.0) and (molecule['max_order'] == 0)):
+         #
+         print('wrong input -- no expansion threshold (prim_thres) supplied and no max_order set (either or both must be set) --- aborting ...')
+         #
+         molecule['error'].append(True)
       #
-      molecule['error'].append(True)
+      if (molecule['prim_thres'] < 0.0):
+         #
+         print('wrong input -- expansion threshold (prim_thres) must be float >= 0.0 --- aborting ...')
+         #
+         molecule['error'].append(True)
    #
-   if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')) and (molecule['prim_thres'] < 0.0)):
+   if ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
-      print('wrong input -- expansion threshold (prim_thres) must be float >= 0.0 --- aborting ...')
+      if ((molecule['prim_thres'] == 0.0) and (molecule['sec_thres'] == 0.0)):
+         #
+         print('wrong input -- expansion thresholds for both the primary and secondary expansions need be supplied (prim_thres / sec_thres) --- aborting ...')
+         #
+         molecule['error'].append(True)
       #
-      molecule['error'].append(True)
-   #
-   if (((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')) and ((molecule['prim_thres'] == 0.0) and (molecule['sec_thres'] == 0.0))):
-      #
-      print('wrong input -- expansion thresholds for both the occ and the virt expansions need be supplied (prim_thres / sec_thres) --- aborting ...')
-      #
-      molecule['error'].append(True)
-   #
-   if (((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')) and ((molecule['prim_thres'] < 0.0) or (molecule['prim_thres'] < 0.0))):
-      #
-      print('wrong input -- expansion thresholds (prim_thres / sec_thres) must be floats >= 0.0 --- aborting ...')
-      #
-      molecule['error'].append(True)
+      if ((molecule['prim_thres'] < 0.0) or (molecule['prim_thres'] < 0.0)):
+         #
+         print('wrong input -- expansion thresholds (prim_thres / sec_thres) must be floats >= 0.0 --- aborting ...')
+         #
+         molecule['error'].append(True)
    #
    # energy correction
    #
