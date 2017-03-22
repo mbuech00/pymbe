@@ -12,7 +12,7 @@ from bg_mpi_time import init_mpi_timings
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utils import run_calc_hf
 from bg_print import redirect_stdout
-from bg_restart import init_restart_dirs
+from bg_restart import rst_init_env
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -69,7 +69,7 @@ def init_calc(molecule):
    #
    # init restart env
    #
-   init_restart_dirs(molecule)
+   rst_init_env(molecule)
    #
    # init scr env and change into this
    #

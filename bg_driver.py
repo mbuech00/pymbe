@@ -12,7 +12,9 @@ from bg_print import print_status_header, print_status_end, print_result,\
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_exclusion
-from bg_restart import write_init_restart
+from bg_rst_main import rst_main
+from bg_rst_write import rst_write_tup, rst_write_dom, rst_write_orb_con, rst_write_orb_arr,\
+                         rst_write_e_inc, rst_write_e_tot
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -47,7 +49,7 @@ def main_drv(molecule):
       #
       restart_main(molecule,'MACRO')
       #
-      mono_exp_drv(molecule,1,molecule['max_order'],'MACRO')
+      mono_exp_drv(molecule,molecule['min_order'],molecule['max_order'],'MACRO')
       #
       if (molecule['corr']):
          #
@@ -152,6 +154,11 @@ def mono_exp_kernel(molecule,k,level):
    #
    energy_summation(molecule,k,tup,e_inc,e_tot,level)
    #
+   # write e_inc and e_tot restart files
+   #
+   rst_write_e_inc(molecule,k)
+   rst_write_e_tot(molecule,k)
+   #
    if ((k >= 2) and (abs(e_tot[-1]-e_tot[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
    #
    print_final_end(molecule,k,molecule['conv_energy'][-1],level)
@@ -188,9 +195,19 @@ def mono_exp_init(molecule,k,level):
    #
    orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k-1,level)
    #
+   # write dom, orb_con_abs, orb_con_rel, and orb_arr restart files
+   #
+   rst_write_dom(molecule,k+1)
+   rst_write_orb_con(molecule,k)
+   rst_write_orb_arr(molecule,k)
+   #
    # generate all tuples at order k
    #
    orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
+   #
+   # write tup restart file
+   #
+   rst_write_tup(molecule,k+1)
    #
    timer_mpi(molecule,'mpi_time_work_init',k-1)
    #
