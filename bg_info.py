@@ -73,6 +73,7 @@ def init_param(molecule):
       # init keys
       #
       molecule['backend_prog'] = ''
+      molecule['mp2_nat_orbs'] = False
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
       molecule['prim_e_thres'] = 1.0e-04
@@ -103,6 +104,10 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'prog'):
                #
                molecule['backend_prog'] = content[i].split()[1]
+            #
+            elif (content[i].split()[0] == 'mp2_nat_orbs'):
+               #
+               molecule['mp2_nat_orbs'] = (content[i].split()[1] == 'True')
             #
             elif (content[i].split()[0] == 'max_order'):
                #
@@ -188,7 +193,8 @@ def init_param(molecule):
    #
    set_fc(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','max_order','prim_thres','prim_e_thres','sec_thres',\
+   chk = ['mol','ncore','frozen','mult','scr_name','exp','backend_prog','mp2_nat_orbs',\
+          'max_order','prim_thres','prim_e_thres','sec_thres',\
           'corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem','debug']
    #
