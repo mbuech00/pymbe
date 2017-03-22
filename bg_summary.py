@@ -62,6 +62,14 @@ def summary_mol(molecule):
    print('   occupied orbitals            =  {0:}'.format(molecule['nocc']))
    print('   virtual orbitals             =  {0:}'.format(molecule['nvirt']))
    #
+   if (molecule['mp2_nat_orbs']):
+      #
+      print('   orbital representation       =  mp2 natural')
+   #
+   else:
+      #
+      print('   orbital representation       =  canonical')
+   #
    return
 
 def summary_exp(molecule):
