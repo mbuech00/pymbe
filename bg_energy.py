@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from bg_mpi_time import timer_mpi, collect_kernel_mpi_time
+from bg_mpi_time import timer_mpi, collect_kernel_mpi_time, collect_final_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_master, energy_summation_par
 from bg_utils import run_calc_corr, orb_string, comb_index 
 from bg_print import print_status
@@ -60,8 +60,7 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
          if (molecule['error'][-1]):
             #
             return molecule, tup, e_inc
-      #
-      timer_mpi(molecule,'mpi_time_work_kernel',order,True)
+     final   timer_mpi(molecule,'mpi_time_work_kernel',order,True)
    #
    return molecule, tup, e_inc
 
@@ -70,6 +69,8 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
    if (molecule['mpi_parallel']):
       #
       energy_summation_par(molecule,k,tup,e_inc,energy,level)
+      #
+      collect_final_mpi_time(molecule,order)
    #
    else:
       #

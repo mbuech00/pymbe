@@ -67,13 +67,25 @@ def rst_write_e_tot(molecule,order):
    #
    return
 
-def rst_write_time(molecule,order,phase):
+def rst_write_time(molecule,phase):
    #
    # write mpi timings for phase
    #
-   np.save(join(molecule['rst_dir'],'mpi_time_work_'+str(phase)+'_'+str(order-1)),np.asarray(molecule['mpi_time_work_'+str(phase)]))
-   np.save(join(molecule['rst_dir'],'mpi_time_comm_'+str(phase)+'_'+str(order-1)),np.asarray(molecule['mpi_time_comm_'+str(phase)]))
-   np.save(join(molecule['rst_dir'],'mpi_time_idle_'+str(phase)+'_'+str(order-1)),np.asarray(molecule['mpi_time_idle_'+str(phase)]))
+   if (phase == 'init'):
+      #
+      idx = 0
+   #
+   elif (phase == 'kernel'):
+      #
+      idx = 1
+   #
+   elif (phase == 'final'):
+      #
+      idx = 2
+   #
+   np.save(join(molecule['rst_dir'],'mpi_time_work_'+str(phase)),np.asarray(molecule['mpi_time_work'][idx]))
+   np.save(join(molecule['rst_dir'],'mpi_time_comm_'+str(phase)),np.asarray(molecule['mpi_time_comm'][idx]))
+   np.save(join(molecule['rst_dir'],'mpi_time_idle_'+str(phase)),np.asarray(molecule['mpi_time_idle'][idx]))
    #
    return
 

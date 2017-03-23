@@ -9,7 +9,7 @@ from shutil import copy, rmtree
 from mpi4py import MPI
 
 from bg_mpi_utils import print_mpi_table, mono_exp_merge_info, prepare_calc
-from bg_mpi_time import init_mpi_timings, collect_init_mpi_time, collect_kernel_mpi_time, collect_mpi_timings
+from bg_mpi_time import init_mpi_timings, collect_init_mpi_time, collect_kernel_mpi_time, collect_final_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_slave, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave, orb_entanglement_main_par
 
@@ -183,6 +183,8 @@ def main_slave(molecule):
          elif (msg['level'] == 'CORRE'):
             #
             energy_summation_par(molecule,msg['order'],molecule['corr_tuple'],molecule['corr_energy_inc'],None,'CORRE')
+         #
+         collect_final_mpi_time(molecule,msg['order'])
       #
       # remove_slave_env
       #
@@ -197,12 +199,6 @@ def main_slave(molecule):
             copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
          #
          rmtree(molecule['scr_dir'],ignore_errors=True)
-      #
-      # collect_mpi_timings
-      #
-      elif (msg['task'] == 'collect_mpi_timings'):
-         #
-         collect_mpi_timings(molecule)
       #
       # finalize_mpi
       #

@@ -106,19 +106,15 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # return if converged
       #
-      if (((level == 'MACRO') and molecule['conv_orb'][-1]) or ((level == 'MACRO') and molecule['conv_energy'][-1]) or (k == end)):
-         #
-         print('')
-         #
-         if (((k == end) and (not ((level == 'MACRO') and molecule['conv_orb'][-1]))) or ((level == 'MACRO') and molecule['conv_energy'][-1])):
-            #
-            orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
-            #
-            mono_exp_finish(molecule)
-         #
-         if ((level == 'MACRO') and (not molecule['corr'])): print('')
-         #
-         break
+      if (molecule['conv_orb'] or molecule['conv_energy']): break
+   #
+   print('')
+   #
+   orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
+   #
+   mono_exp_finish(molecule)
+   #
+   print('')
    #
    return molecule
 
