@@ -32,15 +32,19 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
       #
       string = {'drop': ''}
       #
-      counter = 0
+      if (molecule['rst'] and (order == molecule['min_order'])):
+         #
+         start = np.argmax(e_inc[order-1] == 0.0)
       #
-      for i in range(0,len(tup[order-1])):
+      else:
+         #
+         start = 0
+      #
+      for i in range(start,len(tup[order-1])):
          #
          timer_mpi(molecule,'mpi_time_work_kernel',order)
          #
          # write string
-         #
-         counter += 1
          #
          orb_string(molecule,l_limit,u_limit,tup[order-1][i],string)
          #
@@ -54,7 +58,7 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
          #
          # print status
          #
-         print_status(float(counter)/float(len(tup[order-1])),level)
+         print_status(float(i+1)/float(len(tup[order-1])),level)
          #
          # error check
          #
@@ -66,7 +70,7 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
          #
          timer_mpi(molecule,'mpi_time_work_kernel',order,True)
          #
-         if ((i % molecule['rst_freq']) == 0):
+         if (((i+1) % molecule['rst_freq']) == 0):
             #
             rst_write_time(molecule,'kernel')
             # 

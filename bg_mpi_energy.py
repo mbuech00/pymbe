@@ -52,11 +52,17 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    # init job index
    #
-   i = 0
+   if (molecule['rst'] and (order == molecule['min_order'])):
+      #
+      i = np.argmax(e_inc[order-1] == 0.0)
+   #
+   else:
+      #
+      i = 0
    #
    # init stat counter
    #
-   counter = 0
+   counter = i
    #
    # init slave timings
    #
@@ -126,7 +132,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          molecule['mpi_time_comm'][1][source][order-1] = data['t_comm']
          molecule['mpi_time_idle'][1][source][order-1] = data['t_idle']
          #
-         if ((data['index'] % molecule['rst_freq']) == 0):
+         if (((data['index']+1) % molecule['rst_freq']) == 0):
             #
             rst_write_time(molecule,'kernel')
             #
