@@ -91,6 +91,7 @@ def init_param(molecule):
       molecule['mem'] = 0
       molecule['scr_name'] = 'scr'
       molecule['rst'] = False
+      molecule['rst_freq'] = 1
       molecule['rst_keep'] = True
       #
       with open('input-param.inp') as f:
@@ -185,6 +186,10 @@ def init_param(molecule):
                #
                molecule['rst'] = (content[i].split()[1] == 'True')
             #
+            elif (content[i].split()[0] == 'rst_freq'):
+               #
+               molecule['rst_freq'] = int(content[i].split()[1])
+            #
             elif (content[i].split()[0] == 'rst_keep'):
                #
                molecule['rst_keep'] = (content[i].split()[1] == 'True')
@@ -207,7 +212,7 @@ def init_param(molecule):
           'exp','max_order','prim_thres','prim_e_thres','sec_thres',\
           'corr','corr_order','corr_thres','model','corr_model',\
           'basis','ref','local','zmat','units','mem',\
-          'debug','scr_name','rst','rst_keep','backend_prog']
+          'debug','scr_name','rst','rst_freq','rst_keep','backend_prog']
    #
    inc = 0
    #
