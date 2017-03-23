@@ -54,23 +54,9 @@ def main_slave(molecule):
    #
    slave = True
    #
-   time_slave = {}
-   #
-   time_slave['mpi_time_idle_main'] = [0.0]
-   #
    while (slave):
       #
-      start_idle = MPI.Wtime()
-      #
       msg = MPI.COMM_WORLD.bcast(None,root=0)
-      #
-      if (len(time_slave['mpi_time_idle_main']) < msg['order']):
-         #
-         time_slave['mpi_time_idle_main'].append(MPI.Wtime()-start_idle)
-      #
-      else:
-         #
-         time_slave['mpi_time_idle_main'][msg['order']-1] += MPI.Wtime()-start_idle
       #
       # bcast_mol_dict
       #
@@ -215,8 +201,6 @@ def main_slave(molecule):
       # collect_mpi_timings
       #
       elif (msg['task'] == 'collect_mpi_timings'):
-         #
-         molecule['mpi_time_idle_main'] = time_slave['mpi_time_idle_main']
          #
          collect_mpi_timings(molecule)
       #
