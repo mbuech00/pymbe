@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_utils.py: general utilities for Bethe-Goldstone correlation calculation."""
+""" bg_utils.py: general utilities for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
 from mpi4py import MPI

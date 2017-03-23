@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_setup.py: setup utilities for Bethe-Goldstone correlation calculation."""
+""" bg_setup.py: setup utilities for Bethe-Goldstone correlation calculations."""
 
 from os import mkdir, chdir
 from shutil import copy, rmtree 

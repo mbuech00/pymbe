@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_rst_read.py: restart read utilities for Bethe-Goldstone correlation calculation."""
+""" bg_rst_read.py: restart read utilities for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
 from os import listdir

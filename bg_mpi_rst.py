@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_rst_main.py: main restart utilities for Bethe-Goldstone correlation calculations."""
+""" bg_mpi_rst.py: mpi restart utilities for Bethe-Goldstone correlation calculations."""
 
 from os import mkdir
 from os.path import isdir
