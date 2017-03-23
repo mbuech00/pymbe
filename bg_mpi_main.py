@@ -9,6 +9,7 @@ from shutil import copy, rmtree
 from mpi4py import MPI
 
 from bg_mpi_utils import print_mpi_table, mono_exp_merge_info, prepare_calc
+from bg_mpi_rst import rst_dist_slave
 from bg_mpi_time import init_mpi_timings, collect_init_mpi_time, collect_kernel_mpi_time, collect_final_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_slave, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave, orb_entanglement_main_par
@@ -127,6 +128,12 @@ def main_slave(molecule):
          molecule['ncore'] = msg['ncore']
          #
          prepare_calc(molecule)
+      #
+      # rst_dist_slave
+      #
+      elif (msg['task'] == 'rst_dist'):
+         #
+         rst_dist_slave(molecule) 
       #
       # mono_exp_merge_info
       #

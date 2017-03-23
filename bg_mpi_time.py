@@ -155,7 +155,7 @@ def collect_mpi_timings(molecule,phase):
       #
       molecule['mpi_comm'].send(time,dest=0)
    #
-   del time
+   time.clear()
    #
    return molecule
 

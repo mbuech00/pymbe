@@ -17,7 +17,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def rst_read(molecule):
+def rst_read_main(molecule):
    #
    # list filenames in files list
    #

@@ -99,7 +99,7 @@ def term_calc(molecule):
    #
    rmtree(molecule['scr_dir'],ignore_errors=True)
    #
-   if (not molecule['rst_keep']): rmtree(molecule['rst_dir'],ignore_errors=True)
+   if (not molecule['error'][-1]): rmtree(molecule['rst_dir'],ignore_errors=True)
    #
    if (molecule['mpi_master'] and molecule['mpi_parallel']):
       #

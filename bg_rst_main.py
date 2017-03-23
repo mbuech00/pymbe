@@ -6,7 +6,8 @@
 from os import mkdir
 from os.path import isdir
 
-from bg_rst_read import read_rst
+from bg_rst_read import rst_read_main
+from bg_mpi_rst import rst_dist_master
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -52,7 +53,11 @@ def rst_main(molecule):
    #
    else:
       #
-      read_rst(molecule)
+      rst_read_main(molecule)
+      #
+      # distribute data to slaves
+      #
+      if (molecule['mpi_parallel']): rst_dist_master(molecule)
    #
    return molecule
 
