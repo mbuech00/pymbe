@@ -58,13 +58,21 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    counter = 0
    #
+   # init slave timings
+   #
+   for i in range(1,molecule['mpi_size']):
+      #
+      molecule['mpi_time_work'][1][i].append(0.0)
+      molecule['mpi_time_comm'][1][i].append(0.0)
+      molecule['mpi_time_idle'][1][i].append(0.0)
+   #
    while (slaves_avail >= 1):
       #
       # receive data dict
       #
       timer_mpi(molecule,'mpi_time_idle_kernel',order)
       #
-      data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE,tag=MPI.ANY_TAG,status=molecule['mpi_stat'])
+      stat = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE,tag=MPI.ANY_TAG,status=molecule['mpi_stat'])
       #
       timer_mpi(molecule,'mpi_time_work_kernel',order)
       #
@@ -105,6 +113,24 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
             timer_mpi(molecule,'mpi_time_work_kernel',order)
       #
       elif (tag == tags.done):
+         #
+         timer_mpi(molecule,'mpi_time_comm_kernel',order)
+         #
+         data = molecule['mpi_comm'].recv(source=source,tag=tag,status=molecule['mpi_stat'])
+         #
+         timer_mpi(molecule,'mpi_time_work_kernel',order)
+         #
+         e_inc[order-1][data['index']] = data['energy']
+         #
+         molecule['mpi_time_work'][1][source][order-1] = data['t_work']
+         molecule['mpi_time_comm'][1][source][order-1] = data['t_comm']
+         molecule['mpi_time_idle'][1][source][order-1] = data['t_idle']
+         #
+         if ((data['index'] % molecule['rst_freq']) == 0):
+            #
+            rst_write_time(molecule,'kernel')
+            #
+            rst_write_e_inc(molecule,order)
          #
          # increment stat counter
          #
@@ -186,8 +212,21 @@ def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level)
          #
          e_inc[order-1][job_info['index']] = molecule['e_tmp']
          #
-         # write error logical
+         # report status back to master
          #
+         timer_mpi(molecule,'mpi_time_comm_kernel',order)
+         #
+         molecule['mpi_comm'].send(None,dest=0,tag=tags.done)
+         #
+         timer_mpi(molecule,'mpi_time_work_kernel',order)
+         #
+         # write info into data dict
+         #
+         data['index'] = job_info['index']
+         data['energy'] = molecule['e_tmp']
+         data['t_work'] = molecule['mpi_time_work_kernel'][-1]
+         data['t_comm'] = molecule['mpi_time_comm_kernel'][-1]
+         data['t_idle'] = molecule['mpi_time_idle_kernel'][-1]
          data['error'] = molecule['error'][-1]
          #
          # send data back to master

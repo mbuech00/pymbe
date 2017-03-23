@@ -9,6 +9,7 @@ from bg_mpi_time import timer_mpi, collect_kernel_mpi_time, collect_final_mpi_ti
 from bg_mpi_energy import energy_kernel_mono_exp_master, energy_summation_par
 from bg_utils import run_calc_corr, orb_string, comb_index 
 from bg_print import print_status
+from bg_rst_write import rst_write_e_inc, rst_write_time
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -29,13 +30,13 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
    #
    else:
       #
-      timer_mpi(molecule,'mpi_time_work_kernel',order)
-      #
       string = {'drop': ''}
       #
       counter = 0
       #
       for i in range(0,len(tup[order-1])):
+         #
+         timer_mpi(molecule,'mpi_time_work_kernel',order)
          #
          # write string
          #
@@ -60,7 +61,16 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
          if (molecule['error'][-1]):
             #
             return molecule, tup, e_inc
-     final   timer_mpi(molecule,'mpi_time_work_kernel',order,True)
+         #
+         # write e_inc restart file
+         #
+         timer_mpi(molecule,'mpi_time_work_kernel',order,True)
+         #
+         if ((i % molecule['rst_freq']) == 0):
+            #
+            rst_write_time(molecule,'kernel')
+            # 
+            rst_write_e_inc(molecule,order)
    #
    return molecule, tup, e_inc
 

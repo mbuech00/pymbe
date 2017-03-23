@@ -117,9 +117,17 @@ def collect_mpi_timings(molecule,phase):
       #
       # write master timings
       #
-      molecule['mpi_time_work'][idx][0].append(molecule['mpi_time_work_'+str(phase)][-1])
-      molecule['mpi_time_comm'][idx][0].append(molecule['mpi_time_comm_'+str(phase)][-1])
-      molecule['mpi_time_idle'][idx][0].append(molecule['mpi_time_idle_'+str(phase)][-1])
+      if (idx == 1):
+         #
+         molecule['mpi_time_work'][idx][0] = molecule['mpi_time_work_'+str(phase)][-1]
+         molecule['mpi_time_comm'][idx][0] = molecule['mpi_time_comm_'+str(phase)][-1]
+         molecule['mpi_time_idle'][idx][0] = molecule['mpi_time_idle_'+str(phase)][-1]
+      #
+      else:
+         #
+         molecule['mpi_time_work'][idx][0].append(molecule['mpi_time_work_'+str(phase)][-1])
+         molecule['mpi_time_comm'][idx][0].append(molecule['mpi_time_comm_'+str(phase)][-1])
+         molecule['mpi_time_idle'][idx][0].append(molecule['mpi_time_idle_'+str(phase)][-1])
       #
       # receive individual timings (in ordered sequence)
       #
@@ -127,9 +135,17 @@ def collect_mpi_timings(molecule,phase):
          #
          time = molecule['mpi_comm'].recv(source=i,status=molecule['mpi_stat'])
          #
-         molecule['mpi_time_work'][idx][i].append(time['work'])
-         molecule['mpi_time_comm'][idx][i].append(time['comm'])
-         molecule['mpi_time_idle'][idx][i].append(time['idle'])
+         if (idx == 1):
+            #
+            molecule['mpi_time_work'][idx][i] = time['work']
+            molecule['mpi_time_comm'][idx][i] = time['comm']
+            molecule['mpi_time_idle'][idx][i] = time['idle']
+         #
+         else:
+            #
+            molecule['mpi_time_work'][idx][i].append(time['work'])
+            molecule['mpi_time_comm'][idx][i].append(time['comm'])
+            molecule['mpi_time_idle'][idx][i].append(time['idle'])
    #
    else:
       #
