@@ -164,6 +164,8 @@ def main_slave(molecule):
          elif (msg['level'] == 'CORRE'):
             #
             orb_generator_slave(molecule,molecule['corr_domain'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
+         #
+         collect_init_mpi_time(molecule,msg['order']-1,True)
       #
       # energy_kernel_mono_exp_par
       #

@@ -39,7 +39,7 @@ def rst_write_orb_con(molecule,order):
    #
    # write orb_con_rel[k-1]
    #
-   np.save(join(molecule['rst_dir'],'orb_con_rel_'+str(order)),np.asarray(molecule['orb_con_rel'][order-1]))
+   np.save(join(molecule['rst_dir'],'orb_con_rel_'+str(order)),np.asarray(molecule['prim_orb_con_rel'][order-1]))
    #
    return
 
@@ -47,7 +47,7 @@ def rst_write_orb_arr(molecule,order):
    #
    # write orb_arr[k-1]
    #
-   np.save(join(molecule['rst_dir'],'orb_arr_'+str(order)),molecule['prim_orb_arr'][order-1])
+   np.save(join(molecule['rst_dir'],'orb_arr_'+str(order+1)),molecule['prim_orb_arr'][order-1])
    #
    return
 
@@ -83,9 +83,15 @@ def rst_write_time(molecule,phase):
       #
       idx = 2
    #
-   np.save(join(molecule['rst_dir'],'mpi_time_work_'+str(phase)),np.asarray(molecule['mpi_time_work'][idx]))
-   np.save(join(molecule['rst_dir'],'mpi_time_comm_'+str(phase)),np.asarray(molecule['mpi_time_comm'][idx]))
-   np.save(join(molecule['rst_dir'],'mpi_time_idle_'+str(phase)),np.asarray(molecule['mpi_time_idle'][idx]))
+   if (molecule['mpi_parallel']):
+      #
+      np.save(join(molecule['rst_dir'],'mpi_time_work_'+str(phase)),np.asarray(molecule['mpi_time_work'][idx]))
+      np.save(join(molecule['rst_dir'],'mpi_time_comm_'+str(phase)),np.asarray(molecule['mpi_time_comm'][idx]))
+      np.save(join(molecule['rst_dir'],'mpi_time_idle_'+str(phase)),np.asarray(molecule['mpi_time_idle'][idx]))
+   #
+   else:
+      #
+      np.save(join(molecule['rst_dir'],'mpi_time_work_'+str(phase)),np.asarray(molecule['mpi_time_work_'+str(phase)]))
    #
    return
 

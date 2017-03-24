@@ -75,6 +75,16 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
             rst_write_time(molecule,'kernel')
             # 
             rst_write_e_inc(molecule,order)
+         #
+         if ((order == 3) and (i == 5) and (not molecule['rst'])):
+            #
+            # TEST TEST TEST - forcing abort
+            #
+            print('')
+            print('TEST TEST TEST - forcing abort')
+            print('')
+            #
+            molecule['mpi_comm'].Abort() 
    #
    return molecule, tup, e_inc
 
@@ -133,6 +143,8 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
       energy.append(e_tmp)
       #
       timer_mpi(molecule,'mpi_time_work_final',k,True)
+      #
+      rst_write_time(molecule,'final')
    #
    return e_inc, energy
 

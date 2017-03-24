@@ -6,7 +6,7 @@
 import numpy as np
 
 from bg_mpi_utils import prepare_calc, mono_exp_merge_info
-from bg_mpi_time import timer_mpi
+from bg_mpi_time import timer_mpi, collect_init_mpi_time
 from bg_print import print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
@@ -14,7 +14,7 @@ from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_exclusion
 from bg_rst_main import rst_main
 from bg_rst_write import rst_write_tup, rst_write_dom, rst_write_orb_con, rst_write_orb_arr,\
-                         rst_write_e_inc, rst_write_e_tot
+                         rst_write_e_inc, rst_write_e_tot, rst_write_time
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -47,7 +47,7 @@ def main_drv(molecule):
       print('                                   primary expansion                              ')
       print('                     ---------------------------------------------                ')
       #
-      restart_main(molecule,'MACRO')
+      rst_main(molecule)
       #
       mono_exp_drv(molecule,molecule['min_order'],molecule['max_order'],'MACRO')
       #
@@ -106,7 +106,7 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # return if converged
       #
-      if (molecule['conv_orb'] or molecule['conv_energy']): break
+      if (molecule['conv_orb'][-1] or molecule['conv_energy'][-1]): break
    #
    print('')
    #
@@ -193,9 +193,9 @@ def mono_exp_init(molecule,k,level):
    #
    # write dom, orb_con_abs, orb_con_rel, and orb_arr restart files
    #
-   rst_write_dom(molecule,k+1)
-   rst_write_orb_con(molecule,k)
-   rst_write_orb_arr(molecule,k)
+   rst_write_dom(molecule,k)
+   rst_write_orb_con(molecule,k-1)
+   if (k >= 3): rst_write_orb_arr(molecule,k-2)
    #
    # generate all tuples at order k
    #
@@ -203,7 +203,7 @@ def mono_exp_init(molecule,k,level):
    #
    # write tup restart file
    #
-   rst_write_tup(molecule,k+1)
+   rst_write_tup(molecule,k)
    #
    timer_mpi(molecule,'mpi_time_work_init',k-1)
    #
@@ -226,11 +226,15 @@ def mono_exp_init(molecule,k,level):
       tup.pop(-1)
       e_inc.pop(-1)
    #
-   # write restart files
+   if (molecule['mpi_parallel']):
+      #
+      collect_init_mpi_time(molecule,k-1,True)
    #
-   write_init_restart(molecule,tup,k,level)
-   #
-   timer_mpi(molecule,'mpi_time_work_init',k-1,True)
+   else:
+      #
+      timer_mpi(molecule,'mpi_time_work_init',k-1,True)
+      #
+      rst_write_time(molecule,'init')
    #
    return molecule
 

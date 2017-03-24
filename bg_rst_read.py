@@ -33,31 +33,31 @@ def rst_read_main(molecule):
       #
       # read domains
       #
-      if ('dom' in files[i]):
+      elif ('dom' in files[i]):
          #
          rst_read_dom(molecule,files[i])
       #
       # read orbital contributions
       #
-      if ('orb_con' in files[i]):
+      elif ('orb_con' in files[i]):
          #
          rst_read_orb_con(molecule,files[i])
       #
       # read orbital array
       #
-      if ('orb_arr' in files[i]):
+      elif ('orb_arr' in files[i]):
          #
          rst_read_orb_arr(molecule,files[i])
       #
       # read e_inc
       #
-      if ('e_inc' in files[i]):
+      elif ('e_inc' in files[i]):
          #
          rst_read_e_inc(molecule,files[i])
       #
       # read e_tot
       #
-      if ('e_tot' in files[i]):
+      elif ('e_tot' in files[i]):
          #
          rst_read_e_tot(molecule,files[i])
       #
@@ -81,7 +81,7 @@ def rst_read_tup(molecule,file_num):
 
 def rst_read_dom(molecule,file_num):
    #
-   molecule['prim_domain'].append(np.load(join(molecule['rst_dir'],file_num))).tolist()
+   molecule['prim_domain'].append(np.load(join(molecule['rst_dir'],file_num)).tolist())
    #
    return molecule
 
@@ -89,11 +89,11 @@ def rst_read_orb_con(molecule,file_num):
    #
    if ('abs' in file_num):
       #
-      molecule['prim_orb_con_abs'].append(np.load(join(molecule['rst_dir'],file_num))).tolist()
+      molecule['prim_orb_con_abs'].append(np.load(join(molecule['rst_dir'],file_num)).tolist())
    #
    elif ('rel' in file_num):
       #
-      molecule['prim_orb_con_rel'].append(np.load(join(molecule['rst_dir'],file_num))).tolist()
+      molecule['prim_orb_con_rel'].append(np.load(join(molecule['rst_dir'],file_num)).tolist())
    #
    return molecule
 
@@ -111,17 +111,23 @@ def rst_read_e_inc(molecule,file_num):
 
 def rst_read_e_tot(molecule,file_num):
    #
-   molecule['prim_energy'].append(np.load(join(molecule['rst_dir'],file_num))).tolist()
+   molecule['prim_energy'].append(np.load(join(molecule['rst_dir'],file_num)).tolist())
    #
    return molecule
 
-def rst_read_timings(molecule,file_num,time_order):
+def rst_read_timings(molecule,file_num):
    #
    if ('init' in file_num):
       #
       if ('work' in file_num):
          #
-         molecule['mpi_time_work'][0] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         if (molecule['mpi_parallel']):
+            #
+            molecule['mpi_time_work'][0] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         #
+         else:
+            #
+            molecule['mpi_time_work_init'] = np.load(join(molecule['rst_dir'],file_num)).tolist()
       #
       elif ('comm' in file_num):
          #
@@ -135,7 +141,13 @@ def rst_read_timings(molecule,file_num,time_order):
       #
       if ('work' in file_num):
          #
-         molecule['mpi_time_work'][1] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         if (molecule['mpi_parallel']):
+            #
+            molecule['mpi_time_work'][1] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         #
+         else:
+            #
+            molecule['mpi_time_work_kernel'] = np.load(join(molecule['rst_dir'],file_num)).tolist()
       #
       elif ('comm' in file_num):
          #
@@ -149,7 +161,13 @@ def rst_read_timings(molecule,file_num,time_order):
       #
       if ('work' in file_num):
          #
-         molecule['mpi_time_work'][2] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         if (molecule['mpi_parallel']):
+            #
+            molecule['mpi_time_work'][2] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         #
+         else:
+            #
+            molecule['mpi_time_work_final'] = np.load(join(molecule['rst_dir'],file_num)).tolist()
       #
       elif ('comm' in file_num):
          #
@@ -187,17 +205,19 @@ def rst_sanity_chk(molecule):
    #
    # check for correct number of mpi procs
    #
-   if (len(molecule['mpi_time_work'][0]) != molecule['mpi_size']): fail = True
-   if (len(molecule['mpi_time_work'][1]) != molecule['mpi_size']): fail = True
-   if (len(molecule['mpi_time_work'][2]) != molecule['mpi_size']): fail = True
-   #
-   if (len(molecule['mpi_time_comm'][0]) != molecule['mpi_size']): fail = True
-   if (len(molecule['mpi_time_comm'][1]) != molecule['mpi_size']): fail = True
-   if (len(molecule['mpi_time_comm'][2]) != molecule['mpi_size']): fail = True
-   #
-   if (len(molecule['mpi_time_idle'][0]) != molecule['mpi_size']): fail = True
-   if (len(molecule['mpi_time_idle'][1]) != molecule['mpi_size']): fail = True
-   if (len(molecule['mpi_time_idle'][2]) != molecule['mpi_size']): fail = True
+   if (molecule['mpi_parallel']):
+      #
+      if (len(molecule['mpi_time_work'][0]) != molecule['mpi_size']): fail = True
+      if (len(molecule['mpi_time_work'][1]) != molecule['mpi_size']): fail = True
+      if (len(molecule['mpi_time_work'][2]) != molecule['mpi_size']): fail = True
+      #
+      if (len(molecule['mpi_time_comm'][0]) != molecule['mpi_size']): fail = True
+      if (len(molecule['mpi_time_comm'][1]) != molecule['mpi_size']): fail = True
+      if (len(molecule['mpi_time_comm'][2]) != molecule['mpi_size']): fail = True
+      #
+      if (len(molecule['mpi_time_idle'][0]) != molecule['mpi_size']): fail = True
+      if (len(molecule['mpi_time_idle'][1]) != molecule['mpi_size']): fail = True
+      if (len(molecule['mpi_time_idle'][2]) != molecule['mpi_size']): fail = True
    #
    # check for errors
    #

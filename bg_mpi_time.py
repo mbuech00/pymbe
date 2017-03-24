@@ -89,7 +89,7 @@ def init_mpi_timings(molecule):
    #
    # collective lists
    #
-   if (molecule['mpi_master']):
+   if (molecule['mpi_parallel'] and molecule['mpi_master']):
       #
       molecule['mpi_time_work'] = [[[] for i in range(0,molecule['mpi_size'])] for j in range(0,3)]
       molecule['mpi_time_comm'] = [[[] for i in range(0,molecule['mpi_size'])] for j in range(0,3)]
@@ -262,7 +262,7 @@ def calc_mpi_timings(molecule):
    #
    return molecule
 
-def collect_init_mpi_time(molecule,k):
+def collect_init_mpi_time(molecule,k,write_time=False):
    #
    #  ---  master/slave routine
    #
@@ -274,7 +274,7 @@ def collect_init_mpi_time(molecule,k):
    #
    collect_mpi_timings(molecule,'init')
    #
-   rst_write_time(molecule,'init')
+   if (write_time): rst_write_time(molecule,'init')
    #
    return molecule
 

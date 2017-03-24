@@ -12,7 +12,7 @@ from bg_mpi_time import init_mpi_timings
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
 from bg_utils import run_calc_hf
 from bg_print import redirect_stdout
-from bg_restart import rst_init_env
+from bg_rst_main import rst_init_env
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
