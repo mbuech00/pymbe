@@ -119,9 +119,9 @@ def collect_mpi_timings(molecule,phase):
       #
       if (idx == 1):
          #
-         molecule['mpi_time_work'][idx][0] = molecule['mpi_time_work_'+str(phase)][-1]
-         molecule['mpi_time_comm'][idx][0] = molecule['mpi_time_comm_'+str(phase)][-1]
-         molecule['mpi_time_idle'][idx][0] = molecule['mpi_time_idle_'+str(phase)][-1]
+         molecule['mpi_time_work'][idx][0][-1] = molecule['mpi_time_work_'+str(phase)][-1]
+         molecule['mpi_time_comm'][idx][0][-1] = molecule['mpi_time_comm_'+str(phase)][-1]
+         molecule['mpi_time_idle'][idx][0][-1] = molecule['mpi_time_idle_'+str(phase)][-1]
       #
       else:
          #
@@ -137,9 +137,9 @@ def collect_mpi_timings(molecule,phase):
          #
          if (idx == 1):
             #
-            molecule['mpi_time_work'][idx][i] = time['work']
-            molecule['mpi_time_comm'][idx][i] = time['comm']
-            molecule['mpi_time_idle'][idx][i] = time['idle']
+            molecule['mpi_time_work'][idx][i][-1] = time['work']
+            molecule['mpi_time_comm'][idx][i][-1] = time['comm']
+            molecule['mpi_time_idle'][idx][i][-1] = time['idle']
          #
          else:
             #
@@ -274,7 +274,7 @@ def collect_init_mpi_time(molecule,k,write_time=False):
    #
    collect_mpi_timings(molecule,'init')
    #
-   if (write_time): rst_write_time(molecule,'init')
+   if (write_time and molecule['mpi_master']): rst_write_time(molecule,'init')
    #
    return molecule
 
@@ -290,7 +290,7 @@ def collect_kernel_mpi_time(molecule,k):
    #
    collect_mpi_timings(molecule,'kernel')
    #
-   rst_write_time(molecule,'kernel')
+   if (molecule['mpi_master']): rst_write_time(molecule,'kernel')
    #
    return molecule
 
@@ -306,7 +306,7 @@ def collect_final_mpi_time(molecule,k):
    #
    collect_mpi_timings(molecule,'final')
    #
-   rst_write_time(molecule,'final')
+   if (molecule['mpi_master']): rst_write_time(molecule,'final')
    #
    return molecule
 

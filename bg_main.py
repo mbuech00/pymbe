@@ -52,9 +52,7 @@ def main():
       #
       main_drv(molecule)
       #
-      #  ---  collect timings...  ---
-      #
-      if (molecule['mpi_parallel']): collect_mpi_timings(molecule)
+      #  ---  calculate timings...  ---
       #
       calc_mpi_timings(molecule)
       #

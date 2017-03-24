@@ -31,10 +31,6 @@ def bcast_mol_dict(molecule):
    #
    MPI.COMM_WORLD.bcast(molecule,root=0)
    #
-   # init mpi master timings
-   #
-   init_mpi_timings(molecule)
-   #
    # private mpi info
    #
    molecule['mpi_comm'] = MPI.COMM_WORLD
@@ -42,6 +38,10 @@ def bcast_mol_dict(molecule):
    molecule['mpi_rank'] = molecule['mpi_comm'].Get_rank()
    molecule['mpi_name'] = MPI.Get_processor_name()
    molecule['mpi_stat'] = MPI.Status()
+   #
+   # init mpi master timings
+   #
+   init_mpi_timings(molecule)
    #
    # private scr dir
    #
