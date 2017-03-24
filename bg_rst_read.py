@@ -37,17 +37,29 @@ def rst_read_main(molecule):
          #
          rst_read_dom(molecule,files[i])
       #
-      # read orbital contributions
+      # read orbital entanglement matrix
       #
-      elif ('orb_con' in files[i]):
+      elif ('orb_ent' in files[i]):
          #
-         rst_read_orb_con(molecule,files[i])
+         rst_read_orb_ent(molecule,files[i])
       #
       # read orbital array
       #
       elif ('orb_arr' in files[i]):
          #
          rst_read_orb_arr(molecule,files[i])
+      #
+      # read orbital contributions
+      #
+      elif ('orb_con' in files[i]):
+         #
+         rst_read_orb_con(molecule,files[i])
+      #
+      # read orbital exclusion lists
+      #
+      elif ('excl_list' in files[i]):
+         #
+         rst_read_excl_list(molecule,files[i])
       #
       # read e_inc
       #
@@ -73,109 +85,121 @@ def rst_read_main(molecule):
    #
    return molecule
 
-def rst_read_tup(molecule,file_num):
+def rst_read_tup(molecule,inp):
    #
-   molecule['prim_tuple'].append(np.load(join(molecule['rst_dir'],file_num)))
-   #
-   return molecule
-
-def rst_read_dom(molecule,file_num):
-   #
-   molecule['prim_domain'].append(np.load(join(molecule['rst_dir'],file_num)).tolist())
+   molecule['prim_tuple'].append(np.load(join(molecule['rst_dir'],inp)))
    #
    return molecule
 
-def rst_read_orb_con(molecule,file_num):
+def rst_read_dom(molecule,inp):
    #
-   if ('abs' in file_num):
+   molecule['prim_domain'].append(np.load(join(molecule['rst_dir'],inp)).tolist())
+   #
+   return molecule
+
+def rst_read_orb_ent(molecule,inp):
+   #
+   molecule['prim_orb_ent'].append(np.load(join(molecule['rst_dir'],inp)))
+   #
+   return molecule
+
+def rst_read_orb_arr(molecule,inp):
+   #
+   molecule['prim_orb_arr'].append(np.load(join(molecule['rst_dir'],inp)))
+   #
+   return molecule
+
+def rst_read_orb_con(molecule,inp):
+   #
+   if ('abs' in inp):
       #
-      molecule['prim_orb_con_abs'].append(np.load(join(molecule['rst_dir'],file_num)).tolist())
+      molecule['prim_orb_con_abs'].append(np.load(join(molecule['rst_dir'],inp)).tolist())
    #
-   elif ('rel' in file_num):
+   elif ('rel' in inp):
       #
-      molecule['prim_orb_con_rel'].append(np.load(join(molecule['rst_dir'],file_num)).tolist())
+      molecule['prim_orb_con_rel'].append(np.load(join(molecule['rst_dir'],inp)).tolist())
    #
    return molecule
 
-def rst_read_orb_arr(molecule,file_num):
+def rst_read_excl_list(molecule,inp):
    #
-   molecule['prim_orb_arr'].append(np.load(join(molecule['rst_dir'],file_num)))
-   #
-   return molecule
-
-def rst_read_e_inc(molecule,file_num):
-   #
-   molecule['prim_energy_inc'].append(np.load(join(molecule['rst_dir'],file_num)))
+   molecule['excl_list'].append(np.load(join(molecule['rst_dir'],inp)).tolist())
    #
    return molecule
 
-def rst_read_e_tot(molecule,file_num):
+def rst_read_e_inc(molecule,inp):
    #
-   molecule['prim_energy'].append(np.load(join(molecule['rst_dir'],file_num)).tolist())
+   molecule['prim_energy_inc'].append(np.load(join(molecule['rst_dir'],inp)))
    #
    return molecule
 
-def rst_read_timings(molecule,file_num):
+def rst_read_e_tot(molecule,inp):
    #
-   if ('init' in file_num):
+   molecule['prim_energy'].append(np.load(join(molecule['rst_dir'],inp)).tolist())
+   #
+   return molecule
+
+def rst_read_timings(molecule,inp):
+   #
+   if ('init' in inp):
       #
-      if ('work' in file_num):
+      if ('work' in inp):
          #
          if (molecule['mpi_parallel']):
             #
-            molecule['mpi_time_work'][0] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+            molecule['mpi_time_work'][0] = np.load(join(molecule['rst_dir'],inp)).tolist()
          #
          else:
             #
-            molecule['mpi_time_work_init'] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+            molecule['mpi_time_work_init'] = np.load(join(molecule['rst_dir'],inp)).tolist()
       #
-      elif ('comm' in file_num):
+      elif ('comm' in inp):
          #
-         molecule['mpi_time_comm'][0] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         molecule['mpi_time_comm'][0] = np.load(join(molecule['rst_dir'],inp)).tolist()
       #
-      elif ('idle' in file_num):
+      elif ('idle' in inp):
          #
-         molecule['mpi_time_idle'][0] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         molecule['mpi_time_idle'][0] = np.load(join(molecule['rst_dir'],inp)).tolist()
    #
-   elif ('kernel' in file_num):
+   elif ('kernel' in inp):
       #
-      if ('work' in file_num):
+      if ('work' in inp):
          #
          if (molecule['mpi_parallel']):
             #
-            molecule['mpi_time_work'][1] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+            molecule['mpi_time_work'][1] = np.load(join(molecule['rst_dir'],inp)).tolist()
          #
          else:
             #
-            molecule['mpi_time_work_kernel'] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+            molecule['mpi_time_work_kernel'] = np.load(join(molecule['rst_dir'],inp)).tolist()
       #
-      elif ('comm' in file_num):
+      elif ('comm' in inp):
          #
-         molecule['mpi_time_comm'][1] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         molecule['mpi_time_comm'][1] = np.load(join(molecule['rst_dir'],inp)).tolist()
       #
-      elif ('idle' in file_num):
+      elif ('idle' in inp):
          #
-         molecule['mpi_time_idle'][1] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         molecule['mpi_time_idle'][1] = np.load(join(molecule['rst_dir'],inp)).tolist()
    #
-   elif ('final' in file_num):
+   elif ('final' in inp):
       #
-      if ('work' in file_num):
+      if ('work' in inp):
          #
          if (molecule['mpi_parallel']):
             #
-            molecule['mpi_time_work'][2] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+            molecule['mpi_time_work'][2] = np.load(join(molecule['rst_dir'],inp)).tolist()
          #
          else:
             #
-            molecule['mpi_time_work_final'] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+            molecule['mpi_time_work_final'] = np.load(join(molecule['rst_dir'],inp)).tolist()
       #
-      elif ('comm' in file_num):
+      elif ('comm' in inp):
          #
-         molecule['mpi_time_comm'][2] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         molecule['mpi_time_comm'][2] = np.load(join(molecule['rst_dir'],inp)).tolist()
       #
-      elif ('idle' in file_num):
+      elif ('idle' in inp):
          #
-         molecule['mpi_time_idle'][2] = np.load(join(molecule['rst_dir'],file_num)).tolist()
+         molecule['mpi_time_idle'][2] = np.load(join(molecule['rst_dir'],inp)).tolist()
    #
    return molecule
 
@@ -187,13 +211,21 @@ def rst_sanity_chk(molecule):
    #
    if (len(molecule['prim_domain']) != len(molecule['prim_tuple'])): fail = True
    #
-   # orb_con_abs and orb_con_rel
+   # orb_ent
    #
-   if ((len(molecule['prim_orb_con_abs']) != (len(molecule['prim_tuple'])-1)) or (len(molecule['prim_orb_con_rel']) != (len(molecule['prim_tuple'])-1))): fail = True 
+   if (len(molecule['prim_orb_ent']) != (len(molecule['prim_tuple'])-2)): fail = True
    #
    # orb_arr
    #
    if (len(molecule['prim_orb_arr']) != (len(molecule['prim_tuple'])-2)): fail = True
+   #
+   # orb_con_abs and orb_con_rel
+   #
+   if ((len(molecule['prim_orb_con_abs']) != (len(molecule['prim_tuple'])-1)) or (len(molecule['prim_orb_con_rel']) != (len(molecule['prim_tuple'])-1))): fail = True
+   #
+   # excl_list
+   #
+   if (len(molecule['excl_list']) != (len(molecule['prim_tuple'])-2)): fail = True
    #
    # e_inc
    #

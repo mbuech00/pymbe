@@ -58,6 +58,19 @@ def rst_main(molecule):
       # distribute data to slaves
       #
       if (molecule['mpi_parallel']): rst_dist_master(molecule)
+      #
+      # update threshold
+      #
+      rst_update_thres(molecule)
    #
    return molecule
+
+def rst_update_thres(molecule):
+   #
+   for _ in range(2,molecule['min_order']):
+      #
+      molecule['prim_thres'] += molecule['prim_thres']
+   #
+   return molecule
+
 

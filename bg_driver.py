@@ -13,8 +13,8 @@ from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_exclusion
 from bg_rst_main import rst_main
-from bg_rst_write import rst_write_tup, rst_write_dom, rst_write_orb_con, rst_write_orb_arr,\
-                         rst_write_e_inc, rst_write_e_tot, rst_write_time
+from bg_rst_write import rst_write_tup, rst_write_dom, rst_write_orb_ent, rst_write_orb_arr, rst_write_excl_list,\
+                         rst_write_orb_con, rst_write_e_inc, rst_write_e_tot, rst_write_time
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -92,13 +92,13 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # mono expansion initialization
       #
-      if (k == 1):
+      if (k == start):
          #
          print('')
       #
       else:
          #
-         mono_exp_init(molecule,k,level)
+         if (not (molecule['rst'] and (k == start))): mono_exp_init(molecule,k,level)
       #
       # mono expansion kernel
       #
@@ -195,7 +195,11 @@ def mono_exp_init(molecule,k,level):
    #
    rst_write_dom(molecule,k)
    rst_write_orb_con(molecule,k-1)
-   if (k >= 3): rst_write_orb_arr(molecule,k-2)
+   if (k >= 3):
+      #
+      rst_write_orb_ent(molecule,k-2)
+      rst_write_orb_arr(molecule,k-2)
+      rst_write_excl_list(molecule,k-2)
    #
    # generate all tuples at order k
    #

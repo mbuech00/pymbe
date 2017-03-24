@@ -31,6 +31,22 @@ def rst_write_dom(molecule,order):
    #
    return
 
+def rst_write_orb_ent(molecule,order):
+   #
+   # write orb_ent[k-1]
+   #
+   np.save(join(molecule['rst_dir'],'orb_ent_'+str(order+1)),molecule['prim_orb_ent'][order-1])
+   #
+   return
+
+def rst_write_orb_arr(molecule,order):
+   #
+   # write orb_arr[k-1]
+   #
+   np.save(join(molecule['rst_dir'],'orb_arr_'+str(order+1)),molecule['prim_orb_arr'][order-1])
+   #
+   return
+
 def rst_write_orb_con(molecule,order):
    #
    # write orb_con_abs[k-1]
@@ -43,11 +59,11 @@ def rst_write_orb_con(molecule,order):
    #
    return
 
-def rst_write_orb_arr(molecule,order):
+def rst_write_excl_list(molecule,order):
    #
-   # write orb_arr[k-1]
+   # write excl_list[k-1]
    #
-   np.save(join(molecule['rst_dir'],'orb_arr_'+str(order+1)),molecule['prim_orb_arr'][order-1])
+   np.save(join(molecule['rst_dir'],'excl_list_'+str(order+1)),np.asarray(molecule['excl_list'][order-1]))
    #
    return
 

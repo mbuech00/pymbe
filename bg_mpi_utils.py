@@ -206,7 +206,14 @@ def prepare_calc(molecule):
       # init prim tuple and e_inc
       #
       molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['l_limit'],molecule['l_limit']+molecule['u_limit'])),dtype=np.int32)]
-      molecule['prim_energy_inc'] = [np.zeros(len(molecule['prim_tuple'][0]),dtype=np.float64)]
+      #
+      if (molecule['rst']):
+         #
+         molecule['prim_energy_inc'] = []
+      #
+      else:
+         #
+         molecule['prim_energy_inc'] = [np.zeros(len(molecule['prim_tuple'][0]),dtype=np.float64)]
    #
    # set max_order
    #
