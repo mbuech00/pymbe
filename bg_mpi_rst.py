@@ -27,8 +27,13 @@ def rst_dist_master(molecule):
    #
    # send info
    #
+   e_inc_end = np.argmax(molecule['prim_energy_inc'][-1] == 0.0)
+   #
    info = {'len_tup': [len(molecule['prim_tuple'][i]) for i in range(1,len(molecule['prim_tuple']))],\
-           'len_e_inc': [len(molecule['prim_energy_inc'][i]) for i in range(0,len(molecule['prim_energy_inc']))]}
+           'len_e_inc': [len(molecule['prim_energy_inc'][i]) for i in range(0,len(molecule['prim_energy_inc']))],\
+           'min_order': molecule['min_order'], 'e_inc_end': e_inc_end}
+   #
+   molecule['mpi_comm'].bcast(info,root=0)
    #
    # bcast tuples
    #
@@ -40,7 +45,13 @@ def rst_dist_master(molecule):
    #
    for i in range(0,len(molecule['prim_energy_inc'])):
       #
-      molecule['mpi_comm'].Bcast([molecule['prim_energy_inc'][i],MPI.DOUBLE],root=0)
+      if (i < (len(molecule['prim_energy_inc'])-1)):
+         #
+         molecule['mpi_comm'].Bcast([molecule['prim_energy_inc'][i],MPI.DOUBLE],root=0)
+      #
+      else:
+         #
+         molecule['mpi_comm'].Bcast([molecule['prim_energy_inc'][i][:e_inc_end],MPI.DOUBLE],root=0)
    #
    # send timings
    #
@@ -50,7 +61,7 @@ def rst_dist_master(molecule):
               'kernel': [molecule['mpi_time_work'][1][i],molecule['mpi_time_comm'][1][i],molecule['mpi_time_idle'][1][i]],\
               'final': [molecule['mpi_time_work'][2][i],molecule['mpi_time_comm'][2][i],molecule['mpi_time_idle'][2][i]]}
       #
-      molecule['mpi_comm'].send(time,dest=i,status=molecule['mpi_stat'])
+      molecule['mpi_comm'].send(time,dest=i)
    #
    time.clear()
    #
@@ -61,6 +72,10 @@ def rst_dist_slave(molecule):
    # receive info
    #
    info = molecule['mpi_comm'].bcast(None,root=0)
+   #
+   # set min_order
+   #
+   molecule['min_order'] = info['min_order']
    #
    # receive tuples
    #
@@ -76,11 +91,23 @@ def rst_dist_slave(molecule):
    #
    for i in range(0,len(info['len_e_inc'])):
       #
-      buff = np.empty(info['len_e_inc'][i],dtype=np.float64)
+      buff = np.zeros(info['len_e_inc'][i],dtype=np.float64)
       #
-      molecule['mpi_comm'].Bcast([buff,MPI.DOUBLE],root=0)
+      if (i < (len(info['len_e_inc'])-1)):
+         #
+         molecule['mpi_comm'].Bcast([buff,MPI.DOUBLE],root=0)
+      #
+      else:
+         #
+         molecule['mpi_comm'].Bcast([buff[:info['e_inc_end']],MPI.DOUBLE],root=0)
       #
       molecule['prim_energy_inc'].append(buff)
+   #
+   # for e_inc[-1], make sure that this is distributed among the slaves
+   #
+   for i in range(0,info['e_inc_end']):
+      #
+      if ((i % (molecule['mpi_size']-1)) != (molecule['mpi_rank']-1)): molecule['prim_energy_inc'][-1][i] = 0.0 
    #
    # receive timings
    #

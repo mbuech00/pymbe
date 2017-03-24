@@ -69,23 +69,45 @@ def init_mpi_timings(molecule):
    #
    # mpi distribution
    #
-   # 'init' timings
+   if (molecule['rst']):
+      #
+      # 'init' timings
+      #
+      molecule['mpi_time_work_init'] = []
+      molecule['mpi_time_comm_init'] = []
+      molecule['mpi_time_idle_init'] = []
+      #
+      # 'energy kernel' timings
+      #
+      molecule['mpi_time_work_kernel'] = []
+      molecule['mpi_time_comm_kernel'] = []
+      molecule['mpi_time_idle_kernel'] = []
+      #
+      # 'energy summation' timings
+      #
+      molecule['mpi_time_work_final'] = []
+      molecule['mpi_time_comm_final'] = []
+      molecule['mpi_time_idle_final'] = []
    #
-   molecule['mpi_time_idle_init'] = [0.0]
-   molecule['mpi_time_comm_init'] = [0.0]
-   molecule['mpi_time_work_init'] = [0.0]
-   #
-   # 'energy kernel' timings
-   #
-   molecule['mpi_time_idle_kernel'] = [0.0]
-   molecule['mpi_time_comm_kernel'] = [0.0]
-   molecule['mpi_time_work_kernel'] = [0.0]
-   #
-   # 'energy summation' timings
-   #
-   molecule['mpi_time_idle_final'] = [0.0]
-   molecule['mpi_time_comm_final'] = [0.0]
-   molecule['mpi_time_work_final'] = [0.0]
+   else:
+      #
+      # 'init' timings
+      #
+      molecule['mpi_time_work_init'] = [0.0]
+      molecule['mpi_time_comm_init'] = [0.0]
+      molecule['mpi_time_idle_init'] = [0.0]
+      #
+      # 'energy kernel' timings
+      #
+      molecule['mpi_time_work_kernel'] = [0.0]
+      molecule['mpi_time_comm_kernel'] = [0.0]
+      molecule['mpi_time_idle_kernel'] = [0.0]
+      #
+      # 'energy summation' timings
+      #
+      molecule['mpi_time_work_final'] = [0.0]
+      molecule['mpi_time_comm_final'] = [0.0]
+      molecule['mpi_time_idle_final'] = [0.0]
    #
    # collective lists
    #
@@ -174,12 +196,21 @@ def calc_mpi_timings(molecule):
    #
    else:
       #
+      print('mpi_time_work_init = '+str(molecule['mpi_time_work_init']))
+      print('mpi_time_comm_init = '+str(molecule['mpi_time_comm_init']))
+      print('mpi_time_idle_init = '+str(molecule['mpi_time_idle_init']))
       molecule['time_init'] = np.asarray(molecule['mpi_time_work_init']+[sum(molecule['mpi_time_work_init'])])\
                               +np.asarray(molecule['mpi_time_comm_init']+[sum(molecule['mpi_time_comm_init'])])\
                                +np.asarray(molecule['mpi_time_idle_init']+[sum(molecule['mpi_time_idle_init'])])
+      print('mpi_time_work_kernel = '+str(molecule['mpi_time_work_kernel']))
+      print('mpi_time_comm_kernel = '+str(molecule['mpi_time_comm_kernel']))
+      print('mpi_time_idle_kernel = '+str(molecule['mpi_time_idle_kernel']))
       molecule['time_kernel'] = np.asarray(molecule['mpi_time_work_kernel']+[sum(molecule['mpi_time_work_kernel'])])\
                                 +np.asarray(molecule['mpi_time_comm_kernel']+[sum(molecule['mpi_time_comm_kernel'])])\
                                  +np.asarray(molecule['mpi_time_idle_kernel']+[sum(molecule['mpi_time_idle_kernel'])])
+      print('mpi_time_work_final = '+str(molecule['mpi_time_work_final']))
+      print('mpi_time_comm_final = '+str(molecule['mpi_time_comm_final']))
+      print('mpi_time_idle_final = '+str(molecule['mpi_time_idle_final']))
       molecule['time_final'] = np.asarray(molecule['mpi_time_work_final']+[sum(molecule['mpi_time_work_final'])])\
                                +np.asarray(molecule['mpi_time_comm_final']+[sum(molecule['mpi_time_comm_final'])])\
                                 +np.asarray(molecule['mpi_time_idle_final']+[sum(molecule['mpi_time_idle_final'])])
@@ -262,7 +293,7 @@ def calc_mpi_timings(molecule):
    #
    return molecule
 
-def collect_init_mpi_time(molecule,k,write_time=False):
+def collect_init_mpi_time(molecule,k,second_init=False):
    #
    #  ---  master/slave routine
    #
@@ -272,9 +303,9 @@ def collect_init_mpi_time(molecule,k,write_time=False):
    #
    timer_mpi(molecule,'mpi_time_idle_init',k,True)
    #
-   collect_mpi_timings(molecule,'init')
+   if (second_init): collect_mpi_timings(molecule,'init')
    #
-   if (write_time and molecule['mpi_master']): rst_write_time(molecule,'init')
+   if (second_init and molecule['mpi_master']): rst_write_time(molecule,'init')
    #
    return molecule
 

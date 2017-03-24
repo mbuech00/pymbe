@@ -110,6 +110,8 @@ def main_slave(molecule):
          #
          molecule['prim_energy_inc'] = []
          molecule['corr_energy_inc'] = []
+         #
+         if (not molecule['rst']): molecule['min_order'] = 1
       #
       # print_mpi_table
       #

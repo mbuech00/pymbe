@@ -67,11 +67,13 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    # init timings
    #
-   for j in range(0,molecule['mpi_size']):
+   if (order != molecule['min_order']):
       #
-      molecule['mpi_time_work'][1][j].append(0.0)
-      molecule['mpi_time_comm'][1][j].append(0.0)
-      molecule['mpi_time_idle'][1][j].append(0.0)
+      for j in range(0,molecule['mpi_size']):
+         #
+         molecule['mpi_time_work'][1][j].append(0.0)
+         molecule['mpi_time_comm'][1][j].append(0.0)
+         molecule['mpi_time_idle'][1][j].append(0.0)
    #
    while (slaves_avail >= 1):
       #
@@ -129,20 +131,20 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          e_inc[order-1][data['index']] = data['energy']
          #
-         molecule['mpi_time_work'][1][source][order-1] = data['t_work']
-         molecule['mpi_time_comm'][1][source][order-1] = data['t_comm']
-         molecule['mpi_time_idle'][1][source][order-1] = data['t_idle']
+         molecule['mpi_time_work'][1][source][-1] = data['t_work']
+         molecule['mpi_time_comm'][1][source][-1] = data['t_comm']
+         molecule['mpi_time_idle'][1][source][-1] = data['t_idle']
          #
          if (((data['index']+1) % molecule['rst_freq']) == 0):
             #
-            molecule['mpi_time_work'][1][0][order-1] = molecule['mpi_time_work_kernel'][-1]
-            molecule['mpi_time_comm'][1][0][order-1] = molecule['mpi_time_comm_kernel'][-1]
-            molecule['mpi_time_idle'][1][0][order-1] = molecule['mpi_time_idle_kernel'][-1]
+            molecule['mpi_time_work'][1][0][-1] = molecule['mpi_time_work_kernel'][-1]
+            molecule['mpi_time_comm'][1][0][-1] = molecule['mpi_time_comm_kernel'][-1]
+            molecule['mpi_time_idle'][1][0][-1] = molecule['mpi_time_idle_kernel'][-1]
             #
             rst_write_time(molecule,'kernel')
             #
             rst_write_e_inc(molecule,order)
-         #
+#         #
 #         if ((order == 3) and ((data['index']+1) == 5) and (not molecule['rst'])):
 #            #
 #            # TEST TEST TEST - forcing abort
@@ -187,7 +189,7 @@ def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level)
    #
    # init e_inc list
    #
-   if (order >= 2): e_inc.append(np.zeros(len(tup[order-1]),dtype=np.float64))
+   if (order != molecule['min_order']): e_inc.append(np.zeros(len(tup[order-1]),dtype=np.float64))
    #
    # define mpi message tags
    #
@@ -328,8 +330,6 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
    #
    allred_e_inc(molecule,e_inc,k)
    #
-   timer_mpi(molecule,'mpi_time_work_final',k)
-   #
    # let master calculate the total energy
    #
    if (molecule['mpi_master']):
@@ -345,12 +345,6 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
          e_tmp += energy[k-2]
       #
       energy.append(e_tmp)
-   #
-   timer_mpi(molecule,'mpi_time_idle_final',k)
-   #
-   molecule['mpi_comm'].Barrier()
-   #
-   timer_mpi(molecule,'mpi_time_idle_final',k,True)
    #
    return e_inc, energy
 
@@ -373,6 +367,8 @@ def allred_e_inc(molecule,e_inc,k):
    molecule['mpi_comm'].Allreduce([e_inc[k-1],MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM)
    #
    # finally, overwrite e_inc[k-1]
+   #
+   timer_mpi(molecule,'mpi_time_work_final',k)
    #
    e_inc[k-1] = recv_buff
    #

@@ -178,9 +178,13 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          update_thres(molecule,level)
          #
-         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         if (molecule['mpi_parallel']):
+            #
+            collect_init_mpi_time(molecule,order)
          #
-         if (molecule['mpi_parallel']): collect_init_mpi_time(molecule,order)
+         else:
+            #
+            timer_mpi(molecule,'mpi_time_work_init',order,True)
    #
    return molecule
 
