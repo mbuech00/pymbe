@@ -151,25 +151,29 @@ def cfour_get_dim(molecule):
    #
    inp.seek(0)
    #
-   regex_2 = '\s+Alpha population by irrep:'
+   delim_1 = 'MO #'
+   delim_2 = '+++++++++++++'
    #
-   while 1:
+   start = False
+   occ_mos = []
+   #
+   for line in inp.readlines():
       #
-      line=inp.readline()
-      #
-      if match(regex_2,line) is not None:
+      if (delim_1 in line):
          #
-         pop = line.split()
+         start = True
+      #
+      elif (delim_2 in line):
+         #
+         start = False
          #
          break
-   #
-   tmp = 0
-   #
-   for i in range(4,len(pop)):
       #
-      tmp += int(pop[i])
+      if (start):
+         #
+         occ_mos.append(line)
    #
-   molecule['nocc'] = tmp
+   molecule['nocc'] = len(occ_mos)-2
    #
    molecule['nvirt'] = int(bf) - molecule['nocc']
    #
