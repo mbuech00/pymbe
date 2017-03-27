@@ -3,7 +3,8 @@
 
 """ bg_setup.py: setup utilities for Bethe-Goldstone correlation calculations."""
 
-from os import mkdir, chdir
+from os import getcwd, mkdir, chdir
+from os.path import isdir
 from shutil import copy, rmtree 
 
 from bg_mpi_wrapper import abort_mpi
@@ -25,9 +26,9 @@ __status__ = 'Development'
 
 def init_calc(molecule):
    #
-   # redirect stdout to output.out
+   # init output dir
    #
-   redirect_stdout(molecule)
+   init_output(molecule)
    #
    # init error list
    #
@@ -108,4 +109,16 @@ def term_calc(molecule):
    if (molecule['error'][-1]): abort_mpi(molecule)
    #
    return
+
+def init_output(molecule):
+   #
+   molecule['wrk_dir'] = getcwd()
+   #
+   molecule['out_dir'] = molecule['wrk_dir']+'/output'
+   #
+   if (isdir(molecule['out_dir'])): rmtree(molecule['out_dir'],ignore_errors=True)
+   #
+   mkdir(molecule['out_dir'])
+   #
+   return molecule
 

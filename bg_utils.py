@@ -66,7 +66,7 @@ def rm_dir_content(molecule):
 
 def ref_calc(molecule):
    #
-   print_ref_header()
+   print_ref_header(molecule)
    #
    start_time = MPI.Wtime()
    #
