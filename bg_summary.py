@@ -35,7 +35,7 @@ def summary_main(molecule):
    #
    if (molecule['mpi_parallel']): summary_mpi_time(molecule)
    #
-   summary_end()
+   summary_end(molecule)
    #
    return
 
@@ -331,7 +331,7 @@ def summary_mpi_time(molecule):
    #
    return
 
-def summary_end():
+def summary_end(molecule):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #

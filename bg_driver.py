@@ -7,7 +7,7 @@ import numpy as np
 
 from bg_mpi_utils import prepare_calc, mono_exp_merge_info
 from bg_mpi_time import timer_mpi, collect_init_mpi_time
-from bg_print import print_status_header, print_status_end, print_result,\
+from bg_print import print_mono_exp_header, print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
@@ -41,11 +41,7 @@ def main_drv(molecule):
       #
       # run mono expansion
       #
-      print('')
-      print('')
-      print('                     ---------------------------------------------                ')
-      print('                                   primary expansion                              ')
-      print('                     ---------------------------------------------                ')
+      print_mono_exp_header(molecule)
       #
       rst_main(molecule)
       #
