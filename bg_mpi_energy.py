@@ -67,7 +67,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    # init timings
    #
-   if (order != molecule['min_order']):
+   if ((not molecule['rst']) or (order != molecule['min_order'])):
       #
       for j in range(0,molecule['mpi_size']):
          #

@@ -149,9 +149,15 @@ def main_slave(molecule):
       #
       elif (msg['task'] == 'orb_entanglement_par'):
          #
-         orb_entanglement_main_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
+         orb_entanglement_main_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['level'],msg['calc_end'])
          #
-         collect_init_mpi_time(molecule,msg['order'])
+         if (msg['calc_end']):
+            #
+            collect_init_mpi_time(molecule,msg['order'],True)
+         #
+         else:
+            #
+            collect_init_mpi_time(molecule,msg['order'])
       #
       # orb_generator_slave
       #

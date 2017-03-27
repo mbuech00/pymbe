@@ -73,10 +73,6 @@ def main_drv(molecule):
             print('                     ---------------------------------------------                ')
             #
             mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
-      #
-      else:
-         #
-         mono_exp_finish(molecule)
    #
    elif ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
@@ -98,7 +94,7 @@ def mono_exp_drv(molecule,start,end,level):
       #
       else:
          #
-         if (not (molecule['rst'] and (k == start))): mono_exp_init(molecule,k,level)
+         mono_exp_init(molecule,k,level)
       #
       # mono expansion kernel
       #
@@ -132,7 +128,7 @@ def mono_exp_kernel(molecule,k,level):
       e_inc = molecule['corr_energy_inc']
       e_tot = molecule['corr_energy']
    #
-   print_status_header(tup[-1],k,molecule['conv_orb'][-1],level)
+   print_status_header(molecule,tup[-1],k,molecule['conv_orb'][-1],level)
    #
    if ((level == 'MACRO') and molecule['conv_orb'][-1]): return molecule
    #
@@ -144,7 +140,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    print_status_end(molecule,k,level)
    #
-   print_final_header(k,level)
+   print_final_header(molecule,k,level)
    #
    # calculate the energy at order k
    #
@@ -161,7 +157,7 @@ def mono_exp_kernel(molecule,k,level):
    # 
    # print results
    #
-   print_result(tup[k-1],e_inc[k-1],level)
+   print_result(molecule,tup[k-1],e_inc[k-1],level)
    #
    return molecule
 
@@ -185,7 +181,7 @@ def mono_exp_init(molecule,k,level):
    #
    # print init header
    #
-   print_init_header(k,level)
+   print_init_header(molecule,k,level)
    #
    # orbital screening (using info from order k-1)
    #

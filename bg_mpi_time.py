@@ -196,21 +196,12 @@ def calc_mpi_timings(molecule):
    #
    else:
       #
-      print('mpi_time_work_init = '+str(molecule['mpi_time_work_init']))
-      print('mpi_time_comm_init = '+str(molecule['mpi_time_comm_init']))
-      print('mpi_time_idle_init = '+str(molecule['mpi_time_idle_init']))
       molecule['time_init'] = np.asarray(molecule['mpi_time_work_init']+[sum(molecule['mpi_time_work_init'])])\
                               +np.asarray(molecule['mpi_time_comm_init']+[sum(molecule['mpi_time_comm_init'])])\
                                +np.asarray(molecule['mpi_time_idle_init']+[sum(molecule['mpi_time_idle_init'])])
-      print('mpi_time_work_kernel = '+str(molecule['mpi_time_work_kernel']))
-      print('mpi_time_comm_kernel = '+str(molecule['mpi_time_comm_kernel']))
-      print('mpi_time_idle_kernel = '+str(molecule['mpi_time_idle_kernel']))
       molecule['time_kernel'] = np.asarray(molecule['mpi_time_work_kernel']+[sum(molecule['mpi_time_work_kernel'])])\
                                 +np.asarray(molecule['mpi_time_comm_kernel']+[sum(molecule['mpi_time_comm_kernel'])])\
                                  +np.asarray(molecule['mpi_time_idle_kernel']+[sum(molecule['mpi_time_idle_kernel'])])
-      print('mpi_time_work_final = '+str(molecule['mpi_time_work_final']))
-      print('mpi_time_comm_final = '+str(molecule['mpi_time_comm_final']))
-      print('mpi_time_idle_final = '+str(molecule['mpi_time_idle_final']))
       molecule['time_final'] = np.asarray(molecule['mpi_time_work_final']+[sum(molecule['mpi_time_work_final'])])\
                                +np.asarray(molecule['mpi_time_comm_final']+[sum(molecule['mpi_time_comm_final'])])\
                                 +np.asarray(molecule['mpi_time_idle_final']+[sum(molecule['mpi_time_idle_final'])])
@@ -225,6 +216,13 @@ def calc_mpi_timings(molecule):
       #
       # sum up work/comm/idle contributions from all orders for the individual mpi procs
       #
+      print('')
+      print('mpi_time_work = '+str(molecule['mpi_time_work']))
+      print('')
+      print('mpi_time_comm = '+str(molecule['mpi_time_comm']))
+      print('')
+      print('mpi_time_idle = '+str(molecule['mpi_time_idle']))
+      print('')
       for i in range(0,3):
          #
          for j in range(0,molecule['mpi_size']):
@@ -302,6 +300,10 @@ def collect_init_mpi_time(molecule,k,second_init=False):
    molecule['mpi_comm'].Barrier()
    #
    timer_mpi(molecule,'mpi_time_idle_init',k,True)
+   #
+   print('proc {0:} (order = {1:}) has mpi_time_work_init = {2:}'.format(molecule['mpi_rank'],k,molecule['mpi_time_work_init']))
+   print('proc {0:} (order = {1:}) has mpi_time_comm_init = {2:}'.format(molecule['mpi_rank'],k,molecule['mpi_time_comm_init']))
+   print('proc {0:} (order = {1:}) has mpi_time_idle_init = {2:}'.format(molecule['mpi_rank'],k,molecule['mpi_time_idle_init']))
    #
    if (second_init): collect_mpi_timings(molecule,'init')
    #

@@ -136,7 +136,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       # set up entanglement and exclusion lists
       #
-      orb_entanglement_main(molecule,l_limit,u_limit,order,level)
+      orb_entanglement_main(molecule,l_limit,u_limit,order,level,calc_end)
       #
       timer_mpi(molecule,'mpi_time_work_init',order)
       #
@@ -146,9 +146,13 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       if (calc_end):
          #
-         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         if (molecule['mpi_parallel']):
+            #
+            collect_init_mpi_time(molecule,order,True)
          #
-         if (molecule['mpi_parallel']): collect_init_mpi_time(molecule,order)
+         else:
+            #
+            timer_mpi(molecule,'mpi_time_work_init',order,True)
       #
       else:
          #
@@ -188,11 +192,11 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
    #
    return molecule
 
-def orb_entanglement_main(molecule,l_limit,u_limit,order,level):
+def orb_entanglement_main(molecule,l_limit,u_limit,order,level,calc_end):
    #
    if (molecule['mpi_parallel']):
       #
-      orb_entanglement_main_par(molecule,l_limit,u_limit,order,level)
+      orb_entanglement_main_par(molecule,l_limit,u_limit,order,level,calc_end)
    #
    else:
       #
