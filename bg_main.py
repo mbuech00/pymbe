@@ -46,7 +46,7 @@ def main():
       #
       #  ---  print program header...  ---
       #
-      print_main_header(molecule)
+      print_main_header(molecule,'bg_output.out',True)
       #
       #  ---  initialization done - start the calculation...  ---
       #

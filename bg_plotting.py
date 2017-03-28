@@ -27,7 +27,7 @@ def abs_energy_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Total '+molecule['model'].upper()+' energy')
+   ax.set_title('Total '+molecule['model']+' energy')
    #
    u_limit = molecule['u_limit']
    #
@@ -58,14 +58,14 @@ def abs_energy_plot(molecule):
             corr_energy[i][j] += (molecule['corr_energy'][(molecule['min_corr_order']+i)-1]-molecule['corr_energy'][(molecule['min_corr_order']+i)-2])
    #
    ax.plot(list(range(1,len(molecule['prim_energy'])+1)),molecule['prim_energy'],marker='x',linewidth=2,linestyle='-',\
-           label='BG('+molecule['model'].upper()+')')
+           label='BG('+molecule['model']+')')
    #
    if (molecule['corr']):
       #
       for i in range(0,molecule['corr_order']):
          #
          ax.plot(list(range(1,len(molecule['prim_energy'])+1)),corr_energy[i],\
-                 marker='x',linestyle=styles[i],linewidth=2,label='BG('+molecule['model'].upper()+')-'+str(i+1))
+                 marker='x',linestyle=styles[i],linewidth=2,label='BG('+molecule['model']+')-'+str(i+1))
    #
    ax.set_xlim([0.5,u_limit+0.5])
    #
@@ -120,7 +120,7 @@ def n_tuples_plot(molecule):
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Total number of '+molecule['model'].upper()+' tuples')
+   ax.set_title('Total number of '+molecule['model']+' tuples')
    #
    u_limit = molecule['u_limit']
    #
@@ -161,7 +161,7 @@ def n_tuples_plot(molecule):
                   label='Energy corr.',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
-                  label='BG('+molecule['model'].upper()+') expansion',log=True)
+                  label='BG('+molecule['model']+') expansion',log=True)
    #
    else:
       #
@@ -169,7 +169,7 @@ def n_tuples_plot(molecule):
                   palette='Greens',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
-                  label='BG('+molecule['model'].upper()+') expansion',log=True)
+                  label='BG('+molecule['model']+') expansion',log=True)
    #
    ax.xaxis.grid(False)
    #
@@ -398,7 +398,7 @@ def dev_ref_plot(molecule):
             e_diff_corr_abs[i].append((corr_energy[i][j]-molecule['e_ref'])/kcal_mol)
             e_diff_corr_rel[i].append((corr_energy[i][j]/molecule['e_ref'])*100.)
    #
-   ax1.set_title('Absolute difference from E('+molecule['model'].upper()+')')
+   ax1.set_title('Absolute difference from E('+molecule['model']+')')
    #
    u_limit = molecule['u_limit']
    #
@@ -409,14 +409,14 @@ def dev_ref_plot(molecule):
    ax1.axhline(0.0,color='black',linewidth=2)
    #
    ax1.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_tot_abs,marker='x',linewidth=2,linestyle='-',\
-            label='BG('+molecule['model'].upper()+')')
+            label='BG('+molecule['model']+')')
    #
    if (molecule['corr']):
       #
       for i in range(0,molecule['corr_order']):
          #
          ax1.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_corr_abs[i],marker='x',linewidth=2,linestyle=styles[i],\
-                  label='BG('+molecule['model'].upper()+')-'+str(i+1))
+                  label='BG('+molecule['model']+')-'+str(i+1))
    #
    ax1.set_ylim([-1.1,3.4])
    #
@@ -460,19 +460,19 @@ def dev_ref_plot(molecule):
       #
       insert.xaxis.grid(False)
    #
-   ax2.set_title('Relative recovery of E('+molecule['model'].upper()+')')
+   ax2.set_title('Relative recovery of E('+molecule['model']+')')
    #
    ax2.axhline(100.0,color='black',linewidth=2)
    #
    ax2.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_tot_rel,marker='x',linewidth=2,linestyle='-',\
-            label='BG('+molecule['model'].upper()+')')
+            label='BG('+molecule['model']+')')
    #
    if (molecule['corr']):
       #
       for i in range(0,molecule['corr_order']):
          #
          ax2.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_corr_rel[i],marker='x',linewidth=2,linestyle=styles[i],\
-                  label='BG('+molecule['model'].upper()+')-'+str(i+1))
+                  label='BG('+molecule['model']+')-'+str(i+1))
    #
    ax2.set_xlim([0.5,u_limit+0.5])
    #

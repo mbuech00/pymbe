@@ -143,7 +143,7 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'model'):
                #
-               molecule['model'] = content[i].split()[1]
+               molecule['model'] = content[i].split()[1].upper()
             #
             elif (content[i].split()[0] == 'corr_model'):
                #
@@ -286,11 +286,11 @@ def init_backend_prog(molecule):
          #
          # set regex for expansion model
          #
-         if (molecule['model'] == 'fci'):
+         if (molecule['model'] == 'FCI'):
             #
             molecule['regex'] = '\s+Final Correlation Energy'
          #
-         elif (molecule['model'] == 'mp2'):
+         elif (molecule['model'] == 'MP2'):
             #
             molecule['regex'] = '\s+E2\(TOT\)'
          #
@@ -318,9 +318,9 @@ def sanity_chk(molecule):
    #
    # expansion model
    #
-   if (not ((molecule['model'] == 'fci') or (molecule['model'] == 'mp2') or (molecule['model'] == 'cisd') or (molecule['model'] == 'ccsd') or (molecule['model'] == 'ccsdt'))):
+   if (not ((molecule['model'] == 'FCI') or (molecule['model'] == 'MP2') or (molecule['model'] == 'CISD') or (molecule['model'] == 'CCSD') or (molecule['model'] == 'CCSDT'))):
       #
-      print('wrong input -- valid expansion models are currently: fci, mp2, cisd, ccsd, and ccsdt --- aborting ...')
+      print('wrong input -- valid expansion models are currently: FCI, MP2, CISD, CCSD, and CCSDT --- aborting ...')
       #
       molecule['error'].append(True)
    #

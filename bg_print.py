@@ -18,34 +18,45 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def print_main_header(molecule):
+def print_main_header(molecule,foo,init=False):
    #
-   with open(molecule['out_dir']+'/bg_output.out','a') as f:
+   with open(molecule['out_dir']+'/'+foo,'a') as f:
       #
       with redirect_stdout(f):
          #
          print('')
          print('')
-         print("    oooooooooo.                .   oooo")
-         print("    `888'   `Y8b             .o8   `888")
-         print("     888     888  .ooooo.  .o888oo  888 .oo.    .ooooo.")
-         print("     888oooo888' d88' `88b   888    888P'Y88b  d88' `88b")
-         print("     888    `88b 888ooo888   888    888   888  888ooo888 8888888")
-         print("     888    .88P 888    .o   888 .  888   888  888    .o")
-         print("    o888bood8P'  `Y8bod8P'   '888' o888o o888o `Y8bod8P'")
+         print("   oooooooooo.                .   oooo")
+         print("   `888'   `Y8b             .o8   `888")
+         print("    888     888  .ooooo.  .o888oo  888 .oo.    .ooooo.")
+         print("    888oooo888' d88' `88b   888    888P'Y88b  d88' `88b")
+         print("    888    `88b 888ooo888   888    888   888  888ooo888  888888")
+         print("    888    .88P 888    .o   888 .  888   888  888    .o")
+         print("   o888bood8P'  `Y8bod8P'   '888' o888o o888o `Y8bod8P'")
          print('')
-         print("      .oooooo.              oooo        .o8               .")
-         print("     d8P'  `Y8b             `888       '888             .o8")
-         print("    888            .ooooo.   888   .oooo888   .oooo.o .o888oo  .ooooo.  ooo. .oo.    .ooooo.")
-         print("    888           d88' `88b  888  d88' `888  d88(  '8   888   d88' `88b `888P'Y88b  d88' `88b")
-         print("    888     ooooo 888   888  888  888   888  `'Y88b.    888   888   888  888   888  888ooo888")
-         print("    `88.    .88'  888   888  888  888   888  o.  )88b   888 . 888   888  888   888  888    .o")
-         print("     `Y8bood8P'   `Y8bod8P' o888o `Y8bod88P' 8''888P'   '888' `Y8bod8P' o888o o888o `Y8bod8P'")
+         print("     .oooooo.              oooo        .o8               .")
+         print("    d8P'  `Y8b             `888       '888             .o8")
+         print("   888            .ooooo.   888   .oooo888   .oooo.o .o888oo  .ooooo.  ooo. .oo.    .ooooo.")
+         print("   888           d88' `88b  888  d88' `888  d88(  '8   888   d88' `88b `888P'Y88b  d88' `88b")
+         print("   888     ooooo 888   888  888  888   888  `'Y88b.    888   888   888  888   888  888ooo888")
+         print("   `88.    .88'  888   888  888  888   888  o.  )88b   888 . 888   888  888   888  888    .o")
+         print("    `Y8bood8P'   `Y8bod8P' o888o `Y8bod88P' `Y8888P'   '888' `Y8bod8P' o888o o888o `Y8bod8P'")
          print('')
+         print('')
+         print('   --- an incremental Python-based electronic structure correlation program written by:')
+         print('')
+         print('             Janus Juul Eriksen')
+         print('')
+         print('       with contributions from:')
+         print('')
+         print('             Filippo Lipparini')
+         print('               & Juergen Gauss')
+         print('')
+         print('                                  ****************')
    #
    # print a table with mpi information
    #
-   if (molecule['mpi_parallel']): print_mpi_table(molecule)
+   if (molecule['mpi_parallel'] and init): print_mpi_table(molecule)
    #
    return
 

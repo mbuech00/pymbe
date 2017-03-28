@@ -58,7 +58,7 @@ def cfour_input_corr(molecule,drop_string,level):
    #
    out.write(molecule['mol'])
    #
-   model = molecule['model'].upper()
+   model = molecule['model']
    #
    if (model == 'FCI'):
       #
@@ -197,11 +197,11 @@ def cfour_write_energy(molecule,level):
       #
       if match(regex,line) is not None:
          #
-         if (model == 'fci'):
+         if (model == 'FCI'):
             #
             [tmp] = line.split()[3:4]
          #
-         elif (model == 'mp2'):
+         elif (model == 'MP2'):
             #
             [tmp] = line.split()[2:3]
          #
