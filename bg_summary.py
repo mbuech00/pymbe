@@ -35,6 +35,22 @@ def summary_main(molecule):
 
 def summary_overall_res(molecule):
    #
+   if (molecule['local']):
+      #
+      occ_orbs = 'local'
+   #
+   else:
+      #
+      occ_orbs = 'canonical'
+   #
+   if (molecule['mp2_nat_orbs']):
+      #
+      virt_orbs = 'MP2 NOs'
+   #
+   else:
+      #
+      virt_orbs = 'canonical'
+   #
    with open(molecule['out_dir']+'/bg_results.out','a') as f:
       #
       with redirect_stdout(f):
@@ -55,26 +71,14 @@ def summary_overall_res(molecule):
          print('            frozen core     =  {0:<5b}          |        expansion type     =  {1:<8s}     |       number of mpi masters  =  {2:}'.\
                  format(molecule['frozen'],molecule['exp'],1))
          #
-         print('            occ. orbitals   =  {0:<5d}          |        final BG order     =  {1:<3d}          |       number of mpi slaves   =  {2:}'.\
-                 format(molecule['nocc'],len(molecule['prim_energy']),molecule['mpi_size']-1))
+         print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |        final BG order     =  {2:<3d}          |       number of mpi slaves   =  {3:}'.\
+                 format(molecule['nocc'],molecule['nvirt'],len(molecule['prim_energy']),molecule['mpi_size']-1))
          #
-         print('            virt. orbitals  =  {0:<5d}          |        exp. threshold     =  {1:<5.3f} %      |       final corr. energy     = {2:>12.5e}'.\
-                 format(molecule['nvirt'],molecule['prim_thres_init'],molecule['prim_energy'][-1]))
+         print('            occ. orbitals   =  {0:<9s}      |        exp. threshold     =  {1:<5.3f} %      |       final corr. energy     = {2:>12.5e}'.\
+                 format(occ_orbs,molecule['prim_thres_init'],molecule['prim_energy'][-1]))
          #
-         if (molecule['mp2_nat_orbs']):
-            #
-            print('            orbital basis   =  MP2 NOs        |        energy threshold   =  {0:<5.2e}     |       final convergence      = {1:>12.5e}'.\
-                  format(molecule['prim_e_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
-         #
-         elif (molecule['local']):
-            #
-            print('            orbital basis   =  local          |        energy threshold   =  {0:<5.2e}     |       final convergence      = {1:>12.5e}'.\
-                  format(molecule['prim_e_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
-         #
-         else:
-            #
-            print('            orbital basis   =  canonical      |        energy threshold   =  {0:<5.2e}     |       final convergence      = {1:>12.5e}'.\
-                  format(molecule['prim_e_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
+         print('            virt. orbitals  =  {0:<9s}      |        energy threshold   =  {1:<5.2e}     |       final convergence      = {2:>12.5e}'.\
+               format(virt_orbs,molecule['prim_e_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #

@@ -220,6 +220,8 @@ def prepare_calc(molecule):
    if ((molecule['max_order'] == 0) or (molecule['max_order'] > molecule['u_limit'])):
       #
       molecule['max_order'] = molecule['u_limit']
+      #
+      if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']): molecule['max_order'] -= molecule['ncore']
    #
    # determine max theoretical work
    #

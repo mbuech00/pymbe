@@ -176,8 +176,15 @@ def n_tuples_plot(molecule):
    ax.set_xlim([-0.5,u_limit-0.5])
    ax.set_ylim(bottom=0.7)
    #
-   ax.set_xticks(list(range(0,u_limit,u_limit//8)))
-   ax.set_xticklabels(list(range(1,u_limit+1,u_limit//8)))
+   if (u_limit < 8):
+      #
+      ax.set_xticks(list(range(0,u_limit)))
+      ax.set_xticklabels(list(range(1,u_limit+1)))
+   #
+   else:
+      #
+      ax.set_xticks(list(range(0,u_limit,u_limit//8)))
+      ax.set_xticklabels(list(range(1,u_limit+1,u_limit//8)))
    #
    ax.set_xlabel('Expansion order')
    ax.set_ylabel('Number of correlated tuples')
@@ -285,7 +292,11 @@ def orb_con_tot_plot(molecule):
    #
    orb_con_arr = 100.0*np.array(molecule['prim_orb_con_rel'])
    #
-   sns.heatmap(orb_con_arr,ax=ax,cmap='coolwarm',cbar_kws={'format':'%.0f'},\
+   mask_arr = np.zeros_like(orb_con_arr,dtype=np.bool)
+   #
+   mask_arr = (orb_con_arr == 0.0)
+   #
+   sns.heatmap(orb_con_arr,ax=ax,mask=mask_arr,cmap='coolwarm',cbar_kws={'format':'%.0f'},\
                     xticklabels=False,yticklabels=range(1,len(molecule['prim_orb_con_rel'])+1),cbar=True,\
                     annot=False,vmin=0.0,vmax=np.amax(orb_con_arr))
    #
@@ -302,6 +313,7 @@ def orb_con_tot_plot(molecule):
    plt.savefig(molecule['wrk_dir']+'/output/orb_con_tot_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    del orb_con_arr
+   del mask_arr
    #
    return
 

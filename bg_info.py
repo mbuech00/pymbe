@@ -91,7 +91,7 @@ def init_param(molecule):
       molecule['mem'] = 0
       molecule['scr_name'] = 'scr'
       molecule['rst'] = False
-      molecule['rst_freq'] = 1
+      molecule['rst_freq'] = 50000.0
       #
       with open('input-param.inp') as f:
          #
@@ -187,7 +187,7 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'rst_freq'):
                #
-               molecule['rst_freq'] = int(content[i].split()[1])
+               molecule['rst_freq'] = float(content[i].split()[1])
             #
             elif (content[i].split()[0] == 'debug'):
                #
@@ -389,12 +389,6 @@ def sanity_chk(molecule):
    if (molecule['frozen'] and (molecule['ncore'] == 0)):
       #
       print('wrong input -- frozen core requested, but no core orbitals specified --- aborting ...')
-      #
-      molecule['error'].append(True)
-   #
-   if (molecule['frozen'] and molecule['local']):
-      #
-      print('wrong input -- comb. of frozen core and local orbitals not implemented --- aborting ...')
       #
       molecule['error'].append(True)
    #

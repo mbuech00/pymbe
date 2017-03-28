@@ -178,9 +178,9 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          print_update(molecule,l_limit,u_limit,level)
          #
-         # update threshold
+         # update threshold and restart frequency
          #
-         update_thres(molecule,level)
+         update_thres_and_rst_freq(molecule,level)
          #
          if (molecule['mpi_parallel']):
             #
@@ -461,7 +461,7 @@ def init_domains(molecule):
    #
    return molecule
 
-def update_thres(molecule,level):
+def update_thres_and_rst_freq(molecule,level):
    #
    # update threshold by doubling it
    #
@@ -472,6 +472,10 @@ def update_thres(molecule,level):
    elif (level == 'CORRE'):
       #
       molecule['corr_thres'] += molecule['corr_thres']
+   #
+   # update restart frequency by halving it
+   #
+   molecule['rst_freq'] /= 2.
    #
    return molecule
 

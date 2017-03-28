@@ -52,7 +52,9 @@ def print_main_header(molecule,foo,init=False):
          print('             Filippo Lipparini')
          print('               & Juergen Gauss')
          print('')
-         print('                                  ****************')
+         print('                                        *****')
+         print('                                   ***************')
+         print('                                        *****')
    #
    # print a table with mpi information
    #

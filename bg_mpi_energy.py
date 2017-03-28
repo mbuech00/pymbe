@@ -75,6 +75,10 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          molecule['mpi_time_comm'][1][j].append(0.0)
          molecule['mpi_time_idle'][1][j].append(0.0)
    #
+   # print 0.0 %
+   #
+   print_status(0.0,level)
+   #
    while (slaves_avail >= 1):
       #
       # receive data dict
@@ -135,7 +139,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          molecule['mpi_time_comm'][1][source][-1] = data['t_comm']
          molecule['mpi_time_idle'][1][source][-1] = data['t_idle']
          #
-         if (((data['index']+1) % molecule['rst_freq']) == 0):
+         if (((data['index']+1) % int(molecule['rst_freq'])) == 0):
             #
             molecule['mpi_time_work'][1][0][-1] = molecule['mpi_time_work_kernel'][-1]
             molecule['mpi_time_comm'][1][0][-1] = molecule['mpi_time_comm_kernel'][-1]
@@ -144,16 +148,6 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
             rst_write_time(molecule,'kernel')
             #
             rst_write_e_inc(molecule,order)
-#         #
-#         if ((order == 3) and ((data['index']+1) == 5) and (not molecule['rst'])):
-#            #
-#            # TEST TEST TEST - forcing abort
-#            #
-#            print('')
-#            print('TEST TEST TEST - forcing abort')
-#            print('')
-#            #
-#            molecule['mpi_comm'].Abort()
          #
          # increment stat counter
          #
@@ -161,7 +155,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          # print status
          #
-         print_status(float(counter)/float(len(tup[order-1])),level)
+         if (((data['index']+1) % 2) == 0): print_status(float(counter)/float(len(tup[order-1])),level)
          #
          # error check
          #
@@ -176,6 +170,10 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
       elif (tag == tags.exit):
          #
          slaves_avail -= 1
+   #
+   # print 100.0 %
+   #
+   print_status(1.0,level)
    #
    timer_mpi(molecule,'mpi_time_work_kernel',order,True)
    #
