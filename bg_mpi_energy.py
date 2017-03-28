@@ -155,7 +155,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          # print status
          #
-         if (((data['index']+1) % 2) == 0): print_status(float(counter)/float(len(tup[order-1])),level)
+         if (((data['index']+1) % 1000) == 0): print_status(float(counter)/float(len(tup[order-1])),level)
          #
          # error check
          #
