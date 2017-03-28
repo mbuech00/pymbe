@@ -105,7 +105,7 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'prog'):
                #
-               molecule['backend_prog'] = content[i].split()[1]
+               molecule['backend_prog'] = content[i].split()[1].upper()
             #
             elif (content[i].split()[0] == 'mp2_nat_orbs'):
                #
@@ -263,7 +263,7 @@ def set_fc(molecule):
 
 def init_backend_prog(molecule):
    #
-   if (molecule['backend_prog'] == 'cfour'):
+   if (molecule['backend_prog'] == 'CFOUR'):
       #
       if (which('xcfour') is None):
          #
