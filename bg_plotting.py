@@ -7,6 +7,9 @@ from copy import deepcopy
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
+from matplotlib import rcParams
+rcParams['font.family'] = 'sans-serif'
+rcParams['font.sans-serif'] = ['DejaVu Sans']
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid.inset_locator import inset_axes
@@ -23,7 +26,7 @@ __status__ = 'Development'
 
 def abs_energy_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
    #
    fig, ax = plt.subplots()
    #
@@ -116,7 +119,7 @@ def abs_energy_plot(molecule):
 
 def n_tuples_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
    #
    fig, ax = plt.subplots()
    #
@@ -204,7 +207,7 @@ def n_tuples_plot(molecule):
 
 def orb_ent_all_plot(molecule):
    #
-   sns.set(style='white')
+   sns.set(style='white',font='DejaVu Sans')
    #
    cmap = sns.cubehelix_palette(as_cmap=True)
    #
@@ -250,7 +253,7 @@ def orb_ent_all_plot(molecule):
 
 def orb_ent_plot(molecule):
    #
-   sns.set(style='white')
+   sns.set(style='white',font='DejaVu Sans')
    #
    cmap = sns.cubehelix_palette(as_cmap=True)
    #
@@ -286,7 +289,7 @@ def orb_ent_plot(molecule):
 
 def orb_con_tot_plot(molecule):
    #
-   sns.set(style='whitegrid')
+   sns.set(style='whitegrid',font='DejaVu Sans')
    #
    fig, ax = plt.subplots()
    #
@@ -319,7 +322,7 @@ def orb_con_tot_plot(molecule):
 
 def orb_con_order_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
    #
    fig, ax = plt.subplots()
    #
@@ -360,7 +363,7 @@ def orb_con_order_plot(molecule):
 
 def dev_ref_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
    #
    fig, ( ax1, ax2 ) = plt.subplots(2, 1, sharex='col', sharey='row')
    #
@@ -541,7 +544,7 @@ def dev_ref_plot(molecule):
 
 def time_plot(molecule):
    #
-   sns.set(style='whitegrid',palette='Set2')
+   sns.set(style='whitegrid',palette='Set2',font='DejaVu Sans')
    #
    if (molecule['mpi_parallel']):
       #

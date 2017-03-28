@@ -51,6 +51,14 @@ def summary_overall_res(molecule):
       #
       virt_orbs = 'canonical'
    #
+   if (molecule['mpi_parallel']):
+      #
+      mpi_size = molecule['mpi_size']
+   #
+   else:
+      #
+      mpi_size = 1
+   #
    with open(molecule['out_dir']+'/bg_results.out','a') as f:
       #
       with redirect_stdout(f):
@@ -72,7 +80,7 @@ def summary_overall_res(molecule):
                  format(molecule['frozen'],molecule['exp'],1))
          #
          print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |        final BG order     =  {2:<3d}          |       number of mpi slaves   =  {3:}'.\
-                 format(molecule['nocc'],molecule['nvirt'],len(molecule['prim_energy']),molecule['mpi_size']-1))
+                 format(molecule['nocc'],molecule['nvirt'],len(molecule['prim_energy']),mpi_size-1))
          #
          print('            occ. orbitals   =  {0:<9s}      |        exp. threshold     =  {1:<5.3f} %      |       final corr. energy     = {2:>12.5e}'.\
                  format(occ_orbs,molecule['prim_thres_init'],molecule['prim_energy'][-1]))
