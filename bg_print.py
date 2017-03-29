@@ -88,7 +88,7 @@ def print_mono_exp_header(molecule):
    #
    return
 
-def print_init_header(molecule,order,level):
+def print_screen_header(molecule,order,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
@@ -97,86 +97,77 @@ def print_init_header(molecule,order,level):
          print('')
          print('')
          print(' --------------------------------------------------------------------------------------------')
-         print(' STATUS-{0:}: order = {1:>d} initialization started'.format(level,order))
+         print(' STATUS-{0:}: order = {1:>d} screening started'.format(level,order))
          print(' --------------------------------------------------------------------------------------------')
    #
    return
 
-def print_init_end(molecule,order,level):
+def print_screen_end(molecule,order,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
       with redirect_stdout(f):
          #
-         print(' --------------------------------------------------------------------------------------------')
-         print(' STATUS-{0:}: order = {1:>d} initialization done'.format(level,order))
-         print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
-def print_final_header(molecule,order,level):
-   #
-   with open(molecule['out_dir']+'/bg_output.out','a') as f:
-      #
-      with redirect_stdout(f):
-         #
-         print(' --------------------------------------------------------------------------------------------')
-         print(' STATUS-{0:}: order = {1:>d} finalization started'.format(level,order))
-         print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
-def print_final_end(molecule,order,conv,level):
-   #
-   with open(molecule['out_dir']+'/bg_output.out','a') as f:
-      #
-      with redirect_stdout(f):
-         #
-         if ((level == 'MACRO') and conv):
+         if (molecule['conv_orb'][-1]):
             #
             print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} finalization done --- *** calculation has converged ***'.format(level,order))
+            print(' STATUS-{0:}: order = {1:>d} screening done ---  *** calculation has converged ***'.format(level,order))
             print(' --------------------------------------------------------------------------------------------')
          #
          else:
             #
             print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} finalization done'.format(level,order))
+            print(' STATUS-{0:}: order = {1:>d} screening done'.format(level,order))
             print(' --------------------------------------------------------------------------------------------')
    #
    return
 
-def print_status_header(molecule,tup,order,conv,level):
+def print_summation_header(molecule,order,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
       with redirect_stdout(f):
          #
-         if ((level == 'MACRO') and conv):
+         print(' --------------------------------------------------------------------------------------------')
+         print(' STATUS-{0:}: order = {1:>d} energy summation started'.format(level,order))
+         print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_summation_end(molecule,order,level):
+   #
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
+      #
+      with redirect_stdout(f):
+         #
+         if (molecule['conv_energy'][-1]):
             #
             print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} has no contributions --- *** calculation has converged ***'.format(level,order))
+            print(' STATUS-{0:}: order = {1:>d} energy summation done --- *** calculation has converged ***'.format(level,order))
             print(' --------------------------------------------------------------------------------------------')
          #
          else:
             #
             print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} energy calculation started  ---  {2:d} tuples in total'.format(level,order,len(tup)))
+            print(' STATUS-{0:}: order = {1:>d} energy summation done'.format(level,order))
             print(' --------------------------------------------------------------------------------------------')
    #
-   if ((level == 'MACRO') and conv):
-      #
-      print('')
-      print(' --------------------------------------------------------------------------------------------')
-      print(' STATUS-{0:}: order = {1:>d} has no contributions --- *** calculation has converged ***'.format(level,order))
-      print(' --------------------------------------------------------------------------------------------')
+   return
+
+def print_status_header(molecule,tup,order,level):
    #
-   else:
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
-      print('')
-      print(' --------------------------------------------------------------------------------------------')
-      print(' STATUS-{0:}: order = {1:>d} energy calculation started  ---  {2:d} tuples in total'.format(level,order,len(tup)))
-      print(' --------------------------------------------------------------------------------------------')
+      with redirect_stdout(f):
+         #
+         print(' --------------------------------------------------------------------------------------------')
+         print(' STATUS-{0:}: order = {1:>d} energy kernel started  ---  {2:d} tuples in total'.format(level,order,len(tup)))
+         print(' --------------------------------------------------------------------------------------------')
+   #
+   print('')
+   print(' --------------------------------------------------------------------------------------------')
+   print(' STATUS-{0:}: order = {1:>d} energy kernel started  ---  {2:d} tuples in total'.format(level,order,len(tup)))
+   print(' --------------------------------------------------------------------------------------------')
    #
    return
 
@@ -207,11 +198,11 @@ def print_status_end(molecule,order,level):
       with redirect_stdout(f):
          #
          print(' --------------------------------------------------------------------------------------------')
-         print(' STATUS-{0:}: order = {1:>d} energy calculation done'.format(level,order))
+         print(' STATUS-{0:}: order = {1:>d} energy kernel done'.format(level,order))
          print(' --------------------------------------------------------------------------------------------')
    #
    print(' --------------------------------------------------------------------------------------------')
-   print(' STATUS-{0:}: order = {1:>d} energy calculation done'.format(level,order))
+   print(' STATUS-{0:}: order = {1:>d} energy kernel done'.format(level,order))
    print(' --------------------------------------------------------------------------------------------')
    #
    return
