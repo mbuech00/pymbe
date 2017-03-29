@@ -30,9 +30,11 @@ def init_calc(molecule):
    #
    init_output(molecule)
    #
-   # init error list
+   # init error handling
    #
    molecule['error'] = [False]
+   molecule['error_msg'] = ''
+   molecule['error_code'] = -1
    #
    # init molecular info
    #

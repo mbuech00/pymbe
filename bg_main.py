@@ -70,7 +70,7 @@ def main():
       #
       #  ---  terminate calculation and clean up...  ---
       #
-      term_calc(molecule)
+      term_calc(molecule,True)
       #
       #  ---  print program end...  ---
       #

@@ -68,23 +68,17 @@ def rm_dir_content(molecule):
    #
    return
 
-def term_calc(molecule):
+def term_calc(molecule,final=False):
    #
    chdir(molecule['wrk_dir'])
    #
-   if (molecule['error'][-1] and isfile(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')):
+   if (final):
       #
-      copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
-   #
-   rmtree(molecule['scr_dir'],ignore_errors=True)
-   #
-   if (not molecule['error'][-1]): rmtree(molecule['rst_dir'],ignore_errors=True)
-   #
-   if (molecule['mpi_master'] and molecule['mpi_parallel']):
+      rmtree(molecule['scr_dir'],ignore_errors=True)
       #
-      remove_slave_env(molecule)
-   #
-   for f in glob(molecule['wrk_dir']+'/OUTPUT_*'): move(f,molecule['out_dir'])
+      rmtree(molecule['rst_dir'],ignore_errors=True)
+      #
+      if (molecule['mpi_parallel']): remove_slave_env(molecule)
    #
    if (molecule['error'][-1]): abort_rout(molecule)
    #

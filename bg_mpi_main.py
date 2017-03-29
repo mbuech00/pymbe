@@ -212,10 +212,6 @@ def main_slave(molecule):
          #
          chdir(molecule['wrk_dir'])
          #
-         if (molecule['error'][-1] and isfile(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')):
-            #
-            copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
-         #
          rmtree(molecule['scr_dir'],ignore_errors=True)
       #
       # finalize_mpi

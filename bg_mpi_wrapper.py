@@ -6,6 +6,7 @@
 import sys
 import traceback
 from os import chdir
+from contextlib import redirect_stdout
 from mpi4py import MPI
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -35,40 +36,36 @@ def set_exception_hook(molecule):
 
 def abort_rout(molecule):
    #
-   if (molecule['error_code'] <= 1):
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
-      print('')
-      print('!!!!!!!!!!!!!')
-      print('ERROR')
-      #
-      if (molecule['error_code'] == 0):
+      with redirect_stdout(f):
          #
-         print(' - master quits with input error:')
-         print(molecule['error_msg'])
-      #
-      else:
+         print('')
+         print('!!!!!!!!!!!!!')
+         print('ERROR')
          #
-         print(' - master quits with HF error:')
-         print(molecule['error_msg'])
-      #
-      print('ERROR')
-      print('!!!!!!!!!!!!!')
-      print('')
-   #
-   else:
-      #
-      print('')
-      print('!!!!!!!!!!!!!')
-      print('ERROR')
-      #
-      print(' - mpi proc. # {0:} quits with correlated calc. error:'.format(molecule['error_rank']))
-      print(molecule['error_msg'])
-      print('print of the string of dropped MOs:')
-      print(molecule['error_drop'])
-      #
-      print('ERROR')
-      print('!!!!!!!!!!!!!')
-      print('')
+         if (molecule['error_code'] <= 1):
+            #
+            if (molecule['error_code'] == 0):
+               #
+               print(' - master quits with input error:')
+               print(molecule['error_msg'])
+            #
+            else:
+               #
+               print(' - master quits with HF error:')
+               print(molecule['error_msg'])
+         #
+         else:
+            #
+            print(' - mpi proc. # {0:} quits with correlated calc. error:'.format(molecule['error_rank']))
+            print(molecule['error_msg'])
+            print('print of the string of dropped MOs:')
+            print(molecule['error_drop'])
+         #
+         print('ERROR')
+         print('!!!!!!!!!!!!!')
+         print('')
    #
    if (molecule['mpi_parallel']):
       #

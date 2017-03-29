@@ -161,6 +161,10 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          if (data['error']):
             #
+            molecule['error'].append(True)
+            molecule['error_code'] = data['error_code']
+            molecule['error_msg'] = data['error_msg']
+            #
             molecule['error_rank'] = source
             #
             string = {}
@@ -253,6 +257,8 @@ def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level)
          data['t_comm'] = molecule['mpi_time_comm_kernel'][-1]
          data['t_idle'] = molecule['mpi_time_idle_kernel'][-1]
          data['error'] = molecule['error'][-1]
+         data['error_code'] = molecule['error_code']
+         data['error_msg'] = molecule['error_msg']
          #
          # send data back to master
          #
