@@ -67,7 +67,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
             #
             # is the parent tuple still allowed?
             #
-            if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
+            if (not (set([tmp[j][1]]) < set(dom[-1][(tmp[j][0]-l_limit)-1]))):
                #
                mask = False
                #
@@ -85,7 +85,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
                   #
                   # is the new child tuple allowed?
                   #
-                  if (not (set([m]) < set(dom[(l-l_limit)-1]))):
+                  if (not (set([m]) < set(dom[-1][(l-l_limit)-1]))):
                      #
                      mask_2 = False
                      #

@@ -39,11 +39,15 @@ def main_drv(molecule):
    #
    if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')):
       #
-      # run mono expansion
+      # print header for mono expansion
       #
       print_mono_exp_header(molecule)
       #
+      # check for restart files
+      #
       rst_main(molecule)
+      #
+      # call mono expansion driver function 
       #
       mono_exp_drv(molecule,molecule['min_order'],molecule['max_order'],'MACRO')
       #
@@ -177,20 +181,9 @@ def mono_exp_screen(molecule,k,level):
    #
    orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level)
    #
-   # write dom, orb_con_abs, orb_con_rel, and orb_arr restart files
-   #
-   rst_write_dom(molecule,k)
-   rst_write_orb_con(molecule,k-1)
-   #
-   if (k >= 3):
-      #
-      rst_write_orb_ent(molecule,k-2)
-      rst_write_orb_arr(molecule,k-2)
-      rst_write_excl_list(molecule,k-2)
-   #
    # generate all tuples at order k+1
    #
-   if (not molecule['conv_energy'][-1]): orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k+1,level)
+   if (not molecule['conv_energy'][-1]): orb_generator(molecule,dom,tup,molecule['l_limit'],molecule['u_limit'],k+1,level)
    #
    timer_mpi(molecule,'mpi_time_work_screen',k)
    #
@@ -204,16 +197,17 @@ def mono_exp_screen(molecule,k,level):
    #
    # write restart files
    #
-   rst_write_dom(molecule,k)
-   rst_write_orb_con(molecule,k-1)
+   if (k >= 1):
+      #
+      rst_write_dom(molecule,k)
+      rst_write_orb_con(molecule,k-1)
+      rst_write_tup(molecule,k)
    #
-   if (k >= 3):
+   if (k >= 2):
       #
       rst_write_orb_ent(molecule,k-2)
       rst_write_orb_arr(molecule,k-2)
       rst_write_excl_list(molecule,k-2)
-   #
-   rst_write_tup(molecule,k)
    #
    # print screen end
    #

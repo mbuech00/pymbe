@@ -34,7 +34,7 @@ def bcast_domains(molecule,dom,k):
    #
    if (molecule['mpi_master']):
       #
-      dom_info = {'dom': dom}
+      dom_info = {'dom': dom[-1]}
       #
       molecule['mpi_comm'].bcast(dom_info,root=0)
    #
