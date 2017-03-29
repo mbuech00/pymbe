@@ -75,9 +75,9 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          molecule['mpi_time_comm'][1][j].append(0.0)
          molecule['mpi_time_idle'][1][j].append(0.0)
    #
-   # print 0.0 %
+   # print status for START
    #
-   print_status(0.0,level)
+   print_status(float(counter)/float(len(tup[order-1])),level)
    #
    while (slaves_avail >= 1):
       #
