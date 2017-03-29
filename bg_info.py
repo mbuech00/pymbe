@@ -21,7 +21,9 @@ def init_mol(molecule):
    #
    if (not isfile('input-mol.inp')):
       #
-      print('input-mol.inp not found, aborting ...')
+      molecule['error_msg'] = 'input-mol.inp not found'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -50,7 +52,9 @@ def init_mol(molecule):
       #
       if (not (chk[k] in molecule.keys())):
          #
-         print('any of '+str(chk[0:2])+' keywords missing in input-mol.inp, aborting ...')
+         molecule['error_msg'] = 'any of '+str(chk)+' keywords missing in input-mol.inp'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
    #
@@ -64,7 +68,9 @@ def init_param(molecule):
    #
    if (not isfile('input-param.inp')):
       #
-      print('input-param.inp not found, aborting ...')
+      molecule['error_msg'] = 'input-param.inp not found'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -195,9 +201,11 @@ def init_param(molecule):
             #
             else:
                #
-               print(str(content[i].split()[0])+' keyword in input-param.inp not recognized, aborting ...')
+               molecule['error_msg'] = str(content[i].split()[0])+' keyword in input-param.inp not recognized'
                #
-               molecule['error'][0].append(True)
+               molecule['error_code'] = 0
+               #
+               molecule['error'].append(True)
    #
    set_exp(molecule)
    #
@@ -209,19 +217,17 @@ def init_param(molecule):
           'basis','ref','local','zmat','units','mem',\
           'debug','scr_name','rst','rst_freq','backend_prog']
    #
-   inc = 0
-   #
    for k in range(0,len(chk)):
       #
       if (not (chk[k] in molecule.keys())):
          #
-         print(str(chk[k])+' keyword missing in either input-mol.inp or input-param.inp, aborting ...')
+         molecule['error_msg'] = str(chk[k])+' keyword missing in either input-mol.inp or input-param.inp'
          #
-         inc += 1
-   #
-   if (inc > 0):
-      #
-      molecule['error'].append(True)
+         molecule['error_code'] = 0
+         #
+         molecule['error'].append(True)
+         #
+         break
    #
    return molecule
 
@@ -267,7 +273,9 @@ def init_backend_prog(molecule):
       #
       if (which('xcfour') is None):
          #
-         print('no xcfour executable found in PATH env, aborting ...')
+         molecule['error_msg'] = 'no xcfour executable found in PATH env'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
       #
@@ -300,7 +308,9 @@ def init_backend_prog(molecule):
    #
    else:
       #
-      print('choice of backend program not recognized, aborting ...')
+      molecule['error_msg'] = 'choice of backend program not recognized'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -312,7 +322,9 @@ def sanity_chk(molecule):
    #
    if ((molecule['exp'] != 'occ') and (molecule['exp'] != 'virt') and (molecule['exp'] != 'comb-ov') and (molecule['exp'] != 'comb-vo')):
       #
-      print('wrong input -- valid choices for expansion scheme are occ, virt, comb-ov, or comb-vo --- aborting ...')
+      molecule['error_msg'] = 'wrong input -- valid choices for expansion scheme are occ, virt, comb-ov, or comb-vo'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -320,7 +332,9 @@ def sanity_chk(molecule):
    #
    if (not ((molecule['model'] == 'FCI') or (molecule['model'] == 'MP2') or (molecule['model'] == 'CISD') or (molecule['model'] == 'CCSD') or (molecule['model'] == 'CCSDT'))):
       #
-      print('wrong input -- valid expansion models are currently: FCI, MP2, CISD, CCSD, and CCSDT --- aborting ...')
+      molecule['error_msg'] = 'wrong input -- valid expansion models are currently: FCI, MP2, CISD, CCSD, and CCSDT'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -328,7 +342,9 @@ def sanity_chk(molecule):
    #
    if (molecule['max_order'] < 0):
       #
-      print('wrong input -- wrong maximum expansion order (must be integer >= 1) --- aborting ...')
+      molecule['error_msg'] = 'wrong input -- wrong maximum expansion order (must be integer >= 1)'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -338,13 +354,17 @@ def sanity_chk(molecule):
       #
       if ((molecule['prim_thres'] == 100.0) and (molecule['max_order'] == 0)):
          #
-         print('wrong input -- no expansion threshold (prim_thres) supplied and no max_order set (either or both must be set) --- aborting ...')
+         molecule['error_msg'] = 'wrong input -- no expansion threshold (prim_thres) supplied and no max_order set (either or both must be set)'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
       #
       if (molecule['prim_thres'] < 0.0):
          #
-         print('wrong input -- expansion threshold (prim_thres) must be float >= 0.0 --- aborting ...')
+         molecule['error_msg'] = 'wrong input -- expansion threshold (prim_thres) must be float >= 0.0'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
    #
@@ -352,13 +372,17 @@ def sanity_chk(molecule):
       #
       if ((molecule['prim_thres'] == 0.0) and (molecule['sec_thres'] == 0.0)):
          #
-         print('wrong input -- expansion thresholds for both the primary and secondary expansions need be supplied (prim_thres / sec_thres) --- aborting ...')
+         molecule['error_msg'] = 'wrong input -- expansion thresholds for both the primary and secondary expansions need be supplied (prim_thres / sec_thres)'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
       #
       if ((molecule['prim_thres'] < 0.0) or (molecule['prim_thres'] < 0.0)):
          #
-         print('wrong input -- expansion thresholds (prim_thres / sec_thres) must be floats >= 0.0 --- aborting ...')
+         molecule['error_msg'] = 'wrong input -- expansion thresholds (prim_thres / sec_thres) must be floats >= 0.0'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
    #
@@ -368,19 +392,25 @@ def sanity_chk(molecule):
       #
       if (molecule['corr_order'] == 0):
          #
-         print('wrong input -- energy correction requested, but no correction order (integer >= 1) supplied --- aborting ...')
+         molecule['error_msg'] = 'wrong input -- energy correction requested, but no correction order (integer >= 1) supplied'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
       #
       if (molecule['corr_thres'] < 0.0):
          #
-         print('wrong input -- correction threshold (corr_thres, float >= 0.0) must be supplied --- aborting ...')
+         molecule['error_msg'] = 'wrong input -- correction threshold (corr_thres, float >= 0.0) must be supplied'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
       #
       if (molecule['corr_thres'] >= molecule['prim_thres']):
          #
-         print('wrong input -- correction threshold (corr_thres) must be tighter than the primary expansion threshold (prim_thres) --- aborting ...')
+         molecule['error_msg'] = 'wrong input -- correction threshold (corr_thres) must be tighter than the primary expansion threshold (prim_thres)'
+         #
+         molecule['error_code'] = 0
          #
          molecule['error'].append(True)
    #
@@ -388,7 +418,9 @@ def sanity_chk(molecule):
    #
    if (molecule['frozen'] and (molecule['ncore'] == 0)):
       #
-      print('wrong input -- frozen core requested, but no core orbitals specified --- aborting ...')
+      molecule['error_msg'] = 'wrong input -- frozen core requested, but no core orbitals specified'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -396,7 +428,9 @@ def sanity_chk(molecule):
    #
    if ((molecule['units'] != 'angstrom') and (molecule['units'] != 'bohr')):
       #
-      print('wrong input -- valid choices of units are angstrom or bohr --- aborting ...')
+      molecule['error_msg'] = 'wrong input -- valid choices of units are angstrom or bohr'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -404,7 +438,9 @@ def sanity_chk(molecule):
    #
    if (molecule['mem'] == 0):
       #
-      print('wrong input -- memory input not supplied --- aborting ...')
+      molecule['error_msg'] = 'wrong input -- memory input not supplied'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
@@ -412,21 +448,9 @@ def sanity_chk(molecule):
    #
    if (molecule['basis'] == ''):
       #
-      print('wrong input -- basis set not supplied --- aborting ...')
+      molecule['error_msg'] = 'wrong input -- basis set not supplied'
       #
-      molecule['error'].append(True)
-   #
-   # scratch folder
-   #
-   if (molecule['scr_name'] == ''):
-      #
-      print('wrong input -- scratch folder not supplied --- aborting ...')
-      #
-      molecule['error'].append(True)
-   #
-   # quit upon error
-   #
-   if (molecule['error'][-1]):
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #

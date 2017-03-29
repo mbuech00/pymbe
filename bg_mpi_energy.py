@@ -9,7 +9,7 @@ from mpi4py import MPI
 from bg_mpi_time import timer_mpi
 from bg_mpi_utils import enum
 from bg_rst_write import rst_write_e_inc, rst_write_time
-from bg_utils import run_calc_corr, orb_string, comb_index
+from bg_utils import run_calc_corr, term_calc, orb_string, comb_index
 from bg_print import print_status 
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -161,11 +161,15 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          if (data['error']):
             #
-            print('problem with slave '+str(source)+' in energy_kernel_mono_exp_master  ---  aborting...')
+            molecule['error_rank'] = source
             #
-            molecule['error'].append(True)
+            string = {}
             #
-            return molecule, tup
+            orb_string(molecule,l_limit,u_limit,tup[order-1][job_info['index']],string)
+            #
+            molecule['error_drop'] = string['drop']
+            # 
+            term_calc(molecule)
       #
       elif (tag == tags.exit):
          #

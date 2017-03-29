@@ -7,10 +7,14 @@ import numpy as np
 from mpi4py import MPI
 from itertools import combinations, chain
 from scipy.misc import comb
-from os import listdir, unlink
+from os import listdir, unlink, chdir
 from os.path import join, isfile
 from subprocess import call
+from shutil import rmtree, copy, move
+from glob import glob
 
+from bg_mpi_wrapper import abort_rout
+from bg_mpi_utils import remove_slave_env
 from bg_print import print_ref_header, print_ref_end
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
@@ -61,6 +65,28 @@ def rm_dir_content(molecule):
       except Exception as e:
          #
          print(e)
+   #
+   return
+
+def term_calc(molecule):
+   #
+   chdir(molecule['wrk_dir'])
+   #
+   if (molecule['error'][-1] and isfile(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')):
+      #
+      copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
+   #
+   rmtree(molecule['scr_dir'],ignore_errors=True)
+   #
+   if (not molecule['error'][-1]): rmtree(molecule['rst_dir'],ignore_errors=True)
+   #
+   if (molecule['mpi_master'] and molecule['mpi_parallel']):
+      #
+      remove_slave_env(molecule)
+   #
+   for f in glob(molecule['wrk_dir']+'/OUTPUT_*'): move(f,molecule['out_dir'])
+   #
+   if (molecule['error'][-1]): abort_rout(molecule)
    #
    return
 

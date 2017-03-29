@@ -17,7 +17,7 @@ __status__ = 'Development'
 
 def cfour_input_hf(molecule):
    #
-   out=open('ZMAT','w')
+   out = open('ZMAT','w')
    #
    out.write(molecule['mol'])
    #
@@ -54,7 +54,7 @@ def cfour_input_hf(molecule):
 
 def cfour_input_corr(molecule,drop_string,level):
    #
-   out=open('ZMAT','w')
+   out = open('ZMAT','w')
    #
    out.write(molecule['mol'])
    #
@@ -123,33 +123,35 @@ def cfour_input_corr(molecule,drop_string,level):
 
 def cfour_get_dim(molecule):
    #
-   inp=open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','r')
-   #
-   regex_err = '\s+ERROR ERROR'
+   inp = open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','r')
    #
    regex = 'basis functions'
    #
-   while 1:
+   content = inp.readlines()
+   #
+   inp.close()
+   #
+   found = False
+   #
+   for i in range(0,len(content)):
       #
-      line=inp.readline()
-      #
-      if regex in line:
+      if (regex in content[i]):
          #
-         [bf] = line.split()[2:3]
+         [bf] = content[i].split()[2:3]
+         #
+         found = True
          #
          break
-      #
-      elif match(regex_err,line) is not None:
-         #
-         print('problem with HF calculation, aborting ...')
-         #
-         molecule['error'].append(True)
-         #
-         inp.close()
-         #
-         return molecule
    #
-   inp.seek(0)
+   if (not found):
+      #
+      molecule['error_msg'] = 'problem with HF calculation (# basis functions)'
+      #
+      molecule['error_code'] = 1
+      #
+      molecule['error'].append(True)
+      #
+      return molecule
    #
    delim_1 = 'MO #'
    delim_2 = '+++++++++++++'
@@ -157,57 +159,63 @@ def cfour_get_dim(molecule):
    start = False
    occ_mos = []
    #
-   for line in inp.readlines():
+   for i in range(0,len(content)):
       #
-      if (delim_1 in line):
+      if (delim_1 in content[i]):
          #
          start = True
       #
-      elif (delim_2 in line):
+      elif (delim_2 in content[i]):
          #
          start = False
          #
          break
       #
-      if (start):
-         #
-         occ_mos.append(line)
+      if (start): occ_mos.append(content[i])
    #
-   molecule['nocc'] = len(occ_mos)-2
+   if (len(occ_mos) == 0):
+      #
+      molecule['error_msg'] = 'problem with HF calculation (# occ. MOs)'
+      #
+      molecule['error_code'] = 1
+      #
+      molecule['error'].append(True)
    #
-   molecule['nvirt'] = int(bf) - molecule['nocc']
+   else:
+      #
+      molecule['nocc'] = len(occ_mos)-2
+      #
+      molecule['nvirt'] = int(bf) - molecule['nocc']
    #
-   inp.close()
+   del content
    #
    return molecule
 
 def cfour_write_energy(molecule,level):
    #
-   inp=open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','r')
+   inp = open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','r')
    #
-   regex_err = '\s+ERROR ERROR'
+   content = inp.readlines()
    #
-   model = molecule['model']
+   inp.close()
    #
-   regex = molecule['regex']
+   found = False
    #
-   while 1:
+   for i in range(0,len(content)):
       #
-      line=inp.readline()
-      #
-      if match(regex,line) is not None:
+      if (match(molecule['regex'],content[i]) is not None):
          #
-         if (model == 'FCI'):
+         if (molecule['model'] == 'FCI'):
             #
-            [tmp] = line.split()[3:4]
+            [tmp] = content[i].split()[3:4]
          #
-         elif (model == 'MP2'):
+         elif (molecule['model'] == 'MP2'):
             #
-            [tmp] = line.split()[2:3]
+            [tmp] = content[i].split()[2:3]
          #
          else: # CC
             #
-            [tmp] = line.split()[4:5]
+            [tmp] = content[i].split()[4:5]
          #
          if (level == 'REF'):
             #
@@ -217,19 +225,17 @@ def cfour_write_energy(molecule,level):
             #
             molecule['e_tmp'] = float(tmp)
          #
+         found = True
+         #
          break
-      #
-      elif match(regex_err,line) is not None:
-         #
-         print('problem with '+model+' calculation, aborting ...')
-         #
-         molecule['error'].append(True)
-         #
-         inp.close()
-         #
-         return molecule
    #
-   inp.close()
+   if (not found):
+     #
+     molecule['error_msg'] = 'problem with {0:} calculation (energy)'.format(molecule['model'])
+     #
+     molecule['error_code'] = 2
+     #
+     molecule['error'].append(True)
    #
    return molecule
 

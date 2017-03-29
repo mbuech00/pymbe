@@ -5,6 +5,7 @@
 
 import numpy as np
 from os import getcwd, mkdir, chdir
+from os.path import isfile
 from shutil import copy, rmtree
 from mpi4py import MPI
 
@@ -211,7 +212,7 @@ def main_slave(molecule):
          #
          chdir(molecule['wrk_dir'])
          #
-         if (molecule['error'][-1]):
+         if (molecule['error'][-1] and isfile(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')):
             #
             copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
          #

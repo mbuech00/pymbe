@@ -7,7 +7,7 @@ import numpy as np
 
 from bg_mpi_time import timer_mpi, collect_kernel_mpi_time, collect_final_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_master, energy_summation_par
-from bg_utils import run_calc_corr, orb_string, comb_index 
+from bg_utils import run_calc_corr, term_calc, orb_string, comb_index 
 from bg_print import print_status
 from bg_rst_write import rst_write_e_inc, rst_write_time
 
@@ -64,7 +64,11 @@ def energy_kernel_mono_exp(molecule,order,tup,e_inc,l_limit,u_limit,level):
          #
          if (molecule['error'][-1]):
             #
-            return molecule, tup, e_inc
+            molecule['error_rank'] = 0
+            #
+            molecule['error_drop'] = drop['string']
+            #
+            term_calc(molecule)
          #
          # write e_inc restart file
          #

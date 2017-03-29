@@ -10,8 +10,8 @@ from mpi4py import MPI
 from bg_mpi_wrapper import finalize_mpi
 from bg_mpi_main import init_mpi
 from bg_mpi_time import calc_mpi_timings
-from bg_setup import init_calc, term_calc
-from bg_utils import ref_calc
+from bg_setup import init_calc
+from bg_utils import ref_calc, term_calc
 from bg_print import print_main_header, print_main_end 
 from bg_summary import summary_main
 from bg_driver import main_drv

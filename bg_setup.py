@@ -5,13 +5,13 @@
 
 from os import getcwd, mkdir, chdir
 from os.path import isdir
-from shutil import copy, rmtree 
+from shutil import rmtree 
 
-from bg_mpi_wrapper import abort_mpi
-from bg_mpi_utils import bcast_mol_dict, init_slave_env, remove_slave_env
+from bg_mpi_wrapper import set_exception_hook
+from bg_mpi_utils import bcast_mol_dict, init_slave_env
 from bg_mpi_time import init_mpi_timings
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
-from bg_utils import run_calc_hf
+from bg_utils import run_calc_hf, term_calc
 from bg_print import redirect_stdout
 from bg_rst_main import rst_init_env
 
@@ -57,6 +57,10 @@ def init_calc(molecule):
       # init the prog env on the slaves
       #
       init_slave_env(molecule)
+      #
+      # set exception hook
+      #
+      set_exception_hook(molecule)
    #
    else:
       #
@@ -86,29 +90,9 @@ def init_calc(molecule):
    #
    sanity_chk(molecule)
    #
-   if (molecule['error'][-1]): abort_mpi(molecule)
+   if (molecule['error'][-1]): term_calc(molecule)
    #
    return molecule
-
-def term_calc(molecule):
-   #
-   chdir(molecule['wrk_dir'])
-   #
-   if (molecule['error'][-1]):
-      #
-      copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
-   #
-   rmtree(molecule['scr_dir'],ignore_errors=True)
-   #
-   if (not molecule['error'][-1]): rmtree(molecule['rst_dir'],ignore_errors=True)
-   #
-   if (molecule['mpi_master'] and molecule['mpi_parallel']):
-      #
-      remove_slave_env(molecule)
-   #
-   if (molecule['error'][-1]): abort_mpi(molecule)
-   #
-   return
 
 def init_output(molecule):
    #

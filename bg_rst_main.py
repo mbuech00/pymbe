@@ -29,13 +29,17 @@ def rst_init_env(molecule):
    #
    if (molecule['rst'] and (not isdir(molecule['rst_dir']))):
       #
-      print('restart requested but no rst directory present in work directory, aborting ...')
+      molecule['error_msg'] = 'restart requested but no rst directory present in work directory'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)
    #
    elif ((not molecule['rst']) and isdir(molecule['rst_dir'])):
       #
-      print('no restart requested but rst directory present in work directory, aborting ...')
+      molecule['error_msg'] = 'no restart requested but rst directory present in work directory'
+      #
+      molecule['error_code'] = 0
       #
       molecule['error'].append(True)  
    #
@@ -61,15 +65,17 @@ def rst_main(molecule):
       #
       # update threshold
       #
-      rst_update_thres(molecule)
+      rst_update_thres_and_rst_freq(molecule)
    #
    return molecule
 
-def rst_update_thres(molecule):
+def rst_update_thres_and_rst_freq(molecule):
    #
    for _ in range(2,molecule['min_order']):
       #
       molecule['prim_thres'] += molecule['prim_thres']
+      #
+      molecule['rst_freq'] /= 2.
    #
    return molecule
 
