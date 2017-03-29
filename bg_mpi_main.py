@@ -5,11 +5,13 @@
 
 import numpy as np
 from os import getcwd, mkdir, chdir
+from os.path import isfile
 from shutil import copy, rmtree
 from mpi4py import MPI
 
 from bg_mpi_utils import print_mpi_table, mono_exp_merge_info, prepare_calc
-from bg_mpi_time import init_mpi_timings, collect_init_mpi_time, collect_kernel_mpi_time, collect_mpi_timings
+from bg_mpi_rst import rst_dist_slave
+from bg_mpi_time import init_mpi_timings, collect_init_mpi_time, collect_kernel_mpi_time, collect_final_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_slave, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave, orb_entanglement_main_par
 
@@ -17,7 +19,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -54,23 +56,9 @@ def main_slave(molecule):
    #
    slave = True
    #
-   time_slave = {}
-   #
-   time_slave['mpi_time_idle_main'] = [0.0]
-   #
    while (slave):
       #
-      start_idle = MPI.Wtime()
-      #
       msg = MPI.COMM_WORLD.bcast(None,root=0)
-      #
-      if (len(time_slave['mpi_time_idle_main']) < msg['order']):
-         #
-         time_slave['mpi_time_idle_main'].append(MPI.Wtime()-start_idle)
-      #
-      else:
-         #
-         time_slave['mpi_time_idle_main'][msg['order']-1] += MPI.Wtime()-start_idle
       #
       # bcast_mol_dict
       #
@@ -123,6 +111,8 @@ def main_slave(molecule):
          #
          molecule['prim_energy_inc'] = []
          molecule['corr_energy_inc'] = []
+         #
+         if (not molecule['rst']): molecule['min_order'] = 1
       #
       # print_mpi_table
       #
@@ -142,6 +132,12 @@ def main_slave(molecule):
          #
          prepare_calc(molecule)
       #
+      # rst_dist_slave
+      #
+      elif (msg['task'] == 'rst_dist'):
+         #
+         rst_dist_slave(molecule) 
+      #
       # mono_exp_merge_info
       #
       elif (msg['task'] == 'mono_exp_merge_info'):
@@ -154,9 +150,15 @@ def main_slave(molecule):
       #
       elif (msg['task'] == 'orb_entanglement_par'):
          #
-         orb_entanglement_main_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
+         orb_entanglement_main_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['level'],msg['calc_end'])
          #
-         collect_init_mpi_time(molecule,msg['order'])
+         if (msg['calc_end']):
+            #
+            collect_init_mpi_time(molecule,msg['order'],True)
+         #
+         else:
+            #
+            collect_init_mpi_time(molecule,msg['order'])
       #
       # orb_generator_slave
       #
@@ -171,6 +173,8 @@ def main_slave(molecule):
          elif (msg['level'] == 'CORRE'):
             #
             orb_generator_slave(molecule,molecule['corr_domain'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
+         #
+         collect_init_mpi_time(molecule,msg['order']-1,True)
       #
       # energy_kernel_mono_exp_par
       #
@@ -197,6 +201,8 @@ def main_slave(molecule):
          elif (msg['level'] == 'CORRE'):
             #
             energy_summation_par(molecule,msg['order'],molecule['corr_tuple'],molecule['corr_energy_inc'],None,'CORRE')
+         #
+         collect_final_mpi_time(molecule,msg['order'])
       #
       # remove_slave_env
       #
@@ -206,19 +212,7 @@ def main_slave(molecule):
          #
          chdir(molecule['wrk_dir'])
          #
-         if (molecule['error'][-1]):
-            #
-            copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
-         #
          rmtree(molecule['scr_dir'],ignore_errors=True)
-      #
-      # collect_mpi_timings
-      #
-      elif (msg['task'] == 'collect_mpi_timings'):
-         #
-         molecule['mpi_time_idle_main'] = time_slave['mpi_time_idle_main']
-         #
-         collect_mpi_timings(molecule)
       #
       # finalize_mpi
       #

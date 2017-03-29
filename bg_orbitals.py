@@ -16,7 +16,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -136,7 +136,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       # set up entanglement and exclusion lists
       #
-      orb_entanglement_main(molecule,l_limit,u_limit,order,level)
+      orb_entanglement_main(molecule,l_limit,u_limit,order,level,calc_end)
       #
       timer_mpi(molecule,'mpi_time_work_init',order)
       #
@@ -146,9 +146,13 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       if (calc_end):
          #
-         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         if (molecule['mpi_parallel']):
+            #
+            collect_init_mpi_time(molecule,order,True)
          #
-         if (molecule['mpi_parallel']): collect_init_mpi_time(molecule,order)
+         else:
+            #
+            timer_mpi(molecule,'mpi_time_work_init',order,True)
       #
       else:
          #
@@ -174,21 +178,25 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          print_update(molecule,l_limit,u_limit,level)
          #
-         # update threshold
+         # update threshold and restart frequency
          #
-         update_thres(molecule,level)
+         update_thres_and_rst_freq(molecule,level)
          #
-         timer_mpi(molecule,'mpi_time_work_init',order,True)
+         if (molecule['mpi_parallel']):
+            #
+            collect_init_mpi_time(molecule,order)
          #
-         if (molecule['mpi_parallel']): collect_init_mpi_time(molecule,order)
+         else:
+            #
+            timer_mpi(molecule,'mpi_time_work_init',order,True)
    #
    return molecule
 
-def orb_entanglement_main(molecule,l_limit,u_limit,order,level):
+def orb_entanglement_main(molecule,l_limit,u_limit,order,level,calc_end):
    #
    if (molecule['mpi_parallel']):
       #
-      orb_entanglement_main_par(molecule,l_limit,u_limit,order,level)
+      orb_entanglement_main_par(molecule,l_limit,u_limit,order,level,calc_end)
    #
    else:
       #
@@ -453,7 +461,7 @@ def init_domains(molecule):
    #
    return molecule
 
-def update_thres(molecule,level):
+def update_thres_and_rst_freq(molecule,level):
    #
    # update threshold by doubling it
    #
@@ -464,6 +472,10 @@ def update_thres(molecule,level):
    elif (level == 'CORRE'):
       #
       molecule['corr_thres'] += molecule['corr_thres']
+   #
+   # update restart frequency by halving it
+   #
+   molecule['rst_freq'] /= 2.
    #
    return molecule
 

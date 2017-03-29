@@ -7,6 +7,9 @@ from copy import deepcopy
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
+from matplotlib import rcParams
+rcParams['font.family'] = 'sans-serif'
+rcParams['font.sans-serif'] = ['DejaVu Sans']
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid.inset_locator import inset_axes
@@ -16,18 +19,18 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 def abs_energy_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Total '+molecule['model'].upper()+' energy')
+   ax.set_title('Total '+molecule['model']+' energy')
    #
    u_limit = molecule['u_limit']
    #
@@ -58,14 +61,14 @@ def abs_energy_plot(molecule):
             corr_energy[i][j] += (molecule['corr_energy'][(molecule['min_corr_order']+i)-1]-molecule['corr_energy'][(molecule['min_corr_order']+i)-2])
    #
    ax.plot(list(range(1,len(molecule['prim_energy'])+1)),molecule['prim_energy'],marker='x',linewidth=2,linestyle='-',\
-           label='BG('+molecule['model'].upper()+')')
+           label='BG('+molecule['model']+')')
    #
    if (molecule['corr']):
       #
       for i in range(0,molecule['corr_order']):
          #
          ax.plot(list(range(1,len(molecule['prim_energy'])+1)),corr_energy[i],\
-                 marker='x',linestyle=styles[i],linewidth=2,label='BG('+molecule['model'].upper()+')-'+str(i+1))
+                 marker='x',linestyle=styles[i],linewidth=2,label='BG('+molecule['model']+')-'+str(i+1))
    #
    ax.set_xlim([0.5,u_limit+0.5])
    #
@@ -116,11 +119,11 @@ def abs_energy_plot(molecule):
 
 def n_tuples_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
    #
    fig, ax = plt.subplots()
    #
-   ax.set_title('Total number of '+molecule['model'].upper()+' tuples')
+   ax.set_title('Total number of '+molecule['model']+' tuples')
    #
    u_limit = molecule['u_limit']
    #
@@ -161,7 +164,7 @@ def n_tuples_plot(molecule):
                   label='Energy corr.',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
-                  label='BG('+molecule['model'].upper()+') expansion',log=True)
+                  label='BG('+molecule['model']+') expansion',log=True)
    #
    else:
       #
@@ -169,15 +172,22 @@ def n_tuples_plot(molecule):
                   palette='Greens',label='Theoretical number',log=True)
       #
       sns.barplot(list(range(1,u_limit+1)),prim,palette='Blues_r',\
-                  label='BG('+molecule['model'].upper()+') expansion',log=True)
+                  label='BG('+molecule['model']+') expansion',log=True)
    #
    ax.xaxis.grid(False)
    #
    ax.set_xlim([-0.5,u_limit-0.5])
    ax.set_ylim(bottom=0.7)
    #
-   ax.set_xticks(list(range(0,u_limit,u_limit//8)))
-   ax.set_xticklabels(list(range(1,u_limit+1,u_limit//8)))
+   if (u_limit < 8):
+      #
+      ax.set_xticks(list(range(0,u_limit)))
+      ax.set_xticklabels(list(range(1,u_limit+1)))
+   #
+   else:
+      #
+      ax.set_xticks(list(range(0,u_limit,u_limit//8)))
+      ax.set_xticklabels(list(range(1,u_limit+1,u_limit//8)))
    #
    ax.set_xlabel('Expansion order')
    ax.set_ylabel('Number of correlated tuples')
@@ -197,7 +207,7 @@ def n_tuples_plot(molecule):
 
 def orb_ent_all_plot(molecule):
    #
-   sns.set(style='white')
+   sns.set(style='white',font='DejaVu Sans')
    #
    cmap = sns.cubehelix_palette(as_cmap=True)
    #
@@ -243,7 +253,7 @@ def orb_ent_all_plot(molecule):
 
 def orb_ent_plot(molecule):
    #
-   sns.set(style='white')
+   sns.set(style='white',font='DejaVu Sans')
    #
    cmap = sns.cubehelix_palette(as_cmap=True)
    #
@@ -279,13 +289,17 @@ def orb_ent_plot(molecule):
 
 def orb_con_tot_plot(molecule):
    #
-   sns.set(style='whitegrid')
+   sns.set(style='whitegrid',font='DejaVu Sans')
    #
    fig, ax = plt.subplots()
    #
    orb_con_arr = 100.0*np.array(molecule['prim_orb_con_rel'])
    #
-   sns.heatmap(orb_con_arr,ax=ax,cmap='coolwarm',cbar_kws={'format':'%.0f'},\
+   mask_arr = np.zeros_like(orb_con_arr,dtype=np.bool)
+   #
+   mask_arr = (orb_con_arr == 0.0)
+   #
+   sns.heatmap(orb_con_arr,ax=ax,mask=mask_arr,cmap='coolwarm',cbar_kws={'format':'%.0f'},\
                     xticklabels=False,yticklabels=range(1,len(molecule['prim_orb_con_rel'])+1),cbar=True,\
                     annot=False,vmin=0.0,vmax=np.amax(orb_con_arr))
    #
@@ -302,12 +316,13 @@ def orb_con_tot_plot(molecule):
    plt.savefig(molecule['wrk_dir']+'/output/orb_con_tot_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    del orb_con_arr
+   del mask_arr
    #
    return
 
 def orb_con_order_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
    #
    fig, ax = plt.subplots()
    #
@@ -348,7 +363,7 @@ def orb_con_order_plot(molecule):
 
 def dev_ref_plot(molecule):
    #
-   sns.set(style='darkgrid',palette='Set2')
+   sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
    #
    fig, ( ax1, ax2 ) = plt.subplots(2, 1, sharex='col', sharey='row')
    #
@@ -398,7 +413,7 @@ def dev_ref_plot(molecule):
             e_diff_corr_abs[i].append((corr_energy[i][j]-molecule['e_ref'])/kcal_mol)
             e_diff_corr_rel[i].append((corr_energy[i][j]/molecule['e_ref'])*100.)
    #
-   ax1.set_title('Absolute difference from E('+molecule['model'].upper()+')')
+   ax1.set_title('Absolute difference from E('+molecule['model']+')')
    #
    u_limit = molecule['u_limit']
    #
@@ -409,14 +424,14 @@ def dev_ref_plot(molecule):
    ax1.axhline(0.0,color='black',linewidth=2)
    #
    ax1.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_tot_abs,marker='x',linewidth=2,linestyle='-',\
-            label='BG('+molecule['model'].upper()+')')
+            label='BG('+molecule['model']+')')
    #
    if (molecule['corr']):
       #
       for i in range(0,molecule['corr_order']):
          #
          ax1.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_corr_abs[i],marker='x',linewidth=2,linestyle=styles[i],\
-                  label='BG('+molecule['model'].upper()+')-'+str(i+1))
+                  label='BG('+molecule['model']+')-'+str(i+1))
    #
    ax1.set_ylim([-1.1,3.4])
    #
@@ -460,19 +475,19 @@ def dev_ref_plot(molecule):
       #
       insert.xaxis.grid(False)
    #
-   ax2.set_title('Relative recovery of E('+molecule['model'].upper()+')')
+   ax2.set_title('Relative recovery of E('+molecule['model']+')')
    #
    ax2.axhline(100.0,color='black',linewidth=2)
    #
    ax2.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_tot_rel,marker='x',linewidth=2,linestyle='-',\
-            label='BG('+molecule['model'].upper()+')')
+            label='BG('+molecule['model']+')')
    #
    if (molecule['corr']):
       #
       for i in range(0,molecule['corr_order']):
          #
          ax2.plot(list(range(1,len(molecule['prim_energy'])+1)),e_diff_corr_rel[i],marker='x',linewidth=2,linestyle=styles[i],\
-                  label='BG('+molecule['model'].upper()+')-'+str(i+1))
+                  label='BG('+molecule['model']+')-'+str(i+1))
    #
    ax2.set_xlim([0.5,u_limit+0.5])
    #
@@ -529,7 +544,7 @@ def dev_ref_plot(molecule):
 
 def time_plot(molecule):
    #
-   sns.set(style='whitegrid',palette='Set2')
+   sns.set(style='whitegrid',palette='Set2',font='DejaVu Sans')
    #
    if (molecule['mpi_parallel']):
       #

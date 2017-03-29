@@ -14,7 +14,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -31,10 +31,6 @@ def bcast_mol_dict(molecule):
    #
    MPI.COMM_WORLD.bcast(molecule,root=0)
    #
-   # init mpi master timings
-   #
-   init_mpi_timings(molecule)
-   #
    # private mpi info
    #
    molecule['mpi_comm'] = MPI.COMM_WORLD
@@ -42,6 +38,10 @@ def bcast_mol_dict(molecule):
    molecule['mpi_rank'] = molecule['mpi_comm'].Get_rank()
    molecule['mpi_name'] = MPI.Get_processor_name()
    molecule['mpi_stat'] = MPI.Status()
+   #
+   # init mpi master timings
+   #
+   init_mpi_timings(molecule)
    #
    # private scr dir
    #
@@ -206,13 +206,22 @@ def prepare_calc(molecule):
       # init prim tuple and e_inc
       #
       molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['l_limit'],molecule['l_limit']+molecule['u_limit'])),dtype=np.int32)]
-      molecule['prim_energy_inc'] = [np.zeros(len(molecule['prim_tuple'][0]),dtype=np.float64)]
+      #
+      if (molecule['rst']):
+         #
+         molecule['prim_energy_inc'] = []
+      #
+      else:
+         #
+         molecule['prim_energy_inc'] = [np.zeros(len(molecule['prim_tuple'][0]),dtype=np.float64)]
    #
    # set max_order
    #
    if ((molecule['max_order'] == 0) or (molecule['max_order'] > molecule['u_limit'])):
       #
       molecule['max_order'] = molecule['u_limit']
+      #
+      if (((molecule['exp'] == 'occ') or (molecule['exp'] == 'comb-ov')) and molecule['frozen']): molecule['max_order'] -= molecule['ncore']
    #
    # determine max theoretical work
    #

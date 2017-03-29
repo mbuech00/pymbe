@@ -6,17 +6,21 @@
 import numpy as np
 
 from bg_mpi_utils import prepare_calc, mono_exp_merge_info
-from bg_print import print_status_header, print_status_end, print_result,\
+from bg_mpi_time import timer_mpi, collect_init_mpi_time
+from bg_print import print_mono_exp_header, print_status_header, print_status_end, print_result,\
                      print_init_header, print_init_end, print_final_header, print_final_end
 from bg_energy import energy_kernel_mono_exp, energy_summation
 from bg_orbitals import init_domains, update_domains, orb_generator,\
                         orb_screening, orb_exclusion
+from bg_rst_main import rst_main
+from bg_rst_write import rst_write_tup, rst_write_dom, rst_write_orb_ent, rst_write_orb_arr, rst_write_excl_list,\
+                         rst_write_orb_con, rst_write_e_inc, rst_write_e_tot, rst_write_time
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -37,13 +41,11 @@ def main_drv(molecule):
       #
       # run mono expansion
       #
-      print('')
-      print('')
-      print('                     ---------------------------------------------                ')
-      print('                                   primary expansion                              ')
-      print('                     ---------------------------------------------                ')
+      print_mono_exp_header(molecule)
       #
-      mono_exp_drv(molecule,1,molecule['max_order'],'MACRO')
+      rst_main(molecule)
+      #
+      mono_exp_drv(molecule,molecule['min_order'],molecule['max_order'],'MACRO')
       #
       if (molecule['corr']):
          #
@@ -67,10 +69,6 @@ def main_drv(molecule):
             print('                     ---------------------------------------------                ')
             #
             mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
-      #
-      else:
-         #
-         mono_exp_finish(molecule)
    #
    elif ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
       #
@@ -86,7 +84,7 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # mono expansion initialization
       #
-      if (k == 1):
+      if (k == start):
          #
          print('')
       #
@@ -100,19 +98,15 @@ def mono_exp_drv(molecule,start,end,level):
       #
       # return if converged
       #
-      if (((level == 'MACRO') and molecule['conv_orb'][-1]) or ((level == 'MACRO') and molecule['conv_energy'][-1]) or (k == end)):
-         #
-         print('')
-         #
-         if (((k == end) and (not ((level == 'MACRO') and molecule['conv_orb'][-1]))) or ((level == 'MACRO') and molecule['conv_energy'][-1])):
-            #
-            orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
-            #
-            mono_exp_finish(molecule)
-         #
-         if ((level == 'MACRO') and (not molecule['corr'])): print('')
-         #
-         break
+      if (molecule['conv_orb'][-1] or molecule['conv_energy'][-1]): break
+   #
+   print('')
+   #
+   orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
+   #
+   mono_exp_finish(molecule)
+   #
+   print('')
    #
    return molecule
 
@@ -130,7 +124,7 @@ def mono_exp_kernel(molecule,k,level):
       e_inc = molecule['corr_energy_inc']
       e_tot = molecule['corr_energy']
    #
-   print_status_header(tup[-1],k,molecule['conv_orb'][-1],level)
+   print_status_header(molecule,tup[-1],k,molecule['conv_orb'][-1],level)
    #
    if ((level == 'MACRO') and molecule['conv_orb'][-1]): return molecule
    #
@@ -142,11 +136,16 @@ def mono_exp_kernel(molecule,k,level):
    #
    print_status_end(molecule,k,level)
    #
-   print_final_header(k,level)
+   print_final_header(molecule,k,level)
    #
    # calculate the energy at order k
    #
    energy_summation(molecule,k,tup,e_inc,e_tot,level)
+   #
+   # write e_inc and e_tot restart files
+   #
+   rst_write_e_inc(molecule,k)
+   rst_write_e_tot(molecule,k)
    #
    if ((k >= 2) and (abs(e_tot[-1]-e_tot[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
    #
@@ -154,7 +153,7 @@ def mono_exp_kernel(molecule,k,level):
    # 
    # print results
    #
-   print_result(tup[k-1],e_inc[k-1],level)
+   print_result(molecule,tup[k-1],e_inc[k-1],level)
    #
    return molecule
 
@@ -178,15 +177,31 @@ def mono_exp_init(molecule,k,level):
    #
    # print init header
    #
-   print_init_header(k,level)
+   print_init_header(molecule,k,level)
    #
    # orbital screening (using info from order k-1)
    #
    orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k-1,level)
    #
+   # write dom, orb_con_abs, orb_con_rel, and orb_arr restart files
+   #
+   rst_write_dom(molecule,k)
+   rst_write_orb_con(molecule,k-1)
+   if (k >= 3):
+      #
+      rst_write_orb_ent(molecule,k-2)
+      rst_write_orb_arr(molecule,k-2)
+      rst_write_excl_list(molecule,k-2)
+   #
    # generate all tuples at order k
    #
    orb_generator(molecule,dom[k-1],tup,molecule['l_limit'],molecule['u_limit'],k,level)
+   #
+   # write tup restart file
+   #
+   rst_write_tup(molecule,k)
+   #
+   timer_mpi(molecule,'mpi_time_work_init',k-1)
    #
    # check for convergence
    #
@@ -206,6 +221,16 @@ def mono_exp_init(molecule,k,level):
       #
       tup.pop(-1)
       e_inc.pop(-1)
+   #
+   if (molecule['mpi_parallel']):
+      #
+      collect_init_mpi_time(molecule,k-1,True)
+   #
+   else:
+      #
+      timer_mpi(molecule,'mpi_time_work_init',k-1,True)
+      #
+      rst_write_time(molecule,'init')
    #
    return molecule
 

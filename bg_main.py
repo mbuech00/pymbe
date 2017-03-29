@@ -9,9 +9,9 @@ from mpi4py import MPI
 
 from bg_mpi_wrapper import finalize_mpi
 from bg_mpi_main import init_mpi
-from bg_mpi_time import collect_mpi_timings, calc_mpi_timings
-from bg_setup import init_calc, term_calc
-from bg_utils import ref_calc
+from bg_mpi_time import calc_mpi_timings
+from bg_setup import init_calc
+from bg_utils import ref_calc, term_calc
 from bg_print import print_main_header, print_main_end 
 from bg_summary import summary_main
 from bg_driver import main_drv
@@ -21,7 +21,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -46,15 +46,13 @@ def main():
       #
       #  ---  print program header...  ---
       #
-      print_main_header(molecule)
+      print_main_header(molecule,'bg_output.out',True)
       #
       #  ---  initialization done - start the calculation...  ---
       #
       main_drv(molecule)
       #
-      #  ---  collect timings...  ---
-      #
-      if (molecule['mpi_parallel']): collect_mpi_timings(molecule)
+      #  ---  calculate timings...  ---
       #
       calc_mpi_timings(molecule)
       #
@@ -72,7 +70,7 @@ def main():
       #
       #  ---  terminate calculation and clean up...  ---
       #
-      term_calc(molecule)
+      term_calc(molecule,True)
       #
       #  ---  print program end...  ---
       #

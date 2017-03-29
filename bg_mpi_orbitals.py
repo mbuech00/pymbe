@@ -15,7 +15,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -368,7 +368,7 @@ def red_orb_ent(molecule,tmp,recv_buff,k):
    #
    return recv_buff
 
-def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
+def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level,calc_end):
    #
    #  ---  master/slave routine
    #
@@ -378,7 +378,7 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level):
       #
       timer_mpi(molecule,'mpi_time_idle_init',order)
       #
-      msg = {'task': 'orb_entanglement_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
+      msg = {'task': 'orb_entanglement_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level, 'calc_end': calc_end}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #

@@ -1,23 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_utils.py: general utilities for Bethe-Goldstone correlation calculation."""
+""" bg_utils.py: general utilities for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
 from mpi4py import MPI
 from itertools import combinations, chain
 from scipy.misc import comb
-from os import listdir, unlink
+from os import listdir, unlink, chdir
 from os.path import join, isfile
 from subprocess import call
+from shutil import rmtree, copy, move
+from glob import glob
 
+from bg_mpi_wrapper import abort_rout
+from bg_mpi_utils import remove_slave_env
 from bg_print import print_ref_header, print_ref_end
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -64,9 +68,25 @@ def rm_dir_content(molecule):
    #
    return
 
+def term_calc(molecule,final=False):
+   #
+   chdir(molecule['wrk_dir'])
+   #
+   if (final):
+      #
+      rmtree(molecule['scr_dir'],ignore_errors=True)
+      #
+      rmtree(molecule['rst_dir'],ignore_errors=True)
+      #
+      if (molecule['mpi_parallel']): remove_slave_env(molecule)
+   #
+   if (molecule['error'][-1]): abort_rout(molecule)
+   #
+   return
+
 def ref_calc(molecule):
    #
-   print_ref_header()
+   print_ref_header(molecule)
    #
    start_time = MPI.Wtime()
    #

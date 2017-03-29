@@ -1,36 +1,40 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_setup.py: setup utilities for Bethe-Goldstone correlation calculation."""
+""" bg_setup.py: setup utilities for Bethe-Goldstone correlation calculations."""
 
-from os import mkdir, chdir
-from shutil import copy, rmtree 
+from os import getcwd, mkdir, chdir
+from os.path import isdir
+from shutil import rmtree 
 
-from bg_mpi_wrapper import abort_mpi
-from bg_mpi_utils import bcast_mol_dict, init_slave_env, remove_slave_env
+from bg_mpi_wrapper import set_exception_hook
+from bg_mpi_utils import bcast_mol_dict, init_slave_env
 from bg_mpi_time import init_mpi_timings
 from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
-from bg_utils import run_calc_hf
+from bg_utils import run_calc_hf, term_calc
 from bg_print import redirect_stdout
+from bg_rst_main import rst_init_env
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.4'
+__version__ = '0.5'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 def init_calc(molecule):
    #
-   # redirect stdout to output.out
+   # init output dir
    #
-   redirect_stdout(molecule)
+   init_output(molecule)
    #
-   # init error list
+   # init error handling
    #
    molecule['error'] = [False]
+   molecule['error_msg'] = ''
+   molecule['error_code'] = -1
    #
    # init molecular info
    #
@@ -55,6 +59,10 @@ def init_calc(molecule):
       # init the prog env on the slaves
       #
       init_slave_env(molecule)
+      #
+      # set exception hook
+      #
+      set_exception_hook(molecule)
    #
    else:
       #
@@ -66,7 +74,11 @@ def init_calc(molecule):
       #
       molecule['scr_dir'] = molecule['wrk_dir']+'/'+molecule['scr_name']+'-'+str(molecule['mpi_rank'])
    #
-   # init scr env
+   # init restart env
+   #
+   rst_init_env(molecule)
+   #
+   # init scr env and change into this
    #
    mkdir(molecule['scr_dir'])
    #
@@ -80,25 +92,19 @@ def init_calc(molecule):
    #
    sanity_chk(molecule)
    #
-   if (molecule['error'][-1]): abort_mpi(molecule)
+   if (molecule['error'][-1]): term_calc(molecule)
    #
    return molecule
 
-def term_calc(molecule):
+def init_output(molecule):
    #
-   chdir(molecule['wrk_dir'])
+   molecule['wrk_dir'] = getcwd()
    #
-   if (molecule['error'][-1]):
-      #
-      copy(molecule['scr_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT',molecule['wrk_dir']+'/OUTPUT_'+str(molecule['mpi_rank'])+'.OUT')
+   molecule['out_dir'] = molecule['wrk_dir']+'/output'
    #
-   rmtree(molecule['scr_dir'],ignore_errors=True)
+   if (isdir(molecule['out_dir'])): rmtree(molecule['out_dir'],ignore_errors=True)
    #
-   if (molecule['mpi_master'] and molecule['mpi_parallel']):
-      #
-      remove_slave_env(molecule)
+   mkdir(molecule['out_dir'])
    #
-   if (molecule['error'][-1]): abort_mpi(molecule)
-   #
-   return
+   return molecule
 
