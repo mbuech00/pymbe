@@ -7,7 +7,7 @@ import numpy as np
 
 from bg_mpi_utils import prepare_calc, mono_exp_merge_info
 from bg_mpi_time import timer_mpi, collect_screen_mpi_time
-from bg_print import print_mono_exp_header, print_status_header, print_status_end, print_result,\
+from bg_print import print_mono_exp_header, print_kernel_header, print_kernel_end, print_results,\
                      print_screen_header, print_screen_end, print_summation_header, print_summation_end
 from bg_energy import energy_kernel_mono_exp, energy_summation, chk_energy_conv
 from bg_orbitals import init_domains, update_domains, orb_generator,\

@@ -154,7 +154,7 @@ def print_summation_end(molecule,order,level):
    #
    return
 
-def print_status_header(molecule,tup,order,level):
+def print_kernel_header(molecule,tup,order,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
@@ -183,7 +183,7 @@ def print_status(prog,level):
    #
    return
 
-def print_status_end(molecule,order,level):
+def print_kernel_end(molecule,order,level):
    #
    if (level == 'MACRO'):
       #
@@ -207,7 +207,7 @@ def print_status_end(molecule,order,level):
    #
    return
 
-def print_result(molecule,tup,e_inc,level):
+def print_results(molecule,tup,e_inc,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
