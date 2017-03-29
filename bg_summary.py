@@ -76,8 +76,8 @@ def summary_overall_res(molecule):
          print('            basis set       =  {0:<12s}   |        expansion model    =  {1:<6s}       |       mpi parallel run       =  {2:}'.\
                  format(molecule['basis'],molecule['model'],molecule['mpi_parallel']))
          #
-         print('            frozen core     =  {0:<5b}          |        expansion type     =  {1:<8s}     |       number of mpi masters  =  {2:}'.\
-                 format(molecule['frozen'],molecule['exp'],1))
+         print('            frozen core     =  {0:<5}          |        expansion type     =  {1:<8s}     |       number of mpi masters  =  {2:}'.\
+                 format(str(molecule['frozen']),molecule['exp'],1))
          #
          print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |        final BG order     =  {2:<3d}          |       number of mpi slaves   =  {3:}'.\
                  format(molecule['nocc'],molecule['nvirt'],len(molecule['prim_energy']),mpi_size-1))
