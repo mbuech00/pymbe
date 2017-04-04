@@ -193,6 +193,9 @@ def n_tuples_plot(molecule):
    ax.set_ylabel('Number of correlated tuples')
    #
    plt.legend(loc=1)
+   leg = ax.get_legend()
+   leg.legendHandles[0].set_color(sns.color_palette('Greens')[-1])
+   leg.legendHandles[1].set_color(sns.color_palette('Blues_r')[0])
    #
    sns.despine()
    #
