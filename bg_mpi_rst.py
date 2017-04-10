@@ -57,9 +57,9 @@ def rst_dist_master(molecule):
    #
    for i in range(1,molecule['mpi_size']):
       #
-      time = {'init': [molecule['mpi_time_work'][0][i],molecule['mpi_time_comm'][0][i],molecule['mpi_time_idle'][0][i]],\
-              'kernel': [molecule['mpi_time_work'][1][i],molecule['mpi_time_comm'][1][i],molecule['mpi_time_idle'][1][i]],\
-              'final': [molecule['mpi_time_work'][2][i],molecule['mpi_time_comm'][2][i],molecule['mpi_time_idle'][2][i]]}
+      time = {'kernel': [molecule['mpi_time_work'][1][i],molecule['mpi_time_comm'][1][i],molecule['mpi_time_idle'][1][i]],\
+              'summation': [molecule['mpi_time_work'][2][i],molecule['mpi_time_comm'][2][i],molecule['mpi_time_idle'][2][i]],\
+              'screen': [molecule['mpi_time_work'][0][i],molecule['mpi_time_comm'][0][i],molecule['mpi_time_idle'][0][i]]}
       #
       molecule['mpi_comm'].send(time,dest=i)
    #
@@ -113,9 +113,9 @@ def rst_dist_slave(molecule):
    #
    time = molecule['mpi_comm'].recv(source=0,status=molecule['mpi_stat'])
    #
-   molecule['mpi_time_work_init'] = time['init'][0]; molecule['mpi_time_comm_init'] = time['init'][1]; molecule['mpi_time_idle_init'] = time['init'][2]
    molecule['mpi_time_work_kernel'] = time['kernel'][0]; molecule['mpi_time_comm_kernel'] = time['kernel'][1]; molecule['mpi_time_idle_kernel'] = time['kernel'][2]
-   molecule['mpi_time_work_final'] = time['final'][0]; molecule['mpi_time_comm_final'] = time['final'][1]; molecule['mpi_time_idle_final'] = time['final'][2]
+   molecule['mpi_time_work_summation'] = time['summation'][0]; molecule['mpi_time_comm_summation'] = time['summation'][1]; molecule['mpi_time_idle_summation'] = time['summation'][2]
+   molecule['mpi_time_work_screen'] = time['screen'][0]; molecule['mpi_time_comm_screen'] = time['screen'][1]; molecule['mpi_time_idle_screen'] = time['screen'][2]
    #
    del buff
    #

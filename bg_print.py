@@ -83,8 +83,6 @@ def print_mono_exp_header(molecule):
          print('                     ---------------------------------------------                ')
          print('                                   primary expansion                              ')
          print('                     ---------------------------------------------                ')
-         print('')
-         print('')
    #
    return
 
@@ -94,8 +92,6 @@ def print_screen_header(molecule,order,level):
       #
       with redirect_stdout(f):
          #
-         print('')
-         print('')
          print(' --------------------------------------------------------------------------------------------')
          print(' STATUS-{0:}: order = {1:>d} screening started'.format(level,order))
          print(' --------------------------------------------------------------------------------------------')
@@ -160,6 +156,8 @@ def print_kernel_header(molecule,tup,order,level):
       #
       with redirect_stdout(f):
          #
+         print('')
+         print('')
          print(' --------------------------------------------------------------------------------------------')
          print(' STATUS-{0:}: order = {1:>d} energy kernel started  ---  {2:d} tuples in total'.format(level,order,len(tup)))
          print(' --------------------------------------------------------------------------------------------')

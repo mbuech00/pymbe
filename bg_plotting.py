@@ -569,15 +569,15 @@ def time_plot(molecule):
    #
    ax1.set_title('Phase timings')
    #
-   init_dat = (molecule['time_init']/molecule['time_tot'])*100.0
-   kernel_dat = init_dat + (molecule['time_kernel']/molecule['time_tot'])*100.0
-   final_dat = kernel_dat + (molecule['time_final']/molecule['time_tot'])*100.0
+   kernel_dat = (molecule['time_kernel']/molecule['time_tot'])*100.0
+   sum_dat = kernel_dat + (molecule['time_summation']/molecule['time_tot'])*100.0
+   screen_dat = sum_dat + (molecule['time_screen']/molecule['time_tot'])*100.0
    #
-   final = sns.barplot(final_dat,order,ax=ax1,orient='h',label='final',color=sns.xkcd_rgb['salmon'])
+   screen = sns.barplot(screen_dat,order,ax=ax1,orient='h',label='screen',color=sns.xkcd_rgb['amber'])
+   #
+   summation = sns.barplot(sum_dat,order,ax=ax1,orient='h',label='summation',color=sns.xkcd_rgb['salmon'])
    #
    kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['windows blue'])
-   #
-   init = sns.barplot(init_dat,order,ax=ax1,orient='h',label='init',color=sns.xkcd_rgb['amber'])
    #
    ax1.set_ylim([-0.5,(len(molecule['prim_energy'])+1)-0.5])
    ax1.set_xlim([0.0,100.0])
@@ -635,9 +635,9 @@ def time_plot(molecule):
    #
    plt.savefig(molecule['wrk_dir']+'/output/time_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
-   del init_dat
+   del screen_dat
    del kernel_dat
-   del final_dat
+   del sum_dat
    #
    if (molecule['mpi_parallel']):
       #

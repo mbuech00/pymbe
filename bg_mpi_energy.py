@@ -290,7 +290,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       # wake up slaves
       #
-      timer_mpi(molecule,'mpi_time_idle_final',k)
+      timer_mpi(molecule,'mpi_time_idle_summation',k)
       #
       msg = {'task': 'energy_summation_par', 'order': k, 'level': level}
       #
@@ -300,7 +300,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       e_inc[k-1].fill(0.0)
    #
-   timer_mpi(molecule,'mpi_time_work_final',k)
+   timer_mpi(molecule,'mpi_time_work_summation',k)
    #
    for j in range(0,len(tup[k-1])):
       #
@@ -360,11 +360,11 @@ def allred_e_inc(molecule,e_inc,k):
    #
    # Allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
    #
-   timer_mpi(molecule,'mpi_time_idle_final',k)
+   timer_mpi(molecule,'mpi_time_idle_summation',k)
    #
    molecule['mpi_comm'].Barrier()
    #
-   timer_mpi(molecule,'mpi_time_comm_final',k)
+   timer_mpi(molecule,'mpi_time_comm_summation',k)
    #
    # init receive buffer
    #
@@ -376,7 +376,7 @@ def allred_e_inc(molecule,e_inc,k):
    #
    # finally, overwrite e_inc[k-1]
    #
-   timer_mpi(molecule,'mpi_time_work_final',k)
+   timer_mpi(molecule,'mpi_time_work_summation',k)
    #
    e_inc[k-1] = recv_buff
    #

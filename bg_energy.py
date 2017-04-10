@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from bg_mpi_time import timer_mpi, collect_kernel_mpi_time, collect_final_mpi_time
+from bg_mpi_time import timer_mpi, collect_kernel_mpi_time, collect_summation_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_master, energy_summation_par
 from bg_utils import run_calc_corr, term_calc, orb_string, comb_index 
 from bg_print import print_status
@@ -88,11 +88,11 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
       #
       energy_summation_par(molecule,k,tup,e_inc,energy,level)
       #
-      collect_final_mpi_time(molecule,k)
+      collect_summation_mpi_time(molecule,k)
    #
    else:
       #
-      timer_mpi(molecule,'mpi_time_work_final',k)
+      timer_mpi(molecule,'mpi_time_work_summation',k)
       #
       # compute energy increments at level k
       #
@@ -136,9 +136,9 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
       #
       energy.append(e_tmp)
       #
-      timer_mpi(molecule,'mpi_time_work_final',k,True)
+      timer_mpi(molecule,'mpi_time_work_summation',k,True)
       #
-      rst_write_time(molecule,'final')
+      rst_write_time(molecule,'summation')
    #
    return e_inc, energy
 

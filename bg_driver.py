@@ -74,9 +74,9 @@ def main_drv(molecule):
             #
             mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
    #
-   elif ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
-      #
-      # run dual expansion (not implemented yet...)
+#   elif ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
+#      #
+#      # run dual expansion (not implemented yet...)
    #
    return molecule
 
@@ -118,19 +118,21 @@ def mono_exp_kernel(molecule,k,level):
       e_inc = molecule['corr_energy_inc']
       e_tot = molecule['corr_energy']
    #
-   print_status_header(molecule,tup[-1],k,level)
+   # print kernel header
+   #
+   print_kernel_header(molecule,tup[-1],k,level)
    #
    # init e_int list
    #
-   e_inc.append(np.zeros(len(tup[k-1]),dtype=np.float64))
+   if (k != molecule['min_order']): e_inc.append(np.zeros(len(tup[k-1]),dtype=np.float64))
    #
    # run the calculations
    #
    energy_kernel_mono_exp(molecule,k,tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
    #
-   # print status end
+   # print kernel end
    #
-   print_status_end(molecule,k,level)
+   print_kernel_end(molecule,k,level)
    #
    return molecule
 
@@ -153,7 +155,7 @@ def mono_exp_summation(molecule,k,level):
    # 
    # print results
    #
-   print_result(molecule,molecule['prim_tuple'][k-1],molecule['prim_energy_inc'][k-1],level)
+   print_results(molecule,molecule['prim_tuple'][k-1],molecule['prim_energy_inc'][k-1],level)
    #
    return molecule
 
@@ -179,49 +181,55 @@ def mono_exp_screen(molecule,k,level):
    #
    # orbital screening (using info from order k-1)
    #
-   orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level)
-   #
-   # generate all tuples at order k+1
-   #
-   if (not molecule['conv_energy'][-1]): orb_generator(molecule,dom,tup,molecule['l_limit'],molecule['u_limit'],k+1,level)
-   #
-   timer_mpi(molecule,'mpi_time_work_screen',k)
-   #
-   # check for convergence wrt prim_thres
-   #
-   if (len(tup[k-1]) == 0):
+   if (molecule['conv_energy'][-1]):
       #
-      tup.pop(-1)
-      #
-      molecule['conv_orb'].append(True)
+      orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level,True)
    #
-   # write restart files
-   #
-   if (k >= 1):
+   else:
       #
-      rst_write_dom(molecule,k)
-      rst_write_orb_con(molecule,k-1)
-      rst_write_tup(molecule,k)
-   #
-   if (k >= 2):
+      orb_screening(molecule,molecule['l_limit'],molecule['u_limit'],k,level)
       #
-      rst_write_orb_ent(molecule,k-2)
-      rst_write_orb_arr(molecule,k-2)
-      rst_write_excl_list(molecule,k-2)
+      # generate all tuples at order k+1
+      #
+      orb_generator(molecule,dom,tup,molecule['l_limit'],molecule['u_limit'],k+1,level)
+      #
+      timer_mpi(molecule,'mpi_time_work_screen',k)
+      #
+      # check for convergence wrt prim_thres
+      #
+      if (len(tup[k-1]) == 0):
+         #
+         tup.pop(-1)
+         #
+         molecule['conv_orb'].append(True)
+      #
+      # write restart files
+      #
+      if (k >= 1):
+         #
+         rst_write_dom(molecule,k)
+         rst_write_orb_con(molecule,k-1)
+         rst_write_tup(molecule,k)
+      #
+      if (k >= 2):
+         #
+         rst_write_orb_ent(molecule,k-2)
+         rst_write_orb_arr(molecule,k-2)
+         rst_write_excl_list(molecule,k-2)
+      #
+      if (molecule['mpi_parallel']):
+         #
+         collect_screen_mpi_time(molecule,k,True)
+      #
+      else:
+         #
+         timer_mpi(molecule,'mpi_time_work_screen',k,True)
+         #
+         rst_write_time(molecule,'screen')
    #
    # print screen end
    #
    print_screen_end(molecule,k,level)
-   #
-   if (molecule['mpi_parallel']):
-      #
-      collect_screen_mpi_time(molecule,k,True)
-   #
-   else:
-      #
-      timer_mpi(molecule,'mpi_time_work_screen',k,True)
-      #
-      rst_write_time(molecule,'screen')
    #
    return molecule
 

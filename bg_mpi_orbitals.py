@@ -24,11 +24,11 @@ def bcast_domains(molecule,dom,k):
    #
    #  ---  master/slave routine
    #
-   timer_mpi(molecule,'mpi_time_idle_init',k-1)
+   timer_mpi(molecule,'mpi_time_idle_screen',k)
    #
    molecule['mpi_comm'].Barrier()
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1)
+   timer_mpi(molecule,'mpi_time_comm_screen',k)
    #
    # bcast domains
    #
@@ -46,7 +46,7 @@ def bcast_domains(molecule,dom,k):
       #
       dom += dom_info['dom']
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1,True)
+   timer_mpi(molecule,'mpi_time_comm_screen',k,True)
    #
    dom_info.clear()
    #
@@ -60,29 +60,29 @@ def bcast_tuples(molecule,buff,tup,k):
    #
    if (molecule['mpi_master']):
       #
-      timer_mpi(molecule,'mpi_time_comm_init',k-1)
+      timer_mpi(molecule,'mpi_time_comm_screen',k)
       #
       tup_info = {'tup_len': len(buff)}
       #
       molecule['mpi_comm'].bcast(tup_info,root=0)
    #
-   timer_mpi(molecule,'mpi_time_idle_init',k-1)
+   timer_mpi(molecule,'mpi_time_idle_screen',k)
    #
    molecule['mpi_comm'].Barrier()
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1)
+   timer_mpi(molecule,'mpi_time_comm_screen',k)
    #
    # bcast buffer
    #
    molecule['mpi_comm'].Bcast([buff,MPI.INT],root=0)
    #
-   timer_mpi(molecule,'mpi_time_work_init',k-1)
+   timer_mpi(molecule,'mpi_time_work_screen',k)
    #
    # append tup[k-1] with buff
    #
    tup.append(buff)
    #
-   timer_mpi(molecule,'mpi_time_work_init',k-1,True)
+   timer_mpi(molecule,'mpi_time_work_screen',k,True)
    #
    return tup
 
@@ -92,19 +92,19 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    # wake up slaves
    #
-   timer_mpi(molecule,'mpi_time_idle_init',k-1)
+   timer_mpi(molecule,'mpi_time_idle_screen',k)
    #
    msg = {'task': 'orb_generator_slave', 'l_limit': l_limit, 'u_limit': u_limit, 'order': k, 'level': level}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
-   timer_mpi(molecule,'mpi_time_work_init',k-1)
+   timer_mpi(molecule,'mpi_time_work_screen',k)
    #
    # bcast domains
    #
    bcast_domains(molecule,dom,k)
    #
-   timer_mpi(molecule,'mpi_time_work_init',k-1)
+   timer_mpi(molecule,'mpi_time_work_screen',k)
    #
    # init job_info dictionary
    #
@@ -142,11 +142,11 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       # receive data dict
       #
-      timer_mpi(molecule,'mpi_time_idle_init',k-1)
+      timer_mpi(molecule,'mpi_time_idle_screen',k)
       #
       data = molecule['mpi_comm'].recv(source=MPI.ANY_SOURCE,tag=MPI.ANY_TAG,status=molecule['mpi_stat'])
       #
-      timer_mpi(molecule,'mpi_time_work_init',k-1)
+      timer_mpi(molecule,'mpi_time_work_screen',k)
       #
       # probe for source
       #
@@ -164,11 +164,11 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
             #
             # send parent tuple index
             #
-            timer_mpi(molecule,'mpi_time_comm_init',k-1)
+            timer_mpi(molecule,'mpi_time_comm_screen',k)
             #
             molecule['mpi_comm'].send(job_info,dest=source,tag=tags.start)
             #
-            timer_mpi(molecule,'mpi_time_work_init',k-1)
+            timer_mpi(molecule,'mpi_time_work_screen',k)
             #
             # increment job index
             #
@@ -176,11 +176,11 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
          #
          else:
             #
-            timer_mpi(molecule,'mpi_time_comm_init',k-1)
+            timer_mpi(molecule,'mpi_time_comm_screen',k)
             #
             molecule['mpi_comm'].send(None,dest=source,tag=tags.exit)
             #
-            timer_mpi(molecule,'mpi_time_work_init',k-1)
+            timer_mpi(molecule,'mpi_time_work_screen',k)
       #
       elif (tag == tags.done):
          #
@@ -216,7 +216,7 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    bcast_domains(molecule,dom,k)
    #
-   timer_mpi(molecule,'mpi_time_work_init',k-1)
+   timer_mpi(molecule,'mpi_time_work_screen',k)
    #
    # define mpi message tags
    #
@@ -234,7 +234,7 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       # ready for task
       #
-      timer_mpi(molecule,'mpi_time_comm_init',k-1)
+      timer_mpi(molecule,'mpi_time_comm_screen',k)
       #
       molecule['mpi_comm'].send(None,dest=0,tag=tags.ready)
       #
@@ -242,7 +242,7 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       job_info = molecule['mpi_comm'].recv(source=0,tag=MPI.ANY_SOURCE,status=molecule['mpi_stat'])
       #
-      timer_mpi(molecule,'mpi_time_work_init',k-1)
+      timer_mpi(molecule,'mpi_time_work_screen',k)
       #
       # recover tag
       #
@@ -316,13 +316,13 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
                      #
                      data['child_tup'].pop(-1)
          #
-         timer_mpi(molecule,'mpi_time_comm_init',k-1)
+         timer_mpi(molecule,'mpi_time_comm_screen',k)
          #
          # send child tuple back to master
          #
          molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
          #
-         timer_mpi(molecule,'mpi_time_work_init',k-1)
+         timer_mpi(molecule,'mpi_time_work_screen',k)
       #
       elif (tag == tags.exit):
          #
@@ -330,7 +330,7 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    # exit
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k-1)
+   timer_mpi(molecule,'mpi_time_comm_screen',k)
    #
    molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
    #
@@ -338,7 +338,7 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    tup_info = molecule['mpi_comm'].bcast(None,root=0)
    #
-   timer_mpi(molecule,'mpi_time_work_init',k-1)
+   timer_mpi(molecule,'mpi_time_work_screen',k)
    #
    buff = np.empty([tup_info['tup_len'],k],dtype=np.int32)
    #
@@ -354,17 +354,17 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
 
 def red_orb_ent(molecule,tmp,recv_buff,k):
    #
-   timer_mpi(molecule,'mpi_time_idle_init',k)
+   timer_mpi(molecule,'mpi_time_idle_screen',k)
    #
    molecule['mpi_comm'].Barrier()
    #
    # reduce tmp into recv_buff
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k)
+   timer_mpi(molecule,'mpi_time_comm_screen',k)
    #
    molecule['mpi_comm'].Reduce([tmp,MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM,root=0)
    #
-   timer_mpi(molecule,'mpi_time_comm_init',k,True)
+   timer_mpi(molecule,'mpi_time_comm_screen',k,True)
    #
    return recv_buff
 
@@ -376,17 +376,17 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level,calc_end):
       #
       # wake up slaves
       #
-      timer_mpi(molecule,'mpi_time_idle_init',order)
+      timer_mpi(molecule,'mpi_time_idle_screen',order)
       #
       msg = {'task': 'orb_entanglement_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level, 'calc_end': calc_end}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #
-      timer_mpi(molecule,'mpi_time_work_init',order)
+      timer_mpi(molecule,'mpi_time_work_screen',order)
    #
    else:
       #
-      timer_mpi(molecule,'mpi_time_work_init',order)
+      timer_mpi(molecule,'mpi_time_work_screen',order)
    #
    if (level == 'MACRO'):
       #
@@ -443,7 +443,7 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level,calc_end):
    #
    if (molecule['mpi_master']):
       #
-      timer_mpi(molecule,'mpi_time_work_init',order)
+      timer_mpi(molecule,'mpi_time_work_screen',order)
       #
       if (level == 'MACRO'):
          #
@@ -453,7 +453,7 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level,calc_end):
          #
          molecule['corr_orb_ent'].append(recv_buff)
       #
-      timer_mpi(molecule,'mpi_time_work_init',order,True)
+      timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
    return molecule
 

@@ -87,15 +87,15 @@ def rst_write_time(molecule,phase):
    #
    # write mpi timings for phase
    #
-   if (phase == 'init'):
+   if (phase == 'kernel'):
       #
       idx = 0
    #
-   elif (phase == 'kernel'):
+   elif (phase == 'summation'):
       #
       idx = 1
    #
-   elif (phase == 'final'):
+   elif (phase == 'screen'):
       #
       idx = 2
    #

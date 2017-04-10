@@ -11,7 +11,7 @@ from mpi4py import MPI
 
 from bg_mpi_utils import print_mpi_table, mono_exp_merge_info, prepare_calc
 from bg_mpi_rst import rst_dist_slave
-from bg_mpi_time import init_mpi_timings, collect_init_mpi_time, collect_kernel_mpi_time, collect_final_mpi_time
+from bg_mpi_time import init_mpi_timings, collect_screen_mpi_time, collect_kernel_mpi_time, collect_summation_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_slave, energy_summation_par
 from bg_mpi_orbitals import orb_generator_slave, orb_entanglement_main_par
 
@@ -154,11 +154,11 @@ def main_slave(molecule):
          #
          if (msg['calc_end']):
             #
-            collect_init_mpi_time(molecule,msg['order'],True)
+            collect_screen_mpi_time(molecule,msg['order'],True)
          #
          else:
             #
-            collect_init_mpi_time(molecule,msg['order'])
+            collect_screen_mpi_time(molecule,msg['order'])
       #
       # orb_generator_slave
       #
@@ -174,7 +174,7 @@ def main_slave(molecule):
             #
             orb_generator_slave(molecule,molecule['corr_domain'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
          #
-         collect_init_mpi_time(molecule,msg['order']-1,True)
+         collect_screen_mpi_time(molecule,msg['order']-1,True)
       #
       # energy_kernel_mono_exp_par
       #
@@ -202,7 +202,7 @@ def main_slave(molecule):
             #
             energy_summation_par(molecule,msg['order'],molecule['corr_tuple'],molecule['corr_energy_inc'],None,'CORRE')
          #
-         collect_final_mpi_time(molecule,msg['order'])
+         collect_summation_mpi_time(molecule,msg['order'])
       #
       # remove_slave_env
       #
