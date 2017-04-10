@@ -5,9 +5,9 @@
 
 import numpy as np
 
-from bg_mpi_utils import prepare_calc, mono_exp_merge_info
+from bg_mpi_utils import prepare_calc
 from bg_mpi_time import timer_mpi, collect_screen_mpi_time
-from bg_print import print_mono_exp_header, print_kernel_header, print_kernel_end, print_results,\
+from bg_print import print_mono_exp_header, print_mono_exp_end, print_kernel_header, print_kernel_end, print_results,\
                      print_screen_header, print_screen_end, print_summation_header, print_summation_end
 from bg_energy import energy_kernel_mono_exp, energy_summation, chk_energy_conv
 from bg_orbitals import init_domains, update_domains, orb_generator,\
@@ -20,7 +20,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.6'
+__version__ = '0.7'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -51,28 +51,9 @@ def main_drv(molecule):
       #
       mono_exp_drv(molecule,molecule['min_order'],molecule['max_order'],'MACRO')
       #
-      if (molecule['corr']):
-         #
-         # energy correction for mono expansion
-         #
-         # set min and max _corr_order
-         #
-         set_corr_order(molecule)
-         #
-         # merge info from prim exp
-         #
-         mono_exp_merge_info(molecule)
-         #
-         # calculate correction (if possible)
-         #
-         if (molecule['corr']):
-            #
-            print('')
-            print('                     ---------------------------------------------                ')
-            print('                                   energy correction                              ')
-            print('                     ---------------------------------------------                ')
-            #
-            mono_exp_drv(molecule,molecule['min_corr_order'],molecule['max_corr_order'],'CORRE')
+      # print end for mono expansion
+      #
+      print_mono_exp_end(molecule)
    #
 #   elif ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
 #      #
@@ -100,8 +81,6 @@ def mono_exp_drv(molecule,start,end,level):
       #
       if (molecule['conv_orb'][-1] or molecule['conv_energy'][-1]): break
    #
-   mono_exp_finish(molecule)
-   #
    return molecule
 
 def mono_exp_kernel(molecule,k,level):
@@ -111,12 +90,6 @@ def mono_exp_kernel(molecule,k,level):
       tup = molecule['prim_tuple']
       e_inc = molecule['prim_energy_inc']
       e_tot = molecule['prim_energy']
-   #
-   elif (level == 'CORRE'):
-      #
-      tup = molecule['corr_tuple']
-      e_inc = molecule['corr_energy_inc']
-      e_tot = molecule['corr_energy']
    #
    # print kernel header
    #
@@ -132,7 +105,7 @@ def mono_exp_kernel(molecule,k,level):
    #
    # print kernel end
    #
-   print_kernel_end(molecule,k,level)
+   print_kernel_end(molecule,tup,k,level)
    #
    return molecule
 
@@ -167,13 +140,6 @@ def mono_exp_screen(molecule,k,level):
       dom = molecule['prim_domain']
       orb = molecule['prim_orb_ent']
       thres = molecule['prim_thres']
-   #
-   elif (level == 'CORRE'):
-      #
-      tup = molecule['corr_tuple']
-      dom = molecule['corr_domain']
-      orb = molecule['corr_orb_ent']
-      thres = molecule['corr_thres']
    #
    # print screen header
    #
@@ -230,114 +196,6 @@ def mono_exp_screen(molecule,k,level):
    # print screen end
    #
    print_screen_end(molecule,k,level)
-   #
-   return molecule
-
-def mono_exp_finish(molecule):
-   #
-   if (not molecule['corr']):
-      #
-      molecule['min_corr_order'] = 0
-      molecule['max_corr_order'] = 0
-   #
-   # make the corr_energy list of the same length as the prim_energy list
-   #
-   for _ in range(molecule['max_corr_order'],len(molecule['prim_energy'])):
-      #
-      if (molecule['corr']):
-         #
-         molecule['corr_energy'].append(molecule['corr_energy'][-1])
-      #
-      else:
-         #
-         molecule['corr_energy'].append(0.0)
-   #
-   # make corr_tuple and corr_energy_inc lists of the same length as prim_tuple and prim_energy_inc
-   #
-   for _ in range(len(molecule['corr_tuple']),len(molecule['prim_tuple'])):
-      #
-      molecule['corr_tuple'].append(np.array([],dtype=np.int32))
-   #
-   for _ in range(len(molecule['corr_energy_inc']),len(molecule['prim_energy_inc'])):
-      #
-      molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
-   #
-   if (molecule['corr']):
-      #
-      # make cor_orb_con lists of same length as orb_con lists for prim exp
-      #
-      for i in range(len(molecule['corr_orb_ent']),len(molecule['prim_orb_ent'])):
-         #
-         molecule['corr_orb_con_abs'].append([])
-         molecule['corr_orb_con_rel'].append([])
-         #
-         for j in range(0,len(molecule['prim_orb_ent'][i])):
-            #
-            molecule['corr_orb_con_abs'][-1].append(molecule['corr_orb_con_abs'][-2][j]+np.sum(molecule['prim_orb_ent'][i][j]))
-         #
-         for j in range(0,len(molecule['corr_orb_con_abs'][-1])):
-            #
-            if (molecule['corr_orb_con_abs'][-1][j] == 0.0):
-               #
-               molecule['corr_orb_con_rel'][-1].append(0.0)
-            #
-            else:
-               #
-               molecule['corr_orb_con_rel'][-1].append(molecule['corr_orb_con_abs'][-1][j]/sum(molecule['corr_orb_con_abs'][-1]))
-   #
-   print('')
-   print('')
-   #
-   return molecule
-
-def set_corr_order(molecule):
-   #
-   molecule['min_corr_order'] = 0
-   #
-   for i in range(0,len(molecule['prim_tuple'])):
-      #
-      if ((len(molecule['prim_tuple'][i]) < molecule['theo_work'][i]) and (len(molecule['prim_tuple'][i]) > 0)):
-         #
-         molecule['min_corr_order'] = i+1
-         #
-         break
-   #
-   # no energy correction possible
-   #
-   if (molecule['min_corr_order'] == 0):
-      #
-      molecule['corr'] = False
-      #
-      molecule['max_corr_order'] = 0
-      #
-      molecule['corr_order'] = 0
-      #
-      for _ in range(0,len(molecule['prim_energy'])):
-         #
-         molecule['corr_tuple'].append(np.array([],dtype=np.int32))
-         molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
-         #
-         molecule['corr_energy'].append(0.0)
-      #
-      return molecule
-   #
-   # the input corr_order is too high, so we correct everything
-   #
-   elif ((molecule['min_corr_order'] + (molecule['corr_order']-1)) > len(molecule['prim_tuple'])):
-      #
-      molecule['max_corr_order'] = len(molecule['prim_tuple'])
-      #
-      molecule['corr_order'] = (molecule['max_corr_order'] - molecule['min_corr_order']) + 1
-   #
-   # default, set max_corr_order according to input corr_order
-   #
-   else:
-      #
-      molecule['max_corr_order'] = molecule['min_corr_order'] + (molecule['corr_order']-1)
-   #
-   for _ in range(0,molecule['min_corr_order']-1):
-      #
-      molecule['corr_energy'].append(0.0)
    #
    return molecule
 

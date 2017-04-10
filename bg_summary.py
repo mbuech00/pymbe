@@ -12,7 +12,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.6'
+__version__ = '0.7'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -35,7 +35,7 @@ def summary_main(molecule):
 
 def summary_overall_res(molecule):
    #
-   if (molecule['local']):
+   if (molecule['occ_orbs'] == 'LOCAL'):
       #
       occ_orbs = 'local'
    #
@@ -43,7 +43,7 @@ def summary_overall_res(molecule):
       #
       occ_orbs = 'canonical'
    #
-   if (molecule['mp2_nat_orbs']):
+   if (molecule['virt_orbs'] == 'MP2'):
       #
       virt_orbs = 'MP2 NOs'
    #

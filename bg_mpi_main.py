@@ -9,7 +9,7 @@ from os.path import isfile
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_mpi_utils import print_mpi_table, mono_exp_merge_info, prepare_calc
+from bg_mpi_utils import print_mpi_table, prepare_calc
 from bg_mpi_rst import rst_dist_slave
 from bg_mpi_time import init_mpi_timings, collect_screen_mpi_time, collect_kernel_mpi_time, collect_summation_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_slave, energy_summation_par
@@ -19,7 +19,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.6'
+__version__ = '0.7'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -102,15 +102,13 @@ def main_slave(molecule):
          #
          chdir(molecule['scr_dir'])
          #
-         # init tuple lists
+         # init tuple list
          #
          molecule['prim_tuple'] = []
-         molecule['corr_tuple'] = []
          #
-         # init e_inc lists
+         # init e_inc list
          #
          molecule['prim_energy_inc'] = []
-         molecule['corr_energy_inc'] = []
          #
          if (not molecule['rst']): molecule['min_order'] = 1
       #
@@ -138,14 +136,6 @@ def main_slave(molecule):
          #
          rst_dist_slave(molecule) 
       #
-      # mono_exp_merge_info
-      #
-      elif (msg['task'] == 'mono_exp_merge_info'):
-         #
-         molecule['min_corr_order'] = msg['min_corr_order']
-         #
-         mono_exp_merge_info(molecule)
-      #
       # orbital entanglement
       #
       elif (msg['task'] == 'orb_entanglement_par'):
@@ -170,10 +160,6 @@ def main_slave(molecule):
             #
             orb_generator_slave(molecule,molecule['prim_domain'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
          #
-         elif (msg['level'] == 'CORRE'):
-            #
-            orb_generator_slave(molecule,molecule['corr_domain'],molecule['corr_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
-         #
          collect_screen_mpi_time(molecule,msg['order'],True)
       #
       # energy_kernel_mono_exp_par
@@ -184,10 +170,6 @@ def main_slave(molecule):
             #
             energy_kernel_mono_exp_slave(molecule,msg['order'],molecule['prim_tuple'],molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],'MACRO')
          #
-         elif (msg['level'] == 'CORRE'):
-            #
-            energy_kernel_mono_exp_slave(molecule,msg['order'],molecule['corr_tuple'],molecule['corr_energy_inc'],msg['l_limit'],msg['u_limit'],'CORRE')
-         #
          collect_kernel_mpi_time(molecule,msg['order'])
       #
       # energy_summation_par
@@ -197,10 +179,6 @@ def main_slave(molecule):
          if (msg['level'] == 'MACRO'):
             #
             energy_summation_par(molecule,msg['order'],molecule['prim_tuple'],molecule['prim_energy_inc'],None,'MACRO')
-         #
-         elif (msg['level'] == 'CORRE'):
-            #
-            energy_summation_par(molecule,msg['order'],molecule['corr_tuple'],molecule['corr_energy_inc'],None,'CORRE')
          #
          collect_summation_mpi_time(molecule,msg['order'])
       #

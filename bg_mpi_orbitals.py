@@ -15,7 +15,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.6'
+__version__ = '0.7'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -126,14 +126,6 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    i = 0
    #
-   if (level == 'MACRO'):
-      #
-      end = len(tup[k-1])-1
-   #
-   elif (level == 'CORRE'):
-      #
-      end = len(tup[k-1])+len(molecule['prim_tuple'][k-1])-1
-   #
    # init tmp list
    #
    tmp = []
@@ -158,7 +150,7 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       if (tag == tags.ready):
          #
-         if (i <= end):
+         if (i <= len(tup[k-1])-1):
             #
             job_info['index'] = i
             #
@@ -256,19 +248,7 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
          #
          # generate subset of all pairs within the parent tuple
          #
-         if (level == 'MACRO'):
-            #
-            parent_tup = tup[k-1][job_info['index']]
-         #
-         elif (level == 'CORRE'):
-            #
-            if (job_info['index'] <= (len(tup[k-1])-1)):
-               #
-               parent_tup = tup[k-1][job_info['index']]
-            #
-            else:
-               #
-               parent_tup = molecule['prim_tuple'][k-1][job_info['index']-len(tup[k-1])]
+         parent_tup = tup[k-1][job_info['index']]
          #
          tmp = list(list(comb) for comb in combinations(parent_tup,2))
          #
@@ -309,12 +289,6 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
                   data['child_tup'].append(list(deepcopy(parent_tup)))
                   #
                   data['child_tup'][-1].append(m)
-                  #
-                  # check whether this tuple has already been accounted for in the primary expansion
-                  #
-                  if ((level == 'CORRE') and (np.equal(data['child_tup'][-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
-                     #
-                     data['child_tup'].pop(-1)
          #
          timer_mpi(molecule,'mpi_time_comm_screen',k)
          #
@@ -388,33 +362,17 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level,calc_end):
       #
       timer_mpi(molecule,'mpi_time_work_screen',order)
    #
-   if (level == 'MACRO'):
-      #
-      end = len(molecule['prim_tuple'][order-1])
-   #
-   elif (level == 'CORRE'):
-      #
-      end = len(molecule['corr_tuple'][order-1])+len(molecule['prim_tuple'][order-1])
-   #
    tmp = np.zeros([u_limit,u_limit],dtype=np.float64)
    #
-   for l in range(0,end):
+   for l in range(0,len(molecule['prim_tuple'][order-1])):
       #
       # simple modulo distribution of tasks
       #
       if ((l % molecule['mpi_size']) == molecule['mpi_rank']):
          #
-         if ((level == 'CORRE') and (l >= len(molecule['prim_tuple'][order-1]))):
-            #
-            tup = molecule['corr_tuple'][order-1]
-            e_inc = molecule['corr_energy_inc'][order-1]
-            ldx = l-len(molecule['prim_tuple'][order-1])
-         #
-         else:
-            #
-            tup = molecule['prim_tuple'][order-1]
-            e_inc = molecule['prim_energy_inc'][order-1]
-            ldx = l
+         tup = molecule['prim_tuple'][order-1]
+         e_inc = molecule['prim_energy_inc'][order-1]
+         ldx = l
          #
          for i in range(l_limit,l_limit+u_limit):
             #
@@ -448,10 +406,6 @@ def orb_entanglement_main_par(molecule,l_limit,u_limit,order,level,calc_end):
       if (level == 'MACRO'):
          #
          molecule['prim_orb_ent'].append(recv_buff)
-      #
-      elif (level == 'CORRE'):
-         #
-         molecule['corr_orb_ent'].append(recv_buff)
       #
       timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
