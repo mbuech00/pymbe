@@ -166,14 +166,6 @@ def collect_mpi_timings(molecule,phase):
             molecule['mpi_time_work'][idx][i].append(time['work'])
             molecule['mpi_time_comm'][idx][i].append(time['comm'])
             molecule['mpi_time_idle'][idx][i].append(time['idle'])
-      #
-      print('')
-      print('mpi_time_work ({0:}) = {1:}'.format(phase,molecule['mpi_time_work']))
-      print('')
-      print('mpi_time_comm ({0:}) = {1:}'.format(phase,molecule['mpi_time_comm']))
-      print('')
-      print('mpi_time_idle ({0:}) = {1:}'.format(phase,molecule['mpi_time_idle']))
-      print('')
    #
    else:
       #
@@ -213,13 +205,6 @@ def calc_mpi_timings(molecule):
                                 +np.asarray(molecule['mpi_time_comm_screen']+[sum(molecule['mpi_time_comm_screen'])])\
                                  +np.asarray(molecule['mpi_time_idle_screen']+[sum(molecule['mpi_time_idle_screen'])])
       #
-      print('')
-      print('time_kernel = '+str(molecule['time_kernel']))
-      print('')
-      print('time_summation = '+str(molecule['time_summation']))
-      print('')
-      print('time_screen = '+str(molecule['time_screen']))
-      print('')
       molecule['time_tot'] = molecule['time_kernel']+molecule['time_summation']+molecule['time_screen']
       #
       # init summation arrays
