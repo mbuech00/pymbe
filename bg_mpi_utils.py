@@ -14,7 +14,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.5'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -139,6 +139,8 @@ def print_mpi_table(molecule):
    for j in range(0,len(full_info)):
       #
       print(' slave   ---  proc =  {0:>{w_int}d}  ---  node =  {1:>{w_str}s}'.format(full_info[j][0],full_info[j][1],w_int=width_int,w_str=width_str))
+   #
+   print('')
    #
    info.clear()
    #

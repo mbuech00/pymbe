@@ -13,7 +13,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.5'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -142,37 +142,14 @@ def rst_read_e_tot(molecule,inp):
 
 def rst_read_timings(molecule,inp):
    #
-   if ('init' in inp):
+   if ('kernel' in inp):
       #
       if ('work' in inp):
          #
          if (molecule['mpi_parallel']):
             #
             molecule['mpi_time_work'][0] = np.load(join(molecule['rst_dir'],inp)).tolist()
-            molecule['mpi_time_work_init'] = deepcopy(molecule['mpi_time_work'][0][0])
-         #
-         else:
-            #
-            molecule['mpi_time_work_init'] = np.load(join(molecule['rst_dir'],inp)).tolist()
-      #
-      elif ('comm' in inp):
-         #
-         molecule['mpi_time_comm'][0] = np.load(join(molecule['rst_dir'],inp)).tolist()
-         molecule['mpi_time_comm_init'] = deepcopy(molecule['mpi_time_comm'][0][0])
-      #
-      elif ('idle' in inp):
-         #
-         molecule['mpi_time_idle'][0] = np.load(join(molecule['rst_dir'],inp)).tolist()
-         molecule['mpi_time_idle_init'] = deepcopy(molecule['mpi_time_idle'][0][0])
-   #
-   elif ('kernel' in inp):
-      #
-      if ('work' in inp):
-         #
-         if (molecule['mpi_parallel']):
-            #
-            molecule['mpi_time_work'][1] = np.load(join(molecule['rst_dir'],inp)).tolist()
-            molecule['mpi_time_work_kernel'] = deepcopy(molecule['mpi_time_work'][1][0])
+            molecule['mpi_time_work_kernel'] = deepcopy(molecule['mpi_time_work'][0][0])
          #
          else:
             #
@@ -180,36 +157,59 @@ def rst_read_timings(molecule,inp):
       #
       elif ('comm' in inp):
          #
+         molecule['mpi_time_comm'][0] = np.load(join(molecule['rst_dir'],inp)).tolist()
+         molecule['mpi_time_comm_kernel'] = deepcopy(molecule['mpi_time_comm'][0][0])
+      #
+      elif ('idle' in inp):
+         #
+         molecule['mpi_time_idle'][0] = np.load(join(molecule['rst_dir'],inp)).tolist()
+         molecule['mpi_time_idle_kernel'] = deepcopy(molecule['mpi_time_idle'][0][0])
+   #
+   elif ('summation' in inp):
+      #
+      if ('work' in inp):
+         #
+         if (molecule['mpi_parallel']):
+            #
+            molecule['mpi_time_work'][1] = np.load(join(molecule['rst_dir'],inp)).tolist()
+            molecule['mpi_time_work_summation'] = deepcopy(molecule['mpi_time_work'][1][0])
+         #
+         else:
+            #
+            molecule['mpi_time_work_summation'] = np.load(join(molecule['rst_dir'],inp)).tolist()
+      #
+      elif ('comm' in inp):
+         #
          molecule['mpi_time_comm'][1] = np.load(join(molecule['rst_dir'],inp)).tolist()
-         molecule['mpi_time_comm_kernel'] = deepcopy(molecule['mpi_time_comm'][1][0])
+         molecule['mpi_time_comm_summation'] = deepcopy(molecule['mpi_time_comm'][1][0])
       #
       elif ('idle' in inp):
          #
          molecule['mpi_time_idle'][1] = np.load(join(molecule['rst_dir'],inp)).tolist()
-         molecule['mpi_time_idle_kernel'] = deepcopy(molecule['mpi_time_idle'][1][0])
+         molecule['mpi_time_idle_summation'] = deepcopy(molecule['mpi_time_idle'][1][0])
    #
-   elif ('final' in inp):
+   elif ('screen' in inp):
       #
       if ('work' in inp):
          #
          if (molecule['mpi_parallel']):
             #
             molecule['mpi_time_work'][2] = np.load(join(molecule['rst_dir'],inp)).tolist()
-            molecule['mpi_time_work_final'] = deepcopy(molecule['mpi_time_work'][2][0])
+            molecule['mpi_time_work_screen'] = deepcopy(molecule['mpi_time_work'][2][0])
          #
          else:
             #
-            molecule['mpi_time_work_final'] = np.load(join(molecule['rst_dir'],inp)).tolist()
+            molecule['mpi_time_work_screen'] = np.load(join(molecule['rst_dir'],inp)).tolist()
       #
       elif ('comm' in inp):
          #
          molecule['mpi_time_comm'][2] = np.load(join(molecule['rst_dir'],inp)).tolist()
-         molecule['mpi_time_comm_final'] = deepcopy(molecule['mpi_time_comm'][2][0])
+         molecule['mpi_time_comm_screen'] = deepcopy(molecule['mpi_time_comm'][2][0])
       #
       elif ('idle' in inp):
          #
          molecule['mpi_time_idle'][2] = np.load(join(molecule['rst_dir'],inp)).tolist()
-         molecule['mpi_time_idle_final'] = deepcopy(molecule['mpi_time_idle'][2][0])
+         molecule['mpi_time_idle_screen'] = deepcopy(molecule['mpi_time_idle'][2][0])
    #
    return molecule
 

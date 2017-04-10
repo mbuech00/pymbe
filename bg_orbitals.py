@@ -8,7 +8,7 @@ from mpi4py import MPI
 from itertools import combinations 
 from copy import deepcopy
 
-from bg_mpi_time import timer_mpi, collect_init_mpi_time
+from bg_mpi_time import timer_mpi, collect_screen_mpi_time
 from bg_mpi_orbitals import orb_generator_master, orb_entanglement_main_par
 from bg_print import print_orb_info, print_update
 
@@ -16,7 +16,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.5'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -29,17 +29,17 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    else:
       #
-      timer_mpi(molecule,'mpi_time_work_init',k-1)
+      timer_mpi(molecule,'mpi_time_work_screen',k)
       #
       tmp_2 = []
       #
       if (level == 'MACRO'):
          #
-         end = len(tup[k-2])
+         end = len(tup[k-1])
       #
       elif (level == 'CORRE'):
          #
-         end = len(tup[k-2])+len(molecule['prim_tuple'][k-2])
+         end = len(tup[k-1])+len(molecule['prim_tuple'][k-1])
       #
       for i in range(0,end):
          #
@@ -47,17 +47,17 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
          #
          if (level == 'MACRO'):
             #
-            parent_tup = tup[k-2][i]
+            parent_tup = tup[k-1][i]
          #
          elif (level == 'CORRE'):
             #
-            if (i <= (len(tup[k-2])-1)):
+            if (i <= (len(tup[k-1])-1)):
                #
-               parent_tup = tup[k-2][i]
+               parent_tup = tup[k-1][i]
             #
             else:
                #
-               parent_tup = molecule['prim_tuple'][k-2][i-len(tup[k-2])]
+               parent_tup = molecule['prim_tuple'][k-1][i-len(tup[k-1])]
          #
          tmp = list(list(comb) for comb in combinations(parent_tup,2))
          #
@@ -67,7 +67,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
             #
             # is the parent tuple still allowed?
             #
-            if (not (set([tmp[j][1]]) < set(dom[(tmp[j][0]-l_limit)-1]))):
+            if (not (set([tmp[j][1]]) < set(dom[-1][(tmp[j][0]-l_limit)-1]))):
                #
                mask = False
                #
@@ -85,7 +85,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
                   #
                   # is the new child tuple allowed?
                   #
-                  if (not (set([m]) < set(dom[(l-l_limit)-1]))):
+                  if (not (set([m]) < set(dom[-1][(l-l_limit)-1]))):
                      #
                      mask_2 = False
                      #
@@ -112,7 +112,7 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       del tmp
       del tmp_2
       #
-      timer_mpi(molecule,'mpi_time_work_init',k-1,True)
+      timer_mpi(molecule,'mpi_time_work_screen',k,True)
    #
    return tup
 
@@ -138,7 +138,7 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
       #
       orb_entanglement_main(molecule,l_limit,u_limit,order,level,calc_end)
       #
-      timer_mpi(molecule,'mpi_time_work_init',order)
+      timer_mpi(molecule,'mpi_time_work_screen',order)
       #
       orb_entanglement_arr(molecule,l_limit,u_limit,level)
       #
@@ -148,11 +148,11 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          if (molecule['mpi_parallel']):
             #
-            collect_init_mpi_time(molecule,order,True)
+            collect_screen_mpi_time(molecule,order,True)
          #
          else:
             #
-            timer_mpi(molecule,'mpi_time_work_init',order,True)
+            timer_mpi(molecule,'mpi_time_work_screen',order,True)
       #
       else:
          #
@@ -184,11 +184,11 @@ def orb_screening(molecule,l_limit,u_limit,order,level,calc_end=False):
          #
          if (molecule['mpi_parallel']):
             #
-            collect_init_mpi_time(molecule,order)
+            collect_screen_mpi_time(molecule,order)
          #
          else:
             #
-            timer_mpi(molecule,'mpi_time_work_init',order,True)
+            timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
    return molecule
 
@@ -200,7 +200,7 @@ def orb_entanglement_main(molecule,l_limit,u_limit,order,level,calc_end):
    #
    else:
       #
-      timer_mpi(molecule,'mpi_time_work_init',order)
+      timer_mpi(molecule,'mpi_time_work_screen',order)
       #
       if (level == 'MACRO'):
          #
@@ -241,7 +241,7 @@ def orb_entanglement_main(molecule,l_limit,u_limit,order,level,calc_end):
                   orb[-1][i-l_limit,j-l_limit] += e_inc[ldx]
                   orb[-1][j-l_limit,i-l_limit] = orb[-1][i-l_limit,j-l_limit]
       #
-      timer_mpi(molecule,'mpi_time_work_init',order,True)
+      timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
    return molecule
       

@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from bg_mpi_time import timer_mpi, collect_kernel_mpi_time, collect_final_mpi_time
+from bg_mpi_time import timer_mpi, collect_kernel_mpi_time, collect_summation_mpi_time
 from bg_mpi_energy import energy_kernel_mono_exp_master, energy_summation_par
 from bg_utils import run_calc_corr, term_calc, orb_string, comb_index 
 from bg_print import print_status
@@ -15,7 +15,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.5'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -88,11 +88,11 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
       #
       energy_summation_par(molecule,k,tup,e_inc,energy,level)
       #
-      collect_final_mpi_time(molecule,k)
+      collect_summation_mpi_time(molecule,k)
    #
    else:
       #
-      timer_mpi(molecule,'mpi_time_work_final',k)
+      timer_mpi(molecule,'mpi_time_work_summation',k)
       #
       # compute energy increments at level k
       #
@@ -136,10 +136,16 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
       #
       energy.append(e_tmp)
       #
-      timer_mpi(molecule,'mpi_time_work_final',k,True)
+      timer_mpi(molecule,'mpi_time_work_summation',k,True)
       #
-      rst_write_time(molecule,'final')
+      rst_write_time(molecule,'summation')
    #
    return e_inc, energy
+
+def chk_energy_conv(molecule,e_tot,k):
+   #
+   if ((k >= 2) and (abs(e_tot[-1]-e_tot[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
+   #
+   return molecule
 
 

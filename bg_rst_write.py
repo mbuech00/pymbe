@@ -10,7 +10,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.5'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -87,15 +87,15 @@ def rst_write_time(molecule,phase):
    #
    # write mpi timings for phase
    #
-   if (phase == 'init'):
+   if (phase == 'kernel'):
       #
       idx = 0
    #
-   elif (phase == 'kernel'):
+   elif (phase == 'summation'):
       #
       idx = 1
    #
-   elif (phase == 'final'):
+   elif (phase == 'screen'):
       #
       idx = 2
    #

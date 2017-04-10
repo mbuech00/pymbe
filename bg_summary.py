@@ -12,7 +12,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.5'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -82,10 +82,10 @@ def summary_overall_res(molecule):
          print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |        final BG order     =  {2:<3d}          |       number of mpi slaves   =  {3:}'.\
                  format(molecule['nocc'],molecule['nvirt'],len(molecule['prim_energy']),mpi_size-1))
          #
-         print('            occ. orbitals   =  {0:<9s}      |        exp. threshold     =  {1:<5.3f} %      |       final corr. energy     = {2:>12.5e}'.\
+         print('            occ. orbitals   =  {0:<9s}      |        exp. threshold     =  {1:<5.3f} %      |       final corr. energy     = {2:>13.6e}'.\
                  format(occ_orbs,molecule['prim_thres_init'],molecule['prim_energy'][-1]))
          #
-         print('            virt. orbitals  =  {0:<9s}      |        energy threshold   =  {1:<5.2e}     |       final convergence      = {2:>12.5e}'.\
+         print('            virt. orbitals  =  {0:<9s}      |        total threshold    =  {1:<5.2e}     |       final convergence      = {2:>13.6e}'.\
                format(virt_orbs,molecule['prim_e_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
@@ -113,16 +113,24 @@ def summary_detail_res(molecule):
          #
          for i in range(0,len(molecule['prim_energy'])):
             #
-            total_time = np.sum(molecule['time_init'][:i+1])+np.sum(molecule['time_kernel'][:i+1])+np.sum(molecule['time_final'][:i+1])
+            total_time = np.sum(molecule['time_kernel'][:i+1])+np.sum(molecule['time_summation'][:i+1])+np.sum(molecule['time_screen'][:i+1])
             total_tup += len(molecule['prim_tuple'][i])
             #
-            print('       {0:>4d}      |          {1:>7.5e}          |              {2:03d} : {3:02d} : {4:02d}            |      {5:>9d} / {6:>6.2f}   --   {7:>9d} '.\
+            print('       {0:>4d}      |         {1:>8.6e}          |              {2:03d} : {3:02d} : {4:02d}            |      {5:>9d} / {6:>6.2f}   --   {7:>9d} '.\
                                               format(i+1,molecule['prim_energy'][i],\
                                                      int(total_time//3600),int((total_time-(total_time//3600)*3600.)//60),\
                                                      int(total_time-(total_time//3600)*3600.-((total_time-(total_time//3600)*3600.)//60)*60.),\
                                                      len(molecule['prim_tuple'][i]),(float(len(molecule['prim_tuple'][i]))/float(molecule['theo_work'][i]))*100.00,total_tup))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
+         #
+         if (molecule['ref']):
+            #
+            print('     reference   |         {0:>8.6e}'.format(molecule['e_ref']))
+            #
+            print('     difference  |         {0:>8.6e}'.format(molecule['e_ref']-molecule['prim_energy'][-1]))
+            #
+            print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
    return
 
@@ -140,35 +148,35 @@ def summary_phase_time(molecule):
          print('')
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-         print('      BG order   |      time: init (HHH : MM : SS / %)     |    time: kernel (HHH : MM : SS / %)    |     time: final (HHH : MM : SS / %)   ')
+         print('      BG order   |     time: kernel (HHH : MM : SS / %)   |   time: summation (HHH : MM : SS / %)   |   time: screen (HHH : MM : SS / %)   ')
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
          #
          for i in range(0,len(molecule['prim_energy'])):
             #
-            time_i = molecule['time_init'][i]
             time_k = molecule['time_kernel'][i]
-            time_f = molecule['time_final'][i]
+            time_f = molecule['time_summation'][i]
+            time_s = molecule['time_screen'][i]
             time_t = molecule['time_tot'][i]
             #
-            print('       {0:>4d}      |            {1:03d} : {2:02d} : {3:02d} / {4:>6.2f}\
-       |          {5:03d} : {6:02d} : {7:02d} / {8:>6.2f}        |          {9:03d} : {10:02d} : {11:02d} / {12:>6.2f}'.\
-                      format(i+1,int(time_i//3600),int((time_i-(time_i//3600)*3600.)//60),int(time_i-(time_i//3600)*3600.-((time_i-(time_i//3600)*3600.)//60)*60.),(time_i/time_t)*100.0,\
-                             int(time_k//3600),int((time_k-(time_k//3600)*3600.)//60),int(time_k-(time_k//3600)*3600.-((time_k-(time_k//3600)*3600.)//60)*60.),(time_k/time_t)*100.0,\
-                             int(time_f//3600),int((time_f-(time_f//3600)*3600.)//60),int(time_f-(time_f//3600)*3600.-((time_f-(time_f//3600)*3600.)//60)*60.),(time_f/time_t)*100.0))
+            print('       {0:>4d}      |           {1:03d} : {2:02d} : {3:02d} / {4:>6.2f}\
+       |          {5:03d} : {6:02d} : {7:02d} / {8:>6.2f}         |         {9:03d} : {10:02d} : {11:02d} / {12:>6.2f}'.\
+                      format(i+1,int(time_k//3600),int((time_k-(time_k//3600)*3600.)//60),int(time_k-(time_k//3600)*3600.-((time_k-(time_k//3600)*3600.)//60)*60.),(time_k/time_t)*100.0,\
+                             int(time_f//3600),int((time_f-(time_f//3600)*3600.)//60),int(time_f-(time_f//3600)*3600.-((time_f-(time_f//3600)*3600.)//60)*60.),(time_f/time_t)*100.0,\
+                             int(time_s//3600),int((time_s-(time_s//3600)*3600.)//60),int(time_s-(time_s//3600)*3600.-((time_s-(time_s//3600)*3600.)//60)*60.),(time_s/time_t)*100.0))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
          #
-         time_i = molecule['time_init'][-1]
          time_k = molecule['time_kernel'][-1]
-         time_f = molecule['time_final'][-1]
+         time_f = molecule['time_summation'][-1]
+         time_s = molecule['time_screen'][-1]
          time_t = molecule['time_tot'][-1]
          #
-         print('        total    |            {0:03d} : {1:02d} : {2:02d} / {3:>6.2f}\
-       |          {4:03d} : {5:02d} : {6:02d} / {7:>6.2f}        |          {8:03d} : {9:02d} : {10:02d} / {11:>6.2f}'.\
-                   format(int(time_i//3600),int((time_i-(time_i//3600)*3600.)//60),int(time_i-(time_i//3600)*3600.-((time_i-(time_i//3600)*3600.)//60)*60.),(time_i/time_t)*100.0,\
-                          int(time_k//3600),int((time_k-(time_k//3600)*3600.)//60),int(time_k-(time_k//3600)*3600.-((time_k-(time_k//3600)*3600.)//60)*60.),(time_k/time_t)*100.0,\
-                          int(time_f//3600),int((time_f-(time_f//3600)*3600.)//60),int(time_f-(time_f//3600)*3600.-((time_f-(time_f//3600)*3600.)//60)*60.),(time_f/time_t)*100.0))
+         print('        total    |           {0:03d} : {1:02d} : {2:02d} / {3:>6.2f}\
+       |          {4:03d} : {5:02d} : {6:02d} / {7:>6.2f}         |         {8:03d} : {9:02d} : {10:02d} / {11:>6.2f}'.\
+                   format(int(time_k//3600),int((time_k-(time_k//3600)*3600.)//60),int(time_k-(time_k//3600)*3600.-((time_k-(time_k//3600)*3600.)//60)*60.),(time_k/time_t)*100.0,\
+                          int(time_f//3600),int((time_f-(time_f//3600)*3600.)//60),int(time_f-(time_f//3600)*3600.-((time_f-(time_f//3600)*3600.)//60)*60.),(time_f/time_t)*100.0,\
+                          int(time_s//3600),int((time_s-(time_s//3600)*3600.)//60),int(time_s-(time_s//3600)*3600.-((time_s-(time_s//3600)*3600.)//60)*60.),(time_s/time_t)*100.0))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
@@ -188,35 +196,35 @@ def summary_mpi_time(molecule):
          print('')
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-         print('      mpi processor   |   time: init (work/comm/idle, in %)  |  time: kernel (work/comm/idle, in %)  |  time: final (work/comm/idle, in %)  ')
+         print('      mpi processor   | time: kernel (work/comm/idle, in %) | time: summation (work/comm/idle, in %) | time: screen (work/comm/idle, in %)  ')
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
          #
-         print('    master -- {0:<8d}|       {1:>6.2f} / {2:>6.2f} / {3:>6.2f}       |       {4:>6.2f} / {5:>6.2f} / {6:>6.2f}        |       {7:>6.2f} / {8:>6.2f} / {9:>6.2f}'.\
-                format(0,molecule['dist_init'][0][0],molecule['dist_init'][1][0],molecule['dist_init'][2][0],\
-                       molecule['dist_kernel'][0][0],molecule['dist_kernel'][1][0],molecule['dist_kernel'][2][0],\
-                       molecule['dist_final'][0][0],molecule['dist_final'][1][0],molecule['dist_final'][2][0]))
+         print('    master -- {0:<8d}|      {1:>6.2f} / {2:>6.2f} / {3:>6.2f}       |       {4:>6.2f} / {5:>6.2f} / {6:>6.2f}         |      {7:>6.2f} / {8:>6.2f} / {9:>6.2f}'.\
+                format(0,molecule['dist_kernel'][0][0],molecule['dist_kernel'][1][0],molecule['dist_kernel'][2][0],\
+                       molecule['dist_summation'][0][0],molecule['dist_summation'][1][0],molecule['dist_summation'][2][0],\
+                       molecule['dist_screen'][0][0],molecule['dist_screen'][1][0],molecule['dist_screen'][2][0]))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
          #
          for i in range(1,molecule['mpi_size']):
             #
-            print('    slave  -- {0:<8d}|       {1:>6.2f} / {2:>6.2f} / {3:>6.2f}       |       {4:>6.2f} / {5:>6.2f} / {6:>6.2f}        |       {7:>6.2f} / {8:>6.2f} / {9:>6.2f}'.\
-                   format(i,molecule['dist_init'][0][i],molecule['dist_init'][1][i],molecule['dist_init'][2][i],\
-                          molecule['dist_kernel'][0][i],molecule['dist_kernel'][1][i],molecule['dist_kernel'][2][i],\
-                          molecule['dist_final'][0][i],molecule['dist_final'][1][i],molecule['dist_final'][2][i]))
+            print('    slave  -- {0:<8d}|      {1:>6.2f} / {2:>6.2f} / {3:>6.2f}       |       {4:>6.2f} / {5:>6.2f} / {6:>6.2f}         |      {7:>6.2f} / {8:>6.2f} / {9:>6.2f}'.\
+                   format(i,molecule['dist_kernel'][0][i],molecule['dist_kernel'][1][i],molecule['dist_kernel'][2][i],\
+                          molecule['dist_summation'][0][i],molecule['dist_summation'][1][i],molecule['dist_summation'][2][i],\
+                          molecule['dist_screen'][0][i],molecule['dist_screen'][1][i],molecule['dist_screen'][2][i]))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
          #
-         print('    mean  : slaves    |       {0:>6.2f} / {1:>6.2f} / {2:>6.2f}       |       {3:>6.2f} / {4:>6.2f} / {5:>6.2f}        |       {6:>6.2f} / {7:>6.2f} / {8:>6.2f}'.\
-                format(np.mean(molecule['dist_init'][0][1:]),np.mean(molecule['dist_init'][1][1:]),np.mean(molecule['dist_init'][2][1:]),\
-                       np.mean(molecule['dist_kernel'][0][1:]),np.mean(molecule['dist_kernel'][1][1:]),np.mean(molecule['dist_kernel'][2][1:]),\
-                       np.mean(molecule['dist_final'][0][1:]),np.mean(molecule['dist_final'][1][1:]),np.mean(molecule['dist_final'][2][1:])))
+         print('    mean  : slaves    |      {0:>6.2f} / {1:>6.2f} / {2:>6.2f}       |       {3:>6.2f} / {4:>6.2f} / {5:>6.2f}         |      {6:>6.2f} / {7:>6.2f} / {8:>6.2f}'.\
+                format(np.mean(molecule['dist_kernel'][0][1:]),np.mean(molecule['dist_kernel'][1][1:]),np.mean(molecule['dist_kernel'][2][1:]),\
+                       np.mean(molecule['dist_summation'][0][1:]),np.mean(molecule['dist_summation'][1][1:]),np.mean(molecule['dist_summation'][2][1:]),\
+                       np.mean(molecule['dist_screen'][0][1:]),np.mean(molecule['dist_screen'][1][1:]),np.mean(molecule['dist_screen'][2][1:])))
          #
-         print('    stdev : slaves    |       {0:>6.2f} / {1:>6.2f} / {2:>6.2f}       |       {3:>6.2f} / {4:>6.2f} / {5:>6.2f}        |       {6:>6.2f} / {7:>6.2f} / {8:>6.2f}'.\
-                format(np.std(molecule['dist_init'][0][1:],ddof=1),np.std(molecule['dist_init'][1][1:],ddof=1),np.std(molecule['dist_init'][2][1:],ddof=1),\
-                       np.std(molecule['dist_kernel'][0][1:],ddof=1),np.std(molecule['dist_kernel'][1][1:],ddof=1),np.std(molecule['dist_kernel'][2][1:],ddof=1),\
-                       np.std(molecule['dist_final'][0][1:],ddof=1),np.std(molecule['dist_final'][1][1:],ddof=1),np.std(molecule['dist_final'][2][1:],ddof=1)))
+         print('    stdev : slaves    |      {0:>6.2f} / {1:>6.2f} / {2:>6.2f}       |       {3:>6.2f} / {4:>6.2f} / {5:>6.2f}         |      {6:>6.2f} / {7:>6.2f} / {8:>6.2f}'.\
+                format(np.std(molecule['dist_kernel'][0][1:],ddof=1),np.std(molecule['dist_kernel'][1][1:],ddof=1),np.std(molecule['dist_kernel'][2][1:],ddof=1),\
+                       np.std(molecule['dist_summation'][0][1:],ddof=1),np.std(molecule['dist_summation'][1][1:],ddof=1),np.std(molecule['dist_summation'][2][1:],ddof=1),\
+                       np.std(molecule['dist_screen'][0][1:],ddof=1),np.std(molecule['dist_screen'][1][1:],ddof=1),np.std(molecule['dist_screen'][2][1:],ddof=1)))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #

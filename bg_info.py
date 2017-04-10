@@ -12,7 +12,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.5'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -82,7 +82,7 @@ def init_param(molecule):
       molecule['mp2_nat_orbs'] = False
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
-      molecule['prim_e_thres'] = 1.0e-04
+      molecule['prim_e_thres'] = 1.0e-05
       molecule['sec_thres'] = 0.0
       molecule['corr'] = False
       molecule['corr_model'] = ''

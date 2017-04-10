@@ -16,7 +16,7 @@ __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.5'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -71,9 +71,9 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
       #
       for j in range(0,molecule['mpi_size']):
          #
-         molecule['mpi_time_work'][1][j].append(0.0)
-         molecule['mpi_time_comm'][1][j].append(0.0)
-         molecule['mpi_time_idle'][1][j].append(0.0)
+         molecule['mpi_time_work'][0][j].append(0.0)
+         molecule['mpi_time_comm'][0][j].append(0.0)
+         molecule['mpi_time_idle'][0][j].append(0.0)
    #
    # print status for START
    #
@@ -135,15 +135,15 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          e_inc[order-1][data['index']] = data['energy']
          #
-         molecule['mpi_time_work'][1][source][-1] = data['t_work']
-         molecule['mpi_time_comm'][1][source][-1] = data['t_comm']
-         molecule['mpi_time_idle'][1][source][-1] = data['t_idle']
+         molecule['mpi_time_work'][0][source][-1] = data['t_work']
+         molecule['mpi_time_comm'][0][source][-1] = data['t_comm']
+         molecule['mpi_time_idle'][0][source][-1] = data['t_idle']
          #
          if (((data['index']+1) % int(molecule['rst_freq'])) == 0):
             #
-            molecule['mpi_time_work'][1][0][-1] = molecule['mpi_time_work_kernel'][-1]
-            molecule['mpi_time_comm'][1][0][-1] = molecule['mpi_time_comm_kernel'][-1]
-            molecule['mpi_time_idle'][1][0][-1] = molecule['mpi_time_idle_kernel'][-1]
+            molecule['mpi_time_work'][0][0][-1] = molecule['mpi_time_work_kernel'][-1]
+            molecule['mpi_time_comm'][0][0][-1] = molecule['mpi_time_comm_kernel'][-1]
+            molecule['mpi_time_idle'][0][0][-1] = molecule['mpi_time_idle_kernel'][-1]
             #
             rst_write_time(molecule,'kernel')
             #
@@ -290,7 +290,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       # wake up slaves
       #
-      timer_mpi(molecule,'mpi_time_idle_final',k)
+      timer_mpi(molecule,'mpi_time_idle_summation',k)
       #
       msg = {'task': 'energy_summation_par', 'order': k, 'level': level}
       #
@@ -300,7 +300,7 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
       #
       e_inc[k-1].fill(0.0)
    #
-   timer_mpi(molecule,'mpi_time_work_final',k)
+   timer_mpi(molecule,'mpi_time_work_summation',k)
    #
    for j in range(0,len(tup[k-1])):
       #
@@ -360,11 +360,11 @@ def allred_e_inc(molecule,e_inc,k):
    #
    # Allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
    #
-   timer_mpi(molecule,'mpi_time_idle_final',k)
+   timer_mpi(molecule,'mpi_time_idle_summation',k)
    #
    molecule['mpi_comm'].Barrier()
    #
-   timer_mpi(molecule,'mpi_time_comm_final',k)
+   timer_mpi(molecule,'mpi_time_comm_summation',k)
    #
    # init receive buffer
    #
@@ -376,7 +376,7 @@ def allred_e_inc(molecule,e_inc,k):
    #
    # finally, overwrite e_inc[k-1]
    #
-   timer_mpi(molecule,'mpi_time_work_final',k)
+   timer_mpi(molecule,'mpi_time_work_summation',k)
    #
    e_inc[k-1] = recv_buff
    #
