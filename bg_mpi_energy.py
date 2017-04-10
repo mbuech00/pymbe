@@ -71,9 +71,9 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
       #
       for j in range(0,molecule['mpi_size']):
          #
-         molecule['mpi_time_work'][1][j].append(0.0)
-         molecule['mpi_time_comm'][1][j].append(0.0)
-         molecule['mpi_time_idle'][1][j].append(0.0)
+         molecule['mpi_time_work'][0][j].append(0.0)
+         molecule['mpi_time_comm'][0][j].append(0.0)
+         molecule['mpi_time_idle'][0][j].append(0.0)
    #
    # print status for START
    #
@@ -135,15 +135,15 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          e_inc[order-1][data['index']] = data['energy']
          #
-         molecule['mpi_time_work'][1][source][-1] = data['t_work']
-         molecule['mpi_time_comm'][1][source][-1] = data['t_comm']
-         molecule['mpi_time_idle'][1][source][-1] = data['t_idle']
+         molecule['mpi_time_work'][0][source][-1] = data['t_work']
+         molecule['mpi_time_comm'][0][source][-1] = data['t_comm']
+         molecule['mpi_time_idle'][0][source][-1] = data['t_idle']
          #
          if (((data['index']+1) % int(molecule['rst_freq'])) == 0):
             #
-            molecule['mpi_time_work'][1][0][-1] = molecule['mpi_time_work_kernel'][-1]
-            molecule['mpi_time_comm'][1][0][-1] = molecule['mpi_time_comm_kernel'][-1]
-            molecule['mpi_time_idle'][1][0][-1] = molecule['mpi_time_idle_kernel'][-1]
+            molecule['mpi_time_work'][0][0][-1] = molecule['mpi_time_work_kernel'][-1]
+            molecule['mpi_time_comm'][0][0][-1] = molecule['mpi_time_comm_kernel'][-1]
+            molecule['mpi_time_idle'][0][0][-1] = molecule['mpi_time_idle_kernel'][-1]
             #
             rst_write_time(molecule,'kernel')
             #

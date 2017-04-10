@@ -35,11 +35,11 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       if (level == 'MACRO'):
          #
-         end = len(tup[k-2])
+         end = len(tup[k-1])
       #
       elif (level == 'CORRE'):
          #
-         end = len(tup[k-2])+len(molecule['prim_tuple'][k-2])
+         end = len(tup[k-1])+len(molecule['prim_tuple'][k-1])
       #
       for i in range(0,end):
          #
@@ -47,17 +47,17 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
          #
          if (level == 'MACRO'):
             #
-            parent_tup = tup[k-2][i]
+            parent_tup = tup[k-1][i]
          #
          elif (level == 'CORRE'):
             #
-            if (i <= (len(tup[k-2])-1)):
+            if (i <= (len(tup[k-1])-1)):
                #
-               parent_tup = tup[k-2][i]
+               parent_tup = tup[k-1][i]
             #
             else:
                #
-               parent_tup = molecule['prim_tuple'][k-2][i-len(tup[k-2])]
+               parent_tup = molecule['prim_tuple'][k-1][i-len(tup[k-1])]
          #
          tmp = list(list(comb) for comb in combinations(parent_tup,2))
          #

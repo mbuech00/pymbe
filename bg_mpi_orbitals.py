@@ -128,11 +128,11 @@ def orb_generator_master(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    if (level == 'MACRO'):
       #
-      end = len(tup[k-2])-1
+      end = len(tup[k-1])-1
    #
    elif (level == 'CORRE'):
       #
-      end = len(tup[k-2])+len(molecule['prim_tuple'][k-2])-1
+      end = len(tup[k-1])+len(molecule['prim_tuple'][k-1])-1
    #
    # init tmp list
    #
@@ -258,17 +258,17 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
          #
          if (level == 'MACRO'):
             #
-            parent_tup = tup[k-2][job_info['index']]
+            parent_tup = tup[k-1][job_info['index']]
          #
          elif (level == 'CORRE'):
             #
-            if (job_info['index'] <= (len(tup[k-2])-1)):
+            if (job_info['index'] <= (len(tup[k-1])-1)):
                #
-               parent_tup = tup[k-2][job_info['index']]
+               parent_tup = tup[k-1][job_info['index']]
             #
             else:
                #
-               parent_tup = molecule['prim_tuple'][k-2][job_info['index']-len(tup[k-2])]
+               parent_tup = molecule['prim_tuple'][k-1][job_info['index']-len(tup[k-1])]
          #
          tmp = list(list(comb) for comb in combinations(parent_tup,2))
          #
@@ -340,7 +340,7 @@ def orb_generator_slave(molecule,dom,tup,l_limit,u_limit,k,level):
    #
    timer_mpi(molecule,'mpi_time_work_screen',k)
    #
-   buff = np.empty([tup_info['tup_len'],k],dtype=np.int32)
+   buff = np.empty([tup_info['tup_len'],k+1],dtype=np.int32)
    #
    # receive buffer
    #

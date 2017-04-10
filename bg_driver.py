@@ -191,13 +191,13 @@ def mono_exp_screen(molecule,k,level):
       #
       # generate all tuples at order k+1
       #
-      orb_generator(molecule,dom,tup,molecule['l_limit'],molecule['u_limit'],k+1,level)
+      orb_generator(molecule,dom,tup,molecule['l_limit'],molecule['u_limit'],k,level)
       #
       timer_mpi(molecule,'mpi_time_work_screen',k)
       #
       # check for convergence wrt prim_thres
       #
-      if (len(tup[k-1]) == 0):
+      if (len(tup[k]) == 0):
          #
          tup.pop(-1)
          #
