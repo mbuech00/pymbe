@@ -102,29 +102,11 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
             #
             combs = tup[k-1][j,comb_index(k,i)]
             #
-            if (level == 'CORRE'):
-               #
-               if (len(tup[i-1]) > 0):
-                  #
-                  dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
-                  #
-                  idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
-                  #
-                  for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
-               #
-               dt = np.dtype((np.void,molecule['prim_tuple'][i-1].dtype.itemsize*molecule['prim_tuple'][i-1].shape[1]))
-               #
-               idx = np.nonzero(np.in1d(molecule['prim_tuple'][i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
-               #
-               for l in idx: e_inc[k-1][j] -= molecule['prim_energy_inc'][i-1][l]
+            dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
             #
-            elif (level == 'MACRO'):
-               #
-               dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
-               #
-               idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
-               #
-               for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
+            idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
+            #
+            for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
       #
       e_tmp = np.sum(e_inc[k-1])
       #

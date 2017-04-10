@@ -33,31 +33,11 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
       #
       tmp_2 = []
       #
-      if (level == 'MACRO'):
-         #
-         end = len(tup[k-1])
-      #
-      elif (level == 'CORRE'):
-         #
-         end = len(tup[k-1])+len(molecule['prim_tuple'][k-1])
-      #
-      for i in range(0,end):
+      for i in range(0,len(tup[k-1])):
          #
          # generate subset of all pairs within the parent tuple
          #
-         if (level == 'MACRO'):
-            #
-            parent_tup = tup[k-1][i]
-         #
-         elif (level == 'CORRE'):
-            #
-            if (i <= (len(tup[k-1])-1)):
-               #
-               parent_tup = tup[k-1][i]
-            #
-            else:
-               #
-               parent_tup = molecule['prim_tuple'][k-1][i-len(tup[k-1])]
+         parent_tup = tup[k-1][i]
          #
          tmp = list(list(comb) for comb in combinations(parent_tup,2))
          #
@@ -98,12 +78,6 @@ def orb_generator(molecule,dom,tup,l_limit,u_limit,k,level):
                   tmp_2.append(list(deepcopy(parent_tup)))
                   #
                   tmp_2[-1].append(m)
-                  #
-                  # check whether this tuple has already been accounted for in the primary expansion
-                  #
-                  if ((level == 'CORRE') and (np.equal(tmp_2[-1],molecule['prim_tuple'][k-1]).all(axis=1).any())):
-                     #
-                     tmp_2.pop(-1)
       #
       if (len(tmp_2) > 1): tmp_2.sort()
       #
@@ -202,33 +176,15 @@ def orb_entanglement_main(molecule,l_limit,u_limit,order,level,calc_end):
       #
       timer_mpi(molecule,'mpi_time_work_screen',order)
       #
-      if (level == 'MACRO'):
-         #
-         orb = molecule['prim_orb_ent']
-         #
-         end = len(molecule['prim_tuple'][order-1])
-      #
-      elif (level == 'CORRE'):
-         #
-         orb = molecule['corr_orb_ent']
-         #
-         end = len(molecule['corr_tuple'][order-1])+len(molecule['prim_tuple'][order-1])
+      orb = molecule['prim_orb_ent']
       #
       orb.append(np.zeros([u_limit,u_limit],dtype=np.float64))
       #
-      for l in range(0,end):
+      for l in range(0,len(molecule['prim_tuple'][order-1])):
          #
-         if ((level == 'CORRE') and (l >= len(molecule['prim_tuple'][order-1]))):
-            #
-            tup = molecule['corr_tuple'][order-1]
-            e_inc = molecule['corr_energy_inc'][order-1]
-            ldx = l-len(molecule['prim_tuple'][order-1])
-         #
-         else:
-            #
-            tup = molecule['prim_tuple'][order-1]           
-            e_inc = molecule['prim_energy_inc'][order-1]
-            ldx = l
+         tup = molecule['prim_tuple'][order-1]           
+         e_inc = molecule['prim_energy_inc'][order-1]
+         ldx = l
          # 
          for i in range(l_limit,l_limit+u_limit):
             #
@@ -251,11 +207,6 @@ def orb_entanglement_arr(molecule,l_limit,u_limit,level):
       #
       orb = molecule['prim_orb_ent']
       orb_arr = molecule['prim_orb_arr']
-   #
-   elif (level == 'CORRE'):
-      #
-      orb = molecule['corr_orb_ent']
-      orb_arr = molecule['corr_orb_arr']
    #
    # write orbital entanglement matrix
    #
@@ -311,12 +262,6 @@ def orb_contributions(molecule,order,level,singles=False):
       orb_con_abs = molecule['prim_orb_con_abs']
       orb_con_rel = molecule['prim_orb_con_rel']
    #
-   elif (level == 'CORRE'):
-      #
-      orb = molecule['corr_orb_ent']
-      orb_con_abs = molecule['corr_orb_con_abs']
-      orb_con_rel = molecule['corr_orb_con_rel']
-   #
    if (singles):
       #
       e_inc = molecule['prim_energy_inc'][order-1]
@@ -371,12 +316,6 @@ def orb_exclusion(molecule,l_limit,order,level):
       orb_arr = molecule['prim_orb_arr']
       thres = (molecule['prim_thres']/100.0)
    #
-   elif (level == 'CORRE'):
-      #
-      orb = molecule['corr_orb_ent']
-      orb_arr = molecule['corr_orb_arr']
-      thres = (molecule['corr_thres']/100.0)
-   #
    molecule['excl_list'].append([])
    #
    # screening in individual domains based on orbital entanglement 
@@ -402,10 +341,6 @@ def update_domains(molecule,l_limit,level,screen=True):
    if (level == 'MACRO'):
       #
       dom = molecule['prim_domain']
-   #
-   elif (level == 'CORRE'):
-      #
-      dom = molecule['corr_domain']
    #
    dom.append([])
    #
@@ -468,10 +403,6 @@ def update_thres_and_rst_freq(molecule,level):
    if (level == 'MACRO'):
       #
       molecule['prim_thres'] += molecule['prim_thres']
-   #
-   elif (level == 'CORRE'):
-      #
-      molecule['corr_thres'] += molecule['corr_thres']
    #
    # update restart frequency by halving it
    #

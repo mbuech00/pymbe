@@ -167,17 +167,15 @@ def prepare_calc(molecule):
       molecule['l_limit'] = 0
       molecule['u_limit'] = molecule['nocc']
       #
-      # init prim and corr domains on master
+      # init domains on master
       #
       if (molecule['mpi_master']):
          #
          molecule['prim_domain'] = deepcopy([molecule['occ_domain']])
-         molecule['corr_domain'] = deepcopy([molecule['occ_domain']])
       #
       else:
          #
          molecule['prim_domain'] = []
-         molecule['corr_domain'] = []
       #
       # init prim tuple and e_inc
       #
@@ -193,17 +191,15 @@ def prepare_calc(molecule):
       molecule['l_limit'] = molecule['nocc']
       molecule['u_limit'] = molecule['nvirt']
       #
-      # init prim and corr domains on master
+      # init domains on master
       #
       if (molecule['mpi_master']):
          #
          molecule['prim_domain'] = deepcopy([molecule['virt_domain']])
-         molecule['corr_domain'] = deepcopy([molecule['virt_domain']])
       #
       else:
          #
          molecule['prim_domain'] = []
-         molecule['corr_domain'] = []
       #
       # init prim tuple and e_inc
       #
@@ -234,66 +230,23 @@ def prepare_calc(molecule):
    molecule['conv_orb'] = [False]
    molecule['conv_energy'] = [False]
    #
-   # init corr_tuple and corr_e_inc lists
-   #
-   molecule['corr_tuple'] = []
-   molecule['corr_energy_inc'] = []
-   #
    # init orb_ent and orb_con lists
    #
    molecule['prim_orb_ent'] = []
-   molecule['corr_orb_ent'] = []
    #
    molecule['prim_orb_arr'] = []
-   molecule['corr_orb_arr'] = []
    #
    molecule['prim_orb_con_abs'] = []
    molecule['prim_orb_con_rel'] = []
-   molecule['corr_orb_con_abs'] = []
-   molecule['corr_orb_con_rel'] = []
    #
-   # init total energy lists for prim exp and energy correction
+   # init total energy lists for prim exp
    #
    molecule['prim_energy'] = []
-   #
-   molecule['corr_energy'] = []
    #
    # init exclusion list and e_tmp
    #
    molecule['e_tmp'] = 0.0
    molecule['excl_list'] = []
-   #
-   return molecule
-
-def mono_exp_merge_info(molecule):
-   #
-   #  ---  master/slave routine
-   #
-   if (molecule['mpi_parallel'] and molecule['mpi_master']):
-      #
-      # wake up slaves
-      #
-      msg = {'task': 'mono_exp_merge_info', 'min_corr_order': molecule['min_corr_order'], 'order': molecule['min_corr_order']}
-      #
-      molecule['mpi_comm'].bcast(msg,root=0)
-   #
-   for k in range(1,molecule['min_corr_order']):
-      #
-      molecule['corr_tuple'].append(np.array([],dtype=np.int32))
-      molecule['corr_energy_inc'].append(np.array([],dtype=np.float64))
-   #
-   if (molecule['mpi_master']):
-      #
-      for k in range(1,molecule['min_corr_order']-1):
-         #
-         molecule['corr_domain'].append(molecule['prim_domain'][k-1])
-         molecule['corr_orb_con_abs'].append(molecule['prim_orb_con_abs'][k-1])
-         molecule['corr_orb_con_rel'].append(molecule['prim_orb_con_rel'][k-1])
-      #
-      for k in range(1,molecule['min_corr_order']-2):
-         #
-         molecule['corr_orb_ent'].append(molecule['prim_orb_ent'][k-1])
-         molecule['corr_orb_arr'].append(molecule['prim_orb_arr'][k-1])
    #
    return molecule
 

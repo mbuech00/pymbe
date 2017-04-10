@@ -83,11 +83,6 @@ def init_param(molecule):
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
       molecule['prim_e_thres'] = 1.0e-05
-      molecule['sec_thres'] = 0.0
-      molecule['corr'] = False
-      molecule['corr_model'] = ''
-      molecule['corr_order'] = 0
-      molecule['corr_thres'] = 0.0
       molecule['basis'] = ''
       molecule['ref'] = False
       molecule['frozen'] = False
@@ -130,30 +125,9 @@ def init_param(molecule):
                #
                molecule['prim_e_thres'] = float(content[i].split()[1])
             #
-            elif (content[i].split()[0] == 'sec_thres'):
-               #
-               molecule['sec_thres'] = float(content[i].split()[1])
-            #
-            elif (content[i].split()[0] == 'corr'):
-               #
-               molecule['corr'] = (content[i].split()[1] == 'True')
-            #
-            elif (content[i].split()[0] == 'corr_order'):
-               #
-               molecule['corr_order'] = int(content[i].split()[1])
-            #
-            elif (content[i].split()[0] == 'corr_thres'):
-               #
-               molecule['corr_thres'] = float(content[i].split()[1])
-               molecule['corr_thres_init'] = molecule['corr_thres']
-            #
             elif (content[i].split()[0] == 'model'):
                #
                molecule['model'] = content[i].split()[1].upper()
-            #
-            elif (content[i].split()[0] == 'corr_model'):
-               #
-               molecule['corr_model'] = content[i].split()[1]
             #
             elif (content[i].split()[0] == 'basis'):
                #
@@ -212,8 +186,7 @@ def init_param(molecule):
    set_fc(molecule)
    #
    chk = ['mol','ncore','frozen','mult','mp2_nat_orbs',\
-          'exp','max_order','prim_thres','prim_e_thres','sec_thres',\
-          'corr','corr_order','corr_thres','model','corr_model',\
+          'exp','model','max_order','prim_thres','prim_e_thres',\
           'basis','ref','local','zmat','units','mem',\
           'debug','scr_name','rst','rst_freq','backend_prog']
    #
@@ -250,14 +223,6 @@ def set_exp(molecule):
    elif (molecule['exp'] == 'comb-vo'):
       #
       molecule['scheme'] = 'combined virtual/occupied'
-   #
-   # set correction model and order in case of no energy correction
-   #
-   if (not molecule['corr']):
-      #
-      molecule['corr_model'] = 'N/A'
-      #
-      molecule['corr_order'] = 'N/A'
    #
    return molecule
 
@@ -363,52 +328,6 @@ def sanity_chk(molecule):
       if (molecule['prim_thres'] < 0.0):
          #
          molecule['error_msg'] = 'wrong input -- expansion threshold (prim_thres) must be float >= 0.0'
-         #
-         molecule['error_code'] = 0
-         #
-         molecule['error'].append(True)
-   #
-   if ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
-      #
-      if ((molecule['prim_thres'] == 0.0) and (molecule['sec_thres'] == 0.0)):
-         #
-         molecule['error_msg'] = 'wrong input -- expansion thresholds for both the primary and secondary expansions need be supplied (prim_thres / sec_thres)'
-         #
-         molecule['error_code'] = 0
-         #
-         molecule['error'].append(True)
-      #
-      if ((molecule['prim_thres'] < 0.0) or (molecule['prim_thres'] < 0.0)):
-         #
-         molecule['error_msg'] = 'wrong input -- expansion thresholds (prim_thres / sec_thres) must be floats >= 0.0'
-         #
-         molecule['error_code'] = 0
-         #
-         molecule['error'].append(True)
-   #
-   # energy correction
-   #
-   if (molecule['corr']):
-      #
-      if (molecule['corr_order'] == 0):
-         #
-         molecule['error_msg'] = 'wrong input -- energy correction requested, but no correction order (integer >= 1) supplied'
-         #
-         molecule['error_code'] = 0
-         #
-         molecule['error'].append(True)
-      #
-      if (molecule['corr_thres'] < 0.0):
-         #
-         molecule['error_msg'] = 'wrong input -- correction threshold (corr_thres, float >= 0.0) must be supplied'
-         #
-         molecule['error_code'] = 0
-         #
-         molecule['error'].append(True)
-      #
-      if (molecule['corr_thres'] >= molecule['prim_thres']):
-         #
-         molecule['error_msg'] = 'wrong input -- correction threshold (corr_thres) must be tighter than the primary expansion threshold (prim_thres)'
          #
          molecule['error_code'] = 0
          #

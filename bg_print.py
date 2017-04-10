@@ -86,6 +86,20 @@ def print_mono_exp_header(molecule):
    #
    return
 
+def print_mono_exp_end(molecule):
+   #
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
+      #
+      with redirect_stdout(f):
+         #
+         print('')
+         print('')
+   #
+   print('')
+   print('')
+   #
+   return
+
 def print_screen_header(molecule,order,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
@@ -181,15 +195,7 @@ def print_status(prog,level):
    #
    return
 
-def print_kernel_end(molecule,order,level):
-   #
-   if (level == 'MACRO'):
-      #
-      tup = molecule['prim_tuple']
-   #
-   elif (level == 'CORRE'):
-      #
-      tup = molecule['corr_tuple']
+def print_kernel_end(molecule,tup,order,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
@@ -228,10 +234,6 @@ def print_update(molecule,l_limit,u_limit,level):
    if (level == 'MACRO'):
       #
       dom = molecule['prim_domain']
-   #
-   elif (level == 'CORRE'):
-      #
-      dom = molecule['corr_domain']
    #
    count = []
    #
@@ -322,58 +324,31 @@ def print_orb_info(molecule,l_limit,u_limit,level):
       orb_arr = molecule['prim_orb_arr']
       orb_con_rel = molecule['prim_orb_con_rel']
    #
-   elif (level == 'CORRE'):
-      #
-      orb = molecule['corr_orb_ent']
-      orb_arr = molecule['corr_orb_arr']
-      orb_con_rel = molecule['corr_orb_con_rel']
-   #
    tmp = np.empty(u_limit,dtype=object)
    #
    index = []
    #
    index_strings(l_limit,u_limit,index)
    #
-   if (level == 'MACRO'):
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
-      with open(molecule['out_dir']+'/bg_output.out','a') as f:
+      with redirect_stdout(f):
          #
-         with redirect_stdout(f):
-            #
-            print('')
-            print('   ---------------------------------------------')
-            print('      individual orbital contributions (in %)   ')
-            print('   ---------------------------------------------')
-            #
-            print('')
-            print(' * BG exp. order = 1')
-            print(' -------------------')
-            #
-            print('')
-            print(index[0])
-            print('               '+str(['{0:3d}'.format(int(m*100.0)) for m in orb_con_rel[0]]))
-            print('')
-   #
-   if (level == 'MACRO'):
-      #
-      start = 0
-   #
-   elif ((level == 'CORRE') and (molecule['min_corr_order'] > 0)):
-      #
-      start = molecule['min_corr_order']-2
-      #
-      if (start <= (len(orb)-1)):
+         print('')
+         print('   ---------------------------------------------')
+         print('      individual orbital contributions (in %)   ')
+         print('   ---------------------------------------------')
          #
-         with open(molecule['out_dir']+'/bg_output.out','w') as f:
-            #
-            with redirect_stdout(f):
-               #
-               print('')
-               print('   ---------------------------------------------')
-               print('      individual orbital contributions (in %)   ')
-               print('   ---------------------------------------------')
+         print('')
+         print(' * BG exp. order = 1')
+         print(' -------------------')
+         #
+         print('')
+         print(index[0])
+         print('               '+str(['{0:3d}'.format(int(m*100.0)) for m in orb_con_rel[0]]))
+         print('')
    #
-   for i in range(start,len(orb)):
+   for i in range(0,len(orb)):
       #
       with open(molecule['out_dir']+'/bg_output.out','w') as f:
          #
