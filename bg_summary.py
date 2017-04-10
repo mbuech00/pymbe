@@ -35,7 +35,7 @@ def summary_main(molecule):
 
 def summary_overall_res(molecule):
    #
-   if (molecule['local']):
+   if (molecule['occ_orbs'] == 'LOCAL'):
       #
       occ_orbs = 'local'
    #
@@ -43,7 +43,7 @@ def summary_overall_res(molecule):
       #
       occ_orbs = 'canonical'
    #
-   if (molecule['mp2_nat_orbs']):
+   if (molecule['virt_orbs'] == 'MP2'):
       #
       virt_orbs = 'MP2 NOs'
    #

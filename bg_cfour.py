@@ -73,7 +73,7 @@ def cfour_input_corr(molecule,drop_string,level):
       out.write('CC_EXPORDER=10\n')
       out.write('CC_MAXCYC=200\n')
    #
-   if (molecule['mp2_nat_orbs']): out.write('VNATORB=USE\n')
+   if (molecule['virt_orbs'] == 'MP2'): out.write('VNATORB=USE\n')
    #
    if (drop_string != '\n'):
       #
@@ -91,7 +91,7 @@ def cfour_input_corr(molecule,drop_string,level):
       #
       out.write('UNITS=BOHR\n')
    #
-   if (molecule['local']):
+   if (molecule['occ_orbs'] == 'LOCAL'):
       #
       out.write('SYMMETRY=OFF\n')
       out.write('ORBITALS=LOCAL\n')

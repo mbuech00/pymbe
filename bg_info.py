@@ -79,15 +79,15 @@ def init_param(molecule):
       # init keys
       #
       molecule['backend_prog'] = ''
-      molecule['mp2_nat_orbs'] = False
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
       molecule['prim_e_thres'] = 1.0e-05
+      molecule['occ_orbs'] = ''
+      molecule['virt_orbs'] = ''
       molecule['basis'] = ''
       molecule['ref'] = False
       molecule['frozen'] = False
       molecule['debug'] = False
-      molecule['local'] = False
       molecule['zmat'] = False
       molecule['mem'] = 0
       molecule['scr_name'] = 'scr'
@@ -108,9 +108,13 @@ def init_param(molecule):
                #
                molecule['backend_prog'] = content[i].split()[1].upper()
             #
-            elif (content[i].split()[0] == 'mp2_nat_orbs'):
+            elif (content[i].split()[0] == 'occ_orbs'):
                #
-               molecule['mp2_nat_orbs'] = (content[i].split()[1] == 'True')
+               molecule['occ_orbs'] = content[i].split()[1].upper() 
+            #
+            elif (content[i].split()[0] == 'virt_orbs'):
+               #
+               molecule['virt_orbs'] = content[i].split()[1].upper()
             #
             elif (content[i].split()[0] == 'max_order'):
                #
@@ -140,10 +144,6 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'frozen'):
                #
                molecule['frozen'] = (content[i].split()[1] == 'True')
-            #
-            elif (content[i].split()[0] == 'local'):
-               #
-               molecule['local'] = (content[i].split()[1] == 'True')
             #
             elif (content[i].split()[0] == 'zmat'):
                #
@@ -185,9 +185,9 @@ def init_param(molecule):
    #
    set_fc(molecule)
    #
-   chk = ['mol','ncore','frozen','mult','mp2_nat_orbs',\
+   chk = ['mol','ncore','frozen','mult','occ_orbs','virt_orbs',\
           'exp','model','max_order','prim_thres','prim_e_thres',\
-          'basis','ref','local','zmat','units','mem',\
+          'basis','ref','zmat','units','mem',\
           'debug','scr_name','rst','rst_freq','backend_prog']
    #
    for k in range(0,len(chk)):
@@ -328,6 +328,34 @@ def sanity_chk(molecule):
       if (molecule['prim_thres'] < 0.0):
          #
          molecule['error_msg'] = 'wrong input -- expansion threshold (prim_thres) must be float >= 0.0'
+         #
+         molecule['error_code'] = 0
+         #
+         molecule['error'].append(True)
+   #
+   # orbital representations
+   #
+   if ((molecule['occ_orbs'] == '') or (molecule['virt_orbs'] == '')):
+      #
+      molecule['error_msg'] = 'wrong input -- orbital representations must be chosen for occupied and virtual orbitals'
+      #
+      molecule['error_code'] = 0
+      #
+      molecule['error'].append(True)
+   #
+   else:
+      #
+      if (not ((molecule['occ_orbs'] == 'CANONICAL') or (molecule['occ_orbs'] == 'LOCAL'))):
+         #
+         molecule['error_msg'] = 'wrong input -- orbital representation for occupied orbitals must be either canonical or local'
+         #
+         molecule['error_code'] = 0
+         #
+         molecule['error'].append(True)
+      #
+      if (not ((molecule['virt_orbs'] == 'CANONICAL') or (molecule['virt_orbs'] == 'MP2'))):
+         #
+         molecule['error_msg'] = 'wrong input -- orbital representation for virtual orbitals must be either canonical or mp2 (natural orbitals)'
          #
          molecule['error_code'] = 0
          #
