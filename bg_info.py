@@ -82,7 +82,7 @@ def init_param(molecule):
       molecule['mp2_nat_orbs'] = False
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
-      molecule['prim_e_thres'] = 1.0e-04
+      molecule['prim_e_thres'] = 1.0e-05
       molecule['sec_thres'] = 0.0
       molecule['corr'] = False
       molecule['corr_model'] = ''

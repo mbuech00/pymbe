@@ -85,7 +85,7 @@ def summary_overall_res(molecule):
          print('            occ. orbitals   =  {0:<9s}      |        exp. threshold     =  {1:<5.3f} %      |       final corr. energy     = {2:>12.5e}'.\
                  format(occ_orbs,molecule['prim_thres_init'],molecule['prim_energy'][-1]))
          #
-         print('            virt. orbitals  =  {0:<9s}      |        energy threshold   =  {1:<5.2e}     |       final convergence      = {2:>12.5e}'.\
+         print('            virt. orbitals  =  {0:<9s}      |        total threshold    =  {1:<5.2e}     |       final convergence      = {2:>12.5e}'.\
                format(virt_orbs,molecule['prim_e_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
