@@ -6,10 +6,10 @@
 import numpy as np
 
 from bg_mpi_utils import prepare_calc
-from bg_mpi_time import timer_mpi
 from bg_print import print_mono_exp_header, print_mono_exp_end, print_kernel_header, print_kernel_end, print_results,\
-                     print_summation_header, print_summation_end, print_screen_header, print_screen_end
-from bg_energy import energy_kernel_mono_exp, energy_summation, chk_energy_conv
+                      print_summation_header, print_summation_end, print_screen_header, print_screen_end
+from bg_kernel import energy_kernel
+from bg_summation import energy_summation
 from bg_entanglement import entanglement_main
 from bg_screening import screening_main
 from bg_rst_main import rst_main
@@ -100,7 +100,7 @@ def mono_exp_kernel(molecule,order,level):
    #
    # run the calculations
    #
-   energy_kernel_mono_exp(molecule,order,tup,e_inc,molecule['l_limit'],molecule['u_limit'],level)
+   energy_kernel(molecule,tup,e_inc,molecule['l_limit'],molecule['u_limit'],order,level)
    #
    # print kernel end
    #

@@ -7,7 +7,7 @@ import numpy as np
 from copy import deepcopy
 
 from bg_mpi_time import timer_mpi, collect_screen_mpi_time
-from bg_mpi_screening import tuple_generation_master
+from bg_screening_mpi import tuple_generation_master
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
