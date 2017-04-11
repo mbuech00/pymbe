@@ -169,10 +169,6 @@ def tuple_generation_slave(molecule,tup,l_limit,u_limit,order):
    #
    #  ---  slave routine
    #
-   # receive domains
-   #
-   bcast_domains(molecule,dom,order)
-   #
    timer_mpi(molecule,'mpi_time_work_screen',order)
    #
    # define mpi message tags

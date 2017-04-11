@@ -167,16 +167,6 @@ def prepare_calc(molecule):
       molecule['l_limit'] = 0
       molecule['u_limit'] = molecule['nocc']
       #
-      # init domains on master
-      #
-      if (molecule['mpi_master']):
-         #
-         molecule['prim_domain'] = deepcopy([molecule['occ_domain']])
-      #
-      else:
-         #
-         molecule['prim_domain'] = []
-      #
       # init prim tuple and e_inc
       #
       molecule['prim_tuple'] = [np.array(list([i+1] for i in range(molecule['ncore'],molecule['u_limit'])),dtype=np.int32)]
@@ -190,16 +180,6 @@ def prepare_calc(molecule):
       #
       molecule['l_limit'] = molecule['nocc']
       molecule['u_limit'] = molecule['nvirt']
-      #
-      # init domains on master
-      #
-      if (molecule['mpi_master']):
-         #
-         molecule['prim_domain'] = deepcopy([molecule['virt_domain']])
-      #
-      else:
-         #
-         molecule['prim_domain'] = []
       #
       # init prim tuple and e_inc
       #

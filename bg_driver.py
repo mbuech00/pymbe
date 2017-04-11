@@ -26,10 +26,6 @@ __status__ = 'Development'
 
 def main_drv(molecule):
    #
-   # initialize domains
-   #
-   init_domains(molecule)
-   #
    # initialize variable and lists
    #
    prepare_calc(molecule)   
