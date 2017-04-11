@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_mpi_energy.py: MPI energy-related routines for Bethe-Goldstone correlation calculations."""
+""" bg_kernel_mpi.py: MPI energy kernel routines for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
 from mpi4py import MPI
 
 from bg_mpi_time import timer_mpi
 from bg_mpi_utils import enum
-from bg_rst_write import rst_write_e_inc, rst_write_time
-from bg_utils import run_calc_corr, term_calc, orb_string, comb_index
+from bg_utils import run_calc_corr, term_calc, orb_string
 from bg_print import print_status 
+from bg_rst_write import rst_write_kernel
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -21,7 +21,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level):
+def energy_kernel_master(molecule,tup,e_inc,l_limit,u_limit,order,level):
    #
    #  ---  master routine
    #
@@ -29,7 +29,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    timer_mpi(molecule,'mpi_time_idle_kernel',order)
    #
-   msg = {'task': 'energy_kernel_mono_exp_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
+   msg = {'task': 'energy_kernel_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
@@ -55,7 +55,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    if (molecule['rst'] and (order == molecule['min_order'])):
       #
-      i = np.argmax(e_inc[order-1] == 0.0)
+      i = np.argmax(e_inc[-1] == 0.0)
    #
    else:
       #
@@ -77,7 +77,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    # print status for START
    #
-   print_status(float(counter)/float(len(tup[order-1])),level)
+   print_status(float(counter)/float(len(tup[-1])),level)
    #
    while (slaves_avail >= 1):
       #
@@ -99,7 +99,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
       #
       if (tag == tags.ready):
          #
-         if (i <= (len(tup[order-1])-1)):
+         if (i <= (len(tup[-1])-1)):
             #
             # store job index
             #
@@ -121,6 +121,8 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
             #
             timer_mpi(molecule,'mpi_time_comm_kernel',order)
             #
+            # send exit signal
+            #
             molecule['mpi_comm'].send(None,dest=source,tag=tags.exit)
             #
             timer_mpi(molecule,'mpi_time_work_kernel',order)
@@ -129,15 +131,23 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          timer_mpi(molecule,'mpi_time_comm_kernel',order)
          #
+         # receive data
+         #
          data = molecule['mpi_comm'].recv(source=source,tag=tags.data,status=molecule['mpi_stat'])
          #
          timer_mpi(molecule,'mpi_time_work_kernel',order)
          #
-         e_inc[order-1][data['index']] = data['energy']
+         # write to e_inc
+         #
+         e_inc[-1][data['index']] = data['energy']
+         #
+         # store timings
          #
          molecule['mpi_time_work'][0][source][-1] = data['t_work']
          molecule['mpi_time_comm'][0][source][-1] = data['t_comm']
          molecule['mpi_time_idle'][0][source][-1] = data['t_idle']
+         #
+         # write restart files
          #
          if (((data['index']+1) % int(molecule['rst_freq'])) == 0):
             #
@@ -145,9 +155,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
             molecule['mpi_time_comm'][0][0][-1] = molecule['mpi_time_comm_kernel'][-1]
             molecule['mpi_time_idle'][0][0][-1] = molecule['mpi_time_idle_kernel'][-1]
             #
-            rst_write_time(molecule,'kernel')
-            #
-            rst_write_e_inc(molecule,order)
+            rst_write_kernel(molecule,e_inc,order)
          #
          # increment stat counter
          #
@@ -155,7 +163,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
          #
          # print status
          #
-         if (((data['index']+1) % 1000) == 0): print_status(float(counter)/float(len(tup[order-1])),level)
+         if (((data['index']+1) % 1000) == 0): print_status(float(counter)/float(len(tup[-1])),level)
          #
          # error check
          #
@@ -169,7 +177,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
             #
             string = {}
             #
-            orb_string(molecule,l_limit,u_limit,tup[order-1][job_info['index']],string)
+            orb_string(molecule,l_limit,u_limit,tup[-1][job_info['index']],string)
             #
             molecule['error_drop'] = string['drop']
             # 
@@ -187,7 +195,7 @@ def energy_kernel_mono_exp_master(molecule,order,tup,e_inc,l_limit,u_limit,level
    #
    return molecule, e_inc
 
-def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level):
+def energy_kernel_slave(molecule,tup,e_inc,l_limit,u_limit,order,level):
    #
    #  ---  slave routine
    #
@@ -195,7 +203,7 @@ def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level)
    #
    # init e_inc list
    #
-   if (order != molecule['min_order']): e_inc.append(np.zeros(len(tup[order-1]),dtype=np.float64))
+   if (order != molecule['min_order']): e_inc.append(np.zeros(len(tup[-1]),dtype=np.float64))
    #
    # define mpi message tags
    #
@@ -233,13 +241,13 @@ def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level)
          #
          # write string
          #
-         orb_string(molecule,l_limit,u_limit,tup[order-1][job_info['index']],string)
+         orb_string(molecule,l_limit,u_limit,tup[-1][job_info['index']],string)
          #
          run_calc_corr(molecule,string['drop'],level)
          #
          # write tuple energy
          #
-         e_inc[order-1][job_info['index']] = molecule['e_tmp']
+         e_inc[-1][job_info['index']] = molecule['e_tmp']
          #
          # report status back to master
          #
@@ -281,93 +289,4 @@ def energy_kernel_mono_exp_slave(molecule,order,tup,e_inc,l_limit,u_limit,level)
    timer_mpi(molecule,'mpi_time_comm_kernel',order,True)
    #
    return molecule, e_inc
-
-def energy_summation_par(molecule,k,tup,e_inc,energy,level):
-   #
-   #  ---  master/slave routine
-   #
-   if (molecule['mpi_master']):
-      #
-      # wake up slaves
-      #
-      timer_mpi(molecule,'mpi_time_idle_summation',k)
-      #
-      msg = {'task': 'energy_summation_par', 'order': k, 'level': level}
-      #
-      molecule['mpi_comm'].bcast(msg,root=0)
-      #
-      # re-init e_inc[-1] with 0.0
-      #
-      e_inc[k-1].fill(0.0)
-   #
-   timer_mpi(molecule,'mpi_time_work_summation',k)
-   #
-   for j in range(0,len(tup[k-1])):
-      #
-      if (e_inc[k-1][j] != 0.0):
-         #
-         for i in range(k-1,0,-1):
-            #
-            combs = tup[k-1][j,comb_index(k,i)]
-            #
-            dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
-            #
-            idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
-            #
-            for l in idx: e_inc[k-1][j] -= e_inc[i-1][l]
-   #
-   # allreduce e_inc[-1]
-   #
-   allred_e_inc(molecule,e_inc,k)
-   #
-   # let master calculate the total energy
-   #
-   if (molecule['mpi_master']):
-      #
-      # sum of energy increment of level k
-      #
-      e_tmp = np.sum(e_inc[k-1])
-      #
-      # sum of total energy
-      #
-      if (k > 1):
-         #
-         e_tmp += energy[k-2]
-      #
-      energy.append(e_tmp)
-      #
-      # check for convergence wrt total energy
-      #
-      if ((k >= 2) and (abs(energy[-1]-energy[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
-   #
-   return molecule, e_inc, energy
-
-def allred_e_inc(molecule,e_inc,k):
-   #
-   # Allreduce e_inc[-1] (here: do explicit Reduce+Bcast, as Allreduce has been observed to hang)
-   #
-   timer_mpi(molecule,'mpi_time_idle_summation',k)
-   #
-   molecule['mpi_comm'].Barrier()
-   #
-   timer_mpi(molecule,'mpi_time_comm_summation',k)
-   #
-   # init receive buffer
-   #
-   recv_buff = np.zeros(len(e_inc[k-1]),dtype=np.float64)
-   #
-   # now do Allreduce
-   #
-   molecule['mpi_comm'].Allreduce([e_inc[k-1],MPI.DOUBLE],[recv_buff,MPI.DOUBLE],op=MPI.SUM)
-   #
-   # finally, overwrite e_inc[k-1]
-   #
-   timer_mpi(molecule,'mpi_time_work_summation',k)
-   #
-   e_inc[k-1] = recv_buff
-   #
-   del recv_buff
-   #
-   return e_inc
-
 

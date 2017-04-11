@@ -164,11 +164,11 @@ def main_slave(molecule):
       #
       # energy_kernel_mono_exp_par
       #
-      elif (msg['task'] == 'energy_kernel_mono_exp_par'):
+      elif (msg['task'] == 'energy_kernel_par'):
          #
          if (msg['level'] == 'MACRO'):
             #
-            energy_kernel_mono_exp_slave(molecule,msg['order'],molecule['prim_tuple'],molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],'MACRO')
+            energy_kernel_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
          #
          collect_kernel_mpi_time(molecule,msg['order'])
       #

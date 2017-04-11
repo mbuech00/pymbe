@@ -74,8 +74,6 @@ def energy_kernel(molecule,tup,e_inc,l_limit,u_limit,order,level):
             #
             term_calc(molecule)
          #
-         # write e_inc restart file
-         #
          timer_mpi(molecule,'mpi_time_work_kernel',order,True)
          #
          # write restart files
