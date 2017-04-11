@@ -335,8 +335,12 @@ def energy_summation_par(molecule,k,tup,e_inc,energy,level):
          e_tmp += energy[k-2]
       #
       energy.append(e_tmp)
+      #
+      # check for convergence wrt total energy
+      #
+      if ((k >= 2) and (abs(energy[-1]-energy[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
    #
-   return e_inc, energy
+   return molecule, e_inc, energy
 
 def allred_e_inc(molecule,e_inc,k):
    #

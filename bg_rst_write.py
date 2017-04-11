@@ -15,6 +15,39 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
+def rst_write_summation(molecule,e_inc,e_tot,order):
+   #
+   # write e_inc and e_tot
+   # 
+   rst_write_e_inc(molecule,order)
+   rst_write_e_tot(molecule,order)
+   #
+   # write timings
+   #
+   rst_write_time(molecule,'summation')
+   #
+   return
+
+def rst_write_screen(molecule,tup,n_tup,e_inc,order):
+   #
+   # write orb_con_abs, orb_con_rel, and tup
+   #
+   rst_write_orb_con(molecule,order)
+   rst_write_tup(molecule,order)
+   #
+   # write timings
+   #
+   rst_write_time(molecule,'screen')
+   #
+   # write orb_ent_abs and orb_ent_rel
+   #
+   if (order >= 2):
+      #
+      rst_write_orb_ent(molecule,order-2)
+      rst_write_orb_arr(molecule,order-2)
+   #
+   return
+
 def rst_write_tup(molecule,order):
    #
    # write tup[k-1]

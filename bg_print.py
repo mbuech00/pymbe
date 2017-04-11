@@ -221,9 +221,9 @@ def print_results(molecule,tup,e_inc,level):
          print(' RESULT-{0:}:     tuple    |    energy incr.   |    corr. orbs.'.format(level))
          print(' --------------------------------------------------------------------------------------------')
          #
-         for i in range(0,len(tup)):
+         for i in range(0,len(tup[-1])):
             #
-            print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,e_inc[i],tup[i].tolist()))
+            print(' RESULT-{0:}:  {1:>6d}           {2:> 8.4e}         {3!s:<}'.format(level,i+1,e_inc[-1][i],tup[-1][i].tolist()))
          #
          print(' --------------------------------------------------------------------------------------------')
    #

@@ -120,14 +120,9 @@ def energy_summation(molecule,k,tup,e_inc,energy,level):
       #
       timer_mpi(molecule,'mpi_time_work_summation',k,True)
       #
-      rst_write_time(molecule,'summation')
+      # check for convergence wrt total energy
+      #
+      if ((k >= 2) and (abs(energy[-1]-energy[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
    #
-   return e_inc, energy
-
-def chk_energy_conv(molecule,e_tot,k):
-   #
-   if ((k >= 2) and (abs(e_tot[-1]-e_tot[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
-   #
-   return molecule
-
+   return molecule, e_inc, energy
 
