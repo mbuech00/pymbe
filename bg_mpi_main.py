@@ -12,8 +12,10 @@ from mpi4py import MPI
 from bg_mpi_utils import print_mpi_table, prepare_calc
 from bg_mpi_rst import rst_dist_slave
 from bg_mpi_time import init_mpi_timings, collect_screen_mpi_time, collect_kernel_mpi_time, collect_summation_mpi_time
-from bg_mpi_energy import energy_kernel_mono_exp_slave, energy_summation_par
-from bg_mpi_orbitals import orb_generator_slave, orb_entanglement_main_par
+from bg_kernel_mpi import energy_kernel_slave
+from bg_summation_mpi import energy_summation_par
+from bg_entanglement_mpi import entanglement_abs_par
+from bg_screening_mpi import tuple_generation_slave
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -136,33 +138,27 @@ def main_slave(molecule):
          #
          rst_dist_slave(molecule) 
       #
-      # orbital entanglement
+      # entanglement_abs_par
       #
-      elif (msg['task'] == 'orb_entanglement_par'):
+      elif (msg['task'] == 'entanglement_abs_par'):
          #
-         orb_entanglement_main_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['level'],msg['calc_end'])
+         entanglement_abs_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'])
          #
-         if (msg['calc_end']):
-            #
-            collect_screen_mpi_time(molecule,msg['order'],True)
-         #
-         else:
-            #
-            collect_screen_mpi_time(molecule,msg['order'])
+         collect_screen_mpi_time(molecule,msg['order'],msg['calc_end'])
       #
-      # orb_generator_slave
+      # tuple_generation_slave
       #
-      elif (msg['task'] == 'orb_generator_slave'):
+      elif (msg['task'] == 'tuple_generation_par'):
          #
          # generate tuples
          #
          if (msg['level'] == 'MACRO'):
             #
-            orb_generator_slave(molecule,molecule['prim_domain'],molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],msg['level'])
+            tuple_generation_slave(molecule,molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'])
          #
          collect_screen_mpi_time(molecule,msg['order'],True)
       #
-      # energy_kernel_mono_exp_par
+      # energy_kernel_slave
       #
       elif (msg['task'] == 'energy_kernel_par'):
          #

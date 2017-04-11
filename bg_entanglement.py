@@ -4,12 +4,9 @@
 """ bg_entanglement.py: entanglement and orbital contribution routines for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
-from mpi4py import MPI
-from itertools import combinations 
-from copy import deepcopy
 
 from bg_mpi_time import timer_mpi, collect_screen_mpi_time
-from bg_mpi_orbitals import orb_generator_master, orb_entanglement_main_par
+from bg_entanglement_mpi import entanglement_abs_par
 from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
