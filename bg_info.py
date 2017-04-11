@@ -29,11 +29,16 @@ def init_mol(molecule):
    #
    else:
       #
+      # init keys
+      #
+      molecule['zmat'] = False
+      molecule['units'] = ''
+      #
       with open('input-mol.inp') as f:
          #
          content = f.readlines()
          #
-         for i in range(0,len(content)-2):
+         for i in range(0,len(content)-4):
             #
             if (i == 0):
                #
@@ -42,13 +47,35 @@ def init_mol(molecule):
                #
                molecule['mol'] += str(content[i])
          #
-         for j in range(1,3):
+         for j in range(1,5):
             #
-            molecule[content[-j].split()[0]] = int(content[-j].split()[1])
+            if (content[-j].split()[0] == 'mult'):
+               #
+               molecule['mult'] = int(content[-j].split()[1])
+            #
+            elif (content[-j].split()[0] == 'core'):
+               #
+               molecule['core'] = int(content[-j].split()[1])
+            #
+            elif (content[-j].split()[0] == 'zmat'):
+               #
+               molecule['zmat'] = (content[-j].split()[1] == 'True')
+            #
+            elif (content[-j].split()[0] == 'units'):
+               #
+               molecule['units'] = content[-j].split()[1]
+            #
+            else:
+               #
+               molecule['error_msg'] = str(content[-j].split()[0])+' keyword in input-mol.inp not recognized'
+               #
+               molecule['error_code'] = 0
+               #
+               molecule['error'].append(True)
    #
-   chk = ['mult','core','mol']
+   chk = ['mult','core','zmat','units','mol']
    #
-   for k in range(0,len(chk)-1):
+   for k in range(0,len(chk)):
       #
       if (not (chk[k] in molecule.keys())):
          #
@@ -88,7 +115,6 @@ def init_param(molecule):
       molecule['ref'] = False
       molecule['frozen'] = False
       molecule['debug'] = False
-      molecule['zmat'] = False
       molecule['mem'] = 0
       molecule['scr_name'] = 'scr'
       molecule['rst'] = False
@@ -145,14 +171,6 @@ def init_param(molecule):
                #
                molecule['frozen'] = (content[i].split()[1] == 'True')
             #
-            elif (content[i].split()[0] == 'zmat'):
-               #
-               molecule['zmat'] = (content[i].split()[1] == 'True')
-            #
-            elif (content[i].split()[0] == 'units'):
-               #
-               molecule['units'] = content[i].split()[1]
-            #
             elif (content[i].split()[0] == 'mem'):
                #
                molecule['mem'] = int(content[i].split()[1])
@@ -187,8 +205,8 @@ def init_param(molecule):
    #
    chk = ['mol','ncore','frozen','mult','occ_orbs','virt_orbs',\
           'exp','model','max_order','prim_thres','prim_e_thres',\
-          'basis','ref','zmat','units','mem',\
-          'debug','scr_name','rst','rst_freq','backend_prog']
+          'basis','ref','mem','debug',\
+          'scr_name','rst','rst_freq','backend_prog']
    #
    for k in range(0,len(chk)):
       #
