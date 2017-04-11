@@ -74,7 +74,7 @@ def energy_summation_par(molecule,order,tup,e_inc,energy):
       #
       # check for convergence wrt total energy
       #
-      if ((order >= 2) and (abs(energy[-1]-energy[-2]) < molecule['prim_e_thres'])): molecule['conv_energy'].append(True)
+      if ((order >= 2) and (abs(energy[-1]-energy[-2]) < molecule['prim_thres'])): molecule['conv_energy'].append(True)
    #
    return molecule, e_inc, energy
 

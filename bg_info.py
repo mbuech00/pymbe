@@ -108,7 +108,7 @@ def init_param(molecule):
       molecule['backend_prog'] = ''
       molecule['max_order'] = 0
       molecule['prim_thres'] = 0.0
-      molecule['prim_e_thres'] = 1.0e-05
+      molecule['prim_scaling'] = 5.0
       molecule['occ_orbs'] = ''
       molecule['virt_orbs'] = ''
       molecule['basis'] = ''
@@ -151,9 +151,9 @@ def init_param(molecule):
                molecule['prim_thres'] = float(content[i].split()[1])
                molecule['prim_thres_init'] = molecule['prim_thres']
             #
-            elif (content[i].split()[0] == 'prim_e_thres'):
+            elif (content[i].split()[0] == 'prim_scaling'):
                #
-               molecule['prim_e_thres'] = float(content[i].split()[1])
+               molecule['prim_scaling'] = float(content[i].split()[1])
             #
             elif (content[i].split()[0] == 'model'):
                #
@@ -204,7 +204,7 @@ def init_param(molecule):
    set_fc(molecule)
    #
    chk = ['mol','ncore','frozen','mult','occ_orbs','virt_orbs',\
-          'exp','model','max_order','prim_thres','prim_e_thres',\
+          'exp','model','max_order','prim_thres','prim_scaling',\
           'basis','ref','mem','debug',\
           'scr_name','rst','rst_freq','backend_prog']
    #
@@ -335,7 +335,7 @@ def sanity_chk(molecule):
    #
    if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')):
       #
-      if ((molecule['prim_thres'] == 100.0) and (molecule['max_order'] == 0)):
+      if ((molecule['prim_thres'] == 0.0) and (molecule['max_order'] == 0)):
          #
          molecule['error_msg'] = 'wrong input -- no expansion threshold (prim_thres) supplied and no max_order set (either or both must be set)'
          #
@@ -346,6 +346,14 @@ def sanity_chk(molecule):
       if (molecule['prim_thres'] < 0.0):
          #
          molecule['error_msg'] = 'wrong input -- expansion threshold (prim_thres) must be float >= 0.0'
+         #
+         molecule['error_code'] = 0
+         #
+         molecule['error'].append(True)
+      #
+      if (molecule['prim_scaling'] < 0.0):
+         #
+         molecule['error_msg'] = 'wrong input -- expansion scaling (prim_scaling) must be float >= 0.0'
          #
          molecule['error_code'] = 0
          #

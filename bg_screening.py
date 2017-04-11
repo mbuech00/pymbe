@@ -33,6 +33,10 @@ def screening_main(molecule,tup,n_tup,e_inc,thres,l_limit,u_limit,order):
    #
    if (molecule['mpi_parallel']): collect_screen_mpi_time(molecule,order,True)
    #
+   # update threshold and restart frequency
+   #
+   update_thres_and_rst_freq(molecule)
+   #
    return molecule, tup, e_inc
 
 def tuple_screening(molecule,tup,e_inc,thres,order):
@@ -103,4 +107,16 @@ def tuple_generation(molecule,tup,n_tup,l_limit,u_limit,order):
       timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
    return molecule, tup, n_tup
+
+def update_thres_and_rst_freq(molecule):
+   #
+   # update threshold by multiplying it by exp. scaling
+   #
+   molecule['prim_thres'] *= molecule['prim_scaling']
+   #
+   # update restart frequency by halving it
+   #
+   molecule['rst_freq'] /= 2.
+   #
+   return molecule
 

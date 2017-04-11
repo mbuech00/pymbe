@@ -82,11 +82,11 @@ def summary_overall_res(molecule):
          print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |        final BG order     =  {2:<3d}          |       number of mpi slaves   =  {3:}'.\
                  format(molecule['nocc'],molecule['nvirt'],len(molecule['prim_energy']),mpi_size-1))
          #
-         print('            occ. orbitals   =  {0:<9s}      |        exp. threshold     =  {1:<5.3f} %      |       final corr. energy     = {2:>13.6e}'.\
+         print('            occ. orbitals   =  {0:<9s}      |        exp. threshold     =  {1:<5.2e} %       |       final corr. energy     = {2:>13.6e}'.\
                  format(occ_orbs,molecule['prim_thres_init'],molecule['prim_energy'][-1]))
          #
-         print('            virt. orbitals  =  {0:<9s}      |        total threshold    =  {1:<5.2e}     |       final convergence      = {2:>13.6e}'.\
-               format(virt_orbs,molecule['prim_e_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
+         print('            virt. orbitals  =  {0:<9s}      |        exp. scaling       =  {1:<5.2f}       |       final convergence      = {2:>13.6e}'.\
+               format(virt_orbs,molecule['prim_scaling'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
    #
