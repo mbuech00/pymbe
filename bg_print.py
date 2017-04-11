@@ -100,70 +100,6 @@ def print_mono_exp_end(molecule):
    #
    return
 
-def print_screen_header(molecule,order,level):
-   #
-   with open(molecule['out_dir']+'/bg_output.out','a') as f:
-      #
-      with redirect_stdout(f):
-         #
-         print(' --------------------------------------------------------------------------------------------')
-         print(' STATUS-{0:}: order = {1:>d} screening started'.format(level,order))
-         print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
-def print_screen_end(molecule,order,level):
-   #
-   with open(molecule['out_dir']+'/bg_output.out','a') as f:
-      #
-      with redirect_stdout(f):
-         #
-         if (molecule['conv_orb'][-1]):
-            #
-            print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} screening done ---  *** calculation has converged ***'.format(level,order))
-            print(' --------------------------------------------------------------------------------------------')
-         #
-         else:
-            #
-            print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} screening done'.format(level,order))
-            print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
-def print_summation_header(molecule,order,level):
-   #
-   with open(molecule['out_dir']+'/bg_output.out','a') as f:
-      #
-      with redirect_stdout(f):
-         #
-         print(' --------------------------------------------------------------------------------------------')
-         print(' STATUS-{0:}: order = {1:>d} energy summation started'.format(level,order))
-         print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
-def print_summation_end(molecule,order,level):
-   #
-   with open(molecule['out_dir']+'/bg_output.out','a') as f:
-      #
-      with redirect_stdout(f):
-         #
-         if (molecule['conv_energy'][-1]):
-            #
-            print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} energy summation done --- *** calculation has converged ***'.format(level,order))
-            print(' --------------------------------------------------------------------------------------------')
-         #
-         else:
-            #
-            print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} energy summation done'.format(level,order))
-            print(' --------------------------------------------------------------------------------------------')
-   #
-   return
-
 def print_kernel_header(molecule,tup,order,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
@@ -211,6 +147,18 @@ def print_kernel_end(molecule,tup,order,level):
    #
    return
 
+def print_summation_header(molecule,order,level):
+   #
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
+      #
+      with redirect_stdout(f):
+         #
+         print(' --------------------------------------------------------------------------------------------')
+         print(' STATUS-{0:}: order = {1:>d} energy summation started'.format(level,order))
+         print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
 def print_results(molecule,tup,e_inc,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
@@ -229,44 +177,66 @@ def print_results(molecule,tup,e_inc,level):
    #
    return
 
-def print_update(molecule,l_limit,u_limit,level):
+def print_summation_end(molecule,order,level):
    #
-   if (level == 'MACRO'):
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
-      dom = molecule['prim_domain']
-   #
-   count = []
-   #
-   for j in range(0,u_limit):
-      #
-      if ((len(dom[-2][j]) >= 1) and (float(len(dom[-1][j]))/float(len(dom[-2][j])) != 1.0)):
+      with redirect_stdout(f):
          #
-         count.append(True)
-      #
-      else:
-         #
-         count.append(False)
-   #
-   if (any(count)):
-      #
-      with open(molecule['out_dir']+'/bg_output.out','a') as f:
-         #
-         with redirect_stdout(f):
+         if (molecule['conv_energy'][-1]):
             #
             print(' --------------------------------------------------------------------------------------------')
-            print(' UPDATE-{0:}:   orb. domain  |  relat. red. (in %)  |   total red. (in %)  |  screened orbs.  '.format(level))
+            print(' STATUS-{0:}: order = {1:>d} energy summation done --- *** calculation has converged ***'.format(level,order))
             print(' --------------------------------------------------------------------------------------------')
+         #
+         else:
             #
-            for j in range(0,u_limit):
-               #
-               if (count[j]):
-                  #
-                  print(' UPDATE-{0:}:     {1!s:>5}              {2:>6.2f}                 {3:>6.2f}            {4!s:<}'.\
-                                format(level,[(j+l_limit)+1],\
-                                       (1.0-float(len(dom[-1][j]))/float(len(dom[-2][j])))*100.00,\
-                                       (1.0-float(len(dom[-1][j]))/float(len(dom[0][j])))*100.00,\
-                                       sorted(list(set(dom[-2][j])-set(dom[-1][j])))))
+            print(' --------------------------------------------------------------------------------------------')
+            print(' STATUS-{0:}: order = {1:>d} energy summation done'.format(level,order))
+            print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_screen_header(molecule,order,level):
+   #
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
+      #
+      with redirect_stdout(f):
+         #
+         print(' --------------------------------------------------------------------------------------------')
+         print(' STATUS-{0:}: order = {1:>d} screening started'.format(level,order))
+         print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_screening(molecule,thres,n_tup,e_inc):
+   #
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
+      #
+      with redirect_stdout(f):
+         #
+         print(' --------------------------------------------------------------------------------------------')
+         print(' UPDATE-{0:}: screening with thres = {0:.2e} resulted in {1:.2f} % of negligible tuples'.format(thres,(1.0-(len(e_inc[-1])/n_tup[-1]))*100.0))
+         print(' --------------------------------------------------------------------------------------------')
+   #
+   return
+
+def print_screen_end(molecule,order,level):
+   #
+   with open(molecule['out_dir']+'/bg_output.out','a') as f:
+      #
+      with redirect_stdout(f):
+         #
+         if (molecule['conv_orb'][-1]):
             #
+            print(' --------------------------------------------------------------------------------------------')
+            print(' STATUS-{0:}: order = {1:>d} screening done ---  *** calculation has converged ***'.format(level,order))
+            print(' --------------------------------------------------------------------------------------------')
+         #
+         else:
+            #
+            print(' --------------------------------------------------------------------------------------------')
+            print(' STATUS-{0:}: order = {1:>d} screening done'.format(level,order))
             print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -315,100 +285,4 @@ def print_ref_end(molecule):
    print('')
    #
    return
-
-def print_orb_info(molecule,l_limit,u_limit,level):
-   #
-   if (level == 'MACRO'):
-      #
-      orb = molecule['prim_orb_ent']
-      orb_arr = molecule['prim_orb_arr']
-      orb_con_rel = molecule['prim_orb_con_rel']
-   #
-   tmp = np.empty(u_limit,dtype=object)
-   #
-   index = []
-   #
-   index_strings(l_limit,u_limit,index)
-   #
-   with open(molecule['out_dir']+'/bg_output.out','a') as f:
-      #
-      with redirect_stdout(f):
-         #
-         print('')
-         print('   ---------------------------------------------')
-         print('      individual orbital contributions (in %)   ')
-         print('   ---------------------------------------------')
-         #
-         print('')
-         print(' * BG exp. order = 1')
-         print(' -------------------')
-         #
-         print('')
-         print(index[0])
-         print('               '+str(['{0:3d}'.format(int(m*100.0)) for m in orb_con_rel[0]]))
-         print('')
-   #
-   for i in range(0,len(orb)):
-      #
-      with open(molecule['out_dir']+'/bg_output.out','w') as f:
-         #
-         with redirect_stdout(f):
-            #
-            print('')
-            print(' * BG exp. order = '+str(i+2))
-            print(' -------------------')
-            #
-            print('')
-            print(index[1])
-            #
-            for j in range(0,len(orb_arr[i])):
-               #
-               for l in range(0,len(orb_arr[i][j])):
-                  #
-                  if (orb_arr[i][j,l] == 0.0):
-                     #
-                     tmp[l] = '   '
-                  #
-                  else:
-                     #
-                     tmp[l] = int(orb_arr[i][j,l]*100.0)
-               #
-               print('          {0:>3d}  '.format((j+l_limit)+1)+str(['{0:3}'.format(m) for m in tmp]))
-            #
-            print('')
-            print(index[0])
-            print('               '+str(['{0:3d}'.format(int(m*100.0)) for m in orb_con_rel[i+1]]))
-            print('')
-   #
-   del tmp
-   #
-   return
-
-def index_strings(l_limit,u_limit,index):
-   #
-   for i in range(0,2):
-      #
-      if (i == 0):
-         #
-         index.append(' tot. contrib.    ')
-      #
-      elif (i == 1):
-         #
-         index.append(' entanglement     ')
-      #
-      for m in range(l_limit+1,(l_limit+u_limit)+1):
-         #
-         if (m < 10):
-            #
-            index[i] += str(m)+'      '
-         #
-         elif ((m >= 10) and (m < 100)):
-            #
-            index[i] += str(m)+'     '
-         #
-         elif ((m >= 100)):
-            #
-            index[i] += str(m)+'    '
-   #
-   return index
 

@@ -213,7 +213,6 @@ def prepare_calc(molecule):
    # init orb_ent and orb_con lists
    #
    molecule['prim_orb_ent'] = []
-   #
    molecule['prim_orb_arr'] = []
    #
    molecule['prim_orb_con_abs'] = []
@@ -223,10 +222,9 @@ def prepare_calc(molecule):
    #
    molecule['prim_energy'] = []
    #
-   # init exclusion list and e_tmp
+   # init e_tmp
    #
    molecule['e_tmp'] = 0.0
-   molecule['excl_list'] = []
    #
    return molecule
 
