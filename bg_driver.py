@@ -127,7 +127,7 @@ def mono_exp_summation(molecule,order,level):
    #
    # print summation end
    #
-   print_summation_end(molecule,order,level)
+   print_summation_end(molecule,e_inc,order,level)
    # 
    # print results
    #
