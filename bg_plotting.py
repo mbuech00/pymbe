@@ -166,7 +166,7 @@ def orb_ent_all_plot(molecule):
       #
       mask_arr = (molecule['prim_orb_ent_rel'][i] == 0.0)
       #
-      sns.heatmap(np.abs(molecule['prim_orb_ent_rel'][i]*100.0),ax=ax.flat[i],mask=mask_arr,cmap=cmap,\
+      sns.heatmap(np.transpose(molecule['prim_orb_ent_rel'][i]),ax=ax.flat[i],mask=np.transpose(mask_arr),cmap=cmap,\
                        xticklabels=False,yticklabels=False,cbar=True,cbar_ax=cbar_ax,cbar_kws={'format':'%.0f', 'orientation': 'horizontal'},\
                        annot=False,vmin=0.0,vmax=100.0)
       #
@@ -192,13 +192,13 @@ def orb_ent_plot(molecule):
    #
    cmap = sns.cubehelix_palette(as_cmap=True)
    #
-   fig, (ax1, ax2, cbar_ax) = plt.subplots(1, 3, gridspec_kw={'width_ratios':[1.0,1.0,0.08]})
+   fig, (ax1, ax2, cbar_ax) = plt.subplots(1, 3, gridspec_kw={'width_ratios':[1.0,1.0,0.06]})
    #
    ax1.get_shared_y_axes().join(ax2)
    #
    mask_arr = (molecule['prim_orb_ent_rel'][0] == 0.0)
    #
-   sns.heatmap(np.abs(molecule['prim_orb_ent_rel'][0]*100.0),ax=ax1,mask=mask_arr,cmap=cmap,\
+   sns.heatmap(np.transpose(molecule['prim_orb_ent_rel'][0]),ax=ax1,mask=np.transpose(mask_arr),cmap=cmap,\
                     xticklabels=False,yticklabels=False,cbar=False,\
                        annot=False,vmin=0.0,vmax=100.0)
    #
@@ -206,7 +206,7 @@ def orb_ent_plot(molecule):
    #
    mask_arr = (molecule['prim_orb_ent_rel'][-1] == 0.0)
    #
-   sns.heatmap(np.abs(molecule['prim_orb_ent_rel'][-1]*100.0),ax=ax2,mask=mask_arr,cmap=cmap,\
+   sns.heatmap(np.transpose(molecule['prim_orb_ent_rel'][-1]),ax=ax2,mask=np.transpose(mask_arr),cmap=cmap,\
                     xticklabels=False,yticklabels=False,cbar=True,cbar_ax=cbar_ax,cbar_kws={'format':'%.0f'},\
                        annot=False,vmin=0.0,vmax=100.0)
    #

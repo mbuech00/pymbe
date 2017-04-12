@@ -104,9 +104,9 @@ def entanglement_abs(molecule,l_limit,u_limit,order,calc_end):
          #
          for i in range(l_limit,l_limit+u_limit):
             #
-            for j in range(i+1,l_limit+u_limit):
+            for j in range(l_limit,i):
                #
-               # add up contributions from the correlation between orbs i and j at current order
+               # add up absolute contributions from the correlation between orbs i and j at current order
                #
                if (set([i+1,j+1]) <= set(molecule['prim_tuple'][-1][l])):
                   #
@@ -124,7 +124,7 @@ def entanglement_rel(molecule,u_limit,order):
    #
    molecule['prim_orb_ent_rel'].append(np.zeros([u_limit,u_limit],dtype=np.float64))
    #
-   molecule['prim_orb_ent_rel'][-1] = (molecule['prim_orb_ent_abs'][-1]/np.amax(np.abs(molecule['prim_orb_ent_abs'][-1])))*100.0
+   molecule['prim_orb_ent_rel'][-1] = (np.abs(molecule['prim_orb_ent_abs'][-1])/np.amax(np.abs(molecule['prim_orb_ent_abs'][-1])))*100.0
    #
    timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
