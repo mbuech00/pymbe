@@ -47,7 +47,7 @@ def bcast_tuples(molecule,buff,tup,order):
    #
    # append tup[-1] with buff
    #
-   tup.append(buff)
+   if (len(buff) >= 1): tup.append(buff)
    #
    timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
@@ -145,9 +145,15 @@ def tuple_generation_master(molecule,tup,l_limit,u_limit,order,level):
          #
          slaves_avail -= 1
    #
-   # finally we sort the tuples
+   # finally we sort the tuples or mark expansion as converged 
    #
-   if (len(tmp) >= 1): tmp.sort()
+   if (len(tmp) >= 1):
+      #
+      tmp.sort()
+   #
+   else:
+      #
+      molecule['conv_orb'].append(True)
    #
    # make numpy array out of tmp
    #

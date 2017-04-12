@@ -66,9 +66,9 @@ def orb_contributions(molecule,order,singles=False):
       #
       # total absolute orbital contributions
       #
-      for i in range(0,len(molecule['prim_orb_ent'][-1])):
+      for i in range(0,len(molecule['prim_orb_ent_abs'][-1])):
          #
-         molecule['prim_orb_con_abs'][-1].append(molecule['prim_orb_con_abs'][-2][i]+np.sum(molecule['prim_orb_ent'][-1][i]))
+         molecule['prim_orb_con_abs'][-1].append(molecule['prim_orb_con_abs'][-2][i]+np.sum(molecule['prim_orb_ent_abs'][-1][i]))
       #
       # total relative orbital contributions
       #
@@ -98,7 +98,7 @@ def entanglement_abs(molecule,l_limit,u_limit,order,calc_end):
       #
       # write orbital entanglement matrix (abs)
       #
-      molecule['prim_orb_ent'].append(np.zeros([u_limit,u_limit],dtype=np.float64))
+      molecule['prim_orb_ent_abs'].append(np.zeros([u_limit,u_limit],dtype=np.float64))
       #
       for l in range(0,len(molecule['prim_tuple'][-1])):
          #
@@ -110,7 +110,7 @@ def entanglement_abs(molecule,l_limit,u_limit,order,calc_end):
                #
                if (set([i+1,j+1]) <= set(molecule['prim_tuple'][-1][l])):
                   #
-                  molecule['prim_orb_ent'][-1][i-l_limit,j-l_limit] += molecule['prim_energy_inc'][-1][l]
+                  molecule['prim_orb_ent_abs'][-1][i-l_limit,j-l_limit] += molecule['prim_energy_inc'][-1][l]
       #
       timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
@@ -122,9 +122,9 @@ def entanglement_rel(molecule,u_limit,order):
    #
    # write orbital entanglement matrix (rel)
    #
-   molecule['prim_orb_arr'].append(np.zeros([u_limit,u_limit],dtype=np.float64))
+   molecule['prim_orb_ent_rel'].append(np.zeros([u_limit,u_limit],dtype=np.float64))
    #
-   molecule['prim_orb_arr'][-1] = (molecule['prim_orb_ent'][-1]/np.amax(np.abs(molecule['prim_orb_ent'][-1])))*100.0
+   molecule['prim_orb_ent_rel'][-1] = (molecule['prim_orb_ent_abs'][-1]/np.amax(np.abs(molecule['prim_orb_ent_abs'][-1])))*100.0
    #
    timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #

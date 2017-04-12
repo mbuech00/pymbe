@@ -146,9 +146,9 @@ def orb_ent_all_plot(molecule):
    #
    cmap = sns.cubehelix_palette(as_cmap=True)
    #
-   h_length = len(molecule['prim_orb_arr'])//2
+   h_length = len(molecule['prim_orb_ent_rel'])//2
    #
-   if (len(molecule['prim_orb_arr']) % 2 != 0): h_length += 1
+   if (len(molecule['prim_orb_ent_rel']) % 2 != 0): h_length += 1
    #
    ratio = 0.95/float(h_length)
    #
@@ -158,15 +158,15 @@ def orb_ent_all_plot(molecule):
    #
    cbar_ax = fig.add_axes([0.06,0.02,0.88,0.05])
    #
-   mask_arr = np.zeros_like(molecule['prim_orb_arr'][0],dtype=np.bool)
+   mask_arr = np.zeros_like(molecule['prim_orb_ent_rel'][0],dtype=np.bool)
    #
    fig.suptitle('Entanglement matrices')
    #
-   for i in range(0,len(molecule['prim_orb_arr'])):
+   for i in range(0,len(molecule['prim_orb_ent_rel'])):
       #
-      mask_arr = (molecule['prim_orb_arr'][i] == 0.0)
+      mask_arr = (molecule['prim_orb_ent_rel'][i] == 0.0)
       #
-      sns.heatmap(np.abs(molecule['prim_orb_arr'][i]*100.0),ax=ax.flat[i],mask=mask_arr,cmap=cmap,\
+      sns.heatmap(np.abs(molecule['prim_orb_ent_rel'][i]*100.0),ax=ax.flat[i],mask=mask_arr,cmap=cmap,\
                        xticklabels=False,yticklabels=False,cbar=True,cbar_ax=cbar_ax,cbar_kws={'format':'%.0f', 'orientation': 'horizontal'},\
                        annot=False,vmin=0.0,vmax=100.0)
       #
@@ -196,17 +196,17 @@ def orb_ent_plot(molecule):
    #
    ax1.get_shared_y_axes().join(ax2)
    #
-   mask_arr = (molecule['prim_orb_arr'][0] == 0.0)
+   mask_arr = (molecule['prim_orb_ent_rel'][0] == 0.0)
    #
-   sns.heatmap(np.abs(molecule['prim_orb_arr'][0]*100.0),ax=ax1,mask=mask_arr,cmap=cmap,\
+   sns.heatmap(np.abs(molecule['prim_orb_ent_rel'][0]*100.0),ax=ax1,mask=mask_arr,cmap=cmap,\
                     xticklabels=False,yticklabels=False,cbar=False,\
                        annot=False,vmin=0.0,vmax=100.0)
    #
    ax1.set_title('Entanglement matrix, order = 2')
    #
-   mask_arr = (molecule['prim_orb_arr'][-1] == 0.0)
+   mask_arr = (molecule['prim_orb_ent_rel'][-1] == 0.0)
    #
-   sns.heatmap(np.abs(molecule['prim_orb_arr'][-1]*100.0),ax=ax2,mask=mask_arr,cmap=cmap,\
+   sns.heatmap(np.abs(molecule['prim_orb_ent_rel'][-1]*100.0),ax=ax2,mask=mask_arr,cmap=cmap,\
                     xticklabels=False,yticklabels=False,cbar=True,cbar_ax=cbar_ax,cbar_kws={'format':'%.0f'},\
                        annot=False,vmin=0.0,vmax=100.0)
    #

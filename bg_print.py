@@ -254,7 +254,6 @@ def print_ref_header(molecule):
       with redirect_stdout(f):
          #
          print('')
-         print('')
          print('                     ---------------------------------------------                ')
          print('                                reference calculation                             ')
          print('                     ---------------------------------------------                ')

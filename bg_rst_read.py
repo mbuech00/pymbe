@@ -32,17 +32,11 @@ def rst_read_main(molecule):
          #
          rst_read_tup(molecule,files[i])
       #
-      # read orbital entanglement matrix
+      # read orbital entanglement matrices
       #
       elif ('orb_ent' in files[i]):
          #
          rst_read_orb_ent(molecule,files[i])
-      #
-      # read orbital array
-      #
-      elif ('orb_arr' in files[i]):
-         #
-         rst_read_orb_arr(molecule,files[i])
       #
       # read orbital contributions
       #
@@ -82,13 +76,13 @@ def rst_read_tup(molecule,inp):
 
 def rst_read_orb_ent(molecule,inp):
    #
-   molecule['prim_orb_ent'].append(np.load(join(molecule['rst_dir'],inp)))
+   if ('abs' in inp):
+      #
+      molecule['prim_orb_ent_abs'].append(np.load(join(molecule['rst_dir'],inp)))
    #
-   return molecule
-
-def rst_read_orb_arr(molecule,inp):
-   #
-   molecule['prim_orb_arr'].append(np.load(join(molecule['rst_dir'],inp)))
+   elif ('rel' in inp):
+      #
+      molecule['prim_orb_ent_rel'].append(np.load(join(molecule['rst_dir'],inp)))
    #
    return molecule
 
@@ -193,13 +187,9 @@ def rst_sanity_chk(molecule):
    #
    fail = False
    #
-   # orb_ent
+   # orb_ent_abs and orb_ent_rel
    #
-   if (len(molecule['prim_orb_ent']) != (len(molecule['prim_tuple'])-2)): fail = True
-   #
-   # orb_arr
-   #
-   if (len(molecule['prim_orb_arr']) != (len(molecule['prim_tuple'])-2)): fail = True
+   if ((len(molecule['prim_orb_ent_abs']) != (len(molecule['prim_tuple'])-2)) or (len(molecule['prim_orb_ent_rel']) != (len(molecule['prim_tuple'])-2))): fail = True
    #
    # orb_con_abs and orb_con_rel
    #

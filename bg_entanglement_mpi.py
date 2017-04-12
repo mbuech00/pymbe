@@ -89,7 +89,7 @@ def entanglement_abs_par(molecule,l_limit,u_limit,order,calc_end):
       #
       timer_mpi(molecule,'mpi_time_work_screen',order)
       #
-      molecule['prim_orb_ent'].append(recv_buff)
+      molecule['prim_orb_ent_abs'].append(recv_buff)
       #
       timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #

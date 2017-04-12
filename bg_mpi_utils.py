@@ -212,8 +212,8 @@ def prepare_calc(molecule):
    #
    # init orb_ent and orb_con lists
    #
-   molecule['prim_orb_ent'] = []
-   molecule['prim_orb_arr'] = []
+   molecule['prim_orb_ent_abs'] = []
+   molecule['prim_orb_ent_rel'] = []
    #
    molecule['prim_orb_con_abs'] = []
    molecule['prim_orb_con_rel'] = []

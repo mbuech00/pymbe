@@ -55,10 +55,6 @@ def tuple_screening(molecule,tup,e_inc,thres,order):
    #
    molecule['parent_tup'] = tup[-1][indices]
    #
-   # check for convergence wrt orbital expansion
-   #
-   if (len(indices) == 0): molecule['conv_orb'].append(True)
-   #
    del indices
    #
    timer_mpi(molecule,'mpi_time_work_screen',order,True)
@@ -89,9 +85,15 @@ def tuple_generation(molecule,tup,l_limit,u_limit,order,level):
             #
             tmp[-1].append(m)
       #
-      # write to tup list
+      # write to tup list or mark expansion as converged
       #
-      tup.append(np.array(tmp,dtype=np.int32))
+      if (len(tmp) >= 1):
+         #
+         tup.append(np.array(tmp,dtype=np.int32))
+      #
+      else:
+         #
+         molecule['conv_orb'].append(True)
       #
       del tmp
       #

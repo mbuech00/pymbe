@@ -53,10 +53,7 @@ def rst_write_screen(molecule,tup,e_inc,order):
    #
    # write orb_ent_abs and orb_ent_rel
    #
-   if (order >= 2):
-      #
-      rst_write_orb_ent(molecule,order-2)
-      rst_write_orb_arr(molecule,order-2)
+   if (order >= 2): rst_write_orb_ent(molecule,order-2)
    #
    return
 
@@ -70,17 +67,13 @@ def rst_write_tup(molecule,tup,order):
 
 def rst_write_orb_ent(molecule,order):
    #
-   # write orb_ent[k-1]
+   # write orb_ent_abs[k-1]
    #
-   np.save(join(molecule['rst_dir'],'orb_ent_'+str(order+1)),molecule['prim_orb_ent'][order-1])
+   np.save(join(molecule['rst_dir'],'orb_ent_abs_'+str(order+1)),molecule['prim_orb_ent_abs'][order-1])
    #
-   return
-
-def rst_write_orb_arr(molecule,order):
+   # write orb_ent_rel[k-1]
    #
-   # write orb_arr[k-1]
-   #
-   np.save(join(molecule['rst_dir'],'orb_arr_'+str(order+1)),molecule['prim_orb_arr'][order-1])
+   np.save(join(molecule['rst_dir'],'orb_ent_rel_'+str(order+1)),molecule['prim_orb_ent_rel'][order-1])
    #
    return
 
