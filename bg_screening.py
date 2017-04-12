@@ -43,19 +43,9 @@ def tuple_screening(molecule,tup,e_inc,thres,order):
    #
    timer_mpi(molecule,'mpi_time_work_screen',order)
    #
-   # generate list of indices for negligible tuples
+   # fill parent_tup array with non-negligible tuples only
    #
-   indices = []
-   #
-   for i in range(0,len(e_inc[-1])):
-      #
-      if (np.abs(e_inc[-1][i]) >= thres): indices.append(i)
-   #
-   # now screen away tuples according to indices list
-   #
-   molecule['parent_tup'] = tup[-1][indices]
-   #
-   del indices
+   molecule['parent_tup'] = tup[-1][np.where(np.abs(e_inc[-1]) >= thres)]
    #
    timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
