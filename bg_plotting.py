@@ -5,6 +5,7 @@
 
 from copy import deepcopy
 import numpy as np
+from itertools import cycle
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import rcParams
@@ -222,39 +223,6 @@ def orb_ent_plot(molecule):
    #
    return
 
-def orb_con_tot_plot(molecule):
-   #
-   sns.set(style='whitegrid',font='DejaVu Sans')
-   #
-   fig, ax = plt.subplots()
-   #
-   orb_con_arr = 100.0*np.array(molecule['prim_orb_con_rel'])
-   #
-   mask_arr = np.zeros_like(orb_con_arr,dtype=np.bool)
-   #
-   mask_arr = (orb_con_arr == 0.0)
-   #
-   sns.heatmap(orb_con_arr,ax=ax,mask=mask_arr,cmap='coolwarm',cbar_kws={'format':'%.0f'},\
-                    xticklabels=False,yticklabels=range(1,len(molecule['prim_orb_con_rel'])+1),cbar=True,\
-                    annot=False,vmin=0.0,vmax=np.amax(orb_con_arr))
-   #
-   ax.set_title('Total orbital contributions (in %)')
-   #
-   ax.set_ylabel('Expansion order')
-   #
-   ax.set_yticklabels(ax.get_yticklabels(),rotation=0)
-   #
-   sns.despine(left=True,bottom=True)
-   #
-   fig.tight_layout()
-   #
-   plt.savefig(molecule['wrk_dir']+'/output/orb_con_tot_plot.pdf', bbox_inches = 'tight', dpi=1000)
-   #
-   del orb_con_arr
-   del mask_arr
-   #
-   return
-
 def orb_con_order_plot(molecule):
    #
    sns.set(style='darkgrid',palette='Set2',font='DejaVu Sans')
@@ -293,6 +261,122 @@ def orb_con_order_plot(molecule):
    plt.savefig(molecule['wrk_dir']+'/output/orb_con_order_plot.pdf', bbox_inches = 'tight', dpi=1000)
    #
    del orb_con_arr
+   #
+   return
+
+def orb_dist_plot(molecule):
+   #
+   sns.set(style='white', palette='Set2')
+   #
+   palette = cycle(sns.color_palette())
+   #
+   w_length = len(molecule['prim_energy_inc'])//2
+   if (len(molecule['prim_energy_inc']) % 2 != 0): w_length += 1
+   #
+   fig, axes = plt.subplots(2, w_length, figsize=(12, 8), sharex=False, sharey=False)
+   #
+   fig.suptitle('Distribution of energy contributions')
+   #
+   thres = molecule['prim_thres_init']
+   #
+   for i in range(0,len(molecule['prim_energy_inc'])):
+      #
+      if (len(molecule['prim_energy_inc'][i]) == 1):
+         #
+         axes.flat[i].set_xticks([])
+         axes.flat[i].set_yticks([])
+      #
+      else:
+         #
+         e_inc_sort = np.sort(molecule['prim_energy_inc'][i])
+         #
+         e_inc_count = np.zeros(len(e_inc_sort),dtype=np.float64)
+         #
+         for j in range(0,len(e_inc_count)):
+            #
+            e_inc_count[j] = ((j+1)/len(e_inc_count))*100.0
+         #
+         e_inc_contrib = np.zeros(len(e_inc_sort),dtype=np.float64)
+         #
+         for j in range(0,len(e_inc_contrib)):
+            #
+            e_inc_contrib[j] = (np.sum(e_inc_sort[:j+1])/np.sum(e_inc_sort))*100.0
+         #
+         l1 = axes.flat[i].step(e_inc_sort,e_inc_count,where='post',linewidth=2,linestyle='-',color=sns.xkcd_rgb['salmon'],label='Contributions')
+         #
+         l2 = axes.flat[i].axvline(x=0.0,ymin=0.0,ymax=100.0,linewidth=2,linestyle='--',color=sns.xkcd_rgb['royal blue'])
+         #
+         axes.flat[i].axvspan(0.0-thres,0.0+thres,color=sns.xkcd_rgb['amber'],alpha=0.5)
+         #
+         thres *= molecule['prim_scaling']
+         #
+         ax2 = axes.flat[i].twinx()
+         #
+         l3 = ax2.step(e_inc_sort,e_inc_contrib,where='post',linewidth=2,linestyle='-',color=sns.xkcd_rgb['kelly green'],label='Energy')
+         #
+         axes.flat[i].set_title('E-{0:} = {1:4.2e}'.format(i+1,np.sum(e_inc_sort)))
+         #
+         delta = (np.abs(np.max(e_inc_sort)-np.min(e_inc_sort)))*0.05
+         axes.flat[i].set_xlim([np.min(e_inc_sort)-delta,np.max(e_inc_sort)+delta])
+         axes.flat[i].set_xticks([np.min(e_inc_sort),np.max(e_inc_sort)])
+         axes.flat[i].xaxis.set_major_formatter(FormatStrFormatter('%.e'))
+         axes.flat[i].set_yticks([0.0,25.0,50.0,75.0,100.0])
+         #
+         axes.flat[i].tick_params('y',colors=sns.xkcd_rgb['salmon'])
+         ax2.tick_params('y',colors=sns.xkcd_rgb['kelly green'])
+         #
+         if (not ((i == 0) or (i == w_length))): axes.flat[i].set_yticks([])
+         #
+         if (i == 0):
+            #
+            lns = l1+l3
+            labs = [l.get_label() for l in lns]
+            plt.legend(lns,labs,loc=2,fancybox=True,frameon=True)
+   #
+   plt.tight_layout()
+   #
+   if (len(molecule['prim_energy_inc'][-1]) == 1): sns.despine(left=True,bottom=True,ax=axes.flat[-1])
+   #
+   plt.subplots_adjust(top=0.925)
+   #
+   plt.savefig(molecule['wrk_dir']+'/output/orb_dist_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del e_inc_sort
+   del e_inc_count
+   del e_inc_contrib
+   #
+   return
+
+def orb_con_tot_plot(molecule):
+   #
+   sns.set(style='whitegrid',font='DejaVu Sans')
+   #
+   fig, ax = plt.subplots()
+   #
+   orb_con_arr = 100.0*np.array(molecule['prim_orb_con_rel'])
+   #
+   mask_arr = np.zeros_like(orb_con_arr,dtype=np.bool)
+   #
+   mask_arr = (orb_con_arr == 0.0)
+   #
+   sns.heatmap(orb_con_arr,ax=ax,mask=mask_arr,cmap='coolwarm',cbar_kws={'format':'%.0f'},\
+                    xticklabels=False,yticklabels=range(1,len(molecule['prim_orb_con_rel'])+1),cbar=True,\
+                    annot=False,vmin=0.0,vmax=np.amax(orb_con_arr))
+   #
+   ax.set_title('Total orbital contributions (in %)')
+   #
+   ax.set_ylabel('Expansion order')
+   #
+   ax.set_yticklabels(ax.get_yticklabels(),rotation=0)
+   #
+   sns.despine(left=True,bottom=True)
+   #
+   fig.tight_layout()
+   #
+   plt.savefig(molecule['wrk_dir']+'/output/orb_con_tot_plot.pdf', bbox_inches = 'tight', dpi=1000)
+   #
+   del orb_con_arr
+   del mask_arr
    #
    return
 
@@ -526,6 +610,10 @@ def ic_plot(molecule):
    #  ---  plot individual orbital contributions by order  ---
    #
    orb_con_order_plot(molecule)
+   #
+   #  ---  plot orbital/energy distributions
+   #
+   orb_dist_plot(molecule)
    #
    #  ---  plot total orbital contributions  ---
    #
