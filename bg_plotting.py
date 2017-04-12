@@ -150,13 +150,13 @@ def orb_ent_all_plot(molecule):
    #
    if (len(molecule['prim_orb_ent_rel']) % 2 != 0): h_length += 1
    #
-   ratio = 0.95/float(h_length)
+   ratio = 0.98/float(h_length)
    #
-   fig, ax = plt.subplots(h_length+1, 2, sharex='col', sharey='row', gridspec_kw = {'height_ratios': [ratio]*h_length+[0.05]})
+   fig, ax = plt.subplots(h_length+1, 2, sharex='col', sharey='row', gridspec_kw = {'height_ratios': [ratio]*h_length+[0.02]})
    #
    fig.set_size_inches([8.268,11.693])
    #
-   cbar_ax = fig.add_axes([0.06,0.02,0.88,0.05])
+   cbar_ax = fig.add_axes([0.06,0.02,0.88,0.03])
    #
    mask_arr = np.zeros_like(molecule['prim_orb_ent_rel'][0],dtype=np.bool)
    #
