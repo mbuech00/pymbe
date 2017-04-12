@@ -300,7 +300,7 @@ def orb_dist_plot(molecule):
          #
          for j in range(0,len(e_inc_contrib)):
             #
-            e_inc_contrib[j] = (np.sum(e_inc_sort[:j+1])/np.sum(e_inc_sort))*100.0
+            e_inc_contrib[j] = np.sum(e_inc_sort[:j+1])
          #
          l1 = axes.flat[i].step(e_inc_sort,e_inc_count,where='post',linewidth=2,linestyle='-',color=sns.xkcd_rgb['salmon'],label='Contributions')
          #
@@ -319,7 +319,8 @@ def orb_dist_plot(molecule):
          delta = (np.abs(np.max(e_inc_sort)-np.min(e_inc_sort)))*0.05
          axes.flat[i].set_xlim([np.min(e_inc_sort)-delta,np.max(e_inc_sort)+delta])
          axes.flat[i].set_xticks([np.min(e_inc_sort),np.max(e_inc_sort)])
-         axes.flat[i].xaxis.set_major_formatter(FormatStrFormatter('%.e'))
+         axes.flat[i].xaxis.set_major_formatter(FormatStrFormatter('%.1e'))
+         ax2.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
          axes.flat[i].set_yticks([0.0,25.0,50.0,75.0,100.0])
          #
          axes.flat[i].tick_params('y',colors=sns.xkcd_rgb['salmon'])
