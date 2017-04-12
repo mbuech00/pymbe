@@ -19,17 +19,17 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def screening_main(molecule,tup,n_tup,e_inc,thres,l_limit,u_limit,order):
+def screening_main(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
    #
    # screen away tuples with energy contributions lower than thres
    #
    tuple_screening(molecule,tup,e_inc,thres,order)
    #
-   if (len(e_inc[-1]) < n_tup[-1]): print_screening(molecule,n_tup,e_inc)
+   if (len(molecule['parent_tup']) < len(tup[-1])): print_screening(molecule,thres,tup,level)
    #
    # now generate new tuples for following order
    #
-   tuple_generation(molecule,tup,n_tup,l_limit,u_limit,order)
+   tuple_generation(molecule,tup,l_limit,u_limit,order,level)
    #
    if (molecule['mpi_parallel']): collect_screen_mpi_time(molecule,order,True)
    #
@@ -49,12 +49,11 @@ def tuple_screening(molecule,tup,e_inc,thres,order):
    #
    for i in range(0,len(e_inc[-1])):
       #
-      if (np.abs(e_inc[-1][i]) < thres): indices.append(i)
+      if (np.abs(e_inc[-1][i]) >= thres): indices.append(i)
    #
    # now screen away tuples according to indices list
    #
-   tup[-1] = tup[-1][indices]
-   e_inc[-1] = e_inc[-1][indices]
+   molecule['parent_tup'] = tup[-1][indices]
    #
    # check for convergence wrt orbital expansion
    #
@@ -64,13 +63,13 @@ def tuple_screening(molecule,tup,e_inc,thres,order):
    #
    timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
-   return molecule, tup, e_inc
+   return molecule, tup
 
-def tuple_generation(molecule,tup,n_tup,l_limit,u_limit,order):
+def tuple_generation(molecule,tup,l_limit,u_limit,order,level):
    #
    if (molecule['mpi_parallel']):
       #
-      tuple_generation_master(molecule,tup,n_tup,l_limit,u_limit,order)
+      tuple_generation_master(molecule,tup,l_limit,u_limit,order,level)
    #
    else:
       #
@@ -78,19 +77,15 @@ def tuple_generation(molecule,tup,n_tup,l_limit,u_limit,order):
       #
       tmp = []
       #
-      for i in range(0,len(tup[-1])):
-         #
-         # set parent tuple
-         #
-         parent_tup = tup[-1][i]
+      for i in range(0,len(molecule['parent_tup'])):
          #
          # loop through possible orbitals to augment the parent tuple with
          #
-         for m in range(parent_tup[-1]+1,(l_limit+u_limit)+1):
+         for m in range(molecule['parent_tup'][i][-1]+1,(l_limit+u_limit)+1):
             #
             # append the child tuple to the tmp list
             #
-            tmp.append(list(deepcopy(parent_tup)))
+            tmp.append(list(deepcopy(molecule['parent_tup'][i])))
             #
             tmp[-1].append(m)
       #
@@ -98,15 +93,11 @@ def tuple_generation(molecule,tup,n_tup,l_limit,u_limit,order):
       #
       tup.append(np.array(tmp,dtype=np.int32))
       #
-      # update n_tup list
-      #
-      n_tup.append(len(tup[-1]))
-      #
       del tmp
       #
       timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #
-   return molecule, tup, n_tup
+   return molecule, tup
 
 def update_thres_and_rst_freq(molecule):
    #

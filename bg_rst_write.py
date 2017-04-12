@@ -40,7 +40,7 @@ def rst_write_summation(molecule,e_inc,e_tot,order):
    #
    return
 
-def rst_write_screen(molecule,tup,n_tup,e_inc,order):
+def rst_write_screen(molecule,tup,e_inc,order):
    #
    # write orb_con_abs, orb_con_rel, and tup
    #

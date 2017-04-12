@@ -33,7 +33,7 @@ def red_orb_ent(molecule,tmp,recv_buff,order):
    #
    return recv_buff
 
-def entanglement_abs_par(molecule,l_limit,u_limit,order):
+def entanglement_abs_par(molecule,l_limit,u_limit,order,calc_end):
    #
    #  ---  master/slave routine
    #
@@ -43,7 +43,7 @@ def entanglement_abs_par(molecule,l_limit,u_limit,order):
       #
       timer_mpi(molecule,'mpi_time_idle_screen',order)
       #
-      msg = {'task': 'entanglement_abs_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order}
+      msg = {'task': 'entanglement_abs_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'calc_end': calc_end}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #
@@ -89,9 +89,7 @@ def entanglement_abs_par(molecule,l_limit,u_limit,order):
       #
       timer_mpi(molecule,'mpi_time_work_screen',order)
       #
-      if (level == 'MACRO'):
-         #
-         molecule['prim_orb_ent'].append(recv_buff)
+      molecule['prim_orb_ent'].append(recv_buff)
       #
       timer_mpi(molecule,'mpi_time_work_screen',order,True)
    #

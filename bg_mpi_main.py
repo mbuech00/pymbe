@@ -142,7 +142,7 @@ def main_slave(molecule):
       #
       elif (msg['task'] == 'entanglement_abs_par'):
          #
-         entanglement_abs_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'])
+         entanglement_abs_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['calc_end'])
          #
          collect_screen_mpi_time(molecule,msg['order'],msg['calc_end'])
       #
@@ -154,7 +154,7 @@ def main_slave(molecule):
          #
          if (msg['level'] == 'MACRO'):
             #
-            tuple_generation_slave(molecule,molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'])
+            tuple_generation_slave(molecule,molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
          #
          collect_screen_mpi_time(molecule,msg['order'],True)
       #
@@ -174,7 +174,7 @@ def main_slave(molecule):
          #
          if (msg['level'] == 'MACRO'):
             #
-            energy_summation_par(molecule,msg['order'],molecule['prim_tuple'],molecule['prim_energy_inc'],None,'MACRO')
+            energy_summation_par(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],None,None,msg['order'],'MACRO')
          #
          collect_summation_mpi_time(molecule,msg['order'])
       #

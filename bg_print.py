@@ -209,15 +209,21 @@ def print_screen_header(molecule,order,level):
    #
    return
 
-def print_screening(molecule,thres,n_tup,e_inc):
+def print_screening(molecule,thres,tup,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
       with redirect_stdout(f):
          #
          print(' --------------------------------------------------------------------------------------------')
-         print(' UPDATE-{0:}: screening with thres = {0:.2e} resulted in {1:.2f} % of negligible tuples'.format(thres,(1.0-(len(e_inc[-1])/n_tup[-1]))*100.0))
+         print(' UPDATE-{0:}: threshold value of {1:.2e} resulted in screening of {2:.2f} % of the tuples'.\
+                 format(level,thres,(1.0-(len(molecule['parent_tup'])/len(tup[-1])))*100.0))
          print(' --------------------------------------------------------------------------------------------')
+   #
+   print(' --------------------------------------------------------------------------------------------')
+   print(' UPDATE-{0:}: threshold value of {1:.2e} resulted in screening of {2:.2f} % of the tuples'.\
+           format(level,thres,(1.0-(len(molecule['parent_tup'])/len(tup[-1])))*100.0))
+   print(' --------------------------------------------------------------------------------------------')
    #
    return
 

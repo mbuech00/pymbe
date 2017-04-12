@@ -7,7 +7,6 @@ import numpy as np
 
 from bg_mpi_time import timer_mpi, collect_screen_mpi_time
 from bg_entanglement_mpi import entanglement_abs_par
-from bg_print import print_orb_info, print_update
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -24,7 +23,7 @@ def entanglement_main(molecule,l_limit,u_limit,order,calc_end=False):
    #
    if (order >= 2):
       #
-      entanglement_abs(molecule,l_limit,u_limit,order)
+      entanglement_abs(molecule,l_limit,u_limit,order,calc_end)
       #
       entanglement_rel(molecule,u_limit,order)
    #
@@ -32,7 +31,7 @@ def entanglement_main(molecule,l_limit,u_limit,order,calc_end=False):
    #
    orb_contributions(molecule,order,(order == 1))
    #
-   if (molecule['mpi_parallel']): collect_screen_mpi_time(molecule,order,calc_end)
+   if (molecule['mpi_parallel'] and (order >= 2)): collect_screen_mpi_time(molecule,order,calc_end)
    #
    return molecule
 
@@ -87,11 +86,11 @@ def orb_contributions(molecule,order,singles=False):
    #
    return molecule
 
-def entanglement_abs(molecule,l_limit,u_limit,order):
+def entanglement_abs(molecule,l_limit,u_limit,order,calc_end):
    #
    if (molecule['mpi_parallel']):
       #
-      entanglement_abs_par(molecule,l_limit,u_limit,order)
+      entanglement_abs_par(molecule,l_limit,u_limit,order,calc_end)
    #
    else:
       #

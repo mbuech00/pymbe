@@ -53,7 +53,7 @@ def bcast_tuples(molecule,buff,tup,order):
    #
    return tup
 
-def tuple_generation_master(molecule,tup,n_tup,l_limit,u_limit,order):
+def tuple_generation_master(molecule,tup,l_limit,u_limit,order,level):
    #
    #  ---  master routine
    #
@@ -61,7 +61,7 @@ def tuple_generation_master(molecule,tup,n_tup,l_limit,u_limit,order):
    #
    timer_mpi(molecule,'mpi_time_idle_screen',order)
    #
-   msg = {'task': 'tuple_generation_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order}
+   msg = {'task': 'tuple_generation_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
@@ -111,9 +111,9 @@ def tuple_generation_master(molecule,tup,n_tup,l_limit,u_limit,order):
       #
       if (tag == tags.ready):
          #
-         if (i <= len(tup[-1])-1):
+         if (i <= len(molecule['parent_tup'])-1):
             #
-            job_info['index'] = i
+            job_info['parent_tup'] = molecule['parent_tup'][i]
             #
             # send parent tuple index
             #
@@ -157,15 +157,11 @@ def tuple_generation_master(molecule,tup,n_tup,l_limit,u_limit,order):
    #
    bcast_tuples(molecule,buff,tup,order)
    #
-   # update n_tup list
-   #
-   n_tup.append(len(tup[-1]))
-   #
    del tmp
    #
-   return molecule, tup, n_tup
+   return molecule, tup
 
-def tuple_generation_slave(molecule,tup,l_limit,u_limit,order):
+def tuple_generation_slave(molecule,tup,l_limit,u_limit,order,level):
    #
    #  ---  slave routine
    #
@@ -203,17 +199,13 @@ def tuple_generation_slave(molecule,tup,l_limit,u_limit,order):
          #
          data['child_tup'][:] = []
          #
-         # set parent tuple
-         #
-         parent_tup = tup[-1][job_info['index']]
-         #
          # loop through possible orbitals to augment the parent tuple with
          #
-         for m in range(parent_tup[-1]+1,(l_limit+u_limit)+1):
+         for m in range(job_info['parent_tup'][-1]+1,(l_limit+u_limit)+1):
             #
             # append the child tuple to the tup list
             #
-            data['child_tup'].append(list(deepcopy(parent_tup)))
+            data['child_tup'].append(list(deepcopy(job_info['parent_tup'])))
             #
             data['child_tup'][-1].append(m)
          #

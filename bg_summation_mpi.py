@@ -18,7 +18,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_summation_par(molecule,order,tup,e_inc,energy):
+def energy_summation_par(molecule,tup,e_inc,energy,thres,order,level):
    #
    #  ---  master/slave routine
    #
@@ -28,7 +28,7 @@ def energy_summation_par(molecule,order,tup,e_inc,energy):
       #
       timer_mpi(molecule,'mpi_time_idle_summation',order)
       #
-      msg = {'task': 'energy_summation_par', 'order': order}
+      msg = {'task': 'energy_summation_par', 'order': order, 'level': level}
       #
       molecule['mpi_comm'].bcast(msg,root=0)
       #
@@ -66,15 +66,13 @@ def energy_summation_par(molecule,order,tup,e_inc,energy):
       #
       # sum of total energy
       #
-      if (order >= 2):
-         #
-         e_tmp += energy[-2]
+      if (order >= 2): e_tmp += energy[-1]
       #
       energy.append(e_tmp)
       #
       # check for convergence wrt total energy
       #
-      if ((order >= 2) and (abs(energy[-1]-energy[-2]) < molecule['prim_thres'])): molecule['conv_energy'].append(True)
+      if ((order >= 2) and (abs(energy[-1]-energy[-2]) < thres)): molecule['conv_energy'].append(True)
    #
    return molecule, e_inc, energy
 

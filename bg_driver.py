@@ -110,7 +110,8 @@ def mono_exp_summation(molecule,order,level):
       #
       tup = molecule['prim_tuple']
       e_inc = molecule['prim_energy_inc']
-      e_tot = molecule['prim_thres']
+      e_tot = molecule['prim_energy']
+      thres = molecule['prim_thres']
    #
    # print summation header
    #
@@ -118,7 +119,7 @@ def mono_exp_summation(molecule,order,level):
    #
    # calculate the energy at current order
    #
-   energy_summation(molecule,order,tup,e_inc,e_tot,level)
+   energy_summation(molecule,tup,e_inc,e_tot,thres,order,level)
    #
    # write restart files
    #
@@ -139,7 +140,6 @@ def mono_exp_screen(molecule,order,level):
    if (level == 'MACRO'):
       #
       tup = molecule['prim_tuple']
-      n_tup = molecule['prim_n_tuples']
       e_inc = molecule['prim_energy_inc']
       thres = molecule['prim_thres']
    #
@@ -157,15 +157,15 @@ def mono_exp_screen(molecule,order,level):
       #
       # perform screening
       #
-      screening_main(molecule,tup,n_tup,e_inc,thres,molecule['l_limit'],molecule['u_limit'],order)
+      screening_main(molecule,tup,e_inc,thres,molecule['l_limit'],molecule['u_limit'],order,level)
       #
       # write restart files
       #
-      rst_write_screen(molecule,tup,n_tup,e_inc,order)
+      rst_write_screen(molecule,tup,e_inc,order)
    #
    # print screen end
    #
-   print_screen_end(molecule,k,level)
+   print_screen_end(molecule,order,level)
    #
    return molecule
 

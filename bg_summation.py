@@ -18,11 +18,11 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def energy_summation(molecule,order,tup,e_inc,energy):
+def energy_summation(molecule,tup,e_inc,energy,thres,order,level):
    #
    if (molecule['mpi_parallel']):
       #
-      energy_summation_par(molecule,order,tup,e_inc,energy)
+      energy_summation_par(molecule,tup,e_inc,energy,thres,order,level)
       #
       collect_summation_mpi_time(molecule,order)
    #
@@ -50,9 +50,7 @@ def energy_summation(molecule,order,tup,e_inc,energy):
       #
       # sum of total energy
       #
-      if (order >= 2):
-         #
-         e_tmp += energy[-2]
+      if (order >= 2): e_tmp += energy[-1]
       #
       energy.append(e_tmp)
       #
@@ -60,7 +58,7 @@ def energy_summation(molecule,order,tup,e_inc,energy):
       #
       # check for convergence wrt total energy
       #
-      if ((order >= 2) and (abs(energy[-1]-energy[-2]) < molecule['prim_thres'])): molecule['conv_energy'].append(True)
+      if ((order >= 2) and (abs(energy[-1]-energy[-2]) < thres)): molecule['conv_energy'].append(True)
    #
    return molecule, e_inc, energy
 
