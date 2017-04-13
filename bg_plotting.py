@@ -277,7 +277,7 @@ def orb_dist_plot(molecule):
    #
    fig.suptitle('Distribution of energy contributions')
    #
-   thres = molecule['prim_thres_init']
+   thres = molecule['prim_exp_thres_init']
    #
    for i in range(0,len(molecule['prim_energy_inc'])):
       #
@@ -303,7 +303,7 @@ def orb_dist_plot(molecule):
          #
          axes.flat[i].axvspan(0.0-thres,0.0+thres,color=sns.xkcd_rgb['amber'],alpha=0.5)
          #
-         thres /= molecule['prim_scaling']
+         thres /= molecule['prim_exp_scaling']
          #
          ax2 = axes.flat[i].twinx()
          #

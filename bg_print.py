@@ -154,7 +154,7 @@ def print_summation_header(molecule,order,level):
       with redirect_stdout(f):
          #
          print(' --------------------------------------------------------------------------------------------')
-         print(' STATUS-{0:}: order = {1:>d} energy summation started'.format(level,order))
+         print(' STATUS-{0:}: order = {1:>d} summation started'.format(level,order))
          print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -177,7 +177,7 @@ def print_results(molecule,tup,e_inc,level):
    #
    return
 
-def print_summation_end(molecule,e_inc,order,level):
+def print_summation_end(molecule,e_inc,thres,order,level):
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
@@ -186,13 +186,14 @@ def print_summation_end(molecule,e_inc,order,level):
          if (molecule['conv_energy'][-1]):
             #
             print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} energy summation done (E = {2:.6e}) --- *** convergence ***'.format(level,order,np.sum(e_inc[-1])))
+            print(' STATUS-{0:}: order = {1:>d} summation done (E = {2:.6e}, threshold = {3:<5.2e})'.format(level,order,np.sum(e_inc[-1]),thres))
+            print(' STATUS-{0:}:                  *** convergence has been reached ***'.format(level))
             print(' --------------------------------------------------------------------------------------------')
          #
          else:
             #
             print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} energy summation done (E = {2:.6e})'.format(level,order,np.sum(e_inc[-1])))
+            print(' STATUS-{0:}: order = {1:>d} summation done (E = {2:.6e}, thres. = {3:<5.2e})'.format(level,order,np.sum(e_inc[-1]),thres))
             print(' --------------------------------------------------------------------------------------------')
    #
    return
@@ -236,7 +237,8 @@ def print_screen_end(molecule,order,level):
          if (molecule['conv_orb'][-1]):
             #
             print(' --------------------------------------------------------------------------------------------')
-            print(' STATUS-{0:}: order = {1:>d} screening done ---  *** convergence ***'.format(level,order))
+            print(' STATUS-{0:}: order = {1:>d} screening done'.format(level,order))
+            print(' STATUS-{0:}:                  *** convergence has been reached ***'.format(level))
             print(' --------------------------------------------------------------------------------------------')
          #
          else:

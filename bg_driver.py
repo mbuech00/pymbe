@@ -111,7 +111,7 @@ def mono_exp_summation(molecule,order,level):
       tup = molecule['prim_tuple']
       e_inc = molecule['prim_energy_inc']
       e_tot = molecule['prim_energy']
-      thres = molecule['prim_thres']
+      thres = molecule['prim_energy_thres']
    #
    # print summation header
    #
@@ -127,7 +127,7 @@ def mono_exp_summation(molecule,order,level):
    #
    # print summation end
    #
-   print_summation_end(molecule,e_inc,order,level)
+   print_summation_end(molecule,e_inc,thres,order,level)
    # 
    # print results
    #
@@ -141,7 +141,7 @@ def mono_exp_screen(molecule,order,level):
       #
       tup = molecule['prim_tuple']
       e_inc = molecule['prim_energy_inc']
-      thres = molecule['prim_thres']
+      thres = molecule['prim_exp_thres']
    #
    # print screen header
    #

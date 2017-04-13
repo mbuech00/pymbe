@@ -129,7 +129,7 @@ def update_thres_and_rst_freq(molecule):
    #
    # update threshold by dividing it by exp. scaling
    #
-   molecule['prim_thres'] /= molecule['prim_scaling']
+   molecule['prim_exp_thres'] /= molecule['prim_exp_scaling']
    #
    # update restart frequency by halving it
    #
