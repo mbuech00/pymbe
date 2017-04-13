@@ -4,7 +4,7 @@
 """ bg_screening.py: screening routines for Bethe-Goldstone correlation calculations."""
 
 import numpy as np
-from copy import deepcopy
+from itertools import combinations
 
 from bg_mpi_time import timer_mpi, collect_screen_mpi_time
 from bg_screening_mpi import tuple_generation_master
@@ -21,15 +21,13 @@ __status__ = 'Development'
 
 def screening_main(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
    #
-   # screen away tuples with energy contributions lower than thres
+   # generate tuples for next order
    #
-   tuple_screening(molecule,tup,e_inc,thres,order)
+   tuple_generation(molecule,tup,e_inc,thres,l_limit,u_limit,order,level)
    #
-   if (len(molecule['parent_tup']) < len(tup[-1])): print_screening(molecule,thres,tup,level)
+   # print screening results
    #
-   # now generate new tuples for following order
-   #
-   tuple_generation(molecule,tup,l_limit,u_limit,order,level)
+   print_screening(molecule,thres,tup,level)
    #
    if (molecule['mpi_parallel']): collect_screen_mpi_time(molecule,order,True)
    #
@@ -51,29 +49,64 @@ def tuple_screening(molecule,tup,e_inc,thres,order):
    #
    return molecule, tup
 
-def tuple_generation(molecule,tup,l_limit,u_limit,order,level):
+def tuple_generation(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
    #
    if (molecule['mpi_parallel']):
       #
-      tuple_generation_master(molecule,tup,l_limit,u_limit,order,level)
+      tuple_generation_master(molecule,tup,e_inc,thres,l_limit,u_limit,order,level)
    #
    else:
       #
       timer_mpi(molecule,'mpi_time_work_screen',order)
       #
-      tmp = []
+      # determine which tuples have contributions below the threshold
       #
-      for i in range(0,len(molecule['parent_tup'])):
+      molecule['negl_tuple'] = tup[-1][np.where(np.abs(e_inc[-1]) < thres)]
+      #
+      molecule['screen_count'] = 0
+      #
+      tmp = []
+      combs = []
+      #
+      for i in range(0,len(tup[-1])):
          #
-         # loop through possible orbitals to augment the parent tuple with
+         if (np.abs(e_inc[-1][i]) >= thres):
+            #
+            # loop through possible orbitals to augment the parent tuple with
+            #
+            for m in range(tup[-1][i][-1]+1,(l_limit+u_limit)+1): tmp.append(tup[-1][i].tolist()+[m])
          #
-         for m in range(molecule['parent_tup'][i][-1]+1,(l_limit+u_limit)+1):
+         else:
             #
-            # append the child tuple to the tmp list
+            # generate list with all subsets of particular tuple
             #
-            tmp.append(list(deepcopy(molecule['parent_tup'][i])))
+            combs = list(list(comb) for comb in combinations(tup[-1][i],order-1))
             #
-            tmp[-1].append(m)
+            # loop through possible orbitals to augment the combinations with
+            #
+            for m in range(tup[-1][i][-1]+1,(l_limit+u_limit)+1):
+               #
+               screen = True
+               #
+               for j in range(0,len(combs)):
+                  #
+                  # check whether or not the particular tuple is actually allowed
+                  #
+                  if (np.equal(combs[j]+[m],tup[-1]).all(axis=1).any()):
+                     #
+                     # check whether or not the particular tuple is among negligible tuples
+                     #
+                     if (not (np.equal(combs[j]+[m],molecule['negl_tuple']).all(axis=1).any())):
+                        #
+                        screen = False
+                        #
+                        tmp.append(tup[-1][i].tolist()+[m])
+                        #
+                        break
+               #
+               # if tuple should be screened away, then increment screen counter
+               #
+               if (screen): molecule['screen_count'] += 1
       #
       # write to tup list or mark expansion as converged
       #
@@ -85,6 +118,7 @@ def tuple_generation(molecule,tup,l_limit,u_limit,order,level):
          #
          molecule['conv_orb'].append(True)
       #
+      del combs
       del tmp
       #
       timer_mpi(molecule,'mpi_time_work_screen',order,True)
@@ -93,9 +127,9 @@ def tuple_generation(molecule,tup,l_limit,u_limit,order,level):
 
 def update_thres_and_rst_freq(molecule):
    #
-   # update threshold by multiplying it by exp. scaling
+   # update threshold by dividing it by exp. scaling
    #
-   molecule['prim_thres'] *= molecule['prim_scaling']
+   molecule['prim_thres'] /= molecule['prim_scaling']
    #
    # update restart frequency by halving it
    #

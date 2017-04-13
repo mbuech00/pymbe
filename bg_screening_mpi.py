@@ -3,9 +3,9 @@
 
 """ bg_screening_mpi.py: MPI screening routines for Bethe-Goldstone correlation calculations."""
 
-import numpy as np
 from mpi4py import MPI
-from copy import deepcopy
+import numpy as np
+from itertools import combinations
 
 from bg_mpi_time import timer_mpi
 from bg_mpi_utils import enum
@@ -53,7 +53,7 @@ def bcast_tuples(molecule,buff,tup,order):
    #
    return tup
 
-def tuple_generation_master(molecule,tup,l_limit,u_limit,order,level):
+def tuple_generation_master(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
    #
    #  ---  master routine
    #
@@ -61,7 +61,7 @@ def tuple_generation_master(molecule,tup,l_limit,u_limit,order,level):
    #
    timer_mpi(molecule,'mpi_time_idle_screen',order)
    #
-   msg = {'task': 'tuple_generation_par', 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
+   msg = {'task': 'tuple_generation_par', 'thres': thres, 'l_limit': l_limit, 'u_limit': u_limit, 'order': order, 'level': level}
    #
    molecule['mpi_comm'].bcast(msg,root=0)
    #
@@ -91,6 +91,8 @@ def tuple_generation_master(molecule,tup,l_limit,u_limit,order,level):
    #
    tmp = []
    #
+   molecule['screen_count'] = 0
+   #
    while (slaves_avail >= 1):
       #
       # receive data dict
@@ -111,9 +113,9 @@ def tuple_generation_master(molecule,tup,l_limit,u_limit,order,level):
       #
       if (tag == tags.ready):
          #
-         if (i <= len(molecule['parent_tup'])-1):
+         if (i <= len(tup[-1])-1):
             #
-            job_info['parent_tup'] = molecule['parent_tup'][i]
+            job_info['index'] = i
             #
             # send parent tuple index
             #
@@ -139,7 +141,11 @@ def tuple_generation_master(molecule,tup,l_limit,u_limit,order,level):
          #
          # write tmp child tuple list
          #
-         tmp += data['child_tup'] 
+         tmp += data['child_tuple'] 
+         #
+         # increment number of screened tuples
+         #
+         molecule['screen_count'] += data['screen_count']
       #
       elif (tag == tags.exit):
          #
@@ -167,7 +173,7 @@ def tuple_generation_master(molecule,tup,l_limit,u_limit,order,level):
    #
    return molecule, tup
 
-def tuple_generation_slave(molecule,tup,l_limit,u_limit,order,level):
+def tuple_generation_slave(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
    #
    #  ---  slave routine
    #
@@ -179,7 +185,15 @@ def tuple_generation_slave(molecule,tup,l_limit,u_limit,order,level):
    #
    # init data dict
    #
-   data = {'child_tup': []}
+   data = {'child_tuple': [], 'screen_count': 0}
+   #
+   # init combs list
+   #
+   combs = []
+   #
+   # determine which tuples have contributions below the threshold
+   #
+   molecule['negl_tuple'] = tup[-1][np.where(np.abs(e_inc[-1]) < thres)]
    #
    while True:
       #
@@ -203,21 +217,51 @@ def tuple_generation_slave(molecule,tup,l_limit,u_limit,order,level):
       #
       if (tag == tags.start):
          #
-         data['child_tup'][:] = []
+         data['child_tuple'][:] = []
          #
-         # loop through possible orbitals to augment the parent tuple with
+         data['screen_count'] = 0
          #
-         for m in range(job_info['parent_tup'][-1]+1,(l_limit+u_limit)+1):
+         if (np.abs(e_inc[-1][job_info['index']]) >= thres):
             #
-            # append the child tuple to the tup list
+            # loop through possible orbitals to augment the parent tuple with
             #
-            data['child_tup'].append(list(deepcopy(job_info['parent_tup'])))
+            for m in range(tup[-1][job_info['index']][-1]+1,(l_limit+u_limit)+1): data['child_tuple'].append(tup[-1][job_info['index']].tolist()+[m])
+         #
+         else:
             #
-            data['child_tup'][-1].append(m)
+            # generate list with all subsets of particular tuple
+            #
+            combs = list(list(comb) for comb in combinations(tup[-1][job_info['index']],order-1))
+            #
+            # loop through possible orbitals to augment the combinations with
+            #
+            for m in range(tup[-1][job_info['index']][-1]+1,(l_limit+u_limit)+1):
+               #
+               screen = True
+               #
+               for j in range(0,len(combs)):
+                  #
+                  # check whether or not the particular tuple is actually allowed
+                  #
+                  if (np.equal(combs[j]+[m],tup[-1]).all(axis=1).any()):
+                     #
+                     # check whether or not the particular tuple is among negligible tuples
+                     #
+                     if (not (np.equal(combs[j]+[m],molecule['negl_tuple']).all(axis=1).any())):
+                        #
+                        screen = False
+                        #
+                        data['child_tuple'].append(tup[-1][job_info['index']].tolist()+[m])
+                        #
+                        break
+               #
+               # if tuple should be screened away, then increment screen counter
+               #
+               if (screen): data['screen_count'] += 1
          #
          timer_mpi(molecule,'mpi_time_comm_screen',order)
          #
-         # send child tuple back to master
+         # send data back to master
          #
          molecule['mpi_comm'].send(data,dest=0,tag=tags.done)
          #
@@ -244,6 +288,8 @@ def tuple_generation_slave(molecule,tup,l_limit,u_limit,order,level):
    # receive buffer
    #
    bcast_tuples(molecule,buff,tup,order)
+   #
+   del combs
    #
    data.clear()
    #

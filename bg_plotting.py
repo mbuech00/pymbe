@@ -281,12 +281,7 @@ def orb_dist_plot(molecule):
    #
    for i in range(0,len(molecule['prim_energy_inc'])):
       #
-      if (len(molecule['prim_energy_inc'][i]) == 1):
-         #
-         axes.flat[i].set_xticks([])
-         axes.flat[i].set_yticks([])
-      #
-      else:
+      if (len(molecule['prim_energy_inc'][i]) != 1):
          #
          e_inc_sort = np.sort(molecule['prim_energy_inc'][i])
          #
@@ -308,7 +303,7 @@ def orb_dist_plot(molecule):
          #
          axes.flat[i].axvspan(0.0-thres,0.0+thres,color=sns.xkcd_rgb['amber'],alpha=0.5)
          #
-         thres *= molecule['prim_scaling']
+         thres /= molecule['prim_scaling']
          #
          ax2 = axes.flat[i].twinx()
          #
@@ -336,7 +331,14 @@ def orb_dist_plot(molecule):
    #
    plt.tight_layout()
    #
-   if (len(molecule['prim_energy_inc'][-1]) == 1): sns.despine(left=True,bottom=True,ax=axes.flat[-1])
+   if ((len(molecule['prim_energy_inc']) % 2 != 0) or (len(molecule['prim_energy_inc'][-1]) == 1)):
+      #
+      axes.flat[-1].set_xticks([])
+      axes.flat[-1].set_yticks([])
+      axes.flat[-1].set_xticklabels([])
+      axes.flat[-1].set_yticklabels([])
+      #
+      sns.despine(left=True,bottom=True,ax=axes.flat[-1])
    #
    plt.subplots_adjust(top=0.925)
    #

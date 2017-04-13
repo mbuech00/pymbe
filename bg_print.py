@@ -217,12 +217,12 @@ def print_screening(molecule,thres,tup,level):
          #
          print(' --------------------------------------------------------------------------------------------')
          print(' UPDATE-{0:}: threshold value of {1:.2e} resulted in screening of {2:.2f} % of the tuples'.\
-                 format(level,thres,(1.0-(len(molecule['parent_tup'])/len(tup[-1])))*100.0))
+                 format(level,thres,(1.0-(len(tup[-1])/(len(tup[-1])+molecule['screen_count'])))*100.0))
          print(' --------------------------------------------------------------------------------------------')
    #
    print(' --------------------------------------------------------------------------------------------')
    print(' UPDATE-{0:}: threshold value of {1:.2e} resulted in screening of {2:.2f} % of the tuples'.\
-           format(level,thres,(1.0-(len(molecule['parent_tup'])/len(tup[-1])))*100.0))
+           format(level,thres,(1.0-(len(tup[-1])/(len(tup[-1])+molecule['screen_count'])))*100.0))
    print(' --------------------------------------------------------------------------------------------')
    #
    return

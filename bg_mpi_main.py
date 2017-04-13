@@ -150,11 +150,9 @@ def main_slave(molecule):
       #
       elif (msg['task'] == 'tuple_generation_par'):
          #
-         # generate tuples
-         #
          if (msg['level'] == 'MACRO'):
             #
-            tuple_generation_slave(molecule,molecule['prim_tuple'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
+            tuple_generation_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['thres'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
          #
          collect_screen_mpi_time(molecule,msg['order'],True)
       #
