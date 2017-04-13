@@ -32,35 +32,17 @@ def rst_read_main(molecule):
          #
          rst_read_tup(molecule,files[i])
       #
-      # read domains
-      #
-      elif ('dom' in files[i]):
-         #
-         rst_read_dom(molecule,files[i])
-      #
-      # read orbital entanglement matrix
+      # read orbital entanglement matrices
       #
       elif ('orb_ent' in files[i]):
          #
          rst_read_orb_ent(molecule,files[i])
-      #
-      # read orbital array
-      #
-      elif ('orb_arr' in files[i]):
-         #
-         rst_read_orb_arr(molecule,files[i])
       #
       # read orbital contributions
       #
       elif ('orb_con' in files[i]):
          #
          rst_read_orb_con(molecule,files[i])
-      #
-      # read orbital exclusion lists
-      #
-      elif ('excl_list' in files[i]):
-         #
-         rst_read_excl_list(molecule,files[i])
       #
       # read e_inc
       #
@@ -92,21 +74,15 @@ def rst_read_tup(molecule,inp):
    #
    return molecule
 
-def rst_read_dom(molecule,inp):
-   #
-   molecule['prim_domain'].append(np.load(join(molecule['rst_dir'],inp)).tolist())
-   #
-   return molecule
-
 def rst_read_orb_ent(molecule,inp):
    #
-   molecule['prim_orb_ent'].append(np.load(join(molecule['rst_dir'],inp)))
+   if ('abs' in inp):
+      #
+      molecule['prim_orb_ent_abs'].append(np.load(join(molecule['rst_dir'],inp)))
    #
-   return molecule
-
-def rst_read_orb_arr(molecule,inp):
-   #
-   molecule['prim_orb_arr'].append(np.load(join(molecule['rst_dir'],inp)))
+   elif ('rel' in inp):
+      #
+      molecule['prim_orb_ent_rel'].append(np.load(join(molecule['rst_dir'],inp)))
    #
    return molecule
 
@@ -119,12 +95,6 @@ def rst_read_orb_con(molecule,inp):
    elif ('rel' in inp):
       #
       molecule['prim_orb_con_rel'].append(np.load(join(molecule['rst_dir'],inp)).tolist())
-   #
-   return molecule
-
-def rst_read_excl_list(molecule,inp):
-   #
-   molecule['excl_list'].append(np.load(join(molecule['rst_dir'],inp)).tolist())
    #
    return molecule
 
@@ -217,25 +187,13 @@ def rst_sanity_chk(molecule):
    #
    fail = False
    #
-   # dom
+   # orb_ent_abs and orb_ent_rel
    #
-   if (len(molecule['prim_domain']) != len(molecule['prim_tuple'])): fail = True
-   #
-   # orb_ent
-   #
-   if (len(molecule['prim_orb_ent']) != (len(molecule['prim_tuple'])-2)): fail = True
-   #
-   # orb_arr
-   #
-   if (len(molecule['prim_orb_arr']) != (len(molecule['prim_tuple'])-2)): fail = True
+   if ((len(molecule['prim_orb_ent_abs']) != (len(molecule['prim_tuple'])-2)) or (len(molecule['prim_orb_ent_rel']) != (len(molecule['prim_tuple'])-2))): fail = True
    #
    # orb_con_abs and orb_con_rel
    #
    if ((len(molecule['prim_orb_con_abs']) != (len(molecule['prim_tuple'])-1)) or (len(molecule['prim_orb_con_rel']) != (len(molecule['prim_tuple'])-1))): fail = True
-   #
-   # excl_list
-   #
-   if (len(molecule['excl_list']) != (len(molecule['prim_tuple'])-2)): fail = True
    #
    # e_inc
    #

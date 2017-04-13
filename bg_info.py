@@ -29,11 +29,16 @@ def init_mol(molecule):
    #
    else:
       #
+      # init keys
+      #
+      molecule['zmat'] = False
+      molecule['units'] = ''
+      #
       with open('input-mol.inp') as f:
          #
          content = f.readlines()
          #
-         for i in range(0,len(content)-2):
+         for i in range(0,len(content)-4):
             #
             if (i == 0):
                #
@@ -42,13 +47,35 @@ def init_mol(molecule):
                #
                molecule['mol'] += str(content[i])
          #
-         for j in range(1,3):
+         for j in range(1,5):
             #
-            molecule[content[-j].split()[0]] = int(content[-j].split()[1])
+            if (content[-j].split()[0] == 'mult'):
+               #
+               molecule['mult'] = int(content[-j].split()[1])
+            #
+            elif (content[-j].split()[0] == 'core'):
+               #
+               molecule['core'] = int(content[-j].split()[1])
+            #
+            elif (content[-j].split()[0] == 'zmat'):
+               #
+               molecule['zmat'] = (content[-j].split()[1] == 'True')
+            #
+            elif (content[-j].split()[0] == 'units'):
+               #
+               molecule['units'] = content[-j].split()[1]
+            #
+            else:
+               #
+               molecule['error_msg'] = str(content[-j].split()[0])+' keyword in input-mol.inp not recognized'
+               #
+               molecule['error_code'] = 0
+               #
+               molecule['error'].append(True)
    #
-   chk = ['mult','core','mol']
+   chk = ['mult','core','zmat','units','mol']
    #
-   for k in range(0,len(chk)-1):
+   for k in range(0,len(chk)):
       #
       if (not (chk[k] in molecule.keys())):
          #
@@ -80,19 +107,20 @@ def init_param(molecule):
       #
       molecule['backend_prog'] = ''
       molecule['max_order'] = 0
-      molecule['prim_thres'] = 0.0
-      molecule['prim_e_thres'] = 1.0e-05
+      molecule['prim_exp_thres'] = 1.0e-04 # default setting
+      molecule['prim_exp_scaling'] = 0.25 # default setting
+      molecule['prim_exp_thres_init'] = molecule['prim_exp_thres'] # default setting
+      molecule['prim_energy_thres'] = 1.0e-05 # default setting
       molecule['occ_orbs'] = ''
       molecule['virt_orbs'] = ''
       molecule['basis'] = ''
       molecule['ref'] = False
       molecule['frozen'] = False
       molecule['debug'] = False
-      molecule['zmat'] = False
       molecule['mem'] = 0
       molecule['scr_name'] = 'scr'
       molecule['rst'] = False
-      molecule['rst_freq'] = 50000.0
+      molecule['rst_freq'] = 50000.0 # default setting
       #
       with open('input-param.inp') as f:
          #
@@ -120,14 +148,18 @@ def init_param(molecule):
                #
                molecule['max_order'] = int(content[i].split()[1])
             #
-            elif (content[i].split()[0] == 'prim_thres'):
+            elif (content[i].split()[0] == 'prim_exp_thres'):
                #
-               molecule['prim_thres'] = float(content[i].split()[1])
-               molecule['prim_thres_init'] = molecule['prim_thres']
+               molecule['prim_exp_thres'] = float(content[i].split()[1])
+               molecule['prim_exp_thres_init'] = molecule['prim_exp_thres']
             #
-            elif (content[i].split()[0] == 'prim_e_thres'):
+            elif (content[i].split()[0] == 'prim_exp_scaling'):
                #
-               molecule['prim_e_thres'] = float(content[i].split()[1])
+               molecule['prim_exp_scaling'] = float(content[i].split()[1])
+            #
+            elif (content[i].split()[0] == 'prim_energy_thres'):
+               #
+               molecule['prim_energy_thres'] = float(content[i].split()[1])
             #
             elif (content[i].split()[0] == 'model'):
                #
@@ -144,14 +176,6 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'frozen'):
                #
                molecule['frozen'] = (content[i].split()[1] == 'True')
-            #
-            elif (content[i].split()[0] == 'zmat'):
-               #
-               molecule['zmat'] = (content[i].split()[1] == 'True')
-            #
-            elif (content[i].split()[0] == 'units'):
-               #
-               molecule['units'] = content[i].split()[1]
             #
             elif (content[i].split()[0] == 'mem'):
                #
@@ -186,9 +210,9 @@ def init_param(molecule):
    set_fc(molecule)
    #
    chk = ['mol','ncore','frozen','mult','occ_orbs','virt_orbs',\
-          'exp','model','max_order','prim_thres','prim_e_thres',\
-          'basis','ref','zmat','units','mem',\
-          'debug','scr_name','rst','rst_freq','backend_prog']
+          'exp','model','max_order','prim_exp_thres','prim_exp_scaling','prim_energy_thres',\
+          'basis','ref','mem','debug',\
+          'scr_name','rst','rst_freq','backend_prog']
    #
    for k in range(0,len(chk)):
       #
@@ -317,17 +341,33 @@ def sanity_chk(molecule):
    #
    if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')):
       #
-      if ((molecule['prim_thres'] == 100.0) and (molecule['max_order'] == 0)):
+      if ((molecule['prim_exp_thres'] == 0.0) and (molecule['max_order'] == 0)):
          #
-         molecule['error_msg'] = 'wrong input -- no expansion threshold (prim_thres) supplied and no max_order set (either or both must be set)'
+         molecule['error_msg'] = 'wrong input -- no expansion threshold (prim_exp_thres) supplied and no max_order set (either or both must be set)'
          #
          molecule['error_code'] = 0
          #
          molecule['error'].append(True)
       #
-      if (molecule['prim_thres'] < 0.0):
+      if (molecule['prim_exp_thres'] < 0.0):
          #
-         molecule['error_msg'] = 'wrong input -- expansion threshold (prim_thres) must be float >= 0.0'
+         molecule['error_msg'] = 'wrong input -- expansion threshold (prim_exp_thres) must be float >= 0.0'
+         #
+         molecule['error_code'] = 0
+         #
+         molecule['error'].append(True)
+      #
+      if (not (0.0 <= molecule['prim_exp_scaling'] < 1.0)):
+         #
+         molecule['error_msg'] = 'wrong input -- expansion scaling (prim_exp_scaling) must be 0.0 <= float < 1.0'
+         #
+         molecule['error_code'] = 0
+         #
+         molecule['error'].append(True)
+      #
+      if (molecule['prim_energy_thres'] < 0.0):
+         #
+         molecule['error_msg'] = 'wrong input -- energy threshold (prim_energy_thres) must be float >= 0.0'
          #
          molecule['error_code'] = 0
          #

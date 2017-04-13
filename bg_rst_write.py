@@ -15,35 +15,65 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-def rst_write_tup(molecule,order):
+def rst_write_kernel(molecule,e_inc,order):
    #
-   # write tup[k-1]
+   # write e_inc
    #
-   np.save(join(molecule['rst_dir'],'tup_'+str(order)),molecule['prim_tuple'][order-1])
+   rst_write_e_inc(molecule,e_inc,order)
+   #
+   # write timings
+   #
+   rst_write_time(molecule,'kernel')
    #
    return
 
-def rst_write_dom(molecule,order):
+def rst_write_summation(molecule,e_inc,e_tot,order):
    #
-   # write dom[k-1]
+   # write e_inc and e_tot
+   # 
+   rst_write_e_inc(molecule,e_inc,order)
+   rst_write_e_tot(molecule,e_tot,order)
    #
-   np.save(join(molecule['rst_dir'],'dom_'+str(order)),np.asarray(molecule['prim_domain'][order-1]))
+   # write timings
+   #
+   rst_write_time(molecule,'summation')
+   #
+   return
+
+def rst_write_screen(molecule,tup,e_inc,order):
+   #
+   # write orb_con_abs, orb_con_rel, and tup
+   #
+   rst_write_orb_con(molecule,order)
+   rst_write_tup(molecule,tup,order)
+   #
+   # write timings
+   #
+   rst_write_time(molecule,'screen')
+   #
+   # write orb_ent_abs and orb_ent_rel
+   #
+   if (order >= 2): rst_write_orb_ent(molecule,order-2)
+   #
+   return
+
+def rst_write_tup(molecule,tup,order):
+   #
+   # write tup[k-1]
+   #
+   np.save(join(molecule['rst_dir'],'tup_'+str(order)),tup[order-1])
    #
    return
 
 def rst_write_orb_ent(molecule,order):
    #
-   # write orb_ent[k-1]
+   # write orb_ent_abs[k-1]
    #
-   np.save(join(molecule['rst_dir'],'orb_ent_'+str(order+1)),molecule['prim_orb_ent'][order-1])
+   np.save(join(molecule['rst_dir'],'orb_ent_abs_'+str(order+1)),molecule['prim_orb_ent_abs'][order-1])
    #
-   return
-
-def rst_write_orb_arr(molecule,order):
+   # write orb_ent_rel[k-1]
    #
-   # write orb_arr[k-1]
-   #
-   np.save(join(molecule['rst_dir'],'orb_arr_'+str(order+1)),molecule['prim_orb_arr'][order-1])
+   np.save(join(molecule['rst_dir'],'orb_ent_rel_'+str(order+1)),molecule['prim_orb_ent_rel'][order-1])
    #
    return
 
@@ -59,27 +89,19 @@ def rst_write_orb_con(molecule,order):
    #
    return
 
-def rst_write_excl_list(molecule,order):
-   #
-   # write excl_list[k-1]
-   #
-   np.save(join(molecule['rst_dir'],'excl_list_'+str(order+1)),np.asarray(molecule['excl_list'][order-1]))
-   #
-   return
-
-def rst_write_e_inc(molecule,order):
+def rst_write_e_inc(molecule,e_inc,order):
    #
    # write e_inc[k-1]
    #
-   np.save(join(molecule['rst_dir'],'e_inc_'+str(order)),molecule['prim_energy_inc'][order-1])
+   np.save(join(molecule['rst_dir'],'e_inc_'+str(order)),e_inc,[order-1])
    #
    return
 
-def rst_write_e_tot(molecule,order):
+def rst_write_e_tot(molecule,e_tot,order):
    #
    # write e_tot[k-1]
    #
-   np.save(join(molecule['rst_dir'],'e_tot_'+str(order)),np.asarray(molecule['prim_energy'][order-1]))
+   np.save(join(molecule['rst_dir'],'e_tot_'+str(order)),np.asarray(e_tot[order-1]))
    #
    return
 
