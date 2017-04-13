@@ -271,7 +271,7 @@ def orb_dist_plot(molecule):
    palette = cycle(sns.color_palette())
    #
    w_length = len(molecule['prim_energy_inc'])//2
-   if (len(molecule['prim_energy_inc']) % 2 != 0): w_length += 1
+   if ((len(molecule['prim_energy_inc']) % 2 != 0) and (len(molecule['prim_energy_inc'][-1]) != 1)): w_length += 1
    #
    fig, axes = plt.subplots(2, w_length, figsize=(12, 8), sharex=False, sharey=False)
    #
@@ -331,7 +331,7 @@ def orb_dist_plot(molecule):
    #
    plt.tight_layout()
    #
-   if ((len(molecule['prim_energy_inc']) % 2 != 0) or (len(molecule['prim_energy_inc'][-1]) == 1)):
+   if ((len(molecule['prim_energy_inc']) % 2 != 0) and (len(molecule['prim_energy_inc'][-1]) != 1)):
       #
       axes.flat[-1].set_xticks([])
       axes.flat[-1].set_yticks([])
