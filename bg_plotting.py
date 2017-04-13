@@ -303,7 +303,7 @@ def orb_dist_plot(molecule):
          #
          axes.flat[i].axvspan(0.0-thres,0.0+thres,color=sns.xkcd_rgb['amber'],alpha=0.5)
          #
-         thres /= molecule['prim_exp_scaling']
+         thres *= (1.0-molecule['prim_exp_scaling']) 
          #
          ax2 = axes.flat[i].twinx()
          #
