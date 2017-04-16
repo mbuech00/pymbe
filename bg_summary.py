@@ -70,22 +70,22 @@ def summary_overall_res(molecule):
          print('                                              ---------------------------------------------                                                 ')
          print('')
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-         print('              molecular information           |            expansion information          |              calculation information            ')
+         print('              molecular information           |            expansion information           |             calculation information            ')
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
          #
-         print('            basis set       =  {0:<12s}   |        expansion model    =  {1:<6s}       |       mpi parallel run       =  {2:}'.\
+         print('            basis set       =  {0:<12s}   |         expansion model    =  {1:<6s}       |       mpi parallel run       =  {2:}'.\
                  format(molecule['basis'],molecule['model'],molecule['mpi_parallel']))
          #
-         print('            frozen core     =  {0:<5}          |        expansion type     =  {1:<8s}     |       number of mpi masters  =  {2:}'.\
+         print('            frozen core     =  {0:<5}          |         expansion type     =  {1:<8s}     |       number of mpi masters  =  {2:}'.\
                  format(str(molecule['frozen']),molecule['exp'],1))
          #
-         print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |        exp. threshold     =  {1:<5.2e}     |       number of mpi slaves   =  {3:}'.\
+         print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |         exp. threshold     =  {2:<5.2e}     |       number of mpi slaves   =  {3:}'.\
                  format(molecule['nocc'],molecule['nvirt'],molecule['prim_exp_thres_init'],mpi_size-1))
          #
-         print('            occ. orbitals   =  {0:<9s}      |        exp. scaling       =  {1:<5.2f}        |       final corr. energy     = {2:>13.6e}'.\
+         print('            occ. orbitals   =  {0:<9s}      |         exp. scaling       =  {1:<5.2f}        |       final corr. energy     = {2:>13.6e}'.\
                  format(occ_orbs,molecule['prim_exp_scaling'],molecule['prim_energy'][-1]))
          #
-         print('            virt. orbitals  =  {0:<9s}      |        energy threshold   =  {1:<5.2e}     |       final convergence      = {2:>13.6e}'.\
+         print('            virt. orbitals  =  {0:<9s}      |         energy threshold   =  {1:<5.2e}     |       final convergence      = {2:>13.6e}'.\
                format(virt_orbs,molecule['prim_energy_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
          #
          print('   -----------------------------------------------------------------------------------------------------------------------------------------')
@@ -116,7 +116,7 @@ def summary_detail_res(molecule):
             total_time = np.sum(molecule['time_kernel'][:i+1])+np.sum(molecule['time_summation'][:i+1])+np.sum(molecule['time_screen'][:i+1])
             total_tup += len(molecule['prim_tuple'][i])
             #
-            print('       {0:>4d}      |         {1:>13.6e}          |              {2:03d} : {3:02d} : {4:02d}            |      {5:>9d} / {6:>6.2f}   --   {7:>9d} '.\
+            print('       {0:>4d}      |         {1:>13.6e}          |              {2:03d} : {3:02d} : {4:02d}            |       {5:>9d} / {6:>6.2f}   --   {7:>9d}  '.\
                                               format(i+1,molecule['prim_energy'][i],\
                                                      int(total_time//3600),int((total_time-(total_time//3600)*3600.)//60),\
                                                      int(total_time-(total_time//3600)*3600.-((total_time-(total_time//3600)*3600.)//60)*60.),\
