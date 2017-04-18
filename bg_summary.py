@@ -79,8 +79,12 @@ def summary_overall_res(molecule):
          print('            frozen core     =  {0:<5}          |         expansion type     =  {1:<8s}     |       number of mpi masters  =  {2:}'.\
                  format(str(molecule['frozen']),molecule['exp'],1))
          #
+         nocc = molecule['nocc']
+         #
+         if (molecule['frozen']): nocc -= molecule['ncore']
+         #
          print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |         exp. threshold     =  {2:<5.2e}     |       number of mpi slaves   =  {3:}'.\
-                 format(molecule['nocc'],molecule['nvirt'],molecule['prim_exp_thres_init'],mpi_size-1))
+                 format(nocc,molecule['nvirt'],molecule['prim_exp_thres_init'],mpi_size-1))
          #
          print('            occ. orbitals   =  {0:<9s}      |         exp. scaling       =  {1:<5.2f}        |       final corr. energy     = {2:>13.6e}'.\
                  format(occ_orbs,molecule['prim_exp_scaling'],molecule['prim_energy'][-1]))
