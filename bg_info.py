@@ -59,7 +59,7 @@ def init_mol(molecule):
             #
             elif (content[-j].split()[0] == 'zmat'):
                #
-               molecule['zmat'] = (content[-j].split()[1] == 'True')
+               molecule['zmat'] = (content[-j].split()[1].upper() == 'TRUE')
             #
             elif (content[-j].split()[0] == 'units'):
                #
@@ -107,8 +107,8 @@ def init_param(molecule):
       #
       molecule['backend_prog'] = ''
       molecule['max_order'] = 0
-      molecule['prim_exp_thres'] = 1.0e-04 # default setting
-      molecule['prim_exp_scaling'] = 0.25 # default setting
+      molecule['prim_exp_thres'] = 1.0e-05 # default setting
+      molecule['prim_exp_scaling'] = 1.0 # default setting
       molecule['prim_exp_thres_init'] = molecule['prim_exp_thres'] # default setting
       molecule['prim_energy_thres'] = 1.0e-05 # default setting
       molecule['occ_orbs'] = ''
@@ -171,11 +171,11 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'ref'):
                #
-               molecule['ref'] = (content[i].split()[1] == 'True')
+               molecule['ref'] = (content[i].split()[1].upper() == 'TRUE')
             #
             elif (content[i].split()[0] == 'frozen'):
                #
-               molecule['frozen'] = (content[i].split()[1] == 'True')
+               molecule['frozen'] = (content[i].split()[1].upper() == 'TRUE')
             #
             elif (content[i].split()[0] == 'mem'):
                #
@@ -187,7 +187,7 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'restart'):
                #
-               molecule['rst'] = (content[i].split()[1] == 'True')
+               molecule['rst'] = (content[i].split()[1].upper() == 'TRUE')
             #
             elif (content[i].split()[0] == 'rst_freq'):
                #
@@ -195,7 +195,7 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'debug'):
                #
-               molecule['debug'] = (content[i].split()[1] == 'True')
+               molecule['debug'] = (content[i].split()[1].upper() == 'TRUE')
             #
             else:
                #
@@ -218,7 +218,7 @@ def init_param(molecule):
       #
       if (not (chk[k] in molecule.keys())):
          #
-         molecule['error_msg'] = str(chk[k])+' keyword missing in either input-mol.inp or input-param.inp'
+         molecule['error_msg'] = str(chk[k])+' keyword missing in input-param.inp'
          #
          molecule['error_code'] = 0
          #
@@ -357,9 +357,9 @@ def sanity_chk(molecule):
          #
          molecule['error'].append(True)
       #
-      if (not (0.0 <= molecule['prim_exp_scaling'] < 1.0)):
+      if (molecule['prim_exp_scaling'] < 0.0):
          #
-         molecule['error_msg'] = 'wrong input -- expansion scaling (prim_exp_scaling) must be 0.0 <= float < 1.0'
+         molecule['error_msg'] = 'wrong input -- expansion scaling (prim_exp_scaling) must be float > 0.0'
          #
          molecule['error_code'] = 0
          #

@@ -71,9 +71,9 @@ def rst_main(molecule):
 
 def rst_update_thres_and_rst_freq(molecule):
    #
-   for _ in range(2,molecule['min_order']):
+   for _ in range(1,molecule['min_order']):
       #
-      molecule['prim_exp_thres'] *= (1.0-molecule['prim_exp_scaling'])
+      molecule['prim_exp_thres'] += molecule['prim_exp_scaling']*molecule['prim_exp_thres']
       #
       molecule['rst_freq'] /= 2.
    #

@@ -127,9 +127,9 @@ def tuple_generation(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
 
 def update_thres_and_rst_freq(molecule):
    #
-   # update threshold by dividing it by exp. scaling
+   # update threshold by adding a multiple of itself
    #
-   molecule['prim_exp_thres'] *= (1.0-molecule['prim_exp_scaling'])
+   molecule['prim_exp_thres'] += molecule['prim_exp_scaling']*molecule['prim_exp_thres']
    #
    # update restart frequency by halving it
    #
