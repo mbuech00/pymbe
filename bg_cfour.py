@@ -64,7 +64,7 @@ def cfour_input_corr(molecule,drop_string,level):
       #
       out.write('*CFOUR(CALC=FULLCI\n')
       out.write('CAS_MMAX=10\n')
-      out.write('CAS_MITMAX=200\n')
+      out.write('CAS_MITMAX=1000\n')
    #
    else:
       #

@@ -29,6 +29,8 @@ def rst_dist_master(molecule):
    #
    e_inc_end = np.argmax(molecule['prim_energy_inc'][-1] == 0.0)
    #
+   if (e_inc_end == 0): e_inc_end = len(molecule['prim_energy_inc'][-1])
+   #
    info = {'len_tup': [len(molecule['prim_tuple'][i]) for i in range(1,len(molecule['prim_tuple']))],\
            'len_e_inc': [len(molecule['prim_energy_inc'][i]) for i in range(0,len(molecule['prim_energy_inc']))],\
            'min_order': molecule['min_order'], 'e_inc_end': e_inc_end}

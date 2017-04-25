@@ -263,23 +263,23 @@ def calc_mpi_timings(molecule):
             #
             for j in range(1,molecule['mpi_size']):
                #
-               molecule['dist_order'][0][k] += molecule['mpi_time_work'][i][j][k]
-               molecule['dist_order'][1][k] += molecule['mpi_time_comm'][i][j][k]
-               molecule['dist_order'][2][k] += molecule['mpi_time_idle'][i][j][k]
+               molecule['dist_order'][0,k] += molecule['mpi_time_work'][i][j][k]
+               molecule['dist_order'][1,k] += molecule['mpi_time_comm'][i][j][k]
+               molecule['dist_order'][2,k] += molecule['mpi_time_idle'][i][j][k]
       #
-      molecule['dist_order'][0][-1] = np.sum(molecule['dist_order'][0][:-1])
-      molecule['dist_order'][1][-1] = np.sum(molecule['dist_order'][1][:-1]) 
-      molecule['dist_order'][2][-1] = np.sum(molecule['dist_order'][2][:-1])
+      molecule['dist_order'][0,-1] = np.sum(molecule['dist_order'][0,:-1])
+      molecule['dist_order'][1,-1] = np.sum(molecule['dist_order'][1,:-1]) 
+      molecule['dist_order'][2,-1] = np.sum(molecule['dist_order'][2,:-1])
       #
       # calculate relative results
       #
       for k in range(0,len(molecule['prim_energy'])+1):
          #
-         sum_k = molecule['dist_order'][0][k]+molecule['dist_order'][1][k]+molecule['dist_order'][2][k]
+         sum_k = molecule['dist_order'][0,k]+molecule['dist_order'][1,k]+molecule['dist_order'][2,k]
          #
-         molecule['dist_order'][0][k] = (molecule['dist_order'][0][k]/sum_k)*100.0
-         molecule['dist_order'][1][k] = (molecule['dist_order'][1][k]/sum_k)*100.0
-         molecule['dist_order'][2][k] = (molecule['dist_order'][2][k]/sum_k)*100.0
+         molecule['dist_order'][0,k] = (molecule['dist_order'][0,k]/sum_k)*100.0
+         molecule['dist_order'][1,k] = (molecule['dist_order'][1,k]/sum_k)*100.0
+         molecule['dist_order'][2,k] = (molecule['dist_order'][2,k]/sum_k)*100.0
    #
    return molecule
 

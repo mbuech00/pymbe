@@ -9,6 +9,8 @@ from os.path import isfile, join
 from re import search
 from copy import deepcopy
 
+from bg_utils import term_calc
+
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
@@ -187,22 +189,6 @@ def rst_sanity_chk(molecule):
    #
    fail = False
    #
-   # orb_ent_abs and orb_ent_rel
-   #
-   if ((len(molecule['prim_orb_ent_abs']) != (len(molecule['prim_tuple'])-2)) or (len(molecule['prim_orb_ent_rel']) != (len(molecule['prim_tuple'])-2))): fail = True
-   #
-   # orb_con_abs and orb_con_rel
-   #
-   if ((len(molecule['prim_orb_con_abs']) != (len(molecule['prim_tuple'])-1)) or (len(molecule['prim_orb_con_rel']) != (len(molecule['prim_tuple'])-1))): fail = True
-   #
-   # e_inc
-   #
-   if (len(molecule['prim_energy_inc']) != len(molecule['prim_tuple'])): fail = True
-   #
-   # e_tot
-   #
-   if (len(molecule['prim_energy']) != (len(molecule['prim_tuple'])-1)): fail = True
-   #
    # check for correct number of mpi procs
    #
    if (molecule['mpi_parallel']):
@@ -225,7 +211,11 @@ def rst_sanity_chk(molecule):
       #
       print('init restart failed, aborting ...')
       #
+      molecule['error_code'] = 0
+      #
       molecule['error'].append(True)
+      #
+      term_calc(molecule)
    #
    return molecule
 

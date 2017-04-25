@@ -92,7 +92,7 @@ def mono_exp_kernel(molecule,order,level):
    #
    # init e_int list
    #
-   if (order != molecule['min_order']): e_inc.append(np.zeros(len(tup[-1]),dtype=np.float64))
+   if (len(e_inc) != order): e_inc.append(np.zeros(len(tup[-1]),dtype=np.float64))
    #
    # run the calculations
    #
@@ -142,6 +142,10 @@ def mono_exp_screen(molecule,order,level):
       tup = molecule['prim_tuple']
       e_inc = molecule['prim_energy_inc']
       thres = molecule['prim_exp_thres']
+      orb_con_abs = molecule['prim_orb_con_abs']
+      orb_con_rel = molecule['prim_orb_con_rel']
+      orb_ent_abs = molecule['prim_orb_ent_abs']
+      orb_ent_rel = molecule['prim_orb_ent_rel']
    #
    # print screen header
    #
@@ -161,7 +165,7 @@ def mono_exp_screen(molecule,order,level):
       #
       # write restart files
       #
-      rst_write_screen(molecule,tup,e_inc,order)
+      rst_write_screen(molecule,tup,orb_con_abs,orb_con_rel,orb_ent_abs,orb_ent_rel,order)
    #
    # print screen end
    #

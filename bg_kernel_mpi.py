@@ -53,13 +53,7 @@ def energy_kernel_master(molecule,tup,e_inc,l_limit,u_limit,order,level):
    #
    # init job index
    #
-   if (molecule['rst'] and (order == molecule['min_order'])):
-      #
-      i = np.argmax(e_inc[-1] == 0.0)
-   #
-   else:
-      #
-      i = 0
+   i = np.argmax(e_inc[-1] == 0.0)
    #
    # init stat counter
    #
@@ -175,11 +169,7 @@ def energy_kernel_master(molecule,tup,e_inc,l_limit,u_limit,order,level):
             #
             molecule['error_rank'] = source
             #
-            string = {}
-            #
-            orb_string(molecule,l_limit,u_limit,tup[-1][job_info['index']],string)
-            #
-            molecule['error_drop'] = string['drop']
+            molecule['error_drop'] = data['error_drop']
             # 
             term_calc(molecule)
       #
@@ -203,7 +193,7 @@ def energy_kernel_slave(molecule,tup,e_inc,l_limit,u_limit,order,level):
    #
    # init e_inc list
    #
-   if (order != molecule['min_order']): e_inc.append(np.zeros(len(tup[-1]),dtype=np.float64))
+   if (len(e_inc) != order): e_inc.append(np.zeros(len(tup[-1]),dtype=np.float64))
    #
    # define mpi message tags
    #
@@ -267,6 +257,7 @@ def energy_kernel_slave(molecule,tup,e_inc,l_limit,u_limit,order,level):
          data['error'] = molecule['error'][-1]
          data['error_code'] = molecule['error_code']
          data['error_msg'] = molecule['error_msg']
+         data['error_drop'] = string['drop']
          #
          # send data back to master
          #
