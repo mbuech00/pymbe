@@ -33,7 +33,7 @@ def screening_main(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
    #
    # update threshold and restart frequency
    #
-   update_thres_and_rst_freq(molecule)
+   update_thres_and_rst_freq(molecule,order)
    #
    return molecule, tup, e_inc
 
@@ -125,11 +125,11 @@ def tuple_generation(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
    #
    return molecule, tup
 
-def update_thres_and_rst_freq(molecule):
+def update_thres_and_rst_freq(molecule,order):
    #
    # update threshold by adding a multiple of itself
    #
-   molecule['prim_exp_thres'] += molecule['prim_exp_scaling']*molecule['prim_exp_thres']
+   molecule['prim_exp_thres'] = molecule['prim_exp_scaling']**order * molecule['prim_exp_thres_init']
    #
    # update restart frequency by halving it
    #

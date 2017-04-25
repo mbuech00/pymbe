@@ -61,6 +61,9 @@ def summary_overall_res(molecule):
    #
    with open(molecule['out_dir']+'/bg_results.out','a') as f:
       #
+      nocc = molecule['nocc']
+      if (molecule['frozen']): nocc -= molecule['ncore']
+      #
       with redirect_stdout(f):
          #
          print('')
@@ -78,10 +81,6 @@ def summary_overall_res(molecule):
          #
          print('            frozen core     =  {0:<5}          |         expansion type     =  {1:<8s}     |       number of mpi masters  =  {2:}'.\
                  format(str(molecule['frozen']),molecule['exp'],1))
-         #
-         nocc = molecule['nocc']
-         #
-         if (molecule['frozen']): nocc -= molecule['ncore']
          #
          print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |         exp. threshold     =  {2:<5.2e}     |       number of mpi slaves   =  {3:}'.\
                  format(nocc,molecule['nvirt'],molecule['prim_exp_thres_init'],mpi_size-1))
