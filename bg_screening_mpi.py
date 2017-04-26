@@ -191,9 +191,9 @@ def tuple_generation_slave(molecule,tup,e_inc,thres,l_limit,u_limit,order,level)
    #
    combs = []
    #
-   # determine which tuples have contributions below the threshold
+   # determine which tuples have contributions larger than the threshold
    #
-   molecule['negl_tuple'] = tup[-1][np.where(np.abs(e_inc[-1]) < thres)]
+   molecule['allow_tuple'] = tup[-1][np.where(np.abs(e_inc[-1]) >= thres)]
    #
    while True:
       #
@@ -243,17 +243,13 @@ def tuple_generation_slave(molecule,tup,e_inc,thres,l_limit,u_limit,order,level)
                   #
                   # check whether or not the particular tuple is actually allowed
                   #
-                  if (np.equal(combs[j]+[m],tup[-1]).all(axis=1).any()):
+                  if (np.equal(combs[j]+[m],molecule['allow_tuple']).all(axis=1).any()):
                      #
-                     # check whether or not the particular tuple is among negligible tuples
+                     screen = False
                      #
-                     if (not (np.equal(combs[j]+[m],molecule['negl_tuple']).all(axis=1).any())):
-                        #
-                        screen = False
-                        #
-                        data['child_tuple'].append(tup[-1][job_info['index']].tolist()+[m])
-                        #
-                        break
+                     data['child_tuple'].append(tup[-1][job_info['index']].tolist()+[m])
+                     #
+                     break
                #
                # if tuple should be screened away, then increment screen counter
                #
