@@ -8,3 +8,5 @@ AHOH = 104.2
 
 mult 1
 core 1
+zmat true
+units angstrom
