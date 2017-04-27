@@ -165,7 +165,7 @@ def mono_exp_screen(molecule,order,level):
       #
       # write restart files
       #
-      rst_write_screen(molecule,tup,orb_con_abs,orb_con_rel,orb_ent_abs,orb_ent_rel,order)
+      if (not molecule['conv_orb'][-1]): rst_write_screen(molecule,tup,orb_con_abs,orb_con_rel,orb_ent_abs,orb_ent_rel,order)
    #
    # print screen end
    #

@@ -210,7 +210,15 @@ def print_screen_header(molecule,order,level):
    #
    return
 
-def print_screening(molecule,thres,tup,level):
+def print_screening(molecule,thres,tup,order,level):
+   #
+   if (len(tup) > order):
+      #
+      screen = (1.0-(len(tup[-1])/(len(tup[-1])+molecule['screen_count'])))*100.0
+   #
+   else:
+      #
+      screen = 100.0
    #
    with open(molecule['out_dir']+'/bg_output.out','a') as f:
       #
@@ -218,12 +226,12 @@ def print_screening(molecule,thres,tup,level):
          #
          print(' --------------------------------------------------------------------------------------------')
          print(' UPDATE-{0:}: threshold value of {1:.2e} resulted in screening of {2:.2f} % of the tuples'.\
-                 format(level,thres,(1.0-(len(tup[-1])/(len(tup[-1])+molecule['screen_count'])))*100.0))
+                 format(level,thres,screen))
          print(' --------------------------------------------------------------------------------------------')
    #
    print(' --------------------------------------------------------------------------------------------')
    print(' UPDATE-{0:}: threshold value of {1:.2e} resulted in screening of {2:.2f} % of the tuples'.\
-           format(level,thres,(1.0-(len(tup[-1])/(len(tup[-1])+molecule['screen_count'])))*100.0))
+           format(level,thres,screen))
    print(' --------------------------------------------------------------------------------------------')
    #
    return

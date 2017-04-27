@@ -27,7 +27,7 @@ def screening_main(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
    #
    # print screening results
    #
-   print_screening(molecule,thres,tup,level)
+   print_screening(molecule,thres,tup,order,level)
    #
    if (molecule['mpi_parallel']): collect_screen_mpi_time(molecule,order,True)
    #
