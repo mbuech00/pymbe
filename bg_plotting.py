@@ -523,9 +523,9 @@ def time_plot(molecule):
    #
    screen = sns.barplot(screen_dat,order,ax=ax1,orient='h',label='screen',color=sns.xkcd_rgb['amber'])
    #
-   summation = sns.barplot(sum_dat,order,ax=ax1,orient='h',label='summation',color=sns.xkcd_rgb['salmon'])
+   summation = sns.barplot(sum_dat,order,ax=ax1,orient='h',label='summation',color=sns.xkcd_rgb['windows blue'])
    #
-   kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['windows blue'])
+   kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['salmon'])
    #
    ax1.set_ylim([-0.5,(len(molecule['prim_energy'])+1)-0.5])
    ax1.set_xlim([0.0,100.0])
