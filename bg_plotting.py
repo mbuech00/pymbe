@@ -195,6 +195,8 @@ def orb_ent_plot(molecule):
    #
    fig, (ax1, ax2, cbar_ax) = plt.subplots(1, 3, gridspec_kw={'width_ratios':[1.0,1.0,0.06]})
    #
+   fig.set_size_inches([11.0,5.0])
+   #
    ax1.get_shared_y_axes().join(ax2)
    #
    mask_arr = (molecule['prim_orb_ent_rel'][0] == 0.0)
@@ -521,11 +523,11 @@ def time_plot(molecule):
    sum_dat = kernel_dat + (molecule['time_summation']/molecule['time_tot'])*100.0
    screen_dat = sum_dat + (molecule['time_screen']/molecule['time_tot'])*100.0
    #
-   screen = sns.barplot(screen_dat,order,ax=ax1,orient='h',label='screen',color=sns.xkcd_rgb['amber'])
+   screen = sns.barplot(screen_dat,order,ax=ax1,orient='h',label='screen',color=sns.xkcd_rgb['salmon'])
    #
    summation = sns.barplot(sum_dat,order,ax=ax1,orient='h',label='summation',color=sns.xkcd_rgb['windows blue'])
    #
-   kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['salmon'])
+   kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',label='kernel',color=sns.xkcd_rgb['amber'])
    #
    ax1.set_ylim([-0.5,(len(molecule['prim_energy'])+1)-0.5])
    ax1.set_xlim([0.0,100.0])
