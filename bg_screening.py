@@ -61,7 +61,7 @@ def tuple_generation(molecule,tup,e_inc,thres,l_limit,u_limit,order,level):
       #
       # determine which tuples have contributions below the threshold
       #
-      molecule['allow_tuple'] = tup[-1][np.where(np.abs(e_inc[-1]) >= thres)]
+      if (thres > 0.0): molecule['allow_tuple'] = tup[-1][np.where(np.abs(e_inc[-1]) >= thres)]
       #
       molecule['screen_count'] = 0
       #
@@ -125,7 +125,7 @@ def update_thres_and_rst_freq(molecule,order):
    #
    # update threshold by adding a multiple of itself
    #
-   molecule['prim_exp_thres'] = molecule['prim_exp_scaling']**order * molecule['prim_exp_thres_init']
+   if (order >= 2): molecule['prim_exp_thres'] = molecule['prim_exp_scaling']**(order-2) * molecule['prim_exp_thres_init']
    #
    # update restart frequency by halving it
    #

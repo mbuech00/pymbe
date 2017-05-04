@@ -150,8 +150,8 @@ def init_param(molecule):
             #
             elif (content[i].split()[0] == 'prim_exp_thres'):
                #
-               molecule['prim_exp_thres'] = float(content[i].split()[1])
-               molecule['prim_exp_thres_init'] = molecule['prim_exp_thres']
+               molecule['prim_exp_thres_init'] = float(content[i].split()[1])
+               molecule['prim_exp_thres'] = 0.0
             #
             elif (content[i].split()[0] == 'prim_exp_scaling'):
                #
