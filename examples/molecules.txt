@@ -38,6 +38,19 @@ units angstrom
 
 ***
 
+ZMAT file for carbon (C2)
+C
+C 1 RCC
+
+RCC = 1.24253
+
+mult 1
+core 2
+zmat true
+units angstrom
+
+***
+
 N2:
 
 ZMAT file for nitrogen (N2)
