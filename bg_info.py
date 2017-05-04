@@ -329,7 +329,7 @@ def sanity_chk(molecule):
    #
    # max order
    #
-   if (molecule['max_order'] < 0):
+   if (molecule['max_order'] < 1):
       #
       molecule['error_msg'] = 'wrong input -- wrong maximum expansion order (must be integer >= 1)'
       #
@@ -340,14 +340,6 @@ def sanity_chk(molecule):
    # expansion thresholds
    #
    if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')):
-      #
-      if ((molecule['prim_exp_thres'] == 0.0) and (molecule['max_order'] == 0)):
-         #
-         molecule['error_msg'] = 'wrong input -- no expansion threshold (prim_exp_thres) supplied and no max_order set (either or both must be set)'
-         #
-         molecule['error_code'] = 0
-         #
-         molecule['error'].append(True)
       #
       if (molecule['prim_exp_thres'] < 0.0):
          #
