@@ -69,9 +69,11 @@ def cfour_input_corr(molecule,drop_string,level):
    else:
       #
       out.write('*CFOUR(CALC='+model+'\n')
-      out.write('CC_PROG=VCC\n')
+      out.write('CC_PROG=ECC\n')
       out.write('CC_EXPORDER=10\n')
       out.write('CC_MAXCYC=200\n')
+      #
+      if (model == 'CCSDT'): out.write('T3_EXTRAPOL=ON\n')
    #
    if (molecule['virt_orbs'] == 'MP2'): out.write('VNATORB=USE\n')
    #

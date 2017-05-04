@@ -293,7 +293,7 @@ def init_backend_prog(molecule):
          #
          else: # CC
             #
-            molecule['regex'] = '\s+The correlation energy is'
+            molecule['regex'] = '\s+'+molecule['model']+' correlation energy'
    #
    else:
       #
