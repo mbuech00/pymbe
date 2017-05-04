@@ -329,7 +329,7 @@ def sanity_chk(molecule):
    #
    # max order
    #
-   if (molecule['max_order'] < 1):
+   if (molecule['max_order'] < 0):
       #
       molecule['error_msg'] = 'wrong input -- wrong maximum expansion order (must be integer >= 1)'
       #
