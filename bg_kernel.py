@@ -70,7 +70,7 @@ def energy_kernel(molecule,tup,e_inc,l_limit,u_limit,order,level):
             #
             molecule['error_rank'] = 0
             #
-            molecule['error_drop'] = drop['string']
+            molecule['error_drop'] = string['drop']
             #
             term_calc(molecule)
          #
