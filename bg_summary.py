@@ -85,7 +85,7 @@ def summary_overall_res(molecule):
          print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |         exp. threshold     =  {2:<5.2e}     |       number of mpi slaves   =  {3:}'.\
                  format(nocc,molecule['nvirt'],molecule['prim_exp_thres_init'],mpi_size-1))
          #
-         print('            occ. orbitals   =  {0:<9s}      |         exp. scaling       =  {1:<5.2f}        |       final corr. energy     = {2:>13.6e}'.\
+         print('            occ. orbitals   =  {0:<9s}      |         damp. factor       =  {1:<6.2f}       |       final corr. energy     = {2:>13.6e}'.\
                  format(occ_orbs,molecule['prim_exp_scaling'],molecule['prim_energy'][-1]))
          #
          print('            virt. orbitals  =  {0:<9s}      |         energy threshold   =  {1:<5.2e}     |       final convergence      = {2:>13.6e}'.\
