@@ -125,7 +125,7 @@ def update_thres_and_rst_freq(molecule,order):
    #
    # update threshold with dampening
    #
-   if (order >= 2): molecule['prim_exp_thres'] = (1.0+(float(order+1)/molecule['prim_exp_scaling']))**(order-2) * molecule['prim_exp_thres_init']
+   if (order >= 2): molecule['prim_exp_thres'] = (molecule['prim_exp_scaling'])**(order-2) * molecule['prim_exp_thres_init']
    #
    # update restart frequency by halving it
    #
