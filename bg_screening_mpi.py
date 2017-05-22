@@ -193,7 +193,7 @@ def tuple_generation_slave(molecule,tup,e_inc,thres,l_limit,u_limit,order,level)
    #
    # determine which tuples have contributions larger than the threshold
    #
-   molecule['allow_tuple'] = tup[-1][np.where(np.abs(e_inc[-1]) >= thres)]
+   allow_tuple = tup[-1][np.where(np.abs(e_inc[-1]) >= thres)]
    #
    while True:
       #
@@ -221,29 +221,33 @@ def tuple_generation_slave(molecule,tup,e_inc,thres,l_limit,u_limit,order,level)
          #
          data['screen_count'] = 0
          #
-         if (np.abs(e_inc[-1][job_info['index']]) >= thres):
-            #
-            # loop through possible orbitals to augment the parent tuple with
-            #
-            for m in range(tup[-1][job_info['index']][-1]+1,(l_limit+u_limit)+1): data['child_tuple'].append(tup[-1][job_info['index']].tolist()+[m])
+#         if (np.abs(e_inc[-1][job_info['index']]) >= thres):
+#            #
+#            # loop through possible orbitals to augment the parent tuple with
+#            #
+#            for m in range(tup[-1][job_info['index']][-1]+1,(l_limit+u_limit)+1): data['child_tuple'].append(tup[-1][job_info['index']].tolist()+[m])
+#         #
+#         else:
+#            #
+         # generate list with all subsets of particular tuple
          #
-         else:
+         combs = list(list(comb) for comb in combinations(tup[-1][job_info['index']],order-1))
+         #
+         # loop through possible orbitals to augment the combinations with
+         #
+         for m in range(tup[-1][job_info['index']][-1]+1,(l_limit+u_limit)+1):
             #
-            # generate list with all subsets of particular tuple
+            screen = True
             #
-            combs = list(list(comb) for comb in combinations(tup[-1][job_info['index']],order-1))
-            #
-            # loop through possible orbitals to augment the combinations with
-            #
-            for m in range(tup[-1][job_info['index']][-1]+1,(l_limit+u_limit)+1):
+            for j in range(0,len(combs)):
                #
-               screen = True
+               # check whether or not the particular tuple is actually allowed
                #
-               for j in range(0,len(combs)):
+               if (np.equal(combs[j]+[m],tup[-1]).all(axis=1).any()):
                   #
-                  # check whether or not the particular tuple is actually allowed
+                  # check whether or not the particular tuple should be screened away
                   #
-                  if (np.equal(combs[j]+[m],molecule['allow_tuple']).all(axis=1).any()):
+                  if (np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
                      #
                      screen = False
                      #
@@ -251,9 +255,13 @@ def tuple_generation_slave(molecule,tup,e_inc,thres,l_limit,u_limit,order,level)
                      #
                      break
                #
-               # if tuple should be screened away, then increment screen counter
-               #
-               if (screen): data['screen_count'] += 1
+               else:
+                  #
+                  break
+            #
+            # if tuple should be screened away, then increment screen counter
+            #
+            if (screen): data['screen_count'] += 1
          #
          timer_mpi(molecule,'mpi_time_comm_screen',order)
          #

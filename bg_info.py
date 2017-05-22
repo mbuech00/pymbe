@@ -110,7 +110,7 @@ def init_param(molecule):
       molecule['prim_exp_thres'] = 1.0e-05 # default setting
       molecule['prim_exp_scaling'] = 1.0 # default setting = no scaling
       molecule['prim_exp_thres_init'] = molecule['prim_exp_thres'] # default setting
-      molecule['prim_energy_thres'] = 3.8e-04 # default setting, corresponds to 1.0 kJ/mol
+      molecule['prim_energy_thres'] = 1.0e-04 # default setting
       molecule['occ_orbs'] = ''
       molecule['virt_orbs'] = ''
       molecule['basis'] = ''
@@ -151,7 +151,7 @@ def init_param(molecule):
             elif (content[i].split()[0] == 'prim_exp_thres'):
                #
                molecule['prim_exp_thres_init'] = float(content[i].split()[1])
-               molecule['prim_exp_thres'] = 0.0
+               molecule['prim_exp_thres'] = molecule['prim_exp_thres_init']
             #
             elif (content[i].split()[0] == 'prim_exp_scaling'):
                #

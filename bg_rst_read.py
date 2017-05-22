@@ -26,6 +26,10 @@ def rst_read_main(molecule):
    #
    files = [f for f in listdir(molecule['rst_dir']) if isfile(join(molecule['rst_dir'],f))]
    #
+   # sort the list of files
+   #
+   files.sort()
+   #
    for i in range(0,len(files)):
       #
       # read tuples
