@@ -154,21 +154,27 @@ def tuple_generation_slave(molecule, tup, e_inc, thres, l_limit, u_limit, order,
 				# loop through possible orbitals to augment the combinations with
 				for m in range(tup[-1][job_info['index']][-1]+1,(l_limit+u_limit)+1):
 					# init screening logical
-					screen = True
+					screen = False
 					# loop over subset combinations
 					for j in range(0,len(combs)):
 						# check whether or not the particular tuple is actually allowed
-						if (np.equal(combs[j]+[m],tup[-1]).all(axis=1).any()):
+						if (not np.equal(combs[j]+[m],tup[-1]).all(axis=1).any()):
+							# screen away
+							screen = True
 							break
-					# loop over subset combinations
-					for j in range(0,len(combs)):
-						# check whether the particular tuple among negligible tuples
-						if (np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
-							screen = False
-							data['child_tuple'].append(tup[-1][job_info['index']].tolist()+[m])
-							break
-					# if tuple should be screened away, then increment screen counter
-					if (screen): data['screen_count'] += 1
+					if (not screen):
+	                    # loop over subset combinations
+						for j in range(0,len(combs)):
+							# check whether the particular tuple among negligible tuples
+							if (not np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
+								# screen away
+								screen = True
+								break
+					# if tuple is allowed, add to child tuple list, otherwise screen away
+					if (not screen):
+						data['child_tuple'].append(tup[-1][job_info['index']].tolist()+[m])
+					else:
+						data['screen_count'] += 1
 				# start comm time
 				timer_mpi(molecule,'mpi_time_comm_screen',order)
 				# send data back to master

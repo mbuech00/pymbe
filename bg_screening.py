@@ -52,22 +52,27 @@ def tuple_generation(molecule, tup, e_inc, thres, l_limit, u_limit, order, level
 			# loop through possible orbitals to augment the combinations with
 			for m in range(tup[-1][i][-1]+1,(l_limit+u_limit)+1):
 				# init screening logical
-				screen = True
+				screen = False
 				# loop over subset combinations
 				for j in range(0,len(combs)):
 					# check whether or not the particular tuple is actually allowed
 					if (not np.equal(combs[j]+[m],tup[-1]).all(axis=1).any()):
+						# screen away
+						screen = True
 						break
-                # loop over subset combinations
-				for j in range(0,len(combs)):
-					# check whether the particular tuple among negligible tuples
-					if (np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
-						# add to list of child tuples
-						screen = False
-						tmp.append(tup[-1][i].tolist()+[m])
-						break
-				# if tuple should be screened away, then increment screen counter
-				if (screen): molecule['screen_count'] += 1
+				if (not screen):
+	                # loop over subset combinations
+					for j in range(0,len(combs)):
+						# check whether the particular tuple among negligible tuples
+						if (not np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
+							# screen away
+							screen = True
+							break
+				# if tuple is allowed, add to child tuple list, otherwise screen away
+				if (not screen):
+					tmp.append(tup[-1][i].tolist()+[m])
+				else:
+					molecule['screen_count'] += 1
 		# when done, write to tup list or mark expansion as converged
 		if (len(tmp) >= 1):
 			tup.append(np.array(tmp,dtype=np.int32))
