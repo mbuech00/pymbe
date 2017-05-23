@@ -85,57 +85,57 @@ def cfour_input_corr(molecule, drop_string, level):
 
 
 def cfour_get_dim(molecule):
-	""" recover nocc and nvirt dimensions from cfour HF calc """
-	# open HF output
-	inp = open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','r')
-	# regular expression to search for
-	regex = 'basis functions'
-	# read lines into content list
-	content = inp.readlines()
-	# close file
-	inp.close()
-	# init found logical
-	found = False
-	# loop over all of content
-	for i in range(0,len(content)):
-		# determine number of basis functions
-		if (regex in content[i]):
-			[bf] = content[i].split()[2:3]
-			found = True
-			break
-	# error handling
-	if (not found):
-		molecule['error_msg'] = 'problem with HF calculation (# basis functions)'
-		molecule['error_code'] = 1
-		molecule['error'].append(True)
+		""" recover nocc and nvirt dimensions from cfour HF calc """
+		# open HF output
+		inp = open('OUTPUT_'+str(molecule['mpi_rank'])+'.OUT','r')
+		# regular expression to search for
+		regex = 'basis functions'
+		# read lines into content list
+		content = inp.readlines()
+		# close file
+		inp.close()
+		# init found logical
+		found = False
+		# loop over all of content
+		for i in range(0,len(content)):
+			# determine number of basis functions
+			if (regex in content[i]):
+				[bf] = content[i].split()[2:3]
+				found = True
+				break
+		# error handling
+		if (not found):
+			molecule['error_msg'] = 'problem with HF calculation (# basis functions)'
+			molecule['error_code'] = 1
+			molecule['error'].append(True)
+			return
+		# define delimiters for MO search
+		delim_1 = 'MO #'; delim_2 = '+++++++++++++'
+		# init start search logical and occ MO list
+		start = False; occ_mos = []
+		# loop over all of content
+		for i in range(0,len(content)):
+			# start counting
+			if (delim_1 in content[i]):
+				start = True
+			# stop counting
+			elif (delim_2 in content[i]):
+				start = False
+				break
+			# increment number of occ MOs
+			if (start): occ_mos.append(content[i])
+		# error handling
+		if (len(occ_mos) == 0):
+			molecule['error_msg'] = 'problem with HF calculation (# occ. MOs)'
+			molecule['error_code'] = 1
+			molecule['error'].append(True)
+		else:
+			molecule['nocc'] = len(occ_mos)-2
+			molecule['nvirt'] = int(bf) - molecule['nocc']
+		# delete content list
+		del content
+		#
 		return
-	# define delimiters for MO search
-	delim_1 = 'MO #'; delim_2 = '+++++++++++++'
-	# init start search logical and occ MO list
-	start = False; occ_mos = []
-	# loop over all of content
-	for i in range(0,len(content)):
-		# start counting
-		if (delim_1 in content[i]):
-			start = True
-		# stop counting
-		elif (delim_2 in content[i]):
-			start = False
-			break
-		# increment number of occ MOs
-		if (start): occ_mos.append(content[i])
-	# error handling
-	if (len(occ_mos) == 0):
-		molecule['error_msg'] = 'problem with HF calculation (# occ. MOs)'
-		molecule['error_code'] = 1
-		molecule['error'].append(True)
-	else:
-		molecule['nocc'] = len(occ_mos)-2
-		molecule['nvirt'] = int(bf) - molecule['nocc']
-# delete content list
-del content
-#
-return
 
 
 def cfour_write_energy(molecule,level):
