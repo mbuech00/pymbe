@@ -79,7 +79,7 @@ def tuple_generation_master(molecule, tup, e_inc, thres, l_limit, u_limit, order
 			source = molecule['mpi_stat'].Get_source(); tag = molecule['mpi_stat'].Get_tag()
 			# slave is ready
 			if (tag == tags.ready):
-				# jobs left
+				# any jobs left?
 				if (i <= len(tup[-1])-1):
 					# start comm time
 					timer_mpi(molecule,'mpi_time_comm_screen',order)
@@ -186,7 +186,7 @@ def tuple_generation_slave(molecule, tup, e_inc, thres, l_limit, u_limit, order,
 				break
 		# start comm time
 		timer_mpi(molecule,'mpi_time_comm_screen',order)
-		# send None info to master
+		# send exit signal to master
 		molecule['mpi_comm'].send(None,dest=0,tag=tags.exit)
 		# start work time
 		timer_mpi(molecule,'mpi_time_work_screen',order)
