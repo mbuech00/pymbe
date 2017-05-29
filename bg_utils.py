@@ -135,6 +135,7 @@ def orb_string(molecule, l_limit, u_limit, tup, string):
 		#
 		return
 
+
 def comb_index(n, k):
 		""" calculate combined index """
 		count = comb(n,k,exact=True)
