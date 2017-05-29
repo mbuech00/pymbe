@@ -47,16 +47,31 @@ def summary_overall_res(molecule):
 				print('   -----------------------------------------------------------------------------------------------------------------------------------------')
 				print('              molecular information           |            expansion information           |             calculation information            ')
 				print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-				print('            basis set       =  {0:<12s}   |         expansion model    =  {1:<6s}       |       mpi parallel run       =  {2:}'.\
-							format(molecule['basis'],molecule['model'],molecule['mpi_parallel']))
-				print('            frozen core     =  {0:<5}          |         expansion type     =  {1:<8s}     |       number of mpi masters  =  {2:}'.\
-							format(str(molecule['frozen']),molecule['exp'],1))
-				print('            # occ. / virt.  =  {0:<2d} / {1:<4d}      |         exp. threshold     =  {2:<5.2e}     |       number of mpi slaves   =  {3:}'.\
-							format(nocc,molecule['nvirt'],molecule['prim_exp_thres_init'],mpi_size-1))
-				print('            occ. orbitals   =  {0:<9s}      |         damp. factor       =  {1:<6.2f}       |       final corr. energy     = {2:>13.6e}'.\
-							format(occ_orbs,molecule['prim_exp_scaling'],molecule['prim_energy'][-1]))
-				print('            virt. orbitals  =  {0:<9s}      |         energy threshold   =  {1:<5.2e}     |       final convergence      = {2:>13.6e}'.\
-							format(virt_orbs,molecule['prim_energy_thres'],molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
+				print(('{0:12}{1:9}{2:7}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:9}{9:15}{10:4}{11:1}'
+					'{12:2}{13:<6s}{14:7}{15:1}{16:7}{17:16}{18:7}{19:1}{20:2}{21:}').\
+							format('','basis set','','=','',molecule['basis'],\
+									'','|','','expansion model','','=','',molecule['model'],\
+									'','|','','mpi parallel run','','=','',molecule['mpi_parallel']))
+				print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:14}{10:5}{11:1}'
+					'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:}').\
+							format('','frozen core','','=','',str(molecule['frozen']),\
+									'','|','','expansion type','','=','',molecule['exp'],\
+									'','|','','number of mpi masters','','=','',1))
+				print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:14}{12:5}'
+					'{13:1}{14:2}{15:<5.2e}{16:5}{17:1}{18:7}{19:20}{20:3}{21:1}{22:2}{23:}').\
+							format('','# occ. / virt.','','=','',nocc,'/',molecule['nvirt'],\
+									'','|','','exp. threshold','','=','',molecule['prim_exp_thres_init'],\
+									'','|','','number of mpi slaves','','=','',mpi_size-1))
+				print(('{0:12}{1:13}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:12}{10:7}{11:1}{12:2}'
+					'{13:<6.2f}{14:7}{15:1}{16:7}{17:18}{18:5}{19:1}{20:1}{21:>13.6e}').\
+							format('','occ. orbitals','','=','',occ_orbs,\
+									'','|','','damp. factor','','=','',molecule['prim_exp_scaling'],\
+									'','|','','final corr. energy','','=','',molecule['prim_energy'][-1]))
+				print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:16}{10:3}{11:1}{12:2}'
+					'{13:<5.2e}{14:5}{15:1}{16:7}{17:17}{18:6}{19:1}{20:1}{21:>13.6e}').\
+							format('','virt. orbitals','','=','',virt_orbs,\
+									'','|','','energy threshold','','=','',molecule['prim_energy_thres'],\
+									'','|','','final convergence','','=','',molecule['prim_energy'][-1]-molecule['prim_energy'][-2]))
 				print('   -----------------------------------------------------------------------------------------------------------------------------------------')
 		#
 		return
@@ -83,17 +98,19 @@ def summary_detail_res(molecule):
 					# sum up total time and number of tuples
 					total_time = np.sum(molecule['time_kernel'][:i+1])+np.sum(molecule['time_summation'][:i+1])+np.sum(molecule['time_screen'][:i+1])
 					total_tup += len(molecule['prim_tuple'][i])
-					print('       {0:>4d}      |         {1:>13.6e}          |              {2:03d} : {3:02d} : {4:02d}            |       {5:>9d} / {6:>6.2f}   --   {7:>9d}  '.\
-							format(i+1,molecule['prim_energy'][i],\
-									int(total_time//3600),int((total_time-(total_time//3600)*3600.)//60),\
+					print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.6e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
+						'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
+							format('',i+1,'','|','',molecule['prim_energy'][i],\
+									'','|','',int(total_time//3600),':',int((total_time-(total_time//3600)*3600.)//60),':',\
 									int(total_time-(total_time//3600)*3600.-((total_time-(total_time//3600)*3600.)//60)*60.),\
-									len(molecule['prim_tuple'][i]),(float(len(molecule['prim_tuple'][i]))/float(molecule['theo_work'][i]))*100.00,total_tup))
+									'','|','',len(molecule['prim_tuple'][i]),'/',\
+									(float(len(molecule['prim_tuple'][i]))/float(molecule['theo_work'][i]))*100.00,'--',total_tup))
 				print('   -----------------------------------------------------------------------------------------------------------------------------------------')
 				# reference calc
 				if (molecule['ref']):
 					print('   -----------------------------------------------------------------------------------------------------------------------------------------')
-					print('     reference   |         {0:>13.6e}'.format(molecule['e_ref']))
-					print('     difference  |         {0:>13.6e}'.format(molecule['e_ref']-molecule['prim_energy'][-1]))
+					print('{0:5}{1:9}{2:3}{3:1}{4:9}{5:>13.6e}'.format('','reference','','|','',molecule['e_ref']))
+					print('{0:5}{1:10}{2:2}{3:1}{4:9}{5:>13.6e}'.format('','difference','','|','',molecule['e_ref']-molecule['prim_energy'][-1]))
 					print('   -----------------------------------------------------------------------------------------------------------------------------------------')
 		#
 		return
