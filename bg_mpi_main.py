@@ -27,6 +27,7 @@ from bg_entanglement_mpi import entanglement_abs_par
 from bg_screening_mpi import tuple_generation_slave
 
 
+### remove this function (move if-clause to bg_main) and set variables elsewhere
 def init_mpi(molecule):
 		""" init mpi """
 		# set mpi logical
