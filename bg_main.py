@@ -26,12 +26,13 @@ from bg_plotting import ic_plot
 
 def main():
 		""" main bg program """
-		if (MPI.COMM_WORLD.Get_rank() != 0): # slaves
+		# initialize the calculation
+		bg = InitCls()
+		# now branch - slaves to main_slave, master to main_drv
+		if (not bg.mpi.master):
 			# proceed to main slave routine
 			main_slave()
-		else: # master only
-			# initialize the calculation
-			bg = InitCls()
+		else:
 			# print program header
 			print_main_header(molecule,'bg_output.out',True)
 			# initialization done - start the calculation
@@ -49,7 +50,7 @@ def main():
 			# print program end
 			print_main_end(molecule)
 		# finalize
-		MPI.COMM_WORLD.Barrier()
+		bg.mpi.comm.Barrier()
 		MPI.Finalize()
 
 if __name__ == '__main__':

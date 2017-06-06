@@ -24,7 +24,7 @@ def screening_main(molecule, tup, e_inc, thres, l_limit, u_limit, order, level):
 		""" driver routine for input generation """
 		tuple_generation(molecule, tup, e_inc, thres, l_limit, u_limit, order, level)
 		# print screening results
-		print_screening(molecule,thres,tup,order,level)
+		print_screen_results(molecule,tup,order,thres,level)
 	    # collect timings
 		if (molecule['mpi_parallel']): collect_screen_mpi_time(molecule,order,True)
 		# update threshold and restart frequency

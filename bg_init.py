@@ -21,14 +21,6 @@ from bg_pyscf import PySCFCls
 from bg_time import TimeCls
 from bg_print import PrintCls
 
-from bg_mpi_wrapper import set_exception_hook
-from bg_mpi_utils import bcast_mol_dict, init_slave_env
-from bg_mpi_time import init_mpi_timings
-from bg_info import init_mol, init_param, init_backend_prog, sanity_chk
-from bg_utils import run_calc_hf, term_calc
-from bg_print import redirect_stdout
-from bg_rst_main import rst_init_env
-
 
 class InitCls():
 		""" initialization class """
@@ -56,7 +48,7 @@ class InitCls():
 				# init timings
 				self.time = TimeCls()
 				# print instance
-				if (self.mpi.master): self.prt = PrintCls()
+				if (self.mpi.master): self.prt = PrintCls(self.out_dir)
 				#
 				return self
 
