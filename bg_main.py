@@ -15,9 +15,6 @@ __status__ = 'Development'
 from mpi4py import MPI
 
 from bg_init import InitCls
-from bg_driver import driver
-from bg_summary import summary
-from bg_plotting import plot
 
 
 def main():
@@ -32,14 +29,10 @@ def main():
 			# proceed to main driver
 			bg.drv.driver(bg.mpi, bg.mol, bg.calc, bg.exp,
 							bg.prt, bg.time, bg.rst, bg.err)
-			# calculate timings
-			bg.time.calc_time(bg.mpi, bg.exp)
-			# print summary
-			summary(bg)
-			# plot results
-			plot(bg)
+			# print summary and plot results
+			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time)
 		# finalize
-		bg.mpi.comm.bcast({'task': 'exit_slave'}, root=0)
+		bg.mpi.comm.bcast({'task': 'exit_slave'}, root=bg.mpi.rank)
 		bg.mpi.comm.Barrier()
 		MPI.Finalize()
 

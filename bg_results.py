@@ -14,7 +14,6 @@ __status__ = 'Development'
 
 import numpy as np
 from contextlib import redirect_stdout
-from copy import deepcopy
 import numpy as np
 from itertools import cycle
 import matplotlib
@@ -30,8 +29,9 @@ import seaborn as sns
 
 class ResCls():
 		""" result class """
-		def __init__(self):
+		def __init__(self, _out_dir):
 				""" init parameters """
+				self.output = _out_dir+'/bg_results.out'
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
 				self.header_str = '{0:^143}'.format('-'*45)
@@ -41,6 +41,11 @@ class ResCls():
 
 		def main(self, _mpi, _mol, _calc, _exp, _time):
 				""" main driver for summary printing and plotting """
+				#
+				#** timings **#
+				#
+				# calculate timings
+				_time.calc_time(_mpi, _exp)
 				#
 				#** summary **#
 				#
@@ -56,20 +61,20 @@ class ResCls():
 				#** plotting **#
 				#
 				# total energies
-				self.abs_energy(molecule)
+				self.abs_energy(_mol, _calc, _exp)
 				# number of calculations
-				self.n_tuples(molecule)
+				self.n_tuples(_mol, _calc, _exp)
 				# orbital entanglement matrices
-				self.orb_ent_all(molecule)
-				self.orb_ent(molecule)
+				self.orb_ent_all(_mol, _calc, _exp)
+				self.orb_ent(_mol, _calc, _exp)
 				# individual orbital contributions by order
-				self.orb_con_order_plot(molecule)
+				self.orb_con_order(_mol, _calc, _exp)
 				# orbital/energy distributions
-				self.orb_dist_plot(molecule)
+				self.orb_dist(_mol, _calc, _exp)
 				# total orbital contributions
-				self.orb_con_tot_plot(molecule)
+				self.orb_con_tot(_mol, _calc, _exp)
 				# plot timings
-				self.time_plot(molecule)
+				self.time(_mol, _calc, _exp, _time)
 				#
 				return
 

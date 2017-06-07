@@ -63,7 +63,7 @@ class InitCls():
 				if (self.mpi.master):
 					self.drv = DrvCls()
 					self.prt = PrintCls(self.out.out_dir)
-					self.res = ResCls()
+					self.res = ResCls(self.out.out_dir)
 				#
 				return self
 
