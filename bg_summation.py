@@ -50,4 +50,11 @@ def energy_summation(molecule, tup, e_inc, energy, thres, order, level):
 		#
 		return
 
+def comb_index(n, k):
+		""" calculate combined index """
+		count = comb(n,k,exact=True)
+		index = np.fromiter(chain.from_iterable(combinations(range(n),k)),int,count=count*k)
+		#
+		return index.reshape(-1,k)
+
 
