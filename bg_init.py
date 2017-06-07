@@ -48,6 +48,9 @@ class InitCls():
 							self.pyscf.int_trans(self.mol, self.calc.orbs == 'natural')
 				# bcast to slaves
 				self.mpi.bcast_hf_int(self.mol, self.calc)
+				# init expansion parameters
+				if (self.calc.exp_type in ['occupied','virtual']):
+					self.exp = ExpCls(self.mol, self.calc, self.rst)
 				# init timings
 				self.time = TimeCls(self.mpi, self.rst)
 				# print instance
@@ -73,7 +76,7 @@ class OutCls():
 
 
 class MolCls(gto.Mole):
-		""" make instance of pyscf mole class """
+		""" molecule class (inherited from pyscf gto.Mole class) """
 		def __init__(err):
 				""" init parameters """
 				# set geometric parameters
@@ -154,14 +157,14 @@ class MolCls(gto.Mole):
 
 
 class CalcCls():
-		""" calculation parameters """
+		""" calculation class """
 		def __init__(err):
 				""" init parameters """
 				self.exp_model = 'fci'
 				self.exp_type = 'virtual'
 				self.exp_thres = 1.0e-06
 				self.exp_damp = 1.0
-				self.exp_max_order = 6
+				self.exp_max_order = 0
 				self.exp_orbs = 'canonical'
 				self.energy_thres = 3.8e-04
 				# hardcoded parameters
@@ -244,5 +247,59 @@ class CalcCls():
 				if (err.error_msg != ''):
 					err.abort()
 				return
+
+
+class ExpCls():
+		""" expansion class """
+		def __init__(self, mol, calc, rst):
+				""" init parameters """
+				# set params and lists for occ expansion
+				if (calc.exp_type == 'occupied'):
+					# set lower and upper limits
+					self.l_limit = 0
+					self.u_limit = mol.nocc
+					# init tuples and e_inc
+					self.tuples = [np.array(list([i] for i in range(mol.ncore,
+										self.u_limit)), dtype=np.int32)]
+				# set params and lists for virt expansion
+				elif (calc.exp_type == 'virtual'):
+					# set lower and upper limits
+					self.l_limit = mol.nocc
+					self.u_limit = mol.nvirt
+					# init prim tuple and e_inc
+					self.tuples = [np.array(list([i] for i in range(self.l_limit,
+										self.l_limit + self.u_limit)), dtype=np.int32)]
+				# init energy_inc
+				if (rst.restart):
+					self.energy_inc = []
+				else:
+					self.energy_inc = [np.zeros(len(self.tuples[0]),
+								dtype=np.float64)]
+				# set max_order
+				if ((calc.exp_max_order == 0) or (calc.exp_max_order > self.u_limit)):
+					calc.exp_max_order = self.u_limit
+					if ((calc.exp_type == 'occupied') and mol.frozen): calc.exp_max_order -= mol.ncore
+				# determine max theoretical work
+				self.theo_work = []
+				for k in range(calc.exp_max_order):
+					self.theo_work.append(int(factorial(calc.exp_max_order) / \
+											(factorial(k + 1) * factorial(calc.exp_max_order - (k + 1)))))
+				# init convergence lists
+				self.conv_orb = [False]
+				self.conv_energy = [False]
+				# init orb_ent and orb_con lists
+				self.orb_ent_abs = []; self.orb_ent_rel = []
+				self.orb_con_abs = []; self.orb_con_rel = []
+				# init total energy lists for prim exp
+				self.energy_tot = []
+				#
+				return
+		
+		
+		def enum(self, *sequential, **named):
+				""" hardcoded enums """
+				enums = dict(zip(sequential, range(len(sequential))), **named)
+				#
+				return type('Enum', (), enums)
 
 
