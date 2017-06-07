@@ -21,10 +21,10 @@ from bg_mpi_utils import print_mpi_table
 
 class PrintCls():
 		""" print functions """
-		def __init__(self, out_dir):
+		def __init__(self, _out_dir):
 				""" init parameters """
-				self.out = out_dir+'/bg_output.out'
-				self.res = out_dir+'/bg_results.out'
+				self.out = _out_dir+'/bg_output.out'
+				self.res = _out_dir+'/bg_results.out'
 				# print main header
 				self.main_header()
 				#
@@ -71,7 +71,7 @@ class PrintCls():
 				return
 
 
-		def mono_exp_header(self):
+		def exp_header(self):
 				""" print expansion header """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
@@ -86,7 +86,7 @@ class PrintCls():
 				return
 		
 		
-		def mono_exp_end(self):
+		def exp_end(self):
 				""" print end of expansion """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
@@ -99,65 +99,65 @@ class PrintCls():
 				return
 		
 		
-		def kernel_header(self, tup):
+		def kernel_header(self, _exp):
 				""" print energy kernel header """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' STATUS-MACRO: order = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-								format(len(tup),len(tup[-1])))
+								format(len(_exp.tuples),len(_exp.tuples[-1])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-MACRO: order = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-						format(len(tup),len(tup[-1])))
+						format(len(_exp.tuples),len(_exp.tuples[-1])))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 
 		
-		def kernel_status(self, prog):
+		def kernel_status(self, _prog):
 				""" print status bar """
 				bar_length = 50
 				status = ""
-				block = int(round(bar_length * prog))
+				block = int(round(bar_length * _prog))
 				print(' STATUS-MACRO:   [{0}]   ---  {1:>6.2f} % {2}'.\
-						format('#' * block + '-' * (bar_length - block), prog * 100, status))
+						format('#' * block + '-' * (bar_length - block), _prog * 100, status))
 				#
 				return
 		
 		
-		def kernel_end(self, tup):
+		def kernel_end(self, _exp):
 				""" print end of energy kernel """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(len(tup)))
+						print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(len(_exp.tuples)))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(len(tup)))
+				print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(len(_exp.tuples)))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
-		def summation_header(self, order):
+		def summation_header(self, _exp):
 				""" print energy summation header """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-MACRO: order = {0:>d} summation started'.format(order))
+						print(' STATUS-MACRO: order = {0:>d} summation started'.format(_exp.order))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-MACRO: order = {0:>d} summation started'.format(order))
+				print(' STATUS-MACRO: order = {0:>d} summation started'.format(_exp.order))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
-		def summation_results(self, e_inc):
+		def summation_results(self, _exp):
 				""" print summation result statistics """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
@@ -165,110 +165,113 @@ class PrintCls():
 						print(' RESULT-MACRO:     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
 						print(' --------------------------------------------------------------------------------------------')
 						print(' RESULT-MACRO:  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-								format(np.mean(e_inc[-1]),e_inc[-1][np.argmin(np.abs(e_inc[-1]))],\
-										e_inc[-1][np.argmax(np.abs(e_inc[-1]))],np.std(e_inc[-1],ddof=1)))
+								format(np.mean(_exp.energy_inc[-1]),_exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))],\
+										_exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))],\
+										np.std(_exp.energy_inc[-1],ddof=1)))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' RESULT-MACRO:     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
 				print(' --------------------------------------------------------------------------------------------')
 				print(' RESULT-MACRO:  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-						format(np.mean(e_inc[-1]),e_inc[-1][np.argmin(np.abs(e_inc[-1]))],\
-								e_inc[-1][np.argmax(np.abs(e_inc[-1]))],np.std(e_inc[-1],ddof=1)))
+						format(np.mean(_exp.energy_inc[-1]),_exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))],\
+								_exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))],\
+								np.std(_exp.energy_inc[-1],ddof=1)))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
-		def summation_end(self, e_inc, thres, conv):
+		def summation_end(self, _calc, _exp):
 				""" print end of energy summation """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
-						if (conv):
+						if (_exp.conv_energy[-1]):
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-									format(len(e_inc),np.sum(e_inc[-1]),thres))
+									format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 							print(' STATUS-MACRO:                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-									format(len(e_inc),np.sum(e_inc[-1]),thres))
+									format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 							print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
-				if (conv):
+				if (_exp.conv_energy[-1]):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-							format(len(e_inc),np.sum(e_inc[-1]),thres))
+							format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 					print(' STATUS-MACRO:                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-							format(len(e_inc),np.sum(e_inc[-1]),thres))
+							format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 					print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
-		def screen_header(self, order):
+		def screen_header(self, _exp):
 				""" print screening header """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-MACRO: order = {0:>d} screening started'.format(order))
+						print(' STATUS-MACRO: order = {0:>d} screening started'.format(_exp.order))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-MACRO: order = {0:>d} screening started'.format(order))
+				print(' STATUS-MACRO: order = {0:>d} screening started'.format(_exp.order))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
-		def screen_results(self, tup, order, thres):
+		def screen_results(self, _calc, _exp):
 				""" print screening results """
-				if (len(tup) > order):
-					screen = (1.0-(len(tup[-1])/(len(tup[-1])+molecule['screen_count'])))*100.0
+				if (len(_exp.tuples) > _exp.order):
+					screen = (1.0 - (len(_exp.tuples[-1]) / \
+								(len(_exp.tuples[-1]) + _exp.screen_count))) * 100.0
 				else:
 					screen = 100.0
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' UPDATE-MACRO: threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
-								format(thres,screen))
+								format(_calc.exp_thres,screen))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' UPDATE-MACRO: threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
-						format(thres,screen))
+						format(_calc.exp_thres,screen))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
-		def screen_end(self, order, conv):
+		def screen_end(self, _exp):
 				""" print end of screening """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
-						if (conv):
+						if (_exp.conv_orb[-1]):
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-MACRO: order = {0:>d} screening done'.format(order))
+							print(' STATUS-MACRO: order = {0:>d} screening done'.format(_exp.order))
 							print(' STATUS-MACRO:                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------\n\n')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-MACRO: order = {0:>d} screening done'.format(order))
+							print(' STATUS-MACRO: order = {0:>d} screening done'.format(_exp.order))
 							print(' --------------------------------------------------------------------------------------------\n\n')
 				# write also to stdout
-				if (conv):
+				if (_exp.conv_orb[-1]):
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-MACRO: order = {0:>d} screening done'.format(order))
+					print(' STATUS-MACRO: order = {0:>d} screening done'.format(_exp.order))
 					print(' STATUS-MACRO:                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------\n\n')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-MACRO: order = {0:>d} screening done'.format(order))
+					print(' STATUS-MACRO: order = {0:>d} screening done'.format(_exp.order))
 					print(' --------------------------------------------------------------------------------------------\n\n')
 				#
 				return

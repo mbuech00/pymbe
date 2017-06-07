@@ -29,7 +29,7 @@ from bg_screening_mpi import tuple_generation_slave
 
 class MPICls():
 		""" mpi parameters """
-		def __init__():
+		def __init__(self):
 				""" init parameters """
 				self.parallel = self.comm.Get_size() > 1
 				if (self.parallel):
@@ -43,29 +43,29 @@ class MPICls():
 				return self
 
 
-		def bcast_hf_int(self, mol, calc):
+		def bcast_hf_int(self, _mol, _calc):
 				""" bcast hf and int info """
 				if (self.master):
 					# bcast to slaves
-					self.comm.bcast(mol.hf, root=0)
-					self.comm.bcast(mol.norb, root=0)
-					self.comm.bcast(mol.nocc, root=0)
-					self.comm.bcast(mol.nvirt, root=0)
-					self.comm.bcast(calc.h1e, root=0)
-					self.comm.bcast(calc.h2e, root=0)
+					self.comm.bcast(_mol.hf, root=0)
+					self.comm.bcast(_mol.norb, root=0)
+					self.comm.bcast(_mol.nocc, root=0)
+					self.comm.bcast(_mol.nvirt, root=0)
+					self.comm.bcast(_calc.h1e, root=0)
+					self.comm.bcast(_calc.h2e, root=0)
 				else:
 					# receive from master
-					mol.hf = self.comm.bcast(None, root=0)
-					mol.norb = self.com.bcast(None, root=0)
-					mol.nocc = self.comm.bcast(None, root=0)
-					mol.nvirt = self.comm.bcast(None, root=0)
-					calc.h1e = self.comm.bcast(None, root=0)
-					calc.h2e = self.comm.bcast(None, root=0)
+					_mol.hf = self.comm.bcast(None, root=0)
+					_mol.norb = self.com.bcast(None, root=0)
+					_mol.nocc = self.comm.bcast(None, root=0)
+					_mol.nvirt = self.comm.bcast(None, root=0)
+					_calc.h1e = self.comm.bcast(None, root=0)
+					_calc.h2e = self.comm.bcast(None, root=0)
 				#
 				return
 
 
-		def bcast_rst(self, exp, calc, time):
+		def bcast_rst(self, _calc, _exp, _time):
 				""" bcast restart files """
 				if (self.master):
 					# wake up slaves 
@@ -73,42 +73,42 @@ class MPICls():
 					# bcast
 					self.comm.bcast(msg, root=0)
 					# determine start index for energy kernel phase
-					e_inc_end = np.argmax(exp.energy_inc[-1] == 0.0)
-					if (e_inc_end == 0): e_inc_end = len(molecule['prim_energy_inc'][-1])
+					e_inc_end = np.argmax(_exp.energy_inc[-1] == 0.0)
+					if (e_inc_end == 0): e_inc_end = len(_exp.energy_inc[-1])
 					# collect exp_info
-					exp_info = {'len_tup': [len(exp.tuples[i]) for i in range(1,len(exp.tuples))],\
-								'len_e_inc': [len(exp.energy_inc[i]) for i in range(0,len(exp.energy_inc))],\
-								'min_order': calc.exp_min_order, 'e_inc_end': e_inc_end}
+					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(1,len(_exp.tuples))],\
+								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))],\
+								'min_order': _calc.exp_min_order, 'e_inc_end': e_inc_end}
 					# bcast info
 					self.comm.bcast(exp_info, root=0)
 					# bcast tuples
-					for i in range(1,len(exp.tuples)):
-						self.comm.Bcast([exp.tuples[i],MPI.INT], root=0)
+					for i in range(1,len(_exp.tuples)):
+						self.comm.Bcast([_exp.tuples[i],MPI.INT], root=0)
 					# bcast energy increments
-					for i in range(len(exp.energy_inc)):
-						if (i < (len(exp.energy_inc)-1)):
-							self.comm.Bcast([exp.energy_inc[i],MPI.DOUBLE], root=0)
+					for i in range(len(_exp.energy_inc)):
+						if (i < (len(_exp.energy_inc)-1)):
+							self.comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
 						else:
-							self.comm.Bcast([exp.energy_inc[i][:e_inc_end],MPI.DOUBLE], root=0)
+							self.comm.Bcast([_exp.energy_inc[i][:e_inc_end],MPI.DOUBLE], root=0)
 					# collect time_info
 					for i in range(1,self.size):
-						time_info = {'kernel': [time.mpi_time_work[1][i],
-									time.mpi_time_comm[1][i],time.mpi_time_idle[1][i]],\
-									'summation': [time.mpi_time_work[2][i],
-									time.mpi_time_comm[2][i],time.mpi_time_idle[2][i]],\
-									'screen': [time.mpi_time_work[0][i],
-									time.mpi_time_comm[0][i],time.mpi_time_idle[0][i]]}
+						time_info = {'kernel': [_time.mpi_time_work[1][i],
+									_time.mpi_time_comm[1][i],_time.mpi_time_idle[1][i]],\
+									'summation': [_time.mpi_time_work[2][i],
+									_time.mpi_time_comm[2][i],_time.mpi_time_idle[2][i]],\
+									'screen': [_time.mpi_time_work[0][i],
+									_time.mpi_time_comm[0][i],_time.mpi_time_idle[0][i]]}
 						self.comm.send(time_info, dest=i)
 				else:
 					# receive exp_info
 					info = self.comm.bcast(None, root=0)
 					# set min_order
-					calc.exp_min_order = info['min_order']
+					_calc.exp_min_order = info['min_order']
 					# receive tuples
 					for i in range(len(info['len_tup'])):
 						buff = np.empty([info['len_tup'][i],i+2], dtype=np.int32)
 						self.comm.Bcast([buff,MPI.INT], root=0)
-						exp.tuples.append(buff)
+						_exp.tuples.append(buff)
 					# receive e_inc
 					for i in range(len(info['len_e_inc'])):
 						buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
@@ -116,26 +116,26 @@ class MPICls():
 							self.comm.Bcast([buff,MPI.DOUBLE], root=0)
 						else:
 							self.comm.Bcast([buff[:info['e_inc_end']],MPI.DOUBLE], root=0)
-						exp.energy_inc.append(buff)
+						_exp.energy_inc.append(buff)
 					# for e_inc[-1], make sure that this is distributed among the slaves
-					for i in range(0,info['e_inc_end']):
-						if ((i % (self.size-1)) != (self.rank-1)): exp.energy_inc[-1][i] = 0.0 
+					for i in range(info['e_inc_end']):
+						if ((i % (self.size-1)) != (self.rank-1)): _exp.energy_inc[-1][i] = 0.0 
 					# receive time_info
-					time_info = self.comm.recv(source=0, status=self.stat)
-					time.mpi_time_work_kernel = time_info['kernel'][0]
-					time.mpi_time_comm_kernel = time_info['kernel'][1]
-					time.mpi_time_idle_kernel = time_info['kernel'][2]
-					time.mpi_time_work_summation = time_info['summation'][0]
-					time.mpi_time_comm_summation = time_info['summation'][1]
-					time.mpi_time_idle_summation = time_info['summation'][2]
-					time.mpi_time_work_screen = time_info['screen'][0]
-					time.mpi_time_comm_screen = time_info['screen'][1]
-					time.mpi_time_idle_screen = time_info['screen'][2]
+					_time_info = self.comm.recv(source=0, status=self.stat)
+					_time.time_work_kernel = time_info['kernel'][0]
+					_time.time_comm_kernel = time_info['kernel'][1]
+					_time.time_idle_kernel = time_info['kernel'][2]
+					_time.time_work_summation = time_info['summation'][0]
+					_time.time_comm_summation = time_info['summation'][1]
+					_time.time_idle_summation = time_info['summation'][2]
+					_time.time_work_screen = time_info['screen'][0]
+					_time.time_comm_screen = time_info['screen'][1]
+					_time.time_idle_screen = time_info['screen'][2]
 				#
 				return
 		
 		
-		def slave(self, mol, exp, calc, time):
+		def slave(self, _mol, _calc, _exp, _time):
 				""" main slave routine """
 				# set loop/waiting logical
 				slave = True
@@ -146,7 +146,7 @@ class MPICls():
 					# branch depending on task id
 					elif (msg['task'] == 'bcast_rst'):
 						# distribute (receive) restart files
-						self.bcast_rst(exp, calc, time) 
+						self.bcast_rst(_calc, _exp, _time) 
 					elif (msg['task'] == 'entanglement_abs_par'):
 						# orbital entanglement
 						entanglement_abs_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['calc_end'])

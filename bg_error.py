@@ -20,12 +20,12 @@ from contextlib import redirect_stdout
 
 class ErrCls():
 		""" error handling """
-		def __init__(out_dir):
+		def __init__(self, _out_dir):
 				""" init parameters """
 				self.error_msg = ''
 				self.error_tup = ''
 				self.error_rank = -1
-				self.error_out = out_dir+'/bg_output.out'
+				self.error_out = _out_dir+'/bg_output.out'
 				# set custom exception hook
 				self.set_exc_hook()
 				#
@@ -37,8 +37,8 @@ class ErrCls():
 				# save sys.excepthook
 				sys_excepthook = sys.excepthook
 				# define mpi exception hook
-				def mpi_excepthook(t, v, tb):
-					sys_excepthook(t, v, tb)
+				def mpi_excepthook(_t, _v, _tb):
+					sys_excepthook(_t, _v, _tb)
 					traceback.print_last(file=self.error_out)
 					self.abort()
 				# overwrite sys.excepthook
@@ -47,7 +47,7 @@ class ErrCls():
 				return
 
 
-		def abort():
+		def abort(self):
 				""" abort bg calculation in case of error """
 				# write error log to bg_output.out
 				with open(self.error_out,'a') as f:

@@ -48,9 +48,10 @@ class InitCls():
 							self.pyscf.int_trans(self.mol, self.calc.orbs == 'natural')
 				# bcast to slaves
 				self.mpi.bcast_hf_int(self.mol, self.calc)
-				# init expansion parameters
+				# init expansion parameters and next search for restart files 
 				if (self.calc.exp_type in ['occupied','virtual']):
 					self.exp = ExpCls(self.mol, self.calc, self.rst)
+					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
 				# init timings
 				self.time = TimeCls(self.mpi, self.rst)
 				# print instance
@@ -77,14 +78,14 @@ class OutCls():
 
 class MolCls(gto.Mole):
 		""" molecule class (inherited from pyscf gto.Mole class) """
-		def __init__(err):
+		def __init__(self, _err):
 				""" init parameters """
 				# set geometric parameters
-				self.atom = self.set_geo()
+				self.atom = self.set_geo(_err)
 				# set molecular parameters
 				self.charge, self.spin, self.symmetry, self.basis, \
 					self.unit, self.frozen, self.verbose  = \
-							self.set_mol()
+							self.set_mol(_err)
 				# build mol
 				self.build()
 				# set number of core orbs
@@ -93,72 +94,71 @@ class MolCls(gto.Mole):
 				return self
 
 
-		def set_geo(self, err):
+		def set_geo(self, _err):
 				""" set geometry from bg-geo.inp file """
 				# error handling
 				if (not isfile('bg-geo.inp')):
-					err.error_msg = 'bg-geo.inp not found'
-					err.abort()
+					_err.error_msg = 'bg-geo.inp not found'
+					_err.abort()
 				# read input file
 				with open('bg-geo.inp') as f:
 					content = f.readlines()
-					_atom = ''
+					atom = ''
 					for i in range(len(content)):
-						_atom += content[i]
+						atom += content[i]
 				#
-				return _atom
+				return atom
 
 
-		def set_mol(self, err):
+		def set_mol(self, _err):
 				""" set molecular parameters from bg-mol.inp file """
 				# error handling
 				if (not isfile('bg-mol.inp')):
-					err.error_msg = 'bg-mol.inp not found'
-					err.abort()
+					_err.error_msg = 'bg-mol.inp not found'
+					_err.abort()
 				# read input file
 				with open('bg-mol.inp') as f:
 					content = f.readlines()
 					for i in range(len(content)):
 						if (content[i].split()[0] == 'charge'):
-							_charge = int(content[i].split()[2])
+							charge = int(content[i].split()[2])
 						elif (content[i].split()[0] == 'spin'):
-							_spin = int(content[i].split()[2])
+							spin = int(content[i].split()[2])
 						elif (content[i].split()[0] == 'symmetry'):
-							_symmetry = content[i].split()[2].upper() == 'TRUE'
+							symmetry = content[i].split()[2].upper() == 'TRUE'
 						elif (content[i].split()[0] == 'basis'):
-							_basis = content[i].split()[2]
+							basis = content[i].split()[2]
 						elif (content[i].split()[0] == 'unit'):
-							_unit = content[i].split()[2]
+							unit = content[i].split()[2]
 						elif (content[i].split()[0] == 'frozen'):
-							_frozen = content[i].split()[2].upper() == 'TRUE'
+							frozen = content[i].split()[2].upper() == 'TRUE'
 						# error handling
 						else:
-							err.error_msg = content[i].split()[2] + \
+							_err.error_msg = content[i].split()[2] + \
 											' keyword in bg-mol.inp not recognized'
-							err.abort()
+							_err.abort()
 				# silence pyscf output
-				_verbose = 0
+				verbose = 0
 				#
-				return _charge, _spin, _symmetry, _basis, \
-							_unit, _frozen, _verbose
+				return charge, spin, symmetry, basis, unit, frozen, verbose
 
 
 		def set_ncore(self):
 				""" set ncore """
-				_ncore = 0
+				ncore = 0
 				if (self.frozen):
 					for i in range(self.natm):
-						if (self.atom_charge(i) > 2): _ncore += 1
-						if (self.atom_charge(i) > 12): _ncore += 4
-						if (self.atom_charge(i) > 20): _ncore += 4
-						if (self.atom_charge(i) > 30): _ncore += 6
+						if (self.atom_charge(i) > 2): ncore += 1
+						if (self.atom_charge(i) > 12): ncore += 4
+						if (self.atom_charge(i) > 20): ncore += 4
+						if (self.atom_charge(i) > 30): ncore += 6
 				#
-				return _ncore
+				return ncore
 
 
 class CalcCls():
 		""" calculation class """
-		def __init__(err):
+		def __init__(self, _err):
 				""" init parameters """
 				self.exp_model = 'fci'
 				self.exp_type = 'virtual'
@@ -173,117 +173,117 @@ class CalcCls():
 				# set calculation parameters
 				self.exp_model, self.exp_type, self.exp_thres, self.exp_damp, \
 					self.exp_order, self.exp_occ, self.exp_virt, \
-					self.energy_thres, = self.set_calc(err)
+					self.energy_thres, = self.set_calc(_err)
 				# sanity check
-				self.sanity_chk(err)
+				self.sanity_chk(_err)
 				#
 				return self
 
 
-		def set_calc(self, err):
+		def set_calc(self, _err):
 				""" set calculation parameters from bg-calc.inp file """
                 # error handling
    				if (not isfile('bg-calc.inp')):
-   					err.error_msg = 'bg-calc.inp not found'
-   					err.abort()
+   					_err.error_msg = 'bg-calc.inp not found'
+   					_err.abort()
    				# read input file
    				with open('bg-calc.inp') as f:
 					content = f.readlines()
 					for i in range(len(content)):
 						if (content[i].split()[0] == 'exp_model'):
-							_exp_model = content[i].split()[2].upper()
+							exp_model = content[i].split()[2].upper()
 						elif (content[i].split()[0] == 'exp_type'):
-							_exp_type = content[i].split()[2]
+							exp_type = content[i].split()[2]
 						elif (content[i].split()[0] == 'exp_thres'):
-							_exp_thres = float(content[i].split()[2])
+							exp_thres = float(content[i].split()[2])
 						elif (content[i].split()[0] == 'exp_damp'):
-							_exp_damp = float(content[i].split()[2])
+							exp_damp = float(content[i].split()[2])
 						elif (content[i].split()[0] == 'exp_max_order'):
-							_exp_max_order = int(content[i].split()[2])
+							exp_max_order = int(content[i].split()[2])
 						elif (content[i].split()[0] == 'orbitals'):
-							_exp_orbs = content[i].split()[2]
+							exp_orbs = content[i].split()[2]
 						elif (content[i].split()[0] == 'energy_thres'):
-							_energy_thres = float(content[i].split()[2])
+							energy_thres = float(content[i].split()[2])
 						# error handling
 						else:
-							err.error_msg = content[i].split()[2] + \
+							_err.error_msg = content[i].split()[2] + \
 											' keyword in bg-calc.inp not recognized'
-							err.abort()
+							_err.abort()
 				#
-				return _exp_model, _exp_type, _exp_thres, _exp_damp, \
-							_exp_max_order, _exp_orbs, _energy_thres
+				return exp_model, exp_type, exp_thres, exp_damp, \
+							exp_max_order, exp_orbs, energy_thres
 
 
-		def sanity_chk(self, err):
+		def sanity_chk(self, _err):
 				""" sanity check for calculation parameters """
 				# type of expansion
 				if (not (self.exp_type in ['occupied','virtual'])):
-					err.error_msg = 'wrong input -- valid choices for ' + \
+					_err.error_msg = 'wrong input -- valid choices for ' + \
 									'expansion scheme are occupied and virtual'
 				# expansion model
 				if (not (self.exp_model in ['CCSD','FCI'])):
-					err.error_msg = 'wrong input -- valid expansion models ' + \
+					_err.error_msg = 'wrong input -- valid expansion models ' + \
 									'are currently: CCSD and FCI'
 				# max order
 				if (self.exp_max_order < 0):
-					err.error_msg = 'wrong input -- wrong maximum ' + \
+					_err.error_msg = 'wrong input -- wrong maximum ' + \
 									'expansion order (must be integer >= 1)'
 				# expansion thresholds
 				if (self.exp_thres < 0.0):
-					err.error_msg = 'wrong input -- expansion threshold ' + \
+					_err.error_msg = 'wrong input -- expansion threshold ' + \
 									'(exp_thres) must be float >= 0.0'
 				if (self.exp_damp < 1.0):
-					err.error_msg = 'wrong input -- expansion dampening ' + \
+					_err.error_msg = 'wrong input -- expansion dampening ' + \
 									'(exp_damp) must be float >= 1.0'
 				if (self.energy_thres < 0.0):
-					err.error_msg = 'wrong input -- energy threshold ' + \
+					_err.error_msg = 'wrong input -- energy threshold ' + \
 									'(energy_thres) must be float >= 0.0'
 				# orbital representation
 				if (not (self.exp_orbs in ['canonical','local','natural'])):
-					err.error_msg = 'wrong input -- valid orbital ' + \
+					_err.error_msg = 'wrong input -- valid orbital ' + \
 									'representations are currently: canonical, ' + \
 									'local, and natural (CCSD)'
 				#
-				if (err.error_msg != ''):
-					err.abort()
+				if (_err.error_msg != ''):
+					_err.abort()
 				return
 
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, mol, calc, rst):
+		def __init__(self, _mol, _calc, _rst):
 				""" init parameters """
 				# set params and lists for occ expansion
-				if (calc.exp_type == 'occupied'):
+				if (_calc.exp_type == 'occupied'):
 					# set lower and upper limits
 					self.l_limit = 0
-					self.u_limit = mol.nocc
+					self.u_limit = _mol.nocc
 					# init tuples and e_inc
-					self.tuples = [np.array(list([i] for i in range(mol.ncore,
+					self.tuples = [np.array(list([i] for i in range(_mol.ncore,
 										self.u_limit)), dtype=np.int32)]
 				# set params and lists for virt expansion
-				elif (calc.exp_type == 'virtual'):
+				elif (_calc.exp_type == 'virtual'):
 					# set lower and upper limits
-					self.l_limit = mol.nocc
-					self.u_limit = mol.nvirt
+					self.l_limit = _mol.nocc
+					self.u_limit = _mol.nvirt
 					# init prim tuple and e_inc
 					self.tuples = [np.array(list([i] for i in range(self.l_limit,
 										self.l_limit + self.u_limit)), dtype=np.int32)]
 				# init energy_inc
-				if (rst.restart):
+				if (_rst.restart):
 					self.energy_inc = []
 				else:
 					self.energy_inc = [np.zeros(len(self.tuples[0]),
 								dtype=np.float64)]
 				# set max_order
-				if ((calc.exp_max_order == 0) or (calc.exp_max_order > self.u_limit)):
-					calc.exp_max_order = self.u_limit
-					if ((calc.exp_type == 'occupied') and mol.frozen): calc.exp_max_order -= mol.ncore
+				if ((_calc.exp_max_order == 0) or (_calc.exp_max_order > self.u_limit)):
+					_calc.exp_max_order = self.u_limit
+					if ((_calc.exp_type == 'occupied') and _mol.frozen): _calc.exp_max_order -= _mol.ncore
 				# determine max theoretical work
 				self.theo_work = []
 				for k in range(calc.exp_max_order):
-					self.theo_work.append(int(factorial(calc.exp_max_order) / \
-											(factorial(k + 1) * factorial(calc.exp_max_order - (k + 1)))))
+					self.theo_work.append(int(factorial(_calc.exp_max_order) / \
+											(factorial(k + 1) * factorial(_calc.exp_max_order - (k + 1)))))
 				# init convergence lists
 				self.conv_orb = [False]
 				self.conv_energy = [False]

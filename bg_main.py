@@ -27,10 +27,8 @@ def main():
 		# now branch
 		if (not bg.mpi.master):
 			# proceed to main slave routine
-			bg.mpi.slave(bg.mol, bg.exp, bg.calc, bg.time)
+			bg.mpi.slave(bg.mol, bg.calc, bg.exp, bg.time)
 		else:
-			# print program header
-			bg.prt.main_header()
 			# call main driver
 			driver(bg)
 			# calculate timings
