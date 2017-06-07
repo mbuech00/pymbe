@@ -17,6 +17,9 @@ from os import getcwd, mkdir, chdir
 from os.path import isdir
 from shutil import rmtree 
 
+from bg_rst import RstCls
+from bg_error import ErrCls
+from bg_mpi import MPICls
 from bg_pyscf import PySCFCls
 from bg_time import TimeCls
 from bg_print import PrintCls
@@ -26,11 +29,11 @@ class InitCls():
 		""" initialization class """
 		def __init__(self):
 				""" init calculation """
-				# init output and rst dirs
-				self.wrk_dir, self.out_dir, self.rst_dir, self.rst = \
-						self.init_out_rst()
+				# output and rst instances
+				self.out = OutCls()
+				self.rst = RstCls(self.out.wrk_dir)
 				# init error handling
-				self.err = ErrCls(self.out_dir)
+				self.err = ErrCls(self.out.out_dir)
 				# init molecule, calculation, and mpi parameters
 				self.mol = MolCls(self.err)
 				self.calc = CalcCls(self.err)
@@ -48,25 +51,25 @@ class InitCls():
 				# init timings
 				self.time = TimeCls(self.mpi, self.rst)
 				# print instance
-				if (self.mpi.master): self.prt = PrintCls(self.out_dir)
+				if (self.mpi.master): self.prt = PrintCls(self.out.out_dir)
 				#
 				return self
 
 
-		def init_out_rst(self):
-				""" init output and restart environments"""
+class OutCls():
+		""" output class """
+		def __init__(self):
+				""" init output environment """
 				# get work dir
-				_wrk_dir = getcwd()
+				self.wrk_dir = getcwd()
 				# set output dir
-				_out_dir = _wrk_dir+'/output'
+				self.out_dir = self.wrk_dir+'/output'
 				# rm out_dir if present
-				if (isdir(_out_dir)): rmtree(_out_dir,ignore_errors=True)
+				if (isdir(self.out_dir)): rmtree(self.out_dir, ignore_errors=True)
 				# mk out_dir
-				mkdir(_out_dir)
-				# rst instance
-				_rst = RstCls(_wrk_dir)
+				mkdir(self.out_dir)
 				#
-				return _wrk_dir, _out_dir, _rst_dir, _rst
+				return self
 
 
 class MolCls(gto.Mole):
@@ -127,7 +130,8 @@ class MolCls(gto.Mole):
 							_frozen = content[i].split()[2].upper() == 'TRUE'
 						# error handling
 						else:
-							err.error_msg = content[i].split()[2]+' keyword in bg-mol.inp not recognized'
+							err.error_msg = content[i].split()[2] + \
+											' keyword in bg-mol.inp not recognized'
 							err.abort()
 				# silence pyscf output
 				_verbose = 0
@@ -203,7 +207,8 @@ class CalcCls():
 							_ref = content[i].split()[2].upper() == 'TRUE'
 						# error handling
 						else:
-							err.error_msg = content[i].split()[2]+' keyword in bg-calc.inp not recognized'
+							err.error_msg = content[i].split()[2] + \
+											' keyword in bg-calc.inp not recognized'
 							err.abort()
 				#
 				return _exp_model, _exp_type, _exp_thres, _exp_damp, \
@@ -214,117 +219,34 @@ class CalcCls():
 				""" sanity check for calculation parameters """
 				# type of expansion
 				if (not (self.exp_type in ['occupied','virtual'])):
-					err.error_msg = 'wrong input -- valid choices for expansion scheme are occupied and virtual'
+					err.error_msg = 'wrong input -- valid choices for ' + \
+									'expansion scheme are occupied and virtual'
 				# expansion model
 				if (not (self.exp_model in ['CCSD','FCI'])):
-					err.error_msg = 'wrong input -- valid expansion models are currently: CCSD and FCI'
+					err.error_msg = 'wrong input -- valid expansion models ' + \
+									'are currently: CCSD and FCI'
 				# max order
 				if (self.exp_max_order < 0):
-					err.error_msg = 'wrong input -- wrong maximum expansion order (must be integer >= 1)'
+					err.error_msg = 'wrong input -- wrong maximum ' + \
+									'expansion order (must be integer >= 1)'
 				# expansion thresholds
 				if (self.exp_thres < 0.0):
-					err.error_msg = 'wrong input -- expansion threshold (exp_thres) must be float >= 0.0'
+					err.error_msg = 'wrong input -- expansion threshold ' + \
+									'(exp_thres) must be float >= 0.0'
 				if (self.exp_damp < 1.0):
-					err.error_msg = 'wrong input -- expansion dampening (exp_damp) must be float > 1.0'
+					err.error_msg = 'wrong input -- expansion dampening ' + \
+									'(exp_damp) must be float > 1.0'
 				if (self.energy_thres < 0.0):
-					err.error_msg = 'wrong input -- energy threshold (energy_thres) must be float >= 0.0'
+					err.error_msg = 'wrong input -- energy threshold ' + \
+									'(energy_thres) must be float >= 0.0'
 				# orbital representation
 				if (not (self.exp_orbs in ['canonical','local','natural'])):
-					err.error_msg = 'wrong input -- orbital representations must be chosen for occupied and virtual orbitals'
+					err.error_msg = 'wrong input -- valid orbital ' + \
+									'representations are currently: canonical, ' + \
+									'local, and natural (CCSD)'
 				#
 				if (err.error_msg != ''):
 					err.abort()
-				return
-
-
-class MPICls():
-		""" mpi parameters """
-		def __init__():
-				""" init parameters """
-				self.parallel = self.comm.Get_size() > 1
-				if (self.parallel):
-					self.comm = MPI.COMM_WORLD
-					self.size = self.comm.Get_size()
-					self.rank = self.comm.Get_rank()
-					self.master = self.rank == 0
-					self.name = MPI.Get_processor_name()
-					self.stat = MPI.Status()
-				#
-				return self
-
-
-		def bcast_hf_int(mol, calc):
-				""" bcast hf and int info """
-				if (self.master):
-					# bcast to slaves
-					self.comm.bcast(mol.hf,root=0)
-					self.comm.bcast(mol.norb,root=0)
-					self.comm.bcast(mol.nocc,root=0)
-					self.comm.bcast(mol.nvirt,root=0)
-					self.comm.bcast(calc.h1e,root=0)
-					self.comm.bcast(calc.h2e,root=0)
-				else:
-					# receive from master
-					mol.hf = self.comm.bcast(None,root=0)
-					mol.norb = self.com.bcast(None,root=0)
-					mol.nocc = self.comm.bcast(None,root=0)
-					mol.nvirt = self.comm.bcast(None,root=0)
-					calc.h1e = self.comm.bcast(None,root=0)
-					calc.h2e = self.comm.bcast(None,root=0)
-				#
-				return
-
-
-class ErrCls():
-		""" error handling """
-		def __init__(out_dir):
-				""" init parameters """
-				self.error_msg = ''
-				self.error_tup = ''
-				self.error_rank = -1
-				self.error_out = out_dir+'/bg_output.out'
-				# set custom exception hook
-				self.set_exc_hook()
-				#
-				return self
-
-
-		def set_exc_hook(self):
-				""" set an exception hook for aborting mpi """
-				# save sys.excepthook
-				sys_excepthook = sys.excepthook
-				# define mpi exception hook
-				def mpi_excepthook(t, v, tb):
-					sys_excepthook(t, v, tb)
-					traceback.print_last(file=self.error_out)
-					self.abort()
-				# overwrite sys.excepthook
-				sys.excepthook = mpi_excepthook
-				#
-				return
-
-
-		def abort():
-				""" abort bg calculation in case of error """
-				# write error log to bg_output.out
-				with open(self.error_out,'a') as f:
-					with redirect_stdout(f):
-						print('')
-						print('!!!!!!!!!!!!!')
-						print('ERROR\n')
-						if (self.error_tup == ''):
-							print(' - master quits with error:\n')
-						else:
-							print(' - mpi proc. # {0:} quits with correlated calc. error:\n'.format(self.error_rank))
-							print(self.error_msg)
-							print('\nprint of the string of dropped MOs:\n')
-							print(self.error_tup)
-						print('\nERROR')
-						print('!!!!!!!!!!!!!')
-						print('')
-				# abort
-				MPI.COMM_WORLD.Abort()
-				#
 				return
 
 
