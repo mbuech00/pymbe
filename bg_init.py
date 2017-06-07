@@ -16,6 +16,8 @@ from mpi4py import MPI
 from os import getcwd, mkdir, chdir
 from os.path import isdir
 from shutil import rmtree 
+from itertools import combinations, chain
+from scipy.misc import comb
 
 from bg_rst import RstCls
 from bg_error import ErrCls
@@ -281,12 +283,14 @@ class ExpCls():
 				# set max_order
 				if ((_calc.exp_max_order == 0) or (_calc.exp_max_order > self.u_limit)):
 					_calc.exp_max_order = self.u_limit
-					if ((_calc.exp_type == 'occupied') and _mol.frozen): _calc.exp_max_order -= _mol.ncore
+					if ((_calc.exp_type == 'occupied') and _mol.frozen):
+						_calc.exp_max_order -= _mol.ncore
 				# determine max theoretical work
 				self.theo_work = []
 				for k in range(calc.exp_max_order):
 					self.theo_work.append(int(factorial(_calc.exp_max_order) / \
-											(factorial(k + 1) * factorial(_calc.exp_max_order - (k + 1)))))
+											(factorial(k + 1) * \
+											factorial(_calc.exp_max_order - (k + 1)))))
 				# init convergence lists
 				self.conv_orb = [False]
 				self.conv_energy = [False]
@@ -297,6 +301,15 @@ class ExpCls():
 				self.energy_tot = []
 				#
 				return
+
+
+		def comb_index(self, _n, _k):
+				""" calculate combined index """
+				count = comb(_n, _k, exact=True)
+				index = np.fromiter(chain.from_iterable(combinations(range(_n), _k)),
+									int,count=count * _k)
+				#
+				return index.reshape(-1,k)
 		
 		
 		def enum(self, *sequential, **named):
