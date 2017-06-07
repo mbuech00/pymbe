@@ -25,7 +25,7 @@ from bg_rst_main import rst_main
 from bg_rst_write import rst_write_summation, rst_write_screen
 
 
-def main_drv(molecule):
+def driver(molecule):
 		""" main driver routine """
 		# initialize variable and lists
 		prepare_calc(molecule)   

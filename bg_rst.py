@@ -221,7 +221,7 @@ class RstCls():
 																	files[i])).tolist()
 								time.mpi_time_idle_screen = deepcopy(time.mpi_time_idle[2][0])
 				# set start order for expansion
-				exp.min_order = len(exp.tuples)
+				calc.exp_min_order = len(exp.tuples)
 				#
 				return
 

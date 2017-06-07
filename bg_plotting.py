@@ -531,7 +531,7 @@ def time_plot(molecule):
 		return
 
 
-def ic_plot(molecule):
+def plot(molecule):
 		""" driver function for result plotting """
 		#  plot total energies
 		abs_energy_plot(molecule)

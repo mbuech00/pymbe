@@ -164,15 +164,13 @@ class CalcCls():
 				self.exp_max_order = 6
 				self.exp_orbs = 'canonical'
 				self.energy_thres = 3.8e-04
-                self.ref = False
 				# hardcoded parameters
 				self.exp_thres_init = self.exp_thres
 				self.rst_freq = 50000.0
 				# set calculation parameters
 				self.exp_model, self.exp_type, self.exp_thres, self.exp_damp, \
 					self.exp_order, self.exp_occ, self.exp_virt, \
-					self.energy_thres, self.ref = \
-						self.set_calc(err)
+					self.energy_thres, = self.set_calc(err)
 				# sanity check
 				self.sanity_chk(err)
 				#
@@ -203,8 +201,6 @@ class CalcCls():
 							_exp_orbs = content[i].split()[2]
 						elif (content[i].split()[0] == 'energy_thres'):
 							_energy_thres = float(content[i].split()[2])
-						elif (content[i].split()[0] == 'ref'):
-							_ref = content[i].split()[2].upper() == 'TRUE'
 						# error handling
 						else:
 							err.error_msg = content[i].split()[2] + \
@@ -212,7 +208,7 @@ class CalcCls():
 							err.abort()
 				#
 				return _exp_model, _exp_type, _exp_thres, _exp_damp, \
-							_exp_max_order, _exp_orbs, _energy_thres, _ref
+							_exp_max_order, _exp_orbs, _energy_thres
 
 
 		def sanity_chk(self, err):
@@ -235,7 +231,7 @@ class CalcCls():
 									'(exp_thres) must be float >= 0.0'
 				if (self.exp_damp < 1.0):
 					err.error_msg = 'wrong input -- expansion dampening ' + \
-									'(exp_damp) must be float > 1.0'
+									'(exp_damp) must be float >= 1.0'
 				if (self.energy_thres < 0.0):
 					err.error_msg = 'wrong input -- energy threshold ' + \
 									'(energy_thres) must be float >= 0.0'

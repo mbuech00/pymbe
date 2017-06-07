@@ -71,30 +71,17 @@ class PrintCls():
 				return
 
 
-		def main_end(self):
-				""" print end of bg_output.out """
-				with open(self.out,'a') as f:
-					with redirect_stdout(f):
-						print('')
-				#
-				return
-		
-		
 		def mono_exp_header(self):
 				""" print expansion header """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
-						print('')
-						print('')
-						print('                     ---------------------------------------------                ')
+						print('\n\n                     ---------------------------------------------                ')
 						print('                                   primary expansion                              ')
-						print('                     ---------------------------------------------                ')
+						print('                     ---------------------------------------------                \n\n')
 				# write also to stdout
-				print('')
-				print('')
-				print('                     ---------------------------------------------                ')
+				print('\n\n                     ---------------------------------------------                ')
 				print('                                   primary expansion                              ')
-				print('                     ---------------------------------------------                ')
+				print('                     ---------------------------------------------                \n\n')
 				#
 				return
 		
@@ -116,14 +103,11 @@ class PrintCls():
 				""" print energy kernel header """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
-						print('')
-						print('')
 						print(' --------------------------------------------------------------------------------------------')
 						print(' STATUS-MACRO: order = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
 								format(len(tup),len(tup[-1])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
-				print('')
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-MACRO: order = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
 						format(len(tup),len(tup[-1])))
@@ -271,64 +255,22 @@ class PrintCls():
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-MACRO: order = {0:>d} screening done'.format(order))
 							print(' STATUS-MACRO:                  *** convergence has been reached ***                         ')
-							print(' --------------------------------------------------------------------------------------------')
+							print(' --------------------------------------------------------------------------------------------\n\n')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-MACRO: order = {0:>d} screening done'.format(order))
-							print(' --------------------------------------------------------------------------------------------')
+							print(' --------------------------------------------------------------------------------------------\n\n')
 				# write also to stdout
 				if (conv):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-MACRO: order = {0:>d} screening done'.format(order))
 					print(' STATUS-MACRO:                  *** convergence has been reached ***                         ')
-					print(' --------------------------------------------------------------------------------------------')
+					print(' --------------------------------------------------------------------------------------------\n\n')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-MACRO: order = {0:>d} screening done'.format(order))
-					print(' --------------------------------------------------------------------------------------------')
+					print(' --------------------------------------------------------------------------------------------\n\n')
 				#
 				return
 		
 		
-		def ref_header(self):
-				""" print ref calc header """
-				with open(self.out,'a') as f:
-					with redirect_stdout(f):
-						print('')
-						print('                     ---------------------------------------------                ')
-						print('                                reference calculation                             ')
-						print('                     ---------------------------------------------                ')
-						print('')
-						print('')
-						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-REF: full reference calculation started')
-						print(' --------------------------------------------------------------------------------------------')
-				# write also to stdout
-				print('')
-				print('                     ---------------------------------------------                ')
-				print('                                reference calculation                             ')
-				print('                     ---------------------------------------------                ')
-				print('')
-				print('')
-				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-REF: full reference calculation started')
-				print(' --------------------------------------------------------------------------------------------')
-				#
-				return
-		
-		
-		def ref_end(self, ref_time):
-				""" print end of ref calc """
-				with open(self.out,'a') as f:
-					with redirect_stdout(f):
-						print(' STATUS-REF: full reference calculation done in {0:8.2e} seconds'.format(ref_time))
-						print(' --------------------------------------------------------------------------------------------')
-						print('')
-				# write also to stdout
-				print(' STATUS-REF: full reference calculation done in {0:8.2e} seconds'.format(ref_time))
-				print(' --------------------------------------------------------------------------------------------')
-				print('')
-				#
-				return
-
-

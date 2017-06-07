@@ -31,24 +31,18 @@ def main():
 		# now branch - slaves to main_slave, master to main_drv
 		if (not bg.mpi.master):
 			# proceed to main slave routine
-			main_slave()
+			bg.mpi.main_slave()
 		else:
 			# print program header
-			print_main_header(molecule,'bg_output.out',True)
+			bg.prt.main_header()
 			# initialization done - start the calculation
-			main_drv(molecule)
+			driver(bg)
 			# calculate timings
-			calc_mpi_timings(molecule)
-			# do (potential) reference calculation
-			if (molecule['ref'] and (not molecule['error'][-1])): ref_calc(molecule)
+			bg.time.calc_mpi_timings(bg.mpi, bg.exp)
 			# print summary of the calculation
-			summary_main(molecule)
+			summary(bg)
 			# plot results
-			if (not molecule['error'][-1]): ic_plot(molecule)
-			# terminate calculation and clean up
-			term_calc(molecule,True)
-			# print program end
-			print_main_end(molecule)
+			plot(bg)
 		# finalize
 		bg.mpi.comm.Barrier()
 		MPI.Finalize()

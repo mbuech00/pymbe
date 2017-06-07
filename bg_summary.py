@@ -283,7 +283,7 @@ def summary_end(molecule):
 		return
 
 
-def summary_main(molecule):
+def summary(molecule):
 		""" driver function for summary printing """
 		# print main header
 		print_main_header(molecule,'bg_results.out')
