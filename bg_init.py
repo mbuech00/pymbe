@@ -46,7 +46,7 @@ class InitCls():
 				# bcast to slaves
 				self.mpi.bcast_hf_int(self.mol, self.calc)
 				# init timings
-				self.time = TimeCls()
+				self.time = TimeCls(self.mpi, self.rst)
 				# print instance
 				if (self.mpi.master): self.prt = PrintCls(self.out_dir)
 				#
@@ -63,14 +63,8 @@ class InitCls():
 				if (isdir(_out_dir)): rmtree(_out_dir,ignore_errors=True)
 				# mk out_dir
 				mkdir(_out_dir)
-				# set rst dir
-		        _rst_dir = _wrk_dir+'/rst'
-		        # mk rst_dir and set rst logical
-		        if (not isdir(_rst_dir)):
-					_rst = False
-					mkdir(_rst_dir)
-				else:
-					_rst = True
+				# rst instance
+				_rst = RstCls(_wrk_dir)
 				#
 				return _wrk_dir, _out_dir, _rst_dir, _rst
 
@@ -168,6 +162,7 @@ class CalcCls():
 				self.energy_thres = 3.8e-04
                 self.ref = False
 				# hardcoded parameters
+				self.exp_thres_init = self.exp_thres
 				self.rst_freq = 50000.0
 				# set calculation parameters
 				self.exp_model, self.exp_type, self.exp_thres, self.exp_damp, \
