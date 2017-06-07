@@ -14,7 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 import scipy as sp
-from pyscf import gto, scf, ao2mo, cc, fci
+from pyscf import scf, ao2mo, cc, fci
 
 
 class PySCFCls():

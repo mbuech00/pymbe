@@ -18,6 +18,7 @@ from os.path import isdir
 from shutil import rmtree 
 from itertools import combinations, chain
 from scipy.misc import comb
+from pyscf import gto
 
 from bg_rst import RstCls
 from bg_error import ErrCls
