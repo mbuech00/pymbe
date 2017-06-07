@@ -27,6 +27,7 @@ from bg_pyscf import PySCFCls
 from bg_time import TimeCls
 from bg_driver import DrvCls
 from bg_print import PrintCls
+from bg_results import ResCls
 
 
 class InitCls():
@@ -58,10 +59,11 @@ class InitCls():
 					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
 				# init timings
 				self.time = TimeCls(self.mpi, self.rst)
-				# driver and print instance
+				# driver, print, and result instances
 				if (self.mpi.master):
 					self.drv = DrvCls()
 					self.prt = PrintCls(self.out.out_dir)
+					self.res = ResCls()
 				#
 				return self
 
