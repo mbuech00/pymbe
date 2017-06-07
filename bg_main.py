@@ -29,8 +29,9 @@ def main():
 			# proceed to main slave routine
 			bg.mpi.slave(bg.mol, bg.calc, bg.exp, bg.time)
 		else:
-			# call main driver
-			driver(bg)
+			# proceed to main driver
+			bg.drv.driver(bg.mpi, bg.mol, bg.calc, bg.exp,
+							bg.prt, bg.time, bg.rst, bg.err)
 			# calculate timings
 			bg.time.calc_time(bg.mpi, bg.exp)
 			# print summary

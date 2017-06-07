@@ -22,6 +22,7 @@ from bg_error import ErrCls
 from bg_mpi import MPICls
 from bg_pyscf import PySCFCls
 from bg_time import TimeCls
+from bg_driver import DrvCls
 from bg_print import PrintCls
 
 
@@ -54,8 +55,10 @@ class InitCls():
 					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
 				# init timings
 				self.time = TimeCls(self.mpi, self.rst)
-				# print instance
-				if (self.mpi.master): self.prt = PrintCls(self.out.out_dir)
+				# driver and print instance
+				if (self.mpi.master):
+					self.drv = DrvCls()
+					self.prt = PrintCls(self.out.out_dir)
 				#
 				return self
 
