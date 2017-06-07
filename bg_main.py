@@ -14,39 +14,38 @@ __status__ = 'Development'
 
 from mpi4py import MPI
 
-from bg_mpi_wrapper import finalize_mpi
-from bg_mpi_main import init_mpi
-from bg_mpi_time import calc_mpi_timings
-from bg_setup import init_calc
-from bg_utils import ref_calc, term_calc
-from bg_print import print_main_header, print_main_end 
-from bg_summary import summary_main
-from bg_driver import main_drv
-from bg_plotting import ic_plot
+from bg_init import InitCls
+from bg_driver import driver
+from bg_summary import summary
+from bg_plotting import plot
+
 
 def main():
 		""" main bg program """
 		# initialize the calculation
 		bg = InitCls()
-		# now branch - slaves to main_slave, master to main_drv
+		# now branch
 		if (not bg.mpi.master):
 			# proceed to main slave routine
-			bg.mpi.main_slave()
+			bg.mpi.slave(bg.mol, bg.exp, bg.calc, bg.time)
 		else:
 			# print program header
 			bg.prt.main_header()
-			# initialization done - start the calculation
+			# call main driver
 			driver(bg)
 			# calculate timings
-			bg.time.calc_mpi_timings(bg.mpi, bg.exp)
-			# print summary of the calculation
+			bg.time.calc_time(bg.mpi, bg.exp)
+			# print summary
 			summary(bg)
 			# plot results
 			plot(bg)
 		# finalize
+		bg.mpi.comm.bcast({'task': 'exit_slave'}, root=0)
 		bg.mpi.comm.Barrier()
 		MPI.Finalize()
 
+
 if __name__ == '__main__':
 	main()
+
 

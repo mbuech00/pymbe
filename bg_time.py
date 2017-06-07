@@ -125,7 +125,7 @@ class TimeCls():
 				return
 
 
-		def calc_mpi_timings(self, mpi, exp):
+		def calc_time(self, mpi, exp):
 				""" calculate mpi timings """
 				# use master timings to calculate overall phase timings
 				if (not mpi.parallel):
