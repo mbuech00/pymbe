@@ -23,8 +23,9 @@ class ErrCls():
 		def __init__(self, _out_dir):
 				""" init parameters """
 				self.error_msg = ''
-				self.error_tup = ''
+				self.error_tup = []
 				self.error_rank = -1
+				self.error_name = ''
 				self.error_out = _out_dir+'/bg_output.out'
 				# set custom exception hook
 				self.set_exc_hook()
@@ -52,19 +53,19 @@ class ErrCls():
 				# write error log to bg_output.out
 				with open(self.error_out,'a') as f:
 					with redirect_stdout(f):
-						print('')
-						print('!!!!!!!!!!!!!')
-						print('ERROR\n')
+						print('\n!!!!!!!!!!!!!')
+						print('--- ERROR ---\n')
 						if (self.error_tup == ''):
 							print(' - master quits with error:\n')
-						else:
-							print(' - mpi proc. # {0:} quits with correlated calc. error:\n'.format(self.error_rank))
 							print(self.error_msg)
-							print('\nprint of the string of dropped MOs:\n')
-							print(self.error_tup)
-						print('\nERROR')
-						print('!!!!!!!!!!!!!')
-						print('')
+						else:
+							print(' - mpi proc. # {0:} (node name: {1:})' + \
+									' quits with correlated calc. error.\n'.\
+									format(self.error_rank, self.error_name))
+							print('print of the error tuple:\n')
+							print(str(self.error_tup))
+						print('\n--- ERROR ---')
+						print('!!!!!!!!!!!!!\n')
 				# abort
 				MPI.COMM_WORLD.Abort()
 				#
