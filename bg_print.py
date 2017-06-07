@@ -86,19 +86,6 @@ class PrintCls():
 				return
 		
 		
-		def exp_end(self):
-				""" print end of expansion """
-				with open(self.out,'a') as f:
-					with redirect_stdout(f):
-						print('')
-						print('')
-				# write also to stdout
-				print('')
-				print('')
-				#
-				return
-		
-		
 		def kernel_header(self, _exp):
 				""" print energy kernel header """
 				with open(self.out,'a') as f:
