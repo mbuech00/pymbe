@@ -40,22 +40,22 @@ class RstCls():
 					_calc.min_exp_order = 1
 				else:
 					# read in restart files
-					self.read_main(_mpi, _calc, _exp, _time)
+					if (_mpi.master): self.read_main(_mpi, _calc, _exp, _time)
 					# distribute expansion data to slaves
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp, _time)
 					# update threshold and restart frequency
-					calc.exp_thres, calc.rst_freq = self.update()
+					self.update(_calc)
 				#
 				return
 		
 		
-		def update(self, _thres_init, _exp_damp, _min_exp_order):
+		def update(self, _calc):
 				""" update expansion thres and restart freq according to start order """
-				for i in range(1,_min_exp_order):
-					thres = _thres_init * _exp_damp ** i
-					freq /= 2.
+				for i in range(1,_calc.min_exp_order):
+					_calc.exp_thres = _calc.exp_thres_init * _calc.exp_damp ** i
+					_calc.rst_freq /= 2.
 				#
-				return thres, freq
+				return
 
 
 		def write_kernel(self, _mpi, _exp, _time):
