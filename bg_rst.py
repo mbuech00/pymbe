@@ -65,15 +65,15 @@ class RstCls():
 						exp.energy_inc[order-1])
 				# write timings
 				if (mpi.parallel):
-					np.save(join(self.rst_dir, 'mpi_time_work_kernel'),
-							np.asarray(time.mpi_time_work[0]))
-					np.save(join(self.rst_dir, 'mpi_time_comm_kernel'),
-							np.asarray(time.mpi_time_comm[0]))
-					np.save(join(self.rst_dir, 'mpi_time_idle_kernel'),
-							np.asarray(time.mpi_time_idle[0]))
+					np.save(join(self.rst_dir, 'time_work_kernel'),
+							np.asarray(time.time_work[0]))
+					np.save(join(self.rst_dir, 'time_comm_kernel'),
+							np.asarray(time.time_comm[0]))
+					np.save(join(self.rst_dir, 'time_idle_kernel'),
+							np.asarray(time.time_idle[0]))
 				else:
-					np.save(join(self.rst_dir, 'mpi_time_work_kernel'),
-							np.asarray(time.mpi_time_work_kernel))
+					np.save(join(self.rst_dir, 'time_work_kernel'),
+							np.asarray(time.time_work_kernel))
 				#
 				return
 		
@@ -87,15 +87,15 @@ class RstCls():
 						np.asarray(exp.energy_tot[order-1]))
 				# write timings
 				if (mpi.parallel):
-					np.save(join(self.rst_dir, 'mpi_time_work_summation'),
-							np.asarray(time.mpi_time_work[1]))
-					np.save(join(self.rst_dir, 'mpi_time_comm_summation'),
-							np.asarray(time.mpi_time_comm[1]))
-					np.save(join(self.rst_dir, 'mpi_time_idle_summation'),
-							np.asarray(time.mpi_time_idle[1]))
+					np.save(join(self.rst_dir, 'time_work_summation'),
+							np.asarray(time.time_work[1]))
+					np.save(join(self.rst_dir, 'time_comm_summation'),
+							np.asarray(time.time_comm[1]))
+					np.save(join(self.rst_dir, 'time_idle_summation'),
+							np.asarray(time.time_idle[1]))
 				else:
-					np.save(join(self.rst_dir, 'mpi_time_work_summation'),
-							np.asarray(time.mpi_time_work_summation))
+					np.save(join(self.rst_dir, 'time_work_summation'),
+							np.asarray(time.time_work_summation))
 				#
 				return
 		
@@ -112,15 +112,15 @@ class RstCls():
 						np.asarray(exp.orb_con_rel[order-1]))
 				# write timings
 				if (mpi.parallel):
-					np.save(join(self.rst_dir, 'mpi_time_work_screen'),
-							np.asarray(time.mpi_time_work[2]))
-					np.save(join(self.rst_dir, 'mpi_time_comm_screen'),
-							np.asarray(time.mpi_time_comm[2]))
-					np.save(join(self.rst_dir, 'mpi_time_idle_screen'),
-							np.asarray(time.mpi_time_idle[2]))
+					np.save(join(self.rst_dir, 'time_work_screen'),
+							np.asarray(time.time_work[2]))
+					np.save(join(self.rst_dir, 'time_comm_screen'),
+							np.asarray(time.time_comm[2]))
+					np.save(join(self.rst_dir, 'time_idle_screen'),
+							np.asarray(time.time_idle[2]))
 				else:
-					np.save(join(self.rst_dir, 'mpi_time_work_screen'),
-							np.asarray(time.mpi_time_work_screen))
+					np.save(join(self.rst_dir, 'time_work_screen'),
+							np.asarray(time.time_work_screen))
 				# write orb_ent_abs and orb_ent_rel
 				if (order >= 2):
 					np.save(join(self.rst_dir, 'orb_ent_abs_'+str(order)),
@@ -172,54 +172,54 @@ class RstCls():
 						if ('kernel' in files[i]):
 							if ('work' in files[i]):
 								if (mpi.parallel):
-									time.mpi_time_work[0] = np.load(join(self.rst_dir,
+									time.time_work[0] = np.load(join(self.rst_dir,
 																		files[i])).tolist()
-									time.mpi_time_work_kernel = deepcopy(time.mpi_time_work[0][0])
+									time.time_work_kernel = deepcopy(time.time_work[0][0])
 								else:
-									time.mpi_time_work_kernel = np.load(join(self.rst_dir,	
+									time.time_work_kernel = np.load(join(self.rst_dir,	
 																			files[i])).tolist()
 							elif ('comm' in files[i]):
-								time.mpi_time_comm[0] = np.load(join(self.rst_dir,
+								time.time_comm[0] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								mpi_time_comm_kernel = deepcopy(time.mpi_time_comm[0][0])
+								time_comm_kernel = deepcopy(time.time_comm[0][0])
 							elif ('idle' in files[i]):
-								time.mpi_time_idle[0] = np.load(join(self.rst_dir,
+								time.time_idle[0] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								time.mpi_time_idle_kernel = deepcopy(time.mpi_time_idle[0][0])
+								time.time_idle_kernel = deepcopy(time.time_idle[0][0])
 						elif ('summation' in files[i]):
 							if ('work' in files[i]):
 								if (mpi.parallel):
-									time.mpi_time_work[1] = np.load(join(self.rst_dir,
+									time.time_work[1] = np.load(join(self.rst_dir,
 																		files[i])).tolist()
-									time.mpi_time_work_summation = deepcopy(time.mpi_time_work[1][0])
+									time.time_work_summation = deepcopy(time.time_work[1][0])
 								else:
-									time.mpi_time_work_summation = np.load(join(self.rst_dir,
+									time.time_work_summation = np.load(join(self.rst_dir,
 																			files[i])).tolist()
 							elif ('comm' in files[i]):
-								time.mpi_time_comm[1] = np.load(join(self.rst_dir,
+								time.time_comm[1] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								time.mpi_time_comm_summation = deepcopy(time.mpi_time_comm[1][0])
+								time.time_comm_summation = deepcopy(time.time_comm[1][0])
 							elif ('idle' in files[i]):
-								time.mpi_time_idle[1] = np.load(join(self.rst_dir,
+								time.time_idle[1] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								time.mpi_time_idle_summation = deepcopy(time.mpi_time_idle[1][0])
+								time.time_idle_summation = deepcopy(time.time_idle[1][0])
 						elif ('screen' in files[i]):
 							if ('work' in files[i]):
 								if (mpi.parallel):
-									time.mpi_time_work[2] = np.load(join(self.rst_dir,
+									time.time_work[2] = np.load(join(self.rst_dir,
 																		files[i])).tolist()
-									time.mpi_time_work_screen = deepcopy(time.mpi_time_work[2][0])
+									time.time_work_screen = deepcopy(time.time_work[2][0])
 								else:
-									time.mpi_time_work_screen = np.load(join(self.rst_dir,
+									time.time_work_screen = np.load(join(self.rst_dir,
 																			files[i])).tolist()
 							elif ('comm' in files[i]):
-								time.mpi_time_comm[2] = np.load(join(self.rst_dir,
+								time.time_comm[2] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								time.mpi_time_comm_screen = deepcopy(time.mpi_time_comm[2][0])
+								time.time_comm_screen = deepcopy(time.time_comm[2][0])
 							elif ('idle' in files[i]):
-								time.mpi_time_idle[2] = np.load(join(self.rst_dir,
+								time.time_idle[2] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								time.mpi_time_idle_screen = deepcopy(time.mpi_time_idle[2][0])
+								time.time_idle_screen = deepcopy(time.time_idle[2][0])
 				# set start order for expansion
 				calc.exp_min_order = len(exp.tuples)
 				#
