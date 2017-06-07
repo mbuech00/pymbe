@@ -283,7 +283,7 @@ class ExpCls():
 				else:
 					self.energy_inc = [np.zeros(len(self.tuples[0]),
 								dtype=np.float64)]
-				# set max_order
+				# set max_order (in calc class)
 				if ((_calc.exp_max_order == 0) or (_calc.exp_max_order > self.u_limit)):
 					_calc.exp_max_order = self.u_limit
 					if ((_calc.exp_type == 'occupied') and _mol.frozen):

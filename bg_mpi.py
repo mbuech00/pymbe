@@ -36,7 +36,7 @@ class MPICls():
 					self.comm = MPI.COMM_WORLD
 					self.size = self.comm.Get_size()
 					self.rank = self.comm.Get_rank()
-					self.master = self.rank == 0
+					self.master = (self.rank == 0)
 					self.name = MPI.Get_processor_name()
 					self.stat = MPI.Status()
 				#
