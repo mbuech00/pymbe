@@ -64,7 +64,7 @@ class KernCls():
 				# bcast
 				_mpi.comm.bcast(msg, root=0)
 				# start work time
-				_time.timer('time_work_kernel',order)
+				_time.timer('time_work_kernel', _exp.order)
 				# init job_info dictionary
 				job_info = {}
 				# number of slaves

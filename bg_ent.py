@@ -52,7 +52,7 @@ class EntCls():
 								if (set([i,j]) <= set(_exp.tuples[-1][l])):
 									_exp.orb_ent_abs[-1][i-_exp.l_limit,j-_exp.l_limit] += _exp.energy_inc[-1][l]
 					# collect work time
-					_time.timer('time_work_screen',_exp.order,True)
+					_time.timer('time_work_screen', _exp.order, True)
 				#
 				return
 		

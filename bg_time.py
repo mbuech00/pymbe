@@ -22,33 +22,35 @@ class TimeCls():
 				""" init mpi timings """
 				# init tmp time and time label
 				self.store_time = 0.0; self.store_key = ''
+				# init timings dict
+				self.timings = {}
 				# mpi distribution
 				if (_rst.restart):
 					# 'energy kernel' timings
-					self.time_work_kernel = []
-					self.time_comm_kernel = []
-					self.time_idle_kernel = []
+					self.timings['time_work_kernel'] = []
+					self.timings['time_comm_kernel'] = []
+					self.timings['time_idle_kernel'] = []
 					# 'energy summation' timings
-					self.time_work_summation = []
-					self.time_comm_summation = []
-					self.time_idle_summation = []
+					self.timings['time_work_summation'] = []
+					self.timings['time_comm_summation'] = []
+					self.timings['time_idle_summation'] = []
 					# 'screen' timings
-					self.time_work_screen = []
-					self.time_comm_screen = []
-					self.time_idle_screen = []
+					self.timings['time_work_screen'] = []
+					self.timings['time_comm_screen'] = []
+					self.timings['time_idle_screen'] = []
 				else:
 					# 'energy kernel' timings
-					self.time_work_kernel = [0.0]
-					self.time_comm_kernel = [0.0]
-					self.time_idle_kernel = [0.0]
+					self.timings['time_work_kernel'] = [0.0]
+					self.timings['time_comm_kernel'] = [0.0]
+					self.timings['time_idle_kernel'] = [0.0]
 					# 'energy summation' timings
-					self.time_work_summation = [0.0]
-					self.time_comm_summation = [0.0]
-					self.time_idle_summation = [0.0]
+					self.timings['time_work_summation'] = [0.0]
+					self.timings['time_comm_summation'] = [0.0]
+					self.timings['time_idle_summation'] = [0.0]
 					# 'screen' timings
-					self.time_work_screen = [0.0]
-					self.time_comm_screen = [0.0]
-					self.time_idle_screen = [0.0]
+					self.timings['time_work_screen'] = [0.0]
+					self.timings['time_comm_screen'] = [0.0]
+					self.timings['time_idle_screen'] = [0.0]
 				# collective lists
 				if (_mpi.parallel and _mpi.master):
 					self.time_work = [[[] for i in range(_mpi.size)] for j in range(3)]
@@ -61,10 +63,10 @@ class TimeCls():
 				# new key (wrt previous)
 				if (_key != self.store_key):
 					if (self.store_key != ''):
-						if (len(self.self.store_key) < _order):
-							self.self.store_key.append(MPI.Wtime() - self.store_time)
+						if (len(self.timings[store_key]) < _order):
+							self.timings[store_key].append(MPI.Wtime() - self.store_time)
 						else:
-							self.self.store_key[order-1] += MPI.Wtime() - self.store_time
+							self.timings[store_key][-1] += MPI.Wtime() - self.store_time
 						self.store_time = MPI.Wtime()
 						self.store_key = _key
 					else:
@@ -72,10 +74,10 @@ class TimeCls():
 						self.store_key = _key
 				# same key as previous (i.e., collect time)
 				elif ((_key == self.store_key) and _end):
-					if (len(self.key) < _order):
-						self.key.append(MPI.Wtime() - self.store_time)
+					if (len(self.timings[key]) < _order):
+						self.timings[key].append(MPI.Wtime() - self.store_time)
 					else:
-						self.key[order - 1] += MPI.Wtime() - self.store_time
+						self.timings[key][-1] += MPI.Wtime() - self.store_time
 					self.store_key = ''
 				#
 				return
@@ -93,13 +95,13 @@ class TimeCls():
 				# master collects the timings
 				if (_mpi.master):
 					if (idx == 0):
-						self.time_work[idx][0][-1] = self.time_work_ + str(phase)[-1]
-						self.time_comm[idx][0][-1] = self.time_comm_ + str(phase)[-1]
-						self.time_idle[idx][0][-1] = self.time_idle_ + str(phase)[-1]
+						self.time_work[idx][0][-1] = self.timings['time_work_' + str(phase)][-1]
+						self.time_comm[idx][0][-1] = self.timings['time_comm_' + str(phase)][-1]
+						self.time_idle[idx][0][-1] = self.timings['time_idle_' + str(phase)][-1]
 					else:
-						self.time_work[idx][0].append(self.time_work_ + str(phase)[-1])
-						self.time_comm[idx][0].append(self.time_comm_ + str(phase)[-1])
-						self.time_idle[idx][0].append(self.time_idle_ + str(phase)[-1])
+						self.time_work[idx][0].append(self.timings['time_work_' + str(phase)][-1])
+						self.time_comm[idx][0].append(self.timings['time_comm_' + str(phase)][-1])
+						self.time_idle[idx][0].append(self.timings['time_idle_' + str(phase)][-1])
 					# receive individual timings (in ordered sequence)
 					for i in range(1,_mpi.size):
 						time_info = _mpi.comm.recv(source=i, status=_mpi.stat)
@@ -113,9 +115,9 @@ class TimeCls():
 							self.time_idle[idx][i].append(time_info['idle'])
 				# slaves send their timings to master
 				else:
-					time_info = {'work': self.time_work_ + str(phase)[-1],
-								'comm': self.time_comm_ + str(phase)[-1],
-								'idle': self.time_idle_ + str(phase)[-1]}
+					time_info = {'work': self.timings['time_work'_ + str(phase)][-1],
+								'comm': self.timings['time_comm_' + str(phase)][-1],
+								'idle': self.timings['time_idle_' + str(phase)][-1]}
 					_mpi.comm.send(time_info, dest=0)
 				#
 				return
@@ -125,33 +127,33 @@ class TimeCls():
 				""" calculate mpi timings """
 				# use master timings to calculate overall phase timings
 				if (not _mpi.parallel):
-					self.time_kernel = np.asarray(self.time_work_kernel + \
-													[sum(self.time_work_kernel)])
-					self.time_summation = np.asarray(self.time_work_summation + \
-														[sum(self.time_work_summation)])
-					self.time_screen = np.asarray(self.time_work_screen + \
-													[sum(self.time_work_screen)])
+					self.time_kernel = np.asarray(self.timings['time_work_kernel'] + \
+													[sum(self.timings['time_work_kernel'])])
+					self.time_summation = np.asarray(self.timings['time_work_summation'] + \
+														[sum(self.timings['time_work_summation'])])
+					self.time_screen = np.asarray(self.timings['time_work_screen'] + \
+													[sum(self.timings['time_work_screen'])])
 					self.time_tot = self.time_kernel + self.time_summation + \
 									self.time_screen
 				else:
-					self.time_kernel = np.asarray(self.time_work_kernel + \
-													[sum(self.time_work_kernel)]) + \
-													np.asarray(self.time_comm_kernel + \
-													[sum(self.time_comm_kernel)]) + \
-													np.asarray(self.time_idle_kernel + \
-													[sum(self.time_idle_kernel)])
-					self.time_summation = np.asarray(self.time_work_summation + \
-													[sum(self.time_work_summation)]) + \
-													np.asarray(self.time_comm_summation + \
-													[sum(self.time_comm_summation)]) + \
-													np.asarray(self.time_idle_summation + \
-													[sum(self.time_idle_summation)])
-					self.time_screen = np.asarray(self.time_work_screen + \
-													[sum(self.time_work_screen)]) + \
-													np.asarray(self.time_comm_screen + \
-													[sum(self.time_comm_screen)]) + \
-													np.asarray(self.time_idle_screen + \
-													[sum(self.time_idle_screen)])
+					self.time_kernel = np.asarray(self.timings['time_work_kernel'] + \
+													[sum(self.timings['time_work_kernel'])]) + \
+													np.asarray(self.timings['time_comm_kernel'] + \
+													[sum(self.timings['time_comm_kernel'])]) + \
+													np.asarray(self.timings['time_idle_kernel'] + \
+													[sum(self.timings['time_idle_kernel'])])
+					self.time_summation = np.asarray(self.timings['time_work_summation'] + \
+													[sum(self.timings['time_work_summation'])]) + \
+													np.asarray(self.timings['time_comm_summation'] + \
+													[sum(self.timings['time_comm_summation'])]) + \
+													np.asarray(self.timings['time_idle_summation'] + \
+													[sum(self.timings['time_idle_summation'])])
+					self.time_screen = np.asarray(self.timings['time_work_screen'] + \
+													[sum(self.timings['time_work_screen'])]) + \
+													np.asarray(self.timings['time_comm_screen'] + \
+													[sum(self.timings['time_comm_screen'])]) + \
+													np.asarray(self.timings['time_idle_screen'] + \
+													[sum(self.timings['time_idle_screen'])])
 					# calc total timings
 					self.time_tot = self.time_kernel + self.time_summation + \
 									self.time_screen
