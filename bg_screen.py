@@ -21,7 +21,7 @@ class ScrCls():
 		""" screening class """
 		def __init__(self, _exp):
 				""" init tags """
-				self.tags = enum('ready', 'done', 'exit', 'start') 
+				self.tags = _exp.enum('ready', 'done', 'exit', 'start') 
 		
 		
 		def main(self, _mpi, _calc, _exp, _time, _rst):

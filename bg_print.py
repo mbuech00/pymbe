@@ -88,12 +88,12 @@ class PrintCls():
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' STATUS-MACRO: order = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-								format(len(_exp.tuples),len(_exp.tuples[-1])))
+								format(_exp.order,len(_exp.tuples[-1])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-MACRO: order = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-						format(len(_exp.tuples),len(_exp.tuples[-1])))
+						format(_exp.order,len(_exp.tuples[-1])))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -115,11 +115,11 @@ class PrintCls():
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(len(_exp.tuples)))
+						print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(_exp.order))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(len(_exp.tuples)))
+				print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(_exp.order))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return

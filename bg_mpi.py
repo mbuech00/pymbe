@@ -23,14 +23,13 @@ class MPICls():
 		""" mpi parameters """
 		def __init__(self):
 				""" init parameters """
+				self.comm = MPI.COMM_WORLD
 				self.parallel = self.comm.Get_size() > 1
-				if (self.parallel):
-					self.comm = MPI.COMM_WORLD
-					self.size = self.comm.Get_size()
-					self.rank = self.comm.Get_rank()
-					self.master = (self.rank == 0)
-					self.name = MPI.Get_processor_name()
-					self.stat = MPI.Status()
+				self.size = self.comm.Get_size()
+				self.rank = self.comm.Get_rank()
+				self.master = (self.rank == 0)
+				self.name = MPI.Get_processor_name()
+				self.stat = MPI.Status()
 
 
 		def bcast_hf_int(self, _mol, _calc):

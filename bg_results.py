@@ -108,12 +108,12 @@ class ResCls():
 									'','|','','number of mpi slaves','','=','',_mpi.size-1))
 						print(('{0:12}{1:13}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:12}{10:7}{11:1}{12:2}'
 							'{13:<6.2f}{14:7}{15:1}{16:7}{17:18}{18:5}{19:1}{20:1}{21:>13.6e}').\
-								format('','occ. orbitals','','=','',_calc.orbs,\
+								format('','occ. orbitals','','=','',_calc.exp_orbs,\
 									'','|','','damp. factor','','=','',_calc.exp_damp,\
 									'','|','','final corr. energy','','=','',_exp.energy_tot[-1]))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:16}{10:3}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:17}{18:6}{19:1}{20:1}{21:>13.6e}').\
-								format('','virt. orbitals','','=','',_calc.orbs,\
+								format('','virt. orbitals','','=','',_calc.exp_orbs,\
 									'','|','','energy threshold','','=','',_calc.energy_thres,\
 									'','|','','final convergence','','=','',\
 									_exp.energy_tot[-1] - _exp.energy_tot[-2]))

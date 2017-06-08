@@ -14,6 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 import scipy as sp
+from functools import reduce
 from pyscf import scf, ao2mo, cc, fci
 
 
@@ -27,7 +28,7 @@ class PySCFCls():
 				hf.kernel()
 				# determine dimensions
 				norb = hf.mo_coeff.shape[1]
-				nocc = int(hf.mo_occ.sum()) // 2 - _mol.ncore
+				nocc = int(hf.mo_occ.sum()) // 2
 				nvirt = norb - nocc
 				#
 				return hf, norb, nocc, nvirt
@@ -53,6 +54,14 @@ class PySCFCls():
 				return h1e, h2e
 
 
+		def corr_input(self, _mol, _exp, _tup):
+				""" generate input for casci calculation """
+				cas_idx = sorted(_exp.incl_idx + _tup.tolist())
+				core_idx = sorted(_exp.frozen_idx + list(set(range(_mol.nocc)) - set(cas_idx)))
+				#
+				return cas_idx, core_idx
+
+
 		def corr_calc(self, _mol, _calc, _exp):
 				""" correlated calculation """
 				if (_calc.exp_model == 'CCSD'):
@@ -72,7 +81,7 @@ class PySCFCls():
 					h2e_cas = _calc.h2e[_exp.cas_idx][:,_exp.cas_idx][:,:,_exp.cas_idx][:,:,:,_exp.cas_idx]
 					# set core energy
 					if (len(_exp.core_idx) > 0):
-						e_core = h1e[_exp.core_idx][:,_exp.core_idx].trace() * 2 + \
+						e_core = _calc.h1e[_exp.core_idx][:,_exp.core_idx].trace() * 2 + \
 									vhf_core[_exp.core_idx][:,_exp.core_idx].trace() + \
 									_mol.energy_nuc()
 					else:
@@ -87,17 +96,9 @@ class PySCFCls():
 					fcisolver.max_memory = _mol.max_memory
 					# casci calculation
 					casci = fcisolver.kernel(h1e_cas, h2e_cas, len(_exp.cas_idx),
-												_mol.nelec - 2 * len(_exp.core_idx), ecore=e_core)
+												_mol.nelectron - 2 * len(_exp.core_idx), ecore=e_core)
 					energy = casci[0] - _mol.hf.e_tot
 				#
 				return energy
-
-
-		def corr_input(self, _mol, _exp, _tup):
-				""" generate input for casci calculation """
-				cas_idx = sorted(_exp.incl_idx + _tup.tolist())
-				core_idx = sorted(_exp.frozen_idx + list(set(range(_mol.nocc)) - set(cas_idx)))
-				#
-				return cas_idx, core_idx
 
 

@@ -29,11 +29,11 @@ class DrvCls():
 				self.kernel = KernCls(_exp)
 				self.summation = SumCls()
 				self.entanglement = EntCls()
-				self.screening = ScrCls()
+				self.screening = ScrCls(_exp)
 				# print expansion header
 				_prt.exp_header()
 				# now do expansion
-				for _exp.order in range(_calc.min_exp_order,_calc.max_exp_order + 1):
+				for _exp.order in range(_calc.exp_min_order,_calc.exp_max_order + 1):
 					#
 					#** energy kernel phase **#
 					#
@@ -43,7 +43,7 @@ class DrvCls():
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
-					_exp.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst)
+					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst)
 					# print kernel end
 					_prt.kernel_end(_exp)
 					#
@@ -52,7 +52,7 @@ class DrvCls():
 					# print summation header
 					_prt.summation_header(_exp)
 					# energy summation
-					_exp.summation.main(_mpi, _calc, _exp, _time, _rst)
+					self.summation.main(_mpi, _calc, _exp, _time, _rst)
 					# write restart files
 					_rst.write_summation(_mpi, _exp, _time)
 					# print summation end
@@ -69,7 +69,7 @@ class DrvCls():
 					# orbital screening
 					if (not _exp.conv_energy[-1]):
 						# perform screening
-						_exp.screening.main(_mpi, _calc, _exp, _time, _rst)
+						self.screening.main(_mpi, _calc, _exp, _time, _rst)
 						# write restart files
 						if (not _exp.conv_orb[-1]):
 							_rst.write_screen(_mpi, _exp, _time)
@@ -93,7 +93,7 @@ class DrvCls():
 				self.kernel = KernCls(_exp)
 				self.summation = SumCls()
 				self.entanglement = EntCls()
-				self.screening = ScrCls()
+				self.screening = ScrCls(_exp)
 				# set loop/waiting logical
 				slave = True
 				# enter slave state

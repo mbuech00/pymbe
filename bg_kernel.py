@@ -37,7 +37,7 @@ class KernCls():
 						# start work time
 						_time.timer('time_work_kernel', _exp.order)
 						# generate input
-						_pyscf.corr_input(_mol, _exp, _exp.tuples[-1][i])
+						_exp.cas_idx, _exp.core_idx = _pyscf.corr_input(_mol, _exp, _exp.tuples[-1][i])
 						# run correlated calc
 						_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
 						# print status
@@ -182,7 +182,8 @@ class KernCls():
 					# do job
 					if (tag == self.tags.start):
 						# generate input
-						_pyscf.corr_input(_mol, _exp, _exp.tuples[-1][job_info['index']])
+						_exp.cas_idx, _exp.core_idx = \
+							_pyscf.corr_input(_mol, _exp, _exp.tuples[-1][job_info['index']])
 						# run correlated calc
 						_exp.energy_inc[-1][job_info['index']] = _pyscf.corr_calc(_mol, _calc, _exp)
 						# start comm time

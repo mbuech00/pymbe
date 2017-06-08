@@ -49,15 +49,15 @@ class InitCls():
 					self.mol.hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
 							self.pyscf.hf_calc(self.mol)
 					self.calc.h1e, self.calc.h2e = \
-							self.pyscf.int_trans(self.mol, self.calc.orbs == 'natural')
+							self.pyscf.int_trans(self.mol, self.calc.exp_orbs == 'natural')
 				# bcast to slaves
-				self.mpi.bcast_hf_int(self.mol, self.calc)
+				if (self.mpi.parallel): self.mpi.bcast_hf_int(self.mol, self.calc)
+				# time instance
+				self.time = TimeCls(self.mpi, self.rst)
 				# expansion instance
 				if (self.calc.exp_type in ['occupied','virtual']):
 					self.exp = ExpCls(self.mpi, self.mol, self.calc, self.rst)
 					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
-				# time instance
-				self.time = TimeCls(self.mpi, self.rst)
 				# driver instance
 				self.driver = DrvCls()
 				# print and result instances

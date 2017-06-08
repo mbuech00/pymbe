@@ -36,14 +36,14 @@ class RstCls():
 				""" main restart driver """
 				if (not self.restart):
 					# set start order for expansion
-					_calc.min_exp_order = 1
+					_calc.exp_min_order = 1
 				else:
 					# read in restart files
 					if (_mpi.master): self.read_main(_mpi, _calc, _exp, _time)
 					# distribute expansion data to slaves
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp, _time)
 					# update threshold and restart frequency
-					for i in range(1, _calc.min_exp_order): self.update(_calc, i)
+					for i in range(1, _calc.exp_min_order): self.update(_calc, i)
 				#
 				return
 		
