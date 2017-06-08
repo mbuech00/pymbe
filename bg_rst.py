@@ -24,6 +24,7 @@ class RstCls():
 		def __init__(self, _out):
 				""" init restart env and parameters """
 				self.rst_dir = _out.wrk_dir+'/rst'
+				self.rst_freq = 50000.0
 				if (not isdir(self.rst_dir)):
 					self.restart = False
 					mkdir(self.rst_dir)
@@ -53,7 +54,7 @@ class RstCls():
 				""" update expansion thres and restart freq according to start order """
 				for i in range(1,_calc.min_exp_order):
 					_calc.exp_thres = _calc.exp_thres_init * _calc.exp_damp ** i
-					_calc.rst_freq /= 2.
+					self.rst_freq /= 2.
 				#
 				return
 

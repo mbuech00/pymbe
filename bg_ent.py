@@ -18,7 +18,7 @@ from mpi4py import MPI
 
 class EntCls():
 		""" entanglement class """
-		def ent_main(self, _mpi, _mol, _calc, _exp, _rst, _time):
+		def main(self, _mpi, _mol, _calc, _exp, _time, _rst):
 				""" main driver for entanglement routines """
 				if (_exp.order >= 2):
 					# absolute entanglement

@@ -18,10 +18,10 @@ from mpi4py import MPI
 
 class DrvCls():
 		""" driver class """
-		def master(self, _mpi, _mol, _calc, _exp, _time, _rst, _err):
+		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _rst):
 				""" main driver routine """
 				# make kernel, summation, entanglement, and screening instances
-				self.kernel = KernCls()
+				self.kernel = KernCls(_exp)
 				self.summation = SummCls()
  				self.entanglement = EntCls()
 				self.screening = ScrCls()
@@ -37,7 +37,7 @@ class DrvCls():
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
-					_exp.kernel.main(_mpi, _mol, _calc, _exp, _time, _err)
+					_exp.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _err)
 					# print kernel end
 					_exp.kernel_end(_exp)
 					#
@@ -59,7 +59,7 @@ class DrvCls():
 					# print screen header
 					_exp.screen_header(_exp)
 					# orbital entanglement
-					_exp.ent_main(_mpi, _exp, _time)
+					self.entanglement.main(_mpi, _mol, _calc, _exp, _time, _rst)
 					# orbital screening
 					if (not _exp.conv_energy[-1]):
 						# perform screening
@@ -77,10 +77,10 @@ class DrvCls():
 				return
 	
 	
-		def slave(self, _mpi, _mol, _calc, _exp, _time, _err):
+		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err):
 				""" main slave routine """
 				# make kernel, summation, entanglement, and screening instances
-				self.kernel = KernCls()
+				self.kernel = KernCls(_exp)
 				self.summation = SummCls()
  				self.entanglement = EntCls()
 				self.screening = ScrCls()
@@ -97,27 +97,24 @@ class DrvCls():
 					#
 					#** energy kernel phase **#
 					#
-					elif (msg['task'] == 'energy_kernel_par'):
-						# energy kernel
-						energy_kernel_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
-						collect_kernel_mpi_time(molecule,msg['order'])
+					elif (msg['task'] == 'kernel_slave'):
+						_exp.order = msg['order']
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time, _err)
+						_time.coll_kernel_time(_mpi, None, _exp.order)
 					#
 					#** energy summation phase **#
 					#
 					elif (msg['task'] == 'energy_summation_par'):
-						# energy summation
 						energy_summation_par(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],None,None,msg['order'],'MACRO')
 						collect_summation_mpi_time(molecule,msg['order'])
 					#
 					#** screening phase **#
 					#
 					elif (msg['task'] == 'ent_abs_par'):
-						# orbital entanglement
 						_exp.order = msg['order']
 						self.entanglement.ent_abs_par(self, _exp, _time)
 						_time.coll_screen_time(self, None, _exp.order, msg['conv_energy'])
 					elif (msg['task'] == 'tuple_generation_par'):
-						# generate tuples
 						tuple_generation_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['thres'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
 						collect_screen_mpi_time(molecule,msg['order'],True)
 					elif (msg['task'] == 'exit_slave'):

@@ -23,15 +23,15 @@ def main():
 		bg = InitCls()
 		# now branch
 		if (not bg.mpi.master):
-			# proceed to main slave routine
-			bg.mpi.slave(bg.mol, bg.calc, bg.exp, bg.time)
+			# proceed to main slave driver
+			bg.drv.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.err)
 		else:
-			# proceed to main driver
-			bg.drv.driver(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time, bg.rst, bg.err)
+			# proceed to main master driver
+			bg.drv.master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.err, bg.prt, bg.rst)
 			# print summary and plot results
 			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time)
 		# finalize
-		bg.mpi.comm.bcast({'task': 'exit_slave'}, root=bg.mpi.rank)
+		bg.mpi.comm.bcast({'task': 'exit_slave'}, root=0)
 		bg.mpi.comm.Barrier()
 		MPI.Finalize()
 

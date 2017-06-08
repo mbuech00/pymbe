@@ -26,9 +26,7 @@ class CalcCls():
 				self.exp_max_order = 0
 				self.exp_orbs = 'canonical'
 				self.energy_thres = 3.8e-04
-				# hardcoded parameters
 				self.exp_thres_init = self.exp_thres
-				self.rst_freq = 50000.0
 				# set calculation parameters
 				self.exp_model, self.exp_type, self.exp_thres, self.exp_damp, \
 					self.exp_order, self.exp_occ, self.exp_virt, \

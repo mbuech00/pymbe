@@ -76,7 +76,9 @@ class ExpCls():
 		
 		
 		def enum(self, *sequential, **named):
-				""" hardcoded enums """
+				""" hardcoded enums
+				see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+				"""
 				enums = dict(zip(sequential, range(len(sequential))), **named)
 				#
 				return type('Enum', (), enums)
