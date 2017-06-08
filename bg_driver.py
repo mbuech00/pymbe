@@ -15,6 +15,11 @@ __status__ = 'Development'
 import numpy as np
 from mpi4py import MPI
 
+from bg_kernel import KernCls
+from bg_sum import SumCls
+from bg_ent import EntCls
+from bg_screen import ScrCls
+
 
 class DrvCls():
 		""" driver class """
@@ -22,7 +27,7 @@ class DrvCls():
 				""" main driver routine """
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
-				self.summation = SummCls()
+				self.summation = SumCls()
  				self.entanglement = EntCls()
 				self.screening = ScrCls()
 				# print expansion header
@@ -81,7 +86,7 @@ class DrvCls():
 				""" main slave routine """
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
-				self.summation = SummCls()
+				self.summation = SumCls()
  				self.entanglement = EntCls()
 				self.screening = ScrCls()
 				# set loop/waiting logical

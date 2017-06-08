@@ -13,10 +13,10 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
+from mpi4py import MPI
 from os import getcwd, mkdir, chdir
 from os.path import isfile
 from shutil import copy, rmtree
-from mpi4py import MPI
 
 
 class MPICls():
@@ -141,5 +141,25 @@ class MPICls():
 				_time.timer('time_comm_screen', _exp.order, True)
 				#
 				return
+
 	
+		def allred_e_inc(self, _exp, _time):
+				""" allreduce e_inc[-1] """
+				# start idle time
+				_time.timer('time_idle_summation', _exp.order)
+				# barrier
+				self.comm.Barrier()
+				# start comm time
+				_time.timer('time_comm_summation', _exp.order)
+				# init receive buffer
+				recv_buff = np.zeros(len(_exp.energy_inc[-1]), dtype=np.float64)
+				# now do Allreduce
+				self.comm.Allreduce([_exp.energy_inc[-1],MPI.DOUBLE], [recv_buff,MPI.DOUBLE], op=MPI.SUM)
+				# start work time
+				_time.timer('time_work_summation', _exp.order)
+				# finally, overwrite e_inc[-1]
+				_exp.energy_inc[-1] = recv_buff
+				#
+				return
+
 	
