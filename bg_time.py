@@ -53,9 +53,9 @@ class TimeCls():
 					self.time_idle_screen = [0.0]
 				# collective lists
 				if (_mpi.parallel and _mpi.master):
-					self.time_work = [[[] for i in range(0,_mpi.size)] for j in range(0,3)]
-					self.time_comm = [[[] for i in range(0,_mpi.size)] for j in range(0,3)]
-					self.time_idle = [[[] for i in range(0,_mpi.size)] for j in range(0,3)]
+					self.time_work = [[[] for i in range(_mpi.size)] for j in range(3)]
+					self.time_comm = [[[] for i in range(_mpi.size)] for j in range(3)]
+					self.time_idle = [[[] for i in range(_mpi.size)] for j in range(3)]
 				#
 				return
 

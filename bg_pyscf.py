@@ -96,7 +96,7 @@ class PySCFCls():
 		def corr_input(self, _mol, _exp, _tup):
 				""" generate input for casci calculation """
 				cas_idx = sorted(_exp.incl_idx + _tup.tolist())
-				core_idx = sorted(_exp.frozen_idx + list(set(range(_mol.nocc))-set(cas_idx)))
+				core_idx = sorted(_exp.frozen_idx + list(set(range(_mol.nocc)) - set(cas_idx)))
 				#
 				return cas_idx, core_idx
 

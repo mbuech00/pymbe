@@ -380,7 +380,7 @@ class ResCls():
 					ax.set_xticks(list(range(_calc.exp_max_order)))
 					ax.set_xticklabels(list(range(1,_calc.exp_max_order + 1)))
 				else:
-					ax.set_xticks(list(range(0,_calc.exp_max_order,
+					ax.set_xticks(list(range(_calc.exp_max_order,
 									_calc.exp_max_order // 8)))
 					ax.set_xticklabels(list(range(1,_calc.exp_max_order + 1,
 										_calc.exp_max_order // 8)))

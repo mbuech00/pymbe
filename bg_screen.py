@@ -27,55 +27,55 @@ class ScrCls():
 		
 		
 		def main(self, _mpi, _calc, _exp, _time, _rst):
-			""" input generation for subsequent order """
-			if (_mpi.parallel):
-				# mpi parallel version
-				self.master(_mpi, _calc, _exp, _time)
-				_time.coll_screen_time(_mpi, _rst, _exp.order, True)
-			else:
-				# start time
-				_time.timer('time_work_screen', _exp.order)
-				# determine which tuples have contributions below the threshold
-				allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
-				# init bookkeeping variables
-				_exp.screen_count = 0; tmp = []; combs = []
-		        # loop over parent tuples
-				for i in range(len(_exp.tuples[-1])):
-					# generate list with all subsets of particular tuple
-					combs = list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1))
-					# loop through possible orbitals to augment the combinations with
-					for m in range(_exp.tuples[-1][i][-1]+1, (_exp.l_limit+_exp.u_limit)+1):
-						# init screening logical
-						screen = False
-						# loop over subset combinations
-						for j in range(len(combs)):
-							# check whether or not the particular tuple is actually allowed
-							if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
-								# screen away
-								screen = True
-								break
-						if (not screen):
-			                # loop over subset combinations
+				""" input generation for subsequent order """
+				if (_mpi.parallel):
+					# mpi parallel version
+					self.master(_mpi, _calc, _exp, _time)
+					_time.coll_screen_time(_mpi, _rst, _exp.order, True)
+				else:
+					# start time
+					_time.timer('time_work_screen', _exp.order)
+					# determine which tuples have contributions below the threshold
+					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+					# init bookkeeping variables
+					_exp.screen_count = 0; tmp = []; combs = []
+			        # loop over parent tuples
+					for i in range(len(_exp.tuples[-1])):
+						# generate list with all subsets of particular tuple
+						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1))
+						# loop through possible orbitals to augment the combinations with
+						for m in range(_exp.tuples[-1][i][-1]+1, (_exp.l_limit+_exp.u_limit)+1):
+							# init screening logical
+							screen = False
+							# loop over subset combinations
 							for j in range(len(combs)):
-								# check whether the particular tuple among negligible tuples
-								if (not np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
+								# check whether or not the particular tuple is actually allowed
+								if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
 									# screen away
 									screen = True
 									break
-						# if tuple is allowed, add to child tuple list, otherwise screen away
-						if (not screen):
-							tmp.append(_exp.tuples[-1][i].tolist()+[m])
-						else:
-							_exp.screen_count += 1
-				# when done, write to tup list or mark expansion as converged
-				if (len(tmp) >= 1):
-					_exp.tuples.append(np.array(tmp, dtype=np.int32))
-				else:
-					_exp.conv_orb.append(True)
-				# end time
-				_time.timer('time_work_screen', _exp.order, True)
-			#
-			return
+							if (not screen):
+				                # loop over subset combinations
+								for j in range(len(combs)):
+									# check whether the particular tuple among negligible tuples
+									if (not np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
+										# screen away
+										screen = True
+										break
+							# if tuple is allowed, add to child tuple list, otherwise screen away
+							if (not screen):
+								tmp.append(_exp.tuples[-1][i].tolist()+[m])
+							else:
+								_exp.screen_count += 1
+					# when done, write to tup list or mark expansion as converged
+					if (len(tmp) >= 1):
+						_exp.tuples.append(np.array(tmp, dtype=np.int32))
+					else:
+						_exp.conv_orb.append(True)
+					# end time
+					_time.timer('time_work_screen', _exp.order, True)
+				#
+				return
 	
 	
 		def master(self, _mpi, _calc, _exp, _time):

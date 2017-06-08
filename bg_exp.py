@@ -26,17 +26,21 @@ class ExpCls():
 					# set lower and upper limits
 					self.l_limit = 0
 					self.u_limit = _mol.nocc
-					# init tuples and e_inc
+					# init tuples and incl_idx
 					self.tuples = [np.array(list([i] for i in range(_mol.ncore,
 										self.u_limit)), dtype=np.int32)]
+					self.incl_idx = [range(_mol.nocc, _mol.norb)]
 				# set params and lists for virt expansion
 				elif (_calc.exp_type == 'virtual'):
 					# set lower and upper limits
 					self.l_limit = _mol.nocc
 					self.u_limit = _mol.nvirt
-					# init prim tuple and e_inc
+					# init tuples and incl_idx
 					self.tuples = [np.array(list([i] for i in range(self.l_limit,
 										self.l_limit + self.u_limit)), dtype=np.int32)]
+					self.incl_idx = [range(_mol.nocc)]
+				# set frozen_idx
+				self.frozen_idx = [range(_mol.ncore)]
 				# init energy_inc
 				if (_rst.restart):
 					self.energy_inc = []
