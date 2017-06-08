@@ -20,13 +20,13 @@ from contextlib import redirect_stdout
 
 class ErrCls():
 		""" error handling """
-		def __init__(self, _out_dir):
+		def __init__(self, _out):
 				""" init parameters """
 				self.error_msg = ''
 				self.error_tup = []
 				self.error_rank = -1
 				self.error_name = ''
-				self.error_out = _out_dir+'/bg_output.out'
+				self.error_out = _out.out_dir+'/bg_output.out'
 				# set custom exception hook
 				self.set_exc_hook()
 				#

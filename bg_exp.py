@@ -19,8 +19,10 @@ from scipy.misc import comb
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, _mol, _calc, _rst):
+		def __init__(self, _out, _mpi, _mol, _calc, _rst):
 				""" init parameters """
+				# if master, make print instance
+				if (_mpi.master): self.prt = PrtCls(_out)
 				# set params and lists for occ expansion
 				if (_calc.exp_type == 'occupied'):
 					# set lower and upper limits

@@ -27,8 +27,7 @@ def main():
 			bg.mpi.slave(bg.mol, bg.calc, bg.exp, bg.time)
 		else:
 			# proceed to main driver
-			bg.drv.driver(bg.mpi, bg.mol, bg.calc, bg.exp,
-							bg.prt, bg.time, bg.rst, bg.err)
+			bg.drv.driver(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time, bg.rst, bg.err)
 			# print summary and plot results
 			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time)
 		# finalize

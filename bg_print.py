@@ -21,10 +21,10 @@ from bg_mpi_utils import print_mpi_table
 
 class PrintCls():
 		""" print functions """
-		def __init__(self, _out_dir):
+		def __init__(self, _out):
 				""" init parameters """
-				self.out = _out_dir+'/bg_output.out'
-				self.res = _out_dir+'/bg_results.out'
+				self.out = _out.out_dir+'/bg_output.out'
+				self.res = _out.out_dir+'/bg_results.out'
 				# print main header
 				self.main_header()
 				#

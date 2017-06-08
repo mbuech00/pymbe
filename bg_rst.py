@@ -21,9 +21,9 @@ from copy import deepcopy
 
 class RstCls():
 		""" restart class """
-		def __init__(self, _wrk_dir):
+		def __init__(self, _out):
 				""" init restart env and parameters """
-				self.rst_dir = _wrk_dir+'/rst'
+				self.rst_dir = _out.wrk_dir+'/rst'
 				if (not isdir(self.rst_dir)):
 					self.restart = False
 					mkdir(self.rst_dir)

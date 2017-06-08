@@ -29,9 +29,9 @@ import seaborn as sns
 
 class ResCls():
 		""" result class """
-		def __init__(self, _out_dir):
+		def __init__(self, _out):
 				""" init parameters """
-				self.out_dir = _out_dir
+				self.out_dir = _out.out_dir
 				self.output = self.out_dir+'/bg_results.out'
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
