@@ -125,22 +125,6 @@ class MPICls():
 					_time.time_idle_screen = time_info['screen'][2]
 				#
 				return
-	
-	
-		def red_orb_ent(self, _exp, _time, _send_buff, _recv_buff):
-				""" reduce orb_ent onto master proc. """
-				# start idle time
-				_time.timer('time_idle_screen', _exp.order)
-				# collect idle time
-				self.comm.Barrier()
-				# start comm time
-				_time.timer('time_comm_screen', _exp.order)
-				# reduce tmp into recv_buff
-				self.comm.Reduce([_send_buff,MPI.DOUBLE], [_recv_buff,MPI.DOUBLE], op=MPI.SUM, root=0)
-				# collect comm time
-				_time.timer('time_comm_screen', _exp.order, True)
-				#
-				return
 
 	
 		def allred_e_inc(self, _exp, _time):
@@ -159,6 +143,49 @@ class MPICls():
 				_time.timer('time_work_summation', _exp.order)
 				# finally, overwrite e_inc[-1]
 				_exp.energy_inc[-1] = recv_buff
+				#
+				return
+
+	
+		def red_orb_ent(self, _exp, _time, _send_buff, _recv_buff):
+				""" reduce orb_ent onto master proc. """
+				# start idle time
+				_time.timer('time_idle_screen', _exp.order)
+				# collect idle time
+				self.comm.Barrier()
+				# start comm time
+				_time.timer('time_comm_screen', _exp.order)
+				# reduce tmp into recv_buff
+				self.comm.Reduce([_send_buff,MPI.DOUBLE], [_recv_buff,MPI.DOUBLE], op=MPI.SUM, root=0)
+				# collect comm time
+				_time.timer('time_comm_screen', _exp.order, True)
+				#
+				return
+
+
+		def bcast_tup(self, _exp, _time, _buff):
+				""" master/slave routine for bcasting total number of tuples """
+				if (self.master):
+					# start comm time
+					_time.timer('time_comm_screen', _exp.order)
+					# init bcast dict
+					tup_info = {'tup_len': len(_buff)}
+					# bcast
+					self.comm.bcast(tup_info, root=0)
+				# start idle time
+				_time.timer('time_idle_screen', _exp.order)
+				# all meet at barrier
+				self.comm.Barrier()
+				# start comm time
+				_time.timer('time_comm_screen', _exp.order)
+				# bcast buffer
+				self.comm.Bcast([_buff,MPI.INT], root=0)
+				# start work time
+				_time.timer('time_work_screen', _exp.order)
+				# append tup[-1] with buff
+				if (len(_buff) >= 1): _exp.tuples.append(_buff)
+				# end work time
+				_time.timer('time_work_screen', _exp.order, True)
 				#
 				return
 

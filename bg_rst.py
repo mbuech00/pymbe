@@ -45,16 +45,15 @@ class RstCls():
 					# distribute expansion data to slaves
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp, _time)
 					# update threshold and restart frequency
-					self.update(_calc)
+					for i in range(1, _calc.min_exp_order): self.update(_calc, i)
 				#
 				return
 		
 		
-		def update(self, _calc):
+		def update(self, _calc, _order):
 				""" update expansion thres and restart freq according to start order """
-				for i in range(1,_calc.min_exp_order):
-					_calc.exp_thres = _calc.exp_thres_init * _calc.exp_damp ** i
-					self.rst_freq /= 2.
+				_calc.exp_thres = _calc.exp_thres_init * _calc.exp_damp ** _order
+				self.rst_freq /= 2.
 				#
 				return
 

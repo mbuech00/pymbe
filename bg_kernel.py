@@ -19,7 +19,7 @@ from mpi4py import MPI
 class KernCls():
 		""" kernel class """
 		def __init__(self, _exp):
-				""" init parameters """
+				""" init tags """
 				self.tags = _exp.enum('ready', 'done', 'data', 'exit', 'start')
 				#
 				return self
