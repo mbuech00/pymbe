@@ -28,7 +28,7 @@ class DrvCls():
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
 				self.summation = SumCls()
- 				self.entanglement = EntCls()
+				self.entanglement = EntCls()
 				self.screening = ScrCls()
 				# print expansion header
 				_prt.exp_header()
@@ -92,7 +92,7 @@ class DrvCls():
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
 				self.summation = SumCls()
- 				self.entanglement = EntCls()
+				self.entanglement = EntCls()
 				self.screening = ScrCls()
 				# set loop/waiting logical
 				slave = True

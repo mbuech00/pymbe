@@ -30,8 +30,6 @@ class RstCls():
 					mkdir(self.rst_dir)
 				else:
 					self.restart = False
-				#
-				return self
 
 
 		def rst_main(self, _mpi, _calc, _exp, _time):

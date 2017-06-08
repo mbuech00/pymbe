@@ -30,8 +30,6 @@ class MolCls(gto.Mole):
 				self.build()
 				# set number of core orbs
 				self.ncore = self.set_ncore()
-				#
-				return self
 
 
 		def set_geo(self, _err):

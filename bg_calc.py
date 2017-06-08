@@ -33,18 +33,16 @@ class CalcCls():
 					self.energy_thres, = self.set_calc(_err)
 				# sanity check
 				self.sanity_chk(_err)
-				#
-				return self
 
 
 		def set_calc(self, _err):
 				""" set calculation parameters from bg-calc.inp file """
                 # error handling
-   				if (not isfile('bg-calc.inp')):
-   					_err.error_msg = 'bg-calc.inp not found'
-   					_err.abort()
-   				# read input file
-   				with open('bg-calc.inp') as f:
+				if (not isfile('bg-calc.inp')):
+					_err.error_msg = 'bg-calc.inp not found'
+					_err.abort()
+				# read input file
+				with open('bg-calc.inp') as f:
 					content = f.readlines()
 					for i in range(len(content)):
 						if (content[i].split()[0] == 'exp_model'):

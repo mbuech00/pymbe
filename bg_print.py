@@ -16,8 +16,6 @@ import sys
 import numpy as np
 from contextlib import redirect_stdout
 
-from bg_mpi_utils import print_mpi_table
-
 
 class PrintCls():
 		""" print functions """
@@ -27,8 +25,6 @@ class PrintCls():
 				self.res = _out.out_dir+'/bg_results.out'
 				# print main header
 				self.main_header()
-				#
-				return self
 
 
 		def main_header(self):

@@ -22,8 +22,6 @@ class ScrCls():
 		def __init__(self, _exp):
 				""" init tags """
 				self.tags = enum('ready', 'done', 'exit', 'start') 
-				#
-				return self
 		
 		
 		def main(self, _mpi, _calc, _exp, _time, _rst):

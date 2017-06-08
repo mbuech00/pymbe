@@ -31,8 +31,6 @@ class MPICls():
 					self.master = (self.rank == 0)
 					self.name = MPI.Get_processor_name()
 					self.stat = MPI.Status()
-				#
-				return self
 
 
 		def bcast_hf_int(self, _mol, _calc):

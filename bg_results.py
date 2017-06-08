@@ -36,8 +36,6 @@ class ResCls():
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
 				self.header_str = '{0:^143}'.format('-'*45)
-				#
-				return self
 
 
 		def main(self, _mpi, _mol, _calc, _exp, _time):

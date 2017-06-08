@@ -25,7 +25,7 @@ from bg_pyscf import PySCFCls
 from bg_exp import ExpCls
 from bg_time import TimeCls
 from bg_driver import DrvCls
-from bg_print import PrtCls
+from bg_print import PrintCls
 from bg_results import ResCls
 
 
@@ -62,10 +62,8 @@ class InitCls():
 				self.driver = DrvCls()
 				# print and result instances
 				if (self.mpi.master):
-					self.prt = PrtCls(self.out)
+					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.out)
-				#
-				return self
 
 
 class OutCls():
@@ -80,7 +78,5 @@ class OutCls():
 				if (isdir(self.out_dir)): rmtree(self.out_dir, ignore_errors=True)
 				# mk out_dir
 				mkdir(self.out_dir)
-				#
-				return self
 
 

@@ -66,8 +66,6 @@ class ExpCls():
 				self.orb_con_abs = []; self.orb_con_rel = []
 				# init total energy lists for prim exp
 				self.energy_tot = []
-				#
-				return
 
 
 		def comb_index(self, _n, _k):
