@@ -91,9 +91,26 @@ class DrvCls():
 					# receive task
 					msg = _mpi.comm.bcast(None, root=0)
 					# branch depending on task id
-					elif (msg['task'] == 'bcast_rst'):
+					if (msg['task'] == 'bcast_rst'):
 						# distribute (receive) restart files
 						_mpi.bcast_rst(_calc, _exp, _time) 
+					#
+					#** energy kernel phase **#
+					#
+					elif (msg['task'] == 'energy_kernel_par'):
+						# energy kernel
+						energy_kernel_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
+						collect_kernel_mpi_time(molecule,msg['order'])
+					#
+					#** energy summation phase **#
+					#
+					elif (msg['task'] == 'energy_summation_par'):
+						# energy summation
+						energy_summation_par(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],None,None,msg['order'],'MACRO')
+						collect_summation_mpi_time(molecule,msg['order'])
+					#
+					#** screening phase **#
+					#
 					elif (msg['task'] == 'ent_abs_par'):
 						# orbital entanglement
 						_exp.order = msg['order']
@@ -103,14 +120,6 @@ class DrvCls():
 						# generate tuples
 						tuple_generation_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['thres'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
 						collect_screen_mpi_time(molecule,msg['order'],True)
-					elif (msg['task'] == 'energy_kernel_par'):
-						# energy kernel
-						energy_kernel_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
-						collect_kernel_mpi_time(molecule,msg['order'])
-					elif (msg['task'] == 'energy_summation_par'):
-						# energy summation
-						energy_summation_par(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],None,None,msg['order'],'MACRO')
-						collect_summation_mpi_time(molecule,msg['order'])
 					elif (msg['task'] == 'exit_slave'):
 						slave = False
 				#

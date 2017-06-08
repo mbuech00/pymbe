@@ -18,14 +18,6 @@ from os.path import isfile
 from shutil import copy, rmtree
 from mpi4py import MPI
 
-from bg_mpi_utils import print_mpi_table, prepare_calc
-from bg_mpi_rst import rst_dist_slave
-from bg_mpi_time import init_mpi_timings, collect_screen_mpi_time, collect_kernel_mpi_time, collect_summation_mpi_time
-from bg_kernel_mpi import energy_kernel_slave
-from bg_summation_mpi import energy_summation_par
-from bg_entanglement_mpi import entanglement_abs_par
-from bg_screening_mpi import tuple_generation_slave
-
 
 class MPICls():
 		""" mpi parameters """
@@ -133,5 +125,21 @@ class MPICls():
 					_time.time_idle_screen = time_info['screen'][2]
 				#
 				return
-		
-		
+	
+	
+		def red_orb_ent(self, _exp, _time, _send_buff, _recv_buff):
+				""" reduce orb_ent onto master proc. """
+				# start idle time
+				_time.timer('time_idle_screen', _exp.order)
+				# collect idle time
+				self.comm.Barrier()
+				# start comm time
+				_time.timer('time_comm_screen', _exp.order)
+				# reduce tmp into recv_buff
+				self.comm.Reduce([_send_buff,MPI.DOUBLE], [_recv_buff,MPI.DOUBLE], op=MPI.SUM, root=0)
+				# collect comm time
+				_time.timer('time_comm_screen', _exp.order, True)
+				#
+				return
+	
+	

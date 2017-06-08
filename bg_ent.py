@@ -88,7 +88,7 @@ class EntCls():
 				else:
 					recv_buff = None
 				# reduce tmp onto master
-				self.red_orb_ent(_mpi, _exp, tmp)
+				_mpi.red_orb_ent(_exp, _time, tmp, recv_buff)
 				# master appends results to orb_ent list
 				if (_mpi.master):
 					# start work time
@@ -97,22 +97,6 @@ class EntCls():
 					_exp.orb_ent_abs.append(recv_buff)
 					# collect work time
 					_time.timer('time_work_screen', _exp.order, True)
-				#
-				return
-
-
-		def red_orb_ent(self, _mpi, _exp, _tmp):
-				""" reduce orb_ent onto master proc. """
-				# start idle time
-				_tmp.timer('time_idle_screen', _exp.order)
-				# collect idle time
-				_mpi.comm.Barrier()
-				# start comm time
-				_time.timer('time_comm_screen', _exp.order)
-				# reduce tmp into recv_buff
-				_mpi.comm.Reduce([tmp,MPI.DOUBLE], [recv_buff,MPI.DOUBLE], op=MPI.SUM, root=0)
-				# collect comm time
-				_time.timer('time_comm_screen', _exp.order, True)
 				#
 				return
 
