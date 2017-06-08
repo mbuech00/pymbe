@@ -71,7 +71,7 @@ class RstCls():
 							np.asarray(_time.time_idle[0]))
 				else:
 					np.save(join(self.rst_dir, 'time_work_kernel'),
-							np.asarray(_time.time_work_kernel))
+							np.asarray(_time.timings['time_work_kernel']))
 				#
 				return
 		
@@ -93,7 +93,7 @@ class RstCls():
 							np.asarray(_time.time_idle[1]))
 				else:
 					np.save(join(self.rst_dir, 'time_work_summation'),
-							np.asarray(_time.time_work_summation))
+							np.asarray(_time.timings['time_work_summation']))
 				#
 				return
 		
@@ -118,7 +118,7 @@ class RstCls():
 							np.asarray(_time.time_idle[2]))
 				else:
 					np.save(join(self.rst_dir, 'time_work_screen'),
-							np.asarray(_time.time_work_screen))
+							np.asarray(_time.timings['time_work_screen']))
 				# write orb_ent_abs and orb_ent_rel
 				if (_exp.order >= 2):
 					np.save(join(self.rst_dir, 'orb_ent_abs_' + str(_exp.order)),
