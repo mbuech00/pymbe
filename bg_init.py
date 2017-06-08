@@ -25,6 +25,7 @@ from bg_pyscf import PySCFCls
 from bg_exp import ExpCls
 from bg_time import TimeCls
 from bg_driver import DrvCls
+from bg_print import PrtCls
 from bg_results import ResCls
 
 
@@ -35,9 +36,9 @@ class InitCls():
 				# output and rst instances
 				self.out = OutCls()
 				self.rst = RstCls(self.out)
-				# init error handling
+				# error instance
 				self.err = ErrCls(self.out)
-				# init molecule, calculation, and mpi parameters
+				# molecule, calculation, and mpi instances
 				self.mol = MolCls(self.err)
 				self.calc = CalcCls(self.err)
 				self.mpi = MPICls()
@@ -51,15 +52,17 @@ class InitCls():
 							self.pyscf.int_trans(self.mol, self.calc.orbs == 'natural')
 				# bcast to slaves
 				self.mpi.bcast_hf_int(self.mol, self.calc)
-				# init expansion parameters and next search for restart files 
+				# expansion instance
 				if (self.calc.exp_type in ['occupied','virtual']):
-					self.exp = ExpCls(self.out, self.mpi, self.mol, self.calc, self.rst)
+					self.exp = ExpCls(self.mpi, self.mol, self.calc, self.rst)
 					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
-				# init timings
+				# time instance
 				self.time = TimeCls(self.mpi, self.rst)
-				# driver and result instances
+				# driver instance
+				self.driver = DrvCls()
+				# print and result instances
 				if (self.mpi.master):
-					self.drv = DrvCls()
+					self.prt = PrtCls(self.out)
 					self.res = ResCls(self.out)
 				#
 				return self

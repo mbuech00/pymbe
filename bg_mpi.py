@@ -135,38 +135,3 @@ class MPICls():
 				return
 		
 		
-		def slave(self, _mol, _calc, _exp, _time):
-				""" main slave routine """
-				# set loop/waiting logical
-				slave = True
-				# start waiting
-				while (slave):
-					# receive task
-					msg = self.comm.bcast(None, root=0)
-					# branch depending on task id
-					elif (msg['task'] == 'bcast_rst'):
-						# distribute (receive) restart files
-						self.bcast_rst(_calc, _exp, _time) 
-					elif (msg['task'] == 'ent_abs_par'):
-						# orbital entanglement
-						_exp.order = msg['order']
-						_exp.ent_abs_par(_mpi, _exp, _time)
-						_time.coll_screen_time(_mpi, None, _exp.order, msg['conv_energy'])
-					elif (msg['task'] == 'tuple_generation_par'):
-						# generate tuples
-						tuple_generation_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['thres'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
-						collect_screen_mpi_time(molecule,msg['order'],True)
-					elif (msg['task'] == 'energy_kernel_par'):
-						# energy kernel
-						energy_kernel_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
-						collect_kernel_mpi_time(molecule,msg['order'])
-					elif (msg['task'] == 'energy_summation_par'):
-						# energy summation
-						energy_summation_par(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],None,None,msg['order'],'MACRO')
-						collect_summation_mpi_time(molecule,msg['order'])
-					elif (msg['task'] == 'exit_slave'):
-						slave = False
-				#
-				return
-
-
