@@ -186,7 +186,7 @@ class KernCls():
 						# generate input
 						_pyscf.corr_input(_mol, _exp, _exp.tuples[-1][job_info['index']])
 						# run correlated calc
-						data['energy'] = _pyscf.corr_calc(_mol, _calc, _exp)
+						_exp.energy_inc[-1][job_info['index']] = _pyscf.corr_calc(_mol, _calc, _exp)
 						# start comm time
 						_time.timer('time_comm_kernel', _exp.order)
 						# report status back to master
@@ -195,6 +195,7 @@ class KernCls():
 						_time.timer('time_work_kernel', _exp.order)
 						# write info into data dict
 						data['index'] = job_info['index']
+						data['energy'] = _exp.energy_inc[-1][job_info['index']]
 						data['t_work'] = _time.time_work_kernel[-1]
 						data['t_comm'] = _time.time_comm_kernel[-1]
 						data['t_idle'] = _time.time_idle_kernel[-1]

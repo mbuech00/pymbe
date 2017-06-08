@@ -18,74 +18,80 @@ from mpi4py import MPI
 
 class SumCls():
 		""" summation class """
-		def main(molecule, tup, e_inc, energy, thres, order, level):
+		def main(self, _mpi, _calc, _exp, _time, _rst):
 				""" energy summation phase """
 				# mpi parallel version
-				if (molecule['mpi_parallel']):
-					energy_summation_par(molecule,tup,e_inc,energy,thres,order,level)
-					collect_summation_mpi_time(molecule,order)
+				if (_mpi.parallel):
+					self.sum_par(_mpi, _calc, _exp, _time)
+					_time.coll_summation_time(_mpi, _rst, _exp.order)
 				else:
 					# start work time
-					timer_mpi(molecule,'mpi_time_work_summation',order)
+					_time.timer('time_work_summation', _exp.order)
 					# compute energy increments at current order
-					for j in range(0,len(tup[-1])):
+					for j in range(len(_exp.tuples[-1])):
 						# loop over previous orders
-						for i in range(order-1,0,-1):
+						for i in range(_exp.order-1, 0, -1):
 							# test if tuple is a subset
-							combs = tup[-1][j,comb_index(order,i)]
-							dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
-							idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
-							for l in idx: e_inc[-1][j] -= e_inc[i-1][l]
+							combs = _exp.tuples[-1][j,_exp.comb_index(_exp.order, i)]
+							dt = np.dtype((np.void,_exp.tuples[i-1].dtype.itemsize * \
+											_exp.tuples[i-1].shape[1]))
+							idx = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
+												combs.view(dt).reshape(-1)))[0]
+							for l in idx: _exp.energy_inc[-1][j] -= _exp.energy_inc[i-1][l]
 					# sum of energy increments
-					e_tmp = np.sum(e_inc[-1])
+					e_tmp = np.sum(_exp.energy_inc[-1])
 					# sum of total energy
-					if (order >= 2): e_tmp += energy[-1]
+					if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
 					# add to total energy list
-					energy.append(e_tmp)
+					_exp.energy_tot.append(e_tmp)
 					# collect work time
-					timer_mpi(molecule,'mpi_time_work_summation',order,True)
+					_time.timer('time_work_summation', _exp.order, True)
 					# check for convergence wrt total energy
-					if ((order >= 2) and (abs(energy[-1]-energy[-2]) < thres)): molecule['conv_energy'].append(True)
+					if ((_exp.order >= 2) and (abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _calc.energy_thres)):
+						_exp.conv_energy.append(True)
 				#
 				return
 		
 		
-		def energy_summation_par(molecule, tup, e_inc, energy, thres, order, level):
-				""" energy summation phase (mpi parallel version, master / slave function) """
-				if (molecule['mpi_master']):
+		def sum_par(self, _mpi, _calc, _exp, _time):
+				""" master / slave function """
+				if (_mpi.master):
 					# start idle time
-					timer_mpi(molecule,'mpi_time_idle_summation',order)
+					_time.timer('time_idle_summation', _exp.order)
 					# wake up slaves
-					msg = {'task': 'energy_summation_par', 'order': order, 'level': level}
+					msg = {'task': 'sum_par', 'order': _exp.order}
 					# bcast
-					molecule['mpi_comm'].bcast(msg,root=0)
+					_mpi.comm.bcast(msg, root=0)
 					# re-init e_inc[-1] with 0.0
-					e_inc[-1].fill(0.0)
+					_exp.energy_inc[-1].fill(0.0)
 				# start work time
-				timer_mpi(molecule,'mpi_time_work_summation',order)
+				_time.timer('time_work_summation', _exp.order)
 				# compute energy increments at current order
-				for j in range(0,len(tup[-1])):
+				for j in range(len(_exp.tuples[-1])):
 					# distribute jobs according to work distribution in energy kernel phases
-					if (e_inc[-1][j] != 0.0):
+					if (_exp.energy_inc[-1][j] != 0.0):
 						# loop over previous orders
-						for i in range(order-1,0,-1):
+						for i in range(_exp.order-1, 0, -1):
 							# test if tuple is a subset
-							combs = tup[-1][j,comb_index(order,i)]
-							dt = np.dtype((np.void,tup[i-1].dtype.itemsize*tup[i-1].shape[1]))
-							idx = np.nonzero(np.in1d(tup[i-1].view(dt).reshape(-1),combs.view(dt).reshape(-1)))[0]
-							for l in idx: e_inc[-1][j] -= e_inc[i-1][l]
+							combs = _exp.tuples[-1][j,_exp.comb_index(_exp.order, i)]
+							dt = np.dtype((np.void,_exp.tuples[i-1].dtype.itemsize * \
+											_exp.tuples[i-1].shape[1]))
+							idx = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
+												combs.view(dt).reshape(-1)))[0]
+							for l in idx: _exp.energy_inc[-1][j] -= _exp.energy_inc[i-1][l]
 				# allreduce e_inc[-1]
-				allred_e_inc(molecule,e_inc,order)
+				_mpi.allred_e_inc(_exp, _time)
 				# let master calculate the total energy
-				if (molecule['mpi_master']):
+				if (_mpi.master):
 					# sum of energy increments 
-					e_tmp = np.sum(e_inc[-1])
+					e_tmp = np.sum(_exp.energy_inc[-1])
 					# sum of total energy
-					if (order >= 2): e_tmp += energy[-1]
+					if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
 					# add to total energy list
-					energy.append(e_tmp)
+					_exp.energy_tot.append(e_tmp)
 					# check for convergence wrt total energy
-					if ((order >= 2) and (abs(energy[-1]-energy[-2]) < thres)): molecule['conv_energy'].append(True)
+					if ((_exp.order >= 2) and (abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _calc.energy_thres)): 
+						_exp.conv_energy.append(True)
 				#
 				return
 

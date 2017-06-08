@@ -23,7 +23,7 @@ from bg_screen import ScrCls
 
 class DrvCls():
 		""" driver class """
-		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _rst):
+		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst):
 				""" main driver routine """
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
@@ -42,7 +42,7 @@ class DrvCls():
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
-					_exp.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _err)
+					_exp.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst)
 					# print kernel end
 					_exp.kernel_end(_exp)
 					#
@@ -51,7 +51,7 @@ class DrvCls():
 					# print summation header
 					_exp.summation_header(_exp)
 					# energy summation
-					_exp.summation.main(_mpi, _exp, _time)
+					_exp.summation.main(_mpi, _calc, _exp, _time, _rst)
 					# write restart files
 					_rst.write_summation(_mpi, _exp, _time)
 					# print summation end
@@ -110,14 +110,15 @@ class DrvCls():
 					#** energy summation phase **#
 					#
 					elif (msg['task'] == 'energy_summation_par'):
-						energy_summation_par(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],None,None,msg['order'],'MACRO')
-						collect_summation_mpi_time(molecule,msg['order'])
+						_exp.order = msg['order']
+						self.summation.sum_par(_mpi, _calc, _exp, _time)
+						_time.coll_summation_time(_mpi, None, _exp.order)
 					#
 					#** screening phase **#
 					#
 					elif (msg['task'] == 'ent_abs_par'):
 						_exp.order = msg['order']
-						self.entanglement.ent_abs_par(self, _exp, _time)
+						self.entanglement.ent_abs_par(_mpi, _exp, _time)
 						_time.coll_screen_time(self, None, _exp.order, msg['conv_energy'])
 					elif (msg['task'] == 'tuple_generation_par'):
 						tuple_generation_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['thres'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')
