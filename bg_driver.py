@@ -53,7 +53,7 @@ class DrvCls():
 					# print screen header
 					_prt.screen_header(_exp)
 					# orbital entanglement
-					_exp.entanglement.main(_mpi, _exp, _time)
+					_exp.ent_main(_mpi, _exp, _time)
 					# orbital screening
 					if (not _exp.conv_energy[-1]):
 						# perform screening

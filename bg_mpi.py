@@ -147,10 +147,11 @@ class MPICls():
 					elif (msg['task'] == 'bcast_rst'):
 						# distribute (receive) restart files
 						self.bcast_rst(_calc, _exp, _time) 
-					elif (msg['task'] == 'entanglement_abs_par'):
+					elif (msg['task'] == 'ent_abs_par'):
 						# orbital entanglement
-						entanglement_abs_par(molecule,msg['l_limit'],msg['u_limit'],msg['order'],msg['calc_end'])
-						collect_screen_mpi_time(molecule,msg['order'],msg['calc_end'])
+						_exp.order = msg['order']
+						_exp.ent_abs_par(_mpi, _exp, _time)
+						_time.coll_screen_time(_mpi, None, _exp.order, msg['conv_energy'])
 					elif (msg['task'] == 'tuple_generation_par'):
 						# generate tuples
 						tuple_generation_slave(molecule,molecule['prim_tuple'],molecule['prim_energy_inc'],msg['thres'],msg['l_limit'],msg['u_limit'],msg['order'],'MACRO')

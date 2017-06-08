@@ -17,7 +17,7 @@ from itertools import combinations, chain
 from scipy.misc import comb
 
 
-class ExpCls():
+class ExpCls(EntCls):
 		""" expansion class """
 		def __init__(self, _out, _mpi, _mol, _calc, _rst):
 				""" init parameters """

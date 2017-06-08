@@ -57,7 +57,7 @@ class InitCls():
 					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
 				# init timings
 				self.time = TimeCls(self.mpi, self.rst)
-				# driver, print, and result instances
+				# driver and result instances
 				if (self.mpi.master):
 					self.drv = DrvCls()
 					self.res = ResCls(self.out)
