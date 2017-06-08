@@ -20,6 +20,7 @@ class MolCls(gto.Mole):
 		""" molecule class (inherited from pyscf gto.Mole class) """
 		def __init__(self, _err):
 				""" init parameters """
+				gto.Mole.__init__(self)
 				# set geometric parameters
 				self.atom = self.set_geo(_err)
 				# set molecular parameters
