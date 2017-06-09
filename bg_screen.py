@@ -144,7 +144,7 @@ class ScrCls():
 				# make numpy array out of tmp
 				buff = np.array(tmp, dtype=np.int32)
 				# bcast buff
-				_mpi.bcast_tuples(_exp, _time, buff)
+				_mpi.bcast_tup(_exp, _time, buff)
 				#
 				return
 		
@@ -218,7 +218,7 @@ class ScrCls():
 				tup_info = _mpi.comm.bcast(None, root=0)
 				buff = np.empty([tup_info['tup_len'],_exp.order+1], dtype=np.int32)
 				# receive buffer
-				_mpi.bcast_tuples(_exp, _time, buff)
+				_mpi.bcast_tup(_exp, _time, buff)
 				#
 				return
 

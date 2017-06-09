@@ -116,7 +116,7 @@ class DrvCls():
 					#
 					#** energy summation phase **#
 					#
-					elif (msg['task'] == 'energy_summation_par'):
+					elif (msg['task'] == 'sum_par'):
 						_exp.order = msg['order']
 						self.summation.sum_par(_mpi, _calc, _exp, _time)
 						_time.coll_summation_time(_mpi, None, _exp.order)
@@ -127,7 +127,7 @@ class DrvCls():
 						_exp.order = msg['order']
 						self.entanglement.ent_abs_par(_mpi, _exp, _time)
 						_time.coll_screen_time(self, None, _exp.order, msg['conv_energy'])
-					elif (msg['task'] == 'tuple_generation_par'):
+					elif (msg['task'] == 'screen_slave'):
 						_exp.order = msg['order']
 						self.screening.slave(_mpi, _calc, _exp, _time)
 						_time.coll_screen_time(_mpi, None, _exp.order, True)

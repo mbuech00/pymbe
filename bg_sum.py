@@ -79,8 +79,10 @@ class SumCls():
 							idx = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
 												combs.view(dt).reshape(-1)))[0]
 							for l in idx: _exp.energy_inc[-1][j] -= _exp.energy_inc[i-1][l]
+				print('proc. {0:} before allred'.format(_mpi.rank))
 				# allreduce e_inc[-1]
 				_mpi.allred_e_inc(_exp, _time)
+				print('proc. {0:} after allred'.format(_mpi.rank))
 				# let master calculate the total energy
 				if (_mpi.master):
 					# sum of energy increments 
