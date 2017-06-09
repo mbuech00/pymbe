@@ -189,9 +189,9 @@ class TimeCls():
 											self.sum_comm_abs[i][j] + self.sum_idle_abs[i][j])) * 100.0
 					# mpi distribution - order
 					# (only count slave timings - total results are stored as the last entry)
-					self.dist_order = np.zeros([3,len(_exp.energy) + 1], dtype=np.float64)
+					self.dist_order = np.zeros([3,len(_exp.energy_tot) + 1], dtype=np.float64)
 					# absolute amount of work/comm/idle at each order
-					for k in range(len(_exp.energy)):
+					for k in range(len(_exp.energy_tot)):
 						for i in range(3):
 							for j in range(1,_mpi.size):
 								self.dist_order[0,k] += self.time_work[i][j][k]
@@ -201,7 +201,7 @@ class TimeCls():
 					self.dist_order[1,-1] = np.sum(self.dist_order[1,:-1]) 
 					self.dist_order[2,-1] = np.sum(self.dist_order[2,:-1])
 					# calculate relative results
-					for k in range(len(_exp.energy) + 1):
+					for k in range(len(_exp.energy_tot) + 1):
 						sum_k = self.dist_order[0,k] + self.dist_order[1,k] + self.dist_order[2,k]
 						self.dist_order[0,k] = (self.dist_order[0,k] / sum_k) * 100.0
 						self.dist_order[1,k] = (self.dist_order[1,k] / sum_k) * 100.0

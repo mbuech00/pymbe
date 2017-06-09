@@ -126,7 +126,7 @@ class DrvCls():
 					elif (msg['task'] == 'ent_abs_par'):
 						_exp.order = msg['order']
 						self.entanglement.ent_abs_par(_mpi, _exp, _time)
-						_time.coll_screen_time(self, None, _exp.order, msg['conv_energy'])
+						_time.coll_screen_time(_mpi, None, _exp.order, msg['conv_energy'])
 					elif (msg['task'] == 'screen_slave'):
 						_exp.order = msg['order']
 						self.screening.slave(_mpi, _calc, _exp, _time)
