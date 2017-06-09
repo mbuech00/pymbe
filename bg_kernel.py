@@ -139,9 +139,9 @@ class KernCls():
 						_time.time_idle[0][source][-1] = data['t_idle']
 						# write restart files
 						if (((data['index']+1) % int(_rst.rst_freq)) == 0):
-							_time.time_work[0][0][-1] = _time.time_work_kernel[-1]
-							_time.time_comm[0][0][-1] = _time.time_comm_kernel[-1]
-							_time.time_idle[0][0][-1] = _time.time_idle_kernel[-1]
+							_time.time_work[0][0][-1] = _time.timings['work_kernel'][-1]
+							_time.time_comm[0][0][-1] = _time.timings['comm_kernel'][-1]
+							_time.time_idle[0][0][-1] = _time.timings['idle_kernel'][-1]
 							_rst.write_kernel(_mpi, _exp, _time)
 						# increment stat counter
 						counter += 1
@@ -162,7 +162,7 @@ class KernCls():
 				# print 100.0 %
 				_prt.kernel_status(1.0)
 				# collect work time
-				_time.timer('mpi_time_work_kernel', _exp.order, True)
+				_time.timer('work_kernel', _exp.order, True)
 				#
 				return
 		
@@ -207,9 +207,9 @@ class KernCls():
 						# write info into data dict
 						data['index'] = job_info['index']
 						data['e_corr'] = _exp.energy_inc[-1][job_info['index']]
-						data['t_work'] = _time.time_work_kernel[-1]
-						data['t_comm'] = _time.time_comm_kernel[-1]
-						data['t_idle'] = _time.time_idle_kernel[-1]
+						data['t_work'] = _time.timings['work_kernel'][-1]
+						data['t_comm'] = _time.timings['comm_kernel'][-1]
+						data['t_idle'] = _time.timings['idle_kernel'][-1]
 #						data['error'] = molecule['error'][-1]
 #						data['error_code'] = molecule['error_code']
 #						data['error_msg'] = molecule['error_msg']
@@ -224,7 +224,7 @@ class KernCls():
 					elif (tag == self.tags.exit):
 						break
 				# start comm time
-				_time.timer('mpi_time_comm_kernel', _exp.order)
+				_time.timer('comm_kernel', _exp.order)
 				# send exit signal to master
 				_mpi.comm.send(None, dest=0, tag=self.tags.exit)
 				# collect comm time

@@ -63,10 +63,10 @@ class TimeCls():
 				# new key (wrt previous)
 				if (_key != self.store_key):
 					if (self.store_key != ''):
-						if (len(self.timings[store_key]) < _order):
-							self.timings[store_key].append(MPI.Wtime() - self.store_time)
+						if (len(self.timings[self.store_key]) < _order):
+							self.timings[self.store_key].append(MPI.Wtime() - self.store_time)
 						else:
-							self.timings[store_key][-1] += MPI.Wtime() - self.store_time
+							self.timings[self.store_key][-1] += MPI.Wtime() - self.store_time
 						self.store_time = MPI.Wtime()
 						self.store_key = _key
 					else:
@@ -95,13 +95,13 @@ class TimeCls():
 				# master collects the timings
 				if (_mpi.master):
 					if (idx == 0):
-						self.time_work[idx][0][-1] = self.timings['work_' + str(phase)][-1]
-						self.time_comm[idx][0][-1] = self.timings['comm_' + str(phase)][-1]
-						self.time_idle[idx][0][-1] = self.timings['idle_' + str(phase)][-1]
+						self.time_work[idx][0][-1] = self.timings['work_' + str(_phase)][-1]
+						self.time_comm[idx][0][-1] = self.timings['comm_' + str(_phase)][-1]
+						self.time_idle[idx][0][-1] = self.timings['idle_' + str(_phase)][-1]
 					else:
-						self.time_work[idx][0].append(self.timings['work_' + str(phase)][-1])
-						self.time_comm[idx][0].append(self.timings['comm_' + str(phase)][-1])
-						self.time_idle[idx][0].append(self.timings['idle_' + str(phase)][-1])
+						self.time_work[idx][0].append(self.timings['work_' + str(_phase)][-1])
+						self.time_comm[idx][0].append(self.timings['comm_' + str(_phase)][-1])
+						self.time_idle[idx][0].append(self.timings['idle_' + str(_phase)][-1])
 					# receive individual timings (in ordered sequence)
 					for i in range(1,_mpi.size):
 						time_info = _mpi.comm.recv(source=i, status=_mpi.stat)
@@ -115,9 +115,9 @@ class TimeCls():
 							self.time_idle[idx][i].append(time_info['idle'])
 				# slaves send their timings to master
 				else:
-					time_info = {'work': self.timings['work_' + str(phase)][-1],
-								'comm': self.timings['comm_' + str(phase)][-1],
-								'idle': self.timings['idle_' + str(phase)][-1]}
+					time_info = {'work': self.timings['work_' + str(_phase)][-1],
+								'comm': self.timings['comm_' + str(_phase)][-1],
+								'idle': self.timings['idle_' + str(_phase)][-1]}
 					_mpi.comm.send(time_info, dest=0)
 				#
 				return
@@ -219,7 +219,7 @@ class TimeCls():
 				self.timer('idle_kernel', _order, True)
 				self.coll_time(_mpi, 'kernel')
 				# write restart files
-				if (_mpi.master): _rst.write_time('kernel')
+				if (_mpi.master): _rst.write_time(_mpi, self, 'kernel')
 				#
 				return
 
@@ -233,7 +233,7 @@ class TimeCls():
 				self.timer('idle_summation', _order, True)
 				self.coll_time(_mpi, 'summation')
 				# write restart files
-				if (_mpi.master): _rst.write_time('summation')
+				if (_mpi.master): _rst.write_time(_mpi, self, 'summation')
 				#
 				return
 
@@ -247,7 +247,7 @@ class TimeCls():
 				self.timer('idle_screen', _order, True)
 				# first or second call? if second, write restart files
 				if (_second_call): self.coll_time(_mpi, 'screen')
-				if (_second_call and _mpi.master): _rst.write_time('screen')
+				if (_second_call and _mpi.master): _rst.write_time(_mpi, self, 'screen')
 				#
 				return 
 

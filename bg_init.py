@@ -33,15 +33,17 @@ class InitCls():
 		""" initialization class """
 		def __init__(self):
 				""" init calculation """
-				# output and rst instances
-				self.out = OutCls()
-				self.rst = RstCls(self.out)
+				# mpi instance
+				self.mpi = MPICls()
+				# output instance
+				self.out = OutCls(self.mpi)
+				# restart instance
+				self.rst = RstCls(self.out, self.mpi)
 				# error instance
 				self.err = ErrCls(self.out)
-				# molecule, calculation, and mpi instances
+				# molecule and calculation instances
 				self.mol = MolCls(self.err)
 				self.calc = CalcCls(self.err)
-				self.mpi = MPICls()
 				# pyscf instance
 				self.pyscf = PySCFCls()
 				# hf calculation and integral transformation
@@ -68,15 +70,16 @@ class InitCls():
 
 class OutCls():
 		""" output class """
-		def __init__(self):
+		def __init__(self, _mpi):
 				""" init output environment """
 				# get work dir
 				self.wrk_dir = getcwd()
 				# set output dir
 				self.out_dir = self.wrk_dir+'/output'
-				# rm out_dir if present
-				if (isdir(self.out_dir)): rmtree(self.out_dir, ignore_errors=True)
-				# mk out_dir
-				mkdir(self.out_dir)
+				if (_mpi.master):
+					# rm out_dir if present
+					if (isdir(self.out_dir)): rmtree(self.out_dir, ignore_errors=True)
+					# mk out_dir
+					mkdir(self.out_dir)
 
 

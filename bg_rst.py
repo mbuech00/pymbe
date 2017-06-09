@@ -22,13 +22,13 @@ from copy import deepcopy
 
 class RstCls():
 		""" restart class """
-		def __init__(self, _out):
+		def __init__(self, _out, _mpi):
 				""" init restart env and parameters """
 				self.rst_dir = _out.wrk_dir+'/rst'
 				self.rst_freq = 50000.0
 				if (not isdir(self.rst_dir)):
 					self.restart = False
-					mkdir(self.rst_dir)
+					if (_mpi.master): mkdir(self.rst_dir)
 				else:
 					self.restart = False
 
@@ -69,16 +69,7 @@ class RstCls():
 				np.save(join(self.rst_dir, 'e_inc_' + str(_exp.order)),
 						_exp.energy_inc[_exp.order - 1])
 				# write timings
-				if (_mpi.parallel):
-					np.save(join(self.rst_dir, 'time_work_kernel'),
-							np.asarray(_time.time_work[0]))
-					np.save(join(self.rst_dir, 'time_comm_kernel'),
-							np.asarray(_time.time_comm[0]))
-					np.save(join(self.rst_dir, 'time_idle_kernel'),
-							np.asarray(_time.time_idle[0]))
-				else:
-					np.save(join(self.rst_dir, 'time_work_kernel'),
-							np.asarray(_time.timings['work_kernel']))
+				self.write_time(_mpi, _time, 'kernel')
 				#
 				return
 		
@@ -91,16 +82,7 @@ class RstCls():
 				np.save(join(self.rst_dir, 'e_tot_' + str(_exp.order)),
 						np.asarray(_exp.energy_tot[_exp.order - 1]))
 				# write timings
-				if (_mpi.parallel):
-					np.save(join(self.rst_dir, 'time_work_summation'),
-							np.asarray(_time.time_work[1]))
-					np.save(join(self.rst_dir, 'time_comm_summation'),
-							np.asarray(_time.time_comm[1]))
-					np.save(join(self.rst_dir, 'time_idle_summation'),
-							np.asarray(_time.time_idle[1]))
-				else:
-					np.save(join(self.rst_dir, 'time_work_summation'),
-							np.asarray(_time.timings['work_summation']))
+				self.write_time(_mpi, _time, 'summation')
 				#
 				return
 		
@@ -116,22 +98,37 @@ class RstCls():
 				np.save(join(self.rst_dir, 'orb_con_rel_'+str(_exp.order)),
 						np.asarray(_exp.orb_con_rel[_exp.order - 1]))
 				# write timings
-				if (_mpi.parallel):
-					np.save(join(self.rst_dir, 'time_work_screen'),
-							np.asarray(_time.time_work[2]))
-					np.save(join(self.rst_dir, 'time_comm_screen'),
-							np.asarray(_time.time_comm[2]))
-					np.save(join(self.rst_dir, 'time_idle_screen'),
-							np.asarray(_time.time_idle[2]))
-				else:
-					np.save(join(self.rst_dir, 'time_work_screen'),
-							np.asarray(_time.timings['work_screen']))
+				self.write_time(_mpi, _time, 'screen')
 				# write orb_ent_abs and orb_ent_rel
 				if (_exp.order >= 2):
 					np.save(join(self.rst_dir, 'orb_ent_abs_' + str(_exp.order)),
 							_exp.orb_ent_abs[_exp.order - 2])
 					np.save(join(self.rst_dir, 'orb_ent_rel_' + str(_exp.order)),
 							_exp.orb_ent_rel[_exp.order - 2])
+				#
+				return
+
+
+		def write_time(self, _mpi, _time, _phase):
+				""" write timings """
+				# set phase index
+				if (_phase == 'kernel'):
+					idx = 0
+				elif (_phase == 'summation'):
+					idx = 1
+				elif (_phase == 'screen'):
+					idx = 2
+				# write timings
+				if (_mpi.parallel):
+					np.save(join(self.rst_dir, 'time_work_' + str(_phase)),
+							np.asarray(_time.time_work[idx]))
+					np.save(join(self.rst_dir, 'time_comm_' + str(_phase)),
+							np.asarray(_time.time_comm[idx]))
+					np.save(join(self.rst_dir, 'time_idle_' + str(_phase)),
+							np.asarray(_time.time_idle[idx]))
+				else:
+					np.save(join(self.rst_dir, 'time_work_' + str(_phase)),
+							np.asarray(_time.timings['work_' + str(_phase)]))
 				#
 				return
 
