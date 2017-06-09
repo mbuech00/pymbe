@@ -58,6 +58,7 @@ class PySCFCls():
 				""" generate input for casci calculation """
 				cas_idx = sorted(_exp.incl_idx + _tup.tolist())
 				core_idx = sorted(_exp.frozen_idx + list(set(range(_mol.nocc)) - set(cas_idx)))
+				cas_idx = sorted(list(set(cas_idx) - set(core_idx)))
 				#
 				return cas_idx, core_idx
 
@@ -72,6 +73,8 @@ class PySCFCls():
 					energy = ccsd.e_corr
 				else:
 					# extract 1- and 2-electron integrals
+					print('core_idx = '+str(_exp.core_idx))
+					print('cas_idx = '+str(_exp.cas_idx))
 					if (len(_exp.core_idx) > 0):
 						vhf_core = np.einsum('iipq->pq', _calc.h2e[_exp.core_idx][:,_exp.core_idx]) * 2
 						vhf_core -= np.einsum('piiq->pq', _calc.h2e[:,_exp.core_idx][:,:,_exp.core_idx])
