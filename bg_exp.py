@@ -55,9 +55,10 @@ class ExpCls():
 				# determine max theoretical work
 				self.theo_work = []
 				for k in range(_calc.exp_max_order):
-					self.theo_work.append(int(factorial(_calc.exp_max_order) / \
-											(factorial(k + 1) * \
-											factorial(_calc.exp_max_order - (k + 1)))))
+					self.theo_work.append(int(factorial(self.u_limit) / \
+											(factorial(k+1) * factorial(self.u_limit - (k+1)))))
+				# init screen_count list
+				self.screen_count = []
 				# init convergence lists
 				self.conv_orb = [False]
 				self.conv_energy = [False]

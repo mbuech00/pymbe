@@ -34,15 +34,15 @@ class ScrCls():
 					# start time
 					_time.timer('work_screen', _exp.order)
 					# determine which tuples have contributions below the threshold
-					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)[0]]
+					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# init bookkeeping variables
-					_exp.screen_count = 0; tmp = []; combs = []
+					_exp.screen_count.append(0); tmp = []; combs = []
 			        # loop over parent tuples
 					for i in range(len(_exp.tuples[-1])):
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.tuples[-1][i][-1]+1, (_exp.l_limit+_exp.u_limit)+1):
+						for m in range(_exp.tuples[-1][i][-1]+1, (_exp.l_limit+_exp.u_limit)):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
@@ -64,7 +64,7 @@ class ScrCls():
 							if (not screen):
 								tmp.append(_exp.tuples[-1][i].tolist()+[m])
 							else:
-								_exp.screen_count += 1
+								_exp.screen_count[-1] += 1
 					# when done, write to tup list or mark expansion as converged
 					if (len(tmp) >= 1):
 						_exp.tuples.append(np.array(tmp, dtype=np.int32))
@@ -93,7 +93,7 @@ class ScrCls():
 				# number of available slaves
 				slaves_avail = num_slaves
 				# init job index, tmp list, and screen_count
-				i = 0; tmp = []; _exp.screen_count = 0
+				i = 0; tmp = []; _exp.screen_count.append(0)
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# start idle time
@@ -131,7 +131,7 @@ class ScrCls():
 						# write tmp child tuple list
 						tmp += data['child_tuple'] 
 						# increment number of screened tuples
-						_exp.screen_count += data['screen_count']
+						_exp.screen_count[-1] += data['screen_count']
 					# put slave to sleep
 					elif (tag == self.tags.exit):
 						# remove slave
@@ -176,7 +176,7 @@ class ScrCls():
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.tuples[-1][job_info['index']][-1]+1, (_exp.l_limit+_exp.u_limit)+1):
+						for m in range(_exp.tuples[-1][job_info['index']][-1]+1, (_exp.l_limit+_exp.u_limit)):
 							# init screening logical
 							screen = False
 							# loop over subset combinations

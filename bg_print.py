@@ -220,7 +220,7 @@ class PrintCls():
 				""" print screening results """
 				if (len(_exp.tuples) > _exp.order):
 					screen = (1.0 - (len(_exp.tuples[-1]) / \
-								(len(_exp.tuples[-1]) + _exp.screen_count))) * 100.0
+								(len(_exp.tuples[-1]) + _exp.screen_count[-1]))) * 100.0
 				else:
 					screen = 100.0
 				with open(self.out,'a') as f:
