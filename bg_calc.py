@@ -26,10 +26,11 @@ class CalcCls():
 				self.exp_max_order = 0
 				self.exp_orbs = 'canonical'
 				self.energy_thres = 3.8e-04
-				self.exp_thres_init = self.exp_thres
 				# set calculation parameters
 				self.exp_model, self.exp_type, self.exp_thres, self.exp_damp, \
 					self.exp_max_order, self.exp_orbs, self.energy_thres = self.set_calc(_err)
+				# set exp_thres_init
+				self.exp_thres_init = self.exp_thres
 				# sanity check
 				self.sanity_chk(_err)
 
