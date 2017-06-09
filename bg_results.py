@@ -53,7 +53,7 @@ class ResCls():
 				# detailed results
 				self.detail_res(_exp, _time)
 				# phase timings
-				self.phase_res(_exp, _time)
+				self.phase_res(_mpi, _exp, _time)
 				# print mpi timings
 				if (_mpi.parallel): self.mpi_res(_mpi, _time)
 				#
@@ -83,18 +83,18 @@ class ResCls():
 				# write summary to bg_results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
-						print('\n\n'+header_str)
+						print('\n\n'+self.header_str)
 						print('{0:^143}'.format('overall results'))
-						print(header_str+'\n')
-						print(divider_str)
+						print(self.header_str+'\n')
+						print(self.divider_str)
 						print('{0:14}{1:21}{2:11}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'.\
 								format('','molecular information','','|','',\
 									'expansion information','','|','','calculation information'))
-						print(divider_str)
+						print(self.divider_str)
 						print(('{0:12}{1:9}{2:7}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:9}{9:15}{10:4}{11:1}'
 							'{12:2}{13:<6s}{14:7}{15:1}{16:7}{17:16}{18:7}{19:1}{20:2}{21:}').\
 								format('','basis set','','=','',_mol.basis,\
-									'','|','','expansion model','','=','',_calc.model,\
+									'','|','','expansion model','','=','',_calc.exp_model,\
 									'','|','','mpi parallel run','','=','',_mpi.parallel))
 						print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:14}{10:5}{11:1}'
 							'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:}').\
@@ -117,7 +117,7 @@ class ResCls():
 									'','|','','energy threshold','','=','',_calc.energy_thres,\
 									'','|','','final convergence','','=','',\
 									_exp.energy_tot[-1] - _exp.energy_tot[-2]))
-						print(divider_str)
+						print(self.divider_str)
 				#
 				return
 		
@@ -129,16 +129,16 @@ class ResCls():
 				# write summary to bg_results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
-						print('\n\n'+header_str)
+						print('\n\n'+self.header_str)
 						print('{0:^143}'.format('detailed results'))
-						print(header_str+'\n')
-						print(divider_str)
+						print(self.header_str+'\n')
+						print(self.divider_str)
 						print(('{0:6}{1:8}{2:3}{3:1}{4:7}{5:18}{6:7}{7:1}'
 							'{8:7}{9:26}{10:6}{11:1}{12:6}{13:}').\
 								format('','BG order','','|','','total corr. energy',\
 									'','|','','total time (HHH : MM : SS)',\
 									'','|','','number of calcs. (abs. / %  --  total)'))
-						print(divider_str)
+						print(self.divider_str)
 						# loop over orders
 						for i in range(len(_exp.energy_tot)):
 							# sum up total time and number of tuples
@@ -156,26 +156,26 @@ class ResCls():
 										'','|','',len(_exp.tuples[i]),'/',\
 										(float(len(_exp.tuples[i])) / \
 										float(_exp.theo_work[i]))*100.00,'--',total_tup))
-						print(divider_str)
+						print(self.divider_str)
 				#
 				return
 		
 		
-		def phase_res(self, _exp, _time):
+		def phase_res(self, _mpi, _exp, _time):
 				""" print phase timings """
 				# write summary to bg_results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
-						print('\n\n'+header_str)
+						print('\n\n'+self.header_str)
 						print('{0:^143}'.format('phase timings'))
-						print(header_str+'\n')
-						print(divider_str)
+						print(self.header_str+'\n')
+						print(self.divider_str)
 						print(('{0:6}{1:8}{2:3}{3:1}{4:5}{5:32}{6:3}{7:1}'
 							'{8:3}{9:35}{10:3}{11:1}{12:3}{13:}').\
 								format('','BG order','','|','','time: kernel (HHH : MM : SS / %)',\
 									'','|','','time: summation (HHH : MM : SS / %)',\
 									'','|','','time: screen (HHH : MM : SS / %)'))
-						print(divider_str)
+						print(self.divider_str)
 						for i in range(len(_exp.energy_tot)):
 							# set shorthand notation
 							time_k = _time.time_kernel[i]
@@ -197,8 +197,8 @@ class ResCls():
 										'','|','',int(time_s//3600),':',int((time_s-(time_s//3600)*3600.)//60),':',\
 										int(time_s-(time_s//3600)*3600.\
 										-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0))
-						print(divider_str)
-						print(divider_str)
+						print(self.divider_str)
+						print(self.divider_str)
 						# set shorthand notation
 						time_k = _time.time_kernel[-1]
 						time_f = _time.time_summation[-1]
@@ -217,7 +217,10 @@ class ResCls():
 									'','|','',int(time_s//3600),':',int((time_s-(time_s//3600)*3600.)//60),':',\
 									int(time_s-(time_s//3600)*3600.\
 									-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0))
-						print(divider_str)
+						if (not _mpi.parallel):
+							print(self.divider_str+'\n\n')
+						else:
+							print(self.divider_str)
 				#
 				return
 		
@@ -226,16 +229,16 @@ class ResCls():
 				""" print mpi timings """
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
-						print('\n\n'+header_str)
+						print('\n\n'+self.header_str)
 						print('{0:^143}'.format('mpi timings'))
-						print(header_str+'\n')
-						print(divider_str)
+						print(self.header_str+'\n')
+						print(self.divider_str)
 						print(('{0:6}{1:13}{2:3}{3:1}{4:1}{5:35}{6:1}{7:1}'
 								'{8:1}{9:38}{10:1}{11:1}{12:1}{13:}').\
 								format('','mpi processor','','|','','time: kernel (work/comm/idle, in %)',\
 									'','|','','time: summation (work/comm/idle, in %)',\
 									'','|','','time: screen (work/comm/idle, in %)'))
-						print(divider_str)
+						print(self.divider_str)
 						print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
 								'{8:>6.2f}{9:^3}{10:>6.2f}{11:7}{12:1}{13:7}{14:>6.2f}'
 								'{15:^3}{16:>6.2f}{17:^3}{18:>6.2f}{19:9}{20:1}{21:6}'
@@ -246,7 +249,7 @@ class ResCls():
 										_time.dist_summation[1][0],'/',_time.dist_summation[2][0],\
 										'','|','',_time.dist_screen[0][0],'/',\
 										_time.dist_screen[1][0],'/',_time.dist_screen[2][0]))
-						print(divider_str)
+						print(self.divider_str)
 						for i in range(1,_mpi.size):
 							print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
 									'{8:>6.2f}{9:^3}{10:>6.2f}{11:7}{12:1}{13:7}{14:>6.2f}'
@@ -259,8 +262,8 @@ class ResCls():
 											'','|','',_time.dist_screen[0][i],'/',\
 											_time.dist_screen[1][i],'/',_time.dist_screen[2][i]))
 						#
-						print(divider_str)
-						print(divider_str)
+						print(self.divider_str)
+						print(self.divider_str)
 						#
 						print(('{0:4}{1:14}{2:4}{3:1}{4:6}{5:>6.2f}{6:^3}{7:>6.2f}{8:^3}'
 								'{9:>6.2f}{10:7}{11:1}{12:7}{13:>6.2f}{14:^3}{15:>6.2f}{16:^3}{17:>6.2f}'
@@ -290,7 +293,7 @@ class ResCls():
 										np.std(_time.dist_screen[1][1:],ddof=1),'/',\
 										np.std(_time.dist_screen[2][1:],ddof=1)))
 						#
-						print(divider_str+'\n')
+						print(self.divider_str+'\n')
 				#
 				return
 
@@ -302,11 +305,11 @@ class ResCls():
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# set title
-				ax.set_title('Total '+_calc.model+' energy')
+				ax.set_title('Total '+_calc.exp_model+' energy')
 				# plot results
 				ax.plot(list(range(1,len(_exp.energy_tot)+1)),
 						_exp.energy_tot, marker='x', linewidth=2,
-						linestyle='-', label='BG('+_calc.model+')')
+						linestyle='-', label='BG('+_calc.exp_model+')')
 				# set x limits
 				ax.set_xlim([0.5,_calc.exp_max_order + 0.5])
 				# turn off x-grid
@@ -352,7 +355,7 @@ class ResCls():
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# set title
-				ax.set_title('Total number of '+_calc.model+' tuples')
+				ax.set_title('Total number of '+_calc.exp_model+' tuples')
 				# init prim list
 				prim = []
 				# set prim list
@@ -367,7 +370,7 @@ class ResCls():
 							label='Theoretical number', log=True)
 				sns.barplot(list(range(1,_calc.exp_max_order+1)),
 							prim,palette='Blues_r',
-							label='BG('+_calc.model+') expansion', log=True)
+							label='BG('+_calc.exp_model+') expansion', log=True)
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set x- and y-limits
@@ -682,7 +685,7 @@ class ResCls():
 				kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',
 										label='kernel',color=sns.xkcd_rgb['amber'])
 				# set x- and y-limits
-				ax1.set_ylim([-0.5,(len(_exp.energy) + 1) - 0.5])
+				ax1.set_ylim([-0.5,(len(_exp.energy_tot) + 1) - 0.5])
 				ax1.set_xlim([0.0,100.0])
 				# set y-ticks
 				ax1.set_yticklabels(y_labels)
