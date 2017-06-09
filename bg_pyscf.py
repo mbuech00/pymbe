@@ -73,8 +73,6 @@ class PySCFCls():
 					energy = ccsd.e_corr
 				else:
 					# extract 1- and 2-electron integrals
-					print('core_idx = '+str(_exp.core_idx))
-					print('cas_idx = '+str(_exp.cas_idx))
 					if (len(_exp.core_idx) > 0):
 						vhf_core = np.einsum('iipq->pq', _calc.h2e[_exp.core_idx][:,_exp.core_idx]) * 2
 						vhf_core -= np.einsum('piiq->pq', _calc.h2e[:,_exp.core_idx][:,:,_exp.core_idx])

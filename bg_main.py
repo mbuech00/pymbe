@@ -31,6 +31,7 @@ def main():
 			# print summary and plot results
 			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time)
 		# finalize
+		bg.rst.rm_rst()
 		bg.mpi.comm.bcast({'task': 'exit_slave'}, root=0)
 		bg.mpi.comm.Barrier()
 		MPI.Finalize()

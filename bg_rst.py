@@ -15,6 +15,7 @@ __status__ = 'Development'
 import numpy as np
 from os import mkdir, listdir
 from os.path import join, isfile, isdir
+from shutil import rmtree
 from re import search
 from copy import deepcopy
 
@@ -31,6 +32,12 @@ class RstCls():
 				else:
 					self.restart = False
 
+
+		def rm_rst(self):
+				""" remove rst directory in case of successful calc """
+				rmtree(self.rst_dir, ignore_errors=True)
+				#
+				return
 
 		def rst_main(self, _mpi, _calc, _exp, _time):
 				""" main restart driver """

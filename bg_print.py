@@ -142,24 +142,29 @@ class PrintCls():
 		
 		def summation_results(self, _exp):
 				""" print summation result statistics """
+				# statistics
+				mean_val = np.mean(_exp.energy_inc[-1])
+				min_val = _exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))]
+				max_val = _exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))]
+				if (len(_exp.energy_inc[-1]) > 1):
+					std_val = np.std(_exp.energy_inc[-1],ddof=1)
+				else:
+					std_val = 0.0
+				# now print
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' RESULT-MACRO:     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
 						print(' --------------------------------------------------------------------------------------------')
 						print(' RESULT-MACRO:  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-								format(np.mean(_exp.energy_inc[-1]),_exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))],\
-										_exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))],\
-										np.std(_exp.energy_inc[-1],ddof=1)))
+								format(mean_val, min_val, max_val, std_val))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' RESULT-MACRO:     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
 				print(' --------------------------------------------------------------------------------------------')
 				print(' RESULT-MACRO:  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-						format(np.mean(_exp.energy_inc[-1]),_exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))],\
-								_exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))],\
-								np.std(_exp.energy_inc[-1],ddof=1)))
+						format(mean_val, min_val, max_val, std_val))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return

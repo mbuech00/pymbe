@@ -40,7 +40,6 @@ class DrvCls():
 					# print kernel header
 					_prt.kernel_header(_exp)
 					# init e_inc
-					print(str(_exp.energy_inc))
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
