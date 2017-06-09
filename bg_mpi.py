@@ -32,24 +32,20 @@ class MPICls():
 				self.stat = MPI.Status()
 
 
-		def bcast_hf_int(self, _mol):
-				""" bcast hf and int info """
+		def bcast_hf(self, _mol):
+				""" bcast hf info """
 				if (self.master):
 					# bcast to slaves
 					self.comm.bcast(_mol.e_hf, root=0)
 					self.comm.bcast(_mol.norb, root=0)
 					self.comm.bcast(_mol.nocc, root=0)
 					self.comm.bcast(_mol.nvirt, root=0)
-					self.comm.bcast(_mol.h1e, root=0)
-					self.comm.bcast(_mol.h2e, root=0)
 				else:
 					# receive from master
 					_mol.e_hf = self.comm.bcast(None, root=0)
 					_mol.norb = self.com.bcast(None, root=0)
 					_mol.nocc = self.comm.bcast(None, root=0)
 					_mol.nvirt = self.comm.bcast(None, root=0)
-					_mol.h1e = self.comm.bcast(None, root=0)
-					_mol.h2e = self.comm.bcast(None, root=0)
 				#
 				return
 

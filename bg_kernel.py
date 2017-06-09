@@ -37,7 +37,8 @@ class KernCls():
 						# start work time
 						_time.timer('work_kernel', _exp.order)
 						# generate input
-						_exp.cas_idx, _exp.core_idx = _pyscf.corr_input(_mol, _exp, _exp.tuples[-1][i])
+						_exp.cas_idx, _exp.core_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
+								_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
 						# run correlated calc
 						_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
 						# print status
@@ -97,8 +98,16 @@ class KernCls():
 					if (tag == self.tags.ready):
 						# any jobs left?
 						if (i <= (len(_exp.tuples[-1]) - 1)):
-							# store job index
+							# generate input
+							_exp.cas_idx, _exp.core_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
+									_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
+							# store job info
 							job_info['index'] = i
+							job_info['cas_idx'] = _exp.cas_idx
+							job_info['core_idx'] = _exp.core_idx
+							job_info['h1e_cas'] = _exp.h1e_cas
+							job_info['h2e_cas'] = _exp.h2e_cas
+							job_info['e_core'] = _exp.e_core
 							# start comm time
 							_time.timer('comm_kernel', _exp.order)
 							# send string dict
@@ -123,7 +132,7 @@ class KernCls():
 						# start work time
 						_time.timer('work_kernel', _exp.order)
 						# write to e_inc
-						_exp.energy_inc[-1][data['index']] = data['energy']
+						_exp.energy_inc[-1][data['index']] = data['e_corr']
 						# store timings
 						_time.time_work[0][source][-1] = data['t_work']
 						_time.time_comm[0][source][-1] = data['t_comm']
@@ -181,9 +190,12 @@ class KernCls():
 					tag = _mpi.stat.Get_tag()
 					# do job
 					if (tag == self.tags.start):
-						# generate input
-						_exp.cas_idx, _exp.core_idx = \
-							_pyscf.corr_input(_mol, _exp, _exp.tuples[-1][job_info['index']])
+						# load job info
+						_exp.cas_idx = job_info['cas_idx']
+						_exp.core_idx = job_info['core_idx']
+						_exp.h1e_cas = job_info['h1e_cas']
+						_exp.h2e_cas = job_info['h2e_cas']
+						_exp.e_core = job_info['e_core']
 						# run correlated calc
 						_exp.energy_inc[-1][job_info['index']] = _pyscf.corr_calc(_mol, _calc, _exp)
 						# start comm time
@@ -194,7 +206,7 @@ class KernCls():
 						_time.timer('work_kernel', _exp.order)
 						# write info into data dict
 						data['index'] = job_info['index']
-						data['energy'] = _exp.energy_inc[-1][job_info['index']]
+						data['e_corr'] = _exp.energy_inc[-1][job_info['index']]
 						data['t_work'] = _time.time_work_kernel[-1]
 						data['t_comm'] = _time.time_comm_kernel[-1]
 						data['t_idle'] = _time.time_idle_kernel[-1]

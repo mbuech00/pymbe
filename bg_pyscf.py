@@ -57,15 +57,15 @@ class PySCFCls():
 				return h1e, h2e
 
 
-		def corr_input(self, _mol, _exp, _tup):
+		def corr_input(self, _mol, _calc, _exp, _tup):
 				""" generate input for correlated calculation """
 				# generate orbital lists
 				cas_idx = sorted(_exp.incl_idx + _tup.tolist())
 				core_idx = sorted(_exp.frozen_idx + list(set(range(_mol.nocc)) - set(cas_idx)))
 				cas_idx = sorted(list(set(cas_idx) - set(core_idx)))
 				# extract core and cas integrals and calculated core energy (not needed for cc calc)
-				if (_cas.exp_type == 'FCI'):
-					if (len(_exp.core_idx) > 0):
+				if (_calc.exp_model == 'FCI'):
+					if (len(core_idx) > 0):
 						vhf_core = np.einsum('iipq->pq', _mol.h2e[core_idx][:,core_idx]) * 2
 						vhf_core -= np.einsum('piiq->pq', _mol.h2e[:,core_idx][:,:,core_idx])
 						h1e_cas = (_mol.h1e + vhf_core)[cas_idx][:,cas_idx]
