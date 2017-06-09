@@ -56,6 +56,8 @@ class TimeCls():
 					self.time_work = [[[] for i in range(_mpi.size)] for j in range(3)]
 					self.time_comm = [[[] for i in range(_mpi.size)] for j in range(3)]
 					self.time_idle = [[[] for i in range(_mpi.size)] for j in range(3)]
+				#
+				return
 
 
 		def timer(self, _key, _order, _end=False):

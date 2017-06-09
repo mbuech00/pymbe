@@ -22,6 +22,8 @@ class ScrCls():
 		def __init__(self, _exp):
 				""" init tags """
 				self.tags = _exp.enum('ready', 'done', 'exit', 'start') 
+				#
+				return
 		
 		
 		def main(self, _mpi, _calc, _exp, _time, _rst):
@@ -42,7 +44,7 @@ class ScrCls():
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.tuples[-1][i][-1]+1, (_exp.l_limit+_exp.u_limit)):
+						for m in range(_exp.tuples[-1][i][-1]+1, _exp.l_limit+_exp.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
@@ -176,7 +178,7 @@ class ScrCls():
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.tuples[-1][job_info['index']][-1]+1, (_exp.l_limit+_exp.u_limit)):
+						for m in range(_exp.tuples[-1][job_info['index']][-1]+1, _exp.l_limit+_exp.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
@@ -202,6 +204,7 @@ class ScrCls():
 						# start comm time
 						_time.timer('comm_screen', _exp.order)
 						# send data back to master
+						print(str(data))
 						_mpi.comm.send(data, dest=0, tag=self.tags.done)
 						# start work time
 						_time.timer('work_screen', _exp.order)

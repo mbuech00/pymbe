@@ -136,7 +136,7 @@ class DrvCls():
 					#
 					elif (msg['task'] == 'exit_slave'):
 						slave = False
-				#
-				return
+				# finalize
+				_mpi.final(None)
 	
 	

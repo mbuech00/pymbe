@@ -30,14 +30,8 @@ def main():
 			bg.driver.master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.err, bg.prt, bg.rst)
 			# print summary and plot results
 			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time)
-		# finalize
-		if (bg.mpi.master):
-			bg.rst.rm_rst()
-			bg.mpi.comm.bcast({'task': 'exit_slave'}, root=0)
-		print('proc. {0:} before barrier'.format(bg.mpi.rank))
-		bg.mpi.comm.Barrier()
-		print('proc. {0:} after barrier'.format(bg.mpi.rank))
-		MPI.Finalize()
+			# finalize
+			bg.mpi.final(bg.rst)
 
 
 if __name__ == '__main__':

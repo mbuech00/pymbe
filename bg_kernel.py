@@ -21,6 +21,8 @@ class KernCls():
 		def __init__(self, _exp):
 				""" init tags """
 				self.tags = _exp.enum('ready', 'done', 'data', 'exit', 'start')
+				#
+				return
 
 
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst):

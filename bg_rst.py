@@ -31,6 +31,8 @@ class RstCls():
 					if (_mpi.master): mkdir(self.rst_dir)
 				else:
 					self.restart = False
+				#
+				return
 
 
 		def rm_rst(self):

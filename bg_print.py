@@ -25,6 +25,8 @@ class PrintCls():
 				self.res = _out.out_dir+'/bg_results.out'
 				# print main header
 				self.main_header()
+				#
+				return
 
 
 		def main_header(self):

@@ -30,6 +30,8 @@ class MPICls():
 				self.master = (self.rank == 0)
 				self.name = MPI.Get_processor_name()
 				self.stat = MPI.Status()
+				#
+				return
 
 
 		def bcast_hf(self, _mol):
@@ -182,4 +184,13 @@ class MPICls():
 				#
 				return
 
+
+		def final(self, _rst):
+				""" terminate calculation """
+				if (self.master):
+					_rst.rm_rst()
+					self.comm.bcast({'task': 'exit_slave'}, root=0)
+				self.comm.Barrier()
+				MPI.Finalize()
 	
+

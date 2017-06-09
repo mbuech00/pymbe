@@ -26,6 +26,8 @@ class CalcCls():
 				self.exp_thres_init = self.exp_thres
 				# sanity check
 				self.sanity_chk(_err)
+				#
+				return
 
 
 		def set_calc(self, _err):

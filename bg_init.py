@@ -66,6 +66,8 @@ class InitCls():
 				if (self.mpi.master):
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.out)
+				#
+				return
 
 
 class OutCls():

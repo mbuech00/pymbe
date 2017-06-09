@@ -29,6 +29,8 @@ class ErrCls():
 				self.error_out = _out.out_dir+'/bg_output.out'
 				# set custom exception hook
 				self.set_exc_hook()
+				#
+				return
 
 
 		def set_exc_hook(self):
