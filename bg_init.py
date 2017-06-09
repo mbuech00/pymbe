@@ -49,7 +49,7 @@ class InitCls():
 					self.mol.hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
 							self.pyscf.hf_calc(self.mol)
 					self.calc.h1e, self.calc.h2e = \
-							self.pyscf.int_trans(self.mol, self.calc.exp_orbs == 'natural')
+							self.pyscf.int_trans(self.mol, self.calc)
 				# bcast to slaves
 				if (self.mpi.parallel): self.mpi.bcast_hf_int(self.mol, self.calc)
 				# time instance

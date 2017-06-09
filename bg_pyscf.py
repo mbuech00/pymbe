@@ -34,22 +34,23 @@ class PySCFCls():
 				return hf, norb, nocc, nvirt
 
 
-		def int_trans(self, _mol, _natural):
+		def int_trans(self, _mol, _calc):
 				""" integral transformation """
-				if (_natural):
+				if (_calc.exp_virt == 'natural'):
 					# calculate ccsd density matrix
 					ccsd = cc.CCSD(_mol.hf)
 					ccsd.kernel()
 					dm = ccsd.make_rdm1()
-					occup, no = sp.linalg.eigh(dm)
-					no = _mol.hf.mo_coeff.dot(no)
-					trans_mat = no[:,::-1]
+					occup, no = sp.linalg.eigh(dm[_mol.nocc:,_mol.nocc:])
+					mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:,_mol.nocc:], no[:,::-1])
+					trans_mat = _mol.hf.mo_coeff
+					trans_mat[:,_mol.nocc:] = mo_coeff_virt
 				else:
 					trans_mat = _mol.hf.mo_coeff
 				# transform 1- and 2-electron integrals
-				h1e = reduce(np.dot, (trans_mat.T, _mol.hf.get_hcore(), trans_mat))
+				h1e = reduce(np.dot, (np.transpose(trans_mat), _mol.hf.get_hcore(), trans_mat))
 				h2e = ao2mo.kernel(_mol, trans_mat) # with four-fold permutation symmetry
-				h2e = ao2mo.restore(1, h2e, trans_mat.shape[1]) # remove symmetry
+				h2e = ao2mo.restore(1, h2e, _mol.norb) # remove symmetry
 				#
 				return h1e, h2e
 

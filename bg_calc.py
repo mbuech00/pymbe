@@ -19,16 +19,9 @@ class CalcCls():
 		""" calculation class """
 		def __init__(self, _err):
 				""" init parameters """
-				self.exp_model = 'fci'
-				self.exp_type = 'virtual'
-				self.exp_thres = 1.0e-06
-				self.exp_damp = 1.0
-				self.exp_max_order = 0
-				self.exp_orbs = 'canonical'
-				self.energy_thres = 3.8e-04
 				# set calculation parameters
 				self.exp_model, self.exp_type, self.exp_thres, self.exp_damp, \
-					self.exp_max_order, self.exp_orbs, self.energy_thres = self.set_calc(_err)
+					self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres = self.set_calc(_err)
 				# set exp_thres_init
 				self.exp_thres_init = self.exp_thres
 				# sanity check
@@ -55,8 +48,10 @@ class CalcCls():
 							exp_damp = float(content[i].split()[2])
 						elif (content[i].split()[0] == 'exp_max_order'):
 							exp_max_order = int(content[i].split()[2])
-						elif (content[i].split()[0] == 'orbitals'):
-							exp_orbs = content[i].split()[2]
+						elif (content[i].split()[0] == 'exp_occ'):
+							exp_occ = content[i].split()[2]
+						elif (content[i].split()[0] == 'exp_virt'):
+							exp_virt = content[i].split()[2]
 						elif (content[i].split()[0] == 'energy_thres'):
 							energy_thres = float(content[i].split()[2])
 						# error handling
@@ -66,7 +61,7 @@ class CalcCls():
 							_err.abort()
 				#
 				return exp_model, exp_type, exp_thres, exp_damp, \
-							exp_max_order, exp_orbs, energy_thres
+							exp_max_order, exp_occ, exp_virt, energy_thres
 
 
 		def sanity_chk(self, _err):
@@ -94,10 +89,12 @@ class CalcCls():
 					_err.error_msg = 'wrong input -- energy threshold ' + \
 									'(energy_thres) must be float >= 0.0'
 				# orbital representation
-				if (not (self.exp_orbs in ['canonical','local','natural'])):
-					_err.error_msg = 'wrong input -- valid orbital ' + \
-									'representations are currently: canonical, ' + \
-									'local, and natural (CCSD)'
+				if (not (self.exp_occ in ['canonical','local'])):
+					_err.error_msg = 'wrong input -- valid occupied orbital ' + \
+									'representations are currently: canonical and local'
+				if (not (self.exp_virt in ['canonical','natural'])):
+					_err.error_msg = 'wrong input -- valid virtual orbital ' + \
+									'representations are currently: canonical and natural (CCSD)'
 				#
 				if (_err.error_msg != ''):
 					_err.abort()
