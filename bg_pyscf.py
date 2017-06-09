@@ -98,8 +98,8 @@ class PySCFCls():
 				fcisolver.max_memory = _mol.max_memory
 				# casci calculation
 				casci = fcisolver.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx),
-											_mol.nelectron - 2 * len(_exp.core_idx), ecore=_exp.e_core)
-				e_corr = casci[0] - _mol.e_hf
+											_mol.nelectron - 2 * len(_exp.core_idx))
+				e_corr = (casci[0] + _exp.e_core) - _mol.e_hf
 				#
 				return e_corr
 
@@ -116,7 +116,7 @@ class CCSDSolver():
 				return
 
 
-		def kernel(self, _h1e, _h2e, _norb, _nelec, ecore):
+		def kernel(self, _h1e, _h2e, _norb, _nelec):
 				""" ccsd kernel """
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _nelec
@@ -130,6 +130,6 @@ class CCSDSolver():
 				e_corr, t1, t2 = self.ccsd.kernel(eris=self.eris)
 				e_tot = cas_hf.e_tot + e_corr
 				#
-				return e_tot + ecore, [t1,t2]
+				return e_tot, [t1,t2]
 
 
