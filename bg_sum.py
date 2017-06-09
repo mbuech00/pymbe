@@ -26,7 +26,7 @@ class SumCls():
 					_time.coll_summation_time(_mpi, _rst, _exp.order)
 				else:
 					# start work time
-					_time.timer('time_work_summation', _exp.order)
+					_time.timer('work_summation', _exp.order)
 					# compute energy increments at current order
 					for j in range(len(_exp.tuples[-1])):
 						# loop over previous orders
@@ -45,7 +45,7 @@ class SumCls():
 					# add to total energy list
 					_exp.energy_tot.append(e_tmp)
 					# collect work time
-					_time.timer('time_work_summation', _exp.order, True)
+					_time.timer('work_summation', _exp.order, True)
 					# check for convergence wrt total energy
 					if ((_exp.order >= 2) and (abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _calc.energy_thres)):
 						_exp.conv_energy.append(True)
@@ -57,7 +57,7 @@ class SumCls():
 				""" master / slave function """
 				if (_mpi.master):
 					# start idle time
-					_time.timer('time_idle_summation', _exp.order)
+					_time.timer('idle_summation', _exp.order)
 					# wake up slaves
 					msg = {'task': 'sum_par', 'order': _exp.order}
 					# bcast
@@ -65,7 +65,7 @@ class SumCls():
 					# re-init e_inc[-1] with 0.0
 					_exp.energy_inc[-1].fill(0.0)
 				# start work time
-				_time.timer('time_work_summation', _exp.order)
+				_time.timer('work_summation', _exp.order)
 				# compute energy increments at current order
 				for j in range(len(_exp.tuples[-1])):
 					# distribute jobs according to work distribution in energy kernel phases

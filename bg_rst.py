@@ -71,7 +71,7 @@ class RstCls():
 							np.asarray(_time.time_idle[0]))
 				else:
 					np.save(join(self.rst_dir, 'time_work_kernel'),
-							np.asarray(_time.timings['time_work_kernel']))
+							np.asarray(_time.timings['work_kernel']))
 				#
 				return
 		
@@ -93,7 +93,7 @@ class RstCls():
 							np.asarray(_time.time_idle[1]))
 				else:
 					np.save(join(self.rst_dir, 'time_work_summation'),
-							np.asarray(_time.timings['time_work_summation']))
+							np.asarray(_time.timings['work_summation']))
 				#
 				return
 		
@@ -118,7 +118,7 @@ class RstCls():
 							np.asarray(_time.time_idle[2]))
 				else:
 					np.save(join(self.rst_dir, 'time_work_screen'),
-							np.asarray(_time.timings['time_work_screen']))
+							np.asarray(_time.timings['work_screen']))
 				# write orb_ent_abs and orb_ent_rel
 				if (_exp.order >= 2):
 					np.save(join(self.rst_dir, 'orb_ent_abs_' + str(_exp.order)),
@@ -172,52 +172,52 @@ class RstCls():
 								if (_mpi.parallel):
 									_time.time_work[0] = np.load(join(self.rst_dir,
 																		files[i])).tolist()
-									_time.time_work_kernel = deepcopy(time.time_work[0][0])
+									_time.timings['work_kernel'] = deepcopy(time.time_work[0][0])
 								else:
-									_time.time_work_kernel = np.load(join(self.rst_dir,	
+									_time.timings['work_kernel'] = np.load(join(self.rst_dir,	
 																			files[i])).tolist()
 							elif ('comm' in files[i]):
 								_time.time_comm[0] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								_time_comm_kernel = deepcopy(_time.time_comm[0][0])
+								_time.timings['comm_kernel'] = deepcopy(_time.time_comm[0][0])
 							elif ('idle' in files[i]):
 								_time.time_idle[0] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								_time.time_idle_kernel = deepcopy(_time.time_idle[0][0])
+								_time.timings['idle_kernel'] = deepcopy(_time.time_idle[0][0])
 						elif ('summation' in files[i]):
 							if ('work' in files[i]):
 								if (_mpi.parallel):
 									_time.time_work[1] = np.load(join(self.rst_dir,
 																		files[i])).tolist()
-									_time.time_work_summation = deepcopy(_time.time_work[1][0])
+									_time.timings['work_summation'] = deepcopy(_time.time_work[1][0])
 								else:
-									_time.time_work_summation = np.load(join(self.rst_dir,
+									_time.timings['work_summation'] = np.load(join(self.rst_dir,
 																			files[i])).tolist()
 							elif ('comm' in files[i]):
 								_time.time_comm[1] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								_time.time_comm_summation = deepcopy(_time.time_comm[1][0])
+								_time.timings['comm_summation'] = deepcopy(_time.time_comm[1][0])
 							elif ('idle' in files[i]):
 								_time.time_idle[1] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								_time.time_idle_summation = deepcopy(_time.time_idle[1][0])
+								_time.timings['idle_summation'] = deepcopy(_time.time_idle[1][0])
 						elif ('screen' in files[i]):
 							if ('work' in files[i]):
 								if (_mpi.parallel):
 									_time.time_work[2] = np.load(join(self.rst_dir,
 																		files[i])).tolist()
-									_time.time_work_screen = deepcopy(_time.time_work[2][0])
+									_time.timings['work_screen'] = deepcopy(_time.time_work[2][0])
 								else:
-									_time.time_work_screen = np.load(join(self.rst_dir,
+									_time.timings['work_screen'] = np.load(join(self.rst_dir,
 																			files[i])).tolist()
 							elif ('comm' in files[i]):
 								_time.time_comm[2] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								_time.time_comm_screen = deepcopy(_time.time_comm[2][0])
+								_time.timings['comm_screen'] = deepcopy(_time.time_comm[2][0])
 							elif ('idle' in files[i]):
 								_time.time_idle[2] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								_time.time_idle_screen = deepcopy(_time.time_idle[2][0])
+								_time.timings['idle_screen'] = deepcopy(_time.time_idle[2][0])
 				# set start order for expansion
 				_calc.exp_min_order = len(_exp.tuples)
 				#

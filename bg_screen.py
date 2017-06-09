@@ -32,7 +32,7 @@ class ScrCls():
 					_time.coll_screen_time(_mpi, _rst, _exp.order, True)
 				else:
 					# start time
-					_time.timer('time_work_screen', _exp.order)
+					_time.timer('work_screen', _exp.order)
 					# determine which tuples have contributions below the threshold
 					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# init bookkeeping variables
@@ -71,7 +71,7 @@ class ScrCls():
 					else:
 						_exp.conv_orb.append(True)
 					# end time
-					_time.timer('time_work_screen', _exp.order, True)
+					_time.timer('work_screen', _exp.order, True)
 				#
 				return
 	
@@ -79,13 +79,13 @@ class ScrCls():
 		def master(self, _mpi, _calc, _exp, _time):
 				""" master routine """
 				# start idle time
-				_time.timer('time_idle_screen', _exp.order)
+				_time.timer('idle_screen', _exp.order)
 				# wake up slaves
 				msg = {'task': 'screen_slave', 'order': _exp.order}
 				# bcast
 				_mpi.comm.bcast(msg, root=0)
 				# start work time
-				_time.timer('time_work_screen', _exp.order)
+				_time.timer('work_screen', _exp.order)
 				# init job_info dictionary
 				job_info = {}
 				# number of slaves
@@ -97,12 +97,12 @@ class ScrCls():
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# start idle time
-					_time.timer('time_idle_screen', _exp.order)
+					_time.timer('idle_screen', _exp.order)
 					# receive data dict
 					data = _mpi.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG,
 											status=_mpi.stat)
 					# start work time
-					_time.timer('time_work_screen', _exp.order)
+					_time.timer('work_screen', _exp.order)
 					# probe for source and tag
 					source = _mpi.stat.Get_source(); tag = _mpi.stat.Get_tag()
 					# slave is ready
@@ -110,22 +110,22 @@ class ScrCls():
 						# any jobs left?
 						if (i <= len(_exp.tuples[-1])-1):
 							# start comm time
-							_time.timer('time_comm_screen', _exp.order)
+							_time.timer('comm_screen', _exp.order)
 							# save parent tuple index
 							job_info['index'] = i
 							# send parent tuple index
 							_mpi.comm.send(job_info, dest=source, tag=self.tags.start)
 							# start work time
-							_time.timer('time_work_screen', _exp.order)
+							_time.timer('work_screen', _exp.order)
 							# increment job index
 							i += 1
 						else:
 							# start comm time#
-							_time.timer('time_comm_screen', _exp.order)
+							_time.timer('comm_screen', _exp.order)
 							# send None info
 							_mpi.comm.send(None, dest=source, tag=self.tags.exit)
 							# start work time
-							_time.timer('time_work_screen', _exp.order)
+							_time.timer('work_screen', _exp.order)
 					# receive result from slave
 					elif (tag == self.tags.done):
 						# write tmp child tuple list
@@ -152,7 +152,7 @@ class ScrCls():
 		def slave(self, _mpi, _calc, _exp, _time):
 				""" slave routine """
 				# start work time
-				_time.timer('time_work_screen', _exp.order)
+				_time.timer('work_screen', _exp.order)
 				# init data dict and combs list
 				data = {'child_tuple': [], 'screen_count': 0}; combs = []
 				# determine which tuples have contributions larger than the threshold
@@ -160,13 +160,13 @@ class ScrCls():
 				# receive work from master
 				while (True):
 					# start comm time
-					_time.timer('time_comm_screen', _exp.order)
+					_time.timer('comm_screen', _exp.order)
 					# send status to master
 					_mpi.comm.send(None, dest=0 ,tag=self.tags.ready)
 					# receive parent tuple
 					job_info = _mpi.comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
 					# start work time
-					_time.timer('time_work_screen', _exp.order)
+					_time.timer('work_screen', _exp.order)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
 					# do job
@@ -200,20 +200,20 @@ class ScrCls():
 							else:
 								data['screen_count'] += 1
 						# start comm time
-						_time.timer('time_comm_screen', _exp.order)
+						_time.timer('comm_screen', _exp.order)
 						# send data back to master
 						_mpi.comm.send(data, dest=0, tag=self.tags.done)
 						# start work time
-						_time.timer('time_work_screen', _exp.order)
+						_time.timer('work_screen', _exp.order)
 					# exit
 					elif (tag == self.tags.exit):
 						break
 				# start comm time
-				_time.timer('time_comm_screen', _exp.order)
+				_time.timer('comm_screen', _exp.order)
 				# send exit signal to master
 				_mpi.comm.send(None, dest=0, tag=self.tags.exit)
 				# start work time
-				_time.timer('time_work_screen', _exp.order)
+				_time.timer('work_screen', _exp.order)
 				# init buffer
 				tup_info = _mpi.comm.bcast(None, root=0)
 				buff = np.empty([tup_info['tup_len'],_exp.order+1], dtype=np.int32)

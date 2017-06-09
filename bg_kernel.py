@@ -35,7 +35,7 @@ class KernCls():
 					# loop over tuples
 					for i in range(start,len(_exp.tuples[-1])):
 						# start work time
-						_time.timer('time_work_kernel', _exp.order)
+						_time.timer('work_kernel', _exp.order)
 						# generate input
 						_exp.cas_idx, _exp.core_idx = _pyscf.corr_input(_mol, _exp, _exp.tuples[-1][i])
 						# run correlated calc
@@ -48,7 +48,7 @@ class KernCls():
 #							molecule['error_drop'] = string['drop']
 #							term_calc(molecule)
 						# collect work time
-						_time.timer('time_work_kernel', _exp.order, True)
+						_time.timer('work_kernel', _exp.order, True)
 						# write restart files
 						if (((i+1) % _rst.rst_freq) == 0): _rst.write_kernel(_mpi, _exp, _time)
 				#
@@ -58,13 +58,13 @@ class KernCls():
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst):
 				""" master function """
 				# start idle time
-				_time.timer('time_idle_kernel', _exp.order)
+				_time.timer('idle_kernel', _exp.order)
 				# wake up slaves
 				msg = {'task': 'kernel_slave', 'order': _exp.order}
 				# bcast
 				_mpi.comm.bcast(msg, root=0)
 				# start work time
-				_time.timer('time_work_kernel', _exp.order)
+				_time.timer('work_kernel', _exp.order)
 				# init job_info dictionary
 				job_info = {}
 				# number of slaves
@@ -86,11 +86,11 @@ class KernCls():
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# start idle time
-					_time.timer('time_idle_kernel', _exp.order)
+					_time.timer('idle_kernel', _exp.order)
 					# receive data dict
 					stat = _mpi.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
 					# start work time
-					_time.timer('time_work_kernel', _exp.order)
+					_time.timer('work_kernel', _exp.order)
 					# probe for source and tag
 					source = _mpi.stat.Get_source(); tag = _mpi.stat.Get_tag()
 					# slave is ready
@@ -100,28 +100,28 @@ class KernCls():
 							# store job index
 							job_info['index'] = i
 							# start comm time
-							_time.timer('time_comm_kernel', _exp.order)
+							_time.timer('comm_kernel', _exp.order)
 							# send string dict
 							_mpi.comm.send(job_info, dest=source, tag=self.tags.start)
 							# start work time
-							_time.timer('time_work_kernel', _exp.order)
+							_time.timer('work_kernel', _exp.order)
 							# increment job index
 							i += 1
 						else:
 							# start comm time
-							_time.timer('time_comm_kernel', _exp.order)
+							_time.timer('comm_kernel', _exp.order)
 							# send exit signal
 							_mpi.comm.send(None, dest=source, tag=self.tags.exit)
 							# start work time
-							_time.timer('time_work_kernel', _exp.order)
+							_time.timer('work_kernel', _exp.order)
 					# receive result from slave
 					elif (tag == self.tags.done):
 						# start comm time
-						_time.timer('time_comm_kernel', _exp.order)
+						_time.timer('comm_kernel', _exp.order)
 						# receive data
 						data = _mpi.comm.recv(source=source, tag=self.tags.data, status=_mpi.stat)
 						# start work time
-						_time.timer('time_work_kernel', _exp.order)
+						_time.timer('work_kernel', _exp.order)
 						# write to e_inc
 						_exp.energy_inc[-1][data['index']] = data['energy']
 						# store timings
@@ -161,7 +161,7 @@ class KernCls():
 		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err):
 				""" slave function """
 				# start work time
-				_time.timer('time_work_kernel', _exp.order)
+				_time.timer('work_kernel', _exp.order)
 				# init e_inc list
 				if (len(_exp.energy_inc) != _exp.order):
 					_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
@@ -170,13 +170,13 @@ class KernCls():
 				# receive work from master
 				while (True):
 					# start comm time
-					_time.timer('time_comm_kernel', _exp.order)
+					_time.timer('comm_kernel', _exp.order)
 					# ready for task
 					_mpi.comm.send(None, dest=0, tag=self.tags.ready)
 					# receive drop string
 					job_info = _mpi.comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
 					# start work time
-					_time.timer('time_work_kernel', _exp.order)
+					_time.timer('work_kernel', _exp.order)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
 					# do job
@@ -187,11 +187,11 @@ class KernCls():
 						# run correlated calc
 						_exp.energy_inc[-1][job_info['index']] = _pyscf.corr_calc(_mol, _calc, _exp)
 						# start comm time
-						_time.timer('time_comm_kernel', _exp.order)
+						_time.timer('comm_kernel', _exp.order)
 						# report status back to master
 						_mpi.comm.send(None, dest=0, tag=self.tags.done)
 						# start work time
-						_time.timer('time_work_kernel', _exp.order)
+						_time.timer('work_kernel', _exp.order)
 						# write info into data dict
 						data['index'] = job_info['index']
 						data['energy'] = _exp.energy_inc[-1][job_info['index']]
@@ -203,11 +203,11 @@ class KernCls():
 #						data['error_msg'] = molecule['error_msg']
 #						data['error_drop'] = string['drop']
 						# start comm time
-						_time.timer('time_comm_kernel', _exp.order)
+						_time.timer('comm_kernel', _exp.order)
 						# send data back to master
 						_mpi.comm.send(data, dest=0, tag=self.tags.data)
 						# start work time
-						_time.timer('time_work_kernel', _exp.order)
+						_time.timer('work_kernel', _exp.order)
 					# exit
 					elif (tag == self.tags.exit):
 						break
@@ -216,7 +216,7 @@ class KernCls():
 				# send exit signal to master
 				_mpi.comm.send(None, dest=0, tag=self.tags.exit)
 				# collect comm time
-				_time.timer('time_comm_kernel', _exp.order, True)
+				_time.timer('comm_kernel', _exp.order, True)
 				#
 				return
 

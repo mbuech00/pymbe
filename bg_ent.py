@@ -41,7 +41,7 @@ class EntCls():
 					self.ent_abs_par(_mpi, _exp, _time)
 				else:
 					# start work time
-					_time.timer('time_work_screen', _exp.order)
+					_time.timer('work_screen', _exp.order)
 					# write orbital entanglement matrix (abs)
 					_exp.orb_ent_abs.append(np.zeros([_exp.u_limit,_exp.u_limit],
 											dtype=np.float64))
@@ -52,7 +52,7 @@ class EntCls():
 								if (set([i,j]) <= set(_exp.tuples[-1][l])):
 									_exp.orb_ent_abs[-1][i-_exp.l_limit,j-_exp.l_limit] += _exp.energy_inc[-1][l]
 					# collect work time
-					_time.timer('time_work_screen', _exp.order, True)
+					_time.timer('work_screen', _exp.order, True)
 				#
 				return
 		
@@ -61,16 +61,16 @@ class EntCls():
 				""" master / slave routine """
 				if (_mpi.master):
 					# start idle time
-					_time.timer('time_idle_screen', _exp.order)
+					_time.timer('idle_screen', _exp.order)
 					# wake up slaves
 					msg = {'task': 'ent_abs_par', 'order': _exp.order, 'conv_energy': _exp.conv_energy[-1]}
 					# bcast
 					_mpi.comm.bcast(msg, root=0)
 					# start work time
-					_time.timer('time_work_screen', _exp.order)
+					_time.timer('work_screen', _exp.order)
 				else:
 					# start work time
-					_time.timer('time_work_screen', _exp.order)
+					_time.timer('work_screen', _exp.order)
 				# init tmp array
 				tmp = np.zeros([_exp.u_limit,_exp.u_limit], dtype=np.float64)
 				# loop over tuple
@@ -92,11 +92,11 @@ class EntCls():
 				# master appends results to orb_ent list
 				if (_mpi.master):
 					# start work time
-					_time.timer('time_work_screen', _exp.order)
+					_time.timer('work_screen', _exp.order)
 					# append results 
 					_exp.orb_ent_abs.append(recv_buff)
 					# collect work time
-					_time.timer('time_work_screen', _exp.order, True)
+					_time.timer('work_screen', _exp.order, True)
 				#
 				return
 
@@ -104,14 +104,14 @@ class EntCls():
 		def ent_rel(self, _exp, _time):
 				""" relative orbital entanglement """
 				# start work time
-				_time.timer('time_work_screen', _exp.order)
+				_time.timer('work_screen', _exp.order)
 				# write orbital entanglement matrix (rel)
 				_exp.orb_ent_rel.append(np.zeros([_exp.u_limit,_exp.u_limit],
 										dtype=np.float64))
 				_exp.orb_ent_rel[-1] = (np.abs(_exp.orb_ent_abs[-1]) / \
 										np.amax(np.abs(_exp.orb_ent_abs[-1]))) * 100.0
 				# collect work time
-				_time.timer('time_work_screen', _exp.order, True)
+				_time.timer('work_screen', _exp.order, True)
 				#
 				return
 		
@@ -119,7 +119,7 @@ class EntCls():
 		def orb_cont(self, _mol, _calc, _exp, _time):
 				""" relative orbital contributions """
 				# start time
-				_time.timer('time_work_screen', _exp.order)
+				_time.timer('work_screen', _exp.order)
 				# init lists
 				_exp.orb_con_abs.append([]); _exp.orb_con_rel.append([])
 				# order k == 1
@@ -147,7 +147,7 @@ class EntCls():
 							_exp.orb_con_rel[-1].append(_exp.orb_con_abs[-1][i] / \
 														sum(_exp.orb_con_abs[-1]))
 				# collect time
-				_time.timer('time_work_screen', _exp.order, True)
+				_time.timer('work_screen', _exp.order, True)
 				#
 				return
 
