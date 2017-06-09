@@ -24,7 +24,7 @@ def main():
 		# now branch
 		if (not bg.mpi.master):
 			# proceed to main slave driver
-			bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.err)
+			bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.err, bg.rst)
 		else:
 			# proceed to main master driver
 			bg.driver.master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.err, bg.prt, bg.rst)

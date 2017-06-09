@@ -204,7 +204,6 @@ class ScrCls():
 						# start comm time
 						_time.timer('comm_screen', _exp.order)
 						# send data back to master
-						print(str(data))
 						_mpi.comm.send(data, dest=0, tag=self.tags.done)
 						# start work time
 						_time.timer('work_screen', _exp.order)

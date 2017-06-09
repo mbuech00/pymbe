@@ -87,7 +87,7 @@ class DrvCls():
 				return
 	
 	
-		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err):
+		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _rst):
 				""" main slave routine """
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
@@ -131,6 +131,7 @@ class DrvCls():
 						_exp.order = msg['order']
 						self.screening.slave(_mpi, _calc, _exp, _time)
 						_time.coll_screen_time(_mpi, None, _exp.order, True)
+						_rst.update(_calc, _exp.order)
 					#
 					#** exit **#
 					#
