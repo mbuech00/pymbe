@@ -27,9 +27,8 @@ class ExpCls():
 					self.l_limit = 0
 					self.u_limit = _mol.nocc
 					# init tuples and incl_idx
-					self.tuples = []
-					self.tuples.append(list(np.array(list([i] for i in range(_mol.ncore,
-										_mol.nocc)), dtype=np.int32)))
+					self.tuples = []; self.tuples.append(np.array(list([i] for i in range(_mol.ncore,
+										_mol.nocc)), dtype=np.int32))
 					self.incl_idx = list(range(_mol.nocc, _mol.norb))
 				# set params and lists for virt expansion
 				elif (_calc.exp_type == 'virtual'):
@@ -37,9 +36,8 @@ class ExpCls():
 					self.l_limit = _mol.nocc
 					self.u_limit = _mol.nvirt
 					# init tuples and incl_idx
-					self.tuples = []
-					self.tuples.append(list(np.array(list([i] for i in range(_mol.nocc,
-										_mol.norb)), dtype=np.int32)))
+					self.tuples = []; self.tuples.append(np.array(list([i] for i in range(_mol.nocc,
+										_mol.norb)), dtype=np.int32))
 					self.incl_idx = list(range(_mol.nocc))
 				# set frozen_idx
 				self.frozen_idx = list(range(_mol.ncore))
@@ -47,7 +45,7 @@ class ExpCls():
 				if (_rst.restart):
 					self.energy_inc = []
 				else:
-					self.energy_inc = list(np.zeros(len(self.tuples[0]),
+					self.energy_inc = []; self.energy_inc.append(np.zeros(len(self.tuples[0]),
 								dtype=np.float64))
 				# set max_order (in calc class)
 				if ((_calc.exp_max_order == 0) or (_calc.exp_max_order > self.u_limit)):
@@ -76,7 +74,7 @@ class ExpCls():
 				index = np.fromiter(chain.from_iterable(combinations(range(_n), _k)),
 									int,count=count * _k)
 				#
-				return index.reshape(-1,k)
+				return index.reshape(-1, _k)
 		
 		
 		def enum(self, *sequential, **named):

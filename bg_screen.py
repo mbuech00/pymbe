@@ -34,7 +34,7 @@ class ScrCls():
 					# start time
 					_time.timer('work_screen', _exp.order)
 					# determine which tuples have contributions below the threshold
-					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)[0]]
 					# init bookkeeping variables
 					_exp.screen_count = 0; tmp = []; combs = []
 			        # loop over parent tuples
