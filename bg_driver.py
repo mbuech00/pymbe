@@ -1,131 +1,143 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_driver.py: driver routines for Bethe-Goldstone correlation calculations."""
+""" bg_driver.py: driver class for Bethe-Goldstone correlation calculations."""
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
-__version__ = '0.8'
+__version__ = '0.9'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
+from mpi4py import MPI
 
-from bg_mpi_utils import prepare_calc
-from bg_print import print_mono_exp_header, print_mono_exp_end, print_kernel_header, print_kernel_end, print_results,\
-                      print_summation_header, print_summation_end, print_screen_header, print_screen_end
-from bg_kernel import energy_kernel
-from bg_summation import energy_summation
-from bg_entanglement import entanglement_main
-from bg_screening import screening_main
-from bg_rst_main import rst_main
-from bg_rst_write import rst_write_summation, rst_write_screen
+from bg_kernel import KernCls
+from bg_sum import SumCls
+from bg_ent import EntCls
+from bg_screen import ScrCls
 
 
-def main_drv(molecule):
-		""" main driver routine """
-		# initialize variable and lists
-		prepare_calc(molecule)   
-		# run the specified calculation
-		if ((molecule['exp'] == 'occ') or (molecule['exp'] == 'virt')):
-			# print header for mono expansion
-			print_mono_exp_header(molecule)
-			# check for restart files
-			rst_main(molecule)
-			# call mono expansion driver function 
-			mono_exp_drv(molecule,molecule['min_order'],molecule['max_order'],'MACRO')
-			# print end for mono expansion
-			print_mono_exp_end(molecule)
-#	elif ((molecule['exp'] == 'comb-ov') or (molecule['exp'] == 'comb-vo')):
-#		run dual expansion (not implemented yet...)
-		#
-		return
-
-
-def mono_exp_drv(molecule, start, end, level):
-		""" driver for mono expansions """
-		for k in range(start,end+1):
-			# mono expansion energy kernel
-			mono_exp_kernel(molecule,k,level)
-			# mono expansion energy summation
-			mono_exp_summation(molecule,k,level)
-			# mono expansion screening
-			mono_exp_screen(molecule,k,level)
-			# return if converged
-			if (molecule['conv_orb'][-1] or molecule['conv_energy'][-1]): break
-		#
-		return
-
-
-def mono_exp_kernel(molecule, order, level):
-		""" driver for the energy kernel (mono expansions) """
-		# set local variables
-		if (level == 'MACRO'):
-			tup = molecule['prim_tuple']
-			e_inc = molecule['prim_energy_inc']
-			e_tot = molecule['prim_energy']
-		# print kernel header
-		print_kernel_header(molecule,tup[-1],order,level)
-		# init e_int list
-		if (len(e_inc) != order): e_inc.append(np.zeros(len(tup[-1]),dtype=np.float64))
-		# run the calculations
-		energy_kernel(molecule,tup,e_inc,molecule['l_limit'],molecule['u_limit'],order,level)
-		# print kernel end
-		print_kernel_end(molecule,tup,order,level)
-		#
-		return
-
-
-def mono_exp_summation(molecule, order, level):
-		""" driver for the energy summation (mono expansions) """
-		# set local variables
-		if (level == 'MACRO'):
-			tup = molecule['prim_tuple']
-			e_inc = molecule['prim_energy_inc']
-			e_tot = molecule['prim_energy']
-			thres = molecule['prim_energy_thres']
-		# print summation header
-		print_summation_header(molecule,order,level)
-		# calculate the energy at current order
-		energy_summation(molecule,tup,e_inc,e_tot,thres,order,level)
-		# write restart files
-		rst_write_summation(molecule,e_inc,e_tot,order)
-		# print summation end
-		print_summation_end(molecule,e_inc,thres,order,level)
-		# print results
-		print_results(molecule,tup,e_inc,level)
-		#
-		return
-
-
-def mono_exp_screen(molecule, order, level):
-		""" driver for the screening (mono expansions) """
-		# set local variables
-		if (level == 'MACRO'):
-			#
-			tup = molecule['prim_tuple']
-			e_inc = molecule['prim_energy_inc']
-			thres = molecule['prim_exp_thres']
-			orb_con_abs = molecule['prim_orb_con_abs']
-			orb_con_rel = molecule['prim_orb_con_rel']
-			orb_ent_abs = molecule['prim_orb_ent_abs']
-			orb_ent_rel = molecule['prim_orb_ent_rel']
-		# print screen header
-		print_screen_header(molecule,order,level)
-		# orbital entanglement
-		entanglement_main(molecule,molecule['l_limit'],molecule['u_limit'],order,molecule['conv_energy'][-1])
-		# orbital screening (using info from previous order)
-		if (not molecule['conv_energy'][-1]):
-			# perform screening
-			screening_main(molecule,tup,e_inc,thres,molecule['l_limit'],molecule['u_limit'],order,level)
-			# write restart files
-			if (not molecule['conv_orb'][-1]): rst_write_screen(molecule,tup,orb_con_abs,orb_con_rel,orb_ent_abs,orb_ent_rel,order)
-		# print screen end
-		print_screen_end(molecule,order,level)
-		#
-		return
-
-
+class DrvCls():
+		""" driver class """
+		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst):
+				""" main driver routine """
+				# make kernel, summation, entanglement, and screening instances
+				self.kernel = KernCls(_exp)
+				self.summation = SumCls()
+				self.entanglement = EntCls()
+				self.screening = ScrCls(_exp)
+				# print expansion header
+				_prt.exp_header()
+				# now do expansion
+				for _exp.order in range(_calc.exp_min_order,_calc.exp_max_order + 1):
+					#
+					#** energy kernel phase **#
+					#
+					# print kernel header
+					_prt.kernel_header(_exp)
+					# init e_inc
+					if (len(_exp.energy_inc) != _exp.order):
+						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
+					# kernel calculations
+					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst)
+					# print kernel end
+					_prt.kernel_end(_exp)
+					#
+					#** energy summation phase **#
+					#
+					# print summation header
+					_prt.summation_header(_exp)
+					# energy summation
+					self.summation.main(_mpi, _calc, _exp, _time, _rst)
+					# write restart files
+					_rst.write_summation(_mpi, _exp, _time)
+					# print summation end
+					_prt.summation_end(_calc, _exp)
+					# print results
+					_prt.summation_results(_exp)
+					#
+					#** screening phase **#
+					#
+					# print screen header
+					_prt.screen_header(_exp)
+					# orbital entanglement
+					self.entanglement.main(_mpi, _mol, _calc, _exp, _time, _rst)
+					# orbital screening
+					if (not _exp.conv_energy[-1]):
+						# perform screening
+						self.screening.main(_mpi, _calc, _exp, _time, _rst)
+						# write restart files
+						if (not _exp.conv_orb[-1]):
+							_rst.write_screen(_mpi, _exp, _time)
+					# print screen results
+					_prt.screen_results(_calc, _exp)
+					# print screen end
+					_prt.screen_end(_exp)
+					# update threshold and restart frequency
+					_rst.update(_calc, _exp.order)
+					#
+					#** convergence check **#
+					#
+					if (_exp.conv_energy[-1] or _exp.conv_orb[-1]): break
+				#
+				return
+	
+	
+		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _rst):
+				""" main slave routine """
+				# make kernel, summation, entanglement, and screening instances
+				self.kernel = KernCls(_exp)
+				self.summation = SumCls()
+				self.entanglement = EntCls()
+				self.screening = ScrCls(_exp)
+				# set loop/waiting logical
+				slave = True
+				# enter slave state
+				while (slave):
+					# task id
+					msg = _mpi.comm.bcast(None, root=0)
+					#
+					#** receive restart files **#
+					#
+					if (msg['task'] == 'bcast_rst'):
+						# distribute (receive) restart files
+						_mpi.bcast_rst(_calc, _exp, _time) 
+					#
+					#** energy kernel phase **#
+					#
+					elif (msg['task'] == 'kernel_slave'):
+						_exp.order = msg['order']
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time, _err)
+						_time.coll_kernel_time(_mpi, None, _exp.order)
+					#
+					#** energy summation phase **#
+					#
+					elif (msg['task'] == 'sum_par'):
+						_exp.order = msg['order']
+						self.summation.sum_par(_mpi, _calc, _exp, _time)
+						_time.coll_summation_time(_mpi, None, _exp.order)
+					#
+					#** screening phase **#
+					#
+					elif (msg['task'] == 'ent_abs_par'):
+						_exp.order = msg['order']
+						self.entanglement.ent_abs_par(_mpi, _exp, _time)
+						_time.coll_screen_time(_mpi, None, _exp.order, msg['conv_energy'])
+					elif (msg['task'] == 'screen_slave'):
+						_exp.order = msg['order']
+						self.screening.slave(_mpi, _calc, _exp, _time)
+						_time.coll_screen_time(_mpi, None, _exp.order, True)
+						_rst.update(_calc, _exp.order)
+					#
+					#** exit **#
+					#
+					elif (msg['task'] == 'exit_slave'):
+						slave = False
+				# finalize
+				_mpi.final(None)
+	
+	
