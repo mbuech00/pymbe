@@ -42,8 +42,8 @@ class InitCls():
 				# error instance
 				self.err = ErrCls(self.out)
 				# molecule and calculation instances
-				self.mol = MolCls(self.err)
-				self.calc = CalcCls(self.err)
+				self.mol = MolCls(self.mpi, self.err)
+				self.calc = CalcCls(self.mpi, self.err)
 				# pyscf instance
 				self.pyscf = PySCFCls()
 				# hf calculation and integral transformation

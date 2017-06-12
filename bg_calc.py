@@ -17,15 +17,17 @@ from os.path import isfile
 
 class CalcCls():
 		""" calculation class """
-		def __init__(self, _err):
+		def __init__(self, _mpi, _err):
 				""" init parameters """
 				# set calculation parameters
-				self.exp_model, self.exp_type, self.exp_thres, self.exp_damp, \
-					self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres = self.set_calc(_err)
+				if (_mpi.master):
+					self.exp_model, self.exp_type, self.exp_thres, self.exp_damp, \
+						self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres = self.set_calc(_err)
+					# sanity check
+					self.sanity_chk(_err)
+				if (_mpi.parallel): _mpi.bcast_calc_info(self)
 				# set exp_thres_init
 				self.exp_thres_init = self.exp_thres
-				# sanity check
-				self.sanity_chk(_err)
 				#
 				return
 

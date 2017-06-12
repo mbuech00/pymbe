@@ -18,16 +18,18 @@ from pyscf import gto
 
 class MolCls(gto.Mole):
 		""" molecule class (inherited from pyscf gto.Mole class) """
-		def __init__(self, _err):
+		def __init__(self, _mpi, _err):
 				""" init parameters """
 				# gto.Mole instance
 				gto.Mole.__init__(self)
 				# set geometric parameters
-				self.atom = self.set_geo(_err)
+				if (_mpi.master): self.atom = self.set_geo(_err)
 				# set molecular parameters
-				self.charge, self.spin, self.symmetry, self.basis, \
-					self.unit, self.frozen, self.verbose  = \
-							self.set_mol(_err)
+				if (_mpi.master):
+					self.charge, self.spin, self.symmetry, self.basis, \
+						self.unit, self.frozen, self.verbose  = \
+								self.set_mol(_err)
+				if (_mpi.parallel): _mpi.bcast_mol_info(self)
 				# build mol
 				self.build()
 				# set number of core orbs

@@ -24,13 +24,15 @@ class RstCls():
 		""" restart class """
 		def __init__(self, _out, _mpi):
 				""" init restart env and parameters """
-				self.rst_dir = _out.wrk_dir+'/rst'
-				self.rst_freq = 50000.0
-				if (not isdir(self.rst_dir)):
-					self.restart = False
-					if (_mpi.master): mkdir(self.rst_dir)
-				else:
-					self.restart = False
+				if (_mpi.master):
+					self.rst_dir = _out.wrk_dir+'/rst'
+					self.rst_freq = 50000.0
+					if (not isdir(self.rst_dir)):
+						self.restart = False
+						mkdir(self.rst_dir)
+					else:
+						self.restart = False
+				_mpi.bcast_rst_info(self)
 				#
 				return
 

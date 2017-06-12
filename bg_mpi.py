@@ -34,6 +34,68 @@ class MPICls():
 				return
 
 
+		def bcast_rst_info(self, _rst):
+				""" bcast rst info """
+				if (self.master):
+					self.comm.bcast(_rst.restart, root=0)
+					self.comm.bcast(_rst.rst_freq, root=0)
+				else:
+					_rst.restart = self.comm.bcast(None, root=0)
+					_rst.rst_freq = self.comm.bcast(None, root=0)
+				#
+				return
+
+
+		def bcast_mol_info(self, _mol):
+				""" bcast mol info """
+				if (self.master):
+					self.comm.bcast(_mol.atom, root=0)
+					self.comm.bcast(_mol.charge, root=0)
+					self.comm.bcast(_mol.spin, root=0)
+					self.comm.bcast(_mol.symmetry, root=0)
+					self.comm.bcast(_mol.basis, root=0)
+					self.comm.bcast(_mol.unit, root=0)
+					self.comm.bcast(_mol.frozen, root=0)
+					self.comm.bcast(_mol.verbose, root=0)
+				else:
+					_mol.atom = self.comm.bcast(None, root=0)
+					_mol.charge = self.comm.bcast(None, root=0)
+					_mol.spin = self.comm.bcast(None, root=0)
+					_mol.symmetry = self.comm.bcast(None, root=0)
+					_mol.basis = self.comm.bcast(None, root=0)
+					_mol.unit = self.comm.bcast(None, root=0)
+					_mol.frozen = self.comm.bcast(None, root=0)
+					_mol.verbose = self.comm.bcast(None, root=0)
+				#
+				return
+
+
+		def bcast_calc_info(self, _calc):
+				""" bcast calc info """
+				if (self.master):
+					# bcast to slaves
+					self.comm.bcast(_calc.exp_model, root=0)
+					self.comm.bcast(_calc.exp_type, root=0)
+					self.comm.bcast(_calc.exp_thres, root=0)
+					self.comm.bcast(_calc.exp_damp, root=0)
+					self.comm.bcast(_calc.exp_max_order, root=0)
+					self.comm.bcast(_calc.exp_occ, root=0)
+					self.comm.bcast(_calc.exp_virt, root=0)
+					self.comm.bcast(_calc.energy_thres, root=0)
+				else:
+					# receive from master
+					_calc.exp_model = self.comm.bcast(None, root=0)
+					_calc.exp_type = self.comm.bcast(None, root=0)
+					_calc.exp_thres = self.comm.bcast(None, root=0)
+					_calc.exp_damp = self.comm.bcast(None, root=0)
+					_calc.exp_max_order = self.comm.bcast(None, root=0)
+					_calc.exp_occ = self.comm.bcast(None, root=0)
+					_calc.exp_virt = self.comm.bcast(None, root=0)
+					_calc.energy_thres = self.comm.bcast(None, root=0)
+				#
+				return
+
+
 		def bcast_hf(self, _mol):
 				""" bcast hf info """
 				if (self.master):
