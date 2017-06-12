@@ -61,8 +61,7 @@ class PySCFCls():
 				""" generate input for correlated calculation """
 				# generate orbital lists
 				cas_idx = sorted(_exp.incl_idx + _tup.tolist())
-				core_idx = sorted(_exp.frozen_idx + list(set(range(_mol.nocc)) - set(cas_idx)))
-				cas_idx = sorted(list(set(cas_idx) - set(core_idx)))
+				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
 				# extract core and cas integrals and calculate core energy
 				if (len(core_idx) > 0):
 					vhf_core = np.einsum('iipq->pq', _mol.h2e[core_idx][:,core_idx]) * 2
