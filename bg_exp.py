@@ -41,6 +41,9 @@ class ExpCls():
 					self.incl_idx = list(range(_mol.nocc))
 				# set frozen_idx
 				self.frozen_idx = list(range(_mol.ncore))
+				# update incl_idx
+				if (_calc.exp_type == 'virtual'):
+					self.incl_idx = sorted(list(set(self.incl_idx) - set(self.frozen_idx))) 
 				# init energy_inc
 				if (_rst.restart):
 					self.energy_inc = []
