@@ -53,9 +53,9 @@ class CalcCls():
 						elif (content[i].split()[0] == 'exp_max_order'):
 							exp_max_order = int(content[i].split()[2])
 						elif (content[i].split()[0] == 'exp_occ'):
-							exp_occ = content[i].split()[2]
+							exp_occ = content[i].split()[2].upper()
 						elif (content[i].split()[0] == 'exp_virt'):
-							exp_virt = content[i].split()[2]
+							exp_virt = content[i].split()[2].upper()
 						elif (content[i].split()[0] == 'energy_thres'):
 							energy_thres = float(content[i].split()[2])
 						# error handling
@@ -93,12 +93,12 @@ class CalcCls():
 					_err.error_msg = 'wrong input -- energy threshold ' + \
 									'(energy_thres) must be float >= 0.0'
 				# orbital representation
-				if (not (self.exp_occ in ['canonical','local'])):
+				if (not (self.exp_occ in ['CANONICAL','LOCAL'])):
 					_err.error_msg = 'wrong input -- valid occupied orbital ' + \
 									'representations are currently: canonical and local'
-				if (not (self.exp_virt in ['canonical','natural'])):
+				if (not (self.exp_virt in ['CANONICAL','MP2','CCSD','CISD'])):
 					_err.error_msg = 'wrong input -- valid virtual orbital ' + \
-									'representations are currently: canonical and natural (CCSD)'
+									'representations are currently: canonical and MP2/CCSD/CISD natural orbitals'
 				#
 				if (_err.error_msg != ''):
 					_err.abort()

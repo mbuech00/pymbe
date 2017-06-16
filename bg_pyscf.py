@@ -15,7 +15,7 @@ __status__ = 'Development'
 import numpy as np
 import scipy as sp
 from functools import reduce
-from pyscf import gto, scf, ao2mo, cc, fci
+from pyscf import gto, scf, ao2mo, mp, ci, cc, fci
 
 
 class PySCFCls():
@@ -38,7 +38,25 @@ class PySCFCls():
 
 		def int_trans(self, _mol, _calc):
 				""" integral transformation """
-				if (_calc.exp_virt == 'natural'):
+				if (_calc.exp_virt == 'MP2'):
+					# calculate mp2 density matrix
+					mp2 = mp.MP2(_mol.hf)
+					mp2.kernel()
+					dm = mp2.make_rdm1()
+					occup, no = sp.linalg.eigh(dm[_mol.nocc:,_mol.nocc:])
+					mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:,_mol.nocc:], no[:,::-1])
+					trans_mat = _mol.hf.mo_coeff
+					trans_mat[:,_mol.nocc:] = mo_coeff_virt
+				elif (_calc.exp_virt == 'CISD'):
+					# calculate cisd density matrix
+					cisd = ci.CISD(_mol.hf)
+					cisd.kernel()
+					dm = cisd.make_rdm1()
+					occup, no = sp.linalg.eigh(dm[_mol.nocc:,_mol.nocc:])
+					mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:,_mol.nocc:], no[:,::-1])
+					trans_mat = _mol.hf.mo_coeff
+					trans_mat[:,_mol.nocc:] = mo_coeff_virt
+				elif (_calc.exp_virt == 'CCSD'):
 					# calculate ccsd density matrix
 					ccsd = cc.CCSD(_mol.hf)
 					ccsd.kernel()
