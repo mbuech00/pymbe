@@ -53,7 +53,7 @@ class ResCls():
 				# overall results
 				self.overall_res(_mpi, _mol, _calc, _exp)
 				# detailed results
-				self.detail_res(_exp, _time)
+				self.detail_res(_mol, _exp, _time)
 				# phase timings
 				self.phase_res(_mpi, _exp, _time)
 				# print mpi timings
@@ -62,7 +62,7 @@ class ResCls():
 				#** plotting **#
 				#
 				# total energies
-				self.abs_energy(_calc, _exp)
+				self.abs_energy(_mol, _calc, _exp)
 				# number of calculations
 				self.n_tuples(_calc, _exp)
 				# orbital entanglement matrices
@@ -93,26 +93,26 @@ class ResCls():
 								format('','molecular information','','|','',\
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
-						print(('{0:12}{1:9}{2:7}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:9}{9:15}{10:4}{11:1}'
-							'{12:2}{13:<6s}{14:7}{15:1}{16:7}{17:16}{18:7}{19:1}{20:2}{21:}').\
+						print(('{0:12}{1:9}{2:7}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:9}{9:17}{10:2}{11:1}'
+							'{12:2}{13:<4s}{14:^3}{15:<4s}{16:2}{17:1}{18:7}{19:16}{20:7}{21:1}{22:2}{23:}').\
 								format('','basis set','','=','',_mol.basis,\
-									'','|','','expansion model','','=','',_calc.exp_model,\
+									'','|','','exp. base / model','','=','',_calc.exp_base,'/',_calc.exp_model,\
 									'','|','','mpi parallel run','','=','',_mpi.parallel))
-						print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:14}{10:5}{11:1}'
+						print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:9}{10:10}{11:1}'
 							'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:}').\
 								format('','frozen core','','=','',str(_mol.frozen),\
-									'','|','','expansion type','','=','',_calc.exp_type,\
+									'','|','','exp. type','','=','',_calc.exp_type,\
 									'','|','','number of mpi masters','','=','',1))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:14}{12:5}'
 							'{13:1}{14:2}{15:<5.2e}{16:5}{17:1}{18:7}{19:20}{20:3}{21:1}{22:2}{23:}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
 									'','|','','exp. threshold','','=','',_calc.exp_thres_init,\
 									'','|','','number of mpi slaves','','=','',_mpi.size-1))
-						print(('{0:12}{1:13}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:12}{10:7}{11:1}{12:2}'
+						print(('{0:12}{1:13}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:14}{10:5}{11:1}{12:2}'
 							'{13:<6.2f}{14:7}{15:1}{16:7}{17:18}{18:5}{19:1}{20:1}{21:>13.6e}').\
 								format('','occ. orbitals','','=','',_calc.exp_occ,\
-									'','|','','damp. factor','','=','',_calc.exp_damp,\
-									'','|','','final corr. energy','','=','',_exp.energy_tot[-1]))
+									'','|','','exp. dampening','','=','',_calc.exp_damp,\
+									'','|','','final corr. energy','','=','',_exp.energy_tot[-1] + _mol.e_ref))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:16}{10:3}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:17}{18:6}{19:1}{20:1}{21:>13.6e}').\
 								format('','virt. orbitals','','=','',_calc.exp_virt,\
@@ -124,7 +124,7 @@ class ResCls():
 				return
 		
 		
-		def detail_res(self, _exp, _time):
+		def detail_res(self, _mol, _exp, _time):
 				""" print detailed results """
 				# init total number of tuples
 				total_tup = 0
@@ -150,7 +150,7 @@ class ResCls():
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.6e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
-									format('',i+1,'','|','',_exp.energy_tot[i],\
+									format('',i+1,'','|','',_exp.energy_tot[i] + _mol.e_ref,\
 										'','|','',int(total_time//3600),':',\
 										int((total_time-(total_time//3600)*3600.)//60),':',\
 										int(total_time-(total_time//3600)*3600.\
@@ -300,17 +300,17 @@ class ResCls():
 				return
 
 
-		def abs_energy(self, _calc, _exp):
+		def abs_energy(self, _mol, _calc, _exp):
 				""" plot absolute energy """
 				# set seaborn
 				sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# set title
-				ax.set_title('Total '+_calc.exp_model+' energy')
+				ax.set_title('Total '+_calc.exp_model+' correlation energy')
 				# plot results
 				ax.plot(list(range(1,len(_exp.energy_tot)+1)),
-						_exp.energy_tot, marker='x', linewidth=2,
+						np.asarray(_exp.energy_tot) + _mol.e_ref, marker='x', linewidth=2,
 						linestyle='-', label='BG('+_calc.exp_model+')')
 				# set x limits
 				ax.set_xlim([0.5,_calc.exp_max_order + 0.5])
@@ -318,7 +318,7 @@ class ResCls():
 				ax.xaxis.grid(False)
 				# set labels
 				ax.set_xlabel('Expansion order')
-				ax.set_ylabel('Energy (in Hartree)')
+				ax.set_ylabel('Correlation energy (in Hartree)')
 				# force integer ticks on x-axis
 				ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 				# despine
@@ -329,7 +329,7 @@ class ResCls():
 					insert = plt.axes([.35, .50, .50, .30], frameon=True)
 					# plot results
 					insert.plot(list(range(2,len(_exp.energy_tot)+1)),
-								_exp.energy_tot[1:], marker='x',
+								np.asarray(_exp.energy_tot[1:]) + _mol.e_ref, marker='x',
 								linewidth=2, linestyle='-')
 					# set x limits
 					plt.setp(insert, xticks=list(range(3,len(_exp.energy_tot)+1)))
@@ -337,8 +337,8 @@ class ResCls():
 					# set number of y ticks
 					insert.locator_params(axis='y', nbins=6)
 					# set y limits
-					insert.set_ylim([_exp.energy_tot[-1] - 0.01,
-										_exp.energy_tot[-1] + 0.01])
+					insert.set_ylim([(_exp.energy_tot[-1] + _mol.e_ref) - 0.01,
+										(_exp.energy_tot[-1] + _mol.e_ref) + 0.01])
 					# turn off x-grid
 					insert.xaxis.grid(False)
 				# set legends
