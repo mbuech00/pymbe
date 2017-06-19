@@ -129,7 +129,6 @@ class PySCFCls():
 					e_base = solver_base.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx),
 												_mol.nelectron - 2 * len(_exp.core_idx))[0]
 					e_corr = e_cas - e_base
-				print('cas_idx = {0:} , e_corr = {1:.6f}'.format(_exp.cas_idx,e_corr))
 				#
 				return e_corr
 
