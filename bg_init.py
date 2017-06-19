@@ -50,10 +50,10 @@ class InitCls():
 				if (self.mpi.master):
 					self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
 							self.pyscf.hf_calc(self.mol)
-					self.mol.h1e, self.mol.h2e = \
+					self.mol.e_ref, self.mol.h1e, self.mol.h2e = \
 							self.pyscf.int_trans(self.mol, self.calc)
 				# bcast to slaves
-				if (self.mpi.parallel): self.mpi.bcast_hf(self.mol)
+				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
 				# time instance
 				self.time = TimeCls(self.mpi, self.rst)
 				# expansion instance

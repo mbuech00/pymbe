@@ -36,7 +36,10 @@ class ScrCls():
 					# start time
 					_time.timer('work_screen', _exp.order)
 					# determine which tuples have contributions below the threshold
-					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+					if (_exp.order == 1):
+						allow_tuple = _exp.tuples[-1]
+					else:
+						allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
 			        # loop over parent tuples
@@ -158,7 +161,10 @@ class ScrCls():
 				# init data dict and combs list
 				data = {'child_tuple': [], 'screen_count': 0}; combs = []
 				# determine which tuples have contributions larger than the threshold
-				allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+				if (_exp.order == 1):
+					allow_tuple = _exp.tuples[-1]
+				else:
+					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 				# receive work from master
 				while (True):
 					# start comm time

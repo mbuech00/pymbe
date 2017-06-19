@@ -76,6 +76,7 @@ class MPICls():
 					# bcast to slaves
 					self.comm.bcast(_calc.exp_model, root=0)
 					self.comm.bcast(_calc.exp_type, root=0)
+					self.comm.bcast(_calc.exp_base, root=0)
 					self.comm.bcast(_calc.exp_thres, root=0)
 					self.comm.bcast(_calc.exp_damp, root=0)
 					self.comm.bcast(_calc.exp_max_order, root=0)
@@ -86,6 +87,7 @@ class MPICls():
 					# receive from master
 					_calc.exp_model = self.comm.bcast(None, root=0)
 					_calc.exp_type = self.comm.bcast(None, root=0)
+					_calc.exp_base = self.comm.bcast(None, root=0)
 					_calc.exp_thres = self.comm.bcast(None, root=0)
 					_calc.exp_damp = self.comm.bcast(None, root=0)
 					_calc.exp_max_order = self.comm.bcast(None, root=0)
@@ -96,17 +98,19 @@ class MPICls():
 				return
 
 
-		def bcast_hf(self, _mol):
-				""" bcast hf info """
+		def bcast_hf_base(self, _mol):
+				""" bcast hf and base info """
 				if (self.master):
 					# bcast to slaves
 					self.comm.bcast(_mol.e_hf, root=0)
+					self.comm.bcast(_mol.e_ref, root=0)
 					self.comm.bcast(_mol.norb, root=0)
 					self.comm.bcast(_mol.nocc, root=0)
 					self.comm.bcast(_mol.nvirt, root=0)
 				else:
 					# receive from master
 					_mol.e_hf = self.comm.bcast(None, root=0)
+					_mol.e_ref = self.comm.bcast(None, root=0)
 					_mol.norb = self.comm.bcast(None, root=0)
 					_mol.nocc = self.comm.bcast(None, root=0)
 					_mol.nvirt = self.comm.bcast(None, root=0)
