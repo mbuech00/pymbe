@@ -44,10 +44,12 @@ class PySCFCls():
 				elif (_calc.exp_base == 'MP2'):
 					# calculate mp2 energy
 					mp2 = mp.MP2(_mol.hf)
+					mp2.frozen = _mol.ncore
 					e_ref = mp2.kernel()[0]
 				elif (_calc.exp_base == 'CCSD'):
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_mol.hf)
+					ccsd.frozen = _mol.ncore
 					e_ref = ccsd.kernel()[0]
 				# integrals
 				if (_calc.exp_virt == 'HF'):
@@ -55,18 +57,20 @@ class PySCFCls():
 				elif (_calc.exp_virt == 'MP2'):
 					if (_calc.exp_base != 'MP2'):
 						mp2 = mp.MP2(_mol.hf)
+						mp2.frozen = _mol.ncore
 						mp2.kernel()
 					dm = mp2.make_rdm1()
-					occup, no = sp.linalg.eigh(dm[_mol.nocc:,_mol.nocc:])
+					occup, no = sp.linalg.eigh(dm[(_mol.nocc-_mol.ncore):,(_mol.nocc-_mol.ncore):])
 					mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:,_mol.nocc:], no[:,::-1])
 					trans_mat = _mol.hf.mo_coeff
 					trans_mat[:,_mol.nocc:] = mo_coeff_virt
 				elif (_calc.exp_virt == 'CCSD'):
 					if (_calc.exp_base != 'CCSD'):
 						ccsd = cc.CCSD(_mol.hf)
+						ccsd.frozen = _mol.ncore
 						ccsd.kernel()
 					dm = ccsd.make_rdm1()
-					occup, no = sp.linalg.eigh(dm[_mol.nocc:,_mol.nocc:])
+					occup, no = sp.linalg.eigh(dm[(_mol.nocc-_mol.ncore):,(_mol.nocc-_mol.ncore):])
 					mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:,_mol.nocc:], no[:,::-1])
 					trans_mat = _mol.hf.mo_coeff
 					trans_mat[:,_mol.nocc:] = mo_coeff_virt
