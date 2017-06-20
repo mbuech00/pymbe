@@ -17,7 +17,6 @@ from os.path import isdir
 from shutil import rmtree 
 
 from bg_rst import RstCls
-from bg_error import ErrCls
 from bg_mol import MolCls
 from bg_calc import CalcCls
 from bg_mpi import MPICls
@@ -39,11 +38,9 @@ class InitCls():
 				self.out = OutCls(self.mpi)
 				# restart instance
 				self.rst = RstCls(self.out, self.mpi)
-				# error instance
-				self.err = ErrCls(self.out)
 				# molecule and calculation instances
-				self.mol = MolCls(self.mpi, self.err)
-				self.calc = CalcCls(self.mpi, self.err)
+				self.mol = MolCls(self.mpi, self.rst)
+				self.calc = CalcCls(self.mpi, self.rst)
 				# pyscf instance
 				self.pyscf = PySCFCls()
 				# hf calculation and integral transformation

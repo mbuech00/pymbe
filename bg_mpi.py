@@ -14,6 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
+import sys
 from os import getcwd, mkdir, chdir
 from os.path import isfile
 from shutil import copy, rmtree
@@ -24,12 +25,28 @@ class MPICls():
 		def __init__(self):
 				""" init parameters """
 				self.comm = MPI.COMM_WORLD
-				self.parallel = self.comm.Get_size() > 1
+				self.parallel = (self.comm.Get_size() > 1)
 				self.size = self.comm.Get_size()
 				self.rank = self.comm.Get_rank()
 				self.master = (self.rank == 0)
 				self.name = MPI.Get_processor_name()
 				self.stat = MPI.Status()
+				# set custom exception hook
+				if (self.master): self.set_exc_hook()
+				#
+				return
+
+
+		def set_exc_hook(self):
+				""" set an exception hook for aborting mpi """
+				# save sys.excepthook
+				sys_excepthook = sys.excepthook
+				# define mpi exception hook
+				def mpi_excepthook(_t, _v, _tb):
+					sys_excepthook(_t, _v, _tb)
+					self.comm.Abort(1)
+				# overwrite sys.excepthook
+				sys.excepthook = mpi_excepthook
 				#
 				return
 

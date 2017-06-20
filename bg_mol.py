@@ -14,21 +14,22 @@ __status__ = 'Development'
 
 from os.path import isfile
 from pyscf import gto
+import sys
 
 
 class MolCls(gto.Mole):
 		""" molecule class (inherited from pyscf gto.Mole class) """
-		def __init__(self, _mpi, _err):
+		def __init__(self, _mpi, _rst):
 				""" init parameters """
 				# gto.Mole instance
 				gto.Mole.__init__(self)
 				# set geometric parameters
-				if (_mpi.master): self.atom = self.set_geo(_err)
+				if (_mpi.master): self.atom = self.set_geo(_rst)
 				# set molecular parameters
 				if (_mpi.master):
 					self.charge, self.spin, self.symmetry, self.basis, \
 						self.unit, self.frozen, self.verbose  = \
-								self.set_mol(_err)
+								self.set_mol(_rst)
 				if (_mpi.parallel): _mpi.bcast_mol_info(self)
 				# build mol
 				self.build()
@@ -38,49 +39,52 @@ class MolCls(gto.Mole):
 				return
 
 
-		def set_geo(self, _err):
+		def set_geo(self, _rst):
 				""" set geometry from bg-geo.inp file """
-				# error handling
-				if (not isfile('bg-geo.inp')):
-					_err.error_msg = 'bg-geo.inp not found'
-					_err.abort()
 				# read input file
-				with open('bg-geo.inp') as f:
-					content = f.readlines()
-					atom = ''
-					for i in range(len(content)):
-						atom += content[i]
+				try:
+					with open('bg-geo.inp') as f:
+						content = f.readlines()
+						atom = ''
+						for i in range(len(content)):
+							atom += content[i]
+				except IOError:
+					_rst.rm_rst()
+					sys.stderr.write('\nIOError: bg-geo.inp not found\n\n')
 				#
 				return atom
 
 
-		def set_mol(self, _err):
+		def set_mol(self, _rst):
 				""" set molecular parameters from bg-mol.inp file """
-				# error handling
-				if (not isfile('bg-mol.inp')):
-					_err.error_msg = 'bg-mol.inp not found'
-					_err.abort()
 				# read input file
-				with open('bg-mol.inp') as f:
-					content = f.readlines()
-					for i in range(len(content)):
-						if (content[i].split()[0] == 'charge'):
-							charge = int(content[i].split()[2])
-						elif (content[i].split()[0] == 'spin'):
-							spin = int(content[i].split()[2])
-						elif (content[i].split()[0] == 'symmetry'):
-							symmetry = content[i].split()[2].upper() == 'TRUE'
-						elif (content[i].split()[0] == 'basis'):
-							basis = content[i].split()[2]
-						elif (content[i].split()[0] == 'unit'):
-							unit = content[i].split()[2]
-						elif (content[i].split()[0] == 'frozen'):
-							frozen = content[i].split()[2].upper() == 'TRUE'
-						# error handling
-						else:
-							_err.error_msg = content[i].split()[2] + \
-											' keyword in bg-mol.inp not recognized'
-							_err.abort()
+				try:
+					with open('bg-mol.inp') as f:
+						content = f.readlines()
+						for i in range(len(content)):
+							if (content[i].split()[0] == 'charge'):
+								charge = int(content[i].split()[2])
+							elif (content[i].split()[0] == 'spin'):
+								spin = int(content[i].split()[2])
+							elif (content[i].split()[0] == 'symmetry'):
+								symmetry = content[i].split()[2].upper() == 'TRUE'
+							elif (content[i].split()[0] == 'basis'):
+								basis = content[i].split()[2]
+							elif (content[i].split()[0] == 'unit'):
+								unit = content[i].split()[2]
+							elif (content[i].split()[0] == 'frozen'):
+								frozen = content[i].split()[2].upper() == 'TRUE'
+							# error handling
+							else:
+								try:
+									raise RuntimeError(content[i].split()[2] + \
+													' keyword in bg-mol.inp not recognized')
+								except Exception as err:
+									_rst.rm_rst()
+									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
+				except IOError:
+					_rst.rm_rst()
+					sys.stderr.write('\nIOError: bg-mol.inp not found\n\n')
 				# silence pyscf output
 				verbose = 0
 				#

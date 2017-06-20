@@ -23,7 +23,7 @@ from bg_screen import ScrCls
 
 class DrvCls():
 		""" driver class """
-		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst):
+		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
@@ -43,7 +43,7 @@ class DrvCls():
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
-					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst)
+					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					# print kernel end
 					_prt.kernel_end(_exp)
 					#
@@ -87,7 +87,7 @@ class DrvCls():
 				return
 	
 	
-		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _rst):
+		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _rst):
 				""" main slave routine """
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
@@ -111,7 +111,7 @@ class DrvCls():
 					#
 					elif (msg['task'] == 'kernel_slave'):
 						_exp.order = msg['order']
-						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time, _err)
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time)
 						_time.coll_kernel_time(_mpi, None, _exp.order)
 					#
 					#** energy summation phase **#

@@ -25,11 +25,11 @@ class KernCls():
 				return
 
 
-		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst):
+		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" energy kernel phase """
 				# mpi parallel version
 				if (_mpi.parallel):
-					self.master(_mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst)
+					self.master(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					_time.coll_kernel_time(_mpi, _rst, _exp.order)
 				else:
 					# determine start index
@@ -58,7 +58,7 @@ class KernCls():
 				return
 		
 		
-		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst):
+		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" master function """
 				# start idle time
 				_time.timer('idle_kernel', _exp.order)
@@ -169,7 +169,7 @@ class KernCls():
 				return
 		
 		
-		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err):
+		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time):
 				""" slave function """
 				# start work time
 				_time.timer('work_kernel', _exp.order)
