@@ -117,7 +117,7 @@ class PySCFCls():
 					else:
 						solver_cas = fci.direct_spin1.FCI()
 				# settings
-				solver_cas.conv_tol = 1.0e-08
+				solver_cas.conv_tol = 1.0e-09
 				solver_cas.max_memory = _mol.max_memory
 				# cas calculation
 				e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx),
@@ -127,7 +127,7 @@ class PySCFCls():
 					e_corr = (e_cas + _exp.e_core) - _mol.e_hf
 				else:
 					solver_base = ModelSolver(_calc.exp_base)
-					solver_base.conv_tol = 1.0e-08
+					solver_base.conv_tol = 1.0e-09
 					solver_base.max_memory = _mol.max_memory
 					# base calculation
 					e_base = solver_base.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx),
