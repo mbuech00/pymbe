@@ -14,6 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
+import sys
 
 
 class KernCls():
@@ -39,17 +40,18 @@ class KernCls():
 						# start work time
 						_time.timer('work_kernel', _exp.order)
 						# generate input
-						_exp.cas_idx, _exp.core_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
+						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
 								_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
 						# run correlated calc
-						_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
+						try:
+							_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
+						except Exception as err:
+							sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
+												'input: core_idx = {2:} , cas_idx = {3:}\n'
+												'PySCF error : {4:}\n\n'.\
+												format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
 						# print status
 						_prt.kernel_status(float(i+1) / float(len(_exp.tuples[-1])))
-#						# error handling
-#						if (molecule['error'][-1]):
-#							molecule['error_rank'] = 0
-#							molecule['error_drop'] = string['drop']
-#							term_calc(molecule)
 						# collect work time
 						_time.timer('work_kernel', _exp.order, True)
 						# write restart files
@@ -101,12 +103,12 @@ class KernCls():
 						# any jobs left?
 						if (i <= (len(_exp.tuples[-1]) - 1)):
 							# generate input
-							_exp.cas_idx, _exp.core_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
+							_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
 									_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
 							# store job info
 							job_info['index'] = i
-							job_info['cas_idx'] = _exp.cas_idx
 							job_info['core_idx'] = _exp.core_idx
+							job_info['cas_idx'] = _exp.cas_idx
 							job_info['h1e_cas'] = _exp.h1e_cas
 							job_info['h2e_cas'] = _exp.h2e_cas
 							job_info['e_core'] = _exp.e_core
@@ -131,6 +133,16 @@ class KernCls():
 						_time.timer('comm_kernel', _exp.order)
 						# receive data
 						data = _mpi.comm.recv(source=source, tag=self.tags.data, status=_mpi.stat)
+						# error handling
+						if (data['error']):
+							try:
+								raise RuntimeError('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
+													'input: core_idx = {2:} , cas_idx = {3:}\n'
+													'PySCF error : {4:}\n\n'.\
+													format(source, data['host'], data['core_idx'],\
+															 data['cas_idx'], data['pyscf_err']))
+							except Exception as err:
+								sys.stderr.write(str(err))
 						# start work time
 						_time.timer('work_kernel', _exp.order)
 						# write to e_inc
@@ -150,14 +162,6 @@ class KernCls():
 						# print status
 						if (((data['index']+1) % 1000) == 0):
 							_prt.kernel_status(float(counter) / float(len(_exp.tuples[-1])))
-#						# error handling
-#						if (data['error']):
-#							molecule['error'].append(True)
-#							molecule['error_code'] = data['error_code']
-#							molecule['error_msg'] = data['error_msg']
-#							molecule['error_rank'] = source
-#							molecule['error_drop'] = data['error_drop']
-#							term_calc(molecule)
 					# put slave to sleep
 					elif (tag == self.tags.exit):
 						slaves_avail -= 1
@@ -177,7 +181,7 @@ class KernCls():
 				if (len(_exp.energy_inc) != _exp.order):
 					_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# init data dict
-				data = {}
+				data = {'error': False}
 				# receive work from master
 				while (True):
 					# start comm time
@@ -193,35 +197,40 @@ class KernCls():
 					# do job
 					if (tag == self.tags.start):
 						# load job info
-						_exp.cas_idx = job_info['cas_idx']
 						_exp.core_idx = job_info['core_idx']
+						_exp.cas_idx = job_info['cas_idx']
 						_exp.h1e_cas = job_info['h1e_cas']
 						_exp.h2e_cas = job_info['h2e_cas']
 						_exp.e_core = job_info['e_core']
 						# run correlated calc
-						_exp.energy_inc[-1][job_info['index']] = _pyscf.corr_calc(_mol, _calc, _exp)
-						# start comm time
-						_time.timer('comm_kernel', _exp.order)
-						# report status back to master
-						_mpi.comm.send(None, dest=0, tag=self.tags.done)
-						# start work time
-						_time.timer('work_kernel', _exp.order)
-						# write info into data dict
-						data['index'] = job_info['index']
-						data['e_corr'] = _exp.energy_inc[-1][job_info['index']]
-						data['t_work'] = _time.timings['work_kernel'][-1]
-						data['t_comm'] = _time.timings['comm_kernel'][-1]
-						data['t_idle'] = _time.timings['idle_kernel'][-1]
-#						data['error'] = molecule['error'][-1]
-#						data['error_code'] = molecule['error_code']
-#						data['error_msg'] = molecule['error_msg']
-#						data['error_drop'] = string['drop']
-						# start comm time
-						_time.timer('comm_kernel', _exp.order)
-						# send data back to master
-						_mpi.comm.send(data, dest=0, tag=self.tags.data)
-						# start work time
-						_time.timer('work_kernel', _exp.order)
+						try:
+							_exp.energy_inc[-1][job_info['index']] = _pyscf.corr_calc(_mol, _calc, _exp)
+						except Exception as err:
+							data['error'] = True
+							data['host'] = _mpi.host
+							data['core_idx'] = _exp.core_idx
+							data['cas_idx'] = _exp.cas_idx
+							data['pyscf_err'] = err
+							pass
+						finally:
+							# start comm time
+							_time.timer('comm_kernel', _exp.order)
+							# report status back to master
+							_mpi.comm.send(None, dest=0, tag=self.tags.done)
+							# start work time
+							_time.timer('work_kernel', _exp.order)
+							# write info into data dict
+							data['index'] = job_info['index']
+							data['e_corr'] = _exp.energy_inc[-1][job_info['index']]
+							data['t_work'] = _time.timings['work_kernel'][-1]
+							data['t_comm'] = _time.timings['comm_kernel'][-1]
+							data['t_idle'] = _time.timings['idle_kernel'][-1]
+							# start comm time
+							_time.timer('comm_kernel', _exp.order)
+							# send data back to master
+							_mpi.comm.send(data, dest=0, tag=self.tags.data)
+							# start work time
+							_time.timer('work_kernel', _exp.order)
 					# exit
 					elif (tag == self.tags.exit):
 						break

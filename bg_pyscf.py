@@ -103,7 +103,7 @@ class PySCFCls():
 				else:
 					e_core = _mol.energy_nuc()
 				#
-				return cas_idx, core_idx, h1e_cas, h2e_cas, e_core
+				return core_idx, cas_idx, h1e_cas, h2e_cas, e_core
 
 
 		def corr_calc(self, _mol, _calc, _exp):

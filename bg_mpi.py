@@ -29,7 +29,7 @@ class MPICls():
 				self.size = self.comm.Get_size()
 				self.rank = self.comm.Get_rank()
 				self.master = (self.rank == 0)
-				self.name = MPI.Get_processor_name()
+				self.host = MPI.Get_processor_name()
 				self.stat = MPI.Status()
 				# set custom exception hook
 				if (self.master): self.set_exc_hook()
