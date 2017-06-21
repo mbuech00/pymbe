@@ -23,16 +23,31 @@ class MolCls(gto.Mole):
 				""" init parameters """
 				# gto.Mole instance
 				gto.Mole.__init__(self)
-				# set geometric parameters
-				if (_mpi.master): self.atom = self.set_geo(_rst)
-				# set molecular parameters
+				# set geometric and molecular parameters
 				if (_mpi.master):
+					# set default value for FC
+					self.frozen = False
+					# set geometry
+					self.atom = self.set_geo(_rst)
+					# set Mole
 					self.charge, self.spin, self.symmetry, self.basis, \
 						self.unit, self.frozen, self.verbose  = \
 								self.set_mol(_rst)
-				if (_mpi.parallel): _mpi.bcast_mol_info(self)
-				# build mol
-				self.build()
+					# build mol (master)
+					try:
+						self.build()
+					except RuntimeWarning as err:
+						try:
+							raise RuntimeError
+						except RuntimeError:
+							_rst.rm_rst()
+							sys.stderr.write('\nValueError: non-sensible input in bg-mol.inp\n'
+												'PySCF error : {0:}\n\n'.format(err))
+							raise
+					if (_mpi.parallel): _mpi.bcast_mol_info(self)
+				else:
+					_mpi.bcast_mol_info(self)
+					self.build()
 				# set number of core orbs
 				self.ncore = self.set_ncore()
 				#
@@ -63,17 +78,17 @@ class MolCls(gto.Mole):
 						content = f.readlines()
 						for i in range(len(content)):
 							if (content[i].split()[0] == 'charge'):
-								charge = int(content[i].split()[2])
+								self.charge = int(content[i].split()[2])
 							elif (content[i].split()[0] == 'spin'):
-								spin = int(content[i].split()[2])
+								self.spin = int(content[i].split()[2])
 							elif (content[i].split()[0] == 'symmetry'):
-								symmetry = content[i].split()[2].upper() == 'TRUE'
+								self.symmetry = content[i].split()[2]
 							elif (content[i].split()[0] == 'basis'):
-								basis = content[i].split()[2]
+								self.basis = content[i].split()[2]
 							elif (content[i].split()[0] == 'unit'):
-								unit = content[i].split()[2]
+								self.unit = content[i].split()[2]
 							elif (content[i].split()[0] == 'frozen'):
-								frozen = content[i].split()[2].upper() == 'TRUE'
+								self.frozen = content[i].split()[2].upper() == 'TRUE'
 							# error handling
 							else:
 								try:
@@ -86,9 +101,10 @@ class MolCls(gto.Mole):
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError: bg-mol.inp not found\n\n')
 				# silence pyscf output
-				verbose = 0
+				self.verbose = 0
 				#
-				return charge, spin, symmetry, basis, unit, frozen, verbose
+				return self.charge, self.spin, self.symmetry, self.basis, \
+						self.unit, self.frozen, self.verbose
 
 
 		def set_ncore(self):

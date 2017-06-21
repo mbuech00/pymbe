@@ -20,6 +20,16 @@ class CalcCls():
 		""" calculation class """
 		def __init__(self, _mpi, _rst):
 				""" init parameters """
+				# set default parameters
+				self.exp_model = 'CCSD'
+				self.exp_type = 'occupied'
+				self.exp_base = 'HF'
+				self.exp_thres = 1.0e-06
+				self.exp_damp = 1.0
+				self.exp_max_order = 5
+				self.exp_occ = 'HF'
+				self.exp_virt = 'HF'
+				self.energy_thres = 3.8e-04
 				# set calculation parameters
 				if (_mpi.master):
 					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, self.exp_damp, \
@@ -41,23 +51,23 @@ class CalcCls():
 						content = f.readlines()
 						for i in range(len(content)):
 							if (content[i].split()[0] == 'exp_model'):
-								exp_model = content[i].split()[2].upper()
+								self.exp_model = content[i].split()[2].upper()
 							elif (content[i].split()[0] == 'exp_type'):
-								exp_type = content[i].split()[2]
+								self.exp_type = content[i].split()[2]
 							elif (content[i].split()[0] == 'exp_base'):
-								exp_base = content[i].split()[2].upper()
+								self.exp_base = content[i].split()[2].upper()
 							elif (content[i].split()[0] == 'exp_thres'):
-								exp_thres = float(content[i].split()[2])
+								self.exp_thres = float(content[i].split()[2])
 							elif (content[i].split()[0] == 'exp_damp'):
-								exp_damp = float(content[i].split()[2])
+								self.exp_damp = float(content[i].split()[2])
 							elif (content[i].split()[0] == 'exp_max_order'):
-								exp_max_order = int(content[i].split()[2])
+								self.exp_max_order = int(content[i].split()[2])
 							elif (content[i].split()[0] == 'exp_occ'):
-								exp_occ = content[i].split()[2].upper()
+								self.exp_occ = content[i].split()[2].upper()
 							elif (content[i].split()[0] == 'exp_virt'):
-								exp_virt = content[i].split()[2].upper()
+								self.exp_virt = content[i].split()[2].upper()
 							elif (content[i].split()[0] == 'energy_thres'):
-								energy_thres = float(content[i].split()[2])
+								self.energy_thres = float(content[i].split()[2])
 							# error handling
 							else:
 								try:
@@ -70,8 +80,8 @@ class CalcCls():
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
 				#
-				return exp_model, exp_type, exp_base, exp_thres, exp_damp, \
-							exp_max_order, exp_occ, exp_virt, energy_thres
+				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, self.exp_damp, \
+							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres
 
 
 		def sanity_chk(self, _rst):
