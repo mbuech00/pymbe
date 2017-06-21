@@ -61,7 +61,7 @@ class CalcCls():
 							# error handling
 							else:
 								try:
-									raise RuntimeError(content[i].split()[2] + \
+									raise RuntimeError('\''+content[i].split()[0]+'\'' + \
 														' keyword in bg-calc.inp not recognized')
 								except Exception as err:
 									_rst.rm_rst()
