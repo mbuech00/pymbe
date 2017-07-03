@@ -152,10 +152,7 @@ class MPICls():
 						self.comm.Bcast([_exp.tuples[i],MPI.INT], root=0)
 					# bcast energy increments
 					for i in range(len(_exp.energy_inc)):
-						if (i < (len(_exp.energy_inc)-1)):
-							self.comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
-						else:
-							self.comm.Bcast([_exp.energy_inc[i][:e_inc_end],MPI.DOUBLE], root=0)
+						self.comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
 					# collect time_info
 					for i in range(1,self.size):
 						time_info = {'kernel': [_time.time_work[0][i],
@@ -178,14 +175,13 @@ class MPICls():
 					# receive e_inc
 					for i in range(len(exp_info['len_e_inc'])):
 						buff = np.zeros(exp_info['len_e_inc'][i], dtype=np.float64)
-						if (i < (len(exp_info['len_e_inc'])-1)):
-							self.comm.Bcast([buff,MPI.DOUBLE], root=0)
-						else:
-							self.comm.Bcast([buff[:exp_info['e_inc_end']],MPI.DOUBLE], root=0)
+						self.comm.Bcast([buff,MPI.DOUBLE], root=0)
 						_exp.energy_inc.append(buff)
-					# for e_inc[-1], make sure that this is distributed among the slaves
-					for i in range(exp_info['e_inc_end']):
-						if ((i % (self.size-1)) != (self.rank-1)): _exp.energy_inc[-1][i] = 0.0 
+					# for e_inc[-1], make sure that this is distributed among the slaves *if* incomplete
+					if (exp_info['e_inc_end'] != exp_info['len_e_inc'][-1]):
+						for i in range(exp_info['e_inc_end']):
+							if ((i % (self.size-1)) != (self.rank-1)): _exp.energy_inc[-1][i] = 0.0 
+						_exp.energy_inc[-1][exp_info['e_inc_end']:] = 0.0
 					# receive time_info
 					time_info = self.comm.recv(source=0, status=self.stat)
 					_time.time_work_kernel = time_info['kernel'][0]
