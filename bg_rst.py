@@ -31,7 +31,7 @@ class RstCls():
 						self.restart = False
 						mkdir(self.rst_dir)
 					else:
-						self.restart = False
+						self.restart = True
 				_mpi.bcast_rst_info(self)
 				#
 				return
