@@ -26,7 +26,7 @@ class RstCls():
 				""" init restart env and parameters """
 				if (_mpi.master):
 					self.rst_dir = _out.wrk_dir+'/rst'
-					self.rst_freq = 50000.0
+					self.rst_freq = 10. #50000.0
 					if (not isdir(self.rst_dir)):
 						self.restart = False
 						mkdir(self.rst_dir)

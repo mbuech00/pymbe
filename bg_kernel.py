@@ -157,8 +157,6 @@ class KernCls():
 							_time.time_comm[0][0][-1] = _time.timings['comm_kernel'][-1]
 							_time.time_idle[0][0][-1] = _time.timings['idle_kernel'][-1]
 							_rst.write_kernel(_mpi, _exp, _time)
-#						# force error
-#						if ((_exp.order == 3) and (counter == 5)): raise RuntimeError('force quit for k = 3, counter = 5')
 						# increment stat counter
 						counter += 1
 						# print status

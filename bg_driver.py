@@ -44,7 +44,6 @@ class DrvCls():
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
-					print('\norder = {0:}, e_inc = {1:}\n'.format(_exp.order,_exp.energy_inc))
 					# print kernel end
 					_prt.kernel_end(_exp)
 					#
