@@ -158,12 +158,12 @@ class MPICls():
 							self.comm.Bcast([_exp.energy_inc[i][:e_inc_end],MPI.DOUBLE], root=0)
 					# collect time_info
 					for i in range(1,self.size):
-						time_info = {'kernel': [_time.time_work[1][i],
+						time_info = {'kernel': [_time.time_work[0][i],
+									_time.time_comm[0][i],_time.time_idle[0][i]],\
+									'summation': [_time.time_work[1][i],
 									_time.time_comm[1][i],_time.time_idle[1][i]],\
-									'summation': [_time.time_work[2][i],
-									_time.time_comm[2][i],_time.time_idle[2][i]],\
-									'screen': [_time.time_work[0][i],
-									_time.time_comm[0][i],_time.time_idle[0][i]]}
+									'screen': [_time.time_work[2][i],
+									_time.time_comm[2][i],_time.time_idle[2][i]]}
 						self.comm.send(time_info, dest=i)
 				else:
 					# receive exp_info

@@ -81,7 +81,7 @@ class KernCls():
 				# init stat counter
 				counter = i
 				# init timings
-				if ((not _rst.restart) or (_exp.order != _calc.exp_min_order)):
+				if (i == 0):
 					for j in range(_mpi.size):
 						_time.time_work[0][j].append(0.0)
 						_time.time_comm[0][j].append(0.0)
