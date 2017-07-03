@@ -138,18 +138,21 @@ class TimeCls():
 					self.time_tot = self.time_kernel + self.time_summation + \
 									self.time_screen
 				else:
+					print('1')
 					self.time_kernel = np.asarray(self.timings['work_kernel'] + \
 													[sum(self.timings['work_kernel'])]) + \
 													np.asarray(self.timings['comm_kernel'] + \
 													[sum(self.timings['comm_kernel'])]) + \
 													np.asarray(self.timings['idle_kernel'] + \
 													[sum(self.timings['idle_kernel'])])
+					print('2')
 					self.time_summation = np.asarray(self.timings['work_summation'] + \
 													[sum(self.timings['work_summation'])]) + \
 													np.asarray(self.timings['comm_summation'] + \
 													[sum(self.timings['comm_summation'])]) + \
 													np.asarray(self.timings['idle_summation'] + \
 													[sum(self.timings['idle_summation'])])
+					print('3')
 					self.time_screen = np.asarray(self.timings['work_screen'] + \
 													[sum(self.timings['work_screen'])]) + \
 													np.asarray(self.timings['comm_screen'] + \

@@ -157,6 +157,8 @@ class KernCls():
 							_time.time_comm[0][0][-1] = _time.timings['comm_kernel'][-1]
 							_time.time_idle[0][0][-1] = _time.timings['idle_kernel'][-1]
 							_rst.write_kernel(_mpi, _exp, _time)
+#						# force error
+#						if ((_exp.order == 3) and (counter == 5)): raise RuntimeError('force quit for k = 3, counter = 5')
 						# increment stat counter
 						counter += 1
 						# print status
@@ -176,7 +178,7 @@ class KernCls():
 		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time):
 				""" slave function """
 				# start work time
-				_time.timer('work_kernel', _exp.order)
+				_time.timer('idle_kernel', _exp.order)
 				# init e_inc list
 				if (len(_exp.energy_inc) != _exp.order):
 					_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))

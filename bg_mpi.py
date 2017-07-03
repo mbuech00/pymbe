@@ -138,15 +138,11 @@ class MPICls():
 		def bcast_rst(self, _calc, _exp, _time):
 				""" bcast restart files """
 				if (self.master):
-					# wake up slaves 
-					msg = {'task': 'bcast_rst'}
-					# bcast
-					self.comm.bcast(msg, root=0)
 					# determine start index for energy kernel phase
 					e_inc_end = np.argmax(_exp.energy_inc[-1] == 0.0)
 					if (e_inc_end == 0): e_inc_end = len(_exp.energy_inc[-1])
 					# collect exp_info
-					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(1,len(_exp.tuples))],\
+					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))],\
 								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))],\
 								'min_order': _calc.exp_min_order, 'e_inc_end': e_inc_end}
 					# bcast info
@@ -171,27 +167,27 @@ class MPICls():
 						self.comm.send(time_info, dest=i)
 				else:
 					# receive exp_info
-					info = self.comm.bcast(None, root=0)
+					exp_info = self.comm.bcast(None, root=0)
 					# set min_order
-					_calc.exp_min_order = info['min_order']
+					_calc.exp_min_order = exp_info['min_order']
 					# receive tuples
-					for i in range(len(info['len_tup'])):
-						buff = np.empty([info['len_tup'][i],i+2], dtype=np.int32)
+					for i in range(1,len(exp_info['len_tup'])):
+						buff = np.empty([exp_info['len_tup'][i],i+1], dtype=np.int32)
 						self.comm.Bcast([buff,MPI.INT], root=0)
 						_exp.tuples.append(buff)
 					# receive e_inc
-					for i in range(len(info['len_e_inc'])):
-						buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
-						if (i < (len(info['len_e_inc'])-1)):
+					for i in range(len(exp_info['len_e_inc'])):
+						buff = np.zeros(exp_info['len_e_inc'][i], dtype=np.float64)
+						if (i < (len(exp_info['len_e_inc'])-1)):
 							self.comm.Bcast([buff,MPI.DOUBLE], root=0)
 						else:
-							self.comm.Bcast([buff[:info['e_inc_end']],MPI.DOUBLE], root=0)
+							self.comm.Bcast([buff[:exp_info['e_inc_end']],MPI.DOUBLE], root=0)
 						_exp.energy_inc.append(buff)
 					# for e_inc[-1], make sure that this is distributed among the slaves
-					for i in range(info['e_inc_end']):
+					for i in range(exp_info['e_inc_end']):
 						if ((i % (self.size-1)) != (self.rank-1)): _exp.energy_inc[-1][i] = 0.0 
 					# receive time_info
-					_time_info = self.comm.recv(source=0, status=self.stat)
+					time_info = self.comm.recv(source=0, status=self.stat)
 					_time.time_work_kernel = time_info['kernel'][0]
 					_time.time_comm_kernel = time_info['kernel'][1]
 					_time.time_idle_kernel = time_info['kernel'][2]

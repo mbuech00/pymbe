@@ -101,15 +101,9 @@ class DrvCls():
 					# task id
 					msg = _mpi.comm.bcast(None, root=0)
 					#
-					#** receive restart files **#
-					#
-					if (msg['task'] == 'bcast_rst'):
-						# distribute (receive) restart files
-						_mpi.bcast_rst(_calc, _exp, _time) 
-					#
 					#** energy kernel phase **#
 					#
-					elif (msg['task'] == 'kernel_slave'):
+					if (msg['task'] == 'kernel_slave'):
 						_exp.order = msg['order']
 						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time)
 						_time.coll_kernel_time(_mpi, None, _exp.order)
