@@ -62,18 +62,18 @@ class SumCls():
 					msg = {'task': 'sum_par', 'order': _exp.order}
 					# bcast
 					_mpi.comm.bcast(msg, root=0)
-					# re-init e_inc[-1] with 0.0
+					# re-init e_inc[-1]
 					_exp.energy_inc[-1].fill(0.0)
 				# start work time
 				_time.timer('work_summation', _exp.order)
 				# compute energy increments at current order
 				for j in range(len(_exp.tuples[-1])):
-					# distribute jobs according to work distribution in energy kernel phases
+					# distribute jobs according to work distribution in energy kernel phase
 					if (_exp.energy_inc[-1][j] != 0.0):
 						# loop over previous orders
 						for i in range(_exp.order-1, 0, -1):
 							# test if tuple is a subset
-							combs = _exp.tuples[-1][j,_exp.comb_index(_exp.order, i)]
+							combs = _exp.tuples[-1][j, _exp.comb_index(_exp.order, i)]
 							dt = np.dtype((np.void,_exp.tuples[i-1].dtype.itemsize * \
 											_exp.tuples[i-1].shape[1]))
 							idx = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
