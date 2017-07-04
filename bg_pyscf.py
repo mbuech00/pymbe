@@ -113,9 +113,10 @@ class PySCFCls():
 					solver_cas = ModelSolver(_calc.exp_model)
 				else:
 					if (_mol.spin == 0):
-						solver_cas = fci.direct_spin0.FCI()
+						solver_cas_in = fci.direct_spin0.FCI()
 					else:
-						solver_cas = fci.direct_spin1.FCI()
+						solver_cas_in = fci.direct_spin1.FCI()
+					solver_cas = fci.addons.fix_spin_(solver_cas_in, ss=_mol.spin)
 				# settings
 				solver_cas.conv_tol = 1.0e-09
 				solver_cas.max_memory = _mol.max_memory

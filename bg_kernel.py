@@ -46,10 +46,14 @@ class KernCls():
 						try:
 							_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
 						except Exception as err:
-							sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
-												'input: core_idx = {2:} , cas_idx = {3:}\n'
-												'PySCF error : {4:}\n\n'.\
-												format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
+							try:
+								raise RuntimeError
+							except RuntimeError:
+								sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
+													'input: core_idx = {2:} , cas_idx = {3:}\n'
+													'PySCF error : {4:}\n\n'.\
+													format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
+								raise
 						# print status
 						_prt.kernel_status(float(i+1) / float(len(_exp.tuples[-1])))
 						# collect work time
@@ -143,6 +147,7 @@ class KernCls():
 															 data['cas_idx'], data['pyscf_err']))
 							except Exception as err:
 								sys.stderr.write(str(err))
+								raise
 						# start work time
 						_time.timer('work_kernel', _exp.order)
 						# write to e_inc
