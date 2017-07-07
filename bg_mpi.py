@@ -196,6 +196,22 @@ class MPICls():
 				#
 				return
 
+
+		def bcast_e_inc(self, _exp, _time):
+				""" bcast e_inc[-1] """
+				# start idle time
+				_time.timer('idle_summation', _exp.order)
+				# barrier
+				self.comm.Barrier()
+				# start comm time
+				_time.timer('comm_summation', _exp.order)
+				# now do Bcast
+				self.comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
+				# start work time
+				_time.timer('work_summation', _exp.order)
+				#
+				return
+
 	
 		def allred_e_inc(self, _exp, _time):
 				""" allreduce e_inc[-1] """

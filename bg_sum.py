@@ -66,12 +66,10 @@ class SumCls():
 					msg = {'task': 'sum_par', 'order': _exp.order}
 					# bcast
 					_mpi.comm.bcast(msg, root=0)
-					# re-init e_inc[-1]
-					_exp.energy_inc[-1].fill(0.0)
 				# start work time
 				_time.timer('work_summation', _exp.order)
-				# allreduce e_inc[-1]
-				_mpi.allred_e_inc(_exp, _time)
+				# bcast e_inc[-1]
+				_mpi.bcast_e_inc(_exp, _time)
 				# determine which increments have contributions below the threshold
 				if (_exp.order >= 2):
 					_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
