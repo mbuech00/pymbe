@@ -29,8 +29,8 @@ class SumCls():
 					_time.timer('work_summation', _exp.order)
 					# determine which increments have contributions below the threshold
 					if (_exp.order >= 2):
-						_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 						_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+						_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# compute energy increments at current order
 					for j in range(len(_exp.tuples[-1])):
 						# loop over previous orders
@@ -74,8 +74,8 @@ class SumCls():
 				_mpi.allred_e_inc(_exp, _time)
 				# determine which increments have contributions below the threshold
 				if (_exp.order >= 2):
-					_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+					_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 				# compute energy increments at current order
 				for j in range(len(_exp.tuples[-1])):
 					# simple modulo distribution of tasks
