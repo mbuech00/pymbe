@@ -27,6 +27,10 @@ class SumCls():
 				else:
 					# start work time
 					_time.timer('work_summation', _exp.order)
+					# determine which increments have contributions below the threshold
+					if (_exp.order >= 2):
+						_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+						_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# compute energy increments at current order
 					for j in range(len(_exp.tuples[-1])):
 						# loop over previous orders
@@ -66,10 +70,16 @@ class SumCls():
 					_exp.energy_inc[-1].fill(0.0)
 				# start work time
 				_time.timer('work_summation', _exp.order)
+				# allreduce e_inc[-1]
+				_mpi.allred_e_inc(_exp, _time)
+				# determine which increments have contributions below the threshold
+				if (_exp.order >= 2):
+					_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+					_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 				# compute energy increments at current order
 				for j in range(len(_exp.tuples[-1])):
-					# distribute jobs according to work distribution in energy kernel phase
-					if (_exp.energy_inc[-1][j] != 0.0):
+					# simple modulo distribution of tasks
+					if ((j % _mpi.size) == _mpi.rank):
 						# loop over previous orders
 						for i in range(_exp.order-1, 0, -1):
 							# test if tuple is a subset
@@ -79,6 +89,8 @@ class SumCls():
 							idx = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
 												combs.view(dt).reshape(-1)))[0]
 							for l in idx: _exp.energy_inc[-1][j] -= _exp.energy_inc[i-1][l]
+					else:
+						_exp.energy_inc[-1][j] = 0.0
 				# allreduce e_inc[-1]
 				_mpi.allred_e_inc(_exp, _time)
 				# let master calculate the total energy
