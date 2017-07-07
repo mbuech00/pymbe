@@ -46,7 +46,7 @@ class ResCls():
 				#** timings **#
 				#
 				# calculate timings
-				_time.calc_time(_mpi, _exp)
+				_time.calc_time(_mpi, _calc, _exp)
 				#
 				#** summary **#
 				#

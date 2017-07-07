@@ -125,8 +125,14 @@ class TimeCls():
 				return
 
 
-		def calc_time(self, _mpi, _exp):
+		def calc_time(self, _mpi, _calc, _exp):
 				""" calculate mpi timings """
+				# check for exp_max_order
+				if (_exp.order == _calc.exp_max_order):
+					for i in range(_mpi.size):
+						self.time_work[2][i].append(0.0)
+						self.time_comm[2][i].append(0.0)
+						self.time_idle[2][i].append(0.0)
 				# use master timings to calculate overall phase timings
 				if (not _mpi.parallel):
 					self.time_kernel = np.asarray(self.timings['work_kernel'] + \

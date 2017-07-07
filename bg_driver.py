@@ -67,16 +67,20 @@ class DrvCls():
 					# orbital entanglement
 					self.entanglement.main(_mpi, _mol, _calc, _exp, _time, _rst)
 					# orbital screening
-					if (not _exp.conv_energy[-1]):
+					if ((not _exp.conv_energy[-1]) and (_exp.order < _calc.exp_max_order)):
 						# perform screening
 						self.screening.main(_mpi, _calc, _exp, _time, _rst)
 						# write restart files
 						if (not _exp.conv_orb[-1]):
 							_rst.write_screen(_mpi, _exp, _time)
-					# print screen results
-					_prt.screen_results(_calc, _exp)
-					# print screen end
-					_prt.screen_end(_exp)
+						# print screen results
+						_prt.screen_results(_calc, _exp)
+						# print screen end
+						_prt.screen_end(_exp)
+					else:
+						# print screen end
+						_prt.screen_end(_exp)
+						break
 					# update threshold and restart frequency
 					_rst.update(_calc, _exp.order)
 					#
