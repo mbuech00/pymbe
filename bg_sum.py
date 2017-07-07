@@ -27,10 +27,6 @@ class SumCls():
 				else:
 					# start work time
 					_time.timer('work_summation', _exp.order)
-					# determine which increments have contributions below the threshold
-					if (_exp.order >= 2):
-						_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
-						_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# compute energy increments at current order
 					for j in range(len(_exp.tuples[-1])):
 						# loop over previous orders
@@ -42,6 +38,10 @@ class SumCls():
 							idx = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
 												combs.view(dt).reshape(-1)))[0]
 							for l in idx: _exp.energy_inc[-1][j] -= _exp.energy_inc[i-1][l]
+					# determine which increments have contributions below the threshold
+					if (_exp.order >= 2):
+						_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+						_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# sum of energy increments
 					e_tmp = np.sum(_exp.energy_inc[-1])
 					# sum of total energy
@@ -70,10 +70,6 @@ class SumCls():
 				_time.timer('work_summation', _exp.order)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_exp, _time)
-				# determine which increments have contributions below the threshold
-				if (_exp.order >= 2):
-					_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
-					_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 				# compute energy increments at current order
 				for j in range(len(_exp.tuples[-1])):
 					# simple modulo distribution of tasks
@@ -91,6 +87,10 @@ class SumCls():
 						_exp.energy_inc[-1][j] = 0.0
 				# allreduce e_inc[-1]
 				_mpi.allred_e_inc(_exp, _time)
+				# determine which increments have contributions below the threshold
+				if (_exp.order >= 2):
+					_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+					_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 				# let master calculate the total energy
 				if (_mpi.master):
 					# sum of energy increments 
