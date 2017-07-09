@@ -47,19 +47,11 @@ class ScrCls():
 							screen = False
 							# loop over subset combinations
 							for j in range(len(combs)):
-								# check whether or not the particular tuple is actually allowed
+								# check whether or not the particular tuple is allowed
 								if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
 									# screen away
 									screen = True
 									break
-							if (not screen):
-				                # loop over subset combinations
-								for j in range(len(combs)):
-									# check whether the particular tuple among negligible tuples
-									if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
-										# screen away
-										screen = True
-										break
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if (not screen):
 								tmp.append(_exp.tuples[-1][i].tolist()+[m])
@@ -179,19 +171,11 @@ class ScrCls():
 							screen = False
 							# loop over subset combinations
 							for j in range(len(combs)):
-								# check whether or not the particular tuple is actually allowed
+								# check whether or not the particular tuple is allowed
 								if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
 									# screen away
 									screen = True
 									break
-							if (not screen):
-			                    # loop over subset combinations
-								for j in range(len(combs)):
-									# check whether the particular tuple among negligible tuples
-									if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
-										# screen away
-										screen = True
-										break
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if (not screen):
 								data['child_tuple'].append(_exp.tuples[-1][job_info['index']].tolist()+[m])
