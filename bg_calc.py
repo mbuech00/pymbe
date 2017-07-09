@@ -30,10 +30,12 @@ class CalcCls():
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
 				self.energy_thres = 3.8e-04
+				self.tolerance = 0.0
 				# set calculation parameters
 				if (_mpi.master):
-					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, self.exp_damp, \
-						self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres = self.set_calc(_rst)
+					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, self.exp_damp,\
+						self.exp_max_order, self.exp_occ, self.exp_virt,\
+						self.energy_thres, self.tolerance = self.set_calc(_rst)
 					# sanity check
 					self.sanity_chk(_rst)
 				if (_mpi.parallel): _mpi.bcast_calc_info(self)
@@ -68,6 +70,8 @@ class CalcCls():
 								self.exp_virt = content[i].split()[2].upper()
 							elif (content[i].split()[0] == 'energy_thres'):
 								self.energy_thres = float(content[i].split()[2])
+							elif (content[i].split()[0] == 'tolerance'):
+								self.tolerance = float(content[i].split()[2])
 							# error handling
 							else:
 								try:
@@ -81,7 +85,7 @@ class CalcCls():
 					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
 				#
 				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, self.exp_damp, \
-							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres
+							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, self.tolerance
 
 
 		def sanity_chk(self, _rst):
