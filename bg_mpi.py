@@ -14,6 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
+import sys
 from os import getcwd, mkdir, chdir
 from os.path import isfile
 from shutil import copy, rmtree
@@ -24,12 +25,28 @@ class MPICls():
 		def __init__(self):
 				""" init parameters """
 				self.comm = MPI.COMM_WORLD
-				self.parallel = self.comm.Get_size() > 1
+				self.parallel = (self.comm.Get_size() > 1)
 				self.size = self.comm.Get_size()
 				self.rank = self.comm.Get_rank()
 				self.master = (self.rank == 0)
-				self.name = MPI.Get_processor_name()
+				self.host = MPI.Get_processor_name()
 				self.stat = MPI.Status()
+				# set custom exception hook
+				if (self.master): self.set_exc_hook()
+				#
+				return
+
+
+		def set_exc_hook(self):
+				""" set an exception hook for aborting mpi """
+				# save sys.excepthook
+				sys_excepthook = sys.excepthook
+				# define mpi exception hook
+				def mpi_excepthook(_t, _v, _tb):
+					sys_excepthook(_t, _v, _tb)
+					self.comm.Abort(1)
+				# overwrite sys.excepthook
+				sys.excepthook = mpi_excepthook
 				#
 				return
 
@@ -121,15 +138,11 @@ class MPICls():
 		def bcast_rst(self, _calc, _exp, _time):
 				""" bcast restart files """
 				if (self.master):
-					# wake up slaves 
-					msg = {'task': 'bcast_rst'}
-					# bcast
-					self.comm.bcast(msg, root=0)
 					# determine start index for energy kernel phase
 					e_inc_end = np.argmax(_exp.energy_inc[-1] == 0.0)
 					if (e_inc_end == 0): e_inc_end = len(_exp.energy_inc[-1])
 					# collect exp_info
-					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(1,len(_exp.tuples))],\
+					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))],\
 								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))],\
 								'min_order': _calc.exp_min_order, 'e_inc_end': e_inc_end}
 					# bcast info
@@ -139,42 +152,38 @@ class MPICls():
 						self.comm.Bcast([_exp.tuples[i],MPI.INT], root=0)
 					# bcast energy increments
 					for i in range(len(_exp.energy_inc)):
-						if (i < (len(_exp.energy_inc)-1)):
-							self.comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
-						else:
-							self.comm.Bcast([_exp.energy_inc[i][:e_inc_end],MPI.DOUBLE], root=0)
+						self.comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
 					# collect time_info
 					for i in range(1,self.size):
-						time_info = {'kernel': [_time.time_work[1][i],
+						time_info = {'kernel': [_time.time_work[0][i],
+									_time.time_comm[0][i],_time.time_idle[0][i]],\
+									'summation': [_time.time_work[1][i],
 									_time.time_comm[1][i],_time.time_idle[1][i]],\
-									'summation': [_time.time_work[2][i],
-									_time.time_comm[2][i],_time.time_idle[2][i]],\
-									'screen': [_time.time_work[0][i],
-									_time.time_comm[0][i],_time.time_idle[0][i]]}
+									'screen': [_time.time_work[2][i],
+									_time.time_comm[2][i],_time.time_idle[2][i]]}
 						self.comm.send(time_info, dest=i)
 				else:
 					# receive exp_info
-					info = self.comm.bcast(None, root=0)
+					exp_info = self.comm.bcast(None, root=0)
 					# set min_order
-					_calc.exp_min_order = info['min_order']
+					_calc.exp_min_order = exp_info['min_order']
 					# receive tuples
-					for i in range(len(info['len_tup'])):
-						buff = np.empty([info['len_tup'][i],i+2], dtype=np.int32)
+					for i in range(1,len(exp_info['len_tup'])):
+						buff = np.empty([exp_info['len_tup'][i],i+1], dtype=np.int32)
 						self.comm.Bcast([buff,MPI.INT], root=0)
 						_exp.tuples.append(buff)
 					# receive e_inc
-					for i in range(len(info['len_e_inc'])):
-						buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
-						if (i < (len(info['len_e_inc'])-1)):
-							self.comm.Bcast([buff,MPI.DOUBLE], root=0)
-						else:
-							self.comm.Bcast([buff[:info['e_inc_end']],MPI.DOUBLE], root=0)
+					for i in range(len(exp_info['len_e_inc'])):
+						buff = np.zeros(exp_info['len_e_inc'][i], dtype=np.float64)
+						self.comm.Bcast([buff,MPI.DOUBLE], root=0)
 						_exp.energy_inc.append(buff)
-					# for e_inc[-1], make sure that this is distributed among the slaves
-					for i in range(info['e_inc_end']):
-						if ((i % (self.size-1)) != (self.rank-1)): _exp.energy_inc[-1][i] = 0.0 
+					# for e_inc[-1], make sure that this is distributed among the slaves *if* incomplete
+					if (exp_info['e_inc_end'] != exp_info['len_e_inc'][-1]):
+						for i in range(exp_info['e_inc_end']):
+							if ((i % (self.size-1)) != (self.rank-1)): _exp.energy_inc[-1][i] = 0.0 
+						_exp.energy_inc[-1][exp_info['e_inc_end']:] = 0.0
 					# receive time_info
-					_time_info = self.comm.recv(source=0, status=self.stat)
+					time_info = self.comm.recv(source=0, status=self.stat)
 					_time.time_work_kernel = time_info['kernel'][0]
 					_time.time_comm_kernel = time_info['kernel'][1]
 					_time.time_idle_kernel = time_info['kernel'][2]
@@ -184,6 +193,22 @@ class MPICls():
 					_time.time_work_screen = time_info['screen'][0]
 					_time.time_comm_screen = time_info['screen'][1]
 					_time.time_idle_screen = time_info['screen'][2]
+				#
+				return
+
+
+		def bcast_e_inc(self, _exp, _time):
+				""" bcast e_inc[-1] """
+				# start idle time
+				_time.timer('idle_summation', _exp.order)
+				# barrier
+				self.comm.Barrier()
+				# start comm time
+				_time.timer('comm_summation', _exp.order)
+				# now do Bcast
+				self.comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
+				# start work time
+				_time.timer('work_summation', _exp.order)
 				#
 				return
 

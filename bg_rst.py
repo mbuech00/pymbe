@@ -26,12 +26,12 @@ class RstCls():
 				""" init restart env and parameters """
 				if (_mpi.master):
 					self.rst_dir = _out.wrk_dir+'/rst'
-					self.rst_freq = 50000.0
+					self.rst_freq = 10. #50000.0
 					if (not isdir(self.rst_dir)):
 						self.restart = False
 						mkdir(self.rst_dir)
 					else:
-						self.restart = False
+						self.restart = True
 				_mpi.bcast_rst_info(self)
 				#
 				return
@@ -42,6 +42,7 @@ class RstCls():
 				rmtree(self.rst_dir, ignore_errors=True)
 				#
 				return
+
 
 		def rst_main(self, _mpi, _calc, _exp, _time):
 				""" main restart driver """
@@ -137,7 +138,7 @@ class RstCls():
 				return
 
 
-		def rst_read_main(self, _mpi, _calc, _exp, _time):
+		def read_main(self, _mpi, _calc, _exp, _time):
 				""" driver for reading of restart files """
 				# list filenames in files list
 				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
@@ -180,7 +181,7 @@ class RstCls():
 								if (_mpi.parallel):
 									_time.time_work[0] = np.load(join(self.rst_dir,
 																		files[i])).tolist()
-									_time.timings['work_kernel'] = deepcopy(time.time_work[0][0])
+									_time.timings['work_kernel'] = deepcopy(_time.time_work[0][0])
 								else:
 									_time.timings['work_kernel'] = np.load(join(self.rst_dir,	
 																			files[i])).tolist()

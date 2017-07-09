@@ -23,7 +23,7 @@ from bg_screen import ScrCls
 
 class DrvCls():
 		""" driver class """
-		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst):
+		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
@@ -43,7 +43,7 @@ class DrvCls():
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
-					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _err, _prt, _rst)
+					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					# print kernel end
 					_prt.kernel_end(_exp)
 					#
@@ -67,16 +67,20 @@ class DrvCls():
 					# orbital entanglement
 					self.entanglement.main(_mpi, _mol, _calc, _exp, _time, _rst)
 					# orbital screening
-					if (not _exp.conv_energy[-1]):
+					if ((not _exp.conv_energy[-1]) and (_exp.order < _calc.exp_max_order)):
 						# perform screening
 						self.screening.main(_mpi, _calc, _exp, _time, _rst)
 						# write restart files
 						if (not _exp.conv_orb[-1]):
 							_rst.write_screen(_mpi, _exp, _time)
-					# print screen results
-					_prt.screen_results(_calc, _exp)
-					# print screen end
-					_prt.screen_end(_exp)
+						# print screen results
+						_prt.screen_results(_calc, _exp)
+						# print screen end
+						_prt.screen_end(_exp)
+					else:
+						# print screen end
+						_prt.screen_end(_exp)
+						break
 					# update threshold and restart frequency
 					_rst.update(_calc, _exp.order)
 					#
@@ -87,7 +91,7 @@ class DrvCls():
 				return
 	
 	
-		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _err, _rst):
+		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _rst):
 				""" main slave routine """
 				# make kernel, summation, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
@@ -101,17 +105,11 @@ class DrvCls():
 					# task id
 					msg = _mpi.comm.bcast(None, root=0)
 					#
-					#** receive restart files **#
-					#
-					if (msg['task'] == 'bcast_rst'):
-						# distribute (receive) restart files
-						_mpi.bcast_rst(_calc, _exp, _time) 
-					#
 					#** energy kernel phase **#
 					#
-					elif (msg['task'] == 'kernel_slave'):
+					if (msg['task'] == 'kernel_slave'):
 						_exp.order = msg['order']
-						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time, _err)
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time)
 						_time.coll_kernel_time(_mpi, None, _exp.order)
 					#
 					#** energy summation phase **#

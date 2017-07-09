@@ -15,9 +15,9 @@ __status__ = 'Development'
 from os import getcwd, mkdir
 from os.path import isdir
 from shutil import rmtree 
+import sys
 
 from bg_rst import RstCls
-from bg_error import ErrCls
 from bg_mol import MolCls
 from bg_calc import CalcCls
 from bg_mpi import MPICls
@@ -39,19 +39,27 @@ class InitCls():
 				self.out = OutCls(self.mpi)
 				# restart instance
 				self.rst = RstCls(self.out, self.mpi)
-				# error instance
-				self.err = ErrCls(self.out)
 				# molecule and calculation instances
-				self.mol = MolCls(self.mpi, self.err)
-				self.calc = CalcCls(self.mpi, self.err)
+				self.mol = MolCls(self.mpi, self.rst)
+				self.calc = CalcCls(self.mpi, self.rst)
 				# pyscf instance
 				self.pyscf = PySCFCls()
 				# hf calculation and integral transformation
 				if (self.mpi.master):
-					self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
-							self.pyscf.hf_calc(self.mol)
-					self.mol.e_ref, self.mol.h1e, self.mol.h2e = \
-							self.pyscf.int_trans(self.mol, self.calc)
+					try:
+						self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
+								self.pyscf.hf_calc(self.mol)
+					except Exception as err:
+						sys.stderr.write('\nHF Error : problem with HF calculation\n'
+											'PySCF error : {0:}\n\n'.\
+											format(err))
+					try:
+						self.mol.e_ref, self.mol.h1e, self.mol.h2e = \
+								self.pyscf.int_trans(self.mol, self.calc)
+					except Exception as err:
+						sys.stderr.write('\nINT-TRANS Error : problem with integral transformation\n'
+											'PySCF error : {0:}\n\n'.\
+											format(err))
 				# bcast to slaves
 				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
 				# time instance

@@ -35,11 +35,6 @@ class ScrCls():
 				else:
 					# start time
 					_time.timer('work_screen', _exp.order)
-					# determine which tuples have contributions below the threshold
-					if (_exp.order == 1):
-						allow_tuple = _exp.tuples[-1]
-					else:
-						allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
 			        # loop over parent tuples
@@ -61,7 +56,7 @@ class ScrCls():
 				                # loop over subset combinations
 								for j in range(len(combs)):
 									# check whether the particular tuple among negligible tuples
-									if (not np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
+									if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
 										# screen away
 										screen = True
 										break
@@ -160,11 +155,6 @@ class ScrCls():
 				_time.timer('work_screen', _exp.order)
 				# init data dict and combs list
 				data = {'child_tuple': [], 'screen_count': 0}; combs = []
-				# determine which tuples have contributions larger than the threshold
-				if (_exp.order == 1):
-					allow_tuple = _exp.tuples[-1]
-				else:
-					allow_tuple = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 				# receive work from master
 				while (True):
 					# start comm time
@@ -198,7 +188,7 @@ class ScrCls():
 			                    # loop over subset combinations
 								for j in range(len(combs)):
 									# check whether the particular tuple among negligible tuples
-									if (not np.equal(combs[j]+[m],allow_tuple).all(axis=1).any()):
+									if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
 										# screen away
 										screen = True
 										break
