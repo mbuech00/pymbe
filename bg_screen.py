@@ -38,23 +38,23 @@ class ScrCls():
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
 			        # loop over parent tuples
-					for i in range(len(_exp.tuples[-1])):
+					for i in range(len(_exp.allow_tuples)):
 						# generate list with all subsets of particular tuple
-						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1))
+						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.tuples[-1][i][-1]+1, _exp.l_limit+_exp.u_limit):
+						for m in range(_exp.allow_tuples[i][-1]+1, _exp.l_limit+_exp.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
 							for j in range(len(combs)):
 								# check whether or not the particular tuple is allowed
-								if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
+								if (not np.equal(combs[j]+[m],_exp.allow_tuples).all(axis=1).any()):
 									# screen away
 									screen = True
 									break
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if (not screen):
-								tmp.append(_exp.tuples[-1][i].tolist()+[m])
+								tmp.append(_exp.allow_tuples[i].tolist()+[m])
 							else:
 								_exp.screen_count[-1] += 1
 					# when done, write to tup list or mark expansion as converged
@@ -100,7 +100,7 @@ class ScrCls():
 					# slave is ready
 					if (tag == self.tags.ready):
 						# any jobs left?
-						if (i <= len(_exp.tuples[-1])-1):
+						if (i <= len(_exp.allow_tuples)-1):
 							# start comm time
 							_time.timer('comm_screen', _exp.order)
 							# save parent tuple index
@@ -164,21 +164,21 @@ class ScrCls():
 						# init child tuple list and screen counter
 						data['child_tuple'][:] = []; data['screen_count'] = 0
 						# generate list with all subsets of particular tuple
-						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1))
+						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.tuples[-1][job_info['index']][-1]+1, _exp.l_limit+_exp.u_limit):
+						for m in range(_exp.allow_tuples[job_info['index']][-1]+1, _exp.l_limit+_exp.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
 							for j in range(len(combs)):
 								# check whether or not the particular tuple is allowed
-								if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
+								if (not np.equal(combs[j]+[m],_exp.allow_tuples).all(axis=1).any()):
 									# screen away
 									screen = True
 									break
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if (not screen):
-								data['child_tuple'].append(_exp.tuples[-1][job_info['index']].tolist()+[m])
+								data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
 							else:
 								data['screen_count'] += 1
 						# start comm time

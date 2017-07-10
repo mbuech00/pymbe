@@ -39,11 +39,12 @@ class SumCls():
 												combs.view(dt).reshape(-1)))[0]
 							for l in idx: _exp.energy_inc[-1][j] -= _exp.energy_inc[i-1][l]
 					# determine which increments have contributions below the threshold
-					if (_exp.order >= 2):
-						_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
-						_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+					if (_exp.order == 1):
+						_exp.allow_tuples = _exp.tuples[-1]
+					else:
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# sum of energy increments
-					e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
+					e_tmp = np.sum(_exp.energy_inc[-1])
 					# sum of total energy
 					if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
 					# add to total energy list
@@ -88,13 +89,14 @@ class SumCls():
 				# allreduce e_inc[-1]
 				_mpi.allred_e_inc(_exp, _time)
 				# determine which increments have contributions below the threshold
-				if (_exp.order >= 2):
-					_exp.tuples[-1] = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
-					_exp.energy_inc[-1] = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+				if (_exp.order == 1):
+					_exp.allow_tuples = _exp.tuples[-1]
+				else:
+					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 				# let master calculate the total energy
 				if (_mpi.master):
 					# sum of energy increments 
-					e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
+					e_tmp = np.sum(_exp.energy_inc[-1])
 					# sum of total energy
 					if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
 					# add to total energy list
