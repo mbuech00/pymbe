@@ -44,7 +44,7 @@ class SumCls():
 					else:
 						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
 					# sum of energy increments
-					e_tmp = np.sum(_exp.energy_inc[-1])
+					e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 					# sum of total energy
 					if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
 					# add to total energy list
@@ -96,7 +96,7 @@ class SumCls():
 				# let master calculate the total energy
 				if (_mpi.master):
 					# sum of energy increments 
-					e_tmp = np.sum(_exp.energy_inc[-1])
+					e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 					# sum of total energy
 					if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
 					# add to total energy list
