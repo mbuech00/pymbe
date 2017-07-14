@@ -28,7 +28,7 @@ class CalcCls():
 				self.exp_max_order = 5
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
-				self.energy_thres = 3.8e-04
+				self.energy_thres = 3.8e-05
 				self.tolerance = 0.0
 				# set calculation parameters
 				if (_mpi.master):
