@@ -218,7 +218,7 @@ class PrintCls():
 				return
 		
 		
-		def screen_results(self, _calc, _exp):
+		def screen_results(self, _exp):
 				""" print screening results """
 				if (len(_exp.tuples) > _exp.order):
 					screen = (1.0 - (len(_exp.tuples[-1]) / \
@@ -229,12 +229,12 @@ class PrintCls():
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' UPDATE-MACRO: threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
-								format(_calc.exp_thres,screen))
+								format(_exp.thres,screen))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' UPDATE-MACRO: threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
-						format(_calc.exp_thres,screen))
+						format(_exp.thres,screen))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return

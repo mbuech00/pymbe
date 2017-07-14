@@ -18,6 +18,14 @@ from mpi4py import MPI
 
 class SumCls():
 		""" summation class """
+		def update(self, _calc, _exp):
+				""" update expansion threshold according to start order """
+				if (_exp.order <= 2):
+					return 0.0
+				else:
+					return 1.0e-10 * _calc.exp_thres ** (_exp.order - 3)
+
+
 		def main(self, _mpi, _calc, _exp, _time, _rst):
 				""" energy summation phase """
 				# mpi parallel version
@@ -27,6 +35,8 @@ class SumCls():
 				else:
 					# start work time
 					_time.timer('work_summation', _exp.order)
+					# update expansion threshold
+					_exp.thres = self.update(_calc, _exp)
 					# compute energy increments at current order
 					for j in range(len(_exp.tuples[-1])):
 						# loop over previous orders
@@ -42,7 +52,7 @@ class SumCls():
 					if (_exp.order == 1):
 						_exp.allow_tuples = _exp.tuples[-1]
 					else:
-						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 					# sum of energy increments
 					e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 					# sum of total energy
@@ -69,6 +79,8 @@ class SumCls():
 					_mpi.comm.bcast(msg, root=0)
 				# start work time
 				_time.timer('work_summation', _exp.order)
+				# update expansion threshold
+				_exp.thres = self.update(_calc, _exp)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_exp, _time)
 				# compute energy increments at current order
@@ -92,7 +104,7 @@ class SumCls():
 				if (_exp.order == 1):
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
-					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.exp_thres)]
+					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 				# let master calculate the total energy
 				if (_mpi.master):
 					# sum of energy increments 

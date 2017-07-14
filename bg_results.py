@@ -94,24 +94,24 @@ class ResCls():
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
 						print(('{0:12}{1:9}{2:7}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:9}{9:17}{10:2}{11:1}'
-							'{12:2}{13:<4s}{14:^3}{15:<4s}{16:2}{17:1}{18:7}{19:16}{20:7}{21:1}{22:2}{23:}').\
+							'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:16}{18:7}{19:1}{20:2}{21:}').\
 								format('','basis set','','=','',_mol.basis,\
-									'','|','','exp. base / model','','=','',_calc.exp_base,'/',_calc.exp_model,\
+									'','|','','exp. model','','=','',_calc.exp_model,\
 									'','|','','mpi parallel run','','=','',_mpi.parallel))
 						print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:9}{10:10}{11:1}'
 							'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:}').\
 								format('','frozen core','','=','',str(_mol.frozen),\
-									'','|','','exp. type','','=','',_calc.exp_type,\
+									'','|','','exp. base','','=','',_calc.exp_base,\
 									'','|','','number of mpi masters','','=','',1))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:14}{12:5}'
-							'{13:1}{14:2}{15:<5.2e}{16:5}{17:1}{18:7}{19:20}{20:3}{21:1}{22:2}{23:}').\
+							'{13:1}{14:2}{15:<8s}{16:5}{17:1}{18:7}{19:20}{20:3}{21:1}{22:2}{23:}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
-									'','|','','exp. threshold','','=','',_calc.exp_thres_init,\
+									'','|','','exp. type','','=','',_calc.exp_type,\
 									'','|','','number of mpi slaves','','=','',_mpi.size-1))
 						print(('{0:12}{1:13}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:14}{10:5}{11:1}{12:2}'
 							'{13:<6.2f}{14:7}{15:1}{16:7}{17:18}{18:5}{19:1}{20:1}{21:>13.6e}').\
 								format('','occ. orbitals','','=','',_calc.exp_occ,\
-									'','|','','exp. dampening','','=','',_calc.exp_damp,\
+									'','|','','exp. threshold','','=','',_calc.exp_thres,\
 									'','|','','final corr. energy','','=','',_exp.energy_tot[-1] + _mol.e_ref))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:16}{10:3}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:17}{18:6}{19:1}{20:1}{21:>13.6e}').\
@@ -549,10 +549,13 @@ class ResCls():
 											sharex=False, sharey=False)
 				# set title
 				fig.suptitle('Distribution of energy contributions')
-				# save threshold
-				thres = _calc.exp_thres_init
 				# set lists and plot results
 				for i in range(len(_exp.energy_inc)):
+					# update thres
+					if (i <= 1):
+						thres = 0.0
+					else:
+						thres = 1.0e-10 * _calc.exp_thres ** (i - 2)
 					if (len(_exp.energy_inc[i]) != 1):
 						# sort energy increments
 						e_inc_sort = np.sort(_exp.energy_inc[i])
@@ -578,8 +581,6 @@ class ResCls():
 						# plot threshold span
 						axes.flat[i].axvspan(0.0 - thres,0.0 + thres,
 												color=sns.xkcd_rgb['amber'],alpha=0.5)
-						# update thres
-						thres = _calc.exp_thres_init * _calc.exp_damp ** (i + 1)
 						# change to second y-axis
 						ax2 = axes.flat[i].twinx()
 						# plot counts

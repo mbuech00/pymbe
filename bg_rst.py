@@ -60,12 +60,10 @@ class RstCls():
 				return
 		
 		
-		def update(self, _calc, _order):
-				""" update expansion thres and restart freq according to start order """
-				_calc.exp_thres = _calc.exp_thres_init * _calc.exp_damp ** _order
-				self.rst_freq /= 2.
+		def update(self):
+				""" update restart freq according to start order """
 				#
-				return
+				return self.rst_freq / 2.
 
 
 		def write_kernel(self, _mpi, _exp, _time):

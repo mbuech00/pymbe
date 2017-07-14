@@ -74,15 +74,15 @@ class DrvCls():
 						if (not _exp.conv_orb[-1]):
 							_rst.write_screen(_mpi, _exp, _time)
 						# print screen results
-						_prt.screen_results(_calc, _exp)
+						_prt.screen_results(_exp)
 						# print screen end
 						_prt.screen_end(_exp)
 					else:
 						# print screen end
 						_prt.screen_end(_exp)
 						break
-					# update threshold and restart frequency
-					_rst.update(_calc, _exp.order)
+					# update restart frequency
+					_rst.rst_freq = _rst.update()
 					#
 					#** convergence check **#
 					#
@@ -129,7 +129,6 @@ class DrvCls():
 						_exp.order = msg['order']
 						self.screening.slave(_mpi, _calc, _exp, _time)
 						_time.coll_screen_time(_mpi, None, _exp.order, True)
-						_rst.update(_calc, _exp.order)
 					#
 					#** exit **#
 					#

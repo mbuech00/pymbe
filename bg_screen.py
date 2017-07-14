@@ -24,10 +24,11 @@ class ScrCls():
 				self.tags = _exp.enum('ready', 'done', 'exit', 'start') 
 				#
 				return
-		
+	
 		
 		def main(self, _mpi, _calc, _exp, _time, _rst):
 				""" input generation for subsequent order """
+				# start screening
 				if (_mpi.parallel):
 					# mpi parallel version
 					self.master(_mpi, _calc, _exp, _time)
