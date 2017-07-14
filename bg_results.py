@@ -64,7 +64,7 @@ class ResCls():
 				# total energies
 				self.abs_energy(_mol, _calc, _exp)
 				# number of calculations
-				self.n_tuples(_calc, _exp)
+				self.n_tuples(_mol, _calc, _exp)
 				# orbital entanglement matrices
 				self.orb_ent_all(_exp)
 				self.orb_ent(_exp)
@@ -350,7 +350,7 @@ class ResCls():
 				return
 
 
-		def n_tuples(self, _calc, _exp):
+		def n_tuples(self, _mol, _calc, _exp):
 				""" plot number of tuples """
 				# set seaborn
 				sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
@@ -376,7 +376,10 @@ class ResCls():
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set x- and y-limits
-				ax.set_xlim([-0.5,_calc.exp_max_order - 0.5])
+				if (_calc.exp_type == 'occupied'):
+					ax.set_xlim([-0.5,(_mol.nocc - _mol.ncore) - 0.5])
+				else:
+					ax.set_xlim([-0.5,_mol.nvirt - 0.5])
 				ax.set_ylim(bottom=0.7)
 				# set x-ticks
 				if (_calc.exp_max_order < 8):
