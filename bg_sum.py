@@ -20,10 +20,7 @@ class SumCls():
 		""" summation class """
 		def update(self, _calc, _exp):
 				""" update expansion threshold according to start order """
-				if (_exp.order <= 2):
-					return 0.0
-				else:
-					return 1.0e-10 * _calc.exp_thres ** (_exp.order - 3)
+				return 1.0e-10 * _calc.exp_thres ** (_exp.order - 1)
 
 
 		def main(self, _mpi, _calc, _exp, _time, _rst):
