@@ -110,69 +110,9 @@ class PrintCls():
 						format('#' * block + '-' * (bar_length - block), _prog * 100, status))
 				#
 				return
-		
-		
-		def kernel_end(self, _exp):
-				""" print end of energy kernel """
-				with open(self.out,'a') as f:
-					with redirect_stdout(f):
-						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(_exp.order))
-						print(' --------------------------------------------------------------------------------------------')
-				# write also to stdout
-				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-MACRO: order = {0:>d} energy kernel done'.format(_exp.order))
-				print(' --------------------------------------------------------------------------------------------')
-				#
-				return
-		
-		
-		def summation_header(self, _exp):
-				""" print energy summation header """
-				with open(self.out,'a') as f:
-					with redirect_stdout(f):
-						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-MACRO: order = {0:>d} summation started'.format(_exp.order))
-						print(' --------------------------------------------------------------------------------------------')
-				# write also to stdout
-				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-MACRO: order = {0:>d} summation started'.format(_exp.order))
-				print(' --------------------------------------------------------------------------------------------')
-				#
-				return
-		
-		
-		def summation_results(self, _exp):
-				""" print summation result statistics """
-				# statistics
-				mean_val = np.mean(_exp.energy_inc[-1])
-				min_val = _exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))]
-				max_val = _exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))]
-				if (len(_exp.energy_inc[-1]) > 1):
-					std_val = np.std(_exp.energy_inc[-1],ddof=1)
-				else:
-					std_val = 0.0
-				# now print
-				with open(self.out,'a') as f:
-					with redirect_stdout(f):
-						print(' --------------------------------------------------------------------------------------------')
-						print(' RESULT-MACRO:     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
-						print(' --------------------------------------------------------------------------------------------')
-						print(' RESULT-MACRO:  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-								format(mean_val, min_val, max_val, std_val))
-						print(' --------------------------------------------------------------------------------------------')
-				# write also to stdout
-				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT-MACRO:     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
-				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT-MACRO:  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-						format(mean_val, min_val, max_val, std_val))
-				print(' --------------------------------------------------------------------------------------------')
-				#
-				return
-		
-		
-		def summation_end(self, _calc, _exp):
+	
+	
+		def kernel_end(self, _calc, _exp):
 				""" print end of energy summation """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
@@ -199,6 +139,36 @@ class PrintCls():
 					print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, thres. = {2:<5.2e})'.\
 							format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 					print(' --------------------------------------------------------------------------------------------')
+				#
+				return
+	
+	
+		def kernel_results(self, _exp):
+				""" print kernel result statistics """
+				# statistics
+				mean_val = np.mean(_exp.energy_inc[-1])
+				min_val = _exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))]
+				max_val = _exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))]
+				if (len(_exp.energy_inc[-1]) > 1):
+					std_val = np.std(_exp.energy_inc[-1],ddof=1)
+				else:
+					std_val = 0.0
+				# now print
+				with open(self.out,'a') as f:
+					with redirect_stdout(f):
+						print(' --------------------------------------------------------------------------------------------')
+						print(' RESULT-MACRO:     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
+						print(' --------------------------------------------------------------------------------------------')
+						print(' RESULT-MACRO:  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
+								format(mean_val, min_val, max_val, std_val))
+						print(' --------------------------------------------------------------------------------------------')
+				# write also to stdout
+				print(' --------------------------------------------------------------------------------------------')
+				print(' RESULT-MACRO:     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
+				print(' --------------------------------------------------------------------------------------------')
+				print(' RESULT-MACRO:  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
+						format(mean_val, min_val, max_val, std_val))
+				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		

@@ -16,7 +16,6 @@ import numpy as np
 from mpi4py import MPI
 
 from bg_kernel import KernCls
-from bg_sum import SumCls
 from bg_ent import EntCls
 from bg_screen import ScrCls
 
@@ -25,9 +24,8 @@ class DrvCls():
 		""" driver class """
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
-				# make kernel, summation, entanglement, and screening instances
+				# make kernel, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
-				self.summation = SumCls()
 				self.entanglement = EntCls()
 				self.screening = ScrCls(_exp)
 				# print expansion header
@@ -46,22 +44,8 @@ class DrvCls():
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					# print kernel end
 					_prt.kernel_end(_exp)
-					#
-					#** energy summation phase **#
-					#
-					_time.timings['work_summation'].append(0.0)
-					_time.timings['comm_summation'].append(0.0)
-					_time.timings['idle_summation'].append(0.0)
-					# print summation header
-					_prt.summation_header(_exp)
-#					# energy summation
-#					self.summation.main(_mpi, _calc, _exp, _time, _rst)
-					# write restart files
-					_rst.write_summation(_mpi, _exp, _time)
-					# print summation end
-					_prt.summation_end(_calc, _exp)
 					# print results
-					_prt.summation_results(_exp)
+					_prt.kernel_results(_calc, _exp)
 					#
 					#** screening phase **#
 					#
@@ -96,9 +80,8 @@ class DrvCls():
 	
 		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _rst):
 				""" main slave routine """
-				# make kernel, summation, entanglement, and screening instances
+				# make kernel, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
-				self.summation = SumCls()
 				self.entanglement = EntCls()
 				self.screening = ScrCls(_exp)
 				# set loop/waiting logical
@@ -114,16 +97,6 @@ class DrvCls():
 						_exp.order = msg['order']
 						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time)
 						_time.coll_kernel_time(_mpi, None, _exp.order)
-					#
-					#** energy summation phase **#
-					#
-					elif (msg['task'] == 'sum_par'):
-						_exp.order = msg['order']
-#						self.summation.sum_par(_mpi, _calc, _exp, _time)
-						_time.timings['work_summation'].append(0.0)
-						_time.timings['comm_summation'].append(0.0)
-						_time.timings['idle_summation'].append(0.0)
-						_time.coll_summation_time(_mpi, None, _exp.order)
 					#
 					#** screening phase **#
 					#
