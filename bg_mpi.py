@@ -198,15 +198,15 @@ class MPICls():
 		def bcast_e_inc(self, _exp, _time):
 				""" bcast e_inc[-1] """
 				# start idle time
-				_time.timer('idle_summation', _exp.order)
+				_time.timer('idle_kernel', _exp.order)
 				# barrier
 				self.comm.Barrier()
 				# start comm time
-				_time.timer('comm_summation', _exp.order)
+				_time.timer('comm_kernel', _exp.order)
 				# now do Bcast
 				self.comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
 				# start work time
-				_time.timer('work_summation', _exp.order)
+				_time.timer('work_kernel', _exp.order)
 				#
 				return
 

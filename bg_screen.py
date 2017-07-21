@@ -24,10 +24,17 @@ class ScrCls():
 				self.tags = _exp.enum('ready', 'done', 'exit', 'start') 
 				#
 				return
+
 	
+		def update(self, _calc, _exp):
+				""" update expansion threshold according to start order """
+				return 1.0e-10 * _calc.exp_thres ** (_exp.order - 1)
+
 		
 		def main(self, _mpi, _calc, _exp, _time, _rst):
 				""" input generation for subsequent order """
+				# update expansion threshold
+				_exp.thres = self.update(_calc, _exp)
 				# start screening
 				if (_mpi.parallel):
 					# mpi parallel version
@@ -38,6 +45,11 @@ class ScrCls():
 					_time.timer('work_screen', _exp.order)
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
+					# determine which increments have contributions below the threshold
+					if (_exp.order == 1):
+						_exp.allow_tuples = _exp.tuples[-1]
+					else:
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 			        # loop over parent tuples
 					for i in range(len(_exp.allow_tuples)):
 						# generate list with all subsets of particular tuple
@@ -74,7 +86,7 @@ class ScrCls():
 				# start idle time
 				_time.timer('idle_screen', _exp.order)
 				# wake up slaves
-				msg = {'task': 'screen_slave', 'order': _exp.order}
+				msg = {'task': 'screen_slave', 'order': _exp.order, 'thres': _exp.thres}
 				# bcast
 				_mpi.comm.bcast(msg, root=0)
 				# start work time
@@ -87,6 +99,11 @@ class ScrCls():
 				slaves_avail = num_slaves
 				# init job index, tmp list, and screen_count
 				i = 0; tmp = []; _exp.screen_count.append(0)
+				# determine which increments have contributions below the threshold
+				if (_exp.order == 1):
+					_exp.allow_tuples = _exp.tuples[-1]
+				else:
+					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# start idle time
@@ -160,6 +177,11 @@ class ScrCls():
 					_time.timer('work_screen', _exp.order)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
+					# determine which increments have contributions below the threshold
+					if (_exp.order == 1):
+						_exp.allow_tuples = _exp.tuples[-1]
+					else:
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 					# do job
 					if (tag == self.tags.start):
 						# init child tuple list and screen counter

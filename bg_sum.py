@@ -18,11 +18,6 @@ from mpi4py import MPI
 
 class SumCls():
 		""" summation class """
-		def update(self, _calc, _exp):
-				""" update expansion threshold according to start order """
-				return 1.0e-10 * _calc.exp_thres ** (_exp.order - 1)
-
-
 		def main(self, _mpi, _calc, _exp, _time, _rst):
 				""" energy summation phase """
 				# mpi parallel version

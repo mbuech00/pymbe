@@ -49,10 +49,13 @@ class DrvCls():
 					#
 					#** energy summation phase **#
 					#
+					_time.timings['work_summation'].append(0.0)
+					_time.timings['comm_summation'].append(0.0)
+					_time.timings['idle_summation'].append(0.0)
 					# print summation header
 					_prt.summation_header(_exp)
-					# energy summation
-					self.summation.main(_mpi, _calc, _exp, _time, _rst)
+#					# energy summation
+#					self.summation.main(_mpi, _calc, _exp, _time, _rst)
 					# write restart files
 					_rst.write_summation(_mpi, _exp, _time)
 					# print summation end
@@ -116,7 +119,10 @@ class DrvCls():
 					#
 					elif (msg['task'] == 'sum_par'):
 						_exp.order = msg['order']
-						self.summation.sum_par(_mpi, _calc, _exp, _time)
+#						self.summation.sum_par(_mpi, _calc, _exp, _time)
+						_time.timings['work_summation'].append(0.0)
+						_time.timings['comm_summation'].append(0.0)
+						_time.timings['idle_summation'].append(0.0)
 						_time.coll_summation_time(_mpi, None, _exp.order)
 					#
 					#** screening phase **#
@@ -127,6 +133,7 @@ class DrvCls():
 						_time.coll_screen_time(_mpi, None, _exp.order, msg['conv_energy'])
 					elif (msg['task'] == 'screen_slave'):
 						_exp.order = msg['order']
+						_exp.thres = msg['thres']
 						self.screening.slave(_mpi, _calc, _exp, _time)
 						_time.coll_screen_time(_mpi, None, _exp.order, True)
 					#
