@@ -168,7 +168,7 @@ class TimeCls():
 										self.sum_comm_abs[0][j] + self.sum_idle_abs[0][j])) * 100.0
 						self.dist_kernel[2][j] = (self.sum_idle_abs[0][j] / (self.sum_work_abs[0][j] + \
 										self.sum_comm_abs[0][j] + self.sum_idle_abs[0][j])) * 100.0
-						self.dist_screen[0][j] = (self.sum_work_abs[1][j] / (self.sum_work_abs[0][j] + \
+						self.dist_screen[0][j] = (self.sum_work_abs[1][j] / (self.sum_work_abs[1][j] + \
 										self.sum_comm_abs[1][j] + self.sum_idle_abs[1][j])) * 100.0
 						self.dist_screen[1][j] = (self.sum_comm_abs[1][j] / (self.sum_work_abs[1][j] + \
 										self.sum_comm_abs[1][j] + self.sum_idle_abs[1][j])) * 100.0
