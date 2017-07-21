@@ -24,7 +24,10 @@ rcParams['font.sans-serif'] = ['DejaVu Sans']
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid.inset_locator import inset_axes
-import seaborn as sns
+try:
+	import seaborn as sns
+except ImportError:
+	sys.stderr.write('\nImportError : seaborn module not found\n\n')
 
 
 class ResCls():

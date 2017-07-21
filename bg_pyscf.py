@@ -15,7 +15,10 @@ __status__ = 'Development'
 import numpy as np
 import scipy as sp
 from functools import reduce
-from pyscf import gto, scf, ao2mo, mp, ci, cc, fci
+try:
+	from pyscf import gto, scf, ao2mo, mp, ci, cc, fci
+except ImportError:
+	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
 
 class PySCFCls():
