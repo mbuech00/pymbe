@@ -86,25 +86,25 @@ class TimeCls():
 					idx = 1
 				# master collects the timings
 				if (_mpi.master):
-					if (idx == 0):
-						self.time_work[idx][0][-1] = self.timings['work_' + str(_phase)][-1]
-						self.time_comm[idx][0][-1] = self.timings['comm_' + str(_phase)][-1]
-						self.time_idle[idx][0][-1] = self.timings['idle_' + str(_phase)][-1]
+					if (_phase == 'kernel'):
+						self.time_work[0][0][-1] = self.timings['work_' + str(_phase)][-1]
+						self.time_comm[0][0][-1] = self.timings['comm_' + str(_phase)][-1]
+						self.time_idle[0][0][-1] = self.timings['idle_' + str(_phase)][-1]
 					else:
-						self.time_work[idx][0].append(self.timings['work_' + str(_phase)][-1])
-						self.time_comm[idx][0].append(self.timings['comm_' + str(_phase)][-1])
-						self.time_idle[idx][0].append(self.timings['idle_' + str(_phase)][-1])
+						self.time_work[1][0].append(self.timings['work_' + str(_phase)][-1])
+						self.time_comm[1][0].append(self.timings['comm_' + str(_phase)][-1])
+						self.time_idle[1][0].append(self.timings['idle_' + str(_phase)][-1])
 					# receive individual timings (in ordered sequence)
 					for i in range(1,_mpi.size):
 						time_info = _mpi.comm.recv(source=i, status=_mpi.stat)
-						if (idx == 0):
-							self.time_work[idx][i][-1] = time_info['work']
-							self.time_comm[idx][i][-1] = time_info['comm']
-							self.time_idle[idx][i][-1] = time_info['idle']
+						if (_phase == 'kernel'):
+							self.time_work[0][i][-1] = time_info['work']
+							self.time_comm[0][i][-1] = time_info['comm']
+							self.time_idle[0][i][-1] = time_info['idle']
 						else:
-							self.time_work[idx][i].append(time_info['work'])
-							self.time_comm[idx][i].append(time_info['comm'])
-							self.time_idle[idx][i].append(time_info['idle'])
+							self.time_work[1][i].append(time_info['work'])
+							self.time_comm[1][i].append(time_info['comm'])
+							self.time_idle[1][i].append(time_info['idle'])
 				# slaves send their timings to master
 				else:
 					time_info = {'work': self.timings['work_' + str(_phase)][-1],
@@ -159,19 +159,33 @@ class TimeCls():
 					# mpi distribution - slave (only count slave timings)
 					self.dist_kernel = np.empty([3,_mpi.size], dtype=np.float64)
 					self.dist_screen = np.empty([3,_mpi.size], dtype=np.float64)
-					for i in range(2):
-						if (i == 0):
-							dist = self.dist_kernel
-						elif (i == 1):
-							dist = self.dist_screen
-						# for each of the phases, calculate the relative distribution between work/comm/idle for the individual slaves
-						for j in range(_mpi.size):
-							dist[0][j] = (self.sum_work_abs[i][j] / (self.sum_work_abs[i][j] + \
-											self.sum_comm_abs[i][j] + self.sum_idle_abs[i][j])) * 100.0
-							dist[1][j] = (self.sum_comm_abs[i][j] / (self.sum_work_abs[i][j] + \
-											self.sum_comm_abs[i][j] + self.sum_idle_abs[i][j])) * 100.0
-							dist[2][j] = (self.sum_idle_abs[i][j] / (self.sum_work_abs[i][j] + \
-											self.sum_comm_abs[i][j] + self.sum_idle_abs[i][j])) * 100.0
+					self.dist_total = np.empty([3,_mpi.size], dtype=np.float64)
+					# for each of the phases, calculate the relative distribution between work/comm/idle for the individual slaves
+					for j in range(_mpi.size):
+						self.dist_kernel[0][j] = (self.sum_work_abs[0][j] / (self.sum_work_abs[0][j] + \
+										self.sum_comm_abs[0][j] + self.sum_idle_abs[0][j])) * 100.0
+						self.dist_kernel[1][j] = (self.sum_comm_abs[0][j] / (self.sum_work_abs[0][j] + \
+										self.sum_comm_abs[0][j] + self.sum_idle_abs[0][j])) * 100.0
+						self.dist_kernel[2][j] = (self.sum_idle_abs[0][j] / (self.sum_work_abs[0][j] + \
+										self.sum_comm_abs[0][j] + self.sum_idle_abs[0][j])) * 100.0
+						self.dist_screen[0][j] = (self.sum_work_abs[1][j] / (self.sum_work_abs[0][j] + \
+										self.sum_comm_abs[1][j] + self.sum_idle_abs[1][j])) * 100.0
+						self.dist_screen[1][j] = (self.sum_comm_abs[1][j] / (self.sum_work_abs[1][j] + \
+										self.sum_comm_abs[1][j] + self.sum_idle_abs[1][j])) * 100.0
+						self.dist_screen[2][j] = (self.sum_idle_abs[1][j] / (self.sum_work_abs[1][j] + \
+										self.sum_comm_abs[1][j] + self.sum_idle_abs[1][j])) * 100.0
+						self.dist_total[0][j] = ((self.sum_work_abs[0][j] + self.sum_work_abs[1][j]) / \
+										((self.sum_work_abs[0][j] + self.sum_work_abs[1][j]) + \
+										(self.sum_comm_abs[0][j] + self.sum_comm_abs[1][j]) + \
+										(self.sum_idle_abs[0][j] + self.sum_idle_abs[1][j]))) * 100.0
+						self.dist_total[1][j] = ((self.sum_comm_abs[0][j] + self.sum_comm_abs[1][j]) / \
+										((self.sum_work_abs[0][j] + self.sum_work_abs[1][j]) + \
+										(self.sum_comm_abs[0][j] + self.sum_comm_abs[1][j]) + \
+										(self.sum_idle_abs[0][j] + self.sum_idle_abs[1][j]))) * 100.0
+						self.dist_total[2][j] = ((self.sum_idle_abs[0][j] + self.sum_idle_abs[1][j]) / \
+										((self.sum_work_abs[0][j] + self.sum_work_abs[1][j]) + \
+										(self.sum_comm_abs[0][j] + self.sum_comm_abs[1][j]) + \
+										(self.sum_idle_abs[0][j] + self.sum_idle_abs[1][j]))) * 100.0
 					# mpi distribution - order
 					# (only count slave timings - total results are stored as the last entry)
 					self.dist_order = np.zeros([3,len(_exp.energy_tot) + 1], dtype=np.float64)

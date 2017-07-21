@@ -74,8 +74,8 @@ class ResCls():
 				self.orb_dist(_calc, _exp)
 				# total orbital contributions
 				self.orb_con_tot(_exp)
-#				# plot timings
-#				self.time_res(_mpi, _exp, _time)
+				# plot timings
+				self.time_res(_mpi, _exp, _time)
 				#
 				return
 
@@ -246,8 +246,8 @@ class ResCls():
 										_time.dist_kernel[1][0],'/',_time.dist_kernel[2][0],\
 										'','|','',_time.dist_screen[0][0],'/',\
 										_time.dist_screen[1][0],'/',_time.dist_screen[2][0],\
-										'','|','',_time.dist_screen[0][0],'/',\
-										_time.dist_screen[1][0],'/',_time.dist_screen[2][0]))
+										'','|','',_time.dist_total[0][0],'/',\
+										_time.dist_total[1][0],'/',_time.dist_total[2][0]))
 						print(self.divider_str)
 						for i in range(1,_mpi.size):
 							print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
@@ -258,8 +258,8 @@ class ResCls():
 											_time.dist_kernel[1][i],'/',_time.dist_kernel[2][i],\
 											'','|','',_time.dist_screen[0][i],'/',\
 											_time.dist_screen[1][i],'/',_time.dist_screen[2][i],\
-											'','|','',_time.dist_screen[0][i],'/',\
-											_time.dist_screen[1][i],'/',_time.dist_screen[2][i]))
+											'','|','',_time.dist_total[0][i],'/',\
+											_time.dist_total[1][i],'/',_time.dist_total[2][i]))
 						#
 						print(self.divider_str)
 						print(self.divider_str)
@@ -274,9 +274,9 @@ class ResCls():
 										'','|','',np.mean(_time.dist_screen[0][1:]),'/',\
 										np.mean(_time.dist_screen[1][1:]),'/',\
 										np.mean(_time.dist_screen[2][1:]),\
-										'','|','',np.mean(_time.dist_screen[0][1:]),'/',\
-										np.mean(_time.dist_screen[1][1:]),'/',\
-										np.mean(_time.dist_screen[2][1:])))
+										'','|','',np.mean(_time.dist_total[0][1:]),'/',\
+										np.mean(_time.dist_total[1][1:]),'/',\
+										np.mean(_time.dist_total[2][1:])))
 						#
 						print(('{0:4}{1:14}{2:4}{3:1}{4:6}{5:>6.2f}{6:^3}{7:>6.2f}{8:^3}'
 								'{9:>6.2f}{10:7}{11:1}{12:7}{13:>6.2f}{14:^3}{15:>6.2f}{16:^3}{17:>6.2f}'
@@ -288,9 +288,9 @@ class ResCls():
 										'','|','',np.std(_time.dist_screen[0][1:],ddof=1),'/',\
 										np.std(_time.dist_screen[1][1:],ddof=1),'/',\
 										np.std(_time.dist_screen[2][1:],ddof=1),\
-										'','|','',np.std(_time.dist_screen[0][1:],ddof=1),'/',\
-										np.std(_time.dist_screen[1][1:],ddof=1),'/',\
-										np.std(_time.dist_screen[2][1:],ddof=1)))
+										'','|','',np.std(_time.dist_total[0][1:],ddof=1),'/',\
+										np.std(_time.dist_total[1][1:],ddof=1),'/',\
+										np.std(_time.dist_total[2][1:],ddof=1)))
 						#
 						print(self.divider_str+'\n')
 				#
@@ -679,12 +679,9 @@ class ResCls():
 				ax1.set_title('Phase timings')
 				# set result arrays and plot results
 				kernel_dat = (_time.time_kernel / _time.time_tot) * 100.0
-				sum_dat = kernel_dat + (_time.time_summation / _time.time_tot) * 100.0
-				screen_dat = sum_dat + (_time.time_screen / _time.time_tot) * 100.0
+				screen_dat = kernel_dat + (_time.time_screen / _time.time_tot) * 100.0
 				screen = sns.barplot(screen_dat, order, ax=ax1, orient='h',
-										label='screen',color=sns.xkcd_rgb['salmon'])
-				summation = sns.barplot(sum_dat,order,ax=ax1,orient='h',
-										label='summation',color=sns.xkcd_rgb['windows blue'])
+										label='screen',color=sns.xkcd_rgb['windows blue'])
 				kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',
 										label='kernel',color=sns.xkcd_rgb['amber'])
 				# set x- and y-limits
@@ -694,9 +691,9 @@ class ResCls():
 				ax1.set_yticklabels(y_labels)
 				# set legend
 				handles,labels = ax1.get_legend_handles_labels()
-				handles = [handles[2], handles[1], handles[0]]
-				labels = [labels[2], labels[1], labels[0]]
-				ax1.legend(handles, labels, ncol=3, loc=9,
+				handles = [handles[1], handles[0]]
+				labels = [labels[1], labels[0]]
+				ax1.legend(handles, labels, ncol=2, loc=9,
 							fancybox=True, frameon=True)
 				# invert plot
 				ax1.invert_yaxis()
