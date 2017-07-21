@@ -199,15 +199,6 @@ class KernCls():
 				_prt.kernel_status(1.0)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_exp, _time)
-				# sum of energy increments
-				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
-				# sum of total energy
-				if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
-				# add to total energy list
-				_exp.energy_tot.append(e_tmp)
-				# check for convergence wrt total energy
-				if ((_exp.order >= 2) and (abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _calc.energy_thres)):
-					_exp.conv_energy.append(True)
 				# collect work time
 				_time.timer('work_kernel', _exp.order, True)
 				#

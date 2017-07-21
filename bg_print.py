@@ -113,30 +113,30 @@ class PrintCls():
 	
 	
 		def kernel_end(self, _calc, _exp):
-				""" print end of energy summation """
+				""" print end of kernel """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						if (_exp.conv_energy[-1]):
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, threshold = {2:<5.2e})'.\
+							print(' STATUS-MACRO: order = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
 									format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 							print(' STATUS-MACRO:                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+							print(' STATUS-MACRO: order = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
 									format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 							print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				if (_exp.conv_energy[-1]):
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, threshold = {2:<5.2e})'.\
+					print(' STATUS-MACRO: order = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
 							format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 					print(' STATUS-MACRO:                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-MACRO: order = {0:>d} summation done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+					print(' STATUS-MACRO: order = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
 							format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
 					print(' --------------------------------------------------------------------------------------------')
 				#

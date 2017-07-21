@@ -71,21 +71,10 @@ class RstCls():
 				# write e_inc
 				np.save(join(self.rst_dir, 'e_inc_' + str(_exp.order)),
 						_exp.energy_inc[_exp.order - 1])
-				# write timings
-				self.write_time(_mpi, _time, 'kernel')
-				#
-				return
-		
-		
-		def write_summation(self, _mpi, _exp, _time):
-				""" write energy summation restart files """
-				# write e_inc and e_tot
-				np.save(join(self.rst_dir, 'e_inc_' + str(_exp.order)),
-						_exp.energy_inc[_exp.order - 1])
 				np.save(join(self.rst_dir, 'e_tot_' + str(_exp.order)),
 						np.asarray(_exp.energy_tot[_exp.order - 1]))
 				# write timings
-				self.write_time(_mpi, _time, 'summation')
+				self.write_time(_mpi, _time, 'kernel')
 				#
 				return
 		
@@ -117,10 +106,8 @@ class RstCls():
 				# set phase index
 				if (_phase == 'kernel'):
 					idx = 0
-				elif (_phase == 'summation'):
-					idx = 1
 				elif (_phase == 'screen'):
-					idx = 2
+					idx = 1
 				# write timings
 				if (_mpi.parallel):
 					np.save(join(self.rst_dir, 'time_work_' + str(_phase)),
@@ -191,40 +178,23 @@ class RstCls():
 								_time.time_idle[0] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
 								_time.timings['idle_kernel'] = deepcopy(_time.time_idle[0][0])
-						elif ('summation' in files[i]):
+						elif ('screen' in files[i]):
 							if ('work' in files[i]):
 								if (_mpi.parallel):
 									_time.time_work[1] = np.load(join(self.rst_dir,
 																		files[i])).tolist()
-									_time.timings['work_summation'] = deepcopy(_time.time_work[1][0])
-								else:
-									_time.timings['work_summation'] = np.load(join(self.rst_dir,
-																			files[i])).tolist()
-							elif ('comm' in files[i]):
-								_time.time_comm[1] = np.load(join(self.rst_dir,
-																	files[i])).tolist()
-								_time.timings['comm_summation'] = deepcopy(_time.time_comm[1][0])
-							elif ('idle' in files[i]):
-								_time.time_idle[1] = np.load(join(self.rst_dir,
-																	files[i])).tolist()
-								_time.timings['idle_summation'] = deepcopy(_time.time_idle[1][0])
-						elif ('screen' in files[i]):
-							if ('work' in files[i]):
-								if (_mpi.parallel):
-									_time.time_work[2] = np.load(join(self.rst_dir,
-																		files[i])).tolist()
-									_time.timings['work_screen'] = deepcopy(_time.time_work[2][0])
+									_time.timings['work_screen'] = deepcopy(_time.time_work[1][0])
 								else:
 									_time.timings['work_screen'] = np.load(join(self.rst_dir,
 																			files[i])).tolist()
 							elif ('comm' in files[i]):
-								_time.time_comm[2] = np.load(join(self.rst_dir,
+								_time.time_comm[1] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								_time.timings['comm_screen'] = deepcopy(_time.time_comm[2][0])
+								_time.timings['comm_screen'] = deepcopy(_time.time_comm[1][0])
 							elif ('idle' in files[i]):
-								_time.time_idle[2] = np.load(join(self.rst_dir,
+								_time.time_idle[1] = np.load(join(self.rst_dir,
 																	files[i])).tolist()
-								_time.timings['idle_screen'] = deepcopy(_time.time_idle[2][0])
+								_time.timings['idle_screen'] = deepcopy(_time.time_idle[1][0])
 				# set start order for expansion
 				_calc.exp_min_order = len(_exp.tuples)
 				#

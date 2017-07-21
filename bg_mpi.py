@@ -155,10 +155,8 @@ class MPICls():
 					for i in range(1,self.size):
 						time_info = {'kernel': [_time.time_work[0][i],
 									_time.time_comm[0][i],_time.time_idle[0][i]],\
-									'summation': [_time.time_work[1][i],
-									_time.time_comm[1][i],_time.time_idle[1][i]],\
-									'screen': [_time.time_work[2][i],
-									_time.time_comm[2][i],_time.time_idle[2][i]]}
+									'screen': [_time.time_work[1][i],
+									_time.time_comm[1][i],_time.time_idle[1][i]]}
 						self.comm.send(time_info, dest=i)
 				else:
 					# receive exp_info
@@ -185,9 +183,6 @@ class MPICls():
 					_time.time_work_kernel = time_info['kernel'][0]
 					_time.time_comm_kernel = time_info['kernel'][1]
 					_time.time_idle_kernel = time_info['kernel'][2]
-					_time.time_work_summation = time_info['summation'][0]
-					_time.time_comm_summation = time_info['summation'][1]
-					_time.time_idle_summation = time_info['summation'][2]
 					_time.time_work_screen = time_info['screen'][0]
 					_time.time_comm_screen = time_info['screen'][1]
 					_time.time_idle_screen = time_info['screen'][2]
@@ -207,26 +202,6 @@ class MPICls():
 				self.comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
 				# start work time
 				_time.timer('work_kernel', _exp.order)
-				#
-				return
-
-	
-		def allred_e_inc(self, _exp, _time):
-				""" allreduce e_inc[-1] """
-				# start idle time
-				_time.timer('idle_summation', _exp.order)
-				# barrier
-				self.comm.Barrier()
-				# start comm time
-				_time.timer('comm_summation', _exp.order)
-				# init receive buffer
-				recv_buff = np.zeros(len(_exp.energy_inc[-1]), dtype=np.float64)
-				# now do Allreduce
-				self.comm.Allreduce([_exp.energy_inc[-1],MPI.DOUBLE], [recv_buff,MPI.DOUBLE], op=MPI.SUM)
-				# start work time
-				_time.timer('work_summation', _exp.order)
-				# finally, overwrite e_inc[-1]
-				_exp.energy_inc[-1] = recv_buff
 				#
 				return
 

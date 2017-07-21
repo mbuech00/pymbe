@@ -74,8 +74,8 @@ class ResCls():
 				self.orb_dist(_calc, _exp)
 				# total orbital contributions
 				self.orb_con_tot(_exp)
-				# plot timings
-				self.time_res(_mpi, _exp, _time)
+#				# plot timings
+#				self.time_res(_mpi, _exp, _time)
 				#
 				return
 
@@ -145,7 +145,6 @@ class ResCls():
 						for i in range(len(_exp.energy_tot)):
 							# sum up total time and number of tuples
 							total_time = np.sum(_time.time_kernel[:i+1])\
-											+np.sum(_time.time_summation[:i+1])\
 											+np.sum(_time.time_screen[:i+1])
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.6e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
@@ -175,13 +174,12 @@ class ResCls():
 						print(('{0:6}{1:8}{2:3}{3:1}{4:5}{5:32}{6:3}{7:1}'
 							'{8:3}{9:35}{10:3}{11:1}{12:3}{13:}').\
 								format('','BG order','','|','','time: kernel (HHH : MM : SS / %)',\
-									'','|','','time: summation (HHH : MM : SS / %)',\
-									'','|','','time: screen (HHH : MM : SS / %)'))
+									'','|','','time: screen (HHH : MM : SS / %)',\
+									'','|','','time: total (HHH : MM : SS / %)'))
 						print(self.divider_str)
 						for i in range(len(_exp.energy_tot)):
 							# set shorthand notation
 							time_k = _time.time_kernel[i]
-							time_f = _time.time_summation[i]
 							time_s = _time.time_screen[i]
 							time_t = _time.time_tot[i]
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:11}{5:03d}{6:^3}{7:02d}{8:^3}'
@@ -192,18 +190,17 @@ class ResCls():
 										int((time_k-(time_k//3600)*3600.)//60),':',\
 										int(time_k-(time_k//3600)*3600.\
 										-((time_k-(time_k//3600)*3600.)//60)*60.),'/',(time_k/time_t)*100.0,\
-										'','|','',int(time_f//3600),':',\
-										int((time_f-(time_f//3600)*3600.)//60),':',\
-										int(time_f-(time_f//3600)*3600.\
-										-((time_f-(time_f//3600)*3600.)//60)*60.),'/',(time_f/time_t)*100.0,\
-										'','|','',int(time_s//3600),':',int((time_s-(time_s//3600)*3600.)//60),':',\
+										'','|','',int(time_s//3600),':',\
+										int((time_s-(time_s//3600)*3600.)//60),':',\
 										int(time_s-(time_s//3600)*3600.\
-										-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0))
+										-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0,\
+										'','|','',int(time_t//3600),':',int((time_t-(time_t//3600)*3600.)//60),':',\
+										int(time_t-(time_t//3600)*3600.\
+										-((time_t-(time_t//3600)*3600.)//60)*60.),'/',100.0))
 						print(self.divider_str)
 						print(self.divider_str)
 						# set shorthand notation
 						time_k = _time.time_kernel[-1]
-						time_f = _time.time_summation[-1]
 						time_s = _time.time_screen[-1]
 						time_t = _time.time_tot[-1]
 						print(('{0:8}{1:5}{2:4}{3:1}{4:11}{5:03d}{6:^3}{7:02d}{8:^3}'
@@ -213,12 +210,12 @@ class ResCls():
 								format('','total','','|','',int(time_k//3600),':',\
 									int((time_k-(time_k//3600)*3600.)//60),':',int(time_k-(time_k//3600)*3600.\
 									-((time_k-(time_k//3600)*3600.)//60)*60.),'/',(time_k/time_t)*100.0,\
-									'','|','',int(time_f//3600),':',int((time_f-(time_f//3600)*3600.)//60),':',\
-									int(time_f-(time_f//3600)*3600.\
-									-((time_f-(time_f//3600)*3600.)//60)*60.),'/',(time_f/time_t)*100.0,\
 									'','|','',int(time_s//3600),':',int((time_s-(time_s//3600)*3600.)//60),':',\
 									int(time_s-(time_s//3600)*3600.\
-									-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0))
+									-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0,\
+									'','|','',int(time_t//3600),':',int((time_t-(time_t//3600)*3600.)//60),':',\
+									int(time_t-(time_t//3600)*3600.\
+									-((time_t-(time_t//3600)*3600.)//60)*60.),'/',100.0))
 						if (not _mpi.parallel):
 							print(self.divider_str+'\n\n')
 						else:
@@ -238,8 +235,8 @@ class ResCls():
 						print(('{0:6}{1:13}{2:3}{3:1}{4:1}{5:35}{6:1}{7:1}'
 								'{8:1}{9:38}{10:1}{11:1}{12:1}{13:}').\
 								format('','mpi processor','','|','','time: kernel (work/comm/idle, in %)',\
-									'','|','','time: summation (work/comm/idle, in %)',\
-									'','|','','time: screen (work/comm/idle, in %)'))
+									'','|','','time: screen (work/comm/idle, in %)',\
+									'','|','','time: total (work/comm/idle, in %)'))
 						print(self.divider_str)
 						print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
 								'{8:>6.2f}{9:^3}{10:>6.2f}{11:7}{12:1}{13:7}{14:>6.2f}'
@@ -247,8 +244,8 @@ class ResCls():
 								'{22:>6.2f}{23:^3}{24:>6.2f}{25:^3}{26:>6.2f}').\
 									format('','master','--',0,'|','',_time.dist_kernel[0][0],'/',\
 										_time.dist_kernel[1][0],'/',_time.dist_kernel[2][0],\
-										'','|','',_time.dist_summation[0][0],'/',\
-										_time.dist_summation[1][0],'/',_time.dist_summation[2][0],\
+										'','|','',_time.dist_screen[0][0],'/',\
+										_time.dist_screen[1][0],'/',_time.dist_screen[2][0],\
 										'','|','',_time.dist_screen[0][0],'/',\
 										_time.dist_screen[1][0],'/',_time.dist_screen[2][0]))
 						print(self.divider_str)
@@ -259,8 +256,8 @@ class ResCls():
 									'{22:>6.2f}{23:^3}{24:>6.2f}{25:^3}{26:>6.2f}').\
 										format('','slave ','--',i,'|','',_time.dist_kernel[0][i],'/',\
 											_time.dist_kernel[1][i],'/',_time.dist_kernel[2][i],\
-											'','|','',_time.dist_summation[0][i],'/',\
-											_time.dist_summation[1][i],'/',_time.dist_summation[2][i],\
+											'','|','',_time.dist_screen[0][i],'/',\
+											_time.dist_screen[1][i],'/',_time.dist_screen[2][i],\
 											'','|','',_time.dist_screen[0][i],'/',\
 											_time.dist_screen[1][i],'/',_time.dist_screen[2][i]))
 						#
@@ -274,9 +271,9 @@ class ResCls():
 										np.mean(_time.dist_kernel[0][1:]),'/',\
 										np.mean(_time.dist_kernel[1][1:]),'/',\
 										np.mean(_time.dist_kernel[2][1:]),\
-										'','|','',np.mean(_time.dist_summation[0][1:]),'/',\
-										np.mean(_time.dist_summation[1][1:]),'/',\
-										np.mean(_time.dist_summation[2][1:]),\
+										'','|','',np.mean(_time.dist_screen[0][1:]),'/',\
+										np.mean(_time.dist_screen[1][1:]),'/',\
+										np.mean(_time.dist_screen[2][1:]),\
 										'','|','',np.mean(_time.dist_screen[0][1:]),'/',\
 										np.mean(_time.dist_screen[1][1:]),'/',\
 										np.mean(_time.dist_screen[2][1:])))
@@ -288,9 +285,9 @@ class ResCls():
 										np.std(_time.dist_kernel[0][1:],ddof=1),'/',\
 										np.std(_time.dist_kernel[1][1:],ddof=1),'/',\
 										np.std(_time.dist_kernel[2][1:],ddof=1),\
-										'','|','',np.std(_time.dist_summation[0][1:],ddof=1),'/',\
-										np.std(_time.dist_summation[1][1:],ddof=1),'/',\
-										np.std(_time.dist_summation[2][1:],ddof=1),\
+										'','|','',np.std(_time.dist_screen[0][1:],ddof=1),'/',\
+										np.std(_time.dist_screen[1][1:],ddof=1),'/',\
+										np.std(_time.dist_screen[2][1:],ddof=1),\
 										'','|','',np.std(_time.dist_screen[0][1:],ddof=1),'/',\
 										np.std(_time.dist_screen[1][1:],ddof=1),'/',\
 										np.std(_time.dist_screen[2][1:],ddof=1)))

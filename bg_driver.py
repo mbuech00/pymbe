@@ -43,9 +43,9 @@ class DrvCls():
 					# kernel calculations
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					# print kernel end
-					_prt.kernel_end(_exp)
+					_prt.kernel_end(_calc, _exp)
 					# print results
-					_prt.kernel_results(_calc, _exp)
+					_prt.kernel_results(_exp)
 					#
 					#** screening phase **#
 					#
