@@ -75,7 +75,7 @@ class KernCls():
 						# collect work time
 						_time.timer('work_kernel', _exp.order, True)
 						# write restart files
-						if (((i+1) % _rst.rst_freq) == 0): _rst.write_kernel(_mpi, _exp, _time)
+						if (((i+1) % _rst.rst_freq) == 0): _rst.write_kernel(_mpi, _exp, _time, False)
 				# sum of energy increments
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
@@ -186,7 +186,7 @@ class KernCls():
 							_time.time_work[0][0][-1] = _time.timings['work_kernel'][-1]
 							_time.time_comm[0][0][-1] = _time.timings['comm_kernel'][-1]
 							_time.time_idle[0][0][-1] = _time.timings['idle_kernel'][-1]
-							_rst.write_kernel(_mpi, _exp, _time)
+							_rst.write_kernel(_mpi, _exp, _time, False)
 						# increment stat counter
 						counter += 1
 						# print status

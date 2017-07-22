@@ -44,6 +44,8 @@ class DrvCls():
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					# print kernel end
 					_prt.kernel_end(_calc, _exp)
+					# write restart files
+					_rst.write_kernel(_mpi, _exp, _time, True)
 					# print results
 					_prt.kernel_results(_exp)
 					#
