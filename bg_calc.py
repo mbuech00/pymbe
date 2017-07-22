@@ -24,23 +24,20 @@ class CalcCls():
 				self.exp_model = 'CCSD'
 				self.exp_type = 'occupied'
 				self.exp_base = 'HF'
-				self.exp_thres = 1.0e-06
-				self.exp_damp = 1.0
+				self.exp_thres = 10.0
 				self.exp_max_order = 5
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
-				self.energy_thres = 3.8e-04
+				self.energy_thres = 3.8e-05
 				self.tolerance = 0.0
 				# set calculation parameters
 				if (_mpi.master):
-					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, self.exp_damp,\
+					self.exp_model, self.exp_type, self.exp_base, self.exp_thres,\
 						self.exp_max_order, self.exp_occ, self.exp_virt,\
 						self.energy_thres, self.tolerance = self.set_calc(_rst)
 					# sanity check
 					self.sanity_chk(_rst)
 				if (_mpi.parallel): _mpi.bcast_calc_info(self)
-				# set exp_thres_init
-				self.exp_thres_init = self.exp_thres
 				#
 				return
 
@@ -60,8 +57,6 @@ class CalcCls():
 								self.exp_base = content[i].split()[2].upper()
 							elif (content[i].split()[0] == 'exp_thres'):
 								self.exp_thres = float(content[i].split()[2])
-							elif (content[i].split()[0] == 'exp_damp'):
-								self.exp_damp = float(content[i].split()[2])
 							elif (content[i].split()[0] == 'exp_max_order'):
 								self.exp_max_order = int(content[i].split()[2])
 							elif (content[i].split()[0] == 'exp_occ'):
@@ -84,7 +79,7 @@ class CalcCls():
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
 				#
-				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, self.exp_damp, \
+				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres,\
 							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, self.tolerance
 
 
@@ -111,13 +106,10 @@ class CalcCls():
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
 										'expansion order (must be integer >= 1)')
-					# expansion thresholds
+					# expansion and energy thresholds
 					if (self.exp_thres < 0.0):
 						raise ValueError('wrong input -- expansion threshold ' + \
 										'(exp_thres) must be float >= 0.0')
-					if (self.exp_damp < 1.0):
-						raise ValueError('wrong input -- expansion dampening ' + \
-										'(exp_damp) must be float >= 1.0')
 					if (self.energy_thres < 0.0):
 						raise ValueError('wrong input -- energy threshold ' + \
 										'(energy_thres) must be float >= 0.0')

@@ -16,7 +16,6 @@ import numpy as np
 from mpi4py import MPI
 
 from bg_kernel import KernCls
-from bg_sum import SumCls
 from bg_ent import EntCls
 from bg_screen import ScrCls
 
@@ -25,9 +24,8 @@ class DrvCls():
 		""" driver class """
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
-				# make kernel, summation, entanglement, and screening instances
+				# make kernel, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
-				self.summation = SumCls()
 				self.entanglement = EntCls()
 				self.screening = ScrCls(_exp)
 				# print expansion header
@@ -45,20 +43,11 @@ class DrvCls():
 					# kernel calculations
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					# print kernel end
-					_prt.kernel_end(_exp)
-					#
-					#** energy summation phase **#
-					#
-					# print summation header
-					_prt.summation_header(_exp)
-					# energy summation
-					self.summation.main(_mpi, _calc, _exp, _time, _rst)
+					_prt.kernel_end(_calc, _exp)
 					# write restart files
-					_rst.write_summation(_mpi, _exp, _time)
-					# print summation end
-					_prt.summation_end(_calc, _exp)
+					_rst.write_kernel(_mpi, _exp, _time, True)
 					# print results
-					_prt.summation_results(_exp)
+					_prt.kernel_results(_exp)
 					#
 					#** screening phase **#
 					#
@@ -74,15 +63,15 @@ class DrvCls():
 						if (not _exp.conv_orb[-1]):
 							_rst.write_screen(_mpi, _exp, _time)
 						# print screen results
-						_prt.screen_results(_calc, _exp)
+						_prt.screen_results(_exp)
 						# print screen end
 						_prt.screen_end(_exp)
 					else:
 						# print screen end
 						_prt.screen_end(_exp)
 						break
-					# update threshold and restart frequency
-					_rst.update(_calc, _exp.order)
+					# update restart frequency
+					_rst.rst_freq = _rst.update()
 					#
 					#** convergence check **#
 					#
@@ -93,9 +82,8 @@ class DrvCls():
 	
 		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _rst):
 				""" main slave routine """
-				# make kernel, summation, entanglement, and screening instances
+				# make kernel, entanglement, and screening instances
 				self.kernel = KernCls(_exp)
-				self.summation = SumCls()
 				self.entanglement = EntCls()
 				self.screening = ScrCls(_exp)
 				# set loop/waiting logical
@@ -112,13 +100,6 @@ class DrvCls():
 						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time)
 						_time.coll_kernel_time(_mpi, None, _exp.order)
 					#
-					#** energy summation phase **#
-					#
-					elif (msg['task'] == 'sum_par'):
-						_exp.order = msg['order']
-						self.summation.sum_par(_mpi, _calc, _exp, _time)
-						_time.coll_summation_time(_mpi, None, _exp.order)
-					#
 					#** screening phase **#
 					#
 					elif (msg['task'] == 'ent_abs_par'):
@@ -127,9 +108,9 @@ class DrvCls():
 						_time.coll_screen_time(_mpi, None, _exp.order, msg['conv_energy'])
 					elif (msg['task'] == 'screen_slave'):
 						_exp.order = msg['order']
+						_exp.thres = msg['thres']
 						self.screening.slave(_mpi, _calc, _exp, _time)
 						_time.coll_screen_time(_mpi, None, _exp.order, True)
-						_rst.update(_calc, _exp.order)
 					#
 					#** exit **#
 					#

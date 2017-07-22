@@ -26,6 +26,20 @@ class KernCls():
 				return
 
 
+		def summation(self, _exp, _idx):
+				""" energy summation """
+				for i in range(_exp.order-1, 0, -1):
+					# test if tuple is a subset
+					combs = _exp.tuples[-1][_idx, _exp.comb_index(_exp.order, i)]
+					dt = np.dtype((np.void, _exp.tuples[i-1].dtype.itemsize * \
+									_exp.tuples[i-1].shape[1]))
+					match = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
+										combs.view(dt).reshape(-1)))[0]
+					for j in match: _exp.energy_inc[-1][_idx] -= _exp.energy_inc[i-1][j]
+				#
+				return
+
+
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" energy kernel phase """
 				# mpi parallel version
@@ -54,12 +68,23 @@ class KernCls():
 													'PySCF error : {4:}\n\n'.\
 													format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
 								raise
+						# sum up energy increment
+						self.summation(_exp, i)
 						# print status
 						_prt.kernel_status(float(i+1) / float(len(_exp.tuples[-1])))
 						# collect work time
 						_time.timer('work_kernel', _exp.order, True)
 						# write restart files
-						if (((i+1) % _rst.rst_freq) == 0): _rst.write_kernel(_mpi, _exp, _time)
+						if (((i+1) % _rst.rst_freq) == 0): _rst.write_kernel(_mpi, _exp, _time, False)
+				# sum of energy increments
+				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
+				# sum of total energy
+				if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
+				# add to total energy list
+				_exp.energy_tot.append(e_tmp)
+				# check for convergence wrt total energy
+				if ((_exp.order >= 2) and (abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _calc.energy_thres)):
+					_exp.conv_energy.append(True)
 				#
 				return
 		
@@ -161,7 +186,7 @@ class KernCls():
 							_time.time_work[0][0][-1] = _time.timings['work_kernel'][-1]
 							_time.time_comm[0][0][-1] = _time.timings['comm_kernel'][-1]
 							_time.time_idle[0][0][-1] = _time.timings['idle_kernel'][-1]
-							_rst.write_kernel(_mpi, _exp, _time)
+							_rst.write_kernel(_mpi, _exp, _time, False)
 						# increment stat counter
 						counter += 1
 						# print status
@@ -172,6 +197,8 @@ class KernCls():
 						slaves_avail -= 1
 				# print 100.0 %
 				_prt.kernel_status(1.0)
+				# bcast e_inc[-1]
+				_mpi.bcast_e_inc(_exp, _time)
 				# collect work time
 				_time.timer('work_kernel', _exp.order, True)
 				#
@@ -210,6 +237,8 @@ class KernCls():
 						# run correlated calc
 						try:
 							_exp.energy_inc[-1][job_info['index']] = _pyscf.corr_calc(_mol, _calc, _exp)
+							# sum up energy increment
+							self.summation(_exp, job_info['index'])
 						except Exception as err:
 							data['error'] = True
 							data['host'] = _mpi.host
@@ -243,8 +272,10 @@ class KernCls():
 				_time.timer('comm_kernel', _exp.order)
 				# send exit signal to master
 				_mpi.comm.send(None, dest=0, tag=self.tags.exit)
+				# bcast e_inc[-1]
+				_mpi.bcast_e_inc(_exp, _time)
 				# collect comm time
-				_time.timer('comm_kernel', _exp.order, True)
+				_time.timer('work_kernel', _exp.order, True)
 				#
 				return
 

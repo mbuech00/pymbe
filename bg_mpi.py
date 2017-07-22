@@ -95,7 +95,6 @@ class MPICls():
 					self.comm.bcast(_calc.exp_type, root=0)
 					self.comm.bcast(_calc.exp_base, root=0)
 					self.comm.bcast(_calc.exp_thres, root=0)
-					self.comm.bcast(_calc.exp_damp, root=0)
 					self.comm.bcast(_calc.exp_max_order, root=0)
 					self.comm.bcast(_calc.exp_occ, root=0)
 					self.comm.bcast(_calc.exp_virt, root=0)
@@ -106,7 +105,6 @@ class MPICls():
 					_calc.exp_type = self.comm.bcast(None, root=0)
 					_calc.exp_base = self.comm.bcast(None, root=0)
 					_calc.exp_thres = self.comm.bcast(None, root=0)
-					_calc.exp_damp = self.comm.bcast(None, root=0)
 					_calc.exp_max_order = self.comm.bcast(None, root=0)
 					_calc.exp_occ = self.comm.bcast(None, root=0)
 					_calc.exp_virt = self.comm.bcast(None, root=0)
@@ -157,10 +155,8 @@ class MPICls():
 					for i in range(1,self.size):
 						time_info = {'kernel': [_time.time_work[0][i],
 									_time.time_comm[0][i],_time.time_idle[0][i]],\
-									'summation': [_time.time_work[1][i],
-									_time.time_comm[1][i],_time.time_idle[1][i]],\
-									'screen': [_time.time_work[2][i],
-									_time.time_comm[2][i],_time.time_idle[2][i]]}
+									'screen': [_time.time_work[1][i],
+									_time.time_comm[1][i],_time.time_idle[1][i]]}
 						self.comm.send(time_info, dest=i)
 				else:
 					# receive exp_info
@@ -187,9 +183,6 @@ class MPICls():
 					_time.time_work_kernel = time_info['kernel'][0]
 					_time.time_comm_kernel = time_info['kernel'][1]
 					_time.time_idle_kernel = time_info['kernel'][2]
-					_time.time_work_summation = time_info['summation'][0]
-					_time.time_comm_summation = time_info['summation'][1]
-					_time.time_idle_summation = time_info['summation'][2]
 					_time.time_work_screen = time_info['screen'][0]
 					_time.time_comm_screen = time_info['screen'][1]
 					_time.time_idle_screen = time_info['screen'][2]
@@ -200,35 +193,15 @@ class MPICls():
 		def bcast_e_inc(self, _exp, _time):
 				""" bcast e_inc[-1] """
 				# start idle time
-				_time.timer('idle_summation', _exp.order)
+				_time.timer('idle_kernel', _exp.order)
 				# barrier
 				self.comm.Barrier()
 				# start comm time
-				_time.timer('comm_summation', _exp.order)
+				_time.timer('comm_kernel', _exp.order)
 				# now do Bcast
 				self.comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
 				# start work time
-				_time.timer('work_summation', _exp.order)
-				#
-				return
-
-	
-		def allred_e_inc(self, _exp, _time):
-				""" allreduce e_inc[-1] """
-				# start idle time
-				_time.timer('idle_summation', _exp.order)
-				# barrier
-				self.comm.Barrier()
-				# start comm time
-				_time.timer('comm_summation', _exp.order)
-				# init receive buffer
-				recv_buff = np.zeros(len(_exp.energy_inc[-1]), dtype=np.float64)
-				# now do Allreduce
-				self.comm.Allreduce([_exp.energy_inc[-1],MPI.DOUBLE], [recv_buff,MPI.DOUBLE], op=MPI.SUM)
-				# start work time
-				_time.timer('work_summation', _exp.order)
-				# finally, overwrite e_inc[-1]
-				_exp.energy_inc[-1] = recv_buff
+				_time.timer('work_kernel', _exp.order)
 				#
 				return
 

@@ -15,7 +15,10 @@ __status__ = 'Development'
 import numpy as np
 import scipy as sp
 from functools import reduce
-from pyscf import gto, scf, ao2mo, mp, ci, cc, fci
+try:
+	from pyscf import gto, scf, ao2mo, mp, ci, cc, fci
+except ImportError:
+	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
 
 class PySCFCls():
@@ -24,7 +27,7 @@ class PySCFCls():
 				""" underlying hf calculation """
 				# perform hf calc
 				hf = scf.RHF(_mol)
-				hf.conv_tol = 1.0e-10
+				hf.conv_tol = 1.0e-12
 				hf.kernel()
 				# determine dimensions
 				norb = hf.mo_coeff.shape[1]
@@ -49,6 +52,7 @@ class PySCFCls():
 				elif (_calc.exp_base == 'CCSD'):
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_mol.hf)
+					ccsd.conv_tol = 1.0e-10
 					ccsd.frozen = _mol.ncore
 					e_ref = ccsd.kernel()[0]
 				# integrals
@@ -117,8 +121,9 @@ class PySCFCls():
 					else:
 						solver_cas = fci.direct_spin1.FCI()
 				# settings
-				solver_cas.conv_tol = 1.0e-09
+				solver_cas.conv_tol = 1.0e-10
 				solver_cas.max_memory = _mol.max_memory
+				solver_cas.max_cycle = 100
 				# cas calculation
 				e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx),
 											_mol.nelectron - 2 * len(_exp.core_idx))[0]
@@ -127,8 +132,6 @@ class PySCFCls():
 					e_corr = (e_cas + _exp.e_core) - _mol.e_hf
 				else:
 					solver_base = ModelSolver(_calc.exp_base)
-					solver_base.conv_tol = 1.0e-09
-					solver_base.max_memory = _mol.max_memory
 					# base calculation
 					e_base = solver_base.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx),
 												_mol.nelectron - 2 * len(_exp.core_idx))[0]
@@ -155,6 +158,7 @@ class ModelSolver():
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _nelec
 				cas_hf = scf.RHF(cas_mol)
+				cas_hf.conv_tol = 1.0e-12
 				cas_hf._eri = ao2mo.restore(8, _h2e, _norb)
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.get_ovlp = lambda *args: np.eye(_norb)
@@ -164,8 +168,22 @@ class ModelSolver():
 					e_corr = self.model.kernel()[0]
 				elif (self.model_type == 'CCSD'):
 					self.model = cc.CCSD(cas_hf)
+					self.model.conv_tol = 1.0e-10
+					self.model.diis_space = 12
+					self.model.max_cycle = 100
 					self.eris = self.model.ao2mo()
-					e_corr = self.model.kernel(eris=self.eris)[0]
+					try:
+						e_corr = self.model.kernel(eris=self.eris)[0]
+					except Exception as err:
+						try:
+							self.model.diis_start_cycle = 2
+							e_corr = self.model.kernel(eris=self.eris)[0]
+						except Exception as err:
+							try:
+								raise RuntimeError
+							except RuntimeError:
+								sys.stderr.write('\nCASCCSD Error\n\n')
+								raise
 				e_tot = cas_hf.e_tot + e_corr
 				#
 				return e_tot, None

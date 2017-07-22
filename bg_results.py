@@ -24,7 +24,10 @@ rcParams['font.sans-serif'] = ['DejaVu Sans']
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid.inset_locator import inset_axes
-import seaborn as sns
+try:
+	import seaborn as sns
+except ImportError:
+	sys.stderr.write('\nImportError : seaborn module not found\n\n')
 
 
 class ResCls():
@@ -64,7 +67,7 @@ class ResCls():
 				# total energies
 				self.abs_energy(_mol, _calc, _exp)
 				# number of calculations
-				self.n_tuples(_calc, _exp)
+				self.n_tuples(_mol, _calc, _exp)
 				# orbital entanglement matrices
 				self.orb_ent_all(_exp)
 				self.orb_ent(_exp)
@@ -94,24 +97,24 @@ class ResCls():
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
 						print(('{0:12}{1:9}{2:7}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:9}{9:17}{10:2}{11:1}'
-							'{12:2}{13:<4s}{14:^3}{15:<4s}{16:2}{17:1}{18:7}{19:16}{20:7}{21:1}{22:2}{23:}').\
+							'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:16}{18:7}{19:1}{20:2}{21:}').\
 								format('','basis set','','=','',_mol.basis,\
-									'','|','','exp. base / model','','=','',_calc.exp_base,'/',_calc.exp_model,\
+									'','|','','exp. model','','=','',_calc.exp_model,\
 									'','|','','mpi parallel run','','=','',_mpi.parallel))
 						print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:9}{10:10}{11:1}'
 							'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:}').\
 								format('','frozen core','','=','',str(_mol.frozen),\
-									'','|','','exp. type','','=','',_calc.exp_type,\
+									'','|','','exp. base','','=','',_calc.exp_base,\
 									'','|','','number of mpi masters','','=','',1))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:14}{12:5}'
-							'{13:1}{14:2}{15:<5.2e}{16:5}{17:1}{18:7}{19:20}{20:3}{21:1}{22:2}{23:}').\
+							'{13:1}{14:2}{15:<8s}{16:5}{17:1}{18:7}{19:20}{20:3}{21:1}{22:2}{23:}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
-									'','|','','exp. threshold','','=','',_calc.exp_thres_init,\
+									'','|','','exp. type','','=','',_calc.exp_type,\
 									'','|','','number of mpi slaves','','=','',_mpi.size-1))
 						print(('{0:12}{1:13}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:14}{10:5}{11:1}{12:2}'
 							'{13:<6.2f}{14:7}{15:1}{16:7}{17:18}{18:5}{19:1}{20:1}{21:>13.6e}').\
 								format('','occ. orbitals','','=','',_calc.exp_occ,\
-									'','|','','exp. dampening','','=','',_calc.exp_damp,\
+									'','|','','exp. threshold','','=','',_calc.exp_thres,\
 									'','|','','final corr. energy','','=','',_exp.energy_tot[-1] + _mol.e_ref))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:16}{10:3}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:17}{18:6}{19:1}{20:1}{21:>13.6e}').\
@@ -145,7 +148,6 @@ class ResCls():
 						for i in range(len(_exp.energy_tot)):
 							# sum up total time and number of tuples
 							total_time = np.sum(_time.time_kernel[:i+1])\
-											+np.sum(_time.time_summation[:i+1])\
 											+np.sum(_time.time_screen[:i+1])
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.6e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
@@ -173,52 +175,50 @@ class ResCls():
 						print(self.header_str+'\n')
 						print(self.divider_str)
 						print(('{0:6}{1:8}{2:3}{3:1}{4:5}{5:32}{6:3}{7:1}'
-							'{8:3}{9:35}{10:3}{11:1}{12:3}{13:}').\
+							'{8:4}{9:32}{10:5}{11:1}{12:4}{13:}').\
 								format('','BG order','','|','','time: kernel (HHH : MM : SS / %)',\
-									'','|','','time: summation (HHH : MM : SS / %)',\
-									'','|','','time: screen (HHH : MM : SS / %)'))
+									'','|','','time: screen (HHH : MM : SS / %)',\
+									'','|','','time: total (HHH : MM : SS / %)'))
 						print(self.divider_str)
 						for i in range(len(_exp.energy_tot)):
 							# set shorthand notation
 							time_k = _time.time_kernel[i]
-							time_f = _time.time_summation[i]
 							time_s = _time.time_screen[i]
 							time_t = _time.time_tot[i]
-							print(('{0:7}{1:>4d}{2:6}{3:1}{4:11}{5:03d}{6:^3}{7:02d}{8:^3}'
-								'{9:02d}{10:^3}{11:>6.2f}{12:7}{13:1}{14:10}{15:03d}{16:^3}'
+							print(('{0:7}{1:>4d}{2:6}{3:1}{4:10}{5:03d}{6:^3}{7:02d}{8:^3}'
+								'{9:02d}{10:^3}{11:>6.2f}{12:8}{13:1}{14:10}{15:03d}{16:^3}'
 								'{17:02d}{18:^3}{19:02d}{20:^3}{21:>6.2f}{22:9}{23:1}{24:9}'
 								'{25:03d}{26:^3}{27:02d}{28:^3}{29:02d}{30:^3}{31:>6.2f}').\
 									format('',i+1,'','|','',int(time_k//3600),':',\
 										int((time_k-(time_k//3600)*3600.)//60),':',\
 										int(time_k-(time_k//3600)*3600.\
 										-((time_k-(time_k//3600)*3600.)//60)*60.),'/',(time_k/time_t)*100.0,\
-										'','|','',int(time_f//3600),':',\
-										int((time_f-(time_f//3600)*3600.)//60),':',\
-										int(time_f-(time_f//3600)*3600.\
-										-((time_f-(time_f//3600)*3600.)//60)*60.),'/',(time_f/time_t)*100.0,\
-										'','|','',int(time_s//3600),':',int((time_s-(time_s//3600)*3600.)//60),':',\
+										'','|','',int(time_s//3600),':',\
+										int((time_s-(time_s//3600)*3600.)//60),':',\
 										int(time_s-(time_s//3600)*3600.\
-										-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0))
+										-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0,\
+										'','|','',int(time_t//3600),':',int((time_t-(time_t//3600)*3600.)//60),':',\
+										int(time_t-(time_t//3600)*3600.\
+										-((time_t-(time_t//3600)*3600.)//60)*60.),'/',100.0))
 						print(self.divider_str)
 						print(self.divider_str)
 						# set shorthand notation
 						time_k = _time.time_kernel[-1]
-						time_f = _time.time_summation[-1]
 						time_s = _time.time_screen[-1]
 						time_t = _time.time_tot[-1]
-						print(('{0:8}{1:5}{2:4}{3:1}{4:11}{5:03d}{6:^3}{7:02d}{8:^3}'
-							'{9:02d}{10:^3}{11:>6.2f}{12:7}{13:1}{14:10}{15:03d}{16:^3}'
+						print(('{0:8}{1:5}{2:4}{3:1}{4:10}{5:03d}{6:^3}{7:02d}{8:^3}'
+							'{9:02d}{10:^3}{11:>6.2f}{12:8}{13:1}{14:10}{15:03d}{16:^3}'
 							'{17:02d}{18:^3}{19:02d}{20:^3}{21:>6.2f}{22:9}{23:1}{24:9}'
 							'{25:03d}{26:^3}{27:02d}{28:^3}{29:02d}{30:^3}{31:>6.2f}').\
 								format('','total','','|','',int(time_k//3600),':',\
 									int((time_k-(time_k//3600)*3600.)//60),':',int(time_k-(time_k//3600)*3600.\
 									-((time_k-(time_k//3600)*3600.)//60)*60.),'/',(time_k/time_t)*100.0,\
-									'','|','',int(time_f//3600),':',int((time_f-(time_f//3600)*3600.)//60),':',\
-									int(time_f-(time_f//3600)*3600.\
-									-((time_f-(time_f//3600)*3600.)//60)*60.),'/',(time_f/time_t)*100.0,\
 									'','|','',int(time_s//3600),':',int((time_s-(time_s//3600)*3600.)//60),':',\
 									int(time_s-(time_s//3600)*3600.\
-									-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0))
+									-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0,\
+									'','|','',int(time_t//3600),':',int((time_t-(time_t//3600)*3600.)//60),':',\
+									int(time_t-(time_t//3600)*3600.\
+									-((time_t-(time_t//3600)*3600.)//60)*60.),'/',100.0))
 						if (not _mpi.parallel):
 							print(self.divider_str+'\n\n')
 						else:
@@ -236,64 +236,64 @@ class ResCls():
 						print(self.header_str+'\n')
 						print(self.divider_str)
 						print(('{0:6}{1:13}{2:3}{3:1}{4:1}{5:35}{6:1}{7:1}'
-								'{8:1}{9:38}{10:1}{11:1}{12:1}{13:}').\
+								'{8:2}{9:36}{10:1}{11:1}{12:2}{13:}').\
 								format('','mpi processor','','|','','time: kernel (work/comm/idle, in %)',\
-									'','|','','time: summation (work/comm/idle, in %)',\
-									'','|','','time: screen (work/comm/idle, in %)'))
+									'','|','','time: screen (work/comm/idle, in %)',\
+									'','|','','time: total (work/comm/idle, in %)'))
 						print(self.divider_str)
 						print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
 								'{8:>6.2f}{9:^3}{10:>6.2f}{11:7}{12:1}{13:7}{14:>6.2f}'
-								'{15:^3}{16:>6.2f}{17:^3}{18:>6.2f}{19:9}{20:1}{21:6}'
+								'{15:^3}{16:>6.2f}{17:^3}{18:>6.2f}{19:8}{20:1}{21:7}'
 								'{22:>6.2f}{23:^3}{24:>6.2f}{25:^3}{26:>6.2f}').\
 									format('','master','--',0,'|','',_time.dist_kernel[0][0],'/',\
 										_time.dist_kernel[1][0],'/',_time.dist_kernel[2][0],\
-										'','|','',_time.dist_summation[0][0],'/',\
-										_time.dist_summation[1][0],'/',_time.dist_summation[2][0],\
 										'','|','',_time.dist_screen[0][0],'/',\
-										_time.dist_screen[1][0],'/',_time.dist_screen[2][0]))
+										_time.dist_screen[1][0],'/',_time.dist_screen[2][0],\
+										'','|','',_time.dist_total[0][0],'/',\
+										_time.dist_total[1][0],'/',_time.dist_total[2][0]))
 						print(self.divider_str)
 						for i in range(1,_mpi.size):
 							print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
 									'{8:>6.2f}{9:^3}{10:>6.2f}{11:7}{12:1}{13:7}{14:>6.2f}'
-									'{15:^3}{16:>6.2f}{17:^3}{18:>6.2f}{19:9}{20:1}{21:6}'
+									'{15:^3}{16:>6.2f}{17:^3}{18:>6.2f}{19:8}{20:1}{21:7}'
 									'{22:>6.2f}{23:^3}{24:>6.2f}{25:^3}{26:>6.2f}').\
 										format('','slave ','--',i,'|','',_time.dist_kernel[0][i],'/',\
 											_time.dist_kernel[1][i],'/',_time.dist_kernel[2][i],\
-											'','|','',_time.dist_summation[0][i],'/',\
-											_time.dist_summation[1][i],'/',_time.dist_summation[2][i],\
 											'','|','',_time.dist_screen[0][i],'/',\
-											_time.dist_screen[1][i],'/',_time.dist_screen[2][i]))
+											_time.dist_screen[1][i],'/',_time.dist_screen[2][i],\
+											'','|','',_time.dist_total[0][i],'/',\
+											_time.dist_total[1][i],'/',_time.dist_total[2][i]))
 						#
 						print(self.divider_str)
 						print(self.divider_str)
 						#
 						print(('{0:4}{1:14}{2:4}{3:1}{4:6}{5:>6.2f}{6:^3}{7:>6.2f}{8:^3}'
 								'{9:>6.2f}{10:7}{11:1}{12:7}{13:>6.2f}{14:^3}{15:>6.2f}{16:^3}{17:>6.2f}'
-								'{18:9}{19:1}{20:6}{21:>6.2f}{22:^3}{23:>6.2f}{24:^3}{25:>6.2f}').\
+								'{18:8}{19:1}{20:7}{21:>6.2f}{22:^3}{23:>6.2f}{24:^3}{25:>6.2f}').\
 									format('','mean  : slaves','','|','',\
 										np.mean(_time.dist_kernel[0][1:]),'/',\
 										np.mean(_time.dist_kernel[1][1:]),'/',\
 										np.mean(_time.dist_kernel[2][1:]),\
-										'','|','',np.mean(_time.dist_summation[0][1:]),'/',\
-										np.mean(_time.dist_summation[1][1:]),'/',\
-										np.mean(_time.dist_summation[2][1:]),\
 										'','|','',np.mean(_time.dist_screen[0][1:]),'/',\
 										np.mean(_time.dist_screen[1][1:]),'/',\
-										np.mean(_time.dist_screen[2][1:])))
+										np.mean(_time.dist_screen[2][1:]),\
+										'','|','',np.mean(_time.dist_total[0][1:]),'/',\
+										np.mean(_time.dist_total[1][1:]),'/',\
+										np.mean(_time.dist_total[2][1:])))
 						#
 						print(('{0:4}{1:14}{2:4}{3:1}{4:6}{5:>6.2f}{6:^3}{7:>6.2f}{8:^3}'
 								'{9:>6.2f}{10:7}{11:1}{12:7}{13:>6.2f}{14:^3}{15:>6.2f}{16:^3}{17:>6.2f}'
-								'{18:9}{19:1}{20:6}{21:>6.2f}{22:^3}{23:>6.2f}{24:^3}{25:>6.2f}').\
+								'{18:8}{19:1}{20:7}{21:>6.2f}{22:^3}{23:>6.2f}{24:^3}{25:>6.2f}').\
 									format('','stdev : slaves','','|','',\
 										np.std(_time.dist_kernel[0][1:],ddof=1),'/',\
 										np.std(_time.dist_kernel[1][1:],ddof=1),'/',\
 										np.std(_time.dist_kernel[2][1:],ddof=1),\
-										'','|','',np.std(_time.dist_summation[0][1:],ddof=1),'/',\
-										np.std(_time.dist_summation[1][1:],ddof=1),'/',\
-										np.std(_time.dist_summation[2][1:],ddof=1),\
 										'','|','',np.std(_time.dist_screen[0][1:],ddof=1),'/',\
 										np.std(_time.dist_screen[1][1:],ddof=1),'/',\
-										np.std(_time.dist_screen[2][1:],ddof=1)))
+										np.std(_time.dist_screen[2][1:],ddof=1),\
+										'','|','',np.std(_time.dist_total[0][1:],ddof=1),'/',\
+										np.std(_time.dist_total[1][1:],ddof=1),'/',\
+										np.std(_time.dist_total[2][1:],ddof=1)))
 						#
 						print(self.divider_str+'\n')
 				#
@@ -350,7 +350,7 @@ class ResCls():
 				return
 
 
-		def n_tuples(self, _calc, _exp):
+		def n_tuples(self, _mol, _calc, _exp):
 				""" plot number of tuples """
 				# set seaborn
 				sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
@@ -376,7 +376,10 @@ class ResCls():
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set x- and y-limits
-				ax.set_xlim([-0.5,_calc.exp_max_order - 0.5])
+				if (_calc.exp_type == 'occupied'):
+					ax.set_xlim([-0.5,(_mol.nocc - _mol.ncore) - 0.5])
+				else:
+					ax.set_xlim([-0.5,_mol.nvirt - 0.5])
 				ax.set_ylim(bottom=0.7)
 				# set x-ticks
 				if (_calc.exp_max_order < 8):
@@ -549,10 +552,13 @@ class ResCls():
 											sharex=False, sharey=False)
 				# set title
 				fig.suptitle('Distribution of energy contributions')
-				# save threshold
-				thres = _calc.exp_thres_init
 				# set lists and plot results
 				for i in range(len(_exp.energy_inc)):
+					# update thres
+					if (i <= 1):
+						thres = 0.0
+					else:
+						thres = 1.0e-10 * _calc.exp_thres ** (i - 2)
 					if (len(_exp.energy_inc[i]) != 1):
 						# sort energy increments
 						e_inc_sort = np.sort(_exp.energy_inc[i])
@@ -578,8 +584,6 @@ class ResCls():
 						# plot threshold span
 						axes.flat[i].axvspan(0.0 - thres,0.0 + thres,
 												color=sns.xkcd_rgb['amber'],alpha=0.5)
-						# update thres
-						thres = _calc.exp_thres_init * _calc.exp_damp ** (i + 1)
 						# change to second y-axis
 						ax2 = axes.flat[i].twinx()
 						# plot counts
@@ -678,12 +682,9 @@ class ResCls():
 				ax1.set_title('Phase timings')
 				# set result arrays and plot results
 				kernel_dat = (_time.time_kernel / _time.time_tot) * 100.0
-				sum_dat = kernel_dat + (_time.time_summation / _time.time_tot) * 100.0
-				screen_dat = sum_dat + (_time.time_screen / _time.time_tot) * 100.0
+				screen_dat = kernel_dat + (_time.time_screen / _time.time_tot) * 100.0
 				screen = sns.barplot(screen_dat, order, ax=ax1, orient='h',
-										label='screen',color=sns.xkcd_rgb['salmon'])
-				summation = sns.barplot(sum_dat,order,ax=ax1,orient='h',
-										label='summation',color=sns.xkcd_rgb['windows blue'])
+										label='screen',color=sns.xkcd_rgb['windows blue'])
 				kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',
 										label='kernel',color=sns.xkcd_rgb['amber'])
 				# set x- and y-limits
@@ -693,9 +694,9 @@ class ResCls():
 				ax1.set_yticklabels(y_labels)
 				# set legend
 				handles,labels = ax1.get_legend_handles_labels()
-				handles = [handles[2], handles[1], handles[0]]
-				labels = [labels[2], labels[1], labels[0]]
-				ax1.legend(handles, labels, ncol=3, loc=9,
+				handles = [handles[1], handles[0]]
+				labels = [labels[1], labels[0]]
+				ax1.legend(handles, labels, ncol=2, loc=9,
 							fancybox=True, frameon=True)
 				# invert plot
 				ax1.invert_yaxis()

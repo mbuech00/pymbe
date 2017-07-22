@@ -24,10 +24,18 @@ class ScrCls():
 				self.tags = _exp.enum('ready', 'done', 'exit', 'start') 
 				#
 				return
-		
+
+	
+		def update(self, _calc, _exp):
+				""" update expansion threshold according to start order """
+				return 1.0e-10 * _calc.exp_thres ** (_exp.order - 1)
+
 		
 		def main(self, _mpi, _calc, _exp, _time, _rst):
 				""" input generation for subsequent order """
+				# update expansion threshold
+				_exp.thres = self.update(_calc, _exp)
+				# start screening
 				if (_mpi.parallel):
 					# mpi parallel version
 					self.master(_mpi, _calc, _exp, _time)
@@ -37,32 +45,29 @@ class ScrCls():
 					_time.timer('work_screen', _exp.order)
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
+					# determine which increments have contributions below the threshold
+					if (_exp.order == 1):
+						_exp.allow_tuples = _exp.tuples[-1]
+					else:
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 			        # loop over parent tuples
-					for i in range(len(_exp.tuples[-1])):
+					for i in range(len(_exp.allow_tuples)):
 						# generate list with all subsets of particular tuple
-						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1))
+						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.tuples[-1][i][-1]+1, _exp.l_limit+_exp.u_limit):
+						for m in range(_exp.allow_tuples[i][-1]+1, _exp.l_limit+_exp.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
 							for j in range(len(combs)):
-								# check whether or not the particular tuple is actually allowed
-								if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
+								# check whether or not the particular tuple is allowed
+								if (not np.equal(combs[j]+[m],_exp.allow_tuples).all(axis=1).any()):
 									# screen away
 									screen = True
 									break
-							if (not screen):
-				                # loop over subset combinations
-								for j in range(len(combs)):
-									# check whether the particular tuple among negligible tuples
-									if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
-										# screen away
-										screen = True
-										break
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if (not screen):
-								tmp.append(_exp.tuples[-1][i].tolist()+[m])
+								tmp.append(_exp.allow_tuples[i].tolist()+[m])
 							else:
 								_exp.screen_count[-1] += 1
 					# when done, write to tup list or mark expansion as converged
@@ -81,7 +86,7 @@ class ScrCls():
 				# start idle time
 				_time.timer('idle_screen', _exp.order)
 				# wake up slaves
-				msg = {'task': 'screen_slave', 'order': _exp.order}
+				msg = {'task': 'screen_slave', 'order': _exp.order, 'thres': _exp.thres}
 				# bcast
 				_mpi.comm.bcast(msg, root=0)
 				# start work time
@@ -94,6 +99,11 @@ class ScrCls():
 				slaves_avail = num_slaves
 				# init job index, tmp list, and screen_count
 				i = 0; tmp = []; _exp.screen_count.append(0)
+				# determine which increments have contributions below the threshold
+				if (_exp.order == 1):
+					_exp.allow_tuples = _exp.tuples[-1]
+				else:
+					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# start idle time
@@ -108,7 +118,7 @@ class ScrCls():
 					# slave is ready
 					if (tag == self.tags.ready):
 						# any jobs left?
-						if (i <= len(_exp.tuples[-1])-1):
+						if (i <= len(_exp.allow_tuples)-1):
 							# start comm time
 							_time.timer('comm_screen', _exp.order)
 							# save parent tuple index
@@ -167,34 +177,31 @@ class ScrCls():
 					_time.timer('work_screen', _exp.order)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
+					# determine which increments have contributions below the threshold
+					if (_exp.order == 1):
+						_exp.allow_tuples = _exp.tuples[-1]
+					else:
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 					# do job
 					if (tag == self.tags.start):
 						# init child tuple list and screen counter
 						data['child_tuple'][:] = []; data['screen_count'] = 0
 						# generate list with all subsets of particular tuple
-						combs = list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1))
+						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.tuples[-1][job_info['index']][-1]+1, _exp.l_limit+_exp.u_limit):
+						for m in range(_exp.allow_tuples[job_info['index']][-1]+1, _exp.l_limit+_exp.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
 							for j in range(len(combs)):
-								# check whether or not the particular tuple is actually allowed
-								if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
+								# check whether or not the particular tuple is allowed
+								if (not np.equal(combs[j]+[m],_exp.allow_tuples).all(axis=1).any()):
 									# screen away
 									screen = True
 									break
-							if (not screen):
-			                    # loop over subset combinations
-								for j in range(len(combs)):
-									# check whether the particular tuple among negligible tuples
-									if (not np.equal(combs[j]+[m],_exp.tuples[-1]).all(axis=1).any()):
-										# screen away
-										screen = True
-										break
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if (not screen):
-								data['child_tuple'].append(_exp.tuples[-1][job_info['index']].tolist()+[m])
+								data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
 							else:
 								data['screen_count'] += 1
 						# start comm time
