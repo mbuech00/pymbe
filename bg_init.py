@@ -66,12 +66,13 @@ class InitCls():
 				self.time = TimeCls(self.mpi, self.rst)
 				# expansion instance
 				if (self.calc.exp_type in ['occupied','virtual']):
-					self.exp_prim = ExpCls(self.mpi, self.mol, self.calc, self.rst, self.calc.exp_type)
-					self.exp_sec = None
-				else:
-					self.exp_prim = ExpCls(self.mpi, self.mol, self.calc, self.rst, 'occupied')
-					self.exp_sec = ExpCls(self.mpi, self.mol, self.calc, self.rst, 'virtual')
-				self.rst.rst_main(self.mpi, self.calc, self.exp_prim, self.time)
+					self.exp = ExpCls(self.mpi, self.mol, self.calc, self.rst, self.calc.exp_type)
+				elif (self.calc.exp_type == 'combined'):
+					self.exp = ExpCls(self.mpi, self.mol, self.calc, self.rst, 'occupied')
+				# mark expansion is primary
+				self.exp.prim = True
+				# restart
+				self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
 				# driver instance
 				self.driver = DrvCls()
 				# print and result instances

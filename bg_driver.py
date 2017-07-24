@@ -17,6 +17,7 @@ from mpi4py import MPI
 
 from bg_kernel import KernCls
 from bg_screen import ScrCls
+from bg_exp import ExpCls
 
 
 class DrvCls():
@@ -29,9 +30,8 @@ class DrvCls():
 				return
 
 
-		def master(self, _mpi, _mol, _calc, _pyscf, _exp_prim, _exp_sec, _time, _prt, _rst):
+		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
-				_exp = _exp_prim
 				# print expansion header
 				_prt.exp_header()
 				# now do expansion
@@ -82,9 +82,8 @@ class DrvCls():
 				return
 	
 	
-		def slave(self, _mpi, _mol, _calc, _pyscf, _exp_prim, _exp_sec, _time, _rst):
+		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _rst):
 				""" main slave routine """
-				_exp = _exp_prim
 				# set loop/waiting logical
 				slave = True
 				# enter slave state
