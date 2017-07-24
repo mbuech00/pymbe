@@ -19,10 +19,10 @@ from scipy.misc import comb, factorial
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, _mpi, _mol, _calc, _rst):
+		def __init__(self, _mpi, _mol, _calc, _rst, _type):
 				""" init parameters """
 				# set params and lists for occ expansion
-				if (_calc.exp_type == 'occupied'):
+				if (_type == 'occupied'):
 					# set lower and upper limits
 					self.l_limit = 0
 					self.u_limit = _mol.nocc
@@ -31,7 +31,7 @@ class ExpCls():
 															dtype=np.int32))
 					self.incl_idx = list(range(_mol.nocc, _mol.norb))
 				# set params and lists for virt expansion
-				elif (_calc.exp_type == 'virtual'):
+				elif (_type == 'virtual'):
 					# set lower and upper limits
 					self.l_limit = _mol.nocc
 					self.u_limit = _mol.nvirt
@@ -42,7 +42,7 @@ class ExpCls():
 				# set frozen_idx
 				self.frozen_idx = list(range(_mol.ncore))
 				# update incl_idx
-				if (_calc.exp_type == 'virtual'):
+				if (_type == 'virtual'):
 					self.incl_idx = sorted(list(set(self.incl_idx) - set(self.frozen_idx))) 
 				# init energy_inc
 				if (_rst.restart):
@@ -53,7 +53,7 @@ class ExpCls():
 				# set max_order (in calc class)
 				if ((_calc.exp_max_order == 0) or (_calc.exp_max_order > self.u_limit)):
 					_calc.exp_max_order = self.u_limit
-					if ((_calc.exp_type == 'occupied') and _mol.frozen):
+					if ((_type == 'occupied') and _mol.frozen):
 						_calc.exp_max_order -= _mol.ncore
 				# determine max theoretical work
 				self.theo_work = []
