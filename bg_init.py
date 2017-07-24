@@ -70,7 +70,7 @@ class InitCls():
 				elif (self.calc.exp_type == 'combined'):
 					self.exp = ExpCls(self.mpi, self.mol, self.calc, self.rst, 'occupied')
 				# mark expansion is primary
-				self.exp.prim = True
+				self.exp.prim = True; self.exp.prim_tup = []
 				# restart
 				self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
 				# driver instance

@@ -118,7 +118,10 @@ class TimeCls():
 		def calc_time(self, _mpi, _calc, _exp):
 				""" calculate mpi timings """
 				# check for exp_max_order
-				if (_exp.order == _calc.exp_max_order):
+				if (_exp.conv_energy[-1] or (_exp.order == _calc.exp_max_order)):
+					self.timings['work_screen'].append(0.0)
+					self.timings['comm_screen'].append(0.0)
+					self.timings['idle_screen'].append(0.0)
 					for i in range(_mpi.size):
 						self.time_work[1][i].append(0.0)
 						self.time_comm[1][i].append(0.0)

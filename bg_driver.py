@@ -71,7 +71,6 @@ class DrvCls():
 					else:
 						# print screen end
 						_prt.screen_end(_exp)
-						break
 					# update restart frequency
 					_rst.rst_freq = _rst.update()
 					#
