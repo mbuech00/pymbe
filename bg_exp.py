@@ -18,7 +18,7 @@ from scipy.misc import factorial
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, _mpi, _mol, _calc, _rst, _type):
+		def __init__(self, _mpi, _mol, _calc, _type):
 				""" init parameters """
 				# set params and lists for occ expansion
 				if (_type == 'occupied'):
@@ -44,11 +44,7 @@ class ExpCls():
 				if (_type == 'virtual'):
 					self.incl_idx = sorted(list(set(self.incl_idx) - set(self.frozen_idx))) 
 				# init energy_inc
-				if (_rst.restart):
-					self.energy_inc = []
-				else:
-					self.energy_inc = []; self.energy_inc.append(np.zeros(len(self.tuples[0]),
-																	dtype=np.float64))
+				self.energy_inc = []
 				# set max_order (in calc class)
 				if ((_calc.exp_max_order == 0) or (_calc.exp_max_order > self.u_limit)):
 					_calc.exp_max_order = self.u_limit

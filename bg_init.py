@@ -38,7 +38,10 @@ class InitCls():
 				# output instance
 				self.out = OutCls(self.mpi)
 				# restart instance
-				self.rst = RstCls(self.out, self.mpi)
+				if (self.mpi.master):
+					self.rst = RstCls(self.out, self.mpi)
+				else:
+					self.rst = None
 				# molecule and calculation instances
 				self.mol = MolCls(self.mpi, self.rst)
 				self.calc = CalcCls(self.mpi, self.rst)
@@ -63,20 +66,20 @@ class InitCls():
 				# bcast to slaves
 				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
 				# time instance
-				self.time = TimeCls(self.mpi, self.rst)
-				# expansion instance
-				if (self.calc.exp_type in ['occupied','virtual']):
-					self.exp = ExpCls(self.mpi, self.mol, self.calc, self.rst, self.calc.exp_type)
-				elif (self.calc.exp_type == 'combined'):
-					self.exp = ExpCls(self.mpi, self.mol, self.calc, self.rst, 'occupied')
-				# mark expansion is primary
-				self.exp.prim = True; self.exp.prim_tup = []
-				# restart
-				self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
+				self.time = TimeCls(self.mpi)
 				# driver instance
 				self.driver = DrvCls()
-				# print and result instances
+				# expansion instance
 				if (self.mpi.master):
+					if (self.calc.exp_type in ['occupied','virtual']):
+						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
+					elif (self.calc.exp_type == 'combined'):
+						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
+					# mark expansion is primary
+					self.exp.prim = True; self.exp.prim_tup = []
+					# restart
+					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
+					# print and result instances
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.out)
 				#

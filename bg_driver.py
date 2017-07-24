@@ -81,7 +81,7 @@ class DrvCls():
 				return
 	
 	
-		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _rst):
+		def slave(self, _mpi, _mol, _calc, _pyscf, _time):
 				""" main slave routine """
 				# set loop/waiting logical
 				slave = True
@@ -90,20 +90,28 @@ class DrvCls():
 					# task id
 					msg = _mpi.comm.bcast(None, root=0)
 					#
+					#** exp class invocation **#
+					#
+					if (msg['task'] == 'exp_cls'):
+						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
+						# receive rst data
+						if (msg['rst']):
+							_mpi.bcast_rst(_calc, exp, _time)
+					#
 					#** energy kernel phase **#
 					#
 					if (msg['task'] == 'kernel_slave'):
-						_exp.order = msg['order']
-						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time)
-						_time.coll_phase_time(_mpi, None, _exp.order, 'kernel')
+						exp.order = msg['order']
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp, _time)
+						_time.coll_phase_time(_mpi, None, exp.order, 'kernel')
 					#
 					#** screening phase **#
 					#
 					elif (msg['task'] == 'screen_slave'):
-						_exp.order = msg['order']
-						_exp.thres = msg['thres']
-						self.screening.slave(_mpi, _calc, _exp, _time)
-						_time.coll_phase_time(_mpi, None, _exp.order, 'screen')
+						exp.order = msg['order']
+						exp.thres = msg['thres']
+						self.screening.slave(_mpi, _calc, exp, _time)
+						_time.coll_phase_time(_mpi, None, exp.order, 'screen')
 					#
 					#** exit **#
 					#

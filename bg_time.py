@@ -18,31 +18,19 @@ from mpi4py import MPI
 
 class TimeCls():
 		""" time class """
-		def __init__(self, _mpi, _rst):
+		def __init__(self, _mpi):
 				""" init mpi timings """
 				# init tmp time and time label
 				self.store_time = 0.0; self.store_key = ''
 				# init timings dict
 				self.timings = {}
 				# mpi distribution
-				if (_rst.restart):
-					# 'energy kernel' timings
-					self.timings['work_kernel'] = []
-					self.timings['comm_kernel'] = []
-					self.timings['idle_kernel'] = []
-					# 'screen' timings
-					self.timings['work_screen'] = []
-					self.timings['comm_screen'] = []
-					self.timings['idle_screen'] = []
-				else:
-					# 'energy kernel' timings
-					self.timings['work_kernel'] = [0.0]
-					self.timings['comm_kernel'] = [0.0]
-					self.timings['idle_kernel'] = [0.0]
-					# 'screen' timings
-					self.timings['work_screen'] = [0.0]
-					self.timings['comm_screen'] = [0.0]
-					self.timings['idle_screen'] = [0.0]
+				self.timings['work_kernel'] = [0.0]
+				self.timings['comm_kernel'] = [0.0]
+				self.timings['idle_kernel'] = [0.0]
+				self.timings['work_screen'] = [0.0]
+				self.timings['comm_screen'] = [0.0]
+				self.timings['idle_screen'] = [0.0]
 				# collective lists
 				if (_mpi.parallel and _mpi.master):
 					self.time_work = [[[] for i in range(_mpi.size)] for j in range(2)]
@@ -120,12 +108,13 @@ class TimeCls():
 				# check for exp_max_order
 				if (_exp.conv_energy[-1] or (_exp.order == _calc.exp_max_order)):
 					self.timings['work_screen'].append(0.0)
-					self.timings['comm_screen'].append(0.0)
-					self.timings['idle_screen'].append(0.0)
-					for i in range(_mpi.size):
-						self.time_work[1][i].append(0.0)
-						self.time_comm[1][i].append(0.0)
-						self.time_idle[1][i].append(0.0)
+					if (_mpi.parallel):
+						self.timings['comm_screen'].append(0.0)
+						self.timings['idle_screen'].append(0.0)
+						for i in range(_mpi.size):
+							self.time_work[1][i].append(0.0)
+							self.time_comm[1][i].append(0.0)
+							self.time_idle[1][i].append(0.0)
 				# use master timings to calculate overall phase timings
 				if (not _mpi.parallel):
 					self.time_kernel = np.asarray(self.timings['work_kernel'] + \

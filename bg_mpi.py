@@ -51,18 +51,6 @@ class MPICls():
 				return
 
 
-		def bcast_rst_info(self, _rst):
-				""" bcast rst info """
-				if (self.master):
-					self.comm.bcast(_rst.restart, root=0)
-					self.comm.bcast(_rst.rst_freq, root=0)
-				else:
-					_rst.restart = self.comm.bcast(None, root=0)
-					_rst.rst_freq = self.comm.bcast(None, root=0)
-				#
-				return
-
-
 		def bcast_mol_info(self, _mol):
 				""" bcast mol info """
 				if (self.master):

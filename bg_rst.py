@@ -24,15 +24,13 @@ class RstCls():
 		""" restart class """
 		def __init__(self, _out, _mpi):
 				""" init restart env and parameters """
-				if (_mpi.master):
-					self.rst_dir = _out.wrk_dir+'/rst'
-					self.rst_freq = 50000.0
-					if (not isdir(self.rst_dir)):
-						self.restart = False
-						mkdir(self.rst_dir)
-					else:
-						self.restart = True
-				_mpi.bcast_rst_info(self)
+				self.rst_dir = _out.wrk_dir+'/rst'
+				self.rst_freq = 50000.0
+				if (not isdir(self.rst_dir)):
+					self.restart = False
+					mkdir(self.rst_dir)
+				else:
+					self.restart = True
 				#
 				return
 
@@ -49,13 +47,32 @@ class RstCls():
 				if (not self.restart):
 					# set start order for expansion
 					_calc.exp_min_order = 1
+					# exp class invocation on slaves
+					if (_calc.exp_type == 'occupied'):
+						exp_type = _calc.exp_type
+					else:
+						exp_type = 'virtual'
+					msg = {'task': 'exp_cls', 'type': exp_type, 'prim_tup': [], 'rst': False}
+					# bcast msg
+					_mpi.comm.bcast(msg, root=0)
 				else:
-					# read in restart files
-					if (_mpi.master): self.read_main(_mpi, _calc, _exp, _time)
-					# distribute expansion data to slaves
-					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp, _time)
-					# update restart frequency
-					for _ in range(1, _calc.exp_min_order): self.rst_freq = self.update()
+					if (_mpi.master):
+						# read in restart files
+						self.read_main(_mpi, _calc, _exp, _time)
+						# update restart frequency
+						for _ in range(1, _calc.exp_min_order): self.rst_freq = self.update()
+						# distribute expansion data to slaves
+						if (_mpi.parallel):
+							# exp class invocation on slaves
+							if (_calc.exp_type == 'occupied'):
+								exp_type = _calc.exp_type
+							else:
+								exp_type = 'virtual'
+							msg = {'task': 'exp_cls', 'type': exp_type, 'prim_tup': _exp.prim_tup, 'rst': True}
+							# bcast msg
+							_mpi.comm.bcast(msg, root=0)
+							# bcast rst data
+							_mpi.bcast_rst(_calc, _exp, _time)
 				#
 				return
 		
