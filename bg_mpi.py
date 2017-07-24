@@ -205,22 +205,6 @@ class MPICls():
 				#
 				return
 
-	
-		def red_orb_ent(self, _exp, _time, _send_buff, _recv_buff):
-				""" reduce orb_ent onto master proc. """
-				# start idle time
-				_time.timer('idle_screen', _exp.order)
-				# collect idle time
-				self.comm.Barrier()
-				# start comm time
-				_time.timer('comm_screen', _exp.order)
-				# reduce tmp into recv_buff
-				self.comm.Reduce([_send_buff,MPI.DOUBLE], [_recv_buff,MPI.DOUBLE], op=MPI.SUM, root=0)
-				# collect comm time
-				_time.timer('comm_screen', _exp.order, True)
-				#
-				return
-
 
 		def bcast_tup(self, _exp, _time, _buff):
 				""" master/slave routine for bcasting total number of tuples """

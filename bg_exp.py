@@ -64,9 +64,6 @@ class ExpCls():
 				# init convergence lists
 				self.conv_orb = [False]
 				self.conv_energy = [False]
-				# init orb_ent and orb_con lists
-				self.orb_ent_abs = []; self.orb_ent_rel = []
-				self.orb_con_abs = []; self.orb_con_rel = []
 				# init total energy lists for prim exp
 				self.energy_tot = []
 				#

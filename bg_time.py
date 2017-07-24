@@ -209,31 +209,17 @@ class TimeCls():
 				return
 
 
-		def coll_kernel_time(self, _mpi, _rst, _order):
-				""" collect timings for energy kernel phase """
+		def coll_phase_time(self, _mpi, _rst, _order, _phase):
+				""" collect timings for phase """
 				# start idle time
-				self.timer('idle_kernel', _order)
+				self.timer('idle_'+_phase, _order)
 				# collect idle time
 				_mpi.comm.Barrier()
-				self.timer('idle_kernel', _order, True)
-				self.coll_time(_mpi, 'kernel')
+				self.timer('idle_'+_phase, _order, True)
+				self.coll_time(_mpi, _phase)
 				# write restart files
-				if (_mpi.master): _rst.write_time(_mpi, self, 'kernel')
+				if (_mpi.master): _rst.write_time(_mpi, self, _phase)
 				#
 				return
-
-
-		def coll_screen_time(self, _mpi, _rst, _order, _second_call=False):
-				""" collect timings for screening phase """
-				# start idle time
-				self.timer('idle_screen', _order)
-				# collect idle time
-				_mpi.comm.Barrier()
-				self.timer('idle_screen', _order, True)
-				# first or second call? if second, write restart files
-				if (_second_call): self.coll_time(_mpi, 'screen')
-				if (_second_call and _mpi.master): _rst.write_time(_mpi, self, 'screen')
-				#
-				return 
 
 

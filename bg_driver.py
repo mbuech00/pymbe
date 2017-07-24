@@ -16,7 +16,6 @@ import numpy as np
 from mpi4py import MPI
 
 from bg_kernel import KernCls
-from bg_ent import EntCls
 from bg_screen import ScrCls
 
 
@@ -25,7 +24,6 @@ class DrvCls():
 		def __init__(self):
 				""" init required classes """
 				self.kernel = KernCls()
-				self.entanglement = EntCls()
 				self.screening = ScrCls()
 				#
 				return
@@ -59,8 +57,6 @@ class DrvCls():
 					#
 					# print screen header
 					_prt.screen_header(_exp)
-					# orbital entanglement
-					self.entanglement.main(_mpi, _mol, _calc, _exp, _time, _rst)
 					# orbital screening
 					if ((not _exp.conv_energy[-1]) and (_exp.order < _calc.exp_max_order)):
 						# perform screening
@@ -101,19 +97,15 @@ class DrvCls():
 					if (msg['task'] == 'kernel_slave'):
 						_exp.order = msg['order']
 						self.kernel.slave(_mpi, _mol, _calc, _pyscf, _exp, _time)
-						_time.coll_kernel_time(_mpi, None, _exp.order)
+						_time.coll_phase_time(_mpi, None, _exp.order, 'kernel')
 					#
 					#** screening phase **#
 					#
-					elif (msg['task'] == 'ent_abs_par'):
-						_exp.order = msg['order']
-						self.entanglement.ent_abs_par(_mpi, _exp, _time)
-						_time.coll_screen_time(_mpi, None, _exp.order, msg['conv_energy'])
 					elif (msg['task'] == 'screen_slave'):
 						_exp.order = msg['order']
 						_exp.thres = msg['thres']
 						self.screening.slave(_mpi, _calc, _exp, _time)
-						_time.coll_screen_time(_mpi, None, _exp.order, True)
+						_time.coll_phase_time(_mpi, None, _exp.order, 'screen')
 					#
 					#** exit **#
 					#
