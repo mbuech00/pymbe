@@ -91,7 +91,7 @@ class KernCls():
 						# sum up energy increment
 						self.summation(_exp, i)
 						# print status
-						_prt.kernel_status(float(i+1) / float(len(_exp.tuples[-1])))
+						_prt.kernel_status(_exp, float(i+1) / float(len(_exp.tuples[-1])))
 						# collect work time
 						_time.timer('work_kernel', _exp.order, True)
 						# write restart files
@@ -136,7 +136,7 @@ class KernCls():
 						_time.time_comm[0][j].append(0.0)
 						_time.time_idle[0][j].append(0.0)
 				# print status for START
-				_prt.kernel_status(float(counter) / float(len(_exp.tuples[-1])))
+				_prt.kernel_status(_exp, float(counter) / float(len(_exp.tuples[-1])))
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# start idle time
@@ -211,12 +211,12 @@ class KernCls():
 						counter += 1
 						# print status
 						if (((data['index']+1) % 1000) == 0):
-							_prt.kernel_status(float(counter) / float(len(_exp.tuples[-1])))
+							_prt.kernel_status(_exp, float(counter) / float(len(_exp.tuples[-1])))
 					# put slave to sleep
 					elif (tag == self.tags.exit):
 						slaves_avail -= 1
 				# print 100.0 %
-				_prt.kernel_status(1.0)
+				_prt.kernel_status(_exp, 1.0)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_exp, _time)
 				# collect work time

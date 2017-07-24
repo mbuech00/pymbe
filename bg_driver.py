@@ -33,7 +33,7 @@ class DrvCls():
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
 				# print expansion header
-				_prt.exp_header()
+				_prt.exp_header(_calc, _exp)
 				# now do expansion
 				for _exp.order in range(_calc.exp_min_order,_calc.exp_max_order + 1):
 					#
