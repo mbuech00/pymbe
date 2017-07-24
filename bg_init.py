@@ -75,10 +75,8 @@ class InitCls():
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
 					elif (self.calc.exp_type == 'combined'):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
-					# mark expansion is primary
+					# mark expansion as primary
 					self.exp.prim = True; self.exp.prim_tup = []
-					# restart
-					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
 					# print and result instances
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.out)

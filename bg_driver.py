@@ -32,6 +32,13 @@ class DrvCls():
 
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
+				# exp class invocation on slaves
+				if (_mpi.parallel and (_calc.exp_type in ['occupied','virtual'])):
+					msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'prim_tup': [], 'rst': _rst.restart}
+					# bcast msg
+					_mpi.comm.bcast(msg, root=0)
+				# restart
+				_rst.rst_main(_mpi, _calc, _exp, _time)
 				# print expansion header
 				_prt.exp_header(_calc, _exp)
 				# now do expansion
@@ -95,8 +102,7 @@ class DrvCls():
 					if (msg['task'] == 'exp_cls'):
 						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
 						# receive rst data
-						if (msg['rst']):
-							_mpi.bcast_rst(_calc, exp, _time)
+						if (msg['rst']): _mpi.bcast_rst(_calc, exp, _time)
 					#
 					#** energy kernel phase **#
 					#

@@ -47,32 +47,13 @@ class RstCls():
 				if (not self.restart):
 					# set start order for expansion
 					_calc.exp_min_order = 1
-					# exp class invocation on slaves
-					if (_calc.exp_type == 'occupied'):
-						exp_type = _calc.exp_type
-					else:
-						exp_type = 'virtual'
-					msg = {'task': 'exp_cls', 'type': exp_type, 'prim_tup': [], 'rst': False}
-					# bcast msg
-					_mpi.comm.bcast(msg, root=0)
 				else:
-					if (_mpi.master):
-						# read in restart files
-						self.read_main(_mpi, _calc, _exp, _time)
-						# update restart frequency
-						for _ in range(1, _calc.exp_min_order): self.rst_freq = self.update()
-						# distribute expansion data to slaves
-						if (_mpi.parallel):
-							# exp class invocation on slaves
-							if (_calc.exp_type == 'occupied'):
-								exp_type = _calc.exp_type
-							else:
-								exp_type = 'virtual'
-							msg = {'task': 'exp_cls', 'type': exp_type, 'prim_tup': _exp.prim_tup, 'rst': True}
-							# bcast msg
-							_mpi.comm.bcast(msg, root=0)
-							# bcast rst data
-							_mpi.bcast_rst(_calc, _exp, _time)
+					# read in restart files
+					self.read_main(_mpi, _calc, _exp, _time)
+					# update restart frequency
+					for _ in range(1, _calc.exp_min_order): self.rst_freq = self.update()
+					# bcast rst data
+					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp, _time)
 				#
 				return
 		
