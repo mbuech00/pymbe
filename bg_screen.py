@@ -48,7 +48,7 @@ class ScrCls():
 				if (_mpi.parallel):
 					# mpi parallel version
 					self.master(_mpi, _calc, _exp, _time)
-					_time.coll_screen_time(_mpi, _rst, _exp.order, True)
+					_time.coll_phase_time(_mpi, _rst, _exp.order, 'screen')
 				else:
 					# start time
 					_time.timer('work_screen', _exp.order)

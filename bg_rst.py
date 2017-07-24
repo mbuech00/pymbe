@@ -85,19 +85,8 @@ class RstCls():
 				# write tuples
 				np.save(join(self.rst_dir, 'tup_' + str(_exp.order + 1)),
 						_exp.tuples[_exp.order])
-				# write orb_con_abs and orb_con_rel
-				np.save(join(self.rst_dir, 'orb_con_abs_'+str(_exp.order)),
-						np.asarray(_exp.orb_con_abs[_exp.order - 1]))
-				np.save(join(self.rst_dir, 'orb_con_rel_'+str(_exp.order)),
-						np.asarray(_exp.orb_con_rel[_exp.order - 1]))
 				# write timings
 				self.write_time(_mpi, _time, 'screen')
-				# write orb_ent_abs and orb_ent_rel
-				if (_exp.order >= 2):
-					np.save(join(self.rst_dir, 'orb_ent_abs_' + str(_exp.order)),
-							_exp.orb_ent_abs[_exp.order - 2])
-					np.save(join(self.rst_dir, 'orb_ent_rel_' + str(_exp.order)),
-							_exp.orb_ent_rel[_exp.order - 2])
 				#
 				return
 
@@ -136,22 +125,6 @@ class RstCls():
 					if ('tup' in files[i]):
 						_exp.tuples.append(np.load(join(self.rst_dir,
 											files[i])))
-					# read orbital entanglement matrices
-					elif ('orb_ent' in files[i]):
-						if ('abs' in files[i]):
-							_exp.orb_ent_abs.append(np.load(join(self.rst_dir,
-															files[i])))
-						elif ('rel' in files[i]):
-							_exp.orb_ent_rel.append(np.load(join(self.rst_dir,
-																files[i])))
-					# read orbital contributions
-					elif ('orb_con' in files[i]):
-						if ('abs' in files[i]):
-							_exp.orb_con_abs.append(np.load(join(self.rst_dir,
-															files[i])).tolist())
-						elif ('rel' in files[i]):
-							_exp.orb_con_rel.append(np.load(join(self.rst_dir,
-															files[i])).tolist())
 					# read e_inc
 					elif ('e_inc' in files[i]):
 						_exp.energy_inc.append(np.load(join(self.rst_dir,

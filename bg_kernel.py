@@ -65,7 +65,7 @@ class KernCls():
 				# mpi parallel version
 				if (_mpi.parallel):
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
-					_time.coll_kernel_time(_mpi, _rst, _exp.order)
+					_time.coll_phase_time(_mpi, _rst, _exp.order, 'kernel')
 				else:
 					# determine start index
 					start = np.argmax(_exp.energy_inc[-1] == 0.0)
