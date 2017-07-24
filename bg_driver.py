@@ -22,12 +22,18 @@ from bg_screen import ScrCls
 
 class DrvCls():
 		""" driver class """
-		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
-				""" main driver routine """
-				# make kernel, entanglement, and screening instances
-				self.kernel = KernCls(_exp)
+		def __init__(self):
+				""" init required classes """
+				self.kernel = KernCls()
 				self.entanglement = EntCls()
-				self.screening = ScrCls(_exp)
+				self.screening = ScrCls()
+				#
+				return
+
+
+		def master(self, _mpi, _mol, _calc, _pyscf, _exp_prim, _exp_sec, _time, _prt, _rst):
+				""" main driver routine """
+				_exp = _exp_prim
 				# print expansion header
 				_prt.exp_header()
 				# now do expansion
@@ -80,12 +86,9 @@ class DrvCls():
 				return
 	
 	
-		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _rst):
+		def slave(self, _mpi, _mol, _calc, _pyscf, _exp_prim, _exp_sec, _time, _rst):
 				""" main slave routine """
-				# make kernel, entanglement, and screening instances
-				self.kernel = KernCls(_exp)
-				self.entanglement = EntCls()
-				self.screening = ScrCls(_exp)
+				_exp = _exp_prim
 				# set loop/waiting logical
 				slave = True
 				# enter slave state

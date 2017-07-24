@@ -15,22 +15,42 @@ __status__ = 'Development'
 import numpy as np
 from mpi4py import MPI
 import sys
+from itertools import combinations, chain
+from scipy.misc import comb
 
 
 class KernCls():
 		""" kernel class """
-		def __init__(self, _exp):
+		def __init__(self):
 				""" init tags """
-				self.tags = _exp.enum('ready', 'done', 'data', 'exit', 'start')
+				self.tags = self.enum('ready', 'done', 'data', 'exit', 'start')
 				#
 				return
+
+
+		def enum(self, *sequential, **named):
+				""" hardcoded enums
+				see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+				"""
+				enums = dict(zip(sequential, range(len(sequential))), **named)
+				#
+				return type('Enum', (), enums)
+
+
+		def comb_index(self, _n, _k):
+				""" calculate combined index """
+				count = comb(_n, _k, exact=True)
+				index = np.fromiter(chain.from_iterable(combinations(range(_n), _k)),
+									int,count=count * _k)
+				#
+				return index.reshape(-1, _k)
 
 
 		def summation(self, _exp, _idx):
 				""" energy summation """
 				for i in range(_exp.order-1, 0, -1):
 					# test if tuple is a subset
-					combs = _exp.tuples[-1][_idx, _exp.comb_index(_exp.order, i)]
+					combs = _exp.tuples[-1][_idx, self.comb_index(_exp.order, i)]
 					dt = np.dtype((np.void, _exp.tuples[i-1].dtype.itemsize * \
 									_exp.tuples[i-1].shape[1]))
 					match = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),

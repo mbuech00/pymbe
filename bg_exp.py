@@ -13,8 +13,7 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
-from itertools import combinations, chain
-from scipy.misc import comb, factorial
+from scipy.misc import factorial
 
 
 class ExpCls():
@@ -72,23 +71,5 @@ class ExpCls():
 				self.energy_tot = []
 				#
 				return
-
-
-		def comb_index(self, _n, _k):
-				""" calculate combined index """
-				count = comb(_n, _k, exact=True)
-				index = np.fromiter(chain.from_iterable(combinations(range(_n), _k)),
-									int,count=count * _k)
-				#
-				return index.reshape(-1, _k)
-		
-		
-		def enum(self, *sequential, **named):
-				""" hardcoded enums
-				see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
-				"""
-				enums = dict(zip(sequential, range(len(sequential))), **named)
-				#
-				return type('Enum', (), enums)
 
 

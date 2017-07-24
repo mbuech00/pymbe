@@ -19,11 +19,20 @@ from itertools import combinations
 
 class ScrCls():
 		""" screening class """
-		def __init__(self, _exp):
+		def __init__(self):
 				""" init tags """
-				self.tags = _exp.enum('ready', 'done', 'exit', 'start') 
+				self.tags = self.enum('ready', 'done', 'exit', 'start') 
 				#
 				return
+
+
+		def enum(self, *sequential, **named):
+				""" hardcoded enums
+				see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+				"""
+				enums = dict(zip(sequential, range(len(sequential))), **named)
+				#
+				return type('Enum', (), enums)
 
 	
 		def update(self, _calc, _exp):
