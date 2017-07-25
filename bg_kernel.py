@@ -18,6 +18,10 @@ import sys
 from itertools import combinations, chain
 from scipy.misc import comb
 
+from bg_exp import ExpCls
+from bg_time import TimeCls
+import bg_driver
+
 
 class KernCls():
 		""" kernel class """
@@ -67,27 +71,40 @@ class KernCls():
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					_time.coll_phase_time(_mpi, _rst, _exp.order, 'kernel')
 				else:
+					# secondary driver instantiation
+					if (_calc.exp_type == 'combined'): driver_sec = bg_driver.DrvCls() 
 					# determine start index
 					start = np.argmax(_exp.energy_inc[-1] == 0.0)
 					# loop over tuples
 					for i in range(start,len(_exp.tuples[-1])):
 						# start work time
 						_time.timer('work_kernel', _exp.order)
-						# generate input
-						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
-								_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
 						# run correlated calc
-						try:
-							_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
-						except Exception as err:
+						if (_exp.prim and (_calc.exp_type == 'combined')):
+							# secondary exp and time instantiations
+							exp_sec = ExpCls(_mpi, _mol, _calc, 'virtual')
+							time_sec = TimeCls(_mpi)
+							# mark expansion as secondary
+							exp_sec.prim = False; exp_sec.incl_idx = _exp.tuples[-1][i].tolist()
+							# make recursive call to driver with secondary exp
+							driver_sec.master(_mpi, _mol, _calc, _pyscf, exp_sec, time_sec, _prt, _rst)
+							# store e_inc
+							_exp.energy_inc[-1][i] = exp_sec.energy_tot[-1]
+						else:
+							# generate input
+							_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
+									_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
 							try:
-								raise RuntimeError
-							except RuntimeError:
-								sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
-													'input: core_idx = {2:} , cas_idx = {3:}\n'
-													'PySCF error : {4:}\n\n'.\
-													format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
-								raise
+								_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
+							except Exception as err:
+								try:
+									raise RuntimeError
+								except RuntimeError:
+									sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
+														'input: core_idx = {2:} , cas_idx = {3:}\n'
+														'PySCF error : {4:}\n\n'.\
+														format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
+									raise
 						# sum up energy increment
 						self.summation(_exp, i)
 						# print status

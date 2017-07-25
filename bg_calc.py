@@ -91,9 +91,9 @@ class CalcCls():
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: MP2, CCSD, and FCI')
 					# type of expansion
-					if (not (self.exp_type in ['occupied','virtual'])):
+					if (not (self.exp_type in ['occupied','virtual','combined'])):
 						raise ValueError('wrong input -- valid choices for ' + \
-										'expansion scheme are occupied and virtual')
+										'expansion scheme are occupied, virtual, and combined')
 					# base model
 					if (not (self.exp_base in ['HF','MP2','CCSD'])):
 						raise ValueError('wrong input -- valid base models ' + \

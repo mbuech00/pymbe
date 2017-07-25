@@ -15,7 +15,8 @@ __status__ = 'Development'
 import numpy as np
 from mpi4py import MPI
 
-from bg_kernel import KernCls
+#from bg_kernel import KernCls
+import bg_kernel
 from bg_screen import ScrCls
 from bg_exp import ExpCls
 
@@ -24,7 +25,7 @@ class DrvCls():
 		""" driver class """
 		def __init__(self):
 				""" init required classes """
-				self.kernel = KernCls()
+				self.kernel = bg_kernel.KernCls()
 				self.screening = ScrCls()
 				#
 				return

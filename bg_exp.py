@@ -53,8 +53,12 @@ class ExpCls():
 				# determine max theoretical work
 				self.theo_work = []
 				for k in range(_calc.exp_max_order):
-					self.theo_work.append(int(factorial(self.u_limit) / \
-											(factorial(k+1) * factorial(self.u_limit - (k+1)))))
+					if (_type == 'occupied'):
+						self.theo_work.append(int(factorial(_mol.nocc-_mol.ncore) / \
+												(factorial(k+1) * factorial((_mol.nocc-_mol.ncore) - (k+1)))))
+					else:
+						self.theo_work.append(int(factorial(_mol.nvirt) / \
+												(factorial(k+1) * factorial(_mol.nvirt - (k+1)))))
 				# init screen_count list
 				self.screen_count = []
 				# init convergence lists

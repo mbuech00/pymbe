@@ -76,7 +76,7 @@ class InitCls():
 					elif (self.calc.exp_type == 'combined'):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
 					# mark expansion as primary
-					self.exp.prim = True; self.exp.prim_tup = []
+					self.exp.prim = True
 					# print and result instances
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.out)
