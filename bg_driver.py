@@ -35,7 +35,7 @@ class DrvCls():
 				""" main driver routine """
 				# exp class invocation on slaves
 				if (_mpi.parallel and (_calc.exp_type in ['occupied','virtual'])):
-					msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'prim_tup': [], 'rst': _rst.restart}
+					msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
 					# bcast msg
 					_mpi.comm.bcast(msg, root=0)
 				# restart
@@ -54,12 +54,14 @@ class DrvCls():
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
+					# print micro results
+					_prt.kernel_micro_results(_calc, _exp)
 					# print kernel end
 					_prt.kernel_end(_calc, _exp)
 					# write restart files
 					_rst.write_kernel(_mpi, _exp, _time, True)
-					# print results
-					_prt.kernel_results(_exp)
+					# print macro results
+					_prt.kernel_macro_results(_exp)
 					#
 					#** screening phase **#
 					#

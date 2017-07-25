@@ -73,7 +73,7 @@ class PrintCls():
 
 		def exp_header(self, _calc, _exp):
 				""" print expansion header """
-				if (_exp.prim):
+				if (_exp.level == 'macro'):
 					with open(self.out,'a') as f:
 						with redirect_stdout(f):
 							print('\n\n'+self.header_str)
@@ -89,7 +89,7 @@ class PrintCls():
 		
 		def kernel_header(self, _exp):
 				""" print energy kernel header """
-				if (_exp.prim):
+				if (_exp.level == 'macro'):
 					with open(self.out,'a') as f:
 						with redirect_stdout(f):
 							print(' --------------------------------------------------------------------------------------------')
@@ -107,7 +107,7 @@ class PrintCls():
 		
 		def kernel_status(self, _exp, _prog):
 				""" print status bar """
-				if (_exp.prim):
+				if (_exp.level == 'macro'):
 					bar_length = 50
 					status = ""
 					block = int(round(bar_length * _prog))
@@ -119,7 +119,7 @@ class PrintCls():
 	
 		def kernel_end(self, _calc, _exp):
 				""" print end of kernel """
-				if (_exp.prim):
+				if (_exp.level == 'macro'):
 					with open(self.out,'a') as f:
 						with redirect_stdout(f):
 							if (_exp.conv_energy[-1]):
@@ -147,17 +147,50 @@ class PrintCls():
 						print(' --------------------------------------------------------------------------------------------')
 				#
 				return
+
+
+		def kernel_micro_results(self, _calc, _exp):	
+				""" print micro result statistics """
+				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
+					# statistics
+					mean_val = int(np.mean(_exp.micro_conv_res) + 0.5)
+					min_val = _exp.micro_conv_res[np.argmin(_exp.micro_conv_res)]
+					max_val = _exp.micro_conv_res[np.argmax(_exp.micro_conv_res)]
+					if (len(_exp.micro_conv_res) > 1):
+						std_val = np.std(_exp.micro_conv_res, ddof=1)
+					else:
+						std_val = 0.0
+					# now print
+					with open(self.out,'a') as f:
+						with redirect_stdout(f):
+							print(' --------------------------------------------------------------------------------------------')
+							print(' RESULT-MICRO:     mean order    |      min. order     |      max. order     |    std.dev.   ')
+							print(' --------------------------------------------------------------------------------------------')
+							print(' RESULT-MICRO:   {0:>8d}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
+									format(mean_val, min_val, max_val, std_val))
+							print(' --------------------------------------------------------------------------------------------')
+					# write also to stdout
+					print(' --------------------------------------------------------------------------------------------')
+					print(' --------------------------------------------------------------------------------------------')
+					print(' RESULT-MICRO:     mean order    |      min. order     |      max. order     |    std.dev.   ')
+					print(' --------------------------------------------------------------------------------------------')
+					print(' RESULT-MICRO:   {0:>8d}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
+							format(mean_val, min_val, max_val, std_val))
+					print(' --------------------------------------------------------------------------------------------')
+				#
+				return
+
+
 	
-	
-		def kernel_results(self, _exp):
-				""" print kernel result statistics """
-				if (_exp.prim):
+		def kernel_macro_results(self, _exp):
+				""" print macro result statistics """
+				if (_exp.level == 'macro'):
 					# statistics
 					mean_val = np.mean(_exp.energy_inc[-1])
 					min_val = _exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))]
 					max_val = _exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))]
 					if (len(_exp.energy_inc[-1]) > 1):
-						std_val = np.std(_exp.energy_inc[-1],ddof=1)
+						std_val = np.std(_exp.energy_inc[-1], ddof=1)
 					else:
 						std_val = 0.0
 					# now print
@@ -182,7 +215,7 @@ class PrintCls():
 		
 		def screen_header(self, _exp):
 				""" print screening header """
-				if (_exp.prim):
+				if (_exp.level == 'macro'):
 					with open(self.out,'a') as f:
 						with redirect_stdout(f):
 							print(' --------------------------------------------------------------------------------------------')
@@ -198,7 +231,7 @@ class PrintCls():
 		
 		def screen_results(self, _exp):
 				""" print screening results """
-				if (_exp.prim):
+				if (_exp.level == 'macro'):
 					if (len(_exp.tuples) > _exp.order):
 						screen = (1.0 - (len(_exp.tuples[-1]) / \
 									(len(_exp.tuples[-1]) + _exp.screen_count[-1]))) * 100.0
@@ -221,7 +254,7 @@ class PrintCls():
 		
 		def screen_end(self, _exp):
 				""" print end of screening """
-				if (_exp.prim):
+				if (_exp.level == 'macro'):
 					with open(self.out,'a') as f:
 						with redirect_stdout(f):
 							if (_exp.conv_orb[-1]):

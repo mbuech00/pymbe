@@ -75,8 +75,8 @@ class InitCls():
 					elif (self.calc.exp_type == 'combined'):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
 						self.driver = DrvCls(self.mol, 'occupied')
-					# mark expansion as primary
-					self.exp.prim = True
+					# mark expansion as macro
+					self.exp.level = 'macro'
 					# print and result instantiations
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.mol, self.calc, self.out)

@@ -73,7 +73,9 @@ class KernCls():
 					_time.coll_phase_time(_mpi, _rst, _exp.order, 'kernel')
 				else:
 					# secondary driver instantiation
-					if (_calc.exp_type == 'combined'): driver_sec = bg_driver.DrvCls(_mol, 'virtual') 
+					if (_calc.exp_type == 'combined'):
+						if (_exp.level == 'macro'): driver_sec = bg_driver.DrvCls(_mol, 'virtual') 
+						_exp.micro_conv_res = np.zeros(len(_exp.tuples[-1]), dtype=np.int32)
 					# determine start index
 					start = np.argmax(_exp.energy_inc[-1] == 0.0)
 					# loop over tuples
@@ -81,16 +83,18 @@ class KernCls():
 						# start work time
 						_time.timer('work_kernel', _exp.order)
 						# run correlated calc
-						if (_exp.prim and (_calc.exp_type == 'combined')):
+						if ((_exp.level == 'macro') and (_calc.exp_type == 'combined')):
 							# secondary exp and time instantiations
 							exp_sec = ExpCls(_mpi, _mol, _calc, 'virtual')
 							time_sec = TimeCls(_mpi)
-							# mark expansion as secondary
-							exp_sec.prim = False; exp_sec.incl_idx = _exp.tuples[-1][i].tolist()
+							# mark expansion as micro 
+							exp_sec.level = 'micro'; exp_sec.incl_idx = _exp.tuples[-1][i].tolist()
 							# make recursive call to driver with secondary exp
 							driver_sec.master(_mpi, _mol, _calc, _pyscf, exp_sec, time_sec, _prt, _rst)
 							# store e_inc
 							_exp.energy_inc[-1][i] = exp_sec.energy_tot[-1]
+							# store micro convergence results
+							_exp.micro_conv_res[i] = exp_sec.order
 						else:
 							# generate input
 							_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
