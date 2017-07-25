@@ -33,19 +33,19 @@ class InitCls():
 		""" initialization class """
 		def __init__(self):
 				""" init calculation """
-				# mpi instance
+				# mpi instantiation
 				self.mpi = MPICls()
-				# output instance
+				# output instantiation
 				self.out = OutCls(self.mpi)
-				# restart instance
+				# restart instantiation
 				if (self.mpi.master):
 					self.rst = RstCls(self.out, self.mpi)
 				else:
 					self.rst = None
-				# molecule and calculation instances
+				# molecule and calculation instantiations
 				self.mol = MolCls(self.mpi, self.rst)
 				self.calc = CalcCls(self.mpi, self.rst)
-				# pyscf instance
+				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation and integral transformation
 				if (self.mpi.master):
@@ -65,21 +65,21 @@ class InitCls():
 											format(err))
 				# bcast to slaves
 				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
-				# time instance
+				# time instantiation
 				self.time = TimeCls(self.mpi)
-				# driver instance
-				self.driver = DrvCls()
-				# expansion instance
 				if (self.mpi.master):
+					# expansion and driver instantiations
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
+						self.driver = DrvCls(self.mol, self.calc.exp_type)
 					elif (self.calc.exp_type == 'combined'):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
+						self.driver = DrvCls(self.mol, 'occupied')
 					# mark expansion as primary
 					self.exp.prim = True
-					# print and result instances
+					# print and result instantiations
 					self.prt = PrintCls(self.out)
-					self.res = ResCls(self.out)
+					self.res = ResCls(self.mol, self.calc, self.out)
 				#
 				return
 

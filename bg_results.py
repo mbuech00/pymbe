@@ -32,13 +32,18 @@ except ImportError:
 
 class ResCls():
 		""" result class """
-		def __init__(self, _out):
+		def __init__(self, _mol, _calc, _out):
 				""" init parameters """
 				self.out_dir = _out.out_dir
 				self.output = self.out_dir+'/bg_results.out'
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
 				self.header_str = '{0:^143}'.format('-'*45)
+				# upper limit
+				if (_calc.exp_type in ['occupied','combined']):
+					self.u_limit = _mol.nocc - _mol.ncore
+				else:
+					self.u_limit = _mol.nvirt 
 				#
 				return
 
@@ -304,7 +309,7 @@ class ResCls():
 						np.asarray(_exp.energy_tot) + _mol.e_ref, marker='x', linewidth=2,
 						linestyle='-', label='BG('+_calc.exp_model+')')
 				# set x limits
-				ax.set_xlim([0.5,_calc.exp_max_order + 0.5])
+				ax.set_xlim([0.5, self.u_limit + 0.5])
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set labels
@@ -324,7 +329,7 @@ class ResCls():
 								linewidth=2, linestyle='-')
 					# set x limits
 					plt.setp(insert, xticks=list(range(3,len(_exp.energy_tot)+1)))
-					insert.set_xlim([2.5,len(_exp.energy_tot) + 0.5])
+					insert.set_xlim([2.5, len(_exp.energy_tot)+0.5])
 					# set number of y ticks
 					insert.locator_params(axis='y', nbins=6)
 					# set y limits
@@ -352,16 +357,16 @@ class ResCls():
 				# init prim list
 				prim = []
 				# set prim list
-				for i in range(_calc.exp_max_order):
+				for i in range(self.u_limit):
 					if (i < len(_exp.tuples)):
 						prim.append(len(_exp.tuples[i]))
 					else:
 						prim.append(0)
 				# plot results
-				sns.barplot(list(range(1,_calc.exp_max_order+1)),
+				sns.barplot(list(range(1, self.u_limit+1)),
 							_exp.theo_work,palette='Greens',
 							label='Theoretical number', log=True)
-				sns.barplot(list(range(1,_calc.exp_max_order+1)),
+				sns.barplot(list(range(1, self.u_limit+1)),
 							prim,palette='Blues_r',
 							label='BG('+_calc.exp_model+') expansion', log=True)
 				# turn off x-grid
@@ -373,14 +378,12 @@ class ResCls():
 					ax.set_xlim([-0.5,_mol.nvirt - 0.5])
 				ax.set_ylim(bottom=0.7)
 				# set x-ticks
-				if (_calc.exp_max_order < 8):
-					ax.set_xticks(list(range(_calc.exp_max_order)))
-					ax.set_xticklabels(list(range(1,_calc.exp_max_order + 1)))
+				if (self.u_limit < 8):
+					ax.set_xticks(list(range(self.u_limit)))
+					ax.set_xticklabels(list(range(1, self.u_limit+1)))
 				else:
-					ax.set_xticks(list(range(_calc.exp_max_order,
-									_calc.exp_max_order // 8)))
-					ax.set_xticklabels(list(range(1,_calc.exp_max_order + 1,
-										_calc.exp_max_order // 8)))
+					ax.set_xticks(list(range(0, self.u_limit, self.u_limit // 8)))
+					ax.set_xticklabels(list(range(1, self.u_limit+1, self.u_limit // 8)))
 				# set x- and y-labels
 				ax.set_xlabel('Expansion order')
 				ax.set_ylabel('Number of correlated tuples')

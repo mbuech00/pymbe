@@ -26,7 +26,8 @@ import bg_driver
 class KernCls():
 		""" kernel class """
 		def __init__(self):
-				""" init tags """
+				""" init parameters """
+				# set tags
 				self.tags = self.enum('ready', 'done', 'data', 'exit', 'start')
 				#
 				return
@@ -72,7 +73,7 @@ class KernCls():
 					_time.coll_phase_time(_mpi, _rst, _exp.order, 'kernel')
 				else:
 					# secondary driver instantiation
-					if (_calc.exp_type == 'combined'): driver_sec = bg_driver.DrvCls() 
+					if (_calc.exp_type == 'combined'): driver_sec = bg_driver.DrvCls(_mol, 'virtual') 
 					# determine start index
 					start = np.argmax(_exp.energy_inc[-1] == 0.0)
 					# loop over tuples

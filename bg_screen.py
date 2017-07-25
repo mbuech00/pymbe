@@ -19,9 +19,17 @@ from itertools import combinations
 
 class ScrCls():
 		""" screening class """
-		def __init__(self):
-				""" init tags """
+		def __init__(self, _mol, _type):
+				""" init parameters """
+				# set tags
 				self.tags = self.enum('ready', 'done', 'exit', 'start') 
+				# set u_limit
+				if (_type in ['occupied','combined']):
+					self.l_limit = 0
+					self.u_limit = _mol.nocc
+				else:
+					self.l_limit = _mol.nocc
+					self.u_limit = _mol.nvirt 
 				#
 				return
 
@@ -64,7 +72,7 @@ class ScrCls():
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.allow_tuples[i][-1]+1, _exp.l_limit+_exp.u_limit):
+						for m in range(_exp.allow_tuples[i][-1]+1, self.l_limit+self.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
@@ -198,7 +206,7 @@ class ScrCls():
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.allow_tuples[job_info['index']][-1]+1, _exp.l_limit+_exp.u_limit):
+						for m in range(_exp.allow_tuples[job_info['index']][-1]+1, self.l_limit+self.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations

@@ -25,7 +25,7 @@ class CalcCls():
 				self.exp_type = 'occupied'
 				self.exp_base = 'HF'
 				self.exp_thres = 10.0
-				self.exp_max_order = 5
+				self.exp_max_order = 0
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
 				self.energy_thres = 3.8e-05

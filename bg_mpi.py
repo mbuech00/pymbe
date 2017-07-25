@@ -130,7 +130,7 @@ class MPICls():
 					# collect exp_info
 					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))],\
 								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))],\
-								'min_order': _calc.exp_min_order, 'e_inc_end': e_inc_end}
+								'min_order': _exp.min_order, 'e_inc_end': e_inc_end}
 					# bcast info
 					self.comm.bcast(exp_info, root=0)
 					# bcast tuples
@@ -150,7 +150,7 @@ class MPICls():
 					# receive exp_info
 					exp_info = self.comm.bcast(None, root=0)
 					# set min_order
-					_calc.exp_min_order = exp_info['min_order']
+					_exp.min_order = exp_info['min_order']
 					# receive tuples
 					for i in range(1,len(exp_info['len_tup'])):
 						buff = np.empty([exp_info['len_tup'][i],i+1], dtype=np.int32)

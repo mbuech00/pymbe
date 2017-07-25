@@ -22,18 +22,12 @@ class ExpCls():
 				""" init parameters """
 				# set params and lists for occ expansion
 				if (_type == 'occupied'):
-					# set lower and upper limits
-					self.l_limit = 0
-					self.u_limit = _mol.nocc
 					# init tuples and incl_idx
 					self.tuples = []; self.tuples.append(np.array(list([i] for i in range(_mol.ncore, _mol.nocc)),\
 															dtype=np.int32))
 					self.incl_idx = list(range(_mol.nocc, _mol.norb))
 				# set params and lists for virt expansion
-				elif (_type == 'virtual'):
-					# set lower and upper limits
-					self.l_limit = _mol.nocc
-					self.u_limit = _mol.nvirt
+				else:
 					# init tuples and incl_idx
 					self.tuples = []; self.tuples.append(np.array(list([i] for i in range(_mol.nocc, _mol.norb)),\
 															dtype=np.int32))
@@ -45,14 +39,17 @@ class ExpCls():
 					self.incl_idx = sorted(list(set(self.incl_idx) - set(self.frozen_idx))) 
 				# init energy_inc
 				self.energy_inc = []
-				# set max_order (in calc class)
-				if ((_calc.exp_max_order == 0) or (_calc.exp_max_order > self.u_limit)):
-					_calc.exp_max_order = self.u_limit
-					if ((_type == 'occupied') and _mol.frozen):
-						_calc.exp_max_order -= _mol.ncore
+				# set max_order (derived from calc class)
+				self.max_order = _calc.exp_max_order
+				if (_type == 'occupied'):
+					if ((self.max_order == 0) or (self.max_order > (_mol.nocc-_mol.ncore))):
+						self.max_order = _mol.nocc - _mol.ncore
+				else:
+					if ((self.max_order == 0) or (self.max_order > _mol.nvirt)):
+						self.max_order = _mol.nvirt
 				# determine max theoretical work
 				self.theo_work = []
-				for k in range(_calc.exp_max_order):
+				for k in range(self.max_order):
 					if (_type == 'occupied'):
 						self.theo_work.append(int(factorial(_mol.nocc-_mol.ncore) / \
 												(factorial(k+1) * factorial((_mol.nocc-_mol.ncore) - (k+1)))))

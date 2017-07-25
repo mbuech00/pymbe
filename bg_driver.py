@@ -23,10 +23,10 @@ from bg_exp import ExpCls
 
 class DrvCls():
 		""" driver class """
-		def __init__(self):
+		def __init__(self, _mol, _type):
 				""" init required classes """
 				self.kernel = bg_kernel.KernCls()
-				self.screening = ScrCls()
+				self.screening = ScrCls(_mol, _type)
 				#
 				return
 
@@ -43,7 +43,7 @@ class DrvCls():
 				# print expansion header
 				_prt.exp_header(_calc, _exp)
 				# now do expansion
-				for _exp.order in range(_calc.exp_min_order,_calc.exp_max_order + 1):
+				for _exp.order in range(_exp.min_order, _exp.max_order+1):
 					#
 					#** energy kernel phase **#
 					#
@@ -66,7 +66,7 @@ class DrvCls():
 					# print screen header
 					_prt.screen_header(_exp)
 					# orbital screening
-					if ((not _exp.conv_energy[-1]) and (_exp.order < _calc.exp_max_order)):
+					if ((not _exp.conv_energy[-1]) and (_exp.order < _exp.max_order)):
 						# perform screening
 						self.screening.main(_mpi, _calc, _exp, _time, _rst)
 						# write restart files

@@ -46,12 +46,12 @@ class RstCls():
 				""" main restart driver """
 				if (not self.restart):
 					# set start order for expansion
-					_calc.exp_min_order = 1
+					_exp.min_order = 1
 				else:
 					# read in restart files
 					self.read_main(_mpi, _calc, _exp, _time)
 					# update restart frequency
-					for _ in range(1, _calc.exp_min_order): self.rst_freq = self.update()
+					for _ in range(1, _exp.min_order): self.rst_freq = self.update()
 					# bcast rst data
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp, _time)
 				#
@@ -168,7 +168,7 @@ class RstCls():
 																	files[i])).tolist()
 								_time.timings['idle_screen'] = deepcopy(_time.time_idle[1][0])
 				# set start order for expansion
-				_calc.exp_min_order = len(_exp.tuples)
+				_exp.min_order = len(_exp.tuples)
 				#
 				return
 
