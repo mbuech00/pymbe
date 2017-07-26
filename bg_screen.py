@@ -105,7 +105,7 @@ class ScrCls():
 				# wake up slaves
 				msg = {'task': 'screen_slave', 'exp_order': _exp.order, 'time_order': _time.order, 'thres': _exp.thres}
 				# bcast
-				_mpi.global_comm.bcast(msg, root=0)
+				_mpi.local_comm.bcast(msg, root=0)
 				# start work time
 				_time.timer('work_screen', _time.order)
 				# init job_info dictionary
@@ -126,7 +126,7 @@ class ScrCls():
 					# start idle time
 					_time.timer('idle_screen', _time.order)
 					# receive data dict
-					data = _mpi.global_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG,
+					data = _mpi.local_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG,
 											status=_mpi.stat)
 					# start work time
 					_time.timer('work_screen', _time.order)
@@ -141,7 +141,7 @@ class ScrCls():
 							# save parent tuple index
 							job_info['index'] = i
 							# send parent tuple index
-							_mpi.global_comm.send(job_info, dest=source, tag=self.tags.start)
+							_mpi.local_comm.send(job_info, dest=source, tag=self.tags.start)
 							# start work time
 							_time.timer('work_screen', _time.order)
 							# increment job index
@@ -150,7 +150,7 @@ class ScrCls():
 							# start comm time#
 							_time.timer('comm_screen', _time.order)
 							# send None info
-							_mpi.global_comm.send(None, dest=source, tag=self.tags.exit)
+							_mpi.local_comm.send(None, dest=source, tag=self.tags.exit)
 							# start work time
 							_time.timer('work_screen', _time.order)
 					# receive result from slave
@@ -187,9 +187,9 @@ class ScrCls():
 					# start comm time
 					_time.timer('comm_screen', _time.order)
 					# send status to master
-					_mpi.global_comm.send(None, dest=0 ,tag=self.tags.ready)
+					_mpi.local_comm.send(None, dest=0 ,tag=self.tags.ready)
 					# receive parent tuple
-					job_info = _mpi.global_comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
+					job_info = _mpi.local_comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
 					# start work time
 					_time.timer('work_screen', _time.order)
 					# recover tag
@@ -224,7 +224,7 @@ class ScrCls():
 						# start comm time
 						_time.timer('comm_screen', _time.order)
 						# send data back to master
-						_mpi.global_comm.send(data, dest=0, tag=self.tags.done)
+						_mpi.local_comm.send(data, dest=0, tag=self.tags.done)
 						# start work time
 						_time.timer('work_screen', _time.order)
 					# exit
@@ -233,11 +233,11 @@ class ScrCls():
 				# start comm time
 				_time.timer('comm_screen', _time.order)
 				# send exit signal to master
-				_mpi.global_comm.send(None, dest=0, tag=self.tags.exit)
+				_mpi.local_comm.send(None, dest=0, tag=self.tags.exit)
 				# start work time
 				_time.timer('work_screen', _time.order)
 				# init buffer
-				tup_info = _mpi.global_comm.bcast(None, root=0)
+				tup_info = _mpi.local_comm.bcast(None, root=0)
 				buff = np.empty([tup_info['tup_len'],_exp.order+1], dtype=np.int32)
 				# receive buffer
 				_mpi.bcast_tup(_exp, _time, buff)

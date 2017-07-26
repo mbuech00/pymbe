@@ -24,7 +24,10 @@ from bg_exp import ExpCls
 class DrvCls():
 		""" driver class """
 		def __init__(self, _mol, _type):
-				""" init required classes """
+				""" init parameters and classes """
+				# save type
+				self.exp_type = _type
+				# init required classes
 				self.kernel = bg_kernel.KernCls()
 				self.screening = ScrCls(_mol, _type)
 				#
@@ -34,10 +37,10 @@ class DrvCls():
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
 				# exp class instantiation on slaves
-				if (_mpi.parallel and (_calc.exp_type in ['occupied','virtual'])):
-					msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
+				if (_mpi.parallel and (_exp.level == 'micro')):
+					msg = {'task': 'exp_cls', 'type': self.exp_type, 'rst': _rst.restart}
 					# bcast msg
-					_mpi.global_comm.bcast(msg, root=0)
+					_mpi.local_comm.bcast(msg, root=0)
 				# restart
 				_rst.rst_main(_mpi, _calc, _exp, _time)
 				# print expansion header

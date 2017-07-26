@@ -43,8 +43,8 @@ class MPICls():
 		def set_local_groups(self):
 				""" define local groups """
 				if (self.num_groups == 1):
-					self.local_comm = self.global_comm
-					self.local_master = False
+					self.master_comm = self.local_comm = self.global_comm
+					self.local_master = self.global_master
 				else:
 					# array of ranks (global master excluded)
 					ranks = np.arange(1, self.global_size)
@@ -173,34 +173,34 @@ class MPICls():
 								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))],\
 								'min_order': _exp.min_order, 'e_inc_end': e_inc_end}
 					# bcast info
-					self.global_comm.bcast(exp_info, root=0)
+					self.master_comm.bcast(exp_info, root=0)
 					# bcast tuples
 					for i in range(1,len(_exp.tuples)):
-						self.global_comm.Bcast([_exp.tuples[i],MPI.INT], root=0)
+						self.master_comm.Bcast([_exp.tuples[i],MPI.INT], root=0)
 					# bcast energy increments
 					for i in range(len(_exp.energy_inc)):
-						self.global_comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
+						self.master_comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
 					# collect time_info
 					for i in range(1,self.global_size):
 						time_info = {'kernel': [_time.time_work[0][i],
 									_time.time_comm[0][i],_time.time_idle[0][i]],\
 									'screen': [_time.time_work[1][i],
 									_time.time_comm[1][i],_time.time_idle[1][i]]}
-						self.global_comm.send(time_info, dest=i)
+						self.master_comm.send(time_info, dest=i)
 				else:
 					# receive exp_info
-					exp_info = self.global_comm.bcast(None, root=0)
+					exp_info = self.master_comm.bcast(None, root=0)
 					# set min_order
 					_exp.min_order = exp_info['min_order']
 					# receive tuples
 					for i in range(1,len(exp_info['len_tup'])):
 						buff = np.empty([exp_info['len_tup'][i],i+1], dtype=np.int32)
-						self.global_comm.Bcast([buff,MPI.INT], root=0)
+						self.master_comm.Bcast([buff,MPI.INT], root=0)
 						_exp.tuples.append(buff)
 					# receive e_inc
 					for i in range(len(exp_info['len_e_inc'])):
 						buff = np.zeros(exp_info['len_e_inc'][i], dtype=np.float64)
-						self.global_comm.Bcast([buff,MPI.DOUBLE], root=0)
+						self.master_comm.Bcast([buff,MPI.DOUBLE], root=0)
 						_exp.energy_inc.append(buff)
 					# for e_inc[-1], make sure that this is distributed among the slaves *if* incomplete
 					if (exp_info['e_inc_end'] != exp_info['len_e_inc'][-1]):
@@ -208,7 +208,7 @@ class MPICls():
 							if ((i % (self.global_size-1)) != (self.global_rank-1)): _exp.energy_inc[-1][i] = 0.0 
 						_exp.energy_inc[-1][exp_info['e_inc_end']:] = 0.0
 					# receive time_info
-					time_info = self.global_comm.recv(source=0, status=self.stat)
+					time_info = self.master_comm.recv(source=0, status=self.stat)
 					_time.time_work_kernel = time_info['kernel'][0]
 					_time.time_comm_kernel = time_info['kernel'][1]
 					_time.time_idle_kernel = time_info['kernel'][2]
@@ -237,21 +237,21 @@ class MPICls():
 
 		def bcast_tup(self, _exp, _time, _buff):
 				""" master/slave routine for bcasting total number of tuples """
-				if (self.global_master):
+				if (self.local_master):
 					# start comm time
 					_time.timer('comm_screen', _time.order)
 					# init bcast dict
 					tup_info = {'tup_len': len(_buff)}
 					# bcast
-					self.global_comm.bcast(tup_info, root=0)
+					self.local_comm.bcast(tup_info, root=0)
 				# start idle time
 				_time.timer('idle_screen', _time.order)
 				# all meet at barrier
-				self.global_comm.Barrier()
+				self.local_comm.Barrier()
 				# start comm time
 				_time.timer('comm_screen', _time.order)
 				# bcast buffer
-				self.global_comm.Bcast([_buff,MPI.INT], root=0)
+				self.local_comm.Bcast([_buff,MPI.INT], root=0)
 				# start work time
 				_time.timer('work_screen', _time.order)
 				# append tup[-1] with buff
