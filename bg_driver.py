@@ -67,7 +67,7 @@ class DrvCls():
 					# print kernel end
 					_prt.kernel_end(_calc, _exp)
 					# write restart files
-					_rst.write_kernel(_mpi, _exp, _time, True)
+					_rst.write_kernel(_mpi, _calc, _exp, _time, True)
 					# print kernel results
 					_prt.kernel_results(_calc, _exp)
 					#
@@ -81,7 +81,7 @@ class DrvCls():
 						self.screening.main(_mpi, _calc, _exp, _time, _rst)
 						# write restart files
 						if (not _exp.conv_orb[-1]):
-							_rst.write_screen(_mpi, _exp, _time)
+							_rst.write_screen(_mpi, _calc, _exp, _time)
 						# print screen results
 						_prt.screen_results(_calc, _exp)
 						# print screen end
