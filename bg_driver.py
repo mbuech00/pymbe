@@ -33,7 +33,7 @@ class DrvCls():
 
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
-				# exp class invocation on slaves
+				# exp class instantiation on slaves
 				if (_mpi.parallel and (_calc.exp_type in ['occupied','virtual'])):
 					msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
 					# bcast msg
@@ -100,7 +100,7 @@ class DrvCls():
 					# task id
 					msg = _mpi.comm.bcast(None, root=0)
 					#
-					#** exp class invocation **#
+					#** exp class instantiation **#
 					#
 					if (msg['task'] == 'exp_cls'):
 						exp = ExpCls(_mpi, _mol, _calc, msg['type'])

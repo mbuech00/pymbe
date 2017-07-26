@@ -79,7 +79,7 @@ class KernCls():
 					# determine start index
 					start = np.argmax(_exp.energy_inc[-1] == 0.0)
 					# loop over tuples
-					for i in range(start,len(_exp.tuples[-1])):
+					for i in range(start, len(_exp.tuples[-1])):
 						# start work time
 						_time.timer('work_kernel', _exp.order)
 						# run correlated calc
