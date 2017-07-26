@@ -28,7 +28,7 @@ def main():
 		if (not bg.mpi.global_master):
 			if (bg.mpi.local_master):
 				# proceed to local master driver
-				bg.driver.master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.time)
+				bg.driver.local_master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.time)
 			else:
 				# proceed to slave driver
 				bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.time)

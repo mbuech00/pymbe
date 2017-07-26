@@ -99,7 +99,7 @@ class DrvCls():
 				return
 
 
-		def master(self, _mpi, _mol, _calc, _pyscf, _time):
+		def local_master(self, _mpi, _mol, _calc, _pyscf, _time):
 				""" local master routine """
 				# set loop/waiting logical
 				local_master = True
