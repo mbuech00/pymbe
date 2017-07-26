@@ -43,7 +43,7 @@ class CalcCls():
 					_mpi.bcast_calc_info(self)
 					_mpi.bcast_mpi_info()
 					# set local groups
-					if (_mpi.num_groups > 1): _mpi.set_local_groups()
+					_mpi.set_local_groups()
 				#
 				return
 
