@@ -106,7 +106,6 @@ class TimeCls():
 		def calc_time(self, _mpi, _calc, _exp):
 				""" calculate mpi timings """
 				# check for screen timings
-#				if (_exp.conv_energy[-1] or (_exp.order == _exp.max_order)):
 				if (len(self.timings['work_screen']) < len(self.timings['work_kernel'])):
 					self.timings['work_screen'].append(0.0)
 					if (_mpi.parallel):
