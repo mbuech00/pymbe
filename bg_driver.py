@@ -31,7 +31,7 @@ class DrvCls():
 				return
 
 
-		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
+		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
 				# exp class instantiation on slaves
 				if (_mpi.parallel and (_calc.exp_type in ['occupied','virtual'])):
@@ -97,16 +97,48 @@ class DrvCls():
 					if (_exp.conv_energy[-1] or _exp.conv_orb[-1]): break
 				#
 				return
+
+
+		def master(self, _mpi, _mol, _calc, _pyscf, _time):
+				""" local master routine """
+				# set loop/waiting logical
+				local_master = True
+				# enter local master state
+				while (local_master):
+					# task id
+					msg = _mpi.master_comm.bcast(None, root=0)
+					#
+					#** exp class instantiation **#
+					#
+					if (msg['task'] == 'exp_cls'):
+						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
+						# receive rst data
+						if (msg['rst']): _mpi.bcast_rst(_calc, exp, _time)
+					#
+					#** energy kernel phase **#
+					#
+					if (msg['task'] == 'kernel_slave'):
+						exp.order = msg['exp_order']
+						_time.order = msg['time_order']
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp, _time)
+						_time.coll_phase_time(_mpi, None, _time.order, 'kernel')
+					#
+					#** exit **#
+					#
+					elif (msg['task'] == 'exit_master'):
+						local_master = False
+				# finalize
+				_mpi.final(None)
 	
 	
 		def slave(self, _mpi, _mol, _calc, _pyscf, _time):
-				""" main slave routine """
+				""" slave routine """
 				# set loop/waiting logical
 				slave = True
 				# enter slave state
 				while (slave):
 					# task id
-					msg = _mpi.global_comm.bcast(None, root=0)
+					msg = _mpi.local_comm.bcast(None, root=0)
 					#
 					#** exp class instantiation **#
 					#

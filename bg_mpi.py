@@ -44,7 +44,7 @@ class MPICls():
 				""" define local groups """
 				if (self.num_groups == 1):
 					self.local_comm = self.global_comm
-					self.local_master = self.global_master
+					self.local_master = False
 				else:
 					# array of ranks (global master excluded)
 					ranks = np.arange(1, self.global_size)
@@ -53,7 +53,8 @@ class MPICls():
 					groups = [np.array([0])] + groups
 					# extract local master indices and append to global master index
 					masters = [groups[i][0] for i in range(self.num_groups + 1)]
-					self.local_master = (self.global_rank in masters)
+					# define local masters (global master excluded)
+					self.local_master = (self.global_rank in masters[1:])
 					# define master group and intracomm
 					self.master_group = self.global_group.Incl(masters)
 					self.master_comm = self.global_comm.Create(self.master_group)
@@ -265,7 +266,12 @@ class MPICls():
 				""" terminate calculation """
 				if (self.global_master):
 					_rst.rm_rst()
-					self.global_comm.bcast({'task': 'exit_slave'}, root=0)
+					if (self.num_groups == 1):
+						self.local_comm.bcast({'task': 'exit_slave'}, root=0)
+					else:
+						self.master_comm.bcast({'task': 'exit_master'}, root=0)
+				elif (self.local_master):
+					self.local_comm.bcast({'task': 'exit_slave'}, root=0)
 				self.global_comm.Barrier()
 				MPI.Finalize()
 	

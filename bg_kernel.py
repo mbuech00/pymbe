@@ -72,7 +72,7 @@ class KernCls():
 				# mark expansion as micro 
 				exp_micro.level = 'micro'; exp_micro.order_macro = _order; exp_micro.incl_idx = _tup
 				# make recursive call to driver with micro exp
-				_driver.master(_mpi, _mol, _calc, _pyscf, exp_micro, _time, _prt, _rst)
+				_driver.main(_mpi, _mol, _calc, _pyscf, exp_micro, _time, _prt, _rst)
 				#
 				return exp_micro.energy_tot[-1], exp_micro.order
 
