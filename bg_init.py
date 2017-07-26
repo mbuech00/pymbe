@@ -82,6 +82,12 @@ class InitCls():
 					# print and result instantiations
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.mol, self.calc, self.out)
+				else:
+					# driver instantiation
+					if (self.calc.exp_type in ['occupied','virtual']):
+						self.driver = DrvCls(self.mol, self.calc.exp_type)
+					elif (self.calc.exp_type == 'combined'):
+						self.driver = DrvCls(self.mol, 'occupied')
 				#
 				return
 
