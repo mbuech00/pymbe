@@ -65,6 +65,37 @@ class KernCls():
 				return
 
 
+		def macro_core(self, _mpi, _mol, _calc, _pyscf, _prt, _rst, _driver, _tup):
+				""" core procedure for level == macro """
+				# micro exp and time instantiations
+				exp_micro = ExpCls(_mpi, _mol, _calc, 'virtual')
+				time_micro = TimeCls(_mpi)
+				# mark expansion as micro 
+				exp_micro.level = 'micro'; exp_micro.incl_idx = _tup
+				# make recursive call to driver with micro exp
+				_driver.master(_mpi, _mol, _calc, _pyscf, exp_micro, time_micro, _prt, _rst)
+				#
+				return exp_micro.energy_tot[-1], exp_micro.order
+
+
+		def micro_core(self, _mpi, _mol, _calc, _pyscf, _exp, _tup):
+				""" core procedure for level == micro """
+				# generate input
+				_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
+						_pyscf.corr_input(_mol, _calc, _exp, _tup)
+				try:
+					return _pyscf.corr_calc(_mol, _calc, _exp)
+				except Exception as err:
+					try:
+						raise RuntimeError
+					except RuntimeError:
+						sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
+											'input: core_idx = {2:} , cas_idx = {3:}\n'
+											'PySCF error : {4:}\n\n'.\
+											format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
+						raise
+
+
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" energy kernel phase """
 				# mpi parallel version
@@ -72,9 +103,9 @@ class KernCls():
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					_time.coll_phase_time(_mpi, _rst, _exp.order, 'kernel')
 				else:
-					# secondary driver instantiation
+					# micro driver instantiation
 					if (_calc.exp_type == 'combined'):
-						if (_exp.level == 'macro'): driver_sec = bg_driver.DrvCls(_mol, 'virtual') 
+						if (_exp.level == 'macro'): driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
 						_exp.micro_conv_res = np.zeros(len(_exp.tuples[-1]), dtype=np.int32)
 					# determine start index
 					start = np.argmax(_exp.energy_inc[-1] == 0.0)
@@ -84,32 +115,14 @@ class KernCls():
 						_time.timer('work_kernel', _exp.order)
 						# run correlated calc
 						if (_exp.level == 'macro'):
-							# secondary exp and time instantiations
-							exp_sec = ExpCls(_mpi, _mol, _calc, 'virtual')
-							time_sec = TimeCls(_mpi)
-							# mark expansion as micro 
-							exp_sec.level = 'micro'; exp_sec.incl_idx = _exp.tuples[-1][i].tolist()
-							# make recursive call to driver with secondary exp
-							driver_sec.master(_mpi, _mol, _calc, _pyscf, exp_sec, time_sec, _prt, _rst)
-							# store e_inc
-							_exp.energy_inc[-1][i] = exp_sec.energy_tot[-1]
-							# store micro convergence results
-							_exp.micro_conv_res[i] = exp_sec.order
+							# store e_inc and micro convergence results
+							_exp.energy_inc[-1][i], _exp.micro_conv_res[i] = \
+									self.macro_core(_mpi, _mol, _calc, _pyscf, _prt, _rst, \
+														driver_micro, _exp.tuples[-1][i].tolist()) 
 						else:
-							# generate input
-							_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
-									_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
-							try:
-								_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
-							except Exception as err:
-								try:
-									raise RuntimeError
-								except RuntimeError:
-									sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
-														'input: core_idx = {2:} , cas_idx = {3:}\n'
-														'PySCF error : {4:}\n\n'.\
-														format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
-									raise
+							# store e_inc result
+							_exp.energy_inc[-1][i] = self.micro_core(_mpi, _mol, _calc, _pyscf, \
+																		_exp, _exp.tuples[-1][i])
 						# sum up energy increment
 						self.summation(_exp, i)
 						# print status
