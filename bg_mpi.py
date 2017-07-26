@@ -25,14 +25,37 @@ class MPICls():
 		def __init__(self):
 				""" init parameters """
 				self.comm = MPI.COMM_WORLD
+				self.group = self.comm.Get_group()
 				self.parallel = (self.comm.Get_size() > 1)
 				self.size = self.comm.Get_size()
 				self.rank = self.comm.Get_rank()
 				self.master = (self.rank == 0)
 				self.host = MPI.Get_processor_name()
 				self.stat = MPI.Status()
+				# default value
+				self.num_groups = 1
 				# set custom exception hook
 				if (self.master): self.set_exc_hook()
+				#
+				return
+
+
+		def set_local_groups(self):
+				""" define local groups """
+				# array of ranks (global master excluded)
+				global_rank = np.arange(1, self.size)
+				# split into local groups and add global master
+				local_group = np.array_split(global_rank, self.num_groups)
+				local_group = [np.array([0])] + local_group
+				# extract local master indices and append to global master index
+				master_idx = [local_group[i][0] for i in range(self.num_groups + 1)]
+				# define master group and intracomm
+				self.master_group = self.group.Incl(master_idx)
+				self.master_comm = self.comm.Create(self.master_group)
+				# define local intracomm based on color
+				for i in range(len(local_group)):
+					if (self.rank in local_group[i]): color = i
+				self.local_comm = self.comm.Split(color)
 				#
 				return
 
@@ -97,6 +120,18 @@ class MPICls():
 					_calc.exp_occ = self.comm.bcast(None, root=0)
 					_calc.exp_virt = self.comm.bcast(None, root=0)
 					_calc.energy_thres = self.comm.bcast(None, root=0)
+				#
+				return
+
+
+		def bcast_mpi_info(self):
+				""" bcast mpi info """
+				if (self.master):
+					# bcast to slaves
+					self.comm.bcast(self.num_groups, root=0)
+				else:
+					# receive from master
+					self.num_groups = self.comm.bcast(None, root=0)
 				#
 				return
 
