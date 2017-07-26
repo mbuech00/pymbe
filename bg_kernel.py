@@ -102,34 +102,7 @@ class KernCls():
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 					_time.coll_phase_time(_mpi, _rst, _time.order, 'kernel')
 				else:
-					# micro driver instantiation
-					if (_calc.exp_type == 'combined'):
-						if (_exp.level == 'macro'): driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
-						_exp.micro_conv_res = np.zeros(len(_exp.tuples[-1]), dtype=np.int32)
-					# determine start index
-					start = np.argmax(_exp.energy_inc[-1] == 0.0)
-					# loop over tuples
-					for i in range(start, len(_exp.tuples[-1])):
-						# start work time
-						_time.timer('work_kernel', _time.order)
-						# run correlated calc
-						if (_exp.level == 'macro'):
-							# store e_inc and micro convergence results
-							_exp.energy_inc[-1][i], _exp.micro_conv_res[i] = \
-									self.macro_core(_mpi, _mol, _calc, _pyscf, _time, _prt, _rst, \
-														driver_micro, _exp.order_macro, _exp.tuples[-1][i].tolist()) 
-						else:
-							# store e_inc result
-							_exp.energy_inc[-1][i] = self.micro_core(_mpi, _mol, _calc, _pyscf, \
-																		_exp, _exp.tuples[-1][i])
-						# sum up energy increment
-						self.summation(_exp, i)
-						# print status
-						_prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[-1])))
-						# collect work time
-						_time.timer('work_kernel', _time.order, True)
-						# write restart files
-						_rst.write_kernel(_mpi, _calc, _exp, _time, False)
+					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
 				# sum of energy increments
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
@@ -142,7 +115,41 @@ class KernCls():
 				#
 				return
 		
-		
+	
+		def serial(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
+				""" energy kernel phase """
+				# micro driver instantiation
+				if (_calc.exp_type == 'combined'):
+					if (_exp.level == 'macro'): driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
+					_exp.micro_conv_res = np.zeros(len(_exp.tuples[-1]), dtype=np.int32)
+				# determine start index
+				start = np.argmax(_exp.energy_inc[-1] == 0.0)
+				# loop over tuples
+				for i in range(start, len(_exp.tuples[-1])):
+					# start work time
+					_time.timer('work_kernel', _time.order)
+					# run correlated calc
+					if (_exp.level == 'macro'):
+						# store e_inc and micro convergence results
+						_exp.energy_inc[-1][i], _exp.micro_conv_res[i] = \
+								self.macro_core(_mpi, _mol, _calc, _pyscf, _time, _prt, _rst, \
+													driver_micro, _exp.order_macro, _exp.tuples[-1][i].tolist()) 
+					else:
+						# store e_inc result
+						_exp.energy_inc[-1][i] = self.micro_core(_mpi, _mol, _calc, _pyscf, \
+																	_exp, _exp.tuples[-1][i])
+					# sum up energy increment
+					self.summation(_exp, i)
+					# print status
+					_prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[-1])))
+					# collect work time
+					_time.timer('work_kernel', _time.order, True)
+					# write restart files
+					_rst.write_kernel(_mpi, _calc, _exp, _time, False)
+				#
+				return
+
+	
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" master function """
 				# start idle time
