@@ -128,7 +128,7 @@ class DrvCls():
 					#
 					#** exit **#
 					#
-					elif (msg['task'] == 'exit_master'):
+					elif (msg['task'] == 'exit_local_master'):
 						local_master = False
 				# finalize
 				_mpi.final(None)

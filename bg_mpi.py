@@ -269,7 +269,7 @@ class MPICls():
 					if (self.num_groups == 1):
 						self.local_comm.bcast({'task': 'exit_slave'}, root=0)
 					else:
-						self.master_comm.bcast({'task': 'exit_master'}, root=0)
+						self.master_comm.bcast({'task': 'exit_local_master'}, root=0)
 				elif (self.local_master):
 					self.local_comm.bcast({'task': 'exit_slave'}, root=0)
 				self.global_comm.Barrier()
