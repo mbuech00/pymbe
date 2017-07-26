@@ -37,7 +37,7 @@ class DrvCls():
 				if (_mpi.parallel and (_calc.exp_type in ['occupied','virtual'])):
 					msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
 					# bcast msg
-					_mpi.comm.bcast(msg, root=0)
+					_mpi.global_comm.bcast(msg, root=0)
 				# restart
 				_rst.rst_main(_mpi, _calc, _exp, _time)
 				# print expansion header
@@ -106,7 +106,7 @@ class DrvCls():
 				# enter slave state
 				while (slave):
 					# task id
-					msg = _mpi.comm.bcast(None, root=0)
+					msg = _mpi.global_comm.bcast(None, root=0)
 					#
 					#** exp class instantiation **#
 					#

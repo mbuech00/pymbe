@@ -91,7 +91,7 @@ class KernCls():
 						sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
 											'input: core_idx = {2:} , cas_idx = {3:}\n'
 											'PySCF error : {4:}\n\n'.\
-											format(_mpi.rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
+											format(_mpi.global_rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
 						raise
 
 
@@ -157,13 +157,13 @@ class KernCls():
 				# wake up slaves
 				msg = {'task': 'kernel_slave', 'exp_order': _exp.order, 'time_order': _time.order}
 				# bcast
-				_mpi.comm.bcast(msg, root=0)
+				_mpi.global_comm.bcast(msg, root=0)
 				# start work time
 				_time.timer('work_kernel', _time.order)
 				# init job_info dictionary
 				job_info = {}
 				# number of slaves
-				num_slaves = _mpi.size - 1
+				num_slaves = _mpi.global_size - 1
 				# number of available slaves
 				slaves_avail = num_slaves
 				# init job index
@@ -172,7 +172,7 @@ class KernCls():
 				counter = i
 				# init timings
 				if (i == 0):
-					for j in range(_mpi.size):
+					for j in range(_mpi.global_size):
 						_time.time_work[0][j].append(0.0)
 						_time.time_comm[0][j].append(0.0)
 						_time.time_idle[0][j].append(0.0)
@@ -183,7 +183,7 @@ class KernCls():
 					# start idle time
 					_time.timer('idle_kernel', _time.order)
 					# receive data dict
-					stat = _mpi.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
+					stat = _mpi.global_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
 					# start work time
 					_time.timer('work_kernel', _time.order)
 					# probe for source and tag
@@ -205,7 +205,7 @@ class KernCls():
 							# start comm time
 							_time.timer('comm_kernel', _time.order)
 							# send string dict
-							_mpi.comm.send(job_info, dest=source, tag=self.tags.start)
+							_mpi.global_comm.send(job_info, dest=source, tag=self.tags.start)
 							# start work time
 							_time.timer('work_kernel', _time.order)
 							# increment job index
@@ -214,7 +214,7 @@ class KernCls():
 							# start comm time
 							_time.timer('comm_kernel', _time.order)
 							# send exit signal
-							_mpi.comm.send(None, dest=source, tag=self.tags.exit)
+							_mpi.global_comm.send(None, dest=source, tag=self.tags.exit)
 							# start work time
 							_time.timer('work_kernel', _time.order)
 					# receive result from slave
@@ -222,7 +222,7 @@ class KernCls():
 						# start comm time
 						_time.timer('comm_kernel', _time.order)
 						# receive data
-						data = _mpi.comm.recv(source=source, tag=self.tags.data, status=_mpi.stat)
+						data = _mpi.global_comm.recv(source=source, tag=self.tags.data, status=_mpi.stat)
 						# error handling
 						if (data['error']):
 							try:
@@ -280,9 +280,9 @@ class KernCls():
 					# start comm time
 					_time.timer('comm_kernel', _time.order)
 					# ready for task
-					_mpi.comm.send(None, dest=0, tag=self.tags.ready)
+					_mpi.global_comm.send(None, dest=0, tag=self.tags.ready)
 					# receive drop string
-					job_info = _mpi.comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
+					job_info = _mpi.global_comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
 					# start work time
 					_time.timer('work_kernel', _time.order)
 					# recover tag
@@ -311,7 +311,7 @@ class KernCls():
 							# start comm time
 							_time.timer('comm_kernel', _time.order)
 							# report status back to master
-							_mpi.comm.send(None, dest=0, tag=self.tags.done)
+							_mpi.global_comm.send(None, dest=0, tag=self.tags.done)
 							# start work time
 							_time.timer('work_kernel', _time.order)
 							# write info into data dict
@@ -323,7 +323,7 @@ class KernCls():
 							# start comm time
 							_time.timer('comm_kernel', _time.order)
 							# send data back to master
-							_mpi.comm.send(data, dest=0, tag=self.tags.data)
+							_mpi.global_comm.send(data, dest=0, tag=self.tags.data)
 							# start work time
 							_time.timer('work_kernel', _time.order)
 					# exit
@@ -332,7 +332,7 @@ class KernCls():
 				# start comm time
 				_time.timer('comm_kernel', _time.order)
 				# send exit signal to master
-				_mpi.comm.send(None, dest=0, tag=self.tags.exit)
+				_mpi.global_comm.send(None, dest=0, tag=self.tags.exit)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_exp, _time)
 				# collect comm time

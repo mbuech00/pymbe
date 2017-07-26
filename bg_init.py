@@ -38,7 +38,7 @@ class InitCls():
 				# output instantiation
 				self.out = OutCls(self.mpi)
 				# restart instantiation
-				if (self.mpi.master):
+				if (self.mpi.global_master):
 					self.rst = RstCls(self.out, self.mpi)
 				else:
 					self.rst = None
@@ -48,7 +48,7 @@ class InitCls():
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation and integral transformation
-				if (self.mpi.master):
+				if (self.mpi.global_master):
 					try:
 						self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
 								self.pyscf.hf_calc(self.mol)
@@ -67,7 +67,7 @@ class InitCls():
 				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
 				# time instantiation
 				self.time = TimeCls(self.mpi)
-				if (self.mpi.master):
+				if (self.mpi.global_master):
 					# expansion and driver instantiations
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
@@ -81,7 +81,7 @@ class InitCls():
 						self.exp.level = 'macro'
 					# print and result instantiations
 					self.prt = PrintCls(self.out)
-					self.res = ResCls(self.mol, self.calc, self.out)
+					self.res = ResCls(self.mpi, self.mol, self.calc, self.out)
 				else:
 					# driver instantiation
 					if (self.calc.exp_type in ['occupied','virtual']):
@@ -100,7 +100,7 @@ class OutCls():
 				self.wrk_dir = getcwd()
 				# set output dir
 				self.out_dir = self.wrk_dir+'/output'
-				if (_mpi.master):
+				if (_mpi.global_master):
 					# rm out_dir if present
 					if (isdir(self.out_dir)): rmtree(self.out_dir, ignore_errors=True)
 					# mk out_dir

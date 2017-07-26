@@ -32,7 +32,7 @@ except ImportError:
 
 class ResCls():
 		""" result class """
-		def __init__(self, _mol, _calc, _out):
+		def __init__(self, _mpi, _mol, _calc, _out):
 				""" init parameters """
 				self.out_dir = _out.out_dir
 				self.output = self.out_dir+'/bg_results.out'
@@ -44,6 +44,11 @@ class ResCls():
 					self.u_limit = _mol.nocc - _mol.ncore
 				else:
 					self.u_limit = _mol.nvirt 
+				# number of mpi masters
+				if (_mpi.num_groups == 1):
+					self.num_masters = 1
+				else:
+					self.num_masters = _mpi.num_groups + 1
 				#
 				return
 
@@ -101,12 +106,12 @@ class ResCls():
 							'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:}').\
 								format('','frozen core','','=','',str(_mol.frozen),\
 									'','|','','exp. base','','=','',_calc.exp_base,\
-									'','|','','number of mpi masters','','=','',1))
+									'','|','','number of mpi masters','','=','',self.num_masters))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:14}{12:5}'
 							'{13:1}{14:2}{15:<8s}{16:5}{17:1}{18:7}{19:20}{20:3}{21:1}{22:2}{23:}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
 									'','|','','exp. type','','=','',_calc.exp_type,\
-									'','|','','number of mpi slaves','','=','',_mpi.size-1))
+									'','|','','number of mpi slaves','','=','',_mpi.global_size - self.num_masters))
 						print(('{0:12}{1:13}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:14}{10:5}{11:1}{12:2}'
 							'{13:<6.2f}{14:7}{15:1}{16:7}{17:18}{18:5}{19:1}{20:1}{21:>13.6e}').\
 								format('','occ. orbitals','','=','',_calc.exp_occ,\
@@ -248,7 +253,7 @@ class ResCls():
 										'','|','',_time.dist_total[0][0],'/',\
 										_time.dist_total[1][0],'/',_time.dist_total[2][0]))
 						print(self.divider_str)
-						for i in range(1,_mpi.size):
+						for i in range(1,_mpi.global_size):
 							print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
 									'{8:>6.2f}{9:^3}{10:>6.2f}{11:7}{12:1}{13:7}{14:>6.2f}'
 									'{15:^3}{16:>6.2f}{17:^3}{18:>6.2f}{19:8}{20:1}{21:7}'

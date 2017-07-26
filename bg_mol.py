@@ -24,7 +24,7 @@ class MolCls(gto.Mole):
 				# gto.Mole instantiation
 				gto.Mole.__init__(self)
 				# set geometric and molecular parameters
-				if (_mpi.master):
+				if (_mpi.global_master):
 					# set default value for FC
 					self.frozen = False
 					# set geometry

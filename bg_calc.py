@@ -31,11 +31,11 @@ class CalcCls():
 				self.energy_thres = 3.8e-05
 				self.tolerance = 0.0
 				# set calculation parameters
-				if (_mpi.master):
+				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
 						self.exp_max_order, self.exp_occ, self.exp_virt, \
 						self.energy_thres, self.tolerance, \
-						_mpi.num_mpi_groups = self.set_calc(_mpi, _rst)
+						_mpi.num_groups = self.set_calc(_mpi, _rst)
 					# sanity check
 					self.sanity_chk(_mpi, _rst)
 				if (_mpi.parallel):
@@ -137,7 +137,7 @@ class CalcCls():
 						if (self.exp_type != 'combined'):
 							raise ValueError('wrong input -- the use of more than one mpi group ' + \
 											'is currently not implemented for occupied and virtual expansions')
-						if (_mpi.size <= 2 * _mpi.num_groups):
+						if (_mpi.global_size <= 2 * _mpi.num_groups):
 							raise ValueError('wrong input -- total number of mpi processes ' + \
 											'must be larger than twice the number of mpi groups')
 				except Exception as err:

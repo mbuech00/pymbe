@@ -25,7 +25,7 @@ def main():
 		# initialize the calculation
 		bg = InitCls()
 		# now branch
-		if (not bg.mpi.master):
+		if (not bg.mpi.global_master):
 			# proceed to main slave driver
 			bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.time)
 		else:
