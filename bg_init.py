@@ -72,11 +72,13 @@ class InitCls():
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
 						self.driver = DrvCls(self.mol, self.calc.exp_type)
+						# mark expansion as micro
+						self.exp.level = 'micro'
 					elif (self.calc.exp_type == 'combined'):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
 						self.driver = DrvCls(self.mol, 'occupied')
-					# mark expansion as macro
-					self.exp.level = 'macro'
+						# mark expansion as macro
+						self.exp.level = 'macro'
 					# print and result instantiations
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.mol, self.calc, self.out)

@@ -48,7 +48,7 @@ class DrvCls():
 					#** energy kernel phase **#
 					#
 					# print kernel header
-					_prt.kernel_header(_exp)
+					_prt.kernel_header(_calc, _exp)
 					# init e_inc
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
@@ -60,13 +60,13 @@ class DrvCls():
 					_prt.kernel_end(_calc, _exp)
 					# write restart files
 					_rst.write_kernel(_mpi, _exp, _time, True)
-					# print macro results
-					_prt.kernel_macro_results(_exp)
+					# print kernel results
+					_prt.kernel_results(_calc, _exp)
 					#
 					#** screening phase **#
 					#
 					# print screen header
-					_prt.screen_header(_exp)
+					_prt.screen_header(_calc, _exp)
 					# orbital screening
 					if ((not _exp.conv_energy[-1]) and (_exp.order < _exp.max_order)):
 						# perform screening
@@ -75,12 +75,12 @@ class DrvCls():
 						if (not _exp.conv_orb[-1]):
 							_rst.write_screen(_mpi, _exp, _time)
 						# print screen results
-						_prt.screen_results(_exp)
+						_prt.screen_results(_calc, _exp)
 						# print screen end
-						_prt.screen_end(_exp)
+						_prt.screen_end(_calc, _exp)
 					else:
 						# print screen end
-						_prt.screen_end(_exp)
+						_prt.screen_end(_calc, _exp)
 					# update restart frequency
 					_rst.rst_freq = _rst.update()
 					#
