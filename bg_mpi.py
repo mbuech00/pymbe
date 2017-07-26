@@ -44,20 +44,22 @@ class MPICls():
 				""" define local groups """
 				if (self.num_groups == 1):
 					self.local_comm = self.global_comm
+					self.local_master = self.global_master
 				else:
 					# array of ranks (global master excluded)
 					ranks = np.arange(1, self.global_size)
 					# split into local groups and add global master
-					local_group = np.array_split(ranks, self.num_groups)
-					local_group = [np.array([0])] + local_group
+					groups = np.array_split(ranks, self.num_groups)
+					groups = [np.array([0])] + groups
 					# extract local master indices and append to global master index
-					master_idx = [local_group[i][0] for i in range(self.num_groups + 1)]
+					masters = [groups[i][0] for i in range(self.num_groups + 1)]
+					self.local_master = (self.global_rank in masters)
 					# define master group and intracomm
-					self.master_group = self.global_group.Incl(master_idx)
+					self.master_group = self.global_group.Incl(masters)
 					self.master_comm = self.global_comm.Create(self.master_group)
 					# define local intracomm based on color
-					for i in range(len(local_group)):
-						if (self.global_rank in local_group[i]): color = i
+					for i in range(len(groups)):
+						if (self.global_rank in groups[i]): color = i
 					self.local_comm = self.global_comm.Split(color)
 				#
 				return
