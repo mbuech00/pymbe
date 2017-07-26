@@ -45,6 +45,14 @@ class DrvCls():
 				# now do expansion
 				for _exp.order in range(_exp.min_order, _exp.max_order+1):
 					#
+					# set order for timings
+					#
+					if (_calc.exp_type in ['occupied','virtual']):
+						_time.order = _exp.order
+					else:
+						if (_exp.level == 'macro'): _exp.order_macro = _exp.order
+						_time.order = _exp.order_macro
+					#
 					#** energy kernel phase **#
 					#
 					# print kernel header
@@ -110,17 +118,19 @@ class DrvCls():
 					#** energy kernel phase **#
 					#
 					if (msg['task'] == 'kernel_slave'):
-						exp.order = msg['order']
+						exp.order = msg['exp_order']
+						_time.order = msg['time_order']
 						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp, _time)
-						_time.coll_phase_time(_mpi, None, exp.order, 'kernel')
+						_time.coll_phase_time(_mpi, None, _time.order, 'kernel')
 					#
 					#** screening phase **#
 					#
 					elif (msg['task'] == 'screen_slave'):
-						exp.order = msg['order']
+						exp.order = msg['exp_order']
+						_time.order = msg['time_order']
 						exp.thres = msg['thres']
 						self.screening.slave(_mpi, _calc, exp, _time)
-						_time.coll_phase_time(_mpi, None, exp.order, 'screen')
+						_time.coll_phase_time(_mpi, None, _time.order, 'screen')
 					#
 					#** exit **#
 					#

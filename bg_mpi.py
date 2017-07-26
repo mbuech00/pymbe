@@ -181,15 +181,15 @@ class MPICls():
 		def bcast_e_inc(self, _exp, _time):
 				""" bcast e_inc[-1] """
 				# start idle time
-				_time.timer('idle_kernel', _exp.order)
+				_time.timer('idle_kernel', _time.order)
 				# barrier
 				self.comm.Barrier()
 				# start comm time
-				_time.timer('comm_kernel', _exp.order)
+				_time.timer('comm_kernel', _time.order)
 				# now do Bcast
 				self.comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
 				# start work time
-				_time.timer('work_kernel', _exp.order)
+				_time.timer('work_kernel', _time.order)
 				#
 				return
 
@@ -198,25 +198,25 @@ class MPICls():
 				""" master/slave routine for bcasting total number of tuples """
 				if (self.master):
 					# start comm time
-					_time.timer('comm_screen', _exp.order)
+					_time.timer('comm_screen', _time.order)
 					# init bcast dict
 					tup_info = {'tup_len': len(_buff)}
 					# bcast
 					self.comm.bcast(tup_info, root=0)
 				# start idle time
-				_time.timer('idle_screen', _exp.order)
+				_time.timer('idle_screen', _time.order)
 				# all meet at barrier
 				self.comm.Barrier()
 				# start comm time
-				_time.timer('comm_screen', _exp.order)
+				_time.timer('comm_screen', _time.order)
 				# bcast buffer
 				self.comm.Bcast([_buff,MPI.INT], root=0)
 				# start work time
-				_time.timer('work_screen', _exp.order)
+				_time.timer('work_screen', _time.order)
 				# append tup[-1] with buff
 				if (len(_buff) >= 1): _exp.tuples.append(_buff)
 				# end work time
-				_time.timer('work_screen', _exp.order, True)
+				_time.timer('work_screen', _time.order, True)
 				#
 				return
 
