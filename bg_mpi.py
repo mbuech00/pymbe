@@ -165,8 +165,12 @@ class MPICls():
 				return
 
 
-		def bcast_rst(self, _calc, _exp):
+		def bcast_rst(self, _calc, _exp, _level):
 				""" bcast restart files """
+				if (_level == 'macro'):
+					comm = self.master_comm
+				elif (_level == 'micro'):
+					comm = self.global_comm
 				if (self.global_master):
 					# determine start index for energy kernel phase
 					e_inc_end = np.argmax(_exp.energy_inc[-1] == 0.0)
@@ -176,33 +180,28 @@ class MPICls():
 								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))],\
 								'min_order': _exp.min_order, 'e_inc_end': e_inc_end}
 					# bcast info
-					self.master_comm.bcast(exp_info, root=0)
+					comm.bcast(exp_info, root=0)
 					# bcast tuples
 					for i in range(1,len(_exp.tuples)):
-						self.master_comm.Bcast([_exp.tuples[i],MPI.INT], root=0)
+						comm.Bcast([_exp.tuples[i],MPI.INT], root=0)
 					# bcast energy increments
 					for i in range(len(_exp.energy_inc)):
-						self.master_comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
+						comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
 				else:
 					# receive exp_info
-					exp_info = self.master_comm.bcast(None, root=0)
+					exp_info = comm.bcast(None, root=0)
 					# set min_order
 					_exp.min_order = exp_info['min_order']
 					# receive tuples
 					for i in range(1,len(exp_info['len_tup'])):
 						buff = np.empty([exp_info['len_tup'][i],i+1], dtype=np.int32)
-						self.master_comm.Bcast([buff,MPI.INT], root=0)
+						comm.Bcast([buff,MPI.INT], root=0)
 						_exp.tuples.append(buff)
 					# receive e_inc
 					for i in range(len(exp_info['len_e_inc'])):
 						buff = np.zeros(exp_info['len_e_inc'][i], dtype=np.float64)
-						self.master_comm.Bcast([buff,MPI.DOUBLE], root=0)
+						comm.Bcast([buff,MPI.DOUBLE], root=0)
 						_exp.energy_inc.append(buff)
-					# for e_inc[-1], make sure that this is distributed among the slaves *if* incomplete
-					if (exp_info['e_inc_end'] != exp_info['len_e_inc'][-1]):
-						for i in range(exp_info['e_inc_end']):
-							if ((i % (self.global_size-1)) != (self.global_rank-1)): _exp.energy_inc[-1][i] = 0.0 
-						_exp.energy_inc[-1][exp_info['e_inc_end']:] = 0.0
 				#
 				return
 

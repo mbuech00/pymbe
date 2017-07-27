@@ -42,7 +42,7 @@ class DrvCls():
 						# bcast msg
 						_mpi.local_comm.bcast(msg, root=0)
 					else:
-						if (_exp.level == 'macro'):
+						if ((_exp.level == 'macro') and (_mpi.num_groups > 1)):
 							msg = {'task': 'exp_cls', 'rst': _rst.restart}
 							# bcast msg
 							_mpi.master_comm.bcast(msg, root=0)
@@ -130,7 +130,7 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
 						exp.level = 'macro'
 						# receive rst data
-						if (msg['rst']): _mpi.bcast_rst(_calc, exp)
+						if (msg['rst']): _mpi.bcast_rst(_calc, exp, 'macro')
 					#
 					#** energy kernel phase **#
 					#
@@ -164,7 +164,7 @@ class DrvCls():
 							exp.incl_idx = msg['incl_idx']
 						else:
 							# receive rst data
-							if (msg['rst']): _mpi.bcast_rst(_calc, exp)
+							if (msg['rst']): _mpi.bcast_rst(_calc, exp, 'micro')
 					#
 					#** energy kernel phase **#
 					#
