@@ -165,7 +165,7 @@ class MPICls():
 				return
 
 
-		def bcast_rst(self, _calc, _exp, _time):
+		def bcast_rst(self, _calc, _exp):
 				""" bcast restart files """
 				if (self.global_master):
 					# determine start index for energy kernel phase
@@ -183,13 +183,6 @@ class MPICls():
 					# bcast energy increments
 					for i in range(len(_exp.energy_inc)):
 						self.master_comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
-					# collect time_info
-					for i in range(1,self.global_size):
-						time_info = {'kernel': [_time.time_work[0][i],
-									_time.time_comm[0][i],_time.time_idle[0][i]],\
-									'screen': [_time.time_work[1][i],
-									_time.time_comm[1][i],_time.time_idle[1][i]]}
-						self.master_comm.send(time_info, dest=i)
 				else:
 					# receive exp_info
 					exp_info = self.master_comm.bcast(None, root=0)
@@ -210,57 +203,29 @@ class MPICls():
 						for i in range(exp_info['e_inc_end']):
 							if ((i % (self.global_size-1)) != (self.global_rank-1)): _exp.energy_inc[-1][i] = 0.0 
 						_exp.energy_inc[-1][exp_info['e_inc_end']:] = 0.0
-					# receive time_info
-					time_info = self.master_comm.recv(source=0, status=self.stat)
-					_time.time_work_kernel = time_info['kernel'][0]
-					_time.time_comm_kernel = time_info['kernel'][1]
-					_time.time_idle_kernel = time_info['kernel'][2]
-					_time.time_work_screen = time_info['screen'][0]
-					_time.time_comm_screen = time_info['screen'][1]
-					_time.time_idle_screen = time_info['screen'][2]
 				#
 				return
 
 
-		def bcast_e_inc(self, _exp, _time, _comm):
+		def bcast_e_inc(self, _exp, _comm):
 				""" bcast e_inc[-1] """
-				# start idle time
-				_time.timer('idle_kernel', _time.order)
-				# barrier
-				_comm.Barrier()
-				# start comm time
-				_time.timer('comm_kernel', _time.order)
 				# now do Bcast
 				_comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
-				# start work time
-				_time.timer('work_kernel', _time.order)
 				#
 				return
 
 
-		def bcast_tup(self, _exp, _time, _buff):
+		def bcast_tup(self, _exp, _buff):
 				""" master/slave routine for bcasting total number of tuples """
 				if (self.local_master):
-					# start comm time
-					_time.timer('comm_screen', _time.order)
 					# init bcast dict
 					tup_info = {'tup_len': len(_buff)}
 					# bcast
 					self.local_comm.bcast(tup_info, root=0)
-				# start idle time
-				_time.timer('idle_screen', _time.order)
-				# all meet at barrier
-				self.local_comm.Barrier()
-				# start comm time
-				_time.timer('comm_screen', _time.order)
 				# bcast buffer
 				self.local_comm.Bcast([_buff,MPI.INT], root=0)
-				# start work time
-				_time.timer('work_screen', _time.order)
 				# append tup[-1] with buff
 				if (len(_buff) >= 1): _exp.tuples.append(_buff)
-				# end work time
-				_time.timer('work_screen', _time.order, True)
 				#
 				return
 

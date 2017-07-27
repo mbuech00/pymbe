@@ -53,7 +53,7 @@ class ResCls():
 				return
 
 
-		def main(self, _mpi, _mol, _calc, _exp, _time):
+		def main(self, _mpi, _mol, _calc, _exp):
 				""" main driver for summary printing and plotting """
 				#
 				#** summary **#
@@ -61,9 +61,9 @@ class ResCls():
 				# overall results
 				self.overall_res(_mpi, _mol, _calc, _exp)
 				# detailed results
-				self.detail_res(_mol, _exp, _time)
+				self.detail_res(_mol, _exp)
 				# phase timings
-				self.phase_res(_mpi, _exp, _time)
+				self.phase_res(_mpi, _exp)
 				#
 				#** plotting **#
 				#
@@ -119,7 +119,7 @@ class ResCls():
 				return
 		
 		
-		def detail_res(self, _mol, _exp, _time):
+		def detail_res(self, _mol, _exp):
 				""" print detailed results """
 				# init total number of tuples
 				total_tup = 0
@@ -157,7 +157,7 @@ class ResCls():
 				return
 		
 		
-		def phase_res(self, _mpi, _exp, _time):
+		def phase_res(self, _mpi, _exp):
 				""" print phase timings """
 				# write summary to bg_results.out
 				with open(self.output,'a') as f:

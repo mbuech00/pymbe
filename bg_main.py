@@ -28,15 +28,15 @@ def main():
 		if (not bg.mpi.global_master):
 			if (bg.mpi.local_master):
 				# proceed to local master driver
-				bg.driver.local_master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.time)
+				bg.driver.local_master(bg.mpi, bg.mol, bg.calc, bg.pyscf)
 			else:
 				# proceed to slave driver
-				bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.time)
+				bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf)
 		else:
 			# proceed to main driver
-			bg.driver.main(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.prt, bg.rst)
+			bg.driver.main(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.prt, bg.rst)
 			# print summary and plot results
-			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time)
+			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp)
 			# finalize
 			bg.mpi.final(bg.rst)
 

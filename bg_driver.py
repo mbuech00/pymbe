@@ -32,7 +32,7 @@ class DrvCls():
 				return
 
 
-		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
+		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
 				""" main driver routine """
 				# exp class instantiation on slaves
 				if (_mpi.parallel):
@@ -46,23 +46,15 @@ class DrvCls():
 							# bcast msg
 							_mpi.master_comm.bcast(msg, root=0)
 						else:
-							msg = {'task': 'exp_cls', 'order_macro': _exp.order_macro, 'incl_idx': _exp.incl_idx}
+							msg = {'task': 'exp_cls', 'incl_idx': _exp.incl_idx}
 							# bcast msg
 							_mpi.local_comm.bcast(msg, root=0)
 				# restart
-				_rst.rst_main(_mpi, _calc, _exp, _time)
+				_rst.rst_main(_mpi, _calc, _exp)
 				# print expansion header
 				_prt.exp_header(_calc, _exp)
 				# now do expansion
 				for _exp.order in range(_exp.min_order, _exp.max_order+1):
-					#
-					# set order for timings
-					#
-					if (_calc.exp_type in ['occupied','virtual']):
-						_time.order = _exp.order
-					else:
-						if (_exp.level == 'macro'): _exp.order_macro = _exp.order
-						_time.order = _exp.order_macro
 					#
 					#** energy kernel phase **#
 					#
@@ -74,13 +66,13 @@ class DrvCls():
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
-					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
+					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 					# print micro results
 					_prt.kernel_micro_results(_calc, _exp)
 					# print kernel end
 					_prt.kernel_end(_calc, _exp)
 					# write restart files
-					_rst.write_kernel(_mpi, _calc, _exp, _time, True)
+					_rst.write_kernel(_mpi, _calc, _exp, True)
 					# print kernel results
 					_prt.kernel_results(_calc, _exp)
 					# collect time
@@ -97,10 +89,10 @@ class DrvCls():
 					# orbital screening
 					if ((not _exp.conv_energy[-1]) and (_exp.order < _exp.max_order)):
 						# perform screening
-						self.screening.main(_mpi, _calc, _exp, _time, _rst)
+						self.screening.main(_mpi, _calc, _exp, _rst)
 						# write restart files
 						if (not _exp.conv_orb[-1]):
-							_rst.write_screen(_mpi, _calc, _exp, _time)
+							_rst.write_screen(_mpi, _calc, _exp)
 						# print screen results
 						_prt.screen_results(_calc, _exp)
 						# print screen end
@@ -122,7 +114,7 @@ class DrvCls():
 				return
 
 
-		def local_master(self, _mpi, _mol, _calc, _pyscf, _time):
+		def local_master(self, _mpi, _mol, _calc, _pyscf):
 				""" local master routine """
 				# set loop/waiting logical
 				local_master = True
@@ -137,15 +129,13 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
 						exp.level = 'macro'
 						# receive rst data
-						if (msg['rst']): _mpi.bcast_rst(_calc, exp, _time)
+						if (msg['rst']): _mpi.bcast_rst(_calc, exp)
 					#
 					#** energy kernel phase **#
 					#
 					if (msg['task'] == 'kernel_slave'):
 						exp.order = msg['exp_order']
-						_time.order = msg['time_order']
-						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp, _time)
-						_time.coll_phase_time(_mpi, None, _time.order, 'kernel')
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp)
 					#
 					#** exit **#
 					#
@@ -155,7 +145,7 @@ class DrvCls():
 				_mpi.final(None)
 	
 	
-		def slave(self, _mpi, _mol, _calc, _pyscf, _time):
+		def slave(self, _mpi, _mol, _calc, _pyscf):
 				""" slave routine """
 				# set loop/waiting logical
 				slave = True
@@ -170,28 +160,23 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
 						exp.level = 'micro'
 						if (_calc.exp_type == 'combined'):
-							exp.order_macro = msg['order_macro']
 							exp.incl_idx = msg['incl_idx']
 						else:
 							# receive rst data
-							if (msg['rst']): _mpi.bcast_rst(_calc, exp, _time)
+							if (msg['rst']): _mpi.bcast_rst(_calc, exp)
 					#
 					#** energy kernel phase **#
 					#
 					if (msg['task'] == 'kernel_slave'):
 						exp.order = msg['exp_order']
-						_time.order = msg['time_order']
-						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp, _time)
-						_time.coll_phase_time(_mpi, None, _time.order, 'kernel')
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp)
 					#
 					#** screening phase **#
 					#
 					elif (msg['task'] == 'screen_slave'):
 						exp.order = msg['exp_order']
-						_time.order = msg['time_order']
 						exp.thres = msg['thres']
-						self.screening.slave(_mpi, _calc, exp, _time)
-						_time.coll_phase_time(_mpi, None, _time.order, 'screen')
+						self.screening.slave(_mpi, _calc, exp)
 					#
 					#** exit **#
 					#
