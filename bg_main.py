@@ -21,16 +21,20 @@ from bg_init import InitCls
 
 
 def main():
-		""" main bg program """
+		""" main program """
 		# initialize the calculation
 		bg = InitCls()
 		# now branch
-		if (not bg.mpi.master):
-			# proceed to main slave driver
-			bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.rst)
+		if (not bg.mpi.global_master):
+			if (bg.mpi.local_master):
+				# proceed to local master driver
+				bg.driver.local_master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.time)
+			else:
+				# proceed to slave driver
+				bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.time)
 		else:
-			# proceed to main master driver
-			bg.driver.master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.prt, bg.rst)
+			# proceed to main driver
+			bg.driver.main(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.time, bg.prt, bg.rst)
 			# print summary and plot results
 			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp, bg.time)
 			# finalize

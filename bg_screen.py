@@ -19,11 +19,28 @@ from itertools import combinations
 
 class ScrCls():
 		""" screening class """
-		def __init__(self, _exp):
-				""" init tags """
-				self.tags = _exp.enum('ready', 'done', 'exit', 'start') 
+		def __init__(self, _mol, _type):
+				""" init parameters """
+				# set tags
+				self.tags = self.enum('ready', 'done', 'exit', 'start') 
+				# set u_limit
+				if (_type in ['occupied','combined']):
+					self.l_limit = 0
+					self.u_limit = _mol.nocc
+				else:
+					self.l_limit = _mol.nocc
+					self.u_limit = _mol.nvirt 
 				#
 				return
+
+
+		def enum(self, *sequential, **named):
+				""" hardcoded enums
+				see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+				"""
+				enums = dict(zip(sequential, range(len(sequential))), **named)
+				#
+				return type('Enum', (), enums)
 
 	
 		def update(self, _calc, _exp):
@@ -39,10 +56,10 @@ class ScrCls():
 				if (_mpi.parallel):
 					# mpi parallel version
 					self.master(_mpi, _calc, _exp, _time)
-					_time.coll_screen_time(_mpi, _rst, _exp.order, True)
+					_time.coll_phase_time(_mpi, _rst, _time.order, 'screen')
 				else:
 					# start time
-					_time.timer('work_screen', _exp.order)
+					_time.timer('work_screen', _time.order)
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
 					# determine which increments have contributions below the threshold
@@ -55,7 +72,7 @@ class ScrCls():
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.allow_tuples[i][-1]+1, _exp.l_limit+_exp.u_limit):
+						for m in range(_exp.allow_tuples[i][-1]+1, self.l_limit+self.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
@@ -76,7 +93,7 @@ class ScrCls():
 					else:
 						_exp.conv_orb.append(True)
 					# end time
-					_time.timer('work_screen', _exp.order, True)
+					_time.timer('work_screen', _time.order, True)
 				#
 				return
 	
@@ -84,17 +101,17 @@ class ScrCls():
 		def master(self, _mpi, _calc, _exp, _time):
 				""" master routine """
 				# start idle time
-				_time.timer('idle_screen', _exp.order)
+				_time.timer('idle_screen', _time.order)
 				# wake up slaves
-				msg = {'task': 'screen_slave', 'order': _exp.order, 'thres': _exp.thres}
+				msg = {'task': 'screen_slave', 'exp_order': _exp.order, 'time_order': _time.order, 'thres': _exp.thres}
 				# bcast
-				_mpi.comm.bcast(msg, root=0)
+				_mpi.local_comm.bcast(msg, root=0)
 				# start work time
-				_time.timer('work_screen', _exp.order)
+				_time.timer('work_screen', _time.order)
 				# init job_info dictionary
 				job_info = {}
 				# number of slaves
-				num_slaves = _mpi.size - 1
+				num_slaves = _mpi.global_size - 1
 				# number of available slaves
 				slaves_avail = num_slaves
 				# init job index, tmp list, and screen_count
@@ -107,12 +124,12 @@ class ScrCls():
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# start idle time
-					_time.timer('idle_screen', _exp.order)
+					_time.timer('idle_screen', _time.order)
 					# receive data dict
-					data = _mpi.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG,
+					data = _mpi.local_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG,
 											status=_mpi.stat)
 					# start work time
-					_time.timer('work_screen', _exp.order)
+					_time.timer('work_screen', _time.order)
 					# probe for source and tag
 					source = _mpi.stat.Get_source(); tag = _mpi.stat.Get_tag()
 					# slave is ready
@@ -120,22 +137,22 @@ class ScrCls():
 						# any jobs left?
 						if (i <= len(_exp.allow_tuples)-1):
 							# start comm time
-							_time.timer('comm_screen', _exp.order)
+							_time.timer('comm_screen', _time.order)
 							# save parent tuple index
 							job_info['index'] = i
 							# send parent tuple index
-							_mpi.comm.send(job_info, dest=source, tag=self.tags.start)
+							_mpi.local_comm.send(job_info, dest=source, tag=self.tags.start)
 							# start work time
-							_time.timer('work_screen', _exp.order)
+							_time.timer('work_screen', _time.order)
 							# increment job index
 							i += 1
 						else:
 							# start comm time#
-							_time.timer('comm_screen', _exp.order)
+							_time.timer('comm_screen', _time.order)
 							# send None info
-							_mpi.comm.send(None, dest=source, tag=self.tags.exit)
+							_mpi.local_comm.send(None, dest=source, tag=self.tags.exit)
 							# start work time
-							_time.timer('work_screen', _exp.order)
+							_time.timer('work_screen', _time.order)
 					# receive result from slave
 					elif (tag == self.tags.done):
 						# write tmp child tuple list
@@ -162,19 +179,19 @@ class ScrCls():
 		def slave(self, _mpi, _calc, _exp, _time):
 				""" slave routine """
 				# start work time
-				_time.timer('work_screen', _exp.order)
+				_time.timer('work_screen', _time.order)
 				# init data dict and combs list
 				data = {'child_tuple': [], 'screen_count': 0}; combs = []
 				# receive work from master
 				while (True):
 					# start comm time
-					_time.timer('comm_screen', _exp.order)
+					_time.timer('comm_screen', _time.order)
 					# send status to master
-					_mpi.comm.send(None, dest=0 ,tag=self.tags.ready)
+					_mpi.local_comm.send(None, dest=0 ,tag=self.tags.ready)
 					# receive parent tuple
-					job_info = _mpi.comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
+					job_info = _mpi.local_comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
 					# start work time
-					_time.timer('work_screen', _exp.order)
+					_time.timer('work_screen', _time.order)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
 					# determine which increments have contributions below the threshold
@@ -189,7 +206,7 @@ class ScrCls():
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1))
 						# loop through possible orbitals to augment the combinations with
-						for m in range(_exp.allow_tuples[job_info['index']][-1]+1, _exp.l_limit+_exp.u_limit):
+						for m in range(_exp.allow_tuples[job_info['index']][-1]+1, self.l_limit+self.u_limit):
 							# init screening logical
 							screen = False
 							# loop over subset combinations
@@ -205,22 +222,22 @@ class ScrCls():
 							else:
 								data['screen_count'] += 1
 						# start comm time
-						_time.timer('comm_screen', _exp.order)
+						_time.timer('comm_screen', _time.order)
 						# send data back to master
-						_mpi.comm.send(data, dest=0, tag=self.tags.done)
+						_mpi.local_comm.send(data, dest=0, tag=self.tags.done)
 						# start work time
-						_time.timer('work_screen', _exp.order)
+						_time.timer('work_screen', _time.order)
 					# exit
 					elif (tag == self.tags.exit):
 						break
 				# start comm time
-				_time.timer('comm_screen', _exp.order)
+				_time.timer('comm_screen', _time.order)
 				# send exit signal to master
-				_mpi.comm.send(None, dest=0, tag=self.tags.exit)
+				_mpi.local_comm.send(None, dest=0, tag=self.tags.exit)
 				# start work time
-				_time.timer('work_screen', _exp.order)
+				_time.timer('work_screen', _time.order)
 				# init buffer
-				tup_info = _mpi.comm.bcast(None, root=0)
+				tup_info = _mpi.local_comm.bcast(None, root=0)
 				buff = np.empty([tup_info['tup_len'],_exp.order+1], dtype=np.int32)
 				# receive buffer
 				_mpi.bcast_tup(_exp, _time, buff)

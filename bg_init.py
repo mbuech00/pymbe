@@ -33,19 +33,22 @@ class InitCls():
 		""" initialization class """
 		def __init__(self):
 				""" init calculation """
-				# mpi instance
+				# mpi instantiation
 				self.mpi = MPICls()
-				# output instance
+				# output instantiation
 				self.out = OutCls(self.mpi)
-				# restart instance
-				self.rst = RstCls(self.out, self.mpi)
-				# molecule and calculation instances
+				# restart instantiation
+				if (self.mpi.global_master):
+					self.rst = RstCls(self.out, self.mpi)
+				else:
+					self.rst = None
+				# molecule and calculation instantiations
 				self.mol = MolCls(self.mpi, self.rst)
 				self.calc = CalcCls(self.mpi, self.rst)
-				# pyscf instance
+				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation and integral transformation
-				if (self.mpi.master):
+				if (self.mpi.global_master):
 					try:
 						self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
 								self.pyscf.hf_calc(self.mol)
@@ -62,18 +65,29 @@ class InitCls():
 											format(err))
 				# bcast to slaves
 				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
-				# time instance
-				self.time = TimeCls(self.mpi, self.rst)
-				# expansion instance
-				if (self.calc.exp_type in ['occupied','virtual']):
-					self.exp = ExpCls(self.mpi, self.mol, self.calc, self.rst)
-					self.rst.rst_main(self.mpi, self.calc, self.exp, self.time)
-				# driver instance
-				self.driver = DrvCls()
-				# print and result instances
-				if (self.mpi.master):
+				# time instantiation
+				self.time = TimeCls(self.mpi)
+				if (self.mpi.global_master):
+					# expansion and driver instantiations
+					if (self.calc.exp_type in ['occupied','virtual']):
+						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
+						self.driver = DrvCls(self.mol, self.calc.exp_type)
+						# mark expansion as micro
+						self.exp.level = 'micro'
+					elif (self.calc.exp_type == 'combined'):
+						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
+						self.driver = DrvCls(self.mol, 'occupied')
+						# mark expansion as macro
+						self.exp.level = 'macro'
+					# print and result instantiations
 					self.prt = PrintCls(self.out)
-					self.res = ResCls(self.out)
+					self.res = ResCls(self.mpi, self.mol, self.calc, self.out)
+				else:
+					# driver instantiation
+					if (self.calc.exp_type in ['occupied','virtual']):
+						self.driver = DrvCls(self.mol, self.calc.exp_type)
+					elif (self.calc.exp_type == 'combined'):
+						self.driver = DrvCls(self.mol, 'occupied')
 				#
 				return
 
@@ -86,7 +100,7 @@ class OutCls():
 				self.wrk_dir = getcwd()
 				# set output dir
 				self.out_dir = self.wrk_dir+'/output'
-				if (_mpi.master):
+				if (_mpi.global_master):
 					# rm out_dir if present
 					if (isdir(self.out_dir)): rmtree(self.out_dir, ignore_errors=True)
 					# mk out_dir

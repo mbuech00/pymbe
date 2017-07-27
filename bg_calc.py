@@ -25,25 +25,31 @@ class CalcCls():
 				self.exp_type = 'occupied'
 				self.exp_base = 'HF'
 				self.exp_thres = 10.0
-				self.exp_max_order = 5
+				self.exp_max_order = 0
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
 				self.energy_thres = 3.8e-05
 				self.tolerance = 0.0
 				# set calculation parameters
-				if (_mpi.master):
-					self.exp_model, self.exp_type, self.exp_base, self.exp_thres,\
-						self.exp_max_order, self.exp_occ, self.exp_virt,\
-						self.energy_thres, self.tolerance = self.set_calc(_rst)
+				if (_mpi.global_master):
+					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
+						self.exp_max_order, self.exp_occ, self.exp_virt, \
+						self.energy_thres, self.tolerance, \
+						_mpi.num_groups = self.set_calc(_mpi, _rst)
 					# sanity check
-					self.sanity_chk(_rst)
-				if (_mpi.parallel): _mpi.bcast_calc_info(self)
+					self.sanity_chk(_mpi, _rst)
+				if (_mpi.parallel):
+					# bcast calc and mpi info
+					_mpi.bcast_calc_info(self)
+					_mpi.bcast_mpi_info()
+					# set local groups
+					_mpi.set_local_groups()
 				#
 				return
 
 
-		def set_calc(self, _rst):
-				""" set calculation parameters from bg-calc.inp file """
+		def set_calc(self, _mpi, _rst):
+				""" set calculation and mpi parameters from bg-calc.inp file """
 				# read input file
 				try:
 					with open('bg-calc.inp') as f:
@@ -67,6 +73,8 @@ class CalcCls():
 								self.energy_thres = float(content[i].split()[2])
 							elif (content[i].split()[0] == 'tolerance'):
 								self.tolerance = float(content[i].split()[2])
+							elif (content[i].split()[0] == 'num_mpi_groups'):
+								_mpi.num_groups = int(content[i].split()[2])
 							# error handling
 							else:
 								try:
@@ -79,21 +87,22 @@ class CalcCls():
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
 				#
-				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres,\
-							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, self.tolerance
+				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
+							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, self.tolerance, \
+							_mpi.num_groups
 
 
-		def sanity_chk(self, _rst):
-				""" sanity check for calculation parameters """
+		def sanity_chk(self, _mpi, _rst):
+				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
 					if (not (self.exp_model in ['MP2','CCSD','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: MP2, CCSD, and FCI')
 					# type of expansion
-					if (not (self.exp_type in ['occupied','virtual'])):
+					if (not (self.exp_type in ['occupied','virtual','combined'])):
 						raise ValueError('wrong input -- valid choices for ' + \
-										'expansion scheme are occupied and virtual')
+										'expansion scheme are occupied, virtual, and combined')
 					# base model
 					if (not (self.exp_base in ['HF','MP2','CCSD'])):
 						raise ValueError('wrong input -- valid base models ' + \
@@ -120,6 +129,17 @@ class CalcCls():
 					if (not (self.exp_virt in ['HF','MP2','CCSD'])):
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: HF or MP2/CCSD natural orbitals')
+					# mpi groups
+					if (_mpi.num_groups <= 0):
+						raise ValueError('wrong input -- number of mpi groups ' + \
+										'must be a positive number >= 1')
+					if (_mpi.num_groups > 1):
+						if (self.exp_type != 'combined'):
+							raise ValueError('wrong input -- the use of more than one mpi group ' + \
+											'is currently not implemented for occupied and virtual expansions')
+						if (_mpi.global_size <= 2 * _mpi.num_groups):
+							raise ValueError('wrong input -- total number of mpi processes ' + \
+											'must be larger than twice the number of mpi groups')
 				except Exception as err:
 					_rst.rm_rst()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))

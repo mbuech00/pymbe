@@ -18,36 +18,24 @@ from mpi4py import MPI
 
 class TimeCls():
 		""" time class """
-		def __init__(self, _mpi, _rst):
+		def __init__(self, _mpi):
 				""" init mpi timings """
 				# init tmp time and time label
 				self.store_time = 0.0; self.store_key = ''
 				# init timings dict
 				self.timings = {}
 				# mpi distribution
-				if (_rst.restart):
-					# 'energy kernel' timings
-					self.timings['work_kernel'] = []
-					self.timings['comm_kernel'] = []
-					self.timings['idle_kernel'] = []
-					# 'screen' timings
-					self.timings['work_screen'] = []
-					self.timings['comm_screen'] = []
-					self.timings['idle_screen'] = []
-				else:
-					# 'energy kernel' timings
-					self.timings['work_kernel'] = [0.0]
-					self.timings['comm_kernel'] = [0.0]
-					self.timings['idle_kernel'] = [0.0]
-					# 'screen' timings
-					self.timings['work_screen'] = [0.0]
-					self.timings['comm_screen'] = [0.0]
-					self.timings['idle_screen'] = [0.0]
+				self.timings['work_kernel'] = [0.0]
+				self.timings['comm_kernel'] = [0.0]
+				self.timings['idle_kernel'] = [0.0]
+				self.timings['work_screen'] = [0.0]
+				self.timings['comm_screen'] = [0.0]
+				self.timings['idle_screen'] = [0.0]
 				# collective lists
-				if (_mpi.parallel and _mpi.master):
-					self.time_work = [[[] for i in range(_mpi.size)] for j in range(2)]
-					self.time_comm = [[[] for i in range(_mpi.size)] for j in range(2)]
-					self.time_idle = [[[] for i in range(_mpi.size)] for j in range(2)]
+				if (_mpi.parallel and _mpi.global_master):
+					self.time_work = [[[] for i in range(_mpi.global_size)] for j in range(2)]
+					self.time_comm = [[[] for i in range(_mpi.global_size)] for j in range(2)]
+					self.time_idle = [[[] for i in range(_mpi.global_size)] for j in range(2)]
 				#
 				return
 
@@ -85,7 +73,7 @@ class TimeCls():
 				elif (_phase == 'screen'):
 					idx = 1
 				# master collects the timings
-				if (_mpi.master):
+				if (_mpi.global_master):
 					if (_phase == 'kernel'):
 						self.time_work[0][0][-1] = self.timings['work_' + str(_phase)][-1]
 						self.time_comm[0][0][-1] = self.timings['comm_' + str(_phase)][-1]
@@ -95,8 +83,8 @@ class TimeCls():
 						self.time_comm[1][0].append(self.timings['comm_' + str(_phase)][-1])
 						self.time_idle[1][0].append(self.timings['idle_' + str(_phase)][-1])
 					# receive individual timings (in ordered sequence)
-					for i in range(1,_mpi.size):
-						time_info = _mpi.comm.recv(source=i, status=_mpi.stat)
+					for i in range(1,_mpi.global_size):
+						time_info = _mpi.global_comm.recv(source=i, status=_mpi.stat)
 						if (_phase == 'kernel'):
 							self.time_work[0][i][-1] = time_info['work']
 							self.time_comm[0][i][-1] = time_info['comm']
@@ -110,19 +98,23 @@ class TimeCls():
 					time_info = {'work': self.timings['work_' + str(_phase)][-1],
 								'comm': self.timings['comm_' + str(_phase)][-1],
 								'idle': self.timings['idle_' + str(_phase)][-1]}
-					_mpi.comm.send(time_info, dest=0)
+					_mpi.global_comm.send(time_info, dest=0)
 				#
 				return
 
 
 		def calc_time(self, _mpi, _calc, _exp):
 				""" calculate mpi timings """
-				# check for exp_max_order
-				if (_exp.order == _calc.exp_max_order):
-					for i in range(_mpi.size):
-						self.time_work[1][i].append(0.0)
-						self.time_comm[1][i].append(0.0)
-						self.time_idle[1][i].append(0.0)
+				# check for screen timings
+				if (len(self.timings['work_screen']) < len(self.timings['work_kernel'])):
+					self.timings['work_screen'].append(0.0)
+					if (_mpi.parallel):
+						self.timings['comm_screen'].append(0.0)
+						self.timings['idle_screen'].append(0.0)
+						for i in range(_mpi.global_size):
+							self.time_work[1][i].append(0.0)
+							self.time_comm[1][i].append(0.0)
+							self.time_idle[1][i].append(0.0)
 				# use master timings to calculate overall phase timings
 				if (not _mpi.parallel):
 					self.time_kernel = np.asarray(self.timings['work_kernel'] + \
@@ -146,22 +138,22 @@ class TimeCls():
 					# calc total timings
 					self.time_tot = self.time_kernel + self.time_screen
 					# init summation arrays
-					self.sum_work_abs = np.empty([2,_mpi.size], dtype=np.float64)
-					self.sum_comm_abs = np.empty([2,_mpi.size], dtype=np.float64)
-					self.sum_idle_abs = np.empty([2,_mpi.size], dtype=np.float64)
+					self.sum_work_abs = np.empty([2,_mpi.global_size], dtype=np.float64)
+					self.sum_comm_abs = np.empty([2,_mpi.global_size], dtype=np.float64)
+					self.sum_idle_abs = np.empty([2,_mpi.global_size], dtype=np.float64)
 					# sum up work/comm/idle contributions
 					# from all orders for the individual mpi procs
 					for i in range(2):
-						for j in range(_mpi.size):
+						for j in range(_mpi.global_size):
 							self.sum_work_abs[i][j] = np.sum(np.asarray(self.time_work[i][j]))
 							self.sum_comm_abs[i][j] = np.sum(np.asarray(self.time_comm[i][j]))
 							self.sum_idle_abs[i][j] = np.sum(np.asarray(self.time_idle[i][j]))
 					# mpi distribution - slave (only count slave timings)
-					self.dist_kernel = np.empty([3,_mpi.size], dtype=np.float64)
-					self.dist_screen = np.empty([3,_mpi.size], dtype=np.float64)
-					self.dist_total = np.empty([3,_mpi.size], dtype=np.float64)
+					self.dist_kernel = np.empty([3,_mpi.global_size], dtype=np.float64)
+					self.dist_screen = np.empty([3,_mpi.global_size], dtype=np.float64)
+					self.dist_total = np.empty([3,_mpi.global_size], dtype=np.float64)
 					# for each of the phases, calculate the relative distribution between work/comm/idle for the individual slaves
-					for j in range(_mpi.size):
+					for j in range(_mpi.global_size):
 						self.dist_kernel[0][j] = (self.sum_work_abs[0][j] / (self.sum_work_abs[0][j] + \
 										self.sum_comm_abs[0][j] + self.sum_idle_abs[0][j])) * 100.0
 						self.dist_kernel[1][j] = (self.sum_comm_abs[0][j] / (self.sum_work_abs[0][j] + \
@@ -192,7 +184,7 @@ class TimeCls():
 					# absolute amount of work/comm/idle at each order
 					for k in range(len(_exp.energy_tot)):
 						for i in range(2):
-							for j in range(1,_mpi.size):
+							for j in range(1,_mpi.global_size):
 								self.dist_order[0,k] += self.time_work[i][j][k]
 								self.dist_order[1,k] += self.time_comm[i][j][k]
 								self.dist_order[2,k] += self.time_idle[i][j][k]
@@ -209,31 +201,17 @@ class TimeCls():
 				return
 
 
-		def coll_kernel_time(self, _mpi, _rst, _order):
-				""" collect timings for energy kernel phase """
+		def coll_phase_time(self, _mpi, _rst, _order, _phase):
+				""" collect timings for phase """
 				# start idle time
-				self.timer('idle_kernel', _order)
+				self.timer('idle_'+_phase, _order)
 				# collect idle time
-				_mpi.comm.Barrier()
-				self.timer('idle_kernel', _order, True)
-				self.coll_time(_mpi, 'kernel')
+				_mpi.global_comm.Barrier()
+				self.timer('idle_'+_phase, _order, True)
+				self.coll_time(_mpi, _phase)
 				# write restart files
-				if (_mpi.master): _rst.write_time(_mpi, self, 'kernel')
+				if (_mpi.global_master): _rst.write_time(_mpi, self, _phase)
 				#
 				return
-
-
-		def coll_screen_time(self, _mpi, _rst, _order, _second_call=False):
-				""" collect timings for screening phase """
-				# start idle time
-				self.timer('idle_screen', _order)
-				# collect idle time
-				_mpi.comm.Barrier()
-				self.timer('idle_screen', _order, True)
-				# first or second call? if second, write restart files
-				if (_second_call): self.coll_time(_mpi, 'screen')
-				if (_second_call and _mpi.master): _rst.write_time(_mpi, self, 'screen')
-				#
-				return 
 
 

@@ -21,10 +21,10 @@ class MolCls(gto.Mole):
 		""" molecule class (inherited from pyscf gto.Mole class) """
 		def __init__(self, _mpi, _rst):
 				""" init parameters """
-				# gto.Mole instance
+				# gto.Mole instantiation
 				gto.Mole.__init__(self)
 				# set geometric and molecular parameters
-				if (_mpi.master):
+				if (_mpi.global_master):
 					# set default value for FC
 					self.frozen = False
 					# set geometry
