@@ -148,8 +148,8 @@ class ResCls():
 						# loop over orders
 						for i in range(len(_exp.energy_tot)):
 							# sum up total time and number of tuples
-							total_time = np.sum(_time.time_kernel[:i+1])\
-											+np.sum(_time.time_screen[:i+1])
+							total_time = np.sum(_exp.time_kernel[:i+1])\
+											+np.sum(_exp.time_screen[:i+1])
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.6e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
@@ -183,9 +183,9 @@ class ResCls():
 						print(self.divider_str)
 						for i in range(len(_exp.energy_tot)):
 							# set shorthand notation
-							time_k = _time.time_kernel[i]
-							time_s = _time.time_screen[i]
-							time_t = _time.time_tot[i]
+							time_k = _exp.time_kernel[i]
+							time_s = _exp.time_screen[i]
+							time_t = _exp.time_kernel[i] + _exp.time_screen[i]
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:10}{5:03d}{6:^3}{7:02d}{8:^3}'
 								'{9:02d}{10:^3}{11:>6.2f}{12:8}{13:1}{14:10}{15:03d}{16:^3}'
 								'{17:02d}{18:^3}{19:02d}{20:^3}{21:>6.2f}{22:9}{23:1}{24:9}'
@@ -204,9 +204,9 @@ class ResCls():
 						print(self.divider_str)
 						print(self.divider_str)
 						# set shorthand notation
-						time_k = _time.time_kernel[-1]
-						time_s = _time.time_screen[-1]
-						time_t = _time.time_tot[-1]
+						time_k = np.sum(_exp.time_kernel)
+						time_s = np.sum(_exp.time_screen)
+						time_t = np.sum(_exp.time_kernel) + np.sum(_exp.time_screen)
 						print(('{0:8}{1:5}{2:4}{3:1}{4:10}{5:03d}{6:^3}{7:02d}{8:^3}'
 							'{9:02d}{10:^3}{11:>6.2f}{12:8}{13:1}{14:10}{15:03d}{16:^3}'
 							'{17:02d}{18:^3}{19:02d}{20:^3}{21:>6.2f}{22:9}{23:1}{24:9}'

@@ -66,6 +66,8 @@ class DrvCls():
 					#
 					#** energy kernel phase **#
 					#
+					# start time
+					if (_mpi.global_master): _exp.time_kernel.append(MPI.Wtime())
 					# print kernel header
 					_prt.kernel_header(_calc, _exp)
 					# init e_inc
@@ -81,9 +83,15 @@ class DrvCls():
 					_rst.write_kernel(_mpi, _calc, _exp, _time, True)
 					# print kernel results
 					_prt.kernel_results(_calc, _exp)
+					# collect time
+					if (_mpi.global_master):
+						_exp.time_kernel[-1] -= MPI.Wtime()
+						_exp.time_kernel[-1] *= -1
 					#
 					#** screening phase **#
 					#
+					# start time
+					if (_mpi.global_master): _exp.time_screen.append(MPI.Wtime())
 					# print screen header
 					_prt.screen_header(_calc, _exp)
 					# orbital screening
@@ -102,6 +110,10 @@ class DrvCls():
 						_prt.screen_end(_calc, _exp)
 					# update restart frequency
 					_rst.rst_freq = _rst.update()
+					# collect time
+					if (_mpi.global_master):
+						_exp.time_screen[-1] -= MPI.Wtime()
+						_exp.time_screen[-1] *= -1
 					#
 					#** convergence check **#
 					#

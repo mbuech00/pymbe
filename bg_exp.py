@@ -63,6 +63,9 @@ class ExpCls():
 				self.conv_energy = [False]
 				# init total energy list
 				self.energy_tot = []
+				# init timings
+				self.time_kernel = []
+				self.time_screen = []
 				#
 				return
 
