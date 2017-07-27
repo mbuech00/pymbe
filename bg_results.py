@@ -38,6 +38,7 @@ class ResCls():
 				self.output = self.out_dir+'/bg_results.out'
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
+				self.fill_str = '{0:^143}'.format('|'*137)
 				self.header_str = '{0:^143}'.format('-'*45)
 				# upper limit
 				if (_calc.exp_type in ['occupied','combined']):
@@ -55,31 +56,23 @@ class ResCls():
 
 		def main(self, _mpi, _mol, _calc, _exp):
 				""" main driver for summary printing and plotting """
-				#
-				#** summary **#
-				#
-				# overall results
-				self.overall_res(_mpi, _mol, _calc, _exp)
-				# detailed results
-				self.detail_res(_mol, _exp)
-				#
-				#** plotting **#
-				#
-				# total energies
+				# results
+				self.results(_mpi, _mol, _calc, _exp)
+				# plot of total energy
 				self.abs_energy(_mol, _calc, _exp)
-				# number of calculations
+				# plot of number of calculations
 				self.n_tuples(_mol, _calc, _exp)
 				#
 				return
 
 
-		def overall_res(self, _mpi, _mol, _calc, _exp):
-				""" print overall results """
+		def results(self, _mpi, _mol, _calc, _exp):
+				""" print results """
 				# write summary to bg_results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
 						print('\n\n'+self.header_str)
-						print('{0:^143}'.format('overall results'))
+						print('{0:^143}'.format('results'))
 						print(self.header_str+'\n')
 						print(self.divider_str)
 						print('{0:14}{1:21}{2:11}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'.\
@@ -113,20 +106,7 @@ class ResCls():
 									'','|','','final convergence','','=','',\
 									_exp.energy_tot[-1] - _exp.energy_tot[-2]))
 						print(self.divider_str)
-				#
-				return
-		
-		
-		def detail_res(self, _mol, _exp):
-				""" print detailed results """
-				# init total number of tuples
-				total_tup = 0
-				# write summary to bg_results.out
-				with open(self.output,'a') as f:
-					with redirect_stdout(f):
-						print('\n\n'+self.header_str)
-						print('{0:^143}'.format('detailed results'))
-						print(self.header_str+'\n')
+						print(self.fill_str)
 						print(self.divider_str)
 						print(('{0:6}{1:8}{2:3}{3:1}{4:7}{5:18}{6:7}{7:1}'
 							'{8:7}{9:26}{10:6}{11:1}{12:6}{13:}').\
@@ -135,6 +115,7 @@ class ResCls():
 									'','|','','number of calcs. (abs. / %  --  total)'))
 						print(self.divider_str)
 						# loop over orders
+						total_tup = 0
 						for i in range(len(_exp.energy_tot)):
 							# sum up total time and number of tuples
 							total_time = np.sum(_exp.time_kernel[:i+1])\
@@ -153,8 +134,8 @@ class ResCls():
 						print(self.divider_str+'\n\n')
 				#
 				return
-		
-		
+	
+	
 		def abs_energy(self, _mol, _calc, _exp):
 				""" plot absolute energy """
 				# set seaborn
