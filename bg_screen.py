@@ -48,18 +48,15 @@ class ScrCls():
 				return 1.0e-10 * _calc.exp_thres ** (_exp.order - 1)
 
 		
-		def main(self, _mpi, _calc, _exp, _time, _rst):
+		def main(self, _mpi, _calc, _exp, _rst):
 				""" input generation for subsequent order """
 				# update expansion threshold
 				_exp.thres = self.update(_calc, _exp)
 				# start screening
 				if (_mpi.parallel):
 					# mpi parallel version
-					self.master(_mpi, _calc, _exp, _time)
-					_time.coll_phase_time(_mpi, _rst, _time.order, 'screen')
+					self.master(_mpi, _calc, _exp)
 				else:
-					# start time
-					_time.timer('work_screen', _time.order)
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
 					# determine which increments have contributions below the threshold
@@ -92,22 +89,16 @@ class ScrCls():
 						_exp.tuples.append(np.array(tmp, dtype=np.int32))
 					else:
 						_exp.conv_orb.append(True)
-					# end time
-					_time.timer('work_screen', _time.order, True)
 				#
 				return
 	
 	
-		def master(self, _mpi, _calc, _exp, _time):
+		def master(self, _mpi, _calc, _exp):
 				""" master routine """
-				# start idle time
-				_time.timer('idle_screen', _time.order)
 				# wake up slaves
-				msg = {'task': 'screen_slave', 'exp_order': _exp.order, 'time_order': _time.order, 'thres': _exp.thres}
+				msg = {'task': 'screen_slave', 'exp_order': _exp.order, 'thres': _exp.thres}
 				# bcast
 				_mpi.local_comm.bcast(msg, root=0)
-				# start work time
-				_time.timer('work_screen', _time.order)
 				# init job_info dictionary
 				job_info = {}
 				# number of slaves
@@ -123,36 +114,24 @@ class ScrCls():
 					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 				# loop until no slaves left
 				while (slaves_avail >= 1):
-					# start idle time
-					_time.timer('idle_screen', _time.order)
 					# receive data dict
 					data = _mpi.local_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG,
 											status=_mpi.stat)
-					# start work time
-					_time.timer('work_screen', _time.order)
 					# probe for source and tag
 					source = _mpi.stat.Get_source(); tag = _mpi.stat.Get_tag()
 					# slave is ready
 					if (tag == self.tags.ready):
 						# any jobs left?
 						if (i <= len(_exp.allow_tuples)-1):
-							# start comm time
-							_time.timer('comm_screen', _time.order)
 							# save parent tuple index
 							job_info['index'] = i
 							# send parent tuple index
 							_mpi.local_comm.send(job_info, dest=source, tag=self.tags.start)
-							# start work time
-							_time.timer('work_screen', _time.order)
 							# increment job index
 							i += 1
 						else:
-							# start comm time#
-							_time.timer('comm_screen', _time.order)
 							# send None info
 							_mpi.local_comm.send(None, dest=source, tag=self.tags.exit)
-							# start work time
-							_time.timer('work_screen', _time.order)
 					# receive result from slave
 					elif (tag == self.tags.done):
 						# write tmp child tuple list
@@ -171,27 +150,21 @@ class ScrCls():
 				# make numpy array out of tmp
 				buff = np.array(tmp, dtype=np.int32)
 				# bcast buff
-				_mpi.bcast_tup(_exp, _time, buff)
+				_mpi.bcast_tup(_exp, buff)
 				#
 				return
 		
 		
-		def slave(self, _mpi, _calc, _exp, _time):
+		def slave(self, _mpi, _calc, _exp):
 				""" slave routine """
-				# start work time
-				_time.timer('work_screen', _time.order)
 				# init data dict and combs list
 				data = {'child_tuple': [], 'screen_count': 0}; combs = []
 				# receive work from master
 				while (True):
-					# start comm time
-					_time.timer('comm_screen', _time.order)
 					# send status to master
 					_mpi.local_comm.send(None, dest=0 ,tag=self.tags.ready)
 					# receive parent tuple
 					job_info = _mpi.local_comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
-					# start work time
-					_time.timer('work_screen', _time.order)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
 					# determine which increments have contributions below the threshold
@@ -221,26 +194,18 @@ class ScrCls():
 								data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
 							else:
 								data['screen_count'] += 1
-						# start comm time
-						_time.timer('comm_screen', _time.order)
 						# send data back to master
 						_mpi.local_comm.send(data, dest=0, tag=self.tags.done)
-						# start work time
-						_time.timer('work_screen', _time.order)
 					# exit
 					elif (tag == self.tags.exit):
 						break
-				# start comm time
-				_time.timer('comm_screen', _time.order)
 				# send exit signal to master
 				_mpi.local_comm.send(None, dest=0, tag=self.tags.exit)
-				# start work time
-				_time.timer('work_screen', _time.order)
 				# init buffer
 				tup_info = _mpi.local_comm.bcast(None, root=0)
 				buff = np.empty([tup_info['tup_len'],_exp.order+1], dtype=np.int32)
 				# receive buffer
-				_mpi.bcast_tup(_exp, _time, buff)
+				_mpi.bcast_tup(_exp, buff)
 				#
 				return
 

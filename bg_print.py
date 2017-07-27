@@ -73,78 +73,74 @@ class PrintCls():
 
 		def exp_header(self, _calc, _exp):
 				""" print expansion header """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					with open(self.out,'a') as f:
-						with redirect_stdout(f):
-							print('\n\n'+self.header_str)
-							print('{0:^93}'.format(_calc.exp_type+' expansion'))
-							print(self.header_str+'\n\n')
-					# write also to stdout
-					print('\n\n'+self.header_str)
-					print('{0:^93}'.format(_calc.exp_type+' expansion'))
-					print(self.header_str+'\n\n')
+				with open(self.out,'a') as f:
+					with redirect_stdout(f):
+						print('\n\n'+self.header_str)
+						print('{0:^93}'.format(_calc.exp_type+' expansion'))
+						print(self.header_str+'\n\n')
+				# write also to stdout
+				print('\n\n'+self.header_str)
+				print('{0:^93}'.format(_calc.exp_type+' expansion'))
+				print(self.header_str+'\n\n')
 				#
 				return
 		
 		
 		def kernel_header(self, _calc, _exp):
 				""" print energy kernel header """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					with open(self.out,'a') as f:
-						with redirect_stdout(f):
-							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-									format(_exp.order,len(_exp.tuples[-1])))
-							print(' --------------------------------------------------------------------------------------------')
-					# write also to stdout
-					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-							format(_exp.order,len(_exp.tuples[-1])))
-					print(' --------------------------------------------------------------------------------------------')
+				with open(self.out,'a') as f:
+					with redirect_stdout(f):
+						print(' --------------------------------------------------------------------------------------------')
+						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
+								format(_exp.order,len(_exp.tuples[-1])))
+						print(' --------------------------------------------------------------------------------------------')
+				# write also to stdout
+				print(' --------------------------------------------------------------------------------------------')
+				print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
+						format(_exp.order,len(_exp.tuples[-1])))
+				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 
 		
 		def kernel_status(self, _calc, _exp, _prog):
 				""" print status bar """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					bar_length = 50
-					status = ""
-					block = int(round(bar_length * _prog))
-					print(' STATUS-'+_exp.level.upper()+':   [{0}]   ---  {1:>6.2f} % {2}'.\
-							format('#' * block + '-' * (bar_length - block), _prog * 100, status))
+				bar_length = 50
+				status = ""
+				block = int(round(bar_length * _prog))
+				print(' STATUS-'+_exp.level.upper()+':   [{0}]   ---  {1:>6.2f} % {2}'.\
+						format('#' * block + '-' * (bar_length - block), _prog * 100, status))
 				#
 				return
 	
 	
 		def kernel_end(self, _calc, _exp):
 				""" print end of kernel """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					with open(self.out,'a') as f:
-						with redirect_stdout(f):
-							if (_exp.conv_energy[-1]):
-								print(' --------------------------------------------------------------------------------------------')
-								print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-										format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
-								print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
-								print(' --------------------------------------------------------------------------------------------')
-							else:
-								print(' --------------------------------------------------------------------------------------------')
-								print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-										format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
-								print(' --------------------------------------------------------------------------------------------')
-					# write also to stdout
-					if (_exp.conv_energy[-1]):
-						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-								format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
-						print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
-						print(' --------------------------------------------------------------------------------------------')
-					else:
-						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-								format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
-						print(' --------------------------------------------------------------------------------------------')
+				with open(self.out,'a') as f:
+					with redirect_stdout(f):
+						if (_exp.conv_energy[-1]):
+							print(' --------------------------------------------------------------------------------------------')
+							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
+									format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
+							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
+							print(' --------------------------------------------------------------------------------------------')
+						else:
+							print(' --------------------------------------------------------------------------------------------')
+							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+									format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
+							print(' --------------------------------------------------------------------------------------------')
+				# write also to stdout
+				if (_exp.conv_energy[-1]):
+					print(' --------------------------------------------------------------------------------------------')
+					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
+							format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
+					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
+					print(' --------------------------------------------------------------------------------------------')
+				else:
+					print(' --------------------------------------------------------------------------------------------')
+					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+							format(_exp.order,np.sum(_exp.energy_inc[-1]),_calc.energy_thres))
+					print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 
@@ -184,98 +180,94 @@ class PrintCls():
 	
 		def kernel_results(self, _calc, _exp):
 				""" print kernel result statistics """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					# statistics
-					mean_val = np.mean(_exp.energy_inc[-1])
-					min_val = _exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))]
-					max_val = _exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))]
-					if (len(_exp.energy_inc[-1]) > 1):
-						std_val = np.std(_exp.energy_inc[-1], ddof=1)
-					else:
-						std_val = 0.0
-					# now print
-					with open(self.out,'a') as f:
-						with redirect_stdout(f):
-							print(' --------------------------------------------------------------------------------------------')
-							print(' RESULT-'+_exp.level.upper()+':     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
-							print(' --------------------------------------------------------------------------------------------')
-							print(' RESULT-'+_exp.level.upper()+':  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-									format(mean_val, min_val, max_val, std_val))
-							print(' --------------------------------------------------------------------------------------------')
-					# write also to stdout
-					print(' --------------------------------------------------------------------------------------------')
-					print(' RESULT-'+_exp.level.upper()+':     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
-					print(' --------------------------------------------------------------------------------------------')
-					print(' RESULT-'+_exp.level.upper()+':  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-							format(mean_val, min_val, max_val, std_val))
-					print(' --------------------------------------------------------------------------------------------')
+				# statistics
+				mean_val = np.mean(_exp.energy_inc[-1])
+				min_val = _exp.energy_inc[-1][np.argmin(np.abs(_exp.energy_inc[-1]))]
+				max_val = _exp.energy_inc[-1][np.argmax(np.abs(_exp.energy_inc[-1]))]
+				if (len(_exp.energy_inc[-1]) > 1):
+					std_val = np.std(_exp.energy_inc[-1], ddof=1)
+				else:
+					std_val = 0.0
+				# now print
+				with open(self.out,'a') as f:
+					with redirect_stdout(f):
+						print(' --------------------------------------------------------------------------------------------')
+						print(' RESULT-'+_exp.level.upper()+':     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
+						print(' --------------------------------------------------------------------------------------------')
+						print(' RESULT-'+_exp.level.upper()+':  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
+								format(mean_val, min_val, max_val, std_val))
+						print(' --------------------------------------------------------------------------------------------')
+				# write also to stdout
+				print(' --------------------------------------------------------------------------------------------')
+				print(' RESULT-'+_exp.level.upper()+':     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
+				print(' --------------------------------------------------------------------------------------------')
+				print(' RESULT-'+_exp.level.upper()+':  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
+						format(mean_val, min_val, max_val, std_val))
+				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
 		def screen_header(self, _calc, _exp):
 				""" print screening header """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					with open(self.out,'a') as f:
-						with redirect_stdout(f):
-							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening started'.format(_exp.order))
-							print(' --------------------------------------------------------------------------------------------')
-					# write also to stdout
-					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening started'.format(_exp.order))
-					print(' --------------------------------------------------------------------------------------------')
+				with open(self.out,'a') as f:
+					with redirect_stdout(f):
+						print(' --------------------------------------------------------------------------------------------')
+						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening started'.format(_exp.order))
+						print(' --------------------------------------------------------------------------------------------')
+				# write also to stdout
+				print(' --------------------------------------------------------------------------------------------')
+				print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening started'.format(_exp.order))
+				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
 		def screen_results(self, _calc, _exp):
 				""" print screening results """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					if (len(_exp.tuples) > _exp.order):
-						screen = (1.0 - (len(_exp.tuples[-1]) / \
-									(len(_exp.tuples[-1]) + _exp.screen_count[-1]))) * 100.0
-					else:
-						screen = 100.0
-					with open(self.out,'a') as f:
-						with redirect_stdout(f):
-							print(' --------------------------------------------------------------------------------------------')
-							print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
-									format(_exp.thres,screen))
-							print(' --------------------------------------------------------------------------------------------')
-					# write also to stdout
-					print(' --------------------------------------------------------------------------------------------')
-					print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
-							format(_exp.thres,screen))
-					print(' --------------------------------------------------------------------------------------------')
+				if (len(_exp.tuples) > _exp.order):
+					screen = (1.0 - (len(_exp.tuples[-1]) / \
+								(len(_exp.tuples[-1]) + _exp.screen_count[-1]))) * 100.0
+				else:
+					screen = 100.0
+				with open(self.out,'a') as f:
+					with redirect_stdout(f):
+						print(' --------------------------------------------------------------------------------------------')
+						print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
+								format(_exp.thres,screen))
+						print(' --------------------------------------------------------------------------------------------')
+				# write also to stdout
+				print(' --------------------------------------------------------------------------------------------')
+				print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
+						format(_exp.thres,screen))
+				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 		
 		
 		def screen_end(self, _calc, _exp):
 				""" print end of screening """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					with open(self.out,'a') as f:
-						with redirect_stdout(f):
-							if (_exp.conv_orb[-1]):
-								print(' --------------------------------------------------------------------------------------------')
-								print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
-								print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
-								print(' --------------------------------------------------------------------------------------------\n\n')
-							else:
-								print(' --------------------------------------------------------------------------------------------')
-								print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
-								print(' --------------------------------------------------------------------------------------------\n\n')
-					# write also to stdout
-					if (_exp.conv_orb[-1]):
-						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
-						print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
-						print(' --------------------------------------------------------------------------------------------\n\n')
-					else:
-						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
-						print(' --------------------------------------------------------------------------------------------\n\n')
+				with open(self.out,'a') as f:
+					with redirect_stdout(f):
+						if (_exp.conv_orb[-1]):
+							print(' --------------------------------------------------------------------------------------------')
+							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
+							print(' --------------------------------------------------------------------------------------------\n\n')
+						else:
+							print(' --------------------------------------------------------------------------------------------')
+							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+							print(' --------------------------------------------------------------------------------------------\n\n')
+				# write also to stdout
+				if (_exp.conv_orb[-1]):
+					print(' --------------------------------------------------------------------------------------------')
+					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
+					print(' --------------------------------------------------------------------------------------------\n\n')
+				else:
+					print(' --------------------------------------------------------------------------------------------')
+					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+					print(' --------------------------------------------------------------------------------------------\n\n')
 				#
 				return
 		

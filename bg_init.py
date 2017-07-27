@@ -23,7 +23,6 @@ from bg_calc import CalcCls
 from bg_mpi import MPICls
 from bg_pyscf import PySCFCls
 from bg_exp import ExpCls
-from bg_time import TimeCls
 from bg_driver import DrvCls
 from bg_print import PrintCls
 from bg_results import ResCls
@@ -65,8 +64,6 @@ class InitCls():
 											format(err))
 				# bcast to slaves
 				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
-				# time instantiation
-				self.time = TimeCls(self.mpi)
 				if (self.mpi.global_master):
 					# expansion and driver instantiations
 					if (self.calc.exp_type in ['occupied','virtual']):

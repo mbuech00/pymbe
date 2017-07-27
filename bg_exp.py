@@ -63,6 +63,10 @@ class ExpCls():
 				self.conv_energy = [False]
 				# init total energy list
 				self.energy_tot = []
+				# init timings
+				if (_mpi.global_master):
+					self.time_kernel = []
+					self.time_screen = []
 				#
 				return
 

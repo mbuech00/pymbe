@@ -38,6 +38,7 @@ class ResCls():
 				self.output = self.out_dir+'/bg_results.out'
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
+				self.fill_str = '{0:^143}'.format('|'*137)
 				self.header_str = '{0:^143}'.format('-'*45)
 				# upper limit
 				if (_calc.exp_type in ['occupied','combined']):
@@ -53,44 +54,25 @@ class ResCls():
 				return
 
 
-		def main(self, _mpi, _mol, _calc, _exp, _time):
+		def main(self, _mpi, _mol, _calc, _exp):
 				""" main driver for summary printing and plotting """
-				#
-				#** timings **#
-				#
-				# calculate timings
-				_time.calc_time(_mpi, _calc, _exp)
-				#
-				#** summary **#
-				#
-				# overall results
-				self.overall_res(_mpi, _mol, _calc, _exp)
-				# detailed results
-				self.detail_res(_mol, _exp, _time)
-				# phase timings
-				self.phase_res(_mpi, _exp, _time)
-				# print mpi timings
-				if (_mpi.parallel): self.mpi_res(_mpi, _time)
-				#
-				#** plotting **#
-				#
-				# total energies
+				# results
+				self.results(_mpi, _mol, _calc, _exp)
+				# plot of total energy
 				self.abs_energy(_mol, _calc, _exp)
-				# number of calculations
+				# plot of number of calculations
 				self.n_tuples(_mol, _calc, _exp)
-				# plot timings
-				self.time_res(_mpi, _exp, _time)
 				#
 				return
 
 
-		def overall_res(self, _mpi, _mol, _calc, _exp):
-				""" print overall results """
+		def results(self, _mpi, _mol, _calc, _exp):
+				""" print results """
 				# write summary to bg_results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
 						print('\n\n'+self.header_str)
-						print('{0:^143}'.format('overall results'))
+						print('{0:^143}'.format('results'))
 						print(self.header_str+'\n')
 						print(self.divider_str)
 						print('{0:14}{1:21}{2:11}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'.\
@@ -124,20 +106,7 @@ class ResCls():
 									'','|','','final convergence','','=','',\
 									_exp.energy_tot[-1] - _exp.energy_tot[-2]))
 						print(self.divider_str)
-				#
-				return
-		
-		
-		def detail_res(self, _mol, _exp, _time):
-				""" print detailed results """
-				# init total number of tuples
-				total_tup = 0
-				# write summary to bg_results.out
-				with open(self.output,'a') as f:
-					with redirect_stdout(f):
-						print('\n\n'+self.header_str)
-						print('{0:^143}'.format('detailed results'))
-						print(self.header_str+'\n')
+						print(self.fill_str)
 						print(self.divider_str)
 						print(('{0:6}{1:8}{2:3}{3:1}{4:7}{5:18}{6:7}{7:1}'
 							'{8:7}{9:26}{10:6}{11:1}{12:6}{13:}').\
@@ -146,10 +115,11 @@ class ResCls():
 									'','|','','number of calcs. (abs. / %  --  total)'))
 						print(self.divider_str)
 						# loop over orders
+						total_tup = 0
 						for i in range(len(_exp.energy_tot)):
 							# sum up total time and number of tuples
-							total_time = np.sum(_time.time_kernel[:i+1])\
-											+np.sum(_time.time_screen[:i+1])
+							total_time = np.sum(_exp.time_kernel[:i+1])\
+											+np.sum(_exp.time_screen[:i+1])
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.6e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
@@ -161,146 +131,11 @@ class ResCls():
 										'','|','',len(_exp.tuples[i]),'/',\
 										(float(len(_exp.tuples[i])) / \
 										float(_exp.theo_work[i]))*100.00,'--',total_tup))
-						print(self.divider_str)
+						print(self.divider_str+'\n\n')
 				#
 				return
-		
-		
-		def phase_res(self, _mpi, _exp, _time):
-				""" print phase timings """
-				# write summary to bg_results.out
-				with open(self.output,'a') as f:
-					with redirect_stdout(f):
-						print('\n\n'+self.header_str)
-						print('{0:^143}'.format('phase timings'))
-						print(self.header_str+'\n')
-						print(self.divider_str)
-						print(('{0:6}{1:8}{2:3}{3:1}{4:5}{5:32}{6:3}{7:1}'
-							'{8:4}{9:32}{10:5}{11:1}{12:4}{13:}').\
-								format('','BG order','','|','','time: kernel (HHH : MM : SS / %)',\
-									'','|','','time: screen (HHH : MM : SS / %)',\
-									'','|','','time: total (HHH : MM : SS / %)'))
-						print(self.divider_str)
-						for i in range(len(_exp.energy_tot)):
-							# set shorthand notation
-							time_k = _time.time_kernel[i]
-							time_s = _time.time_screen[i]
-							time_t = _time.time_tot[i]
-							print(('{0:7}{1:>4d}{2:6}{3:1}{4:10}{5:03d}{6:^3}{7:02d}{8:^3}'
-								'{9:02d}{10:^3}{11:>6.2f}{12:8}{13:1}{14:10}{15:03d}{16:^3}'
-								'{17:02d}{18:^3}{19:02d}{20:^3}{21:>6.2f}{22:9}{23:1}{24:9}'
-								'{25:03d}{26:^3}{27:02d}{28:^3}{29:02d}{30:^3}{31:>6.2f}').\
-									format('',i+1,'','|','',int(time_k//3600),':',\
-										int((time_k-(time_k//3600)*3600.)//60),':',\
-										int(time_k-(time_k//3600)*3600.\
-										-((time_k-(time_k//3600)*3600.)//60)*60.),'/',(time_k/time_t)*100.0,\
-										'','|','',int(time_s//3600),':',\
-										int((time_s-(time_s//3600)*3600.)//60),':',\
-										int(time_s-(time_s//3600)*3600.\
-										-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0,\
-										'','|','',int(time_t//3600),':',int((time_t-(time_t//3600)*3600.)//60),':',\
-										int(time_t-(time_t//3600)*3600.\
-										-((time_t-(time_t//3600)*3600.)//60)*60.),'/',100.0))
-						print(self.divider_str)
-						print(self.divider_str)
-						# set shorthand notation
-						time_k = _time.time_kernel[-1]
-						time_s = _time.time_screen[-1]
-						time_t = _time.time_tot[-1]
-						print(('{0:8}{1:5}{2:4}{3:1}{4:10}{5:03d}{6:^3}{7:02d}{8:^3}'
-							'{9:02d}{10:^3}{11:>6.2f}{12:8}{13:1}{14:10}{15:03d}{16:^3}'
-							'{17:02d}{18:^3}{19:02d}{20:^3}{21:>6.2f}{22:9}{23:1}{24:9}'
-							'{25:03d}{26:^3}{27:02d}{28:^3}{29:02d}{30:^3}{31:>6.2f}').\
-								format('','total','','|','',int(time_k//3600),':',\
-									int((time_k-(time_k//3600)*3600.)//60),':',int(time_k-(time_k//3600)*3600.\
-									-((time_k-(time_k//3600)*3600.)//60)*60.),'/',(time_k/time_t)*100.0,\
-									'','|','',int(time_s//3600),':',int((time_s-(time_s//3600)*3600.)//60),':',\
-									int(time_s-(time_s//3600)*3600.\
-									-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0,\
-									'','|','',int(time_t//3600),':',int((time_t-(time_t//3600)*3600.)//60),':',\
-									int(time_t-(time_t//3600)*3600.\
-									-((time_t-(time_t//3600)*3600.)//60)*60.),'/',100.0))
-						if (not _mpi.parallel):
-							print(self.divider_str+'\n\n')
-						else:
-							print(self.divider_str)
-				#
-				return
-		
-		
-		def mpi_res(self, _mpi, _time):
-				""" print mpi timings """
-				with open(self.output,'a') as f:
-					with redirect_stdout(f):
-						print('\n\n'+self.header_str)
-						print('{0:^143}'.format('mpi timings'))
-						print(self.header_str+'\n')
-						print(self.divider_str)
-						print(('{0:6}{1:13}{2:3}{3:1}{4:1}{5:35}{6:1}{7:1}'
-								'{8:2}{9:36}{10:1}{11:1}{12:2}{13:}').\
-								format('','mpi processor','','|','','time: kernel (work/comm/idle, in %)',\
-									'','|','','time: screen (work/comm/idle, in %)',\
-									'','|','','time: total (work/comm/idle, in %)'))
-						print(self.divider_str)
-						print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
-								'{8:>6.2f}{9:^3}{10:>6.2f}{11:7}{12:1}{13:7}{14:>6.2f}'
-								'{15:^3}{16:>6.2f}{17:^3}{18:>6.2f}{19:8}{20:1}{21:7}'
-								'{22:>6.2f}{23:^3}{24:>6.2f}{25:^3}{26:>6.2f}').\
-									format('','master','--',0,'|','',_time.dist_kernel[0][0],'/',\
-										_time.dist_kernel[1][0],'/',_time.dist_kernel[2][0],\
-										'','|','',_time.dist_screen[0][0],'/',\
-										_time.dist_screen[1][0],'/',_time.dist_screen[2][0],\
-										'','|','',_time.dist_total[0][0],'/',\
-										_time.dist_total[1][0],'/',_time.dist_total[2][0]))
-						print(self.divider_str)
-						for i in range(1,_mpi.global_size):
-							print(('{0:4}{1:6}{2:^4}{3:<8d}{4:1}{5:6}{6:>6.2f}{7:^3}'
-									'{8:>6.2f}{9:^3}{10:>6.2f}{11:7}{12:1}{13:7}{14:>6.2f}'
-									'{15:^3}{16:>6.2f}{17:^3}{18:>6.2f}{19:8}{20:1}{21:7}'
-									'{22:>6.2f}{23:^3}{24:>6.2f}{25:^3}{26:>6.2f}').\
-										format('','slave ','--',i,'|','',_time.dist_kernel[0][i],'/',\
-											_time.dist_kernel[1][i],'/',_time.dist_kernel[2][i],\
-											'','|','',_time.dist_screen[0][i],'/',\
-											_time.dist_screen[1][i],'/',_time.dist_screen[2][i],\
-											'','|','',_time.dist_total[0][i],'/',\
-											_time.dist_total[1][i],'/',_time.dist_total[2][i]))
-						#
-						print(self.divider_str)
-						print(self.divider_str)
-						#
-						print(('{0:4}{1:14}{2:4}{3:1}{4:6}{5:>6.2f}{6:^3}{7:>6.2f}{8:^3}'
-								'{9:>6.2f}{10:7}{11:1}{12:7}{13:>6.2f}{14:^3}{15:>6.2f}{16:^3}{17:>6.2f}'
-								'{18:8}{19:1}{20:7}{21:>6.2f}{22:^3}{23:>6.2f}{24:^3}{25:>6.2f}').\
-									format('','mean  : slaves','','|','',\
-										np.mean(_time.dist_kernel[0][1:]),'/',\
-										np.mean(_time.dist_kernel[1][1:]),'/',\
-										np.mean(_time.dist_kernel[2][1:]),\
-										'','|','',np.mean(_time.dist_screen[0][1:]),'/',\
-										np.mean(_time.dist_screen[1][1:]),'/',\
-										np.mean(_time.dist_screen[2][1:]),\
-										'','|','',np.mean(_time.dist_total[0][1:]),'/',\
-										np.mean(_time.dist_total[1][1:]),'/',\
-										np.mean(_time.dist_total[2][1:])))
-						#
-						print(('{0:4}{1:14}{2:4}{3:1}{4:6}{5:>6.2f}{6:^3}{7:>6.2f}{8:^3}'
-								'{9:>6.2f}{10:7}{11:1}{12:7}{13:>6.2f}{14:^3}{15:>6.2f}{16:^3}{17:>6.2f}'
-								'{18:8}{19:1}{20:7}{21:>6.2f}{22:^3}{23:>6.2f}{24:^3}{25:>6.2f}').\
-									format('','stdev : slaves','','|','',\
-										np.std(_time.dist_kernel[0][1:],ddof=1),'/',\
-										np.std(_time.dist_kernel[1][1:],ddof=1),'/',\
-										np.std(_time.dist_kernel[2][1:],ddof=1),\
-										'','|','',np.std(_time.dist_screen[0][1:],ddof=1),'/',\
-										np.std(_time.dist_screen[1][1:],ddof=1),'/',\
-										np.std(_time.dist_screen[2][1:],ddof=1),\
-										'','|','',np.std(_time.dist_total[0][1:],ddof=1),'/',\
-										np.std(_time.dist_total[1][1:],ddof=1),'/',\
-										np.std(_time.dist_total[2][1:],ddof=1)))
-						#
-						print(self.divider_str+'\n')
-				#
-				return
-
-
+	
+	
 		def abs_energy(self, _mol, _calc, _exp):
 				""" plot absolute energy """
 				# set seaborn
@@ -403,90 +238,6 @@ class ResCls():
 				fig.tight_layout()
 				# save plot
 				plt.savefig(self.out_dir+'/n_tuples_plot.pdf',
-							bbox_inches = 'tight', dpi=1000)
-				#
-				return
-
-
-		def time_res(self, _mpi, _exp, _time):
-				""" plot total and mpi timings """
-				# set seaborn
-				sns.set(style='whitegrid', palette='Set2', font='DejaVu Sans')
-				# set number of subplots - 2 with mpi, 1 without
-				if (_mpi.parallel):
-					fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
-				else:
-					fig, ax1 = plt.subplots()
-				# set color palette
-				sns.set_color_codes('pastel')
-				# set x-range
-				order = list(range(1,len(_exp.energy_tot) + 2))
-				# define y-ticks
-				y_labels = list(range(1,len(_exp.energy_tot) + 1))
-				y_labels.append('total')
-				# set title
-				ax1.set_title('Phase timings')
-				# set result arrays and plot results
-				kernel_dat = (_time.time_kernel / _time.time_tot) * 100.0
-				screen_dat = kernel_dat + (_time.time_screen / _time.time_tot) * 100.0
-				screen = sns.barplot(screen_dat, order, ax=ax1, orient='h',
-										label='screen',color=sns.xkcd_rgb['windows blue'])
-				kernel = sns.barplot(kernel_dat,order,ax=ax1,orient='h',
-										label='kernel',color=sns.xkcd_rgb['amber'])
-				# set x- and y-limits
-				ax1.set_ylim([-0.5,(len(_exp.energy_tot) + 1) - 0.5])
-				ax1.set_xlim([0.0,100.0])
-				# set y-ticks
-				ax1.set_yticklabels(y_labels)
-				# set legend
-				handles,labels = ax1.get_legend_handles_labels()
-				handles = [handles[1], handles[0]]
-				labels = [labels[1], labels[0]]
-				ax1.legend(handles, labels, ncol=2, loc=9,
-							fancybox=True, frameon=True)
-				# invert plot
-				ax1.invert_yaxis()
-				# if not mpi, set labels. if mpi, plot mpi timings
-				if (not _mpi.parallel):
-					ax1.set_xlabel('Distribution (in %)')
-					ax1.set_ylabel('Expansion order')
-				else:
-					# set title
-					ax2.set_title('MPI timings')
-					# set result arrays and plot results
-					work_dat = _time.dist_order[0]
-					comm_dat = work_dat + _time.dist_order[1]
-					idle_dat = comm_dat + _time.dist_order[2]
-					idle = sns.barplot(idle_dat,order,ax=ax2,orient='h',
-										label='idle',color=sns.xkcd_rgb['sage'])
-					comm = sns.barplot(comm_dat,order,ax=ax2,orient='h',
-										label='comm',color=sns.xkcd_rgb['baby blue'])
-					work = sns.barplot(work_dat,order,ax=ax2,orient='h',
-										label='work',color=sns.xkcd_rgb['wine'])
-					# set x- and y-limits
-					ax2.set_ylim([-0.5,(len(_exp.energy_tot) + 1) - 0.5])
-					ax2.set_xlim([0.0,100.0])
-					# set y-ticks
-					ax2.set_yticklabels(y_labels)
-					# set legend
-					handles,labels = ax2.get_legend_handles_labels()
-					handles = [handles[2], handles[1], handles[0]]
-					labels = [labels[2], labels[1], labels[0]]
-					ax2.legend(handles, labels, ncol=3, loc=9,
-								fancybox=True, frameon=True)
-					# set x- and y-labels
-					fig.text(0.52, 0.0, 'Distribution (in %)',
-								ha='center', va='center')
-					fig.text(0.0, 0.5, 'Expansion order',
-								ha='center', va='center', rotation='vertical')
-					# invert plot
-					ax2.invert_yaxis()
-				# despine
-				sns.despine(left=True, bottom=True)
-				# tight layout
-				fig.tight_layout()
-				# save plot
-				plt.savefig(self.out_dir+'/time_plot.pdf',
 							bbox_inches = 'tight', dpi=1000)
 				#
 				return
