@@ -267,7 +267,6 @@ class MPICls():
 
 		def final(self, _rst):
 				""" terminate calculation """
-				print('here - 1')
 				if (self.global_master):
 					_rst.rm_rst()
 					if (self.parallel):

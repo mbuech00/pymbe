@@ -44,7 +44,7 @@ class RstCls():
 
 		def rst_main(self, _mpi, _calc, _exp, _time):
 				""" main restart driver """
-				if ((not self.restart) or ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
+				if (not self.restart):
 					# set start order for expansion
 					_exp.min_order = 1
 				else:
@@ -54,6 +54,8 @@ class RstCls():
 					for _ in range(1, _exp.min_order): self.rst_freq = self.update()
 					# bcast rst data
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp, _time)
+					# reset restart logical
+					self.restart = False
 				#
 				return
 		

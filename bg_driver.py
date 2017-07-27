@@ -25,8 +25,6 @@ class DrvCls():
 		""" driver class """
 		def __init__(self, _mol, _type):
 				""" init parameters and classes """
-				# save type
-				self.exp_type = _type
 				# init required classes
 				self.kernel = bg_kernel.KernCls()
 				self.screening = ScrCls(_mol, _type)
@@ -37,10 +35,20 @@ class DrvCls():
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" main driver routine """
 				# exp class instantiation on slaves
-				if (_mpi.parallel and (_exp.level == 'micro')):
-					msg = {'task': 'exp_cls', 'type': self.exp_type, 'rst': _rst.restart}
-					# bcast msg
-					_mpi.local_comm.bcast(msg, root=0)
+				if (_mpi.parallel):
+					if (_calc.exp_type in ['occupied','virtual']):
+						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
+						# bcast msg
+						_mpi.local_comm.bcast(msg, root=0)
+					else:
+						if (_exp.level == 'macro'):
+							msg = {'task': 'exp_cls', 'rst': _rst.restart}
+							# bcast msg
+							_mpi.master_comm.bcast(msg, root=0)
+						else:
+							msg = {'task': 'exp_cls', 'order_macro': _exp.order_macro, 'incl_idx': _exp.incl_idx}
+							# bcast msg
+							_mpi.local_comm.bcast(msg, root=0)
 				# restart
 				_rst.rst_main(_mpi, _calc, _exp, _time)
 				# print expansion header
@@ -114,7 +122,8 @@ class DrvCls():
 					#** exp class instantiation **#
 					#
 					if (msg['task'] == 'exp_cls'):
-						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
+						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
+						exp.level = 'macro'
 						# receive rst data
 						if (msg['rst']): _mpi.bcast_rst(_calc, exp, _time)
 					#
@@ -147,8 +156,13 @@ class DrvCls():
 					#
 					if (msg['task'] == 'exp_cls'):
 						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
-						# receive rst data
-						if (msg['rst']): _mpi.bcast_rst(_calc, exp, _time)
+						exp.level = 'micro'
+						if (_calc.exp_type == 'combined'):
+							exp.order_macro = msg['order_macro']
+							exp.incl_idx = msg['incl_idx']
+						else:
+							# receive rst data
+							if (msg['rst']): _mpi.bcast_rst(_calc, exp, _time)
 					#
 					#** energy kernel phase **#
 					#

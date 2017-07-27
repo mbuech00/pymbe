@@ -153,6 +153,8 @@ class KernCls():
 					comm = _mpi.master_comm
 					# number of available slaves
 					slaves_avail = num_slaves = _mpi.num_groups
+					# micro driver instantiation
+					driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
 				else:
 					if (_mpi.local_master):
 						msg = {'task': 'kernel_slave', 'exp_order': _exp.order, 'time_order': _time.order}
@@ -192,16 +194,20 @@ class KernCls():
 					if (tag == self.tags.ready):
 						# any jobs left?
 						if (i <= (len(_exp.tuples[-1]) - 1)):
-							# generate input
-							_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
-									_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
-							# store job info
-							job_info['index'] = i
-							job_info['core_idx'] = _exp.core_idx
-							job_info['cas_idx'] = _exp.cas_idx
-							job_info['h1e_cas'] = _exp.h1e_cas
-							job_info['h2e_cas'] = _exp.h2e_cas
-							job_info['e_core'] = _exp.e_core
+							if (_exp.level == 'macro'):
+								# store job info
+								job_info['index'] = i
+							else:
+								# generate input
+								_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
+										_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
+								# store job info
+								job_info['index'] = i
+								job_info['core_idx'] = _exp.core_idx
+								job_info['cas_idx'] = _exp.cas_idx
+								job_info['h1e_cas'] = _exp.h1e_cas
+								job_info['h2e_cas'] = _exp.h2e_cas
+								job_info['e_core'] = _exp.e_core
 							# start comm time
 							_time.timer('comm_kernel', _time.order)
 							# send string dict
