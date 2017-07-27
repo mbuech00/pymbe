@@ -65,38 +65,11 @@ class KernCls():
 				return
 
 
-		def macro_core(self, _mpi, _mol, _calc, _pyscf, _time, _prt, _rst, _driver, _order, _tup):
-				""" core procedure for level == macro """
-				# micro exp instantiation
-				exp_micro = ExpCls(_mpi, _mol, _calc, 'virtual')
-				# mark expansion as micro 
-				exp_micro.level = 'micro'; exp_micro.order_macro = _order; exp_micro.incl_idx = _tup
-				# make recursive call to driver with micro exp
-				_driver.main(_mpi, _mol, _calc, _pyscf, exp_micro, _time, _prt, _rst)
-				#
-				return exp_micro.energy_tot[-1], exp_micro.order
-
-
-		def micro_core(self, _mpi, _mol, _calc, _pyscf, _exp, _tup):
-				""" core procedure for level == micro """
-				# generate input
-				_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
-						_pyscf.corr_input(_mol, _calc, _exp, _tup)
-				try:
-					return _pyscf.corr_calc(_mol, _calc, _exp)
-				except Exception as err:
-					try:
-						raise RuntimeError
-					except RuntimeError:
-						sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
-											'input: core_idx = {2:} , cas_idx = {3:}\n'
-											'PySCF error : {4:}\n\n'.\
-											format(_mpi.global_rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
-						raise
-
-
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" energy kernel phase """
+				# init micro_conv_res list
+				if (_calc.exp_type == 'combined'):
+					_exp.micro_conv_res = np.zeros(len(_exp.tuples[-1]), dtype=np.int32)
 				# mpi parallel version
 				if (_mpi.parallel):
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst)
@@ -119,9 +92,7 @@ class KernCls():
 		def serial(self, _mpi, _mol, _calc, _pyscf, _exp, _time, _prt, _rst):
 				""" energy kernel phase """
 				# micro driver instantiation
-				if (_calc.exp_type == 'combined'):
-					if (_exp.level == 'macro'): driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
-					_exp.micro_conv_res = np.zeros(len(_exp.tuples[-1]), dtype=np.int32)
+				if (_exp.level == 'macro'): driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
 				# determine start index
 				start = np.argmax(_exp.energy_inc[-1] == 0.0)
 				# loop over tuples
@@ -130,14 +101,32 @@ class KernCls():
 					_time.timer('work_kernel', _time.order)
 					# run correlated calc
 					if (_exp.level == 'macro'):
-						# store e_inc and micro convergence results
-						_exp.energy_inc[-1][i], _exp.micro_conv_res[i] = \
-								self.macro_core(_mpi, _mol, _calc, _pyscf, _time, _prt, _rst, \
-													driver_micro, _exp.order_macro, _exp.tuples[-1][i].tolist()) 
+						# micro exp instantiation
+						exp_micro = ExpCls(_mpi, _mol, _calc, 'virtual')
+						# mark expansion as micro 
+						exp_micro.level = 'micro'
+						exp_micro.order_macro = _exp.order_macro
+						exp_micro.incl_idx = _exp.tuples[-1][i].tolist()
+						# make recursive call to driver with micro exp
+						driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _time, _prt, _rst)
+						# store results
+						_exp.energy_inc[-1][i] = exp_micro.energy_tot[-1]
+						_exp.micro_conv_res[i] = exp_micro.order
 					else:
-						# store e_inc result
-						_exp.energy_inc[-1][i] = self.micro_core(_mpi, _mol, _calc, _pyscf, \
-																	_exp, _exp.tuples[-1][i])
+						# generate input
+						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
+								_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
+						try:
+							_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
+						except Exception as err:
+							try:
+								raise RuntimeError
+							except RuntimeError:
+								sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
+													'input: core_idx = {2:} , cas_idx = {3:}\n'
+													'PySCF error : {4:}\n\n'.\
+													format(_mpi.global_rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
+								raise
 					# sum up energy increment
 					self.summation(_exp, i)
 					# print status
@@ -155,27 +144,38 @@ class KernCls():
 				# start idle time
 				_time.timer('idle_kernel', _time.order)
 				# wake up slaves
-				msg = {'task': 'kernel_slave', 'exp_order': _exp.order, 'time_order': _time.order}
-				# bcast
-				_mpi.global_comm.bcast(msg, root=0)
+				if (_exp.level == 'macro'):
+					if (_mpi.global_master):
+						msg = {'task': 'kernel_local_master', 'exp_order': _exp.order, 'time_order': _time.order}
+						# bcast
+						_mpi.master_comm.bcast(msg, root=0)
+					# set comm
+					comm = _mpi.master_comm
+					# number of available slaves
+					slaves_avail = num_slaves = _mpi.num_groups
+				else:
+					if (_mpi.local_master):
+						msg = {'task': 'kernel_slave', 'exp_order': _exp.order, 'time_order': _time.order}
+						# bcast
+						_mpi.local_comm.bcast(msg, root=0)
+					# set comm
+					comm = _mpi.local_comm
+					# number of available slaves
+					slaves_avail = num_slaves = _mpi.local_size - 1
 				# start work time
 				_time.timer('work_kernel', _time.order)
 				# init job_info dictionary
 				job_info = {}
-				# number of slaves
-				num_slaves = _mpi.global_size - 1
-				# number of available slaves
-				slaves_avail = num_slaves
 				# init job index
 				i = np.argmax(_exp.energy_inc[-1] == 0.0)
 				# init stat counter
 				counter = i
 				# init timings
 				if (i == 0):
-					for j in range(_mpi.global_size):
-						_time.time_work[0][j].append(0.0)
-						_time.time_comm[0][j].append(0.0)
-						_time.time_idle[0][j].append(0.0)
+					for j in range(num_slaves + 1):
+						if (len(_time.time_work[0][j]) < _time.order): _time.time_work[0][j].append(0.0)
+						if (len(_time.time_comm[0][j]) < _time.order): _time.time_comm[0][j].append(0.0)
+						if (len(_time.time_idle[0][j]) < _time.order): _time.time_idle[0][j].append(0.0)
 				# print status for START
 				_prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
 				# loop until no slaves left
@@ -183,7 +183,7 @@ class KernCls():
 					# start idle time
 					_time.timer('idle_kernel', _time.order)
 					# receive data dict
-					stat = _mpi.global_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
+					stat = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
 					# start work time
 					_time.timer('work_kernel', _time.order)
 					# probe for source and tag
