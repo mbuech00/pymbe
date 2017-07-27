@@ -89,12 +89,19 @@ class KernCls():
 	
 		def serial(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
 				""" energy kernel phase """
+				# print and time logical
+				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# micro driver instantiation
 				if (_exp.level == 'macro'): driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
 				# determine start index
 				start = np.argmax(_exp.energy_inc[-1] == 0.0)
+				# init time
+				if (do_print):
+					if (len(_exp.time_kernel) < _exp.order): _exp.time_kernel.append(0.0)
 				# loop over tuples
 				for i in range(start, len(_exp.tuples[-1])):
+					# start time
+					if (do_print): time = MPI.Wtime()
 					# run correlated calc
 					if (_exp.level == 'macro'):
 						# micro exp instantiation
@@ -124,16 +131,21 @@ class KernCls():
 								raise
 					# sum up energy increment
 					self.summation(_exp, i)
-					# print status
-					_prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[-1])))
-					# write restart files
-					_rst.write_kernel(_mpi, _calc, _exp, False)
+					if (do_print):
+						# print status
+						_prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[-1])))
+						# collect time
+						_exp.time_kernel[-1] += MPI.Wtime() - time
+						# write restart files
+						_rst.write_kernel(_exp, False)
 				#
 				return
 
 	
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
 				""" master function """
+				# print and time logical
+				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# wake up slaves
 				if (_exp.level == 'macro'):
 					if (_mpi.global_master):
@@ -161,6 +173,9 @@ class KernCls():
 				counter = i
 				# print status for START
 				_prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
+				# init time
+				if (do_print):
+					if (len(_exp.time_kernel) < _exp.order): _exp.time_kernel.append(0.0)
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
@@ -171,6 +186,9 @@ class KernCls():
 					if (tag == self.tags.ready):
 						# any jobs left?
 						if (i <= (len(_exp.tuples[-1]) - 1)):
+							# start time
+							if (do_print): time = MPI.Wtime()
+							# perform calculation
 							if (_exp.level == 'macro'):
 								# store job info
 								job_info['index'] = i
@@ -209,13 +227,15 @@ class KernCls():
 								raise
 						# write to e_inc
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
+						# collect time
+						if (do_print): _exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
-						if ((((data['index']+1) % int(_rst.rst_freq)) == 0) or (_exp.level == 'macro')):
-							_rst.write_kernel(_mpi, _calc, _exp, False)
+						if (_mpi.global_master and ((((data['index']+1) % int(_rst.rst_freq)) == 0) or (_exp.level == 'macro'))):
+							_rst.write_kernel(_exp, False)
 						# increment stat counter
 						counter += 1
 						# print status
-						if ((((data['index']+1) % 1000) == 0) or (_exp.level == 'macro')):
+						if (_mpi.global_master and ((((data['index']+1) % 1000) == 0) or (_exp.level == 'macro'))):
 							_prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
 					# put slave to sleep
 					elif (tag == self.tags.exit):

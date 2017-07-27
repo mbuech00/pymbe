@@ -15,7 +15,6 @@ __status__ = 'Development'
 import numpy as np
 from mpi4py import MPI
 
-#from bg_kernel import KernCls
 import bg_kernel
 from bg_screen import ScrCls
 from bg_exp import ExpCls
@@ -34,6 +33,8 @@ class DrvCls():
 
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
 				""" main driver routine """
+				# print and time logical
+				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# exp class instantiation on slaves
 				if (_mpi.parallel):
 					if (_calc.exp_type in ['occupied','virtual']):
@@ -52,60 +53,60 @@ class DrvCls():
 				# restart
 				_rst.rst_main(_mpi, _calc, _exp)
 				# print expansion header
-				_prt.exp_header(_calc, _exp)
+				if (do_print): _prt.exp_header(_calc, _exp)
 				# now do expansion
 				for _exp.order in range(_exp.min_order, _exp.max_order+1):
 					#
 					#** energy kernel phase **#
 					#
-					# start time
-					if (_mpi.global_master): _exp.time_kernel.append(MPI.Wtime())
-					# print kernel header
-					_prt.kernel_header(_calc, _exp)
+					if (do_print):
+						# print kernel header
+						_prt.kernel_header(_calc, _exp)
 					# init e_inc
 					if (len(_exp.energy_inc) != _exp.order):
 						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
-					# print micro results
-					_prt.kernel_micro_results(_calc, _exp)
-					# print kernel end
-					_prt.kernel_end(_calc, _exp)
-					# write restart files
-					_rst.write_kernel(_mpi, _calc, _exp, True)
-					# print kernel results
-					_prt.kernel_results(_calc, _exp)
-					# collect time
-					if (_mpi.global_master):
-						_exp.time_kernel[-1] -= MPI.Wtime()
-						_exp.time_kernel[-1] *= -1
+					if (do_print):
+						# print micro results
+						_prt.kernel_micro_results(_calc, _exp)
+						# print kernel end
+						_prt.kernel_end(_calc, _exp)
+						# write restart files
+						_rst.write_kernel(_exp, True)
+						# print kernel results
+						_prt.kernel_results(_calc, _exp)
 					#
 					#** screening phase **#
 					#
-					# start time
-					if (_mpi.global_master): _exp.time_screen.append(MPI.Wtime())
-					# print screen header
-					_prt.screen_header(_calc, _exp)
+					if (do_print):
+						# print screen header
+						_prt.screen_header(_calc, _exp)
 					# orbital screening
 					if ((not _exp.conv_energy[-1]) and (_exp.order < _exp.max_order)):
+						# start time
+						if (do_print): _exp.time_screen.append(MPI.Wtime())
 						# perform screening
 						self.screening.main(_mpi, _calc, _exp, _rst)
-						# write restart files
-						if (not _exp.conv_orb[-1]):
-							_rst.write_screen(_mpi, _calc, _exp)
-						# print screen results
-						_prt.screen_results(_calc, _exp)
-						# print screen end
-						_prt.screen_end(_calc, _exp)
+						if (do_print):
+							# collect time
+							_exp.time_screen[-1] -= MPI.Wtime()
+							_exp.time_screen[-1] *= -1
+							# write restart files
+							if (not _exp.conv_orb[-1]):
+								_rst.write_screen(_exp)
+							# print screen results
+							_prt.screen_results(_calc, _exp)
+							# print screen end
+							_prt.screen_end(_calc, _exp)
 					else:
-						# print screen end
-						_prt.screen_end(_calc, _exp)
+						if (do_print):
+							# print screen end
+							_prt.screen_end(_calc, _exp)
+							# collect time
+							_exp.time_screen.append(0.0)
 					# update restart frequency
 					_rst.rst_freq = _rst.update()
-					# collect time
-					if (_mpi.global_master):
-						_exp.time_screen[-1] -= MPI.Wtime()
-						_exp.time_screen[-1] *= -1
 					#
 					#** convergence check **#
 					#

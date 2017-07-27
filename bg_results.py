@@ -62,8 +62,6 @@ class ResCls():
 				self.overall_res(_mpi, _mol, _calc, _exp)
 				# detailed results
 				self.detail_res(_mol, _exp)
-				# phase timings
-				self.phase_res(_mpi, _exp)
 				#
 				#** plotting **#
 				#
@@ -152,73 +150,11 @@ class ResCls():
 										'','|','',len(_exp.tuples[i]),'/',\
 										(float(len(_exp.tuples[i])) / \
 										float(_exp.theo_work[i]))*100.00,'--',total_tup))
-						print(self.divider_str)
+						print(self.divider_str+'\n\n')
 				#
 				return
 		
 		
-		def phase_res(self, _mpi, _exp):
-				""" print phase timings """
-				# write summary to bg_results.out
-				with open(self.output,'a') as f:
-					with redirect_stdout(f):
-						print('\n\n'+self.header_str)
-						print('{0:^143}'.format('phase timings'))
-						print(self.header_str+'\n')
-						print(self.divider_str)
-						print(('{0:6}{1:8}{2:3}{3:1}{4:5}{5:32}{6:3}{7:1}'
-							'{8:4}{9:32}{10:5}{11:1}{12:4}{13:}').\
-								format('','BG order','','|','','time: kernel (HHH : MM : SS / %)',\
-									'','|','','time: screen (HHH : MM : SS / %)',\
-									'','|','','time: total (HHH : MM : SS / %)'))
-						print(self.divider_str)
-						for i in range(len(_exp.energy_tot)):
-							# set shorthand notation
-							time_k = _exp.time_kernel[i]
-							time_s = _exp.time_screen[i]
-							time_t = _exp.time_kernel[i] + _exp.time_screen[i]
-							print(('{0:7}{1:>4d}{2:6}{3:1}{4:10}{5:03d}{6:^3}{7:02d}{8:^3}'
-								'{9:02d}{10:^3}{11:>6.2f}{12:8}{13:1}{14:10}{15:03d}{16:^3}'
-								'{17:02d}{18:^3}{19:02d}{20:^3}{21:>6.2f}{22:9}{23:1}{24:9}'
-								'{25:03d}{26:^3}{27:02d}{28:^3}{29:02d}{30:^3}{31:>6.2f}').\
-									format('',i+1,'','|','',int(time_k//3600),':',\
-										int((time_k-(time_k//3600)*3600.)//60),':',\
-										int(time_k-(time_k//3600)*3600.\
-										-((time_k-(time_k//3600)*3600.)//60)*60.),'/',(time_k/time_t)*100.0,\
-										'','|','',int(time_s//3600),':',\
-										int((time_s-(time_s//3600)*3600.)//60),':',\
-										int(time_s-(time_s//3600)*3600.\
-										-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0,\
-										'','|','',int(time_t//3600),':',int((time_t-(time_t//3600)*3600.)//60),':',\
-										int(time_t-(time_t//3600)*3600.\
-										-((time_t-(time_t//3600)*3600.)//60)*60.),'/',100.0))
-						print(self.divider_str)
-						print(self.divider_str)
-						# set shorthand notation
-						time_k = np.sum(_exp.time_kernel)
-						time_s = np.sum(_exp.time_screen)
-						time_t = np.sum(_exp.time_kernel) + np.sum(_exp.time_screen)
-						print(('{0:8}{1:5}{2:4}{3:1}{4:10}{5:03d}{6:^3}{7:02d}{8:^3}'
-							'{9:02d}{10:^3}{11:>6.2f}{12:8}{13:1}{14:10}{15:03d}{16:^3}'
-							'{17:02d}{18:^3}{19:02d}{20:^3}{21:>6.2f}{22:9}{23:1}{24:9}'
-							'{25:03d}{26:^3}{27:02d}{28:^3}{29:02d}{30:^3}{31:>6.2f}').\
-								format('','total','','|','',int(time_k//3600),':',\
-									int((time_k-(time_k//3600)*3600.)//60),':',int(time_k-(time_k//3600)*3600.\
-									-((time_k-(time_k//3600)*3600.)//60)*60.),'/',(time_k/time_t)*100.0,\
-									'','|','',int(time_s//3600),':',int((time_s-(time_s//3600)*3600.)//60),':',\
-									int(time_s-(time_s//3600)*3600.\
-									-((time_s-(time_s//3600)*3600.)//60)*60.),'/',(time_s/time_t)*100.0,\
-									'','|','',int(time_t//3600),':',int((time_t-(time_t//3600)*3600.)//60),':',\
-									int(time_t-(time_t//3600)*3600.\
-									-((time_t-(time_t//3600)*3600.)//60)*60.),'/',100.0))
-						if (not _mpi.parallel):
-							print(self.divider_str+'\n\n')
-						else:
-							print(self.divider_str)
-				#
-				return
-		
-
 		def abs_energy(self, _mol, _calc, _exp):
 				""" plot absolute energy """
 				# set seaborn

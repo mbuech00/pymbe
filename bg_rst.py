@@ -66,25 +66,25 @@ class RstCls():
 				return self.rst_freq / 2.
 
 
-		def write_kernel(self, _mpi, _calc, _exp, _final):
+		def write_kernel(self, _exp, _final):
 				""" write energy kernel restart files """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					# write e_inc
-					np.save(join(self.rst_dir, 'e_inc_' + str(_exp.order)),
-							_exp.energy_inc[_exp.order - 1])
-					if (_final):
-						np.save(join(self.rst_dir, 'e_tot_' + str(_exp.order)),
-								np.asarray(_exp.energy_tot[_exp.order - 1]))
+				# write e_inc
+				np.save(join(self.rst_dir, 'e_inc_'+str(_exp.order)), _exp.energy_inc[-1])
+				# write time
+				np.save(join(self.rst_dir, 'time_kernel_'+str(_exp.order)), np.asarray(_exp.time_kernel[-1]))
+				# write e_tot
+				if (_final):
+					np.save(join(self.rst_dir, 'e_tot_'+str(_exp.order)), np.asarray(_exp.energy_tot[-1]))
 				#
 				return
 		
 		
-		def write_screen(self, _mpi, _calc, _exp):
+		def write_screen(self, _exp):
 				""" write screening restart files """
-				if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))):
-					# write tuples
-					np.save(join(self.rst_dir, 'tup_' + str(_exp.order + 1)),
-							_exp.tuples[_exp.order])
+				# write tuples
+				np.save(join(self.rst_dir, 'tup_'+str(_exp.order+1)), _exp.tuples[-1])
+				# write time
+				np.save(join(self.rst_dir, 'time_screen_'+str(_exp.order)), np.asarray(_exp.time_screen[-1]))
 				#
 				return
 
@@ -99,16 +99,18 @@ class RstCls():
 				for i in range(len(files)):
 					# read tuples
 					if ('tup' in files[i]):
-						_exp.tuples.append(np.load(join(self.rst_dir,
-											files[i])))
+						_exp.tuples.append(np.load(join(self.rst_dir, files[i])))
 					# read e_inc
 					elif ('e_inc' in files[i]):
-						_exp.energy_inc.append(np.load(join(self.rst_dir,
-														files[i])))
+						_exp.energy_inc.append(np.load(join(self.rst_dir, files[i])))
 					# read e_tot
 					elif ('e_tot' in files[i]):
-						_exp.energy_tot.append(np.load(join(self.rst_dir,
-														files[i])).tolist())
+						_exp.energy_tot.append(np.load(join(self.rst_dir, files[i])).tolist())
+					# read timings
+					elif ('time_kernel' in files[i]):
+						_exp.time_kernel.append(np.load(join(self.rst_dir, files[i])).tolist())
+					elif ('time_screen' in files[i]):
+						_exp.time_screen.append(np.load(join(self.rst_dir, files[i])).tolist())
 				# set start order for expansion
 				_exp.min_order = len(_exp.tuples)
 				#
