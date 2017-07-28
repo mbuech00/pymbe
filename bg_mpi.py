@@ -149,27 +149,27 @@ class MPICls():
 				""" bcast hf and base info """
 				if (self.global_master):
 					# bcast to slaves
-					self.global_comm.bcast(_mol.e_hf, root=0)
-					self.global_comm.bcast(_mol.e_ref, root=0)
-					self.global_comm.bcast(_mol.norb, root=0)
-					self.global_comm.bcast(_mol.nocc, root=0)
-					self.global_comm.bcast(_mol.nvirt, root=0)
+					self.local_comm.bcast(_mol.e_hf, root=0)
+					self.local_comm.bcast(_mol.e_ref, root=0)
+					self.local_comm.bcast(_mol.norb, root=0)
+					self.local_comm.bcast(_mol.nocc, root=0)
+					self.local_comm.bcast(_mol.nvirt, root=0)
 				else:
 					# receive from master
-					_mol.e_hf = self.global_comm.bcast(None, root=0)
-					_mol.e_ref = self.global_comm.bcast(None, root=0)
-					_mol.norb = self.global_comm.bcast(None, root=0)
-					_mol.nocc = self.global_comm.bcast(None, root=0)
-					_mol.nvirt = self.global_comm.bcast(None, root=0)
+					_mol.e_hf = self.local_comm.bcast(None, root=0)
+					_mol.e_ref = self.local_comm.bcast(None, root=0)
+					_mol.norb = self.local_comm.bcast(None, root=0)
+					_mol.nocc = self.local_comm.bcast(None, root=0)
+					_mol.nvirt = self.local_comm.bcast(None, root=0)
 				#
 				return
 
 
-		def bcast_rst(self, _calc, _exp, _level):
+		def bcast_rst(self, _calc, _exp):
 				""" bcast restart files """
-				if (_level == 'macro'):
+				if (exp.level == 'macro'):
 					comm = self.master_comm
-				elif (_level == 'micro'):
+				elif (exp.level == 'micro'):
 					comm = self.global_comm
 				if (self.global_master):
 					# determine start index for energy kernel phase

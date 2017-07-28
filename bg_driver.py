@@ -130,7 +130,7 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
 						exp.level = 'macro'
 						# receive rst data
-						if (msg['rst']): _mpi.bcast_rst(_calc, exp, 'macro')
+						if (msg['rst']): _mpi.bcast_rst(_calc, exp)
 					#
 					#** energy kernel phase **#
 					#
@@ -164,7 +164,7 @@ class DrvCls():
 							exp.incl_idx = msg['incl_idx']
 						else:
 							# receive rst data
-							if (msg['rst']): _mpi.bcast_rst(_calc, exp, 'micro')
+							if (msg['rst']): _mpi.bcast_rst(_calc, exp)
 					#
 					#** energy kernel phase **#
 					#

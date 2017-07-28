@@ -47,7 +47,7 @@ class InitCls():
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation and integral transformation
-				if (self.mpi.global_master):
+				if (self.mpi.global_master or self.mpi.local_master):
 					try:
 						self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
 								self.pyscf.hf_calc(self.mol)
@@ -84,7 +84,12 @@ class InitCls():
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.driver = DrvCls(self.mol, self.calc.exp_type)
 					elif (self.calc.exp_type == 'combined'):
-						self.driver = DrvCls(self.mol, 'occupied')
+						if (self.mpi.local_master):
+							self.driver = DrvCls(self.mol, 'occupied')
+						else:
+							self.driver = DrvCls(self.mol, 'virtual')
+					# prt as None type
+					self.prt = None
 				#
 				return
 
