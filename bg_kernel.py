@@ -219,7 +219,8 @@ class KernCls():
 						# write to e_inc
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
 						# write to micro_conv_res
-						if (_mpi.global_master): _exp.micro_conv_res[-1][data['index']] = data['micro_order']
+						if (_mpi.global_master and (_exp.level == 'macro')):
+							_exp.micro_conv_res[-1][data['index']] = data['micro_order']
 						# collect time
 						if (_mpi.global_master): _exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files

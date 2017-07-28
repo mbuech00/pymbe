@@ -85,9 +85,11 @@ class CalcCls():
 								except Exception as err:
 									_rst.rm_rst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
+									raise
 				except IOError:
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
+					raise
 				#
 				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
 							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, self.tolerance, \
@@ -149,6 +151,7 @@ class CalcCls():
 				except Exception as err:
 					_rst.rm_rst()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
+					raise
 				#
 				return
 

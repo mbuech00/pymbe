@@ -69,6 +69,7 @@ class MolCls(gto.Mole):
 				except IOError:
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError: bg-geo.inp not found\n\n')
+					raise
 				#
 				return atom
 
@@ -102,9 +103,11 @@ class MolCls(gto.Mole):
 								except Exception as err:
 									_rst.rm_rst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
+									raise
 				except IOError:
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError: bg-mol.inp not found\n\n')
+					raise
 				# silence pyscf output
 				self.verbose = 0
 				#
