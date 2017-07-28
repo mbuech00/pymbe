@@ -47,7 +47,7 @@ class DrvCls():
 							# bcast msg
 							_mpi.master_comm.bcast(msg, root=0)
 						else:
-							msg = {'task': 'exp_cls', 'incl_idx': _exp.incl_idx}
+							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx}
 							# bcast msg
 							_mpi.local_comm.bcast(msg, root=0)
 				# restart
