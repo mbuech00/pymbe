@@ -36,6 +36,7 @@ class DrvCls():
 				# print and time logical
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# exp class instantiation on slaves
+				print('proc. {0:} in driver.main, level = {1:}, global = {2:}, local = {3:}'.format(_mpi.global_rank,_exp.level,_mpi.global_master,_mpi.local_master))
 				if (_mpi.parallel):
 					if (_calc.exp_type in ['occupied','virtual']):
 						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
@@ -115,7 +116,7 @@ class DrvCls():
 				return
 
 
-		def local_master(self, _mpi, _mol, _calc, _pyscf):
+		def local_master(self, _mpi, _mol, _calc, _pyscf, _rst):
 				""" local master routine """
 				# set loop/waiting logical
 				local_master = True
@@ -129,14 +130,17 @@ class DrvCls():
 					if (msg['task'] == 'exp_cls'):
 						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
 						exp.level = 'macro'
+						_rst.restart = False
+						print('proc. {0:} in driver.local_slave (exp_cls), level = {1:}, global = {2:}, local = {3:}'.format(_mpi.global_rank,exp.level,_mpi.global_master,_mpi.local_master))
 						# receive rst data
 						if (msg['rst']): _mpi.bcast_rst(_calc, exp)
 					#
 					#** energy kernel phase **#
 					#
-					if (msg['task'] == 'kernel_slave'):
+					if (msg['task'] == 'kernel_local_master'):
 						exp.order = msg['exp_order']
-						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp)
+						print('proc. {0:} in driver.local_slave (kernel_local_master), level = {1:}, global = {2:}, local = {3:}'.format(_mpi.global_rank,exp.level,_mpi.global_master,_mpi.local_master))
+						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp, _rst)
 					#
 					#** exit **#
 					#
@@ -160,6 +164,7 @@ class DrvCls():
 					if (msg['task'] == 'exp_cls'):
 						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
 						exp.level = 'micro'
+						print('proc. {0:} in driver.slave (exp_cls), level = {1:}, global = {2:}, local = {3:}'.format(_mpi.global_rank,exp.level,_mpi.global_master,_mpi.local_master))
 						if (_calc.exp_type == 'combined'):
 							exp.incl_idx = msg['incl_idx']
 						else:
@@ -170,6 +175,7 @@ class DrvCls():
 					#
 					if (msg['task'] == 'kernel_slave'):
 						exp.order = msg['exp_order']
+						print('proc. {0:} in driver.slave (kernel_slave), level = {1:}, global = {2:}, local = {3:}'.format(_mpi.global_rank,exp.level,_mpi.global_master,_mpi.local_master))
 						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp)
 					#
 					#** screening phase **#
@@ -177,6 +183,7 @@ class DrvCls():
 					elif (msg['task'] == 'screen_slave'):
 						exp.order = msg['exp_order']
 						exp.thres = msg['thres']
+						print('proc. {0:} in driver.slave (screen_slave), level = {1:}, global = {2:}, local = {3:}'.format(_mpi.global_rank,exp.level,_mpi.global_master,_mpi.local_master))
 						self.screening.slave(_mpi, _calc, exp)
 					#
 					#** exit **#

@@ -37,16 +37,13 @@ class InitCls():
 				# output instantiation
 				self.out = OutCls(self.mpi)
 				# restart instantiation
-				if (self.mpi.global_master):
-					self.rst = RstCls(self.out, self.mpi)
-				else:
-					self.rst = None
+				self.rst = RstCls(self.out, self.mpi)
 				# molecule and calculation instantiations
 				self.mol = MolCls(self.mpi, self.rst)
 				self.calc = CalcCls(self.mpi, self.rst)
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
-				# hf calculation and integral transformation
+				# hf calculation
 				if (self.mpi.global_master or self.mpi.local_master):
 					try:
 						self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
@@ -55,6 +52,12 @@ class InitCls():
 						sys.stderr.write('\nHF Error : problem with HF calculation\n'
 											'PySCF error : {0:}\n\n'.\
 											format(err))
+						raise
+				# bcast hf info to local masters and slaves
+				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
+				# integral transformation
+				if (((self.mpi.num_local_masters == 0) and self.mpi.global_master) or \
+						((self.mpi.num_local_masters >= 1) and self.mpi.local_master)):
 					try:
 						self.mol.e_ref, self.mol.h1e, self.mol.h2e = \
 								self.pyscf.int_trans(self.mol, self.calc)
@@ -62,8 +65,7 @@ class InitCls():
 						sys.stderr.write('\nINT-TRANS Error : problem with integral transformation\n'
 											'PySCF error : {0:}\n\n'.\
 											format(err))
-				# bcast to slaves
-				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
+						raise
 				if (self.mpi.global_master):
 					# expansion and driver instantiations
 					if (self.calc.exp_type in ['occupied','virtual']):

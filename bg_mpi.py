@@ -153,17 +153,16 @@ class MPICls():
 
 		def bcast_hf_base(self, _mol):
 				""" bcast hf and base info """
-				if (self.global_master):
+				if (((self.num_local_masters == 0) and self.global_master) or \
+						((self.num_local_masters >= 1) and self.local_master)):
 					# bcast to slaves
 					self.local_comm.bcast(_mol.e_hf, root=0)
-					self.local_comm.bcast(_mol.e_ref, root=0)
 					self.local_comm.bcast(_mol.norb, root=0)
 					self.local_comm.bcast(_mol.nocc, root=0)
 					self.local_comm.bcast(_mol.nvirt, root=0)
-				else:
-					# receive from master
+				elif (not (self.global_master or self.local_master)):
+					# receive from local master
 					_mol.e_hf = self.local_comm.bcast(None, root=0)
-					_mol.e_ref = self.local_comm.bcast(None, root=0)
 					_mol.norb = self.local_comm.bcast(None, root=0)
 					_mol.nocc = self.local_comm.bcast(None, root=0)
 					_mol.nvirt = self.local_comm.bcast(None, root=0)
@@ -215,7 +214,9 @@ class MPICls():
 		def bcast_e_inc(self, _exp, _comm):
 				""" bcast e_inc[-1] """
 				# now do Bcast
+				print('proc. {0:} in bcast_e_inc (before), level = {1:}'.format(self.global_rank,_exp.level))
 				_comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
+				print('proc. {0:} in bcast_e_inc (after), level = {1:}'.format(self.global_rank,_exp.level))
 				#
 				return
 
