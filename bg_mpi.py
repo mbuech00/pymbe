@@ -77,10 +77,10 @@ class MPICls():
 				def mpi_excepthook(_type, _value, _traceback):
 					""" custom mpi exception hook """
 					if (not issubclass(_type, OSError)):
-						print('\n\n-- Error information --')
+						print('\n-- Error information --')
 						print('\ntype:\n\n  {0:}'.format(_type))
 						print('\nvalue:\n\n  {0:}'.format(_value))
-						print('\ntraceback:\n\n{0:}\n'.format(''.join(traceback.format_tb(_traceback))))
+						print('\ntraceback:\n\n{0:}'.format(''.join(traceback.format_tb(_traceback))))
 					sys_excepthook(_type, _value, _traceback)
 					self.global_comm.Abort(1)
 				# overwrite sys.excepthook
@@ -92,23 +92,15 @@ class MPICls():
 		def bcast_mol_info(self, _mol):
 				""" bcast mol info """
 				if (self.global_master):
-					self.global_comm.bcast(_mol.atom, root=0)
-					self.global_comm.bcast(_mol.charge, root=0)
-					self.global_comm.bcast(_mol.spin, root=0)
-					self.global_comm.bcast(_mol.symmetry, root=0)
-					self.global_comm.bcast(_mol.basis, root=0)
-					self.global_comm.bcast(_mol.unit, root=0)
-					self.global_comm.bcast(_mol.frozen, root=0)
-					self.global_comm.bcast(_mol.verbose, root=0)
+					mol = {'atom': _mol.atom, 'charge': _mol.charge, 'spin': _mol.spin, \
+							'symmetry': _mol.symmetry, 'basis': _mol.basis, 'unit': _mol.unit, \
+							'frozen': _mol.frozen, 'verbose': _mol.verbose}
+					self.global_comm.bcast(mol, root=0)
 				else:
-					_mol.atom = self.global_comm.bcast(None, root=0)
-					_mol.charge = self.global_comm.bcast(None, root=0)
-					_mol.spin = self.global_comm.bcast(None, root=0)
-					_mol.symmetry = self.global_comm.bcast(None, root=0)
-					_mol.basis = self.global_comm.bcast(None, root=0)
-					_mol.unit = self.global_comm.bcast(None, root=0)
-					_mol.frozen = self.global_comm.bcast(None, root=0)
-					_mol.verbose = self.global_comm.bcast(None, root=0)
+					mol = self.global_comm.bcast(None, root=0)
+					_mol.atom = mol['atom']; _mol.charge = mol['charge']; _mol.spin = mol['spin']
+					_mol.symmetry = mol['symmetry']; _mol.basis = mol['basis']; _mol.unit = mol['unit']
+					_mol.frozen = mol['frozen']; _mol.verbose = mol['verbose']
 				#
 				return
 
@@ -117,24 +109,16 @@ class MPICls():
 				""" bcast calc info """
 				if (self.global_master):
 					# bcast to slaves
-					self.global_comm.bcast(_calc.exp_model, root=0)
-					self.global_comm.bcast(_calc.exp_type, root=0)
-					self.global_comm.bcast(_calc.exp_base, root=0)
-					self.global_comm.bcast(_calc.exp_thres, root=0)
-					self.global_comm.bcast(_calc.exp_max_order, root=0)
-					self.global_comm.bcast(_calc.exp_occ, root=0)
-					self.global_comm.bcast(_calc.exp_virt, root=0)
-					self.global_comm.bcast(_calc.energy_thres, root=0)
+					calc = {'exp_model': _calc.exp_model, 'exp_type': _calc.exp_type, 'exp_base': _calc.exp_base, \
+							'exp_thres': _calc.exp_thres, 'exp_max_order': _calc.exp_max_order, 'exp_occ': _calc.exp_occ, \
+							'exp_virt': _calc.exp_virt, 'energy_thres': _calc.energy_thres}
+					self.global_comm.bcast(calc, root=0)
 				else:
 					# receive from master
-					_calc.exp_model = self.global_comm.bcast(None, root=0)
-					_calc.exp_type = self.global_comm.bcast(None, root=0)
-					_calc.exp_base = self.global_comm.bcast(None, root=0)
-					_calc.exp_thres = self.global_comm.bcast(None, root=0)
-					_calc.exp_max_order = self.global_comm.bcast(None, root=0)
-					_calc.exp_occ = self.global_comm.bcast(None, root=0)
-					_calc.exp_virt = self.global_comm.bcast(None, root=0)
-					_calc.energy_thres = self.global_comm.bcast(None, root=0)
+					calc = self.global_comm.bcast(None, root=0)
+					_calc.exp_model = calc['exp_model']; _calc.exp_type = calc['exp_type']; _calc.exp_base = calc['exp_base']
+					_calc.exp_thres = calc['exp_thres']; _calc.exp_max_order = calc['exp_max_order']; _calc.exp_occ = calc['exp_occ']
+					_calc.exp_virt = calc['exp_virt']; _calc.energy_thres = calc['energy_thres']
 				#
 				return
 
