@@ -167,9 +167,9 @@ class MPICls():
 
 		def bcast_rst(self, _calc, _exp):
 				""" bcast restart files """
-				if (exp.level == 'macro'):
+				if (_exp.level == 'macro'):
 					comm = self.master_comm
-				elif (exp.level == 'micro'):
+				elif (_exp.level == 'micro'):
 					comm = self.global_comm
 				if (self.global_master):
 					# determine start index for energy kernel phase
