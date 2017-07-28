@@ -33,10 +33,8 @@ class PySCFCls():
 				norb = hf.mo_coeff.shape[1]
 				nocc = int(hf.mo_occ.sum()) // 2
 				nvirt = norb - nocc
-				# duplicate total hf energy
-				e_hf = hf.e_tot
 				#
-				return hf, e_hf, norb, nocc, nvirt
+				return hf.mo_coeff, hf.get_hcore(), hf.e_tot, norb, nocc, nvirt
 
 
 		def int_trans(self, _mol, _calc):

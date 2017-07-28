@@ -27,6 +27,7 @@ from bg_driver import DrvCls
 from bg_print import PrintCls
 from bg_results import ResCls
 
+import numpy as np
 
 class InitCls():
 		""" initialization class """
@@ -46,15 +47,15 @@ class InitCls():
 				# hf calculation
 				if (self.mpi.prim_master):
 					try:
-						self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
-								self.pyscf.hf_calc(self.mol)
+						self.mol.mo_coeff, self.mol.hcore, self.mol.e_hf, self.mol.norb, \
+								self.mol.nocc, self.mol.nvirt = self.pyscf.hf_calc(self.mol)
 					except Exception as err:
 						sys.stderr.write('\nHF Error : problem with HF calculation\n'
 											'PySCF error : {0:}\n\n'.\
 											format(err))
 						raise
-				# bcast hf info to local masters and slaves
-				if (self.mpi.parallel): self.mpi.bcast_hf_base(self.mol)
+				# bcast hf info to local masters
+				if (self.mpi.num_local_master >= 2): self.mpi.bcast_hf_base(self.mol)
 				# integral transformation
 				if (((self.mpi.num_local_masters == 0) and self.mpi.global_master) or \
 						((self.mpi.num_local_masters >= 1) and self.mpi.local_master)):

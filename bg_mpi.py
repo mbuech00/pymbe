@@ -46,7 +46,7 @@ class MPICls():
 					self.master_comm = self.local_comm = self.global_comm
 					self.local_size = self.global_size
 					self.local_master = False
-					self.local_master_prim = self.global_master
+					self.prim_master = self.global_master
 				else:
 					# array of ranks (global master excluded)
 					ranks = np.arange(1, self.global_size)
@@ -62,6 +62,9 @@ class MPICls():
 					# set master group and intracomm
 					self.master_group = self.global_group.Incl(masters)
 					self.master_comm = self.global_comm.Create(self.master_group)
+					# set local master group and intracomm
+					self.local_master_group = self.master_group.Excl([0])
+					self.local_master_comm = self.global_comm.Create(self.local_master_group)
 					# set local intracomm based on color
 					for i in range(len(groups)):
 						if (self.global_rank in groups[i]): color = i
@@ -140,19 +143,27 @@ class MPICls():
 
 		def bcast_hf_base(self, _mol):
 				""" bcast hf and base info """
-				if (((self.num_local_masters == 0) and self.global_master) or \
-						((self.num_local_masters >= 1) and self.local_master)):
-					# bcast to slaves
-					self.local_comm.bcast(_mol.e_hf, root=0)
-					self.local_comm.bcast(_mol.norb, root=0)
-					self.local_comm.bcast(_mol.nocc, root=0)
-					self.local_comm.bcast(_mol.nvirt, root=0)
-				elif (not (self.global_master or self.local_master)):
-					# receive from local master
-					_mol.e_hf = self.local_comm.bcast(None, root=0)
-					_mol.norb = self.local_comm.bcast(None, root=0)
-					_mol.nocc = self.local_comm.bcast(None, root=0)
-					_mol.nvirt = self.local_comm.bcast(None, root=0)
+				# prim master has everything - bcast to rest of local masters
+				if (self.prim_master):
+					# bcast to local masters
+					self.local_master_comm.bcast(_mol.e_hf, root=0)
+					self.local_master_comm.bcast(_mol.norb, root=0)
+					self.local_master_comm.bcast(_mol.nocc, root=0)
+					self.local_master_comm.bcast(_mol.nvirt, root=0)
+					self.local_master_comm.Bcast([_mol.mo_coeff, MPI.DOUBLE], root=0)
+					self.local_master_comm.Bcast([_mol.hcore, MPI.DOUBLE], root=0)
+				elif (self.local_master and (not self.prim_master)):
+					# receive from primary master
+					_mol.e_hf = self.local_master_comm.bcast(None, root=0)
+					_mol.norb = self.local_master_comm.bcast(None, root=0)
+					_mol.nocc = self.local_master_comm.bcast(None, root=0)
+					_mol.nvirt = self.local_master_comm.bcast(None, root=0)
+					buff_mo = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
+					self.local_master_comm.Bcast([buff_mo, MPI.DOUBLE], root=0)
+					_mol.mo_coeff = buff_mo
+					buff_hcore = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
+					self.local_master_comm.Bcast([buff_hcore, MPI.DOUBLE], root=0)
+					_mol.hcore = buff_hcore
 				#
 				return
 
@@ -201,7 +212,7 @@ class MPICls():
 		def bcast_e_inc(self, _exp, _comm):
 				""" bcast e_inc[-1] """
 				# now do Bcast
-				_comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
+				_comm.Bcast([_exp.energy_inc[-1], MPI.DOUBLE], root=0)
 				#
 				return
 
@@ -216,7 +227,7 @@ class MPICls():
 					# bcast
 					_comm.bcast(tup_info, root=0)
 				# bcast buffer
-				_comm.Bcast([_buff,MPI.INT], root=0)
+				_comm.Bcast([_buff, MPI.INT], root=0)
 				# append tup[-1] with buff
 				if (len(_buff) >= 1): _exp.tuples.append(_buff)
 				#
