@@ -75,7 +75,6 @@ class KernCls():
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum of energy increments
-				print('\nproc {0:}, e_inc = {1:}\n'.format(_mpi.global_rank,_exp.energy_inc[-1]))
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
 				if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
@@ -152,14 +151,14 @@ class KernCls():
 					comm = _mpi.master_comm
 					# number of workers
 					slaves_avail = num_slaves = _mpi.num_local_masters
-					print('proc. {0:} in kernel.master, level = {1:}, slaves_avail = {2:}'.format(_mpi.global_rank,_exp.level,slaves_avail))
+#					print('proc. {0:} in kernel.master, level = {1:}, slaves_avail = {2:}'.format(_mpi.global_rank,_exp.level,slaves_avail))
 				else:
 					msg = {'task': 'kernel_slave', 'exp_order': _exp.order}
 					# set communicator
 					comm = _mpi.local_comm
 					# number of workers
 					slaves_avail = num_slaves = _mpi.local_size - 1
-					print('proc. {0:} in kernel.master, level = {1:}, slaves_avail = {2:}'.format(_mpi.global_rank,_exp.level,slaves_avail))
+#					print('proc. {0:} in kernel.master, level = {1:}, slaves_avail = {2:}'.format(_mpi.global_rank,_exp.level,slaves_avail))
 				# bcast msg
 				comm.bcast(msg, root=0)
 				# init job_info dictionary
@@ -169,7 +168,8 @@ class KernCls():
 				# init stat counter
 				counter = i
 				# print status for START
-				if (_mpi.global_master): _prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
+				if (_mpi.global_master and (not (_exp.level == 'macro'))):
+					_prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
 				# init time
 				if (_mpi.global_master and (len(_exp.time_kernel) < _exp.order)): _exp.time_kernel.append(0.0)
 				# loop until no slaves left
@@ -238,7 +238,7 @@ class KernCls():
 					elif (tag == self.tags.exit):
 						slaves_avail -= 1
 				# print 100.0 %
-				if (_mpi.global_master): _prt.kernel_status(_calc, _exp, 1.0)
+				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_exp, comm)
 				#
@@ -283,7 +283,7 @@ class KernCls():
 							data['micro_order'] = exp_micro.order
 							# write info into data dict
 							data['index'] = job_info['index']
-							data['e_inc'] = exp_micro.energy_inc[-1][job_info['index']]
+							data['e_inc'] = exp_micro.energy_tot[-1]
 							# send data back to local master
 							comm.send(data, dest=0, tag=self.tags.done)
 						else:

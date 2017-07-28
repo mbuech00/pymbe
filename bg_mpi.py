@@ -77,7 +77,7 @@ class MPICls():
 				def mpi_excepthook(_type, _value, _traceback):
 					""" custom mpi exception hook """
 					if (not issubclass(_type, OSError)):
-						print('\n\n-- Error information --\n')
+						print('\n\n-- Error information --')
 						print('\ntype:\n\n  {0:}'.format(_type))
 						print('\nvalue:\n\n  {0:}'.format(_value))
 						print('\ntraceback:\n\n{0:}\n'.format(''.join(traceback.format_tb(_traceback))))
@@ -214,16 +214,16 @@ class MPICls():
 		def bcast_e_inc(self, _exp, _comm):
 				""" bcast e_inc[-1] """
 				# now do Bcast
-				print('proc. {0:} in bcast_e_inc (before), level = {1:}'.format(self.global_rank,_exp.level))
 				_comm.Bcast([_exp.energy_inc[-1],MPI.DOUBLE], root=0)
-				print('proc. {0:} in bcast_e_inc (after), level = {1:}'.format(self.global_rank,_exp.level))
 				#
 				return
 
 
 		def bcast_tup(self, _exp, _buff, _comm):
 				""" master/slave routine for bcasting total number of tuples """
-				if (self.global_master or self.local_master):
+				if ((self.global_master and (self.num_local_masters == 0)) or \
+						(self.global_master and (_exp.level == 'macro')) or \
+						(self.local_master and (_exp.level == 'micro'))):
 					# init bcast dict
 					tup_info = {'tup_len': len(_buff)}
 					# bcast

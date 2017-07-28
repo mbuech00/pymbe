@@ -96,13 +96,17 @@ class ScrCls():
 		def master(self, _mpi, _calc, _exp):
 				""" master routine """
 				# wake up slaves
-				msg = {'task': 'screen_slave', 'exp_order': _exp.order, 'thres': _exp.thres}
-				# set communicator and number of workers
 				if (_exp.level == 'macro'):
+					msg = {'task': 'screen_local_master', 'exp_order': _exp.order, 'thres': _exp.thres}
+					# set communicator
 					comm = _mpi.master_comm
+					# set number of workers
 					slaves_avail = num_slaves = _mpi.num_local_masters
 				else:
+					msg = {'task': 'screen_slave', 'exp_order': _exp.order, 'thres': _exp.thres}
+					# set communicator
 					comm = _mpi.local_comm
+					# set number of workers
 					slaves_avail = num_slaves = _mpi.local_size - 1
 				# bcast
 				comm.bcast(msg, root=0)
