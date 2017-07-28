@@ -44,7 +44,7 @@ class InitCls():
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation
-				if (self.mpi.global_master or self.mpi.local_master):
+				if (self.mpi.prim_master):
 					try:
 						self.mol.hf, self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = \
 								self.pyscf.hf_calc(self.mol)
