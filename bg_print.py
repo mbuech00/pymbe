@@ -149,11 +149,11 @@ class PrintCls():
 				""" print micro result statistics """
 				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
 					# statistics
-					mean_val = int(np.mean(_exp.micro_conv_res) + 0.5)
-					min_val = _exp.micro_conv_res[np.argmin(_exp.micro_conv_res)]
-					max_val = _exp.micro_conv_res[np.argmax(_exp.micro_conv_res)]
-					if (len(_exp.micro_conv_res) > 1):
-						std_val = np.std(_exp.micro_conv_res, ddof=1)
+					mean_val = int(np.mean(_exp.micro_conv_res[-1]) + 0.5)
+					min_val = _exp.micro_conv_res[-1][np.argmin(_exp.micro_conv_res[-1])]
+					max_val = _exp.micro_conv_res[-1][np.argmax(_exp.micro_conv_res[-1])]
+					if (len(_exp.micro_conv_res[-1]) > 1):
+						std_val = np.std(_exp.micro_conv_res[-1], ddof=1)
 					else:
 						std_val = 0.0
 					# now print
@@ -175,7 +175,6 @@ class PrintCls():
 					print(' --------------------------------------------------------------------------------------------')
 				#
 				return
-
 
 	
 		def kernel_results(self, _calc, _exp):

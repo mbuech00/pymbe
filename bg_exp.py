@@ -58,6 +58,8 @@ class ExpCls():
 												(factorial(k+1) * factorial(_mol.nvirt - (k+1)))))
 				# init screen_count list
 				self.screen_count = []
+				# init micro_conv_res list
+				if (_mpi.global_master): self.micro_conv_res = []
 				# init convergence lists
 				self.conv_orb = [False]
 				self.conv_energy = [False]

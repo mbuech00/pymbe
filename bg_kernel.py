@@ -67,8 +67,8 @@ class KernCls():
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
 				""" energy kernel phase """
 				# init micro_conv_res list
-				if (_calc.exp_type == 'combined'):
-					_exp.micro_conv_res = np.zeros(len(_exp.tuples[-1]), dtype=np.int32)
+				if (_mpi.global_master and (_exp.level == 'macro')):
+					_exp.micro_conv_res.append(np.zeros(len(_exp.tuples[-1]), dtype=np.int32))
 				# mpi parallel version
 				if (_mpi.parallel):
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
@@ -113,7 +113,7 @@ class KernCls():
 						driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results
 						_exp.energy_inc[-1][i] = exp_micro.energy_tot[-1]
-						_exp.micro_conv_res[i] = exp_micro.order
+						_exp.micro_conv_res[-1][i] = exp_micro.order
 					else:
 						# generate input
 						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
@@ -223,6 +223,7 @@ class KernCls():
 								raise
 						# write to e_inc
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
+						_exp.micro_conv_res[-1][data['index']] = data['micro_order']
 						# collect time
 						if (do_print): _exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
