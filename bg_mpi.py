@@ -35,7 +35,7 @@ class MPICls():
 				# default value
 				self.num_local_masters = 0
 				# set custom exception hook
-				if (self.global_master): self.set_exc_hook()
+				self.set_exc_hook()
 				#
 				return
 
