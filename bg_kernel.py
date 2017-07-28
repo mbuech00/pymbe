@@ -148,23 +148,19 @@ class KernCls():
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# wake up slaves
 				if (_exp.level == 'macro'):
-					if (_mpi.global_master):
-						msg = {'task': 'kernel_local_master', 'exp_order': _exp.order}
-						# bcast
-						_mpi.master_comm.bcast(msg, root=0)
+					msg = {'task': 'kernel_local_master', 'exp_order': _exp.order}
 					# set comm
 					comm = _mpi.master_comm
 					# number of available slaves
-					slaves_avail = num_slaves = _mpi.num_groups
+					slaves_avail = num_slaves = _mpi.num_local_masters
 				else:
-					if (_mpi.local_master):
-						msg = {'task': 'kernel_slave', 'exp_order': _exp.order}
-						# bcast
-						_mpi.local_comm.bcast(msg, root=0)
+					msg = {'task': 'kernel_slave', 'exp_order': _exp.order}
 					# set comm
 					comm = _mpi.local_comm
 					# number of available slaves
 					slaves_avail = num_slaves = _mpi.local_size - 1
+				# bcast msg
+				comm.bcast(msg, root=0)
 				# init job_info dictionary
 				job_info = {}
 				# init job index

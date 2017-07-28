@@ -33,7 +33,7 @@ class MPICls():
 				self.host = MPI.Get_processor_name()
 				self.stat = MPI.Status()
 				# default value
-				self.num_groups = 1
+				self.num_local_masters = 0
 				# set custom exception hook
 				if (self.global_master): self.set_exc_hook()
 				#
@@ -42,18 +42,18 @@ class MPICls():
 
 		def set_local_groups(self):
 				""" define local groups """
-				if (self.num_groups == 1):
+				if (self.num_local_masters == 0):
 					self.master_comm = self.local_comm = self.global_comm
-					self.local_master = self.global_master
 					self.local_size = self.global_size
+					self.local_master = False
 				else:
 					# array of ranks (global master excluded)
 					ranks = np.arange(1, self.global_size)
 					# split into local groups and add global master
-					groups = np.array_split(ranks, self.num_groups)
+					groups = np.array_split(ranks, self.num_local_masters)
 					groups = [np.array([0])] + groups
 					# extract local master indices and append to global master index
-					masters = [groups[i][0] for i in range(self.num_groups + 1)]
+					masters = [groups[i][0] for i in range(len(groups))]
 					# define local masters (global master excluded)
 					self.local_master = (self.global_rank in masters[1:])
 					# set master group and intracomm
@@ -137,10 +137,10 @@ class MPICls():
 				""" bcast mpi info """
 				if (self.global_master):
 					# bcast to slaves
-					self.global_comm.bcast(self.num_groups, root=0)
+					self.global_comm.bcast(self.num_local_masters, root=0)
 				else:
 					# receive from master
-					self.num_groups = self.global_comm.bcast(None, root=0)
+					self.num_local_masters = self.global_comm.bcast(None, root=0)
 				#
 				return
 
@@ -216,7 +216,7 @@ class MPICls():
 
 		def bcast_tup(self, _exp, _buff):
 				""" master/slave routine for bcasting total number of tuples """
-				if (self.local_master):
+				if (self.global_master or self.local_master):
 					# init bcast dict
 					tup_info = {'tup_len': len(_buff)}
 					# bcast
@@ -234,13 +234,13 @@ class MPICls():
 				if (self.global_master):
 					_rst.rm_rst()
 					if (self.parallel):
-						if (self.num_groups == 1):
+						if (self.num_local_masters == 0):
 							self.local_comm.bcast({'task': 'exit_slave'}, root=0)
 						else:
 							self.master_comm.bcast({'task': 'exit_local_master'}, root=0)
-				elif (self.local_master and (not self.global_master)):
+				elif (self.local_master):
 					self.local_comm.bcast({'task': 'exit_slave'}, root=0)
 				self.global_comm.Barrier()
 				MPI.Finalize()
-	
+
 

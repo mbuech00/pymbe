@@ -54,7 +54,7 @@ class RstCls():
 					for _ in range(1, _exp.min_order): self.rst_freq = self.update()
 					# bcast rst data
 					if (_mpi.parallel):
-						if ((_exp.level == 'macro') and (_mpi.num_groups > 1)):
+						if ((_exp.level == 'macro') and (_mpi.num_local_masters >= 1)):
 							_mpi.bcast_rst(_calc, _exp, 'macro')
 						elif (_exp.level == 'micro'):
 							_mpi.bcast_rst(_calc, _exp, 'micro')

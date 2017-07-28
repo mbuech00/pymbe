@@ -42,7 +42,7 @@ class DrvCls():
 						# bcast msg
 						_mpi.local_comm.bcast(msg, root=0)
 					else:
-						if ((_exp.level == 'macro') and (_mpi.num_groups > 1)):
+						if ((_exp.level == 'macro') and (_mpi.num_local_masters >= 1)):
 							msg = {'task': 'exp_cls', 'rst': _rst.restart}
 							# bcast msg
 							_mpi.master_comm.bcast(msg, root=0)

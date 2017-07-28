@@ -35,7 +35,7 @@ class CalcCls():
 					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
 						self.exp_max_order, self.exp_occ, self.exp_virt, \
 						self.energy_thres, self.tolerance, \
-						_mpi.num_groups = self.set_calc(_mpi, _rst)
+						_mpi.num_local_masters = self.set_calc(_mpi, _rst)
 					# sanity check
 					self.sanity_chk(_mpi, _rst)
 				if (_mpi.parallel):
@@ -73,8 +73,8 @@ class CalcCls():
 								self.energy_thres = float(content[i].split()[2])
 							elif (content[i].split()[0] == 'tolerance'):
 								self.tolerance = float(content[i].split()[2])
-							elif (content[i].split()[0] == 'num_mpi_groups'):
-								_mpi.num_groups = int(content[i].split()[2])
+							elif (content[i].split()[0] == 'num_local_masters'):
+								_mpi.num_local_masters = int(content[i].split()[2])
 							# error handling
 							else:
 								try:
@@ -89,7 +89,7 @@ class CalcCls():
 				#
 				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
 							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, self.tolerance, \
-							_mpi.num_groups
+							_mpi.num_local_masters
 
 
 		def sanity_chk(self, _mpi, _rst):
@@ -130,16 +130,20 @@ class CalcCls():
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: HF or MP2/CCSD natural orbitals')
 					# mpi groups
-					if (_mpi.num_groups <= 0):
-						raise ValueError('wrong input -- number of mpi groups ' + \
+					if (_mpi.num_local_masters < 0):
+						raise ValueError('wrong input -- number of local mpi masters ' + \
 										'must be a positive number >= 1')
-					if (_mpi.num_groups > 1):
+					if (_mpi.parallel and (self.exp_type == 'combined')):
+						if (_mpi.num_local_masters == 0):
+							raise ValueError('wrong input -- combined expansions are only valid in ' + \
+											'combination with at least one local mpi master (num_local_masters >= 1)')
+					if (_mpi.num_local_masters >= 1):
 						if (self.exp_type != 'combined'):
-							raise ValueError('wrong input -- the use of more than one mpi group ' + \
+							raise ValueError('wrong input -- the use of local mpi masters ' + \
 											'is currently not implemented for occupied and virtual expansions')
-						if (_mpi.global_size <= 2 * _mpi.num_groups):
+						if (_mpi.global_size <= 2 * _mpi.num_local_masters):
 							raise ValueError('wrong input -- total number of mpi processes ' + \
-											'must be larger than twice the number of mpi groups')
+											'must be larger than twice the number of local mpi masters')
 				except Exception as err:
 					_rst.rm_rst()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
