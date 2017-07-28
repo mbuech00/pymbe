@@ -55,7 +55,9 @@ class CalcCls():
 					with open('bg-calc.inp') as f:
 						content = f.readlines()
 						for i in range(len(content)):
-							if (content[i].split()[0] == 'exp_model'):
+							if (content[i].split()[0][0] == '#'):
+								continue
+							elif (content[i].split()[0] == 'exp_model'):
 								self.exp_model = content[i].split()[2].upper()
 							elif (content[i].split()[0] == 'exp_type'):
 								self.exp_type = content[i].split()[2]

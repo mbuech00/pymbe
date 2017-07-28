@@ -62,7 +62,10 @@ class MolCls(gto.Mole):
 						content = f.readlines()
 						atom = ''
 						for i in range(len(content)):
-							atom += content[i]
+							if (content[i].split()[0][0] == '#'):
+								continue
+							else:
+								atom += content[i]
 				except IOError:
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError: bg-geo.inp not found\n\n')
@@ -77,7 +80,9 @@ class MolCls(gto.Mole):
 					with open('bg-mol.inp') as f:
 						content = f.readlines()
 						for i in range(len(content)):
-							if (content[i].split()[0] == 'charge'):
+							if (content[i].split()[0][0] == '#'):
+								continue
+							elif (content[i].split()[0] == 'charge'):
 								self.charge = int(content[i].split()[2])
 							elif (content[i].split()[0] == 'spin'):
 								self.spin = int(content[i].split()[2])
