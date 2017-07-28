@@ -107,7 +107,7 @@ class DrvCls():
 							# collect time
 							_exp.time_screen.append(0.0)
 					# update restart frequency
-					_rst.rst_freq = _rst.update()
+					if (do_print): _rst.rst_freq = _rst.update()
 					#
 					#** convergence check **#
 					#

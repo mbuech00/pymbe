@@ -97,14 +97,17 @@ class ScrCls():
 				""" master routine """
 				# wake up slaves
 				msg = {'task': 'screen_slave', 'exp_order': _exp.order, 'thres': _exp.thres}
+				# set communicator and number of workers
+				if (_exp.level == 'macro'):
+					comm = _mpi.master_comm
+					slaves_avail = num_slaves = _mpi.num_local_masters
+				else:
+					comm = _mpi.local_comm
+					slaves_avail = num_slaves = _mpi.local_size - 1
 				# bcast
-				_mpi.local_comm.bcast(msg, root=0)
+				comm.bcast(msg, root=0)
 				# init job_info dictionary
 				job_info = {}
-				# number of slaves
-				num_slaves = _mpi.global_size - 1
-				# number of available slaves
-				slaves_avail = num_slaves
 				# init job index, tmp list, and screen_count
 				i = 0; tmp = []; _exp.screen_count.append(0)
 				# determine which increments have contributions below the threshold
@@ -115,8 +118,7 @@ class ScrCls():
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
-					data = _mpi.local_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG,
-											status=_mpi.stat)
+					data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
 					# probe for source and tag
 					source = _mpi.stat.Get_source(); tag = _mpi.stat.Get_tag()
 					# slave is ready
@@ -126,12 +128,12 @@ class ScrCls():
 							# save parent tuple index
 							job_info['index'] = i
 							# send parent tuple index
-							_mpi.local_comm.send(job_info, dest=source, tag=self.tags.start)
+							comm.send(job_info, dest=source, tag=self.tags.start)
 							# increment job index
 							i += 1
 						else:
-							# send None info
-							_mpi.local_comm.send(None, dest=source, tag=self.tags.exit)
+							# send exit signal
+							comm.send(None, dest=source, tag=self.tags.exit)
 					# receive result from slave
 					elif (tag == self.tags.done):
 						# write tmp child tuple list
@@ -150,7 +152,7 @@ class ScrCls():
 				# make numpy array out of tmp
 				buff = np.array(tmp, dtype=np.int32)
 				# bcast buff
-				_mpi.bcast_tup(_exp, buff)
+				_mpi.bcast_tup(_exp, buff, comm)
 				#
 				return
 		
@@ -159,12 +161,17 @@ class ScrCls():
 				""" slave routine """
 				# init data dict and combs list
 				data = {'child_tuple': [], 'screen_count': 0}; combs = []
+				# set communicator and number of workers
+				if (_exp.level == 'macro'):
+					comm = _mpi.master_comm
+				else:
+					comm = _mpi.local_comm
 				# receive work from master
 				while (True):
 					# send status to master
-					_mpi.local_comm.send(None, dest=0 ,tag=self.tags.ready)
+					comm.send(None, dest=0 ,tag=self.tags.ready)
 					# receive parent tuple
-					job_info = _mpi.local_comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
+					job_info = comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
 					# determine which increments have contributions below the threshold
@@ -195,17 +202,17 @@ class ScrCls():
 							else:
 								data['screen_count'] += 1
 						# send data back to master
-						_mpi.local_comm.send(data, dest=0, tag=self.tags.done)
+						comm.send(data, dest=0, tag=self.tags.done)
 					# exit
 					elif (tag == self.tags.exit):
 						break
 				# send exit signal to master
-				_mpi.local_comm.send(None, dest=0, tag=self.tags.exit)
+				comm.send(None, dest=0, tag=self.tags.exit)
 				# init buffer
-				tup_info = _mpi.local_comm.bcast(None, root=0)
+				tup_info = comm.bcast(None, root=0)
 				buff = np.empty([tup_info['tup_len'],_exp.order+1], dtype=np.int32)
 				# receive buffer
-				_mpi.bcast_tup(_exp, buff)
+				_mpi.bcast_tup(_exp, buff, comm)
 				#
 				return
 

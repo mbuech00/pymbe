@@ -221,15 +221,15 @@ class MPICls():
 				return
 
 
-		def bcast_tup(self, _exp, _buff):
+		def bcast_tup(self, _exp, _buff, _comm):
 				""" master/slave routine for bcasting total number of tuples """
 				if (self.global_master or self.local_master):
 					# init bcast dict
 					tup_info = {'tup_len': len(_buff)}
 					# bcast
-					self.local_comm.bcast(tup_info, root=0)
+					_comm.bcast(tup_info, root=0)
 				# bcast buffer
-				self.local_comm.Bcast([_buff,MPI.INT], root=0)
+				_comm.Bcast([_buff,MPI.INT], root=0)
 				# append tup[-1] with buff
 				if (len(_buff) >= 1): _exp.tuples.append(_buff)
 				#

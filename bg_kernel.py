@@ -75,6 +75,7 @@ class KernCls():
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum of energy increments
+				print('\nproc {0:}, e_inc = {1:}\n'.format(_mpi.global_rank,_exp.energy_inc[-1]))
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
 				if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
@@ -147,16 +148,16 @@ class KernCls():
 				# wake up slaves
 				if (_exp.level == 'macro'):
 					msg = {'task': 'kernel_local_master', 'exp_order': _exp.order}
-					# set comm
+					# set communicator
 					comm = _mpi.master_comm
-					# number of available slaves
+					# number of workers
 					slaves_avail = num_slaves = _mpi.num_local_masters
 					print('proc. {0:} in kernel.master, level = {1:}, slaves_avail = {2:}'.format(_mpi.global_rank,_exp.level,slaves_avail))
 				else:
 					msg = {'task': 'kernel_slave', 'exp_order': _exp.order}
-					# set comm
+					# set communicator
 					comm = _mpi.local_comm
-					# number of available slaves
+					# number of workers
 					slaves_avail = num_slaves = _mpi.local_size - 1
 					print('proc. {0:} in kernel.master, level = {1:}, slaves_avail = {2:}'.format(_mpi.global_rank,_exp.level,slaves_avail))
 				# bcast msg
@@ -246,7 +247,7 @@ class KernCls():
 		
 		def slave(self, _mpi, _mol, _calc, _pyscf, _exp, _rst=None):
 				""" slave function """
-				# set comm and possible micro driver instantiation
+				# set communicator and possible micro driver instantiation
 				if (_exp.level == 'macro'):
 					comm = _mpi.master_comm
 					# micro driver instantiation
@@ -282,7 +283,7 @@ class KernCls():
 							data['micro_order'] = exp_micro.order
 							# write info into data dict
 							data['index'] = job_info['index']
-							data['e_inc'] = _exp.energy_inc[-1][job_info['index']]
+							data['e_inc'] = exp_micro.energy_inc[-1][job_info['index']]
 							# send data back to local master
 							comm.send(data, dest=0, tag=self.tags.done)
 						else:
