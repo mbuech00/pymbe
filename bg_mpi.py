@@ -56,6 +56,8 @@ class MPICls():
 					masters = [groups[i][0] for i in range(len(groups))]
 					# define local masters (global master excluded)
 					self.local_master = (self.global_rank in masters[1:])
+					# define primary local master
+					self.local_master_prim = (self.global_rank == masters[1])
 					# set master group and intracomm
 					self.master_group = self.global_group.Incl(masters)
 					self.master_comm = self.global_comm.Create(self.master_group)
