@@ -27,7 +27,7 @@ class KernCls():
 		def __init__(self):
 				""" init parameters """
 				# set tags
-				self.tags = self.enum('ready', 'done', 'data', 'exit', 'start')
+				self.tags = self.enum('ready', 'done', 'exit', 'start')
 				#
 				return
 
@@ -144,8 +144,6 @@ class KernCls():
 	
 		def master(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
 				""" master function """
-				# print and time logical
-				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# wake up slaves
 				if (_exp.level == 'macro'):
 					msg = {'task': 'kernel_local_master', 'exp_order': _exp.order}
@@ -168,10 +166,9 @@ class KernCls():
 				# init stat counter
 				counter = i
 				# print status for START
-				_prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
+				if (_mpi.global_master): _prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
 				# init time
-				if (do_print):
-					if (len(_exp.time_kernel) < _exp.order): _exp.time_kernel.append(0.0)
+				if (_mpi.global_master and (len(_exp.time_kernel) < _exp.order)): _exp.time_kernel.append(0.0)
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
@@ -183,7 +180,7 @@ class KernCls():
 						# any jobs left?
 						if (i <= (len(_exp.tuples[-1]) - 1)):
 							# start time
-							if (do_print): time = MPI.Wtime()
+							if (_mpi.global_master): time = MPI.Wtime()
 							# perform calculation
 							if (_exp.level == 'macro'):
 								# store job info
@@ -223,9 +220,9 @@ class KernCls():
 								raise
 						# write to e_inc
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
-						_exp.micro_conv_res[-1][data['index']] = data['micro_order']
+						if (_mpi.global_master): _exp.micro_conv_res[-1][data['index']] = data['micro_order']
 						# collect time
-						if (do_print): _exp.time_kernel[-1] += MPI.Wtime() - time
+						if (_mpi.global_master): _exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						if (_mpi.global_master and ((((data['index']+1) % int(_rst.rst_freq)) == 0) or (_exp.level == 'macro'))):
 							_rst.write_kernel(_exp, False)
@@ -238,7 +235,7 @@ class KernCls():
 					elif (tag == self.tags.exit):
 						slaves_avail -= 1
 				# print 100.0 %
-				_prt.kernel_status(_calc, _exp, 1.0)
+				if (_mpi.global_master): _prt.kernel_status(_calc, _exp, 1.0)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_exp, comm)
 				#
@@ -255,7 +252,7 @@ class KernCls():
 				else:
 					comm = _mpi.local_comm
 				# init e_inc list
-				if (len(_exp.energy_inc) != _exp.order):
+				if (len(_exp.energy_inc) < _exp.order):
 					_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# init data dict
 				data = {'error': False}
@@ -278,12 +275,14 @@ class KernCls():
 							exp_micro.incl_idx = _exp.tuples[-1][job_info['index']].tolist()
 							# make recursive call to driver with micro exp
 							driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
+							# store micro convergence
+							data['micro_order'] = exp_micro.order
 							# report status back to local master
 							comm.send(None, dest=0, tag=self.tags.done)
-							# store results
-							data['e_inc'] = _exp.energy_inc[-1][job_info['index']] = exp_micro.energy_tot[-1]
-							data['micro_order'] = exp_micro.order
-							# send data back to global master
+							# write info into data dict
+							data['index'] = job_info['index']
+							data['e_inc'] = _exp.energy_inc[-1][job_info['index']]
+							# send data back to local master
 							comm.send(data, dest=0, tag=self.tags.data)
 						else:
 							_exp.core_idx = job_info['core_idx']
