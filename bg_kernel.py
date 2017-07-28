@@ -172,7 +172,7 @@ class KernCls():
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
-					stat = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
+					data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
 					# probe for source and tag
 					source = _mpi.stat.Get_source(); tag = _mpi.stat.Get_tag()
 					# slave is ready
@@ -205,8 +205,6 @@ class KernCls():
 							comm.send(None, dest=source, tag=self.tags.exit)
 					# receive result from slave
 					elif (tag == self.tags.done):
-						# receive data
-						data = comm.recv(source=source, tag=self.tags.data, status=_mpi.stat)
 						# error handling
 						if (data['error']):
 							try:
@@ -220,6 +218,7 @@ class KernCls():
 								raise
 						# write to e_inc
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
+						# write to micro_conv_res
 						if (_mpi.global_master): _exp.micro_conv_res[-1][data['index']] = data['micro_order']
 						# collect time
 						if (_mpi.global_master): _exp.time_kernel[-1] += MPI.Wtime() - time
@@ -277,13 +276,11 @@ class KernCls():
 							driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 							# store micro convergence
 							data['micro_order'] = exp_micro.order
-							# report status back to local master
-							comm.send(None, dest=0, tag=self.tags.done)
 							# write info into data dict
 							data['index'] = job_info['index']
 							data['e_inc'] = _exp.energy_inc[-1][job_info['index']]
 							# send data back to local master
-							comm.send(data, dest=0, tag=self.tags.data)
+							comm.send(data, dest=0, tag=self.tags.done)
 						else:
 							_exp.core_idx = job_info['core_idx']
 							_exp.cas_idx = job_info['cas_idx']
@@ -303,13 +300,11 @@ class KernCls():
 								data['pyscf_err'] = err
 								pass
 							finally:
-								# report status back to local master
-								comm.send(None, dest=0, tag=self.tags.done)
 								# write info into data dict
 								data['index'] = job_info['index']
 								data['e_inc'] = _exp.energy_inc[-1][job_info['index']]
 								# send data back to local master
-								comm.send(data, dest=0, tag=self.tags.data)
+								comm.send(data, dest=0, tag=self.tags.done)
 					# exit
 					elif (tag == self.tags.exit):
 						break

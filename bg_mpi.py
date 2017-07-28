@@ -14,7 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-import sys
+import sys, traceback
 from os import getcwd, mkdir, chdir
 from os.path import isfile
 from shutil import copy, rmtree
@@ -74,8 +74,13 @@ class MPICls():
 				# save sys.excepthook
 				sys_excepthook = sys.excepthook
 				# define mpi exception hook
-				def mpi_excepthook(_t, _v, _tb):
-					sys_excepthook(_t, _v, _tb)
+				def mpi_excepthook(_type, _value, _traceback):
+					""" custom mpi exception hook """
+					print('\n\n-- Error information --\n')
+					print('\ntype:\n\n  {0:}'.format(_type))
+					print('\nvalue:\n\n  {0:}'.format(_value))
+					print('\ntraceback:\n\n{0:}\n'.format(''.join(traceback.format_tb(_traceback))))
+					sys_excepthook(_type, _value, _traceback)
 					self.global_comm.Abort(1)
 				# overwrite sys.excepthook
 				sys.excepthook = mpi_excepthook
