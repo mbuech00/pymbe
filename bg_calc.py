@@ -134,15 +134,14 @@ class CalcCls():
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: HF or MP2/CCSD natural orbitals')
 					# mpi groups
-					if (_mpi.num_local_masters < 0):
-						raise ValueError('wrong input -- number of local mpi masters ' + \
-										'must be a positive number >= 1')
-					if (_mpi.parallel and (self.exp_type == 'combined')):
-						if (_mpi.num_local_masters == 0):
+					if (_mpi.parallel):
+						if (_mpi.num_local_masters < 0):
+							raise ValueError('wrong input -- number of local mpi masters ' + \
+											'must be a positive number >= 1')
+						if ((self.exp_type == 'combined') and (_mpi.num_local_masters == 0)):
 							raise ValueError('wrong input -- combined expansions are only valid in ' + \
 											'combination with at least one local mpi master (num_local_masters >= 1)')
-					if (_mpi.num_local_masters >= 1):
-						if (self.exp_type != 'combined'):
+						if ((self.exp_type != 'combined') and (_mpi.num_local_masters >= 1)):
 							raise ValueError('wrong input -- the use of local mpi masters ' + \
 											'is currently not implemented for occupied and virtual expansions')
 						if (_mpi.global_size <= 2 * _mpi.num_local_masters):
