@@ -75,7 +75,10 @@ class MPICls():
 						# determine size of local group
 						self.local_size = self.local_comm.Get_size()
 					# define slave
-					if ((not self.global_master) and (not self.local_master)): self.slave = True
+					if ((not self.global_master) and (not self.local_master)):
+						self.slave = True
+					else:
+						self.slave = False
 				#
 				return
 
@@ -167,11 +170,16 @@ class MPICls():
 						buff_hcore = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
 						self.local_master_comm.Bcast([buff_hcore, MPI.DOUBLE], root=0)
 						_mol.hcore = buff_hcore
-				# now bcast to slaves
+				# now bcast to global master and slaves
 				if (((self.num_local_masters == 0) and self.global_master) or \
 						((self.num_local_masters >= 1) and self.local_master)):
 					hf = {'e_hf': _mol.e_hf, 'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt}
 					self.local_comm.bcast(hf, root=0)
+					self.master_comm.send(hf, dest=0, tag=0)
+				elif (self.global_master):
+					hf = self.master_comm.recv(source=1, tag=0, status=self.stat)	
+					_mol.e_hf = hf['e_hf']; _mol.norb = hf['norb']
+					_mol.nocc = hf['nocc']; _mol.nvirt = hf['nvirt']
 				elif (self.slave):
 					hf = self.local_comm.bcast(None, root=0)
 					_mol.e_hf = hf['e_hf']; _mol.norb = hf['norb']
