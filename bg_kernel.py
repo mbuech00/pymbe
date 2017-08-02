@@ -92,7 +92,8 @@ class KernCls():
 				# print and time logical
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# micro driver instantiation
-				if (_exp.level == 'macro'): driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
+				if (_exp.level == 'macro'):
+					driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
 				# determine start index
 				start = np.argmax(_exp.energy_inc[-1] == 0.0)
 				# init time
@@ -221,6 +222,7 @@ class KernCls():
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
 						# write to micro_conv_res
 						if (_mpi.global_master and (_exp.level == 'macro')):
+							self.summation(_exp, data['index'])
 							_exp.micro_conv_res[-1][data['index']] = data['micro_order']
 						# collect time
 						if (_mpi.global_master): _exp.time_kernel[-1] += MPI.Wtime() - time
