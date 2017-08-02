@@ -42,8 +42,8 @@ class CalcCls():
 					# bcast calc and mpi info
 					_mpi.bcast_calc_info(self)
 					_mpi.bcast_mpi_info()
-					# set local groups
-					_mpi.set_local_groups()
+				# set local groups
+				_mpi.set_local_groups()
 				#
 				return
 

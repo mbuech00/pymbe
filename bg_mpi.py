@@ -42,35 +42,40 @@ class MPICls():
 
 		def set_local_groups(self):
 				""" define local groups """
-				if (self.num_local_masters == 0):
-					self.master_comm = self.local_comm = self.global_comm
-					self.local_size = self.global_size
-					self.local_master = False
-					self.prim_master = self.global_master
+				if (not self.parallel):
+					self.prim_master = True
 				else:
-					# array of ranks (global master excluded)
-					ranks = np.arange(1, self.global_size)
-					# split into local groups and add global master
-					groups = np.array_split(ranks, self.num_local_masters)
-					groups = [np.array([0])] + groups
-					# extract local master indices and append to global master index
-					masters = [groups[i][0] for i in range(len(groups))]
-					# define local masters (global master excluded)
-					self.local_master = (self.global_rank in masters[1:])
-					# define primary local master
-					self.prim_master = (self.global_rank == masters[1])
-					# set master group and intracomm
-					self.master_group = self.global_group.Incl(masters)
-					self.master_comm = self.global_comm.Create(self.master_group)
-					# set local master group and intracomm
-					self.local_master_group = self.master_group.Excl([0])
-					self.local_master_comm = self.global_comm.Create(self.local_master_group)
-					# set local intracomm based on color
-					for i in range(len(groups)):
-						if (self.global_rank in groups[i]): color = i
-					self.local_comm = self.global_comm.Split(color)
-					# determine size of local group
-					self.local_size = self.local_comm.Get_size()
+					if (self.num_local_masters == 0):
+						self.master_comm = self.local_comm = self.global_comm
+						self.local_size = self.global_size
+						self.local_master = False
+						self.prim_master = self.global_master
+					else:
+						# array of ranks (global master excluded)
+						ranks = np.arange(1, self.global_size)
+						# split into local groups and add global master
+						groups = np.array_split(ranks, self.num_local_masters)
+						groups = [np.array([0])] + groups
+						# extract local master indices and append to global master index
+						masters = [groups[i][0] for i in range(len(groups))]
+						# define local masters (global master excluded)
+						self.local_master = (self.global_rank in masters[1:])
+						# define primary local master
+						self.prim_master = (self.global_rank == 1)
+						# set master group and intracomm
+						self.master_group = self.global_group.Incl(masters)
+						self.master_comm = self.global_comm.Create(self.master_group)
+						# set local master group and intracomm
+						self.local_master_group = self.master_group.Excl([0])
+						self.local_master_comm = self.global_comm.Create(self.local_master_group)
+						# set local intracomm based on color
+						for i in range(len(groups)):
+							if (self.global_rank in groups[i]): color = i
+						self.local_comm = self.global_comm.Split(color)
+						# determine size of local group
+						self.local_size = self.local_comm.Get_size()
+					# define slave
+					if ((not self.global_master) and (not self.local_master)): self.slave = True
 				#
 				return
 
@@ -141,29 +146,47 @@ class MPICls():
 				return
 
 
-		def bcast_hf_base(self, _mol):
+		def bcast_hf_info(self, _mol):
 				""" bcast hf and base info """
-				# prim master has everything - bcast to rest of local masters
-				if (self.prim_master):
-					# bcast to local masters
-					self.local_master_comm.bcast(_mol.e_hf, root=0)
-					self.local_master_comm.bcast(_mol.norb, root=0)
-					self.local_master_comm.bcast(_mol.nocc, root=0)
-					self.local_master_comm.bcast(_mol.nvirt, root=0)
-					self.local_master_comm.Bcast([_mol.mo_coeff, MPI.DOUBLE], root=0)
-					self.local_master_comm.Bcast([_mol.hcore, MPI.DOUBLE], root=0)
-				elif (self.local_master and (not self.prim_master)):
-					# receive from primary master
-					_mol.e_hf = self.local_master_comm.bcast(None, root=0)
-					_mol.norb = self.local_master_comm.bcast(None, root=0)
-					_mol.nocc = self.local_master_comm.bcast(None, root=0)
-					_mol.nvirt = self.local_master_comm.bcast(None, root=0)
-					buff_mo = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
-					self.local_master_comm.Bcast([buff_mo, MPI.DOUBLE], root=0)
-					_mol.mo_coeff = buff_mo
-					buff_hcore = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
-					self.local_master_comm.Bcast([buff_hcore, MPI.DOUBLE], root=0)
-					_mol.hcore = buff_hcore
+				if (self.num_local_masters >= 2):
+					# prim master has everything - bcast to rest of local masters
+					if (self.prim_master):
+						# bcast to local masters
+						hf = {'e_hf': _mol.e_hf, 'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt}
+						self.local_master_comm.bcast(hf, root=0)
+						self.local_master_comm.Bcast([_mol.mo_coeff, MPI.DOUBLE], root=0)
+						self.local_master_comm.Bcast([_mol.hcore, MPI.DOUBLE], root=0)
+					elif (self.local_master and (not self.prim_master)):
+						# receive from primary master
+						hf = self.local_master_comm.bcast(None, root=0)
+						_mol.e_hf = hf['e_hf']; _mol.norb = hf['norb']
+						_mol.nocc = hf['nocc']; _mol.nvirt = hf['nvirt']
+						buff_mo = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
+						self.local_master_comm.Bcast([buff_mo, MPI.DOUBLE], root=0)
+						_mol.mo_coeff = buff_mo
+						buff_hcore = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
+						self.local_master_comm.Bcast([buff_hcore, MPI.DOUBLE], root=0)
+						_mol.hcore = buff_hcore
+				# now bcast to slaves
+				if (((self.num_local_masters == 0) and self.global_master) or \
+						((self.num_local_masters >= 1) and self.local_master)):
+					hf = {'e_hf': _mol.e_hf, 'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt}
+					self.local_comm.bcast(hf, root=0)
+				elif (self.slave):
+					hf = self.local_comm.bcast(None, root=0)
+					_mol.e_hf = hf['e_hf']; _mol.norb = hf['norb']
+					_mol.nocc = hf['nocc']; _mol.nvirt = hf['nvirt']
+				#
+				return
+
+
+		def send_e_zero(self, _mol):
+				""" send zeroth-order energy """
+				if (self.num_local_masters >= 1):
+					if (self.prim_master):
+						self.master_comm.send(_mol.e_zero, dest=0, tag=0)	
+					elif (self.global_master):
+						_mol.e_zero = self.master_comm.recv(source=1, tag=0, status=self.stat)	
 				#
 				return
 

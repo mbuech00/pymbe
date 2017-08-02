@@ -12,6 +12,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
+import sys
 import numpy as np
 import scipy as sp
 from functools import reduce
@@ -23,8 +24,8 @@ except ImportError:
 
 class PySCFCls():
 		""" pyscf class """
-		def hf_calc(self, _mol):
-				""" underlying hf calculation """
+		def start(self, _mol, _calc):
+				""" underlying calculation """
 				# perform hf calc
 				hf = scf.RHF(_mol)
 				hf.conv_tol = 1.0e-12
@@ -33,55 +34,83 @@ class PySCFCls():
 				norb = hf.mo_coeff.shape[1]
 				nocc = int(hf.mo_occ.sum()) // 2
 				nvirt = norb - nocc
-				#
-				return hf.mo_coeff, hf.get_hcore(), hf.e_tot, norb, nocc, nvirt
-
-
-		def int_trans(self, _mol, _calc):
-				""" integral transformation """
-				# e_ref
+				# zeroth-order energy
 				if (_calc.exp_base == 'HF'):
-					e_ref = 0.0
+					e_zero = 0.0
 				elif (_calc.exp_base == 'MP2'):
 					# calculate mp2 energy
-					mp2 = mp.MP2(_mol.hf)
+					mp2 = mp.MP2(hf)
 					mp2.frozen = _mol.ncore
+					e_zero = mp2.kernel()[0]
+				elif (_calc.exp_base == 'CCSD'):
+					# calculate ccsd energy
+					ccsd = cc.CCSD(hf)
+					ccsd.conv_tol = 1.0e-10
+					ccsd.frozen = _mol.ncore
+					e_zero = ccsd.kernel()[0]
+				#
+				return hf.mo_coeff, hf.get_hcore(), hf.e_tot, norb, nocc, nvirt, e_zero
+
+
+		def int_trans(self, _mol, _calc, _exp):
+				""" integral transformation """
+				# define frozen list
+				if (_calc.exp_type in ['occupied','virtual']):
+					frozen = list(range(_mol.ncore)) 
+				else:
+					frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx))) 
+				# perform hf calc
+				mol = gto.M(verbose=0)
+				mol.nelectron = _mol.nelectron
+				hf = scf.RHF(mol)
+				hf.conv_tol = 1.0e-12
+				h2e = ao2mo.kernel(_mol, _mol.mo_coeff)
+				hf._eri = ao2mo.restore(8, h2e, _mol.norb)
+				h1e = reduce(np.dot, (np.transpose(_mol.mo_coeff), _mol.hcore, _mol.mo_coeff))
+				hf.get_hcore = lambda *args: h1e
+				hf.get_ovlp = lambda *args: np.eye(_mol.norb)
+				hf.kernel()
+				# e_ref
+				if (_calc.exp_base == 'MP2'):
+					# calculate mp2 energy
+					mp2 = mp.MP2(hf)
+					mp2.frozen = frozen
 					e_ref = mp2.kernel()[0]
 				elif (_calc.exp_base == 'CCSD'):
 					# calculate ccsd energy
-					ccsd = cc.CCSD(_mol.hf)
+					ccsd = cc.CCSD(hf)
 					ccsd.conv_tol = 1.0e-10
-					ccsd.frozen = _mol.ncore
+					ccsd.frozen = frozen
 					e_ref = ccsd.kernel()[0]
 				# integrals
 				if (_calc.exp_virt == 'HF'):
-					trans_mat = _mol.hf.mo_coeff
-				elif (_calc.exp_virt == 'MP2'):
-					if (_calc.exp_base != 'MP2'):
-						mp2 = mp.MP2(_mol.hf)
-						mp2.frozen = _mol.ncore
-						mp2.kernel()
-					dm = mp2.make_rdm1()
-					occup, no = sp.linalg.eigh(dm[(_mol.nocc-_mol.ncore):, (_mol.nocc-_mol.ncore):])
-					mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-					trans_mat = _mol.hf.mo_coeff
-					trans_mat[:,_mol.nocc:] = mo_coeff_virt
-				elif (_calc.exp_virt == 'CCSD'):
-					if (_calc.exp_base != 'CCSD'):
-						ccsd = cc.CCSD(_mol.hf)
-						ccsd.frozen = _mol.ncore
-						ccsd.kernel()
-					dm = ccsd.make_rdm1()
-					occup, no = sp.linalg.eigh(dm[(_mol.nocc-_mol.ncore):, (_mol.nocc-_mol.ncore):])
-					mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-					trans_mat = _mol.hf.mo_coeff
-					trans_mat[:,_mol.nocc:] = mo_coeff_virt
-				# transform 1- and 2-electron integrals
-				h1e = reduce(np.dot, (np.transpose(trans_mat), _mol.hf.get_hcore(), trans_mat))
-				h2e = ao2mo.kernel(_mol, trans_mat) # with four-fold permutation symmetry
-				h2e = ao2mo.restore(1, h2e, _mol.norb) # remove symmetry
+					h2e = ao2mo.restore(1, h2e, _mol.norb)
+				else:
+					if (_calc.exp_virt == 'MP2'):
+						if (_calc.exp_base != 'MP2'):
+							mp2 = mp.MP2(hf)
+							mp2.frozen = frozen
+							mp2.kernel()
+						dm = mp2.make_rdm1()
+						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
+						mo_coeff_virt = np.dot(_mol.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+						trans_mat = _mol.mo_coeff
+						trans_mat[:,_mol.nocc:] = mo_coeff_virt
+					elif (_calc.exp_virt == 'CCSD'):
+						if (_calc.exp_base != 'CCSD'):
+							ccsd = cc.CCSD(hf)
+							ccsd.frozen = frozen
+							ccsd.kernel()
+						dm = ccsd.make_rdm1()
+						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
+						mo_coeff_virt = np.dot(_mol.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+						trans_mat = _mol.mo_coeff
+						trans_mat[:,_mol.nocc:] = mo_coeff_virt
+					h1e = reduce(np.dot, (np.transpose(trans_mat), _mol.hcore, trans_mat))
+					h2e = ao2mo.kernel(_mol, trans_mat)
+					h2e = ao2mo.restore(1, h2e, _mol.norb)
 				#
-				return e_ref, h1e, h2e
+				return h1e, h2e
 
 
 		def corr_input(self, _mol, _calc, _exp, _tup):
@@ -91,15 +120,15 @@ class PySCFCls():
 				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
 				# extract core and cas integrals and calculate core energy
 				if (len(core_idx) > 0):
-					vhf_core = np.einsum('iipq->pq', _mol.h2e[core_idx][:,core_idx]) * 2
-					vhf_core -= np.einsum('piiq->pq', _mol.h2e[:,core_idx][:,:,core_idx])
-					h1e_cas = (_mol.h1e + vhf_core)[cas_idx][:,cas_idx]
+					vhf_core = np.einsum('iipq->pq', _exp.h2e[core_idx][:,core_idx]) * 2
+					vhf_core -= np.einsum('piiq->pq', _exp.h2e[:,core_idx][:,:,core_idx])
+					h1e_cas = (_exp.h1e + vhf_core)[cas_idx][:,cas_idx]
 				else:
-					h1e_cas = _mol.h1e[cas_idx][:,cas_idx]
-				h2e_cas = _mol.h2e[cas_idx][:,cas_idx][:,:,cas_idx][:,:,:,cas_idx]
+					h1e_cas = _exp.h1e[cas_idx][:,cas_idx]
+				h2e_cas = _exp.h2e[cas_idx][:,cas_idx][:,:,cas_idx][:,:,:,cas_idx]
 				# set core energy
 				if (len(core_idx) > 0):
-					e_core = _mol.h1e[core_idx][:,core_idx].trace() * 2 + \
+					e_core = _exp.h1e[core_idx][:,core_idx].trace() * 2 + \
 								vhf_core[core_idx][:,core_idx].trace() + \
 								_mol.energy_nuc()
 				else:

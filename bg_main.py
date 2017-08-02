@@ -12,6 +12,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
+import sys
 try:
 	from mpi4py import MPI
 except ImportError:

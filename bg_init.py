@@ -48,25 +48,16 @@ class InitCls():
 				if (self.mpi.prim_master):
 					try:
 						self.mol.mo_coeff, self.mol.hcore, self.mol.e_hf, self.mol.norb, \
-								self.mol.nocc, self.mol.nvirt = self.pyscf.hf_calc(self.mol)
+								self.mol.nocc, self.mol.nvirt, self.mol.e_zero = self.pyscf.start(self.mol, self.calc)
 					except Exception as err:
 						sys.stderr.write('\nHF Error : problem with HF calculation\n'
 											'PySCF error : {0:}\n\n'.\
 											format(err))
 						raise
-				# bcast hf info to local masters
-				if (self.mpi.num_local_master >= 2): self.mpi.bcast_hf_base(self.mol)
-				# integral transformation
-				if (((self.mpi.num_local_masters == 0) and self.mpi.global_master) or \
-						((self.mpi.num_local_masters >= 1) and self.mpi.local_master)):
-					try:
-						self.mol.e_ref, self.mol.h1e, self.mol.h2e = \
-								self.pyscf.int_trans(self.mol, self.calc)
-					except Exception as err:
-						sys.stderr.write('\nINT-TRANS Error : problem with integral transformation\n'
-											'PySCF error : {0:}\n\n'.\
-											format(err))
-						raise
+				# bcast hf info
+				if (self.mpi.parallel):
+					self.mpi.bcast_hf_info(self.mol)
+					self.mpi.send_e_zero(self.mol)
 				if (self.mpi.global_master):
 					# expansion and driver instantiations
 					if (self.calc.exp_type in ['occupied','virtual']):

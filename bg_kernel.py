@@ -151,14 +151,12 @@ class KernCls():
 					comm = _mpi.master_comm
 					# number of workers
 					slaves_avail = num_slaves = _mpi.num_local_masters
-#					print('proc. {0:} in kernel.master, level = {1:}, slaves_avail = {2:}'.format(_mpi.global_rank,_exp.level,slaves_avail))
 				else:
 					msg = {'task': 'kernel_slave', 'exp_order': _exp.order}
 					# set communicator
 					comm = _mpi.local_comm
 					# number of workers
 					slaves_avail = num_slaves = _mpi.local_size - 1
-#					print('proc. {0:} in kernel.master, level = {1:}, slaves_avail = {2:}'.format(_mpi.global_rank,_exp.level,slaves_avail))
 				# bcast msg
 				comm.bcast(msg, root=0)
 				# init job_info dictionary
@@ -265,7 +263,6 @@ class KernCls():
 					comm.send(None, dest=0, tag=self.tags.ready)
 					# receive drop string
 					job_info = comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
-#					print('proc. {0:} in kernel.slave, level = {1:}, job_info = {2:}'.format(_mpi.global_rank,_exp.level,job_info))
 					# recover tag
 					tag = _mpi.stat.Get_tag()
 					# do job
