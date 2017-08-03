@@ -149,7 +149,7 @@ class PrintCls():
 				""" print micro result statistics """
 				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
 					# statistics
-					mean_val = int(np.mean(_exp.micro_conv_res[-1]) + 0.5)
+					mean_val = np.mean(_exp.micro_conv_res[-1])
 					min_val = _exp.micro_conv_res[-1][np.argmin(_exp.micro_conv_res[-1])]
 					max_val = _exp.micro_conv_res[-1][np.argmax(_exp.micro_conv_res[-1])]
 					if (len(_exp.micro_conv_res[-1]) > 1):
@@ -162,7 +162,7 @@ class PrintCls():
 							print(' --------------------------------------------------------------------------------------------')
 							print(' RESULT-MICRO:     mean order    |      min. order     |      max. order     |    std.dev.   ')
 							print(' --------------------------------------------------------------------------------------------')
-							print(' RESULT-MICRO:   {0:>8d}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
+							print(' RESULT-MICRO:   {0:>8.1f}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
 									format(mean_val, min_val, max_val, std_val))
 							print(' --------------------------------------------------------------------------------------------')
 					# write also to stdout
@@ -170,7 +170,7 @@ class PrintCls():
 					print(' --------------------------------------------------------------------------------------------')
 					print(' RESULT-MICRO:     mean order    |      min. order     |      max. order     |    std.dev.   ')
 					print(' --------------------------------------------------------------------------------------------')
-					print(' RESULT-MICRO:   {0:>8d}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
+					print(' RESULT-MICRO:   {0:>8.1f}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
 							format(mean_val, min_val, max_val, std_val))
 					print(' --------------------------------------------------------------------------------------------')
 				#
