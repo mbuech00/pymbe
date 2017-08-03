@@ -92,20 +92,16 @@ class PySCFCls():
 							mp2.frozen = frozen
 							mp2.kernel()
 						dm = mp2.make_rdm1()
-						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-						mo_coeff_virt = np.dot(_mol.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-						trans_mat = _mol.mo_coeff
-						trans_mat[:,_mol.nocc:] = mo_coeff_virt
 					elif (_calc.exp_virt == 'CCSD'):
 						if (_calc.exp_base != 'CCSD'):
 							ccsd = cc.CCSD(hf)
 							ccsd.frozen = frozen
 							ccsd.kernel()
 						dm = ccsd.make_rdm1()
-						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-						mo_coeff_virt = np.dot(_mol.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-						trans_mat = _mol.mo_coeff
-						trans_mat[:,_mol.nocc:] = mo_coeff_virt
+					occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
+					mo_coeff_virt = np.dot(_mol.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+					trans_mat = _mol.mo_coeff
+					trans_mat[:,_mol.nocc:] = mo_coeff_virt
 					h1e = reduce(np.dot, (np.transpose(trans_mat), _mol.hcore, trans_mat))
 					h2e = ao2mo.kernel(_mol, trans_mat)
 					h2e = ao2mo.restore(1, h2e, _mol.norb)
@@ -198,13 +194,12 @@ class ModelSolver():
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 12
 					self.model.max_cycle = 100
-					self.eris = self.model.ao2mo()
 					try:
-						e_corr = self.model.kernel(eris=self.eris)[0]
+						e_corr = self.model.kernel()[0]
 					except Exception as err:
 						try:
 							self.model.diis_start_cycle = 2
-							e_corr = self.model.kernel(eris=self.eris)[0]
+							e_corr = self.model.kernel()[0]
 						except Exception as err:
 							try:
 								raise RuntimeError
