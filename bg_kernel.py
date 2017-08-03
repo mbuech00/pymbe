@@ -264,7 +264,7 @@ class KernCls():
 					# ready for task
 					comm.send(None, dest=0, tag=self.tags.ready)
 					# receive drop string
-					job_info = comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
+					job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=_mpi.stat)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
 					# do job

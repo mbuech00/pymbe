@@ -38,7 +38,7 @@ class ScrCls():
 				""" hardcoded enums
 				see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 				"""
-				enums = dict(zip(sequential, range(len(sequential))), **named)
+				enums = dict(zip(sequential, range(len(sequential),len(sequential)*2)), **named)
 				#
 				return type('Enum', (), enums)
 
@@ -170,19 +170,19 @@ class ScrCls():
 					comm = _mpi.master_comm
 				else:
 					comm = _mpi.local_comm
+				# determine which increments have contributions below the threshold
+				if (_exp.order == 1):
+					_exp.allow_tuples = _exp.tuples[-1]
+				else:
+					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 				# receive work from master
 				while (True):
 					# send status to master
-					comm.send(None, dest=0 ,tag=self.tags.ready)
+					comm.send(None, dest=0, tag=self.tags.ready)
 					# receive parent tuple
-					job_info = comm.recv(source=0, tag=MPI.ANY_SOURCE, status=_mpi.stat)
+					job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=_mpi.stat)
 					# recover tag
 					tag = _mpi.stat.Get_tag()
-					# determine which increments have contributions below the threshold
-					if (_exp.order == 1):
-						_exp.allow_tuples = _exp.tuples[-1]
-					else:
-						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 					# do job
 					if (tag == self.tags.start):
 						# init child tuple list and screen counter
