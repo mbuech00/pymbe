@@ -55,6 +55,8 @@ class DrvCls():
 							msg = {'task': 'exp_cls', 'rst': _rst.restart}
 							# bcast msg
 							_mpi.master_comm.bcast(msg, root=0)
+							# bcast trans_mat
+							_mpi.master_comm.Bcast([_exp.trans_mat, MPI.DOUBLE], root=0)
 						else:
 							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx}
 							# bcast msg
@@ -137,8 +139,13 @@ class DrvCls():
 					#
 					if (msg['task'] == 'exp_cls'):
 						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
+						# mark expansion as macro
 						exp.level = 'macro'
 						_rst.restart = False
+						# receive trans_mat
+						buff_trans = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
+						_mpi.master_comm.Bcast([buff_trans, MPI.DOUBLE], root=0)
+						exp.trans_mat = buff_trans
 						# receive rst data
 						if (msg['rst']): _mpi.bcast_rst(_calc, exp)
 					#

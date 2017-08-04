@@ -112,7 +112,9 @@ class KernCls():
 						exp_micro = ExpCls(_mpi, _mol, _calc, 'virtual')
 						# mark expansion as micro 
 						exp_micro.level = 'micro'
+						# transfer incl_idx and trans_mat
 						exp_micro.incl_idx = _exp.tuples[-1][i].tolist()
+						exp_micro.trans_mat = _exp.trans_mat
 						# make recursive call to driver with micro exp
 						driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results
@@ -278,7 +280,9 @@ class KernCls():
 							exp_micro = ExpCls(_mpi, _mol, _calc, 'virtual')
 							# mark expansion as micro 
 							exp_micro.level = 'micro'
+							# transfer incl_idx and trans_mat
 							exp_micro.incl_idx = _exp.tuples[-1][job_info['index']].tolist()
+							exp_micro.trans_mat = _exp.trans_mat
 							# make recursive call to driver with micro exp
 							driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, None, _rst)
 							# store micro convergence
