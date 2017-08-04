@@ -45,7 +45,7 @@ class PySCFCls():
 				hf.conv_tol = 1.0e-12
 				hf.kernel()
 				# set frozen list
-				if (_calc.exp_type in ['occupied','virtual']):
+				if ((_calc.exp_type in ['occupied','virtual']) or (_exp.level == 'macro')):
 					frozen = list(range(_mol.ncore))
 				else:
 					frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx)))
@@ -65,26 +65,29 @@ class PySCFCls():
 					ccsd.frozen = frozen
 					e_zero = ccsd.kernel()[0]
 				# integrals
-				trans_mat = hf.mo_coeff
-				if (_calc.exp_base != 'HF'):
-					# compute NOs
-					if (_calc.exp_base == 'MP2'):
-						dm = mp2.make_rdm1()
-					elif (_calc.exp_base == 'CCSD'):
-						dm = ccsd.make_rdm1()
-					# occ-occ block
-					if (_calc.exp_occ != 'HF'):
-						occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
-						mo_coeff_no = np.dot(hf.mo_coeff[:, active], no[:, ::-1])
-						trans_mat[:, active] = mo_coeff_no
-					# virt-virt block
-					if (_calc.exp_virt != 'HF'):
-						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-						mo_coeff_no = np.dot(hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-						trans_mat[:, _mol.nocc:] = mo_coeff_no
-				h1e = reduce(np.dot, (np.transpose(trans_mat), hf.get_hcore(), trans_mat))
-				h2e = ao2mo.kernel(_mol, trans_mat)
-				h2e = ao2mo.restore(1, h2e, _mol.norb)
+				if (_exp.level == 'macro'):
+					h1e = h2e = None
+				else:
+					trans_mat = hf.mo_coeff
+					if (_calc.exp_base != 'HF'):
+						# compute NOs
+						if (_calc.exp_base == 'MP2'):
+							dm = mp2.make_rdm1()
+						elif (_calc.exp_base == 'CCSD'):
+							dm = ccsd.make_rdm1()
+						# occ-occ block
+						if (_calc.exp_occ != 'HF'):
+							occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
+							mo_coeff_no = np.dot(hf.mo_coeff[:, active], no[:, ::-1])
+							trans_mat[:, active] = mo_coeff_no
+						# virt-virt block
+						if (_calc.exp_virt != 'HF'):
+							occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
+							mo_coeff_no = np.dot(hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+							trans_mat[:, _mol.nocc:] = mo_coeff_no
+					h1e = reduce(np.dot, (np.transpose(trans_mat), hf.get_hcore(), trans_mat))
+					h2e = ao2mo.kernel(_mol, trans_mat)
+					h2e = ao2mo.restore(1, h2e, _mol.norb)
 				#
 				return h1e, h2e, e_zero
 
