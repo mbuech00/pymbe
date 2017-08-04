@@ -17,7 +17,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 try:
-	from pyscf import gto, scf, ao2mo, mp, ci, cc, fci
+	from pyscf import gto, scf, ao2mo, lo, mp, ci, cc, fci
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
@@ -77,14 +77,21 @@ class PySCFCls():
 							dm = ccsd.make_rdm1()
 						# occ-occ block
 						if (_calc.exp_occ != 'HF'):
-							occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
-							mo_coeff_no = np.dot(hf.mo_coeff[:, active], no[:, ::-1])
-							trans_mat[:, active] = mo_coeff_no
+							if (_calc.exp_occ == _calc.exp_base):
+								occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
+								mo_coeff_occ = np.dot(hf.mo_coeff[:, active], no[:, ::-1])
+							elif (_calc.exp_occ == 'PM'):
+								mo_coeff_occ = lo.PM(_mol, hf.mo_coeff[:, active]).kernel()
+							elif (_calc.exp_occ == 'ER'):
+								mo_coeff_occ = lo.ER(_mol, hf.mo_coeff[:, active]).kernel()
+							elif (_calc.exp_occ == 'BOYS'):
+								mo_coeff_occ = lo.Boys(_mol, hf.mo_coeff[:, active]).kernel()
+							trans_mat[:, active] = mo_coeff_occ
 						# virt-virt block
 						if (_calc.exp_virt != 'HF'):
 							occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-							mo_coeff_no = np.dot(hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-							trans_mat[:, _mol.nocc:] = mo_coeff_no
+							mo_coeff_virt = np.dot(hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+							trans_mat[:, _mol.nocc:] = mo_coeff_virt
 					h1e = reduce(np.dot, (np.transpose(trans_mat), hf.get_hcore(), trans_mat))
 					h2e = ao2mo.kernel(_mol, trans_mat)
 					h2e = ao2mo.restore(1, h2e, _mol.norb)
