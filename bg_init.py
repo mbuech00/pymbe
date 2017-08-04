@@ -47,7 +47,7 @@ class InitCls():
 				# hf calculation
 				if (self.mpi.prim_master):
 					try:
-						self.calc.h1e, self.calc.h2e, self.mol.e_hf, self.mol.norb, \
+						self.mol.trans_mat, self.mol.hcore, self.mol.e_hf, self.mol.norb, \
 								self.mol.nocc, self.mol.nvirt, self.mol.e_zero = self.pyscf.start(self.mol, self.calc)
 					except Exception as err:
 						sys.stderr.write('\nHF Error : problem with HF calculation\n'

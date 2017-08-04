@@ -157,16 +157,16 @@ class MPICls():
 						# bcast to local masters
 						hf = {'e_hf': _mol.e_hf, 'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt}
 						self.local_master_comm.bcast(hf, root=0)
-						self.local_master_comm.Bcast([_mol.mo_coeff, MPI.DOUBLE], root=0)
+						self.local_master_comm.Bcast([_mol.trans_mat, MPI.DOUBLE], root=0)
 						self.local_master_comm.Bcast([_mol.hcore, MPI.DOUBLE], root=0)
 					elif (self.local_master and (not self.prim_master)):
 						# receive from primary master
 						hf = self.local_master_comm.bcast(None, root=0)
 						_mol.e_hf = hf['e_hf']; _mol.norb = hf['norb']
 						_mol.nocc = hf['nocc']; _mol.nvirt = hf['nvirt']
-						buff_mo = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
-						self.local_master_comm.Bcast([buff_mo, MPI.DOUBLE], root=0)
-						_mol.mo_coeff = buff_mo
+						buff_trans = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
+						self.local_master_comm.Bcast([buff_trans, MPI.DOUBLE], root=0)
+						_mol.trans_mat = buff_trans
 						buff_hcore = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
 						self.local_master_comm.Bcast([buff_hcore, MPI.DOUBLE], root=0)
 						_mol.hcore = buff_hcore
