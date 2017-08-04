@@ -72,36 +72,38 @@ class PySCFCls():
 				return trans_mat, hf.get_hcore(), hf.e_tot, norb, nocc, nvirt, e_zero
 
 
-		def int_trans(self, _mol, _calc, _exp):
-				""" integral transformation """
-				if (_calc.exp_type in ['occupied','virtual']):
-					h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hcore, _mol.trans_mat))
-#					eri = scf._vhf.int2e_sph(_mol._atm, _mol._bas, _mol._env)
-					eri = _mol.intor('cint2e_sph', aosym='s8')
-					h2e = ao2mo.kernel(eri, _mol.trans_mat)
-					h2e = ao2mo.restore(1, h2e, _mol.norb)
-					e_ref = None
-				else:
-					# define core_idx and active_idx
-					core_idx = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx)))
-					active_idx = sorted(list(set(range(_mol.norb)) - set(core_idx)))
-					# compute integrals
-					core_idx, active_idx, h1e_active, h2e_active, e_core = \
-							self.prepare(_mol, _calc, _exp, list(range(_mol.nocc, _mol.norb)))
-					solver_base = ModelSolver(_calc.exp_base)
-					mol_active, hf_active = solver_base.fake_hf(h1e_active, h2e_active, len(active_idx), \
-													_mol.nelectron - 2 * len(core_idx))
-					e_active, dm_active = solver_base.kernel(hf_active, _dens=True)
-					e_ref = (e_active + e_core) - _mol.e_hf
-					# compute NOs
-					occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(core_idx)):, (_mol.nocc-len(core_idx)):])
-					mo_coeff_virt = np.dot(_mol.mo_coeff[active_idx, _mol.nocc:], no[:, ::-1])
-					trans_mat = _mol.mo_coeff[active_idx, active_idx]
-					trans_mat[(_mol.nocc-len(core_idx)):, (_mol.nocc-len(core_idx)):] = mo_coeff_virt
-					# transform integrals
-					h1e_active = reduce(np.dot, (np.transpose(trans_mat), _mol.hcore[active_idx, active_idx], trans_mat))
-					h2e_active = ao2mo.kernel(mol_active, trans_mat)
-					h2e_active = ao2mo.restore(1, h2e_active, len(active_idx))
+		def int_trans_gen(self, _mol):
+				""" general integral transformation """
+				h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hcore, _mol.trans_mat))
+				eri = _mol.intor('cint2e_sph', aosym='s8')
+				h2e = ao2mo.kernel(eri, _mol.trans_mat)
+				h2e = ao2mo.restore(1, h2e, _mol.norb)
+				#
+				return h1e, h2e
+
+
+		def int_trans_spec(self, _mol, _calc, _exp):
+				""" specific integral transformation """
+				# define core_idx and active_idx
+				core_idx = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx)))
+				active_idx = sorted(list(set(range(_mol.norb)) - set(core_idx)))
+				# compute integrals
+				core_idx, active_idx, h1e_active, h2e_active, e_core = \
+						self.prepare(_mol, _calc, _exp, list(range(_mol.nocc, _mol.norb)))
+				solver_base = ModelSolver(_calc.exp_base)
+				mol_active, hf_active = solver_base.fake_hf(h1e_active, h2e_active, len(active_idx), \
+												_mol.nelectron - 2 * len(core_idx))
+				e_active, dm_active = solver_base.kernel(hf_active, _dens=True)
+				e_ref = (e_active + e_core) - _mol.e_hf
+				# compute NOs
+				occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(core_idx)):, (_mol.nocc-len(core_idx)):])
+				mo_coeff_virt = np.dot(_mol.mo_coeff[active_idx, _mol.nocc:], no[:, ::-1])
+				trans_mat = _mol.mo_coeff[active_idx, active_idx]
+				trans_mat[(_mol.nocc-len(core_idx)):, (_mol.nocc-len(core_idx)):] = mo_coeff_virt
+				# transform integrals
+				h1e_active = reduce(np.dot, (np.transpose(trans_mat), _mol.hcore[active_idx, active_idx], trans_mat))
+				h2e_active = ao2mo.kernel(mol_active, trans_mat)
+				h2e_active = ao2mo.restore(1, h2e_active, len(active_idx))
 				#
 				return h1e, h2e, e_ref
 

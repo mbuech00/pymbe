@@ -12,6 +12,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
+import numpy as np
 from os import getcwd, mkdir
 from os.path import isdir
 from shutil import rmtree 
@@ -27,7 +28,6 @@ from bg_driver import DrvCls
 from bg_print import PrintCls
 from bg_results import ResCls
 
-import numpy as np
 
 class InitCls():
 		""" initialization class """
@@ -58,8 +58,17 @@ class InitCls():
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_info(self.mol)
 					self.mpi.send_e_zero(self.mol)
+				# compute integrals
+				if (self.mpi.prim_master or self.mpi.local_master):
+					try:
+						self.mol.h1e, self.mol.h2e = self.pyscf.int_trans_gen(self.mol)
+					except Exception as err:
+						sys.stderr.write('\nINT-TRANS-GEN Error : problem with integral transformation\n'
+											'PySCF error : {0:}\n\n'.\
+											format(err))
+						raise
+				# expansion and driver instantiations
 				if (self.mpi.global_master):
-					# expansion and driver instantiations
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
 						self.driver = DrvCls(self.mol, self.calc.exp_type)
@@ -74,7 +83,6 @@ class InitCls():
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.mpi, self.mol, self.calc, self.out)
 				else:
-					# driver instantiation
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.driver = DrvCls(self.mol, self.calc.exp_type)
 					elif (self.calc.exp_type == 'combined'):
