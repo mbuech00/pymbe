@@ -37,9 +37,9 @@ class DrvCls():
 				# print and time logical
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# integral transformation
-				if (_exp.level == 'micro'):
+				if ((_calc.exp_type == 'combined') and (_exp.level == 'micro')):
 					try:
-						_exp.h1e, _exp.h2e = _pyscf.int_trans(_mol, _calc, _exp)
+						_calc.h1e, _calc.h2e = _pyscf.int_trans(_mol, _calc, _exp)
 					except Exception as err:
 						sys.stderr.write('\nINT-TRANS Error : problem with integral transformation\n'
 											'PySCF error : {0:}\n\n'.\

@@ -127,12 +127,12 @@ class CalcCls():
 						raise ValueError('wrong input -- energy threshold ' + \
 										'(energy_thres) must be float >= 0.0')
 					# orbital representation
-					if (not (self.exp_occ in ['HF','LOCAL'])):
+					if (not (self.exp_occ in ['HF','LOCAL',self.exp_base])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \
-										'representations are currently: HF or local')
-					if (not (self.exp_virt in ['HF','MP2','CCSD'])):
+										'representations are currently: HF, local, or base model natural orbitals')
+					if (not (self.exp_virt in ['HF',self.exp_base])):
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: HF or MP2/CCSD natural orbitals')
+										'representations are currently: HF or base model natural orbitals')
 					# mpi groups
 					if (_mpi.parallel):
 						if (_mpi.num_local_masters < 0):

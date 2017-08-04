@@ -118,9 +118,9 @@ class KernCls():
 					else:
 						# generate input
 						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
-								_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
+								_pyscf.prepare(_mol, _calc, _exp, _exp.tuples[-1][i])
 						try:
-							_exp.energy_inc[-1][i] = _pyscf.corr_calc(_mol, _calc, _exp)
+							_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
 						except Exception as err:
 							try:
 								raise RuntimeError
@@ -190,7 +190,7 @@ class KernCls():
 							else:
 								# generate input
 								_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
-										_pyscf.corr_input(_mol, _calc, _exp, _exp.tuples[-1][i])
+										_pyscf.prepare(_mol, _calc, _exp, _exp.tuples[-1][i])
 								# store job info
 								job_info['index'] = i
 								job_info['core_idx'] = _exp.core_idx
@@ -293,7 +293,7 @@ class KernCls():
 							_exp.e_core = job_info['e_core']
 							# run correlated calc
 							try:
-								_exp.energy_inc[-1][job_info['index']] = _pyscf.corr_calc(_mol, _calc, _exp)
+								_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)
 								# sum up energy increment
 								self.summation(_exp, job_info['index'])
 							except Exception as err:
