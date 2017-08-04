@@ -77,7 +77,10 @@ class KernCls():
 				# sum of energy increments
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
-				if (_exp.order >= 2): e_tmp += _exp.energy_tot[-1]
+				if (_exp.order == 1):
+					e_tmp += _exp.e_zero
+				else:
+					e_tmp += _exp.energy_tot[-1]
 				# add to total energy list
 				_exp.energy_tot.append(e_tmp)
 				# check for convergence wrt total energy
