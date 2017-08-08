@@ -106,7 +106,7 @@ class ResCls():
 						print(self.divider_str)
 						print(('{0:6}{1:8}{2:3}{3:1}{4:7}{5:18}{6:7}{7:1}'
 							'{8:7}{9:26}{10:6}{11:1}{12:6}{13:}').\
-								format('','BG order','','|','','total corr. energy',\
+								format('','MBE order','','|','','total corr. energy',\
 									'','|','','total time (HHH : MM : SS)',\
 									'','|','','number of calcs. (abs. / %  --  total)'))
 						print(self.divider_str)
@@ -143,7 +143,7 @@ class ResCls():
 				# plot results
 				ax.plot(list(range(1,len(_exp.energy_tot)+1)),
 						np.asarray(_exp.energy_tot), marker='x', linewidth=2,
-						linestyle='-', label='BG('+_calc.exp_model+')')
+						linestyle='-', label='MBE-'+_calc.exp_model)
 				# set x limits
 				ax.set_xlim([0.5, self.u_limit + 0.5])
 				# turn off x-grid
@@ -204,7 +204,7 @@ class ResCls():
 							label='Theoretical number', log=True)
 				sns.barplot(list(range(1, self.u_limit+1)),
 							prim,palette='Blues_r',
-							label='BG('+_calc.exp_model+') expansion', log=True)
+							label='MBE-'+_calc.exp_model+' expansion', log=True)
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set x- and y-limits
