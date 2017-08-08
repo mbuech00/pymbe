@@ -26,7 +26,7 @@ from bg_pyscf import PySCFCls
 from bg_exp import ExpCls
 from bg_drv import DrvCls
 from bg_print import PrintCls
-from bg_results import ResCls
+from bg_res import ResCls
 
 
 class InitCls():
