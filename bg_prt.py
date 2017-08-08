@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_print.py: general print utilities for Bethe-Goldstone correlation calculations."""
+""" bg_prt.py: general print utilities for Bethe-Goldstone correlation calculations."""
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
