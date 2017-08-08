@@ -57,37 +57,35 @@ class PySCFCls():
 						mp2 = mp.MP2(_mol.hf)
 						mp2.frozen = frozen
 						_mol.e_zero = mp2.kernel()[0]
+						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','SNO'])):
+							dm = mp2.make_rdm1()
 					elif (_calc.exp_base == 'CCSD'):
 						# calculate ccsd energy
 						ccsd = cc.CCSD(_mol.hf)
 						ccsd.conv_tol = 1.0e-10
 						ccsd.frozen = frozen
 						_mol.e_zero = ccsd.kernel()[0]
+						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','SNO'])):
+							dm = ccsd.make_rdm1()
 					# init transformation matrix
 					if (_mol.trans_mat is None): _mol.trans_mat = _mol.hf.mo_coeff
-					# calculate density matrix
-					if (_calc.exp_base != 'HF'):
-						if (_calc.exp_base == 'MP2'):
-							dm = mp2.make_rdm1()
-						elif (_calc.exp_base == 'CCSD'):
-							dm = ccsd.make_rdm1()
-						# occ-occ block
-						if ((_calc.exp_occ != 'HF') and (_exp.order == _exp.min_order)):
-							if (_calc.exp_occ == 'NO'):
-								occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
-								mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
-							elif (_calc.exp_occ == 'PM'):
-								mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-							elif (_calc.exp_occ == 'ER'):
-								mo_coeff_occ = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-							elif (_calc.exp_occ == 'BOYS'):
-								mo_coeff_occ = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-							_mol.trans_mat[:, _mol.ncore:_mol.nocc] = mo_coeff_occ
-						# virt-virt block
-						if (_calc.exp_virt != 'HF'):
-							occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-							mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-							_mol.trans_mat[:, _mol.nocc:] = mo_coeff_virt
+					# occ-occ block
+					if ((_calc.exp_occ != 'HF') and (_exp.order == _exp.min_order)):
+						if (_calc.exp_occ == 'NO'):
+							occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
+							mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
+						elif (_calc.exp_occ == 'PM'):
+							mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						elif (_calc.exp_occ == 'ER'):
+							mo_coeff_occ = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						elif (_calc.exp_occ == 'BOYS'):
+							mo_coeff_occ = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						_mol.trans_mat[:, _mol.ncore:_mol.nocc] = mo_coeff_occ
+					# virt-virt block
+					if (_calc.exp_virt != 'HF'):
+						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
+						mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+						_mol.trans_mat[:, _mol.nocc:] = mo_coeff_virt
 					_mol.h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hf.get_hcore(), _mol.trans_mat))
 					_mol.h2e = ao2mo.kernel(_mol, _mol.trans_mat)
 					_mol.h2e = ao2mo.restore(1, _mol.h2e, _mol.norb)
