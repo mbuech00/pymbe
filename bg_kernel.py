@@ -19,7 +19,7 @@ from itertools import combinations, chain
 from scipy.misc import comb
 
 from bg_exp import ExpCls
-import bg_driver
+import bg_drv
 
 
 class KernCls():
@@ -99,7 +99,7 @@ class KernCls():
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# micro driver instantiation
 				if (_exp.level == 'macro'):
-					driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
+					drv_micro = bg_drv.DrvCls(_mol, 'virtual') 
 				# determine start index
 				start = np.argmax(_exp.energy_inc[-1] == 0.0)
 				# init time
@@ -118,7 +118,7 @@ class KernCls():
 						# transfer incl_idx
 						exp_micro.incl_idx = _exp.tuples[-1][i].tolist()
 						# make recursive call to driver with micro exp
-						driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
+						drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results
 						_exp.energy_inc[-1][i] = exp_micro.energy_tot[-1]
 						_exp.micro_conv_res[-1][i] = exp_micro.order
@@ -258,7 +258,7 @@ class KernCls():
 				if (_exp.level == 'macro'):
 					comm = _mpi.master_comm
 					# micro driver instantiation
-					driver_micro = bg_driver.DrvCls(_mol, 'virtual') 
+					drv_micro = bg_drv.DrvCls(_mol, 'virtual') 
 				else:
 					comm = _mpi.local_comm
 				# init e_inc list
@@ -285,7 +285,7 @@ class KernCls():
 							# transfer incl_idx
 							exp_micro.incl_idx = _exp.tuples[-1][job_info['index']].tolist()
 							# make recursive call to driver with micro exp
-							driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, None, _rst)
+							drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, None, _rst)
 							# store micro convergence
 							data['micro_order'] = exp_micro.order
 							# write info into data dict

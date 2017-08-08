@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_main.py: python driver for Bethe-Goldstone correlation calculations. """
+""" bg_main.py: python/numpy program for performing Bethe-Goldstone correlation calculations. """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -29,13 +29,13 @@ def main():
 		if (not bg.mpi.global_master):
 			if (bg.mpi.local_master):
 				# proceed to local master driver
-				bg.driver.local_master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.rst)
+				bg.drv.local_master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.rst)
 			else:
 				# proceed to slave driver
-				bg.driver.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf)
+				bg.drv.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf)
 		else:
 			# proceed to main driver
-			bg.driver.main(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.prt, bg.rst)
+			bg.drv.main(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.prt, bg.rst)
 			# print summary and plot results
 			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp)
 			# finalize

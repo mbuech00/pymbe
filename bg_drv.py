@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_driver.py: driver class for Bethe-Goldstone correlation calculations."""
+""" bg_drv.py: driver class for Bethe-Goldstone correlation calculations."""
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'

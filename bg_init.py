@@ -24,7 +24,7 @@ from bg_calc import CalcCls
 from bg_mpi import MPICls
 from bg_pyscf import PySCFCls
 from bg_exp import ExpCls
-from bg_driver import DrvCls
+from bg_drv import DrvCls
 from bg_print import PrintCls
 from bg_results import ResCls
 
@@ -56,12 +56,12 @@ class InitCls():
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
-						self.driver = DrvCls(self.mol, self.calc.exp_type)
+						self.drv = DrvCls(self.mol, self.calc.exp_type)
 						# mark expansion as micro
 						self.exp.level = 'micro'
 					elif (self.calc.exp_type == 'combined'):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
-						self.driver = DrvCls(self.mol, 'occupied')
+						self.drv = DrvCls(self.mol, 'occupied')
 						# mark expansion as macro
 						self.exp.level = 'macro'
 					# print and result instantiations
@@ -69,12 +69,12 @@ class InitCls():
 					self.res = ResCls(self.mpi, self.mol, self.calc, self.out)
 				else:
 					if (self.calc.exp_type in ['occupied','virtual']):
-						self.driver = DrvCls(self.mol, self.calc.exp_type)
+						self.drv = DrvCls(self.mol, self.calc.exp_type)
 					elif (self.calc.exp_type == 'combined'):
 						if (self.mpi.local_master):
-							self.driver = DrvCls(self.mol, 'occupied')
+							self.drv = DrvCls(self.mol, 'occupied')
 						else:
-							self.driver = DrvCls(self.mol, 'virtual')
+							self.drv = DrvCls(self.mol, 'virtual')
 					# prt as None type
 					self.prt = None
 				#
