@@ -104,7 +104,7 @@ class ResCls():
 						print(self.divider_str)
 						print(self.fill_str)
 						print(self.divider_str)
-						print(('{0:6}{1:8}{2:3}{3:1}{4:7}{5:18}{6:7}{7:1}'
+						print(('{0:6}{1:9}{2:2}{3:1}{4:7}{5:18}{6:7}{7:1}'
 							'{8:7}{9:26}{10:6}{11:1}{12:6}{13:}').\
 								format('','MBE order','','|','','total corr. energy',\
 									'','|','','total time (HHH : MM : SS)',\
