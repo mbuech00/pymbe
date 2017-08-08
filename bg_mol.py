@@ -50,6 +50,8 @@ class MolCls(gto.Mole):
 					self.build()
 				# set number of core orbs
 				self.ncore = self.set_ncore()
+				# init trans_mat
+				self.trans_mat = None
 				#
 				return
 

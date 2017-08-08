@@ -36,14 +36,17 @@ class DrvCls():
 				""" main driver routine """
 				# print and time logical
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
+				# restart
+				_rst.rst_main(_mpi, _calc, _exp)
 				# integral transformation
-				try:
-					_exp.h1e, _exp.h2e, _exp.e_zero = _pyscf.int_trans(_mol, _calc, _exp)
-				except Exception as err:
-					sys.stderr.write('\nINT-TRANS Error : problem with integral transformation\n'
-										'PySCF error : {0:}\n\n'.\
-										format(err))
-					raise
+				if (_exp.level == 'micro'):
+					try:
+						_pyscf.int_trans(_mol, _calc, _exp)
+					except Exception as err:
+						sys.stderr.write('\nINT-TRANS Error : problem with integral transformation\n'
+											'PySCF error : {0:}\n\n'.\
+											format(err))
+						raise
 				# exp class instantiation on slaves
 				if (_mpi.parallel):
 					if (_calc.exp_type in ['occupied','virtual']):
@@ -55,14 +58,10 @@ class DrvCls():
 							msg = {'task': 'exp_cls', 'rst': _rst.restart}
 							# bcast msg
 							_mpi.master_comm.bcast(msg, root=0)
-							# bcast trans_mat
-							_mpi.master_comm.Bcast([_exp.trans_mat, MPI.DOUBLE], root=0)
 						else:
 							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx}
 							# bcast msg
 							_mpi.local_comm.bcast(msg, root=0)
-				# restart
-				_rst.rst_main(_mpi, _calc, _exp)
 				# print expansion header
 				if (do_print): _prt.exp_header(_calc, _exp)
 				# now do expansion
@@ -142,10 +141,6 @@ class DrvCls():
 						# mark expansion as macro
 						exp.level = 'macro'
 						_rst.restart = False
-						# receive trans_mat
-						buff_trans = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
-						_mpi.master_comm.Bcast([buff_trans, MPI.DOUBLE], root=0)
-						exp.trans_mat = buff_trans
 						# receive rst data
 						if (msg['rst']): _mpi.bcast_rst(_calc, exp)
 					#

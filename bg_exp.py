@@ -56,8 +56,6 @@ class ExpCls():
 					else:
 						self.theo_work.append(int(factorial(_mol.nvirt) / \
 												(factorial(k+1) * factorial(_mol.nvirt - (k+1)))))
-				# init transformation matrix
-				self.trans_mat = None
 				# init screen_count list
 				self.screen_count = []
 				# init micro_conv_res list

@@ -57,6 +57,8 @@ class RstCls():
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
 					# reset restart logical
 					self.restart = False
+				# init _exp.order
+				_exp.order = _exp.min_order
 				#
 				return
 		

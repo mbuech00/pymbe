@@ -78,7 +78,10 @@ class KernCls():
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
 				if (_exp.order == 1):
-					if (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro'))): e_tmp += _exp.e_zero
+					if ((_calc.exp_type in ['occupied','virtual']) or \
+						((_exp.level == 'macro') and (_calc.exp_virt != 'SNO')) or \
+						((_exp.level == 'micro') and (_calc.exp_virt == 'SNO'))):
+						e_tmp += _mol.e_zero
 				else:
 					e_tmp += _exp.energy_tot[-1]
 				# add to total energy list
@@ -112,9 +115,8 @@ class KernCls():
 						exp_micro = ExpCls(_mpi, _mol, _calc, 'virtual')
 						# mark expansion as micro 
 						exp_micro.level = 'micro'
-						# transfer incl_idx and trans_mat
+						# transfer incl_idx
 						exp_micro.incl_idx = _exp.tuples[-1][i].tolist()
-						exp_micro.trans_mat = _exp.trans_mat
 						# make recursive call to driver with micro exp
 						driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results
@@ -245,7 +247,7 @@ class KernCls():
 				# print 100.0 %
 				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
 				# bcast e_inc[-1]
-				_mpi.bcast_e_inc(_exp, comm)
+				_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				#
 				return
 		
@@ -280,9 +282,8 @@ class KernCls():
 							exp_micro = ExpCls(_mpi, _mol, _calc, 'virtual')
 							# mark expansion as micro 
 							exp_micro.level = 'micro'
-							# transfer incl_idx and trans_mat
+							# transfer incl_idx
 							exp_micro.incl_idx = _exp.tuples[-1][job_info['index']].tolist()
-							exp_micro.trans_mat = _exp.trans_mat
 							# make recursive call to driver with micro exp
 							driver_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, None, _rst)
 							# store micro convergence
@@ -322,7 +323,7 @@ class KernCls():
 				# send exit signal to master
 				comm.send(None, dest=0, tag=self.tags.exit)
 				# bcast e_inc[-1]
-				_mpi.bcast_e_inc(_exp, comm)
+				_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				#
 				return
 

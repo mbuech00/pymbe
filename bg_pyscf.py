@@ -24,7 +24,7 @@ except ImportError:
 
 class PySCFCls():
 		""" pyscf class """
-		def dimension(self, _mol, _calc):
+		def hf(self, _mol, _calc):
 				""" determine dimensions """
 				# perform hf calc
 				hf = scf.RHF(_mol)
@@ -35,68 +35,64 @@ class PySCFCls():
 				nocc = int(hf.mo_occ.sum()) // 2
 				nvirt = norb - nocc
 				#
-				return hf.e_tot, norb, nocc, nvirt
+				return hf, norb, nocc, nvirt
 
 
 		def int_trans(self, _mol, _calc, _exp):
 				""" determine dimensions """
-				# perform hf calc
-				hf = scf.RHF(_mol)
-				hf.conv_tol = 1.0e-12
-				hf.kernel()
 				# set frozen list
-				if ((_calc.exp_type in ['occupied','virtual']) or (_exp.level == 'macro')):
+				if ((_calc.exp_type in ['occupied','virtual']) or (_calc.exp_virt == 'NO')):
 					frozen = list(range(_mol.ncore))
 				else:
 					frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx)))
-				active = sorted(list(set(range(_mol.nocc)) - set(frozen)))
-				# zeroth-order energy
-				if (_calc.exp_base == 'HF'):
-					e_zero = 0.0
-				elif (_calc.exp_base == 'MP2'):
-					# calculate mp2 energy
-					mp2 = mp.MP2(hf)
-					mp2.frozen = frozen
-					e_zero = mp2.kernel()[0]
-				elif (_calc.exp_base == 'CCSD'):
-					# calculate ccsd energy
-					ccsd = cc.CCSD(hf)
-					ccsd.conv_tol = 1.0e-10
-					ccsd.frozen = frozen
-					e_zero = ccsd.kernel()[0]
-				# init transformation matrix
-				if (_exp.trans_mat is None): _exp.trans_mat = hf.mo_coeff
-				# calculate density matrix
-				if (_calc.exp_base != 'HF'):
-					if (_calc.exp_base == 'MP2'):
-						dm = mp2.make_rdm1()
+				# proceed or return
+				if ((_calc.exp_type in ['occupied','virtual']) or \
+					((_calc.exp_virt != 'SNO') and (_mol.trans_mat is None)) or \
+					(_calc.exp_virt == 'SNO')):
+					# zeroth-order energy
+					if (_calc.exp_base == 'HF'):
+						_mol.e_zero = 0.0
+					elif (_calc.exp_base == 'MP2'):
+						# calculate mp2 energy
+						mp2 = mp.MP2(_mol.hf)
+						mp2.frozen = frozen
+						_mol.e_zero = mp2.kernel()[0]
 					elif (_calc.exp_base == 'CCSD'):
-						dm = ccsd.make_rdm1()
-					# occ-occ block
-					if ((_calc.exp_occ != 'HF') and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))):
-						if (_calc.exp_occ == _calc.exp_base):
-							occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
-							mo_coeff_occ = np.dot(hf.mo_coeff[:, active], no[:, ::-1])
-						elif (_calc.exp_occ == 'PM'):
-							mo_coeff_occ = lo.PM(_mol, hf.mo_coeff[:, active]).kernel()
-						elif (_calc.exp_occ == 'ER'):
-							mo_coeff_occ = lo.ER(_mol, hf.mo_coeff[:, active]).kernel()
-						elif (_calc.exp_occ == 'BOYS'):
-							mo_coeff_occ = lo.Boys(_mol, hf.mo_coeff[:, active]).kernel()
-						_exp.trans_mat[:, active] = mo_coeff_occ
-					# virt-virt block
-					if (_calc.exp_virt != 'HF'):
-						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-						mo_coeff_virt = np.dot(hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-						_exp.trans_mat[:, _mol.nocc:] = mo_coeff_virt
-				if (_exp.level == 'macro'):
-					h1e = h2e = None
-				else:
-					h1e = reduce(np.dot, (np.transpose(_exp.trans_mat), hf.get_hcore(), _exp.trans_mat))
-					h2e = ao2mo.kernel(_mol, _exp.trans_mat)
-					h2e = ao2mo.restore(1, h2e, _mol.norb)
+						# calculate ccsd energy
+						ccsd = cc.CCSD(_mol.hf)
+						ccsd.conv_tol = 1.0e-10
+						ccsd.frozen = frozen
+						_mol.e_zero = ccsd.kernel()[0]
+					# init transformation matrix
+					if (_mol.trans_mat is None): _mol.trans_mat = _mol.hf.mo_coeff
+					# calculate density matrix
+					if (_calc.exp_base != 'HF'):
+						if (_calc.exp_base == 'MP2'):
+							dm = mp2.make_rdm1()
+						elif (_calc.exp_base == 'CCSD'):
+							dm = ccsd.make_rdm1()
+						# occ-occ block
+						if ((_calc.exp_occ != 'HF') and (_exp.order == _exp.min_order)):
+							if (_calc.exp_occ == 'NO'):
+								occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
+								mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
+							elif (_calc.exp_occ == 'PM'):
+								mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+							elif (_calc.exp_occ == 'ER'):
+								mo_coeff_occ = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+							elif (_calc.exp_occ == 'BOYS'):
+								mo_coeff_occ = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+							_mol.trans_mat[:, _mol.ncore:_mol.nocc] = mo_coeff_occ
+						# virt-virt block
+						if (_calc.exp_virt != 'HF'):
+							occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
+							mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+							_mol.trans_mat[:, _mol.nocc:] = mo_coeff_virt
+					_mol.h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hf.get_hcore(), _mol.trans_mat))
+					_mol.h2e = ao2mo.kernel(_mol, _mol.trans_mat)
+					_mol.h2e = ao2mo.restore(1, _mol.h2e, _mol.norb)
 				#
-				return h1e, h2e, e_zero
+				return
 
 
 		def prepare(self, _mol, _calc, _exp, _tup):
@@ -106,15 +102,15 @@ class PySCFCls():
 				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
 				# extract core and cas integrals and calculate core energy
 				if (len(core_idx) > 0):
-					vhf_core = np.einsum('iipq->pq', _exp.h2e[core_idx][:,core_idx]) * 2
-					vhf_core -= np.einsum('piiq->pq', _exp.h2e[:,core_idx][:,:,core_idx])
-					h1e_cas = (_exp.h1e + vhf_core)[cas_idx][:,cas_idx]
+					vhf_core = np.einsum('iipq->pq', _mol.h2e[core_idx][:,core_idx]) * 2
+					vhf_core -= np.einsum('piiq->pq', _mol.h2e[:,core_idx][:,:,core_idx])
+					h1e_cas = (_mol.h1e + vhf_core)[cas_idx][:,cas_idx]
 				else:
-					h1e_cas = _exp.h1e[cas_idx][:,cas_idx]
-				h2e_cas = _exp.h2e[cas_idx][:,cas_idx][:,:,cas_idx][:,:,:,cas_idx]
+					h1e_cas = _mol.h1e[cas_idx][:,cas_idx]
+				h2e_cas = _mol.h2e[cas_idx][:,cas_idx][:,:,cas_idx][:,:,:,cas_idx]
 				# set core energy
 				if (len(core_idx) > 0):
-					e_core = _exp.h1e[core_idx][:,core_idx].trace() * 2 + \
+					e_core = _mol.h1e[core_idx][:,core_idx].trace() * 2 + \
 								vhf_core[core_idx][:,core_idx].trace() + \
 								_mol.energy_nuc()
 				else:
@@ -147,7 +143,7 @@ class PySCFCls():
 												_mol.nelectron - 2 * len(_exp.core_idx))[0]
 				# base calculation
 				if (_calc.exp_base == 'HF'):
-					e_corr = (e_cas + _exp.e_core) - _mol.e_hf
+					e_corr = (e_cas + _exp.e_core) - _mol.hf.e_tot
 				else:
 					solver_base = ModelSolver(_calc.exp_base)
 					# base calculation

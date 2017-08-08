@@ -46,7 +46,7 @@ class InitCls():
 				self.pyscf = PySCFCls()
 				# hf calculation
 				try:
-					self.mol.e_hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = self.pyscf.dimension(self.mol, self.calc)
+					self.mol.hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = self.pyscf.hf(self.mol, self.calc)
 				except Exception as err:
 					sys.stderr.write('\nHF Error : problem with HF calculation\n'
 										'PySCF error : {0:}\n\n'.\

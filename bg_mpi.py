@@ -149,57 +149,6 @@ class MPICls():
 				return
 
 
-		def bcast_hf_info(self, _mol):
-				""" bcast hf and base info """
-				if (self.num_local_masters >= 2):
-					# prim master has everything - bcast to rest of local masters
-					if (self.prim_master):
-						# bcast to local masters
-						hf = {'e_hf': _mol.e_hf, 'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt}
-						self.local_master_comm.bcast(hf, root=0)
-						self.local_master_comm.Bcast([_mol.trans_mat, MPI.DOUBLE], root=0)
-						self.local_master_comm.Bcast([_mol.hcore, MPI.DOUBLE], root=0)
-					elif (self.local_master and (not self.prim_master)):
-						# receive from primary master
-						hf = self.local_master_comm.bcast(None, root=0)
-						_mol.e_hf = hf['e_hf']; _mol.norb = hf['norb']
-						_mol.nocc = hf['nocc']; _mol.nvirt = hf['nvirt']
-						buff_trans = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
-						self.local_master_comm.Bcast([buff_trans, MPI.DOUBLE], root=0)
-						_mol.trans_mat = buff_trans
-						buff_hcore = np.empty([_mol.norb,_mol.norb], dtype=np.float64)
-						self.local_master_comm.Bcast([buff_hcore, MPI.DOUBLE], root=0)
-						_mol.hcore = buff_hcore
-				# now bcast to global master and slaves
-				if (((self.num_local_masters == 0) and self.global_master) or \
-						((self.num_local_masters >= 1) and self.local_master)):
-					hf = {'e_hf': _mol.e_hf, 'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt}
-					self.local_comm.bcast(hf, root=0)
-					if (self.num_local_masters >= 1): self.master_comm.send(hf, dest=0, tag=0)
-				elif (self.global_master):
-					if (self.num_local_masters >= 1):
-						hf = self.master_comm.recv(source=1, tag=0, status=self.stat)	
-						_mol.e_hf = hf['e_hf']; _mol.norb = hf['norb']
-						_mol.nocc = hf['nocc']; _mol.nvirt = hf['nvirt']
-				elif (self.slave):
-					hf = self.local_comm.bcast(None, root=0)
-					_mol.e_hf = hf['e_hf']; _mol.norb = hf['norb']
-					_mol.nocc = hf['nocc']; _mol.nvirt = hf['nvirt']
-				#
-				return
-
-
-		def send_e_zero(self, _mol):
-				""" send zeroth-order energy """
-				if (self.num_local_masters >= 1):
-					if (self.prim_master):
-						self.master_comm.send(_mol.e_zero, dest=0, tag=0)	
-					elif (self.global_master):
-						_mol.e_zero = self.master_comm.recv(source=1, tag=0, status=self.stat)	
-				#
-				return
-
-
 		def bcast_rst(self, _calc, _exp):
 				""" bcast restart files """
 				if (_exp.level == 'macro'):
@@ -241,10 +190,25 @@ class MPICls():
 				return
 
 
-		def bcast_e_inc(self, _exp, _comm):
+		def bcast_e_inc(self, _mol, _calc, _exp, _comm):
 				""" bcast e_inc[-1] """
 				# now do Bcast
 				_comm.Bcast([_exp.energy_inc[-1], MPI.DOUBLE], root=0)
+				#
+				if ((self.global_master or self.prim_master) and \
+					(self.num_local_masters >= 1) and \
+					(_calc.exp_virt != 'SNO') and \
+					(_exp.order == 1)): self.comm_e_zero(_mol, _comm)
+				#
+				return
+
+
+		def comm_e_zero(self, _mol, _comm):
+				""" communicate e_zero """
+				if (self.global_master):
+					_mol.e_zero = _comm.recv(source=1, status=self.stat)
+				elif (self.prim_master):
+					_comm.send(_mol.e_zero, dest=0)
 				#
 				return
 
