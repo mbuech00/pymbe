@@ -60,7 +60,7 @@ class ScrCls():
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
 					# determine which increments have contributions below the threshold
-					if (_exp.order == 1):
+					if (_exp.order <= 2):
 						_exp.allow_tuples = _exp.tuples[-1]
 					else:
 						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
@@ -119,7 +119,7 @@ class ScrCls():
 				# init job index, tmp list, and screen_count
 				i = 0; tmp = []; _exp.screen_count.append(0)
 				# determine which increments have contributions below the threshold
-				if (_exp.order == 1):
+				if (_exp.order <= 2):
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
 					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
@@ -177,7 +177,7 @@ class ScrCls():
 				else:
 					comm = _mpi.local_comm
 				# determine which increments have contributions below the threshold
-				if (_exp.order == 1):
+				if (_exp.order <= 2):
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
 					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
