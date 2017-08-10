@@ -64,10 +64,14 @@ class ScrCls():
 						_exp.allow_tuples = _exp.tuples[-1]
 					else:
 						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
+					# save number of screened tuples
+					_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 			        # loop over parent tuples
 					for i in range(len(_exp.allow_tuples)):
 						# generate list with all subsets of particular tuple
 						combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1))
+						# monitor number of screened tuples
+						tup_num = len(tmp)
 						# loop through possible orbitals to augment the combinations with
 						for m in range(_exp.allow_tuples[i][-1]+1, self.l_limit+self.u_limit):
 							# init screening logical
@@ -80,10 +84,10 @@ class ScrCls():
 									screen = True
 									break
 							# if tuple is allowed, add to child tuple list, otherwise screen away
-							if (not screen):
-								tmp.append(_exp.allow_tuples[i].tolist()+[m])
-							else:
-								_exp.screen_count[-1] += 1
+							if (not screen): tmp.append(_exp.allow_tuples[i].tolist()+[m])
+						# update number of screened tuples
+						if ((len(tmp) == tup_num) and \
+							(_exp.allow_tuples[i][-1] < (self.l_limit+self.u_limit-1))): _exp.screen_count[-1] += 1
 					# when done, write to tup list or mark expansion as converged
 					if (len(tmp) >= 1):
 						_exp.tuples.append(np.array(tmp, dtype=np.int32))
@@ -119,6 +123,8 @@ class ScrCls():
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
 					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
+				# save number of screened tuples
+				_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
@@ -201,10 +207,10 @@ class ScrCls():
 									screen = True
 									break
 							# if tuple is allowed, add to child tuple list, otherwise screen away
-							if (not screen):
-								data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
-							else:
-								data['screen_count'] += 1
+							if (not screen): data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
+						# update number of screened tuples
+						if ((len(data['child_tuple']) == 0) and \
+							(_exp.allow_tuples[job_info['index']][-1] < (self.l_limit+self.u_limit-1))): data['screen_count'] = 1
 						# send data back to master
 						comm.send(data, dest=0, tag=self.tags.done)
 					# exit
