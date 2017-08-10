@@ -197,7 +197,7 @@ class MPICls():
 				#
 				if ((self.global_master or self.prim_master) and \
 					(self.num_local_masters >= 1) and \
-					(_calc.exp_virt != 'SNO') and \
+					(_calc.exp_virt != 'DNO') and \
 					(_exp.order == 1)): self.comm_e_zero(_mol, _comm)
 				#
 				return

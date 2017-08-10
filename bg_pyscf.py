@@ -47,8 +47,8 @@ class PySCFCls():
 					frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx)))
 				# proceed or return
 				if ((_calc.exp_type in ['occupied','virtual']) or \
-					((_calc.exp_virt != 'SNO') and (_mol.trans_mat is None)) or \
-					(_calc.exp_virt == 'SNO')):
+					((_calc.exp_virt != 'DNO') and (_mol.trans_mat is None)) or \
+					(_calc.exp_virt == 'DNO')):
 					# zeroth-order energy
 					if (_calc.exp_base == 'HF'):
 						_mol.e_zero = 0.0
@@ -57,7 +57,7 @@ class PySCFCls():
 						mp2 = mp.MP2(_mol.hf)
 						mp2.frozen = frozen
 						_mol.e_zero = mp2.kernel()[0]
-						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','SNO'])):
+						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = mp2.make_rdm1()
 					elif (_calc.exp_base == 'CCSD'):
 						# calculate ccsd energy
@@ -65,7 +65,7 @@ class PySCFCls():
 						ccsd.conv_tol = 1.0e-10
 						ccsd.frozen = frozen
 						_mol.e_zero = ccsd.kernel()[0]
-						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','SNO'])):
+						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = ccsd.make_rdm1()
 					# init transformation matrix
 					if (_mol.trans_mat is None): _mol.trans_mat = _mol.hf.mo_coeff

@@ -79,8 +79,8 @@ class KernCls():
 				# sum of total energy
 				if (_exp.order == 1):
 					if ((_calc.exp_type in ['occupied','virtual']) or \
-						((_exp.level == 'macro') and (_calc.exp_virt != 'SNO')) or \
-						((_exp.level == 'micro') and (_calc.exp_virt == 'SNO'))):
+						((_exp.level == 'macro') and (_calc.exp_virt != 'DNO')) or \
+						((_exp.level == 'micro') and (_calc.exp_virt == 'DNO'))):
 						e_tmp += _mol.e_zero
 				else:
 					e_tmp += _exp.energy_tot[-1]

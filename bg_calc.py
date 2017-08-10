@@ -130,17 +130,17 @@ class CalcCls():
 					if (not (self.exp_occ in ['HF','PM','ER','BOYS','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \
 										'representations are currently: HF, local (PM, ER, or Boys), or base model natural orbitals')
-					if (not (self.exp_virt in ['HF','NO','SNO'])):
+					if (not (self.exp_virt in ['HF','NO','DNO'])):
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: HF or base model (specific) natural orbitals (NO or SNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','SNO'])) and (self.exp_base == 'HF')):
-						raise ValueError('wrong input -- the use of (specific) natural orbitals (NOs/SNOs) ' + \
+										'representations are currently: HF or base model (distinctive) natural orbitals (NOs or DNOs)')
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base == 'HF')):
+						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a correlated base model for the expansion')
-					if ((self.exp_type != 'combined') and (self.exp_virt == 'SNO')):
-						raise ValueError('wrong input -- the use of specific virtual natural orbitals (SNOs) ' + \
+					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):
+						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'is only valid in combination with combined (dual) expansions')
-					if ((self.exp_occ == 'NO') and (self.exp_virt == 'SNO')):
-						raise ValueError('wrong input -- the use of specific virtual natural orbitals (SNOs) ' + \
+					if ((self.exp_occ == 'NO') and (self.exp_virt == 'DNO')):
+						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'excludes the use of occupied natural orbitals')
 					# mpi groups
 					if (_mpi.parallel):
