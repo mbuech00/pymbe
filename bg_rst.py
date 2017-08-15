@@ -53,10 +53,6 @@ class RstCls():
 					self.read_main(_mpi, _calc, _exp)
 					# update restart frequency
 					for _ in range(1, _exp.min_order): self.rst_freq = self.update()
-					# bcast rst data
-					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
-					# reset restart logical
-					self.restart = False
 				# init _exp.order
 				_exp.order = _exp.min_order
 				#

@@ -62,6 +62,12 @@ class DrvCls():
 							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx}
 							# bcast msg
 							_mpi.local_comm.bcast(msg, root=0)
+				# restart
+				if (_rst.restart):
+					# bcast rst data
+					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
+					# reset restart logical
+					_rst.restart = False
 				# print expansion header
 				if (do_print): _prt.exp_header(_calc, _exp)
 				# now do expansion
@@ -140,9 +146,11 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
 						# mark expansion as macro
 						exp.level = 'macro'
-						_rst.restart = False
+						_rst.restart = msg['rst']
 						# receive rst data
-						if (msg['rst']): _mpi.bcast_rst(_calc, exp)
+						if (_rst.restart): _mpi.bcast_rst(_calc, exp)
+						# reset restart logical
+						_rst.restart = False
 					#
 					#** energy kernel phase **#
 					#
