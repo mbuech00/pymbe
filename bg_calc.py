@@ -13,6 +13,7 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 from os.path import isfile
+import re
 import sys
 
 
@@ -57,30 +58,30 @@ class CalcCls():
 						for i in range(len(content)):
 							if (content[i].split()[0][0] == '#'):
 								continue
-							elif (content[i].split()[0] == 'exp_model'):
-								self.exp_model = content[i].split()[2].upper()
-							elif (content[i].split()[0] == 'exp_type'):
-								self.exp_type = content[i].split()[2]
-							elif (content[i].split()[0] == 'exp_base'):
-								self.exp_base = content[i].split()[2].upper()
-							elif (content[i].split()[0] == 'exp_thres'):
-								self.exp_thres = float(content[i].split()[2])
-							elif (content[i].split()[0] == 'exp_max_order'):
-								self.exp_max_order = int(content[i].split()[2])
-							elif (content[i].split()[0] == 'exp_occ'):
-								self.exp_occ = content[i].split()[2].upper()
-							elif (content[i].split()[0] == 'exp_virt'):
-								self.exp_virt = content[i].split()[2].upper()
-							elif (content[i].split()[0] == 'energy_thres'):
-								self.energy_thres = float(content[i].split()[2])
-							elif (content[i].split()[0] == 'tolerance'):
-								self.tolerance = float(content[i].split()[2])
-							elif (content[i].split()[0] == 'num_local_masters'):
-								_mpi.num_local_masters = int(content[i].split()[2])
+							elif (re.split('=',content[i])[0].strip() == 'exp_model'):
+								self.exp_model = re.split('=',content[i])[1].strip().upper()
+							elif (re.split('=',content[i])[0].strip() == 'exp_type'):
+								self.exp_type = re.split('=',content[i])[1].strip()
+							elif (re.split('=',content[i])[0].strip() == 'exp_base'):
+								self.exp_base = re.split('=',content[i])[1].strip().upper()
+							elif (re.split('=',content[i])[0].strip() == 'exp_thres'):
+								self.exp_thres = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'exp_max_order'):
+								self.exp_max_order = int(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'exp_occ'):
+								self.exp_occ = re.split('=',content[i])[1].strip().upper()
+							elif (re.split('=',content[i])[0].strip() == 'exp_virt'):
+								self.exp_virt = re.split('=',content[i])[1].strip().upper()
+							elif (re.split('=',content[i])[0].strip() == 'energy_thres'):
+								self.energy_thres = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'tolerance'):
+								self.tolerance = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'num_local_masters'):
+								_mpi.num_local_masters = int(re.split('=',content[i])[1].strip())
 							# error handling
 							else:
 								try:
-									raise RuntimeError('\''+content[i].split()[0]+'\'' + \
+									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
 														' keyword in bg-calc.inp not recognized')
 								except Exception as err:
 									_rst.rm_rst()

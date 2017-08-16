@@ -29,6 +29,7 @@ class PySCFCls():
 				# perform hf calc
 				hf = scf.RHF(_mol)
 				hf.conv_tol = 1.0e-12
+				hf.irrep_nelec = _mol.irrep_nelec
 				hf.kernel()
 				# determine dimensions
 				norb = hf.mo_coeff.shape[1]
