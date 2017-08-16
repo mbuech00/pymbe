@@ -45,13 +45,7 @@ class InitCls():
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation
-				try:
-					self.mol.hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = self.pyscf.hf(self.mol, self.calc)
-				except Exception as err:
-					sys.stderr.write('\nHF Error : problem with HF calculation\n'
-										'PySCF error : {0:}\n\n'.\
-										format(err))
-					raise
+				self.mol.hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = self.pyscf.hf(self.mol, self.calc)
 				# expansion and driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):

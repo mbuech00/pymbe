@@ -29,8 +29,18 @@ class PySCFCls():
 				# perform hf calc
 				hf = scf.RHF(_mol)
 				hf.conv_tol = 1.0e-12
+				hf.max_cycle = 500
 				hf.irrep_nelec = _mol.irrep_nelec
-				hf.kernel()
+				for i in [0, 2, 4]:
+					hf.diis_start_cycle = i
+					hf.kernel()
+					if (hf.converged): break
+				if (not hf.converged):
+					try:
+						raise RuntimeError
+					except Exception as err:
+						sys.stderr.write('\nHF Error : no convergence\n\n')
+						raise
 				# determine dimensions
 				norb = hf.mo_coeff.shape[1]
 				nocc = int(hf.mo_occ.sum()) // 2
@@ -65,7 +75,16 @@ class PySCFCls():
 						ccsd = cc.CCSD(_mol.hf)
 						ccsd.conv_tol = 1.0e-10
 						ccsd.frozen = frozen
-						_mol.e_zero = ccsd.kernel()[0]
+						for i in [0, 2, 4]:
+							ccsd.diis_start_cycle = i
+							_mol.e_zero = ccsd.kernel()[0]
+							if (ccsd.converged): break
+						if (not ccsd.converged):
+							try:
+								raise RuntimeError
+							except Exception as err:
+								sys.stderr.write('\nCCSD (int-trans) Error : no convergence\n\n')
+								raise
 						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = ccsd.make_rdm1()
 					# init transformation matrix
@@ -175,6 +194,7 @@ class ModelSolver():
 				cas_mol.symmetry = _mol.symmetry
 				cas_hf = scf.RHF(cas_mol)
 				cas_hf.conv_tol = 1.0e-12
+				cas_hf.max_cycle = 500
 				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
@@ -194,21 +214,16 @@ class ModelSolver():
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 10
 					self.model.max_cycle = 500
-					try:
+					for i in [0, 2, 4]:
+						self.model.diis_start_cycle = i
 						e_corr = self.model.kernel()[0]
-					except Exception as err:
-						for i in [2,4,6,8]:
-							try:
-								self.model.diis_start_cycle = i
-								e_corr = self.model.kernel()[0]
-							except Exception as err:
-								try:
-									raise RuntimeError
-								except RuntimeError:
-									sys.stderr.write('\nCASCCSD Error\n\n')
-									raise
-							else:
-								break
+						if (self.model.converged): break
+					if (not self.model.converged):
+						try:
+							raise RuntimeError
+						except Exception as err:
+							sys.stderr.write('\nCASCCSD Error : no convergence\n\n')
+							raise
 					if (_dens):
 						dm = self.model.make_rdm1()
 					else:
