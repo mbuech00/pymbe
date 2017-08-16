@@ -124,29 +124,31 @@ class PySCFCls():
 					solver_cas = ModelSolver(_calc.exp_model)
 				else:
 					if (_mol.spin == 0):
-						solver_cas = fci.direct_spin0.FCI()
+						solver_cas = fci.direct_spin0.FCI(_mol)
 					else:
-						solver_cas = fci.direct_spin1.FCI()
+						solver_cas = fci.direct_spin1.FCI(_mol)
 				# settings
 				solver_cas.conv_tol = 1.0e-10
-				solver_cas.max_memory = _mol.max_memory
 				solver_cas.max_cycle = 100
+				solver_cas.max_space = 30
+				# initial guess
+				na = fci.cistring.num_strings(len(_exp.cas_idx), (_mol.nelectron - 2 * len(_exp.core_idx)) // 2)
+				hf_as_civec = np.zeros((na, na))
+				hf_as_civec[0, 0] = 1
 				# cas calculation
 				if (_calc.exp_model != 'FCI'):
-					hf_cas = solver_cas.fake_hf(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-												_mol.nelectron - 2 * len(_exp.core_idx))[1]
+					hf_cas = solver_cas.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.core_idx)[1]
 					e_cas = solver_cas.kernel(hf_cas)[0]
 				else:
 					e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-												_mol.nelectron - 2 * len(_exp.core_idx))[0]
+												_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec)[0]
 				# base calculation
 				if (_calc.exp_base == 'HF'):
 					e_corr = (e_cas + _exp.e_core) - _mol.hf.e_tot
 				else:
 					solver_base = ModelSolver(_calc.exp_base)
 					# base calculation
-					hf_base = solver_base.fake_hf(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-												_mol.nelectron - 2 * len(_exp.core_idx))[1]
+					hf_base = solver_base.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.core_idx)[1]
 					e_base = solver_base.kernel(hf_base)[0]
 					e_corr = e_cas - e_base
 				#
@@ -165,16 +167,18 @@ class ModelSolver():
 				return
 
 
-		def fake_hf(self, _h1e, _h2e, _norb, _nelec):
+		def fake_hf(self, _mol, _h1e, _h2e, _cas_idx, _core_idx):
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
-				cas_mol.nelectron = _nelec
+				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
+				cas_mol.symmetry = _mol.symmetry
 				cas_hf = scf.RHF(cas_mol)
 				cas_hf.conv_tol = 1.0e-12
-				cas_hf._eri = ao2mo.restore(8, _h2e, _norb)
+				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
 				cas_hf.get_hcore = lambda *args: _h1e
-				cas_hf.get_ovlp = lambda *args: np.eye(_norb)
-				cas_hf.kernel()
+				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
+				dm0 = np.diag(_mol.hf.mo_occ[_cas_idx])
+				cas_hf.kernel(dm0)
 				#
 				return cas_mol, cas_hf
 
@@ -187,7 +191,7 @@ class ModelSolver():
 				elif (self.model_type == 'CCSD'):
 					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
-					self.model.diis_space = 12
+					self.model.diis_space = 10
 					self.model.max_cycle = 100
 					try:
 						e_corr = self.model.kernel()[0]
