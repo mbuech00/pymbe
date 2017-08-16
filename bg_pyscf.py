@@ -129,7 +129,7 @@ class PySCFCls():
 						solver_cas = fci.direct_spin1.FCI(_mol)
 				# settings
 				solver_cas.conv_tol = 1.0e-10
-				solver_cas.max_cycle = 100
+				solver_cas.max_cycle = 500
 				solver_cas.max_space = 30
 				# initial guess
 				na = fci.cistring.num_strings(len(_exp.cas_idx), (_mol.nelectron - 2 * len(_exp.core_idx)) // 2)
@@ -192,7 +192,7 @@ class ModelSolver():
 					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 10
-					self.model.max_cycle = 100
+					self.model.max_cycle = 500
 					try:
 						e_corr = self.model.kernel()[0]
 					except Exception as err:
