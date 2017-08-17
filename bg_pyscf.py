@@ -199,7 +199,16 @@ class ModelSolver():
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
 				dm0 = np.diag(_mol.hf.mo_occ[_cas_idx])
-				cas_hf.kernel(dm0)
+				for i in [0, 2, 4]:
+					cas_hf.diis_start_cycle = i
+					cas_hf.kernel(dm0)
+					if (cas_hf.converged): break
+				if (not cas_hf.converged):
+					try:
+						raise RuntimeError
+					except Exception as err:
+						sys.stderr.write('\nCAS-HF Error : no convergence\n\n')
+						raise
 				#
 				return cas_mol, cas_hf
 
@@ -222,7 +231,7 @@ class ModelSolver():
 						try:
 							raise RuntimeError
 						except Exception as err:
-							sys.stderr.write('\nCASCCSD Error : no convergence\n\n')
+							sys.stderr.write('\nCAS-CCSD Error : no convergence\n\n')
 							raise
 					if (_dens):
 						dm = self.model.make_rdm1()
