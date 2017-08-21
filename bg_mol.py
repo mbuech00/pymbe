@@ -30,8 +30,8 @@ class MolCls(gto.Mole):
 					self.irrep_nelec = {}
 					# set default value for FC
 					self.frozen = False
-					# default: silence pyscf output
-					self.verbose = 0
+					# default: silence pyscf output except errors
+					self.verbose = 1
 					# set geometry
 					self.atom = self.set_geo(_rst)
 					# set Mole
