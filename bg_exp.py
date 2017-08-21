@@ -49,11 +49,12 @@ class ExpCls():
 						self.max_order = _mol.nvirt
 				# determine max theoretical work
 				self.theo_work = []
-				for k in range(self.max_order):
-					if (_type == 'occupied'):
+				if (_type == 'occupied'):
+					for k in range(_mol.nocc-_mol.ncore):
 						self.theo_work.append(int(factorial(_mol.nocc-_mol.ncore) / \
 												(factorial(k+1) * factorial((_mol.nocc-_mol.ncore) - (k+1)))))
-					else:
+				else:
+					for k in range(_mol.nvirt):
 						self.theo_work.append(int(factorial(_mol.nvirt) / \
 												(factorial(k+1) * factorial(_mol.nvirt - (k+1)))))
 				# init screen_count list
