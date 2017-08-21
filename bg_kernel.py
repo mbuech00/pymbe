@@ -167,11 +167,17 @@ class KernCls():
 				if (_mpi.global_master and (not (_exp.level == 'macro'))):
 					_prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
 				# init time
-				if (_mpi.global_master and (len(_exp.time_kernel) < _exp.order)): _exp.time_kernel.append(0.0)
+				if (_mpi.global_master and (len(_exp.time_kernel) < _exp.order)):
+					_exp.time_kernel.append(0.0)
+					time = MPI.Wtime()
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
 					data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
+					# collect time
+					if (_mpi.global_master):
+						_exp.time_kernel[-1] += MPI.Wtime() - time
+						time = MPI.Wtime()
 					# probe for source and tag
 					source = _mpi.stat.Get_source(); tag = _mpi.stat.Get_tag()
 					# slave is ready
@@ -210,8 +216,6 @@ class KernCls():
 						if (_mpi.global_master and (_exp.level == 'macro')):
 							self.summation(_exp, data['index'])
 							_exp.micro_conv_res[-1][data['index']] = data['micro_order']
-						# collect time
-						if (_mpi.global_master): _exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						if (_mpi.global_master and ((((data['index']+1) % int(_rst.rst_freq)) == 0) or (_exp.level == 'macro'))):
 							_rst.write_kernel(_exp, False)

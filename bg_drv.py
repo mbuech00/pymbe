@@ -107,7 +107,7 @@ class DrvCls():
 						if (do_print):
 							# collect time
 							_exp.time_screen[-1] -= MPI.Wtime()
-							_exp.time_screen[-1] *= -1
+							_exp.time_screen[-1] *= -1.0
 							# write restart files
 							if (not _exp.conv_orb[-1]):
 								_rst.write_screen(_exp)
