@@ -31,15 +31,17 @@ class PySCFCls():
 				hf.conv_tol = 1.0e-12
 				hf.max_cycle = 500
 				hf.irrep_nelec = _mol.irrep_nelec
-				for i in [0, 2, 4]:
+				for i in list(range(0, 8, 2)):
 					hf.diis_start_cycle = i
-					hf.kernel()
+					try:
+						hf.kernel()
+					except sp.linalg.LinAlgError: pass
 					if (hf.converged): break
 				if (not hf.converged):
 					try:
-						raise RuntimeError
+						raise RuntimeError('\nHF Error : no convergence\n\n')
 					except Exception as err:
-						sys.stderr.write('\nHF Error : no convergence\n\n')
+						sys.stderr.write(str(err))
 						raise
 				# determine dimensions
 				norb = hf.mo_coeff.shape[1]
@@ -75,15 +77,17 @@ class PySCFCls():
 						ccsd = cc.CCSD(_mol.hf)
 						ccsd.conv_tol = 1.0e-10
 						ccsd.frozen = frozen
-						for i in [0, 2, 4]:
+						for i in list(range(0, 8, 2)):
 							ccsd.diis_start_cycle = i
-							_mol.e_zero = ccsd.kernel()[0]
+							try:
+								_mol.e_zero = ccsd.kernel()[0]
+							except sp.linalg.LinAlgError: pass
 							if (ccsd.converged): break
 						if (not ccsd.converged):
 							try:
-								raise RuntimeError
+								raise RuntimeError('\nCCSD (int-trans) Error : no convergence\n\n')
 							except Exception as err:
-								sys.stderr.write('\nCCSD (int-trans) Error : no convergence\n\n')
+								sys.stderr.write(str(err))
 								raise
 						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = ccsd.make_rdm1()
@@ -199,15 +203,17 @@ class ModelSolver():
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
 				dm0 = np.diag(_mol.hf.mo_occ[_cas_idx])
-				for i in [0, 2, 4]:
+				for i in list(range(0, 8, 2)):
 					cas_hf.diis_start_cycle = i
-					cas_hf.kernel(dm0)
+					try:
+						cas_hf.kernel(dm0)
+					except sp.linalg.LinAlgError: pass
 					if (cas_hf.converged): break
 				if (not cas_hf.converged):
 					try:
-						raise RuntimeError
+						raise RuntimeError('\nCAS-HF Error : no convergence\n\n')
 					except Exception as err:
-						sys.stderr.write('\nCAS-HF Error : no convergence\n\n')
+						sys.stderr.write(str(err))
 						raise
 				#
 				return cas_mol, cas_hf
@@ -223,15 +229,17 @@ class ModelSolver():
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 10
 					self.model.max_cycle = 500
-					for i in [0, 2, 4]:
+					for i in list(range(0, 8, 2)):
 						self.model.diis_start_cycle = i
-						e_corr = self.model.kernel()[0]
+						try:
+							e_corr = self.model.kernel()[0]
+						except sp.linalg.LinAlgError: pass
 						if (self.model.converged): break
 					if (not self.model.converged):
 						try:
-							raise RuntimeError
+							raise RuntimeError('\nCAS-CCSD Error : no convergence\n\n')
 						except Exception as err:
-							sys.stderr.write('\nCAS-CCSD Error : no convergence\n\n')
+							sys.stderr.write(str(err))
 							raise
 					if (_dens):
 						dm = self.model.make_rdm1()

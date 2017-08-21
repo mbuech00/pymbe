@@ -126,17 +126,7 @@ class KernCls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
 								_pyscf.prepare(_mol, _calc, _exp, _exp.tuples[-1][i])
-						try:
-							_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
-						except Exception as err:
-							try:
-								raise RuntimeError
-							except RuntimeError:
-								sys.stderr.write('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
-													'input: core_idx = {2:} , cas_idx = {3:}\n'
-													'PySCF error : {4:}\n\n'.\
-													format(_mpi.global_rank, _mpi.host, _exp.core_idx, _exp.cas_idx, err))
-								raise
+						_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
 					# sum up energy increment
 					self.summation(_exp, i)
 					if (do_print):
@@ -214,17 +204,6 @@ class KernCls():
 							comm.send(None, dest=source, tag=self.tags.exit)
 					# receive result from slave
 					elif (tag == self.tags.done):
-						# error handling
-						if (data['error']):
-							try:
-								raise RuntimeError('\nCASCI Error : MPI proc. = {0:} (host = {1:})\n'
-													'input: core_idx = {2:} , cas_idx = {3:}\n'
-													'PySCF error : {4:}\n\n'.\
-													format(source, data['host'], data['core_idx'],\
-															 data['cas_idx'], data['pyscf_err']))
-							except Exception as err:
-								sys.stderr.write(str(err))
-								raise
 						# write to e_inc
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
 						# write to micro_conv_res
@@ -265,7 +244,7 @@ class KernCls():
 				if (len(_exp.energy_inc) < _exp.order):
 					_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# init data dict
-				data = {'error': False}
+				data = {}
 				# receive work from master
 				while (True):
 					# ready for task
@@ -300,23 +279,14 @@ class KernCls():
 							_exp.h2e_cas = job_info['h2e_cas']
 							_exp.e_core = job_info['e_core']
 							# run correlated calc
-							try:
-								_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)
-								# sum up energy increment
-								self.summation(_exp, job_info['index'])
-							except Exception as err:
-								data['error'] = True
-								data['host'] = _mpi.host
-								data['core_idx'] = _exp.core_idx
-								data['cas_idx'] = _exp.cas_idx
-								data['pyscf_err'] = err
-								pass
-							finally:
-								# write info into data dict
-								data['index'] = job_info['index']
-								data['e_inc'] = _exp.energy_inc[-1][job_info['index']]
-								# send data back to local master
-								comm.send(data, dest=0, tag=self.tags.done)
+							_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)
+							# sum up energy increment
+							self.summation(_exp, job_info['index'])
+							# write info into data dict
+							data['index'] = job_info['index']
+							data['e_inc'] = _exp.energy_inc[-1][job_info['index']]
+							# send data back to local master
+							comm.send(data, dest=0, tag=self.tags.done)
 					# exit
 					elif (tag == self.tags.exit):
 						break
