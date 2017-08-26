@@ -126,6 +126,7 @@ class KernCls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
 								_pyscf.prepare(_mol, _calc, _exp, _exp.tuples[-1][i])
+						# perform calc
 						_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
 					# sum up energy increment
 					self.summation(_exp, i)

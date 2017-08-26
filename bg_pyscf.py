@@ -31,7 +31,7 @@ class PySCFCls():
 				hf.conv_tol = 1.0e-12
 				hf.max_cycle = 500
 				hf.irrep_nelec = _mol.irrep_nelec
-				for i in list(range(0, 8, 2)):
+				for i in list(range(0, 12, 2)):
 					hf.diis_start_cycle = i
 					try:
 						hf.kernel()
@@ -77,7 +77,7 @@ class PySCFCls():
 						ccsd = cc.CCSD(_mol.hf)
 						ccsd.conv_tol = 1.0e-10
 						ccsd.frozen = frozen
-						for i in list(range(0, 8, 2)):
+						for i in list(range(0, 12, 2)):
 							ccsd.diis_start_cycle = i
 							try:
 								_mol.e_zero = ccsd.kernel()[0]
@@ -163,8 +163,8 @@ class PySCFCls():
 				hf_as_civec[0, 0] = 1
 				# cas calculation
 				if (_calc.exp_model != 'FCI'):
-					hf_cas = solver_cas.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.core_idx)[1]
-					e_cas = solver_cas.kernel(hf_cas)[0]
+					hf_cas = solver_cas.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
+					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)[0]
 				else:
 					e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
 												_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec)[0]
@@ -174,8 +174,8 @@ class PySCFCls():
 				else:
 					solver_base = ModelSolver(_calc.exp_base)
 					# base calculation
-					hf_base = solver_base.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.core_idx)[1]
-					e_base = solver_base.kernel(hf_base)[0]
+					hf_base = solver_base.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
+					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)[0]
 					e_corr = e_cas - e_base
 				#
 				return e_corr
@@ -193,7 +193,7 @@ class ModelSolver():
 				return
 
 
-		def fake_hf(self, _mol, _h1e, _h2e, _cas_idx, _core_idx):
+		def fake_hf(self, _mol, _h1e, _h2e, _core_idx, _cas_idx):
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
@@ -205,7 +205,7 @@ class ModelSolver():
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
 				dm0 = np.diag(_mol.hf.mo_occ[_cas_idx])
-				for i in list(range(0, 8, 2)):
+				for i in list(range(0, 12, 2)):
 					cas_hf.diis_start_cycle = i
 					try:
 						cas_hf.kernel(dm0)
@@ -213,7 +213,9 @@ class ModelSolver():
 					if (cas_hf.converged): break
 				if (not cas_hf.converged):
 					try:
-						raise RuntimeError('\nCAS-HF Error : no convergence\n\n')
+						raise RuntimeError(('\nCAS-HF Error : no convergence\n'
+											'core_idx = {0:} , cas_idx = {1:}\n\n').\
+											format(_core_idx,_cas_idx))
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
@@ -221,7 +223,7 @@ class ModelSolver():
 				return cas_mol, cas_hf
 
 
-		def kernel(self, _cas_hf, _dens=False):
+		def kernel(self, _cas_hf, _core_idx, _cas_idx, _dens=False):
 				""" model kernel """
 				if (self.model_type == 'MP2'):
 					self.model = mp.MP2(_cas_hf)
@@ -231,7 +233,7 @@ class ModelSolver():
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 10
 					self.model.max_cycle = 500
-					for i in list(range(0, 8, 2)):
+					for i in list(range(0, 12, 2)):
 						self.model.diis_start_cycle = i
 						try:
 							e_corr = self.model.kernel()[0]
@@ -239,7 +241,9 @@ class ModelSolver():
 						if (self.model.converged): break
 					if (not self.model.converged):
 						try:
-							raise RuntimeError('\nCAS-CCSD Error : no convergence\n\n')
+							raise RuntimeError(('\nCAS-CCSD Error : no convergence\n'
+												'core_idx = {0:} , cas_idx = {1:}\n\n').\
+												format(_core_idx,_cas_idx))
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
