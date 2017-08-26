@@ -91,6 +91,8 @@ class PySCFCls():
 								raise
 						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = ccsd.make_rdm1()
+					# sum up total zeroth-order energy
+					_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
 					# init transformation matrix
 					if (_mol.trans_mat is None): _mol.trans_mat = _mol.hf.mo_coeff
 					# occ-occ block
