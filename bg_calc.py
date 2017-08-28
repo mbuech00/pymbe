@@ -101,19 +101,20 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if (not (self.exp_model in ['MP2','CCSD','FCI'])):
+					if (not (self.exp_model in ['MP2','CISD','CCSD','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
-										'are currently: MP2, CCSD, and FCI')
+										'are currently: MP2, CISD, CCSD, and FCI')
 					# type of expansion
 					if (not (self.exp_type in ['occupied','virtual','combined'])):
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are occupied, virtual, and combined')
 					# base model
-					if (not (self.exp_base in ['HF','MP2','CCSD'])):
+					if (not (self.exp_base in ['HF','MP2','CISD','CCSD'])):
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: HF, MP2, and CCSD')
 					if (((self.exp_base == 'MP2') and (self.exp_model == 'MP2')) or \
-						((self.exp_base == 'CCSD') and (self.exp_model in ['MP2','CCSD']))):
+						((self.exp_base == 'CISD') and (self.exp_model in ['MP2','CISD'])) or \
+						((self.exp_base == 'CCSD') and (self.exp_model in ['MP2','CISD','CCSD']))):
 							raise ValueError('wrong input -- invalid base model for choice ' + \
 											'of expansion model')
 					# max order

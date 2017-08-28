@@ -72,10 +72,21 @@ class PySCFCls():
 						_mol.e_zero = mp2.kernel()[0]
 						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = mp2.make_rdm1()
+					elif (_calc.exp_base == 'CISD'):
+						# calculate ccsd energy
+						cisd = ci.CISD(_mol.hf)
+						cisd.conv_tol = 1.0e-10
+						cisd.max_cycle = 500
+						cisd.max_space = 30
+						cisd.frozen = frozen
+						_mol.e_zero = cisd.kernel()[0]
+						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
+							dm = cisd.make_rdm1()
 					elif (_calc.exp_base == 'CCSD'):
 						# calculate ccsd energy
 						ccsd = cc.CCSD(_mol.hf)
 						ccsd.conv_tol = 1.0e-10
+						ccsd.max_cycle = 500
 						ccsd.frozen = frozen
 						for i in list(range(0, 12, 2)):
 							ccsd.diis_start_cycle = i
@@ -228,6 +239,16 @@ class ModelSolver():
 				if (self.model_type == 'MP2'):
 					self.model = mp.MP2(_cas_hf)
 					e_corr = self.model.kernel()[0]
+				elif (self.model_type == 'CISD'):
+					self.model = ci.CISD(_cas_hf)
+					self.model.conv_tol = 1.0e-10
+					self.model.max_cycle = 500
+					self.model.max_space = 30
+					e_corr = self.model.kernel()[0]
+					if (_dens):
+						dm = self.model.make_rdm1()
+					else:
+						dm = None
 				elif (self.model_type == 'CCSD'):
 					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
