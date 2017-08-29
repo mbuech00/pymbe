@@ -243,8 +243,20 @@ class ModelSolver():
 					self.model.conv_tol = 1.0e-10
 					self.model.max_cycle = 500
 					self.model.max_space = 30
-					self.model.level_shift = 0.2
-					e_corr = self.model.kernel()[0]
+					for i in list(range(10)):
+						self.model.level_shift = float(i) / 10.0
+						try:
+							e_corr = self.model.kernel()[0]
+						except sp.linalg.LinAlgError: pass
+						if (self.model.converged): break
+					if (not self.model.converged):
+						try:
+							raise RuntimeError(('\nCAS-CISD Error : no convergence\n'
+												'core_idx = {0:} , cas_idx = {1:}\n\n').\
+												format(_core_idx,_cas_idx))
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
 					if (_dens):
 						dm = self.model.make_rdm1()
 					else:
