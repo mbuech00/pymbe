@@ -208,7 +208,6 @@ class ModelSolver():
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
-				cas_mol.symmetry = _mol.symmetry
 				cas_hf = scf.RHF(cas_mol)
 				cas_hf.conv_tol = 1.0e-12
 				cas_hf.max_cycle = 500
@@ -244,6 +243,7 @@ class ModelSolver():
 					self.model.conv_tol = 1.0e-10
 					self.model.max_cycle = 500
 					self.model.max_space = 30
+					self.model.level_shift = 0.2
 					e_corr = self.model.kernel()[0]
 					if (_dens):
 						dm = self.model.make_rdm1()
