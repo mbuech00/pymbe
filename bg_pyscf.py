@@ -175,7 +175,7 @@ class PySCFCls():
 				# cas calculation
 				if (_calc.exp_model != 'FCI'):
 					hf_cas = solver_cas.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
-					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)[0]
+					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
 					e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
 												_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec)[0]
@@ -186,8 +186,11 @@ class PySCFCls():
 					solver_base = ModelSolver(_calc.exp_base)
 					# base calculation
 					hf_base = solver_base.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
-					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)[0]
+					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
 					e_corr = e_cas - e_base
+					if ((e_corr > 0.0) and (_exp.order > 1)):
+						print(' core_idx = {0:} , cas_idx = {1:} , e_corr = {2:.6f} , e_base = {3:.6f} , e_cas = {4:.6f}'.\
+								format(_exp.core_idx,_exp.cas_idx,e_corr,e_base,e_cas))
 				#
 				return e_corr
 
@@ -208,6 +211,7 @@ class ModelSolver():
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
+				cas_mol.symmetry = _mol.symmetry
 				cas_hf = scf.RHF(cas_mol)
 				cas_hf.conv_tol = 1.0e-12
 				cas_hf.max_cycle = 500
@@ -233,7 +237,7 @@ class ModelSolver():
 				return cas_mol, cas_hf
 
 
-		def kernel(self, _cas_hf, _core_idx, _cas_idx, _dens=False):
+		def kernel(self, _cas_hf, _core_idx, _cas_idx, _e_cas=None):
 				""" model kernel """
 				if (self.model_type == 'MP2'):
 					self.model = mp.MP2(_cas_hf)
@@ -248,7 +252,14 @@ class ModelSolver():
 						try:
 							e_corr = self.model.kernel()[0]
 						except sp.linalg.LinAlgError: pass
-						if (self.model.converged): break
+						if (self.model.converged):
+							if (_e_cas is not None):
+								if (((_cas_hf.e_tot + e_corr) < _e_cas) and (abs((_cas_hf.e_tot + e_corr) - _e_cas) > 1.0e-10)):
+									self.model.converged = False
+								else:
+									break
+							else:
+								break
 					if (not self.model.converged):
 						try:
 							raise RuntimeError(('\nCAS-CISD Error : no convergence\n'
@@ -257,10 +268,6 @@ class ModelSolver():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-					if (_dens):
-						dm = self.model.make_rdm1()
-					else:
-						dm = None
 				elif (self.model_type == 'CCSD'):
 					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
@@ -280,11 +287,7 @@ class ModelSolver():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-					if (_dens):
-						dm = self.model.make_rdm1()
-					else:
-						dm = None
 				#
-				return _cas_hf.e_tot + e_corr, dm
+				return _cas_hf.e_tot + e_corr
 
 
