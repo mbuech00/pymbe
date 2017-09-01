@@ -156,41 +156,41 @@ class PySCFCls():
 
 		def calc(self, _mol, _calc, _exp):
 				""" correlated cas calculation """
-				# init solver
-				if (_calc.exp_model != 'FCI'):
-					solver_cas = ModelSolver(_calc.exp_model)
+				if ((_calc.exp_base in ['CISD','CCSD']) and (_exp.order == 1)):
+					e_corr = 0.0
 				else:
-					if (_mol.spin == 0):
-						solver_cas = fci.direct_spin0.FCI(_mol)
+					# init solver
+					if (_calc.exp_model != 'FCI'):
+						solver_cas = ModelSolver(_calc.exp_model)
 					else:
-						solver_cas = fci.direct_spin1.FCI(_mol)
-				# settings
-				solver_cas.conv_tol = 1.0e-10
-				solver_cas.max_cycle = 500
-				solver_cas.max_space = 30
-				# initial guess
-				na = fci.cistring.num_strings(len(_exp.cas_idx), (_mol.nelectron - 2 * len(_exp.core_idx)) // 2)
-				hf_as_civec = np.zeros((na, na))
-				hf_as_civec[0, 0] = 1
-				# cas calculation
-				if (_calc.exp_model != 'FCI'):
-					hf_cas = solver_cas.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
-					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
-				else:
-					e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-												_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec)[0]
-				# base calculation
-				if (_calc.exp_base == 'HF'):
-					e_corr = (e_cas + _exp.e_core) - _mol.hf.e_tot
-				else:
-					solver_base = ModelSolver(_calc.exp_base)
+						if (_mol.spin == 0):
+							solver_cas = fci.direct_spin0.FCI(_mol)
+						else:
+							solver_cas = fci.direct_spin1.FCI(_mol)
+					# settings
+					solver_cas.conv_tol = 1.0e-10
+					solver_cas.max_cycle = 500
+					solver_cas.max_space = 30
+					# initial guess
+					na = fci.cistring.num_strings(len(_exp.cas_idx), (_mol.nelectron - 2 * len(_exp.core_idx)) // 2)
+					hf_as_civec = np.zeros((na, na))
+					hf_as_civec[0, 0] = 1
+					# cas calculation
+					if (_calc.exp_model != 'FCI'):
+						hf_cas = solver_cas.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
+						e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
+					else:
+						e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
+													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec)[0]
 					# base calculation
-					hf_base = solver_base.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
-					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
-					e_corr = e_cas - e_base
-					if ((e_corr > 0.0) and (_exp.order > 1)):
-						print(' core_idx = {0:} , cas_idx = {1:} , e_corr = {2:.6f} , e_base = {3:.6f} , e_cas = {4:.6f}'.\
-								format(_exp.core_idx,_exp.cas_idx,e_corr,e_base,e_cas))
+					if (_calc.exp_base == 'HF'):
+						e_corr = (e_cas + _exp.e_core) - _mol.hf.e_tot
+					else:
+						# base calculation
+						solver_base = ModelSolver(_calc.exp_base)
+						hf_base = solver_base.fake_hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
+						e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
+						e_corr = e_cas - e_base
 				#
 				return e_corr
 
@@ -254,7 +254,7 @@ class ModelSolver():
 						except sp.linalg.LinAlgError: pass
 						if (self.model.converged):
 							if (_e_cas is not None):
-								if (((_cas_hf.e_tot + e_corr) < _e_cas) and (abs((_cas_hf.e_tot + e_corr) - _e_cas) > 1.0e-10)):
+								if ((_cas_hf.e_tot + e_corr) < _e_cas):
 									self.model.converged = False
 								else:
 									break
