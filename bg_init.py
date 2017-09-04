@@ -45,7 +45,8 @@ class InitCls():
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation
-				self.mol.hf, self.mol.norb, self.mol.nocc, self.mol.nvirt = self.pyscf.hf(self.mol, self.calc)
+				self.mol.hf, self.mol.norb, self.mol.nocc, \
+					self.mol.nvirt, self.mol.orbsym = self.pyscf.hf(self.mol, self.calc)
 				# expansion and driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):

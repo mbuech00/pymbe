@@ -17,7 +17,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 try:
-	from pyscf import gto, scf, ao2mo, lo, mp, ci, cc, fci
+	from pyscf import gto, symm, scf, ao2mo, lo, mp, ci, cc, fci
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
@@ -47,8 +47,10 @@ class PySCFCls():
 				norb = hf.mo_coeff.shape[1]
 				nocc = int(hf.mo_occ.sum()) // 2
 				nvirt = norb - nocc
+				# orbsym
+				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
-				return hf, norb, nocc, nvirt
+				return hf, norb, nocc, nvirt, orbsym
 
 
 		def int_trans(self, _mol, _calc, _exp):
@@ -109,7 +111,11 @@ class PySCFCls():
 					# occ-occ block
 					if ((_calc.exp_occ != 'HF') and (_exp.order == _exp.min_order)):
 						if (_calc.exp_occ == 'NO'):
-							occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
+							if (_mol.symmetry):
+								occup, no = symm.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))], \
+														_mol.orbsym[:_mol.nvirt])
+							else:
+								occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
 							mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 						elif (_calc.exp_occ == 'PM'):
 							mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
@@ -120,12 +126,20 @@ class PySCFCls():
 						_mol.trans_mat[:, _mol.ncore:_mol.nocc] = mo_coeff_occ
 					# virt-virt block
 					if (_calc.exp_virt != 'HF'):
-						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
+						if (_mol.symmetry):
+							occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
+													_mol.orbsym[_mol.nocc:])
+						else:
+							occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
 						mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
 						_mol.trans_mat[:, _mol.nocc:] = mo_coeff_virt
+					# perform integral transformation
 					_mol.h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hf.get_hcore(), _mol.trans_mat))
 					_mol.h2e = ao2mo.kernel(_mol, _mol.trans_mat)
 					_mol.h2e = ao2mo.restore(1, _mol.h2e, _mol.norb)
+					# overwrite orbsym
+					if (((_calc.exp_occ != 'HF') and (_exp.order == _exp.min_order)) or (_calc.exp_virt != 'HF')):
+						_mol.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mol.trans_mat)
 				#
 				return
 
@@ -163,10 +177,7 @@ class PySCFCls():
 					if (_calc.exp_model != 'FCI'):
 						solver_cas = ModelSolver(_calc.exp_model)
 					else:
-						if (_mol.spin == 0):
-							solver_cas = fci.direct_spin0.FCI(_mol)
-						else:
-							solver_cas = fci.direct_spin1.FCI(_mol)
+						solver_cas = fci.direct_spin0_symm.FCI(_mol)
 					# settings
 					solver_cas.conv_tol = 1.0e-10
 					solver_cas.max_cycle = 500
@@ -181,7 +192,8 @@ class PySCFCls():
 						e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 					else:
 						e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec)[0]
+													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec, \
+													orbsym=_mol.orbsym)[0]
 					# base calculation
 					if (_calc.exp_base == 'HF'):
 						e_corr = (e_cas + _exp.e_core) - _mol.hf.e_tot
@@ -247,8 +259,8 @@ class ModelSolver():
 					self.model.conv_tol = 1.0e-10
 					self.model.max_cycle = 500
 					self.model.max_space = 30
-					for i in list(range(10)):
-						self.model.level_shift = float(i) / 10.0
+					for i in list(range(1,10)):
+						self.model.level_shift = float(i) * 1.0e-03
 						try:
 							e_corr = self.model.kernel()[0]
 						except sp.linalg.LinAlgError: pass
