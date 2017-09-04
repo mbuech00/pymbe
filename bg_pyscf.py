@@ -264,14 +264,7 @@ class ModelSolver():
 						try:
 							e_corr = self.model.kernel()[0]
 						except sp.linalg.LinAlgError: pass
-						if (self.model.converged):
-							if (_e_cas is not None):
-								if ((_cas_hf.e_tot + e_corr) < _e_cas):
-									self.model.converged = False
-								else:
-									break
-							else:
-								break
+						if (self.model.converged): break
 					if (not self.model.converged):
 						try:
 							raise RuntimeError(('\nCAS-CISD Error : no convergence\n'
@@ -280,6 +273,15 @@ class ModelSolver():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
+					if (_e_cas is not None):
+						if ((_cas_hf.e_tot + e_corr) < _e_cas):
+							try:
+								raise RuntimeError(('\nCAS-CISD Error : wrong convergence\n'
+													'core_idx = {0:} , cas_idx = {1:}\n\n').\
+													format(_core_idx,_cas_idx))
+							except Exception as err:
+								sys.stderr.write(str(err))
+								raise
 				elif (self.model_type == 'CCSD'):
 					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
