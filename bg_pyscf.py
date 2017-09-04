@@ -29,7 +29,7 @@ class PySCFCls():
 				# perform hf calc
 				hf = scf.RHF(_mol)
 				hf.conv_tol = 1.0e-12
-				hf.max_cycle = 500
+				hf.max_cycle = 100
 				hf.irrep_nelec = _mol.irrep_nelec
 				for i in list(range(0, 12, 2)):
 					hf.diis_start_cycle = i
@@ -78,7 +78,7 @@ class PySCFCls():
 						# calculate ccsd energy
 						cisd = ci.CISD(_mol.hf)
 						cisd.conv_tol = 1.0e-10
-						cisd.max_cycle = 500
+						cisd.max_cycle = 100
 						cisd.max_space = 30
 						cisd.frozen = frozen
 						_mol.e_zero = cisd.kernel()[0]
@@ -88,7 +88,7 @@ class PySCFCls():
 						# calculate ccsd energy
 						ccsd = cc.CCSD(_mol.hf)
 						ccsd.conv_tol = 1.0e-10
-						ccsd.max_cycle = 500
+						ccsd.max_cycle = 100
 						ccsd.frozen = frozen
 						for i in list(range(0, 12, 2)):
 							ccsd.diis_start_cycle = i
@@ -180,7 +180,7 @@ class PySCFCls():
 						solver_cas = fci.direct_spin0_symm.FCI(_mol)
 					# settings
 					solver_cas.conv_tol = 1.0e-10
-					solver_cas.max_cycle = 500
+					solver_cas.max_cycle = 100
 					solver_cas.max_space = 30
 					# initial guess
 					na = fci.cistring.num_strings(len(_exp.cas_idx), (_mol.nelectron - 2 * len(_exp.core_idx)) // 2)
@@ -226,7 +226,7 @@ class ModelSolver():
 				cas_mol.symmetry = _mol.symmetry
 				cas_hf = scf.RHF(cas_mol)
 				cas_hf.conv_tol = 1.0e-12
-				cas_hf.max_cycle = 500
+				cas_hf.max_cycle = 100
 				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
@@ -257,10 +257,10 @@ class ModelSolver():
 				elif (self.model_type == 'CISD'):
 					self.model = ci.CISD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
-					self.model.max_cycle = 500
+					self.model.max_cycle = 100
 					self.model.max_space = 30
-					for i in list(range(1,10)):
-						self.model.level_shift = float(i) * 1.0e-03
+					for i in range(5,-1,-1):
+						self.model.level_shift = 1.0 / 10.0 ** (i)
 						try:
 							e_corr = self.model.kernel()[0]
 						except sp.linalg.LinAlgError: pass
@@ -286,7 +286,7 @@ class ModelSolver():
 					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 10
-					self.model.max_cycle = 500
+					self.model.max_cycle = 100
 					for i in list(range(0, 12, 2)):
 						self.model.diis_start_cycle = i
 						try:
