@@ -177,7 +177,10 @@ class PySCFCls():
 					if (_calc.exp_model != 'FCI'):
 						solver_cas = ModelSolver(_calc.exp_model)
 					else:
-						solver_cas = fci.direct_spin0_symm.FCI(_mol)
+						if (_mol.spin == 0):
+							solver_cas = fci.direct_spin0.FCI()
+						else:
+							solver_cas = fci.direct_spin1.FCI()
 					# settings
 					solver_cas.conv_tol = 1.0e-10
 					solver_cas.max_cycle = 100
@@ -223,7 +226,6 @@ class ModelSolver():
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
-				cas_mol.symmetry = _mol.symmetry
 				cas_hf = scf.RHF(cas_mol)
 				cas_hf.conv_tol = 1.0e-12
 				cas_hf.max_cycle = 100
