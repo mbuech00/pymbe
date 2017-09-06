@@ -41,7 +41,7 @@ class InitCls():
 				self.rst = RstCls(self.out, self.mpi)
 				# molecule and calculation instantiations
 				self.mol = MolCls(self.mpi, self.rst)
-				self.calc = CalcCls(self.mpi, self.rst)
+				self.calc = CalcCls(self.mpi, self.rst, self.mol)
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation

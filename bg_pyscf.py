@@ -108,14 +108,11 @@ class PySCFCls():
 					_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
 					# init transformation matrix
 					if (_mol.trans_mat is None): _mol.trans_mat = _mol.hf.mo_coeff
-					# occ-occ block
+					# occ-occ block (local, intrinsic AOs, or symmetry-adapted AOs)
 					if ((_calc.exp_occ != 'HF') and (_exp.order == _exp.min_order)):
 						if (_calc.exp_occ == 'NO'):
-							if (_mol.symmetry):
-								occup, no = symm.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))], \
-														_mol.orbsym[:_mol.nvirt])
-							else:
-								occup, no = sp.linalg.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))])
+							occup, no = symm.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))], \
+													_mol.orbsym[sorted(list(set(range(_mol.nocc)) - set(frozen)))])
 							mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 						elif (_calc.exp_occ == 'PM'):
 							mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
@@ -124,14 +121,18 @@ class PySCFCls():
 						elif (_calc.exp_occ == 'BOYS'):
 							mo_coeff_occ = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
 						_mol.trans_mat[:, _mol.ncore:_mol.nocc] = mo_coeff_occ
-					# virt-virt block
+					# virt-virt block (symmetry-adapted NOs)
 					if (_calc.exp_virt != 'HF'):
-						if (_mol.symmetry):
+						if (_calc.exp_virt == 'NO'):
 							occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
 													_mol.orbsym[_mol.nocc:])
-						else:
-							occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-						mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+							mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+						elif (_calc.exp_virt == 'PM'):
+							mo_coeff_virt = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
+						elif (_calc.exp_virt == 'ER'):
+							mo_coeff_virt = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
+						elif (_calc.exp_virt == 'BOYS'):
+							mo_coeff_virt = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
 						_mol.trans_mat[:, _mol.nocc:] = mo_coeff_virt
 					# perform integral transformation
 					_mol.h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hf.get_hcore(), _mol.trans_mat))

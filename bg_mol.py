@@ -26,6 +26,8 @@ class MolCls(gto.Mole):
 				gto.Mole.__init__(self)
 				# set geometric and molecular parameters
 				if (_mpi.global_master):
+					# default C1 symmetry
+					self.symmetry = 'C1'
 					# init occupation
 					self.irrep_nelec = {}
 					# set default value for FC
