@@ -62,7 +62,7 @@ class PySCFCls():
 					frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx)))
 				# proceed or return
 				if ((_calc.exp_type in ['occupied','virtual']) or \
-					((_calc.exp_virt != 'DNO') and (_mol.trans_mat is None)) or \
+					((_calc.exp_virt != 'DNO') and ((_mol.trans_mat_occ is None) and (_mol.trans_mat_virt is None))) or \
 					(_calc.exp_virt == 'DNO')):
 					# zeroth-order energy
 					if (_calc.exp_base == 'HF'):
@@ -106,41 +106,48 @@ class PySCFCls():
 							dm = ccsd.make_rdm1()
 					# sum up total zeroth-order energy
 					_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
-					# init transformation matrix
-					if (_mol.trans_mat is None): _mol.trans_mat = _mol.hf.mo_coeff
-					# occ-occ block (local, intrinsic AOs, or symmetry-adapted AOs)
-					if ((_calc.exp_occ != 'HF') and (_exp.order == _exp.min_order)):
-						if (_calc.exp_occ == 'NO'):
-							occup, no = symm.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))], \
-													_mol.orbsym[sorted(list(set(range(_mol.nocc)) - set(frozen)))])
-							mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
-						elif (_calc.exp_occ == 'PM'):
-							mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-						elif (_calc.exp_occ == 'ER'):
-							mo_coeff_occ = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-						elif (_calc.exp_occ == 'BOYS'):
-							mo_coeff_occ = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-						_mol.trans_mat[:, _mol.ncore:_mol.nocc] = mo_coeff_occ
-					# virt-virt block (symmetry-adapted NOs)
-					if (_calc.exp_virt != 'HF'):
-						if (_calc.exp_virt == 'NO'):
-							occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
-													_mol.orbsym[_mol.nocc:])
-							mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-						elif (_calc.exp_virt == 'PM'):
-							mo_coeff_virt = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
-						elif (_calc.exp_virt == 'ER'):
-							mo_coeff_virt = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
-						elif (_calc.exp_virt == 'BOYS'):
-							mo_coeff_virt = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
-						_mol.trans_mat[:, _mol.nocc:] = mo_coeff_virt
-					# perform integral transformation
-					_mol.h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hf.get_hcore(), _mol.trans_mat))
-					_mol.h2e = ao2mo.kernel(_mol, _mol.trans_mat)
-					_mol.h2e = ao2mo.restore(1, _mol.h2e, _mol.norb)
-					# overwrite orbsym
-					if (((_calc.exp_occ != 'HF') and (_exp.order == _exp.min_order)) or (_calc.exp_virt != 'HF')):
-						_mol.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mol.trans_mat)
+					# set transformation matrix
+					if (_mol.trans_mat_occ is None):
+						# init transformation matrix
+						_mol.trans_mat_occ = _mol.hf.mo_coeff[:, :_mol.nocc]
+						# occ-occ block (local, intrinsic AOs, or symmetry-adapted AOs)
+						if (_calc.exp_occ != 'HF'):
+							if (_calc.exp_occ == 'NO'):
+								occup, no = symm.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))], \
+														_mol.orbsym[sorted(list(set(range(_mol.nocc)) - set(frozen)))])
+								mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
+							elif (_calc.exp_occ == 'PM'):
+								mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+							elif (_calc.exp_occ == 'ER'):
+								mo_coeff_occ = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+							elif (_calc.exp_occ == 'BOYS'):
+								mo_coeff_occ = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+							_mol.trans_mat_occ[:, _mol.ncore:] = mo_coeff_occ
+					if ((_mol.trans_mat_virt is None) or (_calc.exp_virt == 'DNO')):
+						# init transformation matrix
+						_mol.trans_mat_virt = _mol.hf.mo_coeff[:, _mol.nocc:]
+						# virt-virt block (symmetry-adapted NOs)
+						if (_calc.exp_virt != 'HF'):
+							if (_calc.exp_virt in ['NO','DNO']):
+								occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
+														_mol.orbsym[_mol.nocc:])
+								mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+							elif (_calc.exp_virt == 'PM'):
+								mo_coeff_virt = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
+							elif (_calc.exp_virt == 'ER'):
+								mo_coeff_virt = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
+							elif (_calc.exp_virt == 'BOYS'):
+								mo_coeff_virt = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
+							_mol.trans_mat_virt = mo_coeff_virt
+					# concatenate transformation matrices
+					trans_mat = np.concatenate((_mol.trans_mat_occ, _mol.trans_mat_virt), axis=1)
+				# perform integral transformation
+				_mol.h1e = reduce(np.dot, (np.transpose(trans_mat), _mol.hf.get_hcore(), trans_mat))
+				_mol.h2e = ao2mo.kernel(_mol, trans_mat)
+				_mol.h2e = ao2mo.restore(1, _mol.h2e, _mol.norb)
+				# overwrite orbsym
+				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
+					_mol.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, trans_mat)
 				#
 				return
 
