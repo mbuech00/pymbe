@@ -56,10 +56,10 @@ class PySCFCls():
 		def int_trans(self, _mol, _calc, _exp):
 				""" determine dimensions """
 				# set frozen list
-				if ((_calc.exp_type in ['occupied','virtual']) or (_calc.exp_virt == 'NO')):
-					frozen = list(range(_mol.ncore))
-				else:
+				if (_calc.exp_virt == 'DNO'):
 					frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx)))
+				else:
+					frozen = list(range(_mol.ncore))
 				# proceed or return
 				if ((_calc.exp_type in ['occupied','virtual']) or \
 					((_calc.exp_virt != 'DNO') and ((_mol.trans_mat_occ is None) and (_mol.trans_mat_virt is None))) or \
@@ -106,7 +106,10 @@ class PySCFCls():
 						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = ccsd.make_rdm1()
 					# sum up total zeroth-order energy
-					_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
+					if (_calc.exp_virt == 'DNO'):
+						_mol.e_zero_tot = _mol.hf.e_tot
+					else:
+						_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
 					# set transformation matrix
 					if (_mol.trans_mat_occ is None):
 						# init transformation matrix
@@ -114,8 +117,8 @@ class PySCFCls():
 						# occ-occ block (local, intrinsic AOs, or symmetry-adapted AOs)
 						if (_calc.exp_occ != 'HF'):
 							if (_calc.exp_occ == 'NO'):
-								occup, no = symm.eigh(dm[:(_mol.nocc-len(frozen)), :(_mol.nocc-len(frozen))], \
-														_mol.orbsym[sorted(list(set(range(_mol.nocc)) - set(frozen)))])
+								occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], \
+														_mol.orbsym[_mol.ncore:_mol.nocc])
 								mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 							elif (_calc.exp_occ == 'PM'):
 								mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
