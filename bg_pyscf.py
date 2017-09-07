@@ -89,6 +89,7 @@ class PySCFCls():
 						ccsd = cc.CCSD(_mol.hf)
 						ccsd.conv_tol = 1.0e-10
 						ccsd.max_cycle = 100
+						ccsd.diis_space = 10
 						ccsd.frozen = frozen
 						for i in list(range(0, 12, 2)):
 							ccsd.diis_start_cycle = i
