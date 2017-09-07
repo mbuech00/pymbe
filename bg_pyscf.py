@@ -140,14 +140,14 @@ class PySCFCls():
 								mo_coeff_virt = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
 							_mol.trans_mat_virt = mo_coeff_virt
 					# concatenate transformation matrices
-					trans_mat = np.concatenate((_mol.trans_mat_occ, _mol.trans_mat_virt), axis=1)
+					_mol.trans_mat = np.concatenate((_mol.trans_mat_occ, _mol.trans_mat_virt), axis=1)
 				# perform integral transformation
-				_mol.h1e = reduce(np.dot, (np.transpose(trans_mat), _mol.hf.get_hcore(), trans_mat))
-				_mol.h2e = ao2mo.kernel(_mol, trans_mat)
+				_mol.h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hf.get_hcore(), _mol.trans_mat))
+				_mol.h2e = ao2mo.kernel(_mol, _mol.trans_mat)
 				_mol.h2e = ao2mo.restore(1, _mol.h2e, _mol.norb)
 				# overwrite orbsym
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
-					_mol.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, trans_mat)
+					_mol.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mol.trans_mat)
 				#
 				return
 
