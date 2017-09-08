@@ -53,7 +53,7 @@ class PySCFCls():
 				return hf, norb, nocc, nvirt, orbsym
 
 
-		def int_trans(self, _mol, _calc, _exp):
+		def int_trans(self, _mpi, _mol, _calc, _exp):
 				""" determine dimensions """
 				# set frozen list
 				if (_calc.exp_virt == 'DNO'):
@@ -71,7 +71,7 @@ class PySCFCls():
 						# calculate mp2 energy
 						mp2 = mp.MP2(_mol.hf)
 						mp2.frozen = frozen
-						_mol.e_zero = mp2.kernel()[0]
+						e_corr = mp2.kernel()[0]
 						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = mp2.make_rdm1()
 					elif (_calc.exp_base == 'CISD'):
@@ -81,7 +81,18 @@ class PySCFCls():
 						cisd.max_cycle = 100
 						cisd.max_space = 30
 						cisd.frozen = frozen
-						_mol.e_zero = cisd.kernel()[0]
+						for i in range(5,-1,-1):
+							cisd.level_shift = 1.0 / 10.0 ** (i)
+							try:
+								e_corr = cisd.kernel()[0]
+							except sp.linalg.LinAlgError: pass
+							if (cisd.converged): break
+						if (not cisd.converged):
+							try:
+								raise RuntimeError('\nCISD (int-trans) Error : no convergence\n\n')
+							except Exception as err:
+								sys.stderr.write(str(err))
+								raise
 						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = cisd.make_rdm1()
 					elif (_calc.exp_base == 'CCSD'):
@@ -94,7 +105,7 @@ class PySCFCls():
 						for i in list(range(0, 12, 2)):
 							ccsd.diis_start_cycle = i
 							try:
-								_mol.e_zero = ccsd.kernel()[0]
+								e_corr = ccsd.kernel()[0]
 							except sp.linalg.LinAlgError: pass
 							if (ccsd.converged): break
 						if (not ccsd.converged):
@@ -106,10 +117,13 @@ class PySCFCls():
 						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
 							dm = ccsd.make_rdm1()
 					# sum up total zeroth-order energy
-					if (_calc.exp_virt == 'DNO'):
-						ccsd.frozen = list(range(_mol.ncore))
-						_mol.e_zero = ccsd.kernel()[0]
-					_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
+					if ((_mol.e_zero_tot is None) and (_mpi.prim_master)):
+						if (_calc.exp_virt == 'DNO'):
+							ccsd.frozen = list(range(_mol.ncore))
+							_mol.e_zero = ccsd.kernel()[0]
+						else:
+							_mol.e_zero = e_corr
+						_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
 					# set transformation matrix
 					if (_mol.trans_mat_occ is None):
 						# init transformation matrix
@@ -182,42 +196,39 @@ class PySCFCls():
 
 		def calc(self, _mol, _calc, _exp):
 				""" correlated cas calculation """
-				if ((_calc.exp_base in ['CISD','CCSD']) and (_exp.order == 1)):
-					e_corr = 0.0
+				# init solver
+				if (_calc.exp_model != 'FCI'):
+					solver_cas = ModelSolver(_calc.exp_model)
 				else:
-					# init solver
-					if (_calc.exp_model != 'FCI'):
-						solver_cas = ModelSolver(_calc.exp_model)
+					if (_mol.spin == 0):
+						solver_cas = fci.direct_spin0.FCI()
 					else:
-						if (_mol.spin == 0):
-							solver_cas = fci.direct_spin0.FCI()
-						else:
-							solver_cas = fci.direct_spin1.FCI()
-					# settings
-					solver_cas.conv_tol = 1.0e-10
-					solver_cas.max_cycle = 100
-					solver_cas.max_space = 30
-					# initial guess
-					na = fci.cistring.num_strings(len(_exp.cas_idx), (_mol.nelectron - 2 * len(_exp.core_idx)) // 2)
-					hf_as_civec = np.zeros((na, na))
-					hf_as_civec[0, 0] = 1
-					# cas calculation
-					if (_calc.exp_model != 'FCI'):
-						hf_cas = solver_cas.hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
-						e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
-					else:
-						e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec, \
-													orbsym=_mol.orbsym)[0]
+						solver_cas = fci.direct_spin1.FCI()
+				# settings
+				solver_cas.conv_tol = 1.0e-10
+				solver_cas.max_cycle = 100
+				solver_cas.max_space = 30
+				# initial guess
+				na = fci.cistring.num_strings(len(_exp.cas_idx), (_mol.nelectron - 2 * len(_exp.core_idx)) // 2)
+				hf_as_civec = np.zeros((na, na))
+				hf_as_civec[0, 0] = 1
+				# cas calculation
+				if (_calc.exp_model != 'FCI'):
+					hf_cas = solver_cas.hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
+					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
+				else:
+					e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
+												_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec, \
+												orbsym=_mol.orbsym)[0]
+				# base calculation
+				if (_calc.exp_base == 'HF'):
+					e_corr = (e_cas + _exp.e_core) - _mol.hf.e_tot
+				else:
 					# base calculation
-					if (_calc.exp_base == 'HF'):
-						e_corr = (e_cas + _exp.e_core) - _mol.hf.e_tot
-					else:
-						# base calculation
-						solver_base = ModelSolver(_calc.exp_base)
-						hf_base = solver_base.hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
-						e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
-						e_corr = e_cas - e_base
+					solver_base = ModelSolver(_calc.exp_base)
+					hf_base = solver_base.hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
+					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
+					e_corr = e_cas - e_base
 				#
 				return e_corr
 

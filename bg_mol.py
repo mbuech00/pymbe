@@ -58,6 +58,8 @@ class MolCls(gto.Mole):
 				self.ncore = self.set_ncore()
 				# init transformation matrices
 				self.trans_mat_occ = None; self.trans_mat_virt = None
+				# init e_zero_tot
+				self.e_zero_tot = None
 				#
 				return
 

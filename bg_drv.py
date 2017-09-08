@@ -41,7 +41,7 @@ class DrvCls():
 				# integral transformation
 				if (_exp.level == 'micro'):
 					try:
-						_pyscf.int_trans(_mol, _calc, _exp)
+						_pyscf.int_trans(_mpi, _mol, _calc, _exp)
 					except Exception as err:
 						sys.stderr.write('\nINT-TRANS Error : problem with integral transformation\n'
 											'PySCF error : {0:}\n\n'.\
