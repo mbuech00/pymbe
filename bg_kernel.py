@@ -78,9 +78,7 @@ class KernCls():
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
 				if (_exp.order == 1):
-					if ((_calc.exp_type in ['occupied','virtual']) or \
-						((_exp.level == 'macro') and (_calc.exp_virt != 'DNO')) or \
-						((_exp.level == 'micro') and (_calc.exp_virt == 'DNO'))):
+					if ((_calc.exp_type in ['occupied','virtual']) or (_exp.level == 'macro')):
 						e_tmp += _mol.e_zero
 				else:
 					e_tmp += _exp.energy_tot[-1]

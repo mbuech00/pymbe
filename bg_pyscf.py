@@ -107,9 +107,9 @@ class PySCFCls():
 							dm = ccsd.make_rdm1()
 					# sum up total zeroth-order energy
 					if (_calc.exp_virt == 'DNO'):
-						_mol.e_zero_tot = _mol.hf.e_tot
-					else:
-						_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
+						ccsd.frozen = list(range(_mol.ncore))
+						_mol.e_zero = ccsd.kernel()[0]
+					_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
 					# set transformation matrix
 					if (_mol.trans_mat_occ is None):
 						# init transformation matrix
