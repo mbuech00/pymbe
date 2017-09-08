@@ -168,7 +168,7 @@ class KernCls():
 				# init time
 				if (_mpi.global_master and (len(_exp.time_kernel) < _exp.order)):
 					_exp.time_kernel.append(0.0)
-					time = MPI.Wtime()
+				time = MPI.Wtime()
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
