@@ -65,10 +65,13 @@ class RstCls():
 				return self.rst_freq / 2.
 
 
-		def write_kernel(self, _exp, _final):
+		def write_kernel(self, _calc, _exp, _final):
 				""" write energy kernel restart files """
 				# write e_inc
 				np.save(join(self.rst_dir, 'e_inc_'+str(_exp.order)), _exp.energy_inc[-1])
+				# write micro_conv
+				if (_calc.exp_type == 'combined'):
+					np.save(join(self.rst_dir, 'micro_conv_'+str(_exp.order)), np.asarray(_exp.micro_conv[-1]))
 				# write time
 				np.save(join(self.rst_dir, 'time_kernel_'+str(_exp.order)), np.asarray(_exp.time_kernel[-1]))
 				# write e_tot
@@ -105,6 +108,9 @@ class RstCls():
 					# read e_tot
 					elif ('e_tot' in files[i]):
 						_exp.energy_tot.append(np.load(join(self.rst_dir, files[i])).tolist())
+					# read e_tot
+					elif ('micro_conv' in files[i]):
+						_exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read timings
 					elif ('time_kernel' in files[i]):
 						_exp.time_kernel.append(np.load(join(self.rst_dir, files[i])).tolist())

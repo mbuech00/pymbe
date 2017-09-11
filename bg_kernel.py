@@ -66,14 +66,18 @@ class KernCls():
 
 		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
 				""" energy kernel phase """
-				# init micro_conv_res list
+				# init micro_conv list
 				if (_mpi.global_master and (_exp.level == 'macro')):
-					_exp.micro_conv_res.append(np.zeros(len(_exp.tuples[-1]), dtype=np.int32))
+					if (len(_exp.micro_conv) < _exp.order):
+						_exp.micro_conv.append(np.zeros(len(_exp.tuples[-1]), dtype=np.int32))
 				# mpi parallel version
 				if (_mpi.parallel):
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
+				# manually force e_inc to zero in case of CISD and CCSD base models
+				if ((_exp.order == 1) and (_calc.exp_base in ['CISD','CCSD'])):
+					_exp.energy_inc[-1].fill(0.0)
 				# sum of energy increments
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
@@ -119,7 +123,7 @@ class KernCls():
 						drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results
 						_exp.energy_inc[-1][i] = exp_micro.energy_tot[-1]
-						_exp.micro_conv_res[-1][i] = exp_micro.order
+						_exp.micro_conv[-1][i] = exp_micro.order
 					else:
 						# generate input
 						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas, _exp.e_core = \
@@ -134,7 +138,7 @@ class KernCls():
 						# collect time
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
-						_rst.write_kernel(_exp, False)
+						_rst.write_kernel(_calc, _exp, False)
 				#
 				return
 
@@ -211,13 +215,13 @@ class KernCls():
 					elif (tag == self.tags.done):
 						# write to e_inc
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
-						# write to micro_conv_res
+						# write to micro_conv
 						if (_mpi.global_master and (_exp.level == 'macro')):
 							self.summation(_exp, data['index'])
-							_exp.micro_conv_res[-1][data['index']] = data['micro_order']
+							_exp.micro_conv[-1][data['index']] = data['micro_order']
 						# write restart files
 						if (_mpi.global_master and ((((data['index']+1) % int(_rst.rst_freq)) == 0) or (_exp.level == 'macro'))):
-							_rst.write_kernel(_exp, False)
+							_rst.write_kernel(_calc, _exp, False)
 						# increment stat counter
 						counter += 1
 						# print status

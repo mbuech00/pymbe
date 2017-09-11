@@ -89,7 +89,7 @@ class DrvCls():
 						# print kernel end
 						_prt.kernel_end(_calc, _exp)
 						# write restart files
-						_rst.write_kernel(_exp, True)
+						_rst.write_kernel(_calc, _exp, True)
 						# print kernel results
 						_prt.kernel_results(_calc, _exp)
 					#

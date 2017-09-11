@@ -149,11 +149,11 @@ class PrintCls():
 				""" print micro result statistics """
 				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
 					# statistics
-					mean_val = np.mean(_exp.micro_conv_res[-1])
-					min_val = _exp.micro_conv_res[-1][np.argmin(_exp.micro_conv_res[-1])]
-					max_val = _exp.micro_conv_res[-1][np.argmax(_exp.micro_conv_res[-1])]
-					if (len(_exp.micro_conv_res[-1]) > 1):
-						std_val = np.std(_exp.micro_conv_res[-1], ddof=1)
+					mean_val = np.mean(_exp.micro_conv[-1])
+					min_val = _exp.micro_conv[-1][np.argmin(_exp.micro_conv[-1])]
+					max_val = _exp.micro_conv[-1][np.argmax(_exp.micro_conv[-1])]
+					if (len(_exp.micro_conv[-1]) > 1):
+						std_val = np.std(_exp.micro_conv[-1], ddof=1)
 					else:
 						std_val = 0.0
 					# now print
