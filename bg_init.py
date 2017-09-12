@@ -44,9 +44,23 @@ class InitCls():
 				self.calc = CalcCls(self.mpi, self.rst, self.mol)
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
-				# hf calculation
-				self.mol.hf, self.mol.norb, self.mol.nocc, \
-					self.mol.nvirt, self.mol.orbsym = self.pyscf.hf(self.mol, self.calc)
+				# hf calculation and main transformation matrix
+				if (self.mpi.global_master):
+					if (self.rst.restart):
+						self.rst.read_hf_trans(self.mol)
+						self.mol.hf = self.pyscf.hf(self.mol, self.calc) 
+					else:
+						self.mol.hf = self.pyscf.hf(self.mol, self.calc) 
+						self.pyscf.trans_main(self.mol, self.calc)
+						# write restart files
+						self.rst.write_hf_trans(self.mol)
+				# bcast hf and transformation info
+				self.mpi.bcast_hf_info(self.mol)
+				if (self.mpi.num_local_masters >= 1):
+					self.mpi.bcast_trans_info(self.mol)
+					if (self.mpi.local_master):
+						self.mol.hf = self.pyscf.hf(self.mol, self.calc)
+						self.mol.hf.mo_coeff = self.mol.trans_mat
 				# expansion and driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):

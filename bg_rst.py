@@ -49,8 +49,8 @@ class RstCls():
 					# set start order for expansion
 					_exp.min_order = 1
 				else:
-					# read in restart files
-					self.read_main(_mpi, _calc, _exp)
+					# read in _exp restart files
+					self.read_exp(_exp)
 					# update restart frequency
 					for _ in range(1, _exp.min_order): self.rst_freq = self.update()
 				# init _exp.order
@@ -63,6 +63,18 @@ class RstCls():
 				""" update restart freq according to start order """
 				#
 				return self.rst_freq / 2.
+
+
+		def write_hf_trans(self, _mol):
+				""" write hf_dens and trans_mat restart files """
+				# write hf_dens
+				np.save(join(self.rst_dir, 'hf_dens'), _mol.hf_dens)
+				# write trans_mat
+				np.save(join(self.rst_dir, 'trans_mat'), _mol.trans_mat)
+				# write e_zero
+				np.save(join(self.rst_dir, 'e_zero'), _mol.e_zero)
+				#
+				return
 
 
 		def write_kernel(self, _calc, _exp, _final):
@@ -91,8 +103,29 @@ class RstCls():
 				return
 
 
-		def read_main(self, _mpi, _calc, _exp):
-				""" driver for reading of restart files """
+		def read_hf_trans(self, _mol):
+				""" driver for reading _mol restart files """
+				# list filenames in files list
+				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
+				# sort the list of files
+				files.sort()
+				# loop over files
+				for i in range(len(files)):
+					# read hf_dens
+					if ('hf_dens' in files[i]):
+						_mol.hf_dens = np.load(join(self.rst_dir, files[i]))
+					# read trans_mat
+					elif ('trans_mat' in files[i]):
+						_mol.trans_mat = np.load(join(self.rst_dir, files[i]))
+					# read e_zero
+					elif ('e_zero' in files[i]):
+						_mol.e_zero = np.load(join(self.rst_dir, files[i]))
+				#
+				return
+
+
+		def read_exp(self, _exp):
+				""" driver for reading _exp restart files """
 				# list filenames in files list
 				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
 				# sort the list of files
@@ -108,7 +141,7 @@ class RstCls():
 					# read e_tot
 					elif ('e_tot' in files[i]):
 						_exp.energy_tot.append(np.load(join(self.rst_dir, files[i])).tolist())
-					# read e_tot
+					# read micro_conv
 					elif ('micro_conv' in files[i]):
 						_exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read timings

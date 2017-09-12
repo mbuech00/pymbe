@@ -149,6 +149,41 @@ class MPICls():
 				return
 
 
+		def bcast_hf_info(self, _mol):
+				""" bcast hf info """
+				if (self.global_master):
+					# collect dimensions, mo_occ, and orbsym
+					hf_info = {'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
+								'mo_occ': _mol.mo_occ, 'orbsym': _mol.orbsym}
+					# bcast hf_info
+					self.global_comm.bcast(hf_info, root=0)
+				else:
+					# receive dimensions, mo_occ, and orbsym
+					hf_info = self.global_comm.bcast(None, root=0)
+					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
+					_mol.mo_occ = hf_info['mo_occ']; _mol.orbsym = hf_info['orbsym']
+				#
+				return
+
+
+		def bcast_trans_info(self, _mol):
+				""" bcast transformation info """
+				if (self.global_master):
+					# bcast hf_dens
+					self.master_comm.Bcast([_mol.hf_dens, MPI.DOUBLE], root=0)
+					# bcast trans_mat
+					self.master_comm.Bcast([_mol.trans_mat, MPI.DOUBLE], root=0)
+				elif (self.local_master):
+					# receive hf_dens
+					_mol.hf_dens = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
+					self.master_comm.Bcast([_mol.hf_dens, MPI.DOUBLE], root=0)
+					# receive trans_mat
+					_mol.trans_mat = np.zeros([_mol.norb, _mol.norb], dtype=np.float64, order='F')
+					self.master_comm.Bcast([_mol.trans_mat, MPI.DOUBLE], root=0)
+				#
+				return
+
+
 		def bcast_rst(self, _calc, _exp):
 				""" bcast restart files """
 				if (_exp.level == 'macro'):
@@ -167,10 +202,10 @@ class MPICls():
 					comm.bcast(exp_info, root=0)
 					# bcast tuples
 					for i in range(1,len(_exp.tuples)):
-						comm.Bcast([_exp.tuples[i],MPI.INT], root=0)
+						comm.Bcast([_exp.tuples[i], MPI.INT], root=0)
 					# bcast energy increments
 					for i in range(len(_exp.energy_inc)):
-						comm.Bcast([_exp.energy_inc[i],MPI.DOUBLE], root=0)
+						comm.Bcast([_exp.energy_inc[i], MPI.DOUBLE], root=0)
 				else:
 					# receive exp_info
 					exp_info = comm.bcast(None, root=0)
@@ -194,22 +229,6 @@ class MPICls():
 				""" bcast e_inc[-1] """
 				# now do Bcast
 				_comm.Bcast([_exp.energy_inc[-1], MPI.DOUBLE], root=0)
-				#
-				if ((self.global_master or self.prim_master) and \
-					(self.num_local_masters >= 1) and \
-					(_exp.order == 1)): self.comm_e_zero(_mol, _comm)
-				#
-				return
-
-
-		def comm_e_zero(self, _mol, _comm):
-				""" communicate e_zero """
-				if (self.global_master):
-					_mol.e_zero = _comm.recv(source=1, status=self.stat)
-					_mol.e_zero_tot = _comm.recv(source=1, status=self.stat)
-				elif (self.prim_master):
-					_comm.send(_mol.e_zero, dest=0)
-					_comm.send(_mol.e_zero_tot, dest=0)
 				#
 				return
 

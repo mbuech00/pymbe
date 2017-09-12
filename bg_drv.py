@@ -39,14 +39,10 @@ class DrvCls():
 				# restart
 				_rst.rst_main(_mpi, _calc, _exp)
 				# integral transformation
-				if (_exp.level == 'micro'):
-					try:
-						_pyscf.int_trans(_mpi, _mol, _calc, _exp)
-					except Exception as err:
-						sys.stderr.write('\nINT-TRANS Error : problem with integral transformation\n'
-											'PySCF error : {0:}\n\n'.\
-											format(err))
-						raise
+				if ((not (_mpi.global_master and (_calc.exp_type == 'combined'))) and (_exp.level == 'micro')):
+					if (((_mol.h1e is None) and (_mol.h2e is None)) or (_calc.exp_virt == 'DNO')):
+						if (_calc.exp_virt == 'DNO'): _pyscf.trans_dno(_mol, _calc, _exp) 
+						_pyscf.int_trans(_mol, _calc)
 				# exp class instantiation on slaves
 				if (_mpi.parallel):
 					if (_calc.exp_type in ['occupied','virtual']):
@@ -146,8 +142,8 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
 						# mark expansion as macro
 						exp.level = 'macro'
-						_rst.restart = msg['rst']
 						# receive rst data
+						_rst.restart = msg['rst']
 						if (_rst.restart): _mpi.bcast_rst(_calc, exp)
 						# reset restart logical
 						_rst.restart = False

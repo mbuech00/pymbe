@@ -31,141 +31,184 @@ class PySCFCls():
 				hf.conv_tol = 1.0e-12
 				hf.max_cycle = 100
 				hf.irrep_nelec = _mol.irrep_nelec
-				for i in list(range(0, 12, 2)):
-					hf.diis_start_cycle = i
-					try:
-						hf.kernel()
-					except sp.linalg.LinAlgError: pass
-					if (hf.converged): break
-				if (not hf.converged):
-					try:
-						raise RuntimeError('\nHF Error : no convergence\n\n')
-					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
-				# determine dimensions
-				norb = hf.mo_coeff.shape[1]
-				nocc = int(hf.mo_occ.sum()) // 2
-				nvirt = norb - nocc
-				# orbsym
-				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
-				#
-				return hf, norb, nocc, nvirt, orbsym
-
-
-		def int_trans(self, _mpi, _mol, _calc, _exp):
-				""" determine dimensions """
-				# set frozen list
-				if (_calc.exp_virt == 'DNO'):
-					frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx)))
+				if (_mol.hf_dens is None):
+					for i in list(range(0, 12, 2)):
+						hf.diis_start_cycle = i
+						try:
+							hf.kernel()
+						except sp.linalg.LinAlgError: pass
+						if (hf.converged): break
+					if (not hf.converged):
+						try:
+							raise RuntimeError('\nHF Error : no convergence\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					_mol.hf_dens = hf.make_rdm1()
 				else:
-					frozen = list(range(_mol.ncore))
-				# proceed or return
-				if ((_calc.exp_type in ['occupied','virtual']) or \
-					((_calc.exp_virt != 'DNO') and ((_mol.trans_mat_occ is None) and (_mol.trans_mat_virt is None))) or \
-					(_calc.exp_virt == 'DNO')):
-					# zeroth-order energy
-					if (_calc.exp_base == 'HF'):
-						_mol.e_zero = 0.0
-					elif (_calc.exp_base == 'MP2'):
-						# calculate mp2 energy
-						mp2 = mp.MP2(_mol.hf)
-						mp2.frozen = frozen
-						e_corr = mp2.kernel()[0]
-						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
-							dm = mp2.make_rdm1()
-					elif (_calc.exp_base == 'CISD'):
-						# calculate ccsd energy
-						cisd = ci.CISD(_mol.hf)
-						cisd.conv_tol = 1.0e-10
-						cisd.max_cycle = 100
-						cisd.max_space = 30
-						cisd.frozen = frozen
-						for i in range(5,-1,-1):
-							cisd.level_shift = 1.0 / 10.0 ** (i)
-							try:
-								e_corr = cisd.kernel()[0]
-							except sp.linalg.LinAlgError: pass
-							if (cisd.converged): break
-						if (not cisd.converged):
-							try:
-								raise RuntimeError('\nCISD (int-trans) Error : no convergence\n\n')
-							except Exception as err:
-								sys.stderr.write(str(err))
-								raise
-						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
-							dm = cisd.make_rdm1()
-					elif (_calc.exp_base == 'CCSD'):
-						# calculate ccsd energy
-						ccsd = cc.CCSD(_mol.hf)
-						ccsd.conv_tol = 1.0e-10
-						ccsd.max_cycle = 100
-						ccsd.diis_space = 10
-						ccsd.frozen = frozen
-						for i in list(range(0, 12, 2)):
-							ccsd.diis_start_cycle = i
-							try:
-								e_corr = ccsd.kernel()[0]
-							except sp.linalg.LinAlgError: pass
-							if (ccsd.converged): break
-						if (not ccsd.converged):
-							try:
-								raise RuntimeError('\nCCSD (int-trans) Error : no convergence\n\n')
-							except Exception as err:
-								sys.stderr.write(str(err))
-								raise
-						if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
-							dm = ccsd.make_rdm1()
-					# sum up total zeroth-order energy
-					if ((_mol.e_zero_tot is None) and (_mpi.prim_master)):
-						if (_calc.exp_virt == 'DNO'):
-							ccsd.frozen = list(range(_mol.ncore))
+					hf.kernel(_mol.hf_dens)
+				# determine dimensions
+				_mol.norb = hf.mo_coeff.shape[1]
+				_mol.nocc = int(hf.mo_occ.sum()) // 2
+				_mol.nvirt = _mol.norb - _mol.nocc
+				# mo_occ
+				_mol.mo_occ = hf.mo_occ
+				# orbsym
+				_mol.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
+				#
+				return hf
+
+
+		def trans_main(self, _mol, _calc):
+				""" determine main transformation matrices """
+				# set frozen list
+				frozen = list(range(_mol.ncore))
+				# zeroth-order energy
+				if (_calc.exp_base == 'HF'):
+					_mol.e_zero = 0.0
+				elif (_calc.exp_base == 'MP2'):
+					# calculate mp2 energy
+					mp2 = mp.MP2(_mol.hf)
+					mp2.frozen = frozen
+					_mol.e_zero = mp2.kernel()[0]
+					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = mp2.make_rdm1()
+				elif (_calc.exp_base == 'CISD'):
+					# calculate ccsd energy
+					cisd = ci.CISD(_mol.hf)
+					cisd.conv_tol = 1.0e-10
+					cisd.max_cycle = 100
+					cisd.max_space = 30
+					cisd.frozen = frozen
+					for i in range(5,-1,-1):
+						cisd.level_shift = 1.0 / 10.0 ** (i)
+						try:
+							_mol.e_zero = cisd.kernel()[0]
+						except sp.linalg.LinAlgError: pass
+						if (cisd.converged): break
+					if (not cisd.converged):
+						try:
+							raise RuntimeError('\nCISD (main int-trans) Error : no convergence\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = cisd.make_rdm1()
+				elif (_calc.exp_base == 'CCSD'):
+					# calculate ccsd energy
+					ccsd = cc.CCSD(_mol.hf)
+					ccsd.conv_tol = 1.0e-10
+					ccsd.max_cycle = 100
+					ccsd.diis_space = 10
+					ccsd.frozen = frozen
+					for i in list(range(0, 12, 2)):
+						ccsd.diis_start_cycle = i
+						try:
 							_mol.e_zero = ccsd.kernel()[0]
-						else:
-							_mol.e_zero = e_corr
-						_mol.e_zero_tot = _mol.hf.e_tot + _mol.e_zero
-					# set transformation matrix
-					if (_mol.trans_mat_occ is None):
-						# init transformation matrix
-						_mol.trans_mat_occ = _mol.hf.mo_coeff[:, :_mol.nocc]
-						# occ-occ block (local, intrinsic AOs, or symmetry-adapted AOs)
-						if (_calc.exp_occ != 'HF'):
-							if (_calc.exp_occ == 'NO'):
-								occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], \
-														_mol.orbsym[_mol.ncore:_mol.nocc])
-								mo_coeff_occ = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
-							elif (_calc.exp_occ == 'PM'):
-								mo_coeff_occ = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-							elif (_calc.exp_occ == 'ER'):
-								mo_coeff_occ = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-							elif (_calc.exp_occ == 'BOYS'):
-								mo_coeff_occ = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-							_mol.trans_mat_occ[:, _mol.ncore:] = mo_coeff_occ
-					if ((_mol.trans_mat_virt is None) or (_calc.exp_virt == 'DNO')):
-						# init transformation matrix
-						_mol.trans_mat_virt = _mol.hf.mo_coeff[:, _mol.nocc:]
-						# virt-virt block (symmetry-adapted NOs)
-						if (_calc.exp_virt != 'HF'):
-							if (_calc.exp_virt in ['NO','DNO']):
-								occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
-														_mol.orbsym[_mol.nocc:])
-								mo_coeff_virt = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-							elif (_calc.exp_virt == 'PM'):
-								mo_coeff_virt = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
-							elif (_calc.exp_virt == 'ER'):
-								mo_coeff_virt = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
-							elif (_calc.exp_virt == 'BOYS'):
-								mo_coeff_virt = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
-							_mol.trans_mat_virt = mo_coeff_virt
-					# concatenate transformation matrices
-					_mol.trans_mat = np.concatenate((_mol.trans_mat_occ, _mol.trans_mat_virt), axis=1)
+						except sp.linalg.LinAlgError: pass
+						if (ccsd.converged): break
+					if (not ccsd.converged):
+						try:
+							raise RuntimeError('\nCCSD (main int-trans) Error : no convergence\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = ccsd.make_rdm1()
+				# init transformation matrix
+				_mol.trans_mat = np.copy(_mol.hf.mo_coeff)
+				# occ-occ block (local or symmetry-adapted NOs)
+				if (_calc.exp_occ != 'HF'):
+					if (_calc.exp_occ == 'NO'):
+						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], \
+												_mol.orbsym[_mol.ncore:_mol.nocc])
+						_mol.trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
+					elif (_calc.exp_occ == 'PM'):
+						_mol.trans_mat[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+					elif (_calc.exp_occ == 'ER'):
+						_mol.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+					elif (_calc.exp_occ == 'BOYS'):
+						_mol.trans_mat[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+				# virt-virt block (local or symmetry-adapted NOs)
+				if (_calc.exp_virt != 'HF'):
+					if (_calc.exp_virt == 'NO'):
+						occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
+												_mol.orbsym[_mol.nocc:])
+						_mol.trans_mat[:, _mol.nocc:] = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+					elif (_calc.exp_virt == 'PM'):
+						_mol.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
+					elif (_calc.exp_virt == 'ER'):
+						_mol.trans_mat[:, _mol.nocc:] = lo.ER(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
+					elif (_calc.exp_virt == 'BOYS'):
+						_mol.trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _mol.hf.mo_coeff[:, _mol.nocc:]).kernel()
+				#
+				return
+
+
+		def trans_dno(self, _mol, _calc, _exp):
+				""" determine dno transformation matrices """
+				# set frozen list
+				frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx))) 
+				# zeroth-order energy
+				if (_calc.exp_base == 'MP2'):
+					# calculate mp2 energy
+					mp2 = mp.MP2(_mol.hf)
+					mp2.frozen = frozen
+					mp2.kernel()
+					dm = mp2.make_rdm1()
+				elif (_calc.exp_base == 'CISD'):
+					# calculate ccsd energy
+					cisd = ci.CISD(_mol.hf)
+					cisd.conv_tol = 1.0e-10
+					cisd.max_cycle = 100
+					cisd.max_space = 30
+					cisd.frozen = frozen
+					for i in range(5,-1,-1):
+						cisd.level_shift = 1.0 / 10.0 ** (i)
+						try:
+							cisd.kernel()
+						except sp.linalg.LinAlgError: pass
+						if (cisd.converged): break
+					if (not cisd.converged):
+						try:
+							raise RuntimeError('\nCISD (dno int-trans) Error : no convergence\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					dm = cisd.make_rdm1()
+				elif (_calc.exp_base == 'CCSD'):
+					# calculate ccsd energy
+					ccsd = cc.CCSD(_mol.hf)
+					ccsd.conv_tol = 1.0e-10
+					ccsd.max_cycle = 100
+					ccsd.diis_space = 10
+					ccsd.frozen = frozen
+					for i in list(range(0, 12, 2)):
+						ccsd.diis_start_cycle = i
+						try:
+							ccsd.kernel()
+						except sp.linalg.LinAlgError: pass
+						if (ccsd.converged): break
+					if (not ccsd.converged):
+						try:
+							raise RuntimeError('\nCCSD (dno int-trans) Error : no convergence\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					dm = ccsd.make_rdm1()
+				# generate dnos
+				occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
+										_mol.orbsym[_mol.nocc:])
+				_mol.trans_mat[:, _mol.nocc:] = np.dot(_mol.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+				#
+				return
+
+
+		def int_trans(self, _mol, _calc):
+				""" integral transformation """
 				# perform integral transformation
 				_mol.h1e = reduce(np.dot, (np.transpose(_mol.trans_mat), _mol.hf.get_hcore(), _mol.trans_mat))
 				_mol.h2e = ao2mo.kernel(_mol, _mol.trans_mat)
 				_mol.h2e = ao2mo.restore(1, _mol.h2e, _mol.norb)
 				# overwrite orbsym
-				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt in ['NO','DNO'])):
-					_mol.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mol.trans_mat)
+				_mol.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mol.trans_mat)
 				#
 				return
 
@@ -214,7 +257,7 @@ class PySCFCls():
 				hf_as_civec[0, 0] = 1
 				# cas calculation
 				if (_calc.exp_model != 'FCI'):
-					hf_cas = solver_cas.hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
+					hf_cas = solver_cas.hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
 					e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
@@ -226,7 +269,7 @@ class PySCFCls():
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
-					hf_base = solver_base.hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)[1]
+					hf_base = solver_base.hf(_mol, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
 					e_corr = e_cas - e_base
 				#
@@ -255,7 +298,7 @@ class ModelSolver():
 				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
-				dm0 = np.diag(_mol.hf.mo_occ[_cas_idx])
+				dm0 = np.diag(_mol.mo_occ[_cas_idx])
 				for i in list(range(0, 12, 2)):
 					cas_hf.diis_start_cycle = i
 					try:
@@ -271,7 +314,7 @@ class ModelSolver():
 						sys.stderr.write(str(err))
 						raise
 				#
-				return cas_mol, cas_hf
+				return cas_hf
 
 
 		def kernel(self, _cas_hf, _core_idx, _cas_idx, _e_cas=None):
