@@ -270,9 +270,20 @@ class PySCFCls():
 					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
-					e_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
+					e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
 												_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec, \
-												orbsym=_calc.orbsym)[0]
+												orbsym=_calc.orbsym)
+					cas_s, cas_mult = fci.spin_op.spin_square(c_cas, len(_exp.cas_idx), _mol.nelectron - 2 * len(_exp.core_idx))
+					# check for correct spin
+					if (int(round(cas_s)) != _mol.spin):
+						try:
+							raise RuntimeError(('\nCAS-CI Error : wrong spin\n'
+												'2*S + 1 = {0:.3f}\n'
+												'core_idx = {1:} , cas_idx = {2:}\n\n').\
+												format(cas_mult, _exp.core_idx, _exp.cas_idx))
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
 				# base calculation
 				if (_calc.exp_base == 'HF'):
 					e_corr = (e_cas + _exp.e_core) - _calc.hf.e_tot
@@ -303,6 +314,8 @@ class ModelSolver():
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
 				cas_hf = scf.RHF(cas_mol)
+				cas_hf.spin = _mol.spin
+				cas_hf.nelectron = cas_mol.nelectron
 				cas_hf.conv_tol = 1.0e-12
 				cas_hf.max_cycle = 100
 				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
@@ -319,7 +332,7 @@ class ModelSolver():
 					try:
 						raise RuntimeError(('\nCAS-HF Error : no convergence\n'
 											'core_idx = {0:} , cas_idx = {1:}\n\n').\
-											format(_core_idx,_cas_idx))
+											format(_core_idx, _cas_idx))
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
@@ -340,26 +353,42 @@ class ModelSolver():
 					for i in range(5,-1,-1):
 						self.model.level_shift = 1.0 / 10.0 ** (i)
 						try:
-							e_corr = self.model.kernel()[0]
+							e_corr, c_cascisd = self.model.kernel()
 						except sp.linalg.LinAlgError: pass
 						if (self.model.converged): break
+					# check for convergence
 					if (not self.model.converged):
 						try:
 							raise RuntimeError(('\nCAS-CISD Error : no convergence\n'
 												'core_idx = {0:} , cas_idx = {1:}\n\n').\
-												format(_core_idx,_cas_idx))
+												format(_core_idx, _cas_idx))
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
+					# check for energy
 					if (_e_cas is not None):
 						if ((_cas_hf.e_tot + e_corr) < _e_cas):
-							try:
-								raise RuntimeError(('\nCAS-CISD Error : wrong convergence\n'
-													'core_idx = {0:} , cas_idx = {1:}\n\n').\
-													format(_core_idx,_cas_idx))
-							except Exception as err:
-								sys.stderr.write(str(err))
-								raise
+							if (np.abs(_e_cas - (_cas_hf.e_tot + e_corr)) > 1.0e-10):
+								try:
+									raise RuntimeError(('\nCAS-CISD Error : wrong convergence\n'
+														'CAS-CISD = {0:.6f} , CAS-CI = {1:.6f}\n'
+														'core_idx = {2:} , cas_idx = {3:}\n\n').\
+														format(_cas_hf.e_tot + e_corr, _e_cas, _core_idx, _cas_idx))
+								except Exception as err:
+									sys.stderr.write(str(err))
+									raise
+					# check for spin
+					c_cascisd_fci = ci.cisd.to_fci(c_cascisd, len(_cas_idx), _cas_hf.nelectron)
+					cascisd_s, cascisd_mult = fci.spin_op.spin_square(c_cascisd_fci, len(_cas_idx), _cas_hf.nelectron)
+					if (int(round(cascisd_s)) != _cas_hf.spin):
+						try:
+							raise RuntimeError(('\nCAS-CISD Error : wrong spin\n'
+												'2*S + 1 = {0:.3f}\n'
+												'core_idx = {1:} , cas_idx = {2:}\n\n').\
+												format(cascisd_mult, _core_idx, _cas_idx))
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
 				elif (self.model_type == 'CCSD'):
 					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
@@ -375,7 +404,7 @@ class ModelSolver():
 						try:
 							raise RuntimeError(('\nCAS-CCSD Error : no convergence\n'
 												'core_idx = {0:} , cas_idx = {1:}\n\n').\
-												format(_core_idx,_cas_idx))
+												format(_core_idx, _cas_idx))
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
