@@ -270,9 +270,13 @@ class PySCFCls():
 					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
-					e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-												_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec, \
-												orbsym=_calc.orbsym)
+					try:
+						e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
+													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec, \
+													orbsym=_calc.orbsym)
+					except Exception as err:
+						sys.stderr.write('CAS-CI Error:\nPySCF Error: {0:}\n\n'.format(err))
+						raise
 					cas_s, cas_mult = fci.spin_op.spin_square(c_cas, len(_exp.cas_idx), _mol.nelectron - 2 * len(_exp.core_idx))
 					# check for correct spin
 					if (int(round(cas_s)) != _mol.spin):
