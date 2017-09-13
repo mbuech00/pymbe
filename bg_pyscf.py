@@ -47,14 +47,15 @@ class PySCFCls():
 					_calc.hf_dens = hf.make_rdm1()
 				else:
 					hf.kernel(_calc.hf_dens)
-					if (_calc.exp_occ != 'HF'):
-						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
 				# determine dimensions
 				_mol.norb = hf.mo_coeff.shape[1]
 				_mol.nocc = int(hf.mo_occ.sum()) // 2
 				_mol.nvirt = _mol.norb - _mol.nocc
 				# mo_occ
 				_calc.mo_occ = hf.mo_occ
+				# overwrite occupied MOs
+				if (_calc.exp_occ != 'HF'):
+					hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
 				# orbsym
 				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
