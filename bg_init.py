@@ -42,6 +42,19 @@ class InitCls():
 				# molecule and calculation instantiations
 				self.mol = MolCls(self.mpi, self.rst)
 				self.calc = CalcCls(self.mpi, self.rst, self.mol)
+				# build and communicate molecule
+				if (self.mpi.global_master):
+					self.mol.make(self.mpi)
+					self.mpi.bcast_mol_info(self.mol)
+				else:
+					self.mpi.bcast_mol_info(self.mol)
+					self.mol.make(self.mpi)
+				# set core region
+				self.mol.ncore = self.mol.set_ncore()
+				# communicate calc info 
+				self.mpi.bcast_calc_info(self.calc)
+				# init mpi
+				self.mpi.set_mpi()
 				# pyscf instantiation
 				self.pyscf = PySCFCls()
 				# hf calculation and main transformation matrix
@@ -58,6 +71,7 @@ class InitCls():
 				self.mpi.bcast_hf_info(self.mol, self.calc)
 				if (self.mpi.num_local_masters >= 1):
 					self.mpi.bcast_trans_info(self.mol, self.calc)
+					# local master hf calc
 					if (self.mpi.local_master):
 						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 				# expansion and driver instantiations

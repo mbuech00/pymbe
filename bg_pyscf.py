@@ -31,6 +31,7 @@ class PySCFCls():
 				hf.conv_tol = 1.0e-12
 				hf.max_cycle = 100
 				hf.irrep_nelec = _mol.irrep_nelec
+				# restart calc?
 				if (_calc.hf_dens is None):
 					for i in list(range(0, 12, 2)):
 						hf.diis_start_cycle = i
@@ -51,6 +52,7 @@ class PySCFCls():
 					_mol.nocc = int(hf.mo_occ.sum()) // 2
 					_mol.nvirt = _mol.norb - _mol.nocc
 				else:
+					# restart from converged density
 					hf.kernel(_calc.hf_dens)
 					# determine dimensions
 					_mol.norb = hf.mo_coeff.shape[1]
@@ -59,9 +61,9 @@ class PySCFCls():
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'HF'):
 						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
-				# mo_occ
+				# save mo_occ
 				_calc.mo_occ = hf.mo_occ
-				# orbsym
+				# save orbsym
 				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
 				return hf

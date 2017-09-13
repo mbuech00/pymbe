@@ -40,6 +40,16 @@ class MPICls():
 				return
 
 
+		def set_mpi(self):
+				""" set mpi info """
+				# communicate mpi info
+				self.bcast_mpi_info()
+				# set local groups
+				self.set_local_groups()
+				#
+				return
+
+
 		def set_local_groups(self):
 				""" define local groups """
 				if (not self.parallel):

@@ -32,14 +32,22 @@ class MolCls(gto.Mole):
 					self.irrep_nelec = {}
 					# set default value for FC
 					self.frozen = False
+					# init max_memory
+					self.max_memory = None
 					# default: silence pyscf output except errors
 					self.verbose = 1
 					# set geometry
 					self.atom = self.set_geo(_rst)
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose = self.set_mol(_rst)
-					# build mol (master)
+						self.basis, self.unit, self.frozen = self.set_mol(_rst)
+				#
+				return
+
+
+		def make(self, _mpi):
+				""" build Mole object """
+				if (_mpi.global_master):
 					try:
 						self.build()
 					except RuntimeWarning as err:
@@ -50,12 +58,8 @@ class MolCls(gto.Mole):
 							sys.stderr.write('\nValueError: non-sensible input in bg-mol.inp\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
-					if (_mpi.parallel): _mpi.bcast_mol_info(self)
 				else:
-					_mpi.bcast_mol_info(self)
 					self.build()
-				# set number of core orbs
-				self.ncore = self.set_ncore()
 				#
 				return
 
@@ -101,8 +105,6 @@ class MolCls(gto.Mole):
 								self.unit = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'frozen'):
 								self.frozen = re.split('=',content[i])[1].strip().upper() == 'TRUE'
-							elif (re.split('=',content[i])[0].strip() == 'verbose'):
-								self.verbose = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'occupation'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
 							# error handling
@@ -122,7 +124,7 @@ class MolCls(gto.Mole):
 				self.verbose = 0
 				#
 				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose
+						self.basis, self.unit, self.frozen
 
 
 		def set_ncore(self):

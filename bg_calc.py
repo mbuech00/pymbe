@@ -39,21 +39,15 @@ class CalcCls():
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
 						self.exp_max_order, self.exp_occ, self.exp_virt, \
-						self.energy_thres, self.tolerance, \
-						_mpi.num_local_masters = self.set_calc(_mpi, _rst)
+						self.energy_thres, self.tolerance, _mol.verbose, _mol.max_memory, \
+						_mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
-				if (_mpi.parallel):
-					# bcast calc and mpi info
-					_mpi.bcast_calc_info(self)
-					_mpi.bcast_mpi_info()
-				# set local groups
-				_mpi.set_local_groups()
 				#
 				return
 
 
-		def set_calc(self, _mpi, _rst):
+		def set_calc(self, _mpi, _rst, _mol):
 				""" set calculation and mpi parameters from bg-calc.inp file """
 				# read input file
 				try:
@@ -80,6 +74,10 @@ class CalcCls():
 								self.energy_thres = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'tolerance'):
 								self.tolerance = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'verbose'):
+								_mol.verbose = int(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'memory'):
+								_mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'num_local_masters'):
 								_mpi.num_local_masters = int(re.split('=',content[i])[1].strip())
 							# error handling
@@ -98,7 +96,7 @@ class CalcCls():
 				#
 				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
 							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, self.tolerance, \
-							_mpi.num_local_masters
+							_mol.verbose, _mol.max_memory, _mpi.num_local_masters
 
 
 		def sanity_chk(self, _mpi, _rst, _mol):
@@ -156,7 +154,7 @@ class CalcCls():
 					# mpi groups
 					if (_mpi.parallel):
 						if (_mpi.num_local_masters < 0):
-							raise ValueError('wrong input -- number of local mpi masters ' + \
+							raise ValueError('wrong input -- number of local mpi masters (num_local_masters) ' + \
 											'must be a positive number >= 1')
 						if ((self.exp_type == 'combined') and (_mpi.num_local_masters == 0)):
 							raise ValueError('wrong input -- combined expansions are only valid in ' + \
@@ -166,7 +164,10 @@ class CalcCls():
 											'is currently not implemented for occupied and virtual expansions')
 						if (_mpi.global_size <= 2 * _mpi.num_local_masters):
 							raise ValueError('wrong input -- total number of mpi processes ' + \
-											'must be larger than twice the number of local mpi masters')
+											'must be larger than twice the number of local mpi masters (num_local_masters)')
+					# memory
+					if (_mol.max_memory is None):
+						raise ValueError('wrong input -- the memory keyword (memory) appears to be missing')
 				except Exception as err:
 					_rst.rm_rst()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
