@@ -56,10 +56,6 @@ class MolCls(gto.Mole):
 					self.build()
 				# set number of core orbs
 				self.ncore = self.set_ncore()
-				# init hf_dens and transformation matrix
-				self.hf_dens = None; self.trans_mat = None
-				# init h1e and h2e
-				self.h1e = None; self.h2e = None
 				#
 				return
 

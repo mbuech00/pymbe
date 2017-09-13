@@ -65,14 +65,14 @@ class RstCls():
 				return self.rst_freq / 2.
 
 
-		def write_hf_trans(self, _mol):
+		def write_hf_trans(self, _calc):
 				""" write hf_dens and trans_mat restart files """
 				# write hf_dens
-				np.save(join(self.rst_dir, 'hf_dens'), _mol.hf_dens)
+				np.save(join(self.rst_dir, 'hf_dens'), _calc.hf_dens)
 				# write trans_mat
-				np.save(join(self.rst_dir, 'trans_mat'), _mol.trans_mat)
+				np.save(join(self.rst_dir, 'trans_mat'), _calc.trans_mat)
 				# write e_zero
-				np.save(join(self.rst_dir, 'e_zero'), _mol.e_zero)
+				np.save(join(self.rst_dir, 'e_zero'), _calc.e_zero)
 				#
 				return
 
@@ -103,7 +103,7 @@ class RstCls():
 				return
 
 
-		def read_hf_trans(self, _mol):
+		def read_hf_trans(self, _calc):
 				""" driver for reading _mol restart files """
 				# list filenames in files list
 				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
@@ -113,13 +113,13 @@ class RstCls():
 				for i in range(len(files)):
 					# read hf_dens
 					if ('hf_dens' in files[i]):
-						_mol.hf_dens = np.load(join(self.rst_dir, files[i]))
+						_calc.hf_dens = np.load(join(self.rst_dir, files[i]))
 					# read trans_mat
 					elif ('trans_mat' in files[i]):
-						_mol.trans_mat = np.load(join(self.rst_dir, files[i]))
+						_calc.trans_mat = np.load(join(self.rst_dir, files[i]))
 					# read e_zero
 					elif ('e_zero' in files[i]):
-						_mol.e_zero = np.load(join(self.rst_dir, files[i]))
+						_calc.e_zero = np.load(join(self.rst_dir, files[i]))
 				#
 				return
 

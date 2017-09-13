@@ -47,20 +47,19 @@ class InitCls():
 				# hf calculation and main transformation matrix
 				if (self.mpi.global_master):
 					if (self.rst.restart):
-						self.rst.read_hf_trans(self.mol)
-						self.mol.hf = self.pyscf.hf(self.mol, self.calc) 
+						self.rst.read_hf_trans(self.calc)
+						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 					else:
-						self.mol.hf = self.pyscf.hf(self.mol, self.calc) 
+						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 						self.pyscf.trans_main(self.mol, self.calc)
 						# write restart files
-						self.rst.write_hf_trans(self.mol)
+						self.rst.write_hf_trans(self.calc)
 				# bcast hf and transformation info
-				self.mpi.bcast_hf_info(self.mol)
+				self.mpi.bcast_hf_info(self.mol, self.calc)
 				if (self.mpi.num_local_masters >= 1):
-					self.mpi.bcast_trans_info(self.mol)
+					self.mpi.bcast_trans_info(self.mol, self.calc)
 					if (self.mpi.local_master):
-						self.mol.hf = self.pyscf.hf(self.mol, self.calc)
-						self.mol.hf.mo_coeff = self.mol.trans_mat
+						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 				# expansion and driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):

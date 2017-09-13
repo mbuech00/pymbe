@@ -149,37 +149,38 @@ class MPICls():
 				return
 
 
-		def bcast_hf_info(self, _mol):
+		def bcast_hf_info(self, _mol, _calc):
 				""" bcast hf info """
 				if (self.global_master):
 					# collect dimensions, mo_occ, and orbsym
 					hf_info = {'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
-								'mo_occ': _mol.mo_occ, 'orbsym': _mol.orbsym}
+								'mo_occ': _calc.mo_occ, 'orbsym': _calc.orbsym}
 					# bcast hf_info
 					self.global_comm.bcast(hf_info, root=0)
 				else:
 					# receive dimensions, mo_occ, and orbsym
 					hf_info = self.global_comm.bcast(None, root=0)
 					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
-					_mol.mo_occ = hf_info['mo_occ']; _mol.orbsym = hf_info['orbsym']
+					_calc.mo_occ = hf_info['mo_occ']; _calc.orbsym = hf_info['orbsym']
 				#
 				return
 
 
-		def bcast_trans_info(self, _mol):
+		def bcast_trans_info(self, _mol, _calc):
 				""" bcast transformation info """
 				if (self.global_master):
 					# bcast hf_dens
-					self.master_comm.Bcast([_mol.hf_dens, MPI.DOUBLE], root=0)
+					self.master_comm.Bcast([_calc.hf_dens, MPI.DOUBLE], root=0)
 					# bcast trans_mat
-					self.master_comm.Bcast([_mol.trans_mat, MPI.DOUBLE], root=0)
+					self.master_comm.Bcast([_calc.trans_mat, MPI.DOUBLE], root=0)
 				elif (self.local_master):
 					# receive hf_dens
-					_mol.hf_dens = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
-					self.master_comm.Bcast([_mol.hf_dens, MPI.DOUBLE], root=0)
+					_calc.hf_dens = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
+					self.master_comm.Bcast([_calc.hf_dens, MPI.DOUBLE], root=0)
 					# receive trans_mat
-					_mol.trans_mat = np.zeros([_mol.norb, _mol.norb], dtype=np.float64, order='F')
-					self.master_comm.Bcast([_mol.trans_mat, MPI.DOUBLE], root=0)
+					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
+					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
+					_calc.trans_mat = np.transpose(buff)
 				#
 				return
 

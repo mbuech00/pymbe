@@ -31,6 +31,10 @@ class CalcCls():
 				self.exp_virt = 'HF'
 				self.energy_thres = 3.8e-05
 				self.tolerance = 0.0
+				# init hf_dens and transformation matrix
+				self.hf_dens = None; self.trans_mat = None
+				# init h1e and h2e
+				self.h1e = None; self.h2e = None
 				# set calculation parameters
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
