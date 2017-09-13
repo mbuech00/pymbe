@@ -58,14 +58,26 @@ class DrvCls():
 							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx}
 							# bcast msg
 							_mpi.local_comm.bcast(msg, root=0)
+				# print expansion header
+				if (do_print): _prt.exp_header(_calc, _exp)
 				# restart
 				if (_rst.restart):
 					# bcast rst data
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
-					# reset restart logical
+					# if rst, print previous results
+					if (do_print):
+						for _exp.order in range(1, _exp.min_order):
+							_prt.kernel_header(_calc, _exp)
+							_prt.kernel_micro_results(_calc, _exp)
+							_prt.kernel_end(_calc, _exp)
+							_prt.kernel_results(_calc, _exp)
+							_exp.thres = self.screening.update(_calc, _exp)
+							_prt.screen_header(_calc, _exp)
+							_prt.screen_results(_calc, _exp)
+							_prt.screen_end(_calc, _exp)
+							_rst.rst_freq = _rst.update()
+					# reset restart logical and init _exp.order
 					_rst.restart = False
-				# print expansion header
-				if (do_print): _prt.exp_header(_calc, _exp)
 				# now do expansion
 				for _exp.order in range(_exp.min_order, _exp.max_order+1):
 					#

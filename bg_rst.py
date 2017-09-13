@@ -51,10 +51,8 @@ class RstCls():
 				else:
 					# read in _exp restart files
 					self.read_exp(_exp)
-					# update restart frequency
-					for _ in range(1, _exp.min_order): self.rst_freq = self.update()
-				# init _exp.order
-				_exp.order = _exp.min_order
+					# set min_order
+					_exp.min_order = len(_exp.tuples)
 				#
 				return
 		
@@ -97,6 +95,8 @@ class RstCls():
 				""" write screening restart files """
 				# write tuples
 				np.save(join(self.rst_dir, 'tup_'+str(_exp.order+1)), _exp.tuples[-1])
+				# write screen_count
+				np.save(join(self.rst_dir, 'screen_count_'+str(_exp.order)), _exp.screen_count[-1])
 				# write time
 				np.save(join(self.rst_dir, 'time_screen_'+str(_exp.order)), np.asarray(_exp.time_screen[-1]))
 				#
@@ -141,6 +141,9 @@ class RstCls():
 					# read e_tot
 					elif ('e_tot' in files[i]):
 						_exp.energy_tot.append(np.load(join(self.rst_dir, files[i])).tolist())
+					# read screen_count
+					elif ('screen_count' in files[i]):
+						_exp.screen_count.append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read micro_conv
 					elif ('micro_conv' in files[i]):
 						_exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())
@@ -149,8 +152,6 @@ class RstCls():
 						_exp.time_kernel.append(np.load(join(self.rst_dir, files[i])).tolist())
 					elif ('time_screen' in files[i]):
 						_exp.time_screen.append(np.load(join(self.rst_dir, files[i])).tolist())
-				# set start order for expansion
-				_exp.min_order = len(_exp.tuples)
 				#
 				return
 
