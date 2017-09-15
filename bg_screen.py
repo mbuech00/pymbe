@@ -63,7 +63,11 @@ class ScrCls():
 					if (_exp.order <= 2):
 						_exp.allow_tuples = _exp.tuples[-1]
 					else:
-						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
+						if (_calc.protocol == 1):
+							_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
+						elif (_calc.protocol == 2):
+							index = min(int(round(((100.0-_exp.thres)/100.0)*len(_exp.energy_inc[-1]))),len(_exp.energy_inc[-1])-1)
+							_exp.allow_tuples = _exp.tuples[-1][np.argsort(np.abs(_exp.energy_inc[-1]))[index:]]
 					# save number of screened tuples
 					_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 			        # loop over parent tuples
@@ -90,6 +94,7 @@ class ScrCls():
 							(_exp.allow_tuples[i][-1] < (self.l_limit+self.u_limit-1))): _exp.screen_count[-1] += 1
 					# when done, write to tup list or mark expansion as converged
 					if (len(tmp) >= 1):
+						tmp.sort()
 						_exp.tuples.append(np.array(tmp, dtype=np.int32))
 					else:
 						_exp.conv_orb.append(True)
@@ -122,7 +127,11 @@ class ScrCls():
 				if (_exp.order <= 2):
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
-					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
+					if (_calc.protocol == 1):
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
+					elif (_calc.protocol == 2):
+						index = min(int(round(((100.0-_exp.thres)/100.0)*len(_exp.energy_inc[-1]))),len(_exp.energy_inc[-1])-1)
+						_exp.allow_tuples = _exp.tuples[-1][np.argsort(np.abs(_exp.energy_inc[-1]))[index:]]
 				# save number of screened tuples
 				_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 				# loop until no slaves left
@@ -180,7 +189,11 @@ class ScrCls():
 				if (_exp.order <= 2):
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
-					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
+					if (_calc.protocol == 1):
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
+					elif (_calc.protocol == 2):
+						index = min(int(round(((100.0-_exp.thres)/100.0)*len(_exp.energy_inc[-1]))),len(_exp.energy_inc[-1])-1)
+						_exp.allow_tuples = _exp.tuples[-1][np.argsort(np.abs(_exp.energy_inc[-1]))[index:]]
 				# receive work from master
 				while (True):
 					# send status to master

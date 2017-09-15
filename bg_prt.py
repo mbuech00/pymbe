@@ -225,7 +225,7 @@ class PrintCls():
 		def screen_results(self, _calc, _exp):
 				""" print screening results """
 				if (len(_exp.tuples) > _exp.order):
-					screen = (_exp.screen_count[_exp.order-1] / len(_exp.tuples[_exp.order-2])) * 100.0
+					screen = (_exp.screen_count[_exp.order-1] / len(_exp.tuples[_exp.order-1])) * 100.0
 				else:
 					screen = 100.0
 				with open(self.out,'a') as f:
