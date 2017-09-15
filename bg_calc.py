@@ -29,7 +29,7 @@ class CalcCls():
 				self.exp_max_order = 0
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
-				self.energy_thres = 3.8e-05
+				self.energy_thres = 0.0
 				self.tolerance = 0.0
 				# init hf_dens and transformation matrix
 				self.hf_dens = None; self.trans_mat = None
