@@ -45,7 +45,10 @@ class ScrCls():
 	
 		def update(self, _calc, _exp):
 				""" update expansion threshold according to start order """
-				return _calc.exp_thres_init * _calc.exp_relax ** (_exp.order - 1)
+				if (_calc.protocol == 1):
+					return _calc.exp_thres_init * _calc.exp_relax ** (_exp.order - 1)
+				elif (_calc.protocol == 2):
+					return _calc.exp_thres_init - _calc.exp_relax * (_exp.order - 1)
 
 		
 		def main(self, _mpi, _calc, _exp, _rst):

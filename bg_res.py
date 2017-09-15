@@ -86,11 +86,18 @@ class ResCls():
 								format('','frozen core','','=','',str(_mol.frozen),\
 									'','|','','exp. type','','=','',_calc.exp_type,\
 									'','|','','HF energy','','=','',_calc.hf.e_tot))
-						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:17}{12:2}'
-							'{13:1}{14:2}{15:<5.2e}{16:5}{17:1}{18:7}{19:18}{20:6}{21:1}{22:2}{23:.6f}').\
-								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
-									'','|','','exp. init. thres.','','=','',_calc.exp_thres_init,\
-									'','|','','base model energy','','=','',_calc.hf.e_tot + _calc.e_zero))
+						if (_calc.protocol == 1):
+							print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:17}{12:2}'
+								'{13:1}{14:2}{15:<5.2e}{16:5}{17:1}{18:7}{19:18}{20:6}{21:1}{22:2}{23:.6f}').\
+									format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
+										'','|','','exp. init. thres.','','=','',_calc.exp_thres_init,\
+										'','|','','base model energy','','=','',_calc.hf.e_tot + _calc.e_zero))
+						elif (_calc.protocol == 2):
+							print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:17}{12:2}'
+								'{13:1}{14:2}{15:<6.2f}{16:7}{17:1}{18:7}{19:18}{20:6}{21:1}{22:2}{23:.6f}').\
+									format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
+										'','|','','exp. init. thres.','','=','',_calc.exp_thres_init,\
+										'','|','','base model energy','','=','',_calc.hf.e_tot + _calc.e_zero))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<4s}{6:^3}{7:<4s}{8:4}{9:1}{10:9}{11:16}{12:3}{13:1}{14:2}'
 							'{15:<6.2f}{16:7}{17:1}{18:7}{19:18}{20:6}{21:1}{22:2}{23:.6f}').\
 								format('','orbitals (o/v)','','=','',_calc.exp_occ,'/',_calc.exp_virt,\

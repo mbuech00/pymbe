@@ -48,7 +48,7 @@ class CalcCls():
 						if (self.protocol == 1):
 							self.exp_thres_init = 1.0e-10
 						elif (self.protocol == 2):
-							self.exp_thres_init = 1.0e-06
+							self.exp_thres_init = 100.0
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
 				#
