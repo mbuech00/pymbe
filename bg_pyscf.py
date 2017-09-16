@@ -275,8 +275,15 @@ class PySCFCls():
 													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec, \
 													orbsym=_calc.orbsym)
 					except Exception as err:
-						sys.stderr.write('CAS-CI Error:\nPySCF Error: {0:}\n\n'.format(err))
-						raise
+						try:
+							raise RuntimeError(('\nCAS-CI Error :\n'
+												'core_idx = {0:} , cas_idx = {1:}\n'
+												'PySCF Error: {2:}\n\n').\
+												format(_exp.core_idx, _exp.cas_idx, err))
+						except Exception as err_2:
+							sys.stderr.write(str(err_2))
+							raise
+					# calculate spin
 					cas_s, cas_mult = fci.spin_op.spin_square(c_cas, len(_exp.cas_idx), _mol.nelectron - 2 * len(_exp.core_idx))
 					# check for correct spin
 					if (int(round(cas_s)) != _mol.spin):
