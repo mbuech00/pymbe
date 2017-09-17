@@ -72,8 +72,13 @@ class ScrCls():
 						if (_calc.protocol == 1):
 							_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 						elif (_calc.protocol == 2):
-							index = min(int(round(((100.0-_exp.thres)/100.0)*len(_exp.energy_inc[-1]))),len(_exp.energy_inc[-1])-1)
-							_exp.allow_tuples = _exp.tuples[-1][np.argsort(np.abs(_exp.energy_inc[-1]))[index:]]
+							sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
+							sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
+							for idx in range(len(_exp.energy_inc[-1])):
+								sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+								if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
+									_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
+									break
 					# save number of screened tuples
 					_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 			        # loop over parent tuples
@@ -136,8 +141,13 @@ class ScrCls():
 					if (_calc.protocol == 1):
 						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 					elif (_calc.protocol == 2):
-						index = min(int(round(((100.0-_exp.thres)/100.0)*len(_exp.energy_inc[-1]))),len(_exp.energy_inc[-1])-1)
-						_exp.allow_tuples = _exp.tuples[-1][np.argsort(np.abs(_exp.energy_inc[-1]))[index:]]
+						sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
+						sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
+						for idx in range(len(_exp.energy_inc[-1])):
+							sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
+								_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
+								break
 				# save number of screened tuples
 				_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 				# loop until no slaves left
@@ -198,8 +208,13 @@ class ScrCls():
 					if (_calc.protocol == 1):
 						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 					elif (_calc.protocol == 2):
-						index = min(int(round(((100.0-_exp.thres)/100.0)*len(_exp.energy_inc[-1]))),len(_exp.energy_inc[-1])-1)
-						_exp.allow_tuples = _exp.tuples[-1][np.argsort(np.abs(_exp.energy_inc[-1]))[index:]]
+						sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
+						sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
+						for idx in range(len(_exp.energy_inc[-1])):
+							sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
+								_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
+								break
 				# receive work from master
 				while (True):
 					# send status to master
