@@ -26,7 +26,7 @@ class CalcCls():
 				self.exp_type = 'occupied'
 				self.exp_base = 'HF'
 				self.exp_thres_init = None
-				self.exp_relax = 10.0
+				self.exp_relax = 0.0
 				self.exp_max_order = 0
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
