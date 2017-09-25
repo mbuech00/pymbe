@@ -39,7 +39,7 @@ class CalcCls():
 				self.h1e = None; self.h2e = None
 				# set calculation parameters
 				if (_mpi.global_master):
-					self.exp_model, self.exp_type, self.exp_base, self.exp_thres_init, self.exp_realx, \
+					self.exp_model, self.exp_type, self.exp_base, self.exp_thres_init, self.exp_relax, \
 						self.exp_max_order, self.exp_occ, self.exp_virt, self.protocol, \
 						self.energy_thres, self.tolerance, _mol.verbose, _mol.max_memory, \
 						_mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
