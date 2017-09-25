@@ -48,7 +48,7 @@ class CalcCls():
 						if (self.protocol == 1):
 							self.exp_thres_init = 1.0e-10
 						elif (self.protocol == 2):
-							self.exp_thres_init = 100.0
+							self.exp_thres_init = 99.95
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
 				#
@@ -70,7 +70,7 @@ class CalcCls():
 								self.exp_type = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'exp_base'):
 								self.exp_base = re.split('=',content[i])[1].strip().upper()
-							elif (re.split('=',content[i])[0].strip() == 'exp_thres_init'):
+							elif (re.split('=',content[i])[0].strip() == 'exp_thres'):
 								self.exp_thres_init = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'exp_relax'):
 								self.exp_relax = float(re.split('=',content[i])[1].strip())
@@ -138,7 +138,7 @@ class CalcCls():
 					# expansion and energy thresholds
 					if (self.exp_thres_init < 0.0):
 						raise ValueError('wrong input -- initial expansion threshold ' + \
-										'(exp_thres_init) must be float >= 0.0')
+										'(exp_thres) must be float >= 0.0')
 					if (self.exp_relax < 0.0):
 						raise ValueError('wrong input -- expansion relaxation ' + \
 										'(exp_relax) must be float >= 0.0')
