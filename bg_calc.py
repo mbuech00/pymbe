@@ -146,20 +146,21 @@ class CalcCls():
 						raise ValueError('wrong input -- energy threshold ' + \
 										'(energy_thres) must be float >= 0.0')
 					# orbital representation
-					if (not (self.exp_occ in ['HF','PM','ER','BOYS','NO'])):
+					if (not (self.exp_occ in ['HF','PM','ER','BOYS','IBO-1','IBO-2','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \
 										'representations are currently: HF, local (PM, ER, or Boys), ' + \
-										'or base model natural orbitals (NO)')
+										'intrinsic bond orbitals (IBO-1 or IBO-2), or base model natural orbitals (NO)')
 					if (not (self.exp_virt in ['HF','PM','ER','BOYS','NO','DNO'])):
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: HF local (PM, ER, or Boys), ' + \
+										'representations are currently: HF, local (PM, ER, or Boys), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
 					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base == 'HF')):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a correlated base model for the expansion')
-					if ((_mol.symmetry.upper() != 'C1') and ((self.exp_occ in ['PM','ER','BOYS']) or (self.exp_virt in ['PM','ER','BOYS']))):
+					if ((_mol.symmetry.upper() != 'C1') and ((self.exp_occ in ['PM','ER','BOYS','IBO-1','IBO-2']) or \
+							(self.exp_virt in ['PM','ER','BOYS']))):
 						raise ValueError('wrong input -- the use of local orbitals (PM, ER, or Boys) ' + \
-										'excludes the use of symmetry (must be C1)')
+										'or intrinsic bond orbitals (IBO-1 or IBO-2) excludes the use of symmetry (must be C1)')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'is only valid in combination with combined (dual) expansions')

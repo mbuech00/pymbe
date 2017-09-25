@@ -136,6 +136,13 @@ class PySCFCls():
 						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ER(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
 					elif (_calc.exp_occ == 'BOYS'):
 						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
+						iao = lo.iao.iao(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc])
+						if (_calc.exp_occ == 'IBO-1'):
+							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
+							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc], iao)
+						elif (_calc.exp_occ == 'IBO-2'):
+							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
 				# virt-virt block (local or symmetry-adapted NOs)
 				if (_calc.exp_virt != 'HF'):
 					if (_calc.exp_virt == 'NO'):
