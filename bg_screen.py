@@ -45,13 +45,7 @@ class ScrCls():
 	
 		def update(self, _calc, _exp):
 				""" update expansion threshold according to start order """
-				if (_calc.protocol == 1):
-					return _calc.exp_thres_init * _calc.exp_relax ** (_exp.order - 1)
-				elif (_calc.protocol == 2):
-					if (_exp.order <= 2):
-						return 100.0
-					else:
-						return _calc.exp_thres_init - _calc.exp_relax * (_exp.order - 3)
+				return 100.0 - _calc.exp_thres * (_exp.order - 1)
 
 		
 		def main(self, _mpi, _calc, _exp, _rst):
@@ -66,19 +60,16 @@ class ScrCls():
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
 					# determine which increments have contributions below the threshold
-					if (_exp.order <= 2):
+					sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
+					sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
+					if (sum_total == 0.0):
 						_exp.allow_tuples = _exp.tuples[-1]
 					else:
-						if (_calc.protocol == 1):
-							_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
-						elif (_calc.protocol == 2):
-							sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
-							sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
-							for idx in range(len(_exp.energy_inc[-1])):
-								sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
-								if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
-									_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
-									break
+						for idx in range(len(_exp.energy_inc[-1])):
+							sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
+								_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
+								break
 					# save number of screened tuples
 					_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 			        # loop over parent tuples
@@ -135,19 +126,16 @@ class ScrCls():
 				# init job index, tmp list, and screen_count
 				i = 0; tmp = []; _exp.screen_count.append(0)
 				# determine which increments have contributions below the threshold
-				if (_exp.order <= 2):
+				sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
+				sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
+				if (sum_total == 0.0):
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
-					if (_calc.protocol == 1):
-						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
-					elif (_calc.protocol == 2):
-						sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
-						sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
-						for idx in range(len(_exp.energy_inc[-1])):
-							sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
-							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
-								_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
-								break
+					for idx in range(len(_exp.energy_inc[-1])):
+						sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
+							_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
+							break
 				# save number of screened tuples
 				_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 				# loop until no slaves left
@@ -202,19 +190,16 @@ class ScrCls():
 				else:
 					comm = _mpi.local_comm
 				# determine which increments have contributions below the threshold
-				if (_exp.order <= 2):
+				sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
+				sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
+				if (sum_total == 0.0):
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
-					if (_calc.protocol == 1):
-						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
-					elif (_calc.protocol == 2):
-						sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
-						sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
-						for idx in range(len(_exp.energy_inc[-1])):
-							sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
-							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
-								_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
-								break
+					for idx in range(len(_exp.energy_inc[-1])):
+						sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
+							_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
+							break
 				# receive work from master
 				while (True):
 					# send status to master

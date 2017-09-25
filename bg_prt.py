@@ -231,21 +231,13 @@ class PrintCls():
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						if (_calc.protocol == 1):
-							print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
-									format(_exp.thres,screen))
-						elif (_calc.protocol == 2):
-							print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2f} % resulted in screening of {1:.2f} % of the tuples'.\
-									format(_exp.thres,screen))
+						print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2f} % resulted in screening of {1:.2f} % of the tuples'.\
+								format(_exp.thres,screen))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				if (_calc.protocol == 1):
-					print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2e} resulted in screening of {1:.2f} % of the tuples'.\
-							format(_exp.thres,screen))
-				elif (_calc.protocol == 2):
-					print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2f} % resulted in screening of {1:.2f} % of the tuples'.\
-							format(_exp.thres,screen))
+				print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2f} % resulted in screening of {1:.2f} % of the tuples'.\
+						format(_exp.thres,screen))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return

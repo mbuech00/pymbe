@@ -75,9 +75,6 @@ class KernCls():
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
-				# manually force e_inc to zero in case of CISD and CCSD base models
-				if ((_exp.order == 1) and (_calc.exp_base in ['CISD','CCSD'])):
-					_exp.energy_inc[-1].fill(0.0)
 				# sum of energy increments
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
@@ -139,6 +136,9 @@ class KernCls():
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						_rst.write_kernel(_calc, _exp, False)
+				# manually force e_inc to zero in case of CISD and CCSD base models
+				if ((_exp.order == 1) and (_calc.exp_base in ['CISD','CCSD'])):
+					_exp.energy_inc[-1].fill(0.0)
 				#
 				return
 
@@ -232,6 +232,9 @@ class KernCls():
 						slaves_avail -= 1
 				# print 100.0 %
 				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
+				# manually force e_inc to zero in case of CISD and CCSD base models
+				if ((_exp.order == 1) and (_calc.exp_base in ['CISD','CCSD'])):
+					_exp.energy_inc[-1].fill(0.0)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				#

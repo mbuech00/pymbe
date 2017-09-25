@@ -134,17 +134,15 @@ class MPICls():
 				if (self.global_master):
 					# bcast to slaves
 					calc = {'exp_model': _calc.exp_model, 'exp_type': _calc.exp_type, 'exp_base': _calc.exp_base, \
-							'exp_thres_init': _calc.exp_thres_init, 'exp_relax': _calc.exp_relax, 'exp_max_order': _calc.exp_max_order, \
-							'exp_occ': _calc.exp_occ, 'exp_virt': _calc.exp_virt, 'energy_thres': _calc.energy_thres, \
-							'protocol': _calc.protocol}
+							'exp_thres': _calc.exp_thres, 'exp_max_order': _calc.exp_max_order, \
+							'exp_occ': _calc.exp_occ, 'exp_virt': _calc.exp_virt, 'energy_thres': _calc.energy_thres}
 					self.global_comm.bcast(calc, root=0)
 				else:
 					# receive from master
 					calc = self.global_comm.bcast(None, root=0)
 					_calc.exp_model = calc['exp_model']; _calc.exp_type = calc['exp_type']; _calc.exp_base = calc['exp_base']
-					_calc.exp_thres_init = calc['exp_thres_init']; _calc.exp_relax = calc['exp_relax']; _calc.exp_max_order = calc['exp_max_order']
+					_calc.exp_thres = calc['exp_thres']; _calc.exp_max_order = calc['exp_max_order']
 					_calc.exp_occ = calc['exp_occ']; _calc.exp_virt = calc['exp_virt']; _calc.energy_thres = calc['energy_thres']
-					_calc.protocol = calc['protocol']
 				#
 				return
 

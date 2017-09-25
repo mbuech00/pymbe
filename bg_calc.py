@@ -25,12 +25,10 @@ class CalcCls():
 				self.exp_model = 'CCSD'
 				self.exp_type = 'occupied'
 				self.exp_base = 'HF'
-				self.exp_thres_init = None
-				self.exp_relax = 0.0
+				self.exp_thres = 0.0
 				self.exp_max_order = 0
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
-				self.protocol = 1
 				self.energy_thres = 0.0
 				self.tolerance = 0.0
 				# init hf_dens and transformation matrix
@@ -39,16 +37,10 @@ class CalcCls():
 				self.h1e = None; self.h2e = None
 				# set calculation parameters
 				if (_mpi.global_master):
-					self.exp_model, self.exp_type, self.exp_base, self.exp_thres_init, self.exp_relax, \
-						self.exp_max_order, self.exp_occ, self.exp_virt, self.protocol, \
+					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
+						self.exp_max_order, self.exp_occ, self.exp_virt, \
 						self.energy_thres, self.tolerance, _mol.verbose, _mol.max_memory, \
 						_mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
-					# set default exp_thres_init
-					if (self.exp_thres_init is None):
-						if (self.protocol == 1):
-							self.exp_thres_init = 1.0e-10
-						elif (self.protocol == 2):
-							self.exp_thres_init = 99.95
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
 				#
@@ -71,9 +63,7 @@ class CalcCls():
 							elif (re.split('=',content[i])[0].strip() == 'exp_base'):
 								self.exp_base = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'exp_thres'):
-								self.exp_thres_init = float(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'exp_relax'):
-								self.exp_relax = float(re.split('=',content[i])[1].strip())
+								self.exp_thres = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'exp_max_order'):
 								self.exp_max_order = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'exp_occ'):
@@ -82,8 +72,6 @@ class CalcCls():
 								self.exp_virt = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'energy_thres'):
 								self.energy_thres = float(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'protocol'):
-								self.protocol = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'tolerance'):
 								self.tolerance = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
@@ -106,8 +94,8 @@ class CalcCls():
 					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
 					raise
 				#
-				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres_init, self.exp_relax, \
-							self.exp_max_order, self.exp_occ, self.exp_virt, self.protocol, self.energy_thres, \
+				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
+							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, \
 							self.tolerance, _mol.verbose, _mol.max_memory, _mpi.num_local_masters
 
 
@@ -136,14 +124,11 @@ class CalcCls():
 						raise ValueError('wrong input -- wrong maximum ' + \
 										'expansion order (must be integer >= 1)')
 					# expansion and energy thresholds
-					if (self.exp_thres_init < 0.0):
-						raise ValueError('wrong input -- initial expansion threshold ' + \
+					if (self.exp_thres < 0.0):
+						raise ValueError('wrong input -- expansion threshold parameter ' + \
 										'(exp_thres) must be float >= 0.0')
-					if (self.exp_relax < 0.0):
-						raise ValueError('wrong input -- expansion relaxation ' + \
-										'(exp_relax) must be float >= 0.0')
 					if (self.energy_thres < 0.0):
-						raise ValueError('wrong input -- energy threshold ' + \
+						raise ValueError('wrong input -- energy threshold parameter ' + \
 										'(energy_thres) must be float >= 0.0')
 					# orbital representation
 					if (not (self.exp_occ in ['HF','PM','ER','BOYS','IBO-1','IBO-2','NO'])):
@@ -167,10 +152,6 @@ class CalcCls():
 					if ((self.exp_occ == 'NO') and (self.exp_virt == 'DNO')):
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'excludes the use of occupied natural orbitals')
-					# screening protocol
-					if ((self.protocol < 1) or (self.protocol > 2)):
-						raise ValueError('wrong input -- valid values for the screening protocol (protocol) ' + \
-										'are 1 and 2')
 					# mpi groups
 					if (_mpi.parallel):
 						if (_mpi.num_local_masters < 0):
