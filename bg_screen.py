@@ -73,8 +73,8 @@ class ScrCls():
 						# sum up total absolute energy
 						sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
 						# loop until threshold has been reached
-						for idx in range(len(_exp.energy_inc[-1])):
-							sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+						for idx in range(len(above)):
+							sum_tmp += np.abs(above[sort[idx]])
 							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
 								_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
 								break
@@ -144,8 +144,8 @@ class ScrCls():
 					# sum up total absolute energy
 					sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
 					# loop until threshold has been reached
-					for idx in range(len(_exp.energy_inc[-1])):
-						sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+					for idx in range(len(above)):
+						sum_tmp += np.abs(above[sort[idx]])
 						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
 							_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
 							break
@@ -213,8 +213,8 @@ class ScrCls():
 					# sum up total absolute energy
 					sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
 					# loop until threshold has been reached
-					for idx in range(len(_exp.energy_inc[-1])):
-						sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
+					for idx in range(len(above)):
+						sum_tmp += np.abs(above[sort[idx]])
 						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
 							_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
 							break
