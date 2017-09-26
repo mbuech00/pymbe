@@ -45,7 +45,10 @@ class ScrCls():
 	
 		def update(self, _calc, _exp):
 				""" update expansion threshold according to start order """
-				return 100.0 - _calc.exp_thres * (_exp.order - 1)
+				if (_exp.order <= 2):
+					return 100.0
+				else:
+					return _calc.exp_thres
 
 		
 		def main(self, _mpi, _calc, _exp, _rst):
@@ -59,12 +62,17 @@ class ScrCls():
 				else:
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
-					# determine which increments have contributions below the threshold
-					sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
-					sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
-					if (sum_total == 0.0):
+					# generate list of allowed tuples
+					if (_exp.order <= 2):
+						# compute all two- and three-body increments
 						_exp.allow_tuples = _exp.tuples[-1]
 					else:
+						# rank the increments that have contributions above the convergence threshold
+						above = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= 1.0e-10)]
+						sort = np.argsort(np.abs(above))[::-1]
+						# sum up total absolute energy
+						sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
+						# loop until threshold has been reached
 						for idx in range(len(_exp.energy_inc[-1])):
 							sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
 							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
@@ -125,12 +133,17 @@ class ScrCls():
 				job_info = {}
 				# init job index, tmp list, and screen_count
 				i = 0; tmp = []; _exp.screen_count.append(0)
-				# determine which increments have contributions below the threshold
-				sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
-				sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
-				if (sum_total == 0.0):
+				# generate list of allowed tuples
+				if (_exp.order <= 2):
+					# compute all two- and three-body increments
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
+					# rank the increments that have contributions above the convergence threshold
+					above = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= 1.0e-10)]
+					sort = np.argsort(np.abs(above))[::-1]
+					# sum up total absolute energy
+					sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
+					# loop until threshold has been reached
 					for idx in range(len(_exp.energy_inc[-1])):
 						sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
 						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
@@ -189,12 +202,17 @@ class ScrCls():
 					comm = _mpi.master_comm
 				else:
 					comm = _mpi.local_comm
-				# determine which increments have contributions below the threshold
-				sort = np.argsort(np.abs(_exp.energy_inc[-1]))[::-1]
-				sum_total = np.sum(np.abs(_exp.energy_inc[-1])); sum_tmp = 0.0
-				if (sum_total == 0.0):
+				# generate list of allowed tuples
+				if (_exp.order <= 2):
+					# compute all two- and three-body increments
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
+					# rank the increments that have contributions above the convergence threshold
+					above = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= 1.0e-10)]
+					sort = np.argsort(np.abs(above))[::-1]
+					# sum up total absolute energy
+					sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
+					# loop until threshold has been reached
 					for idx in range(len(_exp.energy_inc[-1])):
 						sum_tmp += np.abs(_exp.energy_inc[-1][sort[idx]])
 						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
