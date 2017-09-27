@@ -235,23 +235,22 @@ class PySCFCls():
 				# generate orbital lists
 				cas_idx = sorted(_exp.incl_idx + _tup.tolist())
 				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
-				# extract core and cas integrals and calculate core energy
+				# extract core and one-electron cas integrals and calculate core energy
 				if (len(core_idx) > 0):
-					vhf_core = np.einsum('iipq->pq', _calc.h2e[core_idx][:,core_idx]) * 2
-					vhf_core -= np.einsum('piiq->pq', _calc.h2e[:,core_idx][:,:,core_idx])
-					h1e_cas = (_calc.h1e + vhf_core)[cas_idx][:,cas_idx]
+					if ((_calc.exp_type == 'occupied') or (_exp.e_core is None)):
+						_calc.vhf_core = np.einsum('iipq->pq', _calc.h2e[core_idx][:,core_idx]) * 2
+						_calc.vhf_core -= np.einsum('piiq->pq', _calc.h2e[:,core_idx][:,:,core_idx])
+						_exp.e_core = _calc.h1e[core_idx][:,core_idx].trace() * 2 + \
+										_calc.vhf_core[core_idx][:,core_idx].trace() + \
+										_mol.energy_nuc()
+					h1e_cas = (_calc.h1e + _calc.vhf_core)[cas_idx][:,cas_idx]
 				else:
 					h1e_cas = _calc.h1e[cas_idx][:,cas_idx]
-				h2e_cas = _calc.h2e[cas_idx][:,cas_idx][:,:,cas_idx][:,:,:,cas_idx]
-				# set core energy
-				if (len(core_idx) > 0):
-					e_core = _calc.h1e[core_idx][:,core_idx].trace() * 2 + \
-								vhf_core[core_idx][:,core_idx].trace() + \
-								_mol.energy_nuc()
-				else:
 					e_core = _mol.energy_nuc()
+				# extract two-electron cas integrals
+				h2e_cas = _calc.h2e[cas_idx][:,cas_idx][:,:,cas_idx][:,:,:,cas_idx]
 				#
-				return core_idx, cas_idx, h1e_cas, h2e_cas, e_core
+				return core_idx, cas_idx, h1e_cas, h2e_cas
 
 
 		def calc(self, _mol, _calc, _exp):

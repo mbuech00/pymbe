@@ -133,6 +133,8 @@ class ScrCls():
 				job_info = {}
 				# init job index, tmp list, and screen_count
 				i = 0; tmp = []; _exp.screen_count.append(0)
+				# init requests
+				reqs = [MPI.REQUEST_NULL for idx in range(num_slaves)]
 				# generate list of allowed tuples
 				if (_exp.order <= 2):
 					# compute all two- and three-body increments
@@ -164,12 +166,12 @@ class ScrCls():
 							# save parent tuple index
 							job_info['index'] = i
 							# send parent tuple index
-							comm.send(job_info, dest=source, tag=self.tags.start)
+							req = comm.isend(job_info, dest=source, tag=self.tags.start)
 							# increment job index
 							i += 1
 						else:
 							# send exit signal
-							comm.send(None, dest=source, tag=self.tags.exit)
+							req = comm.isend(None, dest=source, tag=self.tags.exit)
 					# receive result from slave
 					elif (tag == self.tags.done):
 						# write tmp child tuple list
@@ -180,6 +182,10 @@ class ScrCls():
 					elif (tag == self.tags.exit):
 						# remove slave
 						slaves_avail -= 1
+					# update reqs
+					reqs[source-1] = req
+				# wait for all requests to be finished
+				MPI.Request.waitall(reqs)
 				# finally we sort the tuples or mark expansion as converged 
 				if (len(tmp) >= 1):
 					tmp.sort()

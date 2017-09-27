@@ -70,6 +70,8 @@ class ExpCls():
 				if (_mpi.global_master):
 					self.time_kernel = []
 					self.time_screen = []
+				# init e_core
+				self.e_core = None
 				#
 				return
 
