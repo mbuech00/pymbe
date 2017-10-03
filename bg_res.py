@@ -65,6 +65,7 @@ class ResCls():
 		def results(self, _mpi, _mol, _calc, _exp):
 				""" print results """
 				# write summary to bg_results.out
+				print('\n final total energy = {0:.12f}\n'.format(_calc.ref_e_tot + _exp.energy_tot[-1]))
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
 						print('\n\n'+self.header_str)
@@ -81,21 +82,26 @@ class ResCls():
 									'','|','','exp. model','','=','',_calc.exp_model,\
 									'','|','','# mpi masters / slaves','','=','',\
 									_mpi.num_local_masters + 1,'/',_mpi.global_size - (_mpi.num_local_masters + 1)))
-						print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:9}{10:10}{11:1}'
-							'{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
+						print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:14}{10:5}{11:1}'
+							'{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',str(_mol.frozen),\
-									'','|','','exp. base','','=','',_calc.exp_base,\
-									'','|','','HF energy','','=','',_calc.hf.e_tot))
+									'','|','','exp. reference','','=','',_calc.exp_ref,\
+									'','|','','HF energy','','=','',_calc.hf_e_tot))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:9}{12:10}'
 							'{13:1}{14:2}{15:<8s}{16:5}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
+									'','|','','exp. base','','=','',_calc.exp_base,\
+									'','|','','reference energy','','=','',_calc.ref_e_tot))
+						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<7s}{6:8}{7:1}{8:9}{9:9}{10:10}'
+							'{11:1}{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+								format('','orbs. (occ.)','','=','',_calc.exp_occ,\
 									'','|','','exp. type','','=','',_calc.exp_type,\
-									'','|','','base model energy','','=','',_calc.hf.e_tot + _calc.e_zero))
-						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<5s}{6:^3}{7:<4s}{8:3}{9:1}{10:9}{11:11}{12:8}{13:1}{14:2}'
-							'{15:<5.2f}{16:2}{17:6}{18:1}{19:7}{20:18}{21:6}{22:1}{23:1}{24:.6f}').\
-								format('','orbitals (o/v)','','=','',_calc.exp_occ,'/',_calc.exp_virt,\
+									'','|','','base model energy','','=','',_calc.ref_e_tot + _calc.e_zero))
+						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<7s}{6:8}{7:1}{8:9}{9:11}{10:8}{11:1}{12:2}'
+							'{13:<6.2f}{14:2}{15:5}{16:1}{17:7}{18:18}{19:6}{20:1}{21:1}{22:.6f}').\
+								format('','orbs. (virt.)','','=','',_calc.exp_virt,\
 									'','|','','exp. thres.','','=','',_calc.exp_thres,' %',\
-									'','|','','final total energy','','=','',_calc.hf.e_tot + _exp.energy_tot[-1]))
+									'','|','','final total energy','','=','',_calc.ref_e_tot + _exp.energy_tot[-1]))
 						print(('{0:12}{1:8}{2:8}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:13}{10:6}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','symmetry','','=','',_mol.symmetry,\

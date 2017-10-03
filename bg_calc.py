@@ -25,14 +25,16 @@ class CalcCls():
 				self.exp_model = 'CCSD'
 				self.exp_type = 'occupied'
 				self.exp_base = 'HF'
+#				self.exp_ref = 'HF'
+				self.exp_ref = 'B3LYP'
 				self.exp_thres = 0.0
 				self.exp_max_order = 0
 				self.exp_occ = 'HF'
 				self.exp_virt = 'HF'
 				self.energy_thres = 0.0
 				self.tolerance = 0.0
-				# init hf_dens and transformation matrix
-				self.hf_dens = None; self.trans_mat = None
+				# init hf_dens, ref_dens, and transformation matrix
+				self.hf_dens = None; self.ref_dens = None; self.trans_mat = None
 				# init h1e and h2e
 				self.h1e = None; self.h2e = None
 				# set calculation parameters

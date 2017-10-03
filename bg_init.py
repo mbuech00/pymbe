@@ -62,13 +62,15 @@ class InitCls():
 					if (self.rst.restart):
 						self.rst.read_hf_trans(self.calc)
 						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
+						self.calc.ref = self.pyscf.ref(self.mol, self.calc)
 					else:
 						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
+						self.calc.ref = self.pyscf.ref(self.mol, self.calc)
 						self.pyscf.trans_main(self.mol, self.calc)
 						# write restart files
 						self.rst.write_hf_trans(self.calc)
 				# bcast hf and transformation info
-				self.mpi.bcast_hf_info(self.mol, self.calc)
+				self.mpi.bcast_hf_ref_info(self.mol, self.calc)
 				if (self.mpi.num_local_masters >= 1):
 					self.mpi.bcast_trans_info(self.mol, self.calc)
 					# local master hf calc
