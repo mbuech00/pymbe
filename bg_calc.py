@@ -24,13 +24,12 @@ class CalcCls():
 				# set default parameters
 				self.exp_model = 'CCSD'
 				self.exp_type = 'occupied'
-				self.exp_base = 'HF'
-#				self.exp_ref = 'HF'
-				self.exp_ref = 'B3LYP'
+				self.exp_ref = 'HF'
+				self.exp_base = 'REF'
 				self.exp_thres = 0.0
 				self.exp_max_order = 0
-				self.exp_occ = 'HF'
-				self.exp_virt = 'HF'
+				self.exp_occ = 'REF'
+				self.exp_virt = 'REF'
 				self.energy_thres = 0.0
 				self.tolerance = 0.0
 				# init hf_dens, ref_dens, and transformation matrix
@@ -39,8 +38,8 @@ class CalcCls():
 				self.h1e = None; self.h2e = None
 				# set calculation parameters
 				if (_mpi.global_master):
-					self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
-						self.exp_max_order, self.exp_occ, self.exp_virt, \
+					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
+						self.exp_thres, self.exp_max_order, self.exp_occ, self.exp_virt, \
 						self.energy_thres, self.tolerance, _mol.verbose, _mol.max_memory, \
 						_mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
 					# sanity check
@@ -62,6 +61,8 @@ class CalcCls():
 								self.exp_model = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'exp_type'):
 								self.exp_type = re.split('=',content[i])[1].strip()
+							elif (re.split('=',content[i])[0].strip() == 'exp_ref'):
+								self.exp_ref = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'exp_base'):
 								self.exp_base = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'exp_thres'):
@@ -96,7 +97,7 @@ class CalcCls():
 					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
 					raise
 				#
-				return self.exp_model, self.exp_type, self.exp_base, self.exp_thres, \
+				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, self.exp_thres, \
 							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, \
 							self.tolerance, _mol.verbose, _mol.max_memory, _mpi.num_local_masters
 
@@ -112,10 +113,12 @@ class CalcCls():
 					if (not (self.exp_type in ['occupied','virtual','combined'])):
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are occupied, virtual, and combined')
+					# reference model
+					if (not (self.exp_ref in ['HF','B3LYP','B3P86','CASSCF'])):
+						raise ValueError('wrong input -- invalid reference model')
 					# base model
-					if (not (self.exp_base in ['HF','MP2','CISD','CCSD'])):
-						raise ValueError('wrong input -- valid base models ' + \
-										'are currently: HF, MP2, and CCSD')
+					if (not (self.exp_base in ['REF','MP2','CISD','CCSD'])):
+						raise ValueError('wrong input -- invalid base model')
 					if (((self.exp_base == 'MP2') and (self.exp_model == 'MP2')) or \
 						((self.exp_base == 'CISD') and (self.exp_model in ['MP2','CISD'])) or \
 						((self.exp_base == 'CCSD') and (self.exp_model in ['MP2','CISD','CCSD']))):
@@ -133,15 +136,15 @@ class CalcCls():
 						raise ValueError('wrong input -- energy threshold parameter ' + \
 										'(energy_thres) must be float >= 0.0')
 					# orbital representation
-					if (not (self.exp_occ in ['HF','PM','ER','BOYS','IBO-1','IBO-2','NO'])):
+					if (not (self.exp_occ in ['REF','PM','ER','BOYS','IBO-1','IBO-2','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \
-										'representations are currently: HF, local (PM, ER, or Boys), ' + \
+										'representations are currently: REF, local (PM, ER, or Boys), ' + \
 										'intrinsic bond orbitals (IBO-1 or IBO-2), or base model natural orbitals (NO)')
-					if (not (self.exp_virt in ['HF','PM','ER','BOYS','NO','DNO'])):
+					if (not (self.exp_virt in ['REF','PM','ER','BOYS','NO','DNO'])):
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: HF, local (PM, ER, or Boys), ' + \
+										'representations are currently: REF, local (PM, ER, or Boys), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base == 'HF')):
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base == 'REF')):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a correlated base model for the expansion')
 					if ((_mol.symmetry.upper() != 'C1') and ((self.exp_occ in ['PM','ER','BOYS','IBO-1','IBO-2']) or \

@@ -134,7 +134,10 @@ class DrvCls():
 					#
 					#** convergence check **#
 					#
-					if (_exp.conv_energy[-1] or _exp.conv_orb[-1]): break
+					if (_exp.conv_energy[-1] or _exp.conv_orb[-1] or (_exp.order == _exp.max_order)):
+						_exp.energy_tot = np.array(_exp.energy_tot)
+						if (_calc.exp_ref != 'HF'): _exp.energy_tot -= _calc.hf_e_tot - _calc.ref_e_tot
+						break
 				#
 				return
 

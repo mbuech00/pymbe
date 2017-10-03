@@ -59,7 +59,7 @@ class PySCFCls():
 					_mol.nocc = int(hf.mo_occ.sum()) // 2
 					_mol.nvirt = _mol.norb - _mol.nocc
 					# overwrite occupied MOs
-					if (_calc.exp_occ != 'HF'):
+					if (_calc.exp_occ != 'REF'):
 						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
 				# save e_tot
 				_calc.hf_e_tot = hf.e_tot
@@ -77,56 +77,55 @@ class PySCFCls():
 				if (_calc.exp_ref == 'HF'):
 					_calc.ref_mo_coeff = _calc.hf.mo_coeff
 					_calc.ref_e_tot = _calc.hf_e_tot
-					# transform 1- and 2-electron integrals (hf)
-					h1e = reduce(np.dot, (np.transpose(_calc.hf.mo_coeff), _calc.hf.get_hcore(), _calc.hf.mo_coeff))
-					h2e = ao2mo.kernel(_mol, _calc.hf.mo_coeff)
+					ref_hf = _calc.hf
 				# dft reference model
-				elif (_calc.exp_ref != 'CASSCF'):
-					# perform reference calc
-					ref = dft.RKS(_mol)
-					ref.xc = _calc.exp_ref
-					ref.conv_tol = 1.0e-12
-					ref.max_cycle = 100
-					ref.irrep_nelec = _mol.irrep_nelec
-					# restart calc?
-					if (_calc.ref_dens is None):
-						for i in list(range(0, 12, 2)):
-							ref.diis_start_cycle = i
-							try:
-								ref.kernel()
-							except sp.linalg.LinAlgError: pass
-							if (ref.converged): break
-						if (not ref.converged):
-							try:
-								raise RuntimeError('\nREF Error : no convergence\n\n')
-							except Exception as err:
-								sys.stderr.write(str(err))
-								raise
-						# calculate converged hf dens
-						_calc.ref_dens = ref.make_rdm1()
-					else:
-						# restart from converged density
-						ref.kernel(_calc.ref_dens)
-						# overwrite occupied MOs
-						if (_calc.exp_occ != 'HF'):
-							ref.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
-					# make hf potential
-					veff_ks = scf.hf.get_veff(_mol, _calc.ref_dens)
-					# store ks energy
-					_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=_calc.ref_dens, h1e=ref.get_hcore(), vhf=veff_ks)[0] \
-										+ _mol.energy_nuc()
-					# save orbsym
-					_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, ref.mo_coeff)
-					# save mo_coeff
-					_calc.ref_mo_coeff = ref.mo_coeff
-					# transform 1- and 2-electron integrals (dft)
-					h1e = reduce(np.dot, (np.transpose(ref.mo_coeff), ref.get_hcore(), ref.mo_coeff))
-					h2e = ao2mo.kernel(_mol, ref.mo_coeff)
-				# make ref hf object
-				mol = gto.M(verbose=0)
-				ref_hf = scf.RHF(mol)
-				ref_hf._eri = h2e
-				ref_hf.get_hcore = lambda *args: h1e
+				else:
+					if (_calc.exp_ref != 'CASSCF'):
+						# perform reference calc
+						ref = dft.RKS(_mol)
+						ref.xc = _calc.exp_ref
+						ref.conv_tol = 1.0e-12
+						ref.max_cycle = 100
+						ref.irrep_nelec = _mol.irrep_nelec
+						# restart calc?
+						if (_calc.ref_dens is None):
+							for i in list(range(0, 12, 2)):
+								ref.diis_start_cycle = i
+								try:
+									ref.kernel()
+								except sp.linalg.LinAlgError: pass
+								if (ref.converged): break
+							if (not ref.converged):
+								try:
+									raise RuntimeError('\nREF Error : no convergence\n\n')
+								except Exception as err:
+									sys.stderr.write(str(err))
+									raise
+							# calculate converged hf dens
+							_calc.ref_dens = ref.make_rdm1()
+						else:
+							# restart from converged density
+							ref.kernel(_calc.ref_dens)
+							# overwrite occupied MOs
+							if (_calc.exp_occ != 'REF'):
+								ref.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
+						# make hf potential
+						veff_ks = scf.hf.get_veff(_mol, _calc.ref_dens)
+						# store ks energy
+						_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=_calc.ref_dens, h1e=ref.get_hcore(), vhf=veff_ks)[0] \
+											+ _mol.energy_nuc()
+						# save orbsym
+						_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, ref.mo_coeff)
+						# save mo_coeff
+						_calc.ref_mo_coeff = ref.mo_coeff
+						# transform 1- and 2-electron integrals (dft)
+						h1e = reduce(np.dot, (np.transpose(ref.mo_coeff), ref.get_hcore(), ref.mo_coeff))
+						h2e = ao2mo.kernel(_mol, ref.mo_coeff)
+					# make ref hf object
+					mol = gto.M(verbose=0)
+					ref_hf = scf.RHF(mol)
+					ref_hf._eri = h2e
+					ref_hf.get_hcore = lambda *args: h1e
 				#
 				return ref_hf
 
@@ -136,7 +135,7 @@ class PySCFCls():
 				# set frozen list
 				frozen = list(range(_mol.ncore))
 				# zeroth-order energy
-				if (_calc.exp_base == 'HF'):
+				if (_calc.exp_base == 'REF'):
 					_calc.e_zero = _calc.ref_e_tot - _calc.hf_e_tot
 				elif (_calc.exp_base == 'MP2'):
 					# calculate mp2 energy
@@ -166,7 +165,10 @@ class PySCFCls():
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = cisd.make_rdm1()
 				elif (_calc.exp_base == 'CCSD'):
 					# calculate ccsd energy
-					ccsd = cc.ccsd.CCSD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf.mo_occ)
+					if (_calc.exp_ref == 'HF'):
+						ccsd = cc.CCSD(_calc.ref)
+					else:
+						ccsd = cc.ccsd.CCSD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf.mo_occ)
 					ccsd.conv_tol = 1.0e-10
 					ccsd.max_cycle = 100
 					ccsd.diis_space = 10
@@ -189,7 +191,7 @@ class PySCFCls():
 				# init transformation matrix
 				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
 				# occ-occ block (local or symmetry-adapted NOs)
-				if (_calc.exp_occ != 'HF'):
+				if (_calc.exp_occ != 'REF'):
 					if (_calc.exp_occ == 'NO'):
 						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], \
 												_calc.orbsym[_mol.ncore:_mol.nocc])
@@ -208,7 +210,7 @@ class PySCFCls():
 						elif (_calc.exp_occ == 'IBO-2'):
 							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
 				# virt-virt block (local or symmetry-adapted NOs)
-				if (_calc.exp_virt != 'HF'):
+				if (_calc.exp_virt != 'REF'):
 					if (_calc.exp_virt == 'NO'):
 						occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
 												_calc.orbsym[_mol.nocc:])
@@ -367,7 +369,7 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 				# base calculation
-				if (_calc.exp_base == 'HF'):
+				if (_calc.exp_base == 'REF'):
 					e_corr = (e_cas + _exp.e_core) - _calc.ref_e_tot
 				else:
 					# base calculation

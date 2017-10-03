@@ -65,7 +65,6 @@ class ResCls():
 		def results(self, _mpi, _mol, _calc, _exp):
 				""" print results """
 				# write summary to bg_results.out
-				print('\n final total energy = {0:.12f}\n'.format(_calc.ref_e_tot + _exp.energy_tot[-1]))
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
 						print('\n\n'+self.header_str)
@@ -101,7 +100,7 @@ class ResCls():
 							'{13:<6.2f}{14:2}{15:5}{16:1}{17:7}{18:18}{19:6}{20:1}{21:1}{22:.6f}').\
 								format('','orbs. (virt.)','','=','',_calc.exp_virt,\
 									'','|','','exp. thres.','','=','',_calc.exp_thres,' %',\
-									'','|','','final total energy','','=','',_calc.ref_e_tot + _exp.energy_tot[-1]))
+									'','|','','final total energy','','=','',_calc.hf_e_tot + _exp.energy_tot[-1]))
 						print(('{0:12}{1:8}{2:8}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:13}{10:6}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','symmetry','','=','',_mol.symmetry,\
