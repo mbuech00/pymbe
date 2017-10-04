@@ -119,6 +119,8 @@ class CalcCls():
 										'with method value given as a string')
 					if (not (self.exp_ref['METHOD'] in ['HF','DFT','CASSCF'])):
 						raise ValueError('wrong input -- invalid reference model')
+					if ((self.exp_ref['METHOD'] != 'HF') and _mol.frozen):
+						raise ValueError('wrong input -- non-HF reference is not allowed for frozen-core calculations')
 					if ((self.exp_ref['METHOD'] == 'DFT') and (not ('XC' in self.exp_ref))):
 						raise ValueError('wrong input -- missing "xc" key in exp_ref dictionary for ' + \
 										'DFT reference model (with xc value given as a string)')
