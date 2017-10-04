@@ -24,7 +24,7 @@ class CalcCls():
 				# set default parameters
 				self.exp_model = 'CCSD'
 				self.exp_type = 'occupied'
-				self.exp_ref = 'HF'
+				self.exp_ref = {'METHOD': 'HF'}
 				self.exp_base = 'REF'
 				self.exp_thres = 0.0
 				self.exp_max_order = 0
@@ -62,7 +62,7 @@ class CalcCls():
 							elif (re.split('=',content[i])[0].strip() == 'exp_type'):
 								self.exp_type = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'exp_ref'):
-								self.exp_ref = re.split('=',content[i])[1].strip().upper()
+								self.exp_ref = eval(re.split('=',content[i])[1].strip().upper())
 							elif (re.split('=',content[i])[0].strip() == 'exp_base'):
 								self.exp_base = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'exp_thres'):
@@ -106,7 +106,7 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if (not (self.exp_model in ['MP2','CISD','CCSD','FCI'])):
+					if (not (self.exp_model in ['MP2','CISD','CCSD','CCSD(T)','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: MP2, CISD, CCSD, and FCI')
 					# type of expansion
@@ -114,16 +114,25 @@ class CalcCls():
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are occupied, virtual, and combined')
 					# reference model
-					if (not (self.exp_ref in ['HF','B3LYP','B3P86','CASSCF'])):
+					if (not ('METHOD' in self.exp_ref)):
+						raise ValueError('wrong input -- exp_ref dictionary must contain "method" key ' + \
+										'with method value given as a string')
+					if (not (self.exp_ref['METHOD'] in ['HF','DFT','CASSCF'])):
 						raise ValueError('wrong input -- invalid reference model')
+					if ((self.exp_ref['METHOD'] == 'DFT') and (not ('XC' in self.exp_ref))):
+						raise ValueError('wrong input -- missing "xc" key in exp_ref dictionary for ' + \
+										'DFT reference model (with xc value given as a string)')
 					# base model
-					if (not (self.exp_base in ['REF','MP2','CISD','CCSD'])):
+					if (not (self.exp_base in ['REF','MP2','CISD','CCSD','CCSD(T)'])):
 						raise ValueError('wrong input -- invalid base model')
 					if (((self.exp_base == 'MP2') and (self.exp_model == 'MP2')) or \
 						((self.exp_base == 'CISD') and (self.exp_model in ['MP2','CISD'])) or \
-						((self.exp_base == 'CCSD') and (self.exp_model in ['MP2','CISD','CCSD']))):
+						((self.exp_base == 'CCSD') and (self.exp_model in ['MP2','CISD','CCSD'])) or \
+						((self.exp_base == 'CCSD(T)') and (self.exp_model in ['MP2','CISD','CCSD','CCSD(T)']))):
 							raise ValueError('wrong input -- invalid base model for choice ' + \
 											'of expansion model')
+					if ((self.exp_base == 'CCSD(T)') and (not ((self.exp_occ == 'REF') and (self.exp_virt == 'REF')))):
+						raise ValueError('wrong input -- the use of CCSD(T) as base model requires canonical (REF) orbitals')
 					# max order
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \

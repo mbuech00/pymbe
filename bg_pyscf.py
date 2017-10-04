@@ -74,16 +74,16 @@ class PySCFCls():
 		def ref(self, _mol, _calc):
 				""" determine dimensions """
 				# hf reference model
-				if (_calc.exp_ref == 'HF'):
+				if (_calc.exp_ref['METHOD'] == 'HF'):
 					_calc.ref_mo_coeff = _calc.hf.mo_coeff
 					_calc.ref_e_tot = _calc.hf_e_tot
 					ref_hf = _calc.hf
 				# dft reference model
 				else:
-					if (_calc.exp_ref != 'CASSCF'):
+					if (_calc.exp_ref['METHOD'] == 'DFT'):
 						# perform reference calc
 						ref = dft.RKS(_mol)
-						ref.xc = _calc.exp_ref
+						ref.xc = _calc.exp_ref['XC']
 						ref.conv_tol = 1.0e-12
 						ref.max_cycle = 100
 						ref.irrep_nelec = _mol.irrep_nelec
@@ -163,9 +163,9 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = cisd.make_rdm1()
-				elif (_calc.exp_base == 'CCSD'):
+				elif (_calc.exp_base in ['CCSD','CCSD(T)']):
 					# calculate ccsd energy
-					if (_calc.exp_ref == 'HF'):
+					if (_calc.exp_ref['METHOD'] == 'HF'):
 						ccsd = cc.CCSD(_calc.ref)
 					else:
 						ccsd = cc.ccsd.CCSD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf.mo_occ)
@@ -187,6 +187,7 @@ class PySCFCls():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
+					if (_calc.exp_base == 'CCSD(T)'): _calc.e_zero += ccsd.ccsd_t()
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = ccsd.make_rdm1()
 				# init transformation matrix
 				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
@@ -382,7 +383,7 @@ class PySCFCls():
 
 
 class ModelSolver():
-		""" MP2 or CCSD as active space solver, 
+		""" MP2, CISD, CCSD, or CCSD(T) as active space solver, 
 		adapted from cc test: 42-as_casci_fcisolver.py of the pyscf test suite
 		"""
 		def __init__(self, model):
@@ -397,9 +398,11 @@ class ModelSolver():
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
 				cas_hf = scf.RHF(cas_mol)
+				cas_hf.spin = _mol.spin
 				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.mo_occ = np.zeros(len(_cas_idx)); cas_hf.mo_occ[:(_mol.nocc - len(_core_idx))] = 2
+				cas_hf.nelectron = len(cas_hf.mo_occ[np.where(cas_hf.mo_occ == 2)]) * 2
 				cas_hf.e_tot = scf.hf.energy_elec(cas_hf, dm=np.diag(cas_hf.mo_occ))[0]
 				#
 				return cas_hf
@@ -411,7 +414,8 @@ class ModelSolver():
 					self.model = mp.MP2(_cas_hf)
 					e_corr = self.model.kernel()[0]
 				elif (self.model_type == 'CISD'):
-					self.model = ci.CISD(_cas_hf)
+					self.model = ci.CISD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
+#					self.model = ci.CISD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
 					self.model.max_cycle = 100
 					self.model.max_space = 30
@@ -454,7 +458,7 @@ class ModelSolver():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-				elif (self.model_type == 'CCSD'):
+				elif (self.model_type in ['CCSD','CCSD(T)']):
 					self.model = cc.ccsd.CCSD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 10
@@ -473,6 +477,7 @@ class ModelSolver():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
+					if (self.model_type == 'CCSD(T)'): e_corr += self.model.ccsd_t()
 				#
 				return e_corr + _cas_hf.e_tot
 
