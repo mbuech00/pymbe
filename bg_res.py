@@ -46,6 +46,41 @@ class ResCls():
 					self.u_limit = _mol.nocc - _mol.ncore
 				else:
 					self.u_limit = _mol.nvirt 
+				# modify reference print out
+				if (_calc.exp_ref['METHOD'] == 'DFT'):
+					self.exp_ref = _calc.exp_ref['XC']
+				else:
+					self.exp_ref = _calc.exp_ref['METHOD']
+				# modify orbital print out
+				if (_calc.exp_occ == 'REF'):
+					self.exp_occ = 'reference'
+				elif (_calc.exp_occ == 'NO'):
+					self.exp_occ = 'natural'
+				elif (_calc.exp_occ == 'PM'):
+					self.exp_occ = 'pipek-mezey'
+				elif (_calc.exp_occ == 'FB'):
+					self.exp_occ = 'foster-boys'
+				elif (_calc.exp_occ == 'IBO-1'):
+					self.exp_occ = 'intrin. bond'
+				elif (_calc.exp_occ == 'IBO-2'):
+					self.exp_occ = 'intrin. bond'
+				if (_calc.exp_virt == 'REF'):
+					self.exp_virt = 'reference'
+				elif (_calc.exp_virt == 'NO'):
+					self.exp_virt = 'natural'
+				elif (_calc.exp_virt == 'PM'):
+					self.exp_virt = 'pipek-mezey'
+				elif (_calc.exp_virt == 'FB'):
+					self.exp_virt = 'foster-boys'
+				elif (_calc.exp_virt == 'DNO'):
+					self.exp_virt = 'dist. natural'
+				# modify FC print out
+				if (_mol.frozen):
+					self.frozen = 'true'
+				else:
+					self.frozen = 'false'
+				# modify symmetry print out
+				self.symmetry = _mol.symmetry.lower()
 				#
 				return
 
@@ -83,27 +118,27 @@ class ResCls():
 									_mpi.num_local_masters + 1,'/',_mpi.global_size - (_mpi.num_local_masters + 1)))
 						print(('{0:12}{1:11}{2:5}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:9}{9:14}{10:5}{11:1}'
 							'{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
-								format('','frozen core','','=','',str(_mol.frozen),\
-									'','|','','exp. reference','','=','',_calc.exp_ref['METHOD'],\
+								format('','frozen core','','=','',self.frozen,\
+									'','|','','exp. reference','','=','',self.exp_ref,\
 									'','|','','HF energy','','=','',_calc.hf_e_tot))
 						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:9}{11:9}{12:10}'
 							'{13:1}{14:2}{15:<8s}{16:5}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
 									'','|','','exp. base','','=','',_calc.exp_base,\
 									'','|','','reference energy','','=','',_calc.ref_e_tot))
-						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<7s}{6:8}{7:1}{8:9}{9:9}{10:10}'
+						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:9}{9:9}{10:10}'
 							'{11:1}{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-								format('','orbs. (occ.)','','=','',_calc.exp_occ,\
+								format('','orbs. (occ.)','','=','',self.exp_occ,\
 									'','|','','exp. type','','=','',_calc.exp_type,\
 									'','|','','base model energy','','=','',_calc.ref_e_tot + _calc.e_zero))
-						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<7s}{6:8}{7:1}{8:9}{9:11}{10:8}{11:1}{12:2}'
+						print(('{0:12}{1:14}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:9}{9:11}{10:8}{11:1}{12:2}'
 							'{13:<6.2f}{14:2}{15:5}{16:1}{17:7}{18:18}{19:6}{20:1}{21:1}{22:.6f}').\
-								format('','orbs. (virt.)','','=','',_calc.exp_virt,\
+								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','exp. thres.','','=','',_calc.exp_thres,' %',\
 									'','|','','final total energy','','=','',_calc.hf_e_tot + _exp.energy_tot[-1]))
 						print(('{0:12}{1:8}{2:8}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:9}{9:13}{10:6}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
-								format('','symmetry','','=','',_mol.symmetry,\
+								format('','symmetry','','=','',self.symmetry,\
 									'','|','','energy thres.','','=','',_calc.energy_thres,\
 									'','|','','final abs. conv.','','=','',\
 									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))

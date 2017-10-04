@@ -57,7 +57,7 @@ class PrintCls():
 							print('')
 							print('   --- an incremental Python-based electronic structure correlation program written by:')
 							print('')
-							print('             Janus Juul Eriksen')
+							print('            Janus Juul Eriksen')
 							print('')
 							print('       with contributions from:')
 							print('')

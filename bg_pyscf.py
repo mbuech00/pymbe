@@ -196,9 +196,7 @@ class PySCFCls():
 						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
 						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-					elif (_calc.exp_occ == 'ER'):
-						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ER(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-					elif (_calc.exp_occ == 'BOYS'):
+					elif (_calc.exp_occ == 'FB'):
 						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
 					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
 						iao = lo.iao.iao(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc])
@@ -215,9 +213,7 @@ class PySCFCls():
 						_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.ref_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
 						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
-					elif (_calc.exp_virt == 'ER'):
-						_calc.trans_mat[:, _mol.nocc:] = lo.ER(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
-					elif (_calc.exp_virt == 'BOYS'):
+					elif (_calc.exp_virt == 'FB'):
 						_calc.trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
 				#
 				return
