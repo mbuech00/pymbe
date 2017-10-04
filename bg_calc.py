@@ -106,9 +106,9 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if (not (self.exp_model in ['MP2','CISD','CCSD','CCSD(T)','FCI'])):
+					if (not (self.exp_model in ['CISD','CCSD','CCSD(T)','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
-										'are currently: MP2, CISD, CCSD, and FCI')
+										'are currently: CISD, CCSD, CCSD(T), and FCI')
 					# type of expansion
 					if (not (self.exp_type in ['occupied','virtual','combined'])):
 						raise ValueError('wrong input -- valid choices for ' + \
@@ -123,12 +123,11 @@ class CalcCls():
 						raise ValueError('wrong input -- missing "xc" key in exp_ref dictionary for ' + \
 										'DFT reference model (with xc value given as a string)')
 					# base model
-					if (not (self.exp_base in ['REF','MP2','CISD','CCSD','CCSD(T)'])):
+					if (not (self.exp_base in ['REF','CISD','CCSD','CCSD(T)'])):
 						raise ValueError('wrong input -- invalid base model')
-					if (((self.exp_base == 'MP2') and (self.exp_model == 'MP2')) or \
-						((self.exp_base == 'CISD') and (self.exp_model in ['MP2','CISD'])) or \
-						((self.exp_base == 'CCSD') and (self.exp_model in ['MP2','CISD','CCSD'])) or \
-						((self.exp_base == 'CCSD(T)') and (self.exp_model in ['MP2','CISD','CCSD','CCSD(T)']))):
+					if (((self.exp_base == 'CISD') and (self.exp_model in ['CISD'])) or \
+						((self.exp_base == 'CCSD') and (self.exp_model in ['CISD','CCSD'])) or \
+						((self.exp_base == 'CCSD(T)') and (self.exp_model in ['CISD','CCSD','CCSD(T)']))):
 							raise ValueError('wrong input -- invalid base model for choice ' + \
 											'of expansion model')
 					if ((self.exp_base == 'CCSD(T)') and (not ((self.exp_occ == 'REF') and (self.exp_virt == 'REF')))):

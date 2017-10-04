@@ -17,7 +17,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 try:
-	from pyscf import gto, symm, scf, ao2mo, lo, mp, ci, cc, fci, dft
+	from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, fci, dft
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
@@ -137,15 +137,12 @@ class PySCFCls():
 				# zeroth-order energy
 				if (_calc.exp_base == 'REF'):
 					_calc.e_zero = _calc.ref_e_tot - _calc.hf_e_tot
-				elif (_calc.exp_base == 'MP2'):
-					# calculate mp2 energy
-					mp2 = mp.MP2(_calc.hf)
-					mp2.frozen = frozen
-					_calc.e_zero = mp2.kernel()[0]
-					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = mp2.make_rdm1()
 				elif (_calc.exp_base == 'CISD'):
 					# calculate ccsd energy
-					cisd = ci.CISD(_calc.hf)
+					if (_calc.exp_ref['METHOD'] == 'HF'):
+						cisd = ci.CISD(_calc.ref)
+					else:
+						cisd = ci.cisd.CISD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf.mo_occ)
 					cisd.conv_tol = 1.0e-10
 					cisd.max_cycle = 100
 					cisd.max_space = 30
@@ -231,13 +228,7 @@ class PySCFCls():
 				# set frozen list
 				frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx))) 
 				# zeroth-order energy
-				if (_calc.exp_base == 'MP2'):
-					# calculate mp2 energy
-					mp2 = mp.MP2(_calc.hf)
-					mp2.frozen = frozen
-					mp2.kernel()
-					dm = mp2.make_rdm1()
-				elif (_calc.exp_base == 'CISD'):
+				if (_calc.exp_base == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
 					cisd.conv_tol = 1.0e-10
@@ -383,7 +374,7 @@ class PySCFCls():
 
 
 class ModelSolver():
-		""" MP2, CISD, CCSD, or CCSD(T) as active space solver, 
+		""" CISD, CCSD, or CCSD(T) as active space solver, 
 		adapted from cc test: 42-as_casci_fcisolver.py of the pyscf test suite
 		"""
 		def __init__(self, model):
@@ -410,12 +401,8 @@ class ModelSolver():
 
 		def kernel(self, _cas_hf, _core_idx, _cas_idx, _e_cas=None):
 				""" model kernel """
-				if (self.model_type == 'MP2'):
-					self.model = mp.MP2(_cas_hf)
-					e_corr = self.model.kernel()[0]
-				elif (self.model_type == 'CISD'):
-					self.model = ci.CISD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
-#					self.model = ci.CISD(_cas_hf)
+				if (self.model_type == 'CISD'):
+					self.model = ci.cisd.CISD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
 					self.model.conv_tol = 1.0e-10
 					self.model.max_cycle = 100
 					self.model.max_space = 30
