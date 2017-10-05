@@ -62,7 +62,8 @@ class CalcCls():
 							elif (re.split('=',content[i])[0].strip() == 'exp_type'):
 								self.exp_type = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'exp_ref'):
-								self.exp_ref = eval(re.split('=',content[i])[1].strip().upper())
+								self.exp_ref = eval(re.split('=',content[i])[1].strip())
+								self.exp_ref = self.upper(self.exp_ref)
 							elif (re.split('=',content[i])[0].strip() == 'exp_base'):
 								self.exp_base = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'exp_thres'):
@@ -123,7 +124,10 @@ class CalcCls():
 						raise ValueError('wrong input -- non-HF reference is not allowed for frozen-core calculations')
 					if ((self.exp_ref['METHOD'] == 'DFT') and (not ('XC' in self.exp_ref))):
 						raise ValueError('wrong input -- missing "xc" key in exp_ref dictionary for ' + \
-										'DFT reference model (with xc value given as a string)')
+										'DFT reference model (with choice of xc given as a string)')
+					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not ('AO_LABELS' in self.exp_ref))):
+						raise ValueError('wrong input -- missing "ao_labels" key in exp_ref dictionary for ' + \
+										'CASSCF reference model (with ao_labels given as a list of strings)')
 					# base model
 					if (not (self.exp_base in ['REF','CISD','CCSD','CCSD(T)'])):
 						raise ValueError('wrong input -- invalid base model')
@@ -188,5 +192,17 @@ class CalcCls():
 					raise
 				#
 				return
+
+
+		def upper(self, old_dict):
+				""" capitalize keys """
+				new_dict = {}
+				for key, value in old_dict.items():
+					if (key.upper() in ['METHOD', 'XC']):
+						new_dict[key.upper()] = value.upper()
+					else:
+						new_dict[key.upper()] = value
+				#
+				return new_dict
 
 

@@ -17,7 +17,8 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 try:
-	from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, fci, dft
+	from pyscf import gto, symm, scf, dft, ao2mo, lo, ci, cc, mcscf, fci
+	from pyscf.mcscf import avas
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
@@ -97,32 +98,45 @@ class PySCFCls():
 								if (ref.converged): break
 							if (not ref.converged):
 								try:
-									raise RuntimeError('\nREF Error : no convergence\n\n')
+									raise RuntimeError('\nREF-DFT Error : no convergence\n\n')
 								except Exception as err:
 									sys.stderr.write(str(err))
 									raise
-							# calculate converged hf dens
-							_calc.ref_dens = ref.make_rdm1()
-							# store fock matrix
-							_calc.ref_fock = ref.get_fock()
 						else:
 							# restart from converged density
 							ref.kernel(_calc.ref_dens)
 							# overwrite occupied MOs
 							if (_calc.exp_occ != 'REF'):
 								ref.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
-						# make hf potential
-						veff_ks = scf.hf.get_veff(_mol, _calc.ref_dens)
-						# store ks energy
-						_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=_calc.ref_dens, h1e=ref.get_hcore(), vhf=veff_ks)[0] \
-											+ _mol.energy_nuc()
-						# save orbsym
-						_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, ref.mo_coeff)
-						# save mo_coeff
-						_calc.ref_mo_coeff = ref.mo_coeff
-						# transform 1- and 2-electron integrals (dft)
-						h1e = reduce(np.dot, (np.transpose(ref.mo_coeff), ref.get_hcore(), ref.mo_coeff))
-						h2e = ao2mo.kernel(_mol, ref.mo_coeff)
+					elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+						# select active space
+						ao_labels = _calc.exp_ref['AO_LABELS']
+						norb, ne_act, orbs = avas.avas(_calc.hf, ao_labels, canonicalize=True)
+						# perform reference calc
+						ref = mcscf.CASSCF(_calc.hf, norb, ne_act)
+						ref.conv_tol = 1.0e-12
+						ref.max_cycle_macro = 100
+						ref.kernel(orbs)
+						if (not ref.converged):
+							try:
+								raise RuntimeError('\nREF-CASSCF Error : no convergence\n\n')
+							except Exception as err:
+								sys.stderr.write(str(err))
+								raise
+					# calculate converged dens
+					_calc.ref_dens = ref.make_rdm1()
+					# make hf potential
+					veff_ks = scf.hf.get_veff(_mol, _calc.ref_dens)
+					# store ks energy
+					_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=_calc.ref_dens, h1e=_calc.hf.get_hcore(), vhf=veff_ks)[0] \
+										+ _mol.energy_nuc()
+					# save orbsym
+					_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, ref.mo_coeff)
+					# save mo_coeff
+					_calc.ref_mo_coeff = ref.mo_coeff
+					# transform 1- and 2-electron integrals (dft)
+					h1e = reduce(np.dot, (np.transpose(ref.mo_coeff), ref.get_hcore(), ref.mo_coeff))
+					h2e = ao2mo.kernel(_mol, ref.mo_coeff)
 					# make ref hf object
 					mol = gto.M(verbose=0)
 					ref_hf = scf.RHF(mol)
