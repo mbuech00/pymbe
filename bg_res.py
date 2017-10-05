@@ -194,6 +194,7 @@ class ResCls():
 				ax.set_ylabel('Correlation energy (in Hartree)')
 				# force integer ticks on x-axis
 				ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+				ax.yaxis.set_major_formatter(FormatStrFormatter('%.4f'))
 				# despine
 				sns.despine()
 				# make insert

@@ -63,8 +63,8 @@ class ScrCls():
 					# init bookkeeping variables
 					_exp.screen_count.append(0); tmp = []; combs = []
 					# generate list of allowed tuples
-					if (_exp.order <= 2):
-						# compute all two- and three-body increments
+					if ((_exp.order <= 2) or (_exp.thres == 100.0)):
+						# compute all (k+1)-order increments
 						_exp.allow_tuples = _exp.tuples[-1]
 					else:
 						# rank the increments that have contributions above the convergence threshold
@@ -136,8 +136,8 @@ class ScrCls():
 				# init requests
 				reqs = [MPI.REQUEST_NULL for idx in range(num_slaves)]
 				# generate list of allowed tuples
-				if (_exp.order <= 2):
-					# compute all two- and three-body increments
+				if ((_exp.order <= 2) or (_exp.thres == 100.0)):
+					# compute all (k+1)-order increments
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
 					# rank the increments that have contributions above the convergence threshold
@@ -209,8 +209,8 @@ class ScrCls():
 				else:
 					comm = _mpi.local_comm
 				# generate list of allowed tuples
-				if (_exp.order <= 2):
-					# compute all two- and three-body increments
+				if ((_exp.order <= 2) or (_exp.thres == 100.0)):
+					# compute all (k+1)-order increments
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
 					# rank the increments that have contributions above the convergence threshold

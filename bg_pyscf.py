@@ -103,6 +103,8 @@ class PySCFCls():
 									raise
 							# calculate converged hf dens
 							_calc.ref_dens = ref.make_rdm1()
+							# store fock matrix
+							_calc.ref_fock = ref.get_fock()
 						else:
 							# restart from converged density
 							ref.kernel(_calc.ref_dens)
@@ -170,10 +172,11 @@ class PySCFCls():
 					ccsd.max_cycle = 100
 					ccsd.diis_space = 10
 					ccsd.frozen = frozen
+					eris = ccsd.ao2mo()
 					for i in list(range(0, 12, 2)):
 						ccsd.diis_start_cycle = i
 						try:
-							ccsd.kernel()
+							ccsd.kernel(eris=eris)
 						except sp.linalg.LinAlgError: pass
 						if (ccsd.converged):
 							_calc.e_zero = ccsd.e_corr
@@ -184,7 +187,6 @@ class PySCFCls():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-					if (_calc.exp_base == 'CCSD(T)'): _calc.e_zero += ccsd.ccsd_t()
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = ccsd.make_rdm1()
 				# init transformation matrix
 				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
@@ -215,7 +217,27 @@ class PySCFCls():
 						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
 					elif (_calc.exp_virt == 'FB'):
 						_calc.trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
+				if (_calc.exp_base == 'CCSD(T)'):
+					if ((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')):
+						_calc.e_zero += ccsd.ccsd_t(eris=eris, t1=ccsd.t1, t2=ccsd.t2)
+					else:
+						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _calc.hf.get_hcore(), _calc.trans_mat))
+						h2e = ao2mo.kernel(_mol, _calc.trans_mat)
+						mol = gto.M(verbose=0)
+						hf = scf.RHF(mol)
+						hf._eri = h2e
+						hf.get_hcore = lambda *args: h1e
+						ccsd_2 = cc.ccsd.CCSD(hf, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf.mo_occ)
+						ccsd_2.conv_tol = 1.0e-10
+						ccsd_2.max_cycle = 100
+						ccsd_2.diis_space = 10
+						ccsd_2.frozen = frozen
+						ccsd_2.diis_start_cycle = ccsd.diis_start_cycle
+						eris = ccsd_2.ao2mo()
+						ccsd_2.kernel(eris=eris)
+						_calc.e_zero += ccsd_2.ccsd_t(eris=eris, t1=ccsd_2.t1, t2=ccsd_2.t2)
 				#
+
 				return
 
 
