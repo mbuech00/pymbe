@@ -217,6 +217,7 @@ class PySCFCls():
 						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
 					elif (_calc.exp_virt == 'FB'):
 						_calc.trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
+				# add (t) correction
 				if (_calc.exp_base == 'CCSD(T)'):
 					if ((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')):
 						_calc.e_zero += ccsd.ccsd_t(eris=eris, t1=ccsd.t1, t2=ccsd.t2)
@@ -237,7 +238,6 @@ class PySCFCls():
 						ccsd_2.kernel(eris=eris)
 						_calc.e_zero += ccsd_2.ccsd_t(eris=eris, t1=ccsd_2.t1, t2=ccsd_2.t2)
 				#
-
 				return
 
 
