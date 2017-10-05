@@ -132,8 +132,6 @@ class CalcCls():
 						((self.exp_base == 'CCSD(T)') and (self.exp_model in ['CISD','CCSD','CCSD(T)']))):
 							raise ValueError('wrong input -- invalid base model for choice ' + \
 											'of expansion model')
-#					if ((self.exp_base == 'CCSD(T)') and (not ((self.exp_occ == 'REF') and (self.exp_virt == 'REF')))):
-#						raise ValueError('wrong input -- the use of CCSD(T) as base model requires canonical (REF) orbitals')
 					# max order
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
