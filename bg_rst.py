@@ -64,9 +64,11 @@ class RstCls():
 
 
 		def write_hf_trans(self, _calc):
-				""" write hf_dens and trans_mat restart files """
-				# write hf_dens
-				np.save(join(self.rst_dir, 'hf_dens'), _calc.hf_dens)
+				""" write hf_mo_coeff and trans_mat restart files """
+				# write hf_mo_coeff
+				np.save(join(self.rst_dir, 'hf_mo_coeff'), _calc.hf_mo_coeff)
+				# write hf_mo_occ
+				np.save(join(self.rst_dir, 'hf_mo_occ'), np.array(_calc.hf_mo_occ))
 				# write trans_mat
 				np.save(join(self.rst_dir, 'trans_mat'), _calc.trans_mat)
 				# write e_zero
@@ -111,9 +113,12 @@ class RstCls():
 				files.sort()
 				# loop over files
 				for i in range(len(files)):
-					# read hf_dens
-					if ('hf_dens' in files[i]):
-						_calc.hf_dens = np.load(join(self.rst_dir, files[i]))
+					# read hf_mo_coeff
+					if ('hf_mo_coeff' in files[i]):
+						_calc.hf_mo_coeff = np.load(join(self.rst_dir, files[i]))
+					# read hf_mo_occ
+					if ('hf_mo_occ' in files[i]):
+						_calc.hf_mo_occ = np.load(join(self.rst_dir, files[i])).tolist()
 					# read trans_mat
 					elif ('trans_mat' in files[i]):
 						_calc.trans_mat = np.load(join(self.rst_dir, files[i]))

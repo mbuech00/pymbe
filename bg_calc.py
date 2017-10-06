@@ -32,8 +32,8 @@ class CalcCls():
 				self.exp_virt = 'REF'
 				self.energy_thres = 0.0
 				self.tolerance = 0.0
-				# init hf_dens, ref_dens, and transformation matrix
-				self.hf_dens = None; self.ref_dens = None; self.trans_mat = None
+				# init hf_mo_coeff, ref_mo_coeff, and transformation matrix
+				self.hf_mo_coeff = None; self.ref_mo_coeff = None; self.trans_mat = None
 				# init h1e and h2e
 				self.h1e = None; self.h2e = None
 				# set calculation parameters

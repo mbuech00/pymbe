@@ -165,7 +165,7 @@ class MPICls():
 					# collect dimensions, mo_occ, and orbsym
 					hf_info = {'hf_e_tot': _calc.hf_e_tot, 'ref_e_tot': _calc.ref_e_tot, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
-								'mo_occ': _calc.mo_occ, 'orbsym': _calc.orbsym}
+								'mo_occ': _calc.hf_mo_occ, 'orbsym': _calc.orbsym}
 					# bcast hf_info
 					self.global_comm.bcast(hf_info, root=0)
 				else:
@@ -173,7 +173,7 @@ class MPICls():
 					hf_info = self.global_comm.bcast(None, root=0)
 					_calc.hf_e_tot = hf_info['hf_e_tot']; _calc.ref_e_tot = hf_info['ref_e_tot']
 					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
-					_calc.mo_occ = hf_info['mo_occ']; _calc.orbsym = hf_info['orbsym']
+					_calc.hf_mo_occ = hf_info['mo_occ']; _calc.orbsym = hf_info['orbsym']
 				#
 				return
 
@@ -181,14 +181,20 @@ class MPICls():
 		def bcast_trans_info(self, _mol, _calc):
 				""" bcast transformation info """
 				if (self.global_master):
-					# bcast hf_dens
-					self.master_comm.Bcast([_calc.hf_dens, MPI.DOUBLE], root=0)
+					# bcast hf_mo_coeff
+					self.master_comm.Bcast([_calc.hf_mo_coeff, MPI.DOUBLE], root=0)
+					# bcast hf_mo_occ
+					self.master_comm.Bcast([np.array(_calc.hf_mo_occ), MPI.DOUBLE], root=0)
 					# bcast trans_mat
 					self.master_comm.Bcast([_calc.trans_mat, MPI.DOUBLE], root=0)
 				elif (self.local_master):
-					# receive hf_dens
-					_calc.hf_dens = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
-					self.master_comm.Bcast([_calc.hf_dens, MPI.DOUBLE], root=0)
+					# receive hf_mo_coeff
+					_calc.hf_mo_coeff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
+					self.master_comm.Bcast([_calc.hf_mo_coeff, MPI.DOUBLE], root=0)
+					# receive hf_mo_occ
+					buff = np.zeros(_mol.norb, dtype=np.float64)
+					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
+					_calc.hf_mo_occ = buff.tolist()
 					# receive trans_mat
 					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)

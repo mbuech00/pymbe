@@ -33,7 +33,7 @@ class PySCFCls():
 				hf.max_cycle = 100
 				hf.irrep_nelec = _mol.irrep_nelec
 				# restart calc?
-				if (_calc.hf_dens is None):
+				if (_calc.hf_mo_coeff is None):
 					for i in list(range(0, 12, 2)):
 						hf.diis_start_cycle = i
 						try:
@@ -46,15 +46,17 @@ class PySCFCls():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-					# calculate converged hf dens
-					_calc.hf_dens = hf.make_rdm1()
+					# store mo_coeff and mo_occ
+					_calc.hf_mo_coeff = hf.mo_coeff
+					_calc.hf_mo_occ = hf.mo_occ
 					# determine dimensions
 					_mol.norb = hf.mo_coeff.shape[1]
 					_mol.nocc = int(hf.mo_occ.sum()) // 2
 					_mol.nvirt = _mol.norb - _mol.nocc
 				else:
+					hf_dens = scf.hf.make_rdm1(_calc.hf_mo_coeff, _calc.hf_mo_occ)
 					# restart from converged density
-					hf.kernel(_calc.hf_dens)
+					hf.kernel(hf_dens)
 					# determine dimensions
 					_mol.norb = hf.mo_coeff.shape[1]
 					_mol.nocc = int(hf.mo_occ.sum()) // 2
@@ -64,8 +66,6 @@ class PySCFCls():
 						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
 				# save e_tot
 				_calc.hf_e_tot = hf.e_tot
-				# save mo_occ
-				_calc.mo_occ = hf.mo_occ
 				# save orbsym
 				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
@@ -158,7 +158,7 @@ class PySCFCls():
 					if (_calc.exp_ref['METHOD'] == 'HF'):
 						cisd = ci.CISD(_calc.ref)
 					else:
-						cisd = ci.cisd.CISD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf.mo_occ)
+						cisd = ci.cisd.CISD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf_mo_occ)
 					cisd.conv_tol = 1.0e-10
 					cisd.max_cycle = 100
 					cisd.max_space = 30
@@ -181,7 +181,7 @@ class PySCFCls():
 					if (_calc.exp_ref['METHOD'] == 'HF'):
 						ccsd = cc.CCSD(_calc.ref)
 					else:
-						ccsd = cc.ccsd.CCSD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf.mo_occ)
+						ccsd = cc.ccsd.CCSD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf_mo_occ)
 					ccsd.conv_tol = 1.0e-10
 					ccsd.max_cycle = 100
 					ccsd.diis_space = 10
@@ -242,7 +242,7 @@ class PySCFCls():
 						hf = scf.RHF(mol)
 						hf._eri = h2e
 						hf.get_hcore = lambda *args: h1e
-						ccsd_2 = cc.ccsd.CCSD(hf, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf.mo_occ)
+						ccsd_2 = cc.ccsd.CCSD(hf, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf_mo_occ)
 						ccsd_2.conv_tol = 1.0e-10
 						ccsd_2.max_cycle = 100
 						ccsd_2.diis_space = 10
