@@ -54,6 +54,7 @@ class PySCFCls():
 					_mol.nocc = int(hf.mo_occ.sum()) // 2
 					_mol.nvirt = _mol.norb - _mol.nocc
 				else:
+					# construct density
 					hf_dens = scf.hf.make_rdm1(_calc.hf_mo_coeff, _calc.hf_mo_occ)
 					# restart from converged density
 					hf.kernel(hf_dens)
@@ -89,7 +90,7 @@ class PySCFCls():
 						ref.max_cycle = 100
 						ref.irrep_nelec = _mol.irrep_nelec
 						# restart calc?
-						if (_calc.ref_dens is None):
+						if (_calc.ref_mo_coeff is None):
 							for i in list(range(0, 12, 2)):
 								ref.diis_start_cycle = i
 								try:
@@ -103,8 +104,10 @@ class PySCFCls():
 									sys.stderr.write(str(err))
 									raise
 						else:
+							# construct density
+							ref_dens = scf.hf.make_rdm1(_calc.ref_mo_coeff, _calc.hf_mo_occ)
 							# restart from converged density
-							ref.kernel(_calc.ref_dens)
+							ref.kernel(ref_dens)
 							# overwrite occupied MOs
 							if (_calc.exp_occ != 'REF'):
 								ref.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
@@ -123,17 +126,17 @@ class PySCFCls():
 							except Exception as err:
 								sys.stderr.write(str(err))
 								raise
-					# calculate converged dens
-					_calc.ref_dens = ref.make_rdm1()
+					# store mo_coeff
+					_calc.ref_mo_coeff = ref.mo_coeff
+					# construct converged dens
+					ref_dens = ref.make_rdm1()
 					# make hf potential
-					veff_ks = scf.hf.get_veff(_mol, _calc.ref_dens)
+					veff_ks = scf.hf.get_veff(_mol, ref_dens)
 					# store ks energy
-					_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=_calc.ref_dens, h1e=_calc.hf.get_hcore(), vhf=veff_ks)[0] \
+					_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=ref_dens, h1e=_calc.hf.get_hcore(), vhf=veff_ks)[0] \
 										+ _mol.energy_nuc()
 					# save orbsym
 					_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, ref.mo_coeff)
-					# save mo_coeff
-					_calc.ref_mo_coeff = ref.mo_coeff
 					# transform 1- and 2-electron integrals (dft)
 					h1e = reduce(np.dot, (np.transpose(ref.mo_coeff), ref.get_hcore(), ref.mo_coeff))
 					h2e = ao2mo.kernel(_mol, ref.mo_coeff)
