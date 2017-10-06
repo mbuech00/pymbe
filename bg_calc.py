@@ -22,14 +22,14 @@ class CalcCls():
 		def __init__(self, _mpi, _rst, _mol):
 				""" init parameters """
 				# set default parameters
-				self.exp_model = 'CCSD'
+				self.exp_model = {'METHOD': 'CCSD'}
 				self.exp_type = 'occupied'
 				self.exp_ref = {'METHOD': 'HF'}
-				self.exp_base = 'REF'
+				self.exp_base = {'METHOD': 'HF'}
 				self.exp_thres = 0.0
 				self.exp_max_order = 0
-				self.exp_occ = 'REF'
-				self.exp_virt = 'REF'
+				self.exp_occ = 'CAN'
+				self.exp_virt = 'CAN'
 				self.energy_thres = 0.0
 				self.tolerance = 0.0
 				# init hf_mo_coeff, ref_mo_coeff, and transformation matrix
@@ -58,14 +58,16 @@ class CalcCls():
 							if (content[i].split()[0][0] == '#'):
 								continue
 							elif (re.split('=',content[i])[0].strip() == 'exp_model'):
-								self.exp_model = re.split('=',content[i])[1].strip().upper()
+								self.exp_model = eval(re.split('=',content[i])[1].strip())
+								self.exp_model = self.upper(self.exp_model)
 							elif (re.split('=',content[i])[0].strip() == 'exp_type'):
 								self.exp_type = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'exp_ref'):
 								self.exp_ref = eval(re.split('=',content[i])[1].strip())
 								self.exp_ref = self.upper(self.exp_ref)
 							elif (re.split('=',content[i])[0].strip() == 'exp_base'):
-								self.exp_base = re.split('=',content[i])[1].strip().upper()
+								self.exp_base = eval(re.split('=',content[i])[1].strip())
+								self.exp_base = self.upper(self.exp_base)
 							elif (re.split('=',content[i])[0].strip() == 'exp_thres'):
 								self.exp_thres = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'exp_max_order'):
@@ -107,7 +109,10 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if (not (self.exp_model in ['CISD','CCSD','CCSD(T)','FCI'])):
+					if (not ('METHOD' in self.exp_model)):
+						raise ValueError('wrong input -- exp_model dictionary must contain "method" key ' + \
+										'with method value given as a string')
+					if (not (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: CISD, CCSD, CCSD(T), and FCI')
 					# type of expansion
@@ -118,24 +123,31 @@ class CalcCls():
 					if (not ('METHOD' in self.exp_ref)):
 						raise ValueError('wrong input -- exp_ref dictionary must contain "method" key ' + \
 										'with method value given as a string')
-					if (not (self.exp_ref['METHOD'] in ['HF','DFT','CASSCF'])):
+					if (not (self.exp_ref['METHOD'] in ['HF','DFT'])):
 						raise ValueError('wrong input -- invalid reference model')
 					if ((self.exp_ref['METHOD'] != 'HF') and _mol.frozen):
 						raise ValueError('wrong input -- non-HF reference is not allowed for frozen-core calculations')
 					if ((self.exp_ref['METHOD'] == 'DFT') and (not ('XC' in self.exp_ref))):
 						raise ValueError('wrong input -- missing "xc" key in exp_ref dictionary for ' + \
 										'DFT reference model (with choice of xc given as a string)')
-					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not ('AO_LABELS' in self.exp_ref))):
-						raise ValueError('wrong input -- missing "ao_labels" key in exp_ref dictionary for ' + \
-										'CASSCF reference model (with ao_labels given as a list of strings)')
 					# base model
-					if (not (self.exp_base in ['REF','CISD','CCSD','CCSD(T)'])):
+					if (not ('METHOD' in self.exp_base)):
+						raise ValueError('wrong input -- exp_base dictionary must contain "method" key ' + \
+										'with method value given as a string')
+					if (not (self.exp_base['METHOD'] in [self.exp_ref['METHOD'],'CISD','CCSD','CCSD(T)','CASSCF'])):
 						raise ValueError('wrong input -- invalid base model')
-					if (((self.exp_base == 'CISD') and (self.exp_model in ['CISD'])) or \
-						((self.exp_base == 'CCSD') and (self.exp_model in ['CISD','CCSD'])) or \
-						((self.exp_base == 'CCSD(T)') and (self.exp_model in ['CISD','CCSD','CCSD(T)']))):
+					if (((self.exp_base['METHOD'] == 'CISD') and (self.exp_model['METHOD'] in ['CISD'])) or \
+						((self.exp_base['METHOD'] == 'CCSD') and (self.exp_model['METHOD'] in ['CISD','CCSD'])) or \
+						((self.exp_base['METHOD'] == 'CCSD(T)') and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)'])) or \
+						((self.exp_base['METHOD'] == 'CASSCF') and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','CASSCF']))):
 							raise ValueError('wrong input -- invalid base model for choice ' + \
 											'of expansion model')
+					if ((self.exp_base['METHOD'] == 'DFT') and (not ('XC' in self.exp_base))):
+						raise ValueError('wrong input -- missing "xc" key in exp_base dictionary for ' + \
+										'DFT reference model (with choice of xc given as a string)')
+					if ((self.exp_base['METHOD'] == 'CASSCF') and (not ('AO_LABELS' in self.exp_base))):
+						raise ValueError('wrong input -- missing "ao_labels" key in exp_base dictionary for ' + \
+										'CASSCF reference model (with ao_labels given as a list of strings)')
 					# max order
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
@@ -148,15 +160,15 @@ class CalcCls():
 						raise ValueError('wrong input -- energy threshold parameter ' + \
 										'(energy_thres) must be float >= 0.0')
 					# orbital representation
-					if (not (self.exp_occ in ['REF','PM','FB','IBO-1','IBO-2','NO'])):
+					if (not (self.exp_occ in ['CAN','PM','FB','IBO-1','IBO-2','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \
-										'representations are currently: REF, local (PM or FB), ' + \
+										'representations are currently: CAN, local (PM or FB), ' + \
 										'intrinsic bond orbitals (IBO-1 or IBO-2), or base model natural orbitals (NO)')
-					if (not (self.exp_virt in ['REF','PM','FB','NO','DNO'])):
+					if (not (self.exp_virt in ['CAN','PM','FB','NO','DNO'])):
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: REF, local (PM or FB), ' + \
+										'representations are currently: CAN, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base == 'REF')):
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] in ['HF','DFT'])):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a correlated base model for the expansion')
 					if ((_mol.symmetry.upper() != 'C1') and ((self.exp_occ in ['PM','FB','IBO-1','IBO-2']) or \

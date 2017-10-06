@@ -51,8 +51,13 @@ class ResCls():
 					self.exp_ref = _calc.exp_ref['XC']
 				else:
 					self.exp_ref = _calc.exp_ref['METHOD']
+				# modify base print out
+				if (_calc.exp_ref['METHOD'] == 'DFT'):
+					self.exp_base = 'KS-'+_calc.exp_base['METHOD']
+				else:
+					self.exp_base = _calc.exp_base['METHOD']
 				# modify orbital print out
-				if (_calc.exp_occ == 'REF'):
+				if (_calc.exp_occ == 'CAN'):
 					self.exp_occ = 'canonical'
 				elif (_calc.exp_occ == 'NO'):
 					self.exp_occ = 'natural'
@@ -64,7 +69,7 @@ class ResCls():
 					self.exp_occ = 'intrin. bond'
 				elif (_calc.exp_occ == 'IBO-2'):
 					self.exp_occ = 'intrin. bond'
-				if (_calc.exp_virt == 'REF'):
+				if (_calc.exp_virt == 'CAN'):
 					self.exp_virt = 'canonical'
 				elif (_calc.exp_virt == 'NO'):
 					self.exp_virt = 'natural'
@@ -111,9 +116,9 @@ class ResCls():
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:10}{10:10}{11:1}'
-							'{12:2}{13:<4s}{14:9}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<2d}{22:^3}{23:<d}').\
+							'{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<2d}{22:^3}{23:<d}').\
 								format('','basis set','','=','',_mol.basis,\
-									'','|','','exp. model','','=','',_calc.exp_model,\
+									'','|','','exp. model','','=','',_calc.exp_model['METHOD'],\
 									'','|','','# mpi masters / slaves','','=','',\
 									_mpi.num_local_masters + 1,'/',_mpi.global_size - (_mpi.num_local_masters + 1)))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:14}{10:6}{11:1}'
@@ -122,15 +127,16 @@ class ResCls():
 									'','|','','exp. reference','','=','',self.exp_ref,\
 									'','|','','HF energy','','=','',_calc.hf_e_tot))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:10}{12:10}'
-							'{13:1}{14:2}{15:<8s}{16:5}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
+							'{13:1}{14:2}{15:<11s}{16:2}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
-									'','|','','exp. base','','=','',_calc.exp_base,\
+									'','|','','exp. base','','=','',self.exp_base,\
 									'','|','','reference energy','','=','',_calc.ref_e_tot))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:10}{10:10}'
-							'{11:1}{12:2}{13:<8s}{14:5}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+							'{11:1}{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
 									'','|','','exp. type','','=','',_calc.exp_type,\
-									'','|','','base model energy','','=','',_calc.ref_e_tot + _calc.e_zero))
+									'','|','','base model energy','','=','',\
+									min(_calc.ref_e_tot, _calc.ref_e_tot + _calc.e_zero)))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:12}{10:8}{11:1}{12:2}'
 							'{13:<6.2f}{14:2}{15:5}{16:1}{17:7}{18:18}{19:6}{20:1}{21:1}{22:.6f}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
@@ -180,11 +186,11 @@ class ResCls():
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# set title
-				ax.set_title('Total '+_calc.exp_model+' correlation energy')
+				ax.set_title('Total '+_calc.exp_model['METHOD']+' correlation energy')
 				# plot results
 				ax.plot(list(range(1,len(_exp.energy_tot)+1)),
 						np.asarray(_exp.energy_tot), marker='x', linewidth=2,
-						linestyle='-', label='MBE-'+_calc.exp_model)
+						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
 				ax.set_xlim([0.5, self.u_limit + 0.5])
 				# turn off x-grid
@@ -231,7 +237,7 @@ class ResCls():
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# set title
-				ax.set_title('Total number of '+_calc.exp_model+' tuples')
+				ax.set_title('Total number of '+_calc.exp_model['METHOD']+' tuples')
 				# init prim list
 				prim = []
 				# set prim list
@@ -246,7 +252,7 @@ class ResCls():
 							label='Theoretical number', log=True)
 				sns.barplot(list(range(1, self.u_limit+1)),
 							prim,palette='Blues_r',
-							label='MBE-'+_calc.exp_model+' expansion', log=True)
+							label='MBE-'+_calc.exp_model['METHOD']+' expansion', log=True)
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set x- and y-limits

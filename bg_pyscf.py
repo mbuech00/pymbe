@@ -63,7 +63,7 @@ class PySCFCls():
 					_mol.nocc = int(hf.mo_occ.sum()) // 2
 					_mol.nvirt = _mol.norb - _mol.nocc
 					# overwrite occupied MOs
-					if (_calc.exp_occ != 'REF'):
+					if (_calc.exp_occ != 'CAN'):
 						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
 				# save e_tot
 				_calc.hf_e_tot = hf.e_tot
@@ -109,7 +109,7 @@ class PySCFCls():
 							# restart from converged density
 							ref.kernel(ref_dens)
 							# overwrite occupied MOs
-							if (_calc.exp_occ != 'REF'):
+							if (_calc.exp_occ != 'CAN'):
 								ref.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
 					elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
 						# select active space
@@ -154,9 +154,9 @@ class PySCFCls():
 				# set frozen list
 				frozen = list(range(_mol.ncore))
 				# zeroth-order energy
-				if (_calc.exp_base == 'REF'):
+				if (_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']):
 					_calc.e_zero = _calc.ref_e_tot - _calc.hf_e_tot
-				elif (_calc.exp_base == 'CISD'):
+				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					if (_calc.exp_ref['METHOD'] == 'HF'):
 						cisd = ci.CISD(_calc.ref)
@@ -179,7 +179,7 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = cisd.make_rdm1()
-				elif (_calc.exp_base in ['CCSD','CCSD(T)']):
+				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
 					# calculate ccsd energy
 					if (_calc.exp_ref['METHOD'] == 'HF'):
 						ccsd = cc.CCSD(_calc.ref)
@@ -208,7 +208,7 @@ class PySCFCls():
 				# init transformation matrix
 				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
 				# occ-occ block (local or symmetry-adapted NOs)
-				if (_calc.exp_occ != 'REF'):
+				if (_calc.exp_occ != 'CAN'):
 					if (_calc.exp_occ == 'NO'):
 						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], \
 												_calc.orbsym[_mol.ncore:_mol.nocc])
@@ -225,7 +225,7 @@ class PySCFCls():
 						elif (_calc.exp_occ == 'IBO-2'):
 							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
 				# virt-virt block (local or symmetry-adapted NOs)
-				if (_calc.exp_virt != 'REF'):
+				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
 						occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
 												_calc.orbsym[_mol.nocc:])
@@ -235,8 +235,8 @@ class PySCFCls():
 					elif (_calc.exp_virt == 'FB'):
 						_calc.trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
 				# add (t) correction
-				if (_calc.exp_base == 'CCSD(T)'):
-					if ((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')):
+				if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
+					if ((_calc.exp_occ == 'CAN') and (_calc.exp_virt == 'CAN')):
 						_calc.e_zero += ccsd.ccsd_t(eris=eris, t1=ccsd.t1, t2=ccsd.t2)
 					else:
 						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _calc.hf.get_hcore(), _calc.trans_mat))
@@ -263,7 +263,7 @@ class PySCFCls():
 				# set frozen list
 				frozen = sorted(list(set(range(_mol.nocc)) - set(_exp.incl_idx))) 
 				# zeroth-order energy
-				if (_calc.exp_base == 'CISD'):
+				if (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
 					cisd.conv_tol = 1.0e-10
@@ -283,7 +283,7 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 					dm = cisd.make_rdm1()
-				elif (_calc.exp_base == 'CCSD'):
+				elif (_calc.exp_base['METHOD'] == 'CCSD'):
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_calc.hf)
 					ccsd.conv_tol = 1.0e-10
@@ -349,8 +349,8 @@ class PySCFCls():
 		def calc(self, _mol, _calc, _exp):
 				""" correlated cas calculation """
 				# init solver
-				if (_calc.exp_model != 'FCI'):
-					solver_cas = ModelSolver(_calc.exp_model)
+				if (_calc.exp_model['METHOD'] != 'FCI'):
+					solver_cas = ModelSolver(_calc.exp_model['METHOD'])
 				else:
 					if (_mol.spin == 0):
 						solver_cas = fci.direct_spin0.FCI()
@@ -366,7 +366,7 @@ class PySCFCls():
 				hf_as_civec = np.zeros((na, na))
 				hf_as_civec[0, 0] = 1
 				# cas calculation
-				if (_calc.exp_model != 'FCI'):
+				if (_calc.exp_model['METHOD'] != 'FCI'):
 					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
@@ -396,7 +396,7 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 				# base calculation
-				if (_calc.exp_base == 'REF'):
+				if (_calc.exp_base['METHOD'] in ['HF','DFT']):
 					e_corr = (e_cas + _exp.e_core) - _calc.ref_e_tot
 				else:
 					# base calculation
@@ -414,7 +414,8 @@ class ModelSolver():
 		"""
 		def __init__(self, model):
 				""" init model object """
-				self.model_type = model
+				self.model_type = model['METHOD']
+				if (self.model_type == 'CASSCF'): self.ao_labels = model['AO_LABELS']
 				self.model = None
 				#
 				return

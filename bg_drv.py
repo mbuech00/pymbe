@@ -138,7 +138,7 @@ class DrvCls():
 						# recast as numpy array
 						_exp.energy_tot = np.array(_exp.energy_tot)
 						# correct e_tot for reference model energy
-						if ((_calc.exp_ref['METHOD'] != 'HF') and (_calc.exp_base != 'REF')):
+						if ((_calc.exp_ref['METHOD'] != 'HF') and (not (_calc.exp_base['METHOD'] in ['HF','DFT']))):
 							_exp.energy_tot -= _calc.hf_e_tot - _calc.ref_e_tot
 						# now break
 						break
