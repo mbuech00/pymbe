@@ -85,7 +85,7 @@ class ResCls():
 				else:
 					self.frozen = 'false'
 				# modify symmetry print out
-				self.symmetry = _mol.symmetry.lower()
+				self.hf_symmetry = _mol.hf_symmetry.lower()
 				#
 				return
 
@@ -144,7 +144,7 @@ class ResCls():
 									'','|','','final total energy','','=','',_calc.hf_e_tot + _exp.energy_tot[-1]))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:14}{10:6}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
-								format('','HF symmetry','','=','',self.symmetry,\
+								format('','HF symmetry','','=','',self.hf_symmetry,\
 									'','|','','energy thres.','','=','',_calc.energy_thres,\
 									'','|','','final abs. conv.','','=','',\
 									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))

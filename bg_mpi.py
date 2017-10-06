@@ -117,14 +117,14 @@ class MPICls():
 				""" bcast mol info """
 				if (self.global_master):
 					mol = {'atom': _mol.atom, 'charge': _mol.charge, 'spin': _mol.spin, \
-							'symmetry': _mol.symmetry, 'irrep_nelec': _mol.irrep_nelec, 'basis': _mol.basis, \
+							'hf_symmetry': _mol.symmetry, 'irrep_nelec': _mol.irrep_nelec, 'basis': _mol.basis, \
 							'unit': _mol.unit, 'frozen': _mol.frozen, 'verbose': _mol.verbose}
 					self.global_comm.bcast(mol, root=0)
 				else:
 					mol = self.global_comm.bcast(None, root=0)
 					_mol.atom = mol['atom']; _mol.charge = mol['charge']; _mol.spin = mol['spin']
-					_mol.symmetry = mol['symmetry']; _mol.irrep_nelec = mol['irrep_nelec']; _mol.basis = mol['basis']
-					_mol.unit = mol['unit']; _mol.frozen = mol['frozen']; _mol.verbose = mol['verbose']
+					_mol.symmetry = _mol.hf_symmetry = mol['hf_symmetry']; _mol.irrep_nelec = mol['irrep_nelec']
+					_mol.basis = mol['basis']; _mol.unit = mol['unit']; _mol.frozen = mol['frozen']; _mol.verbose = mol['verbose']
 				#
 				return
 
@@ -162,18 +162,18 @@ class MPICls():
 		def bcast_hf_ref_info(self, _mol, _calc):
 				""" bcast hf and ref info """
 				if (self.global_master):
-					# collect dimensions, mo_occ, and orbsym
+					# collect dimensions, and  mo_occ
 					hf_info = {'hf_e_tot': _calc.hf_e_tot, 'ref_e_tot': _calc.ref_e_tot, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
-								'mo_occ': _calc.hf_mo_occ, 'orbsym': _calc.orbsym}
+								'mo_occ': _calc.hf_mo_occ}
 					# bcast hf_info
 					self.global_comm.bcast(hf_info, root=0)
 				else:
-					# receive dimensions, mo_occ, and orbsym
+					# receive dimensions and mo_occ
 					hf_info = self.global_comm.bcast(None, root=0)
 					_calc.hf_e_tot = hf_info['hf_e_tot']; _calc.ref_e_tot = hf_info['ref_e_tot']
 					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
-					_calc.hf_mo_occ = hf_info['mo_occ']; _calc.orbsym = hf_info['orbsym']
+					_calc.hf_mo_occ = hf_info['mo_occ']
 				#
 				return
 

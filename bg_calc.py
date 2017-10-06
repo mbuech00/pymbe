@@ -171,10 +171,6 @@ class CalcCls():
 					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] in ['HF','DFT'])):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a correlated base model for the expansion')
-					if ((_mol.symmetry.upper() != 'C1') and ((self.exp_occ in ['PM','FB','IBO-1','IBO-2']) or \
-							(self.exp_virt in ['PM','FB']))):
-						raise ValueError('wrong input -- the use of local orbitals (PM or FB) ' + \
-										'or intrinsic bond orbitals (IBO-1 or IBO-2) excludes the use of symmetry (must be C1)')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'is only valid in combination with combined (dual) expansions')

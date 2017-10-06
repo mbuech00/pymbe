@@ -69,6 +69,8 @@ class InitCls():
 						self.pyscf.trans_main(self.mol, self.calc)
 						# write restart files
 						self.rst.write_hf_trans(self.calc)
+				# remove symmetry
+				self.mol.symmetry = False; self.mol.make(self.mpi)
 				# bcast hf and transformation info
 				self.mpi.bcast_hf_ref_info(self.mol, self.calc)
 				if (self.mpi.num_local_masters >= 1):

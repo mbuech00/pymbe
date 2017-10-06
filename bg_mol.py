@@ -26,7 +26,7 @@ class MolCls(gto.Mole):
 				gto.Mole.__init__(self)
 				# set geometric and molecular parameters
 				if (_mpi.global_master):
-					# default C1 symmetry
+					# default C1 HF symmetry
 					self.symmetry = 'C1'
 					# init occupation
 					self.irrep_nelec = {}
@@ -41,6 +41,8 @@ class MolCls(gto.Mole):
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
 						self.basis, self.unit, self.frozen = self.set_mol(_rst)
+					# store HF symmetry
+					self.hf_symmetry = self.symmetry
 				#
 				return
 
@@ -59,7 +61,7 @@ class MolCls(gto.Mole):
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
 				else:
-					self.build()
+					self.build(dump_input=False, parse_arg=False)
 				#
 				return
 
@@ -97,7 +99,7 @@ class MolCls(gto.Mole):
 								self.charge = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'spin'):
 								self.spin = int(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'symmetry'):
+							elif (re.split('=',content[i])[0].strip() == 'hf_symmetry'):
 								self.symmetry = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'basis'):
 								self.basis = re.split('=',content[i])[1].strip()
@@ -105,7 +107,7 @@ class MolCls(gto.Mole):
 								self.unit = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'frozen'):
 								self.frozen = re.split('=',content[i])[1].strip().upper() == 'TRUE'
-							elif (re.split('=',content[i])[0].strip() == 'occupation'):
+							elif (re.split('=',content[i])[0].strip() == 'hf_occ'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
 							# error handling
 							else:

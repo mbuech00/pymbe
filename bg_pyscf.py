@@ -17,7 +17,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 try:
-	from pyscf import gto, symm, scf, dft, ao2mo, lo, ci, cc, mcscf, fci
+	from pyscf import gto, scf, dft, ao2mo, lo, ci, cc, mcscf, fci
 	from pyscf.mcscf import avas
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
@@ -67,8 +67,6 @@ class PySCFCls():
 						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
 				# save e_tot
 				_calc.hf_e_tot = hf.e_tot
-				# save orbsym
-				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
 				return hf
 
@@ -135,8 +133,6 @@ class PySCFCls():
 					# store ks energy
 					_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=ref_dens, h1e=_calc.hf.get_hcore(), vhf=veff_ks)[0] \
 										+ _mol.energy_nuc()
-					# save orbsym
-					_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, ref.mo_coeff)
 					# transform 1- and 2-electron integrals (dft)
 					h1e = reduce(np.dot, (np.transpose(ref.mo_coeff), ref.get_hcore(), ref.mo_coeff))
 					h2e = ao2mo.kernel(_mol, ref.mo_coeff)
@@ -207,11 +203,10 @@ class PySCFCls():
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = ccsd.make_rdm1()
 				# init transformation matrix
 				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
-				# occ-occ block (local or symmetry-adapted NOs)
+				# occ-occ block (local or NOs)
 				if (_calc.exp_occ != 'CAN'):
 					if (_calc.exp_occ == 'NO'):
-						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], \
-												_calc.orbsym[_mol.ncore:_mol.nocc])
+						occup, no = sp.linalg.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)])
 						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
 						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
@@ -224,11 +219,10 @@ class PySCFCls():
 							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao)
 						elif (_calc.exp_occ == 'IBO-2'):
 							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
-				# virt-virt block (local or symmetry-adapted NOs)
+				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
-						occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
-												_calc.orbsym[_mol.nocc:])
+						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
 						_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.ref_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
 						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
@@ -304,8 +298,7 @@ class PySCFCls():
 							raise
 					dm = ccsd.make_rdm1()
 				# generate dnos
-				occup, no = symm.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):], \
-										_calc.orbsym[_mol.nocc:])
+				occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
 				_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
 				#
 				return
@@ -317,8 +310,6 @@ class PySCFCls():
 				_calc.h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _calc.hf.get_hcore(), _calc.trans_mat))
 				_calc.h2e = ao2mo.kernel(_mol, _calc.trans_mat)
 				_calc.h2e = ao2mo.restore(1, _calc.h2e, _mol.norb)
-				# overwrite orbsym
-				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _calc.trans_mat)
 				#
 				return
 
@@ -372,8 +363,7 @@ class PySCFCls():
 				else:
 					try:
 						e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec, \
-													orbsym=_calc.orbsym)
+													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\nCAS-CI Error :\n'
