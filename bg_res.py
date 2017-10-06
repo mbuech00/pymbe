@@ -53,7 +53,7 @@ class ResCls():
 					self.exp_ref = _calc.exp_ref['METHOD']
 				# modify orbital print out
 				if (_calc.exp_occ == 'REF'):
-					self.exp_occ = 'reference'
+					self.exp_occ = 'canonical'
 				elif (_calc.exp_occ == 'NO'):
 					self.exp_occ = 'natural'
 				elif (_calc.exp_occ == 'PM'):
@@ -65,7 +65,7 @@ class ResCls():
 				elif (_calc.exp_occ == 'IBO-2'):
 					self.exp_occ = 'intrin. bond'
 				if (_calc.exp_virt == 'REF'):
-					self.exp_virt = 'reference'
+					self.exp_virt = 'canonical'
 				elif (_calc.exp_virt == 'NO'):
 					self.exp_virt = 'natural'
 				elif (_calc.exp_virt == 'PM'):
@@ -138,7 +138,7 @@ class ResCls():
 									'','|','','final total energy','','=','',_calc.hf_e_tot + _exp.energy_tot[-1]))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:14}{10:6}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
-								format('','symmetry','','=','',self.symmetry,\
+								format('','HF symmetry','','=','',self.symmetry,\
 									'','|','','energy thres.','','=','',_calc.energy_thres,\
 									'','|','','final abs. conv.','','=','',\
 									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))
