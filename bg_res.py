@@ -40,24 +40,19 @@ class ResCls():
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
 				self.fill_str = '{0:^143}'.format('|'*137)
-				self.header_str = '{0:^143}'.format('-'*45)
+				self.header_str = '{0:^139}'.format('-'*44)
 				# upper limit
 				if (_calc.exp_type in ['occupied','combined']):
 					self.u_limit = _mol.nocc - _mol.ncore
 				else:
 					self.u_limit = _mol.nvirt 
 				# modify reference print out
-				if (_calc.exp_ref['METHOD'] == 'DFT'):
-					self.exp_ref = _calc.exp_ref['XC']
-				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
-					self.exp_ref = 'CASSCF('+str(_calc.ne_act)+'e,'+str(_calc.no_act)+'o)'
+				if (_calc.exp_ref['METHOD'] == 'CASCI'):
+					self.exp_ref = 'CASCI('+str(_calc.ne_act)+'e,'+str(_calc.no_act)+'o)'
 				else:
-					self.exp_ref = _calc.exp_ref['METHOD']
+					self.exp_ref = 'HF'
 				# modify base print out
-				if (_calc.exp_ref['METHOD'] == 'DFT'):
-					self.exp_base = 'KS-'+_calc.exp_base['METHOD']
-				else:
-					self.exp_base = _calc.exp_base['METHOD']
+				self.exp_base = _calc.exp_base['METHOD']
 				# modify orbital print out
 				if (_calc.exp_occ == 'CAN'):
 					self.exp_occ = 'canonical'
@@ -110,7 +105,7 @@ class ResCls():
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
 						print('\n\n'+self.header_str)
-						print('{0:^143}'.format('results'))
+						print('{0:^138}'.format('results'))
 						print(self.header_str+'\n')
 						print(self.divider_str)
 						print('{0:14}{1:21}{2:11}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'.\
