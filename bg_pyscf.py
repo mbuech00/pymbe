@@ -75,57 +75,41 @@ class PySCFCls():
 				""" determine dimensions """
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					_calc.ref_mo_coeff = _calc.hf.mo_coeff
-					_calc.ref_e_tot = _calc.hf_e_tot
 					ref_hf = _calc.hf
+					# store energy
+					_calc.ref_e_tot = _calc.hf_e_tot
+					# store mo_coeff
+					_calc.ref_mo_coeff = _calc.hf.mo_coeff
 				# dft reference model
 				else:
-					if (_calc.exp_ref['METHOD'] == 'DFT'):
-						# perform reference calc
-						ref = dft.RKS(_mol)
-						ref.xc = _calc.exp_ref['XC']
-						ref.conv_tol = 1.0e-12
-						ref.max_cycle = 100
-						ref.irrep_nelec = _mol.irrep_nelec
-						# restart calc?
-						if (_calc.ref_mo_coeff is None):
-							for i in list(range(0, 12, 2)):
-								ref.diis_start_cycle = i
-								try:
-									ref.kernel()
-								except sp.linalg.LinAlgError: pass
-								if (ref.converged): break
-							if (not ref.converged):
-								try:
-									raise RuntimeError('\nREF-DFT Error : no convergence\n\n')
-								except Exception as err:
-									sys.stderr.write(str(err))
-									raise
-						else:
-							# construct density
-							ref_dens = scf.hf.make_rdm1(_calc.ref_mo_coeff, _calc.hf_mo_occ)
-							# restart from converged density
-							ref.kernel(ref_dens)
-							# overwrite occupied MOs
-							if (_calc.exp_occ != 'CAN'):
-								ref.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
-					elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
-						# select active space
-						ao_labels = _calc.exp_ref['AO_LABELS']
-						norb, ne_act, orbs = avas.avas(_calc.hf, ao_labels, canonicalize=True)
-						# perform reference calc
-						ref = mcscf.CASSCF(_calc.hf, norb, ne_act)
-						ref.conv_tol = 1.0e-12
-						ref.max_cycle_macro = 100
-						ref.kernel(orbs)
+					# perform reference calc
+					ref = dft.RKS(_mol)
+					ref.xc = _calc.exp_ref['XC']
+					ref.conv_tol = 1.0e-12
+					ref.max_cycle = 100
+					ref.irrep_nelec = _mol.irrep_nelec
+					# restart calc?
+					if (_calc.ref_mo_coeff is None):
+						for i in list(range(0, 12, 2)):
+							ref.diis_start_cycle = i
+							try:
+								ref.kernel()
+							except sp.linalg.LinAlgError: pass
+							if (ref.converged): break
 						if (not ref.converged):
 							try:
-								raise RuntimeError('\nREF-CASSCF Error : no convergence\n\n')
+								raise RuntimeError('\nREF-DFT Error : no convergence\n\n')
 							except Exception as err:
 								sys.stderr.write(str(err))
 								raise
-					# store mo_coeff
-					_calc.ref_mo_coeff = ref.mo_coeff
+					else:
+						# construct density
+						ref_dens = scf.hf.make_rdm1(_calc.ref_mo_coeff, _calc.hf_mo_occ)
+						# restart from converged density
+						ref.kernel(ref_dens)
+						# overwrite occupied MOs
+						if (_calc.exp_occ != 'CAN'):
+							ref.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
 					# construct converged dens
 					ref_dens = ref.make_rdm1()
 					# make hf potential
@@ -133,6 +117,8 @@ class PySCFCls():
 					# store ks energy
 					_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=ref_dens, h1e=_calc.hf.get_hcore(), vhf=veff_ks)[0] \
 										+ _mol.energy_nuc()
+					# store mo_coeff
+					_calc.ref_mo_coeff = ref.mo_coeff
 					# transform 1- and 2-electron integrals (dft)
 					h1e = reduce(np.dot, (np.transpose(ref.mo_coeff), ref.get_hcore(), ref.mo_coeff))
 					h2e = ao2mo.kernel(_mol, ref.mo_coeff)
@@ -141,6 +127,27 @@ class PySCFCls():
 					ref_hf = scf.RHF(mol)
 					ref_hf._eri = h2e
 					ref_hf.get_hcore = lambda *args: h1e
+				# casscf reference model
+				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+					# select active space
+					_calc.no_act, _calc.ne_act, mo = avas.avas(_calc.ref, _calc.exp_ref['AO_LABELS'], canonicalize=True)
+					# store information
+					_calc.no_o_act = sorted([i-1 for i in range(_mol.nocc, _mol.nocc - (_calc.ne_act // 2), -1)])
+					_calc.no_v_act = [i for i in range(_mol.nocc, _mol.nocc + (_calc.no_act - len(_calc.no_o_act)))]
+					# perform reference calc
+					casscf = mcscf.CASSCF(_calc.ref, _calc.no_act, _calc.ne_act)
+					casscf.conv_tol = 1.0e-12
+					casscf.max_cycle_macro = 100
+					casscf.frozen = len(frozen) 
+					_calc.ref_e_tot = casscf.kernel(mo)[0] - _calc.hf.e_tot
+					if (not casscf.converged):
+						try:
+							raise RuntimeError('\nREF-CASSCF Error : no convergence\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					# store mo_coeff
+					_calc.ref_mo_coeff = ref.mo_coeff
 				#
 				return ref_hf
 
@@ -152,6 +159,8 @@ class PySCFCls():
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']):
 					_calc.e_zero = _calc.ref_e_tot - _calc.hf_e_tot
+					# init transformation matrix
+					_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					if (_calc.exp_ref['METHOD'] == 'HF'):
@@ -405,7 +414,6 @@ class ModelSolver():
 		def __init__(self, model):
 				""" init model object """
 				self.model_type = model['METHOD']
-				if (self.model_type == 'CASSCF'): self.ao_labels = model['AO_LABELS']
 				self.model = None
 				#
 				return
@@ -414,12 +422,13 @@ class ModelSolver():
 		def hf(self, _mol, _calc, _h1e, _h2e, _core_idx, _cas_idx):
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
+				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
 				cas_hf = scf.RHF(cas_mol)
 				cas_hf.spin = _mol.spin
 				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
 				cas_hf.get_hcore = lambda *args: _h1e
+				cas_hf.nelectron = cas_mol.nelectron
 				cas_hf.mo_occ = np.zeros(len(_cas_idx)); cas_hf.mo_occ[:(_mol.nocc - len(_core_idx))] = 2
-				cas_hf.nelectron = len(cas_hf.mo_occ[np.where(cas_hf.mo_occ == 2)]) * 2
 				cas_hf.e_tot = scf.hf.energy_elec(cas_hf, dm=np.diag(cas_hf.mo_occ))[0]
 				#
 				return cas_hf
