@@ -123,31 +123,30 @@ class CalcCls():
 					if (not ('METHOD' in self.exp_ref)):
 						raise ValueError('wrong input -- exp_ref dictionary must contain "method" key ' + \
 										'with method value given as a string')
-					if (not (self.exp_ref['METHOD'] in ['HF','DFT'])):
+					if (not (self.exp_ref['METHOD'] in ['HF','DFT','CASSCF'])):
 						raise ValueError('wrong input -- invalid reference model')
 					if ((self.exp_ref['METHOD'] != 'HF') and _mol.frozen):
 						raise ValueError('wrong input -- non-HF reference is not allowed for frozen-core calculations')
 					if ((self.exp_ref['METHOD'] == 'DFT') and (not ('XC' in self.exp_ref))):
 						raise ValueError('wrong input -- missing "xc" key in exp_ref dictionary for ' + \
 										'DFT reference model (with choice of xc given as a string)')
+					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not ('AO_LABELS' in self.exp_ref))):
+						raise ValueError('wrong input -- missing "ao_labels" key in exp_ref dictionary for ' + \
+										'CASSCF reference model (with ao_labels given as a list of strings)')
 					# base model
 					if (not ('METHOD' in self.exp_base)):
 						raise ValueError('wrong input -- exp_base dictionary must contain "method" key ' + \
 										'with method value given as a string')
-					if (not (self.exp_base['METHOD'] in [self.exp_ref['METHOD'],'CISD','CCSD','CCSD(T)','CASSCF'])):
+					if (not (self.exp_base['METHOD'] in [self.exp_ref['METHOD'],'CISD','CCSD','CCSD(T)'])):
 						raise ValueError('wrong input -- invalid base model')
 					if (((self.exp_base['METHOD'] == 'CISD') and (self.exp_model['METHOD'] in ['CISD'])) or \
 						((self.exp_base['METHOD'] == 'CCSD') and (self.exp_model['METHOD'] in ['CISD','CCSD'])) or \
-						((self.exp_base['METHOD'] == 'CCSD(T)') and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)'])) or \
-						((self.exp_base['METHOD'] == 'CASSCF') and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','CASSCF']))):
-							raise ValueError('wrong input -- invalid base model for choice ' + \
-											'of expansion model')
+						((self.exp_base['METHOD'] == 'CCSD(T)') and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)']))):
+						raise ValueError('wrong input -- invalid base model for choice ' + \
+										'of expansion model')
 					if ((self.exp_base['METHOD'] == 'DFT') and (not ('XC' in self.exp_base))):
 						raise ValueError('wrong input -- missing "xc" key in exp_base dictionary for ' + \
 										'DFT reference model (with choice of xc given as a string)')
-					if ((self.exp_base['METHOD'] == 'CASSCF') and (not ('AO_LABELS' in self.exp_base))):
-						raise ValueError('wrong input -- missing "ao_labels" key in exp_base dictionary for ' + \
-										'CASSCF reference model (with ao_labels given as a list of strings)')
 					# max order
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
