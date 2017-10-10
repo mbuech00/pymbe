@@ -49,6 +49,8 @@ class ResCls():
 				# modify reference print out
 				if (_calc.exp_ref['METHOD'] == 'DFT'):
 					self.exp_ref = _calc.exp_ref['XC']
+				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+					self.exp_ref = 'CASSCF('+str(_calc.ne_act)+'e,'+str(_calc.no_act)+'o)'
 				else:
 					self.exp_ref = _calc.exp_ref['METHOD']
 				# modify base print out
