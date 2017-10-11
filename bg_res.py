@@ -48,11 +48,14 @@ class ResCls():
 					self.u_limit = _mol.nvirt 
 				# modify reference print out
 				if (_calc.exp_ref['METHOD'] == 'CASCI'):
-					self.exp_ref = 'CASCI('+str(_calc.ne_act)+'e,'+str(_calc.no_act)+'o)'
+					self.exp_ref = 'CASCI('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
 				else:
 					self.exp_ref = 'HF'
 				# modify base print out
-				self.exp_base = _calc.exp_base['METHOD']
+				if (_calc.exp_ref['METHOD'] == 'CASCI'):
+					self.exp_base = self.exp_ref
+				else:
+					self.exp_base = _calc.exp_base['METHOD']
 				# modify orbital print out
 				if (_calc.exp_occ == 'CAN'):
 					self.exp_occ = 'canonical'
@@ -119,12 +122,12 @@ class ResCls():
 									'','|','','# mpi masters / slaves','','=','',\
 									_mpi.num_local_masters + 1,'/',_mpi.global_size - (_mpi.num_local_masters + 1)))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:14}{10:6}{11:1}'
-							'{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
+							'{12:2}{13:<12s}{14:1}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
 									'','|','','exp. reference','','=','',self.exp_ref,\
 									'','|','','HF energy','','=','',_calc.hf_e_tot))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:10}{12:10}'
-							'{13:1}{14:2}{15:<11s}{16:2}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
+							'{13:1}{14:2}{15:<12s}{16:1}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
 									'','|','','exp. base','','=','',self.exp_base,\
 									'','|','','reference energy','','=','',_calc.ref_e_tot))
@@ -163,7 +166,7 @@ class ResCls():
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
-									format('',i+1,'','|','',_exp.energy_tot[i],\
+									format('',i+len(_exp.tuples[0][0]),'','|','',_exp.energy_tot[i],\
 										'','|','',int(total_time//3600),':',\
 										int((total_time-(total_time//3600)*3600.)//60),':',\
 										int(total_time-(total_time//3600)*3600.\
@@ -185,7 +188,7 @@ class ResCls():
 				# set title
 				ax.set_title('Total '+_calc.exp_model['METHOD']+' correlation energy')
 				# plot results
-				ax.plot(list(range(1,len(_exp.energy_tot)+1)),
+				ax.plot(list(range(len(_exp.tuples[0][0]),len(_exp.energy_tot)+len(_exp.tuples[0][0]))),
 						np.asarray(_exp.energy_tot), marker='x', linewidth=2,
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
@@ -200,24 +203,6 @@ class ResCls():
 				ax.yaxis.set_major_formatter(FormatStrFormatter('%.4f'))
 				# despine
 				sns.despine()
-				# make insert
-				with sns.axes_style("whitegrid"):
-					# define frame
-					insert = plt.axes([.35, .50, .50, .30], frameon=True)
-					# plot results
-					insert.plot(list(range(2,len(_exp.energy_tot)+1)),
-								np.asarray(_exp.energy_tot[1:]), marker='x',
-								linewidth=2, linestyle='-')
-					# set x limits
-					plt.setp(insert, xticks=list(range(3,len(_exp.energy_tot)+1)))
-					insert.set_xlim([2.5, len(_exp.energy_tot)+0.5])
-					# set number of y ticks
-					insert.locator_params(axis='y', nbins=6)
-					# set y limits
-					insert.set_ylim([_exp.energy_tot[-1] - 0.01,
-										_exp.energy_tot[-1] + 0.01])
-					# turn off x-grid
-					insert.xaxis.grid(False)
 				# set legends
 				ax.legend(loc=1)
 				# save plot
@@ -239,15 +224,17 @@ class ResCls():
 				prim = []
 				# set prim list
 				for i in range(self.u_limit):
-					if (i < len(_exp.tuples)):
+					if (i < (len(_exp.tuples[0][0]-1))):
+						prim.append(0)
+					elif (i < len(_exp.tuples)):
 						prim.append(len(_exp.tuples[i]))
 					else:
 						prim.append(0)
 				# plot results
-				sns.barplot(list(range(1, self.u_limit+1)),
+				sns.barplot(list(range(len(_exp.tuples[0][0]), self.u_limit+1)),
 							_exp.theo_work,palette='Greens',
 							label='Theoretical number', log=True)
-				sns.barplot(list(range(1, self.u_limit+1)),
+				sns.barplot(list(range(len(_exp.tuples[0][0]), self.u_limit+1)),
 							prim,palette='Blues_r',
 							label='MBE-'+_calc.exp_model['METHOD']+' expansion', log=True)
 				# turn off x-grid
@@ -261,10 +248,10 @@ class ResCls():
 				# set x-ticks
 				if (self.u_limit < 8):
 					ax.set_xticks(list(range(self.u_limit)))
-					ax.set_xticklabels(list(range(1, self.u_limit+1)))
+					ax.set_xticklabels(list(range(len(_exp.tuples[0][0]), self.u_limit+1)))
 				else:
 					ax.set_xticks(list(range(0, self.u_limit, self.u_limit // 8)))
-					ax.set_xticklabels(list(range(1, self.u_limit+1, self.u_limit // 8)))
+					ax.set_xticklabels(list(range(len(_exp.tuples[0][0]), self.u_limit+1, self.u_limit // 8)))
 				# set x- and y-labels
 				ax.set_xlabel('Expansion order')
 				ax.set_ylabel('Number of correlated tuples')

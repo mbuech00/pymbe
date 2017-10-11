@@ -22,7 +22,7 @@ class CalcCls():
 		def __init__(self, _mpi, _rst, _mol):
 				""" init parameters """
 				# set default parameters
-				self.exp_model = {'METHOD': 'CCSD'}
+				self.exp_model = {'METHOD': 'FCI'}
 				self.exp_type = 'occupied'
 				self.exp_ref = {'METHOD': 'HF'}
 				self.exp_base = {'METHOD': 'HF'}
@@ -125,9 +125,9 @@ class CalcCls():
 										'with method value given as a string')
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF and CASCI')
-					if ((self.exp_ref['METHOD'] == 'CASCI') and (not ('AO_LABELS' in self.exp_ref))):
-						raise ValueError('wrong input -- missing "ao_labels" key in exp_ref dictionary for ' + \
-										'CASCI reference model (with ao_labels given as a list of strings)')
+#					if ((self.exp_ref['METHOD'] == 'CASCI') and (not ('AO_LABELS' in self.exp_ref))):
+#						raise ValueError('wrong input -- missing "ao_labels" key in exp_ref dictionary for ' + \
+#										'CASCI reference model (with ao_labels given as a list of strings)')
 					# base model
 					if (not ('METHOD' in self.exp_base)):
 						raise ValueError('wrong input -- exp_base dictionary must contain "method" key ' + \

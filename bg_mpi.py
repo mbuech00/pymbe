@@ -163,7 +163,7 @@ class MPICls():
 				""" bcast hf and ref info """
 				if (self.global_master):
 					# collect dimensions, and  mo_occ
-					hf_info = {'hf_e_tot': _calc.hf_e_tot, 'ref_e_tot': _calc.ref_e_tot, \
+					hf_info = {'hf_e_tot': _calc.hf_e_tot, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
 								'mo_occ': _calc.hf_mo_occ, 'act_orbs': _calc.act_orbs}
 					# bcast hf_info
@@ -171,7 +171,7 @@ class MPICls():
 				else:
 					# receive dimensions and mo_occ
 					hf_info = self.global_comm.bcast(None, root=0)
-					_calc.hf_e_tot = hf_info['hf_e_tot']; _calc.ref_e_tot = hf_info['ref_e_tot']
+					_calc.hf_e_tot = hf_info['hf_e_tot']
 					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
 					_calc.hf_mo_occ = hf_info['mo_occ']; _calc.act_orbs = hf_info['act_orbs']
 				#
@@ -214,9 +214,9 @@ class MPICls():
 					e_inc_end = np.argmax(_exp.energy_inc[-1] == 0.0)
 					if (e_inc_end == 0): e_inc_end = len(_exp.energy_inc[-1])
 					# collect exp_info
-					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))],\
-								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))],\
-								'min_order': _exp.min_order, 'e_inc_end': e_inc_end}
+					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))], \
+								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))], \
+								'start_order': len(_exp.tuples[0][0]), 'min_order': _exp.min_order, 'e_inc_end': e_inc_end}
 					# bcast info
 					comm.bcast(exp_info, root=0)
 					# bcast tuples
@@ -231,7 +231,7 @@ class MPICls():
 					# set min_order
 					_exp.min_order = exp_info['min_order']
 					# receive tuples
-					for i in range(1,len(exp_info['len_tup'])):
+					for i in range(exp_info['start_order'],len(exp_info['len_tup'])):
 						buff = np.empty([exp_info['len_tup'][i],i+1], dtype=np.int32)
 						comm.Bcast([buff,MPI.INT], root=0)
 						_exp.tuples.append(buff)

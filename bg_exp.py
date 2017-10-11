@@ -23,18 +23,19 @@ class ExpCls():
 				# init tuples and incl_idx
 				self.tuples = []
 				if (_type == 'occupied'):
-					if ((len(_calc.act_orbs) > 0) and (set(_calc.act_orbs) < set(range(_mol.ncore, _mol.nocc)))):
-						self.tuples.append(np.array(list([i] for i in _calc.act_orbs), dtype=np.int32))
+					if (set(_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)]) < set(range(_mol.ncore, _mol.nocc))):
+						self.tuples.append(np.array([_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)]], dtype=np.int32))
 					else:
 						self.tuples.append(np.array(list([i] for i in range(_mol.ncore, _mol.nocc)), dtype=np.int32))
 					self.incl_idx = list(range(_mol.nocc, _mol.norb))
 				# set params and lists for virt expansion
 				else:
-					if ((len(_calc.act_orbs) > 0) and (set(_calc.act_orbs) < set(range(_mol.nocc, _mol.norb)))):
-						self.tuples.append(np.array(list([i] for i in _calc.act_orbs), dtype=np.int32))
+					if (set(_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)]) < set(range(_mol.nocc, _mol.norb))):
+						self.tuples.append(np.array([_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)]], dtype=np.int32))
 					else:
 						self.tuples.append(np.array(list([i] for i in range(_mol.nocc, _mol.norb)), dtype=np.int32))
 					self.incl_idx = list(range(_mol.nocc))
+				print(' _calc.act_orbs = {0:}'.format(_calc.act_orbs))
 				# set frozen_idx
 				self.frozen_idx = list(range(_mol.ncore))
 				# update incl_idx
@@ -53,13 +54,14 @@ class ExpCls():
 				# determine max theoretical work
 				self.theo_work = []
 				if (_type == 'occupied'):
-					for k in range(_mol.nocc-_mol.ncore):
+					for k in range(len(self.tuples[0][0])-1, _mol.nocc-_mol.ncore):
 						self.theo_work.append(int(factorial(_mol.nocc-_mol.ncore) / \
 												(factorial(k+1) * factorial((_mol.nocc-_mol.ncore) - (k+1)))))
 				else:
-					for k in range(_mol.nvirt):
+					for k in range(len(self.tuples[0][0])-1, _mol.nvirt):
 						self.theo_work.append(int(factorial(_mol.nvirt) / \
 												(factorial(k+1) * factorial(_mol.nvirt - (k+1)))))
+				print(' self.theo_work = {0:}'.format(self.theo_work))
 				# init screen_count list
 				self.screen_count = []
 				# init micro_conv list

@@ -65,8 +65,18 @@ class PySCFCls():
 				_calc.hf_mo_coeff = hf.mo_coeff
 				_calc.hf_mo_occ = hf.mo_occ
 				_calc.hf_e_tot = hf.e_tot
+				# hf reference model
+				if (_calc.exp_ref['METHOD'] == 'HF'):
+					# store energy
+					_calc.ref_e_tot = _calc.hf_e_tot
+					# no active orbitals
+					act_orbs = []
+				# casci reference model
+				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+					act_orbs = np.array([4]+list(range(_mol.nocc, _mol.norb)))
+					_calc.no_act = len(act_orbs); _calc.ne_act = len(act_orbs[np.where(act_orbs <= _mol.nocc)])
 				#
-				return hf
+				return hf, act_orbs
 
 
 		def ref(self, _mol, _calc):
@@ -87,12 +97,13 @@ class PySCFCls():
 #					_calc.no_o_act = sorted([i-1 for i in range(_mol.nocc, _mol.nocc - (_calc.ne_act // 2), -1)])
 #					_calc.no_v_act = [i for i in range(_mol.nocc, _mol.nocc + (_calc.no_act - len(_calc.no_o_act)))]
 					# perform reference calc
-#					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
-					casci = mcscf.CASCI(_calc.hf, 9, 2)
+					act_orbs = np.array([4]+list(range(_mol.nocc, _mol.norb)))
+					_calc.no_act = len(act_orbs); _calc.ne_act = len(act_orbs[np.where(act_orbs <= _mol.nocc)])
+					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
 					casci.conv_tol = 1.0e-12
 					casci.max_cycle_macro = 100
-#					ref_e_tot = casci.kernel(mo)[0]
-					ref_e_tot = casci.kernel()[0]
+					mo = casci.sort_mo(act_orbs, base=0)
+					ref_e_tot = casci.kernel(mo)[0]
 				#
 				return ref_e_tot, act_orbs
 
@@ -263,7 +274,7 @@ class PySCFCls():
 		def prepare(self, _mol, _calc, _exp, _tup):
 				""" generate input for correlated calculation """
 				# generate orbital lists
-				cas_idx = sorted(_exp.incl_idx + _tup.tolist())
+				cas_idx = sorted(_exp.incl_idx + sorted(_tup.tolist()))
 				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
 				# extract core and one-electron cas integrals and calculate core energy
 				if (len(core_idx) > 0):

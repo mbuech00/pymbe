@@ -52,7 +52,7 @@ class KernCls():
 
 		def summation(self, _exp, _idx):
 				""" energy summation """
-				for i in range(_exp.order-1, 0, -1):
+				for i in range(_exp.order-1, len(_exp.tuples[0][0]), -1):
 					# test if tuple is a subset
 					combs = _exp.tuples[-1][_idx, self.comb_index(_exp.order, i)]
 					dt = np.dtype((np.void, _exp.tuples[i-1].dtype.itemsize * \
@@ -78,15 +78,17 @@ class KernCls():
 				# sum of energy increments
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
-				if (_exp.order == 1):
+				if (_exp.order == len(_exp.tuples[0][0])):
 					if ((_calc.exp_type in ['occupied','virtual']) or (_exp.level == 'macro')):
-						e_tmp += _calc.e_zero
+						if (_calc.exp_ref['METHOD'] == 'CASCI'): _calc.ref_e_tot = e_tmp + _calc.hf_e_tot
+						e_tmp += _calc.e_zero - (_calc.ref_e_tot - _calc.hf_e_tot)
 				else:
 					e_tmp += _exp.energy_tot[-1]
 				# add to total energy list
 				_exp.energy_tot.append(e_tmp)
 				# check for convergence wrt total energy
-				if ((_exp.order >= 2) and (abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _calc.energy_thres)):
+				if ((_exp.order > len(_exp.tuples[0][0])) and \
+					(abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _calc.energy_thres)):
 					_exp.conv_energy.append(True)
 				#
 				return
@@ -115,7 +117,7 @@ class KernCls():
 						# mark expansion as micro 
 						exp_micro.level = 'micro'
 						# transfer incl_idx
-						exp_micro.incl_idx = _exp.tuples[-1][i].tolist()
+						exp_micro.incl_idx = sorted(_exp.tuples[-1][i].tolist())
 						# make recursive call to driver with micro exp
 						drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results
@@ -138,7 +140,7 @@ class KernCls():
 						_rst.write_kernel(_calc, _exp, False)
 				# manually force e_inc to zero in case of CISD and CCSD base models
 				if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
-					_exp.energy_inc[-1].fill(0.0)
+					_exp.energy_inc[0].fill(0.0)
 				#
 				return
 
@@ -240,7 +242,7 @@ class KernCls():
 				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
 				# manually force e_inc to zero in case of CISD and CCSD base models
 				if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
-					_exp.energy_inc[-1].fill(0.0)
+					_exp.energy_inc[0].fill(0.0)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				#

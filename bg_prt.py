@@ -92,12 +92,12 @@ class PrintCls():
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-								format(_exp.order,len(_exp.tuples[_exp.order-1])))
+								format(_exp.order,len(_exp.tuples[(_exp.order-(len(_exp.tuples[0][0])-1))-1])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-						format(_exp.order,len(_exp.tuples[_exp.order-1])))
+						format(_exp.order,len(_exp.tuples[(_exp.order-(len(_exp.tuples[0][0])-1))-1])))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -121,25 +121,25 @@ class PrintCls():
 						if (_exp.conv_energy[-1]):
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[_exp.order-1]),_calc.energy_thres))
+									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_calc.energy_thres))
 							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[_exp.order-1]),_calc.energy_thres))
+									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_calc.energy_thres))
 							print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				if (_exp.conv_energy[-1]):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[_exp.order-1]),_calc.energy_thres))
+							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_calc.energy_thres))
 					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[_exp.order-1]),_calc.energy_thres))
+							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_calc.energy_thres))
 					print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -149,11 +149,11 @@ class PrintCls():
 				""" print micro result statistics """
 				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
 					# statistics
-					mean_val = np.mean(_exp.micro_conv[_exp.order-1])
-					min_val = _exp.micro_conv[_exp.order-1][np.argmin(_exp.micro_conv[_exp.order-1])]
-					max_val = _exp.micro_conv[_exp.order-1][np.argmax(_exp.micro_conv[_exp.order-1])]
-					if (len(_exp.micro_conv[_exp.order-1]) > 1):
-						std_val = np.std(_exp.micro_conv[_exp.order-1], ddof=1)
+					mean_val = np.mean(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1])
+					min_val = _exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1][np.argmin(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1])]
+					max_val = _exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1][np.argmax(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1])]
+					if (len(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1]) > 1):
+						std_val = np.std(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1], ddof=1)
 					else:
 						std_val = 0.0
 					# now print
@@ -180,11 +180,11 @@ class PrintCls():
 		def kernel_results(self, _calc, _exp):
 				""" print kernel result statistics """
 				# statistics
-				mean_val = np.mean(_exp.energy_inc[_exp.order-1])
-				min_val = _exp.energy_inc[_exp.order-1][np.argmin(np.abs(_exp.energy_inc[_exp.order-1]))]
-				max_val = _exp.energy_inc[_exp.order-1][np.argmax(np.abs(_exp.energy_inc[_exp.order-1]))]
-				if (len(_exp.energy_inc[_exp.order-1]) > 1):
-					std_val = np.std(_exp.energy_inc[_exp.order-1], ddof=1)
+				mean_val = np.mean(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1])
+				min_val = _exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1][np.argmin(np.abs(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]))]
+				max_val = _exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1][np.argmax(np.abs(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]))]
+				if (len(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]) > 1):
+					std_val = np.std(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1], ddof=1)
 				else:
 					std_val = 0.0
 				# now print
@@ -225,7 +225,8 @@ class PrintCls():
 		def screen_results(self, _calc, _exp):
 				""" print screening results """
 				if (len(_exp.tuples) > _exp.order):
-					screen = (_exp.screen_count[_exp.order-1] / len(_exp.tuples[_exp.order-1])) * 100.0
+					screen = (_exp.screen_count[(_exp.order-(len(_exp.tuples[0][0])-1))-1] / \
+								len(_exp.tuples[(_exp.order-(len(_exp.tuples[0][0])-1))-1])) * 100.0
 				else:
 					screen = 100.0
 				with open(self.out,'a') as f:

@@ -66,7 +66,7 @@ class DrvCls():
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
 					# if rst, print previous results
 					if (do_print):
-						for _exp.order in range(1, _exp.min_order):
+						for _exp.order in range(len(_exp.tuples[0][0]), _exp.min_order):
 							_prt.kernel_header(_calc, _exp)
 							_prt.kernel_micro_results(_calc, _exp)
 							_prt.kernel_end(_calc, _exp)
@@ -80,6 +80,7 @@ class DrvCls():
 					_rst.restart = False
 				# now do expansion
 				for _exp.order in range(_exp.min_order, _exp.max_order+1):
+					print(' order = {0:} , _exp.tuples[-1] = {1:}'.format(_exp.order,_exp.tuples[-1]))
 					#
 					#** energy kernel phase **#
 					#
@@ -111,7 +112,7 @@ class DrvCls():
 						# start time
 						if (do_print): _exp.time_screen.append(MPI.Wtime())
 						# perform screening
-						self.screening.main(_mpi, _calc, _exp, _rst)
+						self.screening.main(_mpi, _mol, _calc, _exp, _rst)
 						if (do_print):
 							# collect time
 							_exp.time_screen[-1] -= MPI.Wtime()
