@@ -329,12 +329,6 @@ class PySCFCls():
 							raise
 				# base calculation
 				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
-#					if (_exp.order < _exp.max_order):
-#						factor = 0.01 / (float(_exp.core_idx[-1]+1)*float(_exp.order))
-#					else:
-#						factor = 0.0
-#					print(' factor = {0:.4f}'.format(factor))
-#					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot - factor
 					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
 				else:
 					# base calculation
