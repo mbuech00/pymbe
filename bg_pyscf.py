@@ -17,8 +17,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 try:
-	from pyscf import gto, scf, dft, ao2mo, lo, ci, cc, mcscf, fci
-	from pyscf.mcscf import avas
+	from pyscf import gto, scf, ao2mo, lo, ci, cc, mcscf, fci
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
@@ -46,9 +45,6 @@ class PySCFCls():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-					# store mo_coeff and mo_occ
-					_calc.hf_mo_coeff = hf.mo_coeff
-					_calc.hf_mo_occ = hf.mo_occ
 					# determine dimensions
 					_mol.norb = hf.mo_coeff.shape[1]
 					_mol.nocc = int(hf.mo_occ.sum()) // 2
@@ -65,7 +61,9 @@ class PySCFCls():
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'CAN'):
 						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
-				# save e_tot
+				# store mo_coeff, mo_occ, and e_tot
+				_calc.hf_mo_coeff = hf.mo_coeff
+				_calc.hf_mo_occ = hf.mo_occ
 				_calc.hf_e_tot = hf.e_tot
 				#
 				return hf
@@ -75,81 +73,24 @@ class PySCFCls():
 				""" determine dimensions """
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					ref_hf = _calc.hf
 					# store energy
-					_calc.ref_e_tot = _calc.hf_e_tot
-					# store mo_coeff
-					_calc.ref_mo_coeff = _calc.hf.mo_coeff
-				# dft reference model
-				else:
-					# perform reference calc
-					ref = dft.RKS(_mol)
-					ref.xc = _calc.exp_ref['XC']
-					ref.conv_tol = 1.0e-12
-					ref.max_cycle = 100
-					ref.irrep_nelec = _mol.irrep_nelec
-					# restart calc?
-					if (_calc.ref_mo_coeff is None):
-						for i in list(range(0, 12, 2)):
-							ref.diis_start_cycle = i
-							try:
-								ref.kernel()
-							except sp.linalg.LinAlgError: pass
-							if (ref.converged): break
-						if (not ref.converged):
-							try:
-								raise RuntimeError('\nREF-DFT Error : no convergence\n\n')
-							except Exception as err:
-								sys.stderr.write(str(err))
-								raise
-					else:
-						# construct density
-						ref_dens = scf.hf.make_rdm1(_calc.ref_mo_coeff, _calc.hf_mo_occ)
-						# restart from converged density
-						ref.kernel(ref_dens)
-						# overwrite occupied MOs
-						if (_calc.exp_occ != 'CAN'):
-							ref.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
-					# construct converged dens
-					ref_dens = ref.make_rdm1()
-					# make hf potential
-					veff_ks = scf.hf.get_veff(_mol, ref_dens)
-					# store ks energy
-					_calc.ref_e_tot = scf.hf.energy_elec(ref, dm=ref_dens, h1e=_calc.hf.get_hcore(), vhf=veff_ks)[0] \
-										+ _mol.energy_nuc()
-					# store mo_coeff
-					_calc.ref_mo_coeff = ref.mo_coeff
-					# transform 1- and 2-electron integrals (dft)
-					h1e = reduce(np.dot, (np.transpose(ref.mo_coeff), ref.get_hcore(), ref.mo_coeff))
-					h2e = ao2mo.kernel(_mol, ref.mo_coeff)
-					# make ref hf object
-					mol = gto.M(verbose=0)
-					ref_hf = scf.RHF(mol)
-					ref_hf._eri = h2e
-					ref_hf.get_hcore = lambda *args: h1e
-				# casscf reference model
-				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+					ref_e_tot = _calc.hf_e_tot
+				# casci reference model
+				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+					# import avas
+					from pyscf.mcscf import avas
 					# select active space
-					_calc.no_act, _calc.ne_act, mo = avas.avas(_calc.ref, _calc.exp_ref['AO_LABELS'], canonicalize=True)
+					_calc.no_act, _calc.ne_act, mo = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'], canonicalize=True)
 					# store information
 					_calc.no_o_act = sorted([i-1 for i in range(_mol.nocc, _mol.nocc - (_calc.ne_act // 2), -1)])
 					_calc.no_v_act = [i for i in range(_mol.nocc, _mol.nocc + (_calc.no_act - len(_calc.no_o_act)))]
 					# perform reference calc
-					casscf = mcscf.CASSCF(_calc.ref, _calc.no_act, _calc.ne_act)
-					casscf.conv_tol = 1.0e-12
-					casscf.max_cycle_macro = 100
-					casscf.frozen = len(frozen) 
-					_calc.ref_e_tot = casscf.kernel(mo)[0] - _calc.hf.e_tot
-					if (not casscf.converged):
-						try:
-							raise RuntimeError('\nREF-CASSCF Error : no convergence\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
-					# store mo_coeff
-					_calc.ref_mo_coeff = ref.mo_coeff
+					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
+					casci.conv_tol = 1.0e-12
+					casci.max_cycle_macro = 100
+					ref_e_tot = casci.kernel(mo)[0]
 				#
-				return ref_hf
+				return ref_e_tot
 
 
 		def trans_main(self, _mol, _calc):
@@ -158,15 +99,10 @@ class PySCFCls():
 				frozen = list(range(_mol.ncore))
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']):
-					_calc.e_zero = _calc.ref_e_tot - _calc.hf_e_tot
-					# init transformation matrix
-					_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
+					_calc.e_zero = 0.0
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
-					if (_calc.exp_ref['METHOD'] == 'HF'):
-						cisd = ci.CISD(_calc.ref)
-					else:
-						cisd = ci.cisd.CISD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf_mo_occ)
+					cisd = ci.CISD(_calc.hf)
 					cisd.conv_tol = 1.0e-10
 					cisd.max_cycle = 100
 					cisd.max_space = 30
@@ -186,10 +122,7 @@ class PySCFCls():
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = cisd.make_rdm1()
 				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
 					# calculate ccsd energy
-					if (_calc.exp_ref['METHOD'] == 'HF'):
-						ccsd = cc.CCSD(_calc.ref)
-					else:
-						ccsd = cc.ccsd.CCSD(_calc.ref, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf_mo_occ)
+					ccsd = cc.CCSD(_calc.hf)
 					ccsd.conv_tol = 1.0e-10
 					ccsd.max_cycle = 100
 					ccsd.diis_space = 10
@@ -211,32 +144,32 @@ class PySCFCls():
 							raise
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = ccsd.make_rdm1()
 				# init transformation matrix
-				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
+				_calc.trans_mat = np.copy(_calc.hf_mo_coeff)
 				# occ-occ block (local or NOs)
 				if (_calc.exp_occ != 'CAN'):
 					if (_calc.exp_occ == 'NO'):
 						occup, no = sp.linalg.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)])
-						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
+						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
-						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
 					elif (_calc.exp_occ == 'FB'):
-						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
 					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
-						iao = lo.iao.iao(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc])
+						iao = lo.iao.iao(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc])
 						if (_calc.exp_occ == 'IBO-1'):
-							iao = lo.vec_lowdin(iao, _calc.ref.get_ovlp())
-							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao)
+							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
+							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc], iao)
 						elif (_calc.exp_occ == 'IBO-2'):
-							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
+							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
 						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-						_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.ref_mo_coeff[:, _mol.nocc:], no[:, ::-1])
+						_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
-						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
+						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.nocc:]).kernel()
 					elif (_calc.exp_virt == 'FB'):
-						_calc.trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
+						_calc.trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.hf_mo_coeff[:, _mol.nocc:]).kernel()
 				# add (t) correction
 				if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
 					if ((_calc.exp_occ == 'CAN') and (_calc.exp_virt == 'CAN')):
@@ -308,7 +241,7 @@ class PySCFCls():
 					dm = ccsd.make_rdm1()
 				# generate dnos
 				occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-				_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
+				_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 				#
 				return
 
@@ -395,8 +328,14 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 				# base calculation
-				if (_calc.exp_base['METHOD'] in ['HF','DFT']):
-					e_corr = (e_cas + _exp.e_core) - _calc.ref_e_tot
+				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
+#					if (_exp.order < _exp.max_order):
+#						factor = 0.01 / (float(_exp.core_idx[-1]+1)*float(_exp.order))
+#					else:
+#						factor = 0.0
+#					print(' factor = {0:.4f}'.format(factor))
+#					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot - factor
+					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)

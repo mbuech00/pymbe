@@ -32,8 +32,8 @@ class CalcCls():
 				self.exp_virt = 'CAN'
 				self.energy_thres = 0.0
 				self.tolerance = 0.0
-				# init hf_mo_coeff, ref_mo_coeff, and transformation matrix
-				self.hf_mo_coeff = None; self.ref_mo_coeff = None; self.trans_mat = None
+				# init hf_mo_coeff, hf_mo_occ, and transformation matrix
+				self.hf_mo_coeff = None; self.hf_mo_occ = None; self.trans_mat = None
 				# init h1e and h2e
 				self.h1e = None; self.h2e = None
 				# set calculation parameters
@@ -123,16 +123,11 @@ class CalcCls():
 					if (not ('METHOD' in self.exp_ref)):
 						raise ValueError('wrong input -- exp_ref dictionary must contain "method" key ' + \
 										'with method value given as a string')
-					if (not (self.exp_ref['METHOD'] in ['HF','DFT','CASSCF'])):
-						raise ValueError('wrong input -- invalid reference model')
-					if ((self.exp_ref['METHOD'] != 'HF') and _mol.frozen):
-						raise ValueError('wrong input -- non-HF reference is not allowed for frozen-core calculations')
-					if ((self.exp_ref['METHOD'] == 'DFT') and (not ('XC' in self.exp_ref))):
-						raise ValueError('wrong input -- missing "xc" key in exp_ref dictionary for ' + \
-										'DFT reference model (with choice of xc given as a string)')
-					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not ('AO_LABELS' in self.exp_ref))):
+					if (not (self.exp_ref['METHOD'] in ['HF','CASCI'])):
+						raise ValueError('wrong input -- valid reference models are currently: HF and CASCI')
+					if ((self.exp_ref['METHOD'] == 'CASCI') and (not ('AO_LABELS' in self.exp_ref))):
 						raise ValueError('wrong input -- missing "ao_labels" key in exp_ref dictionary for ' + \
-										'CASSCF reference model (with ao_labels given as a list of strings)')
+										'CASCI reference model (with ao_labels given as a list of strings)')
 					# base model
 					if (not ('METHOD' in self.exp_base)):
 						raise ValueError('wrong input -- exp_base dictionary must contain "method" key ' + \
@@ -144,9 +139,6 @@ class CalcCls():
 						((self.exp_base['METHOD'] == 'CCSD(T)') and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)']))):
 						raise ValueError('wrong input -- invalid base model for choice ' + \
 										'of expansion model')
-					if ((self.exp_base['METHOD'] == 'DFT') and (not ('XC' in self.exp_base))):
-						raise ValueError('wrong input -- missing "xc" key in exp_base dictionary for ' + \
-										'DFT reference model (with choice of xc given as a string)')
 					# max order
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
@@ -167,7 +159,7 @@ class CalcCls():
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: CAN, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] in ['HF','DFT'])):
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_ref['METHOD'] == self.exp_base['METHOD'])):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a correlated base model for the expansion')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):

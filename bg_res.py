@@ -133,7 +133,7 @@ class ResCls():
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
 									'','|','','exp. type','','=','',_calc.exp_type,\
 									'','|','','base model energy','','=','',\
-									min(_calc.ref_e_tot, _calc.ref_e_tot + _calc.e_zero)))
+									_calc.hf_e_tot + _calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:12}{10:8}{11:1}{12:2}'
 							'{13:<6.2f}{14:2}{15:5}{16:1}{17:7}{18:18}{19:6}{20:1}{21:1}{22:.6f}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
