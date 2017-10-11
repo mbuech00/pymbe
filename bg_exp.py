@@ -20,17 +20,20 @@ class ExpCls():
 		""" expansion class """
 		def __init__(self, _mpi, _mol, _calc, _type):
 				""" init parameters """
-				# set params and lists for occ expansion
+				# init tuples and incl_idx
+				self.tuples = []
 				if (_type == 'occupied'):
-					# init tuples and incl_idx
-					self.tuples = []; self.tuples.append(np.array(list([i] for i in range(_mol.ncore, _mol.nocc)),\
-															dtype=np.int32))
+					if ((len(_calc.act_orbs) > 0) and (set(_calc.act_orbs) < set(range(_mol.ncore, _mol.nocc)))):
+						self.tuples.append(np.array(list([i] for i in _calc.act_orbs), dtype=np.int32))
+					else:
+						self.tuples.append(np.array(list([i] for i in range(_mol.ncore, _mol.nocc)), dtype=np.int32))
 					self.incl_idx = list(range(_mol.nocc, _mol.norb))
 				# set params and lists for virt expansion
 				else:
-					# init tuples and incl_idx
-					self.tuples = []; self.tuples.append(np.array(list([i] for i in range(_mol.nocc, _mol.norb)),\
-															dtype=np.int32))
+					if ((len(_calc.act_orbs) > 0) and (set(_calc.act_orbs) < set(range(_mol.nocc, _mol.norb)))):
+						self.tuples.append(np.array(list([i] for i in _calc.act_orbs), dtype=np.int32))
+					else:
+						self.tuples.append(np.array(list([i] for i in range(_mol.nocc, _mol.norb)), dtype=np.int32))
 					self.incl_idx = list(range(_mol.nocc))
 				# set frozen_idx
 				self.frozen_idx = list(range(_mol.ncore))

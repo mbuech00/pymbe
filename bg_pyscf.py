@@ -75,22 +75,26 @@ class PySCFCls():
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# store energy
 					ref_e_tot = _calc.hf_e_tot
+					# no active orbitals
+					act_orbs = []
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-					# import avas
-					from pyscf.mcscf import avas
-					# select active space
-					_calc.no_act, _calc.ne_act, mo = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'], canonicalize=True)
-					# store information
-					_calc.no_o_act = sorted([i-1 for i in range(_mol.nocc, _mol.nocc - (_calc.ne_act // 2), -1)])
-					_calc.no_v_act = [i for i in range(_mol.nocc, _mol.nocc + (_calc.no_act - len(_calc.no_o_act)))]
+#					# import avas
+#					from pyscf.mcscf import avas
+#					# select active space
+#					_calc.no_act, _calc.ne_act, mo = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'], canonicalize=True)
+#					# store information
+#					_calc.no_o_act = sorted([i-1 for i in range(_mol.nocc, _mol.nocc - (_calc.ne_act // 2), -1)])
+#					_calc.no_v_act = [i for i in range(_mol.nocc, _mol.nocc + (_calc.no_act - len(_calc.no_o_act)))]
 					# perform reference calc
-					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
+#					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
+					casci = mcscf.CASCI(_calc.hf, 9, 2)
 					casci.conv_tol = 1.0e-12
 					casci.max_cycle_macro = 100
-					ref_e_tot = casci.kernel(mo)[0]
+#					ref_e_tot = casci.kernel(mo)[0]
+					ref_e_tot = casci.kernel()[0]
 				#
-				return ref_e_tot
+				return ref_e_tot, act_orbs
 
 
 		def trans_main(self, _mol, _calc):
