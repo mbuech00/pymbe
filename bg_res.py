@@ -101,8 +101,6 @@ class ResCls():
 				self.results(_mpi, _mol, _calc, _exp)
 				# plot of total energy
 				self.abs_energy(_mol, _calc, _exp)
-				# plot of number of calculations
-				self.n_tuples(_mol, _calc, _exp)
 				#
 				return
 
@@ -165,7 +163,7 @@ class ResCls():
 						# loop over orders
 						total_tup = 0
 						for i in range(len(_exp.energy_tot)):
-							if (_exp.energy_tot[i] != 0.0):
+							if ((_exp.energy_tot[i] != 0.0) or (_calc.exp_ref['METHOD'] == 'HF')):
 								# sum up total time and number of tuples
 								total_time = np.sum(_exp.time_kernel[:i+1])\
 												+np.sum(_exp.time_screen[:i+1])
@@ -193,15 +191,12 @@ class ResCls():
 				fig, ax = plt.subplots()
 				# set title
 				ax.set_title('Total '+_calc.exp_model['METHOD']+' correlation energy')
-				# set start index
-				start = 0
-				if (_exp.energy_tot[0] == 0.0): start = 1
 				# plot results
-				ax.plot(list(range(len(_exp.tuples[0][0])+start,(len(_exp.tuples[0][0])+start)+len(_exp.energy_tot[start:]))),
-						np.asarray(_exp.energy_tot[start:]), marker='x', linewidth=2,
+				ax.plot(list(range(_exp.min_order,len(_exp.energy_tot)+_exp.min_order)),
+						_exp.energy_tot, marker='x', linewidth=2,
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
-				ax.set_xlim([0.5+start, self.u_limit + 0.5])
+				ax.set_xlim([0.5, self.u_limit + 0.5])
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set labels
@@ -216,66 +211,6 @@ class ResCls():
 				ax.legend(loc=1)
 				# save plot
 				plt.savefig(self.out_dir+'/abs_energy_plot.pdf',
-							bbox_inches = 'tight', dpi=1000)
-				#
-				return
-
-
-		def n_tuples(self, _mol, _calc, _exp):
-				""" plot number of tuples """
-				# set seaborn
-				sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-				# set 1 plot
-				fig, ax = plt.subplots()
-				# set title
-				ax.set_title('Total number of '+_calc.exp_model['METHOD']+' tuples')
-				# init prim list
-				prim = []
-				# set prim list
-				for i in range(self.u_limit):
-					if (i < len(_exp.tuples)):
-						prim.append(len(_exp.tuples[i]))
-					else:
-						prim.append(0)
-				# set start index
-				start = 0
-				if (_exp.energy_tot[0] == 0.0): start = 1
-				# plot results
-				sns.barplot(list(range(len(_exp.tuples[0][0]), self.u_limit+1)),
-							_exp.theo_work,palette='Greens',
-							label='Theoretical number', log=True)
-				sns.barplot(list(range(len(_exp.tuples[0][0]), self.u_limit+1)),
-							prim,palette='Blues_r',
-							label='MBE-'+_calc.exp_model['METHOD']+' expansion', log=True)
-				# turn off x-grid
-				ax.xaxis.grid(False)
-				# set x- and y-limits
-				if (_calc.exp_type == 'occupied'):
-					ax.set_xlim([-0.5+start,(_mol.nocc - _mol.ncore) - 0.5])
-				else:
-					ax.set_xlim([-0.5+start,_mol.nvirt - 0.5])
-				ax.set_ylim(bottom=0.7)
-				# set x-ticks
-				if (self.u_limit < 8):
-					ax.set_xticks(list(range(start, self.u_limit)))
-					ax.set_xticklabels(list(range(len(_exp.tuples[0][0])+start, self.u_limit+1)))
-				else:
-					ax.set_xticks(list(range(start, self.u_limit, self.u_limit // 8)))
-					ax.set_xticklabels(list(range(len(_exp.tuples[0][0])+start, self.u_limit+1, self.u_limit // 8)))
-				# set x- and y-labels
-				ax.set_xlabel('Expansion order')
-				ax.set_ylabel('Number of correlated tuples')
-				# set legend
-				plt.legend(loc=1)
-				leg = ax.get_legend()
-				leg.legendHandles[0].set_color(sns.color_palette('Greens')[-1])
-				leg.legendHandles[1].set_color(sns.color_palette('Blues_r')[0])
-				# despind
-				sns.despine()
-				# tight layout
-				fig.tight_layout()
-				# save plot
-				plt.savefig(self.out_dir+'/n_tuples_plot.pdf',
 							bbox_inches = 'tight', dpi=1000)
 				#
 				return

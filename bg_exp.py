@@ -21,20 +21,22 @@ class ExpCls():
 		def __init__(self, _mpi, _mol, _calc, _type):
 				""" init parameters """
 				# init tuples and incl_idx
-				self.tuples = []
 				if (_type == 'occupied'):
-					if (set(_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)]) < set(range(_mol.ncore, _mol.nocc))):
-						self.tuples.append(np.array([_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)]], dtype=np.int32))
+					if (len(_calc.act_orbs) > 0):
+						init_tuples = list(_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)].tolist()+[i] \
+									for i in range(_mol.ncore, _mol.nocc) if not (set([i]) <= set(_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)])))
 					else:
-						self.tuples.append(np.array(list([i] for i in range(_mol.ncore, _mol.nocc)), dtype=np.int32))
+						init_tuples = list([i] for i in range(_mol.ncore, _mol.nocc)) 
 					self.incl_idx = list(range(_mol.nocc, _mol.norb))
 				# set params and lists for virt expansion
-				else:
-					if (set(_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)]) < set(range(_mol.nocc, _mol.norb))):
-						self.tuples.append(np.array([_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)]], dtype=np.int32))
+				elif (_type == 'virtual'):
+					if (len(_calc.act_orbs) > 0):
+						init_tuples = list(_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)].tolist()+[i] \
+									for i in range(_mol.nocc, _mol.norb) if not (set([i]) <= set(_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)])))
 					else:
-						self.tuples.append(np.array(list([i] for i in range(_mol.nocc, _mol.norb)), dtype=np.int32))
+						init_tuples = list([i] for i in range(_mol.nocc, _mol.norb)) 
 					self.incl_idx = list(range(_mol.nocc))
+				self.tuples = [np.array(init_tuples, dtype=np.int32)]
 				print(' _calc.act_orbs = {0:}'.format(_calc.act_orbs))
 				# set frozen_idx
 				self.frozen_idx = list(range(_mol.ncore))

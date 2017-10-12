@@ -44,22 +44,22 @@ class KernCls():
 		def comb_index(self, _n, _k):
 				""" calculate combined index """
 				count = comb(_n, _k, exact=True)
-				index = np.fromiter(chain.from_iterable(combinations(range(_n), _k)),
-									int,count=count * _k)
+				index = np.fromiter(chain.from_iterable(combinations(range(_n), _k)), int,count=count * _k)
 				#
 				return index.reshape(-1, _k)
 
 
-		def summation(self, _exp, _idx):
+		def summation(self, _calc, _exp, _idx):
 				""" energy summation """
-				for i in range(_exp.order-1, len(_exp.tuples[0][0]), -1):
+				# now compute increment
+				for i in range(_exp.order-1, _exp.min_order-1, -1):
 					# test if tuple is a subset
 					combs = _exp.tuples[-1][_idx, self.comb_index(_exp.order, i)]
-					dt = np.dtype((np.void, _exp.tuples[i-1].dtype.itemsize * \
-									_exp.tuples[i-1].shape[1]))
-					match = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
+					dt = np.dtype((np.void, _exp.tuples[i-_exp.min_order].dtype.itemsize * \
+									_exp.tuples[i-_exp.min_order].shape[1]))
+					match = np.nonzero(np.in1d(_exp.tuples[i-_exp.min_order].view(dt).reshape(-1), \
 										combs.view(dt).reshape(-1)))[0]
-					for j in match: _exp.energy_inc[-1][_idx] -= _exp.energy_inc[i-1][j]
+					for j in match: _exp.energy_inc[-1][_idx] -= _exp.energy_inc[i-_exp.min_order][j]
 				#
 				return
 
@@ -76,18 +76,8 @@ class KernCls():
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum of total energy
-				if (_exp.order == len(_exp.tuples[0][0])):
-					if (_calc.exp_ref['METHOD'] == 'CASCI'):
-						e_tmp = 0.0
-					elif (_calc.exp_ref['METHOD'] == 'HF'):
-						e_tmp = np.sum(_exp.energy_inc[0][np.where(np.abs(_exp.energy_inc[0]) >= _calc.tolerance)])
-#					e_tmp += _calc.e_zero - (_calc.ref_e_tot - _calc.hf_e_tot) # why?
-																					# why do we have to cancel the first correction?
-																					# we are not basing anything on ref_e_tot, are we???
-																					# things seem to work when we are using a base model?
-				else:
-					e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
-					e_tmp += _exp.energy_tot[-1]
+				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
+				if (_exp.order > _exp.min_order): e_tmp += _exp.energy_tot[-1]
 				# add to total energy list
 				_exp.energy_tot.append(e_tmp)
 				# check for convergence wrt total energy
@@ -121,7 +111,7 @@ class KernCls():
 						# mark expansion as micro 
 						exp_micro.level = 'micro'
 						# transfer incl_idx
-						exp_micro.incl_idx = sorted(_exp.tuples[-1][i].tolist())
+						exp_micro.incl_idx = _exp.tuples[-1][i].tolist()
 						# make recursive call to driver with micro exp
 						drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results
@@ -134,7 +124,7 @@ class KernCls():
 						# perform calc
 						_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
 					# sum up energy increment
-					self.summation(_exp, i)
+					self.summation(_calc, _exp, i)
 					if (do_print):
 						# print status
 						_prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[-1])))
@@ -142,9 +132,6 @@ class KernCls():
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						_rst.write_kernel(_calc, _exp, False)
-				# ref_e_tot for non-HF reference
-				if ((_exp.order == len(_exp.tuples[0][0])) and (_calc.exp_ref['METHOD'] == 'CASCI')):
-					_calc.ref_e_tot = _exp.energy_inc[0][0] + _calc.hf_e_tot
 				# manually force e_inc to zero in case of CISD and CCSD base models
 				if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
 					_exp.energy_inc[0].fill(0.0)
@@ -230,7 +217,7 @@ class KernCls():
 						_exp.energy_inc[-1][data['index']] = data['e_inc']
 						# write to micro_conv
 						if (_mpi.global_master and (_exp.level == 'macro')):
-							self.summation(_exp, data['index'])
+							self.summation(_calc, _exp, data['index'])
 							_exp.micro_conv[-1][data['index']] = data['micro_order']
 						# write restart files
 						if (_mpi.global_master and ((((data['index']+1) % int(_rst.rst_freq)) == 0) or (_exp.level == 'macro'))):
@@ -247,9 +234,6 @@ class KernCls():
 				MPI.Request.waitall(reqs)
 				# print 100.0 %
 				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
-				# ref_e_tot for non-HF reference
-				if ((_exp.order == len(_exp.tuples[0][0])) and (_calc.exp_ref['METHOD'] == 'CASCI')):
-					_calc.ref_e_tot = _exp.energy_inc[0][0] + _calc.hf_e_tot
 				# manually force e_inc to zero in case of CISD and CCSD base models
 				if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
 					_exp.energy_inc[0].fill(0.0)
@@ -290,7 +274,7 @@ class KernCls():
 							# mark expansion as micro 
 							exp_micro.level = 'micro'
 							# transfer incl_idx
-							exp_micro.incl_idx = _exp.tuples[-1][job_info['index']].tolist()
+							exp_micro.incl_idx = sorted(_exp.tuples[-1][job_info['index']].tolist())
 							# make recursive call to driver with micro exp
 							drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, None, _rst)
 							# store micro convergence
@@ -309,7 +293,7 @@ class KernCls():
 							# run correlated calc
 							_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)
 							# sum up energy increment
-							self.summation(_exp, job_info['index'])
+							self.summation(_calc, _exp, job_info['index'])
 							# write info into data dict
 							data['index'] = job_info['index']
 							data['e_inc'] = _exp.energy_inc[-1][job_info['index']]

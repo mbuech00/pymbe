@@ -65,18 +65,8 @@ class PySCFCls():
 				_calc.hf_mo_coeff = hf.mo_coeff
 				_calc.hf_mo_occ = hf.mo_occ
 				_calc.hf_e_tot = hf.e_tot
-				# hf reference model
-				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# store energy
-					_calc.ref_e_tot = _calc.hf_e_tot
-					# no active orbitals
-					act_orbs = []
-				# casci reference model
-				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-					act_orbs = np.array([4]+list(range(_mol.nocc, _mol.norb)))
-					_calc.no_act = len(act_orbs); _calc.ne_act = len(act_orbs[np.where(act_orbs <= _mol.nocc)])
 				#
-				return hf, act_orbs
+				return hf
 
 
 		def ref(self, _mol, _calc):
@@ -86,7 +76,7 @@ class PySCFCls():
 					# store energy
 					ref_e_tot = _calc.hf_e_tot
 					# no active orbitals
-					act_orbs = []
+					act_orbs = np.array([])
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
 #					# import avas

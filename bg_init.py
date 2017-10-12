@@ -61,11 +61,11 @@ class InitCls():
 				if (self.mpi.global_master):
 					if (self.rst.restart):
 						self.rst.read_hf_trans(self.calc)
-						self.calc.hf, self.calc.act_orbs = self.pyscf.hf(self.mol, self.calc)
-#						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
+						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
+						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
 					else:
-						self.calc.hf, self.calc.act_orbs = self.pyscf.hf(self.mol, self.calc)
-#						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
+						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
+						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
 						self.pyscf.trans_main(self.mol, self.calc)
 						# write restart files
 						self.rst.write_hf_trans(self.calc)
