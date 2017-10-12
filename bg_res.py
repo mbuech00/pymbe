@@ -193,7 +193,7 @@ class ResCls():
 				ax.set_title('Total '+_calc.exp_model['METHOD']+' correlation energy')
 				# plot results
 				ax.plot(list(range(_exp.min_order,len(_exp.energy_tot)+_exp.min_order)),
-						_exp.energy_tot, marker='x', linewidth=2,
+						_exp.energy_tot+_calc.e_zero, marker='x', linewidth=2,
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
 				ax.set_xlim([0.5, self.u_limit + 0.5])
