@@ -60,7 +60,7 @@ class ScrCls():
 				# start screening
 				if (_mpi.parallel):
 					# mpi parallel version
-					self.master(_mpi, _calc, _exp)
+					self.master(_mpi, _mol, _calc, _exp)
 				else:
 					# init bookkeeping variables
 					tmp = []; combs = []
@@ -122,7 +122,7 @@ class ScrCls():
 				return
 	
 	
-		def master(self, _mpi, _calc, _exp):
+		def master(self, _mpi, _mol, _calc, _exp):
 				""" master routine """
 				# wake up slaves
 				if (_exp.level == 'macro'):
@@ -205,7 +205,7 @@ class ScrCls():
 				return
 		
 		
-		def slave(self, _mpi, _calc, _exp):
+		def slave(self, _mpi, _mol, _calc, _exp):
 				""" slave routine """
 				# init data dict and combs list
 				data = {'child_tuple': []}; combs = []

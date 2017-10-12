@@ -175,7 +175,7 @@ class DrvCls():
 					elif (msg['task'] == 'screen_local_master'):
 						exp.order = msg['exp_order']
 						exp.thres = msg['thres']
-						self.screening.slave(_mpi, _calc, exp)
+						self.screening.slave(_mpi, _mol, _calc, exp)
 					#
 					#** exit **#
 					#
@@ -219,7 +219,7 @@ class DrvCls():
 					elif (msg['task'] == 'screen_slave'):
 						exp.order = msg['exp_order']
 						exp.thres = msg['thres']
-						self.screening.slave(_mpi, _calc, exp)
+						self.screening.slave(_mpi, _mol, _calc, exp)
 					#
 					#** exit **#
 					#

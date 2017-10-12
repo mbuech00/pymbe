@@ -133,14 +133,16 @@ class MPICls():
 				""" bcast calc info """
 				if (self.global_master):
 					# bcast to slaves
-					calc = {'exp_model': _calc.exp_model['METHOD'], 'exp_type': _calc.exp_type, 'exp_base': _calc.exp_base['METHOD'], \
+					calc = {'exp_model': _calc.exp_model['METHOD'], 'exp_type': _calc.exp_type, \
+							'exp_ref': _calc.exp_ref['METHOD'], 'exp_base': _calc.exp_base['METHOD'], \
 							'exp_thres': _calc.exp_thres, 'exp_max_order': _calc.exp_max_order, \
 							'exp_occ': _calc.exp_occ, 'exp_virt': _calc.exp_virt, 'energy_thres': _calc.energy_thres}
 					self.global_comm.bcast(calc, root=0)
 				else:
 					# receive from master
 					calc = self.global_comm.bcast(None, root=0)
-					_calc.exp_model = {'METHOD': calc['exp_model']}; _calc.exp_type = calc['exp_type']; _calc.exp_base = {'METHOD': calc['exp_base']}
+					_calc.exp_model = {'METHOD': calc['exp_model']}; _calc.exp_type = calc['exp_type']
+					_calc.exp_ref = {'METHOD': calc['exp_ref']}; _calc.exp_base = {'METHOD': calc['exp_base']}
 					_calc.exp_thres = calc['exp_thres']; _calc.exp_max_order = calc['exp_max_order']
 					_calc.exp_occ = calc['exp_occ']; _calc.exp_virt = calc['exp_virt']; _calc.energy_thres = calc['energy_thres']
 				#
