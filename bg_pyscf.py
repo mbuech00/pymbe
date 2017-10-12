@@ -88,6 +88,7 @@ class PySCFCls():
 #					_calc.no_v_act = [i for i in range(_mol.nocc, _mol.nocc + (_calc.no_act - len(_calc.no_o_act)))]
 					# perform reference calc
 					act_orbs = np.array([4]+list(range(_mol.nocc, _mol.norb)))
+#					act_orbs = np.array(list(range(_mol.ncore, _mol.nocc))+[5])
 					_calc.no_act = len(act_orbs); _calc.ne_act = len(act_orbs[np.where(act_orbs <= _mol.nocc)])
 					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
 					casci.conv_tol = 1.0e-12

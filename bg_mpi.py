@@ -117,7 +117,7 @@ class MPICls():
 				""" bcast mol info """
 				if (self.global_master):
 					mol = {'atom': _mol.atom, 'charge': _mol.charge, 'spin': _mol.spin, \
-							'hf_symmetry': _mol.symmetry, 'irrep_nelec': _mol.irrep_nelec, 'basis': _mol.basis, \
+							'hf_symmetry': False, 'irrep_nelec': _mol.irrep_nelec, 'basis': _mol.basis, \
 							'unit': _mol.unit, 'frozen': _mol.frozen, 'verbose': _mol.verbose}
 					self.global_comm.bcast(mol, root=0)
 				else:

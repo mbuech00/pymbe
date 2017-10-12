@@ -25,7 +25,7 @@ class CalcCls():
 				self.exp_model = {'METHOD': 'FCI'}
 				self.exp_type = 'occupied'
 				self.exp_ref = {'METHOD': 'HF'}
-				self.exp_base = {'METHOD': 'HF'}
+				self.exp_base = None
 				self.exp_thres = 0.0
 				self.exp_max_order = 0
 				self.exp_occ = 'CAN'
@@ -42,6 +42,8 @@ class CalcCls():
 						self.exp_thres, self.exp_max_order, self.exp_occ, self.exp_virt, \
 						self.energy_thres, self.tolerance, _mol.verbose, _mol.max_memory, \
 						_mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
+					# if not given, set exp_base equal to exp_ref
+					if (self.exp_base is None): self.exp_base = {'METHOD': self.exp_ref['METHOD']}
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
 				#
