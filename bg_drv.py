@@ -73,7 +73,6 @@ class DrvCls():
 							_prt.kernel_results(_calc, _exp)
 							_exp.thres = self.screening.update(_calc, _exp)
 							_prt.screen_header(_calc, _exp)
-							_prt.screen_results(_calc, _exp)
 							_prt.screen_end(_calc, _exp)
 							_rst.rst_freq = _rst.update()
 					# reset restart logical and init _exp.order
@@ -120,8 +119,6 @@ class DrvCls():
 							# write restart files
 							if (not _exp.conv_orb[-1]):
 								_rst.write_screen(_exp)
-							# print screen results
-							_prt.screen_results(_calc, _exp)
 							# print screen end
 							_prt.screen_end(_calc, _exp)
 					else:

@@ -97,8 +97,6 @@ class RstCls():
 				""" write screening restart files """
 				# write tuples
 				np.save(join(self.rst_dir, 'tup_'+str(_exp.order+1)), _exp.tuples[-1])
-				# write screen_count
-				np.save(join(self.rst_dir, 'screen_count_'+str(_exp.order)), _exp.screen_count[-1])
 				# write time
 				np.save(join(self.rst_dir, 'time_screen_'+str(_exp.order)), np.asarray(_exp.time_screen[-1]))
 				#
@@ -146,9 +144,6 @@ class RstCls():
 					# read e_tot
 					elif ('e_tot' in files[i]):
 						_exp.energy_tot.append(np.load(join(self.rst_dir, files[i])).tolist())
-					# read screen_count
-					elif ('screen_count' in files[i]):
-						_exp.screen_count.append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read micro_conv
 					elif ('micro_conv' in files[i]):
 						_exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())

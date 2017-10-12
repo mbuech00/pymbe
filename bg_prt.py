@@ -228,29 +228,6 @@ class PrintCls():
 				return
 		
 		
-		def screen_results(self, _calc, _exp):
-				""" print screening results """
-				if (not ((_exp.order == _exp.min_order) and (len(_calc.act_orbs) > 0))):
-					if (len(_exp.tuples) > _exp.order):
-						screen = (_exp.screen_count[(_exp.order-(len(_exp.tuples[0][0])-1))-1] / \
-									len(_exp.tuples[(_exp.order-(len(_exp.tuples[0][0])-1))-1])) * 100.0
-					else:
-						screen = 100.0
-					with open(self.out,'a') as f:
-						with redirect_stdout(f):
-							print(' --------------------------------------------------------------------------------------------')
-							print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2f} % resulted in screening of {1:.2f} % of the tuples'.\
-									format(_exp.thres,screen))
-							print(' --------------------------------------------------------------------------------------------')
-					# write also to stdout
-					print(' --------------------------------------------------------------------------------------------')
-					print(' UPDATE-'+_exp.level.upper()+': threshold value of {0:.2f} % resulted in screening of {1:.2f} % of the tuples'.\
-							format(_exp.thres,screen))
-					print(' --------------------------------------------------------------------------------------------')
-				#
-				return
-		
-		
 		def screen_end(self, _calc, _exp):
 				""" print end of screening """
 				if (not ((_exp.order == _exp.min_order) and (len(_calc.act_orbs) > 0))):

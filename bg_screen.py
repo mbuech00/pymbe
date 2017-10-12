@@ -63,7 +63,7 @@ class ScrCls():
 					self.master(_mpi, _calc, _exp)
 				else:
 					# init bookkeeping variables
-					_exp.screen_count.append(0); tmp = []; combs = []
+					tmp = []; combs = []
 					# generate list of allowed tuples
 					if ((_exp.order <= 2) or (_exp.thres == 100.0)):
 						# compute all (k+1)-order increments
@@ -80,8 +80,6 @@ class ScrCls():
 							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
 								_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
 								break
-					# save number of screened tuples
-					_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 			        # loop over parent tuples
 					for i in range(len(_exp.allow_tuples)):
 						if (_exp.order == _exp.min_order):
@@ -100,8 +98,6 @@ class ScrCls():
 												if set(_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)]) <= set(comb))
 							else:
 								combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1))
-							# monitor number of screened tuples
-							tup_num = len(tmp)
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.allow_tuples[i][-1]+1, self.l_limit+self.u_limit):
 								if (not (m in _exp.allow_tuples[i])):
@@ -116,9 +112,6 @@ class ScrCls():
 											break
 									# if tuple is allowed, add to child tuple list, otherwise screen away
 									if (not screen): tmp.append(_exp.allow_tuples[i].tolist()+[m])
-							# update number of screened tuples
-							if ((len(tmp) == tup_num) and \
-								(_exp.allow_tuples[i][-1] < (self.l_limit+self.u_limit-1))): _exp.screen_count[-1] += 1
 					# when done, write to tup list or mark expansion as converged
 					if (len(tmp) >= 1):
 						tmp.sort()
@@ -148,8 +141,8 @@ class ScrCls():
 				comm.bcast(msg, root=0)
 				# init job_info dictionary
 				job_info = {}
-				# init job index, tmp list, and screen_count
-				i = 0; tmp = []; _exp.screen_count.append(0)
+				# init bookkeeping variables
+				i = 0; tmp = []
 				# init requests
 				reqs = [MPI.REQUEST_NULL for idx in range(num_slaves)]
 				# generate list of allowed tuples
@@ -168,8 +161,6 @@ class ScrCls():
 						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
 							_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
 							break
-				# save number of screened tuples
-				_exp.screen_count[-1] += len(_exp.tuples[-1]) - len(_exp.allow_tuples)
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
@@ -193,8 +184,6 @@ class ScrCls():
 					elif (tag == self.tags.done):
 						# write tmp child tuple list
 						tmp += data['child_tuple'] 
-						# increment number of screened tuples
-						_exp.screen_count[-1] += data['screen_count']
 					# put slave to sleep
 					elif (tag == self.tags.exit):
 						# remove slave
@@ -219,7 +208,7 @@ class ScrCls():
 		def slave(self, _mpi, _calc, _exp):
 				""" slave routine """
 				# init data dict and combs list
-				data = {'child_tuple': [], 'screen_count': 0}; combs = []
+				data = {'child_tuple': []}; combs = []
 				# set communicator and number of workers
 				if (_exp.level == 'macro'):
 					comm = _mpi.master_comm
@@ -251,8 +240,8 @@ class ScrCls():
 					tag = _mpi.stat.Get_tag()
 					# do job
 					if (tag == self.tags.start):
-						# init child tuple list and screen counter
-						data['child_tuple'][:] = []; data['screen_count'] = 0
+						# init child tuple list
+						data['child_tuple'][:] = []
 						if (_exp.order == _exp.min_order):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(self.l_limit+self.u_limit):
@@ -283,9 +272,6 @@ class ScrCls():
 											break
 									# if tuple is allowed, add to child tuple list, otherwise screen away
 									if (not screen): data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
-							# update number of screened tuples
-							if ((len(data['child_tuple']) == 0) and \
-								(_exp.allow_tuples[job_info['index']][-1] < (self.l_limit+self.u_limit-1))): data['screen_count'] = 1
 						# send data back to master
 						comm.send(data, dest=0, tag=self.tags.done)
 					# exit

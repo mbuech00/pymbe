@@ -62,8 +62,6 @@ class ExpCls():
 						self.theo_work.append(int(factorial(_mol.nvirt) / \
 												(factorial(k+1) * factorial(_mol.nvirt - (k+1)))))
 				print(' self.theo_work = {0:}'.format(self.theo_work))
-				# init screen_count list
-				self.screen_count = []
 				# init micro_conv list
 				if (_mpi.global_master): self.micro_conv = []
 				# init convergence lists
