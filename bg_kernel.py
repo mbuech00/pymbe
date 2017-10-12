@@ -75,14 +75,18 @@ class KernCls():
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
-				# sum of energy increments
-				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 				# sum of total energy
 				if (_exp.order == len(_exp.tuples[0][0])):
-					if ((_calc.exp_type in ['occupied','virtual']) or (_exp.level == 'macro')):
-						if (_calc.exp_ref['METHOD'] == 'CASCI'): _calc.ref_e_tot = e_tmp + _calc.hf_e_tot
-						e_tmp += _calc.e_zero - (_calc.ref_e_tot - _calc.hf_e_tot)
+					if (_calc.exp_ref['METHOD'] == 'CASCI'):
+						e_tmp = 0.0
+					elif (_calc.exp_ref['METHOD'] == 'HF'):
+						e_tmp = np.sum(_exp.energy_inc[0][np.where(np.abs(_exp.energy_inc[0]) >= _calc.tolerance)])
+#					e_tmp += _calc.e_zero - (_calc.ref_e_tot - _calc.hf_e_tot) # why?
+																					# why do we have to cancel the first correction?
+																					# we are not basing anything on ref_e_tot, are we???
+																					# things seem to work when we are using a base model?
 				else:
+					e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
 					e_tmp += _exp.energy_tot[-1]
 				# add to total energy list
 				_exp.energy_tot.append(e_tmp)
@@ -138,6 +142,9 @@ class KernCls():
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						_rst.write_kernel(_calc, _exp, False)
+				# ref_e_tot for non-HF reference
+				if ((_exp.order == len(_exp.tuples[0][0])) and (_calc.exp_ref['METHOD'] == 'CASCI')):
+					_calc.ref_e_tot = _exp.energy_inc[0][0] + _calc.hf_e_tot
 				# manually force e_inc to zero in case of CISD and CCSD base models
 				if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
 					_exp.energy_inc[0].fill(0.0)
@@ -240,6 +247,9 @@ class KernCls():
 				MPI.Request.waitall(reqs)
 				# print 100.0 %
 				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
+				# ref_e_tot for non-HF reference
+				if ((_exp.order == len(_exp.tuples[0][0])) and (_calc.exp_ref['METHOD'] == 'CASCI')):
+					_calc.ref_e_tot = _exp.energy_inc[0][0] + _calc.hf_e_tot
 				# manually force e_inc to zero in case of CISD and CCSD base models
 				if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
 					_exp.energy_inc[0].fill(0.0)

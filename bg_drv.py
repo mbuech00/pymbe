@@ -46,16 +46,16 @@ class DrvCls():
 				# exp class instantiation on slaves
 				if (_mpi.parallel):
 					if (_calc.exp_type in ['occupied','virtual']):
-						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
+						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart, 'min_order': _exp.min_order}
 						# bcast msg
 						_mpi.local_comm.bcast(msg, root=0)
 					else:
 						if ((_exp.level == 'macro') and (_mpi.num_local_masters >= 1)):
-							msg = {'task': 'exp_cls', 'rst': _rst.restart}
+							msg = {'task': 'exp_cls', 'rst': _rst.restart, 'min_order': _exp.min_order}
 							# bcast msg
 							_mpi.master_comm.bcast(msg, root=0)
 						else:
-							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx}
+							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx, 'min_order': _exp.min_order}
 							# bcast msg
 							_mpi.local_comm.bcast(msg, root=0)
 				# print expansion header
@@ -138,9 +138,6 @@ class DrvCls():
 					if (_exp.conv_energy[-1] or _exp.conv_orb[-1] or (_exp.order == _exp.max_order)):
 						# recast as numpy array
 						_exp.energy_tot = np.array(_exp.energy_tot)
-						# correct e_tot for reference model energy
-						if (_calc.exp_ref['METHOD'] != _calc.exp_base['METHOD']):
-							_exp.energy_tot += _calc.ref_e_tot - _calc.hf_e_tot
 						# now break
 						break
 				#
@@ -162,6 +159,8 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
 						# mark expansion as macro
 						exp.level = 'macro'
+						# set min order
+						exp.min_order = msg['min_order']
 						# receive rst data
 						_rst.restart = msg['rst']
 						if (_rst.restart): _mpi.bcast_rst(_calc, exp)
@@ -202,7 +201,10 @@ class DrvCls():
 					#
 					if (msg['task'] == 'exp_cls'):
 						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
+						# mark expansion as micro
 						exp.level = 'micro'
+						# set min order
+						exp.min_order = msg['min_order']
 						if (_calc.exp_type == 'combined'):
 							exp.incl_idx = msg['incl_idx']
 						else:

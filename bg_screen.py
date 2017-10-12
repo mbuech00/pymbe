@@ -260,7 +260,15 @@ class ScrCls():
 									data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
-							combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1))
+							if (len(_calc.act_orbs) > 0):
+								if (self.exp_type == 'occupied'):
+									combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1) \
+												if set(_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)]) <= set(comb))
+								elif (self.exp_type == 'virtual'):
+									combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1) \
+												if set(_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)]) <= set(comb))
+							else:
+								combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1))
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.allow_tuples[job_info['index']][-1]+1, self.l_limit+self.u_limit):
 								if (not (m in _exp.allow_tuples[job_info['index']])):

@@ -52,7 +52,7 @@ class ResCls():
 				else:
 					self.exp_ref = 'HF'
 				# modify base print out
-				if (_calc.exp_ref['METHOD'] == 'CASCI'):
+				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
 					self.exp_base = self.exp_ref
 				else:
 					self.exp_base = _calc.exp_base['METHOD']
@@ -92,6 +92,11 @@ class ResCls():
 
 		def main(self, _mpi, _mol, _calc, _exp):
 				""" main driver for summary printing and plotting """
+				# determine base model energy
+				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
+					self.exp_base_energy = _calc.ref_e_tot
+				else:
+					self.exp_base_energy = _calc.hf_e_tot + _calc.e_zero
 				# results
 				self.results(_mpi, _mol, _calc, _exp)
 				# plot of total energy
@@ -135,13 +140,13 @@ class ResCls():
 							'{11:1}{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
 									'','|','','exp. type','','=','',_calc.exp_type,\
-									'','|','','base model energy','','=','',\
-									_calc.hf_e_tot + _calc.e_zero))
+									'','|','','base model energy','','=','',self.exp_base_energy))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:12}{10:8}{11:1}{12:2}'
 							'{13:<6.2f}{14:2}{15:5}{16:1}{17:7}{18:18}{19:6}{20:1}{21:1}{22:.6f}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','exp. thres.','','=','',_calc.exp_thres,' %',\
-									'','|','','final total energy','','=','',_calc.hf_e_tot + _exp.energy_tot[-1]))
+									'','|','','final total energy','','=','',\
+									_calc.hf_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:14}{10:6}{11:1}{12:2}'
 							'{13:<5.2e}{14:5}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','HF symmetry','','=','',self.hf_symmetry,\
@@ -160,20 +165,21 @@ class ResCls():
 						# loop over orders
 						total_tup = 0
 						for i in range(len(_exp.energy_tot)):
-							# sum up total time and number of tuples
-							total_time = np.sum(_exp.time_kernel[:i+1])\
-											+np.sum(_exp.time_screen[:i+1])
-							total_tup += len(_exp.tuples[i])
-							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
-								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
-									format('',i+len(_exp.tuples[0][0]),'','|','',_exp.energy_tot[i],\
-										'','|','',int(total_time//3600),':',\
-										int((total_time-(total_time//3600)*3600.)//60),':',\
-										int(total_time-(total_time//3600)*3600.\
-										-((total_time-(total_time//3600)*3600.)//60)*60.),\
-										'','|','',len(_exp.tuples[i]),'/',\
-										(float(len(_exp.tuples[i])) / \
-										float(_exp.theo_work[i]))*100.00,'--',total_tup))
+							if (_exp.energy_tot[i] != 0.0):
+								# sum up total time and number of tuples
+								total_time = np.sum(_exp.time_kernel[:i+1])\
+												+np.sum(_exp.time_screen[:i+1])
+								total_tup += len(_exp.tuples[i])
+								print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
+									'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
+										format('',i+len(_exp.tuples[0][0]),'','|','',_exp.energy_tot[i]+_calc.e_zero,\
+											'','|','',int(total_time//3600),':',\
+											int((total_time-(total_time//3600)*3600.)//60),':',\
+											int(total_time-(total_time//3600)*3600.\
+											-((total_time-(total_time//3600)*3600.)//60)*60.),\
+											'','|','',len(_exp.tuples[i]),'/',\
+											(float(len(_exp.tuples[i])) / \
+											float(_exp.theo_work[i]))*100.00,'--',total_tup))
 						print(self.divider_str+'\n\n')
 				#
 				return
@@ -187,12 +193,15 @@ class ResCls():
 				fig, ax = plt.subplots()
 				# set title
 				ax.set_title('Total '+_calc.exp_model['METHOD']+' correlation energy')
+				# set start index
+				start = 0
+				if (_exp.energy_tot[0] == 0.0): start = 1
 				# plot results
-				ax.plot(list(range(len(_exp.tuples[0][0]),len(_exp.energy_tot)+len(_exp.tuples[0][0]))),
-						np.asarray(_exp.energy_tot), marker='x', linewidth=2,
+				ax.plot(list(range(len(_exp.tuples[0][0])+start,(len(_exp.tuples[0][0])+start)+len(_exp.energy_tot[start:]))),
+						np.asarray(_exp.energy_tot[start:]), marker='x', linewidth=2,
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
-				ax.set_xlim([0.5, self.u_limit + 0.5])
+				ax.set_xlim([0.5+start, self.u_limit + 0.5])
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set labels
@@ -224,12 +233,13 @@ class ResCls():
 				prim = []
 				# set prim list
 				for i in range(self.u_limit):
-					if (i < (len(_exp.tuples[0][0]-1))):
-						prim.append(0)
-					elif (i < len(_exp.tuples)):
+					if (i < len(_exp.tuples)):
 						prim.append(len(_exp.tuples[i]))
 					else:
 						prim.append(0)
+				# set start index
+				start = 0
+				if (_exp.energy_tot[0] == 0.0): start = 1
 				# plot results
 				sns.barplot(list(range(len(_exp.tuples[0][0]), self.u_limit+1)),
 							_exp.theo_work,palette='Greens',
@@ -241,17 +251,17 @@ class ResCls():
 				ax.xaxis.grid(False)
 				# set x- and y-limits
 				if (_calc.exp_type == 'occupied'):
-					ax.set_xlim([-0.5,(_mol.nocc - _mol.ncore) - 0.5])
+					ax.set_xlim([-0.5+start,(_mol.nocc - _mol.ncore) - 0.5])
 				else:
-					ax.set_xlim([-0.5,_mol.nvirt - 0.5])
+					ax.set_xlim([-0.5+start,_mol.nvirt - 0.5])
 				ax.set_ylim(bottom=0.7)
 				# set x-ticks
 				if (self.u_limit < 8):
-					ax.set_xticks(list(range(self.u_limit)))
-					ax.set_xticklabels(list(range(len(_exp.tuples[0][0]), self.u_limit+1)))
+					ax.set_xticks(list(range(start, self.u_limit)))
+					ax.set_xticklabels(list(range(len(_exp.tuples[0][0])+start, self.u_limit+1)))
 				else:
-					ax.set_xticks(list(range(0, self.u_limit, self.u_limit // 8)))
-					ax.set_xticklabels(list(range(len(_exp.tuples[0][0]), self.u_limit+1, self.u_limit // 8)))
+					ax.set_xticks(list(range(start, self.u_limit, self.u_limit // 8)))
+					ax.set_xticklabels(list(range(len(_exp.tuples[0][0])+start, self.u_limit+1, self.u_limit // 8)))
 				# set x- and y-labels
 				ax.set_xlabel('Expansion order')
 				ax.set_ylabel('Number of correlated tuples')
