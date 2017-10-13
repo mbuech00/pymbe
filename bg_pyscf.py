@@ -80,8 +80,15 @@ class PySCFCls():
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
 					# set active orbitals
-					act_orbs = np.array(np.where(_calc.hf_mo_occ == 1.)[0].tolist()+list(range(_mol.nocc, _mol.norb)))
-					_calc.no_act = len(act_orbs); _calc.ne_act = int(np.sum(_calc.hf_mo_occ[act_orbs]))
+					if (_calc.exp_type == 'occupied'):
+						act_orbs = np.array(np.where(_calc.hf_mo_occ == 1.)[0].tolist()+list(range(_mol.nocc, _mol.norb)))
+						_calc.no_act = len(act_orbs)
+						_calc.ne_act = (np.count_nonzero(_calc.hf_mo_occ == 1.) - _mol.ncore, 0)
+					elif (_calc.exp_type == 'virtual'):
+						act_orbs = np.array(list(range(_mol.ncore, _mol.nocc)))
+						_calc.no_act = len(act_orbs)
+						_calc.ne_act = (np.count_nonzero(_calc.hf_mo_occ != 0.) - _mol.ncore, \
+											np.count_nonzero(_calc.hf_mo_occ == 2.) - _mol.ncore)
 					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
 					casci.conv_tol = 1.0e-12
 					casci.max_cycle_macro = 100
@@ -358,6 +365,7 @@ class PySCFCls():
 				# base calculation
 				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
 					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
+					print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.format(e_corr,_exp.core_idx,_exp.cas_idx))
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)

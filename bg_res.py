@@ -48,7 +48,7 @@ class ResCls():
 					self.u_limit = _mol.nvirt 
 				# modify reference print out
 				if (_calc.exp_ref['METHOD'] == 'CASCI'):
-					self.exp_ref = 'CASCI('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
+					self.exp_ref = 'CASCI('+str(_calc.ne_act[0]+_calc.ne_act[1])+','+str(_calc.no_act)+')'
 				else:
 					self.exp_ref = 'HF'
 				# modify base print out
