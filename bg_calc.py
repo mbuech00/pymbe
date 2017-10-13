@@ -127,9 +127,16 @@ class CalcCls():
 										'with method value ("HF" or "CASCI") given as a string')
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF and CASCI')
+					if (_mol.spin > 0):
+						if ((self.exp_ref['METHOD'] == 'HF') and (self.exp_type == 'occupied')):
+							raise ValueError('wrong input -- open-shell CASCI reference is required for occupied expansions, ' + \
+											'since open-shell "spin" value (2S = n_a - n_b > 0) given in bg_mol.inp')
+						if ((self.exp_ref['METHOD'] == 'CASCI') and (self.exp_type == 'virtual')):
+							raise ValueError('wrong input -- open-shell CASCI reference is equal to HF reference for virtual expansions, ' + \
+											'please rerun with exp_ref "method": "HF"')
 					if ((self.exp_ref['METHOD'] == 'CASCI') and (_mol.spin == 0)):
 						raise ValueError('wrong input -- open-shell CASCI reference requested, but ' + \
-										'closed-shell "spin" value (2S+1 = 0) given in bg_mol.inp')
+										'closed-shell "spin" value (2S = n_a - n_b = 0) given in bg_mol.inp')
 					# base model
 					if (not ('METHOD' in self.exp_base)):
 						raise ValueError('wrong input -- exp_base dictionary must contain "method" key ' + \

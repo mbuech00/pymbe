@@ -56,7 +56,7 @@ class PySCFCls():
 					hf.kernel(hf_dens)
 					# determine dimensions
 					_mol.norb = hf.mo_coeff.shape[1]
-					_mol.nocc = int(hf.mo_occ.sum()) // 2
+					_mol.nocc = np.count_nonzero(hf.mo_occ != 0.)
 					_mol.nvirt = _mol.norb - _mol.nocc
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'CAN'):
@@ -79,9 +79,9 @@ class PySCFCls():
 					act_orbs = np.array([])
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-#					act_orbs = np.array([4]+list(range(_mol.nocc, _mol.norb)))
-					act_orbs = np.array(list(range(_mol.ncore, _mol.nocc))+[5])
-					_calc.no_act = len(act_orbs); _calc.ne_act = len(act_orbs[np.where(act_orbs <= _mol.nocc)]) * 2
+					# set active orbitals
+					act_orbs = np.array(np.where(_calc.hf_mo_occ == 1.)[0].tolist()+list(range(_mol.nocc, _mol.norb)))
+					_calc.no_act = len(act_orbs); _calc.ne_act = int(np.sum(_calc.hf_mo_occ[act_orbs]))
 					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
 					casci.conv_tol = 1.0e-12
 					casci.max_cycle_macro = 100
@@ -293,8 +293,10 @@ class PySCFCls():
 				solver_cas.max_space = 10
 				solver_cas.davidson_only = True
 				# initial guess
-				na = fci.cistring.num_strings(len(_exp.cas_idx), (_mol.nelectron - 2 * len(_exp.core_idx)) // 2)
-				hf_as_civec = np.zeros((na, na))
+				nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
+				na = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[0])
+				nb = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[1])
+				hf_as_civec = np.zeros((na, nb))
 				hf_as_civec[0, 0] = 1
 				# cas calculation
 				if (_calc.exp_model['METHOD'] != 'FCI'):
@@ -303,7 +305,7 @@ class PySCFCls():
 				else:
 					try:
 						e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-													_mol.nelectron - 2 * len(_exp.core_idx), ci0=hf_as_civec)
+															nelec_cas, ci0=hf_as_civec)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\nCAS-CI Error :\n'
@@ -314,7 +316,7 @@ class PySCFCls():
 							sys.stderr.write(str(err_2))
 							raise
 					# calculate spin
-					cas_s, cas_mult = fci.spin_op.spin_square(c_cas, len(_exp.cas_idx), _mol.nelectron - 2 * len(_exp.core_idx))
+					cas_s, cas_mult = fci.spin_op.spin_square(c_cas, len(_exp.cas_idx), nelec_cas)
 					# check for correct spin
 					if (int(round(cas_s)) != _mol.spin):
 						try:
@@ -354,12 +356,13 @@ class ModelSolver():
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
+				cas_mol.nelec = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
 				cas_hf = scf.RHF(cas_mol)
 				cas_hf.spin = _mol.spin
 				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
 				cas_hf.get_hcore = lambda *args: _h1e
-				cas_hf.nelectron = cas_mol.nelectron
-				cas_hf.mo_occ = np.zeros(len(_cas_idx)); cas_hf.mo_occ[:(_mol.nocc - len(_core_idx))] = 2
+				cas_hf.nelec = cas_mol.nelec
+				cas_hf.mo_occ = _mol.hf_mo_occ[_cas_idx]
 				cas_hf.e_tot = scf.hf.energy_elec(cas_hf, dm=np.diag(cas_hf.mo_occ))[0]
 				#
 				return cas_hf
@@ -400,8 +403,8 @@ class ModelSolver():
 									sys.stderr.write(str(err))
 									raise
 					# check for spin
-					c_cascisd_fci = ci.cisd.to_fci(c_cascisd, len(_cas_idx), _cas_hf.nelectron)
-					cascisd_s, cascisd_mult = fci.spin_op.spin_square(c_cascisd_fci, len(_cas_idx), _cas_hf.nelectron)
+					c_cascisd_fci = ci.cisd.to_fci(c_cascisd, len(_cas_idx), _cas_hf.nelec)
+					cascisd_s, cascisd_mult = fci.spin_op.spin_square(c_cascisd_fci, len(_cas_idx), _cas_hf.nelec)
 					if (int(round(cascisd_s)) != _cas_hf.spin):
 						try:
 							raise RuntimeError(('\nCAS-CISD Error : wrong spin\n'
