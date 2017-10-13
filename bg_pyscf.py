@@ -94,7 +94,7 @@ class PySCFCls():
 		def trans_main(self, _mol, _calc):
 				""" determine main transformation matrices """
 				# set frozen list
-				frozen = list(range(_mol.ncore))
+				frozen = [list(range(_mol.ncore))] if (_mol.spin == 0) else [list(range(_mol.ncore)),list(range(_mol.ncore))]
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']):
 					_calc.e_zero = 0.0
@@ -104,7 +104,7 @@ class PySCFCls():
 					cisd.conv_tol = 1.0e-10
 					cisd.max_cycle = 100
 					cisd.max_space = 30
-					cisd.frozen = frozen
+					cisd.frozen = frozen[0] if (_mol.spin == 0) else frozen
 					for i in range(5,-1,-1):
 						cisd.level_shift = 1.0 / 10.0 ** (i)
 						try:
@@ -124,7 +124,7 @@ class PySCFCls():
 					ccsd.conv_tol = 1.0e-10
 					ccsd.max_cycle = 100
 					ccsd.diis_space = 10
-#					ccsd.frozen = frozen
+					ccsd.frozen = frozen[0] if (_mol.spin == 0) else frozen
 					eris = ccsd.ao2mo()
 					for i in list(range(0, 12, 2)):
 						ccsd.diis_start_cycle = i
@@ -136,7 +136,7 @@ class PySCFCls():
 							break
 					if (not ccsd.converged):
 						try:
-							raise RuntimeError('\nCCSD (main int-trans) Error : no convergence\n\n')
+							raise RuntimeError('\nCCSD-1 (main int-trans) Error : no convergence\n\n')
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
@@ -162,7 +162,7 @@ class PySCFCls():
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
-						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
+						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen[0])):, (_mol.nocc-len(frozen[0])):])
 						_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
 						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.nocc:]).kernel()
@@ -176,17 +176,45 @@ class PySCFCls():
 						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _calc.hf.get_hcore(), _calc.trans_mat))
 						h2e = ao2mo.kernel(_mol, _calc.trans_mat)
 						mol = gto.M(verbose=0)
+						mol.nelectron = _mol.nelectron
+						mol.spin = _mol.spin
 						hf = scf.RHF(mol)
-						hf._eri = h2e
+						hf.conv_tol = 1.0e-12
+						hf.max_cycle = 100
 						hf.get_hcore = lambda *args: h1e
-						ccsd_2 = cc.ccsd.CCSD(hf, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf_mo_occ)
+						hf._eri = h2e 
+						hf.get_ovlp = lambda *args: np.eye(_mol.norb)
+						dm0 = np.diag(_calc.hf_mo_occ)
+						for i in list(range(0, 12, 2)):
+							hf.diis_start_cycle = i
+							try:
+								hf.kernel(dm0)
+							except sp.linalg.LinAlgError: pass
+							if (hf.converged): break
+						if (not hf.converged):
+							try:
+								raise RuntimeError('\nHF (main int-trans) Error : no convergence\n\n')
+							except Exception as err:
+								sys.stderr.write(str(err))
+								raise
+						ccsd_2 = cc.CCSD(hf)
 						ccsd_2.conv_tol = 1.0e-10
 						ccsd_2.max_cycle = 100
 						ccsd_2.diis_space = 10
-						ccsd_2.frozen = frozen
-						ccsd_2.diis_start_cycle = ccsd.diis_start_cycle
+						ccsd_2.frozen = frozen[0] if (_mol.spin == 0) else frozen
 						eris = ccsd_2.ao2mo()
-						ccsd_2.kernel(eris=eris)
+						for i in list(range(0, 12, 2)):
+							ccsd_2.diis_start_cycle = i
+							try:
+								ccsd_2.kernel(eris=eris)
+							except sp.linalg.LinAlgError: pass
+							if (ccsd_2.converged): break
+						if (not ccsd_2.converged):
+							try:
+								raise RuntimeError('\nCCSD-2 (main int-trans) Error : no convergence\n\n')
+							except Exception as err:
+								sys.stderr.write(str(err))
+								raise
 						_calc.e_zero += ccsd_2.ccsd_t(eris=eris, t1=ccsd_2.t1, t2=ccsd_2.t2)
 				#
 				return
@@ -406,30 +434,6 @@ class ModelSolver():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-					# check for energy
-					if (_e_cas is not None):
-						if ((_cas_hf.e_tot + e_corr) < _e_cas):
-							if (np.abs(_e_cas - (_cas_hf.e_tot + e_corr)) > 1.0e-10):
-								try:
-									raise RuntimeError(('\nCAS-CISD Error : wrong convergence\n'
-														'CAS-CISD = {0:.6f} , CAS-CI = {1:.6f}\n'
-														'core_idx = {2:} , cas_idx = {3:}\n\n').\
-														format(_cas_hf.e_tot + e_corr, _e_cas, _core_idx, _cas_idx))
-								except Exception as err:
-									sys.stderr.write(str(err))
-									raise
-					# check for spin
-					c_cascisd_fci = ci.cisd.to_fci(c_cascisd, len(_cas_idx), _cas_hf.nelec)
-					cascisd_s, cascisd_mult = fci.spin_op.spin_square(c_cascisd_fci, len(_cas_idx), _cas_hf.nelec)
-					if (int(round(cascisd_s)) != _cas_hf.spin):
-						try:
-							raise RuntimeError(('\nCAS-CISD Error : wrong spin\n'
-												'2*S + 1 = {0:.3f}\n'
-												'core_idx = {1:} , cas_idx = {2:}\n\n').\
-												format(cascisd_mult, _core_idx, _cas_idx))
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
 				elif (self.model_type in ['CCSD','CCSD(T)']):
 					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
@@ -441,6 +445,7 @@ class ModelSolver():
 							e_corr = self.model.kernel()[0]
 						except sp.linalg.LinAlgError: pass
 						if (self.model.converged): break
+					# check for convergence
 					if (not self.model.converged):
 						try:
 							raise RuntimeError(('\nCAS-CCSD Error : no convergence\n'
@@ -449,6 +454,7 @@ class ModelSolver():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
+					# add (t) correction
 					if (self.model_type == 'CCSD(T)'): e_corr += self.model.ccsd_t()
 				#
 				return e_corr + _cas_hf.e_tot
