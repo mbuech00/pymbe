@@ -309,7 +309,7 @@ class PySCFCls():
 				""" correlated cas calculation """
 				# init solver
 				if (_calc.exp_model['METHOD'] != 'FCI'):
-					solver_cas = ModelSolver(_calc.exp_model['METHOD'])
+					solver_cas = ModelSolver(_calc.exp_model)
 				else:
 					if (_mol.spin == 0):
 						solver_cas = fci.direct_spin0.FCI()
