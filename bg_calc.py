@@ -171,6 +171,9 @@ class CalcCls():
 					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_ref['METHOD'] == self.exp_base['METHOD'])):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a correlated base model for the expansion')
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (_mol.spin > 0)):
+						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
+										'is currently only implemented for closed-shell states (2S = n_a - n_b = 0)')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'is only valid in combination with combined (dual) expansions')
