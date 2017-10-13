@@ -83,7 +83,7 @@ class PySCFCls():
 					if (_calc.exp_type == 'occupied'):
 						act_orbs = np.array(np.where(_calc.hf_mo_occ == 1.)[0].tolist()+list(range(_mol.nocc, _mol.norb)))
 						_calc.no_act = len(act_orbs)
-						_calc.ne_act = (np.count_nonzero(_calc.hf_mo_occ == 1.) - _mol.ncore, 0)
+						_calc.ne_act = (np.count_nonzero(_calc.hf_mo_occ == 1.), 0)
 					elif (_calc.exp_type == 'virtual'):
 						act_orbs = np.array(list(range(_mol.ncore, _mol.nocc)))
 						_calc.no_act = len(act_orbs)
@@ -101,7 +101,7 @@ class PySCFCls():
 		def trans_main(self, _mol, _calc):
 				""" determine main transformation matrices """
 				# set frozen list
-				frozen = [list(range(_mol.ncore))] if (_mol.spin == 0) else [list(range(_mol.ncore)),list(range(_mol.ncore))]
+				frozen = list(range(_mol.ncore)) if (_mol.spin == 0) else [list(range(_mol.ncore)),list(range(_mol.ncore))]
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']):
 					_calc.e_zero = 0.0
@@ -111,7 +111,7 @@ class PySCFCls():
 					cisd.conv_tol = 1.0e-10
 					cisd.max_cycle = 100
 					cisd.max_space = 30
-					cisd.frozen = frozen[0] if (_mol.spin == 0) else frozen
+					cisd.frozen = frozen
 					for i in range(5,-1,-1):
 						cisd.level_shift = 1.0 / 10.0 ** (i)
 						try:
@@ -131,7 +131,7 @@ class PySCFCls():
 					ccsd.conv_tol = 1.0e-10
 					ccsd.max_cycle = 100
 					ccsd.diis_space = 10
-					ccsd.frozen = frozen[0] if (_mol.spin == 0) else frozen
+					ccsd.frozen = frozen
 					eris = ccsd.ao2mo()
 					for i in list(range(0, 12, 2)):
 						ccsd.diis_start_cycle = i
@@ -169,7 +169,7 @@ class PySCFCls():
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
-						occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen[0])):, (_mol.nocc-len(frozen[0])):])
+						occup, no = sp.linalg.eigh(dm[(_mol.nocc-_mol.ncore):, (_mol.nocc-_mol.ncore):])
 						_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
 						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.nocc:]).kernel()
@@ -208,7 +208,7 @@ class PySCFCls():
 						ccsd_2.conv_tol = 1.0e-10
 						ccsd_2.max_cycle = 100
 						ccsd_2.diis_space = 10
-						ccsd_2.frozen = frozen[0] if (_mol.spin == 0) else frozen
+						ccsd_2.frozen = frozen
 						eris = ccsd_2.ao2mo()
 						for i in list(range(0, 12, 2)):
 							ccsd_2.diis_start_cycle = i
@@ -326,18 +326,22 @@ class PySCFCls():
 				solver_cas.conv_tol = 1.0e-10
 				solver_cas.max_cycle = 100
 				solver_cas.max_space = 10
-				solver_cas.davidson_only = True
-				# initial guess
-				nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
-				na = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[0])
-				nb = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[1])
-				hf_as_civec = np.zeros((na, nb))
-				hf_as_civec[0, 0] = 1
 				# cas calculation
 				if (_calc.exp_model['METHOD'] != 'FCI'):
 					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
+					solver_cas.davidson_only = True
+					# initial guess
+					nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
+					na = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[0])
+					nb = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[1])
+					hf_as_civec = np.zeros((na, nb))
+					hf_as_civec[0, 0] = 1
+					# fix spin if non-singlet
+					if (_mol.spin > 0):
+						sz = abs(nelec_cas[0]-nelec_cas[1]) * .5
+						solver_cas = fci.addons.fix_spin_(solver_cas, ss=sz * (sz + 1.))
 					try:
 						e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
 															nelec_cas, ci0=hf_as_civec)
@@ -365,13 +369,14 @@ class PySCFCls():
 				# base calculation
 				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
 					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
-					print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.format(e_corr,_exp.core_idx,_exp.cas_idx))
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
 					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
 					e_corr = e_cas - e_base
+				if (_mol.verbose > 1):
+					print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.format(e_corr,_exp.core_idx,_exp.cas_idx))
 				#
 				return e_corr
 
