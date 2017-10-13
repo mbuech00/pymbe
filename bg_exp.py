@@ -37,7 +37,6 @@ class ExpCls():
 						init_tuples = list([i] for i in range(_mol.nocc, _mol.norb)) 
 					self.incl_idx = list(range(_mol.nocc))
 				self.tuples = [np.array(init_tuples, dtype=np.int32)]
-				print(' _calc.act_orbs = {0:}'.format(_calc.act_orbs))
 				# set frozen_idx
 				self.frozen_idx = list(range(_mol.ncore))
 				# update incl_idx
@@ -63,7 +62,6 @@ class ExpCls():
 					for k in range(len(self.tuples[0][0])-1, _mol.nvirt):
 						self.theo_work.append(int(factorial(_mol.nvirt) / \
 												(factorial(k+1) * factorial(_mol.nvirt - (k+1)))))
-				print(' self.theo_work = {0:}'.format(self.theo_work))
 				# init micro_conv list
 				if (_mpi.global_master): self.micro_conv = []
 				# init convergence lists

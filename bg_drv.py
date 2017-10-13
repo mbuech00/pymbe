@@ -79,7 +79,6 @@ class DrvCls():
 					_rst.restart = False
 				# now do expansion
 				for _exp.order in range(_exp.min_order, _exp.max_order+1):
-					print(' order = {0:} , _exp.tuples[-1] = {1:}'.format(_exp.order,_exp.tuples[-1]))
 					#
 					#** energy kernel phase **#
 					#

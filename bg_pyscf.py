@@ -47,7 +47,7 @@ class PySCFCls():
 							raise
 					# determine dimensions
 					_mol.norb = hf.mo_coeff.shape[1]
-					_mol.nocc = int(hf.mo_occ.sum()) // 2
+					_mol.nocc = np.count_nonzero(hf.mo_occ != 0.)
 					_mol.nvirt = _mol.norb - _mol.nocc
 				else:
 					# construct density
