@@ -34,13 +34,13 @@ class MolCls(gto.Mole):
 					self.frozen = False
 					# init max_memory
 					self.max_memory = None
-					# default: silence pyscf output except errors
-					self.verbose = 1
+					# verbose
+					self.verbose = None
 					# set geometry
 					self.atom = self.set_geo(_rst)
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen = self.set_mol(_rst)
+						self.basis, self.unit, self.frozen, self.verbose = self.set_mol(_rst)
 					# store HF symmetry
 					self.hf_symmetry = self.symmetry
 				#
@@ -109,6 +109,8 @@ class MolCls(gto.Mole):
 								self.frozen = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							elif (re.split('=',content[i])[0].strip() == 'hf_occ'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'verbose'):
+								self.verbose = int(re.split('=',content[i])[1].strip())
 							# error handling
 							else:
 								try:
@@ -122,11 +124,11 @@ class MolCls(gto.Mole):
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError: bg-mol.inp not found\n\n')
 					raise
-				# silence pyscf output
-				self.verbose = 0
+				# silence pyscf output if not given in input
+				if (self.verbose is None): self.verbose = 1
 				#
 				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen
+						self.basis, self.unit, self.frozen, self.verbose
 
 
 		def set_ncore(self):
