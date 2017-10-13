@@ -124,12 +124,12 @@ class CalcCls():
 					# reference model
 					if (not ('METHOD' in self.exp_ref)):
 						raise ValueError('wrong input -- exp_ref dictionary must contain "method" key ' + \
-										'with method value given as a string')
+										'with method value ("HF" or "CASCI") given as a string')
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF and CASCI')
-#					if ((self.exp_ref['METHOD'] == 'CASCI') and (not ('AO_LABELS' in self.exp_ref))):
-#						raise ValueError('wrong input -- missing "ao_labels" key in exp_ref dictionary for ' + \
-#										'CASCI reference model (with ao_labels given as a list of strings)')
+					if ((self.exp_ref['METHOD'] == 'CASCI') and (_mol.spin == 0)):
+						raise ValueError('wrong input -- open-shell CASCI reference requested, but ' + \
+										'closed-shell "spin" value (2S+1 = 0) given in bg_mol.inp')
 					# base model
 					if (not ('METHOD' in self.exp_base)):
 						raise ValueError('wrong input -- exp_base dictionary must contain "method" key ' + \
@@ -199,7 +199,7 @@ class CalcCls():
 				""" capitalize keys """
 				new_dict = {}
 				for key, value in old_dict.items():
-					if (key.upper() in ['METHOD', 'XC']):
+					if (key.upper() in ['METHOD', 'TYPE']):
 						new_dict[key.upper()] = value.upper()
 					else:
 						new_dict[key.upper()] = value

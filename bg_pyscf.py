@@ -79,17 +79,9 @@ class PySCFCls():
 					act_orbs = np.array([])
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-#					# import avas
-#					from pyscf.mcscf import avas
-#					# select active space
-#					_calc.no_act, _calc.ne_act, mo = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'], canonicalize=True)
-#					# store information
-#					_calc.no_o_act = sorted([i-1 for i in range(_mol.nocc, _mol.nocc - (_calc.ne_act // 2), -1)])
-#					_calc.no_v_act = [i for i in range(_mol.nocc, _mol.nocc + (_calc.no_act - len(_calc.no_o_act)))]
-					# perform reference calc
-					act_orbs = np.array([4]+list(range(_mol.nocc, _mol.norb)))
-#					act_orbs = np.array(list(range(_mol.ncore, _mol.nocc))+[5])
-					_calc.no_act = len(act_orbs); _calc.ne_act = len(act_orbs[np.where(act_orbs <= _mol.nocc)])
+#					act_orbs = np.array([4]+list(range(_mol.nocc, _mol.norb)))
+					act_orbs = np.array(list(range(_mol.ncore, _mol.nocc))+[5])
+					_calc.no_act = len(act_orbs); _calc.ne_act = len(act_orbs[np.where(act_orbs <= _mol.nocc)]) * 2
 					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
 					casci.conv_tol = 1.0e-12
 					casci.max_cycle_macro = 100
