@@ -124,7 +124,7 @@ class PySCFCls():
 					ccsd.conv_tol = 1.0e-10
 					ccsd.max_cycle = 100
 					ccsd.diis_space = 10
-					ccsd.frozen = frozen
+#					ccsd.frozen = frozen
 					eris = ccsd.ao2mo()
 					for i in list(range(0, 12, 2)):
 						ccsd.diis_start_cycle = i
@@ -356,14 +356,30 @@ class ModelSolver():
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
 				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
-				cas_mol.nelec = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
+				cas_mol.spin = _mol.spin
 				cas_hf = scf.RHF(cas_mol)
-				cas_hf.spin = _mol.spin
+				cas_hf.spin = cas_mol.spin
+				cas_hf.nelec = (_mol.nelec[0] - len(_core_idx), _mol.nelec[1] - len(_core_idx))
+				cas_hf.conv_tol = 1.0e-12
+				cas_hf.max_cycle = 100
 				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
 				cas_hf.get_hcore = lambda *args: _h1e
-				cas_hf.nelec = cas_mol.nelec
-				cas_hf.mo_occ = _mol.hf_mo_occ[_cas_idx]
-				cas_hf.e_tot = scf.hf.energy_elec(cas_hf, dm=np.diag(cas_hf.mo_occ))[0]
+				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
+				dm0 = np.diag(_calc.hf_mo_occ[_cas_idx])
+				for i in list(range(0, 12, 2)):
+					cas_hf.diis_start_cycle = i
+					try:
+						cas_hf.kernel(dm0)
+					except sp.linalg.LinAlgError: pass
+					if (cas_hf.converged): break
+				if (not cas_hf.converged):
+					try:
+						raise RuntimeError(('\nCAS-HF Error : no convergence\n'
+											'core_idx = {0:} , cas_idx = {1:}\n\n').\
+											format(_core_idx,_cas_idx))
+					except Exception as err:
+						sys.stderr.write(str(err))
+						raise
 				#
 				return cas_hf
 
@@ -371,7 +387,7 @@ class ModelSolver():
 		def kernel(self, _cas_hf, _core_idx, _cas_idx, _e_cas=None):
 				""" model kernel """
 				if (self.model_type == 'CISD'):
-					self.model = ci.cisd.CISD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
+					self.model = ci.CISD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
 					self.model.max_cycle = 100
 					self.model.max_space = 30
@@ -415,7 +431,7 @@ class ModelSolver():
 							sys.stderr.write(str(err))
 							raise
 				elif (self.model_type in ['CCSD','CCSD(T)']):
-					self.model = cc.ccsd.CCSD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
+					self.model = cc.CCSD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 10
 					self.model.max_cycle = 100
