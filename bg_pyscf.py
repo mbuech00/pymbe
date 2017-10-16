@@ -153,6 +153,7 @@ class PySCFCls():
 				# occ-occ block (local or NOs)
 				if (_calc.exp_occ != 'CAN'):
 					if (_calc.exp_occ == 'NO'):
+						if (_mol.spin > 0): dm = dm[0] + dm[1]
 						occup, no = sp.linalg.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)])
 						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
@@ -169,6 +170,7 @@ class PySCFCls():
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
+						if (_mol.spin > 0): dm = dm[0] + dm[1]
 						occup, no = sp.linalg.eigh(dm[(_mol.nocc-_mol.ncore):, (_mol.nocc-_mol.ncore):])
 						_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
