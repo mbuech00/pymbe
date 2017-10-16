@@ -85,33 +85,23 @@ class ScrCls():
 						if (_exp.order == _exp.min_order):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.allow_tuples[i][-1]+1, self.l_limit+self.u_limit):
-								if (not (m in _exp.allow_tuples[i])):
-									tmp.append(_exp.allow_tuples[i].tolist()+[m])
+								tmp.append(_exp.allow_tuples[i].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
-							if (len(_calc.act_orbs) > 0):
-								if (self.exp_type == 'occupied'):
-									combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1) \
-												if set(_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)]) <= set(comb))
-								elif (self.exp_type == 'virtual'):
-									combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1) \
-												if set(_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)]) <= set(comb))
-							else:
-								combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1))
+							combs = list(list(comb) for comb in combinations(_exp.allow_tuples[i], _exp.order-1))
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.allow_tuples[i][-1]+1, self.l_limit+self.u_limit):
-								if (not (m in _exp.allow_tuples[i])):
-									# init screening logical
-									screen = False
-									# loop over subset combinations
-									for j in range(len(combs)):
-										# check whether or not the particular tuple is allowed
-										if (not np.equal(combs[j]+[m],_exp.allow_tuples).all(axis=1).any()):
-											# screen away
-											screen = True
-											break
-									# if tuple is allowed, add to child tuple list, otherwise screen away
-									if (not screen): tmp.append(_exp.allow_tuples[i].tolist()+[m])
+								# init screening logical
+								screen = False
+								# loop over subset combinations
+								for j in range(len(combs)):
+									# check whether or not the particular tuple is allowed
+									if (not np.equal(combs[j]+[m],_exp.allow_tuples).all(axis=1).any()):
+										# screen away
+										screen = True
+										break
+								# if tuple is allowed, add to child tuple list, otherwise screen away
+								if (not screen): tmp.append(_exp.allow_tuples[i].tolist()+[m])
 					# when done, write to tup list or mark expansion as converged
 					if (len(tmp) >= 1):
 						tmp.sort()
@@ -245,33 +235,23 @@ class ScrCls():
 						if (_exp.order == _exp.min_order):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.allow_tuples[job_info['index']][-1]+1, self.l_limit+self.u_limit):
-								if (not (m in _exp.allow_tuples[job_info['index']])):
-									data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
+								data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
-							if (len(_calc.act_orbs) > 0):
-								if (self.exp_type == 'occupied'):
-									combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1) \
-												if set(_calc.act_orbs[np.where(_calc.act_orbs < _mol.nocc)]) <= set(comb))
-								elif (self.exp_type == 'virtual'):
-									combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1) \
-												if set(_calc.act_orbs[np.where(_calc.act_orbs >= _mol.nocc)]) <= set(comb))
-							else:
-								combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1))
+							combs = list(list(comb) for comb in combinations(_exp.allow_tuples[job_info['index']], _exp.order-1))
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.allow_tuples[job_info['index']][-1]+1, self.l_limit+self.u_limit):
-								if (not (m in _exp.allow_tuples[job_info['index']])):
-									# init screening logical
-									screen = False
-									# loop over subset combinations
-									for j in range(len(combs)):
-										# check whether or not the particular tuple is allowed
-										if (not np.equal(combs[j]+[m],_exp.allow_tuples).all(axis=1).any()):
-											# screen away
-											screen = True
-											break
-									# if tuple is allowed, add to child tuple list, otherwise screen away
-									if (not screen): data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
+								# init screening logical
+								screen = False
+								# loop over subset combinations
+								for j in range(len(combs)):
+									# check whether or not the particular tuple is allowed
+									if (not np.equal(combs[j]+[m],_exp.allow_tuples).all(axis=1).any()):
+										# screen away
+										screen = True
+										break
+								# if tuple is allowed, add to child tuple list, otherwise screen away
+								if (not screen): data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])
 						# send data back to master
 						comm.send(data, dest=0, tag=self.tags.done)
 					# exit

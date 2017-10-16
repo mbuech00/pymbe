@@ -25,7 +25,7 @@ except ImportError:
 class PySCFCls():
 		""" pyscf class """
 		def hf(self, _mol, _calc):
-				""" determine dimensions """
+				""" hartree-fock calculation """
 				# perform hf calc
 				hf = scf.RHF(_mol)
 				hf.conv_tol = 1.0e-12
@@ -46,18 +46,14 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 					# determine dimensions
-					_mol.norb = hf.mo_coeff.shape[1]
-					_mol.nocc = np.count_nonzero(hf.mo_occ != 0.)
-					_mol.nvirt = _mol.norb - _mol.nocc
+					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _calc.exp_type)
 				else:
 					# construct density
 					hf_dens = scf.hf.make_rdm1(_calc.hf_mo_coeff, _calc.hf_mo_occ)
 					# restart from converged density
 					hf.kernel(hf_dens)
 					# determine dimensions
-					_mol.norb = hf.mo_coeff.shape[1]
-					_mol.nocc = np.count_nonzero(hf.mo_occ != 0.)
-					_mol.nvirt = _mol.norb - _mol.nocc
+					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _calc.exp_type)
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'CAN'):
 						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
@@ -69,8 +65,25 @@ class PySCFCls():
 				return hf
 
 
-		def ref(self, _mol, _calc):
+		def dim(self, _hf, _type):
 				""" determine dimensions """
+				# occupied and virtual lists
+				if (_type == 'occupied'):
+					occ = np.where(_hf.mo_occ == 2.)[0]
+					virt = np.where(_hf.mo_occ < 2.)[0]
+				elif (_type == 'virtual'):
+					occ = np.where(_hf.mo_occ > 0.)[0]
+					virt = np.where(_hf.mo_occ == 0.)[0]
+				# nocc, nvirt, and norb
+				nocc = len(occ)
+				nvirt = len(virt)
+				norb = nocc + nvirt
+				#
+				return norb, occ, nocc, virt, nvirt
+
+
+		def ref(self, _mol, _calc):
+				""" reference calculation """
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# store energy
@@ -377,6 +390,7 @@ class PySCFCls():
 					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
 					e_corr = e_cas - e_base
+				# verbose print
 				if (_mol.verbose > 1):
 					print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.format(e_corr,_exp.core_idx,_exp.cas_idx))
 				#

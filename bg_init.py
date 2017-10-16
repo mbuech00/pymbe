@@ -64,12 +64,14 @@ class InitCls():
 						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 						# remove symmetry
 						self.mol.symmetry = False; self.mol.make(self.mpi)
-						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
+#						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
+						self.calc.ref_e_tot = self.calc.hf_e_tot
 					else:
 						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 						# remove symmetry
 						self.mol.symmetry = False; self.mol.make(self.mpi)
-						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
+#						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
+						self.calc.ref_e_tot = self.calc.hf_e_tot
 						self.pyscf.trans_main(self.mol, self.calc)
 						# write restart files
 						self.rst.write_hf_trans(self.calc)

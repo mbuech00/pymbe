@@ -167,7 +167,7 @@ class MPICls():
 					# collect dimensions, and  mo_occ
 					hf_info = {'hf_e_tot': _calc.hf_e_tot, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
-								'mo_occ': _calc.hf_mo_occ, 'act_orbs': _calc.act_orbs}
+								'mo_occ': _calc.hf_mo_occ}
 					# bcast hf_info
 					self.global_comm.bcast(hf_info, root=0)
 				else:
@@ -175,7 +175,7 @@ class MPICls():
 					hf_info = self.global_comm.bcast(None, root=0)
 					_calc.hf_e_tot = hf_info['hf_e_tot']
 					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
-					_calc.hf_mo_occ = hf_info['mo_occ']; _calc.act_orbs = hf_info['act_orbs']
+					_calc.hf_mo_occ = hf_info['mo_occ']
 				#
 				return
 
