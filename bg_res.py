@@ -50,7 +50,10 @@ class ResCls():
 				if (_calc.exp_ref['METHOD'] == 'CASCI'):
 					self.exp_ref = 'CASCI('+str(_calc.ne_act[0]+_calc.ne_act[1])+','+str(_calc.no_act)+')'
 				else:
-					self.exp_ref = 'HF'
+					if (_mol.spin == 0):
+						self.exp_ref = 'RHF'
+					else:
+						self.exp_ref = 'ROHF'
 				# modify base print out
 				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
 					self.exp_base = self.exp_ref

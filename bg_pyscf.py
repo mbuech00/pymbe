@@ -341,7 +341,7 @@ class PySCFCls():
 					# fix spin if non-singlet
 					if (_mol.spin > 0):
 						sz = abs(nelec_cas[0]-nelec_cas[1]) * .5
-						solver_cas = fci.addons.fix_spin_(solver_cas, ss=sz * (sz + 1.))
+						fci.addons.fix_spin(solver_cas, ss=sz * (sz + 1.))
 					try:
 						e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
 															nelec_cas, ci0=hf_as_civec)
