@@ -161,7 +161,7 @@ class MPICls():
 				return
 
 
-		def bcast_hf_ref_info(self, _mol, _calc):
+		def bcast_hf_info(self, _mol, _calc):
 				""" bcast hf and ref info """
 				if (self.global_master):
 					# collect dimensions, and  mo_occ
@@ -171,6 +171,8 @@ class MPICls():
 								'mo_occ': _calc.hf_mo_occ}
 					# bcast hf_info
 					self.global_comm.bcast(hf_info, root=0)
+					# bcast hcore
+					self.master_comm.Bcast([_calc.hcore, MPI.DOUBLE], root=0)
 				else:
 					# receive dimensions and mo_occ
 					hf_info = self.global_comm.bcast(None, root=0)
@@ -178,6 +180,10 @@ class MPICls():
 					_mol.occ = hf_info['occ']; _mol.virt = hf_info['virt']
 					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
 					_calc.hf_mo_occ = hf_info['mo_occ']
+					# receive hcore
+					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
+					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
+					_calc.hcore = buff
 				#
 				return
 
@@ -185,20 +191,9 @@ class MPICls():
 		def bcast_trans_info(self, _mol, _calc):
 				""" bcast transformation info """
 				if (self.global_master):
-					# bcast hf_mo_coeff
-					self.master_comm.Bcast([_calc.hf_mo_coeff, MPI.DOUBLE], root=0)
-					# bcast hf_mo_occ
-					self.master_comm.Bcast([np.array(_calc.hf_mo_occ), MPI.DOUBLE], root=0)
 					# bcast trans_mat
 					self.master_comm.Bcast([_calc.trans_mat, MPI.DOUBLE], root=0)
-				elif (self.local_master):
-					# receive hf_mo_coeff
-					_calc.hf_mo_coeff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
-					self.master_comm.Bcast([_calc.hf_mo_coeff, MPI.DOUBLE], root=0)
-					# receive hf_mo_occ
-					buff = np.zeros(_mol.norb, dtype=np.float64)
-					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
-					_calc.hf_mo_occ = buff.tolist()
+				else:
 					# receive trans_mat
 					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)

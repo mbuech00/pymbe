@@ -112,6 +112,8 @@ class KernCls():
 						exp_micro.level = 'micro'
 						# transfer incl_idx
 						exp_micro.incl_idx = _exp.tuples[-1][i].tolist()
+#						# compute distinct natural virtual orbitals
+#						if (_calc.exp_virt == 'DNO'): _pyscf.trans_dno(_mol, _calc, exp_micro) 
 						# make recursive call to driver with micro exp
 						drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results
@@ -119,8 +121,8 @@ class KernCls():
 						_exp.micro_conv[-1][i] = exp_micro.order
 					else:
 						# generate input
-						_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas = \
-								_pyscf.prepare(_mol, _calc, _exp, _exp.tuples[-1][i])
+						_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, _exp.tuples[-1][i])
+						_exp.e_core, _exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp)
 						# perform calc
 						_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
 					# sum up energy increment
@@ -186,21 +188,8 @@ class KernCls():
 						if (i <= (len(_exp.tuples[-1]) - 1)):
 							# start time
 							if (_mpi.global_master): time = MPI.Wtime()
-							# perform calculation
-							if (_exp.level == 'macro'):
-								# store job info
-								job_info['index'] = i
-							else:
-								# generate input
-								_exp.core_idx, _exp.cas_idx, _exp.h1e_cas, _exp.h2e_cas = \
-										_pyscf.prepare(_mol, _calc, _exp, _exp.tuples[-1][i])
-								# store job info
-								job_info['index'] = i
-								job_info['core_idx'] = _exp.core_idx
-								job_info['cas_idx'] = _exp.cas_idx
-								job_info['h1e_cas'] = _exp.h1e_cas
-								job_info['h2e_cas'] = _exp.h2e_cas
-								job_info['e_core'] = _exp.e_core
+							# store job index
+							job_info['index'] = i
 							# send string dict
 							comm.send(job_info, dest=source, tag=self.tags.start)
 							# increment job index
@@ -281,11 +270,9 @@ class KernCls():
 							# send data back to local master
 							comm.send(data, dest=0, tag=self.tags.done)
 						else:
-							_exp.core_idx = job_info['core_idx']
-							_exp.cas_idx = job_info['cas_idx']
-							_exp.h1e_cas = job_info['h1e_cas']
-							_exp.h2e_cas = job_info['h2e_cas']
-							_exp.e_core = job_info['e_core']
+							# generate input
+							_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, _exp.tuples[-1][job_info['index']])
+							_exp.e_core, _exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp)
 							# run correlated calc
 							_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)
 							# sum up energy increment
@@ -304,5 +291,13 @@ class KernCls():
 				_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				#
 				return
+
+
+		def core_cas_spaces(self, _mol, _exp, _tup):
+				""" define core and cas spaces """
+				cas_idx = sorted(_exp.incl_idx + sorted(_tup.tolist()))
+				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
+				#
+				return core_idx, cas_idx
 
 

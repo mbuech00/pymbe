@@ -38,11 +38,6 @@ class DrvCls():
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# restart
 				_rst.rst_main(_mpi, _calc, _exp)
-				# integral transformation
-				if ((not (_mpi.global_master and (_calc.exp_type == 'combined'))) and (_exp.level == 'micro')):
-					if (((_calc.h1e is None) and (_calc.h2e is None)) or (_calc.exp_virt == 'DNO')):
-						if (_calc.exp_virt == 'DNO'): _pyscf.trans_dno(_mol, _calc, _exp) 
-						_pyscf.int_trans(_mol, _calc)
 				# exp class instantiation on slaves
 				if (_mpi.parallel):
 					if (_calc.exp_type in ['occupied','virtual']):

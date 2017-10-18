@@ -34,8 +34,6 @@ class CalcCls():
 				self.tolerance = 0.0
 				# init hf_mo_coeff, hf_mo_occ, and transformation matrix
 				self.hf_mo_coeff = None; self.hf_mo_occ = None; self.trans_mat = None
-				# init h1e and h2e
-				self.h1e = None; self.h2e = None
 				# set calculation parameters
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \

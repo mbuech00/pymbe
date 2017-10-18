@@ -76,12 +76,9 @@ class InitCls():
 						# write restart files
 						self.rst.write_hf_trans(self.calc)
 				# bcast hf and transformation info
-				self.mpi.bcast_hf_ref_info(self.mol, self.calc)
-				if (self.mpi.num_local_masters >= 1):
+				if (self.mpi.parallel):
+					self.mpi.bcast_hf_info(self.mol, self.calc)
 					self.mpi.bcast_trans_info(self.mol, self.calc)
-					# local master hf calc
-					if (self.mpi.local_master):
-						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 				# expansion and driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):

@@ -57,8 +57,9 @@ class PySCFCls():
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'CAN'):
 						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
-				# store mo_coeff, mo_occ, and e_tot
+				# store mo_coeff, hcore, mo_occ, and e_tot
 				_calc.hf_mo_coeff = hf.mo_coeff
+				_calc.hcore = hf.get_hcore()
 				_calc.hf_mo_occ = hf.mo_occ
 				_calc.hf_e_tot = hf.e_tot
 				#
@@ -294,37 +295,25 @@ class PySCFCls():
 				return
 
 
-		def int_trans(self, _mol, _calc):
-				""" integral transformation """
-				# perform integral transformation
-				_calc.h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _calc.hf.get_hcore(), _calc.trans_mat))
-				_calc.h2e = ao2mo.kernel(_mol, _calc.trans_mat)
-				_calc.h2e = ao2mo.restore(1, _calc.h2e, _mol.norb)
-				#
-				return
-
-
-		def prepare(self, _mol, _calc, _exp, _tup):
+		def prepare(self, _mol, _calc, _exp):
 				""" generate input for correlated calculation """
-				# generate orbital lists
-				cas_idx = sorted(_exp.incl_idx + sorted(_tup.tolist()))
-				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
-				# extract core and one-electron cas integrals and calculate core energy
-				if (len(core_idx) > 0):
+				# extract cas integrals and calculate core energy
+				e_core = _mol.energy_nuc()
+				if (len(_exp.core_idx) > 0):
 					if ((_calc.exp_type == 'occupied') or (_exp.e_core is None)):
-						_calc.vhf_core = np.einsum('iipq->pq', _calc.h2e[core_idx][:,core_idx]) * 2
-						_calc.vhf_core -= np.einsum('piiq->pq', _calc.h2e[:,core_idx][:,:,core_idx])
-						_exp.e_core = _calc.h1e[core_idx][:,core_idx].trace() * 2 + \
-										_calc.vhf_core[core_idx][:,core_idx].trace() + \
-										_mol.energy_nuc()
-					h1e_cas = (_calc.h1e + _calc.vhf_core)[cas_idx][:,cas_idx]
+						core_dm = np.dot(_calc.trans_mat[:, _exp.core_idx], np.transpose(_calc.trans_mat[:, _exp.core_idx])) * 2
+						_exp.core_vhf = core_vhf = scf.hf.get_veff(_mol, core_dm)
+						e_core += np.einsum('ij,ji', core_dm, _calc.hcore)
+						e_core += np.einsum('ij,ji', core_dm, core_vhf) * .5
+					else:
+						core_vhf = _exp.core_vhf
 				else:
-					h1e_cas = _calc.h1e[cas_idx][:,cas_idx]
-					_exp.e_core = _mol.energy_nuc()
-				# extract two-electron cas integrals
-				h2e_cas = _calc.h2e[cas_idx][:,cas_idx][:,:,cas_idx][:,:,:,cas_idx]
+					core_vhf = 0
+				h1e_cas = reduce(np.dot, (np.transpose(_calc.trans_mat[:, _exp.cas_idx]), \
+										_calc.hcore + core_vhf, _calc.trans_mat[:, _exp.cas_idx]))
+				h2e_cas = ao2mo.kernel(_mol, _calc.trans_mat[:, _exp.cas_idx])
 				#
-				return core_idx, cas_idx, h1e_cas, h2e_cas
+				return e_core, h1e_cas, h2e_cas
 
 
 		def calc(self, _mol, _calc, _exp):
@@ -388,7 +377,7 @@ class PySCFCls():
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
 					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
-					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx, _e_cas=e_cas)
+					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)
 					e_corr = e_cas - e_base
 				# verbose print
 				if (_mol.verbose > 1):
@@ -419,7 +408,7 @@ class ModelSolver():
 				cas_hf.nelec = (_mol.nelec[0] - len(_core_idx), _mol.nelec[1] - len(_core_idx))
 				cas_hf.conv_tol = 1.0e-12
 				cas_hf.max_cycle = 100
-				cas_hf._eri = ao2mo.restore(8, _h2e, len(_cas_idx))
+				cas_hf._eri = _h2e
 				cas_hf.get_hcore = lambda *args: _h1e
 				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
 				dm0 = np.diag(_calc.hf_mo_occ[_cas_idx])
@@ -441,7 +430,7 @@ class ModelSolver():
 				return cas_hf
 
 
-		def kernel(self, _cas_hf, _core_idx, _cas_idx, _e_cas=None):
+		def kernel(self, _cas_hf, _core_idx, _cas_idx):
 				""" model kernel """
 				if (self.model_type == 'CISD'):
 					self.model = ci.CISD(_cas_hf)
