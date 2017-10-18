@@ -59,32 +59,32 @@ class CalcCls():
 						for i in range(len(content)):
 							if (content[i].split()[0][0] == '#'):
 								continue
-							elif (re.split('=',content[i])[0].strip() == 'exp_model'):
+							elif (re.split('=',content[i])[0].strip() == 'model'):
 								self.exp_model = eval(re.split('=',content[i])[1].strip())
 								self.exp_model = self.upper(self.exp_model)
-							elif (re.split('=',content[i])[0].strip() == 'exp_type'):
+							elif (re.split('=',content[i])[0].strip() == 'type'):
 								self.exp_type = re.split('=',content[i])[1].strip()
-							elif (re.split('=',content[i])[0].strip() == 'exp_ref'):
+							elif (re.split('=',content[i])[0].strip() == 'ref'):
 								self.exp_ref = eval(re.split('=',content[i])[1].strip())
 								self.exp_ref = self.upper(self.exp_ref)
-							elif (re.split('=',content[i])[0].strip() == 'exp_base'):
+							elif (re.split('=',content[i])[0].strip() == 'base'):
 								self.exp_base = eval(re.split('=',content[i])[1].strip())
 								self.exp_base = self.upper(self.exp_base)
-							elif (re.split('=',content[i])[0].strip() == 'exp_thres'):
+							elif (re.split('=',content[i])[0].strip() == 'thres'):
 								self.exp_thres = float(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'exp_max_order'):
+							elif (re.split('=',content[i])[0].strip() == 'max_order'):
 								self.exp_max_order = int(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'exp_occ'):
+							elif (re.split('=',content[i])[0].strip() == 'occ'):
 								self.exp_occ = re.split('=',content[i])[1].strip().upper()
-							elif (re.split('=',content[i])[0].strip() == 'exp_virt'):
+							elif (re.split('=',content[i])[0].strip() == 'virt'):
 								self.exp_virt = re.split('=',content[i])[1].strip().upper()
-							elif (re.split('=',content[i])[0].strip() == 'energy_thres'):
+							elif (re.split('=',content[i])[0].strip() == 'e_thres'):
 								self.energy_thres = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'tolerance'):
 								self.tolerance = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
 								_mol.verbose = int(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'memory'):
+							elif (re.split('=',content[i])[0].strip() == 'mem'):
 								_mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'num_local_masters'):
 								_mpi.num_local_masters = int(re.split('=',content[i])[1].strip())
@@ -112,7 +112,7 @@ class CalcCls():
 				try:
 					# expansion model
 					if (not ('METHOD' in self.exp_model)):
-						raise ValueError('wrong input -- exp_model dictionary must contain "method" key ' + \
+						raise ValueError('wrong input -- model dictionary must contain "method" key ' + \
 										'with method value given as a string')
 					if (not (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
@@ -123,13 +123,13 @@ class CalcCls():
 										'expansion scheme are occupied, virtual, and combined')
 					# reference model
 					if (not ('METHOD' in self.exp_ref)):
-						raise ValueError('wrong input -- exp_ref dictionary must contain "method" key ' + \
+						raise ValueError('wrong input -- ref dictionary must contain "method" key ' + \
 										'with method value ("HF" or "CASCI") given as a string')
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF and CASCI')
 					# base model
 					if (not ('METHOD' in self.exp_base)):
-						raise ValueError('wrong input -- exp_base dictionary must contain "method" key ' + \
+						raise ValueError('wrong input -- base dictionary must contain "method" key ' + \
 										'with method value given as a string')
 					if (not (self.exp_base['METHOD'] in [self.exp_ref['METHOD'],'CISD','CCSD','CCSD(T)'])):
 						raise ValueError('wrong input -- invalid base model')
@@ -145,10 +145,10 @@ class CalcCls():
 					# expansion and energy thresholds
 					if (self.exp_thres < 0.0):
 						raise ValueError('wrong input -- expansion threshold parameter ' + \
-										'(exp_thres) must be float >= 0.0')
+										'(thres) must be float >= 0.0')
 					if (self.energy_thres < 0.0):
 						raise ValueError('wrong input -- energy threshold parameter ' + \
-										'(energy_thres) must be float >= 0.0')
+										'(e_thres) must be float >= 0.0')
 					# orbital representation
 					if (not (self.exp_occ in ['CAN','PM','FB','IBO-1','IBO-2','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \
@@ -183,7 +183,7 @@ class CalcCls():
 											'must be larger than twice the number of local mpi masters (num_local_masters)')
 					# memory
 					if (_mol.max_memory is None):
-						raise ValueError('wrong input -- the memory keyword (memory) appears to be missing')
+						raise ValueError('wrong input -- the memory keyword (mem) appears to be missing')
 				except Exception as err:
 					_rst.rm_rst()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))

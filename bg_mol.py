@@ -99,7 +99,7 @@ class MolCls(gto.Mole):
 								self.charge = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'spin'):
 								self.spin = int(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'hf_symmetry'):
+							elif (re.split('=',content[i])[0].strip() == 'hf_sym'):
 								self.symmetry = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'basis'):
 								self.basis = re.split('=',content[i])[1].strip()
