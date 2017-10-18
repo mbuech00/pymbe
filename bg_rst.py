@@ -47,7 +47,7 @@ class RstCls():
 				""" main restart driver """
 				if (not self.restart):
 					# set start order for expansion
-					_exp.min_order = len(_exp.tuples[0][0])
+					_exp.min_order = 1
 				else:
 					# read in _exp restart files
 					self.read_exp(_exp)
@@ -68,7 +68,7 @@ class RstCls():
 				# write hf_mo_coeff
 				np.save(join(self.rst_dir, 'hf_mo_coeff'), _calc.hf_mo_coeff)
 				# write hf_mo_occ
-				np.save(join(self.rst_dir, 'hf_mo_occ'), np.array(_calc.hf_mo_occ))
+				np.save(join(self.rst_dir, 'hf_mo_occ'), _calc.hf_mo_occ)
 				# write trans_mat
 				np.save(join(self.rst_dir, 'trans_mat'), _calc.trans_mat)
 				# write e_zero
@@ -116,7 +116,7 @@ class RstCls():
 						_calc.hf_mo_coeff = np.load(join(self.rst_dir, files[i]))
 					# read hf_mo_occ
 					if ('hf_mo_occ' in files[i]):
-						_calc.hf_mo_occ = np.load(join(self.rst_dir, files[i])).tolist()
+						_calc.hf_mo_occ = np.load(join(self.rst_dir, files[i]))
 					# read trans_mat
 					elif ('trans_mat' in files[i]):
 						_calc.trans_mat = np.load(join(self.rst_dir, files[i]))
