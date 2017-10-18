@@ -163,8 +163,6 @@ class KernCls():
 				i = np.argmax(_exp.energy_inc[-1] == 0.0)
 				# init stat counter
 				counter = i
-				# init requests
-				reqs = [MPI.REQUEST_NULL for idx in range(num_slaves)]
 				# print status for START
 				if (_mpi.global_master and (not (_exp.level == 'macro'))):
 					_prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
@@ -204,14 +202,12 @@ class KernCls():
 								job_info['h2e_cas'] = _exp.h2e_cas
 								job_info['e_core'] = _exp.e_core
 							# send string dict
-							req = comm.isend(job_info, dest=source, tag=self.tags.start)
+							comm.send(job_info, dest=source, tag=self.tags.start)
 							# increment job index
 							i += 1
 						else:
 							# send exit signal
-							req = comm.isend(None, dest=source, tag=self.tags.exit)
-						# update reqs
-						reqs[source-1] = req
+							comm.send(None, dest=source, tag=self.tags.exit)
 					# receive result from slave
 					elif (tag == self.tags.done):
 						# write to e_inc
@@ -231,8 +227,6 @@ class KernCls():
 					# put slave to sleep
 					elif (tag == self.tags.exit):
 						slaves_avail -= 1
-				# wait for all requests to be finished
-				MPI.Request.waitall(reqs)
 				# print 100.0 %
 				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
 				# manually force e_inc to zero in case of CISD, CCSD, or CCSD(T) base models in case of closed-shell state
