@@ -112,8 +112,6 @@ class KernCls():
 						exp_micro.level = 'micro'
 						# transfer incl_idx
 						exp_micro.incl_idx = _exp.tuples[-1][i].tolist()
-#						# compute distinct natural virtual orbitals
-#						if (_calc.exp_virt == 'DNO'): _pyscf.trans_dno(_mol, _calc, exp_micro) 
 						# make recursive call to driver with micro exp
 						drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 						# store results

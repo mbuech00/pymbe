@@ -53,6 +53,10 @@ class DrvCls():
 							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx, 'min_order': _exp.min_order}
 							# bcast msg
 							_mpi.local_comm.bcast(msg, root=0)
+							# compute and communicate distinct natural virtual orbitals
+							if (_calc.exp_virt == 'DNO'):
+								_pyscf.trans_dno(_mol, _calc, _exp) 
+								_mpi.bcast_trans_info(_mol, _calc, _mpi.local_comm)
 				# print expansion header
 				if (do_print): _prt.exp_header(_calc, _exp)
 				# restart
@@ -198,6 +202,9 @@ class DrvCls():
 						exp.min_order = msg['min_order']
 						if (_calc.exp_type == 'combined'):
 							exp.incl_idx = msg['incl_idx']
+							# receive distinct natural virtual orbitals
+							if (_calc.exp_virt == 'DNO'):
+								_mpi.bcast_trans_info(_mol, _calc, _mpi.local_comm)
 						else:
 							# receive rst data
 							if (msg['rst']): _mpi.bcast_rst(_calc, exp)

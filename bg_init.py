@@ -72,13 +72,17 @@ class InitCls():
 						self.mol.symmetry = False; self.mol.make(self.mpi)
 #						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
 						self.calc.ref_e_tot = self.calc.hf_e_tot
+						# transformation matrix
 						self.pyscf.trans_main(self.mol, self.calc)
 						# write restart files
 						self.rst.write_hf_trans(self.calc)
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_info(self.mol, self.calc)
-					self.mpi.bcast_trans_info(self.mol, self.calc)
+					self.mpi.bcast_trans_info(self.mol, self.calc, self.mpi.global_comm)
+				# in case of occupied expansion, have local masters perform hf calc
+				if (self.mpi.local_master):
+					self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 				# expansion and driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):

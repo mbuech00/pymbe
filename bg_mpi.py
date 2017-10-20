@@ -173,6 +173,9 @@ class MPICls():
 					self.global_comm.bcast(hf_info, root=0)
 					# bcast hcore
 					self.master_comm.Bcast([_calc.hcore, MPI.DOUBLE], root=0)
+					# bcast mo_coeff
+					if (self.num_local_masters >= 1):
+						self.master_comm.Bcast([_calc.hf_mo_coeff, MPI.DOUBLE], root=0)
 				else:
 					# receive dimensions and mo_occ
 					hf_info = self.global_comm.bcast(None, root=0)
@@ -184,19 +187,24 @@ class MPICls():
 					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
 					_calc.hcore = buff
+					# receive mo_coeff
+					if (self.local_master):
+						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
+						self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
+						_calc.hf_mo_coeff = buff
 				#
 				return
 
 
-		def bcast_trans_info(self, _mol, _calc):
+		def bcast_trans_info(self, _mol, _calc, _comm):
 				""" bcast transformation info """
-				if (self.global_master):
+				if (_comm.Get_rank() == 0):
 					# bcast trans_mat
-					self.master_comm.Bcast([_calc.trans_mat, MPI.DOUBLE], root=0)
+					_comm.Bcast([_calc.trans_mat, MPI.DOUBLE], root=0)
 				else:
 					# receive trans_mat
 					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
-					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
+					_comm.Bcast([buff, MPI.DOUBLE], root=0)
 					_calc.trans_mat = np.transpose(buff)
 				#
 				return
