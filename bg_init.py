@@ -42,6 +42,8 @@ class InitCls():
 				# molecule and calculation instantiations
 				self.mol = MolCls(self.mpi, self.rst)
 				self.calc = CalcCls(self.mpi, self.rst, self.mol)
+				# pyscf instantiation
+				self.pyscf = PySCFCls()
 				# build and communicate molecule
 				if (self.mpi.global_master):
 					self.mol.make(self.mpi)
@@ -49,14 +51,14 @@ class InitCls():
 				else:
 					self.mpi.bcast_mol_info(self.mol)
 					self.mol.make(self.mpi)
+					# get hcore and eri
+					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 				# set core region
 				self.mol.ncore = self.mol.set_ncore()
 				# communicate calc info 
 				self.mpi.bcast_calc_info(self.calc)
 				# init mpi
 				self.mpi.set_mpi()
-				# pyscf instantiation
-				self.pyscf = PySCFCls()
 				# hf calculation and main transformation matrix
 				if (self.mpi.global_master):
 					if (self.rst.restart):
@@ -64,14 +66,20 @@ class InitCls():
 						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 						# remove symmetry
 						self.mol.symmetry = False; self.mol.make(self.mpi)
+						# set reference energy
 #						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
 						self.calc.ref_e_tot = self.calc.hf_e_tot
+						# get hcore and eri
+						self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 					else:
 						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 						# remove symmetry
 						self.mol.symmetry = False; self.mol.make(self.mpi)
+						# set reference energy
 #						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
 						self.calc.ref_e_tot = self.calc.hf_e_tot
+						# get hcore and eri
+						self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 						# transformation matrix
 						self.pyscf.trans_main(self.mol, self.calc)
 						# write restart files
@@ -80,7 +88,7 @@ class InitCls():
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_info(self.mol, self.calc)
 					self.mpi.bcast_trans_info(self.mol, self.calc, self.mpi.global_comm)
-				# in case of occupied expansion, have local masters perform hf calc
+				# in case of combined expansion, have local masters perform hf calc
 				if (self.mpi.local_master):
 					self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 				# expansion and driver instantiations

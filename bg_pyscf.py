@@ -24,6 +24,14 @@ except ImportError:
 
 class PySCFCls():
 		""" pyscf class """
+		def hcore_eri(self, _mol):
+				""" get core hamiltonian and AO eris """
+				hcore = _mol.intor_symmetric('int1e_kin') + _mol.intor_symmetric('int1e_nuc')
+				eri = _mol.intor('int2e_sph', aosym=4)
+				#
+				return hcore, eri
+
+
 		def hf(self, _mol, _calc):
 				""" hartree-fock calculation """
 				# perform hf calc
@@ -57,9 +65,8 @@ class PySCFCls():
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'CAN'):
 						hf.mo_coeff[:, _mol.occ] = _calc.trans_mat[:, _mol.occ]
-				# store mo_coeff, hcore, mo_occ, and e_tot
+				# store mo_coeff, mo_occ, and e_tot
 				_calc.hf_mo_coeff = hf.mo_coeff
-				_calc.hcore = hf.get_hcore()
 				_calc.hf_mo_occ = hf.mo_occ
 				_calc.hf_e_tot = hf.e_tot
 				#
@@ -185,7 +192,7 @@ class PySCFCls():
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
 						if (_mol.spin > 0): dm = dm[0] + dm[1]
-						occup, no = sp.linalg.eigh(dm[len(_mol.occ):, len(_mol.occ):])
+						occup, no = sp.linalg.eigh(dm[-len(_mol.virt):, -len(_mol.virt):])
 						_calc.trans_mat[:, _mol.virt] = np.dot(_calc.hf_mo_coeff[:, _mol.virt], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
 						_calc.trans_mat[:, _mol.virt] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.virt]).kernel()
@@ -196,7 +203,7 @@ class PySCFCls():
 					if ((_calc.exp_occ == 'CAN') and (_calc.exp_virt == 'CAN')):
 						_calc.e_zero += ccsd.ccsd_t(eris=eris, t1=ccsd.t1, t2=ccsd.t2)
 					else:
-						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _calc.hf.get_hcore(), _calc.trans_mat))
+						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _mol.hcore, _calc.trans_mat))
 						h2e = ao2mo.kernel(_mol, _calc.trans_mat)
 						mol = gto.M(verbose=0)
 						mol.nelectron = _mol.nelectron
@@ -301,15 +308,16 @@ class PySCFCls():
 				e_core = _mol.energy_nuc()
 				if (len(_exp.core_idx) > 0):
 					if ((_calc.exp_type == 'occupied') or (_exp.core_vhf is None)):
+						print('\n ... calculating e_core ...\n')
 						core_dm = np.dot(_calc.trans_mat[:, _exp.core_idx], np.transpose(_calc.trans_mat[:, _exp.core_idx])) * 2
 						_exp.core_vhf = core_vhf = scf.hf.get_veff(_mol, core_dm)
-						e_core += np.einsum('ij,ji', core_dm, _calc.hcore)
-						e_core += np.einsum('ij,ji', core_dm, core_vhf) * .5
+						e_core += np.einsum('ij,ji', core_dm, _mol.hcore)
+						e_core += np.einsum('ij,ji', core_dm, _exp.core_vhf) * .5
 				else:
 					_exp.core_vhf = 0
 				h1e_cas = reduce(np.dot, (np.transpose(_calc.trans_mat[:, _exp.cas_idx]), \
-										_calc.hcore + _exp.core_vhf, _calc.trans_mat[:, _exp.cas_idx]))
-				h2e_cas = ao2mo.kernel(_mol, _calc.trans_mat[:, _exp.cas_idx])
+										_mol.hcore + _exp.core_vhf, _calc.trans_mat[:, _exp.cas_idx]))
+				h2e_cas = ao2mo.incore.full(_mol.eri, _calc.trans_mat[:, _exp.cas_idx])
 				#
 				return e_core, h1e_cas, h2e_cas
 

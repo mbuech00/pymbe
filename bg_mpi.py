@@ -171,8 +171,6 @@ class MPICls():
 								'mo_occ': _calc.hf_mo_occ}
 					# bcast hf_info
 					self.global_comm.bcast(hf_info, root=0)
-					# bcast hcore
-					self.master_comm.Bcast([_calc.hcore, MPI.DOUBLE], root=0)
 					# bcast mo_coeff
 					if (self.num_local_masters >= 1):
 						self.master_comm.Bcast([_calc.hf_mo_coeff, MPI.DOUBLE], root=0)
@@ -183,10 +181,6 @@ class MPICls():
 					_mol.occ = hf_info['occ']; _mol.virt = hf_info['virt']
 					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
 					_calc.hf_mo_occ = hf_info['mo_occ']
-					# receive hcore
-					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
-					self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
-					_calc.hcore = buff
 					# receive mo_coeff
 					if (self.local_master):
 						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
