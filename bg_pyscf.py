@@ -308,7 +308,6 @@ class PySCFCls():
 				e_core = _mol.energy_nuc()
 				if (len(_exp.core_idx) > 0):
 					if ((_calc.exp_type == 'occupied') or (_exp.core_vhf is None)):
-						print('\n ... calculating e_core ...\n')
 						core_dm = np.dot(_calc.trans_mat[:, _exp.core_idx], np.transpose(_calc.trans_mat[:, _exp.core_idx])) * 2
 						_exp.core_vhf = core_vhf = scf.hf.get_veff(_mol, core_dm)
 						e_core += np.einsum('ij,ji', core_dm, _mol.hcore)
