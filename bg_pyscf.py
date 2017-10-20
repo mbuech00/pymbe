@@ -300,17 +300,15 @@ class PySCFCls():
 				# extract cas integrals and calculate core energy
 				e_core = _mol.energy_nuc()
 				if (len(_exp.core_idx) > 0):
-					if ((_calc.exp_type == 'occupied') or (_exp.e_core is None)):
+					if ((_calc.exp_type == 'occupied') or (_exp.core_vhf is None)):
 						core_dm = np.dot(_calc.trans_mat[:, _exp.core_idx], np.transpose(_calc.trans_mat[:, _exp.core_idx])) * 2
 						_exp.core_vhf = core_vhf = scf.hf.get_veff(_mol, core_dm)
 						e_core += np.einsum('ij,ji', core_dm, _calc.hcore)
 						e_core += np.einsum('ij,ji', core_dm, core_vhf) * .5
-					else:
-						core_vhf = _exp.core_vhf
 				else:
-					core_vhf = 0
+					_exp.core_vhf = 0
 				h1e_cas = reduce(np.dot, (np.transpose(_calc.trans_mat[:, _exp.cas_idx]), \
-										_calc.hcore + core_vhf, _calc.trans_mat[:, _exp.cas_idx]))
+										_calc.hcore + _exp.core_vhf, _calc.trans_mat[:, _exp.cas_idx]))
 				h2e_cas = ao2mo.kernel(_mol, _calc.trans_mat[:, _exp.cas_idx])
 				#
 				return e_core, h1e_cas, h2e_cas
