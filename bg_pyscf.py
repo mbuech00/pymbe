@@ -153,11 +153,10 @@ class PySCFCls():
 					ccsd.max_cycle = 100
 					ccsd.diis_space = 10
 					ccsd.frozen = frozen
-					eris = ccsd.ao2mo()
 					for i in list(range(0, 12, 2)):
 						ccsd.diis_start_cycle = i
 						try:
-							ccsd.kernel(eris=eris)
+							ccsd.kernel()
 						except sp.linalg.LinAlgError: pass
 						if (ccsd.converged):
 							_calc.e_zero = ccsd.e_corr
@@ -201,7 +200,7 @@ class PySCFCls():
 				# add (t) correction
 				if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
 					if ((_calc.exp_occ == 'CAN') and (_calc.exp_virt == 'CAN')):
-						_calc.e_zero += ccsd.ccsd_t(eris=eris, t1=ccsd.t1, t2=ccsd.t2)
+						_calc.e_zero += ccsd.ccsd_t()
 					else:
 						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _mol.hcore, _calc.trans_mat))
 						h2e = ao2mo.kernel(_mol, _calc.trans_mat)
@@ -232,11 +231,10 @@ class PySCFCls():
 						ccsd_2.max_cycle = 100
 						ccsd_2.diis_space = 10
 						ccsd_2.frozen = frozen
-						eris = ccsd_2.ao2mo()
 						for i in list(range(0, 12, 2)):
 							ccsd_2.diis_start_cycle = i
 							try:
-								ccsd_2.kernel(eris=eris)
+								ccsd_2.kernel()
 							except sp.linalg.LinAlgError: pass
 							if (ccsd_2.converged): break
 						if (not ccsd_2.converged):
@@ -245,7 +243,7 @@ class PySCFCls():
 							except Exception as err:
 								sys.stderr.write(str(err))
 								raise
-						_calc.e_zero += ccsd_2.ccsd_t(eris=eris, t1=ccsd_2.t1, t2=ccsd_2.t2)
+						_calc.e_zero += ccsd_2.ccsd_t()
 				#
 				return
 
@@ -377,13 +375,15 @@ class PySCFCls():
 							raise
 				# base calculation
 				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
-					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot #+ float(_exp.order) * float(_exp.cas_idx[-1]) * 0.001
+					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
+#					if (_exp.order < _exp.max_order): e_corr += (e_cas + _exp.e_core) - _calc.hf_e_tot + 0.001 * np.random.random_sample()
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
 					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)
-					e_corr = e_cas - e_base #+ float(_exp.order) * float(_exp.cas_idx[-1]) * 0.001
+					e_corr = e_cas - e_base
+#					if (_exp.order < _exp.max_order): e_corr += e_cas - e_base + 0.001 * np.random.random_sample()
 				# verbose print
 				if (_mol.verbose > 1):
 					print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.format(e_corr,_exp.core_idx,_exp.cas_idx))
