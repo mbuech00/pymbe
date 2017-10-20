@@ -56,7 +56,7 @@ class PySCFCls():
 					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _calc.exp_type)
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'CAN'):
-						hf.mo_coeff[:, _mol.ncore:_mol.nocc] = _calc.trans_mat[:, _mol.ncore:_mol.nocc]
+						hf.mo_coeff[:, _mol.occ] = _calc.trans_mat[:, _mol.occ]
 				# store mo_coeff, hcore, mo_occ, and e_tot
 				_calc.hf_mo_coeff = hf.mo_coeff
 				_calc.hcore = hf.get_hcore()
@@ -95,11 +95,11 @@ class PySCFCls():
 				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
 					# set active orbitals
 					if (_calc.exp_type == 'occupied'):
-						act_orbs = np.array(np.where(_calc.hf_mo_occ == 1.)[0].tolist()+list(range(_mol.nocc, _mol.norb)))
+						act_orbs = np.array(np.where(_calc.hf_mo_occ == 1.)[0].tolist()+_mol.virt)
 						_calc.no_act = len(act_orbs)
 						_calc.ne_act = (np.count_nonzero(_calc.hf_mo_occ == 1.), 0)
 					elif (_calc.exp_type == 'virtual'):
-						act_orbs = np.array(list(range(_mol.ncore, _mol.nocc)))
+						act_orbs = np.array(_mol.occ)
 						_calc.no_act = len(act_orbs)
 						_calc.ne_act = (np.count_nonzero(_calc.hf_mo_occ != 0.) - _mol.ncore, \
 											np.count_nonzero(_calc.hf_mo_occ == 2.) - _mol.ncore)
@@ -168,29 +168,29 @@ class PySCFCls():
 				if (_calc.exp_occ != 'CAN'):
 					if (_calc.exp_occ == 'NO'):
 						if (_mol.spin > 0): dm = dm[0] + dm[1]
-						occup, no = sp.linalg.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)])
-						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
+						occup, no = sp.linalg.eigh(dm[:len(_mol.occ), :len(_mol.occ)])
+						_calc.trans_mat[:, _mol.occ] = np.dot(_calc.hf_mo_coeff[:, _mol.occ], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
-						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						_calc.trans_mat[:, _mol.occ] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.occ]).kernel()
 					elif (_calc.exp_occ == 'FB'):
-						_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						_calc.trans_mat[:, _mol.occ] = lo.Boys(_mol, _calc.hf_mo_coeff[:, _mol.occ]).kernel()
 					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
-						iao = lo.iao.iao(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc])
+						iao = lo.iao.iao(_mol, _calc.hf_mo_coeff[:, _mol.occ])
 						if (_calc.exp_occ == 'IBO-1'):
 							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
-							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc], iao)
+							_calc.trans_mat[:, _mol.occ] = lo.ibo.ibo(_mol, _calc.hf_mo_coeff[:, _mol.occ], iao)
 						elif (_calc.exp_occ == 'IBO-2'):
-							_calc.trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.hf_mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
+							_calc.trans_mat[:, _mol.occ] = lo.ibo.PM(_mol, _calc.hf_mo_coeff[:, _mol.occ], iao).kernel()
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
 						if (_mol.spin > 0): dm = dm[0] + dm[1]
-						occup, no = sp.linalg.eigh(dm[(_mol.nocc-_mol.ncore):, (_mol.nocc-_mol.ncore):])
-						_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf_mo_coeff[:, _mol.nocc:], no[:, ::-1])
+						occup, no = sp.linalg.eigh(dm[len(_mol.occ):, len(_mol.occ):])
+						_calc.trans_mat[:, _mol.virt] = np.dot(_calc.hf_mo_coeff[:, _mol.virt], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
-						_calc.trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.nocc:]).kernel()
+						_calc.trans_mat[:, _mol.virt] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.virt]).kernel()
 					elif (_calc.exp_virt == 'FB'):
-						_calc.trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.hf_mo_coeff[:, _mol.nocc:]).kernel()
+						_calc.trans_mat[:, _mol.virt] = lo.Boys(_mol, _calc.hf_mo_coeff[:, _mol.virt]).kernel()
 				# add (t) correction
 				if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
 					if ((_calc.exp_occ == 'CAN') and (_calc.exp_virt == 'CAN')):
@@ -290,7 +290,7 @@ class PySCFCls():
 					dm = ccsd.make_rdm1()
 				# generate dnos
 				occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-				_calc.trans_mat[:, _mol.nocc:] = np.dot(_calc.hf_mo_coeff[:, _mol.nocc:], no[:, ::-1])
+				_calc.trans_mat[:, _mol.virt] = np.dot(_calc.hf_mo_coeff[:, _mol.virt], no[:, ::-1])
 				#
 				return
 
