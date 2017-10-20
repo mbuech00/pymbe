@@ -305,20 +305,20 @@ class PySCFCls():
 		def prepare(self, _mol, _calc, _exp):
 				""" generate input for correlated calculation """
 				# extract cas integrals and calculate core energy
-				e_core = _mol.energy_nuc()
 				if (len(_exp.core_idx) > 0):
-					if ((_calc.exp_type == 'occupied') or (_exp.core_vhf is None)):
+					if ((_calc.exp_type == 'occupied') or (_exp.e_core is None)):
 						core_dm = np.dot(_calc.trans_mat[:, _exp.core_idx], np.transpose(_calc.trans_mat[:, _exp.core_idx])) * 2
-						_exp.core_vhf = core_vhf = scf.hf.get_veff(_mol, core_dm)
-						e_core += np.einsum('ij,ji', core_dm, _mol.hcore)
-						e_core += np.einsum('ij,ji', core_dm, _exp.core_vhf) * .5
+						_exp.core_vhf = scf.hf.get_veff(_mol, core_dm)
+						_exp.e_core = _mol.energy_nuc() + np.einsum('ij,ji', core_dm, _mol.hcore)
+						_exp.e_core += np.einsum('ij,ji', core_dm, _exp.core_vhf) * .5
 				else:
+					_exp.e_core = _mol.energy_nuc()
 					_exp.core_vhf = 0
 				h1e_cas = reduce(np.dot, (np.transpose(_calc.trans_mat[:, _exp.cas_idx]), \
 										_mol.hcore + _exp.core_vhf, _calc.trans_mat[:, _exp.cas_idx]))
 				h2e_cas = ao2mo.incore.full(_mol.eri, _calc.trans_mat[:, _exp.cas_idx])
 				#
-				return e_core, h1e_cas, h2e_cas
+				return h1e_cas, h2e_cas
 
 
 		def calc(self, _mol, _calc, _exp):
@@ -377,13 +377,13 @@ class PySCFCls():
 							raise
 				# base calculation
 				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
-					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
+					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot #+ float(_exp.order) * float(_exp.cas_idx[-1]) * 0.001
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
 					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)
-					e_corr = e_cas - e_base
+					e_corr = e_cas - e_base #+ float(_exp.order) * float(_exp.cas_idx[-1]) * 0.001
 				# verbose print
 				if (_mol.verbose > 1):
 					print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.format(e_corr,_exp.core_idx,_exp.cas_idx))

@@ -120,7 +120,7 @@ class KernCls():
 					else:
 						# generate input
 						_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, _exp.tuples[-1][i])
-						_exp.e_core, _exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp)
+						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp)
 						# perform calc
 						_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
 					# sum up energy increment
@@ -270,7 +270,7 @@ class KernCls():
 						else:
 							# generate input
 							_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, _exp.tuples[-1][job_info['index']])
-							_exp.e_core, _exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp)
+							_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp)
 							# run correlated calc
 							_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)
 							# sum up energy increment
