@@ -54,14 +54,14 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 					# determine dimensions
-					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _calc.exp_type)
+					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
 				else:
 					# construct density
 					hf_dens = scf.hf.make_rdm1(_calc.hf_mo_coeff, _calc.hf_mo_occ)
 					# restart from converged density
 					hf.kernel(hf_dens)
 					# determine dimensions
-					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _calc.exp_type)
+					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'CAN'):
 						hf.mo_coeff[:, _mol.occ] = _calc.trans_mat[:, _mol.occ]
@@ -73,7 +73,7 @@ class PySCFCls():
 				return hf
 
 
-		def dim(self, _hf, _type):
+		def dim(self, _hf, _ncore, _type):
 				""" determine dimensions """
 				# occupied and virtual lists
 				if (_type == 'occupied'):
@@ -86,6 +86,8 @@ class PySCFCls():
 				nocc = len(occ)
 				nvirt = len(virt)
 				norb = nocc + nvirt
+				# update occ orbitals according to _ncore
+				occ = occ[_ncore:]
 				#
 				return norb, occ, nocc, virt, nvirt
 

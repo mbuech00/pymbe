@@ -23,22 +23,16 @@ class ExpCls():
 				# init_tuples and incl_idx
 				if (_type == 'occupied'):
 					init_tuples = _mol.occ
-					self.incl_idx = _mol.virt
+					self.incl_idx = _mol.virt.tolist()
 				# set params and lists for virt expansion
 				elif (_type == 'virtual'):
 					init_tuples = _mol.virt
-					self.incl_idx = _mol.occ
-				# set frozen_idx
-				self.frozen_idx = list(range(_mol.ncore))
-				# update init_tuples and incl_idx
-				init_tuples = sorted(list(set(init_tuples) - set(self.frozen_idx)))
-				init_tuples = list([i] for i in init_tuples)
-				self.incl_idx = sorted(list(set(self.incl_idx) - set(self.frozen_idx))) 
+					self.incl_idx = _mol.occ.tolist()
 				# append to self.tuples
-				self.tuples = [np.array(init_tuples, dtype=np.int32)]
+				self.tuples = [np.array(list([i] for i in init_tuples), dtype=np.int32)]
 				# verbose print
 				if (_mol.verbose > 1):
-					print('mo_occ = {0:} , incl_idx = {1:} , init_tuples = {2:}'.format(_calc.hf_mo_occ,self.incl_idx,init_tuples))
+					print('mo_occ = {0:} , incl_idx = {1:} , tuples = {2:}'.format(_calc.hf_mo_occ,self.incl_idx,self.tuples))
 				# init energy_inc
 				self.energy_inc = []
 				# set max_order (derived from calc class)
