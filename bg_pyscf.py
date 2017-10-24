@@ -378,7 +378,8 @@ class PySCFCls():
 #					if (_exp.order < _exp.max_order): e_corr += e_cas - e_base + 0.001 * np.random.random_sample()
 				# verbose print
 				if (_mol.verbose > 1):
-					print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.format(e_corr,_exp.core_idx,_exp.cas_idx))
+					print('e_corr = {0:.6f} , e_cas = {1:.6f} , e_base = {2:.6f} , core_idx = {3:} , cas_idx = {4:}'.\
+						format(e_corr,e_cas,e_base,_exp.core_idx,_exp.cas_idx))
 				#
 				return e_corr
 
