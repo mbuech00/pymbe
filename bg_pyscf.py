@@ -192,7 +192,7 @@ class PySCFCls():
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
-						if (_mol.spin > 0): dm = dm[0] + dm[1]
+						if ((_mol.spin > 0) and (_calc.exp_occ != 'NO')): dm = dm[0] + dm[1]
 						occup, no = sp.linalg.eigh(dm[-len(_mol.virt):, -len(_mol.virt):])
 						_calc.trans_mat[:, _mol.virt] = np.dot(_calc.hf_mo_coeff[:, _mol.virt], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
@@ -207,28 +207,18 @@ class PySCFCls():
 						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _mol.hcore, _calc.trans_mat))
 						h2e = ao2mo.kernel(_mol, _calc.trans_mat)
 						mol = gto.M(verbose=0)
-						mol.nelectron = _mol.nelectron
-						mol.spin = _mol.spin
-						hf = scf.RHF(mol)
-						hf.conv_tol = 1.0e-12
-						hf.max_cycle = 100
+						if (_mol.spin == 0):
+							hf = scf.RHF(mol)
+						else:
+							hf = scf.UHF(mol)
 						hf.get_hcore = lambda *args: h1e
 						hf._eri = h2e 
-						hf.get_ovlp = lambda *args: np.eye(_mol.norb)
-						dm0 = np.diag(_calc.hf_mo_occ)
-						for i in list(range(0, 12, 2)):
-							hf.diis_start_cycle = i
-							try:
-								hf.kernel(dm0)
-							except sp.linalg.LinAlgError: pass
-							if (hf.converged): break
-						if (not hf.converged):
-							try:
-								raise RuntimeError('\nHF (main int-trans) Error : no convergence\n\n')
-							except Exception as err:
-								sys.stderr.write(str(err))
-								raise
-						ccsd_2 = cc.CCSD(hf)
+						if (_mol.spin == 0):
+							ccsd_2 = cc.ccsd.CCSD(hf, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf_mo_occ)
+						else:
+							del hf.mo_energy
+							ccsd_2 = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(_mol.norb), np.eye(_mol.norb))), \
+													mo_occ=np.array((_calc.hf_mo_occ>0, _calc.hf_mo_occ==2), dtype=np.double))
 						ccsd_2.conv_tol = 1.0e-10
 						ccsd_2.max_cycle = 100
 						ccsd_2.diis_space = 10
@@ -337,7 +327,7 @@ class PySCFCls():
 				solver_cas.max_space = 10
 				# cas calculation
 				if (_calc.exp_model['METHOD'] != 'FCI'):
-					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
+					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.e_core)
 					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
 					solver_cas.davidson_only = True
@@ -382,7 +372,7 @@ class PySCFCls():
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
-					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.core_idx, _exp.cas_idx)
+					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.e_core)
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)
 					e_corr = e_cas - e_base
 #					if (_exp.order < _exp.max_order): e_corr += e_cas - e_base + 0.001 * np.random.random_sample()
@@ -405,34 +395,19 @@ class ModelSolver():
 				return
 
 
-		def hf(self, _mol, _calc, _h1e, _h2e, _core_idx, _cas_idx):
+		def hf(self, _mol, _calc, _h1e, _h2e, _cas_idx, _e_core):
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
-				cas_mol.nelectron = _mol.nelectron - 2 * len(_core_idx)
-				cas_mol.spin = _mol.spin
-				cas_hf = scf.RHF(cas_mol)
-				cas_hf.spin = cas_mol.spin
-				cas_hf.nelec = (_mol.nelec[0] - len(_core_idx), _mol.nelec[1] - len(_core_idx))
-				cas_hf.conv_tol = 1.0e-12
-				cas_hf.max_cycle = 100
+				if (_mol.spin == 0):
+					cas_hf = scf.RHF(cas_mol)
+				else:
+					cas_hf = scf.UHF(cas_mol)
 				cas_hf._eri = _h2e
 				cas_hf.get_hcore = lambda *args: _h1e
-				cas_hf.get_ovlp = lambda *args: np.eye(len(_cas_idx))
-				dm0 = np.diag(_calc.hf_mo_occ[_cas_idx])
-				for i in list(range(0, 12, 2)):
-					cas_hf.diis_start_cycle = i
-					try:
-						cas_hf.kernel(dm0)
-					except sp.linalg.LinAlgError: pass
-					if (cas_hf.converged): break
-				if (not cas_hf.converged):
-					try:
-						raise RuntimeError(('\nCAS-HF Error : no convergence\n'
-											'core_idx = {0:} , cas_idx = {1:}\n\n').\
-											format(_core_idx,_cas_idx))
-					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
+				# store quantities needed in kernel()
+				cas_hf.spin = _mol.spin
+				cas_hf.mo_occ = _calc.hf_mo_occ[_cas_idx]
+				cas_hf.e_tot = _calc.hf_e_tot - _e_core
 				#
 				return cas_hf
 
@@ -460,7 +435,12 @@ class ModelSolver():
 							sys.stderr.write(str(err))
 							raise
 				elif (self.model_type in ['CCSD','CCSD(T)']):
-					self.model = cc.CCSD(_cas_hf)
+					if (_cas_hf.spin == 0):
+						self.model = cc.ccsd.CCSD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
+					else:
+						del _cas_hf.mo_energy
+						self.model = cc.uccsd.UCCSD(_cas_hf, mo_coeff=np.array((np.eye(len(_cas_idx)), np.eye(len(_cas_idx)))), \
+												mo_occ=np.array((_cas_hf.mo_occ>0, _cas_hf.mo_occ==2), dtype=np.double))
 					self.model.conv_tol = 1.0e-10
 					self.model.diis_space = 10
 					self.model.max_cycle = 100
