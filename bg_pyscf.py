@@ -216,7 +216,6 @@ class PySCFCls():
 						if (_mol.spin == 0):
 							ccsd_2 = cc.ccsd.CCSD(hf, mo_coeff=np.eye(_mol.norb), mo_occ=_calc.hf_mo_occ)
 						else:
-							del hf.mo_energy
 							ccsd_2 = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(_mol.norb), np.eye(_mol.norb))), \
 													mo_occ=np.array((_calc.hf_mo_occ>0, _calc.hf_mo_occ==2), dtype=np.double))
 						ccsd_2.conv_tol = 1.0e-10
@@ -439,7 +438,6 @@ class ModelSolver():
 					if (_cas_hf.spin == 0):
 						self.model = cc.ccsd.CCSD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
 					else:
-						del _cas_hf.mo_energy
 						self.model = cc.uccsd.UCCSD(_cas_hf, mo_coeff=np.array((np.eye(len(_cas_idx)), np.eye(len(_cas_idx)))), \
 												mo_occ=np.array((_cas_hf.mo_occ>0, _cas_hf.mo_occ==2), dtype=np.double))
 					self.model.conv_tol = 1.0e-10
