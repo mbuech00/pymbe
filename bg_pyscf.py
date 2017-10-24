@@ -379,7 +379,7 @@ class PySCFCls():
 				# verbose print
 				if (_mol.verbose > 1):
 					print('e_corr = {0:.6f} , e_cas = {1:.6f} , e_base = {2:.6f} , core_idx = {3:} , cas_idx = {4:}'.\
-						format(e_corr,e_cas,e_base,_exp.core_idx,_exp.cas_idx))
+							format(e_corr,e_cas,e_base,_exp.core_idx,_exp.cas_idx))
 				#
 				return e_corr
 
