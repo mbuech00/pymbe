@@ -132,8 +132,8 @@ class PySCFCls():
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
 					cisd.conv_tol = 1.0e-10
-					cisd.max_cycle = 100
-					cisd.max_space = 30
+					cisd.max_cycle = 200
+					cisd.max_space = 20
 					cisd.frozen = frozen
 					for i in range(5,-1,-1):
 						cisd.level_shift = 1.0 / 10.0 ** (i)
@@ -152,8 +152,8 @@ class PySCFCls():
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_calc.hf)
 					ccsd.conv_tol = 1.0e-10
-					ccsd.max_cycle = 100
-					ccsd.diis_space = 10
+					ccsd.max_cycle = 200
+					ccsd.diis_space = 20
 					ccsd.frozen = frozen
 					for i in list(range(0, 12, 2)):
 						ccsd.diis_start_cycle = i
@@ -219,8 +219,8 @@ class PySCFCls():
 							ccsd_2 = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(_mol.norb), np.eye(_mol.norb))), \
 													mo_occ=np.array((_calc.hf_mo_occ>0, _calc.hf_mo_occ==2), dtype=np.double))
 						ccsd_2.conv_tol = 1.0e-10
-						ccsd_2.max_cycle = 100
-						ccsd_2.diis_space = 10
+						ccsd_2.max_cycle = 200
+						ccsd_2.diis_space = 20
 						ccsd_2.frozen = frozen
 						for i in list(range(0, 12, 2)):
 							ccsd_2.diis_start_cycle = i
@@ -268,8 +268,8 @@ class PySCFCls():
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_calc.hf)
 					ccsd.conv_tol = 1.0e-10
-					ccsd.max_cycle = 100
-					ccsd.diis_space = 10
+					ccsd.max_cycle = 200
+					ccsd.diis_space = 20
 					ccsd.frozen = frozen
 					for i in list(range(0, 12, 2)):
 						ccsd.diis_start_cycle = i
@@ -320,10 +320,10 @@ class PySCFCls():
 						solver_cas = fci.direct_spin0.FCI()
 					else:
 						solver_cas = fci.direct_spin1.FCI()
-				# settings
-				solver_cas.conv_tol = 1.0e-10
-				solver_cas.max_cycle = 100
-				solver_cas.max_space = 10
+					# fci settings
+					solver_cas.conv_tol = 1.0e-10
+					solver_cas.max_cycle = 100
+					solver_cas.max_space = 10
 				# cas calculation
 				if (_calc.exp_model['METHOD'] != 'FCI'):
 					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.e_core)
@@ -417,8 +417,8 @@ class ModelSolver():
 				if (self.model_type == 'CISD'):
 					self.model = ci.CISD(_cas_hf)
 					self.model.conv_tol = 1.0e-10
-					self.model.max_cycle = 100
-					self.model.max_space = 30
+					self.model.max_cycle = 200
+					self.model.max_space = 20
 					for i in range(5,-1,-1):
 						self.model.level_shift = 1.0 / 10.0 ** (i)
 						try:
@@ -441,8 +441,8 @@ class ModelSolver():
 						self.model = cc.uccsd.UCCSD(_cas_hf, mo_coeff=np.array((np.eye(len(_cas_idx)), np.eye(len(_cas_idx)))), \
 												mo_occ=np.array((_cas_hf.mo_occ>0, _cas_hf.mo_occ==2), dtype=np.double))
 					self.model.conv_tol = 1.0e-10
-					self.model.diis_space = 10
-					self.model.max_cycle = 100
+					self.model.max_cycle = 200
+					self.model.diis_space = 20
 					for i in list(range(0, 12, 2)):
 						self.model.diis_start_cycle = i
 						try:
