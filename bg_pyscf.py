@@ -155,10 +155,11 @@ class PySCFCls():
 					ccsd.max_cycle = 200
 					ccsd.diis_space = 20
 					ccsd.frozen = frozen
+					eris = ccsd.ao2mo()
 					for i in list(range(0, 12, 2)):
 						ccsd.diis_start_cycle = i
 						try:
-							ccsd.kernel()
+							ccsd.kernel(eris=eris)
 						except sp.linalg.LinAlgError: pass
 						if (ccsd.converged):
 							_calc.e_zero = ccsd.e_corr
@@ -202,7 +203,7 @@ class PySCFCls():
 				# add (t) correction
 				if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
 					if ((_calc.exp_occ == 'CAN') and (_calc.exp_virt == 'CAN')):
-						_calc.e_zero += ccsd.ccsd_t()
+						_calc.e_zero += ccsd.ccsd_t(eris=eris)
 					else:
 						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _mol.hcore, _calc.trans_mat))
 						h2e = ao2mo.kernel(_mol, _calc.trans_mat)
@@ -222,10 +223,11 @@ class PySCFCls():
 						ccsd_2.max_cycle = 200
 						ccsd_2.diis_space = 20
 						ccsd_2.frozen = frozen
+						eris = ccsd_2.ao2mo()
 						for i in list(range(0, 12, 2)):
 							ccsd_2.diis_start_cycle = i
 							try:
-								ccsd_2.kernel()
+								ccsd_2.kernel(eris=eris)
 							except sp.linalg.LinAlgError: pass
 							if (ccsd_2.converged): break
 						if (not ccsd_2.converged):
@@ -234,7 +236,7 @@ class PySCFCls():
 							except Exception as err:
 								sys.stderr.write(str(err))
 								raise
-						_calc.e_zero += ccsd_2.ccsd_t()
+						_calc.e_zero += ccsd_2.ccsd_t(eris=eris)
 				#
 				return
 
@@ -443,10 +445,11 @@ class ModelSolver():
 					self.model.conv_tol = 1.0e-10
 					self.model.max_cycle = 200
 					self.model.diis_space = 20
+					eris = self.model.ao2mo()
 					for i in list(range(0, 12, 2)):
 						self.model.diis_start_cycle = i
 						try:
-							e_corr = self.model.kernel()[0]
+							e_corr = self.model.kernel(eris=eris)[0]
 						except sp.linalg.LinAlgError: pass
 						if (self.model.converged): break
 					# check for convergence
@@ -459,7 +462,7 @@ class ModelSolver():
 							sys.stderr.write(str(err))
 							raise
 					# add (t) correction
-					if (self.model_type == 'CCSD(T)'): e_corr += self.model.ccsd_t()
+					if (self.model_type == 'CCSD(T)'): e_corr += self.model.ccsd_t(eris=eris)
 				#
 				return e_corr + _cas_hf.e_tot
 
