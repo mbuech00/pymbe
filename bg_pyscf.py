@@ -425,6 +425,11 @@ class ModelSolver():
 				""" model kernel """
 				if (self.model_type == 'CISD'):
 					self.model = ci.CISD(_cas_hf)
+					if (_cas_hf.mol.spin == 0):
+						self.model = ci.cisd.CISD(_cas_hf, mo_coeff=np.eye(len(_cas_idx)), mo_occ=_cas_hf.mo_occ)
+					else:
+						self.model = ci.ucisd.UCISD(_cas_hf, mo_coeff=np.array((np.eye(len(_cas_idx)), np.eye(len(_cas_idx)))), \
+												mo_occ=np.array((_cas_hf.mo_occ>0, _cas_hf.mo_occ==2), dtype=np.double))
 					self.model.conv_tol = 1.0e-10
 					self.model.max_cycle = 200
 					self.model.max_space = 20
