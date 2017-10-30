@@ -243,9 +243,10 @@ class ResCls():
 					# mark zero
 					ax.flat[i-start].axvline(x=0.0, color='black')
 					# set title
-					ax.flat[i-start].set_title('k = {0:}  (N = {1:})'.format(i+1, len(_exp.energy_inc[i-start])))
+					ax.flat[i-start].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+1, len(_exp.energy_inc[i]), \
+																							np.sum(_exp.energy_inc[i])), size=10)
 					# format x-axis
-					ax.flat[i-start].xaxis.set_major_formatter(FormatStrFormatter('%.2e'))
+					ax.flat[i-start].xaxis.set_major_formatter(FormatStrFormatter('%.1e'))
 					ax.flat[i-start].xaxis.set_ticks([np.min(_exp.energy_inc[i]),np.max(_exp.energy_inc[i])])
 					# remove y-axis
 					plt.setp(ax.flat[i-start], yticks=[])
