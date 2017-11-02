@@ -52,14 +52,14 @@ class KernCls():
 		def summation(self, _calc, _exp, _idx):
 				""" energy summation """
 				# now compute increment
-				for i in range(_exp.order-1, 0, -1):
+				for i in range(_exp.order-1, len(_exp.tuples[0][0])-1, -1):
 					# test if tuple is a subset
 					combs = _exp.tuples[-1][_idx, self.comb_index(_exp.order, i)]
-					dt = np.dtype((np.void, _exp.tuples[i-1].dtype.itemsize * \
-									_exp.tuples[i-1].shape[1]))
-					match = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
+					dt = np.dtype((np.void, _exp.tuples[i-len(_exp.tuples[0][0])].dtype.itemsize * \
+									_exp.tuples[i-len(_exp.tuples[0][0])].shape[1]))
+					match = np.nonzero(np.in1d(_exp.tuples[i-len(_exp.tuples[0][0])].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
-					for j in match: _exp.energy_inc[-1][_idx] -= _exp.energy_inc[i-1][j]
+					for j in match: _exp.energy_inc[-1][_idx] -= _exp.energy_inc[i-len(_exp.tuples[0][0])][j]
 				#
 				return
 
@@ -77,7 +77,7 @@ class KernCls():
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum of total energy
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
-				if ((_exp.order >= _exp.min_order) and (_exp.order > 1)): e_tmp += _exp.energy_tot[-1]
+				if (_exp.order > len(_exp.tuples[0][0])): e_tmp += _exp.energy_tot[-1]
 				# add to total energy list
 				_exp.energy_tot.append(e_tmp)
 				# check for convergence wrt total energy
@@ -132,10 +132,10 @@ class KernCls():
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						_rst.write_kernel(_calc, _exp, False)
-				# manually force e_inc to zero in case of CISD, CCSD, or CCSD(T) base models in case of closed-shell state
-				if (_mol.spin == 0):
-					if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
-						_exp.energy_inc[0].fill(0.0)
+#				# manually force e_inc to zero in case of CISD, CCSD, or CCSD(T) base models in case of closed-shell state
+#				if (_mol.spin == 0):
+#					if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
+#						_exp.energy_inc[0].fill(0.0)
 				#
 				return
 
@@ -216,10 +216,10 @@ class KernCls():
 						slaves_avail -= 1
 				# print 100.0 %
 				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
-				# manually force e_inc to zero in case of CISD, CCSD, or CCSD(T) base models in case of closed-shell state
-				if (_mol.spin == 0):
-					if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
-						_exp.energy_inc[0].fill(0.0)
+#				# manually force e_inc to zero in case of CISD, CCSD, or CCSD(T) base models in case of closed-shell state
+#				if (_mol.spin == 0):
+#					if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
+#						_exp.energy_inc[0].fill(0.0)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				#

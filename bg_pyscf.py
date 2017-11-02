@@ -376,6 +376,10 @@ class PySCFCls():
 				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
 					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
 #					if (_exp.order < _exp.max_order): e_corr += (e_cas + _exp.e_core) - _calc.hf_e_tot + 0.001 * np.random.random_sample()
+					# verbose print
+					if (_mol.verbose > 1):
+						print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.\
+								format(e_corr,_exp.core_idx,_exp.cas_idx))
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
@@ -383,10 +387,10 @@ class PySCFCls():
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)
 					e_corr = e_cas - e_base
 #					if (_exp.order < _exp.max_order): e_corr += e_cas - e_base + 0.001 * np.random.random_sample()
-				# verbose print
-				if (_mol.verbose > 1):
-					print('e_corr = {0:.6f} , e_cas = {1:.6f} , e_base = {2:.6f} , core_idx = {3:} , cas_idx = {4:}'.\
-							format(e_corr,e_cas,e_base,_exp.core_idx,_exp.cas_idx))
+					# verbose print
+					if (_mol.verbose > 1):
+						print('e_corr = {0:.6f} , e_cas = {1:.6f} , e_base = {2:.6f} , core_idx = {3:} , cas_idx = {4:}'.\
+								format(e_corr,e_cas,e_base,_exp.core_idx,_exp.cas_idx))
 				#
 				return e_corr
 

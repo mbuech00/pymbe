@@ -82,7 +82,7 @@ class ScrCls():
 								break
 			        # loop over parent tuples
 					for i in range(len(_exp.allow_tuples)):
-						if (_exp.order == _exp.min_order):
+						if (_exp.order == len(_exp.tuples[0][0])):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.allow_tuples[i][-1]+1, self.l_limit+self.u_limit):
 								tmp.append(_exp.allow_tuples[i].tolist()+[m])
@@ -226,7 +226,7 @@ class ScrCls():
 					if (tag == self.tags.start):
 						# init child tuple list
 						data['child_tuple'][:] = []
-						if (_exp.order == _exp.min_order):
+						if (_exp.order == len(_exp.tuples[0][0])):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.allow_tuples[job_info['index']][-1]+1, self.l_limit+self.u_limit):
 								data['child_tuple'].append(_exp.allow_tuples[job_info['index']].tolist()+[m])

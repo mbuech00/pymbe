@@ -195,7 +195,7 @@ class ResCls():
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# plot results
-				ax.plot(list(range(_exp.min_order,len(_exp.energy_tot)+_exp.min_order)),
+				ax.plot(list(range(len(_exp.tuples[0][0]),len(_exp.energy_tot)+len(_exp.tuples[0][0]))),
 						_exp.energy_tot+_calc.e_zero, marker='x', linewidth=2,
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
@@ -223,36 +223,36 @@ class ResCls():
 				""" plot distribution of energy increments """
 				# set seaborn
 				sns.set(style='white', palette='Set2', font='DejaVu Sans')
-				# set start index
-				start = 0
-				if (np.sum(_exp.energy_inc[0]) == 0.0): start += 1
 				# set end index
 				end = len(_exp.energy_inc)
 				if (len(_exp.energy_inc[-1]) == 1): end -= 1
 				# set number of subplots
-				h_length = (end-start) // 2
-				if ((end-start) % 2 != 0): h_length += 1
+				h_length = end // 2
+				if (end % 2 != 0): h_length += 1
 				fig, ax = plt.subplots(h_length, 2)
 				# set figure size
 				fig.set_size_inches([8.268,11.693])
 				# plot results
-				for i in range(start, end):
+				for i in range(end):
 					# plot data
 					sns.distplot(_exp.energy_inc[i], hist=False, color='red', \
-									kde_kws={'shade': True}, ax=ax.flat[i-start])
-					# mark zero
-					ax.flat[i-start].axvline(x=0.0, color='black')
+									kde_kws={'shade': True}, ax=ax.flat[i])
 					# set title
-					ax.flat[i-start].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+1, len(_exp.energy_inc[i]), \
+					ax.flat[i].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+len(_exp.tuples[0][0]), len(_exp.energy_inc[i]), \
 																							np.sum(_exp.energy_inc[i])), size=10)
+					# val_max
+					val_max = _exp.energy_inc[i][np.argmax(np.abs(_exp.energy_inc[i]))]
 					# format x-axis
-					ax.flat[i-start].xaxis.set_major_formatter(FormatStrFormatter('%.1e'))
-					ax.flat[i-start].xaxis.set_ticks([np.min(_exp.energy_inc[i]),np.max(_exp.energy_inc[i])])
+					ax.flat[i].set_xticks([0.0,val_max])
+					ax.flat[i].set_xticklabels(['0.0', '{0:.1e}'.format(val_max)])
 					# remove y-axis
-					plt.setp(ax.flat[i-start], yticks=[])
+					plt.setp(ax.flat[i], yticks=[])
+					# mark zero and max
+					ax.flat[i].axvline(x=0.0, color='black', ymax=0.5)
+					ax.flat[i].axvline(x=val_max, color='blue', ymax=0.5)
 				# despine
 				sns.despine(left=True)
-				if ((end-start) % 2 != 0):
+				if (end % 2 != 0):
 					sns.despine(ax=ax.flat[-1], left=True, bottom=True)
 					plt.setp(ax.flat[-1], xticks=[], yticks=[])
 				# save plot

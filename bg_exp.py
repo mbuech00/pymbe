@@ -29,9 +29,17 @@ class ExpCls():
 					init_tuples = _mol.virt
 					self.incl_idx = _mol.occ.tolist()
 				# append to self.tuples
-				self.tuples = [np.array(list([i] for i in init_tuples), dtype=np.int32)]
+				if (_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']):
+					self.tuples = [np.array(list([i] for i in init_tuples), dtype=np.int32)]
+				else:
+					tmp = []
+					for i in range(len(init_tuples)):
+						for m in range(init_tuples[i]+1, init_tuples[-1]+1):
+							tmp.append([init_tuples[i]]+[m])
+					tmp.sort()
+					self.tuples = [np.array(tmp, dtype=np.int32)]
 				# verbose print
-				if (_mol.verbose > 1):
+				if ((_mol.verbose > 1) and _mpi.global_master):
 					print('mo_occ = {0:} , incl_idx = {1:} , tuples = {2:}'.format(_calc.hf_mo_occ,self.incl_idx,self.tuples))
 				# init energy_inc
 				self.energy_inc = []
@@ -45,14 +53,9 @@ class ExpCls():
 						self.max_order = _mol.nvirt
 				# determine max theoretical work
 				self.theo_work = []
-				if (_type == 'occupied'):
-					for k in range(_mol.nocc-_mol.ncore):
-						self.theo_work.append(int(factorial(_mol.nocc-_mol.ncore) / \
-												(factorial(k+1) * factorial((_mol.nocc-_mol.ncore) - (k+1)))))
-				else:
-					for k in range(_mol.nvirt):
-						self.theo_work.append(int(factorial(_mol.nvirt) / \
-												(factorial(k+1) * factorial(_mol.nvirt - (k+1)))))
+				for k in range(len(self.tuples[0][0]), self.max_order):
+					self.theo_work.append(int(factorial(self.max_order) / \
+											(factorial(k) * factorial(self.max_order - k))))
 				# init micro_conv list
 				if (_mpi.global_master): self.micro_conv = []
 				# init convergence lists

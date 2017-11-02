@@ -45,14 +45,11 @@ class RstCls():
 
 		def rst_main(self, _mpi, _calc, _exp):
 				""" main restart driver """
-				if (not self.restart):
-					# set start order for expansion
-					_exp.min_order = 1
-				else:
+				if (self.restart):
 					# read in _exp restart files
 					self.read_exp(_exp)
-					# set min_order
-					_exp.min_order = len(_exp.tuples[-1][0])
+				# set min_order
+				_exp.min_order = len(_exp.tuples[-1][0])
 				#
 				return
 		
