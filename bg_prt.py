@@ -121,25 +121,25 @@ class PrintCls():
 						if (_exp.conv_energy[-1]):
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_calc.energy_thres))
+									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_exp.thres))
 							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_calc.energy_thres))
+									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_exp.thres))
 							print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				if (_exp.conv_energy[-1]):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_calc.energy_thres))
+							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_exp.thres))
 					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_calc.energy_thres))
+							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_exp.thres))
 					print(' --------------------------------------------------------------------------------------------')
 				#
 				return

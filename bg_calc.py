@@ -26,11 +26,11 @@ class CalcCls():
 				self.exp_type = 'occupied'
 				self.exp_ref = {'METHOD': 'HF'}
 				self.exp_base = None
-				self.exp_thres = 0.0
+				self.exp_thres = 1.0e-10
+				self.exp_relax = 1.0
 				self.exp_max_order = 0
 				self.exp_occ = 'CAN'
 				self.exp_virt = 'CAN'
-				self.energy_thres = 0.0
 				self.tolerance = 0.0
 				# init hf_mo_coeff, hf_mo_occ, and transformation matrix
 				self.hf_mo_coeff = None; self.hf_mo_occ = None; self.trans_mat = None
@@ -38,8 +38,8 @@ class CalcCls():
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
 						self.exp_thres, self.exp_max_order, self.exp_occ, self.exp_virt, \
-						self.energy_thres, self.tolerance, _mol.verbose, _mol.max_memory, \
-						_mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
+						self.exp_relax, self.tolerance, _mol.verbose, \
+						_mol.max_memory, _mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
 					# if not given, set exp_base equal to exp_ref
 					if (self.exp_base is None): self.exp_base = {'METHOD': self.exp_ref['METHOD']}
 					# sanity check
@@ -76,8 +76,8 @@ class CalcCls():
 								self.exp_occ = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'virt'):
 								self.exp_virt = re.split('=',content[i])[1].strip().upper()
-							elif (re.split('=',content[i])[0].strip() == 'e_thres'):
-								self.energy_thres = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'relax'):
+								self.exp_relax = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'tolerance'):
 								self.tolerance = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
@@ -101,7 +101,7 @@ class CalcCls():
 					raise
 				#
 				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, self.exp_thres, \
-							self.exp_max_order, self.exp_occ, self.exp_virt, self.energy_thres, \
+							self.exp_max_order, self.exp_occ, self.exp_virt, self.exp_relax, \
 							self.tolerance, _mol.verbose, _mol.max_memory, _mpi.num_local_masters
 
 
@@ -140,13 +140,13 @@ class CalcCls():
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
 										'expansion order (must be integer >= 1)')
-					# expansion and energy thresholds
+					# expansion and convergence thresholds
 					if (self.exp_thres < 0.0):
 						raise ValueError('wrong input -- expansion threshold parameter ' + \
-										'(thres) must be float >= 0.0')
-					if (self.energy_thres < 0.0):
-						raise ValueError('wrong input -- energy threshold parameter ' + \
-										'(e_thres) must be float >= 0.0')
+										'(thres) must be float: 0.0 <= thres')
+					if (self.exp_relax < 1.0):
+						raise ValueError('wrong input -- threshold relaxation parameter ' + \
+										'(relax) must be float: 1.0 <= relax')
 					# orbital representation
 					if (not (self.exp_occ in ['CAN','PM','FB','IBO-1','IBO-2','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \

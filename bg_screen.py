@@ -47,16 +47,14 @@ class ScrCls():
 	
 		def update(self, _calc, _exp):
 				""" update expansion threshold according to start order """
-				if (_exp.order <= 2):
-					return 100.0
-				else:
+				if (_exp.order < 2):
 					return _calc.exp_thres
+				else:
+					return _calc.exp_thres * _calc.exp_relax ** (_exp.order - 2)
 
 		
 		def main(self, _mpi, _mol, _calc, _exp, _rst):
 				""" input generation for subsequent order """
-				# update expansion threshold
-				_exp.thres = self.update(_calc, _exp)
 				# start screening
 				if (_mpi.parallel):
 					# mpi parallel version
@@ -65,21 +63,12 @@ class ScrCls():
 					# init bookkeeping variables
 					tmp = []; combs = []
 					# generate list of allowed tuples
-					if ((_exp.order <= 2) or (_exp.thres == 100.0)):
+					if ((_exp.order <= 2) or (_exp.thres == 0.0)):
 						# compute all (k+1)-order increments
 						_exp.allow_tuples = _exp.tuples[-1]
 					else:
-						# rank the increments that have contributions above the convergence threshold
-						above = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= 1.0e-10)]
-						sort = np.argsort(np.abs(above))[::-1]
-						# sum up total absolute energy
-						sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
-						# loop until threshold has been reached
-						for idx in range(len(above)):
-							sum_tmp += np.abs(above[sort[idx]])
-							if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
-								_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
-								break
+						# screen away tuples with increments below threshold
+						_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 			        # loop over parent tuples
 					for i in range(len(_exp.allow_tuples)):
 						if (_exp.order == len(_exp.tuples[0][0])):
@@ -108,6 +97,8 @@ class ScrCls():
 						_exp.tuples.append(np.array(tmp, dtype=np.int32))
 					else:
 						_exp.conv_orb.append(True)
+				# update expansion threshold
+				_exp.thres = self.update(_calc, _exp)
 				#
 				return
 	
@@ -134,21 +125,12 @@ class ScrCls():
 				# init bookkeeping variables
 				i = 0; tmp = []
 				# generate list of allowed tuples
-				if ((_exp.order <= 2) or (_exp.thres == 100.0)):
+				if ((_exp.order <= 2) or (_exp.thres == 0.0)):
 					# compute all (k+1)-order increments
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
-					# rank the increments that have contributions above the convergence threshold
-					above = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= 1.0e-10)]
-					sort = np.argsort(np.abs(above))[::-1]
-					# sum up total absolute energy
-					sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
-					# loop until threshold has been reached
-					for idx in range(len(above)):
-						sum_tmp += np.abs(above[sort[idx]])
-						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
-							_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
-							break
+					# screen away tuples with increments below threshold
+					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
@@ -199,21 +181,12 @@ class ScrCls():
 				else:
 					comm = _mpi.local_comm
 				# generate list of allowed tuples
-				if ((_exp.order <= 2) or (_exp.thres == 100.0)):
+				if ((_exp.order <= 2) or (_exp.thres == 0.0)):
 					# compute all (k+1)-order increments
 					_exp.allow_tuples = _exp.tuples[-1]
 				else:
-					# rank the increments that have contributions above the convergence threshold
-					above = _exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= 1.0e-10)]
-					sort = np.argsort(np.abs(above))[::-1]
-					# sum up total absolute energy
-					sum_total = np.sum(np.abs(above)); sum_tmp = 0.0
-					# loop until threshold has been reached
-					for idx in range(len(above)):
-						sum_tmp += np.abs(above[sort[idx]])
-						if ((sum_tmp / sum_total)*100.0 >= _exp.thres):
-							_exp.allow_tuples = _exp.tuples[-1][sort[:idx+1]]
-							break
+					# screen away tuples with increments below threshold
+					_exp.allow_tuples = _exp.tuples[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _exp.thres)]
 				# receive work from master
 				while (True):
 					# send status to master

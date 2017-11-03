@@ -53,7 +53,7 @@ class ExpCls():
 						self.max_order = _mol.nvirt
 				# determine max theoretical work
 				self.theo_work = []
-				for k in range(len(self.tuples[0][0]), self.max_order):
+				for k in range(len(self.tuples[0][0]), self.max_order+1):
 					self.theo_work.append(int(factorial(self.max_order) / \
 											(factorial(k) * factorial(self.max_order - k))))
 				# init micro_conv list
@@ -69,6 +69,8 @@ class ExpCls():
 					self.time_screen = []
 				# init e_core
 				self.e_core = None
+				# init thres
+				self.thres = _calc.exp_thres
 				#
 				return
 

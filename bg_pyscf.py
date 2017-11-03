@@ -37,7 +37,7 @@ class PySCFCls():
 				# perform hf calc
 				hf = scf.RHF(_mol)
 				hf.conv_tol = 1.0e-12
-				hf.max_cycle = 100
+				hf.max_cycle = 500
 				hf.irrep_nelec = _mol.irrep_nelec
 				# restart calc?
 				if (_calc.hf_mo_coeff is None):
@@ -114,7 +114,6 @@ class PySCFCls():
 											np.count_nonzero(_calc.hf_mo_occ == 2.) - _mol.ncore)
 					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
 					casci.conv_tol = 1.0e-12
-					casci.max_cycle_macro = 100
 					mo = casci.sort_mo(act_orbs, base=0)
 					ref_e_tot = casci.kernel(mo)[0]
 				#
@@ -131,9 +130,9 @@ class PySCFCls():
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
-					cisd.conv_tol = 1.0e-10
-					cisd.max_cycle = 200
-					cisd.max_space = 20
+					cisd.conv_tol = 1.0e-12
+					cisd.max_cycle = 500
+					cisd.max_space = 10
 					cisd.mol.incore_anyway = True
 					cisd.frozen = frozen
 					for i in range(5,-1,-1):
@@ -152,9 +151,10 @@ class PySCFCls():
 				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_calc.hf)
-					ccsd.conv_tol = 1.0e-10
-					ccsd.max_cycle = 200
-					ccsd.diis_space = 20
+					ccsd.conv_tol = 1.0e-12
+					ccsd.conv_tol_normt = 1.0e-12
+					ccsd.max_cycle = 500
+					ccsd.diis_space = 10
 					ccsd.mol.incore_anyway = True
 					ccsd.frozen = frozen
 					eris = ccsd.ao2mo()
@@ -221,9 +221,8 @@ class PySCFCls():
 						else:
 							ccsd_2 = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(_mol.norb), np.eye(_mol.norb))), \
 													mo_occ=np.array((_calc.hf_mo_occ>0, _calc.hf_mo_occ==2), dtype=np.double))
-						ccsd_2.conv_tol = 1.0e-10
-						ccsd_2.max_cycle = 200
-						ccsd_2.diis_space = 20
+						ccsd_2.max_cycle = 500
+						ccsd_2.diis_space = 10
 						ccsd_2.mol.incore_anyway = True
 						ccsd_2.frozen = frozen
 						eris = ccsd_2.ao2mo()
@@ -252,9 +251,9 @@ class PySCFCls():
 				if (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
-					cisd.conv_tol = 1.0e-10
-					cisd.max_cycle = 100
-					cisd.max_space = 30
+					cisd.conv_tol = 1.0e-12
+					cisd.max_cycle = 500
+					cisd.max_space = 10
 					cisd.mol.incore_anyway = True
 					cisd.frozen = frozen
 					for i in range(5,-1,-1):
@@ -273,9 +272,10 @@ class PySCFCls():
 				elif (_calc.exp_base['METHOD'] == 'CCSD'):
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_calc.hf)
-					ccsd.conv_tol = 1.0e-10
-					ccsd.max_cycle = 200
-					ccsd.diis_space = 20
+					ccsd.conv_tol = 1.0e-12
+					ccsd.conv_tol_normt = 1.0e-12
+					ccsd.max_cycle = 500
+					ccsd.diis_space = 10
 					ccsd.mol.incore_anyway = True
 					ccsd.frozen = frozen
 					for i in list(range(0, 12, 2)):
@@ -328,16 +328,16 @@ class PySCFCls():
 					else:
 						solver_cas = fci.direct_spin1.FCI()
 					# fci settings
-					solver_cas.conv_tol = 1.0e-10
-					solver_cas.max_cycle = 100
+					solver_cas.conv_tol = _exp.thres
+					solver_cas.max_cycle = 500
 					solver_cas.max_space = 10
 					solver_cas.max_memory = _mol.max_memory
+					solver_cas.davidson_only = True
 				# cas calculation
 				if (_calc.exp_model['METHOD'] != 'FCI'):
-					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.e_core)
+					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.e_core, _exp.thres)
 					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
-					solver_cas.davidson_only = True
 					# initial guess
 					nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
 					na = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[0])
@@ -383,7 +383,7 @@ class PySCFCls():
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
-					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.e_core)
+					hf_base = solver_base.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.e_core, _exp.thres)
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)
 					e_corr = e_cas - e_base
 #					if (_exp.order < _exp.max_order): e_corr += e_cas - e_base + 0.001 * np.random.random_sample()
@@ -407,7 +407,7 @@ class ModelSolver():
 				return
 
 
-		def hf(self, _mol, _calc, _h1e, _h2e, _cas_idx, _e_core):
+		def hf(self, _mol, _calc, _h1e, _h2e, _cas_idx, _e_core, _thres):
 				""" form active space hf """
 				cas_mol = gto.M(verbose=0)
 				cas_mol.max_memory = _mol.max_memory
@@ -421,6 +421,7 @@ class ModelSolver():
 				# store quantities needed in kernel()
 				cas_hf.mo_occ = _calc.hf_mo_occ[_cas_idx]
 				cas_hf.e_tot = _calc.hf_e_tot - _e_core
+				cas_hf.conv_tol = _thres
 				#
 				return cas_hf
 
@@ -434,9 +435,9 @@ class ModelSolver():
 					else:
 						self.model = ci.ucisd.UCISD(_cas_hf, mo_coeff=np.array((np.eye(len(_cas_idx)), np.eye(len(_cas_idx)))), \
 												mo_occ=np.array((_cas_hf.mo_occ>0, _cas_hf.mo_occ==2), dtype=np.double))
-					self.model.conv_tol = 1.0e-10
-					self.model.max_cycle = 200
-					self.model.max_space = 20
+					self.model.conv_tol = _cas_hf.conv_tol
+					self.model.max_cycle = 500
+					self.model.max_space = 10
 					self.model.max_memory = _cas_hf.mol.max_memory
 					for i in range(5,-1,-1):
 						self.model.level_shift = 1.0 / 10.0 ** (i)
@@ -459,9 +460,9 @@ class ModelSolver():
 					else:
 						self.model = cc.uccsd.UCCSD(_cas_hf, mo_coeff=np.array((np.eye(len(_cas_idx)), np.eye(len(_cas_idx)))), \
 												mo_occ=np.array((_cas_hf.mo_occ>0, _cas_hf.mo_occ==2), dtype=np.double))
-					self.model.conv_tol = 1.0e-10
-					self.model.max_cycle = 200
-					self.model.diis_space = 20
+					self.model.conv_tol = _cas_hf.conv_tol
+					self.model.max_cycle = 500
+					self.model.diis_space = 10
 					self.model.max_memory = _cas_hf.mol.max_memory
 					eris = self.model.ao2mo()
 					for i in list(range(0, 12, 2)):

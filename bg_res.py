@@ -105,7 +105,7 @@ class ResCls():
 				# plot total energy
 				self.abs_energy(_calc, _exp)
 				# plot distributions of energy increments
-				self.dist_energy(_exp)
+				self.dist_energy(_calc, _exp)
 				#
 				return
 
@@ -123,37 +123,37 @@ class ResCls():
 								format('','molecular information','','|','',\
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:10}{10:10}{11:1}'
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:15}{10:5}{11:1}'
 							'{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<2d}{22:^3}{23:<d}').\
 								format('','basis set','','=','',_mol.basis,\
-									'','|','','exp. model','','=','',_calc.exp_model['METHOD'],\
+									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
 									'','|','','# mpi masters / slaves','','=','',\
 									_mpi.num_local_masters + 1,'/',_mpi.global_size - (_mpi.num_local_masters + 1)))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:14}{10:6}{11:1}'
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:4}{11:1}'
 							'{12:2}{13:<12s}{14:1}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
-									'','|','','exp. reference','','=','',self.exp_ref,\
+									'','|','','reference funct.','','=','',self.exp_ref,\
 									'','|','','HF energy','','=','',_calc.hf_e_tot))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:10}{12:10}'
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:15}{12:5}'
 							'{13:1}{14:2}{15:<12s}{16:1}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
-									'','|','','exp. base','','=','',self.exp_base,\
+									'','|','','expansion base','','=','',self.exp_base,\
 									'','|','','reference energy','','=','',_calc.ref_e_tot))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:10}{10:10}'
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:15}{10:5}'
 							'{11:1}{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
-									'','|','','exp. type','','=','',_calc.exp_type,\
+									'','|','','expansion type','','=','',_calc.exp_type,\
 									'','|','','base model energy','','=','',self.exp_base_energy))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:12}{10:8}{11:1}{12:2}'
-							'{13:<6.2f}{14:2}{15:5}{16:1}{17:7}{18:18}{19:6}{20:1}{21:1}{22:.6f}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:15}{10:5}{11:1}{12:2}'
+							'{13:<5.2e}{14:5}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
-									'','|','','exp. thres.','','=','',_calc.exp_thres,' %',\
+									'','|','','initial thres.','','=','',_calc.exp_thres,\
 									'','|','','final total energy','','=','',\
 									_calc.hf_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:14}{10:6}{11:1}{12:2}'
-							'{13:<5.2e}{14:5}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:18}{10:2}{11:1}{12:2}'
+							'{13:<5.2f}{14:8}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','HF symmetry','','=','',self.hf_symmetry,\
-									'','|','','energy thres.','','=','',_calc.energy_thres,\
+									'','|','','thres. relaxation','','=','',_calc.exp_relax,\
 									'','|','','final abs. conv.','','=','',\
 									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))
 						print(self.divider_str)
@@ -219,7 +219,7 @@ class ResCls():
 				return
 
 
-		def dist_energy(self, _exp):
+		def dist_energy(self, _calc, _exp):
 				""" plot distribution of energy increments """
 				# set seaborn
 				sns.set(style='white', palette='Set2', font='DejaVu Sans')
@@ -234,6 +234,15 @@ class ResCls():
 				fig.set_size_inches([8.268,11.693])
 				# plot results
 				for i in range(end):
+					# plot threshold interval
+					if (_calc.exp_base['METHOD'] != 'HF'):
+						if (i >= 1):
+							thres = _calc.exp_thres * _calc.exp_relax ** (i)
+							ax.flat[i].axvspan(0.0-thres, 0.0+thres, facecolor='yellow', alpha=0.4)
+					else:
+						if (i >= 2):
+							thres = _calc.exp_thres * _calc.exp_relax ** (i-1)
+							ax.flat[i].axvspan(0.0-thres, 0.0+thres, facecolor='yellow', alpha=0.4)
 					# plot data
 					sns.distplot(_exp.energy_inc[i], hist=False, color='red', \
 									kde_kws={'shade': True}, ax=ax.flat[i])
@@ -248,8 +257,8 @@ class ResCls():
 					# remove y-axis
 					plt.setp(ax.flat[i], yticks=[])
 					# mark zero and max
-					ax.flat[i].axvline(x=0.0, color='black', ymax=0.5)
-					ax.flat[i].axvline(x=val_max, color='blue', ymax=0.5)
+					ax.flat[i].axvline(x=0.0, color='black', ymax=0.25)
+					ax.flat[i].axvline(x=val_max, color='blue', ymax=0.25)
 				# despine
 				sns.despine(left=True)
 				if (end % 2 != 0):
