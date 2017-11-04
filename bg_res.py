@@ -212,6 +212,8 @@ class ResCls():
 				sns.despine()
 				# set legends
 				ax.legend(loc=1)
+				# tight layout
+				plt.tight_layout()
 				# save plot
 				plt.savefig(self.out_dir+'/abs_energy_plot.pdf',
 							bbox_inches = 'tight', dpi=1000)
@@ -264,6 +266,8 @@ class ResCls():
 				if (end % 2 != 0):
 					sns.despine(ax=ax.flat[-1], left=True, bottom=True)
 					plt.setp(ax.flat[-1], xticks=[], yticks=[])
+				# tight layout
+				plt.tight_layout()
 				# save plot
 				plt.savefig(self.out_dir+'/dist_energy_plot.pdf',
 							bbox_inches = 'tight', dpi=1000)
