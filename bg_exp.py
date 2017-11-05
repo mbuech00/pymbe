@@ -29,7 +29,7 @@ class ExpCls():
 					init_tuples = _mol.virt
 					self.incl_idx = _mol.occ.tolist()
 				# append to self.tuples
-				if (_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']):
+				if ((_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']) or (_mol.spin > 0)):
 					self.tuples = [np.array(list([i] for i in init_tuples), dtype=np.int32)]
 				else:
 					tmp = []
