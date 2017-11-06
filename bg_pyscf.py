@@ -17,7 +17,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 try:
-	from pyscf import gto, scf, ao2mo, lo, ci, cc, mcscf, fci
+	from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
@@ -65,9 +65,10 @@ class PySCFCls():
 					# overwrite occupied MOs
 					if (_calc.exp_occ != 'CAN'):
 						hf.mo_coeff[:, _mol.occ] = _calc.trans_mat[:, _mol.occ]
-				# store mo_coeff, mo_occ, and e_tot
+				# store mo_coeff, mo_occ, orbsym, and e_tot
 				_calc.hf_mo_coeff = hf.mo_coeff
 				_calc.hf_mo_occ = hf.mo_occ
+				_calc.hf_orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				_calc.hf_e_tot = hf.e_tot
 				#
 				return hf
@@ -179,7 +180,7 @@ class PySCFCls():
 				if (_calc.exp_occ != 'CAN'):
 					if (_calc.exp_occ == 'NO'):
 						if (_mol.spin > 0): dm = dm[0] + dm[1]
-						occup, no = sp.linalg.eigh(dm[:len(_mol.occ), :len(_mol.occ)])
+						occup, no = symm.eigh(dm[:len(_mol.occ), :len(_mol.occ)], _calc.hf_orbsym[_mol.occ])
 						_calc.trans_mat[:, _mol.occ] = np.dot(_calc.hf_mo_coeff[:, _mol.occ], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
 						_calc.trans_mat[:, _mol.occ] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.occ]).kernel()
@@ -196,7 +197,7 @@ class PySCFCls():
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
 						if ((_mol.spin > 0) and (_calc.exp_occ != 'NO')): dm = dm[0] + dm[1]
-						occup, no = sp.linalg.eigh(dm[-len(_mol.virt):, -len(_mol.virt):])
+						occup, no = symm.eigh(dm[-len(_mol.virt):, -len(_mol.virt):], _calc.hf_orbsym[_mol.virt])
 						_calc.trans_mat[:, _mol.virt] = np.dot(_calc.hf_mo_coeff[:, _mol.virt], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
 						_calc.trans_mat[:, _mol.virt] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.virt]).kernel()
