@@ -325,11 +325,11 @@ class PySCFCls():
 					solver_cas = ModelSolver(_calc.exp_model)
 				else:
 					if (_mol.spin == 0):
-						solver_cas = fci.direct_spin0.FCI()
+						solver_cas = fci.direct_spin0_symm.FCI()
 					else:
 						solver_cas = fci.direct_spin1.FCI()
 					# fci settings
-					solver_cas.conv_tol = _exp.thres
+					solver_cas.conv_tol = max(_exp.thres, 1.0e-10)
 					solver_cas.max_cycle = 500
 					solver_cas.max_space = 10
 					solver_cas.max_memory = _mol.max_memory
@@ -345,13 +345,15 @@ class PySCFCls():
 					nb = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[1])
 					hf_as_civec = np.zeros((na, nb))
 					hf_as_civec[0, 0] = 1
+					# orbital symmetry
+					orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _calc.trans_mat[:, _exp.cas_idx])
 					# fix spin if non-singlet
 					if (_mol.spin > 0):
 						sz = abs(nelec_cas[0]-nelec_cas[1]) * .5
 						fci.addons.fix_spin(solver_cas, ss=sz * (sz + 1.))
 					try:
 						e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-															nelec_cas, ci0=hf_as_civec)
+															nelec_cas, ci0=hf_as_civec, orbsym=orbsym)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\nCAS-CI Error :\n'
@@ -422,7 +424,7 @@ class ModelSolver():
 				# store quantities needed in kernel()
 				cas_hf.mo_occ = _calc.hf_mo_occ[_cas_idx]
 				cas_hf.e_tot = _calc.hf_e_tot - _e_core
-				cas_hf.conv_tol = _thres
+				cas_hf.conv_tol = max(_thres, 1.0e-10)
 				#
 				return cas_hf
 

@@ -41,8 +41,8 @@ class MolCls(gto.Mole):
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
 						self.basis, self.unit, self.frozen, self.verbose = self.set_mol(_rst)
-					# store HF symmetry
-					self.hf_symmetry = self.symmetry
+					# store symmetry
+					self.comp_symmetry = self.symmetry
 				#
 				return
 
@@ -99,7 +99,7 @@ class MolCls(gto.Mole):
 								self.charge = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'spin'):
 								self.spin = int(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'hf_sym'):
+							elif (re.split('=',content[i])[0].strip() == 'sym'):
 								self.symmetry = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'basis'):
 								self.basis = re.split('=',content[i])[1].strip()
@@ -107,7 +107,7 @@ class MolCls(gto.Mole):
 								self.unit = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'frozen'):
 								self.frozen = re.split('=',content[i])[1].strip().upper() == 'TRUE'
-							elif (re.split('=',content[i])[0].strip() == 'hf_occ'):
+							elif (re.split('=',content[i])[0].strip() == 'occ'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
 								self.verbose = int(re.split('=',content[i])[1].strip())
