@@ -25,7 +25,7 @@ class CalcCls():
 				self.exp_model = {'METHOD': 'FCI'}
 				self.exp_type = 'occupied'
 				self.exp_ref = {'METHOD': 'HF'}
-				self.exp_base = None
+				self.exp_base = {'METHOD': None}
 				self.exp_thres = 1.0e-10
 				self.exp_relax = 1.0
 				self.exp_max_order = 0
@@ -40,8 +40,6 @@ class CalcCls():
 						self.exp_thres, self.exp_max_order, self.exp_occ, self.exp_virt, \
 						self.exp_relax, self.tolerance, _mol.verbose, \
 						_mol.max_memory, _mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
-					# if not given, set exp_base equal to exp_ref
-					if (self.exp_base is None): self.exp_base = {'METHOD': self.exp_ref['METHOD']}
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
 				#
@@ -109,9 +107,6 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if (not ('METHOD' in self.exp_model)):
-						raise ValueError('wrong input -- model dictionary must contain "method" key ' + \
-										'with method value given as a string')
 					if (not (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: CISD, CCSD, CCSD(T), and FCI')
@@ -120,16 +115,10 @@ class CalcCls():
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are occupied, virtual, and combined')
 					# reference model
-					if (not ('METHOD' in self.exp_ref)):
-						raise ValueError('wrong input -- ref dictionary must contain "method" key ' + \
-										'with method value ("HF" or "CASCI") given as a string')
-					if (not (self.exp_ref['METHOD'] in ['HF','CASCI'])):
-						raise ValueError('wrong input -- valid reference models are currently: HF and CASCI')
+					if (not (self.exp_ref['METHOD'] in ['HF','CASSCF'])):
+						raise ValueError('wrong input -- valid reference models are currently: HF and CASSCF')
 					# base model
-					if (not ('METHOD' in self.exp_base)):
-						raise ValueError('wrong input -- base dictionary must contain "method" key ' + \
-										'with method value given as a string')
-					if (not (self.exp_base['METHOD'] in [self.exp_ref['METHOD'],'CISD','CCSD','CCSD(T)'])):
+					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)'])):
 						raise ValueError('wrong input -- invalid base model')
 					if (((self.exp_base['METHOD'] == 'CISD') and (self.exp_model['METHOD'] in ['CISD'])) or \
 						((self.exp_base['METHOD'] == 'CCSD') and (self.exp_model['METHOD'] in ['CISD','CCSD'])) or \
@@ -156,7 +145,7 @@ class CalcCls():
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: CAN, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_ref['METHOD'] == self.exp_base['METHOD'])):
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] is None)):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a correlated base model for the expansion')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):

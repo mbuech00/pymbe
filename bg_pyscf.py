@@ -102,21 +102,16 @@ class PySCFCls():
 					# no active orbitals
 					act_orbs = np.array([])
 				# casci reference model
-				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
 					# set active orbitals
-					if (_calc.exp_type == 'occupied'):
-						act_orbs = np.array(np.where(_calc.hf_mo_occ == 1.)[0].tolist()+_mol.virt)
-						_calc.no_act = len(act_orbs)
-						_calc.ne_act = (np.count_nonzero(_calc.hf_mo_occ == 1.), 0)
-					elif (_calc.exp_type == 'virtual'):
-						act_orbs = np.array(_mol.occ)
-						_calc.no_act = len(act_orbs)
-						_calc.ne_act = (np.count_nonzero(_calc.hf_mo_occ != 0.) - _mol.ncore, \
-											np.count_nonzero(_calc.hf_mo_occ == 2.) - _mol.ncore)
-					casci = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
-					casci.conv_tol = 1.0e-12
-					mo = casci.sort_mo(act_orbs, base=0)
-					ref_e_tot = casci.kernel(mo)[0]
+					act_orbs = np.array([0, 1, 2, 3, 4] + [5, 6])
+					_calc.no_act = len(act_orbs)
+					_calc.ne_act = int(np.sum(_calc.hf_mo_occ[act_orbs]))
+					# perform casscf calc
+					casscf = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
+					casscf.conv_tol = 1.0e-12
+					mo = casscf.sort_mo(act_orbs, base=0)
+					ref_e_tot = casscf.kernel(mo)[0]
 				#
 				return ref_e_tot, act_orbs
 
@@ -126,7 +121,7 @@ class PySCFCls():
 				# set frozen list
 				frozen = list(range(_mol.ncore)) if (_mol.spin == 0) else [list(range(_mol.ncore)),list(range(_mol.ncore))]
 				# zeroth-order energy
-				if (_calc.exp_base['METHOD'] == _calc.exp_ref['METHOD']):
+				if (_calc.exp_base['METHOD'] is None):
 					_calc.e_zero = 0.0
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
@@ -376,7 +371,7 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 				# base calculation
-				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
+				if (_calc.exp_base['METHOD'] is None):
 					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
 #					if (_exp.order < _exp.max_order): e_corr += (e_cas + _exp.e_core) - _calc.hf_e_tot + 0.001 * np.random.random_sample()
 					# verbose print

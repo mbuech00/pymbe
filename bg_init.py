@@ -76,7 +76,7 @@ class InitCls():
 						# remove symmetry
 						self.mol.symmetry = False; self.mol.make(self.mpi)
 						# set reference energy
-#						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
+						self.calc.ref_e_tot, self.calc.act_orbs = self.pyscf.ref(self.mol, self.calc)
 						self.calc.ref_e_tot = self.calc.hf_e_tot
 						# get hcore and eri
 						self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)

@@ -47,16 +47,16 @@ class ResCls():
 				else:
 					self.u_limit = _mol.nvirt 
 				# modify reference print out
-				if (_calc.exp_ref['METHOD'] == 'CASCI'):
-					self.exp_ref = 'CASCI('+str(_calc.ne_act[0]+_calc.ne_act[1])+','+str(_calc.no_act)+')'
+				if (_calc.exp_ref['METHOD'] == 'CASSCF'):
+					self.exp_ref = 'CASSCF('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
 				else:
 					if (_mol.spin == 0):
 						self.exp_ref = 'RHF'
 					else:
 						self.exp_ref = 'ROHF'
 				# modify base print out
-				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
-					self.exp_base = self.exp_ref
+				if (_calc.exp_base['METHOD'] is None):
+					self.exp_base = 'none'
 				else:
 					self.exp_base = _calc.exp_base['METHOD']
 				# modify orbital print out
@@ -94,7 +94,7 @@ class ResCls():
 		def main(self, _mpi, _mol, _calc, _exp):
 				""" main driver for summary printing and plotting """
 				# determine base model energy
-				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
+				if (_calc.exp_base['METHOD'] is None):
 					self.exp_base_energy = _calc.ref_e_tot
 				else:
 					self.exp_base_energy = _calc.hf_e_tot + _calc.e_zero
@@ -166,21 +166,20 @@ class ResCls():
 						# loop over orders
 						total_tup = 0
 						for i in range(len(_exp.energy_tot)):
-							if ((_exp.energy_tot[i] != 0.0) or (_calc.exp_ref['METHOD'] == 'HF')):
-								# sum up total time and number of tuples
-								total_time = np.sum(_exp.time_kernel[:i+1])\
-												+np.sum(_exp.time_screen[:i+1])
-								total_tup += len(_exp.tuples[i])
-								print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
-									'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
-										format('',i+len(_exp.tuples[0][0]),'','|','',_exp.energy_tot[i]+_calc.e_zero,\
-											'','|','',int(total_time//3600),':',\
-											int((total_time-(total_time//3600)*3600.)//60),':',\
-											int(total_time-(total_time//3600)*3600.\
-											-((total_time-(total_time//3600)*3600.)//60)*60.),\
-											'','|','',len(_exp.tuples[i]),'/',\
-											(float(len(_exp.tuples[i])) / \
-											float(_exp.theo_work[i]))*100.00,'--',total_tup))
+							# sum up total time and number of tuples
+							total_time = np.sum(_exp.time_kernel[:i+1])\
+											+np.sum(_exp.time_screen[:i+1])
+							total_tup += len(_exp.tuples[i])
+							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
+								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
+									format('',i+len(_exp.tuples[0][0]),'','|','',_exp.energy_tot[i]+_calc.e_zero,\
+										'','|','',int(total_time//3600),':',\
+										int((total_time-(total_time//3600)*3600.)//60),':',\
+										int(total_time-(total_time//3600)*3600.\
+										-((total_time-(total_time//3600)*3600.)//60)*60.),\
+										'','|','',len(_exp.tuples[i]),'/',\
+										(float(len(_exp.tuples[i])) / \
+										float(_exp.theo_work[i]))*100.00,'--',total_tup))
 						print(self.divider_str+'\n\n')
 				#
 				return
