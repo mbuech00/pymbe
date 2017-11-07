@@ -39,37 +39,24 @@ class PySCFCls():
 				hf.conv_tol = 1.0e-12
 				hf.max_cycle = 500
 				hf.irrep_nelec = _mol.irrep_nelec
-				# restart calc?
-				if (_calc.hf_mo_coeff is None):
-					for i in list(range(0, 12, 2)):
-						hf.diis_start_cycle = i
-						try:
-							hf.kernel()
-						except sp.linalg.LinAlgError: pass
-						if (hf.converged): break
-					if (not hf.converged):
-						try:
-							raise RuntimeError('\nHF Error : no convergence\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
-					# determine dimensions
-					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
-				else:
-					# construct density
-					hf_dens = scf.hf.make_rdm1(_calc.hf_mo_coeff, _calc.hf_mo_occ)
-					# restart from converged density
-					hf.kernel(hf_dens)
-					# determine dimensions
-					_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
-					# overwrite occupied MOs
-					if (_calc.exp_occ != 'CAN'):
-						hf.mo_coeff[:, _mol.occ] = _calc.trans_mat[:, _mol.occ]
-				# store mo_coeff, mo_occ, orbsym, and e_tot
-				_calc.hf_mo_coeff = hf.mo_coeff
+				# perform hf calc
+				for i in list(range(0, 12, 2)):
+					hf.diis_start_cycle = i
+					try:
+						hf.kernel()
+					except sp.linalg.LinAlgError: pass
+					if (hf.converged): break
+				if (not hf.converged):
+					try:
+						raise RuntimeError('\nHF Error : no convergence\n\n')
+					except Exception as err:
+						sys.stderr.write(str(err))
+						raise
+				# determine dimensions
+				_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
+				# store mo_occ and orbsym
 				_calc.hf_mo_occ = hf.mo_occ
 				_calc.hf_orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
-				_calc.hf_e_tot = hf.e_tot
 				#
 				return hf
 
@@ -98,7 +85,9 @@ class PySCFCls():
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# store energy
-					ref_e_tot = _calc.hf_e_tot
+					ref_e_tot = _calc.hf.e_tot
+					# store mo_coeff
+					ref_mo_coeff = _calc.hf.mo_coeff
 					# no active orbitals
 					act_orbs = np.array([])
 				# casci reference model
@@ -112,8 +101,9 @@ class PySCFCls():
 					casscf.conv_tol = 1.0e-12
 					mo = casscf.sort_mo(act_orbs, base=0)
 					ref_e_tot = casscf.kernel(mo)[0]
+					ref_mo_coeff = casscf.mo_coeff
 				#
-				return ref_e_tot, act_orbs
+				return act_orbs, ref_e_tot, ref_mo_coeff
 
 
 		def trans_main(self, _mol, _calc):
@@ -170,34 +160,34 @@ class PySCFCls():
 							raise
 					if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')): dm = ccsd.make_rdm1()
 				# init transformation matrix
-				_calc.trans_mat = np.copy(_calc.hf_mo_coeff)
+				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
 				# occ-occ block (local or NOs)
 				if (_calc.exp_occ != 'CAN'):
 					if (_calc.exp_occ == 'NO'):
 						if (_mol.spin > 0): dm = dm[0] + dm[1]
 						occup, no = symm.eigh(dm[:len(_mol.occ), :len(_mol.occ)], _calc.hf_orbsym[_mol.occ])
-						_calc.trans_mat[:, _mol.occ] = np.dot(_calc.hf_mo_coeff[:, _mol.occ], no[:, ::-1])
+						_calc.trans_mat[:, _mol.occ] = np.dot(_calc.ref_mo_coeff[:, _mol.occ], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
-						_calc.trans_mat[:, _mol.occ] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.occ]).kernel()
+						_calc.trans_mat[:, _mol.occ] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.occ]).kernel()
 					elif (_calc.exp_occ == 'FB'):
-						_calc.trans_mat[:, _mol.occ] = lo.Boys(_mol, _calc.hf_mo_coeff[:, _mol.occ]).kernel()
+						_calc.trans_mat[:, _mol.occ] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.occ]).kernel()
 					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
-						iao = lo.iao.iao(_mol, _calc.hf_mo_coeff[:, _mol.occ])
+						iao = lo.iao.iao(_mol, _calc.ref_mo_coeff[:, _mol.occ])
 						if (_calc.exp_occ == 'IBO-1'):
 							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
-							_calc.trans_mat[:, _mol.occ] = lo.ibo.ibo(_mol, _calc.hf_mo_coeff[:, _mol.occ], iao)
+							_calc.trans_mat[:, _mol.occ] = lo.ibo.ibo(_mol, _calc.ref_mo_coeff[:, _mol.occ], iao)
 						elif (_calc.exp_occ == 'IBO-2'):
-							_calc.trans_mat[:, _mol.occ] = lo.ibo.PM(_mol, _calc.hf_mo_coeff[:, _mol.occ], iao).kernel()
+							_calc.trans_mat[:, _mol.occ] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.occ], iao).kernel()
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'CAN'):
 					if (_calc.exp_virt == 'NO'):
 						if ((_mol.spin > 0) and (_calc.exp_occ != 'NO')): dm = dm[0] + dm[1]
 						occup, no = symm.eigh(dm[-len(_mol.virt):, -len(_mol.virt):], _calc.hf_orbsym[_mol.virt])
-						_calc.trans_mat[:, _mol.virt] = np.dot(_calc.hf_mo_coeff[:, _mol.virt], no[:, ::-1])
+						_calc.trans_mat[:, _mol.virt] = np.dot(_calc.ref_mo_coeff[:, _mol.virt], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
-						_calc.trans_mat[:, _mol.virt] = lo.PM(_mol, _calc.hf_mo_coeff[:, _mol.virt]).kernel()
+						_calc.trans_mat[:, _mol.virt] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.virt]).kernel()
 					elif (_calc.exp_virt == 'FB'):
-						_calc.trans_mat[:, _mol.virt] = lo.Boys(_mol, _calc.hf_mo_coeff[:, _mol.virt]).kernel()
+						_calc.trans_mat[:, _mol.virt] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.virt]).kernel()
 				# add (t) correction
 				if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
 					if ((_calc.exp_occ == 'CAN') and (_calc.exp_virt == 'CAN')):
@@ -289,7 +279,7 @@ class PySCFCls():
 					dm = ccsd.make_rdm1()
 				# generate dnos
 				occup, no = sp.linalg.eigh(dm[(_mol.nocc-len(frozen)):, (_mol.nocc-len(frozen)):])
-				_calc.trans_mat[:, _mol.virt] = np.dot(_calc.hf_mo_coeff[:, _mol.virt], no[:, ::-1])
+				_calc.trans_mat[:, _mol.virt] = np.dot(_calc.ref_mo_coeff[:, _mol.virt], no[:, ::-1])
 				#
 				return
 
@@ -372,8 +362,8 @@ class PySCFCls():
 							raise
 				# base calculation
 				if (_calc.exp_base['METHOD'] is None):
-					e_corr = (e_cas + _exp.e_core) - _calc.hf_e_tot
-#					if (_exp.order < _exp.max_order): e_corr += (e_cas + _exp.e_core) - _calc.hf_e_tot + 0.001 * np.random.random_sample()
+					e_corr = (e_cas + _exp.e_core) - _calc.ref_e_tot
+#					if (_exp.order < _exp.max_order): e_corr += (e_cas + _exp.e_core) - _calc.ref_e_tot + 0.001 * np.random.random_sample()
 					# verbose print
 					if (_mol.verbose > 1):
 						print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.\
@@ -418,7 +408,7 @@ class ModelSolver():
 				cas_hf.get_hcore = lambda *args: _h1e
 				# store quantities needed in kernel()
 				cas_hf.mo_occ = _calc.hf_mo_occ[_cas_idx]
-				cas_hf.e_tot = _calc.hf_e_tot - _e_core
+				cas_hf.e_tot = _calc.ref_e_tot - _e_core
 				cas_hf.conv_tol = max(_thres, 1.0e-10)
 				#
 				return cas_hf

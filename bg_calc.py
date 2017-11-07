@@ -32,8 +32,8 @@ class CalcCls():
 				self.exp_occ = 'CAN'
 				self.exp_virt = 'CAN'
 				self.tolerance = 0.0
-				# init hf_mo_coeff, hf_mo_occ, and transformation matrix
-				self.hf_mo_coeff = None; self.hf_mo_occ = None; self.trans_mat = None
+				# init ref_mo_coeff, hf_mo_occ, and transformation matrix
+				self.ref_mo_coeff = None; self.hf_mo_occ = None; self.trans_mat = None
 				# set calculation parameters
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \

@@ -60,20 +60,6 @@ class RstCls():
 				return self.rst_freq / 2.
 
 
-		def write_hf_trans(self, _calc):
-				""" write hf_mo_coeff and trans_mat restart files """
-				# write hf_mo_coeff
-				np.save(join(self.rst_dir, 'hf_mo_coeff'), _calc.hf_mo_coeff)
-				# write hf_mo_occ
-				np.save(join(self.rst_dir, 'hf_mo_occ'), _calc.hf_mo_occ)
-				# write trans_mat
-				np.save(join(self.rst_dir, 'trans_mat'), _calc.trans_mat)
-				# write e_zero
-				np.save(join(self.rst_dir, 'e_zero'), _calc.e_zero)
-				#
-				return
-
-
 		def write_kernel(self, _calc, _exp, _final):
 				""" write energy kernel restart files """
 				# write e_inc
@@ -96,30 +82,6 @@ class RstCls():
 				np.save(join(self.rst_dir, 'tup_'+str(_exp.order+1)), _exp.tuples[-1])
 				# write time
 				np.save(join(self.rst_dir, 'time_screen_'+str(_exp.order)), np.asarray(_exp.time_screen[-1]))
-				#
-				return
-
-
-		def read_hf_trans(self, _calc):
-				""" driver for reading _mol restart files """
-				# list filenames in files list
-				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
-				# sort the list of files
-				files.sort()
-				# loop over files
-				for i in range(len(files)):
-					# read hf_mo_coeff
-					if ('hf_mo_coeff' in files[i]):
-						_calc.hf_mo_coeff = np.load(join(self.rst_dir, files[i]))
-					# read hf_mo_occ
-					if ('hf_mo_occ' in files[i]):
-						_calc.hf_mo_occ = np.load(join(self.rst_dir, files[i]))
-					# read trans_mat
-					elif ('trans_mat' in files[i]):
-						_calc.trans_mat = np.load(join(self.rst_dir, files[i]))
-					# read e_zero
-					elif ('e_zero' in files[i]):
-						_calc.e_zero = np.load(join(self.rst_dir, files[i]))
 				#
 				return
 

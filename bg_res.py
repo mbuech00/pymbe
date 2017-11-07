@@ -97,7 +97,7 @@ class ResCls():
 				if (_calc.exp_base['METHOD'] is None):
 					self.exp_base_energy = _calc.ref_e_tot
 				else:
-					self.exp_base_energy = _calc.hf_e_tot + _calc.e_zero
+					self.exp_base_energy = _calc.ref_e_tot + _calc.e_zero
 				# results
 				self.results(_mpi, _mol, _calc, _exp)
 				# plot total energy
@@ -131,7 +131,7 @@ class ResCls():
 							'{12:2}{13:<12s}{14:1}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
 									'','|','','reference function','','=','',self.exp_ref,\
-									'','|','','HF energy','','=','',_calc.hf_e_tot))
+									'','|','','HF energy','','=','',_calc.hf.e_tot))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:15}{12:5}'
 							'{13:1}{14:2}{15:<12s}{16:1}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
@@ -147,7 +147,7 @@ class ResCls():
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','initial thres.','','=','',_calc.exp_thres,\
 									'','|','','final total energy','','=','',\
-									_calc.hf_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
+									_calc.ref_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:18}{10:2}{11:1}{12:2}'
 							'{13:<5.2f}{14:8}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\

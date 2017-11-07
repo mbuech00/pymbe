@@ -20,27 +20,9 @@ class ExpCls():
 		""" expansion class """
 		def __init__(self, _mpi, _mol, _calc, _type):
 				""" init parameters """
-				# init_tuples and incl_idx
-				if (_type == 'occupied'):
-					init_tuples = _mol.occ
-					self.incl_idx = _mol.virt.tolist()
-				# set params and lists for virt expansion
-				elif (_type == 'virtual'):
-					init_tuples = _mol.virt
-					self.incl_idx = _mol.occ.tolist()
-				# append to self.tuples
-				if ((_calc.exp_base['METHOD'] is None) or (_mol.spin > 0)):
-					self.tuples = [np.array(list([i] for i in init_tuples), dtype=np.int32)]
-				else:
-					tmp = []
-					for i in range(len(init_tuples)):
-						for m in range(init_tuples[i]+1, init_tuples[-1]+1):
-							tmp.append([init_tuples[i]]+[m])
-					tmp.sort()
-					self.tuples = [np.array(tmp, dtype=np.int32)]
-				# verbose print
-				if ((_mol.verbose > 1) and _mpi.global_master):
-					print('mo_occ = {0:} , incl_idx = {1:} , tuples = {2:}'.format(_calc.hf_mo_occ,self.incl_idx,self.tuples))
+				# init tuples and incl_idx
+				self.incl_idx, self.tuples = self.init_tuples(_mol, _calc, _type)
+				if (_mpi.global_master): print('mo_occ = {0:} , incl_idx = {1:} , tuples = {2:}'.format(_calc.hf_mo_occ,self.incl_idx,self.tuples))
 				# init energy_inc
 				self.energy_inc = []
 				# set max_order (derived from calc class)
@@ -73,5 +55,28 @@ class ExpCls():
 				self.thres = _calc.exp_thres
 				#
 				return
+
+
+		def init_tuples(self, _mol, _calc, _type):
+				""" init tuples and incl_idx """
+				if (_type == 'occupied'):
+					init = _mol.occ
+					incl_idx = _mol.virt.tolist()
+				# set params and lists for virt expansion
+				elif (_type == 'virtual'):
+					init = _mol.virt
+					incl_idx = _mol.occ.tolist()
+				# append to tuples
+				if ((_calc.exp_base['METHOD'] is None) or (_mol.spin > 0)):
+					tuples = [np.array(list([i] for i in init), dtype=np.int32)]
+				else:
+					tmp = []
+					for i in range(len(init)):
+						for m in range(init[i]+1, init[-1]+1):
+							tmp.append([init[i]]+[m])
+					tmp.sort()
+					tuples = [np.array(tmp, dtype=np.int32)]
+				#
+				return incl_idx, tuples
 
 

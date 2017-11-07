@@ -161,31 +161,31 @@ class MPICls():
 				return
 
 
-		def bcast_hf_info(self, _mol, _calc):
+		def bcast_hf_ref_info(self, _mol, _calc):
 				""" bcast hf and ref info """
 				if (self.global_master):
 					# collect dimensions, and  mo_occ
-					hf_info = {'hf_e_tot': _calc.hf_e_tot, \
+					info = {'ref_e_tot': _calc.ref_e_tot, \
 								'occ': _mol.occ, 'virt': _mol.virt, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
 								'mo_occ': _calc.hf_mo_occ}
-					# bcast hf_info
-					self.global_comm.bcast(hf_info, root=0)
+					# bcast info
+					self.global_comm.bcast(info, root=0)
 					# bcast mo_coeff
 					if (self.num_local_masters >= 1):
-						self.master_comm.Bcast([_calc.hf_mo_coeff, MPI.DOUBLE], root=0)
+						self.master_comm.Bcast([_calc.ref_mo_coeff, MPI.DOUBLE], root=0)
 				else:
 					# receive dimensions and mo_occ
-					hf_info = self.global_comm.bcast(None, root=0)
-					_calc.hf_e_tot = hf_info['hf_e_tot']
-					_mol.occ = hf_info['occ']; _mol.virt = hf_info['virt']
-					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
-					_calc.hf_mo_occ = hf_info['mo_occ']
+					info = self.global_comm.bcast(None, root=0)
+					_calc.ref_e_tot = info['ref_e_tot']
+					_mol.occ = info['occ']; _mol.virt = info['virt']
+					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
+					_calc.hf_mo_occ = info['mo_occ']
 					# receive mo_coeff
 					if (self.local_master):
 						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 						self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
-						_calc.hf_mo_coeff = buff
+						_calc.ref_mo_coeff = buff
 				#
 				return
 
