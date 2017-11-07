@@ -327,7 +327,7 @@ class PySCFCls():
 					if (_mol.spin == 0):
 						solver_cas = fci.direct_spin0_symm.FCI()
 					else:
-						solver_cas = fci.direct_spin1.FCI()
+						solver_cas = fci.direct_spin1_symm.FCI()
 					# fci settings
 					solver_cas.conv_tol = max(_exp.thres, 1.0e-10)
 					solver_cas.max_cycle = 500
