@@ -24,7 +24,7 @@ class RstCls():
 		""" restart class """
 		def __init__(self, _out, _mpi):
 				""" init restart env and parameters """
-				if (_mpi.master):
+				if (_mpi.global_master):
 					self.rst_dir = _out.wrk_dir+'/rst'
 					self.rst_freq = 50000.0
 					if (not isdir(self.rst_dir)):
@@ -32,7 +32,6 @@ class RstCls():
 						mkdir(self.rst_dir)
 					else:
 						self.restart = True
-				_mpi.bcast_rst_info(self)
 				#
 				return
 
@@ -44,18 +43,13 @@ class RstCls():
 				return
 
 
-		def rst_main(self, _mpi, _calc, _exp, _time):
+		def rst_main(self, _mpi, _calc, _exp):
 				""" main restart driver """
-				if (not self.restart):
-					# set start order for expansion
-					_calc.exp_min_order = 1
-				else:
-					# read in restart files
-					if (_mpi.master): self.read_main(_mpi, _calc, _exp, _time)
-					# distribute expansion data to slaves
-					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp, _time)
-					# update restart frequency
-					for _ in range(1, _calc.exp_min_order): self.rst_freq = self.update()
+				if (self.restart):
+					# read in _exp restart files
+					self.read_exp(_exp)
+				# set min_order
+				_exp.min_order = len(_exp.tuples[-1][0])
 				#
 				return
 		
@@ -66,66 +60,72 @@ class RstCls():
 				return self.rst_freq / 2.
 
 
-		def write_kernel(self, _mpi, _exp, _time, _final):
+		def write_hf_trans(self, _calc):
+				""" write hf_mo_coeff and trans_mat restart files """
+				# write hf_mo_coeff
+				np.save(join(self.rst_dir, 'hf_mo_coeff'), _calc.hf_mo_coeff)
+				# write hf_mo_occ
+				np.save(join(self.rst_dir, 'hf_mo_occ'), _calc.hf_mo_occ)
+				# write trans_mat
+				np.save(join(self.rst_dir, 'trans_mat'), _calc.trans_mat)
+				# write e_zero
+				np.save(join(self.rst_dir, 'e_zero'), _calc.e_zero)
+				#
+				return
+
+
+		def write_kernel(self, _calc, _exp, _final):
 				""" write energy kernel restart files """
 				# write e_inc
-				np.save(join(self.rst_dir, 'e_inc_' + str(_exp.order)),
-						_exp.energy_inc[_exp.order - 1])
+				np.save(join(self.rst_dir, 'e_inc_'+str(_exp.order)), _exp.energy_inc[-1])
+				# write micro_conv
+				if (_calc.exp_type == 'combined'):
+					np.save(join(self.rst_dir, 'micro_conv_'+str(_exp.order)), np.asarray(_exp.micro_conv[-1]))
+				# write time
+				np.save(join(self.rst_dir, 'time_kernel_'+str(_exp.order)), np.asarray(_exp.time_kernel[-1]))
+				# write e_tot
 				if (_final):
-					np.save(join(self.rst_dir, 'e_tot_' + str(_exp.order)),
-							np.asarray(_exp.energy_tot[_exp.order - 1]))
-				# write timings
-				self.write_time(_mpi, _time, 'kernel')
+					np.save(join(self.rst_dir, 'e_tot_'+str(_exp.order)), np.asarray(_exp.energy_tot[-1]))
 				#
 				return
 		
 		
-		def write_screen(self, _mpi, _exp, _time):
+		def write_screen(self, _exp):
 				""" write screening restart files """
 				# write tuples
-				np.save(join(self.rst_dir, 'tup_' + str(_exp.order + 1)),
-						_exp.tuples[_exp.order])
-				# write orb_con_abs and orb_con_rel
-				np.save(join(self.rst_dir, 'orb_con_abs_'+str(_exp.order)),
-						np.asarray(_exp.orb_con_abs[_exp.order - 1]))
-				np.save(join(self.rst_dir, 'orb_con_rel_'+str(_exp.order)),
-						np.asarray(_exp.orb_con_rel[_exp.order - 1]))
-				# write timings
-				self.write_time(_mpi, _time, 'screen')
-				# write orb_ent_abs and orb_ent_rel
-				if (_exp.order >= 2):
-					np.save(join(self.rst_dir, 'orb_ent_abs_' + str(_exp.order)),
-							_exp.orb_ent_abs[_exp.order - 2])
-					np.save(join(self.rst_dir, 'orb_ent_rel_' + str(_exp.order)),
-							_exp.orb_ent_rel[_exp.order - 2])
+				np.save(join(self.rst_dir, 'tup_'+str(_exp.order+1)), _exp.tuples[-1])
+				# write time
+				np.save(join(self.rst_dir, 'time_screen_'+str(_exp.order)), np.asarray(_exp.time_screen[-1]))
 				#
 				return
 
 
-		def write_time(self, _mpi, _time, _phase):
-				""" write timings """
-				# set phase index
-				if (_phase == 'kernel'):
-					idx = 0
-				elif (_phase == 'screen'):
-					idx = 1
-				# write timings
-				if (_mpi.parallel):
-					np.save(join(self.rst_dir, 'time_work_' + str(_phase)),
-							np.asarray(_time.time_work[idx]))
-					np.save(join(self.rst_dir, 'time_comm_' + str(_phase)),
-							np.asarray(_time.time_comm[idx]))
-					np.save(join(self.rst_dir, 'time_idle_' + str(_phase)),
-							np.asarray(_time.time_idle[idx]))
-				else:
-					np.save(join(self.rst_dir, 'time_work_' + str(_phase)),
-							np.asarray(_time.timings['work_' + str(_phase)]))
+		def read_hf_trans(self, _calc):
+				""" driver for reading _mol restart files """
+				# list filenames in files list
+				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
+				# sort the list of files
+				files.sort()
+				# loop over files
+				for i in range(len(files)):
+					# read hf_mo_coeff
+					if ('hf_mo_coeff' in files[i]):
+						_calc.hf_mo_coeff = np.load(join(self.rst_dir, files[i]))
+					# read hf_mo_occ
+					if ('hf_mo_occ' in files[i]):
+						_calc.hf_mo_occ = np.load(join(self.rst_dir, files[i]))
+					# read trans_mat
+					elif ('trans_mat' in files[i]):
+						_calc.trans_mat = np.load(join(self.rst_dir, files[i]))
+					# read e_zero
+					elif ('e_zero' in files[i]):
+						_calc.e_zero = np.load(join(self.rst_dir, files[i]))
 				#
 				return
 
 
-		def read_main(self, _mpi, _calc, _exp, _time):
-				""" driver for reading of restart files """
+		def read_exp(self, _exp):
+				""" driver for reading _exp restart files """
 				# list filenames in files list
 				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
 				# sort the list of files
@@ -134,70 +134,21 @@ class RstCls():
 				for i in range(len(files)):
 					# read tuples
 					if ('tup' in files[i]):
-						_exp.tuples.append(np.load(join(self.rst_dir,
-											files[i])))
-					# read orbital entanglement matrices
-					elif ('orb_ent' in files[i]):
-						if ('abs' in files[i]):
-							_exp.orb_ent_abs.append(np.load(join(self.rst_dir,
-															files[i])))
-						elif ('rel' in files[i]):
-							_exp.orb_ent_rel.append(np.load(join(self.rst_dir,
-																files[i])))
-					# read orbital contributions
-					elif ('orb_con' in files[i]):
-						if ('abs' in files[i]):
-							_exp.orb_con_abs.append(np.load(join(self.rst_dir,
-															files[i])).tolist())
-						elif ('rel' in files[i]):
-							_exp.orb_con_rel.append(np.load(join(self.rst_dir,
-															files[i])).tolist())
+						_exp.tuples.append(np.load(join(self.rst_dir, files[i])))
 					# read e_inc
 					elif ('e_inc' in files[i]):
-						_exp.energy_inc.append(np.load(join(self.rst_dir,
-														files[i])))
+						_exp.energy_inc.append(np.load(join(self.rst_dir, files[i])))
 					# read e_tot
 					elif ('e_tot' in files[i]):
-						_exp.energy_tot.append(np.load(join(self.rst_dir,
-														files[i])).tolist())
+						_exp.energy_tot.append(np.load(join(self.rst_dir, files[i])).tolist())
+					# read micro_conv
+					elif ('micro_conv' in files[i]):
+						_exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read timings
-					elif ('time' in files[i]):
-						if ('kernel' in files[i]):
-							if ('work' in files[i]):
-								if (_mpi.parallel):
-									_time.time_work[0] = np.load(join(self.rst_dir,
-																		files[i])).tolist()
-									_time.timings['work_kernel'] = deepcopy(_time.time_work[0][0])
-								else:
-									_time.timings['work_kernel'] = np.load(join(self.rst_dir,	
-																			files[i])).tolist()
-							elif ('comm' in files[i]):
-								_time.time_comm[0] = np.load(join(self.rst_dir,
-																	files[i])).tolist()
-								_time.timings['comm_kernel'] = deepcopy(_time.time_comm[0][0])
-							elif ('idle' in files[i]):
-								_time.time_idle[0] = np.load(join(self.rst_dir,
-																	files[i])).tolist()
-								_time.timings['idle_kernel'] = deepcopy(_time.time_idle[0][0])
-						elif ('screen' in files[i]):
-							if ('work' in files[i]):
-								if (_mpi.parallel):
-									_time.time_work[1] = np.load(join(self.rst_dir,
-																		files[i])).tolist()
-									_time.timings['work_screen'] = deepcopy(_time.time_work[1][0])
-								else:
-									_time.timings['work_screen'] = np.load(join(self.rst_dir,
-																			files[i])).tolist()
-							elif ('comm' in files[i]):
-								_time.time_comm[1] = np.load(join(self.rst_dir,
-																	files[i])).tolist()
-								_time.timings['comm_screen'] = deepcopy(_time.time_comm[1][0])
-							elif ('idle' in files[i]):
-								_time.time_idle[1] = np.load(join(self.rst_dir,
-																	files[i])).tolist()
-								_time.timings['idle_screen'] = deepcopy(_time.time_idle[1][0])
-				# set start order for expansion
-				_calc.exp_min_order = len(_exp.tuples)
+					elif ('time_kernel' in files[i]):
+						_exp.time_kernel.append(np.load(join(self.rst_dir, files[i])).tolist())
+					elif ('time_screen' in files[i]):
+						_exp.time_screen.append(np.load(join(self.rst_dir, files[i])).tolist())
 				#
 				return
 

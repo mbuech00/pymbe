@@ -14,6 +14,7 @@ __status__ = 'Development'
 
 from os.path import isfile
 from pyscf import gto
+import re
 import sys
 
 
@@ -21,19 +22,34 @@ class MolCls(gto.Mole):
 		""" molecule class (inherited from pyscf gto.Mole class) """
 		def __init__(self, _mpi, _rst):
 				""" init parameters """
-				# gto.Mole instance
+				# gto.Mole instantiation
 				gto.Mole.__init__(self)
 				# set geometric and molecular parameters
-				if (_mpi.master):
+				if (_mpi.global_master):
+					# default C1 HF symmetry
+					self.symmetry = 'C1'
+					# init occupation
+					self.irrep_nelec = {}
 					# set default value for FC
 					self.frozen = False
+					# init max_memory
+					self.max_memory = None
+					# verbose
+					self.verbose = None
 					# set geometry
 					self.atom = self.set_geo(_rst)
 					# set Mole
-					self.charge, self.spin, self.symmetry, self.basis, \
-						self.unit, self.frozen, self.verbose  = \
-								self.set_mol(_rst)
-					# build mol (master)
+					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
+						self.basis, self.unit, self.frozen, self.verbose = self.set_mol(_rst)
+					# store symmetry
+					self.comp_symmetry = self.symmetry
+				#
+				return
+
+
+		def make(self, _mpi):
+				""" build Mole object """
+				if (_mpi.global_master):
 					try:
 						self.build()
 					except RuntimeWarning as err:
@@ -44,12 +60,8 @@ class MolCls(gto.Mole):
 							sys.stderr.write('\nValueError: non-sensible input in bg-mol.inp\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
-					if (_mpi.parallel): _mpi.bcast_mol_info(self)
 				else:
-					_mpi.bcast_mol_info(self)
-					self.build()
-				# set number of core orbs
-				self.ncore = self.set_ncore()
+					self.build(dump_input=False, parse_arg=False)
 				#
 				return
 
@@ -62,10 +74,14 @@ class MolCls(gto.Mole):
 						content = f.readlines()
 						atom = ''
 						for i in range(len(content)):
-							atom += content[i]
+							if (content[i].split()[0][0] == '#'):
+								continue
+							else:
+								atom += content[i]
 				except IOError:
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError: bg-geo.inp not found\n\n')
+					raise
 				#
 				return atom
 
@@ -77,34 +93,42 @@ class MolCls(gto.Mole):
 					with open('bg-mol.inp') as f:
 						content = f.readlines()
 						for i in range(len(content)):
-							if (content[i].split()[0] == 'charge'):
-								self.charge = int(content[i].split()[2])
-							elif (content[i].split()[0] == 'spin'):
-								self.spin = int(content[i].split()[2])
-							elif (content[i].split()[0] == 'symmetry'):
-								self.symmetry = content[i].split()[2]
-							elif (content[i].split()[0] == 'basis'):
-								self.basis = content[i].split()[2]
-							elif (content[i].split()[0] == 'unit'):
-								self.unit = content[i].split()[2]
-							elif (content[i].split()[0] == 'frozen'):
-								self.frozen = content[i].split()[2].upper() == 'TRUE'
+							if (content[i].split()[0][0] == '#'):
+								continue
+							elif (re.split('=',content[i])[0].strip() == 'charge'):
+								self.charge = int(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'spin'):
+								self.spin = int(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'sym'):
+								self.symmetry = re.split('=',content[i])[1].strip()
+							elif (re.split('=',content[i])[0].strip() == 'basis'):
+								self.basis = re.split('=',content[i])[1].strip()
+							elif (re.split('=',content[i])[0].strip() == 'unit'):
+								self.unit = re.split('=',content[i])[1].strip()
+							elif (re.split('=',content[i])[0].strip() == 'frozen'):
+								self.frozen = re.split('=',content[i])[1].strip().upper() == 'TRUE'
+							elif (re.split('=',content[i])[0].strip() == 'occ'):
+								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'verbose'):
+								self.verbose = int(re.split('=',content[i])[1].strip())
 							# error handling
 							else:
 								try:
-									raise RuntimeError('\''+content[i].split()[0]+'\'' + \
+									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
 													' keyword in bg-mol.inp not recognized')
 								except Exception as err:
 									_rst.rm_rst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
+									raise
 				except IOError:
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError: bg-mol.inp not found\n\n')
-				# silence pyscf output
-				self.verbose = 0
+					raise
+				# silence pyscf output if not given in input
+				if (self.verbose is None): self.verbose = 1
 				#
-				return self.charge, self.spin, self.symmetry, self.basis, \
-						self.unit, self.frozen, self.verbose
+				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
+						self.basis, self.unit, self.frozen, self.verbose
 
 
 		def set_ncore(self):
