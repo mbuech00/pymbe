@@ -90,9 +90,10 @@ class PySCFCls():
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
 					# set cas space
-					cas_space = np.append(_mol.occ, [5, 6])
+#					cas_space = np.append(_mol.occ, [5, 6])
 #					cas_space = np.append(_mol.occ, [5, 6, 7])
 #					cas_space = np.append(_mol.occ, [5, 8])
+					cas_space = np.array([4, 5])
 					# number of active orbitals
 					if (_calc.exp_type == 'occupied'):
 						act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
@@ -103,9 +104,9 @@ class PySCFCls():
 				_calc.ne_act = int(np.sum(_calc.hf_mo_occ[cas_space]))
 				# perform casscf calc
 				casscf = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
-				casscf.frozen = _mol.ncore
 				casscf.conv_tol = 1.0e-10
 				casscf.natorb = True
+				casscf.frozen = _mol.ncore
 				mo = casscf.sort_mo(cas_space, base=0)
 				ref_e_tot = casscf.kernel(mo)[0]
 				ref_mo_coeff = casscf.mo_coeff
