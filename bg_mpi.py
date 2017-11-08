@@ -168,7 +168,7 @@ class MPICls():
 					info = {'ref_e_tot': _calc.ref_e_tot, \
 								'occ': _mol.occ, 'virt': _mol.virt, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
-								'mo_occ': _calc.hf_mo_occ}
+								'act_orbs': _calc.act_orbs, 'mo_occ': _calc.hf_mo_occ}
 					# bcast info
 					self.global_comm.bcast(info, root=0)
 					# bcast mo_coeff
@@ -180,7 +180,7 @@ class MPICls():
 					_calc.ref_e_tot = info['ref_e_tot']
 					_mol.occ = info['occ']; _mol.virt = info['virt']
 					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
-					_calc.hf_mo_occ = info['mo_occ']
+					_calc.act_orbs = info['act_orbs']; _calc.hf_mo_occ = info['mo_occ']
 					# receive mo_coeff
 					if (self.local_master):
 						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
@@ -199,7 +199,8 @@ class MPICls():
 					# receive trans_mat
 					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 					_comm.Bcast([buff, MPI.DOUBLE], root=0)
-					_calc.trans_mat = np.transpose(buff)
+#					_calc.trans_mat = np.transpose(buff)
+					_calc.trans_mat = buff
 				#
 				return
 

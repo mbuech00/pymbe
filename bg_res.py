@@ -147,7 +147,7 @@ class ResCls():
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','initial thres.','','=','',_calc.exp_thres,\
 									'','|','','final total energy','','=','',\
-									_calc.ref_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
+									_calc.hf.e_tot + _exp.energy_tot[-1] + _calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:18}{10:2}{11:1}{12:2}'
 							'{13:<5.2f}{14:8}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\

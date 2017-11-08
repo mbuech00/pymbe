@@ -117,6 +117,12 @@ class CalcCls():
 					# reference model
 					if (not (self.exp_ref['METHOD'] in ['HF','CASSCF'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF and CASSCF')
+					if ((self.exp_ref['METHOD'] == 'CASSCF') and (self.exp_base['METHOD'] is not None)):
+						raise NotImplementedError('wrong input -- the use of a base model has not been ' + \
+										'implemented for a CASSCF reference')
+					if ((self.exp_ref['METHOD'] == 'CASSCF') and (_mol.spin > 0)):
+						raise NotImplementedError('wrong input -- the use of a CASSCF reference for ' + \
+										'open-shell states has not been implemented')
 					# base model
 					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)'])):
 						raise ValueError('wrong input -- invalid base model')

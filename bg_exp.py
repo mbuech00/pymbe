@@ -22,7 +22,6 @@ class ExpCls():
 				""" init parameters """
 				# init tuples and incl_idx
 				self.incl_idx, self.tuples = self.init_tuples(_mol, _calc, _type)
-				if (_mpi.global_master): print('mo_occ = {0:} , incl_idx = {1:} , tuples = {2:}'.format(_calc.hf_mo_occ,self.incl_idx,self.tuples))
 				# init energy_inc
 				self.energy_inc = []
 				# set max_order (derived from calc class)
@@ -59,23 +58,38 @@ class ExpCls():
 
 		def init_tuples(self, _mol, _calc, _type):
 				""" init tuples and incl_idx """
-				if (_type == 'occupied'):
-					init = _mol.occ
-					incl_idx = _mol.virt.tolist()
-				# set params and lists for virt expansion
-				elif (_type == 'virtual'):
-					init = _mol.virt
-					incl_idx = _mol.occ.tolist()
-				# append to tuples
-				if ((_calc.exp_base['METHOD'] is None) or (_mol.spin > 0)):
-					tuples = [np.array(list([i] for i in init), dtype=np.int32)]
-				else:
-					tmp = []
-					for i in range(len(init)):
-						for m in range(init[i]+1, init[-1]+1):
-							tmp.append([init[i]]+[m])
-					tmp.sort()
-					tuples = [np.array(tmp, dtype=np.int32)]
+				if (_calc.exp_ref['METHOD'] == 'HF'):
+					if (_type == 'occupied'):
+						init = _mol.occ
+						incl_idx = _mol.virt.tolist()
+					# set params and lists for virt expansion
+					elif (_type == 'virtual'):
+						init = _mol.virt
+						incl_idx = _mol.occ.tolist()
+					# append to tuples
+					if ((_calc.exp_base['METHOD'] is None) or (_mol.spin > 0)):
+						tuples = [np.array(list([i] for i in init), dtype=np.int32)]
+					else:
+						tmp = []
+						for i in range(len(init)):
+							for m in range(init[i]+1, init[-1]+1):
+								tmp.append([init[i]]+[m])
+						tmp.sort()
+						tuples = [np.array(tmp, dtype=np.int32)]
+				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+					init = []
+					if (_type == 'occupied'):
+						for i in range(len(_mol.occ)):
+							if (_mol.occ[i] not in _calc.act_orbs):
+								init.append(_calc.act_orbs.tolist() + [_mol.occ[i]])
+						incl_idx = _mol.virt.tolist()
+					# set params and lists for virt expansion
+					elif (_type == 'virtual'):
+						for i in range(len(_mol.virt)):
+							if (_mol.virt[i] not in _calc.act_orbs):
+								init.append(_calc.act_orbs.tolist() + [_mol.virt[i]])
+						incl_idx = _mol.occ.tolist()
+					tuples = [np.array(init, dtype=np.int32)]
 				#
 				return incl_idx, tuples
 

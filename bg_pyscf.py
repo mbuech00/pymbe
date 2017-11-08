@@ -84,24 +84,31 @@ class PySCFCls():
 				""" reference calculation """
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# store energy
-					ref_e_tot = _calc.hf.e_tot
-					# store mo_coeff
-					ref_mo_coeff = _calc.hf.mo_coeff
-					# no active orbitals
+					# no cas space and number of active orbitals
+					cas_space = _mol.occ
 					act_orbs = np.array([])
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
-					# set active orbitals
-					act_orbs = np.array([0, 1, 2, 3, 4] + [5, 6])
-					_calc.no_act = len(act_orbs)
-					_calc.ne_act = int(np.sum(_calc.hf_mo_occ[act_orbs]))
-					# perform casscf calc
-					casscf = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
-					casscf.conv_tol = 1.0e-12
-					mo = casscf.sort_mo(act_orbs, base=0)
-					ref_e_tot = casscf.kernel(mo)[0]
-					ref_mo_coeff = casscf.mo_coeff
+					# set cas space
+					cas_space = np.append(_mol.occ, [5, 6])
+#					cas_space = np.append(_mol.occ, [5, 6, 7])
+#					cas_space = np.append(_mol.occ, [5, 8])
+					# number of active orbitals
+					if (_calc.exp_type == 'occupied'):
+						act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
+					elif (_calc.exp_type == 'virtual'):
+						act_orbs = _mol.virt[np.where(np.in1d(_mol.virt, cas_space))]
+				# number of electrons and orbitals
+				_calc.no_act = len(cas_space)
+				_calc.ne_act = int(np.sum(_calc.hf_mo_occ[cas_space]))
+				# perform casscf calc
+				casscf = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
+				casscf.frozen = _mol.ncore
+				casscf.conv_tol = 1.0e-10
+				casscf.natorb = True
+				mo = casscf.sort_mo(cas_space, base=0)
+				ref_e_tot = casscf.kernel(mo)[0]
+				ref_mo_coeff = casscf.mo_coeff
 				#
 				return act_orbs, ref_e_tot, ref_mo_coeff
 
@@ -112,7 +119,7 @@ class PySCFCls():
 				frozen = list(range(_mol.ncore)) if (_mol.spin == 0) else [list(range(_mol.ncore)),list(range(_mol.ncore))]
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] is None):
-					_calc.e_zero = 0.0
+					_calc.e_zero = _calc.ref_e_tot - _calc.hf.e_tot
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
