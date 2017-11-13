@@ -115,8 +115,8 @@ class CalcCls():
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are occupied, virtual, and combined')
 					# reference model
-					if (not (self.exp_ref['METHOD'] in ['HF','CASSCF'])):
-						raise ValueError('wrong input -- valid reference models are currently: HF and CASSCF')
+					if (not (self.exp_ref['METHOD'] in ['HF','CASCI','CASSCF'])):
+						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
 					if ((self.exp_ref['METHOD'] == 'CASSCF') and (self.exp_base['METHOD'] is not None)):
 						raise NotImplementedError('wrong input -- the use of a base model has not been ' + \
 										'implemented for a CASSCF reference')

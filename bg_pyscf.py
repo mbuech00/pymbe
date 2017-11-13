@@ -54,7 +54,8 @@ class PySCFCls():
 						raise
 				# determine dimensions
 				_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
-				# store mo_occ and orbsym
+				# store e_tot, mo_occ, and orbsym
+				_calc.hf_e_tot = hf.e_tot
 				_calc.hf_mo_occ = hf.mo_occ
 				_calc.hf_orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
@@ -88,12 +89,9 @@ class PySCFCls():
 					cas_space = _mol.occ
 					act_orbs = np.array([])
 				# casci reference model
-				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+				elif (_calc.exp_ref['METHOD'] in ['CASSCF','CASCI']):
 					# set cas space
-#					cas_space = np.append(_mol.occ, [5, 6])
-#					cas_space = np.append(_mol.occ, [5, 6, 7])
-#					cas_space = np.append(_mol.occ, [5, 8])
-					cas_space = np.array([4, 5])
+					cas_space = np.append(_mol.occ, [3])
 					# number of active orbitals
 					if (_calc.exp_type == 'occupied'):
 						act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
@@ -102,14 +100,18 @@ class PySCFCls():
 				# number of electrons and orbitals
 				_calc.no_act = len(cas_space)
 				_calc.ne_act = int(np.sum(_calc.hf_mo_occ[cas_space]))
-				# perform casscf calc
-				casscf = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
-				casscf.conv_tol = 1.0e-10
-				casscf.natorb = True
-				casscf.frozen = _mol.ncore
-				mo = casscf.sort_mo(cas_space, base=0)
-				ref_e_tot = casscf.kernel(mo)[0]
-				ref_mo_coeff = casscf.mo_coeff
+				# perform cas calc
+				if (_calc.exp_ref['METHOD'] in ['HF','CASSCF']):
+					cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
+				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+					cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
+				cas.conv_tol = 1.0e-10
+				cas.natorb = True
+				cas.frozen = _mol.ncore
+				mo = cas.sort_mo(cas_space, base=0)
+#				mo = mcscf.sort_mo_by_irrep(cas, _calc.hf.mo_coeff, {'A1': 3, 'B2': 1})
+				ref_e_tot = cas.kernel(mo)[0]
+				ref_mo_coeff = cas.mo_coeff
 				#
 				return act_orbs, ref_e_tot, ref_mo_coeff
 
@@ -120,7 +122,7 @@ class PySCFCls():
 				frozen = list(range(_mol.ncore)) if (_mol.spin == 0) else [list(range(_mol.ncore)),list(range(_mol.ncore))]
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] is None):
-					_calc.e_zero = _calc.ref_e_tot - _calc.hf.e_tot
+					_calc.e_zero = 0.0
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
@@ -416,7 +418,7 @@ class ModelSolver():
 				cas_hf.get_hcore = lambda *args: _h1e
 				# store quantities needed in kernel()
 				cas_hf.mo_occ = _calc.hf_mo_occ[_cas_idx]
-				cas_hf.e_tot = _calc.ref_e_tot - _e_core
+				cas_hf.e_tot = _calc.hf_e_tot - _e_core
 				cas_hf.conv_tol = max(_thres, 1.0e-10)
 				#
 				return cas_hf

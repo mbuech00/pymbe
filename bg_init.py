@@ -46,11 +46,11 @@ class InitCls():
 				self.pyscf = PySCFCls()
 				# build and communicate molecule
 				if (self.mpi.global_master):
-					self.mol.make(self.mpi)
+					self.mol.make(self.mpi, self.rst)
 					self.mpi.bcast_mol_info(self.mol)
 				else:
 					self.mpi.bcast_mol_info(self.mol)
-					self.mol.make(self.mpi)
+					self.mol.make(self.mpi, self.rst)
 					# get hcore and eri
 					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 				# set core region
@@ -62,8 +62,6 @@ class InitCls():
 				# hf calculation and main transformation matrix
 				if (self.mpi.global_master):
 					self.calc.hf = self.pyscf.hf(self.mol, self.calc)
-					# remove symmetry
-					self.mol.symmetry = False; self.mol.make(self.mpi)
 					# set reference energy and mo_coeff
 					self.calc.act_orbs, \
 						self.calc.ref_e_tot, self.calc.ref_mo_coeff = self.pyscf.ref(self.mol, self.calc)

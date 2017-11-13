@@ -13,7 +13,6 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import sys
-import numpy as np
 from contextlib import redirect_stdout
 import numpy as np
 from itertools import cycle
@@ -49,6 +48,8 @@ class ResCls():
 				# modify reference print out
 				if (_calc.exp_ref['METHOD'] == 'CASSCF'):
 					self.exp_ref = 'CASSCF('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
+				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+					self.exp_ref = 'CASCI('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
 				else:
 					if (_mol.spin == 0):
 						self.exp_ref = 'RHF'
@@ -147,7 +148,7 @@ class ResCls():
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','initial thres.','','=','',_calc.exp_thres,\
 									'','|','','final total energy','','=','',\
-									_calc.hf.e_tot + _exp.energy_tot[-1] + _calc.e_zero))
+									_calc.ref_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:18}{10:2}{11:1}{12:2}'
 							'{13:<5.2f}{14:8}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
@@ -172,7 +173,8 @@ class ResCls():
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
-									format('',i+len(_exp.tuples[0][0]),'','|','',_exp.energy_tot[i]+_calc.e_zero,\
+									format('',i+len(_exp.tuples[0][0]),'','|','',\
+										_exp.energy_tot[i]+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero,\
 										'','|','',int(total_time//3600),':',\
 										int((total_time-(total_time//3600)*3600.)//60),':',\
 										int(total_time-(total_time//3600)*3600.\

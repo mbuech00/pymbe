@@ -47,7 +47,7 @@ class MolCls(gto.Mole):
 				return
 
 
-		def make(self, _mpi):
+		def make(self, _mpi, _rst):
 				""" build Mole object """
 				if (_mpi.global_master):
 					try:

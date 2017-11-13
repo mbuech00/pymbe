@@ -165,7 +165,7 @@ class MPICls():
 				""" bcast hf and ref info """
 				if (self.global_master):
 					# collect dimensions, and  mo_occ
-					info = {'ref_e_tot': _calc.ref_e_tot, \
+					info = {'hf_e_tot': _calc.hf_e_tot, 'ref_e_tot': _calc.ref_e_tot, \
 								'occ': _mol.occ, 'virt': _mol.virt, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
 								'act_orbs': _calc.act_orbs, 'mo_occ': _calc.hf_mo_occ}
@@ -177,7 +177,7 @@ class MPICls():
 				else:
 					# receive dimensions and mo_occ
 					info = self.global_comm.bcast(None, root=0)
-					_calc.ref_e_tot = info['ref_e_tot']
+					_calc.hf_e_tot = info['hf_e_tot']; _calc.ref_e_tot = info['ref_e_tot']
 					_mol.occ = info['occ']; _mol.virt = info['virt']
 					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
 					_calc.act_orbs = info['act_orbs']; _calc.hf_mo_occ = info['mo_occ']

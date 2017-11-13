@@ -76,7 +76,7 @@ class ExpCls():
 								tmp.append([init[i]]+[m])
 						tmp.sort()
 						tuples = [np.array(tmp, dtype=np.int32)]
-				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					init = []
 					if (_type == 'occupied'):
 						for i in range(len(_mol.occ)):
