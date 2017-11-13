@@ -24,19 +24,18 @@ class ExpCls():
 				self.incl_idx, self.tuples = self.init_tuples(_mol, _calc, _type)
 				# init energy_inc
 				self.energy_inc = []
-				# set max_order (derived from calc class)
-				self.max_order = _calc.exp_max_order
-				if (_type == 'occupied'):
-					if ((self.max_order == 0) or (self.max_order > (_mol.nocc-_mol.ncore))):
-						self.max_order = _mol.nocc - _mol.ncore
-				else:
-					if ((self.max_order == 0) or (self.max_order > _mol.nvirt)):
-						self.max_order = _mol.nvirt
-				# determine max theoretical work
+				# set max_order (derived from calc class) and determine max theoretical work
 				self.theo_work = []
-				for k in range(len(self.tuples[0][0]), self.max_order+1):
-					self.theo_work.append(int(factorial(self.max_order) / \
-											(factorial(k) * factorial(self.max_order - k))))
+				if (_type == 'occupied'):
+					self.max_order = min(_mol.nocc - _mol.ncore, _calc.exp_max_order)
+					for k in range(len(self.tuples[0][0]), (_mol.nocc - _mol.ncore)+1):
+						self.theo_work.append(int(factorial(_mol.nocc - _mol.ncore) / \
+												(factorial(k) * factorial((_mol.nocc - _mol.ncore) - k))))
+				else:
+					self.max_order = min(_mol.nvirt, _calc.exp_max_order)
+					for k in range(len(self.tuples[0][0]), _mol.nvirt+1):
+						self.theo_work.append(int(factorial(_mol.nvirt) / \
+												(factorial(k) * factorial(_mol.nvirt - k))))
 				# init micro_conv list
 				if (_mpi.global_master): self.micro_conv = []
 				# init convergence lists
