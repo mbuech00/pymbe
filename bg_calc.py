@@ -115,26 +115,14 @@ class CalcCls():
 					# reference model
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI','CASSCF'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
-					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not ('CHOICE' in self.exp_ref))):
-						raise ValueError('wrong input -- an active space choice is required for CASCI/CASSCF references')
-					if (('CHOICE' in self.exp_ref) and (not (self.exp_ref['CHOICE'] in ['AVAS','INPUT']))):
-						raise ValueError('wrong input -- valid active space choices for CASCI/CASSCF references ' + \
-										'are currently: avas or input')
-					if ((self.exp_ref['CHOICE'] == 'AVAS') and (not ('AO_LABELS' in self.exp_ref))):
-						raise ValueError('wrong input -- ao_labels key missing for avas active space choice')
-					if (('AO_LABELS' in self.exp_ref) and (not isinstance(self.exp_ref['AO_LABELS'], list))):
-						raise ValueError('wrong input -- ao_labels key for avas active space choice must be a list')
-					if ((self.exp_ref['CHOICE'] == 'INPUT') and (not ('ORBS' in self.exp_ref))):
-						raise ValueError('wrong input -- orbs key missing for input active space choice')
-					if (('ORBS' in self.exp_ref) and \
-						(not (isinstance(self.exp_ref['ORBS'], dict) or isinstance(self.exp_ref['ORBS'], list)))):
-						raise ValueError('wrong input -- orbs key for input active space choice must be either a dict or list')
+					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not ('INPUT' in self.exp_ref))):
+						raise ValueError('wrong input -- an active space input is required for CASCI/CASSCF references')
+					if (('INPUT' in self.exp_ref) and \
+						(not (isinstance(self.exp_ref['INPUT'], dict) or isinstance(self.exp_ref['INPUT'], list)))):
+							raise ValueError('wrong input -- input key for active space must be either a dict or a list')
 					if ((self.exp_ref['METHOD'] == 'CASSCF') and (self.exp_base['METHOD'] is not None)):
 						raise NotImplementedError('wrong input -- the use of a base model has not been ' + \
 										'implemented for a CASSCF reference')
-					if ((self.exp_ref['METHOD'] == 'CASSCF') and (_mol.spin > 0)):
-						raise NotImplementedError('wrong input -- the use of a CASSCF reference for ' + \
-										'open-shell states has not been implemented')
 					# base model
 					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)'])):
 						raise ValueError('wrong input -- invalid base model')

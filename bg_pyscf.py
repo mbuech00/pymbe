@@ -90,59 +90,43 @@ class PySCFCls():
 					_calc.ne_act = int(np.sum(_calc.hf_mo_occ))
 					cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
 					# no cas space and number of active orbitals
-					cas_space = _mol.occ
+					cas_space = np.array([])
 					act_orbs = np.array([])
+					mo = _calc.hf.mo_coeff
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASSCF','CASCI']):
+					# number of electrons and orbitals
+					if isinstance(_calc.exp_ref['INPUT'], dict):
+						_calc.no_act = sum(_calc.exp_ref['INPUT'].values())
+					elif isinstance(_calc.exp_ref['INPUT'], list):
+						_calc.no_act = len(_calc.exp_ref['INPUT'])
+					_calc.ne_act = int(np.sum(_calc.hf_mo_occ[_mol.ncore:]))
+					if (_calc.exp_ref['METHOD'] in ['CASSCF']):
+						cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
+					elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+						cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
 					# set cas space
-					if (_calc.exp_ref['CHOICE'] == 'INPUT'):
-						# number of electrons and orbitals
-						if isinstance(_calc.exp_ref['ORBS'], dict):
-							_calc.no_act = sum(_calc.exp_ref['ORBS'].values())
-						elif isinstance(_calc.exp_ref['ORBS'], list):
-							_calc.no_act = len(_calc.exp_ref['ORBS'])
-						_calc.ne_act = int(np.sum(_calc.hf_mo_occ))
-						if (_calc.exp_ref['METHOD'] in ['CASSCF']):
-							cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
-						elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-							cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
-						# set cas space
-						if isinstance(_calc.exp_ref['ORBS'], dict):
-							cas_space = np.array(mcscf.caslst_by_irrep(cas, _calc.hf.mo_coeff, \
-													_calc.exp_ref['ORBS'], base=0))
-						elif isinstance(_calc.exp_ref['ORBS'], list):
-							cas_space = np.array(_calc.exp_ref['ORBS'])
-					elif (_calc.exp_ref['CHOICE'] == 'AVAS'):
-						from pyscf.mcscf import avas
-						# get avas cas space
-						no_avas, ne_avas, mo = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'])
-						nocc_avas = ne_avas // 2
-						if (ne_avas % 2 != 0): nocc_avas += 1
-						nvirt_avas = no_avas - nocc_avas
-						_calc.no_act = _mol.nocc + nvirt_avas
-						_calc.ne_act = int(np.sum(_calc.hf_mo_occ))
-						if (_calc.exp_ref['METHOD'] in ['CASSCF']):
-							cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
-						elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-							cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
-						# set cas space
-						cas_space = np.append(_mol.occ, _mol.virt[:nvirt_avas])
+					if isinstance(_calc.exp_ref['INPUT'], dict):
+						cas_space = np.array(mcscf.caslst_by_irrep(cas, _calc.hf.mo_coeff, \
+												_calc.exp_ref['INPUT'], base=0))
+					elif isinstance(_calc.exp_ref['INPUT'], list):
+						cas_space = np.array(_calc.exp_ref['INPUT'])
+					# select MOs
+					mo = cas.sort_mo(cas_space, base=0)
 					# number of active orbitals
 					if (_calc.exp_type == 'occupied'):
 						act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
 					elif (_calc.exp_type == 'virtual'):
 						act_orbs = _mol.virt[np.where(np.in1d(_mol.virt, cas_space))]
+					# frozen core
+					cas.frozen = _mol.ncore
 				# debug print
 				if (_mol.verbose_prt):
 					print('cas_space = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
 							format(cas_space,act_orbs,_calc.no_act,_calc.ne_act))
 				# perform cas calc
 				cas.conv_tol = 1.0e-10
-				cas.frozen = _mol.ncore
 				cas.natorb = True
-				# select MOs
-				if ((_calc.exp_ref['METHOD'] == 'HF') or (_calc.exp_ref['CHOICE'] == 'INPUT')):
-					mo = cas.sort_mo(cas_space, base=0)
 				ref_e_tot = cas.kernel(mo)[0]
 				ref_mo_coeff = cas.mo_coeff
 				#
