@@ -139,6 +139,7 @@ class PySCFCls():
 				# perform cas calc
 				cas.conv_tol = 1.0e-10
 				cas.frozen = _mol.ncore
+				cas.natorb = True
 				# select MOs
 				if ((_calc.exp_ref['METHOD'] == 'HF') or (_calc.exp_ref['CHOICE'] == 'INPUT')):
 					mo = cas.sort_mo(cas_space, base=0)
