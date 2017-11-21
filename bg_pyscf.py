@@ -36,7 +36,7 @@ class PySCFCls():
 				""" hartree-fock calculation """
 				# perform hf calc
 				hf = scf.RHF(_mol)
-				hf.conv_tol = 1.0e-12
+				hf.conv_tol = 1.0e-10
 				hf.max_cycle = 500
 				hf.irrep_nelec = _mol.irrep_nelec
 				# perform hf calc
@@ -85,31 +85,63 @@ class PySCFCls():
 				""" reference calculation """
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
+					# number of electrons and orbitals
+					_calc.no_act = _mol.nocc
+					_calc.ne_act = int(np.sum(_calc.hf_mo_occ))
+					cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
 					# no cas space and number of active orbitals
 					cas_space = _mol.occ
 					act_orbs = np.array([])
 				# casci reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASSCF','CASCI']):
 					# set cas space
-					cas_space = np.append(_mol.occ, [3])
+					if (_calc.exp_ref['CHOICE'] == 'INPUT'):
+						# number of electrons and orbitals
+						if isinstance(_calc.exp_ref['ORBS'], dict):
+							_calc.no_act = sum(_calc.exp_ref['ORBS'].values())
+						elif isinstance(_calc.exp_ref['ORBS'], list):
+							_calc.no_act = len(_calc.exp_ref['ORBS'])
+						_calc.ne_act = int(np.sum(_calc.hf_mo_occ))
+						if (_calc.exp_ref['METHOD'] in ['CASSCF']):
+							cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
+						elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+							cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
+						# set cas space
+						if isinstance(_calc.exp_ref['ORBS'], dict):
+							cas_space = np.array(mcscf.caslst_by_irrep(cas, _calc.hf.mo_coeff, \
+													_calc.exp_ref['ORBS'], base=0))
+						elif isinstance(_calc.exp_ref['ORBS'], list):
+							cas_space = np.array(_calc.exp_ref['ORBS'])
+					elif (_calc.exp_ref['CHOICE'] == 'AVAS'):
+						from pyscf.mcscf import avas
+						# get avas cas space
+						no_avas, ne_avas, mo = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'])
+						nocc_avas = ne_avas // 2
+						if (ne_avas % 2 != 0): nocc_avas += 1
+						nvirt_avas = no_avas - nocc_avas
+						_calc.no_act = _mol.nocc + nvirt_avas
+						_calc.ne_act = int(np.sum(_calc.hf_mo_occ))
+						if (_calc.exp_ref['METHOD'] in ['CASSCF']):
+							cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
+						elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+							cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
+						# set cas space
+						cas_space = np.append(_mol.occ, _mol.virt[:nvirt_avas])
 					# number of active orbitals
 					if (_calc.exp_type == 'occupied'):
 						act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
 					elif (_calc.exp_type == 'virtual'):
 						act_orbs = _mol.virt[np.where(np.in1d(_mol.virt, cas_space))]
-				# number of electrons and orbitals
-				_calc.no_act = len(cas_space)
-				_calc.ne_act = int(np.sum(_calc.hf_mo_occ[cas_space]))
+				# debug print
+				if (_mol.verbose_prt):
+					print('cas_space = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
+							format(cas_space,act_orbs,_calc.no_act,_calc.ne_act))
 				# perform cas calc
-				if (_calc.exp_ref['METHOD'] in ['HF','CASSCF']):
-					cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
-				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-					cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
 				cas.conv_tol = 1.0e-10
-				cas.natorb = True
 				cas.frozen = _mol.ncore
-				mo = cas.sort_mo(cas_space, base=0)
-#				mo = mcscf.sort_mo_by_irrep(cas, _calc.hf.mo_coeff, {'A1': 3, 'B2': 1})
+				# select MOs
+				if ((_calc.exp_ref['METHOD'] == 'HF') or (_calc.exp_ref['CHOICE'] == 'INPUT')):
+					mo = cas.sort_mo(cas_space, base=0)
 				ref_e_tot = cas.kernel(mo)[0]
 				ref_mo_coeff = cas.mo_coeff
 				#
@@ -126,7 +158,7 @@ class PySCFCls():
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
-					cisd.conv_tol = 1.0e-12
+					cisd.conv_tol = 1.0e-10
 					cisd.max_cycle = 500
 					cisd.max_space = 10
 					cisd.mol.incore_anyway = True
@@ -147,8 +179,8 @@ class PySCFCls():
 				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_calc.hf)
-					ccsd.conv_tol = 1.0e-12
-					ccsd.conv_tol_normt = 1.0e-12
+					ccsd.conv_tol = 1.0e-10
+					ccsd.conv_tol_normt = 1.0e-10
 					ccsd.max_cycle = 500
 					ccsd.diis_space = 10
 					ccsd.mol.incore_anyway = True
@@ -205,7 +237,7 @@ class PySCFCls():
 					else:
 						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _mol.hcore, _calc.trans_mat))
 						h2e = ao2mo.kernel(_mol, _calc.trans_mat)
-						mol = gto.M(verbose=0)
+						mol = gto.M(verbose=1)
 						if (_mol.spin == 0):
 							hf = scf.RHF(mol)
 						else:
@@ -247,7 +279,7 @@ class PySCFCls():
 				if (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
-					cisd.conv_tol = 1.0e-12
+					cisd.conv_tol = 1.0e-10
 					cisd.max_cycle = 500
 					cisd.max_space = 10
 					cisd.mol.incore_anyway = True
@@ -268,8 +300,8 @@ class PySCFCls():
 				elif (_calc.exp_base['METHOD'] == 'CCSD'):
 					# calculate ccsd energy
 					ccsd = cc.CCSD(_calc.hf)
-					ccsd.conv_tol = 1.0e-12
-					ccsd.conv_tol_normt = 1.0e-12
+					ccsd.conv_tol = 1.0e-10
+					ccsd.conv_tol_normt = 1.0e-10
 					ccsd.max_cycle = 500
 					ccsd.diis_space = 10
 					ccsd.mol.incore_anyway = True
@@ -374,10 +406,6 @@ class PySCFCls():
 				if (_calc.exp_base['METHOD'] is None):
 					e_corr = (e_cas + _exp.e_core) - _calc.ref_e_tot
 #					if (_exp.order < _exp.max_order): e_corr += (e_cas + _exp.e_core) - _calc.ref_e_tot + 0.001 * np.random.random_sample()
-					# verbose print
-					if (_mol.verbose > 1):
-						print('e_corr = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.\
-								format(e_corr,_exp.core_idx,_exp.cas_idx))
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)
@@ -385,10 +413,6 @@ class PySCFCls():
 					e_base = solver_base.kernel(hf_base, _exp.core_idx, _exp.cas_idx)
 					e_corr = e_cas - e_base
 #					if (_exp.order < _exp.max_order): e_corr += e_cas - e_base + 0.001 * np.random.random_sample()
-					# verbose print
-					if (_mol.verbose > 1):
-						print('e_corr = {0:.6f} , e_cas = {1:.6f} , e_base = {2:.6f} , core_idx = {3:} , cas_idx = {4:}'.\
-								format(e_corr,e_cas,e_base,_exp.core_idx,_exp.cas_idx))
 				#
 				return e_corr
 
@@ -407,7 +431,7 @@ class ModelSolver():
 
 		def hf(self, _mol, _calc, _h1e, _h2e, _cas_idx, _e_core, _thres):
 				""" form active space hf """
-				cas_mol = gto.M(verbose=0)
+				cas_mol = gto.M(verbose=1)
 				cas_mol.max_memory = _mol.max_memory
 				cas_mol.spin = _mol.spin
 				if (_mol.spin == 0):

@@ -24,6 +24,8 @@ class MolCls(gto.Mole):
 				""" init parameters """
 				# gto.Mole instantiation
 				gto.Mole.__init__(self)
+				# silence pyscf output
+				self.verbose = 1
 				# set geometric and molecular parameters
 				if (_mpi.global_master):
 					# default C1 HF symmetry
@@ -35,12 +37,12 @@ class MolCls(gto.Mole):
 					# init max_memory
 					self.max_memory = None
 					# verbose
-					self.verbose = None
+					self.verbose_prt = False
 					# set geometry
 					self.atom = self.set_geo(_rst)
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose = self.set_mol(_rst)
+						self.basis, self.unit, self.frozen, self.verbose_prt = self.set_mol(_rst)
 					# store symmetry
 					self.comp_symmetry = self.symmetry
 				#
@@ -110,7 +112,7 @@ class MolCls(gto.Mole):
 							elif (re.split('=',content[i])[0].strip() == 'occ'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
-								self.verbose = int(re.split('=',content[i])[1].strip())
+								self.verbose_prt = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							# error handling
 							else:
 								try:
@@ -124,11 +126,9 @@ class MolCls(gto.Mole):
 					_rst.rm_rst()
 					sys.stderr.write('\nIOError: bg-mol.inp not found\n\n')
 					raise
-				# silence pyscf output if not given in input
-				if (self.verbose is None): self.verbose = 1
 				#
 				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose
+						self.basis, self.unit, self.frozen, self.verbose_prt
 
 
 		def set_ncore(self):

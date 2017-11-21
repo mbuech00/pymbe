@@ -38,7 +38,7 @@ class CalcCls():
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
 						self.exp_thres, self.exp_max_order, self.exp_occ, self.exp_virt, \
-						self.exp_relax, self.tolerance, _mol.verbose, \
+						self.exp_relax, self.tolerance, \
 						_mol.max_memory, _mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
@@ -78,8 +78,6 @@ class CalcCls():
 								self.exp_relax = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'tolerance'):
 								self.tolerance = float(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'verbose'):
-								_mol.verbose = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'mem'):
 								_mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'num_local_masters'):
@@ -100,7 +98,7 @@ class CalcCls():
 				#
 				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, self.exp_thres, \
 							self.exp_max_order, self.exp_occ, self.exp_virt, self.exp_relax, \
-							self.tolerance, _mol.verbose, _mol.max_memory, _mpi.num_local_masters
+							self.tolerance, _mol.max_memory, _mpi.num_local_masters
 
 
 		def sanity_chk(self, _mpi, _rst, _mol):
@@ -117,6 +115,20 @@ class CalcCls():
 					# reference model
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI','CASSCF'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
+					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not ('CHOICE' in self.exp_ref))):
+						raise ValueError('wrong input -- an active space choice is required for CASCI/CASSCF references')
+					if (('CHOICE' in self.exp_ref) and (not (self.exp_ref['CHOICE'] in ['AVAS','INPUT']))):
+						raise ValueError('wrong input -- valid active space choices for CASCI/CASSCF references ' + \
+										'are currently: avas or input')
+					if ((self.exp_ref['CHOICE'] == 'AVAS') and (not ('AO_LABELS' in self.exp_ref))):
+						raise ValueError('wrong input -- ao_labels key missing for avas active space choice')
+					if (('AO_LABELS' in self.exp_ref) and (not isinstance(self.exp_ref['AO_LABELS'], list))):
+						raise ValueError('wrong input -- ao_labels key for avas active space choice must be a list')
+					if ((self.exp_ref['CHOICE'] == 'INPUT') and (not ('ORBS' in self.exp_ref))):
+						raise ValueError('wrong input -- orbs key missing for input active space choice')
+					if (('ORBS' in self.exp_ref) and \
+						(not (isinstance(self.exp_ref['ORBS'], dict) or isinstance(self.exp_ref['ORBS'], list)))):
+						raise ValueError('wrong input -- orbs key for input active space choice must be either a dict or list')
 					if ((self.exp_ref['METHOD'] == 'CASSCF') and (self.exp_base['METHOD'] is not None)):
 						raise NotImplementedError('wrong input -- the use of a base model has not been ' + \
 										'implemented for a CASSCF reference')
@@ -189,7 +201,7 @@ class CalcCls():
 				""" capitalize keys """
 				new_dict = {}
 				for key, value in old_dict.items():
-					if (key.upper() in ['METHOD', 'TYPE']):
+					if (key.upper() in ['METHOD', 'CHOICE']):
 						new_dict[key.upper()] = value.upper()
 					else:
 						new_dict[key.upper()] = value

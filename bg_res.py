@@ -46,10 +46,11 @@ class ResCls():
 				else:
 					self.u_limit = _mol.nvirt 
 				# modify reference print out
-				if (_calc.exp_ref['METHOD'] == 'CASSCF'):
-					self.exp_ref = 'CASSCF('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
-				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-					self.exp_ref = 'CASCI('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
+				if (_calc.no_act > _mol.nocc):
+					if (_calc.exp_ref['METHOD'] == 'CASSCF'):
+						self.exp_ref = 'CASSCF('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
+					elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+						self.exp_ref = 'CASCI('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
 				else:
 					if (_mol.spin == 0):
 						self.exp_ref = 'RHF'
@@ -122,37 +123,37 @@ class ResCls():
 								format('','molecular information','','|','',\
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:15}{10:5}{11:1}'
-							'{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<2d}{22:^3}{23:<d}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:16}{10:2}{11:1}'
+							'{12:2}{13:<14s}{14:1}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<2d}{22:^3}{23:<d}').\
 								format('','basis set','','=','',_mol.basis,\
 									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
 									'','|','','# mpi masters / slaves','','=','',\
 									_mpi.num_local_masters + 1,'/',_mpi.global_size - (_mpi.num_local_masters + 1)))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:18}{10:2}{11:1}'
-							'{12:2}{13:<12s}{14:1}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:2}{11:1}'
+							'{12:2}{13:<14s}{14:1}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
-									'','|','','reference function','','=','',self.exp_ref,\
+									'','|','','reference funct.','','=','',self.exp_ref,\
 									'','|','','HF energy','','=','',_calc.hf.e_tot))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:15}{12:5}'
-							'{13:1}{14:2}{15:<12s}{16:1}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:16}{12:2}'
+							'{13:1}{14:2}{15:<14s}{16:1}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
 								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
 									'','|','','expansion base','','=','',self.exp_base,\
 									'','|','','reference energy','','=','',_calc.ref_e_tot))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:15}{10:5}'
-							'{11:1}{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}'
+							'{11:1}{12:2}{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
 									'','|','','expansion type','','=','',_calc.exp_type,\
 									'','|','','base model energy','','=','',self.exp_base_energy))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:15}{10:5}{11:1}{12:2}'
-							'{13:<5.2e}{14:5}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<5.2e}{14:7}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','initial thres.','','=','',_calc.exp_thres,\
 									'','|','','final total energy','','=','',\
 									_calc.ref_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:18}{10:2}{11:1}{12:2}'
-							'{13:<5.2f}{14:8}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<5.2f}{14:10}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
-									'','|','','thres. relaxation','','=','',_calc.exp_relax,\
+									'','|','','thres. relax.','','=','',_calc.exp_relax,\
 									'','|','','final abs. conv.','','=','',\
 									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))
 						print(self.divider_str)
@@ -194,8 +195,8 @@ class ResCls():
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# plot results
-				ax.plot(list(range(len(_exp.tuples[0][0]),len(_exp.energy_tot)+len(_exp.tuples[0][0]))),
-						_exp.energy_tot+_calc.e_zero, marker='x', linewidth=2,
+				ax.plot(list(range(len(_exp.tuples[0][0]),len(_exp.energy_tot)+len(_exp.tuples[0][0]))), \
+						_exp.energy_tot+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero, marker='x', linewidth=2, \
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
 				ax.set_xlim([0.5, self.u_limit + 0.5])

@@ -118,13 +118,14 @@ class MPICls():
 				if (self.global_master):
 					mol = {'atom': _mol.atom, 'charge': _mol.charge, 'spin': _mol.spin, \
 							'symmetry': _mol.symmetry, 'irrep_nelec': _mol.irrep_nelec, 'basis': _mol.basis, \
-							'unit': _mol.unit, 'frozen': _mol.frozen, 'verbose': _mol.verbose}
+							'unit': _mol.unit, 'frozen': _mol.frozen, 'verbose_prt': _mol.verbose_prt}
 					self.global_comm.bcast(mol, root=0)
 				else:
 					mol = self.global_comm.bcast(None, root=0)
 					_mol.atom = mol['atom']; _mol.charge = mol['charge']; _mol.spin = mol['spin']
 					_mol.symmetry = mol['symmetry']; _mol.irrep_nelec = mol['irrep_nelec']
-					_mol.basis = mol['basis']; _mol.unit = mol['unit']; _mol.frozen = mol['frozen']; _mol.verbose = mol['verbose']
+					_mol.basis = mol['basis']; _mol.unit = mol['unit']; _mol.frozen = mol['frozen']
+					_mol.verbose_prt = mol['verbose_prt']
 				#
 				return
 

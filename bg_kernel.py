@@ -132,10 +132,10 @@ class KernCls():
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						_rst.write_kernel(_calc, _exp, False)
-#				# manually force e_inc to zero in case of CISD, CCSD, or CCSD(T) base models in case of closed-shell state
-#				if (_mol.spin == 0):
-#					if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
-#						_exp.energy_inc[0].fill(0.0)
+						# debug print
+						if (_mol.verbose_prt):
+							print('e_inc = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.\
+									format(_exp.energy_inc[-1][i],_exp.core_idx,_exp.cas_idx))
 				#
 				return
 
@@ -216,10 +216,6 @@ class KernCls():
 						slaves_avail -= 1
 				# print 100.0 %
 				if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
-#				# manually force e_inc to zero in case of CISD, CCSD, or CCSD(T) base models in case of closed-shell state
-#				if (_mol.spin == 0):
-#					if ((_exp.order == 1) and (_calc.exp_base['METHOD'] in ['CISD','CCSD','CCSD(T)'])):
-#						_exp.energy_inc[0].fill(0.0)
 				# bcast e_inc[-1]
 				_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				#
