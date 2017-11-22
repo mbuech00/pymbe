@@ -88,23 +88,26 @@ class PySCFCls():
 					# number of electrons and orbitals
 					_calc.no_act = _mol.nocc
 					_calc.ne_act = int(np.sum(_calc.hf_mo_occ))
-					cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
 					# no cas space and number of active orbitals
-					cas_space = np.array([])
 					act_orbs = np.array([])
-					mo = _calc.hf.mo_coeff
-				# casci reference model
+					ref_e_tot = _calc.hf.e_tot
+					ref_mo_coeff = np.asarray(_calc.hf.mo_coeff, order='C')
+				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASSCF','CASCI']):
 					# number of electrons and orbitals
 					if isinstance(_calc.exp_ref['INPUT'], dict):
 						_calc.no_act = sum(_calc.exp_ref['INPUT'].values())
 					elif isinstance(_calc.exp_ref['INPUT'], list):
 						_calc.no_act = len(_calc.exp_ref['INPUT'])
-					_calc.ne_act = int(np.sum(_calc.hf_mo_occ[_mol.ncore:]))
-					if (_calc.exp_ref['METHOD'] in ['CASSCF']):
-						cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
+					if isinstance(_calc.exp_ref['NELEC'], (tuple, list)):
+						_calc.ne_act = _calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1]
+					elif isinstance(_calc.exp_ref['NELEC'], int):
+						_calc.ne_act = _calc.exp_ref['NELEC']
+					# init model
+					if (_calc.exp_ref['METHOD'] == 'CASSCF'):
+						cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.exp_ref['NELEC'])
 					elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-						cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
+						cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.exp_ref['NELEC'])
 					# set cas space
 					if isinstance(_calc.exp_ref['INPUT'], dict):
 						cas_space = np.array(mcscf.caslst_by_irrep(cas, _calc.hf.mo_coeff, \
@@ -120,15 +123,15 @@ class PySCFCls():
 						act_orbs = _mol.virt[np.where(np.in1d(_mol.virt, cas_space))]
 					# frozen core
 					cas.frozen = _mol.ncore
-				# debug print
-				if (_mol.verbose_prt):
-					print('cas_space = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
-							format(cas_space,act_orbs,_calc.no_act,_calc.ne_act))
-				# perform cas calc
-				cas.conv_tol = 1.0e-10
-				cas.natorb = True
-				ref_e_tot = cas.kernel(mo)[0]
-				ref_mo_coeff = cas.mo_coeff
+					# debug print
+					if (_mol.verbose_prt):
+						print('cas_space = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
+								format(cas_space,act_orbs,_calc.no_act,_calc.ne_act))
+					# perform cas calc
+					cas.conv_tol = 1.0e-10
+					cas.natorb = True
+					ref_e_tot = cas.kernel(mo)[0]
+					ref_mo_coeff = cas.mo_coeff
 				#
 				return act_orbs, ref_e_tot, ref_mo_coeff
 
