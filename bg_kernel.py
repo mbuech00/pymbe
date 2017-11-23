@@ -52,14 +52,14 @@ class KernCls():
 		def summation(self, _calc, _exp, _idx):
 				""" energy summation """
 				# now compute increment
-				for i in range(_exp.order-1, len(_exp.tuples[0][0])-1, -1):
+				for i in range(_exp.order-1, _exp.start_order-1, -1):
 					# test if tuple is a subset
 					combs = _exp.tuples[-1][_idx, self.comb_index(_exp.order, i)]
-					dt = np.dtype((np.void, _exp.tuples[i-len(_exp.tuples[0][0])].dtype.itemsize * \
-									_exp.tuples[i-len(_exp.tuples[0][0])].shape[1]))
-					match = np.nonzero(np.in1d(_exp.tuples[i-len(_exp.tuples[0][0])].view(dt).reshape(-1),
+					dt = np.dtype((np.void, _exp.tuples[i-_exp.start_order].dtype.itemsize * \
+									_exp.tuples[i-_exp.start_order].shape[1]))
+					match = np.nonzero(np.in1d(_exp.tuples[i-_exp.start_order].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
-					for j in match: _exp.energy_inc[-1][_idx] -= _exp.energy_inc[i-len(_exp.tuples[0][0])][j]
+					for j in match: _exp.energy_inc[-1][_idx] -= _exp.energy_inc[i-_exp.start_order][j]
 				#
 				return
 
@@ -77,11 +77,11 @@ class KernCls():
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum of total energy
 				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
-				if (_exp.order > len(_exp.tuples[0][0])): e_tmp += _exp.energy_tot[-1]
+				if (_exp.order > _exp.start_order): e_tmp += _exp.energy_tot[-1]
 				# add to total energy list
 				_exp.energy_tot.append(e_tmp)
 				# check for convergence wrt total energy
-				if ((_exp.order > len(_exp.tuples[0][0])) and \
+				if ((_exp.order > _exp.start_order) and \
 					(abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _exp.thres)):
 					_exp.conv_energy.append(True)
 				#

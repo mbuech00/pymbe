@@ -65,7 +65,7 @@ class DrvCls():
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
 					# if rst, print previous results
 					if (do_print):
-						for _exp.order in range(len(_exp.tuples[0][0]), _exp.min_order):
+						for _exp.order in range(_exp.start_order, _exp.min_order):
 							_prt.kernel_header(_calc, _exp)
 							_prt.kernel_micro_results(_calc, _exp)
 							_prt.kernel_end(_calc, _exp)

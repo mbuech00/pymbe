@@ -174,7 +174,7 @@ class ResCls():
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
-									format('',i+len(_exp.tuples[0][0]),'','|','',\
+									format('',i+_exp.start_order,'','|','',\
 										_exp.energy_tot[i]+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero,\
 										'','|','',int(total_time//3600),':',\
 										int((total_time-(total_time//3600)*3600.)//60),':',\
@@ -195,7 +195,7 @@ class ResCls():
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# plot results
-				ax.plot(list(range(len(_exp.tuples[0][0]),len(_exp.energy_tot)+len(_exp.tuples[0][0]))), \
+				ax.plot(list(range(_exp.start_order, len(_exp.energy_tot)+_exp.start_order)), \
 						_exp.energy_tot+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero, marker='x', linewidth=2, \
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
@@ -249,7 +249,7 @@ class ResCls():
 					sns.distplot(_exp.energy_inc[i], hist=False, color='red', \
 									kde_kws={'shade': True}, ax=ax.flat[i])
 					# set title
-					ax.flat[i].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+len(_exp.tuples[0][0]), len(_exp.energy_inc[i]), \
+					ax.flat[i].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+_exp.start_order, len(_exp.energy_inc[i]), \
 																							np.sum(_exp.energy_inc[i])), size=10)
 					# val_max
 					val_max = _exp.energy_inc[i][np.argmax(np.abs(_exp.energy_inc[i]))]

@@ -93,7 +93,7 @@ class PySCFCls():
 					ref_e_tot = _calc.hf.e_tot
 					ref_mo_coeff = np.asarray(_calc.hf.mo_coeff, order='C')
 				# casci/casscf reference model
-				elif (_calc.exp_ref['METHOD'] in ['CASSCF','CASCI']):
+				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# number of electrons and orbitals
 					if isinstance(_calc.exp_ref['INPUT'], dict):
 						_calc.no_act = sum(_calc.exp_ref['INPUT'].values())

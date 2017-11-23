@@ -22,18 +22,20 @@ class ExpCls():
 				""" init parameters """
 				# init tuples and incl_idx
 				self.incl_idx, self.tuples = self.init_tuples(_mol, _calc, _type)
+				# set start order
+				self.start_order = self.tuples[0].shape[1]
 				# init energy_inc
 				self.energy_inc = []
 				# set max_order (derived from calc class) and determine max theoretical work
 				self.theo_work = []
 				if (_type == 'occupied'):
 					self.max_order = min(_mol.nocc - _mol.ncore, _calc.exp_max_order)
-					for k in range(len(self.tuples[0][0]), (_mol.nocc - _mol.ncore)+1):
+					for k in range(self.start_order, (_mol.nocc - _mol.ncore)+1):
 						self.theo_work.append(int(factorial(_mol.nocc - _mol.ncore) / \
 												(factorial(k) * factorial((_mol.nocc - _mol.ncore) - k))))
 				else:
 					self.max_order = min(_mol.nvirt, _calc.exp_max_order)
-					for k in range(len(self.tuples[0][0]), _mol.nvirt+1):
+					for k in range(self.start_order, _mol.nvirt+1):
 						self.theo_work.append(int(factorial(_mol.nvirt) / \
 												(factorial(k) * factorial(_mol.nvirt - k))))
 				# init micro_conv list
