@@ -68,15 +68,7 @@ class ExpCls():
 						init = _mol.virt
 						incl_idx = _mol.occ.tolist()
 					# append to tuples
-					if ((_calc.exp_base['METHOD'] is None) or (_mol.spin > 0)):
-						tuples = [np.array(list([i] for i in init), dtype=np.int32)]
-					else:
-						tmp = []
-						for i in range(len(init)):
-							for m in range(init[i]+1, init[-1]+1):
-								tmp.append([init[i]]+[m])
-						tmp.sort()
-						tuples = [np.array(tmp, dtype=np.int32)]
+					tuples = [np.array(list([i] for i in init), dtype=np.int32)]
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					init = []
 					if (_type == 'occupied'):

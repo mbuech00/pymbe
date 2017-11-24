@@ -62,8 +62,8 @@ class ResCls():
 				else:
 					self.exp_base = _calc.exp_base['METHOD']
 				# modify orbital print out
-				if (_calc.exp_occ == 'CAN'):
-					self.exp_occ = 'canonical'
+				if (_calc.exp_occ == 'REF'):
+					self.exp_occ = 'reference'
 				elif (_calc.exp_occ == 'NO'):
 					self.exp_occ = 'natural'
 				elif (_calc.exp_occ == 'PM'):
@@ -74,7 +74,7 @@ class ResCls():
 					self.exp_occ = 'intrin. bond'
 				elif (_calc.exp_occ == 'IBO-2'):
 					self.exp_occ = 'intrin. bond'
-				if (_calc.exp_virt == 'CAN'):
+				if (_calc.exp_virt == 'REF'):
 					self.exp_virt = 'canonical'
 				elif (_calc.exp_virt == 'NO'):
 					self.exp_virt = 'natural'

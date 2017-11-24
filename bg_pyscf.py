@@ -17,7 +17,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 try:
-	from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
+	from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, hci, fci
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
@@ -136,13 +136,56 @@ class PySCFCls():
 				return act_orbs, ref_e_tot, ref_mo_coeff
 
 
-		def trans_main(self, _mol, _calc):
+		def trans_main(self, _mol, _calc, _exp):
 				""" determine main transformation matrices """
 				# set frozen list
 				frozen = list(range(_mol.ncore)) if (_mol.spin == 0) else [list(range(_mol.ncore)),list(range(_mol.ncore))]
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] is None):
 					_calc.e_zero = 0.0
+				elif (_calc.exp_base['METHOD'] == 'HCI'):
+					# init solver
+					hci_solver = hci.SCI(_mol)
+					hci_solver.conv_tol = 1.0e-10
+					hci_solver.max_cycle = 500
+					hci_solver.max_space = 10
+					hci_solver.max_memory = _mol.max_memory
+					# set core and cas spaces
+					if (_calc.exp_type == 'occupied'):
+						_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, np.array(range(_mol.ncore, _mol.nocc)))
+					if (_calc.exp_type == 'virtual'):
+						_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
+					# get integrals
+					h1e, h2e = self.prepare(_mol, _calc, _exp, _calc.ref_mo_coeff)
+					# nelec_cas
+					nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
+					# fix spin if non-singlet
+					if (_mol.spin > 0):
+						sz = abs(nelec_cas[0]-nelec_cas[1]) * .5
+						fci.addons.fix_spin(hci_solver, ss=sz * (sz + 1.))
+					try:
+						e, c = hci_solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec_cas, ecore=_exp.e_core)
+					except Exception as err:
+						try:
+							raise RuntimeError(('\nHCI (main int-trans) Error :\n'
+												'PySCF Error: {0:}\n\n').\
+												format(err))
+						except Exception as err_2:
+							sys.stderr.write(str(err_2))
+							raise
+					# calculate spin
+					s, mult = hci_solver.spin_square(c[0], len(_exp.cas_idx), nelec_cas)
+					# check for correct spin
+					if (int(round(s)) != _mol.spin):
+						try:
+							raise RuntimeError(('\nHCI (main int-trans) Error : wrong spin\n'
+												'2*S + 1 = {0:.3f}\n\n').\
+												format(mult))
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					# e_zero
+					_calc.e_zero = e[0] - _calc.ref_e_tot
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					# calculate ccsd energy
 					cisd = ci.CISD(_calc.hf)
@@ -192,7 +235,7 @@ class PySCFCls():
 				# init transformation matrix
 				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
 				# occ-occ block (local or NOs)
-				if (_calc.exp_occ != 'CAN'):
+				if (_calc.exp_occ != 'REF'):
 					if (_calc.exp_occ == 'NO'):
 						if (_mol.spin > 0): dm = dm[0] + dm[1]
 						occup, no = symm.eigh(dm[:len(_mol.occ), :len(_mol.occ)], _calc.hf_orbsym[_mol.occ])
@@ -209,7 +252,7 @@ class PySCFCls():
 						elif (_calc.exp_occ == 'IBO-2'):
 							_calc.trans_mat[:, _mol.occ] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.occ], iao).kernel()
 				# virt-virt block (local or NOs)
-				if (_calc.exp_virt != 'CAN'):
+				if (_calc.exp_virt != 'REF'):
 					if (_calc.exp_virt == 'NO'):
 						if ((_mol.spin > 0) and (_calc.exp_occ != 'NO')): dm = dm[0] + dm[1]
 						occup, no = symm.eigh(dm[-len(_mol.virt):, -len(_mol.virt):], _calc.hf_orbsym[_mol.virt])
@@ -220,7 +263,7 @@ class PySCFCls():
 						_calc.trans_mat[:, _mol.virt] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.virt]).kernel()
 				# add (t) correction
 				if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
-					if ((_calc.exp_occ == 'CAN') and (_calc.exp_virt == 'CAN')):
+					if ((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')):
 						_calc.e_zero += ccsd.ccsd_t(eris=eris)
 					else:
 						h1e = reduce(np.dot, (np.transpose(_calc.trans_mat), _mol.hcore, _calc.trans_mat))
@@ -314,21 +357,29 @@ class PySCFCls():
 				return
 
 
-		def prepare(self, _mol, _calc, _exp):
+		def core_cas_spaces(self, _mol, _exp, _tup):
+				""" define core and cas spaces """
+				cas_idx = sorted(_exp.incl_idx + sorted(_tup.tolist()))
+				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
+				#
+				return core_idx, cas_idx
+
+
+		def prepare(self, _mol, _calc, _exp, _orbs):
 				""" generate input for correlated calculation """
 				# extract cas integrals and calculate core energy
 				if (len(_exp.core_idx) > 0):
 					if ((_calc.exp_type == 'occupied') or (_exp.e_core is None)):
-						core_dm = np.dot(_calc.trans_mat[:, _exp.core_idx], np.transpose(_calc.trans_mat[:, _exp.core_idx])) * 2
+						core_dm = np.dot(_orbs[:, _exp.core_idx], np.transpose(_orbs[:, _exp.core_idx])) * 2
 						_exp.core_vhf = scf.hf.get_veff(_mol, core_dm)
 						_exp.e_core = _mol.energy_nuc() + np.einsum('ij,ji', core_dm, _mol.hcore)
 						_exp.e_core += np.einsum('ij,ji', core_dm, _exp.core_vhf) * .5
 				else:
 					_exp.e_core = _mol.energy_nuc()
 					_exp.core_vhf = 0
-				h1e_cas = reduce(np.dot, (np.transpose(_calc.trans_mat[:, _exp.cas_idx]), \
-										_mol.hcore + _exp.core_vhf, _calc.trans_mat[:, _exp.cas_idx]))
-				h2e_cas = ao2mo.incore.full(_mol.eri, _calc.trans_mat[:, _exp.cas_idx])
+				h1e_cas = reduce(np.dot, (np.transpose(_orbs[:, _exp.cas_idx]), \
+										_mol.hcore + _exp.core_vhf, _orbs[:, _exp.cas_idx]))
+				h2e_cas = ao2mo.incore.full(_mol.eri, _orbs[:, _exp.cas_idx])
 				#
 				return h1e_cas, h2e_cas
 
@@ -394,6 +445,43 @@ class PySCFCls():
 				if (_calc.exp_base['METHOD'] is None):
 					e_corr = (e_cas + _exp.e_core) - _calc.ref_e_tot
 #					if (_exp.order < _exp.max_order): e_corr += (e_cas + _exp.e_core) - _calc.ref_e_tot + 0.001 * np.random.random_sample()
+				elif (_calc.exp_base['METHOD'] == 'HCI'):
+					# init solver
+					solver_base = hci.SCI()
+					# fci settings
+					solver_base.conv_tol = max(_exp.thres, 1.0e-10)
+					solver_base.max_cycle = 500
+					solver_base.max_space = 10
+					solver_base.max_memory = _mol.max_memory
+					# fix spin if non-singlet
+					if (_mol.spin > 0):
+						sz = abs(nelec_cas[0]-nelec_cas[1]) * .5
+						fci.addons.fix_spin(solver_base, ss=sz * (sz + 1.))
+					try:
+						e_base, c_base = solver_base.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), nelec_cas)
+					except Exception as err:
+						try:
+							raise RuntimeError(('\nCAS-HCI Error :\n'
+												'core_idx = {0:} , cas_idx = {1:}\n'
+												'PySCF Error: {2:}\n\n').\
+												format(_exp.core_idx, _exp.cas_idx, err))
+						except Exception as err_2:
+							sys.stderr.write(str(err_2))
+							raise
+					# calculate spin
+					base_s, base_mult = solver_base.spin_square(c_base[0], len(_exp.cas_idx), nelec_cas)
+					# check for correct spin
+					if (int(round(base_s)) != _mol.spin):
+						try:
+							raise RuntimeError(('\nCAS-HCI Error : wrong spin\n'
+												'2*S + 1 = {0:.3f}\n'
+												'core_idx = {1:} , cas_idx = {2:}\n\n').\
+												format(base_mult, _exp.core_idx, _exp.cas_idx))
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					e_corr = e_cas - e_base[0]
+#					if (_exp.order < _exp.max_order): e_corr += e_cas - e_base + 0.001 * np.random.random_sample()
 				else:
 					# base calculation
 					solver_base = ModelSolver(_calc.exp_base)

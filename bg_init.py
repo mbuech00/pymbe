@@ -59,7 +59,7 @@ class InitCls():
 				self.mpi.bcast_calc_info(self.calc)
 				# init mpi
 				self.mpi.set_mpi()
-				# hf calculation and main transformation matrix
+				# hf calculation
 				if (self.mpi.global_master):
 					self.calc.hf = self.pyscf.hf(self.mol, self.calc)
 					# set reference energy and mo_coeff
@@ -67,8 +67,20 @@ class InitCls():
 						self.calc.ref_e_tot, self.calc.ref_mo_coeff = self.pyscf.ref(self.mol, self.calc)
 					# get hcore and eri
 					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
+				# expansion instantiation
+				if (self.mpi.global_master):
+					if (self.calc.exp_type in ['occupied','virtual']):
+						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
+						# mark expansion as micro
+						self.exp.level = 'micro'
+					elif (self.calc.exp_type == 'combined'):
+						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
+						# mark expansion as macro
+						self.exp.level = 'macro'
+				# generate main transformation matrix
+				if (self.mpi.global_master):
 					# transformation matrix
-					self.pyscf.trans_main(self.mol, self.calc)
+					self.pyscf.trans_main(self.mol, self.calc, self.exp)
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_ref_info(self.mol, self.calc)
@@ -76,18 +88,12 @@ class InitCls():
 					# in case of combined expansion, have local masters perform hf calc
 					if (self.mpi.local_master):
 						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
-				# expansion and driver instantiations
+				# driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):
-						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
 						self.drv = DrvCls(self.mol, self.calc.exp_type)
-						# mark expansion as micro
-						self.exp.level = 'micro'
 					elif (self.calc.exp_type == 'combined'):
-						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
 						self.drv = DrvCls(self.mol, 'occupied')
-						# mark expansion as macro
-						self.exp.level = 'macro'
 					# print and result instantiations
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.mpi, self.mol, self.calc, self.out)

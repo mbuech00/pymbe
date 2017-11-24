@@ -119,8 +119,8 @@ class KernCls():
 						_exp.micro_conv[-1][i] = exp_micro.order
 					else:
 						# generate input
-						_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, _exp.tuples[-1][i])
-						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp)
+						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas_spaces(_mol, _exp, _exp.tuples[-1][i])
+						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 						# perform calc
 						_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
 					# sum up energy increment
@@ -265,8 +265,8 @@ class KernCls():
 							comm.send(data, dest=0, tag=self.tags.done)
 						else:
 							# generate input
-							_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, _exp.tuples[-1][job_info['index']])
-							_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp)
+							_exp.core_idx, _exp.cas_idx = _pyscf.core_cas_spaces(_mol, _exp, _exp.tuples[-1][job_info['index']])
+							_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 							# run correlated calc
 							_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)
 							# sum up energy increment
@@ -285,13 +285,5 @@ class KernCls():
 				_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				#
 				return
-
-
-		def core_cas_spaces(self, _mol, _exp, _tup):
-				""" define core and cas spaces """
-				cas_idx = sorted(_exp.incl_idx + sorted(_tup.tolist()))
-				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
-				#
-				return core_idx, cas_idx
 
 

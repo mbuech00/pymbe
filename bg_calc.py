@@ -29,8 +29,8 @@ class CalcCls():
 				self.exp_thres = 1.0e-10
 				self.exp_relax = 1.0
 				self.exp_max_order = 1000000
-				self.exp_occ = 'CAN'
-				self.exp_virt = 'CAN'
+				self.exp_occ = 'REF'
+				self.exp_virt = 'REF'
 				self.tolerance = 0.0
 				# init ref_mo_coeff, hf_mo_occ, and transformation matrix
 				self.ref_mo_coeff = None; self.hf_mo_occ = None; self.trans_mat = None
@@ -122,17 +122,15 @@ class CalcCls():
 							raise ValueError('wrong input -- input key (input) for active space must be either a dict or a list')
 						if (not ('NELEC' in self.exp_ref)):
 							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
-					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (self.exp_base['METHOD'] is not None)):
-						raise NotImplementedError('wrong input -- the use of a base model has not been ' + \
-										'implemented for CASCI/CASSCF references')
+					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not (self.exp_base['METHOD'] in [None,'HCI']))):
+						raise ValueError('wrong input -- the only allowed base model for CASCI/CASSCF references is HCI')
 					# base model
-					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)'])):
+					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)','HCI'])):
 						raise ValueError('wrong input -- invalid base model')
 					if (((self.exp_base['METHOD'] == 'CISD') and (self.exp_model['METHOD'] in ['CISD'])) or \
 						((self.exp_base['METHOD'] == 'CCSD') and (self.exp_model['METHOD'] in ['CISD','CCSD'])) or \
-						((self.exp_base['METHOD'] == 'CCSD(T)') and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)']))):
-						raise ValueError('wrong input -- invalid base model for choice ' + \
-										'of expansion model')
+						((self.exp_base['METHOD'] in ['CCSD(T)','HCI']) and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)']))):
+							raise ValueError('wrong input -- invalid base model for choice of expansion model')
 					# max order
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
@@ -145,17 +143,17 @@ class CalcCls():
 						raise ValueError('wrong input -- threshold relaxation parameter ' + \
 										'(relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if (not (self.exp_occ in ['CAN','PM','FB','IBO-1','IBO-2','NO'])):
+					if (not (self.exp_occ in ['REF','PM','FB','IBO-1','IBO-2','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \
-										'representations are currently: CAN, local (PM or FB), ' + \
+										'representations are currently: REF, local (PM or FB), ' + \
 										'intrinsic bond orbitals (IBO-1 or IBO-2), or base model natural orbitals (NO)')
-					if (not (self.exp_virt in ['CAN','PM','FB','NO','DNO'])):
+					if (not (self.exp_virt in ['REF','PM','FB','NO','DNO'])):
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: CAN, local (PM or FB), ' + \
+										'representations are currently: REF, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] is None)):
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] in [None,'HCI'])):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
-										'requires the use of a correlated base model for the expansion')
+										'requires the use of a CI/CCSD base model for the expansion')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'is only valid in combination with combined (dual) expansions')
