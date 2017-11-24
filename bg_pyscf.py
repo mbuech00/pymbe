@@ -149,6 +149,8 @@ class PySCFCls():
 					hci_solver.conv_tol = 1.0e-10
 					hci_solver.max_cycle = 500
 					hci_solver.max_space = 10
+					hci_solver.ci_coeff_cutoff = 1e-3
+					hci_solver.select_cutoff = 1e-3
 					hci_solver.max_memory = _mol.max_memory
 					# set core and cas spaces
 					if (_calc.exp_type == 'occupied'):
@@ -450,6 +452,8 @@ class PySCFCls():
 					solver_base = hci.SCI()
 					# fci settings
 					solver_base.conv_tol = max(_exp.thres, 1.0e-10)
+					solver_base.ci_coeff_cutoff = 1e-3
+					solver_base.select_cutoff = 1e-3
 					solver_base.max_cycle = 500
 					solver_base.max_space = 10
 					solver_base.max_memory = _mol.max_memory
