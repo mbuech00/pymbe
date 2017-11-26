@@ -203,8 +203,8 @@ class PrintCls():
 				# debug print
 				if (_mol.verbose_prt):
 					core_idx, cas_idx = _pyscf.core_cas_spaces(_mol, _exp, _exp.tuples[-1][max_idx])
-					print(' RESULT-'+_exp.level.upper()+':  core = {0:} , cas = {1:}'.\
-							format(core_idx, cas_idx))
+					print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core_idx))
+					print(' RESULT-'+_exp.level.upper()+':  cas  = {0:}'.format(cas_idx))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
