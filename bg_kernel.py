@@ -132,10 +132,6 @@ class KernCls():
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						_rst.write_kernel(_calc, _exp, False)
-						# debug print
-						if (_mol.verbose_prt):
-							print('e_inc = {0:.6f} , core_idx = {1:} , cas_idx = {2:}'.\
-									format(_exp.energy_inc[-1][i],_exp.core_idx,_exp.cas_idx))
 				#
 				return
 

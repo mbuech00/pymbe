@@ -177,12 +177,14 @@ class PrintCls():
 				return
 
 	
-		def kernel_results(self, _calc, _exp):
+		def kernel_results(self, _mol, _calc, _exp, _pyscf):
 				""" print kernel result statistics """
 				# statistics
 				mean_val = np.mean(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1])
-				min_val = _exp.energy_inc[(_exp.order-(_exp.start_order-1))-1][np.argmin(np.abs(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]))]
-				max_val = _exp.energy_inc[(_exp.order-(_exp.start_order-1))-1][np.argmax(np.abs(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]))]
+				min_idx = np.argmin(np.abs(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]))
+				min_val = _exp.energy_inc[(_exp.order-(_exp.start_order-1))-1][min_idx]
+				max_idx = np.argmax(np.abs(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]))
+				max_val = _exp.energy_inc[(_exp.order-(_exp.start_order-1))-1][max_idx]
 				# now print
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
@@ -198,6 +200,11 @@ class PrintCls():
 				print(' --------------------------------------------------------------------------------------------')
 				print(' RESULT-'+_exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
 						format(mean_val, min_val, max_val))
+				# debug print
+				if (_mol.verbose_prt):
+					core_idx, cas_idx = _pyscf.core_cas_spaces(_mol, _exp, _exp.tuples[-1][max_idx])
+					print(' RESULT-'+_exp.level.upper()+':  core = {0:} , cas = {1:}'.\
+							format(core_idx, cas_idx))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return

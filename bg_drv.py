@@ -69,7 +69,7 @@ class DrvCls():
 							_prt.kernel_header(_calc, _exp)
 							_prt.kernel_micro_results(_calc, _exp)
 							_prt.kernel_end(_calc, _exp)
-							_prt.kernel_results(_calc, _exp)
+							_prt.kernel_results(_mol, _calc, _exp, _pyscf)
 							_exp.thres = self.screening.update(_calc, _exp)
 							_prt.screen_header(_calc, _exp)
 							_prt.screen_end(_calc, _exp)
@@ -97,7 +97,7 @@ class DrvCls():
 						# write restart files
 						_rst.write_kernel(_calc, _exp, True)
 						# print kernel results
-						_prt.kernel_results(_calc, _exp)
+						_prt.kernel_results(_mol, _calc, _exp, _pyscf)
 					#
 					#** screening phase **#
 					#

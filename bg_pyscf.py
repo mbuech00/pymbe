@@ -150,7 +150,8 @@ class PySCFCls():
 					cas.frozen = _mol.ncore
 					# debug print
 					if (_mol.verbose_prt):
-						print('cas_space = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
+						cas.verbose = 4
+						print('\n cas  = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
 								format(cas_space,act_orbs,_calc.no_act,_calc.ne_act))
 					# perform cas calc
 					cas.conv_tol = 1.0e-10
@@ -459,7 +460,7 @@ class PySCFCls():
 					# calculate spin
 					cas_s, cas_mult = fci.spin_op.spin_square(c_cas, len(_exp.cas_idx), nelec_cas)
 					# check for correct spin
-					if (int(round(cas_s)) != _mol.spin):
+					if (float(_mol.spin) - cas_s > 1.0e-03):
 						try:
 							raise RuntimeError(('\nCAS-CI Error : wrong spin\n'
 												'2*S + 1 = {0:.3f}\n'
