@@ -91,12 +91,12 @@ class PrintCls():
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
+						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
 								format(_exp.order,len(_exp.tuples[(_exp.order-(_exp.start_order-1))-1])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
+				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
 						format(_exp.order,len(_exp.tuples[(_exp.order-(_exp.start_order-1))-1])))
 				print(' --------------------------------------------------------------------------------------------')
 				#
@@ -120,25 +120,25 @@ class PrintCls():
 					with redirect_stdout(f):
 						if (_exp.conv_energy[-1]):
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
+							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
 									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),_exp.thres))
 							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
 									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),_exp.thres))
 							print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				if (_exp.conv_energy[-1]):
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
+					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
 							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),_exp.thres))
 					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
 							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),_exp.thres))
 					print(' --------------------------------------------------------------------------------------------')
 				#
@@ -183,25 +183,21 @@ class PrintCls():
 				mean_val = np.mean(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1])
 				min_val = _exp.energy_inc[(_exp.order-(_exp.start_order-1))-1][np.argmin(np.abs(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]))]
 				max_val = _exp.energy_inc[(_exp.order-(_exp.start_order-1))-1][np.argmax(np.abs(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]))]
-				if (len(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]) > 1):
-					std_val = np.std(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1], ddof=1)
-				else:
-					std_val = 0.0
 				# now print
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' RESULT-'+_exp.level.upper()+':     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
+						print(' RESULT-'+_exp.level.upper()+':      mean increment     |    min. abs. increment   |    max. abs. increment')
 						print(' --------------------------------------------------------------------------------------------')
-						print(' RESULT-'+_exp.level.upper()+':  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-								format(mean_val, min_val, max_val, std_val))
+						print(' RESULT-'+_exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
+								format(mean_val, min_val, max_val))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT-'+_exp.level.upper()+':     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
+				print(' RESULT-'+_exp.level.upper()+':      mean increment     |    min. abs. increment   |    max. abs. increment')
 				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT-'+_exp.level.upper()+':  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-						format(mean_val, min_val, max_val, std_val))
+				print(' RESULT-'+_exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
+						format(mean_val, min_val, max_val))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -212,11 +208,11 @@ class PrintCls():
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening started'.format(_exp.order))
+						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening started'.format(_exp.order))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening started'.format(_exp.order))
+				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening started'.format(_exp.order))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -228,22 +224,22 @@ class PrintCls():
 					with redirect_stdout(f):
 						if (_exp.conv_orb[-1]):
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening done'.format(_exp.order))
 							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------\n\n')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening done'.format(_exp.order))
 							print(' --------------------------------------------------------------------------------------------\n\n')
 				# write also to stdout
 				if (_exp.conv_orb[-1]):
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening done'.format(_exp.order))
 					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------\n\n')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening done'.format(_exp.order))
 					print(' --------------------------------------------------------------------------------------------\n\n')
 				#
 				return

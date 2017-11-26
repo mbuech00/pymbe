@@ -88,8 +88,33 @@ class PySCFCls():
 					# number of electrons and orbitals
 					_calc.no_act = _mol.nocc
 					_calc.ne_act = int(np.sum(_calc.hf_mo_occ))
-					# no cas space and number of active orbitals
-					act_orbs = np.array([])
+					if ('INPUT' in _calc.exp_ref):
+						# number of electrons and orbitals
+						if isinstance(_calc.exp_ref['INPUT'], dict):
+							_calc.no_act = sum(_calc.exp_ref['INPUT'].values())
+						elif isinstance(_calc.exp_ref['INPUT'], list):
+							_calc.no_act = len(_calc.exp_ref['INPUT'])
+						if isinstance(_calc.exp_ref['NELEC'], (tuple, list)):
+							_calc.ne_act = _calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1]
+						elif isinstance(_calc.exp_ref['NELEC'], int):
+							_calc.ne_act = _calc.exp_ref['NELEC']
+						# init model (no casci calc is performed at this stage)
+						cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.exp_ref['NELEC'])
+						# set cas space
+						if isinstance(_calc.exp_ref['INPUT'], dict):
+							cas_space = np.array(mcscf.caslst_by_irrep(cas, _calc.hf.mo_coeff, \
+													_calc.exp_ref['INPUT'], base=0))
+						elif isinstance(_calc.exp_ref['INPUT'], list):
+							cas_space = np.array(_calc.exp_ref['INPUT'])
+						# number of active orbitals
+						if (_calc.exp_type == 'occupied'):
+							act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
+						elif (_calc.exp_type == 'virtual'):
+							act_orbs = _mol.virt[np.where(np.in1d(_mol.virt, cas_space))]
+					else:
+						# no cas space and number of active orbitals
+						act_orbs = np.array([])
+					# ref = hf
 					ref_e_tot = _calc.hf.e_tot
 					ref_mo_coeff = np.asarray(_calc.hf.mo_coeff, order='C')
 				# casci/casscf reference model
@@ -114,13 +139,13 @@ class PySCFCls():
 												_calc.exp_ref['INPUT'], base=0))
 					elif isinstance(_calc.exp_ref['INPUT'], list):
 						cas_space = np.array(_calc.exp_ref['INPUT'])
-					# select MOs
-					mo = cas.sort_mo(cas_space, base=0)
 					# number of active orbitals
 					if (_calc.exp_type == 'occupied'):
 						act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
 					elif (_calc.exp_type == 'virtual'):
 						act_orbs = _mol.virt[np.where(np.in1d(_mol.virt, cas_space))]
+					# select MOs
+					mo = cas.sort_mo(cas_space, base=0)
 					# frozen core
 					cas.frozen = _mol.ncore
 					# debug print

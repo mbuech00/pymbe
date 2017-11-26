@@ -46,16 +46,15 @@ class ResCls():
 				else:
 					self.u_limit = _mol.nvirt 
 				# modify reference print out
-				if (_calc.no_act > _mol.nocc):
-					if (_calc.exp_ref['METHOD'] == 'CASSCF'):
-						self.exp_ref = 'CASSCF('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
-					elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-						self.exp_ref = 'CASCI('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
-				else:
+				if (_calc.exp_ref['METHOD'] == 'HF'):
 					if (_mol.spin == 0):
 						self.exp_ref = 'RHF'
 					else:
 						self.exp_ref = 'ROHF'
+				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+					self.exp_ref = 'CASSCF('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
+				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+					self.exp_ref = 'CASCI('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
 				# modify base print out
 				if (_calc.exp_base['METHOD'] is None):
 					self.exp_base = 'none'
@@ -105,7 +104,7 @@ class ResCls():
 				# plot total energy
 				self.abs_energy(_calc, _exp)
 				# plot distributions of energy increments
-				self.dist_energy(_calc, _exp)
+#				self.dist_energy(_calc, _exp)
 				#
 				return
 
