@@ -399,7 +399,8 @@ class PySCFCls():
 				if (len(_exp.core_idx) > 0):
 					if ((_calc.exp_type == 'occupied') or (_exp.e_core is None)):
 						core_dm = np.dot(_orbs[:, _exp.core_idx], np.transpose(_orbs[:, _exp.core_idx])) * 2
-						_exp.core_vhf = scf.hf.get_veff(_mol, core_dm)
+						vj, vk = scf.hf.get_jk(_mol, core_dm)
+						_exp.core_vhf = vj - vk * .5
 						_exp.e_core = _mol.energy_nuc() + np.einsum('ij,ji', core_dm, _mol.hcore)
 						_exp.e_core += np.einsum('ij,ji', core_dm, _exp.core_vhf) * .5
 				else:
