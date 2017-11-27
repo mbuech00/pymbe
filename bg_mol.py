@@ -28,7 +28,7 @@ class MolCls(gto.Mole):
 				self.verbose = 1
 				# set geometric and molecular parameters
 				if (_mpi.global_master):
-					# default C1 HF symmetry
+					# default C1 symmetry
 					self.symmetry = 'C1'
 					# init occupation
 					self.irrep_nelec = {}
