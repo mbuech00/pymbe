@@ -62,9 +62,13 @@ class InitCls():
 				# hf calculation
 				if (self.mpi.global_master):
 					self.calc.hf = self.pyscf.hf(self.mol, self.calc)
-					# set reference energy and mo_coeff
-					self.calc.act_orbs, \
-						self.calc.ref_e_tot, self.calc.ref_mo_coeff = self.pyscf.ref(self.mol, self.calc)
+					# set active space
+					self.calc.no_act, self.calc.ne_act, \
+						self.calc.act_orbs = self.pyscf.active(self.mol, self.calc)
+					# casscf ref
+					if (self.calc.exp_ref['METHOD'] == 'CASSCF'):
+						self.calc.e_inc_casscf, self.calc.ref_e_tot, \
+							self.calc.ref_mo_coeff = self.pyscf.casscf(self.mol, self.calc)
 					# get hcore and eri
 					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 				# expansion instantiation

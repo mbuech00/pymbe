@@ -117,19 +117,23 @@ class CalcCls():
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
 					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not ('INPUT' in self.exp_ref))):
 						raise ValueError('wrong input -- an active space input (input) is required for CASCI/CASSCF references')
+					if ((self.exp_ref['METHOD'] == 'CASSCF') and (self.exp_model['METHOD'] != 'FCI')):
+						raise ValueError('wrong input -- a CASSCF reference is only meaningful for an FCI expansion model')
 					if ('INPUT' in self.exp_ref):
+						if (self.exp_ref['METHOD'] == 'HF'):
+							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
 						if (not (isinstance(self.exp_ref['INPUT'], dict) or isinstance(self.exp_ref['INPUT'], list))):
 							raise ValueError('wrong input -- input key (input) for active space must be either a dict or a list')
 						if (not ('NELEC' in self.exp_ref)):
 							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
-					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not (self.exp_base['METHOD'] in [None,'HCI']))):
-						raise ValueError('wrong input -- the only allowed base model for CASCI/CASSCF references is HCI')
+					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):
+						raise ValueError('wrong input -- the only allowed base model for CASSCF references is SCI')
 					# base model
-					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)','HCI'])):
+					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)','SCI'])):
 						raise ValueError('wrong input -- invalid base model')
 					if (((self.exp_base['METHOD'] == 'CISD') and (self.exp_model['METHOD'] in ['CISD'])) or \
 						((self.exp_base['METHOD'] == 'CCSD') and (self.exp_model['METHOD'] in ['CISD','CCSD'])) or \
-						((self.exp_base['METHOD'] in ['CCSD(T)','HCI']) and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)']))):
+						((self.exp_base['METHOD'] in ['CCSD(T)','SCI']) and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)']))):
 							raise ValueError('wrong input -- invalid base model for choice of expansion model')
 					# max order
 					if (self.exp_max_order < 0):
@@ -151,7 +155,7 @@ class CalcCls():
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: REF, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] in [None,'HCI'])):
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] in [None,'SCI'])):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a CI/CCSD base model for the expansion')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):
