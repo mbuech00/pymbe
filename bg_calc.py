@@ -115,15 +115,15 @@ class CalcCls():
 					# reference model
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI','CASSCF'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
-					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not ('INPUT' in self.exp_ref))):
-						raise ValueError('wrong input -- an active space input (input) is required for CASCI/CASSCF references')
+					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not ('ACTIVE' in self.exp_ref))):
+						raise ValueError('wrong input -- an active space (active) is required for CASCI/CASSCF references')
 					if ((self.exp_ref['METHOD'] == 'CASSCF') and (self.exp_model['METHOD'] != 'FCI')):
 						raise ValueError('wrong input -- a CASSCF reference is only meaningful for an FCI expansion model')
-					if ('INPUT' in self.exp_ref):
+					if ('ACTIVE' in self.exp_ref):
 						if (self.exp_ref['METHOD'] == 'HF'):
 							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
-						if (not (isinstance(self.exp_ref['INPUT'], dict) or isinstance(self.exp_ref['INPUT'], list))):
-							raise ValueError('wrong input -- input key (input) for active space must be either a dict or a list')
+						if (not (isinstance(self.exp_ref['ACTIVE'], dict) or isinstance(self.exp_ref['ACTIVE'], list))):
+							raise ValueError('wrong input -- active key (active) for active space must be either a dict or a list')
 						if (not ('NELEC' in self.exp_ref)):
 							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
 					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):

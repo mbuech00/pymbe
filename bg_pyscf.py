@@ -95,21 +95,21 @@ class PySCFCls():
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# number of electrons and orbitals
-					if isinstance(_calc.exp_ref['INPUT'], dict):
-						no_act = sum(_calc.exp_ref['INPUT'].values())
-					elif isinstance(_calc.exp_ref['INPUT'], list):
-						no_act = len(_calc.exp_ref['INPUT'])
+					if isinstance(_calc.exp_ref['ACTIVE'], dict):
+						no_act = sum(_calc.exp_ref['ACTIVE'].values())
+					elif isinstance(_calc.exp_ref['ACTIVE'], list):
+						no_act = len(_calc.exp_ref['ACTIVE'])
 					if isinstance(_calc.exp_ref['NELEC'], (tuple, list)):
 						ne_act = _calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1]
 					elif isinstance(_calc.exp_ref['NELEC'], int):
 						ne_act = _calc.exp_ref['NELEC']
 					# set cas space
 					cas = mcscf.CASCI(_calc.hf, no_act, ne_act)
-					if isinstance(_calc.exp_ref['INPUT'], dict):
+					if isinstance(_calc.exp_ref['ACTIVE'], dict):
 						cas_space = np.array(mcscf.caslst_by_irrep(cas, _calc.hf.mo_coeff, \
-												_calc.exp_ref['INPUT'], base=0))
-					elif isinstance(_calc.exp_ref['INPUT'], list):
-						cas_space = np.array(_calc.exp_ref['INPUT'])
+												_calc.exp_ref['ACTIVE'], base=0))
+					elif isinstance(_calc.exp_ref['ACTIVE'], list):
+						cas_space = np.array(_calc.exp_ref['ACTIVE'])
 					# number of active orbitals
 					if (_calc.exp_type == 'occupied'):
 						act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
