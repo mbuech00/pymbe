@@ -45,21 +45,26 @@ class ResCls():
 					self.u_limit = _mol.nocc - _mol.ncore
 				else:
 					self.u_limit = _mol.nvirt 
+				# modify occ-virt print out
+				self.occ_virt = str(_mol.nocc-_mol.ncore)+' / '+str(_mol.nvirt)
 				# modify reference print out
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					if (_mol.spin == 0):
 						self.exp_ref = 'RHF'
 					else:
 						self.exp_ref = 'ROHF'
-				elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
-					self.exp_ref = 'CASSCF('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
-				elif (_calc.exp_ref['METHOD'] == 'CASCI'):
-					self.exp_ref = 'CASCI('+str(_calc.ne_act)+','+str(_calc.no_act)+')'
+				else:
+					self.exp_ref = _calc.exp_ref['METHOD']
 				# modify base print out
 				if (_calc.exp_base['METHOD'] is None):
 					self.exp_base = 'none'
 				else:
 					self.exp_base = _calc.exp_base['METHOD']
+				# modify active space print out
+				if (_calc.exp_ref['METHOD'] == 'HF'):
+					self.active = 'none'
+				else:
+					self.active = str(_calc.ne_act)+' e / '+str(_calc.no_act)+' o'
 				# modify orbital print out
 				if (_calc.exp_occ == 'REF'):
 					self.exp_occ = 'reference'
@@ -88,6 +93,8 @@ class ResCls():
 					self.frozen = 'true'
 				else:
 					self.frozen = 'false'
+				# modify mpi print out
+				self.mpi = str(_mpi.num_local_masters+1)+' / '+str(_mpi.global_size-(_mpi.num_local_masters+1))
 				#
 				return
 
@@ -127,37 +134,36 @@ class ResCls():
 								format('','molecular information','','|','',\
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:16}{10:2}{11:1}'
-							'{12:2}{13:<14s}{14:1}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<2d}{22:^3}{23:<d}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<s}').\
 								format('','basis set','','=','',_mol.basis,\
 									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
-									'','|','','# mpi masters / slaves','','=','',\
-									_mpi.num_local_masters + 1,'/',_mpi.global_size - (_mpi.num_local_masters + 1)))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:2}{11:1}'
-							'{12:2}{13:<14s}{14:1}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
+									'','|','','# mpi masters / slaves','','=','',self.mpi))
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
 									'','|','','reference funct.','','=','',self.exp_ref,\
 									'','|','','HF energy','','=','',_calc.hf.e_tot))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:16}{12:2}'
-							'{13:1}{14:2}{15:<14s}{16:1}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
-								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
-									'','|','','expansion base','','=','',self.exp_base,\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+								format('','# occ. / virt.','','=','',self.occ_virt,\
+									'','|','','active space','','=','',self.active,\
 									'','|','','reference energy','','=','',self.exp_ref_energy))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}'
-							'{11:1}{12:2}{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
-									'','|','','expansion type','','=','',_calc.exp_type,\
+									'','|','','expansion base','','=','',self.exp_base,\
 									'','|','','base model energy','','=','',self.exp_base_energy))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-							'{13:<5.2e}{14:7}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
-									'','|','','initial thres.','','=','',_calc.exp_thres,\
+									'','|','','expansion type','','=','',_calc.exp_type,\
 									'','|','','final total energy','','=','',\
 									_calc.hf_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-							'{13:<5.2f}{14:10}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
+							'{13:<13.2e}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
-									'','|','','thres. relax.','','=','',_calc.exp_relax,\
+									'','|','','threshold','','=','',_calc.exp_thres,\
 									'','|','','final abs. conv.','','=','',\
 									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))
 						print(self.divider_str)
