@@ -126,6 +126,8 @@ class CalcCls():
 							raise ValueError('wrong input -- active key (active) for active space must be either a dict or a list')
 						if (not ('NELEC' in self.exp_ref)):
 							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
+						if (('NELEC' in self.exp_ref) and (not isinstance(self.exp_ref['NELEC'], tuple))):
+							raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
 					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):
 						raise ValueError('wrong input -- the only allowed base model for CASSCF references is SCI')
 					# base model

@@ -64,7 +64,7 @@ class ResCls():
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					self.active = 'none'
 				else:
-					self.active = str(_calc.ne_act)+' e / '+str(_calc.no_act)+' o'
+					self.active = str(_calc.ne_act[0]+_calc.ne_act[1])+' e / '+str(_calc.no_act)+' o'
 				# modify orbital print out
 				if (_calc.exp_occ == 'REF'):
 					self.exp_occ = 'reference'

@@ -89,7 +89,7 @@ class PySCFCls():
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# no cas space and number of active orbitals
 					no_act = _mol.nocc
-					ne_act = int(np.sum(_calc.hf_mo_occ))
+					ne_act = (len(np.where(_calc.hf_mo_occ > 0.)[0]), len(np.where(_calc.hf_mo_occ == 2.)[0]))
 					cas_space = np.array([])
 					act_orbs = np.array([])
 				# casci/casscf reference model
@@ -99,10 +99,7 @@ class PySCFCls():
 						no_act = sum(_calc.exp_ref['ACTIVE'].values())
 					elif isinstance(_calc.exp_ref['ACTIVE'], list):
 						no_act = len(_calc.exp_ref['ACTIVE'])
-					if isinstance(_calc.exp_ref['NELEC'], (tuple, list)):
-						ne_act = _calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1]
-					elif isinstance(_calc.exp_ref['NELEC'], int):
-						ne_act = _calc.exp_ref['NELEC']
+					ne_act = _calc.exp_ref['NELEC']
 					# set cas space
 					cas = mcscf.CASCI(_calc.hf, no_act, ne_act)
 					if isinstance(_calc.exp_ref['ACTIVE'], dict):
@@ -133,6 +130,8 @@ class PySCFCls():
 					cas.fcisolver = fci.direct_spin1_symm.FCI(_mol)
 				if (_mol.verbose_prt): cas.verbose = 4
 				cas.conv_tol = 1.0e-10
+				cas.max_stepsize = .01
+				cas.max_cycle_micro = 1
 				cas.natorb = True
 				cas.frozen = _mol.ncore
 				# fix spin if non-singlet
@@ -153,7 +152,7 @@ class PySCFCls():
 				# calculate spin
 				s, mult = fci.spin_op.spin_square(cas.ci, _calc.no_act, _calc.ne_act)
 				# check for correct spin
-				if (float(_mol.spin) - s > 1.0e-03):
+				if (float(_mol.spin) - s > 1.0e-05):
 					try:
 						raise RuntimeError(('\nCAS-SCF Error : wrong spin\n'
 											'2*S + 1 = {0:.3f}\n\n').\
@@ -188,7 +187,7 @@ class PySCFCls():
 					# calculate spin
 					s, mult = fci.spin_op.spin_square(cas.ci, _calc.no_act, _calc.ne_act)
 					# check for correct spin
-					if (float(_mol.spin) - s > 1.0e-03):
+					if (float(_mol.spin) - s > 1.0e-05):
 						try:
 							raise RuntimeError(('\nCAS-SCF (SCI) Error : wrong spin\n'
 												'2*S + 1 = {0:.3f}\n\n').\
@@ -257,7 +256,7 @@ class PySCFCls():
 					# calculate spin
 					s_sci, mult_sci = sci_solver.spin_square(c_sci, len(_exp.cas_idx), nelec_cas)
 					# check for correct spin
-					if (float(_mol.spin) - s_sci > 1.0e-03):
+					if (float(_mol.spin) - s_sci > 1.0e-05):
 						try:
 							raise RuntimeError(('\nSCI (main int-trans) Error : wrong spin\n'
 												'2*S + 1 = {0:.3f}\n\n').\
@@ -516,7 +515,7 @@ class PySCFCls():
 					# calculate spin
 					cas_s, cas_mult = fci.spin_op.spin_square(c_cas, len(_exp.cas_idx), nelec_cas)
 					# check for correct spin
-					if (float(_mol.spin) - cas_s > 1.0e-03):
+					if (float(_mol.spin) - cas_s > 1.0e-05):
 						try:
 							raise RuntimeError(('\nCAS-CI Error : wrong spin\n'
 												'2*S + 1 = {0:.3f}\n'
@@ -566,7 +565,7 @@ class PySCFCls():
 					# calculate spin
 					base_s, base_mult = solver_base.spin_square(c_base, len(_exp.cas_idx), nelec_cas)
 					# check for correct spin
-					if (float(_mol.spin) - base_s > 1.0e-03):
+					if (float(_mol.spin) - base_s > 1.0e-05):
 						try:
 							raise RuntimeError(('\nCAS-SCI Error : wrong spin\n'
 												'2*S + 1 = {0:.3f}\n'
