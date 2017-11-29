@@ -218,6 +218,7 @@ class PySCFCls():
 						sci_solver = fci.select_ci_spin0_symm.SCI(_mol)
 					else:
 						sci_solver = fci.select_ci_symm.SCI(_mol)
+					# sci settings
 					sci_solver.conv_tol = 1.0e-10
 					sci_solver.max_cycle = 500
 					sci_solver.max_space = 10
@@ -230,12 +231,12 @@ class PySCFCls():
 						_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
 					# get integrals
 					h1e, h2e = self.prepare(_mol, _calc, _exp, _calc.ref_mo_coeff)
-					# initial guess
+					# cas electrons
 					nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
-					na = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[0])
-					nb = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[1])
-					hf_as_civec = np.zeros((na, nb))
-					hf_as_civec[0, 0] = 1
+					# initial guess
+					ci_strs = (np.asarray([int('1'*nelec_cas[0], 2)]), np.asarray([int('1'*nelec_cas[1], 2)]))
+					hf_as_scivec = fci.select_ci._as_SCIvector(np.ones((1,1)), ci_strs)
+					hf_as_scivec = sci_solver.enlarge_space(hf_as_scivec, h2e, len(_exp.cas_idx), nelec_cas)
 					# orbital symmetry
 					orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _calc.ref_mo_coeff[:, _exp.cas_idx])
 					# fix spin if non-singlet
@@ -243,7 +244,8 @@ class PySCFCls():
 						sz = abs(nelec_cas[0]-nelec_cas[1]) * .5
 						fci.addons.fix_spin(sci_solver, ss=sz * (sz + 1.))
 					try:
-						e_sci, c_sci = sci_solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec_cas, ecore=_exp.e_core, orbsym=orbsym) # missing ci0
+						e_sci, c_sci = sci_solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec_cas, \
+															ecore=_exp.e_core, orbsym=orbsym, ci0=hf_as_scivec)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\nSCI (main int-trans) Error :\n'
@@ -485,8 +487,9 @@ class PySCFCls():
 					hf_cas = solver_cas.hf(_mol, _calc, _exp.h1e_cas, _exp.h2e_cas, _exp.cas_idx, _exp.e_core, _exp.thres)
 					e_cas = solver_cas.kernel(hf_cas, _exp.core_idx, _exp.cas_idx)
 				else:
-					# initial guess
+					# cas electrons
 					nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
+					# initial guess
 					na = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[0])
 					nb = fci.cistring.num_strings(len(_exp.cas_idx), nelec_cas[1])
 					hf_as_civec = np.zeros((na, nb))
@@ -533,12 +536,16 @@ class PySCFCls():
 						solver_base = fci.select_ci_spin0_symm.SCI()
 					else:
 						solver_base = fci.select_ci_symm.SCI()
-					# fci settings
+					# sci settings
 					solver_base.conv_tol = max(_exp.thres, 1.0e-10)
 					solver_base.max_cycle = 500
 					solver_base.max_space = 10
 					solver_base.max_memory = _mol.max_memory
 					solver_base.davidson_only = True
+					# initial guess
+					ci_strs = (np.asarray([int('1'*nelec_cas[0], 2)]), np.asarray([int('1'*nelec_cas[1], 2)]))
+					hf_as_scivec = fci.select_ci._as_SCIvector(np.ones((1,1)), ci_strs)
+					hf_as_scivec = solver_base.enlarge_space(hf_as_scivec, _exp.h2e_cas, len(_exp.cas_idx), nelec_cas)
 					# fix spin if non-singlet
 					if (_mol.spin > 0):
 						sz = abs(nelec_cas[0]-nelec_cas[1]) * .5
@@ -546,7 +553,7 @@ class PySCFCls():
 					# perform calc
 					try:
 						e_base, c_base = solver_base.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-																nelec_cas, orbsym=orbsym) # missing ci0
+																nelec_cas, orbsym=orbsym, ci0=hf_as_scivec)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\nCAS-SCI Error :\n'
