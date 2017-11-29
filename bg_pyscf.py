@@ -502,7 +502,7 @@ class PySCFCls():
 					# perform calc
 					try:
 						e_cas, c_cas = solver_cas.kernel(_exp.h1e_cas, _exp.h2e_cas, len(_exp.cas_idx), \
-															nelec_cas, ci0=hf_as_civec, orbsym=orbsym)
+															nelec_cas, orbsym=orbsym, ci0=hf_as_civec)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\nCAS-CI Error :\n'
