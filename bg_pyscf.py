@@ -123,7 +123,6 @@ class PySCFCls():
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# hf results
 					ref_mo_coeff = np.asarray(_calc.hf.mo_coeff, order='C')
-					ref_e_tot = _calc.hf_e_tot
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# casci (no) or casscf results
 					if (_calc.exp_ref['METHOD'] == 'CASCI'):
@@ -141,7 +140,6 @@ class PySCFCls():
 						cas.max_stepsize = .01
 						cas.max_cycle_micro = 1
 						cas.frozen = _mol.ncore
-					cas.natorb = True
 					# initial guess
 					na = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[0])
 					nb = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[1])
@@ -181,9 +179,9 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 					# save MOs
-					ref_mo_coeff = cas.mo_coeff
-					# calculate ref_e_tot
-					ref_e_tot = self.e_mf(_mol, ref_mo_coeff)
+					ref_mo_coeff = np.asarray(cas.mo_coeff, order='C')
+				# calculate ref_e_tot
+				ref_e_tot = self.e_mf(_mol, ref_mo_coeff)
 				#
 				return ref_e_tot, ref_mo_coeff
 
