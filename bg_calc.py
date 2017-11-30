@@ -128,8 +128,6 @@ class CalcCls():
 							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
 						if (('NELEC' in self.exp_ref) and (not isinstance(self.exp_ref['NELEC'], tuple))):
 							raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
-					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):
-						raise ValueError('wrong input -- the only allowed base model for CASSCF references is SCI')
 					# base model
 					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)','SCI'])):
 						raise ValueError('wrong input -- invalid base model')
@@ -157,9 +155,9 @@ class CalcCls():
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: REF, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] in [None,'SCI'])):
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] is None)):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
-										'requires the use of a CI/CCSD base model for the expansion')
+										'requires the use of a CC or SCI base model for the expansion')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'is only valid in combination with combined (dual) expansions')

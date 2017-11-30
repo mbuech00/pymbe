@@ -101,16 +101,6 @@ class ResCls():
 
 		def main(self, _mpi, _mol, _calc, _exp):
 				""" main driver for summary printing and plotting """
-				# determine ref model energy
-				if (_calc.exp_ref['METHOD'] is 'HF'):
-					self.exp_ref_energy = _calc.hf_e_tot
-				else:
-					self.exp_ref_energy = _calc.ref_e_tot
-				# determine base model energy
-				if (_calc.exp_base['METHOD'] is None):
-					self.exp_base_energy = _calc.ref_e_tot
-				else:
-					self.exp_base_energy = _calc.hf_e_tot + _calc.e_zero
 				# results
 				self.results(_mpi, _mol, _calc, _exp)
 				# plot total energy
@@ -143,23 +133,23 @@ class ResCls():
 							'{13:<13s}{14:2}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
 									'','|','','reference funct.','','=','',self.exp_ref,\
-									'','|','','HF energy','','=','',_calc.hf.e_tot))
+									'','|','','HF energy','','=','',_calc.hf_e_tot))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','# occ. / virt.','','=','',self.occ_virt,\
 									'','|','','active space','','=','',self.active,\
-									'','|','','reference energy','','=','',self.exp_ref_energy))
+									'','|','','reference energy','','=','',_calc.ref_e_tot))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
 									'','|','','expansion base','','=','',self.exp_base,\
-									'','|','','base model energy','','=','',self.exp_base_energy))
+									'','|','','base model energy','','=','',_calc.ref_e_tot+_calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','expansion type','','=','',_calc.exp_type,\
 									'','|','','final total energy','','=','',\
-									_calc.hf_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
+									_calc.ref_e_tot+_exp.energy_tot[-1]+_calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13.2e}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
@@ -185,7 +175,7 @@ class ResCls():
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
 									format('',i+_exp.start_order,'','|','',\
-										_exp.energy_tot[i]+_calc.e_zero,\
+										_exp.energy_tot[i]+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero,\
 										'','|','',int(total_time//3600),':',\
 										int((total_time-(total_time//3600)*3600.)//60),':',\
 										int(total_time-(total_time//3600)*3600.\
@@ -206,7 +196,7 @@ class ResCls():
 				fig, ax = plt.subplots()
 				# plot results
 				ax.plot(list(range(_exp.start_order, len(_exp.energy_tot)+_exp.start_order)), \
-						_exp.energy_tot+_calc.e_zero, marker='x', linewidth=2, \
+						_exp.energy_tot+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero, marker='x', linewidth=2, \
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
 				ax.set_xlim([0.5, self.u_limit + 0.5])

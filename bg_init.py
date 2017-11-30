@@ -59,18 +59,17 @@ class InitCls():
 				self.mpi.bcast_calc_info(self.calc)
 				# init mpi
 				self.mpi.set_mpi()
-				# hf calculation
+				# hf and ref calculations
 				if (self.mpi.global_master):
+					# hf calculation
 					self.calc.hf = self.pyscf.hf(self.mol, self.calc)
+					# get hcore and eri
+					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 					# set active space
 					self.calc.no_act, self.calc.ne_act, \
 						self.calc.act_orbs = self.pyscf.active(self.mol, self.calc)
-					# casscf ref
-					if (self.calc.exp_ref['METHOD'] == 'CASSCF'):
-						self.calc.e_inc_casscf, self.calc.ref_e_tot, \
-							self.calc.ref_mo_coeff = self.pyscf.casscf(self.mol, self.calc)
-					# get hcore and eri
-					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
+					# ref calculation
+					self.calc.ref_e_tot, self.calc.ref_mo_coeff = self.pyscf.ref(self.mol, self.calc)
 				# expansion instantiation
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):

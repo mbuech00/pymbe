@@ -96,14 +96,11 @@ class KernCls():
 					time = MPI.Wtime()
 					# print status
 					_prt.kernel_status(_calc, _exp, 0.0)
-					if (_calc.exp_ref['METHOD'] == 'CASCI'):
-						# generate input
-						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
-						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
-						# perform calc
-						_exp.energy_inc[0][0] = _pyscf.calc(_mol, _calc, _exp, ref=True)
-					elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
-						_exp.energy_inc[0][0] = _calc.e_inc_casscf
+					# generate input
+					_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
+					_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
+					# perform calc
+					_exp.energy_inc[0][0] = _pyscf.calc(_mol, _calc, _exp)
 					# print status
 					_prt.kernel_status(_calc, _exp, 1.0)
 					# collect time
@@ -178,14 +175,11 @@ class KernCls():
 					time = MPI.Wtime()
 					# print status
 					_prt.kernel_status(_calc, _exp, 0.0)
-					if (_calc.exp_ref['METHOD'] == 'CASCI'):
-						# generate input
-						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
-						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
-						# perform calc
-						_exp.energy_inc[0][0] = _pyscf.calc(_mol, _calc, _exp, ref=True)
-					elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
-						_exp.energy_inc[0][0] = _calc.e_inc_casscf
+					# generate input
+					_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
+					_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
+					# perform calc
+					_exp.energy_inc[0][0] = _pyscf.calc(_mol, _calc, _exp)
 					# print status
 					_prt.kernel_status(_calc, _exp, 1.0)
 					# collect time
