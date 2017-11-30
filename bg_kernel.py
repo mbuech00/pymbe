@@ -98,7 +98,7 @@ class KernCls():
 					_prt.kernel_status(_calc, _exp, 0.0)
 					if (_calc.exp_ref['METHOD'] == 'CASCI'):
 						# generate input
-						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas_spaces(_mol, _exp, _exp.tuples[0][0])
+						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
 						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 						# perform calc
 						_exp.energy_inc[0][0] = _pyscf.calc(_mol, _calc, _exp, ref=True)
@@ -138,7 +138,7 @@ class KernCls():
 							_exp.micro_conv[-1][i] = exp_micro.order
 						else:
 							# generate input
-							_exp.core_idx, _exp.cas_idx = _pyscf.core_cas_spaces(_mol, _exp, _exp.tuples[-1][i])
+							_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][i])
 							_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 							# perform calc
 							_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
@@ -180,7 +180,7 @@ class KernCls():
 					_prt.kernel_status(_calc, _exp, 0.0)
 					if (_calc.exp_ref['METHOD'] == 'CASCI'):
 						# generate input
-						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas_spaces(_mol, _exp, _exp.tuples[0][0])
+						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
 						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 						# perform calc
 						_exp.energy_inc[0][0] = _pyscf.calc(_mol, _calc, _exp, ref=True)
@@ -306,7 +306,7 @@ class KernCls():
 								comm.send(data, dest=0, tag=self.tags.done)
 							else:
 								# generate input
-								_exp.core_idx, _exp.cas_idx = _pyscf.core_cas_spaces(_mol, _exp, _exp.tuples[-1][job_info['index']])
+								_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][job_info['index']])
 								_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 								# run correlated calc
 								_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)

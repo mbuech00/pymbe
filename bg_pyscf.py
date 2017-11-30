@@ -134,12 +134,17 @@ class PySCFCls():
 				cas.max_cycle_micro = 1
 				cas.natorb = True
 				cas.frozen = _mol.ncore
+				# initial guess
+				na = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[0])
+				nb = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[1])
+				hf_as_civec = np.zeros((na, nb))
+				hf_as_civec[0, 0] = 1
 				# fix spin if non-singlet
 				if (_mol.spin > 0):
 					sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
 					cas.fix_spin_(ss=sz * (sz + 1.))
 				try:
-					cas.kernel()
+					cas.kernel(ci0=hf_as_civec)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nCAS-SCF Error :\n'
@@ -148,6 +153,12 @@ class PySCFCls():
 											format(_calc.no_act, _calc.ne_act, err))
 					except Exception as err_2:
 						sys.stderr.write(str(err_2))
+						raise
+				if (not cas.converged):
+					try:
+						raise RuntimeError('\nCAS-SCF Error : no convergence\n\n')
+					except Exception as err:
+						sys.stderr.write(str(err))
 						raise
 				# calculate spin
 				s, mult = fci.spin_op.spin_square(cas.ci, _calc.no_act, _calc.ne_act)
@@ -225,9 +236,9 @@ class PySCFCls():
 					sci_solver.davidson_only = True
 					# set core and cas spaces
 					if (_calc.exp_type == 'occupied'):
-						_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, np.array(range(_mol.ncore, _mol.nocc)))
+						_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.ncore, _mol.nocc)))
 					if (_calc.exp_type == 'virtual'):
-						_exp.core_idx, _exp.cas_idx = self.core_cas_spaces(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
+						_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
 					# get integrals
 					h1e, h2e = self.prepare(_mol, _calc, _exp, _calc.ref_mo_coeff)
 					# cas electrons
@@ -437,7 +448,7 @@ class PySCFCls():
 				return
 
 
-		def core_cas_spaces(self, _mol, _exp, _tup):
+		def core_cas(self, _mol, _exp, _tup):
 				""" define core and cas spaces """
 				cas_idx = sorted(_exp.incl_idx + sorted(_tup.tolist()))
 				core_idx = sorted(list(set(range(_mol.nocc)) - set(cas_idx)))
