@@ -174,7 +174,7 @@ class PySCFCls():
 					# check for correct spin
 					if (float(_mol.spin) - s > 1.0e-05):
 						try:
-							raise RuntimeError(('\n{0:} Error : wrong spin\n'
+							raise RuntimeError(('\n{0:} Error : spin contamination\n'
 												'2*S + 1 = {1:.3f}\n\n').\
 												format(_calc.exp_ref['METHOD'], mult))
 						except Exception as err:
@@ -404,7 +404,7 @@ class PySCFCls():
 				# check for correct spin
 				if (float(_mol.spin) - s_sci > 1.0e-05):
 					try:
-						raise RuntimeError(('\nSCI base Error : wrong spin\n'
+						raise RuntimeError(('\nSCI base Error : spin contamination\n\n'
 											'2*S + 1 = {0:.3f}\n\n').\
 											format(mult_sci))
 					except Exception as err:
@@ -556,7 +556,7 @@ class PySCFCls():
 					# check for correct spin
 					if (float(_mol.spin) - cas_s > 1.0e-05):
 						try:
-							raise RuntimeError(('\nCAS-CI Error : wrong spin\n'
+							raise RuntimeError(('\nCAS-CI Error : spin contamination\n\n'
 												'2*S + 1 = {0:.3f}\n'
 												'core_idx = {1:} , cas_idx = {2:}\n\n').\
 												format(cas_mult, _exp.core_idx, _exp.cas_idx))
@@ -605,7 +605,7 @@ class PySCFCls():
 					# check for correct spin
 					if (float(_mol.spin) - base_s > 1.0e-05):
 						try:
-							raise RuntimeError(('\nCAS-SCI Error : wrong spin\n'
+							raise RuntimeError(('\nCAS-SCI Error : spin contamination\n\n'
 												'2*S + 1 = {0:.3f}\n'
 												'core_idx = {1:} , cas_idx = {2:}\n\n').\
 												format(base_mult, _exp.core_idx, _exp.cas_idx))
