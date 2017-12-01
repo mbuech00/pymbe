@@ -98,17 +98,11 @@ class PySCFCls():
 					cas_space = np.array(_calc.exp_ref['ACTIVE'])
 					assert(np.count_nonzero(cas_space < _mol.ncore) == 0)
 					# set of active orbitals
+					num_occ = np.count_nonzero(cas_space < _mol.nocc)
+					num_virt = np.count_nonzero(cas_space >= _mol.nocc)
 					if (_calc.exp_type == 'occupied'):
-						num_occ = np.count_nonzero(cas_space < _mol.nocc)
-						assert(num_occ <= len(_mol.occ)-1)
-						num_virt = np.count_nonzero(cas_space >= _mol.nocc)
-						assert(num_virt <= len(_mol.virt)-1)
 						act_orbs = _mol.occ[:num_occ]
 					elif (_calc.exp_type == 'virtual'):
-						num_occ = np.count_nonzero(cas_space < _mol.nocc)
-						assert(num_occ <= len(_mol.occ)-1)
-						num_virt = np.count_nonzero(cas_space >= _mol.nocc)
-						assert(num_virt <= len(_mol.virt)-1)
 						act_orbs = _mol.virt[:num_virt]
 					# number of electrons
 					ne_act = _calc.exp_ref['NELEC']
