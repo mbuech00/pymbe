@@ -85,43 +85,46 @@ class PySCFCls():
 				""" set active space """
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# no cas space and number of active orbitals
+					# no cas space and set of active orbitals
 					no_act = _mol.nocc
 					ne_act = (len(np.where(_calc.hf_mo_occ > 0.)[0]), len(np.where(_calc.hf_mo_occ == 2.)[0]))
 					cas_space = np.array([])
 					act_orbs = np.array([])
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
-					# number of electrons and orbitals
-					if isinstance(_calc.exp_ref['ACTIVE'], dict):
-						no_act = sum(_calc.exp_ref['ACTIVE'].values())
-					elif isinstance(_calc.exp_ref['ACTIVE'], list):
-						no_act = len(_calc.exp_ref['ACTIVE'])
-					ne_act = _calc.exp_ref['NELEC']
+					# number of orbitals
+					no_act = len(_calc.exp_ref['ACTIVE'])
 					# set cas space
-					cas = mcscf.CASCI(_calc.hf, no_act, ne_act)
-					if isinstance(_calc.exp_ref['ACTIVE'], dict):
-						cas_space = np.array(mcscf.caslst_by_irrep(cas, _calc.hf.mo_coeff, \
-												_calc.exp_ref['ACTIVE'], base=0))
-					elif isinstance(_calc.exp_ref['ACTIVE'], list):
-						cas_space = np.array(_calc.exp_ref['ACTIVE'])
-					# number of active orbitals
+					cas_space = np.array(_calc.exp_ref['ACTIVE'])
+					assert(np.count_nonzero(cas_space < _mol.ncore) == 0)
+					# set of active orbitals
 					if (_calc.exp_type == 'occupied'):
-						act_orbs = _mol.occ[np.where(np.in1d(_mol.occ, cas_space))]
+						num_occ = np.count_nonzero(cas_space < _mol.nocc)
+						assert(num_occ <= len(_mol.occ)-1)
+						num_virt = np.count_nonzero(cas_space >= _mol.nocc)
+						assert(num_virt <= len(_mol.virt)-1)
+						act_orbs = _mol.occ[:num_occ]
 					elif (_calc.exp_type == 'virtual'):
-						act_orbs = _mol.virt[np.where(np.in1d(_mol.virt, cas_space))]
+						num_occ = np.count_nonzero(cas_space < _mol.nocc)
+						assert(num_occ <= len(_mol.occ)-1)
+						num_virt = np.count_nonzero(cas_space >= _mol.nocc)
+						assert(num_virt <= len(_mol.virt)-1)
+						act_orbs = _mol.virt[:num_virt]
+					# number of electrons
+					ne_act = _calc.exp_ref['NELEC']
+					assert((ne_act[0]+ne_act[1]) <= num_occ * 2)
 				# debug print
 				if (_mol.verbose_prt):
 					print('\n cas  = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
 							format(cas_space, act_orbs, no_act, ne_act))
 				#
-				return no_act, ne_act, act_orbs
+				return no_act, ne_act, cas_space, act_orbs
 
 
 		def ref(self, _mol, _calc):
 				""" reference calc """
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# hf results
+					# hf MOs
 					ref_mo_coeff = np.asarray(_calc.hf.mo_coeff, order='C')
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# casci (no) or casscf results
@@ -149,8 +152,10 @@ class PySCFCls():
 					if (_mol.spin > 0):
 						sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
 						cas.fix_spin_(ss=sz * (sz + 1.))
+					# sort mo
+					mo = cas.sort_mo(_calc.cas_space, base=0)
 					try:
-						cas.kernel(ci0=hf_as_civec)
+						cas.kernel(mo, ci0=hf_as_civec)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\n{0:} Error :\n'

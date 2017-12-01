@@ -122,8 +122,8 @@ class CalcCls():
 					if ('ACTIVE' in self.exp_ref):
 						if (self.exp_ref['METHOD'] == 'HF'):
 							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
-						if (not (isinstance(self.exp_ref['ACTIVE'], dict) or isinstance(self.exp_ref['ACTIVE'], list))):
-							raise ValueError('wrong input -- active key (active) for active space must be either a dict or a list')
+						if (not isinstance(self.exp_ref['ACTIVE'], list)): 
+							raise ValueError('wrong input -- active key (active) for active space must be a list')
 						if (not ('NELEC' in self.exp_ref)):
 							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
 						if (('NELEC' in self.exp_ref) and (not isinstance(self.exp_ref['NELEC'], tuple))):

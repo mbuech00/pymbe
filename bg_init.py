@@ -67,11 +67,10 @@ class InitCls():
 					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 					# set active space
 					self.calc.no_act, self.calc.ne_act, \
-						self.calc.act_orbs = self.pyscf.active(self.mol, self.calc)
+						self.calc.cas_space, self.calc.act_orbs = self.pyscf.active(self.mol, self.calc)
 					# ref calculation
 					self.calc.ref_e_tot, self.calc.ref_mo_coeff = self.pyscf.ref(self.mol, self.calc)
-				# expansion instantiation
-				if (self.mpi.global_master):
+					# expansion instantiation
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
 						# mark expansion as micro
@@ -80,9 +79,7 @@ class InitCls():
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
 						# mark expansion as macro
 						self.exp.level = 'macro'
-				# generate main transformation matrix
-				if (self.mpi.global_master):
-					# transformation matrix
+					# generate main transformation matrix
 					self.pyscf.trans_main(self.mol, self.calc, self.exp)
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
