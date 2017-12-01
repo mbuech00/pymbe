@@ -46,7 +46,7 @@ class ResCls():
 				else:
 					self.u_limit = _mol.nvirt 
 				# modify occ-virt print out
-				self.occ_virt = str(_mol.nocc-_mol.ncore)+' / '+str(_mol.nvirt)
+				self.occ_virt = '{0:} / {1:}'.format(_mol.nocc-_mol.ncore, _mol.nvirt)
 				# modify reference print out
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					if (_mol.spin == 0):
@@ -64,7 +64,7 @@ class ResCls():
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					self.active = 'none'
 				else:
-					self.active = str(_calc.ne_act[0]+_calc.ne_act[1])+' e / '+str(_calc.no_act)+' o'
+					self.active = '{0:} e / {1:} o'.format(_calc.ne_act[0]+_calc.ne_act[1], _calc.no_act)
 				# modify orbital print out
 				if (_calc.exp_occ == 'REF'):
 					self.exp_occ = 'reference'
@@ -94,7 +94,9 @@ class ResCls():
 				else:
 					self.frozen = 'false'
 				# modify mpi print out
-				self.mpi = str(_mpi.num_local_masters+1)+' / '+str(_mpi.global_size-(_mpi.num_local_masters+1))
+				self.mpi = '{0:} / {1:}'.format(_mpi.num_local_masters+1, _mpi.global_size-(_mpi.num_local_masters+1))
+				# modify threshold print out
+				self.thres = '{0:.1e} / {1:.1f}'.format(_calc.exp_thres, _calc.exp_relax)
 				#
 				return
 
@@ -151,9 +153,9 @@ class ResCls():
 									'','|','','final total energy','','=','',\
 									_calc.ref_e_tot+_exp.energy_tot[-1]+_calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-							'{13:<13.2e}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
+							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
-									'','|','','threshold','','=','',_calc.exp_thres,\
+									'','|','','threshold','','=','',self.thres,\
 									'','|','','final abs. conv.','','=','',\
 									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))
 						print(self.divider_str)
