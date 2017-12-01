@@ -26,7 +26,7 @@ class CalcCls():
 				self.exp_type = 'occupied'
 				self.exp_ref = {'METHOD': 'HF'}
 				self.exp_base = {'METHOD': None}
-				self.exp_thres = 1.0e-10
+				self.exp_thres = 1.0e-06
 				self.exp_relax = 1.0
 				self.exp_max_order = 1000000
 				self.exp_occ = 'REF'
