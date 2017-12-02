@@ -61,7 +61,7 @@ class ScrCls():
 					tmp = []; combs = []
 			        # loop over parent tuples
 					for i in range(len(_exp.tuples[-1])):
-						if (_exp.order == _exp.start_order):
+						if (_exp.order <= _exp.start_order+1):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.tuples[-1][i][-1]+1, self.l_limit+self.u_limit):
 								if (not (m in _exp.tuples[-1][i])):
@@ -188,7 +188,7 @@ class ScrCls():
 					if (tag == self.tags.start):
 						# init child tuple list
 						data['child_tuple'][:] = []
-						if (_exp.order == _exp.start_order):
+						if (_exp.order <= _exp.start_order+1):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.tuples[-1][job_info['index']][-1]+1, self.l_limit+self.u_limit):
 								if (not (m in _exp.tuples[-1][job_info['index']])):
