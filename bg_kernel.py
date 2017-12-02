@@ -82,7 +82,7 @@ class KernCls():
 				_exp.energy_tot.append(e_tmp)
 				# check for convergence wrt total energy
 				if ((_exp.order > _exp.start_order) and \
-					(abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < _exp.thres)):
+					(abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < 1.0e-06)):
 					_exp.conv_energy.append(True)
 				#
 				return
