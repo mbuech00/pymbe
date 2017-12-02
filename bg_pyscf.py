@@ -137,6 +137,7 @@ class PySCFCls():
 						cas.max_stepsize = .01
 						cas.max_cycle_micro = 1
 						cas.frozen = _mol.ncore
+					cas.natorb = True
 					# initial guess
 					na = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[0])
 					nb = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[1])
