@@ -203,7 +203,7 @@ class PrintCls():
 				# debug print
 				if (_mol.verbose_prt):
 					print(' --------------------------------------------------------------------------------------------')
-					print(' RESULT-'+_exp.level.upper()+':             info on the max. abs. increment:')
+					print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
 					core_idx, cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][max_idx])
 					print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core_idx))
 					print(' RESULT-'+_exp.level.upper()+':  cas  = {0:}'.format(cas_idx))
