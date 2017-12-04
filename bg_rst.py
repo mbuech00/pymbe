@@ -16,7 +16,7 @@ import numpy as np
 from os import mkdir, listdir
 from os.path import join, isfile, isdir
 from shutil import rmtree
-from re import search
+from re import search, split
 from copy import deepcopy
 
 
@@ -49,7 +49,7 @@ class RstCls():
 					# read in _exp restart files
 					self.read_exp(_exp)
 				# set min_order
-				_exp.min_order = len(_exp.tuples[-1][0])
+				_exp.min_order = _exp.tuples[-1].shape[1]
 				#
 				return
 		
@@ -91,7 +91,7 @@ class RstCls():
 				# list filenames in files list
 				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
 				# sort the list of files
-				files.sort()
+				files.sort(key=natural_keys)
 				# loop over files
 				for i in range(len(files)):
 					# read tuples
@@ -113,5 +113,19 @@ class RstCls():
 						_exp.time_screen.append(np.load(join(self.rst_dir, files[i])).tolist())
 				#
 				return
+
+
+def convert(txt):
+		""" convert strings with numbers in them """
+		return int(txt) if txt.isdigit() else txt
+
+
+def natural_keys(txt):
+		"""
+		alist.sort(key=natural_keys) sorts in human order
+		http://nedbatchelder.com/blog/200712/human_sorting.html
+		cf. https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+		"""
+		return [ convert(c) for c in split('(\d+)', txt) ]
 
 

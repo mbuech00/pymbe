@@ -212,13 +212,10 @@ class MPICls():
 				elif (_exp.level == 'micro'):
 					comm = self.global_comm
 				if (self.global_master):
-					# determine start index for energy kernel phase
-					e_inc_end = np.argmax(_exp.energy_inc[-1] == 0.0)
-					if (e_inc_end == 0): e_inc_end = len(_exp.energy_inc[-1])
 					# collect exp_info
 					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))], \
 								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))], \
-								'start_order': _exp.start_order, 'min_order': _exp.min_order, 'e_inc_end': e_inc_end}
+								'start_order': _exp.start_order, 'min_order': _exp.min_order}
 					# bcast info
 					comm.bcast(exp_info, root=0)
 					# bcast tuples

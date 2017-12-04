@@ -41,7 +41,7 @@ class DrvCls():
 				# exp class instantiation on slaves
 				if (_mpi.parallel):
 					if (_calc.exp_type in ['occupied','virtual']):
-						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart, 'min_order': _exp.min_order}
+						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
 						# bcast msg
 						_mpi.local_comm.bcast(msg, root=0)
 					else:
@@ -198,8 +198,7 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
 						# mark expansion as micro
 						exp.level = 'micro'
-						# set min order
-						exp.min_order = msg['min_order']
+						# distinguish between occ-vort expansions and combined expansions
 						if (_calc.exp_type == 'combined'):
 							exp.incl_idx = msg['incl_idx']
 							# receive distinct natural virtual orbitals
