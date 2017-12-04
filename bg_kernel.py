@@ -171,20 +171,24 @@ class KernCls():
 				# bcast msg
 				comm.bcast(msg, root=0)
 				# perform calculations
-				if ((_exp.order == _exp.start_order) and (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF'])):
+				if (_exp.order == _exp.start_order):
 					# start time
 					time = MPI.Wtime()
 					# print status
 					_prt.kernel_status(_calc, _exp, 0.0)
-					# generate input
-					_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
-					_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
-					# perform calc
-					_exp.energy_inc[0][0] = _pyscf.calc(_mol, _calc, _exp)
-					# print status
-					_prt.kernel_status(_calc, _exp, 1.0)
+					# master calculates increments
+					for i in range(len(_exp.tuples[0])):
+						# generate input
+						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][i])
+						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
+						# perform calc
+						_exp.energy_inc[0][i] = _pyscf.calc(_mol, _calc, _exp)
+						# print status
+						if (_mol.verbose_prt): _prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[0])))
 					# collect time
 					_exp.time_kernel.append(MPI.Wtime() - time)
+					# print status
+					if (not _mol.verbose_prt): _prt.kernel_status(_calc, _exp, 1.0)
 					# bcast energy
 					_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				else:
@@ -240,7 +244,7 @@ class KernCls():
 							# increment stat counter
 							counter += 1
 							# print status
-							if (_mpi.global_master and ((((data['index']+1) % 1000) == 0) or (_exp.level == 'macro'))):
+							if (_mpi.global_master and (((((data['index']+1) % 1000) == 0) or (_exp.level == 'macro')) or _mol.verbose_prt)):
 								_prt.kernel_status(_calc, _exp, float(counter) / float(len(_exp.tuples[-1])))
 						# put slave to sleep
 						elif (tag == self.tags.exit):
@@ -266,7 +270,7 @@ class KernCls():
 				if (len(_exp.energy_inc) < _exp.order):
 					_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# ref_calc
-				if ((_exp.order == _exp.start_order) and (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF'])):
+				if (_exp.order == _exp.start_order):
 					# receive energy
 					_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
 				else:
