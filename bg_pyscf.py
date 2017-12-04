@@ -274,8 +274,9 @@ class PySCFCls():
 				else:
 					cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(len(_exp.cas_idx)), np.eye(len(_exp.cas_idx)))), \
 											mo_occ=np.array((_calc.hf_mo_occ[_exp.cas_idx]>0, _calc.hf_mo_occ[_exp.cas_idx]==2), dtype=np.double))
+				cisd.conv_tol = 1.0e-10
 				cisd.max_cycle = 500
-				cisd.diis_space = 10
+				cisd.max_space = 10
 				cisd.mol.incore_anyway = True
 				eris = cisd.ao2mo()
 				# calculate cisd energy
@@ -324,6 +325,8 @@ class PySCFCls():
 				else:
 					ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(len(_exp.cas_idx)), np.eye(len(_exp.cas_idx)))), \
 											mo_occ=np.array((_calc.hf_mo_occ[_exp.cas_idx]>0, _calc.hf_mo_occ[_exp.cas_idx]==2), dtype=np.double))
+				ccsd.conv_tol = 1.0e-10
+				ccsd.conv_tol_normt = 1.0e-10
 				ccsd.max_cycle = 500
 				ccsd.diis_space = 10
 				ccsd.mol.incore_anyway = True
@@ -513,7 +516,7 @@ class PySCFCls():
 					else:
 						solver_cas = fci.direct_spin1_symm.FCI()
 					# fci settings
-					solver_cas.conv_tol = max(_exp.thres, 1.0e-10)
+					solver_cas.conv_tol = _exp.thres / 10.0
 					solver_cas.max_cycle = 500
 					solver_cas.max_space = 10
 					solver_cas.max_memory = _mol.max_memory
@@ -572,7 +575,7 @@ class PySCFCls():
 					else:
 						solver_base = fci.select_ci_symm.SCI()
 					# sci settings
-					solver_base.conv_tol = max(_exp.thres, 1.0e-10)
+					solver_base.conv_tol = _exp.thres / 10.0
 					solver_base.max_cycle = 500
 					solver_base.max_space = 10
 					solver_base.max_memory = _mol.max_memory
@@ -649,7 +652,8 @@ class ModelSolver():
 				# store quantities needed in kernel()
 				cas_hf.mo_occ = _calc.hf_mo_occ[_cas_idx]
 				cas_hf.e_tot = _calc.ref_e_tot - _e_core
-				cas_hf.conv_tol = max(_thres, 1.0e-10)
+				# store conv_tol
+				cas_hf.conv_tol = _thres / 10.0
 				#
 				return cas_hf
 
