@@ -262,6 +262,7 @@ class PySCFCls():
 				# get integrals
 				h1e, h2e = self.prepare(_mol, _calc, _exp, _mo)
 				mol = gto.M(verbose=1)
+				mol.incore_anyway = True
 				if (_mol.spin == 0):
 					hf = scf.RHF(mol)
 				else:
@@ -277,7 +278,6 @@ class PySCFCls():
 				cisd.conv_tol = max(_exp.thres / 10.0, 1.0e-10)
 				cisd.max_cycle = 500
 				cisd.max_space = 10
-				cisd.mol.incore_anyway = True
 				eris = cisd.ao2mo()
 				# calculate cisd energy
 				for i in range(5,-1,-1):
@@ -313,6 +313,7 @@ class PySCFCls():
 				# get integrals
 				h1e, h2e = self.prepare(_mol, _calc, _exp, _mo)
 				mol = gto.M(verbose=1)
+				mol.incore_anyway = True
 				if (_mol.spin == 0):
 					hf = scf.RHF(mol)
 				else:
@@ -329,7 +330,6 @@ class PySCFCls():
 				ccsd.conv_tol_normt = max(_exp.thres / 10.0, 1.0e-10)
 				ccsd.max_cycle = 500
 				ccsd.diis_space = 10
-				ccsd.mol.incore_anyway = True
 				eris = ccsd.ao2mo()
 				# calculate ccsd energy
 				for i in list(range(0, 12, 2)):
@@ -642,6 +642,7 @@ class ModelSolver():
 				""" form active space hf """
 				cas_mol = gto.M(verbose=1)
 				cas_mol.max_memory = _mol.max_memory
+				cas_mol.incore_anyway = True
 				cas_mol.spin = _mol.spin
 				if (_mol.spin == 0):
 					cas_hf = scf.RHF(cas_mol)
