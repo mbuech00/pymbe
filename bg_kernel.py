@@ -51,15 +51,20 @@ class KernCls():
 
 		def summation(self, _calc, _exp, _idx):
 				""" energy summation """
-				# now compute increment
-				for i in range(_exp.order-1, _exp.start_order-1, -1):
+				# init res
+				res = np.zeros(len(_exp.energy_inc)-1, dtype=np.float64)
+				# compute contributions from lower-order increments
+				for count, i in enumerate(range(_exp.order-1, _exp.start_order-1, -1)):
 					# test if tuple is a subset
 					combs = _exp.tuples[-1][_idx, self.comb_index(_exp.order, i)]
 					dt = np.dtype((np.void, _exp.tuples[i-_exp.start_order].dtype.itemsize * \
 									_exp.tuples[i-_exp.start_order].shape[1]))
 					match = np.nonzero(np.in1d(_exp.tuples[i-_exp.start_order].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
-					for j in match: _exp.energy_inc[-1][_idx] -= _exp.energy_inc[i-_exp.start_order][j]
+					# add up lower-order increments
+					for j in match: res[count] += _exp.energy_inc[i-_exp.start_order][j]
+				# now compute increment
+				_exp.energy_inc[-1][_idx] -= np.sum(res)
 				#
 				return
 
