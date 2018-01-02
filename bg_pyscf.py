@@ -181,19 +181,23 @@ class PySCFCls():
 					# save MOs
 					ref_mo_coeff = np.asarray(cas.mo_coeff, order='C')
 				# calculate ref_e_tot
-				ref_e_tot = self.e_mf(_mol, ref_mo_coeff)
+				ref_e_tot = self.e_mf(_mol, _calc, ref_mo_coeff)
 				#
 				return ref_e_tot, ref_mo_coeff
 
 
-		def e_mf(self, _mol, _mo):
+		def e_mf(self, _mol, _calc, _mo):
 				""" calculate mean-field energy """
-				dm = np.dot(_mo[:, :_mol.nocc], np.transpose(_mo[:, :_mol.nocc])) * 2
+				mo_a = _mo[:, _calc.hf.mo_occ > 0]
+				mo_b = _mo[:, _calc.hf.mo_occ == 2]
+				dm_a = np.dot(mo_a, np.transpose(mo_a))
+				dm_b = np.dot(mo_b, np.transpose(mo_b))
+				dm = np.array((dm_a, dm_b))
 				vj, vk = scf.hf.get_jk(_mol, dm)
-				vhf = vj - vk * .5
+				vhf = vj[0] + vj[1] - vk
 				e_mf = _mol.energy_nuc()
-				e_mf += np.einsum('ij,ji', dm, _mol.hcore)
-				e_mf += np.einsum('ij,ji', dm, vhf) * .5
+				e_mf += np.einsum('ij,ij', _mol.hcore.conj(), dm[0] + dm[1])
+				e_mf += (np.einsum('ij,ji', vhf[0], dm[0]) + np.einsum('ij,ji', vhf[1], dm[1])) * .5
 				#
 				return e_mf
 
