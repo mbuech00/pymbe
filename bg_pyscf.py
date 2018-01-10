@@ -210,10 +210,12 @@ class PySCFCls():
 				# cisd base
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					_calc.e_zero, dm = self.ci_base(_calc)
+					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# ccsd base
 				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
 					_calc.e_zero, dm = self.cc_base(_mol, _calc, _exp, _calc.ref_mo_coeff, \
 												(_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF'))
+					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# sci base
 				elif (_calc.exp_base['METHOD'] == 'SCI'):
 					_calc.e_zero, dm = self.sci_base(_mol, _calc, _exp, _calc.ref_mo_coeff)
@@ -222,7 +224,6 @@ class PySCFCls():
 				# occ-occ block (local or NOs)
 				if (_calc.exp_occ != 'REF'):
 					if (_calc.exp_occ == 'NO'):
-						if (_mol.spin > 0): dm = dm[0] + dm[1]
 						occup, no = symm.eigh(dm[:len(_mol.occ), :len(_mol.occ)], _calc.hf_orbsym[_mol.occ])
 						_calc.trans_mat[:, _mol.occ] = np.dot(_calc.ref_mo_coeff[:, _mol.occ], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
@@ -239,7 +240,6 @@ class PySCFCls():
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'REF'):
 					if (_calc.exp_virt == 'NO'):
-						if ((_mol.spin > 0) and (_calc.exp_occ != 'NO')): dm = dm[0] + dm[1]
 						occup, no = symm.eigh(dm[-len(_mol.virt):, -len(_mol.virt):], _calc.hf_orbsym[_mol.virt])
 						_calc.trans_mat[:, _mol.virt] = np.dot(_calc.ref_mo_coeff[:, _mol.virt], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
