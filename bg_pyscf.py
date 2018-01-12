@@ -109,7 +109,7 @@ class PySCFCls():
 					assert((ne_act[0]+ne_act[1]) <= num_occ * 2)
 				# debug print
 				if (_mol.verbose_prt):
-					print('\n cas  = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
+					print('\n cas = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
 							format(cas_space, act_orbs, no_act, ne_act))
 				#
 				return no_act, ne_act, cas_space, act_orbs
