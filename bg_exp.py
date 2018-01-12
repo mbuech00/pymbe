@@ -66,6 +66,7 @@ class ExpCls():
 					incl_idx = _mol.occ.tolist()
 				# tuples
 				if (_calc.exp_ref['METHOD'] == 'HF'):
+					# set params and lists for occ expansion
 					if (_type == 'occupied'):
 						init = _mol.occ
 					# set params and lists for virt expansion
