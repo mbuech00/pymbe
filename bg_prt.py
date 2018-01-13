@@ -116,30 +116,34 @@ class PrintCls():
 	
 		def kernel_end(self, _calc, _exp):
 				""" print end of kernel """
+				if (_exp.order == _exp.start_order):
+					thres = 0.0
+				else:
+					thres = _exp.thres
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						if (_exp.conv_energy[-1]):
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),_exp.thres))
+									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),thres))
 							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),_exp.thres))
+									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),thres))
 							print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				if (_exp.conv_energy[-1]):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),_exp.thres))
+							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),thres))
 					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),_exp.thres))
+							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),thres))
 					print(' --------------------------------------------------------------------------------------------')
 				#
 				return

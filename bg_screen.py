@@ -47,7 +47,7 @@ class ScrCls():
 	
 		def update(self, _calc, _exp):
 				""" update expansion threshold according to start order """
-				return _calc.exp_thres * _calc.exp_relax ** _exp.order
+				return _calc.exp_thres * _calc.exp_relax ** (_exp.order - _exp.start_order)
 
 		
 		def main(self, _mpi, _mol, _calc, _exp, _rst):
@@ -61,11 +61,10 @@ class ScrCls():
 					tmp = []; combs = []
 			        # loop over parent tuples
 					for i in range(len(_exp.tuples[-1])):
-						if (_exp.order <= _exp.start_order+1):
+						if (_exp.order == _exp.start_order):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.tuples[-1][i][-1]+1, self.l_limit+self.u_limit):
-								if (not (m in _exp.tuples[-1][i])):
-									tmp.append(_exp.tuples[-1][i].tolist()+[m])
+								tmp.append(_exp.tuples[-1][i].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
 							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1)))
@@ -188,11 +187,10 @@ class ScrCls():
 					if (tag == self.tags.start):
 						# init child tuple list
 						data['child_tuple'][:] = []
-						if (_exp.order <= _exp.start_order+1):
+						if (_exp.order == _exp.start_order):
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.tuples[-1][job_info['index']][-1]+1, self.l_limit+self.u_limit):
-								if (not (m in _exp.tuples[-1][job_info['index']])):
-									data['child_tuple'].append(_exp.tuples[-1][job_info['index']].tolist()+[m])
+								data['child_tuple'].append(_exp.tuples[-1][job_info['index']].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
 							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1)))
