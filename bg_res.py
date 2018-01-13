@@ -96,7 +96,7 @@ class ResCls():
 				# modify mpi print out
 				self.mpi = '{0:} / {1:}'.format(_mpi.num_local_masters+1, _mpi.global_size-(_mpi.num_local_masters+1))
 				# modify threshold print out
-				self.thres = '{0:.1e} / {1:.1f}'.format(_calc.exp_thres, _calc.exp_relax)
+				self.thres = '{0:.0e} / {1:.0f}'.format(_calc.exp_thres, _calc.exp_relax)
 				#
 				return
 
@@ -155,7 +155,7 @@ class ResCls():
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
-									'','|','','threshold','','=','',self.thres,\
+									'','|','','thres. / relax.','','=','',self.thres,\
 									'','|','','final abs. conv.','','=','',\
 									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))
 						print(self.divider_str)
