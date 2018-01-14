@@ -214,7 +214,8 @@ class PySCFCls():
 				# ccsd base
 				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
 					_calc.e_zero, dm = self.cc_base(_mol, _calc, _exp, _calc.ref_mo_coeff, \
-												(_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF'))
+												(_calc.exp_base['METHOD'] == 'CCSD(T)') and \
+												((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')))
 					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# sci base
 				elif (_calc.exp_base['METHOD'] == 'SCI'):
@@ -300,7 +301,8 @@ class PySCFCls():
 				e_zero = cisd.e_corr
 				# cisd dm
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
-					dm = cisd.make_rdm1()
+					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
+					dm += cisd.make_rdm1()
 				else:
 					dm = None
 				#
@@ -351,8 +353,9 @@ class PySCFCls():
 				# e_zero
 				e_zero = ccsd.e_corr
 				# ccsd dm
-				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
-					dm = ccsd.make_rdm1()
+				if ((not _pt_corr) and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
+					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
+					dm += ccsd.make_rdm1()
 				else:
 					dm = None
 				# calculate (t) correction
@@ -418,7 +421,8 @@ class PySCFCls():
 				e_zero = e_sci - _calc.ref_e_tot
 				# sci dm
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
-					dm = sci_solver.make_rdm1(c_sci, len(_exp.cas_idx), nelec_cas)
+					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
+					dm += sci_solver.make_rdm1(c_sci, len(_exp.cas_idx), nelec_cas)
 				else:
 					dm = None
 				#
