@@ -115,6 +115,11 @@ class ResCls():
 
 		def results(self, _mpi, _mol, _calc, _exp):
 				""" print results """
+				# modify final convergence print out
+				if (len(_exp.energy_tot) == 1):
+					self.final_conv = 0.0
+				else:
+					self.final_conv = np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])
 				# write summary to bg_results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
@@ -157,7 +162,7 @@ class ResCls():
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
 									'','|','','thres. / relax.','','=','',self.thres,\
 									'','|','','final abs. conv.','','=','',\
-									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))
+									self.final_conv))
 						print(self.divider_str)
 						print(self.fill_str)
 						print(self.divider_str)
