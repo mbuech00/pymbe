@@ -209,7 +209,7 @@ class PySCFCls():
 					_calc.e_zero = 0.0
 				# cisd base
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
-					_calc.e_zero, dm = self.ci_base(_calc)
+					_calc.e_zero, dm = self.ci_base(_mol, _calc, _exp, _calc.ref_mo_coeff)
 					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# ccsd base
 				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
@@ -257,7 +257,7 @@ class PySCFCls():
 				return
 
 
-		def ci_base(self, _calc):
+		def ci_base(self, _mol, _calc, _exp, _mo):
 				""" cisd base calc """
 				# set core and cas spaces
 				if (_calc.exp_type == 'occupied'):
