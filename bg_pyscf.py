@@ -209,17 +209,17 @@ class PySCFCls():
 					_calc.e_zero = 0.0
 				# cisd base
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
-					_calc.e_zero, dm = self.ci_base(_mol, _calc, _exp, _calc.ref_mo_coeff)
+					_calc.e_zero, dm = self.ci(_mol, _calc, _exp, _calc.ref_mo_coeff)
 					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# ccsd base
 				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
-					_calc.e_zero, dm = self.cc_base(_mol, _calc, _exp, _calc.ref_mo_coeff, \
+					_calc.e_zero, dm = self.cc(_mol, _calc, _exp, _calc.ref_mo_coeff, \
 												(_calc.exp_base['METHOD'] == 'CCSD(T)') and \
 												((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')))
 					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# sci base
 				elif (_calc.exp_base['METHOD'] == 'SCI'):
-					_calc.e_zero, dm = self.sci_base(_mol, _calc, _exp, _calc.ref_mo_coeff)
+					_calc.e_zero, dm = self.sci(_mol, _calc, _exp, _calc.ref_mo_coeff)
 				# init transformation matrix
 				_calc.trans_mat = np.copy(_calc.ref_mo_coeff)
 				# occ-occ block (local or NOs)
@@ -250,22 +250,22 @@ class PySCFCls():
 				# (t) correction for NOs
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
 					if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
-						_calc.e_zero, dm = self.cc_base(_mol, _calc, _exp, _calc.trans_mat, True)
+						_calc.e_zero, dm = self.cc(_mol, _calc, _exp, _calc.trans_mat, True)
 					elif (_calc.exp_base['METHOD'] == 'SCI'):
-						_calc.e_zero, dm = self.sci_base(_mol, _calc, _exp, _calc.trans_mat)
+						_calc.e_zero, dm = self.sci(_mol, _calc, _exp, _calc.trans_mat)
 				#
 				return
 
 
-		def ci_base(self, _mol, _calc, _exp, _mo):
-				""" cisd base calc """
+		def ci(self, _mol, _calc, _exp, _mo):
+				""" cisd calc """
 				# set core and cas spaces
 				if (_calc.exp_type == 'occupied'):
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.ncore, _mol.nocc)))
 				if (_calc.exp_type == 'virtual'):
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
 				# get integrals
-				h1e, h2e = self.prepare(_mol, _calc, _exp, _mo)
+				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
 				mol = gto.M(verbose=1)
 				mol.incore_anyway = True
 				if (_mol.spin == 0):
@@ -309,15 +309,15 @@ class PySCFCls():
 				return e_zero, dm
 
 
-		def cc_base(self, _mol, _calc, _exp, _mo, _pt_corr=False):
-				""" ccsd / ccsd(t) base calc """
+		def cc(self, _mol, _calc, _exp, _mo, _pt_corr=False):
+				""" ccsd / ccsd(t) calc """
 				# set core and cas spaces
 				if (_calc.exp_type == 'occupied'):
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.ncore, _mol.nocc)))
 				if (_calc.exp_type == 'virtual'):
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
 				# get integrals
-				h1e, h2e = self.prepare(_mol, _calc, _exp, _mo)
+				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
 				mol = gto.M(verbose=1)
 				mol.incore_anyway = True
 				if (_mol.spin == 0):
@@ -364,8 +364,8 @@ class PySCFCls():
 				return e_zero, dm
 
 
-		def sci_base(self, _mol, _calc, _exp, _mo):
-				""" sci base calc """
+		def sci(self, _mol, _calc, _exp, _mo):
+				""" sci calc """
 				# init sci
 				if (_mol.spin == 0):
 					sci_solver = fci.select_ci_spin0_symm.SCI(_mol)
@@ -381,7 +381,7 @@ class PySCFCls():
 				if (_calc.exp_type == 'virtual'):
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
 				# get integrals
-				h1e, h2e = self.prepare(_mol, _calc, _exp, _mo)
+				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
 				# cas electrons
 				nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
 				# initial guess
@@ -397,7 +397,7 @@ class PySCFCls():
 				# calculate sci energy
 				try:
 					e_sci, c_sci = sci_solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec_cas, \
-														ecore=_exp.e_core, orbsym=orbsym, ci0=hf_as_scivec)
+														ecore=e_core, orbsym=orbsym, ci0=hf_as_scivec)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nSCI base Error :\n'
@@ -496,20 +496,19 @@ class PySCFCls():
 				""" generate input for correlated calculation """
 				# extract cas integrals and calculate core energy
 				if (len(_exp.core_idx) > 0):
-					if ((_calc.exp_type == 'occupied') or (_exp.e_core is None)):
-						core_dm = np.dot(_orbs[:, _exp.core_idx], np.transpose(_orbs[:, _exp.core_idx])) * 2
-						vj, vk = scf.hf.get_jk(_mol, core_dm)
-						_exp.core_vhf = vj - vk * .5
-						_exp.e_core = _mol.energy_nuc() + np.einsum('ij,ji', core_dm, _mol.hcore)
-						_exp.e_core += np.einsum('ij,ji', core_dm, _exp.core_vhf) * .5
+					core_dm = np.dot(_orbs[:, _exp.core_idx], np.transpose(_orbs[:, _exp.core_idx])) * 2
+					vj, vk = scf.hf.get_jk(_mol, core_dm)
+					core_vhf = vj - vk * .5
+					e_core = _mol.energy_nuc() + np.einsum('ij,ji', core_dm, _mol.hcore)
+					e_core += np.einsum('ij,ji', core_dm, core_vhf) * .5
 				else:
-					_exp.e_core = _mol.energy_nuc()
-					_exp.core_vhf = 0
+					e_core = _mol.energy_nuc()
+					core_vhf = 0
 				h1e_cas = reduce(np.dot, (np.transpose(_orbs[:, _exp.cas_idx]), \
-										_mol.hcore + _exp.core_vhf, _orbs[:, _exp.cas_idx]))
+										_mol.hcore + core_vhf, _orbs[:, _exp.cas_idx]))
 				h2e_cas = ao2mo.incore.full(_mol.eri, _orbs[:, _exp.cas_idx])
 				#
-				return h1e_cas, h2e_cas
+				return h1e_cas, h2e_cas, e_core
 
 
 		def calc(self, _mol, _calc, _exp):
