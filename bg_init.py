@@ -79,8 +79,8 @@ class InitCls():
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
 						# mark expansion as macro
 						self.exp.level = 'macro'
-					# generate main transformation matrix
-					self.pyscf.main_trans(self.mol, self.calc, self.exp)
+					# base energy and transformation matrix
+					self.calc.e_zero, self.calc.trans_mat = self.pyscf.main_trans(self.mol, self.calc, self.exp)
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_ref_info(self.mol, self.calc)

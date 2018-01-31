@@ -103,9 +103,8 @@ class KernCls():
 					_prt.kernel_status(_calc, _exp, 0.0)
 					# generate input
 					_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
-					_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 					# perform calc
-					_exp.energy_inc[0][0] = _pyscf.calc(_mol, _calc, _exp)
+					_exp.energy_inc[0][0] = _pyscf.main_calc(_mol, _calc, _exp)
 					# print status
 					_prt.kernel_status(_calc, _exp, 1.0)
 					# collect time
@@ -141,9 +140,8 @@ class KernCls():
 						else:
 							# generate input
 							_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][i])
-							_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 							# perform calc
-							_exp.energy_inc[-1][i] = _pyscf.calc(_mol, _calc, _exp)
+							_exp.energy_inc[-1][i] = _pyscf.main_calc(_mol, _calc, _exp)
 						# sum up energy increment
 						self.summation(_calc, _exp, i)
 						if (do_print):
@@ -184,9 +182,8 @@ class KernCls():
 					for i in range(len(_exp.tuples[0])):
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][i])
-						_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 						# perform calc
-						_exp.energy_inc[0][i] = _pyscf.calc(_mol, _calc, _exp)
+						_exp.energy_inc[0][i] = _pyscf.main_calc(_mol, _calc, _exp)
 						# print status
 						if (_mol.verbose_prt): _prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[0])))
 					# collect time
@@ -310,9 +307,8 @@ class KernCls():
 							else:
 								# generate input
 								_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][job_info['index']])
-								_exp.h1e_cas, _exp.h2e_cas = _pyscf.prepare(_mol, _calc, _exp, _calc.trans_mat)
 								# run correlated calc
-								_exp.energy_inc[-1][job_info['index']] = _pyscf.calc(_mol, _calc, _exp)
+								_exp.energy_inc[-1][job_info['index']] = _pyscf.main_calc(_mol, _calc, _exp)
 								# sum up energy increment
 								self.summation(_calc, _exp, job_info['index'])
 								# write info into data dict
