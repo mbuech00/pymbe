@@ -257,6 +257,74 @@ class PySCFCls():
 				return
 
 
+		def fci(self, _mol, _calc, _exp, _mo):
+				""" fci calc """
+				# init fci solver
+				if (_mol.spin == 0):
+					solver = fci.direct_spin0_symm.FCI(_mol)
+				else:
+					solver = fci.direct_spin1_symm.FCI(_mol)
+				# settings
+				solver.conv_tol = 1.0e-10
+				solver.max_cycle = 500
+				solver.max_space = 10
+				solver.davidson_only = True
+				# set core and cas spaces
+				if (_calc.exp_type == 'occupied'):
+					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.ncore, _mol.nocc)))
+				if (_calc.exp_type == 'virtual'):
+					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
+				# get integrals and core energy
+				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
+				# electrons
+				nelec = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
+				# initial guess
+				na = fci.cistring.num_strings(len(_exp.cas_idx), nelec[0])
+				nb = fci.cistring.num_strings(len(_exp.cas_idx), nelec[1])
+				hf_as_civec = np.zeros((na, nb))
+				hf_as_civec[0, 0] = 1
+				# orbital symmetry
+				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
+				# fix spin if non-singlet
+				if (_mol.spin > 0):
+					sz = abs(nelec[0]-nelec[1]) * .5
+					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
+				# perform calc
+				try:
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, ci0=hf_as_civec)
+				except Exception as err:
+					try:
+						raise RuntimeError(('\nFCI Error :\n'
+											'core_idx = {0:} , cas_idx = {1:}\n'
+											'PySCF Error: {2:}\n\n').\
+											format(_exp.core_idx, _exp.cas_idx, err))
+					except Exception as err_2:
+						sys.stderr.write(str(err_2))
+						raise
+				# calculate spin
+				s, mult = fci.spin_op.spin_square(c, len(_exp.cas_idx), nelec)
+				# check for correct spin
+				if (float(_mol.spin) - s > 1.0e-05):
+					try:
+						raise RuntimeError(('\nFCI Error : spin contamination\n\n'
+											'2*S + 1 = {0:.3f}\n'
+											'core_idx = {1:} , cas_idx = {2:}\n\n').\
+											format(mult, _exp.core_idx, _exp.cas_idx))
+					except Exception as err:
+						sys.stderr.write(str(err))
+						raise
+				# e_corr
+				e_corr = e - _calc.ref_e_tot
+				# dm
+				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
+					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
+					dm += solver.make_rdm1(c, len(_exp.cas_idx), nelec)
+				else:
+					dm = None
+				#
+				return e_corr, dm
+
+
 		def ci(self, _mol, _calc, _exp, _mo):
 				""" cisd calc """
 				# set core and cas spaces
@@ -280,6 +348,7 @@ class PySCFCls():
 				else:
 					cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(len(_exp.cas_idx)), np.eye(len(_exp.cas_idx)))), \
 											mo_occ=np.array((_calc.hf_mo_occ[_exp.cas_idx]>0, _calc.hf_mo_occ[_exp.cas_idx]==2), dtype=np.double))
+				# settings
 				cisd.conv_tol = 1.0e-10
 				cisd.max_cycle = 500
 				cisd.max_space = 10
@@ -293,20 +362,20 @@ class PySCFCls():
 					if (cisd.converged): break
 				if (not cisd.converged):
 					try:
-						raise RuntimeError('\nCISD base Error : no convergence\n\n')
+						raise RuntimeError('\nCISD Error : no convergence\n\n')
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
-				# e_zero
-				e_zero = cisd.e_corr
-				# cisd dm
+				# e_corr
+				e_corr = cisd.e_corr
+				# dm
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
 					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
 					dm += cisd.make_rdm1()
 				else:
 					dm = None
 				#
-				return e_zero, dm
+				return e_corr, dm
 
 
 		def cc(self, _mol, _calc, _exp, _mo, _pt_corr=False):
@@ -332,6 +401,7 @@ class PySCFCls():
 				else:
 					ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(len(_exp.cas_idx)), np.eye(len(_exp.cas_idx)))), \
 											mo_occ=np.array((_calc.hf_mo_occ[_exp.cas_idx]>0, _calc.hf_mo_occ[_exp.cas_idx]==2), dtype=np.double))
+				# settings
 				ccsd.conv_tol = 1.0e-10
 				ccsd.conv_tol_normt = 1.0e-10
 				ccsd.max_cycle = 500
@@ -346,87 +416,87 @@ class PySCFCls():
 					if (ccsd.converged): break
 				if (not ccsd.converged):
 					try:
-						raise RuntimeError('\nCCSD base Error : no convergence\n\n')
+						raise RuntimeError('\nCCSD Error : no convergence\n\n')
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
-				# e_zero
-				e_zero = ccsd.e_corr
-				# ccsd dm
+				# e_corr
+				e_corr = ccsd.e_corr
+				# dm
 				if ((not _pt_corr) and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
 					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
 					dm += ccsd.make_rdm1()
 				else:
 					dm = None
 				# calculate (t) correction
-				if (_pt_corr): e_zero += ccsd.ccsd_t(eris=eris)
+				if (_pt_corr): e_corr += ccsd.ccsd_t(eris=eris)
 				#
-				return e_zero, dm
+				return e_corr, dm
 
 
 		def sci(self, _mol, _calc, _exp, _mo):
 				""" sci calc """
-				# init sci
+				# init sci solver
 				if (_mol.spin == 0):
-					sci_solver = fci.select_ci_spin0_symm.SCI(_mol)
+					solver = fci.select_ci_spin0_symm.SCI(_mol)
 				else:
-					sci_solver = fci.select_ci_symm.SCI(_mol)
-				sci_solver.conv_tol = 1.0e-10
-				sci_solver.max_cycle = 500
-				sci_solver.max_space = 10
-				sci_solver.davidson_only = True
+					solver = fci.select_ci_symm.SCI(_mol)
+				# settings
+				solver.conv_tol = 1.0e-10
+				solver.max_cycle = 500
+				solver.max_space = 10
+				solver.davidson_only = True
 				# set core and cas spaces
 				if (_calc.exp_type == 'occupied'):
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.ncore, _mol.nocc)))
 				if (_calc.exp_type == 'virtual'):
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
-				# get integrals
+				# get integrals and core energy
 				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
-				# cas electrons
-				nelec_cas = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
+				# electrons
+				nelec = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
 				# initial guess
-				ci_strs = (np.asarray([int('1'*nelec_cas[0], 2)]), np.asarray([int('1'*nelec_cas[1], 2)]))
+				ci_strs = (np.asarray([int('1'*nelec[0], 2)]), np.asarray([int('1'*nelec[1], 2)]))
 				hf_as_scivec = fci.select_ci._as_SCIvector(np.ones((1,1)), ci_strs)
-				hf_as_scivec = sci_solver.enlarge_space(hf_as_scivec, h2e, len(_exp.cas_idx), nelec_cas)
+				hf_as_scivec = sci_solver.enlarge_space(hf_as_scivec, h2e, len(_exp.cas_idx), nelec)
 				# orbital symmetry
 				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
 				# fix spin if non-singlet
 				if (_mol.spin > 0):
-					sz = abs(nelec_cas[0]-nelec_cas[1]) * .5
-					fci.addons.fix_spin(sci_solver, ss=sz * (sz + 1.))
+					sz = abs(nelec[0]-nelec[1]) * .5
+					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 				# calculate sci energy
 				try:
-					e_sci, c_sci = sci_solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec_cas, \
-														ecore=e_core, orbsym=orbsym, ci0=hf_as_scivec)
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, ci0=hf_as_scivec)
 				except Exception as err:
 					try:
-						raise RuntimeError(('\nSCI base Error :\n'
+						raise RuntimeError(('\nSCI Error :\n'
 											'PySCF Error: {0:}\n\n').\
 											format(err))
 					except Exception as err_2:
 						sys.stderr.write(str(err_2))
 						raise
 				# calculate spin
-				s_sci, mult_sci = sci_solver.spin_square(c_sci, len(_exp.cas_idx), nelec_cas)
+				s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
 				# check for correct spin
-				if (float(_mol.spin) - s_sci > 1.0e-05):
+				if (float(_mol.spin) - s > 1.0e-05):
 					try:
-						raise RuntimeError(('\nSCI base Error : spin contamination\n\n'
+						raise RuntimeError(('\nSCI Error : spin contamination\n\n'
 											'2*S + 1 = {0:.3f}\n\n').\
-											format(mult_sci))
+											format(mult))
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
-				# e_zero
-				e_zero = e_sci - _calc.ref_e_tot
+				# e_corr
+				e_corr = e - _calc.ref_e_tot
 				# sci dm
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
 					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
-					dm += sci_solver.make_rdm1(c_sci, len(_exp.cas_idx), nelec_cas)
+					dm += solver.make_rdm1(c_sci, len(_exp.cas_idx), nelec)
 				else:
 					dm = None
 				#
-				return e_zero, dm
+				return e_corr, dm
 
 
 		def trans_dno(self, _mol, _calc, _exp):
