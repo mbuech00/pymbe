@@ -202,7 +202,7 @@ class PySCFCls():
 				return e_mf
 
 
-		def trans_main(self, _mol, _calc, _exp):
+		def main_trans(self, _mol, _calc, _exp):
 				""" determine main transformation matrices """
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] is None):

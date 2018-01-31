@@ -80,7 +80,7 @@ class InitCls():
 						# mark expansion as macro
 						self.exp.level = 'macro'
 					# generate main transformation matrix
-					self.pyscf.trans_main(self.mol, self.calc, self.exp)
+					self.pyscf.main_trans(self.mol, self.calc, self.exp)
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_ref_info(self.mol, self.calc)
