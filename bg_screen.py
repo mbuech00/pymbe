@@ -88,7 +88,7 @@ class ScrCls():
 											break
 										else:
 											# is the increment above threshold?
-											if (np.abs(_exp.energy_inc[-1][comb_idx]) >= _exp.thres):
+											if (np.abs(_exp.energy['inc'][-1][comb_idx]) >= _exp.thres):
 												# mark as 'allowed'
 												screen = False
 									# if tuple is allowed, add to child tuple list, otherwise screen away
@@ -214,7 +214,7 @@ class ScrCls():
 											break
 										else:
 											# is the increment above threshold?
-											if (np.abs(_exp.energy_inc[-1][comb_idx]) >= _exp.thres):
+											if (np.abs(_exp.energy['inc'][-1][comb_idx]) >= _exp.thres):
 												# mark as 'allowed'
 												screen = False
 									# if tuple is allowed, add to child tuple list, otherwise screen away

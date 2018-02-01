@@ -116,10 +116,10 @@ class ResCls():
 		def results(self, _mpi, _mol, _calc, _exp):
 				""" print results """
 				# modify final convergence print out
-				if (len(_exp.energy_tot) == 1):
+				if (len(_exp.energy['tot']) == 1):
 					self.final_conv = 0.0
 				else:
-					self.final_conv = np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])
+					self.final_conv = np.abs(_exp.energy['tot'][-1] - _exp.energy['tot'][-2])
 				# write summary to bg_results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
@@ -156,7 +156,7 @@ class ResCls():
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','expansion type','','=','',_calc.exp_type,\
 									'','|','','final total energy','','=','',\
-									_calc.ref_e_tot+_exp.energy_tot[-1]+_calc.e_zero))
+									_calc.ref_e_tot+_exp.energy['tot'][-1]+_calc.e_zero))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
@@ -174,7 +174,7 @@ class ResCls():
 						print(self.divider_str)
 						# loop over orders
 						total_tup = 0
-						for i in range(len(_exp.energy_tot)):
+						for i in range(len(_exp.energy['tot'])):
 							# sum up total time and number of tuples
 							total_time = np.sum(_exp.time_kernel[:i+1])\
 											+np.sum(_exp.time_screen[:i+1])
@@ -182,7 +182,7 @@ class ResCls():
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
 									format('',i+_exp.start_order,'','|','',\
-										_exp.energy_tot[i]+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero,\
+										_exp.energy['tot'][i]+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero,\
 										'','|','',int(total_time//3600),':',\
 										int((total_time-(total_time//3600)*3600.)//60),':',\
 										int(total_time-(total_time//3600)*3600.\
@@ -202,8 +202,8 @@ class ResCls():
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# plot results
-				ax.plot(list(range(_exp.start_order, len(_exp.energy_tot)+_exp.start_order)), \
-						_exp.energy_tot+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero, marker='x', linewidth=2, \
+				ax.plot(list(range(_exp.start_order, len(_exp.energy['tot'])+_exp.start_order)), \
+						_exp.energy['tot']+(_calc.ref_e_tot-_calc.hf_e_tot)+_calc.e_zero, marker='x', linewidth=2, \
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
 				ax.set_xlim([0.5, self.u_limit + 0.5])
@@ -233,8 +233,8 @@ class ResCls():
 				# set seaborn
 				sns.set(style='white', palette='Set2', font='DejaVu Sans')
 				# set end index
-				end = len(_exp.energy_inc)
-				if (len(_exp.energy_inc[-1]) == 1): end -= 1
+				end = len(_exp.energy['inc'])
+				if (len(_exp.energy['inc'][-1]) == 1): end -= 1
 				# set number of subplots
 				h_length = end // 2
 				if (end % 2 != 0): h_length += 1
@@ -253,13 +253,13 @@ class ResCls():
 							thres = _calc.exp_thres * _calc.exp_relax ** (i-1)
 							ax.flat[i].axvspan(0.0-thres, 0.0+thres, facecolor='yellow', alpha=0.4)
 					# plot data
-					sns.distplot(_exp.energy_inc[i], hist=False, color='red', \
+					sns.distplot(_exp.energy['inc'][i], hist=False, color='red', \
 									kde_kws={'shade': True}, ax=ax.flat[i])
 					# set title
-					ax.flat[i].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+_exp.start_order, len(_exp.energy_inc[i]), \
-																							np.sum(_exp.energy_inc[i])), size=10)
+					ax.flat[i].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+_exp.start_order, len(_exp.energy['inc'][i]), \
+																							np.sum(_exp.energy['inc'][i])), size=10)
 					# val_max
-					val_max = _exp.energy_inc[i][np.argmax(np.abs(_exp.energy_inc[i]))]
+					val_max = _exp.energy['inc'][i][np.argmax(np.abs(_exp.energy['inc'][i]))]
 					# format x-axis
 					ax.flat[i].set_xticks([0.0,val_max])
 					ax.flat[i].set_xticklabels(['0.0', '{0:.1e}'.format(val_max)])

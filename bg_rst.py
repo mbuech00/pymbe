@@ -63,7 +63,7 @@ class RstCls():
 		def write_kernel(self, _calc, _exp, _final):
 				""" write energy kernel restart files """
 				# write e_inc
-				np.save(join(self.rst_dir, 'e_inc_'+str(_exp.order)), _exp.energy_inc[-1])
+				np.save(join(self.rst_dir, 'e_inc_'+str(_exp.order)), _exp.energy['inc'][-1])
 				# write micro_conv
 				if (_calc.exp_type == 'combined'):
 					np.save(join(self.rst_dir, 'micro_conv_'+str(_exp.order)), np.asarray(_exp.micro_conv[-1]))
@@ -71,7 +71,7 @@ class RstCls():
 				np.save(join(self.rst_dir, 'time_kernel_'+str(_exp.order)), np.asarray(_exp.time_kernel[-1]))
 				# write e_tot
 				if (_final):
-					np.save(join(self.rst_dir, 'e_tot_'+str(_exp.order)), np.asarray(_exp.energy_tot[-1]))
+					np.save(join(self.rst_dir, 'e_tot_'+str(_exp.order)), np.asarray(_exp.energy['tot'][-1]))
 				#
 				return
 		
@@ -99,10 +99,10 @@ class RstCls():
 						_exp.tuples.append(np.load(join(self.rst_dir, files[i])))
 					# read e_inc
 					elif ('e_inc' in files[i]):
-						_exp.energy_inc.append(np.load(join(self.rst_dir, files[i])))
+						_exp.energy['inc'].append(np.load(join(self.rst_dir, files[i])))
 					# read e_tot
 					elif ('e_tot' in files[i]):
-						_exp.energy_tot.append(np.load(join(self.rst_dir, files[i])).tolist())
+						_exp.energy['tot'].append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read micro_conv
 					elif ('micro_conv' in files[i]):
 						_exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())

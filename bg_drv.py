@@ -85,8 +85,8 @@ class DrvCls():
 						# print kernel header
 						_prt.kernel_header(_calc, _exp)
 					# init e_inc
-					if (len(_exp.energy_inc) != _exp.order):
-						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
+					if (len(_exp.energy['inc']) != _exp.order):
+						_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 					if (do_print):
@@ -132,7 +132,7 @@ class DrvCls():
 					#
 					if (_exp.conv_energy[-1] or _exp.conv_orb[-1] or (_exp.order == _exp.max_order)):
 						# recast as numpy array
-						_exp.energy_tot = np.array(_exp.energy_tot)
+						_exp.energy['tot'] = np.array(_exp.energy['tot'])
 						# now break
 						break
 				#

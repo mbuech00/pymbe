@@ -52,7 +52,7 @@ class KernCls():
 		def summation(self, _calc, _exp, _idx):
 				""" energy summation """
 				# init res
-				res = np.zeros(len(_exp.energy_inc)-1, dtype=np.float64)
+				res = np.zeros(len(_exp.energy['inc'])-1, dtype=np.float64)
 				# compute contributions from lower-order increments
 				for count, i in enumerate(range(_exp.order-1, _exp.start_order-1, -1)):
 					# test if tuple is a subset
@@ -62,9 +62,9 @@ class KernCls():
 					match = np.nonzero(np.in1d(_exp.tuples[i-_exp.start_order].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
 					# add up lower-order increments
-					for j in match: res[count] += _exp.energy_inc[i-_exp.start_order][j]
+					for j in match: res[count] += _exp.energy['inc'][i-_exp.start_order][j]
 				# now compute increment
-				_exp.energy_inc[-1][_idx] -= np.sum(res)
+				_exp.energy['inc'][-1][_idx] -= np.sum(res)
 				#
 				return
 
@@ -81,13 +81,13 @@ class KernCls():
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum of total energy
-				e_tmp = np.sum(_exp.energy_inc[-1][np.where(np.abs(_exp.energy_inc[-1]) >= _calc.tolerance)])
-				if (_exp.order > _exp.start_order): e_tmp += _exp.energy_tot[-1]
+				e_tmp = np.sum(_exp.energy['inc'][-1][np.where(np.abs(_exp.energy['inc'][-1]) >= _calc.tolerance)])
+				if (_exp.order > _exp.start_order): e_tmp += _exp.energy['tot'][-1]
 				# add to total energy list
-				_exp.energy_tot.append(e_tmp)
+				_exp.energy['tot'].append(e_tmp)
 				# check for convergence wrt total energy
 #				if ((_exp.order > _exp.start_order+1) and \
-#					(abs(_exp.energy_tot[-1] - _exp.energy_tot[-2]) < 1.0e-06)):
+#					(abs(_exp.energy['tot'][-1] - _exp.energy['tot'][-2]) < 1.0e-06)):
 #						_exp.conv_energy.append(True)
 				#
 				return
@@ -104,7 +104,7 @@ class KernCls():
 					# generate input
 					_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][0])
 					# perform calc
-					_exp.energy_inc[0][0] = _pyscf.main_calc(_mol, _calc, _exp)
+					_exp.energy['inc'][0][0] = _pyscf.main_calc(_mol, _calc, _exp)
 					# print status
 					_prt.kernel_status(_calc, _exp, 1.0)
 					# collect time
@@ -119,7 +119,7 @@ class KernCls():
 					if (_exp.level == 'macro'):
 						drv_micro = bg_drv.DrvCls(_mol, 'virtual') 
 					# determine start index
-					start = np.argmax(_exp.energy_inc[-1] == 0.0)
+					start = np.argmax(_exp.energy['inc'][-1] == 0.0)
 					# loop over tuples
 					for i in range(start, len(_exp.tuples[-1])):
 						# start time
@@ -135,13 +135,13 @@ class KernCls():
 							# make recursive call to driver with micro exp
 							drv_micro.main(_mpi, _mol, _calc, _pyscf, exp_micro, _prt, _rst)
 							# store results
-							_exp.energy_inc[-1][i] = exp_micro.energy_tot[-1]
+							_exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
 							_exp.micro_conv[-1][i] = exp_micro.order
 						else:
 							# generate input
 							_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][i])
 							# perform calc
-							_exp.energy_inc[-1][i] = _pyscf.main_calc(_mol, _calc, _exp)
+							_exp.energy['inc'][-1][i] = _pyscf.main_calc(_mol, _calc, _exp)
 						# sum up energy increment
 						self.summation(_calc, _exp, i)
 						if (do_print):
@@ -183,7 +183,7 @@ class KernCls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][i])
 						# perform calc
-						_exp.energy_inc[0][i] = _pyscf.main_calc(_mol, _calc, _exp)
+						_exp.energy['inc'][0][i] = _pyscf.main_calc(_mol, _calc, _exp)
 						# print status
 						if (_mol.verbose_prt): _prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[0])))
 					# collect time
@@ -196,7 +196,7 @@ class KernCls():
 					# init job_info dictionary
 					job_info = {}
 					# init job index
-					i = np.argmax(_exp.energy_inc[-1] == 0.0)
+					i = np.argmax(_exp.energy['inc'][-1] == 0.0)
 					# init stat counter
 					counter = i
 					# print status for START
@@ -234,7 +234,7 @@ class KernCls():
 						# receive result from slave
 						elif (tag == self.tags.done):
 							# write to e_inc
-							_exp.energy_inc[-1][data['index']] = data['e_inc']
+							_exp.energy['inc'][-1][data['index']] = data['e_inc']
 							# write to micro_conv
 							if (_mpi.global_master and (_exp.level == 'macro')):
 								self.summation(_calc, _exp, data['index'])
@@ -268,8 +268,8 @@ class KernCls():
 				else:
 					comm = _mpi.local_comm
 				# init e_inc list
-				if (len(_exp.energy_inc) < _exp.order):
-					_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
+				if (len(_exp.energy['inc']) < _exp.order):
+					_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# ref_calc
 				if (_exp.order == _exp.start_order):
 					# receive energy
@@ -301,19 +301,19 @@ class KernCls():
 								data['micro_order'] = exp_micro.order
 								# write info into data dict
 								data['index'] = job_info['index']
-								data['e_inc'] = exp_micro.energy_tot[-1]
+								data['e_inc'] = exp_micro.energy['tot'][-1]
 								# send data back to local master
 								comm.send(data, dest=0, tag=self.tags.done)
 							else:
 								# generate input
 								_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][job_info['index']])
 								# run correlated calc
-								_exp.energy_inc[-1][job_info['index']] = _pyscf.main_calc(_mol, _calc, _exp)
+								_exp.energy['inc'][-1][job_info['index']] = _pyscf.main_calc(_mol, _calc, _exp)
 								# sum up energy increment
 								self.summation(_calc, _exp, job_info['index'])
 								# write info into data dict
 								data['index'] = job_info['index']
-								data['e_inc'] = _exp.energy_inc[-1][job_info['index']]
+								data['e_inc'] = _exp.energy['inc'][-1][job_info['index']]
 								# send data back to local master
 								comm.send(data, dest=0, tag=self.tags.done)
 						# exit

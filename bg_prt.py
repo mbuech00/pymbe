@@ -125,25 +125,25 @@ class PrintCls():
 						if (_exp.conv_energy[-1]):
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),thres))
+									format(_exp.order,np.sum(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]),thres))
 							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
 							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),thres))
+									format(_exp.order,np.sum(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]),thres))
 							print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				if (_exp.conv_energy[-1]):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),thres))
+							format(_exp.order,np.sum(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]),thres))
 					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]),thres))
+							format(_exp.order,np.sum(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]),thres))
 					print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -184,11 +184,11 @@ class PrintCls():
 		def kernel_results(self, _mol, _calc, _exp, _pyscf):
 				""" print kernel result statistics """
 				# statistics
-				mean_val = np.mean(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1])
-				min_idx = np.argmin(np.abs(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]))
-				min_val = _exp.energy_inc[(_exp.order-(_exp.start_order-1))-1][min_idx]
-				max_idx = np.argmax(np.abs(_exp.energy_inc[(_exp.order-(_exp.start_order-1))-1]))
-				max_val = _exp.energy_inc[(_exp.order-(_exp.start_order-1))-1][max_idx]
+				mean_val = np.mean(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1])
+				min_idx = np.argmin(np.abs(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]))
+				min_val = _exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1][min_idx]
+				max_idx = np.argmax(np.abs(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]))
+				max_val = _exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1][max_idx]
 				# now print
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):

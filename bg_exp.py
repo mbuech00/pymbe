@@ -24,8 +24,12 @@ class ExpCls():
 				self.incl_idx, self.tuples = self.init_tuples(_mol, _calc, _type)
 				# set start order
 				self.start_order = self.tuples[0].shape[1]
-				# init energy_inc
-				self.energy_inc = []
+				# init energy dict
+				self.energy = {}
+				self.energy['model'] = []
+				self.energy['base'] = []
+				self.energy['inc'] = []
+				self.energy['tot'] = []
 				# set max_order (derived from calc class) and determine max theoretical work
 				self.theo_work = []
 				if (_type == 'occupied'):
@@ -43,14 +47,10 @@ class ExpCls():
 				# init convergence lists
 				self.conv_orb = [False]
 				self.conv_energy = [False]
-				# init total energy list
-				self.energy_tot = []
 				# init timings
 				if (_mpi.global_master):
 					self.time_kernel = []
 					self.time_screen = []
-				# init e_core
-				self.e_core = None
 				# init thres
 				self.thres = _calc.exp_thres
 				#

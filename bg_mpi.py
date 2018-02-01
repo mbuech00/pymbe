@@ -214,7 +214,7 @@ class MPICls():
 				if (self.global_master):
 					# collect exp_info
 					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))], \
-								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))], \
+								'len_e_inc': [len(_exp.energy['inc'][i]) for i in range(len(_exp.energy['inc']))], \
 								'start_order': _exp.start_order, 'min_order': _exp.min_order}
 					# bcast info
 					comm.bcast(exp_info, root=0)
@@ -222,8 +222,8 @@ class MPICls():
 					for i in range(1,len(_exp.tuples)):
 						comm.Bcast([_exp.tuples[i], MPI.INT], root=0)
 					# bcast energy increments
-					for i in range(len(_exp.energy_inc)):
-						comm.Bcast([_exp.energy_inc[i], MPI.DOUBLE], root=0)
+					for i in range(len(_exp.energy['inc'])):
+						comm.Bcast([_exp.energy['inc'][i], MPI.DOUBLE], root=0)
 				else:
 					# receive exp_info
 					exp_info = comm.bcast(None, root=0)
@@ -239,7 +239,7 @@ class MPICls():
 					for i in range(len(exp_info['len_e_inc'])):
 						buff = np.zeros(exp_info['len_e_inc'][i], dtype=np.float64)
 						comm.Bcast([buff,MPI.DOUBLE], root=0)
-						_exp.energy_inc.append(buff)
+						_exp.energy['inc'].append(buff)
 				#
 				return
 
@@ -247,7 +247,7 @@ class MPICls():
 		def bcast_e_inc(self, _mol, _calc, _exp, _comm):
 				""" bcast e_inc[-1] """
 				# now do Bcast
-				_comm.Bcast([_exp.energy_inc[-1], MPI.DOUBLE], root=0)
+				_comm.Bcast([_exp.energy['inc'][-1], MPI.DOUBLE], root=0)
 				#
 				return
 
