@@ -202,22 +202,22 @@ class PySCFCls():
 				return e_mf
 
 
-		def main_calc(self, _mol, _calc, _exp):
+		def main_calc(self, _mol, _calc, _exp, _method):
 				""" calculate correlation energy """
 				# fci calc
-				if (_calc.exp_model['METHOD'] == 'FCI'):
+				if (_method == 'FCI'):
 					e_corr, _ = self.fci(_mol, _calc, _exp, _calc.trans_mat, False)
 				# cisd calc
-				elif (_calc.exp_model['METHOD'] == 'CISD'):
+				elif (_method == 'CISD'):
 					e_corr, _ = self.ci(_mol, _calc, _exp, _calc.trans_mat, False)
 				# ccsd / ccsd(t) calc
-				elif (_calc.exp_model['METHOD'] in ['CCSD','CCSD(T)']):
-					e_corr, _ = self.cc(_mol, _calc, _exp, _calc.trans_mat, False, (_calc.exp_model['METHOD'] == 'CCSD(T)'))
+				elif (_method in ['CCSD','CCSD(T)']):
+					e_corr, _ = self.cc(_mol, _calc, _exp, _calc.trans_mat, False, (_method == 'CCSD(T)'))
 				#
 				return e_corr
 
 
-		def main_trans(self, _mol, _calc, _exp):
+		def main_trans(self, _mol, _calc, _exp, _method):
 				""" calculate base energy and transformation matrix """
 				# set core and cas spaces
 				if (_calc.exp_type == 'occupied'):
@@ -225,20 +225,20 @@ class PySCFCls():
 				if (_calc.exp_type == 'virtual'):
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
 				# zeroth-order energy
-				if (_calc.exp_base['METHOD'] is None):
+				if (_method is None):
 					e_zero = 0.0
 				# cisd base
-				elif (_calc.exp_base['METHOD'] == 'CISD'):
+				elif (_method == 'CISD'):
 					e_zero, dm = self.ci(_mol, _calc, _exp, _calc.ref_mo_coeff, True)
 					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# ccsd / ccsd(t) base
-				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
+				elif (_method in ['CCSD','CCSD(T)']):
 					e_zero, dm = self.cc(_mol, _calc, _exp, _calc.ref_mo_coeff, True, \
-												(_calc.exp_base['METHOD'] == 'CCSD(T)') and \
+												(_method == 'CCSD(T)') and \
 												((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')))
 					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# sci base
-				elif (_calc.exp_base['METHOD'] == 'SCI'):
+				elif (_method == 'SCI'):
 					e_zero, dm = self.sci(_mol, _calc, _exp, _calc.ref_mo_coeff, True)
 				# init transformation matrix
 				trans_mat = np.copy(_calc.ref_mo_coeff)
@@ -269,9 +269,9 @@ class PySCFCls():
 						trans_mat[:, _mol.virt] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.virt]).kernel()
 				# (t) correction for NOs
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
-					if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
+					if (_method == 'CCSD(T)'):
 						e_zero, dm = self.cc(_mol, _calc, _exp, trans_mat, False, True)
-					elif (_calc.exp_base['METHOD'] == 'SCI'):
+					elif (_method == 'SCI'):
 						e_zero, dm = self.sci(_mol, _calc, _exp, trans_mat)
 				#
 				return e_zero, trans_mat
