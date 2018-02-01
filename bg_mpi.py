@@ -244,9 +244,12 @@ class MPICls():
 				return
 
 
-		def bcast_e_inc(self, _mol, _calc, _exp, _comm):
-				""" bcast e_inc[-1] """
-				# now do Bcast
+		def bcast_energy(self, _mol, _calc, _exp, _comm):
+				""" bcast energies """
+				# Bcasts
+				_comm.Bcast([_exp.energy['model'][-1], MPI.DOUBLE], root=0)
+				if (_calc.exp_base['METHOD'] is not None):
+					_comm.Bcast([_exp.energy['base'][-1], MPI.DOUBLE], root=0)
 				_comm.Bcast([_exp.energy['inc'][-1], MPI.DOUBLE], root=0)
 				#
 				return

@@ -95,7 +95,6 @@ class KernCls():
 	
 		def serial(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
 				""" energy kernel phase """
-				# perform calculations
 				# print and time logical
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
 				# init time
@@ -123,13 +122,20 @@ class KernCls():
 						# store results
 						_exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
 						_exp.micro_conv[-1][i] = exp_micro.order
+						# sum up energy increment
+						self.summation(_calc, _exp, 'inc', i)
 					else:
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][i])
 						# perform calc
-						_exp.energy['inc'][-1][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
-					# sum up energy increment
-					self.summation(_calc, _exp, 'inc', i)
+						_exp.energy['model'][-1][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						self.summation(_calc, _exp, 'model', i)
+						if (_calc.exp_base['METHOD'] is None):
+							_exp.energy['inc'][-1][i] = _exp.energy['model'][-1][i]
+						else:
+							_exp.energy['base'][-1][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							self.summation(_calc, _exp, 'base', i)
+							_exp.energy['inc'][-1][i] = _exp.energy['model'][-1][i] - _exp.energy['base'][-1][i]
 					if (do_print):
 						# print status
 						_prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[-1])))
@@ -169,7 +175,12 @@ class KernCls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][i])
 						# perform calc
-						_exp.energy['inc'][0][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						_exp.energy['model'][0][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						if (_calc.exp_base['METHOD'] is None):
+							_exp.energy['inc'][0][i] = _exp.energy['model'][0][i]
+						else:
+							_exp.energy['base'][0][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							_exp.energy['inc'][0][i] = _exp.energy['model'][0][i] - _exp.energy['base'][0][i]
 						# print status
 						if (_mol.verbose_prt): _prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[0])))
 					# collect time
@@ -177,7 +188,7 @@ class KernCls():
 					# print status
 					if (not _mol.verbose_prt): _prt.kernel_status(_calc, _exp, 1.0)
 					# bcast energy
-					_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
+					_mpi.bcast_energy(_mol, _calc, _exp, comm)
 				else:
 					# init job_info dictionary
 					job_info = {}
@@ -219,7 +230,10 @@ class KernCls():
 								comm.send(None, dest=source, tag=self.tags.exit)
 						# receive result from slave
 						elif (tag == self.tags.done):
-							# write to e_inc
+							# collect energies
+							_exp.energy['model'][-1][data['index']] = data['e_model']
+							if (_calc.exp_base['METHOD'] is not None):
+								_exp.energy['base'][-1][data['index']] = data['e_base']
 							_exp.energy['inc'][-1][data['index']] = data['e_inc']
 							# write to micro_conv
 							if (_mpi.global_master and (_exp.level == 'macro')):
@@ -238,8 +252,8 @@ class KernCls():
 							slaves_avail -= 1
 					# print 100.0 %
 					if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
-					# bcast e_inc[-1]
-					_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
+					# bcast energies
+					_mpi.bcast_energy(_mol, _calc, _exp, comm)
 				#
 				return
 		
@@ -253,13 +267,16 @@ class KernCls():
 					drv_micro = bg_drv.DrvCls(_mol, 'virtual') 
 				else:
 					comm = _mpi.local_comm
-				# init e_inc list
+				# init energies
 				if (len(_exp.energy['inc']) < _exp.order):
+					_exp.energy['model'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
+					if (_calc.exp_base['METHOD'] is not None):
+						_exp.energy['base'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# ref_calc
 				if (_exp.order == _exp.start_order):
 					# receive energy
-					_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
+					_mpi.bcast_energy(_mol, _calc, _exp, comm)
 				else:
 					# init data dict
 					data = {}
@@ -293,12 +310,21 @@ class KernCls():
 							else:
 								# generate input
 								_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][job_info['index']])
-								# run correlated calc
-								_exp.energy['inc'][-1][job_info['index']] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
-								# sum up energy increment
-								self.summation(_calc, _exp, 'inc', job_info['index'])
+								# perform calc
+								_exp.energy['model'][-1][job_info['index']] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+								self.summation(_calc, _exp, 'model', job_info['index'])
+								if (_calc.exp_base['METHOD'] is None):
+									_exp.energy['inc'][-1][job_info['index']] = _exp.energy['model'][-1][job_info['index']]
+								else:
+									_exp.energy['base'][-1][job_info['index']] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+									self.summation(_calc, _exp, 'base', job_info['index'])
+									_exp.energy['inc'][-1][job_info['index']] = _exp.energy['model'][-1][job_info['index']] - \
+																				_exp.energy['base'][-1][job_info['index']]
 								# write info into data dict
 								data['index'] = job_info['index']
+								data['e_model'] = _exp.energy['model'][-1][job_info['index']]
+								if (_calc.exp_base['METHOD'] is not None):
+									data['e_base'] = _exp.energy['base'][-1][job_info['index']]
 								data['e_inc'] = _exp.energy['inc'][-1][job_info['index']]
 								# send data back to local master
 								comm.send(data, dest=0, tag=self.tags.done)
@@ -307,8 +333,8 @@ class KernCls():
 							break
 					# send exit signal to master
 					comm.send(None, dest=0, tag=self.tags.exit)
-					# bcast e_inc[-1]
-					_mpi.bcast_e_inc(_mol, _calc, _exp, comm)
+					# bcast energies
+					_mpi.bcast_energy(_mol, _calc, _exp, comm)
 				#
 				return
 

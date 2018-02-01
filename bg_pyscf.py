@@ -471,7 +471,7 @@ class PySCFCls():
 											mo_occ=np.array((_calc.hf_mo_occ[_exp.cas_idx]>0, _calc.hf_mo_occ[_exp.cas_idx]==2), dtype=np.double))
 				# settings
 				ccsd.conv_tol = 1.0e-10
-				ccsd.conv_tol_normt = 1.0e-10
+				if (_base): ccsd.conv_tol_normt = 1.0e-10
 				ccsd.max_cycle = 500
 				ccsd.diis_space = 10
 				eris = ccsd.ao2mo()
