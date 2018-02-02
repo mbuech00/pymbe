@@ -49,10 +49,10 @@ class KernCls():
 				return index.reshape(-1, _k)
 
 
-		def summation(self, _calc, _exp, _key, _idx):
+		def summation(self, _calc, _exp, _idx):
 				""" energy summation """
 				# init res
-				res = np.zeros(len(_exp.energy[_key])-1, dtype=np.float64)
+				res = np.zeros(len(_exp.energy['inc'])-1, dtype=np.float64)
 				# compute contributions from lower-order increments
 				for count, i in enumerate(range(_exp.order-1, _exp.start_order-1, -1)):
 					# test if tuple is a subset
@@ -62,9 +62,9 @@ class KernCls():
 					match = np.nonzero(np.in1d(_exp.tuples[i-_exp.start_order].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
 					# add up lower-order increments
-					for j in match: res[count] += _exp.energy[_key][i-_exp.start_order][j]
+					for j in match: res[count] += _exp.energy['inc'][i-_exp.start_order][j]
 				# now compute increment
-				_exp.energy[_key][-1][_idx] -= np.sum(res)
+				_exp.energy['inc'][-1][_idx] -= np.sum(res)
 				#
 				return
 
@@ -81,7 +81,8 @@ class KernCls():
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum of total energy
-				e_tmp = np.sum(_exp.energy['inc'][-1][np.where(np.abs(_exp.energy['inc'][-1]) >= _calc.tolerance)])
+#				e_tmp = np.sum(_exp.energy['inc'][-1][np.where(np.abs(_exp.energy['inc'][-1]) >= _calc.tolerance)])
+				e_tmp = np.sum(_exp.energy['inc'][-1])
 				if (_exp.order > _exp.start_order): e_tmp += _exp.energy['tot'][-1]
 				# add to total energy list
 				_exp.energy['tot'].append(e_tmp)
@@ -123,19 +124,19 @@ class KernCls():
 						_exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
 						_exp.micro_conv[-1][i] = exp_micro.order
 						# sum up energy increment
-						self.summation(_calc, _exp, 'inc', i)
+						self.summation(_calc, _exp, i)
 					else:
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][i])
 						# perform calc
-						_exp.energy['model'][-1][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
-						self.summation(_calc, _exp, 'model', i)
+						e_model = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 						if (_calc.exp_base['METHOD'] is None):
-							_exp.energy['inc'][-1][i] = _exp.energy['model'][-1][i]
+							_exp.energy['inc'][-1][i] = e_model
 						else:
-							_exp.energy['base'][-1][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
-							self.summation(_calc, _exp, 'base', i)
-							_exp.energy['inc'][-1][i] = _exp.energy['model'][-1][i] - _exp.energy['base'][-1][i]
+							e_base = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							_exp.energy['inc'][-1][i] = e_model - e_base
+						# calc increment
+						self.summation(_calc, _exp, i)
 					if (do_print):
 						# print status
 						_prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[-1])))
@@ -175,12 +176,14 @@ class KernCls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[0][i])
 						# perform calc
-						_exp.energy['model'][0][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						e_model = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 						if (_calc.exp_base['METHOD'] is None):
-							_exp.energy['inc'][0][i] = _exp.energy['model'][0][i]
+							_exp.energy['inc'][0][i] = e_model
 						else:
-							_exp.energy['base'][0][i] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
-							_exp.energy['inc'][0][i] = _exp.energy['model'][0][i] - _exp.energy['base'][0][i]
+							e_base = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							_exp.energy['inc'][0][i] = e_model - e_base
+						# calc increment
+						self.summation(_calc, _exp, i)
 						# print status
 						if (_mol.verbose_prt): _prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[0])))
 					# collect time
@@ -231,9 +234,6 @@ class KernCls():
 						# receive result from slave
 						elif (tag == self.tags.done):
 							# collect energies
-							_exp.energy['model'][-1][data['index']] = data['e_model']
-							if (_calc.exp_base['METHOD'] is not None):
-								_exp.energy['base'][-1][data['index']] = data['e_base']
 							_exp.energy['inc'][-1][data['index']] = data['e_inc']
 							# write to micro_conv
 							if (_mpi.global_master and (_exp.level == 'macro')):
@@ -269,9 +269,6 @@ class KernCls():
 					comm = _mpi.local_comm
 				# init energies
 				if (len(_exp.energy['inc']) < _exp.order):
-					_exp.energy['model'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
-					if (_calc.exp_base['METHOD'] is not None):
-						_exp.energy['base'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# ref_calc
 				if (_exp.order == _exp.start_order):
@@ -311,20 +308,16 @@ class KernCls():
 								# generate input
 								_exp.core_idx, _exp.cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[-1][job_info['index']])
 								# perform calc
-								_exp.energy['model'][-1][job_info['index']] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
-								self.summation(_calc, _exp, 'model', job_info['index'])
+								e_model = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 								if (_calc.exp_base['METHOD'] is None):
-									_exp.energy['inc'][-1][job_info['index']] = _exp.energy['model'][-1][job_info['index']]
+									_exp.energy['inc'][-1][job_info['index']] = e_model
 								else:
-									_exp.energy['base'][-1][job_info['index']] = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
-									self.summation(_calc, _exp, 'base', job_info['index'])
-									_exp.energy['inc'][-1][job_info['index']] = _exp.energy['model'][-1][job_info['index']] - \
-																				_exp.energy['base'][-1][job_info['index']]
+									e_base = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+									_exp.energy['inc'][-1][job_info['index']] = e_model - e_base
+								# calc increment
+								self.summation(_calc, _exp, job_info['index'])
 								# write info into data dict
 								data['index'] = job_info['index']
-								data['e_model'] = _exp.energy['model'][-1][job_info['index']]
-								if (_calc.exp_base['METHOD'] is not None):
-									data['e_base'] = _exp.energy['base'][-1][job_info['index']]
 								data['e_inc'] = _exp.energy['inc'][-1][job_info['index']]
 								# send data back to local master
 								comm.send(data, dest=0, tag=self.tags.done)

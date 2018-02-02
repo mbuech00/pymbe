@@ -86,9 +86,6 @@ class DrvCls():
 						_prt.kernel_header(_calc, _exp)
 					# init energies
 					if (len(_exp.energy['inc']) != _exp.order):
-						_exp.energy['model'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
-						if (_calc.exp_base['METHOD'] is not None):
-							_exp.energy['base'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 						_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 					# kernel calculations
 					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)

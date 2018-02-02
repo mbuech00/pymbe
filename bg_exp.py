@@ -26,8 +26,6 @@ class ExpCls():
 				self.start_order = self.tuples[0].shape[1]
 				# init energy dict
 				self.energy = {}
-				self.energy['model'] = []
-				self.energy['base'] = []
 				self.energy['inc'] = []
 				self.energy['tot'] = []
 				# set max_order (derived from calc class) and determine max theoretical work
