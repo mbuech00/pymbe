@@ -80,8 +80,7 @@ class KernCls():
 					self.master(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
-				# sum of total energy
-#				e_tmp = np.sum(_exp.energy['inc'][-1][np.where(np.abs(_exp.energy['inc'][-1]) >= _calc.tolerance)])
+				# sum up total energy
 				e_tmp = np.sum(_exp.energy['inc'][-1])
 				if (_exp.order > _exp.start_order): e_tmp += _exp.energy['tot'][-1]
 				# add to total energy list
@@ -144,6 +143,8 @@ class KernCls():
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						_rst.write_kernel(_calc, _exp, False)
+				# tolerance threshold
+				_exp.energy['inc'][-1][np.where(np.abs(_exp.energy['inc'][-1]) < _calc.tolerance)] = np.float64(0.0)
 				#
 				return
 
@@ -251,7 +252,9 @@ class KernCls():
 						elif (tag == self.tags.exit):
 							slaves_avail -= 1
 					# print 100.0 %
-					if (_mpi.global_master and (not (_exp.level == 'macro'))): _prt.kernel_status(_calc, _exp, 1.0)
+					if (_mpi.global_master and (not (_exp.level == 'macro'))):
+						if (not _mol.verbose_prt):
+							_prt.kernel_status(_calc, _exp, 1.0)
 					# bcast energies
 					_mpi.bcast_energy(_mol, _calc, _exp, comm)
 				#

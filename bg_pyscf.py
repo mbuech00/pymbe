@@ -39,6 +39,7 @@ class PySCFCls():
 				hf.conv_tol = 1.0e-10
 				hf.max_cycle = 500
 				hf.irrep_nelec = _mol.irrep_nelec
+#				hf = scf.addons.frac_occ(hf)
 				# perform hf calc
 				for i in list(range(0, 12, 2)):
 					hf.diis_start_cycle = i
@@ -188,8 +189,8 @@ class PySCFCls():
 
 		def e_mf(self, _mol, _calc, _mo):
 				""" calculate mean-field energy """
-				mo_a = _mo[:, _calc.hf.mo_occ > 0]
-				mo_b = _mo[:, _calc.hf.mo_occ == 2]
+				mo_a = _mo[:, np.where(_calc.hf.mo_occ > 0.)[0]]
+				mo_b = _mo[:, np.where(_calc.hf.mo_occ == 2.)[0]]
 				dm_a = np.dot(mo_a, np.transpose(mo_a))
 				dm_b = np.dot(mo_b, np.transpose(mo_b))
 				dm = np.array((dm_a, dm_b))
@@ -207,6 +208,9 @@ class PySCFCls():
 				# fci calc
 				if (_method == 'FCI'):
 					e_corr, _ = self.fci(_mol, _calc, _exp, _calc.trans_mat, False)
+				# sci base
+				elif (_method == 'SCI'):
+					e_corr, _ = self.sci(_mol, _calc, _exp, _calc.trans_mat, False)
 				# cisd calc
 				elif (_method == 'CISD'):
 					e_corr, _ = self.ci(_mol, _calc, _exp, _calc.trans_mat, False)
@@ -226,7 +230,7 @@ class PySCFCls():
 					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
 				# zeroth-order energy
 				if (_method is None):
-					e_zero = 0.0
+					e_zero = np.float64(0.0)
 				# cisd base
 				elif (_method == 'CISD'):
 					e_zero, dm = self.ci(_mol, _calc, _exp, _calc.ref_mo_coeff, True)
@@ -330,7 +334,7 @@ class PySCFCls():
 						raise
 				# e_corr
 				e_corr = e - _calc.ref_e_tot
-#				if (_exp.order < _exp.max_order): e_corr += 0.001 * np.random.random_sample()
+#				if (_exp.order < _exp.max_order): e_corr += np.float64(0.001) * np.random.random_sample()
 				# dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
 					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
@@ -360,7 +364,7 @@ class PySCFCls():
 				# initial guess
 				ci_strs = (np.asarray([int('1'*nelec[0], 2)]), np.asarray([int('1'*nelec[1], 2)]))
 				hf_as_scivec = fci.select_ci._as_SCIvector(np.ones((1,1)), ci_strs)
-				hf_as_scivec = sci_solver.enlarge_space(hf_as_scivec, h2e, len(_exp.cas_idx), nelec)
+				hf_as_scivec = solver.enlarge_space(hf_as_scivec, h2e, len(_exp.cas_idx), nelec)
 				# orbital symmetry
 				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
 				# fix spin if non-singlet
@@ -493,6 +497,7 @@ class PySCFCls():
 				# dm
 				if (_base and (not _pt_corr) and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
 					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
+					ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
 					dm += ccsd.make_rdm1()
 				else:
 					dm = None

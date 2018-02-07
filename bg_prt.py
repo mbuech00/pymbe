@@ -197,6 +197,13 @@ class PrintCls():
 						print(' --------------------------------------------------------------------------------------------')
 						print(' RESULT-'+_exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
 								format(mean_val, min_val, max_val))
+						# debug print
+						if (_mol.verbose_prt):
+							print(' --------------------------------------------------------------------------------------------')
+							print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
+							core_idx, cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[(_exp.order-(_exp.start_order-1))-1][max_idx])
+							print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core_idx))
+							print(' RESULT-'+_exp.level.upper()+':  cas  = {0:}'.format(cas_idx))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
