@@ -276,7 +276,7 @@ class PySCFCls():
 					if (_method == 'CCSD(T)'):
 						e_zero, dm = self.cc(_mol, _calc, _exp, trans_mat, False, True)
 					elif (_method == 'SCI'):
-						e_zero, dm = self.sci(_mol, _calc, _exp, trans_mat)
+						e_zero, dm = self.sci(_mol, _calc, _exp, trans_mat, False)
 				#
 				return e_zero, trans_mat
 
@@ -398,7 +398,7 @@ class PySCFCls():
 				# sci dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
 					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
-					dm += solver.make_rdm1(c_sci, len(_exp.cas_idx), nelec)
+					dm += solver.make_rdm1(c, len(_exp.cas_idx), nelec)
 				else:
 					dm = None
 				#
