@@ -102,9 +102,9 @@ class PySCFCls():
 					num_occ = np.count_nonzero(cas_space < _mol.nocc)
 					num_virt = np.count_nonzero(cas_space >= _mol.nocc)
 					if (_calc.exp_type == 'occupied'):
-						act_orbs = _mol.occ[:num_occ]
+						act_orbs = _mol.occ[np.array([item in cas_space for item in _mol.occ])]
 					elif (_calc.exp_type == 'virtual'):
-						act_orbs = _mol.virt[:num_virt]
+						act_orbs = _mol.virt[np.array([item in cas_space for item in _mol.virt])]
 					# number of electrons
 					ne_act = _calc.exp_ref['NELEC']
 					assert((ne_act[0]+ne_act[1]) <= num_occ * 2)
