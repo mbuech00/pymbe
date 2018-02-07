@@ -117,8 +117,8 @@ class CalcCls():
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
 					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not ('ACTIVE' in self.exp_ref))):
 						raise ValueError('wrong input -- an active space (active) is required for CASCI/CASSCF references')
-					if ((self.exp_ref['METHOD'] == 'CASSCF') and (self.exp_model['METHOD'] != 'FCI')):
-						raise ValueError('wrong input -- a CASSCF reference is only meaningful for an FCI expansion model')
+					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (self.exp_model['METHOD'] != 'FCI')):
+						raise ValueError('wrong input -- a CASCI/CASSCF reference is only meaningful for an FCI expansion model')
 					if ('ACTIVE' in self.exp_ref):
 						if (self.exp_ref['METHOD'] == 'HF'):
 							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
