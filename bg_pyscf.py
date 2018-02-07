@@ -119,8 +119,9 @@ class PySCFCls():
 		def ref(self, _mol, _calc):
 				""" reference calc """
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# hf MOs
+					# save MOs and energy
 					ref_mo_coeff = np.asarray(_calc.hf.mo_coeff, order='C')
+					ref_e_tot = _calc.hf.e_tot
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# casci (no) or casscf results
 					if (_calc.exp_ref['METHOD'] == 'CASCI'):
@@ -179,10 +180,10 @@ class PySCFCls():
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-					# save MOs
+					# save MOs and energy
 					ref_mo_coeff = np.asarray(cas.mo_coeff, order='C')
-				# calculate ref_e_tot
-				ref_e_tot = self.e_mf(_mol, _calc, ref_mo_coeff)
+					ref_e_tot = self.e_mf(_mol, _calc, ref_mo_coeff)
+#					ref_e_tot = cas.e_tot
 				#
 				return ref_e_tot, ref_mo_coeff
 
