@@ -62,16 +62,16 @@ class ExpCls():
 					incl_idx = _mol.virt.tolist()
 				elif (_type == 'virtual'):
 					incl_idx = _mol.occ.tolist()
-				# tuples
+				# set params and lists for expansion
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# set params and lists for occ expansion
 					if (_type == 'occupied'):
 						init = _mol.occ
-					# set params and lists for virt expansion
 					elif (_type == 'virtual'):
 						init = _mol.virt
+					# tuples
 					tuples = [np.array(list([i] for i in init), dtype=np.int32)]
 				else:
+					# tuples
 					tuples = [np.array([_calc.act_orbs.tolist()], dtype=np.int32)]
 				#
 				return incl_idx, tuples
