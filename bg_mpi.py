@@ -167,7 +167,7 @@ class MPICls():
 		def bcast_hf_ref_info(self, _mol, _calc):
 				""" bcast hf and ref info """
 				if (self.global_master):
-					# collect dimensions, and  mo_occ
+					# collect dimensions, reference energies, and mo_occ
 					info = {'hf_e_tot': _calc.hf_e_tot, 'ref_e_tot': _calc.ref_e_tot, \
 								'occ': _mol.occ, 'virt': _mol.virt, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
@@ -178,7 +178,7 @@ class MPICls():
 					if (self.num_local_masters >= 1):
 						self.master_comm.Bcast([_calc.ref_mo_coeff, MPI.DOUBLE], root=0)
 				else:
-					# receive dimensions and mo_occ
+					# receive info
 					info = self.global_comm.bcast(None, root=0)
 					_calc.hf_e_tot = info['hf_e_tot']; _calc.ref_e_tot = info['ref_e_tot']
 					_mol.occ = info['occ']; _mol.virt = info['virt']
