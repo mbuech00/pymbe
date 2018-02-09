@@ -182,8 +182,8 @@ class PySCFCls():
 							raise
 					# save MOs and energy
 					ref_mo_coeff = np.asarray(cas.mo_coeff, order='C')
-					ref_e_tot = self.e_mf(_mol, _calc, ref_mo_coeff)
-#					ref_e_tot = cas.e_tot
+#					ref_e_tot = self.e_mf(_mol, _calc, ref_mo_coeff)
+					ref_e_tot = cas.e_tot
 				#
 				return ref_e_tot, ref_mo_coeff
 
@@ -335,6 +335,7 @@ class PySCFCls():
 						raise
 				# e_corr
 				e_corr = e - _calc.ref_e_tot
+#				print(' cas = {0:} , e = {1:.8f} , ref_e_tot = {2:.8f} , e_corr = {3:.8f}'.format(_exp.cas_idx,e,_calc.ref_e_tot,e_corr))
 #				if (_exp.order < _exp.max_order): e_corr += np.float64(0.001) * np.random.random_sample()
 				# dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):

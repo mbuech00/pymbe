@@ -62,7 +62,7 @@ class KernCls():
 					match = np.nonzero(np.in1d(_exp.tuples[i-_exp.start_order].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
 					# add up lower-order increments
-					for j in match: res[count] += _exp.energy['inc'][i-_exp.start_order][j]
+					res[count] = np.sum(_exp.energy['inc'][i-_exp.start_order][match])
 				# now compute increment
 				_exp.energy['inc'][-1][_idx] -= np.sum(res)
 				#
