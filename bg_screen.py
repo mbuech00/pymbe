@@ -63,9 +63,9 @@ class ScrCls():
 					for i in range(len(_exp.tuples[-1])):
 						if (_exp.order == _exp.start_order):
 							# loop through possible orbitals to augment the combinations with
-							for m in range(self.l_limit, self.l_limit+self.u_limit):
-								if (not (m in _exp.tuples[-1][i])):
-									tmp.append(_exp.tuples[-1][i].tolist()+[m])
+							for m in range(_exp.tuples[0][i][-1]+1, self.l_limit+self.u_limit):
+								if (not (m in _exp.tuples[0][i])):
+									tmp.append(_exp.tuples[0][i].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
 							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1)))
@@ -190,9 +190,9 @@ class ScrCls():
 						data['child_tuple'][:] = []
 						if (_exp.order == _exp.start_order):
 							# loop through possible orbitals to augment the combinations with
-							for m in range(self.l_limit, self.l_limit+self.u_limit):
-								if (not (m in _exp.tuples[-1][job_info['index']])):
-									data['child_tuple'].append(_exp.tuples[-1][job_info['index']].tolist()+[m])
+							for m in range(_exp.tuples[0][job_info['index']][-1]+1, self.l_limit+self.u_limit):
+								if (not (m in _exp.tuples[0][job_info['index']])):
+									data['child_tuple'].append(_exp.tuples[0][job_info['index']].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
 							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1)))
