@@ -189,6 +189,10 @@ class PrintCls():
 				min_val = _exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1][min_idx]
 				max_idx = np.argmax(np.abs(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]))
 				max_val = _exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1][max_idx]
+				# core and cas regions
+				core, cas = _pyscf.core_cas(_mol, _exp, _exp.tuples[(_exp.order-(_exp.start_order-1))-1][max_idx])
+				cas_occ = sorted(list(set(_mol.occ.tolist()) - set(core)))
+				cas_virt = sorted(list(set(cas) - set(_mol.occ.tolist())))
 				# now print
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
@@ -201,9 +205,8 @@ class PrintCls():
 						if (_mol.verbose_prt):
 							print(' --------------------------------------------------------------------------------------------')
 							print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
-							core_idx, cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[(_exp.order-(_exp.start_order-1))-1][max_idx])
-							print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core_idx))
-							print(' RESULT-'+_exp.level.upper()+':  cas  = {0:}'.format(cas_idx))
+							print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core))
+							print(' RESULT-'+_exp.level.upper()+':  cas  = {0:} + {1:}'.format(cas_occ, cas_virt))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
@@ -215,9 +218,8 @@ class PrintCls():
 				if (_mol.verbose_prt):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
-					core_idx, cas_idx = _pyscf.core_cas(_mol, _exp, _exp.tuples[(_exp.order-(_exp.start_order-1))-1][max_idx])
-					print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core_idx))
-					print(' RESULT-'+_exp.level.upper()+':  cas  = {0:}'.format(cas_idx))
+					print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core))
+					print(' RESULT-'+_exp.level.upper()+':  cas  = {0:} + {1:}'.format(cas_occ, cas_virt))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
