@@ -247,8 +247,6 @@ class MPICls():
 
 		def bcast_energy(self, _mol, _calc, _exp, _comm):
 				""" bcast energies """
-				# tolerance threshold
-				_exp.energy['inc'][-1][np.where(np.abs(_exp.energy['inc'][-1]) < _calc.tolerance)] = np.float64(0.0)
 				# Bcast
 				_comm.Bcast([_exp.energy['inc'][-1], MPI.DOUBLE], root=0)
 				#

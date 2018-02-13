@@ -17,6 +17,7 @@ from mpi4py import MPI
 import sys
 from itertools import combinations, chain
 from scipy.misc import comb
+from math import fsum
 
 from bg_exp import ExpCls
 import bg_drv
@@ -62,9 +63,9 @@ class KernCls():
 					match = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
 					# add up lower-order increments
-					res[count] = np.sum(_exp.energy['inc'][i-1][match])
+					res[count] = fsum(_exp.energy['inc'][i-1][match])
 				# now compute increment
-				_exp.energy['inc'][-1][_idx] -= np.sum(res)
+				_exp.energy['inc'][-1][_idx] -= fsum(res)
 				#
 				return
 
@@ -81,7 +82,7 @@ class KernCls():
 				else:
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum up total energy
-				e_tmp = np.sum(_exp.energy['inc'][-1])
+				e_tmp = fsum(_exp.energy['inc'][-1])
 				if (_exp.order > 1): e_tmp += _exp.energy['tot'][-1]
 				# add to total energy list
 				_exp.energy['tot'].append(e_tmp)
@@ -139,8 +140,6 @@ class KernCls():
 						_exp.time_kernel[-1] += MPI.Wtime() - time
 						# write restart files
 						_rst.write_kernel(_calc, _exp, False)
-				# tolerance threshold
-				_exp.energy['inc'][-1][np.where(np.abs(_exp.energy['inc'][-1]) < _calc.tolerance)] = np.float64(0.0)
 				#
 				return
 
