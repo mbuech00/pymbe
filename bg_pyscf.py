@@ -39,7 +39,6 @@ class PySCFCls():
 				hf.conv_tol = 1.0e-10
 				hf.max_cycle = 500
 				hf.irrep_nelec = _mol.irrep_nelec
-#				hf = scf.addons.frac_occ(hf)
 				# perform hf calc
 				for i in list(range(0, 12, 2)):
 					hf.diis_start_cycle = i
@@ -54,7 +53,7 @@ class PySCFCls():
 						sys.stderr.write(str(err))
 						raise
 				# determine dimensions
-				_mol.norb, _mol.occ, _mol.nocc, _mol.virt, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
+				_mol.norb, _mol.nocc, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
 				# store energy, mo_occ, and orbsym
 				_calc.hf_e_tot = hf.e_tot
 				_calc.hf_mo_occ = hf.mo_occ
@@ -76,44 +75,55 @@ class PySCFCls():
 				nocc = len(occ)
 				nvirt = len(virt)
 				norb = nocc + nvirt
-				# update occ orbitals according to _ncore
-				occ = occ[_ncore:]
 				#
-				return norb, occ, nocc, virt, nvirt
+				return norb, nocc, nvirt
 
 
 		def active(self, _mol, _calc):
 				""" set active space """
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# no cas space and set of active orbitals
+					# no cas space
+					cas_space = np.array([])
 					no_act = _mol.nocc
 					ne_act = (len(np.where(_calc.hf_mo_occ > 0.)[0]), len(np.where(_calc.hf_mo_occ == 2.)[0]))
-					cas_space = np.array([])
-					act_orbs = np.array([])
+					# set reference and expansion spaces
+					if (_calc.exp_type == 'occupied'):
+						ref_space = np.array(range(_mol.nocc, _mol.norb))
+						exp_space = np.array(range(_mol.ncore, _mol.nocc))
+					elif (_calc.exp_type == 'virtual'):
+						ref_space = np.array(range(_mol.ncore, _mol.nocc))
+						exp_space = np.array(range(_mol.nocc, _mol.norb))
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
-					# number of orbitals
-					no_act = len(_calc.exp_ref['ACTIVE'])
 					# set cas space
 					cas_space = np.array(_calc.exp_ref['ACTIVE'])
 					assert(np.count_nonzero(cas_space < _mol.ncore) == 0)
+					# number of orbitals
+					no_act = len(cas_space)
 					# set of active orbitals
 					num_occ = np.count_nonzero(cas_space < _mol.nocc)
 					num_virt = np.count_nonzero(cas_space >= _mol.nocc)
 					if (_calc.exp_type == 'occupied'):
-						act_orbs = _mol.occ[np.array([item in cas_space for item in _mol.occ])]
+						assert(num_virt == _mol.nvirt)
 					elif (_calc.exp_type == 'virtual'):
-						act_orbs = _mol.virt[np.array([item in cas_space for item in _mol.virt])]
+						assert(num_occ == (_mol.nocc-_mol.ncore))
 					# number of electrons
 					ne_act = _calc.exp_ref['NELEC']
 					assert((ne_act[0]+ne_act[1]) <= num_occ * 2)
+					# set reference and expansion spaces
+					if (_calc.exp_type == 'occupied'):
+						ref_space = cas_space
+						exp_space = np.array(range(_mol.ncore, _mol.norb-len(cas_space)))
+					elif (_calc.exp_type == 'virtual'):
+						ref_space = cas_space
+						exp_space = np.array(range(_mol.ncore+len(cas_space), _mol.norb))
 				# debug print
 				if (_mol.verbose_prt):
-					print('\n cas = {0:} , act_orbs = {1:} , no_act = {2:} , ne_act = {3:}'.\
-							format(cas_space, act_orbs, no_act, ne_act))
+					print('\n cas = {0:} , ref_space = {1:} , exp_space = {2:}'.\
+							format(cas_space, ref_space, exp_space))
 				#
-				return no_act, ne_act, cas_space, act_orbs
+				return no_act, ne_act, cas_space, ref_space, exp_space
 
 
 		def ref(self, _mol, _calc):
@@ -139,20 +149,20 @@ class PySCFCls():
 						cas.max_stepsize = .01
 						cas.max_cycle_micro = 1
 						cas.frozen = _mol.ncore
-					cas.natorb = True
-					# initial guess
-					na = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[0])
-					nb = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[1])
-					hf_as_civec = np.zeros((na, nb))
-					hf_as_civec[0, 0] = 1
-					# fix spin if non-singlet
-					if (_mol.spin > 0):
-						sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
-						cas.fix_spin_(ss=sz * (sz + 1.))
+#					cas.natorb = True
+#					# initial guess
+#					na = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[0])
+#					nb = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[1])
+#					hf_as_civec = np.zeros((na, nb))
+#					hf_as_civec[0, 0] = 1
+#					# fix spin if non-singlet
+#					if (_mol.spin > 0):
+#						sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
+#						cas.fix_spin_(ss=sz * (sz + 1.))
 					# sort mo
 					mo = cas.sort_mo(_calc.cas_space, base=0)
 					try:
-						cas.kernel(mo, ci0=hf_as_civec)
+						cas.kernel(mo)#, ci0=hf_as_civec)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\n{0:} Error :\n'
@@ -182,8 +192,7 @@ class PySCFCls():
 							raise
 					# save MOs and energy
 					ref_mo_coeff = np.asarray(cas.mo_coeff, order='C')
-					ref_e_tot = self.e_mf(_mol, _calc, ref_mo_coeff)
-#					ref_e_tot = cas.e_tot
+					ref_e_tot = cas.e_tot
 				#
 				return ref_e_tot, ref_mo_coeff
 
@@ -250,28 +259,28 @@ class PySCFCls():
 				# occ-occ block (local or NOs)
 				if (_calc.exp_occ != 'REF'):
 					if (_calc.exp_occ == 'NO'):
-						occup, no = symm.eigh(dm[:len(_mol.occ), :len(_mol.occ)], _calc.hf_orbsym[_mol.occ])
-						trans_mat[:, _mol.occ] = np.dot(_calc.ref_mo_coeff[:, _mol.occ], no[:, ::-1])
+						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], _calc.hf_orbsym[_mol.ncore:_mol.nocc])
+						trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
-						trans_mat[:, _mol.occ] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.occ]).kernel()
+						trans_mat[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
 					elif (_calc.exp_occ == 'FB'):
-						trans_mat[:, _mol.occ] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.occ]).kernel()
+						trans_mat[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
 					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
-						iao = lo.iao.iao(_mol, _calc.ref_mo_coeff[:, _mol.occ])
+						iao = lo.iao.iao(_mol, _calc.ref_mo_coeff[:, _mol.core:_mol.nocc])
 						if (_calc.exp_occ == 'IBO-1'):
 							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
-							trans_mat[:, _mol.occ] = lo.ibo.ibo(_mol, _calc.ref_mo_coeff[:, _mol.occ], iao)
+							trans_mat[:, _mol.core:_mol.nocc] = lo.ibo.ibo(_mol, _calc.ref_mo_coeff[:, _mol.core:_mol.nocc], iao)
 						elif (_calc.exp_occ == 'IBO-2'):
-							trans_mat[:, _mol.occ] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.occ], iao).kernel()
+							trans_mat[:, _mol.core:_mol.nocc] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.core:_mol.nocc], iao).kernel()
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'REF'):
 					if (_calc.exp_virt == 'NO'):
-						occup, no = symm.eigh(dm[-len(_mol.virt):, -len(_mol.virt):], _calc.hf_orbsym[_mol.virt])
-						trans_mat[:, _mol.virt] = np.dot(_calc.ref_mo_coeff[:, _mol.virt], no[:, ::-1])
+						occup, no = symm.eigh(dm[-nvirt:, -nvirt:], _calc.hf_orbsym[_mol.nocc:])
+						trans_mat[:, _mol.nocc:] = np.dot(_calc.ref_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
-						trans_mat[:, _mol.virt] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.virt]).kernel()
+						trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
 					elif (_calc.exp_virt == 'FB'):
-						trans_mat[:, _mol.virt] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.virt]).kernel()
+						trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
 				# (t) correction for NOs
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
 					if (_method == 'CCSD(T)'):
@@ -311,7 +320,7 @@ class PySCFCls():
 					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 				# perform calc
 				try:
-					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, ci0=hf_as_civec)
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym)#, ci0=hf_as_civec)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nFCI Error :\n'
@@ -374,7 +383,7 @@ class PySCFCls():
 					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 				# calculate sci energy
 				try:
-					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, ci0=hf_as_scivec)
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym)#, ci0=hf_as_scivec)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nSCI Error :\n'

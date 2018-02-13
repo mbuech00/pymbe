@@ -67,7 +67,7 @@ class InitCls():
 					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 					# set active space
 					self.calc.no_act, self.calc.ne_act, \
-						self.calc.cas_space, self.calc.act_orbs = self.pyscf.active(self.mol, self.calc)
+						self.calc.cas_space, self.calc.ref_space, self.calc.exp_space = self.pyscf.active(self.mol, self.calc)
 					# ref calculation
 					self.calc.ref_e_tot, self.calc.ref_mo_coeff = self.pyscf.ref(self.mol, self.calc)
 					# expansion instantiation

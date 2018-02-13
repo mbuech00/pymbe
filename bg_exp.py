@@ -22,29 +22,20 @@ class ExpCls():
 				""" init parameters """
 				# init tuples and incl_idx
 				self.incl_idx, self.tuples = self.init_tuples(_mol, _calc, _type)
-				# set start order
-				self.start_order = self.tuples[0].shape[1]
 				# init energy dict
 				self.energy = {}
 				self.energy['inc'] = []
 				self.energy['tot'] = []
 				# set max_order (derived from calc class) and determine max theoretical work
 				self.theo_work = []
-				if (_type == 'occupied'):
-					self.max_order = min(_mol.nocc - _mol.ncore, _calc.exp_max_order)
-					for k in range(self.start_order, (_mol.nocc - _mol.ncore)+1):
-						self.theo_work.append(int(factorial(_mol.nocc - _mol.ncore) / \
-												(factorial(k) * factorial((_mol.nocc - _mol.ncore) - k))))
-				else:
-					self.max_order = min(_mol.nvirt, _calc.exp_max_order)
-					for k in range(self.start_order, _mol.nvirt+1):
-						self.theo_work.append(int(factorial(_mol.nvirt) / \
-												(factorial(k) * factorial(_mol.nvirt - k))))
+				self.max_order = min(len(_calc.exp_space), _calc.exp_max_order)
+				for k in range(1, len(_calc.exp_space)+1):
+					self.theo_work.append(int(factorial(len(_calc.exp_space)) / \
+											(factorial(k) * factorial(len(_calc.exp_space) - k))))
 				# init micro_conv list
 				if (_mpi.global_master): self.micro_conv = []
-				# init convergence lists
+				# init convergence list
 				self.conv_orb = [False]
-				self.conv_energy = [False]
 				# init timings
 				if (_mpi.global_master):
 					self.time_kernel = []
@@ -58,21 +49,9 @@ class ExpCls():
 		def init_tuples(self, _mol, _calc, _type):
 				""" init tuples and incl_idx """
 				# incl_idx
-				if (_type == 'occupied'):
-					incl_idx = _mol.virt.tolist()
-				elif (_type == 'virtual'):
-					incl_idx = _mol.occ.tolist()
-				# set params and lists for expansion
-				if (_calc.exp_ref['METHOD'] == 'HF'):
-					if (_type == 'occupied'):
-						init = _mol.occ
-					elif (_type == 'virtual'):
-						init = _mol.virt
-					# tuples
-					tuples = [np.array(list([i] for i in init), dtype=np.int32)]
-				else:
-					# tuples
-					tuples = [np.array([_calc.act_orbs.tolist()], dtype=np.int32)]
+				incl_idx = _calc.ref_space.tolist()
+				# tuples
+				tuples = [np.array(list([i] for i in _calc.exp_space), dtype=np.int32)]
 				#
 				return incl_idx, tuples
 

@@ -65,7 +65,7 @@ class DrvCls():
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
 					# if rst, print previous results
 					if (do_print):
-						for _exp.order in range(_exp.start_order, _exp.min_order):
+						for _exp.order in range(1, _exp.min_order):
 							_prt.kernel_header(_calc, _exp)
 							_prt.kernel_micro_results(_calc, _exp)
 							_prt.kernel_end(_calc, _exp)
@@ -105,7 +105,7 @@ class DrvCls():
 						# print screen header
 						_prt.screen_header(_calc, _exp)
 					# orbital screening
-					if ((not _exp.conv_energy[-1]) and (_exp.order < _exp.max_order)):
+					if (_exp.order < _exp.max_order):
 						# start time
 						if (do_print): _exp.time_screen.append(MPI.Wtime())
 						# perform screening
@@ -130,7 +130,7 @@ class DrvCls():
 					#
 					#** convergence check **#
 					#
-					if (_exp.conv_energy[-1] or _exp.conv_orb[-1] or (_exp.order == _exp.max_order)):
+					if (_exp.conv_orb[-1] or (_exp.order == _exp.max_order)):
 						# recast as numpy array
 						_exp.energy['tot'] = np.array(_exp.energy['tot'])
 						# now break

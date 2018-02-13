@@ -54,15 +54,15 @@ class KernCls():
 				# init res
 				res = np.zeros(len(_exp.energy['inc'])-1, dtype=np.float64)
 				# compute contributions from lower-order increments
-				for count, i in enumerate(range(_exp.order-1, _exp.start_order-1, -1)):
+				for count, i in enumerate(range(_exp.order-1, 0, -1)):
 					# test if tuple is a subset
 					combs = _exp.tuples[-1][_idx, self.comb_index(_exp.order, i)]
-					dt = np.dtype((np.void, _exp.tuples[i-_exp.start_order].dtype.itemsize * \
-									_exp.tuples[i-_exp.start_order].shape[1]))
-					match = np.nonzero(np.in1d(_exp.tuples[i-_exp.start_order].view(dt).reshape(-1),
+					dt = np.dtype((np.void, _exp.tuples[i-1].dtype.itemsize * \
+									_exp.tuples[i-1].shape[1]))
+					match = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
 					# add up lower-order increments
-					res[count] = np.sum(_exp.energy['inc'][i-_exp.start_order][match])
+					res[count] = np.sum(_exp.energy['inc'][i-1][match])
 				# now compute increment
 				_exp.energy['inc'][-1][_idx] -= np.sum(res)
 				#
@@ -82,13 +82,9 @@ class KernCls():
 					self.serial(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
 				# sum up total energy
 				e_tmp = np.sum(_exp.energy['inc'][-1])
-				if (_exp.order > _exp.start_order): e_tmp += _exp.energy['tot'][-1]
+				if (_exp.order > 1): e_tmp += _exp.energy['tot'][-1]
 				# add to total energy list
 				_exp.energy['tot'].append(e_tmp)
-				# check for convergence wrt total energy
-#				if ((_exp.order > _exp.start_order+1) and \
-#					(abs(_exp.energy['tot'][-1] - _exp.energy['tot'][-2]) < 1.0e-06)):
-#						_exp.conv_energy.append(True)
 				#
 				return
 		
@@ -167,7 +163,7 @@ class KernCls():
 				# bcast msg
 				comm.bcast(msg, root=0)
 				# perform calculations
-				if (_exp.order == _exp.start_order):
+				if (_exp.order == 1):
 					# start time
 					time = MPI.Wtime()
 					# print status
@@ -179,12 +175,16 @@ class KernCls():
 						# perform calc
 						e_model = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 						if (_calc.exp_base['METHOD'] is None):
-							_exp.energy['inc'][0][i] = e_model
+							e_base = 0.0
 						else:
 							e_base = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
-							_exp.energy['inc'][0][i] = e_model - e_base
+						_exp.energy['inc'][0][i] = e_model - e_base
 						# calc increment
 						self.summation(_calc, _exp, i)
+						# verbose print
+						if (_mol.verbose_prt):
+							print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
+									format(_exp.cas_idx, e_model, e_base, _exp.energy['inc'][0][i]))
 						# print status
 						if (_mol.verbose_prt): _prt.kernel_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[0])))
 					# collect time
@@ -274,7 +274,7 @@ class KernCls():
 				if (len(_exp.energy['inc']) < _exp.order):
 					_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# ref_calc
-				if (_exp.order == _exp.start_order):
+				if (_exp.order == 1):
 					# receive energy
 					_mpi.bcast_energy(_mol, _calc, _exp, comm)
 				else:
@@ -313,12 +313,16 @@ class KernCls():
 								# perform calc
 								e_model = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 								if (_calc.exp_base['METHOD'] is None):
-									_exp.energy['inc'][-1][job_info['index']] = e_model
+									e_base = 0.0
 								else:
 									e_base = _pyscf.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
-									_exp.energy['inc'][-1][job_info['index']] = e_model - e_base
+								_exp.energy['inc'][-1][job_info['index']] = e_model - e_base
 								# calc increment
 								self.summation(_calc, _exp, job_info['index'])
+								# verbose print
+								if (_mol.verbose_prt):
+									print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
+											format(_exp.cas_idx, e_model, e_base, _exp.energy['inc'][-1][job_info['index']]))
 								# write info into data dict
 								data['index'] = job_info['index']
 								data['e_inc'] = _exp.energy['inc'][-1][job_info['index']]

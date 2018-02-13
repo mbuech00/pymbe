@@ -169,9 +169,9 @@ class MPICls():
 				if (self.global_master):
 					# collect dimensions, reference energies, and mo_occ
 					info = {'hf_e_tot': _calc.hf_e_tot, 'ref_e_tot': _calc.ref_e_tot, \
-								'occ': _mol.occ, 'virt': _mol.virt, \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
-								'act_orbs': _calc.act_orbs, 'mo_occ': _calc.hf_mo_occ}
+								'ref_space': _calc.ref_space, 'exp_space': _calc.exp_space, \
+								'mo_occ': _calc.hf_mo_occ}
 					# bcast info
 					self.global_comm.bcast(info, root=0)
 					# bcast mo_coeff
@@ -181,9 +181,9 @@ class MPICls():
 					# receive info
 					info = self.global_comm.bcast(None, root=0)
 					_calc.hf_e_tot = info['hf_e_tot']; _calc.ref_e_tot = info['ref_e_tot']
-					_mol.occ = info['occ']; _mol.virt = info['virt']
 					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
-					_calc.act_orbs = info['act_orbs']; _calc.hf_mo_occ = info['mo_occ']
+					_calc.ref_space = info['ref_space']; _calc.exp_space = info['exp_space']
+					_calc.hf_mo_occ = info['mo_occ']
 					# receive mo_coeff
 					if (self.local_master):
 						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
@@ -217,7 +217,7 @@ class MPICls():
 					# collect exp_info
 					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))], \
 								'len_e_inc': [len(_exp.energy['inc'][i]) for i in range(len(_exp.energy['inc']))], \
-								'start_order': _exp.start_order, 'min_order': _exp.min_order}
+								'min_order': _exp.min_order}
 					# bcast info
 					comm.bcast(exp_info, root=0)
 					# bcast tuples
@@ -229,11 +229,10 @@ class MPICls():
 				else:
 					# receive exp_info
 					exp_info = comm.bcast(None, root=0)
-					# set start_order and min_order
-					_exp.start_order = exp_info['start_order']
+					# set min_order
 					_exp.min_order = exp_info['min_order']
 					# receive tuples
-					for i in range(_exp.start_order, len(exp_info['len_tup'])):
+					for i in range(1, len(exp_info['len_tup'])):
 						buff = np.empty([exp_info['len_tup'][i],i+1], dtype=np.int32)
 						comm.Bcast([buff,MPI.INT], root=0)
 						_exp.tuples.append(buff)

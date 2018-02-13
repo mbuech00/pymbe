@@ -92,12 +92,12 @@ class PrintCls():
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-								format(_exp.order,len(_exp.tuples[(_exp.order-(_exp.start_order-1))-1])))
+								format(_exp.order,len(_exp.tuples[_exp.order-1])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-						format(_exp.order,len(_exp.tuples[(_exp.order-(_exp.start_order-1))-1])))
+						format(_exp.order,len(_exp.tuples[_exp.order-1])))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -116,35 +116,21 @@ class PrintCls():
 	
 		def kernel_end(self, _calc, _exp):
 				""" print end of kernel """
-				if (_exp.order == _exp.start_order):
+				if (_exp.order == 1):
 					thres = 0.0
 				else:
 					thres = _exp.thres
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
-						if (_exp.conv_energy[-1]):
-							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]),thres))
-							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
-							print(' --------------------------------------------------------------------------------------------')
-						else:
-							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]),thres))
-							print(' --------------------------------------------------------------------------------------------')
+						print(' --------------------------------------------------------------------------------------------')
+						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+								format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-1]),thres))
+						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
-				if (_exp.conv_energy[-1]):
-					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]),thres))
-					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
-					print(' --------------------------------------------------------------------------------------------')
-				else:
-					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]),thres))
-					print(' --------------------------------------------------------------------------------------------')
+				print(' --------------------------------------------------------------------------------------------')
+				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+						format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-1]),thres))
+				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 
@@ -153,11 +139,11 @@ class PrintCls():
 				""" print micro result statistics """
 				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
 					# statistics
-					mean_val = np.mean(_exp.micro_conv[(_exp.order-(_exp.start_order-1))-1])
-					min_val = _exp.micro_conv[(_exp.order-(_exp.start_order-1))-1][np.argmin(_exp.micro_conv[(_exp.order-(_exp.start_order-1))-1])]
-					max_val = _exp.micro_conv[(_exp.order-(_exp.start_order-1))-1][np.argmax(_exp.micro_conv[(_exp.order-(_exp.start_order-1))-1])]
-					if (len(_exp.micro_conv[(_exp.order-(_exp.start_order-1))-1]) > 1):
-						std_val = np.std(_exp.micro_conv[(_exp.order-(_exp.start_order-1))-1], ddof=1)
+					mean_val = np.mean(_exp.micro_conv[_exp.order-1])
+					min_val = _exp.micro_conv[_exp.order-1][np.argmin(_exp.micro_conv[_exp.order-1])]
+					max_val = _exp.micro_conv[_exp.order-1][np.argmax(_exp.micro_conv[_exp.order-1])]
+					if (len(_exp.micro_conv[_exp.order-1]) > 1):
+						std_val = np.std(_exp.micro_conv[_exp.order-1], ddof=1)
 					else:
 						std_val = 0.0
 					# now print
@@ -184,15 +170,15 @@ class PrintCls():
 		def kernel_results(self, _mol, _calc, _exp, _pyscf):
 				""" print kernel result statistics """
 				# statistics
-				mean_val = np.mean(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1])
-				min_idx = np.argmin(np.abs(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]))
-				min_val = _exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1][min_idx]
-				max_idx = np.argmax(np.abs(_exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1]))
-				max_val = _exp.energy['inc'][(_exp.order-(_exp.start_order-1))-1][max_idx]
+				mean_val = np.mean(_exp.energy['inc'][_exp.order-1])
+				min_idx = np.argmin(np.abs(_exp.energy['inc'][_exp.order-1]))
+				min_val = _exp.energy['inc'][_exp.order-1][min_idx]
+				max_idx = np.argmax(np.abs(_exp.energy['inc'][_exp.order-1]))
+				max_val = _exp.energy['inc'][_exp.order-1][max_idx]
 				# core and cas regions
-				core, cas = _pyscf.core_cas(_mol, _exp, _exp.tuples[(_exp.order-(_exp.start_order-1))-1][max_idx])
-				cas_occ = sorted(list(set(_mol.occ.tolist()) - set(core)))
-				cas_virt = sorted(list(set(cas) - set(_mol.occ.tolist())))
+				core, cas = _pyscf.core_cas(_mol, _exp, _exp.tuples[_exp.order-1][max_idx])
+				cas_ref = sorted(list(set(_calc.ref_space.tolist()) - set(core)))
+				cas_exp = sorted(list(set(cas) - set(_calc.ref_space.tolist())))
 				# now print
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
@@ -206,7 +192,7 @@ class PrintCls():
 							print(' --------------------------------------------------------------------------------------------')
 							print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
 							print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core))
-							print(' RESULT-'+_exp.level.upper()+':  cas  = {0:} + {1:}'.format(cas_occ, cas_virt))
+							print(' RESULT-'+_exp.level.upper()+':  cas  = {0:} + {1:}'.format(cas_ref, cas_exp))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
@@ -219,7 +205,7 @@ class PrintCls():
 					print(' --------------------------------------------------------------------------------------------')
 					print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
 					print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core))
-					print(' RESULT-'+_exp.level.upper()+':  cas  = {0:} + {1:}'.format(cas_occ, cas_virt))
+					print(' RESULT-'+_exp.level.upper()+':  cas  = {0:} + {1:}'.format(cas_ref, cas_exp))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
