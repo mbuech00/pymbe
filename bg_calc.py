@@ -105,9 +105,9 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if (not (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','FCI'])):
+					if (not (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','SCI','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
-										'are currently: CISD, CCSD, CCSD(T), and FCI')
+										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# type of expansion
 					if (not (self.exp_type in ['occupied','virtual','combined'])):
 						raise ValueError('wrong input -- valid choices for ' + \
@@ -116,8 +116,8 @@ class CalcCls():
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI','CASSCF'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
 					if (self.exp_ref['METHOD'] in ['CASCI','CASSCF']):
-						if (self.exp_model['METHOD'] != 'FCI'):
-							raise ValueError('wrong input -- a CASCI/CASSCF reference is only meaningful for an FCI expansion model')
+						if (not (self.exp_model['METHOD'] in ['SCI','FCI'])):
+							raise ValueError('wrong input -- a CASCI/CASSCF reference is only meaningful for SCI or FCI expansion models')
 						if (_mol.spin != 0):
 							raise NotImplementedError('not implemented -- a CASCI/CASSCF reference is only implemented for closed-shell cases')
 						if (not ('ACTIVE' in self.exp_ref)):
@@ -145,11 +145,8 @@ class CalcCls():
 					if ((self.exp_ref['METHOD'] != 'HF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):
 						raise ValueError('wrong input -- invalid base model for choice of reference model')
 					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)','SCI'])):
-						raise ValueError('wrong input -- invalid base model')
-					if (((self.exp_base['METHOD'] == 'CISD') and (self.exp_model['METHOD'] in ['CISD'])) or \
-						((self.exp_base['METHOD'] == 'CCSD') and (self.exp_model['METHOD'] in ['CISD','CCSD'])) or \
-						((self.exp_base['METHOD'] in ['CCSD(T)','SCI']) and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)']))):
-							raise ValueError('wrong input -- invalid base model for choice of expansion model')
+						raise ValueError('wrong input -- valid base models ' + \
+										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# max order
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \

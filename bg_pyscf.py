@@ -96,9 +96,15 @@ class PySCFCls():
 					elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
 						cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
 					if (_mol.spin == 0):
-						cas.fcisolver = fci.direct_spin0_symm.FCI(_mol)
+						if (_calc.exp_model['METHOD'] == 'FCI'):
+							cas.fcisolver = fci.direct_spin0_symm.FCI(_mol)
+						elif (_calc.exp_model['METHOD'] == 'SCI'):
+							cas.fcisolver = fci.select_ci_spin0_symm.SCI(_mol)
 					else:
-						cas.fcisolver = fci.direct_spin1_symm.FCI(_mol)
+						if (_calc.exp_model['METHOD'] == 'FCI'):
+							cas.fcisolver = fci.direct_spin1_symm.FCI(_mol)
+						elif (_calc.exp_model['METHOD'] == 'SCI'):
+							cas.fcisolver = fci.select_ci_symm.SCI(_mol)
 					cas.fcisolver.conv_tol = 1.0e-10
 					if (_mol.verbose_prt): cas.verbose = 4
 					if (_calc.exp_ref['METHOD'] == 'CASSCF'):
@@ -106,11 +112,6 @@ class PySCFCls():
 						cas.max_stepsize = .01
 						cas.max_cycle_micro = 1
 						cas.frozen = _mol.ncore
-					# initial guess
-					na = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[0])
-					nb = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[1])
-					hf_as_civec = np.zeros((na, nb))
-					hf_as_civec[0, 0] = 1
 					# fix spin if non-singlet
 					if (_mol.spin > 0):
 						sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
@@ -120,7 +121,7 @@ class PySCFCls():
 						mo_act = cas.sort_mo(np.array(_calc.exp_ref['SELECT']), base=0)
 					# run casci/casscf calc
 					try:
-						cas.kernel(mo_act, ci0=hf_as_civec)
+						cas.kernel(mo_act)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\n{0:} Error :\n'
@@ -138,7 +139,7 @@ class PySCFCls():
 								sys.stderr.write(str(err))
 								raise
 					# calculate spin
-					s, mult = fci.spin_op.spin_square(cas.ci, _calc.no_act, _calc.ne_act)
+					s, mult = cas.fcisolver.spin_square(cas.ci, _calc.no_act, _calc.ne_act)
 					# check for correct spin
 					if (float(_mol.spin) - s > 1.0e-05):
 						try:
@@ -189,7 +190,10 @@ class PySCFCls():
 					# avas active space
 					elif (_calc.exp_ref['ACTIVE'] == 'AVAS'):
 						from pyscf.mcscf import avas
-						no_act, ne_act, mo_act = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'])
+						if (_mol.verbose_prt):
+							no_act, ne_act, mo_act = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'], verbose=4)
+						else:
+							no_act, ne_act, mo_act = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'])
 						# active electrons
 						ne_b = (ne_act - _mol.spin) // 2
 						ne_a = ne_act - ne_b
@@ -348,7 +352,7 @@ class PySCFCls():
 						sys.stderr.write(str(err_2))
 						raise
 				# calculate spin
-				s, mult = fci.spin_op.spin_square(c, len(_exp.cas_idx), nelec)
+				s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
 				# check for correct spin
 				if (float(_mol.spin) - s > 1.0e-05):
 					try:
