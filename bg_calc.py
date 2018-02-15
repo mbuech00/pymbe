@@ -115,20 +115,35 @@ class CalcCls():
 					# reference model
 					if (not (self.exp_ref['METHOD'] in ['HF','CASCI','CASSCF'])):
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
-					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (not ('ACTIVE' in self.exp_ref))):
-						raise ValueError('wrong input -- an active space (active) is required for CASCI/CASSCF references')
-					if ((self.exp_ref['METHOD'] in ['CASCI','CASSCF']) and (self.exp_model['METHOD'] != 'FCI')):
-						raise ValueError('wrong input -- a CASCI/CASSCF reference is only meaningful for an FCI expansion model')
+					if (self.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+						if (self.exp_model['METHOD'] != 'FCI'):
+							raise ValueError('wrong input -- a CASCI/CASSCF reference is only meaningful for an FCI expansion model')
+						if (_mol.spin != 0):
+							raise NotImplementedError('not implemented -- a CASCI/CASSCF reference is only implemented for closed-shell cases')
+						if (not ('ACTIVE' in self.exp_ref)):
+							raise ValueError('wrong input -- an active space (active) choice is required for CASCI/CASSCF references')
 					if ('ACTIVE' in self.exp_ref):
 						if (self.exp_ref['METHOD'] == 'HF'):
 							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
-						if (not isinstance(self.exp_ref['ACTIVE'], list)): 
-							raise ValueError('wrong input -- active key (active) for active space must be a list')
-						if (not ('NELEC' in self.exp_ref)):
-							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
-						if (('NELEC' in self.exp_ref) and (not isinstance(self.exp_ref['NELEC'], tuple))):
-							raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
+						if (self.exp_ref['ACTIVE'] == 'MANUAL'):
+							if (not ('SELECT' in self.exp_ref)):
+								raise ValueError('wrong input -- a selection (select) of HF orbitals is required for manual active space')
+							if (not isinstance(self.exp_ref['SELECT'], list)): 
+								raise ValueError('wrong input -- select key (select) for active space must be a list')
+							if (not ('NELEC' in self.exp_ref)):
+								raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
+							if (('NELEC' in self.exp_ref) and (not isinstance(self.exp_ref['NELEC'], tuple))):
+								raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
+						elif (self.exp_ref['ACTIVE'] == 'AVAS'):
+							if (not ('AO_LABELS' in self.exp_ref)):
+								raise ValueError('wrong input -- AO labels (AO_lABELS) is required for avas active space')
+							if (not isinstance(self.exp_ref['AO_LABELS'], list)): 
+								raise ValueError('wrong input -- AO labels key (AO_LABELS) for active space must be a list')
+						else:
+							raise ValueError('wrong input -- active space choices are currently: MANUAL and AVAS')
 					# base model
+					if ((self.exp_ref['METHOD'] != 'HF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):
+						raise ValueError('wrong input -- invalid base model for choice of reference model')
 					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)','SCI'])):
 						raise ValueError('wrong input -- invalid base model')
 					if (((self.exp_base['METHOD'] == 'CISD') and (self.exp_model['METHOD'] in ['CISD'])) or \
@@ -193,7 +208,7 @@ class CalcCls():
 				""" capitalize keys """
 				new_dict = {}
 				for key, value in old_dict.items():
-					if (key.upper() in ['METHOD', 'CHOICE']):
+					if (key.upper() in ['METHOD','ACTIVE']):
 						new_dict[key.upper()] = value.upper()
 					else:
 						new_dict[key.upper()] = value

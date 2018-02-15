@@ -132,7 +132,7 @@ class ResCls():
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<s}').\
+							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
 								format('','basis set','','=','',_mol.basis,\
 									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
 									'','|','','mpi masters / slaves','','=','',self.mpi))

@@ -79,60 +79,17 @@ class PySCFCls():
 				return norb, nocc, nvirt
 
 
-		def active(self, _mol, _calc):
-				""" set active space """
-				# hf reference model
-				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# no cas space
-					cas_space = np.array([])
-					no_act = _mol.nocc
-					ne_act = (len(np.where(_calc.hf_mo_occ > 0.)[0]), len(np.where(_calc.hf_mo_occ == 2.)[0]))
-					# set reference and expansion spaces
-					if (_calc.exp_type == 'occupied'):
-						ref_space = np.array(range(_mol.nocc, _mol.norb))
-						exp_space = np.array(range(_mol.ncore, _mol.nocc))
-					elif (_calc.exp_type == 'virtual'):
-						ref_space = np.array(range(_mol.ncore, _mol.nocc))
-						exp_space = np.array(range(_mol.nocc, _mol.norb))
-				# casci/casscf reference model
-				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
-					# set cas space
-					cas_space = np.array(_calc.exp_ref['ACTIVE'])
-					assert(np.count_nonzero(cas_space < _mol.ncore) == 0)
-					# number of orbitals
-					no_act = len(cas_space)
-					# set of active orbitals
-					num_occ = np.count_nonzero(cas_space < _mol.nocc)
-					num_virt = np.count_nonzero(cas_space >= _mol.nocc)
-					if (_calc.exp_type == 'occupied'):
-						assert(num_virt == _mol.nvirt)
-					elif (_calc.exp_type == 'virtual'):
-						assert(num_occ == (_mol.nocc-_mol.ncore))
-					# number of electrons
-					ne_act = _calc.exp_ref['NELEC']
-					assert((ne_act[0]+ne_act[1]) <= num_occ * 2)
-					# set reference and expansion spaces
-					if (_calc.exp_type == 'occupied'):
-						ref_space = cas_space
-						exp_space = np.array(range(_mol.ncore, _mol.norb-len(cas_space)))
-					elif (_calc.exp_type == 'virtual'):
-						ref_space = cas_space
-						exp_space = np.array(range(_mol.ncore+len(cas_space), _mol.norb))
-				# debug print
-				if (_mol.verbose_prt):
-					print('\n cas = {0:} , ref_space = {1:} , exp_space = {2:}'.\
-							format(cas_space, ref_space, exp_space))
-				#
-				return no_act, ne_act, cas_space, ref_space, exp_space
-
-
 		def ref(self, _mol, _calc):
 				""" reference calc """
 				if (_calc.exp_ref['METHOD'] == 'HF'):
+					# set active space
+					ref_space, exp_space = self.active(_mol, _calc)[:2]
 					# save MOs and energy
 					ref_mo_coeff = np.asarray(_calc.hf.mo_coeff, order='C')
 					ref_e_tot = _calc.hf.e_tot
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+					# set active space
+					ref_space, exp_space, _calc.no_act, _calc.ne_act, mo_act = self.active(_mol, _calc)
 					# casci (no) or casscf results
 					if (_calc.exp_ref['METHOD'] == 'CASCI'):
 						cas = mcscf.CASCI(_calc.hf, _calc.no_act, _calc.ne_act)
@@ -149,20 +106,21 @@ class PySCFCls():
 						cas.max_stepsize = .01
 						cas.max_cycle_micro = 1
 						cas.frozen = _mol.ncore
-#					cas.natorb = True
-#					# initial guess
-#					na = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[0])
-#					nb = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[1])
-#					hf_as_civec = np.zeros((na, nb))
-#					hf_as_civec[0, 0] = 1
-#					# fix spin if non-singlet
-#					if (_mol.spin > 0):
-#						sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
-#						cas.fix_spin_(ss=sz * (sz + 1.))
-					# sort mo
-					mo = cas.sort_mo(_calc.cas_space, base=0)
+					# initial guess
+					na = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[0])
+					nb = fci.cistring.num_strings(_calc.no_act, _calc.ne_act[1])
+					hf_as_civec = np.zeros((na, nb))
+					hf_as_civec[0, 0] = 1
+					# fix spin if non-singlet
+					if (_mol.spin > 0):
+						sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
+						cas.fix_spin_(ss=sz * (sz + 1.))
+					# sort mo for manually designated active space
+					if (_calc.exp_ref['ACTIVE'] == 'MANUAL'):
+						mo_act = cas.sort_mo(np.array(_calc.exp_ref['SELECT']), base=0)
+					# run casci/casscf calc
 					try:
-						cas.kernel(mo)#, ci0=hf_as_civec)
+						cas.kernel(mo_act, ci0=hf_as_civec)
 					except Exception as err:
 						try:
 							raise RuntimeError(('\n{0:} Error :\n'
@@ -194,7 +152,69 @@ class PySCFCls():
 					ref_mo_coeff = np.asarray(cas.mo_coeff, order='C')
 					ref_e_tot = cas.e_tot
 				#
-				return ref_e_tot, ref_mo_coeff
+				return ref_space, exp_space, ref_e_tot, ref_mo_coeff
+
+
+		def active(self, _mol, _calc):
+				""" set active space """
+				# hf reference model
+				if (_calc.exp_ref['METHOD'] == 'HF'):
+					# no cas space
+					mo_act = None
+					no_act = None
+					ne_act = None
+					# reference and expansion spaces
+					if (_calc.exp_type == 'occupied'):
+						ref_space = np.array(range(_mol.nocc, _mol.norb))
+						exp_space = np.array(range(_mol.ncore, _mol.nocc))
+					elif (_calc.exp_type == 'virtual'):
+						ref_space = np.array(range(_mol.ncore, _mol.nocc))
+						exp_space = np.array(range(_mol.nocc, _mol.norb))
+				# casci/casscf reference model
+				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+					# manually designated active space
+					if (_calc.exp_ref['ACTIVE'] == 'MANUAL'):
+						# active electrons
+						ne_act = _calc.exp_ref['NELEC']
+						assert((ne_act[0]+ne_act[1]) <= _mol.nelectron - (2*_mol.ncore))
+						# active orbitals
+						assert(np.count_nonzero(np.array(_calc.exp_ref['SELECT']) < _mol.ncore) == 0)
+						no_act = len(_calc.exp_ref['SELECT'])
+						if (_calc.exp_type == 'occupied'):
+							assert(np.count_nonzero(np.array(_calc.exp_ref['SELECT']) >= _mol.nocc) == _mol.nvirt)
+						elif (_calc.exp_type == 'virtual'):
+							assert(np.count_nonzero(np.array(_calc.exp_ref['SELECT']) < _mol.nocc) == (_mol.nocc-_mol.ncore))
+						# mo_act is sorted outside
+						mo_act = None
+					# avas active space
+					elif (_calc.exp_ref['ACTIVE'] == 'AVAS'):
+						from pyscf.mcscf import avas
+						no_act, ne_act, mo_act = avas.avas(_calc.hf, _calc.exp_ref['AO_LABELS'])
+						# active electrons
+						ne_b = (ne_act - _mol.spin) // 2
+						ne_a = ne_act - ne_b
+						ne_act = (ne_a, ne_b)
+						assert((ne_act[0] + ne_act[1]) <= _mol.nelectron - (2 * _mol.ncore))
+						# active orbitals
+						ne_core = (_mol.nelectron - 2 * _mol.ncore) - (ne_act[0] + ne_act[1])
+						no_core = ne_core // 2
+						no_virt = _mol.norb - (no_core + _mol.ncore) - no_act
+						if (_calc.exp_type == 'occupied'):
+							no_act += no_virt
+						elif (_calc.exp_type == 'virtual'):
+							no_act += no_core
+							ne_act = (ne_act[0]+no_core, ne_act[1]+no_core)
+					# reference and expansion spaces
+					if (_calc.exp_type == 'occupied'):
+						ref_space = np.array(range(_mol.norb-no_act, _mol.norb))
+						exp_space = np.array(range(_mol.ncore, _mol.norb-no_act))
+					elif (_calc.exp_type == 'virtual'):
+						ref_space = np.array(range(_mol.ncore, _mol.ncore+no_act))
+						exp_space = np.array(range(_mol.ncore+no_act, _mol.norb))
+				# debug print
+				if (_mol.verbose_prt): print('\n ref_space = {0:} , exp_space = {1:}'.format(ref_space, exp_space))
+				#
+				return ref_space, exp_space, no_act, ne_act, mo_act
 
 
 		def e_mf(self, _mol, _calc, _mo):
@@ -234,10 +254,7 @@ class PySCFCls():
 		def main_trans(self, _mol, _calc, _exp, _method):
 				""" calculate base energy and transformation matrix """
 				# set core and cas spaces
-				if (_calc.exp_type == 'occupied'):
-					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.ncore, _mol.nocc)))
-				if (_calc.exp_type == 'virtual'):
-					_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, np.array(range(_mol.nocc, _mol.norb)))
+				_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, _calc.exp_space)
 				# zeroth-order energy
 				if (_method is None):
 					e_zero = np.float64(0.0)
@@ -269,13 +286,13 @@ class PySCFCls():
 						iao = lo.iao.iao(_mol, _calc.ref_mo_coeff[:, _mol.core:_mol.nocc])
 						if (_calc.exp_occ == 'IBO-1'):
 							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
-							trans_mat[:, _mol.core:_mol.nocc] = lo.ibo.ibo(_mol, _calc.ref_mo_coeff[:, _mol.core:_mol.nocc], iao)
+							trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao)
 						elif (_calc.exp_occ == 'IBO-2'):
-							trans_mat[:, _mol.core:_mol.nocc] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.core:_mol.nocc], iao).kernel()
+							trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'REF'):
 					if (_calc.exp_virt == 'NO'):
-						occup, no = symm.eigh(dm[-nvirt:, -nvirt:], _calc.hf_orbsym[_mol.nocc:])
+						occup, no = symm.eigh(dm[-_mol.nvirt:, -_mol.nvirt:], _calc.hf_orbsym[_mol.nocc:])
 						trans_mat[:, _mol.nocc:] = np.dot(_calc.ref_mo_coeff[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
 						trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
@@ -320,7 +337,7 @@ class PySCFCls():
 					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 				# perform calc
 				try:
-					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym)#, ci0=hf_as_civec)
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, ci0=hf_as_civec)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nFCI Error :\n'
@@ -347,8 +364,7 @@ class PySCFCls():
 #				if (_exp.order < _exp.max_order): e_corr += np.float64(0.001) * np.random.random_sample()
 				# dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
-					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
-					dm += solver.make_rdm1(c, len(_exp.cas_idx), nelec)
+					dm = solver.make_rdm1(c, len(_exp.cas_idx), nelec)
 				else:
 					dm = None
 				#
@@ -383,7 +399,7 @@ class PySCFCls():
 					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 				# calculate sci energy
 				try:
-					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym)#, ci0=hf_as_scivec)
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, ci0=hf_as_scivec)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nSCI Error :\n'
@@ -407,8 +423,7 @@ class PySCFCls():
 				e_corr = e - _calc.ref_e_tot
 				# sci dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
-					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
-					dm += solver.make_rdm1(c, len(_exp.cas_idx), nelec)
+					dm = solver.make_rdm1(c, len(_exp.cas_idx), nelec)
 				else:
 					dm = None
 				#
@@ -456,8 +471,7 @@ class PySCFCls():
 				e_corr = cisd.e_corr
 				# dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
-					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
-					dm += cisd.make_rdm1()
+					dm = cisd.make_rdm1()
 				else:
 					dm = None
 				#
@@ -506,9 +520,8 @@ class PySCFCls():
 				e_corr = ccsd.e_corr
 				# dm
 				if (_base and (not _pt_corr) and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
-					dm = np.diag(_calc.hf_mo_occ[_mol.ncore:])
 					ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-					dm += ccsd.make_rdm1()
+					dm = ccsd.make_rdm1()
 				else:
 					dm = None
 				# calculate (t) correction
