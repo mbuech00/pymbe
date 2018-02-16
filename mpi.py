@@ -168,10 +168,10 @@ class MPICls():
 				""" bcast hf and ref info """
 				if (self.global_master):
 					# collect dimensions, reference energies, and mo_occ
-					info = {'e_hf': _calc.energy['hf'], 'e_mf': _calc.energy['mf'], 'e_ref': _calc.energy['ref'], \
+					info = {'e_hf': _calc.energy['hf'], 'e_base': _calc.energy['base'], \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
 								'ref_space': _calc.ref_space, 'exp_space': _calc.exp_space, \
-								'occup': _calc.occup}
+								'occup': _calc.occup, 'no_act': _calc.no_act, 'ne_act': _calc.ne_act}
 					# bcast info
 					self.global_comm.bcast(info, root=0)
 					# bcast mo
@@ -180,10 +180,10 @@ class MPICls():
 				else:
 					# receive info
 					info = self.global_comm.bcast(None, root=0)
-					_calc.energy['hf'] = info['e_hf']; _calc.energy['mf'] = info['e_mf']; _calc.energy['ref'] = info['e_ref']
+					_calc.energy['hf'] = info['e_hf']; _calc.energy['base'] = info['e_base']
 					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
 					_calc.ref_space = info['ref_space']; _calc.exp_space = info['exp_space']
-					_calc.occup = info['occup']
+					_calc.occup = info['occup']; _calc.no_act = info['no_act']; _calc.ne_act = info['ne_act']
 					# receive mo
 					if (self.local_master):
 						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
@@ -193,8 +193,8 @@ class MPICls():
 				return
 
 
-		def bcast_trans_info(self, _mol, _calc, _comm):
-				""" bcast transformation info """
+		def bcast_mo_info(self, _mol, _calc, _comm):
+				""" bcast mo coefficients """
 				if (_comm.Get_rank() == 0):
 					# bcast mo
 					_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)

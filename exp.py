@@ -26,8 +26,9 @@ class ExpCls():
 				self.energy = {}
 				self.energy['inc'] = []
 				self.energy['tot'] = []
-				# set max_order (derived from calc class) and determine max theoretical work
+				# set start_order/max_order and determine max theoretical work
 				self.theo_work = []
+				self.start_order = self.tuples[0].shape[1]
 				self.max_order = min(len(_calc.exp_space), _calc.exp_max_order)
 				for k in range(1, len(_calc.exp_space)+1):
 					self.theo_work.append(int(factorial(len(_calc.exp_space)) / \
@@ -51,7 +52,13 @@ class ExpCls():
 				# incl_idx
 				incl_idx = _calc.ref_space.tolist()
 				# tuples
-				tuples = [np.array(list([i] for i in _calc.exp_space), dtype=np.int32)]
+				if (_calc.exp_ref['METHOD'] == 'HF'):
+					tuples = [np.array(list([i] for i in _calc.exp_space), dtype=np.int32)]
+				else:
+					if (_calc.exp_type == 'occupied'):
+						tuples = [np.array([_calc.exp_space[-(_calc.no_act-len(_calc.ref_space)):]], dtype=np.int32)]
+					elif (_calc.exp_type == 'virtual'):
+						tuples = [np.array([_calc.exp_space[:(_calc.no_act-len(_calc.ref_space))]], dtype=np.int32)]
 				#
 				return incl_idx, tuples
 

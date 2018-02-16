@@ -55,15 +55,15 @@ class MBECls():
 				# init res
 				res = np.zeros(len(_exp.energy['inc'])-1, dtype=np.float64)
 				# compute contributions from lower-order increments
-				for count, i in enumerate(range(_exp.order-1, 0, -1)):
+				for count, i in enumerate(range(_exp.order-1, _exp.start_order-1, -1)):
 					# test if tuple is a subset
 					combs = _exp.tuples[-1][_idx, self.comb_index(_exp.order, i)]
-					dt = np.dtype((np.void, _exp.tuples[i-1].dtype.itemsize * \
-									_exp.tuples[i-1].shape[1]))
-					match = np.nonzero(np.in1d(_exp.tuples[i-1].view(dt).reshape(-1),
+					dt = np.dtype((np.void, _exp.tuples[i-_exp.start_order].dtype.itemsize * \
+									_exp.tuples[i-_exp.start_order].shape[1]))
+					match = np.nonzero(np.in1d(_exp.tuples[i-_exp.start_order].view(dt).reshape(-1),
 										combs.view(dt).reshape(-1)))[0]
 					# add up lower-order increments
-					res[count] = fsum(_exp.energy['inc'][i-1][match])
+					res[count] = fsum(_exp.energy['inc'][i-_exp.start_order][match])
 				# now compute increment
 				_exp.energy['inc'][-1][_idx] -= fsum(res)
 				#
@@ -83,7 +83,7 @@ class MBECls():
 					self.serial(_mpi, _mol, _calc, _kernel, _exp, _prt, _rst)
 				# sum up total energy
 				e_tmp = fsum(_exp.energy['inc'][-1])
-				if (_exp.order > 1): e_tmp += _exp.energy['tot'][-1]
+				if (_exp.order > _exp.start_order): e_tmp += _exp.energy['tot'][-1]
 				# add to total energy list
 				_exp.energy['tot'].append(e_tmp)
 				#
@@ -125,11 +125,17 @@ class MBECls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _kernel.core_cas(_mol, _exp, _exp.tuples[-1][i])
 						# perform calc
-						e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						if ((_exp.order == _exp.start_order) and (_calc.exp_ref['METHOD'] == 'CASSCF')):
+							e_model, _calc.mo = _kernel.casscf(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						else:
+							e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 						if (_calc.exp_base['METHOD'] is None):
 							_exp.energy['inc'][-1][i] = e_model
 						else:
-							e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							if ((_exp.order == _exp.start_order) and (_calc.exp_ref['METHOD'] == 'CASSCF')):
+								e_base, _ = _kernel.casscf(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							else:
+								e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
 							_exp.energy['inc'][-1][i] = e_model - e_base
 						# calc increment
 						self.summation(_calc, _exp, i)
@@ -162,7 +168,7 @@ class MBECls():
 				# bcast msg
 				comm.bcast(msg, root=0)
 				# perform calculations
-				if (_exp.order == 1):
+				if (_exp.order == _exp.start_order):
 					# start time
 					time = MPI.Wtime()
 					# print status
@@ -172,11 +178,17 @@ class MBECls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _kernel.core_cas(_mol, _exp, _exp.tuples[0][i])
 						# perform calc
-						e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						if (_calc.exp_ref['METHOD'] == 'CASSCF'):
+							e_model, _calc.mo = _kernel.casscf(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						else:
+							e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 						if (_calc.exp_base['METHOD'] is None):
 							e_base = 0.0
 						else:
-							e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							if (_calc.exp_ref['METHOD'] == 'CASSCF'):
+								e_base, _ = _kernel.casscf(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							else:
+								e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
 						_exp.energy['inc'][0][i] = e_model - e_base
 						# calc increment
 						self.summation(_calc, _exp, i)
@@ -192,6 +204,8 @@ class MBECls():
 					if (not _mol.verbose_prt): _prt.mbe_status(_calc, _exp, 1.0)
 					# bcast energy
 					_mpi.bcast_energy(_mol, _calc, _exp, comm)
+					# bcast mo coefficients
+					if (_calc.exp_ref['METHOD'] == 'CASSCF'): _mpi.bcast_mo_info(_mol, _calc, _mpi.global_comm)
 				else:
 					# init job_info dictionary
 					job_info = {}
@@ -273,9 +287,11 @@ class MBECls():
 				if (len(_exp.energy['inc']) < _exp.order):
 					_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
 				# ref_calc
-				if (_exp.order == 1):
+				if (_exp.order == _exp.start_order):
 					# receive energy
 					_mpi.bcast_energy(_mol, _calc, _exp, comm)
+					# receive mo coefficients
+					if (_calc.exp_ref['METHOD'] == 'CASSCF'): _mpi.bcast_mo_info(_mol, _calc, _mpi.global_comm)
 				else:
 					# init data dict
 					data = {}

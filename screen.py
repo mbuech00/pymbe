@@ -54,15 +54,19 @@ class ScrCls():
 					tmp = []; combs = []
 			        # loop over parent tuples
 					for i in range(len(_exp.tuples[-1])):
-						if (_exp.order == 1):
+						if (_exp.order == _exp.start_order):
 							# loop through possible orbitals to augment the combinations with
-							for m in range(_exp.tuples[0][i][-1]+1, _exp.tuples[0][-1][-1]+1):
+							for m in range(_exp.tuples[0][i][-1]+1, _calc.exp_space[-1]+1):
 								tmp.append(_exp.tuples[0][i].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
 							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1)))
+							# select only those combinations that include the active orbitals
+							cond = np.zeros(len(combs), dtype=bool)
+							for j in range(len(combs)): cond[j] = set(_exp.tuples[0][0]) <= set(combs[j])
+							combs = combs[cond]
 							# loop through possible orbitals to augment the combinations with
-							for m in range(_exp.tuples[-1][i][-1]+1, _exp.tuples[0][-1][-1]+1):
+							for m in range(_exp.tuples[-1][i][-1]+1, _calc.exp_space[-1]+1):
 								# init screening logical
 								screen = True
 								# loop over subset combinations
@@ -175,15 +179,19 @@ class ScrCls():
 					if (tag == self.tags.start):
 						# init child tuple list
 						data['child_tuple'][:] = []
-						if (_exp.order == 1):
+						if (_exp.order == _exp.start_order):
 							# loop through possible orbitals to augment the combinations with
-							for m in range(_exp.tuples[0][job_info['index']][-1]+1, _exp.tuples[0][-1][-1]+1):
+							for m in range(_exp.tuples[0][job_info['index']][-1]+1, _calc.exp_space[-1]+1):
 								data['child_tuple'].append(_exp.tuples[0][job_info['index']].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
 							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1)))
+							# select only those combinations that include the active orbitals
+							cond = np.zeros(len(combs), dtype=bool)
+							for j in range(len(combs)): cond[j] = set(_exp.tuples[0][0]) <= set(combs[j])
+							combs = combs[cond]
 							# loop through possible orbitals to augment the combinations with
-							for m in range(_exp.tuples[-1][job_info['index']][-1]+1, _exp.tuples[0][-1][-1]+1):
+							for m in range(_exp.tuples[-1][job_info['index']][-1]+1, _calc.exp_space[-1]+1):
 								# init screening logical
 								screen = True
 								# loop over subset combinations

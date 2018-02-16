@@ -92,12 +92,12 @@ class PrintCls():
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
-								format(_exp.order,len(_exp.tuples[_exp.order-1])))
+								format(_exp.order,len(_exp.tuples[_exp.order-_exp.start_order])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
-						format(_exp.order,len(_exp.tuples[_exp.order-1])))
+						format(_exp.order,len(_exp.tuples[_exp.order-_exp.start_order])))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -124,12 +124,12 @@ class PrintCls():
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-								format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-1]),thres))
+								format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-_exp.start_order]),thres))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-						format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-1]),thres))
+						format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-_exp.start_order]),thres))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -139,11 +139,11 @@ class PrintCls():
 				""" print micro result statistics """
 				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
 					# statistics
-					mean_val = np.mean(_exp.micro_conv[_exp.order-1])
-					min_val = _exp.micro_conv[_exp.order-1][np.argmin(_exp.micro_conv[_exp.order-1])]
-					max_val = _exp.micro_conv[_exp.order-1][np.argmax(_exp.micro_conv[_exp.order-1])]
-					if (len(_exp.micro_conv[_exp.order-1]) > 1):
-						std_val = np.std(_exp.micro_conv[_exp.order-1], ddof=1)
+					mean_val = np.mean(_exp.micro_conv[_exp.order-_exp.start_order])
+					min_val = _exp.micro_conv[_exp.order-_exp.start_order][np.argmin(_exp.micro_conv[_exp.order-_exp.start_order])]
+					max_val = _exp.micro_conv[_exp.order-_exp.start_order][np.argmax(_exp.micro_conv[_exp.order-_exp.start_order])]
+					if (len(_exp.micro_conv[_exp.order-_exp.start_order]) > 1):
+						std_val = np.std(_exp.micro_conv[_exp.order-_exp.start_order], ddof=1)
 					else:
 						std_val = 0.0
 					# now print
@@ -170,13 +170,13 @@ class PrintCls():
 		def mbe_results(self, _mol, _calc, _exp, _kernel):
 				""" print mbe result statistics """
 				# statistics
-				mean_val = np.mean(_exp.energy['inc'][_exp.order-1])
-				min_idx = np.argmin(np.abs(_exp.energy['inc'][_exp.order-1]))
-				min_val = _exp.energy['inc'][_exp.order-1][min_idx]
-				max_idx = np.argmax(np.abs(_exp.energy['inc'][_exp.order-1]))
-				max_val = _exp.energy['inc'][_exp.order-1][max_idx]
+				mean_val = np.mean(_exp.energy['inc'][_exp.order-_exp.start_order])
+				min_idx = np.argmin(np.abs(_exp.energy['inc'][_exp.order-_exp.start_order]))
+				min_val = _exp.energy['inc'][_exp.order-_exp.start_order][min_idx]
+				max_idx = np.argmax(np.abs(_exp.energy['inc'][_exp.order-_exp.start_order]))
+				max_val = _exp.energy['inc'][_exp.order-_exp.start_order][max_idx]
 				# core and cas regions
-				core, cas = _kernel.core_cas(_mol, _exp, _exp.tuples[_exp.order-1][max_idx])
+				core, cas = _kernel.core_cas(_mol, _exp, _exp.tuples[_exp.order-_exp.start_order][max_idx])
 				cas_ref = sorted(list(set(_calc.ref_space.tolist()) - set(core)))
 				cas_exp = sorted(list(set(cas) - set(_calc.ref_space.tolist())))
 				# now print

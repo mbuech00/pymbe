@@ -56,7 +56,7 @@ class DrvCls():
 							# compute and communicate distinct natural virtual orbitals
 							if (_calc.exp_virt == 'DNO'):
 								_kernel.trans_dno(_mol, _calc, _exp) 
-								_mpi.bcast_trans_info(_mol, _calc, _mpi.local_comm)
+								_mpi.bcast_mo_info(_mol, _calc, _mpi.local_comm)
 				# print expansion header
 				if (do_print): _prt.exp_header(_calc, _exp)
 				# restart
@@ -65,7 +65,7 @@ class DrvCls():
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
 					# if rst, print previous results
 					if (do_print):
-						for _exp.order in range(1, _exp.min_order):
+						for _exp.order in range(_exp.start_order, _exp.min_order):
 							_prt.mbe_header(_calc, _exp)
 							_prt.mbe_micro_results(_calc, _exp)
 							_prt.mbe_end(_calc, _exp)
@@ -203,7 +203,7 @@ class DrvCls():
 							exp.incl_idx = msg['incl_idx']
 							# receive distinct natural virtual orbitals
 							if (_calc.exp_virt == 'DNO'):
-								_mpi.bcast_trans_info(_mol, _calc, _mpi.local_comm)
+								_mpi.bcast_mo_info(_mol, _calc, _mpi.local_comm)
 						else:
 							# receive rst data
 							if (msg['rst']): _mpi.bcast_rst(_calc, exp)

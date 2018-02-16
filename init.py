@@ -65,9 +65,9 @@ class InitCls():
 					self.calc.hf = self.kernel.hf(self.mol, self.calc)
 					# get hcore and eri
 					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
-					# ref calculation
+					# reference and expansion spaces
 					self.calc.ref_space, self.calc.exp_space, \
-						self.calc.mo, self.calc.energy['mf'], self.calc.energy['ref'] = self.kernel.ref(self.mol, self.calc)
+						self.calc.no_act, self.calc.ne_act = self.kernel.active(self.mol, self.calc)
 					# expansion instantiation
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
@@ -78,11 +78,11 @@ class InitCls():
 						# mark expansion as macro
 						self.exp.level = 'macro'
 					# base energy and transformation matrix
-					self.calc.e_zero, self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp, self.calc.exp_base['METHOD'])
+					self.calc.energy['base'], self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp, self.calc.exp_base['METHOD'])
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_ref_info(self.mol, self.calc)
-					self.mpi.bcast_trans_info(self.mol, self.calc, self.mpi.global_comm)
+					self.mpi.bcast_mo_info(self.mol, self.calc, self.mpi.global_comm)
 					# in case of combined expansion, have local masters perform hf calc
 					if (self.mpi.local_master):
 						self.calc.hf = self.kernel.hf(self.mol, self.calc)
