@@ -168,27 +168,27 @@ class MPICls():
 				""" bcast hf and ref info """
 				if (self.global_master):
 					# collect dimensions, reference energies, and mo_occ
-					info = {'hf_e_tot': _calc.hf_e_tot, 'ref_e_tot': _calc.ref_e_tot, \
+					info = {'e_hf': _calc.energy['hf'], 'e_mf': _calc.energy['mf'], 'e_ref': _calc.energy['ref'], \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
 								'ref_space': _calc.ref_space, 'exp_space': _calc.exp_space, \
-								'mo_occ': _calc.hf_mo_occ}
+								'occup': _calc.occup}
 					# bcast info
 					self.global_comm.bcast(info, root=0)
-					# bcast mo_coeff
+					# bcast mo
 					if (self.num_local_masters >= 1):
-						self.master_comm.Bcast([_calc.ref_mo_coeff, MPI.DOUBLE], root=0)
+						self.master_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)
 				else:
 					# receive info
 					info = self.global_comm.bcast(None, root=0)
-					_calc.hf_e_tot = info['hf_e_tot']; _calc.ref_e_tot = info['ref_e_tot']
+					_calc.energy['hf'] = info['e_hf']; _calc.energy['mf'] = info['e_mf']; _calc.energy['ref'] = info['e_ref']
 					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
 					_calc.ref_space = info['ref_space']; _calc.exp_space = info['exp_space']
-					_calc.hf_mo_occ = info['mo_occ']
-					# receive mo_coeff
+					_calc.occup = info['occup']
+					# receive mo
 					if (self.local_master):
 						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 						self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
-						_calc.ref_mo_coeff = buff
+						_calc.mo = buff
 				#
 				return
 
@@ -196,13 +196,13 @@ class MPICls():
 		def bcast_trans_info(self, _mol, _calc, _comm):
 				""" bcast transformation info """
 				if (_comm.Get_rank() == 0):
-					# bcast trans_mat
-					_comm.Bcast([_calc.trans_mat, MPI.DOUBLE], root=0)
+					# bcast mo
+					_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)
 				else:
-					# receive trans_mat
+					# receive mo
 					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 					_comm.Bcast([buff, MPI.DOUBLE], root=0)
-					_calc.trans_mat = buff
+					_calc.mo = buff
 				#
 				return
 

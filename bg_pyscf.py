@@ -54,10 +54,10 @@ class PySCFCls():
 						raise
 				# determine dimensions
 				_mol.norb, _mol.nocc, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
-				# store energy, mo_occ, and orbsym
-				_calc.hf_e_tot = hf.e_tot
-				_calc.hf_mo_occ = hf.mo_occ
-				_calc.hf_orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
+				# store energy, occupation, and orbsym
+				_calc.energy['hf'] = hf.e_tot
+				_calc.occup = hf.mo_occ
+				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
 				return hf
 
@@ -85,8 +85,9 @@ class PySCFCls():
 					# set active space
 					ref_space, exp_space = self.active(_mol, _calc)[:2]
 					# save MOs and energy
-					ref_mo_coeff = np.asarray(_calc.hf.mo_coeff, order='C')
-					ref_e_tot = _calc.hf.e_tot
+					mo = np.asarray(_calc.hf.mo_coeff, order='C')
+					e_mf = _calc.energy['hf']
+					e_ref = _calc.energy['hf']
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# set active space
 					ref_space, exp_space, _calc.no_act, _calc.ne_act, mo_act = self.active(_mol, _calc)
@@ -150,10 +151,11 @@ class PySCFCls():
 							sys.stderr.write(str(err))
 							raise
 					# save MOs and energy
-					ref_mo_coeff = np.asarray(cas.mo_coeff, order='C')
-					ref_e_tot = cas.e_tot
+					mo = np.asarray(cas.mo_coeff, order='C')
+					e_mf = self.e_mf(_mol, _calc, mo)
+					e_ref = cas.e_tot
 				#
-				return ref_space, exp_space, ref_e_tot, ref_mo_coeff
+				return ref_space, exp_space, mo, e_mf, e_ref
 
 
 		def active(self, _mol, _calc):
@@ -223,8 +225,8 @@ class PySCFCls():
 
 		def e_mf(self, _mol, _calc, _mo):
 				""" calculate mean-field energy """
-				mo_a = _mo[:, np.where(_calc.hf.mo_occ > 0.)[0]]
-				mo_b = _mo[:, np.where(_calc.hf.mo_occ == 2.)[0]]
+				mo_a = _mo[:, np.where(_calc.occup > 0.)[0]]
+				mo_b = _mo[:, np.where(_calc.occup == 2.)[0]]
 				dm_a = np.dot(mo_a, np.transpose(mo_a))
 				dm_b = np.dot(mo_b, np.transpose(mo_b))
 				dm = np.array((dm_a, dm_b))
@@ -241,22 +243,22 @@ class PySCFCls():
 				""" calculate correlation energy """
 				# fci calc
 				if (_method == 'FCI'):
-					e_corr, _ = self.fci(_mol, _calc, _exp, _calc.trans_mat, False)
+					e_corr, _ = self.fci(_mol, _calc, _exp, _calc.mo, False)
 				# sci base
 				elif (_method == 'SCI'):
-					e_corr, _ = self.sci(_mol, _calc, _exp, _calc.trans_mat, False)
+					e_corr, _ = self.sci(_mol, _calc, _exp, _calc.mo, False)
 				# cisd calc
 				elif (_method == 'CISD'):
-					e_corr, _ = self.ci(_mol, _calc, _exp, _calc.trans_mat, False)
+					e_corr, _ = self.ci(_mol, _calc, _exp, _calc.mo, False)
 				# ccsd / ccsd(t) calc
 				elif (_method in ['CCSD','CCSD(T)']):
-					e_corr, _ = self.cc(_mol, _calc, _exp, _calc.trans_mat, False, (_method == 'CCSD(T)'))
+					e_corr, _ = self.cc(_mol, _calc, _exp, _calc.mo, False, (_method == 'CCSD(T)'))
 				#
 				return e_corr
 
 
-		def main_trans(self, _mol, _calc, _exp, _method):
-				""" calculate base energy and transformation matrix """
+		def main_mo(self, _mol, _calc, _exp, _method):
+				""" calculate base energy and mo coefficients """
 				# set core and cas spaces
 				_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, _calc.exp_space)
 				# zeroth-order energy
@@ -264,52 +266,52 @@ class PySCFCls():
 					e_zero = np.float64(0.0)
 				# cisd base
 				elif (_method == 'CISD'):
-					e_zero, dm = self.ci(_mol, _calc, _exp, _calc.ref_mo_coeff, True)
+					e_zero, dm = self.ci(_mol, _calc, _exp, _calc.mo, True)
 					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# ccsd / ccsd(t) base
 				elif (_method in ['CCSD','CCSD(T)']):
-					e_zero, dm = self.cc(_mol, _calc, _exp, _calc.ref_mo_coeff, True, \
+					e_zero, dm = self.cc(_mol, _calc, _exp, _calc.mo, True, \
 												(_method == 'CCSD(T)') and \
 												((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')))
 					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
 				# sci base
 				elif (_method == 'SCI'):
-					e_zero, dm = self.sci(_mol, _calc, _exp, _calc.ref_mo_coeff, True)
-				# init transformation matrix
-				trans_mat = np.copy(_calc.ref_mo_coeff)
+					e_zero, dm = self.sci(_mol, _calc, _exp, _calc.mo, True)
+				# copy mo
+				mo = np.copy(_calc.mo)
 				# occ-occ block (local or NOs)
 				if (_calc.exp_occ != 'REF'):
 					if (_calc.exp_occ == 'NO'):
-						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], _calc.hf_orbsym[_mol.ncore:_mol.nocc])
-						trans_mat[:, _mol.ncore:_mol.nocc] = np.dot(_calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
+						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], _calc.orbsym[_mol.ncore:_mol.nocc])
+						mo[:, _mol.ncore:_mol.nocc] = np.dot(_calc.mo[:, _mol.ncore:_mol.nocc], no[:, ::-1])
 					elif (_calc.exp_occ == 'PM'):
-						trans_mat[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						mo[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.mo[:, _mol.ncore:_mol.nocc]).kernel()
 					elif (_calc.exp_occ == 'FB'):
-						trans_mat[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
+						mo[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.mo[:, _mol.ncore:_mol.nocc]).kernel()
 					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
-						iao = lo.iao.iao(_mol, _calc.ref_mo_coeff[:, _mol.core:_mol.nocc])
+						iao = lo.iao.iao(_mol, _calc.mo[:, _mol.core:_mol.nocc])
 						if (_calc.exp_occ == 'IBO-1'):
 							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
-							trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao)
+							mo[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.mo[:, _mol.ncore:_mol.nocc], iao)
 						elif (_calc.exp_occ == 'IBO-2'):
-							trans_mat[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.ref_mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
+							mo[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.mo[:, _mol.ncore:_mol.nocc], iao).kernel()
 				# virt-virt block (local or NOs)
 				if (_calc.exp_virt != 'REF'):
 					if (_calc.exp_virt == 'NO'):
-						occup, no = symm.eigh(dm[-_mol.nvirt:, -_mol.nvirt:], _calc.hf_orbsym[_mol.nocc:])
-						trans_mat[:, _mol.nocc:] = np.dot(_calc.ref_mo_coeff[:, _mol.nocc:], no[:, ::-1])
+						occup, no = symm.eigh(dm[-_mol.nvirt:, -_mol.nvirt:], _calc.orbsym[_mol.nocc:])
+						mo[:, _mol.nocc:] = np.dot(_calc.mo[:, _mol.nocc:], no[:, ::-1])
 					elif (_calc.exp_virt == 'PM'):
-						trans_mat[:, _mol.nocc:] = lo.PM(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
+						mo[:, _mol.nocc:] = lo.PM(_mol, _calc.mo[:, _mol.nocc:]).kernel()
 					elif (_calc.exp_virt == 'FB'):
-						trans_mat[:, _mol.nocc:] = lo.Boys(_mol, _calc.ref_mo_coeff[:, _mol.nocc:]).kernel()
+						mo[:, _mol.nocc:] = lo.Boys(_mol, _calc.mo[:, _mol.nocc:]).kernel()
 				# (t) correction for NOs
 				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
 					if (_method == 'CCSD(T)'):
-						e_zero, dm = self.cc(_mol, _calc, _exp, trans_mat, False, True)
+						e_zero, dm = self.cc(_mol, _calc, _exp, mo, False, True)
 					elif (_method == 'SCI'):
-						e_zero, dm = self.sci(_mol, _calc, _exp, trans_mat, False)
+						e_zero, dm = self.sci(_mol, _calc, _exp, mo, False)
 				#
-				return e_zero, trans_mat
+				return e_zero, mo
 
 
 		def fci(self, _mol, _calc, _exp, _mo, _base):
@@ -364,7 +366,7 @@ class PySCFCls():
 						sys.stderr.write(str(err))
 						raise
 				# e_corr
-				e_corr = e - _calc.ref_e_tot
+				e_corr = e - _calc.energy['ref']
 #				if (_exp.order < _exp.max_order): e_corr += np.float64(0.001) * np.random.random_sample()
 				# dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
@@ -424,7 +426,7 @@ class PySCFCls():
 						sys.stderr.write(str(err))
 						raise
 				# e_corr
-				e_corr = e - _calc.ref_e_tot
+				e_corr = e - _calc.energy['ref']
 				# sci dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
 					dm = solver.make_rdm1(c, len(_exp.cas_idx), nelec)
@@ -449,10 +451,10 @@ class PySCFCls():
 				hf._eri = h2e 
 				# init ccsd
 				if (_mol.spin == 0):
-					cisd = ci.cisd.CISD(hf, mo_coeff=np.eye(len(_exp.cas_idx)), mo_occ=_calc.hf_mo_occ[_exp.cas_idx])
+					cisd = ci.cisd.CISD(hf, mo_coeff=np.eye(len(_exp.cas_idx)), mo_occ=_calc.occup[_exp.cas_idx])
 				else:
 					cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(len(_exp.cas_idx)), np.eye(len(_exp.cas_idx)))), \
-											mo_occ=np.array((_calc.hf_mo_occ[_exp.cas_idx]>0, _calc.hf_mo_occ[_exp.cas_idx]==2), dtype=np.double))
+											mo_occ=np.array((_calc.occup[_exp.cas_idx]>0, _calc.occup[_exp.cas_idx]==2), dtype=np.double))
 				# settings
 				cisd.conv_tol = 1.0e-10
 				cisd.max_cycle = 500
@@ -473,6 +475,7 @@ class PySCFCls():
 						raise
 				# e_corr
 				e_corr = cisd.e_corr
+				e_corr += (_calc.energy['mf'] - _calc.energy['ref'])
 				# dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
 					dm = cisd.make_rdm1()
@@ -497,10 +500,10 @@ class PySCFCls():
 				hf._eri = h2e 
 				# init ccsd
 				if (_mol.spin == 0):
-					ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(len(_exp.cas_idx)), mo_occ=_calc.hf_mo_occ[_exp.cas_idx])
+					ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(len(_exp.cas_idx)), mo_occ=_calc.occup[_exp.cas_idx])
 				else:
 					ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(len(_exp.cas_idx)), np.eye(len(_exp.cas_idx)))), \
-											mo_occ=np.array((_calc.hf_mo_occ[_exp.cas_idx]>0, _calc.hf_mo_occ[_exp.cas_idx]==2), dtype=np.double))
+											mo_occ=np.array((_calc.occup[_exp.cas_idx]>0, _calc.occup[_exp.cas_idx]==2), dtype=np.double))
 				# settings
 				ccsd.conv_tol = 1.0e-10
 				if (_base): ccsd.conv_tol_normt = 1.0e-10
@@ -522,6 +525,7 @@ class PySCFCls():
 						raise
 				# e_corr
 				e_corr = ccsd.e_corr
+				e_corr += (_calc.energy['mf'] - _calc.energy['ref'])
 				# dm
 				if (_base and (not _pt_corr) and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
 					ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)

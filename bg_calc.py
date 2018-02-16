@@ -32,8 +32,9 @@ class CalcCls():
 				self.exp_occ = 'REF'
 				self.exp_virt = 'REF'
 				self.tolerance = 0.0
-				# init ref_mo_coeff, hf_mo_occ, and transformation matrix
-				self.ref_mo_coeff = None; self.hf_mo_occ = None; self.trans_mat = None
+				# init energy dict and mo
+				self.energy = {}
+				self.mo = None
 				# set calculation parameters
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
@@ -142,8 +143,8 @@ class CalcCls():
 						else:
 							raise ValueError('wrong input -- active space choices are currently: MANUAL and AVAS')
 					# base model
-					if ((self.exp_ref['METHOD'] != 'HF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):
-						raise ValueError('wrong input -- invalid base model for choice of reference model')
+#					if ((self.exp_ref['METHOD'] != 'HF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):
+#						raise ValueError('wrong input -- invalid base model for choice of reference model')
 					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)','SCI'])):
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')

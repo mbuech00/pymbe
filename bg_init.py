@@ -67,7 +67,7 @@ class InitCls():
 					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
 					# ref calculation
 					self.calc.ref_space, self.calc.exp_space, \
-						self.calc.ref_e_tot, self.calc.ref_mo_coeff = self.pyscf.ref(self.mol, self.calc)
+						self.calc.mo, self.calc.energy['mf'], self.calc.energy['ref'] = self.pyscf.ref(self.mol, self.calc)
 					# expansion instantiation
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
@@ -78,7 +78,7 @@ class InitCls():
 						# mark expansion as macro
 						self.exp.level = 'macro'
 					# base energy and transformation matrix
-					self.calc.e_zero, self.calc.trans_mat = self.pyscf.main_trans(self.mol, self.calc, self.exp, self.calc.exp_base['METHOD'])
+					self.calc.e_zero, self.calc.mo = self.pyscf.main_mo(self.mol, self.calc, self.exp, self.calc.exp_base['METHOD'])
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_ref_info(self.mol, self.calc)
