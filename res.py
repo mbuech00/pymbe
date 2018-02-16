@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_res.py: summary print and plotting utilities for Bethe-Goldstone correlation calculations."""
+""" res.py: summary and plotting class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -176,7 +176,7 @@ class ResCls():
 						total_tup = 0
 						for i in range(len(_exp.energy['tot'])):
 							# sum up total time and number of tuples
-							total_time = np.sum(_exp.time_kernel[:i+1])\
+							total_time = np.sum(_exp.time_mbe[:i+1])\
 											+np.sum(_exp.time_screen[:i+1])
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_prt.py: general print utilities for Bethe-Goldstone correlation calculations."""
+""" prt.py: print class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -86,24 +86,24 @@ class PrintCls():
 				return
 		
 		
-		def kernel_header(self, _calc, _exp):
-				""" print energy kernel header """
+		def mbe_header(self, _calc, _exp):
+				""" print mbe header """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
+						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
 								format(_exp.order,len(_exp.tuples[_exp.order-1])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
+				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
 						format(_exp.order,len(_exp.tuples[_exp.order-1])))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 
 		
-		def kernel_status(self, _calc, _exp, _prog):
+		def mbe_status(self, _calc, _exp, _prog):
 				""" print status bar """
 				bar_length = 50
 				status = ""
@@ -114,8 +114,8 @@ class PrintCls():
 				return
 	
 	
-		def kernel_end(self, _calc, _exp):
-				""" print end of kernel """
+		def mbe_end(self, _calc, _exp):
+				""" print end of mbe """
 				if (_exp.order == 1):
 					thres = 0.0
 				else:
@@ -123,19 +123,19 @@ class PrintCls():
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
 								format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-1]),thres))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
 						format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-1]),thres))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 
 
-		def kernel_micro_results(self, _calc, _exp):	
+		def mbe_micro_results(self, _calc, _exp):	
 				""" print micro result statistics """
 				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
 					# statistics
@@ -167,8 +167,8 @@ class PrintCls():
 				return
 
 	
-		def kernel_results(self, _mol, _calc, _exp, _pyscf):
-				""" print kernel result statistics """
+		def mbe_results(self, _mol, _calc, _exp, _kernel):
+				""" print mbe result statistics """
 				# statistics
 				mean_val = np.mean(_exp.energy['inc'][_exp.order-1])
 				min_idx = np.argmin(np.abs(_exp.energy['inc'][_exp.order-1]))
@@ -176,7 +176,7 @@ class PrintCls():
 				max_idx = np.argmax(np.abs(_exp.energy['inc'][_exp.order-1]))
 				max_val = _exp.energy['inc'][_exp.order-1][max_idx]
 				# core and cas regions
-				core, cas = _pyscf.core_cas(_mol, _exp, _exp.tuples[_exp.order-1][max_idx])
+				core, cas = _kernel.core_cas(_mol, _exp, _exp.tuples[_exp.order-1][max_idx])
 				cas_ref = sorted(list(set(_calc.ref_space.tolist()) - set(core)))
 				cas_exp = sorted(list(set(cas) - set(_calc.ref_space.tolist())))
 				# now print

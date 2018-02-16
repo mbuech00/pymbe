@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_main.py: python/numpy program for performing Bethe-Goldstone correlation calculations. """
+""" main.py: main program """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -18,7 +18,7 @@ try:
 except ImportError:
 	sys.stderr.write('\nImportError : mpi4py module not found\n\n')
 
-from bg_init import InitCls
+from init import InitCls
 
 
 def main():
@@ -29,13 +29,13 @@ def main():
 		if (not bg.mpi.global_master):
 			if (bg.mpi.local_master):
 				# proceed to local master driver
-				bg.drv.local_master(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.rst)
+				bg.drv.local_master(bg.mpi, bg.mol, bg.calc, bg.kernel, bg.rst)
 			else:
 				# proceed to slave driver
-				bg.drv.slave(bg.mpi, bg.mol, bg.calc, bg.pyscf)
+				bg.drv.slave(bg.mpi, bg.mol, bg.calc, bg.kernel)
 		else:
 			# proceed to main driver
-			bg.drv.main(bg.mpi, bg.mol, bg.calc, bg.pyscf, bg.exp, bg.prt, bg.rst)
+			bg.drv.main(bg.mpi, bg.mol, bg.calc, bg.kernel, bg.exp, bg.prt, bg.rst)
 			# print summary and plot results
 			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp)
 			# finalize

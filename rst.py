@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_rst.py: restart utilities for Bethe-Goldstone correlation calculations."""
+""" rst.py: restart class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -60,15 +60,15 @@ class RstCls():
 				return self.rst_freq / 2.
 
 
-		def write_kernel(self, _calc, _exp, _final):
-				""" write energy kernel restart files """
+		def write_mbe(self, _calc, _exp, _final):
+				""" write energy mbe restart files """
 				# write e_inc
 				np.save(join(self.rst_dir, 'e_inc_'+str(_exp.order)), _exp.energy['inc'][-1])
 				# write micro_conv
 				if (_calc.exp_type == 'combined'):
 					np.save(join(self.rst_dir, 'micro_conv_'+str(_exp.order)), np.asarray(_exp.micro_conv[-1]))
 				# write time
-				np.save(join(self.rst_dir, 'time_kernel_'+str(_exp.order)), np.asarray(_exp.time_kernel[-1]))
+				np.save(join(self.rst_dir, 'time_mbe_'+str(_exp.order)), np.asarray(_exp.time_mbe[-1]))
 				# write e_tot
 				if (_final):
 					np.save(join(self.rst_dir, 'e_tot_'+str(_exp.order)), np.asarray(_exp.energy['tot'][-1]))
@@ -107,8 +107,8 @@ class RstCls():
 					elif ('micro_conv' in files[i]):
 						_exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read timings
-					elif ('time_kernel' in files[i]):
-						_exp.time_kernel.append(np.load(join(self.rst_dir, files[i])).tolist())
+					elif ('time_mbe' in files[i]):
+						_exp.time_mbe.append(np.load(join(self.rst_dir, files[i])).tolist())
 					elif ('time_screen' in files[i]):
 						_exp.time_screen.append(np.load(join(self.rst_dir, files[i])).tolist())
 				#

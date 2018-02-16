@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_init.py: expansion class for Bethe-Goldstone correlation calculations."""
+""" exp.py: expansion class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -38,7 +38,7 @@ class ExpCls():
 				self.conv_orb = [False]
 				# init timings
 				if (_mpi.global_master):
-					self.time_kernel = []
+					self.time_mbe = []
 					self.time_screen = []
 				# init thres
 				self.thres = _calc.exp_thres

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_pyscf.py: pyscf-related routines for Bethe-Goldstone correlation calculations."""
+""" kernel.py: kernel routines """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -22,8 +22,8 @@ except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
 
-class PySCFCls():
-		""" pyscf class """
+class KernCls():
+		""" kernel class """
 		def hcore_eri(self, _mol):
 				""" get core hamiltonian and AO eris """
 				hcore = _mol.intor_symmetric('int1e_kin') + _mol.intor_symmetric('int1e_nuc')

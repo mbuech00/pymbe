@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_init.py: initialization class for Bethe-Goldstone correlation calculations."""
+""" init.py: initialization class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -18,15 +18,15 @@ from os.path import isdir
 from shutil import rmtree 
 import sys
 
-from bg_rst import RstCls
-from bg_mol import MolCls
-from bg_calc import CalcCls
-from bg_mpi import MPICls
-from bg_pyscf import PySCFCls
-from bg_exp import ExpCls
-from bg_drv import DrvCls
-from bg_prt import PrintCls
-from bg_res import ResCls
+from rst import RstCls
+from mol import MolCls
+from calc import CalcCls
+from mpi import MPICls
+from kernel import KernCls
+from exp import ExpCls
+from drv import DrvCls
+from prt import PrintCls
+from res import ResCls
 
 
 class InitCls():
@@ -42,8 +42,8 @@ class InitCls():
 				# molecule and calculation instantiations
 				self.mol = MolCls(self.mpi, self.rst)
 				self.calc = CalcCls(self.mpi, self.rst, self.mol)
-				# pyscf instantiation
-				self.pyscf = PySCFCls()
+				# kernel instantiation
+				self.kernel = KernCls()
 				# build and communicate molecule
 				if (self.mpi.global_master):
 					self.mol.make(self.mpi, self.rst)
@@ -52,7 +52,7 @@ class InitCls():
 					self.mpi.bcast_mol_info(self.mol)
 					self.mol.make(self.mpi, self.rst)
 					# get hcore and eri
-					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
+					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
 				# set core region
 				self.mol.ncore = self.mol.set_ncore()
 				# communicate calc info 
@@ -62,12 +62,12 @@ class InitCls():
 				# hf and ref calculations
 				if (self.mpi.global_master):
 					# hf calculation
-					self.calc.hf = self.pyscf.hf(self.mol, self.calc)
+					self.calc.hf = self.kernel.hf(self.mol, self.calc)
 					# get hcore and eri
-					self.mol.hcore, self.mol.eri = self.pyscf.hcore_eri(self.mol)
+					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
 					# ref calculation
 					self.calc.ref_space, self.calc.exp_space, \
-						self.calc.mo, self.calc.energy['mf'], self.calc.energy['ref'] = self.pyscf.ref(self.mol, self.calc)
+						self.calc.mo, self.calc.energy['mf'], self.calc.energy['ref'] = self.kernel.ref(self.mol, self.calc)
 					# expansion instantiation
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
@@ -78,14 +78,14 @@ class InitCls():
 						# mark expansion as macro
 						self.exp.level = 'macro'
 					# base energy and transformation matrix
-					self.calc.e_zero, self.calc.mo = self.pyscf.main_mo(self.mol, self.calc, self.exp, self.calc.exp_base['METHOD'])
+					self.calc.e_zero, self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp, self.calc.exp_base['METHOD'])
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_ref_info(self.mol, self.calc)
 					self.mpi.bcast_trans_info(self.mol, self.calc, self.mpi.global_comm)
 					# in case of combined expansion, have local masters perform hf calc
 					if (self.mpi.local_master):
-						self.calc.hf = self.pyscf.hf(self.mol, self.calc)
+						self.calc.hf = self.kernel.hf(self.mol, self.calc)
 				# driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):
