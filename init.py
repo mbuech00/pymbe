@@ -62,7 +62,7 @@ class InitCls():
 				# hf and ref calculations
 				if (self.mpi.global_master):
 					# hf calculation
-					self.calc.hf = self.kernel.hf(self.mol, self.calc)
+					self.calc.hf, self.calc.mo = self.kernel.hf(self.mol, self.calc)
 					# get hcore and eri
 					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
 					# reference and expansion spaces
@@ -78,7 +78,7 @@ class InitCls():
 						# mark expansion as macro
 						self.exp.level = 'macro'
 					# base energy and transformation matrix
-					self.calc.energy['base'], self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp, self.calc.exp_base['METHOD'])
+					self.calc.energy['base'], self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp)
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_ref_info(self.mol, self.calc)

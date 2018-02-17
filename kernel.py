@@ -59,7 +59,7 @@ class KernCls():
 				_calc.occup = hf.mo_occ
 				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
-				return hf
+				return hf, hf.mo_coeff
 
 
 		def dim(self, _hf, _ncore, _type):
@@ -108,6 +108,109 @@ class KernCls():
 				if (_mol.verbose_prt): print('\n ref_space = {0:} , exp_space = {1:}'.format(ref_space, exp_space))
 				#
 				return ref_space, exp_space, no_act, ne_act
+
+
+		def e_mf(self, _mol, _calc, _mo):
+				""" calculate mean-field energy """
+				mo_a = _mo[:, np.where(_calc.occup > 0.)[0]]
+				mo_b = _mo[:, np.where(_calc.occup == 2.)[0]]
+				dm_a = np.dot(mo_a, np.transpose(mo_a))
+				dm_b = np.dot(mo_b, np.transpose(mo_b))
+				dm = np.array((dm_a, dm_b))
+				vj, vk = scf.hf.get_jk(_mol, dm)
+				vhf = vj[0] + vj[1] - vk
+				e_mf = _mol.energy_nuc()
+				e_mf += np.einsum('ij,ij', _mol.hcore.conj(), dm[0] + dm[1])
+				e_mf += (np.einsum('ij,ji', vhf[0], dm[0]) + np.einsum('ij,ji', vhf[1], dm[1])) * .5
+				#
+				return e_mf
+
+
+		def main_calc(self, _mol, _calc, _exp, _method):
+				""" calculate correlation energy """
+				# fci calc
+				if (_method == 'FCI'):
+					e_corr, _ = self.fci(_mol, _calc, _exp, _calc.mo, False)
+				# sci base
+				elif (_method == 'SCI'):
+					e_corr, _ = self.sci(_mol, _calc, _exp, _calc.mo, False)
+				# cisd calc
+				elif (_method == 'CISD'):
+					e_corr, _ = self.ci(_mol, _calc, _exp, _calc.mo, False)
+				# ccsd / ccsd(t) calc
+				elif (_method in ['CCSD','CCSD(T)']):
+					e_corr, _ = self.cc(_mol, _calc, _exp, _calc.mo, False, (_method == 'CCSD(T)'))
+				#
+				return e_corr
+
+
+		def main_mo(self, _mol, _calc, _exp):
+				""" calculate base energy and mo coefficients """
+				# set core and cas spaces
+				_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, _calc.exp_space)
+				# sort mo coefficients
+				if (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+					idx = np.asarray([i for i in range(_mol.norb) if i not in _calc.exp_ref['ACTIVE']])
+					mo = np.hstack((_calc.mo[:, idx[:_mol.ncore]], _calc.mo[:, _calc.exp_ref['ACTIVE']], _calc.mo[:, idx[_mol.ncore:]]))
+					_calc.mo = np.asarray(mo, order='C')
+				# casscf ref calc
+				if (_calc.exp_ref['METHOD'] == 'CASSCF'):
+					# exp model
+					_calc.energy['cas_model'], _calc.mo = self.casscf(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+					# base model
+					if (_calc.exp_base['METHOD'] is not None):
+						_calc.energy['cas_base'], _ = self.casscf(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+				# zeroth-order energy
+				if (_calc.exp_base['METHOD'] is None):
+					e_base = np.float64(0.0)
+				# cisd base
+				elif (_calc.exp_base['METHOD'] == 'CISD'):
+					e_base, dm = self.ci(_mol, _calc, _exp, _calc.mo, True)
+					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
+				# ccsd / ccsd(t) base
+				elif (_calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']):
+					e_base, dm = self.cc(_mol, _calc, _exp, _calc.mo, True, \
+												(_calc.exp_base['METHOD'] == 'CCSD(T)') and \
+												((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')))
+					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
+				# sci base
+				elif (_calc.exp_base['METHOD'] == 'SCI'):
+					e_base, dm = self.sci(_mol, _calc, _exp, _calc.mo, True)
+				# copy mo
+				mo = np.copy(_calc.mo)
+				# occ-occ block (local or NOs)
+				if (_calc.exp_occ != 'REF'):
+					if (_calc.exp_occ == 'NO'):
+						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], _calc.orbsym[_mol.ncore:_mol.nocc])
+						mo[:, _mol.ncore:_mol.nocc] = np.dot(_calc.mo[:, _mol.ncore:_mol.nocc], no[:, ::-1])
+					elif (_calc.exp_occ == 'PM'):
+						mo[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.mo[:, _mol.ncore:_mol.nocc]).kernel()
+					elif (_calc.exp_occ == 'FB'):
+						mo[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.mo[:, _mol.ncore:_mol.nocc]).kernel()
+					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
+						iao = lo.iao.iao(_mol, _calc.mo[:, _mol.core:_mol.nocc])
+						if (_calc.exp_occ == 'IBO-1'):
+							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
+							mo[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.mo[:, _mol.ncore:_mol.nocc], iao)
+						elif (_calc.exp_occ == 'IBO-2'):
+							mo[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.mo[:, _mol.ncore:_mol.nocc], iao).kernel()
+				# virt-virt block (local or NOs)
+				if (_calc.exp_virt != 'REF'):
+					if (_calc.exp_virt == 'NO'):
+						occup, no = symm.eigh(dm[-_mol.nvirt:, -_mol.nvirt:], _calc.orbsym[_mol.nocc:])
+						mo[:, _mol.nocc:] = np.dot(_calc.mo[:, _mol.nocc:], no[:, ::-1])
+					elif (_calc.exp_virt == 'PM'):
+						mo[:, _mol.nocc:] = lo.PM(_mol, _calc.mo[:, _mol.nocc:]).kernel()
+					elif (_calc.exp_virt == 'FB'):
+						mo[:, _mol.nocc:] = lo.Boys(_mol, _calc.mo[:, _mol.nocc:]).kernel()
+				# (t) correction for NOs
+				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
+					if (_calc.exp_base['METHOD'] == 'CCSD(T)'):
+						e_base, dm = self.cc(_mol, _calc, _exp, mo, False, True)
+					elif (_calc.exp_base['METHOD'] == 'SCI'):
+						e_base, dm = self.sci(_mol, _calc, _exp, mo, False)
+				#
+				return e_base, mo
 
 
 		def casscf(self, _mol, _calc, _exp, _method):
@@ -167,102 +270,6 @@ class KernCls():
 				mo = np.asarray(cas.mo_coeff, order='C')
 				#
 				return e_corr, mo
-
-
-		def e_mf(self, _mol, _calc, _mo):
-				""" calculate mean-field energy """
-				mo_a = _mo[:, np.where(_calc.occup > 0.)[0]]
-				mo_b = _mo[:, np.where(_calc.occup == 2.)[0]]
-				dm_a = np.dot(mo_a, np.transpose(mo_a))
-				dm_b = np.dot(mo_b, np.transpose(mo_b))
-				dm = np.array((dm_a, dm_b))
-				vj, vk = scf.hf.get_jk(_mol, dm)
-				vhf = vj[0] + vj[1] - vk
-				e_mf = _mol.energy_nuc()
-				e_mf += np.einsum('ij,ij', _mol.hcore.conj(), dm[0] + dm[1])
-				e_mf += (np.einsum('ij,ji', vhf[0], dm[0]) + np.einsum('ij,ji', vhf[1], dm[1])) * .5
-				#
-				return e_mf
-
-
-		def main_calc(self, _mol, _calc, _exp, _method):
-				""" calculate correlation energy """
-				# fci calc
-				if (_method == 'FCI'):
-					e_corr, _ = self.fci(_mol, _calc, _exp, _calc.mo, False)
-				# sci base
-				elif (_method == 'SCI'):
-					e_corr, _ = self.sci(_mol, _calc, _exp, _calc.mo, False)
-				# cisd calc
-				elif (_method == 'CISD'):
-					e_corr, _ = self.ci(_mol, _calc, _exp, _calc.mo, False)
-				# ccsd / ccsd(t) calc
-				elif (_method in ['CCSD','CCSD(T)']):
-					e_corr, _ = self.cc(_mol, _calc, _exp, _calc.mo, False, (_method == 'CCSD(T)'))
-				#
-				return e_corr
-
-
-		def main_mo(self, _mol, _calc, _exp, _method):
-				""" calculate base energy and mo coefficients """
-				# set core and cas spaces
-				_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, _calc.exp_space)
-				# zeroth-order energy
-				if (_method is None):
-					e_base = np.float64(0.0)
-				# cisd base
-				elif (_method == 'CISD'):
-					e_base, dm = self.ci(_mol, _calc, _exp, _calc.hf.mo_coeff, True)
-					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
-				# ccsd / ccsd(t) base
-				elif (_method in ['CCSD','CCSD(T)']):
-					e_base, dm = self.cc(_mol, _calc, _exp, _calc.hf.mo_coeff, True, \
-												(_method == 'CCSD(T)') and \
-												((_calc.exp_occ == 'REF') and (_calc.exp_virt == 'REF')))
-					if ((_mol.spin > 0) and (dm is not None)): dm = dm[0] + dm[1]
-				# sci base
-				elif (_method == 'SCI'):
-					e_base, dm = self.sci(_mol, _calc, _exp, _calc.hf.mo_coeff, True)
-				# copy mo
-				mo = np.copy(_calc.hf.mo_coeff)
-				# occ-occ block (local or NOs)
-				if (_calc.exp_occ != 'REF'):
-					if (_calc.exp_occ == 'NO'):
-						occup, no = symm.eigh(dm[:(_mol.nocc-_mol.ncore), :(_mol.nocc-_mol.ncore)], _calc.orbsym[_mol.ncore:_mol.nocc])
-						mo[:, _mol.ncore:_mol.nocc] = np.dot(_calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc], no[:, ::-1])
-					elif (_calc.exp_occ == 'PM'):
-						mo[:, _mol.ncore:_mol.nocc] = lo.PM(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-					elif (_calc.exp_occ == 'FB'):
-						mo[:, _mol.ncore:_mol.nocc] = lo.Boys(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc]).kernel()
-					elif (_calc.exp_occ in ['IBO-1','IBO-2']):
-						iao = lo.iao.iao(_mol, _calc.hf.mo_coeff[:, _mol.core:_mol.nocc])
-						if (_calc.exp_occ == 'IBO-1'):
-							iao = lo.vec_lowdin(iao, _calc.hf.get_ovlp())
-							mo[:, _mol.ncore:_mol.nocc] = lo.ibo.ibo(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc], iao)
-						elif (_calc.exp_occ == 'IBO-2'):
-							mo[:, _mol.ncore:_mol.nocc] = lo.ibo.PM(_mol, _calc.hf.mo_coeff[:, _mol.ncore:_mol.nocc], iao).kernel()
-				# virt-virt block (local or NOs)
-				if (_calc.exp_virt != 'REF'):
-					if (_calc.exp_virt == 'NO'):
-						occup, no = symm.eigh(dm[-_mol.nvirt:, -_mol.nvirt:], _calc.orbsym[_mol.nocc:])
-						mo[:, _mol.nocc:] = np.dot(_calc.hf.mo_coeff[:, _mol.nocc:], no[:, ::-1])
-					elif (_calc.exp_virt == 'PM'):
-						mo[:, _mol.nocc:] = lo.PM(_mol, _calc.hf.mo_coeff[:, _mol.nocc:]).kernel()
-					elif (_calc.exp_virt == 'FB'):
-						mo[:, _mol.nocc:] = lo.Boys(_mol, _calc.hf.mo_coeff[:, _mol.nocc:]).kernel()
-				# (t) correction for NOs
-				if ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO')):
-					if (_method == 'CCSD(T)'):
-						e_base, dm = self.cc(_mol, _calc, _exp, mo, False, True)
-					elif (_method == 'SCI'):
-						e_base, dm = self.sci(_mol, _calc, _exp, mo, False)
-				# sort mo coefficients
-				if (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
-					idx = np.asarray([i for i in range(_mol.norb) if i not in _calc.exp_ref['ACTIVE']])
-					mo = np.hstack((mo[:, idx[:_mol.ncore]], mo[:, _calc.exp_ref['ACTIVE']], mo[:, idx[_mol.ncore:]]))
-					mo = np.asarray(mo, order='C')
-				#
-				return e_base, mo
 
 
 		def fci(self, _mol, _calc, _exp, _mo, _base):
