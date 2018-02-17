@@ -138,32 +138,31 @@ class ResCls():
 									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
 									'','|','','mpi masters / slaves','','=','',self.mpi))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-							'{13:<13s}{14:2}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
+							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
 									'','|','','reference funct.','','=','',self.exp_ref,\
-									'','|','','HF energy','','=','',_calc.energy['hf']))
+									'','|','','Hartree-Fock energy','','=','',_calc.energy['hf']))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','occ. / virt.','','=','',self.occ_virt,\
 									'','|','','active space','','=','',self.active,\
-									'','|','','reference energy','','=','',0.0))#_calc.energy['ref']))
+									'','|','','base model energy','','=','',_calc.energy['hf']+_calc.energy['base']))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
 									'','|','','expansion base','','=','',self.exp_base,\
-									'','|','','base model energy','','=','',_calc.energy['hf']+_calc.energy['base']))
+									'','|','','final total energy','','=','',\
+									_exp.energy['tot'][-1]+_calc.energy['hf']+_calc.energy['base']))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','expansion type','','=','',_calc.exp_type,\
-									'','|','','final total energy','','=','',\
-									_exp.energy['tot'][-1]+_calc.energy['hf']+_calc.energy['base']))
+									'','|','','final corr. energy','','=','',_exp.energy['tot'][-1]))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
 									'','|','','thres. / relax.','','=','',self.thres,\
-									'','|','','final abs. conv.','','=','',\
-									self.final_conv))
+									'','|','','final abs. conv.','','=','',self.final_conv))
 						print(self.divider_str)
 						print(self.fill_str)
 						print(self.divider_str)
