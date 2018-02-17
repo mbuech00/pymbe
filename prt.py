@@ -116,7 +116,7 @@ class PrintCls():
 	
 		def mbe_end(self, _calc, _exp):
 				""" print end of mbe """
-				if (_exp.order == 1):
+				if (_exp.order == _exp.start_order):
 					thres = 0.0
 				else:
 					thres = _exp.thres
