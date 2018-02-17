@@ -30,7 +30,7 @@ class ExpCls():
 				self.theo_work = []
 				self.start_order = self.tuples[0].shape[1]
 				self.max_order = min(len(_calc.exp_space), _calc.exp_max_order)
-				for k in range(1, len(_calc.exp_space)+1):
+				for k in range(self.start_order, len(_calc.exp_space)+1):
 					self.theo_work.append(int(factorial(len(_calc.exp_space)) / \
 											(factorial(k) * factorial(len(_calc.exp_space) - k))))
 				# init micro_conv list

@@ -85,13 +85,6 @@ class KernCls():
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# no active space
 					_calc.no_act = _calc.ne_act = None
-					# reference and expansion spaces
-					if (_calc.exp_type == 'occupied'):
-						ref_space = np.array(range(_mol.nocc, _mol.norb))
-						exp_space = np.array(range(_mol.ncore, _mol.nocc))
-					elif (_calc.exp_type == 'virtual'):
-						ref_space = np.array(range(_mol.ncore, _mol.nocc))
-						exp_space = np.array(range(_mol.nocc, _mol.norb))
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# active electrons
@@ -104,19 +97,13 @@ class KernCls():
 						assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) >= _mol.nocc) == _mol.nvirt)
 					elif (_calc.exp_type == 'virtual'):
 						assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) < _mol.nocc) == (_mol.nocc-_mol.ncore))
-					# reference and expansion spaces
-#					if (_calc.exp_type == 'occupied'):
-#						ref_space = np.array(range(_mol.norb-no_act, _mol.norb))
-#						exp_space = np.array(range(_mol.ncore, _mol.norb-no_act))
-#					elif (_calc.exp_type == 'virtual'):
-#						ref_space = np.array(range(_mol.ncore, _mol.ncore+no_act))
-#						exp_space = np.array(range(_mol.ncore+no_act, _mol.norb))
-					if (_calc.exp_type == 'occupied'):
-						ref_space = np.array(range(_mol.nocc, _mol.norb))
-						exp_space = np.array(range(_mol.ncore, _mol.nocc))
-					elif (_calc.exp_type == 'virtual'):
-						ref_space = np.array(range(_mol.ncore, _mol.nocc))
-						exp_space = np.array(range(_mol.nocc, _mol.norb))
+				# reference and expansion spaces
+				if (_calc.exp_type == 'occupied'):
+					ref_space = np.array(range(_mol.nocc, _mol.norb))
+					exp_space = np.array(range(_mol.ncore, _mol.nocc))
+				elif (_calc.exp_type == 'virtual'):
+					ref_space = np.array(range(_mol.ncore, _mol.nocc))
+					exp_space = np.array(range(_mol.nocc, _mol.norb))
 				# debug print
 				if (_mol.verbose_prt): print('\n ref_space = {0:} , exp_space = {1:}'.format(ref_space, exp_space))
 				#
@@ -149,7 +136,7 @@ class KernCls():
 					cas.fix_spin_(ss=sz * (sz + 1.))
 				# run casscf calc
 				try:
-					cas.kernel(mo)
+					cas.kernel(_calc.mo)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nCASSCF Error :\n'
