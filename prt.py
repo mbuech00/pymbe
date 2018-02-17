@@ -177,8 +177,12 @@ class PrintCls():
 				max_val = _exp.energy['inc'][_exp.order-_exp.start_order][max_idx]
 				# core and cas regions
 				core, cas = _kernel.core_cas(_mol, _exp, _exp.tuples[_exp.order-_exp.start_order][max_idx])
-				cas_ref = sorted(list(set(_calc.ref_space.tolist()) - set(core)))
-				cas_exp = sorted(list(set(cas) - set(_calc.ref_space.tolist())))
+				cas_ref = '{0:}'.format(sorted(list(set(_calc.ref_space.tolist()) - set(core))))
+				if (_calc.exp_ref['METHOD'] == 'HF'):
+					cas_exp = '{0:}'.format(sorted(list(set(cas) - set(_calc.ref_space.tolist()))))
+				else:
+					cas_exp = '{0:}'.format(sorted(_exp.tuples[0][0].tolist()))
+					cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(_exp.tuples[0][0].tolist()) - set(_calc.ref_space.tolist()))))
 				# now print
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
@@ -192,7 +196,7 @@ class PrintCls():
 							print(' --------------------------------------------------------------------------------------------')
 							print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
 							print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core))
-							print(' RESULT-'+_exp.level.upper()+':  cas  = {0:} + {1:}'.format(cas_ref, cas_exp))
+							print(' RESULT-'+_exp.level.upper()+':  cas  = '+cas_ref+' + '+cas_exp)
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
@@ -205,7 +209,7 @@ class PrintCls():
 					print(' --------------------------------------------------------------------------------------------')
 					print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
 					print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core))
-					print(' RESULT-'+_exp.level.upper()+':  cas  = {0:} + {1:}'.format(cas_ref, cas_exp))
+					print(' RESULT-'+_exp.level.upper()+':  cas  = '+cas_ref+' + '+cas_exp)
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
