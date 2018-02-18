@@ -59,7 +59,7 @@ class KernCls():
 				_calc.occup = hf.mo_occ
 				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
-				return hf, hf.mo_coeff
+				return hf, np.asarray(hf.mo_coeff, order='C')
 
 
 		def dim(self, _hf, _ncore, _type):
@@ -84,7 +84,7 @@ class KernCls():
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# no active space
-					_calc.no_act = _calc.ne_act = None
+					no_act = ne_act = None
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# active electrons
