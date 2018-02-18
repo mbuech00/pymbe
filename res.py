@@ -35,7 +35,7 @@ class ResCls():
 		def __init__(self, _mpi, _mol, _calc, _out):
 				""" init parameters """
 				self.out_dir = _out.out_dir
-				self.output = self.out_dir+'/bg_results.out'
+				self.output = self.out_dir+'/results.out'
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
 				self.fill_str = '{0:^143}'.format('|'*137)
@@ -107,7 +107,7 @@ class ResCls():
 				# results
 				self.results(_mpi, _mol, _calc, _exp)
 				# plot total energy
-				self.abs_energy(_calc, _exp)
+				self.energy(_calc, _exp)
 				# plot distributions of energy increments
 #				self.dist_energy(_calc, _exp)
 				#
@@ -195,7 +195,7 @@ class ResCls():
 				return
 	
 	
-		def abs_energy(self, _calc, _exp):
+		def energy(self, _calc, _exp):
 				""" plot absolute energy """
 				# set seaborn
 				sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
@@ -222,7 +222,7 @@ class ResCls():
 				# tight layout
 				plt.tight_layout()
 				# save plot
-				plt.savefig(self.out_dir+'/abs_energy_plot.pdf',
+				plt.savefig(self.out_dir+'/energy.pdf',
 							bbox_inches = 'tight', dpi=1000)
 				#
 				return

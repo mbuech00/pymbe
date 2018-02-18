@@ -21,8 +21,8 @@ class PrintCls():
 		""" print functions """
 		def __init__(self, _out):
 				""" init parameters """
-				self.out = _out.out_dir+'/bg_output.out'
-				self.res = _out.out_dir+'/bg_results.out'
+				self.out = _out.out_dir+'/output.out'
+				self.res = _out.out_dir+'/results.out'
 				# summary constants
 				self.header_str = '{0:^93}'.format('-'*45)
 				# print main header
