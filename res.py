@@ -151,15 +151,15 @@ class ResCls():
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
 									'','|','','expansion base','','=','',self.exp_base,\
-									'','|','','final total energy','','=','',\
+									'','|','','final MBE energy','','=','',\
 									_exp.energy['tot'][-1]+_calc.energy['hf']+_calc.energy['base']))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.3e}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','expansion type','','=','',_calc.exp_type,\
-									'','|','','final corr. energy','','=','',_exp.energy['tot'][-1]))
+									'','|','','correlation energy','','=','',_exp.energy['tot'][-1]))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
+							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.3e}').\
 								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
 									'','|','','thres. / relax.','','=','',self.thres,\
 									'','|','','final abs. conv.','','=','',self.final_conv))
@@ -168,7 +168,7 @@ class ResCls():
 						print(self.divider_str)
 						print(('{0:6}{1:9}{2:2}{3:1}{4:7}{5:18}{6:7}{7:1}'
 							'{8:7}{9:26}{10:6}{11:1}{12:6}{13:}').\
-								format('','MBE order','','|','','total corr. energy',\
+								format('','MBE order','','|','','correlation energy',\
 									'','|','','total time (HHH : MM : SS)',\
 									'','|','','number of calcs. (abs. / %  --  total)'))
 						print(self.divider_str)
