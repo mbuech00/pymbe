@@ -137,7 +137,7 @@ class MPICls():
 					calc = {'exp_model': _calc.exp_model['METHOD'], 'exp_type': _calc.exp_type, \
 							'exp_ref': _calc.exp_ref['METHOD'], 'exp_base': _calc.exp_base['METHOD'], \
 							'exp_thres': _calc.exp_thres, 'exp_relax': _calc.exp_relax, \
-							'tolerance': _calc.tolerance, 'exp_max_order': _calc.exp_max_order, \
+							'wfnsym': _calc.wfnsym, 'exp_max_order': _calc.exp_max_order, \
 							'exp_occ': _calc.exp_occ, 'exp_virt': _calc.exp_virt}
 					self.global_comm.bcast(calc, root=0)
 				else:
@@ -146,7 +146,7 @@ class MPICls():
 					_calc.exp_model = {'METHOD': calc['exp_model']}; _calc.exp_type = calc['exp_type']
 					_calc.exp_ref = {'METHOD': calc['exp_ref']}; _calc.exp_base = {'METHOD': calc['exp_base']}
 					_calc.exp_thres = calc['exp_thres']; _calc.exp_relax = calc['exp_relax']
-					_calc.tolerance = calc['tolerance']; _calc.exp_max_order = calc['exp_max_order']
+					_calc.wfnsym = calc['wfnsym']; _calc.exp_max_order = calc['exp_max_order']
 					_calc.exp_occ = calc['exp_occ']; _calc.exp_virt = calc['exp_virt']
 				#
 				return

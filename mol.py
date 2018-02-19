@@ -53,7 +53,7 @@ class MolCls(gto.Mole):
 				""" build Mole object """
 				if (_mpi.global_master):
 					try:
-						self.build(0, 0)
+						self.build(dump_input=False, parse_arg=False)
 					except RuntimeWarning as err:
 						try:
 							raise RuntimeError

@@ -16,6 +16,7 @@ import sys
 from contextlib import redirect_stdout
 import numpy as np
 from itertools import cycle
+from pyscf import symm
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import rcParams
@@ -154,13 +155,13 @@ class ResCls():
 									'','|','','final MBE energy','','=','',\
 									_exp.energy['tot'][-1]+_calc.energy['hf']+_calc.energy['base']))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.3e}').\
+							'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
 									'','|','','expansion type','','=','',_calc.exp_type,\
-									'','|','','correlation energy','','=','',_exp.energy['tot'][-1]))
+									'','|','','wave funct. symmetry','','=','',symm.addons.irrep_id2name(_mol.symmetry, _calc.wfnsym)))
 						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.3e}').\
-								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
+								format('','point group','','=','',_mol.symmetry,\
 									'','|','','thres. / relax.','','=','',self.thres,\
 									'','|','','final abs. conv.','','=','',self.final_conv))
 						print(self.divider_str)

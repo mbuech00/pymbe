@@ -228,6 +228,7 @@ class KernCls():
 					elif (_method == 'SCI'):
 						cas.fcisolver = fci.select_ci_symm.SCI(_mol)
 				cas.fcisolver.conv_tol = 1.0e-10
+				cas.fcisolver.wfnsym = _calc.wfnsym
 				cas.conv_tol = 1.0e-10
 				cas.max_stepsize = .01
 				cas.max_cycle_micro = 1
@@ -288,11 +289,6 @@ class KernCls():
 				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
 				# electrons
 				nelec = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
-				# initial guess
-				na = fci.cistring.num_strings(len(_exp.cas_idx), nelec[0])
-				nb = fci.cistring.num_strings(len(_exp.cas_idx), nelec[1])
-				hf_as_civec = np.zeros((na, nb))
-				hf_as_civec[0, 0] = 1
 				# orbital symmetry
 				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
 				# fix spin if non-singlet
@@ -301,7 +297,7 @@ class KernCls():
 					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 				# perform calc
 				try:
-					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, ci0=hf_as_civec)
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, wfnsym=_calc.wfnsym)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nFCI Error :\n'
@@ -351,10 +347,6 @@ class KernCls():
 				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
 				# electrons
 				nelec = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
-				# initial guess
-				ci_strs = (np.asarray([int('1'*nelec[0], 2)]), np.asarray([int('1'*nelec[1], 2)]))
-				hf_as_scivec = fci.select_ci._as_SCIvector(np.ones((1,1)), ci_strs)
-				hf_as_scivec = solver.enlarge_space(hf_as_scivec, h2e, len(_exp.cas_idx), nelec)
 				# orbital symmetry
 				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
 				# fix spin if non-singlet
@@ -363,7 +355,7 @@ class KernCls():
 					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 				# calculate sci energy
 				try:
-					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, ci0=hf_as_scivec)
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, wfnsym=_calc.wfnsym)
 				except Exception as err:
 					try:
 						raise RuntimeError(('\nSCI Error :\n'

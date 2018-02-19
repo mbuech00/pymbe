@@ -15,7 +15,7 @@ __status__ = 'Development'
 from os.path import isfile
 import re
 import sys
-
+from pyscf import symm
 
 class CalcCls():
 		""" calculation class """
@@ -28,18 +28,19 @@ class CalcCls():
 				self.exp_base = {'METHOD': None}
 				self.exp_thres = 1.0e-10
 				self.exp_relax = 1.0
+				self.wfnsym = symm.addons.irrep_id2name(_mol.symmetry, 0)
 				self.exp_max_order = 1000000
 				self.exp_occ = 'REF'
 				self.exp_virt = 'REF'
-				self.tolerance = 0.0
 				# init energy dict and mo
 				self.energy = {}
 				self.mo = None
 				# set calculation parameters
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
-						self.exp_thres, self.exp_max_order, self.exp_occ, self.exp_virt, \
-						self.exp_relax, self.tolerance, \
+						self.exp_thres, self.exp_relax, \
+						self.wfnsym, self.exp_max_order, \
+						self.exp_occ, self.exp_virt, \
 						_mol.max_memory, _mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
@@ -69,16 +70,16 @@ class CalcCls():
 								self.exp_base = self.upper(self.exp_base)
 							elif (re.split('=',content[i])[0].strip() == 'thres'):
 								self.exp_thres = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'relax'):
+								self.exp_relax = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'wfnsym'):
+								self.wfnsym = symm.addons.std_symb(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'max_order'):
 								self.exp_max_order = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'occ'):
 								self.exp_occ = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'virt'):
 								self.exp_virt = re.split('=',content[i])[1].strip().upper()
-							elif (re.split('=',content[i])[0].strip() == 'relax'):
-								self.exp_relax = float(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'tolerance'):
-								self.tolerance = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'mem'):
 								_mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'num_local_masters'):
@@ -97,9 +98,10 @@ class CalcCls():
 					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
-				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, self.exp_thres, \
-							self.exp_max_order, self.exp_occ, self.exp_virt, self.exp_relax, \
-							self.tolerance, _mol.max_memory, _mpi.num_local_masters
+				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
+							self.exp_thres, self.exp_relax, self.wfnsym, \
+							self.exp_max_order, self.exp_occ, self.exp_virt, \
+							_mol.max_memory, _mpi.num_local_masters
 
 
 		def sanity_chk(self, _mpi, _rst, _mol):
@@ -140,6 +142,11 @@ class CalcCls():
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
 										'expansion order (must be integer >= 1)')
+					# wfnsym
+					try:
+						self.wfnsym = symm.addons.irrep_name2id(_mol.symmetry, self.wfnsym)
+					except Exception as err_2:
+						raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
 					# expansion and convergence thresholds
 					if (self.exp_thres < 0.0):
 						raise ValueError('wrong input -- expansion threshold parameter ' + \

@@ -39,11 +39,8 @@ class InitCls():
 				self.out = OutCls(self.mpi)
 				# restart instantiation
 				self.rst = RstCls(self.out, self.mpi)
-				# molecule and calculation instantiations
+				# molecule instantiation
 				self.mol = MolCls(self.mpi, self.rst)
-				self.calc = CalcCls(self.mpi, self.rst, self.mol)
-				# kernel instantiation
-				self.kernel = KernCls()
 				# build and communicate molecule
 				if (self.mpi.global_master):
 					self.mol.make(self.mpi, self.rst)
@@ -51,8 +48,10 @@ class InitCls():
 				else:
 					self.mpi.bcast_mol_info(self.mol)
 					self.mol.make(self.mpi, self.rst)
-					# get hcore and eri
-					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
+				# calculation instantiation
+				self.calc = CalcCls(self.mpi, self.rst, self.mol)
+				# kernel instantiation
+				self.kernel = KernCls()
 				# set core region
 				self.mol.ncore = self.mol.set_ncore()
 				# communicate calc info 
@@ -79,6 +78,9 @@ class InitCls():
 						self.exp.level = 'macro'
 					# base energy and transformation matrix
 					self.calc.energy['base'], self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp)
+				else:
+					# get hcore and eri
+					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
 				# bcast hf and transformation info
 				if (self.mpi.parallel):
 					self.mpi.bcast_hf_ref_info(self.mol, self.calc)
