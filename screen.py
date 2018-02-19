@@ -62,9 +62,10 @@ class ScrCls():
 							# generate list with all subsets of particular tuple
 							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1)))
 							# select only those combinations that include the active orbitals
-							cond = np.zeros(len(combs), dtype=bool)
-							for j in range(len(combs)): cond[j] = set(_exp.tuples[0][0]) <= set(combs[j])
-							combs = combs[cond]
+							if (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+								cond = np.zeros(len(combs), dtype=bool)
+								for j in range(len(combs)): cond[j] = set(_exp.tuples[0][0]) <= set(combs[j])
+								combs = combs[cond]
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.tuples[-1][i][-1]+1, _calc.exp_space[-1]+1):
 								# init screening logical
@@ -187,9 +188,10 @@ class ScrCls():
 							# generate list with all subsets of particular tuple
 							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1)))
 							# select only those combinations that include the active orbitals
-							cond = np.zeros(len(combs), dtype=bool)
-							for j in range(len(combs)): cond[j] = set(_exp.tuples[0][0]) <= set(combs[j])
-							combs = combs[cond]
+							if (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+								cond = np.zeros(len(combs), dtype=bool)
+								for j in range(len(combs)): cond[j] = set(_exp.tuples[0][0]) <= set(combs[j])
+								combs = combs[cond]
 							# loop through possible orbitals to augment the combinations with
 							for m in range(_exp.tuples[-1][job_info['index']][-1]+1, _calc.exp_space[-1]+1):
 								# init screening logical
