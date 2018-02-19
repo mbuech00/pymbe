@@ -59,7 +59,7 @@ class MolCls(gto.Mole):
 							raise RuntimeError
 						except RuntimeError:
 							_rst.rm_rst()
-							sys.stderr.write('\nValueError: non-sensible input in bg-mol.inp\n'
+							sys.stderr.write('\nValueError: non-sensible input in mol.inp\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
 				else:
@@ -69,10 +69,10 @@ class MolCls(gto.Mole):
 
 
 		def set_geo(self, _rst):
-				""" set geometry from bg-geo.inp file """
+				""" set geometry from geo.inp file """
 				# read input file
 				try:
-					with open('bg-geo.inp') as f:
+					with open('geo.inp') as f:
 						content = f.readlines()
 						atom = ''
 						for i in range(len(content)):
@@ -82,17 +82,17 @@ class MolCls(gto.Mole):
 								atom += content[i]
 				except IOError:
 					_rst.rm_rst()
-					sys.stderr.write('\nIOError: bg-geo.inp not found\n\n')
+					sys.stderr.write('\nIOError: geo.inp not found\n\n')
 					raise
 				#
 				return atom
 
 
 		def set_mol(self, _rst):
-				""" set molecular parameters from bg-mol.inp file """
+				""" set molecular parameters from mol.inp file """
 				# read input file
 				try:
-					with open('bg-mol.inp') as f:
+					with open('mol.inp') as f:
 						content = f.readlines()
 						for i in range(len(content)):
 							if (content[i].split()[0][0] == '#'):
@@ -117,14 +117,14 @@ class MolCls(gto.Mole):
 							else:
 								try:
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
-													' keyword in bg-mol.inp not recognized')
+													' keyword in mol.inp not recognized')
 								except Exception as err:
 									_rst.rm_rst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
 					_rst.rm_rst()
-					sys.stderr.write('\nIOError: bg-mol.inp not found\n\n')
+					sys.stderr.write('\nIOError: mol.inp not found\n\n')
 					raise
 				#
 				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \

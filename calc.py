@@ -48,10 +48,10 @@ class CalcCls():
 
 
 		def set_calc(self, _mpi, _rst, _mol):
-				""" set calculation and mpi parameters from bg-calc.inp file """
+				""" set calculation and mpi parameters from calc.inp file """
 				# read input file
 				try:
-					with open('bg-calc.inp') as f:
+					with open('calc.inp') as f:
 						content = f.readlines()
 						for i in range(len(content)):
 							if (content[i].split()[0][0] == '#'):
@@ -87,14 +87,14 @@ class CalcCls():
 							else:
 								try:
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
-														' keyword in bg-calc.inp not recognized')
+														' keyword in calc.inp not recognized')
 								except Exception as err:
 									_rst.rm_rst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
 					_rst.rm_rst()
-					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
+					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
 				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, self.exp_thres, \
