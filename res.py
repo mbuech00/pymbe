@@ -121,7 +121,7 @@ class ResCls():
 					self.final_conv = 0.0
 				else:
 					self.final_conv = np.abs(_exp.energy['tot'][-1] - _exp.energy['tot'][-2])
-				# write summary to bg_results.out
+				# write summary to results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
 						print('\n\n'+self.header_str)

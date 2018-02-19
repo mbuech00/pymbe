@@ -99,7 +99,7 @@ class MBECls():
 					if (len(_exp.time_mbe) < _exp.order): _exp.time_mbe.append(0.0)
 				# micro driver instantiation
 				if (_exp.level == 'macro'):
-					drv_micro = bg_drv.DrvCls(_mol, 'virtual') 
+					drv_micro = drv.DrvCls(_mol, 'virtual') 
 				# determine start index
 				start = np.argmax(_exp.energy['inc'][-1] == 0.0)
 				# loop over tuples
@@ -280,7 +280,7 @@ class MBECls():
 				if (_exp.level == 'macro'):
 					comm = _mpi.master_comm
 					# micro driver instantiation
-					drv_micro = bg_drv.DrvCls(_mol, 'virtual') 
+					drv_micro = drv.DrvCls(_mol, 'virtual') 
 				else:
 					comm = _mpi.local_comm
 				# init energies

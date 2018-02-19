@@ -24,22 +24,22 @@ from init import InitCls
 def main():
 		""" main program """
 		# initialize the calculation
-		bg = InitCls()
+		pymbe = InitCls()
 		# now branch
-		if (not bg.mpi.global_master):
-			if (bg.mpi.local_master):
+		if (not pymbe.mpi.global_master):
+			if (pymbe.mpi.local_master):
 				# proceed to local master driver
-				bg.drv.local_master(bg.mpi, bg.mol, bg.calc, bg.kernel, bg.rst)
+				pymbe.drv.local_master(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.kernel, pymbe.rst)
 			else:
 				# proceed to slave driver
-				bg.drv.slave(bg.mpi, bg.mol, bg.calc, bg.kernel)
+				pymbe.drv.slave(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.kernel)
 		else:
 			# proceed to main driver
-			bg.drv.main(bg.mpi, bg.mol, bg.calc, bg.kernel, bg.exp, bg.prt, bg.rst)
+			pymbe.drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.kernel, pymbe.exp, pymbe.prt, pymbe.rst)
 			# print summary and plot results
-			bg.res.main(bg.mpi, bg.mol, bg.calc, bg.exp)
+			pymbe.res.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
 			# finalize
-			bg.mpi.final(bg.rst)
+			pymbe.mpi.final(pymbe.rst)
 
 
 if __name__ == '__main__':
