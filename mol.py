@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_mol.py: molecule class for Bethe-Goldstone correlation calculations."""
+""" mol.py: molecule class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -24,9 +24,11 @@ class MolCls(gto.Mole):
 				""" init parameters """
 				# gto.Mole instantiation
 				gto.Mole.__init__(self)
+				# silence pyscf output
+				self.verbose = 1
 				# set geometric and molecular parameters
 				if (_mpi.global_master):
-					# default C1 HF symmetry
+					# default C1 symmetry
 					self.symmetry = 'C1'
 					# init occupation
 					self.irrep_nelec = {}
@@ -35,29 +37,29 @@ class MolCls(gto.Mole):
 					# init max_memory
 					self.max_memory = None
 					# verbose
-					self.verbose = None
+					self.verbose_prt = False
 					# set geometry
 					self.atom = self.set_geo(_rst)
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose = self.set_mol(_rst)
+						self.basis, self.unit, self.frozen, self.verbose_prt = self.set_mol(_rst)
 					# store symmetry
 					self.comp_symmetry = self.symmetry
 				#
 				return
 
 
-		def make(self, _mpi):
+		def make(self, _mpi, _rst):
 				""" build Mole object """
 				if (_mpi.global_master):
 					try:
-						self.build()
+						self.build(dump_input=False, parse_arg=False)
 					except RuntimeWarning as err:
 						try:
 							raise RuntimeError
 						except RuntimeError:
 							_rst.rm_rst()
-							sys.stderr.write('\nValueError: non-sensible input in bg-mol.inp\n'
+							sys.stderr.write('\nValueError: non-sensible input in mol.inp\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
 				else:
@@ -67,10 +69,10 @@ class MolCls(gto.Mole):
 
 
 		def set_geo(self, _rst):
-				""" set geometry from bg-geo.inp file """
+				""" set geometry from geo.inp file """
 				# read input file
 				try:
-					with open('bg-geo.inp') as f:
+					with open('geo.inp') as f:
 						content = f.readlines()
 						atom = ''
 						for i in range(len(content)):
@@ -80,17 +82,17 @@ class MolCls(gto.Mole):
 								atom += content[i]
 				except IOError:
 					_rst.rm_rst()
-					sys.stderr.write('\nIOError: bg-geo.inp not found\n\n')
+					sys.stderr.write('\nIOError: geo.inp not found\n\n')
 					raise
 				#
 				return atom
 
 
 		def set_mol(self, _rst):
-				""" set molecular parameters from bg-mol.inp file """
+				""" set molecular parameters from mol.inp file """
 				# read input file
 				try:
-					with open('bg-mol.inp') as f:
+					with open('mol.inp') as f:
 						content = f.readlines()
 						for i in range(len(content)):
 							if (content[i].split()[0][0] == '#'):
@@ -110,25 +112,23 @@ class MolCls(gto.Mole):
 							elif (re.split('=',content[i])[0].strip() == 'occ'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
-								self.verbose = int(re.split('=',content[i])[1].strip())
+								self.verbose_prt = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							# error handling
 							else:
 								try:
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
-													' keyword in bg-mol.inp not recognized')
+													' keyword in mol.inp not recognized')
 								except Exception as err:
 									_rst.rm_rst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
 					_rst.rm_rst()
-					sys.stderr.write('\nIOError: bg-mol.inp not found\n\n')
+					sys.stderr.write('\nIOError: mol.inp not found\n\n')
 					raise
-				# silence pyscf output if not given in input
-				if (self.verbose is None): self.verbose = 1
 				#
 				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose
+						self.basis, self.unit, self.frozen, self.verbose_prt
 
 
 		def set_ncore(self):

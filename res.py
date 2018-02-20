@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_res.py: summary print and plotting utilities for Bethe-Goldstone correlation calculations."""
+""" res.py: summary and plotting class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -13,10 +13,10 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import sys
-import numpy as np
 from contextlib import redirect_stdout
 import numpy as np
 from itertools import cycle
+from pyscf import symm
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import rcParams
@@ -24,7 +24,7 @@ rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['DejaVu Sans']
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, FormatStrFormatter
-from mpl_toolkits.axes_grid.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 try:
 	import seaborn as sns
 except ImportError:
@@ -36,7 +36,7 @@ class ResCls():
 		def __init__(self, _mpi, _mol, _calc, _out):
 				""" init parameters """
 				self.out_dir = _out.out_dir
-				self.output = self.out_dir+'/bg_results.out'
+				self.output = self.out_dir+'/results.out'
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
 				self.fill_str = '{0:^143}'.format('|'*137)
@@ -46,22 +46,30 @@ class ResCls():
 					self.u_limit = _mol.nocc - _mol.ncore
 				else:
 					self.u_limit = _mol.nvirt 
+				# modify occ-virt print out
+				self.occ_virt = '{0:} / {1:}'.format(_mol.nocc-_mol.ncore, _mol.nvirt)
 				# modify reference print out
-				if (_calc.exp_ref['METHOD'] == 'CASCI'):
-					self.exp_ref = 'CASCI('+str(_calc.ne_act[0]+_calc.ne_act[1])+','+str(_calc.no_act)+')'
-				else:
+				if (_calc.exp_ref['METHOD'] == 'HF'):
 					if (_mol.spin == 0):
 						self.exp_ref = 'RHF'
 					else:
 						self.exp_ref = 'ROHF'
+				else:
+					self.exp_ref = _calc.exp_ref['METHOD']
 				# modify base print out
-				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
-					self.exp_base = self.exp_ref
+				if (_calc.exp_base['METHOD'] is None):
+					self.exp_base = 'none'
 				else:
 					self.exp_base = _calc.exp_base['METHOD']
+				# modify active space print out
+				if (_calc.exp_ref['METHOD'] == 'HF'):
+					self.active = 'none'
+				else:
+					self.active = '{0:} e / {1:} o'.format(_calc.exp_ref['NELEC'][0]+_calc.exp_ref['NELEC'][1], \
+															len(_calc.exp_ref['ACTIVE']))
 				# modify orbital print out
-				if (_calc.exp_occ == 'CAN'):
-					self.exp_occ = 'canonical'
+				if (_calc.exp_occ == 'REF'):
+					self.exp_occ = 'reference'
 				elif (_calc.exp_occ == 'NO'):
 					self.exp_occ = 'natural'
 				elif (_calc.exp_occ == 'PM'):
@@ -72,8 +80,8 @@ class ResCls():
 					self.exp_occ = 'intrin. bond'
 				elif (_calc.exp_occ == 'IBO-2'):
 					self.exp_occ = 'intrin. bond'
-				if (_calc.exp_virt == 'CAN'):
-					self.exp_virt = 'canonical'
+				if (_calc.exp_virt == 'REF'):
+					self.exp_virt = 'reference'
 				elif (_calc.exp_virt == 'NO'):
 					self.exp_virt = 'natural'
 				elif (_calc.exp_virt == 'PM'):
@@ -87,30 +95,34 @@ class ResCls():
 					self.frozen = 'true'
 				else:
 					self.frozen = 'false'
+				# modify mpi print out
+				self.mpi = '{0:} / {1:}'.format(_mpi.num_local_masters+1, _mpi.global_size-(_mpi.num_local_masters+1))
+				# modify threshold print out
+				self.thres = '{0:.0e} / {1:.0f}'.format(_calc.exp_thres, _calc.exp_relax)
 				#
 				return
 
 
 		def main(self, _mpi, _mol, _calc, _exp):
 				""" main driver for summary printing and plotting """
-				# determine base model energy
-				if (_calc.exp_ref['METHOD'] == _calc.exp_base['METHOD']):
-					self.exp_base_energy = _calc.ref_e_tot
-				else:
-					self.exp_base_energy = _calc.hf_e_tot + _calc.e_zero
 				# results
 				self.results(_mpi, _mol, _calc, _exp)
 				# plot total energy
-				self.abs_energy(_calc, _exp)
+				self.energy(_calc, _exp)
 				# plot distributions of energy increments
-				self.dist_energy(_calc, _exp)
+#				self.dist_energy(_calc, _exp)
 				#
 				return
 
 
 		def results(self, _mpi, _mol, _calc, _exp):
 				""" print results """
-				# write summary to bg_results.out
+				# modify final convergence print out
+				if (len(_exp.energy['tot']) == 1):
+					self.final_conv = 0.0
+				else:
+					self.final_conv = np.abs(_exp.energy['tot'][-1] - _exp.energy['tot'][-2])
+				# write summary to results.out
 				with open(self.output,'a') as f:
 					with redirect_stdout(f):
 						print('\n\n'+self.header_str)
@@ -121,80 +133,78 @@ class ResCls():
 								format('','molecular information','','|','',\
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:15}{10:5}{11:1}'
-							'{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:21}{18:2}{19:1}{20:2}{21:<2d}{22:^3}{23:<d}').\
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
 								format('','basis set','','=','',_mol.basis,\
 									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
-									'','|','','# mpi masters / slaves','','=','',\
-									_mpi.num_local_masters + 1,'/',_mpi.global_size - (_mpi.num_local_masters + 1)))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:18}{10:2}{11:1}'
-							'{12:2}{13:<12s}{14:1}{15:1}{16:7}{17:10}{18:14}{19:1}{20:1}{21:.6f}').\
+									'','|','','mpi masters / slaves','','=','',self.mpi))
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
-									'','|','','reference function','','=','',self.exp_ref,\
-									'','|','','HF energy','','=','',_calc.hf_e_tot))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<2d}{6:^3}{7:<4d}{8:6}{9:1}{10:8}{11:15}{12:5}'
-							'{13:1}{14:2}{15:<12s}{16:1}{17:1}{18:7}{19:18}{20:6}{21:1}{22:1}{23:.6f}').\
-								format('','# occ. / virt.','','=','',_mol.nocc-_mol.ncore,'/',_mol.nvirt,\
-									'','|','','expansion base','','=','',self.exp_base,\
-									'','|','','reference energy','','=','',_calc.ref_e_tot))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:15}{10:5}'
-							'{11:1}{12:2}{13:<11s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+									'','|','','reference funct.','','=','',self.exp_ref,\
+									'','|','','Hartree-Fock energy','','=','',_calc.energy['hf']))
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+								format('','occ. / virt.','','=','',self.occ_virt,\
+									'','|','','active space','','=','',self.active,\
+									'','|','','base model energy','','=','',_calc.energy['hf']+_calc.energy['base']))
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','orbs. (occ.)','','=','',self.exp_occ,\
-									'','|','','expansion type','','=','',_calc.exp_type,\
-									'','|','','base model energy','','=','',self.exp_base_energy))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:15}{10:5}{11:1}{12:2}'
-							'{13:<5.2e}{14:5}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+									'','|','','expansion base','','=','',self.exp_base,\
+									'','|','','final MBE energy','','=','',\
+									_exp.energy['tot'][-1]+_calc.energy['hf']+_calc.energy['base']))
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
 								format('','orbs. (virt.)','','=','',self.exp_virt,\
-									'','|','','initial thres.','','=','',_calc.exp_thres,\
-									'','|','','final total energy','','=','',\
-									_calc.hf_e_tot + _exp.energy_tot[-1] + _calc.e_zero))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:18}{10:2}{11:1}{12:2}'
-							'{13:<5.2f}{14:8}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.2e}').\
-								format('','comp. symmetry','','=','',_mol.comp_symmetry,\
-									'','|','','thres. relaxation','','=','',_calc.exp_relax,\
-									'','|','','final abs. conv.','','=','',\
-									np.abs(_exp.energy_tot[-1] - _exp.energy_tot[-2])))
+									'','|','','expansion type','','=','',_calc.exp_type,\
+									'','|','','wave funct. symmetry','','=','',symm.addons.irrep_id2name(_mol.symmetry, _calc.wfnsym)))
+						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.3e}').\
+								format('','point group','','=','',_mol.symmetry,\
+									'','|','','thres. / relax.','','=','',self.thres,\
+									'','|','','final abs. conv.','','=','',self.final_conv))
 						print(self.divider_str)
 						print(self.fill_str)
 						print(self.divider_str)
 						print(('{0:6}{1:9}{2:2}{3:1}{4:7}{5:18}{6:7}{7:1}'
 							'{8:7}{9:26}{10:6}{11:1}{12:6}{13:}').\
-								format('','MBE order','','|','','total corr. energy',\
+								format('','MBE order','','|','','correlation energy',\
 									'','|','','total time (HHH : MM : SS)',\
 									'','|','','number of calcs. (abs. / %  --  total)'))
 						print(self.divider_str)
 						# loop over orders
 						total_tup = 0
-						for i in range(len(_exp.energy_tot)):
-							if ((_exp.energy_tot[i] != 0.0) or (_calc.exp_ref['METHOD'] == 'HF')):
-								# sum up total time and number of tuples
-								total_time = np.sum(_exp.time_kernel[:i+1])\
-												+np.sum(_exp.time_screen[:i+1])
-								total_tup += len(_exp.tuples[i])
-								print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
-									'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
-										format('',i+len(_exp.tuples[0][0]),'','|','',_exp.energy_tot[i]+_calc.e_zero,\
-											'','|','',int(total_time//3600),':',\
-											int((total_time-(total_time//3600)*3600.)//60),':',\
-											int(total_time-(total_time//3600)*3600.\
-											-((total_time-(total_time//3600)*3600.)//60)*60.),\
-											'','|','',len(_exp.tuples[i]),'/',\
-											(float(len(_exp.tuples[i])) / \
-											float(_exp.theo_work[i]))*100.00,'--',total_tup))
+						for i in range(len(_exp.energy['tot'])):
+							# sum up total time and number of tuples
+							total_time = np.sum(_exp.time_mbe[:i+1])\
+											+np.sum(_exp.time_screen[:i+1])
+							total_tup += len(_exp.tuples[i])
+							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
+								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
+									format('',i+_exp.start_order,'','|','',\
+										_exp.energy['tot'][i]+_calc.energy['base'],\
+										'','|','',int(total_time//3600),':',\
+										int((total_time-(total_time//3600)*3600.)//60),':',\
+										int(total_time-(total_time//3600)*3600.\
+										-((total_time-(total_time//3600)*3600.)//60)*60.),\
+										'','|','',len(_exp.tuples[i]),'/',\
+										(float(len(_exp.tuples[i])) / \
+										float(_exp.theo_work[i]))*100.00,'--',total_tup))
 						print(self.divider_str+'\n\n')
 				#
 				return
 	
 	
-		def abs_energy(self, _calc, _exp):
+		def energy(self, _calc, _exp):
 				""" plot absolute energy """
 				# set seaborn
 				sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 				# set 1 plot
 				fig, ax = plt.subplots()
 				# plot results
-				ax.plot(list(range(len(_exp.tuples[0][0]),len(_exp.energy_tot)+len(_exp.tuples[0][0]))),
-						_exp.energy_tot+_calc.e_zero, marker='x', linewidth=2,
+				ax.plot(list(range(_exp.start_order, len(_exp.energy['tot'])+_exp.start_order)), \
+						_exp.energy['tot']+_calc.energy['base'], marker='x', linewidth=2, \
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
 				ax.set_xlim([0.5, self.u_limit + 0.5])
@@ -213,7 +223,7 @@ class ResCls():
 				# tight layout
 				plt.tight_layout()
 				# save plot
-				plt.savefig(self.out_dir+'/abs_energy_plot.pdf',
+				plt.savefig(self.out_dir+'/energy.pdf',
 							bbox_inches = 'tight', dpi=1000)
 				#
 				return
@@ -224,8 +234,8 @@ class ResCls():
 				# set seaborn
 				sns.set(style='white', palette='Set2', font='DejaVu Sans')
 				# set end index
-				end = len(_exp.energy_inc)
-				if (len(_exp.energy_inc[-1]) == 1): end -= 1
+				end = len(_exp.energy['inc'])
+				if (len(_exp.energy['inc'][-1]) == 1): end -= 1
 				# set number of subplots
 				h_length = end // 2
 				if (end % 2 != 0): h_length += 1
@@ -244,13 +254,13 @@ class ResCls():
 							thres = _calc.exp_thres * _calc.exp_relax ** (i-1)
 							ax.flat[i].axvspan(0.0-thres, 0.0+thres, facecolor='yellow', alpha=0.4)
 					# plot data
-					sns.distplot(_exp.energy_inc[i], hist=False, color='red', \
+					sns.distplot(_exp.energy['inc'][i], hist=False, color='red', \
 									kde_kws={'shade': True}, ax=ax.flat[i])
 					# set title
-					ax.flat[i].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+len(_exp.tuples[0][0]), len(_exp.energy_inc[i]), \
-																							np.sum(_exp.energy_inc[i])), size=10)
+					ax.flat[i].set_title('k = {0:} | N = {1:} | E = {2:.1e}'.format(i+1, len(_exp.energy['inc'][i]), \
+																							np.sum(_exp.energy['inc'][i])), size=10)
 					# val_max
-					val_max = _exp.energy_inc[i][np.argmax(np.abs(_exp.energy_inc[i]))]
+					val_max = _exp.energy['inc'][i][np.argmax(np.abs(_exp.energy['inc'][i]))]
 					# format x-axis
 					ax.flat[i].set_xticks([0.0,val_max])
 					ax.flat[i].set_xticklabels(['0.0', '{0:.1e}'.format(val_max)])

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_prt.py: general print utilities for Bethe-Goldstone correlation calculations."""
+""" prt.py: print class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -21,8 +21,8 @@ class PrintCls():
 		""" print functions """
 		def __init__(self, _out):
 				""" init parameters """
-				self.out = _out.out_dir+'/bg_output.out'
-				self.res = _out.out_dir+'/bg_results.out'
+				self.out = _out.out_dir+'/output.out'
+				self.res = _out.out_dir+'/results.out'
 				# summary constants
 				self.header_str = '{0:^93}'.format('-'*45)
 				# print main header
@@ -38,21 +38,15 @@ class PrintCls():
 						with redirect_stdout(f):
 							print('')
 							print('')
-							print("   oooooooooo.                .   oooo")
-							print("   `888'   `Y8b             .o8   `888")
-							print("    888     888  .ooooo.  .o888oo  888 .oo.    .ooooo.")
-							print("    888oooo888' d88' `88b   888    888P'Y88b  d88' `88b")
-							print("    888    `88b 888ooo888   888    888   888  888ooo888  888888")
-							print("    888    .88P 888    .o   888 .  888   888  888    .o")
-							print("   o888bood8P'  `Y8bod8P'   '888' o888o o888o `Y8bod8P'")
-							print('')
-							print("     .oooooo.              oooo        .o8               .")
-							print("    d8P'  `Y8b             `888       '888             .o8")
-							print("   888            .ooooo.   888   .oooo888   .oooo.o .o888oo  .ooooo.  ooo. .oo.    .ooooo.")
-							print("   888           d88' `88b  888  d88' `888  d88(  '8   888   d88' `88b `888P'Y88b  d88' `88b")
-							print("   888     ooooo 888   888  888  888   888  `'Y88b.    888   888   888  888   888  888ooo888")
-							print("   `88.    .88'  888   888  888  888   888  o.  )88b   888 . 888   888  888   888  888    .o")
-							print("    `Y8bood8P'   `Y8bod8P' o888o `Y8bod88P' `Y8888P'   '888' `Y8bod8P' o888o o888o `Y8bod8P'")
+							print("   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo")
+							print("   `888   `Y88.             `88.       .888' `888'   `Y8b `888'     `8")
+							print("    888   .d88' oooo    ooo  888b     d'888   888     888  888")
+							print("    888ooo88P'   `88.  .8'   8 Y88. .P  888   888oooo888'  888oooo8")
+							print("    888           `88..8'    8  `888'   888   888    `88b  888    \"")
+							print("    888            `888'     8    Y     888   888    .88P  888       o")
+							print("   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8")
+							print("                .o..P'")
+							print("                `Y8P'")
 							print('')
 							print('')
 							print('   --- an incremental Python-based electronic structure correlation program written by:')
@@ -86,24 +80,24 @@ class PrintCls():
 				return
 		
 		
-		def kernel_header(self, _calc, _exp):
-				""" print energy kernel header """
+		def mbe_header(self, _calc, _exp):
+				""" print mbe header """
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-								format(_exp.order,len(_exp.tuples[(_exp.order-(len(_exp.tuples[0][0])-1))-1])))
+						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
+								format(_exp.order,len(_exp.tuples[_exp.order-_exp.start_order])))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} energy kernel started  ---  {1:d} tuples in total'.\
-						format(_exp.order,len(_exp.tuples[(_exp.order-(len(_exp.tuples[0][0])-1))-1])))
+				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
+						format(_exp.order,len(_exp.tuples[_exp.order-_exp.start_order])))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 
 		
-		def kernel_status(self, _calc, _exp, _prog):
+		def mbe_status(self, _calc, _exp, _prog):
 				""" print status bar """
 				bar_length = 50
 				status = ""
@@ -114,46 +108,36 @@ class PrintCls():
 				return
 	
 	
-		def kernel_end(self, _calc, _exp):
-				""" print end of kernel """
+		def mbe_end(self, _calc, _exp):
+				""" print end of mbe """
+				if (_exp.order == _exp.start_order):
+					thres = 0.0
+				else:
+					thres = _exp.thres
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
-						if (_exp.conv_energy[-1]):
-							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_exp.thres))
-							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
-							print(' --------------------------------------------------------------------------------------------')
-						else:
-							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-									format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_exp.thres))
-							print(' --------------------------------------------------------------------------------------------')
+						print(' --------------------------------------------------------------------------------------------')
+						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+								format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-_exp.start_order]),thres))
+						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
-				if (_exp.conv_energy[-1]):
-					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, threshold = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_exp.thres))
-					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
-					print(' --------------------------------------------------------------------------------------------')
-				else:
-					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} kernel done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-							format(_exp.order,np.sum(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]),_exp.thres))
-					print(' --------------------------------------------------------------------------------------------')
+				print(' --------------------------------------------------------------------------------------------')
+				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
+						format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-_exp.start_order]),thres))
+				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
 
 
-		def kernel_micro_results(self, _calc, _exp):	
+		def mbe_micro_results(self, _calc, _exp):	
 				""" print micro result statistics """
 				if ((_calc.exp_type == 'combined') and (_exp.level == 'macro')):
 					# statistics
-					mean_val = np.mean(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1])
-					min_val = _exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1][np.argmin(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1])]
-					max_val = _exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1][np.argmax(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1])]
-					if (len(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1]) > 1):
-						std_val = np.std(_exp.micro_conv[(_exp.order-(len(_exp.tuples[0][0])-1))-1], ddof=1)
+					mean_val = np.mean(_exp.micro_conv[_exp.order-_exp.start_order])
+					min_val = _exp.micro_conv[_exp.order-_exp.start_order][np.argmin(_exp.micro_conv[_exp.order-_exp.start_order])]
+					max_val = _exp.micro_conv[_exp.order-_exp.start_order][np.argmax(_exp.micro_conv[_exp.order-_exp.start_order])]
+					if (len(_exp.micro_conv[_exp.order-_exp.start_order]) > 1):
+						std_val = np.std(_exp.micro_conv[_exp.order-_exp.start_order], ddof=1)
 					else:
 						std_val = 0.0
 					# now print
@@ -177,31 +161,49 @@ class PrintCls():
 				return
 
 	
-		def kernel_results(self, _calc, _exp):
-				""" print kernel result statistics """
+		def mbe_results(self, _mol, _calc, _exp, _kernel):
+				""" print mbe result statistics """
 				# statistics
-				mean_val = np.mean(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1])
-				min_val = _exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1][np.argmin(np.abs(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]))]
-				max_val = _exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1][np.argmax(np.abs(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]))]
-				if (len(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1]) > 1):
-					std_val = np.std(_exp.energy_inc[(_exp.order-(len(_exp.tuples[0][0])-1))-1], ddof=1)
+				mean_val = np.mean(_exp.energy['inc'][_exp.order-_exp.start_order])
+				min_idx = np.argmin(np.abs(_exp.energy['inc'][_exp.order-_exp.start_order]))
+				min_val = _exp.energy['inc'][_exp.order-_exp.start_order][min_idx]
+				max_idx = np.argmax(np.abs(_exp.energy['inc'][_exp.order-_exp.start_order]))
+				max_val = _exp.energy['inc'][_exp.order-_exp.start_order][max_idx]
+				# core and cas regions
+				core, cas = _kernel.core_cas(_mol, _exp, _exp.tuples[_exp.order-_exp.start_order][max_idx])
+				cas_ref = '{0:}'.format(sorted(list(set(_calc.ref_space.tolist()) - set(core))))
+				if (_calc.exp_ref['METHOD'] == 'HF'):
+					cas_exp = '{0:}'.format(sorted(list(set(cas) - set(_calc.ref_space.tolist()))))
 				else:
-					std_val = 0.0
+					cas_exp = '{0:}'.format(sorted(_exp.tuples[0][0].tolist()))
+					cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(_exp.tuples[0][0].tolist()) - set(_calc.ref_space.tolist()))))
 				# now print
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' RESULT-'+_exp.level.upper()+':     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
+						print(' RESULT-'+_exp.level.upper()+':      mean increment     |    min. abs. increment   |    max. abs. increment')
 						print(' --------------------------------------------------------------------------------------------')
-						print(' RESULT-'+_exp.level.upper()+':  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-								format(mean_val, min_val, max_val, std_val))
+						print(' RESULT-'+_exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
+								format(mean_val, min_val, max_val))
+						# debug print
+						if (_mol.verbose_prt):
+							print(' --------------------------------------------------------------------------------------------')
+							print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
+							print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core))
+							print(' RESULT-'+_exp.level.upper()+':  cas  = '+cas_ref+' + '+cas_exp)
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT-'+_exp.level.upper()+':     mean cont.    |   min. abs. cont.   |   max. abs. cont.   |    std.dev.   ')
+				print(' RESULT-'+_exp.level.upper()+':      mean increment     |    min. abs. increment   |    max. abs. increment')
 				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT-'+_exp.level.upper()+':  {0:>13.4e}    |  {1:>13.4e}      |  {2:>13.4e}      |   {3:<13.4e}'.\
-						format(mean_val, min_val, max_val, std_val))
+				print(' RESULT-'+_exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
+						format(mean_val, min_val, max_val))
+				# debug print
+				if (_mol.verbose_prt):
+					print(' --------------------------------------------------------------------------------------------')
+					print(' RESULT-'+_exp.level.upper()+':                   info on max. abs. increment:')
+					print(' RESULT-'+_exp.level.upper()+':  core = {0:}'.format(core))
+					print(' RESULT-'+_exp.level.upper()+':  cas  = '+cas_ref+' + '+cas_exp)
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -212,11 +214,11 @@ class PrintCls():
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
-						print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening started'.format(_exp.order))
+						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening started'.format(_exp.order))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening started'.format(_exp.order))
+				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening started'.format(_exp.order))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return
@@ -228,22 +230,22 @@ class PrintCls():
 					with redirect_stdout(f):
 						if (_exp.conv_orb[-1]):
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening done'.format(_exp.order))
 							print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 							print(' --------------------------------------------------------------------------------------------\n\n')
 						else:
 							print(' --------------------------------------------------------------------------------------------')
-							print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+							print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening done'.format(_exp.order))
 							print(' --------------------------------------------------------------------------------------------\n\n')
 				# write also to stdout
 				if (_exp.conv_orb[-1]):
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening done'.format(_exp.order))
 					print(' STATUS-'+_exp.level.upper()+':                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------\n\n')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+_exp.level.upper()+': order k = {0:>d} screening done'.format(_exp.order))
+					print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} screening done'.format(_exp.order))
 					print(' --------------------------------------------------------------------------------------------\n\n')
 				#
 				return

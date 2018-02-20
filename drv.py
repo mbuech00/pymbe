@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_drv.py: driver class for Bethe-Goldstone correlation calculations."""
+""" drv.py: driver class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -16,9 +16,9 @@ import sys
 import numpy as np
 from mpi4py import MPI
 
-import bg_kernel
-from bg_screen import ScrCls
-from bg_exp import ExpCls
+import mbe
+from screen import ScrCls
+from exp import ExpCls
 
 
 class DrvCls():
@@ -26,13 +26,13 @@ class DrvCls():
 		def __init__(self, _mol, _type):
 				""" init parameters and classes """
 				# init required classes
-				self.kernel = bg_kernel.KernCls()
+				self.mbe = mbe.MBECls()
 				self.screening = ScrCls(_mol, _type)
 				#
 				return
 
 
-		def main(self, _mpi, _mol, _calc, _pyscf, _exp, _prt, _rst):
+		def main(self, _mpi, _mol, _calc, _kernel, _exp, _prt, _rst):
 				""" main driver routine """
 				# print and time logical
 				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
@@ -41,7 +41,7 @@ class DrvCls():
 				# exp class instantiation on slaves
 				if (_mpi.parallel):
 					if (_calc.exp_type in ['occupied','virtual']):
-						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart, 'min_order': _exp.min_order}
+						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
 						# bcast msg
 						_mpi.local_comm.bcast(msg, root=0)
 					else:
@@ -55,8 +55,8 @@ class DrvCls():
 							_mpi.local_comm.bcast(msg, root=0)
 							# compute and communicate distinct natural virtual orbitals
 							if (_calc.exp_virt == 'DNO'):
-								_pyscf.trans_dno(_mol, _calc, _exp) 
-								_mpi.bcast_trans_info(_mol, _calc, _mpi.local_comm)
+								_kernel.trans_dno(_mol, _calc, _exp) 
+								_mpi.bcast_mo_info(_mol, _calc, _mpi.local_comm)
 				# print expansion header
 				if (do_print): _prt.exp_header(_calc, _exp)
 				# restart
@@ -65,11 +65,11 @@ class DrvCls():
 					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
 					# if rst, print previous results
 					if (do_print):
-						for _exp.order in range(len(_exp.tuples[0][0]), _exp.min_order):
-							_prt.kernel_header(_calc, _exp)
-							_prt.kernel_micro_results(_calc, _exp)
-							_prt.kernel_end(_calc, _exp)
-							_prt.kernel_results(_calc, _exp)
+						for _exp.order in range(_exp.start_order, _exp.min_order):
+							_prt.mbe_header(_calc, _exp)
+							_prt.mbe_micro_results(_calc, _exp)
+							_prt.mbe_end(_calc, _exp)
+							_prt.mbe_results(_mol, _calc, _exp, _kernel)
 							_exp.thres = self.screening.update(_calc, _exp)
 							_prt.screen_header(_calc, _exp)
 							_prt.screen_end(_calc, _exp)
@@ -79,25 +79,25 @@ class DrvCls():
 				# now do expansion
 				for _exp.order in range(_exp.min_order, _exp.max_order+1):
 					#
-					#** energy kernel phase **#
+					#** energy phase **#
 					#
 					if (do_print):
-						# print kernel header
-						_prt.kernel_header(_calc, _exp)
-					# init e_inc
-					if (len(_exp.energy_inc) != _exp.order):
-						_exp.energy_inc.append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
-					# kernel calculations
-					self.kernel.main(_mpi, _mol, _calc, _pyscf, _exp, _prt, _rst)
+						# print mbe header
+						_prt.mbe_header(_calc, _exp)
+					# init energies
+					if (len(_exp.energy['inc']) != _exp.order):
+						_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
+					# mbe calculations
+					self.mbe.main(_mpi, _mol, _calc, _kernel, _exp, _prt, _rst)
 					if (do_print):
 						# print micro results
-						_prt.kernel_micro_results(_calc, _exp)
-						# print kernel end
-						_prt.kernel_end(_calc, _exp)
+						_prt.mbe_micro_results(_calc, _exp)
+						# print mbe end
+						_prt.mbe_end(_calc, _exp)
 						# write restart files
-						_rst.write_kernel(_calc, _exp, True)
-						# print kernel results
-						_prt.kernel_results(_calc, _exp)
+						_rst.write_mbe(_calc, _exp, True)
+						# print mbe results
+						_prt.mbe_results(_mol, _calc, _exp, _kernel)
 					#
 					#** screening phase **#
 					#
@@ -105,7 +105,7 @@ class DrvCls():
 						# print screen header
 						_prt.screen_header(_calc, _exp)
 					# orbital screening
-					if ((not _exp.conv_energy[-1]) and (_exp.order < _exp.max_order)):
+					if (_exp.order < _exp.max_order):
 						# start time
 						if (do_print): _exp.time_screen.append(MPI.Wtime())
 						# perform screening
@@ -130,16 +130,16 @@ class DrvCls():
 					#
 					#** convergence check **#
 					#
-					if (_exp.conv_energy[-1] or _exp.conv_orb[-1] or (_exp.order == _exp.max_order)):
+					if (_exp.conv_orb[-1] or (_exp.order == _exp.max_order)):
 						# recast as numpy array
-						_exp.energy_tot = np.array(_exp.energy_tot)
+						_exp.energy['tot'] = np.array(_exp.energy['tot'])
 						# now break
 						break
 				#
 				return
 
 
-		def local_master(self, _mpi, _mol, _calc, _pyscf, _rst):
+		def local_master(self, _mpi, _mol, _calc, _kernel, _rst):
 				""" local master routine """
 				# set loop/waiting logical
 				local_master = True
@@ -162,11 +162,11 @@ class DrvCls():
 						# reset restart logical
 						_rst.restart = False
 					#
-					#** energy kernel phase **#
+					#** energy phase **#
 					#
-					if (msg['task'] == 'kernel_local_master'):
+					if (msg['task'] == 'mbe_local_master'):
 						exp.order = msg['exp_order']
-						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp, _rst)
+						self.mbe.slave(_mpi, _mol, _calc, _kernel, exp, _rst)
 					#
 					#** screening phase **#
 					#
@@ -183,7 +183,7 @@ class DrvCls():
 				_mpi.final(None)
 	
 	
-		def slave(self, _mpi, _mol, _calc, _pyscf):
+		def slave(self, _mpi, _mol, _calc, _kernel):
 				""" slave routine """
 				# set loop/waiting logical
 				slave = True
@@ -198,22 +198,21 @@ class DrvCls():
 						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
 						# mark expansion as micro
 						exp.level = 'micro'
-						# set min order
-						exp.min_order = msg['min_order']
+						# distinguish between occ-virt expansions and combined expansions
 						if (_calc.exp_type == 'combined'):
 							exp.incl_idx = msg['incl_idx']
 							# receive distinct natural virtual orbitals
 							if (_calc.exp_virt == 'DNO'):
-								_mpi.bcast_trans_info(_mol, _calc, _mpi.local_comm)
+								_mpi.bcast_mo_info(_mol, _calc, _mpi.local_comm)
 						else:
 							# receive rst data
 							if (msg['rst']): _mpi.bcast_rst(_calc, exp)
 					#
-					#** energy kernel phase **#
+					#** energy phase **#
 					#
-					if (msg['task'] == 'kernel_slave'):
+					if (msg['task'] == 'mbe_slave'):
 						exp.order = msg['exp_order']
-						self.kernel.slave(_mpi, _mol, _calc, _pyscf, exp)
+						self.mbe.slave(_mpi, _mol, _calc, _kernel, exp)
 					#
 					#** screening phase **#
 					#

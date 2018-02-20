@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_calc.py: calculation class for Bethe-Goldstone correlation calculations."""
+""" calc.py: calculation class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -15,7 +15,7 @@ __status__ = 'Development'
 from os.path import isfile
 import re
 import sys
-
+from pyscf import symm
 
 class CalcCls():
 		""" calculation class """
@@ -25,23 +25,23 @@ class CalcCls():
 				self.exp_model = {'METHOD': 'FCI'}
 				self.exp_type = 'occupied'
 				self.exp_ref = {'METHOD': 'HF'}
-				self.exp_base = None
+				self.exp_base = {'METHOD': None}
 				self.exp_thres = 1.0e-10
 				self.exp_relax = 1.0
-				self.exp_max_order = 0
-				self.exp_occ = 'CAN'
-				self.exp_virt = 'CAN'
-				self.tolerance = 0.0
-				# init hf_mo_coeff, hf_mo_occ, and transformation matrix
-				self.hf_mo_coeff = None; self.hf_mo_occ = None; self.trans_mat = None
+				self.wfnsym = symm.addons.irrep_id2name(_mol.symmetry, 0)
+				self.exp_max_order = 1000000
+				self.exp_occ = 'REF'
+				self.exp_virt = 'REF'
+				# init energy dict and mo
+				self.energy = {}
+				self.mo = None
 				# set calculation parameters
 				if (_mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
-						self.exp_thres, self.exp_max_order, self.exp_occ, self.exp_virt, \
-						self.exp_relax, self.tolerance, _mol.verbose, \
+						self.exp_thres, self.exp_relax, \
+						self.wfnsym, self.exp_max_order, \
+						self.exp_occ, self.exp_virt, \
 						_mol.max_memory, _mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
-					# if not given, set exp_base equal to exp_ref
-					if (self.exp_base is None): self.exp_base = {'METHOD': self.exp_ref['METHOD']}
 					# sanity check
 					self.sanity_chk(_mpi, _rst, _mol)
 				#
@@ -49,10 +49,10 @@ class CalcCls():
 
 
 		def set_calc(self, _mpi, _rst, _mol):
-				""" set calculation and mpi parameters from bg-calc.inp file """
+				""" set calculation and mpi parameters from calc.inp file """
 				# read input file
 				try:
-					with open('bg-calc.inp') as f:
+					with open('calc.inp') as f:
 						content = f.readlines()
 						for i in range(len(content)):
 							if (content[i].split()[0][0] == '#'):
@@ -70,18 +70,16 @@ class CalcCls():
 								self.exp_base = self.upper(self.exp_base)
 							elif (re.split('=',content[i])[0].strip() == 'thres'):
 								self.exp_thres = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'relax'):
+								self.exp_relax = float(re.split('=',content[i])[1].strip())
+							elif (re.split('=',content[i])[0].strip() == 'wfnsym'):
+								self.wfnsym = symm.addons.std_symb(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'max_order'):
 								self.exp_max_order = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'occ'):
 								self.exp_occ = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'virt'):
 								self.exp_virt = re.split('=',content[i])[1].strip().upper()
-							elif (re.split('=',content[i])[0].strip() == 'relax'):
-								self.exp_relax = float(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'tolerance'):
-								self.tolerance = float(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'verbose'):
-								_mol.verbose = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'mem'):
 								_mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'num_local_masters'):
@@ -90,56 +88,65 @@ class CalcCls():
 							else:
 								try:
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
-														' keyword in bg-calc.inp not recognized')
+														' keyword in calc.inp not recognized')
 								except Exception as err:
 									_rst.rm_rst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
 					_rst.rm_rst()
-					sys.stderr.write('\nIOError : bg-calc.inp not found\n\n')
+					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
-				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, self.exp_thres, \
-							self.exp_max_order, self.exp_occ, self.exp_virt, self.exp_relax, \
-							self.tolerance, _mol.verbose, _mol.max_memory, _mpi.num_local_masters
+				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
+							self.exp_thres, self.exp_relax, self.wfnsym, \
+							self.exp_max_order, self.exp_occ, self.exp_virt, \
+							_mol.max_memory, _mpi.num_local_masters
 
 
 		def sanity_chk(self, _mpi, _rst, _mol):
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if (not ('METHOD' in self.exp_model)):
-						raise ValueError('wrong input -- model dictionary must contain "method" key ' + \
-										'with method value given as a string')
-					if (not (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','FCI'])):
+					if (not (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)','SCI','FCI'])):
 						raise ValueError('wrong input -- valid expansion models ' + \
-										'are currently: CISD, CCSD, CCSD(T), and FCI')
+										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# type of expansion
 					if (not (self.exp_type in ['occupied','virtual','combined'])):
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are occupied, virtual, and combined')
 					# reference model
-					if (not ('METHOD' in self.exp_ref)):
-						raise ValueError('wrong input -- ref dictionary must contain "method" key ' + \
-										'with method value ("HF" or "CASCI") given as a string')
-					if (not (self.exp_ref['METHOD'] in ['HF','CASCI'])):
-						raise ValueError('wrong input -- valid reference models are currently: HF and CASCI')
+					if (not (self.exp_ref['METHOD'] in ['HF','CASCI','CASSCF'])):
+						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
+					if (self.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+						if ((self.exp_ref['METHOD'] == 'CASSCF') and (not (self.exp_model['METHOD'] in ['SCI','FCI']))):
+							raise ValueError('wrong input -- a CASSCF reference is only meaningful for SCI or FCI expansion models')
+						if (not ('ACTIVE' in self.exp_ref)):
+							raise ValueError('wrong input -- an active space (active) choice is required for CASCI/CASSCF references')
+					if ('ACTIVE' in self.exp_ref):
+						if (self.exp_ref['METHOD'] == 'HF'):
+							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
+						if (not isinstance(self.exp_ref['ACTIVE'], list)): 
+							raise ValueError('wrong input -- active space key (active) must be a list')
+						if (not ('NELEC' in self.exp_ref)):
+							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
+						if (('NELEC' in self.exp_ref) and (not isinstance(self.exp_ref['NELEC'], tuple))):
+							raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
 					# base model
-					if (not ('METHOD' in self.exp_base)):
-						raise ValueError('wrong input -- base dictionary must contain "method" key ' + \
-										'with method value given as a string')
-					if (not (self.exp_base['METHOD'] in [self.exp_ref['METHOD'],'CISD','CCSD','CCSD(T)'])):
-						raise ValueError('wrong input -- invalid base model')
-					if (((self.exp_base['METHOD'] == 'CISD') and (self.exp_model['METHOD'] in ['CISD'])) or \
-						((self.exp_base['METHOD'] == 'CCSD') and (self.exp_model['METHOD'] in ['CISD','CCSD'])) or \
-						((self.exp_base['METHOD'] == 'CCSD(T)') and (self.exp_model['METHOD'] in ['CISD','CCSD','CCSD(T)']))):
-						raise ValueError('wrong input -- invalid base model for choice ' + \
-										'of expansion model')
+					if ((self.exp_ref['METHOD'] == 'CASSCF') and (not (self.exp_base['METHOD'] in [None,'SCI']))):
+						raise ValueError('wrong input -- invalid base model for CASSCF reference model')
+					if (not (self.exp_base['METHOD'] in [None,'CISD','CCSD','CCSD(T)','SCI'])):
+						raise ValueError('wrong input -- valid base models ' + \
+										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# max order
 					if (self.exp_max_order < 0):
 						raise ValueError('wrong input -- wrong maximum ' + \
 										'expansion order (must be integer >= 1)')
+					# wfnsym
+					try:
+						self.wfnsym = symm.addons.irrep_name2id(_mol.symmetry, self.wfnsym)
+					except Exception as err_2:
+						raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
 					# expansion and convergence thresholds
 					if (self.exp_thres < 0.0):
 						raise ValueError('wrong input -- expansion threshold parameter ' + \
@@ -148,17 +155,17 @@ class CalcCls():
 						raise ValueError('wrong input -- threshold relaxation parameter ' + \
 										'(relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if (not (self.exp_occ in ['CAN','PM','FB','IBO-1','IBO-2','NO'])):
+					if (not (self.exp_occ in ['REF','PM','FB','IBO-1','IBO-2','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \
-										'representations are currently: CAN, local (PM or FB), ' + \
+										'representations are currently: REF, local (PM or FB), ' + \
 										'intrinsic bond orbitals (IBO-1 or IBO-2), or base model natural orbitals (NO)')
-					if (not (self.exp_virt in ['CAN','PM','FB','NO','DNO'])):
+					if (not (self.exp_virt in ['REF','PM','FB','NO','DNO'])):
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: CAN, local (PM or FB), ' + \
+										'representations are currently: REF, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_ref['METHOD'] == self.exp_base['METHOD'])):
+					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] is None)):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
-										'requires the use of a correlated base model for the expansion')
+										'requires the use of a CC or SCI base model for the expansion')
 					if ((self.exp_type != 'combined') and (self.exp_virt == 'DNO')):
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'is only valid in combination with combined (dual) expansions')
@@ -194,7 +201,7 @@ class CalcCls():
 				""" capitalize keys """
 				new_dict = {}
 				for key, value in old_dict.items():
-					if (key.upper() in ['METHOD', 'TYPE']):
+					if (key.upper() == 'METHOD'):
 						new_dict[key.upper()] = value.upper()
 					else:
 						new_dict[key.upper()] = value

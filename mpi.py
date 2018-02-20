@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" bg_mpi.py: MPI class for Bethe-Goldstone correlation calculations."""
+""" mpi.py: mpi class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -118,13 +118,14 @@ class MPICls():
 				if (self.global_master):
 					mol = {'atom': _mol.atom, 'charge': _mol.charge, 'spin': _mol.spin, \
 							'symmetry': _mol.symmetry, 'irrep_nelec': _mol.irrep_nelec, 'basis': _mol.basis, \
-							'unit': _mol.unit, 'frozen': _mol.frozen, 'verbose': _mol.verbose}
+							'unit': _mol.unit, 'frozen': _mol.frozen, 'verbose_prt': _mol.verbose_prt}
 					self.global_comm.bcast(mol, root=0)
 				else:
 					mol = self.global_comm.bcast(None, root=0)
 					_mol.atom = mol['atom']; _mol.charge = mol['charge']; _mol.spin = mol['spin']
 					_mol.symmetry = mol['symmetry']; _mol.irrep_nelec = mol['irrep_nelec']
-					_mol.basis = mol['basis']; _mol.unit = mol['unit']; _mol.frozen = mol['frozen']; _mol.verbose = mol['verbose']
+					_mol.basis = mol['basis']; _mol.unit = mol['unit']; _mol.frozen = mol['frozen']
+					_mol.verbose_prt = mol['verbose_prt']
 				#
 				return
 
@@ -135,7 +136,8 @@ class MPICls():
 					# bcast to slaves
 					calc = {'exp_model': _calc.exp_model['METHOD'], 'exp_type': _calc.exp_type, \
 							'exp_ref': _calc.exp_ref['METHOD'], 'exp_base': _calc.exp_base['METHOD'], \
-							'exp_thres': _calc.exp_thres, 'exp_relax': _calc.exp_relax, 'exp_max_order': _calc.exp_max_order, \
+							'exp_thres': _calc.exp_thres, 'exp_relax': _calc.exp_relax, \
+							'wfnsym': _calc.wfnsym, 'exp_max_order': _calc.exp_max_order, \
 							'exp_occ': _calc.exp_occ, 'exp_virt': _calc.exp_virt}
 					self.global_comm.bcast(calc, root=0)
 				else:
@@ -143,7 +145,8 @@ class MPICls():
 					calc = self.global_comm.bcast(None, root=0)
 					_calc.exp_model = {'METHOD': calc['exp_model']}; _calc.exp_type = calc['exp_type']
 					_calc.exp_ref = {'METHOD': calc['exp_ref']}; _calc.exp_base = {'METHOD': calc['exp_base']}
-					_calc.exp_thres = calc['exp_thres']; _calc.exp_relax = calc['exp_relax']; _calc.exp_max_order = calc['exp_max_order']
+					_calc.exp_thres = calc['exp_thres']; _calc.exp_relax = calc['exp_relax']
+					_calc.wfnsym = calc['wfnsym']; _calc.exp_max_order = calc['exp_max_order']
 					_calc.exp_occ = calc['exp_occ']; _calc.exp_virt = calc['exp_virt']
 				#
 				return
@@ -161,45 +164,45 @@ class MPICls():
 				return
 
 
-		def bcast_hf_info(self, _mol, _calc):
+		def bcast_hf_ref_info(self, _mol, _calc):
 				""" bcast hf and ref info """
 				if (self.global_master):
-					# collect dimensions, and  mo_occ
-					hf_info = {'hf_e_tot': _calc.hf_e_tot, \
-								'occ': _mol.occ, 'virt': _mol.virt, \
+					# collect dimensions, reference energies, and mo_occ
+					info = {'e_hf': _calc.energy['hf'], 'e_base': _calc.energy['base'], \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
-								'mo_occ': _calc.hf_mo_occ}
-					# bcast hf_info
-					self.global_comm.bcast(hf_info, root=0)
-					# bcast mo_coeff
+								'ref_space': _calc.ref_space, 'exp_space': _calc.exp_space, \
+								'occup': _calc.occup, 'no_act': _calc.no_act, 'ne_act': _calc.ne_act}
+					# bcast info
+					self.global_comm.bcast(info, root=0)
+					# bcast mo
 					if (self.num_local_masters >= 1):
-						self.master_comm.Bcast([_calc.hf_mo_coeff, MPI.DOUBLE], root=0)
+						self.master_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)
 				else:
-					# receive dimensions and mo_occ
-					hf_info = self.global_comm.bcast(None, root=0)
-					_calc.hf_e_tot = hf_info['hf_e_tot']
-					_mol.occ = hf_info['occ']; _mol.virt = hf_info['virt']
-					_mol.norb = hf_info['norb']; _mol.nocc = hf_info['nocc']; _mol.nvirt = hf_info['nvirt']
-					_calc.hf_mo_occ = hf_info['mo_occ']
-					# receive mo_coeff
+					# receive info
+					info = self.global_comm.bcast(None, root=0)
+					_calc.energy['hf'] = info['e_hf']; _calc.energy['base'] = info['e_base']
+					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
+					_calc.ref_space = info['ref_space']; _calc.exp_space = info['exp_space']
+					_calc.occup = info['occup']; _calc.no_act = info['no_act']; _calc.ne_act = info['ne_act']
+					# receive mo
 					if (self.local_master):
 						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 						self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
-						_calc.hf_mo_coeff = buff
+						_calc.mo = buff
 				#
 				return
 
 
-		def bcast_trans_info(self, _mol, _calc, _comm):
-				""" bcast transformation info """
+		def bcast_mo_info(self, _mol, _calc, _comm):
+				""" bcast mo coefficients """
 				if (_comm.Get_rank() == 0):
-					# bcast trans_mat
-					_comm.Bcast([_calc.trans_mat, MPI.DOUBLE], root=0)
+					# bcast mo
+					_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)
 				else:
-					# receive trans_mat
+					# receive mo
 					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
 					_comm.Bcast([buff, MPI.DOUBLE], root=0)
-					_calc.trans_mat = np.transpose(buff)
+					_calc.mo = buff
 				#
 				return
 
@@ -211,28 +214,25 @@ class MPICls():
 				elif (_exp.level == 'micro'):
 					comm = self.global_comm
 				if (self.global_master):
-					# determine start index for energy kernel phase
-					e_inc_end = np.argmax(_exp.energy_inc[-1] == 0.0)
-					if (e_inc_end == 0): e_inc_end = len(_exp.energy_inc[-1])
 					# collect exp_info
 					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))], \
-								'len_e_inc': [len(_exp.energy_inc[i]) for i in range(len(_exp.energy_inc))], \
-								'start_order': len(_exp.tuples[0][0]), 'min_order': _exp.min_order, 'e_inc_end': e_inc_end}
+								'len_e_inc': [len(_exp.energy['inc'][i]) for i in range(len(_exp.energy['inc']))], \
+								'min_order': _exp.min_order}
 					# bcast info
 					comm.bcast(exp_info, root=0)
 					# bcast tuples
 					for i in range(1,len(_exp.tuples)):
 						comm.Bcast([_exp.tuples[i], MPI.INT], root=0)
 					# bcast energy increments
-					for i in range(len(_exp.energy_inc)):
-						comm.Bcast([_exp.energy_inc[i], MPI.DOUBLE], root=0)
+					for i in range(len(_exp.energy['inc'])):
+						comm.Bcast([_exp.energy['inc'][i], MPI.DOUBLE], root=0)
 				else:
 					# receive exp_info
 					exp_info = comm.bcast(None, root=0)
 					# set min_order
 					_exp.min_order = exp_info['min_order']
 					# receive tuples
-					for i in range(exp_info['start_order'],len(exp_info['len_tup'])):
+					for i in range(1, len(exp_info['len_tup'])):
 						buff = np.empty([exp_info['len_tup'][i],i+1], dtype=np.int32)
 						comm.Bcast([buff,MPI.INT], root=0)
 						_exp.tuples.append(buff)
@@ -240,15 +240,15 @@ class MPICls():
 					for i in range(len(exp_info['len_e_inc'])):
 						buff = np.zeros(exp_info['len_e_inc'][i], dtype=np.float64)
 						comm.Bcast([buff,MPI.DOUBLE], root=0)
-						_exp.energy_inc.append(buff)
+						_exp.energy['inc'].append(buff)
 				#
 				return
 
 
-		def bcast_e_inc(self, _mol, _calc, _exp, _comm):
-				""" bcast e_inc[-1] """
-				# now do Bcast
-				_comm.Bcast([_exp.energy_inc[-1], MPI.DOUBLE], root=0)
+		def bcast_energy(self, _mol, _calc, _exp, _comm):
+				""" bcast energies """
+				# Bcast
+				_comm.Bcast([_exp.energy['inc'][-1], MPI.DOUBLE], root=0)
 				#
 				return
 

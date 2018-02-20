@@ -1,8 +1,0 @@
-exp_model = fci
-exp_type = virtual
-exp_base = ccsd
-exp_thres = 10.0
-exp_occ = hf
-exp_virt = hf
-energy_thres = 0.0
-num_mpi_groups = 1
