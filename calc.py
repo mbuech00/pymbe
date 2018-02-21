@@ -140,13 +140,17 @@ class CalcCls():
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# max order
 					if (self.exp_max_order < 0):
-						raise ValueError('wrong input -- wrong maximum ' + \
-										'expansion order (must be integer >= 1)')
+						raise ValueError('wrong input -- wrong maximum expansion order (must be integer >= 1)')
 					# wfnsym
 					try:
 						self.wfnsym = symm.addons.irrep_name2id(_mol.symmetry, self.wfnsym)
 					except Exception as err_2:
 						raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
+					if (self.wfnsym != 0):
+						if (not (self.exp_model['METHOD'] in ['SCI','FCI'])):
+							raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
+						if (not (self.exp_base['METHOD'] in [None,'SCI'])):
+							raise ValueError('wrong input -- illegal choice of wfnsym for chosen base model')
 					# expansion and convergence thresholds
 					if (self.exp_thres < 0.0):
 						raise ValueError('wrong input -- expansion threshold parameter ' + \
