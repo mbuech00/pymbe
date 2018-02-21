@@ -130,7 +130,7 @@ class KernCls():
 				""" calculate correlation energy """
 				# fci calc
 				if (_method == 'FCI'):
-					e_corr, _ = self.fci(_mol, _calc, _exp, _calc.mo, False)
+					e_corr = self.fci(_mol, _calc, _exp, _calc.mo, False)
 				# sci base
 				elif (_method == 'SCI'):
 					e_corr, _ = self.sci(_mol, _calc, _exp, _calc.mo, False)
@@ -228,11 +228,14 @@ class KernCls():
 					elif (_method == 'SCI'):
 						cas.fcisolver = fci.select_ci_symm.SCI(_mol)
 				cas.fcisolver.conv_tol = 1.0e-10
-				cas.fcisolver.wfnsym = _calc.wfnsym
 				cas.conv_tol = 1.0e-10
 				cas.max_stepsize = .01
 				cas.max_cycle_micro = 1
+				# ncore
 				cas.frozen = _mol.ncore
+				# wfnsym
+				cas.fcisolver.wfnsym = _calc.wfnsym
+				# verbose print
 				if (_mol.verbose_prt): cas.verbose = 4
 				# fix spin if non-singlet
 				if (_mol.spin > 0):
@@ -285,50 +288,54 @@ class KernCls():
 				solver.max_cycle = 500
 				solver.max_space = 10
 				solver.davidson_only = True
+				# wfnsym
+				solver.wfnsym = _calc.wfnsym
 				# get integrals and core energy
 				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
 				# electrons
 				nelec = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
 				# orbital symmetry
-				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
+				solver.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
 				# fix spin if non-singlet
 				if (_mol.spin > 0):
 					sz = abs(nelec[0]-nelec[1]) * .5
 					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
-				# perform calc
+				# init guess (does it exist?)
 				try:
-					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, wfnsym=_calc.wfnsym)
-				except Exception as err:
+					ci0 = fci.addons.symm_initguess(len(_exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
+					e_corr = None
+				except Exception:
+					e_corr = 0.0
+				# perform calc
+				if (e_corr is None):
 					try:
-						raise RuntimeError(('\nFCI Error :\n'
-											'core_idx = {0:} , cas_idx = {1:}\n'
-											'PySCF Error: {2:}\n\n').\
-											format(_exp.core_idx, _exp.cas_idx, err))
-					except Exception as err_2:
-						sys.stderr.write(str(err_2))
-						raise
-				# calculate spin
-				s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
-				# check for correct spin
-				if (float(_mol.spin) - s > 1.0e-05):
-					try:
-						raise RuntimeError(('\nFCI Error : spin contamination\n\n'
-											'2*S + 1 = {0:.3f}\n'
-											'core_idx = {1:} , cas_idx = {2:}\n\n').\
-											format(mult, _exp.core_idx, _exp.cas_idx))
+						e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core)
 					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
-				# e_corr
-				e_corr = e - _calc.energy['hf']
+						try:
+							raise RuntimeError(('\nFCI Error :\n'
+												'core_idx = {0:} , cas_idx = {1:}\n'
+												'PySCF Error: {2:}\n\n').\
+												format(_exp.core_idx, _exp.cas_idx, err))
+						except Exception as err_2:
+							sys.stderr.write(str(err_2))
+							raise
+					# calculate spin
+					s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
+					# check for correct spin
+					if (float(_mol.spin) - s > 1.0e-05):
+						try:
+							raise RuntimeError(('\nFCI Error : spin contamination\n\n'
+												'2*S + 1 = {0:.3f}\n'
+												'core_idx = {1:} , cas_idx = {2:}\n\n').\
+												format(mult, _exp.core_idx, _exp.cas_idx))
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					# e_corr
+					e_corr = e - _calc.energy['hf']
 #				if (_exp.order < _exp.max_order): e_corr += np.float64(0.001) * np.random.random_sample()
-				# dm
-				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
-					dm = solver.make_rdm1(c, len(_exp.cas_idx), nelec)
-				else:
-					dm = None
 				#
-				return e_corr, dm
+				return e_corr
 
 
 		def sci(self, _mol, _calc, _exp, _mo, _base):
@@ -343,40 +350,51 @@ class KernCls():
 				solver.max_cycle = 500
 				solver.max_space = 10
 				solver.davidson_only = True
+				solver.verbose = 5
+				# wfnsym
+				solver.wfnsym = _calc.wfnsym
 				# get integrals and core energy
 				h1e, h2e, e_core = self.prepare(_mol, _calc, _exp, _mo)
 				# electrons
 				nelec = (_mol.nelec[0] - len(_exp.core_idx), _mol.nelec[1] - len(_exp.core_idx))
 				# orbital symmetry
-				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
+				solver.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, _mo[:, _exp.cas_idx])
 				# fix spin if non-singlet
 				if (_mol.spin > 0):
 					sz = abs(nelec[0]-nelec[1]) * .5
 					fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
-				# calculate sci energy
+				# init guess (does it exist?)
 				try:
-					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core, orbsym=orbsym, wfnsym=_calc.wfnsym)
-				except Exception as err:
+					ci0 = fci.addons.symm_initguess(len(_exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
+					e_corr = None
+				except Exception:
+					e_corr = 0.0
+				# perform calc
+				if (e_corr is None):
+					# calculate sci energy
 					try:
-						raise RuntimeError(('\nSCI Error :\n'
-											'PySCF Error: {0:}\n\n').\
-											format(err))
-					except Exception as err_2:
-						sys.stderr.write(str(err_2))
-						raise
-				# calculate spin
-				s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
-				# check for correct spin
-				if (float(_mol.spin) - s > 1.0e-05):
-					try:
-						raise RuntimeError(('\nSCI Error : spin contamination\n\n'
-											'2*S + 1 = {0:.3f}\n\n').\
-											format(mult))
+						e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core)
 					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
-				# e_corr
-				e_corr = e - _calc.energy['hf']
+						try:
+							raise RuntimeError(('\nSCI Error :\n'
+												'PySCF Error: {0:}\n\n').\
+												format(err))
+						except Exception as err_2:
+							sys.stderr.write(str(err_2))
+							raise
+					# calculate spin
+					s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
+					# check for correct spin
+					if (float(_mol.spin) - s > 1.0e-05):
+						try:
+							raise RuntimeError(('\nSCI Error : spin contamination\n\n'
+												'2*S + 1 = {0:.3f}\n\n').\
+												format(mult))
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					# e_corr
+					e_corr = e - _calc.energy['hf']
 				# sci dm
 				if (_base and ((_calc.exp_occ == 'NO') or (_calc.exp_virt == 'NO'))):
 					dm = solver.make_rdm1(c, len(_exp.cas_idx), nelec)
