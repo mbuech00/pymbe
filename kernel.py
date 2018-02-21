@@ -350,7 +350,6 @@ class KernCls():
 				solver.max_cycle = 500
 				solver.max_space = 10
 				solver.davidson_only = True
-				solver.verbose = 5
 				# wfnsym
 				solver.wfnsym = _calc.wfnsym
 				# get integrals and core energy
