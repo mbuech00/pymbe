@@ -124,16 +124,27 @@ class MBECls():
 					else:
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _kernel.core_cas(_mol, _exp, _exp.tuples[-1][i])
-						# perform calc
-						if ((_exp.order == _exp.start_order) and (_calc.exp_ref['METHOD'] == 'CASSCF')):
-							e_model = _calc.energy['cas_model']
+						# model calc
+						if (_exp.order == _exp.start_order):
+							if (_calc.exp_ref['METHOD'] == 'HF'):
+								e_model = _kernel.main_calc(_mol, _calc, _exp, 'FCI')
+							elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+								e_model = _calc.energy['cas_model']
+							elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+								e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 						else:
 							e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						# base calc
 						if (_calc.exp_base['METHOD'] is None):
 							_exp.energy['inc'][-1][i] = e_model
 						else:
-							if ((_exp.order == _exp.start_order) and (_calc.exp_ref['METHOD'] == 'CASSCF')):
-								e_base = _calc.energy['cas_base']
+							if (_exp.order == _exp.start_order):
+								if (_calc.exp_ref['METHOD'] == 'HF'):
+									e_base = e_model
+								elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
+									e_base = _calc.energy['cas_base']
+								elif (_calc.exp_ref['METHOD'] == 'CASCI'):
+									e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
 							else:
 								e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
 							_exp.energy['inc'][-1][i] = e_model - e_base
@@ -177,17 +188,22 @@ class MBECls():
 					for i in range(len(_exp.tuples[0])):
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _kernel.core_cas(_mol, _exp, _exp.tuples[0][i])
-						# perform calc
-						if (_calc.exp_ref['METHOD'] == 'CASSCF'):
+						# model calc
+						if (_calc.exp_ref['METHOD'] == 'HF'):
+							e_model = _kernel.main_calc(_mol, _calc, _exp, 'FCI')
+						elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
 							e_model = _calc.energy['cas_model']
-						else:
+						elif (_calc.exp_ref['METHOD'] == 'CASCI'):
 							e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						# base calc
 						if (_calc.exp_base['METHOD'] is None):
 							e_base = 0.0
 						else:
-							if (_calc.exp_ref['METHOD'] == 'CASSCF'):
+							if (_calc.exp_ref['METHOD'] == 'HF'):
+								e_base = e_model
+							elif (_calc.exp_ref['METHOD'] == 'CASSCF'):
 								e_base = _calc.energy['cas_base']
-							else:
+							elif (_calc.exp_ref['METHOD'] == 'CASCI'):
 								e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
 						_exp.energy['inc'][0][i] = e_model - e_base
 						# calc increment
