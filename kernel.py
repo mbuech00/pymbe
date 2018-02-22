@@ -158,6 +158,13 @@ class KernCls():
 				if (_calc.exp_ref['METHOD'] == 'CASSCF'):
 					# exp model
 					_calc.energy['cas_model'], _calc.mo = self.casscf(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+					# identical to hf ref?
+					if (abs(_calc.energy['cas_model']) < 1.0e-10):
+						try:
+							raise RuntimeError('\nCASSCF Error : choice of CAS orbitals returns HF solution\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
 					# base model
 					if (_calc.exp_base['METHOD'] is not None):
 						_calc.energy['cas_base'], _ = self.casscf(_mol, _calc, _exp, _calc.exp_base['METHOD'])
@@ -240,7 +247,7 @@ class KernCls():
 				if (_mol.verbose_prt): cas.verbose = 4
 				# fix spin if non-singlet
 				if (_mol.spin > 0):
-					sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
+					sz = abs(_calc.ne_act[0]-_calc.ne_act[1]) * .5
 					cas.fix_spin_(ss=sz * (sz + 1.))
 				# run casscf calc
 				cas.kernel(_calc.mo)

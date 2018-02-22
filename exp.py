@@ -18,7 +18,7 @@ from scipy.misc import factorial
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, _mpi, _mol, _calc, _type):
+		def __init__(self, _mol, _calc, _type):
 				""" init parameters """
 				# init tuples and incl_idx
 				self.incl_idx, self.tuples = self.init_tuples(_mol, _calc, _type)
@@ -34,13 +34,12 @@ class ExpCls():
 					self.theo_work.append(int(factorial(len(_calc.exp_space)) / \
 											(factorial(k) * factorial(len(_calc.exp_space) - k))))
 				# init micro_conv list
-				if (_mpi.global_master): self.micro_conv = []
+				self.micro_conv = []
 				# init convergence list
 				self.conv_orb = [False]
 				# init timings
-				if (_mpi.global_master):
-					self.time_mbe = []
-					self.time_screen = []
+				self.time_mbe = []
+				self.time_screen = []
 				# init thres
 				self.thres = _calc.exp_thres
 				#
@@ -55,9 +54,9 @@ class ExpCls():
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					tuples = [np.array(list([i] for i in _calc.exp_space), dtype=np.int32)]
 				else:
-					if (_calc.exp_type == 'occupied'):
+					if (_type == 'occupied'):
 						tuples = [np.array([_calc.exp_space[-(_calc.no_act-len(_calc.ref_space)):]], dtype=np.int32)]
-					elif (_calc.exp_type == 'virtual'):
+					elif (_type == 'virtual'):
 						tuples = [np.array([_calc.exp_space[:(_calc.no_act-len(_calc.ref_space))]], dtype=np.int32)]
 				#
 				return incl_idx, tuples

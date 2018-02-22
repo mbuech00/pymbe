@@ -151,7 +151,7 @@ class DrvCls():
 					#** exp class instantiation **#
 					#
 					if (msg['task'] == 'exp_cls'):
-						exp = ExpCls(_mpi, _mol, _calc, 'occupied')
+						exp = ExpCls(_mol, _calc, 'occupied')
 						# mark expansion as macro
 						exp.level = 'macro'
 						# set min order
@@ -195,7 +195,7 @@ class DrvCls():
 					#** exp class instantiation **#
 					#
 					if (msg['task'] == 'exp_cls'):
-						exp = ExpCls(_mpi, _mol, _calc, msg['type'])
+						exp = ExpCls(_mol, _calc, msg['type'])
 						# mark expansion as micro
 						exp.level = 'micro'
 						# distinguish between occ-virt expansions and combined expansions

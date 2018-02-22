@@ -69,11 +69,11 @@ class InitCls():
 						self.calc.no_act, self.calc.ne_act = self.kernel.active(self.mol, self.calc)
 					# expansion instantiation
 					if (self.calc.exp_type in ['occupied','virtual']):
-						self.exp = ExpCls(self.mpi, self.mol, self.calc, self.calc.exp_type)
+						self.exp = ExpCls(self.mol, self.calc, self.calc.exp_type)
 						# mark expansion as micro
 						self.exp.level = 'micro'
 					elif (self.calc.exp_type == 'combined'):
-						self.exp = ExpCls(self.mpi, self.mol, self.calc, 'occupied')
+						self.exp = ExpCls(self.mol, self.calc, 'occupied')
 						# mark expansion as macro
 						self.exp.level = 'macro'
 					# base energy and transformation matrix
