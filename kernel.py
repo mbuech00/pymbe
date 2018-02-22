@@ -243,16 +243,7 @@ class KernCls():
 					sz = abs(_mol.ne_act[0]-_mol.ne_act[1]) * .5
 					cas.fix_spin_(ss=sz * (sz + 1.))
 				# run casscf calc
-				try:
-					cas.kernel(_calc.mo)
-				except Exception as err:
-					try:
-						raise RuntimeError(('\nCASSCF Error :\n'
-											'PySCF Error: {0:}\n\n').\
-											format(err))
-					except Exception as err_2:
-						sys.stderr.write(str(err_2))
-						raise
+				cas.kernel(_calc.mo)
 				if (not cas.converged):
 					try:
 						raise RuntimeError('\nCASSCF Error : no convergence\n\n')
@@ -309,17 +300,7 @@ class KernCls():
 					e_corr = 0.0
 				# perform calc
 				if (e_corr is None):
-					try:
-						e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core)
-					except Exception as err:
-						try:
-							raise RuntimeError(('\nFCI Error :\n'
-												'core_idx = {0:} , cas_idx = {1:}\n'
-												'PySCF Error: {2:}\n\n').\
-												format(_exp.core_idx, _exp.cas_idx, err))
-						except Exception as err_2:
-							sys.stderr.write(str(err_2))
-							raise
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core)
 					# calculate spin
 					s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
 					# check for correct spin
@@ -372,16 +353,7 @@ class KernCls():
 				# perform calc
 				if (e_corr is None):
 					# calculate sci energy
-					try:
-						e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core)
-					except Exception as err:
-						try:
-							raise RuntimeError(('\nSCI Error :\n'
-												'PySCF Error: {0:}\n\n').\
-												format(err))
-						except Exception as err_2:
-							sys.stderr.write(str(err_2))
-							raise
+					e, c = solver.kernel(h1e, h2e, len(_exp.cas_idx), nelec, ecore=e_core)
 					# calculate spin
 					s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
 					# check for correct spin
