@@ -38,6 +38,7 @@ class KernCls():
 				hf = scf.RHF(_mol)
 				hf.conv_tol = 1.0e-10
 				hf.max_cycle = 500
+				# fixed occupation
 				hf.irrep_nelec = _mol.irrep_nelec
 				# perform hf calc
 				for i in list(range(0, 12, 2)):
