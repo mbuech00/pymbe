@@ -41,13 +41,6 @@ class ResCls():
 				self.divider_str = '{0:^143}'.format('-'*137)
 				self.fill_str = '{0:^143}'.format('|'*137)
 				self.header_str = '{0:^139}'.format('-'*44)
-				# upper limit
-				if (_calc.exp_type in ['occupied','combined']):
-					self.u_limit = _mol.nocc - _mol.ncore
-				else:
-					self.u_limit = _mol.nvirt 
-				# modify occ-virt print out
-				self.occ_virt = '{0:} / {1:}'.format(_mol.nocc-_mol.ncore, _mol.nvirt)
 				# modify reference print out
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					if (_mol.spin == 0):
@@ -61,6 +54,8 @@ class ResCls():
 					self.exp_base = 'none'
 				else:
 					self.exp_base = _calc.exp_base['METHOD']
+				# modify system size print out
+				self.sys_size = '{0:} e / {1:} o'.format(_mol.nelectron - 2*_mol.ncore, len(_calc.ref_space) + len(_calc.exp_space))
 				# modify active space print out
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					self.active = 'none'
@@ -69,7 +64,7 @@ class ResCls():
 															len(_calc.exp_ref['ACTIVE']))
 				# modify orbital print out
 				if (_calc.exp_occ == 'REF'):
-					self.exp_occ = 'reference'
+					self.exp_occ = 'canonical'
 				elif (_calc.exp_occ == 'NO'):
 					self.exp_occ = 'natural'
 				elif (_calc.exp_occ == 'PM'):
@@ -81,7 +76,7 @@ class ResCls():
 				elif (_calc.exp_occ == 'IBO-2'):
 					self.exp_occ = 'intrin. bond'
 				if (_calc.exp_virt == 'REF'):
-					self.exp_virt = 'reference'
+					self.exp_virt = 'canonical'
 				elif (_calc.exp_virt == 'NO'):
 					self.exp_virt = 'natural'
 				elif (_calc.exp_virt == 'PM'):
@@ -129,37 +124,37 @@ class ResCls():
 						print('{0:^138}'.format('results'))
 						print(self.header_str+'\n')
 						print(self.divider_str)
-						print('{0:14}{1:21}{2:11}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'.\
+						print('{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'.\
 								format('','molecular information','','|','',\
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
 								format('','basis set','','=','',_mol.basis,\
 									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
 									'','|','','mpi masters / slaves','','=','',self.mpi))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}').\
 								format('','frozen core','','=','',self.frozen,\
 									'','|','','reference funct.','','=','',self.exp_ref,\
 									'','|','','Hartree-Fock energy','','=','',_calc.energy['hf']))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-								format('','occ. / virt.','','=','',self.occ_virt,\
+								format('','system size','','=','',self.sys_size,\
 									'','|','','active space','','=','',self.active,\
 									'','|','','base model energy','','=','',_calc.energy['hf']+_calc.energy['base']))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-								format('','orbs. (occ.)','','=','',self.exp_occ,\
+								format('','occ. orb. basis','','=','',self.exp_occ,\
 									'','|','','expansion base','','=','',self.exp_base,\
 									'','|','','final MBE energy','','=','',\
 									_exp.energy['tot'][-1]+_calc.energy['hf']+_calc.energy['base']))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
-								format('','orbs. (virt.)','','=','',self.exp_virt,\
+								format('','virt. orb. basis','','=','',self.exp_virt,\
 									'','|','','expansion type','','=','',_calc.exp_type,\
 									'','|','','wave funct. symmetry','','=','',symm.addons.irrep_id2name(_mol.symmetry, _calc.wfnsym)))
-						print(('{0:11}{1:14}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.3e}').\
 								format('','point group','','=','',_mol.symmetry,\
 									'','|','','thres. / relax.','','=','',self.thres,\
@@ -207,7 +202,7 @@ class ResCls():
 						_exp.energy['tot']+_calc.energy['base'], marker='x', linewidth=2, \
 						linestyle='-', label='MBE-'+_calc.exp_model['METHOD'])
 				# set x limits
-				ax.set_xlim([0.5, self.u_limit + 0.5])
+				ax.set_xlim([0.5, len(_calc.exp_space) + 0.5])
 				# turn off x-grid
 				ax.xaxis.grid(False)
 				# set labels
