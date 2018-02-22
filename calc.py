@@ -74,7 +74,7 @@ class CalcCls():
 								self.exp_relax = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'wfnsym'):
 								self.wfnsym = symm.addons.std_symb(re.split('=',content[i])[1].strip())
-							elif (re.split('=',content[i])[0].strip() == 'max_order'):
+							elif (re.split('=',content[i])[0].strip() == 'order'):
 								self.exp_max_order = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'occ'):
 								self.exp_occ = re.split('=',content[i])[1].strip().upper()
@@ -140,7 +140,7 @@ class CalcCls():
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# max order
 					if (self.exp_max_order < 0):
-						raise ValueError('wrong input -- wrong maximum expansion order (must be integer >= 1)')
+						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					# wfnsym
 					try:
 						self.wfnsym = symm.addons.irrep_name2id(_mol.symmetry, self.wfnsym)
@@ -153,11 +153,9 @@ class CalcCls():
 							raise ValueError('wrong input -- illegal choice of wfnsym for chosen base model')
 					# expansion and convergence thresholds
 					if (self.exp_thres < 0.0):
-						raise ValueError('wrong input -- expansion threshold parameter ' + \
-										'(thres) must be float: 0.0 <= thres')
+						raise ValueError('wrong input -- expansion threshold parameter (thres) must be float: 0.0 <= thres')
 					if (self.exp_relax < 1.0):
-						raise ValueError('wrong input -- threshold relaxation parameter ' + \
-										'(relax) must be float: 1.0 <= relax')
+						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
 					# orbital representation
 					if (not (self.exp_occ in ['REF','PM','FB','IBO-1','IBO-2','NO'])):
 						raise ValueError('wrong input -- valid occupied orbital ' + \

@@ -41,6 +41,24 @@ class ResCls():
 				self.divider_str = '{0:^143}'.format('-'*137)
 				self.fill_str = '{0:^143}'.format('|'*137)
 				self.header_str = '{0:^139}'.format('-'*44)
+				# modify basis print out
+				if (_mol.frozen):
+					self.basis = _mol.basis+' (T)'
+				else:
+					self.basis = _mol.basis+' (F)'
+				# modify spin multiplicity print out
+				if (_mol.spin == 0):
+					self.mult = 'singlet'
+				elif (_mol.spin == 1):
+					self.mult = 'doublet'
+				elif (_mol.spin == 2):
+					self.mult = 'triplet'
+				elif (_mol.spin == 3):
+					self.mult = 'quartet'
+				elif (_mol.spin == 4):
+					self.mult = 'quintet'
+				else:
+					self.mult = '{0:}'.format(_mol.spin+1)
 				# modify reference print out
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					if (_mol.spin == 0):
@@ -85,11 +103,6 @@ class ResCls():
 					self.exp_virt = 'foster-boys'
 				elif (_calc.exp_virt == 'DNO'):
 					self.exp_virt = 'dist. natural'
-				# modify FC print out
-				if (_mol.frozen):
-					self.frozen = 'true'
-				else:
-					self.frozen = 'false'
 				# modify mpi print out
 				self.mpi = '{0:} / {1:}'.format(_mpi.num_local_masters+1, _mpi.global_size-(_mpi.num_local_masters+1))
 				# modify threshold print out
@@ -128,33 +141,33 @@ class ResCls():
 								format('','molecular information','','|','',\
 									'expansion information','','|','','calculation information'))
 						print(self.divider_str)
-						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<12s}{6:3}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
-								format('','basis set','','=','',_mol.basis,\
+								format('','basis (fc approx.)','','=','',self.basis,\
 									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
 									'','|','','mpi masters / slaves','','=','',self.mpi))
-						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<5}{6:10}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}').\
-								format('','frozen core','','=','',self.frozen,\
+								format('','spin multiplicity','','=','',self.mult,\
 									'','|','','reference funct.','','=','',self.exp_ref,\
 									'','|','','Hartree-Fock energy','','=','',_calc.energy['hf']))
-						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 								format('','system size','','=','',self.sys_size,\
 									'','|','','active space','','=','',self.active,\
 									'','|','','base model energy','','=','',_calc.energy['hf']+_calc.energy['base']))
-						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-								format('','occ. orb. basis','','=','',self.exp_occ,\
+								format('','occupied orbitals','','=','',self.exp_occ,\
 									'','|','','expansion base','','=','',self.exp_base,\
 									'','|','','final MBE energy','','=','',\
 									_exp.energy['tot'][-1]+_calc.energy['hf']+_calc.energy['base']))
-						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
-								format('','virt. orb. basis','','=','',self.exp_virt,\
+								format('','virtual orbitals','','=','',self.exp_virt,\
 									'','|','','expansion type','','=','',_calc.exp_type,\
 									'','|','','wave funct. symmetry','','=','',symm.addons.irrep_id2name(_mol.symmetry, _calc.wfnsym)))
-						print(('{0:10}{1:16}{2:3}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.3e}').\
 								format('','point group','','=','',_mol.symmetry,\
 									'','|','','thres. / relax.','','=','',self.thres,\
