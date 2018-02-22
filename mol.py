@@ -109,7 +109,7 @@ class MolCls(gto.Mole):
 								self.unit = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'frozen'):
 								self.frozen = re.split('=',content[i])[1].strip().upper() == 'TRUE'
-							elif (re.split('=',content[i])[0].strip() == 'occ'):
+							elif (re.split('=',content[i])[0].strip() == 'occup'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
 								self.verbose_prt = re.split('=',content[i])[1].strip().upper() == 'TRUE'
