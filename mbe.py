@@ -136,7 +136,7 @@ class MBECls():
 							e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 						# base calc
 						if (_calc.exp_base['METHOD'] is None):
-							_exp.energy['inc'][-1][i] = e_model
+							e_base = 0.0
 						else:
 							if (_exp.order == _exp.start_order):
 								if (_calc.exp_ref['METHOD'] == 'HF'):
@@ -147,9 +147,13 @@ class MBECls():
 									e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
 							else:
 								e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
-							_exp.energy['inc'][-1][i] = e_model - e_base
+						_exp.energy['inc'][-1][i] = e_model - e_base
 						# calc increment
 						self.summation(_calc, _exp, i)
+						# verbose print
+						if (_mol.verbose_prt):
+							print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
+									format(_exp.cas_idx, e_model, e_base, _exp.energy['inc'][-1][i]))
 					if (do_print):
 						# print status
 						_prt.mbe_status(_calc, _exp, float(i+1) / float(len(_exp.tuples[-1])))
