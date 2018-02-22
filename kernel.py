@@ -217,7 +217,7 @@ class KernCls():
 				""" casscf calc """
 				# casscf ref
 				cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
-				if (_mol.spin == 0):
+				if (abs(_calc.ne_act[0]-_calc.ne_act[1]) == 0):
 					if (_method == 'FCI'):
 						cas.fcisolver = fci.direct_spin0_symm.FCI(_mol)
 					elif (_method == 'SCI'):
