@@ -67,11 +67,11 @@ class KernCls():
 				""" determine dimensions """
 				# occupied and virtual lists
 				if (_type == 'occupied'):
-					occ = np.where(_hf.mo_occ == 2.)[0]
-					virt = np.where(_hf.mo_occ < 2.)[0]
-				elif (_type == 'virtual'):
 					occ = np.where(_hf.mo_occ > 0.)[0]
 					virt = np.where(_hf.mo_occ == 0.)[0]
+				elif (_type == 'virtual'):
+					occ = np.where(_hf.mo_occ == 2.)[0]
+					virt = np.where(_hf.mo_occ < 2.)[0]
 				# nocc, nvirt, and norb
 				nocc = len(occ)
 				nvirt = len(virt)
@@ -82,10 +82,17 @@ class KernCls():
 
 		def active(self, _mol, _calc):
 				""" set active space """
+				# reference and expansion spaces
+				if (_calc.exp_type == 'occupied'):
+					ref_space = np.array(range(_mol.nocc, _mol.norb))
+					exp_space = np.array(range(_mol.ncore, _mol.nocc))
+				elif (_calc.exp_type == 'virtual'):
+					ref_space = np.array(range(_mol.ncore, _mol.nocc))
+					exp_space = np.array(range(_mol.nocc, _mol.norb))
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# no active space
-					no_act = ne_act = None
+					no_act = ne_act = np.count_nonzero(_calc.hf.mo_occ == 1.) + len(ref_space)
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# active electrons
@@ -98,13 +105,6 @@ class KernCls():
 						assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) >= _mol.nocc) == _mol.nvirt)
 					elif (_calc.exp_type == 'virtual'):
 						assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) < _mol.nocc) == (_mol.nocc-_mol.ncore))
-				# reference and expansion spaces
-				if (_calc.exp_type == 'occupied'):
-					ref_space = np.array(range(_mol.nocc, _mol.norb))
-					exp_space = np.array(range(_mol.ncore, _mol.nocc))
-				elif (_calc.exp_type == 'virtual'):
-					ref_space = np.array(range(_mol.ncore, _mol.nocc))
-					exp_space = np.array(range(_mol.nocc, _mol.norb))
 				# debug print
 				if (_mol.verbose_prt): print('\n ref_space = {0:} , exp_space = {1:}'.format(ref_space, exp_space))
 				#

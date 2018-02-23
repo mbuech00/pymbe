@@ -51,7 +51,7 @@ class ExpCls():
 				# incl_idx
 				incl_idx = _calc.ref_space.tolist()
 				# tuples
-				if (_calc.exp_ref['METHOD'] == 'HF'):
+				if (_calc.no_act == 0):
 					tuples = [np.array(list([i] for i in _calc.exp_space), dtype=np.int32)]
 				else:
 					if (_type == 'occupied'):
