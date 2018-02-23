@@ -26,13 +26,9 @@ class ExpCls():
 				self.energy = {}
 				self.energy['inc'] = []
 				self.energy['tot'] = []
-				# set start_order/max_order and determine max theoretical work
-				self.theo_work = []
+				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				self.max_order = min(len(_calc.exp_space), _calc.exp_max_order)
-				for k in range(self.start_order, len(_calc.exp_space)+1):
-					self.theo_work.append(int(factorial(len(_calc.exp_space)) / \
-											(factorial(k) * factorial(len(_calc.exp_space) - k))))
 				# init micro_conv list
 				self.micro_conv = []
 				# init convergence list

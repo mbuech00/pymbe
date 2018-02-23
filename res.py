@@ -176,10 +176,11 @@ class ResCls():
 						print(self.fill_str)
 						print(self.divider_str)
 						print(('{0:6}{1:9}{2:2}{3:1}{4:7}{5:18}{6:7}{7:1}'
-							'{8:7}{9:26}{10:6}{11:1}{12:6}{13:}').\
+							'{8:7}{9:26}{10:6}{11:1}{12:5}{13:15}{14:5}{15:1}{16:5}{17:}').\
 								format('','MBE order','','|','','correlation energy',\
 									'','|','','total time (HHH : MM : SS)',\
-									'','|','','number of calcs. (abs. / %  --  total)'))
+									'','|','','number of calcs.',\
+									'','|','','total number'))
 						print(self.divider_str)
 						# loop over orders
 						total_tup = 0
@@ -189,16 +190,14 @@ class ResCls():
 											+np.sum(_exp.time_screen[:i+1])
 							total_tup += len(_exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
-								'{12:^3}{13:02d}{14:12}{15:1}{16:7}{17:>9d}{18:^3}{19:>6.2f}{20:^8}{21:>9d}').\
+								'{12:^3}{13:02d}{14:12}{15:1}{16:9}{17:>9d}{18:8}{19:1}{20:6}{21:>9d}').\
 									format('',i+_exp.start_order,'','|','',\
 										_exp.energy['tot'][i]+_calc.energy['base'],\
 										'','|','',int(total_time//3600),':',\
 										int((total_time-(total_time//3600)*3600.)//60),':',\
 										int(total_time-(total_time//3600)*3600.\
 										-((total_time-(total_time//3600)*3600.)//60)*60.),\
-										'','|','',len(_exp.tuples[i]),'/',\
-										(float(len(_exp.tuples[i])) / \
-										float(_exp.theo_work[i]))*100.00,'--',total_tup))
+										'','|','',len(_exp.tuples[i]),'','|','',total_tup))
 						print(self.divider_str+'\n\n')
 				#
 				return
