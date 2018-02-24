@@ -260,7 +260,7 @@ class KernCls():
 				# calculate spin
 				s, mult = cas.fcisolver.spin_square(cas.ci, _calc.no_act, _calc.ne_act)
 				# check for correct spin
-				if (float(_mol.spin) - s > 1.0e-05):
+				if ((_mol.spin + 1) - mult > 1.0e-05):
 					try:
 						raise RuntimeError(('\nCASSCF Error : spin contamination\n'
 											'2*S + 1 = {0:.3f}\n\n').\
@@ -311,10 +311,11 @@ class KernCls():
 					# calculate spin
 					s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
 					# check for correct spin
-					if (float(_mol.spin) - s > 1.0e-05):
+					if ((_mol.spin + 1) - mult > 1.0e-05):
+						print('s = {0:} and mult = {1:}'.format(s, mult))
 						try:
 							raise RuntimeError(('\nFCI Error : spin contamination\n\n'
-												'2*S + 1 = {0:.3f}\n'
+												'2*S + 1 = {0:.6f}\n'
 												'core_idx = {1:} , cas_idx = {2:}\n\n').\
 												format(mult, _exp.core_idx, _exp.cas_idx))
 						except Exception as err:
@@ -364,7 +365,7 @@ class KernCls():
 					# calculate spin
 					s, mult = solver.spin_square(c, len(_exp.cas_idx), nelec)
 					# check for correct spin
-					if (float(_mol.spin) - s > 1.0e-05):
+					if ((_mol.spin + 1) - mult > 1.0e-05):
 						try:
 							raise RuntimeError(('\nSCI Error : spin contamination\n\n'
 												'2*S + 1 = {0:.3f}\n\n').\
