@@ -102,7 +102,7 @@ class KernCls():
 						no_act = np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) >= _mol.nocc) + len(ref_space)
 					# sanity checks
 					assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) < _mol.ncore) == 0)
-					assert(float(_calc.exp_ref['NELEC'][0]+_calc.exp_ref['NELEC'][1]) <= np.sum(_calc.hf.mo_occ[_calc.exp_ref['ACTIVE']]))
+					assert(float(_calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1]) <= np.sum(_calc.hf.mo_occ[_calc.exp_ref['ACTIVE']]))
 				#
 				return ref_space, exp_space, no_act
 
@@ -153,6 +153,7 @@ class KernCls():
 					ncore_cas = core_elec // 2
 					# divide into core-cas-virtual
 					idx = np.asarray([i for i in range(_mol.norb) if i not in _calc.exp_ref['ACTIVE']])
+					print('core_elec = {0:} , ncore_cas = {1:} , idx = {2:}'.format(core_elec, ncore_cas, idx))
 					mo = np.hstack((_calc.mo[:, idx[:ncore_cas]], _calc.mo[:, _calc.exp_ref['ACTIVE']], _calc.mo[:, idx[ncore_cas:]]))
 					_calc.mo = np.asarray(mo, order='C')
 				# casscf ref calc
@@ -239,6 +240,8 @@ class KernCls():
 				cas.max_cycle_micro = 1
 				# wfnsym
 				cas.fcisolver.wfnsym = _calc.wfnsym
+				# frozen
+				cas.frozen = (_mol.nelectron - (_calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1])) // 2
 				# verbose print
 				if (_mol.verbose_prt): cas.verbose = 4
 				# fix spin if non-singlet
