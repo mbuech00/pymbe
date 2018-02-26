@@ -47,7 +47,7 @@ class ExpCls():
 				# incl_idx
 				incl_idx = _calc.ref_space.tolist()
 				# tuples
-				if (_calc.no_act == 0):
+				if (_calc.no_act == len(incl_idx)):
 					tuples = [np.array(list([i] for i in _calc.exp_space), dtype=np.int32)]
 				else:
 					if (_type == 'occupied'):
