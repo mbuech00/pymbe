@@ -65,8 +65,7 @@ class InitCls():
 					# get hcore and eri
 					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
 					# reference and expansion spaces
-					self.calc.ref_space, self.calc.exp_space, \
-						self.calc.no_act, self.calc.ne_act = self.kernel.active(self.mol, self.calc)
+					self.calc.ref_space, self.calc.exp_space, self.calc.no_act = self.kernel.active(self.mol, self.calc)
 					# expansion instantiation
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.exp = ExpCls(self.mol, self.calc, self.calc.exp_type)

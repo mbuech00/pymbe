@@ -171,7 +171,7 @@ class MPICls():
 					info = {'e_hf': _calc.energy['hf'], 'e_base': _calc.energy['base'], \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
 								'ref_space': _calc.ref_space, 'exp_space': _calc.exp_space, \
-								'occup': _calc.occup, 'no_act': _calc.no_act, 'ne_act': _calc.ne_act}
+								'occup': _calc.occup, 'no_act': _calc.no_act}
 					# bcast info
 					self.global_comm.bcast(info, root=0)
 					# bcast mo
@@ -183,7 +183,7 @@ class MPICls():
 					_calc.energy['hf'] = info['e_hf']; _calc.energy['base'] = info['e_base']
 					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
 					_calc.ref_space = info['ref_space']; _calc.exp_space = info['exp_space']
-					_calc.occup = info['occup']; _calc.no_act = info['no_act']; _calc.ne_act = info['ne_act']
+					_calc.occup = info['occup']; _calc.no_act = info['no_act']
 					# receive mo
 					if (self.local_master):
 						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)

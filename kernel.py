@@ -92,23 +92,19 @@ class KernCls():
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# no active space
-					no_act = ne_act = np.count_nonzero(_calc.hf.mo_occ == 1.) + len(ref_space)
+					no_act = np.count_nonzero(_calc.hf.mo_occ == 1.) + len(ref_space)
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
-					# active electrons
-					ne_act = _calc.exp_ref['NELEC']
-					assert((ne_act[0]+ne_act[1]) <= _mol.nelectron - (2*_mol.ncore))
 					# active orbitals
-					assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) < _mol.ncore) == 0)
-					no_act = len(_calc.exp_ref['ACTIVE'])
 					if (_calc.exp_type == 'occupied'):
-						assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) >= _mol.nocc) == _mol.nvirt)
+						no_act = np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) < _mol.nocc) + len(ref_space)
 					elif (_calc.exp_type == 'virtual'):
-						assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) < _mol.nocc) == (_mol.nocc-_mol.ncore))
-				# debug print
-				if (_mol.verbose_prt): print('\n ref_space = {0:} , exp_space = {1:}'.format(ref_space, exp_space))
+						no_act = np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) >= _mol.nocc) + len(ref_space)
+					# sanity checks
+					assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) < _mol.ncore) == 0)
+					assert(float(_calc.exp_ref['NELEC'][0]+_calc.exp_ref['NELEC'][1]) <= np.sum(_calc.hf.mo_occ[_calc.exp_ref['ACTIVE']]))
 				#
-				return ref_space, exp_space, no_act, ne_act
+				return ref_space, exp_space, no_act
 
 
 		def e_mf(self, _mol, _calc, _mo):
@@ -151,23 +147,25 @@ class KernCls():
 				_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, _calc.exp_space)
 				# sort mo coefficients
 				if (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+					# core region
+					core_elec = _mol.nelectron - (_calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1])
+					assert(core_elec % 2 == 0)
+					ncore_cas = core_elec // 2
+					# divide into core-cas-virtual
 					idx = np.asarray([i for i in range(_mol.norb) if i not in _calc.exp_ref['ACTIVE']])
-					mo = np.hstack((_calc.mo[:, idx[:_mol.ncore]], _calc.mo[:, _calc.exp_ref['ACTIVE']], _calc.mo[:, idx[_mol.ncore:]]))
+					mo = np.hstack((_calc.mo[:, idx[:ncore_cas]], _calc.mo[:, _calc.exp_ref['ACTIVE']], _calc.mo[:, idx[ncore_cas:]]))
 					_calc.mo = np.asarray(mo, order='C')
 				# casscf ref calc
 				if (_calc.exp_ref['METHOD'] == 'CASSCF'):
 					# exp model
-					_calc.energy['cas_model'], _calc.mo = self.casscf(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+					cas_corr, _calc.mo = self.casscf(_mol, _calc, _exp, _calc.exp_model['METHOD'])
 					# identical to hf ref?
-					if (abs(_calc.energy['cas_model']) < 1.0e-10):
+					if (abs(cas_corr) < 1.0e-10):
 						try:
 							raise RuntimeError('\nCASSCF Error : choice of CAS orbitals returns HF solution\n\n')
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
-					# base model
-					if (_calc.exp_base['METHOD'] is not None):
-						_calc.energy['cas_base'], _ = self.casscf(_mol, _calc, _exp, _calc.exp_base['METHOD'])
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] is None):
 					e_base = np.float64(0.0)
@@ -224,8 +222,8 @@ class KernCls():
 		def casscf(self, _mol, _calc, _exp, _method):
 				""" casscf calc """
 				# casscf ref
-				cas = mcscf.CASSCF(_calc.hf, _calc.no_act, _calc.ne_act)
-				if (abs(_calc.ne_act[0]-_calc.ne_act[1]) == 0):
+				cas = mcscf.CASSCF(_calc.hf, len(_calc.exp_ref['ACTIVE']), _calc.exp_ref['NELEC'])
+				if (abs(_calc.exp_ref['NELEC'][0]-_calc.exp_ref['NELEC'][1]) == 0):
 					if (_method == 'FCI'):
 						cas.fcisolver = fci.direct_spin0_symm.FCI(_mol)
 					elif (_method == 'SCI'):
@@ -239,15 +237,13 @@ class KernCls():
 				cas.conv_tol = 1.0e-10
 				cas.max_stepsize = .01
 				cas.max_cycle_micro = 1
-				# ncore
-				cas.frozen = _mol.ncore
 				# wfnsym
 				cas.fcisolver.wfnsym = _calc.wfnsym
 				# verbose print
 				if (_mol.verbose_prt): cas.verbose = 4
 				# fix spin if non-singlet
 				if (_mol.spin > 0):
-					sz = abs(_calc.ne_act[0]-_calc.ne_act[1]) * .5
+					sz = abs(_calc.exp_ref['NELEC'][0]-_calc.exp_ref['NELEC'][1]) * .5
 					cas.fix_spin_(ss=sz * (sz + 1.))
 				# run casscf calc
 				cas.kernel(_calc.mo)
@@ -258,7 +254,7 @@ class KernCls():
 						sys.stderr.write(str(err))
 						raise
 				# calculate spin
-				s, mult = cas.fcisolver.spin_square(cas.ci, _calc.no_act, _calc.ne_act)
+				s, mult = cas.fcisolver.spin_square(cas.ci, len(_calc.exp_ref['ACTIVE']), _calc.exp_ref['NELEC'])
 				# check for correct spin
 				if ((_mol.spin + 1) - mult > 1.0e-05):
 					try:
