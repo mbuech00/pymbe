@@ -43,7 +43,7 @@ class MPICls():
 		def set_mpi(self):
 				""" set mpi info """
 				# communicate mpi info
-				self.bcast_mpi_info()
+				self.bcast_mpi()
 				# set local groups
 				self.set_local_groups()
 				#
@@ -113,7 +113,7 @@ class MPICls():
 				return
 
 
-		def bcast_mol_info(self, _mol):
+		def bcast_mol(self, _mol):
 				""" bcast mol info """
 				if (self.global_master):
 					mol = {'atom': _mol.atom, 'charge': _mol.charge, 'spin': _mol.spin, \
@@ -130,7 +130,7 @@ class MPICls():
 				return
 
 
-		def bcast_calc_info(self, _calc):
+		def bcast_calc(self, _calc):
 				""" bcast calc info """
 				if (self.global_master):
 					# bcast to slaves
@@ -152,7 +152,7 @@ class MPICls():
 				return
 
 
-		def bcast_mpi_info(self):
+		def bcast_mpi(self):
 				""" bcast mpi info """
 				if (self.global_master):
 					# bcast to slaves
@@ -164,8 +164,8 @@ class MPICls():
 				return
 
 
-		def bcast_hf_ref_info(self, _mol, _calc):
-				""" bcast hf and ref info """
+		def bcast_fund(self, _mol, _calc):
+				""" bcast fundamental info """
 				if (self.global_master):
 					# collect dimensions, reference energies, and mo_occ
 					info = {'e_hf': _calc.energy['hf'], 'e_base': _calc.energy['base'], \
@@ -175,8 +175,7 @@ class MPICls():
 					# bcast info
 					self.global_comm.bcast(info, root=0)
 					# bcast mo
-					if (self.num_local_masters >= 1):
-						self.master_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)
+					self.global_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)
 				else:
 					# receive info
 					info = self.global_comm.bcast(None, root=0)
@@ -185,30 +184,15 @@ class MPICls():
 					_calc.ref_space = info['ref_space']; _calc.exp_space = info['exp_space']
 					_calc.occup = info['occup']; _calc.no_act = info['no_act']
 					# receive mo
-					if (self.local_master):
-						buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
-						self.master_comm.Bcast([buff, MPI.DOUBLE], root=0)
-						_calc.mo = buff
-				#
-				return
-
-
-		def bcast_mo_info(self, _mol, _calc, _comm):
-				""" bcast mo coefficients """
-				if (_comm.Get_rank() == 0):
-					# bcast mo
-					_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)
-				else:
-					# receive mo
 					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
-					_comm.Bcast([buff, MPI.DOUBLE], root=0)
+					self.global_comm.Bcast([buff, MPI.DOUBLE], root=0)
 					_calc.mo = buff
 				#
 				return
 
 
-		def bcast_rst(self, _calc, _exp):
-				""" bcast restart files """
+		def bcast_exp(self, _calc, _exp):
+				""" bcast exp info """
 				if (_exp.level == 'macro'):
 					comm = self.master_comm
 				elif (_exp.level == 'micro'):

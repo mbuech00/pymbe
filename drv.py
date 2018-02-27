@@ -61,8 +61,8 @@ class DrvCls():
 				if (do_print): _prt.exp_header(_calc, _exp)
 				# restart
 				if (_rst.restart):
-					# bcast rst data
-					if (_mpi.parallel): _mpi.bcast_rst(_calc, _exp)
+					# bcast exp info
+					if (_mpi.parallel): _mpi.bcast_exp(_calc, _exp)
 					# if rst, print previous results
 					if (do_print):
 						for _exp.order in range(_exp.start_order, _exp.min_order):
@@ -85,7 +85,7 @@ class DrvCls():
 						# print mbe header
 						_prt.mbe_header(_calc, _exp)
 					# init energies
-					if (len(_exp.energy['inc']) != _exp.order):
+					if (len(_exp.energy['inc']) < (_exp.order - (_exp.start_order - 1))):
 						inc = np.empty(len(_exp.tuples[-1]), dtype=np.float64)
 						inc.fill(np.nan)
 						_exp.energy['inc'].append(inc)
@@ -158,9 +158,9 @@ class DrvCls():
 						exp.level = 'macro'
 						# set min order
 						exp.min_order = msg['min_order']
-						# receive rst data
+						# receive exp info
 						_rst.restart = msg['rst']
-						if (_rst.restart): _mpi.bcast_rst(_calc, exp)
+						if (_rst.restart): _mpi.bcast_exp(_calc, exp)
 						# reset restart logical
 						_rst.restart = False
 					#
@@ -207,8 +207,8 @@ class DrvCls():
 							if (_calc.exp_virt == 'DNO'):
 								_mpi.bcast_mo_info(_mol, _calc, _mpi.local_comm)
 						else:
-							# receive rst data
-							if (msg['rst']): _mpi.bcast_rst(_calc, exp)
+							# receive exp info
+							if (msg['rst']): _mpi.bcast_exp(_calc, exp)
 					#
 					#** energy phase **#
 					#

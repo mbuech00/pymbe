@@ -224,8 +224,6 @@ class MBECls():
 					if (not _mol.verbose_prt): _prt.mbe_status(_calc, _exp, 1.0)
 					# bcast energy
 					_mpi.bcast_energy(_mol, _calc, _exp, comm)
-					# bcast mo coefficients
-					if (_calc.exp_ref['METHOD'] == 'CASSCF'): _mpi.bcast_mo_info(_mol, _calc, _mpi.global_comm)
 				else:
 					# init job_info dictionary
 					job_info = {}
@@ -274,7 +272,7 @@ class MBECls():
 								self.summation(_calc, _exp, 'inc', data['index'])
 								_exp.micro_conv[-1][data['index']] = data['micro_order']
 							# write restart files
-							if (_mpi.global_master and ((((data['index']+1) % int(_rst.rst_freq)) == 0) or (_exp.level == 'macro'))):
+							if (_mpi.global_master and ((((data['index']+1) % _rst.rst_freq) == 0) or (_exp.level == 'macro'))):
 								_rst.write_mbe(_calc, _exp, False)
 							# increment stat counter
 							counter += 1
@@ -304,7 +302,7 @@ class MBECls():
 				else:
 					comm = _mpi.local_comm
 				# init energies
-				if (len(_exp.energy['inc']) < _exp.order):
+				if (len(_exp.energy['inc']) < (_exp.order - (_exp.start_order - 1))):
 					inc = np.empty(len(_exp.tuples[-1]), dtype=np.float64)
 					inc.fill(np.nan)
 					_exp.energy['inc'].append(inc)
@@ -312,8 +310,6 @@ class MBECls():
 				if (_exp.order == _exp.start_order):
 					# receive energy
 					_mpi.bcast_energy(_mol, _calc, _exp, comm)
-					# receive mo coefficients
-					if (_calc.exp_ref['METHOD'] == 'CASSCF'): _mpi.bcast_mo_info(_mol, _calc, _mpi.global_comm)
 				else:
 					# init data dict
 					data = {}

@@ -44,9 +44,9 @@ class InitCls():
 				# build and communicate molecule
 				if (self.mpi.global_master):
 					self.mol.make(self.mpi, self.rst)
-					self.mpi.bcast_mol_info(self.mol)
+					self.mpi.bcast_mol(self.mol)
 				else:
-					self.mpi.bcast_mol_info(self.mol)
+					self.mpi.bcast_mol(self.mol)
 					self.mol.make(self.mpi, self.rst)
 				# calculation instantiation
 				self.calc = CalcCls(self.mpi, self.rst, self.mol)
@@ -55,38 +55,50 @@ class InitCls():
 				# set core region
 				self.mol.ncore = self.mol.set_ncore()
 				# communicate calc info 
-				self.mpi.bcast_calc_info(self.calc)
+				self.mpi.bcast_calc(self.calc)
 				# init mpi
 				self.mpi.set_mpi()
 				# hf and ref calculations
 				if (self.mpi.global_master):
-					# hf calculation
-					self.calc.hf, self.calc.mo = self.kernel.hf(self.mol, self.calc)
-					# get hcore and eri
-					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
-					# reference and expansion spaces
-					self.calc.ref_space, self.calc.exp_space, self.calc.no_act = self.kernel.active(self.mol, self.calc)
-					# expansion instantiation
-					if (self.calc.exp_type in ['occupied','virtual']):
-						self.exp = ExpCls(self.mol, self.calc, self.calc.exp_type)
-						# mark expansion as micro
-						self.exp.level = 'micro'
-					elif (self.calc.exp_type == 'combined'):
-						self.exp = ExpCls(self.mol, self.calc, 'occupied')
-						# mark expansion as macro
-						self.exp.level = 'macro'
-					# base energy and transformation matrix
-					self.calc.energy['base'], self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp)
+					# restart
+					if (self.rst.restart):
+						# read fundamental info
+						self.rst.read_fund(self.mol, self.calc)
+						# expansion instantiation
+						if (self.calc.exp_type in ['occupied','virtual']):
+							self.exp = ExpCls(self.mol, self.calc, self.calc.exp_type)
+							# mark expansion as micro
+							self.exp.level = 'micro'
+						elif (self.calc.exp_type == 'combined'):
+							self.exp = ExpCls(self.mol, self.calc, 'occupied')
+							# mark expansion as macro
+							self.exp.level = 'macro'
+					# no restart
+					else:
+						# hf calculation
+						self.calc.hf, self.calc.mo = self.kernel.hf(self.mol, self.calc)
+						# get hcore and eri
+						self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
+						# reference and expansion spaces
+						self.calc.ref_space, self.calc.exp_space, self.calc.no_act = self.kernel.active(self.mol, self.calc)
+						# expansion instantiation
+						if (self.calc.exp_type in ['occupied','virtual']):
+							self.exp = ExpCls(self.mol, self.calc, self.calc.exp_type)
+							# mark expansion as micro
+							self.exp.level = 'micro'
+						elif (self.calc.exp_type == 'combined'):
+							self.exp = ExpCls(self.mol, self.calc, 'occupied')
+							# mark expansion as macro
+							self.exp.level = 'macro'
+						# base energy and transformation matrix
+						self.calc.energy['base'], self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp)
+						# write fundamental info
+						self.rst.write_fund(self.mol, self.calc)
 				else:
 					# get hcore and eri
 					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
-				# bcast hf and transformation info
-				if (self.mpi.parallel):
-					self.mpi.bcast_hf_ref_info(self.mol, self.calc)
-					self.mpi.bcast_mo_info(self.mol, self.calc, self.mpi.global_comm)
-					# in case of combined expansion, have local masters perform hf calc
-					if (self.mpi.local_master):
-						self.calc.hf = self.kernel.hf(self.mol, self.calc)
+				# bcast fundamental info
+				if (self.mpi.parallel): self.mpi.bcast_fund(self.mol, self.calc)
 				# driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):

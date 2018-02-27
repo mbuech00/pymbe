@@ -13,6 +13,7 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
+import json
 from os import mkdir, listdir
 from os.path import join, isfile, isdir
 from shutil import rmtree
@@ -26,7 +27,7 @@ class RstCls():
 				""" init restart env and parameters """
 				if (_mpi.global_master):
 					self.rst_dir = _out.wrk_dir+'/rst'
-					self.rst_freq = 50000.0
+					self.rst_freq = 50000
 					if (not isdir(self.rst_dir)):
 						self.restart = False
 						mkdir(self.rst_dir)
@@ -57,7 +58,63 @@ class RstCls():
 		def update(self):
 				""" update restart freq """
 				#
-				return self.rst_freq / 2.
+				return int(max(self.rst_freq / 2., 1.))
+
+
+		def write_fund(self, _mol, _calc):
+				""" write fundamental info restart files """
+				# write dimensions
+				dims = {'nocc': _mol.nocc, 'nvirt': _mol.nvirt, 'no_act': _calc.no_act}
+				with open(join(self.rst_dir, 'dims.rst'), 'w') as f:
+					json.dump(dims, f)
+				# write hf and base energies
+				e_hf_base = {'hf': _calc.energy['hf'], 'base': _calc.energy['base']}
+				with open(join(self.rst_dir, 'e_hf_base.rst'), 'w') as f:
+					json.dump(e_hf_base, f)
+				# write expansion spaces
+				np.save(join(self.rst_dir, 'ref_space'), _calc.ref_space)
+				np.save(join(self.rst_dir, 'exp_space'), _calc.exp_space)
+				# occupation
+				np.save(join(self.rst_dir, 'occup'), _calc.occup)
+				# write orbitals
+				np.save(join(self.rst_dir, 'mo'), _calc.mo)
+				#
+				return
+
+
+		def read_fund(self, _mol, _calc):
+				""" read fundamental info restart files """
+				# list filenames in files list
+				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
+				# sort the list of files
+				files.sort(key=natural_keys)
+				# loop over files
+				for i in range(len(files)):
+					# read dimensions
+					if ('dims' in files[i]):
+						with open(join(self.rst_dir, files[i]), 'r') as f:
+							dims = json.load(f)
+						_mol.nocc = dims['nocc']; _mol.nvirt = dims['nvirt']; _calc.no_act = dims['no_act']
+					# read hf and base energies
+					elif ('e_hf_base' in files[i]):
+						with open(join(self.rst_dir, files[i]), 'r') as f:
+							e_hf_base = json.load(f)
+						_calc.energy['hf'] = e_hf_base['hf']; _calc.energy['base'] = e_hf_base['base'] 
+					# read expansion spaces
+					elif ('ref_space' in files[i]):
+						_calc.ref_space = np.load(join(self.rst_dir, files[i]))
+					elif ('exp_space' in files[i]):
+						_calc.exp_space = np.load(join(self.rst_dir, files[i]))
+					# read occupation
+					elif ('occup' in files[i]):
+						_calc.occup = np.load(join(self.rst_dir, files[i]))
+					# read orbitals
+					elif ('mo' in files[i]):
+						_calc.mo = np.load(join(self.rst_dir, files[i]))
+				# norb
+				_mol.norb = _mol.nocc + _mol.nvirt
+				#
+				return
 
 
 		def write_mbe(self, _calc, _exp, _final):
@@ -87,7 +144,7 @@ class RstCls():
 
 
 		def read_exp(self, _exp):
-				""" driver for reading _exp restart files """
+				""" read expansion restart files """
 				# list filenames in files list
 				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
 				# sort the list of files
