@@ -55,7 +55,7 @@ class RstCls():
 		
 		
 		def update(self):
-				""" update restart freq according to start order """
+				""" update restart freq """
 				#
 				return self.rst_freq / 2.
 
