@@ -148,13 +148,12 @@ class KernCls():
 				# sort mo coefficients
 				if (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# core region
-					core_elec = _mol.nelectron - (_calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1])
-					assert(core_elec % 2 == 0)
-					ncore_cas = core_elec // 2
+					ncore_elec = _mol.nelectron - (_calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1])
+					assert(ncore_elec % 2 == 0)
+					ncore_orb = ncore_elec // 2
 					# divide into core-cas-virtual
 					idx = np.asarray([i for i in range(_mol.norb) if i not in _calc.exp_ref['ACTIVE']])
-					print('core_elec = {0:} , ncore_cas = {1:} , idx = {2:}'.format(core_elec, ncore_cas, idx))
-					mo = np.hstack((_calc.mo[:, idx[:ncore_cas]], _calc.mo[:, _calc.exp_ref['ACTIVE']], _calc.mo[:, idx[ncore_cas:]]))
+					mo = np.hstack((_calc.mo[:, idx[:ncore_orb]], _calc.mo[:, _calc.exp_ref['ACTIVE']], _calc.mo[:, idx[ncore_orb:]]))
 					_calc.mo = np.asarray(mo, order='C')
 				# casscf ref calc
 				if (_calc.exp_ref['METHOD'] == 'CASSCF'):

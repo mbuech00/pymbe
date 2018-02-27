@@ -101,7 +101,7 @@ class MBECls():
 				if (_exp.level == 'macro'):
 					drv_micro = drv.DrvCls(_mol, 'virtual') 
 				# determine start index
-				start = np.argmax(_exp.energy['inc'][-1] == 0.0)
+				start = np.argmax(np.isnan(_exp.energy['inc'][-1]))
 				# loop over tuples
 				for i in range(start, len(_exp.tuples[-1])):
 					# start time
@@ -230,7 +230,7 @@ class MBECls():
 					# init job_info dictionary
 					job_info = {}
 					# init job index
-					i = np.argmax(_exp.energy['inc'][-1] == 0.0)
+					i = np.argmax(np.isnan(_exp.energy['inc'][-1]))
 					# init stat counter
 					counter = i
 					# print status for START
@@ -305,7 +305,9 @@ class MBECls():
 					comm = _mpi.local_comm
 				# init energies
 				if (len(_exp.energy['inc']) < _exp.order):
-					_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
+					inc = np.empty(len(_exp.tuples[-1]), dtype=np.float64)
+					inc.fill(np.nan)
+					_exp.energy['inc'].append(inc)
 				# ref_calc
 				if (_exp.order == _exp.start_order):
 					# receive energy

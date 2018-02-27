@@ -86,7 +86,9 @@ class DrvCls():
 						_prt.mbe_header(_calc, _exp)
 					# init energies
 					if (len(_exp.energy['inc']) != _exp.order):
-						_exp.energy['inc'].append(np.zeros(len(_exp.tuples[-1]), dtype=np.float64))
+						inc = np.empty(len(_exp.tuples[-1]), dtype=np.float64)
+						inc.fill(np.nan)
+						_exp.energy['inc'].append(inc)
 					# mbe calculations
 					self.mbe.main(_mpi, _mol, _calc, _kernel, _exp, _prt, _rst)
 					if (do_print):
