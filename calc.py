@@ -165,6 +165,9 @@ class CalcCls():
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: REF, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
+					if (((self.exp_occ in ['PM','FB','IBO-1','IBO-2']) or (self.exp_virt in ['PM','FB'])) and (_mol.symmetry != 'C1')):
+						raise ValueError('wrong input -- the combination of local orbitals and point group symmetry ' + \
+										'different from C1 is not allowed')
 					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] is None)):
 						raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 										'requires the use of a CC or SCI base model for the expansion')
