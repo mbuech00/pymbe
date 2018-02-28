@@ -104,7 +104,10 @@ class MolCls(gto.Mole):
 							elif (re.split('=',content[i])[0].strip() == 'sym'):
 								self.symmetry = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'basis'):
-								self.basis = eval(re.split('=',content[i])[1].strip())
+								try:
+									self.basis = eval(re.split('=',content[i])[1].strip())
+								except NameError:	
+									self.basis = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'unit'):
 								self.unit = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'frozen'):
