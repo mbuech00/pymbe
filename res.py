@@ -42,10 +42,14 @@ class ResCls():
 				self.fill_str = '{0:^143}'.format('|'*137)
 				self.header_str = '{0:^139}'.format('-'*44)
 				# modify basis print out
-				if (_mol.frozen):
-					self.basis = _mol.basis+' (T)'
-				else:
-					self.basis = _mol.basis+' (F)'
+				if (isinstance(_mol.basis, str)):
+					self.basis = _mol.basis
+				elif (isinstance(_mol.basis, dict)):
+					for i, val in enumerate(_mol.basis.items()):
+						if (i == 0):
+							self.basis = val[1]
+						else:
+							self.basis += '/'+val[1]
 				# modify spin multiplicity print out
 				if (_mol.spin == 0):
 					self.mult = 'singlet'
@@ -73,12 +77,16 @@ class ResCls():
 				else:
 					self.exp_base = _calc.exp_base['METHOD']
 				# modify system size print out
-				self.sys_size = '{0:} e / {1:} o'.format(_mol.nelectron - 2*_mol.ncore, len(_calc.ref_space) + len(_calc.exp_space))
+				self.sys_size = '{0:} / {1:}'.format(_mol.nelectron - 2*_mol.ncore, len(_calc.ref_space) + len(_calc.exp_space))
+				if (_mol.frozen):
+					self.sys_size += ' / T'
+				else:
+					self.sys_size += ' / F'
 				# modify active space print out
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					self.active = 'none'
 				else:
-					self.active = '{0:} e / {1:} o'.format(_calc.exp_ref['NELEC'][0]+_calc.exp_ref['NELEC'][1], \
+					self.active = '{0:} / {1:}'.format(_calc.exp_ref['NELEC'][0]+_calc.exp_ref['NELEC'][1], \
 															len(_calc.exp_ref['ACTIVE']))
 				# modify orbital print out
 				if (_calc.exp_occ == 'REF'):
@@ -143,7 +151,7 @@ class ResCls():
 						print(self.divider_str)
 						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
-								format('','basis (fc approx.)','','=','',self.basis,\
+								format('','basis set','','=','',self.basis,\
 									'','|','','expansion model','','=','',_calc.exp_model['METHOD'],\
 									'','|','','mpi masters / slaves','','=','',self.mpi))
 						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
@@ -153,8 +161,8 @@ class ResCls():
 									'','|','','Hartree-Fock energy','','=','',_calc.energy['hf']))
 						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-								format('','system size','','=','',self.sys_size,\
-									'','|','','active space','','=','',self.active,\
+								format('','sys. size (e/o/fc)','','=','',self.sys_size,\
+									'','|','','cas size (e/o)','','=','',self.active,\
 									'','|','','base model energy','','=','',_calc.energy['hf']+_calc.energy['base']))
 						print(('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 							'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
