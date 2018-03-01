@@ -114,7 +114,7 @@ class ResCls():
 				# modify mpi print out
 				self.mpi = '{0:} / {1:}'.format(_mpi.num_local_masters+1, _mpi.global_size-(_mpi.num_local_masters+1))
 				# modify threshold print out
-				self.thres = '{0:.0e} / {1:.0f}'.format(_calc.exp_thres, _calc.exp_relax)
+				self.thres = '{0:.0e} / {1:<.1f}'.format(_calc.exp_thres, _calc.exp_relax)
 				#
 				return
 
