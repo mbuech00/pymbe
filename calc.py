@@ -149,8 +149,6 @@ class CalcCls():
 					if (self.wfnsym != 0):
 						if (not (self.exp_model['METHOD'] in ['SCI','FCI'])):
 							raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
-						if (not (self.exp_base['METHOD'] in [None,'SCI'])):
-							raise ValueError('wrong input -- illegal choice of wfnsym for chosen base model')
 					# expansion and convergence thresholds
 					if (self.exp_thres < 0.0):
 						raise ValueError('wrong input -- expansion threshold parameter (thres) must be float: 0.0 <= thres')

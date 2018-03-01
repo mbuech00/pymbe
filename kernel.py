@@ -91,7 +91,7 @@ class KernCls():
 					exp_space = np.array(range(_mol.nocc, _mol.norb))
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# no active space
+					# no active space except in case of open-shell
 					no_act = np.count_nonzero(_calc.hf.mo_occ == 1.) + len(ref_space)
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
@@ -400,7 +400,7 @@ class KernCls():
 					cisd = ci.cisd.CISD(hf, mo_coeff=np.eye(len(_exp.cas_idx)), mo_occ=_calc.occup[_exp.cas_idx])
 				else:
 					cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(len(_exp.cas_idx)), np.eye(len(_exp.cas_idx)))), \
-											mo_occ=np.array((_calc.occup[_exp.cas_idx]>0, _calc.occup[_exp.cas_idx]==2), dtype=np.double))
+											mo_occ=np.array((_calc.occup[_exp.cas_idx] > 0., _calc.occup[_exp.cas_idx] == 2.), dtype=np.double))
 				# settings
 				cisd.conv_tol = 1.0e-10
 				cisd.max_cycle = 500
@@ -448,7 +448,7 @@ class KernCls():
 					ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(len(_exp.cas_idx)), mo_occ=_calc.occup[_exp.cas_idx])
 				else:
 					ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(len(_exp.cas_idx)), np.eye(len(_exp.cas_idx)))), \
-											mo_occ=np.array((_calc.occup[_exp.cas_idx]>0, _calc.occup[_exp.cas_idx]==2), dtype=np.double))
+											mo_occ=np.array((_calc.occup[_exp.cas_idx] > 0., _calc.occup[_exp.cas_idx] == 2.), dtype=np.double))
 				# settings
 				ccsd.conv_tol = 1.0e-10
 				if (_base): ccsd.conv_tol_normt = 1.0e-10
@@ -477,7 +477,9 @@ class KernCls():
 				else:
 					dm = None
 				# calculate (t) correction
-				if (_pt_corr): e_corr += ccsd.ccsd_t(eris=eris)
+				if (_pt_corr):
+					if (np.count_nonzero(_calc.occup[_exp.cas_idx] < 2.) >= 3):
+						e_corr += ccsd.ccsd_t(eris=eris)
 				#
 				return e_corr, dm
 
