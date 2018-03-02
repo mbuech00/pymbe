@@ -40,7 +40,7 @@ class ScrCls():
 	
 		def update(self, _calc, _exp):
 				""" update expansion threshold """
-				if (_exp.order < 3):
+				if (_exp.order == 1):
 					return 0.0
 				else:
 					return _calc.exp_thres * _calc.exp_relax ** (_exp.order - 2)

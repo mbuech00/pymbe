@@ -499,8 +499,11 @@ class KernCls():
 					dm = None
 				# calculate (t) correction
 				if (_pt_corr):
-					if (np.count_nonzero(_calc.occup[_exp.cas_idx] < 2.) >= 3):
+					if (_mol.spin == 0):
 						e_corr += ccsd.ccsd_t(eris=eris)
+					else:
+						if ((eris.focka.shape[0] - eris.nocca) > 0):
+							e_corr += ccsd.ccsd_t(eris=eris)
 				#
 				return e_corr, dm
 
