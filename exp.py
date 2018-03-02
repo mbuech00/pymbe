@@ -18,45 +18,45 @@ from scipy.misc import factorial
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, _mol, _calc, _type):
+		def __init__(self, mol, calc, _type):
 				""" init parameters """
 				# init tuples and incl_idx
-				self.incl_idx, self.tuples = self.init_tuples(_mol, _calc, _type)
+				self.incl_idx, self.tuples = self.init_tuples(mol, calc, _type)
 				# init energy dict
 				self.energy = {}
 				self.energy['inc'] = []
 				self.energy['tot'] = []
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
-				self.max_order = min(len(_calc.exp_space), _calc.exp_max_order)
+				self.max_order = min(len(calc.exp_space), calc.exp_max_order)
 				# init micro_conv list
 				self.micro_conv = []
 				# init convergence list
 				self.conv_orb = [False]
 				# init timings
-				self.time_mbe = []
-				self.time_screen = []
+				self.timembe = []
+				self.timescreen = []
 				# init thres
 				if (self.start_order < 3):
 					self.thres = 0.0
 				else:
-					self.thres = _calc.exp_thres * _calc.exp_relax ** (self.start_order - 3)
+					self.thres = calc.exp_thres * calc.exp_relax ** (self.start_order - 3)
 				#
 				return
 
 
-		def init_tuples(self, _mol, _calc, _type):
+		def init_tuples(self, mol, calc, _type):
 				""" init tuples and incl_idx """
 				# incl_idx
-				incl_idx = _calc.ref_space.tolist()
+				incl_idx = calc.ref_space.tolist()
 				# tuples
-				if (_calc.no_act == len(incl_idx)):
-					tuples = [np.array(list([i] for i in _calc.exp_space), dtype=np.int32)]
+				if (calc.no_act == len(incl_idx)):
+					tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32)]
 				else:
 					if (_type == 'occupied'):
-						tuples = [np.array([_calc.exp_space[-(_calc.no_act-len(_calc.ref_space)):]], dtype=np.int32)]
+						tuples = [np.array([calc.exp_space[-(calc.no_act-len(calc.ref_space)):]], dtype=np.int32)]
 					elif (_type == 'virtual'):
-						tuples = [np.array([_calc.exp_space[:(_calc.no_act-len(_calc.ref_space))]], dtype=np.int32)]
+						tuples = [np.array([calc.exp_space[:(calc.no_act-len(calc.ref_space))]], dtype=np.int32)]
 				#
 				return incl_idx, tuples
 

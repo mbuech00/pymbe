@@ -23,9 +23,9 @@ from copy import deepcopy
 
 class RstCls():
 		""" restart class """
-		def __init__(self, _out, _mpi):
+		def __init__(self, _out, mpi):
 				""" init restart env and parameters """
-				if (_mpi.global_master):
+				if (mpi.global_master):
 					self.rst_dir = _out.wrk_dir+'/rst'
 					self.rst_freq = 50000
 					if (not isdir(self.rst_dir)):
@@ -37,20 +37,20 @@ class RstCls():
 				return
 
 
-		def rm_rst(self):
+		def rmrst(self):
 				""" remove rst directory in case of successful calc """
 				rmtree(self.rst_dir, ignore_errors=True)
 				#
 				return
 
 
-		def rst_main(self, _mpi, _calc, _exp):
+		def rst_main(self, mpi, calc, exp):
 				""" main restart driver """
 				if (self.restart):
-					# read in _exp restart files
-					self.read_exp(_exp)
+					# read in exp restart files
+					self.readexp(exp)
 				# set min_order
-				_exp.min_order = _exp.tuples[-1].shape[1]
+				exp.min_order = exp.tuples[-1].shape[1]
 				#
 				return
 		
@@ -61,28 +61,28 @@ class RstCls():
 				return int(max(self.rst_freq / 2., 1.))
 
 
-		def write_fund(self, _mol, _calc):
+		def write_fund(self, mol, calc):
 				""" write fundamental info restart files """
 				# write dimensions
-				dims = {'nocc': _mol.nocc, 'nvirt': _mol.nvirt, 'no_act': _calc.no_act}
+				dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'no_act': calc.no_act}
 				with open(join(self.rst_dir, 'dims.rst'), 'w') as f:
 					json.dump(dims, f)
 				# write hf and base energies
-				e_hf_base = {'hf': _calc.energy['hf'], 'base': _calc.energy['base']}
+				e_hf_base = {'hf': calc.energy['hf'], 'base': calc.energy['base']}
 				with open(join(self.rst_dir, 'e_hf_base.rst'), 'w') as f:
 					json.dump(e_hf_base, f)
 				# write expansion spaces
-				np.save(join(self.rst_dir, 'ref_space'), _calc.ref_space)
-				np.save(join(self.rst_dir, 'exp_space'), _calc.exp_space)
+				np.save(join(self.rst_dir, 'ref_space'), calc.ref_space)
+				np.save(join(self.rst_dir, 'exp_space'), calc.exp_space)
 				# occupation
-				np.save(join(self.rst_dir, 'occup'), _calc.occup)
+				np.save(join(self.rst_dir, 'occup'), calc.occup)
 				# write orbitals
-				np.save(join(self.rst_dir, 'mo'), _calc.mo)
+				np.save(join(self.rst_dir, 'mo'), calc.mo)
 				#
 				return
 
 
-		def read_fund(self, _mol, _calc):
+		def read_fund(self, mol, calc):
 				""" read fundamental info restart files """
 				# list filenames in files list
 				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
@@ -94,56 +94,56 @@ class RstCls():
 					if ('dims' in files[i]):
 						with open(join(self.rst_dir, files[i]), 'r') as f:
 							dims = json.load(f)
-						_mol.nocc = dims['nocc']; _mol.nvirt = dims['nvirt']; _calc.no_act = dims['no_act']
+						mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']; calc.no_act = dims['no_act']
 					# read hf and base energies
 					elif ('e_hf_base' in files[i]):
 						with open(join(self.rst_dir, files[i]), 'r') as f:
 							e_hf_base = json.load(f)
-						_calc.energy['hf'] = e_hf_base['hf']; _calc.energy['base'] = e_hf_base['base'] 
+						calc.energy['hf'] = e_hf_base['hf']; calc.energy['base'] = e_hf_base['base'] 
 					# read expansion spaces
 					elif ('ref_space' in files[i]):
-						_calc.ref_space = np.load(join(self.rst_dir, files[i]))
+						calc.ref_space = np.load(join(self.rst_dir, files[i]))
 					elif ('exp_space' in files[i]):
-						_calc.exp_space = np.load(join(self.rst_dir, files[i]))
+						calc.exp_space = np.load(join(self.rst_dir, files[i]))
 					# read occupation
 					elif ('occup' in files[i]):
-						_calc.occup = np.load(join(self.rst_dir, files[i]))
+						calc.occup = np.load(join(self.rst_dir, files[i]))
 					# read orbitals
 					elif ('mo' in files[i]):
-						_calc.mo = np.load(join(self.rst_dir, files[i]))
+						calc.mo = np.load(join(self.rst_dir, files[i]))
 				# norb
-				_mol.norb = _mol.nocc + _mol.nvirt
+				mol.norb = mol.nocc + mol.nvirt
 				#
 				return
 
 
-		def write_mbe(self, _calc, _exp, _final):
+		def writembe(self, calc, exp, _final):
 				""" write energy mbe restart files """
 				# write e_inc
-				np.save(join(self.rst_dir, 'e_inc_'+str(_exp.order)), _exp.energy['inc'][-1])
+				np.save(join(self.rst_dir, 'e_inc_'+str(exp.order)), exp.energy['inc'][-1])
 				# write micro_conv
-				if (_calc.exp_type == 'combined'):
-					np.save(join(self.rst_dir, 'micro_conv_'+str(_exp.order)), np.asarray(_exp.micro_conv[-1]))
+				if (calc.exp_type == 'combined'):
+					np.save(join(self.rst_dir, 'micro_conv_'+str(exp.order)), np.asarray(exp.micro_conv[-1]))
 				# write time
-				np.save(join(self.rst_dir, 'time_mbe_'+str(_exp.order)), np.asarray(_exp.time_mbe[-1]))
+				np.save(join(self.rst_dir, 'timembe_'+str(exp.order)), np.asarray(exp.timembe[-1]))
 				# write e_tot
 				if (_final):
-					np.save(join(self.rst_dir, 'e_tot_'+str(_exp.order)), np.asarray(_exp.energy['tot'][-1]))
+					np.save(join(self.rst_dir, 'e_tot_'+str(exp.order)), np.asarray(exp.energy['tot'][-1]))
 				#
 				return
 		
 		
-		def write_screen(self, _exp):
+		def writescreen(self, exp):
 				""" write screening restart files """
 				# write tuples
-				np.save(join(self.rst_dir, 'tup_'+str(_exp.order+1)), _exp.tuples[-1])
+				np.save(join(self.rst_dir, 'tup_'+str(exp.order+1)), exp.tuples[-1])
 				# write time
-				np.save(join(self.rst_dir, 'time_screen_'+str(_exp.order)), np.asarray(_exp.time_screen[-1]))
+				np.save(join(self.rst_dir, 'timescreen_'+str(exp.order)), np.asarray(exp.timescreen[-1]))
 				#
 				return
 
 
-		def read_exp(self, _exp):
+		def readexp(self, exp):
 				""" read expansion restart files """
 				# list filenames in files list
 				files = [f for f in listdir(self.rst_dir) if isfile(join(self.rst_dir, f))]
@@ -153,21 +153,21 @@ class RstCls():
 				for i in range(len(files)):
 					# read tuples
 					if ('tup' in files[i]):
-						_exp.tuples.append(np.load(join(self.rst_dir, files[i])))
+						exp.tuples.append(np.load(join(self.rst_dir, files[i])))
 					# read e_inc
 					elif ('e_inc' in files[i]):
-						_exp.energy['inc'].append(np.load(join(self.rst_dir, files[i])))
+						exp.energy['inc'].append(np.load(join(self.rst_dir, files[i])))
 					# read e_tot
 					elif ('e_tot' in files[i]):
-						_exp.energy['tot'].append(np.load(join(self.rst_dir, files[i])).tolist())
+						exp.energy['tot'].append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read micro_conv
 					elif ('micro_conv' in files[i]):
-						_exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())
+						exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read timings
-					elif ('time_mbe' in files[i]):
-						_exp.time_mbe.append(np.load(join(self.rst_dir, files[i])).tolist())
-					elif ('time_screen' in files[i]):
-						_exp.time_screen.append(np.load(join(self.rst_dir, files[i])).tolist())
+					elif ('timembe' in files[i]):
+						exp.timembe.append(np.load(join(self.rst_dir, files[i])).tolist())
+					elif ('timescreen' in files[i]):
+						exp.timescreen.append(np.load(join(self.rst_dir, files[i])).tolist())
 				#
 				return
 

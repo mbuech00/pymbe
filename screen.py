@@ -19,7 +19,7 @@ from itertools import combinations
 
 class ScrCls():
 		""" screening class """
-		def __init__(self, _mol, _type):
+		def __init__(self, mol, _type):
 				""" init parameters """
 				# store type
 				self.exp_type = _type
@@ -38,45 +38,45 @@ class ScrCls():
 				return type('Enum', (), enums)
 
 	
-		def update(self, _calc, _exp):
+		def update(self, calc, exp):
 				""" update expansion threshold """
-				if (_exp.order == 1):
+				if (exp.order == 1):
 					return 0.0
 				else:
-					return _calc.exp_thres * _calc.exp_relax ** (_exp.order - 2)
+					return calc.exp_thres * calc.exp_relax ** (exp.order - 2)
 
 		
-		def main(self, _mpi, _mol, _calc, _exp, _rst):
+		def main(self, mpi, mol, calc, exp, rst):
 				""" input generation for subsequent order """
 				# start screening
-				if (_mpi.parallel):
+				if (mpi.parallel):
 					# mpi parallel version
-					self.master(_mpi, _mol, _calc, _exp)
+					self.master(mpi, mol, calc, exp)
 				else:
 					# init bookkeeping variables
 					tmp = []; combs = []
 			        # loop over parent tuples
-					for i in range(len(_exp.tuples[-1])):
-						if (_exp.order == _exp.start_order):
+					for i in range(len(exp.tuples[-1])):
+						if (exp.order == exp.start_order):
 							# loop through possible orbitals to augment the combinations with
-							for m in range(_exp.tuples[-1][i][-1]+1, _calc.exp_space[-1]+1):
-								tmp.append(_exp.tuples[-1][i].tolist()+[m])
+							for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
+								tmp.append(exp.tuples[-1][i].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
-							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][i], _exp.order-1)))
+							combs = np.array(list(list(comb) for comb in combinations(exp.tuples[-1][i], exp.order-1)))
 							# select only those combinations that include the active orbitals
-							if (_calc.no_act > len(_calc.ref_space)):
+							if (calc.no_act > len(calc.ref_space)):
 								cond = np.zeros(len(combs), dtype=bool)
-								for j in range(len(combs)): cond[j] = set(_exp.tuples[0][0]) <= set(combs[j])
+								for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
 								combs = combs[cond]
 							# loop through possible orbitals to augment the combinations with
-							for m in range(_exp.tuples[-1][i][-1]+1, _calc.exp_space[-1]+1):
+							for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
 								# init screening logical
 								screen = True
 								# loop over subset combinations
 								for j in range(len(combs)):
 									# recover index of particular tuple
-									comb_idx = np.where(np.all(np.append(combs[j], [m]) == _exp.tuples[-1], axis=1))[0]
+									comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
 									# does it exist?
 									if (len(comb_idx) == 0):
 										# screen away
@@ -84,38 +84,38 @@ class ScrCls():
 										break
 									else:
 										# is the increment above threshold?
-										if (np.abs(_exp.energy['inc'][-1][comb_idx]) >= _exp.thres):
+										if (np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres):
 											# mark as 'allowed'
 											screen = False
 								# if tuple is allowed, add to child tuple list, otherwise screen away
-								if (not screen): tmp.append(_exp.tuples[-1][i].tolist()+[m])
+								if (not screen): tmp.append(exp.tuples[-1][i].tolist()+[m])
 					# when done, write to tup list or mark expansion as converged
 					if (len(tmp) >= 1):
 						tmp.sort()
-						_exp.tuples.append(np.array(tmp, dtype=np.int32))
+						exp.tuples.append(np.array(tmp, dtype=np.int32))
 					else:
-						_exp.conv_orb.append(True)
+						exp.conv_orb.append(True)
 				# update expansion threshold
-				_exp.thres = self.update(_calc, _exp)
+				exp.thres = self.update(calc, exp)
 				#
 				return
 	
 	
-		def master(self, _mpi, _mol, _calc, _exp):
+		def master(self, mpi, mol, calc, exp):
 				""" master routine """
 				# wake up slaves
-				if (_exp.level == 'macro'):
-					msg = {'task': 'screen_local_master', 'exp_order': _exp.order, 'thres': _exp.thres}
+				if (exp.level == 'macro'):
+					msg = {'task': 'screen_local_master', 'exp_order': exp.order, 'thres': exp.thres}
 					# set communicator
-					comm = _mpi.master_comm
+					comm = mpi.master_comm
 					# set number of workers
-					slaves_avail = num_slaves = _mpi.num_local_masters
+					slaves_avail = num_slaves = mpi.num_local_masters
 				else:
-					msg = {'task': 'screen_slave', 'exp_order': _exp.order, 'thres': _exp.thres}
+					msg = {'task': 'screen_slave', 'exp_order': exp.order, 'thres': exp.thres}
 					# set communicator
-					comm = _mpi.local_comm
+					comm = mpi.local_comm
 					# set number of workers
-					slaves_avail = num_slaves = _mpi.local_size - 1
+					slaves_avail = num_slaves = mpi.local_size - 1
 				# bcast
 				comm.bcast(msg, root=0)
 				# init job_info dictionary
@@ -125,13 +125,13 @@ class ScrCls():
 				# loop until no slaves left
 				while (slaves_avail >= 1):
 					# receive data dict
-					data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=_mpi.stat)
+					data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 					# probe for source and tag
-					source = _mpi.stat.Get_source(); tag = _mpi.stat.Get_tag()
+					source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 					# slave is ready
 					if (tag == self.tags.ready):
 						# any jobs left?
-						if (i <= len(_exp.tuples[-1])-1):
+						if (i <= len(exp.tuples[-1])-1):
 							# save parent tuple index
 							job_info['index'] = i
 							# send parent tuple index
@@ -153,56 +153,56 @@ class ScrCls():
 				if (len(tmp) >= 1):
 					tmp.sort()
 				else:
-					_exp.conv_orb.append(True)
+					exp.conv_orb.append(True)
 				# make numpy array out of tmp
 				buff = np.array(tmp, dtype=np.int32)
 				# bcast buff
-				_mpi.bcast_tup(_exp, buff, comm)
+				mpi.bcast_tup(exp, buff, comm)
 				#
 				return
 		
 		
-		def slave(self, _mpi, _mol, _calc, _exp):
+		def slave(self, mpi, mol, calc, exp):
 				""" slave routine """
 				# init data dict and combs list
 				data = {'child_tuple': []}; combs = []
 				# set communicator and number of workers
-				if (_exp.level == 'macro'):
-					comm = _mpi.master_comm
+				if (exp.level == 'macro'):
+					comm = mpi.master_comm
 				else:
-					comm = _mpi.local_comm
+					comm = mpi.local_comm
 				# receive work from master
 				while (True):
 					# send status to master
 					comm.send(None, dest=0, tag=self.tags.ready)
 					# receive parent tuple
-					job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=_mpi.stat)
+					job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 					# recover tag
-					tag = _mpi.stat.Get_tag()
+					tag = mpi.stat.Get_tag()
 					# do job
 					if (tag == self.tags.start):
 						# init child tuple list
 						data['child_tuple'][:] = []
-						if (_exp.order == _exp.start_order):
+						if (exp.order == exp.start_order):
 							# loop through possible orbitals to augment the combinations with
-							for m in range(_exp.tuples[-1][job_info['index']][-1]+1, _calc.exp_space[-1]+1):
-								data['child_tuple'].append(_exp.tuples[-1][job_info['index']].tolist()+[m])
+							for m in range(exp.tuples[-1][job_info['index']][-1]+1, calc.exp_space[-1]+1):
+								data['child_tuple'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
 						else:
 							# generate list with all subsets of particular tuple
-							combs = np.array(list(list(comb) for comb in combinations(_exp.tuples[-1][job_info['index']], _exp.order-1)))
+							combs = np.array(list(list(comb) for comb in combinations(exp.tuples[-1][job_info['index']], exp.order-1)))
 							# select only those combinations that include the active orbitals
-							if (_calc.no_act > len(_calc.ref_space)):
+							if (calc.no_act > len(calc.ref_space)):
 								cond = np.zeros(len(combs), dtype=bool)
-								for j in range(len(combs)): cond[j] = set(_exp.tuples[0][0]) <= set(combs[j])
+								for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
 								combs = combs[cond]
 							# loop through possible orbitals to augment the combinations with
-							for m in range(_exp.tuples[-1][job_info['index']][-1]+1, _calc.exp_space[-1]+1):
+							for m in range(exp.tuples[-1][job_info['index']][-1]+1, calc.exp_space[-1]+1):
 								# init screening logical
 								screen = True
 								# loop over subset combinations
 								for j in range(len(combs)):
 									# recover index of particular tuple
-									comb_idx = np.where(np.all(np.append(combs[j], [m]) == _exp.tuples[-1], axis=1))[0]
+									comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
 									# does it exist?
 									if (len(comb_idx) == 0):
 										# screen away
@@ -210,11 +210,11 @@ class ScrCls():
 										break
 									else:
 										# is the increment above threshold?
-										if (np.abs(_exp.energy['inc'][-1][comb_idx]) >= _exp.thres):
+										if (np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres):
 											# mark as 'allowed'
 											screen = False
 								# if tuple is allowed, add to child tuple list, otherwise screen away
-								if (not screen): data['child_tuple'].append(_exp.tuples[-1][job_info['index']].tolist()+[m])
+								if (not screen): data['child_tuple'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
 						# send data back to master
 						comm.send(data, dest=0, tag=self.tags.done)
 					# exit
@@ -224,9 +224,9 @@ class ScrCls():
 				comm.send(None, dest=0, tag=self.tags.exit)
 				# init buffer
 				tup_info = comm.bcast(None, root=0)
-				buff = np.empty([tup_info['tup_len'],_exp.order+1], dtype=np.int32)
+				buff = np.empty([tup_info['tup_len'],exp.order+1], dtype=np.int32)
 				# receive buffer
-				_mpi.bcast_tup(_exp, buff, comm)
+				mpi.bcast_tup(exp, buff, comm)
 				#
 				return
 

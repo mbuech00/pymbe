@@ -40,10 +40,10 @@ class MPICls():
 				return
 
 
-		def set_mpi(self):
+		def setmpi(self):
 				""" set mpi info """
 				# communicate mpi info
-				self.bcast_mpi()
+				self.bcastmpi()
 				# set local groups
 				self.set_local_groups()
 				#
@@ -113,46 +113,46 @@ class MPICls():
 				return
 
 
-		def bcast_mol(self, _mol):
+		def bcastmol(self, mol):
 				""" bcast mol info """
 				if (self.global_master):
-					mol = {'atom': _mol.atom, 'charge': _mol.charge, 'spin': _mol.spin, \
-							'symmetry': _mol.symmetry, 'irrep_nelec': _mol.irrep_nelec, 'basis': _mol.basis, \
-							'unit': _mol.unit, 'frozen': _mol.frozen, 'verbose_prt': _mol.verbose_prt}
+					mol = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
+							'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
+							'unit': mol.unit, 'frozen': mol.frozen, 'verboseprt': mol.verboseprt}
 					self.global_comm.bcast(mol, root=0)
 				else:
 					mol = self.global_comm.bcast(None, root=0)
-					_mol.atom = mol['atom']; _mol.charge = mol['charge']; _mol.spin = mol['spin']
-					_mol.symmetry = mol['symmetry']; _mol.irrep_nelec = mol['irrep_nelec']
-					_mol.basis = mol['basis']; _mol.unit = mol['unit']; _mol.frozen = mol['frozen']
-					_mol.verbose_prt = mol['verbose_prt']
+					mol.atom = mol['atom']; mol.charge = mol['charge']; mol.spin = mol['spin']
+					mol.symmetry = mol['symmetry']; mol.irrep_nelec = mol['irrep_nelec']
+					mol.basis = mol['basis']; mol.unit = mol['unit']; mol.frozen = mol['frozen']
+					mol.verboseprt = mol['verboseprt']
 				#
 				return
 
 
-		def bcast_calc(self, _calc):
+		def bcastcalc(self, calc):
 				""" bcast calc info """
 				if (self.global_master):
 					# bcast to slaves
-					calc = {'exp_model': _calc.exp_model['METHOD'], 'exp_type': _calc.exp_type, \
-							'exp_ref': _calc.exp_ref['METHOD'], 'exp_base': _calc.exp_base['METHOD'], \
-							'exp_thres': _calc.exp_thres, 'exp_relax': _calc.exp_relax, \
-							'wfnsym': _calc.wfnsym, 'exp_max_order': _calc.exp_max_order, \
-							'exp_occ': _calc.exp_occ, 'exp_virt': _calc.exp_virt}
+					calc = {'exp_model': calc.exp_model['METHOD'], 'exp_type': calc.exp_type, \
+							'exp_ref': calc.exp_ref['METHOD'], 'exp_base': calc.exp_base['METHOD'], \
+							'exp_thres': calc.exp_thres, 'exp_relax': calc.exp_relax, \
+							'wfnsym': calc.wfnsym, 'exp_max_order': calc.exp_max_order, \
+							'exp_occ': calc.exp_occ, 'exp_virt': calc.exp_virt}
 					self.global_comm.bcast(calc, root=0)
 				else:
 					# receive from master
 					calc = self.global_comm.bcast(None, root=0)
-					_calc.exp_model = {'METHOD': calc['exp_model']}; _calc.exp_type = calc['exp_type']
-					_calc.exp_ref = {'METHOD': calc['exp_ref']}; _calc.exp_base = {'METHOD': calc['exp_base']}
-					_calc.exp_thres = calc['exp_thres']; _calc.exp_relax = calc['exp_relax']
-					_calc.wfnsym = calc['wfnsym']; _calc.exp_max_order = calc['exp_max_order']
-					_calc.exp_occ = calc['exp_occ']; _calc.exp_virt = calc['exp_virt']
+					calc.exp_model = {'METHOD': calc['exp_model']}; calc.exp_type = calc['exp_type']
+					calc.exp_ref = {'METHOD': calc['exp_ref']}; calc.exp_base = {'METHOD': calc['exp_base']}
+					calc.exp_thres = calc['exp_thres']; calc.exp_relax = calc['exp_relax']
+					calc.wfnsym = calc['wfnsym']; calc.exp_max_order = calc['exp_max_order']
+					calc.exp_occ = calc['exp_occ']; calc.exp_virt = calc['exp_virt']
 				#
 				return
 
 
-		def bcast_mpi(self):
+		def bcastmpi(self):
 				""" bcast mpi info """
 				if (self.global_master):
 					# bcast to slaves
@@ -164,87 +164,87 @@ class MPICls():
 				return
 
 
-		def bcast_fund(self, _mol, _calc):
+		def bcast_fund(self, mol, calc):
 				""" bcast fundamental info """
 				if (self.global_master):
 					# collect dimensions, reference energies, and mo_occ
-					info = {'e_hf': _calc.energy['hf'], 'e_base': _calc.energy['base'], \
-								'e_ref': _calc.energy['ref'], 'e_ref_base': _calc.energy['ref_base'], \
-								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
-								'ref_space': _calc.ref_space, 'exp_space': _calc.exp_space, \
-								'occup': _calc.occup, 'no_act': _calc.no_act}
+					info = {'e_hf': calc.energy['hf'], 'e_base': calc.energy['base'], \
+								'e_ref': calc.energy['ref'], 'e_ref_base': calc.energy['ref_base'], \
+								'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
+								'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
+								'occup': calc.occup, 'no_act': calc.no_act}
 					# bcast info
 					self.global_comm.bcast(info, root=0)
 					# bcast mo
-					self.global_comm.Bcast([_calc.mo, MPI.DOUBLE], root=0)
+					self.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
 				else:
 					# receive info
 					info = self.global_comm.bcast(None, root=0)
-					_calc.energy['hf'] = info['e_hf']; _calc.energy['base'] = info['e_base']
-					_calc.energy['ref'] = info['e_ref']; _calc.energy['ref_base'] = info['e_ref_base']
-					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
-					_calc.ref_space = info['ref_space']; _calc.exp_space = info['exp_space']
-					_calc.occup = info['occup']; _calc.no_act = info['no_act']
+					calc.energy['hf'] = info['e_hf']; calc.energy['base'] = info['e_base']
+					calc.energy['ref'] = info['e_ref']; calc.energy['ref_base'] = info['e_ref_base']
+					mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
+					calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
+					calc.occup = info['occup']; calc.no_act = info['no_act']
 					# receive mo
-					buff = np.zeros([_mol.norb, _mol.norb], dtype=np.float64)
+					buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 					self.global_comm.Bcast([buff, MPI.DOUBLE], root=0)
-					_calc.mo = buff
+					calc.mo = buff
 				#
 				return
 
 
-		def bcast_exp(self, _calc, _exp):
+		def bcastexp(self, calc, exp):
 				""" bcast exp info """
-				if (_exp.level == 'macro'):
+				if (exp.level == 'macro'):
 					comm = self.master_comm
-				elif (_exp.level == 'micro'):
+				elif (exp.level == 'micro'):
 					comm = self.global_comm
 				if (self.global_master):
 					# collect exp_info
-					exp_info = {'len_tup': [len(_exp.tuples[i]) for i in range(len(_exp.tuples))], \
-								'len_e_inc': [len(_exp.energy['inc'][i]) for i in range(len(_exp.energy['inc']))], \
-								'min_order': _exp.min_order, 'start_order': _exp.start_order}
+					exp_info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
+								'len_e_inc': [len(exp.energy['inc'][i]) for i in range(len(exp.energy['inc']))], \
+								'min_order': exp.min_order, 'start_order': exp.start_order}
 					# bcast info
 					comm.bcast(exp_info, root=0)
 					# bcast tuples
-					for i in range(1,len(_exp.tuples)):
-						comm.Bcast([_exp.tuples[i], MPI.INT], root=0)
+					for i in range(1,len(exp.tuples)):
+						comm.Bcast([exp.tuples[i], MPI.INT], root=0)
 					# bcast energy increments
-					for i in range(len(_exp.energy['inc'])):
-						comm.Bcast([_exp.energy['inc'][i], MPI.DOUBLE], root=0)
+					for i in range(len(exp.energy['inc'])):
+						comm.Bcast([exp.energy['inc'][i], MPI.DOUBLE], root=0)
 				else:
 					# receive exp_info
 					exp_info = comm.bcast(None, root=0)
 					# set min_order and start_order
-					_exp.min_order = exp_info['min_order']
-					_exp.start_order = exp_info['start_order']
+					exp.min_order = exp_info['min_order']
+					exp.start_order = exp_info['start_order']
 					# receive tuples
 					for i in range(1, len(exp_info['len_tup'])):
-						buff = np.empty([exp_info['len_tup'][i], _exp.start_order+i], dtype=np.int32)
+						buff = np.empty([exp_info['len_tup'][i], exp.start_order+i], dtype=np.int32)
 						comm.Bcast([buff, MPI.INT], root=0)
-						_exp.tuples.append(buff)
+						exp.tuples.append(buff)
 					# receive e_inc
 					for i in range(len(exp_info['len_e_inc'])):
 						buff = np.zeros(exp_info['len_e_inc'][i], dtype=np.float64)
 						comm.Bcast([buff, MPI.DOUBLE], root=0)
-						_exp.energy['inc'].append(buff)
+						exp.energy['inc'].append(buff)
 				#
 				return
 
 
-		def bcast_energy(self, _mol, _calc, _exp, _comm):
+		def bcast_energy(self, mol, calc, exp, _comm):
 				""" bcast energies """
 				# Bcast
-				_comm.Bcast([_exp.energy['inc'][-1], MPI.DOUBLE], root=0)
+				_comm.Bcast([exp.energy['inc'][-1], MPI.DOUBLE], root=0)
 				#
 				return
 
 
-		def bcast_tup(self, _exp, _buff, _comm):
+		def bcast_tup(self, exp, _buff, _comm):
 				""" master/slave routine for bcasting total number of tuples """
 				if ((self.global_master and (self.num_local_masters == 0)) or \
-						(self.global_master and (_exp.level == 'macro')) or \
-						(self.local_master and (_exp.level == 'micro'))):
+						(self.global_master and (exp.level == 'macro')) or \
+						(self.local_master and (exp.level == 'micro'))):
 					# init bcast dict
 					tup_info = {'tup_len': len(_buff)}
 					# bcast
@@ -252,15 +252,15 @@ class MPICls():
 				# bcast buffer
 				_comm.Bcast([_buff, MPI.INT], root=0)
 				# append tup[-1] with buff
-				if (len(_buff) >= 1): _exp.tuples.append(_buff)
+				if (len(_buff) >= 1): exp.tuples.append(_buff)
 				#
 				return
 
 
-		def final(self, _rst):
+		def final(self, rst):
 				""" terminate calculation """
 				if (self.global_master):
-					_rst.rm_rst()
+					rst.rmrst()
 					if (self.parallel):
 						if (self.num_local_masters == 0):
 							self.local_comm.bcast({'task': 'exit_slave'}, root=0)

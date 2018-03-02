@@ -19,7 +19,7 @@ from pyscf import symm
 
 class CalcCls():
 		""" calculation class """
-		def __init__(self, _mpi, _rst, _mol):
+		def __init__(self, mpi, rst, mol):
 				""" init parameters """
 				# set default parameters
 				self.exp_model = {'METHOD': 'FCI'}
@@ -28,7 +28,7 @@ class CalcCls():
 				self.exp_base = {'METHOD': None}
 				self.exp_thres = 1.0e-10
 				self.exp_relax = 1.0
-				self.wfnsym = symm.addons.irrep_id2name(_mol.symmetry, 0)
+				self.wfnsym = symm.addons.irrep_id2name(mol.symmetry, 0)
 				self.exp_max_order = 1000000
 				self.exp_occ = 'REF'
 				self.exp_virt = 'REF'
@@ -36,19 +36,19 @@ class CalcCls():
 				self.energy = {}
 				self.mo = None
 				# set calculation parameters
-				if (_mpi.global_master):
+				if (mpi.global_master):
 					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
 						self.exp_thres, self.exp_relax, \
 						self.wfnsym, self.exp_max_order, \
 						self.exp_occ, self.exp_virt, \
-						_mol.max_memory, _mpi.num_local_masters = self.set_calc(_mpi, _rst, _mol)
+						mol.max_memory, mpi.num_local_masters = self.setcalc(mpi, rst, mol)
 					# sanity check
-					self.sanity_chk(_mpi, _rst, _mol)
+					self.sanity_chk(mpi, rst, mol)
 				#
 				return
 
 
-		def set_calc(self, _mpi, _rst, _mol):
+		def setcalc(self, mpi, rst, mol):
 				""" set calculation and mpi parameters from calc.inp file """
 				# read input file
 				try:
@@ -81,30 +81,30 @@ class CalcCls():
 							elif (re.split('=',content[i])[0].strip() == 'virt'):
 								self.exp_virt = re.split('=',content[i])[1].strip().upper()
 							elif (re.split('=',content[i])[0].strip() == 'mem'):
-								_mol.max_memory = int(re.split('=',content[i])[1].strip())
+								mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'num_local_masters'):
-								_mpi.num_local_masters = int(re.split('=',content[i])[1].strip())
+								mpi.num_local_masters = int(re.split('=',content[i])[1].strip())
 							# error handling
 							else:
 								try:
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
 														' keyword in calc.inp not recognized')
 								except Exception as err:
-									_rst.rm_rst()
+									rst.rmrst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
-					_rst.rm_rst()
+					rst.rmrst()
 					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
 				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
 							self.exp_thres, self.exp_relax, self.wfnsym, \
 							self.exp_max_order, self.exp_occ, self.exp_virt, \
-							_mol.max_memory, _mpi.num_local_masters
+							mol.max_memory, mpi.num_local_masters
 
 
-		def sanity_chk(self, _mpi, _rst, _mol):
+		def sanity_chk(self, mpi, rst, mol):
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
@@ -143,7 +143,7 @@ class CalcCls():
 						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					# wfnsym
 					try:
-						self.wfnsym = symm.addons.irrep_name2id(_mol.symmetry, self.wfnsym)
+						self.wfnsym = symm.addons.irrep_name2id(mol.symmetry, self.wfnsym)
 					except Exception as err_2:
 						raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
 					if (self.wfnsym != 0):
@@ -163,7 +163,7 @@ class CalcCls():
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: REF, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if (((self.exp_occ in ['PM','FB','IBO-1','IBO-2']) or (self.exp_virt in ['PM','FB'])) and (_mol.symmetry != 'C1')):
+					if (((self.exp_occ in ['PM','FB','IBO-1','IBO-2']) or (self.exp_virt in ['PM','FB'])) and (mol.symmetry != 'C1')):
 						raise ValueError('wrong input -- the combination of local orbitals and point group symmetry ' + \
 										'different from C1 is not allowed')
 					if (((self.exp_occ == 'NO') or (self.exp_virt in ['NO','DNO'])) and (self.exp_base['METHOD'] is None)):
@@ -176,24 +176,24 @@ class CalcCls():
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'excludes the use of occupied natural orbitals')
 					# mpi groups
-					if (_mpi.parallel):
-						if (_mpi.num_local_masters < 0):
+					if (mpi.parallel):
+						if (mpi.num_local_masters < 0):
 							raise ValueError('wrong input -- number of local mpi masters (num_local_masters) ' + \
 											'must be a positive number >= 1')
-						if ((self.exp_type == 'combined') and (_mpi.num_local_masters == 0)):
+						if ((self.exp_type == 'combined') and (mpi.num_local_masters == 0)):
 							raise ValueError('wrong input -- combined expansions are only valid in ' + \
 											'combination with at least one local mpi master (num_local_masters >= 1)')
-						if ((self.exp_type != 'combined') and (_mpi.num_local_masters >= 1)):
+						if ((self.exp_type != 'combined') and (mpi.num_local_masters >= 1)):
 							raise ValueError('wrong input -- the use of local mpi masters ' + \
 											'is currently not implemented for occupied and virtual expansions')
-						if (_mpi.global_size <= 2 * _mpi.num_local_masters):
+						if (mpi.global_size <= 2 * mpi.num_local_masters):
 							raise ValueError('wrong input -- total number of mpi processes ' + \
 											'must be larger than twice the number of local mpi masters (num_local_masters)')
 					# memory
-					if (_mol.max_memory is None):
+					if (mol.max_memory is None):
 						raise ValueError('wrong input -- the memory keyword (mem) appears to be missing')
 				except Exception as err:
-					_rst.rm_rst()
+					rst.rmrst()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
 					raise
 				#

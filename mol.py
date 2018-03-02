@@ -20,14 +20,14 @@ import sys
 
 class MolCls(gto.Mole):
 		""" molecule class (inherited from pyscf gto.Mole class) """
-		def __init__(self, _mpi, _rst):
+		def __init__(self, mpi, rst):
 				""" init parameters """
 				# gto.Mole instantiation
 				gto.Mole.__init__(self)
 				# silence pyscf output
 				self.verbose = 1
 				# set geometric and molecular parameters
-				if (_mpi.global_master):
+				if (mpi.global_master):
 					# default C1 symmetry
 					self.symmetry = 'C1'
 					# init occupation
@@ -37,28 +37,28 @@ class MolCls(gto.Mole):
 					# init max_memory
 					self.max_memory = None
 					# verbose
-					self.verbose_prt = False
+					self.verboseprt = False
 					# set geometry
-					self.atom = self.set_geo(_rst)
+					self.atom = self.set_geo(rst)
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose_prt = self.set_mol(_rst)
+						self.basis, self.unit, self.frozen, self.verboseprt = self.setmol(rst)
 					# store symmetry
 					self.comp_symmetry = self.symmetry
 				#
 				return
 
 
-		def make(self, _mpi, _rst):
+		def make(self, mpi, rst):
 				""" build Mole object """
-				if (_mpi.global_master):
+				if (mpi.global_master):
 					try:
 						self.build(dump_input=False, parse_arg=False)
 					except RuntimeWarning as err:
 						try:
 							raise RuntimeError
 						except RuntimeError:
-							_rst.rm_rst()
+							rst.rmrst()
 							sys.stderr.write('\nValueError: non-sensible input in mol.inp\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
@@ -68,7 +68,7 @@ class MolCls(gto.Mole):
 				return
 
 
-		def set_geo(self, _rst):
+		def set_geo(self, rst):
 				""" set geometry from geo.inp file """
 				# read input file
 				try:
@@ -81,14 +81,14 @@ class MolCls(gto.Mole):
 							else:
 								atom += content[i]
 				except IOError:
-					_rst.rm_rst()
+					rst.rmrst()
 					sys.stderr.write('\nIOError: geo.inp not found\n\n')
 					raise
 				#
 				return atom
 
 
-		def set_mol(self, _rst):
+		def setmol(self, rst):
 				""" set molecular parameters from mol.inp file """
 				# read input file
 				try:
@@ -115,23 +115,23 @@ class MolCls(gto.Mole):
 							elif (re.split('=',content[i])[0].strip() == 'occup'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
-								self.verbose_prt = re.split('=',content[i])[1].strip().upper() == 'TRUE'
+								self.verboseprt = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							# error handling
 							else:
 								try:
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
 													' keyword in mol.inp not recognized')
 								except Exception as err:
-									_rst.rm_rst()
+									rst.rmrst()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
-					_rst.rm_rst()
+					rst.rmrst()
 					sys.stderr.write('\nIOError: mol.inp not found\n\n')
 					raise
 				#
 				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose_prt
+						self.basis, self.unit, self.frozen, self.verboseprt
 
 
 		def set_ncore(self):

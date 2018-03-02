@@ -44,9 +44,9 @@ class InitCls():
 				# build and communicate molecule
 				if (self.mpi.global_master):
 					self.mol.make(self.mpi, self.rst)
-					self.mpi.bcast_mol(self.mol)
+					self.mpi.bcastmol(self.mol)
 				else:
-					self.mpi.bcast_mol(self.mol)
+					self.mpi.bcastmol(self.mol)
 					self.mol.make(self.mpi, self.rst)
 				# calculation instantiation
 				self.calc = CalcCls(self.mpi, self.rst, self.mol)
@@ -55,9 +55,9 @@ class InitCls():
 				# set core region
 				self.mol.ncore = self.mol.set_ncore()
 				# communicate calc info 
-				self.mpi.bcast_calc(self.calc)
+				self.mpi.bcastcalc(self.calc)
 				# init mpi
-				self.mpi.set_mpi()
+				self.mpi.setmpi()
 				# hf and ref calculations
 				if (self.mpi.global_master):
 					# restart
@@ -128,13 +128,13 @@ class InitCls():
 
 class OutCls():
 		""" output class """
-		def __init__(self, _mpi):
+		def __init__(self, mpi):
 				""" init output environment """
 				# get work dir
 				self.wrk_dir = getcwd()
 				# set output dir
 				self.out_dir = self.wrk_dir+'/output'
-				if (_mpi.global_master):
+				if (mpi.global_master):
 					# rm out_dir if present
 					if (isdir(self.out_dir)): rmtree(self.out_dir, ignore_errors=True)
 					# mk out_dir

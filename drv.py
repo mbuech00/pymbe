@@ -23,211 +23,211 @@ from exp import ExpCls
 
 class DrvCls():
 		""" driver class """
-		def __init__(self, _mol, _type):
+		def __init__(self, mol, _type):
 				""" init parameters and classes """
 				# init required classes
 				self.mbe = mbe.MBECls()
-				self.screening = ScrCls(_mol, _type)
+				self.screening = ScrCls(mol, _type)
 				#
 				return
 
 
-		def main(self, _mpi, _mol, _calc, _kernel, _exp, _prt, _rst):
+		def main(self, mpi, mol, calc, kernel, exp, prt, rst):
 				""" main driver routine """
 				# print and time logical
-				do_print = _mpi.global_master and (not ((_calc.exp_type == 'combined') and (_exp.level == 'micro')))
+				do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
 				# restart
-				_rst.rst_main(_mpi, _calc, _exp)
+				rst.rst_main(mpi, calc, exp)
 				# exp class instantiation on slaves
-				if (_mpi.parallel):
-					if (_calc.exp_type in ['occupied','virtual']):
-						msg = {'task': 'exp_cls', 'type': _calc.exp_type, 'rst': _rst.restart}
+				if (mpi.parallel):
+					if (calc.exp_type in ['occupied','virtual']):
+						msg = {'task': 'exp_cls', 'type': calc.exp_type, 'rst': rst.restart}
 						# bcast msg
-						_mpi.local_comm.bcast(msg, root=0)
+						mpi.local_comm.bcast(msg, root=0)
 					else:
-						if ((_exp.level == 'macro') and (_mpi.num_local_masters >= 1)):
-							msg = {'task': 'exp_cls', 'rst': _rst.restart, 'min_order': _exp.min_order}
+						if ((exp.level == 'macro') and (mpi.num_local_masters >= 1)):
+							msg = {'task': 'exp_cls', 'rst': rst.restart, 'min_order': exp.min_order}
 							# bcast msg
-							_mpi.master_comm.bcast(msg, root=0)
+							mpi.master_comm.bcast(msg, root=0)
 						else:
-							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': _exp.incl_idx, 'min_order': _exp.min_order}
+							msg = {'task': 'exp_cls', 'type': 'virtual', 'incl_idx': exp.incl_idx, 'min_order': exp.min_order}
 							# bcast msg
-							_mpi.local_comm.bcast(msg, root=0)
+							mpi.local_comm.bcast(msg, root=0)
 							# compute and communicate distinct natural virtual orbitals
-							if (_calc.exp_virt == 'DNO'):
-								_kernel.trans_dno(_mol, _calc, _exp) 
-								_mpi.bcast_mo_info(_mol, _calc, _mpi.local_comm)
+							if (calc.exp_virt == 'DNO'):
+								kernel.trans_dno(mol, calc, exp) 
+								mpi.bcast_mo_info(mol, calc, mpi.local_comm)
 				# print expansion header
-				if (do_print): _prt.exp_header(_calc, _exp)
+				if (do_print): prt.exp_header(calc, exp)
 				# restart
-				if (_rst.restart):
+				if (rst.restart):
 					# bcast exp info
-					if (_mpi.parallel): _mpi.bcast_exp(_calc, _exp)
+					if (mpi.parallel): mpi.bcastexp(calc, exp)
 					# if rst, print previous results
 					if (do_print):
-						for _exp.order in range(_exp.start_order, _exp.min_order):
-							_prt.mbe_header(_calc, _exp)
-							_prt.mbe_micro_results(_calc, _exp)
-							_prt.mbe_end(_calc, _exp)
-							_prt.mbe_results(_mol, _calc, _exp, _kernel)
-							_exp.thres = self.screening.update(_calc, _exp)
-							_prt.screen_header(_calc, _exp)
-							_prt.screen_end(_calc, _exp)
-							_rst.rst_freq = _rst.update()
-					# reset restart logical and init _exp.order
-					_rst.restart = False
+						for exp.order in range(exp.start_order, exp.min_order):
+							prt.mbe_header(calc, exp)
+							prt.mbe_microresults(calc, exp)
+							prt.mbe_end(calc, exp)
+							prt.mberesults(mol, calc, exp, kernel)
+							exp.thres = self.screening.update(calc, exp)
+							prt.screen_header(calc, exp)
+							prt.screen_end(calc, exp)
+							rst.rst_freq = rst.update()
+					# reset restart logical and init exp.order
+					rst.restart = False
 				# now do expansion
-				for _exp.order in range(_exp.min_order, _exp.max_order+1):
+				for exp.order in range(exp.min_order, exp.max_order+1):
 					#
 					#** energy phase **#
 					#
 					if (do_print):
 						# print mbe header
-						_prt.mbe_header(_calc, _exp)
+						prt.mbe_header(calc, exp)
 					# init energies
-					if (len(_exp.energy['inc']) < (_exp.order - (_exp.start_order - 1))):
-						inc = np.empty(len(_exp.tuples[-1]), dtype=np.float64)
+					if (len(exp.energy['inc']) < (exp.order - (exp.start_order - 1))):
+						inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
 						inc.fill(np.nan)
-						_exp.energy['inc'].append(inc)
+						exp.energy['inc'].append(inc)
 					# mbe calculations
-					self.mbe.main(_mpi, _mol, _calc, _kernel, _exp, _prt, _rst)
+					self.mbe.main(mpi, mol, calc, kernel, exp, prt, rst)
 					if (do_print):
 						# print micro results
-						_prt.mbe_micro_results(_calc, _exp)
+						prt.mbe_microresults(calc, exp)
 						# print mbe end
-						_prt.mbe_end(_calc, _exp)
+						prt.mbe_end(calc, exp)
 						# write restart files
-						_rst.write_mbe(_calc, _exp, True)
+						rst.writembe(calc, exp, True)
 						# print mbe results
-						_prt.mbe_results(_mol, _calc, _exp, _kernel)
+						prt.mberesults(mol, calc, exp, kernel)
 					#
 					#** screening phase **#
 					#
 					if (do_print):
 						# print screen header
-						_prt.screen_header(_calc, _exp)
+						prt.screen_header(calc, exp)
 					# orbital screening
-					if (_exp.order < _exp.max_order):
+					if (exp.order < exp.max_order):
 						# start time
-						if (do_print): _exp.time_screen.append(MPI.Wtime())
+						if (do_print): exp.timescreen.append(MPI.Wtime())
 						# perform screening
-						self.screening.main(_mpi, _mol, _calc, _exp, _rst)
+						self.screening.main(mpi, mol, calc, exp, rst)
 						if (do_print):
 							# collect time
-							_exp.time_screen[-1] -= MPI.Wtime()
-							_exp.time_screen[-1] *= -1.0
+							exp.timescreen[-1] -= MPI.Wtime()
+							exp.timescreen[-1] *= -1.0
 							# write restart files
-							if (not _exp.conv_orb[-1]):
-								_rst.write_screen(_exp)
+							if (not exp.conv_orb[-1]):
+								rst.writescreen(exp)
 							# print screen end
-							_prt.screen_end(_calc, _exp)
+							prt.screen_end(calc, exp)
 					else:
 						if (do_print):
 							# print screen end
-							_prt.screen_end(_calc, _exp)
+							prt.screen_end(calc, exp)
 							# collect time
-							_exp.time_screen.append(0.0)
+							exp.timescreen.append(0.0)
 					# update restart frequency
-					if (do_print): _rst.rst_freq = _rst.update()
+					if (do_print): rst.rst_freq = rst.update()
 					#
 					#** convergence check **#
 					#
-					if (_exp.conv_orb[-1] or (_exp.order == _exp.max_order)):
+					if (exp.conv_orb[-1] or (exp.order == exp.max_order)):
 						# recast as numpy array
-						_exp.energy['tot'] = np.array(_exp.energy['tot'])
+						exp.energy['tot'] = np.array(exp.energy['tot'])
 						# now break
 						break
 				#
 				return
 
 
-		def local_master(self, _mpi, _mol, _calc, _kernel, _rst):
+		def local_master(self, mpi, mol, calc, kernel, rst):
 				""" local master routine """
 				# set loop/waiting logical
 				local_master = True
 				# enter local master state
 				while (local_master):
 					# task id
-					msg = _mpi.master_comm.bcast(None, root=0)
+					msg = mpi.master_comm.bcast(None, root=0)
 					#
 					#** exp class instantiation **#
 					#
 					if (msg['task'] == 'exp_cls'):
-						exp = ExpCls(_mol, _calc, 'occupied')
+						exp = ExpCls(mol, calc, 'occupied')
 						# mark expansion as macro
 						exp.level = 'macro'
 						# set min order
 						exp.min_order = msg['min_order']
 						# receive exp info
-						_rst.restart = msg['rst']
-						if (_rst.restart): _mpi.bcast_exp(_calc, exp)
+						rst.restart = msg['rst']
+						if (rst.restart): mpi.bcastexp(calc, exp)
 						# reset restart logical
-						_rst.restart = False
+						rst.restart = False
 					#
 					#** energy phase **#
 					#
 					if (msg['task'] == 'mbe_local_master'):
 						exp.order = msg['exp_order']
-						self.mbe.slave(_mpi, _mol, _calc, _kernel, exp, _rst)
+						self.mbe.slave(mpi, mol, calc, kernel, exp, rst)
 					#
 					#** screening phase **#
 					#
 					elif (msg['task'] == 'screen_local_master'):
 						exp.order = msg['exp_order']
 						exp.thres = msg['thres']
-						self.screening.slave(_mpi, _mol, _calc, exp)
+						self.screening.slave(mpi, mol, calc, exp)
 					#
 					#** exit **#
 					#
 					elif (msg['task'] == 'exit_local_master'):
 						local_master = False
 				# finalize
-				_mpi.final(None)
+				mpi.final(None)
 	
 	
-		def slave(self, _mpi, _mol, _calc, _kernel):
+		def slave(self, mpi, mol, calc, kernel):
 				""" slave routine """
 				# set loop/waiting logical
 				slave = True
 				# enter slave state
 				while (slave):
 					# task id
-					msg = _mpi.local_comm.bcast(None, root=0)
+					msg = mpi.local_comm.bcast(None, root=0)
 					#
 					#** exp class instantiation **#
 					#
 					if (msg['task'] == 'exp_cls'):
-						exp = ExpCls(_mol, _calc, msg['type'])
+						exp = ExpCls(mol, calc, msg['type'])
 						# mark expansion as micro
 						exp.level = 'micro'
 						# distinguish between occ-virt expansions and combined expansions
-						if (_calc.exp_type == 'combined'):
+						if (calc.exp_type == 'combined'):
 							exp.incl_idx = msg['incl_idx']
 							# receive distinct natural virtual orbitals
-							if (_calc.exp_virt == 'DNO'):
-								_mpi.bcast_mo_info(_mol, _calc, _mpi.local_comm)
+							if (calc.exp_virt == 'DNO'):
+								mpi.bcast_mo_info(mol, calc, mpi.local_comm)
 						else:
 							# receive exp info
-							if (msg['rst']): _mpi.bcast_exp(_calc, exp)
+							if (msg['rst']): mpi.bcastexp(calc, exp)
 					#
 					#** energy phase **#
 					#
 					if (msg['task'] == 'mbe_slave'):
 						exp.order = msg['exp_order']
-						self.mbe.slave(_mpi, _mol, _calc, _kernel, exp)
+						self.mbe.slave(mpi, mol, calc, kernel, exp)
 					#
 					#** screening phase **#
 					#
 					elif (msg['task'] == 'screen_slave'):
 						exp.order = msg['exp_order']
 						exp.thres = msg['thres']
-						self.screening.slave(_mpi, _mol, _calc, exp)
+						self.screening.slave(mpi, mol, calc, exp)
 					#
 					#** exit **#
 					#
 					elif (msg['task'] == 'exit_slave'):
 						slave = False
 				# finalize
-				_mpi.final(None)
+				mpi.final(None)
 	
 	
