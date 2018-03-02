@@ -91,7 +91,7 @@ class KernCls():
 					exp_space = np.array(range(_mol.nocc, _mol.norb))
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
-					# no active space except in case of open-shell
+					# no active space
 					no_act = len(ref_space)
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
