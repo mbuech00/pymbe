@@ -158,7 +158,7 @@ class KernCls():
 					if (_calc.exp_base['METHOD'] is None):
 						e_ref_base = 0.0
 					else:
-						if (e_ref == 0.0):
+						if (np.abs(e_ref) > 1.0e-10):
 							e_ref_base = e_ref
 						else:
 							e_ref_base = self.calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
@@ -500,7 +500,8 @@ class KernCls():
 				# calculate (t) correction
 				if (_pt_corr):
 					if (_mol.spin == 0):
-						e_corr += ccsd.ccsd_t(eris=eris)
+						if (ccsd.t1.shape[1] > 0):
+							e_corr += ccsd.ccsd_t(eris=eris)
 					else:
 						if ((eris.focka.shape[0] - eris.nocca) > 0):
 							e_corr += ccsd.ccsd_t(eris=eris)
