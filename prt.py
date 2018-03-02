@@ -110,20 +110,16 @@ class PrintCls():
 	
 		def mbe_end(self, _calc, _exp):
 				""" print end of mbe """
-				if (_exp.order <= _exp.start_order+1):
-					thres = 0.0
-				else:
-					thres = _exp.thres
 				with open(self.out,'a') as f:
 					with redirect_stdout(f):
 						print(' --------------------------------------------------------------------------------------------')
 						print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-								format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-_exp.start_order]),thres))
+								format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-_exp.start_order]),_exp.thres))
 						print(' --------------------------------------------------------------------------------------------')
 				# write also to stdout
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-'+_exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-						format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-_exp.start_order]),thres))
+						format(_exp.order,np.sum(_exp.energy['inc'][_exp.order-_exp.start_order]),_exp.thres))
 				print(' --------------------------------------------------------------------------------------------')
 				#
 				return

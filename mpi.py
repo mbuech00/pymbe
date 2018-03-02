@@ -169,6 +169,7 @@ class MPICls():
 				if (self.global_master):
 					# collect dimensions, reference energies, and mo_occ
 					info = {'e_hf': _calc.energy['hf'], 'e_base': _calc.energy['base'], \
+								'e_ref': _calc.energy['ref'], 'e_ref_base': _calc.energy['ref_base'], \
 								'norb': _mol.norb, 'nocc': _mol.nocc, 'nvirt': _mol.nvirt, \
 								'ref_space': _calc.ref_space, 'exp_space': _calc.exp_space, \
 								'occup': _calc.occup, 'no_act': _calc.no_act}
@@ -180,6 +181,7 @@ class MPICls():
 					# receive info
 					info = self.global_comm.bcast(None, root=0)
 					_calc.energy['hf'] = info['e_hf']; _calc.energy['base'] = info['e_base']
+					_calc.energy['ref'] = info['e_ref']; _calc.energy['ref_base'] = info['e_ref_base']
 					_mol.norb = info['norb']; _mol.nocc = info['nocc']; _mol.nvirt = info['nvirt']
 					_calc.ref_space = info['ref_space']; _calc.exp_space = info['exp_space']
 					_calc.occup = info['occup']; _calc.no_act = info['no_act']

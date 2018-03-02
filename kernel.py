@@ -56,22 +56,22 @@ class KernCls():
 				# determine dimensions
 				_mol.norb, _mol.nocc, _mol.nvirt = self.dim(hf, _mol.ncore, _calc.exp_type)
 				# store energy, occupation, and orbsym
-				_calc.energy['hf'] = hf.e_tot
-				_calc.occup = hf.mo_occ
-				_calc.orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
+				e_hf = hf.e_tot
+				occup = hf.mo_occ
+				orbsym = symm.label_orb_symm(_mol, _mol.irrep_id, _mol.symm_orb, hf.mo_coeff)
 				#
-				return hf, np.asarray(hf.mo_coeff, order='C')
+				return hf, e_hf, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
 		def dim(self, _hf, _ncore, _type):
 				""" determine dimensions """
 				# occupied and virtual lists
 				if (_type == 'occupied'):
-					occ = np.where(_hf.mo_occ > 0.)[0]
-					virt = np.where(_hf.mo_occ == 0.)[0]
-				elif (_type == 'virtual'):
 					occ = np.where(_hf.mo_occ == 2.)[0]
 					virt = np.where(_hf.mo_occ < 2.)[0]
+				elif (_type == 'virtual'):
+					occ = np.where(_hf.mo_occ > 0.)[0]
+					virt = np.where(_hf.mo_occ == 0.)[0]
 				# nocc, nvirt, and norb
 				nocc = len(occ)
 				nvirt = len(virt)
@@ -92,7 +92,7 @@ class KernCls():
 				# hf reference model
 				if (_calc.exp_ref['METHOD'] == 'HF'):
 					# no active space except in case of open-shell
-					no_act = np.count_nonzero(_calc.hf.mo_occ == 1.) + len(ref_space)
+					no_act = len(ref_space)
 				# casci/casscf reference model
 				elif (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
 					# active orbitals
@@ -103,6 +103,13 @@ class KernCls():
 					# sanity checks
 					assert(np.count_nonzero(np.array(_calc.exp_ref['ACTIVE']) < _mol.ncore) == 0)
 					assert(float(_calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1]) <= np.sum(_calc.hf.mo_occ[_calc.exp_ref['ACTIVE']]))
+					# identical to hf ref?
+					if (no_act == len(ref_space)):
+						try:
+							raise RuntimeError('\nCAS Error : choice of CAS returns HF solution\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
 				#
 				return ref_space, exp_space, no_act
 
@@ -123,7 +130,43 @@ class KernCls():
 				return e_mf
 
 
-		def main_calc(self, _mol, _calc, _exp, _method):
+		def ref(self, _mol, _calc, _exp):
+				""" calculate reference energy and mo coefficients """
+				# set core and cas spaces
+				if (_calc.exp_type == 'occupied'):
+					_exp.core_idx, _exp.cas_idx = list(range(_mol.nocc)), _calc.ref_space.tolist()
+				elif (_calc.exp_type == 'virtual'):
+					_exp.core_idx, _exp.cas_idx = list(range(_mol.ncore)), _calc.ref_space.tolist()
+				# sort mo coefficients
+				if (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
+					# core region
+					ncore_elec = _mol.nelectron - (_calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1])
+					assert(ncore_elec % 2 == 0)
+					ncore_orb = ncore_elec // 2
+					# divide into core-cas-virtual
+					idx = np.asarray([i for i in range(_mol.norb) if i not in _calc.exp_ref['ACTIVE']])
+					mo = np.hstack((_calc.mo[:, idx[:ncore_orb]], _calc.mo[:, _calc.exp_ref['ACTIVE']], _calc.mo[:, idx[ncore_orb:]]))
+					_calc.mo = np.asarray(mo, order='C')
+					# set ref energies equal to hf energies
+					e_ref = e_ref_base = 0.0
+					# casscf mo
+					if (_calc.exp_ref['METHOD'] == 'CASSCF'): _calc.mo = self.casscf(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+				else:
+					# exp model
+					e_ref = self.calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+					# exp base
+					if (_calc.exp_base['METHOD'] is None):
+						e_ref_base = 0.0
+					else:
+						if (e_ref == 0.0):
+							e_ref_base = e_ref
+						else:
+							e_ref_base = self.calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+				#
+				return e_ref + _calc.energy['hf'], e_ref_base + _calc.energy['hf'], _calc.mo
+
+
+		def calc(self, _mol, _calc, _exp, _method):
 				""" calculate correlation energy """
 				# fci calc
 				if (_method == 'FCI'):
@@ -141,34 +184,13 @@ class KernCls():
 				return e_corr
 
 
-		def main_mo(self, _mol, _calc, _exp):
+		def base(self, _mol, _calc, _exp):
 				""" calculate base energy and mo coefficients """
 				# set core and cas spaces
 				_exp.core_idx, _exp.cas_idx = self.core_cas(_mol, _exp, _calc.exp_space)
-				# sort mo coefficients
-				if (_calc.exp_ref['METHOD'] in ['CASCI','CASSCF']):
-					# core region
-					ncore_elec = _mol.nelectron - (_calc.exp_ref['NELEC'][0] + _calc.exp_ref['NELEC'][1])
-					assert(ncore_elec % 2 == 0)
-					ncore_orb = ncore_elec // 2
-					# divide into core-cas-virtual
-					idx = np.asarray([i for i in range(_mol.norb) if i not in _calc.exp_ref['ACTIVE']])
-					mo = np.hstack((_calc.mo[:, idx[:ncore_orb]], _calc.mo[:, _calc.exp_ref['ACTIVE']], _calc.mo[:, idx[ncore_orb:]]))
-					_calc.mo = np.asarray(mo, order='C')
-				# casscf ref calc
-				if (_calc.exp_ref['METHOD'] == 'CASSCF'):
-					# exp model
-					cas_corr, _calc.mo = self.casscf(_mol, _calc, _exp, _calc.exp_model['METHOD'])
-					# identical to hf ref?
-					if (abs(cas_corr) < 1.0e-10):
-						try:
-							raise RuntimeError('\nCASSCF Error : choice of CAS orbitals returns HF solution\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
 				# zeroth-order energy
 				if (_calc.exp_base['METHOD'] is None):
-					e_base = np.float64(0.0)
+					e_base = 0.0
 				# cisd base
 				elif (_calc.exp_base['METHOD'] == 'CISD'):
 					e_base, dm = self.ci(_mol, _calc, _exp, _calc.mo, True)
@@ -266,11 +288,10 @@ class KernCls():
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
-				# save MOs and energy
-				e_corr = cas.e_tot - _calc.energy['hf']
+				# save mo
 				mo = np.asarray(cas.mo_coeff, order='C')
 				#
-				return e_corr, mo
+				return mo
 
 
 		def fci(self, _mol, _calc, _exp, _mo, _base):

@@ -76,7 +76,8 @@ class InitCls():
 					# no restart
 					else:
 						# hf calculation
-						self.calc.hf, self.calc.mo = self.kernel.hf(self.mol, self.calc)
+						self.calc.hf, self.calc.energy['hf'], self.calc.occup, \
+							self.calc.orbsym, self.calc.mo = self.kernel.hf(self.mol, self.calc)
 						# get hcore and eri
 						self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
 						# reference and expansion spaces
@@ -90,8 +91,11 @@ class InitCls():
 							self.exp = ExpCls(self.mol, self.calc, 'occupied')
 							# mark expansion as macro
 							self.exp.level = 'macro'
+						# reference calculation
+						self.calc.energy['ref'], self.calc.energy['ref_base'], \
+							self.calc.mo = self.kernel.ref(self.mol, self.calc, self.exp)
 						# base energy and transformation matrix
-						self.calc.energy['base'], self.calc.mo = self.kernel.main_mo(self.mol, self.calc, self.exp)
+						self.calc.energy['base'], self.calc.mo = self.kernel.base(self.mol, self.calc, self.exp)
 						# write fundamental info
 						self.rst.write_fund(self.mol, self.calc)
 				else:

@@ -37,7 +37,10 @@ class ExpCls():
 				self.time_mbe = []
 				self.time_screen = []
 				# init thres
-				self.thres = _calc.exp_thres
+				if (self.start_order < 3):
+					self.thres = 0.0
+				else:
+					self.thres = _calc.exp_thres * _calc.exp_relax ** (self.start_order - 3)
 				#
 				return
 

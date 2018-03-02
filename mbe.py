@@ -125,24 +125,17 @@ class MBECls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _kernel.core_cas(_mol, _exp, _exp.tuples[-1][i])
 						# model calc
-						if (_exp.order == _exp.start_order):
-							if ((_calc.exp_ref['METHOD'] == 'HF') and (_mol.spin == 0)):
-								e_model = _kernel.main_calc(_mol, _calc, _exp, 'FCI')
-							else:
-								e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
-						else:
-							e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						e_model = _kernel.calc(_mol, _calc, _exp, _calc.exp_model['METHOD']) \
+									+ (_calc.energy['hf'] - _calc.energy['ref'])
 						# base calc
 						if (_calc.exp_base['METHOD'] is None):
 							e_base = 0.0
 						else:
-							if (_exp.order == _exp.start_order):
-								if ((_calc.exp_ref['METHOD'] == 'HF') and (_mol.spin == 0)):
-									e_base = e_model
-								else:
-									e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+							if ((_exp.order == 1) and (_mol.spin == 0)):
+								e_base = e_model
 							else:
-								e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+								e_base = _kernel.calc(_mol, _calc, _exp, _calc.exp_base['METHOD']) \
+											+ (_calc.energy['hf'] - _calc.energy['ref_base'])
 						_exp.energy['inc'][-1][i] = e_model - e_base
 						# calc increment
 						self.summation(_calc, _exp, i)
@@ -189,18 +182,17 @@ class MBECls():
 						# generate input
 						_exp.core_idx, _exp.cas_idx = _kernel.core_cas(_mol, _exp, _exp.tuples[0][i])
 						# model calc
-						if ((_calc.exp_ref['METHOD'] == 'HF') and (_mol.spin == 0)):
-							e_model = _kernel.main_calc(_mol, _calc, _exp, 'FCI')
-						else:
-							e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+						e_model = _kernel.calc(_mol, _calc, _exp, _calc.exp_model['METHOD']) \
+									+ (_calc.energy['hf'] - _calc.energy['ref'])
 						# base calc
 						if (_calc.exp_base['METHOD'] is None):
 							e_base = 0.0
 						else:
-							if ((_calc.exp_ref['METHOD'] == 'HF') and (_mol.spin == 0)):
+							if ((_exp.order == 1) and (_mol.spin == 0)):
 								e_base = e_model
 							else:
-								e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+								e_base = _kernel.calc(_mol, _calc, _exp, _calc.exp_base['METHOD']) \
+											+ (_calc.energy['hf'] - _calc.energy['ref_base'])
 						_exp.energy['inc'][0][i] = e_model - e_base
 						# calc increment
 						self.summation(_calc, _exp, i)
@@ -336,11 +328,13 @@ class MBECls():
 								# generate input
 								_exp.core_idx, _exp.cas_idx = _kernel.core_cas(_mol, _exp, _exp.tuples[-1][job_info['index']])
 								# perform calc
-								e_model = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_model['METHOD'])
+								e_model = _kernel.calc(_mol, _calc, _exp, _calc.exp_model['METHOD']) \
+											+ (_calc.energy['hf'] - _calc.energy['ref'])
 								if (_calc.exp_base['METHOD'] is None):
 									e_base = 0.0
 								else:
-									e_base = _kernel.main_calc(_mol, _calc, _exp, _calc.exp_base['METHOD'])
+									e_base = _kernel.calc(_mol, _calc, _exp, _calc.exp_base['METHOD']) \
+												+ (_calc.energy['hf'] - _calc.energy['ref_base'])
 								_exp.energy['inc'][-1][job_info['index']] = e_model - e_base
 								# calc increment
 								self.summation(_calc, _exp, job_info['index'])
