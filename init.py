@@ -106,20 +106,20 @@ class InitCls():
 				# driver instantiations
 				if (self.mpi.global_master):
 					if (self.calc.exp_type in ['occupied','virtual']):
-						self.drv = DrvCls(self.mol, self.calc.exp_type)
-					elif (self.calc.exp_type == 'combined'):
-						self.drv = DrvCls(self.mol, 'occupied')
+						self.drv = DrvCls(self.mol, self.calc)
+#					elif (self.calc.exp_type == 'combined'):
+#						self.drv = DrvCls(self.mol, 'occupied')
 					# print and result instantiations
 					self.prt = PrintCls(self.out)
 					self.res = ResCls(self.mpi, self.mol, self.calc, self.out)
 				else:
 					if (self.calc.exp_type in ['occupied','virtual']):
-						self.drv = DrvCls(self.mol, self.calc.exp_type)
-					elif (self.calc.exp_type == 'combined'):
-						if (self.mpi.local_master):
-							self.drv = DrvCls(self.mol, 'occupied')
-						else:
-							self.drv = DrvCls(self.mol, 'virtual')
+						self.drv = DrvCls(self.mol, self.calc)
+#					elif (self.calc.exp_type == 'combined'):
+#						if (self.mpi.local_master):
+#							self.drv = DrvCls(self.mol, 'occupied')
+#						else:
+#							self.drv = DrvCls(self.mol, 'virtual')
 					# prt as None type
 					self.prt = None
 				#
