@@ -19,10 +19,10 @@ from itertools import combinations
 
 class ScrCls():
 		""" screening class """
-		def __init__(self, mol, _type):
+		def __init__(self, mol, variant):
 				""" init parameters """
 				# store type
-				self.exp_type = _type
+				self.exp_type = variant
 				# set tags
 				self.tags = self.enum('ready', 'done', 'exit', 'start') 
 				#

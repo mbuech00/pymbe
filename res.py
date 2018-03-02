@@ -33,9 +33,9 @@ except ImportError:
 
 class ResCls():
 		""" result class """
-		def __init__(self, mpi, mol, calc, _out):
+		def __init__(self, mpi, mol, calc, out):
 				""" init parameters """
-				self.out_dir = _out.out_dir
+				self.out_dir = out.out_dir
 				self.output = self.out_dir+'/results.out'
 				# summary constants
 				self.divider_str = '{0:^143}'.format('-'*137)
@@ -194,8 +194,8 @@ class ResCls():
 						total_tup = 0
 						for i in range(len(exp.energy['tot'])):
 							# sum up total time and number of tuples
-							total_time = np.sum(exp.timembe[:i+1])\
-											+np.sum(exp.timescreen[:i+1])
+							total_time = np.sum(exp.time_mbe[:i+1])\
+											+np.sum(exp.time_screen[:i+1])
 							total_tup += len(exp.tuples[i])
 							print(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 								'{12:^3}{13:02d}{14:12}{15:1}{16:9}{17:>9d}{18:8}{19:1}{20:6}{21:>9d}').\

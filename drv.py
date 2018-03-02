@@ -23,11 +23,11 @@ from exp import ExpCls
 
 class DrvCls():
 		""" driver class """
-		def __init__(self, mol, _type):
+		def __init__(self, mol, calc):
 				""" init parameters and classes """
 				# init required classes
 				self.mbe = mbe.MBECls()
-				self.screening = ScrCls(mol, _type)
+				self.screening = ScrCls(mol, calc.exp_type)
 				#
 				return
 
@@ -62,14 +62,14 @@ class DrvCls():
 				# restart
 				if (rst.restart):
 					# bcast exp info
-					if (mpi.parallel): mpi.bcastexp(calc, exp)
+					if (mpi.parallel): mpi.bcast_exp(calc, exp)
 					# if rst, print previous results
 					if (do_print):
 						for exp.order in range(exp.start_order, exp.min_order):
 							prt.mbe_header(calc, exp)
 							prt.mbe_microresults(calc, exp)
 							prt.mbe_end(calc, exp)
-							prt.mberesults(mol, calc, exp, kernel)
+							prt.mbe_results(mol, calc, exp, kernel)
 							exp.thres = self.screening.update(calc, exp)
 							prt.screen_header(calc, exp)
 							prt.screen_end(calc, exp)
@@ -97,9 +97,9 @@ class DrvCls():
 						# print mbe end
 						prt.mbe_end(calc, exp)
 						# write restart files
-						rst.writembe(calc, exp, True)
+						rst.mbe_write(calc, exp, True)
 						# print mbe results
-						prt.mberesults(mol, calc, exp, kernel)
+						prt.mbe_results(mol, calc, exp, kernel)
 					#
 					#** screening phase **#
 					#
@@ -109,16 +109,16 @@ class DrvCls():
 					# orbital screening
 					if (exp.order < exp.max_order):
 						# start time
-						if (do_print): exp.timescreen.append(MPI.Wtime())
+						if (do_print): exp.time_screen.append(MPI.Wtime())
 						# perform screening
 						self.screening.main(mpi, mol, calc, exp, rst)
 						if (do_print):
 							# collect time
-							exp.timescreen[-1] -= MPI.Wtime()
-							exp.timescreen[-1] *= -1.0
+							exp.time_screen[-1] -= MPI.Wtime()
+							exp.time_screen[-1] *= -1.0
 							# write restart files
 							if (not exp.conv_orb[-1]):
-								rst.writescreen(exp)
+								rst.screen_write(exp)
 							# print screen end
 							prt.screen_end(calc, exp)
 					else:
@@ -126,7 +126,7 @@ class DrvCls():
 							# print screen end
 							prt.screen_end(calc, exp)
 							# collect time
-							exp.timescreen.append(0.0)
+							exp.time_screen.append(0.0)
 					# update restart frequency
 					if (do_print): rst.rst_freq = rst.update()
 					#
@@ -160,7 +160,7 @@ class DrvCls():
 						exp.min_order = msg['min_order']
 						# receive exp info
 						rst.restart = msg['rst']
-						if (rst.restart): mpi.bcastexp(calc, exp)
+						if (rst.restart): mpi.bcast_exp(calc, exp)
 						# reset restart logical
 						rst.restart = False
 					#
@@ -208,7 +208,7 @@ class DrvCls():
 								mpi.bcast_mo_info(mol, calc, mpi.local_comm)
 						else:
 							# receive exp info
-							if (msg['rst']): mpi.bcastexp(calc, exp)
+							if (msg['rst']): mpi.bcast_exp(calc, exp)
 					#
 					#** energy phase **#
 					#

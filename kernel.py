@@ -63,13 +63,13 @@ class KernCls():
 				return hf, e_hf, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
-		def dim(self, _hf, _ncore, _type):
+		def dim(self, _hf, _ncore, type):
 				""" determine dimensions """
 				# occupied and virtual lists
-				if (_type == 'occupied'):
+				if (type == 'occupied'):
 					occ = np.where(_hf.mo_occ == 2.)[0]
 					virt = np.where(_hf.mo_occ < 2.)[0]
-				elif (_type == 'virtual'):
+				elif (type == 'virtual'):
 					occ = np.where(_hf.mo_occ > 0.)[0]
 					virt = np.where(_hf.mo_occ == 0.)[0]
 				# nocc, nvirt, and norb
@@ -114,10 +114,10 @@ class KernCls():
 				return ref_space, exp_space, no_act
 
 
-		def e_mf(self, mol, calc, _mo):
+		def e_mf(self, mol, calc, mo):
 				""" calculate mean-field energy """
-				mo_a = _mo[:, np.where(calc.occup > 0.)[0]]
-				mo_b = _mo[:, np.where(calc.occup == 2.)[0]]
+				mo_a = mo[:, np.where(calc.occup > 0.)[0]]
+				mo_b = mo[:, np.where(calc.occup == 2.)[0]]
 				dm_a = np.dot(mo_a, np.transpose(mo_a))
 				dm_b = np.dot(mo_b, np.transpose(mo_b))
 				dm = np.array((dm_a, dm_b))
@@ -148,7 +148,7 @@ class KernCls():
 					mo = np.hstack((calc.mo[:, idx[:ncore_orb]], calc.mo[:, calc.exp_ref['ACTIVE']], calc.mo[:, idx[ncore_orb:]]))
 					calc.mo = np.asarray(mo, order='C')
 					# set ref energies equal to hf energies
-					e_ref = e_ref_base = 0.0
+					e_ref = e_refbase = 0.0
 					# casscf mo
 					if (calc.exp_ref['METHOD'] == 'CASSCF'): calc.mo = self.casscf(mol, calc, exp, calc.exp_model['METHOD'])
 				else:
@@ -156,14 +156,14 @@ class KernCls():
 					e_ref = self.calc(mol, calc, exp, calc.exp_model['METHOD'])
 					# exp base
 					if (calc.exp_base['METHOD'] is None):
-						e_ref_base = 0.0
+						e_refbase = 0.0
 					else:
 						if (np.abs(e_ref) > 1.0e-10):
-							e_ref_base = e_ref
+							e_refbase = e_ref
 						else:
-							e_ref_base = self.calc(mol, calc, exp, calc.exp_base['METHOD'])
+							e_refbase = self.calc(mol, calc, exp, calc.exp_base['METHOD'])
 				#
-				return e_ref + calc.energy['hf'], e_ref_base + calc.energy['hf'], calc.mo
+				return e_ref + calc.energy['hf'], e_refbase + calc.energy['hf'], calc.mo
 
 
 		def calc(self, mol, calc, exp, method):
@@ -264,7 +264,7 @@ class KernCls():
 				# frozen
 				cas.frozen = (mol.nelectron - (calc.exp_ref['NELEC'][0] + calc.exp_ref['NELEC'][1])) // 2
 				# verbose print
-				if (mol.verboseprt): cas.verbose = 4
+				if (mol.verbose): cas.verbose = 4
 				# fix spin if non-singlet
 				if (mol.spin > 0):
 					sz = abs(calc.exp_ref['NELEC'][0]-calc.exp_ref['NELEC'][1]) * .5
@@ -294,7 +294,7 @@ class KernCls():
 				return mo
 
 
-		def fci(self, mol, calc, exp, _mo, _base):
+		def fci(self, mol, calc, exp, mo, base):
 				""" fci calc """
 				# init fci solver
 				if (mol.spin == 0):
@@ -309,11 +309,11 @@ class KernCls():
 				# wfnsym
 				solver.wfnsym = calc.wfnsym
 				# get integrals and core energy
-				h1e, h2e, e_core = self.prepare(mol, calc, exp, _mo)
+				h1e, h2e, e_core = self.prepare(mol, calc, exp, mo)
 				# electrons
 				nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 				# orbital symmetry
-				solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, _mo[:, exp.cas_idx])
+				solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo[:, exp.cas_idx])
 				# fix spin if non-singlet
 				if (mol.spin > 0):
 					sz = abs(nelec[0]-nelec[1]) * .5
@@ -347,7 +347,7 @@ class KernCls():
 				return e_corr
 
 
-		def sci(self, mol, calc, exp, _mo, _base):
+		def sci(self, mol, calc, exp, mo, base):
 				""" sci calc """
 				# init sci solver
 				if (mol.spin == 0):
@@ -362,11 +362,11 @@ class KernCls():
 				# wfnsym
 				solver.wfnsym = calc.wfnsym
 				# get integrals and core energy
-				h1e, h2e, e_core = self.prepare(mol, calc, exp, _mo)
+				h1e, h2e, e_core = self.prepare(mol, calc, exp, mo)
 				# electrons
 				nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 				# orbital symmetry
-				solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, _mo[:, exp.cas_idx])
+				solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo[:, exp.cas_idx])
 				# fix spin if non-singlet
 				if (mol.spin > 0):
 					sz = abs(nelec[0]-nelec[1]) * .5
@@ -395,7 +395,7 @@ class KernCls():
 					# e_corr
 					e_corr = e - calc.energy['hf']
 				# sci dm
-				if (_base and ((calc.exp_occ == 'NO') or (calc.exp_virt == 'NO'))):
+				if (base and ((calc.exp_occ == 'NO') or (calc.exp_virt == 'NO'))):
 					dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)
 				else:
 					dm = None
@@ -403,17 +403,17 @@ class KernCls():
 				return e_corr, dm
 
 
-		def ci(self, mol, calc, exp, _mo, _base):
+		def ci(self, mol, calc, exp, mo, base):
 				""" cisd calc """
 				# get integrals
-				h1e, h2e, e_core = self.prepare(mol, calc, exp, _mo)
-				mol = gto.M(verbose=1)
-				mol.incore_anyway = True
-				mol.max_memory = mol.max_memory
+				h1e, h2e, e_core = self.prepare(mol, calc, exp, mo)
+				mol_tmp = gto.M(verbose=1)
+				mol_tmp.incore_anyway = True
+				mol_tmp.max_memory = mol.max_memory
 				if (mol.spin == 0):
-					hf = scf.RHF(mol)
+					hf = scf.RHF(mol_tmp)
 				else:
-					hf = scf.UHF(mol)
+					hf = scf.UHF(mol_tmp)
 				hf.get_hcore = lambda *args: h1e
 				hf._eri = h2e 
 				# init ccsd
@@ -443,7 +443,7 @@ class KernCls():
 				# e_corr
 				e_corr = cisd.e_corr
 				# dm
-				if (_base and ((calc.exp_occ == 'NO') or (calc.exp_virt == 'NO'))):
+				if (base and ((calc.exp_occ == 'NO') or (calc.exp_virt == 'NO'))):
 					dm = cisd.make_rdm1()
 				else:
 					dm = None
@@ -451,17 +451,17 @@ class KernCls():
 				return e_corr, dm
 
 
-		def cc(self, mol, calc, exp, _mo, _base, _pt_corr=False):
+		def cc(self, mol, calc, exp, mo, base, pt=False):
 				""" ccsd / ccsd(t) calc """
 				# get integrals
-				h1e, h2e, e_core = self.prepare(mol, calc, exp, _mo)
-				mol = gto.M(verbose=1)
-				mol.incore_anyway = True
-				mol.max_memory = mol.max_memory
+				h1e, h2e, e_core = self.prepare(mol, calc, exp, mo)
+				mol_tmp = gto.M(verbose=1)
+				mol_tmp.incore_anyway = True
+				mol_tmp.max_memory = mol.max_memory
 				if (mol.spin == 0):
-					hf = scf.RHF(mol)
+					hf = scf.RHF(mol_tmp)
 				else:
-					hf = scf.UHF(mol)
+					hf = scf.UHF(mol_tmp)
 				hf.get_hcore = lambda *args: h1e
 				hf._eri = h2e 
 				# init ccsd
@@ -472,7 +472,7 @@ class KernCls():
 											mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 				# settings
 				ccsd.conv_tol = 1.0e-10
-				if (_base): ccsd.conv_tol_normt = 1.0e-10
+				if (base): ccsd.conv_tol_normt = 1.0e-10
 				ccsd.max_cycle = 500
 				ccsd.diis_space = 10
 				eris = ccsd.ao2mo()
@@ -492,13 +492,13 @@ class KernCls():
 				# e_corr
 				e_corr = ccsd.e_corr
 				# dm
-				if (_base and (not _pt_corr) and ((calc.exp_occ == 'NO') or (calc.exp_virt == 'NO'))):
+				if (base and (not pt) and ((calc.exp_occ == 'NO') or (calc.exp_virt == 'NO'))):
 					ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
 					dm = ccsd.make_rdm1()
 				else:
 					dm = None
 				# calculate (t) correction
-				if (_pt_corr):
+				if (pt):
 					if (mol.spin == 0):
 						if (ccsd.t1.shape[1] > 0):
 							e_corr += ccsd.ccsd_t(eris=eris)
@@ -509,19 +509,19 @@ class KernCls():
 				return e_corr, dm
 
 
-		def core_cas(self, mol, exp, _tup):
+		def core_cas(self, mol, exp, tup):
 				""" define core and cas spaces """
-				cas_idx = sorted(exp.incl_idx + sorted(_tup.tolist()))
+				cas_idx = sorted(exp.incl_idx + sorted(tup.tolist()))
 				core_idx = sorted(list(set(range(mol.nocc)) - set(cas_idx)))
 				#
 				return core_idx, cas_idx
 
 
-		def prepare(self, mol, calc, exp, _orbs):
+		def prepare(self, mol, calc, exp, orbs):
 				""" generate input for correlated calculation """
 				# extract cas integrals and calculate core energy
 				if (len(exp.core_idx) > 0):
-					core_dm = np.dot(_orbs[:, exp.core_idx], np.transpose(_orbs[:, exp.core_idx])) * 2
+					core_dm = np.dot(orbs[:, exp.core_idx], np.transpose(orbs[:, exp.core_idx])) * 2
 					vj, vk = scf.hf.get_jk(mol, core_dm)
 					core_vhf = vj - vk * .5
 					e_core = mol.energy_nuc() + np.einsum('ij,ji', core_dm, mol.hcore)
@@ -529,9 +529,9 @@ class KernCls():
 				else:
 					e_core = mol.energy_nuc()
 					core_vhf = 0
-				h1e_cas = reduce(np.dot, (np.transpose(_orbs[:, exp.cas_idx]), \
-										mol.hcore + core_vhf, _orbs[:, exp.cas_idx]))
-				h2e_cas = ao2mo.incore.full(mol.eri, _orbs[:, exp.cas_idx])
+				h1e_cas = reduce(np.dot, (np.transpose(orbs[:, exp.cas_idx]), \
+										mol.hcore + core_vhf, orbs[:, exp.cas_idx]))
+				h2e_cas = ao2mo.incore.full(mol.eri, orbs[:, exp.cas_idx])
 				#
 				return h1e_cas, h2e_cas, e_core
 

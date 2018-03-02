@@ -18,10 +18,10 @@ from scipy.misc import factorial
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, mol, calc, _type):
+		def __init__(self, mol, calc):
 				""" init parameters """
 				# init tuples and incl_idx
-				self.incl_idx, self.tuples = self.init_tuples(mol, calc, _type)
+				self.incl_idx, self.tuples = self.init_tuples(mol, calc)
 				# init energy dict
 				self.energy = {}
 				self.energy['inc'] = []
@@ -34,8 +34,8 @@ class ExpCls():
 				# init convergence list
 				self.conv_orb = [False]
 				# init timings
-				self.timembe = []
-				self.timescreen = []
+				self.time_mbe = []
+				self.time_screen = []
 				# init thres
 				if (self.start_order < 3):
 					self.thres = 0.0
@@ -45,7 +45,7 @@ class ExpCls():
 				return
 
 
-		def init_tuples(self, mol, calc, _type):
+		def init_tuples(self, mol, calc):
 				""" init tuples and incl_idx """
 				# incl_idx
 				incl_idx = calc.ref_space.tolist()
@@ -53,9 +53,9 @@ class ExpCls():
 				if (calc.no_act == len(incl_idx)):
 					tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32)]
 				else:
-					if (_type == 'occupied'):
+					if (calc.exp_type == 'occupied'):
 						tuples = [np.array([calc.exp_space[-(calc.no_act-len(calc.ref_space)):]], dtype=np.int32)]
-					elif (_type == 'virtual'):
+					elif (calc.exp_type == 'virtual'):
 						tuples = [np.array([calc.exp_space[:(calc.no_act-len(calc.ref_space))]], dtype=np.int32)]
 				#
 				return incl_idx, tuples

@@ -42,22 +42,22 @@ class MBECls():
 				return type('Enum', (), enums)
 
 
-		def comb_index(self, _n, _k):
+		def comb_index(self, n, k):
 				""" calculate combined index """
-				count = comb(_n, _k, exact=True)
-				index = np.fromiter(chain.from_iterable(combinations(range(_n), _k)), int,count=count * _k)
+				count = comb(n, k, exact=True)
+				index = np.fromiter(chain.from_iterable(combinations(range(n), k)), int,count=count * k)
 				#
-				return index.reshape(-1, _k)
+				return index.reshape(-1, k)
 
 
-		def summation(self, calc, exp, _idx):
+		def summation(self, calc, exp, idx):
 				""" energy summation """
 				# init res
 				res = np.zeros(len(exp.energy['inc'])-1, dtype=np.float64)
 				# compute contributions from lower-order increments
 				for count, i in enumerate(range(exp.order-1, exp.start_order-1, -1)):
 					# test if tuple is a subset
-					combs = exp.tuples[-1][_idx, self.comb_index(exp.order, i)]
+					combs = exp.tuples[-1][idx, self.comb_index(exp.order, i)]
 					dt = np.dtype((np.void, exp.tuples[i-exp.start_order].dtype.itemsize * \
 									exp.tuples[i-exp.start_order].shape[1]))
 					match = np.nonzero(np.in1d(exp.tuples[i-exp.start_order].view(dt).reshape(-1),
@@ -65,7 +65,7 @@ class MBECls():
 					# add up lower-order increments
 					res[count] = fsum(exp.energy['inc'][i-exp.start_order][match])
 				# now compute increment
-				exp.energy['inc'][-1][_idx] -= fsum(res)
+				exp.energy['inc'][-1][idx] -= fsum(res)
 				#
 				return
 
@@ -96,7 +96,7 @@ class MBECls():
 				do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
 				# init time
 				if (do_print):
-					if (len(exp.timembe) < exp.order): exp.timembe.append(0.0)
+					if (len(exp.time_mbe) < exp.order): exp.time_mbe.append(0.0)
 				# micro driver instantiation
 				if (exp.level == 'macro'):
 					drv_micro = drv.DrvCls(mol, 'virtual') 
@@ -140,16 +140,16 @@ class MBECls():
 						# calc increment
 						self.summation(calc, exp, i)
 						# verbose print
-						if (mol.verboseprt):
+						if (mol.verbose):
 							print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 									format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
 					if (do_print):
 						# print status
 						prt.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[-1])))
 						# collect time
-						exp.timembe[-1] += MPI.Wtime() - time
+						exp.time_mbe[-1] += MPI.Wtime() - time
 						# write restart files
-						rst.writembe(calc, exp, False)
+						rst.mbe_write(calc, exp, False)
 				#
 				return
 
@@ -197,15 +197,15 @@ class MBECls():
 						# calc increment
 						self.summation(calc, exp, i)
 						# verbose print
-						if (mol.verboseprt):
+						if (mol.verbose):
 							print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 									format(exp.cas_idx, e_model, e_base, exp.energy['inc'][0][i]))
 						# print status
-						if (mol.verboseprt): prt.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[0])))
+						if (mol.verbose): prt.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[0])))
 					# collect time
-					exp.timembe.append(MPI.Wtime() - time)
+					exp.time_mbe.append(MPI.Wtime() - time)
 					# print status
-					if (not mol.verboseprt): prt.mbe_status(calc, exp, 1.0)
+					if (not mol.verbose): prt.mbe_status(calc, exp, 1.0)
 					# bcast energy
 					mpi.bcast_energy(mol, calc, exp, comm)
 				else:
@@ -219,8 +219,8 @@ class MBECls():
 					if (mpi.global_master and (not (exp.level == 'macro'))):
 						prt.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 					# init time
-					if (mpi.global_master and (len(exp.timembe) < exp.order)):
-						exp.timembe.append(0.0)
+					if (mpi.global_master and (len(exp.time_mbe) < exp.order)):
+						exp.time_mbe.append(0.0)
 					time = MPI.Wtime()
 					# loop until no slaves left
 					while (slaves_avail >= 1):
@@ -228,7 +228,7 @@ class MBECls():
 						data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 						# collect time
 						if (mpi.global_master):
-							exp.timembe[-1] += MPI.Wtime() - time
+							exp.time_mbe[-1] += MPI.Wtime() - time
 							time = MPI.Wtime()
 						# probe for source and tag
 						source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
@@ -257,18 +257,18 @@ class MBECls():
 								exp.micro_conv[-1][data['index']] = data['micro_order']
 							# write restart files
 							if (mpi.global_master and ((((data['index']+1) % rst.rst_freq) == 0) or (exp.level == 'macro'))):
-								rst.writembe(calc, exp, False)
+								rst.mbe_write(calc, exp, False)
 							# increment stat counter
 							counter += 1
 							# print status
-							if (mpi.global_master and (((((data['index']+1) % 1000) == 0) or (exp.level == 'macro')) or mol.verboseprt)):
+							if (mpi.global_master and (((((data['index']+1) % 1000) == 0) or (exp.level == 'macro')) or mol.verbose)):
 								prt.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 						# put slave to sleep
 						elif (tag == self.tags.exit):
 							slaves_avail -= 1
 					# print 100.0 %
 					if (mpi.global_master and (not (exp.level == 'macro'))):
-						if (not mol.verboseprt):
+						if (not mol.verbose):
 							prt.mbe_status(calc, exp, 1.0)
 					# bcast energies
 					mpi.bcast_energy(mol, calc, exp, comm)
@@ -339,7 +339,7 @@ class MBECls():
 								# calc increment
 								self.summation(calc, exp, job_info['index'])
 								# verbose print
-								if (mol.verboseprt):
+								if (mol.verbose):
 									print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 											format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][job_info['index']]))
 								# write info into data dict

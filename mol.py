@@ -37,14 +37,12 @@ class MolCls(gto.Mole):
 					# init max_memory
 					self.max_memory = None
 					# verbose
-					self.verboseprt = False
+					self.verbose = False
 					# set geometry
 					self.atom = self.set_geo(rst)
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verboseprt = self.setmol(rst)
-					# store symmetry
-					self.comp_symmetry = self.symmetry
+						self.basis, self.unit, self.frozen, self.verbose = self.set_mol(rst)
 				#
 				return
 
@@ -58,7 +56,7 @@ class MolCls(gto.Mole):
 						try:
 							raise RuntimeError
 						except RuntimeError:
-							rst.rmrst()
+							rst.rm()
 							sys.stderr.write('\nValueError: non-sensible input in mol.inp\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
@@ -81,14 +79,14 @@ class MolCls(gto.Mole):
 							else:
 								atom += content[i]
 				except IOError:
-					rst.rmrst()
+					rst.rm()
 					sys.stderr.write('\nIOError: geo.inp not found\n\n')
 					raise
 				#
 				return atom
 
 
-		def setmol(self, rst):
+		def set_mol(self, rst):
 				""" set molecular parameters from mol.inp file """
 				# read input file
 				try:
@@ -115,23 +113,23 @@ class MolCls(gto.Mole):
 							elif (re.split('=',content[i])[0].strip() == 'occup'):
 								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'verbose'):
-								self.verboseprt = re.split('=',content[i])[1].strip().upper() == 'TRUE'
+								self.verbose = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							# error handling
 							else:
 								try:
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
 													' keyword in mol.inp not recognized')
 								except Exception as err:
-									rst.rmrst()
+									rst.rm()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
-					rst.rmrst()
+					rst.rm()
 					sys.stderr.write('\nIOError: mol.inp not found\n\n')
 					raise
 				#
 				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verboseprt
+						self.basis, self.unit, self.frozen, self.verbose
 
 
 		def set_ncore(self):

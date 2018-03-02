@@ -44,9 +44,9 @@ class InitCls():
 				# build and communicate molecule
 				if (self.mpi.global_master):
 					self.mol.make(self.mpi, self.rst)
-					self.mpi.bcastmol(self.mol)
+					self.mpi.bcast_mol(self.mol)
 				else:
-					self.mpi.bcastmol(self.mol)
+					self.mpi.bcast_mol(self.mol)
 					self.mol.make(self.mpi, self.rst)
 				# calculation instantiation
 				self.calc = CalcCls(self.mpi, self.rst, self.mol)
@@ -55,9 +55,9 @@ class InitCls():
 				# set core region
 				self.mol.ncore = self.mol.set_ncore()
 				# communicate calc info 
-				self.mpi.bcastcalc(self.calc)
+				self.mpi.bcast_calc(self.calc)
 				# init mpi
-				self.mpi.setmpi()
+				self.mpi.set_mpi()
 				# hf and ref calculations
 				if (self.mpi.global_master):
 					# restart
@@ -66,13 +66,13 @@ class InitCls():
 						self.rst.read_fund(self.mol, self.calc)
 						# expansion instantiation
 						if (self.calc.exp_type in ['occupied','virtual']):
-							self.exp = ExpCls(self.mol, self.calc, self.calc.exp_type)
+							self.exp = ExpCls(self.mol, self.calc)
 							# mark expansion as micro
 							self.exp.level = 'micro'
-						elif (self.calc.exp_type == 'combined'):
-							self.exp = ExpCls(self.mol, self.calc, 'occupied')
-							# mark expansion as macro
-							self.exp.level = 'macro'
+#						elif (self.calc.exp_type == 'combined'):
+#							self.exp = ExpCls(self.mol, self.calc)
+#							# mark expansion as macro
+#							self.exp.level = 'macro'
 					# no restart
 					else:
 						# hf calculation
@@ -84,13 +84,13 @@ class InitCls():
 						self.calc.ref_space, self.calc.exp_space, self.calc.no_act = self.kernel.active(self.mol, self.calc)
 						# expansion instantiation
 						if (self.calc.exp_type in ['occupied','virtual']):
-							self.exp = ExpCls(self.mol, self.calc, self.calc.exp_type)
+							self.exp = ExpCls(self.mol, self.calc)
 							# mark expansion as micro
 							self.exp.level = 'micro'
-						elif (self.calc.exp_type == 'combined'):
-							self.exp = ExpCls(self.mol, self.calc, 'occupied')
-							# mark expansion as macro
-							self.exp.level = 'macro'
+#						elif (self.calc.exp_type == 'combined'):
+#							self.exp = ExpCls(self.mol, self.calc, 'occupied')
+#							# mark expansion as macro
+#							self.exp.level = 'macro'
 						# reference calculation
 						self.calc.energy['ref'], self.calc.energy['ref_base'], \
 							self.calc.mo = self.kernel.ref(self.mol, self.calc, self.exp)

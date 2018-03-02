@@ -90,11 +90,11 @@ class CalcCls():
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
 														' keyword in calc.inp not recognized')
 								except Exception as err:
-									rst.rmrst()
+									rst.rm()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
-					rst.rmrst()
+					rst.rm()
 					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
@@ -193,7 +193,7 @@ class CalcCls():
 					if (mol.max_memory is None):
 						raise ValueError('wrong input -- the memory keyword (mem) appears to be missing')
 				except Exception as err:
-					rst.rmrst()
+					rst.rm()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
 					raise
 				#

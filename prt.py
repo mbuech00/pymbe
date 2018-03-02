@@ -19,10 +19,10 @@ from contextlib import redirect_stdout
 
 class PrintCls():
 		""" print functions """
-		def __init__(self, _out):
+		def __init__(self, out):
 				""" init parameters """
-				self.out = _out.out_dir+'/output.out'
-				self.res = _out.out_dir+'/results.out'
+				self.out = out.out_dir+'/output.out'
+				self.res = out.out_dir+'/results.out'
 				# summary constants
 				self.header_str = '{0:^93}'.format('-'*45)
 				# print main header
@@ -97,13 +97,13 @@ class PrintCls():
 				return
 
 		
-		def mbe_status(self, calc, exp, _prog):
+		def mbe_status(self, calc, exp, prog):
 				""" print status bar """
 				bar_length = 50
 				status = ""
-				block = int(round(bar_length * _prog))
+				block = int(round(bar_length * prog))
 				print(' STATUS-'+exp.level.upper()+':   [{0}]   ---  {1:>6.2f} % {2}'.\
-						format('#' * block + '-' * (bar_length - block), _prog * 100, status))
+						format('#' * block + '-' * (bar_length - block), prog * 100, status))
 				#
 				return
 	
@@ -157,7 +157,7 @@ class PrintCls():
 				return
 
 	
-		def mberesults(self, mol, calc, exp, kernel):
+		def mbe_results(self, mol, calc, exp, kernel):
 				""" print mbe result statistics """
 				# statistics
 				mean_val = np.mean(exp.energy['inc'][exp.order-exp.start_order])
@@ -182,7 +182,7 @@ class PrintCls():
 						print(' RESULT-'+exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
 								format(mean_val, min_val, max_val))
 						# debug print
-						if (mol.verboseprt):
+						if (mol.verbose):
 							print(' --------------------------------------------------------------------------------------------')
 							print(' RESULT-'+exp.level.upper()+':                   info on max. abs. increment:')
 							print(' RESULT-'+exp.level.upper()+':  core = {0:}'.format(core))
@@ -195,7 +195,7 @@ class PrintCls():
 				print(' RESULT-'+exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
 						format(mean_val, min_val, max_val))
 				# debug print
-				if (mol.verboseprt):
+				if (mol.verbose):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' RESULT-'+exp.level.upper()+':                   info on max. abs. increment:')
 					print(' RESULT-'+exp.level.upper()+':  core = {0:}'.format(core))

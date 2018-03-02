@@ -23,10 +23,10 @@ from copy import deepcopy
 
 class RstCls():
 		""" restart class """
-		def __init__(self, _out, mpi):
+		def __init__(self, out, mpi):
 				""" init restart env and parameters """
 				if (mpi.global_master):
-					self.rst_dir = _out.wrk_dir+'/rst'
+					self.rst_dir = out.wrk_dir+'/rst'
 					self.rst_freq = 50000
 					if (not isdir(self.rst_dir)):
 						self.restart = False
@@ -37,7 +37,7 @@ class RstCls():
 				return
 
 
-		def rmrst(self):
+		def rm(self):
 				""" remove rst directory in case of successful calc """
 				rmtree(self.rst_dir, ignore_errors=True)
 				#
@@ -117,7 +117,7 @@ class RstCls():
 				return
 
 
-		def writembe(self, calc, exp, _final):
+		def mbe_write(self, calc, exp, final):
 				""" write energy mbe restart files """
 				# write e_inc
 				np.save(join(self.rst_dir, 'e_inc_'+str(exp.order)), exp.energy['inc'][-1])
@@ -125,20 +125,20 @@ class RstCls():
 				if (calc.exp_type == 'combined'):
 					np.save(join(self.rst_dir, 'micro_conv_'+str(exp.order)), np.asarray(exp.micro_conv[-1]))
 				# write time
-				np.save(join(self.rst_dir, 'timembe_'+str(exp.order)), np.asarray(exp.timembe[-1]))
+				np.save(join(self.rst_dir, 'time_mbe_'+str(exp.order)), np.asarray(exp.time_mbe[-1]))
 				# write e_tot
-				if (_final):
+				if (final):
 					np.save(join(self.rst_dir, 'e_tot_'+str(exp.order)), np.asarray(exp.energy['tot'][-1]))
 				#
 				return
 		
 		
-		def writescreen(self, exp):
+		def screen_write(self, exp):
 				""" write screening restart files """
 				# write tuples
 				np.save(join(self.rst_dir, 'tup_'+str(exp.order+1)), exp.tuples[-1])
 				# write time
-				np.save(join(self.rst_dir, 'timescreen_'+str(exp.order)), np.asarray(exp.timescreen[-1]))
+				np.save(join(self.rst_dir, 'time_screen_'+str(exp.order)), np.asarray(exp.time_screen[-1]))
 				#
 				return
 
@@ -164,10 +164,10 @@ class RstCls():
 					elif ('micro_conv' in files[i]):
 						exp.micro_conv.append(np.load(join(self.rst_dir, files[i])).tolist())
 					# read timings
-					elif ('timembe' in files[i]):
-						exp.timembe.append(np.load(join(self.rst_dir, files[i])).tolist())
-					elif ('timescreen' in files[i]):
-						exp.timescreen.append(np.load(join(self.rst_dir, files[i])).tolist())
+					elif ('time_mbe' in files[i]):
+						exp.time_mbe.append(np.load(join(self.rst_dir, files[i])).tolist())
+					elif ('time_screen' in files[i]):
+						exp.time_screen.append(np.load(join(self.rst_dir, files[i])).tolist())
 				#
 				return
 
@@ -183,6 +183,6 @@ def natural_keys(txt):
 		http://nedbatchelder.com/blog/200712/human_sorting.html
 		cf. https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
 		"""
-		return [ convert(c) for c in split('(\d+)', txt) ]
+		return [convert(c) for c in split('(\d+)', txt)]
 
 
