@@ -18,13 +18,14 @@ try:
 except ImportError:
 	sys.stderr.write('\nImportError : mpi4py module not found\n\n')
 
-from init import InitCls
+import init
+import res
 
 
 def main():
 		""" main program """
 		# initialize the calculation
-		pymbe = InitCls()
+		pymbe = init.InitCls()
 		# now branch
 		if (not pymbe.mpi.global_master):
 			if (pymbe.mpi.local_master):
@@ -37,7 +38,7 @@ def main():
 			# proceed to main driver
 			pymbe.drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp, pymbe.prt, pymbe.rst)
 			# print summary and plot results
-			pymbe.res.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
+			res.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
 			# finalize
 			pymbe.mpi.final(pymbe.rst)
 

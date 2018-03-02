@@ -26,7 +26,6 @@ import kernel
 from exp import ExpCls
 from drv import DrvCls
 from prt import PrintCls
-from res import ResCls
 
 
 class InitCls():
@@ -109,7 +108,6 @@ class InitCls():
 #						self.drv = DrvCls(self.mol, 'occupied')
 					# print and result instantiations
 					self.prt = PrintCls(self.out)
-					self.res = ResCls(self.mpi, self.mol, self.calc, self.out)
 				else:
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.drv = DrvCls(self.mol, self.calc)
