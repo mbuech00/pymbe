@@ -17,6 +17,7 @@ import numpy as np
 from mpi4py import MPI
 
 import mbe
+import kernel
 from screen import ScrCls
 from exp import ExpCls
 
@@ -32,7 +33,7 @@ class DrvCls():
 				return
 
 
-		def main(self, mpi, mol, calc, kernel, exp, prt, rst):
+		def main(self, mpi, mol, calc, exp, prt, rst):
 				""" main driver routine """
 				# print and time logical
 				do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
@@ -69,7 +70,7 @@ class DrvCls():
 							prt.mbe_header(calc, exp)
 							prt.mbe_microresults(calc, exp)
 							prt.mbe_end(calc, exp)
-							prt.mbe_results(mol, calc, exp, kernel)
+							prt.mbe_results(mol, calc, exp)
 							exp.thres = self.screening.update(calc, exp)
 							prt.screen_header(calc, exp)
 							prt.screen_end(calc, exp)
@@ -90,7 +91,7 @@ class DrvCls():
 						inc.fill(np.nan)
 						exp.energy['inc'].append(inc)
 					# mbe calculations
-					self.mbe.main(mpi, mol, calc, kernel, exp, prt, rst)
+					self.mbe.main(mpi, mol, calc, exp, prt, rst)
 					if (do_print):
 						# print micro results
 						prt.mbe_microresults(calc, exp)
@@ -99,7 +100,7 @@ class DrvCls():
 						# write restart files
 						rst.mbe_write(calc, exp, True)
 						# print mbe results
-						prt.mbe_results(mol, calc, exp, kernel)
+						prt.mbe_results(mol, calc, exp)
 					#
 					#** screening phase **#
 					#
@@ -141,7 +142,7 @@ class DrvCls():
 				return
 
 
-		def local_master(self, mpi, mol, calc, kernel, rst):
+		def local_master(self, mpi, mol, calc, rst):
 				""" local master routine """
 				# set loop/waiting logical
 				local_master = True
@@ -168,7 +169,7 @@ class DrvCls():
 					#
 					if (msg['task'] == 'mbe_local_master'):
 						exp.order = msg['exp_order']
-						self.mbe.slave(mpi, mol, calc, kernel, exp, rst)
+						self.mbe.slave(mpi, mol, calc, exp, rst)
 					#
 					#** screening phase **#
 					#
@@ -185,7 +186,7 @@ class DrvCls():
 				mpi.final(None)
 	
 	
-		def slave(self, mpi, mol, calc, kernel):
+		def slave(self, mpi, mol, calc):
 				""" slave routine """
 				# set loop/waiting logical
 				slave = True
@@ -214,7 +215,7 @@ class DrvCls():
 					#
 					if (msg['task'] == 'mbe_slave'):
 						exp.order = msg['exp_order']
-						self.mbe.slave(mpi, mol, calc, kernel, exp)
+						self.mbe.slave(mpi, mol, calc, exp)
 					#
 					#** screening phase **#
 					#

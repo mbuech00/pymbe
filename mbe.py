@@ -19,6 +19,7 @@ from itertools import combinations, chain
 from scipy.misc import comb
 from math import fsum
 
+import kernel
 from exp import ExpCls
 import drv
 
@@ -70,7 +71,7 @@ class MBECls():
 				return
 
 
-		def main(self, mpi, mol, calc, kernel, exp, prt, rst):
+		def main(self, mpi, mol, calc, exp, prt, rst):
 				""" energy mbe phase """
 				# init micro_conv list
 				if (mpi.global_master and (exp.level == 'macro')):
@@ -78,9 +79,9 @@ class MBECls():
 						exp.micro_conv.append(np.zeros(len(exp.tuples[-1]), dtype=np.int32))
 				# mpi parallel version
 				if (mpi.parallel):
-					self.master(mpi, mol, calc, kernel, exp, prt, rst)
+					self.master(mpi, mol, calc, exp, prt, rst)
 				else:
-					self.serial(mpi, mol, calc, kernel, exp, prt, rst)
+					self.serial(mpi, mol, calc, exp, prt, rst)
 				# sum up total energy
 				e_tmp = fsum(exp.energy['inc'][-1])
 				if (exp.order > exp.start_order): e_tmp += exp.energy['tot'][-1]
@@ -90,7 +91,7 @@ class MBECls():
 				return
 		
 	
-		def serial(self, mpi, mol, calc, kernel, exp, prt, rst):
+		def serial(self, mpi, mol, calc, exp, prt, rst):
 				""" energy mbe phase """
 				# print and time logical
 				do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
@@ -115,7 +116,7 @@ class MBECls():
 						# transfer incl_idx
 						exp_micro.incl_idx = exp.tuples[-1][i].tolist()
 						# make recursive call to driver with micro exp
-						drv_micro.main(mpi, mol, calc, kernel, exp_micro, prt, rst)
+						drv_micro.main(mpi, mol, calc, exp_micro, prt, rst)
 						# store results
 						exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
 						exp.micro_conv[-1][i] = exp_micro.order
@@ -125,7 +126,7 @@ class MBECls():
 						# generate input
 						exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])
 						# model calc
-						e_model = kernel.calc(mol, calc, exp, calc.exp_model['METHOD']) \
+						e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
 									+ (calc.energy['hf'] - calc.energy['ref'])
 						# base calc
 						if (calc.exp_base['METHOD'] is None):
@@ -134,7 +135,7 @@ class MBECls():
 							if ((exp.order == 1) and (mol.spin == 0)):
 								e_base = e_model
 							else:
-								e_base = kernel.calc(mol, calc, exp, calc.exp_base['METHOD']) \
+								e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
 											+ (calc.energy['hf'] - calc.energy['ref_base'])
 						exp.energy['inc'][-1][i] = e_model - e_base
 						# calc increment
@@ -154,7 +155,7 @@ class MBECls():
 				return
 
 	
-		def master(self, mpi, mol, calc, kernel, exp, prt, rst):
+		def master(self, mpi, mol, calc, exp, prt, rst):
 				""" master function """
 				# wake up slaves
 				if (exp.level == 'macro'):
@@ -182,7 +183,7 @@ class MBECls():
 						# generate input
 						exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[0][i])
 						# model calc
-						e_model = kernel.calc(mol, calc, exp, calc.exp_model['METHOD']) \
+						e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
 									+ (calc.energy['hf'] - calc.energy['ref'])
 						# base calc
 						if (calc.exp_base['METHOD'] is None):
@@ -191,7 +192,7 @@ class MBECls():
 							if ((exp.order == 1) and (mol.spin == 0)):
 								e_base = e_model
 							else:
-								e_base = kernel.calc(mol, calc, exp, calc.exp_base['METHOD']) \
+								e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
 											+ (calc.energy['hf'] - calc.energy['ref_base'])
 						exp.energy['inc'][0][i] = e_model - e_base
 						# calc increment
@@ -276,7 +277,7 @@ class MBECls():
 				return
 		
 		
-		def slave(self, mpi, mol, calc, kernel, exp, rst=None):
+		def slave(self, mpi, mol, calc, exp, rst=None):
 				""" slave function """
 				# set communicator and possible micro driver instantiation
 				if (exp.level == 'macro'):
@@ -316,7 +317,7 @@ class MBECls():
 								# transfer incl_idx
 								exp_micro.incl_idx = sorted(exp.tuples[-1][job_info['index']].tolist())
 								# make recursive call to driver with micro exp
-								drv_micro.main(mpi, mol, calc, kernel, exp_micro, None, rst)
+								drv_micro.main(mpi, mol, calc, exp_micro, None, rst)
 								# store micro convergence
 								data['micro_order'] = exp_micro.order
 								# write info into data dict
@@ -328,12 +329,12 @@ class MBECls():
 								# generate input
 								exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][job_info['index']])
 								# perform calc
-								e_model = kernel.calc(mol, calc, exp, calc.exp_model['METHOD']) \
+								e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
 											+ (calc.energy['hf'] - calc.energy['ref'])
 								if (calc.exp_base['METHOD'] is None):
 									e_base = 0.0
 								else:
-									e_base = kernel.calc(mol, calc, exp, calc.exp_base['METHOD']) \
+									e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
 												+ (calc.energy['hf'] - calc.energy['ref_base'])
 								exp.energy['inc'][-1][job_info['index']] = e_model - e_base
 								# calc increment

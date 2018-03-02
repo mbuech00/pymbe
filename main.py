@@ -29,13 +29,13 @@ def main():
 		if (not pymbe.mpi.global_master):
 			if (pymbe.mpi.local_master):
 				# proceed to local master driver
-				pymbe.drv.local_master(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.kernel, pymbe.rst)
+				pymbe.drv.local_master(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.rst)
 			else:
 				# proceed to slave driver
-				pymbe.drv.slave(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.kernel)
+				pymbe.drv.slave(pymbe.mpi, pymbe.mol, pymbe.calc)
 		else:
 			# proceed to main driver
-			pymbe.drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.kernel, pymbe.exp, pymbe.prt, pymbe.rst)
+			pymbe.drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp, pymbe.prt, pymbe.rst)
 			# print summary and plot results
 			pymbe.res.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
 			# finalize

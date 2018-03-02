@@ -16,6 +16,8 @@ import sys
 import numpy as np
 from contextlib import redirect_stdout
 
+import kernel
+
 
 class PrintCls():
 		""" print functions """
@@ -157,7 +159,7 @@ class PrintCls():
 				return
 
 	
-		def mbe_results(self, mol, calc, exp, kernel):
+		def mbe_results(self, mol, calc, exp):
 				""" print mbe result statistics """
 				# statistics
 				mean_val = np.mean(exp.energy['inc'][exp.order-exp.start_order])

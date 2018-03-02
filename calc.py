@@ -41,14 +41,14 @@ class CalcCls():
 						self.exp_thres, self.exp_relax, \
 						self.wfnsym, self.exp_max_order, \
 						self.exp_occ, self.exp_virt, \
-						mol.max_memory, mpi.num_local_masters = self.setcalc(mpi, rst, mol)
+						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, rst, mol)
 					# sanity check
 					self.sanity_chk(mpi, rst, mol)
 				#
 				return
 
 
-		def setcalc(self, mpi, rst, mol):
+		def set_calc(self, mpi, rst, mol):
 				""" set calculation and mpi parameters from calc.inp file """
 				# read input file
 				try:

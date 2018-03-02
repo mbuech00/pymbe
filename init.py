@@ -22,7 +22,7 @@ from rst import RstCls
 from mol import MolCls
 from calc import CalcCls
 from mpi import MPICls
-from kernel import KernCls
+import kernel
 from exp import ExpCls
 from drv import DrvCls
 from prt import PrintCls
@@ -50,8 +50,6 @@ class InitCls():
 					self.mol.make(self.mpi, self.rst)
 				# calculation instantiation
 				self.calc = CalcCls(self.mpi, self.rst, self.mol)
-				# kernel instantiation
-				self.kernel = KernCls()
 				# set core region
 				self.mol.ncore = self.mol.set_ncore()
 				# communicate calc info 
@@ -77,11 +75,11 @@ class InitCls():
 					else:
 						# hf calculation
 						self.calc.hf, self.calc.energy['hf'], self.calc.occup, \
-							self.calc.orbsym, self.calc.mo = self.kernel.hf(self.mol, self.calc)
+							self.calc.orbsym, self.calc.mo = kernel.hf(self.mol, self.calc)
 						# get hcore and eri
-						self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
+						self.mol.hcore, self.mol.eri = kernel.hcore_eri(self.mol)
 						# reference and expansion spaces
-						self.calc.ref_space, self.calc.exp_space, self.calc.no_act = self.kernel.active(self.mol, self.calc)
+						self.calc.ref_space, self.calc.exp_space, self.calc.no_act = kernel.active(self.mol, self.calc)
 						# expansion instantiation
 						if (self.calc.exp_type in ['occupied','virtual']):
 							self.exp = ExpCls(self.mol, self.calc)
@@ -93,14 +91,14 @@ class InitCls():
 #							self.exp.level = 'macro'
 						# reference calculation
 						self.calc.energy['ref'], self.calc.energy['ref_base'], \
-							self.calc.mo = self.kernel.ref(self.mol, self.calc, self.exp)
+							self.calc.mo = kernel.ref(self.mol, self.calc, self.exp)
 						# base energy and transformation matrix
-						self.calc.energy['base'], self.calc.mo = self.kernel.base(self.mol, self.calc, self.exp)
+						self.calc.energy['base'], self.calc.mo = kernel.base(self.mol, self.calc, self.exp)
 						# write fundamental info
 						self.rst.write_fund(self.mol, self.calc)
 				else:
 					# get hcore and eri
-					self.mol.hcore, self.mol.eri = self.kernel.hcore_eri(self.mol)
+					self.mol.hcore, self.mol.eri = kernel.hcore_eri(self.mol)
 				# bcast fundamental info
 				if (self.mpi.parallel): self.mpi.bcast_fund(self.mol, self.calc)
 				# driver instantiations
