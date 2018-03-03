@@ -21,7 +21,7 @@ from math import fsum
 
 import rst
 import kernel
-import prt
+import output
 import expansion
 import driver
 
@@ -98,7 +98,7 @@ def _serial(mpi, mol, calc, exp):
 							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
 			if (do_print):
 				# print status
-				prt.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[-1])))
+				output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[-1])))
 				# collect time
 				exp.time_mbe[-1] += MPI.Wtime() - time
 				# write restart files
@@ -131,7 +131,7 @@ def _master(mpi, mol, calc, exp):
 			# start time
 			time = MPI.Wtime()
 			# print status
-			prt.mbe_status(calc, exp, 0.0)
+			output.mbe_status(calc, exp, 0.0)
 			# master calculates increments
 			for i in range(len(exp.tuples[0])):
 				# generate input
@@ -156,11 +156,11 @@ def _master(mpi, mol, calc, exp):
 					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][0][i]))
 				# print status
-				if (mol.verbose): prt.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[0])))
+				if (mol.verbose): output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[0])))
 			# collect time
 			exp.time_mbe.append(MPI.Wtime() - time)
 			# print status
-			if (not mol.verbose): prt.mbe_status(calc, exp, 1.0)
+			if (not mol.verbose): output.mbe_status(calc, exp, 1.0)
 			# bcast energy
 			mpi.bcast_energy(mol, calc, exp, comm)
 		else:
@@ -172,7 +172,7 @@ def _master(mpi, mol, calc, exp):
 			counter = i
 			# print status for START
 			if (mpi.global_master and (not (exp.level == 'macro'))):
-				prt.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
+				output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 			# init time
 			if (mpi.global_master and (len(exp.time_mbe) < exp.order)):
 				exp.time_mbe.append(0.0)
@@ -217,14 +217,14 @@ def _master(mpi, mol, calc, exp):
 					counter += 1
 					# print status
 					if (mpi.global_master and (((((data['index']+1) % 1000) == 0) or (exp.level == 'macro')) or mol.verbose)):
-						prt.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
+						output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 				# put slave to sleep
 				elif (tag == tags.exit):
 					slaves_avail -= 1
 			# print 100.0 %
 			if (mpi.global_master and (not (exp.level == 'macro'))):
 				if (not mol.verbose):
-					prt.mbe_status(calc, exp, 1.0)
+					output.mbe_status(calc, exp, 1.0)
 			# bcast energies
 			mpi.bcast_energy(mol, calc, exp, comm)
 		#

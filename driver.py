@@ -19,7 +19,7 @@ from mpi4py import MPI
 import rst
 import mbe
 import kernel
-import prt
+import output
 import screen
 import expansion
 
@@ -48,7 +48,7 @@ def main(mpi, mol, calc, exp):
 						kernel.trans_dno(mol, calc, exp) 
 						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
 		# print expansion header
-		if (do_print): prt.exp_header(calc, exp)
+		if (do_print): output.exp_header(calc, exp)
 		# restart
 		if (calc.restart):
 			# bcast exp info
@@ -56,13 +56,13 @@ def main(mpi, mol, calc, exp):
 			# if rst, print previous results
 			if (do_print):
 				for exp.order in range(exp.start_order, exp.min_order):
-					prt.mbe_header(calc, exp)
-					prt.mbe_microresults(calc, exp)
-					prt.mbe_end(calc, exp)
-					prt.mbe_results(mol, calc, exp)
+					output.mbe_header(calc, exp)
+					output.mbe_microresults(calc, exp)
+					output.mbe_end(calc, exp)
+					output.mbe_results(mol, calc, exp)
 					exp.thres = screen.update(calc, exp)
-					prt.screen_header(calc, exp)
-					prt.screen_end(calc, exp)
+					output.screen_header(calc, exp)
+					output.screen_end(calc, exp)
 					exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
 			# reset restart logical and init exp.order
 			calc.restart = False
@@ -73,7 +73,7 @@ def main(mpi, mol, calc, exp):
 			#
 			if (do_print):
 				# print mbe header
-				prt.mbe_header(calc, exp)
+				output.mbe_header(calc, exp)
 			# init energies
 			if (len(exp.energy['inc']) < (exp.order - (exp.start_order - 1))):
 				inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
@@ -83,19 +83,19 @@ def main(mpi, mol, calc, exp):
 			mbe.main(mpi, mol, calc, exp)
 			if (do_print):
 				# print micro results
-				prt.mbe_microresults(calc, exp)
+				output.mbe_microresults(calc, exp)
 				# print mbe end
-				prt.mbe_end(calc, exp)
+				output.mbe_end(calc, exp)
 				# write restart files
 				rst.mbe_write(calc, exp, True)
 				# print mbe results
-				prt.mbe_results(mol, calc, exp)
+				output.mbe_results(mol, calc, exp)
 			#
 			#** screening phase **#
 			#
 			if (do_print):
 				# print screen header
-				prt.screen_header(calc, exp)
+				output.screen_header(calc, exp)
 			# orbital screening
 			if (exp.order < exp.max_order):
 				# start time
@@ -110,11 +110,11 @@ def main(mpi, mol, calc, exp):
 					if (not exp.conv_orb[-1]):
 						rst.screen_write(exp)
 					# print screen end
-					prt.screen_end(calc, exp)
+					output.screen_end(calc, exp)
 			else:
 				if (do_print):
 					# print screen end
-					prt.screen_end(calc, exp)
+					output.screen_end(calc, exp)
 					# collect time
 					exp.time_screen.append(0.0)
 			# update restart frequency

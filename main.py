@@ -25,7 +25,7 @@ import expansion
 import kernel
 import driver
 import rst
-import prt
+import output
 import res
 
 
@@ -105,7 +105,7 @@ def main():
 				driver.slave(mpi, mol, calc)
 		else:
 			# print main header
-			prt.main_header()
+			output.main_header()
 			# restart
 			exp.min_order = rst.main(calc, exp)
 			# proceed to main driver
