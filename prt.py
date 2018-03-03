@@ -14,6 +14,8 @@ __status__ = 'Development'
 
 import sys
 import os
+from os.path import isdir
+from shutil import rmtree 
 import numpy as np
 import contextlib
 
@@ -25,9 +27,13 @@ out = os.getcwd()+'/output'
 header_str = '{0:^93}'.format('-'*45)
 
 
-
 def main_header():
 		""" print main header """
+		# rm out if present
+		if (isdir(out)): rmtree(out, ignore_errors=True)
+		# mkdir out
+		os.mkdir(out)
+		# print headers
 		for i in [out+'/output.out',out+'/results.out']:
 			with open(i,'a') as f:
 				with contextlib.redirect_stdout(f):

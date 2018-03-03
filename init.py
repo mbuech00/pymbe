@@ -14,8 +14,6 @@ __status__ = 'Development'
 
 import numpy as np
 from os import getcwd, mkdir
-from os.path import isdir
-from shutil import rmtree 
 import sys
 
 from mol import MolCls
@@ -32,8 +30,6 @@ class InitCls():
 				""" init calculation """
 				# mpi instantiation
 				self.mpi = MPICls()
-				# output instantiation
-				self.out = OutCls(self.mpi)
 				# molecule instantiation
 				self.mol = MolCls(self.mpi)
 				# build and communicate molecule
@@ -100,20 +96,5 @@ class InitCls():
 				if (self.mpi.parallel): self.mpi.bcast_fund(self.mol, self.calc)
 				#
 				return
-
-
-class OutCls():
-		""" output class """
-		def __init__(self, mpi):
-				""" init output environment """
-				# get work dir
-				self.wrk_dir = getcwd()
-				# set output dir
-				self.out_dir = self.wrk_dir+'/output'
-				if (mpi.global_master):
-					# rm out_dir if present
-					if (isdir(self.out_dir)): rmtree(self.out_dir, ignore_errors=True)
-					# mk out_dir
-					mkdir(self.out_dir)
 
 
