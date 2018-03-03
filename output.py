@@ -14,8 +14,8 @@ __status__ = 'Development'
 
 import sys
 import os
-from os.path import isdir
-from shutil import rmtree 
+import os.path
+import shutil
 import numpy as np
 import contextlib
 
@@ -30,7 +30,7 @@ header_str = '{0:^93}'.format('-'*45)
 def main_header():
 		""" print main header """
 		# rm out if present
-		if (isdir(out)): rmtree(out, ignore_errors=True)
+		if (os.path.isdir(out)): shutil.rmtree(out, ignore_errors=True)
 		# mkdir out
 		os.mkdir(out)
 		# print headers

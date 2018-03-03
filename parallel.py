@@ -14,10 +14,8 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-import sys, traceback
-from os import getcwd, mkdir, chdir
-from os.path import isfile
-from shutil import copy, rmtree
+import sys
+import traceback
 
 import restart
 

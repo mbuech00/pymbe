@@ -15,9 +15,9 @@ __status__ = 'Development'
 import numpy as np
 from mpi4py import MPI
 import sys
-from itertools import combinations, chain
-from scipy.misc import comb
-from math import fsum
+import itertools
+import scipy.misc
+import math
 
 import restart
 import kernel
@@ -38,7 +38,7 @@ def main(mpi, mol, calc, exp):
 		else:
 			_serial(mpi, mol, calc, exp)
 		# sum up total energy
-		e_tmp = fsum(exp.energy['inc'][-1])
+		e_tmp = math.fsum(exp.energy['inc'][-1])
 		if (exp.order > exp.start_order): e_tmp += exp.energy['tot'][-1]
 		# add to total energy list
 		exp.energy['tot'].append(e_tmp)
@@ -326,17 +326,17 @@ def _sum(calc, exp, idx):
 			match = np.nonzero(np.in1d(exp.tuples[i-exp.start_order].view(dt).reshape(-1),
 								combs.view(dt).reshape(-1)))[0]
 			# add up lower-order increments
-			res[count] = fsum(exp.energy['inc'][i-exp.start_order][match])
+			res[count] = math.fsum(exp.energy['inc'][i-exp.start_order][match])
 		# now compute increment
-		exp.energy['inc'][-1][idx] -= fsum(res)
+		exp.energy['inc'][-1][idx] -= math.fsum(res)
 		#
 		return
 
 
 def _comb_index(n, k):
 		""" calculate combined index """
-		count = comb(n, k, exact=True)
-		index = np.fromiter(chain.from_iterable(combinations(range(n), k)), int,count=count * k)
+		count = scipy.misc.comb(n, k, exact=True)
+		index = np.fromiter(itertools.chain.from_iterable(itertools.combinations(range(n), k)), int,count=count * k)
 		#
 		return index.reshape(-1, k)
 

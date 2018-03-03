@@ -14,7 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-from itertools import combinations
+import itertools
 
 
 def main(mpi, mol, calc, exp):
@@ -34,7 +34,7 @@ def main(mpi, mol, calc, exp):
 						tmp.append(exp.tuples[-1][i].tolist()+[m])
 				else:
 					# generate list with all subsets of particular tuple
-					combs = np.array(list(list(comb) for comb in combinations(exp.tuples[-1][i], exp.order-1)))
+					combs = np.array(list(list(comb) for comb in itertools.combinations(exp.tuples[-1][i], exp.order-1)))
 					# select only those combinations that include the active orbitals
 					if (calc.no_act > len(calc.ref_space)):
 						cond = np.zeros(len(combs), dtype=bool)
@@ -164,7 +164,7 @@ def slave(mpi, mol, calc, exp):
 						data['child_tuple'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
 				else:
 					# generate list with all subsets of particular tuple
-					combs = np.array(list(list(comb) for comb in combinations(exp.tuples[-1][job_info['index']], exp.order-1)))
+					combs = np.array(list(list(comb) for comb in itertools.combinations(exp.tuples[-1][job_info['index']], exp.order-1)))
 					# select only those combinations that include the active orbitals
 					if (calc.no_act > len(calc.ref_space)):
 						cond = np.zeros(len(combs), dtype=bool)

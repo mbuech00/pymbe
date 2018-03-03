@@ -12,7 +12,6 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-from os.path import isfile
 from pyscf import gto
 import re
 import sys

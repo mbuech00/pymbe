@@ -13,7 +13,6 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
-from scipy.misc import factorial
 
 
 class ExpCls():
