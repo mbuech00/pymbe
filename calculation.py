@@ -17,7 +17,7 @@ import re
 import sys
 from pyscf import symm
 
-import rst
+import restart
 
 
 class CalcCls():
@@ -93,11 +93,11 @@ class CalcCls():
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
 														' keyword in calc.inp not recognized')
 								except Exception as err:
-									rst.rm()
+									restart.rm()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
-					rst.rm()
+					restart.rm()
 					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
@@ -196,7 +196,7 @@ class CalcCls():
 					if (mol.max_memory is None):
 						raise ValueError('wrong input -- the memory keyword (mem) appears to be missing')
 				except Exception as err:
-					rst.rm()
+					restart.rm()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
 					raise
 				#

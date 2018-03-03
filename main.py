@@ -24,7 +24,7 @@ import calculation
 import expansion
 import kernel
 import driver
-import rst
+import restart
 import output
 import results
 
@@ -51,13 +51,13 @@ def main():
 		# init mpi
 		mpi.set_mpi()
 		# restart logical
-		calc.restart = rst.restart()
+		calc.restart = restart.restart()
 		# hf and ref calculations
 		if (mpi.global_master):
 			# restart
 			if (calc.restart):
 				# read fundamental info
-				rst.read_fund(mol, calc)
+				restart.read_fund(mol, calc)
 				# expansion instantiation
 				if (calc.exp_type in ['occupied','virtual']):
 					exp = expansion.ExpCls(mol, calc)
@@ -89,7 +89,7 @@ def main():
 				# base energy and transformation matrix
 				calc.energy['base'], calc.mo = kernel.base(mol, calc, exp)
 				# write fundamental info
-				rst.write_fund(mol, calc)
+				restart.write_fund(mol, calc)
 		else:
 			# get hcore and eri
 			mol.hcore, mol.eri = kernel.hcore_eri(mol)
@@ -107,7 +107,7 @@ def main():
 			# print main header
 			output.main_header()
 			# restart
-			exp.min_order = rst.main(calc, exp)
+			exp.min_order = restart.main(calc, exp)
 			# proceed to main driver
 			driver.main(mpi, mol, calc, exp)
 			# print summary and plot results

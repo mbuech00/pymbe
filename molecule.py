@@ -17,7 +17,7 @@ from pyscf import gto
 import re
 import sys
 
-import rst
+import restart
 
 
 class MolCls(gto.Mole):
@@ -58,7 +58,7 @@ class MolCls(gto.Mole):
 						try:
 							raise RuntimeError
 						except RuntimeError:
-							rst.rm()
+							restart.rm()
 							sys.stderr.write('\nValueError: non-sensible input in mol.inp\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
@@ -81,7 +81,7 @@ class MolCls(gto.Mole):
 							else:
 								atom += content[i]
 				except IOError:
-					rst.rm()
+					restart.rm()
 					sys.stderr.write('\nIOError: geo.inp not found\n\n')
 					raise
 				#
@@ -122,11 +122,11 @@ class MolCls(gto.Mole):
 									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
 													' keyword in mol.inp not recognized')
 								except Exception as err:
-									rst.rm()
+									restart.rm()
 									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
 									raise
 				except IOError:
-					rst.rm()
+					restart.rm()
 					sys.stderr.write('\nIOError: mol.inp not found\n\n')
 					raise
 				#

@@ -16,7 +16,7 @@ import sys
 import numpy as np
 from mpi4py import MPI
 
-import rst
+import restart
 import mbe
 import kernel
 import output
@@ -87,7 +87,7 @@ def main(mpi, mol, calc, exp):
 				# print mbe end
 				output.mbe_end(calc, exp)
 				# write restart files
-				rst.mbe_write(calc, exp, True)
+				restart.mbe_write(calc, exp, True)
 				# print mbe results
 				output.mbe_results(mol, calc, exp)
 			#
@@ -108,7 +108,7 @@ def main(mpi, mol, calc, exp):
 					exp.time_screen[-1] *= -1.0
 					# write restart files
 					if (not exp.conv_orb[-1]):
-						rst.screen_write(exp)
+						restart.screen_write(exp)
 					# print screen end
 					output.screen_end(calc, exp)
 			else:

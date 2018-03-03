@@ -19,7 +19,7 @@ from os import getcwd, mkdir, chdir
 from os.path import isfile
 from shutil import copy, rmtree
 
-import rst
+import restart
 
 
 class MPICls():
@@ -262,7 +262,7 @@ class MPICls():
 		def final(self):
 				""" terminate calculation """
 				if (self.global_master):
-					rst.rm()
+					restart.rm()
 					if (self.parallel):
 						if (self.num_local_masters == 0):
 							self.local_comm.bcast({'task': 'exit_slave'}, root=0)

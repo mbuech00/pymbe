@@ -19,7 +19,7 @@ from itertools import combinations, chain
 from scipy.misc import comb
 from math import fsum
 
-import rst
+import restart
 import kernel
 import output
 import expansion
@@ -102,7 +102,7 @@ def _serial(mpi, mol, calc, exp):
 				# collect time
 				exp.time_mbe[-1] += MPI.Wtime() - time
 				# write restart files
-				rst.mbe_write(calc, exp, False)
+				restart.mbe_write(calc, exp, False)
 		#
 		return
 
@@ -212,7 +212,7 @@ def _master(mpi, mol, calc, exp):
 						exp.micro_conv[-1][data['index']] = data['micro_order']
 					# write restart files
 					if (mpi.global_master and ((((data['index']+1) % exp.rst_freq) == 0) or (exp.level == 'macro'))):
-						rst.mbe_write(calc, exp, False)
+						restart.mbe_write(calc, exp, False)
 					# increment stat counter
 					counter += 1
 					# print status
