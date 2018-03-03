@@ -20,7 +20,7 @@ import rst
 import mbe
 import kernel
 import prt
-from screen import ScrCls
+import screen
 from exp import ExpCls
 
 
@@ -30,7 +30,6 @@ class DrvCls():
 				""" init parameters and classes """
 				# init required classes
 				self.mbe = mbe.MBECls()
-				self.screening = ScrCls(mol, calc.exp_type)
 				#
 				return
 
@@ -71,7 +70,7 @@ class DrvCls():
 							prt.mbe_microresults(calc, exp)
 							prt.mbe_end(calc, exp)
 							prt.mbe_results(mol, calc, exp)
-							exp.thres = self.screening.update(calc, exp)
+							exp.thres = screen.update(calc, exp)
 							prt.screen_header(calc, exp)
 							prt.screen_end(calc, exp)
 							exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
@@ -112,7 +111,7 @@ class DrvCls():
 						# start time
 						if (do_print): exp.time_screen.append(MPI.Wtime())
 						# perform screening
-						self.screening.main(mpi, mol, calc, exp)
+						screen.main(mpi, mol, calc, exp)
 						if (do_print):
 							# collect time
 							exp.time_screen[-1] -= MPI.Wtime()
@@ -176,7 +175,7 @@ class DrvCls():
 					elif (msg['task'] == 'screen_local_master'):
 						exp.order = msg['exp_order']
 						exp.thres = msg['thres']
-						self.screening.slave(mpi, mol, calc, exp)
+						screen.slave(mpi, mol, calc, exp)
 					#
 					#** exit **#
 					#
@@ -222,7 +221,7 @@ class DrvCls():
 					elif (msg['task'] == 'screen_slave'):
 						exp.order = msg['exp_order']
 						exp.thres = msg['thres']
-						self.screening.slave(mpi, mol, calc, exp)
+						screen.slave(mpi, mol, calc, exp)
 					#
 					#** exit **#
 					#
