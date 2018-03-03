@@ -23,7 +23,7 @@ import rst
 import kernel
 import prt
 import expansion
-import drv
+import driver
 
 
 def main(mpi, mol, calc, exp):
@@ -68,7 +68,7 @@ def _serial(mpi, mol, calc, exp):
 				# transfer incl_idx
 				exp_micro.incl_idx = exp.tuples[-1][i].tolist()
 				# make recursive call to driver with micro exp
-				drv.main(mpi, mol, calc, exp_micro)
+				driver.main(mpi, mol, calc, exp_micro)
 				# store results
 				exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
 				exp.micro_conv[-1][i] = exp_micro.order
@@ -271,7 +271,7 @@ def slave(mpi, mol, calc, exp):
 						# transfer incl_idx
 						exp_micro.incl_idx = sorted(exp.tuples[-1][job_info['index']].tolist())
 						# make recursive call to driver with micro exp
-						drv.main(mpi, mol, calc, exp_micro, None)
+						driver.main(mpi, mol, calc, exp_micro, None)
 						# store micro convergence
 						data['micro_order'] = exp_micro.order
 						# write info into data dict

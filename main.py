@@ -23,7 +23,7 @@ import molecule
 import calculation
 import expansion
 import kernel
-import drv
+import driver
 import rst
 import prt
 import res
@@ -99,17 +99,17 @@ def main():
 		if (not mpi.global_master):
 			if (mpi.local_master):
 				# proceed to local master driver
-				drv.local_master(mpi, mol, calc)
+				driver.local_master(mpi, mol, calc)
 			else:
 				# proceed to slave driver
-				drv.slave(mpi, mol, calc)
+				driver.slave(mpi, mol, calc)
 		else:
 			# print main header
 			prt.main_header()
 			# restart
 			exp.min_order = rst.main(calc, exp)
 			# proceed to main driver
-			drv.main(mpi, mol, calc, exp)
+			driver.main(mpi, mol, calc, exp)
 			# print summary and plot results
 			res.main(mpi, mol, calc, exp)
 			# finalize
