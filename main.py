@@ -18,7 +18,11 @@ try:
 except ImportError:
 	sys.stderr.write('\nImportError : mpi4py module not found\n\n')
 
-import init
+import parallel
+import molecule
+import calculation
+import expansion
+import kernel
 import drv
 import rst
 import prt
@@ -27,27 +31,89 @@ import res
 
 def main():
 		""" main program """
-		# initialize the calculation
-		pymbe = init.InitCls()
+		# mpi instantiation
+		mpi = parallel.MPICls()
+		# molecule instantiation
+		mol = molecule.MolCls(mpi)
+		# build and communicate molecule
+		if (mpi.global_master):
+			mol.make(mpi)
+			mpi.bcast_mol(mol)
+		else:
+			mpi.bcast_mol(mol)
+			mol.make(mpi)
+		# calculation instantiation
+		calc = calculation.CalcCls(mpi, mol)
+		# set core region
+		mol.ncore = mol.set_ncore()
+		# communicate calc info 
+		mpi.bcast_calc(calc)
+		# init mpi
+		mpi.set_mpi()
+		# restart logical
+		calc.restart = rst.restart()
+		# hf and ref calculations
+		if (mpi.global_master):
+			# restart
+			if (calc.restart):
+				# read fundamental info
+				rst.read_fund(mol, calc)
+				# expansion instantiation
+				if (calc.exp_type in ['occupied','virtual']):
+					exp = expansion.ExpCls(mol, calc)
+					# mark expansion as micro
+					exp.level = 'micro'
+#				elif (calc.exp_type == 'combined'):
+#					exp = expansion.ExpCls(mol, calc)
+#					# mark expansion as macro
+#					exp.level = 'macro'
+			# no restart
+			else:
+				# hf calculation
+				calc.hf, calc.energy['hf'], calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
+				# get hcore and eri
+				mol.hcore, mol.eri = kernel.hcore_eri(mol)
+				# reference and expansion spaces
+				calc.ref_space, calc.exp_space, calc.no_act = kernel.active(mol, calc)
+				# expansion instantiation
+				if (calc.exp_type in ['occupied','virtual']):
+					exp = expansion.ExpCls(mol, calc)
+					# mark expansion as micro
+					exp.level = 'micro'
+#				elif (calc.exp_type == 'combined'):
+#					exp = expansion.ExpCls(mol, calc, 'occupied')
+#					# mark expansion as macro
+#					exp.level = 'macro'
+				# reference calculation
+				calc.energy['ref'], calc.energy['ref_base'], calc.mo = kernel.ref(mol, calc, exp)
+				# base energy and transformation matrix
+				calc.energy['base'], calc.mo = kernel.base(mol, calc, exp)
+				# write fundamental info
+				rst.write_fund(mol, calc)
+		else:
+			# get hcore and eri
+			mol.hcore, mol.eri = kernel.hcore_eri(mol)
+		# bcast fundamental info
+		if (mpi.parallel): mpi.bcast_fund(mol, calc)
 		# now branch
-		if (not pymbe.mpi.global_master):
-			if (pymbe.mpi.local_master):
+		if (not mpi.global_master):
+			if (mpi.local_master):
 				# proceed to local master driver
-				drv.local_master(pymbe.mpi, pymbe.mol, pymbe.calc)
+				drv.local_master(mpi, mol, calc)
 			else:
 				# proceed to slave driver
-				drv.slave(pymbe.mpi, pymbe.mol, pymbe.calc)
+				drv.slave(mpi, mol, calc)
 		else:
 			# print main header
 			prt.main_header()
 			# restart
-			pymbe.exp.min_order = rst.main(pymbe.calc, pymbe.exp)
+			exp.min_order = rst.main(calc, exp)
 			# proceed to main driver
-			drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
+			drv.main(mpi, mol, calc, exp)
 			# print summary and plot results
-			res.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
+			res.main(mpi, mol, calc, exp)
 			# finalize
-			pymbe.mpi.final()
+			mpi.final()
 
 
 if __name__ == '__main__':

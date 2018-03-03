@@ -21,7 +21,7 @@ import mbe
 import kernel
 import prt
 import screen
-from exp import ExpCls
+import expansion
 
 
 def main(mpi, mol, calc, exp):
@@ -143,7 +143,7 @@ def local_master(mpi, mol, calc):
 			#** exp class instantiation **#
 			#
 			if (msg['task'] == 'exp_cls'):
-				exp = ExpCls(mol, calc)
+				exp = expansion.ExpCls(mol, calc)
 				# mark expansion as macro
 				exp.level = 'macro'
 				# set min order
@@ -187,7 +187,7 @@ def slave(mpi, mol, calc):
 			#** exp class instantiation **#
 			#
 			if (msg['task'] == 'exp_cls'):
-				exp = ExpCls(mol, calc)
+				exp = expansion.ExpCls(mol, calc)
 				# mark expansion as micro
 				exp.level = 'micro'
 				# distinguish between occ-virt expansions and combined expansions

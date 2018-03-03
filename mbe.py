@@ -22,7 +22,7 @@ from math import fsum
 import rst
 import kernel
 import prt
-from exp import ExpCls
+import expansion
 import drv
 
 
@@ -62,7 +62,7 @@ def _serial(mpi, mol, calc, exp):
 			# run correlated calc
 			if (exp.level == 'macro'):
 				# micro exp instantiation
-				exp_micro = ExpCls(mpi, mol, calc, 'virtual')
+				exp_micro = expansion.ExpCls(mpi, mol, calc, 'virtual')
 				# mark expansion as micro 
 				exp_micro.level = 'micro'
 				# transfer incl_idx
@@ -265,7 +265,7 @@ def slave(mpi, mol, calc, exp):
 					# load job info
 					if (exp.level == 'macro'):
 						# micro exp instantiation
-						exp_micro = ExpCls(mpi, mol, calc, 'virtual')
+						exp_micro = expansion.ExpCls(mpi, mol, calc, 'virtual')
 						# mark expansion as micro 
 						exp_micro.level = 'micro'
 						# transfer incl_idx
