@@ -20,6 +20,7 @@ except ImportError:
 
 import init
 import res
+import prt
 
 
 def main():
@@ -35,8 +36,10 @@ def main():
 				# proceed to slave driver
 				pymbe.drv.slave(pymbe.mpi, pymbe.mol, pymbe.calc)
 		else:
+			# print main header
+			prt.main_header()
 			# proceed to main driver
-			pymbe.drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp, pymbe.prt, pymbe.rst)
+			pymbe.drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp, pymbe.rst)
 			# print summary and plot results
 			res.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
 			# finalize

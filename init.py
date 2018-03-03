@@ -25,7 +25,6 @@ from mpi import MPICls
 import kernel
 from exp import ExpCls
 from drv import DrvCls
-from prt import PrintCls
 
 
 class InitCls():
@@ -106,8 +105,6 @@ class InitCls():
 						self.drv = DrvCls(self.mol, self.calc)
 #					elif (self.calc.exp_type == 'combined'):
 #						self.drv = DrvCls(self.mol, 'occupied')
-					# print and result instantiations
-					self.prt = PrintCls(self.out)
 				else:
 					if (self.calc.exp_type in ['occupied','virtual']):
 						self.drv = DrvCls(self.mol, self.calc)
@@ -116,8 +113,6 @@ class InitCls():
 #							self.drv = DrvCls(self.mol, 'occupied')
 #						else:
 #							self.drv = DrvCls(self.mol, 'virtual')
-					# prt as None type
-					self.prt = None
 				#
 				return
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" res.py: summary and plotting class """
+""" res.py: summary and plotting module """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __copyright__ = 'Copyright 2017'
@@ -31,6 +31,7 @@ except ImportError:
 
 
 # summary constants
+out = os.getcwd()+'/output'
 divider_str = '{0:^143}'.format('-'*137)
 fill_str = '{0:^143}'.format('|'*137)
 header_str = '{0:^139}'.format('-'*44)
@@ -40,20 +41,19 @@ def main(mpi, mol, calc, exp):
 		""" summary printing and plotting """
 		# setup
 		info = {}
-		info['out'], info['basis'], info['mult'], info['ref'], \
-			info['base'], info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
+		info['basis'], info['mult'], info['ref'], info['base'], info['system'], \
+			info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], info['conv'] = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mol, calc, exp)
 		# plot
-		_plot(info, calc, exp)
+		_plot(calc, exp)
 		#
 		return
 
 
 def _setup(mpi, mol, calc, exp):
 		""" init parameters """
-		out = os.getcwd()+'/output'
 		# modify basis print out
 		basis = _basis(mol)
 		# modify spin multiplicity print out
@@ -79,14 +79,14 @@ def _setup(mpi, mol, calc, exp):
 		# modify convergence print out
 		conv = _conv(exp)
 		#
-		return out, basis, mult, ref, base, system, frozen, active, \
+		return basis, mult, ref, base, system, frozen, active, \
 				occ, virt, mpi, thres, symm, conv
 
 
 def _table(info, mol, calc, exp):
 		""" print results """
 		# write summary to results.out
-		with open(info['out']+'/results.out','a') as f:
+		with open(out+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print('\n\n'+header_str)
 				print('{0:^138}'.format('results'))
@@ -108,7 +108,7 @@ def _table(info, mol, calc, exp):
 		return
 	
 	
-def _plot(info, calc, exp):
+def _plot(calc, exp):
 		""" plot correlation energy """
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
@@ -135,7 +135,7 @@ def _plot(info, calc, exp):
 		# tight layout
 		plt.tight_layout()
 		# save plot
-		plt.savefig(info['out']+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
 		#
 		return
 

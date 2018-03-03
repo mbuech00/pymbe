@@ -18,6 +18,7 @@ from mpi4py import MPI
 
 import mbe
 import kernel
+import prt
 from screen import ScrCls
 from exp import ExpCls
 
@@ -33,7 +34,7 @@ class DrvCls():
 				return
 
 
-		def main(self, mpi, mol, calc, exp, prt, rst):
+		def main(self, mpi, mol, calc, exp, rst):
 				""" main driver routine """
 				# print and time logical
 				do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
@@ -91,7 +92,7 @@ class DrvCls():
 						inc.fill(np.nan)
 						exp.energy['inc'].append(inc)
 					# mbe calculations
-					self.mbe.main(mpi, mol, calc, exp, prt, rst)
+					self.mbe.main(mpi, mol, calc, exp, rst)
 					if (do_print):
 						# print micro results
 						prt.mbe_microresults(calc, exp)
