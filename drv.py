@@ -28,8 +28,6 @@ class DrvCls():
 		""" driver class """
 		def __init__(self, mol, calc):
 				""" init parameters and classes """
-				# init required classes
-				self.mbe = mbe.MBECls()
 				#
 				return
 
@@ -90,7 +88,7 @@ class DrvCls():
 						inc.fill(np.nan)
 						exp.energy['inc'].append(inc)
 					# mbe calculations
-					self.mbe.main(mpi, mol, calc, exp)
+					mbe.main(mpi, mol, calc, exp)
 					if (do_print):
 						# print micro results
 						prt.mbe_microresults(calc, exp)
@@ -168,7 +166,7 @@ class DrvCls():
 					#
 					if (msg['task'] == 'mbe_local_master'):
 						exp.order = msg['exp_order']
-						self.mbe.slave(mpi, mol, calc, exp)
+						mbe.slave(mpi, mol, calc, exp)
 					#
 					#** screening phase **#
 					#
@@ -214,7 +212,7 @@ class DrvCls():
 					#
 					if (msg['task'] == 'mbe_slave'):
 						exp.order = msg['exp_order']
-						self.mbe.slave(mpi, mol, calc, exp)
+						mbe.slave(mpi, mol, calc, exp)
 					#
 					#** screening phase **#
 					#
