@@ -24,7 +24,6 @@ from mpi import MPICls
 import rst
 import kernel
 from exp import ExpCls
-from drv import DrvCls
 
 
 class InitCls():
@@ -99,20 +98,6 @@ class InitCls():
 					self.mol.hcore, self.mol.eri = kernel.hcore_eri(self.mol)
 				# bcast fundamental info
 				if (self.mpi.parallel): self.mpi.bcast_fund(self.mol, self.calc)
-				# driver instantiations
-				if (self.mpi.global_master):
-					if (self.calc.exp_type in ['occupied','virtual']):
-						self.drv = DrvCls(self.mol, self.calc)
-#					elif (self.calc.exp_type == 'combined'):
-#						self.drv = DrvCls(self.mol, 'occupied')
-				else:
-					if (self.calc.exp_type in ['occupied','virtual']):
-						self.drv = DrvCls(self.mol, self.calc)
-#					elif (self.calc.exp_type == 'combined'):
-#						if (self.mpi.local_master):
-#							self.drv = DrvCls(self.mol, 'occupied')
-#						else:
-#							self.drv = DrvCls(self.mol, 'virtual')
 				#
 				return
 

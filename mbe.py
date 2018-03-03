@@ -53,9 +53,6 @@ def _serial(mpi, mol, calc, exp):
 		# init time
 		if (do_print):
 			if (len(exp.time_mbe) < exp.order): exp.time_mbe.append(0.0)
-		# micro driver instantiation
-		if (exp.level == 'macro'):
-			drv_micro = drv.DrvCls(mol, 'virtual') 
 		# determine start index
 		start = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# loop over tuples
@@ -71,7 +68,7 @@ def _serial(mpi, mol, calc, exp):
 				# transfer incl_idx
 				exp_micro.incl_idx = exp.tuples[-1][i].tolist()
 				# make recursive call to driver with micro exp
-				drv_micro.main(mpi, mol, calc, exp_micro)
+				drv.main(mpi, mol, calc, exp_micro)
 				# store results
 				exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
 				exp.micro_conv[-1][i] = exp_micro.order
@@ -239,8 +236,6 @@ def slave(mpi, mol, calc, exp):
 		# set communicator and possible micro driver instantiation
 		if (exp.level == 'macro'):
 			comm = mpi.master_comm
-			# micro driver instantiation
-			drv_micro = drv.DrvCls(mol, 'virtual') 
 		else:
 			comm = mpi.local_comm
 		# init energies
@@ -276,7 +271,7 @@ def slave(mpi, mol, calc, exp):
 						# transfer incl_idx
 						exp_micro.incl_idx = sorted(exp.tuples[-1][job_info['index']].tolist())
 						# make recursive call to driver with micro exp
-						drv_micro.main(mpi, mol, calc, exp_micro, None)
+						drv.main(mpi, mol, calc, exp_micro, None)
 						# store micro convergence
 						data['micro_order'] = exp_micro.order
 						# write info into data dict
