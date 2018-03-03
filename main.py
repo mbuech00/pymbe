@@ -19,8 +19,9 @@ except ImportError:
 	sys.stderr.write('\nImportError : mpi4py module not found\n\n')
 
 import init
-import res
+import rst
 import prt
+import res
 
 
 def main():
@@ -31,19 +32,21 @@ def main():
 		if (not pymbe.mpi.global_master):
 			if (pymbe.mpi.local_master):
 				# proceed to local master driver
-				pymbe.drv.local_master(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.rst)
+				pymbe.drv.local_master(pymbe.mpi, pymbe.mol, pymbe.calc)
 			else:
 				# proceed to slave driver
 				pymbe.drv.slave(pymbe.mpi, pymbe.mol, pymbe.calc)
 		else:
 			# print main header
 			prt.main_header()
+			# restart
+			pymbe.exp.min_order = rst.main(pymbe.calc, pymbe.exp)
 			# proceed to main driver
-			pymbe.drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp, pymbe.rst)
+			pymbe.drv.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
 			# print summary and plot results
 			res.main(pymbe.mpi, pymbe.mol, pymbe.calc, pymbe.exp)
 			# finalize
-			pymbe.mpi.final(pymbe.rst)
+			pymbe.mpi.final()
 
 
 if __name__ == '__main__':

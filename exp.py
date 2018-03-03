@@ -41,6 +41,8 @@ class ExpCls():
 					self.thres = 0.0
 				else:
 					self.thres = calc.exp_thres * calc.exp_relax ** (self.start_order - 3)
+				# restart frequency
+				self.rst_freq = 50000
 				#
 				return
 

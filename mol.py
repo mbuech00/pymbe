@@ -17,10 +17,12 @@ from pyscf import gto
 import re
 import sys
 
+import rst
+
 
 class MolCls(gto.Mole):
 		""" molecule class (inherited from pyscf gto.Mole class) """
-		def __init__(self, mpi, rst):
+		def __init__(self, mpi):
 				""" init parameters """
 				# gto.Mole instantiation
 				gto.Mole.__init__(self)
@@ -39,15 +41,15 @@ class MolCls(gto.Mole):
 					# verbose
 					self.verbose = False
 					# set geometry
-					self.atom = self.set_geo(rst)
+					self.atom = self.set_geo()
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose = self.set_mol(rst)
+						self.basis, self.unit, self.frozen, self.verbose = self.set_mol()
 				#
 				return
 
 
-		def make(self, mpi, rst):
+		def make(self, mpi):
 				""" build Mole object """
 				if (mpi.global_master):
 					try:
@@ -66,7 +68,7 @@ class MolCls(gto.Mole):
 				return
 
 
-		def set_geo(self, rst):
+		def set_geo(self):
 				""" set geometry from geo.inp file """
 				# read input file
 				try:
@@ -86,7 +88,7 @@ class MolCls(gto.Mole):
 				return atom
 
 
-		def set_mol(self, rst):
+		def set_mol(self):
 				""" set molecular parameters from mol.inp file """
 				# read input file
 				try:

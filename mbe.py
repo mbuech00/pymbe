@@ -19,6 +19,7 @@ from itertools import combinations, chain
 from scipy.misc import comb
 from math import fsum
 
+import rst
 import kernel
 import prt
 from exp import ExpCls
@@ -72,7 +73,7 @@ class MBECls():
 				return
 
 
-		def main(self, mpi, mol, calc, exp, rst):
+		def main(self, mpi, mol, calc, exp):
 				""" energy mbe phase """
 				# init micro_conv list
 				if (mpi.global_master and (exp.level == 'macro')):
@@ -80,9 +81,9 @@ class MBECls():
 						exp.micro_conv.append(np.zeros(len(exp.tuples[-1]), dtype=np.int32))
 				# mpi parallel version
 				if (mpi.parallel):
-					self.master(mpi, mol, calc, exp, rst)
+					self.master(mpi, mol, calc, exp)
 				else:
-					self.serial(mpi, mol, calc, exp, rst)
+					self.serial(mpi, mol, calc, exp)
 				# sum up total energy
 				e_tmp = fsum(exp.energy['inc'][-1])
 				if (exp.order > exp.start_order): e_tmp += exp.energy['tot'][-1]
@@ -92,7 +93,7 @@ class MBECls():
 				return
 		
 	
-		def serial(self, mpi, mol, calc, exp, rst):
+		def serial(self, mpi, mol, calc, exp):
 				""" energy mbe phase """
 				# print and time logical
 				do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
@@ -117,7 +118,7 @@ class MBECls():
 						# transfer incl_idx
 						exp_micro.incl_idx = exp.tuples[-1][i].tolist()
 						# make recursive call to driver with micro exp
-						drv_micro.main(mpi, mol, calc, exp_micro, rst)
+						drv_micro.main(mpi, mol, calc, exp_micro)
 						# store results
 						exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
 						exp.micro_conv[-1][i] = exp_micro.order
@@ -156,7 +157,7 @@ class MBECls():
 				return
 
 	
-		def master(self, mpi, mol, calc, exp, rst):
+		def master(self, mpi, mol, calc, exp):
 				""" master function """
 				# wake up slaves
 				if (exp.level == 'macro'):
@@ -258,7 +259,7 @@ class MBECls():
 								self.summation(calc, exp, 'inc', data['index'])
 								exp.micro_conv[-1][data['index']] = data['micro_order']
 							# write restart files
-							if (mpi.global_master and ((((data['index']+1) % rst.rst_freq) == 0) or (exp.level == 'macro'))):
+							if (mpi.global_master and ((((data['index']+1) % exp.rst_freq) == 0) or (exp.level == 'macro'))):
 								rst.mbe_write(calc, exp, False)
 							# increment stat counter
 							counter += 1
@@ -278,7 +279,7 @@ class MBECls():
 				return
 		
 		
-		def slave(self, mpi, mol, calc, exp, rst=None):
+		def slave(self, mpi, mol, calc, exp):
 				""" slave function """
 				# set communicator and possible micro driver instantiation
 				if (exp.level == 'macro'):
@@ -318,7 +319,7 @@ class MBECls():
 								# transfer incl_idx
 								exp_micro.incl_idx = sorted(exp.tuples[-1][job_info['index']].tolist())
 								# make recursive call to driver with micro exp
-								drv_micro.main(mpi, mol, calc, exp_micro, None, rst)
+								drv_micro.main(mpi, mol, calc, exp_micro, None)
 								# store micro convergence
 								data['micro_order'] = exp_micro.order
 								# write info into data dict

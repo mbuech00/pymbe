@@ -46,7 +46,7 @@ class ScrCls():
 					return calc.exp_thres * calc.exp_relax ** (exp.order - 2)
 
 		
-		def main(self, mpi, mol, calc, exp, rst):
+		def main(self, mpi, mol, calc, exp):
 				""" input generation for subsequent order """
 				# start screening
 				if (mpi.parallel):

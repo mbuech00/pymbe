@@ -16,6 +16,7 @@ import sys
 import numpy as np
 from mpi4py import MPI
 
+import rst
 import mbe
 import kernel
 import prt
@@ -34,21 +35,19 @@ class DrvCls():
 				return
 
 
-		def main(self, mpi, mol, calc, exp, rst):
+		def main(self, mpi, mol, calc, exp):
 				""" main driver routine """
 				# print and time logical
 				do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
-				# restart
-				rst.rst_main(mpi, calc, exp)
 				# exp class instantiation on slaves
 				if (mpi.parallel):
 					if (calc.exp_type in ['occupied','virtual']):
-						msg = {'task': 'exp_cls', 'rst': rst.restart}
+						msg = {'task': 'exp_cls', 'rst': calc.restart}
 						# bcast msg
 						mpi.local_comm.bcast(msg, root=0)
 					else:
 						if ((exp.level == 'macro') and (mpi.num_local_masters >= 1)):
-							msg = {'task': 'exp_cls', 'rst': rst.restart, 'min_order': exp.min_order}
+							msg = {'task': 'exp_cls', 'rst': calc.restart, 'min_order': exp.min_order}
 							# bcast msg
 							mpi.master_comm.bcast(msg, root=0)
 						else:
@@ -62,7 +61,7 @@ class DrvCls():
 				# print expansion header
 				if (do_print): prt.exp_header(calc, exp)
 				# restart
-				if (rst.restart):
+				if (calc.restart):
 					# bcast exp info
 					if (mpi.parallel): mpi.bcast_exp(calc, exp)
 					# if rst, print previous results
@@ -75,9 +74,9 @@ class DrvCls():
 							exp.thres = self.screening.update(calc, exp)
 							prt.screen_header(calc, exp)
 							prt.screen_end(calc, exp)
-							rst.rst_freq = rst.update()
+							exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
 					# reset restart logical and init exp.order
-					rst.restart = False
+					calc.restart = False
 				# now do expansion
 				for exp.order in range(exp.min_order, exp.max_order+1):
 					#
@@ -92,7 +91,7 @@ class DrvCls():
 						inc.fill(np.nan)
 						exp.energy['inc'].append(inc)
 					# mbe calculations
-					self.mbe.main(mpi, mol, calc, exp, rst)
+					self.mbe.main(mpi, mol, calc, exp)
 					if (do_print):
 						# print micro results
 						prt.mbe_microresults(calc, exp)
@@ -113,7 +112,7 @@ class DrvCls():
 						# start time
 						if (do_print): exp.time_screen.append(MPI.Wtime())
 						# perform screening
-						self.screening.main(mpi, mol, calc, exp, rst)
+						self.screening.main(mpi, mol, calc, exp)
 						if (do_print):
 							# collect time
 							exp.time_screen[-1] -= MPI.Wtime()
@@ -130,7 +129,7 @@ class DrvCls():
 							# collect time
 							exp.time_screen.append(0.0)
 					# update restart frequency
-					if (do_print): rst.rst_freq = rst.update()
+					if (do_print): exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
 					#
 					#** convergence check **#
 					#
@@ -143,7 +142,7 @@ class DrvCls():
 				return
 
 
-		def local_master(self, mpi, mol, calc, rst):
+		def local_master(self, mpi, mol, calc):
 				""" local master routine """
 				# set loop/waiting logical
 				local_master = True
@@ -161,16 +160,16 @@ class DrvCls():
 						# set min order
 						exp.min_order = msg['min_order']
 						# receive exp info
-						rst.restart = msg['rst']
-						if (rst.restart): mpi.bcast_exp(calc, exp)
+						calc.restart = msg['rst']
+						if (calc.restart): mpi.bcast_exp(calc, exp)
 						# reset restart logical
-						rst.restart = False
+						calc.restart = False
 					#
 					#** energy phase **#
 					#
 					if (msg['task'] == 'mbe_local_master'):
 						exp.order = msg['exp_order']
-						self.mbe.slave(mpi, mol, calc, exp, rst)
+						self.mbe.slave(mpi, mol, calc, exp)
 					#
 					#** screening phase **#
 					#
@@ -184,7 +183,7 @@ class DrvCls():
 					elif (msg['task'] == 'exit_local_master'):
 						local_master = False
 				# finalize
-				mpi.final(None)
+				mpi.final()
 	
 	
 		def slave(self, mpi, mol, calc):
@@ -230,6 +229,6 @@ class DrvCls():
 					elif (msg['task'] == 'exit_slave'):
 						slave = False
 				# finalize
-				mpi.final(None)
+				mpi.final()
 	
 	

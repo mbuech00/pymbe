@@ -18,10 +18,10 @@ from os.path import isdir
 from shutil import rmtree 
 import sys
 
-from rst import RstCls
 from mol import MolCls
 from calc import CalcCls
 from mpi import MPICls
+import rst
 import kernel
 from exp import ExpCls
 from drv import DrvCls
@@ -35,31 +35,31 @@ class InitCls():
 				self.mpi = MPICls()
 				# output instantiation
 				self.out = OutCls(self.mpi)
-				# restart instantiation
-				self.rst = RstCls(self.out, self.mpi)
 				# molecule instantiation
-				self.mol = MolCls(self.mpi, self.rst)
+				self.mol = MolCls(self.mpi)
 				# build and communicate molecule
 				if (self.mpi.global_master):
-					self.mol.make(self.mpi, self.rst)
+					self.mol.make(self.mpi)
 					self.mpi.bcast_mol(self.mol)
 				else:
 					self.mpi.bcast_mol(self.mol)
-					self.mol.make(self.mpi, self.rst)
+					self.mol.make(self.mpi)
 				# calculation instantiation
-				self.calc = CalcCls(self.mpi, self.rst, self.mol)
+				self.calc = CalcCls(self.mpi, self.mol)
 				# set core region
 				self.mol.ncore = self.mol.set_ncore()
 				# communicate calc info 
 				self.mpi.bcast_calc(self.calc)
 				# init mpi
 				self.mpi.set_mpi()
+				# restart logical
+				self.calc.restart = rst.restart()
 				# hf and ref calculations
 				if (self.mpi.global_master):
 					# restart
-					if (self.rst.restart):
+					if (self.calc.restart):
 						# read fundamental info
-						self.rst.read_fund(self.mol, self.calc)
+						rst.read_fund(self.mol, self.calc)
 						# expansion instantiation
 						if (self.calc.exp_type in ['occupied','virtual']):
 							self.exp = ExpCls(self.mol, self.calc)
@@ -93,7 +93,7 @@ class InitCls():
 						# base energy and transformation matrix
 						self.calc.energy['base'], self.calc.mo = kernel.base(self.mol, self.calc, self.exp)
 						# write fundamental info
-						self.rst.write_fund(self.mol, self.calc)
+						rst.write_fund(self.mol, self.calc)
 				else:
 					# get hcore and eri
 					self.mol.hcore, self.mol.eri = kernel.hcore_eri(self.mol)

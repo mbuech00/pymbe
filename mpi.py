@@ -19,6 +19,8 @@ from os import getcwd, mkdir, chdir
 from os.path import isfile
 from shutil import copy, rmtree
 
+import rst
+
 
 class MPICls():
 		""" mpi parameters """
@@ -257,7 +259,7 @@ class MPICls():
 				return
 
 
-		def final(self, rst):
+		def final(self):
 				""" terminate calculation """
 				if (self.global_master):
 					rst.rm()

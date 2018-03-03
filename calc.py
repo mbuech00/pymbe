@@ -17,9 +17,12 @@ import re
 import sys
 from pyscf import symm
 
+import rst
+
+
 class CalcCls():
 		""" calculation class """
-		def __init__(self, mpi, rst, mol):
+		def __init__(self, mpi, mol):
 				""" init parameters """
 				# set default parameters
 				self.exp_model = {'METHOD': 'FCI'}
@@ -41,14 +44,14 @@ class CalcCls():
 						self.exp_thres, self.exp_relax, \
 						self.wfnsym, self.exp_max_order, \
 						self.exp_occ, self.exp_virt, \
-						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, rst, mol)
+						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
-					self.sanity_chk(mpi, rst, mol)
+					self.sanity_chk(mpi, mol)
 				#
 				return
 
 
-		def set_calc(self, mpi, rst, mol):
+		def set_calc(self, mpi, mol):
 				""" set calculation and mpi parameters from calc.inp file """
 				# read input file
 				try:
@@ -104,7 +107,7 @@ class CalcCls():
 							mol.max_memory, mpi.num_local_masters
 
 
-		def sanity_chk(self, mpi, rst, mol):
+		def sanity_chk(self, mpi, mol):
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
