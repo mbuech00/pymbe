@@ -26,7 +26,7 @@ import kernel
 import driver
 import rst
 import output
-import res
+import results
 
 
 def main():
@@ -111,7 +111,7 @@ def main():
 			# proceed to main driver
 			driver.main(mpi, mol, calc, exp)
 			# print summary and plot results
-			res.main(mpi, mol, calc, exp)
+			results.main(mpi, mol, calc, exp)
 			# finalize
 			mpi.final()
 
