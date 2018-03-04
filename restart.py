@@ -79,9 +79,10 @@ def write_fund(mol, calc):
 		with open(os.path.join(rst, 'dims.rst'), 'w') as f:
 			json.dump(dims, f)
 		# write hf and base energies
-		e_hf_base = {'hf': calc.energy['hf'], 'base': calc.energy['base']}
-		with open(os.path.join(rst, 'e_hf_base.rst'), 'w') as f:
-			json.dump(e_hf_base, f)
+		energies = {'hf': calc.energy['hf'], 'base': calc.energy['base'], \
+					'ref': calc.energy['ref'], 'ref_base': calc.energy['ref_base']}
+		with open(os.path.join(rst, 'energies.rst'), 'w') as f:
+			json.dump(energies, f)
 		# write expansion spaces
 		np.save(os.path.join(rst, 'ref_space'), calc.ref_space)
 		np.save(os.path.join(rst, 'exp_space'), calc.exp_space)
@@ -107,10 +108,11 @@ def read_fund(mol, calc):
 					dims = json.load(f)
 				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']; calc.no_act = dims['no_act']
 			# read hf and base energies
-			elif ('e_hf_base' in files[i]):
+			elif ('energies' in files[i]):
 				with open(os.path.join(rst, files[i]), 'r') as f:
-					e_hf_base = json.load(f)
-				calc.energy['hf'] = e_hf_base['hf']; calc.energy['base'] = e_hf_base['base'] 
+					energies = json.load(f)
+				calc.energy['hf'] = energies['hf']; calc.energy['base'] = energies['base'] 
+				calc.energy['ref'] = energies['ref']; calc.energy['ref_base'] = energies['ref_base']
 			# read expansion spaces
 			elif ('ref_space' in files[i]):
 				calc.ref_space = np.load(os.path.join(rst, files[i]))
