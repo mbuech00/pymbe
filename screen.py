@@ -33,55 +33,62 @@ _tags = _enum('ready', 'done', 'exit', 'start')
 
 def main(mpi, mol, calc, exp):
 		""" input generation for subsequent order """
-		# start screening
+		# mpi parallel or serial version
 		if mpi.parallel:
-			# mpi parallel version
-			_master(mpi, mol, calc, exp)
-		else:
-			# init bookkeeping variables
-			tmp = []; combs = []
-	        # loop over parent tuples
-			for i in range(len(exp.tuples[-1])):
-				if exp.order == exp.start_order:
-					# loop through possible orbitals to augment the combinations with
-					for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
-						tmp.append(exp.tuples[-1][i].tolist()+[m])
-				else:
-					# generate list with all subsets of particular tuple
-					combs = np.array(list(list(comb) for comb in itertools.combinations(exp.tuples[-1][i], exp.order-1)))
-					# select only those combinations that include the active orbitals
-					if calc.no_act > len(calc.ref_space):
-						cond = np.zeros(len(combs), dtype=bool)
-						for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
-						combs = combs[cond]
-					# loop through possible orbitals to augment the combinations with
-					for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
-						# init screening logical
-						screen = True
-						# loop over subset combinations
-						for j in range(len(combs)):
-							# recover index of particular tuple
-							comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
-							# does it exist?
-							if len(comb_idx) == 0:
-								# screen away
-								screen = True
-								break
-							else:
-								# is the increment above threshold?
-								if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
-									# mark as 'allowed'
-									screen = False
-						# if tuple is allowed, add to child tuple list, otherwise screen away
-						if not screen: tmp.append(exp.tuples[-1][i].tolist()+[m])
-			# when done, write to tup list or mark expansion as converged
-			if len(tmp) >= 1:
-				tmp.sort()
-				exp.tuples.append(np.array(tmp, dtype=np.int32))
+			if mpi.global_master:
+				_master(mpi, mol, calc, exp)
 			else:
-				exp.conv_orb.append(True)
+				_slave(mpi, mol, calc, exp)
+		else:
+			_serial(mol, calc, exp)
 		# update expansion threshold
 		exp.thres = update(calc, exp)
+
+
+def _serial(mol, calc, exp):
+		""" serial version """
+		# init bookkeeping variables
+		tmp = []; combs = []
+        # loop over parent tuples
+		for i in range(len(exp.tuples[-1])):
+			if exp.order == exp.start_order:
+				# loop through possible orbitals to augment the combinations with
+				for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
+					tmp.append(exp.tuples[-1][i].tolist()+[m])
+			else:
+				# generate list with all subsets of particular tuple
+				combs = np.array(list(list(comb) for comb in itertools.combinations(exp.tuples[-1][i], exp.order-1)))
+				# select only those combinations that include the active orbitals
+				if calc.no_act > len(calc.ref_space):
+					cond = np.zeros(len(combs), dtype=bool)
+					for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
+					combs = combs[cond]
+				# loop through possible orbitals to augment the combinations with
+				for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
+					# init screening logical
+					screen = True
+					# loop over subset combinations
+					for j in range(len(combs)):
+						# recover index of particular tuple
+						comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
+						# does it exist?
+						if len(comb_idx) == 0:
+							# screen away
+							screen = True
+							break
+						else:
+							# is the increment above threshold?
+							if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
+								# mark as 'allowed'
+								screen = False
+					# if tuple is allowed, add to child tuple list, otherwise screen away
+					if not screen: tmp.append(exp.tuples[-1][i].tolist()+[m])
+		# when done, write to tup list or mark expansion as converged
+		if len(tmp) >= 1:
+			tmp.sort()
+			exp.tuples.append(np.array(tmp, dtype=np.int32))
+		else:
+			exp.conv_orb.append(True)
 
 
 def _master(mpi, mol, calc, exp):
@@ -144,7 +151,7 @@ def _master(mpi, mol, calc, exp):
 			parallel.tup(exp, comm)
 
 
-def slave(mpi, mol, calc, exp):
+def _slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# init data dict and combs list
 		data = {'child_tuple': []}; combs = []

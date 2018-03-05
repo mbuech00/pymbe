@@ -45,11 +45,14 @@ def main(mpi, mol, calc, exp):
 		if mpi.global_master and exp.level == 'macro':
 			if len(exp.micro_conv) < exp.order:
 				exp.micro_conv.append(np.zeros(len(exp.tuples[-1]), dtype=np.int32))
-		# mpi parallel version
+		# mpi parallel or serial version
 		if mpi.parallel:
-			_master(mpi, mol, calc, exp)
+			if mpi.global_master:
+				_master(mpi, mol, calc, exp)
+			else:
+				_slave(mpi, mol, calc, exp)
 		else:
-			_serial(mpi, mol, calc, exp)
+			_serial(mol, calc, exp)
 		# sum up total energy
 		e_tmp = math.fsum(exp.energy['inc'][-1])
 		if exp.order > exp.start_order: e_tmp += exp.energy['tot'][-1]
@@ -57,10 +60,11 @@ def main(mpi, mol, calc, exp):
 		exp.energy['tot'].append(e_tmp)
 
 
-def _serial(mpi, mol, calc, exp):
-		""" energy mbe phase """
+def _serial(mol, calc, exp):
+		""" serial version """
 		# print and time logical
-		do_print = mpi.global_master and (not ((calc.typ == 'combined') and (exp.level == 'micro')))
+#		do_print = mpi.global_master and (not ((calc.typ == 'combined') and (exp.level == 'micro')))
+		do_print = True
 		# init time
 		if do_print:
 			if len(exp.time['mbe']) < (exp.order-exp.start_order)+1: exp.time['mbe'].append(0.0)
@@ -233,7 +237,7 @@ def _master(mpi, mol, calc, exp):
 			parallel.energy(exp, comm)
 
 
-def slave(mpi, mol, calc, exp):
+def _slave(mpi, mol, calc, exp):
 		""" slave function """
 		# set communicator and possible micro driver instantiation
 		if exp.level == 'macro':

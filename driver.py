@@ -146,14 +146,14 @@ def slave(mpi, mol, calc, exp):
 			#
 			if msg['task'] == 'mbe':
 				exp.order = msg['order']
-				mbe.slave(mpi, mol, calc, exp)
+				mbe.main(mpi, mol, calc, exp)
 			#
 			#** screening phase **#
 			#
 			elif msg['task'] == 'screen':
 				exp.order = msg['order']
 				exp.thres = msg['thres']
-				screen.slave(mpi, mol, calc, exp)
+				screen.main(mpi, mol, calc, exp)
 			#
 			#** exit **#
 			#
