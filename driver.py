@@ -29,56 +29,18 @@ def main(mpi, mol, calc, exp):
 		""" main driver routine """
 		# print and time logical
 		do_print = mpi.global_master and (not ((calc.typ == 'combined') and (exp.level == 'micro')))
-		# exp class instantiation on slaves
-		if mpi.parallel:
-			if calc.typ in ['occupied','virtual']:
-				msg = {'task': 'init'}
-				# bcast msg
-				mpi.local_comm.bcast(msg, root=0)
-			else:
-				if exp.level == 'macro' and mpi.num_local_masters >= 1:
-					msg = {'task': 'exp_cls', 'rst': calc.restart, 'min_order': exp.min_order}
-					# bcast msg
-					mpi.master_comm.bcast(msg, root=0)
-				else:
-					msg = {'task': 'exp_cls', 'incl_idx': exp.incl_idx, 'min_order': exp.min_order}
-					# bcast msg
-					mpi.local_comm.bcast(msg, root=0)
-#					# compute and communicate distinct natural virtual orbitals
-#					if (calc.virt == 'DNO'):
-#						kernel.trans_dno(mol, calc, exp) 
-#						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
-		# print expansion header
-		if do_print: output.exp_header(calc, exp)
+		# print expansion headers
+		if do_print:
+			output.main_header()
+			output.exp_header(calc, exp)
 		# restart
-		if calc.restart:
-			# bcast exp info
-			if mpi.parallel:
-				if exp.level == 'macro':
-					parallel.exp(calc, exp, mpi.master_comm)
-				elif exp.level == 'micro':
-					parallel.exp(calc, exp, mpi.global_comm)
-			# if rst, print previous results
-			if do_print:
-				for exp.order in range(exp.start_order, exp.min_order):
-					output.mbe_header(calc, exp)
-					output.mbe_microresults(calc, exp)
-					output.mbe_end(calc, exp)
-					output.mbe_results(mol, calc, exp)
-					exp.thres = screen.update(calc, exp)
-					output.screen_header(calc, exp)
-					output.screen_end(calc, exp)
-					exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
-			# reset restart logical and init exp.order
-			calc.restart = False
+		if calc.restart and do_print: exp.rst_freq = _rst_print(mol, calc, exp)
 		# now do expansion
 		for exp.order in range(exp.min_order, exp.max_order+1):
 			#
-			#** energy phase **#
+			#** mbe phase **#
 			#
-			if do_print:
-				# print mbe header
-				output.mbe_header(calc, exp)
+			if do_print: output.mbe_header(calc, exp)
 			# init energies
 			if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
 				inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
@@ -98,9 +60,7 @@ def main(mpi, mol, calc, exp):
 			#
 			#** screening phase **#
 			#
-			if do_print:
-				# print screen header
-				output.screen_header(calc, exp)
+			if do_print: output.screen_header(calc, exp)
 			# orbital screening
 			if exp.order < exp.max_order:
 				# start time
@@ -112,8 +72,7 @@ def main(mpi, mol, calc, exp):
 					exp.time['screen'][-1] -= MPI.Wtime()
 					exp.time['screen'][-1] *= -1.0
 					# write restart files
-					if not exp.conv_orb[-1]:
-						restart.screen_write(exp)
+					if not exp.conv_orb[-1]: restart.screen_write(exp)
 					# print screen end
 					output.screen_end(calc, exp)
 			else:
@@ -124,17 +83,13 @@ def main(mpi, mol, calc, exp):
 					exp.time['screen'].append(0.0)
 			# update restart frequency
 			if do_print: exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
-			#
-			#** convergence check **#
-			#
+			# convergence check
 			if exp.conv_orb[-1] or exp.order == exp.max_order:
-				# recast as numpy array
 				exp.energy['tot'] = np.array(exp.energy['tot'])
-				# now break
 				break
 
 
-def local_master(mpi, mol, calc):
+def master(mpi, mol, calc, exp):
 		""" local master routine """
 		# set loop/waiting logical
 		local_master = True
@@ -178,7 +133,7 @@ def local_master(mpi, mol, calc):
 		parallel.final(mpi)
 
 
-def slave(mpi, mol, calc):
+def slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# set loop/waiting logical
 		slave = True
@@ -187,13 +142,7 @@ def slave(mpi, mol, calc):
 			# task id
 			msg = mpi.local_comm.bcast(None, root=0)
 			#
-			#** init slave **#
-			#
-			if msg['task'] == 'init':
-				exp = expansion.ExpCls(mol, calc)
-				if calc.restart: parallel.exp(calc, exp, mpi.global_comm)
-			#
-			#** energy phase **#
+			#** mbe phase **#
 			#
 			if msg['task'] == 'mbe':
 				exp.order = msg['order']
@@ -213,4 +162,18 @@ def slave(mpi, mol, calc):
 		# finalize
 		parallel.final(mpi)
 	
+
+def _rst_print(mol, calc, exp):
+		""" print output in case of restart """
+		for exp.order in range(exp.start_order, exp.min_order):
+			output.mbe_header(calc, exp)
+			output.mbe_microresults(calc, exp)
+			output.mbe_end(calc, exp)
+			output.mbe_results(mol, calc, exp)
+			exp.thres = screen.update(calc, exp)
+			output.screen_header(calc, exp)
+			output.screen_end(calc, exp)
+			rst_freq = int(max(exp.rst_freq / 2., 1.))
+		return rst_freq
+
 	
