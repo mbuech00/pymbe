@@ -98,14 +98,14 @@ class MPICls():
 				# save sys.excepthook
 				sys_excepthook = sys.excepthook
 				# define mpi exception hook
-				def mpi_excepthook(type, _value, _traceback):
+				def mpi_excepthook(variant, value, traceback):
 					""" custom mpi exception hook """
 					if (not issubclass(type, OSError)):
 						print('\n-- Error information --')
-						print('\ntype:\n\n  {0:}'.format(type))
-						print('\nvalue:\n\n  {0:}'.format(_value))
-						print('\ntraceback:\n\n{0:}'.format(''.join(traceback.format_tb(_traceback))))
-					sys_excepthook(type, _value, _traceback)
+						print('\ntype:\n\n  {0:}'.format(variant))
+						print('\nvalue:\n\n  {0:}'.format(value))
+						print('\ntraceback:\n\n{0:}'.format(''.join(traceback.format_tb(traceback))))
+					sys_excepthook(variant, value, traceback)
 					self.global_comm.Abort(1)
 				# overwrite sys.excepthook
 				sys.excepthook = mpi_excepthook

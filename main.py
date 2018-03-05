@@ -56,6 +56,8 @@ def main():
 		if (mpi.global_master):
 			# restart
 			if (calc.restart):
+				# get hcore and eri
+				mol.hcore, mol.eri = kernel.hcore_eri(mol)
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# expansion instantiation
