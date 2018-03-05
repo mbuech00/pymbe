@@ -22,19 +22,19 @@ import contextlib
 import kernel
 
 
-# print constant
-out = os.getcwd()+'/output'
-header_str = '{0:^93}'.format('-'*45)
+# output parameters
+_out = os.getcwd()+'/output'
+_header_str = '{0:^93}'.format('-'*45)
 
 
 def main_header():
 		""" print main header """
 		# rm out if present
-		if (os.path.isdir(out)): shutil.rmtree(out, ignore_errors=True)
+		if (os.path.isdir(_out)): shutil.rmtree(_out, ignore_errors=True)
 		# mkdir out
-		os.mkdir(out)
+		os.mkdir(_out)
 		# print headers
-		for i in [out+'/output.out',out+'/results.out']:
+		for i in [_out+'/output.out',_out+'/results.out']:
 			with open(i,'a') as f:
 				with contextlib.redirect_stdout(f):
 					print('')
@@ -68,22 +68,22 @@ def main_header():
 
 def exp_header(calc, exp):
 		""" print expansion header """
-		with open(out+'/output.out','a') as f:
+		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print('\n\n'+header_str)
+				print('\n\n'+_header_str)
 				print('{0:^93}'.format(calc.exp_type+' expansion'))
-				print(header_str+'\n\n')
+				print(_header_str+'\n\n')
 		# write also to stdout
-		print('\n\n'+header_str)
+		print('\n\n'+_header_str)
 		print('{0:^93}'.format(calc.exp_type+' expansion'))
-		print(header_str+'\n\n')
+		print(_header_str+'\n\n')
 		#
 		return
 
 
 def mbe_header(calc, exp):
 		""" print mbe header """
-		with open(out+'/output.out','a') as f:
+		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
@@ -100,6 +100,7 @@ def mbe_header(calc, exp):
 
 def mbe_status(calc, exp, prog):
 		""" print status bar """
+		# write only to stdout
 		bar_length = 50
 		status = ""
 		block = int(round(bar_length * prog))
@@ -111,7 +112,7 @@ def mbe_status(calc, exp, prog):
 
 def mbe_end(calc, exp):
 		""" print end of mbe """
-		with open(out+'/output.out','a') as f:
+		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
@@ -138,7 +139,7 @@ def mbe_microresults(calc, exp):
 			else:
 				std_val = 0.0
 			# now print
-			with open(out+'/output.out','a') as f:
+			with open(_out+'/output.out','a') as f:
 				with contextlib.redirect_stdout(f):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' RESULT-MICRO:     mean order    |      min. order     |      max. order     |    std.dev.   ')
@@ -175,7 +176,7 @@ def mbe_results(mol, calc, exp):
 			casexp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
 			casexp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
 		# now print
-		with open(out+'/output.out','a') as f:
+		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' RESULT-'+exp.level.upper()+':      mean increment     |    min. abs. increment   |    max. abs. increment')
@@ -208,7 +209,7 @@ def mbe_results(mol, calc, exp):
 
 def screen_header(calc, exp):
 		""" print screening header """
-		with open(out+'/output.out','a') as f:
+		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening started'.format(exp.order))
@@ -223,7 +224,7 @@ def screen_header(calc, exp):
 
 def screen_end(calc, exp):
 		""" print end of screening """
-		with open(out+'/output.out','a') as f:
+		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				if (exp.conv_orb[-1]):
 					print(' --------------------------------------------------------------------------------------------')

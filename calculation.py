@@ -23,7 +23,7 @@ class CalcCls():
 		""" calculation class """
 		def __init__(self, mpi, mol):
 				""" init parameters """
-				# set default parameters
+				# set defaults
 				self.exp_model = {'METHOD': 'FCI'}
 				self.exp_type = 'occupied'
 				self.exp_ref = {'METHOD': 'HF'}

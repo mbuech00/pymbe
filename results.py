@@ -31,10 +31,10 @@ except ImportError:
 
 
 # summary constants
-out = os.getcwd()+'/output'
-divider_str = '{0:^143}'.format('-'*137)
-fill_str = '{0:^143}'.format('|'*137)
-header_str = '{0:^139}'.format('-'*44)
+_out = os.getcwd()+'/output'
+_divider_str = '{0:^143}'.format('-'*137)
+_fill_str = '{0:^143}'.format('|'*137)
+_header_str = '{0:^139}'.format('-'*44)
 
 
 def main(mpi, mol, calc, exp):
@@ -86,24 +86,24 @@ def _setup(mpi, mol, calc, exp):
 def _table(info, mol, calc, exp):
 		""" print results """
 		# write summary to results.out
-		with open(out+'/results.out','a') as f:
+		with open(_out+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print('\n\n'+header_str)
+				print('\n\n'+_header_str)
 				print('{0:^138}'.format('results'))
-				print(header_str+'\n'); print(divider_str)
+				print(_header_str+'\n'); print(_divider_str)
 				print(_header_1())
-				print(divider_str)
+				print(_divider_str)
 				print(_first_row(info, calc))
 				print(_second_row(info, calc))
 				print(_third_row(info, calc))
 				print(_fourth_row(info, calc, exp))
 				print(_fifth_row(info, mol, calc))
 				print(_sixth_row(info))
-				print(divider_str); print(fill_str); print(divider_str)
+				print(_divider_str); print(_fill_str); print(_divider_str)
 				print(_header_2())
-				print(divider_str)
+				print(_divider_str)
 				for i in _orders(calc, exp): print(i)
-				print(divider_str+'\n\n')
+				print(_divider_str+'\n\n')
 		#
 		return
 	
@@ -135,7 +135,7 @@ def _plot(calc, exp):
 		# tight layout
 		plt.tight_layout()
 		# save plot
-		plt.savefig(out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(_out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
 		#
 		return
 

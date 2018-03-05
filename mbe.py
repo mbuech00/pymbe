@@ -26,6 +26,19 @@ import expansion
 import driver
 
 
+def _enum(*sequential, **named):
+		""" hardcoded enums
+		see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+		"""
+		enums = dict(zip(sequential, range(len(sequential))), **named)
+		#
+		return type('Enum', (), enums)
+
+
+# mbe parameters
+_tags = _enum('ready', 'done', 'exit', 'start')
+
+
 def main(mpi, mol, calc, exp):
 		""" energy mbe phase """
 		# init micro_conv list
@@ -123,8 +136,6 @@ def _master(mpi, mol, calc, exp):
 			slaves_avail = num_slaves = mpi.local_size - 1
 		# bcast msg
 		comm.bcast(msg, root=0)
-		# tags
-		tags = _enum('ready', 'done', 'exit', 'start')
 		# perform calculations
 		if (exp.order == exp.start_order):
 			# start time
@@ -185,20 +196,20 @@ def _master(mpi, mol, calc, exp):
 				# probe for source and tag
 				source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 				# slave is ready
-				if (tag == tags.ready):
+				if (tag == _tags.ready):
 					# any jobs left?
 					if (i <= (len(exp.tuples[-1]) - 1)):
 						# store job index
 						job_info['index'] = i
 						# send string dict
-						comm.send(job_info, dest=source, tag=tags.start)
+						comm.send(job_info, dest=source, tag=_tags.start)
 						# increment job index
 						i += 1
 					else:
 						# send exit signal
-						comm.send(None, dest=source, tag=tags.exit)
+						comm.send(None, dest=source, tag=_tags.exit)
 				# receive result from slave
-				elif (tag == tags.done):
+				elif (tag == _tags.done):
 					# collect energies
 					exp.energy['inc'][-1][data['index']] = data['e_inc']
 					# write to micro_conv
@@ -214,7 +225,7 @@ def _master(mpi, mol, calc, exp):
 					if (mpi.global_master and (((((data['index']+1) % 1000) == 0) or (exp.level == 'macro')) or mol.verbose)):
 						output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 				# put slave to sleep
-				elif (tag == tags.exit):
+				elif (tag == _tags.exit):
 					slaves_avail -= 1
 			# print 100.0 %
 			if (mpi.global_master and (not (exp.level == 'macro'))):
@@ -238,8 +249,6 @@ def slave(mpi, mol, calc, exp):
 			inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
 			inc.fill(np.nan)
 			exp.energy['inc'].append(inc)
-		# tags
-		tags = _enum('ready', 'done', 'exit', 'start')
 		# ref calc
 		if (exp.order == exp.start_order):
 			# receive energy
@@ -250,13 +259,13 @@ def slave(mpi, mol, calc, exp):
 			# receive work from master
 			while (True):
 				# ready for task
-				comm.send(None, dest=0, tag=tags.ready)
+				comm.send(None, dest=0, tag=_tags.ready)
 				# receive drop string
 				job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 				# recover tag
 				tag = mpi.stat.Get_tag()
 				# do job
-				if (tag == tags.start):
+				if (tag == _tags.start):
 					# load job info
 					if (exp.level == 'macro'):
 						# micro exp instantiation
@@ -273,7 +282,7 @@ def slave(mpi, mol, calc, exp):
 						data['index'] = job_info['index']
 						data['e_inc'] = exp_micro.energy['tot'][-1]
 						# send data back to local master
-						comm.send(data, dest=0, tag=tags.done)
+						comm.send(data, dest=0, tag=_tags.done)
 					else:
 						# generate input
 						exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][job_info['index']])
@@ -296,12 +305,12 @@ def slave(mpi, mol, calc, exp):
 						data['index'] = job_info['index']
 						data['e_inc'] = exp.energy['inc'][-1][job_info['index']]
 						# send data back to local master
-						comm.send(data, dest=0, tag=tags.done)
+						comm.send(data, dest=0, tag=_tags.done)
 				# exit
-				elif (tag == tags.exit):
+				elif (tag == _tags.exit):
 					break
 			# send exit signal to master
-			comm.send(None, dest=0, tag=tags.exit)
+			comm.send(None, dest=0, tag=_tags.exit)
 			# bcast energies
 			mpi.bcast_energy(mol, calc, exp, comm)
 		#
@@ -334,14 +343,5 @@ def _comb_index(n, k):
 		index = np.fromiter(itertools.chain.from_iterable(itertools.combinations(range(n), k)), int,count=count * k)
 		#
 		return index.reshape(-1, k)
-
-
-def _enum(*sequential, **named):
-		""" hardcoded enums
-		see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
-		"""
-		enums = dict(zip(sequential, range(len(sequential))), **named)
-		#
-		return type('Enum', (), enums)
 
 
