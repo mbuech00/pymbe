@@ -34,7 +34,7 @@ def main(mpi, mol, calc, exp):
 			output.main_header()
 			output.exp_header(calc, exp)
 		# restart
-		if calc.restart and do_print: exp.rst_freq = _rst_print(mol, calc, exp)
+		if calc.restart and do_print: exp.thres, exp.rst_freq = _rst_print(mol, calc, exp)
 		# now do expansion
 		for exp.order in range(exp.min_order, exp.max_order+1):
 			#
@@ -170,10 +170,10 @@ def _rst_print(mol, calc, exp):
 			output.mbe_microresults(calc, exp)
 			output.mbe_end(calc, exp)
 			output.mbe_results(mol, calc, exp)
-			exp.thres = screen.update(calc, exp)
+			thres = screen.update(calc, exp)
 			output.screen_header(calc, exp)
 			output.screen_end(calc, exp)
 			rst_freq = int(max(exp.rst_freq / 2., 1.))
-		return rst_freq
+		return thres, rst_freq
 
 	
