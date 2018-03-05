@@ -96,92 +96,97 @@ def set_mpi(mpi):
 
 def mol(mpi, mol):
 		""" bcast mol info """
-		if mpi.global_master:
-			info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
-					'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
-					'unit': mol.unit, 'frozen': mol.frozen, 'verbose': mol.verbose}
-			mpi.global_comm.bcast(info, root=0)
-		else:
-			info = mpi.global_comm.bcast(None, root=0)
-			mol.atom = info['atom']; mol.charge = info['charge']; mol.spin = info['spin']
-			mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
-			mol.basis = info['basis']; mol.unit = info['unit']; mol.frozen = info['frozen']
-			mol.verbose = info['verbose']
+		if mpi.parallel:
+			if mpi.global_master:
+				info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
+						'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
+						'unit': mol.unit, 'frozen': mol.frozen, 'verbose': mol.verbose}
+				mpi.global_comm.bcast(info, root=0)
+			else:
+				info = mpi.global_comm.bcast(None, root=0)
+				mol.atom = info['atom']; mol.charge = info['charge']; mol.spin = info['spin']
+				mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
+				mol.basis = info['basis']; mol.unit = info['unit']; mol.frozen = info['frozen']
+				mol.verbose = info['verbose']
 
 
 def calc(mpi, calc):
 		""" bcast calc info """
-		if mpi.global_master:
-			info = {'model': calc.model['METHOD'], 'typ': calc.typ, \
-					'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
-					'thres': calc.thres, 'relax': calc.relax, \
-					'wfnsym': calc.wfnsym, 'max_order': calc.max_order, \
-					'occ': calc.occ, 'virt': calc.virt}
-			mpi.global_comm.bcast(info, root=0)
-		else:
-			info = mpi.global_comm.bcast(None, root=0)
-			calc.model = {'METHOD': info['model']}; calc.typ = info['typ']
-			calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
-			calc.thres = info['thres']; calc.relax = info['relax']
-			calc.wfnsym = info['wfnsym']; calc.max_order = info['max_order']
-			calc.occ = info['occ']; calc.virt = info['virt']
+		if mpi.parallel:
+			if mpi.global_master:
+				info = {'model': calc.model['METHOD'], 'typ': calc.typ, \
+						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
+						'thres': calc.thres, 'relax': calc.relax, \
+						'wfnsym': calc.wfnsym, 'max_order': calc.max_order, \
+						'occ': calc.occ, 'virt': calc.virt, 'restart': calc.restart}
+				mpi.global_comm.bcast(info, root=0)
+			else:
+				info = mpi.global_comm.bcast(None, root=0)
+				calc.model = {'METHOD': info['model']}; calc.typ = info['typ']
+				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
+				calc.thres = info['thres']; calc.relax = info['relax']
+				calc.wfnsym = info['wfnsym']; calc.max_order = info['max_order']
+				calc.occ = info['occ']; calc.virt = info['virt']
+				calc.restart = info['restart']
 
 
 def fund(mpi, mol, calc):
 		""" bcast fundamental info """
-		if mpi.global_master:
-			info = {'e_hf': calc.energy['hf'], 'e_base': calc.energy['base'], \
-						'e_ref': calc.energy['ref'], 'e_ref_base': calc.energy['ref_base'], \
-						'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
-						'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
-						'occup': calc.occup, 'no_act': calc.no_act}
-			mpi.global_comm.bcast(info, root=0)
-			# bcast mo
-			mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
-		else:
-			info = mpi.global_comm.bcast(None, root=0)
-			calc.energy['hf'] = info['e_hf']; calc.energy['base'] = info['e_base']
-			calc.energy['ref'] = info['e_ref']; calc.energy['ref_base'] = info['e_ref_base']
-			mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
-			calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
-			calc.occup = info['occup']; calc.no_act = info['no_act']
-			# receive mo
-			buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-			mpi.global_comm.Bcast([buff, MPI.DOUBLE], root=0)
-			calc.mo = buff
+		if mpi.parallel:
+			if mpi.global_master:
+				info = {'e_hf': calc.energy['hf'], 'e_base': calc.energy['base'], \
+							'e_ref': calc.energy['ref'], 'e_ref_base': calc.energy['ref_base'], \
+							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
+							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
+							'occup': calc.occup, 'no_act': calc.no_act}
+				mpi.global_comm.bcast(info, root=0)
+				# bcast mo
+				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
+			else:
+				info = mpi.global_comm.bcast(None, root=0)
+				calc.energy['hf'] = info['e_hf']; calc.energy['base'] = info['e_base']
+				calc.energy['ref'] = info['e_ref']; calc.energy['ref_base'] = info['e_ref_base']
+				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
+				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
+				calc.occup = info['occup']; calc.no_act = info['no_act']
+				# receive mo
+				buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
+				mpi.global_comm.Bcast([buff, MPI.DOUBLE], root=0)
+				calc.mo = buff
 
 
 def exp(mpi, calc, exp, comm):
 		""" bcast exp info """
-		if mpi.global_master:
-			# collect info
-			info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
-						'len_e_inc': [len(exp.energy['inc'][i]) for i in range(len(exp.energy['inc']))], \
-						'min_order': exp.min_order, 'start_order': exp.start_order}
-			# bcast info
-			comm.bcast(info, root=0)
-			# bcast tuples
-			for i in range(1,len(exp.tuples)):
-				comm.Bcast([exp.tuples[i], MPI.INT], root=0)
-			# bcast energy increments
-			for i in range(len(exp.energy['inc'])):
-				comm.Bcast([exp.energy['inc'][i], MPI.DOUBLE], root=0)
-		else:
-			# receive info
-			info = comm.bcast(None, root=0)
-			# set min_order and start_order
-			exp.min_order = info['min_order']
-			exp.start_order = info['start_order']
-			# receive tuples
-			for i in range(1, len(info['len_tup'])):
-				buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
-				comm.Bcast([buff, MPI.INT], root=0)
-				exp.tuples.append(buff)
-			# receive e_inc
-			for i in range(len(info['len_e_inc'])):
-				buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
-				comm.Bcast([buff, MPI.DOUBLE], root=0)
-				exp.energy['inc'].append(buff)
+		if mpi.parallel:
+			if mpi.global_master:
+				# collect info
+				info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
+							'len_e_inc': [len(exp.energy['inc'][i]) for i in range(len(exp.energy['inc']))], \
+							'min_order': exp.min_order, 'start_order': exp.start_order}
+				# bcast info
+				comm.bcast(info, root=0)
+				# bcast tuples
+				for i in range(1,len(exp.tuples)):
+					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
+				# bcast energy increments
+				for i in range(len(exp.energy['inc'])):
+					comm.Bcast([exp.energy['inc'][i], MPI.DOUBLE], root=0)
+			else:
+				# receive info
+				info = comm.bcast(None, root=0)
+				# set min_order and start_order
+				exp.min_order = info['min_order']
+				exp.start_order = info['start_order']
+				# receive tuples
+				for i in range(1, len(info['len_tup'])):
+					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
+					comm.Bcast([buff, MPI.INT], root=0)
+					exp.tuples.append(buff)
+				# receive e_inc
+				for i in range(len(info['len_e_inc'])):
+					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
+					comm.Bcast([buff, MPI.DOUBLE], root=0)
+					exp.energy['inc'].append(buff)
 
 
 def energy(exp, comm):
@@ -202,11 +207,11 @@ def final(mpi):
 			restart.rm()
 			if mpi.parallel:
 				if mpi.num_local_masters == 0:
-					mpi.local_comm.bcast({'task': 'exit_slave'}, root=0)
+					mpi.local_comm.bcast({'task': 'exit'}, root=0)
 				else:
-					mpi.master_comm.bcast({'task': 'exit_local_master'}, root=0)
+					mpi.master_comm.bcast({'task': 'exit'}, root=0)
 		elif mpi.local_master:
-			mpi.local_comm.bcast({'task': 'exit_slave'}, root=0)
+			mpi.local_comm.bcast({'task': 'exit'}, root=0)
 		mpi.global_comm.Barrier()
 		MPI.Finalize()
 

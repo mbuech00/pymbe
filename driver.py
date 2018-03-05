@@ -32,7 +32,7 @@ def main(mpi, mol, calc, exp):
 		# exp class instantiation on slaves
 		if mpi.parallel:
 			if calc.typ in ['occupied','virtual']:
-				msg = {'task': 'exp_cls', 'rst': calc.restart}
+				msg = {'task': 'init'}
 				# bcast msg
 				mpi.local_comm.bcast(msg, root=0)
 			else:
@@ -139,7 +139,7 @@ def local_master(mpi, mol, calc):
 		# set loop/waiting logical
 		local_master = True
 		# enter local master state
-		while (local_master):
+		while local_master:
 			# task id
 			msg = mpi.master_comm.bcast(None, root=0)
 			#
@@ -183,42 +183,32 @@ def slave(mpi, mol, calc):
 		# set loop/waiting logical
 		slave = True
 		# enter slave state
-		while (slave):
+		while slave:
 			# task id
 			msg = mpi.local_comm.bcast(None, root=0)
 			#
-			#** exp class instantiation **#
+			#** init slave **#
 			#
-			if msg['task'] == 'exp_cls':
+			if msg['task'] == 'init':
 				exp = expansion.ExpCls(mol, calc)
-				# mark expansion as micro
-				exp.level = 'micro'
-				# distinguish between occ-virt expansions and combined expansions
-				if calc.typ == 'combined':
-					exp.incl_idx = msg['incl_idx']
-#					# receive distinct natural virtual orbitals
-#					if (calc.virt == 'DNO'):
-#						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
-				else:
-					# receive exp info
-					if msg['rst']: parallel.exp(calc, exp, mpi.global_comm)
+				if calc.restart: parallel.exp(calc, exp, mpi.global_comm)
 			#
 			#** energy phase **#
 			#
-			if msg['task'] == 'mbe_slave':
-				exp.order = msg['exp_order']
+			if msg['task'] == 'mbe':
+				exp.order = msg['order']
 				mbe.slave(mpi, mol, calc, exp)
 			#
 			#** screening phase **#
 			#
-			elif msg['task'] == 'screen_slave':
-				exp.order = msg['exp_order']
+			elif msg['task'] == 'screen':
+				exp.order = msg['order']
 				exp.thres = msg['thres']
 				screen.slave(mpi, mol, calc, exp)
 			#
 			#** exit **#
 			#
-			elif msg['task'] == 'exit_slave':
+			elif msg['task'] == 'exit':
 				slave = False
 		# finalize
 		parallel.final(mpi)

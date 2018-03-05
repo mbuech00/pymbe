@@ -48,19 +48,19 @@ class MolCls(gto.Mole):
 
 		def make(self, mpi):
 				""" build Mole object """
-				if mpi.global_master:
+				try:
+					self.build(dump_input=False, parse_arg=False)
+				except RuntimeWarning as err:
 					try:
-						self.build(dump_input=False, parse_arg=False)
-					except RuntimeWarning as err:
-						try:
-							raise RuntimeError
-						except RuntimeError:
+						raise RuntimeError
+					except RuntimeError:
+						if mpi.global_master:
 							restart.rm()
 							sys.stderr.write('\nValueError: non-sensible input in mol.inp\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
-				else:
-					self.build(dump_input=False, parse_arg=False)
+				# set core region
+				self.ncore = self._set_ncore()
 
 
 		def set_geo(self):
@@ -127,7 +127,7 @@ class MolCls(gto.Mole):
 						self.basis, self.unit, self.frozen, self.verbose
 
 
-		def set_ncore(self):
+		def _set_ncore(self):
 				""" set ncore """
 				ncore = 0
 				if self.frozen:

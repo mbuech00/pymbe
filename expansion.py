@@ -41,6 +41,9 @@ class ExpCls():
 					self.thres = calc.thres * calc.relax ** (self.start_order - 3)
 				# restart frequency
 				self.rst_freq = 50000
+				# micro/macro expansion
+				if calc.typ in ['occupied','virtual']:
+					self.level = 'micro'
 
 
 		def init_tuples(self, mol, calc):

@@ -94,7 +94,7 @@ def _master(mpi, mol, calc, exp):
 			# set number of workers
 			slaves_avail = num_slaves = mpi.num_local_masters
 		else:
-			msg = {'task': 'screen_slave', 'exp_order': exp.order, 'thres': exp.thres}
+			msg = {'task': 'screen', 'order': exp.order, 'thres': exp.thres}
 			# set communicator
 			comm = mpi.local_comm
 			# set number of workers

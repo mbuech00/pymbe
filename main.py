@@ -35,23 +35,13 @@ def main():
 		mpi = parallel.MPICls()
 		# molecule instantiation
 		mol = molecule.MolCls(mpi)
-		# build and communicate molecule
-		if mpi.global_master:
-			mol.make(mpi)
-			parallel.mol(mpi, mol)
-		else:
-			parallel.mol(mpi, mol)
-			mol.make(mpi)
+		parallel.mol(mpi, mol)
+		mol.make(mpi)
 		# calculation instantiation
 		calc = calculation.CalcCls(mpi, mol)
-		# set core region
-		mol.ncore = mol.set_ncore()
-		# communicate calc info 
 		parallel.calc(mpi, calc)
 		# configure mpi
 		parallel.set_mpi(mpi)
-		# restart logical
-		calc.restart = restart.restart()
 		# hf and ref calculations
 		if mpi.global_master:
 			# restart
@@ -61,10 +51,7 @@ def main():
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# expansion instantiation
-				if calc.typ in ['occupied','virtual']:
-					exp = expansion.ExpCls(mol, calc)
-					# mark expansion as micro
-					exp.level = 'micro'
+				exp = expansion.ExpCls(mol, calc)
 #				elif (calc.typ == 'combined'):
 #					exp = expansion.ExpCls(mol, calc)
 #					# mark expansion as macro
@@ -78,10 +65,7 @@ def main():
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, calc.no_act = kernel.active(mol, calc)
 				# expansion instantiation
-				if calc.typ in ['occupied','virtual']:
-					exp = expansion.ExpCls(mol, calc)
-					# mark expansion as micro
-					exp.level = 'micro'
+				exp = expansion.ExpCls(mol, calc)
 #				elif (calc.typ == 'combined'):
 #					exp = expansion.ExpCls(mol, calc, 'occupied')
 #					# mark expansion as macro

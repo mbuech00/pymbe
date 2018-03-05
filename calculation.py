@@ -46,6 +46,8 @@ class CalcCls():
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
 					self.sanity_chk(mpi, mol)
+					# restart logical
+					self.restart = restart.restart()
 
 
 		def set_calc(self, mpi, mol):
