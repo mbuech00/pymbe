@@ -38,18 +38,18 @@ def main():
 		# build and communicate molecule
 		if (mpi.global_master):
 			mol.make(mpi)
-			mpi.bcast_mol(mol)
+			parallel.mol(mpi, mol)
 		else:
-			mpi.bcast_mol(mol)
+			parallel.mol(mpi, mol)
 			mol.make(mpi)
 		# calculation instantiation
 		calc = calculation.CalcCls(mpi, mol)
 		# set core region
 		mol.ncore = mol.set_ncore()
 		# communicate calc info 
-		mpi.bcast_calc(calc)
-		# init mpi
-		mpi.set_mpi()
+		parallel.calc(mpi, calc)
+		# configure mpi
+		parallel.set_mpi(mpi)
 		# restart logical
 		calc.restart = restart.restart()
 		# hf and ref calculations
@@ -96,7 +96,7 @@ def main():
 			# get hcore and eri
 			mol.hcore, mol.eri = kernel.hcore_eri(mol)
 		# bcast fundamental info
-		if (mpi.parallel): mpi.bcast_fund(mol, calc)
+		if (mpi.parallel): parallel.fund(mpi, mol, calc)
 		# now branch
 		if (not mpi.global_master):
 			if (mpi.local_master):
@@ -115,7 +115,7 @@ def main():
 			# print summary and plot results
 			results.main(mpi, mol, calc, exp)
 			# finalize
-			mpi.final()
+			parallel.final(mpi)
 
 
 if __name__ == '__main__':

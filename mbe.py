@@ -24,6 +24,7 @@ import kernel
 import output
 import expansion
 import driver
+import parallel
 
 
 def _enum(*sequential, **named):
@@ -171,8 +172,8 @@ def _master(mpi, mol, calc, exp):
 			exp.time_mbe.append(MPI.Wtime() - time)
 			# print status
 			if (not mol.verbose): output.mbe_status(calc, exp, 1.0)
-			# bcast energy
-			mpi.bcast_energy(mol, calc, exp, comm)
+			# bcast energies
+			parallel.energy(exp, comm)
 		else:
 			# init job_info dictionary
 			job_info = {}
@@ -232,7 +233,7 @@ def _master(mpi, mol, calc, exp):
 				if (not mol.verbose):
 					output.mbe_status(calc, exp, 1.0)
 			# bcast energies
-			mpi.bcast_energy(mol, calc, exp, comm)
+			parallel.energy(exp, comm)
 		#
 		return
 
@@ -252,7 +253,7 @@ def slave(mpi, mol, calc, exp):
 		# ref calc
 		if (exp.order == exp.start_order):
 			# receive energy
-			mpi.bcast_energy(mol, calc, exp, comm)
+			parallel.energy(exp, comm)
 		else:
 			# init data dict
 			data = {}
@@ -311,8 +312,8 @@ def slave(mpi, mol, calc, exp):
 					break
 			# send exit signal to master
 			comm.send(None, dest=0, tag=_tags.exit)
-			# bcast energies
-			mpi.bcast_energy(mol, calc, exp, comm)
+			# receive energies
+			parallel.energy(exp, comm)
 		#
 		return
 

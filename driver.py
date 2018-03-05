@@ -22,6 +22,7 @@ import kernel
 import output
 import screen
 import expansion
+import parallel
 
 
 def main(mpi, mol, calc, exp):
@@ -43,16 +44,20 @@ def main(mpi, mol, calc, exp):
 					msg = {'task': 'exp_cls', 'incl_idx': exp.incl_idx, 'min_order': exp.min_order}
 					# bcast msg
 					mpi.local_comm.bcast(msg, root=0)
-					# compute and communicate distinct natural virtual orbitals
-					if (calc.exp_virt == 'DNO'):
-						kernel.trans_dno(mol, calc, exp) 
-						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
+#					# compute and communicate distinct natural virtual orbitals
+#					if (calc.exp_virt == 'DNO'):
+#						kernel.trans_dno(mol, calc, exp) 
+#						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
 		# print expansion header
 		if (do_print): output.exp_header(calc, exp)
 		# restart
 		if (calc.restart):
 			# bcast exp info
-			if (mpi.parallel): mpi.bcast_exp(calc, exp)
+			if (mpi.parallel):
+				if (exp.level == 'macro'):
+					parallel.exp(calc, exp, mpi.master_comm)
+				elif (exp.level == 'micro'):
+					parallel.exp(calc, exp, mpi.global_comm)
 			# if rst, print previous results
 			if (do_print):
 				for exp.order in range(exp.start_order, exp.min_order):
@@ -150,7 +155,7 @@ def local_master(mpi, mol, calc):
 				exp.min_order = msg['min_order']
 				# receive exp info
 				calc.restart = msg['rst']
-				if (calc.restart): mpi.bcast_exp(calc, exp)
+				if (calc.restart): parallel.exp(calc, exp, mpi.master_comm)
 				# reset restart logical
 				calc.restart = False
 			#
@@ -172,7 +177,7 @@ def local_master(mpi, mol, calc):
 			elif (msg['task'] == 'exit_local_master'):
 				local_master = False
 		# finalize
-		mpi.final()
+		parallel.final(mpi)
 
 
 def slave(mpi, mol, calc):
@@ -193,12 +198,12 @@ def slave(mpi, mol, calc):
 				# distinguish between occ-virt expansions and combined expansions
 				if (calc.exp_type == 'combined'):
 					exp.incl_idx = msg['incl_idx']
-					# receive distinct natural virtual orbitals
-					if (calc.exp_virt == 'DNO'):
-						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
+#					# receive distinct natural virtual orbitals
+#					if (calc.exp_virt == 'DNO'):
+#						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
 				else:
 					# receive exp info
-					if (msg['rst']): mpi.bcast_exp(calc, exp)
+					if (msg['rst']): parallel.exp(calc, exp, mpi.global_comm)
 			#
 			#** energy phase **#
 			#
@@ -218,6 +223,6 @@ def slave(mpi, mol, calc):
 			elif (msg['task'] == 'exit_slave'):
 				slave = False
 		# finalize
-		mpi.final()
+		parallel.final(mpi)
 	
 	

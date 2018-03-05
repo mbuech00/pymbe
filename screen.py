@@ -16,6 +16,21 @@ import numpy as np
 from mpi4py import MPI
 import itertools
 
+import parallel
+
+
+def _enum(*sequential, **named):
+		""" hardcoded enums
+		see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+		"""
+		enums = dict(zip(sequential, range(len(sequential))), **named)
+		#
+		return type('Enum', (), enums)
+
+
+# mbe parameters
+_tags = _enum('ready', 'done', 'exit', 'start')
+
 
 def main(mpi, mol, calc, exp):
 		""" input generation for subsequent order """
@@ -93,8 +108,6 @@ def _master(mpi, mol, calc, exp):
 		job_info = {}
 		# init bookkeeping variables
 		i = 0; tmp = []
-		# tags
-		tags = _enum('ready', 'done', 'exit', 'start')
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# receive data dict
@@ -102,35 +115,36 @@ def _master(mpi, mol, calc, exp):
 			# probe for source and tag
 			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 			# slave is ready
-			if (tag == tags.ready):
+			if (tag == _tags.ready):
 				# any jobs left?
 				if (i <= len(exp.tuples[-1])-1):
 					# save parent tuple index
 					job_info['index'] = i
 					# send parent tuple index
-					comm.send(job_info, dest=source, tag=tags.start)
+					comm.send(job_info, dest=source, tag=_tags.start)
 					# increment job index
 					i += 1
 				else:
 					# send exit signal
-					comm.send(None, dest=source, tag=tags.exit)
+					comm.send(None, dest=source, tag=_tags.exit)
 			# receive result from slave
-			elif (tag == tags.done):
+			elif (tag == _tags.done):
 				# write tmp child tuple list
 				tmp += data['child_tuple'] 
 			# put slave to sleep
-			elif (tag == tags.exit):
+			elif (tag == _tags.exit):
 				# remove slave
 				slaves_avail -= 1
 		# finally we sort the tuples or mark expansion as converged 
-		if (len(tmp) >= 1):
-			tmp.sort()
-		else:
+		if (len(tmp) == 1):
 			exp.conv_orb.append(True)
-		# make numpy array out of tmp
-		buff = np.array(tmp, dtype=np.int32)
-		# bcast buff
-		mpi.bcast_tup(exp, buff, comm)
+		else:
+			tmp.sort()
+			exp.tuples.append(np.array(tmp, dtype=np.int32))
+			# bcast tuples
+			tup_info = {'tup_len': len(exp.tuples[-1])}
+			comm.bcast(tup_info, root=0)
+			parallel.tup(exp, comm)
 		#
 		return
 
@@ -144,18 +158,16 @@ def slave(mpi, mol, calc, exp):
 			comm = mpi.master_comm
 		else:
 			comm = mpi.local_comm
-		# tags
-		tags = _enum('ready', 'done', 'exit', 'start')
 		# receive work from master
 		while (True):
 			# send status to master
-			comm.send(None, dest=0, tag=tags.ready)
+			comm.send(None, dest=0, tag=_tags.ready)
 			# receive parent tuple
 			job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# recover tag
 			tag = mpi.stat.Get_tag()
 			# do job
-			if (tag == tags.start):
+			if (tag == _tags.start):
 				# init child tuple list
 				data['child_tuple'][:] = []
 				if (exp.order == exp.start_order):
@@ -191,17 +203,16 @@ def slave(mpi, mol, calc, exp):
 						# if tuple is allowed, add to child tuple list, otherwise screen away
 						if (not screen): data['child_tuple'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
 				# send data back to master
-				comm.send(data, dest=0, tag=tags.done)
+				comm.send(data, dest=0, tag=_tags.done)
 			# exit
-			elif (tag == tags.exit):
+			elif (tag == _tags.exit):
 				break
 		# send exit signal to master
-		comm.send(None, dest=0, tag=tags.exit)
-		# init buffer
+		comm.send(None, dest=0, tag=_tags.exit)
+		# receive tuples
 		tup_info = comm.bcast(None, root=0)
-		buff = np.empty([tup_info['tup_len'],exp.order+1], dtype=np.int32)
-		# receive buffer
-		mpi.bcast_tup(exp, buff, comm)
+		exp.tuples.append(np.empty([tup_info['tup_len'], exp.order+1], dtype=np.int32))
+		parallel.tup(exp, comm)
 		#
 		return
 
@@ -212,14 +223,5 @@ def update(calc, exp):
 			return 0.0
 		else:
 			return calc.exp_thres * calc.exp_relax ** (exp.order - 2)
-
-
-def _enum(*sequential, **named):
-		""" hardcoded enums
-		see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
-		"""
-		enums = dict(zip(sequential, range(len(sequential),len(sequential)*2)), **named)
-		#
-		return type('Enum', (), enums)
 
 
