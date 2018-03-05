@@ -26,7 +26,7 @@ _rst = os.getcwd()+'/rst'
 
 def restart():
 		""" restart logical """
-		if (not os.path.isdir(_rst)):
+		if not os.path.isdir(_rst):
 			os.mkdir(_rst)
 			return False
 		else:
@@ -40,7 +40,7 @@ def rm():
 
 def main(calc, exp):
 		""" main restart driver """
-		if (not calc.restart):
+		if not calc.restart:
 			return exp.start_order
 		else:
 			# list filenames in files list
@@ -50,21 +50,21 @@ def main(calc, exp):
 			# loop over files
 			for i in range(len(files)):
 				# read tuples
-				if ('tup' in files[i]):
+				if 'tup' in files[i]:
 					exp.tuples.append(np.load(os.path.join(_rst, files[i])))
 				# read e_inc
-				elif ('e_inc' in files[i]):
+				elif 'e_inc' in files[i]:
 					exp.energy['inc'].append(np.load(os.path.join(_rst, files[i])))
 				# read e_tot
-				elif ('e_tot' in files[i]):
+				elif 'e_tot' in files[i]:
 					exp.energy['tot'].append(np.load(os.path.join(_rst, files[i])).tolist())
 				# read micro_conv
-				elif ('micro_conv' in files[i]):
+				elif 'micro_conv' in files[i]:
 					exp.micro_conv.append(np.load(os.path.join(_rst, files[i])).tolist())
 				# read timings
-				elif ('time_mbe' in files[i]):
+				elif 'time_mbe' in files[i]:
 					exp.time_mbe.append(np.load(os.path.join(_rst, files[i])).tolist())
-				elif ('time_screen' in files[i]):
+				elif 'time_screen' in files[i]:
 					exp.time_screen.append(np.load(os.path.join(_rst, files[i])).tolist())
 			return exp.tuples[-1].shape[1]
 
@@ -98,26 +98,26 @@ def read_fund(mol, calc):
 		# loop over files
 		for i in range(len(files)):
 			# read dimensions
-			if ('dims' in files[i]):
+			if 'dims' in files[i]:
 				with open(os.path.join(_rst, files[i]), 'r') as f:
 					dims = json.load(f)
 				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']; calc.no_act = dims['no_act']
 			# read hf and base energies
-			elif ('energies' in files[i]):
+			elif 'energies' in files[i]:
 				with open(os.path.join(_rst, files[i]), 'r') as f:
 					energies = json.load(f)
 				calc.energy['hf'] = energies['hf']; calc.energy['base'] = energies['base'] 
 				calc.energy['ref'] = energies['ref']; calc.energy['ref_base'] = energies['ref_base']
 			# read expansion spaces
-			elif ('ref_space' in files[i]):
+			elif 'ref_space' in files[i]:
 				calc.ref_space = np.load(os.path.join(_rst, files[i]))
-			elif ('exp_space' in files[i]):
+			elif 'exp_space' in files[i]:
 				calc.exp_space = np.load(os.path.join(_rst, files[i]))
 			# read occupation
-			elif ('occup' in files[i]):
+			elif 'occup' in files[i]:
 				calc.occup = np.load(os.path.join(_rst, files[i]))
 			# read orbitals
-			elif ('mo' in files[i]):
+			elif 'mo' in files[i]:
 				calc.mo = np.load(os.path.join(_rst, files[i]))
 		# norb
 		mol.norb = mol.nocc + mol.nvirt
@@ -128,12 +128,12 @@ def mbe_write(calc, exp, final):
 		# write e_inc
 		np.save(os.path.join(_rst, 'e_inc_'+str(exp.order)), exp.energy['inc'][-1])
 		# write micro_conv
-		if (calc.exp_type == 'combined'):
+		if calc.exp_type == 'combined':
 			np.save(os.path.join(_rst, 'micro_conv_'+str(exp.order)), np.asarray(exp.micro_conv[-1]))
 		# write time
 		np.save(os.path.join(_rst, 'time_mbe_'+str(exp.order)), np.asarray(exp.time_mbe[-1]))
 		# write e_tot
-		if (final):
+		if final:
 			np.save(os.path.join(_rst, 'e_tot_'+str(exp.order)), np.asarray(exp.energy['tot'][-1]))
 
 

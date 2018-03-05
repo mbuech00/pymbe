@@ -123,11 +123,11 @@ def _plot(calc, exp):
 
 def _basis(mol):
 		""" modify basis print """
-		if (isinstance(mol.basis, str)):
+		if isinstance(mol.basis, str):
 			return mol.basis
-		elif (isinstance(mol.basis, dict)):
+		elif isinstance(mol.basis, dict):
 			for i, val in enumerate(mol.basis.items()):
-				if (i == 0):
+				if i == 0:
 					basis = val[1]
 				else:
 					basis += '/'+val[1]
@@ -136,15 +136,15 @@ def _basis(mol):
 
 def _mult(mol):
 		""" modify mult print """
-		if (mol.spin == 0):
+		if mol.spin == 0:
 			return 'singlet'
-		elif (mol.spin == 1):
+		elif mol.spin == 1:
 			return 'doublet'
-		elif (mol.spin == 2):
+		elif mol.spin == 2:
 			return 'triplet'
-		elif (mol.spin == 3):
+		elif mol.spin == 3:
 			return 'quartet'
-		elif (mol.spin == 4):
+		elif mol.spin == 4:
 			return 'quintet'
 		else:
 			return '{0:}'.format(mol.spin+1)
@@ -152,8 +152,8 @@ def _mult(mol):
 
 def _ref(mol, calc):
 		""" modify ref print """
-		if (calc.exp_ref['METHOD'] == 'HF'):
-			if (mol.spin == 0):
+		if calc.exp_ref['METHOD'] == 'HF':
+			if mol.spin == 0:
 				return 'RHF'
 			else:
 				return 'ROHF'
@@ -163,7 +163,7 @@ def _ref(mol, calc):
 
 def _base(calc):
 		""" modify base print """
-		if (calc.exp_base['METHOD'] is None):
+		if calc.exp_base['METHOD'] is None:
 			return 'none'
 		else:
 			return calc.exp_base['METHOD']
@@ -177,7 +177,7 @@ def _system(mol, calc):
 
 def _frozen(mol):
 		""" modify frozen core print """
-		if (mol.frozen):
+		if mol.frozen:
 			return 'true'
 		else:
 			return 'false'
@@ -185,7 +185,7 @@ def _frozen(mol):
 
 def _active(calc):
 		""" modify active space print """
-		if (calc.exp_ref['METHOD'] == 'HF'):
+		if calc.exp_ref['METHOD'] == 'HF':
 			return 'none'
 		else:
 			return '{0:} e / {1:} o'.format(calc.exp_ref['NELEC'][0]+calc.exp_ref['NELEC'][1], \
@@ -194,27 +194,27 @@ def _active(calc):
 
 def _orbs(calc):
 		""" modify orbital print """
-		if (calc.exp_occ == 'REF'):
+		if calc.exp_occ == 'REF':
 			occ = 'canonical'
-		elif (calc.exp_occ == 'NO'):
+		elif calc.exp_occ == 'NO':
 			occ = 'natural'
-		elif (calc.exp_occ == 'PM'):
+		elif calc.exp_occ == 'PM':
 			occ = 'pipek-mezey'
-		elif (calc.exp_occ == 'FB'):
+		elif calc.exp_occ == 'FB':
 			occ = 'foster-boys'
-		elif (calc.exp_occ == 'IBO-1'):
+		elif calc.exp_occ == 'IBO-1':
 			occ = 'intrin. bond'
-		elif (calc.exp_occ == 'IBO-2'):
+		elif calc.exp_occ == 'IBO-2':
 			occ = 'intrin. bond'
-		if (calc.exp_virt == 'REF'):
+		if calc.exp_virt == 'REF':
 			virt = 'canonical'
-		elif (calc.exp_virt == 'NO'):
+		elif calc.exp_virt == 'NO':
 			virt = 'natural'
-		elif (calc.exp_virt == 'PM'):
+		elif calc.exp_virt == 'PM':
 			virt = 'pipek-mezey'
-		elif (calc.exp_virt == 'FB'):
+		elif calc.exp_virt == 'FB':
 			virt = 'foster-boys'
-		elif (calc.exp_virt == 'DNO'):
+		elif calc.exp_virt == 'DNO':
 			virt = 'dist. natural'
 		return occ, virt
 
@@ -236,7 +236,7 @@ def _symm(mol, calc):
 
 def _conv(exp):
 		""" modify convergence print """
-		if (len(exp.energy['tot']) == 1):
+		if len(exp.energy['tot']) == 1:
 			return 0.0
 		else:
 			return np.abs(exp.energy['tot'][-1] - exp.energy['tot'][-2])

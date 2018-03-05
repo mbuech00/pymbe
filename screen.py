@@ -34,7 +34,7 @@ _tags = _enum('ready', 'done', 'exit', 'start')
 def main(mpi, mol, calc, exp):
 		""" input generation for subsequent order """
 		# start screening
-		if (mpi.parallel):
+		if mpi.parallel:
 			# mpi parallel version
 			_master(mpi, mol, calc, exp)
 		else:
@@ -42,7 +42,7 @@ def main(mpi, mol, calc, exp):
 			tmp = []; combs = []
 	        # loop over parent tuples
 			for i in range(len(exp.tuples[-1])):
-				if (exp.order == exp.start_order):
+				if exp.order == exp.start_order:
 					# loop through possible orbitals to augment the combinations with
 					for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
 						tmp.append(exp.tuples[-1][i].tolist()+[m])
@@ -50,7 +50,7 @@ def main(mpi, mol, calc, exp):
 					# generate list with all subsets of particular tuple
 					combs = np.array(list(list(comb) for comb in itertools.combinations(exp.tuples[-1][i], exp.order-1)))
 					# select only those combinations that include the active orbitals
-					if (calc.no_act > len(calc.ref_space)):
+					if calc.no_act > len(calc.ref_space):
 						cond = np.zeros(len(combs), dtype=bool)
 						for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
 						combs = combs[cond]
@@ -63,19 +63,19 @@ def main(mpi, mol, calc, exp):
 							# recover index of particular tuple
 							comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
 							# does it exist?
-							if (len(comb_idx) == 0):
+							if len(comb_idx) == 0:
 								# screen away
 								screen = True
 								break
 							else:
 								# is the increment above threshold?
-								if (np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres):
+								if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
 									# mark as 'allowed'
 									screen = False
 						# if tuple is allowed, add to child tuple list, otherwise screen away
-						if (not screen): tmp.append(exp.tuples[-1][i].tolist()+[m])
+						if not screen: tmp.append(exp.tuples[-1][i].tolist()+[m])
 			# when done, write to tup list or mark expansion as converged
-			if (len(tmp) >= 1):
+			if len(tmp) >= 1:
 				tmp.sort()
 				exp.tuples.append(np.array(tmp, dtype=np.int32))
 			else:
@@ -87,7 +87,7 @@ def main(mpi, mol, calc, exp):
 def _master(mpi, mol, calc, exp):
 		""" master routine """
 		# wake up slaves
-		if (exp.level == 'macro'):
+		if exp.level == 'macro':
 			msg = {'task': 'screen_local_master', 'exp_order': exp.order, 'thres': exp.thres}
 			# set communicator
 			comm = mpi.master_comm
@@ -112,9 +112,9 @@ def _master(mpi, mol, calc, exp):
 			# probe for source and tag
 			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 			# slave is ready
-			if (tag == _tags.ready):
+			if tag == _tags.ready:
 				# any jobs left?
-				if (i <= len(exp.tuples[-1])-1):
+				if i <= len(exp.tuples[-1]) - 1:
 					# save parent tuple index
 					job_info['index'] = i
 					# send parent tuple index
@@ -125,15 +125,15 @@ def _master(mpi, mol, calc, exp):
 					# send exit signal
 					comm.send(None, dest=source, tag=_tags.exit)
 			# receive result from slave
-			elif (tag == _tags.done):
+			elif tag == _tags.done:
 				# write tmp child tuple list
 				tmp += data['child_tuple'] 
 			# put slave to sleep
-			elif (tag == _tags.exit):
+			elif tag == _tags.exit:
 				# remove slave
 				slaves_avail -= 1
 		# finally we sort the tuples or mark expansion as converged 
-		if (len(tmp) == 1):
+		if len(tmp) == 1:
 			exp.conv_orb.append(True)
 		else:
 			tmp.sort()
@@ -149,7 +149,7 @@ def slave(mpi, mol, calc, exp):
 		# init data dict and combs list
 		data = {'child_tuple': []}; combs = []
 		# set communicator and number of workers
-		if (exp.level == 'macro'):
+		if exp.level == 'macro':
 			comm = mpi.master_comm
 		else:
 			comm = mpi.local_comm
@@ -162,10 +162,10 @@ def slave(mpi, mol, calc, exp):
 			# recover tag
 			tag = mpi.stat.Get_tag()
 			# do job
-			if (tag == _tags.start):
+			if tag == _tags.start:
 				# init child tuple list
 				data['child_tuple'][:] = []
-				if (exp.order == exp.start_order):
+				if exp.order == exp.start_order:
 					# loop through possible orbitals to augment the combinations with
 					for m in range(exp.tuples[-1][job_info['index']][-1]+1, calc.exp_space[-1]+1):
 						data['child_tuple'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
@@ -173,7 +173,7 @@ def slave(mpi, mol, calc, exp):
 					# generate list with all subsets of particular tuple
 					combs = np.array(list(list(comb) for comb in itertools.combinations(exp.tuples[-1][job_info['index']], exp.order-1)))
 					# select only those combinations that include the active orbitals
-					if (calc.no_act > len(calc.ref_space)):
+					if calc.no_act > len(calc.ref_space):
 						cond = np.zeros(len(combs), dtype=bool)
 						for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
 						combs = combs[cond]
@@ -186,21 +186,21 @@ def slave(mpi, mol, calc, exp):
 							# recover index of particular tuple
 							comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
 							# does it exist?
-							if (len(comb_idx) == 0):
+							if len(comb_idx) == 0:
 								# screen away
 								screen = True
 								break
 							else:
 								# is the increment above threshold?
-								if (np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres):
+								if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
 									# mark as 'allowed'
 									screen = False
 						# if tuple is allowed, add to child tuple list, otherwise screen away
-						if (not screen): data['child_tuple'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
+						if not screen: data['child_tuple'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
 				# send data back to master
 				comm.send(data, dest=0, tag=_tags.done)
 			# exit
-			elif (tag == _tags.exit):
+			elif tag == _tags.exit:
 				break
 		# send exit signal to master
 		comm.send(None, dest=0, tag=_tags.exit)
@@ -212,7 +212,7 @@ def slave(mpi, mol, calc, exp):
 
 def update(calc, exp):
 		""" update expansion threshold """
-		if (exp.order == 1):
+		if exp.order == 1:
 			return 0.0
 		else:
 			return calc.exp_thres * calc.exp_relax ** (exp.order - 2)

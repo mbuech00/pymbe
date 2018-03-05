@@ -36,7 +36,7 @@ def main():
 		# molecule instantiation
 		mol = molecule.MolCls(mpi)
 		# build and communicate molecule
-		if (mpi.global_master):
+		if mpi.global_master:
 			mol.make(mpi)
 			parallel.mol(mpi, mol)
 		else:
@@ -53,15 +53,15 @@ def main():
 		# restart logical
 		calc.restart = restart.restart()
 		# hf and ref calculations
-		if (mpi.global_master):
+		if mpi.global_master:
 			# restart
-			if (calc.restart):
+			if calc.restart:
 				# get hcore and eri
 				mol.hcore, mol.eri = kernel.hcore_eri(mol)
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# expansion instantiation
-				if (calc.exp_type in ['occupied','virtual']):
+				if calc.exp_type in ['occupied','virtual']:
 					exp = expansion.ExpCls(mol, calc)
 					# mark expansion as micro
 					exp.level = 'micro'
@@ -78,7 +78,7 @@ def main():
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, calc.no_act = kernel.active(mol, calc)
 				# expansion instantiation
-				if (calc.exp_type in ['occupied','virtual']):
+				if calc.exp_type in ['occupied','virtual']:
 					exp = expansion.ExpCls(mol, calc)
 					# mark expansion as micro
 					exp.level = 'micro'
@@ -96,10 +96,10 @@ def main():
 			# get hcore and eri
 			mol.hcore, mol.eri = kernel.hcore_eri(mol)
 		# bcast fundamental info
-		if (mpi.parallel): parallel.fund(mpi, mol, calc)
+		if mpi.parallel: parallel.fund(mpi, mol, calc)
 		# now branch
-		if (not mpi.global_master):
-			if (mpi.local_master):
+		if not mpi.global_master:
+			if mpi.local_master:
 				# proceed to local master driver
 				driver.local_master(mpi, mol, calc)
 			else:

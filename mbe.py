@@ -42,17 +42,17 @@ _tags = _enum('ready', 'done', 'exit', 'start')
 def main(mpi, mol, calc, exp):
 		""" energy mbe phase """
 		# init micro_conv list
-		if (mpi.global_master and (exp.level == 'macro')):
-			if (len(exp.micro_conv) < exp.order):
+		if mpi.global_master and exp.level == 'macro':
+			if len(exp.micro_conv) < exp.order:
 				exp.micro_conv.append(np.zeros(len(exp.tuples[-1]), dtype=np.int32))
 		# mpi parallel version
-		if (mpi.parallel):
+		if mpi.parallel:
 			_master(mpi, mol, calc, exp)
 		else:
 			_serial(mpi, mol, calc, exp)
 		# sum up total energy
 		e_tmp = math.fsum(exp.energy['inc'][-1])
-		if (exp.order > exp.start_order): e_tmp += exp.energy['tot'][-1]
+		if exp.order > exp.start_order: e_tmp += exp.energy['tot'][-1]
 		# add to total energy list
 		exp.energy['tot'].append(e_tmp)
 
@@ -62,15 +62,16 @@ def _serial(mpi, mol, calc, exp):
 		# print and time logical
 		do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
 		# init time
-		if (do_print and (len(exp.time_mbe) < ((exp.order-exp.start_order)+1))): exp.time_mbe.append(0.0)
+		if do_print:
+			if len(exp.time_mbe) < (exp.order-exp.start_order)+1: exp.time_mbe.append(0.0)
 		# determine start index
 		start = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# loop over tuples
 		for i in range(start, len(exp.tuples[-1])):
 			# start time
-			if (do_print): time = MPI.Wtime()
+			if do_print: time = MPI.Wtime()
 			# run correlated calc
-			if (exp.level == 'macro'):
+			if exp.level == 'macro':
 				# micro exp instantiation
 				exp_micro = expansion.ExpCls(mpi, mol, calc, 'virtual')
 				# mark expansion as micro 
@@ -91,10 +92,10 @@ def _serial(mpi, mol, calc, exp):
 				e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
 							+ (calc.energy['hf'] - calc.energy['ref'])
 				# base calc
-				if (calc.exp_base['METHOD'] is None):
+				if calc.exp_base['METHOD'] is None:
 					e_base = 0.0
 				else:
-					if ((exp.order == 1) and (mol.spin == 0)):
+					if exp.order == 1 and mol.spin == 0:
 						e_base = e_model
 					else:
 						e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
@@ -103,10 +104,10 @@ def _serial(mpi, mol, calc, exp):
 				# calc increment
 				exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
 				# verbose print
-				if (mol.verbose):
+				if mol.verbose:
 					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
-			if (do_print):
+			if do_print:
 				# print status
 				output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[-1])))
 				# collect time
@@ -118,7 +119,7 @@ def _serial(mpi, mol, calc, exp):
 def _master(mpi, mol, calc, exp):
 		""" master function """
 		# wake up slaves
-		if (exp.level == 'macro'):
+		if exp.level == 'macro':
 			msg = {'task': 'mbe_local_master', 'exp_order': exp.order}
 			# set communicator
 			comm = mpi.master_comm
@@ -133,7 +134,7 @@ def _master(mpi, mol, calc, exp):
 		# bcast msg
 		comm.bcast(msg, root=0)
 		# perform calculations
-		if (exp.order == exp.start_order):
+		if exp.order == exp.start_order:
 			# start time
 			time = MPI.Wtime()
 			# print status
@@ -146,25 +147,25 @@ def _master(mpi, mol, calc, exp):
 				e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
 							+ (calc.energy['hf'] - calc.energy['ref'])
 				# base calc
-				if (calc.exp_base['METHOD'] is None):
+				if calc.exp_base['METHOD'] is None:
 					e_base = 0.0
 				else:
-					if ((exp.order == 1) and (mol.spin == 0)):
+					if exp.order == 1 and mol.spin == 0:
 						e_base = e_model
 					else:
 						e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
 									+ (calc.energy['hf'] - calc.energy['ref_base'])
 				exp.energy['inc'][0][i] = e_model - e_base
 				# verbose print
-				if (mol.verbose):
+				if mol.verbose:
 					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][0][i]))
 				# print status
-				if (mol.verbose): output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[0])))
+				if mol.verbose: output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[0])))
 			# collect time
 			exp.time_mbe.append(MPI.Wtime() - time)
 			# print status
-			if (not mol.verbose): output.mbe_status(calc, exp, 1.0)
+			if not mol.verbose: output.mbe_status(calc, exp, 1.0)
 			# bcast energies
 			parallel.energy(exp, comm)
 		else:
@@ -175,24 +176,25 @@ def _master(mpi, mol, calc, exp):
 			# init stat counter
 			counter = i
 			# print status for START
-			if (mpi.global_master): output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
+			if mpi.global_master: output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 			# init time
-			if (mpi.global_master and (len(exp.time_mbe) < ((exp.order-exp.start_order)+1))): exp.time_mbe.append(0.0)
+			if mpi.global_master:
+				if len(exp.time_mbe) < (exp.order - exp.start_order) + 1: exp.time_mbe.append(0.0)
 			time = MPI.Wtime()
 			# loop until no slaves left
 			while (slaves_avail >= 1):
 				# receive data dict
 				data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 				# collect time
-				if (mpi.global_master):
+				if mpi.global_master:
 					exp.time_mbe[-1] += MPI.Wtime() - time
 					time = MPI.Wtime()
 				# probe for source and tag
 				source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 				# slave is ready
-				if (tag == _tags.ready):
+				if tag == _tags.ready:
 					# any jobs left?
-					if (i <= (len(exp.tuples[-1]) - 1)):
+					if i <= len(exp.tuples[-1]) - 1:
 						# store job index
 						job_info['index'] = i
 						# send string dict
@@ -203,27 +205,29 @@ def _master(mpi, mol, calc, exp):
 						# send exit signal
 						comm.send(None, dest=source, tag=_tags.exit)
 				# receive result from slave
-				elif (tag == _tags.done):
+				elif tag == _tags.done:
 					# collect energies
 					exp.energy['inc'][-1][data['index']] = data['e_inc']
 					# write to micro_conv
-					if (mpi.global_master and (exp.level == 'macro')):
+					if mpi.global_master and exp.level == 'macro':
 						exp.energy['inc'][-1][data['index']] -= _sum(calc, exp, data['index'])
 						exp.micro_conv[-1][data['index']] = data['micro_order']
 					# write restart files
-					if (mpi.global_master and ((((data['index']+1) % exp.rst_freq) == 0) or (exp.level == 'macro'))):
-						restart.mbe_write(calc, exp, False)
+					if mpi.global_master:
+						if data['index'] + 1 % exp.rst_freq == 0 or exp.level == 'macro':
+							restart.mbe_write(calc, exp, False)
 					# increment stat counter
 					counter += 1
 					# print status
-					if (mpi.global_master and (((((data['index']+1) % 1000) == 0) or (exp.level == 'macro')) or mol.verbose)):
-						output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
+					if mpi.global_master:
+						if data['index'] + 1 % 1000 == 0 or exp.level == 'macro' or mol.verbose:
+							output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 				# put slave to sleep
-				elif (tag == _tags.exit):
+				elif tag == _tags.exit:
 					slaves_avail -= 1
 			# print 100.0 %
-			if (mpi.global_master and (not (exp.level == 'macro'))):
-				if (not mol.verbose):
+			if mpi.global_master and exp.level != 'macro':
+				if not mol.verbose:
 					output.mbe_status(calc, exp, 1.0)
 			# bcast energies
 			parallel.energy(exp, comm)
@@ -232,17 +236,17 @@ def _master(mpi, mol, calc, exp):
 def slave(mpi, mol, calc, exp):
 		""" slave function """
 		# set communicator and possible micro driver instantiation
-		if (exp.level == 'macro'):
+		if exp.level == 'macro':
 			comm = mpi.master_comm
 		else:
 			comm = mpi.local_comm
 		# init energies
-		if (len(exp.energy['inc']) < (exp.order - (exp.start_order - 1))):
+		if len(exp.energy['inc']) < (exp.order - exp.start_order) + 1:
 			inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
 			inc.fill(np.nan)
 			exp.energy['inc'].append(inc)
 		# ref calc
-		if (exp.order == exp.start_order):
+		if exp.order == exp.start_order:
 			# receive energy
 			parallel.energy(exp, comm)
 		else:
@@ -257,9 +261,9 @@ def slave(mpi, mol, calc, exp):
 				# recover tag
 				tag = mpi.stat.Get_tag()
 				# do job
-				if (tag == _tags.start):
+				if tag == _tags.start:
 					# load job info
-					if (exp.level == 'macro'):
+					if exp.level == 'macro':
 						# micro exp instantiation
 						exp_micro = expansion.ExpCls(mpi, mol, calc, 'virtual')
 						# mark expansion as micro 
@@ -281,7 +285,7 @@ def slave(mpi, mol, calc, exp):
 						# perform calc
 						e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
 									+ (calc.energy['hf'] - calc.energy['ref'])
-						if (calc.exp_base['METHOD'] is None):
+						if calc.exp_base['METHOD'] is None:
 							e_base = 0.0
 						else:
 							e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
@@ -290,7 +294,7 @@ def slave(mpi, mol, calc, exp):
 						# calc increment
 						exp.energy['inc'][-1][job_info['index']] -= _sum(calc, exp, job_info['index'])
 						# verbose print
-						if (mol.verbose):
+						if mol.verbose:
 							print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 									format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][job_info['index']]))
 						# write info into data dict
@@ -299,7 +303,7 @@ def slave(mpi, mol, calc, exp):
 						# send data back to local master
 						comm.send(data, dest=0, tag=_tags.done)
 				# exit
-				elif (tag == _tags.exit):
+				elif tag == _tags.exit:
 					break
 			# send exit signal to master
 			comm.send(None, dest=0, tag=_tags.exit)

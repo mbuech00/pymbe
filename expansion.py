@@ -36,7 +36,7 @@ class ExpCls():
 				self.time_mbe = []
 				self.time_screen = []
 				# init thres
-				if (self.start_order < 3):
+				if self.start_order < 3:
 					self.thres = 0.0
 				else:
 					self.thres = calc.exp_thres * calc.exp_relax ** (self.start_order - 3)
@@ -49,12 +49,12 @@ class ExpCls():
 				# incl_idx
 				incl_idx = calc.ref_space.tolist()
 				# tuples
-				if (calc.no_act == len(incl_idx)):
+				if calc.no_act == len(incl_idx):
 					tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32)]
 				else:
-					if (calc.exp_type == 'occupied'):
+					if calc.exp_type == 'occupied':
 						tuples = [np.array([calc.exp_space[-(calc.no_act-len(calc.ref_space)):]], dtype=np.int32)]
-					elif (calc.exp_type == 'virtual'):
+					elif calc.exp_type == 'virtual':
 						tuples = [np.array([calc.exp_space[:(calc.no_act-len(calc.ref_space))]], dtype=np.int32)]
 				return incl_idx, tuples
 

@@ -39,7 +39,7 @@ class MPICls():
 				# define mpi exception hook
 				def mpi_excepthook(variant, value, trace):
 					""" custom mpi exception hook """
-					if (not issubclass(variant, OSError)):
+					if not issubclass(variant, OSError):
 						print('\n-- Error information --')
 						print('\ntype:\n\n  {0:}'.format(variant))
 						print('\nvalue:\n\n  {0:}'.format(value))
@@ -55,10 +55,10 @@ def set_mpi(mpi):
 		# bcast num_local_masters
 		mpi.global_comm.bcast(mpi.num_local_masters, root=0)
 		# now set info
-		if (not mpi.parallel):
+		if not mpi.parallel:
 			mpi.prim_master = True
 		else:
-			if (mpi.num_local_masters == 0):
+			if mpi.num_local_masters == 0:
 				mpi.master_comm = mpi.local_comm = mpi.global_comm
 				mpi.local_size = mpi.global_size
 				mpi.local_master = False
@@ -83,12 +83,12 @@ def set_mpi(mpi):
 				mpi.local_master_comm = mpi.global_comm.Create(mpi.local_master_group)
 				# set local intracomm based on color
 				for i in range(len(groups)):
-					if (mpi.global_rank in groups[i]): color = i
+					if mpi.global_rank in groups[i]: color = i
 				mpi.local_comm = mpi.global_comm.Split(color)
 				# determine size of local group
 				mpi.local_size = mpi.local_comm.Get_size()
 			# define slave
-			if ((not mpi.global_master) and (not mpi.local_master)):
+			if not mpi.global_master and not mpi.local_master:
 				mpi.slave = True
 			else:
 				mpi.slave = False
@@ -96,7 +96,7 @@ def set_mpi(mpi):
 
 def mol(mpi, mol):
 		""" bcast mol info """
-		if (mpi.global_master):
+		if mpi.global_master:
 			info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
 					'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
 					'unit': mol.unit, 'frozen': mol.frozen, 'verbose': mol.verbose}
@@ -111,7 +111,7 @@ def mol(mpi, mol):
 
 def calc(mpi, calc):
 		""" bcast calc info """
-		if (mpi.global_master):
+		if mpi.global_master:
 			info = {'exp_model': calc.exp_model['METHOD'], 'exp_type': calc.exp_type, \
 					'exp_ref': calc.exp_ref['METHOD'], 'exp_base': calc.exp_base['METHOD'], \
 					'exp_thres': calc.exp_thres, 'exp_relax': calc.exp_relax, \
@@ -129,7 +129,7 @@ def calc(mpi, calc):
 
 def fund(mpi, mol, calc):
 		""" bcast fundamental info """
-		if (mpi.global_master):
+		if mpi.global_master:
 			info = {'e_hf': calc.energy['hf'], 'e_base': calc.energy['base'], \
 						'e_ref': calc.energy['ref'], 'e_ref_base': calc.energy['ref_base'], \
 						'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
@@ -153,7 +153,7 @@ def fund(mpi, mol, calc):
 
 def exp(mpi, calc, exp, comm):
 		""" bcast exp info """
-		if (mpi.global_master):
+		if mpi.global_master:
 			# collect info
 			info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
 						'len_e_inc': [len(exp.energy['inc'][i]) for i in range(len(exp.energy['inc']))], \
@@ -198,14 +198,14 @@ def tup(exp, comm):
 
 def final(mpi):
 		""" terminate calculation """
-		if (mpi.global_master):
+		if mpi.global_master:
 			restart.rm()
-			if (mpi.parallel):
-				if (mpi.num_local_masters == 0):
+			if mpi.parallel:
+				if mpi.num_local_masters == 0:
 					mpi.local_comm.bcast({'task': 'exit_slave'}, root=0)
 				else:
 					mpi.master_comm.bcast({'task': 'exit_local_master'}, root=0)
-		elif (mpi.local_master):
+		elif mpi.local_master:
 			mpi.local_comm.bcast({'task': 'exit_slave'}, root=0)
 		mpi.global_comm.Barrier()
 		MPI.Finalize()

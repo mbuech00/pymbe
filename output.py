@@ -30,7 +30,7 @@ _header_str = '{0:^93}'.format('-'*45)
 def main_header():
 		""" print main header """
 		# rm out if present
-		if (os.path.isdir(_out)): shutil.rmtree(_out, ignore_errors=True)
+		if os.path.isdir(_out): shutil.rmtree(_out, ignore_errors=True)
 		# mkdir out
 		os.mkdir(_out)
 		# print headers
@@ -119,12 +119,12 @@ def mbe_end(calc, exp):
 
 def mbe_microresults(calc, exp):	
 		""" print micro result statistics """
-		if ((calc.exp_type == 'combined') and (exp.level == 'macro')):
+		if calc.exp_type == 'combined' and exp.level == 'macro':
 			# statistics
 			mean_val = np.mean(exp.micro_conv[exp.order-exp.start_order])
 			min_val = exp.micro_conv[exp.order-exp.start_order][np.argmin(exp.micro_conv[exp.order-exp.start_order])]
 			max_val = exp.micro_conv[exp.order-exp.start_order][np.argmax(exp.micro_conv[exp.order-exp.start_order])]
-			if (len(exp.micro_conv[exp.order-exp.start_order]) > 1):
+			if len(exp.micro_conv[exp.order-exp.start_order]) > 1:
 				std_val = np.std(exp.micro_conv[exp.order-exp.start_order], ddof=1)
 			else:
 				std_val = 0.0
@@ -158,7 +158,7 @@ def mbe_results(mol, calc, exp):
 		# core and cas regions
 		core, cas = kernel.core_cas(mol, exp, exp.tuples[exp.order-exp.start_order][max_idx])
 		cas_ref = '{0:}'.format(sorted(list(set(calc.ref_space.tolist()) - set(core))))
-		if (calc.exp_ref['METHOD'] == 'HF'):
+		if calc.exp_ref['METHOD'] == 'HF':
 			casexp = '{0:}'.format(sorted(list(set(cas) - set(calc.ref_space.tolist()))))
 		else:
 			casexp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
@@ -172,7 +172,7 @@ def mbe_results(mol, calc, exp):
 				print(' RESULT-'+exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
 						format(mean_val, min_val, max_val))
 				# debug print
-				if (mol.verbose):
+				if mol.verbose:
 					print(' --------------------------------------------------------------------------------------------')
 					print(' RESULT-'+exp.level.upper()+':                   info on max. abs. increment:')
 					print(' RESULT-'+exp.level.upper()+':  core = {0:}'.format(core))
@@ -185,7 +185,7 @@ def mbe_results(mol, calc, exp):
 		print(' RESULT-'+exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
 				format(mean_val, min_val, max_val))
 		# debug print
-		if (mol.verbose):
+		if mol.verbose:
 			print(' --------------------------------------------------------------------------------------------')
 			print(' RESULT-'+exp.level.upper()+':                   info on max. abs. increment:')
 			print(' RESULT-'+exp.level.upper()+':  core = {0:}'.format(core))
@@ -210,7 +210,7 @@ def screen_end(calc, exp):
 		""" print end of screening """
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				if (exp.conv_orb[-1]):
+				if exp.conv_orb[-1]:
 					print(' --------------------------------------------------------------------------------------------')
 					print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening done'.format(exp.order))
 					print(' STATUS-'+exp.level.upper()+':                  *** convergence has been reached ***                         ')
@@ -220,7 +220,7 @@ def screen_end(calc, exp):
 					print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening done'.format(exp.order))
 					print(' --------------------------------------------------------------------------------------------\n\n')
 		# write also to stdout
-		if (exp.conv_orb[-1]):
+		if exp.conv_orb[-1]:
 			print(' --------------------------------------------------------------------------------------------')
 			print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening done'.format(exp.order))
 			print(' STATUS-'+exp.level.upper()+':                  *** convergence has been reached ***                         ')
