@@ -4,7 +4,6 @@
 """ results.py: summary and plotting module """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
 __version__ = '0.10'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
@@ -72,7 +71,7 @@ def _table(info, mol, calc, exp):
 		# write summary to results.out
 		with open(_out+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print('\n\n'+_header_str)
+				print(_header_str)
 				print('{0:^138}'.format('results'))
 				print(_header_str+'\n'); print(_divider_str)
 				print(_header_1())

@@ -4,7 +4,6 @@
 """ output.py: print module """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
 __version__ = '0.10'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
@@ -36,9 +35,7 @@ def main_header():
 		for i in [_out+'/output.out',_out+'/results.out']:
 			with open(i,'a') as f:
 				with contextlib.redirect_stdout(f):
-					print('')
-					print('')
-					print("   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo")
+					print("\n\n   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo")
 					print("   `888   `Y88.             `88.       .888' `888'   `Y8b `888'     `8")
 					print("    888   .d88' oooo    ooo  888b     d'888   888     888  888")
 					print("    888ooo88P'   `88.  .8'   8 Y88. .P  888   888oooo888'  888oooo8")
@@ -46,28 +43,15 @@ def main_header():
 					print("    888            `888'     8    Y     888   888    .88P  888       o")
 					print("   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8")
 					print("                .o..P'")
-					print("                `Y8P'")
-					print('')
-					print('')
-					print('   --- an incremental Python-based electronic structure correlation program written by:')
-					print('')
-					print('           Janus Juul Eriksen')
-					print('')
-					print('       with contributions from:')
-					print('')
-					print('            Filippo Lipparini')
-					print('              & Juergen Gauss')
-					print('')
-					print('                                            *****')
-					print('                                       ***************')
-					print('                                            *****')
+					print("                `Y8P'\n\n")
+					print('   --- an incremental Python-based electronic structure program\n\n')
 
 
 def exp_header(calc, exp):
 		""" print expansion header """
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print('\n\n'+_header_str)
+				print(_header_str)
 				print('{0:^93}'.format(calc.typ+' expansion'))
 				print(_header_str+'\n\n')
 		# write also to stdout

@@ -4,7 +4,6 @@
 """ driver.py: driver module """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
 __version__ = '0.10'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
