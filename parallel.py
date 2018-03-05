@@ -4,7 +4,6 @@
 """ parallel.py: mpi class """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__copyright__ = 'Copyright 2017'
 __credits__ = ['Prof. Juergen Gauss', 'Dr. Filippo Lipparini']
 __license__ = '???'
 __version__ = '0.10'
