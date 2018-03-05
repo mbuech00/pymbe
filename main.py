@@ -89,7 +89,7 @@ def main():
 				# reference calculation
 				calc.energy['ref'], calc.energy['ref_base'], calc.mo = kernel.ref(mol, calc, exp)
 				# base energy and transformation matrix
-				calc.energy['base'], calc.mo = kernel.base(mol, calc, exp)
+				calc.energy['base'] = kernel.base(mol, calc, exp)
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:

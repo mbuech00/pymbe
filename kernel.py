@@ -162,16 +162,16 @@ def corr(mol, calc, exp, method):
 		""" calculate correlation energy """
 		# fci calc
 		if method == 'FCI':
-			e_corr = _fci(mol, calc, exp, calc.mo, False)
+			e_corr = _fci(mol, calc, exp, False)
 		# sci base
 		elif method == 'SCI':
-			e_corr, _ = _sci(mol, calc, exp, calc.mo, False)
+			e_corr, _ = _sci(mol, calc, exp, False)
 		# cisd calc
 		elif method == 'CISD':
-			e_corr, _ = _ci(mol, calc, exp, calc.mo, False)
+			e_corr, _ = _ci(mol, calc, exp, False)
 		# ccsd / ccsd(t) calc
 		elif method in ['CCSD','CCSD(T)']:
-			e_corr, _ = _cc(mol, calc, exp, calc.mo, False, (method == 'CCSD(T)'))
+			e_corr, _ = _cc(mol, calc, exp, False, (method == 'CCSD(T)'))
 		return e_corr
 
 
@@ -184,51 +184,49 @@ def base(mol, calc, exp):
 			e_base = 0.0
 		# cisd base
 		elif calc.base['METHOD'] == 'CISD':
-			e_base, dm = _ci(mol, calc, exp, calc.mo, True)
+			e_base, dm = _ci(mol, calc, exp, True)
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['METHOD'] in ['CCSD','CCSD(T)']:
-			e_base, dm = _cc(mol, calc, exp, calc.mo, True, \
+			e_base, dm = _cc(mol, calc, exp, True, \
 										(calc.base['METHOD'] == 'CCSD(T)') and \
 										((calc.occ == 'REF') and (calc.virt == 'REF')))
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# sci base
 		elif calc.base['METHOD'] == 'SCI':
-			e_base, dm = _sci(mol, calc, exp, calc.mo, True)
-		# copy mo
-		mo = np.copy(calc.mo)
+			e_base, dm = _sci(mol, calc, exp, True)
 		# occ-occ block (local or NOs)
 		if calc.occ != 'REF':
 			if calc.occ == 'NO':
 				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
-				mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
+				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
 			elif calc.occ == 'PM':
-				mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
+				calc.mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.occ == 'FB':
-				mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
+				calc.mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.occ in ['IBO-1','IBO-2']:
 				iao = lo.iao.iao(mol, calc.mo[:, mol.core:mol.nocc])
 				if calc.occ == 'IBO-1':
 					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
-					mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
+					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
 				elif calc.occ == 'IBO-2':
-					mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
+					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
 		if calc.virt != 'REF':
 			if calc.virt == 'NO':
 				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
-				mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
+				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
 			elif calc.virt == 'PM':
-				mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
+				calc.mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
 			elif calc.virt == 'FB':
-				mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
-		# (t) correction for NOs
-		if calc.occ == 'NO' or calc.virt == 'NO':
+				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
+		# extra calculation for non-invariant method
+		if calc.occ != 'REF' or calc.virt != 'REF':
 			if calc.base['METHOD'] == 'CCSD(T)':
-				e_base, dm = _cc(mol, calc, exp, mo, False, True)
+				e_base, dm = _cc(mol, calc, exp, False, True)
 			elif calc.base['METHOD'] == 'SCI':
-				e_base, dm = _sci(mol, calc, exp, mo, False)
-		return e_base, mo
+				e_base, dm = _sci(mol, calc, exp, False)
+		return e_base
 
 
 def _casscf(mol, calc, exp, method):
@@ -283,7 +281,7 @@ def _casscf(mol, calc, exp, method):
 		return mo
 
 
-def _fci(mol, calc, exp, mo, base):
+def _fci(mol, calc, exp, base):
 		""" fci calc """
 		# init fci solver
 		if mol.spin == 0:
@@ -298,11 +296,11 @@ def _fci(mol, calc, exp, mo, base):
 		# wfnsym
 		solver.wfnsym = calc.wfnsym
 		# get integrals and core energy
-		h1e, h2e, e_core = _prepare(mol, calc, exp, mo)
+		h1e, h2e, e_core = _prepare(mol, calc, exp)
 		# electrons
 		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# orbital symmetry
-		solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo[:, exp.cas_idx])
+		solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo[:, exp.cas_idx])
 		# fix spin if non-singlet
 		if mol.spin > 0:
 			sz = abs(nelec[0]-nelec[1]) * .5
@@ -335,7 +333,7 @@ def _fci(mol, calc, exp, mo, base):
 		return e_corr
 
 
-def _sci(mol, calc, exp, mo, base):
+def _sci(mol, calc, exp, base):
 		""" sci calc """
 		# init sci solver
 		if mol.spin == 0:
@@ -350,11 +348,11 @@ def _sci(mol, calc, exp, mo, base):
 		# wfnsym
 		solver.wfnsym = calc.wfnsym
 		# get integrals and core energy
-		h1e, h2e, e_core = _prepare(mol, calc, exp, mo)
+		h1e, h2e, e_core = _prepare(mol, calc, exp)
 		# electrons
 		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# orbital symmetry
-		solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo[:, exp.cas_idx])
+		solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo[:, exp.cas_idx])
 		# fix spin if non-singlet
 		if mol.spin > 0:
 			sz = abs(nelec[0]-nelec[1]) * .5
@@ -391,10 +389,10 @@ def _sci(mol, calc, exp, mo, base):
 		return e_corr, dm
 
 
-def _ci(mol, calc, exp, mo, base):
+def _ci(mol, calc, exp, base):
 		""" cisd calc """
 		# get integrals
-		h1e, h2e, e_core = _prepare(mol, calc, exp, mo)
+		h1e, h2e, e_core = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
 		mol_tmp.incore_anyway = True
 		mol_tmp.max_memory = mol.max_memory
@@ -439,10 +437,10 @@ def _ci(mol, calc, exp, mo, base):
 		return e_corr, dm
 
 
-def _cc(mol, calc, exp, mo, base, pt=False):
+def _cc(mol, calc, exp, base, pt=False):
 		""" ccsd / ccsd(t) calc """
 		# get integrals
-		h1e, h2e, e_core = _prepare(mol, calc, exp, mo)
+		h1e, h2e, e_core = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
 		mol_tmp.incore_anyway = True
 		mol_tmp.max_memory = mol.max_memory
@@ -504,11 +502,11 @@ def core_cas(mol, exp, tup):
 		return core_idx, cas_idx
 
 
-def _prepare(mol, calc, exp, orbs):
+def _prepare(mol, calc, exp):
 		""" generate input for correlated calculation """
 		# extract cas integrals and calculate core energy
 		if len(exp.core_idx) > 0:
-			core_dm = np.dot(orbs[:, exp.core_idx], np.transpose(orbs[:, exp.core_idx])) * 2
+			core_dm = np.dot(calc.mo[:, exp.core_idx], np.transpose(calc.mo[:, exp.core_idx])) * 2
 			vj, vk = scf.hf.get_jk(mol, core_dm)
 			core_vhf = vj - vk * .5
 			e_core = mol.energy_nuc() + np.einsum('ij,ji', core_dm, mol.hcore)
@@ -516,9 +514,9 @@ def _prepare(mol, calc, exp, orbs):
 		else:
 			e_core = mol.energy_nuc()
 			core_vhf = 0
-		h1e_cas = reduce(np.dot, (np.transpose(orbs[:, exp.cas_idx]), \
-								mol.hcore + core_vhf, orbs[:, exp.cas_idx]))
-		h2e_cas = ao2mo.incore.full(mol.eri, orbs[:, exp.cas_idx])
+		h1e_cas = reduce(np.dot, (np.transpose(calc.mo[:, exp.cas_idx]), \
+								mol.hcore + core_vhf, calc.mo[:, exp.cas_idx]))
+		h2e_cas = ao2mo.incore.full(mol.eri, calc.mo[:, exp.cas_idx])
 		return h1e_cas, h2e_cas, e_core
 
 
