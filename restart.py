@@ -128,7 +128,7 @@ def mbe_write(calc, exp, final):
 		# write e_inc
 		np.save(os.path.join(_rst, 'e_inc_'+str(exp.order)), exp.energy['inc'][-1])
 		# write micro_conv
-		if calc.exp_type == 'combined':
+		if calc.typ == 'combined':
 			np.save(os.path.join(_rst, 'micro_conv_'+str(exp.order)), np.asarray(exp.micro_conv[-1]))
 		# write time
 		np.save(os.path.join(_rst, 'time_mbe_'+str(exp.order)), np.asarray(exp.time_mbe[-1]))

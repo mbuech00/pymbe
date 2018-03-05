@@ -112,19 +112,19 @@ def mol(mpi, mol):
 def calc(mpi, calc):
 		""" bcast calc info """
 		if mpi.global_master:
-			info = {'exp_model': calc.exp_model['METHOD'], 'exp_type': calc.exp_type, \
-					'exp_ref': calc.exp_ref['METHOD'], 'exp_base': calc.exp_base['METHOD'], \
-					'exp_thres': calc.exp_thres, 'exp_relax': calc.exp_relax, \
-					'wfnsym': calc.wfnsym, 'exp_max_order': calc.exp_max_order, \
-					'exp_occ': calc.exp_occ, 'exp_virt': calc.exp_virt}
+			info = {'model': calc.model['METHOD'], 'typ': calc.typ, \
+					'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
+					'thres': calc.thres, 'relax': calc.relax, \
+					'wfnsym': calc.wfnsym, 'max_order': calc.max_order, \
+					'occ': calc.occ, 'virt': calc.virt}
 			mpi.global_comm.bcast(info, root=0)
 		else:
 			info = mpi.global_comm.bcast(None, root=0)
-			calc.exp_model = {'METHOD': info['exp_model']}; calc.exp_type = info['exp_type']
-			calc.exp_ref = {'METHOD': info['exp_ref']}; calc.exp_base = {'METHOD': info['exp_base']}
-			calc.exp_thres = info['exp_thres']; calc.exp_relax = info['exp_relax']
-			calc.wfnsym = info['wfnsym']; calc.exp_max_order = info['exp_max_order']
-			calc.exp_occ = info['exp_occ']; calc.exp_virt = info['exp_virt']
+			calc.model = {'METHOD': info['model']}; calc.typ = info['typ']
+			calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
+			calc.thres = info['thres']; calc.relax = info['relax']
+			calc.wfnsym = info['wfnsym']; calc.max_order = info['max_order']
+			calc.occ = info['occ']; calc.virt = info['virt']
 
 
 def fund(mpi, mol, calc):

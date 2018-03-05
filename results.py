@@ -100,7 +100,7 @@ def _plot(calc, exp):
 		# plot results
 		ax.plot(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order)), \
 				exp.energy['tot']+calc.energy['base'], marker='x', linewidth=2, \
-				linestyle='-', label='MBE-'+calc.exp_model['METHOD'])
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
 		# set x limits
 		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -152,21 +152,21 @@ def _mult(mol):
 
 def _ref(mol, calc):
 		""" modify ref print """
-		if calc.exp_ref['METHOD'] == 'HF':
+		if calc.ref['METHOD'] == 'HF':
 			if mol.spin == 0:
 				return 'RHF'
 			else:
 				return 'ROHF'
 		else:
-			return calc.exp_ref['METHOD']
+			return calc.ref['METHOD']
 
 
 def _base(calc):
 		""" modify base print """
-		if calc.exp_base['METHOD'] is None:
+		if calc.base['METHOD'] is None:
 			return 'none'
 		else:
-			return calc.exp_base['METHOD']
+			return calc.base['METHOD']
 
 
 def _system(mol, calc):
@@ -185,36 +185,36 @@ def _frozen(mol):
 
 def _active(calc):
 		""" modify active space print """
-		if calc.exp_ref['METHOD'] == 'HF':
+		if calc.ref['METHOD'] == 'HF':
 			return 'none'
 		else:
-			return '{0:} e / {1:} o'.format(calc.exp_ref['NELEC'][0]+calc.exp_ref['NELEC'][1], \
-													len(calc.exp_ref['ACTIVE']))
+			return '{0:} e / {1:} o'.format(calc.ref['NELEC'][0]+calc.ref['NELEC'][1], \
+													len(calc.ref['ACTIVE']))
 
 
 def _orbs(calc):
 		""" modify orbital print """
-		if calc.exp_occ == 'REF':
+		if calc.occ == 'REF':
 			occ = 'canonical'
-		elif calc.exp_occ == 'NO':
+		elif calc.occ == 'NO':
 			occ = 'natural'
-		elif calc.exp_occ == 'PM':
+		elif calc.occ == 'PM':
 			occ = 'pipek-mezey'
-		elif calc.exp_occ == 'FB':
+		elif calc.occ == 'FB':
 			occ = 'foster-boys'
-		elif calc.exp_occ == 'IBO-1':
+		elif calc.occ == 'IBO-1':
 			occ = 'intrin. bond'
-		elif calc.exp_occ == 'IBO-2':
+		elif calc.occ == 'IBO-2':
 			occ = 'intrin. bond'
-		if calc.exp_virt == 'REF':
+		if calc.virt == 'REF':
 			virt = 'canonical'
-		elif calc.exp_virt == 'NO':
+		elif calc.virt == 'NO':
 			virt = 'natural'
-		elif calc.exp_virt == 'PM':
+		elif calc.virt == 'PM':
 			virt = 'pipek-mezey'
-		elif calc.exp_virt == 'FB':
+		elif calc.virt == 'FB':
 			virt = 'foster-boys'
-		elif calc.exp_virt == 'DNO':
+		elif calc.virt == 'DNO':
 			virt = 'dist. natural'
 		return occ, virt
 
@@ -226,7 +226,7 @@ def _mpi(mpi):
 
 def _thres(calc):
 		""" modify threshold print """
-		return '{0:.0e} / {1:<.1f}'.format(calc.exp_thres, calc.exp_relax)
+		return '{0:.0e} / {1:<.1f}'.format(calc.thres, calc.relax)
 
 
 def _symm(mol, calc):
@@ -254,7 +254,7 @@ def _first_row(info, calc):
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
 				format('','basis set','','=','',info['basis'],\
-					'','|','','expansion model','','=','',calc.exp_model['METHOD'],\
+					'','|','','expansion model','','=','',calc.model['METHOD'],\
 					'','|','','mpi masters / slaves','','=','',info['mpi'])
 
 
@@ -291,7 +291,7 @@ def _fifth_row(info, mol, calc):
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
 				format('','occupied orbitals','','=','',info['occ'],\
-					'','|','','expansion type','','=','',calc.exp_type,\
+					'','|','','expansion type','','=','',calc.typ,\
 					'','|','','wave funct. symmetry','','=','',info['symm'])
 
 

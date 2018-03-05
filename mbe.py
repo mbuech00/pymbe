@@ -60,7 +60,7 @@ def main(mpi, mol, calc, exp):
 def _serial(mpi, mol, calc, exp):
 		""" energy mbe phase """
 		# print and time logical
-		do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
+		do_print = mpi.global_master and (not ((calc.typ == 'combined') and (exp.level == 'micro')))
 		# init time
 		if do_print:
 			if len(exp.time_mbe) < (exp.order-exp.start_order)+1: exp.time_mbe.append(0.0)
@@ -89,16 +89,16 @@ def _serial(mpi, mol, calc, exp):
 				# generate input
 				exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])
 				# model calc
-				e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
+				e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
 							+ (calc.energy['hf'] - calc.energy['ref'])
 				# base calc
-				if calc.exp_base['METHOD'] is None:
+				if calc.base['METHOD'] is None:
 					e_base = 0.0
 				else:
 					if exp.order == 1 and mol.spin == 0:
 						e_base = e_model
 					else:
-						e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
+						e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
 									+ (calc.energy['hf'] - calc.energy['ref_base'])
 				exp.energy['inc'][-1][i] = e_model - e_base
 				# calc increment
@@ -144,16 +144,16 @@ def _master(mpi, mol, calc, exp):
 				# generate input
 				exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[0][i])
 				# model calc
-				e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
+				e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
 							+ (calc.energy['hf'] - calc.energy['ref'])
 				# base calc
-				if calc.exp_base['METHOD'] is None:
+				if calc.base['METHOD'] is None:
 					e_base = 0.0
 				else:
 					if exp.order == 1 and mol.spin == 0:
 						e_base = e_model
 					else:
-						e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
+						e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
 									+ (calc.energy['hf'] - calc.energy['ref_base'])
 				exp.energy['inc'][0][i] = e_model - e_base
 				# verbose print
@@ -283,12 +283,12 @@ def slave(mpi, mol, calc, exp):
 						# generate input
 						exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][job_info['index']])
 						# perform calc
-						e_model = kernel.corr(mol, calc, exp, calc.exp_model['METHOD']) \
+						e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
 									+ (calc.energy['hf'] - calc.energy['ref'])
-						if calc.exp_base['METHOD'] is None:
+						if calc.base['METHOD'] is None:
 							e_base = 0.0
 						else:
-							e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
+							e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
 										+ (calc.energy['hf'] - calc.energy['ref_base'])
 						exp.energy['inc'][-1][job_info['index']] = e_model - e_base
 						# calc increment

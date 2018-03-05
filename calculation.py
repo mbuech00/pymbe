@@ -24,25 +24,25 @@ class CalcCls():
 		def __init__(self, mpi, mol):
 				""" init parameters """
 				# set defaults
-				self.exp_model = {'METHOD': 'FCI'}
-				self.exp_type = 'occupied'
-				self.exp_ref = {'METHOD': 'HF'}
-				self.exp_base = {'METHOD': None}
-				self.exp_thres = 1.0e-10
-				self.exp_relax = 1.0
+				self.model = {'METHOD': 'FCI'}
+				self.typ = 'occupied'
+				self.ref = {'METHOD': 'HF'}
+				self.base = {'METHOD': None}
+				self.thres = 1.0e-10
+				self.relax = 1.0
 				self.wfnsym = symm.addons.irrep_id2name(mol.symmetry, 0)
-				self.exp_max_order = 1000000
-				self.exp_occ = 'REF'
-				self.exp_virt = 'REF'
+				self.max_order = 1000000
+				self.occ = 'REF'
+				self.virt = 'REF'
 				# init energy dict and mo
 				self.energy = {}
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:
-					self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
-						self.exp_thres, self.exp_relax, \
-						self.wfnsym, self.exp_max_order, \
-						self.exp_occ, self.exp_virt, \
+					self.model, self.typ, self.ref, self.base, \
+						self.thres, self.relax, \
+						self.wfnsym, self.max_order, \
+						self.occ, self.virt, \
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
 					self.sanity_chk(mpi, mol)
@@ -58,28 +58,28 @@ class CalcCls():
 							if content[i].split()[0][0] == '#':
 								continue
 							elif re.split('=',content[i])[0].strip() == 'model':
-								self.exp_model = eval(re.split('=',content[i])[1].strip())
-								self.exp_model = self._upper(self.exp_model)
+								self.model = eval(re.split('=',content[i])[1].strip())
+								self.model = self._upper(self.model)
 							elif re.split('=',content[i])[0].strip() == 'type':
-								self.exp_type = re.split('=',content[i])[1].strip()
+								self.typ = re.split('=',content[i])[1].strip()
 							elif re.split('=',content[i])[0].strip() == 'ref':
-								self.exp_ref = eval(re.split('=',content[i])[1].strip())
-								self.exp_ref = self._upper(self.exp_ref)
+								self.ref = eval(re.split('=',content[i])[1].strip())
+								self.ref = self._upper(self.ref)
 							elif re.split('=',content[i])[0].strip() == 'base':
-								self.exp_base = eval(re.split('=',content[i])[1].strip())
-								self.exp_base = self._upper(self.exp_base)
+								self.base = eval(re.split('=',content[i])[1].strip())
+								self.base = self._upper(self.base)
 							elif re.split('=',content[i])[0].strip() == 'thres':
-								self.exp_thres = float(re.split('=',content[i])[1].strip())
+								self.thres = float(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'relax':
-								self.exp_relax = float(re.split('=',content[i])[1].strip())
+								self.relax = float(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'wfnsym':
 								self.wfnsym = symm.addons.std_symb(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'order':
-								self.exp_max_order = int(re.split('=',content[i])[1].strip())
+								self.max_order = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'occ':
-								self.exp_occ = re.split('=',content[i])[1].strip().upper()
+								self.occ = re.split('=',content[i])[1].strip().upper()
 							elif re.split('=',content[i])[0].strip() == 'virt':
-								self.exp_virt = re.split('=',content[i])[1].strip().upper()
+								self.virt = re.split('=',content[i])[1].strip().upper()
 							elif re.split('=',content[i])[0].strip() == 'mem':
 								mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'num_local_masters':
@@ -98,9 +98,9 @@ class CalcCls():
 					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
-				return self.exp_model, self.exp_type, self.exp_ref, self.exp_base, \
-							self.exp_thres, self.exp_relax, self.wfnsym, \
-							self.exp_max_order, self.exp_occ, self.exp_virt, \
+				return self.model, self.typ, self.ref, self.base, \
+							self.thres, self.relax, self.wfnsym, \
+							self.max_order, self.occ, self.virt, \
 							mol.max_memory, mpi.num_local_masters
 
 
@@ -108,39 +108,39 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if self.exp_model['METHOD'] not in ['CISD','CCSD','CCSD(T)','SCI','FCI']:
+					if self.model['METHOD'] not in ['CISD','CCSD','CCSD(T)','SCI','FCI']:
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# type of expansion
-					if self.exp_type not in ['occupied','virtual','combined']:
+					if self.typ not in ['occupied','virtual','combined']:
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are occupied, virtual, and combined')
 					# reference model
-					if self.exp_ref['METHOD'] not in ['HF','CASCI','CASSCF']:
+					if self.ref['METHOD'] not in ['HF','CASCI','CASSCF']:
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
-					if self.exp_ref['METHOD'] in ['CASCI','CASSCF']:
-						if self.exp_ref['METHOD'] == 'CASSCF' and self.exp_model['METHOD'] not in ['SCI','FCI']:
+					if self.ref['METHOD'] in ['CASCI','CASSCF']:
+						if self.ref['METHOD'] == 'CASSCF' and self.model['METHOD'] not in ['SCI','FCI']:
 							raise ValueError('wrong input -- a CASSCF reference is only meaningful for SCI or FCI expansion models')
-						if 'ACTIVE' not in self.exp_ref:
+						if 'ACTIVE' not in self.ref:
 							raise ValueError('wrong input -- an active space (active) choice is required for CASCI/CASSCF references')
-					if 'ACTIVE' in self.exp_ref:
-						if self.exp_ref['METHOD'] == 'HF':
+					if 'ACTIVE' in self.ref:
+						if self.ref['METHOD'] == 'HF':
 							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
-						if not isinstance(self.exp_ref['ACTIVE'], list): 
+						if not isinstance(self.ref['ACTIVE'], list): 
 							raise ValueError('wrong input -- active space key (active) must be a list')
-						if 'NELEC' in self.exp_ref:
-							if not isinstance(self.exp_ref['NELEC'], tuple):
+						if 'NELEC' in self.ref:
+							if not isinstance(self.ref['NELEC'], tuple):
 								raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
 						else:
 							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
 					# base model
-					if self.exp_ref['METHOD'] == 'CASSCF' and self.exp_base['METHOD'] not in [None,'SCI']:
+					if self.ref['METHOD'] == 'CASSCF' and self.base['METHOD'] not in [None,'SCI']:
 						raise ValueError('wrong input -- invalid base model for CASSCF reference model')
-					if self.exp_base['METHOD'] not in [None,'CISD','CCSD','CCSD(T)','SCI']:
+					if self.base['METHOD'] not in [None,'CISD','CCSD','CCSD(T)','SCI']:
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# max order
-					if self.exp_max_order < 0:
+					if self.max_order < 0:
 						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					# wfnsym
 					try:
@@ -148,35 +148,35 @@ class CalcCls():
 					except Exception as err_2:
 						raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
 					if self.wfnsym != 0:
-						if self.exp_model['METHOD'] not in ['SCI','FCI']:
+						if self.model['METHOD'] not in ['SCI','FCI']:
 							raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
 					# expansion and convergence thresholds
-					if self.exp_thres < 0.0:
+					if self.thres < 0.0:
 						raise ValueError('wrong input -- expansion threshold parameter (thres) must be float: 0.0 <= thres')
-					if self.exp_relax < 1.0:
+					if self.relax < 1.0:
 						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if self.exp_occ not in ['REF','PM','FB','IBO-1','IBO-2','NO']:
+					if self.occ not in ['REF','PM','FB','IBO-1','IBO-2','NO']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
 										'representations are currently: REF, local (PM or FB), ' + \
 										'intrinsic bond orbitals (IBO-1 or IBO-2), or base model natural orbitals (NO)')
-					if self.exp_virt not in ['REF','PM','FB','NO','DNO']:
+					if self.virt not in ['REF','PM','FB','NO','DNO']:
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: REF, local (PM or FB), ' + \
 										'or base model (distinctive) natural orbitals (NO or DNO)')
-					if self.exp_occ in ['PM','FB','IBO-1','IBO-2'] or self.exp_virt in ['PM','FB']:
+					if self.occ in ['PM','FB','IBO-1','IBO-2'] or self.virt in ['PM','FB']:
 						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbitals and point group symmetry ' + \
 											'different from C1 is not allowed')
-					if self.exp_occ == 'NO' or self.exp_virt in ['NO','DNO']:
-						if self.exp_base['METHOD'] is None:
+					if self.occ == 'NO' or self.virt in ['NO','DNO']:
+						if self.base['METHOD'] is None:
 							raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
 											'requires the use of a CC or SCI base model for the expansion')
-					if self.exp_virt == 'DNO':
-						if self.exp_type != 'combined':
+					if self.virt == 'DNO':
+						if self.typ != 'combined':
 							raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 											'is only valid in combination with combined (dual) expansions')
-					if self.exp_occ == 'NO' and self.exp_virt == 'DNO':
+					if self.occ == 'NO' and self.virt == 'DNO':
 						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
 										'excludes the use of occupied natural orbitals')
 					# mpi groups
@@ -185,11 +185,11 @@ class CalcCls():
 							raise ValueError('wrong input -- number of local mpi masters (num_local_masters) ' + \
 											'must be a positive number >= 1')
 						elif mpi.num_local_masters == 0:
-							if self.exp_type == 'combined':
+							if self.typ == 'combined':
 								raise ValueError('wrong input -- combined expansions are only valid in ' + \
 												'combination with at least one local mpi master (num_local_masters >= 1)')
 						else:
-							if self.exp_type != 'combined':
+							if self.typ != 'combined':
 								raise ValueError('wrong input -- the use of local mpi masters ' + \
 												'is currently not implemented for occupied and virtual expansions')
 						if mpi.global_size <= 2 * mpi.num_local_masters:

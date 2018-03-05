@@ -215,6 +215,6 @@ def update(calc, exp):
 		if exp.order == 1:
 			return 0.0
 		else:
-			return calc.exp_thres * calc.exp_relax ** (exp.order - 2)
+			return calc.thres * calc.relax ** (exp.order - 2)
 
 

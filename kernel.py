@@ -62,10 +62,10 @@ def hf(mol, calc):
 def _dim(hf, calc):
 		""" determine dimensions """
 		# occupied and virtual lists
-		if calc.exp_type == 'occupied':
+		if calc.typ == 'occupied':
 			occ = np.where(hf.mo_occ == 2.)[0]
 			virt = np.where(hf.mo_occ < 2.)[0]
-		elif calc.exp_type == 'virtual':
+		elif calc.typ == 'virtual':
 			occ = np.where(hf.mo_occ > 0.)[0]
 			virt = np.where(hf.mo_occ == 0.)[0]
 		# nocc, nvirt, and norb
@@ -78,26 +78,26 @@ def _dim(hf, calc):
 def active(mol, calc):
 		""" set active space """
 		# reference and expansion spaces
-		if calc.exp_type == 'occupied':
+		if calc.typ == 'occupied':
 			ref_space = np.array(range(mol.nocc, mol.norb))
 			exp_space = np.array(range(mol.ncore, mol.nocc))
-		elif calc.exp_type == 'virtual':
+		elif calc.typ == 'virtual':
 			ref_space = np.array(range(mol.ncore, mol.nocc))
 			exp_space = np.array(range(mol.nocc, mol.norb))
 		# hf reference model
-		if calc.exp_ref['METHOD'] == 'HF':
+		if calc.ref['METHOD'] == 'HF':
 			# no active space
 			no_act = len(ref_space)
 		# casci/casscf reference model
-		elif calc.exp_ref['METHOD'] in ['CASCI','CASSCF']:
+		elif calc.ref['METHOD'] in ['CASCI','CASSCF']:
 			# active orbitals
-			if calc.exp_type == 'occupied':
-				no_act = np.count_nonzero(np.array(calc.exp_ref['ACTIVE']) < mol.nocc) + len(ref_space)
-			elif calc.exp_type == 'virtual':
-				no_act = np.count_nonzero(np.array(calc.exp_ref['ACTIVE']) >= mol.nocc) + len(ref_space)
+			if calc.typ == 'occupied':
+				no_act = np.count_nonzero(np.array(calc.ref['ACTIVE']) < mol.nocc) + len(ref_space)
+			elif calc.typ == 'virtual':
+				no_act = np.count_nonzero(np.array(calc.ref['ACTIVE']) >= mol.nocc) + len(ref_space)
 			# sanity checks
-			assert(np.count_nonzero(np.array(calc.exp_ref['ACTIVE']) < mol.ncore) == 0)
-			assert(float(calc.exp_ref['NELEC'][0] + calc.exp_ref['NELEC'][1]) <= np.sum(calc.hf.mo_occ[calc.exp_ref['ACTIVE']]))
+			assert(np.count_nonzero(np.array(calc.ref['ACTIVE']) < mol.ncore) == 0)
+			assert(float(calc.ref['NELEC'][0] + calc.ref['NELEC'][1]) <= np.sum(calc.hf.mo_occ[calc.ref['ACTIVE']]))
 			# identical to hf ref?
 			if no_act == len(ref_space):
 				try:
@@ -126,35 +126,35 @@ def _mf(mol, calc, mo):
 def ref(mol, calc, exp):
 		""" calculate reference energy and mo coefficients """
 		# set core and cas spaces
-		if calc.exp_type == 'occupied':
+		if calc.typ == 'occupied':
 			exp.core_idx, exp.cas_idx = list(range(mol.nocc)), calc.ref_space.tolist()
-		elif calc.exp_type == 'virtual':
+		elif calc.typ == 'virtual':
 			exp.core_idx, exp.cas_idx = list(range(mol.ncore)), calc.ref_space.tolist()
 		# sort mo coefficients
-		if calc.exp_ref['METHOD'] in ['CASCI','CASSCF']:
+		if calc.ref['METHOD'] in ['CASCI','CASSCF']:
 			# core region
-			ncore_elec = mol.nelectron - (calc.exp_ref['NELEC'][0] + calc.exp_ref['NELEC'][1])
+			ncore_elec = mol.nelectron - (calc.ref['NELEC'][0] + calc.ref['NELEC'][1])
 			assert(ncore_elec % 2 == 0)
 			ncore_orb = ncore_elec // 2
 			# divide into core-cas-virtual
-			idx = np.asarray([i for i in range(mol.norb) if i not in calc.exp_ref['ACTIVE']])
-			mo = np.hstack((calc.mo[:, idx[:ncore_orb]], calc.mo[:, calc.exp_ref['ACTIVE']], calc.mo[:, idx[ncore_orb:]]))
+			idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['ACTIVE']])
+			mo = np.hstack((calc.mo[:, idx[:ncore_orb]], calc.mo[:, calc.ref['ACTIVE']], calc.mo[:, idx[ncore_orb:]]))
 			calc.mo = np.asarray(mo, order='C')
 			# set ref energies equal to hf energies
 			e_ref = e_refbase = 0.0
 			# casscf mo
-			if calc.exp_ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp, calc.exp_model['METHOD'])
+			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp, calc.model['METHOD'])
 		else:
 			# exp model
-			e_ref = corr(mol, calc, exp, calc.exp_model['METHOD'])
+			e_ref = corr(mol, calc, exp, calc.model['METHOD'])
 			# exp base
-			if calc.exp_base['METHOD'] is None:
+			if calc.base['METHOD'] is None:
 				e_refbase = 0.0
 			else:
 				if np.abs(e_ref) > 1.0e-10:
 					e_refbase = e_ref
 				else:
-					e_refbase = corr(mol, calc, exp, calc.exp_base['METHOD'])
+					e_refbase = corr(mol, calc, exp, calc.base['METHOD'])
 		return e_ref + calc.energy['hf'], e_refbase + calc.energy['hf'], calc.mo
 
 
@@ -180,53 +180,53 @@ def base(mol, calc, exp):
 		# set core and cas spaces
 		exp.core_idx, exp.cas_idx = core_cas(mol, exp, calc.exp_space)
 		# zeroth-order energy
-		if calc.exp_base['METHOD'] is None:
+		if calc.base['METHOD'] is None:
 			e_base = 0.0
 		# cisd base
-		elif calc.exp_base['METHOD'] == 'CISD':
+		elif calc.base['METHOD'] == 'CISD':
 			e_base, dm = _ci(mol, calc, exp, calc.mo, True)
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# ccsd / ccsd(t) base
-		elif calc.exp_base['METHOD'] in ['CCSD','CCSD(T)']:
+		elif calc.base['METHOD'] in ['CCSD','CCSD(T)']:
 			e_base, dm = _cc(mol, calc, exp, calc.mo, True, \
-										(calc.exp_base['METHOD'] == 'CCSD(T)') and \
-										((calc.exp_occ == 'REF') and (calc.exp_virt == 'REF')))
+										(calc.base['METHOD'] == 'CCSD(T)') and \
+										((calc.occ == 'REF') and (calc.virt == 'REF')))
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# sci base
-		elif calc.exp_base['METHOD'] == 'SCI':
+		elif calc.base['METHOD'] == 'SCI':
 			e_base, dm = _sci(mol, calc, exp, calc.mo, True)
 		# copy mo
 		mo = np.copy(calc.mo)
 		# occ-occ block (local or NOs)
-		if calc.exp_occ != 'REF':
-			if calc.exp_occ == 'NO':
+		if calc.occ != 'REF':
+			if calc.occ == 'NO':
 				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
-			elif calc.exp_occ == 'PM':
+			elif calc.occ == 'PM':
 				mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.exp_occ == 'FB':
+			elif calc.occ == 'FB':
 				mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.exp_occ in ['IBO-1','IBO-2']:
+			elif calc.occ in ['IBO-1','IBO-2']:
 				iao = lo.iao.iao(mol, calc.mo[:, mol.core:mol.nocc])
-				if calc.exp_occ == 'IBO-1':
+				if calc.occ == 'IBO-1':
 					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
 					mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
-				elif calc.exp_occ == 'IBO-2':
+				elif calc.occ == 'IBO-2':
 					mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
-		if calc.exp_virt != 'REF':
-			if calc.exp_virt == 'NO':
+		if calc.virt != 'REF':
+			if calc.virt == 'NO':
 				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
-			elif calc.exp_virt == 'PM':
+			elif calc.virt == 'PM':
 				mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
-			elif calc.exp_virt == 'FB':
+			elif calc.virt == 'FB':
 				mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
 		# (t) correction for NOs
-		if calc.exp_occ == 'NO' or calc.exp_virt == 'NO':
-			if calc.exp_base['METHOD'] == 'CCSD(T)':
+		if calc.occ == 'NO' or calc.virt == 'NO':
+			if calc.base['METHOD'] == 'CCSD(T)':
 				e_base, dm = _cc(mol, calc, exp, mo, False, True)
-			elif calc.exp_base['METHOD'] == 'SCI':
+			elif calc.base['METHOD'] == 'SCI':
 				e_base, dm = _sci(mol, calc, exp, mo, False)
 		return e_base, mo
 
@@ -234,8 +234,8 @@ def base(mol, calc, exp):
 def _casscf(mol, calc, exp, method):
 		""" casscf calc """
 		# casscf ref
-		cas = mcscf.CASSCF(calc.hf, len(calc.exp_ref['ACTIVE']), calc.exp_ref['NELEC'])
-		if abs(calc.exp_ref['NELEC'][0]-calc.exp_ref['NELEC'][1]) == 0:
+		cas = mcscf.CASSCF(calc.hf, len(calc.ref['ACTIVE']), calc.ref['NELEC'])
+		if abs(calc.ref['NELEC'][0]-calc.ref['NELEC'][1]) == 0:
 			if method == 'FCI':
 				cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
 			elif method == 'SCI':
@@ -252,12 +252,12 @@ def _casscf(mol, calc, exp, method):
 		# wfnsym
 		cas.fcisolver.wfnsym = calc.wfnsym
 		# frozen
-		cas.frozen = (mol.nelectron - (calc.exp_ref['NELEC'][0] + calc.exp_ref['NELEC'][1])) // 2
+		cas.frozen = (mol.nelectron - (calc.ref['NELEC'][0] + calc.ref['NELEC'][1])) // 2
 		# verbose print
 		if mol.verbose: cas.verbose = 4
 		# fix spin if non-singlet
 		if mol.spin > 0:
-			sz = abs(calc.exp_ref['NELEC'][0]-calc.exp_ref['NELEC'][1]) * .5
+			sz = abs(calc.ref['NELEC'][0]-calc.ref['NELEC'][1]) * .5
 			cas.fix_spin_(ss=sz * (sz + 1.))
 		# run casscf calc
 		cas.kernel(calc.mo)
@@ -268,7 +268,7 @@ def _casscf(mol, calc, exp, method):
 				sys.stderr.write(str(err))
 				raise
 		# calculate spin
-		s, mult = cas.fcisolver.spin_square(cas.ci, len(calc.exp_ref['ACTIVE']), calc.exp_ref['NELEC'])
+		s, mult = cas.fcisolver.spin_square(cas.ci, len(calc.ref['ACTIVE']), calc.ref['NELEC'])
 		# check for correct spin
 		if (mol.spin + 1) - mult > 1.0e-05:
 			try:
@@ -384,7 +384,7 @@ def _sci(mol, calc, exp, mo, base):
 			e_corr = e - calc.energy['hf']
 		# sci dm
 		if base:
-			if calc.exp_occ == 'NO' or calc.exp_virt == 'NO':
+			if calc.occ == 'NO' or calc.virt == 'NO':
 				dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)
 		else:
 			dm = None
@@ -432,7 +432,7 @@ def _ci(mol, calc, exp, mo, base):
 		e_corr = cisd.e_corr
 		# dm
 		if base:
-			if calc.exp_occ == 'NO' or calc.exp_virt == 'NO':
+			if calc.occ == 'NO' or calc.virt == 'NO':
 				dm = cisd.make_rdm1()
 		else:
 			dm = None
@@ -481,7 +481,7 @@ def _cc(mol, calc, exp, mo, base, pt=False):
 		e_corr = ccsd.e_corr
 		# dm
 		if base and not pt:
-			if calc.exp_occ == 'NO' or calc.exp_virt == 'NO':
+			if calc.occ == 'NO' or calc.virt == 'NO':
 				ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
 				dm = ccsd.make_rdm1()
 		else:

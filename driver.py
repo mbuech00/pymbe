@@ -28,10 +28,10 @@ import parallel
 def main(mpi, mol, calc, exp):
 		""" main driver routine """
 		# print and time logical
-		do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
+		do_print = mpi.global_master and (not ((calc.typ == 'combined') and (exp.level == 'micro')))
 		# exp class instantiation on slaves
 		if mpi.parallel:
-			if calc.exp_type in ['occupied','virtual']:
+			if calc.typ in ['occupied','virtual']:
 				msg = {'task': 'exp_cls', 'rst': calc.restart}
 				# bcast msg
 				mpi.local_comm.bcast(msg, root=0)
@@ -45,7 +45,7 @@ def main(mpi, mol, calc, exp):
 					# bcast msg
 					mpi.local_comm.bcast(msg, root=0)
 #					# compute and communicate distinct natural virtual orbitals
-#					if (calc.exp_virt == 'DNO'):
+#					if (calc.virt == 'DNO'):
 #						kernel.trans_dno(mol, calc, exp) 
 #						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
 		# print expansion header
@@ -194,10 +194,10 @@ def slave(mpi, mol, calc):
 				# mark expansion as micro
 				exp.level = 'micro'
 				# distinguish between occ-virt expansions and combined expansions
-				if calc.exp_type == 'combined':
+				if calc.typ == 'combined':
 					exp.incl_idx = msg['incl_idx']
 #					# receive distinct natural virtual orbitals
-#					if (calc.exp_virt == 'DNO'):
+#					if (calc.virt == 'DNO'):
 #						mpi.bcast_mo_info(mol, calc, mpi.local_comm)
 				else:
 					# receive exp info

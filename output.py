@@ -69,11 +69,11 @@ def exp_header(calc, exp):
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print('\n\n'+_header_str)
-				print('{0:^93}'.format(calc.exp_type+' expansion'))
+				print('{0:^93}'.format(calc.typ+' expansion'))
 				print(_header_str+'\n\n')
 		# write also to stdout
 		print('\n\n'+_header_str)
-		print('{0:^93}'.format(calc.exp_type+' expansion'))
+		print('{0:^93}'.format(calc.typ+' expansion'))
 		print(_header_str+'\n\n')
 
 
@@ -119,7 +119,7 @@ def mbe_end(calc, exp):
 
 def mbe_microresults(calc, exp):	
 		""" print micro result statistics """
-		if calc.exp_type == 'combined' and exp.level == 'macro':
+		if calc.typ == 'combined' and exp.level == 'macro':
 			# statistics
 			mean_val = np.mean(exp.micro_conv[exp.order-exp.start_order])
 			min_val = exp.micro_conv[exp.order-exp.start_order][np.argmin(exp.micro_conv[exp.order-exp.start_order])]
@@ -158,7 +158,7 @@ def mbe_results(mol, calc, exp):
 		# core and cas regions
 		core, cas = kernel.core_cas(mol, exp, exp.tuples[exp.order-exp.start_order][max_idx])
 		cas_ref = '{0:}'.format(sorted(list(set(calc.ref_space.tolist()) - set(core))))
-		if calc.exp_ref['METHOD'] == 'HF':
+		if calc.ref['METHOD'] == 'HF':
 			casexp = '{0:}'.format(sorted(list(set(cas) - set(calc.ref_space.tolist()))))
 		else:
 			casexp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))

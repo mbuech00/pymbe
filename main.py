@@ -61,11 +61,11 @@ def main():
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# expansion instantiation
-				if calc.exp_type in ['occupied','virtual']:
+				if calc.typ in ['occupied','virtual']:
 					exp = expansion.ExpCls(mol, calc)
 					# mark expansion as micro
 					exp.level = 'micro'
-#				elif (calc.exp_type == 'combined'):
+#				elif (calc.typ == 'combined'):
 #					exp = expansion.ExpCls(mol, calc)
 #					# mark expansion as macro
 #					exp.level = 'macro'
@@ -78,11 +78,11 @@ def main():
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, calc.no_act = kernel.active(mol, calc)
 				# expansion instantiation
-				if calc.exp_type in ['occupied','virtual']:
+				if calc.typ in ['occupied','virtual']:
 					exp = expansion.ExpCls(mol, calc)
 					# mark expansion as micro
 					exp.level = 'micro'
-#				elif (calc.exp_type == 'combined'):
+#				elif (calc.typ == 'combined'):
 #					exp = expansion.ExpCls(mol, calc, 'occupied')
 #					# mark expansion as macro
 #					exp.level = 'macro'

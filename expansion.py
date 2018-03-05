@@ -27,7 +27,7 @@ class ExpCls():
 				self.energy['tot'] = []
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
-				self.max_order = min(len(calc.exp_space), calc.exp_max_order)
+				self.max_order = min(len(calc.exp_space), calc.max_order)
 				# init micro_conv list
 				self.micro_conv = []
 				# init convergence list
@@ -39,7 +39,7 @@ class ExpCls():
 				if self.start_order < 3:
 					self.thres = 0.0
 				else:
-					self.thres = calc.exp_thres * calc.exp_relax ** (self.start_order - 3)
+					self.thres = calc.thres * calc.relax ** (self.start_order - 3)
 				# restart frequency
 				self.rst_freq = 50000
 
@@ -52,9 +52,9 @@ class ExpCls():
 				if calc.no_act == len(incl_idx):
 					tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32)]
 				else:
-					if calc.exp_type == 'occupied':
+					if calc.typ == 'occupied':
 						tuples = [np.array([calc.exp_space[-(calc.no_act-len(calc.ref_space)):]], dtype=np.int32)]
-					elif calc.exp_type == 'virtual':
+					elif calc.typ == 'virtual':
 						tuples = [np.array([calc.exp_space[:(calc.no_act-len(calc.ref_space))]], dtype=np.int32)]
 				return incl_idx, tuples
 
