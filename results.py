@@ -48,37 +48,22 @@ def main(mpi, mol, calc, exp):
 		_table(info, mol, calc, exp)
 		# plot
 		_plot(calc, exp)
-		#
-		return
 
 
 def _setup(mpi, mol, calc, exp):
 		""" init parameters """
-		# modify basis print out
 		basis = _basis(mol)
-		# modify spin multiplicity print out
 		mult = _mult(mol)
-		# modify reference print out
 		ref = _ref(mol, calc)
-		# modify base print out
 		base = _base(calc)
-		# modify system size print out
 		system = _system(mol, calc)
-		# modify frozen core print out
 		frozen = _frozen(mol)
-		# modify active space print out
 		active = _active(calc)
-		# modify orbital print out
 		occ, virt = _orbs(calc)
-		# modify mpi print out
 		mpi = _mpi(mpi)
-		# modify threshold print out
 		thres = _thres(calc)
-		# modify symmetry print out
 		symm = _symm(mol, calc)
-		# modify convergence print out
 		conv = _conv(exp)
-		#
 		return basis, mult, ref, base, system, frozen, active, \
 				occ, virt, mpi, thres, symm, conv
 
@@ -104,8 +89,6 @@ def _table(info, mol, calc, exp):
 				print(_divider_str)
 				for i in _orders(calc, exp): print(i)
 				print(_divider_str+'\n\n')
-		#
-		return
 	
 	
 def _plot(calc, exp):
@@ -136,8 +119,6 @@ def _plot(calc, exp):
 		plt.tight_layout()
 		# save plot
 		plt.savefig(_out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
-		#
-		return
 
 
 def _basis(mol):
@@ -191,7 +172,6 @@ def _base(calc):
 def _system(mol, calc):
 		""" modify system size print """
 		system = '{0:} e / {1:} o'.format(mol.nelectron - 2*mol.ncore, len(calc.ref_space) + len(calc.exp_space))
-		#
 		return system
 
 
@@ -236,7 +216,6 @@ def _orbs(calc):
 			virt = 'foster-boys'
 		elif (calc.exp_virt == 'DNO'):
 			virt = 'dist. natural'
-		#
 		return occ, virt
 
 
@@ -354,7 +333,6 @@ def _orders(calc, exp):
 						int(total_time-(total_time//3600)*3600.\
 						-((total_time-(total_time//3600)*3600.)//60)*60.),\
 						'','|','',len(exp.tuples[i]),'','|','',total_tup))
-		#
 		return orders
 
 

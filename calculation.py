@@ -46,8 +46,6 @@ class CalcCls():
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
 					self.sanity_chk(mpi, mol)
-				#
-				return
 
 
 		def set_calc(self, mpi, mol):
@@ -61,15 +59,15 @@ class CalcCls():
 								continue
 							elif (re.split('=',content[i])[0].strip() == 'model'):
 								self.exp_model = eval(re.split('=',content[i])[1].strip())
-								self.exp_model = self.upper(self.exp_model)
+								self.exp_model = self._upper(self.exp_model)
 							elif (re.split('=',content[i])[0].strip() == 'type'):
 								self.exp_type = re.split('=',content[i])[1].strip()
 							elif (re.split('=',content[i])[0].strip() == 'ref'):
 								self.exp_ref = eval(re.split('=',content[i])[1].strip())
-								self.exp_ref = self.upper(self.exp_ref)
+								self.exp_ref = self._upper(self.exp_ref)
 							elif (re.split('=',content[i])[0].strip() == 'base'):
 								self.exp_base = eval(re.split('=',content[i])[1].strip())
-								self.exp_base = self.upper(self.exp_base)
+								self.exp_base = self._upper(self.exp_base)
 							elif (re.split('=',content[i])[0].strip() == 'thres'):
 								self.exp_thres = float(re.split('=',content[i])[1].strip())
 							elif (re.split('=',content[i])[0].strip() == 'relax'):
@@ -198,11 +196,9 @@ class CalcCls():
 					restart.rm()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
 					raise
-				#
-				return
 
 
-		def upper(self, old_dict):
+		def _upper(self, old_dict):
 				""" capitalize keys """
 				new_dict = {}
 				for key, value in old_dict.items():
@@ -210,7 +206,6 @@ class CalcCls():
 						new_dict[key.upper()] = value.upper()
 					else:
 						new_dict[key.upper()] = value
-				#
 				return new_dict
 
 

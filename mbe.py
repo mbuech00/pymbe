@@ -32,7 +32,6 @@ def _enum(*sequential, **named):
 		see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 		"""
 		enums = dict(zip(sequential, range(len(sequential))), **named)
-		#
 		return type('Enum', (), enums)
 
 
@@ -56,8 +55,6 @@ def main(mpi, mol, calc, exp):
 		if (exp.order > exp.start_order): e_tmp += exp.energy['tot'][-1]
 		# add to total energy list
 		exp.energy['tot'].append(e_tmp)
-		#
-		return
 
 
 def _serial(mpi, mol, calc, exp):
@@ -86,7 +83,7 @@ def _serial(mpi, mol, calc, exp):
 				exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
 				exp.micro_conv[-1][i] = exp_micro.order
 				# sum up energy increment
-				_sum(calc, exp, i)
+				exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
 			else:
 				# generate input
 				exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])
@@ -104,7 +101,7 @@ def _serial(mpi, mol, calc, exp):
 									+ (calc.energy['hf'] - calc.energy['ref_base'])
 				exp.energy['inc'][-1][i] = e_model - e_base
 				# calc increment
-				_sum(calc, exp, i)
+				exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
 				# verbose print
 				if (mol.verbose):
 					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
@@ -116,8 +113,6 @@ def _serial(mpi, mol, calc, exp):
 				exp.time_mbe[-1] += MPI.Wtime() - time
 				# write restart files
 				restart.mbe_write(calc, exp, False)
-		#
-		return
 
 
 def _master(mpi, mol, calc, exp):
@@ -160,8 +155,6 @@ def _master(mpi, mol, calc, exp):
 						e_base = kernel.corr(mol, calc, exp, calc.exp_base['METHOD']) \
 									+ (calc.energy['hf'] - calc.energy['ref_base'])
 				exp.energy['inc'][0][i] = e_model - e_base
-				# calc increment
-				_sum(calc, exp, i)
 				# verbose print
 				if (mol.verbose):
 					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
@@ -215,7 +208,7 @@ def _master(mpi, mol, calc, exp):
 					exp.energy['inc'][-1][data['index']] = data['e_inc']
 					# write to micro_conv
 					if (mpi.global_master and (exp.level == 'macro')):
-						_sum(calc, exp, 'inc', data['index'])
+						exp.energy['inc'][-1][data['index']] -= _sum(calc, exp, data['index'])
 						exp.micro_conv[-1][data['index']] = data['micro_order']
 					# write restart files
 					if (mpi.global_master and ((((data['index']+1) % exp.rst_freq) == 0) or (exp.level == 'macro'))):
@@ -234,8 +227,6 @@ def _master(mpi, mol, calc, exp):
 					output.mbe_status(calc, exp, 1.0)
 			# bcast energies
 			parallel.energy(exp, comm)
-		#
-		return
 
 
 def slave(mpi, mol, calc, exp):
@@ -297,7 +288,7 @@ def slave(mpi, mol, calc, exp):
 										+ (calc.energy['hf'] - calc.energy['ref_base'])
 						exp.energy['inc'][-1][job_info['index']] = e_model - e_base
 						# calc increment
-						_sum(calc, exp, job_info['index'])
+						exp.energy['inc'][-1][job_info['index']] -= _sum(calc, exp, job_info['index'])
 						# verbose print
 						if (mol.verbose):
 							print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
@@ -314,8 +305,6 @@ def slave(mpi, mol, calc, exp):
 			comm.send(None, dest=0, tag=_tags.exit)
 			# receive energies
 			parallel.energy(exp, comm)
-		#
-		return
 
 
 def _sum(calc, exp, idx):
@@ -332,17 +321,13 @@ def _sum(calc, exp, idx):
 								combs.view(dt).reshape(-1)))[0]
 			# add up lower-order increments
 			res[count] = math.fsum(exp.energy['inc'][i-exp.start_order][match])
-		# now compute increment
-		exp.energy['inc'][-1][idx] -= math.fsum(res)
-		#
-		return
+		return math.fsum(res)
 
 
 def _comb_index(n, k):
 		""" calculate combined index """
 		count = scipy.misc.comb(n, k, exact=True)
 		index = np.fromiter(itertools.chain.from_iterable(itertools.combinations(range(n), k)), int,count=count * k)
-		#
 		return index.reshape(-1, k)
 
 

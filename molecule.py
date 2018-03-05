@@ -44,8 +44,6 @@ class MolCls(gto.Mole):
 					# set Mole
 					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
 						self.basis, self.unit, self.frozen, self.verbose = self.set_mol()
-				#
-				return
 
 
 		def make(self, mpi):
@@ -63,8 +61,6 @@ class MolCls(gto.Mole):
 							raise
 				else:
 					self.build(dump_input=False, parse_arg=False)
-				#
-				return
 
 
 		def set_geo(self):
@@ -83,7 +79,6 @@ class MolCls(gto.Mole):
 					restart.rm()
 					sys.stderr.write('\nIOError: geo.inp not found\n\n')
 					raise
-				#
 				return atom
 
 
@@ -128,7 +123,6 @@ class MolCls(gto.Mole):
 					restart.rm()
 					sys.stderr.write('\nIOError: mol.inp not found\n\n')
 					raise
-				#
 				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
 						self.basis, self.unit, self.frozen, self.verbose
 
@@ -142,7 +136,6 @@ class MolCls(gto.Mole):
 						if (self.atom_charge(i) > 12): ncore += 4
 						if (self.atom_charge(i) > 20): ncore += 4
 						if (self.atom_charge(i) > 30): ncore += 6
-				#
 				return ncore
 
 

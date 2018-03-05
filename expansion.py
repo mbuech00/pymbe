@@ -42,8 +42,6 @@ class ExpCls():
 					self.thres = calc.exp_thres * calc.exp_relax ** (self.start_order - 3)
 				# restart frequency
 				self.rst_freq = 50000
-				#
-				return
 
 
 		def init_tuples(self, mol, calc):
@@ -58,7 +56,6 @@ class ExpCls():
 						tuples = [np.array([calc.exp_space[-(calc.no_act-len(calc.ref_space)):]], dtype=np.int32)]
 					elif (calc.exp_type == 'virtual'):
 						tuples = [np.array([calc.exp_space[:(calc.no_act-len(calc.ref_space))]], dtype=np.int32)]
-				#
 				return incl_idx, tuples
 
 

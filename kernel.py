@@ -26,7 +26,6 @@ def hcore_eri(mol):
 		""" get core hamiltonian and AO eris """
 		hcore = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
 		eri = mol.intor('int2e_sph', aosym=4)
-		#
 		return hcore, eri
 
 
@@ -57,7 +56,6 @@ def hf(mol, calc):
 		e_hf = hf.e_tot
 		occup = hf.mo_occ
 		orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-		#
 		return hf, e_hf, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
@@ -74,7 +72,6 @@ def _dim(hf, calc):
 		nocc = len(occ)
 		nvirt = len(virt)
 		norb = nocc + nvirt
-		#
 		return norb, nocc, nvirt
 
 
@@ -108,7 +105,6 @@ def active(mol, calc):
 				except Exception as err:
 					sys.stderr.write(str(err))
 					raise
-		#
 		return ref_space, exp_space, no_act
 
 
@@ -124,7 +120,6 @@ def _mf(mol, calc, mo):
 		e_mf = mol.energy_nuc()
 		e_mf += np.einsum('ij,ij', mol.hcore.conj(), dm[0] + dm[1])
 		e_mf += (np.einsum('ij,ji', vhf[0], dm[0]) + np.einsum('ij,ji', vhf[1], dm[1])) * .5
-		#
 		return e_mf
 
 
@@ -160,7 +155,6 @@ def ref(mol, calc, exp):
 					e_refbase = e_ref
 				else:
 					e_refbase = corr(mol, calc, exp, calc.exp_base['METHOD'])
-		#
 		return e_ref + calc.energy['hf'], e_refbase + calc.energy['hf'], calc.mo
 
 
@@ -178,7 +172,6 @@ def corr(mol, calc, exp, method):
 		# ccsd / ccsd(t) calc
 		elif (method in ['CCSD','CCSD(T)']):
 			e_corr, _ = _cc(mol, calc, exp, calc.mo, False, (method == 'CCSD(T)'))
-		#
 		return e_corr
 
 
@@ -235,7 +228,6 @@ def base(mol, calc, exp):
 				e_base, dm = _cc(mol, calc, exp, mo, False, True)
 			elif (calc.exp_base['METHOD'] == 'SCI'):
 				e_base, dm = _sci(mol, calc, exp, mo, False)
-		#
 		return e_base, mo
 
 
@@ -288,7 +280,6 @@ def _casscf(mol, calc, exp, method):
 				raise
 		# save mo
 		mo = np.asarray(cas.mo_coeff, order='C')
-		#
 		return mo
 
 
@@ -340,8 +331,7 @@ def _fci(mol, calc, exp, mo, base):
 					raise
 			# e_corr
 			e_corr = e - calc.energy['hf']
-#		if (exp.order < exp.max_order): e_corr += np.float64(0.001) * np.random.random_sample()
-		#
+#			if (exp.order < exp.max_order): e_corr += np.float64(0.001) * np.random.random_sample()
 		return e_corr
 
 
@@ -397,7 +387,6 @@ def _sci(mol, calc, exp, mo, base):
 			dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)
 		else:
 			dm = None
-		#
 		return e_corr, dm
 
 
@@ -445,7 +434,6 @@ def _ci(mol, calc, exp, mo, base):
 			dm = cisd.make_rdm1()
 		else:
 			dm = None
-		#
 		return e_corr, dm
 
 
@@ -503,7 +491,6 @@ def _cc(mol, calc, exp, mo, base, pt=False):
 			else:
 				if ((eris.focka.shape[0] - eris.nocca) > 0):
 					e_corr += ccsd.ccsd_t(eris=eris)
-		#
 		return e_corr, dm
 
 
@@ -511,7 +498,6 @@ def core_cas(mol, exp, tup):
 		""" define core and cas spaces """
 		cas_idx = sorted(exp.incl_idx + sorted(tup.tolist()))
 		core_idx = sorted(list(set(range(mol.nocc)) - set(cas_idx)))
-		#
 		return core_idx, cas_idx
 
 
@@ -530,7 +516,6 @@ def _prepare(mol, calc, exp, orbs):
 		h1e_cas = reduce(np.dot, (np.transpose(orbs[:, exp.cas_idx]), \
 								mol.hcore + core_vhf, orbs[:, exp.cas_idx]))
 		h2e_cas = ao2mo.incore.full(mol.eri, orbs[:, exp.cas_idx])
-		#
 		return h1e_cas, h2e_cas, e_core
 
 

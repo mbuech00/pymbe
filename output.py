@@ -62,8 +62,6 @@ def main_header():
 					print('                                            *****')
 					print('                                       ***************')
 					print('                                            *****')
-		#
-		return
 
 
 def exp_header(calc, exp):
@@ -77,8 +75,6 @@ def exp_header(calc, exp):
 		print('\n\n'+_header_str)
 		print('{0:^93}'.format(calc.exp_type+' expansion'))
 		print(_header_str+'\n\n')
-		#
-		return
 
 
 def mbe_header(calc, exp):
@@ -94,8 +90,6 @@ def mbe_header(calc, exp):
 		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
 				format(exp.order,len(exp.tuples[exp.order-exp.start_order])))
 		print(' --------------------------------------------------------------------------------------------')
-		#
-		return
 
 
 def mbe_status(calc, exp, prog):
@@ -106,8 +100,6 @@ def mbe_status(calc, exp, prog):
 		block = int(round(bar_length * prog))
 		print(' STATUS-'+exp.level.upper()+':   [{0}]   ---  {1:>6.2f} % {2}'.\
 				format('#' * block + '-' * (bar_length - block), prog * 100, status))
-		#
-		return
 
 
 def mbe_end(calc, exp):
@@ -123,8 +115,6 @@ def mbe_end(calc, exp):
 		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
 				format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order]),exp.thres))
 		print(' --------------------------------------------------------------------------------------------')
-		#
-		return
 
 
 def mbe_microresults(calc, exp):	
@@ -155,8 +145,6 @@ def mbe_microresults(calc, exp):
 			print(' RESULT-MICRO:   {0:>8.1f}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
 					format(mean_val, min_val, max_val, std_val))
 			print(' --------------------------------------------------------------------------------------------')
-		#
-		return
 
 
 def mbe_results(mol, calc, exp):
@@ -203,8 +191,6 @@ def mbe_results(mol, calc, exp):
 			print(' RESULT-'+exp.level.upper()+':  core = {0:}'.format(core))
 			print(' RESULT-'+exp.level.upper()+':  cas  = '+cas_ref+' + '+casexp)
 		print(' --------------------------------------------------------------------------------------------')
-		#
-		return
 
 
 def screen_header(calc, exp):
@@ -218,8 +204,6 @@ def screen_header(calc, exp):
 		print(' --------------------------------------------------------------------------------------------')
 		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening started'.format(exp.order))
 		print(' --------------------------------------------------------------------------------------------')
-		#
-		return
 
 
 def screen_end(calc, exp):
@@ -245,7 +229,5 @@ def screen_end(calc, exp):
 			print(' --------------------------------------------------------------------------------------------')
 			print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening done'.format(exp.order))
 			print(' --------------------------------------------------------------------------------------------\n\n')
-		#
-		return
 		
 		

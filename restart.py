@@ -36,8 +36,6 @@ def restart():
 def rm():
 		""" remove rst directory in case of successful calc """
 		shutil.rmtree(_rst, ignore_errors=True)
-		#
-		return
 
 
 def main(calc, exp):
@@ -68,7 +66,6 @@ def main(calc, exp):
 					exp.time_mbe.append(np.load(os.path.join(_rst, files[i])).tolist())
 				elif ('time_screen' in files[i]):
 					exp.time_screen.append(np.load(os.path.join(_rst, files[i])).tolist())
-			#
 			return exp.tuples[-1].shape[1]
 
 
@@ -90,8 +87,6 @@ def write_fund(mol, calc):
 		np.save(os.path.join(_rst, 'occup'), calc.occup)
 		# write orbitals
 		np.save(os.path.join(_rst, 'mo'), calc.mo)
-		#
-		return
 
 
 def read_fund(mol, calc):
@@ -126,8 +121,6 @@ def read_fund(mol, calc):
 				calc.mo = np.load(os.path.join(_rst, files[i]))
 		# norb
 		mol.norb = mol.nocc + mol.nvirt
-		#
-		return
 
 
 def mbe_write(calc, exp, final):
@@ -142,8 +135,6 @@ def mbe_write(calc, exp, final):
 		# write e_tot
 		if (final):
 			np.save(os.path.join(_rst, 'e_tot_'+str(exp.order)), np.asarray(exp.energy['tot'][-1]))
-		#
-		return
 
 
 def screen_write(exp):
@@ -152,8 +143,6 @@ def screen_write(exp):
 		np.save(os.path.join(_rst, 'tup_'+str(exp.order+1)), exp.tuples[-1])
 		# write time
 		np.save(os.path.join(_rst, 'time_screen_'+str(exp.order)), np.asarray(exp.time_screen[-1]))
-		#
-		return
 
 
 def _natural_keys(txt):

@@ -24,7 +24,6 @@ def _enum(*sequential, **named):
 		see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 		"""
 		enums = dict(zip(sequential, range(len(sequential))), **named)
-		#
 		return type('Enum', (), enums)
 
 
@@ -83,8 +82,6 @@ def main(mpi, mol, calc, exp):
 				exp.conv_orb.append(True)
 		# update expansion threshold
 		exp.thres = update(calc, exp)
-		#
-		return
 
 
 def _master(mpi, mol, calc, exp):
@@ -145,8 +142,6 @@ def _master(mpi, mol, calc, exp):
 			tup_info = {'tup_len': len(exp.tuples[-1])}
 			comm.bcast(tup_info, root=0)
 			parallel.tup(exp, comm)
-		#
-		return
 
 
 def slave(mpi, mol, calc, exp):
@@ -213,8 +208,6 @@ def slave(mpi, mol, calc, exp):
 		tup_info = comm.bcast(None, root=0)
 		exp.tuples.append(np.empty([tup_info['tup_len'], exp.order+1], dtype=np.int32))
 		parallel.tup(exp, comm)
-		#
-		return
 
 
 def update(calc, exp):

@@ -132,8 +132,6 @@ def main(mpi, mol, calc, exp):
 				exp.energy['tot'] = np.array(exp.energy['tot'])
 				# now break
 				break
-		#
-		return
 
 
 def local_master(mpi, mol, calc):
