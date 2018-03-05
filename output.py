@@ -44,7 +44,6 @@ def main_header():
 					print("   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8")
 					print("                .o..P'")
 					print("                `Y8P'\n\n")
-					print('   --- an incremental Python-based electronic structure program\n\n')
 
 
 def exp_header(calc, exp):

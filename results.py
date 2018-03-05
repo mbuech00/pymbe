@@ -32,7 +32,6 @@ except ImportError:
 _out = os.getcwd()+'/output'
 _divider_str = '{0:^143}'.format('-'*137)
 _fill_str = '{0:^143}'.format('|'*137)
-_header_str = '{0:^139}'.format('-'*44)
 
 
 def main(mpi, mol, calc, exp):
@@ -71,9 +70,7 @@ def _table(info, mol, calc, exp):
 		# write summary to results.out
 		with open(_out+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(_header_str)
-				print('{0:^138}'.format('results'))
-				print(_header_str+'\n'); print(_divider_str)
+				print(_divider_str)
 				print(_header_1())
 				print(_divider_str)
 				print(_first_row(info, calc))
