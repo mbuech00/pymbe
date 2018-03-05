@@ -51,8 +51,7 @@ def _serial(mpi, mol, calc, exp):
 		# print and time logical
 		do_print = mpi.global_master and (not ((calc.exp_type == 'combined') and (exp.level == 'micro')))
 		# init time
-		if (do_print):
-			if (len(exp.time_mbe) < exp.order): exp.time_mbe.append(0.0)
+		if (do_print and (len(exp.time_mbe) < ((exp.order-exp.start_order)+1))): exp.time_mbe.append(0.0)
 		# determine start index
 		start = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# loop over tuples
@@ -171,11 +170,9 @@ def _master(mpi, mol, calc, exp):
 			# init stat counter
 			counter = i
 			# print status for START
-			if (mpi.global_master and (not (exp.level == 'macro'))):
-				output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
+			if (mpi.global_master): output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 			# init time
-			if (mpi.global_master and (len(exp.time_mbe) < exp.order)):
-				exp.time_mbe.append(0.0)
+			if (mpi.global_master and (len(exp.time_mbe) < ((exp.order-exp.start_order)+1))): exp.time_mbe.append(0.0)
 			time = MPI.Wtime()
 			# loop until no slaves left
 			while (slaves_avail >= 1):
@@ -191,8 +188,6 @@ def _master(mpi, mol, calc, exp):
 				if (tag == tags.ready):
 					# any jobs left?
 					if (i <= (len(exp.tuples[-1]) - 1)):
-						# start time
-						if (mpi.global_master): time = MPI.Wtime()
 						# store job index
 						job_info['index'] = i
 						# send string dict
