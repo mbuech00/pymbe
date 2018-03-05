@@ -20,7 +20,7 @@ class ExpCls():
 		def __init__(self, mol, calc):
 				""" init parameters """
 				# init tuples and incl_idx
-				self.incl_idx, self.tuples = self.init_tuples(mol, calc)
+				self.incl_idx, self.tuples = _init_tup(mol, calc)
 				# init energy dict
 				self.energy = {}
 				self.energy['inc'] = []
@@ -46,18 +46,18 @@ class ExpCls():
 					self.level = 'micro'
 
 
-		def init_tuples(self, mol, calc):
-				""" init tuples and incl_idx """
-				# incl_idx
-				incl_idx = calc.ref_space.tolist()
-				# tuples
-				if calc.no_act == len(incl_idx):
-					tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32)]
-				else:
-					if calc.typ == 'occupied':
-						tuples = [np.array([calc.exp_space[-(calc.no_act-len(calc.ref_space)):]], dtype=np.int32)]
-					elif calc.typ == 'virtual':
-						tuples = [np.array([calc.exp_space[:(calc.no_act-len(calc.ref_space))]], dtype=np.int32)]
-				return incl_idx, tuples
+def _init_tup(mol, calc):
+		""" init tuples and incl_idx """
+		# incl_idx
+		incl_idx = calc.ref_space.tolist()
+		# tuples
+		if calc.no_act == len(incl_idx):
+			tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32)]
+		else:
+			if calc.typ == 'occupied':
+				tuples = [np.array([calc.exp_space[-(calc.no_act-len(calc.ref_space)):]], dtype=np.int32)]
+			elif calc.typ == 'virtual':
+				tuples = [np.array([calc.exp_space[:(calc.no_act-len(calc.ref_space))]], dtype=np.int32)]
+		return incl_idx, tuples
 
 
