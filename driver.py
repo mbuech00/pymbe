@@ -104,13 +104,13 @@ def main(mpi, mol, calc, exp):
 			# orbital screening
 			if exp.order < exp.max_order:
 				# start time
-				if do_print: exp.time_screen.append(MPI.Wtime())
+				if do_print: exp.time['screen'].append(MPI.Wtime())
 				# perform screening
 				screen.main(mpi, mol, calc, exp)
 				if do_print:
 					# collect time
-					exp.time_screen[-1] -= MPI.Wtime()
-					exp.time_screen[-1] *= -1.0
+					exp.time['screen'][-1] -= MPI.Wtime()
+					exp.time['screen'][-1] *= -1.0
 					# write restart files
 					if not exp.conv_orb[-1]:
 						restart.screen_write(exp)
@@ -121,7 +121,7 @@ def main(mpi, mol, calc, exp):
 					# print screen end
 					output.screen_end(calc, exp)
 					# collect time
-					exp.time_screen.append(0.0)
+					exp.time['screen'].append(0.0)
 			# update restart frequency
 			if do_print: exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
 			#

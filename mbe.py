@@ -63,7 +63,7 @@ def _serial(mpi, mol, calc, exp):
 		do_print = mpi.global_master and (not ((calc.typ == 'combined') and (exp.level == 'micro')))
 		# init time
 		if do_print:
-			if len(exp.time_mbe) < (exp.order-exp.start_order)+1: exp.time_mbe.append(0.0)
+			if len(exp.time['mbe']) < (exp.order-exp.start_order)+1: exp.time['mbe'].append(0.0)
 		# determine start index
 		start = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# loop over tuples
@@ -111,7 +111,7 @@ def _serial(mpi, mol, calc, exp):
 				# print status
 				output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[-1])))
 				# collect time
-				exp.time_mbe[-1] += MPI.Wtime() - time
+				exp.time['mbe'][-1] += MPI.Wtime() - time
 				# write restart files
 				restart.mbe_write(calc, exp, False)
 
@@ -163,7 +163,7 @@ def _master(mpi, mol, calc, exp):
 				# print status
 				if mol.verbose: output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[0])))
 			# collect time
-			exp.time_mbe.append(MPI.Wtime() - time)
+			exp.time['mbe'].append(MPI.Wtime() - time)
 			# print status
 			if not mol.verbose: output.mbe_status(calc, exp, 1.0)
 			# bcast energies
@@ -179,7 +179,7 @@ def _master(mpi, mol, calc, exp):
 			if mpi.global_master: output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
 			# init time
 			if mpi.global_master:
-				if len(exp.time_mbe) < (exp.order - exp.start_order) + 1: exp.time_mbe.append(0.0)
+				if len(exp.time['mbe']) < (exp.order - exp.start_order) + 1: exp.time['mbe'].append(0.0)
 			time = MPI.Wtime()
 			# loop until no slaves left
 			while (slaves_avail >= 1):
@@ -187,7 +187,7 @@ def _master(mpi, mol, calc, exp):
 				data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 				# collect time
 				if mpi.global_master:
-					exp.time_mbe[-1] += MPI.Wtime() - time
+					exp.time['mbe'][-1] += MPI.Wtime() - time
 					time = MPI.Wtime()
 				# probe for source and tag
 				source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()

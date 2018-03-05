@@ -33,8 +33,7 @@ class ExpCls():
 				# init convergence list
 				self.conv_orb = [False]
 				# init timings
-				self.time_mbe = []
-				self.time_screen = []
+				self.time = {'mbe': [], 'screen': []}
 				# init thres
 				if self.start_order < 3:
 					self.thres = 0.0

@@ -63,9 +63,9 @@ def main(calc, exp):
 					exp.micro_conv.append(np.load(os.path.join(_rst, files[i])).tolist())
 				# read timings
 				elif 'time_mbe' in files[i]:
-					exp.time_mbe.append(np.load(os.path.join(_rst, files[i])).tolist())
+					exp.time['mbe'].append(np.load(os.path.join(_rst, files[i])).tolist())
 				elif 'time_screen' in files[i]:
-					exp.time_screen.append(np.load(os.path.join(_rst, files[i])).tolist())
+					exp.time['screen'].append(np.load(os.path.join(_rst, files[i])).tolist())
 			return exp.tuples[-1].shape[1]
 
 
@@ -131,7 +131,7 @@ def mbe_write(calc, exp, final):
 		if calc.typ == 'combined':
 			np.save(os.path.join(_rst, 'micro_conv_'+str(exp.order)), np.asarray(exp.micro_conv[-1]))
 		# write time
-		np.save(os.path.join(_rst, 'time_mbe_'+str(exp.order)), np.asarray(exp.time_mbe[-1]))
+		np.save(os.path.join(_rst, 'time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
 		# write e_tot
 		if final:
 			np.save(os.path.join(_rst, 'e_tot_'+str(exp.order)), np.asarray(exp.energy['tot'][-1]))
@@ -142,7 +142,7 @@ def screen_write(exp):
 		# write tuples
 		np.save(os.path.join(_rst, 'tup_'+str(exp.order+1)), exp.tuples[-1])
 		# write time
-		np.save(os.path.join(_rst, 'time_screen_'+str(exp.order)), np.asarray(exp.time_screen[-1]))
+		np.save(os.path.join(_rst, 'time_screen_'+str(exp.order)), np.asarray(exp.time['screen'][-1]))
 
 
 def _natural_keys(txt):
