@@ -97,8 +97,6 @@ def master(mpi, mol, calc, exp):
 			#
 			if msg['task'] == 'exp_cls':
 				exp = expansion.ExpCls(mol, calc)
-				# mark expansion as macro
-				exp.level = 'macro'
 				# set min order
 				exp.min_order = msg['min_order']
 				# receive exp info

@@ -26,8 +26,6 @@ class ExpCls():
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				self.max_order = min(len(calc.exp_space), calc.max_order)
-				# init micro_conv list
-				self.micro_conv = []
 				# init convergence list
 				self.conv_orb = [False]
 				# init timings
@@ -39,9 +37,6 @@ class ExpCls():
 					self.thres = calc.thres * calc.relax ** (self.start_order - 3)
 				# restart frequency
 				self.rst_freq = 50000
-				# micro/macro expansion
-				if calc.typ in ['occupied','virtual']:
-					self.level = 'micro'
 
 
 def _init_tup(mol, calc):

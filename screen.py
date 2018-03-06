@@ -119,11 +119,8 @@ def _slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# init data dict and combs list
 		data = {'child': []}; combs = []
-		# set communicator and number of workers
-		if exp.level == 'macro':
-			comm = mpi.master_comm
-		else:
-			comm = mpi.local_comm
+		# set communicator
+		comm = mpi.local_comm
 		# receive work from master
 		while (True):
 			# send status to master

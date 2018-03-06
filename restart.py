@@ -56,9 +56,6 @@ def main(calc, exp):
 				# read e_tot
 				elif 'e_tot' in files[i]:
 					exp.energy['tot'].append(np.load(os.path.join(_rst, files[i])).tolist())
-				# read micro_conv
-				elif 'micro_conv' in files[i]:
-					exp.micro_conv.append(np.load(os.path.join(_rst, files[i])).tolist())
 				# read timings
 				elif 'time_mbe' in files[i]:
 					exp.time['mbe'].append(np.load(os.path.join(_rst, files[i])).tolist())
@@ -125,9 +122,6 @@ def mbe_write(calc, exp, final):
 		""" write energy mbe restart files """
 		# write e_inc
 		np.save(os.path.join(_rst, 'e_inc_'+str(exp.order)), exp.energy['inc'][-1])
-		# write micro_conv
-		if calc.typ == 'combined':
-			np.save(os.path.join(_rst, 'micro_conv_'+str(exp.order)), np.asarray(exp.micro_conv[-1]))
 		# write time
 		np.save(os.path.join(_rst, 'time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
 		# write e_tot
