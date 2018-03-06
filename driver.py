@@ -163,14 +163,15 @@ def slave(mpi, mol, calc, exp):
 
 def _rst_print(mol, calc, exp):
 		""" print output in case of restart """
+		thres = 0.0
 		for exp.order in range(exp.start_order, exp.min_order):
 			output.mbe_header(calc, exp)
 			output.mbe_microresults(calc, exp)
 			output.mbe_end(calc, exp)
 			output.mbe_results(mol, calc, exp)
-			thres = screen.update(calc, exp)
 			output.screen_header(exp, thres)
 			output.screen_end(calc, exp)
+			thres = screen.update(calc, exp)
 			rst_freq = int(max(exp.rst_freq / 2., 1.))
 		return thres, rst_freq
 
