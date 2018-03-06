@@ -60,18 +60,15 @@ def main(mpi, mol, calc, exp):
 
 def _serial(mol, calc, exp):
 		""" serial version """
-		# print and time logical
-#		do_print = mpi.global_master and (not ((calc.typ == 'combined') and (exp.level == 'micro')))
-		do_print = True
 		# init time
-		if do_print:
+		if mpi.global_master:
 			if len(exp.time['mbe']) < (exp.order-exp.start_order)+1: exp.time['mbe'].append(0.0)
 		# determine start index
 		start = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# loop over tuples
 		for i in range(start, len(exp.tuples[-1])):
 			# start time
-			if do_print: time = MPI.Wtime()
+			if mpi.global_master: time = MPI.Wtime()
 			# run correlated calc
 			if exp.level == 'macro':
 				# micro exp instantiation
@@ -109,7 +106,7 @@ def _serial(mol, calc, exp):
 				if mol.verbose:
 					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
-			if do_print:
+			if mpi.global_master:
 				# print status
 				output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[-1])))
 				# collect time

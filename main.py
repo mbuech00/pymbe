@@ -23,7 +23,6 @@ import expansion
 import kernel
 import driver
 import restart
-import output
 import results
 
 
@@ -60,8 +59,6 @@ def _init():
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
 		if mpi.parallel and calc.restart: parallel.exp(mpi, calc, exp, mpi.global_comm)
-		# re-init restart logical
-		calc.restart = False
 		return mpi, mol, calc, exp
 
 

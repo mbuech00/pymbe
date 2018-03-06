@@ -25,20 +25,19 @@ import parallel
 
 def main(mpi, mol, calc, exp):
 		""" main driver routine """
-		# print and time logical
-		do_print = mpi.global_master and (not ((calc.typ == 'combined') and (exp.level == 'micro')))
 		# print expansion headers
-		if do_print:
+		if mpi.global_master:
 			output.main_header()
 			output.exp_header(calc, exp)
 		# restart
-		if calc.restart and do_print: exp.thres, exp.rst_freq = _rst_print(mol, calc, exp)
+		if mpi.global_master and calc.restart:
+			exp.thres, exp.rst_freq, calc.restart = _rst_print(mol, calc, exp)
 		# now do expansion
 		for exp.order in range(exp.min_order, exp.max_order+1):
 			#
 			#** mbe phase **#
 			#
-			if do_print: output.mbe_header(calc, exp)
+			if mpi.global_master: output.mbe_header(calc, exp)
 			# init energies
 			if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
 				inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
@@ -46,7 +45,7 @@ def main(mpi, mol, calc, exp):
 				exp.energy['inc'].append(inc)
 			# mbe calculations
 			mbe.main(mpi, mol, calc, exp)
-			if do_print:
+			if mpi.global_master:
 				# print micro results
 				output.mbe_microresults(calc, exp)
 				# print mbe end
@@ -58,14 +57,14 @@ def main(mpi, mol, calc, exp):
 			#
 			#** screening phase **#
 			#
-			if do_print: output.screen_header(exp, exp.thres)
+			if mpi.global_master: output.screen_header(exp, exp.thres)
 			# orbital screening
 			if exp.order < exp.max_order:
 				# start time
-				if do_print: exp.time['screen'].append(MPI.Wtime())
+				if mpi.global_master: exp.time['screen'].append(MPI.Wtime())
 				# perform screening
 				screen.main(mpi, mol, calc, exp)
-				if do_print:
+				if mpi.global_master:
 					# collect time
 					exp.time['screen'][-1] -= MPI.Wtime()
 					exp.time['screen'][-1] *= -1.0
@@ -74,13 +73,13 @@ def main(mpi, mol, calc, exp):
 					# print screen end
 					output.screen_end(calc, exp)
 			else:
-				if do_print:
+				if mpi.global_master:
 					# print screen end
 					output.screen_end(calc, exp)
 					# collect time
 					exp.time['screen'].append(0.0)
 			# update restart frequency
-			if do_print: exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
+			if mpi.global_master: exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
 			# convergence check
 			if exp.conv_orb[-1] or exp.order == exp.max_order:
 				exp.energy['tot'] = np.array(exp.energy['tot'])
@@ -173,6 +172,6 @@ def _rst_print(mol, calc, exp):
 			output.screen_end(calc, exp)
 			thres = screen.update(calc, exp)
 			rst_freq = int(max(exp.rst_freq / 2., 1.))
-		return thres, rst_freq
+		return thres, rst_freq, False
 
 	
