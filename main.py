@@ -59,7 +59,7 @@ def _init():
 		# exp instantiation
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
-		if mpi.parallel and calc.restart: parallel.exp(calc, exp, mpi.global_comm)
+		if mpi.parallel and calc.restart: parallel.exp(mpi, calc, exp, mpi.global_comm)
 		return mpi, mol, calc, exp
 
 
