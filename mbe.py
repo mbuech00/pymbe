@@ -61,14 +61,13 @@ def main(mpi, mol, calc, exp):
 def _serial(mol, calc, exp):
 		""" serial version """
 		# init time
-		if mpi.global_master:
-			if len(exp.time['mbe']) < (exp.order-exp.start_order)+1: exp.time['mbe'].append(0.0)
+		if len(exp.time['mbe']) < (exp.order-exp.start_order)+1: exp.time['mbe'].append(0.0)
 		# determine start index
 		start = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# loop over tuples
 		for i in range(start, len(exp.tuples[-1])):
 			# start time
-			if mpi.global_master: time = MPI.Wtime()
+			time = MPI.Wtime()
 			# run correlated calc
 			if exp.level == 'macro':
 				# micro exp instantiation
@@ -106,13 +105,12 @@ def _serial(mol, calc, exp):
 				if mol.verbose:
 					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
-			if mpi.global_master:
-				# print status
-				output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[-1])))
-				# collect time
-				exp.time['mbe'][-1] += MPI.Wtime() - time
-				# write restart files
-				restart.mbe_write(calc, exp, False)
+			# print status
+			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
+			# collect time
+			exp.time['mbe'][-1] += MPI.Wtime() - time
+			# write restart files
+			restart.mbe_write(calc, exp, False)
 
 
 def _master(mpi, mol, calc, exp):
@@ -133,11 +131,11 @@ def _master(mpi, mol, calc, exp):
 		# bcast msg
 		comm.bcast(msg, root=0)
 		# perform calculations
-		if exp.order == exp.start_order:
+		if mpi.global_master and exp.order == exp.start_order:
 			# start time
 			time = MPI.Wtime()
 			# print status
-			output.mbe_status(calc, exp, 0.0)
+			output.mbe_status(exp, 0.0)
 			# master calculates increments
 			for i in range(len(exp.tuples[0])):
 				# generate input
@@ -160,11 +158,11 @@ def _master(mpi, mol, calc, exp):
 					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
 							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][0][i]))
 				# print status
-				if mol.verbose: output.mbe_status(calc, exp, float(i+1) / float(len(exp.tuples[0])))
+				if mol.verbose: output.mbe_status(exp, float(i+1) / float(len(exp.tuples[0])))
 			# collect time
 			exp.time['mbe'].append(MPI.Wtime() - time)
 			# print status
-			if not mol.verbose: output.mbe_status(calc, exp, 1.0)
+			if not mol.verbose: output.mbe_status(exp, 1.0)
 			# bcast energies
 			parallel.energy(exp, comm)
 		else:
@@ -175,7 +173,7 @@ def _master(mpi, mol, calc, exp):
 			# init stat counter
 			counter = i
 			# print status for START
-			if mpi.global_master: output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
+			if mpi.global_master: output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
 			# init time
 			if mpi.global_master:
 				if len(exp.time['mbe']) < (exp.order - exp.start_order) + 1: exp.time['mbe'].append(0.0)
@@ -219,15 +217,13 @@ def _master(mpi, mol, calc, exp):
 					counter += 1
 					# print status
 					if mpi.global_master:
-						if data['index'] + 1 % 1000 == 0 or exp.level == 'macro' or mol.verbose:
-							output.mbe_status(calc, exp, float(counter) / float(len(exp.tuples[-1])))
+						if data['index'] + 1 % 1000 == 0 or mol.verbose:
+							output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
 				# put slave to sleep
 				elif tag == _tags.exit:
 					slaves_avail -= 1
 			# print 100.0 %
-			if mpi.global_master and exp.level != 'macro':
-				if not mol.verbose:
-					output.mbe_status(calc, exp, 1.0)
+			if mpi.global_master and not mol.verbose: output.mbe_status(exp, 1.0)
 			# bcast energies
 			parallel.energy(exp, comm)
 

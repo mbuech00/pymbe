@@ -37,7 +37,7 @@ def main(mpi, mol, calc, exp):
 			#
 			#** mbe phase **#
 			#
-			if mpi.global_master: output.mbe_header(calc, exp)
+			if mpi.global_master: output.mbe_header(exp)
 			# init energies
 			if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
 				inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
@@ -46,10 +46,8 @@ def main(mpi, mol, calc, exp):
 			# mbe calculations
 			mbe.main(mpi, mol, calc, exp)
 			if mpi.global_master:
-				# print micro results
-				output.mbe_microresults(calc, exp)
 				# print mbe end
-				output.mbe_end(calc, exp)
+				output.mbe_end(exp)
 				# write restart files
 				restart.mbe_write(calc, exp, True)
 				# print mbe results
@@ -71,11 +69,11 @@ def main(mpi, mol, calc, exp):
 					# write restart files
 					if not exp.conv_orb[-1]: restart.screen_write(exp)
 					# print screen end
-					output.screen_end(calc, exp)
+					output.screen_end(exp)
 			else:
 				if mpi.global_master:
 					# print screen end
-					output.screen_end(calc, exp)
+					output.screen_end(exp)
 					# collect time
 					exp.time['screen'].append(0.0)
 			# update restart frequency
@@ -164,12 +162,11 @@ def _rst_print(mol, calc, exp):
 		""" print output in case of restart """
 		thres = 0.0
 		for exp.order in range(exp.start_order, exp.min_order):
-			output.mbe_header(calc, exp)
-			output.mbe_microresults(calc, exp)
-			output.mbe_end(calc, exp)
+			output.mbe_header(exp)
+			output.mbe_end(exp)
 			output.mbe_results(mol, calc, exp)
 			output.screen_header(exp, thres)
-			output.screen_end(calc, exp)
+			output.screen_end(exp)
 			thres = screen.update(calc, exp)
 			rst_freq = int(max(exp.rst_freq / 2., 1.))
 		return thres, rst_freq, False

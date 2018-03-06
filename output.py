@@ -22,7 +22,7 @@ import kernel
 
 # output parameters
 _out = os.getcwd()+'/output'
-_header_str = '{0:^93}'.format('-'*45)
+_header_str = '{0:^87}'.format('-'*45)
 
 
 def main_header():
@@ -51,82 +51,52 @@ def exp_header(calc, exp):
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(_header_str)
-				print('{0:^93}'.format(calc.typ+' expansion'))
+				print('{0:^87}'.format(calc.typ+' expansion'))
 				print(_header_str+'\n\n')
 		# write also to stdout
 		print('\n\n'+_header_str)
-		print('{0:^93}'.format(calc.typ+' expansion'))
+		print('{0:^87}'.format(calc.typ+' expansion'))
 		print(_header_str+'\n\n')
 
 
-def mbe_header(calc, exp):
+def mbe_header(exp):
 		""" print mbe header """
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
+				print(' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
 						format(exp.order,len(exp.tuples[exp.order-exp.start_order])))
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
-		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
+		print(' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
 				format(exp.order,len(exp.tuples[exp.order-exp.start_order])))
 		print(' --------------------------------------------------------------------------------------------')
 
 
-def mbe_status(calc, exp, prog):
+def mbe_status(exp, prog):
 		""" print status bar """
 		# write only to stdout
 		bar_length = 50
 		status = ""
 		block = int(round(bar_length * prog))
-		print(' STATUS-'+exp.level.upper()+':   [{0}]   ---  {1:>6.2f} % {2}'.\
+		print(' STATUS:   [{0}]   ---  {1:>6.2f} % {2}'.\
 				format('#' * block + '-' * (bar_length - block), prog * 100, status))
 
 
-def mbe_end(calc, exp):
+def mbe_end(exp):
 		""" print end of mbe """
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e})'.\
+				print(' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})'.\
 						format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order])))
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
-		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e})'.\
+		print(' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})'.\
 				format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order])))
 		print(' --------------------------------------------------------------------------------------------')
-
-
-def mbe_microresults(calc, exp):	
-		""" print micro result statistics """
-		if calc.typ == 'combined' and exp.level == 'macro':
-			# statistics
-			mean_val = np.mean(exp.micro_conv[exp.order-exp.start_order])
-			min_val = exp.micro_conv[exp.order-exp.start_order][np.argmin(exp.micro_conv[exp.order-exp.start_order])]
-			max_val = exp.micro_conv[exp.order-exp.start_order][np.argmax(exp.micro_conv[exp.order-exp.start_order])]
-			if len(exp.micro_conv[exp.order-exp.start_order]) > 1:
-				std_val = np.std(exp.micro_conv[exp.order-exp.start_order], ddof=1)
-			else:
-				std_val = 0.0
-			# now print
-			with open(_out+'/output.out','a') as f:
-				with contextlib.redirect_stdout(f):
-					print(' --------------------------------------------------------------------------------------------')
-					print(' RESULT-MICRO:     mean order    |      min. order     |      max. order     |    std.dev.   ')
-					print(' --------------------------------------------------------------------------------------------')
-					print(' RESULT-MICRO:   {0:>8.1f}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
-							format(mean_val, min_val, max_val, std_val))
-					print(' --------------------------------------------------------------------------------------------')
-			# write also to stdout
-			print(' --------------------------------------------------------------------------------------------')
-			print(' --------------------------------------------------------------------------------------------')
-			print(' RESULT-MICRO:     mean order    |      min. order     |      max. order     |    std.dev.   ')
-			print(' --------------------------------------------------------------------------------------------')
-			print(' RESULT-MICRO:   {0:>8.1f}        |    {1:>8d}         |    {2:>8d}         |   {3:<13.4e}'.\
-					format(mean_val, min_val, max_val, std_val))
-			print(' --------------------------------------------------------------------------------------------')
 
 
 def mbe_results(mol, calc, exp):
@@ -149,29 +119,29 @@ def mbe_results(mol, calc, exp):
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT-'+exp.level.upper()+':      mean increment     |    min. abs. increment   |    max. abs. increment')
+				print(' RESULT:      mean increment     |    min. abs. increment   |    max. abs. increment')
 				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT-'+exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
+				print(' RESULT:     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
 						format(mean_val, min_val, max_val))
 				# debug print
 				if mol.verbose:
 					print(' --------------------------------------------------------------------------------------------')
-					print(' RESULT-'+exp.level.upper()+':                   info on max. abs. increment:')
-					print(' RESULT-'+exp.level.upper()+':  core = {0:}'.format(core))
-					print(' RESULT-'+exp.level.upper()+':  cas  = '+cas_ref+' + '+casexp)
+					print(' RESULT:                   info on max. abs. increment:')
+					print(' RESULT:  core = {0:}'.format(core))
+					print(' RESULT:  cas  = '+cas_ref+' + '+casexp)
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
-		print(' RESULT-'+exp.level.upper()+':      mean increment     |    min. abs. increment   |    max. abs. increment')
+		print(' RESULT:      mean increment     |    min. abs. increment   |    max. abs. increment')
 		print(' --------------------------------------------------------------------------------------------')
-		print(' RESULT-'+exp.level.upper()+':     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
+		print(' RESULT:     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
 				format(mean_val, min_val, max_val))
 		# debug print
 		if mol.verbose:
 			print(' --------------------------------------------------------------------------------------------')
-			print(' RESULT-'+exp.level.upper()+':                   info on max. abs. increment:')
-			print(' RESULT-'+exp.level.upper()+':  core = {0:}'.format(core))
-			print(' RESULT-'+exp.level.upper()+':  cas  = '+cas_ref+' + '+casexp)
+			print(' RESULT:                   info on max. abs. increment:')
+			print(' RESULT:  core = {0:}'.format(core))
+			print(' RESULT:  cas  = '+cas_ref+' + '+casexp)
 		print(' --------------------------------------------------------------------------------------------')
 
 
@@ -180,36 +150,36 @@ def screen_header(exp, thres):
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
+				print(' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
-		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
+		print(' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
 		print(' --------------------------------------------------------------------------------------------')
 
 
-def screen_end(calc, exp):
+def screen_end(exp):
 		""" print end of screening """
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				if exp.conv_orb[-1]:
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening done'.format(exp.order))
-					print(' STATUS-'+exp.level.upper()+':                  *** convergence has been reached ***                         ')
+					print(' STATUS:  order k = {0:>d} screening done'.format(exp.order))
+					print(' STATUS:                  *** convergence has been reached ***                         ')
 					print(' --------------------------------------------------------------------------------------------\n\n')
 				else:
 					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening done'.format(exp.order))
+					print(' STATUS:  order k = {0:>d} screening done'.format(exp.order))
 					print(' --------------------------------------------------------------------------------------------\n\n')
 		# write also to stdout
 		if exp.conv_orb[-1]:
 			print(' --------------------------------------------------------------------------------------------')
-			print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening done'.format(exp.order))
-			print(' STATUS-'+exp.level.upper()+':                  *** convergence has been reached ***                         ')
+			print(' STATUS:  order k = {0:>d} screening done'.format(exp.order))
+			print(' STATUS:                  *** convergence has been reached ***                         ')
 			print(' --------------------------------------------------------------------------------------------\n\n')
 		else:
 			print(' --------------------------------------------------------------------------------------------')
-			print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening done'.format(exp.order))
+			print(' STATUS:  order k = {0:>d} screening done'.format(exp.order))
 			print(' --------------------------------------------------------------------------------------------\n\n')
 		
 		
