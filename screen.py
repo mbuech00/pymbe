@@ -65,18 +65,11 @@ def _serial(mol, calc, exp):
 def _master(mpi, mol, calc, exp):
 		""" master routine """
 		# wake up slaves
-		if exp.level == 'macro':
-			msg = {'task': 'screen_local_master', 'exp_order': exp.order, 'thres': exp.thres}
-			# set communicator
-			comm = mpi.master_comm
-			# set number of workers
-			slaves_avail = num_slaves = mpi.num_local_masters
-		else:
-			msg = {'task': 'screen', 'order': exp.order, 'thres': exp.thres}
-			# set communicator
-			comm = mpi.local_comm
-			# set number of workers
-			slaves_avail = num_slaves = mpi.local_size - 1
+		msg = {'task': 'screen', 'order': exp.order, 'thres': exp.thres}
+		# set communicator
+		comm = mpi.local_comm
+		# set number of workers
+		slaves_avail = num_slaves = mpi.local_size - 1
 		# bcast
 		comm.bcast(msg, root=0)
 		# init job_info dictionary
