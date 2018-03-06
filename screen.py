@@ -55,11 +55,11 @@ def _serial(mol, calc, exp):
 				if not _test(calc, exp, exp.tuples[-1][i]):
 					tmp.append(exp.tuples[-1][i].tolist()+[m])
 		# when done, write to tup list or mark expansion as converged
-		if len(tmp) >= 1:
+		if len(tmp) == 0:
+			exp.conv_orb.append(True)
+		else:
 			tmp.sort()
 			exp.tuples.append(np.array(tmp, dtype=np.int32))
-		else:
-			exp.conv_orb.append(True)
 
 
 def _master(mpi, mol, calc, exp):
@@ -104,8 +104,11 @@ def _master(mpi, mol, calc, exp):
 				# remove slave
 				slaves_avail -= 1
 		# finally we sort the tuples or mark expansion as converged 
-		if len(tmp) == 1:
+		if len(tmp) == 0:
 			exp.conv_orb.append(True)
+			# bcast tuples
+			info = {'len': 0}
+			comm.bcast(info, root=0)
 		else:
 			tmp.sort()
 			exp.tuples.append(np.array(tmp, dtype=np.int32))
@@ -146,8 +149,9 @@ def _slave(mpi, mol, calc, exp):
 		comm.send(None, dest=0, tag=_tags.exit)
 		# receive tuples
 		info = comm.bcast(None, root=0)
-		exp.tuples.append(np.empty([info['len'], exp.order+1], dtype=np.int32))
-		parallel.tup(exp, comm)
+		if info['len'] >= 1:
+			exp.tuples.append(np.empty([info['len'], exp.order+1], dtype=np.int32))
+			parallel.tup(exp, comm)
 
 
 def _test(calc, exp, tup):
