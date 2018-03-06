@@ -231,7 +231,7 @@ def base(mol, calc, exp):
 def _casscf(mol, calc, exp, method):
 		""" casscf calc """
 		# casscf ref
-		cas = mcscf.CASSCF(calc.hf, len(calc.ref['ACTIVE']), calc.ref['NELEC']).state_specific_(calc.target)
+		cas = mcscf.CASSCF(calc.hf, len(calc.ref['ACTIVE']), calc.ref['NELEC'])
 		if abs(calc.ref['NELEC'][0]-calc.ref['NELEC'][1]) == 0:
 			if method == 'FCI':
 				cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
