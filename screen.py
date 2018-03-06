@@ -35,12 +35,12 @@ def main(mpi, mol, calc, exp):
 		if mpi.parallel:
 			if mpi.global_master:
 				_master(mpi, mol, calc, exp)
+				# update expansion threshold
+				exp.thres = update(calc, exp)
 			else:
 				_slave(mpi, mol, calc, exp)
 		else:
 			_serial(mol, calc, exp)
-		# update expansion threshold
-		exp.thres = update(calc, exp)
 
 
 def _serial(mol, calc, exp):

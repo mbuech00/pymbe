@@ -43,15 +43,15 @@ def main(mpi, mol, calc, exp):
 		if mpi.parallel:
 			if mpi.global_master:
 				_master(mpi, mol, calc, exp)
+				# sum up total energy
+				e_tmp = math.fsum(exp.energy['inc'][-1])
+				if exp.order > exp.start_order: e_tmp += exp.energy['tot'][-1]
+				# add to total energy list
+				exp.energy['tot'].append(e_tmp)
 			else:
 				_slave(mpi, mol, calc, exp)
 		else:
 			_serial(mol, calc, exp)
-		# sum up total energy
-		e_tmp = math.fsum(exp.energy['inc'][-1])
-		if exp.order > exp.start_order: e_tmp += exp.energy['tot'][-1]
-		# add to total energy list
-		exp.energy['tot'].append(e_tmp)
 
 
 def _serial(mol, calc, exp):
