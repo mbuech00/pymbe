@@ -58,7 +58,7 @@ def main(mpi, mol, calc, exp):
 			#
 			#** screening phase **#
 			#
-			if do_print: output.screen_header(calc, exp)
+			if do_print: output.screen_header(exp, exp.thres)
 			# orbital screening
 			if exp.order < exp.max_order:
 				# start time
@@ -169,7 +169,7 @@ def _rst_print(mol, calc, exp):
 			output.mbe_end(calc, exp)
 			output.mbe_results(mol, calc, exp)
 			thres = screen.update(calc, exp)
-			output.screen_header(calc, exp)
+			output.screen_header(exp, thres)
 			output.screen_end(calc, exp)
 			rst_freq = int(max(exp.rst_freq / 2., 1.))
 		return thres, rst_freq

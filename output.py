@@ -89,13 +89,13 @@ def mbe_end(calc, exp):
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-						format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order]),exp.thres))
+				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e})'.\
+						format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order])))
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
-		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e}, thres. = {2:<5.2e})'.\
-				format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order]),exp.thres))
+		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} MBE done (E = {1:.6e})'.\
+				format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order])))
 		print(' --------------------------------------------------------------------------------------------')
 
 
@@ -175,16 +175,16 @@ def mbe_results(mol, calc, exp):
 		print(' --------------------------------------------------------------------------------------------')
 
 
-def screen_header(calc, exp):
+def screen_header(exp, thres):
 		""" print screening header """
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening started'.format(exp.order))
+				print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
-		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening started'.format(exp.order))
+		print(' STATUS-'+exp.level.upper()+':  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
 		print(' --------------------------------------------------------------------------------------------')
 
 
