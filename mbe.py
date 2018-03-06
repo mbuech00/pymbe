@@ -39,10 +39,6 @@ _tags = _enum('ready', 'done', 'exit', 'start')
 
 def main(mpi, mol, calc, exp):
 		""" energy mbe phase """
-		# init micro_conv list
-		if mpi.global_master and exp.level == 'macro':
-			if len(exp.micro_conv) < exp.order:
-				exp.micro_conv.append(np.zeros(len(exp.tuples[-1]), dtype=np.int32))
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
@@ -68,43 +64,27 @@ def _serial(mol, calc, exp):
 		for i in range(start, len(exp.tuples[-1])):
 			# start time
 			time = MPI.Wtime()
-			# run correlated calc
-			if exp.level == 'macro':
-				# micro exp instantiation
-				exp_micro = expansion.ExpCls(mpi, mol, calc, 'virtual')
-				# mark expansion as micro 
-				exp_micro.level = 'micro'
-				# transfer incl_idx
-				exp_micro.incl_idx = exp.tuples[-1][i].tolist()
-				# make recursive call to driver with micro exp
-				driver.main(mpi, mol, calc, exp_micro)
-				# store results
-				exp.energy['inc'][-1][i] = exp_micro.energy['tot'][-1]
-				exp.micro_conv[-1][i] = exp_micro.order
-				# sum up energy increment
-				exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
+			# generate input
+			exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])
+			# model calc
+			e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
+						+ (calc.energy['hf'] - calc.energy['ref'])
+			# base calc
+			if calc.base['METHOD'] is None:
+				e_base = 0.0
 			else:
-				# generate input
-				exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])
-				# model calc
-				e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
-							+ (calc.energy['hf'] - calc.energy['ref'])
-				# base calc
-				if calc.base['METHOD'] is None:
-					e_base = 0.0
+				if exp.order == 1 and mol.spin == 0:
+					e_base = e_model
 				else:
-					if exp.order == 1 and mol.spin == 0:
-						e_base = e_model
-					else:
-						e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
-									+ (calc.energy['hf'] - calc.energy['ref_base'])
-				exp.energy['inc'][-1][i] = e_model - e_base
-				# calc increment
-				exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
-				# verbose print
-				if mol.verbose:
-					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
-							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
+					e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
+								+ (calc.energy['hf'] - calc.energy['ref_base'])
+			exp.energy['inc'][-1][i] = e_model - e_base
+			# calc increment
+			exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
+			# verbose print
+			if mol.verbose:
+				print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
+						format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
 			# print status
 			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 			# collect time
@@ -116,194 +96,121 @@ def _serial(mol, calc, exp):
 def _master(mpi, mol, calc, exp):
 		""" master function """
 		# wake up slaves
-		if exp.level == 'macro':
-			msg = {'task': 'mbe_local_master', 'exp_order': exp.order}
-			# set communicator
-			comm = mpi.master_comm
-			# number of workers
-			slaves_avail = num_slaves = mpi.num_local_masters
-		else:
-			msg = {'task': 'mbe', 'order': exp.order}
-			# set communicator
-			comm = mpi.local_comm
-			# number of workers
-			slaves_avail = num_slaves = mpi.local_size - 1
+		msg = {'task': 'mbe', 'order': exp.order}
+		# set communicator
+		comm = mpi.local_comm
+		# number of workers
+		slaves_avail = num_slaves = mpi.local_size - 1
 		# bcast msg
 		comm.bcast(msg, root=0)
-		# perform calculations
-		if mpi.global_master and exp.order == exp.start_order:
-			# start time
+		# init job_info dictionary
+		job_info = {}
+		# init job index
+		i = np.argmax(np.isnan(exp.energy['inc'][-1]))
+		# init stat counter
+		counter = i
+		# print status for START
+		if mpi.global_master: output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
+		# init time
+		if mpi.global_master:
+			if len(exp.time['mbe']) < (exp.order - exp.start_order) + 1: exp.time['mbe'].append(0.0)
 			time = MPI.Wtime()
-			# print status
-			output.mbe_status(exp, 0.0)
-			# master calculates increments
-			for i in range(len(exp.tuples[0])):
-				# generate input
-				exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[0][i])
-				# model calc
-				e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
-							+ (calc.energy['hf'] - calc.energy['ref'])
-				# base calc
-				if calc.base['METHOD'] is None:
-					e_base = 0.0
-				else:
-					if exp.order == 1 and mol.spin == 0:
-						e_base = e_model
-					else:
-						e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
-									+ (calc.energy['hf'] - calc.energy['ref_base'])
-				exp.energy['inc'][0][i] = e_model - e_base
-				# verbose print
-				if mol.verbose:
-					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
-							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][0][i]))
-				# print status
-				if mol.verbose: output.mbe_status(exp, float(i+1) / float(len(exp.tuples[0])))
+		# loop until no slaves left
+		while (slaves_avail >= 1):
+			# receive data dict
+			data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 			# collect time
-			exp.time['mbe'].append(MPI.Wtime() - time)
-			# print status
-			if not mol.verbose: output.mbe_status(exp, 1.0)
-			# bcast energies
-			parallel.energy(exp, comm)
-		else:
-			# init job_info dictionary
-			job_info = {}
-			# init job index
-			i = np.argmax(np.isnan(exp.energy['inc'][-1]))
-			# init stat counter
-			counter = i
-			# print status for START
-			if mpi.global_master: output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
-			# init time
 			if mpi.global_master:
-				if len(exp.time['mbe']) < (exp.order - exp.start_order) + 1: exp.time['mbe'].append(0.0)
-			time = MPI.Wtime()
-			# loop until no slaves left
-			while (slaves_avail >= 1):
-				# receive data dict
-				data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
-				# collect time
+				exp.time['mbe'][-1] += MPI.Wtime() - time
+				time = MPI.Wtime()
+			# probe for source and tag
+			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
+			# slave is ready
+			if tag == _tags.ready:
+				# any jobs left?
+				if i <= len(exp.tuples[-1]) - 1:
+					# store job index
+					job_info['index'] = i
+					# send string dict
+					comm.send(job_info, dest=source, tag=_tags.start)
+					# increment job index
+					i += 1
+				else:
+					# send exit signal
+					comm.send(None, dest=source, tag=_tags.exit)
+			# receive result from slave
+			elif tag == _tags.done:
+				# collect energies
+				exp.energy['inc'][-1][data['index']] = data['e_inc']
+				# write restart files
 				if mpi.global_master:
-					exp.time['mbe'][-1] += MPI.Wtime() - time
-					time = MPI.Wtime()
-				# probe for source and tag
-				source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
-				# slave is ready
-				if tag == _tags.ready:
-					# any jobs left?
-					if i <= len(exp.tuples[-1]) - 1:
-						# store job index
-						job_info['index'] = i
-						# send string dict
-						comm.send(job_info, dest=source, tag=_tags.start)
-						# increment job index
-						i += 1
-					else:
-						# send exit signal
-						comm.send(None, dest=source, tag=_tags.exit)
-				# receive result from slave
-				elif tag == _tags.done:
-					# collect energies
-					exp.energy['inc'][-1][data['index']] = data['e_inc']
-					# write to micro_conv
-					if mpi.global_master and exp.level == 'macro':
-						exp.energy['inc'][-1][data['index']] -= _sum(calc, exp, data['index'])
-						exp.micro_conv[-1][data['index']] = data['micro_order']
-					# write restart files
-					if mpi.global_master:
-						if data['index'] + 1 % exp.rst_freq == 0 or exp.level == 'macro':
-							restart.mbe_write(calc, exp, False)
-					# increment stat counter
-					counter += 1
-					# print status
-					if mpi.global_master:
-						if data['index'] + 1 % 1000 == 0 or mol.verbose:
-							output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
-				# put slave to sleep
-				elif tag == _tags.exit:
-					slaves_avail -= 1
-			# print 100.0 %
-			if mpi.global_master and not mol.verbose: output.mbe_status(exp, 1.0)
-			# bcast energies
-			parallel.energy(exp, comm)
+					if data['index'] + 1 % exp.rst_freq == 0 or exp.level == 'macro':
+						restart.mbe_write(calc, exp, False)
+				# increment stat counter
+				counter += 1
+				# print status
+				if mpi.global_master:
+					if data['index'] + 1 % 1000 == 0 or mol.verbose:
+						output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
+			# put slave to sleep
+			elif tag == _tags.exit:
+				slaves_avail -= 1
+		# print 100.0 %
+		if mpi.global_master and not mol.verbose: output.mbe_status(exp, 1.0)
+		# bcast energies
+		parallel.energy(exp, comm)
 
 
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
-		# set communicator and possible micro driver instantiation
-		if exp.level == 'macro':
-			comm = mpi.master_comm
-		else:
-			comm = mpi.local_comm
+		# set communicator
+		comm = mpi.local_comm
 		# init energies
 		if len(exp.energy['inc']) < (exp.order - exp.start_order) + 1:
 			inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
 			inc.fill(np.nan)
 			exp.energy['inc'].append(inc)
-		# ref calc
-		if exp.order == exp.start_order:
-			# receive energy
-			parallel.energy(exp, comm)
-		else:
-			# init data dict
-			data = {}
-			# receive work from master
-			while (True):
-				# ready for task
-				comm.send(None, dest=0, tag=_tags.ready)
-				# receive drop string
-				job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
-				# recover tag
-				tag = mpi.stat.Get_tag()
-				# do job
-				if tag == _tags.start:
-					# load job info
-					if exp.level == 'macro':
-						# micro exp instantiation
-						exp_micro = expansion.ExpCls(mpi, mol, calc, 'virtual')
-						# mark expansion as micro 
-						exp_micro.level = 'micro'
-						# transfer incl_idx
-						exp_micro.incl_idx = sorted(exp.tuples[-1][job_info['index']].tolist())
-						# make recursive call to driver with micro exp
-						driver.main(mpi, mol, calc, exp_micro, None)
-						# store micro convergence
-						data['micro_order'] = exp_micro.order
-						# write info into data dict
-						data['index'] = job_info['index']
-						data['e_inc'] = exp_micro.energy['tot'][-1]
-						# send data back to local master
-						comm.send(data, dest=0, tag=_tags.done)
-					else:
-						# generate input
-						exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][job_info['index']])
-						# perform calc
-						e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
-									+ (calc.energy['hf'] - calc.energy['ref'])
-						if calc.base['METHOD'] is None:
-							e_base = 0.0
-						else:
-							e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
-										+ (calc.energy['hf'] - calc.energy['ref_base'])
-						exp.energy['inc'][-1][job_info['index']] = e_model - e_base
-						# calc increment
-						exp.energy['inc'][-1][job_info['index']] -= _sum(calc, exp, job_info['index'])
-						# verbose print
-						if mol.verbose:
-							print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
-									format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][job_info['index']]))
-						# write info into data dict
-						data['index'] = job_info['index']
-						data['e_inc'] = exp.energy['inc'][-1][job_info['index']]
-						# send data back to local master
-						comm.send(data, dest=0, tag=_tags.done)
-				# exit
-				elif tag == _tags.exit:
-					break
-			# send exit signal to master
-			comm.send(None, dest=0, tag=_tags.exit)
-			# receive energies
-			parallel.energy(exp, comm)
+		# init data dict
+		data = {}
+		# receive work from master
+		while (True):
+			# ready for task
+			comm.send(None, dest=0, tag=_tags.ready)
+			# receive drop string
+			job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+			# recover tag
+			tag = mpi.stat.Get_tag()
+			# do job
+			if tag == _tags.start:
+				# generate input
+				exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][job_info['index']])
+				# perform calc
+				e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
+							+ (calc.energy['hf'] - calc.energy['ref'])
+				if calc.base['METHOD'] is None:
+					e_base = 0.0
+				else:
+					e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
+								+ (calc.energy['hf'] - calc.energy['ref_base'])
+				exp.energy['inc'][-1][job_info['index']] = e_model - e_base
+				# calc increment
+				exp.energy['inc'][-1][job_info['index']] -= _sum(calc, exp, job_info['index'])
+				# verbose print
+				if mol.verbose:
+					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
+							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][job_info['index']]))
+				# write info into data dict
+				data['index'] = job_info['index']
+				data['e_inc'] = exp.energy['inc'][-1][job_info['index']]
+				# send data back to local master
+				comm.send(data, dest=0, tag=_tags.done)
+			# exit
+			elif tag == _tags.exit:
+				break
+		# send exit signal to master
+		comm.send(None, dest=0, tag=_tags.exit)
+		# receive energies
+		parallel.energy(exp, comm)
 
 
 def _sum(calc, exp, idx):
