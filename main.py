@@ -50,21 +50,24 @@ def main():
 
 def _init():
 		""" init mpi, mol, calc, and exp objects """
-		# mpi, mol, and calc instantiations
+		# mpi, mol, and calc objects
 		mpi = parallel.MPICls()
 		mol = _mol(mpi)
 		calc = _calc(mpi, mol)
 		# configure mpi
 		parallel.set_mpi(mpi)
-		# exp instantiation
+		# exp object
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
 		if mpi.parallel and calc.restart: parallel.exp(mpi, calc, exp, mpi.global_comm)
+		# re-init restart logical
+		calc.restart = False
 		return mpi, mol, calc, exp
 
 
 def _mol(mpi):
 		""" init mol object """
+		# mol object
 		mol = molecule.MolCls(mpi)
 		parallel.mol(mpi, mol)
 		mol.make(mpi)
@@ -73,6 +76,7 @@ def _mol(mpi):
 
 def _calc(mpi, mol):
 		""" init calc object """
+		# calc object
 		calc = calculation.CalcCls(mpi, mol)
 		parallel.calc(mpi, calc)
 		return calc
@@ -87,7 +91,7 @@ def _exp(mpi, mol, calc):
 				mol.hcore, mol.eri = kernel.hcore_eri(mol)
 				# read fundamental info
 				restart.read_fund(mol, calc)
-				# expansion instantiation
+				# exp object
 				exp = expansion.ExpCls(mol, calc)
 			# no restart
 			else:
@@ -97,7 +101,7 @@ def _exp(mpi, mol, calc):
 				mol.hcore, mol.eri = kernel.hcore_eri(mol)
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, calc.no_act = kernel.active(mol, calc)
-				# expansion instantiation
+				# exp object
 				exp = expansion.ExpCls(mol, calc)
 				# reference calculation
 				calc.energy['ref'], calc.energy['ref_base'], calc.mo = kernel.ref(mol, calc, exp)
@@ -110,11 +114,10 @@ def _exp(mpi, mol, calc):
 			mol.hcore, mol.eri = kernel.hcore_eri(mol)
 		# bcast fundamental info
 		if mpi.parallel: parallel.fund(mpi, mol, calc)
-		# restart and expansion instantiation on slaves
+		# restart and exp object on slaves
 		if mpi.global_master:
 			exp.min_order = restart.main(calc, exp)
 		else:
-			# expansion instantiation
 			exp = expansion.ExpCls(mol, calc)
 		return exp
 
