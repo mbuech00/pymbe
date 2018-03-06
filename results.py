@@ -226,7 +226,10 @@ def _thres(calc):
 
 def _symm(mol, calc):
 		""" modify symmetry print """
-		return symm.addons.irrep_id2name(mol.symmetry, calc.wfnsym)+' ('+mol.symmetry+')'
+		if calc.model['METHOD'] in ['SCI','FCI']:
+			return symm.addons.irrep_id2name(mol.symmetry, calc.wfnsym)+' ('+mol.symmetry+')'
+		else:
+			return 'unknown'
 
 
 def _conv(exp):

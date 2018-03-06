@@ -29,6 +29,7 @@ class CalcCls():
 				self.thres = 1.0e-10
 				self.relax = 1.0
 				self.wfnsym = symm.addons.irrep_id2name(mol.symmetry, 0)
+				self.target = 0
 				self.max_order = 1000000
 				self.occ = 'REF'
 				self.virt = 'REF'
@@ -39,7 +40,7 @@ class CalcCls():
 				if mpi.global_master:
 					self.model, self.typ, self.ref, self.base, \
 						self.thres, self.relax, \
-						self.wfnsym, self.max_order, \
+						self.wfnsym, self.target, self.max_order, \
 						self.occ, self.virt, \
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
@@ -73,7 +74,9 @@ class CalcCls():
 							elif re.split('=',content[i])[0].strip() == 'relax':
 								self.relax = float(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'wfnsym':
-								self.wfnsym = symm.addons.std_symb(re.split('=',content[i])[1].strip())
+								self.wfnsym = symm.addons.std_symb(eval(re.split('=',content[i])[1].strip()))
+							elif re.split('=',content[i])[0].strip() == 'target':
+								self.target = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'order':
 								self.max_order = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'occ':
@@ -99,7 +102,7 @@ class CalcCls():
 					raise
 				#
 				return self.model, self.typ, self.ref, self.base, \
-							self.thres, self.relax, self.wfnsym, \
+							self.thres, self.relax, self.wfnsym, self.target, \
 							self.max_order, self.occ, self.virt, \
 							mol.max_memory, mpi.num_local_masters
 
@@ -150,6 +153,9 @@ class CalcCls():
 					if self.wfnsym != 0:
 						if self.model['METHOD'] not in ['SCI','FCI']:
 							raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
+					# target state
+					if self.target > 0 and self.model['METHOD'] not in ['SCI','FCI']:
+						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					# expansion and convergence thresholds
 					if self.thres < 0.0:
 						raise ValueError('wrong input -- expansion threshold parameter (thres) must be float: 0.0 <= thres')

@@ -115,7 +115,7 @@ def calc(mpi, calc):
 				info = {'model': calc.model['METHOD'], 'typ': calc.typ, \
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
 						'thres': calc.thres, 'relax': calc.relax, \
-						'wfnsym': calc.wfnsym, 'max_order': calc.max_order, \
+						'wfnsym': calc.wfnsym, 'target': calc.target, 'max_order': calc.max_order, \
 						'occ': calc.occ, 'virt': calc.virt, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
 			else:
@@ -123,7 +123,7 @@ def calc(mpi, calc):
 				calc.model = {'METHOD': info['model']}; calc.typ = info['typ']
 				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
 				calc.thres = info['thres']; calc.relax = info['relax']
-				calc.wfnsym = info['wfnsym']; calc.max_order = info['max_order']
+				calc.wfnsym = info['wfnsym']; calc.target = info['target']; calc.max_order = info['max_order']
 				calc.occ = info['occ']; calc.virt = info['virt']
 				calc.restart = info['restart']
 

@@ -42,6 +42,7 @@ def hf(mol, calc):
 				hf.kernel()
 			except sp.linalg.LinAlgError: pass
 			if hf.converged: break
+		# convergence check
 		if not hf.converged:
 			try:
 				raise RuntimeError('\nHF Error : no convergence\n\n')
@@ -230,7 +231,7 @@ def base(mol, calc, exp):
 def _casscf(mol, calc, exp, method):
 		""" casscf calc """
 		# casscf ref
-		cas = mcscf.CASSCF(calc.hf, len(calc.ref['ACTIVE']), calc.ref['NELEC'])
+		cas = mcscf.CASSCF(calc.hf, len(calc.ref['ACTIVE']), calc.ref['NELEC']).state_specific_(calc.target)
 		if abs(calc.ref['NELEC'][0]-calc.ref['NELEC'][1]) == 0:
 			if method == 'FCI':
 				cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
@@ -255,8 +256,11 @@ def _casscf(mol, calc, exp, method):
 		if mol.spin > 0:
 			sz = abs(calc.ref['NELEC'][0]-calc.ref['NELEC'][1]) * .5
 			cas.fix_spin_(ss=sz * (sz + 1.))
+		# target state
+		cas.state_specific_(state=calc.target)
 		# run casscf calc
 		cas.kernel(calc.mo)
+		# convergence check
 		if not cas.converged:
 			try:
 				raise RuntimeError('\nCASSCF Error : no convergence\n\n')
@@ -293,6 +297,8 @@ def _fci(mol, calc, exp, base):
 		solver.davidson_only = True
 		# wfnsym
 		solver.wfnsym = calc.wfnsym
+		# target state
+		solver.nroots = calc.target + 1
 		# get integrals and core energy
 		h1e, h2e, e_core = _prepare(mol, calc, exp)
 		# electrons
@@ -306,28 +312,45 @@ def _fci(mol, calc, exp, base):
 		# init guess (does it exist?)
 		try:
 			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
-			e_corr = None
 		except Exception:
-			e_corr = 0.0
+			return 0.0
 		# perform calc
-		if e_corr is None:
-			e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=e_core)
-			# calculate spin
-			s, mult = solver.spin_square(c, len(exp.cas_idx), nelec)
-			# check for correct spin
-			if (mol.spin + 1) - mult > 1.0e-05:
-				print('s = {0:} and mult = {1:}'.format(s, mult))
-				try:
-					raise RuntimeError(('\nFCI Error : spin contamination\n\n'
-										'2*S + 1 = {0:.6f}\n'
-										'core_idx = {1:} , cas_idx = {2:}\n\n').\
-										format(mult, exp.core_idx, exp.cas_idx))
-				except Exception as err:
-					sys.stderr.write(str(err))
-					raise
-			# e_corr
-			e_corr = e - calc.energy['hf']
-#			if exp.order < exp.max_order: e_corr += np.float64(0.001) * np.random.random_sample()
+		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=e_core)
+		# collect results
+		if solver.nroots == 1:
+			conv = solver.converged
+			energy = e
+			civec = c
+		else:
+			if len(solver.converged) == solver.nroots:
+				conv = solver.converged[calc.target]
+				energy = e[calc.target]
+				civec = c[calc.target]
+			else:
+				return 0.0
+		# convergence check
+		if not conv:
+			try:
+				raise RuntimeError('\nFCI Error : no convergence\n\n')
+			except Exception as err:
+				sys.stderr.write(str(err))
+				raise
+		# calculate spin
+		s, mult = solver.spin_square(civec, len(exp.cas_idx), nelec)
+		# check for correct spin
+		if (mol.spin + 1) - mult > 1.0e-05:
+			print('s = {0:} and mult = {1:}'.format(s, mult))
+			try:
+				raise RuntimeError(('\nFCI Error : spin contamination\n\n'
+									'2*S + 1 = {0:.6f}\n'
+									'core_idx = {1:} , cas_idx = {2:}\n\n').\
+									format(mult, exp.core_idx, exp.cas_idx))
+			except Exception as err:
+				sys.stderr.write(str(err))
+				raise
+		# e_corr
+		e_corr = energy - calc.energy['hf']
+#		if exp.order < exp.max_order: e_corr += np.float64(0.001) * np.random.random_sample()
 		return e_corr
 
 
@@ -345,6 +368,8 @@ def _sci(mol, calc, exp, base):
 		solver.davidson_only = True
 		# wfnsym
 		solver.wfnsym = calc.wfnsym
+		# target state
+		solver.nroots = calc.target + 1
 		# get integrals and core energy
 		h1e, h2e, e_core = _prepare(mol, calc, exp)
 		# electrons
@@ -358,26 +383,42 @@ def _sci(mol, calc, exp, base):
 		# init guess (does it exist?)
 		try:
 			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
-			e_corr = None
 		except Exception:
-			e_corr = 0.0
+			return 0.0
 		# perform calc
-		if e_corr is None:
-			# calculate sci energy
-			e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=e_core)
-			# calculate spin
-			s, mult = solver.spin_square(c, len(exp.cas_idx), nelec)
-			# check for correct spin
-			if (mol.spin + 1) - mult > 1.0e-05:
-				try:
-					raise RuntimeError(('\nSCI Error : spin contamination\n\n'
-										'2*S + 1 = {0:.3f}\n\n').\
-										format(mult))
-				except Exception as err:
-					sys.stderr.write(str(err))
-					raise
-			# e_corr
-			e_corr = e - calc.energy['hf']
+		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=e_core)
+		# collect results
+		if solver.nroots == 1:
+			conv = solver.converged
+			energy = e
+			civec = c
+		else:
+			if len(solver.converged) == solver.nroots:
+				conv = solver.converged[calc.target]
+				energy = e[calc.target]
+				civec = c[calc.target]
+			else:
+				return 0.0
+		# convergence check
+		if not conv:
+			try:
+				raise RuntimeError('\nSCI Error : no convergence\n\n')
+			except Exception as err:
+				sys.stderr.write(str(err))
+				raise
+		# calculate spin
+		s, mult = solver.spin_square(civec, len(exp.cas_idx), nelec)
+		# check for correct spin
+		if (mol.spin + 1) - mult > 1.0e-05:
+			try:
+				raise RuntimeError(('\nSCI Error : spin contamination\n\n'
+									'2*S + 1 = {0:.3f}\n\n').\
+									format(mult))
+			except Exception as err:
+				sys.stderr.write(str(err))
+				raise
+		# e_corr
+		e_corr = energy - calc.energy['hf']
 		# sci dm
 		if base:
 			if calc.occ == 'NO' or calc.virt == 'NO':
@@ -418,6 +459,7 @@ def _ci(mol, calc, exp, base):
 				cisd.kernel(eris=eris)
 			except sp.linalg.LinAlgError: pass
 			if cisd.converged: break
+		# convergence check
 		if not cisd.converged:
 			try:
 				raise RuntimeError('\nCISD Error : no convergence\n\n')
@@ -467,6 +509,7 @@ def _cc(mol, calc, exp, base, pt=False):
 				ccsd.kernel(eris=eris)
 			except sp.linalg.LinAlgError: pass
 			if ccsd.converged: break
+		# convergence check
 		if not ccsd.converged:
 			try:
 				raise RuntimeError('\nCCSD Error : no convergence\n\n')
