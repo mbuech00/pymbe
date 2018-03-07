@@ -246,6 +246,7 @@ def _casscf(mol, calc, exp, method):
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
 		cas.max_cycle_micro = 1
+		cas.canonicalization = False
 		# wfnsym
 		cas.fcisolver.wfnsym = calc.wfnsym
 		# frozen
@@ -279,7 +280,20 @@ def _casscf(mol, calc, exp, method):
 				sys.stderr.write(str(err))
 				raise
 		# save mo
-		mo = np.asarray(cas.mo_coeff, order='C')
+		casdm1 = cas.fcisolver.make_rdm1(cas.ci, len(calc.ref['ACTIVE']), calc.ref['NELEC'])
+		fock_ao = cas.get_fock(cas.mo_coeff, cas.ci, None, None)
+		fock = reduce(np.dot, (cas.mo_coeff.T, fock_ao, cas.mo_coeff))
+		mo = np.empty_like(cas.mo_coeff)
+		mo[:, cas.frozen:(cas.frozen + len(calc.ref['ACTIVE']))] = cas.mo_coeff[:, cas.frozen:(cas.frozen + len(calc.ref['ACTIVE']))]
+		if mol.ncore > 0:
+			w, c1 = symm.eigh(fock[:mol.ncore, :mol.ncore], cas.mo_coeff.orbsym[:mol.ncore])
+			mo[:, :mol.ncore] = np.dot(cas.mo_coeff[:, :mol.ncore], c1)
+		if cas.frozen > mol.ncore:
+			w, c1 = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], cas.mo_coeff.orbsym[mol.ncore:cas.frozen])
+			mo[:, mol.ncore:cas.frozen] = np.dot(cas.mo_coeff[:, mol.ncore:cas.frozen], c1)
+		if mol.norb - (cas.frozen + len(calc.ref['ACTIVE'])) > 0:
+			w, c1 = symm.eigh(fock[(cas.frozen + len(calc.ref['ACTIVE'])):, (cas.frozen + len(calc.ref['ACTIVE'])):], cas.mo_coeff.orbsym[(cas.frozen + len(calc.ref['ACTIVE'])):])
+			mo[:, (cas.frozen + len(calc.ref['ACTIVE'])):] = np.dot(cas.mo_coeff[:, (cas.frozen + len(calc.ref['ACTIVE'])):], c1)
 		return mo
 
 
