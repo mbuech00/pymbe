@@ -246,6 +246,7 @@ def _casscf(mol, calc, exp, method):
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
 		cas.max_cycle_micro = 1
+		cas.max_cycle_macro = 500
 		cas.canonicalization = False
 		# wfnsym
 		cas.fcisolver.wfnsym = calc.wfnsym
