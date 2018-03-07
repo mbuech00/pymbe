@@ -144,19 +144,21 @@ def _master(mpi, mol, calc, exp):
 				exp.energy['inc'][-1][data['index']] = data['e_inc']
 				# write restart files
 				if mpi.global_master:
-					if data['index'] + 1 % exp.rst_freq == 0:
+					if (data['index'] + 1) % exp.rst_freq == 0:
 						restart.mbe_write(calc, exp, False)
 				# increment stat counter
 				counter += 1
 				# print status
 				if mpi.global_master:
-					if data['index'] + 1 % 1000 == 0 or mol.verbose:
+					if (data['index'] + 1) % 10 == 0 or mol.verbose:
 						output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
 			# put slave to sleep
 			elif tag == _tags.exit:
 				slaves_avail -= 1
 		# print 100.0 %
-		if mpi.global_master and not mol.verbose: output.mbe_status(exp, 1.0)
+		if mpi.global_master and not mol.verbose:
+			if len(exp.tuples[-1]) % 10 != 0:
+				output.mbe_status(exp, 1.0)
 		# bcast energies
 		parallel.energy(exp, comm)
 
