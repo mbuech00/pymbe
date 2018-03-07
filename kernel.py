@@ -131,13 +131,13 @@ def ref(mol, calc, exp):
 			exp.core_idx, exp.cas_idx = list(range(mol.ncore)), calc.ref_space.tolist()
 		# sort mo coefficients
 		if calc.ref['METHOD'] in ['CASCI','CASSCF']:
-			# core region
-			ncore_elec = mol.nelectron - (calc.ref['NELEC'][0] + calc.ref['NELEC'][1])
-			assert(ncore_elec % 2 == 0)
-			ncore_orb = ncore_elec // 2
-			# divide into core-cas-virtual
+			# inactive region
+			inact_elec = mol.nelectron - (calc.ref['NELEC'][0] + calc.ref['NELEC'][1])
+			assert(inact_elec % 2 == 0)
+			inact_orb = inact_elec // 2
+			# divide into inactive-active-virtual
 			idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['ACTIVE']])
-			mo = np.hstack((calc.mo[:, idx[:ncore_orb]], calc.mo[:, calc.ref['ACTIVE']], calc.mo[:, idx[ncore_orb:]]))
+			mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['ACTIVE']], calc.mo[:, idx[inact_orb:]]))
 			calc.mo = np.asarray(mo, order='C')
 			# set ref energies equal to hf energies
 			e_ref = e_refbase = 0.0
@@ -250,7 +250,7 @@ def _casscf(mol, calc, exp, method):
 		cas.canonicalization = False
 		# wfnsym
 		cas.fcisolver.wfnsym = calc.wfnsym
-		# frozen
+		# frozen (inactive)
 		cas.frozen = (mol.nelectron - (calc.ref['NELEC'][0] + calc.ref['NELEC'][1])) // 2
 		# verbose print
 		if mol.verbose: cas.verbose = 4
@@ -284,15 +284,19 @@ def _casscf(mol, calc, exp, method):
 		fock_ao = cas.get_fock(cas.mo_coeff, cas.ci, None, None)
 		fock = reduce(np.dot, (cas.mo_coeff.T, fock_ao, cas.mo_coeff))
 		mo = np.empty_like(cas.mo_coeff)
-		mo[:, cas.frozen:(cas.frozen + len(calc.ref['ACTIVE']))] = cas.mo_coeff[:, cas.frozen:(cas.frozen + len(calc.ref['ACTIVE']))]
+		# core region
 		if mol.ncore > 0:
 			w, c1 = symm.eigh(fock[:mol.ncore, :mol.ncore], \
 								cas.mo_coeff.orbsym[:mol.ncore])
 			mo[:, :mol.ncore] = np.dot(cas.mo_coeff[:, :mol.ncore], c1)
+		# inactive region (excl. core)
 		if cas.frozen > mol.ncore:
 			w, c1 = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], \
 								cas.mo_coeff.orbsym[mol.ncore:cas.frozen])
 			mo[:, mol.ncore:cas.frozen] = np.dot(cas.mo_coeff[:, mol.ncore:cas.frozen], c1)
+		# active region
+		mo[:, cas.frozen:(cas.frozen + len(calc.ref['ACTIVE']))] = cas.mo_coeff[:, cas.frozen:(cas.frozen + len(calc.ref['ACTIVE']))]
+		# virtual region
 		if mol.norb - (cas.frozen + len(calc.ref['ACTIVE'])) > 0:
 			w, c1 = symm.eigh(fock[(cas.frozen + len(calc.ref['ACTIVE'])):, (cas.frozen + len(calc.ref['ACTIVE'])):], \
 								cas.mo_coeff.orbsym[(cas.frozen + len(calc.ref['ACTIVE'])):])
