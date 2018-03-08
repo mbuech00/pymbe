@@ -444,6 +444,8 @@ def _sci(mol, calc, exp, base):
 		if base:
 			if calc.occ == 'NO' or calc.virt == 'NO':
 				dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)
+			else:
+				dm = None
 		else:
 			dm = None
 		return e_corr, dm
@@ -493,6 +495,8 @@ def _ci(mol, calc, exp, base):
 		if base:
 			if calc.occ == 'NO' or calc.virt == 'NO':
 				dm = cisd.make_rdm1()
+			else:
+				dm = None
 		else:
 			dm = None
 		return e_corr, dm
@@ -544,6 +548,8 @@ def _cc(mol, calc, exp, base, pt=False):
 			if calc.occ == 'NO' or calc.virt == 'NO':
 				ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
 				dm = ccsd.make_rdm1()
+			else:
+				dm = None
 		else:
 			dm = None
 		# calculate (t) correction
