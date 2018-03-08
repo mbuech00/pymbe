@@ -314,7 +314,7 @@ def _fci(mol, calc, exp, base):
 		# settings
 		solver.conv_tol = 1.0e-10
 		solver.max_cycle = 500
-		solver.max_space = 10
+		solver.max_space = 25
 		solver.davidson_only = True
 		# wfnsym
 		solver.wfnsym = calc.wfnsym
@@ -385,7 +385,7 @@ def _sci(mol, calc, exp, base):
 		# settings
 		solver.conv_tol = 1.0e-10
 		solver.max_cycle = 500
-		solver.max_space = 10
+		solver.max_space = 25
 		solver.davidson_only = True
 		# wfnsym
 		solver.wfnsym = calc.wfnsym
@@ -471,7 +471,7 @@ def _ci(mol, calc, exp, base):
 		# settings
 		cisd.conv_tol = 1.0e-10
 		cisd.max_cycle = 500
-		cisd.max_space = 10
+		cisd.max_space = 25
 		eris = cisd.ao2mo()
 		# calculate cisd energy
 		for i in range(5,-1,-1):
@@ -521,7 +521,7 @@ def _cc(mol, calc, exp, base, pt=False):
 		ccsd.conv_tol = 1.0e-10
 		if base: ccsd.conv_tol_normt = 1.0e-10
 		ccsd.max_cycle = 500
-		ccsd.diis_space = 10
+		ccsd.diis_space = 25
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
 		for i in list(range(0, 12, 2)):
