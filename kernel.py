@@ -140,7 +140,7 @@ def ref(mol, calc, exp):
 			mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['ACTIVE']], calc.mo[:, idx[inact_orb:]]))
 			calc.mo = np.asarray(mo, order='C')
 			# set ref energies equal to hf energies
-			e_ref = e_refbase = 0.0
+			e_ref = e_ref_base = 0.0
 			# casscf mo
 			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp, calc.model['METHOD'])
 		else:
@@ -148,13 +148,13 @@ def ref(mol, calc, exp):
 			e_ref = corr(mol, calc, exp, calc.model['METHOD'])
 			# exp base
 			if calc.base['METHOD'] is None:
-				e_refbase = 0.0
+				e_ref_base = 0.0
 			else:
 				if np.abs(e_ref) > 1.0e-10:
-					e_refbase = e_ref
+					e_ref_base = e_ref
 				else:
-					e_refbase = corr(mol, calc, exp, calc.base['METHOD'])
-		return e_ref + calc.energy['hf'], e_refbase + calc.energy['hf'], calc.mo
+					e_ref_base = corr(mol, calc, exp, calc.base['METHOD'])
+		return e_ref + calc.energy['hf'], e_ref_base + calc.energy['hf'], calc.mo
 
 
 def corr(mol, calc, exp, method):
