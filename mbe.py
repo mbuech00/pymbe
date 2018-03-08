@@ -73,11 +73,8 @@ def _serial(mol, calc, exp):
 			if calc.base['METHOD'] is None:
 				e_base = 0.0
 			else:
-				if exp.order == 1 and mol.spin == 0:
-					e_base = e_model
-				else:
-					e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
-								+ (calc.energy['hf'] - calc.energy['ref_base'])
+				e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
+							+ (calc.energy['hf'] - calc.energy['ref_base'])
 			exp.energy['inc'][-1][i] = e_model - e_base
 			# calc increment
 			exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
