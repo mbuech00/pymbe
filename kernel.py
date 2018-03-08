@@ -525,7 +525,6 @@ def _cc(mol, calc, exp, base, pt=False):
 		ccsd.conv_tol = 1.0e-10
 		if base: ccsd.conv_tol_normt = 1.0e-10
 		ccsd.max_cycle = 500
-		ccsd.diis_space = 25
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
 		for i in list(range(0, 12, 2)):
