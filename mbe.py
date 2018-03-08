@@ -144,7 +144,7 @@ def _master(mpi, mol, calc, exp):
 				exp.energy['inc'][-1][data['index']] = data['e_inc']
 				# write restart files
 				if mpi.global_master:
-					if (data['index'] + 1) % exp.rst_freq == 0:
+					if (data['index'] + 1) % exp.rst_freq == 0 or mol.verbose:
 						restart.mbe_write(calc, exp, False)
 				# increment stat counter
 				counter += 1
