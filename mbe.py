@@ -150,7 +150,7 @@ def _master(mpi, mol, calc, exp):
 				counter += 1
 				# print status
 				if mpi.global_master:
-					if (data['index'] + 1) % 10 == 0 or mol.verbose:
+					if (data['index'] + 1) % 1000 == 0 or mol.verbose:
 						output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
 			# put slave to sleep
 			elif tag == _tags.exit:
