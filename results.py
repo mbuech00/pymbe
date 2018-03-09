@@ -183,8 +183,7 @@ def _active(calc):
 		if calc.ref['METHOD'] == 'HF':
 			return 'none'
 		else:
-			return '{0:} e / {1:} o'.format(calc.ref['NELEC'][0]+calc.ref['NELEC'][1], \
-													len(calc.ref['ACTIVE']))
+			return '{0:} e / {1:} o'.format(calc.ne_act[0] + calc.ne_act[1], calc.no_act)
 
 
 def _orbs(calc):

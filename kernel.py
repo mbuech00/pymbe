@@ -86,25 +86,55 @@ def active(mol, calc):
 		# hf reference model
 		if calc.ref['METHOD'] == 'HF':
 			# no active space
-			no_act = len(ref_space)
+			ne_act = (0, 0)
+			no_exp = no_act = 0
 		# casci/casscf reference model
 		elif calc.ref['METHOD'] in ['CASCI','CASSCF']:
-			# active orbitals
-			if calc.typ == 'occupied':
-				no_act = np.count_nonzero(np.array(calc.ref['ACTIVE']) < mol.nocc) + len(ref_space)
-			elif calc.typ == 'virtual':
-				no_act = np.count_nonzero(np.array(calc.ref['ACTIVE']) >= mol.nocc) + len(ref_space)
-			# sanity checks
-			assert(np.count_nonzero(np.array(calc.ref['ACTIVE']) < mol.ncore) == 0)
-			assert(float(calc.ref['NELEC'][0] + calc.ref['NELEC'][1]) <= np.sum(calc.hf.mo_occ[calc.ref['ACTIVE']]))
+			if calc.ref['ACTIVE'] == 'MANUAL':
+				# active electrons
+				ne_act = calc.ref['NELEC']
+				# active orbitals
+				no_act = len(calc.ref['SELECT'])
+				# expansion space orbitals
+				if calc.typ == 'occupied':
+					no_exp = np.count_nonzero(np.array(calc.ref['SELECT']) < mol.nocc)
+				elif calc.typ == 'virtual':
+					no_exp = np.count_nonzero(np.array(calc.ref['SELECT']) >= mol.nocc)
+				# sanity checks
+				assert(np.count_nonzero(np.array(calc.ref['SELECT']) < mol.ncore) == 0)
+				assert(float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[calc.ref['SELECT']]))
+			else:
+				from pyscf.mcscf import avas
+				# avas
+				no_avas, ne_avas = avas.avas(calc.hf, calc.ref['AO_LABELS'], canonicalize=True, \
+												verbose=4 if mol.verbose else None, ncore=mol.ncore)[:2]
+				# convert ne_avas to native python type
+				ne_avas = np.asscalar(ne_avas)
+				# active electrons
+				ne_a = (ne_avas + mol.spin) // 2
+				ne_b = ne_avas - ne_a
+				ne_act = (ne_a, ne_b)
+				# active orbitals
+				no_act = no_avas
+				# expansion space orbitals
+				nocc_avas = ne_a
+				nvirt_avas = no_act - nocc_avas
+				if calc.typ == 'occupied':
+					no_exp = nocc_avas
+				elif calc.typ == 'virtual':
+					no_exp = nvirt_avas
+				print('ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
+				# sanity checks
+				assert(nocc_avas <= (mol.nocc - mol.ncore))
+				assert(float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[mol.ncore:]))
 			# identical to hf ref?
-			if no_act == len(ref_space):
+			if no_exp == 0:
 				try:
 					raise RuntimeError('\nCAS Error : choice of CAS returns HF solution\n\n')
 				except Exception as err:
 					sys.stderr.write(str(err))
 					raise
-		return ref_space, exp_space, no_act
+		return ref_space, exp_space, no_exp, no_act, ne_act
 
 
 def _mf(mol, calc, mo):
@@ -131,14 +161,18 @@ def ref(mol, calc, exp):
 			exp.core_idx, exp.cas_idx = list(range(mol.ncore)), calc.ref_space.tolist()
 		# sort mo coefficients
 		if calc.ref['METHOD'] in ['CASCI','CASSCF']:
-			# inactive region
-			inact_elec = mol.nelectron - (calc.ref['NELEC'][0] + calc.ref['NELEC'][1])
-			assert(inact_elec % 2 == 0)
-			inact_orb = inact_elec // 2
-			# divide into inactive-active-virtual
-			idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['ACTIVE']])
-			mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['ACTIVE']], calc.mo[:, idx[inact_orb:]]))
-			calc.mo = np.asarray(mo, order='C')
+			if calc.ref['ACTIVE'] == 'MANUAL':
+				# inactive region
+				inact_elec = mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])
+				assert(inact_elec % 2 == 0)
+				inact_orb = inact_elec // 2
+				# divide into inactive-active-virtual
+				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['SELECT']])
+				mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['SELECT']], calc.mo[:, idx[inact_orb:]]))
+				calc.mo = np.asarray(mo, order='C')
+			else:
+				from pyscf.mcscf import avas
+				calc.mo = avas.avas(calc.hf, calc.ref['AO_LABELS'], canonicalize=True, ncore=mol.ncore)[2]
 			# set ref energies equal to hf energies
 			e_ref = e_ref_base = 0.0
 			# casscf mo
@@ -231,8 +265,9 @@ def base(mol, calc, exp):
 def _casscf(mol, calc, exp, method):
 		""" casscf calc """
 		# casscf ref
-		cas = mcscf.CASSCF(calc.hf, len(calc.ref['ACTIVE']), calc.ref['NELEC'])
-		if abs(calc.ref['NELEC'][0]-calc.ref['NELEC'][1]) == 0:
+		cas = mcscf.CASSCF(calc.hf, calc.no_act, calc.ne_act)
+		# fci solver
+		if abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
 			if method == 'FCI':
 				cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
 			elif method == 'SCI':
@@ -251,12 +286,12 @@ def _casscf(mol, calc, exp, method):
 		# wfnsym
 		cas.fcisolver.wfnsym = calc.wfnsym
 		# frozen (inactive)
-		cas.frozen = (mol.nelectron - (calc.ref['NELEC'][0] + calc.ref['NELEC'][1])) // 2
+		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# verbose print
-		if mol.verbose: cas.verbose = 4
+		cas.verbose = 4 if mol.verbose else None
 		# fix spin if non-singlet
 		if mol.spin > 0:
-			sz = abs(calc.ref['NELEC'][0]-calc.ref['NELEC'][1]) * .5
+			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
 			cas.fix_spin_(ss=sz * (sz + 1.))
 		# target state
 		cas.state_specific_(state=calc.target)
@@ -270,7 +305,7 @@ def _casscf(mol, calc, exp, method):
 				sys.stderr.write(str(err))
 				raise
 		# calculate spin
-		s, mult = cas.fcisolver.spin_square(cas.ci, len(calc.ref['ACTIVE']), calc.ref['NELEC'])
+		s, mult = cas.fcisolver.spin_square(cas.ci, calc.no_act, calc.ne_act)
 		# check for correct spin
 		if (mol.spin + 1) - mult > 1.0e-05:
 			try:
@@ -286,21 +321,21 @@ def _casscf(mol, calc, exp, method):
 		mo = np.empty_like(cas.mo_coeff)
 		# core region
 		if mol.ncore > 0:
-			w, c1 = symm.eigh(fock[:mol.ncore, :mol.ncore], \
-								cas.mo_coeff.orbsym[:mol.ncore])
-			mo[:, :mol.ncore] = np.dot(cas.mo_coeff[:, :mol.ncore], c1)
+			c = symm.eigh(fock[:mol.ncore, :mol.ncore], \
+								cas.mo_coeff.orbsym[:mol.ncore])[1]
+			mo[:, :mol.ncore] = np.dot(cas.mo_coeff[:, :mol.ncore], c)
 		# inactive region (excl. core)
 		if cas.frozen > mol.ncore:
-			w, c1 = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], \
-								cas.mo_coeff.orbsym[mol.ncore:cas.frozen])
-			mo[:, mol.ncore:cas.frozen] = np.dot(cas.mo_coeff[:, mol.ncore:cas.frozen], c1)
+			c = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], \
+								cas.mo_coeff.orbsym[mol.ncore:cas.frozen])[1]
+			mo[:, mol.ncore:cas.frozen] = np.dot(cas.mo_coeff[:, mol.ncore:cas.frozen], c)
 		# active region
-		mo[:, cas.frozen:(cas.frozen + len(calc.ref['ACTIVE']))] = cas.mo_coeff[:, cas.frozen:(cas.frozen + len(calc.ref['ACTIVE']))]
+		mo[:, cas.frozen:(cas.frozen + calc.no_act)] = cas.mo_coeff[:, cas.frozen:(cas.frozen + calc.no_act)]
 		# virtual region
-		if mol.norb - (cas.frozen + len(calc.ref['ACTIVE'])) > 0:
-			w, c1 = symm.eigh(fock[(cas.frozen + len(calc.ref['ACTIVE'])):, (cas.frozen + len(calc.ref['ACTIVE'])):], \
-								cas.mo_coeff.orbsym[(cas.frozen + len(calc.ref['ACTIVE'])):])
-			mo[:, (cas.frozen + len(calc.ref['ACTIVE'])):] = np.dot(cas.mo_coeff[:, (cas.frozen + len(calc.ref['ACTIVE'])):], c1)
+		if mol.norb - (cas.frozen + calc.no_act) > 0:
+			c = symm.eigh(fock[(cas.frozen + calc.no_act):, (cas.frozen + calc.no_act):], \
+								cas.mo_coeff.orbsym[(cas.frozen + calc.no_act):])[1]
+			mo[:, (cas.frozen + calc.no_act):] = np.dot(cas.mo_coeff[:, (cas.frozen + calc.no_act):], c)
 		return mo
 
 

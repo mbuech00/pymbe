@@ -129,13 +129,23 @@ class CalcCls():
 					if 'ACTIVE' in self.ref:
 						if self.ref['METHOD'] == 'HF':
 							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
-						if not isinstance(self.ref['ACTIVE'], list): 
-							raise ValueError('wrong input -- active space key (active) must be a list')
-						if 'NELEC' in self.ref:
-							if not isinstance(self.ref['NELEC'], tuple):
-								raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
+						if self.ref['ACTIVE'] == 'MANUAL':
+							if 'SELECT' not in self.ref:
+								raise ValueError('wrong input -- a selection (select) of HF orbitals is required for manual active space')
+							if not isinstance(self.ref['SELECT'], list): 
+								raise ValueError('wrong input -- select key (select) for active space must be a list')
+							if 'NELEC' in self.ref:
+								if not isinstance(self.ref['NELEC'], tuple):
+									raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
+							else:
+								raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
+						elif self.ref['ACTIVE'] == 'AVAS':
+							if 'AO_LABELS' not in self.ref:
+								raise ValueError('wrong input -- AO labels (AO_lABELS) is required for avas active space')
+							if not isinstance(self.ref['AO_LABELS'], list): 
+								raise ValueError('wrong input -- AO labels key (AO_LABELS) for active space must be a list')
 						else:
-							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
+							raise ValueError('wrong input -- active space choices are currently: MANUAL and AVAS')
 					# base model
 					if self.ref['METHOD'] == 'CASSCF' and self.base['METHOD'] not in [None,'SCI']:
 						raise ValueError('wrong input -- invalid base model for CASSCF reference model')
@@ -214,7 +224,7 @@ class CalcCls():
 				""" capitalize keys """
 				new_dict = {}
 				for key, value in old_dict.items():
-					if key.upper() == 'METHOD':
+					if key.upper() in ['METHOD', 'ACTIVE']:
 						new_dict[key.upper()] = value.upper()
 					else:
 						new_dict[key.upper()] = value

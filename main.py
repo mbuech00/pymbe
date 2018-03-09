@@ -97,7 +97,8 @@ def _exp(mpi, mol, calc):
 				# get hcore and eri
 				mol.hcore, mol.eri = kernel.hcore_eri(mol)
 				# reference and expansion spaces
-				calc.ref_space, calc.exp_space, calc.no_act = kernel.active(mol, calc)
+				calc.ref_space, calc.exp_space, \
+					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
 				# exp object
 				exp = expansion.ExpCls(mol, calc)
 				# reference calculation

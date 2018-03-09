@@ -162,7 +162,7 @@ def _test(calc, exp, tup):
 			# generate list with all subsets of particular tuple
 			combs = np.array(list(list(comb) for comb in itertools.combinations(tup, exp.order-1)))
 			# select only those combinations that include the active orbitals
-			if calc.no_act > len(calc.ref_space):
+			if calc.no_exp > 0:
 				cond = np.zeros(len(combs), dtype=bool)
 				for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
 				combs = combs[cond]
