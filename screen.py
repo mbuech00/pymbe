@@ -51,15 +51,15 @@ def _serial(mol, calc, exp):
 		for i in range(len(exp.tuples[-1])):
 			# loop through possible orbitals to augment the combinations with
 			if calc.typ == 'occupied':
-				for m in range(exp.tuples[-1][i][-1]-1, calc.exp_space[0]-1, -1):
+				for m in range(calc.exp_space[0], exp.tuples[-1][i][0]):
 					# if tuple is allowed, add to child tuple list, otherwise screen away
 					if not _test(calc, exp, exp.tuples[-1][i], m):
-						tmp.append(exp.tuples[-1][i].tolist()+[m])
+						tmp.append(sorted(exp.tuples[-1][i].tolist()+[m]))
 			elif calc.typ == 'virtual':
-				for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1, 1):
+				for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
 					# if tuple is allowed, add to child tuple list, otherwise screen away
 					if not _test(calc, exp, exp.tuples[-1][i], m):
-						tmp.append(exp.tuples[-1][i].tolist()+[m])
+						tmp.append(sorted(exp.tuples[-1][i].tolist()+[m]))
 		# when done, write to tup list or mark expansion as converged
 		if len(tmp) == 0:
 			exp.conv_orb.append(True)
@@ -143,15 +143,15 @@ def _slave(mpi, mol, calc, exp):
 				# init child tuple list
 				data['child'][:] = []
 				if calc.typ == 'occupied':
-					for m in range(exp.tuples[-1][job_info['index']][-1]-1, calc.exp_space[0]-1, -1):
+					for m in range(calc.exp_space[0], exp.tuples[-1][job_info['index']][0]):
 						# if tuple is allowed, add to child tuple list, otherwise screen away
 						if not _test(calc, exp, exp.tuples[-1][job_info['index']], m):
-							data['child'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
+							data['child'].append(sorted(exp.tuples[-1][job_info['index']].tolist()+[m]))
 				elif calc.typ == 'virtual':
-					for m in range(exp.tuples[-1][job_info['index']][-1]+1, calc.exp_space[-1]+1, 1):
+					for m in range(exp.tuples[-1][job_info['index']][-1]+1, calc.exp_space[-1]+1):
 						# if tuple is allowed, add to child tuple list, otherwise screen away
 						if not _test(calc, exp, exp.tuples[-1][job_info['index']], m):
-							data['child'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
+							data['child'].append(sorted(exp.tuples[-1][job_info['index']].tolist()+[m]))
 				# send data back to master
 				comm.send(data, dest=0, tag=_tags.done)
 			# exit
@@ -183,7 +183,7 @@ def _test(calc, exp, tup, m):
 			# loop over subset combinations
 			for j in range(len(combs)):
 				# recover index of particular tuple
-				comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
+				comb_idx = np.where(np.all(sorted(np.append(combs[j], [m])) == exp.tuples[-1], axis=1))[0]
 				# does it exist?
 				if len(comb_idx) == 0:
 					# screen away
