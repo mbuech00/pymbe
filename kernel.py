@@ -55,6 +55,23 @@ def hf(mol, calc):
 		e_hf = hf.e_tot
 		occup = hf.mo_occ
 		orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+		# wave function symmetry (code adapted from: pyscf/pyscf/scf/hf_symm.py)
+		wfnsym = 0
+		doub_occ = []
+		sing_occ = []
+		for k, ir in enumerate(mol.irrep_id):
+			doub_occ.append(sum(orbsym[occup == 2] == ir))
+			sing_occ.append(sum(orbsym[occup == 1] == ir))
+			if sing_occ[k] % 2:
+				wfnsym ^= ir
+		# sanity check
+		if wfnsym != calc.wfnsym and calc.ref['METHOD'] == 'HF':
+			try:
+				raise RuntimeError('\nHF Error : wave function symmetry ({0:}) different from requested symmetry ({1:})\n\n'.\
+									format(symm.irrep_id2name(mol.groupname, wfnsym), symm.irrep_id2name(mol.groupname, calc.wfnsym)))
+			except Exception as err:
+				sys.stderr.write(str(err))
+				raise
 		return hf, e_hf, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
