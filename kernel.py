@@ -308,7 +308,7 @@ def _casscf(mol, calc, exp, method):
 		# frozen (inactive)
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# verbose print
-		cas.verbose = 4 if mol.verbose else None
+		if mol.verbose: cas.verbose = 4
 		# fix spin if non-singlet
 		if mol.spin > 0:
 			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
