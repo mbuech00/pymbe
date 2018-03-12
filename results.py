@@ -280,7 +280,8 @@ def _fourth_row(info, calc, exp):
 				format('','frozen core','','=','',info['frozen'],\
 					'','|','','expansion base','','=','',info['base'],\
 					'','|','','final MBE energy','','=','',\
-					exp.energy['tot'][-1]+calc.energy['hf']+calc.energy['base'])
+					exp.energy['tot'][-1] + calc.energy['ref'] + \
+					(calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base'])))
 
 
 def _fifth_row(info, mol, calc):
@@ -324,7 +325,10 @@ def _orders(calc, exp):
 			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 				'{12:^3}{13:02d}{14:12}{15:1}{16:9}{17:>9d}{18:8}{19:1}{20:6}{21:>9d}').\
 					format('',i+exp.start_order,'','|','',\
-						exp.energy['tot'][i]+calc.energy['base'],\
+						exp.energy['tot'][i] + \
+						(calc.energy['ref'] - calc.energy['hf']) - \
+						(calc.energy['ref_base'] - calc.energy['hf']) + \
+						calc.energy['base'],\
 						'','|','',int(total_time//3600),':',\
 						int((total_time-(total_time//3600)*3600.)//60),':',\
 						int(total_time-(total_time//3600)*3600.\

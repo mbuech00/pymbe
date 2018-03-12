@@ -80,8 +80,8 @@ def _serial(mol, calc, exp):
 			exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
 			# verbose print
 			if mol.verbose:
-				print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
-						format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
+				print(' core = {0:} , cas = {1:} , e_model = {2:.6f} , e_base = {3:.6f} , e_inc = {4:.6f}'.\
+						format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
 			# print status
 			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 			# collect time
@@ -186,6 +186,7 @@ def _slave(mpi, mol, calc, exp):
 				# perform calc
 				e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
 							+ (calc.energy['hf'] - calc.energy['ref'])
+				if e_model > 0.0: e_model = 0.0
 				if calc.base['METHOD'] is None:
 					e_base = 0.0
 				else:
@@ -196,8 +197,8 @@ def _slave(mpi, mol, calc, exp):
 				exp.energy['inc'][-1][job_info['index']] -= _sum(calc, exp, job_info['index'])
 				# verbose print
 				if mol.verbose:
-					print(' cas = {0:} , e_model = {1:.6f} , e_base = {2:.6f} , e_inc = {3:.6f}'.\
-							format(exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][job_info['index']]))
+					print(' core = {0:} , cas = {1:} , e_model = {2:.6f} , e_base = {3:.6f} , e_inc = {4:.6f}'.\
+							format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][job_info['index']]))
 				# write info into data dict
 				data['index'] = job_info['index']
 				data['e_inc'] = exp.energy['inc'][-1][job_info['index']]

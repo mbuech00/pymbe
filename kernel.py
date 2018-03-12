@@ -123,7 +123,6 @@ def active(mol, calc):
 					no_exp = nocc_avas
 				elif calc.typ == 'virtual':
 					no_exp = nvirt_avas
-				print('ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
 				# sanity checks
 				assert(nocc_avas <= (mol.nocc - mol.ncore))
 				assert(float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[mol.ncore:]))
@@ -134,6 +133,8 @@ def active(mol, calc):
 				except Exception as err:
 					sys.stderr.write(str(err))
 					raise
+			if mol.verbose:
+				print(' ACTIVE: ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
 		return ref_space, exp_space, no_exp, no_act, ne_act
 
 
@@ -188,6 +189,8 @@ def ref(mol, calc, exp):
 					e_ref_base = e_ref
 				else:
 					e_ref_base = corr(mol, calc, exp, calc.base['METHOD'])
+		if mol.verbose:
+			print(' REF: core = {0:} , cas = {1:} , e_ref = {2:.10f} , e_ref_base = {3:.10f}'.format(exp.core_idx, exp.cas_idx, e_ref, e_ref_base))
 		return e_ref + calc.energy['hf'], e_ref_base + calc.energy['hf'], calc.mo
 
 

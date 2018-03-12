@@ -111,10 +111,10 @@ def mbe_results(mol, calc, exp):
 		core, cas = kernel.core_cas(mol, exp, exp.tuples[exp.order-exp.start_order][max_idx])
 		cas_ref = '{0:}'.format(sorted(list(set(calc.ref_space.tolist()) - set(core))))
 		if calc.ref['METHOD'] == 'HF':
-			casexp = '{0:}'.format(sorted(list(set(cas) - set(calc.ref_space.tolist()))))
+			cas_exp = '{0:}'.format(sorted(list(set(cas) - set(calc.ref_space.tolist()))))
 		else:
-			casexp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
-			casexp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
+			cas_exp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
+			cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
 		# now print
 		with open(_out+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
@@ -128,7 +128,7 @@ def mbe_results(mol, calc, exp):
 					print(' --------------------------------------------------------------------------------------------')
 					print(' RESULT:                   info on max. abs. increment:')
 					print(' RESULT:  core = {0:}'.format(core))
-					print(' RESULT:  cas  = '+cas_ref+' + '+casexp)
+					print(' RESULT:  cas  = '+cas_ref+' + '+cas_exp)
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
@@ -141,7 +141,7 @@ def mbe_results(mol, calc, exp):
 			print(' --------------------------------------------------------------------------------------------')
 			print(' RESULT:                   info on max. abs. increment:')
 			print(' RESULT:  core = {0:}'.format(core))
-			print(' RESULT:  cas  = '+cas_ref+' + '+casexp)
+			print(' RESULT:  cas  = '+cas_ref+' + '+cas_exp)
 		print(' --------------------------------------------------------------------------------------------')
 
 
