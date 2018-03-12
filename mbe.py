@@ -186,7 +186,6 @@ def _slave(mpi, mol, calc, exp):
 				# perform calc
 				e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
 							+ (calc.energy['hf'] - calc.energy['ref'])
-				if e_model > 0.0: e_model = 0.0
 				if calc.base['METHOD'] is None:
 					e_base = 0.0
 				else:
