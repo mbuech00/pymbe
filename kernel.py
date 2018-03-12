@@ -60,8 +60,8 @@ def hf(mol, calc):
 		doub_occ = []
 		sing_occ = []
 		for k, ir in enumerate(mol.irrep_id):
-			doub_occ.append(sum(orbsym[occup == 2] == ir))
-			sing_occ.append(sum(orbsym[occup == 1] == ir))
+			doub_occ.append(sum(orbsym[occup == 2.] == ir))
+			sing_occ.append(sum(orbsym[occup == 1.] == ir))
 			if sing_occ[k] % 2:
 				wfnsym ^= ir
 		# sanity check
@@ -72,7 +72,7 @@ def hf(mol, calc):
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
-		return hf, e_hf, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
+		return hf, np.asscalar(e_hf), occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(hf, calc):

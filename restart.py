@@ -71,7 +71,11 @@ def write_fund(mol, calc):
 				'ne_act': calc.ne_act, 'no_act': calc.no_act}
 		with open(os.path.join(_rst, 'dims.rst'), 'w') as f:
 			json.dump(dims, f)
-		# write hf and base energies
+		# write hf, reference, and base energies (converted to native python type)
+		if isinstance(calc.energy['hf'], np.ndarray): calc.energy['hf'] = np.asscalar(calc.energy['hf'])
+		if isinstance(calc.energy['base'], np.ndarray): calc.energy['base'] = np.asscalar(calc.energy['base'])
+		if isinstance(calc.energy['ref'], np.ndarray): calc.energy['ref'] = np.asscalar(calc.energy['ref'])
+		if isinstance(calc.energy['ref_base'], np.ndarray): calc.energy['ref_base'] = np.asscalar(calc.energy['ref_base'])
 		energies = {'hf': calc.energy['hf'], 'base': calc.energy['base'], \
 					'ref': calc.energy['ref'], 'ref_base': calc.energy['ref_base']}
 		with open(os.path.join(_rst, 'energies.rst'), 'w') as f:
