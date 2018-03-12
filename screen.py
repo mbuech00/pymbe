@@ -52,7 +52,7 @@ def _serial(mol, calc, exp):
 			# loop through possible orbitals to augment the combinations with
 			for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
 				# if tuple is allowed, add to child tuple list, otherwise screen away
-				if not _test(calc, exp, exp.tuples[-1][i]):
+				if not _test(calc, exp, exp.tuples[-1][i], m):
 					tmp.append(exp.tuples[-1][i].tolist()+[m])
 		# when done, write to tup list or mark expansion as converged
 		if len(tmp) == 0:
@@ -138,7 +138,7 @@ def _slave(mpi, mol, calc, exp):
 				data['child'][:] = []
 				for m in range(exp.tuples[-1][job_info['index']][-1]+1, calc.exp_space[-1]+1):
 					# if tuple is allowed, add to child tuple list, otherwise screen away
-					if not _test(calc, exp, exp.tuples[-1][job_info['index']]):
+					if not _test(calc, exp, exp.tuples[-1][job_info['index']], m):
 						data['child'].append(exp.tuples[-1][job_info['index']].tolist()+[m])
 				# send data back to master
 				comm.send(data, dest=0, tag=_tags.done)
@@ -154,7 +154,7 @@ def _slave(mpi, mol, calc, exp):
 			parallel.tup(exp, comm)
 
 
-def _test(calc, exp, tup):
+def _test(calc, exp, tup, m):
 		""" screening test """
 		if exp.order == exp.start_order:
 			screen = False
@@ -166,24 +166,22 @@ def _test(calc, exp, tup):
 				cond = np.zeros(len(combs), dtype=bool)
 				for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
 				combs = combs[cond]
-			# loop through possible orbitals to augment the combinations with
-			for m in range(tup[-1]+1, calc.exp_space[-1]+1):
-				# init screening logical
-				screen = True
-				# loop over subset combinations
-				for j in range(len(combs)):
-					# recover index of particular tuple
-					comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
-					# does it exist?
-					if len(comb_idx) == 0:
-						# screen away
-						screen = True
-						break
-					else:
-						# is the increment above threshold?
-						if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
-							# mark as 'allowed'
-							screen = False
+			# init screening logical
+			screen = True
+			# loop over subset combinations
+			for j in range(len(combs)):
+				# recover index of particular tuple
+				comb_idx = np.where(np.all(np.append(combs[j], [m]) == exp.tuples[-1], axis=1))[0]
+				# does it exist?
+				if len(comb_idx) == 0:
+					# screen away
+					screen = True
+					break
+				else:
+					# is the increment above threshold?
+					if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
+						# mark as 'allowed'
+						screen = False
 		return screen
 
 
