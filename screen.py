@@ -41,6 +41,8 @@ def main(mpi, mol, calc, exp):
 				_slave(mpi, mol, calc, exp)
 		else:
 			_serial(mol, calc, exp)
+			# update expansion threshold
+			exp.thres = update(calc, exp)
 
 
 def _serial(mol, calc, exp):
