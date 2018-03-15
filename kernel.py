@@ -361,6 +361,9 @@ def _casscf(mol, calc, exp, method):
 
 def _fci(mol, calc, exp, base):
 		""" fci calc """
+		# no virtuals?
+		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
+			return 0.0, None
 		# init fci solver
 		if mol.spin == 0:
 			solver = fci.direct_spin0_symm.FCI(mol)
@@ -432,6 +435,9 @@ def _fci(mol, calc, exp, base):
 
 def _sci(mol, calc, exp, base):
 		""" sci calc """
+		# no virtuals?
+		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
+			return 0.0, None
 		# init sci solver
 		if mol.spin == 0:
 			solver = fci.select_ci_spin0_symm.SCI(mol)
@@ -508,6 +514,9 @@ def _sci(mol, calc, exp, base):
 
 def _ci(mol, calc, exp, base):
 		""" cisd calc """
+		# no virtuals?
+		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
+			return 0.0, None
 		# get integrals
 		h1e, h2e, e_core = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
@@ -559,6 +568,9 @@ def _ci(mol, calc, exp, base):
 
 def _cc(mol, calc, exp, base, pt=False):
 		""" ccsd / ccsd(t) calc """
+		# no virtuals?
+		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
+			return 0.0, None
 		# get integrals
 		h1e, h2e, e_core = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
@@ -607,13 +619,7 @@ def _cc(mol, calc, exp, base, pt=False):
 		else:
 			dm = None
 		# calculate (t) correction
-		if pt:
-			if mol.spin == 0:
-				if ccsd.t1.shape[1] > 0:
-					e_corr += ccsd.ccsd_t(eris=eris)
-			else:
-				if eris.focka.shape[0] - eris.nocca > 0:
-					e_corr += ccsd.ccsd_t(eris=eris)
+		if pt: e_corr += ccsd.ccsd_t(eris=eris)
 		return e_corr, dm
 
 
