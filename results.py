@@ -88,33 +88,11 @@ def _table(info, mol, calc, exp):
 	
 	
 def _plot(calc, exp):
-		""" plot correlation energy """
-		# set seaborn
-		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 1 plot
-		fig, ax = plt.subplots()
-		# plot results
-		ax.plot(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order)), \
-				exp.energy['tot']+calc.energy['base'], marker='x', linewidth=2, \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
-		# set x limits
-		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
-		# turn off x-grid
-		ax.xaxis.grid(False)
-		# set labels
-		ax.set_xlabel('Expansion order')
-		ax.set_ylabel('Correlation energy (in Hartree)')
-		# force integer ticks on x-axis
-		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax.yaxis.set_major_formatter(FormatStrFormatter('%.4f'))
-		# despine
-		sns.despine()
-		# set legends
-		ax.legend(loc=1)
-		# tight layout
-		plt.tight_layout()
-		# save plot
-		plt.savefig(_out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+		""" plot results """
+		# plot correlation energy
+		_energy(calc, exp)
+		# plot maximal increments
+		_increments(calc, exp)
 
 
 def _basis(mol):
@@ -342,5 +320,73 @@ def _orders(calc, exp):
 						-((total_time-(total_time//3600)*3600.)//60)*60.),\
 						'','|','',len(exp.tuples[i]),'','|','',total_tup))
 		return orders
+
+
+def _energy(calc, exp):
+		""" plot correlation energy """
+		# set seaborn
+		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 1 plot
+		fig, ax = plt.subplots()
+		# array of total correlation energy
+		corr = exp.energy['tot'] + (calc.energy['ref'] - calc.energy['hf']) - \
+				(calc.energy['ref_base'] - calc.energy['hf']) + calc.energy['base']
+		# plot results
+		ax.plot(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+				corr, marker='x', linewidth=2, color='green', \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax.xaxis.grid(False)
+		# set labels
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Correlation energy (in Hartree)')
+		# force integer ticks on x-axis
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.4f'))
+		# despine
+		sns.despine()
+		# set legends
+		ax.legend(loc=1)
+		# tight layout
+		plt.tight_layout()
+		# save plot
+		plt.savefig(_out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+
+
+def _increments(calc, exp):
+		""" plot maximal increments """
+		# set seaborn
+		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 1 plot
+		fig, ax = plt.subplots()
+		# array of maximal increments
+		max_val = np.empty_like(exp.energy['inc'])
+		for i in range(len(max_val)):
+			max_idx = np.argmax(np.abs(exp.energy['inc'][i]))
+			max_val[i] = np.abs(exp.energy['inc'][i][max_idx])
+		# plot results
+		ax.semilogy(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+				max_val, marker='x', linewidth=2, color='red', \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax.xaxis.grid(False)
+		# set labels
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Maximal increment (in Hartree)')
+		# force integer ticks on x-axis
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
+		# despine
+		sns.despine()
+		# set legends
+		ax.legend(loc=1)
+		# tight layout
+		plt.tight_layout()
+		# save plot
+		plt.savefig(_out+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
 
 
