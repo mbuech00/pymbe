@@ -39,6 +39,8 @@ _tags = _enum('ready', 'done', 'exit', 'start')
 
 def main(mpi, mol, calc, exp):
 		""" energy mbe phase """
+		# print header
+		if mpi.global_master: output.mbe_header(exp)
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:

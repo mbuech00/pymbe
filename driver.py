@@ -37,7 +37,6 @@ def main(mpi, mol, calc, exp):
 			#
 			#** mbe phase **#
 			#
-			if mpi.global_master: output.mbe_header(exp)
 			# init energies
 			if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
 				inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
@@ -55,7 +54,6 @@ def main(mpi, mol, calc, exp):
 			#
 			#** screening phase **#
 			#
-			if mpi.global_master: output.screen_header(exp, exp.thres)
 			# orbital screening
 			if exp.order < exp.max_order:
 				# start time
@@ -158,14 +156,13 @@ def slave(mpi, mol, calc, exp):
 
 def _rst_print(mol, calc, exp):
 		""" print output in case of restart """
-		thres = 0.0
 		for exp.order in range(exp.start_order, exp.min_order):
 			output.mbe_header(exp)
 			output.mbe_end(exp)
 			output.mbe_results(mol, calc, exp)
+			thres = screen.update(calc, exp)
 			output.screen_header(exp, thres)
 			output.screen_end(exp)
-			thres = screen.update(calc, exp)
 			rst_freq = int(max(exp.rst_freq / 2., 1.))
 		return thres, rst_freq, False
 

@@ -38,8 +38,8 @@ def main(mpi, mol, calc, exp):
 		""" summary printing and plotting """
 		# setup
 		info = {}
-		info['basis'], info['mult'], info['ref'], info['base'], info['system'], \
-			info['frozen'], info['active'], info['occ'], info['virt'], \
+		info['basis'], info['mult'], info['ref'], info['base'], info['typ_prot'], \
+			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], info['conv'] = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mol, calc, exp)
@@ -53,6 +53,7 @@ def _setup(mpi, mol, calc, exp):
 		mult = _mult(mol)
 		ref = _ref(mol, calc)
 		base = _base(calc)
+		typ_prot = _typ_prot(calc)
 		system = _system(mol, calc)
 		frozen = _frozen(mol)
 		active = _active(calc)
@@ -61,8 +62,8 @@ def _setup(mpi, mol, calc, exp):
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		conv = _conv(exp)
-		return basis, mult, ref, base, system, frozen, active, \
-				occ, virt, mpi, thres, symm, conv
+		return basis, mult, ref, base, typ_prot, system, frozen, \
+				active, occ, virt, mpi, thres, symm, conv
 
 
 def _table(info, mol, calc, exp):
@@ -162,6 +163,12 @@ def _base(calc):
 			return 'none'
 		else:
 			return calc.base['METHOD']
+
+
+def _typ_prot(calc):
+		""" modify type / protocol print """
+		typ_prot = '{0:} / {1:}'.format(calc.typ, calc.protocol)
+		return typ_prot
 
 
 def _system(mol, calc):
@@ -278,7 +285,7 @@ def _fourth_row(info, calc, exp):
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 				format('','frozen core','','=','',info['frozen'],\
-					'','|','','expansion base','','=','',info['base'],\
+					'','|','','base model','','=','',info['base'],\
 					'','|','','final MBE energy','','=','',\
 					exp.energy['tot'][-1] + calc.energy['ref'] + \
 					(calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base'])))
@@ -289,7 +296,7 @@ def _fifth_row(info, mol, calc):
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
 				format('','occupied orbitals','','=','',info['occ'],\
-					'','|','','expansion type','','=','',calc.typ,\
+					'','|','','type / protocol','','=','',info['typ_prot'],\
 					'','|','','wave funct. symmetry','','=','',info['symm'])
 
 

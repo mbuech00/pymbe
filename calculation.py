@@ -24,6 +24,7 @@ class CalcCls():
 				# set defaults
 				self.model = {'METHOD': 'FCI'}
 				self.typ = 'occupied'
+				self.protocol = 1
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
 				self.thres = 1.0e-10
@@ -38,8 +39,8 @@ class CalcCls():
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:
-					self.model, self.typ, self.ref, self.base, \
-						self.thres, self.relax, \
+					self.model, self.typ, self.protocol, self.ref, \
+						self.base, self.thres, self.relax, \
 						self.wfnsym, self.target, self.max_order, \
 						self.occ, self.virt, \
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
@@ -63,6 +64,8 @@ class CalcCls():
 								self.model = self._upper(self.model)
 							elif re.split('=',content[i])[0].strip() == 'type':
 								self.typ = re.split('=',content[i])[1].strip()
+							elif re.split('=',content[i])[0].strip() == 'protocol':
+								self.protocol = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'ref':
 								self.ref = eval(re.split('=',content[i])[1].strip())
 								self.ref = self._upper(self.ref)
@@ -101,7 +104,7 @@ class CalcCls():
 					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
-				return self.model, self.typ, self.ref, self.base, \
+				return self.model, self.typ, self.protocol, self.ref, self.base, \
 							self.thres, self.relax, self.wfnsym, self.target, \
 							self.max_order, self.occ, self.virt, \
 							mol.max_memory, mpi.num_local_masters
@@ -117,7 +120,10 @@ class CalcCls():
 					# type of expansion
 					if self.typ not in ['occupied','virtual','combined']:
 						raise ValueError('wrong input -- valid choices for ' + \
-										'expansion scheme are occupied, virtual, and combined')
+										'expansion scheme are: occupied, virtual, and combined')
+					# screening protocol
+					if self.protocol not in [1,2]:
+						raise ValueError('wrong input -- valid choices for screening protocol are: 1 and 2')
 					# reference model
 					if self.ref['METHOD'] not in ['HF','CASCI','CASSCF']:
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
