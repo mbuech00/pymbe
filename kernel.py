@@ -363,7 +363,7 @@ def _fci(mol, calc, exp, base):
 		""" fci calc """
 		# no virtuals?
 		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
-			return 0.0, None
+			return 0.0
 		# init fci solver
 		if mol.spin == 0:
 			solver = fci.direct_spin0_symm.FCI(mol)
