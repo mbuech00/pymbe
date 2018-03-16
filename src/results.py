@@ -361,22 +361,33 @@ def _increments(calc, exp):
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 1 plot
 		fig, ax = plt.subplots()
-		# array of maximal increments
+		# array of increments
+		mean_val = np.empty_like(exp.energy['inc'])
+		min_val = np.empty_like(exp.energy['inc'])
 		max_val = np.empty_like(exp.energy['inc'])
-		for i in range(len(max_val)):
+		for i in range(len(exp.energy['inc'])):
+			mean_val[i] = np.abs(np.mean(exp.energy['inc'][i]))
+			min_idx = np.argmin(np.abs(exp.energy['inc'][i]))
+			min_val[i] = np.abs(exp.energy['inc'][i][min_idx])
 			max_idx = np.argmax(np.abs(exp.energy['inc'][i]))
 			max_val[i] = np.abs(exp.energy['inc'][i][max_idx])
 		# plot results
 		ax.semilogy(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
-				max_val, marker='x', linewidth=2, color='red', \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
+				mean_val, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
+				linestyle='-', label='mean')
+		ax.semilogy(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+				min_val, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
+				linestyle='-', label='min')
+		ax.semilogy(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+				max_val, marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
+				linestyle='-', label='max')
 		# set x limits
 		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
 		ax.xaxis.grid(False)
 		# set labels
 		ax.set_xlabel('Expansion order')
-		ax.set_ylabel('Max. absolute increment (in Hartree)')
+		ax.set_ylabel('Absolute increments (in Hartree)')
 		# force integer ticks on x-axis
 		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
