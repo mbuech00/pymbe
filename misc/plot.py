@@ -87,7 +87,7 @@ ax.legend(loc=1)
 # tight layout
 plt.tight_layout()
 # save plot
-plt.savefig(cwd+'/energy_2.pdf', bbox_inches = 'tight', dpi=1000)
+plt.savefig(cwd+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
 
 # plot maximal increments
 fig, ax = plt.subplots()
@@ -112,5 +112,5 @@ ax.legend(loc=1)
 # tight layout
 plt.tight_layout()
 # save plot
-plt.savefig(cwd+'/increments_2.pdf', bbox_inches = 'tight', dpi=1000)
+plt.savefig(cwd+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
 
