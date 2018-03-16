@@ -38,8 +38,8 @@ def main(mpi, mol, calc, exp):
 		""" summary printing and plotting """
 		# setup
 		info = {}
-		info['basis'], info['mult'], info['ref'], info['base'], info['system'], \
-			info['frozen'], info['active'], info['occ'], info['virt'], \
+		info['basis'], info['mult'], info['ref'], info['base'], info['typ_prot'], \
+			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], info['conv'] = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mol, calc, exp)
@@ -53,6 +53,7 @@ def _setup(mpi, mol, calc, exp):
 		mult = _mult(mol)
 		ref = _ref(mol, calc)
 		base = _base(calc)
+		typ_prot = _typ_prot(calc)
 		system = _system(mol, calc)
 		frozen = _frozen(mol)
 		active = _active(calc)
@@ -61,8 +62,8 @@ def _setup(mpi, mol, calc, exp):
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		conv = _conv(exp)
-		return basis, mult, ref, base, system, frozen, active, \
-				occ, virt, mpi, thres, symm, conv
+		return basis, mult, ref, base, typ_prot, system, frozen, \
+				active, occ, virt, mpi, thres, symm, conv
 
 
 def _table(info, mol, calc, exp):
@@ -87,33 +88,11 @@ def _table(info, mol, calc, exp):
 	
 	
 def _plot(calc, exp):
-		""" plot correlation energy """
-		# set seaborn
-		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 1 plot
-		fig, ax = plt.subplots()
-		# plot results
-		ax.plot(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order)), \
-				exp.energy['tot']+calc.energy['base'], marker='x', linewidth=2, \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
-		# set x limits
-		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
-		# turn off x-grid
-		ax.xaxis.grid(False)
-		# set labels
-		ax.set_xlabel('Expansion order')
-		ax.set_ylabel('Correlation energy (in Hartree)')
-		# force integer ticks on x-axis
-		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax.yaxis.set_major_formatter(FormatStrFormatter('%.4f'))
-		# despine
-		sns.despine()
-		# set legends
-		ax.legend(loc=1)
-		# tight layout
-		plt.tight_layout()
-		# save plot
-		plt.savefig(_out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+		""" plot results """
+		# plot correlation energy
+		_energy(calc, exp)
+		# plot maximal increments
+		_increments(calc, exp)
 
 
 def _basis(mol):
@@ -162,6 +141,12 @@ def _base(calc):
 			return 'none'
 		else:
 			return calc.base['METHOD']
+
+
+def _typ_prot(calc):
+		""" modify type / protocol print """
+		typ_prot = '{0:} / {1:}'.format(calc.typ, calc.protocol)
+		return typ_prot
 
 
 def _system(mol, calc):
@@ -278,7 +263,7 @@ def _fourth_row(info, calc, exp):
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 				format('','frozen core','','=','',info['frozen'],\
-					'','|','','expansion base','','=','',info['base'],\
+					'','|','','base model','','=','',info['base'],\
 					'','|','','final MBE energy','','=','',\
 					exp.energy['tot'][-1] + calc.energy['ref'] + \
 					(calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base'])))
@@ -289,7 +274,7 @@ def _fifth_row(info, mol, calc):
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
 				format('','occupied orbitals','','=','',info['occ'],\
-					'','|','','expansion type','','=','',calc.typ,\
+					'','|','','type / protocol','','=','',info['typ_prot'],\
 					'','|','','wave funct. symmetry','','=','',info['symm'])
 
 
@@ -335,5 +320,73 @@ def _orders(calc, exp):
 						-((total_time-(total_time//3600)*3600.)//60)*60.),\
 						'','|','',len(exp.tuples[i]),'','|','',total_tup))
 		return orders
+
+
+def _energy(calc, exp):
+		""" plot correlation energy """
+		# set seaborn
+		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 1 plot
+		fig, ax = plt.subplots()
+		# array of total correlation energy
+		corr = exp.energy['tot'] + (calc.energy['ref'] - calc.energy['hf']) - \
+				(calc.energy['ref_base'] - calc.energy['hf']) + calc.energy['base']
+		# plot results
+		ax.plot(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+				corr, marker='x', linewidth=2, color='green', \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax.xaxis.grid(False)
+		# set labels
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Correlation energy (in Hartree)')
+		# force integer ticks on x-axis
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.4f'))
+		# despine
+		sns.despine()
+		# set legends
+		ax.legend(loc=1)
+		# tight layout
+		plt.tight_layout()
+		# save plot
+		plt.savefig(_out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+
+
+def _increments(calc, exp):
+		""" plot maximal increments """
+		# set seaborn
+		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 1 plot
+		fig, ax = plt.subplots()
+		# array of maximal increments
+		max_val = np.empty_like(exp.energy['inc'])
+		for i in range(len(max_val)):
+			max_idx = np.argmax(np.abs(exp.energy['inc'][i]))
+			max_val[i] = np.abs(exp.energy['inc'][i][max_idx])
+		# plot results
+		ax.semilogy(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+				max_val, marker='x', linewidth=2, color='red', \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax.xaxis.grid(False)
+		# set labels
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Maximal increment (in Hartree)')
+		# force integer ticks on x-axis
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
+		# despine
+		sns.despine()
+		# set legends
+		ax.legend(loc=1)
+		# tight layout
+		plt.tight_layout()
+		# save plot
+		plt.savefig(_out+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
 
 

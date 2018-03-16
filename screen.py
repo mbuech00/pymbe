@@ -15,6 +15,7 @@ from mpi4py import MPI
 import itertools
 
 import parallel
+import output
 
 
 def _enum(*sequential, **named):
@@ -31,6 +32,10 @@ _tags = _enum('ready', 'done', 'exit', 'start')
 
 def main(mpi, mol, calc, exp):
 		""" input generation for subsequent order """
+		# update expansion threshold
+		exp.thres = update(calc, exp)
+		# print header
+		if mpi.global_master: output.screen_header(exp, exp.thres)
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
@@ -169,7 +174,7 @@ def _slave(mpi, mol, calc, exp):
 def _test(calc, exp, tup, m):
 		""" screening test """
 		if exp.order == exp.start_order:
-			screen = False
+			return False
 		else:
 			# generate list with all subsets of particular tuple
 			combs = np.array(list(list(comb) for comb in itertools.combinations(tup, exp.order-1)))
@@ -178,30 +183,51 @@ def _test(calc, exp, tup, m):
 				cond = np.zeros(len(combs), dtype=bool)
 				for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
 				combs = combs[cond]
-			# init screening logical
-			screen = True
-			# loop over subset combinations
-			for j in range(len(combs)):
-				# recover index of particular tuple
-				comb_idx = np.where(np.all(sorted(np.append(combs[j], [m])) == exp.tuples[-1], axis=1))[0]
-				# does it exist?
-				if len(comb_idx) == 0:
-					# screen away
-					screen = True
-					break
-				else:
-					# is the increment above threshold?
-					if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
-						# mark as 'allowed'
-						screen = False
-		return screen
+			# conservative protocol
+			if calc.protocol == 1:
+				# init screening logical
+				screen = True
+				# loop over subset combinations
+				for j in range(len(combs)):
+					# recover index of particular tuple
+					comb_idx = np.where(np.all(sorted(np.append(combs[j], [m])) == exp.tuples[-1], axis=1))[0]
+					# does it exist?
+					if len(comb_idx) == 0:
+						# screen away
+						screen = True
+						break
+					else:
+						# is the increment above threshold?
+						if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
+							# mark as 'allowed'
+							screen = False
+			# aggressive protocol
+			elif calc.protocol == 2:
+				# init screening logical
+				screen = False
+				# loop over subset combinations
+				for j in range(len(combs)):
+					# recover index of particular tuple
+					comb_idx = np.where(np.all(sorted(np.append(combs[j], [m])) == exp.tuples[-1], axis=1))[0]
+					# does it exist?
+					if len(comb_idx) == 0:
+						# screen away
+						screen = True
+						break
+					else:
+						# is the increment above threshold?
+						if np.abs(exp.energy['inc'][-1][comb_idx]) < exp.thres:
+							# screen away
+							screen = True
+							break
+			return screen
 
 
 def update(calc, exp):
 		""" update expansion threshold """
-		if exp.order == 1:
+		if exp.order < 3:
 			return 0.0
 		else:
-			return calc.thres * calc.relax ** (exp.order - 2)
+			return calc.thres * calc.relax ** (exp.order - 3)
 
 
