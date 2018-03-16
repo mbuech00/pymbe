@@ -376,7 +376,7 @@ def _increments(calc, exp):
 		ax.xaxis.grid(False)
 		# set labels
 		ax.set_xlabel('Expansion order')
-		ax.set_ylabel('Maximal increment (in Hartree)')
+		ax.set_ylabel('Max. absolute increment (in Hartree)')
 		# force integer ticks on x-axis
 		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
