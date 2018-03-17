@@ -215,7 +215,7 @@ def corr(mol, calc, exp, method):
 		""" calculate correlation energy """
 		# fci calc
 		if method == 'FCI':
-			e_corr = _fci(mol, calc, exp, False)
+			e_corr = _fci(mol, calc, exp)
 		# sci base
 		elif method == 'SCI':
 			e_corr, _ = _sci(mol, calc, exp, False)
@@ -232,25 +232,36 @@ def base(mol, calc, exp):
 		""" calculate base energy and mo coefficients """
 		# set core and cas spaces
 		exp.core_idx, exp.cas_idx = core_cas(mol, exp, calc.exp_space)
+		# init dm
+		dm = None
 		# zeroth-order energy
 		if calc.base['METHOD'] is None:
 			e_base = 0.0
 		# cisd base
 		elif calc.base['METHOD'] == 'CISD':
-			e_base, dm = _ci(mol, calc, exp, True)
+			e_base, dm = _ci(mol, calc, exp, calc.occ == 'CISD' or calc.virt == 'CISD')
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['METHOD'] in ['CCSD','CCSD(T)']:
-			e_base, dm = _cc(mol, calc, exp, True, \
+			e_base, dm = _cc(mol, calc, exp, calc.occ == 'CCSD' or calc.virt == 'CCSD', \
 										(calc.base['METHOD'] == 'CCSD(T)') and \
 										((calc.occ == 'REF') and (calc.virt == 'REF')))
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# sci base
 		elif calc.base['METHOD'] == 'SCI':
-			e_base, dm = _sci(mol, calc, exp, True)
+			e_base, dm = _sci(mol, calc, exp, calc.occ == 'SCI' or calc.virt == 'SCI')
+		# NOs
+		if (calc.occ == 'CISD' or calc.virt == 'CISD') and dm is None:
+			dm = _ci(mol, calc, exp, True)[1]
+			if mol.spin > 0: dm = dm[0] + dm[1]
+		elif (calc.occ == 'CCSD' or calc.virt == 'CCSD') and dm is None:
+			dm = _cc(mol, calc, exp, True, False)[1]
+			if mol.spin > 0: dm = dm[0] + dm[1]
+		elif (calc.occ == 'SCI' or calc.virt == 'SCI') and dm is None:
+			dm = _sci(mol, calc, exp, True)[1]
 		# occ-occ block (local or NOs)
 		if calc.occ != 'REF':
-			if calc.occ == 'NO':
+			if calc.occ in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
 			elif calc.occ == 'PM':
@@ -266,7 +277,7 @@ def base(mol, calc, exp):
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
 		if calc.virt != 'REF':
-			if calc.virt == 'NO':
+			if calc.virt in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
 			elif calc.virt == 'PM':
@@ -276,9 +287,9 @@ def base(mol, calc, exp):
 		# extra calculation for non-invariant method
 		if calc.occ != 'REF' or calc.virt != 'REF':
 			if calc.base['METHOD'] == 'CCSD(T)':
-				e_base, dm = _cc(mol, calc, exp, False, True)
+				e_base = _cc(mol, calc, exp, False, True)[0]
 			elif calc.base['METHOD'] == 'SCI':
-				e_base, dm = _sci(mol, calc, exp, False)
+				e_base = _sci(mol, calc, exp, False)[0]
 		return e_base
 
 
@@ -359,7 +370,7 @@ def _casscf(mol, calc, exp, method):
 		return mo
 
 
-def _fci(mol, calc, exp, base):
+def _fci(mol, calc, exp):
 		""" fci calc """
 		# no virtuals?
 		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
@@ -433,7 +444,7 @@ def _fci(mol, calc, exp, base):
 		return e_corr
 
 
-def _sci(mol, calc, exp, base):
+def _sci(mol, calc, exp, dens):
 		""" sci calc """
 		# no virtuals?
 		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
@@ -502,17 +513,14 @@ def _sci(mol, calc, exp, base):
 		# e_corr
 		e_corr = energy - calc.energy['hf']
 		# sci dm
-		if base:
-			if calc.occ == 'NO' or calc.virt == 'NO':
-				dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)
-			else:
-				dm = None
+		if dens:
+			dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)
 		else:
 			dm = None
 		return e_corr, dm
 
 
-def _ci(mol, calc, exp, base):
+def _ci(mol, calc, exp, dens):
 		""" cisd calc """
 		# no virtuals?
 		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
@@ -556,17 +564,14 @@ def _ci(mol, calc, exp, base):
 		# e_corr
 		e_corr = cisd.e_corr
 		# dm
-		if base:
-			if calc.occ == 'NO' or calc.virt == 'NO':
-				dm = cisd.make_rdm1()
-			else:
-				dm = None
+		if dens:
+			dm = cisd.make_rdm1()
 		else:
 			dm = None
 		return e_corr, dm
 
 
-def _cc(mol, calc, exp, base, pt=False):
+def _cc(mol, calc, exp, dens, pt=False):
 		""" ccsd / ccsd(t) calc """
 		# no virtuals?
 		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
@@ -590,7 +595,7 @@ def _cc(mol, calc, exp, base, pt=False):
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
 		ccsd.conv_tol = 1.0e-10
-		if base: ccsd.conv_tol_normt = 1.0e-10
+		if dens: ccsd.conv_tol_normt = 1.0e-10
 		ccsd.max_cycle = 500
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
@@ -610,12 +615,9 @@ def _cc(mol, calc, exp, base, pt=False):
 		# e_corr
 		e_corr = ccsd.e_corr
 		# dm
-		if base and not pt:
-			if calc.occ == 'NO' or calc.virt == 'NO':
-				ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-				dm = ccsd.make_rdm1()
-			else:
-				dm = None
+		if dens and not pt:
+			ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
+			dm = ccsd.make_rdm1()
 		else:
 			dm = None
 		# calculate (t) correction

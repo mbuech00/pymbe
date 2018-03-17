@@ -178,29 +178,18 @@ class CalcCls():
 					if self.relax < 1.0:
 						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if self.occ not in ['REF','PM','FB','IBO-1','IBO-2','NO']:
+					if self.occ not in ['REF','PM','FB','IBO-1','IBO-2','CISD','CCSD','SCI']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
 										'representations are currently: REF, local (PM or FB), ' + \
-										'intrinsic bond orbitals (IBO-1 or IBO-2), or base model natural orbitals (NO)')
-					if self.virt not in ['REF','PM','FB','NO','DNO']:
+										'intrinsic bond orbitals (IBO-1 or IBO-2), or natural orbitals (CISD, CCSD, or SCI)')
+					if self.virt not in ['REF','PM','FB','CISD','CCSD','SCI']:
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations are currently: REF, local (PM or FB), ' + \
-										'or base model (distinctive) natural orbitals (NO or DNO)')
+										'or natural orbitals (CISD, CCSD, or SCI)')
 					if self.occ in ['PM','FB','IBO-1','IBO-2'] or self.virt in ['PM','FB']:
 						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbitals and point group symmetry ' + \
 											'different from C1 is not allowed')
-					if self.occ == 'NO' or self.virt in ['NO','DNO']:
-						if self.base['METHOD'] is None:
-							raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
-											'requires the use of a CC or SCI base model for the expansion')
-					if self.virt == 'DNO':
-						if self.typ != 'combined':
-							raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
-											'is only valid in combination with combined (dual) expansions')
-					if self.occ == 'NO' and self.virt == 'DNO':
-						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
-										'excludes the use of occupied natural orbitals')
 					# mpi groups
 					if mpi.parallel:
 						if mpi.num_local_masters < 0:

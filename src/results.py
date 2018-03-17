@@ -175,8 +175,12 @@ def _orbs(calc):
 		""" modify orbital print """
 		if calc.occ == 'REF':
 			occ = 'canonical'
-		elif calc.occ == 'NO':
-			occ = 'natural'
+		elif calc.occ == 'CISD':
+			occ = 'CISD natural'
+		elif calc.occ == 'CCSD':
+			occ = 'CCSD natural'
+		elif calc.occ == 'SCI':
+			occ = 'SCI natural'
 		elif calc.occ == 'PM':
 			occ = 'pipek-mezey'
 		elif calc.occ == 'FB':
@@ -187,14 +191,16 @@ def _orbs(calc):
 			occ = 'intrin. bond'
 		if calc.virt == 'REF':
 			virt = 'canonical'
-		elif calc.virt == 'NO':
-			virt = 'natural'
+		elif calc.virt == 'CISD':
+			virt = 'CISD natural'
+		elif calc.virt == 'CCSD':
+			virt = 'CCSD natural'
+		elif calc.virt == 'SCI':
+			virt = 'SCI natural'
 		elif calc.virt == 'PM':
 			virt = 'pipek-mezey'
 		elif calc.virt == 'FB':
 			virt = 'foster-boys'
-		elif calc.virt == 'DNO':
-			virt = 'dist. natural'
 		return occ, virt
 
 
@@ -280,7 +286,7 @@ def _fifth_row(info, mol, calc):
 
 def _sixth_row(info):
 		""" sixth row in table """
-		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 				'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.3e}').\
 					format('','virtual orbitals','','=','',info['virt'],\
 						'','|','','thres. / relax.','','=','',info['thres'],\
