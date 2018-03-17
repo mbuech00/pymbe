@@ -21,18 +21,18 @@ import kernel
 
 
 # output parameters
-_out = os.getcwd()+'/output'
-_header_str = '{0:^87}'.format('-'*45)
+OUT = os.getcwd()+'/output'
+HEADER = '{0:^87}'.format('-'*45)
 
 
 def main_header():
 		""" print main header """
 		# rm out if present
-		if os.path.isdir(_out): shutil.rmtree(_out, ignore_errors=True)
+		if os.path.isdir(OUT): shutil.rmtree(OUT, ignore_errors=True)
 		# mkdir out
-		os.mkdir(_out)
+		os.mkdir(OUT)
 		# print headers
-		for i in [_out+'/output.out',_out+'/results.out']:
+		for i in [OUT+'/output.out',OUT+'/results.out']:
 			with open(i,'a') as f:
 				with contextlib.redirect_stdout(f):
 					print("\n\n   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo")
@@ -48,20 +48,20 @@ def main_header():
 
 def exp_header(calc, exp):
 		""" print expansion header """
-		with open(_out+'/output.out','a') as f:
+		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(_header_str)
+				print(HEADER)
 				print('{0:^87}'.format(calc.typ+' expansion'))
-				print(_header_str+'\n\n')
+				print(HEADER+'\n\n')
 		# write also to stdout
-		print('\n\n'+_header_str)
+		print('\n\n'+HEADER)
 		print('{0:^87}'.format(calc.typ+' expansion'))
-		print(_header_str+'\n\n')
+		print(HEADER+'\n\n')
 
 
 def mbe_header(exp):
 		""" print mbe header """
-		with open(_out+'/output.out','a') as f:
+		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
@@ -86,7 +86,7 @@ def mbe_status(exp, prog):
 
 def mbe_end(exp):
 		""" print end of mbe """
-		with open(_out+'/output.out','a') as f:
+		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})'.\
@@ -116,7 +116,7 @@ def mbe_results(mol, calc, exp):
 			cas_exp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
 			cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
 		# now print
-		with open(_out+'/output.out','a') as f:
+		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' RESULT:      mean increment     |    min. abs. increment   |    max. abs. increment')
@@ -147,7 +147,7 @@ def mbe_results(mol, calc, exp):
 
 def screen_header(exp, thres):
 		""" print screening header """
-		with open(_out+'/output.out','a') as f:
+		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
@@ -160,7 +160,7 @@ def screen_header(exp, thres):
 
 def screen_end(exp):
 		""" print end of screening """
-		with open(_out+'/output.out','a') as f:
+		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				if exp.conv_orb[-1]:
 					print(' --------------------------------------------------------------------------------------------')

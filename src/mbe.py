@@ -34,7 +34,7 @@ def _enum(*sequential, **named):
 
 
 # mbe parameters
-_tags = _enum('ready', 'done', 'exit', 'start')
+TAGS = _enum('ready', 'done', 'exit', 'start')
 
 
 def main(mpi, mol, calc, exp):
@@ -130,20 +130,20 @@ def _master(mpi, mol, calc, exp):
 			# probe for source and tag
 			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 			# slave is ready
-			if tag == _tags.ready:
+			if tag == TAGS.ready:
 				# any jobs left?
 				if i <= len(exp.tuples[-1]) - 1:
 					# store job index
 					job_info['index'] = i
 					# send string dict
-					comm.send(job_info, dest=source, tag=_tags.start)
+					comm.send(job_info, dest=source, tag=TAGS.start)
 					# increment job index
 					i += 1
 				else:
 					# send exit signal
-					comm.send(None, dest=source, tag=_tags.exit)
+					comm.send(None, dest=source, tag=TAGS.exit)
 			# receive result from slave
-			elif tag == _tags.done:
+			elif tag == TAGS.done:
 				# collect energies
 				exp.energy['inc'][-1][data['index']] = data['e_inc']
 				# write restart files
@@ -157,7 +157,7 @@ def _master(mpi, mol, calc, exp):
 					if (data['index'] + 1) % 1000 == 0 or mol.verbose:
 						output.mbe_status(exp, float(counter) / float(len(exp.tuples[-1])))
 			# put slave to sleep
-			elif tag == _tags.exit:
+			elif tag == TAGS.exit:
 				slaves_avail -= 1
 		# print 100.0 %
 		if mpi.global_master and not mol.verbose:
@@ -181,13 +181,13 @@ def _slave(mpi, mol, calc, exp):
 		# receive work from master
 		while (True):
 			# ready for task
-			comm.send(None, dest=0, tag=_tags.ready)
+			comm.send(None, dest=0, tag=TAGS.ready)
 			# receive drop string
 			job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# recover tag
 			tag = mpi.stat.Get_tag()
 			# do job
-			if tag == _tags.start:
+			if tag == TAGS.start:
 				# generate input
 				exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][job_info['index']])
 				# perform calc
@@ -209,12 +209,12 @@ def _slave(mpi, mol, calc, exp):
 				data['index'] = job_info['index']
 				data['e_inc'] = exp.energy['inc'][-1][job_info['index']]
 				# send data back to local master
-				comm.send(data, dest=0, tag=_tags.done)
+				comm.send(data, dest=0, tag=TAGS.done)
 			# exit
-			elif tag == _tags.exit:
+			elif tag == TAGS.exit:
 				break
 		# send exit signal to master
-		comm.send(None, dest=0, tag=_tags.exit)
+		comm.send(None, dest=0, tag=TAGS.exit)
 		# receive energies
 		parallel.energy(exp, comm)
 

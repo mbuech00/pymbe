@@ -28,10 +28,10 @@ except ImportError:
 	sys.stderr.write('\nImportError : seaborn module not found\n\n')
 
 
-# summary constants
-_out = os.getcwd()+'/output'
-_divider_str = '{0:^143}'.format('-'*137)
-_fill_str = '{0:^143}'.format('|'*137)
+# results parameters
+OUT = os.getcwd()+'/output'
+DIVIDER = '{0:^143}'.format('-'*137)
+FILL = '{0:^143}'.format('|'*137)
 
 
 def main(mpi, mol, calc, exp):
@@ -69,22 +69,22 @@ def _setup(mpi, mol, calc, exp):
 def _table(info, mol, calc, exp):
 		""" print results """
 		# write summary to results.out
-		with open(_out+'/results.out','a') as f:
+		with open(OUT+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(_divider_str)
+				print(DIVIDER)
 				print(_header_1())
-				print(_divider_str)
+				print(DIVIDER)
 				print(_first_row(info, calc))
 				print(_second_row(info, calc))
 				print(_third_row(info, calc))
 				print(_fourth_row(info, calc, exp))
 				print(_fifth_row(info, mol, calc))
 				print(_sixth_row(info))
-				print(_divider_str); print(_fill_str); print(_divider_str)
+				print(DIVIDER); print(FILL); print(DIVIDER)
 				print(_header_2())
-				print(_divider_str)
+				print(DIVIDER)
 				for i in _orders(calc, exp): print(i)
-				print(_divider_str+'\n\n')
+				print(DIVIDER+'\n\n')
 	
 	
 def _plot(calc, exp):
@@ -358,7 +358,7 @@ def _energy(calc, exp):
 		# tight layout
 		plt.tight_layout()
 		# save plot
-		plt.savefig(_out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
 
 
 def _increments(calc, exp):
@@ -404,6 +404,6 @@ def _increments(calc, exp):
 		# tight layout
 		plt.tight_layout()
 		# save plot
-		plt.savefig(_out+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
 
 
