@@ -245,7 +245,7 @@ def base(mol, calc, exp):
 		elif calc.base['METHOD'] in ['CCSD','CCSD(T)']:
 			e_base, dm = _cc(mol, calc, exp, calc.occ == 'CCSD' or calc.virt == 'CCSD', \
 										(calc.base['METHOD'] == 'CCSD(T)') and \
-										((calc.occ == 'REF') and (calc.virt == 'REF')))
+										((calc.occ == 'CAN') and (calc.virt == 'CAN')))
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# sci base
 		elif calc.base['METHOD'] == 'SCI':
@@ -260,7 +260,7 @@ def base(mol, calc, exp):
 		elif (calc.occ == 'SCI' or calc.virt == 'SCI') and dm is None:
 			dm = _sci(mol, calc, exp, True)[1]
 		# occ-occ block (local or NOs)
-		if calc.occ != 'REF':
+		if calc.occ != 'CAN':
 			if calc.occ in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
@@ -276,7 +276,7 @@ def base(mol, calc, exp):
 				elif calc.occ == 'IBO-2':
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
-		if calc.virt != 'REF':
+		if calc.virt != 'CAN':
 			if calc.virt in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
@@ -284,8 +284,8 @@ def base(mol, calc, exp):
 				calc.mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
 			elif calc.virt == 'FB':
 				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
-		# extra calculation for non-invariant method
-		if calc.occ != 'REF' or calc.virt != 'REF':
+		# extra calculation for non-invariant methods
+		if calc.occ != 'CAN' or calc.virt != 'CAN':
 			if calc.base['METHOD'] == 'CCSD(T)':
 				e_base = _cc(mol, calc, exp, False, True)[0]
 			elif calc.base['METHOD'] == 'SCI':

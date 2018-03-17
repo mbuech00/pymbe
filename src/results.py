@@ -173,7 +173,7 @@ def _active(calc):
 
 def _orbs(calc):
 		""" modify orbital print """
-		if calc.occ == 'REF':
+		if calc.occ == 'CAN':
 			occ = 'canonical'
 		elif calc.occ == 'CISD':
 			occ = 'CISD natural'
@@ -189,7 +189,7 @@ def _orbs(calc):
 			occ = 'intrin. bond'
 		elif calc.occ == 'IBO-2':
 			occ = 'intrin. bond'
-		if calc.virt == 'REF':
+		if calc.virt == 'CAN':
 			virt = 'canonical'
 		elif calc.virt == 'CISD':
 			virt = 'CISD natural'

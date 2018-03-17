@@ -32,8 +32,8 @@ class CalcCls():
 				self.wfnsym = symm.addons.irrep_id2name(mol.symmetry, 0)
 				self.target = 0
 				self.max_order = 1000000
-				self.occ = 'REF'
-				self.virt = 'REF'
+				self.occ = 'CAN'
+				self.virt = 'CAN'
 				# init energy dict and mo
 				self.energy = {}
 				self.mo = None
@@ -178,13 +178,13 @@ class CalcCls():
 					if self.relax < 1.0:
 						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if self.occ not in ['REF','PM','FB','IBO-1','IBO-2','CISD','CCSD','SCI']:
+					if self.occ not in ['CAN','PM','FB','IBO-1','IBO-2','CISD','CCSD','SCI']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
-										'representations are currently: REF, local (PM or FB), ' + \
+										'representations are currently: canonical (CAN), local (PM or FB), ' + \
 										'intrinsic bond orbitals (IBO-1 or IBO-2), or natural orbitals (CISD, CCSD, or SCI)')
-					if self.virt not in ['REF','PM','FB','CISD','CCSD','SCI']:
+					if self.virt not in ['CAN','PM','FB','CISD','CCSD','SCI']:
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: REF, local (PM or FB), ' + \
+										'representations are currently: canonical (CAN), local (PM or FB), ' + \
 										'or natural orbitals (CISD, CCSD, or SCI)')
 					if self.occ in ['PM','FB','IBO-1','IBO-2'] or self.virt in ['PM','FB']:
 						if mol.symmetry != 'C1':
