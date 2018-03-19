@@ -266,6 +266,7 @@ def _third_row(info, calc):
 
 def _fourth_row(info, calc, exp):
 		""" fourth row in table """
+		print(str(exp.energy['tot'][-1] + calc.energy['ref'] + (calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base']))))
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 				format('','frozen core','','=','',info['frozen'],\

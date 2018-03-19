@@ -153,8 +153,6 @@ class CalcCls():
 						else:
 							raise ValueError('wrong input -- active space choices are currently: MANUAL and AVAS')
 					# base model
-					if self.ref['METHOD'] == 'CASSCF' and self.base['METHOD'] not in [None,'SCI']:
-						raise ValueError('wrong input -- invalid base model for CASSCF reference model')
 					if self.base['METHOD'] not in [None,'CISD','CCSD','CCSD(T)','SCI']:
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
