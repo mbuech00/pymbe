@@ -40,7 +40,7 @@ def main(mpi, mol, calc, exp):
 		info = {}
 		info['basis'], info['mult'], info['ref'], info['base'], info['typ_prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
-			info['mpi'], info['thres'], info['symm'], info['conv'] = _setup(mpi, mol, calc, exp)
+			info['mpi'], info['thres'], info['symm'], info['final_mbe'], info['conv'] = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mol, calc, exp)
 		# plot
@@ -61,9 +61,10 @@ def _setup(mpi, mol, calc, exp):
 		mpi = _mpi(mpi)
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
+		final_mbe = _final(calc, exp)
 		conv = _conv(exp)
 		return basis, mult, ref, base, typ_prot, system, frozen, \
-				active, occ, virt, mpi, thres, symm, conv
+				active, occ, virt, mpi, thres, symm, final_mbe, conv
 
 
 def _table(info, mol, calc, exp):
@@ -77,8 +78,8 @@ def _table(info, mol, calc, exp):
 				print(_first_row(info, calc))
 				print(_second_row(info, calc))
 				print(_third_row(info, calc))
-				print(_fourth_row(info, calc, exp))
-				print(_fifth_row(info, mol, calc))
+				print(_fourth_row(info))
+				print(_fifth_row(info))
 				print(_sixth_row(info))
 				print(DIVIDER); print(FILL); print(DIVIDER)
 				print(_header_2())
@@ -96,7 +97,7 @@ def _plot(calc, exp):
 
 
 def _basis(mol):
-		""" modify basis print """
+		""" basis print """
 		if isinstance(mol.basis, str):
 			return mol.basis
 		elif isinstance(mol.basis, dict):
@@ -109,7 +110,7 @@ def _basis(mol):
 
 
 def _mult(mol):
-		""" modify mult print """
+		""" mult print """
 		if mol.spin == 0:
 			return 'singlet'
 		elif mol.spin == 1:
@@ -125,7 +126,7 @@ def _mult(mol):
 
 
 def _ref(mol, calc):
-		""" modify ref print """
+		""" ref print """
 		if calc.ref['METHOD'] == 'HF':
 			if mol.spin == 0:
 				return 'RHF'
@@ -136,7 +137,7 @@ def _ref(mol, calc):
 
 
 def _base(calc):
-		""" modify base print """
+		""" base print """
 		if calc.base['METHOD'] is None:
 			return 'none'
 		else:
@@ -144,19 +145,19 @@ def _base(calc):
 
 
 def _typ_prot(calc):
-		""" modify type / protocol print """
+		""" type / protocol print """
 		typ_prot = '{0:} / {1:}'.format(calc.typ, calc.protocol)
 		return typ_prot
 
 
 def _system(mol, calc):
-		""" modify system size print """
+		""" system size print """
 		system = '{0:} e / {1:} o'.format(mol.nelectron - 2*mol.ncore, len(calc.ref_space) + len(calc.exp_space))
 		return system
 
 
 def _frozen(mol):
-		""" modify frozen core print """
+		""" frozen core print """
 		if mol.frozen:
 			return 'true'
 		else:
@@ -164,7 +165,7 @@ def _frozen(mol):
 
 
 def _active(calc):
-		""" modify active space print """
+		""" active space print """
 		if calc.ref['METHOD'] == 'HF':
 			return 'none'
 		else:
@@ -172,7 +173,7 @@ def _active(calc):
 
 
 def _orbs(calc):
-		""" modify orbital print """
+		""" orbital print """
 		if calc.occ == 'CAN':
 			occ = 'canonical'
 		elif calc.occ == 'CISD':
@@ -205,25 +206,31 @@ def _orbs(calc):
 
 
 def _mpi(mpi):
-		""" modify mpi print """
+		""" mpi print """
 		return '{0:} / {1:}'.format(mpi.num_local_masters+1, mpi.global_size-(mpi.num_local_masters+1))
 
 
 def _thres(calc):
-		""" modify threshold print """
+		""" threshold print """
 		return '{0:.0e} / {1:<.1f}'.format(calc.thres, calc.relax)
 
 
 def _symm(mol, calc):
-		""" modify symmetry print """
+		""" symmetry print """
 		if calc.model['METHOD'] in ['SCI','FCI']:
 			return symm.addons.irrep_id2name(mol.symmetry, calc.wfnsym)+' ('+mol.symmetry+')'
 		else:
 			return 'unknown'
 
 
+def _final(calc, exp):
+		""" final energy """
+		return exp.energy['tot'][-1] + calc.energy['ref'] + \
+				(calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base']))
+
+
 def _conv(exp):
-		""" modify convergence print """
+		""" convergence print """
 		if len(exp.energy['tot']) == 1:
 			return 0.0
 		else:
@@ -264,19 +271,16 @@ def _third_row(info, calc):
 					'','|','','base model energy','','=','',calc.energy['hf']+calc.energy['base'])
 
 
-def _fourth_row(info, calc, exp):
+def _fourth_row(info):
 		""" fourth row in table """
-		print(str(exp.energy['tot'][-1] + calc.energy['ref'] + (calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base']))))
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 				format('','frozen core','','=','',info['frozen'],\
 					'','|','','base model','','=','',info['base'],\
-					'','|','','final MBE energy','','=','',\
-					exp.energy['tot'][-1] + calc.energy['ref'] + \
-					(calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base'])))
+					'','|','','final MBE energy','','=','',info['final_mbe'])
 
 
-def _fifth_row(info, mol, calc):
+def _fifth_row(info):
 		""" fifth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
