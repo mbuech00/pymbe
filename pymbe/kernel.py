@@ -194,7 +194,7 @@ def ref(mol, calc, exp):
 			# set ref energies equal to hf energies
 			e_ref = e_ref_base = 0.0
 			# casscf mo
-			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp, calc.model['METHOD'])
+			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp)
 		else:
 			# exp model
 			e_ref = corr(mol, calc, exp, calc.model['METHOD'])
@@ -293,21 +293,15 @@ def base(mol, calc, exp):
 		return e_base
 
 
-def _casscf(mol, calc, exp, method):
+def _casscf(mol, calc, exp):
 		""" casscf calc """
 		# casscf ref
 		cas = mcscf.CASSCF(calc.hf, calc.no_act, calc.ne_act)
 		# fci solver
 		if abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
-			if method == 'FCI':
-				cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
-			elif method == 'SCI':
-				cas.fcisolver = fci.select_ci_spin0_symm.SCI(mol)
+			cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
 		else:
-			if method == 'FCI':
-				cas.fcisolver = fci.direct_spin1_symm.FCI(mol)
-			elif method == 'SCI':
-				cas.fcisolver = fci.select_ci_symm.SCI(mol)
+			cas.fcisolver = fci.direct_spin1_symm.FCI(mol)
 		cas.fcisolver.conv_tol = 1.0e-10
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
