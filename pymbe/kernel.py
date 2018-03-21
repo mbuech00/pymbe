@@ -14,6 +14,7 @@ import sys
 import numpy as np
 import scipy as sp
 from functools import reduce
+from mpi4py import MPI
 try:
 	from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 except ImportError:
@@ -615,7 +616,12 @@ def _cc(mol, calc, exp, dens, pt=False):
 		else:
 			dm = None
 		# calculate (t) correction
-		if pt: e_corr += ccsd.ccsd_t(eris=eris)
+		if pt:
+			if np.amin(calc.occup[exp.cas_idx]) == 1.0:
+				if len(np.where(calc.occup[exp.cas_idx] == 1.)[0]) >= 3:
+					e_corr += ccsd.ccsd_t(eris=eris)
+			else:
+				e_corr += ccsd.ccsd_t(eris=eris)
 		return e_corr, dm
 
 
