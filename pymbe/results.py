@@ -28,10 +28,10 @@ except ImportError:
 	sys.stderr.write('\nImportError : seaborn module not found\n\n')
 
 
-# summary constants
-_out = os.getcwd()+'/output'
-_divider_str = '{0:^143}'.format('-'*137)
-_fill_str = '{0:^143}'.format('|'*137)
+# results parameters
+OUT = os.getcwd()+'/output'
+DIVIDER = '{0:^143}'.format('-'*137)
+FILL = '{0:^143}'.format('|'*137)
 
 
 def main(mpi, mol, calc, exp):
@@ -40,7 +40,7 @@ def main(mpi, mol, calc, exp):
 		info = {}
 		info['basis'], info['mult'], info['ref'], info['base'], info['typ_prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
-			info['mpi'], info['thres'], info['symm'], info['conv'] = _setup(mpi, mol, calc, exp)
+			info['mpi'], info['thres'], info['symm'], info['final_mbe'], info['conv'] = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mol, calc, exp)
 		# plot
@@ -61,30 +61,31 @@ def _setup(mpi, mol, calc, exp):
 		mpi = _mpi(mpi)
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
+		final_mbe = _final(calc, exp)
 		conv = _conv(exp)
 		return basis, mult, ref, base, typ_prot, system, frozen, \
-				active, occ, virt, mpi, thres, symm, conv
+				active, occ, virt, mpi, thres, symm, final_mbe, conv
 
 
 def _table(info, mol, calc, exp):
 		""" print results """
 		# write summary to results.out
-		with open(_out+'/results.out','a') as f:
+		with open(OUT+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(_divider_str)
+				print(DIVIDER)
 				print(_header_1())
-				print(_divider_str)
+				print(DIVIDER)
 				print(_first_row(info, calc))
 				print(_second_row(info, calc))
 				print(_third_row(info, calc))
-				print(_fourth_row(info, calc, exp))
-				print(_fifth_row(info, mol, calc))
+				print(_fourth_row(info))
+				print(_fifth_row(info))
 				print(_sixth_row(info))
-				print(_divider_str); print(_fill_str); print(_divider_str)
+				print(DIVIDER); print(FILL); print(DIVIDER)
 				print(_header_2())
-				print(_divider_str)
+				print(DIVIDER)
 				for i in _orders(calc, exp): print(i)
-				print(_divider_str+'\n\n')
+				print(DIVIDER+'\n\n')
 	
 	
 def _plot(calc, exp):
@@ -96,7 +97,7 @@ def _plot(calc, exp):
 
 
 def _basis(mol):
-		""" modify basis print """
+		""" basis print """
 		if isinstance(mol.basis, str):
 			return mol.basis
 		elif isinstance(mol.basis, dict):
@@ -109,7 +110,7 @@ def _basis(mol):
 
 
 def _mult(mol):
-		""" modify mult print """
+		""" mult print """
 		if mol.spin == 0:
 			return 'singlet'
 		elif mol.spin == 1:
@@ -125,7 +126,7 @@ def _mult(mol):
 
 
 def _ref(mol, calc):
-		""" modify ref print """
+		""" ref print """
 		if calc.ref['METHOD'] == 'HF':
 			if mol.spin == 0:
 				return 'RHF'
@@ -136,7 +137,7 @@ def _ref(mol, calc):
 
 
 def _base(calc):
-		""" modify base print """
+		""" base print """
 		if calc.base['METHOD'] is None:
 			return 'none'
 		else:
@@ -144,19 +145,19 @@ def _base(calc):
 
 
 def _typ_prot(calc):
-		""" modify type / protocol print """
+		""" type / protocol print """
 		typ_prot = '{0:} / {1:}'.format(calc.typ, calc.protocol)
 		return typ_prot
 
 
 def _system(mol, calc):
-		""" modify system size print """
+		""" system size print """
 		system = '{0:} e / {1:} o'.format(mol.nelectron - 2*mol.ncore, len(calc.ref_space) + len(calc.exp_space))
 		return system
 
 
 def _frozen(mol):
-		""" modify frozen core print """
+		""" frozen core print """
 		if mol.frozen:
 			return 'true'
 		else:
@@ -164,7 +165,7 @@ def _frozen(mol):
 
 
 def _active(calc):
-		""" modify active space print """
+		""" active space print """
 		if calc.ref['METHOD'] == 'HF':
 			return 'none'
 		else:
@@ -172,11 +173,15 @@ def _active(calc):
 
 
 def _orbs(calc):
-		""" modify orbital print """
-		if calc.occ == 'REF':
+		""" orbital print """
+		if calc.occ == 'CAN':
 			occ = 'canonical'
-		elif calc.occ == 'NO':
-			occ = 'natural'
+		elif calc.occ == 'CISD':
+			occ = 'CISD natural'
+		elif calc.occ == 'CCSD':
+			occ = 'CCSD natural'
+		elif calc.occ == 'SCI':
+			occ = 'SCI natural'
 		elif calc.occ == 'PM':
 			occ = 'pipek-mezey'
 		elif calc.occ == 'FB':
@@ -185,39 +190,47 @@ def _orbs(calc):
 			occ = 'intrin. bond'
 		elif calc.occ == 'IBO-2':
 			occ = 'intrin. bond'
-		if calc.virt == 'REF':
+		if calc.virt == 'CAN':
 			virt = 'canonical'
-		elif calc.virt == 'NO':
-			virt = 'natural'
+		elif calc.virt == 'CISD':
+			virt = 'CISD natural'
+		elif calc.virt == 'CCSD':
+			virt = 'CCSD natural'
+		elif calc.virt == 'SCI':
+			virt = 'SCI natural'
 		elif calc.virt == 'PM':
 			virt = 'pipek-mezey'
 		elif calc.virt == 'FB':
 			virt = 'foster-boys'
-		elif calc.virt == 'DNO':
-			virt = 'dist. natural'
 		return occ, virt
 
 
 def _mpi(mpi):
-		""" modify mpi print """
+		""" mpi print """
 		return '{0:} / {1:}'.format(mpi.num_local_masters+1, mpi.global_size-(mpi.num_local_masters+1))
 
 
 def _thres(calc):
-		""" modify threshold print """
+		""" threshold print """
 		return '{0:.0e} / {1:<.1f}'.format(calc.thres, calc.relax)
 
 
 def _symm(mol, calc):
-		""" modify symmetry print """
+		""" symmetry print """
 		if calc.model['METHOD'] in ['SCI','FCI']:
 			return symm.addons.irrep_id2name(mol.symmetry, calc.wfnsym)+' ('+mol.symmetry+')'
 		else:
 			return 'unknown'
 
 
+def _final(calc, exp):
+		""" final energy """
+		return exp.energy['tot'][-1] + calc.energy['ref'] + \
+				(calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base']))
+
+
 def _conv(exp):
-		""" modify convergence print """
+		""" convergence print """
 		if len(exp.energy['tot']) == 1:
 			return 0.0
 		else:
@@ -258,18 +271,16 @@ def _third_row(info, calc):
 					'','|','','base model energy','','=','',calc.energy['hf']+calc.energy['base'])
 
 
-def _fourth_row(info, calc, exp):
+def _fourth_row(info):
 		""" fourth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 				format('','frozen core','','=','',info['frozen'],\
 					'','|','','base model','','=','',info['base'],\
-					'','|','','final MBE energy','','=','',\
-					exp.energy['tot'][-1] + calc.energy['ref'] + \
-					(calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base'])))
+					'','|','','final MBE energy','','=','',info['final_mbe'])
 
 
-def _fifth_row(info, mol, calc):
+def _fifth_row(info):
 		""" fifth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 			'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
@@ -280,7 +291,7 @@ def _fifth_row(info, mol, calc):
 
 def _sixth_row(info):
 		""" sixth row in table """
-		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<9s}{6:6}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
 				'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.3e}').\
 					format('','virtual orbitals','','=','',info['virt'],\
 						'','|','','thres. / relax.','','=','',info['thres'],\
@@ -309,15 +320,15 @@ def _orders(calc, exp):
 			total_tup += len(exp.tuples[i])
 			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 				'{12:^3}{13:02d}{14:12}{15:1}{16:9}{17:>9d}{18:8}{19:1}{20:6}{21:>9d}').\
-					format('',i+exp.start_order,'','|','',\
-						exp.energy['tot'][i] + \
-						(calc.energy['ref'] - calc.energy['hf']) - \
-						(calc.energy['ref_base'] - calc.energy['hf']) + \
-						calc.energy['base'],\
-						'','|','',int(total_time//3600),':',\
-						int((total_time-(total_time//3600)*3600.)//60),':',\
-						int(total_time-(total_time//3600)*3600.\
-						-((total_time-(total_time//3600)*3600.)//60)*60.),\
+					format('',i+exp.start_order,'','|','', \
+						exp.energy['tot'][i] \
+						+ (calc.energy['ref'] - calc.energy['hf']) \
+						- (calc.energy['ref_base'] - calc.energy['hf']) \
+						+ calc.energy['base'], \
+						'','|','',int(total_time//3600),':', \
+						int((total_time-(total_time//3600)*3600.)//60),':', \
+						int(total_time-(total_time//3600)*3600. \
+						- ((total_time-(total_time//3600)*3600.)//60)*60.), \
 						'','|','',len(exp.tuples[i]),'','|','',total_tup))
 		return orders
 
@@ -329,8 +340,8 @@ def _energy(calc, exp):
 		# set 1 plot
 		fig, ax = plt.subplots()
 		# array of total correlation energy
-		corr = exp.energy['tot'] + (calc.energy['ref'] - calc.energy['hf']) - \
-				(calc.energy['ref_base'] - calc.energy['hf']) + calc.energy['base']
+		corr = exp.energy['tot'] + (calc.energy['ref'] - calc.energy['hf']) \
+				- (calc.energy['ref_base'] - calc.energy['hf']) + calc.energy['base']
 		# plot results
 		ax.plot(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
 				corr, marker='x', linewidth=2, color='green', \
@@ -352,7 +363,7 @@ def _energy(calc, exp):
 		# tight layout
 		plt.tight_layout()
 		# save plot
-		plt.savefig(_out+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
 
 
 def _increments(calc, exp):
@@ -398,6 +409,6 @@ def _increments(calc, exp):
 		# tight layout
 		plt.tight_layout()
 		# save plot
-		plt.savefig(_out+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
 
 

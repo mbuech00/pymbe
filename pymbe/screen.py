@@ -27,7 +27,7 @@ def _enum(*sequential, **named):
 
 
 # mbe parameters
-_tags = _enum('ready', 'done', 'exit', 'start')
+TAGS = _enum('ready', 'done', 'exit', 'start')
 
 
 def main(mpi, mol, calc, exp):
@@ -94,24 +94,24 @@ def _master(mpi, mol, calc, exp):
 			# probe for source and tag
 			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 			# slave is ready
-			if tag == _tags.ready:
+			if tag == TAGS.ready:
 				# any jobs left?
 				if i <= len(exp.tuples[-1]) - 1:
 					# save parent tuple index
 					job_info['index'] = i
 					# send parent tuple index
-					comm.send(job_info, dest=source, tag=_tags.start)
+					comm.send(job_info, dest=source, tag=TAGS.start)
 					# increment job index
 					i += 1
 				else:
 					# send exit signal
-					comm.send(None, dest=source, tag=_tags.exit)
+					comm.send(None, dest=source, tag=TAGS.exit)
 			# receive result from slave
-			elif tag == _tags.done:
+			elif tag == TAGS.done:
 				# write tmp child tuple list
 				tmp += data['child'] 
 			# put slave to sleep
-			elif tag == _tags.exit:
+			elif tag == TAGS.exit:
 				# remove slave
 				slaves_avail -= 1
 		# finally we sort the tuples or mark expansion as converged 
@@ -138,13 +138,13 @@ def _slave(mpi, mol, calc, exp):
 		# receive work from master
 		while (True):
 			# send status to master
-			comm.send(None, dest=0, tag=_tags.ready)
+			comm.send(None, dest=0, tag=TAGS.ready)
 			# receive parent tuple
 			job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# recover tag
 			tag = mpi.stat.Get_tag()
 			# do job
-			if tag == _tags.start:
+			if tag == TAGS.start:
 				# init child tuple list
 				data['child'][:] = []
 				if calc.typ == 'occupied':
@@ -158,12 +158,12 @@ def _slave(mpi, mol, calc, exp):
 						if not _test(calc, exp, exp.tuples[-1][job_info['index']], m):
 							data['child'].append(sorted(exp.tuples[-1][job_info['index']].tolist()+[m]))
 				# send data back to master
-				comm.send(data, dest=0, tag=_tags.done)
+				comm.send(data, dest=0, tag=TAGS.done)
 			# exit
-			elif tag == _tags.exit:
+			elif tag == TAGS.exit:
 				break
 		# send exit signal to master
-		comm.send(None, dest=0, tag=_tags.exit)
+		comm.send(None, dest=0, tag=TAGS.exit)
 		# receive tuples
 		info = comm.bcast(None, root=0)
 		if info['len'] >= 1:

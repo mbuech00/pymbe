@@ -32,8 +32,8 @@ class CalcCls():
 				self.wfnsym = symm.addons.irrep_id2name(mol.symmetry, 0)
 				self.target = 0
 				self.max_order = 1000000
-				self.occ = 'REF'
-				self.virt = 'REF'
+				self.occ = 'CAN'
+				self.virt = 'CAN'
 				# init energy dict and mo
 				self.energy = {}
 				self.mo = None
@@ -153,8 +153,6 @@ class CalcCls():
 						else:
 							raise ValueError('wrong input -- active space choices are currently: MANUAL and AVAS')
 					# base model
-					if self.ref['METHOD'] == 'CASSCF' and self.base['METHOD'] not in [None,'SCI']:
-						raise ValueError('wrong input -- invalid base model for CASSCF reference model')
 					if self.base['METHOD'] not in [None,'CISD','CCSD','CCSD(T)','SCI']:
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
@@ -178,29 +176,18 @@ class CalcCls():
 					if self.relax < 1.0:
 						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if self.occ not in ['REF','PM','FB','IBO-1','IBO-2','NO']:
+					if self.occ not in ['CAN','PM','FB','IBO-1','IBO-2','CISD','CCSD','SCI']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
-										'representations are currently: REF, local (PM or FB), ' + \
-										'intrinsic bond orbitals (IBO-1 or IBO-2), or base model natural orbitals (NO)')
-					if self.virt not in ['REF','PM','FB','NO','DNO']:
+										'representations are currently: canonical (CAN), local (PM or FB), ' + \
+										'intrinsic bond orbitals (IBO-1 or IBO-2), or natural orbitals (CISD, CCSD, or SCI)')
+					if self.virt not in ['CAN','PM','FB','CISD','CCSD','SCI']:
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: REF, local (PM or FB), ' + \
-										'or base model (distinctive) natural orbitals (NO or DNO)')
+										'representations are currently: canonical (CAN), local (PM or FB), ' + \
+										'or natural orbitals (CISD, CCSD, or SCI)')
 					if self.occ in ['PM','FB','IBO-1','IBO-2'] or self.virt in ['PM','FB']:
 						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbitals and point group symmetry ' + \
 											'different from C1 is not allowed')
-					if self.occ == 'NO' or self.virt in ['NO','DNO']:
-						if self.base['METHOD'] is None:
-							raise ValueError('wrong input -- the use of (distinctive) natural orbitals (NOs/DNOs) ' + \
-											'requires the use of a CC or SCI base model for the expansion')
-					if self.virt == 'DNO':
-						if self.typ != 'combined':
-							raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
-											'is only valid in combination with combined (dual) expansions')
-					if self.occ == 'NO' and self.virt == 'DNO':
-						raise ValueError('wrong input -- the use of distinctive virtual natural orbitals (DNOs) ' + \
-										'excludes the use of occupied natural orbitals')
 					# mpi groups
 					if mpi.parallel:
 						if mpi.num_local_masters < 0:
