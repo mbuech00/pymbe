@@ -340,7 +340,7 @@ def _energy(calc, exp):
 		fig, ax = plt.subplots()
 		# array of total correlation energy
 		corr = exp.energy['tot'] + calc.energy['base'] \
-				+ (calc.energy['ref'] - calc.energy['ref_base']), \
+				+ (calc.energy['ref'] - calc.energy['ref_base'])
 		# plot results
 		ax.plot(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
 				corr, marker='x', linewidth=2, color='green', \
