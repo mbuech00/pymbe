@@ -225,8 +225,9 @@ def _symm(mol, calc):
 
 def _final(calc, exp):
 		""" final energy """
-		return exp.energy['tot'][-1] + calc.energy['ref'] + \
-				(calc.energy['base'] + (calc.energy['hf'] - calc.energy['ref_base']))
+		return calc.energy['hf'] \
+				+ exp.energy['tot'][-1] + calc.energy['base'] \
+				+ (calc.energy['ref'] - calc.energy['ref_base'])
 
 
 def _conv(exp):
@@ -321,10 +322,8 @@ def _orders(calc, exp):
 			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
 				'{12:^3}{13:02d}{14:12}{15:1}{16:9}{17:>9d}{18:8}{19:1}{20:6}{21:>9d}').\
 					format('',i+exp.start_order,'','|','', \
-						exp.energy['tot'][i] \
-						+ (calc.energy['ref'] - calc.energy['hf']) \
-						- (calc.energy['ref_base'] - calc.energy['hf']) \
-						+ calc.energy['base'], \
+						exp.energy['tot'][i] + calc.energy['base'] \
+						+ (calc.energy['ref'] - calc.energy['ref_base']), \
 						'','|','',int(total_time//3600),':', \
 						int((total_time-(total_time//3600)*3600.)//60),':', \
 						int(total_time-(total_time//3600)*3600. \
@@ -340,8 +339,8 @@ def _energy(calc, exp):
 		# set 1 plot
 		fig, ax = plt.subplots()
 		# array of total correlation energy
-		corr = exp.energy['tot'] + (calc.energy['ref'] - calc.energy['hf']) \
-				- (calc.energy['ref_base'] - calc.energy['hf']) + calc.energy['base']
+		corr = exp.energy['tot'] + calc.energy['base'] \
+				+ (calc.energy['ref'] - calc.energy['ref_base']), \
 		# plot results
 		ax.plot(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
 				corr, marker='x', linewidth=2, color='green', \
