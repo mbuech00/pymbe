@@ -87,7 +87,7 @@ def _serial(mol, calc, exp):
 			exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
 			# verbose print
 			if mol.verbose:
-				print(' core = {0:} , cas = {1:} , e_model = {2:.6f} , e_base = {3:.6f} , e_inc = {4:.6f}'.\
+				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
 						format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
 			# print status
 			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
@@ -203,7 +203,7 @@ def _slave(mpi, mol, calc, exp):
 				exp.energy['inc'][-1][job_info['index']] -= _sum(calc, exp, job_info['index'])
 				# verbose print
 				if mol.verbose:
-					print(' core = {0:} , cas = {1:} , e_model = {2:.6f} , e_base = {3:.6f} , e_inc = {4:.6f}'.\
+					print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
 							format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][job_info['index']]))
 				# write info into data dict
 				data['index'] = job_info['index']
