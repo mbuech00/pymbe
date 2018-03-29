@@ -120,7 +120,8 @@ def _master(mpi, mol, calc, exp):
 			if len(exp.time['mbe']) < (exp.order - exp.start_order) + 1: exp.time['mbe'].append(0.0)
 			time = MPI.Wtime()
 		# init tasks
-		tasks = _tasks(len(exp.tuples[-1]), num_slaves)
+		tasks = _tasks(i, len(exp.tuples[-1]), num_slaves)
+		print(str(tasks))
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# receive data dict
@@ -255,12 +256,30 @@ def _comb_index(n, k):
 		return index.reshape(-1, k)
 
 
-def _tasks(size, slaves):
+def _tasks(start, size, slaves):
 		""" determine batch sizes """
-		b1 = max(1, (size//10*9) // slaves) #  0 % - 90 %
-		b2 = max(1, ((size//20*19) - (size//10*9)) // slaves // 2) #  90 % - 95 %
-		b4 = max(1, ((size//50*49) - (size//20*19)) // slaves // 6) #  95 % - 98 %
-		b6 = max(1, ((size//100*99) - (size//50*49)) // slaves // 6) #  98 % - 100 %
-		return [[b1] + [b2]*2 + [b4]*4 + [b6]*6 for idx in range(slaves)]
+		# b1
+		if start < size // 10 * 8:
+			b1 = max(1, ((size // 10 * 8) - start) // slaves) #  0 % - 80 %
+			lst = [b1]
+			new_start = size // 10 * 8
+		else:
+			lst = []
+			new_start = start
+		# b2
+		if new_start < size // 20 * 19:
+			b2 = max(1, ((size // 20 * 19) - new_start) // slaves // 2) #  80 % - 95 %
+			lst += [b2] * 2
+			new_start = size // 20 * 19
+		# b4
+		if new_start < size // 50 * 49:
+			b4 = max(1, ((size // 50 * 49) - new_start) // slaves // 4) #  95 % - 98 %
+			lst += [b4] * 4
+			new_start = size // 50 * 49
+		# b6
+		if new_start < size // 1000 * 990:
+			b6 = max(1, ((size // 1000 * 990) - new_start) // slaves // 6) #  98 % - 99.9 %
+			lst += [b6] * 6
+		return [lst for idx in range(slaves)]
 
 

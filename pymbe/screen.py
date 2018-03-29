@@ -242,10 +242,10 @@ def update(calc, exp):
 
 def _tasks(size, slaves):
 		""" determine batch sizes """
-		b1 = max(1, (size//10*9) // slaves) #  0 % - 90 %
-		b2 = max(1, ((size//20*19) - (size//10*9)) // slaves // 2) #  90 % - 95 %
-		b4 = max(1, ((size//50*49) - (size//20*19)) // slaves // 6) #  95 % - 98 %
-		b6 = max(1, ((size//100*99) - (size//50*49)) // slaves // 6) #  98 % - 100 %
+		b1 = max(1, (size//10*8) // slaves) #  0 % - 80 %
+		b2 = max(1, ((size//20*19) - (size//10*8)) // slaves // 2) #  80 % - 95 %
+		b4 = max(1, ((size//50*49) - (size//20*19)) // slaves // 4) #  95 % - 98 %
+		b6 = max(1, ((size//1000*990) - (size//50*49)) // slaves // 6) #  98 % - 99.9 %
 		return [[b1] + [b2]*2 + [b4]*4 + [b6]*6 for idx in range(slaves)]
 
 
