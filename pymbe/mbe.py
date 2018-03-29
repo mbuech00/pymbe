@@ -135,6 +135,7 @@ def _master(mpi, mol, calc, exp):
 			if tag == TAGS.ready:
 				# any jobs left?
 				if i <= len(exp.tuples[-1]) - 1:
+					# batch
 					if tasks[source-1]:
 						batch = tasks[source-1].pop(0)
 					else:
