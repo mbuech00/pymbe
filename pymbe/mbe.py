@@ -112,7 +112,8 @@ def _master(mpi, mol, calc, exp):
 		# init job index
 		i = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# init stat and restart counters
-		counter_stat = counter_rst = i
+		counter_stat = i
+		counter_rst = i
 		# print status for START
 		if mpi.global_master: output.mbe_status(exp, float(i) / float(len(exp.tuples[-1])))
 		# init time
@@ -121,7 +122,6 @@ def _master(mpi, mol, calc, exp):
 			time = MPI.Wtime()
 		# init tasks
 		tasks = _tasks(i, len(exp.tuples[-1]), num_slaves)
-		print(str(tasks))
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# receive data dict
@@ -163,7 +163,7 @@ def _master(mpi, mol, calc, exp):
 					# print status
 					if data['i_e'] // 1000 > counter_stat or mol.verbose:
 						counter_stat += 1
-						output.mbe_status(exp, float(i) / float(len(exp.tuples[-1])))
+						output.mbe_status(exp, float(counter_stat * 1000) / float(len(exp.tuples[-1])))
 			# put slave to sleep
 			elif tag == TAGS.exit:
 				slaves_avail -= 1
@@ -280,6 +280,6 @@ def _tasks(start, size, slaves):
 		if new_start < size // 1000 * 990:
 			b6 = max(1, ((size // 1000 * 990) - new_start) // slaves // 6) #  98 % - 99.9 %
 			lst += [b6] * 6
-		return [lst for idx in range(slaves)]
+		return [lst + [1] for idx in range(slaves)]
 
 
