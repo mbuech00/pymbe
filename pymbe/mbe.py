@@ -135,14 +135,14 @@ def _master(mpi, mol, calc, exp):
 			# slave is ready
 			if tag == TAGS.ready:
 				# any jobs left?
-				if i <= len(exp.tuples[-1]) - 1:
+				if i <= len(exp.tuples[-1])-1:
 					# batch
 					if tasks[source-1]:
 						batch = tasks[source-1].pop(0)
 					else:
 						batch = 1
 					# store job indices
-					job_info['i_s'] = i; job_info['i_e'] = i + batch
+					job_info['i_s'] = i; job_info['i_e'] = min(i+batch, len(exp.tuples[-1])-1)
 					# send string dict
 					comm.send(job_info, dest=source, tag=TAGS.start)
 					# increment job index
