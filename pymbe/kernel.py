@@ -15,10 +15,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 from mpi4py import MPI
-try:
-	from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
-except ImportError:
-	sys.stderr.write('\nImportError : pyscf module not found\n\n')
+from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 
 
 def hcore_eri(mol):

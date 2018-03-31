@@ -15,6 +15,10 @@ try:
 	from mpi4py import MPI
 except ImportError:
 	sys.stderr.write('\nImportError : mpi4py module not found\n\n')
+try:
+	from pyscf import lib
+except ImportError:
+	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
 import parallel
 import molecule
@@ -28,6 +32,8 @@ import results
 
 def main():
 		""" main program """
+		# force OMP_NUM_THREADS = 1
+		lib.num_threads(1)
 		# mpi, mol, calc, and exp objects
 		mpi, mol, calc, exp = _init()
 		# branch

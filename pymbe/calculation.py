@@ -77,7 +77,7 @@ class CalcCls():
 							elif re.split('=',content[i])[0].strip() == 'relax':
 								self.relax = float(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'wfnsym':
-								self.wfnsym = symm.addons.std_symb(eval(re.split('=',content[i])[1].strip()))
+								self.wfnsym = symm.addons.std_symb(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'target':
 								self.target = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'order':
