@@ -122,7 +122,6 @@ def _master(mpi, mol, calc, exp):
 			time = MPI.Wtime()
 		# init tasks
 		tasks = _tasks(i, len(exp.tuples[-1]), num_slaves)
-		print('tasks ( mbe ) = {0:}'.format(tasks))
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# receive data dict

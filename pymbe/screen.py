@@ -89,7 +89,6 @@ def _master(mpi, mol, calc, exp):
 		i = 0; tmp = []
 		# init tasks
 		tasks = _tasks(len(exp.tuples[-1]), num_slaves)
-		print('tasks (screen) = {0:}'.format(tasks))
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# receive data dict
