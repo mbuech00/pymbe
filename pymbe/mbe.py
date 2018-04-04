@@ -107,8 +107,6 @@ def _master(mpi, mol, calc, exp):
 		slaves_avail = num_slaves = mpi.local_size - 1
 		# bcast msg
 		comm.bcast(msg, root=0)
-		# init job_info dictionary
-		job_info = {}
 		# init job index
 		i = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# init stat and restart counters
@@ -122,10 +120,14 @@ def _master(mpi, mol, calc, exp):
 			time = MPI.Wtime()
 		# init tasks
 		tasks = _tasks(i, len(exp.tuples[-1]), num_slaves)
+		# init job_info, data, and book-keeping array
+		job_info = np.zeros(2, dtype=np.int32)
+		data = np.zeros(tasks[0], dtype=np.float64) # largest possible batch
+		book = np.zeros([num_slaves, 2], dtype=np.int32)
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# receive data dict
-			data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
+			comm.Recv(data, source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 			# collect time
 			if mpi.global_master:
 				exp.time['mbe'][-1] += MPI.Wtime() - time
@@ -139,26 +141,27 @@ def _master(mpi, mol, calc, exp):
 					# batch
 					batch = tasks.pop(0)
 					# store job indices
-					job_info['i_s'] = i; job_info['i_e'] = i+batch
+					job_info[0] = i; job_info[1] = i+batch
+					book[source-1, :] = job_info
 					# send string dict
-					comm.send(job_info, dest=source, tag=TAGS.start)
+					comm.Send([job_info, MPI.INT], dest=source, tag=TAGS.start)
 					# increment job index
 					i += batch
 				else:
 					# send exit signal
-					comm.send(None, dest=source, tag=TAGS.exit)
+					comm.Send(np.array([], dtype=np.int32), dest=source, tag=TAGS.exit)
 			# receive result from slave
 			elif tag == TAGS.done:
 				# collect energies
-				for idx, val in enumerate(data['e_inc']):
-					exp.energy['inc'][-1][data['i_s']+idx] = val
+				for idx, val in enumerate(data[:(book[source-1, 1]-book[source-1, 0])]):
+					exp.energy['inc'][-1][book[source-1, 0] + idx] = val
 				if mpi.global_master:
 					# write restart files
-					if data['i_e'] // exp.rst_freq > counter_rst:
+					if book[source-1, 1] // exp.rst_freq > counter_rst:
 						counter_rst += 1
 						restart.mbe_write(calc, exp, False)
 					# print status
-					if data['i_e'] // 1000 > counter_stat:
+					if book[source-1, 1] // 1000 > counter_stat:
 						counter_stat += 1
 						output.mbe_status(exp, float(counter_stat * 1000) / float(len(exp.tuples[-1])))
 			# put slave to sleep
@@ -181,22 +184,23 @@ def _slave(mpi, mol, calc, exp):
 			inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
 			inc.fill(np.nan)
 			exp.energy['inc'].append(inc)
-		# init data dict
-		data = {}
+		# init job_info and data arrays
+		job_info = np.zeros(2, dtype=np.int32)
+		data = None
 		# receive work from master
 		while (True):
 			# ready for task
-			comm.send(None, dest=0, tag=TAGS.ready)
+			comm.Send(np.array([], dtype=np.float64), dest=0, tag=TAGS.ready)
 			# receive drop string
-			job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+			comm.Recv([job_info, MPI.INT], source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# recover tag
 			tag = mpi.stat.Get_tag()
 			# do job
 			if tag == TAGS.start:
-				# init data['e_inc']
-				data['e_inc'] = np.zeros(job_info['i_e']-job_info['i_s'], dtype=np.float64)
+				# init data (first time)
+				if data is None: data = np.zeros(job_info[1]-job_info[0], dtype=np.float64)
 				# calculate energy increments
-				for count, idx in enumerate(range(job_info['i_s'], job_info['i_e'])):
+				for count, idx in enumerate(range(job_info[0], job_info[1])):
 					# generate input
 					exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][idx])
 					# perform calc
@@ -215,16 +219,14 @@ def _slave(mpi, mol, calc, exp):
 						print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
 								format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][idx]))
 					# write info into data dict
-					data['e_inc'][count] = exp.energy['inc'][-1][idx]
-				# store indices
-				data['i_s'] = job_info['i_s']; data['i_e'] = job_info['i_e']
+					data[count] = exp.energy['inc'][-1][idx]
 				# send data back to local master
-				comm.send(data, dest=0, tag=TAGS.done)
+				comm.Send([data, job_info[1]-job_info[0], MPI.DOUBLE], dest=0, tag=TAGS.done)
 			# exit
 			elif tag == TAGS.exit:
 				break
 		# send exit signal to master
-		comm.send(None, dest=0, tag=TAGS.exit)
+		comm.Send(np.array([], dtype=np.float64), dest=0, tag=TAGS.exit)
 		# receive energies
 		parallel.energy(exp, comm)
 
