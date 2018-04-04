@@ -89,6 +89,7 @@ def _master(mpi, mol, calc, exp):
 		i = 0; tmp = []
 		# init tasks
 		tasks = _tasks(len(exp.tuples[-1]), num_slaves)
+		print('tasks (screen) = {0:}'.format(tasks))
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# receive data dict
@@ -100,12 +101,9 @@ def _master(mpi, mol, calc, exp):
 				# any jobs left?
 				if i <= len(exp.tuples[-1])-1:
 					# batch
-					if tasks[source-1]:
-						batch = tasks[source-1].pop(0)
-					else:
-						batch = 1
+					batch = tasks.pop(0)
 					# store job indices
-					job_info['i_s'] = i; job_info['i_e'] = min(i+batch, len(exp.tuples[-1])-1)
+					job_info['i_s'] = i; job_info['i_e'] = i+batch
 					# send parent tuple index
 					comm.send(job_info, dest=source, tag=TAGS.start)
 					# increment job index
@@ -240,12 +238,15 @@ def update(calc, exp):
 			return calc.thres * calc.relax ** (exp.order - 3)
 
 
-def _tasks(size, slaves):
+def _tasks(n_tasks, procs):
 		""" determine batch sizes """
-		b1 = max(1, (size//10*8) // slaves) #  0 % - 80 %
-		b2 = max(1, ((size//20*19) - (size//10*8)) // slaves // 2) #  80 % - 95 %
-		b4 = max(1, ((size//50*49) - (size//20*19)) // slaves // 4) #  95 % - 98 %
-		b6 = max(1, ((size//1000*990) - (size//50*49)) // slaves // 6) #  98 % - 99.9 %
-		return [[b1] + [b2]*2 + [b4]*4 + [b6]*6 + [1] for idx in range(slaves)]
+		lst = []
+		for i in range(n_tasks):
+			lst += [i+1 for p in range(procs)]
+			if np.sum(lst) > float(n_tasks):
+				lst = lst[:-procs]
+				lst = lst[::-1]
+				lst += [1 for j in range(n_tasks - int(np.sum(lst)))]
+				return lst
 
 

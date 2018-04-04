@@ -122,6 +122,7 @@ def _master(mpi, mol, calc, exp):
 			time = MPI.Wtime()
 		# init tasks
 		tasks = _tasks(i, len(exp.tuples[-1]), num_slaves)
+		print('tasks ( mbe ) = {0:}'.format(tasks))
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# receive data dict
@@ -137,12 +138,9 @@ def _master(mpi, mol, calc, exp):
 				# any jobs left?
 				if i <= len(exp.tuples[-1])-1:
 					# batch
-					if tasks[source-1]:
-						batch = tasks[source-1].pop(0)
-					else:
-						batch = 1
+					batch = tasks.pop(0)
 					# store job indices
-					job_info['i_s'] = i; job_info['i_e'] = min(i+batch, len(exp.tuples[-1])-1)
+					job_info['i_s'] = i; job_info['i_e'] = i+batch
 					# send string dict
 					comm.send(job_info, dest=source, tag=TAGS.start)
 					# increment job index
@@ -161,14 +159,14 @@ def _master(mpi, mol, calc, exp):
 						counter_rst += 1
 						restart.mbe_write(calc, exp, False)
 					# print status
-					if data['i_e'] // 1000 > counter_stat or mol.verbose:
+					if data['i_e'] // 1000 > counter_stat:
 						counter_stat += 1
 						output.mbe_status(exp, float(counter_stat * 1000) / float(len(exp.tuples[-1])))
 			# put slave to sleep
 			elif tag == TAGS.exit:
 				slaves_avail -= 1
 		# print 100.0 %
-		if mpi.global_master and not mol.verbose:
+		if mpi.global_master:
 			if len(exp.tuples[-1]) % 1000 != 0:
 				output.mbe_status(exp, 1.0)
 		# bcast energies
@@ -256,30 +254,15 @@ def _comb_index(n, k):
 		return index.reshape(-1, k)
 
 
-def _tasks(start, size, slaves):
+def _tasks(start, n_tasks, procs):
 		""" determine batch sizes """
-		# b1
-		if start < size // 10 * 8:
-			b1 = max(1, ((size // 10 * 8) - start) // slaves) #  0 % - 80 %
-			lst = [b1]
-			new_start = size // 10 * 8
-		else:
-			lst = []
-			new_start = start
-		# b2
-		if new_start < size // 20 * 19:
-			b2 = max(1, ((size // 20 * 19) - new_start) // slaves // 2) #  80 % - 95 %
-			lst += [b2] * 2
-			new_start = size // 20 * 19
-		# b4
-		if new_start < size // 50 * 49:
-			b4 = max(1, ((size // 50 * 49) - new_start) // slaves // 4) #  95 % - 98 %
-			lst += [b4] * 4
-			new_start = size // 50 * 49
-		# b6
-		if new_start < size // 1000 * 990:
-			b6 = max(1, ((size // 1000 * 990) - new_start) // slaves // 6) #  98 % - 99.9 %
-			lst += [b6] * 6
-		return [lst + [1] for idx in range(slaves)]
+		lst = []
+		for i in range(n_tasks-start):
+			lst += [i+1 for p in range(procs)]
+			if np.sum(lst) > float(n_tasks-start):
+				lst = lst[:-procs]
+				lst = lst[::-1]
+				lst += [1 for j in range((n_tasks-start) - int(np.sum(lst)))]
+				return lst
 
 
