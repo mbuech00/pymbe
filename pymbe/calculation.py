@@ -12,6 +12,7 @@ __status__ = 'Development'
 
 import re
 import sys
+import ast
 from pyscf import symm
 
 import restart
@@ -60,17 +61,17 @@ class CalcCls():
 							if content[i].split()[0][0] == '#':
 								continue
 							elif re.split('=',content[i])[0].strip() == 'model':
-								self.model = eval(re.split('=',content[i])[1].strip())
+								self.model = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.model = self._upper(self.model)
 							elif re.split('=',content[i])[0].strip() == 'type':
 								self.typ = re.split('=',content[i])[1].strip()
 							elif re.split('=',content[i])[0].strip() == 'protocol':
 								self.protocol = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'ref':
-								self.ref = eval(re.split('=',content[i])[1].strip())
+								self.ref = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.ref = self._upper(self.ref)
 							elif re.split('=',content[i])[0].strip() == 'base':
-								self.base = eval(re.split('=',content[i])[1].strip())
+								self.base = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.base = self._upper(self.base)
 							elif re.split('=',content[i])[0].strip() == 'thres':
 								self.thres = float(re.split('=',content[i])[1].strip())
