@@ -126,7 +126,7 @@ def _master(mpi, mol, calc, exp):
 		book = np.zeros([num_slaves, 2], dtype=np.int32)
 		# loop until no slaves left
 		while (slaves_avail >= 1):
-			# receive data dict
+			# receive data
 			comm.Recv(data, source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 			# collect time
 			if mpi.global_master:
@@ -143,7 +143,7 @@ def _master(mpi, mol, calc, exp):
 					# store job indices
 					job_info[0] = i; job_info[1] = i+batch
 					book[source-1, :] = job_info
-					# send string dict
+					# send job info
 					comm.Send([job_info, MPI.INT], dest=source, tag=TAGS.start)
 					# increment job index
 					i += batch
@@ -191,7 +191,7 @@ def _slave(mpi, mol, calc, exp):
 		while (True):
 			# ready for task
 			comm.Send(np.array([], dtype=np.float64), dest=0, tag=TAGS.ready)
-			# receive drop string
+			# receive job info
 			comm.Recv([job_info, MPI.INT], source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# recover tag
 			tag = mpi.stat.Get_tag()
@@ -218,7 +218,7 @@ def _slave(mpi, mol, calc, exp):
 					if mol.verbose:
 						print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
 								format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][idx]))
-					# write info into data dict
+					# write data
 					data[count] = exp.energy['inc'][-1][idx]
 				# send data back to local master
 				comm.Send([data, job_info[1]-job_info[0], MPI.DOUBLE], dest=0, tag=TAGS.done)
