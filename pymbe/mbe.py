@@ -120,20 +120,22 @@ def _master(mpi, mol, calc, exp):
 			time = MPI.Wtime()
 		# init tasks
 		tasks = _tasks(i, len(exp.tuples[-1]), num_slaves)
-		# init job_info, data, and book-keeping array
+		# init job_info and book-keeping arrays
 		job_info = np.zeros(2, dtype=np.int32)
-		data = np.zeros(tasks[0], dtype=np.float64) # largest possible batch
 		book = np.zeros([num_slaves, 2], dtype=np.int32)
 		# loop until no slaves left
 		while (slaves_avail >= 1):
+			# probe for source and tag
+			comm.Probe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
+			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
+			# init data
+			data = np.empty(mpi.stat.Get_elements(MPI.DOUBLE), dtype=np.float64)
 			# receive data
-			comm.Recv(data, source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
+			comm.Recv(data, source=source, tag=tag)
 			# collect time
 			if mpi.global_master:
 				exp.time['mbe'][-1] += MPI.Wtime() - time
 				time = MPI.Wtime()
-			# probe for source and tag
-			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 			# slave is ready
 			if tag == TAGS.ready:
 				# any jobs left?
@@ -153,7 +155,7 @@ def _master(mpi, mol, calc, exp):
 			# receive result from slave
 			elif tag == TAGS.done:
 				# collect energies
-				for idx, val in enumerate(data[:(book[source-1, 1]-book[source-1, 0])]):
+				for idx, val in enumerate(data):
 					exp.energy['inc'][-1][book[source-1, 0] + idx] = val
 				if mpi.global_master:
 					# write restart files
@@ -184,21 +186,23 @@ def _slave(mpi, mol, calc, exp):
 			inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
 			inc.fill(np.nan)
 			exp.energy['inc'].append(inc)
-		# init job_info and data arrays
+		# init job_info array and data list
 		job_info = np.zeros(2, dtype=np.int32)
-		data = None
+		data = []
 		# receive work from master
 		while (True):
 			# ready for task
 			comm.Send(np.array([], dtype=np.float64), dest=0, tag=TAGS.ready)
-			# receive job info
-			comm.Recv([job_info, MPI.INT], source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+			# probe for tag
+			comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# recover tag
 			tag = mpi.stat.Get_tag()
+			# receive job info
+			comm.Recv([job_info, MPI.INT], source=0, tag=tag)
 			# do job
 			if tag == TAGS.start:
-				# init data (first time)
-				if data is None: data = np.zeros(job_info[1]-job_info[0], dtype=np.float64)
+				# re-init data
+				data[:] = []
 				# calculate energy increments
 				for count, idx in enumerate(range(job_info[0], job_info[1])):
 					# generate input
@@ -219,9 +223,9 @@ def _slave(mpi, mol, calc, exp):
 						print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
 								format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][idx]))
 					# write data
-					data[count] = exp.energy['inc'][-1][idx]
+					data.append(exp.energy['inc'][-1][idx])
 				# send data back to local master
-				comm.Send([data, job_info[1]-job_info[0], MPI.DOUBLE], dest=0, tag=TAGS.done)
+				comm.Send([np.asarray(data, dtype=np.float64), MPI.DOUBLE], dest=0, tag=TAGS.done)
 			# exit
 			elif tag == TAGS.exit:
 				break

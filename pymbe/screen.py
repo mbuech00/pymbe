@@ -83,18 +83,23 @@ def _master(mpi, mol, calc, exp):
 		slaves_avail = num_slaves = mpi.local_size - 1
 		# bcast
 		comm.bcast(msg, root=0)
-		# init job_info dictionary
-		job_info = {}
-		# init bookkeeping variables
-		i = 0; tmp = []
+		# init tmp list
+		tmp = []
 		# init tasks
+		i = 0
 		tasks = _tasks(len(exp.tuples[-1]), num_slaves)
+		# init job_info and book-keeping arrays
+		job_info = np.zeros(2, dtype=np.int32)
+		book = np.zeros([num_slaves, 2], dtype=np.int32)
 		# loop until no slaves left
 		while (slaves_avail >= 1):
-			# receive data dict
-			data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 			# probe for source and tag
+			comm.Probe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
+			# init data
+			data = np.empty([mpi.stat.Get_elements(MPI.INT) // (exp.order+1), exp.order+1], dtype=np.int32)
+			# receive data
+			comm.Recv(data, source=source, tag=tag)
 			# slave is ready
 			if tag == TAGS.ready:
 				# any jobs left?
@@ -102,18 +107,19 @@ def _master(mpi, mol, calc, exp):
 					# batch
 					batch = tasks.pop(0)
 					# store job indices
-					job_info['i_s'] = i; job_info['i_e'] = i+batch
+					job_info[0] = i; job_info[1] = i+batch
+					book[source-1, :] = job_info
 					# send parent tuple index
-					comm.send(job_info, dest=source, tag=TAGS.start)
+					comm.Send([job_info, MPI.INT], dest=source, tag=TAGS.start)
 					# increment job index
 					i += batch
 				else:
 					# send exit signal
-					comm.send(None, dest=source, tag=TAGS.exit)
+					comm.Send(np.array([], dtype=np.int32), dest=source, tag=TAGS.exit)
 			# receive result from slave
 			elif tag == TAGS.done:
 				# write tmp child tuple list
-				tmp += data['child']
+				tmp += data.tolist()
 			# put slave to sleep
 			elif tag == TAGS.exit:
 				# remove slave
@@ -135,41 +141,43 @@ def _master(mpi, mol, calc, exp):
 
 def _slave(mpi, mol, calc, exp):
 		""" slave routine """
-		# init data dict and combs list
-		data = {'child': []}; combs = []
 		# set communicator
 		comm = mpi.local_comm
+		# init job_info array and data list
+		job_info = np.zeros(2, dtype=np.int32)
+		data = []
 		# receive work from master
 		while (True):
 			# send status to master
-			comm.send(None, dest=0, tag=TAGS.ready)
-			# receive parent tuple
-			job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
-			# recover tag
+			comm.Send(np.array([], dtype=np.int32), dest=0, tag=TAGS.ready)
+			# probe for tag
+			comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			tag = mpi.stat.Get_tag()
+			# receive job info
+			comm.Recv([job_info, MPI.INT], source=0, tag=tag)
 			# do job
 			if tag == TAGS.start:
-				# init child tuple list
-				data['child'][:] = []
+				# re-init data
+				data[:] = []
 				# calculate energy increments
-				for idx in range(job_info['i_s'], job_info['i_e']):
+				for idx in range(job_info[0], job_info[1]):
 					if calc.typ == 'occupied':
 						for m in range(calc.exp_space[0], exp.tuples[-1][idx][0]):
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if not _test(calc, exp, exp.tuples[-1][idx], m):
-								data['child'].append(sorted(exp.tuples[-1][idx].tolist()+[m]))
+								data.append(sorted(exp.tuples[-1][idx].tolist()+[m]))
 					elif calc.typ == 'virtual':
 						for m in range(exp.tuples[-1][idx][-1]+1, calc.exp_space[-1]+1):
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if not _test(calc, exp, exp.tuples[-1][idx], m):
-								data['child'].append(sorted(exp.tuples[-1][idx].tolist()+[m]))
+								data.append(sorted(exp.tuples[-1][idx].tolist()+[m]))
 				# send data back to master
-				comm.send(data, dest=0, tag=TAGS.done)
+				comm.Send([np.asarray(data, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.done)
 			# exit
 			elif tag == TAGS.exit:
 				break
 		# send exit signal to master
-		comm.send(None, dest=0, tag=TAGS.exit)
+		comm.Send(np.array([], dtype=np.int32), dest=0, tag=TAGS.exit)
 		# receive tuples
 		info = comm.bcast(None, root=0)
 		if info['len'] >= 1:
