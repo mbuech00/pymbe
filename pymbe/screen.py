@@ -83,14 +83,16 @@ def _master(mpi, mol, calc, exp):
 		slaves_avail = num_slaves = mpi.local_size - 1
 		# bcast
 		comm.bcast(msg, root=0)
-		# init tmp list
-		tmp = []
-		# init tasks
+		# start index
 		i = 0
-		tasks = _tasks(len(exp.tuples[-1]), num_slaves)
+		# init tasks
+		n_tasks = len(exp.tuples[-1])
+		tasks = _tasks(n_tasks, num_slaves)
 		# init job_info and book-keeping arrays
 		job_info = np.zeros(2, dtype=np.int32)
 		book = np.zeros([num_slaves, 2], dtype=np.int32)
+		# init tuples
+		exp.tuples.append(np.empty([0, exp.order+1], dtype=np.int32))
 		# loop until no slaves left
 		while (slaves_avail >= 1):
 			# probe for source and tag
@@ -103,7 +105,7 @@ def _master(mpi, mol, calc, exp):
 			# slave is ready
 			if tag == TAGS.ready:
 				# any jobs left?
-				if i <= len(exp.tuples[-1])-1:
+				if i <= n_tasks-1:
 					# batch
 					batch = tasks.pop(0)
 					# store job indices
@@ -118,21 +120,19 @@ def _master(mpi, mol, calc, exp):
 					comm.Send(np.array([], dtype=np.int32), dest=source, tag=TAGS.exit)
 			# receive result from slave
 			elif tag == TAGS.done:
-				# write tmp child tuple list
-				tmp += data.tolist()
+				# append child tuples
+				exp.tuples[-1] = np.append(exp.tuples[-1], data, axis=0)
 			# put slave to sleep
 			elif tag == TAGS.exit:
 				# remove slave
 				slaves_avail -= 1
 		# finally we sort the tuples or mark expansion as converged 
-		if len(tmp) == 0:
+		if exp.tuples[-1].shape[0] == 0:
 			exp.conv_orb.append(True)
 			# bcast tuples
 			info = {'len': 0}
 			comm.bcast(info, root=0)
 		else:
-			tmp.sort()
-			exp.tuples.append(np.array(tmp, dtype=np.int32))
 			# bcast tuples
 			info = {'len': len(exp.tuples[-1])}
 			comm.bcast(info, root=0)
