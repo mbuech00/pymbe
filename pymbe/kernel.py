@@ -15,7 +15,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 from mpi4py import MPI
-from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
+from pyscf import gto, symm, scf, lib, ao2mo, lo, ci, cc, mcscf, fci
 
 
 def hcore_eri(mol):
@@ -583,8 +583,10 @@ def _cc(mol, calc, exp, dens, pt=False):
 		if dens: ccsd.conv_tol_normt = 1.0e-10
 		ccsd.max_cycle = 500
 		if exp.order > 0:
+			# set diis.INCORE_SIZE
+			lib.diis.INCORE_SIZE = int(mol.max_memory * 1.0e06 / 8.)
 			# avoid async function execution
-			ccsd.cc_async = calc.async
+			ccsd.async_io = calc.async
 			# avoid I/O
 			if not calc.async: ccsd.incore_complete = True
 		eris = ccsd.ao2mo()
