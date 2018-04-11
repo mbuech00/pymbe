@@ -589,6 +589,11 @@ def _cc(mol, calc, exp, dens, pt=False):
 		ccsd.conv_tol = 1.0e-10
 		if dens: ccsd.conv_tol_normt = 1.0e-10
 		ccsd.max_cycle = 500
+		if exp.order > 0:
+			# avoid async function execution
+			ccsd.cc_async = calc.async
+			# avoid I/O
+			if not calc.async: ccsd.incore_complete = True
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
 		for i in list(range(0, 12, 2)):
