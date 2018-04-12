@@ -15,7 +15,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 from mpi4py import MPI
-from pyscf import gto, symm, scf, lib, ao2mo, lo, ci, cc, mcscf, fci
+from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 
 
 def hcore_eri(mol):
@@ -567,9 +567,9 @@ def _cc(mol, calc, exp, dens, pt=False):
 		mol_tmp.incore_anyway = True
 		mol_tmp.max_memory = mol.max_memory
 		if mol.spin == 0:
-			hf = scf.RHF(mol_tmp)
+			hf = scf.RHF(mol_tmp, fake=True)
 		else:
-			hf = scf.UHF(mol_tmp)
+			hf = scf.UHF(mol_tmp, fake=True)
 		hf.get_hcore = lambda *args: h1e
 		hf._eri = h2e 
 		# init ccsd
@@ -583,8 +583,6 @@ def _cc(mol, calc, exp, dens, pt=False):
 		if dens: ccsd.conv_tol_normt = 1.0e-10
 		ccsd.max_cycle = 500
 		if exp.order > 0:
-			# set diis.INCORE_SIZE
-			lib.diis.INCORE_SIZE = int(mol.max_memory * 1.0e06 / 8.)
 			# avoid async function execution
 			ccsd.async_io = calc.async
 			# avoid I/O
