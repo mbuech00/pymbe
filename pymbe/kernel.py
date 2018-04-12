@@ -53,15 +53,8 @@ def hf(mol, calc):
 		e_hf = hf.e_tot
 		occup = hf.mo_occ
 		orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-		# wave function symmetry (code adapted from: pyscf/pyscf/scf/hf_symm.py)
-		wfnsym = 0
-		doub_occ = []
-		sing_occ = []
-		for k, ir in enumerate(mol.irrep_id):
-			doub_occ.append(sum(orbsym[occup == 2.] == ir))
-			sing_occ.append(sum(orbsym[occup == 1.] == ir))
-			if sing_occ[k] % 2:
-				wfnsym ^= ir
+		# wave function symmetry
+		wfnsym = scf.hf_symm.get_wfnsym(hf, mo_coeff=hf.mo_coeff, mo_occ=hf.mo_occ)
 		# sanity check
 		if wfnsym != calc.wfnsym and calc.ref['METHOD'] == 'HF':
 			try:
@@ -574,9 +567,9 @@ def _cc(mol, calc, exp, dens, pt=False):
 		mol_tmp.incore_anyway = True
 		mol_tmp.max_memory = mol.max_memory
 		if mol.spin == 0:
-			hf = scf.RHF(mol_tmp)
+			hf = scf.RHF(mol_tmp, fake=True)
 		else:
-			hf = scf.UHF(mol_tmp)
+			hf = scf.UHF(mol_tmp, fake=True)
 		hf.get_hcore = lambda *args: h1e
 		hf._eri = h2e 
 		# init ccsd
@@ -589,6 +582,11 @@ def _cc(mol, calc, exp, dens, pt=False):
 		ccsd.conv_tol = 1.0e-10
 		if dens: ccsd.conv_tol_normt = 1.0e-10
 		ccsd.max_cycle = 500
+		if exp.order > 0:
+			# avoid async function execution
+			ccsd.async_io = calc.async
+			# avoid I/O
+			if not calc.async: ccsd.incore_complete = True
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
 		for i in list(range(0, 12, 2)):

@@ -75,7 +75,7 @@ def main(mpi, mol, calc, exp):
 					# collect time
 					exp.time['screen'].append(0.0)
 			# update restart frequency
-			if mpi.global_master: exp.rst_freq = int(max(exp.rst_freq / 2., 1.))
+			if mpi.global_master: exp.rst_freq = max(exp.rst_freq // 2, 1)
 			# convergence check
 			if exp.conv_orb[-1] or exp.order == exp.max_order:
 				exp.energy['tot'] = np.array(exp.energy['tot'])
@@ -165,7 +165,7 @@ def _rst_print(mol, calc, exp):
 			thres = screen.update(calc, exp)
 			output.screen_header(exp, thres)
 			output.screen_end(exp)
-			rst_freq = int(max(rst_freq / 2., 1.))
+			rst_freq = max(rst_freq // 2, 1)
 		return thres, rst_freq, False
 
 	

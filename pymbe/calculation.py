@@ -12,6 +12,7 @@ __status__ = 'Development'
 
 import re
 import sys
+import ast
 from pyscf import symm
 
 import restart
@@ -34,6 +35,7 @@ class CalcCls():
 				self.max_order = 1000000
 				self.occ = 'CAN'
 				self.virt = 'CAN'
+				self.async = False
 				# init energy dict and mo
 				self.energy = {}
 				self.mo = None
@@ -42,7 +44,7 @@ class CalcCls():
 					self.model, self.typ, self.protocol, self.ref, \
 						self.base, self.thres, self.relax, \
 						self.wfnsym, self.target, self.max_order, \
-						self.occ, self.virt, \
+						self.occ, self.virt, self.async, \
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
 					self.sanity_chk(mpi, mol)
@@ -60,17 +62,17 @@ class CalcCls():
 							if content[i].split()[0][0] == '#':
 								continue
 							elif re.split('=',content[i])[0].strip() == 'model':
-								self.model = eval(re.split('=',content[i])[1].strip())
+								self.model = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.model = self._upper(self.model)
 							elif re.split('=',content[i])[0].strip() == 'type':
 								self.typ = re.split('=',content[i])[1].strip()
 							elif re.split('=',content[i])[0].strip() == 'protocol':
 								self.protocol = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'ref':
-								self.ref = eval(re.split('=',content[i])[1].strip())
+								self.ref = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.ref = self._upper(self.ref)
 							elif re.split('=',content[i])[0].strip() == 'base':
-								self.base = eval(re.split('=',content[i])[1].strip())
+								self.base = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.base = self._upper(self.base)
 							elif re.split('=',content[i])[0].strip() == 'thres':
 								self.thres = float(re.split('=',content[i])[1].strip())
@@ -86,6 +88,8 @@ class CalcCls():
 								self.occ = re.split('=',content[i])[1].strip().upper()
 							elif re.split('=',content[i])[0].strip() == 'virt':
 								self.virt = re.split('=',content[i])[1].strip().upper()
+							elif re.split('=',content[i])[0].strip() == 'async':
+								self.async = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							elif re.split('=',content[i])[0].strip() == 'mem':
 								mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'num_local_masters':
@@ -106,7 +110,7 @@ class CalcCls():
 				#
 				return self.model, self.typ, self.protocol, self.ref, self.base, \
 							self.thres, self.relax, self.wfnsym, self.target, \
-							self.max_order, self.occ, self.virt, \
+							self.max_order, self.occ, self.virt, self.async, \
 							mol.max_memory, mpi.num_local_masters
 
 

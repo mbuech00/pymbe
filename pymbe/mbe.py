@@ -107,8 +107,6 @@ def _master(mpi, mol, calc, exp):
 		slaves_avail = num_slaves = mpi.local_size - 1
 		# bcast msg
 		comm.bcast(msg, root=0)
-		# init job_info dictionary
-		job_info = {}
 		# init job index
 		i = np.argmax(np.isnan(exp.energy['inc'][-1]))
 		# init stat and restart counters
@@ -122,53 +120,57 @@ def _master(mpi, mol, calc, exp):
 			time = MPI.Wtime()
 		# init tasks
 		tasks = _tasks(i, len(exp.tuples[-1]), num_slaves)
+		# init job_info and book-keeping arrays
+		job_info = np.zeros(2, dtype=np.int32)
+		book = np.zeros([num_slaves, 2], dtype=np.int32)
 		# loop until no slaves left
 		while (slaves_avail >= 1):
-			# receive data dict
-			data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
+			# probe for source and tag
+			comm.Probe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
+			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
+			# init data
+			data = np.empty(mpi.stat.Get_elements(MPI.DOUBLE), dtype=np.float64)
+			# receive data
+			comm.Recv(data, source=source, tag=tag)
 			# collect time
 			if mpi.global_master:
 				exp.time['mbe'][-1] += MPI.Wtime() - time
 				time = MPI.Wtime()
-			# probe for source and tag
-			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
 			# slave is ready
 			if tag == TAGS.ready:
 				# any jobs left?
 				if i <= len(exp.tuples[-1])-1:
 					# batch
-					if tasks[source-1]:
-						batch = tasks[source-1].pop(0)
-					else:
-						batch = 1
+					batch = tasks.pop(0)
 					# store job indices
-					job_info['i_s'] = i; job_info['i_e'] = min(i+batch, len(exp.tuples[-1])-1)
-					# send string dict
-					comm.send(job_info, dest=source, tag=TAGS.start)
+					job_info[0] = i; job_info[1] = i+batch
+					book[source-1, :] = job_info
+					# send job info
+					comm.Send([job_info, MPI.INT], dest=source, tag=TAGS.start)
 					# increment job index
 					i += batch
 				else:
 					# send exit signal
-					comm.send(None, dest=source, tag=TAGS.exit)
+					comm.Send(np.array([], dtype=np.int32), dest=source, tag=TAGS.exit)
 			# receive result from slave
 			elif tag == TAGS.done:
 				# collect energies
-				for idx, val in enumerate(data['e_inc']):
-					exp.energy['inc'][-1][data['i_s']+idx] = val
+				for idx, val in enumerate(data):
+					exp.energy['inc'][-1][book[source-1, 0] + idx] = val
 				if mpi.global_master:
 					# write restart files
-					if data['i_e'] // exp.rst_freq > counter_rst:
+					if book[source-1, 1] // exp.rst_freq > counter_rst:
 						counter_rst += 1
 						restart.mbe_write(calc, exp, False)
 					# print status
-					if data['i_e'] // 1000 > counter_stat or mol.verbose:
+					if book[source-1, 1] // 1000 > counter_stat:
 						counter_stat += 1
 						output.mbe_status(exp, float(counter_stat * 1000) / float(len(exp.tuples[-1])))
 			# put slave to sleep
 			elif tag == TAGS.exit:
 				slaves_avail -= 1
 		# print 100.0 %
-		if mpi.global_master and not mol.verbose:
+		if mpi.global_master:
 			if len(exp.tuples[-1]) % 1000 != 0:
 				output.mbe_status(exp, 1.0)
 		# bcast energies
@@ -184,22 +186,25 @@ def _slave(mpi, mol, calc, exp):
 			inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
 			inc.fill(np.nan)
 			exp.energy['inc'].append(inc)
-		# init data dict
-		data = {}
+		# init job_info array and data list
+		job_info = np.zeros(2, dtype=np.int32)
+		data = []
 		# receive work from master
 		while (True):
 			# ready for task
-			comm.send(None, dest=0, tag=TAGS.ready)
-			# receive drop string
-			job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+			comm.Send(np.array([], dtype=np.float64), dest=0, tag=TAGS.ready)
+			# probe for tag
+			comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# recover tag
 			tag = mpi.stat.Get_tag()
+			# receive job info
+			comm.Recv([job_info, MPI.INT], source=0, tag=tag)
 			# do job
 			if tag == TAGS.start:
-				# init data['e_inc']
-				data['e_inc'] = np.zeros(job_info['i_e']-job_info['i_s'], dtype=np.float64)
+				# re-init data
+				data[:] = []
 				# calculate energy increments
-				for count, idx in enumerate(range(job_info['i_s'], job_info['i_e'])):
+				for count, idx in enumerate(range(job_info[0], job_info[1])):
 					# generate input
 					exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][idx])
 					# perform calc
@@ -217,17 +222,15 @@ def _slave(mpi, mol, calc, exp):
 					if mol.verbose:
 						print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
 								format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][idx]))
-					# write info into data dict
-					data['e_inc'][count] = exp.energy['inc'][-1][idx]
-				# store indices
-				data['i_s'] = job_info['i_s']; data['i_e'] = job_info['i_e']
+					# write data
+					data.append(exp.energy['inc'][-1][idx])
 				# send data back to local master
-				comm.send(data, dest=0, tag=TAGS.done)
+				comm.Send([np.asarray(data, dtype=np.float64), MPI.DOUBLE], dest=0, tag=TAGS.done)
 			# exit
 			elif tag == TAGS.exit:
 				break
 		# send exit signal to master
-		comm.send(None, dest=0, tag=TAGS.exit)
+		comm.Send(np.array([], dtype=np.float64), dest=0, tag=TAGS.exit)
 		# receive energies
 		parallel.energy(exp, comm)
 
@@ -256,30 +259,15 @@ def _comb_index(n, k):
 		return index.reshape(-1, k)
 
 
-def _tasks(start, size, slaves):
+def _tasks(start, n_tasks, procs):
 		""" determine batch sizes """
-		# b1
-		if start < size // 10 * 8:
-			b1 = max(1, ((size // 10 * 8) - start) // slaves) #  0 % - 80 %
-			lst = [b1]
-			new_start = size // 10 * 8
-		else:
-			lst = []
-			new_start = start
-		# b2
-		if new_start < size // 20 * 19:
-			b2 = max(1, ((size // 20 * 19) - new_start) // slaves // 2) #  80 % - 95 %
-			lst += [b2] * 2
-			new_start = size // 20 * 19
-		# b4
-		if new_start < size // 50 * 49:
-			b4 = max(1, ((size // 50 * 49) - new_start) // slaves // 4) #  95 % - 98 %
-			lst += [b4] * 4
-			new_start = size // 50 * 49
-		# b6
-		if new_start < size // 1000 * 990:
-			b6 = max(1, ((size // 1000 * 990) - new_start) // slaves // 6) #  98 % - 99.9 %
-			lst += [b6] * 6
-		return [lst + [1] for idx in range(slaves)]
+		lst = []
+		for i in range(n_tasks-start):
+			lst += [i+1 for p in range(procs)]
+			if np.sum(lst) > float(n_tasks-start):
+				lst = lst[:-procs]
+				lst = lst[::-1]
+				lst += [1 for j in range((n_tasks-start) - int(np.sum(lst)))]
+				return lst
 
 

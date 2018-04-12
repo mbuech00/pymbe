@@ -10,9 +10,10 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-from pyscf import gto
 import re
 import sys
+import ast
+from pyscf import gto
 
 import restart
 
@@ -97,7 +98,7 @@ class MolCls(gto.Mole):
 								self.symmetry = re.split('=',content[i])[1].strip()
 							elif re.split('=',content[i])[0].strip() == 'basis':
 								try:
-									self.basis = eval(re.split('=',content[i])[1].strip())
+									self.basis = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except Exception:	
 									self.basis = re.split('=',content[i])[1].strip()
 							elif re.split('=',content[i])[0].strip() == 'unit':
@@ -105,7 +106,7 @@ class MolCls(gto.Mole):
 							elif re.split('=',content[i])[0].strip() == 'frozen':
 								self.frozen = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							elif re.split('=',content[i])[0].strip() == 'occup':
-								self.irrep_nelec = eval(re.split('=',content[i])[1].strip())
+								self.irrep_nelec = ast.literal_eval(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'verbose':
 								self.verbose = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							# error handling

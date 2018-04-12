@@ -83,53 +83,56 @@ def _master(mpi, mol, calc, exp):
 		slaves_avail = num_slaves = mpi.local_size - 1
 		# bcast
 		comm.bcast(msg, root=0)
-		# init job_info dictionary
-		job_info = {}
-		# init bookkeeping variables
-		i = 0; tmp = []
+		# start index
+		i = 0
 		# init tasks
-		tasks = _tasks(len(exp.tuples[-1]), num_slaves)
+		n_tasks = len(exp.tuples[-1])
+		tasks = _tasks(n_tasks, num_slaves)
+		# init job_info and book-keeping arrays
+		job_info = np.zeros(2, dtype=np.int32)
+		book = np.zeros([num_slaves, 2], dtype=np.int32)
+		# init tuples
+		exp.tuples.append(np.empty([0, exp.order+1], dtype=np.int32))
 		# loop until no slaves left
 		while (slaves_avail >= 1):
-			# receive data dict
-			data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 			# probe for source and tag
+			comm.Probe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=mpi.stat)
 			source = mpi.stat.Get_source(); tag = mpi.stat.Get_tag()
+			# init data
+			data = np.empty([mpi.stat.Get_elements(MPI.INT) // (exp.order+1), exp.order+1], dtype=np.int32)
+			# receive data
+			comm.Recv(data, source=source, tag=tag)
 			# slave is ready
 			if tag == TAGS.ready:
 				# any jobs left?
-				if i <= len(exp.tuples[-1])-1:
+				if i <= n_tasks-1:
 					# batch
-					if tasks[source-1]:
-						batch = tasks[source-1].pop(0)
-					else:
-						batch = 1
+					batch = tasks.pop(0)
 					# store job indices
-					job_info['i_s'] = i; job_info['i_e'] = min(i+batch, len(exp.tuples[-1])-1)
+					job_info[0] = i; job_info[1] = i+batch
+					book[source-1, :] = job_info
 					# send parent tuple index
-					comm.send(job_info, dest=source, tag=TAGS.start)
+					comm.Send([job_info, MPI.INT], dest=source, tag=TAGS.start)
 					# increment job index
 					i += batch
 				else:
 					# send exit signal
-					comm.send(None, dest=source, tag=TAGS.exit)
+					comm.Send(np.array([], dtype=np.int32), dest=source, tag=TAGS.exit)
 			# receive result from slave
 			elif tag == TAGS.done:
-				# write tmp child tuple list
-				tmp += data['child']
+				# append child tuples
+				exp.tuples[-1] = np.append(exp.tuples[-1], data, axis=0)
 			# put slave to sleep
 			elif tag == TAGS.exit:
 				# remove slave
 				slaves_avail -= 1
 		# finally we sort the tuples or mark expansion as converged 
-		if len(tmp) == 0:
+		if exp.tuples[-1].shape[0] == 0:
 			exp.conv_orb.append(True)
 			# bcast tuples
 			info = {'len': 0}
 			comm.bcast(info, root=0)
 		else:
-			tmp.sort()
-			exp.tuples.append(np.array(tmp, dtype=np.int32))
 			# bcast tuples
 			info = {'len': len(exp.tuples[-1])}
 			comm.bcast(info, root=0)
@@ -138,41 +141,43 @@ def _master(mpi, mol, calc, exp):
 
 def _slave(mpi, mol, calc, exp):
 		""" slave routine """
-		# init data dict and combs list
-		data = {'child': []}; combs = []
 		# set communicator
 		comm = mpi.local_comm
+		# init job_info array and data list
+		job_info = np.zeros(2, dtype=np.int32)
+		data = []
 		# receive work from master
 		while (True):
 			# send status to master
-			comm.send(None, dest=0, tag=TAGS.ready)
-			# receive parent tuple
-			job_info = comm.recv(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
-			# recover tag
+			comm.Send(np.array([], dtype=np.int32), dest=0, tag=TAGS.ready)
+			# probe for tag
+			comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			tag = mpi.stat.Get_tag()
+			# receive job info
+			comm.Recv([job_info, MPI.INT], source=0, tag=tag)
 			# do job
 			if tag == TAGS.start:
-				# init child tuple list
-				data['child'][:] = []
+				# re-init data
+				data[:] = []
 				# calculate energy increments
-				for idx in range(job_info['i_s'], job_info['i_e']):
+				for idx in range(job_info[0], job_info[1]):
 					if calc.typ == 'occupied':
 						for m in range(calc.exp_space[0], exp.tuples[-1][idx][0]):
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if not _test(calc, exp, exp.tuples[-1][idx], m):
-								data['child'].append(sorted(exp.tuples[-1][idx].tolist()+[m]))
+								data.append(sorted(exp.tuples[-1][idx].tolist()+[m]))
 					elif calc.typ == 'virtual':
 						for m in range(exp.tuples[-1][idx][-1]+1, calc.exp_space[-1]+1):
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if not _test(calc, exp, exp.tuples[-1][idx], m):
-								data['child'].append(sorted(exp.tuples[-1][idx].tolist()+[m]))
+								data.append(sorted(exp.tuples[-1][idx].tolist()+[m]))
 				# send data back to master
-				comm.send(data, dest=0, tag=TAGS.done)
+				comm.Send([np.asarray(data, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.done)
 			# exit
 			elif tag == TAGS.exit:
 				break
 		# send exit signal to master
-		comm.send(None, dest=0, tag=TAGS.exit)
+		comm.Send(np.array([], dtype=np.int32), dest=0, tag=TAGS.exit)
 		# receive tuples
 		info = comm.bcast(None, root=0)
 		if info['len'] >= 1:
@@ -240,12 +245,15 @@ def update(calc, exp):
 			return calc.thres * calc.relax ** (exp.order - 3)
 
 
-def _tasks(size, slaves):
+def _tasks(n_tasks, procs):
 		""" determine batch sizes """
-		b1 = max(1, (size//10*8) // slaves) #  0 % - 80 %
-		b2 = max(1, ((size//20*19) - (size//10*8)) // slaves // 2) #  80 % - 95 %
-		b4 = max(1, ((size//50*49) - (size//20*19)) // slaves // 4) #  95 % - 98 %
-		b6 = max(1, ((size//1000*990) - (size//50*49)) // slaves // 6) #  98 % - 99.9 %
-		return [[b1] + [b2]*2 + [b4]*4 + [b6]*6 + [1] for idx in range(slaves)]
+		lst = []
+		for i in range(n_tasks):
+			lst += [i+1 for p in range(procs)]
+			if np.sum(lst) > float(n_tasks):
+				lst = lst[:-procs]
+				lst = lst[::-1]
+				lst += [1 for j in range(n_tasks - int(np.sum(lst)))]
+				return lst
 
 

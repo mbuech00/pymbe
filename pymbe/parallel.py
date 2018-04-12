@@ -116,7 +116,8 @@ def calc(mpi, calc):
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
 						'thres': calc.thres, 'relax': calc.relax, \
 						'wfnsym': calc.wfnsym, 'target': calc.target, 'max_order': calc.max_order, \
-						'occ': calc.occ, 'virt': calc.virt, 'restart': calc.restart}
+						'occ': calc.occ, 'virt': calc.virt, \
+						'async': calc.async, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
@@ -125,7 +126,7 @@ def calc(mpi, calc):
 				calc.thres = info['thres']; calc.relax = info['relax']
 				calc.wfnsym = info['wfnsym']; calc.target = info['target']; calc.max_order = info['max_order']
 				calc.occ = info['occ']; calc.virt = info['virt']
-				calc.restart = info['restart']
+				calc.async = info['async']; calc.restart = info['restart']
 
 
 def fund(mpi, mol, calc):
