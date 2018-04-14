@@ -567,9 +567,9 @@ def _cc(mol, calc, exp, dens, pt=False):
 		mol_tmp.incore_anyway = True
 		mol_tmp.max_memory = mol.max_memory
 		if mol.spin == 0:
-			hf = scf.RHF(mol_tmp, fake=True)
+			hf = scf.RHF(mol_tmp)
 		else:
-			hf = scf.UHF(mol_tmp, fake=True)
+			hf = scf.UHF(mol_tmp)
 		hf.get_hcore = lambda *args: h1e
 		hf._eri = h2e 
 		# init ccsd

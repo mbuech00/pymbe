@@ -16,7 +16,7 @@ try:
 except ImportError:
 	sys.stderr.write('\nImportError : mpi4py module not found\n\n')
 try:
-	from pyscf import lib
+	from pyscf import lib, scf
 except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
@@ -32,8 +32,8 @@ import results
 
 def main():
 		""" main program """
-		# force OMP_NUM_THREADS = 1
-		lib.num_threads(1)
+		# general pyscf settings
+		_pyscf_set()
 		# mpi, mol, calc, and exp objects
 		mpi, mol, calc, exp = _init()
 		# branch
@@ -124,6 +124,14 @@ def _exp(mpi, mol, calc):
 		else:
 			exp = expansion.ExpCls(mol, calc)
 		return exp
+
+
+def _pyscf_set():
+		""" set general pyscf settings """
+		# force OMP_NUM_THREADS = 1
+		lib.num_threads(1)
+		# mute scf checkpoint files
+		scf.hf.MUTE_CHKFILE = True
 
 
 if __name__ == '__main__':
