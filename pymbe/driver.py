@@ -37,18 +37,13 @@ def main(mpi, mol, calc, exp):
 			#
 			#** mbe phase **#
 			#
-			# init energies
-			if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
-				inc = np.empty(len(exp.tuples[-1]), dtype=np.float64)
-				inc.fill(np.nan)
-				exp.energy['inc'].append(inc)
 			# mbe calculations
 			mbe.main(mpi, mol, calc, exp)
 			if mpi.global_master:
+				# write restart files
+				restart.mbe_write(calc, exp)
 				# print mbe end
 				output.mbe_end(exp)
-				# write restart files
-				restart.mbe_write(calc, exp, True)
 				# print mbe results
 				output.mbe_results(mol, calc, exp)
 			#

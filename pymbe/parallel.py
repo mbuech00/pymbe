@@ -59,6 +59,7 @@ def set_mpi(mpi):
 			if mpi.num_local_masters == 0:
 				mpi.master_comm = mpi.local_comm = mpi.global_comm
 				mpi.local_size = mpi.global_size
+				mpi.local_rank = mpi.global_rank
 				mpi.local_master = False
 				mpi.prim_master = mpi.global_master
 			else:
@@ -83,8 +84,9 @@ def set_mpi(mpi):
 				for i in range(len(groups)):
 					if mpi.global_rank in groups[i]: color = i
 				mpi.local_comm = mpi.global_comm.Split(color)
-				# determine size of local group
+				# determine size of local group and recover rank
 				mpi.local_size = mpi.local_comm.Get_size()
+				mpi.local_rank = mpi.local_comm.Get_rank()
 			# define slave
 			if not mpi.global_master and not mpi.local_master:
 				mpi.slave = True
@@ -190,10 +192,10 @@ def exp(mpi, calc, exp, comm):
 					exp.energy['inc'].append(buff)
 
 
-def energy(exp, comm):
-		""" bcast energies """
-		# Bcast
-		comm.Bcast([exp.energy['inc'][-1], MPI.DOUBLE], root=0)
+def energy(e_inc, tasks, offsets, exp, comm):
+		""" Allgatherv energies """
+		# Allgatherv
+		comm.Allgatherv(e_inc, [exp.energy['inc'][-1], tasks, offsets, MPI.DOUBLE])
 
 
 def tup(exp, comm):
