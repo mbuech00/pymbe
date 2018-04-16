@@ -124,15 +124,14 @@ def read_fund(mol, calc):
 		mol.norb = mol.nocc + mol.nvirt
 
 
-def mbe_write(calc, exp, final):
+def mbe_write(calc, exp):
 		""" write energy mbe restart files """
 		# write e_inc
 		np.save(os.path.join(RST, 'e_inc_'+str(exp.order)), exp.energy['inc'][-1])
 		# write time
 		np.save(os.path.join(RST, 'time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
 		# write e_tot
-		if final:
-			np.save(os.path.join(RST, 'e_tot_'+str(exp.order)), np.asarray(exp.energy['tot'][-1]))
+		np.save(os.path.join(RST, 'e_tot_'+str(exp.order)), np.asarray(exp.energy['tot'][-1]))
 
 
 def screen_write(exp):

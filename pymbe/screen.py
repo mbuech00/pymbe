@@ -117,7 +117,7 @@ def _master(mpi, mol, calc, exp):
 					i += batch
 				else:
 					# send exit signal
-					comm.Send(np.array([], dtype=np.int32), dest=source, tag=TAGS.exit)
+					comm.Send([None, MPI.INT], dest=source, tag=TAGS.exit)
 			# receive result from slave
 			elif tag == TAGS.done:
 				# append child tuples
@@ -149,7 +149,7 @@ def _slave(mpi, mol, calc, exp):
 		# receive work from master
 		while (True):
 			# send status to master
-			comm.Send(np.array([], dtype=np.int32), dest=0, tag=TAGS.ready)
+			comm.Send([None, MPI.INT], dest=0, tag=TAGS.ready)
 			# probe for tag
 			comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			tag = mpi.stat.Get_tag()
@@ -177,7 +177,7 @@ def _slave(mpi, mol, calc, exp):
 			elif tag == TAGS.exit:
 				break
 		# send exit signal to master
-		comm.Send(np.array([], dtype=np.int32), dest=0, tag=TAGS.exit)
+		comm.Send([None, MPI.INT], dest=0, tag=TAGS.exit)
 		# receive tuples
 		info = comm.bcast(None, root=0)
 		if info['len'] >= 1:
