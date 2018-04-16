@@ -151,7 +151,7 @@ def _master(mpi, mol, calc, exp):
 					i += batch
 				else:
 					# send exit signal
-					comm.Send(np.array([], dtype=np.int32), dest=source, tag=TAGS.exit)
+					comm.Send([None, MPI.INT], dest=source, tag=TAGS.exit)
 			# receive result from slave
 			elif tag == TAGS.done:
 				# collect energies
@@ -192,7 +192,7 @@ def _slave(mpi, mol, calc, exp):
 		# receive work from master
 		while (True):
 			# ready for task
-			comm.Send(np.array([], dtype=np.float64), dest=0, tag=TAGS.ready)
+			comm.Send([None, MPI.DOUBLE], dest=0, tag=TAGS.ready)
 			# probe for tag
 			comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# recover tag
@@ -230,7 +230,7 @@ def _slave(mpi, mol, calc, exp):
 			elif tag == TAGS.exit:
 				break
 		# send exit signal to master
-		comm.Send(np.array([], dtype=np.float64), dest=0, tag=TAGS.exit)
+		comm.Send([None, MPI.DOUBLE], dest=0, tag=TAGS.exit)
 		# receive energies
 		parallel.energy(exp, comm)
 
