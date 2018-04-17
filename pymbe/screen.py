@@ -187,53 +187,54 @@ def _slave(mpi, mol, calc, exp):
 
 def _test(calc, exp, tup, m):
 		""" screening test """
-		if exp.order == exp.start_order:
+		if exp.order < 3:
 			return False
 		else:
-			# generate list with all subsets of particular tuple
-			combs = np.array(list(list(comb) for comb in itertools.combinations(tup, exp.order-1)))
-			# select only those combinations that include the active orbitals
-			if calc.no_exp > 0:
-				cond = np.zeros(len(combs), dtype=bool)
-				for j in range(len(combs)): cond[j] = set(exp.tuples[0][0]) <= set(combs[j])
-				combs = combs[cond]
+			# generate list with all subsets of particular tuple that include the active orbitals
+			combs = [comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)]
+			# init mask_m
+			mask_m = m == exp.tuples[-1][:, -1]
 			# conservative protocol
 			if calc.protocol == 1:
 				# init screening logical
 				screen = True
 				# loop over subset combinations
 				for j in range(len(combs)):
-					# recover index of particular tuple
-					comb_idx = np.where(np.all(sorted(np.append(combs[j], [m])) == exp.tuples[-1], axis=1))[0]
-					# does it exist?
-					if len(comb_idx) == 0:
-						# screen away
-						screen = True
-						break
-					else:
-						# is the increment above threshold?
-						if np.abs(exp.energy['inc'][-1][comb_idx]) >= exp.thres:
-							# mark as 'allowed'
-							screen = False
+					# init mask_comb
+					mask_comb = np.copy(mask_m)
+					# compute mask_comb
+					for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
+						mask_comb = mask_comb & (combs[j][idx]==exp.tuples[-1][:, i])
+						# does it exist?
+						if np.count_nonzero(mask_comb) == 0:
+							# screen away
+							screen = True
+							break
+					# is the increment above threshold?
+					if np.abs(exp.energy['inc'][-1][mask_comb]) >= exp.thres:
+						# mark as 'allowed'
+						screen = False
 			# aggressive protocol
 			elif calc.protocol == 2:
 				# init screening logical
 				screen = False
 				# loop over subset combinations
 				for j in range(len(combs)):
-					# recover index of particular tuple
-					comb_idx = np.where(np.all(sorted(np.append(combs[j], [m])) == exp.tuples[-1], axis=1))[0]
-					# does it exist?
-					if len(comb_idx) == 0:
-						# screen away
-						screen = True
-						break
-					else:
-						# is the increment above threshold?
-						if np.abs(exp.energy['inc'][-1][comb_idx]) < exp.thres:
+					# init mask_comb
+					mask_comb = np.copy(mask_m)
+					# compute mask_comb
+					for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
+						mask_comb = mask_comb & (combs[j][idx]==exp.tuples[-1][:, i])
+						# does it exist?
+						if np.count_nonzero(mask_comb) == 0:
 							# screen away
 							screen = True
 							break
+					# is the increment below threshold?
+					if np.abs(exp.energy['inc'][-1][mask_comb]) < exp.thres:
+						# screen away
+						screen = True
+						break
 			return screen
 
 
