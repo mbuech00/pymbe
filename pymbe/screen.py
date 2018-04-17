@@ -234,7 +234,7 @@ def _test(calc, exp, tup, m):
 							# screen away
 							screen_2 = True
 							break
-					if screen:
+					if screen_2:
 						screen_1 = True
 						break
 					else:
