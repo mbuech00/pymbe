@@ -302,11 +302,10 @@ def _sixth_row(info):
 def _header_2():
 		""" table header 2 """
 		return ('{0:6}{1:9}{2:2}{3:1}{4:7}{5:18}{6:7}{7:1}'
-			'{8:7}{9:26}{10:6}{11:1}{12:5}{13:15}{14:5}{15:1}{16:5}{17:}').\
+			'{8:7}{9:48}{10:6}{11:1}{12:3}{13:}'.\
 				format('','MBE order','','|','','correlation energy',\
-					'','|','','total time (HHH : MM : SS)',\
-					'','|','','number of calcs.',\
-					'','|','','total number')
+					'','|','','time (HHH : MM : SS) -- MBE / screening / total',\
+					'','|','','total number of calcs.'))
 
 
 def _orders(calc, exp):
@@ -319,16 +318,25 @@ def _orders(calc, exp):
 			total_time = np.sum(exp.time['mbe'][:i+1])\
 							+np.sum(exp.time['screen'][:i+1])
 			total_tup += len(exp.tuples[i])
-			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:14}{9:03d}{10:^3}{11:02d}'
-				'{12:^3}{13:02d}{14:12}{15:1}{16:9}{17:>9d}{18:8}{19:1}{20:6}{21:>9d}').\
+			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:6}{9:03d}{10:^3}{11:02d}'
+				'{12:^3}{13:02d}{14:^5}{15:03d}{16:^3}{17:02d}{18:^3}{19:02d}{20:^5}{21:03d}{22:^3}{23:02d}'
+				'{24:^3}{25:02d}{26:6}{27:1}{28:10}{29:>9d}').\
 					format('',i+exp.start_order,'','|','', \
 						exp.energy['tot'][i] + calc.energy['base'] \
 						+ (calc.energy['ref'] - calc.energy['ref_base']), \
-						'','|','',int(total_time//3600),':', \
+						'','|','',int(exp.time['mbe'][i]//3600),':', \
+						int((exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600.)//60),':', \
+						int(exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600. \
+						- ((exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600.)//60)*60.), \
+						'/',int(exp.time['screen'][i]//3600),':', \
+						int((exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600.)//60),':', \
+						int(exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600. \
+						- ((exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600.)//60)*60.), \
+						'/',int(total_time//3600),':', \
 						int((total_time-(total_time//3600)*3600.)//60),':', \
 						int(total_time-(total_time//3600)*3600. \
 						- ((total_time-(total_time//3600)*3600.)//60)*60.), \
-						'','|','',len(exp.tuples[i]),'','|','',total_tup))
+						'','|','',total_tup))
 		return orders
 
 
