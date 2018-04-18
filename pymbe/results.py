@@ -304,7 +304,7 @@ def _header_2():
 		return ('{0:6}{1:9}{2:2}{3:1}{4:7}{5:18}{6:7}{7:1}'
 			'{8:7}{9:48}{10:6}{11:1}{12:3}{13:}'.\
 				format('','MBE order','','|','','correlation energy',\
-					'','|','','time (HHH : MM : SS) -- MBE / screening / total',\
+					'','|','','time (HHH : MM : SS) -- MBE / screening - total',\
 					'','|','','total number of calcs.'))
 
 
@@ -332,7 +332,7 @@ def _orders(calc, exp):
 						int((exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600.)//60),':', \
 						int(exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600. \
 						- ((exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600.)//60)*60.), \
-						'/',int(total_time//3600),':', \
+						'-',int(total_time//3600),':', \
 						int((total_time-(total_time//3600)*3600.)//60),':', \
 						int(total_time-(total_time//3600)*3600. \
 						- ((total_time-(total_time//3600)*3600.)//60)*60.), \
