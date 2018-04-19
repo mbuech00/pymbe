@@ -171,6 +171,8 @@ def exp(mpi, calc, exp, comm):
 				# bcast tuples
 				for i in range(1,len(exp.tuples)):
 					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
+					# recast tuples as Fortran order array
+					exp.tuples[i] = np.asfortranarray(exp.tuples[i])
 				# bcast energy increments
 				for i in range(len(exp.energy['inc'])):
 					comm.Bcast([exp.energy['inc'][i], MPI.DOUBLE], root=0)
@@ -185,6 +187,8 @@ def exp(mpi, calc, exp, comm):
 					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
 					comm.Bcast([buff, MPI.INT], root=0)
 					exp.tuples.append(buff)
+					# recast tuples as Fortran order array
+					exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 				# receive e_inc
 				for i in range(len(info['len_e_inc'])):
 					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)

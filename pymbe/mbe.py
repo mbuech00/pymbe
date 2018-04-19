@@ -80,7 +80,7 @@ def _serial(mol, calc, exp):
 							+ (calc.energy['hf'] - calc.energy['ref_base'])
 			exp.energy['inc'][-1][i] = e_model - e_base
 			# calc increment
-			exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
+			exp.energy['inc'][-1][i] -= _sum(calc, exp, exp.tuples[-1][i])
 			# verbose print
 			if mol.verbose:
 				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
@@ -122,7 +122,7 @@ def _parallel(mpi, mol, calc, exp):
 							+ (calc.energy['hf'] - calc.energy['ref_base'])
 			e_inc[count] = e_model - e_base
 			# calc increment
-			e_inc[count] -= _sum(calc, exp, idx)
+			e_inc[count] -= _sum(calc, exp, exp.tuples[-1][idx])
 			# verbose print
 			if mol.verbose:
 				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
@@ -134,28 +134,23 @@ def _parallel(mpi, mol, calc, exp):
 		parallel.energy(e_inc, tasks, offsets, exp, comm)
 
 
-def _sum(calc, exp, idx):
+def _sum(calc, exp, tup):
 		""" energy summation """
 		# init res
 		res = np.zeros(len(exp.energy['inc'])-1, dtype=np.float64)
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-1, exp.start_order-1, -1)):
-			# test if tuple is a subset
-			combs = exp.tuples[-1][idx, _comb_index(exp.order, i)]
-			dt = np.dtype((np.void, exp.tuples[i-exp.start_order].dtype.itemsize * \
-							exp.tuples[i-exp.start_order].shape[1]))
-			match = np.nonzero(np.in1d(exp.tuples[i-exp.start_order].view(dt).reshape(-1),
-								combs.view(dt).reshape(-1)))[0]
+			# generate array with all subsets of particular tuple (excluding the active orbitals)
+			combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
+			# init mask
+			mask = np.zeros(exp.tuples[i-exp.start_order].shape[0], dtype=np.bool)
+			# loop over subset combinations
+			for j in range(combs.shape[0]):
+				# update mask
+				mask ^= (combs[j, :] == exp.tuples[i-exp.start_order]).all(axis=1)
 			# add up lower-order increments
-			res[count] = math.fsum(exp.energy['inc'][i-exp.start_order][match])
+			res[count] = math.fsum(exp.energy['inc'][i-exp.start_order][mask])
 		return math.fsum(res)
-
-
-def _comb_index(n, k):
-		""" calculate combined index """
-		count = scipy.misc.comb(n, k, exact=True)
-		index = np.fromiter(itertools.chain.from_iterable(itertools.combinations(range(n), k)), int, count=count * k)
-		return index.reshape(-1, k)
 
 
 def _task_dist(mpi, exp):

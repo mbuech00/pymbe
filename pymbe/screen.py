@@ -70,7 +70,7 @@ def _serial(mol, calc, exp):
 			exp.conv_orb.append(True)
 		else:
 			tmp.sort()
-			exp.tuples.append(np.array(tmp, dtype=np.int32))
+			exp.tuples.append(np.array(tmp, dtype=np.int32, order='F'))
 
 
 def _master(mpi, mol, calc, exp):
@@ -126,25 +126,25 @@ def _master(mpi, mol, calc, exp):
 			elif tag == TAGS.exit:
 				# remove slave
 				slaves_avail -= 1
-		# finally we sort the tuples or mark expansion as converged 
-		if exp.tuples[-1].shape[0] == 0:
-			exp.conv_orb.append(True)
-			# bcast tuples
-			info = {'len': 0}
-			comm.bcast(info, root=0)
-		else:
+		# finally, bcast tuples or mark expansion as converged 
+		if exp.tuples[-1].shape[0] > 0:
 			# bcast tuples
 			info = {'len': len(exp.tuples[-1])}
 			comm.bcast(info, root=0)
 			parallel.tup(exp, comm)
+			# recast tuples as Fortran order array
+			exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
+		else:
+			exp.conv_orb.append(True)
+			# bcast tuples
+			info = {'len': 0}
+			comm.bcast(info, root=0)
 
 
 def _slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# set communicator
 		comm = mpi.local_comm
-		# recast tuples as Fortran order array
-		exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 		# init job_info array and data list
 		job_info = np.zeros(2, dtype=np.int32)
 		data = []
@@ -180,13 +180,13 @@ def _slave(mpi, mol, calc, exp):
 				break
 		# send exit signal to master
 		comm.Send([None, MPI.INT], dest=0, tag=TAGS.exit)
-		# recast tuples back into C order array
-		exp.tuples[-1] = np.ascontiguousarray(exp.tuples[-1])
 		# receive tuples
 		info = comm.bcast(None, root=0)
 		if info['len'] >= 1:
 			exp.tuples.append(np.empty([info['len'], exp.order+1], dtype=np.int32))
 			parallel.tup(exp, comm)
+			# recast tuples as Fortran order array
+			exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 
 
 def _test(calc, exp, tup, m):
@@ -196,9 +196,8 @@ def _test(calc, exp, tup, m):
 		else:
 			# generate array with all subsets of particular tuple (excluding the active orbitals)
 			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
-			# init mask and mask_c
+			# init mask
 			mask = np.zeros(exp.tuples[-1].shape[0], dtype=np.bool)
-			mask_c = np.ones(exp.tuples[-1].shape[0], dtype=np.bool)
 			# compute common mask_m
 			mask_m = m == exp.tuples[-1][:, -1]
 			# loop over subset combinations
