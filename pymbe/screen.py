@@ -192,18 +192,22 @@ def _test(calc, exp, tup, m):
 		else:
 			# generate array with all subsets of particular tuple (excluding the active orbitals)
 			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
-			combs = np.c_[combs, np.array([m] * combs.shape[0])]
-			# init mask
+			# init mask and mask_c
 			mask = np.zeros(exp.tuples[-1].shape[0], dtype=bool)
+			mask_c = np.ones(exp.tuples[-1].shape[0], dtype=bool)
+			# compute common mask_m
+			mask_m = m == exp.tuples[-1][:, -1]
 			# loop over subset combinations
 			for j in range(combs.shape[0]):
 				# compute mask_c
-				mask_c = combs[j, :] == exp.tuples[-1][:, :]
-				# update mask or screen if combs[j, :] not in exp.tuples[-1]
-				if np.count_nonzero(mask_c.all(axis=1)) == 0:	
-					return True
+				mask_c = mask_m.copy()
+				for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
+					mask_c[mask_c] &= combs[j, idx] == exp.tuples[-1][mask_c, i]
+				# update mask or screen if combs[j]+[m] not in exp.tuples[-1]
+				if mask_c.any():
+					mask ^= mask_c
 				else:
-					mask ^= mask_c.all(axis=1)
+					return True
 			# conservative protocol
 			if calc.protocol == 1:
 				# are *all* increments below the threshold?
