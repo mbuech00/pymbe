@@ -50,8 +50,6 @@ def main(calc, exp):
 				# read tuples
 				if 'tup' in files[i]:
 					exp.tuples.append(np.load(os.path.join(RST, files[i])))
-					# recast tuples as Fortran order array
-					exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 				# read e_inc
 				elif 'e_inc' in files[i]:
 					exp.energy['inc'].append(np.load(os.path.join(RST, files[i])))

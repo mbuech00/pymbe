@@ -70,7 +70,7 @@ def _serial(mol, calc, exp):
 			exp.conv_orb.append(True)
 		else:
 			tmp.sort()
-			exp.tuples.append(np.array(tmp, dtype=np.int32, order='F'))
+			exp.tuples.append(np.array(tmp, dtype=np.int32))
 
 
 def _master(mpi, mol, calc, exp):
@@ -132,8 +132,6 @@ def _master(mpi, mol, calc, exp):
 			info = {'len': len(exp.tuples[-1])}
 			comm.bcast(info, root=0)
 			parallel.tup(exp, comm)
-			# recast tuples as Fortran order array
-			exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 		else:
 			exp.conv_orb.append(True)
 			# bcast tuples
@@ -148,6 +146,8 @@ def _slave(mpi, mol, calc, exp):
 		# init job_info array and data list
 		job_info = np.zeros(2, dtype=np.int32)
 		data = []
+		# recast tuples as Fortran order array
+		exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 		# receive work from master
 		while (True):
 			# send status to master
@@ -180,13 +180,13 @@ def _slave(mpi, mol, calc, exp):
 				break
 		# send exit signal to master
 		comm.Send([None, MPI.INT], dest=0, tag=TAGS.exit)
+		# recast tuples back as C order array
+		exp.tuples[-1] = np.ascontiguousarray(exp.tuples[-1])
 		# receive tuples
 		info = comm.bcast(None, root=0)
 		if info['len'] >= 1:
 			exp.tuples.append(np.empty([info['len'], exp.order+1], dtype=np.int32))
 			parallel.tup(exp, comm)
-			# recast tuples as Fortran order array
-			exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 
 
 def _test(calc, exp, tup, m):

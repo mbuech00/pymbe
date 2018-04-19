@@ -142,12 +142,12 @@ def _sum(calc, exp, tup):
 		for count, i in enumerate(range(exp.order-1, exp.start_order-1, -1)):
 			# generate array with all subsets of particular tuple (excluding the active orbitals)
 			combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
-			# init mask
-			mask = np.zeros(exp.tuples[i-exp.start_order].shape[0], dtype=np.bool)
-			# loop over subset combinations
-			for j in range(combs.shape[0]):
-				# update mask
-				mask ^= (combs[j, :] == exp.tuples[i-exp.start_order]).all(axis=1)
+			# recover datatype
+			dt = np.dtype((np.void, exp.tuples[i-exp.start_order].dtype.itemsize * \
+							exp.tuples[i-exp.start_order].shape[1]))
+			# compute mask (from flattened views of tuples and combs)
+			mask = np.nonzero(np.in1d(exp.tuples[i-exp.start_order].view(dt).reshape(-1), \
+								combs.view(dt).reshape(-1)))[0]
 			# add up lower-order increments
 			res[count] = math.fsum(exp.energy['inc'][i-exp.start_order][mask])
 		return math.fsum(res)

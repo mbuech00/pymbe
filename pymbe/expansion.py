@@ -47,12 +47,12 @@ def _init_tup(mol, calc):
 		incl_idx = calc.ref_space.tolist()
 		# tuples
 		if calc.no_exp == 0:
-			tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32, order='F')]
+			tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32)]
 		else:
 			if calc.typ == 'occupied':
-				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32, order='F')]
+				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32)]
 			elif calc.typ == 'virtual':
-				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32, order='F')]
+				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32)]
 		return incl_idx, tuples
 
 
