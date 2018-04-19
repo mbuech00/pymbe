@@ -190,60 +190,37 @@ def _test(calc, exp, tup, m):
 		if exp.order < 3:
 			return False
 		else:
-			# generate list with all subsets of particular tuple (excluding the active orbitals)
-			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)])
-			# init mask_m
+			# generate array with all subsets of particular tuple (excluding the active orbitals)
+			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
+			# init mask
+			mask = np.zeros(exp.tuples[-1].shape[0], dtype=bool)
+			# compute common mask_m
 			mask_m = m == exp.tuples[-1][:, -1]
+			# loop over subset combinations
+			for j in range(combs.shape[0]):
+				# compute mask_c
+				mask_c = mask_m.copy()
+				for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
+					mask_c &= combs[j, idx] == exp.tuples[-1][:, i]
+				# update mask or screen if combs[j]+[m] not in exp.tuples[-1]
+				if mask_c.any():
+					mask ^= mask_c
+				else:
+					return True
 			# conservative protocol
 			if calc.protocol == 1:
-				# init screening logicals
-				screen_1 = True; screen_2 = False
-				# loop over subset combinations
-				for j in range(len(combs)):
-					# init mask_comb
-					mask_comb = np.copy(mask_m)
-					# compute mask_comb
-					for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
-						mask_comb &= combs[j, idx] == exp.tuples[-1][:, i]
-						# does it exist?
-						if np.count_nonzero(mask_comb) == 0:
-							# screen away
-							screen_2 = True
-							break
-					if screen_2:
-						screen_1 = True
-						break
-					else:
-						# is the increment above threshold?
-						if np.abs(exp.energy['inc'][-1][mask_comb]) >= exp.thres:
-							# mark as 'allowed'
-							screen_1 = False
+				# are *all* increments below the threshold?
+				if np.all(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
+					return True
+				else:
+					return False
 			# aggressive protocol
 			elif calc.protocol == 2:
-				# init screening logical
-				screen_1 = False; screen_2 = False
-				# loop over subset combinations
-				for j in range(len(combs)):
-					# init mask_comb
-					mask_comb = np.copy(mask_m)
-					# compute mask_comb
-					for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
-						mask_comb &= combs[j, idx] == exp.tuples[-1][:, i]
-						# does it exist?
-						if np.count_nonzero(mask_comb) == 0:
-							# screen away
-							screen_2 = True
-							break
-					if screen_2:
-						screen_1 = True
-						break
-					else:
-						# is the increment below threshold?
-						if np.abs(exp.energy['inc'][-1][mask_comb]) < exp.thres:
-							# screen away
-							screen_1 = True
-							break
-			return screen_1
+				# are *any* increments below the threshold?
+				if np.any(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
+					return True
+				else:
+					return False
 
 
 def update(calc, exp):
