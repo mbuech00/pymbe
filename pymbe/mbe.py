@@ -154,7 +154,7 @@ def _sum(calc, exp, idx):
 def _comb_index(n, k):
 		""" calculate combined index """
 		count = scipy.misc.comb(n, k, exact=True)
-		index = np.fromiter(itertools.chain.from_iterable(itertools.combinations(range(n), k)), int,count=count * k)
+		index = np.fromiter(itertools.chain.from_iterable(itertools.combinations(range(n), k)), int, count=count * k)
 		return index.reshape(-1, k)
 
 

@@ -143,6 +143,8 @@ def _slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# set communicator
 		comm = mpi.local_comm
+		# recast tuples as Fortran order array
+		exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 		# init job_info array and data list
 		job_info = np.zeros(2, dtype=np.int32)
 		data = []
@@ -165,12 +167,12 @@ def _slave(mpi, mol, calc, exp):
 						for m in range(calc.exp_space[0], exp.tuples[-1][idx][0]):
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if not _test(calc, exp, exp.tuples[-1][idx], m):
-								data.append(sorted(exp.tuples[-1][idx].tolist()+[m]))
+								data.append(np.append(m, exp.tuples[-1][idx]))
 					elif calc.typ == 'virtual':
 						for m in range(exp.tuples[-1][idx][-1]+1, calc.exp_space[-1]+1):
 							# if tuple is allowed, add to child tuple list, otherwise screen away
 							if not _test(calc, exp, exp.tuples[-1][idx], m):
-								data.append(sorted(exp.tuples[-1][idx].tolist()+[m]))
+								data.append(np.append(exp.tuples[-1][idx], m))
 				# send data back to master
 				comm.Send([np.asarray(data, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.done)
 			# exit
@@ -178,6 +180,8 @@ def _slave(mpi, mol, calc, exp):
 				break
 		# send exit signal to master
 		comm.Send([None, MPI.INT], dest=0, tag=TAGS.exit)
+		# recast tuples back into C order array
+		exp.tuples[-1] = np.ascontiguousarray(exp.tuples[-1])
 		# receive tuples
 		info = comm.bcast(None, root=0)
 		if info['len'] >= 1:
@@ -193,8 +197,8 @@ def _test(calc, exp, tup, m):
 			# generate array with all subsets of particular tuple (excluding the active orbitals)
 			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
 			# init mask and mask_c
-			mask = np.zeros(exp.tuples[-1].shape[0], dtype=bool)
-			mask_c = np.ones(exp.tuples[-1].shape[0], dtype=bool)
+			mask = np.zeros(exp.tuples[-1].shape[0], dtype=np.bool)
+			mask_c = np.ones(exp.tuples[-1].shape[0], dtype=np.bool)
 			# compute common mask_m
 			mask_m = m == exp.tuples[-1][:, -1]
 			# loop over subset combinations
@@ -202,12 +206,12 @@ def _test(calc, exp, tup, m):
 				# compute mask_c
 				mask_c = mask_m.copy()
 				for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
-					mask_c[mask_c] &= combs[j, idx] == exp.tuples[-1][mask_c, i]
-				# update mask or screen if combs[j]+[m] not in exp.tuples[-1]
-				if mask_c.any():
-					mask ^= mask_c
-				else:
-					return True
+					mask_c &= combs[j, idx] == exp.tuples[-1][:, i]
+					# screen if combs[j, :idx]+[m] not in exp.tuples[-1]
+					if not mask_c.any():
+						return True
+				# update mask
+				mask ^= mask_c
 			# conservative protocol
 			if calc.protocol == 1:
 				# are *all* increments below the threshold?
