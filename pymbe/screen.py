@@ -189,8 +189,12 @@ def _test(calc, exp, tup):
 		else:
 			# init return list
 			lst = []
-			# generate array with all subsets of particular tuple (excl. active orbitals)
-			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
+			# generate array with all subsets of particular tuple (manually adding active orbitals)
+			if calc.no_exp > 0:
+				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
+									combinations(tup[calc.no_exp:], (exp.order-exp.start_order)-1)], dtype=np.int32)
+			else:
+				combs = np.array([comb for comb in itertools.combinations(tup, exp.order-exp.start_order)], dtype=np.int32)
 			# init masks
 			mask_i = np.ones(exp.tuples[-1].shape[0], dtype=np.bool)
 			mask_j = np.zeros(exp.tuples[-1].shape[0], dtype=np.bool)
@@ -199,8 +203,8 @@ def _test(calc, exp, tup):
 				# re-init mask_i
 				mask_i.fill(True)
 				# compute mask_c
-				for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
-					mask_i &= combs[j, idx] == exp.tuples[-1][:, i]
+				for i in range(calc.no_exp, exp.order-1):
+					mask_i &= combs[j, i] == exp.tuples[-1][:, i]
 					if not mask_i.any():
 						return []
 				# update mask
@@ -213,7 +217,7 @@ def _test(calc, exp, tup):
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# get index
 					indx = np.where(mask_j & (np.int32(m) == exp.tuples[-1][:, -1]))[0]
-					if indx.size == exp.order:
+					if (indx.size+calc.no_exp) == exp.order:
 						lst += _prot(exp, calc.protocol, indx, m)
 			return lst
 

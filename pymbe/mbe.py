@@ -82,7 +82,8 @@ def _serial(mol, calc, exp):
 							+ (calc.energy['hf'] - calc.energy['ref_base'])
 			exp.energy['inc'][-1][i] = e_model - e_base
 			# calc increment
-			exp.energy['inc'][-1][i] -= _sum(calc, exp, exp.tuples[-1][i])
+			if exp.order > exp.start_order:
+				exp.energy['inc'][-1][i] -= _sum(calc, exp, exp.tuples[-1][i])
 			# verbose print
 			if mol.verbose:
 				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
@@ -124,7 +125,8 @@ def _parallel(mpi, mol, calc, exp):
 							+ (calc.energy['hf'] - calc.energy['ref_base'])
 			e_inc[count] = e_model - e_base
 			# calc increment
-			e_inc[count] -= _sum(calc, exp, exp.tuples[-1][idx])
+			if exp.order > exp.start_order:
+				e_inc[count] -= _sum(calc, exp, exp.tuples[-1][idx])
 			# verbose print
 			if mol.verbose:
 				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
@@ -138,23 +140,24 @@ def _parallel(mpi, mol, calc, exp):
 
 def _sum(calc, exp, tup):
 		""" energy summation """
-		# init res --- order - (start_order - 1) - 1 = order-start_order
+		# init res
 		res = np.zeros(len(exp.energy['inc'])-1, dtype=np.float64)
 		# compute contributions from lower-order increments
-		for count, i in enumerate(range(exp.order-1, exp.start_order-1, -1)):
-			# generate array with all subsets of particular tuple (add active orbitals manually)
-			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], i-calc.no_exp)], dtype=np.int32)
+		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
+			# generate array with all subsets of particular tuple (manually adding active orbitals)
+			if calc.no_exp > 0:
+				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
+									combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
+			else:
+				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
 			# init masks
 			mask = np.zeros(exp.tuples[i-1].shape[0], dtype=np.bool)
-			print('combs.shape = {0:}'.format(combs.shape))
-			print('mask.shape = {0:}'.format(mask.shape))
 			# loop over subset combinations
 			for j in range(combs.shape[0]):
 				# update mask
-				mask ^= (combs[j, :] == exp.tuples[i-1][:, calc.no_exp:]).all(axis=1)
+				mask ^= (combs[j, calc.no_exp:] == exp.tuples[i-1][:, calc.no_exp:]).all(axis=1)
 			# recover indices
 			mask = np.where(mask)[0]
-			print('mask.size = {0:}'.format(mask.size))
 			assert mask.size == combs.shape[0]
 			# add up lower-order increments
 			res[count] = math.fsum(exp.energy['inc'][i-1][mask])
