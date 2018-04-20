@@ -136,8 +136,9 @@ def mbe_write(calc, exp):
 
 def screen_write(exp):
 		""" write screening restart files """
-		# write tuples
-		np.save(os.path.join(RST, 'tup_'+str(exp.order+1)), exp.tuples[-1])
+		# write tuples (as C order array)
+		tuples = np.ascontiguousarray(exp.tuples[-1])
+		np.save(os.path.join(RST, 'tup_'+str(exp.order+1)), tuples)
 		# write time
 		np.save(os.path.join(RST, 'time_screen_'+str(exp.order)), np.asarray(exp.time['screen'][-1]))
 

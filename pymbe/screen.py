@@ -36,6 +36,8 @@ def main(mpi, mol, calc, exp):
 		exp.thres = update(calc, exp)
 		# print header
 		if mpi.global_master: output.screen_header(exp, exp.thres)
+		# sanity check
+		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
@@ -51,26 +53,22 @@ def main(mpi, mol, calc, exp):
 def _serial(mol, calc, exp):
 		""" serial version """
 		# init bookkeeping variables
-		tmp = []; combs = []
+		tmp = []
         # loop over parent tuples
 		for i in range(len(exp.tuples[-1])):
-			# loop through possible orbitals to augment the combinations with
-			if calc.typ == 'occupied':
-				for m in range(calc.exp_space[0], exp.tuples[-1][i][0]):
-					# if tuple is allowed, add to child tuple list, otherwise screen away
-					if not _test(calc, exp, exp.tuples[-1][i], m):
-						tmp.append(sorted(exp.tuples[-1][i].tolist()+[m]))
-			elif calc.typ == 'virtual':
-				for m in range(exp.tuples[-1][i][-1]+1, calc.exp_space[-1]+1):
-					# if tuple is allowed, add to child tuple list, otherwise screen away
-					if not _test(calc, exp, exp.tuples[-1][i], m):
-						tmp.append(sorted(exp.tuples[-1][i].tolist()+[m]))
+			lst = _test(calc, exp, exp.tuples[-1][i])
+			for m in lst:
+				if calc.typ == 'occupied':
+					tmp.append(np.append(m, exp.tuples[-1][i]))
+				elif calc.typ == 'virtual':
+					tmp.append(np.append(exp.tuples[-1][i], m))
 		# when done, write to tup list or mark expansion as converged
 		if len(tmp) == 0:
 			exp.conv_orb.append(True)
 		else:
-			tmp.sort()
 			exp.tuples.append(np.array(tmp, dtype=np.int32))
+			# recast tuples as Fortran order array
+			exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 
 
 def _master(mpi, mol, calc, exp):
@@ -159,18 +157,14 @@ def _slave(mpi, mol, calc, exp):
 			if tag == TAGS.start:
 				# re-init data
 				data[:] = []
-				# calculate energy increments
+				# calculate child tuples
 				for idx in range(job_info[0], job_info[1]):
-					if calc.typ == 'occupied':
-						for m in range(calc.exp_space[0], exp.tuples[-1][idx][0]):
-							# if tuple is allowed, add to child tuple list, otherwise screen away
-							if not _test(calc, exp, exp.tuples[-1][idx], m):
-								data.append(np.append(m, exp.tuples[-1][idx]))
-					elif calc.typ == 'virtual':
-						for m in range(exp.tuples[-1][idx][-1]+1, calc.exp_space[-1]+1):
-							# if tuple is allowed, add to child tuple list, otherwise screen away
-							if not _test(calc, exp, exp.tuples[-1][idx], m):
-								data.append(np.append(exp.tuples[-1][idx], m))
+					lst = _test(calc, exp, exp.tuples[-1][idx])
+					for m in lst:
+						if calc.typ == 'occupied':
+							data.append(np.append(m, exp.tuples[-1][idx]))
+						elif calc.typ == 'virtual':
+							data.append(np.append(exp.tuples[-1][idx], m))
 				# send data back to master
 				comm.Send([np.asarray(data, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.done)
 			# exit
@@ -185,52 +179,64 @@ def _slave(mpi, mol, calc, exp):
 			parallel.tup(exp, comm)
 
 
-def _test(calc, exp, tup, m):
+def _test(calc, exp, tup):
 		""" screening test """
 		if exp.order < 3:
-			return False
+			if calc.typ == 'occupied':
+				return [m for m in range(calc.exp_space[0], tup[0])]
+			elif calc.typ == 'virtual':
+				return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
 		else:
-			# generate array with all subsets of particular tuple (add active orbitals and orbital [m] manually)
-			if calc.no_exp == 0:
-				combs = np.array([comb+(m,) for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
-			else:
-				combs = np.array([tuple(exp.tuples[0][0])+comb+(m,) for comb in itertools.combinations(tup[calc.no_exp:], \
-									(exp.order-calc.no_exp)-1)], dtype=np.int32)
-			# set datatype
-			dt = 'int32,' * exp.order
-			# init mask
-			mask = np.zeros(exp.tuples[-1].shape[0], dtype=np.bool)
-			# compute mask (from flattened views of tuples and combs)
-			for i in range(combs.shape[0]):
-				# compute mask_tmp
-				mask_tmp = np.in1d(exp.tuples[-1].view(dt).reshape(-1), combs[i, :].view(dt).reshape(-1))
-				# update mask or autmomatic screening
-				if mask_tmp.any():
-					mask ^= mask_tmp
-				else:
-					return True
+			# init return list
+			lst = []
+			# generate array with all subsets of particular tuple (excl. active orbitals)
+			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
+			# init masks
+			mask_i = np.ones(exp.tuples[-1].shape[0], dtype=np.bool)
+			mask_j = np.zeros(exp.tuples[-1].shape[0], dtype=np.bool)
+			# loop over subset combinations
+			for j in range(combs.shape[0]):
+				# re-init mask_i
+				mask_i.fill(True)
+				# compute mask_c
+				for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
+					mask_i &= combs[j, idx] == exp.tuples[-1][:, i]
+					if not mask_i.any():
+						return []
+				# update mask
+				mask_j ^= mask_i
+			# loop over new orbitals 'm'
+			if calc.typ == 'occupied':
+				for m in range(calc.exp_space[0], tup[0]):
+					raise NotImplementedError('pymbe/screen.py: _test()')
+			elif calc.typ == 'virtual':
+				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
+					# get index
+					indx = np.where(mask_j & (np.int32(m) == exp.tuples[-1][:, -1]))[0]
+					if indx.size == exp.order:
+						lst += _prot(exp, calc.protocol, indx, m)
+			return lst
+
+
+def _prot(exp, prot, indx, m):
+		""" protocol check """
+		if indx.size == 0:
+			return []
+		else:
 			# conservative protocol
-			if calc.protocol == 1:
+			if prot == 1:
 				# are *all* increments below the threshold?
-				if np.all(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
-					return True
+				if np.all(np.abs(exp.energy['inc'][-1][indx]) < exp.thres):
+					return []
 				else:
-					return False
+					return [m]
 			# aggressive protocol
-			elif calc.protocol == 2:
+			elif prot == 2:
 				# are *any* increments below the threshold?
-				if np.any(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
-					return True
+				if np.any(np.abs(exp.energy['inc'][-1][indx]) < exp.thres):
+					return []
 				else:
-					return False
-
-
-def update(calc, exp):
-		""" update expansion threshold """
-		if exp.order < 3:
-			return 0.0
-		else:
-			return calc.thres * calc.relax ** (exp.order - 3)
+					return [m]
 
 
 def _tasks(n_tasks, procs):
@@ -243,5 +249,12 @@ def _tasks(n_tasks, procs):
 				lst = lst[::-1]
 				lst += [1 for j in range(n_tasks - int(np.sum(lst)))]
 				return lst
+
+def update(calc, exp):
+		""" update expansion threshold """
+		if exp.order < 3:
+			return 0.0
+		else:
+			return calc.thres * calc.relax ** (exp.order - 3)
 
 

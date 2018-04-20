@@ -43,6 +43,8 @@ def main(mpi, mol, calc, exp):
 		# init energies
 		if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
 			exp.energy['inc'].append(np.empty(len(exp.tuples[-1]), dtype=np.float64))
+		# sanity check
+		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
 		if mpi.parallel:
 			_parallel(mpi, mol, calc, exp)
@@ -103,7 +105,7 @@ def _parallel(mpi, mol, calc, exp):
 			# start time
 			time = MPI.Wtime()
 		# determine tasks
-		tasks, offsets = _task_dist(mpi, exp)
+		tasks, offsets = _tasks(mpi, exp)
 		# get start index, number of tasks, and local energy array
 		start = int(offsets[mpi.local_rank])
 		n_tasks = int(tasks[mpi.local_rank])
@@ -136,36 +138,30 @@ def _parallel(mpi, mol, calc, exp):
 
 def _sum(calc, exp, tup):
 		""" energy summation """
-		# init res
+		# init res --- order - (start_order - 1) - 1 = order-start_order
 		res = np.zeros(len(exp.energy['inc'])-1, dtype=np.float64)
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-1, exp.start_order-1, -1)):
-			# short-hand notation
-			k = i-exp.start_order
 			# generate array with all subsets of particular tuple (add active orbitals manually)
-			if calc.no_exp == 0:
-				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
-			else:
-				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.combinations(tup[calc.no_exp:], \
-									i-calc.no_exp)], dtype=np.int32)
-			# set datatype
-			dt = 'int32,' * i
-			# init mask
-			mask = np.zeros(exp.tuples[k].shape[0], dtype=np.bool)
-			# compute mask (from flattened views of tuples and combs)
-			for i in range(combs.shape[0]):
-				# compute mask_tmp
-				mask_tmp = np.in1d(exp.tuples[k].view(dt).reshape(-1), combs[i, :].view(dt).reshape(-1))
+			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], i-calc.no_exp)], dtype=np.int32)
+			# init masks
+			mask = np.zeros(exp.tuples[i-1].shape[0], dtype=np.bool)
+			print('combs.shape = {0:}'.format(combs.shape))
+			print('mask.shape = {0:}'.format(mask.shape))
+			# loop over subset combinations
+			for j in range(combs.shape[0]):
 				# update mask
-				mask ^= mask_tmp
-			# compute mask (from flattened views of tuples and combs)
-			mask = np.in1d(exp.tuples[k].view(dt).reshape(-1), combs.view(dt).reshape(-1))
+				mask ^= (combs[j, :] == exp.tuples[i-1][:, calc.no_exp:]).all(axis=1)
+			# recover indices
+			mask = np.where(mask)[0]
+			print('mask.size = {0:}'.format(mask.size))
+			assert mask.size == combs.shape[0]
 			# add up lower-order increments
-			res[count] = math.fsum(exp.energy['inc'][k][mask])
+			res[count] = math.fsum(exp.energy['inc'][i-1][mask])
 		return math.fsum(res)
 
 
-def _task_dist(mpi, exp):
+def _tasks(mpi, exp):
 		""" distribution of tasks """
 		base = len(exp.energy['inc'][-1]) // mpi.local_size
 		leftover = len(exp.energy['inc'][-1]) % mpi.local_size
