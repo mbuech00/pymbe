@@ -208,7 +208,7 @@ def _test(calc, exp, tup):
 					if not mask_i.any():
 						return []
 				# update mask
-				mask_j ^= mask_i
+				mask_j |= mask_i
 			# loop over new orbitals 'm'
 			if calc.typ == 'occupied':
 				for m in range(calc.exp_space[0], tup[0]):

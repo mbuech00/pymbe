@@ -155,7 +155,7 @@ def _sum(calc, exp, tup):
 			# loop over subset combinations
 			for j in range(combs.shape[0]):
 				# update mask
-				mask ^= (combs[j, calc.no_exp:] == exp.tuples[i-1][:, calc.no_exp:]).all(axis=1)
+				mask |= (combs[j, calc.no_exp:] == exp.tuples[i-1][:, calc.no_exp:]).all(axis=1)
 			# recover indices
 			mask = np.where(mask)[0]
 			assert mask.size == combs.shape[0]
