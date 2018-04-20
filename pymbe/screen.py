@@ -146,8 +146,6 @@ def _slave(mpi, mol, calc, exp):
 		# init job_info array and data list
 		job_info = np.zeros(2, dtype=np.int32)
 		data = []
-		# recast tuples as Fortran order array
-		exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 		# receive work from master
 		while (True):
 			# send status to master
@@ -180,8 +178,6 @@ def _slave(mpi, mol, calc, exp):
 				break
 		# send exit signal to master
 		comm.Send([None, MPI.INT], dest=0, tag=TAGS.exit)
-		# recast tuples back as C order array
-		exp.tuples[-1] = np.ascontiguousarray(exp.tuples[-1])
 		# receive tuples
 		info = comm.bcast(None, root=0)
 		if info['len'] >= 1:
@@ -194,37 +190,31 @@ def _test(calc, exp, tup, m):
 		if exp.order < 3:
 			return False
 		else:
-			# generate array with all subsets of particular tuple (excluding the active orbitals)
-			combs = np.array([comb for comb in itertools.combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
-			# init mask
-			mask = np.zeros(exp.tuples[-1].shape[0], dtype=np.bool)
-			# compute common mask_m
-			mask_m = m == exp.tuples[-1][:, -1]
-			# loop over subset combinations
-			for j in range(combs.shape[0]):
-				# compute mask_c
-				mask_c = mask_m.copy()
-				for idx, i in enumerate(range(calc.no_exp, exp.order-1)):
-					mask_c &= combs[j, idx] == exp.tuples[-1][:, i]
-					# screen if combs[j, :idx]+[m] not in exp.tuples[-1]
-					if not mask_c.any():
+			# generate array with all subsets of particular tuple (add active orbitals and orbital [m] manually)
+			combs = np.array([tuple(range(calc.no_exp))+comb+(m,) for comb in itertools.combinations(tup[calc.no_exp:], \
+								(exp.order-calc.no_exp)-1)], dtype=np.int32)
+			# recover datatype
+			dt = np.dtype((np.void, exp.tuples[-1].dtype.itemsize * exp.tuples[-1].shape[1]))
+			# compute mask (from flattened views of tuples and combs)
+			mask = np.in1d(exp.tuples[-1].view(dt).reshape(-1), combs.view(dt).reshape(-1))
+			# autmomatic screening or protocol check
+			if np.count_nonzero(mask) < combs.shape[0]:
+				return True
+			else:
+				# conservative protocol
+				if calc.protocol == 1:
+					# are *all* increments below the threshold?
+					if np.all(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
 						return True
-				# update mask
-				mask ^= mask_c
-			# conservative protocol
-			if calc.protocol == 1:
-				# are *all* increments below the threshold?
-				if np.all(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
-					return True
-				else:
-					return False
-			# aggressive protocol
-			elif calc.protocol == 2:
-				# are *any* increments below the threshold?
-				if np.any(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
-					return True
-				else:
-					return False
+					else:
+						return False
+				# aggressive protocol
+				elif calc.protocol == 2:
+					# are *any* increments below the threshold?
+					if np.any(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
+						return True
+					else:
+						return False
 
 
 def update(calc, exp):

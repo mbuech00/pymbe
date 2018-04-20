@@ -146,8 +146,7 @@ def _sum(calc, exp, tup):
 			dt = np.dtype((np.void, exp.tuples[i-exp.start_order].dtype.itemsize * \
 							exp.tuples[i-exp.start_order].shape[1]))
 			# compute mask (from flattened views of tuples and combs)
-			mask = np.nonzero(np.in1d(exp.tuples[i-exp.start_order].view(dt).reshape(-1), \
-								combs.view(dt).reshape(-1)))[0]
+			mask = np.in1d(exp.tuples[i-exp.start_order].view(dt).reshape(-1), combs.view(dt).reshape(-1))
 			# add up lower-order increments
 			res[count] = math.fsum(exp.energy['inc'][i-exp.start_order][mask])
 		return math.fsum(res)
