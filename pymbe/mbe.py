@@ -140,15 +140,28 @@ def _sum(calc, exp, tup):
 		res = np.zeros(len(exp.energy['inc'])-1, dtype=np.float64)
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-1, exp.start_order-1, -1)):
-			# generate array with all subsets of particular tuple (excluding the active orbitals)
-			combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
-			# recover datatype
-			dt = np.dtype((np.void, exp.tuples[i-exp.start_order].dtype.itemsize * \
-							exp.tuples[i-exp.start_order].shape[1]))
+			# short-hand notation
+			k = i-exp.start_order
+			# generate array with all subsets of particular tuple (add active orbitals manually)
+			if calc.no_exp == 0:
+				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
+			else:
+				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.combinations(tup[calc.no_exp:], \
+									i-calc.no_exp)], dtype=np.int32)
+			# set datatype
+			dt = 'int32,' * i
+			# init mask
+			mask = np.zeros(exp.tuples[k].shape[0], dtype=np.bool)
 			# compute mask (from flattened views of tuples and combs)
-			mask = np.in1d(exp.tuples[i-exp.start_order].view(dt).reshape(-1), combs.view(dt).reshape(-1))
+			for i in range(combs.shape[0]):
+				# compute mask_tmp
+				mask_tmp = np.in1d(exp.tuples[k].view(dt).reshape(-1), combs[i, :].view(dt).reshape(-1))
+				# update mask
+				mask ^= mask_tmp
+			# compute mask (from flattened views of tuples and combs)
+			mask = np.in1d(exp.tuples[k].view(dt).reshape(-1), combs.view(dt).reshape(-1))
 			# add up lower-order increments
-			res[count] = math.fsum(exp.energy['inc'][i-exp.start_order][mask])
+			res[count] = math.fsum(exp.energy['inc'][k][mask])
 		return math.fsum(res)
 
 

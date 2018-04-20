@@ -191,30 +191,38 @@ def _test(calc, exp, tup, m):
 			return False
 		else:
 			# generate array with all subsets of particular tuple (add active orbitals and orbital [m] manually)
-			combs = np.array([tuple(range(calc.no_exp))+comb+(m,) for comb in itertools.combinations(tup[calc.no_exp:], \
-								(exp.order-calc.no_exp)-1)], dtype=np.int32)
-			# recover datatype
-			dt = np.dtype((np.void, exp.tuples[-1].dtype.itemsize * exp.tuples[-1].shape[1]))
-			# compute mask (from flattened views of tuples and combs)
-			mask = np.in1d(exp.tuples[-1].view(dt).reshape(-1), combs.view(dt).reshape(-1))
-			# autmomatic screening or protocol check
-			if np.count_nonzero(mask) < combs.shape[0]:
-				return True
+			if calc.no_exp == 0:
+				combs = np.array([comb+(m,) for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
 			else:
-				# conservative protocol
-				if calc.protocol == 1:
-					# are *all* increments below the threshold?
-					if np.all(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
-						return True
-					else:
-						return False
-				# aggressive protocol
-				elif calc.protocol == 2:
-					# are *any* increments below the threshold?
-					if np.any(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
-						return True
-					else:
-						return False
+				combs = np.array([tuple(exp.tuples[0][0])+comb+(m,) for comb in itertools.combinations(tup[calc.no_exp:], \
+									(exp.order-calc.no_exp)-1)], dtype=np.int32)
+			# set datatype
+			dt = 'int32,' * exp.order
+			# init mask
+			mask = np.zeros(exp.tuples[-1].shape[0], dtype=np.bool)
+			# compute mask (from flattened views of tuples and combs)
+			for i in range(combs.shape[0]):
+				# compute mask_tmp
+				mask_tmp = np.in1d(exp.tuples[-1].view(dt).reshape(-1), combs[i, :].view(dt).reshape(-1))
+				# update mask or autmomatic screening
+				if mask_tmp.any():
+					mask ^= mask_tmp
+				else:
+					return True
+			# conservative protocol
+			if calc.protocol == 1:
+				# are *all* increments below the threshold?
+				if np.all(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
+					return True
+				else:
+					return False
+			# aggressive protocol
+			elif calc.protocol == 2:
+				# are *any* increments below the threshold?
+				if np.any(np.abs(exp.energy['inc'][-1][mask]) < exp.thres):
+					return True
+				else:
+					return False
 
 
 def update(calc, exp):
