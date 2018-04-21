@@ -43,6 +43,8 @@ def main(mpi, mol, calc, exp):
 		# init energies
 		if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
 			exp.energy['inc'].append(np.empty(len(exp.tuples[-1]), dtype=np.float64))
+		# sanity check
+		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
 		if mpi.parallel:
 			_parallel(mpi, mol, calc, exp)
@@ -80,7 +82,8 @@ def _serial(mol, calc, exp):
 							+ (calc.energy['hf'] - calc.energy['ref_base'])
 			exp.energy['inc'][-1][i] = e_model - e_base
 			# calc increment
-			exp.energy['inc'][-1][i] -= _sum(calc, exp, i)
+			if exp.order > exp.start_order:
+				exp.energy['inc'][-1][i] -= _sum(calc, exp, exp.tuples[-1][i])
 			# verbose print
 			if mol.verbose:
 				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
@@ -103,7 +106,7 @@ def _parallel(mpi, mol, calc, exp):
 			# start time
 			time = MPI.Wtime()
 		# determine tasks
-		tasks, offsets = _task_dist(mpi, exp)
+		tasks, offsets = _tasks(mpi, exp)
 		# get start index, number of tasks, and local energy array
 		start = int(offsets[mpi.local_rank])
 		n_tasks = int(tasks[mpi.local_rank])
@@ -122,7 +125,8 @@ def _parallel(mpi, mol, calc, exp):
 							+ (calc.energy['hf'] - calc.energy['ref_base'])
 			e_inc[count] = e_model - e_base
 			# calc increment
-			e_inc[count] -= _sum(calc, exp, idx)
+			if exp.order > exp.start_order:
+				e_inc[count] -= _sum(calc, exp, exp.tuples[-1][idx])
 			# verbose print
 			if mol.verbose:
 				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
@@ -134,31 +138,33 @@ def _parallel(mpi, mol, calc, exp):
 		parallel.energy(e_inc, tasks, offsets, exp, comm)
 
 
-def _sum(calc, exp, idx):
+def _sum(calc, exp, tup):
 		""" energy summation """
 		# init res
 		res = np.zeros(len(exp.energy['inc'])-1, dtype=np.float64)
 		# compute contributions from lower-order increments
-		for count, i in enumerate(range(exp.order-1, exp.start_order-1, -1)):
-			# test if tuple is a subset
-			combs = exp.tuples[-1][idx, _comb_index(exp.order, i)]
-			dt = np.dtype((np.void, exp.tuples[i-exp.start_order].dtype.itemsize * \
-							exp.tuples[i-exp.start_order].shape[1]))
-			match = np.nonzero(np.in1d(exp.tuples[i-exp.start_order].view(dt).reshape(-1),
-								combs.view(dt).reshape(-1)))[0]
+		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
+			# generate array with all subsets of particular tuple (manually adding active orbitals)
+			if calc.no_exp > 0:
+				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
+									combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
+			else:
+				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
+			# init masks
+			mask = np.zeros(exp.tuples[i-1].shape[0], dtype=np.bool)
+			# loop over subset combinations
+			for j in range(combs.shape[0]):
+				# update mask
+				mask |= (combs[j, calc.no_exp:] == exp.tuples[i-1][:, calc.no_exp:]).all(axis=1)
+			# recover indices
+			mask = np.where(mask)[0]
+			assert mask.size == combs.shape[0]
 			# add up lower-order increments
-			res[count] = math.fsum(exp.energy['inc'][i-exp.start_order][match])
+			res[count] = math.fsum(exp.energy['inc'][i-1][mask])
 		return math.fsum(res)
 
 
-def _comb_index(n, k):
-		""" calculate combined index """
-		count = scipy.misc.comb(n, k, exact=True)
-		index = np.fromiter(itertools.chain.from_iterable(itertools.combinations(range(n), k)), int,count=count * k)
-		return index.reshape(-1, k)
-
-
-def _task_dist(mpi, exp):
+def _tasks(mpi, exp):
 		""" distribution of tasks """
 		base = len(exp.energy['inc'][-1]) // mpi.local_size
 		leftover = len(exp.energy['inc'][-1]) % mpi.local_size
