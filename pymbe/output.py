@@ -119,9 +119,9 @@ def mbe_results(mol, calc, exp):
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT:      mean increment     |    min. abs. increment   |    max. abs. increment')
+				print(' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment')
 				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT:     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
+				print(' RESULT:     {0:>13.4e}       |        {1:>13.4e}         |       {2:>13.4e}'.\
 						format(mean_val, min_val, max_val))
 				# debug print
 				if mol.verbose:
@@ -132,9 +132,9 @@ def mbe_results(mol, calc, exp):
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
-		print(' RESULT:      mean increment     |    min. abs. increment   |    max. abs. increment')
+		print(' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment')
 		print(' --------------------------------------------------------------------------------------------')
-		print(' RESULT:     {0:>13.4e}       |      {1:>13.4e}       |      {2:>13.4e}'.\
+		print(' RESULT:     {0:>13.4e}       |        {1:>13.4e}         |       {2:>13.4e}'.\
 				format(mean_val, min_val, max_val))
 		# debug print
 		if mol.verbose:

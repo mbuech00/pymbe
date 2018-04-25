@@ -93,21 +93,28 @@ def _master(mpi, mol, calc, exp):
 		num_slaves = slaves_avail = mpi.local_size - 1
 		# init tasks
 		tasks = _tasks(len(exp.tuples[-1]), mpi.local_size)
+		if mol.verbose: print(' tasks = {0:}'.format(tasks))
 		i = 0
 		# init job_info and book-keeping arrays
 		job_info = np.zeros(2, dtype=np.int32)
 		book = np.zeros([num_slaves, 2], dtype=np.int32)
 		# distribute tasks to slaves
 		for j in range(num_slaves):
-			# batch
-			batch = tasks.pop(0)
-			# store job indices
-			job_info[0] = i; job_info[1] = i+batch
-			book[j, :] = job_info
-			# send job info
-			comm.Isend([job_info, MPI.INT], dest=j+1, tag=TAGS.start)
-			# increment job index
-			i += batch
+			if tasks:
+				# batch
+				batch = tasks.pop(0)
+				# store job indices
+				job_info[0] = i; job_info[1] = i+batch
+				book[j, :] = job_info
+				# send job info
+				comm.Isend([job_info, MPI.INT], dest=j+1, tag=TAGS.start)
+				# increment job index
+				i += batch
+			else:
+				# send exit signal
+				comm.Isend([None, MPI.INT], dest=j+1, tag=TAGS.exit)
+				# remove slave
+				slaves_avail -= 1
 		# init request
 		req = None
 		# loop until no tasks left
@@ -243,7 +250,7 @@ def _tasks(n_tasks, procs):
 		""" determine batch sizes """
 		base = n_tasks // procs
 		leftover = n_tasks % procs
-		tasks = [base for p in range(procs-1)]
+		tasks = [base for p in range(procs-1) if base > 0]
 		tasks += [1 for i in range(leftover+base)]
 		return tasks
 
