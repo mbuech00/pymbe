@@ -124,7 +124,7 @@ def _master(mpi, mol, calc, exp):
 				# any tasks left?
 				if tasks:
 					# batch
-					batch = tasks.pop()
+					batch = tasks.pop(0)
 					# store job indices
 					job_info[0] = i; job_info[1] = i+batch
 					# send job info
@@ -139,17 +139,18 @@ def _master(mpi, mol, calc, exp):
 					# any slaves left?
 					if slaves_avail == 0:
 						break
-			if tasks:
-				# batch
-				batch = tasks.pop()
-				# store job indices
-				job_info[0] = i; job_info[1] = i+batch
-				# loop over tuples
-				for count, idx in enumerate(range(job_info[0], job_info[1])):
-					# calculate energy increments
-					exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
-				# increment job index
-				i += batch
+			else:
+				if tasks:
+					# batch
+					batch = tasks.pop()
+					# store job indices
+					job_info[0] = i; job_info[1] = i+batch
+					# loop over tuples
+					for count, idx in enumerate(range(job_info[0], job_info[1])):
+						# calculate energy increments
+						exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
+					# increment job index
+					i += batch
 		# allreduce energies
 		parallel.energy(exp, comm)
 		# collect time
@@ -232,10 +233,16 @@ def _sum(calc, exp, tup):
 
 def _tasks(n_tasks, procs):
 		""" determine batch sizes """
-		base = n_tasks // procs
-		leftover = n_tasks % procs
-		tasks = [base for p in range(procs-1) if base > 0]
-		tasks += [1 for i in range(leftover+base)]
-		return tasks
+		base = int(n_tasks * 0.90 // procs) # make one large batch per proc corresponding to approx. 90 % of the tasks
+		tasks = []
+		for i in range(n_tasks-base*procs):
+			tasks += [i+2 for p in range(procs-1)] # extra slaves tasks
+			if np.sum(tasks) > float(n_tasks-base*procs):
+				tasks = tasks[:-(procs-1)]
+				tasks += [base for p in range(procs-1) if base > 0] # add large slave batches
+				tasks = tasks[::-1]
+				tasks += [1 for j in range(base)] # add master tasks
+				tasks += [1 for j in range(n_tasks - int(np.sum(tasks)))] # add extra single tasks
+				return tasks
 
 
