@@ -33,7 +33,7 @@ def _enum(*sequential, **named):
 
 
 # mbe parameters
-TAGS = _enum('ready', 'done', 'exit', 'start')
+TAGS = _enum('ready', 'exit', 'start')
 
 
 def main(mpi, mol, calc, exp):
@@ -42,18 +42,22 @@ def main(mpi, mol, calc, exp):
 		if mpi.global_master: output.mbe_header(exp)
 		# init energies
 		if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
-			exp.energy['inc'].append(np.empty(len(exp.tuples[-1]), dtype=np.float64))
+			exp.energy['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 		# sanity check
 		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
 		if mpi.parallel:
-			_parallel(mpi, mol, calc, exp)
-			# sum up total energy
 			if mpi.global_master:
+				# master
+				_master(mpi, mol, calc, exp)
+				# sum up total energy
 				e_tmp = math.fsum(exp.energy['inc'][-1])
 				if exp.order > exp.start_order: e_tmp += exp.energy['tot'][-1]
 				# add to total energy list
 				exp.energy['tot'].append(e_tmp)
+			else:
+				# slaves
+				_slave(mpi, mol, calc, exp)
 		else:
 			_serial(mol, calc, exp)
 			# sum up total energy
@@ -69,73 +73,144 @@ def _serial(mol, calc, exp):
 		time = MPI.Wtime()
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
-			# generate input
-			exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])
-			# model calc
-			e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
-						+ (calc.energy['hf'] - calc.energy['ref'])
-			# base calc
-			if calc.base['METHOD'] is None:
-				e_base = 0.0
-			else:
-				e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
-							+ (calc.energy['hf'] - calc.energy['ref_base'])
-			exp.energy['inc'][-1][i] = e_model - e_base
-			# calc increment
-			if exp.order > exp.start_order:
-				exp.energy['inc'][-1][i] -= _sum(calc, exp, exp.tuples[-1][i])
-			# verbose print
-			if mol.verbose:
-				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
-						format(exp.core_idx, exp.cas_idx, e_model, e_base, exp.energy['inc'][-1][i]))
+			# calculate energy increment
+			exp.energy['inc'][-1][i] = _e_inc(mol, calc, exp, exp.tuples[-1][i])
 			# print status
 			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 		# collect time
 		exp.time['mbe'].append(MPI.Wtime() - time)
 
 
-def _parallel(mpi, mol, calc, exp):
-		""" parallel function """
+def _master(mpi, mol, calc, exp):
+		""" master function """
 		# set communicator
 		comm = mpi.local_comm
-		# master only
-		if mpi.global_master:
-			# wake up slaves
-			msg = {'task': 'mbe', 'order': exp.order}
-			comm.bcast(msg, root=0)
-			# start time
-			time = MPI.Wtime()
-		# determine tasks
-		tasks, offsets = _tasks(mpi, exp)
-		# get start index, number of tasks, and local energy array
-		start = int(offsets[mpi.local_rank])
-		n_tasks = int(tasks[mpi.local_rank])
-		e_inc = np.empty(n_tasks, dtype=np.float64)
-		# perform tasks
-		for count, idx in enumerate(range(start, start+n_tasks)):
-			# generate input
-			exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][idx])
-			# perform calc
-			e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
-						+ (calc.energy['hf'] - calc.energy['ref'])
-			if calc.base['METHOD'] is None:
-				e_base = 0.0
-			else:
-				e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
-							+ (calc.energy['hf'] - calc.energy['ref_base'])
-			e_inc[count] = e_model - e_base
-			# calc increment
-			if exp.order > exp.start_order:
-				e_inc[count] -= _sum(calc, exp, exp.tuples[-1][idx])
-			# verbose print
-			if mol.verbose:
-				print(' core = {0:} , cas = {1:} , e_model = {2:.4e} , e_base = {3:.4e} , e_inc = {4:.4e}'.\
-						format(exp.core_idx, exp.cas_idx, e_model, e_base, e_inc[count]))
+		# wake up slaves
+		msg = {'task': 'mbe', 'order': exp.order}
+		comm.bcast(msg, root=0)
+		# start time
+		time = MPI.Wtime()
+		num_slaves = slaves_avail = mpi.local_size - 1
+		# init tasks
+		tasks = _tasks(len(exp.tuples[-1]), mpi.local_size)
+		i = 0
+		# init job_info and book-keeping arrays
+		job_info = np.zeros(2, dtype=np.int32)
+		book = np.zeros([num_slaves, 2], dtype=np.int32)
+		# distribute tasks to slaves
+		for j in range(num_slaves):
+			# batch
+			batch = tasks.pop(0)
+			# store job indices
+			job_info[0] = i; job_info[1] = i+batch
+			book[j, :] = job_info
+			# send job info
+			comm.Isend([job_info, MPI.INT], dest=j+1, tag=TAGS.start)
+			# increment job index
+			i += batch
+		# init request
+		req = None
+		# loop until no tasks left
+		while True:
+			#
+			# wait for Irecv
+			if req is not None:
+				req.Wait()
+			# probe for available slaves
+			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+				# get source
+				source = mpi.stat.Get_source()
+				# receive data
+				req = comm.Irecv([None, MPI.INT], source=source, tag=TAGS.ready)
+				# any tasks left?
+				if tasks:
+					# batch
+					batch = tasks.pop()
+					# store job indices
+					job_info[0] = i; job_info[1] = i+batch
+					book[source-1, :] = job_info
+					# send job info
+					comm.Isend([job_info, MPI.INT], dest=source, tag=TAGS.start)
+					# increment job index
+					i += batch
+				else:
+					# send exit signal
+					comm.Isend([None, MPI.INT], dest=source, tag=TAGS.exit)
+					# remove slave
+					slaves_avail -= 1
+					# any slaves left?
+					if slaves_avail == 0:
+						break
+			if tasks:
+				# batch
+				batch = tasks.pop()
+				# store job indices
+				job_info[0] = i; job_info[1] = i+batch
+				# loop over tuples
+				for count, idx in enumerate(range(job_info[0], job_info[1])):
+					# calculate energy increments
+					exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
+				# increment job index
+				i += batch
+		# wait for Irecv
+		if req is not None:
+			req.Wait()
+		# allreduce energies
+		parallel.energy(exp, comm)
 		# collect time
-		if mpi.global_master:
-			exp.time['mbe'].append(MPI.Wtime() - time)
-		# bcast energies
-		parallel.energy(e_inc, tasks, offsets, exp, comm)
+		exp.time['mbe'].append(MPI.Wtime() - time)
+
+
+def _slave(mpi, mol, calc, exp):
+		""" slave function """
+		# set communicator
+		comm = mpi.local_comm
+		# init job_info array
+		job_info = np.zeros(2, dtype=np.int32)
+		# receive work from master
+		while True:
+			# receive job info
+			comm.Recv([job_info, MPI.INT], source=0, status=mpi.stat)
+			# get tag
+			tag = mpi.stat.Get_tag()
+			# do job
+			if tag == TAGS.start:
+				# n_tasks
+				n_tasks = job_info[1] - job_info[0]
+				# loop over tuples
+				for count, idx in enumerate(range(job_info[0], job_info[1])):
+					# send availability to master
+					if idx == job_info[1] - 1:
+						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+					# calculate energy increments
+					exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
+			elif tag == TAGS.exit:
+				break
+		# receive energies
+		parallel.energy(exp, comm)
+
+
+def _e_inc(mpi, mol, calc, exp, tup):
+		""" calculate energy increment corresponding to tup """
+		# generate input
+		exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, tup)
+		# perform calc
+		e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
+					+ (calc.energy['hf'] - calc.energy['ref'])
+		if calc.base['METHOD'] is None:
+			e_base = 0.0
+		else:
+			e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
+						+ (calc.energy['hf'] - calc.energy['ref_base'])
+		e_inc = e_model - e_base
+		# calc increment
+		if exp.order > exp.start_order:
+			e_inc -= _sum(calc, exp, tup)
+		# verbose print
+		if mol.verbose:
+			print(' proc = {0:} , core = {1:} , cas = {2:} , e_model = {3:.4e} , e_base = {4:.4e} , e_inc = {5:.4e}'.\
+					format(mpi.local_rank, exp.core_idx, exp.cas_idx, e_model, e_base, e_inc))
+		return e_inc
 
 
 def _sum(calc, exp, tup):
@@ -164,14 +239,12 @@ def _sum(calc, exp, tup):
 		return math.fsum(res)
 
 
-def _tasks(mpi, exp):
-		""" distribution of tasks """
-		base = len(exp.energy['inc'][-1]) // mpi.local_size
-		leftover = len(exp.energy['inc'][-1]) % mpi.local_size
-		tasks = np.ones(mpi.local_size) * base
-		tasks[:leftover] += 1
-		offsets = np.zeros(mpi.local_size)
-		offsets[1:] = np.cumsum(tasks)[:-1]
-		return tasks, offsets
+def _tasks(n_tasks, procs):
+		""" determine batch sizes """
+		base = n_tasks // procs
+		leftover = n_tasks % procs
+		tasks = [base for p in range(procs-1)]
+		tasks += [1 for i in range(leftover+base)]
+		return tasks
 
 

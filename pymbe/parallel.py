@@ -196,10 +196,10 @@ def exp(mpi, calc, exp, comm):
 					exp.energy['inc'].append(buff)
 
 
-def energy(e_inc, tasks, offsets, exp, comm):
-		""" Allgatherv energies """
-		# Allgatherv
-		comm.Allgatherv(e_inc, [exp.energy['inc'][-1], tasks, offsets, MPI.DOUBLE])
+def energy(exp, comm):
+		""" Allreduce energies """
+		# Allreduce
+		comm.Allreduce(MPI.IN_PLACE, [exp.energy['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def tup(exp, comm):
