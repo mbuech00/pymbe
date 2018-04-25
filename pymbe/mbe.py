@@ -95,9 +95,8 @@ def _master(mpi, mol, calc, exp):
 		tasks = _tasks(len(exp.tuples[-1]), mpi.local_size)
 		if mol.verbose: print(' tasks = {0:}'.format(tasks))
 		i = 0
-		# init job_info and book-keeping arrays
+		# init job_info array
 		job_info = np.zeros(2, dtype=np.int32)
-		book = np.zeros([num_slaves, 2], dtype=np.int32)
 		# distribute tasks to slaves
 		for j in range(num_slaves):
 			if tasks:
@@ -105,7 +104,6 @@ def _master(mpi, mol, calc, exp):
 				batch = tasks.pop(0)
 				# store job indices
 				job_info[0] = i; job_info[1] = i+batch
-				book[j, :] = job_info
 				# send job info
 				comm.Isend([job_info, MPI.INT], dest=j+1, tag=TAGS.start)
 				# increment job index
@@ -116,33 +114,26 @@ def _master(mpi, mol, calc, exp):
 				# remove slave
 				slaves_avail -= 1
 		# init request
-		req = None
+		req = MPI.Request()
 		# loop until no tasks left
 		while True:
-			#
-			# wait for Irecv
-			if req is not None:
-				req.Wait()
 			# probe for available slaves
 			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# get source
-				source = mpi.stat.Get_source()
 				# receive data
-				req = comm.Irecv([None, MPI.INT], source=source, tag=TAGS.ready)
+				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
 				if tasks:
 					# batch
 					batch = tasks.pop()
 					# store job indices
 					job_info[0] = i; job_info[1] = i+batch
-					book[source-1, :] = job_info
 					# send job info
-					comm.Isend([job_info, MPI.INT], dest=source, tag=TAGS.start)
+					comm.Isend([job_info, MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 					# increment job index
 					i += batch
 				else:
 					# send exit signal
-					comm.Isend([None, MPI.INT], dest=source, tag=TAGS.exit)
+					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
 					# any slaves left?
@@ -159,9 +150,6 @@ def _master(mpi, mol, calc, exp):
 					exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 				# increment job index
 				i += batch
-		# wait for Irecv
-		if req is not None:
-			req.Wait()
 		# allreduce energies
 		parallel.energy(exp, comm)
 		# collect time
@@ -178,10 +166,8 @@ def _slave(mpi, mol, calc, exp):
 		while True:
 			# receive job info
 			comm.Recv([job_info, MPI.INT], source=0, status=mpi.stat)
-			# get tag
-			tag = mpi.stat.Get_tag()
 			# do job
-			if tag == TAGS.start:
+			if mpi.stat.tag == TAGS.start:
 				# loop over tuples
 				for count, idx in enumerate(range(job_info[0], job_info[1])):
 					# send availability to master
@@ -189,7 +175,7 @@ def _slave(mpi, mol, calc, exp):
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate energy increments
 					exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
-			elif tag == TAGS.exit:
+			elif mpi.stat.tag == TAGS.exit:
 				break
 		# receive energies
 		parallel.energy(exp, comm)
