@@ -185,7 +185,7 @@ def _slave(mpi, mol, calc, exp):
 				# loop over tuples
 				for count, idx in enumerate(range(job_info[0], job_info[1])):
 					# send availability to master
-					if idx == max(job_info[1] - 2, job_info[0])::
+					if idx == max(job_info[1] - 2, job_info[0]):
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate energy increments
 					exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
@@ -250,13 +250,6 @@ def _tasks(n_tasks, procs):
 		leftover = n_tasks % procs
 		tasks = [base for p in range(procs-1) if base > 0]
 		tasks += [1 for i in range(leftover+base)]
-#		tasks = [base for p in range(procs) if base > 0]
-#		if leftover > 0:
-#			if len(tasks) > 0:
-#				for i in range(leftover):
-#					tasks[i] += 1
-#			else:
-#				tasks = [1 for i in range(leftover)]
 		return tasks
 
 
