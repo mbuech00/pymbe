@@ -233,7 +233,7 @@ def _sum(calc, exp, tup):
 
 def _tasks(n_tasks, procs):
 		""" determine batch sizes """
-		base = int(n_tasks * 0.90 // procs) # make one large batch per proc corresponding to approx. 90 % of the tasks
+		base = int(n_tasks * 0.75 // procs) # make one large batch per proc corresponding to approx. 75 % of the tasks
 		tasks = []
 		for i in range(n_tasks-base*procs):
 			tasks += [i+2 for p in range(procs-1)] # extra slaves tasks
