@@ -193,7 +193,7 @@ def ref(mol, calc, exp):
 			if calc.base['METHOD'] is None:
 				e_ref_base = 0.0
 			else:
-				if np.abs(e_ref) > 1.0e-10:
+				if np.abs(e_ref) < 1.0e-10:
 					e_ref_base = e_ref
 				else:
 					e_ref_base = corr(mol, calc, exp, calc.base['METHOD'])
