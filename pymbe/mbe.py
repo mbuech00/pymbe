@@ -24,16 +24,8 @@ import driver
 import parallel
 
 
-def _enum(*sequential, **named):
-		""" hardcoded enums
-		see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
-		"""
-		enums = dict(zip(sequential, range(len(sequential))), **named)
-		return type('Enum', (), enums)
-
-
 # mbe parameters
-TAGS = _enum('ready', 'exit', 'start')
+TAGS = parallel.enum('start', 'ready', 'exit')
 
 
 def main(mpi, mol, calc, exp):
@@ -59,7 +51,7 @@ def main(mpi, mol, calc, exp):
 				# slaves
 				_slave(mpi, mol, calc, exp)
 		else:
-			_serial(mol, calc, exp)
+			_serial(mpi, mol, calc, exp)
 			# sum up total energy
 			e_tmp = math.fsum(exp.energy['inc'][-1])
 			if exp.order > exp.start_order: e_tmp += exp.energy['tot'][-1]
@@ -67,14 +59,14 @@ def main(mpi, mol, calc, exp):
 			exp.energy['tot'].append(e_tmp)
 
 
-def _serial(mol, calc, exp):
+def _serial(mpi, mol, calc, exp):
 		""" serial version """
 		# start time
 		time = MPI.Wtime()
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate energy increment
-			exp.energy['inc'][-1][i] = _e_inc(mol, calc, exp, exp.tuples[-1][i])
+			exp.energy['inc'][-1][i] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][i])
 			# print status
 			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 		# collect time
@@ -92,12 +84,12 @@ def _master(mpi, mol, calc, exp):
 		time = MPI.Wtime()
 		num_slaves = slaves_avail = mpi.local_size - 1
 		# init tasks
-		tasks = _tasks(len(exp.tuples[-1]), mpi.local_size)
+		tasks = parallel.tasks(len(exp.tuples[-1]), mpi.local_size)
 		if mol.verbose: print(' tasks = {0:}'.format(tasks))
 		i = 0
 		# init job_info array
 		job_info = np.zeros(2, dtype=np.int32)
-		# distribute tasks to slaves
+		# distribute initial set of tasks to slaves
 		for j in range(num_slaves):
 			if tasks:
 				# batch
@@ -229,20 +221,5 @@ def _sum(calc, exp, tup):
 			# add up lower-order increments
 			res[count] = math.fsum(exp.energy['inc'][i-1][mask])
 		return math.fsum(res)
-
-
-def _tasks(n_tasks, procs):
-		""" determine batch sizes """
-		base = int(n_tasks * 0.75 // procs) # make one large batch per proc corresponding to approx. 75 % of the tasks
-		tasks = []
-		for i in range(n_tasks-base*procs):
-			tasks += [i+2 for p in range(procs-1)] # extra slaves tasks
-			if np.sum(tasks) > float(n_tasks-base*procs):
-				tasks = tasks[:-(procs-1)]
-				tasks += [base for p in range(procs-1) if base > 0] # add large slave batches
-				tasks = tasks[::-1]
-				tasks += [1 for j in range(base)] # add master tasks
-				tasks += [1 for j in range(n_tasks - int(np.sum(tasks)))] # add extra single tasks
-				return tasks
 
 
