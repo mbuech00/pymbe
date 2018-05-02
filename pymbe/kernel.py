@@ -18,9 +18,11 @@ from mpi4py import MPI
 from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 
 
-def hcore_eri(mol):
+def ao_ints(mol):
 		""" get core hamiltonian and AO eris """
+		# core hamiltonian
 		hcore = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
+		# electron repulsion ints
 		eri = mol.intor('int2e_sph', aosym=4)
 		return hcore, eri
 
