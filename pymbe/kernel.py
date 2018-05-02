@@ -206,7 +206,7 @@ def corr(mol, calc, exp, method):
 		""" calculate correlation energy """
 		# fci calc
 		if method == 'FCI':
-			e_corr = _fci(mol, calc, exp)
+			e_corr, _ = _fci(mol, calc, exp, False)
 		# sci base
 		elif method == 'SCI':
 			e_corr, _ = _sci(mol, calc, exp, False)
@@ -217,6 +217,22 @@ def corr(mol, calc, exp, method):
 		elif method in ['CCSD','CCSD(T)']:
 			e_corr, _ = _cc(mol, calc, exp, False, (method == 'CCSD(T)'))
 		return e_corr
+
+
+def dip_mom(mo, dm):
+		""" calculate dipole moment """
+		# nuclear dipole moment
+		charges = mol.atom_charges()
+		coords  = mol.atom_coords()
+		nuc_dipmom = np.einsum('i,ix->x', charges, coords)
+		# AO dipole integrals with gauge origin at (0,0,0)
+		with mol.with_common_orig((0,0,0)):
+			ao_dip_ints = mol.intor_symmetric('int1e_r', comp=3)
+		# electronic dipole moment
+		elec_dipmom = np.empty(3, dtype=np.float64)
+		for i in range(3):
+			elec_dipmom[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ao_dip_ints[i], mo))))
+		return (nuc_dipmom - elec_dipmom) # * 2.541746 # in Debye
 
 
 def base(mol, calc, exp):
@@ -355,11 +371,11 @@ def _casscf(mol, calc, exp):
 		return mo
 
 
-def _fci(mol, calc, exp):
+def _fci(mol, calc, exp, dens):
 		""" fci calc """
 		# no virtuals?
 		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
-			return 0.0
+			return 0.0, None
 		# init fci solver
 		if mol.spin == 0:
 			solver = fci.direct_spin0_symm.FCI(mol)
@@ -388,7 +404,7 @@ def _fci(mol, calc, exp):
 		try:
 			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
 		except Exception:
-			return 0.0
+			return 0.0, None
 		# perform calc
 		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=e_core)
 		# collect results
@@ -402,7 +418,7 @@ def _fci(mol, calc, exp):
 				energy = e[calc.target]
 				civec = c[calc.target]
 			else:
-				return 0.0
+				return 0.0, None
 		# convergence check
 		if not conv:
 			try:
@@ -426,7 +442,12 @@ def _fci(mol, calc, exp):
 		# e_corr
 		e_corr = energy - calc.energy['hf']
 #		if exp.order < exp.max_order: e_corr += np.float64(0.001) * np.random.random_sample()
-		return e_corr
+		# fci dm
+		if dens:
+			dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)
+		else:
+			dm = None
+		return e_corr, dm
 
 
 def _sci(mol, calc, exp, dens):
@@ -462,7 +483,7 @@ def _sci(mol, calc, exp, dens):
 		try:
 			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
 		except Exception:
-			return 0.0
+			return 0.0, None
 		# perform calc
 		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=e_core)
 		# collect results
@@ -476,7 +497,7 @@ def _sci(mol, calc, exp, dens):
 				energy = e[calc.target]
 				civec = c[calc.target]
 			else:
-				return 0.0
+				return 0.0, None
 		# convergence check
 		if not conv:
 			try:
