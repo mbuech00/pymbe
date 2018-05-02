@@ -105,7 +105,7 @@ def _master(mpi, mol, calc, exp):
 		while True:
 			# probe for available slaves
 			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# receive data
+				# receive slave status
 				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
 				if tasks:
@@ -117,6 +117,8 @@ def _master(mpi, mol, calc, exp):
 					comm.Isend([job_info, MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 					# increment job index
 					i += batch
+					# wait for completion
+					req.Wait()
 				else:
 					# send exit signal
 					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
@@ -124,6 +126,9 @@ def _master(mpi, mol, calc, exp):
 					slaves_avail -= 1
 					# any slaves left?
 					if slaves_avail == 0:
+						# wait for completion
+						req.Wait()
+						# exit loop
 						break
 			else:
 				if tasks:
@@ -146,17 +151,17 @@ def _master(mpi, mol, calc, exp):
 		exp.tuples.append(np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1))
 		# collect child tuples from participating slaves
 		while slaves_part > 0:
-			# probe for available calls
-			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.collect, status=mpi.stat):
-				# init tmp array
-				tmp = np.empty(mpi.stat.Get_elements(MPI.INT), dtype=np.int32)
-				comm.Recv(tmp, source=mpi.stat.source, tag=TAGS.collect)
-				# add child tuples
-				exp.tuples[-1] = np.vstack((exp.tuples[-1], tmp.reshape(-1, exp.order+1)))
-				slaves_part -= 1
+			# probe for source
+			comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.collect, status=mpi.stat)
+			# init tmp array
+			tmp = np.empty(mpi.stat.Get_elements(MPI.INT), dtype=np.int32)
+			comm.Recv(tmp, source=mpi.stat.source, tag=TAGS.collect)
+			# add child tuples
+			exp.tuples[-1] = np.vstack((exp.tuples[-1], tmp.reshape(-1, exp.order+1)))
+			slaves_part -= 1
 		# finally, bcast tuples or mark expansion as converged 
 		exp.conv_orb.append(exp.tuples[-1].shape[0] == 0)
-		comm.Bcast([np.asarray([exp.tuples[-1].shape[0]], dtype=np.int32), MPI.INT], root=0)
+		comm.Bcast([np.asarray([exp.tuples[-1].shape[0]], dtype=np.int64), MPI.INT], root=0)
 		if not exp.conv_orb[-1]:
 			parallel.tup(exp, comm)
 
@@ -188,10 +193,10 @@ def _slave(mpi, mol, calc, exp):
 							child_tup += parent_tup+[m]
 			elif mpi.stat.tag == TAGS.exit:
 				# send tuples to master
-				comm.Isend([np.asarray(child_tup, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
+				comm.Send([np.asarray(child_tup, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
 				break
 		# receive tuples
-		tup_size = np.empty(1, dtype=np.int32)
+		tup_size = np.empty(1, dtype=np.int64)
 		comm.Bcast([tup_size, MPI.INT], root=0)
 		if tup_size[0] >= 1:
 			exp.tuples.append(np.empty([tup_size[0], exp.order+1], dtype=np.int32))

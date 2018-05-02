@@ -111,7 +111,7 @@ def _master(mpi, mol, calc, exp):
 		while True:
 			# probe for available slaves
 			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# receive data
+				# receive slave status
 				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
 				if tasks:
@@ -123,6 +123,8 @@ def _master(mpi, mol, calc, exp):
 					comm.Isend([job_info, MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 					# increment job index
 					i += batch
+					# wait for completion
+					req.Wait()
 				else:
 					# send exit signal
 					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
@@ -130,6 +132,9 @@ def _master(mpi, mol, calc, exp):
 					slaves_avail -= 1
 					# any slaves left?
 					if slaves_avail == 0:
+						# wait for completion
+						req.Wait()
+						# exit loop
 						break
 			else:
 				if tasks:
