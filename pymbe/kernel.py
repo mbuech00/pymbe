@@ -19,12 +19,15 @@ from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 
 
 def ao_ints(mol):
-		""" get core hamiltonian and AO eris """
+		""" get AO integrals """
 		# core hamiltonian
 		hcore = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
 		# electron repulsion ints
 		eri = mol.intor('int2e_sph', aosym=4)
-		return hcore, eri
+		# dipole integrals with gauge origin at (0,0,0)
+		with mol.with_common_orig((0,0,0)):
+			dipmom = mol.intor_symmetric('int1e_r', comp=3)
+		return hcore, eri, dipmom
 
 
 def hf(mol, calc):
@@ -221,20 +224,17 @@ def corr(mol, calc, exp, method):
 		return e_corr
 
 
-def dip_mom(mo, dm):
+def dip_mom(mol, mo, dm):
 		""" calculate dipole moment """
 		# nuclear dipole moment
 		charges = mol.atom_charges()
 		coords  = mol.atom_coords()
 		nuc_dipmom = np.einsum('i,ix->x', charges, coords)
-		# AO dipole integrals with gauge origin at (0,0,0)
-		with mol.with_common_orig((0,0,0)):
-			ao_dip_ints = mol.intor_symmetric('int1e_r', comp=3)
 		# electronic dipole moment
 		elec_dipmom = np.empty(3, dtype=np.float64)
 		for i in range(3):
-			elec_dipmom[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ao_dip_ints[i], mo))))
-		return (nuc_dipmom - elec_dipmom) # * 2.541746 # in Debye
+			elec_dipmom[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, mol.dipmom[i], mo))))
+		return (nuc_dipmom - elec_dipmom) # * 2.541746 to get result in Debye
 
 
 def base(mol, calc, exp):

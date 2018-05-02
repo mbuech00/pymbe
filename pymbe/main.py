@@ -91,7 +91,7 @@ def _exp(mpi, mol, calc):
 			# restart
 			if calc.restart:
 				# get ao integrals
-				mol.hcore, mol.eri = kernel.ao_ints(mol)
+				mol.hcore, mol.eri, mol.dipmom = kernel.ao_ints(mol)
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# exp object
@@ -101,7 +101,7 @@ def _exp(mpi, mol, calc):
 				# hf calculation
 				calc.hf, calc.property['energy']['hf'], calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
 				# get ao integrals
-				mol.hcore, mol.eri = kernel.ao_ints(mol)
+				mol.hcore, mol.eri, mol.dipmom = kernel.ao_ints(mol)
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
@@ -115,7 +115,7 @@ def _exp(mpi, mol, calc):
 				restart.write_fund(mol, calc)
 		else:
 			# get ao integrals
-			mol.hcore, mol.eri = kernel.ao_ints(mol)
+			mol.hcore, mol.eri, mol.dipmom = kernel.ao_ints(mol)
 		# bcast fundamental info
 		if mpi.parallel: parallel.fund(mpi, mol, calc)
 		# restart and exp object on slaves

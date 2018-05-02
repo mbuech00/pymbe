@@ -40,7 +40,8 @@ def main(mpi, mol, calc, exp):
 		info = {}
 		info['basis'], info['mult'], info['ref'], info['base'], info['typ_prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
-			info['mpi'], info['thres'], info['symm'], info['final_mbe'], info['conv'] = _setup(mpi, mol, calc, exp)
+			info['mpi'], info['thres'], info['symm'], \
+			info['e_final'], info['dipmom_final'] = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mol, calc, exp)
 		# plot
@@ -61,10 +62,10 @@ def _setup(mpi, mol, calc, exp):
 		mpi = _mpi(mpi)
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
-		final_mbe = _final(calc, exp)
-		conv = _conv(exp)
+		e_final = _e_final(calc, exp)
+		dipmom_final = _dipmom_final(mol, exp)
 		return basis, mult, ref, base, typ_prot, system, frozen, \
-				active, occ, virt, mpi, thres, symm, final_mbe, conv
+				active, occ, virt, mpi, thres, symm, e_final, dipmom_final
 
 
 def _table(info, mol, calc, exp):
@@ -84,7 +85,7 @@ def _table(info, mol, calc, exp):
 				print(DIVIDER); print(FILL); print(DIVIDER)
 				print(_header_2())
 				print(DIVIDER)
-				for i in _orders(calc, exp): print(i)
+				for i in _orders(info, calc, exp): print(i)
 				print(DIVIDER+'\n\n')
 	
 	
@@ -223,24 +224,27 @@ def _symm(mol, calc):
 			return 'unknown'
 
 
-def _final(calc, exp):
+def _e_final(calc, exp):
 		""" final energy """
 		return calc.property['energy']['hf'] \
-				+ exp.property['energy']['tot'][-1] + calc.property['energy']['base'] \
+				+ exp.property['energy']['tot'] + calc.property['energy']['base'] \
 				+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base'])
 
 
-def _conv(exp):
-		""" convergence print """
-		if exp.property['energy']['tot'].size == 1:
-			return 0.0
-		else:
-			return np.abs(exp.property['energy']['tot'][-1] - exp.property['energy']['tot'][-2])
+def _dipmom_final(mol, exp):
+		""" final molecular dipole moment """
+		# nuclear dipole moment
+		charges = mol.atom_charges()
+		coords  = mol.atom_coords()
+		nuc_dipmom = np.einsum('i,ix->x', charges, coords)
+		exp.property['dipmom'] = {}
+		exp.property['dipmom']['tot'] = np.zeros([exp.property['energy']['tot'].size, 3], dtype=np.float64)
+		return (nuc_dipmom - exp.property['dipmom']['tot']) # * 2.541746 to get result in Debye
 
 
 def _header_1():
 		""" table header 1 """
-		return '{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'.\
+		return ('{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}').\
 				format('','molecular information','','|','',\
 					'expansion information','','|','','calculation information')
 
@@ -248,67 +252,69 @@ def _header_1():
 def _first_row(info, calc):
 		""" first row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-			'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
-				format('','basis set','','=','',info['basis'],\
-					'','|','','expansion model','','=','',calc.model['METHOD'],\
-					'','|','','mpi masters / slaves','','=','',info['mpi'])
+				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
+					format('','basis set','','=','',info['basis'],\
+						'','|','','expansion model','','=','',calc.model['METHOD'],\
+						'','|','','mpi masters / slaves','','=','',info['mpi'])
 
 
 def _second_row(info, calc):
 		""" second row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-			'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}').\
-				format('','spin multiplicity','','=','',info['mult'],\
-					'','|','','reference funct.','','=','',info['ref'],\
-					'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf'])
+				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}').\
+					format('','spin multiplicity','','=','',info['mult'],\
+						'','|','','reference funct.','','=','',info['ref'],\
+						'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf'])
 
 
 def _third_row(info, calc):
 		""" third row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-			'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-				format('','system size','','=','',info['system'],\
-					'','|','','cas size','','=','',info['active'],\
-					'','|','','base model energy','','=','',calc.property['energy']['hf']+calc.property['energy']['base'])
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+					format('','system size','','=','',info['system'],\
+						'','|','','cas size','','=','',info['active'],\
+						'','|','','base model energy','','=','',\
+						calc.property['energy']['hf']+calc.property['energy']['base'])
 
 
 def _fourth_row(info):
 		""" fourth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-			'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-				format('','frozen core','','=','',info['frozen'],\
-					'','|','','base model','','=','',info['base'],\
-					'','|','','final MBE energy','','=','',info['final_mbe'])
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
+					format('','frozen core','','=','',info['frozen'],\
+						'','|','','base model','','=','',info['base'],\
+						'','|','','MBE energy','','=','',info['e_final'][-1])
 
 
 def _fifth_row(info):
 		""" fifth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-			'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
-				format('','occupied orbitals','','=','',info['occ'],\
-					'','|','','type / protocol','','=','',info['typ_prot'],\
-					'','|','','wave funct. symmetry','','=','',info['symm'])
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:2}{21:.6f}').\
+					format('','occupied orbitals','','=','',info['occ'],\
+						'','|','','type / protocol','','=','',info['typ_prot'],\
+						'','|','','MBE dipole moment','','=','',\
+						np.sqrt(np.sum(info['dipmom_final'][-1, :])))
 
 
 def _sixth_row(info):
 		""" sixth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:16}{18:8}{19:1}{20:2}{21:.3e}').\
+				'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
 					format('','virtual orbitals','','=','',info['virt'],\
 						'','|','','thres. / relax.','','=','',info['thres'],\
-						'','|','','final abs. conv.','','=','',info['conv'])
+						'','|','','wave funct. symmetry','','=','',info['symm'])
 
 
 def _header_2():
 		""" table header 2 """
-		return ('{0:6}{1:9}{2:2}{3:1}{4:7}{5:48}{6:6}{7:1}{8:7}{9:10}{10:6}{11:1}{12:7}{13:}'.\
+		return ('{0:6}{1:9}{2:2}{3:1}{4:7}{5:48}{6:6}{7:1}{8:7}{9:6}{10:7}{11:1}{12:8}{13:}'.\
 				format('','MBE order', \
 					'','|','','time (HHH : MM : SS) -- MBE / screening - total', \
-					'','|','','MBE energy', \
+					'','|','','energy', \
 					'','|','','dipole moment (x,y,z)'))
 
 
-def _orders(calc, exp):
+def _orders(info, calc, exp):
 		""" order table """
 		orders = []
 		# loop over orders
@@ -318,7 +324,7 @@ def _orders(calc, exp):
 							+np.sum(exp.time['screen'][:i+1])
 			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:6}{5:03d}{6:^3}{7:02d}'
 				'{8:^3}{9:02d}{10:^5}{11:03d}{12:^3}{13:02d}{14:^3}{15:02d}{16:^5}{17:03d}{18:^3}{19:02d}'
-				'{20:^3}{21:02d}{22:6}{23:1}{24:6}{25:>11.6f}{26:6}{27:1}{28:5}{29:}').\
+				'{20:^3}{21:02d}{22:6}{23:1}{24:4}{25:>11.6f}{26:5}{27:1}{28:5}{29:7.4f}{30:^3}{31:7.4f}{32:^3}{33:7.4f}').\
 					format('',i+exp.start_order, \
 						'','|','',int(exp.time['mbe'][i]//3600),':', \
 						int((exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600.)//60),':', \
@@ -332,10 +338,8 @@ def _orders(calc, exp):
 						int((total_time-(total_time//3600)*3600.)//60),':', \
 						int(total_time-(total_time//3600)*3600. \
 						- ((total_time-(total_time//3600)*3600.)//60)*60.), \
-						'','|','',calc.property['energy']['hf'] \
-						+ exp.property['energy']['tot'][i] + calc.property['energy']['base'] \
-						+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base']), \
-						'','|','',''))
+						'','|','',info['e_final'][i], \
+						'','|','',info['dipmom_final'][i,0],',',info['dipmom_final'][i,1],',',info['dipmom_final'][i,2]))
 		return orders
 
 
