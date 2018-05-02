@@ -99,7 +99,8 @@ def _exp(mpi, mol, calc):
 			# no restart
 			else:
 				# hf calculation
-				calc.hf, calc.property['energy']['hf'], calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
+				calc.hf, calc.property['energy']['hf'], calc.property['dipmom']['hf'], \
+					calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
 				# get ao integrals
 				mol.hcore, mol.eri, mol.dipmom = kernel.ao_ints(mol)
 				# reference and expansion spaces

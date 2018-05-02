@@ -52,6 +52,8 @@ def hf(mol, calc):
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
+		# dipole moment
+		dipmom = hf.dip_moment(verbose=0)
 		# determine dimensions
 		mol.norb, mol.nocc, mol.nvirt = _dim(hf, calc)
 		# store energy, occupation, and orbsym
@@ -68,7 +70,7 @@ def hf(mol, calc):
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
-		return hf, np.asscalar(e_hf), occup, orbsym, np.asarray(hf.mo_coeff, order='C')
+		return hf, np.asscalar(e_hf), dipmom, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(hf, calc):

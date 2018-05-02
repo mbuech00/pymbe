@@ -36,8 +36,13 @@ class CalcCls():
 				self.occ = 'CAN'
 				self.virt = 'CAN'
 				self.async = False
-				# init property dict and mo
-				self.property = {'energy': {}}
+				# init property dict
+				self.property = {}
+				# energy dict
+				self.property['energy'] = {}
+				# dipmom dict
+				self.property['dipmom'] = {}
+				# init mo
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:

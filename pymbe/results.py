@@ -293,7 +293,7 @@ def _fifth_row(info):
 					format('','occupied orbitals','','=','',info['occ'],\
 						'','|','','type / protocol','','=','',info['typ_prot'],\
 						'','|','','MBE dipole moment','','=','',\
-						np.sqrt(np.sum(info['dipmom_final'][-1, :])))
+						np.sqrt(np.sum(info['dipmom_final'][-1, :]**2)))
 
 
 def _sixth_row(info):
@@ -339,7 +339,7 @@ def _orders(info, calc, exp):
 						int(total_time-(total_time//3600)*3600. \
 						- ((total_time-(total_time//3600)*3600.)//60)*60.), \
 						'','|','',info['e_final'][i], \
-						'','|','',info['dipmom_final'][i,0],',',info['dipmom_final'][i,1],',',info['dipmom_final'][i,2]))
+						'','|','',info['dipmom_final'][i,0],'',info['dipmom_final'][i,1],'',info['dipmom_final'][i,2]))
 		return orders
 
 
