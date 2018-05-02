@@ -205,7 +205,7 @@ def _inc(mpi, mol, calc, exp, tup):
 def _sum(calc, exp, tup):
 		""" recursive summation """
 		# init res
-		res = np.zeros(len(exp.property['energy']['inc'])-1, dtype=np.float64)
+		e_res = 0.0
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
 			# generate array with all subsets of particular tuple (manually adding active orbitals)
@@ -224,7 +224,7 @@ def _sum(calc, exp, tup):
 			mask = np.where(mask)[0]
 			assert mask.size == combs.shape[0]
 			# add up lower-order increments
-			res[count] = math.fsum(exp.property['energy']['inc'][i-1][mask])
-		return math.fsum(res)
+			e_res += math.fsum(exp.property['energy']['inc'][i-1][mask])
+		return e_res
 
 
