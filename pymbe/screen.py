@@ -254,14 +254,14 @@ def _prot(exp, prot, indx, m):
 			# conservative protocol
 			if prot == 1:
 				# are *all* increments below the threshold?
-				if np.all(np.abs(exp.energy['inc'][-1][indx]) < exp.thres):
+				if np.all(np.abs(exp.property['energy']['inc'][-1][indx]) < exp.thres):
 					return []
 				else:
 					return [m]
 			# aggressive protocol
 			elif prot == 2:
 				# are *any* increments below the threshold?
-				if np.any(np.abs(exp.energy['inc'][-1][indx]) < exp.thres):
+				if np.any(np.abs(exp.property['energy']['inc'][-1][indx]) < exp.thres):
 					return []
 				else:
 					return [m]

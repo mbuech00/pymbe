@@ -99,7 +99,7 @@ def _exp(mpi, mol, calc):
 			# no restart
 			else:
 				# hf calculation
-				calc.hf, calc.energy['hf'], calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
+				calc.hf, calc.property['energy']['hf'], calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
 				# get hcore and eri
 				mol.hcore, mol.eri = kernel.hcore_eri(mol)
 				# reference and expansion spaces
@@ -108,9 +108,9 @@ def _exp(mpi, mol, calc):
 				# exp object
 				exp = expansion.ExpCls(mol, calc)
 				# reference calculation
-				calc.energy['ref'], calc.energy['ref_base'], calc.mo = kernel.ref(mol, calc, exp)
+				calc.property['energy']['ref'], calc.property['energy']['ref_base'], calc.mo = kernel.ref(mol, calc, exp)
 				# base energy and transformation matrix
-				calc.energy['base'] = kernel.base(mol, calc, exp)
+				calc.property['energy']['base'] = kernel.base(mol, calc, exp)
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:

@@ -199,7 +199,7 @@ def ref(mol, calc, exp):
 					e_ref_base = corr(mol, calc, exp, calc.base['METHOD'])
 		if mol.verbose:
 			print(' REF: core = {0:} , cas = {1:} , e_ref = {2:.10f} , e_ref_base = {3:.10f}'.format(exp.core_idx, exp.cas_idx, e_ref, e_ref_base))
-		return e_ref + calc.energy['hf'], e_ref_base + calc.energy['hf'], calc.mo
+		return e_ref + calc.property['energy']['hf'], e_ref_base + calc.property['energy']['hf'], calc.mo
 
 
 def corr(mol, calc, exp, method):
@@ -440,7 +440,7 @@ def _fci(mol, calc, exp, dens):
 				sys.stderr.write(str(err))
 				raise
 		# e_corr
-		e_corr = energy - calc.energy['hf']
+		e_corr = energy - calc.property['energy']['hf']
 #		if exp.order < exp.max_order: e_corr += np.float64(0.001) * np.random.random_sample()
 		# fci dm
 		if dens:
@@ -517,7 +517,7 @@ def _sci(mol, calc, exp, dens):
 				sys.stderr.write(str(err))
 				raise
 		# e_corr
-		e_corr = energy - calc.energy['hf']
+		e_corr = energy - calc.property['energy']['hf']
 		# sci dm
 		if dens:
 			dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)

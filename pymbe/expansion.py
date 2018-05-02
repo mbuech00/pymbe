@@ -19,10 +19,10 @@ class ExpCls():
 				""" init parameters """
 				# init tuples and incl_idx
 				self.incl_idx, self.tuples = _init_tup(mol, calc)
-				# init energy dict
-				self.energy = {}
-				self.energy['inc'] = []
-				self.energy['tot'] = []
+				# init property dict
+				self.property = {'energy': {}}
+				self.property['energy']['inc'] = []
+				self.property['energy']['tot'] = []
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				self.max_order = min(len(calc.exp_space), calc.max_order)

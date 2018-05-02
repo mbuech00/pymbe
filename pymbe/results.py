@@ -225,17 +225,17 @@ def _symm(mol, calc):
 
 def _final(calc, exp):
 		""" final energy """
-		return calc.energy['hf'] \
-				+ exp.energy['tot'][-1] + calc.energy['base'] \
-				+ (calc.energy['ref'] - calc.energy['ref_base'])
+		return calc.property['energy']['hf'] \
+				+ exp.property['energy']['tot'][-1] + calc.property['energy']['base'] \
+				+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base'])
 
 
 def _conv(exp):
 		""" convergence print """
-		if exp.energy['tot'].size == 1:
+		if exp.property['energy']['tot'].size == 1:
 			return 0.0
 		else:
-			return np.abs(exp.energy['tot'][-1] - exp.energy['tot'][-2])
+			return np.abs(exp.property['energy']['tot'][-1] - exp.property['energy']['tot'][-2])
 
 
 def _header_1():
@@ -260,7 +260,7 @@ def _second_row(info, calc):
 			'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}').\
 				format('','spin multiplicity','','=','',info['mult'],\
 					'','|','','reference funct.','','=','',info['ref'],\
-					'','|','','Hartree-Fock energy','','=','',calc.energy['hf'])
+					'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf'])
 
 
 def _third_row(info, calc):
@@ -269,7 +269,7 @@ def _third_row(info, calc):
 			'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
 				format('','system size','','=','',info['system'],\
 					'','|','','cas size','','=','',info['active'],\
-					'','|','','base model energy','','=','',calc.energy['hf']+calc.energy['base'])
+					'','|','','base model energy','','=','',calc.property['energy']['hf']+calc.property['energy']['base'])
 
 
 def _fourth_row(info):
@@ -312,7 +312,7 @@ def _orders(calc, exp):
 		""" order table """
 		orders = []
 		# loop over orders
-		for i in range(exp.energy['tot'].size):
+		for i in range(exp.property['energy']['tot'].size):
 			# sum up total time
 			total_time = np.sum(exp.time['mbe'][:i+1])\
 							+np.sum(exp.time['screen'][:i+1])
@@ -332,8 +332,9 @@ def _orders(calc, exp):
 						int((total_time-(total_time//3600)*3600.)//60),':', \
 						int(total_time-(total_time//3600)*3600. \
 						- ((total_time-(total_time//3600)*3600.)//60)*60.), \
-						'','|','',calc.energy['hf'] + exp.energy['tot'][i] + calc.energy['base'] \
-						+ (calc.energy['ref'] - calc.energy['ref_base']), \
+						'','|','',calc.property['energy']['hf'] \
+						+ exp.property['energy']['tot'][i] + calc.property['energy']['base'] \
+						+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base']), \
 						'','|','',''))
 		return orders
 
@@ -345,11 +346,11 @@ def _energy(calc, exp):
 		# set 1 plot
 		fig, ax = plt.subplots()
 		# array of MBE energies
-		mbe = np.empty(exp.energy['tot'].size, dtype=np.float64)
+		mbe = np.empty_like(exp.property['energy']['inc'])
 		for i in range(mbe.size):
-			mbe[i] = np.sum(exp.energy['inc'][i])
+			mbe[i] = np.sum(exp.property['energy']['inc'][i])
 		# plot results
-		ax.semilogy(np.asarray(list(range(exp.start_order, exp.energy['tot'].size+exp.start_order))), \
+		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				np.abs(mbe), marker='x', linewidth=2, color='green', \
 				linestyle='-', label='MBE-'+calc.model['METHOD'])
 		# set x limits
@@ -379,23 +380,23 @@ def _increments(calc, exp):
 		# set 1 plot
 		fig, ax = plt.subplots()
 		# array of increments
-		mean_val = np.empty_like(exp.energy['inc'])
-		min_val = np.empty_like(exp.energy['inc'])
-		max_val = np.empty_like(exp.energy['inc'])
-		for i in range(len(exp.energy['inc'])):
-			mean_val[i] = np.abs(np.mean(exp.energy['inc'][i]))
-			min_idx = np.argmin(np.abs(exp.energy['inc'][i]))
-			min_val[i] = np.abs(exp.energy['inc'][i][min_idx])
-			max_idx = np.argmax(np.abs(exp.energy['inc'][i]))
-			max_val[i] = np.abs(exp.energy['inc'][i][max_idx])
+		mean_val = np.empty_like(exp.property['energy']['inc'])
+		min_val = np.empty_like(exp.property['energy']['inc'])
+		max_val = np.empty_like(exp.property['energy']['inc'])
+		for i in range(exp.property['energy']['tot'].size):
+			mean_val[i] = np.abs(np.mean(exp.property['energy']['inc'][i]))
+			min_idx = np.argmin(np.abs(exp.property['energy']['inc'][i]))
+			min_val[i] = np.abs(exp.property['energy']['inc'][i][min_idx])
+			max_idx = np.argmax(np.abs(exp.property['energy']['inc'][i]))
+			max_val[i] = np.abs(exp.property['energy']['inc'][i][max_idx])
 		# plot results
-		ax.semilogy(np.asarray(list(range(exp.start_order, exp.energy['tot'].size+exp.start_order))), \
+		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				mean_val, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
 				linestyle='-', label='mean')
-		ax.semilogy(np.asarray(list(range(exp.start_order, exp.energy['tot'].size+exp.start_order))), \
+		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				min_val, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
 				linestyle='-', label='min')
-		ax.semilogy(np.asarray(list(range(exp.start_order, exp.energy['tot'].size+exp.start_order))), \
+		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				max_val, marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
 				linestyle='-', label='max')
 		# set x limits

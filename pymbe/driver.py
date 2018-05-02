@@ -73,7 +73,7 @@ def main(mpi, mol, calc, exp):
 			if mpi.global_master: exp.rst_freq = max(exp.rst_freq // 2, 1)
 			# convergence check
 			if exp.conv_orb[-1] or exp.order == exp.max_order:
-				exp.energy['tot'] = np.array(exp.energy['tot'])
+				exp.property['energy']['tot'] = np.asarray(exp.property['energy']['tot'])
 				break
 
 

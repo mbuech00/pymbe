@@ -90,23 +90,23 @@ def mbe_end(exp):
 			with contextlib.redirect_stdout(f):
 				print(' --------------------------------------------------------------------------------------------')
 				print(' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})'.\
-						format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order])))
+						format(exp.order,np.sum(exp.property['energy']['inc'][exp.order-exp.start_order])))
 				print(' --------------------------------------------------------------------------------------------')
 		# write also to stdout
 		print(' --------------------------------------------------------------------------------------------')
 		print(' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})'.\
-				format(exp.order,np.sum(exp.energy['inc'][exp.order-exp.start_order])))
+				format(exp.order,np.sum(exp.property['energy']['inc'][exp.order-exp.start_order])))
 		print(' --------------------------------------------------------------------------------------------')
 
 
 def mbe_results(mol, calc, exp):
 		""" print mbe result statistics """
 		# statistics
-		mean_val = np.mean(exp.energy['inc'][exp.order-exp.start_order])
-		min_idx = np.argmin(np.abs(exp.energy['inc'][exp.order-exp.start_order]))
-		min_val = exp.energy['inc'][exp.order-exp.start_order][min_idx]
-		max_idx = np.argmax(np.abs(exp.energy['inc'][exp.order-exp.start_order]))
-		max_val = exp.energy['inc'][exp.order-exp.start_order][max_idx]
+		mean_val = np.mean(exp.property['energy']['inc'][exp.order-exp.start_order])
+		min_idx = np.argmin(np.abs(exp.property['energy']['inc'][exp.order-exp.start_order]))
+		min_val = exp.property['energy']['inc'][exp.order-exp.start_order][min_idx]
+		max_idx = np.argmax(np.abs(exp.property['energy']['inc'][exp.order-exp.start_order]))
+		max_val = exp.property['energy']['inc'][exp.order-exp.start_order][max_idx]
 		# core and cas regions
 		core, cas = kernel.core_cas(mol, exp, exp.tuples[exp.order-exp.start_order][max_idx])
 		cas_ref = '{0:}'.format(sorted(list(set(calc.ref_space.tolist()) - set(core))))

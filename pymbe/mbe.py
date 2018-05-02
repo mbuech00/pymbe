@@ -29,12 +29,12 @@ TAGS = parallel.enum('start', 'ready', 'exit')
 
 
 def main(mpi, mol, calc, exp):
-		""" energy mbe phase """
+		""" mbe phase """
 		# print header
 		if mpi.global_master: output.mbe_header(exp)
 		# init energies
-		if len(exp.energy['inc']) < exp.order - (exp.start_order - 1):
-			exp.energy['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+		if len(exp.property['energy']['inc']) < exp.order - (exp.start_order - 1):
+			exp.property['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 		# sanity check
 		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
@@ -43,20 +43,20 @@ def main(mpi, mol, calc, exp):
 				# master
 				_master(mpi, mol, calc, exp)
 				# sum up total energy
-				e_tmp = math.fsum(exp.energy['inc'][-1])
-				if exp.order > exp.start_order: e_tmp += exp.energy['tot'][-1]
+				e_tmp = math.fsum(exp.property['energy']['inc'][-1])
+				if exp.order > exp.start_order: e_tmp += exp.property['energy']['tot'][-1]
 				# add to total energy list
-				exp.energy['tot'].append(e_tmp)
+				exp.property['energy']['tot'].append(e_tmp)
 			else:
 				# slaves
 				_slave(mpi, mol, calc, exp)
 		else:
 			_serial(mpi, mol, calc, exp)
 			# sum up total energy
-			e_tmp = math.fsum(exp.energy['inc'][-1])
-			if exp.order > exp.start_order: e_tmp += exp.energy['tot'][-1]
+			e_tmp = math.fsum(exp.property['energy']['inc'][-1])
+			if exp.order > exp.start_order: e_tmp += exp.property['energy']['tot'][-1]
 			# add to total energy list
-			exp.energy['tot'].append(e_tmp)
+			exp.property['energy']['tot'].append(e_tmp)
 
 
 def _serial(mpi, mol, calc, exp):
@@ -65,8 +65,8 @@ def _serial(mpi, mol, calc, exp):
 		time = MPI.Wtime()
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
-			# calculate energy increment
-			exp.energy['inc'][-1][i] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][i])
+			# calculate increments
+			exp.property['energy']['inc'][-1][i] = _inc(mpi, mol, calc, exp, exp.tuples[-1][i])
 			# print status
 			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 		# collect time
@@ -144,8 +144,8 @@ def _master(mpi, mol, calc, exp):
 					job_info[0] = i; job_info[1] = i+batch
 					# loop over tuples
 					for count, idx in enumerate(range(job_info[0], job_info[1])):
-						# calculate energy increments
-						exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
+						# calculate increments
+						exp.property['energy']['inc'][-1][idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 					# increment job index
 					i += batch
 		# allreduce energies
@@ -171,26 +171,26 @@ def _slave(mpi, mol, calc, exp):
 					# send availability to master
 					if idx == max(job_info[1] - 2, job_info[0]):
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-					# calculate energy increments
-					exp.energy['inc'][-1][idx] = _e_inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
+					# calculate increments
+					exp.property['energy']['inc'][-1][idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 			elif mpi.stat.tag == TAGS.exit:
 				break
 		# receive energies
 		parallel.energy(exp, comm)
 
 
-def _e_inc(mpi, mol, calc, exp, tup):
-		""" calculate energy increment corresponding to tup """
+def _inc(mpi, mol, calc, exp, tup):
+		""" calculate increments corresponding to tup """
 		# generate input
 		exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, tup)
 		# perform calc
 		e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
-					+ (calc.energy['hf'] - calc.energy['ref'])
+					+ (calc.property['energy']['hf'] - calc.property['energy']['ref'])
 		if calc.base['METHOD'] is None:
 			e_base = 0.0
 		else:
 			e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
-						+ (calc.energy['hf'] - calc.energy['ref_base'])
+						+ (calc.property['energy']['hf'] - calc.property['energy']['ref_base'])
 		e_inc = e_model - e_base
 		# calc increment
 		if exp.order > exp.start_order:
@@ -203,9 +203,9 @@ def _e_inc(mpi, mol, calc, exp, tup):
 
 
 def _sum(calc, exp, tup):
-		""" energy summation """
+		""" recursive summation """
 		# init res
-		res = np.zeros(len(exp.energy['inc'])-1, dtype=np.float64)
+		res = np.zeros(len(exp.property['energy']['inc'])-1, dtype=np.float64)
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
 			# generate array with all subsets of particular tuple (manually adding active orbitals)
@@ -224,7 +224,7 @@ def _sum(calc, exp, tup):
 			mask = np.where(mask)[0]
 			assert mask.size == combs.shape[0]
 			# add up lower-order increments
-			res[count] = math.fsum(exp.energy['inc'][i-1][mask])
+			res[count] = math.fsum(exp.property['energy']['inc'][i-1][mask])
 		return math.fsum(res)
 
 

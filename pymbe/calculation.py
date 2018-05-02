@@ -36,8 +36,8 @@ class CalcCls():
 				self.occ = 'CAN'
 				self.virt = 'CAN'
 				self.async = False
-				# init energy dict and mo
-				self.energy = {}
+				# init property dict and mo
+				self.property = {'energy': {}}
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:

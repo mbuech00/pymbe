@@ -135,8 +135,8 @@ def fund(mpi, mol, calc):
 		""" bcast fundamental info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'e_hf': calc.energy['hf'], 'e_base': calc.energy['base'], \
-							'e_ref': calc.energy['ref'], 'e_ref_base': calc.energy['ref_base'], \
+				info = {'e_hf': calc.property['energy']['hf'], 'e_base': calc.property['energy']['base'], \
+							'e_ref': calc.property['energy']['ref'], 'e_ref_base': calc.property['energy']['ref_base'], \
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 							'occup': calc.occup, 'no_exp': calc.no_exp, \
@@ -146,8 +146,8 @@ def fund(mpi, mol, calc):
 				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.energy['hf'] = info['e_hf']; calc.energy['base'] = info['e_base']
-				calc.energy['ref'] = info['e_ref']; calc.energy['ref_base'] = info['e_ref_base']
+				calc.property['energy']['hf'] = info['e_hf']; calc.property['energy']['base'] = info['e_base']
+				calc.property['energy']['ref'] = info['e_ref']; calc.property['energy']['ref_base'] = info['e_ref_base']
 				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 				calc.occup = info['occup']; calc.no_exp = info['no_exp']
@@ -164,7 +164,7 @@ def exp(mpi, calc, exp, comm):
 			if mpi.global_master:
 				# collect info
 				info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
-							'len_e_inc': [len(exp.energy['inc'][i]) for i in range(len(exp.energy['inc']))], \
+							'len_e_inc': [len(exp.property['energy']['inc'][i]) for i in range(len(exp.property['energy']['inc']))], \
 							'min_order': exp.min_order, 'start_order': exp.start_order}
 				# bcast info
 				comm.bcast(info, root=0)
@@ -173,9 +173,9 @@ def exp(mpi, calc, exp, comm):
 					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
 					# recast tuples as Fortran order array
 					exp.tuples[i] = np.asfortranarray(exp.tuples[i])
-				# bcast energy increments
-				for i in range(len(exp.energy['inc'])):
-					comm.Bcast([exp.energy['inc'][i], MPI.DOUBLE], root=0)
+				# bcast increments
+				for i in range(len(exp.property['energy']['inc'])):
+					comm.Bcast([exp.property['energy']['inc'][i], MPI.DOUBLE], root=0)
 			else:
 				# receive info
 				info = comm.bcast(None, root=0)
@@ -193,13 +193,13 @@ def exp(mpi, calc, exp, comm):
 				for i in range(len(info['len_e_inc'])):
 					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
 					comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.energy['inc'].append(buff)
+					exp.property['energy']['inc'].append(buff)
 
 
 def energy(exp, comm):
 		""" Allreduce energies """
 		# Allreduce
-		comm.Allreduce(MPI.IN_PLACE, [exp.energy['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		comm.Allreduce(MPI.IN_PLACE, [exp.property['energy']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def tup(exp, comm):
