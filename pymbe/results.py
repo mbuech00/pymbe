@@ -90,7 +90,7 @@ def _table(info, mol, calc, exp):
 	
 def _plot(calc, exp):
 		""" plot results """
-		# plot correlation energy
+		# plot MBE energy
 		_energy(calc, exp)
 		# plot maximal increments
 		_increments(calc, exp)
@@ -232,7 +232,7 @@ def _final(calc, exp):
 
 def _conv(exp):
 		""" convergence print """
-		if len(exp.energy['tot']) == 1:
+		if exp.energy['tot'].size == 1:
 			return 0.0
 		else:
 			return np.abs(exp.energy['tot'][-1] - exp.energy['tot'][-2])
@@ -301,29 +301,25 @@ def _sixth_row(info):
 
 def _header_2():
 		""" table header 2 """
-		return ('{0:6}{1:9}{2:2}{3:1}{4:7}{5:18}{6:7}{7:1}'
-			'{8:7}{9:48}{10:6}{11:1}{12:3}{13:}'.\
-				format('','MBE order','','|','','correlation energy',\
-					'','|','','time (HHH : MM : SS) -- MBE / screening - total',\
-					'','|','','total number of calcs.'))
+		return ('{0:6}{1:9}{2:2}{3:1}{4:7}{5:48}{6:6}{7:1}{8:7}{9:10}{10:6}{11:1}{12:7}{13:}'.\
+				format('','MBE order', \
+					'','|','','time (HHH : MM : SS) -- MBE / screening - total', \
+					'','|','','MBE energy', \
+					'','|','','dipole moment (x,y,z)'))
 
 
 def _orders(calc, exp):
 		""" order table """
 		orders = []
 		# loop over orders
-		total_tup = 0
-		for i in range(len(exp.energy['tot'])):
-			# sum up total time and number of tuples
+		for i in range(exp.energy['tot'].size):
+			# sum up total time
 			total_time = np.sum(exp.time['mbe'][:i+1])\
 							+np.sum(exp.time['screen'][:i+1])
-			total_tup += len(exp.tuples[i])
-			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:9}{5:>13.5e}{6:10}{7:1}{8:6}{9:03d}{10:^3}{11:02d}'
-				'{12:^3}{13:02d}{14:^5}{15:03d}{16:^3}{17:02d}{18:^3}{19:02d}{20:^5}{21:03d}{22:^3}{23:02d}'
-				'{24:^3}{25:02d}{26:6}{27:1}{28:10}{29:>9d}').\
-					format('',i+exp.start_order,'','|','', \
-						exp.energy['tot'][i] + calc.energy['base'] \
-						+ (calc.energy['ref'] - calc.energy['ref_base']), \
+			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:6}{5:03d}{6:^3}{7:02d}'
+				'{8:^3}{9:02d}{10:^5}{11:03d}{12:^3}{13:02d}{14:^3}{15:02d}{16:^5}{17:03d}{18:^3}{19:02d}'
+				'{20:^3}{21:02d}{22:6}{23:1}{24:6}{25:>11.6f}{26:6}{27:1}{28:5}{29:}').\
+					format('',i+exp.start_order, \
 						'','|','',int(exp.time['mbe'][i]//3600),':', \
 						int((exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600.)//60),':', \
 						int(exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600. \
@@ -336,22 +332,25 @@ def _orders(calc, exp):
 						int((total_time-(total_time//3600)*3600.)//60),':', \
 						int(total_time-(total_time//3600)*3600. \
 						- ((total_time-(total_time//3600)*3600.)//60)*60.), \
-						'','|','',total_tup))
+						'','|','',calc.energy['hf'] + exp.energy['tot'][i] + calc.energy['base'] \
+						+ (calc.energy['ref'] - calc.energy['ref_base']), \
+						'','|','',''))
 		return orders
 
 
 def _energy(calc, exp):
-		""" plot correlation energy """
+		""" plot MBE energy """
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 1 plot
 		fig, ax = plt.subplots()
-		# array of total correlation energy
-		corr = exp.energy['tot'] + calc.energy['base'] \
-				+ (calc.energy['ref'] - calc.energy['ref_base'])
+		# array of MBE energies
+		mbe = np.empty(exp.energy['tot'].size, dtype=np.float64)
+		for i in range(mbe.size):
+			mbe[i] = np.sum(exp.energy['inc'][i])
 		# plot results
-		ax.plot(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
-				corr, marker='x', linewidth=2, color='green', \
+		ax.semilogy(np.asarray(list(range(exp.start_order, exp.energy['tot'].size+exp.start_order))), \
+				np.abs(mbe), marker='x', linewidth=2, color='green', \
 				linestyle='-', label='MBE-'+calc.model['METHOD'])
 		# set x limits
 		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -359,10 +358,10 @@ def _energy(calc, exp):
 		ax.xaxis.grid(False)
 		# set labels
 		ax.set_xlabel('Expansion order')
-		ax.set_ylabel('Correlation energy (in Hartree)')
+		ax.set_ylabel('Total increments (in Hartree)')
 		# force integer ticks on x-axis
 		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax.yaxis.set_major_formatter(FormatStrFormatter('%.4f'))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
 		# despine
 		sns.despine()
 		# set legends
@@ -390,13 +389,13 @@ def _increments(calc, exp):
 			max_idx = np.argmax(np.abs(exp.energy['inc'][i]))
 			max_val[i] = np.abs(exp.energy['inc'][i][max_idx])
 		# plot results
-		ax.semilogy(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+		ax.semilogy(np.asarray(list(range(exp.start_order, exp.energy['tot'].size+exp.start_order))), \
 				mean_val, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
 				linestyle='-', label='mean')
-		ax.semilogy(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+		ax.semilogy(np.asarray(list(range(exp.start_order, exp.energy['tot'].size+exp.start_order))), \
 				min_val, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
 				linestyle='-', label='min')
-		ax.semilogy(np.asarray(list(range(exp.start_order, len(exp.energy['tot'])+exp.start_order))), \
+		ax.semilogy(np.asarray(list(range(exp.start_order, exp.energy['tot'].size+exp.start_order))), \
 				max_val, marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
 				linestyle='-', label='max')
 		# set x limits
