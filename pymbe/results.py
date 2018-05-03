@@ -63,7 +63,7 @@ def _setup(mpi, mol, calc, exp):
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		e_final = _e_final(calc, exp)
-		dipmom_final = _dipmom_final(mol, exp)
+		dipmom_final = _dipmom_final(mol, calc, exp)
 		return basis, mult, ref, base, typ_prot, system, frozen, \
 				active, occ, virt, mpi, thres, symm, e_final, dipmom_final
 
@@ -231,15 +231,17 @@ def _e_final(calc, exp):
 				+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base'])
 
 
-def _dipmom_final(mol, exp):
+def _dipmom_final(mol, calc, exp):
 		""" final molecular dipole moment """
-		# nuclear dipole moment
-		charges = mol.atom_charges()
-		coords  = mol.atom_coords()
-		nuc_dipmom = np.einsum('i,ix->x', charges, coords)
-		exp.property['dipmom'] = {}
-		exp.property['dipmom']['tot'] = np.zeros([exp.property['energy']['tot'].size, 3], dtype=np.float64)
-		return (nuc_dipmom - exp.property['dipmom']['tot']) # * 2.541746 to get result in Debye
+		if 'dipmom' not in exp.property:
+			return np.zeros([exp.property['energy']['tot'].size, 3], dtype=np.float64)
+		else:
+			# nuclear dipole moment
+			charges = mol.atom_charges()
+			coords  = mol.atom_coords()
+			nuc_dipmom = np.einsum('i,ix->x', charges, coords)
+			# molecular dipole moment
+			return (nuc_dipmom - (calc.property['dipmom']['hf'] + exp.property['dipmom']['tot'])) # * 2.541746 to get result in Debye
 
 
 def _header_1():

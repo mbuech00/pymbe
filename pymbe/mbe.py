@@ -32,9 +32,10 @@ def main(mpi, mol, calc, exp):
 		""" mbe phase """
 		# print header
 		if mpi.global_master: output.mbe_header(exp)
-		# init energies
+		# init increments
 		if len(exp.property['energy']['inc']) < exp.order - (exp.start_order - 1):
 			exp.property['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+			exp.property['dipmom']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		# sanity check
 		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
@@ -42,21 +43,21 @@ def main(mpi, mol, calc, exp):
 			if mpi.global_master:
 				# master
 				_master(mpi, mol, calc, exp)
-				# sum up total energy
-				e_tmp = math.fsum(exp.property['energy']['inc'][-1])
-				if exp.order > exp.start_order: e_tmp += exp.property['energy']['tot'][-1]
-				# add to total energy list
-				exp.property['energy']['tot'].append(e_tmp)
 			else:
 				# slaves
 				_slave(mpi, mol, calc, exp)
+				return
 		else:
 			_serial(mpi, mol, calc, exp)
-			# sum up total energy
-			e_tmp = math.fsum(exp.property['energy']['inc'][-1])
-			if exp.order > exp.start_order: e_tmp += exp.property['energy']['tot'][-1]
-			# add to total energy list
-			exp.property['energy']['tot'].append(e_tmp)
+		# sum up total quantities
+		exp.property['energy']['tot'].append(math.fsum(exp.property['energy']['inc'][-1]))
+		exp.property['dipmom']['tot'].append(np.zeros(3, dtype=np.float64))
+		for i in range(3):
+			exp.property['dipmom']['tot'][-1][i] += math.fsum(exp.property['dipmom']['inc'][-1][:, i])
+		if exp.order > exp.start_order:
+			exp.property['energy']['tot'][-1] += exp.property['energy']['tot'][-2]
+			for i in range(3):
+				exp.property['dipmom']['tot'][-1][i] += exp.property['dipmom']['tot'][-2][i]
 
 
 def _serial(mpi, mol, calc, exp):
@@ -66,7 +67,8 @@ def _serial(mpi, mol, calc, exp):
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate increments
-			exp.property['energy']['inc'][-1][i] = _inc(mpi, mol, calc, exp, exp.tuples[-1][i])
+			exp.property['energy']['inc'][-1][i], \
+				exp.property['dipmom']['inc'][-1][i] = _inc(mpi, mol, calc, exp, exp.tuples[-1][i])
 			# print status
 			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 		# collect time
@@ -186,26 +188,33 @@ def _inc(mpi, mol, calc, exp, tup):
 		# perform calc
 		e, dipmom = kernel.main(mol, calc, exp, calc.model['METHOD'])
 		e_model = e + (calc.property['energy']['hf'] - calc.property['energy']['ref'])
+		dipmom_model = dipmom - calc.property['dipmom']['hf']
 		if calc.base['METHOD'] is None:
 			e_base = 0.0
+			dipmom_base = np.zeros(3, dtype=np.float64)
 		else:
 			e, dipmom = kernel.main(mol, calc, exp, calc.base['METHOD'])
 			e_base = e + (calc.property['energy']['hf'] - calc.property['energy']['ref_base'])
+			dipmom_base = dipmom - calc.property['dipmom']['hf']
+		# calc increments
 		e_inc = e_model - e_base
-		# calc increment
+		dipmom_inc = dipmom_model - dipmom_base
 		if exp.order > exp.start_order:
-			e_inc -= _sum(calc, exp, tup)
+			e, dipmom = _sum(calc, exp, tup)
+			e_inc -= e
+			dipmom_inc -= dipmom
 		# verbose print
 		if mol.verbose:
 			print(' proc = {0:} , core = {1:} , cas = {2:} , e_model = {3:.4e} , e_base = {4:.4e} , e_inc = {5:.4e}'.\
 					format(mpi.local_rank, exp.core_idx, exp.cas_idx, e_model, e_base, e_inc))
-		return e_inc
+		return e_inc, dipmom_inc
 
 
 def _sum(calc, exp, tup):
 		""" recursive summation """
 		# init res
 		e_res = 0.0
+		dipmom_res = np.zeros(3, dtype=np.float64)
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
 			# generate array with all subsets of particular tuple (manually adding active orbitals)
@@ -225,6 +234,8 @@ def _sum(calc, exp, tup):
 			assert mask.size == combs.shape[0]
 			# add up lower-order increments
 			e_res += math.fsum(exp.property['energy']['inc'][i-1][mask])
-		return e_res
+			for j in range(3):
+				dipmom_res[j] += math.fsum(exp.property['dipmom']['inc'][i-1][mask, j])
+		return e_res, dipmom_res
 
 

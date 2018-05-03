@@ -18,15 +18,18 @@ from mpi4py import MPI
 from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 
 
-def ao_ints(mol):
+def ao_ints(mol, calc):
 		""" get AO integrals """
 		# core hamiltonian
 		hcore = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
 		# electron repulsion ints
 		eri = mol.intor('int2e_sph', aosym=4)
 		# dipole integrals with gauge origin at (0,0,0)
-		with mol.with_common_orig((0,0,0)):
-			dipmom = mol.intor_symmetric('int1e_r', comp=3)
+		if 'dipmom' in calc.property:
+			with mol.with_common_orig((0,0,0)):
+				dipmom = mol.intor_symmetric('int1e_r', comp=3)
+		else:
+			dipmom = None
 		return hcore, eri, dipmom
 
 
@@ -53,7 +56,13 @@ def hf(mol, calc):
 				sys.stderr.write(str(err))
 				raise
 		# dipole moment
-		dipmom = hf.dip_moment(verbose=0)
+		tot_dipmom = hf.dip_moment(unit='au', verbose=0)
+		# nuclear dipole moment
+		charges = mol.atom_charges()
+		coords  = mol.atom_coords()
+		nuc_dipmom = np.einsum('i,ix->x', charges, coords)
+		# electronic dipole moment
+		elec_dipmom = nuc_dipmom - tot_dipmom
 		# determine dimensions
 		mol.norb, mol.nocc, mol.nvirt = _dim(hf, calc)
 		# store energy, occupation, and orbsym
@@ -70,7 +79,7 @@ def hf(mol, calc):
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
-		return hf, np.asscalar(e_hf), dipmom, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
+		return hf, np.asscalar(e_hf), elec_dipmom, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(hf, calc):
@@ -212,11 +221,10 @@ def ref(mol, calc, exp):
 def main(mol, calc, exp, method):
 		""" main property function """
 		# first-order properties
-		prop = False
-#		if 'dipmom' in exp.property:
-#			prop = True
-#		else:
-#			prop = False
+		if 'dipmom' in exp.property:
+			prop = True
+		else:
+			prop = False
 		# fci calc
 		if method == 'FCI':
 			e, dm = _fci(mol, calc, exp, prop)
@@ -230,24 +238,24 @@ def main(mol, calc, exp, method):
 		elif method in ['CCSD','CCSD(T)']:
 			e, dm = _cc(mol, calc, exp, prop, (method == 'CCSD(T)'))
 		# calculate first-order properties
-		return e, None
-#		if dm is not None:
-#			return e, _dipmom(mol, calc.mo, dm)
-#		else:
-#			return e, None
+		if dm is not None:
+			return e, _dipmom(mol.dipmom, calc.occup, exp.core_idx, exp.cas_idx, calc.mo, dm)
+		else:
+			return e, np.zeros(3, dtype=np.float64)
 
 
-def _dipmom(mol, mo, dm):
-		""" calculate dipole moment """
-		# nuclear dipole moment
-		charges = mol.atom_charges()
-		coords  = mol.atom_coords()
-		nuc_dipmom = np.einsum('i,ix->x', charges, coords)
-		# electronic dipole moment
+def _dipmom(ints, occup, core_idx, cas_idx, mo, cas_dm):
+		""" calculate electronic dipole moment """
+		# dm
+		if core_idx.size == 0:
+			dm = cas_dm
+		else:
+			dm = np.diag(occup)
+			dm[cas_idx[:, None], cas_idx] = cas_dm
 		elec_dipmom = np.empty(3, dtype=np.float64)
 		for i in range(3):
-			elec_dipmom[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, mol.dipmom[i], mo))))
-		return (nuc_dipmom - elec_dipmom) # * 2.541746 to get result in Debye
+			elec_dipmom[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ints[i], mo))))
+		return elec_dipmom 
 
 
 def base(mol, calc, exp):
@@ -658,8 +666,8 @@ def _cc(mol, calc, exp, dens, pt=False):
 
 def core_cas(mol, exp, tup):
 		""" define core and cas spaces """
-		cas_idx = sorted(exp.incl_idx + sorted(tup.tolist()))
-		core_idx = sorted(list(set(range(mol.nocc)) - set(cas_idx)))
+		cas_idx = np.asarray(sorted(exp.incl_idx + sorted(tup.tolist())))
+		core_idx = np.asarray(sorted(list(set(range(mol.nocc)) - set(cas_idx))))
 		return core_idx, cas_idx
 
 
