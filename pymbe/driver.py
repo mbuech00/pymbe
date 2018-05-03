@@ -79,6 +79,7 @@ def main(mpi, mol, calc, exp):
 
 def master(mpi, mol, calc, exp):
 		""" local master routine """
+		raise NotImplementedError('combined expansions need to be re-implemented...')
 		# set loop/waiting logical
 		local_master = True
 		# enter local master state
@@ -86,35 +87,10 @@ def master(mpi, mol, calc, exp):
 			# task id
 			msg = mpi.master_comm.bcast(None, root=0)
 			#
-			#** exp class instantiation **#
-			#
-			if msg['task'] == 'exp_cls':
-				exp = expansion.ExpCls(mol, calc)
-				# set min order
-				exp.min_order = msg['min_order']
-				# receive exp info
-				calc.restart = msg['rst']
-				if calc.restart: parallel.exp(calc, exp, mpi.master_comm)
-				# reset restart logical
-				calc.restart = False
-			#
-			#** energy phase **#
-			#
-			if msg['task'] == 'mbe_local_master':
-				exp.order = msg['exp_order']
-				mbe.slave(mpi, mol, calc, exp)
-			#
-			#** screening phase **#
-			#
-			elif msg['task'] == 'screen_local_master':
-				exp.order = msg['exp_order']
-				exp.thres = msg['thres']
-				screen.slave(mpi, mol, calc, exp)
-			#
-			#** exit **#
-			#
-			elif msg['task'] == 'exit_local_master':
-				local_master = False
+#			#** exit **#
+#			#
+#			elif msg['task'] == 'exit':
+#				local_master = False
 		# finalize
 		parallel.final(mpi)
 

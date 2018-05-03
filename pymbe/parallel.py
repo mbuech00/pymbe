@@ -98,13 +98,14 @@ def mol(mpi, mol):
 		""" bcast mol info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
+				info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'e_core': mol.e_core, \
 						'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
 						'unit': mol.unit, 'frozen': mol.frozen, 'verbose': mol.verbose}
 				mpi.global_comm.bcast(info, root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				mol.atom = info['atom']; mol.charge = info['charge']; mol.spin = info['spin']
+				mol.atom = info['atom']; mol.charge = info['charge']
+				mol.spin = info['spin']; mol.e_core = info['e_core']
 				mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
 				mol.basis = info['basis']; mol.unit = info['unit']; mol.frozen = info['frozen']
 				mol.verbose = info['verbose']
@@ -135,7 +136,8 @@ def fund(mpi, mol, calc):
 		""" bcast fundamental info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'e_hf': calc.property['energy']['hf'], 'e_base': calc.property['energy']['base'], \
+				info = {'e_hf': calc.property['energy']['hf'], 'dipmom_hf': calc.property['dipmom']['hf'], \
+							'e_base': calc.property['energy']['base'], \
 							'e_ref': calc.property['energy']['ref'], 'e_ref_base': calc.property['energy']['ref_base'], \
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \

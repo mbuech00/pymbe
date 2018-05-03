@@ -184,13 +184,13 @@ def _inc(mpi, mol, calc, exp, tup):
 		# generate input
 		exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, tup)
 		# perform calc
-		e_model = kernel.corr(mol, calc, exp, calc.model['METHOD']) \
-					+ (calc.property['energy']['hf'] - calc.property['energy']['ref'])
+		e, dipmom = kernel.main(mol, calc, exp, calc.model['METHOD'])
+		e_model = e + (calc.property['energy']['hf'] - calc.property['energy']['ref'])
 		if calc.base['METHOD'] is None:
 			e_base = 0.0
 		else:
-			e_base = kernel.corr(mol, calc, exp, calc.base['METHOD']) \
-						+ (calc.property['energy']['hf'] - calc.property['energy']['ref_base'])
+			e, dipmom = kernel.main(mol, calc, exp, calc.base['METHOD'])
+			e_base = e + (calc.property['energy']['hf'] - calc.property['energy']['ref_base'])
 		e_inc = e_model - e_base
 		# calc increment
 		if exp.order > exp.start_order:

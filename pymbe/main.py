@@ -95,7 +95,11 @@ def _exp(mpi, mol, calc):
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# exp object
-				exp = expansion.ExpCls(mol, calc)
+				if calc.typ != 'combined':
+					exp = expansion.ExpCls(mol, calc, calc.typ)
+				else:
+					# exp.typ = 'occupied' for occ-virt and exp.typ = 'virtual' for virt-occ combined expansions
+					raise NotImplementedError('combined expansion not implemented')
 			# no restart
 			else:
 				# hf calculation
@@ -107,7 +111,11 @@ def _exp(mpi, mol, calc):
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
 				# exp object
-				exp = expansion.ExpCls(mol, calc)
+				if calc.typ != 'combined':
+					exp = expansion.ExpCls(mol, calc, calc.typ)
+				else:
+					# exp.typ = 'occupied' for occ-virt and exp.typ = 'virtual' for virt-occ combined expansions
+					raise NotImplementedError('combined expansion not implemented')
 				# reference calculation
 				calc.property['energy']['ref'], calc.property['energy']['ref_base'], calc.mo = kernel.ref(mol, calc, exp)
 				# base energy and transformation matrix
@@ -123,7 +131,12 @@ def _exp(mpi, mol, calc):
 		if mpi.global_master:
 			exp.min_order = restart.main(calc, exp)
 		else:
-			exp = expansion.ExpCls(mol, calc)
+			# exp object
+			if calc.typ != 'combined':
+				exp = expansion.ExpCls(mol, calc, calc.typ)
+			else:
+				# exp.typ = 'virtual' for occ-virt and exp.typ = 'occupied' for virt-occ combined expansions
+				raise NotImplementedError('combined expansion not implemented')
 		return exp
 
 

@@ -195,7 +195,7 @@ def ref(mol, calc, exp):
 			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp)
 		else:
 			# exp model
-			e_ref = corr(mol, calc, exp, calc.model['METHOD'])
+			e_ref = main(mol, calc, exp, calc.model['METHOD'])[0]
 			# exp base
 			if calc.base['METHOD'] is None:
 				e_ref_base = 0.0
@@ -203,30 +203,41 @@ def ref(mol, calc, exp):
 				if np.abs(e_ref) < 1.0e-10:
 					e_ref_base = e_ref
 				else:
-					e_ref_base = corr(mol, calc, exp, calc.base['METHOD'])
+					e_ref_base = main(mol, calc, exp, calc.base['METHOD'])
 		if mol.verbose:
 			print(' REF: core = {0:} , cas = {1:} , e_ref = {2:.10f} , e_ref_base = {3:.10f}'.format(exp.core_idx, exp.cas_idx, e_ref, e_ref_base))
 		return e_ref + calc.property['energy']['hf'], e_ref_base + calc.property['energy']['hf'], calc.mo
 
 
-def corr(mol, calc, exp, method):
-		""" calculate correlation energy """
+def main(mol, calc, exp, method):
+		""" main property function """
+		# first-order properties
+		prop = False
+#		if 'dipmom' in exp.property:
+#			prop = True
+#		else:
+#			prop = False
 		# fci calc
 		if method == 'FCI':
-			e_corr, _ = _fci(mol, calc, exp, False)
+			e, dm = _fci(mol, calc, exp, prop)
 		# sci base
 		elif method == 'SCI':
-			e_corr, _ = _sci(mol, calc, exp, False)
+			e, dm = _sci(mol, calc, exp, prop)
 		# cisd calc
 		elif method == 'CISD':
-			e_corr, _ = _ci(mol, calc, exp, False)
+			e, dm = _ci(mol, calc, exp, prop)
 		# ccsd / ccsd(t) calc
 		elif method in ['CCSD','CCSD(T)']:
-			e_corr, _ = _cc(mol, calc, exp, False, (method == 'CCSD(T)'))
-		return e_corr
+			e, dm = _cc(mol, calc, exp, prop, (method == 'CCSD(T)'))
+		# calculate first-order properties
+		return e, None
+#		if dm is not None:
+#			return e, _dipmom(mol, calc.mo, dm)
+#		else:
+#			return e, None
 
 
-def dip_mom(mol, mo, dm):
+def _dipmom(mol, mo, dm):
 		""" calculate dipole moment """
 		# nuclear dipole moment
 		charges = mol.atom_charges()
@@ -395,7 +406,7 @@ def _fci(mol, calc, exp, dens):
 		# target state
 		solver.nroots = calc.target + 1
 		# get integrals and core energy
-		h1e, h2e, e_core = _prepare(mol, calc, exp)
+		h1e, h2e = _prepare(mol, calc, exp)
 		# electrons
 		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# orbital symmetry
@@ -410,7 +421,7 @@ def _fci(mol, calc, exp, dens):
 		except Exception:
 			return 0.0, None
 		# perform calc
-		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=e_core)
+		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=mol.e_core)
 		# collect results
 		if solver.nroots == 1:
 			conv = solver.converged
@@ -474,7 +485,7 @@ def _sci(mol, calc, exp, dens):
 		# target state
 		solver.nroots = calc.target + 1
 		# get integrals and core energy
-		h1e, h2e, e_core = _prepare(mol, calc, exp)
+		h1e, h2e = _prepare(mol, calc, exp)
 		# electrons
 		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# orbital symmetry
@@ -489,7 +500,7 @@ def _sci(mol, calc, exp, dens):
 		except Exception:
 			return 0.0, None
 		# perform calc
-		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=e_core)
+		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=mol.e_core)
 		# collect results
 		if solver.nroots == 1:
 			conv = solver.converged
@@ -536,7 +547,7 @@ def _ci(mol, calc, exp, dens):
 		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
 			return 0.0, None
 		# get integrals
-		h1e, h2e, e_core = _prepare(mol, calc, exp)
+		h1e, h2e = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
 		mol_tmp.incore_anyway = True
 		mol_tmp.max_memory = mol.max_memory
@@ -587,7 +598,7 @@ def _cc(mol, calc, exp, dens, pt=False):
 		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
 			return 0.0, None
 		# get integrals
-		h1e, h2e, e_core = _prepare(mol, calc, exp)
+		h1e, h2e = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
 		mol_tmp.incore_anyway = True
 		mol_tmp.max_memory = mol.max_memory
@@ -655,18 +666,19 @@ def core_cas(mol, exp, tup):
 def _prepare(mol, calc, exp):
 		""" generate input for correlated calculation """
 		# extract cas integrals and calculate core energy
-		if len(exp.core_idx) > 0:
-			core_dm = np.dot(calc.mo[:, exp.core_idx], np.transpose(calc.mo[:, exp.core_idx])) * 2
-			vj, vk = scf.hf.get_jk(mol, core_dm)
-			core_vhf = vj - vk * .5
-			e_core = mol.energy_nuc() + np.einsum('ij,ji', core_dm, mol.hcore)
-			e_core += np.einsum('ij,ji', core_dm, core_vhf) * .5
-		else:
-			e_core = mol.energy_nuc()
-			core_vhf = 0
+		if mol.e_core is None or exp.typ == 'occupied':
+			if len(exp.core_idx) > 0:
+				core_dm = np.dot(calc.mo[:, exp.core_idx], np.transpose(calc.mo[:, exp.core_idx])) * 2
+				vj, vk = scf.hf.get_jk(mol, core_dm)
+				mol.core_vhf = vj - vk * .5
+				mol.e_core = mol.energy_nuc() + np.einsum('ij,ji', core_dm, mol.hcore)
+				mol.e_core += np.einsum('ij,ji', core_dm, mol.core_vhf) * .5
+			else:
+				mol.e_core = mol.energy_nuc()
+				mol.core_vhf = 0
 		h1e_cas = reduce(np.dot, (np.transpose(calc.mo[:, exp.cas_idx]), \
-								mol.hcore + core_vhf, calc.mo[:, exp.cas_idx]))
+							mol.hcore + mol.core_vhf, calc.mo[:, exp.cas_idx]))
 		h2e_cas = ao2mo.incore.full(mol.eri, calc.mo[:, exp.cas_idx])
-		return h1e_cas, h2e_cas, e_core
+		return h1e_cas, h2e_cas
 
 

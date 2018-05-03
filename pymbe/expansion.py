@@ -15,8 +15,10 @@ import numpy as np
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, mol, calc):
+		def __init__(self, mol, calc, typ):
 				""" init parameters """
+				# set type of expansion
+				self.typ = typ
 				# init tuples and incl_idx
 				self.incl_idx, self.tuples = _init_tup(mol, calc)
 				# init property dict
