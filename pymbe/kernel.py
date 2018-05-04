@@ -25,7 +25,7 @@ def ao_ints(mol, calc):
 		# electron repulsion ints
 		eri = mol.intor('int2e_sph', aosym=4)
 		# dipole integrals with gauge origin at (0,0,0)
-		if 'dipmom' in calc.property:
+		if calc.prop['DIPMOM']:
 			with mol.with_common_orig((0,0,0)):
 				dipmom = mol.intor_symmetric('int1e_r', comp=3)
 		else:
@@ -181,9 +181,9 @@ def ref(mol, calc, exp):
 		""" calculate reference energy and mo coefficients """
 		# set core and cas spaces
 		if calc.typ == 'occupied':
-			exp.core_idx, exp.cas_idx = list(range(mol.nocc)), calc.ref_space.tolist()
+			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
 		elif calc.typ == 'virtual':
-			exp.core_idx, exp.cas_idx = list(range(mol.ncore)), calc.ref_space.tolist()
+			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
 		# sort mo coefficients
 		if calc.ref['METHOD'] in ['CASCI','CASSCF']:
 			if calc.ref['ACTIVE'] == 'MANUAL':
@@ -206,6 +206,9 @@ def ref(mol, calc, exp):
 		else:
 			# exp model
 			e_ref, dipmom_ref = main(mol, calc, exp, calc.model['METHOD'])
+			if calc.prop['DIPMOM']:
+				if dipmom_ref is None:
+					dipmom_ref = np.zeros(3, dtype=np.float64)
 			# exp base
 			if calc.base['METHOD'] is None:
 				e_ref_base = 0.0
@@ -215,14 +218,20 @@ def ref(mol, calc, exp):
 				else:
 					e_ref_base = main(mol, calc, exp, calc.base['METHOD'])[0]
 		if mol.verbose:
-			print(' REF: core = {0:} , cas = {1:} , e_ref = {2:.10f} , e_ref_base = {3:.10f}'.format(exp.core_idx, exp.cas_idx, e_ref, e_ref_base))
+			string = '\n REF: core = {0:} , cas = {1:} , e_ref = {2:.4e} , e_ref_base = {3:.4e}'
+			form = (exp.core_idx, exp.cas_idx, e_ref, e_ref_base)
+			if calc.prop['DIPMOM']:
+				string += ' , dipmom_ref = {4:.4f}'
+				form += (np.sqrt(np.sum(dipmom_ref**2)),)
+			string += '\n'
+			print(string.format(*form))
 		return e_ref + calc.property['energy']['hf'], e_ref_base + calc.property['energy']['hf'], dipmom_ref, calc.mo
 
 
 def main(mol, calc, exp, method):
 		""" main property function """
 		# first-order properties
-		if 'dipmom' in exp.property:
+		if calc.prop['DIPMOM']:
 			prop = True
 		else:
 			prop = False
@@ -240,9 +249,10 @@ def main(mol, calc, exp, method):
 			e, dm = _cc(mol, calc, exp, prop, (method == 'CCSD(T)'))
 		# calculate first-order properties
 		if dm is not None:
-			return e, _dipmom(mol.dipmom, calc.occup, exp.core_idx, exp.cas_idx, calc.mo, dm)
+			if calc.prop['DIPMOM']:
+				return e, _dipmom(mol.dipmom, calc.occup, exp.core_idx, exp.cas_idx, calc.mo, dm)
 		else:
-			return e, np.zeros(3, dtype=np.float64)
+			return e, None
 
 
 def _dipmom(ints, occup, core_idx, cas_idx, mo, cas_dm):

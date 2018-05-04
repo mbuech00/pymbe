@@ -55,6 +55,7 @@ def set_mpi(mpi):
 		# now set info
 		if not mpi.parallel:
 			mpi.prim_master = True
+			mpi.global_rank = mpi.local_rank = 0
 		else:
 			if mpi.num_local_masters == 0:
 				mpi.master_comm = mpi.local_comm = mpi.global_comm
@@ -115,18 +116,18 @@ def calc(mpi, calc):
 		""" bcast calc info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'model': calc.model['METHOD'], 'typ': calc.typ, 'protocol': calc.protocol, \
+				info = {'model': calc.model['METHOD'], 'typ': calc.typ, 'prop': calc.prop, \
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
-						'thres': calc.thres, 'relax': calc.relax, \
+						'thres': calc.thres, 'relax': calc.relax, 'protocol': calc.protocol, \
 						'wfnsym': calc.wfnsym, 'target': calc.target, 'max_order': calc.max_order, \
 						'occ': calc.occ, 'virt': calc.virt, \
 						'async': calc.async, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.model = {'METHOD': info['model']}; calc.typ = info['typ']; calc.protocol = info['protocol']
+				calc.model = {'METHOD': info['model']}; calc.typ = info['typ']; calc.prop = info['prop']
 				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
-				calc.thres = info['thres']; calc.relax = info['relax']
+				calc.thres = info['thres']; calc.relax = info['relax']; calc.protocol = info['protocol']
 				calc.wfnsym = info['wfnsym']; calc.target = info['target']; calc.max_order = info['max_order']
 				calc.occ = info['occ']; calc.virt = info['virt']
 				calc.async = info['async']; calc.restart = info['restart']
@@ -199,10 +200,11 @@ def exp(mpi, calc, exp, comm):
 					exp.property['energy']['inc'].append(buff)
 
 
-def property(exp, comm):
+def property(calc, exp, comm):
 		""" Allreduce properties """
 		_energy(exp, comm)
-		_dipmom(exp, comm)
+		if calc.prop['DIPMOM']:
+			_dipmom(exp, comm)
 
 
 def _energy(exp, comm):

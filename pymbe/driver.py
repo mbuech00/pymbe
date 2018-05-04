@@ -73,7 +73,14 @@ def main(mpi, mol, calc, exp):
 			if mpi.global_master: exp.rst_freq = max(exp.rst_freq // 2, 1)
 			# convergence check
 			if exp.conv_orb[-1] or exp.order == exp.max_order:
+				# convert final results to numpy arrays
 				exp.property['energy']['tot'] = np.asarray(exp.property['energy']['tot'])
+				if calc.prop['DIPMOM']:
+					exp.property['dipmom']['tot'] = np.asarray(exp.property['dipmom']['tot'])
+				# timings
+				exp.time['mbe'] = np.asarray(exp.time['mbe'])
+				exp.time['screen'] = np.asarray(exp.time['screen'])
+				exp.time['total'] = exp.time['mbe'] + exp.time['screen']
 				break
 
 

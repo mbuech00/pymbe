@@ -63,7 +63,8 @@ def _setup(mpi, mol, calc, exp):
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		e_final = _e_final(calc, exp)
-		dipmom_final = _dipmom_final(mol, calc, exp)
+		if calc.prop['DIPMOM']:
+			dipmom_final = _dipmom_final(mol, calc, exp)
 		return basis, mult, ref, base, typ_prot, system, frozen, \
 				active, occ, virt, mpi, thres, symm, e_final, dipmom_final
 
@@ -80,7 +81,7 @@ def _table(info, mol, calc, exp):
 				print(_second_row(info, calc))
 				print(_third_row(info, calc))
 				print(_fourth_row(info))
-				print(_fifth_row(info))
+				print(_fifth_row(info, exp))
 				print(_sixth_row(info))
 				print(DIVIDER); print(FILL); print(DIVIDER)
 				print(_header_2())
@@ -248,64 +249,66 @@ def _dipmom_final(mol, calc, exp):
 
 def _header_1():
 		""" table header 1 """
-		return ('{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}').\
-				format('','molecular information','','|','',\
+		return ('{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'). \
+				format('','molecular information','','|','', \
 					'expansion information','','|','','calculation information')
 
 
 def _first_row(info, calc):
 		""" first row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}').\
-					format('','basis set','','=','',info['basis'],\
-						'','|','','expansion model','','=','',calc.model['METHOD'],\
+				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'). \
+					format('','basis set','','=','',info['basis'], \
+						'','|','','expansion model','','=','',calc.model['METHOD'], \
 						'','|','','mpi masters / slaves','','=','',info['mpi'])
 
 
 def _second_row(info, calc):
 		""" second row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}').\
-					format('','spin multiplicity','','=','',info['mult'],\
-						'','|','','reference funct.','','=','',info['ref'],\
+				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'). \
+					format('','spin multiplicity','','=','',info['mult'], \
+						'','|','','reference funct.','','=','',info['ref'], \
 						'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf'])
 
 
 def _third_row(info, calc):
 		""" third row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-					format('','system size','','=','',info['system'],\
-						'','|','','cas size','','=','',info['active'],\
-						'','|','','base model energy','','=','',\
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}'). \
+					format('','system size','','=','',info['system'], \
+						'','|','','cas size','','=','',info['active'], \
+						'','|','','base model energy','','=','', \
 						calc.property['energy']['hf']+calc.property['energy']['base'])
 
 
 def _fourth_row(info):
 		""" fourth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}').\
-					format('','frozen core','','=','',info['frozen'],\
-						'','|','','base model','','=','',info['base'],\
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}'). \
+					format('','frozen core','','=','',info['frozen'], \
+						'','|','','base model','','=','',info['base'], \
 						'','|','','MBE energy','','=','',info['e_final'][-1])
 
 
-def _fifth_row(info):
+def _fifth_row(info, exp):
 		""" fifth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:2}{21:.6f}').\
-					format('','occupied orbitals','','=','',info['occ'],\
-						'','|','','type / protocol','','=','',info['typ_prot'],\
-						'','|','','MBE dipole moment','','=','',\
-						np.sqrt(np.sum(info['dipmom_final'][-1, :]**2)))
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}').\
+					format('','occupied orbitals','','=','',info['occ'], \
+						'','|','','type / protocol','','=','',info['typ_prot'], \
+						'','|','','total time','','=','', \
+						_time(exp, 'total', exp.order-1)[0],'h', \
+						_time(exp, 'total', exp.order-1)[1],'m', \
+						_time(exp, 'total', exp.order-1)[2],'s')
 
 
 def _sixth_row(info):
 		""" sixth row in table """
 		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}').\
-					format('','virtual orbitals','','=','',info['virt'],\
-						'','|','','thres. / relax.','','=','',info['thres'],\
+				'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}'). \
+					format('','virtual orbitals','','=','',info['virt'], \
+						'','|','','thres. / relax.','','=','',info['thres'], \
 						'','|','','wave funct. symmetry','','=','',info['symm'])
 
 
@@ -323,28 +326,38 @@ def _orders(info, calc, exp):
 		orders = []
 		# loop over orders
 		for i in range(exp.property['energy']['tot'].size):
-			# sum up total time
-			total_time = np.sum(exp.time['mbe'][:i+1])\
-							+np.sum(exp.time['screen'][:i+1])
 			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:6}{5:03d}{6:^3}{7:02d}'
 				'{8:^3}{9:02d}{10:^5}{11:03d}{12:^3}{13:02d}{14:^3}{15:02d}{16:^5}{17:03d}{18:^3}{19:02d}'
 				'{20:^3}{21:02d}{22:6}{23:1}{24:4}{25:>11.6f}{26:5}{27:1}{28:5}{29:7.4f}{30:^3}{31:7.4f}{32:^3}{33:7.4f}').\
 					format('',i+exp.start_order, \
-						'','|','',int(exp.time['mbe'][i]//3600),':', \
-						int((exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600.)//60),':', \
-						int(exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600. \
-						- ((exp.time['mbe'][i]-(exp.time['mbe'][i]//3600)*3600.)//60)*60.), \
-						'/',int(exp.time['screen'][i]//3600),':', \
-						int((exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600.)//60),':', \
-						int(exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600. \
-						- ((exp.time['screen'][i]-(exp.time['screen'][i]//3600)*3600.)//60)*60.), \
-						'-',int(total_time//3600),':', \
-						int((total_time-(total_time//3600)*3600.)//60),':', \
-						int(total_time-(total_time//3600)*3600. \
-						- ((total_time-(total_time//3600)*3600.)//60)*60.), \
+						'','|','',_time(exp, 'mbe', i)[0],':', \
+						_time(exp, 'mbe', i)[1],':', \
+						_time(exp, 'mbe', i)[2], \
+						'/',_time(exp, 'screen', i)[0],':', \
+   						_time(exp, 'screen', i)[1],':', \
+   						_time(exp, 'screen', i)[2], \
+						'-',_time(exp, 'total', i)[0],':', \
+ 						_time(exp, 'total', i)[1],':', \
+ 						_time(exp, 'total', i)[2], \
 						'','|','',info['e_final'][i], \
-						'','|','',info['dipmom_final'][i,0],'',info['dipmom_final'][i,1],'',info['dipmom_final'][i,2]))
+#						'','|','',info['dipmom_final'][i,0],'',info['dipmom_final'][i,1],'',info['dipmom_final'][i,2]))
+						'','|','',0.0,'',0.0,'',0.0))
 		return orders
+
+
+def _time(exp, comp, idx):
+		""" convert time to (HHH : MM : SS) format """
+		if comp != 'total':
+			hours = int(exp.time[comp][idx]//3600)
+			minutes = int((exp.time[comp][idx]-(exp.time[comp][idx]//3600)*3600.)//60)
+			seconds = int(exp.time[comp][idx]-(exp.time[comp][idx]//3600)*3600. \
+							- ((exp.time[comp][idx]-(exp.time[comp][idx]//3600)*3600.)//60)*60.)
+		else:
+			hours = int(np.sum(exp.time[comp][:idx+1])//3600)
+			minutes = int((np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600.)//60)
+			seconds = int(np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600. \
+							- ((np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600.)//60)*60.)
+		return hours, minutes, seconds
 
 
 def _energy(calc, exp):

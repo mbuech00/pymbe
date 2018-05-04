@@ -23,6 +23,7 @@ import kernel
 # output parameters
 OUT = os.getcwd()+'/output'
 HEADER = '{0:^87}'.format('-'*45)
+DIVIDER = ' '+'-'*92
 
 
 def main_header():
@@ -48,30 +49,32 @@ def main_header():
 
 def exp_header(calc, exp):
 		""" print expansion header """
+		# set string
+		string = HEADER+'\n'
+		string += '{0:^87}\n'
+		string += HEADER+'\n\n'
+		form = (calc.typ+' expansion')
+		# now print
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(HEADER)
-				print('{0:^87}'.format(calc.typ+' expansion'))
-				print(HEADER+'\n\n')
+				print(string.format(form))
 		# write also to stdout
-		print('\n\n'+HEADER)
-		print('{0:^87}'.format(calc.typ+' expansion'))
-		print(HEADER+'\n\n')
+		print(string.format(form))
 
 
 def mbe_header(exp):
 		""" print mbe header """
+		# set string
+		string = DIVIDER+'\n'
+		string += ' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total\n'
+		string += DIVIDER
+		form = (exp.order, len(exp.tuples[exp.order-exp.start_order]))
+		# now print
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
-						format(exp.order,len(exp.tuples[exp.order-exp.start_order])))
-				print(' --------------------------------------------------------------------------------------------')
+				print(string.format(*form))
 		# write also to stdout
-		print(' --------------------------------------------------------------------------------------------')
-		print(' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total'.\
-				format(exp.order,len(exp.tuples[exp.order-exp.start_order])))
-		print(' --------------------------------------------------------------------------------------------')
+		print(string.format(*form))
 
 
 def mbe_status(exp, prog):
@@ -86,17 +89,17 @@ def mbe_status(exp, prog):
 
 def mbe_end(exp):
 		""" print end of mbe """
+		# set string
+		string = DIVIDER+'\n'
+		string += ' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})\n'
+		string += DIVIDER
+		form = (exp.order, np.sum(exp.property['energy']['inc'][exp.order-exp.start_order]))
+		# now print
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})'.\
-						format(exp.order,np.sum(exp.property['energy']['inc'][exp.order-exp.start_order])))
-				print(' --------------------------------------------------------------------------------------------')
+				print(string.format(*form))
 		# write also to stdout
-		print(' --------------------------------------------------------------------------------------------')
-		print(' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})'.\
-				format(exp.order,np.sum(exp.property['energy']['inc'][exp.order-exp.start_order])))
-		print(' --------------------------------------------------------------------------------------------')
+		print(string.format(*form))
 
 
 def mbe_results(mol, calc, exp):
@@ -115,71 +118,55 @@ def mbe_results(mol, calc, exp):
 		else:
 			cas_exp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
 			cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
+		# set string
+		string = DIVIDER+'\n'
+		string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+		string += DIVIDER+'\n'
+		string += ' RESULT:     {0:>13.4e}       |        {1:>13.4e}         |       {2:>13.4e}\n'
+		if mol.verbose:
+			string += DIVIDER+'\n'
+			string += ' RESULT:                   info on max. abs. increment:\n'
+			string += ' RESULT:  core = {3:}\n'
+			string += ' RESULT:  cas  = '+cas_ref+' + '+cas_exp+'\n'
+		string += DIVIDER
+		form = (mean_val, min_val, max_val)
+		if mol.verbose:
+			form += (core,)
 		# now print
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment')
-				print(' --------------------------------------------------------------------------------------------')
-				print(' RESULT:     {0:>13.4e}       |        {1:>13.4e}         |       {2:>13.4e}'.\
-						format(mean_val, min_val, max_val))
-				# debug print
-				if mol.verbose:
-					print(' --------------------------------------------------------------------------------------------')
-					print(' RESULT:                   info on max. abs. increment:')
-					print(' RESULT:  core = {0:}'.format(core))
-					print(' RESULT:  cas  = '+cas_ref+' + '+cas_exp)
-				print(' --------------------------------------------------------------------------------------------')
+				print(string.format(*form))
 		# write also to stdout
-		print(' --------------------------------------------------------------------------------------------')
-		print(' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment')
-		print(' --------------------------------------------------------------------------------------------')
-		print(' RESULT:     {0:>13.4e}       |        {1:>13.4e}         |       {2:>13.4e}'.\
-				format(mean_val, min_val, max_val))
-		# debug print
-		if mol.verbose:
-			print(' --------------------------------------------------------------------------------------------')
-			print(' RESULT:                   info on max. abs. increment:')
-			print(' RESULT:  core = {0:}'.format(core))
-			print(' RESULT:  cas  = '+cas_ref+' + '+cas_exp)
-		print(' --------------------------------------------------------------------------------------------')
+		print(string.format(*form))
 
 
 def screen_header(exp, thres):
 		""" print screening header """
+		# set string
+		string = DIVIDER+'\n'
+		string += ' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})\n'
+		string += DIVIDER
+		form = (exp.order, thres)
+		# now print
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(' --------------------------------------------------------------------------------------------')
-				print(' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
-				print(' --------------------------------------------------------------------------------------------')
+				print(string.format(*form))
 		# write also to stdout
-		print(' --------------------------------------------------------------------------------------------')
-		print(' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})'.format(exp.order, thres))
-		print(' --------------------------------------------------------------------------------------------')
+		print(string.format(*form))
 
 
 def screen_end(exp):
 		""" print end of screening """
+		string = DIVIDER+'\n'
+		string += ' STATUS:  order k = {0:>d} screening done\n'
+		if exp.conv_orb[-1]:
+			string += ' STATUS:                  *** convergence has been reached ***                         \n'
+		string += DIVIDER+'\n\n'
+		form = (exp.order)
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				if exp.conv_orb[-1]:
-					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS:  order k = {0:>d} screening done'.format(exp.order))
-					print(' STATUS:                  *** convergence has been reached ***                         ')
-					print(' --------------------------------------------------------------------------------------------\n\n')
-				else:
-					print(' --------------------------------------------------------------------------------------------')
-					print(' STATUS:  order k = {0:>d} screening done'.format(exp.order))
-					print(' --------------------------------------------------------------------------------------------\n\n')
+				print(string.format(form))
 		# write also to stdout
-		if exp.conv_orb[-1]:
-			print(' --------------------------------------------------------------------------------------------')
-			print(' STATUS:  order k = {0:>d} screening done'.format(exp.order))
-			print(' STATUS:                  *** convergence has been reached ***                         ')
-			print(' --------------------------------------------------------------------------------------------\n\n')
-		else:
-			print(' --------------------------------------------------------------------------------------------')
-			print(' STATUS:  order k = {0:>d} screening done'.format(exp.order))
-			print(' --------------------------------------------------------------------------------------------\n\n')
+		print(string.format(form))
 		
 		
