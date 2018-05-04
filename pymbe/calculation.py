@@ -70,7 +70,10 @@ class CalcCls():
 							elif re.split('=',content[i])[0].strip() == 'type':
 								self.typ = re.split('=',content[i])[1].strip()
 							elif re.split('=',content[i])[0].strip() == 'prop':
-								self.prop = ast.literal_eval(re.split('=',content[i])[1].strip())
+								try:
+									self.prop = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in prop dictionary input must be bools (True,False)')
 								self.prop = self._upper(self.prop)
 							elif re.split('=',content[i])[0].strip() == 'protocol':
 								self.protocol = int(re.split('=',content[i])[1].strip())
@@ -166,10 +169,12 @@ class CalcCls():
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# properties
+					if not set(list(self.prop.keys())) <= set(['ENERGY', 'DIPMOM']):
+						raise ValueError('wrong input -- valid choices for properties are: energy and dipmom')
 					if not self.prop['ENERGY']:
-						raise ValueError('wrong input -- calculation of ground state energy is mandatory')
+						raise ValueError('wrong input -- calculation of ground state energy (energy) is mandatory')
 					if self.prop['DIPMOM'] and self.base['METHOD'] is not None:
-						raise ValueError('wrong input -- calculation of dipole moment is only allowed in the absence of a base model')
+						raise ValueError('wrong input -- calculation of dipole moment (dipmom) is only allowed in the absence of a base model')
 					# max order
 					if self.max_order < 0:
 						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
