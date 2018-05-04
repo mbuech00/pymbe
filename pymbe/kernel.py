@@ -198,13 +198,14 @@ def ref(mol, calc, exp):
 			else:
 				from pyscf.mcscf import avas
 				calc.mo = avas.avas(calc.hf, calc.ref['AO_LABELS'], canonicalize=True, ncore=mol.ncore)[2]
-			# set ref energies equal to hf energies
+			# set properties equal to hf values
 			e_ref = e_ref_base = 0.0
+			dipmom_ref = np.zeros(3, dtype=np.float64)
 			# casscf mo
 			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp)
 		else:
 			# exp model
-			e_ref = main(mol, calc, exp, calc.model['METHOD'])[0]
+			e_ref, dipmom_ref = main(mol, calc, exp, calc.model['METHOD'])
 			# exp base
 			if calc.base['METHOD'] is None:
 				e_ref_base = 0.0
@@ -212,10 +213,10 @@ def ref(mol, calc, exp):
 				if np.abs(e_ref) < 1.0e-10:
 					e_ref_base = e_ref
 				else:
-					e_ref_base = main(mol, calc, exp, calc.base['METHOD'])
+					e_ref_base = main(mol, calc, exp, calc.base['METHOD'])[0]
 		if mol.verbose:
 			print(' REF: core = {0:} , cas = {1:} , e_ref = {2:.10f} , e_ref_base = {3:.10f}'.format(exp.core_idx, exp.cas_idx, e_ref, e_ref_base))
-		return e_ref + calc.property['energy']['hf'], e_ref_base + calc.property['energy']['hf'], calc.mo
+		return e_ref + calc.property['energy']['hf'], e_ref_base + calc.property['energy']['hf'], dipmom_ref, calc.mo
 
 
 def main(mol, calc, exp, method):

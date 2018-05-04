@@ -226,8 +226,8 @@ def _symm(mol, calc):
 
 def _e_final(calc, exp):
 		""" final energy """
-		return calc.property['energy']['hf'] \
-				+ exp.property['energy']['tot'] + calc.property['energy']['base'] \
+		return exp.property['energy']['tot'] \
+				+ calc.property['energy']['hf'] + calc.property['energy']['base'] \
 				+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base'])
 
 
@@ -241,7 +241,9 @@ def _dipmom_final(mol, calc, exp):
 			coords  = mol.atom_coords()
 			nuc_dipmom = np.einsum('i,ix->x', charges, coords)
 			# molecular dipole moment
-			return (nuc_dipmom - (calc.property['dipmom']['hf'] + exp.property['dipmom']['tot'])) # * 2.541746 to get result in Debye
+			return (nuc_dipmom \
+					- (exp.property['dipmom']['tot'] \
+						+ calc.property['dipmom']['hf'] + calc.property['dipmom']['ref'])) # * 2.541746 to get result in Debye
 
 
 def _header_1():

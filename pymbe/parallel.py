@@ -148,7 +148,8 @@ def fund(mpi, mol, calc):
 				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.property['energy']['hf'] = info['e_hf']; calc.property['energy']['base'] = info['e_base']
+				calc.property['energy']['hf'] = info['e_hf']; calc.property['dipmom']['hf'] = info['dipmom_hf']
+				calc.property['energy']['base'] = info['e_base']
 				calc.property['energy']['ref'] = info['e_ref']; calc.property['energy']['ref_base'] = info['e_ref_base']
 				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
@@ -198,10 +199,22 @@ def exp(mpi, calc, exp, comm):
 					exp.property['energy']['inc'].append(buff)
 
 
-def energy(exp, comm):
+def property(exp, comm):
+		""" Allreduce properties """
+		_energy(exp, comm)
+		_dipmom(exp, comm)
+
+
+def _energy(exp, comm):
 		""" Allreduce energies """
 		# Allreduce
 		comm.Allreduce(MPI.IN_PLACE, [exp.property['energy']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+
+
+def _dipmom(exp, comm):
+		""" Allreduce dipole moments """
+		# Allreduce
+		comm.Allreduce(MPI.IN_PLACE, [exp.property['dipmom']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def tup(exp, comm):

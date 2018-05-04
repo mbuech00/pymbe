@@ -117,7 +117,8 @@ def _exp(mpi, mol, calc):
 					# exp.typ = 'occupied' for occ-virt and exp.typ = 'virtual' for virt-occ combined expansions
 					raise NotImplementedError('combined expansion not implemented')
 				# reference calculation
-				calc.property['energy']['ref'], calc.property['energy']['ref_base'], calc.mo = kernel.ref(mol, calc, exp)
+				calc.property['energy']['ref'], calc.property['energy']['ref_base'], \
+					calc.property['dipmom']['ref'], calc.mo = kernel.ref(mol, calc, exp)
 				# base energy and transformation matrix
 				calc.property['energy']['base'] = kernel.base(mol, calc, exp)
 				# write fundamental info

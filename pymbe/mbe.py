@@ -147,11 +147,12 @@ def _master(mpi, mol, calc, exp):
 					# loop over tuples
 					for count, idx in enumerate(range(job_info[0], job_info[1])):
 						# calculate increments
-						exp.property['energy']['inc'][-1][idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
+						exp.property['energy']['inc'][-1][idx], \
+							exp.property['dipmom']['inc'][-1][idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 					# increment job index
 					i += batch
-		# allreduce energies
-		parallel.energy(exp, comm)
+		# allreduce properties
+		parallel.property(exp, comm)
 		# collect time
 		exp.time['mbe'].append(MPI.Wtime() - time)
 
@@ -174,11 +175,12 @@ def _slave(mpi, mol, calc, exp):
 					if idx == max(job_info[1] - 2, job_info[0]):
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					exp.property['energy']['inc'][-1][idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
+					exp.property['energy']['inc'][-1][idx], \
+						exp.property['dipmom']['inc'][-1][idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 			elif mpi.stat.tag == TAGS.exit:
 				break
-		# receive energies
-		parallel.energy(exp, comm)
+		# receive properties
+		parallel.property(exp, comm)
 
 
 def _inc(mpi, mol, calc, exp, tup):
