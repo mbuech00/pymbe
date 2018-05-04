@@ -65,6 +65,8 @@ def _setup(mpi, mol, calc, exp):
 		e_final = _e_final(calc, exp)
 		if calc.prop['DIPMOM']:
 			dipmom_final = _dipmom_final(mol, calc, exp)
+		else:
+			dipmom_final = None
 		return basis, mult, ref, base, typ_prot, system, frozen, \
 				active, occ, virt, mpi, thres, symm, e_final, dipmom_final
 
@@ -176,33 +178,33 @@ def _active(calc):
 
 def _orbs(calc):
 		""" orbital print """
-		if calc.occ == 'CAN':
+		if calc.orbital['OCC'] == 'CAN':
 			occ = 'canonical'
-		elif calc.occ == 'CISD':
+		elif calc.orbital['OCC'] == 'CISD':
 			occ = 'CISD natural'
-		elif calc.occ == 'CCSD':
+		elif calc.orbital['OCC'] == 'CCSD':
 			occ = 'CCSD natural'
-		elif calc.occ == 'SCI':
+		elif calc.orbital['OCC'] == 'SCI':
 			occ = 'SCI natural'
-		elif calc.occ == 'PM':
+		elif calc.orbital['OCC'] == 'PM':
 			occ = 'pipek-mezey'
-		elif calc.occ == 'FB':
+		elif calc.orbital['OCC'] == 'FB':
 			occ = 'foster-boys'
-		elif calc.occ == 'IBO-1':
+		elif calc.orbital['OCC'] == 'IBO-1':
 			occ = 'intrin. bond'
-		elif calc.occ == 'IBO-2':
+		elif calc.orbital['OCC'] == 'IBO-2':
 			occ = 'intrin. bond'
-		if calc.virt == 'CAN':
+		if calc.orbital['VIRT'] == 'CAN':
 			virt = 'canonical'
-		elif calc.virt == 'CISD':
+		elif calc.orbital['VIRT'] == 'CISD':
 			virt = 'CISD natural'
-		elif calc.virt == 'CCSD':
+		elif calc.orbital['VIRT'] == 'CCSD':
 			virt = 'CCSD natural'
-		elif calc.virt == 'SCI':
+		elif calc.orbital['VIRT'] == 'SCI':
 			virt = 'SCI natural'
-		elif calc.virt == 'PM':
+		elif calc.orbital['VIRT'] == 'PM':
 			virt = 'pipek-mezey'
-		elif calc.virt == 'FB':
+		elif calc.orbital['VIRT'] == 'FB':
 			virt = 'foster-boys'
 		return occ, virt
 

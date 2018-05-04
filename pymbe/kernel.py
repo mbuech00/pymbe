@@ -280,53 +280,56 @@ def base(mol, calc, exp):
 			e_base = 0.0
 		# cisd base
 		elif calc.base['METHOD'] == 'CISD':
-			e_base, dm = _ci(mol, calc, exp, calc.occ == 'CISD' or calc.virt == 'CISD')
+			e_base, dm = _ci(mol, calc, exp, \
+								calc.orbital['OCC'] == 'CISD' or calc.orbital['VIRT'] == 'CISD')
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['METHOD'] in ['CCSD','CCSD(T)']:
-			e_base, dm = _cc(mol, calc, exp, calc.occ == 'CCSD' or calc.virt == 'CCSD', \
-										(calc.base['METHOD'] == 'CCSD(T)') and \
-										((calc.occ == 'CAN') and (calc.virt == 'CAN')))
+			e_base, dm = _cc(mol, calc, exp, \
+								calc.orbital['OCC'] == 'CCSD' or calc.orbital['VIRT'] == 'CCSD', \
+								(calc.base['METHOD'] == 'CCSD(T)') and \
+								((calc.orbital['OCC'] == 'CAN') and (calc.orbital['VIRT'] == 'CAN')))
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# sci base
 		elif calc.base['METHOD'] == 'SCI':
-			e_base, dm = _sci(mol, calc, exp, calc.occ == 'SCI' or calc.virt == 'SCI')
+			e_base, dm = _sci(mol, calc, exp, \
+								calc.orbital['OCC'] == 'SCI' or calc.orbital['VIRT'] == 'SCI')
 		# NOs
-		if (calc.occ == 'CISD' or calc.virt == 'CISD') and dm is None:
+		if (calc.orbital['OCC'] == 'CISD' or calc.orbital['VIRT'] == 'CISD') and dm is None:
 			dm = _ci(mol, calc, exp, True)[1]
 			if mol.spin > 0: dm = dm[0] + dm[1]
-		elif (calc.occ == 'CCSD' or calc.virt == 'CCSD') and dm is None:
+		elif (calc.orbital['OCC'] == 'CCSD' or calc.orbital['VIRT'] == 'CCSD') and dm is None:
 			dm = _cc(mol, calc, exp, True, False)[1]
 			if mol.spin > 0: dm = dm[0] + dm[1]
-		elif (calc.occ == 'SCI' or calc.virt == 'SCI') and dm is None:
+		elif (calc.orbital['OCC'] == 'SCI' or calc.orbital['VIRT'] == 'SCI') and dm is None:
 			dm = _sci(mol, calc, exp, True)[1]
 		# occ-occ block (local or NOs)
-		if calc.occ != 'CAN':
-			if calc.occ in ['CISD', 'CCSD', 'SCI']:
+		if calc.orbital['OCC'] != 'CAN':
+			if calc.orbital['OCC'] in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
-			elif calc.occ == 'PM':
+			elif calc.orbital['OCC'] == 'PM':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.occ == 'FB':
+			elif calc.orbital['OCC'] == 'FB':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.occ in ['IBO-1','IBO-2']:
+			elif calc.orbital['OCC'] in ['IBO-1','IBO-2']:
 				iao = lo.iao.iao(mol, calc.mo[:, mol.core:mol.nocc])
-				if calc.occ == 'IBO-1':
+				if calc.orbital['OCC'] == 'IBO-1':
 					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
-				elif calc.occ == 'IBO-2':
+				elif calc.orbital['OCC'] == 'IBO-2':
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
-		if calc.virt != 'CAN':
-			if calc.virt in ['CISD', 'CCSD', 'SCI']:
+		if calc.orbital['VIRT'] != 'CAN':
+			if calc.orbital['VIRT'] in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
-			elif calc.virt == 'PM':
+			elif calc.orbital['VIRT'] == 'PM':
 				calc.mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
-			elif calc.virt == 'FB':
+			elif calc.orbital['VIRT'] == 'FB':
 				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
 		# extra calculation for non-invariant methods
-		if calc.occ != 'CAN' or calc.virt != 'CAN':
+		if calc.orbital['OCC'] != 'CAN' or calc.orbital['VIRT'] != 'CAN':
 			if calc.base['METHOD'] == 'CCSD(T)':
 				e_base = _cc(mol, calc, exp, False, True)[0]
 			elif calc.base['METHOD'] == 'SCI':
