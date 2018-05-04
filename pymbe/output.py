@@ -59,7 +59,7 @@ def exp_header(calc, exp):
 			with contextlib.redirect_stdout(f):
 				print(string.format(form))
 		# write also to stdout
-		print(string.format(form))
+		print('\n\n'+string.format(form))
 
 
 def mbe_header(exp):
