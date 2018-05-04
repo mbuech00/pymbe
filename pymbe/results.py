@@ -35,7 +35,7 @@ FILL = '{0:^143}'.format('|'*137)
 
 
 def main(mpi, mol, calc, exp):
-		""" summary printing and plotting """
+		""" printing and plotting of results """
 		# setup
 		info = {}
 		info['basis'], info['mult'], info['ref'], info['base'], info['typ_prot'], \
@@ -43,7 +43,7 @@ def main(mpi, mol, calc, exp):
 			info['mpi'], info['thres'], info['symm'], \
 			info['e_final'], info['dipmom_final'] = _setup(mpi, mol, calc, exp)
 		# results
-		_table(info, mol, calc, exp)
+		_table(info, calc, exp)
 		# plot
 		_plot(calc, exp)
 
@@ -71,33 +71,127 @@ def _setup(mpi, mol, calc, exp):
 				active, occ, virt, mpi, thres, symm, e_final, dipmom_final
 
 
-def _table(info, mol, calc, exp):
+def _table(info, calc, exp):
 		""" print results """
-		# write summary to results.out
+		# write results to results.out
 		with open(OUT+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				print(DIVIDER)
-				print(_header_1())
-				print(DIVIDER)
-				print(_first_row(info, calc))
-				print(_second_row(info, calc))
-				print(_third_row(info, calc))
-				print(_fourth_row(info))
-				print(_fifth_row(info, exp))
-				print(_sixth_row(info))
-				print(DIVIDER); print(FILL); print(DIVIDER)
-				print(_header_2())
-				print(DIVIDER)
-				for i in _orders(info, calc, exp): print(i)
-				print(DIVIDER+'\n\n')
+				_summary_prt(info, calc, exp)
+				_timings_prt(exp)
+				_energy_prt(info, calc, exp)
+				if calc.prop['DIPMOM']:
+					_dipmom_prt(info, exp)
 	
-	
+
 def _plot(calc, exp):
 		""" plot results """
 		# plot MBE energy
-		_energy(calc, exp)
+		_energy_plot(calc, exp)
 		# plot maximal increments
-		_increments(calc, exp)
+		_increments_plot(calc, exp)
+
+
+def _summary_prt(info, calc, exp):
+		""" summary table """
+		print(DIVIDER)
+		print('{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'. \
+				format('','molecular information','','|','', \
+					'expansion information','','|','','calculation information'))
+		print(DIVIDER)
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
+					format('','basis set','','=','',info['basis'], \
+						'','|','','expansion model','','=','',calc.model['METHOD'], \
+						'','|','','mpi masters / slaves','','=','',info['mpi']))
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
+					format('','spin multiplicity','','=','',info['mult'], \
+						'','|','','reference funct.','','=','',info['ref'], \
+						'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf']))
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}'. \
+					format('','system size','','=','',info['system'], \
+						'','|','','cas size','','=','',info['active'], \
+						'','|','','base model energy','','=','', \
+						calc.property['energy']['hf']+calc.property['energy']['base']))
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}'. \
+					format('','frozen core','','=','',info['frozen'], \
+						'','|','','base model','','=','',info['base'], \
+						'','|','','MBE energy','','=','',info['e_final'][-1]))
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}'.\
+					format('','occupied orbitals','','=','',info['occ'], \
+						'','|','','type / protocol','','=','',info['typ_prot'], \
+						'','|','','total time','','=','', \
+						_time(exp, 'total', exp.order-1)[0],'h', \
+						_time(exp, 'total', exp.order-1)[1],'m', \
+						_time(exp, 'total', exp.order-1)[2],'s'))
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
+				'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}'. \
+					format('','virtual orbitals','','=','',info['virt'], \
+						'','|','','thres. / relax.','','=','',info['thres'], \
+						'','|','','wave funct. symmetry','','=','',info['symm']))
+		print(DIVIDER)
+		print(FILL)
+		print(DIVIDER+'\n')
+
+
+def _timings_prt(exp):
+		""" timings """
+		print(DIVIDER[:76])
+		print('{0:^76}'.format('timings'))
+		print(DIVIDER[:76])
+		print('{0:6}{1:9}{2:2}{3:1}{4:7}{5:}'. \
+				format('','MBE order','','|','','time (HHH : MM : SS) -- MBE / screening - total'))
+		print(DIVIDER[:76])
+		for i in range(exp.property['energy']['tot'].size):
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:6}{5:03d}{6:^3}{7:02d}{8:^3}{9:02d}{10:^5}{11:03d}'
+				'{12:^3}{13:02d}{14:^3}{15:02d}{16:^5}{17:03d}{18:^3}{19:02d}{20:^3}{21:02d}'. \
+					format('',i+exp.start_order, \
+						'','|','',_time(exp, 'mbe', i)[0],':', \
+						_time(exp, 'mbe', i)[1],':', \
+						_time(exp, 'mbe', i)[2], \
+						'/',_time(exp, 'screen', i)[0],':', \
+   						_time(exp, 'screen', i)[1],':', \
+   						_time(exp, 'screen', i)[2], \
+						'-',_time(exp, 'total', i)[0],':', \
+ 						_time(exp, 'total', i)[1],':', \
+ 						_time(exp, 'total', i)[2]))
+		print(DIVIDER[:76]+'\n')
+
+
+def _energy_prt(info, calc, exp):
+		""" energy """
+		print(DIVIDER[:66])
+		print('{0:^66}'.format('energy'))
+		print(DIVIDER[:66])
+		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:4}{9:}'. \
+				format('','MBE order','','|','','total energy','','|','','correlation energy'))
+		print(DIVIDER[:66])
+		for i in range(exp.property['energy']['tot'].size):
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:9.4e}'. \
+					format('',i+exp.start_order, \
+						'','|','',info['e_final'][i], \
+						'','|','',info['e_final'][i] - calc.property['energy']['hf']))
+		print(DIVIDER[:66]+'\n')
+
+
+def _dipmom_prt(info, exp):
+		""" dipole moment """
+		print(DIVIDER[:58])
+		print('{0:^58}'.format('dipole moment'))
+		print(DIVIDER[:58])
+		print('{0:6}{1:9}{2:2}{3:1}{4:10}{5:}'. \
+				format('','MBE order','','|','','dipole moment (x,y,z)'))
+		print(DIVIDER[:58])
+		for i in range(exp.property['energy']['tot'].size):
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'. \
+					format('',i+exp.start_order, \
+						'','|','',info['dipmom_final'][i,0], \
+						'',info['dipmom_final'][i,1], \
+						'',info['dipmom_final'][i,2]))
+		print(DIVIDER[:58]+'\n')
 
 
 def _basis(mol):
@@ -249,104 +343,6 @@ def _dipmom_final(mol, calc, exp):
 						+ calc.property['dipmom']['hf'] + calc.property['dipmom']['ref'])) # * 2.541746 to get result in Debye
 
 
-def _header_1():
-		""" table header 1 """
-		return ('{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'). \
-				format('','molecular information','','|','', \
-					'expansion information','','|','','calculation information')
-
-
-def _first_row(info, calc):
-		""" first row in table """
-		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'). \
-					format('','basis set','','=','',info['basis'], \
-						'','|','','expansion model','','=','',calc.model['METHOD'], \
-						'','|','','mpi masters / slaves','','=','',info['mpi'])
-
-
-def _second_row(info, calc):
-		""" second row in table """
-		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'). \
-					format('','spin multiplicity','','=','',info['mult'], \
-						'','|','','reference funct.','','=','',info['ref'], \
-						'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf'])
-
-
-def _third_row(info, calc):
-		""" third row in table """
-		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}'). \
-					format('','system size','','=','',info['system'], \
-						'','|','','cas size','','=','',info['active'], \
-						'','|','','base model energy','','=','', \
-						calc.property['energy']['hf']+calc.property['energy']['base'])
-
-
-def _fourth_row(info):
-		""" fourth row in table """
-		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}'). \
-					format('','frozen core','','=','',info['frozen'], \
-						'','|','','base model','','=','',info['base'], \
-						'','|','','MBE energy','','=','',info['e_final'][-1])
-
-
-def _fifth_row(info, exp):
-		""" fifth row in table """
-		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}').\
-					format('','occupied orbitals','','=','',info['occ'], \
-						'','|','','type / protocol','','=','',info['typ_prot'], \
-						'','|','','total time','','=','', \
-						_time(exp, 'total', exp.order-1)[0],'h', \
-						_time(exp, 'total', exp.order-1)[1],'m', \
-						_time(exp, 'total', exp.order-1)[2],'s')
-
-
-def _sixth_row(info):
-		""" sixth row in table """
-		return ('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}'). \
-					format('','virtual orbitals','','=','',info['virt'], \
-						'','|','','thres. / relax.','','=','',info['thres'], \
-						'','|','','wave funct. symmetry','','=','',info['symm'])
-
-
-def _header_2():
-		""" table header 2 """
-		return ('{0:6}{1:9}{2:2}{3:1}{4:7}{5:48}{6:6}{7:1}{8:7}{9:6}{10:7}{11:1}{12:8}{13:}'.\
-				format('','MBE order', \
-					'','|','','time (HHH : MM : SS) -- MBE / screening - total', \
-					'','|','','energy', \
-					'','|','','dipole moment (x,y,z)'))
-
-
-def _orders(info, calc, exp):
-		""" order table """
-		orders = []
-		# loop over orders
-		for i in range(exp.property['energy']['tot'].size):
-			orders.append(('{0:7}{1:>4d}{2:6}{3:1}{4:6}{5:03d}{6:^3}{7:02d}'
-				'{8:^3}{9:02d}{10:^5}{11:03d}{12:^3}{13:02d}{14:^3}{15:02d}{16:^5}{17:03d}{18:^3}{19:02d}'
-				'{20:^3}{21:02d}{22:6}{23:1}{24:4}{25:>11.6f}{26:5}{27:1}{28:5}{29:7.4f}{30:^3}{31:7.4f}{32:^3}{33:7.4f}').\
-					format('',i+exp.start_order, \
-						'','|','',_time(exp, 'mbe', i)[0],':', \
-						_time(exp, 'mbe', i)[1],':', \
-						_time(exp, 'mbe', i)[2], \
-						'/',_time(exp, 'screen', i)[0],':', \
-   						_time(exp, 'screen', i)[1],':', \
-   						_time(exp, 'screen', i)[2], \
-						'-',_time(exp, 'total', i)[0],':', \
- 						_time(exp, 'total', i)[1],':', \
- 						_time(exp, 'total', i)[2], \
-						'','|','',info['e_final'][i], \
-#						'','|','',info['dipmom_final'][i,0],'',info['dipmom_final'][i,1],'',info['dipmom_final'][i,2]))
-						'','|','',0.0,'',0.0,'',0.0))
-		return orders
-
-
 def _time(exp, comp, idx):
 		""" convert time to (HHH : MM : SS) format """
 		if comp != 'total':
@@ -362,7 +358,7 @@ def _time(exp, comp, idx):
 		return hours, minutes, seconds
 
 
-def _energy(calc, exp):
+def _energy_plot(calc, exp):
 		""" plot MBE energy """
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
@@ -396,7 +392,7 @@ def _energy(calc, exp):
 		plt.savefig(OUT+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
 
 
-def _increments(calc, exp):
+def _increments_plot(calc, exp):
 		""" plot maximal increments """
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
