@@ -89,7 +89,6 @@ def _master(mpi, mol, calc, exp):
 		num_slaves = slaves_avail = mpi.local_size - 1
 		# init tasks
 		tasks = parallel.tasks(len(exp.tuples[-1]), mpi.local_size)
-		if mol.verbose: print(' tasks = {0:}'.format(tasks))
 		i = 0
 		# init job_info array
 		job_info = np.zeros(2, dtype=np.int32)

@@ -41,11 +41,11 @@ def main(mpi, mol, calc, exp):
 		info['basis'], info['mult'], info['ref'], info['base'], info['typ_prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], \
-			info['e_final'], info['dipmom_final'] = _setup(mpi, mol, calc, exp)
+			info['e_final'], info['dipmom_final'], info['dipmom_hf'] = _setup(mpi, mol, calc, exp)
 		# results
-		_table(info, calc, exp)
+		_table(info, mol, calc, exp)
 		# plot
-		_plot(calc, exp)
+		_plot(info, calc, exp)
 
 
 def _setup(mpi, mol, calc, exp):
@@ -64,14 +64,15 @@ def _setup(mpi, mol, calc, exp):
 		symm = _symm(mol, calc)
 		e_final = _e_final(calc, exp)
 		if calc.prop['DIPMOM']:
-			dipmom_final = _dipmom_final(mol, calc, exp)
+			dipmom_final, dipmom_hf = _dipmom_final(mol, calc, exp)
 		else:
-			dipmom_final = None
+			dipmom_final = dipmom_hf = None
 		return basis, mult, ref, base, typ_prot, system, frozen, \
-				active, occ, virt, mpi, thres, symm, e_final, dipmom_final
+				active, occ, virt, mpi, thres, symm, e_final, \
+				dipmom_final, dipmom_hf
 
 
-def _table(info, calc, exp):
+def _table(info, mol, calc, exp):
 		""" print results """
 		# write results to results.out
 		with open(OUT+'/results.out','a') as f:
@@ -80,15 +81,18 @@ def _table(info, calc, exp):
 				_timings_prt(exp)
 				_energy_prt(info, calc, exp)
 				if calc.prop['DIPMOM']:
-					_dipmom_prt(info, exp)
+					_dipmom_prt(info, mol, calc, exp)
 	
 
-def _plot(calc, exp):
+def _plot(info, calc, exp):
 		""" plot results """
 		# plot MBE energy
-		_energy_plot(calc, exp)
+		_energy_plot(info, calc, exp)
 		# plot maximal increments
 		_increments_plot(calc, exp)
+		# plot MBE dipole moment
+		if calc.prop['DIPMOM']:
+			_dipmom_plot(info, calc, exp)
 
 
 def _summary_prt(info, calc, exp):
@@ -139,14 +143,14 @@ def _summary_prt(info, calc, exp):
 
 def _timings_prt(exp):
 		""" timings """
-		print(DIVIDER[:76])
-		print('{0:^76}'.format('timings'))
-		print(DIVIDER[:76])
-		print('{0:6}{1:9}{2:2}{3:1}{4:7}{5:}'. \
+		print(DIVIDER[:75])
+		print('{0:^75}'.format('MBE timings'))
+		print(DIVIDER[:75])
+		print('{0:6}{1:9}{2:2}{3:1}{4:6}{5:}'. \
 				format('','MBE order','','|','','time (HHH : MM : SS) -- MBE / screening - total'))
-		print(DIVIDER[:76])
+		print(DIVIDER[:75])
 		for i in range(exp.property['energy']['tot'].size):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:6}{5:03d}{6:^3}{7:02d}{8:^3}{9:02d}{10:^5}{11:03d}'
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:03d}{6:^3}{7:02d}{8:^3}{9:02d}{10:^5}{11:03d}'
 				'{12:^3}{13:02d}{14:^3}{15:02d}{16:^5}{17:03d}{18:^3}{19:02d}{20:^3}{21:02d}'. \
 					format('',i+exp.start_order, \
 						'','|','',_time(exp, 'mbe', i)[0],':', \
@@ -158,13 +162,13 @@ def _timings_prt(exp):
 						'-',_time(exp, 'total', i)[0],':', \
  						_time(exp, 'total', i)[1],':', \
  						_time(exp, 'total', i)[2]))
-		print(DIVIDER[:76]+'\n')
+		print(DIVIDER[:75]+'\n')
 
 
 def _energy_prt(info, calc, exp):
 		""" energy """
 		print(DIVIDER[:66])
-		print('{0:^66}'.format('energy'))
+		print('{0:^66}'.format('MBE energy'))
 		print(DIVIDER[:66])
 		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:4}{9:}'. \
 				format('','MBE order','','|','','total energy','','|','','correlation energy'))
@@ -177,21 +181,26 @@ def _energy_prt(info, calc, exp):
 		print(DIVIDER[:66]+'\n')
 
 
-def _dipmom_prt(info, exp):
+def _dipmom_prt(info, mol, calc, exp):
 		""" dipole moment """
-		print(DIVIDER[:58])
-		print('{0:^58}'.format('dipole moment'))
-		print(DIVIDER[:58])
-		print('{0:6}{1:9}{2:2}{3:1}{4:10}{5:}'. \
-				format('','MBE order','','|','','dipole moment (x,y,z)'))
-		print(DIVIDER[:58])
+		print(DIVIDER[:110])
+		print('{0:^110}'.format('MBE dipole'))
+		print(DIVIDER[:110])
+		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:5}{11:1}{12:4}{13:}'. \
+				format('','MBE order','','|','','dipole components (x,y,z)', \
+						'','|','','dipole moment','','|','','correlation dipole'))
+		print(DIVIDER[:110])
 		for i in range(exp.property['energy']['tot'].size):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'. \
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+				'{10:5}{11:1}{12:7}{13:9.6f}{14:7}{15:1}{16:8}{17:9.6f}'. \
 					format('',i+exp.start_order, \
-						'','|','',info['dipmom_final'][i,0], \
-						'',info['dipmom_final'][i,1], \
-						'',info['dipmom_final'][i,2]))
-		print(DIVIDER[:58]+'\n')
+						'','|','',info['dipmom_final'][i, 0], \
+						'',info['dipmom_final'][i, 1], \
+						'',info['dipmom_final'][i, 2], \
+						'','|','',np.sqrt(np.sum(info['dipmom_final'][i, :]**2)), \
+						'','|','',np.sqrt(np.sum(info['dipmom_final'][i, :]**2)) \
+									- np.sqrt(np.sum(info['dipmom_hf']**2))))
+		print(DIVIDER[:110]+'\n')
 
 
 def _basis(mol):
@@ -338,9 +347,10 @@ def _dipmom_final(mol, calc, exp):
 			coords  = mol.atom_coords()
 			nuc_dipmom = np.einsum('i,ix->x', charges, coords)
 			# molecular dipole moment
-			return (nuc_dipmom \
-					- (exp.property['dipmom']['tot'] \
-						+ calc.property['dipmom']['hf'] + calc.property['dipmom']['ref'])) # * 2.541746 to get result in Debye
+			dipmom = (nuc_dipmom - (exp.property['dipmom']['tot'] \
+						+ calc.property['dipmom']['hf'] + calc.property['dipmom']['ref']))
+			dipmom_hf = nuc_dipmom - calc.property['dipmom']['hf']
+			return dipmom, dipmom_hf
 
 
 def _time(exp, comp, idx):
@@ -358,36 +368,48 @@ def _time(exp, comp, idx):
 		return hours, minutes, seconds
 
 
-def _energy_plot(calc, exp):
+def _energy_plot(info, calc, exp):
 		""" plot MBE energy """
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 1 plot
-		fig, ax = plt.subplots()
-		# array of MBE energies
-		mbe = np.empty_like(exp.property['energy']['inc'])
-		for i in range(mbe.size):
-			mbe[i] = np.sum(exp.property['energy']['inc'][i])
+		# set 2 subplots
+		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+		# array of MBE total energy increments
+		mbe = exp.property['energy']['tot'].copy()
+		mbe[1:] = np.diff(mbe)
 		# plot results
-		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+		ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+				info['e_final'], marker='x', linewidth=2, color='green', \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax1.xaxis.grid(False)
+		# set labels
+		ax1.set_ylabel('Energy (in au)')
+		# force integer ticks on x-axis
+		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
+		# plot results
+		ax2.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				np.abs(mbe), marker='x', linewidth=2, color='green', \
 				linestyle='-', label='MBE-'+calc.model['METHOD'])
 		# set x limits
-		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
-		ax.xaxis.grid(False)
+		ax2.xaxis.grid(False)
 		# set labels
-		ax.set_xlabel('Expansion order')
-		ax.set_ylabel('Total increments (in Hartree)')
+		ax2.set_xlabel('Expansion order')
+		ax2.set_ylabel('Increments (in au)')
 		# force integer ticks on x-axis
-		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
+		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# no spacing
+		plt.subplots_adjust(hspace=0.05)
 		# despine
 		sns.despine()
 		# set legends
-		ax.legend(loc=1)
-		# tight layout
-		plt.tight_layout()
+		ax1.legend(loc=1)
 		# save plot
 		plt.savefig(OUT+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
 
@@ -424,7 +446,7 @@ def _increments_plot(calc, exp):
 		ax.xaxis.grid(False)
 		# set labels
 		ax.set_xlabel('Expansion order')
-		ax.set_ylabel('Absolute increments (in Hartree)')
+		ax.set_ylabel('Increments (in au)')
 		# force integer ticks on x-axis
 		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
@@ -436,5 +458,57 @@ def _increments_plot(calc, exp):
 		plt.tight_layout()
 		# save plot
 		plt.savefig(OUT+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
+
+
+def _dipmom_plot(info, calc, exp):
+		""" plot MBE dipole moment """
+		# set seaborn
+		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 2 subplots
+		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+		# dipmom length
+		dipmom = np.empty_like(exp.property['energy']['tot'])
+		for i in range(dipmom.size):
+			dipmom[i] = np.sqrt(np.sum(info['dipmom_final'][i, :]**2))
+		# array of MBE total energy increments
+		mbe = np.empty_like(exp.property['energy']['tot'])
+		for i in range(mbe.size):
+			mbe[i] = np.sqrt(np.sum(info['dipmom_final'][i, :]**2)) - np.sqrt(np.sum(info['dipmom_hf']**2))
+		mbe[1:] = np.diff(mbe)
+		# plot results
+		ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+				dipmom, marker='x', linewidth=2, color='red', \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax1.xaxis.grid(False)
+		# set labels
+		ax1.set_ylabel('Dipole moment (in au)')
+		# force integer ticks on x-axis
+		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
+		# plot results
+		ax2.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+				np.abs(mbe), marker='x', linewidth=2, color='red', \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax2.xaxis.grid(False)
+		# set labels
+		ax2.set_xlabel('Expansion order')
+		ax2.set_ylabel('Increments (in au)')
+		# force integer ticks on x-axis
+		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# no spacing
+		plt.subplots_adjust(hspace=0.05)
+		# despine
+		sns.despine()
+		# set legends
+		ax1.legend(loc=1)
+		# save plot
+		plt.savefig(OUT+'/dipmom.pdf', bbox_inches = 'tight', dpi=1000)
 
 

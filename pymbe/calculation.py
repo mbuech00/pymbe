@@ -75,6 +75,8 @@ class CalcCls():
 								except ValueError:
 									raise ValueError('wrong input -- values in prop dictionary input must be bools (True,False)')
 								self.prop = self._upper(self.prop)
+								if 'ENERGY' not in self.prop:
+									self.prop['ENERGY'] = True
 							elif re.split('=',content[i])[0].strip() == 'protocol':
 								self.protocol = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'ref':

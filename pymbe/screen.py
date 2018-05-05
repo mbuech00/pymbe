@@ -173,12 +173,16 @@ def _slave(mpi, mol, calc, exp):
 		# init job_info array and child_tup list
 		job_info = np.zeros(2, dtype=np.int32)
 		child_tup = []
+		# task counter
+		task_count = 0
 		# receive work from master
 		while True:
 			# receive job info
 			comm.Recv([job_info, MPI.INT], source=0, status=mpi.stat)
 			# do job
 			if mpi.stat.tag == TAGS.start:
+				# increment task counter
+				task_count += 1
 				# calculate child tuples
 				for idx in range(job_info[0], job_info[1]):
 					# send availability to master
@@ -193,7 +197,8 @@ def _slave(mpi, mol, calc, exp):
 							child_tup += parent_tup+[m]
 			elif mpi.stat.tag == TAGS.exit:
 				# send tuples to master
-				comm.Send([np.asarray(child_tup, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
+				if task_count > 0:
+					comm.Send([np.asarray(child_tup, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
 				break
 		# receive tuples
 		tup_size = np.empty(1, dtype=np.int64)
