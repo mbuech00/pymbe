@@ -217,7 +217,7 @@ def _inc(mpi, mol, calc, exp, tup):
 		# verbose print
 		if mol.verbose:
 			string = ' INC: proc = {0:} , core = {1:} , cas = {2:} , e_inc = {3:.4e}'
-			form = (mpi.local_rank, exp.core_idx, exp.cas_idx, e_inc)
+			form = (mpi.local_rank, exp.core_idx.tolist(), exp.cas_idx.tolist(), e_inc)
 			if calc.prop['DIPMOM']:
 				string += ' , dipmom_inc = {4:.4e}'
 				form += (np.sqrt(np.sum(dipmom_inc**2)),)

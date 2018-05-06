@@ -209,6 +209,8 @@ def ref(mol, calc, exp):
 			if calc.prop['DIPMOM']:
 				if dipmom_ref is None:
 					dipmom_ref = np.zeros(3, dtype=np.float64)
+				else:
+					dipmom_ref -= calc.property['dipmom']['hf']
 			# exp base
 			if calc.base['METHOD'] is None:
 				e_ref_base = 0.0
@@ -219,7 +221,7 @@ def ref(mol, calc, exp):
 					e_ref_base = main(mol, calc, exp, calc.base['METHOD'])[0]
 		if mol.verbose:
 			string = '\n REF: core = {0:} , cas = {1:} , e_ref = {2:.4e} , e_ref_base = {3:.4e}'
-			form = (exp.core_idx, exp.cas_idx, e_ref, e_ref_base)
+			form = (exp.core_idx.tolist(), exp.cas_idx.tolist(), e_ref, e_ref_base)
 			if calc.prop['DIPMOM']:
 				string += ' , dipmom_ref = {4:.4f}'
 				form += (np.sqrt(np.sum(dipmom_ref**2)),)
@@ -250,19 +252,17 @@ def main(mol, calc, exp, method):
 		# calculate first-order properties
 		if dm is not None:
 			if calc.prop['DIPMOM']:
-				return e, _dipmom(mol.dipmom, calc.occup, exp.core_idx, exp.cas_idx, calc.mo, dm)
+				return e, _dipmom(mol.dipmom, calc.occup, exp.cas_idx, calc.mo, dm)
 		else:
 			return e, None
 
 
-def _dipmom(ints, occup, core_idx, cas_idx, mo, cas_dm):
+def _dipmom(ints, occup, cas_idx, mo, cas_dm):
 		""" calculate electronic dipole moment """
 		# dm
-		if core_idx.size == 0:
-			dm = cas_dm
-		else:
-			dm = np.diag(occup)
-			dm[cas_idx[:, None], cas_idx] = cas_dm
+		dm = np.diag(occup)
+		dm[cas_idx[:, None], cas_idx] = cas_dm
+		# elec dipmom
 		elec_dipmom = np.empty(3, dtype=np.float64)
 		for i in range(3):
 			elec_dipmom[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ints[i], mo))))
