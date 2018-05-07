@@ -289,33 +289,33 @@ def _active(calc):
 
 def _orbs(calc):
 		""" orbital print """
-		if calc.orbital['OCC'] == 'CAN':
+		if calc.orbitals['OCC'] == 'CAN':
 			occ = 'canonical'
-		elif calc.orbital['OCC'] == 'CISD':
+		elif calc.orbitals['OCC'] == 'CISD':
 			occ = 'CISD natural'
-		elif calc.orbital['OCC'] == 'CCSD':
+		elif calc.orbitals['OCC'] == 'CCSD':
 			occ = 'CCSD natural'
-		elif calc.orbital['OCC'] == 'SCI':
+		elif calc.orbitals['OCC'] == 'SCI':
 			occ = 'SCI natural'
-		elif calc.orbital['OCC'] == 'PM':
+		elif calc.orbitals['OCC'] == 'PM':
 			occ = 'pipek-mezey'
-		elif calc.orbital['OCC'] == 'FB':
+		elif calc.orbitals['OCC'] == 'FB':
 			occ = 'foster-boys'
-		elif calc.orbital['OCC'] == 'IBO-1':
+		elif calc.orbitals['OCC'] == 'IBO-1':
 			occ = 'intrin. bond'
-		elif calc.orbital['OCC'] == 'IBO-2':
+		elif calc.orbitals['OCC'] == 'IBO-2':
 			occ = 'intrin. bond'
-		if calc.orbital['VIRT'] == 'CAN':
+		if calc.orbitals['VIRT'] == 'CAN':
 			virt = 'canonical'
-		elif calc.orbital['VIRT'] == 'CISD':
+		elif calc.orbitals['VIRT'] == 'CISD':
 			virt = 'CISD natural'
-		elif calc.orbital['VIRT'] == 'CCSD':
+		elif calc.orbitals['VIRT'] == 'CCSD':
 			virt = 'CCSD natural'
-		elif calc.orbital['VIRT'] == 'SCI':
+		elif calc.orbitals['VIRT'] == 'SCI':
 			virt = 'SCI natural'
-		elif calc.orbital['VIRT'] == 'PM':
+		elif calc.orbitals['VIRT'] == 'PM':
 			virt = 'pipek-mezey'
-		elif calc.orbital['VIRT'] == 'FB':
+		elif calc.orbitals['VIRT'] == 'FB':
 			virt = 'foster-boys'
 		return occ, virt
 

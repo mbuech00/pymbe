@@ -35,7 +35,7 @@ class CalcCls():
 				self.wfnsym = symm.addons.irrep_id2name(mol.symmetry, 0)
 				self.target = 0
 				self.max_order = 1000000
-				self.orbital = {'OCC': 'CAN', 'VIRT': 'CAN'}
+				self.orbitals = {'OCC': 'CAN', 'VIRT': 'CAN'}
 				self.async = False
 				# init property dict
 				self.property = {}
@@ -48,7 +48,7 @@ class CalcCls():
 					self.model, self.typ, self.prop, self.protocol, self.ref, \
 						self.base, self.thres, self.relax, \
 						self.wfnsym, self.target, self.max_order, \
-						self.orbital, self.async, \
+						self.orbitals, self.async, \
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
 					self.sanity_chk(mpi, mol)
@@ -102,9 +102,9 @@ class CalcCls():
 								self.target = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'order':
 								self.max_order = int(re.split('=',content[i])[1].strip())
-							elif re.split('=',content[i])[0].strip() == 'orbital':
-								self.orbital = ast.literal_eval(re.split('=',content[i])[1].strip())
-								self.orbital = self._upper(self.orbital)
+							elif re.split('=',content[i])[0].strip() == 'orbitals':
+								self.orbitals = ast.literal_eval(re.split('=',content[i])[1].strip())
+								self.orbitals = self._upper(self.orbitals)
 							elif re.split('=',content[i])[0].strip() == 'async':
 								self.async = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							elif re.split('=',content[i])[0].strip() == 'mem':
@@ -127,7 +127,7 @@ class CalcCls():
 				#
 				return self.model, self.typ, self.prop, self.protocol, self.ref, self.base, \
 							self.thres, self.relax, self.wfnsym, self.target, \
-							self.max_order, self.orbital, self.async, \
+							self.max_order, self.orbitals, self.async, \
 							mol.max_memory, mpi.num_local_masters
 
 
@@ -212,15 +212,15 @@ class CalcCls():
 					if self.relax < 1.0:
 						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if self.orbital['OCC'] not in ['CAN','PM','FB','IBO-1','IBO-2','CISD','CCSD','SCI']:
+					if self.orbitals['OCC'] not in ['CAN','PM','FB','IBO-1','IBO-2','CISD','CCSD','SCI']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
-										'representations are currently: canonical (CAN), local (PM or FB), ' + \
+										'representations (occ) are currently: canonical (CAN), local (PM or FB), ' + \
 										'intrinsic bond orbitals (IBO-1 or IBO-2), or natural orbitals (CISD, CCSD, or SCI)')
-					if self.orbital['VIRT'] not in ['CAN','PM','FB','CISD','CCSD','SCI']:
+					if self.orbitals['VIRT'] not in ['CAN','PM','FB','CISD','CCSD','SCI']:
 						raise ValueError('wrong input -- valid virtual orbital ' + \
-										'representations are currently: canonical (CAN), local (PM or FB), ' + \
+										'representations (virt) are currently: canonical (CAN), local (PM or FB), ' + \
 										'or natural orbitals (CISD, CCSD, or SCI)')
-					if self.orbital['OCC'] in ['PM','FB','IBO-1','IBO-2'] or self.orbital['VIRT'] in ['PM','FB']:
+					if self.orbitals['OCC'] in ['PM','FB','IBO-1','IBO-2'] or self.orbitals['VIRT'] in ['PM','FB']:
 						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbitals and point group symmetry ' + \
 											'different from C1 is not allowed')

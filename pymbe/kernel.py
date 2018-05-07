@@ -281,55 +281,55 @@ def base(mol, calc, exp):
 		# cisd base
 		elif calc.base['METHOD'] == 'CISD':
 			e_base, dm = _ci(mol, calc, exp, \
-								calc.orbital['OCC'] == 'CISD' or calc.orbital['VIRT'] == 'CISD')
+								calc.orbitals['OCC'] == 'CISD' or calc.orbitals['VIRT'] == 'CISD')
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['METHOD'] in ['CCSD','CCSD(T)']:
 			e_base, dm = _cc(mol, calc, exp, \
-								calc.orbital['OCC'] == 'CCSD' or calc.orbital['VIRT'] == 'CCSD', \
+								calc.orbitals['OCC'] == 'CCSD' or calc.orbitals['VIRT'] == 'CCSD', \
 								(calc.base['METHOD'] == 'CCSD(T)') and \
-								((calc.orbital['OCC'] == 'CAN') and (calc.orbital['VIRT'] == 'CAN')))
+								((calc.orbitals['OCC'] == 'CAN') and (calc.orbitals['VIRT'] == 'CAN')))
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# sci base
 		elif calc.base['METHOD'] == 'SCI':
 			e_base, dm = _sci(mol, calc, exp, \
-								calc.orbital['OCC'] == 'SCI' or calc.orbital['VIRT'] == 'SCI')
+								calc.orbitals['OCC'] == 'SCI' or calc.orbitals['VIRT'] == 'SCI')
 		# NOs
-		if (calc.orbital['OCC'] == 'CISD' or calc.orbital['VIRT'] == 'CISD') and dm is None:
+		if (calc.orbitals['OCC'] == 'CISD' or calc.orbitals['VIRT'] == 'CISD') and dm is None:
 			dm = _ci(mol, calc, exp, True)[1]
 			if mol.spin > 0: dm = dm[0] + dm[1]
-		elif (calc.orbital['OCC'] == 'CCSD' or calc.orbital['VIRT'] == 'CCSD') and dm is None:
+		elif (calc.orbitals['OCC'] == 'CCSD' or calc.orbitals['VIRT'] == 'CCSD') and dm is None:
 			dm = _cc(mol, calc, exp, True, False)[1]
 			if mol.spin > 0: dm = dm[0] + dm[1]
-		elif (calc.orbital['OCC'] == 'SCI' or calc.orbital['VIRT'] == 'SCI') and dm is None:
+		elif (calc.orbitals['OCC'] == 'SCI' or calc.orbitals['VIRT'] == 'SCI') and dm is None:
 			dm = _sci(mol, calc, exp, True)[1]
 		# occ-occ block (local or NOs)
-		if calc.orbital['OCC'] != 'CAN':
-			if calc.orbital['OCC'] in ['CISD', 'CCSD', 'SCI']:
+		if calc.orbitals['OCC'] != 'CAN':
+			if calc.orbitals['OCC'] in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
-			elif calc.orbital['OCC'] == 'PM':
+			elif calc.orbitals['OCC'] == 'PM':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.orbital['OCC'] == 'FB':
+			elif calc.orbitals['OCC'] == 'FB':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.orbital['OCC'] in ['IBO-1','IBO-2']:
+			elif calc.orbitals['OCC'] in ['IBO-1','IBO-2']:
 				iao = lo.iao.iao(mol, calc.mo[:, mol.core:mol.nocc])
-				if calc.orbital['OCC'] == 'IBO-1':
+				if calc.orbitals['OCC'] == 'IBO-1':
 					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
-				elif calc.orbital['OCC'] == 'IBO-2':
+				elif calc.orbitals['OCC'] == 'IBO-2':
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
-		if calc.orbital['VIRT'] != 'CAN':
-			if calc.orbital['VIRT'] in ['CISD', 'CCSD', 'SCI']:
+		if calc.orbitals['VIRT'] != 'CAN':
+			if calc.orbitals['VIRT'] in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
-			elif calc.orbital['VIRT'] == 'PM':
+			elif calc.orbitals['VIRT'] == 'PM':
 				calc.mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
-			elif calc.orbital['VIRT'] == 'FB':
+			elif calc.orbitals['VIRT'] == 'FB':
 				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
 		# extra calculation for non-invariant methods
-		if calc.orbital['OCC'] != 'CAN' or calc.orbital['VIRT'] != 'CAN':
+		if calc.orbitals['OCC'] != 'CAN' or calc.orbitals['VIRT'] != 'CAN':
 			if calc.base['METHOD'] == 'CCSD(T)':
 				e_base = _cc(mol, calc, exp, False, True)[0]
 			elif calc.base['METHOD'] == 'SCI':

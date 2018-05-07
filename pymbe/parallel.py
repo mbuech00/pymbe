@@ -120,7 +120,7 @@ def calc(mpi, calc):
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
 						'thres': calc.thres, 'relax': calc.relax, 'protocol': calc.protocol, \
 						'wfnsym': calc.wfnsym, 'target': calc.target, 'max_order': calc.max_order, \
-						'orbital': calc.orbital, \
+						'orbitals': calc.orbitals, \
 						'async': calc.async, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
 			else:
@@ -129,7 +129,7 @@ def calc(mpi, calc):
 				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
 				calc.thres = info['thres']; calc.relax = info['relax']; calc.protocol = info['protocol']
 				calc.wfnsym = info['wfnsym']; calc.target = info['target']; calc.max_order = info['max_order']
-				calc.orbital = info['orbital']
+				calc.orbitals = info['orbitals']
 				calc.async = info['async']; calc.restart = info['restart']
 
 
