@@ -409,7 +409,7 @@ def _energy_plot(info, calc, exp):
 		# despine
 		sns.despine()
 		# set legends
-		ax1.legend(loc=1)
+		ax2.legend(loc=1)
 		# save plot
 		plt.savefig(OUT+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
 
@@ -507,7 +507,7 @@ def _dipmom_plot(info, calc, exp):
 		# despine
 		sns.despine()
 		# set legends
-		ax1.legend(loc=1)
+		ax2.legend(loc=1)
 		# save plot
 		plt.savefig(OUT+'/dipmom.pdf', bbox_inches = 'tight', dpi=1000)
 
