@@ -13,6 +13,7 @@ __status__ = 'Development'
 import re
 import sys
 import ast
+import numpy as np
 from pyscf import symm
 
 import restart
@@ -26,7 +27,7 @@ class CalcCls():
 				self.model = {'METHOD': 'FCI'}
 				self.typ = 'occupied'
 				self.prop = {'ENERGY': True, 'DIPMOM': False}
-				self.protocol = 1
+				self.protocol = {'ENERGY': 1}
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
 				self.thres = 1.0e-10
@@ -73,12 +74,16 @@ class CalcCls():
 								try:
 									self.prop = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except ValueError:
-									raise ValueError('wrong input -- values in prop dictionary input must be bools (True,False)')
+									raise ValueError('wrong input -- values in property dictionary (prop) must be bools (True,False)')
 								self.prop = self._upper(self.prop)
 								if 'ENERGY' not in self.prop:
 									self.prop['ENERGY'] = True
-							elif re.split('=',content[i])[0].strip() == 'protocol':
-								self.protocol = int(re.split('=',content[i])[1].strip())
+							elif re.split('=',content[i])[0].strip() == 'prot':
+								try:
+									self.protocol = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in protocol dictionary (prot) must be ints')
+								self.protocol = self._upper(self.protocol)
 							elif re.split('=',content[i])[0].strip() == 'ref':
 								self.ref = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.ref = self._upper(self.ref)
@@ -136,8 +141,12 @@ class CalcCls():
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are: occupied, virtual, and combined')
 					# screening protocol
-					if self.protocol not in [1,2]:
-						raise ValueError('wrong input -- valid choices for screening protocol are: 1 and 2')
+					if not set(list(self.protocol.keys())) <= set(['ENERGY', 'DIPMOM']):
+						raise ValueError('wrong input -- valid types of screening protocols are: energy and dipmom')
+					if not all(isinstance(i, int) for i in self.protocol.values()):
+						raise ValueError('wrong input -- values in protocol dictionary (prot) must be ints')
+					if (0 >= np.asarray(list(self.protocol.values()))).any() or (np.asarray(list(self.protocol.values())) >= 3).any():
+						raise ValueError('wrong input -- valid choices for screening protocols are: 1 and 2')
 					# reference model
 					if self.ref['METHOD'] not in ['HF','CASCI','CASSCF']:
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')

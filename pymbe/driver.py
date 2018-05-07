@@ -43,7 +43,7 @@ def main(mpi, mol, calc, exp):
 				# write restart files
 				restart.mbe_write(calc, exp)
 				# print mbe end
-				output.mbe_end(exp)
+				output.mbe_end(calc, exp)
 				# print mbe results
 				output.mbe_results(mol, calc, exp)
 			#
@@ -138,7 +138,7 @@ def _rst_print(mol, calc, exp):
 		rst_freq = exp.rst_freq
 		for exp.order in range(exp.start_order, exp.min_order):
 			output.mbe_header(exp)
-			output.mbe_end(exp)
+			output.mbe_end(calc, exp)
 			output.mbe_results(mol, calc, exp)
 			thres = screen.update(calc, exp)
 			output.screen_header(exp, thres)

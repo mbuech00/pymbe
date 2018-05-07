@@ -87,13 +87,26 @@ def mbe_status(exp, prog):
 				format('#' * block + '-' * (bar_length - block), prog * 100, status))
 
 
-def mbe_end(exp):
+def mbe_end(calc, exp):
 		""" print end of mbe """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {0:>d} MBE done (E = {1:.6e})\n'
+		string += ' STATUS:  order k = {0:>d} MBE done (energy = {1:.4e}'
+		if 'DIPMOM' in calc.prop:
+			string += ' , dipole = {2:.4e}'
+		string += ')\n'
 		string += DIVIDER
-		form = (exp.order, np.sum(exp.property['energy']['inc'][exp.order-exp.start_order]))
+		if len(exp.property['energy']['tot']) == 1:
+			form = (exp.order, exp.property['energy']['tot'][0])
+		else:
+			form = (exp.order, exp.property['energy']['tot'][exp.order-exp.start_order] \
+						- exp.property['energy']['tot'][exp.order-exp.start_order-1])
+		if 'DIPMOM' in calc.prop:
+			if len(exp.property['energy']['tot']) == 1:
+				form += (exp.property['dipmom']['tot'][0][-1],)
+			else:
+				form += (exp.property['dipmom']['tot'][exp.order-exp.start_order][-1] \
+							- exp.property['dipmom']['tot'][exp.order-exp.start_order-1][-1],)
 		# now print
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
@@ -104,40 +117,48 @@ def mbe_end(exp):
 
 def mbe_results(mol, calc, exp):
 		""" print mbe result statistics """
-		# statistics
-		mean_val = np.mean(exp.property['energy']['inc'][exp.order-exp.start_order])
-		min_idx = np.argmin(np.abs(exp.property['energy']['inc'][exp.order-exp.start_order]))
-		min_val = exp.property['energy']['inc'][exp.order-exp.start_order][min_idx]
-		max_idx = np.argmax(np.abs(exp.property['energy']['inc'][exp.order-exp.start_order]))
-		max_val = exp.property['energy']['inc'][exp.order-exp.start_order][max_idx]
-		# core and cas regions
-		core, cas = kernel.core_cas(mol, exp, exp.tuples[exp.order-exp.start_order][max_idx])
-		cas_ref = '{0:}'.format(sorted(list(set(calc.ref_space.tolist()) - set(core))))
-		if calc.ref['METHOD'] == 'HF':
-			cas_exp = '{0:}'.format(sorted(list(set(cas) - set(calc.ref_space.tolist()))))
-		else:
-			cas_exp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
-			cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
-		# set string
-		string = DIVIDER+'\n'
-		string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
-		string += DIVIDER+'\n'
-		string += ' RESULT:     {0:>13.4e}       |        {1:>13.4e}         |       {2:>13.4e}\n'
-		if mol.verbose:
+		for i in range(len(list(calc.protocol.keys()))):
+			if list(calc.protocol.keys())[i] == 'ENERGY':
+				prop = exp.property['energy']['inc'][exp.order-exp.start_order]
+				title = 'energy'
+			elif list(calc.protocol.keys())[i] == 'DIPMOM':
+				prop = exp.property['dipmom']['inc'][exp.order-exp.start_order][:, -1]
+				title = 'dipole'
+			# statistics
+			mean_val = np.mean(prop)
+			min_idx = np.argmin(np.abs(prop))
+			min_val = prop[min_idx]
+			max_idx = np.argmax(np.abs(prop))
+			max_val = prop[max_idx]
+			# core and cas regions
+			core, cas = kernel.core_cas(mol, exp, exp.tuples[exp.order-exp.start_order][max_idx])
+			cas_ref = '{0:}'.format(sorted(list(set(calc.ref_space.tolist()) - set(core))))
+			if calc.ref['METHOD'] == 'HF':
+				cas_exp = '{0:}'.format(sorted(list(set(cas) - set(calc.ref_space.tolist()))))
+			else:
+				cas_exp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
+				cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
+			# set string
+			string = ' RESULT:{0:^83}\n'
 			string += DIVIDER+'\n'
-			string += ' RESULT:                   info on max. abs. increment:\n'
-			string += ' RESULT:  core = {3:}\n'
-			string += ' RESULT:  cas  = '+cas_ref+' + '+cas_exp+'\n'
-		string += DIVIDER
-		form = (mean_val, min_val, max_val)
-		if mol.verbose:
-			form += (core,)
-		# now print
-		with open(OUT+'/output.out','a') as f:
-			with contextlib.redirect_stdout(f):
-				print(string.format(*form))
-		# write also to stdout
-		print(string.format(*form))
+			string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+			string += DIVIDER+'\n'
+			string += ' RESULT:     {1:>13.4e}       |        {2:>13.4e}         |       {3:>13.4e}\n'
+			if mol.verbose:
+				string += DIVIDER+'\n'
+				string += ' RESULT:                   info on max. abs. increment:\n'
+				string += ' RESULT:  core = {4:}\n'
+				string += ' RESULT:  cas  = '+cas_ref+' + '+cas_exp+'\n'
+			string += DIVIDER
+			form = (title, mean_val, min_val, max_val)
+			if mol.verbose:
+				form += (core,)
+			# now print
+			with open(OUT+'/output.out','a') as f:
+				with contextlib.redirect_stdout(f):
+					print(string.format(*form))
+			# write also to stdout
+			print(string.format(*form))
 
 
 def screen_header(exp, thres):

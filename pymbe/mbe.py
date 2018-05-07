@@ -36,7 +36,7 @@ def main(mpi, mol, calc, exp):
 		if len(exp.property['energy']['inc']) < exp.order - (exp.start_order - 1):
 			exp.property['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 			if calc.prop['DIPMOM']:
-				exp.property['dipmom']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
+				exp.property['dipmom']['inc'].append(np.zeros([len(exp.tuples[-1]), 4], dtype=np.float64))
 		# sanity check
 		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
@@ -52,15 +52,17 @@ def main(mpi, mol, calc, exp):
 			_serial(mpi, mol, calc, exp)
 		# sum up total quantities
 		exp.property['energy']['tot'].append(math.fsum(exp.property['energy']['inc'][-1]))
-		exp.property['dipmom']['tot'].append(np.zeros(3, dtype=np.float64))
+		exp.property['dipmom']['tot'].append(np.zeros(4, dtype=np.float64))
 		if calc.prop['DIPMOM']:
 			for i in range(3):
 				exp.property['dipmom']['tot'][-1][i] += math.fsum(exp.property['dipmom']['inc'][-1][:, i])
+			exp.property['dipmom']['tot'][-1][-1] = np.sqrt(np.sum(exp.property['dipmom']['tot'][-1][:3]**2))
 		if exp.order > exp.start_order:
 			exp.property['energy']['tot'][-1] += exp.property['energy']['tot'][-2]
 			if calc.prop['DIPMOM']:
 				for i in range(3):
 					exp.property['dipmom']['tot'][-1][i] += exp.property['dipmom']['tot'][-2][i]
+				exp.property['dipmom']['tot'][-1][-1] = np.sqrt(np.sum(exp.property['dipmom']['tot'][-1][:3]**2))
 
 
 def _serial(mpi, mol, calc, exp):
@@ -188,7 +190,8 @@ def _calc(mpi, mol, calc, exp, idx):
 		if calc.prop['ENERGY']:
 			exp.property['energy']['inc'][-1][idx] = e
 		if calc.prop['DIPMOM']:
-			exp.property['dipmom']['inc'][-1][idx] = dipmom
+			exp.property['dipmom']['inc'][-1][idx][:3] = dipmom
+			exp.property['dipmom']['inc'][-1][idx][-1] = np.sqrt(np.sum(exp.property['dipmom']['inc'][-1][idx][:3]**2))
 
 
 def _inc(mpi, mol, calc, exp, tup):

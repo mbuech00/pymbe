@@ -38,7 +38,7 @@ def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
 		# setup
 		info = {}
-		info['basis'], info['mult'], info['ref'], info['base'], info['typ_prot'], \
+		info['model_type'], info['basis'], info['mult'], info['ref'], info['base'], info['prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], \
 			info['e_final'], info['dipmom_final'], info['dipmom_hf'] = _setup(mpi, mol, calc, exp)
@@ -50,11 +50,12 @@ def main(mpi, mol, calc, exp):
 
 def _setup(mpi, mol, calc, exp):
 		""" init parameters """
+		model_type = _model_typ(calc)
 		basis = _basis(mol)
 		mult = _mult(mol)
 		ref = _ref(mol, calc)
 		base = _base(calc)
-		typ_prot = _typ_prot(calc)
+		prot = _prot(calc)
 		system = _system(mol, calc)
 		frozen = _frozen(mol)
 		active = _active(calc)
@@ -67,7 +68,7 @@ def _setup(mpi, mol, calc, exp):
 			dipmom_final, dipmom_hf = _dipmom_final(mol, calc, exp)
 		else:
 			dipmom_final = dipmom_hf = None
-		return basis, mult, ref, base, typ_prot, system, frozen, \
+		return model_type, basis, mult, ref, base, prot, system, frozen, \
 				active, occ, virt, mpi, thres, symm, e_final, \
 				dipmom_final, dipmom_hf
 
@@ -102,37 +103,37 @@ def _summary_prt(info, calc, exp):
 				format('','molecular information','','|','', \
 					'expansion information','','|','','calculation information'))
 		print(DIVIDER)
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 					format('','basis set','','=','',info['basis'], \
-						'','|','','expansion model','','=','',calc.model['METHOD'], \
+						'','|','','model / type','','=','',info['model_type'], \
 						'','|','','mpi masters / slaves','','=','',info['mpi']))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','spin multiplicity','','=','',info['mult'], \
-						'','|','','reference funct.','','=','',info['ref'], \
+						'','|','','ref. function','','=','',info['ref'], \
 						'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf']))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}'. \
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','system size','','=','',info['system'], \
 						'','|','','cas size','','=','',info['active'], \
 						'','|','','base model energy','','=','', \
 						calc.property['energy']['hf']+calc.property['energy']['base']))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:1}{21:.6f}'. \
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','frozen core','','=','',info['frozen'], \
 						'','|','','base model','','=','',info['base'], \
 						'','|','','MBE total energy','','=','',info['e_final'][-1]))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:18}{18:6}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}'.\
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}'.\
 					format('','occupied orbitals','','=','',info['occ'], \
-						'','|','','type / protocol','','=','',info['typ_prot'], \
+						'','|','','screening prot.','','=','',info['prot'], \
 						'','|','','total time','','=','', \
 						_time(exp, 'total', exp.order-1)[0],'h', \
 						_time(exp, 'total', exp.order-1)[1],'m', \
 						_time(exp, 'total', exp.order-1)[2],'s'))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:8}{9:16}{10:2}{11:1}{12:2}'
-				'{13:<13s}{14:2}{15:1}{16:7}{17:20}{18:4}{19:1}{20:2}{21:<s}'. \
+		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 					format('','virtual orbitals','','=','',info['virt'], \
 						'','|','','thres. / relax.','','=','',info['thres'], \
 						'','|','','wave funct. symmetry','','=','',info['symm']))
@@ -203,6 +204,11 @@ def _dipmom_prt(info, mol, calc, exp):
 		print(DIVIDER[:110]+'\n')
 
 
+def _model_typ(calc):
+		""" model / type print """
+		return '{0:} / {1:}'.format(calc.model['METHOD'], calc.typ)
+
+
 def _basis(mol):
 		""" basis print """
 		if isinstance(mol.basis, str):
@@ -251,16 +257,18 @@ def _base(calc):
 			return calc.base['METHOD']
 
 
-def _typ_prot(calc):
-		""" type / protocol print """
-		typ_prot = '{0:} / {1:}'.format(calc.typ, calc.protocol)
-		return typ_prot
+def _prot(calc):
+		""" protocol print """
+		prot = '{0:}-{1:}'.format(list(calc.protocol.keys())[0].lower(), list(calc.protocol.values())[0])
+		if len(calc.protocol.keys()) > 1:
+			for i in range(1, len(list(calc.protocol.keys()))):
+				prot += ' / {0:}-{1:}'.format(list(calc.protocol.keys())[i].lower(), list(calc.protocol.values())[i])
+		return prot
 
 
 def _system(mol, calc):
 		""" system size print """
-		system = '{0:} e / {1:} o'.format(mol.nelectron - 2*mol.ncore, len(calc.ref_space) + len(calc.exp_space))
-		return system
+		return '{0:} e / {1:} o'.format(mol.nelectron - 2*mol.ncore, len(calc.ref_space) + len(calc.exp_space))
 
 
 def _frozen(mol):
@@ -347,7 +355,7 @@ def _dipmom_final(mol, calc, exp):
 			coords  = mol.atom_coords()
 			nuc_dipmom = np.einsum('i,ix->x', charges, coords)
 			# molecular dipole moment
-			dipmom = (nuc_dipmom - (exp.property['dipmom']['tot'] \
+			dipmom = (nuc_dipmom - (exp.property['dipmom']['tot'][:, :3] \
 						+ calc.property['dipmom']['hf'] + calc.property['dipmom']['ref']))
 			dipmom_hf = nuc_dipmom - calc.property['dipmom']['hf']
 			return dipmom, dipmom_hf

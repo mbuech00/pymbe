@@ -241,29 +241,35 @@ def _test(calc, exp, tup):
 					# get index
 					indx = np.where(mask_j & (np.int32(m) == exp.tuples[-1][:, -1]))[0]
 					if (indx.size+calc.no_exp) == exp.order:
-						lst += _prot(exp, calc.protocol, indx, m)
+						lst += _prot(exp, calc, indx, m)
 			return lst
 
 
-def _prot(exp, prot, indx, m):
+def _prot(exp, calc, indx, m):
 		""" protocol check """
 		if indx.size == 0:
 			return []
 		else:
-			# conservative protocol
-			if prot == 1:
-				# are *all* increments below the threshold?
-				if np.all(np.abs(exp.property['energy']['inc'][-1][indx]) < exp.thres):
-					return []
-				else:
-					return [m]
-			# aggressive protocol
-			elif prot == 2:
-				# are *any* increments below the threshold?
-				if np.any(np.abs(exp.property['energy']['inc'][-1][indx]) < exp.thres):
-					return []
-				else:
-					return [m]
+			screen = True
+			for i in range(len(list(calc.protocol.keys()))):
+				if list(calc.protocol.keys())[i] == 'ENERGY':
+					prop = exp.property['energy']['inc'][-1][indx]
+				elif list(calc.protocol.keys())[i] == 'DIPMOM':
+					prop = exp.property['dipmom']['inc'][-1][indx, -1]
+				if list(calc.protocol.values())[i] == 1:
+					# are *any* increments above the threshold?
+					if np.any(np.abs(prop) > exp.thres):
+						screen = False
+						break
+				elif list(calc.protocol.values())[i] == 2:
+					# are *all* increments above the threshold?
+					if np.all(np.abs(prop) > exp.thres):
+						screen = False
+						break
+			if not screen:
+				return [m]
+			else:
+				return []
 
 
 def update(calc, exp):
