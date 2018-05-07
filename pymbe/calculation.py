@@ -30,10 +30,9 @@ class CalcCls():
 				self.protocol = {'ENERGY': True, 'DIPOLE': False}
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
+				self.state = {'WFNSYM': symm.addons.irrep_id2name(mol.symmetry, 0), 'ROOT': 0}
 				self.thres = 1.0e-10
 				self.relax = 1.0
-				self.wfnsym = symm.addons.irrep_id2name(mol.symmetry, 0)
-				self.target = 0
 				self.max_order = 1000000
 				self.orbitals = {'OCC': 'CAN', 'VIRT': 'CAN'}
 				self.async = False
@@ -47,7 +46,7 @@ class CalcCls():
 				if mpi.global_master:
 					self.model, self.typ, self.prop, self.protocol, self.ref, \
 						self.base, self.thres, self.relax, \
-						self.wfnsym, self.target, self.max_order, \
+						self.state, self.max_order, \
 						self.orbitals, self.async, \
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
@@ -72,20 +71,20 @@ class CalcCls():
 								self.typ = re.split('=',content[i])[1].strip()
 							elif re.split('=',content[i])[0].strip() == 'prop':
 								try:
-									self.prop = ast.literal_eval(re.split('=',content[i])[1].strip())
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except ValueError:
 									raise ValueError('wrong input -- values in property dict (prop) must be bools (True, False)')
-								self.prop = self._upper(self.prop)
-								if 'ENERGY' not in self.prop:
-									self.prop['ENERGY'] = True
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.prop[key] = val
 							elif re.split('=',content[i])[0].strip() == 'prot':
 								try:
-									self.protocol = ast.literal_eval(re.split('=',content[i])[1].strip())
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except ValueError:
 									raise ValueError('wrong input -- values in protocol dict (prot) must be bools (True, False)')
-								self.protocol = self._upper(self.protocol)
-								if 'ENERGY' not in self.protocol:
-									self.protocol['ENERGY'] = False
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.protocol[key] = val
 							elif re.split('=',content[i])[0].strip() == 'ref':
 								self.ref = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.ref = self._upper(self.ref)
@@ -96,10 +95,17 @@ class CalcCls():
 								self.thres = float(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'relax':
 								self.relax = float(re.split('=',content[i])[1].strip())
-							elif re.split('=',content[i])[0].strip() == 'wfnsym':
-								self.wfnsym = symm.addons.std_symb(re.split('=',content[i])[1].strip())
-							elif re.split('=',content[i])[0].strip() == 'target':
-								self.target = int(re.split('=',content[i])[1].strip())
+							elif re.split('=',content[i])[0].strip() == 'state':
+								try:
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in state dict (state) must be strings and ints')
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									if key == 'WFNSYM':
+										self.state[key] = symm.addons.std_symb(val)
+									else:
+										self.state[key] = val
 							elif re.split('=',content[i])[0].strip() == 'order':
 								self.max_order = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'orbitals':
@@ -126,7 +132,7 @@ class CalcCls():
 					raise
 				#
 				return self.model, self.typ, self.prop, self.protocol, self.ref, self.base, \
-							self.thres, self.relax, self.wfnsym, self.target, \
+							self.thres, self.relax, self.state, \
 							self.max_order, self.orbitals, self.async, \
 							mol.max_memory, mpi.num_local_masters
 
@@ -195,17 +201,18 @@ class CalcCls():
 					# max order
 					if self.max_order < 0:
 						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
-					# wfnsym
+					# state
 					try:
-						self.wfnsym = symm.addons.irrep_name2id(mol.symmetry, self.wfnsym)
+						self.state['WFNSYM'] = symm.addons.irrep_name2id(mol.symmetry, self.state['WFNSYM'])
 					except Exception as err_2:
 						raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
-					if self.wfnsym != 0:
+					if self.state['WFNSYM'] != 0:
 						if self.model['METHOD'] not in ['SCI','FCI']:
 							raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
-					# target state
-					if self.target > 0 and self.model['METHOD'] not in ['SCI','FCI']:
-						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
+					if self.state['ROOT'] < 0:
+						raise ValueError('wrong input -- choice of target state (root) must be integer: 0 <= root')
+					if self.state['ROOT'] > 0 and self.model['METHOD'] not in ['SCI','FCI']:
+						raise ValueError('wrong input -- excited states only implemented for SCI and FCI expansion models')
 					# expansion and convergence thresholds
 					if self.thres < 0.0:
 						raise ValueError('wrong input -- expansion threshold parameter (thres) must be float: 0.0 <= thres')

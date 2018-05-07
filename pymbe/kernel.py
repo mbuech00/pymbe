@@ -72,10 +72,10 @@ def hf(mol, calc):
 		# wave function symmetry
 		wfnsym = scf.hf_symm.get_wfnsym(hf, mo_coeff=hf.mo_coeff, mo_occ=hf.mo_occ)
 		# sanity check
-		if wfnsym != calc.wfnsym and calc.ref['METHOD'] == 'HF':
+		if wfnsym != calc.state['WFNSYM'] and calc.ref['METHOD'] == 'HF':
 			try:
 				raise RuntimeError('\nHF Error : wave function symmetry ({0:}) different from requested symmetry ({1:})\n\n'.\
-									format(symm.irrep_id2name(mol.groupname, wfnsym), symm.irrep_id2name(mol.groupname, calc.wfnsym)))
+									format(symm.irrep_id2name(mol.groupname, wfnsym), symm.irrep_id2name(mol.groupname, calc.state['WFNSYM'])))
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
@@ -353,7 +353,7 @@ def _casscf(mol, calc, exp):
 		cas.max_cycle_macro = 500
 		cas.canonicalization = False
 		# wfnsym
-		cas.fcisolver.wfnsym = calc.wfnsym
+		cas.fcisolver.wfnsym = calc.state['WFNSYM']
 		# frozen (inactive)
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# verbose print
@@ -363,7 +363,7 @@ def _casscf(mol, calc, exp):
 			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
 			cas.fix_spin_(ss=sz * (sz + 1.))
 		# target state
-		cas.state_specific_(state=calc.target)
+		cas.state_specific_(state=calc.state['ROOT'])
 		# run casscf calc
 		cas.kernel(calc.mo)
 		# convergence check
@@ -424,9 +424,9 @@ def _fci(mol, calc, exp, dens):
 		solver.max_space = 25
 		solver.davidson_only = True
 		# wfnsym
-		solver.wfnsym = calc.wfnsym
+		solver.wfnsym = calc.state['WFNSYM']
 		# target state
-		solver.nroots = calc.target + 1
+		solver.nroots = calc.state['ROOT'] + 1
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
 		# electrons
@@ -451,9 +451,9 @@ def _fci(mol, calc, exp, dens):
 			civec = c
 		else:
 			if len(solver.converged) == solver.nroots:
-				conv = solver.converged[calc.target]
-				energy = e[calc.target]
-				civec = c[calc.target]
+				conv = solver.converged[calc.state['ROOT']]
+				energy = e[calc.state['ROOT']]
+				civec = c[calc.state['ROOT']]
 			else:
 				return 0.0, None
 		# convergence check
@@ -503,9 +503,9 @@ def _sci(mol, calc, exp, dens):
 		solver.max_space = 25
 		solver.davidson_only = True
 		# wfnsym
-		solver.wfnsym = calc.wfnsym
+		solver.wfnsym = calc.state['WFNSYM']
 		# target state
-		solver.nroots = calc.target + 1
+		solver.nroots = calc.state['ROOT'] + 1
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
 		# electrons
@@ -530,9 +530,9 @@ def _sci(mol, calc, exp, dens):
 			civec = c
 		else:
 			if len(solver.converged) == solver.nroots:
-				conv = solver.converged[calc.target]
-				energy = e[calc.target]
-				civec = c[calc.target]
+				conv = solver.converged[calc.state['ROOT']]
+				energy = e[calc.state['ROOT']]
+				civec = c[calc.state['ROOT']]
 			else:
 				return 0.0, None
 		# convergence check

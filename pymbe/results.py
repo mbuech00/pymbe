@@ -333,7 +333,7 @@ def _thres(calc):
 def _symm(mol, calc):
 		""" symmetry print """
 		if calc.model['METHOD'] in ['SCI','FCI']:
-			return symm.addons.irrep_id2name(mol.symmetry, calc.wfnsym)+' ('+mol.symmetry+')'
+			return symm.addons.irrep_id2name(mol.symmetry, calc.state['WFNSYM'])+' ('+mol.symmetry+')'
 		else:
 			return 'unknown'
 
