@@ -13,6 +13,7 @@ __status__ = 'Development'
 import re
 import sys
 import ast
+import copy
 import numpy as np
 from pyscf import symm
 
@@ -26,8 +27,8 @@ class CalcCls():
 				# set defaults
 				self.model = {'METHOD': 'FCI'}
 				self.typ = 'occupied'
-				self.prop = {'ENERGY': True, 'DIPOLE': False}
-				self.protocol = {'ENERGY': True, 'DIPOLE': False}
+				self.prop = {'ENERGY': True, 'DIPOLE': False, 'EXCITATION': False}
+				self.protocol = copy.deepcopy(self.prop)
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
 				self.state = {'WFNSYM': symm.addons.irrep_id2name(mol.symmetry, 0), 'ROOT': 0}
@@ -180,27 +181,6 @@ class CalcCls():
 					if self.base['METHOD'] not in [None,'CISD','CCSD','CCSD(T)','SCI']:
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
-					# properties
-					if not set(list(self.prop.keys())) <= set(['ENERGY', 'DIPOLE']):
-						raise ValueError('wrong input -- valid choices for properties are: energy and dipole')
-					if not self.prop['ENERGY']:
-						raise ValueError('wrong input -- calculation of ground state energy (energy) is mandatory')
-					if self.prop['DIPOLE'] and self.base['METHOD'] is not None:
-						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
-					if not all(isinstance(i, bool) for i in self.prop.values()):
-						raise ValueError('wrong input -- values in property input (prop) must be bools (True, False)')
-					# screening protocol
-					if not set(list(self.protocol.keys())) <= set(['ENERGY', 'DIPOLE']):
-						raise ValueError('wrong input -- valid choices for properties are: energy and dipole')
-					if not self.protocol['ENERGY'] and len(list(self.prop.keys())) == 1:
-						raise ValueError('wrong input -- screening not wrt energy requires other properties to be requested in prop input')
-					if self.protocol['DIPOLE'] and not self.prop['DIPOLE']:
-						raise ValueError('wrong input -- screening wrt dipole requires that this property is requested in prop input')
-					if not all(isinstance(i, bool) for i in self.protocol.values()):
-						raise ValueError('wrong input -- values in protocol input (prot) must be bools (True, False)')
-					# max order
-					if self.max_order < 0:
-						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					# state
 					try:
 						self.state['WFNSYM'] = symm.addons.irrep_name2id(mol.symmetry, self.state['WFNSYM'])
@@ -213,6 +193,30 @@ class CalcCls():
 						raise ValueError('wrong input -- choice of target state (root) must be integer: 0 <= root')
 					if self.state['ROOT'] > 0 and self.model['METHOD'] not in ['SCI','FCI']:
 						raise ValueError('wrong input -- excited states only implemented for SCI and FCI expansion models')
+					# properties
+					if not all(isinstance(i, bool) for i in self.prop.values()):
+						raise ValueError('wrong input -- values in property input (prop) must be bools (True, False)')
+					if not set(list(self.prop.keys())) <= set(['ENERGY', 'DIPOLE', 'EXCITATION']):
+						raise ValueError('wrong input -- valid choices for properties are: energy and dipole')
+					if not self.prop['ENERGY']:
+						raise ValueError('wrong input -- calculation of ground state energy (energy) is mandatory')
+					if self.prop['DIPOLE'] and self.base['METHOD'] is not None:
+						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
+					if self.prop['EXCITATION'] and self.state['ROOT'] == 0:
+						raise ValueError('wrong input -- calculation of excitation energy (excit) requires a state root different from 0')
+					# screening protocol
+					if not all(isinstance(i, bool) for i in self.protocol.values()):
+						raise ValueError('wrong input -- values in protocol input (prot) must be bools (True, False)')
+					if not set(list(self.protocol.keys())) <= set(['ENERGY', 'DIPOLE', 'EXCITATION']):
+						raise ValueError('wrong input -- valid choices for properties are: energy, dipole, and excitation')
+					if not self.protocol['ENERGY'] and sum(self.prop.values()) == 1:
+						raise ValueError('wrong input -- non-energy screening requires other properties to be requested in prop input')
+					for key in self.protocol.keys():
+						if self.protocol[key] and not self.prop[key]:
+							raise ValueError('wrong input -- screening wrt a given property requires that this is also requested in prop input')
+					# max order
+					if self.max_order < 0:
+						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					# expansion and convergence thresholds
 					if self.thres < 0.0:
 						raise ValueError('wrong input -- expansion threshold parameter (thres) must be float: 0.0 <= thres')
