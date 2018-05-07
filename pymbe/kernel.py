@@ -362,8 +362,11 @@ def _casscf(mol, calc, exp):
 		if mol.spin > 0:
 			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
 			cas.fix_spin_(ss=sz * (sz + 1.))
-		# target state
-		cas.state_specific_(state=calc.state['ROOT'])
+		# state-averaged calculation
+		if calc.state['ROOT'] > 0:
+			weights = np.zeros(calc.state['ROOT']+1, dtype=np.float64)
+			weights[0] = weights[-1] = 0.5
+			cas.state_average_(weights)
 		# run casscf calc
 		cas.kernel(calc.mo)
 		# convergence check
