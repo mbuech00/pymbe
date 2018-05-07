@@ -26,8 +26,8 @@ class CalcCls():
 				# set defaults
 				self.model = {'METHOD': 'FCI'}
 				self.typ = 'occupied'
-				self.prop = {'ENERGY': True, 'DIPMOM': False}
-				self.protocol = {'ENERGY': 1}
+				self.prop = {'ENERGY': True, 'DIPOLE': False}
+				self.protocol = {'ENERGY': True, 'DIPOLE': False}
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
 				self.thres = 1.0e-10
@@ -40,7 +40,7 @@ class CalcCls():
 				# init property dict
 				self.property = {}
 				self.property['energy'] = {}
-				self.property['dipmom'] = {}
+				self.property['dipole'] = {}
 				# init mo
 				self.mo = None
 				# set calculation parameters
@@ -74,7 +74,7 @@ class CalcCls():
 								try:
 									self.prop = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except ValueError:
-									raise ValueError('wrong input -- values in property dictionary (prop) must be bools (True,False)')
+									raise ValueError('wrong input -- values in property dict (prop) must be bools (True, False)')
 								self.prop = self._upper(self.prop)
 								if 'ENERGY' not in self.prop:
 									self.prop['ENERGY'] = True
@@ -82,8 +82,10 @@ class CalcCls():
 								try:
 									self.protocol = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except ValueError:
-									raise ValueError('wrong input -- values in protocol dictionary (prot) must be ints')
+									raise ValueError('wrong input -- values in protocol dict (prot) must be bools (True, False)')
 								self.protocol = self._upper(self.protocol)
+								if 'ENERGY' not in self.protocol:
+									self.protocol['ENERGY'] = False
 							elif re.split('=',content[i])[0].strip() == 'ref':
 								self.ref = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.ref = self._upper(self.ref)
@@ -140,13 +142,6 @@ class CalcCls():
 					if self.typ not in ['occupied','virtual','combined']:
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are: occupied, virtual, and combined')
-					# screening protocol
-					if not set(list(self.protocol.keys())) <= set(['ENERGY', 'DIPMOM']):
-						raise ValueError('wrong input -- valid types of screening protocols are: energy and dipmom')
-					if not all(isinstance(i, int) for i in self.protocol.values()):
-						raise ValueError('wrong input -- values in protocol dictionary (prot) must be ints')
-					if (0 >= np.asarray(list(self.protocol.values()))).any() or (np.asarray(list(self.protocol.values())) >= 3).any():
-						raise ValueError('wrong input -- valid choices for screening protocols are: 1 and 2')
 					# reference model
 					if self.ref['METHOD'] not in ['HF','CASCI','CASSCF']:
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
@@ -180,12 +175,23 @@ class CalcCls():
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# properties
-					if not set(list(self.prop.keys())) <= set(['ENERGY', 'DIPMOM']):
-						raise ValueError('wrong input -- valid choices for properties are: energy and dipmom')
+					if not set(list(self.prop.keys())) <= set(['ENERGY', 'DIPOLE']):
+						raise ValueError('wrong input -- valid choices for properties are: energy and dipole')
 					if not self.prop['ENERGY']:
 						raise ValueError('wrong input -- calculation of ground state energy (energy) is mandatory')
-					if self.prop['DIPMOM'] and self.base['METHOD'] is not None:
-						raise ValueError('wrong input -- calculation of dipole moment (dipmom) is only allowed in the absence of a base model')
+					if self.prop['DIPOLE'] and self.base['METHOD'] is not None:
+						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
+					if not all(isinstance(i, bool) for i in self.prop.values()):
+						raise ValueError('wrong input -- values in property input (prop) must be bools (True, False)')
+					# screening protocol
+					if not set(list(self.protocol.keys())) <= set(['ENERGY', 'DIPOLE']):
+						raise ValueError('wrong input -- valid choices for properties are: energy and dipole')
+					if not self.protocol['ENERGY'] and len(list(self.prop.keys())) == 1:
+						raise ValueError('wrong input -- screening not wrt energy requires other properties to be requested in prop input')
+					if self.protocol['DIPOLE'] and not self.prop['DIPOLE']:
+						raise ValueError('wrong input -- screening wrt dipole requires that this property is requested in prop input')
+					if not all(isinstance(i, bool) for i in self.protocol.values()):
+						raise ValueError('wrong input -- values in protocol input (prot) must be bools (True, False)')
 					# max order
 					if self.max_order < 0:
 						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')

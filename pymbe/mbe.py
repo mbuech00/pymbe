@@ -35,8 +35,8 @@ def main(mpi, mol, calc, exp):
 		# init increments
 		if len(exp.property['energy']['inc']) < exp.order - (exp.start_order - 1):
 			exp.property['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
-			if calc.prop['DIPMOM']:
-				exp.property['dipmom']['inc'].append(np.zeros([len(exp.tuples[-1]), 4], dtype=np.float64))
+			if calc.prop['DIPOLE']:
+				exp.property['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 4], dtype=np.float64))
 		# sanity check
 		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
@@ -52,17 +52,17 @@ def main(mpi, mol, calc, exp):
 			_serial(mpi, mol, calc, exp)
 		# sum up total quantities
 		exp.property['energy']['tot'].append(math.fsum(exp.property['energy']['inc'][-1]))
-		exp.property['dipmom']['tot'].append(np.zeros(4, dtype=np.float64))
-		if calc.prop['DIPMOM']:
+		exp.property['dipole']['tot'].append(np.zeros(4, dtype=np.float64))
+		if calc.prop['DIPOLE']:
 			for i in range(3):
-				exp.property['dipmom']['tot'][-1][i] += math.fsum(exp.property['dipmom']['inc'][-1][:, i])
-			exp.property['dipmom']['tot'][-1][-1] = np.sqrt(np.sum(exp.property['dipmom']['tot'][-1][:3]**2))
+				exp.property['dipole']['tot'][-1][i] += math.fsum(exp.property['dipole']['inc'][-1][:, i])
+			exp.property['dipole']['tot'][-1][-1] = np.sqrt(np.sum(exp.property['dipole']['tot'][-1][:3]**2))
 		if exp.order > exp.start_order:
 			exp.property['energy']['tot'][-1] += exp.property['energy']['tot'][-2]
-			if calc.prop['DIPMOM']:
+			if calc.prop['DIPOLE']:
 				for i in range(3):
-					exp.property['dipmom']['tot'][-1][i] += exp.property['dipmom']['tot'][-2][i]
-				exp.property['dipmom']['tot'][-1][-1] = np.sqrt(np.sum(exp.property['dipmom']['tot'][-1][:3]**2))
+					exp.property['dipole']['tot'][-1][i] += exp.property['dipole']['tot'][-2][i]
+				exp.property['dipole']['tot'][-1][-1] = np.sqrt(np.sum(exp.property['dipole']['tot'][-1][:3]**2))
 
 
 def _serial(mpi, mol, calc, exp):
@@ -186,12 +186,12 @@ def _slave(mpi, mol, calc, exp):
 
 def _calc(mpi, mol, calc, exp, idx):
 		""" calculate increments """
-		e, dipmom = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
+		e, dipole = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 		if calc.prop['ENERGY']:
 			exp.property['energy']['inc'][-1][idx] = e
-		if calc.prop['DIPMOM']:
-			exp.property['dipmom']['inc'][-1][idx][:3] = dipmom
-			exp.property['dipmom']['inc'][-1][idx][-1] = np.sqrt(np.sum(exp.property['dipmom']['inc'][-1][idx][:3]**2))
+		if calc.prop['DIPOLE']:
+			exp.property['dipole']['inc'][-1][idx][:3] = dipole
+			exp.property['dipole']['inc'][-1][idx][-1] = np.sqrt(np.sum(exp.property['dipole']['inc'][-1][idx][:3]**2))
 
 
 def _inc(mpi, mol, calc, exp, tup):
@@ -201,10 +201,10 @@ def _inc(mpi, mol, calc, exp, tup):
 		# perform calc
 		e, prop = kernel.main(mol, calc, exp, calc.model['METHOD'])
 		e_model = e + (calc.property['energy']['hf'] - calc.property['energy']['ref'])
-		if calc.prop['DIPMOM']:
-			dipmom_inc = prop - calc.property['dipmom']['hf']
+		if calc.prop['DIPOLE']:
+			dipole_inc = prop - calc.property['dipole']['hf']
 		else:
-			dipmom_inc = None
+			dipole_inc = None
 		if calc.base['METHOD'] is None:
 			e_base = 0.0
 		else:
@@ -215,24 +215,24 @@ def _inc(mpi, mol, calc, exp, tup):
 		if exp.order > exp.start_order:
 			e, prop = _sum(calc, exp, tup)
 			e_inc -= e
-			if calc.prop['DIPMOM']:
-				dipmom_inc -= prop
+			if calc.prop['DIPOLE']:
+				dipole_inc -= prop
 		# verbose print
 		if mol.verbose:
 			string = ' INC: proc = {0:} , core = {1:} , cas = {2:} , e_inc = {3:.4e}'
 			form = (mpi.local_rank, exp.core_idx.tolist(), exp.cas_idx.tolist(), e_inc)
-			if calc.prop['DIPMOM']:
-				string += ' , dipmom_inc = {4:.4e}'
-				form += (np.sqrt(np.sum(dipmom_inc**2)),)
+			if calc.prop['DIPOLE']:
+				string += ' , dipole_inc = {4:.4e}'
+				form += (np.sqrt(np.sum(dipole_inc**2)),)
 			print(string.format(*form))
-		return e_inc, dipmom_inc
+		return e_inc, dipole_inc
 
 
 def _sum(calc, exp, tup):
 		""" recursive summation """
 		# init res
 		e_res = 0.0
-		dipmom_res = np.zeros(3, dtype=np.float64)
+		dipole_res = np.zeros(3, dtype=np.float64)
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
 			# generate array with all subsets of particular tuple (manually adding active orbitals)
@@ -252,9 +252,9 @@ def _sum(calc, exp, tup):
 			assert mask.size == combs.shape[0]
 			# add up lower-order increments
 			e_res += math.fsum(exp.property['energy']['inc'][i-1][mask])
-			if calc.prop['DIPMOM']:
+			if calc.prop['DIPOLE']:
 				for j in range(3):
-					dipmom_res[j] += math.fsum(exp.property['dipmom']['inc'][i-1][mask, j])
-		return e_res, dipmom_res
+					dipole_res[j] += math.fsum(exp.property['dipole']['inc'][i-1][mask, j])
+		return e_res, dipole_res
 
 

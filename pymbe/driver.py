@@ -75,8 +75,8 @@ def main(mpi, mol, calc, exp):
 			if exp.conv_orb[-1] or exp.order == exp.max_order:
 				# convert final results to numpy arrays
 				exp.property['energy']['tot'] = np.asarray(exp.property['energy']['tot'])
-				if calc.prop['DIPMOM']:
-					exp.property['dipmom']['tot'] = np.asarray(exp.property['dipmom']['tot'])
+				if calc.prop['DIPOLE']:
+					exp.property['dipole']['tot'] = np.asarray(exp.property['dipole']['tot'])
 				# timings
 				exp.time['mbe'] = np.asarray(exp.time['mbe'])
 				exp.time['screen'] = np.asarray(exp.time['screen'])

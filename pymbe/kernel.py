@@ -25,12 +25,12 @@ def ao_ints(mol, calc):
 		# electron repulsion ints
 		eri = mol.intor('int2e_sph', aosym=4)
 		# dipole integrals with gauge origin at (0,0,0)
-		if calc.prop['DIPMOM']:
+		if calc.prop['DIPOLE']:
 			with mol.with_common_orig((0,0,0)):
-				dipmom = mol.intor_symmetric('int1e_r', comp=3)
+				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
-			dipmom = None
-		return hcore, eri, dipmom
+			dipole = None
+		return hcore, eri, dipole
 
 
 def hf(mol, calc):
@@ -56,13 +56,13 @@ def hf(mol, calc):
 				sys.stderr.write(str(err))
 				raise
 		# dipole moment
-		tot_dipmom = hf.dip_moment(unit='au', verbose=0)
+		tot_dipole = hf.dip_moment(unit='au', verbose=0)
 		# nuclear dipole moment
 		charges = mol.atom_charges()
 		coords  = mol.atom_coords()
-		nuc_dipmom = np.einsum('i,ix->x', charges, coords)
+		nuc_dipole = np.einsum('i,ix->x', charges, coords)
 		# electronic dipole moment
-		elec_dipmom = nuc_dipmom - tot_dipmom
+		elec_dipole = nuc_dipole - tot_dipole
 		# determine dimensions
 		mol.norb, mol.nocc, mol.nvirt = _dim(hf, calc)
 		# store energy, occupation, and orbsym
@@ -79,7 +79,7 @@ def hf(mol, calc):
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
-		return hf, np.asscalar(e_hf), elec_dipmom, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
+		return hf, np.asscalar(e_hf), elec_dipole, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(hf, calc):
@@ -200,17 +200,17 @@ def ref(mol, calc, exp):
 				calc.mo = avas.avas(calc.hf, calc.ref['AO_LABELS'], canonicalize=True, ncore=mol.ncore)[2]
 			# set properties equal to hf values
 			e_ref = e_ref_base = 0.0
-			dipmom_ref = np.zeros(3, dtype=np.float64)
+			dipole_ref = np.zeros(3, dtype=np.float64)
 			# casscf mo
 			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp)
 		else:
 			# exp model
-			e_ref, dipmom_ref = main(mol, calc, exp, calc.model['METHOD'])
-			if calc.prop['DIPMOM']:
-				if dipmom_ref is None:
-					dipmom_ref = np.zeros(3, dtype=np.float64)
+			e_ref, dipole_ref = main(mol, calc, exp, calc.model['METHOD'])
+			if calc.prop['DIPOLE']:
+				if dipole_ref is None:
+					dipole_ref = np.zeros(3, dtype=np.float64)
 				else:
-					dipmom_ref -= calc.property['dipmom']['hf']
+					dipole_ref -= calc.property['dipole']['hf']
 			# exp base
 			if calc.base['METHOD'] is None:
 				e_ref_base = 0.0
@@ -222,18 +222,18 @@ def ref(mol, calc, exp):
 		if mol.verbose:
 			string = '\n REF: core = {0:} , cas = {1:} , e_ref = {2:.4e} , e_ref_base = {3:.4e}'
 			form = (exp.core_idx.tolist(), exp.cas_idx.tolist(), e_ref, e_ref_base)
-			if calc.prop['DIPMOM']:
-				string += ' , dipmom_ref = {4:.4f}'
-				form += (np.sqrt(np.sum(dipmom_ref**2)),)
+			if calc.prop['DIPOLE']:
+				string += ' , dipole_ref = {4:.4f}'
+				form += (np.sqrt(np.sum(dipole_ref**2)),)
 			string += '\n'
 			print(string.format(*form))
-		return e_ref + calc.property['energy']['hf'], e_ref_base + calc.property['energy']['hf'], dipmom_ref, calc.mo
+		return e_ref + calc.property['energy']['hf'], e_ref_base + calc.property['energy']['hf'], dipole_ref, calc.mo
 
 
 def main(mol, calc, exp, method):
 		""" main property function """
 		# first-order properties
-		if calc.prop['DIPMOM']:
+		if calc.prop['DIPOLE']:
 			prop = True
 		else:
 			prop = False
@@ -251,22 +251,22 @@ def main(mol, calc, exp, method):
 			e, dm = _cc(mol, calc, exp, prop, (method == 'CCSD(T)'))
 		# calculate first-order properties
 		if dm is not None:
-			if calc.prop['DIPMOM']:
-				return e, _dipmom(mol.dipmom, calc.occup, exp.cas_idx, calc.mo, dm)
+			if calc.prop['DIPOLE']:
+				return e, _dipole(mol.dipole, calc.occup, exp.cas_idx, calc.mo, dm)
 		else:
 			return e, None
 
 
-def _dipmom(ints, occup, cas_idx, mo, cas_dm):
+def _dipole(ints, occup, cas_idx, mo, cas_dm):
 		""" calculate electronic dipole moment """
 		# dm
 		dm = np.diag(occup)
 		dm[cas_idx[:, None], cas_idx] = cas_dm
-		# elec dipmom
-		elec_dipmom = np.empty(3, dtype=np.float64)
+		# elec dipole
+		elec_dipole = np.empty(3, dtype=np.float64)
 		for i in range(3):
-			elec_dipmom[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ints[i], mo))))
-		return elec_dipmom 
+			elec_dipole[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ints[i], mo))))
+		return elec_dipole 
 
 
 def base(mol, calc, exp):

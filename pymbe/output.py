@@ -92,7 +92,7 @@ def mbe_end(calc, exp):
 		# set string
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {0:>d} MBE done (energy = {1:.4e}'
-		if 'DIPMOM' in calc.prop:
+		if 'DIPOLE' in calc.prop:
 			string += ' , dipole = {2:.4e}'
 		string += ')\n'
 		string += DIVIDER
@@ -101,12 +101,12 @@ def mbe_end(calc, exp):
 		else:
 			form = (exp.order, exp.property['energy']['tot'][exp.order-exp.start_order] \
 						- exp.property['energy']['tot'][exp.order-exp.start_order-1])
-		if 'DIPMOM' in calc.prop:
+		if 'DIPOLE' in calc.prop:
 			if len(exp.property['energy']['tot']) == 1:
-				form += (exp.property['dipmom']['tot'][0][-1],)
+				form += (exp.property['dipole']['tot'][0][-1],)
 			else:
-				form += (exp.property['dipmom']['tot'][exp.order-exp.start_order][-1] \
-							- exp.property['dipmom']['tot'][exp.order-exp.start_order-1][-1],)
+				form += (exp.property['dipole']['tot'][exp.order-exp.start_order][-1] \
+							- exp.property['dipole']['tot'][exp.order-exp.start_order-1][-1],)
 		# now print
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):
@@ -120,10 +120,8 @@ def mbe_results(mol, calc, exp):
 		for i in range(len(list(calc.protocol.keys()))):
 			if list(calc.protocol.keys())[i] == 'ENERGY':
 				prop = exp.property['energy']['inc'][exp.order-exp.start_order]
-				title = 'energy'
-			elif list(calc.protocol.keys())[i] == 'DIPMOM':
-				prop = exp.property['dipmom']['inc'][exp.order-exp.start_order][:, -1]
-				title = 'dipole'
+			elif list(calc.protocol.keys())[i] == 'DIPOLE':
+				prop = exp.property['dipole']['inc'][exp.order-exp.start_order][:, -1]
 			# statistics
 			mean_val = np.mean(prop)
 			min_idx = np.argmin(np.abs(prop))
@@ -150,7 +148,7 @@ def mbe_results(mol, calc, exp):
 				string += ' RESULT:  core = {4:}\n'
 				string += ' RESULT:  cas  = '+cas_ref+' + '+cas_exp+'\n'
 			string += DIVIDER
-			form = (title, mean_val, min_val, max_val)
+			form = (list(calc.protocol.keys())[i].lower(), mean_val, min_val, max_val)
 			if mol.verbose:
 				form += (core,)
 			# now print

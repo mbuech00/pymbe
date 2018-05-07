@@ -251,21 +251,20 @@ def _prot(exp, calc, indx, m):
 			return []
 		else:
 			screen = True
-			for i in range(len(list(calc.protocol.keys()))):
-				if list(calc.protocol.keys())[i] == 'ENERGY':
-					prop = exp.property['energy']['inc'][-1][indx]
-				elif list(calc.protocol.keys())[i] == 'DIPMOM':
-					prop = exp.property['dipmom']['inc'][-1][indx, -1]
-				if list(calc.protocol.values())[i] == 1:
+			for i in calc.protocol.keys():
+				if calc.protocol[i]:
+					if i == 'ENERGY':
+						prop = exp.property[i.lower()]['inc'][-1][indx]
+					elif i == 'DIPOLE':
+						prop = exp.property['dipole']['inc'][-1][indx, -1]
 					# are *any* increments above the threshold?
 					if np.any(np.abs(prop) > exp.thres):
 						screen = False
 						break
-				elif list(calc.protocol.values())[i] == 2:
-					# are *all* increments above the threshold?
-					if np.all(np.abs(prop) > exp.thres):
-						screen = False
-						break
+#				# are *all* increments above the threshold?
+#				if np.all(np.abs(prop) > exp.thres):
+#					screen = False
+#					break
 			if not screen:
 				return [m]
 			else:

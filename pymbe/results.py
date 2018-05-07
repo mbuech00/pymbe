@@ -41,7 +41,7 @@ def main(mpi, mol, calc, exp):
 		info['model_type'], info['basis'], info['mult'], info['ref'], info['base'], info['prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], \
-			info['e_final'], info['dipmom_final'], info['dipmom_hf'] = _setup(mpi, mol, calc, exp)
+			info['e_final'], info['dipole_final'], info['dipole_hf'] = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mol, calc, exp)
 		# plot
@@ -64,13 +64,13 @@ def _setup(mpi, mol, calc, exp):
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		e_final = _e_final(calc, exp)
-		if calc.prop['DIPMOM']:
-			dipmom_final, dipmom_hf = _dipmom_final(mol, calc, exp)
+		if calc.prop['DIPOLE']:
+			dipole_final, dipole_hf = _dipole_final(mol, calc, exp)
 		else:
-			dipmom_final = dipmom_hf = None
+			dipole_final = dipole_hf = None
 		return model_type, basis, mult, ref, base, prot, system, frozen, \
 				active, occ, virt, mpi, thres, symm, e_final, \
-				dipmom_final, dipmom_hf
+				dipole_final, dipole_hf
 
 
 def _table(info, mol, calc, exp):
@@ -81,8 +81,8 @@ def _table(info, mol, calc, exp):
 				_summary_prt(info, calc, exp)
 				_timings_prt(exp)
 				_energy_prt(info, calc, exp)
-				if calc.prop['DIPMOM']:
-					_dipmom_prt(info, mol, calc, exp)
+				if calc.prop['DIPOLE']:
+					_dipole_prt(info, mol, calc, exp)
 	
 
 def _plot(info, calc, exp):
@@ -92,8 +92,8 @@ def _plot(info, calc, exp):
 		# plot maximal increments
 		_increments_plot(calc, exp)
 		# plot MBE dipole moment
-		if calc.prop['DIPMOM']:
-			_dipmom_plot(info, calc, exp)
+		if calc.prop['DIPOLE']:
+			_dipole_plot(info, calc, exp)
 
 
 def _summary_prt(info, calc, exp):
@@ -182,7 +182,7 @@ def _energy_prt(info, calc, exp):
 		print(DIVIDER[:66]+'\n')
 
 
-def _dipmom_prt(info, mol, calc, exp):
+def _dipole_prt(info, mol, calc, exp):
 		""" dipole moment """
 		print(DIVIDER[:110])
 		print('{0:^110}'.format('MBE dipole'))
@@ -195,12 +195,12 @@ def _dipmom_prt(info, mol, calc, exp):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 				'{10:5}{11:1}{12:7}{13:9.6f}{14:7}{15:1}{16:8}{17:9.6f}'. \
 					format('',i+exp.start_order, \
-						'','|','',info['dipmom_final'][i, 0], \
-						'',info['dipmom_final'][i, 1], \
-						'',info['dipmom_final'][i, 2], \
-						'','|','',np.sqrt(np.sum(info['dipmom_final'][i, :]**2)), \
-						'','|','',np.sqrt(np.sum(info['dipmom_final'][i, :]**2)) \
-									- np.sqrt(np.sum(info['dipmom_hf']**2))))
+						'','|','',info['dipole_final'][i, 0], \
+						'',info['dipole_final'][i, 1], \
+						'',info['dipole_final'][i, 2], \
+						'','|','',np.sqrt(np.sum(info['dipole_final'][i, :]**2)), \
+						'','|','',np.sqrt(np.sum(info['dipole_final'][i, :]**2)) \
+									- np.sqrt(np.sum(info['dipole_hf']**2))))
 		print(DIVIDER[:110]+'\n')
 
 
@@ -259,11 +259,11 @@ def _base(calc):
 
 def _prot(calc):
 		""" protocol print """
-		prot = '{0:}-{1:}'.format(list(calc.protocol.keys())[0].lower(), list(calc.protocol.values())[0])
-		if len(calc.protocol.keys()) > 1:
-			for i in range(1, len(list(calc.protocol.keys()))):
-				prot += ' / {0:}-{1:}'.format(list(calc.protocol.keys())[i].lower(), list(calc.protocol.values())[i])
-		return prot
+		prot = ''
+		for i in range(len(list(calc.protocol.keys()))):
+			if list(calc.protocol.values())[i]:
+				prot += '{0:} / '.format(list(calc.protocol.keys())[i].lower(), list(calc.protocol.values())[i])
+		return prot[:-3]
 
 
 def _system(mol, calc):
@@ -345,20 +345,20 @@ def _e_final(calc, exp):
 				+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base'])
 
 
-def _dipmom_final(mol, calc, exp):
+def _dipole_final(mol, calc, exp):
 		""" final molecular dipole moment """
-		if 'dipmom' not in exp.property:
+		if 'dipole' not in exp.property:
 			return np.zeros([exp.property['energy']['tot'].size, 3], dtype=np.float64)
 		else:
 			# nuclear dipole moment
 			charges = mol.atom_charges()
 			coords  = mol.atom_coords()
-			nuc_dipmom = np.einsum('i,ix->x', charges, coords)
+			nuc_dipole = np.einsum('i,ix->x', charges, coords)
 			# molecular dipole moment
-			dipmom = (nuc_dipmom - (exp.property['dipmom']['tot'][:, :3] \
-						+ calc.property['dipmom']['hf'] + calc.property['dipmom']['ref']))
-			dipmom_hf = nuc_dipmom - calc.property['dipmom']['hf']
-			return dipmom, dipmom_hf
+			dipole = (nuc_dipole - (exp.property['dipole']['tot'][:, :3] \
+						+ calc.property['dipole']['hf'] + calc.property['dipole']['ref']))
+			dipole_hf = nuc_dipole - calc.property['dipole']['hf']
+			return dipole, dipole_hf
 
 
 def _time(exp, comp, idx):
@@ -468,24 +468,24 @@ def _increments_plot(calc, exp):
 		plt.savefig(OUT+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
 
 
-def _dipmom_plot(info, calc, exp):
+def _dipole_plot(info, calc, exp):
 		""" plot MBE dipole moment """
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
-		# dipmom length
-		dipmom = np.empty_like(exp.property['energy']['tot'])
-		for i in range(dipmom.size):
-			dipmom[i] = np.sqrt(np.sum(info['dipmom_final'][i, :]**2))
+		# dipole length
+		dipole = np.empty_like(exp.property['energy']['tot'])
+		for i in range(dipole.size):
+			dipole[i] = np.sqrt(np.sum(info['dipole_final'][i, :]**2))
 		# array of MBE total energy increments
 		mbe = np.empty_like(exp.property['energy']['tot'])
 		for i in range(mbe.size):
-			mbe[i] = np.sqrt(np.sum(info['dipmom_final'][i, :]**2)) - np.sqrt(np.sum(info['dipmom_hf']**2))
+			mbe[i] = np.sqrt(np.sum(info['dipole_final'][i, :]**2)) - np.sqrt(np.sum(info['dipole_hf']**2))
 		mbe[1:] = np.diff(mbe)
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
-				dipmom, marker='x', linewidth=2, color='red', \
+				dipole, marker='x', linewidth=2, color='red', \
 				linestyle='-', label='MBE-'+calc.model['METHOD'])
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -517,6 +517,6 @@ def _dipmom_plot(info, calc, exp):
 		# set legends
 		ax2.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/dipmom.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/dipole.pdf', bbox_inches = 'tight', dpi=1000)
 
 

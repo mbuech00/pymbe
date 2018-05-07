@@ -91,7 +91,7 @@ def _exp(mpi, mol, calc):
 			# restart
 			if calc.restart:
 				# get ao integrals
-				mol.hcore, mol.eri, mol.dipmom = kernel.ao_ints(mol, calc)
+				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# exp object
@@ -103,10 +103,10 @@ def _exp(mpi, mol, calc):
 			# no restart
 			else:
 				# hf calculation
-				calc.hf, calc.property['energy']['hf'], calc.property['dipmom']['hf'], \
+				calc.hf, calc.property['energy']['hf'], calc.property['dipole']['hf'], \
 					calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
 				# get ao integrals
-				mol.hcore, mol.eri, mol.dipmom = kernel.ao_ints(mol, calc)
+				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
@@ -118,14 +118,14 @@ def _exp(mpi, mol, calc):
 					raise NotImplementedError('combined expansion not implemented')
 				# reference calculation
 				calc.property['energy']['ref'], calc.property['energy']['ref_base'], \
-					calc.property['dipmom']['ref'], calc.mo = kernel.ref(mol, calc, exp)
+					calc.property['dipole']['ref'], calc.mo = kernel.ref(mol, calc, exp)
 				# base energy and transformation matrix
 				calc.property['energy']['base'] = kernel.base(mol, calc, exp)
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:
 			# get ao integrals
-			mol.hcore, mol.eri, mol.dipmom = kernel.ao_ints(mol, calc)
+			mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 		# bcast fundamental info
 		if mpi.parallel: parallel.fund(mpi, mol, calc)
 		# restart and exp object on slaves
