@@ -208,11 +208,11 @@ def _inc(mpi, mol, calc, exp, tup):
 		exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, tup)
 		# perform calc
 		res = kernel.main(mol, calc, exp, calc.model['METHOD'])
-		inc = {'e_corr': res['e_corr']}
+		inc = {'e_corr': res['e_corr'] - calc.property['energy']['ref']}
 		if calc.prop['DIPOLE']:
-			inc['dipole'] = res['dipole'] - calc.property['dipole']['hf'] - calc.property['dipole']['ref']
+			inc['dipole'] = res['dipole'] - calc.property['dipole']['ref']
 		if calc.prop['EXCITATION']:
-			inc['e_exc'] = res['e_exc']
+			inc['e_exc'] = res['e_exc'] - calc.property['excitation']['ref']
 		if calc.base['METHOD'] is None:
 			e_base = 0.0
 		else:
@@ -231,12 +231,12 @@ def _inc(mpi, mol, calc, exp, tup):
 		if mol.verbose:
 			string = ' INC: proc = {:} , core = {:} , cas = {:} , e_corr = {:.4e}'
 			form = (mpi.local_rank, exp.core_idx.tolist(), exp.cas_idx.tolist(), inc['e_corr'])
-			if calc.prop['DIPOLE']:
-				string += ' , dipole = {:.4e}'
-				form += (np.sqrt(np.sum(inc['dipole']**2)),)
 			if calc.prop['EXCITATION']:
 				string += ' , e_exc = {:.4e}'
 				form += (inc['e_exc'],)
+			if calc.prop['DIPOLE']:
+				string += ' , dipole = {:.4e}'
+				form += (np.sqrt(np.sum(inc['dipole']**2)),)
 			print(string.format(*form))
 		return inc
 

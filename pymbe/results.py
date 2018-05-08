@@ -36,12 +36,19 @@ FILL = '{0:^143}'.format('|'*137)
 
 def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
+		# convert final results to numpy arrays
+		exp.property['energy']['tot'] = np.asarray(exp.property['energy']['tot'])
+		if calc.prop['EXCITATION']:
+			exp.property['excitation']['tot'] = np.asarray(exp.property['excitation']['tot'])
+		if calc.prop['DIPOLE']:
+			exp.property['dipole']['tot'] = np.asarray(exp.property['dipole']['tot'])
 		# setup
 		info = {}
 		info['model_type'], info['basis'], info['mult'], info['ref'], info['base'], info['prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], \
-			info['e_final'], info['dipole_final'], info['dipole_hf'] = _setup(mpi, mol, calc, exp)
+			info['e_final'], info['e_exc_final'], \
+			info['dipole_final'], info['dipole_hf'] = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mol, calc, exp)
 		# plot
@@ -64,13 +71,17 @@ def _setup(mpi, mol, calc, exp):
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		e_final = _e_final(calc, exp)
+		if calc.prop['EXCITATION']:
+			e_exc_final = _e_exc_final(calc, exp)
+		else:
+			e_exc_final = None
 		if calc.prop['DIPOLE']:
 			dipole_final, dipole_hf = _dipole_final(mol, calc, exp)
 		else:
 			dipole_final = dipole_hf = None
 		return model_type, basis, mult, ref, base, prot, system, frozen, \
 				active, occ, virt, mpi, thres, symm, e_final, \
-				dipole_final, dipole_hf
+				e_exc_final, dipole_final, dipole_hf
 
 
 def _table(info, mol, calc, exp):
@@ -199,8 +210,8 @@ def _excitation_prt(info, calc, exp):
 		for i in range(exp.property['energy']['tot'].size):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:8}{9:9.4e}'. \
 					format('',i+exp.start_order, \
-						'','|','',info['e_final'][i] + exp.property['excitation']['tot'][i], \
-						'','|','',exp.property['excitation']['tot'][i]))
+						'','|','',info['e_final'][i] + info['e_exc_final'][i], \
+						'','|','',info['e_exc_final'][i]))
 		print(DIVIDER[:66]+'\n')
 
 
@@ -361,26 +372,30 @@ def _symm(mol, calc):
 
 
 def _e_final(calc, exp):
-		""" final energy """
+		""" final ground state energy """
 		return exp.property['energy']['tot'] \
 				+ calc.property['energy']['hf'] + calc.property['energy']['base'] \
 				+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base'])
 
 
+def _e_exc_final(calc, exp):
+		""" final excitation energy """
+		return exp.property['excitation']['tot'] + calc.property['excitation']['ref']
+
+
 def _dipole_final(mol, calc, exp):
-		""" final molecular dipole moment """
-		if 'dipole' not in exp.property:
-			return np.zeros([exp.property['energy']['tot'].size, 3], dtype=np.float64)
-		else:
-			# nuclear dipole moment
-			charges = mol.atom_charges()
-			coords  = mol.atom_coords()
-			nuc_dipole = np.einsum('i,ix->x', charges, coords)
-			# molecular dipole moment
-			dipole = (nuc_dipole - (exp.property['dipole']['tot'][:, :3] \
-						+ calc.property['dipole']['hf'] + calc.property['dipole']['ref']))
-			dipole_hf = nuc_dipole - calc.property['dipole']['hf']
-			return dipole, dipole_hf
+		""" final ground state molecular dipole moment """
+		# nuclear dipole moment
+		charges = mol.atom_charges()
+		coords  = mol.atom_coords()
+		nuc_dipole = np.einsum('i,ix->x', charges, coords)
+		# molecular dipole moment
+		dipole = nuc_dipole \
+					- (exp.property['dipole']['tot'][:, :3] \
+						+ calc.property['dipole']['hf'] \
+						+ calc.property['dipole']['ref'])
+		dipole_hf = nuc_dipole - calc.property['dipole']['hf']
+		return dipole, dipole_hf
 
 
 def _time(exp, comp, idx):

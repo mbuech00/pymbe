@@ -199,29 +199,39 @@ def ref(mol, calc, exp):
 				from pyscf.mcscf import avas
 				calc.mo = avas.avas(calc.hf, calc.ref['AO_LABELS'], canonicalize=True, ncore=mol.ncore)[2]
 			# set properties equal to hf values
-			ref = {'e_ref': 0.0, 'e_ref_base': 0.0, 'dipole_ref': np.zeros(3, dtype=np.float64)}
+			ref = {'e_ref': 0.0, 'e_ref_base': 0.0, 'e_exc_ref': 0.0, 'dipole_ref': np.zeros(3, dtype=np.float64)}
 			# casscf mo
 			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp)
 		else:
-			# exp model
-			res = main(mol, calc, exp, calc.model['METHOD'])
-			# e_ref
-			ref = {'e_ref': res['e_corr']}
-			# dipole_ref
-			if calc.prop['DIPOLE']:
-				ref['dipole_ref'] = res['dipole'] - calc.property['dipole']['hf']
-			# e_ref_base
-			if calc.base['METHOD'] is None:
-				ref['e_ref_base'] = 0.0
+			if mol.spin == 0:
+				# set properties equal to hf values
+				ref = {'e_ref': 0.0, 'e_ref_base': 0.0, 'e_exc_ref': 0.0, 'dipole_ref': np.zeros(3, dtype=np.float64)}
 			else:
-				if np.abs(ref['e_ref']) < 1.0e-10:
-					ref['e_ref_base'] = ref['e_ref']
+				# exp model
+				res = main(mol, calc, exp, calc.model['METHOD'])
+				# e_ref
+				ref = {'e_ref': res['e_corr']}
+				# e_exc_ref
+				if calc.prop['EXCITATION']:
+					ref['e_exc_ref'] = res['e_exc']
+				# dipole_ref
+				if calc.prop['DIPOLE']:
+					ref['dipole_ref'] = res['dipole']
+				# e_ref_base
+				if calc.base['METHOD'] is None:
+					ref['e_ref_base'] = 0.0
 				else:
-					res = main(mol, calc, exp, calc.base['METHOD'])
-					ref['e_ref_base'] = res['e_corr']
+					if np.abs(ref['e_ref']) < 1.0e-10:
+						ref['e_ref_base'] = ref['e_ref']
+					else:
+						res = main(mol, calc, exp, calc.base['METHOD'])
+						ref['e_ref_base'] = res['e_corr']
 		if mol.verbose:
 			string = '\n REF: core = {:} , cas = {:} , e_corr = {:.4e} , e_corr_base = {:.4e}'
 			form = (exp.core_idx.tolist(), exp.cas_idx.tolist(), ref['e_ref'], ref['e_ref_base'])
+			if calc.prop['EXCITATION']:
+				string += ' , e_exc_ref = {:.4f}'
+				form += (ref['e_exc_ref'],)
 			if calc.prop['DIPOLE']:
 				string += ' , dipole_ref = {:.4f}'
 				form += (np.sqrt(np.sum(ref['dipole_ref']**2)),)
@@ -252,24 +262,26 @@ def main(mol, calc, exp, method):
 		# return correlation energy
 		res = {'e_corr': e['e_corr']}
 		# return excitation energy
-		if calc.prop['EXCITATION'] and exp.order > 0:
+		if calc.prop['EXCITATION']:
 			res['e_exc'] = e['e_exc']
 		# return first-order properties
 		if calc.prop['DIPOLE']:
-			res['dipole'] = _dipole(mol.dipole, calc.occup, exp.cas_idx, calc.mo, dm)
+			res['dipole'] = _dipole(mol.dipole, calc.property['dipole']['hf'], \
+									calc.occup, exp.cas_idx, calc.mo, dm)
 		return res
 
 
-def _dipole(ints, occup, cas_idx, mo, cas_dm):
+def _dipole(ints, hf_dipole, occup, cas_idx, mo, cas_dm):
 		""" calculate electronic dipole moment """
-		# dm
+		# hf dm
 		dm = np.diag(occup)
+		# add correlated part
 		dm[cas_idx[:, None], cas_idx] = cas_dm
 		# elec dipole
 		elec_dipole = np.empty(3, dtype=np.float64)
 		for i in range(3):
 			elec_dipole[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ints[i], mo))))
-		return elec_dipole 
+		return elec_dipole - hf_dipole
 
 
 def base(mol, calc, exp):
@@ -416,9 +428,6 @@ def _casscf(mol, calc, exp):
 
 def _fci(mol, calc, exp, dens):
 		""" fci calc """
-		# no virtuals?
-		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
-			return {'e_corr': 0.0}, np.diag(calc.occup[exp.cas_idx])
 		# init fci solver
 		if mol.spin == 0:
 			solver = fci.direct_spin0_symm.FCI(mol)
@@ -432,10 +441,7 @@ def _fci(mol, calc, exp, dens):
 		# wfnsym
 		solver.wfnsym = calc.state['WFNSYM']
 		# number of roots
-		if exp.order == 0:
-			solver.nroots = 1
-		else:
-			solver.nroots = calc.state['ROOT'] + 1
+		solver.nroots = calc.state['ROOT'] + 1
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
 		# electrons
@@ -493,9 +499,6 @@ def _fci(mol, calc, exp, dens):
 
 def _sci(mol, calc, exp, dens):
 		""" sci calc """
-		# no virtuals?
-		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
-			return {'e_corr': 0.0}, np.diag(calc.occup[exp.cas_idx])
 		# init sci solver
 		if mol.spin == 0:
 			solver = fci.select_ci_spin0_symm.SCI(mol)
@@ -509,10 +512,7 @@ def _sci(mol, calc, exp, dens):
 		# wfnsym
 		solver.wfnsym = calc.state['WFNSYM']
 		# number of roots
-		if exp.order == 0:
-			solver.nroots = 1
-		else:
-			solver.nroots = calc.state['ROOT'] + 1
+		solver.nroots = calc.state['ROOT'] + 1
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
 		# electrons
@@ -532,13 +532,13 @@ def _sci(mol, calc, exp, dens):
 		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=mol.e_core)
 		# collect results
 		if solver.nroots == 1:
-			assert solver.converged, 'FCI: ground state not converged'
+			assert solver.converged, 'SCI: ground state not converged'
 			energy = [e]
 			civec = [c]
 		else:
-			assert len(solver.converged) == solver.nroots, 'FCI: problem with multiple roots'
-			assert solver.converged[0], 'FCI: ground state not converged'
-			assert solver.converged[-1], 'FCI: excited state not converged'
+			assert len(solver.converged) == solver.nroots, 'SCI: problem with multiple roots'
+			assert solver.converged[0], 'SCI: ground state not converged'
+			assert solver.converged[-1], 'SCI: excited state not converged'
 			energy = [e[0], e[-1]]
 			civec = [c[0], c[-1]]
 		# sanity check
@@ -569,9 +569,6 @@ def _sci(mol, calc, exp, dens):
 
 def _ci(mol, calc, exp, dens):
 		""" cisd calc """
-		# no virtuals?
-		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
-			return {'e_corr': 0.0}, np.diag(calc.occup[exp.cas_idx])
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
@@ -620,9 +617,6 @@ def _ci(mol, calc, exp, dens):
 
 def _cc(mol, calc, exp, dens, pt=False):
 		""" ccsd / ccsd(t) calc """
-		# no virtuals?
-		if np.amin(calc.occup[exp.cas_idx]) == 2.0:
-			return {'e_corr': 0.0}, np.diag(calc.occup[exp.cas_idx])
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)

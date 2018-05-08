@@ -120,6 +120,8 @@ def _exp(mpi, mol, calc):
 				ref, calc.mo = kernel.ref(mol, calc, exp)
 				calc.property['energy']['ref'] = ref['e_ref']
 				calc.property['energy']['ref_base'] = ref['e_ref_base']
+				if calc.prop['EXCITATION']:
+					calc.property['excitation']['ref'] = ref['e_exc_ref']
 				if calc.prop['DIPOLE']:
 					calc.property['dipole']['ref'] = ref['dipole_ref']
 				# base energy and transformation matrix

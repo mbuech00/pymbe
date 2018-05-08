@@ -54,6 +54,7 @@ class CalcCls():
 				self.property = {}
 				self.property['energy'] = {}
 				self.property['dipole'] = {}
+				self.property['excitation'] = {}
 
 
 		def set_calc(self, mpi, mol):
