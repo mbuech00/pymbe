@@ -137,9 +137,7 @@ def fund(mpi, mol, calc):
 		""" bcast fundamental info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'e_hf': calc.property['energy']['hf'], 'dipole_hf': calc.property['dipole']['hf'], \
-							'e_base': calc.property['energy']['base'], \
-							'e_ref': calc.property['energy']['ref'], 'e_ref_base': calc.property['energy']['ref_base'], \
+				info = {'property': calc.property, \
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 							'occup': calc.occup, 'no_exp': calc.no_exp, \
@@ -149,9 +147,7 @@ def fund(mpi, mol, calc):
 				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.property['energy']['hf'] = info['e_hf']; calc.property['dipole']['hf'] = info['dipole_hf']
-				calc.property['energy']['base'] = info['e_base']
-				calc.property['energy']['ref'] = info['e_ref']; calc.property['energy']['ref_base'] = info['e_ref_base']
+				calc.property = info['property']
 				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 				calc.occup = info['occup']; calc.no_exp = info['no_exp']
@@ -205,6 +201,8 @@ def property(calc, exp, comm):
 		_energy(exp, comm)
 		if calc.prop['DIPOLE']:
 			_dipole(exp, comm)
+		if calc.prop['EXCITATION']:
+			_excitation(exp, comm)
 
 
 def _energy(exp, comm):
@@ -217,6 +215,12 @@ def _dipole(exp, comm):
 		""" Allreduce dipole moments """
 		# Allreduce
 		comm.Allreduce(MPI.IN_PLACE, [exp.property['dipole']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+
+
+def _excitation(exp, comm):
+		""" Allreduce excitation energies """
+		# Allreduce
+		comm.Allreduce(MPI.IN_PLACE, [exp.property['excitation']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def tup(exp, comm):

@@ -37,10 +37,6 @@ class CalcCls():
 				self.max_order = 1000000
 				self.orbitals = {'OCC': 'CAN', 'VIRT': 'CAN'}
 				self.async = False
-				# init property dict
-				self.property = {}
-				self.property['energy'] = {}
-				self.property['dipole'] = {}
 				# init mo
 				self.mo = None
 				# set calculation parameters
@@ -54,6 +50,10 @@ class CalcCls():
 					self.sanity_chk(mpi, mol)
 					# restart logical
 					self.restart = restart.restart()
+				# init property dict
+				self.property = {}
+				self.property['energy'] = {}
+				self.property['dipole'] = {}
 
 
 		def set_calc(self, mpi, mol):
@@ -191,8 +191,11 @@ class CalcCls():
 							raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
 					if self.state['ROOT'] < 0:
 						raise ValueError('wrong input -- choice of target state (root) must be integer: 0 <= root')
-					if self.state['ROOT'] > 0 and self.model['METHOD'] not in ['SCI','FCI']:
-						raise ValueError('wrong input -- excited states only implemented for SCI and FCI expansion models')
+					if self.state['ROOT'] > 0:
+						if self.model['METHOD'] not in ['SCI','FCI']:
+							raise ValueError('wrong input -- excited states only implemented for SCI and FCI expansion models')
+						if not self.prop['EXCITATION']:
+							raise ValueError('wrong input -- excited states necessitate the calculation of excitation energy in prop dict')
 					# properties
 					if not all(isinstance(i, bool) for i in self.prop.values()):
 						raise ValueError('wrong input -- values in property input (prop) must be bools (True, False)')

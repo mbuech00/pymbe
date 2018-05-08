@@ -256,7 +256,9 @@ def _prot(exp, calc, indx, m):
 					if i == 'ENERGY':
 						prop = exp.property[i.lower()]['inc'][-1][indx]
 					elif i == 'DIPOLE':
-						prop = exp.property['dipole']['inc'][-1][indx, -1]
+						prop = exp.property[i.lower()]['inc'][-1][indx, -1]
+					elif i == 'EXCITATION':
+						prop = exp.property[i.lower()]['inc'][-1][indx]
 					# are *any* increments above the threshold?
 					if np.any(np.abs(prop) > exp.thres):
 						screen = False

@@ -24,7 +24,10 @@ class ExpCls():
 				# init property dict
 				self.property = {}
 				self.property['energy'] = {'inc': [], 'tot': []}
-				self.property['dipole'] = {'inc': [], 'tot': []}
+				if calc.prop['DIPOLE']:
+					self.property['dipole'] = {'inc': [], 'tot': []}
+				if calc.prop['EXCITATION']:
+					self.property['excitation'] = {'inc': [], 'tot': []}
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				self.max_order = min(len(calc.exp_space), calc.max_order)
