@@ -31,8 +31,7 @@ class CalcCls():
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
 				self.state = {'WFNSYM': symm.addons.irrep_id2name(mol.symmetry, 0), 'ROOT': 0}
-				self.thres = 1.0e-10
-				self.relax = 1.0
+				self.thres = {'INIT': 1.0e-10, 'RELAX': 1.0}
 				self.max_order = 1000000
 				self.orbs = {'OCC': 'CAN', 'VIRT': 'CAN'}
 				self.async = False
@@ -41,7 +40,7 @@ class CalcCls():
 				# set calculation parameters
 				if mpi.global_master:
 					self.model, self.prop, self.protocol, self.ref, \
-						self.base, self.thres, self.relax, \
+						self.base, self.thres, \
 						self.state, self.max_order, \
 						self.orbs, self.async, \
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
@@ -96,9 +95,13 @@ class CalcCls():
 								self.base = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.base = self._upper(self.base)
 							elif re.split('=',content[i])[0].strip() == 'thres':
-								self.thres = float(re.split('=',content[i])[1].strip())
-							elif re.split('=',content[i])[0].strip() == 'relax':
-								self.relax = float(re.split('=',content[i])[1].strip())
+								try:
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in threshold dict (thres) must be floats')
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.thres[key] = val
 							elif re.split('=',content[i])[0].strip() == 'state':
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -136,7 +139,7 @@ class CalcCls():
 					raise
 				#
 				return self.model, self.prop, self.protocol, self.ref, self.base, \
-							self.thres, self.relax, self.state, \
+							self.thres, self.state, \
 							self.max_order, self.orbs, self.async, \
 							mol.max_memory, mpi.num_local_masters
 
@@ -227,10 +230,14 @@ class CalcCls():
 					if self.max_order < 0:
 						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					# expansion thresholds
-					if self.thres < 0.0:
-						raise ValueError('wrong input -- expansion threshold parameter (thres) must be float: 0.0 <= thres')
-					if self.relax < 1.0:
-						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
+					if not all(isinstance(i, float) for i in self.thres.values()):
+						raise ValueError('wrong input -- values in threshold input (thres) must be floats')
+					if not set(list(self.thres.keys())) <= set(['INIT', 'RELAX']):
+						raise ValueError('wrong input -- valid input in thres dict is: init and relax')
+					if self.thres['INIT'] < 0.0:
+						raise ValueError('wrong input -- initial threshold (init) must be float: 0.0 <= init')
+					if self.thres['RELAX'] < 1.0:
+						raise ValueError('wrong input -- threshold relaxation (relax) must be float: 1.0 <= relax')
 					# orbital representation
 					if self.orbs['OCC'] not in ['CAN', 'PM', 'FB', 'IBO-1', 'IBO-2', 'CISD', 'CCSD', 'SCI']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \

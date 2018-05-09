@@ -38,7 +38,7 @@ class ExpCls():
 				if self.start_order < 3:
 					self.thres = 0.0
 				else:
-					self.thres = calc.thres * calc.relax ** (self.start_order - 3)
+					self.thres = calc.thres['INIT'] * calc.thres['RELAX'] ** (self.start_order - 3)
 				# init order (pre-calc)
 				self.order = 0
 				# restart frequency

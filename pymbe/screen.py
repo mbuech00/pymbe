@@ -277,6 +277,6 @@ def update(calc, exp):
 		if exp.order < 3:
 			return 0.0
 		else:
-			return calc.thres * calc.relax ** (exp.order - 3)
+			return calc.thres['INIT'] * calc.thres['RELAX'] ** (exp.order - 3)
 
 

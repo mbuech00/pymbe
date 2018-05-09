@@ -366,7 +366,7 @@ def _mpi(mpi):
 
 def _thres(calc):
 		""" threshold print """
-		return '{0:.0e} / {1:<.1f}'.format(calc.thres, calc.relax)
+		return '{0:.0e} / {1:<.1f}'.format(calc.thres['INIT'], calc.thres['RELAX'])
 
 
 def _symm(mol, calc):

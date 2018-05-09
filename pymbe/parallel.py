@@ -118,7 +118,7 @@ def calc(mpi, calc):
 			if mpi.global_master:
 				info = {'model': calc.model, 'prop': calc.prop, \
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
-						'thres': calc.thres, 'relax': calc.relax, 'protocol': calc.protocol, \
+						'thres': calc.thres, 'protocol': calc.protocol, \
 						'state': calc.state, 'max_order': calc.max_order, \
 						'orbs': calc.orbs, \
 						'async': calc.async, 'restart': calc.restart}
@@ -127,7 +127,7 @@ def calc(mpi, calc):
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.model = info['model']; calc.prop = info['prop']
 				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
-				calc.thres = info['thres']; calc.relax = info['relax']; calc.protocol = info['protocol']
+				calc.thres = info['thres']; calc.protocol = info['protocol']
 				calc.state = info['state']; calc.max_order = info['max_order']
 				calc.orbs = info['orbs']
 				calc.async = info['async']; calc.restart = info['restart']
