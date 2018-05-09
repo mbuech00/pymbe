@@ -12,8 +12,9 @@ __status__ = 'Development'
 
 import re
 import sys
+import os
 import ast
-from pyscf import gto
+from pyscf import gto, symm
 
 import restart
 
@@ -24,25 +25,112 @@ class MolCls(gto.Mole):
 				""" init parameters """
 				# gto.Mole instantiation
 				gto.Mole.__init__(self)
-				# silence pyscf output
-				self.verbose = 1
+				# set defaults
+				self.atom = ''
+				self.mol = {'CHARGE': 0, 'SPIN': 0, 'SYM': 'c1', 'BASIS': 'sto-3g', 'UNIT': 'ang', \
+							'FROZEN': False, 'OCCUP': {}, 'VERBOSE': 1, 'DEBUG': False}
 				# set geometric and molecular parameters
 				if mpi.global_master:
-					# default C1 symmetry
-					self.symmetry = 'C1'
-					# init occupation
-					self.irrep_nelec = {}
-					# set default value for FC
-					self.frozen = False
-					# init e_core
+					# read atom and molecule settings
+					self.atom, self.mol = self.set_mol()
+					# sanity check
+					self.sanity_chk()
+					# translate to Mole input
+					self.charge = self.mol['CHARGE']
+					self.spin = self.mol['SPIN']
+					self.symmetry = symm.addons.std_symb(self.mol['SYM'])
+					self.basis = self.mol['BASIS']
+					self.irrep_nelec = self.mol['OCCUP']
+					self.verbose = self.mol['VERBOSE']
+					self.unit = self.mol['UNIT']
+					# add pymbe parameters
+					self.frozen = self.mol['FROZEN']
+					self.debug = self.mol['DEBUG']
 					self.e_core = None
+
+
+		def set_mol(self):
+				""" set molecular parameters from input file """
+				# read input file
+				try:
+					with open(os.getcwd()+'/input') as f:
+						content = f.readlines()
+						for i in range(len(content)):
+							if content[i].strip():
+								if content[i].split()[0][0] == '#':
+									continue
+								# atom
+								elif re.split('=',content[i])[0].strip() == 'atom':
+									for j in range(i+1, len(content)):
+										if content[j][:3] == "'''" or content[j][:3] == '"""':
+											break
+										else:
+											self.atom += content[j]
+								# mol 
+								elif re.split('=',content[i])[0].strip() == 'mol':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in molecule dict (mol) must be strings, dicts, ints, and bools')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.mol[key] = val
+				except IOError:
+					restart.rm()
+					sys.stderr.write('\nIOError : input file not found\n\n')
+					raise
+				#
+				return self.atom, self.mol
+
+
+		def sanity_chk(self):
+				""" sanity check for molecular parameters """
+				try:
+					# atom
+					if not isinstance(self.atom, str):
+						raise ValueError('wrong input -- atom input in geo.xyz must be a str')
+					# charge
+					if not isinstance(self.mol['CHARGE'], int):
+						raise ValueError('wrong input -- charge input in mol dict (charge) must be an int')
+					# spin
+					if not isinstance(self.mol['SPIN'], int):
+						raise ValueError('wrong input -- spin input (2S) in mol dict (spin) must be an int >= 0')
+					if self.mol['SPIN'] < 0:
+						raise ValueError('wrong input -- spin input (2S) in mol dict (spin) must be an int >= 0')
+					# sym
+					if not isinstance(self.mol['SYM'], str):
+						raise ValueError('wrong input -- symmetry input in mol dict (sym) must be a str')
+					if self.mol['SPIN'] < 0:
+						raise ValueError('wrong input -- spin input (2S) in mol dict (spin) must be int >= 0')
+					# spin
+					if not isinstance(self.mol['SYM'], str):
+						raise ValueError('wrong input -- symmetry input in mol dict (sym) must be a str')
+					if symm.addons.std_symb(self.mol['SYM']) not in symm.param.POINTGROUP:
+						raise ValueError('wrong input -- spin input (2S) in mol dict (spin) must be int >= 0')
+					# basis
+					if not isinstance(self.mol['BASIS'], (str, dict)):
+						raise ValueError('wrong input -- basis set input in mol dict (basis) must be a str or a dict')
+					# occup
+					if not isinstance(self.mol['OCCUP'], dict):
+						raise ValueError('wrong input -- occupation input in mol dict (occup) must be a dict')
 					# verbose
-					self.verbose = False
-					# set geometry
-					self.atom = self.set_geo()
-					# set Mole
-					self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose = self.set_mol()
+					if not isinstance(self.mol['VERBOSE'], int):
+						raise ValueError('wrong input -- verbosity input in mol dict (verbose) must be an int >= 0')
+					if self.mol['VERBOSE'] < 0:
+						raise ValueError('wrong input -- verbosity input in mol dict (verbose) must be an int >= 0')
+					# unit
+					if not isinstance(self.mol['UNIT'], str):
+						raise ValueError('wrong input -- unit input in mol dict (unit) must be a str')
+					# frozen
+					if not isinstance(self.mol['FROZEN'], bool):
+						raise ValueError('wrong input -- frozen core input in mol dict (frozen) must be a bool')
+					# debug
+					if not isinstance(self.mol['DEBUG'], bool):
+						raise ValueError('wrong input -- debug input in mol dict (debug) must be a bool')
+				except Exception as err:
+					restart.rm()
+					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
+					raise
 
 
 		def make(self, mpi):
@@ -55,75 +143,11 @@ class MolCls(gto.Mole):
 					except RuntimeError:
 						if mpi.global_master:
 							restart.rm()
-							sys.stderr.write('\nValueError: non-sensible input in mol.inp\n'
+							sys.stderr.write('\nValueError: non-sensible molecule input\n'
 												'PySCF error : {0:}\n\n'.format(err))
 							raise
 				# set core region
 				self.ncore = self._set_ncore()
-
-
-		def set_geo(self):
-				""" set geometry from geo.inp file """
-				# read input file
-				try:
-					with open('geo.inp') as f:
-						content = f.readlines()
-						atom = ''
-						for i in range(len(content)):
-							if content[i].split()[0][0] == '#':
-								continue
-							else:
-								atom += content[i]
-				except IOError:
-					restart.rm()
-					sys.stderr.write('\nIOError: geo.inp not found\n\n')
-					raise
-				return atom
-
-
-		def set_mol(self):
-				""" set molecular parameters from mol.inp file """
-				# read input file
-				try:
-					with open('mol.inp') as f:
-						content = f.readlines()
-						for i in range(len(content)):
-							if content[i].split()[0][0] == '#':
-								continue
-							elif re.split('=',content[i])[0].strip() == 'charge':
-								self.charge = int(re.split('=',content[i])[1].strip())
-							elif re.split('=',content[i])[0].strip() == 'spin':
-								self.spin = int(re.split('=',content[i])[1].strip())
-							elif re.split('=',content[i])[0].strip() == 'sym':
-								self.symmetry = re.split('=',content[i])[1].strip()
-							elif re.split('=',content[i])[0].strip() == 'basis':
-								try:
-									self.basis = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except Exception:	
-									self.basis = re.split('=',content[i])[1].strip()
-							elif re.split('=',content[i])[0].strip() == 'unit':
-								self.unit = re.split('=',content[i])[1].strip()
-							elif re.split('=',content[i])[0].strip() == 'frozen':
-								self.frozen = re.split('=',content[i])[1].strip().upper() == 'TRUE'
-							elif re.split('=',content[i])[0].strip() == 'occup':
-								self.irrep_nelec = ast.literal_eval(re.split('=',content[i])[1].strip())
-							elif re.split('=',content[i])[0].strip() == 'verbose':
-								self.verbose = re.split('=',content[i])[1].strip().upper() == 'TRUE'
-							# error handling
-							else:
-								try:
-									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
-													' keyword in mol.inp not recognized')
-								except Exception as err:
-									restart.rm()
-									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
-									raise
-				except IOError:
-					restart.rm()
-					sys.stderr.write('\nIOError: mol.inp not found\n\n')
-					raise
-				return self.charge, self.spin, self.symmetry, self.irrep_nelec, \
-						self.basis, self.unit, self.frozen, self.verbose
 
 
 		def _set_ncore(self):
@@ -136,5 +160,13 @@ class MolCls(gto.Mole):
 						if self.atom_charge(i) > 20: ncore += 4
 						if self.atom_charge(i) > 30: ncore += 6
 				return ncore
+
+
+		def _upper(self, old_dict):
+				""" capitalize keys """
+				new_dict = {}
+				for key, value in old_dict.items():
+					new_dict[key.upper()] = value
+				return new_dict
 
 

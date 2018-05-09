@@ -12,6 +12,7 @@ __status__ = 'Development'
 
 import re
 import sys
+import os
 import ast
 import copy
 import numpy as np
@@ -39,6 +40,7 @@ class CalcCls():
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:
+					# read parameters
 					self.model, self.prop, self.prot, self.ref, \
 						self.base, self.thres, self.state, \
 						self.misc, self.orbs, self.mpi = self.set_calc()
@@ -54,119 +56,111 @@ class CalcCls():
 
 
 		def set_calc(self):
-				""" set calculation and mpi parameters from calc.inp file """
+				""" set calculation and mpi parameters from input file """
 				# read input file
 				try:
-					with open('calc.inp') as f:
+					with open(os.getcwd()+'/input') as f:
 						content = f.readlines()
 						for i in range(len(content)):
-							if content[i].split()[0][0] == '#':
-								continue
-							# model
-							elif re.split('=',content[i])[0].strip() == 'model':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in model dict (model) must be strings')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.model[key] = val
-							# prop
-							elif re.split('=',content[i])[0].strip() == 'prop':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in property dict (prop) must be bools')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.prop[key] = val
-							# prot
-							elif re.split('=',content[i])[0].strip() == 'prot':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in prot dict (prot) must be bools')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.prot[key] = val
-							# ref
-							elif re.split('=',content[i])[0].strip() == 'ref':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in reference dict (ref) must be strings, lists, and tuples')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.ref[key] = val
-							# base
-							elif re.split('=',content[i])[0].strip() == 'base':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in base dict (base) must be strings')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.base[key] = val
-							# thres
-							elif re.split('=',content[i])[0].strip() == 'thres':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in threshold dict (thres) must be floats')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.thres[key] = val
-							# state
-							elif re.split('=',content[i])[0].strip() == 'state':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in state dict (state) must be strings and ints')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									if key == 'WFNSYM':
-										self.state[key] = symm.addons.std_symb(val)
-									else:
-										self.state[key] = val
-							# misc
-							elif re.split('=',content[i])[0].strip() == 'misc':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in misc dict (misc) must be ints and bools')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.misc[key] = val
-							# orbs
-							elif re.split('=',content[i])[0].strip() == 'orbs':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in orbital dict (orbs) must be strings')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.orbs[key] = val
-							# mpi
-							elif re.split('=',content[i])[0].strip() == 'mpi':
-								try:
-									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
-								except ValueError:
-									raise ValueError('wrong input -- values in mpi dict (mpi) must be ints')
-								tmp = self._upper(tmp)
-								for key, val in tmp.items():
-									self.mpi[key] = val
-							# error handling
-							else:
-								try:
-									raise RuntimeError('\''+content[i].split()[0].strip()+'\'' + \
-														' keyword in calc.inp not recognized')
-								except Exception as err:
-									restart.rm()
-									sys.stderr.write('\nInputError : {0:}\n\n'.format(err))
-									raise
+							if content[i].strip():
+								if content[i].split()[0][0] == '#':
+									continue
+								# model
+								elif re.split('=',content[i])[0].strip() == 'model':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in model dict (model) must be strings')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.model[key] = val
+								# prop
+								elif re.split('=',content[i])[0].strip() == 'prop':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in property dict (prop) must be bools')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.prop[key] = val
+								# prot
+								elif re.split('=',content[i])[0].strip() == 'prot':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in prot dict (prot) must be bools')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.prot[key] = val
+								# ref
+								elif re.split('=',content[i])[0].strip() == 'ref':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in reference dict (ref) must be strings, lists, and tuples')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.ref[key] = val
+								# base
+								elif re.split('=',content[i])[0].strip() == 'base':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in base dict (base) must be strings')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.base[key] = val
+								# thres
+								elif re.split('=',content[i])[0].strip() == 'thres':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in threshold dict (thres) must be floats')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.thres[key] = val
+								# state
+								elif re.split('=',content[i])[0].strip() == 'state':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in state dict (state) must be strings and ints')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										if key == 'WFNSYM':
+											self.state[key] = symm.addons.std_symb(val)
+										else:
+											self.state[key] = val
+								# misc
+								elif re.split('=',content[i])[0].strip() == 'misc':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in misc dict (misc) must be ints and bools')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.misc[key] = val
+								# orbs
+								elif re.split('=',content[i])[0].strip() == 'orbs':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in orbital dict (orbs) must be strings')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.orbs[key] = val
+								# mpi
+								elif re.split('=',content[i])[0].strip() == 'mpi':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in mpi dict (mpi) must be ints')
+									tmp = self._upper(tmp)
+									for key, val in tmp.items():
+										self.mpi[key] = val
 				except IOError:
 					restart.rm()
-					sys.stderr.write('\nIOError : calc.inp not found\n\n')
+					sys.stderr.write('\nIOError : input file not found\n\n')
 					raise
 				#
 				return self.model, self.prop, self.prot, self.ref, self.base, \
@@ -228,7 +222,7 @@ class CalcCls():
 						if self.model['METHOD'] not in ['SCI','FCI']:
 							raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
 					if self.state['ROOT'] < 0:
-						raise ValueError('wrong input -- choice of target state (root) must be integer: 0 <= root')
+						raise ValueError('wrong input -- choice of target state (root) must be an int >= 0')
 					if self.state['ROOT'] > 0:
 						if self.model['METHOD'] not in ['SCI','FCI']:
 							raise ValueError('wrong input -- excited states only implemented for SCI and FCI expansion models')
@@ -261,9 +255,9 @@ class CalcCls():
 					if not set(list(self.thres.keys())) <= set(['INIT', 'RELAX']):
 						raise ValueError('wrong input -- valid input in thres dict is: init and relax')
 					if self.thres['INIT'] < 0.0:
-						raise ValueError('wrong input -- initial threshold (init) must be float: 0.0 <= init')
+						raise ValueError('wrong input -- initial threshold (init) must be a float >= 0.0')
 					if self.thres['RELAX'] < 1.0:
-						raise ValueError('wrong input -- threshold relaxation (relax) must be float: 1.0 <= relax')
+						raise ValueError('wrong input -- threshold relaxation (relax) must be a float >= 1.0')
 					# orbital representation
 					if self.orbs['OCC'] not in ['CAN', 'PM', 'FB', 'IBO-1', 'IBO-2', 'CISD', 'CCSD', 'SCI']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
@@ -279,22 +273,22 @@ class CalcCls():
 											'different from C1 is not allowed')
 					# misc
 					if not isinstance(self.misc['MEM'], int):
-						raise ValueError('wrong input -- maximum memory (mem) in units of MB must be integer >= 1')
+						raise ValueError('wrong input -- maximum memory (mem) in units of MB must be an int >= 1')
 					if self.misc['MEM'] < 0:
-						raise ValueError('wrong input -- maximum memory (mem) in units of MB must be integer >= 1')
+						raise ValueError('wrong input -- maximum memory (mem) in units of MB must be an int >= 1')
 					if not isinstance(self.misc['ORDER'], (int, type(None))):
-						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
+						raise ValueError('wrong input -- maximum expansion order (order) must be an int >= 1')
 					if self.misc['ORDER'] is not None:
 						if self.misc['ORDER'] < 0:
-							raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
+							raise ValueError('wrong input -- maximum expansion order (order) must be an int >= 1')
 					if not isinstance(self.misc['ASYNC'], bool):
-						raise ValueError('wrong input -- asynchronous key (async) must be bool (True, False)')
+						raise ValueError('wrong input -- asynchronous key (async) must be a bool (True, False)')
 					# mpi
 					if not isinstance(self.mpi['MASTERS'], int):
-						raise ValueError('wrong input -- number of mpi masters (masters) must be integer >= 1')
+						raise ValueError('wrong input -- number of mpi masters (masters) must be an int >= 1')
 					if mpi.parallel:
 						if self.mpi['MASTERS'] < 1:
-							raise ValueError('wrong input -- number of mpi masters (masters) must be integer >= 1')
+							raise ValueError('wrong input -- number of mpi masters (masters) must be an int >= 1')
 						elif self.mpi['MASTERS'] == 1:
 							if self.model['TYPE'] == 'COMB':
 								raise ValueError('wrong input -- combined expansions are only valid in ' + \

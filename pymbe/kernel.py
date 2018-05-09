@@ -131,7 +131,7 @@ def active(mol, calc):
 				from pyscf.mcscf import avas
 				# avas
 				no_avas, ne_avas = avas.avas(calc.hf, calc.ref['AO_LABELS'], canonicalize=True, \
-												verbose=4 if mol.verbose else None, ncore=mol.ncore)[:2]
+												verbose=4 if mol.debug else None, ncore=mol.ncore)[:2]
 				# convert ne_avas to native python type
 				ne_avas = np.asscalar(ne_avas)
 				# active electrons
@@ -157,7 +157,7 @@ def active(mol, calc):
 				except Exception as err:
 					sys.stderr.write(str(err))
 					raise
-			if mol.verbose:
+			if mol.debug:
 				print(' ACTIVE: ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
 		return ref_space, exp_space, no_exp, no_act, ne_act
 
@@ -226,7 +226,7 @@ def ref(mol, calc, exp):
 					else:
 						res = main(mol, calc, exp, calc.base['METHOD'])
 						ref['e_ref_base'] = res['e_corr']
-		if mol.verbose:
+		if mol.debug:
 			string = '\n REF: core = {:} , cas = {:} , e_corr = {:.4e} , e_corr_base = {:.4e}'
 			form = (exp.core_idx.tolist(), exp.cas_idx.tolist(), ref['e_ref'], ref['e_ref_base'])
 			if calc.prop['EXCITATION']:
@@ -371,8 +371,8 @@ def _casscf(mol, calc, exp):
 		cas.fcisolver.wfnsym = calc.state['WFNSYM']
 		# frozen (inactive)
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
-		# verbose print
-		if mol.verbose: cas.verbose = 4
+		# debug print
+		if mol.debug: cas.verbose = 4
 		# fix spin if non-singlet
 		if mol.spin > 0:
 			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5

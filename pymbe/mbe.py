@@ -227,8 +227,8 @@ def _inc(mpi, mol, calc, exp, tup):
 				inc['dipole'] -= res['dipole']
 			if calc.prop['EXCITATION']:
 				inc['e_exc'] -= res['e_exc']
-		# verbose print
-		if mol.verbose:
+		# debug print
+		if mol.debug:
 			string = ' INC: proc = {:} , core = {:} , cas = {:} , e_corr = {:.4e}'
 			form = (mpi.local_rank, exp.core_idx.tolist(), exp.cas_idx.tolist(), inc['e_corr'])
 			if calc.prop['EXCITATION']:

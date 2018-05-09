@@ -175,14 +175,14 @@ def mbe_results(mol, calc, exp):
 				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 				string += DIVIDER+'\n'
 				string += ' RESULT:     {1:>13.4e}       |        {2:>13.4e}         |       {3:>13.4e}\n'
-				if mol.verbose:
+				if mol.debug:
 					string += DIVIDER+'\n'
 					string += ' RESULT:                   info on max. abs. increment:\n'
 					string += ' RESULT:  core = {4:}\n'
 					string += ' RESULT:  cas  = '+cas_ref+' + '+cas_exp+'\n'
 				string += DIVIDER
 				form = (header, mean_val, min_val, max_val)
-				if mol.verbose:
+				if mol.debug:
 					form += (core,)
 				# now print
 				with open(OUT+'/output.out','a') as f:
