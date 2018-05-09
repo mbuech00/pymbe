@@ -31,8 +31,6 @@ class ExpCls():
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				self.max_order = min(len(calc.exp_space), calc.max_order)
-				# init convergence list
-				self.conv_orb = [False]
 				# init timings
 				self.time = {'mbe': [], 'screen': []}
 				# init thres

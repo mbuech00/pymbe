@@ -221,7 +221,7 @@ class CalcCls():
 					# max order
 					if self.max_order < 0:
 						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
-					# expansion and convergence thresholds
+					# expansion thresholds
 					if self.thres < 0.0:
 						raise ValueError('wrong input -- expansion threshold parameter (thres) must be float: 0.0 <= thres')
 					if self.relax < 1.0:

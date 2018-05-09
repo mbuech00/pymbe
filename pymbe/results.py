@@ -143,7 +143,7 @@ def _summary_prt(info, calc, exp):
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}'.\
 					format('','occupied orbitals','','=','',info['occ'], \
-						'','|','','screening prot.','','=','',info['prot'], \
+						'','|','','screen. prot.','','=','',info['prot'], \
 						'','|','','total time','','=','', \
 						_time(exp, 'total', exp.order-1)[0],'h', \
 						_time(exp, 'total', exp.order-1)[1],'m', \
@@ -151,7 +151,7 @@ def _summary_prt(info, calc, exp):
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 					format('','virtual orbitals','','=','',info['virt'], \
-						'','|','','thres. / relax.','','=','',info['thres'], \
+						'','|','','screen. thres.','','=','',info['thres'], \
 						'','|','','wave funct. symmetry','','=','',info['symm']))
 		print(DIVIDER)
 		print(FILL)
@@ -293,10 +293,16 @@ def _base(calc):
 def _prot(calc):
 		""" protocol print """
 		prot = ''
-		for i in range(len(list(calc.protocol.keys()))):
-			if list(calc.protocol.values())[i]:
-				prot += '{0:} / '.format(list(calc.protocol.keys())[i].lower(), list(calc.protocol.values())[i])
-		return prot[:-3]
+		for i in calc.protocol.keys():
+			if calc.protocol[i]:
+				if i == 'ENERGY':
+					prop = 'ener.'
+				elif i == 'DIPOLE':
+					prop = 'dip.'
+				elif i == 'EXCITATION':
+					prop = 'exc.'
+				prot += '{0:}-'.format(prop)
+		return prot[:-1]
 
 
 def _system(mol, calc):
@@ -432,7 +438,7 @@ def _energies_plot(info, calc, exp):
 		if calc.prop['EXCITATION']:
 			ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 					info['e_final'] + info['e_exc_final'], marker='x', linewidth=2, color='blue', \
-					linestyle='-', label='excited state')
+					linestyle='-', label='excited state {0:}'.format(calc.state['ROOT']))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -449,7 +455,7 @@ def _energies_plot(info, calc, exp):
 		if calc.prop['EXCITATION']:
 			ax2.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 					np.abs(mbe_ex), marker='x', linewidth=2, color='blue', \
-					linestyle='-', label='excited state')
+					linestyle='-', label='excited state {0:}'.format(calc.state['ROOT']))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -528,7 +534,7 @@ def _excitation_plot(info, calc, exp):
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				info['e_exc_final'], marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
+				linestyle='-', label='excited state {0:}'.format(calc.state['ROOT']))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -541,7 +547,7 @@ def _excitation_plot(info, calc, exp):
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
+				linestyle='-', label='excited state {0:}'.format(calc.state['ROOT']))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -580,7 +586,7 @@ def _dipole_plot(info, calc, exp):
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				dipole, marker='x', linewidth=2, color='red', \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
+				linestyle='-', label='ground state')
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -593,7 +599,7 @@ def _dipole_plot(info, calc, exp):
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				np.abs(mbe), marker='x', linewidth=2, color='red', \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
+				linestyle='-', label='ground state')
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid

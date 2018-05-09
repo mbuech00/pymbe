@@ -159,13 +159,13 @@ def mbe_results(mol, calc, exp):
 						tot_inc = prop_tot[-1][-1] - prop_tot[-2][-1]
 				# set header
 				if prop_type[i] == 'ENERGY':
-					header = 'ground state energy (inc = {0:.4e})'.format(tot_inc)
+					header = 'ground state energy (total increment = {0:.4e})'.format(tot_inc)
 				elif prop_type[i] == 'EXCITATION':
-					header = 'excitation energy for root {0:} (inc = {1:.4e})'.format(calc.state['ROOT'], tot_inc)
+					header = 'excitation energy for root {0:} (total increment = {1:.4e})'.format(calc.state['ROOT'], tot_inc)
 				elif prop_type[i] == 'DIPOLE':
-					header = 'ground state dipole moment (inc = {0:.4e})'.format(tot_inc)
+					header = 'ground state dipole moment (total increment = {0:.4e})'.format(tot_inc)
 				# set string
-				string = ' RESULT:{0:^82}\n'
+				string = ' RESULT:{0:^81}\n'
 				string += DIVIDER+'\n'
 				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 				string += DIVIDER+'\n'
@@ -213,7 +213,7 @@ def screen_end(exp):
 		""" print end of screening """
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {0:>d} screening done\n'
-		if exp.conv_orb[-1]:
+		if exp.tuples[-1].shape[0] == 0:
 			string += ' STATUS:                  *** convergence has been reached ***                         \n'
 		string += DIVIDER+'\n\n'
 		form = (exp.order)

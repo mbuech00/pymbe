@@ -60,7 +60,7 @@ def main(mpi, mol, calc, exp):
 					exp.time['screen'][-1] -= MPI.Wtime()
 					exp.time['screen'][-1] *= -1.0
 					# write restart files
-					if not exp.conv_orb[-1]: restart.screen_write(exp)
+					if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 					# print screen end
 					output.screen_end(exp)
 			else:
@@ -70,7 +70,7 @@ def main(mpi, mol, calc, exp):
 			# update restart frequency
 			if mpi.global_master: exp.rst_freq = max(exp.rst_freq // 2, 1)
 			# convergence check
-			if exp.conv_orb[-1] or exp.order == exp.max_order:
+			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
 				# timings
 				exp.time['mbe'] = np.asarray(exp.time['mbe'])
 				exp.time['screen'] = np.asarray(exp.time['screen'])

@@ -57,9 +57,8 @@ def _serial(mol, calc, exp):
 					child_tup += parent_tup+[m]
 		# convert child tuple list to array
 		exp.tuples.append(np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1))
-		# when done, write to tup list or mark expansion as converged
-		exp.conv_orb.append(exp.tuples[-1].shape[0] == 0)
-		if not exp.conv_orb[-1]:
+		# when done, write to tup list if expansion has not converged
+		if exp.tuples[-1].shape[0] > 0:
 			# recast tuples as Fortran order array
 			exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 
@@ -158,10 +157,9 @@ def _master(mpi, mol, calc, exp):
 			# add child tuples
 			exp.tuples[-1] = np.vstack((exp.tuples[-1], tmp.reshape(-1, exp.order+1)))
 			slaves_avail -= 1
-		# finally, bcast tuples or mark expansion as converged 
-		exp.conv_orb.append(exp.tuples[-1].shape[0] == 0)
+		# finally, bcast tuples if expansion has not converged 
 		comm.Bcast([np.asarray([exp.tuples[-1].shape[0]], dtype=np.int64), MPI.INT], root=0)
-		if not exp.conv_orb[-1]:
+		if exp.tuples[-1].shape[0] > 0:
 			parallel.tup(exp, comm)
 
 
