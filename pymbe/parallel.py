@@ -119,18 +119,16 @@ def calc(mpi, calc):
 				info = {'model': calc.model, 'prop': calc.prop, \
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
 						'thres': calc.thres, 'protocol': calc.protocol, \
-						'state': calc.state, 'max_order': calc.max_order, \
-						'orbs': calc.orbs, \
-						'async': calc.async, 'restart': calc.restart}
+						'state': calc.state, 'misc': calc.misc, \
+						'orbs': calc.orbs, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.model = info['model']; calc.prop = info['prop']
 				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
 				calc.thres = info['thres']; calc.protocol = info['protocol']
-				calc.state = info['state']; calc.max_order = info['max_order']
-				calc.orbs = info['orbs']
-				calc.async = info['async']; calc.restart = info['restart']
+				calc.state = info['state']; calc.misc = info['misc']
+				calc.orbs = info['orbs']; calc.restart = info['restart']
 
 
 def fund(mpi, mol, calc):

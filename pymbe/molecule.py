@@ -36,8 +36,6 @@ class MolCls(gto.Mole):
 					self.frozen = False
 					# init e_core
 					self.e_core = None
-					# init max_memory
-					self.max_memory = None
 					# verbose
 					self.verbose = False
 					# set geometry

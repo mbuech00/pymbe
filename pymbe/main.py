@@ -59,6 +59,8 @@ def _init():
 		mpi = parallel.MPICls()
 		mol = _mol(mpi)
 		calc = _calc(mpi, mol)
+		# set max_mem
+		mol.max_memory = calc.misc['MEM']
 		# configure mpi
 		parallel.set_mpi(mpi)
 		# exp object

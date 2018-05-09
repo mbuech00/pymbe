@@ -32,18 +32,16 @@ class CalcCls():
 				self.base = {'METHOD': None}
 				self.state = {'WFNSYM': symm.addons.irrep_id2name(mol.symmetry, 0), 'ROOT': 0}
 				self.thres = {'INIT': 1.0e-10, 'RELAX': 1.0}
-				self.max_order = 1000000
+				self.misc = {'MEM': 2000, 'ORDER': None, 'ASYNC': False}
 				self.orbs = {'OCC': 'CAN', 'VIRT': 'CAN'}
-				self.async = False
 				# init mo
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:
 					self.model, self.prop, self.protocol, self.ref, \
 						self.base, self.thres, \
-						self.state, self.max_order, \
-						self.orbs, self.async, \
-						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
+						self.state, self.misc, self.orbs, \
+						mpi.num_local_masters = self.set_calc(mpi)
 					# sanity check
 					self.sanity_chk(mpi, mol)
 					# restart logical
@@ -55,7 +53,7 @@ class CalcCls():
 				self.property['excitation'] = {}
 
 
-		def set_calc(self, mpi, mol):
+		def set_calc(self, mpi):
 				""" set calculation and mpi parameters from calc.inp file """
 				# read input file
 				try:
@@ -76,7 +74,7 @@ class CalcCls():
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except ValueError:
-									raise ValueError('wrong input -- values in property dict (prop) must be bools (True, False)')
+									raise ValueError('wrong input -- values in property dict (prop) must be bools')
 								tmp = self._upper(tmp)
 								for key, val in tmp.items():
 									self.prop[key] = val
@@ -84,7 +82,7 @@ class CalcCls():
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except ValueError:
-									raise ValueError('wrong input -- values in protocol dict (prot) must be bools (True, False)')
+									raise ValueError('wrong input -- values in protocol dict (prot) must be bools')
 								tmp = self._upper(tmp)
 								for key, val in tmp.items():
 									self.protocol[key] = val
@@ -113,15 +111,17 @@ class CalcCls():
 										self.state[key] = symm.addons.std_symb(val)
 									else:
 										self.state[key] = val
-							elif re.split('=',content[i])[0].strip() == 'order':
-								self.max_order = int(re.split('=',content[i])[1].strip())
+							elif re.split('=',content[i])[0].strip() == 'misc':
+								try:
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in misc dict (misc) must be ints and bools')
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.misc[key] = val
 							elif re.split('=',content[i])[0].strip() == 'orbs':
 								self.orbs = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.orbs = self._upper(self.orbs)
-							elif re.split('=',content[i])[0].strip() == 'async':
-								self.async = re.split('=',content[i])[1].strip().upper() == 'TRUE'
-							elif re.split('=',content[i])[0].strip() == 'mem':
-								mol.max_memory = int(re.split('=',content[i])[1].strip())
 							elif re.split('=',content[i])[0].strip() == 'num_local_masters':
 								mpi.num_local_masters = int(re.split('=',content[i])[1].strip())
 							# error handling
@@ -140,8 +140,8 @@ class CalcCls():
 				#
 				return self.model, self.prop, self.protocol, self.ref, self.base, \
 							self.thres, self.state, \
-							self.max_order, self.orbs, self.async, \
-							mol.max_memory, mpi.num_local_masters
+							self.misc, self.orbs, \
+							mpi.num_local_masters
 
 
 		def sanity_chk(self, mpi, mol):
@@ -226,9 +226,6 @@ class CalcCls():
 					for key in self.protocol.keys():
 						if self.protocol[key] and not self.prop[key]:
 							raise ValueError('wrong input -- screening wrt a given property requires that this is also requested in prop input')
-					# max order
-					if self.max_order < 0:
-						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					# expansion thresholds
 					if not all(isinstance(i, float) for i in self.thres.values()):
 						raise ValueError('wrong input -- values in threshold input (thres) must be floats')
@@ -251,6 +248,18 @@ class CalcCls():
 						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbs and point group symmetry ' + \
 											'different from C1 is not allowed')
+					# misc
+					if not isinstance(self.misc['MEM'], int):
+						raise ValueError('wrong input -- maximum memory (MEM) in units of MB must be integer >= 1')
+					if self.misc['MEM'] < 0:
+						raise ValueError('wrong input -- maximum memory (MEM) in units of MB must be integer >= 1')
+					if not isinstance(self.misc['ORDER'], (int, type(None))):
+						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
+					if self.misc['ORDER'] is not None:
+						if self.misc['ORDER'] < 0:
+							raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
+					if not isinstance(self.misc['ASYNC'], bool):
+						raise ValueError('wrong input -- asynchronous key (async) must be bool (True, False)')
 					# mpi groups
 					if mpi.parallel:
 						if mpi.num_local_masters < 0:
@@ -267,9 +276,6 @@ class CalcCls():
 						if mpi.global_size <= 2 * mpi.num_local_masters:
 							raise ValueError('wrong input -- total number of mpi processes ' + \
 											'must be larger than twice the number of local mpi masters (num_local_masters)')
-					# memory
-					if mol.max_memory is None:
-						raise ValueError('wrong input -- the memory keyword (mem) is missing')
 				except Exception as err:
 					restart.rm()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))

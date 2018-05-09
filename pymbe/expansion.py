@@ -10,6 +10,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
+import copy
 import numpy as np
 
 
@@ -18,7 +19,7 @@ class ExpCls():
 		def __init__(self, mol, calc, typ):
 				""" init parameters """
 				# set expansion model dict
-				self.model = calc.model.copy()
+				self.model = copy.deepcopy(calc.model)
 				self.model['TYPE'] = typ
 				# init tuples and incl_idx
 				self.incl_idx, self.tuples = _init_tup(mol, calc)
@@ -31,7 +32,10 @@ class ExpCls():
 					self.property['excitation'] = {'inc': [], 'tot': []}
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
-				self.max_order = min(len(calc.exp_space), calc.max_order)
+				if calc.misc['ORDER'] is not None:
+					self.max_order = min(calc.exp_space.size, calc.misc['ORDER'])
+				else:
+					self.max_order = calc.exp_space.size
 				# init timings
 				self.time = {'mbe': [], 'screen': []}
 				# init thres
