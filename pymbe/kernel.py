@@ -85,10 +85,10 @@ def hf(mol, calc):
 def _dim(hf, calc):
 		""" determine dimensions """
 		# occupied and virtual lists
-		if calc.typ == 'occupied':
+		if calc.model['TYPE'] == 'OCC':
 			occ = np.where(hf.mo_occ == 2.)[0]
 			virt = np.where(hf.mo_occ < 2.)[0]
-		elif calc.typ == 'virtual':
+		elif calc.model['TYPE'] == 'VIRT':
 			occ = np.where(hf.mo_occ > 0.)[0]
 			virt = np.where(hf.mo_occ == 0.)[0]
 		# nocc, nvirt, and norb
@@ -101,10 +101,10 @@ def _dim(hf, calc):
 def active(mol, calc):
 		""" set active space """
 		# reference and expansion spaces
-		if calc.typ == 'occupied':
+		if calc.model['TYPE'] == 'OCC':
 			ref_space = np.array(range(mol.nocc, mol.norb))
 			exp_space = np.array(range(mol.ncore, mol.nocc))
-		elif calc.typ == 'virtual':
+		elif calc.model['TYPE'] == 'VIRT':
 			ref_space = np.array(range(mol.ncore, mol.nocc))
 			exp_space = np.array(range(mol.nocc, mol.norb))
 		# hf reference model
@@ -120,9 +120,9 @@ def active(mol, calc):
 				# active orbitals
 				no_act = len(calc.ref['SELECT'])
 				# expansion space orbitals
-				if calc.typ == 'occupied':
+				if calc.model['TYPE'] == 'OCC':
 					no_exp = np.count_nonzero(np.array(calc.ref['SELECT']) < mol.nocc)
-				elif calc.typ == 'virtual':
+				elif calc.model['TYPE'] == 'VIRT':
 					no_exp = np.count_nonzero(np.array(calc.ref['SELECT']) >= mol.nocc)
 				# sanity checks
 				assert np.count_nonzero(np.array(calc.ref['SELECT']) < mol.ncore) == 0
@@ -143,9 +143,9 @@ def active(mol, calc):
 				# expansion space orbitals
 				nocc_avas = ne_a
 				nvirt_avas = no_act - nocc_avas
-				if calc.typ == 'occupied':
+				if calc.model['TYPE'] == 'OCC':
 					no_exp = nocc_avas
-				elif calc.typ == 'virtual':
+				elif calc.model['TYPE'] == 'VIRT':
 					no_exp = nvirt_avas
 				# sanity checks
 				assert nocc_avas <= (mol.nocc - mol.ncore)
@@ -180,9 +180,9 @@ def _mf(mol, calc, mo):
 def ref(mol, calc, exp):
 		""" calculate reference energy and mo coefficients """
 		# set core and cas spaces
-		if calc.typ == 'occupied':
+		if calc.model['TYPE'] == 'OCC':
 			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
-		elif calc.typ == 'virtual':
+		elif calc.model['TYPE'] == 'VIRT':
 			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
 		# sort mo coefficients
 		if calc.ref['METHOD'] in ['CASCI','CASSCF']:
@@ -686,7 +686,7 @@ def core_cas(mol, exp, tup):
 def _prepare(mol, calc, exp):
 		""" generate input for correlated calculation """
 		# extract cas integrals and calculate core energy
-		if mol.e_core is None or exp.typ == 'occupied':
+		if mol.e_core is None or exp.model['TYPE'] == 'OCC':
 			if len(exp.core_idx) > 0:
 				core_dm = np.dot(calc.mo[:, exp.core_idx], np.transpose(calc.mo[:, exp.core_idx])) * 2
 				vj, vk = scf.hf.get_jk(mol, core_dm)

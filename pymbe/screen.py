@@ -51,9 +51,9 @@ def _serial(mol, calc, exp):
 			lst = _test(calc, exp, exp.tuples[-1][i])
 			parent_tup = exp.tuples[-1][i].tolist()
 			for m in lst:
-				if calc.typ == 'occupied':
+				if calc.model['TYPE'] == 'OCC':
 					child_tup += [m]+parent_tup
-				elif calc.typ == 'virtual':
+				elif calc.model['TYPE'] == 'VIRT':
 					child_tup += parent_tup+[m]
 		# convert child tuple list to array
 		exp.tuples.append(np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1))
@@ -138,9 +138,9 @@ def _master(mpi, mol, calc, exp):
 						lst = _test(calc, exp, exp.tuples[-1][idx])
 						parent_tup = exp.tuples[-1][idx].tolist()
 						for m in lst:
-							if calc.typ == 'occupied':
+							if calc.model['TYPE'] == 'OCC':
 								child_tup += [m]+parent_tup
-							elif calc.typ == 'virtual':
+							elif calc.model['TYPE'] == 'VIRT':
 								child_tup += parent_tup+[m]
 					# increment job index
 					i += batch
@@ -184,9 +184,9 @@ def _slave(mpi, mol, calc, exp):
 					lst = _test(calc, exp, exp.tuples[-1][idx])
 					parent_tup = exp.tuples[-1][idx].tolist()
 					for m in lst:
-						if calc.typ == 'occupied':
+						if calc.model['TYPE'] == 'OCC':
 							child_tup += [m]+parent_tup
-						elif calc.typ == 'virtual':
+						elif calc.model['TYPE'] == 'VIRT':
 							child_tup += parent_tup+[m]
 			elif mpi.stat.tag == TAGS.exit:
 				# send tuples to master
@@ -203,9 +203,9 @@ def _slave(mpi, mol, calc, exp):
 def _test(calc, exp, tup):
 		""" screening test """
 		if exp.thres == 0.0:
-			if calc.typ == 'occupied':
+			if calc.model['TYPE'] == 'OCC':
 				return [m for m in range(calc.exp_space[0], tup[0])]
-			elif calc.typ == 'virtual':
+			elif calc.model['TYPE'] == 'VIRT':
 				return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
 		else:
 			# init return list
@@ -231,10 +231,10 @@ def _test(calc, exp, tup):
 				# update mask_j
 				mask_j |= mask_i
 			# loop over new orbitals 'm'
-			if calc.typ == 'occupied':
+			if calc.model['TYPE'] == 'OCC':
 				for m in range(calc.exp_space[0], tup[0]):
 					raise NotImplementedError('pymbe/screen.py: _test()')
-			elif calc.typ == 'virtual':
+			elif calc.model['TYPE'] == 'VIRT':
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# get index
 					indx = np.where(mask_j & (np.int32(m) == exp.tuples[-1][:, -1]))[0]

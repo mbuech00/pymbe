@@ -95,11 +95,11 @@ def _exp(mpi, mol, calc):
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# exp object
-				if calc.typ != 'combined':
-					exp = expansion.ExpCls(mol, calc, calc.typ)
+				if calc.model['TYPE'] != 'COMB':
+					exp = expansion.ExpCls(mol, calc, calc.model['TYPE'])
 				else:
-					# exp.typ = 'occupied' for occ-virt and exp.typ = 'virtual' for virt-occ combined expansions
-					raise NotImplementedError('combined expansion not implemented')
+					# exp.typ = 'OCC' for occ-virt and exp.typ = 'VIRT' for virt-occ combined expansions
+					raise NotImplementedError('comb expansion not implemented')
 			# no restart
 			else:
 				# hf calculation
@@ -111,11 +111,11 @@ def _exp(mpi, mol, calc):
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
 				# exp object
-				if calc.typ != 'combined':
-					exp = expansion.ExpCls(mol, calc, calc.typ)
+				if calc.model['TYPE'] != 'COMB':
+					exp = expansion.ExpCls(mol, calc, calc.model['TYPE'])
 				else:
-					# exp.typ = 'occupied' for occ-virt and exp.typ = 'virtual' for virt-occ combined expansions
-					raise NotImplementedError('combined expansion not implemented')
+					# exp.typ = 'OCC' for occ-virt and exp.typ = 'VIRT' for virt-occ combined expansions
+					raise NotImplementedError('comb expansion not implemented')
 				# reference calculation
 				ref, calc.mo = kernel.ref(mol, calc, exp)
 				calc.property['energy']['ref'] = ref['e_ref']
@@ -138,11 +138,11 @@ def _exp(mpi, mol, calc):
 			exp.min_order = restart.main(calc, exp)
 		else:
 			# exp object
-			if calc.typ != 'combined':
-				exp = expansion.ExpCls(mol, calc, calc.typ)
+			if calc.model['TYPE'] != 'COMB':
+				exp = expansion.ExpCls(mol, calc, calc.model['TYPE'])
 			else:
-				# exp.typ = 'virtual' for occ-virt and exp.typ = 'occupied' for virt-occ combined expansions
-				raise NotImplementedError('combined expansion not implemented')
+				# exp.typ = 'VIRT' for occ-virt and exp.typ = 'OCC' for virt-occ combined expansions
+				raise NotImplementedError('comb expansion not implemented')
 		return exp
 
 

@@ -57,7 +57,7 @@ def main(mpi, mol, calc, exp):
 
 def _setup(mpi, mol, calc, exp):
 		""" init parameters """
-		model_type = _model_typ(calc)
+		model_type = _model_type(calc)
 		basis = _basis(mol)
 		mult = _mult(mol)
 		ref = _ref(mol, calc)
@@ -237,9 +237,9 @@ def _dipole_prt(info, mol, calc, exp):
 		print(DIVIDER[:110]+'\n')
 
 
-def _model_typ(calc):
+def _model_type(calc):
 		""" model / type print """
-		return '{0:} / {1:}'.format(calc.model['METHOD'], calc.typ)
+		return '{0:} / {1:}'.format(calc.model['METHOD'], calc.model['TYPE'])
 
 
 def _basis(mol):

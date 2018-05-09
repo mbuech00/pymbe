@@ -116,7 +116,7 @@ def calc(mpi, calc):
 		""" bcast calc info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'model': calc.model['METHOD'], 'typ': calc.typ, 'prop': calc.prop, \
+				info = {'model': calc.model, 'prop': calc.prop, \
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
 						'thres': calc.thres, 'relax': calc.relax, 'protocol': calc.protocol, \
 						'state': calc.state, 'max_order': calc.max_order, \
@@ -125,7 +125,7 @@ def calc(mpi, calc):
 				mpi.global_comm.bcast(info, root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.model = {'METHOD': info['model']}; calc.typ = info['typ']; calc.prop = info['prop']
+				calc.model = info['model']; calc.prop = info['prop']
 				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
 				calc.thres = info['thres']; calc.relax = info['relax']; calc.protocol = info['protocol']
 				calc.state = info['state']; calc.max_order = info['max_order']

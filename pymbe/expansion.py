@@ -17,8 +17,9 @@ class ExpCls():
 		""" expansion class """
 		def __init__(self, mol, calc, typ):
 				""" init parameters """
-				# set type of expansion
-				self.typ = typ
+				# set expansion model dict
+				self.model = calc.model.copy()
+				self.model['TYPE'] = typ
 				# init tuples and incl_idx
 				self.incl_idx, self.tuples = _init_tup(mol, calc)
 				# init property dict
@@ -52,9 +53,9 @@ def _init_tup(mol, calc):
 		if calc.no_exp == 0:
 			tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32, order='F')]
 		else:
-			if calc.typ == 'occupied':
+			if calc.model['TYPE'] == 'OCC':
 				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32, order='F')]
-			elif calc.typ == 'virtual':
+			elif calc.model['TYPE'] == 'VIRT':
 				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32, order='F')]
 		return incl_idx, tuples
 

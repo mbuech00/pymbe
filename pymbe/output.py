@@ -53,7 +53,12 @@ def exp_header(calc, exp):
 		string = HEADER+'\n'
 		string += '{0:^87}\n'
 		string += HEADER+'\n\n'
-		form = (calc.typ+' expansion')
+		if calc.model['TYPE'] == 'OCC':
+			form = ('occupied expansion')
+		elif calc.model['TYPE'] == 'VIRT':
+			form = ('virtual expansion')
+		elif calc.model['TYPE'] == 'COMB':
+			form = ('combined expansion')
 		# now print
 		with open(OUT+'/output.out','a') as f:
 			with contextlib.redirect_stdout(f):

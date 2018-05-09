@@ -25,8 +25,7 @@ class CalcCls():
 		def __init__(self, mpi, mol):
 				""" init parameters """
 				# set defaults
-				self.model = {'METHOD': 'FCI'}
-				self.typ = 'occupied'
+				self.model = {'METHOD': 'FCI', 'TYPE': 'VIRT'}
 				self.prop = {'ENERGY': True, 'DIPOLE': False, 'EXCITATION': False}
 				self.protocol = copy.deepcopy(self.prop)
 				self.ref = {'METHOD': 'HF'}
@@ -41,7 +40,7 @@ class CalcCls():
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:
-					self.model, self.typ, self.prop, self.protocol, self.ref, \
+					self.model, self.prop, self.protocol, self.ref, \
 						self.base, self.thres, self.relax, \
 						self.state, self.max_order, \
 						self.orbitals, self.async, \
@@ -67,10 +66,13 @@ class CalcCls():
 							if content[i].split()[0][0] == '#':
 								continue
 							elif re.split('=',content[i])[0].strip() == 'model':
-								self.model = ast.literal_eval(re.split('=',content[i])[1].strip())
-								self.model = self._upper(self.model)
-							elif re.split('=',content[i])[0].strip() == 'type':
-								self.typ = re.split('=',content[i])[1].strip()
+								try:
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in model dict (model) must be strings')
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.model[key] = val
 							elif re.split('=',content[i])[0].strip() == 'prop':
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -133,7 +135,7 @@ class CalcCls():
 					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
-				return self.model, self.typ, self.prop, self.protocol, self.ref, self.base, \
+				return self.model, self.prop, self.protocol, self.ref, self.base, \
 							self.thres, self.relax, self.state, \
 							self.max_order, self.orbitals, self.async, \
 							mol.max_memory, mpi.num_local_masters
@@ -143,18 +145,21 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if self.model['METHOD'] not in ['CISD','CCSD','CCSD(T)','SCI','FCI']:
+					if not all(isinstance(i, str) for i in self.model.values()):
+						raise ValueError('wrong input -- values in model input (model) must be strings')
+					if not set(list(self.model.keys())) <= set(['METHOD', 'TYPE']):
+						raise ValueError('wrong input -- valid input in model dict is: method and type')
+					if self.model['METHOD'] not in ['CISD', 'CCSD', 'CCSD(T)', 'SCI', 'FCI']:
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
-					# type of expansion
-					if self.typ not in ['occupied','virtual','combined']:
+					if self.model['TYPE'] not in ['OCC', 'VIRT', 'COMB']:
 						raise ValueError('wrong input -- valid choices for ' + \
-										'expansion scheme are: occupied, virtual, and combined')
+										'expansion scheme are: occ, virt, and comb')
 					# reference model
-					if self.ref['METHOD'] not in ['HF','CASCI','CASSCF']:
+					if self.ref['METHOD'] not in ['HF', 'CASCI', 'CASSCF']:
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
-					if self.ref['METHOD'] in ['CASCI','CASSCF']:
-						if self.ref['METHOD'] == 'CASSCF' and self.model['METHOD'] not in ['SCI','FCI']:
+					if self.ref['METHOD'] in ['CASCI', 'CASSCF']:
+						if self.ref['METHOD'] == 'CASSCF' and self.model['METHOD'] not in ['SCI', 'FCI']:
 							raise ValueError('wrong input -- a CASSCF reference is only meaningful for SCI or FCI expansion models')
 						if 'ACTIVE' not in self.ref:
 							raise ValueError('wrong input -- an active space (active) choice is required for CASCI/CASSCF references')
@@ -179,7 +184,7 @@ class CalcCls():
 						else:
 							raise ValueError('wrong input -- active space choices are currently: MANUAL and AVAS')
 					# base model
-					if self.base['METHOD'] not in [None,'CISD','CCSD','CCSD(T)','SCI']:
+					if self.base['METHOD'] not in [None, 'CISD', 'CCSD', 'CCSD(T)', 'SCI']:
 						raise ValueError('wrong input -- valid base models ' + \
 										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
 					# state
@@ -227,15 +232,15 @@ class CalcCls():
 					if self.relax < 1.0:
 						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if self.orbitals['OCC'] not in ['CAN','PM','FB','IBO-1','IBO-2','CISD','CCSD','SCI']:
+					if self.orbitals['OCC'] not in ['CAN', 'PM', 'FB', 'IBO-1', 'IBO-2', 'CISD', 'CCSD', 'SCI']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
 										'representations (occ) are currently: canonical (CAN), local (PM or FB), ' + \
 										'intrinsic bond orbitals (IBO-1 or IBO-2), or natural orbitals (CISD, CCSD, or SCI)')
-					if self.orbitals['VIRT'] not in ['CAN','PM','FB','CISD','CCSD','SCI']:
+					if self.orbitals['VIRT'] not in ['CAN', 'PM', 'FB', 'CISD', 'CCSD', 'SCI']:
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations (virt) are currently: canonical (CAN), local (PM or FB), ' + \
 										'or natural orbitals (CISD, CCSD, or SCI)')
-					if self.orbitals['OCC'] in ['PM','FB','IBO-1','IBO-2'] or self.orbitals['VIRT'] in ['PM','FB']:
+					if self.orbitals['OCC'] in ['PM', 'FB', 'IBO-1', 'IBO-2'] or self.orbitals['VIRT'] in ['PM', 'FB']:
 						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbitals and point group symmetry ' + \
 											'different from C1 is not allowed')
@@ -245,13 +250,13 @@ class CalcCls():
 							raise ValueError('wrong input -- number of local mpi masters (num_local_masters) ' + \
 											'must be a positive number >= 1')
 						elif mpi.num_local_masters == 0:
-							if self.typ == 'combined':
+							if self.model['TYPE'] == 'COMB':
 								raise ValueError('wrong input -- combined expansions are only valid in ' + \
 												'combination with at least one local mpi master (num_local_masters >= 1)')
 						else:
-							if self.typ != 'combined':
+							if self.model['TYPE'] != 'COMB':
 								raise ValueError('wrong input -- the use of local mpi masters ' + \
-												'is currently not implemented for occupied and virtual expansions')
+												'is currently not implemented for occ and virt expansions')
 						if mpi.global_size <= 2 * mpi.num_local_masters:
 							raise ValueError('wrong input -- total number of mpi processes ' + \
 											'must be larger than twice the number of local mpi masters (num_local_masters)')
@@ -268,7 +273,7 @@ class CalcCls():
 				""" capitalize keys """
 				new_dict = {}
 				for key, value in old_dict.items():
-					if key.upper() in ['METHOD', 'ACTIVE', 'OCC', 'VIRT']:
+					if key.upper() in ['METHOD', 'ACTIVE', 'TYPE', 'OCC', 'VIRT']:
 						new_dict[key.upper()] = value.upper()
 					else:
 						new_dict[key.upper()] = value
