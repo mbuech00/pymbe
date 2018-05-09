@@ -91,12 +91,22 @@ class CalcCls():
 									self.prot[key] = val
 							# ref
 							elif re.split('=',content[i])[0].strip() == 'ref':
-								self.ref = ast.literal_eval(re.split('=',content[i])[1].strip())
-								self.ref = self._upper(self.ref)
+								try:
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in reference dict (ref) must be strings, lists, and tuples')
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.ref[key] = val
 							# base
 							elif re.split('=',content[i])[0].strip() == 'base':
-								self.base = ast.literal_eval(re.split('=',content[i])[1].strip())
-								self.base = self._upper(self.base)
+								try:
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in base dict (base) must be strings')
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.base[key] = val
 							# thres
 							elif re.split('=',content[i])[0].strip() == 'thres':
 								try:
@@ -129,8 +139,13 @@ class CalcCls():
 									self.misc[key] = val
 							# orbs
 							elif re.split('=',content[i])[0].strip() == 'orbs':
-								self.orbs = ast.literal_eval(re.split('=',content[i])[1].strip())
-								self.orbs = self._upper(self.orbs)
+								try:
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in orbital dict (orbs) must be strings')
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.orbs[key] = val
 							# mpi
 							elif re.split('=',content[i])[0].strip() == 'mpi':
 								try:
