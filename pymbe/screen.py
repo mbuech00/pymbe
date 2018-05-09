@@ -249,8 +249,8 @@ def _prot(exp, calc, indx, m):
 			return []
 		else:
 			screen = True
-			for i in calc.protocol.keys():
-				if calc.protocol[i]:
+			for i in calc.prot.keys():
+				if calc.prot[i]:
 					if i == 'ENERGY':
 						prop = exp.property[i.lower()]['inc'][-1][indx]
 					elif i == 'DIPOLE':

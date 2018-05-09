@@ -27,7 +27,7 @@ class CalcCls():
 				# set defaults
 				self.model = {'METHOD': 'FCI', 'TYPE': 'VIRT'}
 				self.prop = {'ENERGY': True, 'DIPOLE': False, 'EXCITATION': False}
-				self.protocol = copy.deepcopy(self.prop)
+				self.prot = copy.deepcopy(self.prop)
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
 				self.state = {'WFNSYM': symm.addons.irrep_id2name(mol.symmetry, 0), 'ROOT': 0}
@@ -39,7 +39,7 @@ class CalcCls():
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:
-					self.model, self.prop, self.protocol, self.ref, \
+					self.model, self.prop, self.prot, self.ref, \
 						self.base, self.thres, self.state, \
 						self.misc, self.orbs, self.mpi = self.set_calc()
 					# sanity check
@@ -85,10 +85,10 @@ class CalcCls():
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 								except ValueError:
-									raise ValueError('wrong input -- values in protocol dict (prot) must be bools')
+									raise ValueError('wrong input -- values in prot dict (prot) must be bools')
 								tmp = self._upper(tmp)
 								for key, val in tmp.items():
-									self.protocol[key] = val
+									self.prot[key] = val
 							# ref
 							elif re.split('=',content[i])[0].strip() == 'ref':
 								self.ref = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -154,7 +154,7 @@ class CalcCls():
 					sys.stderr.write('\nIOError : calc.inp not found\n\n')
 					raise
 				#
-				return self.model, self.prop, self.protocol, self.ref, self.base, \
+				return self.model, self.prop, self.prot, self.ref, self.base, \
 							self.thres, self.state, self.misc, self.orbs, self.mpi
 
 
@@ -230,15 +230,15 @@ class CalcCls():
 						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
 					if self.prop['EXCITATION'] and self.state['ROOT'] == 0:
 						raise ValueError('wrong input -- calculation of excitation energy (excit) requires a state root different from 0')
-					# screening protocol
-					if not all(isinstance(i, bool) for i in self.protocol.values()):
-						raise ValueError('wrong input -- values in protocol input (prot) must be bools (True, False)')
-					if not set(list(self.protocol.keys())) <= set(['ENERGY', 'DIPOLE', 'EXCITATION']):
+					# screening prot
+					if not all(isinstance(i, bool) for i in self.prot.values()):
+						raise ValueError('wrong input -- values in prot input (prot) must be bools (True, False)')
+					if not set(list(self.prot.keys())) <= set(['ENERGY', 'DIPOLE', 'EXCITATION']):
 						raise ValueError('wrong input -- valid choices for properties are: energy, dipole, and excitation')
-					if not self.protocol['ENERGY'] and sum(self.prop.values()) == 1:
+					if not self.prot['ENERGY'] and sum(self.prop.values()) == 1:
 						raise ValueError('wrong input -- non-energy screening requires other properties to be requested in prop input')
-					for key in self.protocol.keys():
-						if self.protocol[key] and not self.prop[key]:
+					for key in self.prot.keys():
+						if self.prot[key] and not self.prop[key]:
 							raise ValueError('wrong input -- screening wrt a given property requires that this is also requested in prop input')
 					# expansion thresholds
 					if not all(isinstance(i, float) for i in self.thres.values()):

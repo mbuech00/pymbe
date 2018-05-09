@@ -114,7 +114,7 @@ def calc(mpi, calc):
 			if mpi.global_master:
 				info = {'model': calc.model, 'prop': calc.prop, \
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
-						'thres': calc.thres, 'protocol': calc.protocol, \
+						'thres': calc.thres, 'prot': calc.prot, \
 						'state': calc.state, 'misc': calc.misc, 'mpi': calc.mpi, \
 						'orbs': calc.orbs, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
@@ -122,7 +122,7 @@ def calc(mpi, calc):
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.model = info['model']; calc.prop = info['prop']
 				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
-				calc.thres = info['thres']; calc.protocol = info['protocol']
+				calc.thres = info['thres']; calc.prot = info['prot']
 				calc.state = info['state']; calc.misc = info['misc']; calc.mpi = info['mpi']
 				calc.orbs = info['orbs']; calc.restart = info['restart']
 

@@ -293,8 +293,8 @@ def _base(calc):
 def _prot(calc):
 		""" protocol print """
 		prot = ''
-		for i in calc.protocol.keys():
-			if calc.protocol[i]:
+		for i in calc.prot.keys():
+			if calc.prot[i]:
 				if i == 'ENERGY':
 					prop = 'ener.'
 				elif i == 'DIPOLE':
