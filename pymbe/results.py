@@ -67,7 +67,7 @@ def _setup(mpi, mol, calc, exp):
 		frozen = _frozen(mol)
 		active = _active(calc)
 		occ, virt = _orbs(calc)
-		mpi = _mpi(mpi)
+		mpi = _mpi(mpi, calc)
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		e_final = _e_final(calc, exp)
@@ -359,9 +359,9 @@ def _orbs(calc):
 		return occ, virt
 
 
-def _mpi(mpi):
+def _mpi(mpi, calc):
 		""" mpi print """
-		return '{0:} / {1:}'.format(mpi.num_local_masters+1, mpi.global_size-(mpi.num_local_masters+1))
+		return '{0:} / {1:}'.format(calc.mpi['MASTERS'], mpi.global_size - calc.mpi['MASTERS'])
 
 
 def _thres(calc):

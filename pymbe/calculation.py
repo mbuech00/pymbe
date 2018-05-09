@@ -34,14 +34,14 @@ class CalcCls():
 				self.thres = {'INIT': 1.0e-10, 'RELAX': 1.0}
 				self.misc = {'MEM': 2000, 'ORDER': None, 'ASYNC': False}
 				self.orbs = {'OCC': 'CAN', 'VIRT': 'CAN'}
+				self.mpi = {'MASTERS': 1}
 				# init mo
 				self.mo = None
 				# set calculation parameters
 				if mpi.global_master:
 					self.model, self.prop, self.protocol, self.ref, \
-						self.base, self.thres, \
-						self.state, self.misc, self.orbs, \
-						mpi.num_local_masters = self.set_calc(mpi)
+						self.base, self.thres, self.state, \
+						self.misc, self.orbs, self.mpi = self.set_calc()
 					# sanity check
 					self.sanity_chk(mpi, mol)
 					# restart logical
@@ -53,7 +53,7 @@ class CalcCls():
 				self.property['excitation'] = {}
 
 
-		def set_calc(self, mpi):
+		def set_calc(self):
 				""" set calculation and mpi parameters from calc.inp file """
 				# read input file
 				try:
@@ -62,6 +62,7 @@ class CalcCls():
 						for i in range(len(content)):
 							if content[i].split()[0][0] == '#':
 								continue
+							# model
 							elif re.split('=',content[i])[0].strip() == 'model':
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -70,6 +71,7 @@ class CalcCls():
 								tmp = self._upper(tmp)
 								for key, val in tmp.items():
 									self.model[key] = val
+							# prop
 							elif re.split('=',content[i])[0].strip() == 'prop':
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -78,6 +80,7 @@ class CalcCls():
 								tmp = self._upper(tmp)
 								for key, val in tmp.items():
 									self.prop[key] = val
+							# prot
 							elif re.split('=',content[i])[0].strip() == 'prot':
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -86,12 +89,15 @@ class CalcCls():
 								tmp = self._upper(tmp)
 								for key, val in tmp.items():
 									self.protocol[key] = val
+							# ref
 							elif re.split('=',content[i])[0].strip() == 'ref':
 								self.ref = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.ref = self._upper(self.ref)
+							# base
 							elif re.split('=',content[i])[0].strip() == 'base':
 								self.base = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.base = self._upper(self.base)
+							# thres
 							elif re.split('=',content[i])[0].strip() == 'thres':
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -100,6 +106,7 @@ class CalcCls():
 								tmp = self._upper(tmp)
 								for key, val in tmp.items():
 									self.thres[key] = val
+							# state
 							elif re.split('=',content[i])[0].strip() == 'state':
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -111,6 +118,7 @@ class CalcCls():
 										self.state[key] = symm.addons.std_symb(val)
 									else:
 										self.state[key] = val
+							# misc
 							elif re.split('=',content[i])[0].strip() == 'misc':
 								try:
 									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
@@ -119,11 +127,19 @@ class CalcCls():
 								tmp = self._upper(tmp)
 								for key, val in tmp.items():
 									self.misc[key] = val
+							# orbs
 							elif re.split('=',content[i])[0].strip() == 'orbs':
 								self.orbs = ast.literal_eval(re.split('=',content[i])[1].strip())
 								self.orbs = self._upper(self.orbs)
-							elif re.split('=',content[i])[0].strip() == 'num_local_masters':
-								mpi.num_local_masters = int(re.split('=',content[i])[1].strip())
+							# mpi
+							elif re.split('=',content[i])[0].strip() == 'mpi':
+								try:
+									tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+								except ValueError:
+									raise ValueError('wrong input -- values in mpi dict (mpi) must be ints')
+								tmp = self._upper(tmp)
+								for key, val in tmp.items():
+									self.mpi[key] = val
 							# error handling
 							else:
 								try:
@@ -139,9 +155,7 @@ class CalcCls():
 					raise
 				#
 				return self.model, self.prop, self.protocol, self.ref, self.base, \
-							self.thres, self.state, \
-							self.misc, self.orbs, \
-							mpi.num_local_masters
+							self.thres, self.state, self.misc, self.orbs, self.mpi
 
 
 		def sanity_chk(self, mpi, mol):
@@ -250,9 +264,9 @@ class CalcCls():
 											'different from C1 is not allowed')
 					# misc
 					if not isinstance(self.misc['MEM'], int):
-						raise ValueError('wrong input -- maximum memory (MEM) in units of MB must be integer >= 1')
+						raise ValueError('wrong input -- maximum memory (mem) in units of MB must be integer >= 1')
 					if self.misc['MEM'] < 0:
-						raise ValueError('wrong input -- maximum memory (MEM) in units of MB must be integer >= 1')
+						raise ValueError('wrong input -- maximum memory (mem) in units of MB must be integer >= 1')
 					if not isinstance(self.misc['ORDER'], (int, type(None))):
 						raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					if self.misc['ORDER'] is not None:
@@ -260,22 +274,26 @@ class CalcCls():
 							raise ValueError('wrong input -- maximum expansion order (order) must be integer >= 1')
 					if not isinstance(self.misc['ASYNC'], bool):
 						raise ValueError('wrong input -- asynchronous key (async) must be bool (True, False)')
-					# mpi groups
+					# mpi
+					if not isinstance(self.mpi['MASTERS'], int):
+						raise ValueError('wrong input -- number of mpi masters (masters) must be integer >= 1')
 					if mpi.parallel:
-						if mpi.num_local_masters < 0:
-							raise ValueError('wrong input -- number of local mpi masters (num_local_masters) ' + \
-											'must be a positive number >= 1')
-						elif mpi.num_local_masters == 0:
+						if self.mpi['MASTERS'] < 1:
+							raise ValueError('wrong input -- number of mpi masters (masters) must be integer >= 1')
+						elif self.mpi['MASTERS'] == 1:
 							if self.model['TYPE'] == 'COMB':
 								raise ValueError('wrong input -- combined expansions are only valid in ' + \
-												'combination with at least one local mpi master (num_local_masters >= 1)')
+												'combination with at least one local mpi master (i.e., masters > 1)')
 						else:
 							if self.model['TYPE'] != 'COMB':
-								raise ValueError('wrong input -- the use of local mpi masters ' + \
+								raise ValueError('wrong input -- the use of local mpi masters (i.e., masters > 1) ' + \
 												'is currently not implemented for occ and virt expansions')
-						if mpi.global_size <= 2 * mpi.num_local_masters:
+						if mpi.global_size <= 2 * self.mpi['MASTERS']:
 							raise ValueError('wrong input -- total number of mpi processes ' + \
-											'must be larger than twice the number of local mpi masters (num_local_masters)')
+											'must be larger than twice the number of local mpi masters (masters+1)')
+					else:
+						if self.mpi['MASTERS'] > 1:
+							raise ValueError('wrong input -- local masters requested in mpi dict (mpi), but non-mpi run requested')
 				except Exception as err:
 					restart.rm()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))

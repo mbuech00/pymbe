@@ -30,8 +30,6 @@ class MPICls():
 				self.global_master = (self.global_rank == 0)
 				self.host = MPI.Get_processor_name()
 				self.stat = MPI.Status()
-				# default value
-				self.num_local_masters = 0
 				# save sys.excepthook
 				sys_excepthook = sys.excepthook
 				# define mpi exception hook
@@ -48,16 +46,14 @@ class MPICls():
 				sys.excepthook = mpi_excepthook
 
 
-def set_mpi(mpi):
+def set_mpi(mpi, calc):
 		""" set mpi info """
-		# bcast num_local_masters
-		mpi.global_comm.bcast(mpi.num_local_masters, root=0)
 		# now set info
 		if not mpi.parallel:
 			mpi.prim_master = True
 			mpi.global_rank = mpi.local_rank = 0
 		else:
-			if mpi.num_local_masters == 0:
+			if calc.mpi['MASTERS'] == 1:
 				mpi.master_comm = mpi.local_comm = mpi.global_comm
 				mpi.local_size = mpi.global_size
 				mpi.local_rank = mpi.global_rank
@@ -67,7 +63,7 @@ def set_mpi(mpi):
 				# array of ranks (global master excluded)
 				ranks = np.arange(1, mpi.global_size)
 				# split into local groups and add global master
-				groups = np.array_split(ranks, mpi.num_local_masters)
+				groups = np.array_split(ranks, calc.mpi['MASTERS']-1)
 				groups = [np.array([0])] + groups
 				# extract local master indices and append to global master index
 				masters = [groups[i][0] for i in range(len(groups))]
@@ -119,7 +115,7 @@ def calc(mpi, calc):
 				info = {'model': calc.model, 'prop': calc.prop, \
 						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
 						'thres': calc.thres, 'protocol': calc.protocol, \
-						'state': calc.state, 'misc': calc.misc, \
+						'state': calc.state, 'misc': calc.misc, 'mpi': calc.mpi, \
 						'orbs': calc.orbs, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
 			else:
@@ -127,7 +123,7 @@ def calc(mpi, calc):
 				calc.model = info['model']; calc.prop = info['prop']
 				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
 				calc.thres = info['thres']; calc.protocol = info['protocol']
-				calc.state = info['state']; calc.misc = info['misc']
+				calc.state = info['state']; calc.misc = info['misc']; calc.mpi = info['mpi']
 				calc.orbs = info['orbs']; calc.restart = info['restart']
 
 
@@ -234,9 +230,8 @@ def final(mpi):
 		if mpi.global_master:
 			restart.rm()
 			if mpi.parallel:
-				if mpi.num_local_masters == 0:
-					mpi.local_comm.bcast({'task': 'exit'}, root=0)
-				else:
+				mpi.local_comm.bcast({'task': 'exit'}, root=0)
+				if mpi.local_comm != mpi.global_comm:
 					mpi.master_comm.bcast({'task': 'exit'}, root=0)
 		elif mpi.local_master:
 			mpi.local_comm.bcast({'task': 'exit'}, root=0)
