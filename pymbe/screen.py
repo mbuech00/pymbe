@@ -210,7 +210,7 @@ def _test(calc, exp, tup):
 		else:
 			# init return list
 			lst = []
-			# generate array with all subsets of particular tuple (manually adding active orbitals)
+			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
 				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
 									combinations(tup[calc.no_exp:], (exp.order-exp.start_order)-1)], dtype=np.int32)
@@ -230,7 +230,7 @@ def _test(calc, exp, tup):
 						return []
 				# update mask_j
 				mask_j |= mask_i
-			# loop over new orbitals 'm'
+			# loop over new orbs 'm'
 			if calc.model['TYPE'] == 'OCC':
 				for m in range(calc.exp_space[0], tup[0]):
 					raise NotImplementedError('pymbe/screen.py: _test()')

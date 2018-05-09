@@ -34,7 +34,7 @@ class CalcCls():
 				self.thres = 1.0e-10
 				self.relax = 1.0
 				self.max_order = 1000000
-				self.orbitals = {'OCC': 'CAN', 'VIRT': 'CAN'}
+				self.orbs = {'OCC': 'CAN', 'VIRT': 'CAN'}
 				self.async = False
 				# init mo
 				self.mo = None
@@ -43,7 +43,7 @@ class CalcCls():
 					self.model, self.prop, self.protocol, self.ref, \
 						self.base, self.thres, self.relax, \
 						self.state, self.max_order, \
-						self.orbitals, self.async, \
+						self.orbs, self.async, \
 						mol.max_memory, mpi.num_local_masters = self.set_calc(mpi, mol)
 					# sanity check
 					self.sanity_chk(mpi, mol)
@@ -112,9 +112,9 @@ class CalcCls():
 										self.state[key] = val
 							elif re.split('=',content[i])[0].strip() == 'order':
 								self.max_order = int(re.split('=',content[i])[1].strip())
-							elif re.split('=',content[i])[0].strip() == 'orbitals':
-								self.orbitals = ast.literal_eval(re.split('=',content[i])[1].strip())
-								self.orbitals = self._upper(self.orbitals)
+							elif re.split('=',content[i])[0].strip() == 'orbs':
+								self.orbs = ast.literal_eval(re.split('=',content[i])[1].strip())
+								self.orbs = self._upper(self.orbs)
 							elif re.split('=',content[i])[0].strip() == 'async':
 								self.async = re.split('=',content[i])[1].strip().upper() == 'TRUE'
 							elif re.split('=',content[i])[0].strip() == 'mem':
@@ -137,7 +137,7 @@ class CalcCls():
 				#
 				return self.model, self.prop, self.protocol, self.ref, self.base, \
 							self.thres, self.relax, self.state, \
-							self.max_order, self.orbitals, self.async, \
+							self.max_order, self.orbs, self.async, \
 							mol.max_memory, mpi.num_local_masters
 
 
@@ -168,7 +168,7 @@ class CalcCls():
 							raise ValueError('wrong input -- an active space is only meaningful for CASCI/CASSCF references')
 						if self.ref['ACTIVE'] == 'MANUAL':
 							if 'SELECT' not in self.ref:
-								raise ValueError('wrong input -- a selection (select) of HF orbitals is required for manual active space')
+								raise ValueError('wrong input -- a selection (select) of HF orbs is required for manual active space')
 							if not isinstance(self.ref['SELECT'], list): 
 								raise ValueError('wrong input -- select key (select) for active space must be a list')
 							if 'NELEC' in self.ref:
@@ -232,17 +232,17 @@ class CalcCls():
 					if self.relax < 1.0:
 						raise ValueError('wrong input -- threshold relaxation parameter (relax) must be float: 1.0 <= relax')
 					# orbital representation
-					if self.orbitals['OCC'] not in ['CAN', 'PM', 'FB', 'IBO-1', 'IBO-2', 'CISD', 'CCSD', 'SCI']:
+					if self.orbs['OCC'] not in ['CAN', 'PM', 'FB', 'IBO-1', 'IBO-2', 'CISD', 'CCSD', 'SCI']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
 										'representations (occ) are currently: canonical (CAN), local (PM or FB), ' + \
-										'intrinsic bond orbitals (IBO-1 or IBO-2), or natural orbitals (CISD, CCSD, or SCI)')
-					if self.orbitals['VIRT'] not in ['CAN', 'PM', 'FB', 'CISD', 'CCSD', 'SCI']:
+										'intrinsic bond orbs (IBO-1 or IBO-2), or natural orbs (CISD, CCSD, or SCI)')
+					if self.orbs['VIRT'] not in ['CAN', 'PM', 'FB', 'CISD', 'CCSD', 'SCI']:
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations (virt) are currently: canonical (CAN), local (PM or FB), ' + \
-										'or natural orbitals (CISD, CCSD, or SCI)')
-					if self.orbitals['OCC'] in ['PM', 'FB', 'IBO-1', 'IBO-2'] or self.orbitals['VIRT'] in ['PM', 'FB']:
+										'or natural orbs (CISD, CCSD, or SCI)')
+					if self.orbs['OCC'] in ['PM', 'FB', 'IBO-1', 'IBO-2'] or self.orbs['VIRT'] in ['PM', 'FB']:
 						if mol.symmetry != 'C1':
-							raise ValueError('wrong input -- the combination of local orbitals and point group symmetry ' + \
+							raise ValueError('wrong input -- the combination of local orbs and point group symmetry ' + \
 											'different from C1 is not allowed')
 					# mpi groups
 					if mpi.parallel:

@@ -251,7 +251,7 @@ def _sum(calc, exp, tup):
 			res['e_exc'] = 0.0
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
-			# generate array with all subsets of particular tuple (manually adding active orbitals)
+			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
 				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
 									combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)

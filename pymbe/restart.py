@@ -89,7 +89,7 @@ def write_fund(mol, calc):
 		np.save(os.path.join(RST, 'exp_space'), calc.exp_space)
 		# occupation
 		np.save(os.path.join(RST, 'occup'), calc.occup)
-		# write orbitals
+		# write orbs
 		np.save(os.path.join(RST, 'mo'), calc.mo)
 
 
@@ -121,7 +121,7 @@ def read_fund(mol, calc):
 			# read occupation
 			elif 'occup' in files[i]:
 				calc.occup = np.load(os.path.join(RST, files[i]))
-			# read orbitals
+			# read orbs
 			elif 'mo' in files[i]:
 				calc.mo = np.load(os.path.join(RST, files[i]))
 		# norb

@@ -117,9 +117,9 @@ def active(mol, calc):
 			if calc.ref['ACTIVE'] == 'MANUAL':
 				# active electrons
 				ne_act = calc.ref['NELEC']
-				# active orbitals
+				# active orbs
 				no_act = len(calc.ref['SELECT'])
-				# expansion space orbitals
+				# expansion space orbs
 				if calc.model['TYPE'] == 'OCC':
 					no_exp = np.count_nonzero(np.array(calc.ref['SELECT']) < mol.nocc)
 				elif calc.model['TYPE'] == 'VIRT':
@@ -138,9 +138,9 @@ def active(mol, calc):
 				ne_a = (ne_avas + mol.spin) // 2
 				ne_b = ne_avas - ne_a
 				ne_act = (ne_a, ne_b)
-				# active orbitals
+				# active orbs
 				no_act = no_avas
-				# expansion space orbitals
+				# expansion space orbs
 				nocc_avas = ne_a
 				nvirt_avas = no_act - nocc_avas
 				if calc.model['TYPE'] == 'OCC':
@@ -296,55 +296,55 @@ def base(mol, calc, exp):
 		# cisd base
 		elif calc.base['METHOD'] == 'CISD':
 			res, dm = _ci(mol, calc, exp, \
-								calc.orbitals['OCC'] == 'CISD' or calc.orbitals['VIRT'] == 'CISD')
+								calc.orbs['OCC'] == 'CISD' or calc.orbs['VIRT'] == 'CISD')
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['METHOD'] in ['CCSD','CCSD(T)']:
 			res, dm = _cc(mol, calc, exp, \
-								calc.orbitals['OCC'] == 'CCSD' or calc.orbitals['VIRT'] == 'CCSD', \
+								calc.orbs['OCC'] == 'CCSD' or calc.orbs['VIRT'] == 'CCSD', \
 								(calc.base['METHOD'] == 'CCSD(T)') and \
-								((calc.orbitals['OCC'] == 'CAN') and (calc.orbitals['VIRT'] == 'CAN')))
+								((calc.orbs['OCC'] == 'CAN') and (calc.orbs['VIRT'] == 'CAN')))
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
 		# sci base
 		elif calc.base['METHOD'] == 'SCI':
 			res, dm = _sci(mol, calc, exp, \
-								calc.orbitals['OCC'] == 'SCI' or calc.orbitals['VIRT'] == 'SCI')
+								calc.orbs['OCC'] == 'SCI' or calc.orbs['VIRT'] == 'SCI')
 		# NOs
-		if (calc.orbitals['OCC'] == 'CISD' or calc.orbitals['VIRT'] == 'CISD') and dm is None:
+		if (calc.orbs['OCC'] == 'CISD' or calc.orbs['VIRT'] == 'CISD') and dm is None:
 			dm = _ci(mol, calc, exp, True)[1]
 			if mol.spin > 0: dm = dm[0] + dm[1]
-		elif (calc.orbitals['OCC'] == 'CCSD' or calc.orbitals['VIRT'] == 'CCSD') and dm is None:
+		elif (calc.orbs['OCC'] == 'CCSD' or calc.orbs['VIRT'] == 'CCSD') and dm is None:
 			dm = _cc(mol, calc, exp, True, False)[1]
 			if mol.spin > 0: dm = dm[0] + dm[1]
-		elif (calc.orbitals['OCC'] == 'SCI' or calc.orbitals['VIRT'] == 'SCI') and dm is None:
+		elif (calc.orbs['OCC'] == 'SCI' or calc.orbs['VIRT'] == 'SCI') and dm is None:
 			dm = _sci(mol, calc, exp, True)[1]
 		# occ-occ block (local or NOs)
-		if calc.orbitals['OCC'] != 'CAN':
-			if calc.orbitals['OCC'] in ['CISD', 'CCSD', 'SCI']:
+		if calc.orbs['OCC'] != 'CAN':
+			if calc.orbs['OCC'] in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
-			elif calc.orbitals['OCC'] == 'PM':
+			elif calc.orbs['OCC'] == 'PM':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.orbitals['OCC'] == 'FB':
+			elif calc.orbs['OCC'] == 'FB':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.orbitals['OCC'] in ['IBO-1','IBO-2']:
+			elif calc.orbs['OCC'] in ['IBO-1','IBO-2']:
 				iao = lo.iao.iao(mol, calc.mo[:, mol.core:mol.nocc])
-				if calc.orbitals['OCC'] == 'IBO-1':
+				if calc.orbs['OCC'] == 'IBO-1':
 					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
-				elif calc.orbitals['OCC'] == 'IBO-2':
+				elif calc.orbs['OCC'] == 'IBO-2':
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
-		if calc.orbitals['VIRT'] != 'CAN':
-			if calc.orbitals['VIRT'] in ['CISD', 'CCSD', 'SCI']:
+		if calc.orbs['VIRT'] != 'CAN':
+			if calc.orbs['VIRT'] in ['CISD', 'CCSD', 'SCI']:
 				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
-			elif calc.orbitals['VIRT'] == 'PM':
+			elif calc.orbs['VIRT'] == 'PM':
 				calc.mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
-			elif calc.orbitals['VIRT'] == 'FB':
+			elif calc.orbs['VIRT'] == 'FB':
 				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
 		# extra calculation for non-invariant methods
-		if calc.orbitals['OCC'] != 'CAN' or calc.orbitals['VIRT'] != 'CAN':
+		if calc.orbs['OCC'] != 'CAN' or calc.orbs['VIRT'] != 'CAN':
 			if calc.base['METHOD'] == 'CCSD(T)':
 				res = _cc(mol, calc, exp, False, True)[0]
 			elif calc.base['METHOD'] == 'SCI':
