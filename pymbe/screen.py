@@ -225,12 +225,12 @@ def _test(calc, exp, tup):
 			for j in range(combs.shape[0]):
 				# re-init mask_i
 				mask_i.fill(True)
-				# compute mask_c
+				# compute mask_i
 				for i in range(calc.no_exp, exp.order-1):
 					mask_i &= combs[j, i] == exp.tuples[-1][:, i]
 					if not mask_i.any():
 						return []
-				# update mask
+				# update mask_j
 				mask_j |= mask_i
 			# loop over new orbitals 'm'
 			if calc.typ == 'occupied':
@@ -260,6 +260,7 @@ def _prot(exp, calc, indx, m):
 					elif i == 'EXCITATION':
 						prop = exp.property[i.lower()]['inc'][-1][indx]
 					# are *any* increments above the threshold?
+					#print('{0:} -- {1:} -- {2:} -- {3:}'.format(i, np.abs(prop), exp.thres, np.abs(prop) > exp.thres))
 					if np.any(np.abs(prop) > exp.thres):
 						screen = False
 						break

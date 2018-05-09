@@ -101,12 +101,12 @@ def _table(info, mol, calc, exp):
 def _plot(info, calc, exp):
 		""" plot results """
 		# plot MBE energies
-		_energy_plot(info, calc, exp)
+		_energies_plot(info, calc, exp)
 		# plot maximal increments
 		_increments_plot(calc, exp)
 		# plot MBE excitation energy
-#		if calc.prop['EXCITATION']:
-#			_excitation_plot(info, calc, exp)
+		if calc.prop['EXCITATION']:
+			_excitation_plot(info, calc, exp)
 		# plot MBE dipole moment
 		if calc.prop['DIPOLE']:
 			_dipole_plot(info, calc, exp)
@@ -413,19 +413,26 @@ def _time(exp, comp, idx):
 		return hours, minutes, seconds
 
 
-def _energy_plot(info, calc, exp):
-		""" plot MBE energy """
+def _energies_plot(info, calc, exp):
+		""" plot MBE energies """
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of MBE total energy increments
-		mbe = exp.property['energy']['tot'].copy()
-		mbe[1:] = np.diff(mbe)
+		mbe_gs = info['e_final'] - calc.property['energy']['hf']
+		mbe_gs[1:] = np.diff(mbe_gs)
+		if calc.prop['EXCITATION']:
+			mbe_ex = info['e_final'] + info['e_exc_final'] - calc.property['energy']['hf']
+			mbe_ex[1:] = np.diff(mbe_ex)
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				info['e_final'], marker='x', linewidth=2, color='green', \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
+				linestyle='-', label='ground state')
+		if calc.prop['EXCITATION']:
+			ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+					info['e_final'] + info['e_exc_final'], marker='x', linewidth=2, color='blue', \
+					linestyle='-', label='excited state')
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -437,8 +444,12 @@ def _energy_plot(info, calc, exp):
 		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
-				np.abs(mbe), marker='x', linewidth=2, color='green', \
-				linestyle='-', label='MBE-'+calc.model['METHOD'])
+				np.abs(mbe_gs), marker='x', linewidth=2, color='green', \
+				linestyle='-', label='ground state')
+		if calc.prop['EXCITATION']:
+			ax2.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+					np.abs(mbe_ex), marker='x', linewidth=2, color='blue', \
+					linestyle='-', label='excited state')
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -456,7 +467,7 @@ def _energy_plot(info, calc, exp):
 		# set legends
 		ax2.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/energy.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/energies.pdf', bbox_inches = 'tight', dpi=1000)
 
 
 def _increments_plot(calc, exp):
@@ -505,6 +516,52 @@ def _increments_plot(calc, exp):
 		plt.savefig(OUT+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
 
 
+def _excitation_plot(info, calc, exp):
+		""" plot MBE excitation energy """
+		# set seaborn
+		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 2 subplots
+		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+		# array of MBE excitation energy increments
+		mbe = info['e_exc_final'].copy()
+		mbe[1:] = np.diff(mbe)
+		# plot results
+		ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+				info['e_exc_final'], marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax1.xaxis.grid(False)
+		# set labels
+		ax1.set_ylabel('Excitation energy (in au)')
+		# force integer ticks on x-axis
+		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.4f'))
+		# plot results
+		ax2.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
+				linestyle='-', label='MBE-'+calc.model['METHOD'])
+		# set x limits
+		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax2.xaxis.grid(False)
+		# set labels
+		ax2.set_xlabel('Expansion order')
+		ax2.set_ylabel('Increments (in au)')
+		# force integer ticks on x-axis
+		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# no spacing
+		plt.subplots_adjust(hspace=0.05)
+		# despine
+		sns.despine()
+		# set legends
+		ax2.legend(loc=1)
+		# save plot
+		plt.savefig(OUT+'/excitation.pdf', bbox_inches = 'tight', dpi=1000)
+
+
 def _dipole_plot(info, calc, exp):
 		""" plot MBE dipole moment """
 		# set seaborn
@@ -515,7 +572,7 @@ def _dipole_plot(info, calc, exp):
 		dipole = np.empty_like(exp.property['energy']['tot'])
 		for i in range(dipole.size):
 			dipole[i] = np.sqrt(np.sum(info['dipole_final'][i, :]**2))
-		# array of MBE total energy increments
+		# array of MBE dipole increments
 		mbe = np.empty_like(exp.property['energy']['tot'])
 		for i in range(mbe.size):
 			mbe[i] = np.sqrt(np.sum(info['dipole_final'][i, :]**2)) - np.sqrt(np.sum(info['dipole_hf']**2))

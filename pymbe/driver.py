@@ -65,8 +65,6 @@ def main(mpi, mol, calc, exp):
 					output.screen_end(exp)
 			else:
 				if mpi.global_master:
-					# print screen end
-					output.screen_end(exp)
 					# collect time
 					exp.time['screen'].append(0.0)
 			# update restart frequency

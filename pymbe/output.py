@@ -92,11 +92,6 @@ def mbe_end(calc, exp):
 		# set string
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {:>d} MBE done\n'
-		string += '          - energy = {:.4e}\n'
-		if calc.prop['EXCITATION']:
-			string += '          - excitation = {:.4e}\n'
-		if calc.prop['DIPOLE']:
-			string += '          - dipole moment = {:.4e}\n'
 		string += DIVIDER
 		if len(exp.property['energy']['tot']) == 1:
 			form = (exp.order, exp.property['energy']['tot'][0])
@@ -129,17 +124,20 @@ def mbe_results(mol, calc, exp):
 		for i in range(len(prop_type)):
 			if calc.prop[prop_type[i]]:
 				if prop_type[i] == 'ENERGY':
-					prop = exp.property['energy']['inc'][exp.order-exp.start_order]
+					prop_inc = exp.property['energy']['inc'][exp.order-exp.start_order]
+					prop_tot = exp.property['energy']['tot']
 				elif prop_type[i] == 'DIPOLE':
-					prop = exp.property['dipole']['inc'][exp.order-exp.start_order][:, -1]
+					prop_inc = exp.property['dipole']['inc'][exp.order-exp.start_order][:, -1]
+					prop_tot = exp.property['dipole']['tot']
 				elif prop_type[i] == 'EXCITATION':
-					prop = exp.property['excitation']['inc'][exp.order-exp.start_order]
+					prop_inc = exp.property['excitation']['inc'][exp.order-exp.start_order]
+					prop_tot = exp.property['excitation']['tot']
 				# statistics
-				mean_val = np.mean(prop)
-				min_idx = np.argmin(np.abs(prop))
-				min_val = prop[min_idx]
-				max_idx = np.argmax(np.abs(prop))
-				max_val = prop[max_idx]
+				mean_val = np.mean(prop_inc)
+				min_idx = np.argmin(np.abs(prop_inc))
+				min_val = prop_inc[min_idx]
+				max_idx = np.argmax(np.abs(prop_inc))
+				max_val = prop_inc[max_idx]
 				# core and cas regions
 				core, cas = kernel.core_cas(mol, exp, exp.tuples[exp.order-exp.start_order][max_idx])
 				cas_ref = '{0:}'.format(sorted(list(set(calc.ref_space.tolist()) - set(core))))
@@ -148,8 +146,26 @@ def mbe_results(mol, calc, exp):
 				else:
 					cas_exp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
 					cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
+				# calculate total inc
+				if len(exp.property['energy']['tot']) == 1:
+					if prop_type[i] in ['ENERGY', 'EXCITATION']:
+						tot_inc = prop_tot[0]
+					elif prop_type[i] == 'DIPOLE':
+						tot_inc = prop_tot[0][-1]
+				else:
+					if prop_type[i] in ['ENERGY', 'EXCITATION']:
+						tot_inc = prop_tot[-1] - prop_tot[-2]
+					elif prop_type[i] == 'DIPOLE':
+						tot_inc = prop_tot[-1][-1] - prop_tot[-2][-1]
+				# set header
+				if prop_type[i] == 'ENERGY':
+					header = 'ground state energy (inc = {0:.4e})'.format(tot_inc)
+				elif prop_type[i] == 'EXCITATION':
+					header = 'excitation energy for root {0:} (inc = {1:.4e})'.format(calc.state['ROOT'], tot_inc)
+				elif prop_type[i] == 'DIPOLE':
+					header = 'ground state dipole moment (inc = {0:.4e})'.format(tot_inc)
 				# set string
-				string = ' RESULT:{0:^83}\n'
+				string = ' RESULT:{0:^82}\n'
 				string += DIVIDER+'\n'
 				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 				string += DIVIDER+'\n'
@@ -160,7 +176,7 @@ def mbe_results(mol, calc, exp):
 					string += ' RESULT:  core = {4:}\n'
 					string += ' RESULT:  cas  = '+cas_ref+' + '+cas_exp+'\n'
 				string += DIVIDER
-				form = (prop_type[i].lower(), mean_val, min_val, max_val)
+				form = (header, mean_val, min_val, max_val)
 				if mol.verbose:
 					form += (core,)
 				# now print
@@ -169,6 +185,13 @@ def mbe_results(mol, calc, exp):
 						print(string.format(*form))
 				# write also to stdout
 				print(string.format(*form))
+		# closing if no screening follows
+		if exp.order == exp.max_order:
+			with open(OUT+'/output.out','a') as f:
+				with contextlib.redirect_stdout(f):
+					print('\n\n')
+			# write also to stdout
+			print('\n\n')
 
 
 def screen_header(exp, thres):
