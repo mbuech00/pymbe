@@ -241,10 +241,12 @@ def _prot(exp, calc, indx, m):
 			for i in ['ENERGY', 'DIPOLE', 'EXCITATION']:
 				if i == 'ENERGY':
 					prop = exp.property[i.lower()]['inc'][-1][indx]
-				elif i == 'DIPOLE' and not calc.prot['ENERGY_ONLY']:
-					prop = exp.property[i.lower()]['inc'][-1][indx, -1]
-				elif i == 'EXCITATION' and not calc.prot['ENERGY_ONLY']:
-					prop = exp.property[i.lower()]['inc'][-1][indx]
+				else:
+					if calc.prop[i] and not calc.prot['ENERGY_ONLY']:
+						if i == 'DIPOLE':
+							prop = exp.property[i.lower()]['inc'][-1][indx, -1]
+						elif i == 'EXCITATION':
+							prop = exp.property[i.lower()]['inc'][-1][indx]
 				# are *any* increments above the threshold?
 				if calc.prot['SCHEME'] == 'NEW':
 					if np.any(np.abs(prop) > exp.thres):
