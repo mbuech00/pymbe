@@ -160,15 +160,17 @@ def _summary_prt(info, calc, exp):
 
 def _timings_prt(exp):
 		""" timings """
-		print(DIVIDER[:75])
-		print('{0:^75}'.format('MBE timings'))
-		print(DIVIDER[:75])
-		print('{0:6}{1:9}{2:2}{3:1}{4:6}{5:}'. \
-				format('','MBE order','','|','','time (HHH : MM : SS) -- MBE / screening - total'))
-		print(DIVIDER[:75])
+		print(DIVIDER[:98])
+		print('{0:^98}'.format('MBE timings'))
+		print(DIVIDER[:98])
+		print('{0:6}{1:9}{2:2}{3:1}{4:6}{5:47}{6:7}{7:1}{8:4}{9:}'. \
+				format('','MBE order','','|','','time (HHH : MM : SS) -- MBE / screening - total', \
+						'','|','','calculations'))
+		print(DIVIDER[:98])
 		for i in range(exp.property['energy']['tot'].size):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:03d}{6:^3}{7:02d}{8:^3}{9:02d}{10:^5}{11:03d}'
-				'{12:^3}{13:02d}{14:^3}{15:02d}{16:^5}{17:03d}{18:^3}{19:02d}{20:^3}{21:02d}'. \
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:3d}{6:^3}{7:2d}{8:^3}{9:2d}{10:^5}{11:3d}'
+				'{12:^3}{13:2d}{14:^3}{15:2d}{16:^5}{17:3d}{18:^3}{19:2d}{20:^3}{21:2d}'
+				'{22:7}{23:1}{24:6}{25:<9d}'. \
 					format('',i+exp.start_order, \
 						'','|','',_time(exp, 'mbe', i)[0],':', \
 						_time(exp, 'mbe', i)[1],':', \
@@ -178,8 +180,9 @@ def _timings_prt(exp):
    						_time(exp, 'screen', i)[2], \
 						'-',_time(exp, 'total', i)[0],':', \
  						_time(exp, 'total', i)[1],':', \
- 						_time(exp, 'total', i)[2]))
-		print(DIVIDER[:75]+'\n')
+ 						_time(exp, 'total', i)[2], \
+						'','|','',exp.tuples[i].shape[0]))
+		print(DIVIDER[:98]+'\n')
 
 
 def _energy_prt(info, calc, exp):
