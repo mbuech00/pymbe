@@ -22,10 +22,11 @@ import output
 import expansion
 import driver
 import parallel
+import tools
 
 
 # mbe parameters
-TAGS = parallel.enum('start', 'ready', 'exit')
+TAGS = tools.enum('start', 'ready', 'exit')
 
 
 def main(mpi, mol, calc, exp):
@@ -39,8 +40,6 @@ def main(mpi, mol, calc, exp):
 				exp.property['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 4], dtype=np.float64))
 			if calc.prop['EXCITATION']:
 				exp.property['excitation']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
-		# sanity check
-		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
@@ -97,7 +96,7 @@ def _master(mpi, mol, calc, exp):
 		time = MPI.Wtime()
 		num_slaves = slaves_avail = mpi.local_size - 1
 		# init tasks
-		tasks = parallel.tasks(len(exp.tuples[-1]), mpi.local_size)
+		tasks = tools.tasks(len(exp.tuples[-1]), mpi.local_size)
 		i = 0
 		# init job_info array
 		job_info = np.zeros(2, dtype=np.int32)
@@ -257,22 +256,17 @@ def _sum(calc, exp, tup):
 									combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
-			# init masks
-			mask = np.zeros(exp.tuples[i-1].shape[0], dtype=np.bool)
-			# loop over subset combinations
-			for j in range(combs.shape[0]):
-				# update mask
-				mask |= (combs[j, calc.no_exp:] == exp.tuples[i-1][:, calc.no_exp:]).all(axis=1)
-			# recover indices
-			mask = np.where(mask)[0]
-			assert mask.size == combs.shape[0]
+			# convert to hashes
+			combs = np.apply_along_axis(tools.hash_conv, 1, combs)
+			# get index
+			indx = tools.hash_compare(exp.hashes[i-1], combs)
 			# add up lower-order increments
-			res['e_corr'] += math.fsum(exp.property['energy']['inc'][i-1][mask])
+			res['e_corr'] += math.fsum(exp.property['energy']['inc'][i-1][indx])
 			if calc.prop['DIPOLE']:
 				for j in range(3):
-					res['dipole'][j] += math.fsum(exp.property['dipole']['inc'][i-1][mask, j])
+					res['dipole'][j] += math.fsum(exp.property['dipole']['inc'][i-1][indx, j])
 			if calc.prop['EXCITATION']:
-				res['e_exc'] += math.fsum(exp.property['excitation']['inc'][i-1][mask])
+				res['e_exc'] += math.fsum(exp.property['excitation']['inc'][i-1][indx])
 		return res
 
 

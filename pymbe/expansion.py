@@ -13,6 +13,8 @@ __status__ = 'Development'
 import copy
 import numpy as np
 
+import tools
+
 
 class ExpCls():
 		""" expansion class """
@@ -21,8 +23,8 @@ class ExpCls():
 				# set expansion model dict
 				self.model = copy.deepcopy(calc.model)
 				self.model['TYPE'] = typ
-				# init tuples and incl_idx
-				self.incl_idx, self.tuples = _init_tup(mol, calc)
+				# init incl_idx, tuples, and hashes
+				self.incl_idx, self.tuples, self.hashes = _init_tup(mol, calc)
 				# init property dict
 				self.property = {}
 				self.property['energy'] = {'inc': [], 'tot': []}
@@ -61,6 +63,8 @@ def _init_tup(mol, calc):
 				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32, order='F')]
 			elif calc.model['TYPE'] == 'VIRT':
 				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32, order='F')]
-		return incl_idx, tuples
+		# hashes
+		hashes = [np.apply_along_axis(tools.hash_conv, 1, tuples[0])]
+		return incl_idx, tuples, hashes
 
 
