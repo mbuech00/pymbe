@@ -238,23 +238,26 @@ def _prot(exp, calc, indx, m):
 			return []
 		else:
 			screen = True
-			for i in calc.prot.keys():
-				if calc.prot[i]:
-					if i == 'ENERGY':
-						prop = exp.property[i.lower()]['inc'][-1][indx]
-					elif i == 'DIPOLE':
-						prop = exp.property[i.lower()]['inc'][-1][indx, -1]
-					elif i == 'EXCITATION':
-						prop = exp.property[i.lower()]['inc'][-1][indx]
-					# are *any* increments above the threshold?
-					#print('{0:} -- {1:} -- {2:} -- {3:}'.format(i, np.abs(prop), exp.thres, np.abs(prop) > exp.thres))
+			for i in ['ENERGY', 'DIPOLE', 'EXCITATION']:
+				if i == 'ENERGY':
+					prop = exp.property[i.lower()]['inc'][-1][indx]
+				elif i == 'DIPOLE' and not calc.prot['ENERGY_ONLY']:
+					prop = exp.property[i.lower()]['inc'][-1][indx, -1]
+				elif i == 'EXCITATION' and not calc.prot['ENERGY_ONLY']:
+					prop = exp.property[i.lower()]['inc'][-1][indx]
+				# are *any* increments above the threshold?
+				if calc.prot['SCHEME'] == 'NEW':
 					if np.any(np.abs(prop) > exp.thres):
 						screen = False
 						break
-#				# are *all* increments above the threshold?
-#				if np.all(np.abs(prop) > exp.thres):
-#					screen = False
-#					break
+				# are *all* increments above the threshold?
+				elif calc.prot['SCHEME'] == 'OLD':
+					if np.all(np.abs(prop) > exp.thres):
+						screen = False
+						break
+				# energy only
+				if i == 'ENERGY' and calc.prot['ENERGY_ONLY']:
+					break
 			if not screen:
 				return [m]
 			else:

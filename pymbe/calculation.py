@@ -14,10 +14,10 @@ import re
 import sys
 import os
 import ast
-import copy
 import numpy as np
 from pyscf import symm
 
+import tools
 import restart
 
 
@@ -28,7 +28,7 @@ class CalcCls():
 				# set defaults
 				self.model = {'METHOD': 'FCI', 'TYPE': 'VIRT'}
 				self.prop = {'ENERGY': True, 'DIPOLE': False, 'EXCITATION': False}
-				self.prot = copy.deepcopy(self.prop)
+				self.prot = {'SCHEME': 'NEW', 'ENERGY_ONLY': False}
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
 				self.state = {'WFNSYM': symm.addons.irrep_id2name(mol.symmetry, 0), 'ROOT': 0}
@@ -71,7 +71,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in model dict (model) must be strings')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.model[key] = val
 								# prop
@@ -80,7 +80,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in property dict (prop) must be bools')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.prop[key] = val
 								# prot
@@ -88,8 +88,8 @@ class CalcCls():
 									try:
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
-										raise ValueError('wrong input -- values in prot dict (prot) must be bools')
-									tmp = self._upper(tmp)
+										raise ValueError('wrong input -- values in prot dict (prot) must be strings and bools')
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.prot[key] = val
 								# ref
@@ -98,7 +98,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in reference dict (ref) must be strings, lists, and tuples')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.ref[key] = val
 								# base
@@ -107,7 +107,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in base dict (base) must be strings')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.base[key] = val
 								# thres
@@ -116,7 +116,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in threshold dict (thres) must be floats')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.thres[key] = val
 								# state
@@ -125,7 +125,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in state dict (state) must be strings and ints')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										if key == 'WFNSYM':
 											self.state[key] = symm.addons.std_symb(val)
@@ -137,7 +137,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in misc dict (misc) must be ints and bools')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.misc[key] = val
 								# orbs
@@ -146,7 +146,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in orbital dict (orbs) must be strings')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.orbs[key] = val
 								# mpi
@@ -155,7 +155,7 @@ class CalcCls():
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in mpi dict (mpi) must be ints')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.mpi[key] = val
 				except IOError:
@@ -239,16 +239,11 @@ class CalcCls():
 						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
 					if self.prop['EXCITATION'] and self.state['ROOT'] == 0:
 						raise ValueError('wrong input -- calculation of excitation energy (excit) requires a state root different from 0')
-					# screening prot
-					if not all(isinstance(i, bool) for i in self.prot.values()):
-						raise ValueError('wrong input -- values in prot input (prot) must be bools (True, False)')
-					if not set(list(self.prot.keys())) <= set(['ENERGY', 'DIPOLE', 'EXCITATION']):
-						raise ValueError('wrong input -- valid choices for properties are: energy, dipole, and excitation')
-					if not self.prot['ENERGY'] and sum(self.prop.values()) == 1:
-						raise ValueError('wrong input -- non-energy screening requires other properties to be requested in prop input')
-					for key in self.prot.keys():
-						if self.prot[key] and not self.prop[key]:
-							raise ValueError('wrong input -- screening wrt a given property requires that this is also requested in prop input')
+					# screening protocol
+					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
+						raise ValueError('wrong input -- values in prot input (prot) must be string and bools (True, False)')
+					if self.prot['SCHEME'] not in ['NEW', 'OLD']:
+						raise ValueError('wrong input -- valid protocol schemes are: new and old')
 					# expansion thresholds
 					if not all(isinstance(i, float) for i in self.thres.values()):
 						raise ValueError('wrong input -- values in threshold input (thres) must be floats')
@@ -309,14 +304,5 @@ class CalcCls():
 					raise
 
 
-		def _upper(self, old_dict):
-				""" capitalize keys """
-				new_dict = {}
-				for key, value in old_dict.items():
-					if key.upper() in ['METHOD', 'ACTIVE', 'TYPE', 'OCC', 'VIRT']:
-						new_dict[key.upper()] = value.upper()
-					else:
-						new_dict[key.upper()] = value
-				return new_dict
 
 

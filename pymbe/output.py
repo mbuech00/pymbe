@@ -125,18 +125,14 @@ def mbe_end(calc, exp):
 
 def mbe_results(mol, calc, exp):
 		""" print mbe result statistics """
-		prop_type = ['ENERGY', 'DIPOLE', 'EXCITATION']
-		for i in range(len(prop_type)):
-			if calc.prop[prop_type[i]]:
-				if prop_type[i] == 'ENERGY':
-					prop_inc = exp.property['energy']['inc'][exp.order-exp.start_order]
-					prop_tot = exp.property['energy']['tot']
-				elif prop_type[i] == 'DIPOLE':
+		for i in ['ENERGY', 'DIPOLE', 'EXCITATION']:
+			if calc.prop[i]:
+				if i in ['ENERGY', 'EXCITATION']:
+					prop_inc = exp.property[i.lower()]['inc'][exp.order-exp.start_order]
+					prop_tot = exp.property[i.lower()]['tot']
+				elif i == 'DIPOLE':
 					prop_inc = exp.property['dipole']['inc'][exp.order-exp.start_order][:, -1]
 					prop_tot = exp.property['dipole']['tot']
-				elif prop_type[i] == 'EXCITATION':
-					prop_inc = exp.property['excitation']['inc'][exp.order-exp.start_order]
-					prop_tot = exp.property['excitation']['tot']
 				# statistics
 				mean_val = np.mean(prop_inc)
 				min_idx = np.argmin(np.abs(prop_inc))
@@ -153,21 +149,21 @@ def mbe_results(mol, calc, exp):
 					cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
 				# calculate total inc
 				if len(exp.property['energy']['tot']) == 1:
-					if prop_type[i] in ['ENERGY', 'EXCITATION']:
+					if i in ['ENERGY', 'EXCITATION']:
 						tot_inc = prop_tot[0]
-					elif prop_type[i] == 'DIPOLE':
+					elif i == 'DIPOLE':
 						tot_inc = prop_tot[0][-1]
 				else:
-					if prop_type[i] in ['ENERGY', 'EXCITATION']:
+					if i in ['ENERGY', 'EXCITATION']:
 						tot_inc = prop_tot[-1] - prop_tot[-2]
-					elif prop_type[i] == 'DIPOLE':
+					elif i == 'DIPOLE':
 						tot_inc = prop_tot[-1][-1] - prop_tot[-2][-1]
 				# set header
-				if prop_type[i] == 'ENERGY':
+				if i == 'ENERGY':
 					header = 'ground state energy (total increment = {0:.4e})'.format(tot_inc)
-				elif prop_type[i] == 'EXCITATION':
+				elif i == 'EXCITATION':
 					header = 'excitation energy for root {0:} (total increment = {1:.4e})'.format(calc.state['ROOT'], tot_inc)
-				elif prop_type[i] == 'DIPOLE':
+				elif i == 'DIPOLE':
 					header = 'ground state dipole moment (total increment = {0:.4e})'.format(tot_inc)
 				# set string
 				string = ' RESULT:{0:^81}\n'

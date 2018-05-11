@@ -120,28 +120,28 @@ def _summary_prt(info, calc, exp):
 					'expansion information','','|','','calculation information'))
 		print(DIVIDER)
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
+				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 					format('','basis set','','=','',info['basis'], \
 						'','|','','model / type','','=','',info['model_type'], \
 						'','|','','mpi masters / slaves','','=','',info['mpi']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
+				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','spin multiplicity','','=','',info['mult'], \
 						'','|','','ref. function','','=','',info['ref'], \
 						'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
+				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','system size','','=','',info['system'], \
 						'','|','','cas size','','=','',info['active'], \
 						'','|','','base model energy','','=','', \
 						calc.property['energy']['hf']+calc.property['energy']['base']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
+				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','frozen core','','=','',info['frozen'], \
 						'','|','','base model','','=','',info['base'], \
 						'','|','','MBE total energy','','=','',info['e_final'][-1]))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}'.\
+				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}'.\
 					format('','occupied orbs','','=','',info['occ'], \
 						'','|','','screen. prot.','','=','',info['prot'], \
 						'','|','','total time','','=','', \
@@ -149,7 +149,7 @@ def _summary_prt(info, calc, exp):
 						_time(exp, 'total', exp.order-1)[1],'m', \
 						_time(exp, 'total', exp.order-1)[2],'s'))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<15s}{14:2}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
+				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 					format('','virtual orbs','','=','',info['virt'], \
 						'','|','','screen. thres.','','=','',info['thres'], \
 						'','|','','wave funct. symmetry','','=','',info['symm']))
@@ -292,17 +292,12 @@ def _base(calc):
 
 def _prot(calc):
 		""" protocol print """
-		prot = ''
-		for i in calc.prot.keys():
-			if calc.prot[i]:
-				if i == 'ENERGY':
-					prop = 'ener.'
-				elif i == 'DIPOLE':
-					prop = 'dip.'
-				elif i == 'EXCITATION':
-					prop = 'exc.'
-				prot += '{0:}-'.format(prop)
-		return prot[:-1]
+		prot = calc.prot['SCHEME'].lower()
+		if calc.prot['ENERGY_ONLY']:
+			prot += ' (energy)'
+		else:
+			prot += ' (all props.)'
+		return prot
 
 
 def _system(mol, calc):

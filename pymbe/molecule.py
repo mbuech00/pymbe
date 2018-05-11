@@ -16,6 +16,7 @@ import os
 import ast
 from pyscf import gto, symm
 
+import tools
 import restart
 
 
@@ -72,7 +73,7 @@ class MolCls(gto.Mole):
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in molecule dict (mol) must be strings, dicts, ints, and bools')
-									tmp = self._upper(tmp)
+									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.mol[key] = val
 				except IOError:
@@ -160,13 +161,5 @@ class MolCls(gto.Mole):
 						if self.atom_charge(i) > 20: ncore += 4
 						if self.atom_charge(i) > 30: ncore += 6
 				return ncore
-
-
-		def _upper(self, old_dict):
-				""" capitalize keys """
-				new_dict = {}
-				for key, value in old_dict.items():
-					new_dict[key.upper()] = value
-				return new_dict
 
 
