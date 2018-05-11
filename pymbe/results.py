@@ -103,7 +103,7 @@ def _plot(info, calc, exp):
 		# plot MBE energies
 		_energies_plot(info, calc, exp)
 		# plot maximal increments
-		_increments_plot(calc, exp)
+		_max_inc_plot(calc, exp)
 		# plot MBE excitation energy
 		if calc.prop['EXCITATION']:
 			_excitation_plot(info, calc, exp)
@@ -239,7 +239,7 @@ def _dipole_prt(info, mol, calc, exp):
 
 def _model_type(calc):
 		""" model / type print """
-		return '{0:} / {1:}'.format(calc.model['METHOD'], calc.model['TYPE'])
+		return '{0:} / {1:}'.format(calc.model['METHOD'], calc.model['TYPE'].lower())
 
 
 def _basis(mol):
@@ -476,39 +476,46 @@ def _energies_plot(info, calc, exp):
 		plt.savefig(OUT+'/energies.pdf', bbox_inches = 'tight', dpi=1000)
 
 
-def _increments_plot(calc, exp):
+def _max_inc_plot(calc, exp):
 		""" plot maximal increments """
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 1 plot
 		fig, ax = plt.subplots()
-		# array of increments
-		mean_val = np.empty_like(exp.property['energy']['inc'])
-		min_val = np.empty_like(exp.property['energy']['inc'])
-		max_val = np.empty_like(exp.property['energy']['inc'])
+		# array of max increments
+		e_max = np.empty_like(exp.property['energy']['tot'])
+		if calc.prop['EXCITATION']:
+			e_exc_max = np.empty_like(e_max)
+		if calc.prop['DIPOLE']:
+			dip_max = np.empty_like(e_max)
 		for i in range(exp.property['energy']['tot'].size):
-			mean_val[i] = np.abs(np.mean(exp.property['energy']['inc'][i]))
-			min_idx = np.argmin(np.abs(exp.property['energy']['inc'][i]))
-			min_val[i] = np.abs(exp.property['energy']['inc'][i][min_idx])
 			max_idx = np.argmax(np.abs(exp.property['energy']['inc'][i]))
-			max_val[i] = np.abs(exp.property['energy']['inc'][i][max_idx])
+			e_max[i] = np.abs(exp.property['energy']['inc'][i][max_idx])
+			if calc.prop['EXCITATION']:
+				max_idx = np.argmax(np.abs(exp.property['excitation']['inc'][i]))
+				e_exc_max[i] = np.abs(exp.property['excitation']['inc'][i][max_idx])
+			if calc.prop['DIPOLE']:
+				max_idx = np.argmax(np.abs(exp.property['dipole']['inc'][i][:, -1]))
+				dip_max[i] = np.abs(exp.property['dipole']['inc'][i][max_idx, -1])
 		# plot results
 		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
-				mean_val, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
-				linestyle='-', label='mean')
-		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
-				min_val, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
-				linestyle='-', label='min')
-		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
-				max_val, marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
-				linestyle='-', label='max')
+				e_max, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
+				linestyle='-', label='ground state energy')
+		if calc.prop['EXCITATION']:
+			ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+					e_exc_max, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
+					linestyle='-', label='excitation energy for state {0:}'.format(calc.state['ROOT']))
+		if calc.prop['DIPOLE']:
+			ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
+					dip_max, marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
+					linestyle='-', label='ground state dipole moment')
 		# set x limits
 		ax.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
 		ax.xaxis.grid(False)
 		# set labels
 		ax.set_xlabel('Expansion order')
-		ax.set_ylabel('Increments (in au)')
+		ax.set_ylabel('Max. increments (in au)')
 		# force integer ticks on x-axis
 		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax.yaxis.set_major_formatter(FormatStrFormatter('%.1e'))
@@ -519,7 +526,7 @@ def _increments_plot(calc, exp):
 		# tight layout
 		plt.tight_layout()
 		# save plot
-		plt.savefig(OUT+'/increments.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/max_inc.pdf', bbox_inches = 'tight', dpi=1000)
 
 
 def _excitation_plot(info, calc, exp):
