@@ -15,11 +15,12 @@ from mpi4py import MPI
 import itertools
 
 import parallel
+import tools
 import output
 
 
 # mbe parameters
-TAGS = parallel.enum('start', 'ready', 'exit', 'collect')
+TAGS = tools.enum('start', 'ready', 'exit', 'collect')
 
 
 def main(mpi, mol, calc, exp):
@@ -28,8 +29,6 @@ def main(mpi, mol, calc, exp):
 		exp.thres = update(calc, exp)
 		# print header
 		if mpi.global_master: output.screen_header(exp, exp.thres)
-		# sanity check
-		assert exp.tuples[-1].flags['F_CONTIGUOUS']
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
@@ -59,8 +58,8 @@ def _serial(mol, calc, exp):
 		exp.tuples.append(np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1))
 		# when done, write to tup list if expansion has not converged
 		if exp.tuples[-1].shape[0] > 0:
-			# recast tuples as Fortran order array
-			exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
+			# get hashes
+			exp.hashes.append(np.apply_along_axis(tools.hash_conv, 1, exp.tuples[-1]))
 
 
 def _master(mpi, mol, calc, exp):
@@ -76,7 +75,7 @@ def _master(mpi, mol, calc, exp):
 		# start index
 		i = 0
 		# init tasks
-		tasks = parallel.tasks(len(exp.tuples[-1]), mpi.local_size)
+		tasks = tools.tasks(len(exp.tuples[-1]), mpi.local_size)
 		# init job_info array and child_tup list
 		job_info = np.zeros(2, dtype=np.int32)
 		child_tup = []
@@ -216,29 +215,19 @@ def _test(calc, exp, tup):
 									combinations(tup[calc.no_exp:], (exp.order-exp.start_order)-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, exp.order-exp.start_order)], dtype=np.int32)
-			# init masks
-			mask_i = np.ones(exp.tuples[-1].shape[0], dtype=np.bool)
-			mask_j = np.zeros(exp.tuples[-1].shape[0], dtype=np.bool)
-			# loop over subset combinations
-			for j in range(combs.shape[0]):
-				# re-init mask_i
-				mask_i.fill(True)
-				# compute mask_i
-				for i in range(calc.no_exp, exp.order-1):
-					mask_i &= combs[j, i] == exp.tuples[-1][:, i]
-					if not mask_i.any():
-						return []
-				# update mask_j
-				mask_j |= mask_i
 			# loop over new orbs 'm'
 			if calc.model['TYPE'] == 'OCC':
 				for m in range(calc.exp_space[0], tup[0]):
 					raise NotImplementedError('pymbe/screen.py: _test()')
 			elif calc.model['TYPE'] == 'VIRT':
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
+					# add orbital m to combinations
+					combs_m = np.c_[combs, np.asarray([m] * combs.shape[0], dtype=np.int32)[:, None]]
+					# convert to hashes
+					combs_m = np.apply_along_axis(tools.hash_conv, 1, combs_m)
 					# get index
-					indx = np.where(mask_j & (np.int32(m) == exp.tuples[-1][:, -1]))[0]
-					if (indx.size+calc.no_exp) == exp.order:
+					indx = tools.hash_compare(exp.hashes[-1], combs_m)
+					if indx.size == combs.shape[0]:
 						lst += _prot(exp, calc, indx, m)
 			return lst
 

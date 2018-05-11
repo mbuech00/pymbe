@@ -15,6 +15,7 @@ from mpi4py import MPI
 import sys
 import traceback
 
+import tools
 import restart
 
 
@@ -165,8 +166,6 @@ def exp(mpi, calc, exp, comm):
 				# bcast tuples
 				for i in range(1,len(exp.tuples)):
 					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
-					# recast tuples as Fortran order array
-					exp.tuples[i] = np.asfortranarray(exp.tuples[i])
 				# bcast increments
 				for i in range(len(exp.property['energy']['inc'])):
 					comm.Bcast([exp.property['energy']['inc'][i], MPI.DOUBLE], root=0)
@@ -181,8 +180,6 @@ def exp(mpi, calc, exp, comm):
 					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
 					comm.Bcast([buff, MPI.INT], root=0)
 					exp.tuples.append(buff)
-					# recast tuples as Fortran order array
-					exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
 				# receive e_inc
 				for i in range(len(info['len_e_inc'])):
 					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
@@ -221,8 +218,8 @@ def tup(exp, comm):
 		""" Bcast tuples """
 		# Bcast
 		comm.Bcast([exp.tuples[-1], MPI.INT], root=0)
-		# recast tuples as Fortran order array
-		exp.tuples[-1] = np.asfortranarray(exp.tuples[-1])
+		# get hashes
+		exp.hashes.append(np.apply_along_axis(tools.hash_conv, 1, exp.tuples[-1]))
 
 
 def final(mpi):
@@ -237,28 +234,5 @@ def final(mpi):
 			mpi.local_comm.bcast({'task': 'exit'}, root=0)
 		mpi.global_comm.Barrier()
 		MPI.Finalize()
-
-
-def enum(*sequential, **named):
-		""" hardcoded enums
-		see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
-		"""
-		enums = dict(zip(sequential, range(len(sequential))), **named)
-		return type('Enum', (), enums)
-
-
-def tasks(n_tasks, procs):
-		""" determine batch sizes """
-		base = int(n_tasks * 0.75 // procs) # make one large batch per proc corresponding to approx. 75 % of the tasks
-		tasks = []
-		for i in range(n_tasks-base*procs):
-			tasks += [i+2 for p in range(procs-1)] # extra slaves tasks
-			if np.sum(tasks) > float(n_tasks-base*procs):
-				tasks = tasks[:-(procs-1)]
-				tasks += [base for p in range(procs-1) if base > 0] # add large slave batches
-				tasks = tasks[::-1]
-				tasks += [1 for j in range(base)] # add master tasks
-				tasks += [1 for j in range(n_tasks - int(np.sum(tasks)))] # add extra single tasks
-				return tasks
 
 
