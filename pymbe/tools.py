@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" tools.py: various functions """
+""" tools.py: various pure functions """
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __license__ = '???'
@@ -38,8 +38,8 @@ def tasks(n_tasks, procs):
 
 
 def hash_2d(a):
-		""" convert a 2d numpy array to a hash """
-		return np.fromiter(map(functools.partial(hash_1d), a), dtype=np.int32, count=a.shape[0])
+		""" convert a 2d numpy array to a 1d array of hashes """
+		return np.fromiter(map(functools.partial(hash_1d), a), dtype=a.dtype, count=a.shape[0])
 
 
 def hash_1d(a):
