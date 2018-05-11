@@ -11,7 +11,6 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
-import functools
 
 
 def enum(*sequential, **named):
@@ -39,7 +38,7 @@ def tasks(n_tasks, procs):
 
 def hash_2d(a):
 		""" convert a 2d numpy array to a 1d array of hashes """
-		return np.fromiter(map(functools.partial(hash_1d), a), dtype=a.dtype, count=a.shape[0])
+		return np.fromiter(map(hash_1d, a), dtype=a.dtype, count=a.shape[0])
 
 
 def hash_1d(a):
