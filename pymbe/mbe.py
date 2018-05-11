@@ -257,7 +257,7 @@ def _sum(calc, exp, tup):
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
 			# convert to hashes
-			combs = np.apply_along_axis(tools.hash_conv, 1, combs)
+			combs = tools.hash_2d(combs)
 			# get index
 			indx = tools.hash_compare(exp.hashes[i-1], combs)
 			# add up lower-order increments

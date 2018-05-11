@@ -11,6 +11,8 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
+import functools
+
 
 def enum(*sequential, **named):
 		""" hardcoded enums
@@ -35,7 +37,12 @@ def tasks(n_tasks, procs):
 				return tasks
 
 
-def hash_conv(a):
+def hash_2d(a):
+		""" convert a 2d numpy array to a hash """
+		return np.fromiter(map(functools.partial(hash_1d), a), dtype=np.int32, count=a.shape[0])
+
+
+def hash_1d(a):
 		""" convert a 1d numpy array to a hash """
 		return hash(a.tobytes())
 

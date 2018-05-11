@@ -59,7 +59,7 @@ def _serial(mol, calc, exp):
 		# when done, write to tup list if expansion has not converged
 		if exp.tuples[-1].shape[0] > 0:
 			# get hashes
-			exp.hashes.append(np.apply_along_axis(tools.hash_conv, 1, exp.tuples[-1]))
+			exp.hashes.append(tools.hash_2d(exp.tuples[-1]))
 
 
 def _master(mpi, mol, calc, exp):
@@ -224,7 +224,7 @@ def _test(calc, exp, tup):
 					# add orbital m to combinations
 					combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
 					# convert to hashes
-					combs_m = np.apply_along_axis(tools.hash_conv, 1, combs_m)
+					combs_m = tools.hash_2d(combs_m)
 					# get index
 					indx = tools.hash_compare(exp.hashes[-1], combs_m)
 					if indx.size == combs.shape[0]:

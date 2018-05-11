@@ -64,7 +64,7 @@ def _init_tup(mol, calc):
 			elif calc.model['TYPE'] == 'VIRT':
 				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32, order='F')]
 		# hashes
-		hashes = [np.apply_along_axis(tools.hash_conv, 1, tuples[0])]
+		hashes = [tools.hash_2d(tuples[0])]
 		return incl_idx, tuples, hashes
 
 

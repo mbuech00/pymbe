@@ -219,7 +219,7 @@ def tup(exp, comm):
 		# Bcast
 		comm.Bcast([exp.tuples[-1], MPI.INT], root=0)
 		# get hashes
-		exp.hashes.append(np.apply_along_axis(tools.hash_conv, 1, exp.tuples[-1]))
+		exp.hashes.append(tools.hash_2d(exp.tuples[-1]))
 
 
 def final(mpi):
