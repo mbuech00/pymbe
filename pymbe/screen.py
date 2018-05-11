@@ -222,7 +222,7 @@ def _test(calc, exp, tup):
 			elif calc.model['TYPE'] == 'VIRT':
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# add orbital m to combinations
-					combs_m = np.c_[combs, np.asarray([m] * combs.shape[0], dtype=np.int32)[:, None]]
+					combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
 					# convert to hashes
 					combs_m = np.apply_along_axis(tools.hash_conv, 1, combs_m)
 					# get index
