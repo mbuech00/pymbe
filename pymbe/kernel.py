@@ -364,7 +364,6 @@ def _casscf(mol, calc, exp):
 		cas.fcisolver.conv_tol = 1.0e-10
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
-		cas.max_cycle_micro = 1
 		cas.max_cycle_macro = 500
 		cas.canonicalization = False
 		# wfnsym
@@ -379,8 +378,7 @@ def _casscf(mol, calc, exp):
 			cas.fix_spin_(ss=sz * (sz + 1.))
 		# state-averaged calculation
 		if calc.state['ROOT'] > 0:
-			weights = np.zeros(calc.state['ROOT']+1, dtype=np.float64)
-			weights[0] = weights[-1] = 0.5
+			weights = np.ones(calc.state['ROOT']+1, dtype=np.float64)/(calc.state['ROOT']+1)
 			cas.state_average_(weights)
 		# run casscf calc
 		cas.kernel(calc.mo)
