@@ -332,8 +332,6 @@ def _orbs(calc):
 			occ = 'CISD natural'
 		elif calc.orbs['OCC'] == 'CCSD':
 			occ = 'CCSD natural'
-		elif calc.orbs['OCC'] == 'SCI':
-			occ = 'SCI natural'
 		elif calc.orbs['OCC'] == 'PM':
 			occ = 'pipek-mezey'
 		elif calc.orbs['OCC'] == 'FB':
@@ -348,8 +346,6 @@ def _orbs(calc):
 			virt = 'CISD natural'
 		elif calc.orbs['VIRT'] == 'CCSD':
 			virt = 'CCSD natural'
-		elif calc.orbs['VIRT'] == 'SCI':
-			virt = 'SCI natural'
 		elif calc.orbs['VIRT'] == 'PM':
 			virt = 'pipek-mezey'
 		elif calc.orbs['VIRT'] == 'FB':
@@ -369,7 +365,7 @@ def _thres(calc):
 
 def _symm(mol, calc):
 		""" symmetry print """
-		if calc.model['METHOD'] in ['SCI','FCI']:
+		if calc.model['METHOD'] == 'FCI':
 			return symm.addons.irrep_id2name(mol.symmetry, calc.state['WFNSYM'])+' ('+mol.symmetry+')'
 		else:
 			return 'unknown'

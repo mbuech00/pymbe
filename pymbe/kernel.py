@@ -251,9 +251,6 @@ def main(mol, calc, exp, method):
 		# fci calc
 		if method == 'FCI':
 			e, dm = _fci(mol, calc, exp, prop)
-		# sci base
-		elif method == 'SCI':
-			e, dm = _sci(mol, calc, exp, prop)
 		# cisd calc
 		elif method == 'CISD':
 			e, dm = _ci(mol, calc, exp, prop)
@@ -307,10 +304,6 @@ def base(mol, calc, exp):
 								(calc.base['METHOD'] == 'CCSD(T)') and \
 								((calc.orbs['OCC'] == 'CAN') and (calc.orbs['VIRT'] == 'CAN')))
 			if mol.spin > 0 and dm is not None: dm = dm[0] + dm[1]
-		# sci base
-		elif calc.base['METHOD'] == 'SCI':
-			res, dm = _sci(mol, calc, exp, \
-								calc.orbs['OCC'] == 'SCI' or calc.orbs['VIRT'] == 'SCI')
 		# NOs
 		if (calc.orbs['OCC'] == 'CISD' or calc.orbs['VIRT'] == 'CISD') and dm is None:
 			dm = _ci(mol, calc, exp, True)[1]
@@ -318,11 +311,9 @@ def base(mol, calc, exp):
 		elif (calc.orbs['OCC'] == 'CCSD' or calc.orbs['VIRT'] == 'CCSD') and dm is None:
 			dm = _cc(mol, calc, exp, True, False)[1]
 			if mol.spin > 0: dm = dm[0] + dm[1]
-		elif (calc.orbs['OCC'] == 'SCI' or calc.orbs['VIRT'] == 'SCI') and dm is None:
-			dm = _sci(mol, calc, exp, True)[1]
 		# occ-occ block (local or NOs)
 		if calc.orbs['OCC'] != 'CAN':
-			if calc.orbs['OCC'] in ['CISD', 'CCSD', 'SCI']:
+			if calc.orbs['OCC'] in ['CISD', 'CCSD']:
 				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
 			elif calc.orbs['OCC'] == 'PM':
@@ -338,7 +329,7 @@ def base(mol, calc, exp):
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
 		if calc.orbs['VIRT'] != 'CAN':
-			if calc.orbs['VIRT'] in ['CISD', 'CCSD', 'SCI']:
+			if calc.orbs['VIRT'] in ['CISD', 'CCSD']:
 				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
 			elif calc.orbs['VIRT'] == 'PM':
@@ -349,8 +340,6 @@ def base(mol, calc, exp):
 		if calc.orbs['OCC'] != 'CAN' or calc.orbs['VIRT'] != 'CAN':
 			if calc.base['METHOD'] == 'CCSD(T)':
 				res = _cc(mol, calc, exp, False, True)[0]
-			elif calc.base['METHOD'] == 'SCI':
-				res = _sci(mol, calc, exp, False)[0]
 		return res['e_corr']
 
 
@@ -492,76 +481,6 @@ def _fci(mol, calc, exp, dens):
 		# fci dm
 		if dens:
 			dm = solver.make_rdm1(civec[0], len(exp.cas_idx), nelec)
-		else:
-			dm = None
-		return res, dm
-
-
-def _sci(mol, calc, exp, dens):
-		""" sci calc """
-		# init sci solver
-		if mol.spin == 0:
-			solver = fci.select_ci_spin0_symm.SCI(mol)
-		else:
-			solver = fci.select_ci_symm.SCI(mol)
-		# settings
-		solver.conv_tol = 1.0e-10
-		solver.max_cycle = 500
-		solver.max_space = 25
-		solver.davidson_only = True
-		# wfnsym
-		solver.wfnsym = calc.state['WFNSYM']
-		# number of roots
-		solver.nroots = calc.state['ROOT'] + 1
-		# get integrals and core energy
-		h1e, h2e = _prepare(mol, calc, exp)
-		# electrons
-		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
-		# orbital symmetry
-		solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo[:, exp.cas_idx])
-		# fix spin if non-singlet
-		if mol.spin > 0:
-			sz = abs(nelec[0]-nelec[1]) * .5
-			fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
-		# init guess (does it exist?)
-		try:
-			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
-		except Exception:
-			raise RuntimeError('\nSCI Error : no initial guess found\n\n')
-		# perform calc
-		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=mol.e_core)
-		# collect results
-		if solver.nroots == 1:
-			assert solver.converged, 'SCI: ground state not converged'
-			energy = [e]
-			civec = [c]
-		else:
-			assert len(solver.converged) == solver.nroots, 'SCI: problem with multiple roots'
-			assert solver.converged[0], 'SCI: ground state not converged'
-			assert solver.converged[-1], 'SCI: excited state not converged'
-			energy = [e[0], e[-1]]
-			civec = [c[0], c[-1]]
-		# sanity check
-		for i in range(len(energy)):
-			if i == 0:
-				root = 0
-			else:
-				root = calc.state['ROOT']
-			# calculate spin
-			s, mult = solver.spin_square(civec[i], len(exp.cas_idx), nelec)
-			# check for correct spin
-			assert (mol.spin + 1) - mult < 1.0e-05, ('\nSCI Error : spin contamination for root = {0:}\n\n'
-													'2*S + 1 = {1:.6f}\n'
-													'core_idx = {2:} , cas_idx = {3:}\n\n').\
-													format(root, mult, exp.core_idx, exp.cas_idx)
-		# e_corr
-		res = {'e_corr': energy - calc.property['energy']['hf']}
-		# e_exc
-		if solver.nroots > 1:
-			res['e_exc'] = energy[-1] - energy[0]
-		# sci dm
-		if dens:
-			dm = solver.make_rdm1(c, len(exp.cas_idx), nelec)
 		else:
 			dm = None
 		return res, dm

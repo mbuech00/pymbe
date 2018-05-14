@@ -175,9 +175,9 @@ class CalcCls():
 						raise ValueError('wrong input -- values in model input (model) must be strings')
 					if not set(list(self.model.keys())) <= set(['METHOD', 'TYPE']):
 						raise ValueError('wrong input -- valid input in model dict is: method and type')
-					if self.model['METHOD'] not in ['CISD', 'CCSD', 'CCSD(T)', 'SCI', 'FCI']:
+					if self.model['METHOD'] not in ['CISD', 'CCSD', 'CCSD(T)', 'FCI']:
 						raise ValueError('wrong input -- valid expansion models ' + \
-										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
+										'are currently: CISD, CCSD, CCSD(T), and FCI')
 					if self.model['TYPE'] not in ['OCC', 'VIRT', 'COMB']:
 						raise ValueError('wrong input -- valid choices for ' + \
 										'expansion scheme are: occ, virt, and comb')
@@ -185,8 +185,8 @@ class CalcCls():
 					if self.ref['METHOD'] not in ['HF', 'CASCI', 'CASSCF']:
 						raise ValueError('wrong input -- valid reference models are currently: HF, CASCI, and CASSCF')
 					if self.ref['METHOD'] in ['CASCI', 'CASSCF']:
-						if self.ref['METHOD'] == 'CASSCF' and self.model['METHOD'] not in ['SCI', 'FCI']:
-							raise ValueError('wrong input -- a CASSCF reference is only meaningful for SCI or FCI expansion models')
+						if self.ref['METHOD'] == 'CASSCF' and self.model['METHOD'] != 'FCI':
+							raise ValueError('wrong input -- a CASSCF reference is only meaningful for an FCI expansion model')
 						if 'ACTIVE' not in self.ref:
 							raise ValueError('wrong input -- an active space (active) choice is required for CASCI/CASSCF references')
 					if 'ACTIVE' in self.ref:
@@ -210,22 +210,19 @@ class CalcCls():
 						else:
 							raise ValueError('wrong input -- active space choices are currently: MANUAL and AVAS')
 					# base model
-					if self.base['METHOD'] not in [None, 'CISD', 'CCSD', 'CCSD(T)', 'SCI']:
-						raise ValueError('wrong input -- valid base models ' + \
-										'are currently: CISD, CCSD, CCSD(T), SCI, and FCI')
+					if self.base['METHOD'] not in [None, 'CISD', 'CCSD', 'CCSD(T)']:
+						raise ValueError('wrong input -- valid base models are currently: CISD, CCSD, and CCSD(T)')
 					# state
 					try:
 						self.state['WFNSYM'] = symm.addons.irrep_name2id(mol.symmetry, self.state['WFNSYM'])
 					except Exception as err_2:
 						raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
-					if self.state['WFNSYM'] != 0:
-						if self.model['METHOD'] not in ['SCI','FCI']:
-							raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
+					if self.state['WFNSYM'] != 0 and self.model['METHOD'] != 'FCI':
+						raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
 					if self.state['ROOT'] < 0:
 						raise ValueError('wrong input -- choice of target state (root) must be an int >= 0')
-					if self.state['ROOT'] > 0:
-						if self.model['METHOD'] not in ['SCI','FCI']:
-							raise ValueError('wrong input -- excited states only implemented for SCI and FCI expansion models')
+					if self.state['ROOT'] > 0 and self.model['METHOD'] != 'FCI':
+						raise ValueError('wrong input -- excited states only implemented for an FCI expansion model')
 						if not self.prop['EXCITATION']:
 							raise ValueError('wrong input -- excited states necessitate the calculation of excitation energy in prop dict')
 					# properties
@@ -254,14 +251,14 @@ class CalcCls():
 					if self.thres['RELAX'] < 1.0:
 						raise ValueError('wrong input -- threshold relaxation (relax) must be a float >= 1.0')
 					# orbital representation
-					if self.orbs['OCC'] not in ['CAN', 'PM', 'FB', 'IBO-1', 'IBO-2', 'CISD', 'CCSD', 'SCI']:
+					if self.orbs['OCC'] not in ['CAN', 'PM', 'FB', 'IBO-1', 'IBO-2', 'CISD', 'CCSD']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
 										'representations (occ) are currently: canonical (CAN), local (PM or FB), ' + \
-										'intrinsic bond orbs (IBO-1 or IBO-2), or natural orbs (CISD, CCSD, or SCI)')
-					if self.orbs['VIRT'] not in ['CAN', 'PM', 'FB', 'CISD', 'CCSD', 'SCI']:
+										'intrinsic bond orbs (IBO-1 or IBO-2), or natural orbs (CISD or CCSD)')
+					if self.orbs['VIRT'] not in ['CAN', 'PM', 'FB', 'CISD', 'CCSD']:
 						raise ValueError('wrong input -- valid virtual orbital ' + \
 										'representations (virt) are currently: canonical (CAN), local (PM or FB), ' + \
-										'or natural orbs (CISD, CCSD, or SCI)')
+										'or natural orbs (CISD or CCSD)')
 					if self.orbs['OCC'] in ['PM', 'FB', 'IBO-1', 'IBO-2'] or self.orbs['VIRT'] in ['PM', 'FB']:
 						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbs and point group symmetry ' + \
