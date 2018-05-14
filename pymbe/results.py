@@ -197,7 +197,7 @@ def _energy_prt(info, calc, exp):
 		if calc.state['ROOT'] >= 1:
 			for j in range(1, calc.state['ROOT']+1):
 				print(DIVIDER[:66])
-				string = 'MBE excited state energy (root = {0:})'.format(i)
+				string = 'MBE excited state energy (root = {0:})'.format(j)
 				print('{0:^66}'.format(string))
 				print(DIVIDER[:66])
 				print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:5}{9:}'. \
@@ -217,7 +217,7 @@ def _dipole_prt(info, mol, calc, exp):
 		print(DIVIDER[:110])
 		print('{0:^110}'.format('MBE ground state dipole moment'))
 		print(DIVIDER[:110])
-		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:6}{9:13}{10:4}{11:1}{12:4}{13:}'. \
+		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:5}{11:1}{12:4}{13:}'. \
 				format('','MBE order','','|','','dipole components (x,y,z)', \
 						'','|','','dipole moment','','|','','correlation dipole'))
 		print(DIVIDER[:110])
@@ -235,14 +235,14 @@ def _dipole_prt(info, mol, calc, exp):
 		# excited states
 		if calc.state['ROOT'] >= 1:
 			for j in range(1, calc.state['ROOT']+1):
-				print(DIVIDER[:66])
-				string = 'MBE excited state dipole moment (root = {0:})'.format(i)
-				print('{0:^66}'.format(string))
-				print(DIVIDER[:66])
-				print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:6}{9:13}{10:4}{11:1}{12:4}{13:}'. \
+				print(DIVIDER[:110])
+				string = 'MBE excited state dipole moment (root = {0:})'.format(j)
+				print('{0:^110}'.format(string))
+				print(DIVIDER[:110])
+				print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:5}{11:1}{12:4}{13:}'. \
 						format('','MBE order','','|','','dipole components (x,y,z)', \
 								'','|','','dipole moment','','|','','excitation dipole'))
-				print(DIVIDER[:66])
+				print(DIVIDER[:110])
 				for i in range(info['final_order']):
 					print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 						'{10:5}{11:1}{12:7}{13:9.6f}{14:7}{15:1}{16:8}{17:9.6f}'. \

@@ -24,6 +24,7 @@ import kernel
 OUT = os.getcwd()+'/output'
 HEADER = '{0:^87}'.format('-'*45)
 DIVIDER = ' '+'-'*92
+FILL = ' '+'|'*92
 
 
 def main_header():
@@ -97,6 +98,7 @@ def mbe_results(mol, calc, exp):
 		for i in ['ENERGY', 'DIPOLE']:
 			if i == 'ENERGY':
 				for j in range(calc.state['ROOT']+1):
+					print(FILL)
 					prop_inc = exp.property['energy'][j]['inc'][exp.order-exp.start_order]
 					prop_tot = exp.property['energy'][j]['tot']
 					# statistics
@@ -116,7 +118,8 @@ def mbe_results(mol, calc, exp):
 					else:
 						header = 'excitation energy for root {:} (total increment = {:.4e})'.format(j, tot_inc)
 					# set string
-					string = ' RESULT:{:^81}\n'
+					string = DIVIDER+'\n'
+					string += ' RESULT:{:^81}\n'
 					string += DIVIDER+'\n'
 					string += DIVIDER+'\n'
 					string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
@@ -127,6 +130,7 @@ def mbe_results(mol, calc, exp):
 					_print(string, form)
 			elif i == 'DIPOLE':
 				for j in range(calc.state['ROOT']+1):
+					print(FILL)
 					prop_tot = exp.property['dipole'][j]['tot']
 					# calculate total inc
 					if len(prop_tot) == 1:
@@ -139,7 +143,9 @@ def mbe_results(mol, calc, exp):
 					else:
 						header = 'excitation dipole for root {:} (total increment = {:.4e})'.format(j, tot_inc)
 					# set string/form
-					string = ' RESULT:{:^81}\n'
+					string = DIVIDER+'\n'
+					string += ' RESULT:{:^81}\n'
+					string += DIVIDER+'\n'
 					string += DIVIDER
 					form = (header,)
 					# set components
@@ -167,6 +173,7 @@ def mbe_results(mol, calc, exp):
 						string += DIVIDER
 						form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 					_print(string, form)
+		print(FILL)
 		# closing if no screening follows
 		if exp.order == exp.max_order:
 			with open(OUT+'/output.out','a') as f:

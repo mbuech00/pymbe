@@ -200,13 +200,15 @@ def ref(mol, calc, exp):
 				from pyscf.mcscf import avas
 				calc.mo = avas.avas(calc.hf, calc.ref['AO_LABELS'], canonicalize=True, ncore=mol.ncore)[2]
 			# set properties equal to hf values
-			ref = {'e': [0.0], 'base': 0.0, 'dipole': [np.zeros(3, dtype=np.float64)]}
+			ref = {'e': [0.0 for i in range(calc.state['ROOT']+1)], 'base': 0.0, \
+					'dipole': [np.zeros(3, dtype=np.float64) for i in range(calc.state['ROOT']+1)]}
 			# casscf mo
 			if calc.ref['METHOD'] == 'CASSCF': calc.mo = _casscf(mol, calc, exp)
 		else:
 			if mol.spin == 0:
 				# set properties equal to hf values
-				ref = {'e': [0.0], 'base': 0.0, 'dipole': [np.zeros(3, dtype=np.float64)]}
+				ref = {'e': [0.0 for i in range(calc.state['ROOT']+1)], 'base': 0.0, \
+						'dipole': [np.zeros(3, dtype=np.float64) for i in range(calc.state['ROOT']+1)]}
 			else:
 				# exp model
 				res = main(mol, calc, exp, calc.model['METHOD'])
@@ -476,18 +478,14 @@ def _fci(mol, calc, exp, dens):
 			energy = e
 			civec = c
 		# sanity check
-		for i in range(len(energy)):
-			if i == 0:
-				root = 0
-			else:
-				root = calc.state['ROOT']
+		for i in range(calc.state['ROOT']+1):
 			# calculate spin
 			s, mult = solver.spin_square(civec[i], len(exp.cas_idx), nelec)
 			# check for correct spin
 			assert (mol.spin + 1) - mult < 1.0e-05, ('\nFCI Error : spin contamination for root = {0:}\n\n'
 													'2*S + 1 = {1:.6f}\n'
 													'core_idx = {2:} , cas_idx = {3:}\n\n').\
-													format(root, mult, exp.core_idx, exp.cas_idx)
+													format(i, mult, exp.core_idx, exp.cas_idx)
 		# e_corr
 		res = {'e': [energy[0] - calc.property['hf']['energy']]}
 #		if exp.order < exp.max_order: e['e_corr'] += np.float64(0.001) * np.random.random_sample()
