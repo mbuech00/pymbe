@@ -228,11 +228,11 @@ def _test(calc, exp, tup):
 					# get index
 					indx = tools.hash_compare(exp.hashes[-1], combs_m)
 					if indx.size == combs.shape[0]:
-						lst += _prot(exp, calc, indx, m)
+						lst += _prot_check(exp, calc, indx, m)
 			return lst
 
 
-def _prot(exp, calc, indx, m):
+def _prot_check(exp, calc, indx, m):
 		""" protocol check """
 		if indx.size == 0:
 			return []
@@ -241,29 +241,50 @@ def _prot(exp, calc, indx, m):
 			for i in ['ENERGY', 'DIPOLE', 'EXCITATION']:
 				if i == 'ENERGY':
 					prop = exp.property[i.lower()]['inc'][-1][indx]
+					screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+					if not screen: break
 				else:
-					if calc.prop[i] and not calc.prot['ENERGY_ONLY']:
+					if calc.prop[i]:
 						if i == 'DIPOLE':
-							prop = exp.property[i.lower()]['inc'][-1][indx, -1]
+							# x
+							prop = exp.property[i.lower()]['inc'][-1][indx, 0]
+							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+							if not screen: break
+							# y
+							prop = exp.property[i.lower()]['inc'][-1][indx, 1]
+							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+							if not screen: break
+							# z
+							prop = exp.property[i.lower()]['inc'][-1][indx, 2]
+							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+							if not screen: break
 						elif i == 'EXCITATION':
 							prop = exp.property[i.lower()]['inc'][-1][indx]
-				# are *any* increments above the threshold?
-				if calc.prot['SCHEME'] == 'NEW':
-					if np.any(np.abs(prop) > exp.thres):
-						screen = False
-						break
-				# are *all* increments above the threshold?
-				elif calc.prot['SCHEME'] == 'OLD':
-					if np.all(np.abs(prop) > exp.thres):
-						screen = False
-						break
+							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+							if not screen: break
 				# energy only
-				if i == 'ENERGY' and calc.prot['ENERGY_ONLY']:
+				if calc.prot['ENERGY_ONLY']:
 					break
 			if not screen:
 				return [m]
 			else:
 				return []
+
+
+def _prot_scheme(prop, thres, scheme):
+		""" screen according to chosen scheme """
+		# are *any* increments above the threshold?
+		if scheme == 'NEW':
+			if np.any(np.abs(prop) > thres):
+				return False
+			else:
+				return True
+		# are *all* increments above the threshold?
+		elif scheme == 'OLD':
+			if np.all(np.abs(prop) > thres):
+				return False
+			else:
+				return True
 
 
 def update(calc, exp):

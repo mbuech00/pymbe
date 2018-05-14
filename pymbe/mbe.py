@@ -15,7 +15,6 @@ from mpi4py import MPI
 import sys
 import itertools
 import scipy.misc
-import math
 
 import kernel
 import output
@@ -37,7 +36,7 @@ def main(mpi, mol, calc, exp):
 		if len(exp.property['energy']['inc']) < exp.order - (exp.start_order - 1):
 			exp.property['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 			if calc.prop['DIPOLE']:
-				exp.property['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 4], dtype=np.float64))
+				exp.property['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 			if calc.prop['EXCITATION']:
 				exp.property['excitation']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 		# mpi parallel or serial version
@@ -52,21 +51,15 @@ def main(mpi, mol, calc, exp):
 		else:
 			_serial(mpi, mol, calc, exp)
 		# sum up total quantities
-		exp.property['energy']['tot'].append(math.fsum(exp.property['energy']['inc'][-1]))
-		if calc.prop['DIPOLE']:
-			exp.property['dipole']['tot'].append(np.zeros(4, dtype=np.float64))
+		exp.property['energy']['tot'].append(tools.fsum(exp.property['energy']['inc'][-1]))
 		if calc.prop['EXCITATION']:
-			exp.property['excitation']['tot'].append(math.fsum(exp.property['excitation']['inc'][-1]))
+			exp.property['excitation']['tot'].append(tools.fsum(exp.property['excitation']['inc'][-1]))
 		if calc.prop['DIPOLE']:
-			for i in range(3):
-				exp.property['dipole']['tot'][-1][i] += math.fsum(exp.property['dipole']['inc'][-1][:, i])
-			exp.property['dipole']['tot'][-1][-1] = np.sqrt(np.sum(exp.property['dipole']['tot'][-1][:3]**2))
+			exp.property['dipole']['tot'].append(tools.fsum(exp.property['dipole']['inc'][-1]))
 		if exp.order > exp.start_order:
 			exp.property['energy']['tot'][-1] += exp.property['energy']['tot'][-2]
 			if calc.prop['DIPOLE']:
-				for i in range(3):
-					exp.property['dipole']['tot'][-1][i] += exp.property['dipole']['tot'][-2][i]
-				exp.property['dipole']['tot'][-1][-1] = np.sqrt(np.sum(exp.property['dipole']['tot'][-1][:3]**2))
+				exp.property['dipole']['tot'][-1] += exp.property['dipole']['tot'][-2]
 			if calc.prop['EXCITATION']:
 				exp.property['excitation']['tot'][-1] += exp.property['excitation']['tot'][-2]
 
@@ -195,8 +188,7 @@ def _calc(mpi, mol, calc, exp, idx):
 		res = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 		exp.property['energy']['inc'][-1][idx] = res['e_corr']
 		if calc.prop['DIPOLE']:
-			exp.property['dipole']['inc'][-1][idx][:3] = res['dipole']
-			exp.property['dipole']['inc'][-1][idx][-1] = np.sqrt(np.sum(exp.property['dipole']['inc'][-1][idx][:3]**2))
+			exp.property['dipole']['inc'][-1][idx] = res['dipole']
 		if calc.prop['EXCITATION']:
 			exp.property['excitation']['inc'][-1][idx] = res['e_exc']
 
@@ -234,8 +226,8 @@ def _inc(mpi, mol, calc, exp, tup):
 				string += ' , e_exc = {:.4e}'
 				form += (inc['e_exc'],)
 			if calc.prop['DIPOLE']:
-				string += ' , dipole = {:.4e}'
-				form += (np.sqrt(np.sum(inc['dipole']**2)),)
+				string += ' , dipole = ({:.4e}, {:.4e}, {:.4e})'
+				form += (*inc['dipole'],)
 			print(string.format(*form))
 		return inc
 
@@ -261,12 +253,11 @@ def _sum(calc, exp, tup):
 			# get index
 			indx = tools.hash_compare(exp.hashes[i-1], combs)
 			# add up lower-order increments
-			res['e_corr'] += math.fsum(exp.property['energy']['inc'][i-1][indx])
+			res['e_corr'] += tools.fsum(exp.property['energy']['inc'][i-1][indx])
 			if calc.prop['DIPOLE']:
-				for j in range(3):
-					res['dipole'][j] += math.fsum(exp.property['dipole']['inc'][i-1][indx, j])
+				res['dipole'] += tools.fsum(exp.property['dipole']['inc'][i-1][indx, :])
 			if calc.prop['EXCITATION']:
-				res['e_exc'] += math.fsum(exp.property['excitation']['inc'][i-1][indx])
+				res['e_exc'] += tools.fsum(exp.property['excitation']['inc'][i-1][indx])
 		return res
 
 

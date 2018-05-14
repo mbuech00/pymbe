@@ -130,62 +130,69 @@ def mbe_results(mol, calc, exp):
 				if i in ['ENERGY', 'EXCITATION']:
 					prop_inc = exp.property[i.lower()]['inc'][exp.order-exp.start_order]
 					prop_tot = exp.property[i.lower()]['tot']
-				elif i == 'DIPOLE':
-					prop_inc = exp.property['dipole']['inc'][exp.order-exp.start_order][:, -1]
-					prop_tot = exp.property['dipole']['tot']
-				# statistics
-				mean_val = np.mean(prop_inc)
-				min_idx = np.argmin(np.abs(prop_inc))
-				min_val = prop_inc[min_idx]
-				max_idx = np.argmax(np.abs(prop_inc))
-				max_val = prop_inc[max_idx]
-				# core and cas regions
-				core, cas = kernel.core_cas(mol, exp, exp.tuples[exp.order-exp.start_order][max_idx])
-				cas_ref = '{0:}'.format(sorted(list(set(calc.ref_space.tolist()) - set(core))))
-				if calc.ref['METHOD'] == 'HF':
-					cas_exp = '{0:}'.format(sorted(list(set(cas) - set(calc.ref_space.tolist()))))
-				else:
-					cas_exp = '{0:}'.format(sorted(exp.tuples[0][0].tolist()))
-					cas_exp += ' + {0:}'.format(sorted(list(set(cas) - set(exp.tuples[0][0].tolist()) - set(calc.ref_space.tolist()))))
-				# calculate total inc
-				if len(exp.property['energy']['tot']) == 1:
-					if i in ['ENERGY', 'EXCITATION']:
+					# statistics
+					mean_val = np.mean(prop_inc)
+					min_idx = np.argmin(np.abs(prop_inc))
+					min_val = prop_inc[min_idx]
+					max_idx = np.argmax(np.abs(prop_inc))
+					max_val = prop_inc[max_idx]
+					# calculate total inc
+					if len(exp.property['energy']['tot']) == 1:
 						tot_inc = prop_tot[0]
-					elif i == 'DIPOLE':
-						tot_inc = prop_tot[0][-1]
-				else:
-					if i in ['ENERGY', 'EXCITATION']:
+					else:
 						tot_inc = prop_tot[-1] - prop_tot[-2]
-					elif i == 'DIPOLE':
-						tot_inc = prop_tot[-1][-1] - prop_tot[-2][-1]
-				# set header
-				if i == 'ENERGY':
-					header = 'ground state energy (total increment = {0:.4e})'.format(tot_inc)
-				elif i == 'EXCITATION':
-					header = 'excitation energy for root {0:} (total increment = {1:.4e})'.format(calc.state['ROOT'], tot_inc)
-				elif i == 'DIPOLE':
-					header = 'ground state dipole moment (total increment = {0:.4e})'.format(tot_inc)
-				# set string
-				string = ' RESULT:{0:^81}\n'
-				string += DIVIDER+'\n'
-				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
-				string += DIVIDER+'\n'
-				string += ' RESULT:     {1:>13.4e}       |        {2:>13.4e}         |       {3:>13.4e}\n'
-				if mol.debug:
+					# set header
+					if i == 'ENERGY':
+						header = 'ground state energy (total increment = {:.4e})'.format(tot_inc)
+					elif i == 'EXCITATION':
+						header = 'excitation energy for root {:} (total increment = {:.4e})'.format(calc.state['ROOT'], tot_inc)
+					# set string
+					string = ' RESULT:{:^81}\n'
 					string += DIVIDER+'\n'
-					string += ' RESULT:                   info on max. abs. increment:\n'
-					string += ' RESULT:  core = {4:}\n'
-					string += ' RESULT:  cas  = '+cas_ref+' + '+cas_exp+'\n'
-				string += DIVIDER
-				form = (header, mean_val, min_val, max_val)
-				if mol.debug:
-					form += (core,)
-				# now print
-				with open(OUT+'/output.out','a') as f:
-					with contextlib.redirect_stdout(f):
-						print(string.format(*form))
-				# write also to stdout
-				print(string.format(*form))
+					string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+					string += DIVIDER+'\n'
+					string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+					string += DIVIDER
+					form = (header, mean_val, min_val, max_val)
+					_print(string, form)
+				elif i == 'DIPOLE':
+					prop_tot = exp.property['dipole']['tot']
+					# calculate total inc
+					if len(exp.property['energy']['tot']) == 1:
+						tot_inc = np.sqrt(np.sum(prop_tot[0]**2))
+					else:
+						tot_inc = np.sqrt(np.sum(prop_tot[-1]**2)) - np.sqrt(np.sum(prop_tot[-2]**2))
+					# set header
+					header = 'ground state dipole moment (total increment = {:.4e})'.format(tot_inc)
+					# set string/form
+					string = ' RESULT:{:^81}\n'
+					string += DIVIDER
+					form = (header,)
+					# set components
+					comp = ('x-component', 'y-component', 'z-component')
+					# init result arrays
+					mean_val = np.empty(3, dtype=np.float64)
+					min_idx = np.empty(3, dtype=np.int)
+					min_val = np.empty(3, dtype=np.float64)
+					max_idx = np.empty(3, dtype=np.int)
+					max_val = np.empty(3, dtype=np.float64)
+					# loop over x, y, and z
+					for i in range(3):
+						prop_inc = exp.property['dipole']['inc'][exp.order-exp.start_order][:, i]
+						# statistics
+						mean_val[i] = np.mean(prop_inc)
+						min_idx[i] = np.argmin(np.abs(prop_inc))
+						min_val[i] = prop_inc[min_idx[i]]
+						max_idx[i] = np.argmax(np.abs(prop_inc))
+						max_val[i] = prop_inc[max_idx[i]]
+						string += '\n RESULT:{:^81}\n'
+						string += DIVIDER+'\n'
+						string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+						string += DIVIDER+'\n'
+						string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+						string += DIVIDER
+						form += (comp[i], mean_val[i], min_val[i], max_val[i],)
+					_print(string, form)
 		# closing if no screening follows
 		if exp.order == exp.max_order:
 			with open(OUT+'/output.out','a') as f:
@@ -224,4 +231,12 @@ def screen_end(exp):
 		# write also to stdout
 		print(string.format(form))
 		
-		
+	
+def _print(string, form):
+		""" print to output file and stdout """
+		with open(OUT+'/output.out','a') as f:
+			with contextlib.redirect_stdout(f):
+				print(string.format(*form))
+		print(string.format(*form))
+
+	

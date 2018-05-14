@@ -11,6 +11,7 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
+import math
 
 
 def enum(*sequential, **named):
@@ -34,6 +35,16 @@ def tasks(n_tasks, procs):
 				tasks += [1 for j in range(base)] # add master tasks
 				tasks += [1 for j in range(n_tasks - int(np.sum(tasks)))] # add extra single tasks
 				return tasks
+
+
+def fsum(a):
+		""" use math.fsum to safely sum 1d array or 2d array (column-wise) """
+		if a.ndim == 1:
+			return math.fsum(a)
+		elif a.ndim == 2:
+			return np.fromiter(map(math.fsum, a.T), dtype=a.dtype, count=a.shape[1])
+		else:
+			NotImplementedError('tools.py: _fsum()')
 
 
 def hash_2d(a):

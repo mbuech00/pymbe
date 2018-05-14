@@ -63,6 +63,7 @@ def hf(mol, calc):
 		nuc_dipole = np.einsum('i,ix->x', charges, coords)
 		# electronic dipole moment
 		elec_dipole = nuc_dipole - tot_dipole
+		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-16 else 0.0 for i in range(elec_dipole.size)])
 		# determine dimensions
 		mol.norb, mol.nocc, mol.nvirt = _dim(hf, calc)
 		# store energy, occupation, and orbsym
@@ -281,6 +282,7 @@ def _dipole(ints, hf_dipole, occup, cas_idx, mo, cas_dm):
 		elec_dipole = np.empty(3, dtype=np.float64)
 		for i in range(3):
 			elec_dipole[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ints[i], mo))))
+		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-16 else 0.0 for i in range(elec_dipole.size)])
 		return elec_dipole - hf_dipole
 
 

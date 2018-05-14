@@ -395,7 +395,7 @@ def _dipole_final(mol, calc, exp):
 		nuc_dipole = np.einsum('i,ix->x', charges, coords)
 		# molecular dipole moment
 		dipole = nuc_dipole \
-					- (exp.property['dipole']['tot'][:, :3] \
+					- (exp.property['dipole']['tot'] \
 						+ calc.property['dipole']['hf'] \
 						+ calc.property['dipole']['ref'])
 		dipole_hf = nuc_dipole - calc.property['dipole']['hf']
@@ -493,8 +493,9 @@ def _max_inc_plot(calc, exp):
 				max_idx = np.argmax(np.abs(exp.property['excitation']['inc'][i]))
 				e_exc_max[i] = np.abs(exp.property['excitation']['inc'][i][max_idx])
 			if calc.prop['DIPOLE']:
-				max_idx = np.argmax(np.abs(exp.property['dipole']['inc'][i][:, -1]))
-				dip_max[i] = np.abs(exp.property['dipole']['inc'][i][max_idx, -1])
+				max_idx = np.unravel_index(np.argmax(np.abs(exp.property['dipole']['inc'][i]), axis=None), \
+											exp.property['dipole']['inc'][i].shape)
+				dip_max[i] = np.abs(exp.property['dipole']['inc'][i][max_idx])
 		# plot results
 		ax.semilogy(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \
 				e_max, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
