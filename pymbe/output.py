@@ -59,12 +59,7 @@ def exp_header(calc, exp):
 			form = ('virtual expansion')
 		elif calc.model['TYPE'] == 'COMB':
 			form = ('combined expansion')
-		# now print
-		with open(OUT+'/output.out','a') as f:
-			with contextlib.redirect_stdout(f):
-				print(string.format(form))
-		# write also to stdout
-		print('\n\n'+string.format(form))
+		_print(string, form)
 
 
 def mbe_header(exp):
@@ -74,12 +69,7 @@ def mbe_header(exp):
 		string += ' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total\n'
 		string += DIVIDER
 		form = (exp.order, len(exp.tuples[exp.order-exp.start_order]))
-		# now print
-		with open(OUT+'/output.out','a') as f:
-			with contextlib.redirect_stdout(f):
-				print(string.format(*form))
-		# write also to stdout
-		print(string.format(*form))
+		_print(string, form)
 
 
 def mbe_status(exp, prog):
@@ -98,38 +88,17 @@ def mbe_end(calc, exp):
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {:>d} MBE done\n'
 		string += DIVIDER
-		if len(exp.property['energy']['tot']) == 1:
-			form = (exp.order, exp.property['energy']['tot'][0])
-		else:
-			form = (exp.order, exp.property['energy']['tot'][exp.order-exp.start_order] \
-						- exp.property['energy']['tot'][exp.order-exp.start_order-1])
-		if calc.prop['EXCITATION']:
-			if len(exp.property['energy']['tot']) == 1:
-				form += (exp.property['excitation']['tot'][0],)
-			else:
-				form += (exp.property['excitation']['tot'][exp.order-exp.start_order] \
-							- exp.property['excitation']['tot'][exp.order-exp.start_order-1],)
-		if calc.prop['DIPOLE']:
-			if len(exp.property['energy']['tot']) == 1:
-				form += (exp.property['dipole']['tot'][0][-1],)
-			else:
-				form += (exp.property['dipole']['tot'][exp.order-exp.start_order][-1] \
-							- exp.property['dipole']['tot'][exp.order-exp.start_order-1][-1],)
-		# now print
-		with open(OUT+'/output.out','a') as f:
-			with contextlib.redirect_stdout(f):
-				print(string.format(*form))
-		# write also to stdout
-		print(string.format(*form))
+		form = (exp.order,)
+		_print(string, form)
 
 
 def mbe_results(mol, calc, exp):
 		""" print mbe result statistics """
-		for i in ['ENERGY', 'DIPOLE', 'EXCITATION']:
-			if calc.prop[i]:
-				if i in ['ENERGY', 'EXCITATION']:
-					prop_inc = exp.property[i.lower()]['inc'][exp.order-exp.start_order]
-					prop_tot = exp.property[i.lower()]['tot']
+		for i in ['ENERGY', 'DIPOLE']:
+			if i == 'ENERGY':
+				for j in range(calc.state['ROOT']+1):
+					prop_inc = exp.property['energy'][j]['inc'][exp.order-exp.start_order]
+					prop_tot = exp.property['energy'][j]['tot']
 					# statistics
 					mean_val = np.mean(prop_inc)
 					min_idx = np.argmin(np.abs(prop_inc))
@@ -137,17 +106,18 @@ def mbe_results(mol, calc, exp):
 					max_idx = np.argmax(np.abs(prop_inc))
 					max_val = prop_inc[max_idx]
 					# calculate total inc
-					if len(exp.property['energy']['tot']) == 1:
+					if len(prop_tot) == 1:
 						tot_inc = prop_tot[0]
 					else:
 						tot_inc = prop_tot[-1] - prop_tot[-2]
 					# set header
-					if i == 'ENERGY':
+					if j == 0:
 						header = 'ground state energy (total increment = {:.4e})'.format(tot_inc)
-					elif i == 'EXCITATION':
-						header = 'excitation energy for root {:} (total increment = {:.4e})'.format(calc.state['ROOT'], tot_inc)
+					else:
+						header = 'excitation energy for root {:} (total increment = {:.4e})'.format(j, tot_inc)
 					# set string
 					string = ' RESULT:{:^81}\n'
+					string += DIVIDER+'\n'
 					string += DIVIDER+'\n'
 					string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 					string += DIVIDER+'\n'
@@ -155,15 +125,19 @@ def mbe_results(mol, calc, exp):
 					string += DIVIDER
 					form = (header, mean_val, min_val, max_val)
 					_print(string, form)
-				elif i == 'DIPOLE':
-					prop_tot = exp.property['dipole']['tot']
+			elif i == 'DIPOLE':
+				for j in range(calc.state['ROOT']+1):
+					prop_tot = exp.property['dipole'][j]['tot']
 					# calculate total inc
-					if len(exp.property['energy']['tot']) == 1:
+					if len(prop_tot) == 1:
 						tot_inc = np.sqrt(np.sum(prop_tot[0]**2))
 					else:
 						tot_inc = np.sqrt(np.sum(prop_tot[-1]**2)) - np.sqrt(np.sum(prop_tot[-2]**2))
 					# set header
-					header = 'ground state dipole moment (total increment = {:.4e})'.format(tot_inc)
+					if j == 0:
+						header = 'ground state dipole moment (total increment = {:.4e})'.format(tot_inc)
+					else:
+						header = 'excitation dipole for root {:} (total increment = {:.4e})'.format(j, tot_inc)
 					# set string/form
 					string = ' RESULT:{:^81}\n'
 					string += DIVIDER
@@ -177,21 +151,21 @@ def mbe_results(mol, calc, exp):
 					max_idx = np.empty(3, dtype=np.int)
 					max_val = np.empty(3, dtype=np.float64)
 					# loop over x, y, and z
-					for i in range(3):
-						prop_inc = exp.property['dipole']['inc'][exp.order-exp.start_order][:, i]
+					for k in range(3):
+						prop_inc = exp.property['dipole'][j]['inc'][exp.order-exp.start_order][:, k]
 						# statistics
-						mean_val[i] = np.mean(prop_inc)
-						min_idx[i] = np.argmin(np.abs(prop_inc))
-						min_val[i] = prop_inc[min_idx[i]]
-						max_idx[i] = np.argmax(np.abs(prop_inc))
-						max_val[i] = prop_inc[max_idx[i]]
+						mean_val[k] = np.mean(prop_inc)
+						min_idx[k] = np.argmin(np.abs(prop_inc))
+						min_val[k] = prop_inc[min_idx[k]]
+						max_idx[k] = np.argmax(np.abs(prop_inc))
+						max_val[k] = prop_inc[max_idx[k]]
 						string += '\n RESULT:{:^81}\n'
 						string += DIVIDER+'\n'
 						string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 						string += DIVIDER+'\n'
 						string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 						string += DIVIDER
-						form += (comp[i], mean_val[i], min_val[i], max_val[i],)
+						form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 					_print(string, form)
 		# closing if no screening follows
 		if exp.order == exp.max_order:
@@ -209,12 +183,7 @@ def screen_header(exp, thres):
 		string += ' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})\n'
 		string += DIVIDER
 		form = (exp.order, thres)
-		# now print
-		with open(OUT+'/output.out','a') as f:
-			with contextlib.redirect_stdout(f):
-				print(string.format(*form))
-		# write also to stdout
-		print(string.format(*form))
+		_print(string, form)
 
 
 def screen_end(exp):
@@ -224,12 +193,8 @@ def screen_end(exp):
 		if exp.tuples[-1].shape[0] == 0:
 			string += ' STATUS:                  *** convergence has been reached ***                         \n'
 		string += DIVIDER+'\n\n'
-		form = (exp.order)
-		with open(OUT+'/output.out','a') as f:
-			with contextlib.redirect_stdout(f):
-				print(string.format(form))
-		# write also to stdout
-		print(string.format(form))
+		form = (exp.order,)
+		_print(string, form)
 		
 	
 def _print(string, form):

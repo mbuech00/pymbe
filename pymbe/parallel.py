@@ -114,7 +114,7 @@ def calc(mpi, calc):
 		if mpi.parallel:
 			if mpi.global_master:
 				info = {'model': calc.model, 'prop': calc.prop, \
-						'ref': calc.ref['METHOD'], 'base': calc.base['METHOD'], \
+						'ref': calc.ref['METHOD'], 'base': calc.base, \
 						'thres': calc.thres, 'prot': calc.prot, \
 						'state': calc.state, 'misc': calc.misc, 'mpi': calc.mpi, \
 						'orbs': calc.orbs, 'restart': calc.restart}
@@ -122,7 +122,7 @@ def calc(mpi, calc):
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.model = info['model']; calc.prop = info['prop']
-				calc.ref = {'METHOD': info['ref']}; calc.base = {'METHOD': info['base']}
+				calc.ref = {'METHOD': info['ref']}; calc.base = info['base']
 				calc.thres = info['thres']; calc.prot = info['prot']
 				calc.state = info['state']; calc.misc = info['misc']; calc.mpi = info['mpi']
 				calc.orbs = info['orbs']; calc.restart = info['restart']
@@ -192,26 +192,20 @@ def property(calc, exp, comm):
 		_energy(exp, comm)
 		if calc.prop['DIPOLE']:
 			_dipole(exp, comm)
-		if calc.prop['EXCITATION']:
-			_excitation(exp, comm)
 
 
 def _energy(exp, comm):
 		""" Allreduce energies """
 		# Allreduce
-		comm.Allreduce(MPI.IN_PLACE, [exp.property['energy']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		for i in range(len(exp.property['energy'])):
+			comm.Allreduce(MPI.IN_PLACE, [exp.property['energy'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def _dipole(exp, comm):
 		""" Allreduce dipole moments """
 		# Allreduce
-		comm.Allreduce(MPI.IN_PLACE, [exp.property['dipole']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
-
-
-def _excitation(exp, comm):
-		""" Allreduce excitation energies """
-		# Allreduce
-		comm.Allreduce(MPI.IN_PLACE, [exp.property['excitation']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		for i in range(len(exp.property['dipole'])):
+			comm.Allreduce(MPI.IN_PLACE, [exp.property['dipole'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def tup(exp, comm):

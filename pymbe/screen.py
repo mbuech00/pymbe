@@ -238,32 +238,30 @@ def _prot_check(exp, calc, indx, m):
 			return []
 		else:
 			screen = True
-			for i in ['ENERGY', 'DIPOLE', 'EXCITATION']:
+			for i in ['ENERGY', 'DIPOLE']:
 				if i == 'ENERGY':
-					prop = exp.property[i.lower()]['inc'][-1][indx]
-					screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
-					if not screen: break
+					for j in range(calc.state['ROOT']+1):
+						prop = exp.property['energy'][j]['inc'][-1][indx]
+						screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+						if not screen: break
 				else:
 					if calc.prop[i]:
 						if i == 'DIPOLE':
-							# x
-							prop = exp.property[i.lower()]['inc'][-1][indx, 0]
-							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
-							if not screen: break
-							# y
-							prop = exp.property[i.lower()]['inc'][-1][indx, 1]
-							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
-							if not screen: break
-							# z
-							prop = exp.property[i.lower()]['inc'][-1][indx, 2]
-							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
-							if not screen: break
-						elif i == 'EXCITATION':
-							prop = exp.property[i.lower()]['inc'][-1][indx]
-							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
-							if not screen: break
+							for j in range(calc.state['ROOT']+1):
+								# x
+								prop = exp.property['dipole'][j]['inc'][-1][indx, 0]
+								screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+								if not screen: break
+								# y
+								prop = exp.property['dipole'][j]['inc'][-1][indx, 1]
+								screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+								if not screen: break
+								# z
+								prop = exp.property['dipole'][j]['inc'][-1][indx, 2]
+								screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+								if not screen: break
 				# energy only
-				if calc.prot['ENERGY_ONLY']:
+				if calc.prot['GS_ENERGY_ONLY']:
 					break
 			if not screen:
 				return [m]

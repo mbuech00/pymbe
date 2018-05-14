@@ -27,8 +27,8 @@ class CalcCls():
 				""" init parameters """
 				# set defaults
 				self.model = {'METHOD': 'FCI', 'TYPE': 'VIRT'}
-				self.prop = {'ENERGY': True, 'DIPOLE': False, 'EXCITATION': False}
-				self.prot = {'SCHEME': 'NEW', 'ENERGY_ONLY': False}
+				self.prop = {'ENERGY': True, 'DIPOLE': False}
+				self.prot = {'SCHEME': 'NEW', 'GS_ENERGY_ONLY': False}
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
 				self.state = {'WFNSYM': symm.addons.irrep_id2name(mol.symmetry, 0), 'ROOT': 0}
@@ -50,9 +50,8 @@ class CalcCls():
 					self.restart = restart.restart()
 				# init property dict
 				self.property = {}
-				self.property['energy'] = {}
-				self.property['dipole'] = {}
-				self.property['excitation'] = {}
+				self.property['hf'] = {}
+				self.property['ref'] = {}
 
 
 		def set_calc(self):
@@ -223,19 +222,15 @@ class CalcCls():
 						raise ValueError('wrong input -- choice of target state (root) must be an int >= 0')
 					if self.state['ROOT'] > 0 and self.model['METHOD'] != 'FCI':
 						raise ValueError('wrong input -- excited states only implemented for an FCI expansion model')
-						if not self.prop['EXCITATION']:
-							raise ValueError('wrong input -- excited states necessitate the calculation of excitation energy in prop dict')
 					# properties
 					if not all(isinstance(i, bool) for i in self.prop.values()):
 						raise ValueError('wrong input -- values in property input (prop) must be bools (True, False)')
-					if not set(list(self.prop.keys())) <= set(['ENERGY', 'DIPOLE', 'EXCITATION']):
+					if not set(list(self.prop.keys())) <= set(['ENERGY', 'DIPOLE']):
 						raise ValueError('wrong input -- valid choices for properties are: energy and dipole')
 					if not self.prop['ENERGY']:
 						raise ValueError('wrong input -- calculation of ground state energy (energy) is mandatory')
 					if self.prop['DIPOLE'] and self.base['METHOD'] is not None:
 						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
-					if self.prop['EXCITATION'] and self.state['ROOT'] == 0:
-						raise ValueError('wrong input -- calculation of excitation energy (excit) requires a state root different from 0')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
 						raise ValueError('wrong input -- values in prot input (prot) must be string and bools (True, False)')

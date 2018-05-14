@@ -37,22 +37,21 @@ FILL = '{0:^143}'.format('|'*137)
 def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
 		# convert final results to numpy arrays
-		exp.property['energy']['tot'] = np.asarray(exp.property['energy']['tot'])
-		if calc.prop['EXCITATION']:
-			exp.property['excitation']['tot'] = np.asarray(exp.property['excitation']['tot'])
-		if calc.prop['DIPOLE']:
-			exp.property['dipole']['tot'] = np.asarray(exp.property['dipole']['tot'])
+		for i in range(calc.state['ROOT']+1):
+			exp.property['energy'][i]['tot'] = np.asarray(exp.property['energy'][i]['tot'])
+			if calc.prop['DIPOLE']:
+				exp.property['dipole'][i]['tot'] = np.asarray(exp.property['dipole'][i]['tot'])
 		# setup
 		info = {}
 		info['model_type'], info['basis'], info['mult'], info['ref'], info['base'], info['prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], \
-			info['e_final'], info['e_exc_final'], \
-			info['dipole_final'], info['dipole_hf'] = _setup(mpi, mol, calc, exp)
+			info['energy'], info['dipole'], info['dipole_hf'] = _setup(mpi, mol, calc, exp)
+		info['final_order'] = info['energy'][0].size
 		# results
 		_table(info, mol, calc, exp)
 		# plot
-		_plot(info, calc, exp)
+		#_plot(info, calc, exp)
 
 
 def _setup(mpi, mol, calc, exp):
@@ -70,18 +69,14 @@ def _setup(mpi, mol, calc, exp):
 		mpi = _mpi(mpi, calc)
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
-		e_final = _e_final(calc, exp)
-		if calc.prop['EXCITATION']:
-			e_exc_final = _e_exc_final(calc, exp)
-		else:
-			e_exc_final = None
+		energy = _energy(calc, exp)
 		if calc.prop['DIPOLE']:
-			dipole_final, dipole_hf = _dipole_final(mol, calc, exp)
+			dipole, dipole_hf = _dipole(mol, calc, exp)
 		else:
-			dipole_final = dipole_hf = None
+			dipole = dipole_hf = None
 		return model_type, basis, mult, ref, base, prot, system, frozen, \
-				active, occ, virt, mpi, thres, symm, e_final, \
-				e_exc_final, dipole_final, dipole_hf
+				active, occ, virt, mpi, thres, symm, \
+				energy, dipole, dipole_hf
 
 
 def _table(info, mol, calc, exp):
@@ -90,10 +85,8 @@ def _table(info, mol, calc, exp):
 		with open(OUT+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				_summary_prt(info, calc, exp)
-				_timings_prt(exp)
+				_timings_prt(info, exp)
 				_energy_prt(info, calc, exp)
-				if calc.prop['EXCITATION']:
-					_excitation_prt(info, calc, exp)
 				if calc.prop['DIPOLE']:
 					_dipole_prt(info, mol, calc, exp)
 	
@@ -105,7 +98,7 @@ def _plot(info, calc, exp):
 		# plot maximal increments
 		_max_inc_plot(calc, exp)
 		# plot MBE excitation energy
-		if calc.prop['EXCITATION']:
+		if calc.state['ROOT'] >= 1:
 			_excitation_plot(info, calc, exp)
 		# plot MBE dipole moment
 		if calc.prop['DIPOLE']:
@@ -128,18 +121,18 @@ def _summary_prt(info, calc, exp):
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','spin multiplicity','','=','',info['mult'], \
 						'','|','','ref. function','','=','',info['ref'], \
-						'','|','','Hartree-Fock energy','','=','',calc.property['energy']['hf']))
+						'','|','','Hartree-Fock energy','','=','',calc.property['hf']['energy']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','system size','','=','',info['system'], \
 						'','|','','cas size','','=','',info['active'], \
 						'','|','','base model energy','','=','', \
-						calc.property['energy']['hf']+calc.property['energy']['base']))
+						calc.property['hf']['energy']+calc.base['energy']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','frozen core','','=','',info['frozen'], \
 						'','|','','base model','','=','',info['base'], \
-						'','|','','MBE total energy','','=','',info['e_final'][-1]))
+						'','|','','MBE total energy','','=','',info['energy'][0][-1]))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}'.\
 					format('','occupied orbs','','=','',info['occ'], \
@@ -158,7 +151,7 @@ def _summary_prt(info, calc, exp):
 		print(DIVIDER+'\n')
 
 
-def _timings_prt(exp):
+def _timings_prt(info, exp):
 		""" timings """
 		print(DIVIDER[:98])
 		print('{0:^98}'.format('MBE timings'))
@@ -167,10 +160,10 @@ def _timings_prt(exp):
 				format('','MBE order','','|','','time (HHH : MM : SS) -- MBE / screening - total', \
 						'','|','','calculations'))
 		print(DIVIDER[:98])
-		for i in range(exp.property['energy']['tot'].size):
+		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:3d}{6:^3}{7:2d}{8:^3}{9:2d}{10:^5}{11:3d}'
 				'{12:^3}{13:2d}{14:^3}{15:2d}{16:^5}{17:3d}{18:^3}{19:2d}{20:^3}{21:2d}'
-				'{22:7}{23:1}{24:6}{25:<9d}'. \
+				'{22:6}{23:1}{24:6}{25:>9d}'. \
 					format('',i+exp.start_order, \
 						'','|','',_time(exp, 'mbe', i)[0],':', \
 						_time(exp, 'mbe', i)[1],':', \
@@ -186,58 +179,81 @@ def _timings_prt(exp):
 
 
 def _energy_prt(info, calc, exp):
-		""" ground state energy """
+		""" energies """
+		# ground state
 		print(DIVIDER[:66])
 		print('{0:^66}'.format('MBE ground state energy'))
 		print(DIVIDER[:66])
 		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:4}{9:}'. \
 				format('','MBE order','','|','','total energy','','|','','correlation energy'))
 		print(DIVIDER[:66])
-		for i in range(exp.property['energy']['tot'].size):
+		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:9.4e}'. \
 					format('',i+exp.start_order, \
-						'','|','',info['e_final'][i], \
-						'','|','',info['e_final'][i] - calc.property['energy']['hf']))
+						'','|','',info['energy'][0][i], \
+						'','|','',info['energy'][0][i] - calc.property['hf']['energy']))
 		print(DIVIDER[:66]+'\n')
-
-
-def _excitation_prt(info, calc, exp):
-		""" excitation energy """
-		print(DIVIDER[:66])
-		string = 'MBE excited state energy (root = {0:})'.format(calc.state['ROOT'])
-		print('{0:^66}'.format(string))
-		print(DIVIDER[:66])
-		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:5}{9:}'. \
-				format('','MBE order','','|','','total energy','','|','','excitation energy'))
-		print(DIVIDER[:66])
-		for i in range(exp.property['energy']['tot'].size):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:8}{9:9.4e}'. \
-					format('',i+exp.start_order, \
-						'','|','',info['e_final'][i] + info['e_exc_final'][i], \
-						'','|','',info['e_exc_final'][i]))
-		print(DIVIDER[:66]+'\n')
+		# excited states
+		if calc.state['ROOT'] >= 1:
+			for j in range(1, calc.state['ROOT']+1):
+				print(DIVIDER[:66])
+				string = 'MBE excited state energy (root = {0:})'.format(i)
+				print('{0:^66}'.format(string))
+				print(DIVIDER[:66])
+				print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:5}{9:}'. \
+						format('','MBE order','','|','','total energy','','|','','excitation energy'))
+				print(DIVIDER[:66])
+				for i in range(info['final_order']):
+					print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:8}{9:9.4e}'. \
+							format('',i+exp.start_order, \
+								'','|','',info['energy'][0][i] + info['energy'][j][i], \
+								'','|','',info['energy'][j][i]))
+				print(DIVIDER[:66]+'\n')
 
 
 def _dipole_prt(info, mol, calc, exp):
-		""" dipole moment """
+		""" dipole moments """
+		# ground state
 		print(DIVIDER[:110])
 		print('{0:^110}'.format('MBE ground state dipole moment'))
 		print(DIVIDER[:110])
-		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:5}{11:1}{12:4}{13:}'. \
+		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:6}{9:13}{10:4}{11:1}{12:4}{13:}'. \
 				format('','MBE order','','|','','dipole components (x,y,z)', \
 						'','|','','dipole moment','','|','','correlation dipole'))
 		print(DIVIDER[:110])
-		for i in range(exp.property['energy']['tot'].size):
+		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 				'{10:5}{11:1}{12:7}{13:9.6f}{14:7}{15:1}{16:8}{17:9.6f}'. \
 					format('',i+exp.start_order, \
-						'','|','',info['dipole_final'][i, 0], \
-						'',info['dipole_final'][i, 1], \
-						'',info['dipole_final'][i, 2], \
-						'','|','',np.sqrt(np.sum(info['dipole_final'][i, :]**2)), \
-						'','|','',np.sqrt(np.sum(info['dipole_final'][i, :]**2)) \
+						'','|','',info['dipole'][0][i, 0], \
+						'',info['dipole'][0][i, 1], \
+						'',info['dipole'][0][i, 2], \
+						'','|','',np.sqrt(np.sum(info['dipole'][0][i, :]**2)), \
+						'','|','',np.sqrt(np.sum(info['dipole'][0][i, :]**2)) \
 									- np.sqrt(np.sum(info['dipole_hf']**2))))
 		print(DIVIDER[:110]+'\n')
+		# excited states
+		if calc.state['ROOT'] >= 1:
+			for j in range(1, calc.state['ROOT']+1):
+				print(DIVIDER[:66])
+				string = 'MBE excited state dipole moment (root = {0:})'.format(i)
+				print('{0:^66}'.format(string))
+				print(DIVIDER[:66])
+				print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:6}{9:13}{10:4}{11:1}{12:4}{13:}'. \
+						format('','MBE order','','|','','dipole components (x,y,z)', \
+								'','|','','dipole moment','','|','','excitation dipole'))
+				print(DIVIDER[:66])
+				for i in range(info['final_order']):
+					print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+						'{10:5}{11:1}{12:7}{13:9.6f}{14:7}{15:1}{16:8}{17:9.6f}'. \
+							format('',i+exp.start_order, \
+								'','|','',info['dipole'][j][i, 0] + info['dipole'][0][i, 0], \
+								'',info['dipole'][j][i, 1] + info['dipole'][0][i, 1], \
+								'',info['dipole'][j][i, 2] + info['dipole'][0][i, 2], \
+								'','|','',np.sqrt(np.sum(info['dipole'][j][i, :]**2)) \
+											+ np.sqrt(np.sum(info['dipole'][0][i, :]**2)), \
+								'','|','',np.sqrt(np.sum(info['dipole'][j][i, :]**2))))
+				print(DIVIDER[:110]+'\n')
 
 
 def _model_type(calc):
@@ -296,8 +312,8 @@ def _base(calc):
 def _prot(calc):
 		""" protocol print """
 		prot = calc.prot['SCHEME'].lower()
-		if calc.prot['ENERGY_ONLY']:
-			prot += ' (energy)'
+		if calc.prot['GS_ENERGY_ONLY']:
+			prot += ' (gs energy)'
 		else:
 			prot += ' (all props.)'
 		return prot
@@ -371,30 +387,34 @@ def _symm(mol, calc):
 			return 'unknown'
 
 
-def _e_final(calc, exp):
-		""" final ground state energy """
-		return exp.property['energy']['tot'] \
-				+ calc.property['energy']['hf'] + calc.property['energy']['base'] \
-				+ (calc.property['energy']['ref'] - calc.property['energy']['ref_base'])
+def _energy(calc, exp):
+		""" final energies """
+		# ground state
+		energy = [exp.property['energy'][0]['tot'] \
+				+ calc.property['hf']['energy'] + calc.base['energy'] \
+				+ (calc.property['ref']['energy'][0] - calc.base['ref'])]
+		# excited states
+		for i in range(1, calc.state['ROOT']+1):
+			energy.append(exp.property['energy'][i]['tot'] + calc.property['ref']['energy'][i])
+		return energy
 
 
-def _e_exc_final(calc, exp):
-		""" final excitation energy """
-		return exp.property['excitation']['tot'] + calc.property['excitation']['ref']
-
-
-def _dipole_final(mol, calc, exp):
-		""" final ground state molecular dipole moment """
+def _dipole(mol, calc, exp):
+		""" final molecular dipole moments """
 		# nuclear dipole moment
 		charges = mol.atom_charges()
 		coords  = mol.atom_coords()
 		nuc_dipole = np.einsum('i,ix->x', charges, coords)
-		# molecular dipole moment
-		dipole = nuc_dipole \
-					- (exp.property['dipole']['tot'] \
-						+ calc.property['dipole']['hf'] \
-						+ calc.property['dipole']['ref'])
-		dipole_hf = nuc_dipole - calc.property['dipole']['hf']
+		# ground state
+		dipole = [nuc_dipole \
+					- (exp.property['dipole'][0]['tot'] \
+						+ calc.property['hf']['dipole'] \
+						+ calc.property['ref']['dipole'][0])]
+		# excited states
+		for i in range(1, calc.state['ROOT']+1):
+			dipole.append(nuc_dipole - (exp.property['dipole'][i]['tot'] + calc.property['ref']['dipole'][i]))
+		# hartree-fock value
+		dipole_hf = nuc_dipole - calc.property['hf']['dipole']
 		return dipole, dipole_hf
 
 
@@ -420,10 +440,10 @@ def _energies_plot(info, calc, exp):
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of MBE total energy increments
-		mbe_gs = info['e_final'] - calc.property['energy']['hf']
+		mbe_gs = info['e_final'] - calc.property['hf']['energy']
 		mbe_gs[1:] = np.diff(mbe_gs)
 		if calc.prop['EXCITATION']:
-			mbe_ex = info['e_final'] + info['e_exc_final'] - calc.property['energy']['hf']
+			mbe_ex = info['e_final'] + info['e_exc_final'] - calc.property['hf']['energy']
 			mbe_ex[1:] = np.diff(mbe_ex)
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, exp.property['energy']['tot'].size+exp.start_order))), \

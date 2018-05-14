@@ -27,11 +27,9 @@ class ExpCls():
 				self.incl_idx, self.tuples, self.hashes = _init_tup(mol, calc)
 				# init property dict
 				self.property = {}
-				self.property['energy'] = {'inc': [], 'tot': []}
+				self.property['energy'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
 				if calc.prop['DIPOLE']:
-					self.property['dipole'] = {'inc': [], 'tot': []}
-				if calc.prop['EXCITATION']:
-					self.property['excitation'] = {'inc': [], 'tot': []}
+					self.property['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				if calc.misc['ORDER'] is not None:
