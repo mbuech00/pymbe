@@ -33,11 +33,11 @@ def main(mpi, mol, calc, exp):
 		# print header
 		if mpi.global_master: output.mbe_header(exp)
 		# init increments
-		if len(exp.property['energy'][0]['inc']) < exp.order - (exp.start_order - 1):
+		if len(exp.prop['energy'][0]['inc']) < exp.order - (exp.start_order - 1):
 			for i in range(calc.state['ROOT']+1):
-				exp.property['energy'][i]['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+				exp.prop['energy'][i]['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 				if calc.target['DIPOLE']:
-					exp.property['dipole'][i]['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
+					exp.prop['dipole'][i]['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
@@ -51,14 +51,14 @@ def main(mpi, mol, calc, exp):
 			_serial(mpi, mol, calc, exp)
 		# sum up total quantities
 		for i in range(calc.state['ROOT']+1):
-			exp.property['energy'][i]['tot'].append(tools.fsum(exp.property['energy'][i]['inc'][-1]))
+			exp.prop['energy'][i]['tot'].append(tools.fsum(exp.prop['energy'][i]['inc'][-1]))
 			if calc.target['DIPOLE']:
-				exp.property['dipole'][i]['tot'].append(tools.fsum(exp.property['dipole'][i]['inc'][-1]))
+				exp.prop['dipole'][i]['tot'].append(tools.fsum(exp.prop['dipole'][i]['inc'][-1]))
 		if exp.order > exp.start_order:
 			for i in range(calc.state['ROOT']+1):
-				exp.property['energy'][i]['tot'][-1] += exp.property['energy'][i]['tot'][-2]
+				exp.prop['energy'][i]['tot'][-1] += exp.prop['energy'][i]['tot'][-2]
 				if calc.target['DIPOLE']:
-					exp.property['dipole'][i]['tot'][-1] += exp.property['dipole'][i]['tot'][-2]
+					exp.prop['dipole'][i]['tot'][-1] += exp.prop['dipole'][i]['tot'][-2]
 
 
 def _serial(mpi, mol, calc, exp):
@@ -150,7 +150,7 @@ def _master(mpi, mol, calc, exp):
 					# increment job index
 					i += batch
 		# allreduce properties
-		parallel.property(calc, exp, comm)
+		parallel.prop(calc, exp, comm)
 		# collect time
 		exp.time['mbe'].append(MPI.Wtime() - time)
 
@@ -177,16 +177,16 @@ def _slave(mpi, mol, calc, exp):
 			elif mpi.stat.tag == TAGS.exit:
 				break
 		# receive properties
-		parallel.property(calc, exp, comm)
+		parallel.prop(calc, exp, comm)
 
 
 def _calc(mpi, mol, calc, exp, idx):
 		""" calculate increments """
 		res = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 		for i in range(calc.state['ROOT']+1):
-			exp.property['energy'][i]['inc'][-1][idx] = res['e'][i]
+			exp.prop['energy'][i]['inc'][-1][idx] = res['e'][i]
 			if calc.target['DIPOLE']:
-				exp.property['dipole'][i]['inc'][-1][idx] = res['dipole'][i]
+				exp.prop['dipole'][i]['inc'][-1][idx] = res['dipole'][i]
 
 
 def _inc(mpi, mol, calc, exp, tup):
@@ -195,9 +195,9 @@ def _inc(mpi, mol, calc, exp, tup):
 		exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, tup)
 		# perform calc
 		res = kernel.main(mol, calc, exp, calc.model['METHOD'])
-		inc = {'e': [res['e'][i] - calc.property['ref']['energy'][i] for i in range(calc.state['ROOT']+1)]}
+		inc = {'e': [res['e'][i] - calc.prop['ref']['energy'][i] for i in range(calc.state['ROOT']+1)]}
 		if calc.target['DIPOLE']:
-			inc['dipole'] = [res['dipole'][i] - calc.property['ref']['dipole'][i] for i in range(calc.state['ROOT']+1)]
+			inc['dipole'] = [res['dipole'][i] - calc.prop['ref']['dipole'][i] for i in range(calc.state['ROOT']+1)]
 		if calc.base['METHOD'] is None:
 			e_base = 0.0
 		else:
@@ -248,9 +248,9 @@ def _sum(calc, exp, tup):
 			indx = tools.hash_compare(exp.hashes[i-1], combs)
 			# add up lower-order increments
 			for j in range(calc.state['ROOT']+1):
-				res['e'][j] += tools.fsum(exp.property['energy'][j]['inc'][i-1][indx])
+				res['e'][j] += tools.fsum(exp.prop['energy'][j]['inc'][i-1][indx])
 				if calc.target['DIPOLE']:
-					res['dipole'][j] += tools.fsum(exp.property['dipole'][j]['inc'][i-1][indx, :])
+					res['dipole'][j] += tools.fsum(exp.prop['dipole'][j]['inc'][i-1][indx, :])
 		return res
 
 

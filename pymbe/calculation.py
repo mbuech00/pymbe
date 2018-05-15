@@ -48,10 +48,10 @@ class CalcCls():
 					self.sanity_chk(mpi, mol)
 					# restart logical
 					self.restart = restart.restart()
-				# init property dict
-				self.property = {}
-				self.property['hf'] = {}
-				self.property['ref'] = {}
+				# init prop dict
+				self.prop = {}
+				self.prop['hf'] = {}
+				self.prop['ref'] = {}
 
 
 		def set_calc(self):

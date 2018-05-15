@@ -52,10 +52,10 @@ def main(calc, exp):
 					exp.tuples.append(np.load(os.path.join(RST, files[i])))
 				# read e_inc
 				elif 'e_inc' in files[i]:
-					exp.property['energy']['inc'].append(np.load(os.path.join(RST, files[i])))
+					exp.prop['energy']['inc'].append(np.load(os.path.join(RST, files[i])))
 				# read e_tot
 				elif 'e_tot' in files[i]:
-					exp.property['energy']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+					exp.prop['energy']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 				# read timings
 				elif 'time_mbe' in files[i]:
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
@@ -72,16 +72,16 @@ def write_fund(mol, calc):
 		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
 			json.dump(dims, f)
 		# write hf, reference, and base energies (converted to native python type)
-		if isinstance(calc.property['hf']['energy'], np.ndarray):
-			calc.property['hf']['energy'] = np.asscalar(calc.property['hf']['energy'])
+		if isinstance(calc.prop['hf']['energy'], np.ndarray):
+			calc.prop['hf']['energy'] = np.asscalar(calc.prop['hf']['energy'])
 		if isinstance(calc.base['energy'], np.ndarray):
 			calc.base['energy'] = np.asscalar(calc.base['energy'])
-		if isinstance(calc.property['ref']['energy'], np.ndarray):
-			calc.property['ref']['energy'] = np.asscalar(calc.property['ref']['energy'])
+		if isinstance(calc.prop['ref']['energy'], np.ndarray):
+			calc.prop['ref']['energy'] = np.asscalar(calc.prop['ref']['energy'])
 		if isinstance(calc.base['ref'], np.ndarray):
 			calc.base['ref'] = np.asscalar(calc.base['ref'])
-		energies = {'hf': calc.property['hf']['energy'], 'base': calc.base['energy'], \
-					'ref': calc.property['ref']['energy'], 'ref_base': calc.base['ref']}
+		energies = {'hf': calc.prop['hf']['energy'], 'base': calc.base['energy'], \
+					'ref': calc.prop['ref']['energy'], 'ref_base': calc.base['ref']}
 		with open(os.path.join(RST, 'energies.rst'), 'w') as f:
 			json.dump(energies, f)
 		# write expansion spaces
@@ -111,8 +111,8 @@ def read_fund(mol, calc):
 			elif 'energies' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					energies = json.load(f)
-				calc.property['hf']['energy'] = energies['hf']; calc.base['energy'] = energies['base'] 
-				calc.property['ref']['energy'] = energies['ref']; calc.base['ref'] = energies['ref_base']
+				calc.prop['hf']['energy'] = energies['hf']; calc.base['energy'] = energies['base'] 
+				calc.prop['ref']['energy'] = energies['ref']; calc.base['ref'] = energies['ref_base']
 			# read expansion spaces
 			elif 'ref_space' in files[i]:
 				calc.ref_space = np.load(os.path.join(RST, files[i]))
@@ -132,8 +132,8 @@ def mbe_write(calc, exp):
 		""" write mbe restart files """
 		# write e_inc and e_tot
 		for i in range(calc.state['ROOT']+1):
-			np.save(os.path.join(RST, 'e_inc_{:}_state_{:}'.format(exp.order, i)), exp.property['energy'][i]['inc'][-1])
-			np.save(os.path.join(RST, 'e_tot_{:}_state_{:}'.format(exp.order, i)), exp.property['energy'][i]['tot'][-1])
+			np.save(os.path.join(RST, 'e_inc_{:}_state_{:}'.format(exp.order, i)), exp.prop['energy'][i]['inc'][-1])
+			np.save(os.path.join(RST, 'e_tot_{:}_state_{:}'.format(exp.order, i)), exp.prop['energy'][i]['tot'][-1])
 		# write time
 		np.save(os.path.join(RST, 'time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
 

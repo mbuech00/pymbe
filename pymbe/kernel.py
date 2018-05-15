@@ -248,7 +248,7 @@ def ref(mol, calc, exp):
 
 
 def main(mol, calc, exp, method):
-		""" main property function """
+		""" main prop function """
 		# first-order properties
 		if calc.target['DIPOLE']:
 			dens = True
@@ -267,7 +267,7 @@ def main(mol, calc, exp, method):
 		res = {'e': res_tmp['e']}
 		# return first-order properties
 		if calc.target['DIPOLE']:
-			res['dipole'] = [_dipole(mol.dipole, calc.property['hf']['dipole'], \
+			res['dipole'] = [_dipole(mol.dipole, calc.prop['hf']['dipole'], \
 										calc.occup, exp.cas_idx, calc.mo, res_tmp['dm'][i]) for i in range(calc.state['ROOT']+1)]
 			if calc.state['ROOT'] >= 1:
 				res['dipole'][1:] = [res['dipole'][i] - res['dipole'][0] for i in range(1, calc.state['ROOT']+1)]
@@ -492,7 +492,7 @@ def _fci(mol, calc, exp, dens):
 													'core_idx = {2:} , cas_idx = {3:}\n\n').\
 													format(i, mult, exp.core_idx, exp.cas_idx)
 		# e_corr
-		res = {'e': [energy[0] - calc.property['hf']['energy']]}
+		res = {'e': [energy[0] - calc.prop['hf']['energy']]}
 #		if exp.order < exp.max_order: e['e_corr'] += np.float64(0.001) * np.random.random_sample()
 		# e_exc
 		if calc.state['ROOT'] >= 1:

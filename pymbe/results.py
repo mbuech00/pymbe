@@ -38,9 +38,9 @@ def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
 		# convert final results to numpy arrays
 		for i in range(calc.state['ROOT']+1):
-			exp.property['energy'][i]['tot'] = np.asarray(exp.property['energy'][i]['tot'])
+			exp.prop['energy'][i]['tot'] = np.asarray(exp.prop['energy'][i]['tot'])
 			if calc.target['DIPOLE']:
-				exp.property['dipole'][i]['tot'] = np.asarray(exp.property['dipole'][i]['tot'])
+				exp.prop['dipole'][i]['tot'] = np.asarray(exp.prop['dipole'][i]['tot'])
 		# setup
 		info = {}
 		info['model_type'], info['basis'], info['mult'], info['ref'], info['base'], info['prot'], \
@@ -235,12 +235,12 @@ def _symm(mol, calc):
 def _energy(calc, exp):
 		""" final energies """
 		# ground state
-		energy = [exp.property['energy'][0]['tot'] \
-				+ calc.property['hf']['energy'] + calc.base['energy'] \
-				+ (calc.property['ref']['energy'][0] - calc.base['ref'])]
+		energy = [exp.prop['energy'][0]['tot'] \
+				+ calc.prop['hf']['energy'] + calc.base['energy'] \
+				+ (calc.prop['ref']['energy'][0] - calc.base['ref'])]
 		# excited states
 		for i in range(1, calc.state['ROOT']+1):
-			energy.append(exp.property['energy'][i]['tot'] + calc.property['ref']['energy'][i])
+			energy.append(exp.prop['energy'][i]['tot'] + calc.prop['ref']['energy'][i])
 		return energy
 
 
@@ -251,12 +251,12 @@ def _dipole(mol, calc, exp):
 		coords  = mol.atom_coords()
 		nuc_dipole = np.einsum('i,ix->x', charges, coords)
 		# ground state
-		dipole = [exp.property['dipole'][0]['tot'] \
-						+ calc.property['hf']['dipole'] \
-						+ calc.property['ref']['dipole'][0]]
+		dipole = [exp.prop['dipole'][0]['tot'] \
+						+ calc.prop['hf']['dipole'] \
+						+ calc.prop['ref']['dipole'][0]]
 		# excited states
 		for i in range(1, calc.state['ROOT']+1):
-			dipole.append(exp.property['dipole'][i]['tot'] + calc.property['ref']['dipole'][i])
+			dipole.append(exp.prop['dipole'][i]['tot'] + calc.prop['ref']['dipole'][i])
 		return dipole, nuc_dipole
 
 
@@ -291,13 +291,13 @@ def _summary_prt(info, calc, exp):
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','spin multiplicity','','=','',info['mult'], \
 						'','|','','ref. function','','=','',info['ref'], \
-						'','|','','Hartree-Fock energy','','=','',calc.property['hf']['energy']))
+						'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','system size','','=','',info['system'], \
 						'','|','','cas size','','=','',info['active'], \
 						'','|','','base model energy','','=','', \
-						calc.property['hf']['energy']+calc.base['energy']))
+						calc.prop['hf']['energy']+calc.base['energy']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','frozen core','','=','',info['frozen'], \
@@ -358,13 +358,13 @@ def _energy_prt(info, calc, exp):
 				format('','MBE order','','|','','total energy','','|','','correlation energy'))
 		print(DIVIDER[:66])
 		print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:^12}'. \
-				format('',0,'','|','',calc.property['hf']['energy'],'','|','','none'))
+				format('',0,'','|','',calc.prop['hf']['energy'],'','|','','none'))
 		print(DIVIDER[:66])
 		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:9.4e}'. \
 					format('',i+exp.start_order, \
 						'','|','',info['energy'][0][i], \
-						'','|','',info['energy'][0][i] - calc.property['hf']['energy']))
+						'','|','',info['energy'][0][i] - calc.prop['hf']['energy']))
 		print(DIVIDER[:66]+'\n')
 		# excited states
 		if calc.state['ROOT'] >= 1:
@@ -407,7 +407,7 @@ def _energies_plot(info, calc, exp, root):
 		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
 		# array of MBE total energy increments
-		mbe = exp.property['energy'][root]['tot'].copy()
+		mbe = exp.prop['energy'][root]['tot'].copy()
 		mbe[1:] = np.diff(mbe)
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
@@ -445,10 +445,10 @@ def _dipole_prt(info, mol, calc, exp):
 		print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 			'{10:5}{11:1}{12:6}{13:9.6f}'. \
 				format('',0, \
-					'','|','',info['nuc_dipole'][0] - calc.property['hf']['dipole'][0], \
-					'',info['nuc_dipole'][1] - calc.property['hf']['dipole'][1], \
-					'',info['nuc_dipole'][2] - calc.property['hf']['dipole'][2], \
-					'','|','',np.sqrt(np.sum((info['nuc_dipole'] - calc.property['hf']['dipole'])**2))))
+					'','|','',info['nuc_dipole'][0] - calc.prop['hf']['dipole'][0], \
+					'',info['nuc_dipole'][1] - calc.prop['hf']['dipole'][1], \
+					'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2], \
+					'','|','',np.sqrt(np.sum((info['nuc_dipole'] - calc.prop['hf']['dipole'])**2))))
 		print(DIVIDER[:82])
 		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
@@ -510,7 +510,7 @@ def _dipole_plot(info, calc, exp, root):
 		# array of MBE total dipole increments
 		mbe = np.empty_like(dipole)
 		for i in range(mbe.size):
-			mbe[i] = np.sqrt(np.sum(exp.property['dipole'][root]['tot'][i, :]**2))
+			mbe[i] = np.sqrt(np.sum(exp.prop['dipole'][root]['tot'][i, :]**2))
 		mbe[1:] = np.diff(mbe)
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \

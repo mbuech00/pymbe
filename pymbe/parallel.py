@@ -132,7 +132,7 @@ def fund(mpi, mol, calc):
 		""" bcast fundamental info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'property': calc.property, \
+				info = {'prop': calc.prop, \
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 							'occup': calc.occup, 'no_exp': calc.no_exp, \
@@ -142,7 +142,7 @@ def fund(mpi, mol, calc):
 				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.property = info['property']
+				calc.prop = info['prop']
 				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 				calc.occup = info['occup']; calc.no_exp = info['no_exp']
@@ -159,7 +159,7 @@ def exp(mpi, calc, exp, comm):
 			if mpi.global_master:
 				# collect info
 				info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
-							'len_e_inc': [len(exp.property['energy']['inc'][i]) for i in range(len(exp.property['energy']['inc']))], \
+							'len_e_inc': [len(exp.prop['energy']['inc'][i]) for i in range(len(exp.prop['energy']['inc']))], \
 							'min_order': exp.min_order, 'start_order': exp.start_order}
 				# bcast info
 				comm.bcast(info, root=0)
@@ -167,8 +167,8 @@ def exp(mpi, calc, exp, comm):
 				for i in range(1,len(exp.tuples)):
 					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
 				# bcast increments
-				for i in range(len(exp.property['energy']['inc'])):
-					comm.Bcast([exp.property['energy']['inc'][i], MPI.DOUBLE], root=0)
+				for i in range(len(exp.prop['energy']['inc'])):
+					comm.Bcast([exp.prop['energy']['inc'][i], MPI.DOUBLE], root=0)
 			else:
 				# receive info
 				info = comm.bcast(None, root=0)
@@ -184,10 +184,10 @@ def exp(mpi, calc, exp, comm):
 				for i in range(len(info['len_e_inc'])):
 					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
 					comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.property['energy']['inc'].append(buff)
+					exp.prop['energy']['inc'].append(buff)
 
 
-def property(calc, exp, comm):
+def prop(calc, exp, comm):
 		""" Allreduce properties """
 		_energy(exp, comm)
 		if calc.target['DIPOLE']:
@@ -197,15 +197,15 @@ def property(calc, exp, comm):
 def _energy(exp, comm):
 		""" Allreduce energies """
 		# Allreduce
-		for i in range(len(exp.property['energy'])):
-			comm.Allreduce(MPI.IN_PLACE, [exp.property['energy'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		for i in range(len(exp.prop['energy'])):
+			comm.Allreduce(MPI.IN_PLACE, [exp.prop['energy'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def _dipole(exp, comm):
 		""" Allreduce dipole moments """
 		# Allreduce
-		for i in range(len(exp.property['dipole'])):
-			comm.Allreduce(MPI.IN_PLACE, [exp.property['dipole'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		for i in range(len(exp.prop['dipole'])):
+			comm.Allreduce(MPI.IN_PLACE, [exp.prop['dipole'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def tup(exp, comm):

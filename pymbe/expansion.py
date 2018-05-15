@@ -25,11 +25,11 @@ class ExpCls():
 				self.model['TYPE'] = typ
 				# init incl_idx, tuples, and hashes
 				self.incl_idx, self.tuples, self.hashes = _init_tup(mol, calc)
-				# init property dict
-				self.property = {}
-				self.property['energy'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
+				# init prop dict
+				self.prop = {}
+				self.prop['energy'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
 				if calc.target['DIPOLE']:
-					self.property['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
+					self.prop['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				if calc.misc['ORDER'] is not None:

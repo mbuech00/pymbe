@@ -105,7 +105,7 @@ def _exp(mpi, mol, calc):
 			# no restart
 			else:
 				# hf calculation
-				calc.hf, calc.property['hf']['energy'], calc.property['hf']['dipole'], \
+				calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
 					calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
 				# get ao integrals
 				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
@@ -120,10 +120,10 @@ def _exp(mpi, mol, calc):
 					raise NotImplementedError('comb expansion not implemented')
 				# reference calculation
 				ref, calc.mo = kernel.ref(mol, calc, exp)
-				calc.property['ref']['energy'] = [ref['e'][i] for i in range(calc.state['ROOT']+1)]
+				calc.prop['ref']['energy'] = [ref['e'][i] for i in range(calc.state['ROOT']+1)]
 				calc.base['ref'] = ref['base']
 				if calc.target['DIPOLE']:
-					calc.property['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.state['ROOT']+1)]
+					calc.prop['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.state['ROOT']+1)]
 				# base energy
 				base = kernel.base(mol, calc, exp)
 				calc.base['energy'] = base['e']

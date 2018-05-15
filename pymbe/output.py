@@ -99,8 +99,8 @@ def mbe_results(mol, calc, exp):
 			if i == 'ENERGY':
 				for j in range(calc.state['ROOT']+1):
 					print(FILL)
-					prop_inc = exp.property['energy'][j]['inc'][exp.order-exp.start_order]
-					prop_tot = exp.property['energy'][j]['tot']
+					prop_inc = exp.prop['energy'][j]['inc'][exp.order-exp.start_order]
+					prop_tot = exp.prop['energy'][j]['tot']
 					# statistics
 					mean_val = np.mean(prop_inc)
 					min_idx = np.argmin(np.abs(prop_inc))
@@ -131,7 +131,7 @@ def mbe_results(mol, calc, exp):
 			elif i == 'DIPOLE':
 				for j in range(calc.state['ROOT']+1):
 					print(FILL)
-					prop_tot = exp.property['dipole'][j]['tot']
+					prop_tot = exp.prop['dipole'][j]['tot']
 					# calculate total inc
 					if len(prop_tot) == 1:
 						tot_inc = np.sqrt(np.sum(prop_tot[0]**2))
@@ -158,7 +158,7 @@ def mbe_results(mol, calc, exp):
 					max_val = np.empty(3, dtype=np.float64)
 					# loop over x, y, and z
 					for k in range(3):
-						prop_inc = exp.property['dipole'][j]['inc'][exp.order-exp.start_order][:, k]
+						prop_inc = exp.prop['dipole'][j]['inc'][exp.order-exp.start_order][:, k]
 						# statistics
 						mean_val[k] = np.mean(prop_inc)
 						min_idx[k] = np.argmin(np.abs(prop_inc))
