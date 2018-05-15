@@ -163,21 +163,6 @@ def active(mol, calc):
 		return ref_space, exp_space, no_exp, no_act, ne_act
 
 
-def _mf(mol, calc, mo):
-		""" calculate mean-field energy """
-		mo_a = mo[:, np.where(calc.occup > 0.)[0]]
-		mo_b = mo[:, np.where(calc.occup == 2.)[0]]
-		dm_a = np.dot(mo_a, np.transpose(mo_a))
-		dm_b = np.dot(mo_b, np.transpose(mo_b))
-		dm = np.array((dm_a, dm_b))
-		vj, vk = scf.hf.get_jk(mol, dm)
-		vhf = vj[0] + vj[1] - vk
-		e_mf = mol.energy_nuc()
-		e_mf += np.einsum('ij,ij', mol.hcore.conj(), dm[0] + dm[1])
-		e_mf += (np.einsum('ij,ji', vhf[0], dm[0]) + np.einsum('ij,ji', vhf[1], dm[1])) * .5
-		return e_mf
-
-
 def ref(mol, calc, exp):
 		""" calculate reference energy and mo coefficients """
 		# set core and cas spaces
@@ -268,22 +253,22 @@ def main(mol, calc, exp, method):
 		# return first-order properties
 		if calc.target['dipole']:
 			res['dipole'] = [_dipole(mol.dipole, calc.prop['hf']['dipole'], \
-										calc.occup, exp.cas_idx, calc.mo, res_tmp['dm'][i]) for i in range(calc.state['root']+1)]
+										calc.occup, exp.cas_idx, calc.mo, res_tmp['rdm1'][i]) for i in range(calc.state['root']+1)]
 			if calc.state['root'] >= 1:
 				res['dipole'][1:] = [res['dipole'][i] - res['dipole'][0] for i in range(1, calc.state['root']+1)]
 		return res
 
 
-def _dipole(ints, hf_dipole, occup, cas_idx, mo, cas_dm):
+def _dipole(ints, hf_dipole, occup, cas_idx, mo, cas_rdm1):
 		""" calculate electronic dipole moment """
-		# hf dm
-		dm = np.diag(occup)
+		# hf rdm1
+		rdm1 = np.diag(occup)
 		# add correlated part
-		dm[cas_idx[:, None], cas_idx] = cas_dm
+		rdm1[cas_idx[:, None], cas_idx] = cas_rdm1
 		# elec dipole
 		elec_dipole = np.empty(3, dtype=np.float64)
 		for i in range(3):
-			elec_dipole[i] = np.trace(np.dot(dm, reduce(np.dot, (mo.T, ints[i], mo))))
+			elec_dipole[i] = np.trace(np.dot(rdm1, reduce(np.dot, (mo.T, ints[i], mo))))
 		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
 		return elec_dipole - hf_dipole
 
@@ -292,8 +277,8 @@ def base(mol, calc, exp):
 		""" calculate base energy and mo coefficients """
 		# set core and cas spaces
 		exp.core_idx, exp.cas_idx = core_cas(mol, exp, calc.exp_space)
-		# init dm
-		dm = None
+		# init rdm1
+		rdm1 = None
 		# zeroth-order energy
 		if calc.base['method'] is None:
 			base = {'energy': 0.0}
@@ -302,10 +287,10 @@ def base(mol, calc, exp):
 			res = _ci(mol, calc, exp, \
 								calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd')
 			base = {'energy': res['energy'][0]}
-			if res['dm'][0] is not None:
-				dm = res['dm'][0]
+			if res['rdm1'][0] is not None:
+				rdm1 = res['rdm1'][0]
 				if mol.spin > 0:
-					dm = dm[0] + dm[1]
+					rdm1 = rdm1[0] + rdm1[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
 			res = _cc(mol, calc, exp, \
@@ -313,25 +298,25 @@ def base(mol, calc, exp):
 								(calc.base['method'] == 'ccsd(t)') and \
 								((calc.orbs['occ'] == 'can') and (calc.orbs['virt'] == 'can')))
 			base = {'energy': res['energy'][0]}
-			if res['dm'][0] is not None:
-				dm = res['dm'][0]
+			if res['rdm1'][0] is not None:
+				rdm1 = res['rdm1'][0]
 				if mol.spin > 0:
-					dm = dm[0] + dm[1]
+					rdm1 = rdm1[0] + rdm1[1]
 		# NOs
-		if (calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd') and dm is None:
+		if (calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd') and rdm1 is None:
 			res = _ci(mol, calc, exp, True)
-			dm = res['dm'][0]
+			rdm1 = res['rdm1'][0]
 			if mol.spin > 0:
-				dm = dm[0] + dm[1]
-		elif (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and dm is None:
+				rdm1 = rdm1[0] + rdm1[1]
+		elif (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and rdm1 is None:
 			res = _cc(mol, calc, exp, True, False)
-			dm = res['dm'][0]
+			rdm1 = res['rdm1'][0]
 			if mol.spin > 0:
-				dm = dm[0] + dm[1]
+				rdm1 = rdm1[0] + rdm1[1]
 		# occ-occ block (local or NOs)
 		if calc.orbs['occ'] != 'can':
 			if calc.orbs['occ'] in ['cisd', 'ccsd']:
-				occup, no = symm.eigh(dm[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
+				occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
 			elif calc.orbs['occ'] == 'pm':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.pm(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
@@ -347,7 +332,7 @@ def base(mol, calc, exp):
 		# virt-virt block (local or NOs)
 		if calc.orbs['virt'] != 'can':
 			if calc.orbs['virt'] in ['cisd', 'ccsd']:
-				occup, no = symm.eigh(dm[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
+				occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
 			elif calc.orbs['virt'] == 'pm':
 				calc.mo[:, mol.nocc:] = lo.pm(mol, calc.mo[:, mol.nocc:]).kernel()
@@ -498,9 +483,9 @@ def _fci(mol, calc, exp, dens):
 		if calc.state['root'] >= 1:
 			for i in range(1, calc.state['root']+1):
 				res['energy'].append(energy[i] - energy[0])
-		# fci dm
+		# fci rdm1
 		if dens:
-			res['dm'] = [solver.make_rdm1(civec[i], len(exp.cas_idx), nelec) for i in range(calc.state['root']+1)]
+			res['rdm1'] = [solver.make_rdm1(civec[i], len(exp.cas_idx), nelec) for i in range(calc.state['root']+1)]
 		return res
 
 
@@ -544,8 +529,8 @@ def _ci(mol, calc, exp, dens):
 				raise
 		# e_corr
 		res = {'energy': cisd.e_corr}
-		# dm
-		res['dm'] = cisd.make_rdm1() if dens else None
+		# rdm1
+		res['rdm1'] = cisd.make_rdm1() if dens else None
 		return res
 
 
@@ -594,12 +579,12 @@ def _cc(mol, calc, exp, dens, pt=False):
 				raise
 		# e_corr
 		res = {'energy': ccsd.e_corr}
-		# dm
+		# rdm1
 		if dens and not pt:
 			ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-			res['dm'] = ccsd.make_rdm1()
+			res['rdm1'] = ccsd.make_rdm1()
 		else:
-			res['dm'] = None
+			res['rdm1'] = None
 		# calculate (t) correction
 		if pt:
 			if np.amin(calc.occup[exp.cas_idx]) == 1.0:
