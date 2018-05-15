@@ -39,7 +39,7 @@ def main(mpi, mol, calc, exp):
 		# convert final results to numpy arrays
 		for i in range(calc.state['ROOT']+1):
 			exp.property['energy'][i]['tot'] = np.asarray(exp.property['energy'][i]['tot'])
-			if calc.prop['DIPOLE']:
+			if calc.target['DIPOLE']:
 				exp.property['dipole'][i]['tot'] = np.asarray(exp.property['dipole'][i]['tot'])
 		# setup
 		info = {}
@@ -70,7 +70,7 @@ def _setup(mpi, mol, calc, exp):
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		energy = _energy(calc, exp)
-		if calc.prop['DIPOLE']:
+		if calc.target['DIPOLE']:
 			dipole, nuc_dipole = _dipole(mol, calc, exp)
 		else:
 			dipole = nuc_dipole = None
@@ -87,7 +87,7 @@ def _table(info, mol, calc, exp):
 				_summary_prt(info, calc, exp)
 				_timings_prt(info, exp)
 				_energy_prt(info, calc, exp)
-				if calc.prop['DIPOLE']:
+				if calc.target['DIPOLE']:
 					_dipole_prt(info, mol, calc, exp)
 	
 
@@ -97,7 +97,7 @@ def _plot(info, calc, exp):
 		for i in range(calc.state['ROOT']+1):
 			_energies_plot(info, calc, exp, i)
 			# plot MBE dipole moment
-			if calc.prop['DIPOLE']:
+			if calc.target['DIPOLE']:
 				_dipole_plot(info, calc, exp, i)
 
 

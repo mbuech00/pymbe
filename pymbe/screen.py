@@ -244,7 +244,7 @@ def _prot_check(exp, calc, indx, m):
 						prop = exp.property['energy'][j]['inc'][-1][indx]
 						screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
 						if not screen: break
-				elif i == 'DIPOLE' and calc.prop['DIPOLE']:
+				elif i == 'DIPOLE' and calc.target['DIPOLE']:
 					for j in range(calc.state['ROOT']+1):
 						for k in range(3):
 							# (x,y,z) = (0,1,2)

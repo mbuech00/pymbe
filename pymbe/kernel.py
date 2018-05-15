@@ -25,7 +25,7 @@ def ao_ints(mol, calc):
 		# electron repulsion ints
 		eri = mol.intor('int2e_sph', aosym=4)
 		# dipole integrals with gauge origin at (0,0,0)
-		if calc.prop['DIPOLE']:
+		if calc.target['DIPOLE']:
 			with mol.with_common_orig((0,0,0)):
 				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
@@ -219,7 +219,7 @@ def ref(mol, calc, exp):
 					for i in range(1, calc.state['ROOT']+1):
 						ref['e'].append(res['e'][i])
 				# dipole_ref
-				if calc.prop['DIPOLE']:
+				if calc.target['DIPOLE']:
 					ref['dipole'] = [res['dipole'][i] for i in range(calc.state['ROOT']+1)]
 				# e_ref_base
 				if calc.base['METHOD'] is None:
@@ -239,7 +239,7 @@ def ref(mol, calc, exp):
 				for i in range(1, calc.state['ROOT']+1):
 					string += '      excitation energy for state {:} = {:.4f}\n'
 					form += (i, ref['e'][i],)
-			if calc.prop['DIPOLE']:
+			if calc.target['DIPOLE']:
 				for i in range(calc.state['ROOT']+1):
 					string += '      dipole moment for state {:} = ({:.4f}, {:.4f}, {:.4f})\n'
 					form += (i, *ref['dipole'][i],)
@@ -250,23 +250,23 @@ def ref(mol, calc, exp):
 def main(mol, calc, exp, method):
 		""" main property function """
 		# first-order properties
-		if calc.prop['DIPOLE']:
-			prop = True
+		if calc.target['DIPOLE']:
+			dens = True
 		else:
-			prop = False
+			dens = False
 		# fci calc
 		if method == 'FCI':
-			res_tmp = _fci(mol, calc, exp, prop)
+			res_tmp = _fci(mol, calc, exp, dens)
 		# cisd calc
 		elif method == 'CISD':
-			res_tmp = _ci(mol, calc, exp, prop)
+			res_tmp = _ci(mol, calc, exp, dens)
 		# ccsd / ccsd(t) calc
 		elif method in ['CCSD','CCSD(T)']:
-			res_tmp = _cc(mol, calc, exp, prop, (method == 'CCSD(T)'))
+			res_tmp = _cc(mol, calc, exp, dens, (method == 'CCSD(T)'))
 		# return correlation energy
 		res = {'e': res_tmp['e']}
 		# return first-order properties
-		if calc.prop['DIPOLE']:
+		if calc.target['DIPOLE']:
 			res['dipole'] = [_dipole(mol.dipole, calc.property['hf']['dipole'], \
 										calc.occup, exp.cas_idx, calc.mo, res_tmp['dm'][i]) for i in range(calc.state['ROOT']+1)]
 			if calc.state['ROOT'] >= 1:
@@ -442,7 +442,7 @@ def _fci(mol, calc, exp, dens):
 			solver = fci.direct_spin1_symm.FCI(mol)
 		# settings
 		solver.conv_tol = 1.0e-10
-		if calc.prop['DIPOLE']: solver.conv_tol_residual = 1.0e-07
+		if calc.target['DIPOLE']: solver.conv_tol_residual = 1.0e-07
 		solver.max_cycle = 500
 		solver.max_space = 25
 		solver.davidson_only = True

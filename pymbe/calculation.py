@@ -27,7 +27,7 @@ class CalcCls():
 				""" init parameters """
 				# set defaults
 				self.model = {'METHOD': 'FCI', 'TYPE': 'VIRT'}
-				self.prop = {'ENERGY': True, 'DIPOLE': False}
+				self.target = {'ENERGY': True, 'DIPOLE': False}
 				self.prot = {'SCHEME': 'NEW', 'GS_ENERGY_ONLY': False}
 				self.ref = {'METHOD': 'HF'}
 				self.base = {'METHOD': None}
@@ -41,7 +41,7 @@ class CalcCls():
 				# set calculation parameters
 				if mpi.global_master:
 					# read parameters
-					self.model, self.prop, self.prot, self.ref, \
+					self.model, self.target, self.prot, self.ref, \
 						self.base, self.thres, self.state, \
 						self.misc, self.orbs, self.mpi = self.set_calc()
 					# sanity check
@@ -73,15 +73,15 @@ class CalcCls():
 									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
 										self.model[key] = val
-								# prop
-								elif re.split('=',content[i])[0].strip() == 'prop':
+								# target
+								elif re.split('=',content[i])[0].strip() == 'target':
 									try:
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
-										raise ValueError('wrong input -- values in property dict (prop) must be bools')
+										raise ValueError('wrong input -- values in target dict (target) must be bools')
 									tmp = tools.upper(tmp)
 									for key, val in tmp.items():
-										self.prop[key] = val
+										self.target[key] = val
 								# prot
 								elif re.split('=',content[i])[0].strip() == 'prot':
 									try:
@@ -162,7 +162,7 @@ class CalcCls():
 					sys.stderr.write('\nIOError : input file not found\n\n')
 					raise
 				#
-				return self.model, self.prop, self.prot, self.ref, self.base, \
+				return self.model, self.target, self.prot, self.ref, self.base, \
 							self.thres, self.state, self.misc, self.orbs, self.mpi
 
 
@@ -222,14 +222,14 @@ class CalcCls():
 						raise ValueError('wrong input -- choice of target state (root) must be an int >= 0')
 					if self.state['ROOT'] > 0 and self.model['METHOD'] != 'FCI':
 						raise ValueError('wrong input -- excited states only implemented for an FCI expansion model')
-					# properties
-					if not all(isinstance(i, bool) for i in self.prop.values()):
-						raise ValueError('wrong input -- values in property input (prop) must be bools (True, False)')
-					if not set(list(self.prop.keys())) <= set(['ENERGY', 'DIPOLE']):
-						raise ValueError('wrong input -- valid choices for properties are: energy and dipole')
-					if not self.prop['ENERGY']:
+					# targets
+					if not all(isinstance(i, bool) for i in self.target.values()):
+						raise ValueError('wrong input -- values in target input (target) must be bools (True, False)')
+					if not set(list(self.target.keys())) <= set(['ENERGY', 'DIPOLE']):
+						raise ValueError('wrong input -- valid choices for target properties are: energy and dipole')
+					if not self.target['ENERGY']:
 						raise ValueError('wrong input -- calculation of ground state energy (energy) is mandatory')
-					if self.prop['DIPOLE'] and self.base['METHOD'] is not None:
+					if self.target['DIPOLE'] and self.base['METHOD'] is not None:
 						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):

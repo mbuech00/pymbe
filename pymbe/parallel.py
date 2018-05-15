@@ -113,7 +113,7 @@ def calc(mpi, calc):
 		""" bcast calc info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'model': calc.model, 'prop': calc.prop, \
+				info = {'model': calc.model, 'target': calc.target, \
 						'ref': calc.ref['METHOD'], 'base': calc.base, \
 						'thres': calc.thres, 'prot': calc.prot, \
 						'state': calc.state, 'misc': calc.misc, 'mpi': calc.mpi, \
@@ -121,7 +121,7 @@ def calc(mpi, calc):
 				mpi.global_comm.bcast(info, root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.model = info['model']; calc.prop = info['prop']
+				calc.model = info['model']; calc.target = info['target']
 				calc.ref = {'METHOD': info['ref']}; calc.base = info['base']
 				calc.thres = info['thres']; calc.prot = info['prot']
 				calc.state = info['state']; calc.misc = info['misc']; calc.mpi = info['mpi']
@@ -190,7 +190,7 @@ def exp(mpi, calc, exp, comm):
 def property(calc, exp, comm):
 		""" Allreduce properties """
 		_energy(exp, comm)
-		if calc.prop['DIPOLE']:
+		if calc.target['DIPOLE']:
 			_dipole(exp, comm)
 
 

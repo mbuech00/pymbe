@@ -28,7 +28,7 @@ class ExpCls():
 				# init property dict
 				self.property = {}
 				self.property['energy'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
-				if calc.prop['DIPOLE']:
+				if calc.target['DIPOLE']:
 					self.property['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]

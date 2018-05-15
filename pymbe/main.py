@@ -122,7 +122,7 @@ def _exp(mpi, mol, calc):
 				ref, calc.mo = kernel.ref(mol, calc, exp)
 				calc.property['ref']['energy'] = [ref['e'][i] for i in range(calc.state['ROOT']+1)]
 				calc.base['ref'] = ref['base']
-				if calc.prop['DIPOLE']:
+				if calc.target['DIPOLE']:
 					calc.property['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.state['ROOT']+1)]
 				# base energy
 				base = kernel.base(mol, calc, exp)
