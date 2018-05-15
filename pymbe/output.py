@@ -129,50 +129,51 @@ def mbe_results(mol, calc, exp):
 					form = (header, mean_val, min_val, max_val)
 					_print(string, form)
 			elif i == 'dipole':
-				for j in range(calc.state['root']+1):
-					print(FILL)
-					prop_tot = exp.prop['dipole'][j]['tot']
-					# calculate total inc
-					if len(prop_tot) == 1:
-						tot_inc = np.sqrt(np.sum(prop_tot[0]**2))
-					else:
-						tot_inc = np.sqrt(np.sum(prop_tot[-1]**2)) - np.sqrt(np.sum(prop_tot[-2]**2))
-					# set header
-					if j == 0:
-						header = 'ground state dipole moment (total increment = {:.4e})'.format(tot_inc)
-					else:
-						header = 'excitation dipole for root {:} (total increment = {:.4e})'.format(j, tot_inc)
-					# set string/form
-					string = DIVIDER+'\n'
-					string += ' RESULT:{:^81}\n'
-					string += DIVIDER+'\n'
-					string += DIVIDER
-					form = (header,)
-					# set components
-					comp = ('x-component', 'y-component', 'z-component')
-					# init result arrays
-					mean_val = np.empty(3, dtype=np.float64)
-					min_idx = np.empty(3, dtype=np.int)
-					min_val = np.empty(3, dtype=np.float64)
-					max_idx = np.empty(3, dtype=np.int)
-					max_val = np.empty(3, dtype=np.float64)
-					# loop over x, y, and z
-					for k in range(3):
-						prop_inc = exp.prop['dipole'][j]['inc'][exp.order-exp.start_order][:, k]
-						# statistics
-						mean_val[k] = np.mean(prop_inc)
-						min_idx[k] = np.argmin(np.abs(prop_inc))
-						min_val[k] = prop_inc[min_idx[k]]
-						max_idx[k] = np.argmax(np.abs(prop_inc))
-						max_val[k] = prop_inc[max_idx[k]]
-						string += '\n RESULT:{:^81}\n'
+				if calc.target['dipole']:
+					for j in range(calc.state['root']+1):
+						print(FILL)
+						prop_tot = exp.prop['dipole'][j]['tot']
+						# calculate total inc
+						if len(prop_tot) == 1:
+							tot_inc = np.sqrt(np.sum(prop_tot[0]**2))
+						else:
+							tot_inc = np.sqrt(np.sum(prop_tot[-1]**2)) - np.sqrt(np.sum(prop_tot[-2]**2))
+						# set header
+						if j == 0:
+							header = 'ground state dipole moment (total increment = {:.4e})'.format(tot_inc)
+						else:
+							header = 'excitation dipole for root {:} (total increment = {:.4e})'.format(j, tot_inc)
+						# set string/form
+						string = DIVIDER+'\n'
+						string += ' RESULT:{:^81}\n'
 						string += DIVIDER+'\n'
-						string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
-						string += DIVIDER+'\n'
-						string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 						string += DIVIDER
-						form += (comp[k], mean_val[k], min_val[k], max_val[k],)
-					_print(string, form)
+						form = (header,)
+						# set components
+						comp = ('x-component', 'y-component', 'z-component')
+						# init result arrays
+						mean_val = np.empty(3, dtype=np.float64)
+						min_idx = np.empty(3, dtype=np.int)
+						min_val = np.empty(3, dtype=np.float64)
+						max_idx = np.empty(3, dtype=np.int)
+						max_val = np.empty(3, dtype=np.float64)
+						# loop over x, y, and z
+						for k in range(3):
+							prop_inc = exp.prop['dipole'][j]['inc'][exp.order-exp.start_order][:, k]
+							# statistics
+							mean_val[k] = np.mean(prop_inc)
+							min_idx[k] = np.argmin(np.abs(prop_inc))
+							min_val[k] = prop_inc[min_idx[k]]
+							max_idx[k] = np.argmax(np.abs(prop_inc))
+							max_val[k] = prop_inc[max_idx[k]]
+							string += '\n RESULT:{:^81}\n'
+							string += DIVIDER+'\n'
+							string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+							string += DIVIDER+'\n'
+							string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+							string += DIVIDER
+							form += (comp[k], mean_val[k], min_val[k], max_val[k],)
+						_print(string, form)
 		if exp.order < exp.max_order:
 			print(FILL)
 		else:
