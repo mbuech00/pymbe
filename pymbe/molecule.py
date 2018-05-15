@@ -28,8 +28,8 @@ class MolCls(gto.Mole):
 				gto.Mole.__init__(self)
 				# set defaults
 				self.atom = ''
-				self.mol = {'CHARGE': 0, 'SPIN': 0, 'SYM': 'c1', 'BASIS': 'sto-3g', 'UNIT': 'ang', \
-							'FROZEN': False, 'OCCUP': {}, 'VERBOSE': 1, 'DEBUG': False}
+				self.mol = {'charge': 0, 'spin': 0, 'sym': 'c1', 'basis': 'sto-3g', 'unit': 'ang', \
+							'frozen': False, 'occup': {}, 'verbose': 1, 'debug': False}
 				# set geometric and molecular parameters
 				if mpi.global_master:
 					# read atom and molecule settings
@@ -37,16 +37,16 @@ class MolCls(gto.Mole):
 					# sanity check
 					self.sanity_chk()
 					# translate to Mole input
-					self.charge = self.mol['CHARGE']
-					self.spin = self.mol['SPIN']
-					self.symmetry = symm.addons.std_symb(self.mol['SYM'])
-					self.basis = self.mol['BASIS']
-					self.irrep_nelec = self.mol['OCCUP']
-					self.verbose = self.mol['VERBOSE']
-					self.unit = self.mol['UNIT']
+					self.charge = self.mol['charge']
+					self.spin = self.mol['spin']
+					self.symmetry = symm.addons.std_symb(self.mol['sym'])
+					self.basis = self.mol['basis']
+					self.irrep_nelec = self.mol['occup']
+					self.verbose = self.mol['verbose']
+					self.unit = self.mol['unit']
 					# add pymbe parameters
-					self.frozen = self.mol['FROZEN']
-					self.debug = self.mol['DEBUG']
+					self.frozen = self.mol['frozen']
+					self.debug = self.mol['debug']
 					self.e_core = None
 
 
@@ -73,7 +73,7 @@ class MolCls(gto.Mole):
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
 										raise ValueError('wrong input -- values in molecule dict (mol) must be strings, dicts, ints, and bools')
-									tmp = tools.upper(tmp)
+									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										self.mol[key] = val
 				except IOError:
@@ -91,42 +91,42 @@ class MolCls(gto.Mole):
 					if not isinstance(self.atom, str):
 						raise ValueError('wrong input -- atom input in geo.xyz must be a str')
 					# charge
-					if not isinstance(self.mol['CHARGE'], int):
+					if not isinstance(self.mol['charge'], int):
 						raise ValueError('wrong input -- charge input in mol dict (charge) must be an int')
 					# spin
-					if not isinstance(self.mol['SPIN'], int):
+					if not isinstance(self.mol['spin'], int):
 						raise ValueError('wrong input -- spin input (2S) in mol dict (spin) must be an int >= 0')
-					if self.mol['SPIN'] < 0:
+					if self.mol['spin'] < 0:
 						raise ValueError('wrong input -- spin input (2S) in mol dict (spin) must be an int >= 0')
 					# sym
-					if not isinstance(self.mol['SYM'], str):
+					if not isinstance(self.mol['sym'], str):
 						raise ValueError('wrong input -- symmetry input in mol dict (sym) must be a str')
-					if self.mol['SPIN'] < 0:
+					if self.mol['spin'] < 0:
 						raise ValueError('wrong input -- spin input (2S) in mol dict (spin) must be int >= 0')
 					# spin
-					if not isinstance(self.mol['SYM'], str):
+					if not isinstance(self.mol['sym'], str):
 						raise ValueError('wrong input -- symmetry input in mol dict (sym) must be a str')
-					if symm.addons.std_symb(self.mol['SYM']) not in symm.param.POINTGROUP:
+					if symm.addons.std_symb(self.mol['sym']) not in symm.param.POINTGROUP:
 						raise ValueError('wrong input -- spin input (2S) in mol dict (spin) must be int >= 0')
 					# basis
-					if not isinstance(self.mol['BASIS'], (str, dict)):
+					if not isinstance(self.mol['basis'], (str, dict)):
 						raise ValueError('wrong input -- basis set input in mol dict (basis) must be a str or a dict')
 					# occup
-					if not isinstance(self.mol['OCCUP'], dict):
+					if not isinstance(self.mol['occup'], dict):
 						raise ValueError('wrong input -- occupation input in mol dict (occup) must be a dict')
 					# verbose
-					if not isinstance(self.mol['VERBOSE'], int):
+					if not isinstance(self.mol['verbose'], int):
 						raise ValueError('wrong input -- verbosity input in mol dict (verbose) must be an int >= 0')
-					if self.mol['VERBOSE'] < 0:
+					if self.mol['verbose'] < 0:
 						raise ValueError('wrong input -- verbosity input in mol dict (verbose) must be an int >= 0')
 					# unit
-					if not isinstance(self.mol['UNIT'], str):
+					if not isinstance(self.mol['unit'], str):
 						raise ValueError('wrong input -- unit input in mol dict (unit) must be a str')
 					# frozen
-					if not isinstance(self.mol['FROZEN'], bool):
+					if not isinstance(self.mol['frozen'], bool):
 						raise ValueError('wrong input -- frozen core input in mol dict (frozen) must be a bool')
 					# debug
-					if not isinstance(self.mol['DEBUG'], bool):
+					if not isinstance(self.mol['debug'], bool):
 						raise ValueError('wrong input -- debug input in mol dict (debug) must be a bool')
 				except Exception as err:
 					restart.rm()

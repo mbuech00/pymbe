@@ -37,9 +37,9 @@ FILL = '{0:^143}'.format('|'*137)
 def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
 		# convert final results to numpy arrays
-		for i in range(calc.state['ROOT']+1):
+		for i in range(calc.state['root']+1):
 			exp.prop['energy'][i]['tot'] = np.asarray(exp.prop['energy'][i]['tot'])
-			if calc.target['DIPOLE']:
+			if calc.target['dipole']:
 				exp.prop['dipole'][i]['tot'] = np.asarray(exp.prop['dipole'][i]['tot'])
 		# setup
 		info = {}
@@ -70,7 +70,7 @@ def _setup(mpi, mol, calc, exp):
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
 		energy = _energy(calc, exp)
-		if calc.target['DIPOLE']:
+		if calc.target['dipole']:
 			dipole, nuc_dipole = _dipole(mol, calc, exp)
 		else:
 			dipole = nuc_dipole = None
@@ -87,23 +87,23 @@ def _table(info, mol, calc, exp):
 				_summary_prt(info, calc, exp)
 				_timings_prt(info, exp)
 				_energy_prt(info, calc, exp)
-				if calc.target['DIPOLE']:
+				if calc.target['dipole']:
 					_dipole_prt(info, mol, calc, exp)
 	
 
 def _plot(info, calc, exp):
 		""" plot results """
 		# plot MBE energies
-		for i in range(calc.state['ROOT']+1):
+		for i in range(calc.state['root']+1):
 			_energies_plot(info, calc, exp, i)
 			# plot MBE dipole moment
-			if calc.target['DIPOLE']:
+			if calc.target['dipole']:
 				_dipole_plot(info, calc, exp, i)
 
 
 def _model_type(calc):
 		""" model / type print """
-		return '{0:} / {1:}'.format(calc.model['METHOD'], calc.model['TYPE'].lower())
+		return '{0:} / {1:}'.format(calc.model['method'], calc.model['type'])
 
 
 def _basis(mol):
@@ -137,27 +137,27 @@ def _mult(mol):
 
 def _ref(mol, calc):
 		""" ref print """
-		if calc.ref['METHOD'] == 'HF':
+		if calc.ref['method'] == 'hf':
 			if mol.spin == 0:
-				return 'RHF'
+				return 'Rhf'
 			else:
-				return 'ROHF'
+				return 'ROhf'
 		else:
-			return calc.ref['METHOD']
+			return calc.ref['method']
 
 
 def _base(calc):
 		""" base print """
-		if calc.base['METHOD'] is None:
+		if calc.base['method'] is None:
 			return 'none'
 		else:
-			return calc.base['METHOD']
+			return calc.base['method']
 
 
 def _prot(calc):
 		""" protocol print """
-		prot = calc.prot['SCHEME'].lower()
-		if calc.prot['GS_ENERGY_ONLY']:
+		prot = calc.prot['scheme']
+		if calc.prot['GS_energy_ONLY']:
 			prot += ' (gs energy)'
 		else:
 			prot += ' (all props.)'
@@ -179,7 +179,7 @@ def _frozen(mol):
 
 def _active(calc):
 		""" active space print """
-		if calc.ref['METHOD'] == 'HF':
+		if calc.ref['method'] == 'hf':
 			return 'none'
 		else:
 			return '{0:} e / {1:} o'.format(calc.ne_act[0] + calc.ne_act[1], calc.no_act)
@@ -187,47 +187,47 @@ def _active(calc):
 
 def _orbs(calc):
 		""" orbital print """
-		if calc.orbs['OCC'] == 'CAN':
+		if calc.orbs['occ'] == 'can':
 			occ = 'canonical'
-		elif calc.orbs['OCC'] == 'CISD':
-			occ = 'CISD natural'
-		elif calc.orbs['OCC'] == 'CCSD':
-			occ = 'CCSD natural'
-		elif calc.orbs['OCC'] == 'PM':
+		elif calc.orbs['occ'] == 'cisd':
+			occ = 'cisd natural'
+		elif calc.orbs['occ'] == 'ccsd':
+			occ = 'ccsd natural'
+		elif calc.orbs['occ'] == 'pm':
 			occ = 'pipek-mezey'
-		elif calc.orbs['OCC'] == 'FB':
+		elif calc.orbs['occ'] == 'fb':
 			occ = 'foster-boys'
-		elif calc.orbs['OCC'] == 'IBO-1':
+		elif calc.orbs['occ'] == 'ibo-1':
 			occ = 'intrin. bond'
-		elif calc.orbs['OCC'] == 'IBO-2':
+		elif calc.orbs['occ'] == 'ibo-2':
 			occ = 'intrin. bond'
-		if calc.orbs['VIRT'] == 'CAN':
+		if calc.orbs['virt'] == 'can':
 			virt = 'canonical'
-		elif calc.orbs['VIRT'] == 'CISD':
-			virt = 'CISD natural'
-		elif calc.orbs['VIRT'] == 'CCSD':
-			virt = 'CCSD natural'
-		elif calc.orbs['VIRT'] == 'PM':
+		elif calc.orbs['virt'] == 'cisd':
+			virt = 'cisd natural'
+		elif calc.orbs['virt'] == 'ccsd':
+			virt = 'ccsd natural'
+		elif calc.orbs['virt'] == 'pm':
 			virt = 'pipek-mezey'
-		elif calc.orbs['VIRT'] == 'FB':
+		elif calc.orbs['virt'] == 'fb':
 			virt = 'foster-boys'
 		return occ, virt
 
 
 def _mpi(mpi, calc):
 		""" mpi print """
-		return '{0:} / {1:}'.format(calc.mpi['MASTERS'], mpi.global_size - calc.mpi['MASTERS'])
+		return '{0:} / {1:}'.format(calc.mpi['masters'], mpi.global_size - calc.mpi['masters'])
 
 
 def _thres(calc):
 		""" threshold print """
-		return '{0:.0e} / {1:<.1f}'.format(calc.thres['INIT'], calc.thres['RELAX'])
+		return '{0:.0e} / {1:<.1f}'.format(calc.thres['init'], calc.thres['relax'])
 
 
 def _symm(mol, calc):
 		""" symmetry print """
-		if calc.model['METHOD'] == 'FCI':
-			return symm.addons.irrep_id2name(mol.symmetry, calc.state['WFNSYM'])+' ('+mol.symmetry+')'
+		if calc.model['method'] == 'fci':
+			return symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+' ('+mol.symmetry+')'
 		else:
 			return 'unknown'
 
@@ -239,7 +239,7 @@ def _energy(calc, exp):
 				+ calc.prop['hf']['energy'] + calc.base['energy'] \
 				+ (calc.prop['ref']['energy'][0] - calc.base['ref'])]
 		# excited states
-		for i in range(1, calc.state['ROOT']+1):
+		for i in range(1, calc.state['root']+1):
 			energy.append(exp.prop['energy'][i]['tot'] + calc.prop['ref']['energy'][i])
 		return energy
 
@@ -255,7 +255,7 @@ def _dipole(mol, calc, exp):
 						+ calc.prop['hf']['dipole'] \
 						+ calc.prop['ref']['dipole'][0]]
 		# excited states
-		for i in range(1, calc.state['ROOT']+1):
+		for i in range(1, calc.state['root']+1):
 			dipole.append(exp.prop['dipole'][i]['tot'] + calc.prop['ref']['dipole'][i])
 		return dipole, nuc_dipole
 
@@ -367,8 +367,8 @@ def _energy_prt(info, calc, exp):
 						'','|','',info['energy'][0][i] - calc.prop['hf']['energy']))
 		print(DIVIDER[:66]+'\n')
 		# excited states
-		if calc.state['ROOT'] >= 1:
-			for j in range(1, calc.state['ROOT']+1):
+		if calc.state['root'] >= 1:
+			for j in range(1, calc.state['root']+1):
 				print(DIVIDER[:66])
 				string = 'MBE excited state energy (root = {0:})'.format(j)
 				print('{0:^66}'.format(string))
@@ -460,8 +460,8 @@ def _dipole_prt(info, mol, calc, exp):
 						'','|','',np.sqrt(np.sum((info['nuc_dipole'] - info['dipole'][0][i, :])**2))))
 		print(DIVIDER[:82]+'\n')
 		# excited states
-		if calc.state['ROOT'] >= 1:
-			for j in range(1, calc.state['ROOT']+1):
+		if calc.state['root'] >= 1:
+			for j in range(1, calc.state['root']+1):
 				print(DIVIDER[:82])
 				string = 'MBE excited state dipole moment (root = {0:})'.format(j)
 				print('{0:^82}'.format(string))

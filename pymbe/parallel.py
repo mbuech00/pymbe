@@ -54,7 +54,7 @@ def set_mpi(mpi, calc):
 			mpi.prim_master = True
 			mpi.global_rank = mpi.local_rank = 0
 		else:
-			if calc.mpi['MASTERS'] == 1:
+			if calc.mpi['masters'] == 1:
 				mpi.master_comm = mpi.local_comm = mpi.global_comm
 				mpi.local_size = mpi.global_size
 				mpi.local_rank = mpi.global_rank
@@ -64,7 +64,7 @@ def set_mpi(mpi, calc):
 				# array of ranks (global master excluded)
 				ranks = np.arange(1, mpi.global_size)
 				# split into local groups and add global master
-				groups = np.array_split(ranks, calc.mpi['MASTERS']-1)
+				groups = np.array_split(ranks, calc.mpi['masters']-1)
 				groups = [np.array([0])] + groups
 				# extract local master indices and append to global master index
 				masters = [groups[i][0] for i in range(len(groups))]
@@ -114,7 +114,7 @@ def calc(mpi, calc):
 		if mpi.parallel:
 			if mpi.global_master:
 				info = {'model': calc.model, 'target': calc.target, \
-						'ref': calc.ref['METHOD'], 'base': calc.base, \
+						'ref': calc.ref['method'], 'base': calc.base, \
 						'thres': calc.thres, 'prot': calc.prot, \
 						'state': calc.state, 'misc': calc.misc, 'mpi': calc.mpi, \
 						'orbs': calc.orbs, 'restart': calc.restart}
@@ -122,7 +122,7 @@ def calc(mpi, calc):
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.model = info['model']; calc.target = info['target']
-				calc.ref = {'METHOD': info['ref']}; calc.base = info['base']
+				calc.ref = {'method': info['ref']}; calc.base = info['base']
 				calc.thres = info['thres']; calc.prot = info['prot']
 				calc.state = info['state']; calc.misc = info['misc']; calc.mpi = info['mpi']
 				calc.orbs = info['orbs']; calc.restart = info['restart']
@@ -190,7 +190,7 @@ def exp(mpi, calc, exp, comm):
 def prop(calc, exp, comm):
 		""" Allreduce properties """
 		_energy(exp, comm)
-		if calc.target['DIPOLE']:
+		if calc.target['dipole']:
 			_dipole(exp, comm)
 
 

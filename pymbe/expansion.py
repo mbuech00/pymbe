@@ -22,18 +22,17 @@ class ExpCls():
 				""" init parameters """
 				# set expansion model dict
 				self.model = copy.deepcopy(calc.model)
-				self.model['TYPE'] = typ
+				self.model['type'] = typ
 				# init incl_idx, tuples, and hashes
 				self.incl_idx, self.tuples, self.hashes = _init_tup(mol, calc)
 				# init prop dict
-				self.prop = {}
-				self.prop['energy'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
-				if calc.target['DIPOLE']:
-					self.prop['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.state['ROOT']+1)]
+				self.prop = {'energy': [{'inc': [], 'tot': []} for i in range(calc.state['root']+1)]}
+				if calc.target['dipole']:
+					self.prop['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.state['root']+1)]
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
-				if calc.misc['ORDER'] is not None:
-					self.max_order = min(calc.exp_space.size, calc.misc['ORDER'])
+				if calc.misc['order'] is not None:
+					self.max_order = min(calc.exp_space.size, calc.misc['order'])
 				else:
 					self.max_order = calc.exp_space.size
 				# init timings
@@ -42,7 +41,7 @@ class ExpCls():
 				if self.start_order < 3:
 					self.thres = 0.0
 				else:
-					self.thres = calc.thres['INIT'] * calc.thres['RELAX'] ** (self.start_order - 3)
+					self.thres = calc.thres['init'] * calc.thres['relax'] ** (self.start_order - 3)
 				# init order (pre-calc)
 				self.order = 0
 				# restart frequency
@@ -57,9 +56,9 @@ def _init_tup(mol, calc):
 		if calc.no_exp == 0:
 			tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32, order='F')]
 		else:
-			if calc.model['TYPE'] == 'OCC':
+			if calc.model['type'] == 'occ':
 				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32, order='F')]
-			elif calc.model['TYPE'] == 'VIRT':
+			elif calc.model['type'] == 'virt':
 				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32, order='F')]
 		# hashes
 		hashes = [tools.hash_2d(tuples[0])]

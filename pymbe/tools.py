@@ -62,14 +62,14 @@ def hash_compare(a, b):
 		return np.where(np.in1d(a, b))[0]
 
 
-def upper(old_dict):
-		""" capitalize dict keys """
+def dict_conv(old_dict):
+		""" convert dict keys """
 		new_dict = {}
 		for key, value in old_dict.items():
-			if key.upper() in ['METHOD', 'ACTIVE', 'TYPE', 'OCC', 'VIRT', 'SCHEME']:
-				new_dict[key.upper()] = value.upper()
+			if key.lower() in ['method', 'active', 'type', 'occ', 'virt', 'scheme']:
+				new_dict[key.lower()] = value.lower()
 			else:
-				new_dict[key.upper()] = value
+				new_dict[key.lower()] = value
 		return new_dict
 
 

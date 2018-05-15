@@ -60,7 +60,7 @@ def _init():
 		mol = _mol(mpi)
 		calc = _calc(mpi, mol)
 		# set max_mem
-		mol.max_memory = calc.misc['MEM']
+		mol.max_memory = calc.misc['mem']
 		# configure mpi
 		parallel.set_mpi(mpi, calc)
 		# exp object
@@ -97,10 +97,10 @@ def _exp(mpi, mol, calc):
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# exp object
-				if calc.model['TYPE'] != 'COMB':
-					exp = expansion.ExpCls(mol, calc, calc.model['TYPE'])
+				if calc.model['type'] != 'comb':
+					exp = expansion.ExpCls(mol, calc, calc.model['type'])
 				else:
-					# exp.typ = 'OCC' for occ-virt and exp.typ = 'VIRT' for virt-occ combined expansions
+					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
 					raise NotImplementedError('comb expansion not implemented')
 			# no restart
 			else:
@@ -113,17 +113,17 @@ def _exp(mpi, mol, calc):
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
 				# exp object
-				if calc.model['TYPE'] != 'COMB':
-					exp = expansion.ExpCls(mol, calc, calc.model['TYPE'])
+				if calc.model['type'] != 'comb':
+					exp = expansion.ExpCls(mol, calc, calc.model['type'])
 				else:
-					# exp.typ = 'OCC' for occ-virt and exp.typ = 'VIRT' for virt-occ combined expansions
+					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
 					raise NotImplementedError('comb expansion not implemented')
 				# reference calculation
 				ref, calc.mo = kernel.ref(mol, calc, exp)
-				calc.prop['ref']['energy'] = [ref['e'][i] for i in range(calc.state['ROOT']+1)]
+				calc.prop['ref']['energy'] = [ref['e'][i] for i in range(calc.state['root']+1)]
 				calc.base['ref'] = ref['base']
-				if calc.target['DIPOLE']:
-					calc.prop['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.state['ROOT']+1)]
+				if calc.target['dipole']:
+					calc.prop['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.state['root']+1)]
 				# base energy
 				base = kernel.base(mol, calc, exp)
 				calc.base['energy'] = base['e']
@@ -139,10 +139,10 @@ def _exp(mpi, mol, calc):
 			exp.min_order = restart.main(calc, exp)
 		else:
 			# exp object
-			if calc.model['TYPE'] != 'COMB':
-				exp = expansion.ExpCls(mol, calc, calc.model['TYPE'])
+			if calc.model['type'] != 'comb':
+				exp = expansion.ExpCls(mol, calc, calc.model['type'])
 			else:
-				# exp.typ = 'VIRT' for occ-virt and exp.typ = 'OCC' for virt-occ combined expansions
+				# exp.typ = 'virt' for occ-virt and exp.typ = 'occ' for virt-occ combined expansions
 				raise NotImplementedError('comb expansion not implemented')
 		return exp
 

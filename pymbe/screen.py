@@ -50,9 +50,9 @@ def _serial(mol, calc, exp):
 			lst = _test(calc, exp, exp.tuples[-1][i])
 			parent_tup = exp.tuples[-1][i].tolist()
 			for m in lst:
-				if calc.model['TYPE'] == 'OCC':
+				if calc.model['type'] == 'occ':
 					child_tup += [m]+parent_tup
-				elif calc.model['TYPE'] == 'VIRT':
+				elif calc.model['type'] == 'virt':
 					child_tup += parent_tup+[m]
 		# convert child tuple list to array
 		exp.tuples.append(np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1))
@@ -137,9 +137,9 @@ def _master(mpi, mol, calc, exp):
 						lst = _test(calc, exp, exp.tuples[-1][idx])
 						parent_tup = exp.tuples[-1][idx].tolist()
 						for m in lst:
-							if calc.model['TYPE'] == 'OCC':
+							if calc.model['type'] == 'occ':
 								child_tup += [m]+parent_tup
-							elif calc.model['TYPE'] == 'VIRT':
+							elif calc.model['type'] == 'virt':
 								child_tup += parent_tup+[m]
 					# increment job index
 					i += batch
@@ -183,9 +183,9 @@ def _slave(mpi, mol, calc, exp):
 					lst = _test(calc, exp, exp.tuples[-1][idx])
 					parent_tup = exp.tuples[-1][idx].tolist()
 					for m in lst:
-						if calc.model['TYPE'] == 'OCC':
+						if calc.model['type'] == 'occ':
 							child_tup += [m]+parent_tup
-						elif calc.model['TYPE'] == 'VIRT':
+						elif calc.model['type'] == 'virt':
 							child_tup += parent_tup+[m]
 			elif mpi.stat.tag == TAGS.exit:
 				# send tuples to master
@@ -202,9 +202,9 @@ def _slave(mpi, mol, calc, exp):
 def _test(calc, exp, tup):
 		""" screening test """
 		if exp.thres == 0.0:
-			if calc.model['TYPE'] == 'OCC':
+			if calc.model['type'] == 'occ':
 				return [m for m in range(calc.exp_space[0], tup[0])]
-			elif calc.model['TYPE'] == 'VIRT':
+			elif calc.model['type'] == 'virt':
 				return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
 		else:
 			# init return list
@@ -216,10 +216,10 @@ def _test(calc, exp, tup):
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, exp.order-exp.start_order)], dtype=np.int32)
 			# loop over new orbs 'm'
-			if calc.model['TYPE'] == 'OCC':
+			if calc.model['type'] == 'occ':
 				for m in range(calc.exp_space[0], tup[0]):
 					raise NotImplementedError('pymbe/screen.py: _test()')
-			elif calc.model['TYPE'] == 'VIRT':
+			elif calc.model['type'] == 'virt':
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# add orbital m to combinations
 					combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
@@ -238,23 +238,23 @@ def _prot_check(exp, calc, indx, m):
 			return []
 		else:
 			screen = True
-			for i in ['ENERGY', 'DIPOLE']:
-				if i == 'ENERGY':
-					for j in range(calc.state['ROOT']+1):
+			for i in ['energy', 'dipole']:
+				if i == 'energy':
+					for j in range(calc.state['root']+1):
 						prop = exp.prop['energy'][j]['inc'][-1][indx]
-						screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
 						if not screen: break
-				elif i == 'DIPOLE' and calc.target['DIPOLE']:
-					for j in range(calc.state['ROOT']+1):
+				elif i == 'dipole' and calc.target['dipole']:
+					for j in range(calc.state['root']+1):
 						for k in range(3):
 							# (x,y,z) = (0,1,2)
 							prop = exp.prop['dipole'][j]['inc'][-1][indx, k]
-							screen = _prot_scheme(prop, exp.thres, calc.prot['SCHEME'])
+							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
 							if not screen: break
 						if not screen: break
 				if not screen: break
 				# energy only
-				if calc.prot['GS_ENERGY_ONLY']:
+				if calc.prot['GS_energy_ONLY']:
 					break
 			if not screen:
 				return [m]
@@ -265,13 +265,13 @@ def _prot_check(exp, calc, indx, m):
 def _prot_scheme(prop, thres, scheme):
 		""" screen according to chosen scheme """
 		# are *any* increments above the threshold?
-		if scheme == 'NEW':
+		if scheme == 'new':
 			if np.any(np.abs(prop) > thres):
 				return False
 			else:
 				return True
 		# are *all* increments above the threshold?
-		elif scheme == 'OLD':
+		elif scheme == 'old':
 			if np.all(np.abs(prop) > thres):
 				return False
 			else:
@@ -283,6 +283,6 @@ def update(calc, exp):
 		if exp.order < 3:
 			return 0.0
 		else:
-			return calc.thres['INIT'] * calc.thres['RELAX'] ** (exp.order - 3)
+			return calc.thres['init'] * calc.thres['relax'] ** (exp.order - 3)
 
 

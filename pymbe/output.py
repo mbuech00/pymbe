@@ -54,11 +54,11 @@ def exp_header(calc, exp):
 		string = HEADER+'\n'
 		string += '{0:^87}\n'
 		string += HEADER+'\n\n'
-		if calc.model['TYPE'] == 'OCC':
+		if calc.model['type'] == 'occ':
 			form = ('occupied expansion',)
-		elif calc.model['TYPE'] == 'VIRT':
+		elif calc.model['type'] == 'virt':
 			form = ('virtual expansion',)
-		elif calc.model['TYPE'] == 'COMB':
+		elif calc.model['type'] == 'comb':
 			form = ('combined expansion',)
 		_print(string, form)
 
@@ -95,9 +95,9 @@ def mbe_end(calc, exp):
 
 def mbe_results(mol, calc, exp):
 		""" print mbe result statistics """
-		for i in ['ENERGY', 'DIPOLE']:
-			if i == 'ENERGY':
-				for j in range(calc.state['ROOT']+1):
+		for i in ['energy', 'dipole']:
+			if i == 'energy':
+				for j in range(calc.state['root']+1):
 					print(FILL)
 					prop_inc = exp.prop['energy'][j]['inc'][exp.order-exp.start_order]
 					prop_tot = exp.prop['energy'][j]['tot']
@@ -128,8 +128,8 @@ def mbe_results(mol, calc, exp):
 					string += DIVIDER
 					form = (header, mean_val, min_val, max_val)
 					_print(string, form)
-			elif i == 'DIPOLE':
-				for j in range(calc.state['ROOT']+1):
+			elif i == 'dipole':
+				for j in range(calc.state['root']+1):
 					print(FILL)
 					prop_tot = exp.prop['dipole'][j]['tot']
 					# calculate total inc
