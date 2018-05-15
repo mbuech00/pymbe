@@ -200,24 +200,24 @@ def ref(mol, calc, exp):
 				from pyscf.mcscf import avas
 				calc.mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
 			# set properties equal to hf values
-			ref = {'e': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0, \
+			ref = {'energy': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0, \
 					'dipole': [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]}
 			# casscf mo
 			if calc.ref['method'] == 'casscf': calc.mo = _casscf(mol, calc, exp)
 		else:
 			if mol.spin == 0:
 				# set properties equal to hf values
-				ref = {'e': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0, \
+				ref = {'energy': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0, \
 						'dipole': [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]}
 			else:
 				# exp model
 				res = main(mol, calc, exp, calc.model['method'])
 				# e_ref
-				ref = {'e': [res['e'][0]]}
+				ref = {'energy': [res['energy'][0]]}
 				# e_exc_ref
 				if calc.state['root'] >= 1:
 					for i in range(1, calc.state['root']+1):
-						ref['e'].append(res['e'][i])
+						ref['energy'].append(res['energy'][i])
 				# dipole_ref
 				if calc.target['dipole']:
 					ref['dipole'] = [res['dipole'][i] for i in range(calc.state['root']+1)]
@@ -226,19 +226,19 @@ def ref(mol, calc, exp):
 					ref['base'] = 0.0
 				else:
 					if np.abs(ref['e_ref']) < 1.0e-10:
-						ref['base'] = ref['e'][0]
+						ref['base'] = ref['energy'][0]
 					else:
 						res = main(mol, calc, exp, calc.base['method'])
-						ref['base'] = res['e'][0]
+						ref['base'] = res['energy'][0]
 		if mol.debug:
 			string = '\n REF: core = {:} , cas = {:}\n'
 			form = (exp.core_idx.tolist(), exp.cas_idx.tolist())
 			string += '      ground state energy = {:.4e} , ground state base energy = {:.4e}\n'
-			form += (ref['e'][0], ref['base'],)
+			form += (ref['energy'][0], ref['base'],)
 			if calc.state['root'] >= 1:
 				for i in range(1, calc.state['root']+1):
 					string += '      excitation energy for state {:} = {:.4f}\n'
-					form += (i, ref['e'][i],)
+					form += (i, ref['energy'][i],)
 			if calc.target['dipole']:
 				for i in range(calc.state['root']+1):
 					string += '      dipole moment for state {:} = ({:.4f}, {:.4f}, {:.4f})\n'
@@ -264,7 +264,7 @@ def main(mol, calc, exp, method):
 		elif method in ['ccsd','ccsd(t)']:
 			res_tmp = _cc(mol, calc, exp, dens, (method == 'ccsd(t)'))
 		# return correlation energy
-		res = {'e': res_tmp['e']}
+		res = {'energy': res_tmp['energy']}
 		# return first-order properties
 		if calc.target['dipole']:
 			res['dipole'] = [_dipole(mol.dipole, calc.prop['hf']['dipole'], \
@@ -296,12 +296,12 @@ def base(mol, calc, exp):
 		dm = None
 		# zeroth-order energy
 		if calc.base['method'] is None:
-			base = {'e': 0.0}
+			base = {'energy': 0.0}
 		# cisd base
 		elif calc.base['method'] == 'cisd':
 			res = _ci(mol, calc, exp, \
 								calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd')
-			base = {'e': res['e'][0]}
+			base = {'energy': res['energy'][0]}
 			if res['dm'][0] is not None:
 				dm = res['dm'][0]
 				if mol.spin > 0:
@@ -312,7 +312,7 @@ def base(mol, calc, exp):
 								calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd', \
 								(calc.base['method'] == 'ccsd(t)') and \
 								((calc.orbs['occ'] == 'can') and (calc.orbs['virt'] == 'can')))
-			base = {'e': res['e'][0]}
+			base = {'energy': res['energy'][0]}
 			if res['dm'][0] is not None:
 				dm = res['dm'][0]
 				if mol.spin > 0:
@@ -357,7 +357,7 @@ def base(mol, calc, exp):
 		if calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can':
 			if calc.base['method'] == 'ccsd(t)':
 				res = _cc(mol, calc, exp, False, True)[0]
-				base['e'] = res['e'][0]
+				base['energy'] = res['energy'][0]
 		return base
 
 
@@ -492,12 +492,12 @@ def _fci(mol, calc, exp, dens):
 													'core_idx = {2:} , cas_idx = {3:}\n\n').\
 													format(i, mult, exp.core_idx, exp.cas_idx)
 		# e_corr
-		res = {'e': [energy[0] - calc.prop['hf']['energy']]}
+		res = {'energy': [energy[0] - calc.prop['hf']['energy']]}
 #		if exp.order < exp.max_order: e['e_corr'] += np.float64(0.001) * np.random.random_sample()
 		# e_exc
 		if calc.state['root'] >= 1:
 			for i in range(1, calc.state['root']+1):
-				res['e'].append(energy[i] - energy[0])
+				res['energy'].append(energy[i] - energy[0])
 		# fci dm
 		if dens:
 			res['dm'] = [solver.make_rdm1(civec[i], len(exp.cas_idx), nelec) for i in range(calc.state['root']+1)]
@@ -543,7 +543,7 @@ def _ci(mol, calc, exp, dens):
 				sys.stderr.write(str(err))
 				raise
 		# e_corr
-		res = {'e': cisd.e_corr}
+		res = {'energy': cisd.e_corr}
 		# dm
 		res['dm'] = cisd.make_rdm1() if dens else None
 		return res
@@ -593,7 +593,7 @@ def _cc(mol, calc, exp, dens, pt=False):
 				sys.stderr.write(str(err))
 				raise
 		# e_corr
-		res = {'e': ccsd.e_corr}
+		res = {'energy': ccsd.e_corr}
 		# dm
 		if dens and not pt:
 			ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
@@ -604,9 +604,9 @@ def _cc(mol, calc, exp, dens, pt=False):
 		if pt:
 			if np.amin(calc.occup[exp.cas_idx]) == 1.0:
 				if len(np.where(calc.occup[exp.cas_idx] == 1.)[0]) >= 3:
-					res['e'] += ccsd.ccsd_t(eris=eris)
+					res['energy'] += ccsd.ccsd_t(eris=eris)
 			else:
-				res['e'] += ccsd.ccsd_t(eris=eris)
+				res['energy'] += ccsd.ccsd_t(eris=eris)
 		return res
 
 

@@ -184,7 +184,7 @@ def _calc(mpi, mol, calc, exp, idx):
 		""" calculate increments """
 		res = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
 		for i in range(calc.state['root']+1):
-			exp.prop['energy'][i]['inc'][-1][idx] = res['e'][i]
+			exp.prop['energy'][i]['inc'][-1][idx] = res['energy'][i]
 			if calc.target['dipole']:
 				exp.prop['dipole'][i]['inc'][-1][idx] = res['dipole'][i]
 
@@ -195,19 +195,19 @@ def _inc(mpi, mol, calc, exp, tup):
 		exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, tup)
 		# perform calc
 		res = kernel.main(mol, calc, exp, calc.model['method'])
-		inc = {'e': [res['e'][i] - calc.prop['ref']['energy'][i] for i in range(calc.state['root']+1)]}
+		inc = {'energy': [res['energy'][i] - calc.prop['ref']['energy'][i] for i in range(calc.state['root']+1)]}
 		if calc.target['dipole']:
 			inc['dipole'] = [res['dipole'][i] - calc.prop['ref']['dipole'][i] for i in range(calc.state['root']+1)]
 		if calc.base['method'] is None:
 			e_base = 0.0
 		else:
 			res = kernel.main(mol, calc, exp, calc.base['method'])
-			e_base = res['e'][0]
+			e_base = res['energy'][0]
 		# calc increments
-		inc['e'][0] -= e_base
+		inc['energy'][0] -= e_base
 		if exp.order > exp.start_order:
 			res = _sum(calc, exp, tup)
-			inc['e'] = [inc['e'][i] - res['e'][i] for i in range(calc.state['root']+1)]
+			inc['energy'] = [inc['energy'][i] - res['energy'][i] for i in range(calc.state['root']+1)]
 			if calc.target['dipole']:
 				inc['dipole'] = [inc['dipole'][i] - res['dipole'][i] for i in range(calc.state['root']+1)]
 		# debug print
@@ -215,11 +215,11 @@ def _inc(mpi, mol, calc, exp, tup):
 			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
 			form = (mpi.local_rank, exp.core_idx.tolist(), exp.cas_idx.tolist())
 			string += '      ground state correlation energy = {:.4e}\n'
-			form += (inc['e'][0],)
+			form += (inc['energy'][0],)
 			if calc.state['root'] >= 1:
 				for i in range(calc.state['root']+1):
 					string += '      excitation energy for state {:} = {:.4e}\n'
-					form += (i, inc['e'][i],)
+					form += (i, inc['energy'][i],)
 			if calc.target['dipole']:
 				for i in range(calc.state['root']+1):
 					string += '      dipole moment for state {:} = ({:.4e}, {:.4e}, {:.4e})\n'
@@ -231,7 +231,7 @@ def _inc(mpi, mol, calc, exp, tup):
 def _sum(calc, exp, tup):
 		""" recursive summation """
 		# init res
-		res = {'e': [0.0 for i in range(calc.state['root']+1)]}
+		res = {'energy': [0.0 for i in range(calc.state['root']+1)]}
 		if calc.target['dipole']:
 			res['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
 		# compute contributions from lower-order increments
@@ -248,7 +248,7 @@ def _sum(calc, exp, tup):
 			indx = tools.hash_compare(exp.hashes[i-1], combs)
 			# add up lower-order increments
 			for j in range(calc.state['root']+1):
-				res['e'][j] += tools.fsum(exp.prop['energy'][j]['inc'][i-1][indx])
+				res['energy'][j] += tools.fsum(exp.prop['energy'][j]['inc'][i-1][indx])
 				if calc.target['dipole']:
 					res['dipole'][j] += tools.fsum(exp.prop['dipole'][j]['inc'][i-1][indx, :])
 		return res

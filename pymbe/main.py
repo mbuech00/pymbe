@@ -120,13 +120,13 @@ def _exp(mpi, mol, calc):
 					raise NotImplementedError('comb expansion not implemented')
 				# reference calculation
 				ref, calc.mo = kernel.ref(mol, calc, exp)
-				calc.prop['ref']['energy'] = [ref['e'][i] for i in range(calc.state['root']+1)]
+				calc.prop['ref']['energy'] = [ref['energy'][i] for i in range(calc.state['root']+1)]
 				calc.base['ref'] = ref['base']
 				if calc.target['dipole']:
 					calc.prop['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.state['root']+1)]
 				# base energy
 				base = kernel.base(mol, calc, exp)
-				calc.base['energy'] = base['e']
+				calc.base['energy'] = base['energy']
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:
