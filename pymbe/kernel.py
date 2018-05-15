@@ -442,6 +442,7 @@ def _fci(mol, calc, exp, dens):
 			solver = fci.direct_spin1_symm.FCI(mol)
 		# settings
 		solver.conv_tol = 1.0e-10
+		if calc.prop['DIPOLE']: solver.conv_tol_residual = 1.0e-07
 		solver.max_cycle = 500
 		solver.max_space = 25
 		solver.davidson_only = True
@@ -468,13 +469,17 @@ def _fci(mol, calc, exp, dens):
 		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=mol.e_core)
 		# collect results
 		if solver.nroots == 1:
-			assert solver.converged, 'FCI: ground state not converged'
+			assert solver.converged, ('FCI: ground state not converged\n\n'
+										'core_idx = {0:} , cas_idx = {1:}\n\n').\
+										format(exp.core_idx, exp.cas_idx)
 			energy = [e]
 			civec = [c]
 		else:
 			assert len(solver.converged) == solver.nroots, 'FCI: problem with multiple roots'
 			for i in range(calc.state['ROOT']+1):
-				assert solver.converged[i], 'FCI: state {:} not converged'.format(i)
+				assert solver.converged[i], ('FCI: state {0:} not converged\n\n'
+											'core_idx = {1:} , cas_idx = {2:}\n\n').\
+											format(i, exp.core_idx, exp.cas_idx)
 			energy = e
 			civec = c
 		# sanity check
@@ -565,7 +570,7 @@ def _cc(mol, calc, exp, dens, pt=False):
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
 		ccsd.conv_tol = 1.0e-10
-		if dens: ccsd.conv_tol_normt = 1.0e-10
+		if dens: ccsd.conv_tol_normt = 1.0e-07
 		ccsd.max_cycle = 500
 		if exp.order > 0:
 			# avoid async function execution if requested
