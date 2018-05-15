@@ -55,11 +55,11 @@ def exp_header(calc, exp):
 		string += '{0:^87}\n'
 		string += HEADER+'\n\n'
 		if calc.model['TYPE'] == 'OCC':
-			form = ('occupied expansion')
+			form = ('occupied expansion',)
 		elif calc.model['TYPE'] == 'VIRT':
-			form = ('virtual expansion')
+			form = ('virtual expansion',)
 		elif calc.model['TYPE'] == 'COMB':
-			form = ('combined expansion')
+			form = ('combined expansion',)
 		_print(string, form)
 
 
@@ -173,9 +173,9 @@ def mbe_results(mol, calc, exp):
 						string += DIVIDER
 						form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 					_print(string, form)
-		print(FILL)
-		# closing if no screening follows
-		if exp.order == exp.max_order:
+		if exp.order < exp.max_order:
+			print(FILL)
+		else:
 			with open(OUT+'/output.out','a') as f:
 				with contextlib.redirect_stdout(f):
 					print('\n\n')

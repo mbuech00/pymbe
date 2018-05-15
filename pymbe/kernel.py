@@ -473,8 +473,8 @@ def _fci(mol, calc, exp, dens):
 			civec = [c]
 		else:
 			assert len(solver.converged) == solver.nroots, 'FCI: problem with multiple roots'
-			assert solver.converged[0], 'FCI: ground state not converged'
-			assert solver.converged[-1], 'FCI: excited state not converged'
+			for i in range(calc.state['ROOT']+1):
+				assert solver.converged[i], 'FCI: state {:} not converged'.format(i)
 			energy = e
 			civec = c
 		# sanity check
