@@ -108,6 +108,10 @@ def _plot(info, calc, exp):
 			# plot MBE dipole moment
 			if calc.target['dipole']:
 				_dipole_plot(info, calc, exp, i)
+			if calc.target['trans']:
+				if i > 0:
+					_trans_plot(info, calc, exp, i)
+					_osc_strength_plot(info, calc, exp, i)
 
 
 def _model_type(calc):
@@ -552,18 +556,124 @@ def _dipole_plot(info, calc, exp, root):
 def _trans_prt(info, calc, exp):
 		""" transition dipole moments """
 		for j in range(1, calc.state['root']+1):
-			print(DIVIDER[:78])
-			string = 'MBE transition dipole moment (excitation {:} --> {:})'.format(0, j)
-			print('{0:^78}'.format(string))
-			print(DIVIDER[:78])
-			print('{0:6}{1:9}{2:2}{3:1}{4:4}{5:24}{6:4}{7:1}{8:5}{9:}'. \
-					format('','MBE order','','|','','transition dipole moment','','|','','oscillator strength'))
-			print(DIVIDER[:78])
+			print(DIVIDER[:109])
+			string = 'MBE transition dipole moment (excitation {:} > {:})'.format(0, j)
+			print('{0:^109}'.format(string))
+			print(DIVIDER[:109])
+			print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:3}{11:1}{12:4}{13:}'. \
+					format('','MBE order','','|','','dipole components (x,y,z)', \
+							'','|','','dipole moment','','|','','oscillator strength'))
+			print(DIVIDER[:109])
 			for i in range(info['final_order']):
-				print('{0:7}{1:>4d}{2:6}{3:1}{4:12}{5:9.6f}{6:11}{7:1}{8:10}{9:9.6f}'. \
+				print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+					'{10:5}{11:1}{12:6}{13:9.6f}{14:6}{15:1}{16:8}{17:9.6f}'. \
 						format('',i+exp.start_order, \
-							'','|','',info['trans'][j-1][i], \
-							'','|','',(2./3.) * info['energy'][j][i] * info['trans'][j-1][i]**2))
-			print(DIVIDER[:78]+'\n')
+							'','|','',info['trans'][j-1][i, 0], \
+							'',info['trans'][j-1][i, 1], \
+							'',info['trans'][j-1][i, 2], \
+							'','|','',np.linalg.norm(info['trans'][j-1][i, :]), \
+							'','|','',(2./3.) * info['energy'][j][i] * np.linalg.norm(info['trans'][j-1][i, :])**2))
+			print(DIVIDER[:109]+'\n')
+
+
+def _trans_plot(info, calc, exp, root):
+		""" plot MBE transition dipole moment for excitation between states 0 and 'root' """
+		# set seaborn
+		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 2 subplots
+		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+		# array of total MBE transition dipole moment
+		trans = np.empty(info['final_order'], dtype=np.float64)
+		for i in range(info['final_order']):
+			trans[i] = np.linalg.norm(info['trans'][root-1][i, :])
+		# plot results
+		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
+				trans, marker='x', linewidth=2, color=sns.xkcd_rgb['dark magenta'], \
+				linestyle='-', label='excitation {:} --> {:}'.format(0, root))
+		# set x limits
+		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax1.xaxis.grid(False)
+		# set labels
+		ax1.set_ylabel('Transition dipole (in au)')
+		# force integer ticks on x-axis
+		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
+		# array of MBE total transition dipole increments
+		mbe = trans.copy()
+		mbe[1:] = np.diff(mbe)
+		# plot results
+		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
+				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['dark magenta'], \
+				linestyle='-', label='excitation {:} > {:}'.format(0, root))
+		# set x limits
+		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax2.xaxis.grid(False)
+		# set labels
+		ax2.set_xlabel('Expansion order')
+		ax2.set_ylabel('Increments (in au)')
+		# force integer ticks on x-axis
+		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# no spacing
+		plt.subplots_adjust(hspace=0.05)
+		# despine
+		sns.despine()
+		# set legend
+		ax1.legend(loc=1)
+		# save plot
+		plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'.format(0, root), bbox_inches = 'tight', dpi=1000)
+
+
+def _osc_strength_plot(info, calc, exp, root):
+		""" plot MBE oscillator strength for excitation between states 0 and 'root' """
+		# set seaborn
+		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 2 subplots
+		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+		# array of total MBE oscillator strength
+		osc_strength = np.empty(info['final_order'], dtype=np.float64)
+		for i in range(info['final_order']):
+			osc_strength[i] = (2./3.) * info['energy'][root][i] * np.linalg.norm(info['trans'][root-1][i, :])**2
+		# plot results
+		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
+				osc_strength, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
+				linestyle='-', label='excitation {:} --> {:}'.format(0, root))
+		# set x limits
+		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax1.xaxis.grid(False)
+		# set labels
+		ax1.set_ylabel('Oscillator strength (in au)')
+		# force integer ticks on x-axis
+		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
+		# array of MBE total oscillator strength increments
+		mbe = osc_strength.copy()
+		mbe[1:] = np.diff(mbe)
+		# plot results
+		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
+				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
+				linestyle='-', label='excitation {:} > {:}'.format(0, root))
+		# set x limits
+		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
+		# turn off x-grid
+		ax2.xaxis.grid(False)
+		# set labels
+		ax2.set_xlabel('Expansion order')
+		ax2.set_ylabel('Increments (in au)')
+		# force integer ticks on x-axis
+		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# no spacing
+		plt.subplots_adjust(hspace=0.05)
+		# despine
+		sns.despine()
+		# set legend
+		ax1.legend(loc=1)
+		# save plot
+		plt.savefig(OUT+'/osc_strength_states_{:}_{:}.pdf'.format(0, root), bbox_inches = 'tight', dpi=1000)
+
 
 

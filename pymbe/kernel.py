@@ -189,7 +189,7 @@ def ref(mol, calc, exp):
 			if calc.target['dipole']:
 				ref['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
 			if calc.target['trans']:
-				ref['trans'] = [0.0 for i in range(calc.state['root'])]
+				ref['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root'])]
 			# casscf mo
 			if calc.ref['method'] == 'casscf': calc.mo = _casscf(mol, calc, exp)
 		else:
@@ -199,7 +199,7 @@ def ref(mol, calc, exp):
 				if calc.target['dipole']:
 					ref['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
 				if calc.target['trans']:
-					ref['trans'] = [0.0 for i in range(calc.state['root'])]
+					ref['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root'])]
 			else:
 				# exp model
 				res = main(mol, calc, exp, calc.model['method'])
@@ -239,8 +239,8 @@ def ref(mol, calc, exp):
 					form += (i, *ref['dipole'][i],)
 			if calc.target['trans']:
 				for i in range(1, calc.state['root']+1):
-					string += '      transition dipole moment for excitation {:} --> {:} = {:.4f}\n'
-					form += (0, i, ref['trans'][i-1],)
+					string += '      transition dipole moment for excitation {:} > {:} = ({:.4f}, {:.4f}, {:.4f})\n'
+					form += (0, i, *ref['trans'][i-1],)
 			print(string.format(*form))
 		return ref, calc.mo
 
@@ -265,7 +265,7 @@ def main(mol, calc, exp, method):
 			if calc.state['root'] >= 1:
 				res['dipole'][1:] = [res['dipole'][i] - res['dipole'][0] for i in range(1, calc.state['root']+1)]
 		if calc.target['trans']:
-			res['trans'] = [_trans(mol.dipole, calc.occup, exp.cas_idx, calc.mo, \
+			res['trans'] = [_trans(res_tmp['hf_weight'][0], res_tmp['hf_weight'][i+1], mol.dipole, calc.occup, exp.cas_idx, calc.mo, \
 										res_tmp['t_rdm1'][i]) for i in range(calc.state['root'])]
 		return res
 
@@ -285,10 +285,9 @@ def _dipole(ints, occup, cas_idx, mo, cas_rdm1, hf_dipole=None):
 			return elec_dipole - hf_dipole
 
 
-def _trans(ints, occup, cas_idx, mo, cas_t_rdm1):
+def _trans(hf_weight_gs, hf_weight_ex, ints, occup, cas_idx, mo, cas_t_rdm1):
 		""" calculate electronic transition dipole moment """
-		trans = _dipole(ints, occup, cas_idx, mo, cas_t_rdm1)
-		return np.linalg.norm(trans)
+		return _dipole(ints, occup, cas_idx, mo, cas_t_rdm1) * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
 def base(mol, calc, exp):
@@ -502,6 +501,7 @@ def _fci(mol, calc, exp):
 			res['rdm1'] = [solver.make_rdm1(civec[i], len(exp.cas_idx), nelec) for i in range(calc.state['root']+1)]
 		if calc.target['trans']:
 			res['t_rdm1'] = [solver.trans_rdm1(civec[0], civec[i], len(exp.cas_idx), nelec) for i in range(1, calc.state['root']+1)]
+			res['hf_weight'] = [civec[i][0, 0] for i in range(calc.state['root']+1)]
 		return res
 
 

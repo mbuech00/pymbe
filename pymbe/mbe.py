@@ -40,7 +40,7 @@ def main(mpi, mol, calc, exp):
 					exp.prop['dipole'][i]['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 				if calc.target['trans']:
 					if i < calc.state['root']:
-						exp.prop['trans'][i]['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+						exp.prop['trans'][i]['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
@@ -242,8 +242,8 @@ def _inc(mpi, mol, calc, exp, tup):
 					form += (i, *inc['dipole'][i],)
 			if calc.target['trans']:
 				for i in range(1, calc.state['root']+1):
-					string += '      transition dipole moment for excitation {:} --> {:} = {:.4e}\n'
-					form += (0, i, inc['trans'][i-1],)
+					string += '      transition dipole moment for excitation {:} > {:} = ({:.4e}, {:.4e}, {:.4e})\n'
+					form += (0, i, *inc['trans'][i-1],)
 			print(string.format(*form))
 		return inc
 
@@ -255,7 +255,7 @@ def _sum(calc, exp, tup):
 		if calc.target['dipole']:
 			res['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
 		if calc.target['trans']:
-			res['trans'] = [0.0 for i in range(calc.state['root'])]
+			res['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root'])]
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
 			# generate array with all subsets of particular tuple (manually adding active orbs)
@@ -275,7 +275,7 @@ def _sum(calc, exp, tup):
 					res['dipole'][j] += tools.fsum(exp.prop['dipole'][j]['inc'][i-1][indx, :])
 				if calc.target['trans']:
 					if j < calc.state['root']:
-						res['trans'][j] += tools.fsum(exp.prop['trans'][j]['inc'][i-1][indx])
+						res['trans'][j] += tools.fsum(exp.prop['trans'][j]['inc'][i-1][indx, :])
 		return res
 
 

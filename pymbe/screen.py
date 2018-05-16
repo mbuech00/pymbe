@@ -255,8 +255,11 @@ def _prot_check(exp, calc, indx, m):
 							if not screen: break
 					elif i == 'trans':
 						for j in range(calc.state['root']):
-							prop = exp.prop['trans'][j]['inc'][-1][indx]
-							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
+							for k in range(3):
+								# (x,y,z) = (0,1,2)
+								prop = exp.prop['trans'][j]['inc'][-1][indx, k]
+								screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
+								if not screen: break
 							if not screen: break
 				if not screen: break
 				# energy only
