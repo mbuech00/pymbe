@@ -589,7 +589,7 @@ def _trans_plot(info, calc, exp, root):
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				trans, marker='x', linewidth=2, color=sns.xkcd_rgb['dark magenta'], \
-				linestyle='-', label='excitation {:} --> {:}'.format(0, root))
+				linestyle='-', label='excitation {:} > {:}'.format(0, root))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -639,7 +639,7 @@ def _osc_strength_plot(info, calc, exp, root):
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				osc_strength, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
-				linestyle='-', label='excitation {:} --> {:}'.format(0, root))
+				linestyle='-', label='excitation {:} > {:}'.format(0, root))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
