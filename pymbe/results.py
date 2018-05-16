@@ -41,12 +41,15 @@ def main(mpi, mol, calc, exp):
 			exp.prop['energy'][i]['tot'] = np.asarray(exp.prop['energy'][i]['tot'])
 			if calc.target['dipole']:
 				exp.prop['dipole'][i]['tot'] = np.asarray(exp.prop['dipole'][i]['tot'])
+			if calc.target['trans']:
+				if i < calc.state['root']:
+					exp.prop['trans'][i]['tot'] = np.asarray(exp.prop['trans'][i]['tot'])
 		# setup
 		info = {}
 		info['model_type'], info['basis'], info['mult'], info['ref'], info['base'], info['prot'], \
 			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
 			info['mpi'], info['thres'], info['symm'], \
-			info['energy'], info['dipole'], info['nuc_dipole'] = _setup(mpi, mol, calc, exp)
+			info['energy'], info['dipole'], info['nuc_dipole'], info['trans'] = _setup(mpi, mol, calc, exp)
 		info['final_order'] = info['energy'][0].size
 		# results
 		_table(info, mol, calc, exp)
@@ -74,9 +77,13 @@ def _setup(mpi, mol, calc, exp):
 			dipole, nuc_dipole = _dipole(mol, calc, exp)
 		else:
 			dipole = nuc_dipole = None
+		if calc.target['trans']:
+			trans = _trans(mol, calc, exp)
+		else:
+			trans = None
 		return model_type, basis, mult, ref, base, prot, system, frozen, \
 				active, occ, virt, mpi, thres, symm, \
-				energy, dipole, nuc_dipole
+				energy, dipole, nuc_dipole, trans
 
 
 def _table(info, mol, calc, exp):
@@ -88,7 +95,9 @@ def _table(info, mol, calc, exp):
 				_timings_prt(info, exp)
 				_energy_prt(info, calc, exp)
 				if calc.target['dipole']:
-					_dipole_prt(info, mol, calc, exp)
+					_dipole_prt(info, calc, exp)
+				if calc.target['trans']:
+					_trans_prt(info, calc, exp)
 	
 
 def _plot(info, calc, exp):
@@ -260,6 +269,11 @@ def _dipole(mol, calc, exp):
 		return dipole, nuc_dipole
 
 
+def _trans(mol, calc, exp):
+		""" final molecular transition dipole moments """
+		return [exp.prop['trans'][i]['tot'] + calc.prop['ref']['trans'][i] for i in range(calc.state['root'])]
+
+
 def _time(exp, comp, idx):
 		""" convert time to (HHH : MM : SS) format """
 		if comp != 'total':
@@ -357,8 +371,8 @@ def _energy_prt(info, calc, exp):
 		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:4}{9:}'. \
 				format('','MBE order','','|','','total energy','','|','','correlation energy'))
 		print(DIVIDER[:66])
-		print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:^12}'. \
-				format('',0,'','|','',calc.prop['hf']['energy'],'','|','','none'))
+		print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:}'. \
+				format('',0,'','|','',calc.prop['hf']['energy'],'','|','',''))
 		print(DIVIDER[:66])
 		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:9.4e}'. \
@@ -370,7 +384,7 @@ def _energy_prt(info, calc, exp):
 		if calc.state['root'] >= 1:
 			for j in range(1, calc.state['root']+1):
 				print(DIVIDER[:66])
-				string = 'MBE excited state energy (root = {0:})'.format(j)
+				string = 'MBE excited state energy (root = {:})'.format(j)
 				print('{0:^66}'.format(string))
 				print(DIVIDER[:66])
 				print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:5}{9:}'. \
@@ -433,7 +447,7 @@ def _energies_plot(info, calc, exp, root):
 		plt.savefig(OUT+'/energy_state_{:}.pdf'.format(root), bbox_inches = 'tight', dpi=1000)
 
 
-def _dipole_prt(info, mol, calc, exp):
+def _dipole_prt(info, calc, exp):
 		""" dipole moments """
 		# ground state
 		print(DIVIDER[:82])
@@ -448,7 +462,7 @@ def _dipole_prt(info, mol, calc, exp):
 					'','|','',info['nuc_dipole'][0] - calc.prop['hf']['dipole'][0], \
 					'',info['nuc_dipole'][1] - calc.prop['hf']['dipole'][1], \
 					'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2], \
-					'','|','',np.sqrt(np.sum((info['nuc_dipole'] - calc.prop['hf']['dipole'])**2))))
+					'','|','',np.linalg.norm(info['nuc_dipole'] - calc.prop['hf']['dipole'])))
 		print(DIVIDER[:82])
 		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
@@ -457,13 +471,13 @@ def _dipole_prt(info, mol, calc, exp):
 						'','|','',info['nuc_dipole'][0] - info['dipole'][0][i, 0], \
 						'',info['nuc_dipole'][1] - info['dipole'][0][i, 1], \
 						'',info['nuc_dipole'][2] - info['dipole'][0][i, 2], \
-						'','|','',np.sqrt(np.sum((info['nuc_dipole'] - info['dipole'][0][i, :])**2))))
+						'','|','',np.linalg.norm(info['nuc_dipole'] - info['dipole'][0][i, :])))
 		print(DIVIDER[:82]+'\n')
 		# excited states
 		if calc.state['root'] >= 1:
 			for j in range(1, calc.state['root']+1):
 				print(DIVIDER[:82])
-				string = 'MBE excited state dipole moment (root = {0:})'.format(j)
+				string = 'MBE excited state dipole moment (root = {:})'.format(j)
 				print('{0:^82}'.format(string))
 				print(DIVIDER[:82])
 				print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:}'. \
@@ -476,8 +490,7 @@ def _dipole_prt(info, mol, calc, exp):
 								'','|','',info['nuc_dipole'][0] - (info['dipole'][j][i, 0] + info['dipole'][0][i, 0]), \
 								'',info['nuc_dipole'][1] - (info['dipole'][j][i, 1] + info['dipole'][0][i, 1]), \
 								'',info['nuc_dipole'][2] - (info['dipole'][j][i, 2] + info['dipole'][0][i, 2]), \
-								'','|','',np.sqrt(np.sum((info['nuc_dipole'] - (info['dipole'][0][i, :] \
-																+ info['dipole'][j][i, :]))**2))))
+								'','|','',np.linalg.norm(info['nuc_dipole'] - (info['dipole'][0][i, :] + info['dipole'][j][i, :]))))
 				print(DIVIDER[:82]+'\n')
 
 
@@ -491,9 +504,9 @@ def _dipole_plot(info, calc, exp, root):
 		dipole = np.empty(info['final_order'], dtype=np.float64)
 		for i in range(info['final_order']):
 			if root == 0:
-				dipole[i] = np.sqrt(np.sum((info['nuc_dipole'] - info['dipole'][root][i, :])**2))
+				dipole[i] = np.linalg.norm(info['nuc_dipole'] - info['dipole'][root][i, :])
 			else:
-				dipole[i] = np.sqrt(np.sum((info['nuc_dipole'] - (info['dipole'][0][i, :] + info['dipole'][root][i, :]))**2))
+				dipole[i] = np.linalg.norm(info['nuc_dipole'] - (info['dipole'][0][i, :] + info['dipole'][root][i, :]))
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				dipole, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
@@ -510,7 +523,7 @@ def _dipole_plot(info, calc, exp, root):
 		# array of MBE total dipole increments
 		mbe = np.empty_like(dipole)
 		for i in range(mbe.size):
-			mbe[i] = np.sqrt(np.sum(exp.prop['dipole'][root]['tot'][i, :]**2))
+			mbe[i] = np.linalg.norm(exp.prop['dipole'][root]['tot'][i, :])
 		mbe[1:] = np.diff(mbe)
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
@@ -534,5 +547,23 @@ def _dipole_plot(info, calc, exp, root):
 		ax1.legend(loc=1)
 		# save plot
 		plt.savefig(OUT+'/dipole_state_{:}.pdf'.format(root), bbox_inches = 'tight', dpi=1000)
+
+
+def _trans_prt(info, calc, exp):
+		""" transition dipole moments """
+		for j in range(1, calc.state['root']+1):
+			print(DIVIDER[:78])
+			string = 'MBE transition dipole moment (excitation {:} --> {:})'.format(0, j)
+			print('{0:^78}'.format(string))
+			print(DIVIDER[:78])
+			print('{0:6}{1:9}{2:2}{3:1}{4:4}{5:24}{6:4}{7:1}{8:5}{9:}'. \
+					format('','MBE order','','|','','transition dipole moment','','|','','oscillator strength'))
+			print(DIVIDER[:78])
+			for i in range(info['final_order']):
+				print('{0:7}{1:>4d}{2:6}{3:1}{4:12}{5:9.6f}{6:11}{7:1}{8:10}{9:9.6f}'. \
+						format('',i+exp.start_order, \
+							'','|','',info['trans'][j-1][i], \
+							'','|','',(2./3.) * info['energy'][j][i] * info['trans'][j-1][i]**2))
+			print(DIVIDER[:78]+'\n')
 
 

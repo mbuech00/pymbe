@@ -95,49 +95,57 @@ def mbe_end(calc, exp):
 
 def mbe_results(mol, calc, exp):
 		""" print mbe result statistics """
-		for i in ['energy', 'dipole']:
-			if i == 'energy':
-				for j in range(calc.state['root']+1):
-					print(FILL)
-					prop_inc = exp.prop['energy'][j]['inc'][exp.order-exp.start_order]
-					prop_tot = exp.prop['energy'][j]['tot']
-					# statistics
-					mean_val = np.mean(prop_inc)
-					min_idx = np.argmin(np.abs(prop_inc))
-					min_val = prop_inc[min_idx]
-					max_idx = np.argmax(np.abs(prop_inc))
-					max_val = prop_inc[max_idx]
-					# calculate total inc
-					if len(prop_tot) == 1:
-						tot_inc = prop_tot[0]
-					else:
-						tot_inc = prop_tot[-1] - prop_tot[-2]
-					# set header
-					if j == 0:
-						header = 'ground state energy (total increment = {:.4e})'.format(tot_inc)
-					else:
-						header = 'excitation energy for root {:} (total increment = {:.4e})'.format(j, tot_inc)
-					# set string
-					string = DIVIDER+'\n'
-					string += ' RESULT:{:^81}\n'
-					string += DIVIDER+'\n'
-					string += DIVIDER+'\n'
-					string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
-					string += DIVIDER+'\n'
-					string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
-					string += DIVIDER
-					form = (header, mean_val, min_val, max_val)
-					_print(string, form)
-			elif i == 'dipole':
-				if calc.target['dipole']:
+		for i in ['energy', 'dipole', 'trans']:
+			if calc.target[i]:
+				if i in ['energy', 'trans']:
+					for j in range(calc.state['root']+1):
+						if i == 'energy' or (i == 'trans' and j > 0):
+							print(FILL)
+							if i == 'energy':
+								prop_inc = exp.prop['energy'][j]['inc'][exp.order-exp.start_order]
+								prop_tot = exp.prop['energy'][j]['tot']
+							elif i == 'trans':
+								prop_inc = exp.prop['trans'][j-1]['inc'][exp.order-exp.start_order]
+								prop_tot = exp.prop['trans'][j-1]['tot']
+							# statistics
+							mean_val = np.mean(prop_inc)
+							min_idx = np.argmin(np.abs(prop_inc))
+							min_val = prop_inc[min_idx]
+							max_idx = np.argmax(np.abs(prop_inc))
+							max_val = prop_inc[max_idx]
+							# calculate total inc
+							if len(prop_tot) == 1:
+								tot_inc = prop_tot[0]
+							else:
+								tot_inc = prop_tot[-1] - prop_tot[-2]
+							# set header
+							if j == 0:
+								header = 'ground state energy (total increment = {:.4e})'.format(tot_inc)
+							else:
+								if i == 'energy':
+									header = 'excitation energy for root {:} (total increment = {:.4e})'.format(j, tot_inc)
+								elif i == 'trans':
+									header = 'transition dipole for excitation {:} --> {:} (total increment = {:.4e})'.format(0, j, tot_inc)
+							# set string
+							string = DIVIDER+'\n'
+							string += ' RESULT:{:^81}\n'
+							string += DIVIDER+'\n'
+							string += DIVIDER+'\n'
+							string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+							string += DIVIDER+'\n'
+							string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+							string += DIVIDER
+							form = (header, mean_val, min_val, max_val)
+							_print(string, form)
+				elif i == 'dipole':
 					for j in range(calc.state['root']+1):
 						print(FILL)
 						prop_tot = exp.prop['dipole'][j]['tot']
 						# calculate total inc
 						if len(prop_tot) == 1:
-							tot_inc = np.sqrt(np.sum(prop_tot[0]**2))
+							tot_inc = np.linalg.norm(prop_tot[0])
 						else:
-							tot_inc = np.sqrt(np.sum(prop_tot[-1]**2)) - np.sqrt(np.sum(prop_tot[-2]**2))
+							tot_inc = np.linalg.norm(prop_tot[-1]) - np.linalg.norm(prop_tot[-2])
 						# set header
 						if j == 0:
 							header = 'ground state dipole moment (total increment = {:.4e})'.format(tot_inc)

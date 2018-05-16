@@ -27,7 +27,7 @@ class CalcCls():
 				""" init parameters """
 				# set defaults
 				self.model = {'method': 'fci', 'type': 'virt'}
-				self.target = {'energy': True, 'dipole': False}
+				self.target = {'energy': True, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new', 'GS_energy_ONLY': False}
 				self.ref = {'method': 'hf'}
 				self.base = {'method': None}
@@ -223,12 +223,16 @@ class CalcCls():
 					# targets
 					if not all(isinstance(i, bool) for i in self.target.values()):
 						raise ValueError('wrong input -- values in target input (target) must be bools (True, False)')
-					if not set(list(self.target.keys())) <= set(['energy', 'dipole']):
-						raise ValueError('wrong input -- valid choices for target properties are: energy and dipole')
+					if not set(list(self.target.keys())) <= set(['energy', 'dipole', 'trans']):
+						raise ValueError('wrong input -- valid choices for target properties are: energy, dipole, and transition dipole (trans)')
 					if not self.target['energy']:
 						raise ValueError('wrong input -- calculation of ground state energy (energy) is mandatory')
 					if self.target['dipole'] and self.base['method'] is not None:
 						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
+					if self.target['trans'] and self.base['method'] is not None:
+						raise ValueError('wrong input -- calculation of transition dipole moment (trans) is only allowed in the absence of a base model')
+					if self.target['trans'] and self.state['root'] == 0:
+						raise ValueError('wrong input -- calculation of transition dipole moment (trans) requires target state root >= 1')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
 						raise ValueError('wrong input -- values in prot input (prot) must be string and bools (True, False)')

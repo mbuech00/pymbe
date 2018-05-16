@@ -29,6 +29,8 @@ class ExpCls():
 				self.prop = {'energy': [{'inc': [], 'tot': []} for i in range(calc.state['root']+1)]}
 				if calc.target['dipole']:
 					self.prop['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.state['root']+1)]
+				if calc.target['trans']:
+					self.prop['trans'] = [{'inc': [], 'tot': []} for i in range(calc.state['root'])]
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				if calc.misc['order'] is not None:

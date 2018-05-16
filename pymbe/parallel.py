@@ -189,23 +189,32 @@ def exp(mpi, calc, exp, comm):
 
 def prop(calc, exp, comm):
 		""" Allreduce properties """
-		_energy(exp, comm)
+		_energy(calc, exp, comm)
 		if calc.target['dipole']:
-			_dipole(exp, comm)
+			_dipole(calc, exp, comm)
+		if calc.target['trans']:
+			_trans(calc, exp, comm)
 
 
-def _energy(exp, comm):
+def _energy(calc, exp, comm):
 		""" Allreduce energies """
 		# Allreduce
-		for i in range(len(exp.prop['energy'])):
+		for i in range(calc.state['root']+1):
 			comm.Allreduce(MPI.IN_PLACE, [exp.prop['energy'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
-def _dipole(exp, comm):
+def _dipole(calc, exp, comm):
 		""" Allreduce dipole moments """
 		# Allreduce
-		for i in range(len(exp.prop['dipole'])):
+		for i in range(calc.state['root']+1):
 			comm.Allreduce(MPI.IN_PLACE, [exp.prop['dipole'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+
+
+def _trans(calc, exp, comm):
+		""" Allreduce transition dipole moments """
+		# Allreduce
+		for i in range(calc.state['root']):
+			comm.Allreduce(MPI.IN_PLACE, [exp.prop['trans'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def tup(exp, comm):

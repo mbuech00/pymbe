@@ -25,7 +25,7 @@ def ao_ints(mol, calc):
 		# electron repulsion ints
 		eri = mol.intor('int2e_sph', aosym=4)
 		# dipole integrals with gauge origin at (0,0,0)
-		if calc.target['dipole']:
+		if calc.target['dipole'] or calc.target['trans']:
 			with mol.with_common_orig((0,0,0)):
 				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
@@ -185,15 +185,21 @@ def ref(mol, calc, exp):
 				from pyscf.mcscf import avas
 				calc.mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
 			# set properties equal to hf values
-			ref = {'energy': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0, \
-					'dipole': [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]}
+			ref = {'energy': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0}
+			if calc.target['dipole']:
+				ref['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
+			if calc.target['trans']:
+				ref['trans'] = [0.0 for i in range(calc.state['root'])]
 			# casscf mo
 			if calc.ref['method'] == 'casscf': calc.mo = _casscf(mol, calc, exp)
 		else:
 			if mol.spin == 0:
 				# set properties equal to hf values
-				ref = {'energy': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0, \
-						'dipole': [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]}
+				ref = {'energy': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0}
+				if calc.target['dipole']:
+					ref['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
+				if calc.target['trans']:
+					ref['trans'] = [0.0 for i in range(calc.state['root'])]
 			else:
 				# exp model
 				res = main(mol, calc, exp, calc.model['method'])
@@ -206,6 +212,9 @@ def ref(mol, calc, exp):
 				# dipole_ref
 				if calc.target['dipole']:
 					ref['dipole'] = [res['dipole'][i] for i in range(calc.state['root']+1)]
+				# trans_dipole_ref
+				if calc.target['trans']:
+					ref['trans'] = [res['trans'][i] for i in range(calc.state['root'])]
 				# e_ref_base
 				if calc.base['method'] is None:
 					ref['base'] = 0.0
@@ -222,55 +231,64 @@ def ref(mol, calc, exp):
 			form += (ref['energy'][0], ref['base'],)
 			if calc.state['root'] >= 1:
 				for i in range(1, calc.state['root']+1):
-					string += '      excitation energy for state {:} = {:.4f}\n'
+					string += '      excitation energy for root {:} = {:.4f}\n'
 					form += (i, ref['energy'][i],)
 			if calc.target['dipole']:
 				for i in range(calc.state['root']+1):
-					string += '      dipole moment for state {:} = ({:.4f}, {:.4f}, {:.4f})\n'
+					string += '      dipole moment for root {:} = ({:.4f}, {:.4f}, {:.4f})\n'
 					form += (i, *ref['dipole'][i],)
+			if calc.target['trans']:
+				for i in range(1, calc.state['root']+1):
+					string += '      transition dipole moment for excitation {:} --> {:} = {:.4f}\n'
+					form += (0, i, ref['trans'][i-1],)
 			print(string.format(*form))
 		return ref, calc.mo
 
 
 def main(mol, calc, exp, method):
 		""" main prop function """
-		# first-order properties
-		if calc.target['dipole']:
-			dens = True
-		else:
-			dens = False
 		# fci calc
 		if method == 'fci':
-			res_tmp = _fci(mol, calc, exp, dens)
+			res_tmp = _fci(mol, calc, exp)
 		# cisd calc
 		elif method == 'cisd':
-			res_tmp = _ci(mol, calc, exp, dens)
+			res_tmp = _ci(mol, calc, exp)
 		# ccsd / ccsd(t) calc
 		elif method in ['ccsd','ccsd(t)']:
-			res_tmp = _cc(mol, calc, exp, dens, (method == 'ccsd(t)'))
+			res_tmp = _cc(mol, calc, exp, method == 'ccsd(t)')
 		# return correlation energy
 		res = {'energy': res_tmp['energy']}
 		# return first-order properties
 		if calc.target['dipole']:
-			res['dipole'] = [_dipole(mol.dipole, calc.prop['hf']['dipole'], \
-										calc.occup, exp.cas_idx, calc.mo, res_tmp['rdm1'][i]) for i in range(calc.state['root']+1)]
+			res['dipole'] = [_dipole(mol.dipole, calc.occup, exp.cas_idx, calc.mo, \
+										res_tmp['rdm1'][i], hf_dipole=calc.prop['hf']['dipole']) for i in range(calc.state['root']+1)]
 			if calc.state['root'] >= 1:
 				res['dipole'][1:] = [res['dipole'][i] - res['dipole'][0] for i in range(1, calc.state['root']+1)]
+		if calc.target['trans']:
+			res['trans'] = [_trans(mol.dipole, calc.occup, exp.cas_idx, calc.mo, \
+										res_tmp['t_rdm1'][i]) for i in range(calc.state['root'])]
 		return res
 
 
-def _dipole(ints, hf_dipole, occup, cas_idx, mo, cas_rdm1):
+def _dipole(ints, occup, cas_idx, mo, cas_rdm1, hf_dipole=None):
 		""" calculate electronic dipole moment """
-		# hf rdm1
 		rdm1 = np.diag(occup)
-		# add correlated part
 		rdm1[cas_idx[:, None], cas_idx] = cas_rdm1
 		# elec dipole
 		elec_dipole = np.empty(3, dtype=np.float64)
 		for i in range(3):
-			elec_dipole[i] = np.trace(np.dot(rdm1, reduce(np.dot, (mo.T, ints[i], mo))))
+			elec_dipole[i] = np.einsum('ij,ij->', rdm1, reduce(np.dot, (mo.T, ints[i], mo)))
 		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
-		return elec_dipole - hf_dipole
+		if hf_dipole is None:
+			return elec_dipole
+		else:
+			return elec_dipole - hf_dipole
+
+
+def _trans(ints, occup, cas_idx, mo, cas_t_rdm1):
+		""" calculate electronic transition dipole moment """
+		trans = _dipole(ints, occup, cas_idx, mo, cas_t_rdm1)
+		return np.linalg.norm(trans)
 
 
 def base(mol, calc, exp):
@@ -284,8 +302,7 @@ def base(mol, calc, exp):
 			base = {'energy': 0.0}
 		# cisd base
 		elif calc.base['method'] == 'cisd':
-			res = _ci(mol, calc, exp, \
-								calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd')
+			res = _ci(mol, calc, exp)
 			base = {'energy': res['energy'][0]}
 			if res['rdm1'][0] is not None:
 				rdm1 = res['rdm1'][0]
@@ -293,10 +310,7 @@ def base(mol, calc, exp):
 					rdm1 = rdm1[0] + rdm1[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
-			res = _cc(mol, calc, exp, \
-								calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd', \
-								(calc.base['method'] == 'ccsd(t)') and \
-								((calc.orbs['occ'] == 'can') and (calc.orbs['virt'] == 'can')))
+			res = _cc(mol, calc, exp, calc.base['method'] == 'ccsd(t)')
 			base = {'energy': res['energy'][0]}
 			if res['rdm1'][0] is not None:
 				rdm1 = res['rdm1'][0]
@@ -304,12 +318,12 @@ def base(mol, calc, exp):
 					rdm1 = rdm1[0] + rdm1[1]
 		# NOs
 		if (calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd') and rdm1 is None:
-			res = _ci(mol, calc, exp, True)
+			res = _ci(mol, calc, exp)
 			rdm1 = res['rdm1'][0]
 			if mol.spin > 0:
 				rdm1 = rdm1[0] + rdm1[1]
 		elif (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and rdm1 is None:
-			res = _cc(mol, calc, exp, True, False)
+			res = _cc(mol, calc, exp, False)
 			rdm1 = res['rdm1'][0]
 			if mol.spin > 0:
 				rdm1 = rdm1[0] + rdm1[1]
@@ -339,10 +353,9 @@ def base(mol, calc, exp):
 			elif calc.orbs['virt'] == 'fb':
 				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
 		# extra calculation for non-invariant ccsd(t)
-		if calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can':
-			if calc.base['method'] == 'ccsd(t)':
-				res = _cc(mol, calc, exp, False, True)[0]
-				base['energy'] = res['energy'][0]
+		if calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can'):
+			res = _cc(mol, calc, exp, True)
+			base['energy'] = res['energy'][0]
 		return base
 
 
@@ -418,7 +431,7 @@ def _casscf(mol, calc, exp):
 		return mo
 
 
-def _fci(mol, calc, exp, dens):
+def _fci(mol, calc, exp):
 		""" fci calc """
 		# init fci solver
 		if mol.spin == 0:
@@ -427,7 +440,8 @@ def _fci(mol, calc, exp, dens):
 			solver = fci.direct_spin1_symm.FCI(mol)
 		# settings
 		solver.conv_tol = 1.0e-10
-		if calc.target['dipole']: solver.conv_tol_residual = 1.0e-07
+		if calc.target['dipole'] or calc.target['trans']:
+			solver.conv_tol_residual = 1.0e-07
 		solver.max_cycle = 500
 		solver.max_space = 25
 		solver.davidson_only = True
@@ -483,13 +497,15 @@ def _fci(mol, calc, exp, dens):
 		if calc.state['root'] >= 1:
 			for i in range(1, calc.state['root']+1):
 				res['energy'].append(energy[i] - energy[0])
-		# fci rdm1
-		if dens:
+		# fci rdm1 and t_rdm1
+		if calc.target['dipole']:
 			res['rdm1'] = [solver.make_rdm1(civec[i], len(exp.cas_idx), nelec) for i in range(calc.state['root']+1)]
+		if calc.target['trans']:
+			res['t_rdm1'] = [solver.trans_rdm1(civec[0], civec[i], len(exp.cas_idx), nelec) for i in range(1, calc.state['root']+1)]
 		return res
 
 
-def _ci(mol, calc, exp, dens):
+def _ci(mol, calc, exp):
 		""" cisd calc """
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, exp)
@@ -530,11 +546,12 @@ def _ci(mol, calc, exp, dens):
 		# e_corr
 		res = {'energy': cisd.e_corr}
 		# rdm1
-		res['rdm1'] = cisd.make_rdm1() if dens else None
+		if exp.order == 0 and (calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd'):
+			res['rdm1'] = cisd.make_rdm1()
 		return res
 
 
-def _cc(mol, calc, exp, dens, pt=False):
+def _cc(mol, calc, exp, pt=False):
 		""" ccsd / ccsd(t) calc """
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, exp)
@@ -555,7 +572,8 @@ def _cc(mol, calc, exp, dens, pt=False):
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
 		ccsd.conv_tol = 1.0e-10
-		if dens: ccsd.conv_tol_normt = 1.0e-07
+		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
+			ccsd.conv_tol_normt = 1.0e-07
 		ccsd.max_cycle = 500
 		if exp.order > 0:
 			# avoid async function execution if requested
@@ -580,11 +598,9 @@ def _cc(mol, calc, exp, dens, pt=False):
 		# e_corr
 		res = {'energy': ccsd.e_corr}
 		# rdm1
-		if dens and not pt:
+		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
 			ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
 			res['rdm1'] = ccsd.make_rdm1()
-		else:
-			res['rdm1'] = None
 		# calculate (t) correction
 		if pt:
 			if np.amin(calc.occup[exp.cas_idx]) == 1.0:

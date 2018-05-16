@@ -238,20 +238,26 @@ def _prot_check(exp, calc, indx, m):
 			return []
 		else:
 			screen = True
-			for i in ['energy', 'dipole']:
-				if i == 'energy':
-					for j in range(calc.state['root']+1):
-						prop = exp.prop['energy'][j]['inc'][-1][indx]
-						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-						if not screen: break
-				elif i == 'dipole' and calc.target['dipole']:
-					for j in range(calc.state['root']+1):
-						for k in range(3):
-							# (x,y,z) = (0,1,2)
-							prop = exp.prop['dipole'][j]['inc'][-1][indx, k]
+			for i in ['energy', 'dipole', 'trans']:
+				if calc.target[i]:
+					if i == 'energy':
+						for j in range(calc.state['root']+1):
+							prop = exp.prop['energy'][j]['inc'][-1][indx]
 							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
 							if not screen: break
-						if not screen: break
+					elif i == 'dipole':
+						for j in range(calc.state['root']+1):
+							for k in range(3):
+								# (x,y,z) = (0,1,2)
+								prop = exp.prop['dipole'][j]['inc'][-1][indx, k]
+								screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
+								if not screen: break
+							if not screen: break
+					elif i == 'trans':
+						for j in range(calc.state['root']):
+							prop = exp.prop['trans'][j]['inc'][-1][indx]
+							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
+							if not screen: break
 				if not screen: break
 				# energy only
 				if calc.prot['GS_energy_ONLY']:
