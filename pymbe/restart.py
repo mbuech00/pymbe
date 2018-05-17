@@ -131,7 +131,7 @@ def read_fund(mol, calc):
 def mbe_write(calc, exp):
 		""" write mbe restart files """
 		# write e_inc and e_tot
-		for i in range(calc.state['root']+1):
+		for i in range(calc.nroots):
 			np.save(os.path.join(RST, 'e_inc_{:}_state_{:}'.format(exp.order, i)), exp.prop['energy'][i]['inc'][-1])
 			np.save(os.path.join(RST, 'e_tot_{:}_state_{:}'.format(exp.order, i)), exp.prop['energy'][i]['tot'][-1])
 		# write time

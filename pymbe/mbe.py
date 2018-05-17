@@ -34,12 +34,12 @@ def main(mpi, mol, calc, exp):
 		if mpi.global_master: output.mbe_header(exp)
 		# init increments
 		if len(exp.prop['energy'][0]['inc']) < exp.order - (exp.start_order - 1):
-			for i in range(calc.state['root']+1):
+			for i in range(calc.nroots):
 				exp.prop['energy'][i]['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 				if calc.target['dipole']:
 					exp.prop['dipole'][i]['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 				if calc.target['trans']:
-					if i < calc.state['root']:
+					if i < calc.nroots - 1:
 						exp.prop['trans'][i]['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		# mpi parallel or serial version
 		if mpi.parallel:
@@ -53,20 +53,20 @@ def main(mpi, mol, calc, exp):
 		else:
 			_serial(mpi, mol, calc, exp)
 		# sum up total quantities
-		for i in range(calc.state['root']+1):
+		for i in range(calc.nroots):
 			exp.prop['energy'][i]['tot'].append(tools.fsum(exp.prop['energy'][i]['inc'][-1]))
 			if calc.target['dipole']:
 				exp.prop['dipole'][i]['tot'].append(tools.fsum(exp.prop['dipole'][i]['inc'][-1]))
 			if calc.target['trans']:
-				if i < calc.state['root']:
+				if i < calc.nroots - 1:
 					exp.prop['trans'][i]['tot'].append(tools.fsum(exp.prop['trans'][i]['inc'][-1]))
 		if exp.order > exp.start_order:
-			for i in range(calc.state['root']+1):
+			for i in range(calc.nroots):
 				exp.prop['energy'][i]['tot'][-1] += exp.prop['energy'][i]['tot'][-2]
 				if calc.target['dipole']:
 					exp.prop['dipole'][i]['tot'][-1] += exp.prop['dipole'][i]['tot'][-2]
 				if calc.target['trans']:
-					if i < calc.state['root']:
+					if i < calc.nroots - 1:
 						exp.prop['trans'][i]['tot'][-1] += exp.prop['trans'][i]['tot'][-2]
 
 
@@ -192,12 +192,12 @@ def _slave(mpi, mol, calc, exp):
 def _calc(mpi, mol, calc, exp, idx):
 		""" calculate increments """
 		res = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
-		for i in range(calc.state['root']+1):
+		for i in range(calc.nroots):
 			exp.prop['energy'][i]['inc'][-1][idx] = res['energy'][i]
 			if calc.target['dipole']:
 				exp.prop['dipole'][i]['inc'][-1][idx] = res['dipole'][i]
 			if calc.target['trans']:
-				if i < calc.state['root']:
+				if i < calc.nroots - 1:
 					exp.prop['trans'][i]['inc'][-1][idx] = res['trans'][i]
 
 
@@ -207,11 +207,11 @@ def _inc(mpi, mol, calc, exp, tup):
 		exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, tup)
 		# perform calc
 		res = kernel.main(mol, calc, exp, calc.model['method'])
-		inc = {'energy': [res['energy'][i] - calc.prop['ref']['energy'][i] for i in range(calc.state['root']+1)]}
+		inc = {'energy': [res['energy'][i] - calc.prop['ref']['energy'][i] for i in range(calc.nroots)]}
 		if calc.target['dipole']:
-			inc['dipole'] = [res['dipole'][i] - calc.prop['ref']['dipole'][i] for i in range(calc.state['root']+1)]
+			inc['dipole'] = [res['dipole'][i] - calc.prop['ref']['dipole'][i] for i in range(calc.nroots)]
 		if calc.target['trans']:
-			inc['trans'] = [res['trans'][i] - calc.prop['ref']['trans'][i] for i in range(calc.state['root'])]
+			inc['trans'] = [res['trans'][i] - calc.prop['ref']['trans'][i] for i in range(calc.nroots-1)]
 		if calc.base['method'] is None:
 			e_base = 0.0
 		else:
@@ -221,29 +221,35 @@ def _inc(mpi, mol, calc, exp, tup):
 		inc['energy'][0] -= e_base
 		if exp.order > exp.start_order:
 			res = _sum(calc, exp, tup)
-			inc['energy'] = [inc['energy'][i] - res['energy'][i] for i in range(calc.state['root']+1)]
+			inc['energy'] = [inc['energy'][i] - res['energy'][i] for i in range(calc.nroots)]
 			if calc.target['dipole']:
-				inc['dipole'] = [inc['dipole'][i] - res['dipole'][i] for i in range(calc.state['root']+1)]
+				inc['dipole'] = [inc['dipole'][i] - res['dipole'][i] for i in range(calc.nroots)]
 			if calc.target['trans']:
-				inc['trans'] = [inc['trans'][i] - res['trans'][i] for i in range(calc.state['root'])]
+				inc['trans'] = [inc['trans'][i] - res['trans'][i] for i in range(calc.nroots-1)]
 		# debug print
 		if mol.debug:
 			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
 			form = (mpi.local_rank, exp.core_idx.tolist(), exp.cas_idx.tolist())
 			string += '      ground state correlation energy = {:.4e}\n'
 			form += (inc['energy'][0],)
-			if calc.state['root'] >= 1:
-				for i in range(1, calc.state['root']+1):
+			if calc.nroots > 1:
+				for i in range(1, calc.nroots):
 					string += '      excitation energy for root {:} = {:.4e}\n'
 					form += (i, inc['energy'][i],)
 			if calc.target['dipole']:
-				for i in range(calc.state['root']+1):
+				for i in range(calc.nroots):
 					string += '      dipole moment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
-					form += (i, *inc['dipole'][i],)
+					if calc.prot['specific']:
+						form += (calc.state['root'], *inc['dipole'][i],)
+					else:
+						form += (i, *inc['dipole'][i],)
 			if calc.target['trans']:
-				for i in range(1, calc.state['root']+1):
+				for i in range(1, calc.nroots):
 					string += '      transition dipole moment for excitation {:} > {:} = ({:.4e}, {:.4e}, {:.4e})\n'
-					form += (0, i, *inc['trans'][i-1],)
+					if calc.prot['specific']:
+						form += (0, calc.state['root'], *inc['trans'][i-1],)
+					else:
+						form += (0, i, *inc['trans'][i-1],)
 			print(string.format(*form))
 		return inc
 
@@ -251,11 +257,11 @@ def _inc(mpi, mol, calc, exp, tup):
 def _sum(calc, exp, tup):
 		""" recursive summation """
 		# init res
-		res = {'energy': [0.0 for i in range(calc.state['root']+1)]}
+		res = {'energy': [0.0 for i in range(calc.nroots)]}
 		if calc.target['dipole']:
-			res['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
+			res['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.nroots)]
 		if calc.target['trans']:
-			res['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root'])]
+			res['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.nroots-1)]
 		# compute contributions from lower-order increments
 		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
 			# generate array with all subsets of particular tuple (manually adding active orbs)
@@ -269,12 +275,12 @@ def _sum(calc, exp, tup):
 			# get index
 			indx = tools.hash_compare(exp.hashes[i-1], combs)
 			# add up lower-order increments
-			for j in range(calc.state['root']+1):
+			for j in range(calc.nroots):
 				res['energy'][j] += tools.fsum(exp.prop['energy'][j]['inc'][i-1][indx])
 				if calc.target['dipole']:
 					res['dipole'][j] += tools.fsum(exp.prop['dipole'][j]['inc'][i-1][indx, :])
 				if calc.target['trans']:
-					if j < calc.state['root']:
+					if j < calc.nroots - 1:
 						res['trans'][j] += tools.fsum(exp.prop['trans'][j]['inc'][i-1][indx, :])
 		return res
 

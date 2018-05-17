@@ -241,12 +241,12 @@ def _prot_check(exp, calc, indx, m):
 			for i in ['energy', 'dipole', 'trans']:
 				if calc.target[i]:
 					if i == 'energy':
-						for j in range(calc.state['root']+1):
+						for j in range(calc.nroots):
 							prop = exp.prop['energy'][j]['inc'][-1][indx]
 							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
 							if not screen: break
 					elif i == 'dipole':
-						for j in range(calc.state['root']+1):
+						for j in range(calc.nroots):
 							for k in range(3):
 								# (x,y,z) = (0,1,2)
 								prop = exp.prop['dipole'][j]['inc'][-1][indx, k]
@@ -254,7 +254,7 @@ def _prot_check(exp, calc, indx, m):
 								if not screen: break
 							if not screen: break
 					elif i == 'trans':
-						for j in range(calc.state['root']):
+						for j in range(calc.nroots-1):
 							for k in range(3):
 								# (x,y,z) = (0,1,2)
 								prop = exp.prop['trans'][j]['inc'][-1][indx, k]
@@ -262,9 +262,6 @@ def _prot_check(exp, calc, indx, m):
 								if not screen: break
 							if not screen: break
 				if not screen: break
-				# energy only
-				if calc.prot['GS_energy_ONLY']:
-					break
 			if not screen:
 				return [m]
 			else:

@@ -28,7 +28,7 @@ class CalcCls():
 				# set defaults
 				self.model = {'method': 'fci', 'type': 'virt'}
 				self.target = {'energy': True, 'dipole': False, 'trans': False}
-				self.prot = {'scheme': 'new', 'GS_energy_ONLY': False}
+				self.prot = {'scheme': 'new', 'specific': True}
 				self.ref = {'method': 'hf'}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0), 'root': 0}
@@ -48,6 +48,14 @@ class CalcCls():
 					self.sanity_chk(mpi, mol)
 					# restart logical
 					self.restart = restart.restart()
+				# set nroots
+				if self.state['root'] == 0:
+					self.nroots = 1
+				else:
+					if self.prot['specific']:
+						self.nroots = 2
+					else:
+						self.nroots = self.state['root'] + 1
 				# init prop dict
 				self.prop = {'hf': {}, 'ref': {}}
 
@@ -222,7 +230,7 @@ class CalcCls():
 						raise ValueError('wrong input -- excited states only implemented for an fci expansion model')
 					# targets
 					if not all(isinstance(i, bool) for i in self.target.values()):
-						raise ValueError('wrong input -- values in target input (target) must be bools (True, False)')
+						raise ValueError('wrong input -- values in target input (target) must be bools')
 					if not set(list(self.target.keys())) <= set(['energy', 'dipole', 'trans']):
 						raise ValueError('wrong input -- valid choices for target properties are: energy, dipole, and transition dipole (trans)')
 					if not self.target['energy']:
@@ -235,9 +243,11 @@ class CalcCls():
 						raise ValueError('wrong input -- calculation of transition dipole moment (trans) requires target state root >= 1')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
-						raise ValueError('wrong input -- values in prot input (prot) must be string and bools (True, False)')
+						raise ValueError('wrong input -- values in prot input (prot) must be string and bools')
 					if self.prot['scheme'] not in ['new', 'old']:
 						raise ValueError('wrong input -- valid protocol schemes are: new and old')
+					if not self.prot['specific'] and self.state['root'] == 0:
+						raise ValueError('wrong input -- non state-specific screening requires target state root > 0')
 					# expansion thresholds
 					if not all(isinstance(i, float) for i in self.thres.values()):
 						raise ValueError('wrong input -- values in threshold input (thres) must be floats')
@@ -271,7 +281,7 @@ class CalcCls():
 						if self.misc['order'] < 0:
 							raise ValueError('wrong input -- maximum expansion order (order) must be an int >= 1')
 					if not isinstance(self.misc['async'], bool):
-						raise ValueError('wrong input -- asynchronous key (async) must be a bool (True, False)')
+						raise ValueError('wrong input -- asynchronous key (async) must be a bool')
 					# mpi
 					if not isinstance(self.mpi['masters'], int):
 						raise ValueError('wrong input -- number of mpi masters (masters) must be an int >= 1')

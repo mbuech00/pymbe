@@ -26,11 +26,11 @@ class ExpCls():
 				# init incl_idx, tuples, and hashes
 				self.incl_idx, self.tuples, self.hashes = _init_tup(mol, calc)
 				# init prop dict
-				self.prop = {'energy': [{'inc': [], 'tot': []} for i in range(calc.state['root']+1)]}
+				self.prop = {'energy': [{'inc': [], 'tot': []} for i in range(calc.nroots)]}
 				if calc.target['dipole']:
-					self.prop['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.state['root']+1)]
+					self.prop['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.nroots)]
 				if calc.target['trans']:
-					self.prop['trans'] = [{'inc': [], 'tot': []} for i in range(calc.state['root'])]
+					self.prop['trans'] = [{'inc': [], 'tot': []} for i in range(calc.nroots-1)]
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				if calc.misc['order'] is not None:

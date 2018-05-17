@@ -37,12 +37,12 @@ FILL = '{0:^143}'.format('|'*137)
 def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
 		# convert final results to numpy arrays
-		for i in range(calc.state['root']+1):
+		for i in range(calc.nroots):
 			exp.prop['energy'][i]['tot'] = np.asarray(exp.prop['energy'][i]['tot'])
 			if calc.target['dipole']:
 				exp.prop['dipole'][i]['tot'] = np.asarray(exp.prop['dipole'][i]['tot'])
 			if calc.target['trans']:
-				if i < calc.state['root']:
+				if i < calc.nroots - 1:
 					exp.prop['trans'][i]['tot'] = np.asarray(exp.prop['trans'][i]['tot'])
 		# setup
 		info = {}
@@ -93,17 +93,20 @@ def _table(info, mol, calc, exp):
 			with contextlib.redirect_stdout(f):
 				_summary_prt(info, calc, exp)
 				_timings_prt(info, exp)
-				_energy_prt(info, calc, exp)
+				for i in range(calc.nroots):
+					_energy_prt(info, calc, exp, i)
 				if calc.target['dipole']:
-					_dipole_prt(info, calc, exp)
+					for i in range(calc.nroots):
+						_dipole_prt(info, calc, exp, i)
 				if calc.target['trans']:
-					_trans_prt(info, calc, exp)
+					for i in range(1, calc.nroots):
+						_trans_prt(info, calc, exp, i)
 	
 
 def _plot(info, calc, exp):
 		""" plot results """
 		# plot MBE energies
-		for i in range(calc.state['root']+1):
+		for i in range(calc.nroots):
 			_energies_plot(info, calc, exp, i)
 			# plot MBE dipole moment
 			if calc.target['dipole']:
@@ -170,10 +173,10 @@ def _base(calc):
 def _prot(calc):
 		""" protocol print """
 		prot = calc.prot['scheme']
-		if calc.prot['GS_energy_ONLY']:
-			prot += ' (gs energy)'
+		if calc.prot['specific']:
+			prot += ' (state {:})'.format(calc.state['root'])
 		else:
-			prot += ' (all props.)'
+			prot += ' (all states)'
 		return prot
 
 
@@ -252,7 +255,7 @@ def _energy(calc, exp):
 				+ calc.prop['hf']['energy'] + calc.base['energy'] \
 				+ (calc.prop['ref']['energy'][0] - calc.base['ref'])]
 		# excited states
-		for i in range(1, calc.state['root']+1):
+		for i in range(1, calc.nroots):
 			energy.append(exp.prop['energy'][i]['tot'] + calc.prop['ref']['energy'][i])
 		return energy
 
@@ -268,14 +271,14 @@ def _dipole(mol, calc, exp):
 						+ calc.prop['hf']['dipole'] \
 						+ calc.prop['ref']['dipole'][0]]
 		# excited states
-		for i in range(1, calc.state['root']+1):
+		for i in range(1, calc.nroots):
 			dipole.append(exp.prop['dipole'][i]['tot'] + calc.prop['ref']['dipole'][i])
 		return dipole, nuc_dipole
 
 
 def _trans(mol, calc, exp):
 		""" final molecular transition dipole moments """
-		return [exp.prop['trans'][i]['tot'] + calc.prop['ref']['trans'][i] for i in range(calc.state['root'])]
+		return [exp.prop['trans'][i]['tot'] + calc.prop['ref']['trans'][i] for i in range(calc.nroots-1)]
 
 
 def _time(exp, comp, idx):
@@ -366,44 +369,52 @@ def _timings_prt(info, exp):
 		print(DIVIDER[:98]+'\n')
 
 
-def _energy_prt(info, calc, exp):
+def _energy_prt(info, calc, exp, root):
 		""" energies """
-		# ground state
-		print(DIVIDER[:66])
-		print('{0:^66}'.format('MBE ground state energy'))
-		print(DIVIDER[:66])
-		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:4}{9:}'. \
-				format('','MBE order','','|','','total energy','','|','','correlation energy'))
-		print(DIVIDER[:66])
-		print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:}'. \
-				format('',0,'','|','',calc.prop['hf']['energy'],'','|','',''))
-		print(DIVIDER[:66])
-		for i in range(info['final_order']):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:9.4e}'. \
-					format('',i+exp.start_order, \
-						'','|','',info['energy'][0][i], \
-						'','|','',info['energy'][0][i] - calc.prop['hf']['energy']))
-		print(DIVIDER[:66]+'\n')
-		# excited states
-		if calc.state['root'] >= 1:
-			for j in range(1, calc.state['root']+1):
-				print(DIVIDER[:66])
-				string = 'MBE excited state energy (root = {:})'.format(j)
-				print('{0:^66}'.format(string))
-				print(DIVIDER[:66])
-				print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:5}{9:}'. \
-						format('','MBE order','','|','','total energy','','|','','excitation energy'))
-				print(DIVIDER[:66])
-				for i in range(info['final_order']):
-					print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:8}{9:9.4e}'. \
-							format('',i+exp.start_order, \
-								'','|','',info['energy'][0][i] + info['energy'][j][i], \
-								'','|','',info['energy'][j][i]))
-				print(DIVIDER[:66]+'\n')
+		if root == 0:
+			# ground state
+			print(DIVIDER[:66])
+			print('{0:^66}'.format('MBE ground state energy'))
+			print(DIVIDER[:66])
+			print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:4}{9:}'. \
+					format('','MBE order','','|','','total energy','','|','','correlation energy'))
+			print(DIVIDER[:66])
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:}'. \
+					format('',0,'','|','',calc.prop['hf']['energy'],'','|','',''))
+			print(DIVIDER[:66])
+			for i in range(info['final_order']):
+				print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:9.4e}'. \
+						format('',i+exp.start_order, \
+							'','|','',info['energy'][0][i], \
+							'','|','',info['energy'][0][i] - calc.prop['hf']['energy']))
+			print(DIVIDER[:66]+'\n')
+		else:
+			# excited states
+			if calc.prot['specific']:
+				root_idx = calc.state['root']
+			else:
+				root_idx = root
+			print(DIVIDER[:66])
+			string = 'MBE excited state energy (root = {:})'.format(root_idx)
+			print('{0:^66}'.format(string))
+			print(DIVIDER[:66])
+			print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:5}{9:}'. \
+					format('','MBE order','','|','','total energy','','|','','excitation energy'))
+			print(DIVIDER[:66])
+			for i in range(info['final_order']):
+				print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:8}{9:9.4e}'. \
+						format('',i+exp.start_order, \
+							'','|','',info['energy'][0][i] + info['energy'][root][i], \
+							'','|','',info['energy'][root][i]))
+			print(DIVIDER[:66]+'\n')
 
 
 def _energies_plot(info, calc, exp, root):
 		""" plot MBE energy for state 'root' """
+		if calc.prot['specific']:
+			root_idx = calc.state['root']
+		else:
+			root_idx = root
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
@@ -414,7 +425,7 @@ def _energies_plot(info, calc, exp, root):
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				energy, marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
-				linestyle='-', label='state {:}'.format(root))
+				linestyle='-', label='state {:}'.format(root_idx))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -430,7 +441,7 @@ def _energies_plot(info, calc, exp, root):
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
-				linestyle='-', label='state {:}'.format(root))
+				linestyle='-', label='state {:}'.format(root_idx))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -448,58 +459,66 @@ def _energies_plot(info, calc, exp, root):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/energy_state_{:}.pdf'.format(root), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/energy_state_{:}.pdf'.format(root_idx), bbox_inches = 'tight', dpi=1000)
 
 
-def _dipole_prt(info, calc, exp):
+def _dipole_prt(info, calc, exp, root):
 		""" dipole moments """
-		# ground state
-		print(DIVIDER[:82])
-		print('{0:^82}'.format('MBE ground state dipole moment'))
-		print(DIVIDER[:82])
-		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:}'. \
-				format('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment'))
-		print(DIVIDER[:82])
-		print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
-			'{10:5}{11:1}{12:6}{13:9.6f}'. \
-				format('',0, \
-					'','|','',info['nuc_dipole'][0] - calc.prop['hf']['dipole'][0], \
-					'',info['nuc_dipole'][1] - calc.prop['hf']['dipole'][1], \
-					'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2], \
-					'','|','',np.linalg.norm(info['nuc_dipole'] - calc.prop['hf']['dipole'])))
-		print(DIVIDER[:82])
-		for i in range(info['final_order']):
+		if root == 0:
+			# ground state
+			print(DIVIDER[:82])
+			print('{0:^82}'.format('MBE ground state dipole moment'))
+			print(DIVIDER[:82])
+			print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:}'. \
+					format('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment'))
+			print(DIVIDER[:82])
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 				'{10:5}{11:1}{12:6}{13:9.6f}'. \
-					format('',i+exp.start_order, \
-						'','|','',info['nuc_dipole'][0] - info['dipole'][0][i, 0], \
-						'',info['nuc_dipole'][1] - info['dipole'][0][i, 1], \
-						'',info['nuc_dipole'][2] - info['dipole'][0][i, 2], \
-						'','|','',np.linalg.norm(info['nuc_dipole'] - info['dipole'][0][i, :])))
-		print(DIVIDER[:82]+'\n')
-		# excited states
-		if calc.state['root'] >= 1:
-			for j in range(1, calc.state['root']+1):
-				print(DIVIDER[:82])
-				string = 'MBE excited state dipole moment (root = {:})'.format(j)
-				print('{0:^82}'.format(string))
-				print(DIVIDER[:82])
-				print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:}'. \
-						format('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment'))
-				print(DIVIDER[:82])
-				for i in range(info['final_order']):
-					print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
-						'{10:5}{11:1}{12:6}{13:9.6f}'. \
-							format('',i+exp.start_order, \
-								'','|','',info['nuc_dipole'][0] - (info['dipole'][j][i, 0] + info['dipole'][0][i, 0]), \
-								'',info['nuc_dipole'][1] - (info['dipole'][j][i, 1] + info['dipole'][0][i, 1]), \
-								'',info['nuc_dipole'][2] - (info['dipole'][j][i, 2] + info['dipole'][0][i, 2]), \
-								'','|','',np.linalg.norm(info['nuc_dipole'] - (info['dipole'][0][i, :] + info['dipole'][j][i, :]))))
-				print(DIVIDER[:82]+'\n')
+					format('',0, \
+						'','|','',info['nuc_dipole'][0] - calc.prop['hf']['dipole'][0], \
+						'',info['nuc_dipole'][1] - calc.prop['hf']['dipole'][1], \
+						'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2], \
+						'','|','',np.linalg.norm(info['nuc_dipole'] - calc.prop['hf']['dipole'])))
+			print(DIVIDER[:82])
+			for i in range(info['final_order']):
+				print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+					'{10:5}{11:1}{12:6}{13:9.6f}'. \
+						format('',i+exp.start_order, \
+							'','|','',info['nuc_dipole'][0] - info['dipole'][0][i, 0], \
+							'',info['nuc_dipole'][1] - info['dipole'][0][i, 1], \
+							'',info['nuc_dipole'][2] - info['dipole'][0][i, 2], \
+							'','|','',np.linalg.norm(info['nuc_dipole'] - info['dipole'][0][i, :])))
+			print(DIVIDER[:82]+'\n')
+		else:
+			# excited states
+			if calc.prot['specific']:
+				root_idx = calc.state['root']
+			else:
+				root_idx = root
+			print(DIVIDER[:82])
+			string = 'MBE excited state dipole moment (root = {:})'.format(root_idx)
+			print('{0:^82}'.format(string))
+			print(DIVIDER[:82])
+			print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:}'. \
+					format('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment'))
+			print(DIVIDER[:82])
+			for i in range(info['final_order']):
+				print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+					'{10:5}{11:1}{12:6}{13:9.6f}'. \
+						format('',i+exp.start_order, \
+							'','|','',info['nuc_dipole'][0] - (info['dipole'][root][i, 0] + info['dipole'][0][i, 0]), \
+							'',info['nuc_dipole'][1] - (info['dipole'][root][i, 1] + info['dipole'][0][i, 1]), \
+							'',info['nuc_dipole'][2] - (info['dipole'][root][i, 2] + info['dipole'][0][i, 2]), \
+							'','|','',np.linalg.norm(info['nuc_dipole'] - (info['dipole'][root][i, :] + info['dipole'][0][i, :]))))
+			print(DIVIDER[:82]+'\n')
 
 
 def _dipole_plot(info, calc, exp, root):
 		""" plot MBE dipole moment for state 'root' """
+		if calc.prot['specific']:
+			root_idx = calc.state['root']
+		else:
+			root_idx = root
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
@@ -508,13 +527,13 @@ def _dipole_plot(info, calc, exp, root):
 		dipole = np.empty(info['final_order'], dtype=np.float64)
 		for i in range(info['final_order']):
 			if root == 0:
-				dipole[i] = np.linalg.norm(info['nuc_dipole'] - info['dipole'][root][i, :])
+				dipole[i] = np.linalg.norm(info['nuc_dipole'] - info['dipole'][0][i, :])
 			else:
 				dipole[i] = np.linalg.norm(info['nuc_dipole'] - (info['dipole'][0][i, :] + info['dipole'][root][i, :]))
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				dipole, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
-				linestyle='-', label='state {:}'.format(root))
+				linestyle='-', label='state {:}'.format(root_idx))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -532,7 +551,7 @@ def _dipole_plot(info, calc, exp, root):
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
-				linestyle='-', label='state {:}'.format(root))
+				linestyle='-', label='state {:}'.format(root_idx))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -550,34 +569,41 @@ def _dipole_plot(info, calc, exp, root):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/dipole_state_{:}.pdf'.format(root), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/dipole_state_{:}.pdf'.format(root_idx), bbox_inches = 'tight', dpi=1000)
 
 
-def _trans_prt(info, calc, exp):
+def _trans_prt(info, calc, exp, root):
 		""" transition dipole moments """
-		for j in range(1, calc.state['root']+1):
-			print(DIVIDER[:109])
-			string = 'MBE transition dipole moment (excitation {:} > {:})'.format(0, j)
-			print('{0:^109}'.format(string))
-			print(DIVIDER[:109])
-			print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:3}{11:1}{12:4}{13:}'. \
-					format('','MBE order','','|','','dipole components (x,y,z)', \
-							'','|','','dipole moment','','|','','oscillator strength'))
-			print(DIVIDER[:109])
-			for i in range(info['final_order']):
-				print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
-					'{10:5}{11:1}{12:6}{13:9.6f}{14:6}{15:1}{16:8}{17:9.6f}'. \
-						format('',i+exp.start_order, \
-							'','|','',info['trans'][j-1][i, 0], \
-							'',info['trans'][j-1][i, 1], \
-							'',info['trans'][j-1][i, 2], \
-							'','|','',np.linalg.norm(info['trans'][j-1][i, :]), \
-							'','|','',(2./3.) * info['energy'][j][i] * np.linalg.norm(info['trans'][j-1][i, :])**2))
-			print(DIVIDER[:109]+'\n')
+		if calc.prot['specific']:
+			root_idx = calc.state['root']
+		else:
+			root_idx = root
+		print(DIVIDER[:109])
+		string = 'MBE transition dipole moment (excitation {:} > {:})'.format(0, root_idx)
+		print('{0:^109}'.format(string))
+		print(DIVIDER[:109])
+		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:3}{11:1}{12:4}{13:}'. \
+				format('','MBE order','','|','','dipole components (x,y,z)', \
+						'','|','','dipole moment','','|','','oscillator strength'))
+		print(DIVIDER[:109])
+		for i in range(info['final_order']):
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+				'{10:5}{11:1}{12:6}{13:9.6f}{14:6}{15:1}{16:8}{17:9.6f}'. \
+					format('',i+exp.start_order, \
+						'','|','',info['trans'][root-1][i, 0], \
+						'',info['trans'][root-1][i, 1], \
+						'',info['trans'][root-1][i, 2], \
+						'','|','',np.linalg.norm(info['trans'][root-1][i, :]), \
+						'','|','',(2./3.) * info['energy'][root][i] * np.linalg.norm(info['trans'][root-1][i, :])**2))
+		print(DIVIDER[:109]+'\n')
 
 
 def _trans_plot(info, calc, exp, root):
 		""" plot MBE transition dipole moment for excitation between states 0 and 'root' """
+		if calc.prot['specific']:
+			root_idx = calc.state['root']
+		else:
+			root_idx = root
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
@@ -589,7 +615,7 @@ def _trans_plot(info, calc, exp, root):
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				trans, marker='x', linewidth=2, color=sns.xkcd_rgb['dark magenta'], \
-				linestyle='-', label='excitation {:} > {:}'.format(0, root))
+				linestyle='-', label='excitation {:} > {:}'.format(0, root_idx))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -605,7 +631,7 @@ def _trans_plot(info, calc, exp, root):
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['dark magenta'], \
-				linestyle='-', label='excitation {:} > {:}'.format(0, root))
+				linestyle='-', label='excitation {:} > {:}'.format(0, root_idx))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -623,11 +649,15 @@ def _trans_plot(info, calc, exp, root):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'.format(0, root), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'.format(0, root_idx), bbox_inches = 'tight', dpi=1000)
 
 
 def _osc_strength_plot(info, calc, exp, root):
 		""" plot MBE oscillator strength for excitation between states 0 and 'root' """
+		if calc.prot['specific']:
+			root_idx = calc.state['root']
+		else:
+			root_idx = root
 		# set seaborn
 		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
@@ -639,7 +669,7 @@ def _osc_strength_plot(info, calc, exp, root):
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				osc_strength, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
-				linestyle='-', label='excitation {:} > {:}'.format(0, root))
+				linestyle='-', label='excitation {:} > {:}'.format(0, root_idx))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -655,7 +685,7 @@ def _osc_strength_plot(info, calc, exp, root):
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
 				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
-				linestyle='-', label='excitation {:} > {:}'.format(0, root))
+				linestyle='-', label='excitation {:} > {:}'.format(0, root_idx))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
 		# turn off x-grid
@@ -673,7 +703,7 @@ def _osc_strength_plot(info, calc, exp, root):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/osc_strength_states_{:}_{:}.pdf'.format(0, root), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/osc_strength_states_{:}_{:}.pdf'.format(0, root_idx), bbox_inches = 'tight', dpi=1000)
 
 
 

@@ -185,36 +185,32 @@ def ref(mol, calc, exp):
 				from pyscf.mcscf import avas
 				calc.mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
 			# set properties equal to hf values
-			ref = {'energy': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0}
+			ref = {'energy': [0.0 for i in range(calc.nroots)], 'base': 0.0}
 			if calc.target['dipole']:
-				ref['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
+				ref['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.nroots)]
 			if calc.target['trans']:
-				ref['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root'])]
+				ref['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.nroots-1)]
 			# casscf mo
 			if calc.ref['method'] == 'casscf': calc.mo = _casscf(mol, calc, exp)
 		else:
 			if mol.spin == 0:
 				# set properties equal to hf values
-				ref = {'energy': [0.0 for i in range(calc.state['root']+1)], 'base': 0.0}
+				ref = {'energy': [0.0 for i in range(calc.nroots)], 'base': 0.0}
 				if calc.target['dipole']:
-					ref['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root']+1)]
+					ref['dipole'] = [np.zeros(3, dtype=np.float64) for i in range(calc.nroots)]
 				if calc.target['trans']:
-					ref['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.state['root'])]
+					ref['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.nroots-1)]
 			else:
 				# exp model
 				res = main(mol, calc, exp, calc.model['method'])
 				# e_ref
-				ref = {'energy': [res['energy'][0]]}
-				# e_exc_ref
-				if calc.state['root'] >= 1:
-					for i in range(1, calc.state['root']+1):
-						ref['energy'].append(res['energy'][i])
+				ref = {'energy': [res['energy'][i] for i in range(calc.nroots)]}
 				# dipole_ref
 				if calc.target['dipole']:
-					ref['dipole'] = [res['dipole'][i] for i in range(calc.state['root']+1)]
+					ref['dipole'] = [res['dipole'][i] for i in range(calc.nroots)]
 				# trans_dipole_ref
 				if calc.target['trans']:
-					ref['trans'] = [res['trans'][i] for i in range(calc.state['root'])]
+					ref['trans'] = [res['trans'][i] for i in range(calc.nroots-1)]
 				# e_ref_base
 				if calc.base['method'] is None:
 					ref['base'] = 0.0
@@ -229,18 +225,24 @@ def ref(mol, calc, exp):
 			form = (exp.core_idx.tolist(), exp.cas_idx.tolist())
 			string += '      ground state energy = {:.4e} , ground state base energy = {:.4e}\n'
 			form += (ref['energy'][0], ref['base'],)
-			if calc.state['root'] >= 1:
-				for i in range(1, calc.state['root']+1):
+			if calc.nroots > 1:
+				for i in range(1, calc.nroots):
 					string += '      excitation energy for root {:} = {:.4f}\n'
 					form += (i, ref['energy'][i],)
 			if calc.target['dipole']:
-				for i in range(calc.state['root']+1):
+				for i in range(calc.nroots):
 					string += '      dipole moment for root {:} = ({:.4f}, {:.4f}, {:.4f})\n'
-					form += (i, *ref['dipole'][i],)
+					if calc.prot['specific']:
+						form += (calc.state['root'], *ref['dipole'][i],)
+					else:
+						form += (i, *ref['dipole'][i],)
 			if calc.target['trans']:
-				for i in range(1, calc.state['root']+1):
+				for i in range(1, calc.nroots):
 					string += '      transition dipole moment for excitation {:} > {:} = ({:.4f}, {:.4f}, {:.4f})\n'
-					form += (0, i, *ref['trans'][i-1],)
+					if calc.prot['specific']:
+						form += (0, calc.state['root'], *ref['trans'][i-1],)
+					else:
+						form += (0, i, *ref['trans'][i-1],)
 			print(string.format(*form))
 		return ref, calc.mo
 
@@ -260,12 +262,12 @@ def main(mol, calc, exp, method):
 		res = {'energy': res_tmp['energy']}
 		# return first-order properties
 		if calc.target['dipole']:
-			res['dipole'] = [_dipole(mol, calc, exp, res_tmp['rdm1'][i]) for i in range(calc.state['root']+1)]
-			if calc.state['root'] >= 1:
-				res['dipole'][1:] = [res['dipole'][i] - res['dipole'][0] for i in range(1, calc.state['root']+1)]
+			res['dipole'] = [_dipole(mol, calc, exp, res_tmp['rdm1'][i]) for i in range(calc.nroots)]
+			if calc.nroots > 1:
+				res['dipole'][1:] = [res['dipole'][i] - res['dipole'][0] for i in range(1, calc.nroots)]
 		if calc.target['trans']:
 			res['trans'] = [_trans(mol, calc, exp, res_tmp['t_rdm1'][i], \
-									res_tmp['hf_weight'][0], res_tmp['hf_weight'][i+1]) for i in range(calc.state['root'])]
+									res_tmp['hf_weight'][0], res_tmp['hf_weight'][i+1]) for i in range(calc.nroots-1)]
 		return res
 
 
@@ -385,10 +387,15 @@ def _casscf(mol, calc, exp):
 		if mol.spin > 0:
 			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
 			cas.fix_spin_(ss=sz * (sz + 1.))
-		# state-averaged calculation
-		if calc.state['root'] > 0:
-			weights = np.ones(calc.state['root']+1, dtype=np.float64)/(calc.state['root']+1)
-			cas.state_average_(weights)
+		# state-specific or state-averaged calculation
+		if calc.nroots > 1:
+			if calc.prot['specific']:
+				# state-specific
+				cas.state_specific_(state=calc.state['root'])
+			else:
+				# state-averaged
+				weights = np.ones(calc.nroots, dtype=np.float64) / calc.nroots
+				cas.state_average_(weights)
 		# run casscf calc
 		cas.kernel(calc.mo)
 		# convergence check
@@ -477,14 +484,24 @@ def _fci(mol, calc, exp):
 			civec = [c]
 		else:
 			assert len(solver.converged) == solver.nroots, 'fci: problem with multiple roots'
-			for i in range(calc.state['root']+1):
-				assert solver.converged[i], ('fci: state {0:} not converged\n\n'
+			if calc.prot['specific']:
+				assert solver.converged[0], ('fci: state {0:} not converged\n\n'
 											'core_idx = {1:} , cas_idx = {2:}\n\n').\
-											format(i, exp.core_idx, exp.cas_idx)
-			energy = e
-			civec = c
+											format(0, exp.core_idx, exp.cas_idx)
+				assert solver.converged[calc.state['root']], ('fci: state {0:} not converged\n\n'
+											'core_idx = {1:} , cas_idx = {2:}\n\n').\
+											format(calc.state['root'], exp.core_idx, exp.cas_idx)
+				energy = [e[0], e[calc.state['root']]]
+				civec = [c[0], c[calc.state['root']]]
+			else:
+				for i in range(solver.nroots):
+					assert solver.converged[i], ('fci: state {0:} not converged\n\n'
+												'core_idx = {1:} , cas_idx = {2:}\n\n').\
+												format(i, exp.core_idx, exp.cas_idx)
+				energy = e
+				civec = c
 		# sanity check
-		for i in range(calc.state['root']+1):
+		for i in range(calc.nroots):
 			# calculate spin
 			s, mult = solver.spin_square(civec[i], len(exp.cas_idx), nelec)
 			# check for correct spin
@@ -496,15 +513,15 @@ def _fci(mol, calc, exp):
 		res = {'energy': [energy[0] - calc.prop['hf']['energy']]}
 #		if exp.order < exp.max_order: e['e_corr'] += np.float64(0.001) * np.random.random_sample()
 		# e_exc
-		if calc.state['root'] >= 1:
-			for i in range(1, calc.state['root']+1):
+		if calc.nroots > 1:
+			for i in range(1, calc.nroots):
 				res['energy'].append(energy[i] - energy[0])
 		# fci rdm1 and t_rdm1
 		if calc.target['dipole']:
-			res['rdm1'] = [solver.make_rdm1(civec[i], len(exp.cas_idx), nelec) for i in range(calc.state['root']+1)]
+			res['rdm1'] = [solver.make_rdm1(civec[i], len(exp.cas_idx), nelec) for i in range(calc.nroots)]
 		if calc.target['trans']:
-			res['t_rdm1'] = [solver.trans_rdm1(civec[0], civec[i], len(exp.cas_idx), nelec) for i in range(1, calc.state['root']+1)]
-			res['hf_weight'] = [civec[i][0, 0] for i in range(calc.state['root']+1)]
+			res['t_rdm1'] = [solver.trans_rdm1(civec[0], civec[i], len(exp.cas_idx), nelec) for i in range(1, calc.nroots)]
+			res['hf_weight'] = [civec[i][0, 0] for i in range(calc.nroots)]
 		return res
 
 

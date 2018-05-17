@@ -115,7 +115,7 @@ def calc(mpi, calc):
 			if mpi.global_master:
 				info = {'model': calc.model, 'target': calc.target, \
 						'ref': calc.ref['method'], 'base': calc.base, \
-						'thres': calc.thres, 'prot': calc.prot, \
+						'thres': calc.thres, 'prot': calc.prot, 'nroots': calc.nroots, \
 						'state': calc.state, 'misc': calc.misc, 'mpi': calc.mpi, \
 						'orbs': calc.orbs, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
@@ -123,7 +123,7 @@ def calc(mpi, calc):
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.model = info['model']; calc.target = info['target']
 				calc.ref = {'method': info['ref']}; calc.base = info['base']
-				calc.thres = info['thres']; calc.prot = info['prot']
+				calc.thres = info['thres']; calc.prot = info['prot']; calc.nroots = info['nroots']
 				calc.state = info['state']; calc.misc = info['misc']; calc.mpi = info['mpi']
 				calc.orbs = info['orbs']; calc.restart = info['restart']
 
@@ -199,21 +199,21 @@ def prop(calc, exp, comm):
 def _energy(calc, exp, comm):
 		""" Allreduce energies """
 		# Allreduce
-		for i in range(calc.state['root']+1):
+		for i in range(calc.nroots):
 			comm.Allreduce(MPI.IN_PLACE, [exp.prop['energy'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def _dipole(calc, exp, comm):
 		""" Allreduce dipole moments """
 		# Allreduce
-		for i in range(calc.state['root']+1):
+		for i in range(calc.nroots):
 			comm.Allreduce(MPI.IN_PLACE, [exp.prop['dipole'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def _trans(calc, exp, comm):
 		""" Allreduce transition dipole moments """
 		# Allreduce
-		for i in range(calc.state['root']):
+		for i in range(calc.nroots-1):
 			comm.Allreduce(MPI.IN_PLACE, [exp.prop['trans'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 

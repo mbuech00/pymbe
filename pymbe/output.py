@@ -98,7 +98,7 @@ def mbe_results(mol, calc, exp):
 		for i in ['energy', 'dipole', 'trans']:
 			if calc.target[i]:
 				if i == 'energy':
-					for j in range(calc.state['root']+1):
+					for j in range(calc.nroots):
 						print(FILL)
 						prop_inc = exp.prop['energy'][j]['inc'][exp.order-exp.start_order]
 						prop_tot = exp.prop['energy'][j]['tot']
@@ -117,7 +117,10 @@ def mbe_results(mol, calc, exp):
 						if j == 0:
 							header = 'ground state energy (total increment = {:.4e})'.format(tot_inc)
 						else:
-							header = 'excitation energy for root {:} (total increment = {:.4e})'.format(j, tot_inc)
+							if calc.prot['specific']:
+								header = 'excitation energy for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+							else:
+								header = 'excitation energy for root {:} (total increment = {:.4e})'.format(j, tot_inc)
 						# set string
 						string = DIVIDER+'\n'
 						string += ' RESULT:{:^81}\n'
@@ -130,7 +133,7 @@ def mbe_results(mol, calc, exp):
 						form = (header, mean_val, min_val, max_val)
 						_print(string, form)
 				elif i in ['dipole', 'trans']:
-					for j in range(calc.state['root']+1):
+					for j in range(calc.nroots):
 						if i == 'dipole' or (i == 'trans' and j > 0):
 							print(FILL)
 							if i == 'dipole':
@@ -147,9 +150,15 @@ def mbe_results(mol, calc, exp):
 								header = 'ground state dipole moment (total increment = {:.4e})'.format(tot_inc)
 							else:
 								if i == 'dipole':
-									header = 'excitation dipole for root {:} (total increment = {:.4e})'.format(j, tot_inc)
+									if calc.prot['specific']:
+										header = 'excitation dipole for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+									else:
+										header = 'excitation dipole for root {:} (total increment = {:.4e})'.format(j, tot_inc)
 								elif i == 'trans':
-									header = 'transition dipole for excitation {:} > {:} (total increment = {:.4e})'.format(0, j, tot_inc)
+									if calc.prot['specific']:
+										header = 'transition dipole for excitation {:} > {:} (total increment = {:.4e})'.format(0, calc.state['root'], tot_inc)
+									else:
+										header = 'transition dipole for excitation {:} > {:} (total increment = {:.4e})'.format(0, j, tot_inc)
 							# set string/form
 							string = DIVIDER+'\n'
 							string += ' RESULT:{:^81}\n'
