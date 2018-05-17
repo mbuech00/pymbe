@@ -28,7 +28,7 @@ class CalcCls():
 				# set defaults
 				self.model = {'method': 'fci', 'type': 'virt'}
 				self.target = {'energy': True, 'dipole': False, 'trans': False}
-				self.prot = {'scheme': 'new', 'specific': True}
+				self.prot = {'scheme': 'new', 'specific': False}
 				self.ref = {'method': 'hf'}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0), 'root': 0}
