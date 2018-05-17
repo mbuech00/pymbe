@@ -246,8 +246,6 @@ class CalcCls():
 						raise ValueError('wrong input -- values in prot input (prot) must be string and bools')
 					if self.prot['scheme'] not in ['new', 'old']:
 						raise ValueError('wrong input -- valid protocol schemes are: new and old')
-					if not self.prot['specific'] and self.state['root'] == 0:
-						raise ValueError('wrong input -- non state-specific screening requires target state root > 0')
 					# expansion thresholds
 					if not all(isinstance(i, float) for i in self.thres.values()):
 						raise ValueError('wrong input -- values in threshold input (thres) must be floats')
