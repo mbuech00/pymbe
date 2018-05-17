@@ -260,34 +260,37 @@ def main(mol, calc, exp, method):
 		res = {'energy': res_tmp['energy']}
 		# return first-order properties
 		if calc.target['dipole']:
-			res['dipole'] = [_dipole(mol.dipole, calc.occup, exp.cas_idx, calc.mo, \
-										res_tmp['rdm1'][i], hf_dipole=calc.prop['hf']['dipole']) for i in range(calc.state['root']+1)]
+			res['dipole'] = [_dipole(mol, calc, exp, res_tmp['rdm1'][i]) for i in range(calc.state['root']+1)]
 			if calc.state['root'] >= 1:
 				res['dipole'][1:] = [res['dipole'][i] - res['dipole'][0] for i in range(1, calc.state['root']+1)]
 		if calc.target['trans']:
-			res['trans'] = [_trans(res_tmp['hf_weight'][0], res_tmp['hf_weight'][i+1], mol.dipole, calc.occup, exp.cas_idx, calc.mo, \
-										res_tmp['t_rdm1'][i]) for i in range(calc.state['root'])]
+			res['trans'] = [_trans(mol, calc, exp, res_tmp['t_rdm1'][i], \
+									res_tmp['hf_weight'][0], res_tmp['hf_weight'][i+1]) for i in range(calc.state['root'])]
 		return res
 
 
-def _dipole(ints, occup, cas_idx, mo, cas_rdm1, hf_dipole=None):
-		""" calculate electronic dipole moment """
-		rdm1 = np.diag(occup)
-		rdm1[cas_idx[:, None], cas_idx] = cas_rdm1
+def _dipole(mol, calc, exp, cas_rdm1, trans=False):
+		""" calculate electronic (transition) dipole moment """
+		# init (transition) rdm1
+		if not trans:
+			rdm1 = np.diag(calc.occup)
+		else:
+			rdm1 = np.zeros([mol.norb, mol.norb], dtype=np.float64)
+		# insert correlated subblock
+		rdm1[exp.cas_idx[:, None], exp.cas_idx] = cas_rdm1
 		# elec dipole
 		elec_dipole = np.empty(3, dtype=np.float64)
 		for i in range(3):
-			elec_dipole[i] = np.einsum('ij,ij->', rdm1, reduce(np.dot, (mo.T, ints[i], mo)))
+			elec_dipole[i] = np.einsum('ij,ij->', rdm1, np.einsum('pi,pq,qj->ij', calc.mo, mol.dipole[i], calc.mo))
 		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
-		if hf_dipole is None:
-			return elec_dipole
-		else:
-			return elec_dipole - hf_dipole
+		if not trans:
+			elec_dipole -= calc.prop['hf']['dipole']
+		return elec_dipole
 
 
-def _trans(hf_weight_gs, hf_weight_ex, ints, occup, cas_idx, mo, cas_t_rdm1):
+def _trans(mol, calc, exp, cas_t_rdm1, hf_weight_gs, hf_weight_ex):
 		""" calculate electronic transition dipole moment """
-		return _dipole(ints, occup, cas_idx, mo, cas_t_rdm1) * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
+		return _dipole(mol, calc, exp, cas_t_rdm1, True) * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
 def base(mol, calc, exp):

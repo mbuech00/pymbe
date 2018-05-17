@@ -131,7 +131,7 @@ def mbe_results(mol, calc, exp):
 						_print(string, form)
 				elif i in ['dipole', 'trans']:
 					for j in range(calc.state['root']+1):
-						if i == 'energy' or (i == 'trans' and j > 0):
+						if i == 'dipole' or (i == 'trans' and j > 0):
 							print(FILL)
 							if i == 'dipole':
 								prop_tot = exp.prop['dipole'][j]['tot']
