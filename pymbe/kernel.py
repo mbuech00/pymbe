@@ -333,7 +333,7 @@ def base(mol, calc, exp):
 		if calc.orbs['occ'] != 'can':
 			if calc.orbs['occ'] in ['cisd', 'ccsd']:
 				occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
-				calc.mo[:, mol.ncore:mol.nocc] = np.dot(calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
+				calc.mo[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
 			elif calc.orbs['occ'] == 'pm':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.pm(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.orbs['occ'] == 'fb':
@@ -349,7 +349,7 @@ def base(mol, calc, exp):
 		if calc.orbs['virt'] != 'can':
 			if calc.orbs['virt'] in ['cisd', 'ccsd']:
 				occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
-				calc.mo[:, mol.nocc:] = np.dot(calc.mo[:, mol.nocc:], no[:, ::-1])
+				calc.mo[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo[:, mol.nocc:], no[:, ::-1])
 			elif calc.orbs['virt'] == 'pm':
 				calc.mo[:, mol.nocc:] = lo.pm(mol, calc.mo[:, mol.nocc:]).kernel()
 			elif calc.orbs['virt'] == 'fb':
@@ -411,25 +411,25 @@ def _casscf(mol, calc, exp):
 				raise
 		# save mo
 		fock_ao = cas.get_fock(cas.mo_coeff, cas.ci, None, None)
-		fock = reduce(np.dot, (cas.mo_coeff.T, fock_ao, cas.mo_coeff))
+		fock = np.einsum('pi,pq,qj->ij', cas.mo_coeff, fock_ao, cas.mo_coeff)
 		mo = np.empty_like(cas.mo_coeff)
 		# core region
 		if mol.ncore > 0:
 			c = symm.eigh(fock[:mol.ncore, :mol.ncore], \
 								cas.mo_coeff.orbsym[:mol.ncore])[1]
-			mo[:, :mol.ncore] = np.dot(cas.mo_coeff[:, :mol.ncore], c)
+			mo[:, :mol.ncore] = np.einsum('ip,pj->ij', cas.mo_coeff[:, :mol.ncore], c)
 		# inactive region (excl. core)
 		if cas.frozen > mol.ncore:
 			c = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], \
 								cas.mo_coeff.orbsym[mol.ncore:cas.frozen])[1]
-			mo[:, mol.ncore:cas.frozen] = np.dot(cas.mo_coeff[:, mol.ncore:cas.frozen], c)
+			mo[:, mol.ncore:cas.frozen] = np.einsum('ip,pj->ij', cas.mo_coeff[:, mol.ncore:cas.frozen], c)
 		# active region
 		mo[:, cas.frozen:(cas.frozen + calc.no_act)] = cas.mo_coeff[:, cas.frozen:(cas.frozen + calc.no_act)]
 		# virtual region
 		if mol.norb - (cas.frozen + calc.no_act) > 0:
 			c = symm.eigh(fock[(cas.frozen + calc.no_act):, (cas.frozen + calc.no_act):], \
 								cas.mo_coeff.orbsym[(cas.frozen + calc.no_act):])[1]
-			mo[:, (cas.frozen + calc.no_act):] = np.dot(cas.mo_coeff[:, (cas.frozen + calc.no_act):], c)
+			mo[:, (cas.frozen + calc.no_act):] = np.einsum('ip,pj->ij', cas.mo_coeff[:, (cas.frozen + calc.no_act):], c)
 		return mo
 
 
@@ -626,7 +626,7 @@ def _prepare(mol, calc, exp):
 		# extract cas integrals and calculate core energy
 		if mol.e_core is None or exp.model['type'] == 'occ':
 			if len(exp.core_idx) > 0:
-				core_dm = np.dot(calc.mo[:, exp.core_idx], np.transpose(calc.mo[:, exp.core_idx])) * 2
+				core_dm = np.einsum('ip,jp->ij', calc.mo[:, exp.core_idx], calc.mo[:, exp.core_idx]) * 2
 				vj, vk = scf.hf.get_jk(mol, core_dm)
 				mol.core_vhf = vj - vk * .5
 				mol.e_core = mol.energy_nuc() + np.einsum('ij,ji', core_dm, mol.hcore)
@@ -634,8 +634,7 @@ def _prepare(mol, calc, exp):
 			else:
 				mol.e_core = mol.energy_nuc()
 				mol.core_vhf = 0
-		h1e_cas = reduce(np.dot, (np.transpose(calc.mo[:, exp.cas_idx]), \
-							mol.hcore + mol.core_vhf, calc.mo[:, exp.cas_idx]))
+		h1e_cas = np.einsum('pi,pq,qj->ij', calc.mo[:, exp.cas_idx], mol.hcore + mol.core_vhf, calc.mo[:, exp.cas_idx])
 		h2e_cas = ao2mo.incore.full(mol.eri, calc.mo[:, exp.cas_idx])
 		return h1e_cas, h2e_cas
 
