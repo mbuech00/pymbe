@@ -43,7 +43,7 @@ def main(mpi, mol, calc, exp):
 				# write restart files
 				restart.mbe_write(calc, exp)
 				# print mbe end
-				output.mbe_end(exp)
+				output.mbe_end(calc, exp)
 				# print mbe results
 				output.mbe_results(mol, calc, exp)
 			#
@@ -60,25 +60,27 @@ def main(mpi, mol, calc, exp):
 					exp.time['screen'][-1] -= MPI.Wtime()
 					exp.time['screen'][-1] *= -1.0
 					# write restart files
-					if not exp.conv_orb[-1]: restart.screen_write(exp)
+					if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 					# print screen end
 					output.screen_end(exp)
 			else:
 				if mpi.global_master:
-					# print screen end
-					output.screen_end(exp)
 					# collect time
 					exp.time['screen'].append(0.0)
 			# update restart frequency
 			if mpi.global_master: exp.rst_freq = max(exp.rst_freq // 2, 1)
 			# convergence check
-			if exp.conv_orb[-1] or exp.order == exp.max_order:
-				exp.energy['tot'] = np.array(exp.energy['tot'])
+			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
+				# timings
+				exp.time['mbe'] = np.asarray(exp.time['mbe'])
+				exp.time['screen'] = np.asarray(exp.time['screen'])
+				exp.time['total'] = exp.time['mbe'] + exp.time['screen']
 				break
 
 
 def master(mpi, mol, calc, exp):
 		""" local master routine """
+		raise NotImplementedError('combined expansions need to be re-implemented...')
 		# set loop/waiting logical
 		local_master = True
 		# enter local master state
@@ -86,35 +88,10 @@ def master(mpi, mol, calc, exp):
 			# task id
 			msg = mpi.master_comm.bcast(None, root=0)
 			#
-			#** exp class instantiation **#
-			#
-			if msg['task'] == 'exp_cls':
-				exp = expansion.ExpCls(mol, calc)
-				# set min order
-				exp.min_order = msg['min_order']
-				# receive exp info
-				calc.restart = msg['rst']
-				if calc.restart: parallel.exp(calc, exp, mpi.master_comm)
-				# reset restart logical
-				calc.restart = False
-			#
-			#** energy phase **#
-			#
-			if msg['task'] == 'mbe_local_master':
-				exp.order = msg['exp_order']
-				mbe.slave(mpi, mol, calc, exp)
-			#
-			#** screening phase **#
-			#
-			elif msg['task'] == 'screen_local_master':
-				exp.order = msg['exp_order']
-				exp.thres = msg['thres']
-				screen.slave(mpi, mol, calc, exp)
-			#
-			#** exit **#
-			#
-			elif msg['task'] == 'exit_local_master':
-				local_master = False
+#			#** exit **#
+#			#
+#			elif msg['task'] == 'exit':
+#				local_master = False
 		# finalize
 		parallel.final(mpi)
 
@@ -155,7 +132,7 @@ def _rst_print(mol, calc, exp):
 		rst_freq = exp.rst_freq
 		for exp.order in range(exp.start_order, exp.min_order):
 			output.mbe_header(exp)
-			output.mbe_end(exp)
+			output.mbe_end(calc, exp)
 			output.mbe_results(mol, calc, exp)
 			thres = screen.update(calc, exp)
 			output.screen_header(exp, thres)

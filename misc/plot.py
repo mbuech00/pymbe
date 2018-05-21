@@ -3,9 +3,7 @@
 
 import sys
 import os
-import contextlib
 import numpy as np
-from pyscf import symm
 import matplotlib
 matplotlib.use('Agg')
 matplotlib.rcParams['font.family'] = 'sans-serif'

@@ -59,8 +59,10 @@ def _init():
 		mpi = parallel.MPICls()
 		mol = _mol(mpi)
 		calc = _calc(mpi, mol)
+		# set max_mem
+		mol.max_memory = calc.misc['mem']
 		# configure mpi
-		parallel.set_mpi(mpi)
+		parallel.set_mpi(mpi, calc)
 		# exp object
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
@@ -90,39 +92,60 @@ def _exp(mpi, mol, calc):
 		if mpi.global_master:
 			# restart
 			if calc.restart:
-				# get hcore and eri
-				mol.hcore, mol.eri = kernel.hcore_eri(mol)
+				# get ao integrals
+				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# exp object
-				exp = expansion.ExpCls(mol, calc)
+				if calc.model['type'] != 'comb':
+					exp = expansion.ExpCls(mol, calc, calc.model['type'])
+				else:
+					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
+					raise NotImplementedError('comb expansion not implemented')
 			# no restart
 			else:
 				# hf calculation
-				calc.hf, calc.energy['hf'], calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
-				# get hcore and eri
-				mol.hcore, mol.eri = kernel.hcore_eri(mol)
+				calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
+					calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
+				# get ao integrals
+				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
 				# exp object
-				exp = expansion.ExpCls(mol, calc)
+				if calc.model['type'] != 'comb':
+					exp = expansion.ExpCls(mol, calc, calc.model['type'])
+				else:
+					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
+					raise NotImplementedError('comb expansion not implemented')
 				# reference calculation
-				calc.energy['ref'], calc.energy['ref_base'], calc.mo = kernel.ref(mol, calc, exp)
-				# base energy and transformation matrix
-				calc.energy['base'] = kernel.base(mol, calc, exp)
+				ref, calc.mo = kernel.ref(mol, calc, exp)
+				calc.prop['ref']['energy'] = [ref['energy'][i] for i in range(calc.nroots)]
+				calc.base['ref'] = ref['base']
+				if calc.target['dipole']:
+					calc.prop['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.nroots)]
+				if calc.target['trans']:
+					calc.prop['ref']['trans'] = [ref['trans'][i] for i in range(calc.nroots-1)]
+				# base energy
+				base = kernel.base(mol, calc, exp)
+				calc.base['energy'] = base['energy']
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:
-			# get hcore and eri
-			mol.hcore, mol.eri = kernel.hcore_eri(mol)
+			# get ao integrals
+			mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 		# bcast fundamental info
 		if mpi.parallel: parallel.fund(mpi, mol, calc)
 		# restart and exp object on slaves
 		if mpi.global_master:
 			exp.min_order = restart.main(calc, exp)
 		else:
-			exp = expansion.ExpCls(mol, calc)
+			# exp object
+			if calc.model['type'] != 'comb':
+				exp = expansion.ExpCls(mol, calc, calc.model['type'])
+			else:
+				# exp.typ = 'virt' for occ-virt and exp.typ = 'occ' for virt-occ combined expansions
+				raise NotImplementedError('comb expansion not implemented')
 		return exp
 
 
