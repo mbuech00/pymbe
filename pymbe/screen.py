@@ -201,7 +201,7 @@ def _slave(mpi, mol, calc, exp):
 
 def _test(calc, exp, tup):
 		""" screening test """
-		if exp.thres == 0.0:
+		if exp.thres == 0.0 or exp.order == exp.start_order:
 			if calc.model['type'] == 'occ':
 				return [m for m in range(calc.exp_space[0], tup[0])]
 			elif calc.model['type'] == 'virt':
@@ -212,9 +212,9 @@ def _test(calc, exp, tup):
 			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
 				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
-									combinations(tup[calc.no_exp:], (exp.order-exp.start_order)-1)], dtype=np.int32)
+									combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
 			else:
-				combs = np.array([comb for comb in itertools.combinations(tup, exp.order-exp.start_order)], dtype=np.int32)
+				combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
 			# loop over new orbs 'm'
 			if calc.model['type'] == 'occ':
 				for m in range(calc.exp_space[0], tup[0]):

@@ -263,7 +263,7 @@ def _sum(calc, exp, tup):
 		if calc.target['trans']:
 			res['trans'] = [np.zeros(3, dtype=np.float64) for i in range(calc.nroots-1)]
 		# compute contributions from lower-order increments
-		for count, i in enumerate(range(exp.order-exp.start_order, 0, -1)):
+		for i in range(exp.order-exp.start_order, 0, -1):
 			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
 				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
