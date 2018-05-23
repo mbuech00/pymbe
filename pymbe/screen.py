@@ -272,13 +272,13 @@ def _prot_scheme(prop, thres, scheme):
 		""" screen according to chosen scheme """
 		# are *any* increments above the threshold?
 		if scheme == 'new':
-			if np.any(np.abs(prop) > thres):
+			if np.max(np.abs(prop)) > thres:
 				return False
 			else:
 				return True
 		# are *all* increments above the threshold?
 		elif scheme == 'old':
-			if np.all(np.abs(prop) > thres):
+			if np.min(np.abs(prop)) > thres:
 				return False
 			else:
 				return True
