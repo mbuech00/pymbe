@@ -217,12 +217,15 @@ def _trans(calc, exp, comm):
 			comm.Allreduce(MPI.IN_PLACE, [exp.prop['trans'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
-def tup(exp, comm):
+def tuples(exp, comm):
 		""" Bcast tuples """
 		# Bcast
 		comm.Bcast([exp.tuples[-1], MPI.INT], root=0)
 		# get hashes
 		exp.hashes.append(tools.hash_2d(exp.tuples[-1]))
+		# sort wrt hashes
+		exp.tuples[-1] = exp.tuples[-1][exp.hashes[-1].argsort()]
+		exp.hashes[-1].sort()
 
 
 def final(mpi):
