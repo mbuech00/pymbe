@@ -295,16 +295,16 @@ def base(mol, calc, exp):
 		# cisd base
 		elif calc.base['method'] == 'cisd':
 			res = _ci(mol, calc, exp)
-			base = {'energy': res['energy']}
-			if res['rdm1'][0] is not None:
+			base = {'energy': res['energy'][0]}
+			if 'rdm1' in res:
 				rdm1 = res['rdm1']
 				if mol.spin > 0:
 					rdm1 = rdm1[0] + rdm1[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
 			res = _cc(mol, calc, exp, calc.base['method'] == 'ccsd(t)')
-			base = {'energy': res['energy']}
-			if res['rdm1'][0] is not None:
+			base = {'energy': res['energy'][0]}
+			if 'rdm1' in res:
 				rdm1 = res['rdm1']
 				if mol.spin > 0:
 					rdm1 = rdm1[0] + rdm1[1]
@@ -347,7 +347,7 @@ def base(mol, calc, exp):
 		# extra calculation for non-invariant ccsd(t)
 		if calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can'):
 			res = _cc(mol, calc, exp, True)
-			base['energy'] = res['energy']
+			base['energy'] = res['energy'][0]
 		return base
 
 
@@ -519,7 +519,7 @@ def _ci(mol, calc, exp):
 		# calculate cisd energy
 		cisd.kernel(eris=eris)
 		# e_corr
-		res = {'energy': cisd.e_corr}
+		res = {'energy': [cisd.e_corr]}
 		# rdm1
 		if exp.order == 0 and (calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd'):
 			res['rdm1'] = cisd.make_rdm1()
@@ -559,7 +559,7 @@ def _cc(mol, calc, exp, pt=False):
 		# calculate ccsd energy
 		ccsd.kernel(eris=eris)
 		# e_corr
-		res = {'energy': ccsd.e_corr}
+		res = {'energy': [ccsd.e_corr]}
 		# rdm1
 		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
 			ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
@@ -568,9 +568,9 @@ def _cc(mol, calc, exp, pt=False):
 		if pt:
 			if np.amin(calc.occup[exp.cas_idx]) == 1.0:
 				if len(np.where(calc.occup[exp.cas_idx] == 1.)[0]) >= 3:
-					res['energy'] += ccsd.ccsd_t(eris=eris)
+					res['energy'][0] += ccsd.ccsd_t(eris=eris)
 			else:
-				res['energy'] += ccsd.ccsd_t(eris=eris)
+				res['energy'][0] += ccsd.ccsd_t(eris=eris)
 		return res
 
 
