@@ -11,6 +11,8 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import sys
+import os
+import numpy as np
 try:
 	from mpi4py import MPI
 except ImportError:
@@ -26,14 +28,15 @@ import calculation
 import expansion
 import kernel
 import driver
+import tools
 import restart
 import results
 
 
 def main():
 		""" main program """
-		# general pyscf settings
-		_pyscf_set()
+		# general settings and sanity checks
+		_setup()
 		# mpi, mol, calc, and exp objects
 		mpi, mol, calc, exp = _init()
 		# branch
@@ -135,7 +138,8 @@ def _exp(mpi, mol, calc):
 			# get ao integrals
 			mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 		# bcast fundamental info
-		if mpi.parallel: parallel.fund(mpi, mol, calc)
+		if mpi.parallel:
+			parallel.fund(mpi, mol, calc)
 		# restart and exp object on slaves
 		if mpi.global_master:
 			exp.min_order = restart.main(calc, exp)
@@ -149,12 +153,21 @@ def _exp(mpi, mol, calc):
 		return exp
 
 
-def _pyscf_set():
-		""" set general pyscf settings """
+def _setup():
+		""" set general settings and perform sanity checks"""
 		# force OMP_NUM_THREADS = 1
 		lib.num_threads(1)
 		# mute scf checkpoint files
 		scf.hf.MUTE_CHKFILE = True
+		# PYTHONHASHSEED
+		pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)
+		try:
+			if pythonhashseed == -1:
+				raise RuntimeError('\nenvironment variable PYTHONHASHSEED appears not to have been set - \n'
+									'please set this to an arbitrary integer, e.g., export PYTHONHASHSEED=0\n')
+		except Exception as err:
+			sys.stderr.write('\nRuntimeError : {0:}\n\n'.format(err))
+			raise
 
 
 if __name__ == '__main__':

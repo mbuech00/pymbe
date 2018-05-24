@@ -42,19 +42,7 @@ def hf(mol, calc):
 		# fixed occupation
 		hf.irrep_nelec = mol.irrep_nelec
 		# perform hf calc
-		for i in list(range(0, 12, 2)):
-			hf.diis_start_cycle = i
-			try:
-				hf.kernel()
-			except sp.linalg.LinAlgError: pass
-			if hf.converged: break
-		# convergence check
-		if not hf.converged:
-			try:
-				raise RuntimeError('\nhf Error : no convergence\n\n')
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
+		hf.kernel()
 		# dipole moment
 		tot_dipole = hf.dip_moment(unit='au', verbose=0)
 		# nuclear dipole moment
@@ -398,13 +386,6 @@ def _casscf(mol, calc, exp):
 				cas.state_average_(weights)
 		# run casscf calc
 		cas.kernel(calc.mo)
-		# convergence check
-		if not cas.converged:
-			try:
-				raise RuntimeError('\ncasscf Error : no convergence\n\n')
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
 		# calculate spin
 		s, mult = cas.fcisolver.spin_square(cas.ci, calc.no_act, calc.ne_act)
 		# check for correct spin
@@ -448,9 +429,9 @@ def _fci(mol, calc, exp):
 		else:
 			solver = fci.direct_spin1_symm.FCI(mol)
 		# settings
-		solver.conv_tol = 1.0e-10
+		solver.conv_tol = calc.thres['init']
 		if calc.target['dipole'] or calc.target['trans']:
-			solver.conv_tol_residual = 1.0e-07
+			solver.conv_tol_residual = calc.thres['init']
 		solver.max_cycle = 500
 		solver.max_space = 25
 		solver.davidson_only = True
@@ -477,27 +458,13 @@ def _fci(mol, calc, exp):
 		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=mol.e_core)
 		# collect results
 		if solver.nroots == 1:
-			assert solver.converged, ('fci: ground state not converged\n\n'
-										'core_idx = {0:} , cas_idx = {1:}\n\n').\
-										format(exp.core_idx, exp.cas_idx)
 			energy = [e]
 			civec = [c]
 		else:
-			assert len(solver.converged) == solver.nroots, 'fci: problem with multiple roots'
 			if calc.prot['specific']:
-				assert solver.converged[0], ('fci: state {0:} not converged\n\n'
-											'core_idx = {1:} , cas_idx = {2:}\n\n').\
-											format(0, exp.core_idx, exp.cas_idx)
-				assert solver.converged[calc.state['root']], ('fci: state {0:} not converged\n\n'
-											'core_idx = {1:} , cas_idx = {2:}\n\n').\
-											format(calc.state['root'], exp.core_idx, exp.cas_idx)
 				energy = [e[0], e[calc.state['root']]]
 				civec = [c[0], c[calc.state['root']]]
 			else:
-				for i in range(solver.nroots):
-					assert solver.converged[i], ('fci: state {0:} not converged\n\n'
-												'core_idx = {1:} , cas_idx = {2:}\n\n').\
-												format(i, exp.core_idx, exp.cas_idx)
 				energy = e
 				civec = c
 		# sanity check
@@ -545,24 +512,12 @@ def _ci(mol, calc, exp):
 			cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(len(exp.cas_idx)), np.eye(len(exp.cas_idx)))), \
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
-		cisd.conv_tol = 1.0e-10
+		cisd.conv_tol = calc.thres['init']
 		cisd.max_cycle = 500
 		cisd.max_space = 25
 		eris = cisd.ao2mo()
 		# calculate cisd energy
-		for i in range(5,-1,-1):
-			cisd.level_shift = 1.0 / 10.0 ** (i)
-			try:
-				cisd.kernel(eris=eris)
-			except sp.linalg.LinAlgError: pass
-			if cisd.converged: break
-		# convergence check
-		if not cisd.converged:
-			try:
-				raise RuntimeError('\ncisd Error : no convergence\n\n')
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
+		cisd.kernel(eris=eris)
 		# e_corr
 		res = {'energy': cisd.e_corr}
 		# rdm1
@@ -591,9 +546,9 @@ def _cc(mol, calc, exp, pt=False):
 			ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(len(exp.cas_idx)), np.eye(len(exp.cas_idx)))), \
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
-		ccsd.conv_tol = 1.0e-10
+		ccsd.conv_tol = calc.thres['init']
 		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
-			ccsd.conv_tol_normt = 1.0e-07
+			ccsd.conv_tol_normt = calc.thres['init']
 		ccsd.max_cycle = 500
 		if exp.order > 0:
 			# avoid async function execution if requested
@@ -602,19 +557,7 @@ def _cc(mol, calc, exp, pt=False):
 			if not calc.misc['async']: ccsd.incore_complete = True
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
-		for i in list(range(0, 12, 2)):
-			ccsd.diis_start_cycle = i
-			try:
-				ccsd.kernel(eris=eris)
-			except sp.linalg.LinAlgError: pass
-			if ccsd.converged: break
-		# convergence check
-		if not ccsd.converged:
-			try:
-				raise RuntimeError('\nccsd Error : no convergence\n\n')
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
+		ccsd.kernel(eris=eris)
 		# e_corr
 		res = {'energy': ccsd.e_corr}
 		# rdm1

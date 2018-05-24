@@ -293,7 +293,14 @@ def _time(exp, comp, idx):
 			minutes = int((np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600.)//60)
 			seconds = int(np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600. \
 							- ((np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600.)//60)*60.)
-		return hours, minutes, seconds
+		# init time string
+		time = ''
+		if hours > 0:
+			time += '{:}h '.format(hours)
+		if minutes > 0:
+			time += '{:}m '.format(minutes)
+		time += '{:}s'.format(seconds)
+		return time
 
 
 def _summary_prt(info, calc, exp):
@@ -325,13 +332,10 @@ def _summary_prt(info, calc, exp):
 						'','|','','base model','','=','',info['base'], \
 						'','|','','MBE total energy','','=','',info['energy'][0][-1]))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:}{22:<2s}{23:}{24:<2s}{25:}{26:<1s}'.\
+				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'.\
 					format('','occupied orbs','','=','',info['occ'], \
 						'','|','','screen. prot.','','=','',info['prot'], \
-						'','|','','total time','','=','', \
-						_time(exp, 'total', exp.order-1)[0],'h', \
-						_time(exp, 'total', exp.order-1)[1],'m', \
-						_time(exp, 'total', exp.order-1)[2],'s'))
+						'','|','','total time','','=','',_time(exp, 'total', exp.order-1)))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 					format('','virtual orbs','','=','',info['virt'], \
@@ -347,24 +351,16 @@ def _timings_prt(info, exp):
 		print(DIVIDER[:98])
 		print('{0:^98}'.format('MBE timings'))
 		print(DIVIDER[:98])
-		print('{0:6}{1:9}{2:2}{3:1}{4:6}{5:47}{6:7}{7:1}{8:4}{9:}'. \
-				format('','MBE order','','|','','time (HHH : MM : SS) -- MBE / screening - total', \
+		print('{0:6}{1:9}{2:2}{3:1}{4:6}{5:^47}{6:7}{7:1}{8:4}{9:}'. \
+				format('','MBE order','','|','','time (MBE / screening / total)', \
 						'','|','','calculations'))
 		print(DIVIDER[:98])
 		for i in range(info['final_order']):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:3d}{6:^3}{7:2d}{8:^3}{9:2d}{10:^5}{11:3d}'
-				'{12:^3}{13:2d}{14:^3}{15:2d}{16:^5}{17:3d}{18:^3}{19:2d}{20:^3}{21:2d}'
-				'{22:6}{23:1}{24:5}{25:>9d}'. \
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>13s}{6:5}{7:>13s}{8:5}{9:>13s}{10:6}{11:1}{12:5}{13:>9d}'. \
 					format('',i+exp.start_order, \
-						'','|','',_time(exp, 'mbe', i)[0],':', \
-						_time(exp, 'mbe', i)[1],':', \
-						_time(exp, 'mbe', i)[2], \
-						'/',_time(exp, 'screen', i)[0],':', \
-   						_time(exp, 'screen', i)[1],':', \
-   						_time(exp, 'screen', i)[2], \
-						'-',_time(exp, 'total', i)[0],':', \
- 						_time(exp, 'total', i)[1],':', \
- 						_time(exp, 'total', i)[2], \
+						'','|','',_time(exp, 'mbe', i), \
+						'',_time(exp, 'screen', i), \
+						'',_time(exp, 'total', i), \
 						'','|','',exp.tuples[i].shape[0]))
 		print(DIVIDER[:98]+'\n')
 
@@ -452,6 +448,8 @@ def _energies_plot(info, calc, exp, root):
 		# force integer ticks on x-axis
 		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# set upper limit on y-axis
+		ax2.set_ylim(top=2.0e-01)
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
@@ -562,6 +560,8 @@ def _dipole_plot(info, calc, exp, root):
 		# force integer ticks on x-axis
 		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# set upper limit on y-axis
+		ax2.set_ylim(top=2.0e-01)
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
@@ -642,6 +642,8 @@ def _trans_plot(info, calc, exp, root):
 		# force integer ticks on x-axis
 		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# set upper limit on y-axis
+		ax2.set_ylim(top=2.0e-01)
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
@@ -696,6 +698,8 @@ def _osc_strength_plot(info, calc, exp, root):
 		# force integer ticks on x-axis
 		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# set upper limit on y-axis
+		ax2.set_ylim(top=2.0e-01)
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine

@@ -64,6 +64,9 @@ def _init_tup(mol, calc):
 				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32, order='F')]
 		# hashes
 		hashes = [tools.hash_2d(tuples[0])]
+		# sort wrt hashes
+		tuples[0] = tuples[0][hashes[0].argsort()]
+		hashes[0].sort()
 		return incl_idx, tuples, hashes
 
 

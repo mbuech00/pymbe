@@ -60,6 +60,9 @@ def _serial(mol, calc, exp):
 		if exp.tuples[-1].shape[0] > 0:
 			# get hashes
 			exp.hashes.append(tools.hash_2d(exp.tuples[-1]))
+			# sort wrt hashes
+			exp.tuples[-1] = exp.tuples[-1][exp.hashes[-1].argsort()]
+			exp.hashes[-1].sort()
 
 
 def _master(mpi, mol, calc, exp):
@@ -156,10 +159,10 @@ def _master(mpi, mol, calc, exp):
 			# add child tuples
 			exp.tuples[-1] = np.vstack((exp.tuples[-1], tmp.reshape(-1, exp.order+1)))
 			slaves_avail -= 1
-		# finally, bcast tuples if expansion has not converged 
-		comm.Bcast([np.asarray([exp.tuples[-1].shape[0]], dtype=np.int64), MPI.INT], root=0)
+		# finally, bcast tuples and hashes if expansion has not converged 
+		comm.Bcast([np.asarray([exp.tuples[-1].shape[0]], dtype=np.int32), MPI.INT], root=0)
 		if exp.tuples[-1].shape[0] > 0:
-			parallel.tup(exp, comm)
+			parallel.tuples(exp, comm)
 
 
 def _slave(mpi, mol, calc, exp):
@@ -191,12 +194,12 @@ def _slave(mpi, mol, calc, exp):
 				# send tuples to master
 				comm.Send([np.asarray(child_tup, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
 				break
-		# receive tuples
-		tup_size = np.empty(1, dtype=np.int64)
+		# receive tuples and hashes
+		tup_size = np.empty(1, dtype=np.int32)
 		comm.Bcast([tup_size, MPI.INT], root=0)
 		if tup_size[0] >= 1:
 			exp.tuples.append(np.empty([tup_size[0], exp.order+1], dtype=np.int32))
-			parallel.tup(exp, comm)
+			parallel.tuples(exp, comm)
 
 
 def _test(calc, exp, tup):
@@ -223,65 +226,57 @@ def _test(calc, exp, tup):
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# add orbital m to combinations
 					combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
-					# convert to hashes
+					# convert to sorted hashes
 					combs_m = tools.hash_2d(combs_m)
+					combs_m.sort()
 					# get index
 					indx = tools.hash_compare(exp.hashes[-1], combs_m)
-					if indx.size == combs.shape[0]:
+					if indx.size > 0:
 						lst += _prot_check(exp, calc, indx, m)
 			return lst
 
 
 def _prot_check(exp, calc, indx, m):
 		""" protocol check """
-		if indx.size == 0:
-			return []
-		else:
-			screen = True
-			for i in ['energy', 'dipole', 'trans']:
-				if calc.target[i]:
-					if i == 'energy':
-						for j in range(calc.nroots):
-							prop = exp.prop['energy'][j]['inc'][-1][indx]
+		screen = True
+		for i in ['energy', 'dipole', 'trans']:
+			if calc.target[i]:
+				if i == 'energy':
+					for j in range(calc.nroots):
+						prop = exp.prop['energy'][j]['inc'][-1][indx]
+						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
+						if not screen: break
+				elif i == 'dipole':
+					for j in range(calc.nroots):
+						for k in range(3):
+							# (x,y,z) = (0,1,2)
+							prop = exp.prop['dipole'][j]['inc'][-1][indx, k]
 							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
 							if not screen: break
-					elif i == 'dipole':
-						for j in range(calc.nroots):
-							for k in range(3):
-								# (x,y,z) = (0,1,2)
-								prop = exp.prop['dipole'][j]['inc'][-1][indx, k]
-								screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-								if not screen: break
+						if not screen: break
+				elif i == 'trans':
+					for j in range(calc.nroots-1):
+						for k in range(3):
+							# (x,y,z) = (0,1,2)
+							prop = exp.prop['trans'][j]['inc'][-1][indx, k]
+							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
 							if not screen: break
-					elif i == 'trans':
-						for j in range(calc.nroots-1):
-							for k in range(3):
-								# (x,y,z) = (0,1,2)
-								prop = exp.prop['trans'][j]['inc'][-1][indx, k]
-								screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-								if not screen: break
-							if not screen: break
-				if not screen: break
-			if not screen:
-				return [m]
-			else:
-				return []
+						if not screen: break
+			if not screen: break
+		if not screen:
+			return [m]
+		else:
+			return []
 
 
 def _prot_scheme(prop, thres, scheme):
 		""" screen according to chosen scheme """
-		# are *any* increments above the threshold?
+		# are *all* increments below the threshold?
 		if scheme == 'new':
-			if np.any(np.abs(prop) > thres):
-				return False
-			else:
-				return True
-		# are *all* increments above the threshold?
+			return np.max(np.abs(prop)) < thres
+		# are *any* increments below the threshold?
 		elif scheme == 'old':
-			if np.all(np.abs(prop) > thres):
-				return False
-			else:
-				return True
+			return np.min(np.abs(prop)) < thres
 
 
 def update(calc, exp):

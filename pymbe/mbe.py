@@ -270,8 +270,9 @@ def _sum(calc, exp, tup):
 									combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
-			# convert to hashes
+			# convert to sorted hashes
 			combs = tools.hash_2d(combs)
+			combs.sort()
 			# get index
 			indx = tools.hash_compare(exp.hashes[i-1], combs)
 			# add up lower-order increments

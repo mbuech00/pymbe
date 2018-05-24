@@ -59,7 +59,12 @@ def hash_1d(a):
 
 def hash_compare(a, b):
 		""" find occurences of b in a """
-		return np.where(np.in1d(a, b))[0]
+		left = a.searchsorted(b, side='left')
+		right = a.searchsorted(b, side='right')
+		if (a.searchsorted(b, side='right') - a.searchsorted(b, side='left') > 0).nonzero()[0].size == b.size:
+			return left
+		else:
+			return np.array([])
 
 
 def dict_conv(old_dict):
