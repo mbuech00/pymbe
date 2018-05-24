@@ -297,7 +297,7 @@ def base(mol, calc, exp):
 			res = _ci(mol, calc, exp)
 			base = {'energy': res['energy'][0]}
 			if res['rdm1'][0] is not None:
-				rdm1 = res['rdm1'][0]
+				rdm1 = res['rdm1']
 				if mol.spin > 0:
 					rdm1 = rdm1[0] + rdm1[1]
 		# ccsd / ccsd(t) base
@@ -305,18 +305,18 @@ def base(mol, calc, exp):
 			res = _cc(mol, calc, exp, calc.base['method'] == 'ccsd(t)')
 			base = {'energy': res['energy'][0]}
 			if res['rdm1'][0] is not None:
-				rdm1 = res['rdm1'][0]
+				rdm1 = res['rdm1']
 				if mol.spin > 0:
 					rdm1 = rdm1[0] + rdm1[1]
 		# NOs
 		if (calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd') and rdm1 is None:
 			res = _ci(mol, calc, exp)
-			rdm1 = res['rdm1'][0]
+			rdm1 = res['rdm1']
 			if mol.spin > 0:
 				rdm1 = rdm1[0] + rdm1[1]
 		elif (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and rdm1 is None:
 			res = _cc(mol, calc, exp, False)
-			rdm1 = res['rdm1'][0]
+			rdm1 = res['rdm1']
 			if mol.spin > 0:
 				rdm1 = rdm1[0] + rdm1[1]
 		# occ-occ block (local or NOs)

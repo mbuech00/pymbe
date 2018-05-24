@@ -119,7 +119,7 @@ def _plot(info, calc, exp):
 
 def _model_type(calc):
 		""" model / type print """
-		return '{0:} / {1:}'.format(calc.model['method'], calc.model['type'])
+		return '{0:} / {1:}'.format(calc.model['method'].upper(), calc.model['type'])
 
 
 def _basis(mol):
@@ -155,11 +155,11 @@ def _ref(mol, calc):
 		""" ref print """
 		if calc.ref['method'] == 'hf':
 			if mol.spin == 0:
-				return 'Rhf'
+				return 'RHF'
 			else:
-				return 'ROhf'
+				return 'ROHF'
 		else:
-			return calc.ref['method']
+			return calc.ref['method'].upper()
 
 
 def _base(calc):
@@ -167,7 +167,7 @@ def _base(calc):
 		if calc.base['method'] is None:
 			return 'none'
 		else:
-			return calc.base['method']
+			return calc.base['method'].upper()
 
 
 def _prot(calc):
