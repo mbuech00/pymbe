@@ -448,6 +448,8 @@ def _energies_plot(info, calc, exp, root):
 		# force integer ticks on x-axis
 		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# set upper limit on y-axis
+		ax2.set_ylim(top=2.0e-01)
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
@@ -558,6 +560,8 @@ def _dipole_plot(info, calc, exp, root):
 		# force integer ticks on x-axis
 		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# set upper limit on y-axis
+		ax2.set_ylim(top=2.0e-01)
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
@@ -638,6 +642,8 @@ def _trans_plot(info, calc, exp, root):
 		# force integer ticks on x-axis
 		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# set upper limit on y-axis
+		ax2.set_ylim(top=2.0e-01)
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
@@ -692,6 +698,8 @@ def _osc_strength_plot(info, calc, exp, root):
 		# force integer ticks on x-axis
 		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
 		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
+		# set upper limit on y-axis
+		ax2.set_ylim(top=2.0e-01)
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
