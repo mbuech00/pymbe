@@ -271,18 +271,12 @@ def _prot_check(exp, calc, indx, m):
 
 def _prot_scheme(prop, thres, scheme):
 		""" screen according to chosen scheme """
-		# are *any* increments above the threshold?
+		# are *all* increments below the threshold?
 		if scheme == 'new':
-			if np.max(np.abs(prop)) > thres:
-				return False
-			else:
-				return True
-		# are *all* increments above the threshold?
+			return np.max(np.abs(prop)) < thres
+		# are *any* increments below the threshold?
 		elif scheme == 'old':
-			if np.min(np.abs(prop)) > thres:
-				return False
-			else:
-				return True
+			return np.min(np.abs(prop)) < thres
 
 
 def update(calc, exp):
