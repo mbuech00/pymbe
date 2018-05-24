@@ -295,7 +295,7 @@ def base(mol, calc, exp):
 		# cisd base
 		elif calc.base['method'] == 'cisd':
 			res = _ci(mol, calc, exp)
-			base = {'energy': res['energy'][0]}
+			base = {'energy': res['energy']}
 			if res['rdm1'][0] is not None:
 				rdm1 = res['rdm1']
 				if mol.spin > 0:
@@ -303,7 +303,7 @@ def base(mol, calc, exp):
 		# ccsd / ccsd(t) base
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
 			res = _cc(mol, calc, exp, calc.base['method'] == 'ccsd(t)')
-			base = {'energy': res['energy'][0]}
+			base = {'energy': res['energy']}
 			if res['rdm1'][0] is not None:
 				rdm1 = res['rdm1']
 				if mol.spin > 0:
@@ -347,7 +347,7 @@ def base(mol, calc, exp):
 		# extra calculation for non-invariant ccsd(t)
 		if calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can'):
 			res = _cc(mol, calc, exp, True)
-			base['energy'] = res['energy'][0]
+			base['energy'] = res['energy']
 		return base
 
 
