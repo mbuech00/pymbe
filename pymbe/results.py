@@ -351,16 +351,18 @@ def _timings_prt(info, exp):
 		print(DIVIDER[:98])
 		print('{0:^98}'.format('MBE timings'))
 		print(DIVIDER[:98])
-		print('{0:6}{1:9}{2:2}{3:1}{4:6}{5:^47}{6:7}{7:1}{8:4}{9:}'. \
-				format('','MBE order','','|','','time (MBE / screening / total)', \
-						'','|','','calculations'))
+		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:3}{6:8}{7:1}{8:5}{9:9}{10:5}'
+				'{11:1}{12:7}{13:5}{14:7}{15:1}{16:4}{17:}'. \
+				format('','MBE order','','|','','MBE','','|','','screening', \
+						'','|','','total','','|','','no. of calcs.'))
 		print(DIVIDER[:98])
 		for i in range(info['final_order']):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>13s}{6:5}{7:>13s}{8:5}{9:>13s}{10:6}{11:1}{12:5}{13:>9d}'. \
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:2}{5:>13s}{6:4}{7:1}{8:2}{9:>13s}{10:4}{11:1}'
+					'{12:2}{13:>13s}{14:4}{15:1}{16:5}{17:>9d}'. \
 					format('',i+exp.start_order, \
 						'','|','',_time(exp, 'mbe', i), \
-						'',_time(exp, 'screen', i), \
-						'',_time(exp, 'total', i), \
+						'','|','',_time(exp, 'screen', i), \
+						'','|','',_time(exp, 'total', i), \
 						'','|','',exp.tuples[i].shape[0]))
 		print(DIVIDER[:98]+'\n')
 
@@ -376,7 +378,7 @@ def _energy_prt(info, calc, exp, root):
 					format('','MBE order','','|','','total energy','','|','','correlation energy'))
 			print(DIVIDER[:66])
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:}'. \
-					format('',0,'','|','',calc.prop['hf']['energy'],'','|','',''))
+					format('',0,'','|','',calc.prop['hf']['energy'],'','|','','-----------'))
 			print(DIVIDER[:66])
 			for i in range(info['final_order']):
 				print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:9.4e}'. \
