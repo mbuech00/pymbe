@@ -268,11 +268,16 @@ def _dipole(mol, calc, exp, cas_rdm1, trans=False):
 			rdm1 = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 		# insert correlated subblock
 		rdm1[exp.cas_idx[:, None], exp.cas_idx] = cas_rdm1
-		# elec dipole
+		# init elec_dipole
 		elec_dipole = np.empty(3, dtype=np.float64)
 		for i in range(3):
-			elec_dipole[i] = np.einsum('ij,ij->', rdm1, np.einsum('pi,pq,qj->ij', calc.mo, mol.dipole[i], calc.mo))
+			# mo ints
+			mo_ints = np.einsum('pi,pq,qj->ij', calc.mo, mol.dipole[i], calc.mo)
+			# elec dipole
+			elec_dipole[i] = np.einsum('ij,ij->', rdm1, mo_ints)
+		# remove noise
 		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
+		# 'correlation' dipole
 		if not trans:
 			elec_dipole -= calc.prop['hf']['dipole']
 		return elec_dipole
@@ -360,7 +365,7 @@ def _casscf(mol, calc, exp):
 			cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
 		else:
 			cas.fcisolver = fci.direct_spin1_symm.FCI(mol)
-		cas.fcisolver.conv_tol = 1.0e-10
+		cas.fcisolver.conv_tol = calc.thres['init']
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
 		cas.max_cycle_macro = 500
@@ -557,7 +562,13 @@ def _cc(mol, calc, exp, pt=False):
 			if not calc.misc['async']: ccsd.incore_complete = True
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
-		ccsd.kernel(eris=eris)
+		for i in list(range(0, 12, 2)):
+			ccsd.diis_start_cycle = i
+			try:
+				ccsd.kernel(eris=eris)
+			except sp.linalg.LinAlgError:
+				pass
+			if ccsd.converged: break
 		# e_corr
 		res = {'energy': [ccsd.e_corr]}
 		# rdm1
