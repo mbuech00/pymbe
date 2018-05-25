@@ -562,7 +562,13 @@ def _cc(mol, calc, exp, pt=False):
 			if not calc.misc['async']: ccsd.incore_complete = True
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
-		ccsd.kernel(eris=eris)
+		for i in list(range(0, 12, 2)):
+			ccsd.diis_start_cycle = i
+			try:
+				ccsd.kernel(eris=eris)
+			except sp.linalg.LinAlgError:
+				pass
+			if ccsd.converged: break
 		# e_corr
 		res = {'energy': [ccsd.e_corr]}
 		# rdm1
