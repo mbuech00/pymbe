@@ -99,7 +99,7 @@ def mbe_results(mol, calc, exp):
 			if calc.target[i]:
 				if i == 'energy':
 					for j in range(calc.nroots):
-						print(FILL)
+						string = FILL+'\n'
 						prop_inc = exp.prop['energy'][j]['inc'][exp.order-exp.start_order]
 						prop_tot = exp.prop['energy'][j]['tot']
 						# statistics
@@ -122,7 +122,7 @@ def mbe_results(mol, calc, exp):
 							else:
 								header = 'excitation energy for root {:} (total increment = {:.4e})'.format(j, tot_inc)
 						# set string
-						string = DIVIDER+'\n'
+						string += DIVIDER+'\n'
 						string += ' RESULT:{:^81}\n'
 						string += DIVIDER+'\n'
 						string += DIVIDER+'\n'
@@ -135,7 +135,7 @@ def mbe_results(mol, calc, exp):
 				elif i in ['dipole', 'trans']:
 					for j in range(calc.nroots):
 						if i == 'dipole' or (i == 'trans' and j > 0):
-							print(FILL)
+							string = FILL+'\n'
 							if i == 'dipole':
 								prop_tot = exp.prop['dipole'][j]['tot']
 							elif i == 'trans':
@@ -160,7 +160,7 @@ def mbe_results(mol, calc, exp):
 									else:
 										header = 'transition dipole for excitation {:} > {:} (total increment = {:.4e})'.format(0, j, tot_inc)
 							# set string/form
-							string = DIVIDER+'\n'
+							string += DIVIDER+'\n'
 							string += ' RESULT:{:^81}\n'
 							string += DIVIDER+'\n'
 							string += DIVIDER
@@ -194,6 +194,10 @@ def mbe_results(mol, calc, exp):
 								form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 							_print(string, form)
 		if exp.order < exp.max_order:
+			with open(OUT+'/output.out','a') as f:
+				with contextlib.redirect_stdout(f):
+					print(FILL)
+			# write also to stdout
 			print(FILL)
 		else:
 			with open(OUT+'/output.out','a') as f:

@@ -42,7 +42,19 @@ def hf(mol, calc):
 		# fixed occupation
 		hf.irrep_nelec = mol.irrep_nelec
 		# perform hf calc
-		hf.kernel()
+		for i in list(range(0, 12, 2)):
+			hf.diis_start_cycle = i
+			try:
+				hf.kernel()
+			except sp.linalg.LinAlgError: pass
+			if hf.converged: break
+		# convergence check
+		if not hf.converged:
+			try:
+				raise RuntimeError('\nHF Error : no convergence\n\n')
+			except Exception as err:
+				sys.stderr.write(str(err))
+				raise
 		# dipole moment
 		tot_dipole = hf.dip_moment(unit='au', verbose=0)
 		# nuclear dipole moment
@@ -63,7 +75,7 @@ def hf(mol, calc):
 		# sanity check
 		if wfnsym != calc.state['wfnsym'] and calc.ref['method'] == 'hf':
 			try:
-				raise RuntimeError('\nhf Error : wave function symmetry ({0:}) different from requested symmetry ({1:})\n\n'.\
+				raise RuntimeError('\nHF Error : wave function symmetry ({0:}) different from requested symmetry ({1:})\n\n'.\
 									format(symm.irrep_id2name(mol.groupname, wfnsym), symm.irrep_id2name(mol.groupname, calc.state['wfnsym'])))
 			except Exception as err:
 				sys.stderr.write(str(err))
@@ -364,7 +376,8 @@ def _casscf(mol, calc, exp):
 		if abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
 			cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
 		else:
-			cas.fcisolver = fci.direct_spin1_symm.FCI(mol)
+			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
+			cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
 		cas.fcisolver.conv_tol = calc.thres['init']
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
@@ -376,10 +389,6 @@ def _casscf(mol, calc, exp):
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# debug print
 		if mol.debug: cas.verbose = 4
-		# fix spin if non-singlet
-		if mol.spin > 0:
-			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
-			cas.fix_spin_(ss=sz * (sz + 1.))
 		# state-specific or state-averaged calculation
 		if calc.nroots > 1:
 			if calc.prot['specific']:
@@ -391,12 +400,19 @@ def _casscf(mol, calc, exp):
 				cas.state_average_(weights)
 		# run casscf calc
 		cas.kernel(calc.mo)
+		# convergence check
+		if not cas.converged:
+			try:
+				raise RuntimeError('\nCASSCF Error : no convergence\n\n')
+			except Exception as err:
+				sys.stderr.write(str(err))
+				raise
 		# calculate spin
 		s, mult = cas.fcisolver.spin_square(cas.ci, calc.no_act, calc.ne_act)
 		# check for correct spin
 		if (mol.spin + 1) - mult > 1.0e-05:
 			try:
-				raise RuntimeError(('\ncasscf Error : spin contamination\n'
+				raise RuntimeError(('\nCASSCF Error : spin contamination\n'
 									'2*S + 1 = {0:.3f}\n\n').\
 									format(mult))
 			except Exception as err:
@@ -428,15 +444,19 @@ def _casscf(mol, calc, exp):
 
 def _fci(mol, calc, exp):
 		""" fci calc """
+		# electrons
+		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# init fci solver
 		if mol.spin == 0:
 			solver = fci.direct_spin0_symm.FCI(mol)
 		else:
-			solver = fci.direct_spin1_symm.FCI(mol)
+			sz = abs(nelec[0]-nelec[1]) * .5
+			solver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
 		# settings
 		solver.conv_tol = calc.thres['init']
 		if calc.target['dipole'] or calc.target['trans']:
-			solver.conv_tol_residual = calc.thres['init']
+			solver.conv_tol *= 1.0e-04
+			solver.lindep = solver.conv_tol * 1.0e-01
 		solver.max_cycle = 500
 		solver.max_space = 25
 		solver.davidson_only = True
@@ -446,30 +466,38 @@ def _fci(mol, calc, exp):
 		solver.nroots = calc.state['root'] + 1
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
-		# electrons
-		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# orbital symmetry
 		solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo[:, exp.cas_idx])
-		# fix spin if non-singlet
-		if mol.spin > 0:
-			sz = abs(nelec[0]-nelec[1]) * .5
-			fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 		# init guess (does it exist?)
 		try:
 			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
 		except Exception:
-			raise RuntimeError('\nfci Error : no initial guess found\n\n')
+			raise RuntimeError('\nFCI Error : no initial guess found\n\n')
 		# perform calc
 		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=mol.e_core)
 		# collect results
 		if solver.nroots == 1:
+			assert solver.converged, ('fci: ground state not converged\n\n'
+										'core_idx = {0:} , cas_idx = {1:}\n\n').\
+										format(exp.core_idx, exp.cas_idx)
 			energy = [e]
 			civec = [c]
 		else:
+			assert len(solver.converged) == solver.nroots, 'fci: problem with multiple roots'
 			if calc.prot['specific']:
+				assert solver.converged[0], ('fci: state {0:} not converged\n\n'
+											'core_idx = {1:} , cas_idx = {2:}\n\n').\
+											format(0, exp.core_idx, exp.cas_idx)
+				assert solver.converged[calc.state['root']], ('fci: state {0:} not converged\n\n'
+											'core_idx = {1:} , cas_idx = {2:}\n\n').\
+											format(calc.state['root'], exp.core_idx, exp.cas_idx)
 				energy = [e[0], e[calc.state['root']]]
 				civec = [c[0], c[calc.state['root']]]
 			else:
+				for i in range(solver.nroots):
+					assert solver.converged[i], ('fci: state {0:} not converged\n\n'
+												'core_idx = {1:} , cas_idx = {2:}\n\n').\
+												format(i, exp.core_idx, exp.cas_idx)
 				energy = e
 				civec = c
 		# sanity check
@@ -477,7 +505,7 @@ def _fci(mol, calc, exp):
 			# calculate spin
 			s, mult = solver.spin_square(civec[i], len(exp.cas_idx), nelec)
 			# check for correct spin
-			assert (mol.spin + 1) - mult < 1.0e-05, ('\nfci Error : spin contamination for root = {0:}\n\n'
+			assert (mol.spin + 1) - mult < 1.0e-05, ('\nFCI Error : spin contamination for root = {0:}\n\n'
 													'2*S + 1 = {1:.6f}\n'
 													'core_idx = {2:} , cas_idx = {3:}\n\n').\
 													format(i, mult, exp.core_idx, exp.cas_idx)
@@ -569,6 +597,13 @@ def _cc(mol, calc, exp, pt=False):
 			except sp.linalg.LinAlgError:
 				pass
 			if ccsd.converged: break
+		# convergence check
+		if not ccsd.converged:
+			try:
+				raise RuntimeError('\nccsd Error : no convergence\n\n')
+			except Exception as err:
+				sys.stderr.write(str(err))
+				raise
 		# e_corr
 		res = {'energy': [ccsd.e_corr]}
 		# rdm1
