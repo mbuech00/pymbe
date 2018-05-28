@@ -483,7 +483,7 @@ def _fci(mol, calc, exp):
 			energy = [e]
 			civec = [c]
 		else:
-			assert len(solver.converged) == solver.nroots, 'fci: problem with multiple roots'
+			assert len(solver.converged) == solver.nroots, ('fci: problem with multiple roots')
 			if calc.prot['specific']:
 				assert solver.converged[0], ('fci: state {0:} not converged\n\n'
 											'core_idx = {1:} , cas_idx = {2:}\n\n').\

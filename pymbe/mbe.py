@@ -53,6 +53,12 @@ def main(mpi, mol, calc, exp):
 		else:
 			_serial(mpi, mol, calc, exp)
 		# sum up total quantities
+		if mol.verbose and calc.target['dipole'] and exp.order == 1:
+			a = np.abs(exp.prop['dipole'][0]['inc'][0][:, -1])
+			print('')
+			for i in range(exp.tuples[0].shape[0]):
+				print('o = {0:} , dipole = {1:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][i], a[np.argsort(a)[::-1]][i]))
+			print('')
 		for i in range(calc.nroots):
 			exp.prop['energy'][i]['tot'].append(tools.fsum(exp.prop['energy'][i]['inc'][-1]))
 			if calc.target['dipole']:
@@ -275,18 +281,17 @@ def _sum(calc, exp, tup):
 			combs.sort()
 			# get index
 			diff, left, right = tools.hash_compare(exp.hashes[i-1], combs)
-			if diff.size == combs.size:
-				indx = left
-				# add up lower-order increments
-				for j in range(calc.nroots):
-					res['energy'][j] += tools.fsum(exp.prop['energy'][j]['inc'][i-1][indx])
-					if calc.target['dipole']:
-						res['dipole'][j] += tools.fsum(exp.prop['dipole'][j]['inc'][i-1][indx, :])
-					if calc.target['trans']:
-						if j < calc.nroots - 1:
-							res['trans'][j] += tools.fsum(exp.prop['trans'][j]['inc'][i-1][indx, :])
-			else:
-				raise RuntimeError('\nin mbe.py:_sum()\ndiff  = {:}\nleft = {:}\nright = {:}\n'.format(diff, left, right))
+			assert diff.size == combs.size, \
+						('\nmbe.py:_sum()\ndiff  = {:}\nleft = {:}\nright = {:}\n'.format(diff, left, right))
+			indx = left
+			# add up lower-order increments
+			for j in range(calc.nroots):
+				res['energy'][j] += tools.fsum(exp.prop['energy'][j]['inc'][i-1][indx])
+				if calc.target['dipole']:
+					res['dipole'][j] += tools.fsum(exp.prop['dipole'][j]['inc'][i-1][indx, :])
+				if calc.target['trans']:
+					if j < calc.nroots - 1:
+						res['trans'][j] += tools.fsum(exp.prop['trans'][j]['inc'][i-1][indx, :])
 		return res
 
 
