@@ -154,7 +154,7 @@ def active(mol, calc):
 			# identical to hf ref?
 			if no_exp == 0:
 				try:
-					raise RuntimeError('\nCAS Error : choice of CAS returns hf solution\n\n')
+					raise RuntimeError('\nCAS Error: choice of CAS returns hf solution\n\n')
 				except Exception as err:
 					sys.stderr.write(str(err))
 					raise
@@ -403,7 +403,7 @@ def _casscf(mol, calc, exp):
 		# convergence check
 		if not cas.converged:
 			try:
-				raise RuntimeError('\nCASSCF Error : no convergence\n\n')
+				raise RuntimeError('\nCASSCF Error: no convergence\n\n')
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
@@ -412,7 +412,7 @@ def _casscf(mol, calc, exp):
 		# check for correct spin
 		if (mol.spin + 1) - mult > 1.0e-05:
 			try:
-				raise RuntimeError(('\nCASSCF Error : spin contamination\n'
+				raise RuntimeError(('\nCASSCF Error: spin contamination\n'
 									'2*S + 1 = {0:.3f}\n\n').\
 									format(mult))
 			except Exception as err:
@@ -472,30 +472,30 @@ def _fci(mol, calc, exp):
 		try:
 			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
 		except Exception:
-			raise RuntimeError('\nFCI Error : no initial guess found\n\n')
+			raise RuntimeError('\nFCI Error: no initial guess found\n\n')
 		# perform calc
 		e, c = solver.kernel(h1e, h2e, len(exp.cas_idx), nelec, ecore=mol.e_core)
 		# collect results
 		if solver.nroots == 1:
-			assert solver.converged, ('fci: ground state not converged\n\n'
+			assert solver.converged, ('FCI Error: ground state not converged\n\n'
 										'core_idx = {0:} , cas_idx = {1:}\n\n').\
 										format(exp.core_idx, exp.cas_idx)
 			energy = [e]
 			civec = [c]
 		else:
-			assert len(solver.converged) == solver.nroots, ('fci: problem with multiple roots')
+			assert len(solver.converged) == solver.nroots, ('FCI Error: problem with multiple roots')
 			if calc.prot['specific']:
-				assert solver.converged[0], ('fci: state {0:} not converged\n\n'
+				assert solver.converged[0], ('FCI Error: state {0:} not converged\n\n'
 											'core_idx = {1:} , cas_idx = {2:}\n\n').\
 											format(0, exp.core_idx, exp.cas_idx)
-				assert solver.converged[calc.state['root']], ('fci: state {0:} not converged\n\n'
+				assert solver.converged[calc.state['root']], ('FCI Error: state {0:} not converged\n\n'
 											'core_idx = {1:} , cas_idx = {2:}\n\n').\
 											format(calc.state['root'], exp.core_idx, exp.cas_idx)
 				energy = [e[0], e[calc.state['root']]]
 				civec = [c[0], c[calc.state['root']]]
 			else:
 				for i in range(solver.nroots):
-					assert solver.converged[i], ('fci: state {0:} not converged\n\n'
+					assert solver.converged[i], ('FCI Error: state {0:} not converged\n\n'
 												'core_idx = {1:} , cas_idx = {2:}\n\n').\
 												format(i, exp.core_idx, exp.cas_idx)
 				energy = e
@@ -505,7 +505,7 @@ def _fci(mol, calc, exp):
 			# calculate spin
 			s, mult = solver.spin_square(civec[i], len(exp.cas_idx), nelec)
 			# check for correct spin
-			assert (mol.spin + 1) - mult < 1.0e-05, ('\nFCI Error : spin contamination for root = {0:}\n\n'
+			assert (mol.spin + 1) - mult < 1.0e-05, ('\nFCI Error: spin contamination for root = {0:}\n\n'
 													'2*S + 1 = {1:.6f}\n'
 													'core_idx = {2:} , cas_idx = {3:}\n\n').\
 													format(i, mult, exp.core_idx, exp.cas_idx)
@@ -600,7 +600,7 @@ def _cc(mol, calc, exp, pt=False):
 		# convergence check
 		if not ccsd.converged:
 			try:
-				raise RuntimeError('\nccsd Error : no convergence\n\n')
+				raise RuntimeError('\nCCSD Error: no convergence\n\n')
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
