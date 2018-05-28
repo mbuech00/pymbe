@@ -274,15 +274,19 @@ def _sum(calc, exp, tup):
 			combs = tools.hash_2d(combs)
 			combs.sort()
 			# get index
-			indx = tools.hash_compare(exp.hashes[i-1], combs)
-			# add up lower-order increments
-			for j in range(calc.nroots):
-				res['energy'][j] += tools.fsum(exp.prop['energy'][j]['inc'][i-1][indx])
-				if calc.target['dipole']:
-					res['dipole'][j] += tools.fsum(exp.prop['dipole'][j]['inc'][i-1][indx, :])
-				if calc.target['trans']:
-					if j < calc.nroots - 1:
-						res['trans'][j] += tools.fsum(exp.prop['trans'][j]['inc'][i-1][indx, :])
+			diff, left, right = tools.hash_compare(exp.hashes[i-1], combs)
+			if diff.size == combs.size:
+				indx = left
+				# add up lower-order increments
+				for j in range(calc.nroots):
+					res['energy'][j] += tools.fsum(exp.prop['energy'][j]['inc'][i-1][indx])
+					if calc.target['dipole']:
+						res['dipole'][j] += tools.fsum(exp.prop['dipole'][j]['inc'][i-1][indx, :])
+					if calc.target['trans']:
+						if j < calc.nroots - 1:
+							res['trans'][j] += tools.fsum(exp.prop['trans'][j]['inc'][i-1][indx, :])
+			else:
+				raise RuntimeError('\nin mbe.py:_sum()\ndiff  = {:}\nleft = {:}\nright = {:}\n'.format(diff, left, right))
 		return res
 
 
