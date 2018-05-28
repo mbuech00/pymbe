@@ -428,11 +428,14 @@ def _casscf(mol, calc, exp):
 
 def _fci(mol, calc, exp):
 		""" fci calc """
+		# electrons
+		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# init fci solver
 		if mol.spin == 0:
 			solver = fci.direct_spin0_symm.FCI(mol)
 		else:
-			solver = fci.direct_spin1_symm.FCI(mol)
+			sz = abs(nelec[0]-nelec[1]) * .5
+			solver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
 		# settings
 		solver.conv_tol = calc.thres['init']
 		if calc.target['dipole'] or calc.target['trans']:
@@ -446,14 +449,8 @@ def _fci(mol, calc, exp):
 		solver.nroots = calc.state['root'] + 1
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
-		# electrons
-		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# orbital symmetry
 		solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo[:, exp.cas_idx])
-		# fix spin if non-singlet
-		if mol.spin > 0:
-			sz = abs(nelec[0]-nelec[1]) * .5
-			fci.addons.fix_spin(solver, ss=sz * (sz + 1.))
 		# init guess (does it exist?)
 		try:
 			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
