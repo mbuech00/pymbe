@@ -253,8 +253,8 @@ class CalcCls():
 						raise ValueError('wrong input -- valid input in thres dict is: init and relax')
 					if self.thres['init'] < 0.0:
 						raise ValueError('wrong input -- initial threshold (init) must be a float >= 0.0')
-#					if self.thres['relax'] < 1.0:
-#						raise ValueError('wrong input -- threshold relaxation (relax) must be a float >= 1.0')
+					if self.thres['relax'] < 1.0:
+						raise ValueError('wrong input -- threshold relaxation (relax) must be a float >= 1.0')
 					# orbital representation
 					if self.orbs['occ'] not in ['can', 'pm', 'fb', 'ibo-1', 'ibo-2', 'cisd', 'ccsd']:
 						raise ValueError('wrong input -- valid occupied orbital ' + \
