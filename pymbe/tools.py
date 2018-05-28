@@ -61,10 +61,7 @@ def hash_compare(a, b):
 		""" find occurences of b in a """
 		left = a.searchsorted(b, side='left')
 		right = a.searchsorted(b, side='right')
-		if (a.searchsorted(b, side='right') - a.searchsorted(b, side='left') > 0).nonzero()[0].size == b.size:
-			return left
-		else:
-			return np.array([])
+		return (a.searchsorted(b, side='right') - a.searchsorted(b, side='left') > 0).nonzero()[0], left, right
 
 
 def dict_conv(old_dict):

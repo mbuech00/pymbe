@@ -230,8 +230,9 @@ def _test(calc, exp, tup):
 					combs_m = tools.hash_2d(combs_m)
 					combs_m.sort()
 					# get index
-					indx = tools.hash_compare(exp.hashes[-1], combs_m)
-					if indx.size > 0:
+					diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m)
+					if diff.size == combs_m.size:
+						indx = left
 						lst += _prot_check(exp, calc, indx, m)
 			return lst
 
