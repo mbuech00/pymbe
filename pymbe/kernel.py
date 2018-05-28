@@ -376,7 +376,8 @@ def _casscf(mol, calc, exp):
 		if abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
 			cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
 		else:
-			cas.fcisolver = fci.direct_spin1_symm.FCI(mol)
+			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
+			cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
 		cas.fcisolver.conv_tol = calc.thres['init']
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
@@ -388,10 +389,6 @@ def _casscf(mol, calc, exp):
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# debug print
 		if mol.debug: cas.verbose = 4
-		# fix spin if non-singlet
-		if mol.spin > 0:
-			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
-			cas.fix_spin_(ss=sz * (sz + 1.))
 		# state-specific or state-averaged calculation
 		if calc.nroots > 1:
 			if calc.prot['specific']:
