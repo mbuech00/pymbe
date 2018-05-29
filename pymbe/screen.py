@@ -55,14 +55,14 @@ def _serial(mol, calc, exp):
 				elif calc.model['type'] == 'virt':
 					child_tup += parent_tup+[m]
 		# convert child tuple list to array
-		exp.tuples.append(np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1))
+		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
 		# when done, write to tup list if expansion has not converged
-		if exp.tuples[-1].shape[0] > 0:
+		if tuples.shape[0] > 0:
 			# get hashes
-			exp.hashes.append(tools.hash_2d(exp.tuples[-1]))
+			hashes = tools.hash_2d(tuples)
 			# sort wrt hashes
-			exp.tuples[-1] = exp.tuples[-1][exp.hashes[-1].argsort()]
-			exp.hashes[-1].sort()
+			exp.tuples.append(tuples[hashes.argsort()])
+			exp.hashes.append(np.sort(hashes))
 
 
 def _master(mpi, mol, calc, exp):
@@ -147,7 +147,7 @@ def _master(mpi, mol, calc, exp):
 					# increment job index
 					i += batch
 		# convert child tuple list to array
-		exp.tuples.append(np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1))
+		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
 		# collect child tuples from participating slaves
 		slaves_avail = num_slaves
 		while slaves_avail > 0:
@@ -157,12 +157,19 @@ def _master(mpi, mol, calc, exp):
 			tmp = np.empty(mpi.stat.Get_elements(MPI.INT), dtype=np.int32)
 			comm.Recv(tmp, source=mpi.stat.source, tag=TAGS.collect)
 			# add child tuples
-			exp.tuples[-1] = np.vstack((exp.tuples[-1], tmp.reshape(-1, exp.order+1)))
+			tuples = np.vstack((tuples, tmp.reshape(-1, exp.order+1)))
 			slaves_avail -= 1
 		# finally, bcast tuples and hashes if expansion has not converged 
-		comm.Bcast([np.asarray([exp.tuples[-1].shape[0]], dtype=np.int32), MPI.INT], root=0)
-		if exp.tuples[-1].shape[0] > 0:
+		comm.Bcast([np.asarray([tuples.shape[0]], dtype=np.int32), MPI.INT], root=0)
+		if tuples.shape[0] > 0:
+			# get hashes
+			hashes = tools.hash_2d(tuples)
+			# sort wrt hashes
+			exp.tuples.append(tuples[hashes.argsort()])
+			exp.hashes.append(np.sort(hashes))
+			# bcast
 			parallel.tuples(exp, comm)
+			parallel.hashes(exp, comm)
 
 
 def _slave(mpi, mol, calc, exp):
@@ -200,6 +207,8 @@ def _slave(mpi, mol, calc, exp):
 		if tup_size[0] >= 1:
 			exp.tuples.append(np.empty([tup_size[0], exp.order+1], dtype=np.int32))
 			parallel.tuples(exp, comm)
+			exp.hashes.append(np.empty(tup_size[0], dtype=np.int64))
+			parallel.hashes(exp, comm)
 
 
 def _test(calc, exp, tup):
