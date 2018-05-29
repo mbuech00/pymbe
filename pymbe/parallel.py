@@ -221,11 +221,12 @@ def tuples(exp, comm):
 		""" Bcast tuples """
 		# Bcast
 		comm.Bcast([exp.tuples[-1], MPI.INT], root=0)
-		# get hashes
-		exp.hashes.append(tools.hash_2d(exp.tuples[-1]))
-		# sort wrt hashes
-		exp.tuples[-1] = exp.tuples[-1][exp.hashes[-1].argsort()]
-		exp.hashes[-1].sort()
+
+
+def hashes(exp, comm):
+		""" Bcast hashes """
+		# Bcast
+		comm.Bcast([exp.hashes[-1], MPI.INT], root=0)
 
 
 def final(mpi):

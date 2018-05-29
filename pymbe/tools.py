@@ -49,7 +49,7 @@ def fsum(a):
 
 def hash_2d(a):
 		""" convert a 2d numpy array to a 1d array of hashes """
-		return np.fromiter(map(hash_1d, a), dtype=a.dtype, count=a.shape[0])
+		return np.fromiter(map(hash_1d, a), dtype=np.int64, count=a.shape[0])
 
 
 def hash_1d(a):
@@ -58,10 +58,10 @@ def hash_1d(a):
 
 
 def hash_compare(a, b):
-		""" find occurences of b in a """
+		""" find occurences of b in a from binary searches """
 		left = a.searchsorted(b, side='left')
 		right = a.searchsorted(b, side='right')
-		return (a.searchsorted(b, side='right') - a.searchsorted(b, side='left') > 0).nonzero()[0], left, right
+		return ((right - left) > 0).nonzero()[0], left, right
 
 
 def dict_conv(old_dict):
