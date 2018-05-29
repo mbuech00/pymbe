@@ -170,6 +170,8 @@ def _master(mpi, mol, calc, exp):
 			# bcast
 			parallel.tuples(exp, comm)
 			parallel.hashes(exp, comm)
+		else:
+			exp.tuples.append(np.array([], dtype=np.int32))
 
 
 def _slave(mpi, mol, calc, exp):

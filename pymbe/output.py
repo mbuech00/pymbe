@@ -18,6 +18,7 @@ import numpy as np
 import contextlib
 
 import kernel
+import tools
 
 
 # output parameters
@@ -46,6 +47,7 @@ def main_header():
 					print("   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8")
 					print("                .o..P'")
 					print("                `Y8P'\n\n")
+					print("   -- git version: {:}\n\n".format(tools.git_version()))
 
 
 def exp_header(calc, exp):

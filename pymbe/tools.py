@@ -10,6 +10,9 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
+import os
+import sys
+import subprocess
 import numpy as np
 import math
 
@@ -73,5 +76,34 @@ def dict_conv(old_dict):
 			else:
 				new_dict[key.lower()] = value
 		return new_dict
+
+
+def git_version():
+		""" return the git revision as a string
+		see: https://github.com/numpy/numpy/blob/master/setup.py#L70-L92
+		"""
+		def _minimal_ext_cmd(cmd):
+			env = {}
+			for k in ['SYSTEMROOT', 'PATH', 'HOME']:
+				v = os.environ.get(k)
+				if v is not None:
+					env[k] = v
+			# LANGUAGE is used on win32
+			env['LANGUAGE'] = 'C'
+			env['LANG'] = 'C'
+			env['LC_ALL'] = 'C'
+			out = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env, cwd=get_pymbe_path()).communicate()[0]
+			return out
+		try:
+			out = _minimal_ext_cmd(['git', 'rev-parse', 'HEAD'])
+			GIT_REVISION = out.strip().decode('ascii')
+		except OSError:
+			GIT_REVISION = "Unknown"
+		return GIT_REVISION
+
+
+def get_pymbe_path():
+		""" return path to pymbe """
+		return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
