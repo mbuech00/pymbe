@@ -63,6 +63,8 @@ def _serial(mol, calc, exp):
 			# sort wrt hashes
 			exp.tuples.append(tuples[hashes.argsort()])
 			exp.hashes.append(np.sort(hashes))
+		else:
+			exp.tuples.append(np.array([], dtype=np.int32))
 
 
 def _master(mpi, mol, calc, exp):
