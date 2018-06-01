@@ -52,10 +52,10 @@ def main(calc, exp):
 					exp.tuples.append(np.load(os.path.join(RST, files[i])))
 				# read e_inc
 				elif 'e_inc' in files[i]:
-					exp.prop['energy']['inc'].append(np.load(os.path.join(RST, files[i])))
+					exp.prop['energy'][0]['inc'].append(np.load(os.path.join(RST, files[i])))
 				# read e_tot
 				elif 'e_tot' in files[i]:
-					exp.prop['energy']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+					exp.prop['energy'][0]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 				# read timings
 				elif 'time_mbe' in files[i]:
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())

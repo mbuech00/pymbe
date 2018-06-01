@@ -159,7 +159,7 @@ def exp(mpi, calc, exp, comm):
 			if mpi.global_master:
 				# collect info
 				info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
-							'len_e_inc': [len(exp.prop['energy']['inc'][i]) for i in range(len(exp.prop['energy']['inc']))], \
+							'len_e_inc': [len(exp.prop['energy'][0]['inc'][i]) for i in range(len(exp.prop['energy'][0]['inc']))], \
 							'min_order': exp.min_order, 'start_order': exp.start_order}
 				# bcast info
 				comm.bcast(info, root=0)
@@ -167,8 +167,8 @@ def exp(mpi, calc, exp, comm):
 				for i in range(1,len(exp.tuples)):
 					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
 				# bcast increments
-				for i in range(len(exp.prop['energy']['inc'])):
-					comm.Bcast([exp.prop['energy']['inc'][i], MPI.DOUBLE], root=0)
+				for i in range(len(exp.prop['energy'][0]['inc'])):
+					comm.Bcast([exp.prop['energy'][0]['inc'][i], MPI.DOUBLE], root=0)
 			else:
 				# receive info
 				info = comm.bcast(None, root=0)
@@ -184,7 +184,7 @@ def exp(mpi, calc, exp, comm):
 				for i in range(len(info['len_e_inc'])):
 					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
 					comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop['energy']['inc'].append(buff)
+					exp.prop['energy'][0]['inc'].append(buff)
 
 
 def prop(calc, exp, comm):
