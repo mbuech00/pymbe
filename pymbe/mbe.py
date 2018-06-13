@@ -274,12 +274,13 @@ def _sum(calc, exp, tup):
 			if calc.no_exp > 0:
 				if calc.model['type'] == 'occ':
 					combs = np.array([comb+tuple(exp.tuples[0][0]) for comb in itertools.\
-										combinations(tup[:calc.no_exp], i-1)], dtype=np.int32)
+										combinations(tup[:-calc.no_exp], i-1)], dtype=np.int32)
 				elif calc.model['type'] == 'virt':
 					combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
 										combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
+			print('tup = {0:} , combs = {1:}'.format(tup, combs))
 			# convert to sorted hashes
 			combs = tools.hash_2d(combs)
 			combs.sort()
