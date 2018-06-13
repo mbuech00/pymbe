@@ -104,7 +104,7 @@ def _exp(mpi, mol, calc):
 					exp = expansion.ExpCls(mol, calc, calc.model['type'])
 				else:
 					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
-					raise NotImplementedError('comb expansion not implemented')
+					raise NotImplementedError('combined expansions not implemented')
 			# no restart
 			else:
 				# hf calculation
@@ -120,7 +120,7 @@ def _exp(mpi, mol, calc):
 					exp = expansion.ExpCls(mol, calc, calc.model['type'])
 				else:
 					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
-					raise NotImplementedError('comb expansion not implemented')
+					raise NotImplementedError('combined expansions not implemented')
 				# reference calculation
 				ref, calc.mo = kernel.ref(mol, calc, exp)
 				calc.prop['ref']['energy'] = [ref['energy'][i] for i in range(calc.nroots)]

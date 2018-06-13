@@ -265,7 +265,7 @@ class CalcCls():
 										'representations (virt) are currently: canonical (can), local (pm or fb), ' + \
 										'or natural orbs (cisd or ccsd)')
 					if self.orbs['occ'] in ['pm', 'fb', 'ibo-1', 'ibo-2'] or self.orbs['virt'] in ['pm', 'fb']:
-						if mol.symmetry != 'c1':
+						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbs and point group symmetry ' + \
 											'different from c1 is not allowed')
 					# misc

@@ -342,23 +342,23 @@ def base(mol, calc, exp):
 				occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
 			elif calc.orbs['occ'] == 'pm':
-				calc.mo[:, mol.ncore:mol.nocc] = lo.pm(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
+				calc.mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.orbs['occ'] == 'fb':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.orbs['occ'] in ['ibo-1','ibo-2']:
-				iao = lo.iao.iao(mol, calc.mo[:, mol.core:mol.nocc])
+				iao = lo.iao.iao(mol, calc.mo[:, mol.ncore:mol.nocc])
 				if calc.orbs['occ'] == 'ibo-1':
 					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
 				elif calc.orbs['occ'] == 'ibo-2':
-					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.pm(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
+					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
 		if calc.orbs['virt'] != 'can':
 			if calc.orbs['virt'] in ['cisd', 'ccsd']:
 				occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo[:, mol.nocc:], no[:, ::-1])
 			elif calc.orbs['virt'] == 'pm':
-				calc.mo[:, mol.nocc:] = lo.pm(mol, calc.mo[:, mol.nocc:]).kernel()
+				calc.mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
 			elif calc.orbs['virt'] == 'fb':
 				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
 		# extra calculation for non-invariant ccsd(t)
