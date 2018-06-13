@@ -272,8 +272,12 @@ def _sum(calc, exp, tup):
 		for i in range(exp.order-exp.start_order, 0, -1):
 			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
-				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
-									combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
+				if calc.model['type'] == 'occ':
+					combs = np.array([comb+tuple(exp.tuples[0][0]) for comb in itertools.\
+										combinations(tup[:calc.no_exp], i-1)], dtype=np.int32)
+				elif calc.model['type'] == 'virt':
+					combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
+										combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
 			# convert to sorted hashes
