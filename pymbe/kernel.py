@@ -378,7 +378,7 @@ def _casscf(mol, calc, exp):
 		else:
 			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
 			cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
-		cas.fcisolver.conv_tol = calc.thres['init']
+		cas.fcisolver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
 		cas.max_cycle_macro = 500
@@ -453,7 +453,7 @@ def _fci(mol, calc, exp):
 			sz = abs(nelec[0]-nelec[1]) * .5
 			solver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
 		# settings
-		solver.conv_tol = calc.thres['init']
+		solver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		if calc.target['dipole'] or calc.target['trans']:
 			solver.conv_tol *= 1.0e-04
 			solver.lindep = solver.conv_tol * 1.0e-01
@@ -545,7 +545,7 @@ def _ci(mol, calc, exp):
 			cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(len(exp.cas_idx)), np.eye(len(exp.cas_idx)))), \
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
-		cisd.conv_tol = calc.thres['init']
+		cisd.conv_tol = max(calc.thres['init'], 1.0e-10)
 		cisd.max_cycle = 500
 		cisd.max_space = 25
 		eris = cisd.ao2mo()
@@ -579,9 +579,9 @@ def _cc(mol, calc, exp, pt=False):
 			ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(len(exp.cas_idx)), np.eye(len(exp.cas_idx)))), \
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
-		ccsd.conv_tol = calc.thres['init']
+		ccsd.conv_tol = max(calc.thres['init'], 1.0e-10)
 		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
-			ccsd.conv_tol_normt = calc.thres['init']
+			ccsd.conv_tol_normt = ccsd.conv_tol
 		ccsd.max_cycle = 500
 		if exp.order > 0:
 			# avoid async function execution if requested
