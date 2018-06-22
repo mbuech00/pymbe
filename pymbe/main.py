@@ -23,7 +23,7 @@ except ImportError:
 	sys.stderr.write('\nImportError : pyscf module not found\n\n')
 
 import parallel
-import molecule
+import system
 import calculation
 import expansion
 import kernel
@@ -76,7 +76,7 @@ def _init():
 def _mol(mpi):
 		""" init mol object """
 		# mol object
-		mol = molecule.MolCls(mpi)
+		mol = system.MolCls(mpi)
 		parallel.mol(mpi, mol)
 		mol.make(mpi)
 		return mol
@@ -107,11 +107,11 @@ def _exp(mpi, mol, calc):
 					raise NotImplementedError('combined expansions not implemented')
 			# no restart
 			else:
+				# get ao integrals
+				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# hf calculation
 				calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
 					calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
-				# get ao integrals
-				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)

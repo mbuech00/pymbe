@@ -47,8 +47,8 @@ def main(mpi, mol, calc, exp):
 		# setup
 		info = {}
 		info['model_type'], info['basis'], info['mult'], info['ref'], info['base'], info['prot'], \
-			info['system'], info['frozen'], info['active'], info['occ'], info['virt'], \
-			info['mpi'], info['thres'], info['symm'], \
+			info['system'], info['frozen'], info['hubbard'], info['active'], \
+			info['occ'], info['virt'], info['mpi'], info['thres'], info['symm'], \
 			info['energy'], info['dipole'], info['nuc_dipole'], info['trans'] = _setup(mpi, mol, calc, exp)
 		info['final_order'] = info['energy'][0].size
 		# results
@@ -67,6 +67,10 @@ def _setup(mpi, mol, calc, exp):
 		prot = _prot(calc)
 		system = _system(mol, calc)
 		frozen = _frozen(mol)
+		if mol.atom:
+			hubbard = None
+		else:
+			hubbard = _hubbard(mol)
 		active = _active(calc)
 		occ, virt = _orbs(calc)
 		mpi = _mpi(mpi, calc)
@@ -82,7 +86,7 @@ def _setup(mpi, mol, calc, exp):
 		else:
 			trans = None
 		return model_type, basis, mult, ref, base, prot, system, frozen, \
-				active, occ, virt, mpi, thres, symm, \
+				hubbard, active, occ, virt, mpi, thres, symm, \
 				energy, dipole, nuc_dipole, trans
 
 
@@ -91,7 +95,7 @@ def _table(info, mol, calc, exp):
 		# write results to results.out
 		with open(OUT+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
-				_summary_prt(info, calc, exp)
+				_summary_prt(info, mol, calc, exp)
 				_timings_prt(info, exp)
 				for i in range(calc.nroots):
 					_energy_prt(info, calc, exp, i)
@@ -185,6 +189,16 @@ def _system(mol, calc):
 		return '{0:} e / {1:} o'.format(mol.nelectron - 2*mol.ncore, len(calc.ref_space) + len(calc.exp_space))
 
 
+def _hubbard(mol):
+		""" hubbard print """
+		if mol.dim == 1:
+			hubbard = ['1d / {0:}x{1:}'.format(mol.nsites, 1)]
+		else:
+			hubbard = ['2d / {0:}x{1:}'.format(int(np.sqrt(mol.nsites)), int(np.sqrt(mol.nsites)))]
+		hubbard.append('{0:} / {1:}'.format(mol.u, mol.t))
+		return hubbard
+
+
 def _frozen(mol):
 		""" frozen core print """
 		if mol.frozen:
@@ -243,7 +257,10 @@ def _thres(calc):
 def _symm(mol, calc):
 		""" symmetry print """
 		if calc.model['method'] == 'fci':
-			return symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+' ('+mol.symmetry+')'
+			if mol.atom:
+				return symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+' ('+mol.symmetry+')'
+			else:
+				return 'C1 (A)'
 		else:
 			return 'unknown'
 
@@ -303,23 +320,35 @@ def _time(exp, comp, idx):
 		return time
 
 
-def _summary_prt(info, calc, exp):
+def _summary_prt(info, mol, calc, exp):
 		""" summary table """
 		print(DIVIDER)
 		print('{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'. \
 				format('','molecular information','','|','', \
 					'expansion information','','|','','calculation information'))
 		print(DIVIDER)
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
-					format('','basis set','','=','',info['basis'], \
-						'','|','','model / type','','=','',info['model_type'], \
-						'','|','','mpi masters / slaves','','=','',info['mpi']))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
-					format('','spin multiplicity','','=','',info['mult'], \
-						'','|','','ref. function','','=','',info['ref'], \
-						'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy']))
+		if mol.atom:
+			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
+						format('','basis set','','=','',info['basis'], \
+							'','|','','model / type','','=','',info['model_type'], \
+							'','|','','mpi masters / slaves','','=','',info['mpi']))
+			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
+						format('','frozen core','','=','',info['frozen'], \
+							'','|','','ref. function','','=','',info['ref'], \
+							'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy']))
+		else:
+			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
+						format('','hubbard lattice','','=','',info['hubbard'][0], \
+							'','|','','model / type','','=','',info['model_type'], \
+							'','|','','mpi masters / slaves','','=','',info['mpi']))
+			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
+					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
+						format('','hubbard U / t','','=','',info['hubbard'][1], \
+							'','|','','ref. function','','=','',info['ref'], \
+							'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','system size','','=','',info['system'], \
@@ -328,7 +357,7 @@ def _summary_prt(info, calc, exp):
 						calc.prop['hf']['energy']+calc.base['energy']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
-					format('','frozen core','','=','',info['frozen'], \
+					format('','spin multiplicity','','=','',info['mult'], \
 						'','|','','base model','','=','',info['base'], \
 						'','|','','MBE total energy','','=','',info['energy'][0][-1]))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
