@@ -227,14 +227,27 @@ def _test(calc, exp, tup):
 			lst = []
 			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
-				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
-									combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
+				if calc.model['type'] == 'occ':
+					combs = np.array([comb+tuple(exp.tuples[0][0]) for comb in itertools.\
+										combinations(tup[:calc.no_exp], (exp.order-calc.no_exp)-1)], dtype=np.int32)
+				elif calc.model['type'] == 'virt':
+					combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
+										combinations(tup[calc.no_exp:], (exp.order-calc.no_exp)-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
 			# loop over new orbs 'm'
 			if calc.model['type'] == 'occ':
 				for m in range(calc.exp_space[0], tup[0]):
-					raise NotImplementedError('pymbe/screen.py: _test()')
+					# add orbital m to combinations
+					combs_m = np.concatenate((m * np.ones(combs.shape[0], dtype=np.int32)[:, None], combs), axis=1)
+					# convert to sorted hashes
+					combs_m = tools.hash_2d(combs_m)
+					combs_m.sort()
+					# get index
+					diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m)
+					if diff.size == combs_m.size:
+						indx = left
+						lst += _prot_check(exp, calc, indx, m)
 			elif calc.model['type'] == 'virt':
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# add orbital m to combinations

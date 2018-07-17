@@ -31,7 +31,7 @@ class CalcCls():
 				self.prot = {'scheme': 'new', 'specific': False}
 				self.ref = {'method': 'hf'}
 				self.base = {'method': None}
-				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0), 'root': 0}
+				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -218,10 +218,11 @@ class CalcCls():
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
 					# state
-					try:
-						self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
-					except Exception as err_2:
-						raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
+					if mol.atom:
+						try:
+							self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
+						except Exception as err_2:
+							raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
 					if self.state['wfnsym'] != 0 and self.model['method'] != 'fci':
 						raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
 					if self.state['root'] < 0:
@@ -265,7 +266,7 @@ class CalcCls():
 										'representations (virt) are currently: canonical (can), local (pm or fb), ' + \
 										'or natural orbs (cisd or ccsd)')
 					if self.orbs['occ'] in ['pm', 'fb', 'ibo-1', 'ibo-2'] or self.orbs['virt'] in ['pm', 'fb']:
-						if mol.symmetry != 'c1':
+						if mol.symmetry != 'C1':
 							raise ValueError('wrong input -- the combination of local orbs and point group symmetry ' + \
 											'different from c1 is not allowed')
 					# misc

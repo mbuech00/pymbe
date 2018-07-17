@@ -20,10 +20,13 @@ from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 
 def ao_ints(mol, calc):
 		""" get AO integrals """
-		# core hamiltonian
-		hcore = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
-		# electron repulsion ints
-		eri = mol.intor('int2e_sph', aosym=4)
+		# core hamiltonian and electron repulsion ints
+		if mol.atom: # ab initio hamiltonian
+			hcore = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
+			eri = mol.intor('int2e_sph', aosym=4)
+		else: # model hamiltonian
+			hcore = _hubbard_h1(mol)
+			eri = _hubbard_eri(mol)
 		# dipole integrals with gauge origin at (0,0,0)
 		if calc.target['dipole'] or calc.target['trans']:
 			with mol.with_common_orig((0,0,0)):
@@ -33,14 +36,76 @@ def ao_ints(mol, calc):
 		return hcore, eri, dipole
 
 
+def _hubbard_h1(mol):
+		""" set hubbard hopping hamiltonian """
+		# 1d
+		if mol.dim == 1:
+			# init
+			n = mol.nsites
+			t = mol.t
+			h1 = np.zeros([n]*2, dtype=np.float64)
+			# adjacent neighbours
+			for i in range(n-1):
+				h1[i, i+1] = h1[i+1, i] = -t
+			# pbc
+			if mol.pbc:
+				h1[-1, 0] = h1[0, -1] = -t
+		# 2d
+		elif mol.dim == 2:
+			# init
+			n = int(np.sqrt(mol.nsites))
+			t = mol.t
+			h1 = np.zeros([n**2]*2, dtype=np.float64)
+			# adjacent neighbours - sideways
+			for i in range(n**2):
+				if i % n == 0:
+					h1[i, i+1] = -t
+				elif i % n == n-1:
+					h1[i, i-1] = -t
+				else:
+					h1[i, i-1] = h1[i, i+1] = -t
+			# adjacent neighbours - up-down
+			for i in range(n**2):
+				if i < n:
+					h1[i, i+n] = -t
+				elif i >= n**2 - n:
+					h1[i, i-n] = -t
+				else:
+					h1[i, i-n] = h1[i, i+n] = -t
+			# pbc
+			if mol.pbc:
+				# sideways
+				for i in range(n):
+					h1[i*n, i*n+(n-1)] = h1[i*n+(n-1), i*n] = -t
+				# up-down
+				for i in range(n):
+					h1[i, n*(n-1)+i] = h1[n*(n-1)+i, i] = -t
+		return h1
+
+
+def _hubbard_eri(mol):
+		""" set hubbard two-electron hamiltonian """
+		# init
+		n = mol.nsites
+		u = mol.u
+		eri = np.zeros([n]*4, dtype=np.float64)
+		for i in range(n):
+			eri[i,i,i,i] = u
+		return eri
+
+
 def hf(mol, calc):
 		""" hartree-fock calculation """
 		# perform restricted hf calc
 		hf = scf.RHF(mol)
 		hf.conv_tol = 1.0e-10
 		hf.max_cycle = 500
-		# fixed occupation
-		hf.irrep_nelec = mol.irrep_nelec
+		if mol.atom: # ab initio hamiltonian
+			hf.irrep_nelec = mol.irrep_nelec
+		else: # model hamiltonian
+			hf.get_ovlp = lambda *args: np.eye(mol.nsites)
+			hf.get_hcore = lambda *args: mol.hcore 
+			hf._eri = mol.eri
 		# perform hf calc
 		for i in list(range(0, 12, 2)):
 			hf.diis_start_cycle = i
@@ -56,30 +121,45 @@ def hf(mol, calc):
 				sys.stderr.write(str(err))
 				raise
 		# dipole moment
-		tot_dipole = hf.dip_moment(unit='au', verbose=0)
-		# nuclear dipole moment
-		charges = mol.atom_charges()
-		coords  = mol.atom_coords()
-		nuc_dipole = np.einsum('i,ix->x', charges, coords)
-		# electronic dipole moment
-		elec_dipole = nuc_dipole - tot_dipole
-		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
+		if calc.target['dipole']:
+			tot_dipole = hf.dip_moment(unit='au', verbose=0)
+			# nuclear dipole moment
+			charges = mol.atom_charges()
+			coords  = mol.atom_coords()
+			nuc_dipole = np.einsum('i,ix->x', charges, coords)
+			# electronic dipole moment
+			elec_dipole = nuc_dipole - tot_dipole
+			elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
+		else:
+			elec_dipole = None
 		# determine dimensions
 		mol.norb, mol.nocc, mol.nvirt = _dim(hf, calc)
 		# store energy, occupation, and orbsym
 		e_hf = hf.e_tot
 		occup = hf.mo_occ
-		orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-		# wave function symmetry
-		wfnsym = scf.hf_symm.get_wfnsym(hf, mo_coeff=hf.mo_coeff, mo_occ=hf.mo_occ)
-		# sanity check
-		if wfnsym != calc.state['wfnsym'] and calc.ref['method'] == 'hf':
-			try:
-				raise RuntimeError('\nHF Error : wave function symmetry ({0:}) different from requested symmetry ({1:})\n\n'.\
-									format(symm.irrep_id2name(mol.groupname, wfnsym), symm.irrep_id2name(mol.groupname, calc.state['wfnsym'])))
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
+		if mol.atom:
+			orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+			wfnsym = scf.hf_symm.get_wfnsym(hf, mo_coeff=hf.mo_coeff, mo_occ=hf.mo_occ)
+			# sanity check
+			if wfnsym != calc.state['wfnsym'] and calc.ref['method'] == 'hf':
+				try:
+					raise RuntimeError('\nHF Error : wave function symmetry ({0:}) different from requested symmetry ({1:})\n\n'.\
+										format(symm.irrep_id2name(mol.groupname, wfnsym), symm.irrep_id2name(mol.groupname, calc.state['wfnsym'])))
+				except Exception as err:
+					sys.stderr.write(str(err))
+					raise
+		else:
+			orbsym = np.zeros(hf.mo_occ.size, dtype=np.int)
+		# debug print of orbital energies
+		if mol.debug:
+			if mol.symmetry:
+				gpname = mol.symmetry
+			else:
+				gpname = 'C1'
+			print('\n HF:  mo   symmetry    energy')
+			for i in range(hf.mo_energy.size):
+				print('     {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
+			print('\n')
 		return hf, np.asscalar(e_hf), elec_dipole, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
@@ -342,23 +422,23 @@ def base(mol, calc, exp):
 				occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
 				calc.mo[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
 			elif calc.orbs['occ'] == 'pm':
-				calc.mo[:, mol.ncore:mol.nocc] = lo.pm(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
+				calc.mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.orbs['occ'] == 'fb':
 				calc.mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.orbs['occ'] in ['ibo-1','ibo-2']:
-				iao = lo.iao.iao(mol, calc.mo[:, mol.core:mol.nocc])
+				iao = lo.iao.iao(mol, calc.mo[:, mol.ncore:mol.nocc])
 				if calc.orbs['occ'] == 'ibo-1':
 					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
 					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
 				elif calc.orbs['occ'] == 'ibo-2':
-					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.pm(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
+					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
 		if calc.orbs['virt'] != 'can':
 			if calc.orbs['virt'] in ['cisd', 'ccsd']:
 				occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo[:, mol.nocc:], no[:, ::-1])
 			elif calc.orbs['virt'] == 'pm':
-				calc.mo[:, mol.nocc:] = lo.pm(mol, calc.mo[:, mol.nocc:]).kernel()
+				calc.mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
 			elif calc.orbs['virt'] == 'fb':
 				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
 		# extra calculation for non-invariant ccsd(t)
@@ -374,11 +454,17 @@ def _casscf(mol, calc, exp):
 		cas = mcscf.CASSCF(calc.hf, calc.no_act, calc.ne_act)
 		# fci solver
 		if abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
-			cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
+			if mol.symmetry:
+				cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
+			else:
+				cas.fcisolver = fci.direct_spin0.FCI(mol)
 		else:
 			sz = abs(calc.ne_act[0]-calc.ne_act[1]) * .5
-			cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
-		cas.fcisolver.conv_tol = calc.thres['init']
+			if mol.symmetry:
+				cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
+			else:
+				cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
+		cas.fcisolver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		cas.conv_tol = 1.0e-10
 		cas.max_stepsize = .01
 		cas.max_cycle_macro = 500
@@ -429,15 +515,21 @@ def _casscf(mol, calc, exp):
 			mo[:, :mol.ncore] = np.einsum('ip,pj->ij', cas.mo_coeff[:, :mol.ncore], c)
 		# inactive region (excl. core)
 		if cas.frozen > mol.ncore:
-			c = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], \
-								cas.mo_coeff.orbsym[mol.ncore:cas.frozen])[1]
+			if mol.symmetry:
+				c = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], \
+									cas.mo_coeff.orbsym[mol.ncore:cas.frozen])[1]
+			else:
+				c = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], None)[1]
 			mo[:, mol.ncore:cas.frozen] = np.einsum('ip,pj->ij', cas.mo_coeff[:, mol.ncore:cas.frozen], c)
 		# active region
 		mo[:, cas.frozen:(cas.frozen + calc.no_act)] = cas.mo_coeff[:, cas.frozen:(cas.frozen + calc.no_act)]
 		# virtual region
 		if mol.norb - (cas.frozen + calc.no_act) > 0:
-			c = symm.eigh(fock[(cas.frozen + calc.no_act):, (cas.frozen + calc.no_act):], \
-								cas.mo_coeff.orbsym[(cas.frozen + calc.no_act):])[1]
+			if mol.symmetry:
+				c = symm.eigh(fock[(cas.frozen + calc.no_act):, (cas.frozen + calc.no_act):], \
+									cas.mo_coeff.orbsym[(cas.frozen + calc.no_act):])[1]
+			else:
+				c = symm.eigh(fock[(cas.frozen + calc.no_act):, (cas.frozen + calc.no_act):], None)[1]
 			mo[:, (cas.frozen + calc.no_act):] = np.einsum('ip,pj->ij', cas.mo_coeff[:, (cas.frozen + calc.no_act):], c)
 		return mo
 
@@ -453,7 +545,7 @@ def _fci(mol, calc, exp):
 			sz = abs(nelec[0]-nelec[1]) * .5
 			solver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
 		# settings
-		solver.conv_tol = calc.thres['init']
+		solver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		if calc.target['dipole'] or calc.target['trans']:
 			solver.conv_tol *= 1.0e-04
 			solver.lindep = solver.conv_tol * 1.0e-01
@@ -467,7 +559,10 @@ def _fci(mol, calc, exp):
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
 		# orbital symmetry
-		solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo[:, exp.cas_idx])
+		if mol.symmetry:
+			solver.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo[:, exp.cas_idx])
+		else:
+			solver.orbsym = np.zeros(exp.cas_idx.size, dtype=np.int)
 		# init guess (does it exist?)
 		try:
 			ci0 = fci.addons.symm_initguess(len(exp.cas_idx), nelec, orbsym=solver.orbsym, wfnsym=solver.wfnsym)
@@ -530,7 +625,7 @@ def _ci(mol, calc, exp):
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
-		mol_tmp.incore_anyway = True
+		mol_tmp.incore_anyway = mol.incore_anyway
 		mol_tmp.max_memory = mol.max_memory
 		if mol.spin == 0:
 			hf = scf.Rhf(mol_tmp)
@@ -545,7 +640,7 @@ def _ci(mol, calc, exp):
 			cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(len(exp.cas_idx)), np.eye(len(exp.cas_idx)))), \
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
-		cisd.conv_tol = calc.thres['init']
+		cisd.conv_tol = max(calc.thres['init'], 1.0e-10)
 		cisd.max_cycle = 500
 		cisd.max_space = 25
 		eris = cisd.ao2mo()
@@ -564,7 +659,7 @@ def _cc(mol, calc, exp, pt=False):
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, exp)
 		mol_tmp = gto.M(verbose=1)
-		mol_tmp.incore_anyway = True
+		mol_tmp.incore_anyway = mol.incore_anyway
 		mol_tmp.max_memory = mol.max_memory
 		if mol.spin == 0:
 			hf = scf.RHF(mol_tmp)
@@ -579,9 +674,9 @@ def _cc(mol, calc, exp, pt=False):
 			ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(len(exp.cas_idx)), np.eye(len(exp.cas_idx)))), \
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
-		ccsd.conv_tol = calc.thres['init']
+		ccsd.conv_tol = max(calc.thres['init'], 1.0e-10)
 		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
-			ccsd.conv_tol_normt = calc.thres['init']
+			ccsd.conv_tol_normt = ccsd.conv_tol
 		ccsd.max_cycle = 500
 		if exp.order > 0:
 			# avoid async function execution if requested
@@ -633,7 +728,7 @@ def _prepare(mol, calc, exp):
 		if mol.e_core is None or exp.model['type'] == 'occ':
 			if len(exp.core_idx) > 0:
 				core_dm = np.einsum('ip,jp->ij', calc.mo[:, exp.core_idx], calc.mo[:, exp.core_idx]) * 2
-				vj, vk = scf.hf.get_jk(mol, core_dm)
+				vj, vk = scf.hf.dot_eri_dm(mol.eri, core_dm)
 				mol.core_vhf = vj - vk * .5
 				mol.e_core = mol.energy_nuc() + np.einsum('ij,ji', core_dm, mol.hcore)
 				mol.e_core += np.einsum('ij,ji', core_dm, mol.core_vhf) * .5

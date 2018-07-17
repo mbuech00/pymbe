@@ -99,6 +99,13 @@ def mol(mpi, mol):
 				info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'e_core': mol.e_core, \
 						'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
 						'unit': mol.unit, 'frozen': mol.frozen, 'verbose': mol.verbose, 'debug': mol.debug}
+				if not mol.atom:
+					info['t'] = mol.t
+					info['u'] = mol.u
+					info['dim'] = mol.dim
+					info['nsites'] = mol.nsites
+					info['pbc'] = mol.pbc
+					info['nelec'] = mol.nelectron
 				mpi.global_comm.bcast(info, root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
@@ -107,6 +114,9 @@ def mol(mpi, mol):
 				mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
 				mol.basis = info['basis']; mol.unit = info['unit']; mol.frozen = info['frozen']
 				mol.verbose = info['verbose']; mol.debug = info['debug']
+				if not mol.atom:
+					mol.t = info['t']; mol.u = info['u']; mol.dim = info['dim']
+					mol.nsites = info['nsites']; mol.pbc = info['pbc']; mol.nelectron = info['nelec']
 
 
 def calc(mpi, calc):

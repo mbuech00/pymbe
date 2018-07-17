@@ -80,7 +80,7 @@ def main(mpi, mol, calc, exp):
 
 def master(mpi, mol, calc, exp):
 		""" local master routine """
-		raise NotImplementedError('combined expansions need to be re-implemented...')
+		raise NotImplementedError('combined expansions not implemented...')
 		# set loop/waiting logical
 		local_master = True
 		# enter local master state

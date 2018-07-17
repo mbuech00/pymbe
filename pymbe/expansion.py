@@ -56,12 +56,12 @@ def _init_tup(mol, calc):
 		incl_idx = calc.ref_space.tolist()
 		# tuples
 		if calc.no_exp == 0:
-			tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32, order='F')]
+			tuples = [np.array(list([i] for i in calc.exp_space), dtype=np.int32)]
 		else:
 			if calc.model['type'] == 'occ':
-				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32, order='F')]
+				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32)]
 			elif calc.model['type'] == 'virt':
-				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32, order='F')]
+				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32)]
 		# hashes
 		hashes = [tools.hash_2d(tuples[0])]
 		# sort wrt hashes

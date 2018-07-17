@@ -236,22 +236,22 @@ def _inc(mpi, mol, calc, exp, tup):
 		if mol.debug:
 			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
 			form = (mpi.local_rank, exp.core_idx.tolist(), exp.cas_idx.tolist())
-			string += '      ground state correlation energy = {:.4e}\n'
+			string += '      ground state correlation energy increment = {:.4e}\n'
 			form += (inc['energy'][0],)
 			if calc.nroots > 1:
 				for i in range(1, calc.nroots):
-					string += '      excitation energy for root {:} = {:.4e}\n'
+					string += '      excitation energy increment for root {:} = {:.4e}\n'
 					form += (i, inc['energy'][i],)
 			if calc.target['dipole']:
 				for i in range(calc.nroots):
-					string += '      dipole moment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
+					string += '      dipole moment increment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
 					if calc.prot['specific']:
 						form += (calc.state['root'], *inc['dipole'][i],)
 					else:
 						form += (i, *inc['dipole'][i],)
 			if calc.target['trans']:
 				for i in range(1, calc.nroots):
-					string += '      transition dipole moment for excitation {:} > {:} = ({:.4e}, {:.4e}, {:.4e})\n'
+					string += '      transition dipole moment increment for excitation {:} > {:} = ({:.4e}, {:.4e}, {:.4e})\n'
 					if calc.prot['specific']:
 						form += (0, calc.state['root'], *inc['trans'][i-1],)
 					else:
@@ -272,8 +272,12 @@ def _sum(calc, exp, tup):
 		for i in range(exp.order-exp.start_order, 0, -1):
 			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
-				combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
-									combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
+				if calc.model['type'] == 'occ':
+					combs = np.array([comb+tuple(exp.tuples[0][0]) for comb in itertools.\
+										combinations(tup[:-calc.no_exp], i-1)], dtype=np.int32)
+				elif calc.model['type'] == 'virt':
+					combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
+										combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
 			# convert to sorted hashes
