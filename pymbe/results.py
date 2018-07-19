@@ -24,9 +24,10 @@ from matplotlib.ticker import MaxNLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 try:
 	import seaborn as sns
+	has_sns = True
 except ImportError:
-	sys.stderr.write('\nImportError : seaborn module not found\n\n')
-
+	pass
+	has_sns = False
 
 # results parameters
 OUT = os.getcwd()+'/output'
@@ -443,7 +444,8 @@ def _energies_plot(info, calc, exp, root):
 		else:
 			root_idx = root
 		# set seaborn
-		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		if has_sns:
+			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of MBE total energy
@@ -451,7 +453,7 @@ def _energies_plot(info, calc, exp, root):
 		if root >= 1: energy += info['energy'][0]
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
-				energy, marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
+				energy, marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
 				linestyle='-', label='state {:}'.format(root_idx))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -467,7 +469,7 @@ def _energies_plot(info, calc, exp, root):
 		mbe[1:] = np.diff(mbe)
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
-				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['kelly green'], \
+				np.abs(mbe), marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
 				linestyle='-', label='state {:}'.format(root_idx))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -484,7 +486,8 @@ def _energies_plot(info, calc, exp, root):
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
-		sns.despine()
+		if has_sns:
+			sns.despine()
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
@@ -549,7 +552,8 @@ def _dipole_plot(info, calc, exp, root):
 		else:
 			root_idx = root
 		# set seaborn
-		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		if has_sns:
+			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of total MBE dipole moment
@@ -561,7 +565,7 @@ def _dipole_plot(info, calc, exp, root):
 				dipole[i] = np.linalg.norm(info['nuc_dipole'] - (info['dipole'][0][i, :] + info['dipole'][root][i, :]))
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
-				dipole, marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
+				dipole, marker='*', linewidth=2, mew=1, color='xkcd:salmon', \
 				linestyle='-', label='state {:}'.format(root_idx))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -579,7 +583,7 @@ def _dipole_plot(info, calc, exp, root):
 		mbe[1:] = np.diff(mbe)
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
-				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['salmon'], \
+				np.abs(mbe), marker='*', linewidth=2, mew=1, color='xkcd:salmon', \
 				linestyle='-', label='state {:}'.format(root_idx))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -596,7 +600,8 @@ def _dipole_plot(info, calc, exp, root):
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
-		sns.despine()
+		if has_sns:
+			sns.despine()
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
@@ -636,7 +641,8 @@ def _trans_plot(info, calc, exp, root):
 		else:
 			root_idx = root
 		# set seaborn
-		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		if has_sns:
+			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of total MBE transition dipole moment
@@ -645,7 +651,7 @@ def _trans_plot(info, calc, exp, root):
 			trans[i] = np.linalg.norm(info['trans'][root-1][i, :])
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
-				trans, marker='x', linewidth=2, color=sns.xkcd_rgb['dark magenta'], \
+				trans, marker='s', linewidth=2, mew=1, color='xkcd:dark magenta', \
 				linestyle='-', label='excitation {:} > {:}'.format(0, root_idx))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -661,7 +667,7 @@ def _trans_plot(info, calc, exp, root):
 		mbe[1:] = np.diff(mbe)
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
-				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['dark magenta'], \
+				np.abs(mbe), marker='s', linewidth=2, mew=1, color='xkcd:dark magenta', \
 				linestyle='-', label='excitation {:} > {:}'.format(0, root_idx))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -678,7 +684,8 @@ def _trans_plot(info, calc, exp, root):
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
-		sns.despine()
+		if has_sns:
+			sns.despine()
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
@@ -692,7 +699,8 @@ def _osc_strength_plot(info, calc, exp, root):
 		else:
 			root_idx = root
 		# set seaborn
-		sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		if has_sns:
+			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of total MBE oscillator strength
@@ -701,7 +709,7 @@ def _osc_strength_plot(info, calc, exp, root):
 			osc_strength[i] = (2./3.) * info['energy'][root][i] * np.linalg.norm(info['trans'][root-1][i, :])**2
 		# plot results
 		ax1.plot(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
-				osc_strength, marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
+				osc_strength, marker='+', linewidth=2, mew=1, color='xkcd:royal blue', \
 				linestyle='-', label='excitation {:} > {:}'.format(0, root_idx))
 		# set x limits
 		ax1.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -717,7 +725,7 @@ def _osc_strength_plot(info, calc, exp, root):
 		mbe[1:] = np.diff(mbe)
 		# plot results
 		ax2.semilogy(np.asarray(list(range(exp.start_order, info['final_order']+exp.start_order))), \
-				np.abs(mbe), marker='x', linewidth=2, color=sns.xkcd_rgb['royal blue'], \
+				np.abs(mbe), marker='+', linewidth=2, mew=1, color='xkcd:royal blue', \
 				linestyle='-', label='excitation {:} > {:}'.format(0, root_idx))
 		# set x limits
 		ax2.set_xlim([0.5, len(calc.exp_space) + 0.5])
@@ -734,7 +742,8 @@ def _osc_strength_plot(info, calc, exp, root):
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
-		sns.despine()
+		if has_sns:
+			sns.despine()
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
