@@ -173,28 +173,56 @@ def exp(mpi, calc, exp, comm):
 							'min_order': exp.min_order, 'start_order': exp.start_order}
 				# bcast info
 				comm.bcast(info, root=0)
-				# bcast tuples
+				# bcast tuples and hashes
 				for i in range(1,len(exp.tuples)):
 					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
+				for i in range(1,len(exp.hashes)):
+					comm.Bcast([exp.hashes[i], MPI.INT], root=0)
 				# bcast increments
-				for i in range(len(exp.prop['energy'][0]['inc'])):
-					comm.Bcast([exp.prop['energy'][0]['inc'][i], MPI.DOUBLE], root=0)
+				for i in range(calc.nroots):
+					for j in range(len(exp.prop['energy'][i]['inc'])):
+						comm.Bcast([exp.prop['energy'][i]['inc'][j], MPI.DOUBLE], root=0)
+				if calc.target['dipole']:
+					for i in range(calc.nroots):
+						for j in range(len(exp.prop['dipole'][i]['inc'])):
+							comm.Bcast([exp.prop['dipole'][i]['inc'][j], MPI.DOUBLE], root=0)
+				if calc.target['trans']:
+					for i in range(calc.nroots-1):
+						for j in range(len(exp.prop['trans'][i]['inc'])):
+							comm.Bcast([exp.prop['trans'][i]['inc'][j], MPI.DOUBLE], root=0)
 			else:
 				# receive info
 				info = comm.bcast(None, root=0)
 				# set min_order and start_order
 				exp.min_order = info['min_order']
 				exp.start_order = info['start_order']
-				# receive tuples
+				# receive tuples and hashes
 				for i in range(1, len(info['len_tup'])):
 					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
 					comm.Bcast([buff, MPI.INT], root=0)
 					exp.tuples.append(buff)
-				# receive e_inc
-				for i in range(len(info['len_e_inc'])):
-					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
-					comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop['energy'][0]['inc'].append(buff)
+				for i in range(1, len(info['len_tup'])):
+					buff = np.empty(info['len_tup'][i], dtype=np.int64)
+					comm.Bcast([buff, MPI.INT], root=0)
+					exp.hashes.append(buff)
+				# receive increments
+				for i in range(calc.nroots):
+					for j in range(len(info['len_e_inc'])):
+						buff = np.zeros(info['len_e_inc'][j], dtype=np.float64)
+						comm.Bcast([buff, MPI.DOUBLE], root=0)
+						exp.prop['energy'][i]['inc'].append(buff)
+				if calc.target['dipole']:
+					for i in range(calc.nroots):
+						for j in range(len(info['len_e_inc'])):
+							buff = np.zeros([info['len_e_inc'][j], 3], dtype=np.float64)
+							comm.Bcast([buff, MPI.DOUBLE], root=0)
+							exp.prop['dipole'][i]['inc'].append(buff)
+				if calc.target['trans']:
+					for i in range(calc.nroots-1):
+						for j in range(len(info['len_e_inc'])):
+							buff = np.zeros([info['len_e_inc'][j], 3], dtype=np.float64)
+							comm.Bcast([buff, MPI.DOUBLE], root=0)
+							exp.prop['trans'][i]['inc'].append(buff)
 
 
 def prop(calc, exp, comm):

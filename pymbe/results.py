@@ -270,8 +270,8 @@ def _energy(calc, exp):
 		""" final energies """
 		# ground state
 		energy = [exp.prop['energy'][0]['tot'] \
-				+ calc.prop['hf']['energy'] + calc.base['energy'] \
-				+ (calc.prop['ref']['energy'][0] - calc.base['ref'])]
+				+ calc.prop['hf']['energy'] + calc.base['energy'][0] \
+				+ (calc.prop['ref']['energy'][0] - calc.base['ref'][0])]
 		# excited states
 		for i in range(1, calc.nroots):
 			energy.append(exp.prop['energy'][i]['tot'] + calc.prop['ref']['energy'][i])
@@ -355,7 +355,7 @@ def _summary_prt(info, mol, calc, exp):
 					format('','system size','','=','',info['system'], \
 						'','|','','cas size','','=','',info['active'], \
 						'','|','','base model energy','','=','', \
-						calc.prop['hf']['energy']+calc.base['energy']))
+						calc.prop['hf']['energy']+calc.base['energy'][0]))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
 					format('','spin multiplicity','','=','',info['mult'], \

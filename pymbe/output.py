@@ -111,10 +111,10 @@ def mbe_results(mol, calc, exp):
 						max_idx = np.argmax(np.abs(prop_inc))
 						max_val = prop_inc[max_idx]
 						# calculate total inc
-						if len(prop_tot) == 1:
-							tot_inc = prop_tot[0]
+						if exp.order == exp.start_order:
+							tot_inc = prop_tot[exp.order-exp.start_order]
 						else:
-							tot_inc = prop_tot[-1] - prop_tot[-2]
+							tot_inc = prop_tot[exp.order-exp.start_order] - prop_tot[exp.order-exp.start_order-1]
 						# set header
 						if j == 0:
 							header = 'ground state energy (total increment = {:.4e})'.format(tot_inc)
@@ -143,10 +143,10 @@ def mbe_results(mol, calc, exp):
 							elif i == 'trans':
 								prop_tot = exp.prop['trans'][j-1]['tot']
 							# calculate total inc
-							if len(prop_tot) == 1:
-								tot_inc = np.linalg.norm(prop_tot[0])
+							if exp.order == exp.start_order:
+								tot_inc = np.linalg.norm(prop_tot[exp.order-exp.start_order])
 							else:
-								tot_inc = np.linalg.norm(prop_tot[-1]) - np.linalg.norm(prop_tot[-2])
+								tot_inc = np.linalg.norm(prop_tot[exp.order-exp.start_order]) - np.linalg.norm(prop_tot[exp.order-exp.start_order-1])
 							# set header
 							if j == 0:
 								header = 'ground state dipole moment (total increment = {:.4e})'.format(tot_inc)

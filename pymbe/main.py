@@ -124,14 +124,14 @@ def _exp(mpi, mol, calc):
 				# reference calculation
 				ref, calc.mo = kernel.ref(mol, calc, exp)
 				calc.prop['ref']['energy'] = [ref['energy'][i] for i in range(calc.nroots)]
-				calc.base['ref'] = ref['base']
+				calc.base['ref'] = [ref['base']]
 				if calc.target['dipole']:
 					calc.prop['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.nroots)]
 				if calc.target['trans']:
 					calc.prop['ref']['trans'] = [ref['trans'][i] for i in range(calc.nroots-1)]
 				# base energy
 				base = kernel.base(mol, calc, exp)
-				calc.base['energy'] = base['energy']
+				calc.base['energy'] = [base['energy']]
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:
