@@ -24,10 +24,10 @@ from matplotlib.ticker import MaxNLocator, FormatStrFormatter
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 try:
 	import seaborn as sns
-	has_sns = True
-except ImportError:
+	SNS_FOUND = True
+except (ImportError, OSError):
 	pass
-	has_sns = False
+	SNS_FOUND = False
 
 # results parameters
 OUT = os.getcwd()+'/output'
@@ -444,7 +444,7 @@ def _energies_plot(info, calc, exp, root):
 		else:
 			root_idx = root
 		# set seaborn
-		if has_sns:
+		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
@@ -486,7 +486,7 @@ def _energies_plot(info, calc, exp, root):
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
-		if has_sns:
+		if SNS_FOUND:
 			sns.despine()
 		# set legend
 		ax1.legend(loc=1)
@@ -552,7 +552,7 @@ def _dipole_plot(info, calc, exp, root):
 		else:
 			root_idx = root
 		# set seaborn
-		if has_sns:
+		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
@@ -600,7 +600,7 @@ def _dipole_plot(info, calc, exp, root):
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
-		if has_sns:
+		if SNS_FOUND:
 			sns.despine()
 		# set legend
 		ax1.legend(loc=1)
@@ -641,7 +641,7 @@ def _trans_plot(info, calc, exp, root):
 		else:
 			root_idx = root
 		# set seaborn
-		if has_sns:
+		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
@@ -684,7 +684,7 @@ def _trans_plot(info, calc, exp, root):
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
-		if has_sns:
+		if SNS_FOUND:
 			sns.despine()
 		# set legend
 		ax1.legend(loc=1)
@@ -699,7 +699,7 @@ def _osc_strength_plot(info, calc, exp, root):
 		else:
 			root_idx = root
 		# set seaborn
-		if has_sns:
+		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
@@ -742,7 +742,7 @@ def _osc_strength_plot(info, calc, exp, root):
 		# no spacing
 		plt.subplots_adjust(hspace=0.05)
 		# despine
-		if has_sns:
+		if SNS_FOUND:
 			sns.despine()
 		# set legend
 		ax1.legend(loc=1)

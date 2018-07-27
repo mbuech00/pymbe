@@ -53,11 +53,22 @@ def main(mpi, mol, calc, exp):
 		else:
 			_serial(mpi, mol, calc, exp)
 		# sum up total quantities
-		if mol.debug and calc.target['dipole'] and exp.order == 1:
-			a = np.abs(exp.prop['dipole'][0]['inc'][0][:, -1])
-			print('')
-			for i in range(exp.tuples[0].shape[0]):
-				print('o = {0:} , dipole = {1:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][i], a[np.argsort(a)[::-1]][i]))
+		if mol.debug and exp.order == 1:
+			for i in range(calc.nroots):
+				print('')
+				a = np.abs(exp.prop['energy'][i]['inc'][0])
+				for j in range(exp.tuples[0].shape[0]):
+					print('o = {0:} , root {1:} energy = {2:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], i, a[np.argsort(a)[::-1]][j]))
+				if calc.target['dipole']:
+					print('')
+					a = np.linalg.norm(exp.prop['dipole'][i]['inc'][0], axis=1)
+					for j in range(exp.tuples[0].shape[0]):
+						print('o = {0:} , root {1:} dipole = {2:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], i, a[np.argsort(a)[::-1]][j]))
+				if calc.target['trans'] and i >= 1:
+					prijt('')
+					a = np.linalg.norm(exp.prop['trans'][i-1]['inc'][0], axis=1)
+					for j in range(exp.tuples[0].shape[0]):
+						print('o = {0:} , roots {1:} -> {2:} trans = {3:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], 0, i, a[np.argsort(a)[::-1]][j]))
 			print('')
 		for i in range(calc.nroots):
 			exp.prop['energy'][i]['tot'].append(tools.fsum(exp.prop['energy'][i]['inc'][-1]))
