@@ -678,11 +678,10 @@ def _cc(mol, calc, exp, pt=False):
 		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
 			ccsd.conv_tol_normt = ccsd.conv_tol
 		ccsd.max_cycle = 500
-		if exp.order > 0:
-			# avoid async function execution if requested
-			ccsd.async_io = calc.misc['async']
-			# avoid I/O if not async
-			if not calc.misc['async']: ccsd.incore_complete = True
+		# avoid async function execution if requested
+		ccsd.async_io = calc.misc['async']
+		# avoid I/O if not async
+		if not calc.misc['async']: ccsd.incore_complete = True
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
 		for i in list(range(0, 12, 2)):
