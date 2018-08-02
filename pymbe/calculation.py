@@ -295,9 +295,6 @@ class CalcCls():
 							if self.model['type'] != 'comb':
 								raise ValueError('wrong input -- the use of local mpi masters (i.e., masters > 1) ' + \
 												'is currently not implemented for occ and virt expansions')
-						if mpi.global_size <= 2 * self.mpi['masters']:
-							raise ValueError('wrong input -- total number of mpi processes ' + \
-											'must be larger than twice the number of local mpi masters (masters+1)')
 					else:
 						if self.mpi['masters'] > 1:
 							raise ValueError('wrong input -- local masters requested in mpi dict (mpi), but non-mpi run requested')
