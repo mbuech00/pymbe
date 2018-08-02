@@ -65,7 +65,7 @@ def main(mpi, mol, calc, exp):
 					for j in range(exp.tuples[0].shape[0]):
 						print('o = {0:} , root {1:} dipole = {2:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], i, a[np.argsort(a)[::-1]][j]))
 				if calc.target['trans'] and i >= 1:
-					prijt('')
+					print('')
 					a = np.linalg.norm(exp.prop['trans'][i-1]['inc'][0], axis=1)
 					for j in range(exp.tuples[0].shape[0]):
 						print('o = {0:} , roots {1:} -> {2:} trans = {3:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], 0, i, a[np.argsort(a)[::-1]][j]))
