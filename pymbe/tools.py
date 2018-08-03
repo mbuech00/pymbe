@@ -25,21 +25,6 @@ def enum(*sequential, **named):
 		return type('Enum', (), enums)
 
 
-def tasks(n_tasks, procs):
-		""" determine mpi batch sizes """
-		base = int(n_tasks * 0.75 // procs) # make one large batch per proc corresponding to approx. 75 % of the tasks
-		tasks = []
-		for i in range(n_tasks-base*procs):
-			tasks += [i+2 for p in range(procs-1)] # extra slaves tasks
-			if np.sum(tasks) > float(n_tasks-base*procs):
-				tasks = tasks[:-(procs-1)]
-				tasks += [base for p in range(procs-1) if base > 0] # add large slave batches
-				tasks = tasks[::-1]
-				tasks += [1 for j in range(base)] # add master tasks
-				tasks += [1 for j in range(n_tasks - int(np.sum(tasks)))] # add extra single tasks
-				return tasks
-
-
 def fsum(a):
 		""" use math.fsum to safely sum 1d array or 2d array (column-wise) """
 		if a.ndim == 1:

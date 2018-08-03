@@ -79,27 +79,8 @@ def _master(mpi, mol, calc, exp):
 		comm.bcast(msg, root=0)
 		# start index
 		i = 0
-		# init tasks
-		tasks = tools.tasks(len(exp.tuples[-1]), mpi.local_size)
-		# init job_info array and child_tup list
-		job_info = np.zeros(2, dtype=np.int32)
+		# init child_tup list
 		child_tup = []
-		# distribute initial set of tasks to slaves
-		for j in range(num_slaves):
-			if tasks:
-				# batch
-				batch = tasks.pop(0)
-				# store job indices
-				job_info[0] = i; job_info[1] = i+batch
-				# send job info
-				comm.Isend([job_info, MPI.INT], dest=j+1, tag=TAGS.start)
-				# increment job index
-				i += batch
-			else:
-				# send exit signal
-				comm.Isend([None, MPI.INT], dest=j+1, tag=TAGS.exit)
-				# remove slave
-				slaves_avail -= 1
 		# init request
 		req = MPI.Request()
 		# loop until no tasks left
@@ -109,15 +90,11 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
-				if tasks:
-					# batch
-					batch = tasks.pop(0)
-					# store job indices
-					job_info[0] = i; job_info[1] = i+batch
-					# send job info
-					comm.Isend([job_info, MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-					# increment job index
-					i += batch
+				if i < len(exp.tuples[-1]):
+					# send index
+					comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					# increment index
+					i += 1
 					# wait for completion
 					req.Wait()
 				else:
@@ -132,22 +109,17 @@ def _master(mpi, mol, calc, exp):
 						# exit loop
 						break
 			else:
-				if tasks:
-					# batch
-					batch = tasks.pop()
-					# store job indices
-					job_info[0] = i; job_info[1] = i+batch
+				if i < len(exp.tuples[-1]):
 					# calculate child tuples
-					for idx in range(job_info[0], job_info[1]):
-						lst = _test(calc, exp, exp.tuples[-1][idx])
-						parent_tup = exp.tuples[-1][idx].tolist()
-						for m in lst:
-							if calc.model['type'] == 'occ':
-								child_tup += [m]+parent_tup
-							elif calc.model['type'] == 'virt':
-								child_tup += parent_tup+[m]
-					# increment job index
-					i += batch
+					lst = _test(calc, exp, exp.tuples[-1][i])
+					parent_tup = exp.tuples[-1][i].tolist()
+					for m in lst:
+						if calc.model['type'] == 'occ':
+							child_tup += [m]+parent_tup
+						elif calc.model['type'] == 'virt':
+							child_tup += parent_tup+[m]
+					# increment index
+					i += 1
 		# convert child tuple list to array
 		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
 		# collect child tuples from participating slaves
@@ -180,27 +152,26 @@ def _slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# set communicator
 		comm = mpi.local_comm
-		# init job_info array and child_tup list
-		job_info = np.zeros(2, dtype=np.int32)
+		# init idx array and child_tup list
+		idx = np.zeros(1, dtype=np.int32)
 		child_tup = []
+		# send availability to master
+		comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
-			# receive job info
-			comm.Recv([job_info, MPI.INT], source=0, status=mpi.stat)
+			# receive index
+			comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
 			# do job
 			if mpi.stat.tag == TAGS.start:
-				# calculate child tuples
-				for idx in range(job_info[0], job_info[1]):
-					# send availability to master
-					if idx == max(job_info[1] - 2, job_info[0]):
-						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-					lst = _test(calc, exp, exp.tuples[-1][idx])
-					parent_tup = exp.tuples[-1][idx].tolist()
-					for m in lst:
-						if calc.model['type'] == 'occ':
-							child_tup += [m]+parent_tup
-						elif calc.model['type'] == 'virt':
-							child_tup += parent_tup+[m]
+				# send availability to master
+				comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+				lst = _test(calc, exp, exp.tuples[-1][idx[0]])
+				parent_tup = exp.tuples[-1][idx[0]].tolist()
+				for m in lst:
+					if calc.model['type'] == 'occ':
+						child_tup += [m]+parent_tup
+					elif calc.model['type'] == 'virt':
+						child_tup += parent_tup+[m]
 			elif mpi.stat.tag == TAGS.exit:
 				# send tuples to master
 				comm.Send([np.asarray(child_tup, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)

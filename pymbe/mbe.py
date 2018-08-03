@@ -111,27 +111,8 @@ def _master(mpi, mol, calc, exp):
 		# start time
 		time = MPI.Wtime()
 		num_slaves = slaves_avail = mpi.local_size - 1
-		# init tasks
-		tasks = tools.tasks(len(exp.tuples[-1]), mpi.local_size)
+		# start index
 		i = 0
-		# init job_info array
-		job_info = np.zeros(2, dtype=np.int32)
-		# distribute initial set of tasks to slaves
-		for j in range(num_slaves):
-			if tasks:
-				# batch
-				batch = tasks.pop(0)
-				# store job indices
-				job_info[0] = i; job_info[1] = i+batch
-				# send job info
-				comm.Isend([job_info, MPI.INT], dest=j+1, tag=TAGS.start)
-				# increment job index
-				i += batch
-			else:
-				# send exit signal
-				comm.Isend([None, MPI.INT], dest=j+1, tag=TAGS.exit)
-				# remove slave
-				slaves_avail -= 1
 		# init request
 		req = MPI.Request()
 		# loop until no tasks left
@@ -141,15 +122,11 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
-				if tasks:
-					# batch
-					batch = tasks.pop(0)
-					# store job indices
-					job_info[0] = i; job_info[1] = i+batch
-					# send job info
-					comm.Isend([job_info, MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-					# increment job index
-					i += batch
+				if i < len(exp.tuples[-1]):
+					# send index
+					comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					# increment index
+					i += 1
 					# wait for completion
 					req.Wait()
 				else:
@@ -164,17 +141,11 @@ def _master(mpi, mol, calc, exp):
 						# exit loop
 						break
 			else:
-				if tasks:
-					# batch
-					batch = tasks.pop()
-					# store job indices
-					job_info[0] = i; job_info[1] = i+batch
-					# loop over tuples
-					for idx in range(job_info[0], job_info[1]):
-						# calculate increments
-						_calc(mpi, mol, calc, exp, idx)
-					# increment job index
-					i += batch
+				if i < len(exp.tuples[-1]):
+					# calculate increment
+					_calc(mpi, mol, calc, exp, i)
+					# increment index
+					i += 1
 		# allreduce properties
 		parallel.prop(calc, exp, comm)
 		# collect time
@@ -185,21 +156,20 @@ def _slave(mpi, mol, calc, exp):
 		""" slave function """
 		# set communicator
 		comm = mpi.local_comm
-		# init job_info array
-		job_info = np.zeros(2, dtype=np.int32)
+		# init idx
+		idx = np.zeros(1, dtype=np.int32)
+		# send availability to master
+		comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
-			# receive job info
-			comm.Recv([job_info, MPI.INT], source=0, status=mpi.stat)
+			# receive index
+			comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
 			# do job
 			if mpi.stat.tag == TAGS.start:
-				# loop over tuples
-				for idx in range(job_info[0], job_info[1]):
-					# send availability to master
-					if idx == max(job_info[1] - 2, job_info[0]):
-						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-					# calculate increments
-					_calc(mpi, mol, calc, exp, idx)
+				# send availability to master
+				comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+				# calculate increments
+				_calc(mpi, mol, calc, exp, idx[0])
 			elif mpi.stat.tag == TAGS.exit:
 				break
 		# receive properties
