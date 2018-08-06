@@ -25,7 +25,7 @@ import tools
 
 
 # mbe parameters
-TAGS = tools.enum('start', 'ready', 'exit')
+TAGS = tools.enum('start', 'ready', 'exit', 'collect')
 
 
 def main(mpi, mol, calc, exp):
@@ -140,12 +140,17 @@ def _master(mpi, mol, calc, exp):
 						req.Wait()
 						# exit loop
 						break
-			else:
-				if i < len(exp.tuples[-1]):
-					# calculate increment
-					_calc(mpi, mol, calc, exp, i)
-					# increment index
-					i += 1
+		# collect distribution statistics from participating slaves
+		slaves_avail = num_slaves
+		exp.distrib.append(np.empty(slaves_avail, dtype=np.int32))
+		count = np.empty(1, dtype=np.int32)
+		while slaves_avail > 0:
+			# probe for source
+			comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.collect, status=mpi.stat)
+			comm.Recv(count, source=mpi.stat.source, tag=TAGS.collect)
+			# add slave count
+			exp.distrib[-1][mpi.stat.source-1] = count[0]
+			slaves_avail -= 1
 		# allreduce properties
 		parallel.prop(calc, exp, comm)
 		# collect time
@@ -157,7 +162,7 @@ def _slave(mpi, mol, calc, exp):
 		# set communicator
 		comm = mpi.local_comm
 		# init idx
-		idx = np.zeros(1, dtype=np.int32)
+		idx = np.empty(1, dtype=np.int32)
 		# send availability to master
 		comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
@@ -171,6 +176,9 @@ def _slave(mpi, mol, calc, exp):
 				# calculate increments
 				_calc(mpi, mol, calc, exp, idx[0])
 			elif mpi.stat.tag == TAGS.exit:
+				# send distribution statistics to master
+				distrib = np.count_nonzero(exp.prop['energy'][0]['inc'][-1])
+				comm.Send([np.array([distrib], dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
 				break
 		# receive properties
 		parallel.prop(calc, exp, comm)

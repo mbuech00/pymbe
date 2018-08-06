@@ -79,8 +79,6 @@ def _master(mpi, mol, calc, exp):
 		comm.bcast(msg, root=0)
 		# start index
 		i = 0
-		# init child_tup list
-		child_tup = []
 		# init request
 		req = MPI.Request()
 		# loop until no tasks left
@@ -108,20 +106,8 @@ def _master(mpi, mol, calc, exp):
 						req.Wait()
 						# exit loop
 						break
-			else:
-				if i < len(exp.tuples[-1]):
-					# calculate child tuples
-					lst = _test(calc, exp, exp.tuples[-1][i])
-					parent_tup = exp.tuples[-1][i].tolist()
-					for m in lst:
-						if calc.model['type'] == 'occ':
-							child_tup += [m]+parent_tup
-						elif calc.model['type'] == 'virt':
-							child_tup += parent_tup+[m]
-					# increment index
-					i += 1
-		# convert child tuple list to array
-		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
+		# init tuples array
+		tuples = np.asarray([], dtype=np.int32).reshape(0, exp.order+1)
 		# collect child tuples from participating slaves
 		slaves_avail = num_slaves
 		while slaves_avail > 0:
@@ -153,7 +139,7 @@ def _slave(mpi, mol, calc, exp):
 		# set communicator
 		comm = mpi.local_comm
 		# init idx array and child_tup list
-		idx = np.zeros(1, dtype=np.int32)
+		idx = np.empty(1, dtype=np.int32)
 		child_tup = []
 		# send availability to master
 		comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)

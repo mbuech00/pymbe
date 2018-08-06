@@ -75,6 +75,9 @@ def main(mpi, mol, calc, exp):
 				exp.time['mbe'] = np.asarray(exp.time['mbe'])
 				exp.time['screen'] = np.asarray(exp.time['screen'])
 				exp.time['total'] = exp.time['mbe'] + exp.time['screen']
+				# distribution statistics
+				if mpi.parallel:
+					exp.distrib = np.asarray(exp.distrib)
 				break
 
 

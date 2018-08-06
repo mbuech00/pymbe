@@ -53,7 +53,7 @@ def main(mpi, mol, calc, exp):
 			info['energy'], info['dipole'], info['nuc_dipole'], info['trans'] = _setup(mpi, mol, calc, exp)
 		info['final_order'] = info['energy'][0].size
 		# results
-		_table(info, mol, calc, exp)
+		_table(info, mpi, mol, calc, exp)
 		# plot
 		_plot(info, calc, exp)
 
@@ -91,13 +91,15 @@ def _setup(mpi, mol, calc, exp):
 				energy, dipole, nuc_dipole, trans
 
 
-def _table(info, mol, calc, exp):
+def _table(info, mpi, mol, calc, exp):
 		""" print results """
 		# write results to results.out
 		with open(OUT+'/results.out','a') as f:
 			with contextlib.redirect_stdout(f):
 				_summary_prt(info, mol, calc, exp)
 				_timings_prt(info, exp)
+				if mpi.parallel:
+					_distrib_prt(info, mpi, exp)
 				for i in range(calc.nroots):
 					_energy_prt(info, calc, exp, i)
 				if calc.target['dipole']:
@@ -301,24 +303,27 @@ def _trans(mol, calc, exp):
 
 def _time(exp, comp, idx):
 		""" convert time to (HHH : MM : SS) format """
-		if comp != 'total':
-			hours = int(exp.time[comp][idx]//3600)
-			minutes = int((exp.time[comp][idx]-(exp.time[comp][idx]//3600)*3600.)//60)
-			seconds = int(exp.time[comp][idx]-(exp.time[comp][idx]//3600)*3600. \
-							- ((exp.time[comp][idx]-(exp.time[comp][idx]//3600)*3600.)//60)*60.)
-		else:
-			hours = int(np.sum(exp.time[comp][:idx+1])//3600)
-			minutes = int((np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600.)//60)
-			seconds = int(np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600. \
-							- ((np.sum(exp.time[comp][:idx+1])-(np.sum(exp.time[comp][:idx+1])//3600)*3600.)//60)*60.)
+		# init time
+		if comp in ['mbe', 'screen']:
+			time = exp.time[comp][idx]
+		elif comp == 'sum':
+			time = exp.time['mbe'][idx] + exp.time['screen'][idx]
+		elif comp in ['tot_mbe', 'tot_screen']:
+			time = np.sum(exp.time[comp[4:]])
+		elif comp == 'tot_sum':
+			time = np.sum(exp.time['mbe']) + np.sum(exp.time['screen'])
+		hours = int(time // 3600)
+		minutes = int((time - (time // 3600) * 3600.)//60)
+		seconds = int(time - (time // 3600) * 3600. \
+						- ((time - (time // 3600) * 3600.) // 60) * 60.)
 		# init time string
-		time = ''
+		time_str = ''
 		if hours > 0:
-			time += '{:}h '.format(hours)
+			time_str += '{:}h '.format(hours)
 		if minutes > 0:
-			time += '{:}m '.format(minutes)
-		time += '{:}s'.format(seconds)
-		return time
+			time_str += '{:}m '.format(minutes)
+		time_str += '{:}s'.format(seconds)
+		return time_str
 
 
 def _summary_prt(info, mol, calc, exp):
@@ -365,7 +370,7 @@ def _summary_prt(info, mol, calc, exp):
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'.\
 					format('','occupied orbs','','=','',info['occ'], \
 						'','|','','screen. prot.','','=','',info['prot'], \
-						'','|','','total time','','=','',_time(exp, 'total', exp.order-1)))
+						'','|','','total time','','=','',_time(exp, 'tot_sum', -1)))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 					format('','virtual orbs','','=','',info['virt'], \
@@ -382,19 +387,54 @@ def _timings_prt(info, exp):
 		print('{0:^98}'.format('MBE timings'))
 		print(DIVIDER[:98])
 		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:3}{6:8}{7:1}{8:5}{9:9}{10:5}'
-				'{11:1}{12:7}{13:5}{14:7}{15:1}{16:4}{17:}'. \
+				'{11:1}{12:8}{13:3}{14:8}{15:1}{16:5}{17:}'. \
 				format('','MBE order','','|','','MBE','','|','','screening', \
-						'','|','','total','','|','','no. of calcs.'))
+						'','|','','sum','','|','','calculations'))
 		print(DIVIDER[:98])
+		calcs = 0
 		for i in range(info['final_order']):
+			calcs += exp.tuples[i].shape[0]
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:2}{5:>13s}{6:4}{7:1}{8:2}{9:>13s}{10:4}{11:1}'
 					'{12:2}{13:>13s}{14:4}{15:1}{16:5}{17:>9d}'. \
 					format('',i+exp.start_order, \
 						'','|','',_time(exp, 'mbe', i), \
 						'','|','',_time(exp, 'screen', i), \
-						'','|','',_time(exp, 'total', i), \
+						'','|','',_time(exp, 'sum', i), \
 						'','|','',exp.tuples[i].shape[0]))
+		print(DIVIDER[:98])
+		print('{0:8}{1:5s}{2:4}{3:1}{4:2}{5:>13s}{6:4}{7:1}{8:2}{9:>13s}{10:4}{11:1}'
+				'{12:2}{13:>13s}{14:4}{15:1}{16:5}{17:>9d}'. \
+				format('','total', \
+					'','|','',_time(exp, 'tot_mbe', -1), \
+					'','|','',_time(exp, 'tot_screen', -1), \
+					'','|','',_time(exp, 'tot_sum', -1), \
+					'','|','',calcs))
 		print(DIVIDER[:98]+'\n')
+
+
+def _distrib_prt(info, mpi, exp):
+		""" distribution statistics """
+		print(DIVIDER[:47])
+		print('{0:^49}'.format('MBE distribution statistics'))
+		print(DIVIDER[:47])
+		print('{0:6}{1:9}{2:2}{3:1}{4:3}{5:}'.\
+				format('','MBE order','','|','','MPI distribution (in %)'))
+		print(DIVIDER[:47])
+		calcs = 0
+		for i in range(info['final_order']):
+			calcs += exp.tuples[i].shape[0]
+			theo = exp.tuples[i].shape[0] / (mpi.local_size - 1)
+			count = exp.distrib[i, :]
+			distrib = '{0:.1f} +/- {1:.1f}'.format(np.mean((count / theo) * 100.), \
+													np.std((count / theo) * 100., ddof=1))
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:7}{5:}'.format('',i+exp.start_order,'','|','',distrib))
+		print(DIVIDER[:47])
+		theo = calcs / (mpi.local_size - 1)
+		count = np.sum(exp.distrib, axis=0)
+		distrib = '{0:.1f} +/- {1:.1f}'.format(np.mean((count / theo) * 100.), \
+												np.std((count / theo) * 100., ddof=1))
+		print('{0:8}{1:5s}{2:4}{3:1}{4:7}{5:}'.format('','total','','|','',distrib))
+		print(DIVIDER[:47]+'\n')
 
 
 def _energy_prt(info, calc, exp, root):
