@@ -97,7 +97,9 @@ def _hubbard_eri(mol):
 def hf(mol, calc):
 		""" hartree-fock calculation """
 		# perform restricted hf calc
-		hf = scf.RHF(mol)
+		mol_hf = mol.copy()
+		mol_hf.build(0, 0, symmetry = mol.hf_sym)
+		hf = scf.RHF(mol_hf)
 		hf.conv_tol = 1.0e-10
 		hf.max_cycle = 500
 		if mol.atom: # ab initio hamiltonian
@@ -139,7 +141,9 @@ def hf(mol, calc):
 		occup = hf.mo_occ
 		if mol.atom:
 			orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-			wfnsym = scf.hf_symm.get_wfnsym(hf, mo_coeff=hf.mo_coeff, mo_occ=hf.mo_occ)
+			wfnsym = 0
+			for ir in orbsym[occup == 1]:
+				wfnsym ^= ir
 			# sanity check
 			if wfnsym != calc.state['wfnsym'] and calc.ref['method'] == 'hf':
 				try:
