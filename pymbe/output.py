@@ -31,7 +31,7 @@ FILL = ' '+'|'*92
 def main_header():
 		""" print main header """
 		# rm out if present
-		if os.path.isdir(OUT): shutil.rmtree(OUT, ignore_errors=True)
+		if os.path.isdir(OUT): shutil.rmtree(OUT)
 		# mkdir out
 		os.mkdir(OUT)
 		# print headers

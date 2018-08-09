@@ -33,7 +33,7 @@ def restart():
 
 def rm():
 		""" remove rst directory in case of successful calc """
-		shutil.rmtree(RST, ignore_errors=True)
+		shutil.rmtree(RST)
 
 
 def main(calc, exp):
