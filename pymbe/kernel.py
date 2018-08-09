@@ -403,7 +403,8 @@ def base(mol, calc, exp):
 					rdm1 = rdm1[0] + rdm1[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
-			res = _cc(mol, calc, exp, calc.base['method'] == 'ccsd(t)')
+			res = _cc(mol, calc, exp, calc.base['method'] == 'ccsd(t)' and \
+										(calc.orbs['occ'] == 'can' and calc.orbs['virt'] == 'can'))
 			base = {'energy': res['energy'][0]}
 			if 'rdm1' in res:
 				rdm1 = res['rdm1']
@@ -679,7 +680,7 @@ def _cc(mol, calc, exp, pt=False):
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
 		ccsd.conv_tol = max(calc.thres['init'], 1.0e-10)
-		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
+		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and not pt:
 			ccsd.conv_tol_normt = ccsd.conv_tol
 		ccsd.max_cycle = 500
 		# avoid async function execution if requested
@@ -705,7 +706,7 @@ def _cc(mol, calc, exp, pt=False):
 		# e_corr
 		res = {'energy': [ccsd.e_corr]}
 		# rdm1
-		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd'):
+		if exp.order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and not pt:
 			ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
 			res['rdm1'] = ccsd.make_rdm1()
 		# calculate (t) correction
