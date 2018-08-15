@@ -572,7 +572,9 @@ def _fci(mol, calc, exp):
 		# init fci solver
 		if mol.spin == 0:
 			if mol.symmetry in ['Dooh', 'Coov']:
-				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[-exp.order:]]])
+				if calc.model['type'] == 'occ':
+					raise NotImplementedError('occupied expansions in Dooh not implemented')
+				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
 				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
 				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
 				pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
@@ -586,6 +588,7 @@ def _fci(mol, calc, exp):
 						res['rdm1'] = None
 					if calc.target['trans']:
 						res['t_rdm1'] = None
+					return res
 				if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
 					res = {}
 					if calc.target['energy']:
@@ -596,6 +599,7 @@ def _fci(mol, calc, exp):
 						res['rdm1'] = None
 					if calc.target['trans']:
 						res['t_rdm1'] = None
+					return res
 			solver = fci.direct_spin0_symm.FCI(mol)
 		else:
 			sz = np.abs(nelec[0]-nelec[1]) * .5
