@@ -18,7 +18,6 @@ import scipy as sp
 from functools import reduce
 from mpi4py import MPI
 from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
-from pyscf.shciscf import shci
 
 import tools
 
