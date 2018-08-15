@@ -217,6 +217,7 @@ def active(mol, calc):
 				assert np.count_nonzero(np.array(calc.ref['select']) < mol.ncore) == 0
 				assert float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[calc.ref['select']])
 			else:
+				raise NotImplementedError('AVAS scheme has been temporarily deactivated')
 				from pyscf.mcscf import avas
 				# avas
 				no_avas, ne_avas = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, \
@@ -269,6 +270,7 @@ def ref(mol, calc, exp):
 				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
 				mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['select']], calc.mo[:, idx[inact_orb:]]))
 				calc.mo = np.asarray(mo, order='C')
+				calc.map = np.concatenate((idx[:inact_orb], calc.ref['select'], idx[inact_orb:]))
 			else:
 				from pyscf.mcscf import avas
 				calc.mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
@@ -285,6 +287,7 @@ def ref(mol, calc, exp):
 			# casscf mo
 			if calc.ref['method'] == 'casscf': calc.mo = _casscf(mol, calc, exp)
 		else:
+			calc.map = np.arange(mol.norb)
 			if mol.spin == 0:
 				# set properties equal to hf values
 				ref = {'base': 0.0}

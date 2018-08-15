@@ -264,7 +264,7 @@ def _inc(mpi, mol, calc, exp, tup):
 		# debug print
 		if mol.debug:
 			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
-			form = (mpi.local_rank, exp.core_idx.tolist(), exp.cas_idx.tolist())
+			form = (mpi.local_rank, exp.core_idx.tolist(), np.array([calc.map[i] for i in exp.cas_idx]).tolist())
 			if calc.target['energy']:
 				string += '      correlation energy increment for state {:} = {:.4e}\n'
 				form += (calc.state['root'], inc['energy'],)
