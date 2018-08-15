@@ -79,34 +79,34 @@ def main(calc, exp):
 			return exp.tuples[-1].shape[1]
 
 
-def write_fund(mol, calc):
-		""" write fundamental info restart files """
-		# write dimensions
-		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'no_exp': calc.no_exp, \
-				'ne_act': calc.ne_act, 'no_act': calc.no_act}
-		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
-			json.dump(dims, f)
-		# write hf, reference, and base properties
-		energies = {'hf': calc.prop['hf']['energy'], 'base': calc.base['energy'], \
-					'ref': calc.prop['ref']['energy'], 'ref_base': calc.base['ref']}
-		with open(os.path.join(RST, 'energies.rst'), 'w') as f:
-			json.dump(energies, f)
-		if calc.target['dipole']:
-			dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
-						'ref': [calc.prop['ref']['dipole'][i].tolist() for i in range(len(calc.prop['ref']['dipole']))]}
-			with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
-				json.dump(dipoles, f)
-		if calc.target['trans']:
-			transitions = {'ref': [calc.prop['ref']['trans'][i].tolist() for i in range(len(calc.prop['ref']['trans']))]}
-			with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
-				json.dump(transitions, f)
-		# write expansion spaces
-		np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
-		np.save(os.path.join(RST, 'exp_space'), calc.exp_space)
-		# occupation
-		np.save(os.path.join(RST, 'occup'), calc.occup)
-		# write orbs
-		np.save(os.path.join(RST, 'mo'), calc.mo)
+#def write_fund(mol, calc):
+#		""" write fundamental info restart files """
+#		# write dimensions
+#		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'no_exp': calc.no_exp, \
+#				'ne_act': calc.ne_act, 'no_act': calc.no_act}
+#		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
+#			json.dump(dims, f)
+#		# write hf, reference, and base properties
+#		energies = {'hf': calc.prop['hf']['energy'], 'base': calc.base['energy'], \
+#					'ref': calc.prop['ref']['energy'], 'ref_base': calc.base['ref']}
+#		with open(os.path.join(RST, 'energies.rst'), 'w') as f:
+#			json.dump(energies, f)
+#		if calc.target['dipole']:
+#			dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
+#						'ref': [calc.prop['ref']['dipole'][i].tolist() for i in range(len(calc.prop['ref']['dipole']))]}
+#			with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
+#				json.dump(dipoles, f)
+#		if calc.target['trans']:
+#			transitions = {'ref': [calc.prop['ref']['trans'][i].tolist() for i in range(len(calc.prop['ref']['trans']))]}
+#			with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
+#				json.dump(transitions, f)
+#		# write expansion spaces
+#		np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
+#		np.save(os.path.join(RST, 'exp_space'), calc.exp_space)
+#		# occupation
+#		np.save(os.path.join(RST, 'occup'), calc.occup)
+#		# write orbs
+#		np.save(os.path.join(RST, 'mo'), calc.mo)
 
 
 def read_fund(mol, calc):

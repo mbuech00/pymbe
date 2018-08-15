@@ -223,29 +223,30 @@ def _test(calc, exp, tup):
 def _prot_check(exp, calc, indx, m):
 		""" protocol check """
 		screen = True
-		for i in ['energy', 'dipole', 'trans']:
+		for i in ['energy', 'excitation', 'dipole', 'trans']:
 			if calc.target[i]:
 				if i == 'energy':
-					for j in range(calc.nroots):
-						prop = exp.prop['energy'][j]['inc'][-1][indx]
+					prop = exp.prop['energy']['inc'][-1][indx]
+					screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
+					if not screen: break
+				elif i == 'excitation':
+					prop = exp.prop['excitation']['inc'][-1][indx]
+					screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
+					if not screen: break
+				elif i == 'dipole':
+					for k in range(3):
+						# (x,y,z) = (0,1,2)
+						prop = exp.prop['dipole']['inc'][-1][indx, k]
 						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
 						if not screen: break
-				elif i == 'dipole':
-					for j in range(calc.nroots):
-						for k in range(3):
-							# (x,y,z) = (0,1,2)
-							prop = exp.prop['dipole'][j]['inc'][-1][indx, k]
-							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-							if not screen: break
-						if not screen: break
+					if not screen: break
 				elif i == 'trans':
-					for j in range(calc.nroots-1):
-						for k in range(3):
-							# (x,y,z) = (0,1,2)
-							prop = exp.prop['trans'][j]['inc'][-1][indx, k]
-							screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-							if not screen: break
+					for k in range(3):
+						# (x,y,z) = (0,1,2)
+						prop = exp.prop['trans']['inc'][-1][indx, k]
+						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
 						if not screen: break
+					if not screen: break
 			if not screen: break
 		if not screen:
 			return [m]
@@ -255,12 +256,15 @@ def _prot_check(exp, calc, indx, m):
 
 def _prot_scheme(prop, thres, scheme):
 		""" screen according to chosen scheme """
-		# are *all* increments below the threshold?
-		if scheme == 'new':
-			return np.max(np.abs(prop)) < thres
-		# are *any* increments below the threshold?
-		elif scheme == 'old':
-			return np.min(np.abs(prop)) < thres
+		if np.all(prop == 0.0):
+			return False
+		else:
+			# are *all* increments below the threshold?
+			if scheme == 'new':
+				return np.max(np.abs(prop)) < thres
+			# are *any* increments below the threshold?
+			elif scheme == 'old':
+				return np.min(np.abs(prop)) < thres
 
 
 def update(calc, exp):

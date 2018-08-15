@@ -117,12 +117,12 @@ class MolCls(gto.Mole):
 					# sym
 					if not isinstance(self.system['sym'], str):
 						raise ValueError('wrong input -- symmetry input in system dict (sym) must be a str')
-					if symm.addons.std_symb(self.system['sym']) not in symm.param.POINTGROUP:
+					if symm.addons.std_symb(self.system['sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
 						raise ValueError('wrong input -- illegal symmetry input in system dict (sym)')
 					# hf_sym
 					if not isinstance(self.system['hf_sym'], str):
 						raise ValueError('wrong input -- HF symmetry input in system dict (hf_sym) must be a str')
-					if symm.addons.std_symb(self.system['hf_sym']) not in symm.param.POINTGROUP:
+					if symm.addons.std_symb(self.system['hf_sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
 						raise ValueError('wrong input -- illegal HF symmetry input in system dict (hf_sym)')
 					# basis
 					if not isinstance(self.system['basis'], (str, dict)):

@@ -69,7 +69,7 @@ def _init():
 		# exp object
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
-		if mpi.parallel and calc.restart: parallel.exp(mpi, calc, exp, mpi.global_comm)
+#		if mpi.parallel and calc.restart: parallel.exp(mpi, calc, exp, mpi.global_comm)
 		return mpi, mol, calc, exp
 
 
@@ -123,23 +123,25 @@ def _exp(mpi, mol, calc):
 					raise NotImplementedError('combined expansions not implemented')
 				# reference calculation
 				ref, calc.mo = kernel.ref(mol, calc, exp)
-				calc.prop['ref']['energy'] = [ref['energy'][i] for i in range(calc.nroots)]
-				calc.base['ref'] = [ref['base']]
+				calc.base['ref'] = ref['base']
+				if calc.target['energy']:
+					calc.prop['ref']['energy'] = ref['energy']
+				if calc.target['excitation']:
+					calc.prop['ref']['excitation'] = ref['excitation']
 				if calc.target['dipole']:
-					calc.prop['ref']['dipole'] = [ref['dipole'][i] for i in range(calc.nroots)]
+					calc.prop['ref']['dipole'] = ref['dipole']
 				if calc.target['trans']:
-					calc.prop['ref']['trans'] = [ref['trans'][i] for i in range(calc.nroots-1)]
+					calc.prop['ref']['trans'] = ref['trans']
 				# base energy
 				base = kernel.base(mol, calc, exp)
-				calc.base['energy'] = [base['energy']]
+				calc.base['energy'] = base['energy']
 				# write fundamental info
-				restart.write_fund(mol, calc)
+#				restart.write_fund(mol, calc)
 		else:
 			# get ao integrals
 			mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 		# bcast fundamental info
-		if mpi.parallel:
-			parallel.fund(mpi, mol, calc)
+		parallel.fund(mpi, mol, calc)
 		# restart and exp object on slaves
 		if mpi.global_master:
 			exp.min_order = restart.main(calc, exp)

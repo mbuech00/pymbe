@@ -40,8 +40,8 @@ def main(mpi, mol, calc, exp):
 			# mbe calculations
 			mbe.main(mpi, mol, calc, exp)
 			if mpi.global_master:
-				# write restart files
-				restart.mbe_write(calc, exp)
+#				# write restart files
+#				restart.mbe_write(calc, exp)
 				# print mbe end
 				output.mbe_end(calc, exp)
 				# print mbe results
@@ -59,8 +59,8 @@ def main(mpi, mol, calc, exp):
 					# collect time
 					exp.time['screen'][-1] -= MPI.Wtime()
 					exp.time['screen'][-1] *= -1.0
-					# write restart files
-					if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
+#					# write restart files
+#					if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 					# print screen end
 					output.screen_end(exp)
 			else:
