@@ -31,7 +31,7 @@ class CalcCls():
 				self.prot = {'scheme': 'new'}
 				self.ref = {'method': 'hf', 'specific': True, 'weights': None}
 				self.base = {'method': None}
-				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
+				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0, 'lz': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -121,7 +121,7 @@ class CalcCls():
 									try:
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
-										raise ValueError('wrong input -- values in state dict (state) must be strings and ints')
+										raise ValueError('wrong input -- values in state dict (state) must be strings, ints, and bools')
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										if key == 'wfnsym':

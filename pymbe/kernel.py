@@ -573,9 +573,7 @@ def _fci(mol, calc, exp):
 		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# init fci solver
 		if mol.spin == 0:
-			if mol.symmetry in ['Dooh', 'Coov']:
-				if calc.model['type'] == 'occ':
-					raise NotImplementedError('occupied expansions in Dooh not implemented')
+			if calc.state['lz']:
 				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
 				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
 				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
@@ -667,8 +665,20 @@ def _fci(mol, calc, exp):
 		# e_corr
 		if calc.target['energy']:
 			if calc.state['root'] == 0:
+				if calc.state['lz']:
+					if np.abs(civec[0][0, 0]) < np.abs(civec[0][1, 1]) or np.abs(civec[0][1, 1] - civec[0][2, 2]) > 1.0e-05:
+						print('civec[0][0, 0] = {:}'.format(civec[0][0, 0]))
+						print('civec[0][1, 1] = {:}'.format(civec[0][1, 1]))
+						print('civec[0][2, 2] = {:}'.format(civec[0][2, 2]))
+						raise RuntimeError('wrong state...')
 				res['energy'] = energy[0] - calc.prop['hf']['energy']
 			else:
+				if calc.state['lz']:
+					if np.abs(civec[-1][0, 0]) < np.abs(civec[-1][1, 1]) or np.abs(civec[-1][1, 1] - civec[-1][2, 2]) > 1.0e-05:
+						print('civec[-1][0, 0] = {:}'.format(civec[-1][0, 0]))
+						print('civec[-1][1, 1] = {:}'.format(civec[-1][1, 1]))
+						print('civec[-1][2, 2] = {:}'.format(civec[-1][2, 2]))
+						raise RuntimeError('wrong state...')
 				res['energy'] = energy[-1] - calc.prop['hf']['energy']
 		if calc.target['excitation']:
 			res['excitation'] = energy[-1] - energy[0]

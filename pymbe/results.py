@@ -270,7 +270,10 @@ def _symm(mol, calc):
 		""" symmetry print """
 		if calc.model['method'] == 'fci':
 			if mol.atom:
-				return symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+' ('+mol.symmetry+')'
+				string = symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+' ('+mol.symmetry+')'
+				if calc.state['lz']:
+					string += ' Lz'
+				return string
 			else:
 				return 'C1 (A)'
 		else:
