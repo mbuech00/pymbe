@@ -28,18 +28,13 @@ class MolCls(gto.Mole):
 				gto.Mole.__init__(self)
 				# set defaults
 				self.atom = ''
-				self.system = {'charge': 0, 'spin': 0, 'sym': 'c1', 'hf_sym': None, 'basis': 'sto-3g', 'unit': 'ang', \
+				self.system = {'charge': 0, 'spin': 0, 'sym': 'c1', 'basis': 'sto-3g', 'unit': 'ang', \
 							'frozen': False, 'occup': {}, 'verbose': 1, 'debug': False, \
 							't': 1.0, 'u': 1.0, 'dim': 1, 'nsites': 6, 'pbc': True, 'nelec': 0}
 				# set geometric and molecular parameters
 				if mpi.global_master:
 					# read atom and molecule settings
 					self.atom, self.system = self.set_system()
-					# hf symmetry
-					if self.system['hf_sym'] is not None:
-						self.system['hf_sym'] = symm.addons.std_symb(self.system['hf_sym'])
-					else:
-						self.system['hf_sym'] = self.system['sym']
 					# sanity check
 					self.sanity_chk()
 					# translate to Mole input
@@ -49,7 +44,6 @@ class MolCls(gto.Mole):
 					self.charge = self.system['charge']
 					self.spin = self.system['spin']
 					self.symmetry = symm.addons.std_symb(self.system['sym'])
-					self.hf_sym = symm.addons.std_symb(self.system['hf_sym'])
 					self.basis = self.system['basis']
 					self.unit = self.system['unit']
 					# hubbard hamiltonian
@@ -119,11 +113,6 @@ class MolCls(gto.Mole):
 						raise ValueError('wrong input -- symmetry input in system dict (sym) must be a str')
 					if symm.addons.std_symb(self.system['sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
 						raise ValueError('wrong input -- illegal symmetry input in system dict (sym)')
-					# hf_sym
-					if not isinstance(self.system['hf_sym'], str):
-						raise ValueError('wrong input -- HF symmetry input in system dict (hf_sym) must be a str')
-					if symm.addons.std_symb(self.system['hf_sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
-						raise ValueError('wrong input -- illegal HF symmetry input in system dict (hf_sym)')
 					# basis
 					if not isinstance(self.system['basis'], (str, dict)):
 						raise ValueError('wrong input -- basis set input in system dict (basis) must be a str or a dict')
