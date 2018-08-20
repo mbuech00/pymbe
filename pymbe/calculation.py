@@ -32,7 +32,7 @@ class CalcCls():
 				self.ref = {'method': 'hf', 'specific': True, 'weights': None}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'lz_sym': False, 'sigma': False, 'delta': False}
+				self.extra = {'hf_guess': True, 'lz_sym': False, 'det_1': None, 'det_2': None, 'phase_12': None}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -134,7 +134,7 @@ class CalcCls():
 									try:
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
-										raise ValueError('wrong input -- values in extra dict (extra) must be bools')
+										raise ValueError('wrong input -- values in extra dict (extra) must be bools, tuples/lists, and ints')
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										self.extra[key] = val

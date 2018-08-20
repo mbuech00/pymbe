@@ -542,23 +542,26 @@ def _casscf(mol, calc, exp):
 		else:
 			# run casscf calc
 			cas.kernel(calc.mo)
-		# sigma/delta check
-		if calc.extra['sigma'] or calc.extra['delta']:
+		# determinant check
+		if calc.extra['det_1'] is not None and calc.extra['det_2'] is not None:
 			if calc.ref['specific']:
 				civec = cas.ci
 			else:
 				civec = cas.ci[calc.state['root']]
-			if calc.extra['sigma']:
-				if not (np.sign(civec[1, 1]) == np.sign(civec[2, 2]) and np.abs(civec[1, 1]) - np.abs(civec[2, 2]) < 1.0e-05):
+			str_1 = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['det_1'])-mol.ncore, calc.ne_act[0])]
+			addr_1 = fci.cistring.str2addr(calc.extra['det_1'][-1]-1, calc.ne_act[0], str_1[0])
+			str_2 = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['det_2'])-mol.ncore, calc.ne_act[0])]
+			addr_2 = fci.cistring.str2addr(calc.extra['det_2'][-1]-1, calc.ne_act[0], str_2[0])
+			if np.abs(civec[addr_1, addr_1]) - np.abs(civec[addr_2, addr_2]) > 1.0e-05:
+				try:
+					raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of weights\n\n')
+				except Exception as err:
+					sys.stderr.write(str(err))
+					raise
+			if calc.extra['phase_12'] is not None:
+				if np.sign(civec[addr_1, addr_1]) * np.sign(civec[addr_2, addr_2]) - np.sign(calc.extra['phase_12']) > 1.0e-05:
 					try:
-						raise RuntimeError('\nCASSCF Error: Lz-symmetry error (not a sigma state)\n\n')
-					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
-			elif calc.extra['delta']:
-				if not (np.sign(civec[1, 1]) != np.sign(civec[2, 2]) and np.abs(civec[1, 1]) - np.abs(civec[2, 2]) < 1.0e-05):
-					try:
-						raise RuntimeError('\nCASSCF Error: Lz-symmetry error (not a delta state)\n\n')
+						raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong phase\n\n')
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
@@ -712,18 +715,18 @@ def _fci(mol, calc, exp):
 		# e_corr
 		if calc.target['energy']:
 			root = 0 if calc.state['root'] == 0 else 1
-			if calc.extra['sigma']:
-				if np.sign(civec[root][1, 1]) == np.sign(civec[root][2, 2]) and np.abs(civec[root][1, 1]) - np.abs(civec[root][2, 2]) < 1.0e-05:
-					res['energy'] = energy[root] - calc.prop['hf']['energy']
-				else:
+			# determinant check
+			if calc.extra['det_1'] is not None and calc.extra['det_2'] is not None:
+				str_1 = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['det_1'])-mol.ncore, nelec[0])]
+				addr_1 = fci.cistring.str2addr(calc.extra['det_1'][-1]-1, nelec[0], str_1[0])
+				str_2 = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['det_2'])-mol.ncore, nelec[0])]
+				addr_2 = fci.cistring.str2addr(calc.extra['det_2'][-1]-1, nelec[0], str_2[0])
+				if np.abs(civec[root][addr_1, addr_1]) - np.abs(civec[root][addr_2, addr_2]) > 1.0e-05:
 					return {'energy': 0.0}
-			elif calc.extra['delta']:
-				if np.sign(civec[root][1, 1]) != np.sign(civec[root][2, 2]) and np.abs(civec[root][1, 1]) - np.abs(civec[root][2, 2]) < 1.0e-05:
-					res['energy'] = energy[root] - calc.prop['hf']['energy']
-				else:
-					return {'energy': 0.0}
-			else:
-				res['energy'] = energy[root] - calc.prop['hf']['energy']
+				if calc.extra['phase_12'] is not None:
+					if np.sign(civec[root][addr_1, addr_1]) * np.sign(civec[root][addr_2, addr_2]) - np.sign(calc.extra['phase_12']) > 1.0e-05:
+						return {'energy': 0.0}
+			res['energy'] = energy[root] - calc.prop['hf']['energy']
 		if calc.target['excitation']:
 			res['excitation'] = energy[1] - energy[0]
 		# fci rdm1 and t_rdm1
