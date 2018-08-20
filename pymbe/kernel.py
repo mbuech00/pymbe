@@ -544,7 +544,7 @@ def _casscf(mol, calc, exp):
 			cas.kernel(calc.mo)
 		# sigma/delta check
 		if calc.extra['sigma'] or calc.extra['delta']:
-			if calc.state['root'] == 0:
+			if calc.ref['specific']:
 				civec = cas.ci
 			else:
 				civec = cas.ci[calc.state['root']]
