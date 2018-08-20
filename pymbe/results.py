@@ -48,7 +48,7 @@ def main(mpi, mol, calc, exp):
 			exp.prop['trans']['tot'] = np.asarray(exp.prop['trans']['tot'])
 		# setup
 		info = {}
-		info['model_type'], info['basis'], info['mult'], info['ref'], info['base'], info['prot'], \
+		info['model_type'], info['basis'], info['state'], info['ref'], info['base'], info['prot'], \
 			info['system'], info['frozen'], info['hubbard'], info['active'], \
 			info['occ'], info['virt'], info['mpi'], info['thres'], info['symm'], \
 			info['energy'], info['excitation'], \
@@ -64,7 +64,7 @@ def _setup(mpi, mol, calc, exp):
 		""" init parameters """
 		model_type = _model_type(calc)
 		basis = _basis(mol)
-		mult = _mult(mol)
+		state = _state(mol, calc)
 		ref = _ref(mol, calc)
 		base = _base(calc)
 		prot = _prot(calc)
@@ -95,7 +95,7 @@ def _setup(mpi, mol, calc, exp):
 			trans = _trans(mol, calc, exp)
 		else:
 			trans = None
-		return model_type, basis, mult, ref, base, prot, system, frozen, \
+		return model_type, basis, state, ref, base, prot, system, frozen, \
 				hubbard, active, occ, virt, mpi, thres, symm, \
 				energy, excitation, dipole, nuc_dipole, trans
 
@@ -151,20 +151,22 @@ def _basis(mol):
 			return basis
 
 
-def _mult(mol):
-		""" mult print """
+def _state(mol, calc):
+		""" state print """
+		string = '{:}'.format(calc.state['root'])
 		if mol.spin == 0:
-			return 'singlet'
+			string += ' / singlet'
 		elif mol.spin == 1:
-			return 'doublet'
+			string += ' / doublet'
 		elif mol.spin == 2:
-			return 'triplet'
+			string += ' / triplet'
 		elif mol.spin == 3:
-			return 'quartet'
+			string += ' / quartet'
 		elif mol.spin == 4:
-			return 'quintet'
+			string += ' / quintet'
 		else:
-			return '{0:}'.format(mol.spin+1)
+			string += ' / {:}'.format(mol.spin+1)
+		return string
 
 
 def _ref(mol, calc):
@@ -177,10 +179,13 @@ def _ref(mol, calc):
 		elif calc.ref['method'] == 'casci':
 			return 'CASCI'
 		elif calc.ref['method'] == 'casscf':
-			if calc.ref['specific']:
-				return 'SS-CASSCF'
+			if calc.state['root'] == 0:
+				return 'CASSCF'
 			else:
-				return 'SA-CASSCF'
+				if calc.ref['specific']:
+					return 'SS-CASSCF'
+				else:
+					return 'SA-CASSCF'
 
 
 def _base(calc):
@@ -271,7 +276,7 @@ def _symm(mol, calc):
 		if calc.model['method'] == 'fci':
 			if mol.atom:
 				string = symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+' ('+mol.symmetry+')'
-				if calc.state['lz']:
+				if calc.extra['lz_sym']:
 					string += ' Lz'
 				return string
 			else:
@@ -371,7 +376,7 @@ def _summary_prt(info, mol, calc, exp):
 						calc.prop['hf']['energy']+calc.base['energy']))
 		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
-					format('','spin multiplicity','','=','',info['mult'], \
+					format('','state / mult.','','=','',info['state'], \
 						'','|','','base model','','=','',info['base'], \
 						'','|','','MBE total energy','','=','', \
 						calc.prop['hf']['energy'] if info['energy'] is None else info['energy'][-1]))

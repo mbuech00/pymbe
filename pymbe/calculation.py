@@ -31,7 +31,8 @@ class CalcCls():
 				self.prot = {'scheme': 'new'}
 				self.ref = {'method': 'hf', 'specific': True, 'weights': None}
 				self.base = {'method': None}
-				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0, 'lz': False}
+				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
+				self.extra = {'hf_guess': True, 'lz_sym': False, 'sigma': False, 'delta': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -42,7 +43,7 @@ class CalcCls():
 				if mpi.global_master:
 					# read parameters
 					self.model, self.target, self.prot, self.ref, \
-						self.base, self.thres, self.state, \
+						self.base, self.thres, self.state, self.extra, \
 						self.misc, self.orbs, self.mpi = self.set_calc()
 					# sanity check
 					self.sanity_chk(mpi, mol)
@@ -128,6 +129,15 @@ class CalcCls():
 											self.state[key] = symm.addons.std_symb(val)
 										else:
 											self.state[key] = val
+								# extra
+								elif re.split('=',content[i])[0].strip() == 'extra':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in extra dict (extra) must be bools')
+									tmp = tools.dict_conv(tmp)
+									for key, val in tmp.items():
+										self.extra[key] = val
 								# misc
 								elif re.split('=',content[i])[0].strip() == 'misc':
 									try:
@@ -161,7 +171,7 @@ class CalcCls():
 					raise
 				#
 				return self.model, self.target, self.prot, self.ref, self.base, \
-							self.thres, self.state, self.misc, self.orbs, self.mpi
+							self.thres, self.state, self.extra, self.misc, self.orbs, self.mpi
 
 
 		def sanity_chk(self, mpi, mol):

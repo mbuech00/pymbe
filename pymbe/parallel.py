@@ -99,7 +99,8 @@ def mol(mpi, mol):
 			if mpi.global_master:
 				info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'e_core': mol.e_core, \
 						'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
-						'unit': mol.unit, 'frozen': mol.frozen, 'verbose': mol.verbose, 'debug': mol.debug}
+						'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, \
+						'verbose': mol.verbose, 'debug': mol.debug}
 				if not mol.atom:
 					info['t'] = mol.t
 					info['u'] = mol.u
@@ -113,7 +114,8 @@ def mol(mpi, mol):
 				mol.atom = info['atom']; mol.charge = info['charge']
 				mol.spin = info['spin']; mol.e_core = info['e_core']
 				mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
-				mol.basis = info['basis']; mol.unit = info['unit']; mol.frozen = info['frozen']
+				mol.basis = info['basis']; mol.cart = info['cart']
+				mol.unit = info['unit']; mol.frozen = info['frozen']
 				mol.verbose = info['verbose']; mol.debug = info['debug']
 				if not mol.atom:
 					mol.t = info['t']; mol.u = info['u']; mol.dim = info['dim']
@@ -127,7 +129,8 @@ def calc(mpi, calc):
 				info = {'model': calc.model, 'target': calc.target, \
 						'ref': calc.ref['method'], 'base': calc.base, \
 						'thres': calc.thres, 'prot': calc.prot, \
-						'state': calc.state, 'misc': calc.misc, 'mpi': calc.mpi, \
+						'state': calc.state, 'extra': calc.extra, \
+						'misc': calc.misc, 'mpi': calc.mpi, \
 						'orbs': calc.orbs, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
 			else:
@@ -135,7 +138,8 @@ def calc(mpi, calc):
 				calc.model = info['model']; calc.target = info['target']
 				calc.ref = {'method': info['ref']}; calc.base = info['base']
 				calc.thres = info['thres']; calc.prot = info['prot']
-				calc.state = info['state']; calc.misc = info['misc']; calc.mpi = info['mpi']
+				calc.state = info['state']; calc.extra = info['extra']
+				calc.misc = info['misc']; calc.mpi = info['mpi']
 				calc.orbs = info['orbs']; calc.restart = info['restart']
 
 
