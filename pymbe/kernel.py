@@ -543,28 +543,39 @@ def _casscf(mol, calc, exp):
 			# run casscf calc
 			cas.kernel(calc.mo)
 		# determinant check
-		if calc.extra['det_1'] is not None and calc.extra['det_2'] is not None:
+		if calc.extra['dets'] is not None:
 			if calc.ref['specific']:
 				civec = cas.ci
 			else:
 				civec = cas.ci[calc.state['root']]
-			str_1 = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['det_1'])-mol.ncore, calc.ne_act[0])]
-			addr_1 = fci.cistring.str2addr(calc.extra['det_1'][-1]-1, calc.ne_act[0], str_1[0])
-			str_2 = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['det_2'])-mol.ncore, calc.ne_act[0])]
-			addr_2 = fci.cistring.str2addr(calc.extra['det_2'][-1]-1, calc.ne_act[0], str_2[0])
-			if np.abs(civec[addr_1, addr_1]) - np.abs(civec[addr_2, addr_2]) > 1.0e-05:
-				try:
-					raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of weights\n\n')
-				except Exception as err:
-					sys.stderr.write(str(err))
-					raise
-			if calc.extra['phase_12'] is not None:
-				if np.sign(civec[addr_1, addr_1]) * np.sign(civec[addr_2, addr_2]) - np.sign(calc.extra['phase_12']) > 1.0e-05:
-					try:
-						raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong phase\n\n')
-					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
+			w = []
+			for det in range(len(calc.extra['dets'])):
+				string = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['dets'][det, 0])-mol.ncore, calc.ne_act[0])]
+				addr = fci.cistring.str2addr(calc.extra['dets'][det][0][-1]-1, calc.ne_act[0], string[0])
+				w.append([civec[addr, addr], calc.extra['dets'][det, 1]])
+			w = np.asarray(w)
+			for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1):
+				dets = np.where(w[:, 1] == phase)[0]
+				if phase > np.min(np.abs(calc.extra['dets'][:, 1])):
+					if np.abs(w[dets[0]][0]) > np.abs(w[np.where(w[:, 1] == (phase - 1.))[0][0]][0]):
+						try:
+							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of different weights\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+				if dets.size == 2:
+					if np.abs(w[dets[0]][0]) - np.abs(w[dets[1]][0]) > 1.0e-05:
+						try:
+							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of equal weights\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
+					if np.sign(w[dets[0]][0]) * np.sign(w[dets[1]][0]) - np.sign(w[dets[0]][1]) * np.sign(w[dets[1]][1]) > 1.0e-05:
+						try:
+							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong phase\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
 		# convergence check
 		if not cas.converged:
 			try:
@@ -716,16 +727,23 @@ def _fci(mol, calc, exp):
 		if calc.target['energy']:
 			root = 0 if calc.state['root'] == 0 else 1
 			# determinant check
-			if calc.extra['det_1'] is not None and calc.extra['det_2'] is not None:
-				str_1 = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['det_1'])-mol.ncore, nelec[0])]
-				addr_1 = fci.cistring.str2addr(calc.extra['det_1'][-1]-1, nelec[0], str_1[0])
-				str_2 = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['det_2'])-mol.ncore, nelec[0])]
-				addr_2 = fci.cistring.str2addr(calc.extra['det_2'][-1]-1, nelec[0], str_2[0])
-				if np.abs(civec[root][addr_1, addr_1]) - np.abs(civec[root][addr_2, addr_2]) > 1.0e-05:
-					return {'energy': 0.0}
-				if calc.extra['phase_12'] is not None:
-					if np.sign(civec[root][addr_1, addr_1]) * np.sign(civec[root][addr_2, addr_2]) - np.sign(calc.extra['phase_12']) > 1.0e-05:
-						return {'energy': 0.0}
+			if calc.extra['dets'] is not None:
+				w = []
+				for det in range(len(calc.extra['dets'])):
+					string = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['dets'][det, 0])-mol.ncore, nelec[0])]
+					addr = fci.cistring.str2addr(calc.extra['dets'][det][0][-1]-1, nelec[0], string[0])
+					w.append([civec[root][addr, addr], calc.extra['dets'][det, 1]])
+				w = np.asarray(w)
+				for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1):
+					dets = np.where(w[:, 1] == phase)[0]
+					if phase > np.min(np.abs(calc.extra['dets'][:, 1])):
+						if np.abs(w[dets[0]][0]) > np.abs(w[np.where(w[:, 1] == (phase - 1.))[0][0]][0]):
+							return {'energy': 0.0}
+					if dets.size == 2:
+						if np.abs(w[dets[0]][0]) - np.abs(w[dets[1]][0]) > 1.0e-05:
+							return {'energy': 0.0}
+						if np.sign(w[dets[0]][0]) * np.sign(w[dets[1]][0]) - np.sign(w[dets[0]][1]) * np.sign(w[dets[1]][1]) > 1.0e-05:
+							return {'energy': 0.0}
 			res['energy'] = energy[root] - calc.prop['hf']['energy']
 		if calc.target['excitation']:
 			res['excitation'] = energy[1] - energy[0]
