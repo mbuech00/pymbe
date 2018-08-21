@@ -564,7 +564,7 @@ def _casscf(mol, calc, exp):
 							sys.stderr.write(str(err))
 							raise
 				if dets.size == 2:
-					if np.abs(w[dets[0]][0]) - np.abs(w[dets[1]][0]) > 1.0e-05:
+					if np.abs(w[dets[0]][0] - w[dets[1]][0]) > 1.0e-05:
 						try:
 							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of equal weights\n\n')
 						except Exception as err:
@@ -734,13 +734,13 @@ def _fci(mol, calc, exp):
 					addr = fci.cistring.str2addr(calc.extra['dets'][det][0][-1]-1, nelec[0], string[0])
 					w.append([civec[root][addr, addr], calc.extra['dets'][det, 1]])
 				w = np.asarray(w)
-				for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1):
+				for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1, dtype=np.float64):
 					dets = np.where(w[:, 1] == phase)[0]
 					if phase > np.min(np.abs(calc.extra['dets'][:, 1])):
 						if np.abs(w[dets[0]][0]) > np.abs(w[np.where(w[:, 1] == (phase - 1.))[0][0]][0]):
 							return {'energy': 0.0}
 					if dets.size == 2:
-						if np.abs(w[dets[0]][0]) - np.abs(w[dets[1]][0]) > 1.0e-05:
+						if np.abs(w[dets[0]][0] - w[dets[1]][0]) > 1.0e-05:
 							return {'energy': 0.0}
 						if np.sign(w[dets[0]][0]) * np.sign(w[dets[1]][0]) - np.sign(w[dets[0]][1]) * np.sign(w[dets[1]][1]) > 1.0e-05:
 							return {'energy': 0.0}
