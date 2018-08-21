@@ -554,7 +554,7 @@ def _casscf(mol, calc, exp):
 				addr = fci.cistring.str2addr(calc.extra['dets'][det][0][-1]-1, calc.ne_act[0], string[0])
 				w.append([civec[addr, addr], calc.extra['dets'][det, 1]])
 			w = np.asarray(w)
-			for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1):
+			for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1, dtype=np.float64):
 				dets = np.where(w[:, 1] == phase)[0]
 				if phase > np.min(np.abs(calc.extra['dets'][:, 1])):
 					if np.abs(w[dets[0]][0]) > np.abs(w[np.where(w[:, 1] == (phase - 1.))[0][0]][0]):
@@ -630,33 +630,6 @@ def _fci(mol, calc, exp):
 		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
 		# init fci solver
 		if mol.spin == 0:
-			if calc.extra['lz_sym']:
-				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
-				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
-				pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
-				if pi_orbs.size % 2 > 0:
-					res = {}
-					if calc.target['energy']:
-						res['energy'] = 0.0
-					if calc.target['excitation']:
-						res['excitation'] = 0.0
-					if calc.target['dipole']:
-						res['rdm1'] = None
-					if calc.target['trans']:
-						res['t_rdm1'] = None
-					return res
-				if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
-					res = {}
-					if calc.target['energy']:
-						res['energy'] = 0.0
-					if calc.target['excitation']:
-						res['excitation'] = 0.0
-					if calc.target['dipole']:
-						res['rdm1'] = None
-					if calc.target['trans']:
-						res['t_rdm1'] = None
-					return res
 			solver = fci.direct_spin0_symm.FCI(mol)
 		else:
 			sz = np.abs(nelec[0]-nelec[1]) * .5

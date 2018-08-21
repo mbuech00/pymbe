@@ -108,10 +108,23 @@ def _serial(mpi, mol, calc, exp):
 		time = MPI.Wtime()
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
-			# calculate increments
-			_calc(mpi, mol, calc, exp, i)
-			# print status
-			output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
+			skip = False
+			# lz check
+			if calc.extra['lz_sym']:
+				exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
+				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
+				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
+				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
+				pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
+				if pi_orbs.size % 2 > 0:
+					skip = True
+				if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
+					skip = True
+			if not skip:
+				# calculate increments
+				_calc(mpi, mol, calc, exp, i)
+				# print status
+				output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 		# collect time
 		exp.time['mbe'].append(MPI.Wtime() - time)
 
@@ -132,27 +145,46 @@ def _master(mpi, mol, calc, exp):
 		req = MPI.Request()
 		# loop until no tasks left
 		while True:
-			# probe for available slaves
-			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# receive slave status
-				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
-				# any tasks left?
-				if i < len(exp.tuples[-1]):
-					# send index
-					comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-					# increment index
-					i += 1
-					# wait for completion
-					req.Wait()
+			# any tasks left?
+			if i < len(exp.tuples[-1]):
+				skip = False
+				# lz check
+				if calc.extra['lz_sym']:
+					exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
+					orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
+					pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
+					pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
+					pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
+					if pi_orbs.size % 2 > 0:
+						skip = True
+					if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
+						skip = True
+				if not skip:
+					# probe for available slaves
+					if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+						# receive slave status
+						req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
+						# send index
+						comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+						# increment index
+						i += 1
+						# wait for completion
+						req.Wait()
 				else:
+					i += 1
+			else:
+				# probe for available slaves
+				if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+					# receive slave status
+					req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 					# send exit signal
 					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
+					# wait for completion
+					req.Wait()
 					# any slaves left?
 					if slaves_avail == 0:
-						# wait for completion
-						req.Wait()
 						# exit loop
 						break
 		# collect distribution statistics from participating slaves
