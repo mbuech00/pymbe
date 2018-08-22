@@ -248,6 +248,24 @@ def active(mol, calc):
 				except Exception as err:
 					sys.stderr.write(str(err))
 					raise
+			# lz sym check
+			if calc.extra['lz_sym']:
+				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[np.asarray(calc.ref['select'])]])
+				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
+				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
+				pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
+				if pi_orbs.size % 2 > 0:
+					try:
+						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space, size of pi_orbs)\n\n')
+					except Exception as err:
+						sys.stderr.write(str(err))
+						raise
+				if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
+					try:
+						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space, pi_orbs_x != pi_orbs_y)\n\n')
+					except Exception as err:
+						sys.stderr.write(str(err))
+						raise
 			if mol.debug:
 				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
 		return ref_space, exp_space, no_exp, no_act, ne_act
@@ -479,24 +497,6 @@ def base(mol, calc, exp):
 
 def _casscf(mol, calc, exp):
 		""" casscf calc """
-		# lz sym check
-		if calc.extra['lz_sym']:
-			orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[mol.ncore:mol.ncore+calc.no_act]])
-			pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-			pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
-			pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
-			if pi_orbs.size % 2 > 0:
-				try:
-					raise RuntimeError('\nCASSCF Error: Lz-symmetry error (wrong choice of space, size of pi_orbs)\n\n')
-				except Exception as err:
-					sys.stderr.write(str(err))
-					raise
-			if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
-				try:
-					raise RuntimeError('\nCASSCF Error: Lz-symmetry error (wrong choice of space, pi_orbs_x != pi_orbs_y)\n\n')
-				except Exception as err:
-					sys.stderr.write(str(err))
-					raise
 		# casscf ref
 		cas = mcscf.CASSCF(calc.hf, calc.no_act, calc.ne_act)
 		# fci solver
