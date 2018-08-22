@@ -531,17 +531,8 @@ def _casscf(mol, calc, exp):
 				cas.state_average_(weights)
 		# orbital symmetry
 		cas.fcisolver.orbsym = calc.orbsym[mol.ncore:mol.ncore+calc.no_act]
-		# hf starting guess
-		if calc.extra['hf_guess']:
-			na = fci.cistring.num_strings(calc.no_act, calc.ne_act[0])
-			nb = fci.cistring.num_strings(calc.no_act, calc.ne_act[1])
-			hf_as_civec = np.zeros((na, nb))
-			hf_as_civec[0, 0] = 1
-			# run casscf calc
-			cas.kernel(calc.mo, ci0=hf_as_civec)
-		else:
-			# run casscf calc
-			cas.kernel(calc.mo)
+		# run casscf calc
+		cas.kernel(calc.mo)
 		# determinant check
 		if calc.extra['dets'] is not None:
 			if calc.ref['specific']:
