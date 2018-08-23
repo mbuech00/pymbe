@@ -534,8 +534,8 @@ def _casscf(mol, calc, exp):
 		# run casscf calc
 		if calc.extra['hf_guess']:
 			# hf starting guess
-			na = fci.cistring.num_strings(exp.cas_idx.size, nelec[0])
-			nb = fci.cistring.num_strings(exp.cas_idx.size, nelec[1])
+			na = fci.cistring.num_strings(calc.no_act, calc.ne_act[0])
+			nb = fci.cistring.num_strings(calc.no_act, calc.ne_act[1])
 			hf_as_civec = np.zeros((na, nb))
 			hf_as_civec[0, 0] = 1
 			cas.kernel(calc.mo, ci0=hf_as_civec)
