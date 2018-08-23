@@ -27,11 +27,12 @@ class CalcCls():
 				""" init parameters """
 				# set defaults
 				self.model = {'method': 'fci', 'type': 'virt'}
-				self.target = {'energy': True, 'dipole': False, 'trans': False}
-				self.prot = {'scheme': 'new', 'specific': False}
-				self.ref = {'method': 'hf'}
+				self.target = {'energy': True, 'excitation': False, 'dipole': False, 'trans': False}
+				self.prot = {'scheme': 'new'}
+				self.ref = {'method': 'hf', 'specific': True, 'weights': None}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
+				self.extra = {'hf_guess': True, 'lz_sym': False, 'dets': None}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -42,20 +43,12 @@ class CalcCls():
 				if mpi.global_master:
 					# read parameters
 					self.model, self.target, self.prot, self.ref, \
-						self.base, self.thres, self.state, \
+						self.base, self.thres, self.state, self.extra, \
 						self.misc, self.orbs, self.mpi = self.set_calc()
 					# sanity check
 					self.sanity_chk(mpi, mol)
 					# restart logical
 					self.restart = restart.restart()
-				# set nroots
-				if self.state['root'] == 0:
-					self.nroots = 1
-				else:
-					if self.prot['specific']:
-						self.nroots = 2
-					else:
-						self.nroots = self.state['root'] + 1
 				# init prop dict
 				self.prop = {'hf': {}, 'ref': {}}
 
@@ -129,13 +122,24 @@ class CalcCls():
 									try:
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
-										raise ValueError('wrong input -- values in state dict (state) must be strings and ints')
+										raise ValueError('wrong input -- values in state dict (state) must be strings, ints, and bools')
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										if key == 'wfnsym':
 											self.state[key] = symm.addons.std_symb(val)
 										else:
 											self.state[key] = val
+								# extra
+								elif re.split('=',content[i])[0].strip() == 'extra':
+									try:
+										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
+									except ValueError:
+										raise ValueError('wrong input -- values in extra dict (extra) must be bools, tuples/lists, and ints')
+									tmp = tools.dict_conv(tmp)
+									for key, val in tmp.items():
+										self.extra[key] = val
+									if self.extra['dets'] is not None:
+										self.extra['dets'] = np.asarray(self.extra['dets'])
 								# misc
 								elif re.split('=',content[i])[0].strip() == 'misc':
 									try:
@@ -169,7 +173,7 @@ class CalcCls():
 					raise
 				#
 				return self.model, self.target, self.prot, self.ref, self.base, \
-							self.thres, self.state, self.misc, self.orbs, self.mpi
+							self.thres, self.state, self.extra, self.misc, self.orbs, self.mpi
 
 
 		def sanity_chk(self, mpi, mol):
@@ -194,6 +198,8 @@ class CalcCls():
 							raise ValueError('wrong input -- a casscf reference is only meaningful for an fci expansion model')
 						if 'active' not in self.ref:
 							raise ValueError('wrong input -- an active space (active) choice is required for casci/casscf references')
+						if not self.ref['specific'] and self.ref['weights'] is None:
+							raise ValueError('wrong input -- a list/tuple of weights (weights) is required for state-averaged casscf references')
 					if 'active' in self.ref:
 						if self.ref['method'] == 'hf':
 							raise ValueError('wrong input -- an active space is only meaningful for casci/casscf references')
@@ -214,6 +220,11 @@ class CalcCls():
 								raise ValueError('wrong input -- AO labels key (ao_labels) for active space must be a list')
 						else:
 							raise ValueError('wrong input -- active space choices are currently: manual and avas')
+					if self.ref['weights'] is not None:
+						if not isinstance(self.ref['weights'], (list, tuple)):
+							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must be list/tuple')
+						if len(self.ref['weights']) != (self.state['root'] + 1):
+							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must correspond to requested root + 1')
 					# base model
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
@@ -232,16 +243,18 @@ class CalcCls():
 					# targets
 					if not all(isinstance(i, bool) for i in self.target.values()):
 						raise ValueError('wrong input -- values in target input (target) must be bools')
-					if not set(list(self.target.keys())) <= set(['energy', 'dipole', 'trans']):
-						raise ValueError('wrong input -- valid choices for target properties are: energy, dipole, and transition dipole (trans)')
-					if not self.target['energy']:
-						raise ValueError('wrong input -- calculation of ground state energy (energy) is mandatory')
+					if not set(list(self.target.keys())) <= set(['energy', 'excitation', 'dipole', 'trans']):
+						raise ValueError('wrong input -- valid choices for target properties are: energy, excitation energy (excitation), dipole, and transition dipole (trans)')
+					if self.target['excitation'] and self.base['method'] is not None:
+						raise ValueError('wrong input -- calculation of excitation energy (excitation) is only allowed in the absence of a base model')
+					if self.target['excitation'] and self.state['root'] == 0:
+						raise ValueError('wrong input -- calculation of excitation energy (excitation) requires target state root >= 1')
 					if self.target['dipole'] and self.base['method'] is not None:
 						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
 					if self.target['trans'] and self.base['method'] is not None:
 						raise ValueError('wrong input -- calculation of transition dipole moment (trans) is only allowed in the absence of a base model')
-					if self.target['trans'] and self.state['root'] == 0:
-						raise ValueError('wrong input -- calculation of transition dipole moment (trans) requires target state root >= 1')
+					if self.target['trans'] and not self.target['excitation']:
+						raise ValueError('wrong input -- calculation of transition dipole moment (trans) requires calculation of excitation energy (excitation)')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
 						raise ValueError('wrong input -- values in prot input (prot) must be string and bools')
@@ -295,14 +308,10 @@ class CalcCls():
 							if self.model['type'] != 'comb':
 								raise ValueError('wrong input -- the use of local mpi masters (i.e., masters > 1) ' + \
 												'is currently not implemented for occ and virt expansions')
-						if mpi.global_size <= 2 * self.mpi['masters']:
-							raise ValueError('wrong input -- total number of mpi processes ' + \
-											'must be larger than twice the number of local mpi masters (masters+1)')
 					else:
 						if self.mpi['masters'] > 1:
 							raise ValueError('wrong input -- local masters requested in mpi dict (mpi), but non-mpi run requested')
 				except Exception as err:
-					restart.rm()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
 					raise
 

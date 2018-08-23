@@ -26,11 +26,15 @@ class ExpCls():
 				# init incl_idx, tuples, and hashes
 				self.incl_idx, self.tuples, self.hashes = _init_tup(mol, calc)
 				# init prop dict
-				self.prop = {'energy': [{'inc': [], 'tot': []} for i in range(calc.nroots)]}
+				self.prop = {}
+				if calc.target['energy']:
+					self.prop['energy'] = {'inc': [], 'tot': []}
+				if calc.target['excitation']:
+					self.prop['excitation'] = {'inc': [], 'tot': []}
 				if calc.target['dipole']:
-					self.prop['dipole'] = [{'inc': [], 'tot': []} for i in range(calc.nroots)]
+					self.prop['dipole'] = {'inc': [], 'tot': []}
 				if calc.target['trans']:
-					self.prop['trans'] = [{'inc': [], 'tot': []} for i in range(calc.nroots-1)]
+					self.prop['trans'] = {'inc': [], 'tot': []}
 				# set start_order/max_order
 				self.start_order = self.tuples[0].shape[1]
 				if calc.misc['order'] is not None:
@@ -39,6 +43,8 @@ class ExpCls():
 					self.max_order = calc.exp_space.size
 				# init timings
 				self.time = {'mbe': [], 'screen': []}
+				# init distribution statistics
+				self.distrib = []
 				# init thres
 				if self.start_order < 3:
 					self.thres = 0.0

@@ -14,6 +14,7 @@ import numpy as np
 from mpi4py import MPI
 import sys
 import traceback
+from pyscf import symm
 
 import tools
 import restart
@@ -98,7 +99,8 @@ def mol(mpi, mol):
 			if mpi.global_master:
 				info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'e_core': mol.e_core, \
 						'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
-						'unit': mol.unit, 'frozen': mol.frozen, 'verbose': mol.verbose, 'debug': mol.debug}
+						'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, \
+						'verbose': mol.verbose, 'debug': mol.debug}
 				if not mol.atom:
 					info['t'] = mol.t
 					info['u'] = mol.u
@@ -112,7 +114,8 @@ def mol(mpi, mol):
 				mol.atom = info['atom']; mol.charge = info['charge']
 				mol.spin = info['spin']; mol.e_core = info['e_core']
 				mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
-				mol.basis = info['basis']; mol.unit = info['unit']; mol.frozen = info['frozen']
+				mol.basis = info['basis']; mol.cart = info['cart']
+				mol.unit = info['unit']; mol.frozen = info['frozen']
 				mol.verbose = info['verbose']; mol.debug = info['debug']
 				if not mol.atom:
 					mol.t = info['t']; mol.u = info['u']; mol.dim = info['dim']
@@ -125,16 +128,18 @@ def calc(mpi, calc):
 			if mpi.global_master:
 				info = {'model': calc.model, 'target': calc.target, \
 						'ref': calc.ref['method'], 'base': calc.base, \
-						'thres': calc.thres, 'prot': calc.prot, 'nroots': calc.nroots, \
-						'state': calc.state, 'misc': calc.misc, 'mpi': calc.mpi, \
+						'thres': calc.thres, 'prot': calc.prot, \
+						'state': calc.state, 'extra': calc.extra, \
+						'misc': calc.misc, 'mpi': calc.mpi, \
 						'orbs': calc.orbs, 'restart': calc.restart}
 				mpi.global_comm.bcast(info, root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.model = info['model']; calc.target = info['target']
 				calc.ref = {'method': info['ref']}; calc.base = info['base']
-				calc.thres = info['thres']; calc.prot = info['prot']; calc.nroots = info['nroots']
-				calc.state = info['state']; calc.misc = info['misc']; calc.mpi = info['mpi']
+				calc.thres = info['thres']; calc.prot = info['prot']
+				calc.state = info['state']; calc.extra = info['extra']
+				calc.misc = info['misc']; calc.mpi = info['mpi']
 				calc.orbs = info['orbs']; calc.restart = info['restart']
 
 
@@ -146,7 +151,8 @@ def fund(mpi, mol, calc):
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 							'occup': calc.occup, 'no_exp': calc.no_exp, \
-							'ne_act': calc.ne_act, 'no_act': calc.no_act}
+							'ne_act': calc.ne_act, 'no_act': calc.no_act, \
+							'map': calc.map}
 				mpi.global_comm.bcast(info, root=0)
 				# bcast mo
 				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
@@ -157,49 +163,85 @@ def fund(mpi, mol, calc):
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 				calc.occup = info['occup']; calc.no_exp = info['no_exp']
 				calc.ne_act = info['ne_act']; calc.no_act = info['no_act']
+				calc.map = info['map']
 				# receive mo
 				buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 				mpi.global_comm.Bcast([buff, MPI.DOUBLE], root=0)
 				calc.mo = buff
+		if mol.atom:
+			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
+		else:
+			calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 
 
-def exp(mpi, calc, exp, comm):
-		""" bcast exp info """
-		if mpi.parallel:
-			if mpi.global_master:
-				# collect info
-				info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
-							'len_e_inc': [len(exp.prop['energy'][0]['inc'][i]) for i in range(len(exp.prop['energy'][0]['inc']))], \
-							'min_order': exp.min_order, 'start_order': exp.start_order}
-				# bcast info
-				comm.bcast(info, root=0)
-				# bcast tuples
-				for i in range(1,len(exp.tuples)):
-					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
-				# bcast increments
-				for i in range(len(exp.prop['energy'][0]['inc'])):
-					comm.Bcast([exp.prop['energy'][0]['inc'][i], MPI.DOUBLE], root=0)
-			else:
-				# receive info
-				info = comm.bcast(None, root=0)
-				# set min_order and start_order
-				exp.min_order = info['min_order']
-				exp.start_order = info['start_order']
-				# receive tuples
-				for i in range(1, len(info['len_tup'])):
-					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
-					comm.Bcast([buff, MPI.INT], root=0)
-					exp.tuples.append(buff)
-				# receive e_inc
-				for i in range(len(info['len_e_inc'])):
-					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
-					comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop['energy'][0]['inc'].append(buff)
+#def exp(mpi, calc, exp, comm):
+#		""" bcast exp info """
+#		if mpi.parallel:
+#			if mpi.global_master:
+#				# collect info
+#				info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
+#							'len_e_inc': [len(exp.prop['energy'][0]['inc'][i]) for i in range(len(exp.prop['energy'][0]['inc']))], \
+#							'min_order': exp.min_order, 'start_order': exp.start_order}
+#				# bcast info
+#				comm.bcast(info, root=0)
+#				# bcast tuples and hashes
+#				for i in range(1,len(exp.tuples)):
+#					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
+#				for i in range(1,len(exp.hashes)):
+#					comm.Bcast([exp.hashes[i], MPI.INT], root=0)
+#				# bcast increments
+#				for i in range(calc.nroots):
+#					for j in range(len(exp.prop['energy'][i]['inc'])):
+#						comm.Bcast([exp.prop['energy'][i]['inc'][j], MPI.DOUBLE], root=0)
+#				if calc.target['dipole']:
+#					for i in range(calc.nroots):
+#						for j in range(len(exp.prop['dipole'][i]['inc'])):
+#							comm.Bcast([exp.prop['dipole'][i]['inc'][j], MPI.DOUBLE], root=0)
+#				if calc.target['trans']:
+#					for i in range(calc.nroots-1):
+#						for j in range(len(exp.prop['trans'][i]['inc'])):
+#							comm.Bcast([exp.prop['trans'][i]['inc'][j], MPI.DOUBLE], root=0)
+#			else:
+#				# receive info
+#				info = comm.bcast(None, root=0)
+#				# set min_order and start_order
+#				exp.min_order = info['min_order']
+#				exp.start_order = info['start_order']
+#				# receive tuples and hashes
+#				for i in range(1, len(info['len_tup'])):
+#					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
+#					comm.Bcast([buff, MPI.INT], root=0)
+#					exp.tuples.append(buff)
+#				for i in range(1, len(info['len_tup'])):
+#					buff = np.empty(info['len_tup'][i], dtype=np.int64)
+#					comm.Bcast([buff, MPI.INT], root=0)
+#					exp.hashes.append(buff)
+#				# receive increments
+#				for i in range(calc.nroots):
+#					for j in range(len(info['len_e_inc'])):
+#						buff = np.zeros(info['len_e_inc'][j], dtype=np.float64)
+#						comm.Bcast([buff, MPI.DOUBLE], root=0)
+#						exp.prop['energy'][i]['inc'].append(buff)
+#				if calc.target['dipole']:
+#					for i in range(calc.nroots):
+#						for j in range(len(info['len_e_inc'])):
+#							buff = np.zeros([info['len_e_inc'][j], 3], dtype=np.float64)
+#							comm.Bcast([buff, MPI.DOUBLE], root=0)
+#							exp.prop['dipole'][i]['inc'].append(buff)
+#				if calc.target['trans']:
+#					for i in range(calc.nroots-1):
+#						for j in range(len(info['len_e_inc'])):
+#							buff = np.zeros([info['len_e_inc'][j], 3], dtype=np.float64)
+#							comm.Bcast([buff, MPI.DOUBLE], root=0)
+#							exp.prop['trans'][i]['inc'].append(buff)
 
 
 def prop(calc, exp, comm):
 		""" Allreduce properties """
-		_energy(calc, exp, comm)
+		if calc.target['energy']:
+			_energy(calc, exp, comm)
+		if calc.target['excitation']:
+			_excitation(calc, exp, comm)
 		if calc.target['dipole']:
 			_dipole(calc, exp, comm)
 		if calc.target['trans']:
@@ -209,22 +251,25 @@ def prop(calc, exp, comm):
 def _energy(calc, exp, comm):
 		""" Allreduce energies """
 		# Allreduce
-		for i in range(calc.nroots):
-			comm.Allreduce(MPI.IN_PLACE, [exp.prop['energy'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		comm.Allreduce(MPI.IN_PLACE, [exp.prop['energy']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+
+
+def _excitation(calc, exp, comm):
+		""" Allreduce excitation energies """
+		# Allreduce
+		comm.Allreduce(MPI.IN_PLACE, [exp.prop['excitation']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def _dipole(calc, exp, comm):
 		""" Allreduce dipole moments """
 		# Allreduce
-		for i in range(calc.nroots):
-			comm.Allreduce(MPI.IN_PLACE, [exp.prop['dipole'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		comm.Allreduce(MPI.IN_PLACE, [exp.prop['dipole']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def _trans(calc, exp, comm):
 		""" Allreduce transition dipole moments """
 		# Allreduce
-		for i in range(calc.nroots-1):
-			comm.Allreduce(MPI.IN_PLACE, [exp.prop['trans'][i]['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		comm.Allreduce(MPI.IN_PLACE, [exp.prop['trans']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
 def tuples(exp, comm):

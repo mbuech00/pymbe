@@ -28,8 +28,8 @@ class MolCls(gto.Mole):
 				gto.Mole.__init__(self)
 				# set defaults
 				self.atom = ''
-				self.system = {'charge': 0, 'spin': 0, 'sym': 'c1', 'basis': 'sto-3g', 'unit': 'ang', \
-							'frozen': False, 'occup': {}, 'verbose': 1, 'debug': False, \
+				self.system = {'charge': 0, 'spin': 0, 'sym': 'c1', 'basis': 'sto-3g', 'cart': False, \
+							'unit': 'ang', 'frozen': False, 'occup': {}, 'verbose': 1, 'debug': False, \
 							't': 1.0, 'u': 1.0, 'dim': 1, 'nsites': 6, 'pbc': True, 'nelec': 0}
 				# set geometric and molecular parameters
 				if mpi.global_master:
@@ -45,6 +45,7 @@ class MolCls(gto.Mole):
 					self.spin = self.system['spin']
 					self.symmetry = symm.addons.std_symb(self.system['sym'])
 					self.basis = self.system['basis']
+					self.cart = self.system['cart']
 					self.unit = self.system['unit']
 					# hubbard hamiltonian
 					if not self.atom:
@@ -111,11 +112,14 @@ class MolCls(gto.Mole):
 					# sym
 					if not isinstance(self.system['sym'], str):
 						raise ValueError('wrong input -- symmetry input in system dict (sym) must be a str')
-					if symm.addons.std_symb(self.system['sym']) not in symm.param.POINTGROUP:
+					if symm.addons.std_symb(self.system['sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
 						raise ValueError('wrong input -- illegal symmetry input in system dict (sym)')
 					# basis
 					if not isinstance(self.system['basis'], (str, dict)):
 						raise ValueError('wrong input -- basis set input in system dict (basis) must be a str or a dict')
+					# cart
+					if not isinstance(self.system['cart'], bool):
+						raise ValueError('wrong input -- cartesian gto basis input in system dict (cart) must be a bool')
 					# occup
 					if not isinstance(self.system['occup'], dict):
 						raise ValueError('wrong input -- occupation input in system dict (occup) must be a dict')
@@ -134,7 +138,6 @@ class MolCls(gto.Mole):
 					if not isinstance(self.system['debug'], bool):
 						raise ValueError('wrong input -- debug input in system dict (debug) must be a bool')
 				except Exception as err:
-					restart.rm()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
 					raise
 
