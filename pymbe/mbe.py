@@ -138,7 +138,7 @@ def _master(mpi, mol, calc, exp):
 		comm.bcast(msg, root=0)
 		# start time
 		time = MPI.Wtime()
-		num_slaves = slaves_avail = mpi.local_size - 1
+		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
 		# start index
 		i = 0
 		# init request
@@ -187,17 +187,6 @@ def _master(mpi, mol, calc, exp):
 					if slaves_avail == 0:
 						# exit loop
 						break
-		# collect distribution statistics from participating slaves
-		slaves_avail = num_slaves
-		exp.distrib.append(np.empty(slaves_avail, dtype=np.int32))
-		count = np.empty(1, dtype=np.int32)
-		while slaves_avail > 0:
-			# probe for source
-			comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.collect, status=mpi.stat)
-			comm.Recv(count, source=mpi.stat.source, tag=TAGS.collect)
-			# add slave count
-			exp.distrib[-1][mpi.stat.source-1] = count[0]
-			slaves_avail -= 1
 		# allreduce properties
 		parallel.prop(calc, exp, comm)
 		# collect time
@@ -211,9 +200,13 @@ def _slave(mpi, mol, calc, exp):
 		# init idx
 		idx = np.empty(1, dtype=np.int32)
 		# send availability to master
-		comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+		if mpi.local_rank <= len(exp.tuples[-1]):
+			comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
+			# early exit in case of large proc count
+			if mpi.local_rank > len(exp.tuples[-1]):
+				break
 			# receive index
 			comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
 			# do job
@@ -223,14 +216,6 @@ def _slave(mpi, mol, calc, exp):
 				# calculate increments
 				_calc(mpi, mol, calc, exp, idx[0])
 			elif mpi.stat.tag == TAGS.exit:
-				# send distribution statistics to master
-				if calc.target['energy']:
-					distrib = np.count_nonzero(exp.prop['energy']['inc'][-1])
-				elif calc.target['excitation']:
-					distrib = np.count_nonzero(exp.prop['excitation']['inc'][-1])
-				elif calc.target['dipole']:
-					distrib = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][-1], axis=1))
-				comm.Send([np.array([distrib], dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
 				break
 		# receive properties
 		parallel.prop(calc, exp, comm)

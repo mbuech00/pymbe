@@ -107,8 +107,6 @@ def _table(info, mpi, mol, calc, exp):
 			with contextlib.redirect_stdout(f):
 				_summary_prt(info, mol, calc, exp)
 				_timings_prt(info, calc, exp)
-				if mpi.parallel:
-					_distrib_prt(info, mpi, calc, exp)
 				if calc.target['energy']:
 					_energy_prt(info, calc, exp)
 				if calc.target['excitation']:
@@ -430,37 +428,6 @@ def _timings_prt(info, calc, exp):
 					'','|','',_time(exp, 'tot_sum', -1), \
 					'','|','',calcs))
 		print(DIVIDER[:98]+'\n')
-
-
-def _distrib_prt(info, mpi, calc, exp):
-		""" distribution statistics """
-		print(DIVIDER[:47])
-		print('{0:^49}'.format('MBE distribution statistics'))
-		print(DIVIDER[:47])
-		print('{0:6}{1:9}{2:2}{3:1}{4:3}{5:}'.\
-				format('','MBE order','','|','','MPI distribution (in %)'))
-		print(DIVIDER[:47])
-		calcs = 0
-		for i in range(info['final_order']):
-			if calc.target['energy']:
-				calc_i = np.count_nonzero(exp.prop['energy']['inc'][i])
-			elif calc.target['excitation']:
-				calc_i = np.count_nonzero(exp.prop['excitation']['inc'][i])
-			elif calc.target['dipole']:
-				calc_i = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][i], axis=1))
-			theo = calc_i / (mpi.local_size - 1)
-			calcs += calc_i
-			count = exp.distrib[i, :]
-			distrib = '{0:.1f} +/- {1:.1f}'.format(np.mean((count / theo) * 100.), \
-													np.std((count / theo) * 100., ddof=1))
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:7}{5:}'.format('',i+exp.start_order,'','|','',distrib))
-		print(DIVIDER[:47])
-		theo = calcs / (mpi.local_size - 1)
-		count = np.sum(exp.distrib, axis=0)
-		distrib = '{0:.1f} +/- {1:.1f}'.format(np.mean((count / theo) * 100.), \
-												np.std((count / theo) * 100., ddof=1))
-		print('{0:8}{1:5s}{2:4}{3:1}{4:7}{5:}'.format('','total','','|','',distrib))
-		print(DIVIDER[:47]+'\n')
 
 
 def _energy_prt(info, calc, exp):
