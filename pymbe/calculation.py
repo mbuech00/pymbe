@@ -312,7 +312,6 @@ class CalcCls():
 						if self.mpi['masters'] > 1:
 							raise ValueError('wrong input -- local masters requested in mpi dict (mpi), but non-mpi run requested')
 				except Exception as err:
-					restart.rm()
 					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
 					raise
 
