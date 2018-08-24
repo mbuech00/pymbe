@@ -106,19 +106,11 @@ def _master(mpi, mol, calc, exp):
 						req.Wait()
 						# exit loop
 						break
-		# init tuples array
-		tuples = np.asarray([], dtype=np.int32).reshape(0, exp.order+1)
-		# collect child tuples from participating slaves
-		slaves_avail = num_slaves
-		while slaves_avail > 0:
-			# probe for source
-			comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.collect, status=mpi.stat)
-			# init tmp array
-			tmp = np.empty(mpi.stat.Get_elements(MPI.INT), dtype=np.int32)
-			comm.Recv(tmp, source=mpi.stat.source, tag=TAGS.collect)
-			# add child tuples
-			tuples = np.vstack((tuples, tmp.reshape(-1, exp.order+1)))
-			slaves_avail -= 1
+		# gather tuples
+		recv_counts = np.array(comm.gather(0, 0), dtype=np.int32)
+		tuples = np.empty(np.sum(recv_counts, dtype=np.int32), dtype=np.int32)
+		comm.Gatherv(np.array([], dtype=np.int32), [tuples, recv_counts], root=0)
+		tuples = tuples.reshape(-1, exp.order+1)
 		# finally, bcast tuples and hashes if expansion has not converged 
 		comm.Bcast([np.asarray([tuples.shape[0]], dtype=np.int32), MPI.INT], root=0)
 		if tuples.shape[0] > 0:
@@ -159,9 +151,9 @@ def _slave(mpi, mol, calc, exp):
 					elif calc.model['type'] == 'virt':
 						child_tup += parent_tup+[m]
 			elif mpi.stat.tag == TAGS.exit:
-				# send tuples to master
-				comm.Send([np.asarray(child_tup, dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
 				break
+		comm.gather(len(child_tup), 0)
+		comm.Gatherv(np.asarray(child_tup, dtype=np.int32), [None, None], root=0)
 		# receive tuples and hashes
 		tup_size = np.empty(1, dtype=np.int32)
 		comm.Bcast([tup_size, MPI.INT], root=0)
