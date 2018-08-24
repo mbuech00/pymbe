@@ -107,12 +107,11 @@ def _master(mpi, mol, calc, exp):
 						# exit loop
 						break
 		# gather tuples
-		recv_counts = np.array(comm.gather(0, 0), dtype=np.int32)
-		tuples = np.empty(np.sum(recv_counts, dtype=np.int32), dtype=np.int32)
+		recv_counts = np.array(comm.allgather(0), dtype=np.int32)
+		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
 		comm.Gatherv(np.array([], dtype=np.int32), [tuples, recv_counts], root=0)
 		tuples = tuples.reshape(-1, exp.order+1)
 		# finally, bcast tuples and hashes if expansion has not converged 
-		comm.Bcast([np.asarray([tuples.shape[0]], dtype=np.int32), MPI.INT], root=0)
 		if tuples.shape[0] > 0:
 			# get hashes
 			hashes = tools.hash_2d(tuples)
@@ -152,15 +151,14 @@ def _slave(mpi, mol, calc, exp):
 						child_tup += parent_tup+[m]
 			elif mpi.stat.tag == TAGS.exit:
 				break
-		comm.gather(len(child_tup), 0)
-		comm.Gatherv(np.asarray(child_tup, dtype=np.int32), [None, None], root=0)
-		# receive tuples and hashes
-		tup_size = np.empty(1, dtype=np.int32)
-		comm.Bcast([tup_size, MPI.INT], root=0)
-		if tup_size[0] >= 1:
-			exp.tuples.append(np.empty([tup_size[0], exp.order+1], dtype=np.int32))
+		child_tup = np.asarray(child_tup, dtype=np.int32)
+		recv_counts = np.array(comm.allgather(child_tup.size), dtype=np.int32)
+		tup_size = np.sum(recv_counts, dtype=np.int64)
+		comm.Gatherv(child_tup, [None, None], root=0)
+		if tup_size > 0:
+			exp.tuples.append(np.empty(tup_size, dtype=np.int32).reshape(-1, exp.order+1))
 			parallel.tuples(exp, comm)
-			exp.hashes.append(np.empty(tup_size[0], dtype=np.int64))
+			exp.hashes.append(np.empty(exp.tuples[-1].shape[0], dtype=np.int64))
 			parallel.hashes(exp, comm)
 
 
