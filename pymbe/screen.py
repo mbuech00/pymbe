@@ -151,10 +151,12 @@ def _slave(mpi, mol, calc, exp):
 						child_tup += parent_tup+[m]
 			elif mpi.stat.tag == TAGS.exit:
 				break
+		# gather tuples
 		child_tup = np.asarray(child_tup, dtype=np.int32)
 		recv_counts = np.array(comm.allgather(child_tup.size), dtype=np.int32)
 		tup_size = np.sum(recv_counts, dtype=np.int64)
 		comm.Gatherv(child_tup, [None, None], root=0)
+		# receive tuples
 		if tup_size > 0:
 			exp.tuples.append(np.empty(tup_size, dtype=np.int32).reshape(-1, exp.order+1))
 			parallel.tuples(exp, comm)
