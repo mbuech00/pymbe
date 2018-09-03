@@ -523,9 +523,9 @@ def _casscf(mol, calc, exp):
 		# debug print
 		if mol.debug: cas.verbose = 4
 		# state-specific or state-averaged calculation
-		if calc.state['root'] > 0:
+		if calc.ref['root'] > 0:
 			if calc.ref['specific']:
-				cas.state_specific_(state=calc.state['root'])
+				cas.state_specific_(state=calc.ref['root'])
 			else:
 				weights = np.array(calc.ref['weights'], dtype=np.float64)
 				cas.state_average_(weights)
@@ -541,40 +541,18 @@ def _casscf(mol, calc, exp):
 			cas.kernel(calc.mo, ci0=hf_as_civec)
 		else:
 			cas.kernel(calc.mo)
-		# determinant check
-		if calc.extra['dets'] is not None:
+		# filter check
+		if calc.extra['filter'] is not None:
 			if calc.ref['specific']:
 				civec = cas.ci
 			else:
-				civec = cas.ci[calc.state['root']]
-			w = []
-			for det in range(len(calc.extra['dets'])):
-				string = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['dets'][det, 0])-mol.ncore, calc.ne_act[0])]
-				addr = fci.cistring.str2addr(calc.extra['dets'][det][0][-1]-1, calc.ne_act[0], string[0])
-				w.append([civec[addr, addr], calc.extra['dets'][det, 1]])
-			w = np.asarray(w)
-			for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1, dtype=np.float64):
-				dets = np.where(w[:, 1] == phase)[0]
-				if phase > np.min(np.abs(calc.extra['dets'][:, 1])):
-					if np.abs(w[dets[0]][0]) > np.abs(w[np.where(w[:, 1] == (phase - 1.))[0][0]][0]):
-						try:
-							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of different weights\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
-				if dets.size == 2:
-					if np.abs(w[dets[0]][0] - w[dets[1]][0]) > 1.0e-05:
-						try:
-							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of equal weights\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
-					if np.sign(w[dets[0]][0]) * np.sign(w[dets[1]][0]) - np.sign(w[dets[0]][1]) * np.sign(w[dets[1]][1]) > 1.0e-05:
-						try:
-							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong phase\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
+				civec = cas.ci[calc.ref['root']]
+			if not tools.filter(civec, calc.extra['filter']):
+				try:
+					raise RuntimeError('\nCASSCF Error: filter condition error ({:})\n\n'.format(calc.extra['filter']))
+				except Exception as err:
+					sys.stderr.write(str(err))
+					raise
 		# convergence check
 		if not cas.converged:
 			try:
@@ -644,7 +622,10 @@ def _fci(mol, calc, exp):
 		# wfnsym
 		solver.wfnsym = calc.state['wfnsym']
 		# number of roots
-		solver.nroots = calc.state['root'] + 1
+		if calc.extra['filter'] is None:
+			solver.nroots = calc.state['root'] + 1
+		else:
+			solver.nroots = calc.state['root'] + 2
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
 		# orbital symmetry
@@ -669,20 +650,28 @@ def _fci(mol, calc, exp):
 										'core_idx = {0:} , cas_idx = {1:}\n\n').\
 										format(exp.core_idx, exp.cas_idx)
 		else:
-			energy = [e[0], e[calc.state['root']]]
-			civec = [c[0], c[calc.state['root']]]
-			if calc.target['excitation']:
-				for root in [0, calc.state['root']]:
+			if calc.extra['filter'] is not None:
+				energy = e
+				civec = c
+				for root in range(solver.nroots):
 					assert solver.converged[root], ('FCI Error: state {0:} not converged\n\n'
 											'core_idx = {1:} , cas_idx = {2:}\n\n').\
 											format(root, exp.core_idx, exp.cas_idx)
 			else:
-				assert solver.converged[calc.state['root']], ('FCI Error: state {0:} not converged\n\n'
-										'core_idx = {1:} , cas_idx = {2:}\n\n').\
-										format(calc.state['root'], exp.core_idx, exp.cas_idx)
+				energy = [e[0], e[calc.state['root']]]
+				civec = [c[0], c[calc.state['root']]]
+				if calc.target['excitation']:
+					for root in [0, calc.state['root']]:
+						assert solver.converged[root], ('FCI Error: state {0:} not converged\n\n'
+												'core_idx = {1:} , cas_idx = {2:}\n\n').\
+												format(root, exp.core_idx, exp.cas_idx)
+				else:
+					assert solver.converged[calc.state['root']], ('FCI Error: state {0:} not converged\n\n'
+											'core_idx = {1:} , cas_idx = {2:}\n\n').\
+											format(calc.state['root'], exp.core_idx, exp.cas_idx)
 		# sanity check
-		if calc.target['excitation']:
-			for root in range(2):
+		if calc.target['excitation'] or calc.extra['filter'] is not None:
+			for root in range(len(civec)):
 				s, mult = solver.spin_square(civec[root], exp.cas_idx.size, nelec)
 				assert (mol.spin + 1) - mult < 1.0e-05, ('\nFCI Error: spin contamination for root = {0:}\n\n'
 														'2*S + 1 = {1:.6f}\n'
@@ -697,26 +686,15 @@ def _fci(mol, calc, exp):
 		res = {}
 		# e_corr
 		if calc.target['energy']:
-			root = 0 if calc.state['root'] == 0 else 1
-			# determinant check
-			if calc.extra['dets'] is not None:
-				w = []
-				for det in range(len(calc.extra['dets'])):
-					string = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['dets'][det, 0])-mol.ncore, nelec[0])]
-					addr = fci.cistring.str2addr(calc.extra['dets'][det][0][-1]-1, nelec[0], string[0])
-					w.append([civec[root][addr, addr], calc.extra['dets'][det, 1]])
-				w = np.asarray(w)
-				for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1, dtype=np.float64):
-					dets = np.where(w[:, 1] == phase)[0]
-					if phase > np.min(np.abs(calc.extra['dets'][:, 1])):
-						if np.abs(w[dets[0]][0]) > np.abs(w[np.where(w[:, 1] == (phase - 1.))[0][0]][0]):
-							return {'energy': 0.0}
-					if dets.size == 2:
-						if np.abs(w[dets[0]][0] - w[dets[1]][0]) > 1.0e-05:
-							return {'energy': 0.0}
-						if np.sign(w[dets[0]][0]) * np.sign(w[dets[1]][0]) - np.sign(w[dets[0]][1]) * np.sign(w[dets[1]][1]) > 1.0e-05:
-							return {'energy': 0.0}
-			res['energy'] = energy[root] - calc.prop['hf']['energy']
+			if calc.extra['filter'] is not None:
+				res['energy'] = 0.0
+				for root in range(solver.nroots):
+					if tools.filter(civec[root], calc.extra['filter']):
+						res['energy'] = energy[root] - calc.prop['hf']['energy']
+						break
+			else:
+				root = 0 if calc.state['root'] == 0 else 1
+				res['energy'] = energy[root] - calc.prop['hf']['energy']
 		if calc.target['excitation']:
 			res['excitation'] = energy[1] - energy[0]
 		# fci rdm1 and t_rdm1

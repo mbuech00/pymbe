@@ -29,10 +29,10 @@ class CalcCls():
 				self.model = {'method': 'fci', 'type': 'virt'}
 				self.target = {'energy': True, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
-				self.ref = {'method': 'hf', 'specific': True, 'weights': None}
+				self.ref = {'method': 'hf', 'specific': True, 'weights': None, 'root': None}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'lz_sym': False, 'dets': None}
+				self.extra = {'hf_guess': True, 'lz_sym': True, 'filter': None}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -138,8 +138,6 @@ class CalcCls():
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										self.extra[key] = val
-									if self.extra['dets'] is not None:
-										self.extra['dets'] = np.asarray(self.extra['dets'])
 								# misc
 								elif re.split('=',content[i])[0].strip() == 'misc':
 									try:
@@ -171,7 +169,9 @@ class CalcCls():
 					restart.rm()
 					sys.stderr.write('\nIOError : input file not found\n\n')
 					raise
-				#
+				# reference root
+				if self.ref['root'] is None:
+					self.ref['root'] = self.state['root']
 				return self.model, self.target, self.prot, self.ref, self.base, \
 							self.thres, self.state, self.extra, self.misc, self.orbs, self.mpi
 
@@ -223,7 +223,7 @@ class CalcCls():
 					if self.ref['weights'] is not None:
 						if not isinstance(self.ref['weights'], (list, tuple)):
 							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must be list/tuple')
-						if len(self.ref['weights']) != (self.state['root'] + 1):
+						if len(self.ref['weights']) != (self.ref['root'] + 1):
 							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must correspond to requested root + 1')
 					# base model
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
@@ -255,6 +255,15 @@ class CalcCls():
 						raise ValueError('wrong input -- calculation of transition dipole moment (trans) is only allowed in the absence of a base model')
 					if self.target['trans'] and not self.target['excitation']:
 						raise ValueError('wrong input -- calculation of transition dipole moment (trans) requires calculation of excitation energy (excitation)')
+					# extra
+					if not isinstance(self.extra['hf_guess'], bool):
+						raise ValueError('wrong input -- HF initial guess for FCI calcs (hf_guess) must be a bool')
+					if not isinstance(self.extra['lz_sym'], bool):
+						raise ValueError('wrong input -- Special Lz symmetry for FCI calcs (lz_sym) must be a bool')
+					if not isinstance(self.extra['filter'], str):
+						raise ValueError('wrong input -- filter condition (filter) must be a string')
+					if self.extra['filter'] not in ['c2_short', 'c2_long']:
+						raise NotImplementedError('filter condition (filter) not reckognized/implemented')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
 						raise ValueError('wrong input -- values in prot input (prot) must be string and bools')
@@ -312,9 +321,7 @@ class CalcCls():
 						if self.mpi['masters'] > 1:
 							raise ValueError('wrong input -- local masters requested in mpi dict (mpi), but non-mpi run requested')
 				except Exception as err:
-					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
+					sys.stderr.write('\n{:}\n\n'.format(err))
 					raise
-
-
 
 

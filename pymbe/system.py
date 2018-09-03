@@ -138,7 +138,7 @@ class MolCls(gto.Mole):
 					if not isinstance(self.system['debug'], bool):
 						raise ValueError('wrong input -- debug input in system dict (debug) must be a bool')
 				except Exception as err:
-					sys.stderr.write('\nValueError : {0:}\n\n'.format(err))
+					sys.stderr.write('\n{:}\n\n'.format(err))
 					raise
 
 
@@ -153,7 +153,7 @@ class MolCls(gto.Mole):
 						if mpi.global_master:
 							restart.rm()
 							sys.stderr.write('\nValueError: non-sensible system input\n'
-												'PySCF error : {0:}\n\n'.format(err))
+												'PySCF error : {:}\n\n'.format(err))
 							raise
 				# set core region
 				self.ncore = self._set_ncore()
