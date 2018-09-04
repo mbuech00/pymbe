@@ -45,15 +45,17 @@ def _serial(mol, calc, exp):
 		""" serial version """
 		# init child tuples list
 		child_tup = []
-        # loop over parent tuples
-		for i in range(len(exp.tuples[-1])):
-			lst = _test(calc, exp, exp.tuples[-1][i])
-			parent_tup = exp.tuples[-1][i].tolist()
-			for m in lst:
-				if calc.model['type'] == 'occ':
-					child_tup += [m]+parent_tup
-				elif calc.model['type'] == 'virt':
-					child_tup += parent_tup+[m]
+		# screen
+		if exp.count[-1] > 0:
+	        # loop over parent tuples
+			for i in range(len(exp.tuples[-1])):
+				lst = _test(calc, exp, exp.tuples[-1][i])
+				parent_tup = exp.tuples[-1][i].tolist()
+				for m in lst:
+					if calc.model['type'] == 'occ':
+						child_tup += [m]+parent_tup
+					elif calc.model['type'] == 'virt':
+						child_tup += parent_tup+[m]
 		# convert child tuple list to array
 		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
 		# when done, write to tup list if expansion has not converged
@@ -88,7 +90,7 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
-				if i < len(exp.tuples[-1]):
+				if i < len(exp.tuples[-1]) and exp.count[-1] > 0:
 					# send index
 					comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 					# increment index
