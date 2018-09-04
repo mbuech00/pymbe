@@ -248,7 +248,7 @@ def _prot_check(exp, calc, indx, m):
 
 def _prot_scheme(prop, thres, scheme):
 		""" screen according to chosen scheme """
-		if np.all(prop == 0.0):
+		if np.sum(prop) == 0.0:
 			return False
 		else:
 			# are *all* increments below the threshold?
