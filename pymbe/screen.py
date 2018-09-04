@@ -43,6 +43,8 @@ def main(mpi, mol, calc, exp):
 
 def _serial(mol, calc, exp):
 		""" serial version """
+		# start time
+		time = MPI.Wtime()
 		# init child tuples list
 		child_tup = []
 		# screen
@@ -58,6 +60,8 @@ def _serial(mol, calc, exp):
 						child_tup += parent_tup+[m]
 		# convert child tuple list to array
 		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
+		# collect time
+		exp.time['screen'].append(MPI.Wtime() - time)
 		# when done, write to tup list if expansion has not converged
 		if tuples.shape[0] > 0:
 			# get hashes
@@ -83,6 +87,8 @@ def _master(mpi, mol, calc, exp):
 		i = 0
 		# init request
 		req = MPI.Request()
+		# start time
+		time = MPI.Wtime()
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
@@ -113,6 +119,8 @@ def _master(mpi, mol, calc, exp):
 		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
 		comm.Gatherv(np.array([], dtype=np.int32), [tuples, recv_counts], root=0)
 		tuples = tuples.reshape(-1, exp.order+1)
+		# collect time
+		exp.time['screen'].append(MPI.Wtime() - time)
 		# finally, bcast tuples and compute hashes if expansion has not converged 
 		if tuples.shape[0] > 0:
 			# compute hashes

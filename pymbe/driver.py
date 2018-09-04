@@ -51,14 +51,9 @@ def main(mpi, mol, calc, exp):
 			#
 			# orbital screening
 			if exp.order < exp.max_order:
-				# start time
-				if mpi.global_master: exp.time['screen'].append(MPI.Wtime())
 				# perform screening
 				screen.main(mpi, mol, calc, exp)
 				if mpi.global_master:
-					# collect time
-					exp.time['screen'][-1] -= MPI.Wtime()
-					exp.time['screen'][-1] *= -1.0
 #					# write restart files
 #					if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 					# print screen end
