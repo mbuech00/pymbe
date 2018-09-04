@@ -91,12 +91,7 @@ def mbe_end(calc, exp):
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {0:>d} MBE done  ---  {1:d} tuples in total\n'
 		string += DIVIDER
-		if calc.target['energy']:
-			form = (exp.order, np.count_nonzero(exp.prop['energy']['inc'][exp.order-exp.start_order]))
-		if calc.target['excitation']:
-			form = (exp.order, np.count_nonzero(exp.prop['excitation']['inc'][exp.order-exp.start_order]))
-		if calc.target['dipole']:
-			form = (exp.order, np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][exp.order-exp.start_order], axis=1)))
+		form = (exp.order, exp.count[exp.order-exp.start_order])
 		_print(string, form)
 
 

@@ -405,12 +405,7 @@ def _timings_prt(info, calc, exp):
 		print(DIVIDER[:98])
 		calcs = 0
 		for i in range(info['final_order']):
-			if calc.target['energy']:
-				calc_i = np.count_nonzero(exp.prop['energy']['inc'][i])
-			elif calc.target['excitation']:
-				calc_i = np.count_nonzero(exp.prop['excitation']['inc'][i])
-			elif calc.target['dipole']:
-				calc_i = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][i], axis=1))
+			calc_i = exp.count[i]
 			calcs += calc_i
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:2}{5:>13s}{6:4}{7:1}{8:2}{9:>13s}{10:4}{11:1}'
 					'{12:2}{13:>13s}{14:4}{15:1}{16:5}{17:>9d}'. \

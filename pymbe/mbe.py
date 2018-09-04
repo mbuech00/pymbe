@@ -106,6 +106,8 @@ def _serial(mpi, mol, calc, exp):
 		""" serial version """
 		# start time
 		time = MPI.Wtime()
+		# init counter
+		exp.count.append(0)
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			skip = False
@@ -123,6 +125,7 @@ def _serial(mpi, mol, calc, exp):
 			if not skip:
 				# calculate increments
 				_calc(mpi, mol, calc, exp, i)
+				exp.count[-1] += 1
 				# print status
 				output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 		# collect time
@@ -139,6 +142,8 @@ def _master(mpi, mol, calc, exp):
 		# start time
 		time = MPI.Wtime()
 		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
+		# init counter
+		exp.count.append(0)
 		# start index
 		i = 0
 		# init request
@@ -168,6 +173,7 @@ def _master(mpi, mol, calc, exp):
 						comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 						# increment index
 						i += 1
+						exp.count[-1] += 1
 						# wait for completion
 						req.Wait()
 				else:
