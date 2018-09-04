@@ -260,9 +260,9 @@ class CalcCls():
 						raise ValueError('wrong input -- HF initial guess for FCI calcs (hf_guess) must be a bool')
 					if not isinstance(self.extra['lz_sym'], bool):
 						raise ValueError('wrong input -- Special Lz symmetry for FCI calcs (lz_sym) must be a bool')
-					if not isinstance(self.extra['filter'], str):
-						raise ValueError('wrong input -- filter condition (filter) must be a string')
-					if self.extra['filter'] not in ['c2_short', 'c2_long']:
+					if not isinstance(self.extra['filter'], (str, type(None))):
+						raise ValueError('wrong input -- filter condition (filter) must be a string or NoneType')
+					if self.extra['filter'] not in [None, 'c2_short', 'c2_long']:
 						raise NotImplementedError('filter condition (filter) not reckognized/implemented')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
