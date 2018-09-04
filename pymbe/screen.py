@@ -113,16 +113,17 @@ def _master(mpi, mol, calc, exp):
 		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
 		comm.Gatherv(np.array([], dtype=np.int32), [tuples, recv_counts], root=0)
 		tuples = tuples.reshape(-1, exp.order+1)
-		# finally, bcast tuples and hashes if expansion has not converged 
+		# finally, bcast tuples and compute hashes if expansion has not converged 
 		if tuples.shape[0] > 0:
-			# get hashes
+			# compute hashes
 			hashes = tools.hash_2d(tuples)
 			# sort wrt hashes
-			exp.tuples.append(tuples[hashes.argsort()])
+			tuples = tuples[hashes.argsort()]
+			# bcast tuples
+			parallel.tuples(tuples, comm)
+			# append tuples and (sorted) hashes
+			exp.tuples.append(tuples)
 			exp.hashes.append(np.sort(hashes))
-			# bcast
-			parallel.tuples(exp, comm)
-			parallel.hashes(exp, comm)
 		else:
 			exp.tuples.append(np.array([], dtype=np.int32))
 
@@ -160,10 +161,15 @@ def _slave(mpi, mol, calc, exp):
 		comm.Gatherv(child_tup, [None, None], root=0)
 		# receive tuples
 		if tup_size > 0:
-			exp.tuples.append(np.empty(tup_size, dtype=np.int32).reshape(-1, exp.order+1))
-			parallel.tuples(exp, comm)
-			exp.hashes.append(np.empty(exp.tuples[-1].shape[0], dtype=np.int64))
-			parallel.hashes(exp, comm)
+			# init tuples
+			tuples = np.empty(tup_size, dtype=np.int32).reshape(-1, exp.order+1)
+			# receive tuples
+			parallel.tuples(tuples, comm)
+			# append tuples
+			exp.tuples.append(tuples)
+			# compute and append hashes
+			hashes = tools.hash_2d(tuples)
+			exp.hashes.append(hashes)
 
 
 def _test(calc, exp, tup):

@@ -272,16 +272,10 @@ def _trans(calc, exp, comm):
 		comm.Allreduce(MPI.IN_PLACE, [exp.prop['trans']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
 
 
-def tuples(exp, comm):
+def tuples(tuples, comm):
 		""" Bcast tuples """
 		# Bcast
-		comm.Bcast([exp.tuples[-1], MPI.INT], root=0)
-
-
-def hashes(exp, comm):
-		""" Bcast hashes """
-		# Bcast
-		comm.Bcast([exp.hashes[-1], MPI.INT], root=0)
+		comm.Bcast([tuples, MPI.INT], root=0)
 
 
 def final(mpi):
