@@ -80,7 +80,7 @@ def _master(mpi, mol, calc, exp):
 		# set communicator
 		comm = mpi.local_comm
 		# set number of workers
-		slaves_avail = num_slaves = mpi.local_size - 1
+		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
 		# bcast
 		comm.bcast(msg, root=0)
 		# start index
@@ -108,10 +108,10 @@ def _master(mpi, mol, calc, exp):
 					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
+					# wait for completion
+					req.Wait()
 					# any slaves left?
 					if slaves_avail == 0:
-						# wait for completion
-						req.Wait()
 						# exit loop
 						break
 		# gather tuples
@@ -144,9 +144,13 @@ def _slave(mpi, mol, calc, exp):
 		idx = np.empty(1, dtype=np.int32)
 		child_tup = []
 		# send availability to master
-		comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+		if mpi.local_rank <= len(exp.tuples[-1]):
+			comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
+			# early exit in case of large proc count
+			if mpi.local_rank > len(exp.tuples[-1]):
+				break
 			# receive index
 			comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
 			# do job
