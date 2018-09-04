@@ -116,11 +116,7 @@ def _serial(mpi, mol, calc, exp):
 				exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
 				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
 				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
-				pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
-				if pi_orbs.size % 2 > 0:
-					skip = True
-				if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
+				if np.sum(pi_orbs) != 0:
 					skip = True
 			if not skip:
 				# calculate increments
@@ -158,11 +154,7 @@ def _master(mpi, mol, calc, exp):
 					exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
 					orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
 					pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-					pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
-					pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
-					if pi_orbs.size % 2 > 0:
-						skip = True
-					if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
+					if np.sum(pi_orbs) != 0:
 						skip = True
 				if not skip:
 					# probe for available slaves

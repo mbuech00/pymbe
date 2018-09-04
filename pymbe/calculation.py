@@ -32,7 +32,7 @@ class CalcCls():
 				self.ref = {'method': 'hf', 'specific': True, 'weights': None, 'root': None}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'lz_sym': True, 'filter': None}
+				self.extra = {'hf_guess': True, 'lz_sym': False, 'filter': None}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
