@@ -127,11 +127,14 @@ def _master(mpi, mol, calc, exp):
 			hashes = tools.hash_2d(tuples)
 			# sort wrt hashes
 			tuples = tuples[hashes.argsort()]
-			# bcast tuples
+			# sort hashes
+			hashes.sort()
+			# bcast tuples and hashes
 			parallel.tuples(tuples, comm)
-			# append tuples and (sorted) hashes
+			parallel.hashes(hashes, comm)
+			# append tuples and hashes
 			exp.tuples.append(tuples)
-			exp.hashes.append(np.sort(hashes))
+			exp.hashes.append(hashes)
 		else:
 			exp.tuples.append(np.array([], dtype=np.int32))
 
@@ -173,14 +176,13 @@ def _slave(mpi, mol, calc, exp):
 		comm.Gatherv(child_tup, [None, None], root=0)
 		# receive tuples
 		if tup_size > 0:
-			# init tuples
+			# init tuples and hashes
 			tuples = np.empty(tup_size, dtype=np.int32).reshape(-1, exp.order+1)
-			# receive tuples
+			hashes = np.empty(tuples.shape[0], dtype=np.int64)
+			# receive and append tuples and hashes
 			parallel.tuples(tuples, comm)
-			# append tuples
 			exp.tuples.append(tuples)
-			# compute and append hashes
-			hashes = tools.hash_2d(tuples)
+			parallel.hashes(hashes, comm)
 			exp.hashes.append(hashes)
 
 

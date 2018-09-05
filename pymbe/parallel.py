@@ -239,43 +239,31 @@ def fund(mpi, mol, calc):
 def prop(calc, exp, comm):
 		""" Allreduce properties """
 		if calc.target['energy']:
-			_energy(calc, exp, comm)
+			_prop(exp.prop['energy']['inc'][-1], comm)
 		if calc.target['excitation']:
-			_excitation(calc, exp, comm)
+			_prop(exp.prop['excitation']['inc'][-1], comm)
 		if calc.target['dipole']:
-			_dipole(calc, exp, comm)
+			_prop(exp.prop['dipole']['inc'][-1], comm)
 		if calc.target['trans']:
-			_trans(calc, exp, comm)
+			_prop(exp.prop['trans']['inc'][-1], comm)
 
 
-def _energy(calc, exp, comm):
-		""" Allreduce energies """
+def _prop(prop, comm):
+		""" Allreduce property """
 		# Allreduce
-		comm.Allreduce(MPI.IN_PLACE, [exp.prop['energy']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
-
-
-def _excitation(calc, exp, comm):
-		""" Allreduce excitation energies """
-		# Allreduce
-		comm.Allreduce(MPI.IN_PLACE, [exp.prop['excitation']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
-
-
-def _dipole(calc, exp, comm):
-		""" Allreduce dipole moments """
-		# Allreduce
-		comm.Allreduce(MPI.IN_PLACE, [exp.prop['dipole']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
-
-
-def _trans(calc, exp, comm):
-		""" Allreduce transition dipole moments """
-		# Allreduce
-		comm.Allreduce(MPI.IN_PLACE, [exp.prop['trans']['inc'][-1], MPI.DOUBLE], op=MPI.SUM)
+		comm.Allreduce(MPI.IN_PLACE, prop, op=MPI.SUM)
 
 
 def tuples(tuples, comm):
 		""" Bcast tuples """
 		# Bcast
-		comm.Bcast([tuples, MPI.INT], root=0)
+		comm.Bcast(tuples, root=0)
+
+
+def hashes(hashes, comm):
+		""" Bcast hashes """
+		# Bcast
+		comm.Bcast(hashes, root=0)
 
 
 def final(mpi):
