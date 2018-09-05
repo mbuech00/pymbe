@@ -114,22 +114,20 @@ def _master(mpi, mol, calc, exp):
 					if slaves_avail == 0:
 						# exit loop
 						break
-		# gather tuples
+		# allgather tuples
 		recv_counts = np.array(comm.allgather(0), dtype=np.int32)
 		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
-		comm.Gatherv(np.array([], dtype=np.int32), [tuples, recv_counts], root=0)
+		comm.Allgatherv(np.array([], dtype=np.int32), [tuples, recv_counts])
 		tuples = tuples.reshape(-1, exp.order+1)
-		# finally, bcast tuples and compute hashes if expansion has not converged 
 		if tuples.shape[0] > 0:
-			# compute hashes
-			hashes = tools.hash_2d(tuples)
+			# allgather hashes
+			recv_counts = np.array(comm.allgather(0), dtype=np.int64)
+			hashes = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int64)
+			comm.Allgatherv(np.array([], dtype=np.int64), [hashes, recv_counts])
 			# sort wrt hashes
 			tuples = tuples[hashes.argsort()]
 			# sort hashes
 			hashes.sort()
-			# bcast tuples and hashes
-			parallel.tuples(tuples, comm)
-			parallel.hashes(hashes, comm)
 			# append tuples and hashes
 			exp.tuples.append(tuples)
 			exp.hashes.append(hashes)
@@ -143,9 +141,9 @@ def _slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# set communicator
 		comm = mpi.local_comm
-		# init idx array and child_tup list
+		# init idx array and child_tup/child_hash lists
 		idx = np.empty(1, dtype=np.int32)
-		child_tup = []
+		child_tup = []; child_hash = []
 		# send availability to master
 		if mpi.local_rank <= len(exp.tuples[-1]):
 			comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
@@ -164,25 +162,31 @@ def _slave(mpi, mol, calc, exp):
 				parent_tup = exp.tuples[-1][idx[0]].tolist()
 				for m in lst:
 					if calc.model['type'] == 'occ':
-						child_tup += [m]+parent_tup
+						tup = [m]+parent_tup
 					elif calc.model['type'] == 'virt':
-						child_tup += parent_tup+[m]
+						tup = parent_tup+[m]
+					child_tup += tup
+					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 			elif mpi.stat.tag == TAGS.exit:
 				break
-		# gather tuples
+		# allgather tuples
 		child_tup = np.asarray(child_tup, dtype=np.int32)
 		recv_counts = np.array(comm.allgather(child_tup.size), dtype=np.int32)
-		tup_size = np.sum(recv_counts, dtype=np.int64)
-		comm.Gatherv(child_tup, [None, None], root=0)
-		# receive tuples
-		if tup_size > 0:
-			# init tuples and hashes
-			tuples = np.empty(tup_size, dtype=np.int32).reshape(-1, exp.order+1)
-			hashes = np.empty(tuples.shape[0], dtype=np.int64)
-			# receive and append tuples and hashes
-			parallel.tuples(tuples, comm)
+		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
+		comm.Allgatherv(child_tup, [tuples, recv_counts])
+		tuples = tuples.reshape(-1, exp.order+1)
+		if tuples.shape[0] > 0:
+			# allgather hashes
+			child_hash = np.asarray(child_hash, dtype=np.int64)
+			recv_counts = np.array(comm.allgather(child_hash.size), dtype=np.int32)
+			hashes = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int64)
+			comm.Allgatherv(child_hash, [hashes, recv_counts])
+			# sort wrt hashes
+			tuples = tuples[hashes.argsort()]
+			# sort hashes
+			hashes.sort()
+			# append tuples and hashes
 			exp.tuples.append(tuples)
-			parallel.hashes(hashes, comm)
 			exp.hashes.append(hashes)
 
 
