@@ -115,10 +115,21 @@ def _serial(mpi, mol, calc, exp):
 			# lz check
 			if calc.extra['lz_sym']:
 				exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
-				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
-				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-				if np.sum(pi_orbs) != 0:
+				lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
+				pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
+				if pi_orbs_g.size % 2 > 0:
 					skip = True
+				elif pi_orbs_g.size > 0:
+					g_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
+					if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
+						skip = True
+				pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
+				if pi_orbs_u.size % 2 > 0:
+					skip = True
+				elif pi_orbs_u.size > 0:
+					u_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
+					if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
+						skip = True
 			if not skip:
 				# calculate increments
 				_calc(mpi, mol, calc, exp, i)
@@ -153,10 +164,21 @@ def _master(mpi, mol, calc, exp):
 				# lz check
 				if calc.extra['lz_sym']:
 					exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
-					orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
-					pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-					if np.sum(pi_orbs) != 0:
+					lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
+					pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
+					if pi_orbs_g.size % 2 > 0:
 						skip = True
+					elif pi_orbs_g.size > 0:
+						g_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
+						if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
+							skip = True
+					pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
+					if pi_orbs_u.size % 2 > 0:
+						skip = True
+					elif pi_orbs_u.size > 0:
+						u_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
+						if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
+							skip = True
 				if not skip:
 					# probe for available slaves
 					if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):

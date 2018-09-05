@@ -250,19 +250,25 @@ def active(mol, calc):
 					raise
 			# lz sym check
 			if calc.extra['lz_sym']:
-				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[np.asarray(calc.ref['select'])]])
-				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
-				pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
-				if pi_orbs.size % 2 > 0:
+				error = False
+				lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[np.asarray(calc.ref['select'])]])
+				pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
+				if pi_orbs_g.size % 2 > 0:
+					error = True
+				elif pi_orbs_g.size > 0:
+					g_orbs = np.asarray(calc.ref['select'])[np.where(np.abs(lz_orbs) == 5)]
+					if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
+						error = True
+				pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
+				if pi_orbs_u.size % 2 > 0:
+					error = True
+				elif pi_orbs_u.size > 0:
+					u_orbs = np.asarray(calc.ref['select'])[np.where(np.abs(lz_orbs) == 6)]
+					if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
+						error = True
+				if error:
 					try:
-						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space, size of pi_orbs)\n\n')
-					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
-				if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
-					try:
-						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space, pi_orbs_x != pi_orbs_y)\n\n')
+						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space)\n\n')
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
