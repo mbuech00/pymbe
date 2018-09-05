@@ -12,6 +12,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
+from pyscf import symm
 import sys
 import itertools
 import scipy.misc
@@ -278,8 +279,13 @@ def _inc(mpi, mol, calc, exp, tup):
 					inc['trans'] = inc['trans'] - res['trans']
 		# debug print
 		if mol.debug:
+			core_lst = exp.core_idx.tolist()
+			core_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.core_idx]]
+			cas_lst = [calc.map[i] for i in exp.cas_idx]
+			cas_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx]]
 			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
-			form = (mpi.local_rank, exp.core_idx.tolist(), np.array([calc.map[i] for i in exp.cas_idx]).tolist())
+			string += '      core-sym = {:} , cas-sym = {:}\n'
+			form = (mpi.local_rank, core_lst, cas_lst, core_sym, cas_sym)
 			if calc.target['energy']:
 				string += '      correlation energy increment for state {:} = {:.4e}\n'
 				form += (calc.state['root'], inc['energy'],)
