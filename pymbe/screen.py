@@ -119,8 +119,6 @@ def _master(mpi, mol, calc, exp):
 		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
 		comm.Gatherv(np.array([], dtype=np.int32), [tuples, recv_counts], root=0)
 		tuples = tuples.reshape(-1, exp.order+1)
-		# collect time
-		exp.time['screen'].append(MPI.Wtime() - time)
 		# finally, bcast tuples and compute hashes if expansion has not converged 
 		if tuples.shape[0] > 0:
 			# compute hashes
@@ -137,6 +135,8 @@ def _master(mpi, mol, calc, exp):
 			exp.hashes.append(hashes)
 		else:
 			exp.tuples.append(np.array([], dtype=np.int32))
+		# collect time
+		exp.time['screen'].append(MPI.Wtime() - time)
 
 
 def _slave(mpi, mol, calc, exp):
