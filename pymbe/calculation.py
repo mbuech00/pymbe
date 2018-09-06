@@ -32,7 +32,7 @@ class CalcCls():
 				self.ref = {'method': 'hf', 'specific': True, 'weights': None}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'lz_sym': False, 'filter': None, 'filter_max': 5}
+				self.extra = {'hf_guess': True, 'lz_sym': False, 'filter': None}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -261,8 +261,6 @@ class CalcCls():
 						raise ValueError('wrong input -- filter condition (filter) must be a string or NoneType')
 					if self.extra['filter'] not in [None, 'c2_sg+_1', 'c2_sg+_2', 'c2_dg_1']:
 						raise NotImplementedError('filter condition (filter) not reckognized/implemented')
-					if not isinstance(self.extra['filter_max'], int):
-						raise ValueError('wrong input -- max number of iterations for filter search (filter_max) must be an int')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
 						raise ValueError('wrong input -- values in prot input (prot) must be string and bools')

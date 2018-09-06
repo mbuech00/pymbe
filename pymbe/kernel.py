@@ -657,21 +657,7 @@ def _fci(mol, calc, exp):
 		# filter check
 		if calc.extra['filter'] is not None:
 			if not tools.filter(civec[-1], calc.extra['filter']):
-				for i in range(calc.extra['filter_max']):
-					solver.nroots += i + 1
-					# perform calc
-					energy, civec = _fci_kernel()
-					# check again for filter condition
-					if tools.filter(civec[-1], calc.extra['filter']):
-						break
-					elif i == calc.extra['filter_max'] - 1:
-						try:
-							raise RuntimeError('\nFCI Error: filter condition not fulfilled\n\n'
-												'core_idx = {:} , cas_idx = {:}\n\n'.\
-												format(exp.core_idx, exp.cas_idx))
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
+				return {'energy': 0.0}
 		# convergence check
 		if solver.nroots == 1:
 			assert solver.converged, ('FCI Error: state 0 not converged\n\n'
