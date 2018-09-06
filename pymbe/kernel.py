@@ -529,9 +529,9 @@ def _casscf(mol, calc, exp):
 		# debug print
 		if mol.debug: cas.verbose = 4
 		# state-specific or state-averaged calculation
-		if calc.ref['root'] > 0:
+		if calc.state['root'] > 0:
 			if calc.ref['specific']:
-				cas.state_specific_(state=calc.ref['root'])
+				cas.state_specific_(state=calc.state['root'])
 			else:
 				weights = np.array(calc.ref['weights'], dtype=np.float64)
 				cas.state_average_(weights)
@@ -552,7 +552,7 @@ def _casscf(mol, calc, exp):
 			if calc.ref['specific']:
 				civec = cas.ci
 			else:
-				civec = cas.ci[calc.ref['root']]
+				civec = cas.ci[calc.state['root']]
 			if not tools.filter(civec, calc.extra['filter']):
 				try:
 					raise RuntimeError('\nCASSCF Error: filter condition error ({:})\n\n'.format(calc.extra['filter']))
@@ -657,14 +657,19 @@ def _fci(mol, calc, exp):
 		# filter check
 		if calc.extra['filter'] is not None:
 			if not tools.filter(civec[-1], calc.extra['filter']):
-				if calc.state['root'] == 0:
-					solver.nroots += 1
-				elif calc.state['root'] == 1:
-					solver.nroots -= 1
-				# perform calc
-				energy, civec = _fci_kernel()
-				# check again for filter condition
-				assert tools.filter(civec[-1], calc.extra['filter']), ('FCI Error: filter condition not fulfilled')
+				for i in range(calc.extra['filter_max']):
+					solver.nroots += i + 1
+					# perform calc
+					energy, civec = _fci_kernel()
+					# check again for filter condition
+					if tools.filter(civec[-1], calc.extra['filter']):
+						break
+					elif i == calc.extra['filter_max'] - 1:
+						try:
+							raise RuntimeError('\nFCI Error: filter condition not fulfilled\n\n')
+						except Exception as err:
+							sys.stderr.write(str(err))
+							raise
 		# convergence check
 		if solver.nroots == 1:
 			assert solver.converged, ('FCI Error: state 0 not converged\n\n'
