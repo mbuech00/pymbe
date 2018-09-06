@@ -666,7 +666,9 @@ def _fci(mol, calc, exp):
 						break
 					elif i == calc.extra['filter_max'] - 1:
 						try:
-							raise RuntimeError('\nFCI Error: filter condition not fulfilled\n\n')
+							raise RuntimeError('\nFCI Error: filter condition not fulfilled\n\n'
+												'core_idx = {:} , cas_idx = {:}\n\n'.\
+												format(exp.core_idx, exp.cas_idx))
 						except Exception as err:
 							sys.stderr.write(str(err))
 							raise
