@@ -627,11 +627,6 @@ def _fci(mol, calc, exp):
 		solver.davidson_only = True
 		# wfnsym
 		solver.wfnsym = calc.state['wfnsym']
-		# number of roots
-		if calc.extra['filter'] is None:
-			solver.nroots = calc.state['root'] + 1
-		else:
-			solver.nroots = calc.state['root'] + 2
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
 		# orbital symmetry
@@ -640,43 +635,53 @@ def _fci(mol, calc, exp):
 		if calc.extra['hf_guess']:
 			na = fci.cistring.num_strings(exp.cas_idx.size, nelec[0])
 			nb = fci.cistring.num_strings(exp.cas_idx.size, nelec[1])
-			hf_as_civec = np.zeros((na, nb))
-			hf_as_civec[0, 0] = 1
-			# perform calc
-			e, c = solver.kernel(h1e, h2e, exp.cas_idx.size, nelec, ecore=mol.e_core, \
-									orbsym=solver.orbsym, ci0=hf_as_civec)
+			ci0 = np.zeros((na, nb))
+			ci0[0, 0] = 1
 		else:
-			# perform calc
-			e, c = solver.kernel(h1e, h2e, exp.cas_idx.size, nelec, ecore=mol.e_core, orbsym=solver.orbsym)
-		# collect results
+			ci0 = None
+		# number of roots
+		solver.nroots = calc.state['root'] + 1
+		# interface
+		def _fci_kernel():
+				""" interface to solver.kernel """
+				# perform calc
+				e, c = solver.kernel(h1e, h2e, exp.cas_idx.size, nelec, ecore=mol.e_core, \
+										orbsym=solver.orbsym, ci0=ci0)
+				# collect results
+				if solver.nroots == 1:
+					return [e], [c]
+				else:
+					return [e[0], e[-1]], [c[0], c[-1]]
+		# perform calc
+		energy, civec = _fci_kernel()
+		# filter check
+		if calc.extra['filter'] is not None:
+			if not tools.filter(civec[-1], calc.extra['filter']):
+				if calc.state['root'] == 0:
+					solver.nroots += 1
+				elif calc.state['root'] == 1:
+					solver.nroots -= 1
+				# perform calc
+				energy, civec = _fci_kernel()
+				# check again for filter condition
+				assert tools.filter(civec[-1], calc.extra['filter']), ('FCI Error: filter condition not fulfilled')
+		# convergence check
 		if solver.nroots == 1:
-			energy = [e]
-			civec = [c]
 			assert solver.converged, ('FCI Error: state 0 not converged\n\n'
 										'core_idx = {0:} , cas_idx = {1:}\n\n').\
 										format(exp.core_idx, exp.cas_idx)
 		else:
-			if calc.extra['filter'] is not None:
-				energy = e
-				civec = c
-				for root in range(solver.nroots):
+			if calc.target['excitation']:
+				for root in [0, solver.nroots-1]:
 					assert solver.converged[root], ('FCI Error: state {0:} not converged\n\n'
 											'core_idx = {1:} , cas_idx = {2:}\n\n').\
 											format(root, exp.core_idx, exp.cas_idx)
 			else:
-				energy = [e[0], e[calc.state['root']]]
-				civec = [c[0], c[calc.state['root']]]
-				if calc.target['excitation']:
-					for root in [0, calc.state['root']]:
-						assert solver.converged[root], ('FCI Error: state {0:} not converged\n\n'
-												'core_idx = {1:} , cas_idx = {2:}\n\n').\
-												format(root, exp.core_idx, exp.cas_idx)
-				else:
-					assert solver.converged[calc.state['root']], ('FCI Error: state {0:} not converged\n\n'
-											'core_idx = {1:} , cas_idx = {2:}\n\n').\
-											format(calc.state['root'], exp.core_idx, exp.cas_idx)
+				assert solver.converged[solver.nroots-1], ('FCI Error: state {0:} not converged\n\n'
+										'core_idx = {1:} , cas_idx = {2:}\n\n').\
+										format(solver.nroots-1, exp.core_idx, exp.cas_idx)
 		# sanity check
-		if calc.target['excitation'] or calc.extra['filter'] is not None:
+		if calc.target['excitation']:
 			for root in range(len(civec)):
 				s, mult = solver.spin_square(civec[root], exp.cas_idx.size, nelec)
 				assert (mol.spin + 1) - mult < 1.0e-05, ('\nFCI Error: spin contamination for root = {0:}\n\n'
@@ -692,23 +697,14 @@ def _fci(mol, calc, exp):
 		res = {}
 		# e_corr
 		if calc.target['energy']:
-			if calc.extra['filter'] is not None:
-				res['energy'] = 0.0
-				for root in range(solver.nroots):
-					if tools.filter(civec[root], calc.extra['filter']):
-						res['energy'] = energy[root] - calc.prop['hf']['energy']
-						break
-			else:
-				root = 0 if calc.state['root'] == 0 else 1
-				res['energy'] = energy[root] - calc.prop['hf']['energy']
+			res['energy'] = energy[-1] - calc.prop['hf']['energy']
 		if calc.target['excitation']:
-			res['excitation'] = energy[1] - energy[0]
+			res['excitation'] = energy[-1] - energy[0]
 		# fci rdm1 and t_rdm1
 		if calc.target['dipole']:
-			root = 0 if calc.state['root'] == 0 else 1
-			res['rdm1'] = solver.make_rdm1(civec[root], exp.cas_idx.size, nelec)
+			res['rdm1'] = solver.make_rdm1(civec[-1], exp.cas_idx.size, nelec)
 		if calc.target['trans']:
-			res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[1], exp.cas_idx.size, nelec)
+			res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[-1], exp.cas_idx.size, nelec)
 			res['hf_weight'] = [civec[i][0, 0] for i in range(2)]
 		return res
 
