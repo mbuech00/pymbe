@@ -154,9 +154,7 @@ def mbe_results(mol, calc, exp):
 					comp = ('x-component', 'y-component', 'z-component')
 					# init result arrays
 					mean_val = np.empty(3, dtype=np.float64)
-					min_idx = np.empty(3, dtype=np.int)
 					min_val = np.empty(3, dtype=np.float64)
-					max_idx = np.empty(3, dtype=np.int)
 					max_val = np.empty(3, dtype=np.float64)
 					# loop over x, y, and z
 					for k in range(3):

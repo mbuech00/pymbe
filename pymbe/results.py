@@ -181,9 +181,18 @@ def _ref(mol, calc):
 				return 'CASSCF'
 			else:
 				if calc.ref['specific']:
-					return 'SS-CASSCF'
+					return 'ss-CASSCF'
 				else:
-					return 'SA-CASSCF'
+					for i in range(calc.state['root']+1):
+						if calc.ref['weights'][i] > 0.0:
+							weight = '{:.2f}'.format(calc.ref['weights'][i])
+						else:
+							weight = '0.'
+						if i == 0:
+							weights = weight
+						else:
+							weights += ','+weight
+					return 'CASSCF-'+weights
 
 
 def _base(calc):
