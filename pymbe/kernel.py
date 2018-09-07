@@ -528,13 +528,10 @@ def _casscf(mol, calc, exp):
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# debug print
 		if mol.debug: cas.verbose = 4
-		# state-specific or state-averaged calculation
-		if calc.state['root'] > 0:
-			if calc.ref['specific']:
-				cas.state_specific_(state=calc.state['root'])
-			else:
-				weights = np.array(calc.ref['weights'], dtype=np.float64)
-				cas.state_average_(weights)
+		# state-averaged calculation
+		if calc.ref['root'] > 0:
+			weights = np.array(calc.ref['weights'], dtype=np.float64)
+			cas.state_average_(weights)
 		# orbital symmetry
 		cas.fcisolver.orbsym = calc.orbsym[mol.ncore:mol.ncore+calc.no_act]
 		# hf starting guess
@@ -547,18 +544,6 @@ def _casscf(mol, calc, exp):
 			ci0 = None
 		# run casscf calc
 		cas.kernel(calc.mo, ci0=ci0)
-		# filter check
-		if calc.extra['filter'] is not None:
-			if calc.ref['specific']:
-				civec = cas.ci
-			else:
-				civec = cas.ci[calc.state['root']]
-			if not tools.filter(civec, calc.extra['filter']):
-				try:
-					raise RuntimeError('\nCASSCF Error: filter condition error ({:})\n\n'.format(calc.extra['filter']))
-				except Exception as err:
-					sys.stderr.write(str(err))
-					raise
 		# convergence check
 		if not cas.converged:
 			try:
@@ -625,6 +610,7 @@ def _fci(mol, calc, exp):
 		solver.max_cycle = 500
 		solver.max_space = 25
 		solver.davidson_only = True
+		solver.verbose = 10
 		# wfnsym
 		solver.wfnsym = calc.state['wfnsym']
 		# get integrals and core energy
