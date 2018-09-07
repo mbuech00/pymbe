@@ -205,7 +205,10 @@ def _base(calc):
 
 def _prot(calc):
 		""" protocol print """
-		return calc.prot['scheme']
+		if calc.extra['filter'] is not None:
+			return calc.prot['scheme']+' ('+calc.extra['filter']+')'
+		else:
+			return calc.prot['scheme']
 
 
 def _system(mol, calc):

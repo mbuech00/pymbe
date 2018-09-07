@@ -108,24 +108,16 @@ def get_pymbe_path():
 def filter(c, f):
 		""" return result of filter condition """
 		cond = False
-		if f == 'c2_sg+_1':
-			# lowest-lying C2 Sigma^+_g state at equilibrium geometry (X 1^Sigma^+_g)
-			if np.abs(c[1, 1] - c[2, 2]) < 1.0e-05:
+		if f == 'c2_sg+':
+			# C2 Sigma^+_g state
+			if np.abs(c[1, 1]) - np.abs(c[2, 2]) < 1.0e-05:
 				if np.sign(c[1, 1]) * np.sign(c[2, 2]) > 0:
-					if np.abs(c[0, 0]) > np.abs(c[1, 1]):
-						cond = True
-		elif f == 'c2_sg+_2':
-			# first excited C2 Sigma^+_g state at equilibrium geometry (B-prime 1^Sigma^+_g)
-			if np.abs(c[1, 1] - c[2, 2]) < 1.0e-05:
-				if np.sign(c[1, 1]) * np.sign(c[2, 2]) > 0:
-					if np.abs(c[0, 0]) < np.abs(c[1, 1]):
-						cond = True
-		elif f == 'c2_dg_1':
-			# first excited C2 Delta_g state at equilibrium geometry (B 1^Delta_g)
+					cond = True
+		elif f == 'c2_dg':
+			# C2 Delta_g state
 			if np.abs(c[1, 1]) - np.abs(c[2, 2]) < 1.0e-05:
 				if np.sign(c[1, 1]) * np.sign(c[2, 2]) < 0:
-					if np.abs(c[0, 0]) < np.abs(c[1, 1]):
-						cond = True
+					cond = True
 		return cond
 
 
