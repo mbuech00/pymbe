@@ -41,10 +41,9 @@ class ExpCls():
 					self.max_order = min(calc.exp_space.size, calc.misc['order'])
 				else:
 					self.max_order = calc.exp_space.size
-				# init timings
+				# init timings and calculation counter
+				self.count = []
 				self.time = {'mbe': [], 'screen': []}
-				# init distribution statistics
-				self.distrib = []
 				# init thres
 				if self.start_order < 3:
 					self.thres = 0.0

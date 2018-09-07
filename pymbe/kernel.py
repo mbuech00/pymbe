@@ -250,19 +250,25 @@ def active(mol, calc):
 					raise
 			# lz sym check
 			if calc.extra['lz_sym']:
-				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[np.asarray(calc.ref['select'])]])
-				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
-				pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
-				if pi_orbs.size % 2 > 0:
+				error = False
+				lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[np.asarray(calc.ref['select'])]])
+				pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
+				if pi_orbs_g.size % 2 > 0:
+					error = True
+				elif pi_orbs_g.size > 0:
+					g_orbs = np.asarray(calc.ref['select'])[np.where(np.abs(lz_orbs) == 5)]
+					if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
+						error = True
+				pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
+				if pi_orbs_u.size % 2 > 0:
+					error = True
+				elif pi_orbs_u.size > 0:
+					u_orbs = np.asarray(calc.ref['select'])[np.where(np.abs(lz_orbs) == 6)]
+					if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
+						error = True
+				if error:
 					try:
-						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space, size of pi_orbs)\n\n')
-					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
-				if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
-					try:
-						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space, pi_orbs_x != pi_orbs_y)\n\n')
+						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space)\n\n')
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
@@ -522,59 +528,22 @@ def _casscf(mol, calc, exp):
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# debug print
 		if mol.debug: cas.verbose = 4
-		# state-specific or state-averaged calculation
-		if calc.state['root'] > 0:
-			if calc.ref['specific']:
-				cas.state_specific_(state=calc.state['root'])
-			else:
-				weights = np.array(calc.ref['weights'], dtype=np.float64)
-				cas.state_average_(weights)
+		# state-averaged calculation
+		if calc.ref['root'] > 0:
+			weights = np.array(calc.ref['weights'], dtype=np.float64)
+			cas.state_average_(weights)
 		# orbital symmetry
 		cas.fcisolver.orbsym = calc.orbsym[mol.ncore:mol.ncore+calc.no_act]
-		# run casscf calc
-		if calc.extra['hf_guess']:
-			# hf starting guess
+		# hf starting guess
+		if calc.ref['hf_guess']:
 			na = fci.cistring.num_strings(calc.no_act, calc.ne_act[0])
 			nb = fci.cistring.num_strings(calc.no_act, calc.ne_act[1])
-			hf_as_civec = np.zeros((na, nb))
-			hf_as_civec[0, 0] = 1
-			cas.kernel(calc.mo, ci0=hf_as_civec)
+			ci0 = np.zeros((na, nb))
+			ci0[0, 0] = 1
 		else:
-			cas.kernel(calc.mo)
-		# determinant check
-		if calc.extra['dets'] is not None:
-			if calc.ref['specific']:
-				civec = cas.ci
-			else:
-				civec = cas.ci[calc.state['root']]
-			w = []
-			for det in range(len(calc.extra['dets'])):
-				string = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['dets'][det, 0])-mol.ncore, calc.ne_act[0])]
-				addr = fci.cistring.str2addr(calc.extra['dets'][det][0][-1]-1, calc.ne_act[0], string[0])
-				w.append([civec[addr, addr], calc.extra['dets'][det, 1]])
-			w = np.asarray(w)
-			for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1, dtype=np.float64):
-				dets = np.where(w[:, 1] == phase)[0]
-				if phase > np.min(np.abs(calc.extra['dets'][:, 1])):
-					if np.abs(w[dets[0]][0]) > np.abs(w[np.where(w[:, 1] == (phase - 1.))[0][0]][0]):
-						try:
-							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of different weights\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
-				if dets.size == 2:
-					if np.abs(w[dets[0]][0] - w[dets[1]][0]) > 1.0e-05:
-						try:
-							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong magnitude of equal weights\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
-					if np.sign(w[dets[0]][0]) * np.sign(w[dets[1]][0]) - np.sign(w[dets[0]][1]) * np.sign(w[dets[1]][1]) > 1.0e-05:
-						try:
-							raise RuntimeError('\nCASSCF Error: Lz-symmetry error, wrong phase\n\n')
-						except Exception as err:
-							sys.stderr.write(str(err))
-							raise
+			ci0 = None
+		# run casscf calc
+		cas.kernel(calc.mo, ci0=ci0)
 		# convergence check
 		if not cas.converged:
 			try:
@@ -643,8 +612,6 @@ def _fci(mol, calc, exp):
 		solver.davidson_only = True
 		# wfnsym
 		solver.wfnsym = calc.state['wfnsym']
-		# number of roots
-		solver.nroots = calc.state['root'] + 1
 		# get integrals and core energy
 		h1e, h2e = _prepare(mol, calc, exp)
 		# orbital symmetry
@@ -653,36 +620,47 @@ def _fci(mol, calc, exp):
 		if calc.extra['hf_guess']:
 			na = fci.cistring.num_strings(exp.cas_idx.size, nelec[0])
 			nb = fci.cistring.num_strings(exp.cas_idx.size, nelec[1])
-			hf_as_civec = np.zeros((na, nb))
-			hf_as_civec[0, 0] = 1
-			# perform calc
-			e, c = solver.kernel(h1e, h2e, exp.cas_idx.size, nelec, ecore=mol.e_core, \
-									orbsym=solver.orbsym, ci0=hf_as_civec)
+			ci0 = np.zeros((na, nb))
+			ci0[0, 0] = 1
 		else:
-			# perform calc
-			e, c = solver.kernel(h1e, h2e, exp.cas_idx.size, nelec, ecore=mol.e_core, orbsym=solver.orbsym)
-		# collect results
+			ci0 = None
+		# number of roots
+		solver.nroots = calc.state['root'] + 1
+		# interface
+		def _fci_kernel():
+				""" interface to solver.kernel """
+				# perform calc
+				e, c = solver.kernel(h1e, h2e, exp.cas_idx.size, nelec, ecore=mol.e_core, \
+										orbsym=solver.orbsym, ci0=ci0)
+				# collect results
+				if solver.nroots == 1:
+					return [e], [c]
+				else:
+					return [e[0], e[-1]], [c[0], c[-1]]
+		# perform calc
+		energy, civec = _fci_kernel()
+		# filter check
+		if calc.extra['filter'] is not None:
+			if not tools.filter(civec[-1], calc.extra['filter']):
+				return {'energy': 0.0}
+		# convergence check
 		if solver.nroots == 1:
-			energy = [e]
-			civec = [c]
 			assert solver.converged, ('FCI Error: state 0 not converged\n\n'
 										'core_idx = {0:} , cas_idx = {1:}\n\n').\
 										format(exp.core_idx, exp.cas_idx)
 		else:
-			energy = [e[0], e[calc.state['root']]]
-			civec = [c[0], c[calc.state['root']]]
 			if calc.target['excitation']:
-				for root in [0, calc.state['root']]:
+				for root in [0, solver.nroots-1]:
 					assert solver.converged[root], ('FCI Error: state {0:} not converged\n\n'
 											'core_idx = {1:} , cas_idx = {2:}\n\n').\
 											format(root, exp.core_idx, exp.cas_idx)
 			else:
-				assert solver.converged[calc.state['root']], ('FCI Error: state {0:} not converged\n\n'
+				assert solver.converged[solver.nroots-1], ('FCI Error: state {0:} not converged\n\n'
 										'core_idx = {1:} , cas_idx = {2:}\n\n').\
-										format(calc.state['root'], exp.core_idx, exp.cas_idx)
+										format(solver.nroots-1, exp.core_idx, exp.cas_idx)
 		# sanity check
 		if calc.target['excitation']:
-			for root in range(2):
+			for root in range(len(civec)):
 				s, mult = solver.spin_square(civec[root], exp.cas_idx.size, nelec)
 				assert (mol.spin + 1) - mult < 1.0e-05, ('\nFCI Error: spin contamination for root = {0:}\n\n'
 														'2*S + 1 = {1:.6f}\n'
@@ -697,34 +675,14 @@ def _fci(mol, calc, exp):
 		res = {}
 		# e_corr
 		if calc.target['energy']:
-			root = 0 if calc.state['root'] == 0 else 1
-			# determinant check
-			if calc.extra['dets'] is not None:
-				w = []
-				for det in range(len(calc.extra['dets'])):
-					string = [bin(x) for x in fci.cistring.gen_strings4orblist(np.asarray(calc.extra['dets'][det, 0])-mol.ncore, nelec[0])]
-					addr = fci.cistring.str2addr(calc.extra['dets'][det][0][-1]-1, nelec[0], string[0])
-					w.append([civec[root][addr, addr], calc.extra['dets'][det, 1]])
-				w = np.asarray(w)
-				for phase in np.arange(np.min(np.abs(calc.extra['dets'][:, 1])), np.max(np.abs(calc.extra['dets'][:, 1]))+1, dtype=np.float64):
-					dets = np.where(w[:, 1] == phase)[0]
-					if phase > np.min(np.abs(calc.extra['dets'][:, 1])):
-						if np.abs(w[dets[0]][0]) > np.abs(w[np.where(w[:, 1] == (phase - 1.))[0][0]][0]):
-							return {'energy': 0.0}
-					if dets.size == 2:
-						if np.abs(w[dets[0]][0] - w[dets[1]][0]) > 1.0e-05:
-							return {'energy': 0.0}
-						if np.sign(w[dets[0]][0]) * np.sign(w[dets[1]][0]) - np.sign(w[dets[0]][1]) * np.sign(w[dets[1]][1]) > 1.0e-05:
-							return {'energy': 0.0}
-			res['energy'] = energy[root] - calc.prop['hf']['energy']
+			res['energy'] = energy[-1] - calc.prop['hf']['energy']
 		if calc.target['excitation']:
-			res['excitation'] = energy[1] - energy[0]
+			res['excitation'] = energy[-1] - energy[0]
 		# fci rdm1 and t_rdm1
 		if calc.target['dipole']:
-			root = 0 if calc.state['root'] == 0 else 1
-			res['rdm1'] = solver.make_rdm1(civec[root], exp.cas_idx.size, nelec)
+			res['rdm1'] = solver.make_rdm1(civec[-1], exp.cas_idx.size, nelec)
 		if calc.target['trans']:
-			res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[1], exp.cas_idx.size, nelec)
+			res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[-1], exp.cas_idx.size, nelec)
 			res['hf_weight'] = [civec[i][0, 0] for i in range(2)]
 		return res
 
@@ -737,9 +695,9 @@ def _ci(mol, calc, exp):
 		mol_tmp.incore_anyway = mol.incore_anyway
 		mol_tmp.max_memory = mol.max_memory
 		if mol.spin == 0:
-			hf = scf.Rhf(mol_tmp)
+			hf = scf.RHF(mol_tmp)
 		else:
-			hf = scf.Uhf(mol_tmp)
+			hf = scf.UHF(mol_tmp)
 		hf.get_hcore = lambda *args: h1e
 		hf._eri = h2e 
 		# init ccsd

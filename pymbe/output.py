@@ -91,12 +91,7 @@ def mbe_end(calc, exp):
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {0:>d} MBE done  ---  {1:d} tuples in total\n'
 		string += DIVIDER
-		if calc.target['energy']:
-			form = (exp.order, np.count_nonzero(exp.prop['energy']['inc'][exp.order-exp.start_order]))
-		if calc.target['excitation']:
-			form = (exp.order, np.count_nonzero(exp.prop['excitation']['inc'][exp.order-exp.start_order]))
-		if calc.target['dipole']:
-			form = (exp.order, np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][exp.order-exp.start_order], axis=1)))
+		form = (exp.order, exp.count[exp.order-exp.start_order])
 		_print(string, form)
 
 
@@ -109,11 +104,12 @@ def mbe_results(mol, calc, exp):
 					prop_inc = exp.prop[i]['inc'][exp.order-exp.start_order]
 					prop_tot = exp.prop[i]['tot']
 					# statistics
-					mean_val = np.mean(prop_inc)
-					min_idx = np.argmin(np.abs(prop_inc))
-					min_val = prop_inc[min_idx]
-					max_idx = np.argmax(np.abs(prop_inc))
-					max_val = prop_inc[max_idx]
+					if prop_inc.any():
+						mean_val = np.mean(prop_inc[np.nonzero(prop_inc)])
+						min_val = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
+						max_val = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
+					else:
+						mean_val = min_val = max_val = 0.0
 					# calculate total inc
 					if exp.order == exp.start_order:
 						tot_inc = prop_tot[exp.order-exp.start_order]
@@ -158,19 +154,18 @@ def mbe_results(mol, calc, exp):
 					comp = ('x-component', 'y-component', 'z-component')
 					# init result arrays
 					mean_val = np.empty(3, dtype=np.float64)
-					min_idx = np.empty(3, dtype=np.int)
 					min_val = np.empty(3, dtype=np.float64)
-					max_idx = np.empty(3, dtype=np.int)
 					max_val = np.empty(3, dtype=np.float64)
 					# loop over x, y, and z
 					for k in range(3):
 						prop_inc = exp.prop[i]['inc'][exp.order-exp.start_order][:, k]
 						# statistics
-						mean_val[k] = np.mean(prop_inc)
-						min_idx[k] = np.argmin(np.abs(prop_inc))
-						min_val[k] = prop_inc[min_idx[k]]
-						max_idx[k] = np.argmax(np.abs(prop_inc))
-						max_val[k] = prop_inc[max_idx[k]]
+						if prop_inc.any():
+							mean_val[k] = np.mean(prop_inc[np.nonzero(prop_inc)])
+							min_val[k] = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
+							max_val[k] = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
+						else:
+							mean_val[k] = min_vali[k] = max_vali[k] = 0.0
 						string += '\n RESULT:{:^81}\n'
 						string += DIVIDER+'\n'
 						string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'

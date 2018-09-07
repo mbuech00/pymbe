@@ -107,8 +107,6 @@ def _table(info, mpi, mol, calc, exp):
 			with contextlib.redirect_stdout(f):
 				_summary_prt(info, mol, calc, exp)
 				_timings_prt(info, calc, exp)
-				if mpi.parallel:
-					_distrib_prt(info, mpi, calc, exp)
 				if calc.target['energy']:
 					_energy_prt(info, calc, exp)
 				if calc.target['excitation']:
@@ -179,13 +177,19 @@ def _ref(mol, calc):
 		elif calc.ref['method'] == 'casci':
 			return 'CASCI'
 		elif calc.ref['method'] == 'casscf':
-			if calc.state['root'] == 0:
+			if calc.ref['root'] == 0:
 				return 'CASSCF'
 			else:
-				if calc.ref['specific']:
-					return 'SS-CASSCF'
-				else:
-					return 'SA-CASSCF'
+				for i in range(calc.ref['root']+1):
+					if calc.ref['weights'][i] > 0.0:
+						weight = '{:.2f}'.format(calc.ref['weights'][i])[-3:]
+					else:
+						weight = '-'
+					if i == 0:
+						weights = weight
+					else:
+						weights += '/'+weight
+				return 'CASSCF('+weights+')'
 
 
 def _base(calc):
@@ -198,7 +202,10 @@ def _base(calc):
 
 def _prot(calc):
 		""" protocol print """
-		return calc.prot['scheme']
+		if calc.extra['filter'] is not None:
+			return calc.prot['scheme']+' ('+calc.extra['filter']+')'
+		else:
+			return calc.prot['scheme']
 
 
 def _system(mol, calc):
@@ -407,12 +414,7 @@ def _timings_prt(info, calc, exp):
 		print(DIVIDER[:98])
 		calcs = 0
 		for i in range(info['final_order']):
-			if calc.target['energy']:
-				calc_i = np.count_nonzero(exp.prop['energy']['inc'][i])
-			elif calc.target['excitation']:
-				calc_i = np.count_nonzero(exp.prop['excitation']['inc'][i])
-			elif calc.target['dipole']:
-				calc_i = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][i], axis=1))
+			calc_i = exp.count[i]
 			calcs += calc_i
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:2}{5:>13s}{6:4}{7:1}{8:2}{9:>13s}{10:4}{11:1}'
 					'{12:2}{13:>13s}{14:4}{15:1}{16:5}{17:>9d}'. \
@@ -430,37 +432,6 @@ def _timings_prt(info, calc, exp):
 					'','|','',_time(exp, 'tot_sum', -1), \
 					'','|','',calcs))
 		print(DIVIDER[:98]+'\n')
-
-
-def _distrib_prt(info, mpi, calc, exp):
-		""" distribution statistics """
-		print(DIVIDER[:47])
-		print('{0:^49}'.format('MBE distribution statistics'))
-		print(DIVIDER[:47])
-		print('{0:6}{1:9}{2:2}{3:1}{4:3}{5:}'.\
-				format('','MBE order','','|','','MPI distribution (in %)'))
-		print(DIVIDER[:47])
-		calcs = 0
-		for i in range(info['final_order']):
-			if calc.target['energy']:
-				calc_i = np.count_nonzero(exp.prop['energy']['inc'][i])
-			elif calc.target['excitation']:
-				calc_i = np.count_nonzero(exp.prop['excitation']['inc'][i])
-			elif calc.target['dipole']:
-				calc_i = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][i], axis=1))
-			theo = calc_i / (mpi.local_size - 1)
-			calcs += calc_i
-			count = exp.distrib[i, :]
-			distrib = '{0:.1f} +/- {1:.1f}'.format(np.mean((count / theo) * 100.), \
-													np.std((count / theo) * 100., ddof=1))
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:7}{5:}'.format('',i+exp.start_order,'','|','',distrib))
-		print(DIVIDER[:47])
-		theo = calcs / (mpi.local_size - 1)
-		count = np.sum(exp.distrib, axis=0)
-		distrib = '{0:.1f} +/- {1:.1f}'.format(np.mean((count / theo) * 100.), \
-												np.std((count / theo) * 100., ddof=1))
-		print('{0:8}{1:5s}{2:4}{3:1}{4:7}{5:}'.format('','total','','|','',distrib))
-		print(DIVIDER[:47]+'\n')
 
 
 def _energy_prt(info, calc, exp):

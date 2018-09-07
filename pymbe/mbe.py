@@ -12,6 +12,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
+from pyscf import symm
 import sys
 import itertools
 import scipy.misc
@@ -106,23 +107,33 @@ def _serial(mpi, mol, calc, exp):
 		""" serial version """
 		# start time
 		time = MPI.Wtime()
+		# init counter
+		exp.count.append(0)
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			skip = False
 			# lz check
 			if calc.extra['lz_sym']:
 				exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
-				orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
-				pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-				pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
-				pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
-				if pi_orbs.size % 2 > 0:
+				lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
+				pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
+				if pi_orbs_g.size % 2 > 0:
 					skip = True
-				if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
+				elif pi_orbs_g.size > 0:
+					g_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
+					if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
+						skip = True
+				pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
+				if pi_orbs_u.size % 2 > 0:
 					skip = True
+				elif pi_orbs_u.size > 0:
+					u_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
+					if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
+						skip = True
 			if not skip:
 				# calculate increments
 				_calc(mpi, mol, calc, exp, i)
+				exp.count[-1] += 1
 				# print status
 				output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
 		# collect time
@@ -138,7 +149,9 @@ def _master(mpi, mol, calc, exp):
 		comm.bcast(msg, root=0)
 		# start time
 		time = MPI.Wtime()
-		num_slaves = slaves_avail = mpi.local_size - 1
+		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
+		# init counter
+		exp.count.append(0)
 		# start index
 		i = 0
 		# init request
@@ -151,14 +164,21 @@ def _master(mpi, mol, calc, exp):
 				# lz check
 				if calc.extra['lz_sym']:
 					exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
-					orbs = np.array([tools.LZMAP[i] for i in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
-					pi_orbs = orbs[np.where(np.abs(orbs) > 2)]
-					pi_orbs_x = pi_orbs[np.where(pi_orbs > 0)]
-					pi_orbs_y = pi_orbs[np.where(pi_orbs < 0)]
-					if pi_orbs.size % 2 > 0:
+					lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
+					pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
+					if pi_orbs_g.size % 2 > 0:
 						skip = True
-					if not np.array_equal(np.abs(pi_orbs_x), np.abs(pi_orbs_y)):
+					elif pi_orbs_g.size > 0:
+						g_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
+						if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
+							skip = True
+					pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
+					if pi_orbs_u.size % 2 > 0:
 						skip = True
+					elif pi_orbs_u.size > 0:
+						u_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
+						if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
+							skip = True
 				if not skip:
 					# probe for available slaves
 					if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
@@ -168,6 +188,7 @@ def _master(mpi, mol, calc, exp):
 						comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 						# increment index
 						i += 1
+						exp.count[-1] += 1
 						# wait for completion
 						req.Wait()
 				else:
@@ -187,17 +208,6 @@ def _master(mpi, mol, calc, exp):
 					if slaves_avail == 0:
 						# exit loop
 						break
-		# collect distribution statistics from participating slaves
-		slaves_avail = num_slaves
-		exp.distrib.append(np.empty(slaves_avail, dtype=np.int32))
-		count = np.empty(1, dtype=np.int32)
-		while slaves_avail > 0:
-			# probe for source
-			comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.collect, status=mpi.stat)
-			comm.Recv(count, source=mpi.stat.source, tag=TAGS.collect)
-			# add slave count
-			exp.distrib[-1][mpi.stat.source-1] = count[0]
-			slaves_avail -= 1
 		# allreduce properties
 		parallel.prop(calc, exp, comm)
 		# collect time
@@ -211,9 +221,13 @@ def _slave(mpi, mol, calc, exp):
 		# init idx
 		idx = np.empty(1, dtype=np.int32)
 		# send availability to master
-		comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+		if mpi.local_rank <= len(exp.tuples[-1]):
+			comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
+			# early exit in case of large proc count
+			if mpi.local_rank > len(exp.tuples[-1]):
+				break
 			# receive index
 			comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
 			# do job
@@ -223,14 +237,6 @@ def _slave(mpi, mol, calc, exp):
 				# calculate increments
 				_calc(mpi, mol, calc, exp, idx[0])
 			elif mpi.stat.tag == TAGS.exit:
-				# send distribution statistics to master
-				if calc.target['energy']:
-					distrib = np.count_nonzero(exp.prop['energy']['inc'][-1])
-				elif calc.target['excitation']:
-					distrib = np.count_nonzero(exp.prop['excitation']['inc'][-1])
-				elif calc.target['dipole']:
-					distrib = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][-1], axis=1))
-				comm.Send([np.array([distrib], dtype=np.int32), MPI.INT], dest=0, tag=TAGS.collect)
 				break
 		# receive properties
 		parallel.prop(calc, exp, comm)
@@ -295,8 +301,13 @@ def _inc(mpi, mol, calc, exp, tup):
 					inc['trans'] = inc['trans'] - res['trans']
 		# debug print
 		if mol.debug:
+			core_lst = exp.core_idx.tolist()
+			core_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.core_idx]]
+			cas_lst = [calc.map[i] for i in exp.cas_idx]
+			cas_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx]]
 			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
-			form = (mpi.local_rank, exp.core_idx.tolist(), np.array([calc.map[i] for i in exp.cas_idx]).tolist())
+			string += '      core-sym = {:} , cas-sym = {:}\n'
+			form = (mpi.local_rank, core_lst, cas_lst, core_sym, cas_sym)
 			if calc.target['energy']:
 				string += '      correlation energy increment for state {:} = {:.4e}\n'
 				form += (calc.state['root'], inc['energy'],)

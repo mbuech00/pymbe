@@ -26,27 +26,7 @@ LZMAP = (
  UNDEF,  # 4  A2u
  2    ,  # 5  A1u
 -6    ,  # 6  E1uy
- 6    ,  # 7  E1ux
- UNDEF,  # 8
- UNDEF,  # 9
- 7    ,  # 10 E2gx
--7    ,  # 11 E2gy
- 9    ,  # 12 E3gx
--9    ,  # 13 E3gy
--8    ,  # 14 E2uy
- 8    ,  # 15 E2ux
--10   ,  # 16 E3uy
- 10   ,  # 17 E3ux
- UNDEF,  # 18
- UNDEF,  # 19
- 11   ,  # 20 E4gx
--11   ,  # 21 E4gy
- 13   ,  # 22 E5gx
--13   ,  # 23 E5gy
--12   ,  # 24 E4uy
- 12   ,  # 25 E4ux
--14   ,  # 26 E5uy
- 14   ,  # 27 E5ux
+ 6       # 7  E1ux
 )
 
 
@@ -123,5 +103,19 @@ def git_version():
 def get_pymbe_path():
 		""" return path to pymbe """
 		return os.path.dirname(os.path.realpath(sys.argv[0]))
+
+
+def filter(c, f):
+		""" return result of filter condition """
+		cond = False
+		if f == 'c2_sg+':
+			# C2 Sigma^+_g state
+			if np.abs(c[1, 1]) - np.abs(c[2, 2]) < 1.0e-05 and np.sign(c[1, 1]) == np.sign(c[2, 2]):
+				cond = True
+		elif f == 'c2_dg':
+			# C2 Delta_g state
+			if np.abs(c[1, 1]) - np.abs(c[2, 2]) < 1.0e-05 and np.sign(c[1, 1]) != np.sign(c[2, 2]):
+				cond = True
+		return cond
 
 
