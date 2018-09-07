@@ -192,7 +192,7 @@ def _ref(mol, calc):
 							weights = weight
 						else:
 							weights += '/'+weight
-					return 'CASSCF-'+weights
+					return 'CASSCF('+weights+')'
 
 
 def _base(calc):

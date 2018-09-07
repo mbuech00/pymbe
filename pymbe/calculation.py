@@ -29,7 +29,7 @@ class CalcCls():
 				self.model = {'method': 'fci', 'type': 'virt'}
 				self.target = {'energy': True, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
-				self.ref = {'method': 'hf', 'specific': True, 'weights': None}
+				self.ref = {'method': 'hf', 'specific': True, 'weights': None, 'hf_guess': True}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
 				self.extra = {'hf_guess': True, 'lz_sym': False, 'filter': None}
@@ -99,6 +99,8 @@ class CalcCls():
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										self.ref[key] = val
+									if self.ref['weights'] is not None:
+										self.ref['specific'] = False
 								# base
 								elif re.split('=',content[i])[0].strip() == 'base':
 									try:
@@ -224,6 +226,8 @@ class CalcCls():
 							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must correspond to requested root + 1')
 						if np.sum(self.ref['weights']) != 1.0:
 							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must add up to 1.0')
+					if not isinstance(self.ref['hf_guess'], bool):
+						raise ValueError('wrong input -- HF initial guess for CASSCF calc (hf_guess) must be a bool')
 					# base model
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
