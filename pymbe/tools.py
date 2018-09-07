@@ -110,14 +110,12 @@ def filter(c, f):
 		cond = False
 		if f == 'c2_sg+':
 			# C2 Sigma^+_g state
-			if np.abs(c[1, 1]) - np.abs(c[2, 2]) < 1.0e-04:
-				if np.sign(c[1, 1]) * np.sign(c[2, 2]) > 0:
-					cond = True
+			if np.abs(c[1, 1]) - np.abs(c[2, 2]) < 1.0e-05 and np.sign(c[1, 1]) == np.sign(c[2, 2]):
+				cond = True
 		elif f == 'c2_dg':
 			# C2 Delta_g state
-			if np.abs(c[1, 1]) - np.abs(c[2, 2]) < 1.0e-04:
-				if np.sign(c[1, 1]) * np.sign(c[2, 2]) < 0:
-					cond = True
+			if np.abs(c[1, 1]) - np.abs(c[2, 2]) < 1.0e-05 and np.sign(c[1, 1]) != np.sign(c[2, 2]):
+				cond = True
 		return cond
 
 
