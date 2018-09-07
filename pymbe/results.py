@@ -185,13 +185,13 @@ def _ref(mol, calc):
 				else:
 					for i in range(calc.state['root']+1):
 						if calc.ref['weights'][i] > 0.0:
-							weight = '{:.2f}'.format(calc.ref['weights'][i])
+							weight = '{:.2f}'.format(calc.ref['weights'][i])[-3:]
 						else:
-							weight = '0.'
+							weight = '-'
 						if i == 0:
 							weights = weight
 						else:
-							weights += ','+weight
+							weights += '/'+weight
 					return 'CASSCF-'+weights
 
 

@@ -222,6 +222,8 @@ class CalcCls():
 							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must be list/tuple')
 						if len(self.ref['weights']) != (self.state['root'] + 1):
 							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must correspond to requested root + 1')
+						if np.sum(self.ref['weights']) != 1.0:
+							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must add up to 1.0')
 					# base model
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
