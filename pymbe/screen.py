@@ -79,60 +79,51 @@ def _master(mpi, mol, calc, exp):
 		msg = {'task': 'screen', 'order': exp.order, 'thres': exp.thres}
 		# set communicator
 		comm = mpi.local_comm
-		# set number of workers
-		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
 		# bcast
 		comm.bcast(msg, root=0)
+		# init job_idx array and child_tup/child_hash lists
+		job_idx = np.empty(2, dtype=np.int32)
+		child_tup = []; child_hash = []
+		# base number of tasks and remainder
+		base = len(exp.tuples[-1]) // mpi.local_size
+		remain = len(exp.tuples[-1]) % mpi.local_size
 		# start index
 		i = 0
-		# init request
-		req = MPI.Request()
 		# start time
 		time = MPI.Wtime()
-		# loop until no tasks left
-		while True:
-			# probe for available slaves
-			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# receive slave status
-				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
-				# any tasks left?
-				if i < len(exp.tuples[-1]) and exp.count[-1] > 0:
+		# loop over all procs
+		for n, p in enumerate(range(mpi.local_size-1, -1, -1)):
+			# any tasks left?
+			if i < len(exp.tuples[-1]) and exp.count[-1] > 0:
+				# compute indices
+				job_idx[0] = i
+				job_idx[1] = min(i + (base+1) if n < remain else i + base, len(exp.tuples[-1]))
+				# slave or master
+				if p > 0:
 					# send index
-					comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-					# increment index
-					i += 1
-					# wait for completion
-					req.Wait()
+					comm.Send([job_idx, MPI.INT], dest=p, tag=TAGS.start)
 				else:
-					# send exit signal
-					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
-					# remove slave
-					slaves_avail -= 1
-					# wait for completion
-					req.Wait()
-					# any slaves left?
-					if slaves_avail == 0:
-						# exit loop
-						break
-		# allgather tuples
-		recv_counts = np.array(comm.allgather(0), dtype=np.int32)
-		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
-		comm.Allgatherv(np.array([], dtype=np.int32), [tuples, recv_counts])
-		tuples = tuples.reshape(-1, exp.order+1)
-		if tuples.shape[0] > 0:
-			# allgather hashes
-			recv_counts = np.array(comm.allgather(0), dtype=np.int64)
-			hashes = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int64)
-			comm.Allgatherv(np.array([], dtype=np.int64), [hashes, recv_counts])
-			# sort wrt hashes
-			tuples = tuples[hashes.argsort()]
-			# sort hashes
-			hashes.sort()
-			# append tuples and hashes
-			exp.tuples.append(tuples)
-			exp.hashes.append(hashes)
-		else:
-			exp.tuples.append(np.array([], dtype=np.int32))
+					# compute child tuples/hashes
+					for idx in range(job_idx[0], job_idx[1]):
+						lst = _test(calc, exp, exp.tuples[-1][idx])
+						parent_tup = exp.tuples[-1][idx].tolist()
+						for m in lst:
+							if calc.model['type'] == 'occ':
+								tup = [m]+parent_tup
+							elif calc.model['type'] == 'virt':
+								tup = parent_tup+[m]
+							child_tup += tup
+							child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+				i = job_idx[1]
+			else:
+				# send exit signal
+				if p > 0:
+					comm.Send([None, MPI.INT], dest=p, tag=TAGS.exit)
+		# allgatherv tuples/hashes
+		tuples, hashes = parallel.screen(child_tup, child_hash, exp.order, comm)
+		# append tuples and hashes
+		exp.tuples.append(tuples)
+		exp.hashes.append(hashes)
 		# collect time
 		exp.time['screen'].append(MPI.Wtime() - time)
 
@@ -141,25 +132,16 @@ def _slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# set communicator
 		comm = mpi.local_comm
-		# init idx array and child_tup/child_hash lists
-		idx = np.empty(1, dtype=np.int32)
+		# init job_idx array and child_tup/child_hash lists
+		job_idx = np.empty(2, dtype=np.int32)
 		child_tup = []; child_hash = []
-		# send availability to master
-		if mpi.local_rank <= len(exp.tuples[-1]):
-			comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
-		while True:
-			# early exit in case of large proc count
-			if mpi.local_rank > len(exp.tuples[-1]):
-				break
-			# receive index
-			comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
-			# do job
-			if mpi.stat.tag == TAGS.start:
-				# send availability to master
-				comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-				lst = _test(calc, exp, exp.tuples[-1][idx[0]])
-				parent_tup = exp.tuples[-1][idx[0]].tolist()
+		comm.Recv([job_idx, MPI.INT], source=0, status=mpi.stat)
+		# compute child tuples/hashes
+		if mpi.stat.tag == TAGS.start:
+			for idx in range(job_idx[0], job_idx[1]):
+				lst = _test(calc, exp, exp.tuples[-1][idx])
+				parent_tup = exp.tuples[-1][idx].tolist()
 				for m in lst:
 					if calc.model['type'] == 'occ':
 						tup = [m]+parent_tup
@@ -167,27 +149,11 @@ def _slave(mpi, mol, calc, exp):
 						tup = parent_tup+[m]
 					child_tup += tup
 					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-			elif mpi.stat.tag == TAGS.exit:
-				break
-		# allgather tuples
-		child_tup = np.asarray(child_tup, dtype=np.int32)
-		recv_counts = np.array(comm.allgather(child_tup.size), dtype=np.int32)
-		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
-		comm.Allgatherv(child_tup, [tuples, recv_counts])
-		tuples = tuples.reshape(-1, exp.order+1)
-		if tuples.shape[0] > 0:
-			# allgather hashes
-			child_hash = np.asarray(child_hash, dtype=np.int64)
-			recv_counts = np.array(comm.allgather(child_hash.size), dtype=np.int32)
-			hashes = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int64)
-			comm.Allgatherv(child_hash, [hashes, recv_counts])
-			# sort wrt hashes
-			tuples = tuples[hashes.argsort()]
-			# sort hashes
-			hashes.sort()
-			# append tuples and hashes
-			exp.tuples.append(tuples)
-			exp.hashes.append(hashes)
+		# allgatherv tuples/hashes
+		tuples, hashes = parallel.screen(child_tup, child_hash, exp.order, comm)
+		# append tuples and hashes
+		exp.tuples.append(tuples)
+		exp.hashes.append(hashes)
 
 
 def _test(calc, exp, tup):

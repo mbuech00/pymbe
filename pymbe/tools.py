@@ -105,6 +105,13 @@ def get_pymbe_path():
 		return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
+def tasks(n_tasks, procs):
+		""" determine mpi batch sizes """
+		base = n_tasks // procs
+		remain = n_tasks % procs
+		return [base + 1 if i < remain else base for i in range(procs)]
+
+
 def filter(c, f):
 		""" return result of filter condition """
 		cond = False

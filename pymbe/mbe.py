@@ -209,7 +209,14 @@ def _master(mpi, mol, calc, exp):
 						# exit loop
 						break
 		# allreduce properties
-		parallel.prop(calc, exp, comm)
+		if calc.target['energy']:
+			parallel.mbe(exp.prop['energy']['inc'][-1], comm)
+		if calc.target['excitation']:
+			parallel.mbe(exp.prop['excitation']['inc'][-1], comm)
+		if calc.target['dipole']:
+			parallel.mbe(exp.prop['dipole']['inc'][-1], comm)
+		if calc.target['trans']:
+			parallel.mbe(exp.prop['trans']['inc'][-1], comm)
 		# collect time
 		exp.time['mbe'].append(MPI.Wtime() - time)
 
@@ -238,8 +245,15 @@ def _slave(mpi, mol, calc, exp):
 				_calc(mpi, mol, calc, exp, idx[0])
 			elif mpi.stat.tag == TAGS.exit:
 				break
-		# receive properties
-		parallel.prop(calc, exp, comm)
+		# allreduce properties
+		if calc.target['energy']:
+			parallel.mbe(exp.prop['energy']['inc'][-1], comm)
+		if calc.target['excitation']:
+			parallel.mbe(exp.prop['excitation']['inc'][-1], comm)
+		if calc.target['dipole']:
+			parallel.mbe(exp.prop['dipole']['inc'][-1], comm)
+		if calc.target['trans']:
+			parallel.mbe(exp.prop['trans']['inc'][-1], comm)
 
 
 def _calc(mpi, mol, calc, exp, idx):
