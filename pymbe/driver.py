@@ -110,7 +110,6 @@ def slave(mpi, mol, calc, exp):
 			#
 			elif msg['task'] == 'screen':
 				exp.order = msg['order']
-				exp.thres = msg['thres']
 				screen.main(mpi, mol, calc, exp)
 			#
 			#** exit **#

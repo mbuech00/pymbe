@@ -31,12 +31,7 @@ def main(mpi, mol, calc, exp):
 		if mpi.global_master: output.screen_header(exp, exp.thres)
 		# mpi parallel or serial version
 		if mpi.parallel:
-			if mpi.global_master:
-				_master(mpi, mol, calc, exp)
-				# update expansion threshold
-				exp.thres = update(calc, exp)
-			else:
-				_slave(mpi, mol, calc, exp)
+			_parallel(mpi, mol, calc, exp)
 		else:
 			_serial(mol, calc, exp)
 
@@ -73,87 +68,45 @@ def _serial(mol, calc, exp):
 			exp.tuples.append(np.array([], dtype=np.int32))
 
 
-def _master(mpi, mol, calc, exp):
-		""" master routine """
-		# wake up slaves
-		msg = {'task': 'screen', 'order': exp.order, 'thres': exp.thres}
+def _parallel(mpi, mol, calc, exp):
+		""" parallel routine """
+		if mpi.global_master:
+			if exp.count[-1] == 0:
+				# converged
+				exp.tuples.append(np.array([], dtype=np.int32).reshape(-1, exp.order+1))
+				exp.time['screen'].append(0.0)
+				return
 		# set communicator
 		comm = mpi.local_comm
-		# bcast
-		comm.bcast(msg, root=0)
-		# init job_idx array and child_tup/child_hash lists
-		job_idx = np.empty(2, dtype=np.int32)
+		# wake up slaves
+		if mpi.global_master:
+			msg = {'task': 'screen', 'order': exp.order}
+			# bcast
+			comm.bcast(msg, root=0)
+		# init child_tup/child_hash lists
 		child_tup = []; child_hash = []
-		# base number of tasks and remainder
-		base = len(exp.tuples[-1]) // mpi.local_size
-		remain = len(exp.tuples[-1]) % mpi.local_size
-		# start index
-		i = 0
+		# task list
+		tasks = np.array_split(np.arange(len(exp.tuples[-1])), mpi.local_size)
 		# start time
-		time = MPI.Wtime()
-		# loop over all procs
-		for n, p in enumerate(range(mpi.local_size-1, -1, -1)):
-			# any tasks left?
-			if i < len(exp.tuples[-1]) and exp.count[-1] > 0:
-				# compute indices
-				job_idx[0] = i
-				job_idx[1] = min(i + (base+1) if n < remain else i + base, len(exp.tuples[-1]))
-				# slave or master
-				if p > 0:
-					# send index
-					comm.Send([job_idx, MPI.INT], dest=p, tag=TAGS.start)
-				else:
-					# compute child tuples/hashes
-					for idx in range(job_idx[0], job_idx[1]):
-						lst = _test(calc, exp, exp.tuples[-1][idx])
-						parent_tup = exp.tuples[-1][idx].tolist()
-						for m in lst:
-							if calc.model['type'] == 'occ':
-								tup = [m]+parent_tup
-							elif calc.model['type'] == 'virt':
-								tup = parent_tup+[m]
-							child_tup += tup
-							child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-				i = job_idx[1]
-			else:
-				# send exit signal
-				if p > 0:
-					comm.Send([None, MPI.INT], dest=p, tag=TAGS.exit)
+		if mpi.global_master: time = MPI.Wtime()
+		# compute child tuples/hashes
+		for idx in tasks[mpi.local_rank]:
+			lst = _test(calc, exp, exp.tuples[-1][idx])
+			parent_tup = exp.tuples[-1][idx].tolist()
+			for m in lst:
+				if calc.model['type'] == 'occ':
+					tup = [m]+parent_tup
+				elif calc.model['type'] == 'virt':
+					tup = parent_tup+[m]
+				child_tup += tup
+				child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 		# allgatherv tuples/hashes
 		tuples, hashes = parallel.screen(child_tup, child_hash, exp.order, comm)
 		# append tuples and hashes
 		exp.tuples.append(tuples)
 		exp.hashes.append(hashes)
 		# collect time
-		exp.time['screen'].append(MPI.Wtime() - time)
-
-
-def _slave(mpi, mol, calc, exp):
-		""" slave routine """
-		# set communicator
-		comm = mpi.local_comm
-		# init job_idx array and child_tup/child_hash lists
-		job_idx = np.empty(2, dtype=np.int32)
-		child_tup = []; child_hash = []
-		# receive work from master
-		comm.Recv([job_idx, MPI.INT], source=0, status=mpi.stat)
-		# compute child tuples/hashes
-		if mpi.stat.tag == TAGS.start:
-			for idx in range(job_idx[0], job_idx[1]):
-				lst = _test(calc, exp, exp.tuples[-1][idx])
-				parent_tup = exp.tuples[-1][idx].tolist()
-				for m in lst:
-					if calc.model['type'] == 'occ':
-						tup = [m]+parent_tup
-					elif calc.model['type'] == 'virt':
-						tup = parent_tup+[m]
-					child_tup += tup
-					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-		# allgatherv tuples/hashes
-		tuples, hashes = parallel.screen(child_tup, child_hash, exp.order, comm)
-		# append tuples and hashes
-		exp.tuples.append(tuples)
-		exp.hashes.append(hashes)
+		if mpi.global_master: exp.time['screen'].append(MPI.Wtime() - time)
 
 
 def _test(calc, exp, tup):
