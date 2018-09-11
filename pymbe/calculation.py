@@ -36,7 +36,7 @@ class CalcCls():
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
-				self.mpi = {'masters': 1}
+				self.mpi = {'masters': 1, 'task_size': 3}
 				# init mo
 				self.mo = None
 				# set calculation parameters
@@ -321,6 +321,10 @@ class CalcCls():
 					else:
 						if self.mpi['masters'] > 1:
 							raise ValueError('wrong input -- local masters requested in mpi dict (mpi), but non-mpi run requested')
+					if not isinstance(self.mpi['task_size'], int):
+						raise ValueError('wrong input -- size of mpi tasks (task_size) must be an int')
+					if self.mpi['task_size'] < 1:
+						raise ValueError('wrong input -- size of mpi tasks (task_size) must be an int >= 1')
 				except Exception as err:
 					sys.stderr.write('\n{:}\n\n'.format(err))
 					raise
