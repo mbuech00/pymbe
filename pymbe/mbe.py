@@ -111,27 +111,8 @@ def _serial(mpi, mol, calc, exp):
 		exp.count.append(0)
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
-			skip = False
-			# lz check
-			if calc.extra['lz_sym']:
-				exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
-				lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
-				pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
-				if pi_orbs_g.size % 2 > 0:
-					skip = True
-				elif pi_orbs_g.size > 0:
-					g_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
-					if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
-						skip = True
-				pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
-				if pi_orbs_u.size % 2 > 0:
-					skip = True
-				elif pi_orbs_u.size > 0:
-					u_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
-					if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
-						skip = True
-			if not skip:
-				# calculate increments
+			# calculate increments
+			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and _lz_check(mol, calc, exp, i)):
 				_calc(mpi, mol, calc, exp, i)
 				exp.count[-1] += 1
 				# print status
@@ -150,54 +131,25 @@ def _master(mpi, mol, calc, exp):
 		# start time
 		time = MPI.Wtime()
 		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
-		# init counter
-		exp.count.append(0)
 		# start index
 		i = 0
 		# init request
 		req = MPI.Request()
 		# loop until no tasks left
 		while True:
-			# any tasks left?
-			if i < len(exp.tuples[-1]):
-				skip = False
-				# lz check
-				if calc.extra['lz_sym']:
-					exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][i])[-1]
-					lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
-					pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
-					if pi_orbs_g.size % 2 > 0:
-						skip = True
-					elif pi_orbs_g.size > 0:
-						g_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
-						if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
-							skip = True
-					pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
-					if pi_orbs_u.size % 2 > 0:
-						skip = True
-					elif pi_orbs_u.size > 0:
-						u_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
-						if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
-							skip = True
-				if not skip:
-					# probe for available slaves
-					if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-						# receive slave status
-						req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
-						# send index
-						comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-						# increment index
-						i += 1
-						exp.count[-1] += 1
-						# wait for completion
-						req.Wait()
-				else:
+			# probe for available slaves
+			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+				# receive slave status
+				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
+				# any tasks left?
+				if i < len(exp.tuples[-1]):
+					# send index
+					comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					# increment index
 					i += 1
-			else:
-				# probe for available slaves
-				if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-					# receive slave status
-					req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
+					# wait for completion
+					req.Wait()
+				else:
 					# send exit signal
 					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
@@ -208,15 +160,25 @@ def _master(mpi, mol, calc, exp):
 					if slaves_avail == 0:
 						# exit loop
 						break
+		# init counter
+		exp.count.append(0)
 		# allreduce properties
 		if calc.target['energy']:
 			parallel.mbe(exp.prop['energy']['inc'][-1], comm)
+			if exp.count[-1] == 0:
+				exp.count[-1] = np.count_nonzero(exp.prop['energy']['inc'][-1])
 		if calc.target['excitation']:
 			parallel.mbe(exp.prop['excitation']['inc'][-1], comm)
+			if exp.count[-1] == 0:
+				exp.count[-1] = np.count_nonzero(exp.prop['excitation']['inc'][-1])
 		if calc.target['dipole']:
 			parallel.mbe(exp.prop['dipole']['inc'][-1], comm)
+			if exp.count[-1] == 0:
+				exp.count[-1] = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][-1], axis=1))
 		if calc.target['trans']:
 			parallel.mbe(exp.prop['trans']['inc'][-1], comm)
+			if exp.count[-1] == 0:
+				exp.count[-1] = np.count_nonzero(np.count_nonzero(exp.prop['trans']['inc'][-1], axis=1))
 		# collect time
 		exp.time['mbe'].append(MPI.Wtime() - time)
 
@@ -242,7 +204,8 @@ def _slave(mpi, mol, calc, exp):
 				# send availability to master
 				comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 				# calculate increments
-				_calc(mpi, mol, calc, exp, idx[0])
+				if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and _lz_check(mol, calc, exp, idx[0])):
+					_calc(mpi, mol, calc, exp, idx[0])
 			elif mpi.stat.tag == TAGS.exit:
 				break
 		# allreduce properties
@@ -383,5 +346,28 @@ def _sum(calc, exp, tup, prop):
 			elif prop == 'trans':
 				res['trans'] += tools.fsum(exp.prop['trans']['inc'][i-1][indx, :])
 		return res
+
+
+def _lz_check(mol, calc, exp, idx):
+		""" lz symmetry check """
+		allow = True
+		exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][idx])[-1]
+		lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
+		pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
+		if pi_orbs_g.size % 2 > 0:
+			allow = False
+		elif pi_orbs_g.size > 0:
+			g_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
+			if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
+				allow = False
+		pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
+		if pi_orbs_u.size % 2 > 0:
+			allow = False
+		elif pi_orbs_u.size > 0:
+			u_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
+			if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
+				allow = False
+		return allow
+
 
 
