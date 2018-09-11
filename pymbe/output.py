@@ -165,7 +165,7 @@ def mbe_results(mol, calc, exp):
 							min_val[k] = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
 							max_val[k] = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
 						else:
-							mean_val[k] = min_vali[k] = max_vali[k] = 0.0
+							mean_val[k] = min_val[k] = max_val[k] = 0.0
 						string += '\n RESULT:{:^81}\n'
 						string += DIVIDER+'\n'
 						string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
