@@ -36,11 +36,11 @@ def ao_ints(mol, calc):
 			eri = _hubbard_eri(mol)
 		# dipole integrals with gauge origin at (0,0,0)
 		if calc.target['dipole'] or calc.target['trans']:
-#			# determine center of charge
-#			charge_center = (np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords()) / mol.atom_charges().sum())
-#			# compute elec_dipole
-#			with mol.with_common_origin(charge_center):
-			with mol.with_common_orig((0,0,0)):
+			# determine center of charge
+			charge_center = (np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords()) / mol.atom_charges().sum())
+			# compute elec_dipole
+			with mol.with_common_origin(charge_center):
+#			with mol.with_common_orig((0,0,0)):
 				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
 			dipole = None
@@ -133,13 +133,8 @@ def hf(mol, calc):
 				raise
 		# dipole moment
 		if calc.target['dipole']:
-			tot_dipole = hf.dip_moment(unit='au', verbose=0)
-			# nuclear dipole moment
-			charges = mol.atom_charges()
-			coords  = mol.atom_coords()
-			nuc_dipole = np.einsum('i,ix->x', charges, coords)
-			# electronic dipole moment
-			elec_dipole = nuc_dipole - tot_dipole
+			dm = hf.make_rdm1()
+			elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
 			elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
 		else:
 			elec_dipole = None
