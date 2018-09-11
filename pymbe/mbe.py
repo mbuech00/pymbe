@@ -316,7 +316,10 @@ def _inc(mpi, mol, calc, exp, tup):
 		# debug print
 		if mol.debug:
 			core_lst = exp.core_idx.tolist()
-			core_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.core_idx]]
+			if core_lst:
+				core_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.core_idx]]
+			else:
+				core_sym = []
 			cas_lst = [calc.map[i] for i in exp.cas_idx]
 			cas_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx]]
 			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
