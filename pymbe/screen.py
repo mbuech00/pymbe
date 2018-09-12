@@ -86,7 +86,7 @@ def _parallel(mpi, mol, calc, exp):
 		# init child_tup/child_hash lists
 		child_tup = []; child_hash = []
 		# task list
-		tasks = np.array_split(np.arange(len(exp.tuples[-1])), mpi.local_size)
+		tasks = tools.screen_tasks(len(exp.tuples[-1]), mpi.local_size)
 		# start time
 		if mpi.global_master: time = MPI.Wtime()
 		# compute child tuples/hashes
