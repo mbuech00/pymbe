@@ -131,28 +131,36 @@ def _master(mpi, mol, calc, exp):
 		# start time
 		time = MPI.Wtime()
 		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
-		# task list
-		n_tasks = max(1, len(exp.tuples[-1]) // calc.mpi['task_size'])
-		tasks = np.array_split(np.arange(len(exp.tuples[-1])), min(len(exp.tuples[-1]) // num_slaves, n_tasks))
+		# task list and number of tasks
+		tasks = tools.mbe_tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
+		n_tasks = len(tasks)
+		# init request
+		req = MPI.Request()
 		# loop until no tasks left
 		while True:
-			# receive slave status
-			comm.Recv([None, MPI.INT], source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-			# any tasks left?
-			if len(tasks) > 0:
-				# get task
-				task = tasks.pop(0)
-				# send index
-				comm.Send([np.asarray(task, dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-			else:
-				# send exit signal
-				comm.Send([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
-				# remove slave
-				slaves_avail -= 1
-				# any slaves left?
-				if slaves_avail == 0:
-					# exit loop
-					break
+			# probe for available slaves
+			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+				# receive slave status
+				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
+				# any tasks left?
+				if n_tasks > 0:
+					# send index
+					comm.Isend([np.asarray(tasks.pop(0), dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					# update number of tasks
+					n_tasks -= 1
+					# wait for completion
+					req.Wait()
+				else:
+					# send exit signal
+					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
+					# remove slave
+					slaves_avail -= 1
+					# wait for completion
+					req.Wait()
+					# any slaves left?
+					if slaves_avail == 0:
+						# exit loop
+						break
 		# init counter
 		exp.count.append(0)
 		# allreduce properties
@@ -182,7 +190,7 @@ def _slave(mpi, mol, calc, exp):
 		comm = mpi.local_comm
 		# send availability to master
 		if mpi.local_rank <= len(exp.tuples[-1]):
-			comm.Send([None, MPI.INT], dest=0, tag=TAGS.ready)
+			comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
 			# early exit in case of large proc count
@@ -197,12 +205,13 @@ def _slave(mpi, mol, calc, exp):
 				# receive task
 				comm.Recv([task, MPI.INT], source=0, tag=TAGS.start)
 				# loop over tasks
-				for idx in task:
+				for n, idx in enumerate(task):
+					# send availability to master
+					if n == task.size - 1:
+						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
 					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and _lz_check(mol, calc, exp, idx)):
 						_calc(mpi, mol, calc, exp, idx)
-				# send availability to master
-				comm.Send([None, MPI.INT], dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				comm.Recv([None, MPI.INT], source=0, tag=TAGS.exit)
