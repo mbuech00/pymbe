@@ -334,15 +334,14 @@ def _time(exp, comp, idx):
 			time = np.sum(exp.time['mbe']) + np.sum(exp.time['screen'])
 		hours = int(time // 3600)
 		minutes = int((time - (time // 3600) * 3600.)//60)
-		seconds = int(time - (time // 3600) * 3600. \
-						- ((time - (time // 3600) * 3600.) // 60) * 60.)
+		seconds = time - hours * 3600. - minutes * 60.
 		# init time string
 		time_str = ''
 		if hours > 0:
 			time_str += '{:}h '.format(hours)
 		if minutes > 0:
 			time_str += '{:}m '.format(minutes)
-		time_str += '{:}s'.format(seconds)
+		time_str += '{:.2f}s'.format(seconds)
 		return time_str
 
 

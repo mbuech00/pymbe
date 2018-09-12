@@ -236,34 +236,32 @@ def fund(mpi, mol, calc):
 #							exp.prop['trans'][i]['inc'].append(buff)
 
 
-def prop(calc, exp, comm):
-		""" Allreduce properties """
-		if calc.target['energy']:
-			_prop(exp.prop['energy']['inc'][-1], comm)
-		if calc.target['excitation']:
-			_prop(exp.prop['excitation']['inc'][-1], comm)
-		if calc.target['dipole']:
-			_prop(exp.prop['dipole']['inc'][-1], comm)
-		if calc.target['trans']:
-			_prop(exp.prop['trans']['inc'][-1], comm)
-
-
-def _prop(prop, comm):
+def mbe(prop, comm):
 		""" Allreduce property """
-		# Allreduce
 		comm.Allreduce(MPI.IN_PLACE, prop, op=MPI.SUM)
 
 
-def tuples(tuples, comm):
-		""" Bcast tuples """
-		# Bcast
-		comm.Bcast(tuples, root=0)
-
-
-def hashes(hashes, comm):
-		""" Bcast hashes """
-		# Bcast
-		comm.Bcast(hashes, root=0)
+def screen(child_tup, child_hash, order, comm):
+		""" Allgatherv tuples / hashes """
+		# allgatherv tuples
+		child_tup = np.asarray(child_tup, dtype=np.int32)
+		recv_counts = np.array(comm.allgather(child_tup.size), dtype=np.int32)
+		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
+		comm.Allgatherv(child_tup, [tuples, recv_counts])
+		tuples = tuples.reshape(-1, order+1)
+		if tuples.shape[0] > 0:
+			# allgatherv hashes
+			child_hash = np.asarray(child_hash, dtype=np.int64)
+			recv_counts = np.array(comm.allgather(child_hash.size), dtype=np.int64)
+			hashes = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int64)
+			comm.Allgatherv(child_hash, [hashes, recv_counts])
+			# sort wrt hashes
+			tuples = tuples[hashes.argsort()]
+			# sort hashes
+			hashes.sort()
+		else:
+			hashes = np.array([], dtype=np.int64)
+		return tuples, hashes
 
 
 def final(mpi):

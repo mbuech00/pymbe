@@ -36,7 +36,11 @@ def ao_ints(mol, calc):
 			eri = _hubbard_eri(mol)
 		# dipole integrals with gauge origin at (0,0,0)
 		if calc.target['dipole'] or calc.target['trans']:
-			with mol.with_common_orig((0,0,0)):
+			# determine center of charge
+			charge_center = (np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords()) / mol.atom_charges().sum())
+			# compute elec_dipole
+			with mol.with_common_origin(charge_center):
+#			with mol.with_common_orig((0,0,0)):
 				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
 			dipole = None
@@ -129,13 +133,8 @@ def hf(mol, calc):
 				raise
 		# dipole moment
 		if calc.target['dipole']:
-			tot_dipole = hf.dip_moment(unit='au', verbose=0)
-			# nuclear dipole moment
-			charges = mol.atom_charges()
-			coords  = mol.atom_coords()
-			nuc_dipole = np.einsum('i,ix->x', charges, coords)
-			# electronic dipole moment
-			elec_dipole = nuc_dipole - tot_dipole
+			dm = hf.make_rdm1()
+			elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
 			elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
 		else:
 			elec_dipole = None
@@ -406,19 +405,16 @@ def main(mol, calc, exp, method):
 def _dipole(mol, calc, exp, cas_rdm1, trans=False):
 		""" calculate electronic (transition) dipole moment """
 		# init (transition) rdm1
-		if not trans:
-			rdm1 = np.diag(calc.occup)
-		else:
+		if trans:
 			rdm1 = np.zeros([mol.norb, mol.norb], dtype=np.float64)
+		else:
+			rdm1 = np.diag(calc.occup)
 		# insert correlated subblock
 		rdm1[exp.cas_idx[:, None], exp.cas_idx] = cas_rdm1
-		# init elec_dipole
-		elec_dipole = np.empty(3, dtype=np.float64)
-		for i in range(3):
-			# mo ints
-			mo_ints = np.einsum('pi,pq,qj->ij', calc.mo, mol.dipole[i], calc.mo)
-			# elec dipole
-			elec_dipole[i] = np.einsum('ij,ij->', rdm1, mo_ints)
+		# ao representation
+		rdm1 = np.einsum('pi,ij,qj->pq', calc.mo, rdm1, calc.mo)
+		# compute elec_dipole
+		elec_dipole = np.einsum('xij,ji->x', mol.dipole, rdm1)
 		# remove noise
 		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
 		# 'correlation' dipole
@@ -792,7 +788,7 @@ def _prepare(mol, calc, exp):
 		""" generate input for correlated calculation """
 		# extract cas integrals and calculate core energy
 		if mol.e_core is None or exp.model['type'] == 'occ':
-			if len(exp.core_idx) > 0:
+			if exp.core_idx.size > 0:
 				core_dm = np.einsum('ip,jp->ij', calc.mo[:, exp.core_idx], calc.mo[:, exp.core_idx]) * 2
 				vj, vk = scf.hf.dot_eri_dm(mol.eri, core_dm)
 				mol.core_vhf = vj - vk * .5
