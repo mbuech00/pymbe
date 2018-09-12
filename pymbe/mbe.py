@@ -132,7 +132,8 @@ def _master(mpi, mol, calc, exp):
 		time = MPI.Wtime()
 		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
 		# task list
-		tasks = np.array_split(np.arange(len(exp.tuples[-1])), min(len(exp.tuples[-1]) // num_slaves, calc.mpi['task_size']))
+		n_tasks = max(1, len(exp.tuples[-1]) // calc.mpi['task_size'])
+		tasks = np.array_split(np.arange(len(exp.tuples[-1])), min(len(exp.tuples[-1]) // num_slaves, n_tasks))
 		# loop until no tasks left
 		while True:
 			# receive slave status
