@@ -207,14 +207,18 @@ def active(mol, calc):
 				# active electrons
 				ne_act = calc.ref['nelec']
 				# active orbs
-				no_act = len(calc.ref['select'])
+				if isinstance(calc.ref['select'], dict):
+					cas = mcscf.CASSCF(calc.hf, np.sum(list(calc.ref['select'].values())), ne_act)
+					calc.ref['select'] = mcscf.caslst_by_irrep(cas, calc.mo, calc.ref['select'], base=0)
+				calc.ref['select'] = np.asarray(calc.ref['select'])
+				no_act = calc.ref['select'].size
 				# expansion space orbs
 				if calc.model['type'] == 'occ':
-					no_exp = np.count_nonzero(np.array(calc.ref['select']) < mol.nocc)
+					no_exp = np.count_nonzero(calc.ref['select'] < mol.nocc)
 				elif calc.model['type'] == 'virt':
-					no_exp = np.count_nonzero(np.array(calc.ref['select']) >= mol.nocc)
+					no_exp = np.count_nonzero(calc.ref['select'] >= mol.nocc)
 				# sanity checks
-				assert np.count_nonzero(np.array(calc.ref['select']) < mol.ncore) == 0
+				assert np.count_nonzero(calc.ref['select'] < mol.ncore) == 0
 				assert float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[calc.ref['select']])
 			else:
 				raise NotImplementedError('AVAS scheme has been temporarily deactivated')
