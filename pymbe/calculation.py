@@ -201,8 +201,8 @@ class CalcCls():
 						if self.ref['active'] == 'manual':
 							if 'select' not in self.ref:
 								raise ValueError('wrong input -- a selection (select) of hf orbs is required for manual active space')
-							if not isinstance(self.ref['select'], list): 
-								raise ValueError('wrong input -- select key (select) for active space must be a list')
+							if not isinstance(self.ref['select'], (list, dict)): 
+								raise ValueError('wrong input -- select key (select) for active space must be a list/dict of orbitals')
 							if 'nelec' in self.ref:
 								if not isinstance(self.ref['nelec'], tuple):
 									raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
