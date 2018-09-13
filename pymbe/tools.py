@@ -105,16 +105,18 @@ def get_pymbe_path():
 		return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
-def mbe_tasks(n_tasks, num_slaves, task_size):
+def mbe_tasks(n_tuples, num_slaves, task_size):
 		""" task list for mbe phase """
-		even_div = n_tasks // num_slaves
-		manual_div = max(1, n_tasks // task_size)
-		return np.array_split(np.arange(n_tasks), min(even_div, manual_div))
+		if num_slaves * task_size < n_tuples:
+			n_tasks = n_tuples // task_size
+		else:
+			n_tasks = num_slaves
+		return np.array_split(np.arange(n_tuples), n_tasks)
 
 
-def screen_tasks(n_tasks, num_slaves):
+def screen_tasks(n_tuples, num_slaves):
 		""" task list for screen phase """
-		return np.array_split(np.arange(n_tasks), num_slaves)
+		return np.array_split(np.arange(n_tuples), num_slaves)
 
 
 def filter(c, f):
