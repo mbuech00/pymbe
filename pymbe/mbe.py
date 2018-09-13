@@ -26,7 +26,7 @@ import tools
 
 
 # mbe parameters
-TAGS = tools.enum('start', 'ready', 'exit', 'collect')
+TAGS = tools.enum('start', 'ready', 'exit')
 
 
 def main(mpi, mol, calc, exp):
@@ -130,12 +130,15 @@ def _master(mpi, mol, calc, exp):
 		comm.bcast(msg, root=0)
 		# start time
 		time = MPI.Wtime()
+		# number of slaves
 		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
 		# task list and number of tasks
 		tasks = tools.mbe_tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
 		n_tasks = len(tasks)
 		# init request
 		req = MPI.Request()
+		# start index
+		i = 0
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
@@ -143,11 +146,11 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
-				if n_tasks > 0:
+				if i < n_tasks:
 					# send index
-					comm.Isend([np.asarray(tasks.pop(0), dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-					# update number of tasks
-					n_tasks -= 1
+					comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					# increment index
+					i += 1
 					# wait for completion
 					req.Wait()
 				else:
@@ -188,33 +191,36 @@ def _slave(mpi, mol, calc, exp):
 		""" slave function """
 		# set communicator
 		comm = mpi.local_comm
+		# init idx
+		idx = np.empty(1, dtype=np.int32)
+		# number of slaves
+		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
+		# task list
+		tasks = tools.mbe_tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
 		# send availability to master
-		if mpi.local_rank <= len(exp.tuples[-1]):
+		if mpi.local_rank <= num_slaves:
 			comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
 			# early exit in case of large proc count
-			if mpi.local_rank > len(exp.tuples[-1]):
+			if mpi.local_rank > num_slaves:
 				break
-			# probe for task
-			comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+			# receive index
+			comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
-				# init task array
-				task = np.empty(mpi.stat.Get_elements(MPI.INT), dtype=np.int32)
-				# receive task
-				comm.Recv([task, MPI.INT], source=0, tag=TAGS.start)
+				# get task
+				task = tasks[idx[0]]
 				# loop over tasks
-				for n, idx in enumerate(task):
+				for n, task_idx in enumerate(task):
 					# send availability to master
 					if n == task.size - 1:
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and _lz_check(mol, calc, exp, idx)):
-						_calc(mpi, mol, calc, exp, idx)
+					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and _lz_check(mol, calc, exp, task_idx)):
+						_calc(mpi, mol, calc, exp, task_idx)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
-				comm.Recv([None, MPI.INT], source=0, tag=TAGS.exit)
 				break
 		# allreduce properties
 		if calc.target['energy']:
