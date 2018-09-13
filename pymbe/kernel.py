@@ -299,6 +299,8 @@ def ref(mol, calc, exp):
 				mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['select']], calc.mo[:, idx[inact_orb:]]))
 				calc.mo = np.asarray(mo, order='C')
 				calc.map = np.concatenate((idx[:inact_orb], calc.ref['select'], idx[inact_orb:]))
+				if mol.atom:
+					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
 			else:
 				from pyscf.mcscf import avas
 				calc.mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
