@@ -151,8 +151,7 @@ def fund(mpi, mol, calc):
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 							'occup': calc.occup, 'no_exp': calc.no_exp, \
-							'ne_act': calc.ne_act, 'no_act': calc.no_act, \
-							'map': calc.map}
+							'ne_act': calc.ne_act, 'no_act': calc.no_act}
 				mpi.global_comm.bcast(info, root=0)
 				# bcast mo
 				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
@@ -163,7 +162,6 @@ def fund(mpi, mol, calc):
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 				calc.occup = info['occup']; calc.no_exp = info['no_exp']
 				calc.ne_act = info['ne_act']; calc.no_act = info['no_act']
-				calc.map = info['map']
 				# receive mo
 				buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 				mpi.global_comm.Bcast([buff, MPI.DOUBLE], root=0)

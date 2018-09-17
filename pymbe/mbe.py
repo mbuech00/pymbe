@@ -297,7 +297,7 @@ def _inc(mpi, mol, calc, exp, tup):
 				core_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.core_idx]]
 			else:
 				core_sym = []
-			cas_lst = [calc.map[i] for i in exp.cas_idx]
+			cas_lst = [i for i in exp.cas_idx]
 			cas_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx]]
 			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
 			string += '      core-sym = {:} , cas-sym = {:}\n'
@@ -371,14 +371,14 @@ def _lz_check(mol, calc, exp, idx):
 		if pi_orbs_g.size % 2 > 0:
 			allow = False
 		elif pi_orbs_g.size > 0:
-			g_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
+			g_orbs = np.array([x for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
 			if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
 				allow = False
 		pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
 		if pi_orbs_u.size % 2 > 0:
 			allow = False
 		elif pi_orbs_u.size > 0:
-			u_orbs = np.array([calc.map[x] for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
+			u_orbs = np.array([x for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
 			if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
 				allow = False
 		return allow
