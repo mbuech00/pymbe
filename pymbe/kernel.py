@@ -298,7 +298,6 @@ def ref(mol, calc, exp):
 				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
 				mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['select']], calc.mo[:, idx[inact_orb:]]))
 				calc.mo = np.asarray(mo, order='C')
-				calc.map = np.concatenate((idx[:inact_orb], calc.ref['select'], idx[inact_orb:]))
 				if mol.atom:
 					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
 			else:
@@ -315,9 +314,9 @@ def ref(mol, calc, exp):
 			if calc.target['trans']:
 				ref['trans'] = np.zeros(3, dtype=np.float64)
 			# casscf mo
-			if calc.ref['method'] == 'casscf': calc.mo = _casscf(mol, calc, exp)
+			if calc.ref['method'] == 'casscf':
+				calc.mo = _casscf(mol, calc, exp)
 		else:
-			calc.map = np.arange(mol.norb)
 			if mol.spin == 0:
 				# set properties equal to hf values
 				ref = {'base': 0.0}
