@@ -168,6 +168,10 @@ def fund(mpi, mol, calc):
 				calc.mo = buff
 		if mol.atom:
 			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
+			if calc.extra['lz_sym']:
+				mol_dooh = mol.copy()
+				mol_dooh.build(0, 0, symmetry='Dooh')
+				calc.orbsym_dooh = symm.label_orb_symm(mol_dooh, mol_dooh.irrep_id, mol_dooh.symm_orb, calc.mo)
 		else:
 			calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 

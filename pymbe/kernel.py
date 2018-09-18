@@ -251,30 +251,6 @@ def active(mol, calc):
 				except Exception as err:
 					sys.stderr.write(str(err))
 					raise
-			# lz sym check
-			if calc.extra['lz_sym']:
-				error = False
-				lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[np.asarray(calc.ref['select'])]])
-				pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
-				if pi_orbs_g.size % 2 > 0:
-					error = True
-				elif pi_orbs_g.size > 0:
-					g_orbs = np.asarray(calc.ref['select'])[np.where(np.abs(lz_orbs) == 5)]
-					if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
-						error = True
-				pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
-				if pi_orbs_u.size % 2 > 0:
-					error = True
-				elif pi_orbs_u.size > 0:
-					u_orbs = np.asarray(calc.ref['select'])[np.where(np.abs(lz_orbs) == 6)]
-					if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
-						error = True
-				if error:
-					try:
-						raise RuntimeError('\nCAS Error: Lz-symmetry error (wrong choice of space)\n\n')
-					except Exception as err:
-						sys.stderr.write(str(err))
-						raise
 			if mol.debug:
 				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
 		return ref_space, exp_space, no_exp, no_act, ne_act
@@ -436,7 +412,7 @@ def _trans(mol, calc, exp, cas_t_rdm1, hf_weight_gs, hf_weight_ex):
 def base(mol, calc, exp):
 		""" calculate base energy and mo coefficients """
 		# set core and cas spaces
-		exp.core_idx, exp.cas_idx = core_cas(mol, exp, calc.exp_space)
+		exp.core_idx, exp.cas_idx = tools.core_cas(mol, exp, calc.exp_space)
 		# init rdm1
 		rdm1 = None
 		# zeroth-order energy
@@ -780,13 +756,6 @@ def _cc(mol, calc, exp, pt=False):
 			else:
 				res['energy'] += ccsd.ccsd_t(eris=eris)
 		return res
-
-
-def core_cas(mol, exp, tup):
-		""" define core and cas spaces """
-		cas_idx = np.asarray(sorted(exp.incl_idx + sorted(tup.tolist())))
-		core_idx = np.asarray(sorted(list(set(range(mol.nocc)) - set(cas_idx))))
-		return core_idx, cas_idx
 
 
 def _prepare(mol, calc, exp):

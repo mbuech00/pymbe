@@ -112,7 +112,7 @@ def _serial(mpi, mol, calc, exp):
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate increments
-			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and _lz_check(mol, calc, exp, i)):
+			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_check(mol, calc, exp, i)):
 				_calc(mpi, mol, calc, exp, i)
 				exp.count[-1] += 1
 				# print status
@@ -217,7 +217,7 @@ def _slave(mpi, mol, calc, exp):
 					if n == task.size - 1:
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and _lz_check(mol, calc, exp, task_idx)):
+					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_check(mol, calc, exp, task_idx)):
 						_calc(mpi, mol, calc, exp, task_idx)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -249,7 +249,7 @@ def _calc(mpi, mol, calc, exp, idx):
 def _inc(mpi, mol, calc, exp, tup):
 		""" calculate increments corresponding to tup """
 		# generate input
-		exp.core_idx, exp.cas_idx = kernel.core_cas(mol, exp, tup)
+		exp.core_idx, exp.cas_idx = tools.core_cas(mol, exp, tup)
 		# perform calc
 		res = kernel.main(mol, calc, exp, calc.model['method'])
 		inc = {}
@@ -361,27 +361,6 @@ def _sum(calc, exp, tup, prop):
 				res['trans'] += tools.fsum(exp.prop['trans']['inc'][i-1][indx, :])
 		return res
 
-
-def _lz_check(mol, calc, exp, idx):
-		""" lz symmetry check """
-		allow = True
-		exp.cas_idx = kernel.core_cas(mol, exp, exp.tuples[-1][idx])[-1]
-		lz_orbs = np.array([tools.LZMAP[x] for x in calc.orbsym[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]])
-		pi_orbs_g = lz_orbs[np.where(np.abs(lz_orbs) == 5)]
-		if pi_orbs_g.size % 2 > 0:
-			allow = False
-		elif pi_orbs_g.size > 0:
-			g_orbs = np.array([x for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 5)]])
-			if np.where(np.ediff1d(g_orbs) == 1)[0].size < g_orbs.size // 2:
-				allow = False
-		pi_orbs_u = lz_orbs[np.where(np.abs(lz_orbs) == 6)]
-		if pi_orbs_u.size % 2 > 0:
-			allow = False
-		elif pi_orbs_u.size > 0:
-			u_orbs = np.array([x for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][np.where(np.abs(lz_orbs) == 6)]])
-			if np.where(np.ediff1d(u_orbs) == 1)[0].size < u_orbs.size // 2:
-				allow = False
-		return allow
 
 
 
