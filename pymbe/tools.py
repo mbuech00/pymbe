@@ -16,18 +16,18 @@ import subprocess
 import numpy as np
 import math
 
-
-UNDEF = 0
-LZMAP = (
- 1    ,  # 0  A1g
- UNDEF,  # 1  A2g
- 5    ,  # 2  E1gx
--5    ,  # 3  E1gy
- UNDEF,  # 4  A2u
- 2    ,  # 5  A1u
--6    ,  # 6  E1uy
- 6       # 7  E1ux
-)
+# array of degenerate (dooh) orbsym IDs
+# E1gx (2) , E1gy (3)
+# E1uy (6) , E1ux (7)
+# E2gx (10) , E2gy (11)
+# E3gx (12) , E3gy (13)
+# E2uy (14) , E2ux (15)
+# E3uy (16) , E3ux (17)
+# E4gx (20) , E4gy (21)
+# E5gx (22) , E5gy (23)
+# E4uy (24) , E4ux (25)
+# E5uy (26) , E5ux (27)
+DEG_ID = np.array([2, 6, 10, 12, 14, 16, 20, 22, 24, 26]) 
 
 
 def enum(*sequential, **named):
@@ -117,6 +117,33 @@ def mbe_tasks(n_tuples, num_slaves, task_size):
 def screen_tasks(n_tuples, num_slaves):
 		""" task list for screen phase """
 		return np.array_split(np.arange(n_tuples), num_slaves)
+
+
+def core_cas(mol, exp, tup):
+		""" define core and cas spaces """
+		cas_idx = np.asarray(sorted(exp.incl_idx + sorted(tup.tolist())))
+		core_idx = np.asarray(sorted(list(set(range(mol.nocc)) - set(cas_idx))))
+		return core_idx, cas_idx
+
+
+def lz_check(mol, calc, exp, idx):
+		""" lz symmetry check """
+		# get dooh orbsym IDs for expansion space
+		exp.cas_idx = core_cas(mol, exp, exp.tuples[-1][idx])[-1]
+		dooh_orbs = calc.orbsym_dooh[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]
+		# loop over IDs
+		for sym in DEG_ID:
+			# given set of x- and y-orbs
+			pi_orbs = np.where((dooh_orbs == sym) | (dooh_orbs == (sym+1)))[0]
+			if pi_orbs.size > 0:
+				# uneven number of orbs
+				if pi_orbs.size % 2 > 0:
+					return False
+				# are the (d2h) pi orbs not degenerated (i.e., not placed as successive orbs in a list rank by mo energies)
+				d2h_orbs = np.array([x for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][pi_orbs]])
+				if np.where(np.ediff1d(d2h_orbs) == 1)[0].size < d2h_orbs.size // 2:
+					return False
+		return True
 
 
 def filter(c, f):
