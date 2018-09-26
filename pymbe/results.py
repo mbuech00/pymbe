@@ -415,8 +415,8 @@ def _timings_prt(info, calc, exp):
 		for i in range(info['final_order']):
 			calc_i = exp.count[i]
 			calcs += calc_i
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:2}{5:>13s}{6:4}{7:1}{8:2}{9:>13s}{10:4}{11:1}'
-					'{12:2}{13:>13s}{14:4}{15:1}{16:5}{17:>9d}'. \
+			print('{0:7}{1:>4d}{2:6}{3:1}{4:2}{5:>15s}{6:2}{7:1}{8:2}{9:>15s}{10:2}{11:1}'
+					'{12:2}{13:>15s}{14:2}{15:1}{16:5}{17:>9d}'. \
 					format('',i+exp.start_order, \
 						'','|','',_time(exp, 'mbe', i), \
 						'','|','',_time(exp, 'screen', i), \
