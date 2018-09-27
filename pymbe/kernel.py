@@ -496,7 +496,6 @@ def _casscf(mol, calc, exp):
 				cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
 		cas.fcisolver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		cas.conv_tol = 1.0e-10
-		cas.max_stepsize = .01
 		cas.max_cycle_macro = 500
 		cas.canonicalization = False
 		# wfnsym
