@@ -505,7 +505,7 @@ def _casscf(mol, calc, exp):
 		# debug print
 		if mol.debug: cas.verbose = 4
 		# state-averaged calculation
-		if calc.ref['root'] > 0:
+		if calc.ref['weights'] is not None:
 			weights = np.array(calc.ref['weights'], dtype=np.float64)
 			cas.state_average_(weights)
 		# orbital symmetry

@@ -29,7 +29,7 @@ class CalcCls():
 				self.model = {'method': 'fci', 'type': 'virt'}
 				self.target = {'energy': True, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
-				self.ref = {'method': 'hf', 'root': 0, 'hf_guess': True, 'weights': None}
+				self.ref = {'method': 'hf', 'hf_guess': True, 'weights': None}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
 				self.extra = {'hf_guess': True, 'lz_sym': False, 'filter': None}
@@ -217,13 +217,9 @@ class CalcCls():
 							raise ValueError('wrong input -- active space choices are currently: manual and avas')
 					if not isinstance(self.ref['hf_guess'], bool):
 						raise ValueError('wrong input -- HF initial guess for CASSCF calc (hf_guess) must be a bool')
-					if self.ref['root'] > 0 and self.ref['weights'] is None:
-						raise ValueError('wrong input -- state-averaged casscf reference requires a list/tuple of weights (weights)')
 					if self.ref['weights'] is not None:
 						if not isinstance(self.ref['weights'], (list, tuple)):
 							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must be list/tuple')
-						if len(self.ref['weights']) != (self.ref['root'] + 1):
-							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must correspond to requested root + 1')
 						if np.abs(np.sum(self.ref['weights']) - 1.0) > 1.0e-03:
 							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must add up to 1.0')
 					# base model

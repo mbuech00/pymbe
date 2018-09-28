@@ -177,10 +177,10 @@ def _ref(mol, calc):
 		elif calc.ref['method'] == 'casci':
 			return 'CASCI'
 		elif calc.ref['method'] == 'casscf':
-			if calc.ref['root'] == 0:
+			if calc.ref['weights'] is None:
 				return 'CASSCF'
 			else:
-				for i in range(calc.ref['root']+1):
+				for i in range(len(calc.ref['weights'])):
 					if calc.ref['weights'][i] > 0.0:
 						weight = '{:.2f}'.format(calc.ref['weights'][i])[-3:]
 					else:
