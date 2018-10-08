@@ -222,6 +222,8 @@ class CalcCls():
 							self.ref['wfnsym'] = [self.ref['wfnsym']]
 						else:
 							self.ref['wfnsym'] = list(self.ref['wfnsym'])
+						if len(set(self.ref['wfnsym'])) > 1 or (list(set(self.ref['wfnsym']))[0] != 0 and self.ref['hf_guess']):
+							raise ValueError('wrong input -- illegal choice of ref wfnsym when enforcing hf initial guess')
 						for i in range(len(self.ref['wfnsym'])):
 							try:
 								self.ref['wfnsym'][i] = symm.addons.irrep_name2id(mol.symmetry, self.ref['wfnsym'][i])
@@ -232,6 +234,8 @@ class CalcCls():
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
 					# state
 					if mol.atom:
+						if self.state['wfnsym'] != 0 and self.extra['hf_guess']:
+							raise ValueError('wrong input -- illegal choice of state wfnsym when enforcing hf initial guess')
 						try:
 							self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
 						except Exception as err_2:
