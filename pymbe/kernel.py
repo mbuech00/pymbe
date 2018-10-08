@@ -13,6 +13,7 @@ __status__ = 'Development'
 import sys
 import os
 import shutil
+import copy
 import numpy as np
 import scipy as sp
 from functools import reduce
@@ -483,33 +484,59 @@ def _casscf(mol, calc, exp):
 		# casscf ref
 		cas = mcscf.CASSCF(calc.hf, calc.no_act, calc.ne_act)
 		# fci solver
-		if np.abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
-			if mol.symmetry:
-				cas.fcisolver = fci.direct_spin0_symm.FCI(mol)
-			else:
-				cas.fcisolver = fci.direct_spin0.FCI(mol)
-		else:
-			sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * .5
-			if mol.symmetry:
-				cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
-			else:
-				cas.fcisolver = fci.addons.fix_spin_(fci.direct_spin1.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
-		cas.fcisolver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		cas.conv_tol = 1.0e-10
 		cas.max_cycle_macro = 500
 		cas.canonicalization = False
-		# wfnsym
-		cas.fcisolver.wfnsym = calc.state['wfnsym']
 		# frozen (inactive)
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# debug print
 		if mol.debug: cas.verbose = 4
-		# state-averaged calculation
-		if calc.ref['weights'] is not None:
-			weights = np.array(calc.ref['weights'], dtype=np.float64)
-			cas.state_average_(weights)
+		# fcisolver
+		if np.abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
+			if mol.symmetry:
+				fcisolver = fci.direct_spin0_symm.FCI(mol)
+			else:
+				fcisolver = fci.direct_spin0.FCI(mol)
+		else:
+			sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * .5
+			if mol.symmetry:
+				fcisolver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
+			else:
+				fcisolver = fci.addons.fix_spin_(fci.direct_spin1.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
+		# conv_tol
+		fcisolver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		# orbital symmetry
-		cas.fcisolver.orbsym = calc.orbsym[mol.ncore:mol.ncore+calc.no_act]
+		fcisolver.orbsym = calc.orbsym[mol.ncore:mol.ncore+calc.no_act]
+		# wfnsym
+		fcisolver.wfnsym = calc.ref['wfnsym'][0]
+		# set solver
+		cas.fcisolver = fcisolver
+		# state-averaged calculation
+		if len(calc.ref['wfnsym']) > 1:
+			# weights
+			weights = np.array((1 / len(calc.ref['wfnsym']),) * len(calc.ref['wfnsym']), dtype=np.float64)
+			print('\nweights = {:}\n'.format(weights))
+			# are all states of same symmetry?
+			if len(set(calc.ref['wfnsym'])) == 1:
+				# state average
+				cas.state_average_(weights)
+			else:
+				# nroots for first fcisolver
+				fcisolver.nroots = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[0])
+				# init list of fcisolvers
+				fcisolvers = [fcisolver]
+				# loop over symmetries
+				for i in range(1, len(set(calc.ref['wfnsym']))):
+					# copy fcisolver
+					fcisolver_ = copy.copy(fcisolver)
+					# wfnsym for fcisolver_
+					fcisolver_.wfnsym = list(set(calc.ref['wfnsym']))[i]
+					# nroots for fcisolver_
+					fcisolver_.nroots = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[i])
+					# append to fcisolvers
+					fcisolvers.append(fcisolver_)
+				# state average
+				mcscf.state_average_mix_(cas, fcisolvers, weights)
 		# hf starting guess
 		if calc.ref['hf_guess']:
 			na = fci.cistring.num_strings(calc.no_act, calc.ne_act[0])
@@ -524,17 +551,6 @@ def _casscf(mol, calc, exp):
 		if not cas.converged:
 			try:
 				raise RuntimeError('\nCASSCF Error: no convergence\n\n')
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
-		# calculate spin
-		s, mult = cas.fcisolver.spin_square(cas.ci, calc.no_act, calc.ne_act)
-		# check for correct spin
-		if (mol.spin + 1) - mult > 1.0e-05:
-			try:
-				raise RuntimeError(('\nCASSCF Error: spin contamination\n'
-									'2*S + 1 = {0:.3f}\n\n').\
-									format(mult))
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise

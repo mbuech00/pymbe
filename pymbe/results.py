@@ -177,19 +177,17 @@ def _ref(mol, calc):
 		elif calc.ref['method'] == 'casci':
 			return 'CASCI'
 		elif calc.ref['method'] == 'casscf':
-			if calc.ref['weights'] is None:
+			if len(calc.ref['wfnsym']) == 1:
 				return 'CASSCF'
 			else:
-				for i in range(len(calc.ref['weights'])):
-					if calc.ref['weights'][i] > 0.0:
-						weight = '{:.2f}'.format(calc.ref['weights'][i])[-3:]
-					else:
-						weight = '-'
+				for i in range(len(set(calc.ref['wfnsym']))):
+					sym = symm.addons.irrep_id2name(mol.symmetry, list(set(calc.ref['wfnsym']))[i])
+					num = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[i])
 					if i == 0:
-						weights = weight
+						syms = str(num)+'*'+sym
 					else:
-						weights += '/'+weight
-				return 'CASSCF('+weights+')'
+						syms += '/'+sym
+				return 'CASSCF('+syms+')'
 
 
 def _base(calc):
@@ -284,7 +282,7 @@ def _symm(mol, calc):
 			if mol.atom:
 				string = symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+' ('+mol.symmetry+')'
 				if calc.extra['lz_sym']:
-					string += ' Lz'
+					string += ' + Lz'
 				return string
 			else:
 				return 'C1 (A)'
@@ -423,8 +421,8 @@ def _timings_prt(info, calc, exp):
 						'','|','',_time(exp, 'sum', i), \
 						'','|','',calc_i))
 		print(DIVIDER[:98])
-		print('{0:8}{1:5s}{2:4}{3:1}{4:2}{5:>13s}{6:4}{7:1}{8:2}{9:>13s}{10:4}{11:1}'
-				'{12:2}{13:>13s}{14:4}{15:1}{16:5}{17:>9d}'. \
+		print('{0:8}{1:5s}{2:4}{3:1}{4:2}{5:>15s}{6:2}{7:1}{8:2}{9:>15s}{10:2}{11:1}'
+				'{12:2}{13:>15s}{14:2}{15:1}{16:5}{17:>9d}'. \
 				format('','total', \
 					'','|','',_time(exp, 'tot_mbe', -1), \
 					'','|','',_time(exp, 'tot_screen', -1), \
