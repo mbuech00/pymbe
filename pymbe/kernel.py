@@ -515,7 +515,6 @@ def _casscf(mol, calc, exp):
 		if len(calc.ref['wfnsym']) > 1:
 			# weights
 			weights = np.array((1 / len(calc.ref['wfnsym']),) * len(calc.ref['wfnsym']), dtype=np.float64)
-			print('\nweights = {:}\n'.format(weights))
 			# are all states of same symmetry?
 			if len(set(calc.ref['wfnsym'])) == 1:
 				# state average
