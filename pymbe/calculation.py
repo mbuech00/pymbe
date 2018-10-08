@@ -29,7 +29,7 @@ class CalcCls():
 				self.model = {'method': 'fci', 'type': 'virt'}
 				self.target = {'energy': True, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
-				self.ref = {'method': 'hf', 'root': 0, 'hf_guess': True, 'weights': None}
+				self.ref = {'method': 'hf', 'hf_guess': True, 'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
 				self.extra = {'hf_guess': True, 'lz_sym': False, 'filter': None}
@@ -217,15 +217,16 @@ class CalcCls():
 							raise ValueError('wrong input -- active space choices are currently: manual and avas')
 					if not isinstance(self.ref['hf_guess'], bool):
 						raise ValueError('wrong input -- HF initial guess for CASSCF calc (hf_guess) must be a bool')
-					if self.ref['root'] > 0 and self.ref['weights'] is None:
-						raise ValueError('wrong input -- state-averaged casscf reference requires a list/tuple of weights (weights)')
-					if self.ref['weights'] is not None:
-						if not isinstance(self.ref['weights'], (list, tuple)):
-							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must be list/tuple')
-						if len(self.ref['weights']) != (self.ref['root'] + 1):
-							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must correspond to requested root + 1')
-						if np.abs(np.sum(self.ref['weights']) - 1.0) > 1.0e-03:
-							raise ValueError('wrong input -- weights (weights) for state-averaged casscf reference must add up to 1.0')
+					if mol.atom:
+						if isinstance(self.ref['wfnsym'], str):
+							self.ref['wfnsym'] = [self.ref['wfnsym']]
+						else:
+							self.ref['wfnsym'] = list(self.ref['wfnsym'])
+						for i in range(len(self.ref['wfnsym'])):
+							try:
+								self.ref['wfnsym'][i] = symm.addons.irrep_name2id(mol.symmetry, self.ref['wfnsym'][i])
+							except Exception as err_2:
+								raise ValueError('wrong input -- illegal choice of ref wfnsym -- PySCF error: {0:}'.format(err_2))
 					# base model
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
@@ -234,7 +235,7 @@ class CalcCls():
 						try:
 							self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
 						except Exception as err_2:
-							raise ValueError('wrong input -- illegal choice of wfnsym -- PySCF error: {0:}'.format(err_2))
+							raise ValueError('wrong input -- illegal choice of state wfnsym -- PySCF error: {0:}'.format(err_2))
 					if self.state['wfnsym'] != 0 and self.model['method'] != 'fci':
 						raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
 					if self.state['root'] < 0:

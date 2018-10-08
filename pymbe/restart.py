@@ -122,6 +122,7 @@ def read_fund(mol, calc):
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					dims = json.load(f)
 				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']; calc.no_exp = dims['no_exp']
+				mol.norb = mol.nocc + mol.nvirt
 				calc.ne_act = dims['ne_act']; calc.no_act = dims['no_act']
 			# read hf and base properties
 			elif 'energies' in files[i]:
@@ -149,8 +150,6 @@ def read_fund(mol, calc):
 			# read orbs
 			elif 'mo' in files[i]:
 				calc.mo = np.load(os.path.join(RST, files[i]))
-		# norb
-		mol.norb = mol.nocc + mol.nvirt
 
 
 def mbe_write(calc, exp):
