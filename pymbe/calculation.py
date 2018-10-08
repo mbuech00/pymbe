@@ -222,7 +222,7 @@ class CalcCls():
 							self.ref['wfnsym'] = [self.ref['wfnsym']]
 						else:
 							self.ref['wfnsym'] = list(self.ref['wfnsym'])
-						if len(set(self.ref['wfnsym'])) > 1 or (list(set(self.ref['wfnsym']))[0] != 0 and self.ref['hf_guess']):
+						if (len(set(self.ref['wfnsym'])) > 1 or list(set(self.ref['wfnsym']))[0] != 0) and self.ref['hf_guess']:
 							raise ValueError('wrong input -- illegal choice of ref wfnsym when enforcing hf initial guess')
 						for i in range(len(self.ref['wfnsym'])):
 							try:
