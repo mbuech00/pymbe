@@ -98,7 +98,14 @@ class CalcCls():
 										raise ValueError('wrong input -- values in reference dict (ref) must be strings, lists, and tuples')
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
-										self.ref[key] = val
+										if key == 'wfnsym':
+											if isinstance(val, str):
+												self.ref[key] = [val]
+											else:
+												self.ref[key] = list(val)
+											self.ref[key] = [symm.addons.std_symb(self.ref[key][j]) for j in range(len(self.ref[key]))]
+										else:
+											self.ref[key] = val
 								# base
 								elif re.split('=',content[i])[0].strip() == 'base':
 									try:
@@ -218,11 +225,7 @@ class CalcCls():
 					if not isinstance(self.ref['hf_guess'], bool):
 						raise ValueError('wrong input -- HF initial guess for CASSCF calc (hf_guess) must be a bool')
 					if mol.atom:
-						if isinstance(self.ref['wfnsym'], str):
-							self.ref['wfnsym'] = [self.ref['wfnsym']]
-						else:
-							self.ref['wfnsym'] = list(self.ref['wfnsym'])
-						if (len(set(self.ref['wfnsym'])) > 1 or list(set(self.ref['wfnsym']))[0] != 0) and self.ref['hf_guess']:
+						if self.ref['hf_guess'] and (len(set(self.ref['wfnsym'])) > 1 or list(set(self.ref['wfnsym']))[0] != symm.addons.irrep_id2name(mol.symmetry, 0)):
 							raise ValueError('wrong input -- illegal choice of ref wfnsym when enforcing hf initial guess')
 						for i in range(len(self.ref['wfnsym'])):
 							try:
@@ -234,7 +237,7 @@ class CalcCls():
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
 					# state
 					if mol.atom:
-						if self.state['wfnsym'] != 0 and self.extra['hf_guess']:
+						if self.state['wfnsym'] != symm.addons.irrep_id2name(mol.symmetry, 0) and self.extra['hf_guess']:
 							raise ValueError('wrong input -- illegal choice of state wfnsym when enforcing hf initial guess')
 						try:
 							self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
