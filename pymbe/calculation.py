@@ -29,7 +29,7 @@ class CalcCls():
 				self.model = {'method': 'fci', 'type': 'virt'}
 				self.target = {'energy': True, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
-				self.ref = {'method': 'hf', 'hf_guess': True, 'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0}
+				self.ref = {'method': 'hf', 'hf_guess': True, 'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
 				self.extra = {'hf_guess': True, 'lz_sym': False, 'filter': None}
@@ -99,9 +99,7 @@ class CalcCls():
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										if key == 'wfnsym':
-											if isinstance(val, str):
-												self.ref[key] = [val]
-											else:
+											if not isinstance(self.ref[key], list):
 												self.ref[key] = list(val)
 											self.ref[key] = [symm.addons.std_symb(self.ref[key][j]) for j in range(len(self.ref[key]))]
 										else:
