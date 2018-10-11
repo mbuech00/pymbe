@@ -632,7 +632,7 @@ def _fci(mol, calc, exp):
 		energy, civec = _fci_kernel()
 		# filter check
 		if calc.extra['filter'] is not None:
-			if not tools.filter(civec[-1], calc.extra['filter']):
+			if not tools.filter(civec[-1], calc.extra['filter'], exp.cas_idx):
 				return {'energy': 0.0}
 		# convergence check
 		if solver.nroots == 1:
