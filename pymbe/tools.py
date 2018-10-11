@@ -146,7 +146,7 @@ def lz_check(mol, calc, exp, idx):
 		return True
 
 
-def filter(c, f):
+def filter(c, f, cas_idx):
 		""" return result of filter condition """
 		cond = False
 		if f == 'c2_sg+':
@@ -157,6 +157,9 @@ def filter(c, f):
 			# C2 Delta_g state
 			if np.abs(np.abs(c[1, 1]) - np.abs(c[2, 2])) < 1.0e-05 and np.sign(c[1, 1]) != np.sign(c[2, 2]):
 				cond = True
+		if not cond:
+			print('filter mismatch ({:}): cas = {:} , c[0,0] = {:.6f} , c[1,1] = {:.6f} , c[2,2] = {:.6f}'.\
+					format(f, [i for i in cas_idx], c[0,0], c[1,1], c[2,2]))
 		return cond
 
 
