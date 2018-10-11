@@ -99,7 +99,7 @@ class CalcCls():
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										if key == 'wfnsym':
-											if not isinstance(self.ref[key], list):
+											if not isinstance(val, list):
 												self.ref[key] = list(val)
 											self.ref[key] = [symm.addons.std_symb(self.ref[key][j]) for j in range(len(self.ref[key]))]
 										else:
