@@ -19,15 +19,11 @@ import math
 # array of degenerate (dooh) orbsym IDs
 # E1gx (2) , E1gy (3)
 # E1uy (6) , E1ux (7)
-# E2gx (10) , E2gy (11)
 # E3gx (12) , E3gy (13)
-# E2uy (14) , E2ux (15)
 # E3uy (16) , E3ux (17)
-# E4gx (20) , E4gy (21)
 # E5gx (22) , E5gy (23)
-# E4uy (24) , E4ux (25)
 # E5uy (26) , E5ux (27)
-DEG_ID = np.array([2, 6, 10, 12, 14, 16, 20, 22, 24, 26]) 
+DEG_ID = np.array([2, 6, 12, 16, 22, 26]) 
 
 
 def enum(*sequential, **named):
