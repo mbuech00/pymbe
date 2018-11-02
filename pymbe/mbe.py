@@ -112,7 +112,7 @@ def _serial(mpi, mol, calc, exp):
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate increments
-			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_check(mol, calc, exp, i)):
+			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_mbe(calc.orbsym, exp.tuples[-1][i])):
 				_calc(mpi, mol, calc, exp, i)
 				exp.count[-1] += 1
 				# print status
@@ -217,7 +217,7 @@ def _slave(mpi, mol, calc, exp):
 					if n == task.size - 1:
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_check(mol, calc, exp, task_idx)):
+					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_mbe(calc.orbsym, exp.tuples[-1][task_idx])):
 						_calc(mpi, mol, calc, exp, task_idx)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -342,6 +342,11 @@ def _sum(calc, exp, tup, prop):
 										combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
+			# lz pruning
+			if calc.extra['lz_sym']:
+				if calc.model['type'] == 'occ':
+					raise NotImplementedError('lz pruning (mbe) not implemented for occ expansions')
+				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			combs = tools.hash_2d(combs)
 			combs.sort()

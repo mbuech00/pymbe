@@ -118,23 +118,39 @@ def core_cas(mol, exp, tup):
 		return core_idx, cas_idx
 
 
-def lz_check(mol, calc, exp, idx):
-		""" lz symmetry check """
-		# get dooh orbsym IDs for expansion space
-		exp.cas_idx = core_cas(mol, exp, exp.tuples[-1][idx])[-1]
-		dooh_orbs = calc.orbsym_dooh[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]
+def lz_mbe(orbsym, tup):
+		""" lz symmetry check for mbe phase """
 		# loop over IDs
 		for sym in DEG_ID:
-			# given set of x- and y-orbs
-			pi_orbs = np.where((dooh_orbs == sym) | (dooh_orbs == (sym+1)))[0]
+			# given set of x and y pi orbs
+			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
+			if pi_orbs.size % 2 > 0:
+				# uneven number of pi orbs
+				return False
+		return True
+
+
+def lz_prune(orbsym, tup):
+		""" lz pruning for screening phase """
+		# loop over IDs
+		for sym in DEG_ID:
+			# given set of x and y pi orbs
+			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
 			if pi_orbs.size > 0:
-				# uneven number of orbs
 				if pi_orbs.size % 2 > 0:
-					return False
-				# are the (d2h) pi orbs not degenerated (i.e., not placed as successive orbs in a list rank by mo energies)
-				d2h_orbs = np.array([x for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][pi_orbs]])
-				if np.where(np.ediff1d(d2h_orbs) == 1)[0].size < d2h_orbs.size // 2:
-					return False
+					# uneven number of pi orbs
+					if orbsym[tup][-1] not in [sym, sym+1]:
+						# is last orbital not a pi orbital?
+						return False
+					else:
+						if orbsym[tup[-1]-1] in [sym, sym+1]:
+							# is this the second in the set of degenerated pi orbs (in a list ranked by mo energies))
+							return False
+				else:
+					# even number of pi orbs
+					if np.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1) < tup[pi_orbs].size // 2:
+						# are the pi orbs not degenerated (i.e., not placed as successive orbs in a list ranked by mo energies)
+						return False
 		return True
 
 

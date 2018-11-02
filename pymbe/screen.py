@@ -50,9 +50,11 @@ def _serial(mol, calc, exp):
 				parent_tup = exp.tuples[-1][i].tolist()
 				for m in lst:
 					if calc.model['type'] == 'occ':
-						child_tup += [m]+parent_tup
+						tup = [m]+parent_tup
 					elif calc.model['type'] == 'virt':
-						child_tup += parent_tup+[m]
+						tup = parent_tup+[m]
+					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
+						child_tup += tup
 		# convert child tuple list to array
 		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
 		# collect time
@@ -98,8 +100,9 @@ def _parallel(mpi, mol, calc, exp):
 					tup = [m]+parent_tup
 				elif calc.model['type'] == 'virt':
 					tup = parent_tup+[m]
-				child_tup += tup
-				child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+				if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
+					child_tup += tup
+					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 		# allgatherv tuples/hashes
 		tuples, hashes = parallel.screen(child_tup, child_hash, exp.order, comm)
 		# append tuples and hashes
@@ -111,11 +114,18 @@ def _parallel(mpi, mol, calc, exp):
 
 def _test(calc, exp, tup):
 		""" screening test """
-		if exp.thres == 0.0 or exp.order == exp.start_order:
+#		if exp.thres == 0.0 or exp.order == exp.start_order:
+		if exp.order == exp.start_order:
 			if calc.model['type'] == 'occ':
-				return [m for m in range(calc.exp_space[0], tup[0])]
+				if calc.extra['lz_sym']:
+					NotImplementedError('lz pruning (start_order) not implemented for occ expansions')
+				else:
+					return [m for m in range(calc.exp_space[0], tup[0])]
 			elif calc.model['type'] == 'virt':
-				return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
+				if calc.extra['lz_sym']:
+					return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1) if tools.lz_prune(calc.orbsym, np.asarray([m], dtype=np.int32))]
+				else:
+					return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
 		else:
 			# init return list
 			lst = []
@@ -134,6 +144,8 @@ def _test(calc, exp, tup):
 				for m in range(calc.exp_space[0], tup[0]):
 					# add orbital m to combinations
 					combs_m = np.concatenate((m * np.ones(combs.shape[0], dtype=np.int32)[:, None], combs), axis=1)
+					if calc.extra['lz_sym']:
+						raise NotImplementedError('lz pruning (screen) not implemented for occ expansions')
 					# convert to sorted hashes
 					combs_m = tools.hash_2d(combs_m)
 					combs_m.sort()
@@ -146,14 +158,20 @@ def _test(calc, exp, tup):
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# add orbital m to combinations
 					combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
-					# convert to sorted hashes
-					combs_m = tools.hash_2d(combs_m)
-					combs_m.sort()
-					# get index
-					diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m)
-					if diff.size == combs_m.size:
-						indx = left
-						lst += _prot_check(exp, calc, indx, m)
+					# lz pruning
+					if calc.extra['lz_sym']:
+						combs_m = combs_m[[tools.lz_prune(calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
+					if combs_m.size == 0:
+						lst += [m]
+					else:
+						# convert to sorted hashes
+						combs_m = tools.hash_2d(combs_m)
+						combs_m.sort()
+						# get index
+						diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m)
+						if diff.size == combs_m.size:
+							indx = left
+							lst += _prot_check(exp, calc, indx, m)
 			return lst
 
 
