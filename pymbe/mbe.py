@@ -348,22 +348,23 @@ def _sum(calc, exp, tup, prop):
 					raise NotImplementedError('lz pruning (mbe) not implemented for occ expansions')
 				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
-			combs = tools.hash_2d(combs)
-			combs.sort()
-			# get index
-			diff, left, right = tools.hash_compare(exp.hashes[i-1], combs)
-			assert diff.size == combs.size, \
-						('\nmbe.py:_sum()\ndiff  = {:}\nleft = {:}\nright = {:}\n'.format(diff, left, right))
-			indx = left
-			# add up lower-order increments
-			if prop == 'energy':
-				res['energy'] += tools.fsum(exp.prop['energy']['inc'][i-1][indx])
-			elif prop == 'excitation':
-				res['excitation'] += tools.fsum(exp.prop['excitation']['inc'][i-1][indx])
-			elif prop == 'dipole':
-				res['dipole'] += tools.fsum(exp.prop['dipole']['inc'][i-1][indx, :])
-			elif prop == 'trans':
-				res['trans'] += tools.fsum(exp.prop['trans']['inc'][i-1][indx, :])
+			if combs.size > 0:
+				combs = tools.hash_2d(combs)
+				combs.sort()
+				# get index
+				diff, left, right = tools.hash_compare(exp.hashes[i-1], combs)
+				assert diff.size == combs.size, \
+							('\nmbe.py:_sum()\ndiff  = {:}\nleft = {:}\nright = {:}\n'.format(diff, left, right))
+				indx = left
+				# add up lower-order increments
+				if prop == 'energy':
+					res['energy'] += tools.fsum(exp.prop['energy']['inc'][i-1][indx])
+				elif prop == 'excitation':
+					res['excitation'] += tools.fsum(exp.prop['excitation']['inc'][i-1][indx])
+				elif prop == 'dipole':
+					res['dipole'] += tools.fsum(exp.prop['dipole']['inc'][i-1][indx, :])
+				elif prop == 'trans':
+					res['trans'] += tools.fsum(exp.prop['trans']['inc'][i-1][indx, :])
 		return res
 
 

@@ -139,17 +139,17 @@ def lz_prune(orbsym, tup):
 			if pi_orbs.size > 0:
 				if pi_orbs.size % 2 > 0:
 					# uneven number of pi orbs
-					if orbsym[tup][-1] not in [sym, sym+1]:
-						# is last orbital not a pi orbital?
+					if orbsym[tup[-1]] not in [sym, sym+1]:
+						# last orbital is not a pi orbital
 						return False
 					else:
 						if orbsym[tup[-1]-1] in [sym, sym+1]:
-							# is this the second in the set of degenerated pi orbs (in a list ranked by mo energies))
+							# this is the second in the set of degenerated pi orbs (in a list ranked by mo energies))
 							return False
 				else:
 					# even number of pi orbs
-					if np.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1) < tup[pi_orbs].size // 2:
-						# are the pi orbs not degenerated (i.e., not placed as successive orbs in a list ranked by mo energies)
+					if np.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1) < pi_orbs.size // 2:
+						# the pi orbs are not degenerated (i.e., not placed as successive orbs in a list ranked by mo energies)
 						return False
 		return True
 
