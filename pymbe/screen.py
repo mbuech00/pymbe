@@ -101,7 +101,6 @@ def _parallel(mpi, mol, calc, exp):
 				elif calc.model['type'] == 'virt':
 					tup = parent_tup+[m]
 				if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
-					print('tup = {:}'.format(tup))
 					child_tup += tup
 					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 		# allgatherv tuples/hashes

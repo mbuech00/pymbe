@@ -351,8 +351,8 @@ def _sum(calc, exp, tup, prop):
 				# get index
 				diff, left, right = tools.hash_compare(exp.hashes[i-1], combs_hash)
 				assert diff.size == combs_hash.size, \
-							('\nassertion error in mbe.py: _sum()\ncombs = {:}\ndiff  = {:}\nleft = {:}\nright = {:}\n'. \
-							format(combs, diff, left, right))
+							('\nassertion error in mbe.py: _sum()\ncas_idx = {:}\ncombs = {:}\ndiff  = {:}\nleft = {:}\nright = {:}\n'. \
+							format(exp.cas_idx, combs, diff, left, right))
 				indx = left
 				# add up lower-order increments
 				if prop == 'energy':
