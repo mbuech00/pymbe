@@ -345,7 +345,7 @@ def _sum(calc, exp, tup, prop):
 			# lz pruning
 			if calc.extra['lz_sym']:
 				if calc.model['type'] == 'occ':
-					raise NotImplementedError('lz pruning (mbe) not implemented for occ expansions')
+					raise NotImplementedError('lz pruning (mbe: _sum()) not implemented for occ expansions')
 				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			if combs.size > 0:
@@ -354,7 +354,8 @@ def _sum(calc, exp, tup, prop):
 				# get index
 				diff, left, right = tools.hash_compare(exp.hashes[i-1], combs)
 				assert diff.size == combs.size, \
-							('\nmbe.py:_sum()\ndiff  = {:}\nleft = {:}\nright = {:}\n'.format(diff, left, right))
+							('\nassertion error in mbe.py: _sum()\ncombs = {:}\ndiff  = {:}\nleft = {:}\nright = {:}\n'. \
+							format(combs, diff, left, right))
 				indx = left
 				# add up lower-order increments
 				if prop == 'energy':
