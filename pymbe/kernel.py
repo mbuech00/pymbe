@@ -552,7 +552,7 @@ def _casscf(mol, calc, exp):
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
-		return cas.mo_coeff
+		return np.asarray(cas.mo_coeff, order='C')
 
 
 def _fci(mol, calc, exp):

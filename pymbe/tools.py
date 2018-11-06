@@ -136,19 +136,33 @@ def lz_prune(orbsym, tup):
 		for sym in DEG_ID:
 			# given set of x and y pi orbs
 			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
+			if set([14, 15, 22, 23]) <= set(tup):
+				print('\npi_orbs = {:}\n'. \
+					format(pi_orbs))
 			if pi_orbs.size > 0:
 				if pi_orbs.size % 2 > 0:
+					if set([14, 15, 22, 23]) <= set(tup):
+						print('\npi_orbs.size % 2 > 0\n')
 					# uneven number of pi orbs
 					if orbsym[tup[-1]] not in [sym, sym+1]:
+						if set([14, 15, 22, 23]) <= set(tup):
+							print('\norbsym[tup[-1]] not in [sym, sym+1]\n')
 						# last orbital is not a pi orbital
 						return False
 					else:
 						if orbsym[tup[-1]-1] in [sym, sym+1]:
+							if set([14, 15, 22, 23]) <= set(tup):
+								print('\norbsym[tup[-1]-1] in [sym, sym+1]\n')
 							# this is the second in the set of degenerated pi orbs (in a list ranked by mo energies))
 							return False
 				else:
+					if set([14, 15, 22, 23]) <= set(tup):
+						print('\npi_orbs.size % 2 == 0\n')
 					# even number of pi orbs
 					if np.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1) < pi_orbs.size // 2:
+						if set([14, 15, 22, 23]) <= set(tup):
+							print('\nnp.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1) = {:} , pi_orbs.size // 2 = {:}\n'. \
+								format(np.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1), pi_orbs.size // 2))
 						# the pi orbs are not degenerated (i.e., not placed as successive orbs in a list ranked by mo energies)
 						return False
 		return True
