@@ -291,17 +291,14 @@ def _inc(mpi, mol, calc, exp, tup):
 					res = _sum(calc, exp, tup, 'trans')
 					inc['trans'] = inc['trans'] - res['trans']
 		# debug print
-		if mol.debug:
-			core_lst = exp.core_idx.tolist()
-			if core_lst:
-				core_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.core_idx]]
-			else:
-				core_sym = []
-			cas_lst = [i for i in exp.cas_idx]
-			cas_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx]]
-			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
-			string += '      core-sym = {:} , cas-sym = {:}\n'
-			form = (mpi.local_rank, core_lst, cas_lst, core_sym, cas_sym)
+		if mol.debug and exp.order > exp.start_order:
+			if calc.model['type'] == 'occ':
+				raise NotImplementedError('debug print (mbe: _inc()) not implemented for occ expansions')
+			tup_lst = [i for i in exp.cas_idx[-(exp.order - exp.start_order):]]
+			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx[-(exp.order - exp.start_order):]]]
+			string = ' INC: order = {:} , tup = {:}\n'
+			string += '      symmetry = {:}\n'
+			form = (exp.order, tup_lst, tup_sym)
 			if calc.target['energy']:
 				string += '      correlation energy increment for state {:} = {:.4e}\n'
 				form += (calc.state['root'], inc['energy'],)
