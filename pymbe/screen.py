@@ -101,6 +101,7 @@ def _parallel(mpi, mol, calc, exp):
 				elif calc.model['type'] == 'virt':
 					tup = parent_tup+[m]
 				if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
+					print('tup = {:}'.format(tup))
 					child_tup += tup
 					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 		# allgatherv tuples/hashes
@@ -114,7 +115,6 @@ def _parallel(mpi, mol, calc, exp):
 
 def _test(calc, exp, tup):
 		""" screening test """
-#		if exp.thres == 0.0 or exp.order == exp.start_order:
 		if exp.order == exp.start_order:
 			if calc.model['type'] == 'occ':
 				if calc.extra['lz_sym']:
@@ -165,11 +165,11 @@ def _test(calc, exp, tup):
 						lst += [m]
 					else:
 						# convert to sorted hashes
-						combs_m = tools.hash_2d(combs_m)
-						combs_m.sort()
+						combs_m_hash = tools.hash_2d(combs_m)
+						combs_m_hash.sort()
 						# get index
-						diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m)
-						if diff.size == combs_m.size:
+						diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m_hash)
+						if diff.size == combs_m_hash.size:
 							indx = left
 							lst += _prot_check(exp, calc, indx, m)
 			return lst

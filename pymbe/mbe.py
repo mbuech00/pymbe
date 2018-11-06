@@ -346,11 +346,11 @@ def _sum(calc, exp, tup, prop):
 				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			if combs.size > 0:
-				combs = tools.hash_2d(combs)
-				combs.sort()
+				combs_hash = tools.hash_2d(combs)
+				combs_hash.sort()
 				# get index
-				diff, left, right = tools.hash_compare(exp.hashes[i-1], combs)
-				assert diff.size == combs.size, \
+				diff, left, right = tools.hash_compare(exp.hashes[i-1], combs_hash)
+				assert diff.size == combs_hash.size, \
 							('\nassertion error in mbe.py: _sum()\ncombs = {:}\ndiff  = {:}\nleft = {:}\nright = {:}\n'. \
 							format(combs, diff, left, right))
 				indx = left
