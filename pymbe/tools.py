@@ -118,29 +118,18 @@ def core_cas(mol, exp, tup):
 		return core_idx, cas_idx
 
 
-def lz_mbe(orbsym, tup):
-		""" lz symmetry check for mbe phase """
+def lz_prune(orbsym, tup, mbe=False):
+		""" lz pruning """
 		# loop over IDs
 		for sym in DEG_ID:
 			# given set of x and y pi orbs
 			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
-			if pi_orbs.size % 2 > 0:
-				# uneven number of pi orbs
-				return False
-		return True
-
-
-def lz_prune(orbsym, tup):
-		""" lz pruning for screening phase """
-		# loop over IDs
-		for sym in DEG_ID:
-			# given set of x and y pi orbs
-			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
-			if set([14, 15, 22, 23]) <= set(tup):
-				print('\ntup-lz = {:} , orbsym = {:} , pi_orbs = {:}\n'.format(tup, orbsym[tup], pi_orbs))
 			if pi_orbs.size > 0:
 				if pi_orbs.size % 2 > 0:
 					# uneven number of pi orbs
+					if mbe:
+						# mbe phase
+						return False
 					if orbsym[tup[-1]] not in [sym, sym+1]:
 						# last orbital is not a pi orbital
 						return False
