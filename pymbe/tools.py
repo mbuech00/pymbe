@@ -132,27 +132,25 @@ def lz_mbe(orbsym, tup):
 
 def lz_prune(orbsym, tup):
 		""" lz pruning for screening phase """
-		# active orbitals
-		cas = tup[calc.no_exp:]
 		# loop over IDs
 		for sym in DEG_ID:
 			# given set of x and y pi orbs
-			pi_orbs = np.where((orbsym[cas] == sym) | (orbsym[cas] == (sym+1)))[0]
-			if set([14, 15, 22, 23]) <= set(cas):
-				print('\ntup-lz (cas) = {:} , orbsym = {:} , pi_orbs = {:}\n'.format(cas, orbsym[cas], pi_orbs))
+			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
+			if set([14, 15, 22, 23]) <= set(tup):
+				print('\ntup-lz = {:} , orbsym = {:} , pi_orbs = {:}\n'.format(tup, orbsym[tup], pi_orbs))
 			if pi_orbs.size > 0:
 				if pi_orbs.size % 2 > 0:
 					# uneven number of pi orbs
-					if orbsym[cas[-1]] not in [sym, sym+1]:
+					if orbsym[tup[-1]] not in [sym, sym+1]:
 						# last orbital is not a pi orbital
 						return False
 					else:
-						if orbsym[cas[-1]-1] in [sym, sym+1]:
+						if orbsym[tup[-1]-1] in [sym, sym+1]:
 							# this is the second in the set of degenerated pi orbs (in a list ranked by mo energies))
 							return False
 				else:
 					# even number of pi orbs
-					if np.count_nonzero(np.ediff1d(cas[pi_orbs]) == 1) < pi_orbs.size // 2:
+					if np.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1) < pi_orbs.size // 2:
 						# the pi orbs are not degenerated (i.e., not placed as successive orbs in a list ranked by mo energies)
 						return False
 		return True

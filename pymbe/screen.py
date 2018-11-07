@@ -53,7 +53,7 @@ def _serial(mol, calc, exp):
 						tup = [m]+parent_tup
 					elif calc.model['type'] == 'virt':
 						tup = parent_tup+[m]
-					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
+					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup[calc.no_exp:], dtype=np.int32))):
 						child_tup += tup
 		# convert child tuple list to array
 		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
@@ -100,7 +100,7 @@ def _parallel(mpi, mol, calc, exp):
 					tup = [m]+parent_tup
 				elif calc.model['type'] == 'virt':
 					tup = parent_tup+[m]
-				if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
+				if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup[calc.no_exp:], dtype=np.int32))):
 					child_tup += tup
 					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 		# allgatherv tuples/hashes
@@ -159,7 +159,7 @@ def _test(calc, exp, tup):
 					combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
 					# lz pruning
 					if calc.extra['lz_sym']:
-						combs_m = combs_m[[tools.lz_prune(calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
+						combs_m = combs_m[[tools.lz_prune(calc.orbsym, combs_m[comb, calc.no_exp:]) for comb in range(combs_m.shape[0])]]
 					if combs_m.size == 0:
 						lst += [m]
 					else:

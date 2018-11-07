@@ -343,7 +343,7 @@ def _sum(calc, exp, tup, prop):
 			if calc.extra['lz_sym']:
 				if calc.model['type'] == 'occ':
 					raise NotImplementedError('lz pruning (mbe: _sum()) not implemented for occ expansions')
-				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
+				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, calc.no_exp:]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			if combs.size > 0:
 				combs_hash = tools.hash_2d(combs)
