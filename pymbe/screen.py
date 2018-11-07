@@ -164,7 +164,7 @@ def _test(calc, exp, tup):
 						# convert to sorted hashes
 						combs_m_hash = tools.hash_2d(combs_m)
 						combs_m_hash.sort()
-						# get index
+						# get indices
 						indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
 						lst += _prot_check(exp, calc, indx, m)
 			return lst
@@ -206,7 +206,7 @@ def _prot_check(exp, calc, indx, m):
 
 def _prot_scheme(prop, thres, scheme):
 		""" screen according to chosen scheme """
-		if np.sum(prop) == 0.0:
+		if calc.extra['lz_sym'] and np.sum(prop) == 0.0:
 			return False
 		else:
 			# are *all* increments below the threshold?

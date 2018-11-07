@@ -348,7 +348,7 @@ def _sum(calc, exp, tup, prop):
 			if combs.size > 0:
 				combs_hash = tools.hash_2d(combs)
 				combs_hash.sort()
-				# get index
+				# get indices
 				indx = tools.hash_compare(exp.hashes[i-1], combs_hash)
 				# add up lower-order increments
 				if prop == 'energy':
