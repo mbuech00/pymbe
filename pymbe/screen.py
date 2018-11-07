@@ -149,10 +149,8 @@ def _test(calc, exp, tup):
 					combs_m = tools.hash_2d(combs_m)
 					combs_m.sort()
 					# get index
-					diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m)
-					if diff.size == combs_m.size:
-						indx = left
-						lst += _prot_check(exp, calc, indx, m)
+					indx = tools.hash_compare(exp.hashes[-1], combs_m)
+					lst += _prot_check(exp, calc, indx, m)
 			elif calc.model['type'] == 'virt':
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# add orbital m to combinations
@@ -167,10 +165,8 @@ def _test(calc, exp, tup):
 						combs_m_hash = tools.hash_2d(combs_m)
 						combs_m_hash.sort()
 						# get index
-						diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m_hash)
-						if diff.size == combs_m_hash.size:
-							indx = left
-							lst += _prot_check(exp, calc, indx, m)
+						indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
+						lst += _prot_check(exp, calc, indx, m)
 			return lst
 
 

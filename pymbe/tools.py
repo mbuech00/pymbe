@@ -54,7 +54,7 @@ def hash_compare(a, b):
 		""" find occurences of b in a from binary searches """
 		left = a.searchsorted(b, side='left')
 		right = a.searchsorted(b, side='right')
-		return ((right - left) > 0).nonzero()[0], left, right
+		return left[(right - left) > 0]
 
 
 def dict_conv(old_dict):

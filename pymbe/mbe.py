@@ -349,11 +349,7 @@ def _sum(calc, exp, tup, prop):
 				combs_hash = tools.hash_2d(combs)
 				combs_hash.sort()
 				# get index
-				diff, left, right = tools.hash_compare(exp.hashes[i-1], combs_hash)
-				assert diff.size == combs_hash.size, \
-							('\nassertion error in mbe.py: _sum()\ntup = {:}\ncombs = {:}\ndiff  = {:}\nleft = {:}\nright = {:}\n'. \
-							format(tup, combs, diff, left, right))
-				indx = left
+				indx = tools.hash_compare(exp.hashes[i-1], combs_hash)
 				# add up lower-order increments
 				if prop == 'energy':
 					res['energy'] += tools.fsum(exp.prop['energy']['inc'][i-1][indx])
