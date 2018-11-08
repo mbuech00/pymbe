@@ -69,7 +69,7 @@ def _init():
 		# exp object
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
-#		if mpi.parallel and calc.restart: parallel.exp(mpi, calc, exp, mpi.global_comm)
+		if mpi.parallel and calc.restart: parallel.exp(mpi, calc, exp, mpi.global_comm)
 		return mpi, mol, calc, exp
 
 
@@ -136,7 +136,7 @@ def _exp(mpi, mol, calc):
 				base = kernel.base(mol, calc, exp)
 				calc.base['energy'] = base['energy']
 				# write fundamental info
-#				restart.write_fund(mol, calc)
+				restart.write_fund(mol, calc)
 		else:
 			# get ao integrals
 			mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)

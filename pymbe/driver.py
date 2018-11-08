@@ -34,28 +34,23 @@ def main(mpi, mol, calc, exp):
 			exp.thres, exp.rst_freq, calc.restart = _rst_print(mol, calc, exp)
 		# now do expansion
 		for exp.order in range(exp.min_order, exp.max_order+1):
-			#
 			#** mbe phase **#
-			#
-			# mbe calculations
-			mbe.main(mpi, mol, calc, exp)
-			if mpi.global_master:
-#				# write restart files
-#				restart.mbe_write(calc, exp)
-				# print mbe end
-				output.mbe_end(calc, exp)
-				# print mbe results
-				output.mbe_results(mol, calc, exp)
-			#
+			if len(exp.tuples) > len(exp.count):
+				mbe.main(mpi, mol, calc, exp)
+				if mpi.global_master:
+					# write restart files
+					restart.mbe_write(calc, exp)
+					# print mbe end
+					output.mbe_end(calc, exp)
+					# print mbe results
+					output.mbe_results(mol, calc, exp)
 			#** screening phase **#
-			#
-			# orbital screening
 			if exp.order < exp.max_order:
 				# perform screening
 				screen.main(mpi, mol, calc, exp)
 				if mpi.global_master:
-#					# write restart files
-#					if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
+					# write restart files
+					if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 					# print screen end
 					output.screen_end(exp)
 			else:
@@ -82,9 +77,7 @@ def master(mpi, mol, calc, exp):
 		while local_master:
 			# task id
 			msg = mpi.master_comm.bcast(None, root=0)
-			#
 #			#** exit **#
-#			#
 #			elif msg['task'] == 'exit':
 #				local_master = False
 		# finalize
@@ -99,21 +92,15 @@ def slave(mpi, mol, calc, exp):
 		while slave:
 			# task id
 			msg = mpi.local_comm.bcast(None, root=0)
-			#
 			#** mbe phase **#
-			#
 			if msg['task'] == 'mbe':
 				exp.order = msg['order']
 				mbe.main(mpi, mol, calc, exp)
-			#
 			#** screening phase **#
-			#
 			elif msg['task'] == 'screen':
 				exp.order = msg['order']
 				screen.main(mpi, mol, calc, exp)
-			#
 			#** exit **#
-			#
 			elif msg['task'] == 'exit':
 				slave = False
 		# finalize

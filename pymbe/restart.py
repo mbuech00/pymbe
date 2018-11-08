@@ -53,24 +53,27 @@ def main(calc, exp):
 				# read hashes
 				elif 'hash' in files[i]:
 					exp.hashes.append(np.load(os.path.join(RST, files[i])))
-				# read e_inc
+				# read increments
 				elif 'e_inc' in files[i]:
-					exp.prop['energy'][int(re.findall('\d+', files[i])[-1])]['inc'].append(np.load(os.path.join(RST, files[i])))
-				# read dip_inc
+					exp.prop['energy']['inc'].append(np.load(os.path.join(RST, files[i])))
+				elif 'exc_inc' in files[i]:
+					exp.prop['excitation']['inc'].append(np.load(os.path.join(RST, files[i])))
 				elif 'dip_inc' in files[i]:
-					exp.prop['dipole'][int(re.findall('\d+', files[i])[-1])]['inc'].append(np.load(os.path.join(RST, files[i])))
-				# read trans_inc
+					exp.prop['dipole']['inc'].append(np.load(os.path.join(RST, files[i])))
 				elif 'trans_inc' in files[i]:
-					exp.prop['trans'][int(re.findall('\d+', files[i])[-1])-1]['inc'].append(np.load(os.path.join(RST, files[i])))
-				# read e_tot
+					exp.prop['trans']['inc'].append(np.load(os.path.join(RST, files[i])))
+				# read total properties
 				elif 'e_tot' in files[i]:
-					exp.prop['energy'][int(re.findall('\d+', files[i])[-1])]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
-				# read dip_tot
+					exp.prop['energy']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+				elif 'exc_tot' in files[i]:
+					exp.prop['excitation']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 				elif 'dip_tot' in files[i]:
-					exp.prop['dipole'][int(re.findall('\d+', files[i])[-1])]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
-				# read trans_tot
+					exp.prop['dipole']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 				elif 'trans_tot' in files[i]:
-					exp.prop['trans'][int(re.findall('\d+', files[i])[-1])-1]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+					exp.prop['trans']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+				# read counter
+				elif 'counter' in files[i]:
+					exp.count.append(np.load(os.path.join(RST, files[i])).tolist())
 				# read timings
 				elif 'time_mbe' in files[i]:
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
@@ -79,34 +82,38 @@ def main(calc, exp):
 			return exp.tuples[-1].shape[1]
 
 
-#def write_fund(mol, calc):
-#		""" write fundamental info restart files """
-#		# write dimensions
-#		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'no_exp': calc.no_exp, \
-#				'ne_act': calc.ne_act, 'no_act': calc.no_act}
-#		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
-#			json.dump(dims, f)
-#		# write hf, reference, and base properties
-#		energies = {'hf': calc.prop['hf']['energy'], 'base': calc.base['energy'], \
-#					'ref': calc.prop['ref']['energy'], 'ref_base': calc.base['ref']}
-#		with open(os.path.join(RST, 'energies.rst'), 'w') as f:
-#			json.dump(energies, f)
-#		if calc.target['dipole']:
-#			dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
-#						'ref': [calc.prop['ref']['dipole'][i].tolist() for i in range(len(calc.prop['ref']['dipole']))]}
-#			with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
-#				json.dump(dipoles, f)
-#		if calc.target['trans']:
-#			transitions = {'ref': [calc.prop['ref']['trans'][i].tolist() for i in range(len(calc.prop['ref']['trans']))]}
-#			with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
-#				json.dump(transitions, f)
-#		# write expansion spaces
-#		np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
-#		np.save(os.path.join(RST, 'exp_space'), calc.exp_space)
-#		# occupation
-#		np.save(os.path.join(RST, 'occup'), calc.occup)
-#		# write orbs
-#		np.save(os.path.join(RST, 'mo'), calc.mo)
+def write_fund(mol, calc):
+		""" write fundamental info restart files """
+		# write dimensions
+		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'no_exp': calc.no_exp, \
+				'ne_act': calc.ne_act, 'no_act': calc.no_act}
+		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
+			json.dump(dims, f)
+		# write hf, reference, and base properties
+		energies = {'hf': calc.prop['hf']['energy'], 'base': calc.base['energy'], \
+					'ref': calc.prop['ref']['energy'], 'ref_base': calc.base['ref']}
+		with open(os.path.join(RST, 'energies.rst'), 'w') as f:
+			json.dump(energies, f)
+		if calc.target['excitation']:
+			excitations = {'ref': calc.prop['ref']['energy']}
+			with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
+				json.dump(excitations, f)
+		if calc.target['dipole']:
+			dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
+						'ref': [calc.prop['ref']['dipole'][i].tolist() for i in range(len(calc.prop['ref']['dipole']))]}
+			with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
+				json.dump(dipoles, f)
+		if calc.target['trans']:
+			transitions = {'ref': [calc.prop['ref']['trans'][i].tolist() for i in range(len(calc.prop['ref']['trans']))]}
+			with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
+				json.dump(transitions, f)
+		# write expansion spaces
+		np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
+		np.save(os.path.join(RST, 'exp_space'), calc.exp_space)
+		# occupation
+		np.save(os.path.join(RST, 'occup'), calc.occup)
+		# write orbs
+		np.save(os.path.join(RST, 'mo'), calc.mo)
 
 
 def read_fund(mol, calc):
@@ -130,6 +137,10 @@ def read_fund(mol, calc):
 					energies = json.load(f)
 				calc.prop['hf']['energy'] = energies['hf']; calc.base['energy'] = energies['base'] 
 				calc.prop['ref']['energy'] = energies['ref']; calc.base['ref'] = energies['ref_base']
+			elif 'excitations' in files[i]:
+				with open(os.path.join(RST, files[i]), 'r') as f:
+					excitations = json.load(f)
+				calc.prop['ref']['energy'] = energies['ref']
 			elif 'dipoles' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					dipoles = json.load(f)
@@ -155,19 +166,26 @@ def read_fund(mol, calc):
 def mbe_write(calc, exp):
 		""" write mbe restart files """
 		# write incremental and total quantities
-		for i in range(calc.nroots):
-			# *_inc
-			np.save(os.path.join(RST, 'e_inc_{:}_state_{:}'.format(exp.order, i)), exp.prop['energy'][i]['inc'][-1])
-			if calc.target['dipole']:
-				np.save(os.path.join(RST, 'dip_inc_{:}_state_{:}'.format(exp.order, i)), exp.prop['dipole'][i]['inc'][-1])
-			if calc.target['trans'] and i >= 1:
-				np.save(os.path.join(RST, 'trans_inc_{:}_states_{:}_{:}'.format(exp.order, 0, i)), exp.prop['trans'][i-1]['inc'][-1])
-			# *_tot
-			np.save(os.path.join(RST, 'e_tot_{:}_state_{:}'.format(exp.order, i)), exp.prop['energy'][i]['tot'][-1])
-			if calc.target['dipole']:
-				np.save(os.path.join(RST, 'dip_tot_{:}_state_{:}'.format(exp.order, i)), exp.prop['dipole'][i]['tot'][-1])
-			if calc.target['trans'] and i >= 1:
-				np.save(os.path.join(RST, 'trans_tot_{:}_states_{:}_{:}'.format(exp.order, 0, i)), exp.prop['trans'][i-1]['tot'][-1])
+		# increments
+		if calc.target['energy']:
+			np.save(os.path.join(RST, 'e_inc_{:}'.format(exp.order)), exp.prop['energy']['inc'][-1])
+		if calc.target['excitation']:
+			np.save(os.path.join(RST, 'exc_inc_{:}'.format(exp.order)), exp.prop['excitation']['inc'][-1])
+		if calc.target['dipole']:
+			np.save(os.path.join(RST, 'dip_inc_{:}'.format(exp.order)), exp.prop['dipole']['inc'][-1])
+		if calc.target['trans']:
+			np.save(os.path.join(RST, 'trans_inc_{:}'.format(exp.order)), exp.prop['trans']['inc'][-1])
+		# total properties
+		if calc.target['energy']:
+			np.save(os.path.join(RST, 'e_tot_{:}'.format(exp.order)), exp.prop['energy']['tot'][-1])
+		if calc.target['excitation']:
+			np.save(os.path.join(RST, 'exc_tot_{:}'.format(exp.order)), exp.prop['excitation']['tot'][-1])
+		if calc.target['dipole']:
+			np.save(os.path.join(RST, 'dip_tot_{:}'.format(exp.order)), exp.prop['dipole']['tot'][-1])
+		if calc.target['trans']:
+			np.save(os.path.join(RST, 'trans_tot_{:}'.format(exp.order)), exp.prop['trans']['tot'][-1])
+		# write counter
+		np.save(os.path.join(RST, 'counter_'+str(exp.order)), np.asarray(exp.count[-1]))
 		# write time
 		np.save(os.path.join(RST, 'time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
 

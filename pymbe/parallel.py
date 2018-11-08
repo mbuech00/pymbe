@@ -172,66 +172,77 @@ def fund(mpi, mol, calc):
 			calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 
 
-#def exp(mpi, calc, exp, comm):
-#		""" bcast exp info """
-#		if mpi.parallel:
-#			if mpi.global_master:
-#				# collect info
-#				info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
-#							'len_e_inc': [len(exp.prop['energy'][0]['inc'][i]) for i in range(len(exp.prop['energy'][0]['inc']))], \
-#							'min_order': exp.min_order, 'start_order': exp.start_order}
-#				# bcast info
-#				comm.bcast(info, root=0)
-#				# bcast tuples and hashes
-#				for i in range(1,len(exp.tuples)):
-#					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
-#				for i in range(1,len(exp.hashes)):
-#					comm.Bcast([exp.hashes[i], MPI.INT], root=0)
-#				# bcast increments
-#				for i in range(calc.nroots):
-#					for j in range(len(exp.prop['energy'][i]['inc'])):
-#						comm.Bcast([exp.prop['energy'][i]['inc'][j], MPI.DOUBLE], root=0)
-#				if calc.target['dipole']:
-#					for i in range(calc.nroots):
-#						for j in range(len(exp.prop['dipole'][i]['inc'])):
-#							comm.Bcast([exp.prop['dipole'][i]['inc'][j], MPI.DOUBLE], root=0)
-#				if calc.target['trans']:
-#					for i in range(calc.nroots-1):
-#						for j in range(len(exp.prop['trans'][i]['inc'])):
-#							comm.Bcast([exp.prop['trans'][i]['inc'][j], MPI.DOUBLE], root=0)
-#			else:
-#				# receive info
-#				info = comm.bcast(None, root=0)
-#				# set min_order and start_order
-#				exp.min_order = info['min_order']
-#				exp.start_order = info['start_order']
-#				# receive tuples and hashes
-#				for i in range(1, len(info['len_tup'])):
-#					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
-#					comm.Bcast([buff, MPI.INT], root=0)
-#					exp.tuples.append(buff)
-#				for i in range(1, len(info['len_tup'])):
-#					buff = np.empty(info['len_tup'][i], dtype=np.int64)
-#					comm.Bcast([buff, MPI.INT], root=0)
-#					exp.hashes.append(buff)
-#				# receive increments
-#				for i in range(calc.nroots):
-#					for j in range(len(info['len_e_inc'])):
-#						buff = np.zeros(info['len_e_inc'][j], dtype=np.float64)
-#						comm.Bcast([buff, MPI.DOUBLE], root=0)
-#						exp.prop['energy'][i]['inc'].append(buff)
-#				if calc.target['dipole']:
-#					for i in range(calc.nroots):
-#						for j in range(len(info['len_e_inc'])):
-#							buff = np.zeros([info['len_e_inc'][j], 3], dtype=np.float64)
-#							comm.Bcast([buff, MPI.DOUBLE], root=0)
-#							exp.prop['dipole'][i]['inc'].append(buff)
-#				if calc.target['trans']:
-#					for i in range(calc.nroots-1):
-#						for j in range(len(info['len_e_inc'])):
-#							buff = np.zeros([info['len_e_inc'][j], 3], dtype=np.float64)
-#							comm.Bcast([buff, MPI.DOUBLE], root=0)
-#							exp.prop['trans'][i]['inc'].append(buff)
+def exp(mpi, calc, exp, comm):
+		""" bcast exp info """
+		if mpi.parallel:
+			if mpi.global_master:
+				# collect info
+				info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
+							'min_order': exp.min_order, 'start_order': exp.start_order}
+				if calc.target['energy']:
+					info['len_e_inc'] = [exp.prop['energy']['inc'][i].size for i in range(len(exp.prop['energy']['inc']))]
+				if calc.target['excitation']:
+					info['len_exc_inc'] = [exp.prop['excitation']['inc'][i].size for i in range(len(exp.prop['excitation']['inc']))]
+				if calc.target['dipole']:
+					info['len_dip_inc'] = [exp.prop['dipole']['inc'][i].shape[0] for i in range(len(exp.prop['dipole']['inc']))]
+				if calc.target['trans']:
+					info['len_trans_inc'] = [exp.prop['trans']['inc'][i].shape[0] for i in range(len(exp.prop['trans']['inc']))]
+				# bcast info
+				comm.bcast(info, root=0)
+				# bcast tuples and hashes
+				for i in range(1,len(exp.tuples)):
+					comm.Bcast([exp.tuples[i], MPI.INT], root=0)
+				for i in range(1,len(exp.hashes)):
+					comm.Bcast([exp.hashes[i], MPI.INT], root=0)
+				# bcast increments
+				if calc.target['energy']:
+					for i in range(len(exp.prop['energy']['inc'])):
+						comm.Bcast([exp.prop['energy']['inc'][i], MPI.DOUBLE], root=0)
+				if calc.target['excitation']:
+					for i in range(len(exp.prop['excitation']['inc'])):
+						comm.Bcast([exp.prop['excitation']['inc'][i], MPI.DOUBLE], root=0)
+				if calc.target['dipole']:
+					for i in range(len(exp.prop['dipole']['inc'])):
+						comm.Bcast([exp.prop['dipole']['inc'][i], MPI.DOUBLE], root=0)
+				if calc.target['trans']:
+					for i in range(len(exp.prop['trans']['inc'])):
+						comm.Bcast([exp.prop['trans']['inc'][i], MPI.DOUBLE], root=0)
+			else:
+				# receive info
+				info = comm.bcast(None, root=0)
+				# set min_order and start_order
+				exp.min_order = info['min_order']
+				exp.start_order = info['start_order']
+				# receive tuples and hashes
+				for i in range(1, len(info['len_tup'])):
+					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
+					comm.Bcast([buff, MPI.INT], root=0)
+					exp.tuples.append(buff)
+				for i in range(1, len(info['len_tup'])):
+					buff = np.empty(info['len_tup'][i], dtype=np.int64)
+					comm.Bcast([buff, MPI.INT], root=0)
+					exp.hashes.append(buff)
+				# receive increments
+				if calc.target['energy']:
+					for i in range(len(info['len_e_inc'])):
+						buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
+						comm.Bcast([buff, MPI.DOUBLE], root=0)
+						exp.prop['energy']['inc'].append(buff)
+				if calc.target['excitation']:
+					for i in range(len(info['len_exc_inc'])):
+						buff = np.zeros(info['len_exc_inc'][i], dtype=np.float64)
+						comm.Bcast([buff, MPI.DOUBLE], root=0)
+						exp.prop['excitation']['inc'].append(buff)
+				if calc.target['dipole']:
+					for i in range(len(info['len_dip_inc'])):
+						buff = np.zeros([info['len_dip_inc'][i], 3], dtype=np.float64)
+						comm.Bcast([buff, MPI.DOUBLE], root=0)
+						exp.prop['dipole']['inc'].append(buff)
+				if calc.target['trans']:
+					for i in range(len(info['len_trans_inc'])):
+						buff = np.zeros([info['len_trans_inc'][i], 3], dtype=np.float64)
+						comm.Bcast([buff, MPI.DOUBLE], root=0)
+						exp.prop['trans']['inc'].append(buff)
 
 
 def mbe(prop, comm):

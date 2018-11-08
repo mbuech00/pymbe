@@ -35,17 +35,13 @@ def main(mpi, mol, calc, exp):
 		if mpi.global_master: output.mbe_header(exp)
 		# init increments
 		if calc.target['energy']:
-			if len(exp.prop['energy']['inc']) < exp.order - (exp.start_order - 1):
-				exp.prop['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+			exp.prop['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 		if calc.target['excitation']:
-			if len(exp.prop['excitation']['inc']) < exp.order - (exp.start_order - 1):
-				exp.prop['excitation']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+			exp.prop['excitation']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 		if calc.target['dipole']:
-			if len(exp.prop['dipole']['inc']) < exp.order - (exp.start_order - 1):
-				exp.prop['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
+			exp.prop['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		if calc.target['trans']:
-			if len(exp.prop['trans']['inc']) < exp.order - (exp.start_order - 1):
-				exp.prop['trans']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
+			exp.prop['trans']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
