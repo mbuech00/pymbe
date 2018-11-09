@@ -324,37 +324,37 @@ def _sum(calc, exp, tup, prop):
 		elif prop == 'trans':
 			res['trans'] = np.zeros(3, dtype=np.float64)
 		# compute contributions from lower-order increments
-		for i in range(exp.order-exp.start_order, 0, -1):
+		for k in range(exp.order-exp.start_order, 0, -1):
 			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
 				if calc.model['type'] == 'occ':
 					combs = np.array([comb+tuple(exp.tuples[0][0]) for comb in itertools.\
-										combinations(tup[:-calc.no_exp], i-1)], dtype=np.int32)
+										combinations(tup[:-calc.no_exp], k-1)], dtype=np.int32)
 				elif calc.model['type'] == 'virt':
 					combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
-										combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
+										combinations(tup[calc.no_exp:], k-1)], dtype=np.int32)
 			else:
-				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
+				combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# lz pruning
 			if calc.extra['lz_sym']:
 				if calc.model['type'] == 'occ':
 					raise NotImplementedError('lz pruning (mbe: _sum()) not implemented for occ expansions')
 				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, calc.no_exp:]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
-			if combs.size > 0:
-				combs_hash = tools.hash_2d(combs)
-				combs_hash.sort()
-				# get indices
-				indx = tools.hash_compare(exp.hashes[i-1], combs_hash)
-				# add up lower-order increments
-				if prop == 'energy':
-					res['energy'] += tools.fsum(exp.prop['energy']['inc'][i-1][indx])
-				elif prop == 'excitation':
-					res['excitation'] += tools.fsum(exp.prop['excitation']['inc'][i-1][indx])
-				elif prop == 'dipole':
-					res['dipole'] += tools.fsum(exp.prop['dipole']['inc'][i-1][indx, :])
-				elif prop == 'trans':
-					res['trans'] += tools.fsum(exp.prop['trans']['inc'][i-1][indx, :])
+			combs_hash = tools.hash_2d(combs)
+			combs_hash.sort()
+			# get indices
+			indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
+			assert indx is not None
+			# add up lower-order increments
+			if prop == 'energy':
+				res['energy'] += tools.fsum(exp.prop['energy']['inc'][k-1][indx])
+			elif prop == 'excitation':
+				res['excitation'] += tools.fsum(exp.prop['excitation']['inc'][k-1][indx])
+			elif prop == 'dipole':
+				res['dipole'] += tools.fsum(exp.prop['dipole']['inc'][k-1][indx, :])
+			elif prop == 'trans':
+				res['trans'] += tools.fsum(exp.prop['trans']['inc'][k-1][indx, :])
 		return res
 
 
