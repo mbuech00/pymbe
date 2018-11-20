@@ -31,21 +31,15 @@ TAGS = tools.enum('start', 'ready', 'exit')
 
 def main(mpi, mol, calc, exp):
 		""" mbe phase """
-		# print header
-		if mpi.global_master: output.mbe_header(exp)
 		# init increments
 		if calc.target['energy']:
-			if len(exp.prop['energy']['inc']) < exp.order - (exp.start_order - 1):
-				exp.prop['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+			exp.prop['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 		if calc.target['excitation']:
-			if len(exp.prop['excitation']['inc']) < exp.order - (exp.start_order - 1):
-				exp.prop['excitation']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+			exp.prop['excitation']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
 		if calc.target['dipole']:
-			if len(exp.prop['dipole']['inc']) < exp.order - (exp.start_order - 1):
-				exp.prop['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
+			exp.prop['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		if calc.target['trans']:
-			if len(exp.prop['trans']['inc']) < exp.order - (exp.start_order - 1):
-				exp.prop['trans']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
+			exp.prop['trans']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		# mpi parallel or serial version
 		if mpi.parallel:
 			if mpi.global_master:
@@ -112,7 +106,7 @@ def _serial(mpi, mol, calc, exp):
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate increments
-			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_check(mol, calc, exp, i)):
+			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, exp.tuples[-1][i][calc.no_exp:], mbe=True)):
 				_calc(mpi, mol, calc, exp, i)
 				exp.count[-1] += 1
 				# print status
@@ -217,7 +211,7 @@ def _slave(mpi, mol, calc, exp):
 					if n == task.size - 1:
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_check(mol, calc, exp, task_idx)):
+					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, exp.tuples[-1][task_idx][calc.no_exp:], mbe=True)):
 						_calc(mpi, mol, calc, exp, task_idx)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -292,16 +286,16 @@ def _inc(mpi, mol, calc, exp, tup):
 					inc['trans'] = inc['trans'] - res['trans']
 		# debug print
 		if mol.debug:
-			core_lst = exp.core_idx.tolist()
-			if core_lst:
-				core_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.core_idx]]
-			else:
-				core_sym = []
-			cas_lst = [i for i in exp.cas_idx]
-			cas_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx]]
-			string = ' INC: proc = {:} , core = {:} , cas = {:}\n'
-			string += '      core-sym = {:} , cas-sym = {:}\n'
-			form = (mpi.local_rank, core_lst, cas_lst, core_sym, cas_sym)
+			if calc.model['type'] == 'occ':
+				raise NotImplementedError('debug print (mbe: _inc()) not implemented for occ expansions')
+			index = exp.order - exp.start_order
+			if calc.no_exp == 0:
+				index += 1
+			tup_lst = [i for i in exp.cas_idx[-index:]]
+			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx[-index:]]]
+			string = ' INC: order = {:} , tup = {:}\n'
+			string += '      symmetry = {:}\n'
+			form = (exp.order, tup_lst, tup_sym)
 			if calc.target['energy']:
 				string += '      correlation energy increment for state {:} = {:.4e}\n'
 				form += (calc.state['root'], inc['energy'],)
@@ -331,34 +325,37 @@ def _sum(calc, exp, tup, prop):
 		elif prop == 'trans':
 			res['trans'] = np.zeros(3, dtype=np.float64)
 		# compute contributions from lower-order increments
-		for i in range(exp.order-exp.start_order, 0, -1):
+		for k in range(exp.order-exp.start_order, 0, -1):
 			# generate array with all subsets of particular tuple (manually adding active orbs)
 			if calc.no_exp > 0:
 				if calc.model['type'] == 'occ':
 					combs = np.array([comb+tuple(exp.tuples[0][0]) for comb in itertools.\
-										combinations(tup[:-calc.no_exp], i-1)], dtype=np.int32)
+										combinations(tup[:-calc.no_exp], k-1)], dtype=np.int32)
 				elif calc.model['type'] == 'virt':
 					combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
-										combinations(tup[calc.no_exp:], i-1)], dtype=np.int32)
+										combinations(tup[calc.no_exp:], k-1)], dtype=np.int32)
 			else:
-				combs = np.array([comb for comb in itertools.combinations(tup, i)], dtype=np.int32)
+				combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+			# lz pruning
+			if calc.extra['lz_sym']:
+				if calc.model['type'] == 'occ':
+					raise NotImplementedError('lz pruning (mbe: _sum()) not implemented for occ expansions')
+				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, calc.no_exp:]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
-			combs = tools.hash_2d(combs)
-			combs.sort()
-			# get index
-			diff, left, right = tools.hash_compare(exp.hashes[i-1], combs)
-			assert diff.size == combs.size, \
-						('\nmbe.py:_sum()\ndiff  = {:}\nleft = {:}\nright = {:}\n'.format(diff, left, right))
-			indx = left
+			combs_hash = tools.hash_2d(combs)
+			combs_hash.sort()
+			# get indices
+			indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
+			assert indx is not None
 			# add up lower-order increments
 			if prop == 'energy':
-				res['energy'] += tools.fsum(exp.prop['energy']['inc'][i-1][indx])
+				res['energy'] += tools.fsum(exp.prop['energy']['inc'][k-1][indx])
 			elif prop == 'excitation':
-				res['excitation'] += tools.fsum(exp.prop['excitation']['inc'][i-1][indx])
+				res['excitation'] += tools.fsum(exp.prop['excitation']['inc'][k-1][indx])
 			elif prop == 'dipole':
-				res['dipole'] += tools.fsum(exp.prop['dipole']['inc'][i-1][indx, :])
+				res['dipole'] += tools.fsum(exp.prop['dipole']['inc'][k-1][indx, :])
 			elif prop == 'trans':
-				res['trans'] += tools.fsum(exp.prop['trans']['inc'][i-1][indx, :])
+				res['trans'] += tools.fsum(exp.prop['trans']['inc'][k-1][indx, :])
 		return res
 
 

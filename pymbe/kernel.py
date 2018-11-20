@@ -486,7 +486,6 @@ def _casscf(mol, calc, exp):
 		# fci solver
 		cas.conv_tol = 1.0e-10
 		cas.max_cycle_macro = 500
-		cas.canonicalization = False
 		# frozen (inactive)
 		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
 		# debug print
@@ -553,34 +552,7 @@ def _casscf(mol, calc, exp):
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
-		# save mo
-		fock_ao = cas.get_fock(cas.mo_coeff, cas.ci, None, None)
-		fock = np.einsum('pi,pq,qj->ij', cas.mo_coeff, fock_ao, cas.mo_coeff)
-		mo = np.empty_like(cas.mo_coeff)
-		# core region
-		if mol.ncore > 0:
-			c = symm.eigh(fock[:mol.ncore, :mol.ncore], \
-								cas.mo_coeff.orbsym[:mol.ncore])[1]
-			mo[:, :mol.ncore] = np.einsum('ip,pj->ij', cas.mo_coeff[:, :mol.ncore], c)
-		# inactive region (excl. core)
-		if cas.frozen > mol.ncore:
-			if mol.symmetry:
-				c = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], \
-									cas.mo_coeff.orbsym[mol.ncore:cas.frozen])[1]
-			else:
-				c = symm.eigh(fock[mol.ncore:cas.frozen, mol.ncore:cas.frozen], None)[1]
-			mo[:, mol.ncore:cas.frozen] = np.einsum('ip,pj->ij', cas.mo_coeff[:, mol.ncore:cas.frozen], c)
-		# active region
-		mo[:, cas.frozen:(cas.frozen + calc.no_act)] = cas.mo_coeff[:, cas.frozen:(cas.frozen + calc.no_act)]
-		# virtual region
-		if mol.norb - (cas.frozen + calc.no_act) > 0:
-			if mol.symmetry:
-				c = symm.eigh(fock[(cas.frozen + calc.no_act):, (cas.frozen + calc.no_act):], \
-									cas.mo_coeff.orbsym[(cas.frozen + calc.no_act):])[1]
-			else:
-				c = symm.eigh(fock[(cas.frozen + calc.no_act):, (cas.frozen + calc.no_act):], None)[1]
-			mo[:, (cas.frozen + calc.no_act):] = np.einsum('ip,pj->ij', cas.mo_coeff[:, (cas.frozen + calc.no_act):], c)
-		return mo
+		return np.asarray(cas.mo_coeff, order='C')
 
 
 def _fci(mol, calc, exp):

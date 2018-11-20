@@ -19,11 +19,7 @@ import math
 # array of degenerate (dooh) orbsym IDs
 # E1gx (2) , E1gy (3)
 # E1uy (6) , E1ux (7)
-# E3gx (12) , E3gy (13)
-# E3uy (16) , E3ux (17)
-# E5gx (22) , E5gy (23)
-# E5uy (26) , E5ux (27)
-DEG_ID = np.array([2, 6, 12, 16, 22, 26]) 
+DEG_ID = np.array([2, 6]) 
 
 
 def enum(*sequential, **named):
@@ -58,7 +54,10 @@ def hash_compare(a, b):
 		""" find occurences of b in a from binary searches """
 		left = a.searchsorted(b, side='left')
 		right = a.searchsorted(b, side='right')
-		return ((right - left) > 0).nonzero()[0], left, right
+		if ((right - left) > 0).all():
+			return left
+		else:
+			return None
 
 
 def dict_conv(old_dict):
@@ -122,23 +121,30 @@ def core_cas(mol, exp, tup):
 		return core_idx, cas_idx
 
 
-def lz_check(mol, calc, exp, idx):
-		""" lz symmetry check """
-		# get dooh orbsym IDs for expansion space
-		exp.cas_idx = core_cas(mol, exp, exp.tuples[-1][idx])[-1]
-		dooh_orbs = calc.orbsym_dooh[exp.cas_idx[(calc.ref_space.size+calc.no_exp):]]
+def lz_prune(orbsym, tup, mbe=False):
+		""" lz pruning """
 		# loop over IDs
 		for sym in DEG_ID:
-			# given set of x- and y-orbs
-			pi_orbs = np.where((dooh_orbs == sym) | (dooh_orbs == (sym+1)))[0]
+			# given set of x and y pi orbs
+			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
 			if pi_orbs.size > 0:
-				# uneven number of orbs
 				if pi_orbs.size % 2 > 0:
-					return False
-				# are the (d2h) pi orbs not degenerated (i.e., not placed as successive orbs in a list rank by mo energies)
-				d2h_orbs = np.array([x for x in exp.cas_idx[(calc.ref_space.size+calc.no_exp):][pi_orbs]])
-				if np.where(np.ediff1d(d2h_orbs) == 1)[0].size < d2h_orbs.size // 2:
-					return False
+					# uneven number of pi orbs
+					if mbe:
+						# mbe phase
+						return False
+					if orbsym[tup[-1]] not in [sym, sym+1]:
+						# last orbital is not a pi orbital
+						return False
+					else:
+						if orbsym[tup[-1]-1] in [sym, sym+1]:
+							# this is the second in the set of degenerated pi orbs (in a list ranked by mo energies))
+							return False
+				else:
+					# even number of pi orbs
+					if np.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1) < pi_orbs.size // 2:
+						# the pi orbs are not degenerated (i.e., not placed as successive orbs in a list ranked by mo energies)
+						return False
 		return True
 
 

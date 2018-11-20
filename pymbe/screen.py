@@ -26,7 +26,7 @@ TAGS = tools.enum('start', 'ready', 'exit', 'collect')
 def main(mpi, mol, calc, exp):
 		""" input generation for subsequent order """
 		# update expansion threshold
-		exp.thres = update(calc, exp)
+		exp.thres = update(exp.order, calc.thres['init'], calc.thres['relax'])
 		# print header
 		if mpi.global_master: output.screen_header(exp, exp.thres)
 		# mpi parallel or serial version
@@ -50,9 +50,11 @@ def _serial(mol, calc, exp):
 				parent_tup = exp.tuples[-1][i].tolist()
 				for m in lst:
 					if calc.model['type'] == 'occ':
-						child_tup += [m]+parent_tup
+						tup = [m]+parent_tup
 					elif calc.model['type'] == 'virt':
-						child_tup += parent_tup+[m]
+						tup = parent_tup+[m]
+					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup[calc.no_exp:], dtype=np.int32))):
+						child_tup += tup
 		# convert child tuple list to array
 		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, exp.order+1)
 		# collect time
@@ -98,8 +100,9 @@ def _parallel(mpi, mol, calc, exp):
 					tup = [m]+parent_tup
 				elif calc.model['type'] == 'virt':
 					tup = parent_tup+[m]
-				child_tup += tup
-				child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+				if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, np.asarray(tup[calc.no_exp:], dtype=np.int32))):
+					child_tup += tup
+					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 		# allgatherv tuples/hashes
 		tuples, hashes = parallel.screen(child_tup, child_hash, exp.order, comm)
 		# append tuples and hashes
@@ -111,11 +114,17 @@ def _parallel(mpi, mol, calc, exp):
 
 def _test(calc, exp, tup):
 		""" screening test """
-		if exp.thres == 0.0 or exp.order == exp.start_order:
+		if exp.order == exp.start_order:
 			if calc.model['type'] == 'occ':
-				return [m for m in range(calc.exp_space[0], tup[0])]
+				if calc.extra['lz_sym']:
+					NotImplementedError('lz pruning (start_order) not implemented for occ expansions')
+				else:
+					return [m for m in range(calc.exp_space[0], tup[0])]
 			elif calc.model['type'] == 'virt':
-				return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
+				if calc.extra['lz_sym'] and calc.no_exp > 0:
+					return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1) if tools.lz_prune(calc.orbsym, np.asarray([m], dtype=np.int32))]
+				else:
+					return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
 		else:
 			# init return list
 			lst = []
@@ -134,66 +143,76 @@ def _test(calc, exp, tup):
 				for m in range(calc.exp_space[0], tup[0]):
 					# add orbital m to combinations
 					combs_m = np.concatenate((m * np.ones(combs.shape[0], dtype=np.int32)[:, None], combs), axis=1)
+					if calc.extra['lz_sym']:
+						raise NotImplementedError('lz pruning (screen) not implemented for occ expansions')
 					# convert to sorted hashes
 					combs_m = tools.hash_2d(combs_m)
 					combs_m.sort()
 					# get index
-					diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m)
-					if diff.size == combs_m.size:
-						indx = left
-						lst += _prot_check(exp, calc, indx, m)
+					indx = tools.hash_compare(exp.hashes[-1], combs_m)
+					if indx is not None:
+						if not _prot_screen(exp.thres, calc.prot['scheme'], calc.target, exp.prop, indx):
+							lst += [m]
 			elif calc.model['type'] == 'virt':
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# add orbital m to combinations
 					combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
+					# lz pruning
+					if calc.extra['lz_sym']:
+						combs_m = combs_m[[tools.lz_prune(calc.orbsym, combs_m[comb, calc.no_exp:]) for comb in range(combs_m.shape[0])]]
 					# convert to sorted hashes
-					combs_m = tools.hash_2d(combs_m)
-					combs_m.sort()
-					# get index
-					diff, left, right = tools.hash_compare(exp.hashes[-1], combs_m)
-					if diff.size == combs_m.size:
-						indx = left
-						lst += _prot_check(exp, calc, indx, m)
+					combs_m_hash = tools.hash_2d(combs_m)
+					combs_m_hash.sort()
+					# get indices
+					indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
+					if calc.extra['lz_sym']:
+						# deep pruning (to check validity of tup + [m])
+						for k in range(exp.order-exp.start_order, 0, -1):
+							if calc.no_exp > 0:
+								combs_lz = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
+													combinations(tup[calc.no_exp:], k-1)], dtype=np.int32)
+							else:
+								combs_lz = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+							# add orbital m to combinations
+							combs_lz = np.concatenate((combs_lz, m * np.ones(combs_lz.shape[0], dtype=np.int32)[:, None]), axis=1)
+							combs_lz = combs_lz[[tools.lz_prune(calc.orbsym, combs_lz[comb, calc.no_exp:]) for comb in range(combs_lz.shape[0])]]
+							# convert to sorted hashes
+							combs_lz_hash = tools.hash_2d(combs_lz)
+							combs_lz_hash.sort()
+							# get indices
+							indx_lz = tools.hash_compare(exp.hashes[k], combs_lz_hash)
+							# break if disallowed
+							if indx_lz is None:
+								indx = None
+								break
+					if indx is not None:
+						if not _prot_screen(exp.thres, calc.prot['scheme'], calc.target, exp.prop, indx):
+							lst += [m]
 			return lst
 
 
-def _prot_check(exp, calc, indx, m):
+def _prot_screen(thres, scheme, target, prop, indx):
 		""" protocol check """
 		screen = True
-		for i in ['energy', 'excitation', 'dipole', 'trans']:
-			if calc.target[i]:
-				if i == 'energy':
-					prop = exp.prop['energy']['inc'][-1][indx]
-					screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-					if not screen: break
-				elif i == 'excitation':
-					prop = exp.prop['excitation']['inc'][-1][indx]
-					screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-					if not screen: break
-				elif i == 'dipole':
-					for k in range(3):
+		for t in ['energy', 'excitation', 'dipole', 'trans']:
+			if target[t]:
+				if t in ['energy', 'excitation']:
+					screen = _prot_scheme(thres, scheme, prop[t]['inc'][-1][indx])
+				elif t in ['dipole', 'trans']:
+					for dim in range(3):
 						# (x,y,z) = (0,1,2)
-						prop = exp.prop['dipole']['inc'][-1][indx, k]
-						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-						if not screen: break
-					if not screen: break
-				elif i == 'trans':
-					for k in range(3):
-						# (x,y,z) = (0,1,2)
-						prop = exp.prop['trans']['inc'][-1][indx, k]
-						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-						if not screen: break
-					if not screen: break
-			if not screen: break
-		if not screen:
-			return [m]
-		else:
-			return []
+						screen = _prot_scheme(thres, scheme, prop[t]['inc'][-1][indx, dim])
+						if not screen:
+							break
+				if not screen:
+					break
+		return screen
 
 
-def _prot_scheme(prop, thres, scheme):
+def _prot_scheme(thres, scheme, prop):
 		""" screen according to chosen scheme """
 		if np.sum(prop) == 0.0:
+			# lz pruning
 			return False
 		else:
 			# are *all* increments below the threshold?
@@ -204,11 +223,11 @@ def _prot_scheme(prop, thres, scheme):
 				return np.min(np.abs(prop)) < thres
 
 
-def update(calc, exp):
+def update(order, thres_init, thres_relax):
 		""" update expansion threshold """
-		if exp.order < 3:
+		if order < 3:
 			return 0.0
 		else:
-			return calc.thres['init'] * calc.thres['relax'] ** (exp.order - 3)
+			return thres_init * thres_relax ** (order - 3)
 
 
