@@ -35,15 +35,19 @@ def main(mpi, mol, calc, exp):
 		# now do expansion
 		for exp.order in range(exp.min_order, exp.max_order+1):
 			#** mbe phase **#
+			if mpi.global_master:
+				# print header
+				output.mbe_header(exp)
 			if len(exp.tuples) > len(exp.count):
 				mbe.main(mpi, mol, calc, exp)
 				if mpi.global_master:
 					# write restart files
 					restart.mbe_write(calc, exp)
-					# print mbe end
-					output.mbe_end(calc, exp)
-					# print mbe results
-					output.mbe_results(mol, calc, exp)
+			if mpi.global_master:
+				# print mbe end
+				output.mbe_end(calc, exp)
+				# print mbe results
+				output.mbe_results(mol, calc, exp)
 			#** screening phase **#
 			if exp.order < exp.max_order:
 				# perform screening
@@ -115,7 +119,7 @@ def _rst_print(mol, calc, exp):
 			output.mbe_header(exp)
 			output.mbe_end(calc, exp)
 			output.mbe_results(mol, calc, exp)
-			thres = screen.update(calc, exp)
+			thres = screen.update(exp.order, calc.thres['init'], calc.thres['relax'])
 			output.screen_header(exp, thres)
 			output.screen_end(exp)
 			rst_freq = max(rst_freq // 2, 1)

@@ -26,7 +26,7 @@ TAGS = tools.enum('start', 'ready', 'exit', 'collect')
 def main(mpi, mol, calc, exp):
 		""" input generation for subsequent order """
 		# update expansion threshold
-		exp.thres = update(calc, exp)
+		exp.thres = update(exp.order, calc.thres['init'], calc.thres['relax'])
 		# print header
 		if mpi.global_master: output.screen_header(exp, exp.thres)
 		# mpi parallel or serial version
@@ -121,7 +121,7 @@ def _test(calc, exp, tup):
 				else:
 					return [m for m in range(calc.exp_space[0], tup[0])]
 			elif calc.model['type'] == 'virt':
-				if calc.extra['lz_sym']:
+				if calc.extra['lz_sym'] and calc.no_exp > 0:
 					return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1) if tools.lz_prune(calc.orbsym, np.asarray([m], dtype=np.int32))]
 				else:
 					return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
@@ -150,7 +150,9 @@ def _test(calc, exp, tup):
 					combs_m.sort()
 					# get index
 					indx = tools.hash_compare(exp.hashes[-1], combs_m)
-					lst += _prot_check(exp, calc, indx, m)
+					if indx is not None:
+						if not _prot_screen(exp.thres, calc.prot['scheme'], calc.target, exp.prop, indx):
+							lst += [m]
 			elif calc.model['type'] == 'virt':
 				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 					# add orbital m to combinations
@@ -184,45 +186,30 @@ def _test(calc, exp, tup):
 								indx = None
 								break
 					if indx is not None:
-						lst += _prot_check(exp, calc, indx, m)
+						if not _prot_screen(exp.thres, calc.prot['scheme'], calc.target, exp.prop, indx):
+							lst += [m]
 			return lst
 
 
-def _prot_check(exp, calc, indx, m):
+def _prot_screen(thres, scheme, target, prop, indx):
 		""" protocol check """
 		screen = True
-		for i in ['energy', 'excitation', 'dipole', 'trans']:
-			if calc.target[i]:
-				if i == 'energy':
-					prop = exp.prop['energy']['inc'][-1][indx]
-					screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-					if not screen: break
-				elif i == 'excitation':
-					prop = exp.prop['excitation']['inc'][-1][indx]
-					screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-					if not screen: break
-				elif i == 'dipole':
-					for k in range(3):
+		for t in ['energy', 'excitation', 'dipole', 'trans']:
+			if target[t]:
+				if t in ['energy', 'excitation']:
+					screen = _prot_scheme(thres, scheme, prop[t]['inc'][-1][indx])
+				elif t in ['dipole', 'trans']:
+					for dim in range(3):
 						# (x,y,z) = (0,1,2)
-						prop = exp.prop['dipole']['inc'][-1][indx, k]
-						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-						if not screen: break
-					if not screen: break
-				elif i == 'trans':
-					for k in range(3):
-						# (x,y,z) = (0,1,2)
-						prop = exp.prop['trans']['inc'][-1][indx, k]
-						screen = _prot_scheme(prop, exp.thres, calc.prot['scheme'])
-						if not screen: break
-					if not screen: break
-			if not screen: break
-		if not screen:
-			return [m]
-		else:
-			return []
+						screen = _prot_scheme(thres, scheme, prop[t]['inc'][-1][indx, dim])
+						if not screen:
+							break
+				if not screen:
+					break
+		return screen
 
 
-def _prot_scheme(prop, thres, scheme):
+def _prot_scheme(thres, scheme, prop):
 		""" screen according to chosen scheme """
 		if np.sum(prop) == 0.0:
 			# lz pruning
@@ -236,11 +223,11 @@ def _prot_scheme(prop, thres, scheme):
 				return np.min(np.abs(prop)) < thres
 
 
-def update(calc, exp):
+def update(order, thres_init, thres_relax):
 		""" update expansion threshold """
-		if exp.order < 3:
+		if order < 3:
 			return 0.0
 		else:
-			return calc.thres['init'] * calc.thres['relax'] ** (exp.order - 3)
+			return thres_init * thres_relax ** (order - 3)
 
 

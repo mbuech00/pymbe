@@ -31,8 +31,6 @@ TAGS = tools.enum('start', 'ready', 'exit')
 
 def main(mpi, mol, calc, exp):
 		""" mbe phase """
-		# print header
-		if mpi.global_master: output.mbe_header(exp)
 		# init increments
 		if calc.target['energy']:
 			exp.prop['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
@@ -287,11 +285,14 @@ def _inc(mpi, mol, calc, exp, tup):
 					res = _sum(calc, exp, tup, 'trans')
 					inc['trans'] = inc['trans'] - res['trans']
 		# debug print
-		if mol.debug and exp.order > exp.start_order:
+		if mol.debug:
 			if calc.model['type'] == 'occ':
 				raise NotImplementedError('debug print (mbe: _inc()) not implemented for occ expansions')
-			tup_lst = [i for i in exp.cas_idx[-(exp.order - exp.start_order):]]
-			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx[-(exp.order - exp.start_order):]]]
+			index = exp.order - exp.start_order
+			if calc.no_exp == 0:
+				index += 1
+			tup_lst = [i for i in exp.cas_idx[-index:]]
+			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx[-index:]]]
 			string = ' INC: order = {:} , tup = {:}\n'
 			string += '      symmetry = {:}\n'
 			form = (exp.order, tup_lst, tup_sym)
