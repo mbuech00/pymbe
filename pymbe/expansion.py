@@ -61,12 +61,7 @@ def _init_tup(mol, calc):
 		incl_idx = calc.ref_space.tolist()
 		# tuples
 		if calc.no_exp == 0:
-			if calc.extra['lz_sym']:
-				if calc.model['type'] == 'occ':
-					NotImplementedError('lz pruning (_init_tup) not implemented for occ expansions')
-				tuples = [np.array([[i] for i in calc.exp_space if tools.lz_prune(calc.orbsym, np.asarray([i], dtype=np.int32))], dtype=np.int32)]
-			else:
-				tuples = [np.array([[i] for i in calc.exp_space], dtype=np.int32)]
+			tuples = [np.array([[i] for i in calc.exp_space], dtype=np.int32)]
 		else:
 			if calc.model['type'] == 'occ':
 				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32)]
