@@ -557,10 +557,15 @@ def _casscf(mol, calc, exp):
 				sys.stderr.write(str(err))
 				raise
 		# multiplicity check
-		s, mult = mcscf.spin_square(cas)
-		assert np.abs((mol.spin + 1) - mult) < 1.0e-05, ('\nCASSCF Error: spin contamination\n\n'
-												'2*S + 1 = {1:.6f}\n\n'). \
-												format(mult)
+		if len(calc.ref['wfnsym']) == 1:
+			c = [cas.ci]
+		else:
+			c = cas.ci
+		for i in range(len(c)):
+			s, mult = fcisolver.spin_square(c[i], calc.no_act, calc.ne_act)
+			assert np.abs((mol.spin + 1) - mult) < 1.0e-05, ('\nCASSCF Error: spin contamination for state = {:}\n\n'
+													'2*S + 1 = {:.6f}\n\n'). \
+													format(i, mult)
 		return np.asarray(cas.mo_coeff, order='C')
 
 
