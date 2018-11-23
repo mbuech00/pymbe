@@ -502,10 +502,6 @@ def _casscf(mol, calc, exp):
 				fcisolver = fci.addons.fix_spin_(fci.direct_spin1_symm.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
 			else:
 				fcisolver = fci.addons.fix_spin_(fci.direct_spin1.FCI(mol), shift=0.5, ss=sz * (sz + 1.))
-		# fix spin by applyting level shift
-		if calc.extra['fix_spin']:
-			sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * 0.5
-			cas.fix_spin_(shift=0.5, ss=sz * (sz + 1.))
 		# conv_tol
 		fcisolver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		# orbital symmetry
@@ -514,6 +510,10 @@ def _casscf(mol, calc, exp):
 		fcisolver.wfnsym = calc.ref['wfnsym'][0]
 		# set solver
 		cas.fcisolver = fcisolver
+		# fix spin by applyting level shift
+		if calc.extra['fix_spin']:
+			sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * 0.5
+			cas.fix_spin_(shift=0.5, ss=sz * (sz + 1.))
 		# state-averaged calculation
 		if len(calc.ref['wfnsym']) > 1:
 			# weights
