@@ -200,8 +200,8 @@ def _base(calc):
 
 def _prot(calc):
 		""" protocol print """
-		if calc.extra['filter'] is not None:
-			return calc.prot['scheme']+' ('+calc.extra['filter']+')'
+		if calc.extra['fix_spin']:
+			return calc.prot['scheme']+' (fix_spin)'
 		else:
 			return calc.prot['scheme']
 
