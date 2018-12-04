@@ -555,24 +555,20 @@ def _casscf(mol, calc, exp):
 			s, mult = fcisolver.spin_square(c[root], calc.no_act, calc.ne_act)
 			if np.abs((mol.spin + 1) - mult) > SPIN_TOL:
 				# fix spin by applyting level shift
-				if calc.extra['fix_spin']:
-					sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * 0.5
-					cas.fix_spin_(shift=0.25, ss=sz * (sz + 1.))
-					# run casscf calc
-					cas.kernel(calc.mo, ci0=ci0)
-					if len(calc.ref['wfnsym']) == 1:
-						c = [cas.ci]
-					else:
-						c = cas.ci
-					# verify correct spin
-					for root in range(len(c)):
-						s, mult = fcisolver.spin_square(c[root], calc.no_act, calc.ne_act)
-						assert np.abs((mol.spin + 1) - mult) < SPIN_TOL, ('\nCASSCF Error: spin contamination for root entry = {:}\n\n'
-																'2*S + 1 = {:.6f}\n\n'). \
-																format(root, mult)
+				sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * 0.5
+				cas.fix_spin_(shift=0.25, ss=sz * (sz + 1.))
+				# run casscf calc
+				cas.kernel(calc.mo, ci0=ci0)
+				if len(calc.ref['wfnsym']) == 1:
+					c = [cas.ci]
 				else:
-					raise RuntimeError('\nCASSCF Error: spin contamination for root entry = {:}\n\n'
-										'2*S + 1 = {:.6f}\n\n'.format(root, mult))
+					c = cas.ci
+				# verify correct spin
+				for root in range(len(c)):
+					s, mult = fcisolver.spin_square(c[root], calc.no_act, calc.ne_act)
+					assert np.abs((mol.spin + 1) - mult) < SPIN_TOL, ('\nCASSCF Error: spin contamination for root entry = {:}\n\n'
+															'2*S + 1 = {:.6f}\n\n'). \
+															format(root, mult)
 		# convergence check
 		if not cas.converged:
 			try:
@@ -634,22 +630,17 @@ def _fci(mol, calc, exp):
 			s, mult = solver.spin_square(civec[root], exp.cas_idx.size, nelec)
 			if np.abs((mol.spin + 1) - mult) > SPIN_TOL:
 				# fix spin by applyting level shift
-				if calc.extra['fix_spin']:
-					sz = np.abs(nelec[0]-nelec[1]) * 0.5
-					solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.))
-					# perform calc
-					energy, civec = _fci_kernel()
-					# verify correct spin
-					for root in range(len(civec)):
-						s, mult = solver.spin_square(civec[root], exp.cas_idx.size, nelec)
-						assert np.abs((mol.spin + 1) - mult) < SPIN_TOL, ('\nFCI Error: spin contamination for root entry = {0:}\n\n'
-																'2*S + 1 = {1:.6f}\n'
-																'core_idx = {2:} , cas_idx = {3:}\n\n'). \
-																format(root, mult, exp.core_idx, exp.cas_idx)
-				else:
-					raise RuntimeError('\nFCI Error: spin contamination for root entry = {0:}\n\n'
-										'2*S + 1 = {1:.6f}\n'
-										'core_idx = {2:} , cas_idx = {3:}\n\n'.format(root, mult, exp.core_idx, exp.cas_idx))
+				sz = np.abs(nelec[0]-nelec[1]) * 0.5
+				solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.))
+				# perform calc
+				energy, civec = _fci_kernel()
+				# verify correct spin
+				for root in range(len(civec)):
+					s, mult = solver.spin_square(civec[root], exp.cas_idx.size, nelec)
+					assert np.abs((mol.spin + 1) - mult) < SPIN_TOL, ('\nFCI Error: spin contamination for root entry = {0:}\n\n'
+															'2*S + 1 = {1:.6f}\n'
+															'core_idx = {2:} , cas_idx = {3:}\n\n'). \
+															format(root, mult, exp.core_idx, exp.cas_idx)
 		# convergence check
 		if solver.nroots == 1:
 			assert solver.converged, ('FCI Error: state 0 not converged\n\n'

@@ -32,7 +32,7 @@ class CalcCls():
 				self.ref = {'method': 'hf', 'hf_guess': True, 'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'lz_sym': False, 'fix_spin': False}
+				self.extra = {'hf_guess': True, 'lz_sym': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -267,8 +267,6 @@ class CalcCls():
 						raise ValueError('wrong input -- HF initial guess for FCI calcs (hf_guess) must be a bool')
 					if not isinstance(self.extra['lz_sym'], bool):
 						raise ValueError('wrong input -- special Lz symmetry for FCI calcs (lz_sym) must be a bool')
-					if not isinstance(self.extra['fix_spin'], bool):
-						raise ValueError('wrong input -- fixing of spin by appying level shifts for CASSCF and FCI calcs (fix_spin) must be a bool')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
 						raise ValueError('wrong input -- values in prot input (prot) must be string and bools')
