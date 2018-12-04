@@ -23,6 +23,9 @@ from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
 import tools
 
 
+SPIN_TOL = 1.0e-05
+
+
 def ao_ints(mol, calc):
 		""" get AO integrals """
 		# core hamiltonian and electron repulsion ints
@@ -35,13 +38,12 @@ def ao_ints(mol, calc):
 		else: # model hamiltonian
 			hcore = _hubbard_h1(mol)
 			eri = _hubbard_eri(mol)
-		# dipole integrals with gauge origin at (0,0,0)
+		# dipole integrals with gauge origin at center of charge
 		if calc.target['dipole'] or calc.target['trans']:
 			# determine center of charge
 			charge_center = (np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords()) / mol.atom_charges().sum())
 			# compute elec_dipole
 			with mol.with_common_origin(charge_center):
-#			with mol.with_common_orig((0,0,0)):
 				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
 			dipole = None
@@ -551,7 +553,7 @@ def _casscf(mol, calc, exp):
 		# multiplicity check
 		for root in range(len(c)):
 			s, mult = fcisolver.spin_square(c[root], calc.no_act, calc.ne_act)
-			if np.abs((mol.spin + 1) - mult) > 1.0e-05:
+			if np.abs((mol.spin + 1) - mult) > SPIN_TOL:
 				# fix spin by applyting level shift
 				if calc.extra['fix_spin']:
 					sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * 0.5
@@ -565,9 +567,12 @@ def _casscf(mol, calc, exp):
 					# verify correct spin
 					for root in range(len(c)):
 						s, mult = fcisolver.spin_square(c[root], calc.no_act, calc.ne_act)
-						assert np.abs((mol.spin + 1) - mult) < 1.0e-05, ('\nCASSCF Error: spin contamination for root entry = {:}\n\n'
+						assert np.abs((mol.spin + 1) - mult) < SPIN_TOL, ('\nCASSCF Error: spin contamination for root entry = {:}\n\n'
 																'2*S + 1 = {:.6f}\n\n'). \
 																format(root, mult)
+				else:
+					raise RuntimeError('\nCASSCF Error: spin contamination for root entry = {:}\n\n'
+										'2*S + 1 = {:.6f}\n\n'.format(root, mult))
 		# convergence check
 		if not cas.converged:
 			try:
@@ -627,7 +632,7 @@ def _fci(mol, calc, exp):
 		# multiplicity check
 		for root in range(len(civec)):
 			s, mult = solver.spin_square(civec[root], exp.cas_idx.size, nelec)
-			if np.abs((mol.spin + 1) - mult) > 1.0e-05:
+			if np.abs((mol.spin + 1) - mult) > SPIN_TOL:
 				# fix spin by applyting level shift
 				if calc.extra['fix_spin']:
 					sz = np.abs(nelec[0]-nelec[1]) * 0.5
@@ -637,10 +642,14 @@ def _fci(mol, calc, exp):
 					# verify correct spin
 					for root in range(len(civec)):
 						s, mult = solver.spin_square(civec[root], exp.cas_idx.size, nelec)
-						assert np.abs((mol.spin + 1) - mult) < 1.0e-05, ('\nFCI Error: spin contamination for root entry = {0:}\n\n'
+						assert np.abs((mol.spin + 1) - mult) < SPIN_TOL, ('\nFCI Error: spin contamination for root entry = {0:}\n\n'
 																'2*S + 1 = {1:.6f}\n'
 																'core_idx = {2:} , cas_idx = {3:}\n\n'). \
 																format(root, mult, exp.core_idx, exp.cas_idx)
+				else:
+					raise RuntimeError('\nFCI Error: spin contamination for root entry = {0:}\n\n'
+										'2*S + 1 = {1:.6f}\n'
+										'core_idx = {2:} , cas_idx = {3:}\n\n'.format(root, mult, exp.core_idx, exp.cas_idx))
 		# convergence check
 		if solver.nroots == 1:
 			assert solver.converged, ('FCI Error: state 0 not converged\n\n'
