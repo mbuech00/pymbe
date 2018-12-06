@@ -106,7 +106,7 @@ def _serial(mpi, mol, calc, exp):
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate increments
-			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, exp.tuples[-1][i][calc.no_exp:], mbe=True)):
+			if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][i][calc.no_exp:], mbe=True)):
 				_calc(mpi, mol, calc, exp, i)
 				exp.count[-1] += 1
 				# print status
@@ -211,7 +211,7 @@ def _slave(mpi, mol, calc, exp):
 					if n == task.size - 1:
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, exp.tuples[-1][task_idx][calc.no_exp:], mbe=True)):
+					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][task_idx][calc.no_exp:], mbe=True)):
 						_calc(mpi, mol, calc, exp, task_idx)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -336,11 +336,11 @@ def _sum(calc, exp, tup, prop):
 										combinations(tup[calc.no_exp:], k-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-			# lz pruning
-			if calc.extra['lz_sym']:
+			# sigma pruning
+			if calc.extra['sigma']:
 				if calc.model['type'] == 'occ':
-					raise NotImplementedError('lz pruning (mbe: _sum()) not implemented for occ expansions')
-				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, calc.no_exp:]) for comb in range(combs.shape[0])]]
+					raise NotImplementedError('Sigma state pruning (mbe: _sum()) not implemented for occ expansions')
+				combs = combs[[tools.sigma_prune(calc.orbsym, combs[comb, calc.no_exp:]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)
 			combs_hash.sort()
