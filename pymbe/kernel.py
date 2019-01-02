@@ -39,8 +39,9 @@ def ao_ints(mol, calc):
 			hcore = _hubbard_h1(mol)
 			eri = _hubbard_eri(mol)
 		# dipole integrals with gauge origin at origo
-		with mol.with_common_origin([0.0, 0.0, 0.0]):
-			dipole = mol.intor_symmetric('int1e_r', comp=3)
+		if calc.target['dipole'] or calc.target['trans']:
+			with mol.with_common_origin([0.0, 0.0, 0.0]):
+				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
 			dipole = None
 		return hcore, eri, dipole
