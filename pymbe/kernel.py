@@ -38,13 +38,9 @@ def ao_ints(mol, calc):
 		else: # model hamiltonian
 			hcore = _hubbard_h1(mol)
 			eri = _hubbard_eri(mol)
-		# dipole integrals with gauge origin at center of charge
-		if calc.target['dipole'] or calc.target['trans']:
-			# determine center of charge
-			charge_center = (np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords()) / mol.atom_charges().sum())
-			# compute elec_dipole
-			with mol.with_common_origin(charge_center):
-				dipole = mol.intor_symmetric('int1e_r', comp=3)
+		# dipole integrals with gauge origin at origo
+		with mol.with_common_origin([0.0, 0.0, 0.0]):
+			dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
 			dipole = None
 		return hcore, eri, dipole
