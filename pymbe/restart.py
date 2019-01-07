@@ -90,10 +90,11 @@ def write_fund(mol, calc):
 		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
 			json.dump(dims, f)
 		# write hf, reference, and base properties
-		energies = {'hf': calc.prop['hf']['energy'], 'base': calc.base['energy'], \
-					'ref': calc.prop['ref']['energy'], 'ref_base': calc.base['ref']}
-		with open(os.path.join(RST, 'energies.rst'), 'w') as f:
-			json.dump(energies, f)
+		if calc.target['energy']:
+			energies = {'hf': calc.prop['hf']['energy'], 'base': calc.base['energy'], \
+						'ref': calc.prop['ref']['energy'], 'ref_base': calc.base['ref']}
+			with open(os.path.join(RST, 'energies.rst'), 'w') as f:
+				json.dump(energies, f)
 		if calc.target['excitation']:
 			excitations = {'ref': calc.prop['ref']['energy']}
 			with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
