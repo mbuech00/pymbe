@@ -27,7 +27,7 @@ class CalcCls():
 				""" init parameters """
 				# set defaults
 				self.model = {'method': 'fci', 'type': 'virt'}
-				self.target = {'energy': True, 'excitation': False, 'dipole': False, 'trans': False}
+				self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
 				self.ref = {'method': 'hf', 'hf_guess': True, 'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
@@ -247,6 +247,8 @@ class CalcCls():
 					if self.state['root'] > 0 and self.model['method'] != 'fci':
 						raise ValueError('wrong input -- excited states only implemented for an fci expansion model')
 					# targets
+					if not any(self.target.values()):
+						raise ValueError('wrong input -- at least one target property must be requested. valid choice are: energy, excitation energy (excitation), dipole, and transition dipole (trans)')
 					if not all(isinstance(i, bool) for i in self.target.values()):
 						raise ValueError('wrong input -- values in target input (target) must be bools')
 					if not set(list(self.target.keys())) <= set(['energy', 'excitation', 'dipole', 'trans']):
