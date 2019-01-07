@@ -244,27 +244,22 @@ def active(mol, calc):
 				# sanity checks
 				assert nocc_avas <= (mol.nocc - mol.ncore)
 				assert float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[mol.ncore:])
-			# identical to hf ref?
-			if no_exp == 0:
-				try:
-					raise RuntimeError('\nCAS Error: choice of CAS returns hf solution\n\n')
-				except Exception as err:
-					sys.stderr.write(str(err))
-					raise
 			if mol.debug:
 				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
 		return ref_space, exp_space, no_exp, no_act, ne_act
 
 
-def ref(mol, calc, exp):
-		""" calculate reference energy and mo coefficients """
+def ref_mo(mol, calc, exp):
+		""" determine reference mo coefficients """
 		# set core and cas spaces
 		if calc.model['type'] == 'occ':
 			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
 		elif calc.model['type'] == 'virt':
 			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
 		# sort mo coefficients
-		if calc.ref['method'] in ['casci','casscf']:
+		if calc.ref['method'] == 'hf':
+			mo = calc.mo
+		elif calc.ref['method'] in ['casci','casscf']:
 			if calc.ref['active'] == 'manual':
 				# inactive region
 				inact_elec = mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])
@@ -273,82 +268,16 @@ def ref(mol, calc, exp):
 				# divide into inactive-active-virtual
 				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
 				mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['select']], calc.mo[:, idx[inact_orb:]]))
-				calc.mo = np.asarray(mo, order='C')
+				mo = np.asarray(mo, order='C')
 				if mol.atom:
 					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
 			else:
 				from pyscf.mcscf import avas
-				calc.mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
-			# set properties equal to hf values
-			ref = {'base': 0.0}
-			if calc.target['energy']:
-				ref['energy'] = 0.0
-			if calc.target['excitation']:
-				ref['excitation'] = 0.0
-			if calc.target['dipole']:
-				ref['dipole'] = np.zeros(3, dtype=np.float64)
-			if calc.target['trans']:
-				ref['trans'] = np.zeros(3, dtype=np.float64)
+				mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
 			# casscf mo
 			if calc.ref['method'] == 'casscf':
-				calc.mo = _casscf(mol, calc, exp)
-		else:
-			if mol.spin == 0:
-				# set properties equal to hf values
-				ref = {'base': 0.0}
-				if calc.target['energy']:
-					ref['energy'] = 0.0
-				if calc.target['excitation']:
-					ref['excitation'] = 0.0
-				if calc.target['dipole']:
-					ref['dipole'] = np.zeros(3, dtype=np.float64)
-				if calc.target['trans']:
-					ref['trans'] = np.zeros(3, dtype=np.float64)
-			else:
-				# exp model
-				res = main(mol, calc, exp, calc.model['method'])
-				ref = {}
-				# e_ref
-				if calc.target['energy']:
-					ref['energy'] = res['energy']
-				# excitation_ref
-				if calc.target['excitation']:
-					ref['excitation'] = res['excitation']
-				# dipole_ref
-				if calc.target['dipole']:
-					ref['dipole'] = res['dipole']
-				# trans_dipole_ref
-				if calc.target['trans']:
-					ref['trans'] = res['trans']
-				# e_ref_base
-				if calc.base['method'] is None:
-					ref['base'] = 0.0
-				else:
-					if np.abs(ref['e_ref']) < 1.0e-10:
-						ref['base'] = ref['energy']
-					else:
-						res = main(mol, calc, exp, calc.base['method'])
-						ref['base'] = res['energy']
-		if mol.debug:
-			string = '\n REF: core = {:} , cas = {:}\n'
-			form = (exp.core_idx.tolist(), exp.cas_idx.tolist())
-			if calc.base['method'] is not None:
-				string += '      base energy for root 0 = {:.4e}\n'
-				form += (ref['base'],)
-			if calc.target['energy']:
-				string += '      energy for root {:} = {:.4e}\n'
-				form += (calc.state['root'], ref['energy'],)
-			if calc.target['excitation']:
-				string += '      excitation energy for root {:} = {:.4f}\n'
-				form += (calc.state['root'], ref['excitation'],)
-			if calc.target['dipole']:
-				string += '      dipole moment for root {:} = ({:.4f}, {:.4f}, {:.4f})\n'
-				form += (calc.state['root'], *ref['dipole'],)
-			if calc.target['trans']:
-				string += '      transition dipole moment for excitation {:} > {:} = ({:.4f}, {:.4f}, {:.4f})\n'
-				form += (0, calc.state['root'], *ref['trans'],)
-			print(string.format(*form))
-		return ref, calc.mo
+				mo = _casscf(mol, calc, exp)
+		return mo
 
 
 def main(mol, calc, exp, method):

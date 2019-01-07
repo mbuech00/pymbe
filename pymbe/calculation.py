@@ -195,6 +195,8 @@ class CalcCls():
 					# reference model
 					if self.ref['method'] not in ['hf', 'casci', 'casscf']:
 						raise ValueError('wrong input -- valid reference models are currently: hf, casci, and casscf')
+					if self.ref['method'] == 'hf' and mol.spin > 0:
+						raise ValueError('wrong input -- non-singlet states require casci/casscf expansion references')
 					if self.ref['method'] in ['casci', 'casscf']:
 						if self.ref['method'] == 'casscf' and self.model['method'] != 'fci':
 							raise ValueError('wrong input -- a casscf reference is only meaningful for an fci expansion model')
@@ -234,13 +236,10 @@ class CalcCls():
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
 					# state
-					if mol.atom:
-						if self.state['wfnsym'] != symm.addons.irrep_id2name(mol.symmetry, 0) and self.extra['hf_guess']:
-							raise ValueError('wrong input -- illegal choice of state wfnsym when enforcing hf initial guess')
-						try:
-							self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
-						except Exception as err_2:
-							raise ValueError('wrong input -- illegal choice of state wfnsym -- PySCF error: {0:}'.format(err_2))
+					try:
+						self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
+					except Exception as err_2:
+						raise ValueError('wrong input -- illegal choice of state wfnsym -- PySCF error: {0:}'.format(err_2))
 					if self.state['wfnsym'] != 0 and self.model['method'] != 'fci':
 						raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
 					if self.state['root'] < 0:

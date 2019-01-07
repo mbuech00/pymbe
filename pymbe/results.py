@@ -170,10 +170,7 @@ def _state(mol, calc):
 def _ref(mol, calc):
 		""" ref print """
 		if calc.ref['method'] == 'hf':
-			if mol.spin == 0:
-				return 'RHF'
-			else:
-				return 'ROHF'
+			return 'HF'
 		elif calc.ref['method'] == 'casci':
 			return 'CASCI'
 		elif calc.ref['method'] == 'casscf':
@@ -290,13 +287,12 @@ def _symm(mol, calc):
 def _energy(calc, exp):
 		""" final energies """
 		return exp.prop['energy']['tot'] \
-				+ calc.prop['hf']['energy'] + calc.base['energy'] \
-				+ (calc.prop['ref']['energy'] - calc.base['ref'])
+				+ calc.prop['hf']['energy'] + calc.base['energy']
 
 
 def _excitation(calc, exp):
 		""" final energies """
-		return exp.prop['excitation']['tot'] + calc.prop['ref']['excitation']
+		return exp.prop['excitation']['tot']
 
 
 def _dipole(mol, calc, exp):
@@ -306,14 +302,13 @@ def _dipole(mol, calc, exp):
 		coords  = mol.atom_coords()
 		nuc_dipole = np.einsum('i,ix->x', charges, coords)
 		dipole = exp.prop['dipole']['tot'] \
-						+ calc.prop['hf']['dipole'] \
-						+ calc.prop['ref']['dipole']
+						+ calc.prop['hf']['dipole']
 		return dipole, nuc_dipole
 
 
 def _trans(mol, calc, exp):
 		""" final molecular transition dipole moments """
-		return exp.prop['trans']['tot'] + calc.prop['ref']['trans']
+		return exp.prop['trans']['tot']
 
 
 def _time(exp, comp, idx):

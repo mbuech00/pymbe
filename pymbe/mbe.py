@@ -248,7 +248,7 @@ def _inc(mpi, mol, calc, exp, tup):
 		res = kernel.main(mol, calc, exp, calc.model['method'])
 		inc = {}
 		if calc.target['energy']:
-			inc['energy'] = res['energy'] - calc.prop['ref']['energy']
+			inc['energy'] = res['energy']
 			if calc.base['method'] is None:
 				e_base = 0.0
 			else:
@@ -256,17 +256,17 @@ def _inc(mpi, mol, calc, exp, tup):
 				e_base = res['energy']
 			inc['energy'] -= e_base
 		if calc.target['excitation']:
-			inc['excitation'] = res['excitation'] - calc.prop['ref']['excitation']
+			inc['excitation'] = res['excitation']
 		if calc.target['dipole']:
 			if res['dipole'] is None:
 				inc['dipole'] = np.zeros(3, dtype=np.float64)
 			else:
-				inc['dipole'] = res['dipole'] - calc.prop['ref']['dipole']
+				inc['dipole'] = res['dipole']
 		if calc.target['trans']:
 			if res['trans'] is None:
 				inc['trans'] = np.zeros(3, dtype=np.float64)
 			else:
-				inc['trans'] = res['trans'] - calc.prop['ref']['trans']
+				inc['trans'] = res['trans']
 		if exp.order > exp.start_order:
 			if calc.target['energy']:
 				if inc['energy'] != 0.0:
