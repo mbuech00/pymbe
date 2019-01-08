@@ -149,7 +149,7 @@ def hf(mol, calc):
 			for ir in orbsym[occup == 1]:
 				wfnsym ^= ir
 			# sanity check
-			if wfnsym != calc.state['wfnsym'] and calc.ref['method'] == 'hf':
+			if wfnsym != calc.state['wfnsym'] and calc.no_exp == 0:
 				try:
 					raise RuntimeError('\nHF Error : wave function symmetry ({0:}) different from requested symmetry ({1:})\n\n'.\
 										format(symm.irrep_id2name(mol.groupname, wfnsym), symm.irrep_id2name(mol.groupname, calc.state['wfnsym'])))
@@ -198,9 +198,10 @@ def active(mol, calc):
 			exp_space = np.array(range(mol.nocc, mol.norb))
 		# hf reference model
 		if calc.ref['method'] == 'hf':
-			# no active space
-			ne_act = (0, 0)
-			no_exp = no_act = 0
+			# no expansion space
+			ne_act = (mol.nelec[0] - mol.ncore, mol.nelec[1] - mol.ncore)
+			no_act = max(ne_act[0], ne_act[1])
+			no_exp = 0
 		# casci/casscf reference model
 		elif calc.ref['method'] in ['casci','casscf']:
 			if calc.ref['active'] == 'manual':
@@ -257,7 +258,7 @@ def ref_mo(mol, calc, exp):
 		elif calc.model['type'] == 'virt':
 			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
 		# sort mo coefficients
-		if calc.ref['method'] == 'hf':
+		if calc.no_exp == 0:
 			mo = calc.mo
 		elif calc.ref['method'] in ['casci','casscf']:
 			if calc.ref['active'] == 'manual':

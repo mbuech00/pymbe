@@ -170,7 +170,10 @@ def _state(mol, calc):
 def _ref(mol, calc):
 		""" ref print """
 		if calc.ref['method'] == 'hf':
-			return 'HF'
+			if mol.spin == 0:
+				return 'RHF'
+			else:
+				return 'ROHF'
 		elif calc.ref['method'] == 'casci':
 			return 'CASCI'
 		elif calc.ref['method'] == 'casscf':

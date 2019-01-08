@@ -195,8 +195,6 @@ class CalcCls():
 					# reference model
 					if self.ref['method'] not in ['hf', 'casci', 'casscf']:
 						raise ValueError('wrong input -- valid reference models are currently: hf, casci, and casscf')
-					if self.ref['method'] == 'hf' and mol.spin > 0:
-						raise ValueError('wrong input -- non-singlet states require casci/casscf expansion references')
 					if self.ref['method'] in ['casci', 'casscf']:
 						if self.ref['method'] == 'casscf' and self.model['method'] != 'fci':
 							raise ValueError('wrong input -- a casscf reference is only meaningful for an fci expansion model')
