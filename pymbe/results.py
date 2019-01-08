@@ -236,9 +236,9 @@ def _orbs(calc):
 		if calc.orbs['occ'] == 'can':
 			occ = 'canonical'
 		elif calc.orbs['occ'] == 'cisd':
-			occ = 'cisd natural'
+			occ = 'CISD natural'
 		elif calc.orbs['occ'] == 'ccsd':
-			occ = 'ccsd natural'
+			occ = 'CCSD natural'
 		elif calc.orbs['occ'] == 'pm':
 			occ = 'pipek-mezey'
 		elif calc.orbs['occ'] == 'fb':
@@ -250,9 +250,9 @@ def _orbs(calc):
 		if calc.orbs['virt'] == 'can':
 			virt = 'canonical'
 		elif calc.orbs['virt'] == 'cisd':
-			virt = 'cisd natural'
+			virt = 'CISD natural'
 		elif calc.orbs['virt'] == 'ccsd':
-			virt = 'ccsd natural'
+			virt = 'CCSD natural'
 		elif calc.orbs['virt'] == 'pm':
 			virt = 'pipek-mezey'
 		elif calc.orbs['virt'] == 'fb':

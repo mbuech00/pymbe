@@ -245,7 +245,7 @@ def active(mol, calc):
 				assert nocc_avas <= (mol.nocc - mol.ncore)
 				assert float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[mol.ncore:])
 			if mol.debug:
-				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
+				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}\n\n'.format(ne_act, no_act, no_exp))
 		return ref_space, exp_space, no_exp, no_act, ne_act
 
 
