@@ -416,7 +416,7 @@ def _casscf(mol, calc, exp):
 		cas.conv_tol = 1.0e-10
 		cas.max_cycle_macro = 500
 		# frozen (inactive)
-		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
+		cas.frozen = mol.ncore
 		# debug print
 		if mol.debug: cas.verbose = 4
 		# fcisolver
