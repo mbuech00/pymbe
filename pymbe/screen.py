@@ -201,7 +201,8 @@ def _prot_screen(thres, scheme, target, prop, indx):
 				elif t in ['dipole', 'trans']:
 					for dim in range(3):
 						# (x,y,z) = (0,1,2)
-						screen = _prot_scheme(thres, scheme, prop[t]['inc'][-1][indx, dim])
+						if np.sum(prop[t]['inc'][-1][indx, dim]) != 0.0:
+							screen = _prot_scheme(thres, scheme, prop[t]['inc'][-1][indx, dim])
 						if not screen:
 							break
 				if not screen:
