@@ -520,7 +520,7 @@ def _fci(mol, calc, exp):
 		if calc.target['dipole'] or calc.target['trans']:
 			solver.conv_tol *= 1.0e-04
 			solver.lindep = solver.conv_tol * 1.0e-01
-		solver.max_cycle = 500
+		solver.max_cycle = 5000
 		solver.max_space = 25
 		solver.davidson_only = True
 		# wfnsym
