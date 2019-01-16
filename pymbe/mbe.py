@@ -255,35 +255,39 @@ def _inc(mpi, mol, calc, exp, tup):
 				res = kernel.main(mol, calc, exp, calc.base['method'])
 				e_base = res['energy']
 			inc['energy'] -= e_base
+			inc['energy'] -= calc.zero['energy']
 		if calc.target['excitation']:
 			inc['excitation'] = res['excitation']
+			inc['excitation'] -= calc.zero['excitation']
 		if calc.target['dipole']:
 			if res['dipole'] is None:
 				inc['dipole'] = np.zeros(3, dtype=np.float64)
 			else:
 				inc['dipole'] = res['dipole']
+				inc['dipole'] -= calc.zero['dipole']
 		if calc.target['trans']:
 			if res['trans'] is None:
 				inc['trans'] = np.zeros(3, dtype=np.float64)
 			else:
 				inc['trans'] = res['trans']
+				inc['trans'] -= calc.zero['trans']
 		if exp.order > exp.start_order:
 			if calc.target['energy']:
 				if inc['energy'] != 0.0:
 					res = _sum(calc, exp, tup, 'energy')
-					inc['energy'] = inc['energy'] - res['energy']
+					inc['energy'] -= res['energy']
 			if calc.target['excitation']:
 				if inc['excitation'] != 0.0:
 					res = _sum(calc, exp, tup, 'excitation')
-					inc['excitation'] = inc['excitation'] - res['excitation']
+					inc['excitation'] -= res['excitation']
 			if calc.target['dipole']:
 				if np.any(inc['dipole'] != 0.0):
 					res = _sum(calc, exp, tup, 'dipole')
-					inc['dipole'] = inc['dipole'] - res['dipole']
+					inc['dipole'] -= res['dipole']
 			if calc.target['trans']:
 				if np.any(inc['trans'] != 0.0):
 					res = _sum(calc, exp, tup, 'trans')
-					inc['trans'] = inc['trans'] - res['trans']
+					inc['trans'] -= res['trans']
 		# debug print
 		if mol.debug:
 			if calc.model['type'] == 'occ':

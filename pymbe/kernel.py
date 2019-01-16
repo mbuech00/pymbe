@@ -221,30 +221,13 @@ def active(mol, calc):
 				# sanity checks
 				assert np.count_nonzero(calc.ref['select'] < mol.ncore) == 0
 				assert float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[calc.ref['select']])
-			else:
-				raise NotImplementedError('AVAS scheme has been temporarily deactivated')
-				from pyscf.mcscf import avas
-				# avas
-				no_avas, ne_avas = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, \
-												verbose=4 if mol.debug else None, ncore=mol.ncore)[:2]
-				# convert ne_avas to native python type
-				ne_avas = np.asscalar(ne_avas)
-				# active electrons
-				ne_a = (ne_avas + mol.spin) // 2
-				ne_b = ne_avas - ne_a
-				ne_act = (ne_a, ne_b)
-				# active orbs
-				no_act = no_avas
-				# expansion space orbs
-				nocc_avas = ne_a
-				nvirt_avas = no_act - nocc_avas
-				if calc.model['type'] == 'occ':
-					no_exp = nocc_avas
-				elif calc.model['type'] == 'virt':
-					no_exp = nvirt_avas
-				# sanity checks
-				assert nocc_avas <= (mol.nocc - mol.ncore)
-				assert float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[mol.ncore:])
+				# identical to hf ref?
+				if no_exp == 0:
+					try:
+						raise RuntimeError('\nCAS Error: choice of CAS returns hf solution\n\n')
+					except Exception as err:
+						sys.stderr.write(str(err))
+						raise
 			if mol.debug:
 				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}\n\n'.format(ne_act, no_act, no_exp))
 		return ref_space, exp_space, no_exp, no_act, ne_act
@@ -252,11 +235,6 @@ def active(mol, calc):
 
 def ref_mo(mol, calc, exp):
 		""" determine reference mo coefficients """
-		# set core and cas spaces
-		if calc.model['type'] == 'occ':
-			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
-		elif calc.model['type'] == 'virt':
-			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
 		# sort mo coefficients
 		if calc.no_exp == 0:
 			mo = calc.mo
@@ -272,13 +250,50 @@ def ref_mo(mol, calc, exp):
 				mo = np.asarray(mo, order='C')
 				if mol.atom:
 					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
-			else:
-				from pyscf.mcscf import avas
-				mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
 			# casscf mo
 			if calc.ref['method'] == 'casscf':
 				mo = _casscf(mol, calc, exp)
 		return mo
+
+
+def zero_energy(mol, calc, exp):
+		""" calculate zeroth-order energy """
+		# set core and cas spaces
+		if calc.model['type'] == 'occ':
+			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
+		elif calc.model['type'] == 'virt':
+			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
+		# calculate energy
+		zero = {}
+		if mol.spin == 0:
+			# no zeroth-order contributions
+			if calc.target['energy']:
+				zero['energy'] = 0.0
+			if calc.target['excitation']:
+				zero['excitation'] = 0.0
+			if calc.target['dipole']:
+				zero['dipole'] = np.zeros(3, dtype=np.float64)
+			if calc.target['trans']:
+				zero['trans'] = np.zeros(3, dtype=np.float64)
+		else:
+			# exp model
+			res = main(mol, calc, exp, calc.model['method'])
+			# e_ref
+			if calc.target['energy']:
+				zero['energy'] = res['energy']
+				if calc.base['method'] is not None:
+					res = main(mol, calc, exp, calc.base['method'])
+					zero['energy'] -= res['energy']
+			# excitation_ref
+			if calc.target['excitation']:
+				zero['excitation'] = res['excitation']
+			# dipole_ref
+			if calc.target['dipole']:
+				zero['dipole'] = res['dipole']
+			# trans_dipole_ref
+			if calc.target['trans']:
+				zero['trans'] = res['trans']
+		return zero
 
 
 def main(mol, calc, exp, method):
@@ -345,7 +360,7 @@ def base(mol, calc, exp):
 		exp.core_idx, exp.cas_idx = tools.core_cas(mol, exp, calc.exp_space)
 		# init rdm1
 		rdm1 = None
-		# zeroth-order energy
+		# no base
 		if calc.base['method'] is None:
 			base = {'energy': 0.0}
 		# cisd base

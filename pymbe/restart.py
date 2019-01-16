@@ -91,13 +91,24 @@ def write_fund(mol, calc):
 			json.dump(dims, f)
 		# write hf, reference, and base properties
 		if calc.target['energy']:
-			energies = {'hf': calc.prop['hf']['energy'], 'base': calc.base['energy']}
+			energies = {'hf': calc.prop['hf']['energy'], \
+						'base': calc.base['energy'], \
+						'zero': calc.zero['energy']}
 			with open(os.path.join(RST, 'energies.rst'), 'w') as f:
 				json.dump(energies, f)
+		if calc.target['excitation']:
+			excitations = {'zero': calc.zero['excitation']}
+			with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
+				json.dump(excitations, f)
 		if calc.target['dipole']:
-			dipoles = {'hf': calc.prop['hf']['dipole'].tolist()}
+			dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
+						'zero': calc.zero['dipole'].tolist()}
 			with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
 				json.dump(dipoles, f)
+		if calc.target['trans']:
+			transitions = {'zero': calc.zero['trans'].tolist()}
+			with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
+				json.dump(transitions, f)
 		# write expansion spaces
 		np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
 		np.save(os.path.join(RST, 'exp_space'), calc.exp_space)
@@ -109,6 +120,8 @@ def write_fund(mol, calc):
 
 def read_fund(mol, calc):
 		""" read fundamental info restart files """
+		# init zero dict
+		calc.zero = {}
 		# list filenames in files list
 		files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
 		# sort the list of files
@@ -127,11 +140,21 @@ def read_fund(mol, calc):
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					energies = json.load(f)
 				calc.prop['hf']['energy'] = energies['hf']
-				calc.base['energy'] = energies['base'] 
+				calc.base = {'energy': energies['base']} 
+				calc.zero['energy'] = energies['zero']
+			elif 'excitations' in files[i]:
+				with open(os.path.join(RST, files[i]), 'r') as f:
+					excitations = json.load(f)
+				calc.zero['excitation'] = excitations['zero']
 			elif 'dipoles' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					dipoles = json.load(f)
 				calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
+				calc.zero['dipole'] = np.asarray(dipoles['zero'])
+			elif 'transitions' in files[i]:
+				with open(os.path.join(RST, files[i]), 'r') as f:
+					transitions = json.load(f)
+				calc.zero['trans'] = np.asarray(transitions['zero'])
 			# read expansion spaces
 			elif 'ref_space' in files[i]:
 				calc.ref_space = np.load(os.path.join(RST, files[i]))

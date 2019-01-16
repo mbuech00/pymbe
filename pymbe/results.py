@@ -290,12 +290,14 @@ def _symm(mol, calc):
 def _energy(calc, exp):
 		""" final energies """
 		return exp.prop['energy']['tot'] \
-				+ calc.prop['hf']['energy'] + calc.base['energy']
+				+ calc.prop['hf']['energy'] + calc.base['energy'] \
+				+ calc.zero['energy']
 
 
 def _excitation(calc, exp):
 		""" final energies """
-		return exp.prop['excitation']['tot']
+		return exp.prop['excitation']['tot'] \
+				+ calc.zero['excitation']
 
 
 def _dipole(mol, calc, exp):
@@ -305,13 +307,15 @@ def _dipole(mol, calc, exp):
 		coords  = mol.atom_coords()
 		nuc_dipole = np.einsum('i,ix->x', charges, coords)
 		dipole = exp.prop['dipole']['tot'] \
-						+ calc.prop['hf']['dipole']
+						+ calc.prop['hf']['dipole'] \
+						+ calc.zero['dipole']
 		return dipole, nuc_dipole
 
 
 def _trans(mol, calc, exp):
 		""" final molecular transition dipole moments """
-		return exp.prop['trans']['tot']
+		return exp.prop['trans']['tot'] \
+				+ calc.zero['trans']
 
 
 def _time(exp, comp, idx):
@@ -436,7 +440,7 @@ def _energy_prt(info, calc, exp):
 				format('','MBE order','','|','','total energy','','|','','correlation energy'))
 		print(DIVIDER[:66])
 		print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:}'. \
-				format('',0,'','|','',calc.prop['hf']['energy'],'','|','','-----------'))
+				format('',0,'','|','',calc.prop['hf']['energy'] + calc.zero['energy'],'','|','','-----------'))
 		print(DIVIDER[:66])
 		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:9.4e}'. \
@@ -507,10 +511,12 @@ def _excitation_prt(info, calc, exp):
 		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:}'. \
 				format('','MBE order','','|','','excitation energy'))
 		print(DIVIDER[:43])
+		print('{0:7}{1:>4d}{2:6}{3:1}{4:8}{5:9.4e}'. \
+				format('',0,'','|','',calc.zero['excitation']))
+		print(DIVIDER[:43])
 		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:8}{5:9.4e}'. \
-					format('',i+exp.start_order, \
-						'','|','',info['excitation'][i]))
+					format('',i+exp.start_order,'','|','',info['excitation'][i]))
 		print(DIVIDER[:43]+'\n')
 
 
@@ -578,9 +584,9 @@ def _dipole_prt(info, calc, exp):
 		print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 			'{10:5}{11:1}{12:6}{13:9.6f}'. \
 				format('',0, \
-					'','|','',info['nuc_dipole'][0] - calc.prop['hf']['dipole'][0], \
-					'',info['nuc_dipole'][1] - calc.prop['hf']['dipole'][1], \
-					'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2], \
+					'','|','',info['nuc_dipole'][0] - calc.prop['hf']['dipole'][0] + calc.zero['dipole'][0], \
+					'',info['nuc_dipole'][1] - calc.prop['hf']['dipole'][1] + calc.zero['dipole'][1], \
+					'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2] + calc.zero['dipole'][2], \
 					'','|','',np.linalg.norm(info['nuc_dipole'] - calc.prop['hf']['dipole'])))
 		print(DIVIDER[:82])
 		for i in range(info['final_order']):
@@ -659,6 +665,15 @@ def _trans_prt(info, calc, exp):
 		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:3}{11:1}{12:4}{13:}'. \
 				format('','MBE order','','|','','dipole components (x,y,z)', \
 						'','|','','dipole moment','','|','','oscillator strength'))
+		print(DIVIDER[:109])
+		print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+			'{10:5}{11:1}{12:6}{13:9.6f}{14:6}{15:1}{16:8}{17:9.6f}'. \
+				format('',0, \
+					'','|','',calc.zero['trans'][0], \
+					'',calc.zero['trans'][1], \
+					'',calc.zero['trans'][2], \
+					'','|','',np.linalg.norm(calc.zero['trans'][:]), \
+					'','|','',(2./3.) * calc.zero['excitation'] * np.linalg.norm(calc.zero['trans'][:])**2))
 		print(DIVIDER[:109])
 		for i in range(info['final_order']):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'

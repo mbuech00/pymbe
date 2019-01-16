@@ -126,6 +126,8 @@ def _exp(mpi, mol, calc):
 				# base energy
 				base = kernel.base(mol, calc, exp)
 				calc.base['energy'] = base['energy']
+				# zeroth-order energy
+				calc.zero = kernel.zero_energy(mol, calc, exp)
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:

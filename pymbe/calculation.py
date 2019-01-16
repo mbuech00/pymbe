@@ -231,6 +231,8 @@ class CalcCls():
 							except Exception as err_2:
 								raise ValueError('wrong input -- illegal choice of ref wfnsym -- PySCF error: {0:}'.format(err_2))
 					# base model
+					if not self.target['energy'] and self.base['method'] is not None:
+						raise ValueError('wrong input -- use of base model is only permitted for target energies')
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
 					# state
