@@ -28,7 +28,8 @@ class MolCls(gto.Mole):
 				gto.Mole.__init__(self)
 				# set defaults
 				self.atom = ''
-				self.system = {'charge': 0, 'spin': 0, 'sym': 'c1', 'basis': 'sto-3g', 'cart': False, \
+				self.system = {'charge': 0, 'spin': 0, 'sym': 'c1', 'hf_sym': None, \
+							'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
 							'unit': 'ang', 'frozen': False, 'occup': {}, 'verbose': 1, 'debug': False, \
 							't': 1.0, 'u': 1.0, 'dim': 1, 'nsites': 6, 'pbc': True, 'nelec': 0}
 				# set geometric and molecular parameters
@@ -44,6 +45,8 @@ class MolCls(gto.Mole):
 					self.charge = self.system['charge']
 					self.spin = self.system['spin']
 					self.symmetry = symm.addons.std_symb(self.system['sym'])
+					self.hf_sym = symm.addons.std_symb(self.system['hf_sym'])
+					self.hf_init_guess = self.system['hf_init_guess']
 					self.basis = self.system['basis']
 					self.cart = self.system['cart']
 					self.unit = self.system['unit']
@@ -95,6 +98,9 @@ class MolCls(gto.Mole):
 					restart.rm()
 					sys.stderr.write('\nIOError : input file not found\n\n')
 					raise
+				# hf symmetry
+				if self.system['hf_sym'] is None:
+					self.system['hf_sym'] = self.system['sym']
 				return self.atom, self.system
 
 
@@ -114,6 +120,16 @@ class MolCls(gto.Mole):
 						raise ValueError('wrong input -- symmetry input in system dict (sym) must be a str')
 					if symm.addons.std_symb(self.system['sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
 						raise ValueError('wrong input -- illegal symmetry input in system dict (sym)')
+					# hf_sym
+					if not isinstance(self.system['hf_sym'], str):
+						raise ValueError('wrong input -- HF symmetry input in system dict (hf_sym) must be a str')
+					if symm.addons.std_symb(self.system['hf_sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
+						raise ValueError('wrong input -- illegal HF symmetry input in system dict (hf_sym)')
+					# hf_init_guess
+					if not isinstance(self.system['hf_init_guess'], str):
+						raise ValueError('wrong input -- HF initial guess in system dict (hf_init_guess) must be a str')
+					if self.system['hf_init_guess'] not in ['minao', 'atom', '1e']:
+						raise ValueError('wrong input -- valid HF initial guesses in system dict (hf_init_guess) are: minao, atom, and 1e')
 					# basis
 					if not isinstance(self.system['basis'], (str, dict)):
 						raise ValueError('wrong input -- basis set input in system dict (basis) must be a str or a dict')
