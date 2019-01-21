@@ -121,8 +121,8 @@ def core_cas(mol, exp, tup):
 		return core_idx, cas_idx
 
 
-def lz_prune(orbsym, tup, mbe=False):
-		""" lz pruning """
+def sigma_prune(orbsym, tup, mbe=False):
+		""" sigma pruning """
 		# loop over IDs
 		for sym in DEG_ID:
 			# given set of x and y pi orbs

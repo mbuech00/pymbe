@@ -127,7 +127,7 @@ def calc(mpi, calc):
 		if mpi.parallel:
 			if mpi.global_master:
 				info = {'model': calc.model, 'target': calc.target, \
-						'ref': calc.ref['method'], 'base': calc.base, \
+						'base': calc.base, \
 						'thres': calc.thres, 'prot': calc.prot, \
 						'state': calc.state, 'extra': calc.extra, \
 						'misc': calc.misc, 'mpi': calc.mpi, \
@@ -136,7 +136,7 @@ def calc(mpi, calc):
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.model = info['model']; calc.target = info['target']
-				calc.ref = {'method': info['ref']}; calc.base = info['base']
+				calc.base = info['base']
 				calc.thres = info['thres']; calc.prot = info['prot']
 				calc.state = info['state']; calc.extra = info['extra']
 				calc.misc = info['misc']; calc.mpi = info['mpi']
@@ -147,7 +147,7 @@ def fund(mpi, mol, calc):
 		""" bcast fundamental info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'prop': calc.prop, \
+				info = {'prop': calc.prop, 'zero': calc.zero, \
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 							'occup': calc.occup, 'no_exp': calc.no_exp, \
@@ -157,7 +157,7 @@ def fund(mpi, mol, calc):
 				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.prop = info['prop']
+				calc.prop = info['prop']; calc.zero = info['zero']
 				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 				calc.occup = info['occup']; calc.no_exp = info['no_exp']

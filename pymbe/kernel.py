@@ -38,12 +38,9 @@ def ao_ints(mol, calc):
 		else: # model hamiltonian
 			hcore = _hubbard_h1(mol)
 			eri = _hubbard_eri(mol)
-		# dipole integrals with gauge origin at center of charge
+		# dipole integrals with gauge origin at origo
 		if calc.target['dipole'] or calc.target['trans']:
-			# determine center of charge
-			charge_center = (np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords()) / mol.atom_charges().sum())
-			# compute elec_dipole
-			with mol.with_common_origin(charge_center):
+			with mol.with_common_origin([0.0, 0.0, 0.0]):
 				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
 			dipole = None
@@ -111,7 +108,10 @@ def _hubbard_eri(mol):
 def hf(mol, calc):
 		""" hartree-fock calculation """
 		# perform restricted hf calc
-		hf = scf.RHF(mol)
+		mol_hf = mol.copy()
+		mol_hf.build(0, 0, symmetry = mol.hf_sym)
+		hf = scf.RHF(mol_hf)
+		hf.init_guess = mol.hf_init_guess
 		hf.conv_tol = 1.0e-09
 		hf.max_cycle = 500
 		if mol.atom: # ab initio hamiltonian
@@ -152,7 +152,7 @@ def hf(mol, calc):
 			for ir in orbsym[occup == 1]:
 				wfnsym ^= ir
 			# sanity check
-			if wfnsym != calc.state['wfnsym'] and calc.ref['method'] == 'hf':
+			if wfnsym != calc.state['wfnsym'] and calc.no_exp == 0:
 				try:
 					raise RuntimeError('\nHF Error : wave function symmetry ({0:}) different from requested symmetry ({1:})\n\n'.\
 										format(symm.irrep_id2name(mol.groupname, wfnsym), symm.irrep_id2name(mol.groupname, calc.state['wfnsym'])))
@@ -201,9 +201,10 @@ def active(mol, calc):
 			exp_space = np.array(range(mol.nocc, mol.norb))
 		# hf reference model
 		if calc.ref['method'] == 'hf':
-			# no active space
-			ne_act = (0, 0)
-			no_exp = no_act = 0
+			# no expansion space
+			ne_act = (mol.nelec[0] - mol.ncore, mol.nelec[1] - mol.ncore)
+			no_act = max(ne_act[0], ne_act[1])
+			no_exp = 0
 		# casci/casscf reference model
 		elif calc.ref['method'] in ['casci','casscf']:
 			if calc.ref['active'] == 'manual':
@@ -223,51 +224,24 @@ def active(mol, calc):
 				# sanity checks
 				assert np.count_nonzero(calc.ref['select'] < mol.ncore) == 0
 				assert float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[calc.ref['select']])
-			else:
-				raise NotImplementedError('AVAS scheme has been temporarily deactivated')
-				from pyscf.mcscf import avas
-				# avas
-				no_avas, ne_avas = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, \
-												verbose=4 if mol.debug else None, ncore=mol.ncore)[:2]
-				# convert ne_avas to native python type
-				ne_avas = np.asscalar(ne_avas)
-				# active electrons
-				ne_a = (ne_avas + mol.spin) // 2
-				ne_b = ne_avas - ne_a
-				ne_act = (ne_a, ne_b)
-				# active orbs
-				no_act = no_avas
-				# expansion space orbs
-				nocc_avas = ne_a
-				nvirt_avas = no_act - nocc_avas
-				if calc.model['type'] == 'occ':
-					no_exp = nocc_avas
-				elif calc.model['type'] == 'virt':
-					no_exp = nvirt_avas
-				# sanity checks
-				assert nocc_avas <= (mol.nocc - mol.ncore)
-				assert float(ne_act[0] + ne_act[1]) <= np.sum(calc.hf.mo_occ[mol.ncore:])
-			# identical to hf ref?
-			if no_exp == 0:
-				try:
-					raise RuntimeError('\nCAS Error: choice of CAS returns hf solution\n\n')
-				except Exception as err:
-					sys.stderr.write(str(err))
-					raise
+				# identical to hf ref?
+				if no_exp == 0:
+					try:
+						raise RuntimeError('\nCAS Error: choice of CAS returns hf solution\n\n')
+					except Exception as err:
+						sys.stderr.write(str(err))
+						raise
 			if mol.debug:
-				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}'.format(ne_act, no_act, no_exp))
+				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}\n\n'.format(ne_act, no_act, no_exp))
 		return ref_space, exp_space, no_exp, no_act, ne_act
 
 
-def ref(mol, calc, exp):
-		""" calculate reference energy and mo coefficients """
-		# set core and cas spaces
-		if calc.model['type'] == 'occ':
-			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
-		elif calc.model['type'] == 'virt':
-			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
+def ref_mo(mol, calc, exp):
+		""" determine reference mo coefficients """
 		# sort mo coefficients
-		if calc.ref['method'] in ['casci','casscf']:
+		if calc.no_exp == 0:
+			mo = calc.mo
+		elif calc.ref['method'] in ['casci','casscf']:
 			if calc.ref['active'] == 'manual':
 				# inactive region
 				inact_elec = mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])
@@ -276,82 +250,53 @@ def ref(mol, calc, exp):
 				# divide into inactive-active-virtual
 				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
 				mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['select']], calc.mo[:, idx[inact_orb:]]))
-				calc.mo = np.asarray(mo, order='C')
+				mo = np.asarray(mo, order='C')
 				if mol.atom:
 					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
-			else:
-				from pyscf.mcscf import avas
-				calc.mo = avas.avas(calc.hf, calc.ref['ao_labels'], canonicalize=True, ncore=mol.ncore)[2]
-			# set properties equal to hf values
-			ref = {'base': 0.0}
-			if calc.target['energy']:
-				ref['energy'] = 0.0
-			if calc.target['excitation']:
-				ref['excitation'] = 0.0
-			if calc.target['dipole']:
-				ref['dipole'] = np.zeros(3, dtype=np.float64)
-			if calc.target['trans']:
-				ref['trans'] = np.zeros(3, dtype=np.float64)
 			# casscf mo
 			if calc.ref['method'] == 'casscf':
-				calc.mo = _casscf(mol, calc, exp)
-		else:
-			if mol.spin == 0:
-				# set properties equal to hf values
-				ref = {'base': 0.0}
-				if calc.target['energy']:
-					ref['energy'] = 0.0
-				if calc.target['excitation']:
-					ref['excitation'] = 0.0
-				if calc.target['dipole']:
-					ref['dipole'] = np.zeros(3, dtype=np.float64)
-				if calc.target['trans']:
-					ref['trans'] = np.zeros(3, dtype=np.float64)
-			else:
-				# exp model
-				res = main(mol, calc, exp, calc.model['method'])
-				ref = {}
-				# e_ref
-				if calc.target['energy']:
-					ref['energy'] = res['energy']
-				# excitation_ref
-				if calc.target['excitation']:
-					ref['excitation'] = res['excitation']
-				# dipole_ref
-				if calc.target['dipole']:
-					ref['dipole'] = res['dipole']
-				# trans_dipole_ref
-				if calc.target['trans']:
-					ref['trans'] = res['trans']
-				# e_ref_base
-				if calc.base['method'] is None:
-					ref['base'] = 0.0
-				else:
-					if np.abs(ref['e_ref']) < 1.0e-10:
-						ref['base'] = ref['energy']
-					else:
-						res = main(mol, calc, exp, calc.base['method'])
-						ref['base'] = res['energy']
-		if mol.debug:
-			string = '\n REF: core = {:} , cas = {:}\n'
-			form = (exp.core_idx.tolist(), exp.cas_idx.tolist())
-			if calc.base['method'] is not None:
-				string += '      base energy for root 0 = {:.4e}\n'
-				form += (ref['base'],)
+				mo = _casscf(mol, calc, exp)
+		return mo
+
+
+def zero_energy(mol, calc, exp):
+		""" calculate zeroth-order energy """
+		# set core and cas spaces
+		if calc.model['type'] == 'occ':
+			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
+		elif calc.model['type'] == 'virt':
+			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
+		# calculate energy
+		zero = {}
+		if mol.spin == 0:
+			# no zeroth-order contributions
 			if calc.target['energy']:
-				string += '      energy for root {:} = {:.4e}\n'
-				form += (calc.state['root'], ref['energy'],)
+				zero['energy'] = 0.0
 			if calc.target['excitation']:
-				string += '      excitation energy for root {:} = {:.4f}\n'
-				form += (calc.state['root'], ref['excitation'],)
+				zero['excitation'] = 0.0
 			if calc.target['dipole']:
-				string += '      dipole moment for root {:} = ({:.4f}, {:.4f}, {:.4f})\n'
-				form += (calc.state['root'], *ref['dipole'],)
+				zero['dipole'] = np.zeros(3, dtype=np.float64)
 			if calc.target['trans']:
-				string += '      transition dipole moment for excitation {:} > {:} = ({:.4f}, {:.4f}, {:.4f})\n'
-				form += (0, calc.state['root'], *ref['trans'],)
-			print(string.format(*form))
-		return ref, calc.mo
+				zero['trans'] = np.zeros(3, dtype=np.float64)
+		else:
+			# exp model
+			res = main(mol, calc, exp, calc.model['method'])
+			# e_ref
+			if calc.target['energy']:
+				zero['energy'] = res['energy']
+				if calc.base['method'] is not None:
+					res = main(mol, calc, exp, calc.base['method'])
+					zero['energy'] -= res['energy']
+			# excitation_ref
+			if calc.target['excitation']:
+				zero['excitation'] = res['excitation']
+			# dipole_ref
+			if calc.target['dipole']:
+				zero['dipole'] = res['dipole']
+			# trans_dipole_ref
+			if calc.target['trans']:
+				zero['trans'] = res['trans']
+		return zero
 
 
 def main(mol, calc, exp, method):
@@ -418,7 +363,7 @@ def base(mol, calc, exp):
 		exp.core_idx, exp.cas_idx = tools.core_cas(mol, exp, calc.exp_space)
 		# init rdm1
 		rdm1 = None
-		# zeroth-order energy
+		# no base
 		if calc.base['method'] is None:
 			base = {'energy': 0.0}
 		# cisd base
@@ -489,7 +434,7 @@ def _casscf(mol, calc, exp):
 		cas.conv_tol = 1.0e-10
 		cas.max_cycle_macro = 500
 		# frozen (inactive)
-		cas.frozen = (mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])) // 2
+		cas.frozen = mol.ncore
 		# debug print
 		if mol.debug: cas.verbose = 4
 		# fcisolver
@@ -593,7 +538,7 @@ def _fci(mol, calc, exp):
 		if calc.target['dipole'] or calc.target['trans']:
 			solver.conv_tol *= 1.0e-04
 			solver.lindep = solver.conv_tol * 1.0e-01
-		solver.max_cycle = 500
+		solver.max_cycle = 5000
 		solver.max_space = 25
 		solver.davidson_only = True
 		# wfnsym

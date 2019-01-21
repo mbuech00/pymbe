@@ -121,20 +121,13 @@ def _exp(mpi, mol, calc):
 				else:
 					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
 					raise NotImplementedError('combined expansions not implemented')
-				# reference calculation
-				ref, calc.mo = kernel.ref(mol, calc, exp)
-				calc.base['ref'] = ref['base']
-				if calc.target['energy']:
-					calc.prop['ref']['energy'] = ref['energy']
-				if calc.target['excitation']:
-					calc.prop['ref']['excitation'] = ref['excitation']
-				if calc.target['dipole']:
-					calc.prop['ref']['dipole'] = ref['dipole']
-				if calc.target['trans']:
-					calc.prop['ref']['trans'] = ref['trans']
+				# reference mo coefficients
+				calc.mo = kernel.ref_mo(mol, calc, exp)
 				# base energy
 				base = kernel.base(mol, calc, exp)
 				calc.base['energy'] = base['energy']
+				# zeroth-order energy
+				calc.zero = kernel.zero_energy(mol, calc, exp)
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:

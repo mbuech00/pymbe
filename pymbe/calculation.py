@@ -27,12 +27,12 @@ class CalcCls():
 				""" init parameters """
 				# set defaults
 				self.model = {'method': 'fci', 'type': 'virt'}
-				self.target = {'energy': True, 'excitation': False, 'dipole': False, 'trans': False}
+				self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
 				self.ref = {'method': 'hf', 'hf_guess': True, 'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'lz_sym': False}
+				self.extra = {'hf_guess': True, 'sigma': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'occ': 'can', 'virt': 'can'}
@@ -231,16 +231,15 @@ class CalcCls():
 							except Exception as err_2:
 								raise ValueError('wrong input -- illegal choice of ref wfnsym -- PySCF error: {0:}'.format(err_2))
 					# base model
+					if not self.target['energy'] and self.base['method'] is not None:
+						raise ValueError('wrong input -- use of base model is only permitted for target energies')
 					if self.base['method'] not in [None, 'cisd', 'ccsd', 'ccsd(t)']:
 						raise ValueError('wrong input -- valid base models are currently: cisd, ccsd, and ccsd(t)')
 					# state
-					if mol.atom:
-						if self.state['wfnsym'] != symm.addons.irrep_id2name(mol.symmetry, 0) and self.extra['hf_guess']:
-							raise ValueError('wrong input -- illegal choice of state wfnsym when enforcing hf initial guess')
-						try:
-							self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
-						except Exception as err_2:
-							raise ValueError('wrong input -- illegal choice of state wfnsym -- PySCF error: {0:}'.format(err_2))
+					try:
+						self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
+					except Exception as err_2:
+						raise ValueError('wrong input -- illegal choice of state wfnsym -- PySCF error: {0:}'.format(err_2))
 					if self.state['wfnsym'] != 0 and self.model['method'] != 'fci':
 						raise ValueError('wrong input -- illegal choice of wfnsym for chosen expansion model')
 					if self.state['root'] < 0:
@@ -248,6 +247,8 @@ class CalcCls():
 					if self.state['root'] > 0 and self.model['method'] != 'fci':
 						raise ValueError('wrong input -- excited states only implemented for an fci expansion model')
 					# targets
+					if not any(self.target.values()):
+						raise ValueError('wrong input -- at least one target property must be requested. valid choice are: energy, excitation energy (excitation), dipole, and transition dipole (trans)')
 					if not all(isinstance(i, bool) for i in self.target.values()):
 						raise ValueError('wrong input -- values in target input (target) must be bools')
 					if not set(list(self.target.keys())) <= set(['energy', 'excitation', 'dipole', 'trans']):
@@ -265,8 +266,8 @@ class CalcCls():
 					# extra
 					if not isinstance(self.extra['hf_guess'], bool):
 						raise ValueError('wrong input -- HF initial guess for FCI calcs (hf_guess) must be a bool')
-					if not isinstance(self.extra['lz_sym'], bool):
-						raise ValueError('wrong input -- special Lz symmetry for FCI calcs (lz_sym) must be a bool')
+					if not isinstance(self.extra['sigma'], bool):
+						raise ValueError('wrong input -- special Sigma state pruning for FCI calcs (sigma) must be a bool')
 					# screening protocol
 					if not all(isinstance(i, (str, bool)) for i in self.prot.values()):
 						raise ValueError('wrong input -- values in prot input (prot) must be string and bools')

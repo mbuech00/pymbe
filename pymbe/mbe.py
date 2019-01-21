@@ -106,7 +106,7 @@ def _serial(mpi, mol, calc, exp):
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate increments
-			if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, exp.tuples[-1][i][calc.no_exp:], mbe=True)):
+			if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][i][calc.no_exp:], mbe=True)):
 				_calc(mpi, mol, calc, exp, i)
 				exp.count[-1] += 1
 				# print status
@@ -211,7 +211,7 @@ def _slave(mpi, mol, calc, exp):
 					if n == task.size - 1:
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					if not calc.extra['lz_sym'] or (calc.extra['lz_sym'] and tools.lz_prune(calc.orbsym, exp.tuples[-1][task_idx][calc.no_exp:], mbe=True)):
+					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][task_idx][calc.no_exp:], mbe=True)):
 						_calc(mpi, mol, calc, exp, task_idx)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -248,42 +248,46 @@ def _inc(mpi, mol, calc, exp, tup):
 		res = kernel.main(mol, calc, exp, calc.model['method'])
 		inc = {}
 		if calc.target['energy']:
-			inc['energy'] = res['energy'] - calc.prop['ref']['energy']
+			inc['energy'] = res['energy']
 			if calc.base['method'] is None:
 				e_base = 0.0
 			else:
 				res = kernel.main(mol, calc, exp, calc.base['method'])
 				e_base = res['energy']
 			inc['energy'] -= e_base
+			inc['energy'] -= calc.zero['energy']
 		if calc.target['excitation']:
-			inc['excitation'] = res['excitation'] - calc.prop['ref']['excitation']
+			inc['excitation'] = res['excitation']
+			inc['excitation'] -= calc.zero['excitation']
 		if calc.target['dipole']:
 			if res['dipole'] is None:
 				inc['dipole'] = np.zeros(3, dtype=np.float64)
 			else:
-				inc['dipole'] = res['dipole'] - calc.prop['ref']['dipole']
+				inc['dipole'] = res['dipole']
+				inc['dipole'] -= calc.zero['dipole']
 		if calc.target['trans']:
 			if res['trans'] is None:
 				inc['trans'] = np.zeros(3, dtype=np.float64)
 			else:
-				inc['trans'] = res['trans'] - calc.prop['ref']['trans']
+				inc['trans'] = res['trans']
+				inc['trans'] -= calc.zero['trans']
 		if exp.order > exp.start_order:
 			if calc.target['energy']:
 				if inc['energy'] != 0.0:
 					res = _sum(calc, exp, tup, 'energy')
-					inc['energy'] = inc['energy'] - res['energy']
+					inc['energy'] -= res['energy']
 			if calc.target['excitation']:
 				if inc['excitation'] != 0.0:
 					res = _sum(calc, exp, tup, 'excitation')
-					inc['excitation'] = inc['excitation'] - res['excitation']
+					inc['excitation'] -= res['excitation']
 			if calc.target['dipole']:
 				if np.any(inc['dipole'] != 0.0):
 					res = _sum(calc, exp, tup, 'dipole')
-					inc['dipole'] = inc['dipole'] - res['dipole']
+					inc['dipole'] -= res['dipole']
 			if calc.target['trans']:
 				if np.any(inc['trans'] != 0.0):
 					res = _sum(calc, exp, tup, 'trans')
-					inc['trans'] = inc['trans'] - res['trans']
+					inc['trans'] -= res['trans']
 		# debug print
 		if mol.debug:
 			if calc.model['type'] == 'occ':
@@ -336,11 +340,11 @@ def _sum(calc, exp, tup, prop):
 										combinations(tup[calc.no_exp:], k-1)], dtype=np.int32)
 			else:
 				combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-			# lz pruning
-			if calc.extra['lz_sym']:
+			# sigma pruning
+			if calc.extra['sigma']:
 				if calc.model['type'] == 'occ':
-					raise NotImplementedError('lz pruning (mbe: _sum()) not implemented for occ expansions')
-				combs = combs[[tools.lz_prune(calc.orbsym, combs[comb, calc.no_exp:]) for comb in range(combs.shape[0])]]
+					raise NotImplementedError('Sigma state pruning (mbe: _sum()) not implemented for occ expansions')
+				combs = combs[[tools.sigma_prune(calc.orbsym, combs[comb, calc.no_exp:]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)
 			combs_hash.sort()
