@@ -113,7 +113,7 @@ def hf(mol, calc):
 		hf = scf.RHF(mol_hf)
 		hf.init_guess = mol.hf_init_guess
 		hf.conv_tol = 1.0e-09
-		hf.max_cycle = 500
+		hf.max_cycle = 1000
 		if mol.atom: # ab initio hamiltonian
 			hf.irrep_nelec = mol.irrep_nelec
 		else: # model hamiltonian
