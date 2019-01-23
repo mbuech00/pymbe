@@ -36,11 +36,11 @@ class ExpCls():
 				if calc.target['trans']:
 					self.prop['trans'] = {'inc': [], 'tot': []}
 				# set start_order/max_order
-				self.start_order = self.tuples[0].shape[1]
+				self.start_order = self.tuples[0].shape[1] + calc.no_exp
 				if calc.misc['order'] is not None:
-					self.max_order = min(calc.exp_space.size, calc.misc['order'])
+					self.max_order = min(calc.exp_space.size + calc.no_exp, calc.misc['order'])
 				else:
-					self.max_order = calc.exp_space.size
+					self.max_order = calc.exp_space.size + calc.no_exp
 				# init timings and calculation counter
 				self.count = []
 				self.time = {'mbe': [], 'screen': []}
@@ -60,13 +60,10 @@ def _init_tup(mol, calc):
 		# incl_idx
 		incl_idx = calc.ref_space.tolist()
 		# tuples
-		if calc.no_exp == 0:
-			tuples = [np.array([[i] for i in calc.exp_space], dtype=np.int32)]
+		if calc.extra['sigma']:
+			tuples = [np.array([[i] for i in calc.exp_space if tools.sigma_prune(calc.orbsym, np.asarray([i], dtype=np.int32))], dtype=np.int32)]
 		else:
-			if calc.model['type'] == 'occ':
-				tuples = [np.array([calc.exp_space[-calc.no_exp:]], dtype=np.int32)]
-			elif calc.model['type'] == 'virt':
-				tuples = [np.array([calc.exp_space[:calc.no_exp]], dtype=np.int32)]
+			tuples = [np.array([[i] for i in calc.exp_space], dtype=np.int32)]
 		# hashes
 		hashes = [tools.hash_2d(tuples[0])]
 		# sort wrt hashes

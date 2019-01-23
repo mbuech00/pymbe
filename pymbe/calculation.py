@@ -50,7 +50,7 @@ class CalcCls():
 					# restart logical
 					self.restart = restart.restart()
 				# init prop dict
-				self.prop = {'hf': {}, 'ref': {}}
+				self.prop = {'hf': {}, 'base': {}, 'ref': {}}
 
 
 		def set_calc(self):
