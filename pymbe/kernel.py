@@ -546,6 +546,7 @@ def _fci(mol, calc, exp):
 		solver.max_cycle = 5000
 		solver.max_space = 25
 		solver.davidson_only = True
+		solver.pspace_size = 0
 		# wfnsym
 		solver.wfnsym = calc.state['wfnsym']
 		# get integrals and core energy
