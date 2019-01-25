@@ -16,6 +16,7 @@ import os
 import os.path
 import shutil
 import re
+from pyscf import symm
 
 
 # rst parameters
@@ -79,7 +80,7 @@ def main(calc, exp):
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
 				elif 'time_screen' in files[i]:
 					exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
-			return exp.tuples[-1].shape[1]
+			return exp.tuples[-1].shape[1] + calc.no_exp
 
 
 def write_fund(mol, calc):
@@ -166,6 +167,10 @@ def read_fund(mol, calc):
 			# read orbs
 			elif 'mo' in files[i]:
 				calc.mo = np.load(os.path.join(RST, files[i]))
+				if mol.atom:
+					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
+				else:
+					calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 
 
 def mbe_write(calc, exp):

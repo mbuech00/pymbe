@@ -215,7 +215,7 @@ def exp(mpi, calc, exp, comm):
 				exp.start_order = info['start_order']
 				# receive tuples and hashes
 				for i in range(1, len(info['len_tup'])):
-					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
+					buff = np.empty([info['len_tup'][i], (exp.start_order-calc.no_exp)+i], dtype=np.int32)
 					comm.Bcast([buff, MPI.INT], root=0)
 					exp.tuples.append(buff)
 				for i in range(1, len(info['len_tup'])):
