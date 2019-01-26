@@ -106,7 +106,7 @@ def _serial(mpi, mol, calc, exp):
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate increments
-			if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][i][calc.no_exp:], mbe=True)):
+			if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][i], mbe=True)):
 				_calc(mpi, mol, calc, exp, i)
 				exp.count[-1] += 1
 				# print status
@@ -211,7 +211,7 @@ def _slave(mpi, mol, calc, exp):
 					if n == task.size - 1:
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][task_idx][calc.no_exp:], mbe=True)):
+					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
 						_calc(mpi, mol, calc, exp, task_idx)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -249,28 +249,25 @@ def _inc(mpi, mol, calc, exp, tup):
 		inc = {}
 		if calc.target['energy']:
 			inc['energy'] = res['energy']
-			if calc.base['method'] is None:
-				e_base = 0.0
-			else:
+			if calc.base['method'] is not None:
 				res = kernel.main(mol, calc, exp, calc.base['method'])
-				e_base = res['energy']
-			inc['energy'] -= e_base
-			inc['energy'] -= calc.zero['energy']
+				inc['energy'] -= res['energy']
+			inc['energy'] -= calc.prop['ref']['energy']
 		if calc.target['excitation']:
 			inc['excitation'] = res['excitation']
-			inc['excitation'] -= calc.zero['excitation']
+			inc['excitation'] -= calc.prop['ref']['excitation']
 		if calc.target['dipole']:
 			if res['dipole'] is None:
 				inc['dipole'] = np.zeros(3, dtype=np.float64)
 			else:
 				inc['dipole'] = res['dipole']
-				inc['dipole'] -= calc.zero['dipole']
+				inc['dipole'] -= calc.prop['ref']['dipole']
 		if calc.target['trans']:
 			if res['trans'] is None:
 				inc['trans'] = np.zeros(3, dtype=np.float64)
 			else:
 				inc['trans'] = res['trans']
-				inc['trans'] -= calc.zero['trans']
+				inc['trans'] -= calc.prop['ref']['trans']
 		if exp.order > exp.start_order:
 			if calc.target['energy']:
 				if inc['energy'] != 0.0:
@@ -292,11 +289,8 @@ def _inc(mpi, mol, calc, exp, tup):
 		if mol.debug:
 			if calc.model['type'] == 'occ':
 				raise NotImplementedError('debug print (mbe: _inc()) not implemented for occ expansions')
-			index = exp.order - exp.start_order
-			if calc.no_exp == 0:
-				index += 1
-			tup_lst = [i for i in exp.cas_idx[-index:]]
-			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx[-index:]]]
+			tup_lst = [i for i in exp.cas_idx[calc.ref_space.size:]]
+			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx[calc.ref_space.size:]]]
 			string = ' INC: order = {:} , tup = {:}\n'
 			string += '      symmetry = {:}\n'
 			form = (exp.order, tup_lst, tup_sym)
@@ -330,21 +324,13 @@ def _sum(calc, exp, tup, prop):
 			res['trans'] = np.zeros(3, dtype=np.float64)
 		# compute contributions from lower-order increments
 		for k in range(exp.order-exp.start_order, 0, -1):
-			# generate array with all subsets of particular tuple (manually adding active orbs)
-			if calc.no_exp > 0:
-				if calc.model['type'] == 'occ':
-					combs = np.array([comb+tuple(exp.tuples[0][0]) for comb in itertools.\
-										combinations(tup[:-calc.no_exp], k-1)], dtype=np.int32)
-				elif calc.model['type'] == 'virt':
-					combs = np.array([tuple(exp.tuples[0][0])+comb for comb in itertools.\
-										combinations(tup[calc.no_exp:], k-1)], dtype=np.int32)
-			else:
-				combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+			# generate array with all subsets of particular tuple
+			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# sigma pruning
 			if calc.extra['sigma']:
 				if calc.model['type'] == 'occ':
 					raise NotImplementedError('Sigma state pruning (mbe: _sum()) not implemented for occ expansions')
-				combs = combs[[tools.sigma_prune(calc.orbsym, combs[comb, calc.no_exp:]) for comb in range(combs.shape[0])]]
+				combs = combs[[tools.sigma_prune(calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)
 			combs_hash.sort()

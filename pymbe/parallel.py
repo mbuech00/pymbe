@@ -147,7 +147,7 @@ def fund(mpi, mol, calc):
 		""" bcast fundamental info """
 		if mpi.parallel:
 			if mpi.global_master:
-				info = {'prop': calc.prop, 'zero': calc.zero, \
+				info = {'prop': calc.prop, \
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 							'occup': calc.occup, 'no_exp': calc.no_exp, \
@@ -157,7 +157,7 @@ def fund(mpi, mol, calc):
 				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
-				calc.prop = info['prop']; calc.zero = info['zero']
+				calc.prop = info['prop']
 				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 				calc.occup = info['occup']; calc.no_exp = info['no_exp']
@@ -215,7 +215,7 @@ def exp(mpi, calc, exp, comm):
 				exp.start_order = info['start_order']
 				# receive tuples and hashes
 				for i in range(1, len(info['len_tup'])):
-					buff = np.empty([info['len_tup'][i], exp.start_order+i], dtype=np.int32)
+					buff = np.empty([info['len_tup'][i], (exp.start_order-calc.no_exp)+i], dtype=np.int32)
 					comm.Bcast([buff, MPI.INT], root=0)
 					exp.tuples.append(buff)
 				for i in range(1, len(info['len_tup'])):

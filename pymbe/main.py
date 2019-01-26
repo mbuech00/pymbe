@@ -125,9 +125,17 @@ def _exp(mpi, mol, calc):
 				calc.mo = kernel.ref_mo(mol, calc, exp)
 				# base energy
 				base = kernel.base(mol, calc, exp)
-				calc.base['energy'] = base['energy']
-				# zeroth-order energy
-				calc.zero = kernel.zero_energy(mol, calc, exp)
+				calc.prop['base']['energy'] = base['energy']
+				# reference space properties
+				ref = kernel.ref_prop(mol, calc, exp)
+				if calc.target['energy']:
+					calc.prop['ref']['energy'] = ref['energy']
+				if calc.target['excitation']:
+					calc.prop['ref']['excitation'] = ref['excitation']
+				if calc.target['dipole']:
+					calc.prop['ref']['dipole'] = ref['dipole']
+				if calc.target['trans']:
+					calc.prop['ref']['trans'] = ref['trans']
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:

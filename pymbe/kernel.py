@@ -113,7 +113,7 @@ def hf(mol, calc):
 		hf = scf.RHF(mol_hf)
 		hf.init_guess = mol.hf_init_guess
 		hf.conv_tol = 1.0e-09
-		hf.max_cycle = 500
+		hf.max_cycle = 1000
 		if mol.atom: # ab initio hamiltonian
 			hf.irrep_nelec = mol.irrep_nelec
 		else: # model hamiltonian
@@ -192,13 +192,6 @@ def _dim(hf, calc):
 
 def active(mol, calc):
 		""" set active space """
-		# reference and expansion spaces
-		if calc.model['type'] == 'occ':
-			ref_space = np.array(range(mol.nocc, mol.norb))
-			exp_space = np.array(range(mol.ncore, mol.nocc))
-		elif calc.model['type'] == 'virt':
-			ref_space = np.array(range(mol.ncore, mol.nocc))
-			exp_space = np.array(range(mol.nocc, mol.norb))
 		# hf reference model
 		if calc.ref['method'] == 'hf':
 			# no expansion space
@@ -231,8 +224,16 @@ def active(mol, calc):
 					except Exception as err:
 						sys.stderr.write(str(err))
 						raise
-			if mol.debug:
-				print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}\n\n'.format(ne_act, no_act, no_exp))
+		# debug print
+		if mol.debug:
+			print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}\n\n'.format(ne_act, no_act, no_exp))
+		# reference and expansion spaces
+		if calc.model['type'] == 'occ':
+			ref_space = np.array(range(mol.nocc-no_exp, mol.norb))
+			exp_space = np.array(range(mol.ncore, mol.nocc-no_exp))
+		elif calc.model['type'] == 'virt':
+			ref_space = np.array(range(mol.ncore, mol.nocc+no_exp))
+			exp_space = np.array(range(mol.nocc+no_exp, mol.norb))
 		return ref_space, exp_space, no_exp, no_act, ne_act
 
 
@@ -259,44 +260,45 @@ def ref_mo(mol, calc, exp):
 		return mo
 
 
-def zero_energy(mol, calc, exp):
-		""" calculate zeroth-order energy """
+def ref_prop(mol, calc, exp):
+		""" calculate reference space properties """
 		# set core and cas spaces
 		if calc.model['type'] == 'occ':
-			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
+			raise NotImplementedError('occ expansion currently disabled')
+#			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
 		elif calc.model['type'] == 'virt':
 			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
-		# calculate energy
-		zero = {}
-		if mol.spin == 0:
-			# no zeroth-order contributions
+		# calculate properties
+		ref = {}
+		# closed-shell HF exception
+		if mol.spin == 0 and calc.no_exp == 0:
 			if calc.target['energy']:
-				zero['energy'] = 0.0
+				ref['energy'] = 0.0
 			if calc.target['excitation']:
-				zero['excitation'] = 0.0
+				ref['excitation'] = 0.0
 			if calc.target['dipole']:
-				zero['dipole'] = np.zeros(3, dtype=np.float64)
+				ref['dipole'] = np.zeros(3, dtype=np.float64)
 			if calc.target['trans']:
-				zero['trans'] = np.zeros(3, dtype=np.float64)
+				ref['trans'] = np.zeros(3, dtype=np.float64)
 		else:
 			# exp model
 			res = main(mol, calc, exp, calc.model['method'])
 			# e_ref
 			if calc.target['energy']:
-				zero['energy'] = res['energy']
+				ref['energy'] = res['energy']
 				if calc.base['method'] is not None:
 					res = main(mol, calc, exp, calc.base['method'])
-					zero['energy'] -= res['energy']
+					ref['energy'] -= res['energy']
 			# excitation_ref
 			if calc.target['excitation']:
-				zero['excitation'] = res['excitation']
+				ref['excitation'] = res['excitation']
 			# dipole_ref
 			if calc.target['dipole']:
-				zero['dipole'] = res['dipole']
+				ref['dipole'] = res['dipole']
 			# trans_dipole_ref
 			if calc.target['trans']:
-				zero['trans'] = res['trans']
-		return zero
+				ref['trans'] = res['trans']
+		return ref
 
 
 def main(mol, calc, exp, method):
@@ -423,6 +425,9 @@ def base(mol, calc, exp):
 		if calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can'):
 			res = _cc(mol, calc, exp, True)
 			base['energy'] = res['energy']
+		# update orbsym
+		if mol.atom:
+			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
 		return base
 
 
@@ -541,6 +546,7 @@ def _fci(mol, calc, exp):
 		solver.max_cycle = 5000
 		solver.max_space = 25
 		solver.davidson_only = True
+		solver.pspace_size = 0
 		# wfnsym
 		solver.wfnsym = calc.state['wfnsym']
 		# get integrals and core energy

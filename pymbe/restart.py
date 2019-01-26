@@ -16,6 +16,7 @@ import os
 import os.path
 import shutil
 import re
+from pyscf import symm
 
 
 # rst parameters
@@ -79,7 +80,7 @@ def main(calc, exp):
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
 				elif 'time_screen' in files[i]:
 					exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
-			return exp.tuples[-1].shape[1]
+			return exp.tuples[-1].shape[1] + calc.no_exp
 
 
 def write_fund(mol, calc):
@@ -92,21 +93,21 @@ def write_fund(mol, calc):
 		# write hf, reference, and base properties
 		if calc.target['energy']:
 			energies = {'hf': calc.prop['hf']['energy'], \
-						'base': calc.base['energy'], \
-						'zero': calc.zero['energy']}
+						'base': calc.prop['base']['energy'], \
+						'ref': calc.prop['ref']['energy']}
 			with open(os.path.join(RST, 'energies.rst'), 'w') as f:
 				json.dump(energies, f)
 		if calc.target['excitation']:
-			excitations = {'zero': calc.zero['excitation']}
+			excitations = {'ref': calc.prop['ref']['excitation']}
 			with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
 				json.dump(excitations, f)
 		if calc.target['dipole']:
 			dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
-						'zero': calc.zero['dipole'].tolist()}
+						'ref': calc.prop['ref']['dipole'].tolist()}
 			with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
 				json.dump(dipoles, f)
 		if calc.target['trans']:
-			transitions = {'zero': calc.zero['trans'].tolist()}
+			transitions = {'ref': calc.prop['ref']['trans'].tolist()}
 			with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
 				json.dump(transitions, f)
 		# write expansion spaces
@@ -140,21 +141,21 @@ def read_fund(mol, calc):
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					energies = json.load(f)
 				calc.prop['hf']['energy'] = energies['hf']
-				calc.base = {'energy': energies['base']} 
-				calc.zero['energy'] = energies['zero']
+				calc.prop['base']['energy'] = energies['base'] 
+				calc.prop['ref']['energy'] = energies['ref']
 			elif 'excitations' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					excitations = json.load(f)
-				calc.zero['excitation'] = excitations['zero']
+				calc.prop['ref']['excitation'] = excitations['ref']
 			elif 'dipoles' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					dipoles = json.load(f)
 				calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
-				calc.zero['dipole'] = np.asarray(dipoles['zero'])
+				calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
 			elif 'transitions' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					transitions = json.load(f)
-				calc.zero['trans'] = np.asarray(transitions['zero'])
+				calc.prop['ref']['trans'] = np.asarray(transitions['ref'])
 			# read expansion spaces
 			elif 'ref_space' in files[i]:
 				calc.ref_space = np.load(os.path.join(RST, files[i]))
@@ -166,6 +167,10 @@ def read_fund(mol, calc):
 			# read orbs
 			elif 'mo' in files[i]:
 				calc.mo = np.load(os.path.join(RST, files[i]))
+				if mol.atom:
+					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
+				else:
+					calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 
 
 def mbe_write(calc, exp):
