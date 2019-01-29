@@ -243,7 +243,7 @@ def _calc(mpi, mol, calc, exp, idx):
 def _inc(mpi, mol, calc, exp, tup):
 		""" calculate increments corresponding to tup """
 		# generate input
-		exp.core_idx, exp.cas_idx = tools.core_cas(mol, exp, tup)
+		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, tup)
 		# perform calc
 		res = kernel.main(mol, calc, exp, calc.model['method'])
 		inc = {}

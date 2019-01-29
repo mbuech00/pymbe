@@ -362,7 +362,7 @@ def _trans(mol, calc, exp, cas_t_rdm1, hf_weight_gs, hf_weight_ex):
 def base(mol, calc, exp):
 		""" calculate base energy and mo coefficients """
 		# set core and cas spaces
-		exp.core_idx, exp.cas_idx = tools.core_cas(mol, exp, calc.exp_space)
+		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, calc.exp_space)
 		# init rdm1
 		rdm1 = None
 		# no base

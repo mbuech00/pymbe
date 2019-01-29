@@ -114,10 +114,10 @@ def screen_tasks(n_tuples, num_slaves):
 		return np.array_split(np.arange(n_tuples), num_slaves)
 
 
-def core_cas(mol, exp, tup):
+def core_cas(mol, ref_space, tup):
 		""" define core and cas spaces """
-		cas_idx = np.asarray(sorted(exp.incl_idx + sorted(tup.tolist())))
-		core_idx = np.asarray(sorted(list(set(range(mol.nocc)) - set(cas_idx))))
+		cas_idx = np.sort(np.append(ref_space, tup))
+		core_idx = np.setdiff1d(np.arange(mol.nocc), cas_idx)
 		return core_idx, cas_idx
 
 

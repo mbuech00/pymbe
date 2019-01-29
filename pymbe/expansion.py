@@ -23,8 +23,8 @@ class ExpCls():
 				# set expansion model dict
 				self.model = copy.deepcopy(calc.model)
 				self.model['type'] = typ
-				# init incl_idx, tuples, and hashes
-				self.incl_idx, self.tuples, self.hashes = _init_tup(mol, calc)
+				# init tuples and hashes
+				self.tuples, self.hashes = _init_tup(mol, calc)
 				# init prop dict
 				self.prop = {}
 				if calc.target['energy']:
@@ -56,9 +56,7 @@ class ExpCls():
 
 
 def _init_tup(mol, calc):
-		""" init tuples and incl_idx """
-		# incl_idx
-		incl_idx = calc.ref_space.tolist()
+		""" init tuples and hashes """
 		# tuples
 		if calc.extra['sigma']:
 			tuples = [np.array([[i] for i in calc.exp_space if tools.sigma_prune(calc.orbsym, np.asarray([i], dtype=np.int32))], dtype=np.int32)]
@@ -69,6 +67,6 @@ def _init_tup(mol, calc):
 		# sort wrt hashes
 		tuples[0] = tuples[0][hashes[0].argsort()]
 		hashes[0].sort()
-		return incl_idx, tuples, hashes
+		return tuples, hashes
 
 
