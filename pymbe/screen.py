@@ -46,7 +46,7 @@ def _serial(mol, calc, exp):
 		if exp.count[-1] > 0:
 	        # loop over parent tuples
 			for i in range(len(exp.tuples[-1])):
-				lst = _test(calc, exp, exp.tuples[-1][i])
+				lst = _test(mol, calc, exp, exp.tuples[-1][i])
 				parent_tup = exp.tuples[-1][i].tolist()
 				for m in lst:
 					tup = parent_tup+[m]
@@ -90,7 +90,7 @@ def _parallel(mpi, mol, calc, exp):
 		if mpi.global_master: time = MPI.Wtime()
 		# compute child tuples/hashes
 		for idx in tasks[mpi.local_rank]:
-			lst = _test(calc, exp, exp.tuples[-1][idx])
+			lst = _test(mol, calc, exp, exp.tuples[-1][idx])
 			parent_tup = exp.tuples[-1][idx].tolist()
 			for m in lst:
 				tup = parent_tup+[m]
@@ -109,7 +109,7 @@ def _parallel(mpi, mol, calc, exp):
 		if mpi.global_master: exp.time['screen'].append(MPI.Wtime() - time)
 
 
-def _test(calc, exp, tup):
+def _test(mol, calc, exp, tup):
 		""" screening test """
 		if exp.order == exp.start_order:
 			return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
