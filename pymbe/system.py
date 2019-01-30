@@ -30,7 +30,7 @@ class MolCls(gto.Mole):
 				self.atom = ''
 				self.system = {'charge': 0, 'spin': 0, 'sym': 'c1', 'hf_sym': None, \
 							'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
-							'unit': 'ang', 'frozen': False, 'occup': {}, 'verbose': 1, 'debug': False, \
+							'unit': 'ang', 'frozen': False, 'occup': {}, 'debug': 0, \
 							't': 1.0, 'u': 1.0, 'dim': 1, 'nsites': 6, 'pbc': True, 'nelec': 0}
 				# set geometric and molecular parameters
 				if mpi.global_master:
@@ -40,7 +40,7 @@ class MolCls(gto.Mole):
 					self.sanity_chk()
 					# translate to Mole input
 					self.incore_anyway = True
-					self.verbose = self.system['verbose']
+					self.verbose = 1
 					self.irrep_nelec = self.system['occup']
 					self.charge = self.system['charge']
 					self.spin = self.system['spin']
@@ -139,11 +139,6 @@ class MolCls(gto.Mole):
 					# occup
 					if not isinstance(self.system['occup'], dict):
 						raise ValueError('wrong input -- occupation input in system dict (occup) must be a dict')
-					# verbose
-					if not isinstance(self.system['verbose'], int):
-						raise ValueError('wrong input -- verbosity input in system dict (verbose) must be an int >= 0')
-					if self.system['verbose'] < 0:
-						raise ValueError('wrong input -- verbosity input in system dict (verbose) must be an int >= 0')
 					# unit
 					if not isinstance(self.system['unit'], str):
 						raise ValueError('wrong input -- unit input in system dict (unit) must be a str')
@@ -151,8 +146,10 @@ class MolCls(gto.Mole):
 					if not isinstance(self.system['frozen'], bool):
 						raise ValueError('wrong input -- frozen core input in system dict (frozen) must be a bool')
 					# debug
-					if not isinstance(self.system['debug'], bool):
-						raise ValueError('wrong input -- debug input in system dict (debug) must be a bool')
+					if type(self.system['debug']) is not int:
+						raise ValueError('wrong input -- debug input in system dict (debug) must be an int')
+					if self.system['debug'] < 0:
+						raise ValueError('wrong input -- debug input in system dict (debug) must be an int >= 0')
 				except Exception as err:
 					sys.stderr.write('\n{:}\n\n'.format(err))
 					raise

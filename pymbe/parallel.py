@@ -99,8 +99,7 @@ def mol(mpi, mol):
 			if mpi.global_master:
 				info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'e_core': mol.e_core, \
 						'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
-						'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, \
-						'verbose': mol.verbose, 'debug': mol.debug}
+						'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
 				if not mol.atom:
 					info['t'] = mol.t
 					info['u'] = mol.u
@@ -116,7 +115,7 @@ def mol(mpi, mol):
 				mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
 				mol.basis = info['basis']; mol.cart = info['cart']
 				mol.unit = info['unit']; mol.frozen = info['frozen']
-				mol.verbose = info['verbose']; mol.debug = info['debug']
+				mol.debug = info['debug']
 				if not mol.atom:
 					mol.t = info['t']; mol.u = info['u']; mol.dim = info['dim']
 					mol.nsites = info['nsites']; mol.pbc = info['pbc']; mol.nelectron = info['nelec']

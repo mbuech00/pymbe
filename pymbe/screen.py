@@ -97,6 +97,9 @@ def _parallel(mpi, mol, calc, exp):
 				if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
 					child_tup += tup
 					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+				else:
+					if mol.debug >= 2:
+						print('screen [sigma]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
 		# allgatherv tuples/hashes
 		tuples, hashes = parallel.screen(child_tup, child_hash, exp.order-calc.no_exp, comm)
 		# append tuples and hashes
@@ -146,6 +149,12 @@ def _test(calc, exp, tup):
 				if indx is not None:
 					if not _prot_screen(exp.thres, calc.prot['scheme'], calc.target, exp.prop, indx):
 						lst += [m]
+					else:
+						if mol.debug >= 2:
+							print('screen [prot_screen]: parent_tup = {:} , m = {:}'.format(tup, m))
+				else:
+					if mol.debug >= 2:
+						print('screen [indx is None]: parent_tup = {:} , m = {:}'.format(tup, m))
 			return lst
 
 

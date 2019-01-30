@@ -111,6 +111,9 @@ def hf(mol, calc):
 		mol_hf = mol.copy()
 		mol_hf.build(0, 0, symmetry = mol.hf_sym)
 		hf = scf.RHF(mol_hf)
+		# debug print
+		if mol.debug >= 1:
+			hf.verbose = 4
 		hf.init_guess = mol.hf_init_guess
 		hf.conv_tol = 1.0e-09
 		hf.max_cycle = 1000
@@ -162,7 +165,7 @@ def hf(mol, calc):
 		else:
 			orbsym = np.zeros(hf.mo_occ.size, dtype=np.int)
 		# debug print of orbital energies
-		if mol.debug:
+		if mol.debug >= 1:
 			if mol.symmetry:
 				gpname = mol.symmetry
 			else:
@@ -225,7 +228,7 @@ def active(mol, calc):
 						sys.stderr.write(str(err))
 						raise
 		# debug print
-		if mol.debug:
+		if mol.debug >= 1:
 			print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}\n\n'.format(ne_act, no_act, no_exp))
 		# reference and expansion spaces
 		if calc.model['type'] == 'occ':
@@ -440,7 +443,8 @@ def _casscf(mol, calc, exp):
 		# frozen (inactive)
 		cas.frozen = mol.ncore
 		# debug print
-		if mol.debug: cas.verbose = 4
+		if mol.debug >= 1:
+			cas.verbose = 4
 		# fcisolver
 		if np.abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
 			if mol.symmetry:
@@ -546,6 +550,9 @@ def _fci(mol, calc, exp):
 		solver.max_space = 25
 		solver.davidson_only = True
 		solver.pspace_size = 0
+		# debug print
+		if mol.debug >= 3:
+			solver.verbose = 10
 		# wfnsym
 		solver.wfnsym = calc.state['wfnsym']
 		# get integrals and core energy

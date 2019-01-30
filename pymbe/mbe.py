@@ -52,7 +52,7 @@ def main(mpi, mol, calc, exp):
 		else:
 			_serial(mpi, mol, calc, exp)
 		# sum up total quantities
-		if mol.debug and exp.order == 1:
+		if mol.debug >= 1 and exp.order == 1:
 			if calc.target['energy']:
 				print('')
 				a = np.abs(exp.prop['energy']['inc'][0])
@@ -286,7 +286,7 @@ def _inc(mpi, mol, calc, exp, tup):
 					res = _sum(calc, exp, tup, 'trans')
 					inc['trans'] -= res['trans']
 		# debug print
-		if mol.debug:
+		if mol.debug >= 1:
 			tup_lst = [i for i in tup]
 			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
 			string = ' INC: order = {:} , tup = {:}\n'
