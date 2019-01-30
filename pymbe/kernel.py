@@ -632,7 +632,7 @@ def _ci(mol, calc, exp):
 		""" cisd calc """
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, exp)
-		mol_tmp = gto.M(verbose=1)
+		mol_tmp = gto.M(verbose=0)
 		mol_tmp.incore_anyway = mol.incore_anyway
 		mol_tmp.max_memory = mol.max_memory
 		if mol.spin == 0:
@@ -666,7 +666,7 @@ def _cc(mol, calc, exp, pt=False):
 		""" ccsd / ccsd(t) calc """
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, exp)
-		mol_tmp = gto.M(verbose=1)
+		mol_tmp = gto.M(verbose=0)
 		mol_tmp.incore_anyway = mol.incore_anyway
 		mol_tmp.max_memory = mol.max_memory
 		if mol.spin == 0:

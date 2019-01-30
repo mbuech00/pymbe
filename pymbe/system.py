@@ -40,7 +40,6 @@ class MolCls(gto.Mole):
 					self.sanity_chk()
 					# translate to Mole input
 					self.incore_anyway = True
-					self.verbose = 1
 					self.irrep_nelec = self.system['occup']
 					self.charge = self.system['charge']
 					self.spin = self.system['spin']
@@ -158,7 +157,7 @@ class MolCls(gto.Mole):
 		def make(self, mpi):
 				""" build Mole object """
 				try:
-					self.build(dump_input=False, parse_arg=False)
+					self.build(dump_input=False, parse_arg=False, verbose=0)
 				except RuntimeWarning as err:
 					try:
 						raise RuntimeError
