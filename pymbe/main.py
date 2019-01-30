@@ -143,16 +143,19 @@ def _exp(mpi, mol, calc):
 			mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 		# bcast fundamental info
 		parallel.fund(mpi, mol, calc)
-		# restart and exp object on slaves
-		if mpi.global_master:
-			exp.min_order = restart.main(calc, exp)
-		else:
+		# exp object on slaves
+		if not mpi.global_master:
 			# exp object
 			if calc.model['type'] != 'comb':
 				exp = expansion.ExpCls(mol, calc, calc.model['type'])
 			else:
 				# exp.typ = 'virt' for occ-virt and exp.typ = 'occ' for virt-occ combined expansions
 				raise NotImplementedError('comb expansion not implemented')
+		# init tuples and hashes
+		exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
+		# restart
+		if mpi.global_master:
+			exp.min_order = restart.main(calc, exp)
 		return exp
 
 

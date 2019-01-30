@@ -49,10 +49,7 @@ def _serial(mol, calc, exp):
 				lst = _test(calc, exp, exp.tuples[-1][i])
 				parent_tup = exp.tuples[-1][i].tolist()
 				for m in lst:
-					if calc.model['type'] == 'occ':
-						tup = [m]+parent_tup
-					elif calc.model['type'] == 'virt':
-						tup = parent_tup+[m]
+					tup = parent_tup+[m]
 					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
 						child_tup += tup
 		# convert child tuple list to array
@@ -96,10 +93,7 @@ def _parallel(mpi, mol, calc, exp):
 			lst = _test(calc, exp, exp.tuples[-1][idx])
 			parent_tup = exp.tuples[-1][idx].tolist()
 			for m in lst:
-				if calc.model['type'] == 'occ':
-					tup = [m]+parent_tup
-				elif calc.model['type'] == 'virt':
-					tup = parent_tup+[m]
+				tup = parent_tup+[m]
 				if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
 					child_tup += tup
 					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
@@ -115,61 +109,43 @@ def _parallel(mpi, mol, calc, exp):
 def _test(calc, exp, tup):
 		""" screening test """
 		if exp.order == exp.start_order:
-			if calc.model['type'] == 'occ':
-				return [m for m in range(calc.exp_space[0], tup[0])]
-			elif calc.model['type'] == 'virt':
-				return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
+			return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
 		else:
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, (exp.order-calc.no_exp)-1)], dtype=np.int32)
 			# loop over new orbs 'm'
-			if calc.model['type'] == 'occ':
-				for m in range(calc.exp_space[0], tup[0]):
-					# add orbital m to combinations
-					combs_m = np.concatenate((m * np.ones(combs.shape[0], dtype=np.int32)[:, None], combs), axis=1)
-					if calc.extra['sigma']:
-						raise NotImplementedError('Sigma state pruning (screen) not implemented for occ expansions')
-					# convert to sorted hashes
-					combs_m = tools.hash_2d(combs_m)
-					combs_m.sort()
-					# get index
-					indx = tools.hash_compare(exp.hashes[-1], combs_m)
-					if indx is not None:
-						if not _prot_screen(exp.thres, calc.prot['scheme'], calc.target, exp.prop, indx):
-							lst += [m]
-			elif calc.model['type'] == 'virt':
-				for m in range(tup[-1]+1, calc.exp_space[-1]+1):
-					# add orbital m to combinations
-					combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
-					# sigma pruning
-					if calc.extra['sigma']:
-						combs_m = combs_m[[tools.sigma_prune(calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
-					# convert to sorted hashes
-					combs_m_hash = tools.hash_2d(combs_m)
-					combs_m_hash.sort()
-					# get indices
-					indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
-					if calc.extra['sigma']:
-						# deep pruning (to check validity of tup + [m])
-						for k in range(exp.order-exp.start_order, 0, -1):
-							combs_sigma = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-							# add orbital m to combinations
-							combs_sigma = np.concatenate((combs_sigma, m * np.ones(combs_sigma.shape[0], dtype=np.int32)[:, None]), axis=1)
-							combs_sigma = combs_sigma[[tools.sigma_prune(calc.orbsym, combs_sigma[comb, :]) for comb in range(combs_sigma.shape[0])]]
-							# convert to sorted hashes
-							combs_sigma_hash = tools.hash_2d(combs_sigma)
-							combs_sigma_hash.sort()
-							# get indices
-							indx_sigma = tools.hash_compare(exp.hashes[k], combs_sigma_hash)
-							# break if disallowed
-							if indx_sigma is None:
-								indx = None
-								break
-					if indx is not None:
-						if not _prot_screen(exp.thres, calc.prot['scheme'], calc.target, exp.prop, indx):
-							lst += [m]
+			for m in range(tup[-1]+1, calc.exp_space[-1]+1):
+				# add orbital m to combinations
+				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
+				# sigma pruning
+				if calc.extra['sigma']:
+					combs_m = combs_m[[tools.sigma_prune(calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
+				# convert to sorted hashes
+				combs_m_hash = tools.hash_2d(combs_m)
+				combs_m_hash.sort()
+				# get indices
+				indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
+				if calc.extra['sigma']:
+					# deep pruning (to check validity of tup + [m])
+					for k in range(exp.order-exp.start_order, 0, -1):
+						combs_sigma = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+						# add orbital m to combinations
+						combs_sigma = np.concatenate((combs_sigma, m * np.ones(combs_sigma.shape[0], dtype=np.int32)[:, None]), axis=1)
+						combs_sigma = combs_sigma[[tools.sigma_prune(calc.orbsym, combs_sigma[comb, :]) for comb in range(combs_sigma.shape[0])]]
+						# convert to sorted hashes
+						combs_sigma_hash = tools.hash_2d(combs_sigma)
+						combs_sigma_hash.sort()
+						# get indices
+						indx_sigma = tools.hash_compare(exp.hashes[k], combs_sigma_hash)
+						# break if disallowed
+						if indx_sigma is None:
+							indx = None
+							break
+				if indx is not None:
+					if not _prot_screen(exp.thres, calc.prot['scheme'], calc.target, exp.prop, indx):
+						lst += [m]
 			return lst
 
 

@@ -229,11 +229,11 @@ def active(mol, calc):
 			print(' active: ne_act = {0:} , no_act = {1:} , no_exp = {2:}\n\n'.format(ne_act, no_act, no_exp))
 		# reference and expansion spaces
 		if calc.model['type'] == 'occ':
-			ref_space = np.array(range(mol.nocc-no_exp, mol.norb))
-			exp_space = np.array(range(mol.ncore, mol.nocc-no_exp))
+			ref_space = np.arange(mol.nocc-no_exp, mol.norb)
+			exp_space = np.arange(mol.ncore, mol.nocc-no_exp)
 		elif calc.model['type'] == 'virt':
-			ref_space = np.array(range(mol.ncore, mol.nocc+no_exp))
-			exp_space = np.array(range(mol.nocc+no_exp, mol.norb))
+			ref_space = np.arange(mol.ncore, mol.nocc+no_exp)
+			exp_space = np.arange(mol.nocc+no_exp, mol.norb)
 		return ref_space, exp_space, no_exp, no_act, ne_act
 
 
@@ -251,7 +251,7 @@ def ref_mo(mol, calc, exp):
 				# divide into inactive-active-virtual
 				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
 				mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['select']], calc.mo[:, idx[inact_orb:]]))
-				mo = np.asarray(mo, order='C')
+				calc.mo = np.asarray(mo, order='C')
 				if mol.atom:
 					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
 			# casscf mo
@@ -264,8 +264,7 @@ def ref_prop(mol, calc, exp):
 		""" calculate reference space properties """
 		# set core and cas spaces
 		if calc.model['type'] == 'occ':
-			raise NotImplementedError('occ expansion currently disabled')
-#			exp.core_idx, exp.cas_idx = np.arange(mol.nocc), calc.ref_space
+			exp.core_idx, exp.cas_idx = np.arange(mol.nocc-calc.no_exp), calc.ref_space
 		elif calc.model['type'] == 'virt':
 			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
 		# calculate properties

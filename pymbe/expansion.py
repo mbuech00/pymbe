@@ -23,8 +23,6 @@ class ExpCls():
 				# set expansion model dict
 				self.model = copy.deepcopy(calc.model)
 				self.model['type'] = typ
-				# init tuples and hashes
-				self.tuples, self.hashes = _init_tup(mol, calc)
 				# init prop dict
 				self.prop = {}
 				if calc.target['energy']:
@@ -36,7 +34,7 @@ class ExpCls():
 				if calc.target['trans']:
 					self.prop['trans'] = {'inc': [], 'tot': []}
 				# set start_order/max_order
-				self.start_order = self.tuples[0].shape[1] + calc.no_exp
+				self.start_order = calc.no_exp + 1
 				if calc.misc['order'] is not None:
 					self.max_order = min(calc.exp_space.size + calc.no_exp, calc.misc['order'])
 				else:
@@ -55,7 +53,7 @@ class ExpCls():
 				self.rst_freq = 50000
 
 
-def _init_tup(mol, calc):
+def init_tup(mol, calc):
 		""" init tuples and hashes """
 		# tuples
 		if calc.extra['sigma']:

@@ -287,10 +287,8 @@ def _inc(mpi, mol, calc, exp, tup):
 					inc['trans'] -= res['trans']
 		# debug print
 		if mol.debug:
-			if calc.model['type'] == 'occ':
-				raise NotImplementedError('debug print (mbe: _inc()) not implemented for occ expansions')
-			tup_lst = [i for i in exp.cas_idx[calc.ref_space.size:]]
-			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[exp.cas_idx[calc.ref_space.size:]]]
+			tup_lst = [i for i in tup]
+			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
 			string = ' INC: order = {:} , tup = {:}\n'
 			string += '      symmetry = {:}\n'
 			form = (exp.order, tup_lst, tup_sym)
@@ -328,8 +326,6 @@ def _sum(calc, exp, tup, prop):
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# sigma pruning
 			if calc.extra['sigma']:
-				if calc.model['type'] == 'occ':
-					raise NotImplementedError('Sigma state pruning (mbe: _sum()) not implemented for occ expansions')
 				combs = combs[[tools.sigma_prune(calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)
