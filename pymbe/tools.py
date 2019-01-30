@@ -37,7 +37,7 @@ def fsum(a):
 		elif a.ndim == 2:
 			return np.fromiter(map(math.fsum, a.T), dtype=a.dtype, count=a.shape[1])
 		else:
-			NotImplementedError('tools.py: _fsum()')
+			raise NotImplementedError('tools.py: _fsum()')
 
 
 def hash_2d(a):
