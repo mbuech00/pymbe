@@ -163,7 +163,7 @@ def hf(mol, calc):
 					sys.stderr.write(str(err))
 					raise
 		else:
-			orbsym = np.zeros(hf.mo_occ.size, dtype=np.int)
+			orbsym = np.zeros(hf.mo_energy.size, dtype=np.int)
 		# debug print of orbital energies
 		if mol.debug >= 1:
 			if mol.symmetry:
@@ -174,7 +174,7 @@ def hf(mol, calc):
 			for i in range(hf.mo_energy.size):
 				print('     {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
 			print('\n')
-		return hf, np.asscalar(e_hf), elec_dipole, occup, orbsym, np.asarray(hf.mo_coeff, order='C')
+		return hf, np.asscalar(e_hf), elec_dipole, occup, orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(hf, calc):
@@ -209,7 +209,7 @@ def active(mol, calc):
 				# active orbs
 				if isinstance(calc.ref['select'], dict):
 					cas = mcscf.CASSCF(calc.hf, np.sum(list(calc.ref['select'].values())), ne_act)
-					calc.ref['select'] = mcscf.caslst_by_irrep(cas, calc.mo, calc.ref['select'], base=0)
+					calc.ref['select'] = mcscf.caslst_by_irrep(cas, calc.mo_coeff, calc.ref['select'], base=0)
 				calc.ref['select'] = np.asarray(calc.ref['select'])
 				no_act = calc.ref['select'].size
 				# expansion space orbs
@@ -244,7 +244,8 @@ def ref_mo(mol, calc, exp):
 		""" determine reference mo coefficients """
 		# sort mo coefficients
 		if calc.no_exp == 0:
-			mo = calc.mo
+			mo_energy = calc.mo_energy
+			mo_coeff = calc.mo_coeff
 		elif calc.ref['method'] in ['casci','casscf']:
 			if calc.ref['active'] == 'manual':
 				# inactive region
@@ -253,14 +254,14 @@ def ref_mo(mol, calc, exp):
 				inact_orb = inact_elec // 2
 				# divide into inactive-active-virtual
 				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
-				mo = np.hstack((calc.mo[:, idx[:inact_orb]], calc.mo[:, calc.ref['select']], calc.mo[:, idx[inact_orb:]]))
-				calc.mo = np.asarray(mo, order='C')
+				mo_coeff = np.hstack((calc.mo_coeff[:, idx[:inact_orb]], calc.mo_coeff[:, calc.ref['select']], calc.mo_coeff[:, idx[inact_orb:]]))
+				calc.mo_coeff = np.asarray(mo_coeff, order='C')
 				if mol.atom:
-					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
-			# casscf mo
+					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
+			# casscf mo coefficients
 			if calc.ref['method'] == 'casscf':
-				mo = _casscf(mol, calc, exp)
-		return mo
+				mo_energy, mo_coeff = _casscf(mol, calc, exp)
+		return mo_energy, mo_coeff
 
 
 def ref_prop(mol, calc, exp):
@@ -345,7 +346,7 @@ def _dipole(mol, calc, exp, cas_rdm1, trans=False):
 		# insert correlated subblock
 		rdm1[exp.cas_idx[:, None], exp.cas_idx] = cas_rdm1
 		# ao representation
-		rdm1 = np.einsum('pi,ij,qj->pq', calc.mo, rdm1, calc.mo)
+		rdm1 = np.einsum('pi,ij,qj->pq', calc.mo_coeff, rdm1, calc.mo_coeff)
 		# compute elec_dipole
 		elec_dipole = np.einsum('xij,ji->x', mol.dipole, rdm1)
 		# remove noise
@@ -402,34 +403,34 @@ def base(mol, calc, exp):
 		if calc.orbs['occ'] != 'can':
 			if calc.orbs['occ'] in ['cisd', 'ccsd']:
 				occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
-				calc.mo[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo[:, mol.ncore:mol.nocc], no[:, ::-1])
+				calc.mo_coeff[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
 			elif calc.orbs['occ'] == 'pm':
-				calc.mo[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
+				calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.orbs['occ'] == 'fb':
-				calc.mo[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo[:, mol.ncore:mol.nocc]).kernel()
+				calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
 			elif calc.orbs['occ'] in ['ibo-1','ibo-2']:
-				iao = lo.iao.iao(mol, calc.mo[:, mol.ncore:mol.nocc])
+				iao = lo.iao.iao(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
 				if calc.orbs['occ'] == 'ibo-1':
 					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
-					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo[:, mol.ncore:mol.nocc], iao)
+					calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo_coeff[:, mol.ncore:mol.nocc], iao)
 				elif calc.orbs['occ'] == 'ibo-2':
-					calc.mo[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo[:, mol.ncore:mol.nocc], iao).kernel()
+					calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc], iao).kernel()
 		# virt-virt block (local or NOs)
 		if calc.orbs['virt'] != 'can':
 			if calc.orbs['virt'] in ['cisd', 'ccsd']:
 				occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
-				calc.mo[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo[:, mol.nocc:], no[:, ::-1])
+				calc.mo_coeff[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.nocc:], no[:, ::-1])
 			elif calc.orbs['virt'] == 'pm':
-				calc.mo[:, mol.nocc:] = lo.PM(mol, calc.mo[:, mol.nocc:]).kernel()
+				calc.mo_coeff[:, mol.nocc:] = lo.PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
 			elif calc.orbs['virt'] == 'fb':
-				calc.mo[:, mol.nocc:] = lo.Boys(mol, calc.mo[:, mol.nocc:]).kernel()
+				calc.mo_coeff[:, mol.nocc:] = lo.Boys(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
 		# extra calculation for non-invariant ccsd(t)
 		if calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can'):
 			res = _cc(mol, calc, exp, True)
 			base['energy'] = res['energy']
 		# update orbsym
 		if mol.atom:
-			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
+			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 		return base
 
 
@@ -498,7 +499,7 @@ def _casscf(mol, calc, exp):
 		else:
 			ci0 = None
 		# run casscf calc
-		cas.kernel(calc.mo, ci0=ci0)
+		cas.kernel(calc.mo_coeff, ci0=ci0)
 		if len(calc.ref['wfnsym']) == 1:
 			c = [cas.ci]
 		else:
@@ -511,7 +512,7 @@ def _casscf(mol, calc, exp):
 				sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * 0.5
 				cas.fix_spin_(shift=0.25, ss=sz * (sz + 1.))
 				# run casscf calc
-				cas.kernel(calc.mo, ci0=ci0)
+				cas.kernel(calc.mo_coeff, ci0=ci0)
 				if len(calc.ref['wfnsym']) == 1:
 					c = [cas.ci]
 				else:
@@ -529,7 +530,21 @@ def _casscf(mol, calc, exp):
 			except Exception as err:
 				sys.stderr.write(str(err))
 				raise
-		return np.asarray(cas.mo_coeff, order='C')
+		# debug print of orbital energies
+		if mol.atom:
+			orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, cas.mo_coeff)
+		else:
+			orbsym = np.zeros(cas.mo_energy.size, dtype=np.int)
+		if mol.debug >= 1:
+			if mol.symmetry:
+				gpname = mol.symmetry
+			else:
+				gpname = 'C1'
+			print('\n CASSCF:  mo   symmetry    energy')
+			for i in range(cas.mo_energy.size):
+				print('         {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), cas.mo_energy[i]))
+			print('\n')
+		return cas.mo_energy, np.asarray(cas.mo_coeff, order='C')
 
 
 def _fci(mol, calc, exp):
@@ -727,7 +742,7 @@ def _prepare(mol, calc, exp):
 		# extract cas integrals and calculate core energy
 		if mol.e_core is None or exp.model['type'] == 'occ':
 			if exp.core_idx.size > 0:
-				core_dm = np.einsum('ip,jp->ij', calc.mo[:, exp.core_idx], calc.mo[:, exp.core_idx]) * 2
+				core_dm = np.einsum('ip,jp->ij', calc.mo_coeff[:, exp.core_idx], calc.mo_coeff[:, exp.core_idx]) * 2
 				vj, vk = scf.hf.dot_eri_dm(mol.eri, core_dm)
 				mol.core_vhf = vj - vk * .5
 				mol.e_core = mol.energy_nuc() + np.einsum('ij,ji', core_dm, mol.hcore)
@@ -735,8 +750,8 @@ def _prepare(mol, calc, exp):
 			else:
 				mol.e_core = mol.energy_nuc()
 				mol.core_vhf = 0
-		h1e_cas = np.einsum('pi,pq,qj->ij', calc.mo[:, exp.cas_idx], mol.hcore + mol.core_vhf, calc.mo[:, exp.cas_idx])
-		h2e_cas = ao2mo.incore.full(mol.eri, calc.mo[:, exp.cas_idx])
+		h1e_cas = np.einsum('pi,pq,qj->ij', calc.mo_coeff[:, exp.cas_idx], mol.hcore + mol.core_vhf, calc.mo_coeff[:, exp.cas_idx])
+		h2e_cas = ao2mo.incore.full(mol.eri, calc.mo_coeff[:, exp.cas_idx])
 		return h1e_cas, h2e_cas
 
 

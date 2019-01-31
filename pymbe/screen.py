@@ -122,9 +122,13 @@ def _test(mol, calc, exp, tup):
 			for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 				# add orbital m to combinations
 				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
+				if (tup == np.array([36, 37], dtype=np.int32)).all() and m == 38:
+					print('combs_m (1) = {:}'.format(combs_m))
 				# sigma pruning
 				if calc.extra['sigma']:
 					combs_m = combs_m[[tools.sigma_prune(calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
+				if (tup == np.array([36, 37], dtype=np.int32)).all() and m == 38:
+					print('combs_m (2) = {:}'.format(combs_m))
 				# convert to sorted hashes
 				combs_m_hash = tools.hash_2d(combs_m)
 				combs_m_hash.sort()
@@ -151,10 +155,10 @@ def _test(mol, calc, exp, tup):
 						lst += [m]
 					else:
 						if mol.debug >= 2:
-							print('screen [prot_screen]: parent_tup = {:} , m = {:}'.format(tup, m))
+							print('screen [prot_screen]: parent_tup = {:} , m = {:}, combs_m = {:}'.format(tup, m, combs_m))
 				else:
 					if mol.debug >= 2:
-						print('screen [indx is None]: parent_tup = {:} , m = {:}'.format(tup, m))
+						print('screen [indx is None]: parent_tup = {:} , m = {:}, combs_m = {:}'.format(tup, m, combs_m))
 			return lst
 
 

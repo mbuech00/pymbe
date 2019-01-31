@@ -153,7 +153,7 @@ def fund(mpi, mol, calc):
 							'ne_act': calc.ne_act, 'no_act': calc.no_act}
 				mpi.global_comm.bcast(info, root=0)
 				# bcast mo
-				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
+				mpi.global_comm.Bcast([calc.mo_coeff, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.prop = info['prop']
@@ -164,9 +164,9 @@ def fund(mpi, mol, calc):
 				# receive mo
 				buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 				mpi.global_comm.Bcast([buff, MPI.DOUBLE], root=0)
-				calc.mo = buff
+				calc.mo_coeff = buff
 		if mol.atom:
-			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
+			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 		else:
 			calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 

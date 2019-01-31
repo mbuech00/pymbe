@@ -137,7 +137,7 @@ def sigma_prune(orbsym, tup, mbe=False):
 						# last orbital is not a pi orbital
 						return False
 					else:
-						if orbsym[tup[-1]-1] in [sym, sym+1]:
+						if orbsym[tup[-1]-1] in [sym, sym+1] and orbsym[tup[-1]-2] not in [sym, sym+1]:
 							# this is the second in the set of degenerated pi orbs (in a list ranked by mo energies))
 							return False
 				else:

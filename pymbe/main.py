@@ -111,7 +111,8 @@ def _exp(mpi, mol, calc):
 				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# hf calculation
 				calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-					calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
+					calc.occup, calc.orbsym, \
+					calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
@@ -122,7 +123,7 @@ def _exp(mpi, mol, calc):
 					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
 					raise NotImplementedError('combined expansions not implemented')
 				# reference mo coefficients
-				calc.mo = kernel.ref_mo(mol, calc, exp)
+				calc.mo_energy, calc.mo_coeff = kernel.ref_mo(mol, calc, exp)
 				# base energy
 				base = kernel.base(mol, calc, exp)
 				calc.prop['base']['energy'] = base['energy']
