@@ -115,8 +115,10 @@ def write_fund(mol, calc):
 		np.save(os.path.join(RST, 'exp_space'), calc.exp_space)
 		# occupation
 		np.save(os.path.join(RST, 'occup'), calc.occup)
-		# write orbs
-		np.save(os.path.join(RST, 'mo'), calc.mo)
+		# write orbital energies
+		np.save(os.path.join(RST, 'mo_energy'), calc.mo_energy)
+		# write orbital coefficients
+		np.save(os.path.join(RST, 'mo_coeff'), calc.mo_coeff)
 
 
 def read_fund(mol, calc):
@@ -164,11 +166,14 @@ def read_fund(mol, calc):
 			# read occupation
 			elif 'occup' in files[i]:
 				calc.occup = np.load(os.path.join(RST, files[i]))
-			# read orbs
-			elif 'mo' in files[i]:
-				calc.mo = np.load(os.path.join(RST, files[i]))
+			# read orbital energies
+			elif 'mo_energy' in files[i]:
+				calc.mo_energy = np.load(os.path.join(RST, files[i]))
+			# read orbital coefficients
+			elif 'mo_coeff' in files[i]:
+				calc.mo_coeff = np.load(os.path.join(RST, files[i]))
 				if mol.atom:
-					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
+					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 				else:
 					calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 

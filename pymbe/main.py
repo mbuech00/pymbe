@@ -111,7 +111,8 @@ def _exp(mpi, mol, calc):
 				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# hf calculation
 				calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-					calc.occup, calc.orbsym, calc.mo = kernel.hf(mol, calc)
+					calc.occup, calc.orbsym, \
+					calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
 				# reference and expansion spaces
 				calc.ref_space, calc.exp_space, \
 					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
@@ -122,7 +123,7 @@ def _exp(mpi, mol, calc):
 					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
 					raise NotImplementedError('combined expansions not implemented')
 				# reference mo coefficients
-				calc.mo = kernel.ref_mo(mol, calc, exp)
+				calc.mo_energy, calc.mo_coeff = kernel.ref_mo(mol, calc, exp)
 				# base energy
 				base = kernel.base(mol, calc, exp)
 				calc.prop['base']['energy'] = base['energy']
@@ -143,16 +144,19 @@ def _exp(mpi, mol, calc):
 			mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 		# bcast fundamental info
 		parallel.fund(mpi, mol, calc)
-		# restart and exp object on slaves
-		if mpi.global_master:
-			exp.min_order = restart.main(calc, exp)
-		else:
+		# exp object on slaves
+		if not mpi.global_master:
 			# exp object
 			if calc.model['type'] != 'comb':
 				exp = expansion.ExpCls(mol, calc, calc.model['type'])
 			else:
 				# exp.typ = 'virt' for occ-virt and exp.typ = 'occ' for virt-occ combined expansions
 				raise NotImplementedError('comb expansion not implemented')
+		# init tuples and hashes
+		exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
+		# restart
+		if mpi.global_master:
+			exp.min_order = restart.main(calc, exp)
 		return exp
 
 

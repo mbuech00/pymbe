@@ -99,8 +99,7 @@ def mol(mpi, mol):
 			if mpi.global_master:
 				info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'e_core': mol.e_core, \
 						'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
-						'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, \
-						'verbose': mol.verbose, 'debug': mol.debug}
+						'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
 				if not mol.atom:
 					info['t'] = mol.t
 					info['u'] = mol.u
@@ -116,7 +115,7 @@ def mol(mpi, mol):
 				mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
 				mol.basis = info['basis']; mol.cart = info['cart']
 				mol.unit = info['unit']; mol.frozen = info['frozen']
-				mol.verbose = info['verbose']; mol.debug = info['debug']
+				mol.debug = info['debug']
 				if not mol.atom:
 					mol.t = info['t']; mol.u = info['u']; mol.dim = info['dim']
 					mol.nsites = info['nsites']; mol.pbc = info['pbc']; mol.nelectron = info['nelec']
@@ -150,24 +149,24 @@ def fund(mpi, mol, calc):
 				info = {'prop': calc.prop, \
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
-							'occup': calc.occup, 'no_exp': calc.no_exp, \
-							'ne_act': calc.ne_act, 'no_act': calc.no_act}
+							'occup': calc.occup, 'mo_energy': calc.mo_energy, \
+							'no_exp': calc.no_exp, 'ne_act': calc.ne_act, 'no_act': calc.no_act}
 				mpi.global_comm.bcast(info, root=0)
-				# bcast mo
-				mpi.global_comm.Bcast([calc.mo, MPI.DOUBLE], root=0)
+				# bcast mo coefficients
+				mpi.global_comm.Bcast([calc.mo_coeff, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.prop = info['prop']
 				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
-				calc.occup = info['occup']; calc.no_exp = info['no_exp']
-				calc.ne_act = info['ne_act']; calc.no_act = info['no_act']
-				# receive mo
+				calc.occup = info['occup']; calc.mo_energy = info['mo_energy']
+				calc.no_exp = info['no_exp']; calc.ne_act = info['ne_act']; calc.no_act = info['no_act']
+				# receive mo coefficients
 				buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 				mpi.global_comm.Bcast([buff, MPI.DOUBLE], root=0)
-				calc.mo = buff
+				calc.mo_coeff = buff
 		if mol.atom:
-			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo)
+			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 		else:
 			calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 
