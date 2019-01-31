@@ -50,7 +50,7 @@ def _serial(mol, calc, exp):
 				parent_tup = exp.tuples[-1][i].tolist()
 				for m in lst:
 					tup = parent_tup+[m]
-					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
+					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32))):
 						child_tup += tup
 		# convert child tuple list to array
 		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, (exp.order-calc.no_exp)+1)
@@ -94,7 +94,7 @@ def _parallel(mpi, mol, calc, exp):
 			parent_tup = exp.tuples[-1][idx].tolist()
 			for m in lst:
 				tup = parent_tup+[m]
-				if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, np.asarray(tup, dtype=np.int32))):
+				if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32))):
 					child_tup += tup
 					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 				else:
@@ -122,13 +122,9 @@ def _test(mol, calc, exp, tup):
 			for m in range(tup[-1]+1, calc.exp_space[-1]+1):
 				# add orbital m to combinations
 				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
-				if (tup == np.array([36, 37], dtype=np.int32)).all() and m == 38:
-					print('combs_m (1) = {:}'.format(combs_m))
 				# sigma pruning
 				if calc.extra['sigma']:
-					combs_m = combs_m[[tools.sigma_prune(calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
-				if (tup == np.array([36, 37], dtype=np.int32)).all() and m == 38:
-					print('combs_m (2) = {:}'.format(combs_m))
+					combs_m = combs_m[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
 				# convert to sorted hashes
 				combs_m_hash = tools.hash_2d(combs_m)
 				combs_m_hash.sort()
@@ -140,7 +136,7 @@ def _test(mol, calc, exp, tup):
 						combs_sigma = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 						# add orbital m to combinations
 						combs_sigma = np.concatenate((combs_sigma, m * np.ones(combs_sigma.shape[0], dtype=np.int32)[:, None]), axis=1)
-						combs_sigma = combs_sigma[[tools.sigma_prune(calc.orbsym, combs_sigma[comb, :]) for comb in range(combs_sigma.shape[0])]]
+						combs_sigma = combs_sigma[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs_sigma[comb, :]) for comb in range(combs_sigma.shape[0])]]
 						# convert to sorted hashes
 						combs_sigma_hash = tools.hash_2d(combs_sigma)
 						combs_sigma_hash.sort()

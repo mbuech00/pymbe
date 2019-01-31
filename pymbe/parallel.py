@@ -149,19 +149,19 @@ def fund(mpi, mol, calc):
 				info = {'prop': calc.prop, \
 							'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 							'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
-							'occup': calc.occup, 'no_exp': calc.no_exp, \
-							'ne_act': calc.ne_act, 'no_act': calc.no_act}
+							'occup': calc.occup, 'mo_energy': calc.mo_energy, \
+							'no_exp': calc.no_exp, 'ne_act': calc.ne_act, 'no_act': calc.no_act}
 				mpi.global_comm.bcast(info, root=0)
-				# bcast mo
+				# bcast mo coefficients
 				mpi.global_comm.Bcast([calc.mo_coeff, MPI.DOUBLE], root=0)
 			else:
 				info = mpi.global_comm.bcast(None, root=0)
 				calc.prop = info['prop']
 				mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 				calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
-				calc.occup = info['occup']; calc.no_exp = info['no_exp']
-				calc.ne_act = info['ne_act']; calc.no_act = info['no_act']
-				# receive mo
+				calc.occup = info['occup']; calc.mo_energy = info['mo_energy']
+				calc.no_exp = info['no_exp']; calc.ne_act = info['ne_act']; calc.no_act = info['no_act']
+				# receive mo coefficients
 				buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 				mpi.global_comm.Bcast([buff, MPI.DOUBLE], root=0)
 				calc.mo_coeff = buff

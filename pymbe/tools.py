@@ -121,7 +121,7 @@ def core_cas(mol, ref_space, tup):
 		return core_idx, cas_idx
 
 
-def sigma_prune(orbsym, tup, mbe=False):
+def sigma_prune(mo_energy, orbsym, tup, mbe=False):
 		""" sigma pruning """
 		# loop over IDs
 		for sym in DEG_ID:
@@ -137,14 +137,15 @@ def sigma_prune(orbsym, tup, mbe=False):
 						# last orbital is not a pi orbital
 						return False
 					else:
-						if orbsym[tup[-1]-1] in [sym, sym+1] and orbsym[tup[-1]-2] not in [sym, sym+1]:
-							# this is the second in the set of degenerated pi orbs (in a list ranked by mo energies))
+						if np.abs(mo_energy[tup[-1]] - mo_energy[tup[-1]-1]) < 1.0e-05:
+							# this is the second member of a pair of degenerated pi orbs
 							return False
 				else:
 					# even number of pi orbs
-					if np.count_nonzero(np.ediff1d(tup[pi_orbs]) == 1) < pi_orbs.size // 2:
-						# the pi orbs are not degenerated (i.e., not placed as successive orbs in a list ranked by mo energies)
-						return False
+					for i in range(1, pi_orbs.size, 2):
+						if np.abs(mo_energy[tup[pi_orbs[i]]] - mo_energy[tup[pi_orbs[i-1]]]) > 1.0e-05:
+							# the pi orbs are not pair-wise degenerated
+							return False
 		return True
 
 

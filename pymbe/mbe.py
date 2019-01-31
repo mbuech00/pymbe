@@ -106,7 +106,7 @@ def _serial(mpi, mol, calc, exp):
 		# loop over tuples
 		for i in range(len(exp.tuples[-1])):
 			# calculate increments
-			if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][i], mbe=True)):
+			if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][i], mbe=True)):
 				_calc(mpi, mol, calc, exp, i)
 				exp.count[-1] += 1
 				# print status
@@ -211,7 +211,7 @@ def _slave(mpi, mol, calc, exp):
 					if n == task.size - 1:
 						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
-					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
+					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
 						_calc(mpi, mol, calc, exp, task_idx)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -326,7 +326,7 @@ def _sum(calc, exp, tup, prop):
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# sigma pruning
 			if calc.extra['sigma']:
-				combs = combs[[tools.sigma_prune(calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
+				combs = combs[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)
 			combs_hash.sort()
