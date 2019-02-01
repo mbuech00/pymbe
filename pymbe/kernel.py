@@ -255,7 +255,7 @@ def ref_mo(mol, calc, exp):
 				# divide into inactive-active-virtual
 				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
 				mo_coeff = np.concatenate((calc.mo_coeff[:, idx[:inact_orb]], calc.mo_coeff[:, calc.ref['select']], calc.mo_coeff[:, idx[inact_orb:]]), axis=1)
-				mo_coeff = np.asarray(mo_coeff, order='C')
+				calc.mo_coeff = np.asarray(mo_coeff, order='C')
 				if mol.atom:
 					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 			if calc.ref['method'] == 'casci':
@@ -263,7 +263,7 @@ def ref_mo(mol, calc, exp):
 			elif calc.ref['method'] == 'casscf':
 				# casscf quantities
 				mo_energy, mo_coeff = _casscf(mol, calc, exp)
-		return mo_energy, mo_coeff
+		return mo_energy, np.asarray(mo_coeff, order='C')
 
 
 def ref_prop(mol, calc, exp):

@@ -122,11 +122,11 @@ def _exp(mpi, mol, calc):
 				else:
 					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
 					raise NotImplementedError('combined expansions not implemented')
-				# reference mo coefficients
-				calc.mo_energy, calc.mo_coeff = kernel.ref_mo(mol, calc, exp)
 				# base energy
 				base = kernel.base(mol, calc, exp)
 				calc.prop['base']['energy'] = base['energy']
+				# reference mo coefficients
+				calc.mo_energy, calc.mo_coeff = kernel.ref_mo(mol, calc, exp)
 				# reference space properties
 				ref = kernel.ref_prop(mol, calc, exp)
 				if calc.target['energy']:
