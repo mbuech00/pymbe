@@ -243,10 +243,9 @@ def active(mol, calc):
 def ref_mo(mol, calc, exp):
 		""" determine reference mo coefficients """
 		# sort mo coefficients
-		if calc.no_exp == 0:
-			mo_energy = calc.mo_energy
-			mo_coeff = calc.mo_coeff
-		elif calc.ref['method'] in ['casci','casscf']:
+		mo_energy = calc.mo_energy
+		mo_coeff = calc.mo_coeff
+		if calc.ref['method'] in ['casci','casscf']:
 			if calc.ref['active'] == 'manual':
 				# inactive region
 				inact_elec = mol.nelectron - (calc.ne_act[0] + calc.ne_act[1])
@@ -254,15 +253,14 @@ def ref_mo(mol, calc, exp):
 				inact_orb = inact_elec // 2
 				# divide into inactive-active-virtual
 				idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
-				mo_coeff = np.concatenate((calc.mo_coeff[:, idx[:inact_orb]], calc.mo_coeff[:, calc.ref['select']], calc.mo_coeff[:, idx[inact_orb:]]), axis=1)
-				calc.mo_coeff = np.asarray(mo_coeff, order='C')
+				mo_coeff = np.concatenate((mo_coeff[:, idx[:inact_orb]], mo_coeff[:, calc.ref['select']], mo_coeff[:, idx[inact_orb:]]), axis=1)
 				if mol.atom:
-					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
+					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
 			if calc.ref['method'] == 'casci':
-				mo_energy = np.concatenate((calc.mo_energy[idx[:inact_orb]], calc.mo_energy[calc.ref['select']], calc.mo_energy[idx[inact_orb:]]))
+				mo_energy = np.concatenate((mo_energy[idx[:inact_orb]], mo_energy[calc.ref['select']], mo_energy[idx[inact_orb:]]))
 			elif calc.ref['method'] == 'casscf':
 				# casscf quantities
-				mo_energy, mo_coeff = _casscf(mol, calc, exp)
+				mo_energy, mo_coeff = _casscf(mol, calc, exp, mo_coeff)
 		return mo_energy, np.asarray(mo_coeff, order='C')
 
 
@@ -436,7 +434,7 @@ def base(mol, calc, exp):
 		return base
 
 
-def _casscf(mol, calc, exp):
+def _casscf(mol, calc, exp, mo_coeff):
 		""" casscf calc """
 		# casscf ref
 		cas = mcscf.CASSCF(calc.hf, calc.no_act, calc.ne_act)
@@ -501,7 +499,7 @@ def _casscf(mol, calc, exp):
 		else:
 			ci0 = None
 		# run casscf calc
-		cas.kernel(calc.mo_coeff, ci0=ci0)
+		cas.kernel(mo_coeff, ci0=ci0)
 		if len(calc.ref['wfnsym']) == 1:
 			c = [cas.ci]
 		else:
@@ -514,7 +512,7 @@ def _casscf(mol, calc, exp):
 				sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * 0.5
 				cas.fix_spin_(shift=0.25, ss=sz * (sz + 1.))
 				# run casscf calc
-				cas.kernel(calc.mo_coeff, ci0=ci0)
+				cas.kernel(mo_coeff, ci0=ci0)
 				if len(calc.ref['wfnsym']) == 1:
 					c = [cas.ci]
 				else:
