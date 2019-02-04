@@ -550,7 +550,7 @@ def _casscf(mol, calc, exp, mo_coeff):
 def _fci(mol, calc, exp):
 		""" fci calc """
 		# electrons
-		nelec = (mol.nelec[0] - len(exp.core_idx), mol.nelec[1] - len(exp.core_idx))
+		nelec = (np.count_nonzero(calc.occup[exp.cas_idx] > 0.), np.count_nonzero(calc.occup[exp.cas_idx] > 1.))
 		# init fci solver
 		if mol.spin == 0:
 			solver = fci.direct_spin0_symm.FCI(mol)
