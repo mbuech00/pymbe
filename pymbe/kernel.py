@@ -267,10 +267,7 @@ def ref_mo(mol, calc, exp):
 def ref_prop(mol, calc, exp):
 		""" calculate reference space properties """
 		# set core and cas spaces
-		if calc.model['type'] == 'occ':
-			exp.core_idx, exp.cas_idx = np.arange(mol.nocc-calc.no_exp), calc.ref_space
-		elif calc.model['type'] == 'virt':
-			exp.core_idx, exp.cas_idx = np.arange(mol.ncore), calc.ref_space
+		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, np.array([], dtype=np.int32))
 		# calculate properties
 		ref = {}
 		# closed-shell HF exception
