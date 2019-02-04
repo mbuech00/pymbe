@@ -110,7 +110,8 @@ def _exp(mpi, mol, calc):
 				# get ao integrals
 				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
 				# hf calculation
-				calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
+				mol.nocc, mol.nvirt, mol.norb, \
+					calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
 					calc.occup, calc.orbsym, \
 					calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
 				# reference and expansion spaces

@@ -145,7 +145,7 @@ def hf(mol, calc):
 		else:
 			elec_dipole = None
 		# determine dimensions
-		mol.norb, mol.nocc, mol.nvirt = _dim(hf, calc)
+		norb, nocc, nvirt = _dim(hf, calc)
 		# store energy, occupation, and orbsym
 		e_hf = hf.e_tot
 		occup = hf.mo_occ
@@ -174,7 +174,7 @@ def hf(mol, calc):
 			for i in range(hf.mo_energy.size):
 				print('     {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
 			print('\n')
-		return hf, np.asscalar(e_hf), elec_dipole, occup, orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
+		return nocc, nvirt, norb, hf, np.asscalar(e_hf), elec_dipole, occup, orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(hf, calc):
