@@ -23,8 +23,8 @@ import expansion
 import parallel
 
 
-def main(mpi, mol, calc, exp):
-		""" main driver routine """
+def master(mpi, mol, calc, exp):
+		""" master routine """
 		# print expansion headers
 		if mpi.master:
 			output.main_header()
