@@ -45,7 +45,7 @@ def main():
 			driver.slave(mpi, mol, calc, exp)
 		else:
 			# proceed to main driver
-			driver.main(mpi, mol, calc, exp)
+			driver.master(mpi, mol, calc, exp)
 			# print/plot results
 			results.main(mpi, mol, calc, exp)
 			# finalize
