@@ -40,7 +40,7 @@ def rm():
 def main(calc, exp):
 		""" main restart driver """
 		if not calc.restart:
-			return exp.start_order
+			return 1
 		else:
 			# list filenames in files list
 			files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
@@ -80,14 +80,13 @@ def main(calc, exp):
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
 				elif 'time_screen' in files[i]:
 					exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
-			return exp.tuples[-1].shape[1] + calc.no_exp
+			return exp.tuples[-1].shape[1]
 
 
 def write_fund(mol, calc):
 		""" write fundamental info restart files """
 		# write dimensions
-		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'no_exp': calc.no_exp, \
-				'ne_act': calc.ne_act, 'no_act': calc.no_act}
+		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'norb': mol.norb}
 		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
 			json.dump(dims, f)
 		# write hf, reference, and base properties
@@ -135,9 +134,7 @@ def read_fund(mol, calc):
 			if 'dims' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					dims = json.load(f)
-				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']; calc.no_exp = dims['no_exp']
-				mol.norb = mol.nocc + mol.nvirt
-				calc.ne_act = dims['ne_act']; calc.no_act = dims['no_act']
+				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']; mol.norb = dims['norb']
 			# read hf and base properties
 			elif 'energies' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:

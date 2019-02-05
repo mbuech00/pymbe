@@ -66,7 +66,7 @@ def mbe_header(exp):
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total\n'
 		string += DIVIDER
-		form = (exp.order, exp.tuples[exp.order-exp.start_order].shape[0])
+		form = (exp.order, exp.tuples[exp.order-1].shape[0])
 		_print(string, form)
 
 
@@ -86,7 +86,7 @@ def mbe_end(calc, exp):
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {0:>d} MBE done  ---  {1:d} tuples in total\n'
 		string += DIVIDER
-		form = (exp.order, exp.count[exp.order-exp.start_order])
+		form = (exp.order, exp.count[exp.order-1])
 		_print(string, form)
 
 
@@ -96,7 +96,7 @@ def mbe_results(mol, calc, exp):
 			if calc.target[i]:
 				if i in ['energy', 'excitation']:
 					string = FILL+'\n'
-					prop_inc = exp.prop[i]['inc'][exp.order-exp.start_order]
+					prop_inc = exp.prop[i]['inc'][exp.order-1]
 					prop_tot = exp.prop[i]['tot']
 					# statistics
 					if prop_inc.any():
@@ -106,10 +106,10 @@ def mbe_results(mol, calc, exp):
 					else:
 						mean_val = min_val = max_val = 0.0
 					# calculate total inc
-					if exp.order == exp.start_order:
-						tot_inc = prop_tot[exp.order-exp.start_order]
+					if exp.order == 1:
+						tot_inc = prop_tot[exp.order-1]
 					else:
-						tot_inc = prop_tot[exp.order-exp.start_order] - prop_tot[exp.order-exp.start_order-1]
+						tot_inc = prop_tot[exp.order-1] - prop_tot[exp.order-2]
 					# set header
 					if i == 'energy':
 						header = 'energy for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
@@ -130,10 +130,10 @@ def mbe_results(mol, calc, exp):
 					string = FILL+'\n'
 					prop_tot = exp.prop[i]['tot']
 					# calculate total inc
-					if exp.order == exp.start_order:
-						tot_inc = np.linalg.norm(prop_tot[exp.order-exp.start_order])
+					if exp.order == 1:
+						tot_inc = np.linalg.norm(prop_tot[exp.order-1])
 					else:
-						tot_inc = np.linalg.norm(prop_tot[exp.order-exp.start_order]) - np.linalg.norm(prop_tot[exp.order-exp.start_order-1])
+						tot_inc = np.linalg.norm(prop_tot[exp.order-1]) - np.linalg.norm(prop_tot[exp.order-2])
 					# set header
 					if i == 'dipole':
 						header = 'dipole moment for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
@@ -153,7 +153,7 @@ def mbe_results(mol, calc, exp):
 					max_val = np.empty(3, dtype=np.float64)
 					# loop over x, y, and z
 					for k in range(3):
-						prop_inc = exp.prop[i]['inc'][exp.order-exp.start_order][:, k]
+						prop_inc = exp.prop[i]['inc'][exp.order-1][:, k]
 						# statistics
 						if prop_inc.any():
 							mean_val[k] = np.mean(prop_inc[np.nonzero(prop_inc)])

@@ -83,7 +83,7 @@ def main(mpi, mol, calc, exp):
 			exp.prop['dipole']['tot'].append(tools.fsum(exp.prop['dipole']['inc'][-1]))
 		if calc.target['trans']:
 			exp.prop['trans']['tot'].append(tools.fsum(exp.prop['trans']['inc'][-1]))
-		if exp.order > exp.start_order:
+		if exp.order > 1:
 			if calc.target['energy']:
 				exp.prop['energy']['tot'][-1] += exp.prop['energy']['tot'][-2]
 			if calc.target['excitation']:
@@ -242,7 +242,7 @@ def _inc(mpi, mol, calc, exp, tup):
 			else:
 				inc['trans'] = res['trans']
 				inc['trans'] -= calc.prop['ref']['trans']
-		if exp.order > exp.start_order:
+		if exp.order > 1:
 			if calc.target['energy']:
 				if inc['energy'] != 0.0:
 					res = _sum(calc, exp, tup, 'energy')
@@ -295,7 +295,7 @@ def _sum(calc, exp, tup, prop):
 		elif prop == 'trans':
 			res['trans'] = np.zeros(3, dtype=np.float64)
 		# compute contributions from lower-order increments
-		for k in range(exp.order-exp.start_order, 0, -1):
+		for k in range(exp.order-1, 0, -1):
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# sigma pruning

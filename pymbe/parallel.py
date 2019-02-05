@@ -100,8 +100,7 @@ def fund(mpi, mol, calc):
 			info = {'prop': calc.prop, \
 						'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 						'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
-						'occup': calc.occup, 'mo_energy': calc.mo_energy, \
-						'no_exp': calc.no_exp, 'ne_act': calc.ne_act, 'no_act': calc.no_act}
+						'occup': calc.occup, 'mo_energy': calc.mo_energy}
 			mpi.comm.bcast(info, root=0)
 			# bcast mo coefficients
 			mpi.comm.Bcast([calc.mo_coeff, MPI.DOUBLE], root=0)
@@ -111,7 +110,6 @@ def fund(mpi, mol, calc):
 			mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 			calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 			calc.occup = info['occup']; calc.mo_energy = info['mo_energy']
-			calc.no_exp = info['no_exp']; calc.ne_act = info['ne_act']; calc.no_act = info['no_act']
 			# receive mo coefficients
 			buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 			mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
@@ -126,8 +124,7 @@ def exp(mpi, calc, exp):
 		""" bcast exp info """
 		if mpi.master:
 			# collect info
-			info = {'len_tup': [exp.tuples[i].shape[0] for i in range(len(exp.tuples))], \
-						'min_order': exp.min_order, 'start_order': exp.start_order}
+			info = {'len_tup': [exp.tuples[i].shape[0] for i in range(len(exp.tuples))], 'start_order': exp.start_order}
 			if calc.target['energy']:
 				info['len_e_inc'] = [exp.prop['energy']['inc'][i].size for i in range(len(exp.prop['energy']['inc']))]
 			if calc.target['excitation']:
@@ -159,12 +156,11 @@ def exp(mpi, calc, exp):
 		else:
 			# receive info
 			info = mpi.comm.bcast(None, root=0)
-			# set min_order and start_order
-			exp.min_order = info['min_order']
+			# set start_order
 			exp.start_order = info['start_order']
 			# receive tuples and hashes
 			for i in range(1, len(info['len_tup'])):
-				buff = np.empty([info['len_tup'][i], (exp.start_order-calc.no_exp)+i], dtype=np.int32)
+				buff = np.empty([info['len_tup'][i], i+1], dtype=np.int32)
 				mpi.comm.Bcast([buff, MPI.INT], root=0)
 				exp.tuples.append(buff)
 			for i in range(1, len(info['len_tup'])):

@@ -32,7 +32,7 @@ def master(mpi, mol, calc, exp):
 		if calc.restart:
 			exp.thres, exp.rst_freq, calc.restart = _rst_print(mol, calc, exp)
 		# now do expansion
-		for exp.order in range(exp.min_order, exp.max_order+1):
+		for exp.order in range(exp.start_order, exp.max_order+1):
 			#** mbe phase **#
 			# print header
 			output.mbe_header(exp)
@@ -93,7 +93,7 @@ def _rst_print(mol, calc, exp):
 		""" print output in case of restart """
 		# init rst_freq
 		rst_freq = exp.rst_freq
-		for exp.order in range(exp.start_order, exp.min_order):
+		for exp.order in range(1, exp.start_order):
 			output.mbe_header(exp)
 			output.mbe_end(calc, exp)
 			output.mbe_results(mol, calc, exp)

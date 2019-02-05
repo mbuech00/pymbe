@@ -184,15 +184,13 @@ def ref_mo(mol, calc):
 		mo_energy = calc.mo_energy
 		mo_coeff = calc.mo_coeff
 		if calc.ref['active'] == 'manual':
-			# active electrons
-			ne_act = calc.ref['nelec']
 			# active orbs
 			if isinstance(calc.ref['select'], dict):
-				cas = mcscf.CASSCF(calc.hf, np.sum(list(calc.ref['select'].values())), ne_act)
+				cas = mcscf.CASSCF(calc.hf, np.sum(list(calc.ref['select'].values())), calc.ref['nelec'])
 				calc.ref['select'] = mcscf.caslst_by_irrep(cas, calc.mo_coeff, calc.ref['select'], base=0)
 			calc.ref['select'] = np.asarray(calc.ref['select'])
 			# inactive orbitals
-			inact_elec = mol.nelectron - (ne_act[0] + ne_act[1])
+			inact_elec = mol.nelectron - (calc.ref['nelec'][0] + calc.ref['nelec'][1])
 			assert inact_elec % 2 == 0
 			inact_orbs = inact_elec // 2
 			# active orbitals
@@ -400,7 +398,7 @@ def _casscf(mol, calc, mo_coeff):
 		if mol.debug >= 1:
 			cas.verbose = 4
 		# fcisolver
-		if np.abs(calc.ne_act[0]-calc.ne_act[1]) == 0:
+		if np.abs(calc.ref['nelec'][0]-calc.ref['nelec'][1]) == 0:
 			if mol.symmetry:
 				fcisolver = fci.direct_spin0_symm.FCI(mol)
 			else:
@@ -462,7 +460,7 @@ def _casscf(mol, calc, mo_coeff):
 			s, mult = fcisolver.spin_square(c[root], calc.ref_space.size, nelec)
 			if np.abs((mol.spin + 1) - mult) > SPIN_TOL:
 				# fix spin by applyting level shift
-				sz = np.abs(calc.ne_act[0]-calc.ne_act[1]) * 0.5
+				sz = np.abs(calc.ref['nelec'][0]-calc.ref['nelec'][1]) * 0.5
 				cas.fix_spin_(shift=0.25, ss=sz * (sz + 1.))
 				# run casscf calc
 				cas.kernel(mo_coeff, ci0=ci0)

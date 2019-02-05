@@ -87,7 +87,7 @@ def _master(mpi, mol, calc, exp):
 		# init child_tup/child_hash lists
 		child_tup = []; child_hash = []
 		# allgatherv tuples/hashes
-		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order-calc.no_exp)
+		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order)
 		# append tuples and hashes
 		exp.tuples.append(tuples)
 		exp.hashes.append(hashes)
@@ -139,7 +139,7 @@ def _slave(mpi, mol, calc, exp):
 				# exit
 				break
 		# allgatherv tuples/hashes
-		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order-calc.no_exp)
+		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order)
 		# append tuples and hashes
 		exp.tuples.append(tuples)
 		exp.hashes.append(hashes)
@@ -147,13 +147,13 @@ def _slave(mpi, mol, calc, exp):
 
 def _test(mol, calc, exp, tup):
 		""" screening test """
-		if exp.order == exp.start_order:
+		if exp.order == 1:
 			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
 		else:
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
-			combs = np.array([comb for comb in itertools.combinations(tup, (exp.order-calc.no_exp)-1)], dtype=np.int32)
+			combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
 			# loop over new orbs 'm'
 			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
 				# add orbital m to combinations
@@ -168,7 +168,7 @@ def _test(mol, calc, exp, tup):
 				indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
 				if calc.extra['sigma']:
 					# deep pruning (to check validity of tup + [m])
-					for k in range(exp.order-exp.start_order, 0, -1):
+					for k in range(exp.order-1, 0, -1):
 						combs_sigma = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 						# add orbital m to combinations
 						combs_sigma = np.concatenate((combs_sigma, m * np.ones(combs_sigma.shape[0], dtype=np.int32)[:, None]), axis=1)

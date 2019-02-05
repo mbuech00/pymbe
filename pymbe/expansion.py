@@ -32,20 +32,20 @@ class ExpCls():
 					self.prop['dipole'] = {'inc': [], 'tot': []}
 				if calc.target['trans']:
 					self.prop['trans'] = {'inc': [], 'tot': []}
-				# set start_order/max_order
-				self.start_order = calc.no_exp + 1
+				# set max_order
 				if calc.misc['order'] is not None:
-					self.max_order = min(calc.exp_space.size + calc.no_exp, calc.misc['order'])
+					self.max_order = min(calc.exp_space.size, calc.misc['order'])
 				else:
-					self.max_order = calc.exp_space.size + calc.no_exp
+					self.max_order = calc.exp_space.size
 				# init timings and calculation counter
 				self.count = []
 				self.time = {'mbe': [], 'screen': []}
 				# init thres
-				if self.start_order < 3:
-					self.thres = 0.0
-				else:
-					self.thres = calc.thres['init'] * calc.thres['relax'] ** (self.start_order - 3)
+				# here: define order
+#				if order < 3:
+#					self.thres = 0.0
+#				else:
+#					self.thres = calc.thres['init'] * calc.thres['relax'] ** (order - 3)
 				# init order (pre-calc)
 				self.order = 0
 				# restart frequency
