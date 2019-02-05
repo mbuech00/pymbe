@@ -186,6 +186,7 @@ def ref_mo(mol, calc):
 		if calc.ref['active'] == 'manual':
 			# electrons
 			nelec = calc.ref['nelec']
+			assert np.sum(nelec) > 0
 			# active orbs
 			if isinstance(calc.ref['select'], dict):
 				cas = mcscf.CASSCF(calc.hf, np.sum(list(calc.ref['select'].values())), nelec)
