@@ -48,7 +48,7 @@ def main(mpi, mol, calc, exp):
 			exp.prop['trans']['tot'] = np.asarray(exp.prop['trans']['tot'])
 		# setup
 		info = {}
-		info['model_type'], info['basis'], info['state'], info['ref'], info['base'], info['prot'], \
+		info['model'], info['basis'], info['state'], info['ref'], info['base'], info['prot'], \
 			info['system'], info['frozen'], info['hubbard'], info['active'], \
 			info['occ'], info['virt'], info['mpi'], info['thres'], info['symm'], \
 			info['energy'], info['excitation'], \
@@ -63,7 +63,7 @@ def main(mpi, mol, calc, exp):
 
 def _setup(mpi, mol, calc, exp):
 		""" init parameters """
-		model_type = _model_type(calc)
+		model = _model(calc)
 		basis = _basis(mol)
 		state = _state(mol, calc)
 		ref = _ref(mol, calc)
@@ -96,7 +96,7 @@ def _setup(mpi, mol, calc, exp):
 			trans = _trans(mol, calc, exp)
 		else:
 			trans = None
-		return model_type, basis, state, ref, base, prot, system, frozen, \
+		return model, basis, state, ref, base, prot, system, frozen, \
 				hubbard, active, occ, virt, mpi, thres, symm, \
 				energy, excitation, dipole, nuc_dipole, trans
 
@@ -132,9 +132,9 @@ def _plot(info, calc, exp):
 			_osc_strength_plot(info, calc, exp)
 
 
-def _model_type(calc):
-		""" model / type print """
-		return '{0:} / {1:}'.format(calc.model['method'].upper(), calc.model['type'])
+def _model(calc):
+		""" model print """
+		return '{0:}'.format(calc.model['method'].upper())
 
 
 def _basis(mol):
@@ -355,7 +355,7 @@ def _summary_prt(info, mol, calc, exp):
 			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 						format('','basis set','','=','',info['basis'], \
-							'','|','','model / type','','=','',info['model_type'], \
+							'','|','','exp. model','','=','',info['model'], \
 							'','|','','mpi masters / slaves','','=','',info['mpi']))
 			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
@@ -366,7 +366,7 @@ def _summary_prt(info, mol, calc, exp):
 			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
 						format('','hubbard lattice','','=','',info['hubbard'][0], \
-							'','|','','model / type','','=','',info['model_type'], \
+							'','|','','exp. model','','=','',info['model'], \
 							'','|','','mpi masters / slaves','','=','',info['mpi']))
 			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
 					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \

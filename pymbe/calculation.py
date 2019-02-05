@@ -26,7 +26,7 @@ class CalcCls():
 		def __init__(self, mpi, mol):
 				""" init parameters """
 				# set defaults
-				self.model = {'method': 'fci', 'type': 'virt'}
+				self.model = {'method': 'fci'}
 				self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
 				self.ref = {'method': 'hf', 'hf_guess': True, 'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
@@ -182,16 +182,11 @@ class CalcCls():
 				""" sanity check for calculation and mpi parameters """
 				try:
 					# expansion model
-					if not all(isinstance(i, str) for i in self.model.values()):
-						raise ValueError('wrong input -- values in model input (model) must be strings')
-					if not set(list(self.model.keys())) <= set(['method', 'type']):
-						raise ValueError('wrong input -- valid input in model dict is: method and type')
+					if not isinstance(self.model['method'], str):
+						raise ValueError('wrong input -- input electronic structure method (method) must be a string')
 					if self.model['method'] not in ['cisd', 'ccsd', 'ccsd(t)', 'fci']:
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: cisd, ccsd, ccsd(t), and fci')
-					if self.model['type'] not in ['occ', 'virt', 'comb']:
-						raise ValueError('wrong input -- valid choices for ' + \
-										'expansion scheme are: occ, virt, and comb')
 					# reference model
 					if self.ref['method'] not in ['hf', 'casci', 'casscf']:
 						raise ValueError('wrong input -- valid reference models are currently: hf, casci, and casscf')

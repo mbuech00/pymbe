@@ -64,7 +64,7 @@ def dict_conv(old_dict):
 		""" convert dict keys """
 		new_dict = {}
 		for key, value in old_dict.items():
-			if key.lower() in ['method', 'active', 'type', 'occ', 'virt', 'scheme']:
+			if key.lower() in ['method', 'active', 'scheme']:
 				new_dict[key.lower()] = value.lower()
 			else:
 				new_dict[key.lower()] = value

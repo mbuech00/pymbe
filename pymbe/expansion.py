@@ -18,11 +18,10 @@ import tools
 
 class ExpCls():
 		""" expansion class """
-		def __init__(self, mol, calc, typ):
+		def __init__(self, mol, calc):
 				""" init parameters """
 				# set expansion model dict
 				self.model = copy.deepcopy(calc.model)
-				self.model['type'] = typ
 				# init prop dict
 				self.prop = {}
 				if calc.target['energy']:
