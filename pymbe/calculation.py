@@ -31,6 +31,7 @@ class CalcCls():
 				self.prot = {'scheme': 'new'}
 				self.ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
 							'select': [i for i in range(mol.ncore, mol.nelectron // 2)], \
+							'nelec': (mol.nelec[0] - mol.ncore, mol.nelec[1] - mol.ncore), \
 							'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
@@ -198,6 +199,8 @@ class CalcCls():
 					if self.ref['active'] == 'manual':
 						if not isinstance(self.ref['select'], (list, dict)): 
 							raise ValueError('wrong input -- select key (select) for active space must be a list/dict of orbitals')
+						if not isinstance(self.ref['nelec'], tuple):
+							raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
 					else:
 						raise ValueError('wrong input -- active space choices are currently: manual')
 					if not isinstance(self.ref['hf_guess'], bool):
