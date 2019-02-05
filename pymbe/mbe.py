@@ -25,7 +25,7 @@ import parallel
 import tools
 
 
-# mbe parameters
+# tags
 TAGS = tools.enum('start', 'ready', 'exit')
 
 
@@ -104,7 +104,7 @@ def _master(mpi, mol, calc, exp):
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
 		# task list and number of tasks
-		tasks = tools.mbe_tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
+		tasks = tools.tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
 		n_tasks = len(tasks)
 		# init request
 		req = MPI.Request()
@@ -165,7 +165,7 @@ def _slave(mpi, mol, calc, exp):
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
 		# task list
-		tasks = tools.mbe_tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
+		tasks = tools.tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)

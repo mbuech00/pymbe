@@ -19,8 +19,8 @@ import tools
 import output
 
 
-# mbe parameters
-TAGS = tools.enum('start', 'ready', 'exit', 'collect')
+# tags
+TAGS = tools.enum('start', 'ready', 'exit')
 
 
 def main(mpi, mol, calc, exp):
@@ -28,49 +28,122 @@ def main(mpi, mol, calc, exp):
 		# update expansion threshold
 		exp.thres = update(exp.order, calc.thres['init'], calc.thres['relax'])
 		# master and slave functions
-		_parallel(mpi, mol, calc, exp)
-
-
-def _parallel(mpi, mol, calc, exp):
-		""" parallel routine """
 		if mpi.master:
-			# print header
-			output.screen_header(exp, exp.thres)
-			if exp.count[-1] == 0:
-				# converged
-				exp.tuples.append(np.array([], dtype=np.int32).reshape(-1, exp.order+1))
-				exp.time['screen'].append(0.0)
-				return
+			# master
+			_master(mpi, mol, calc, exp)
+		else:
+			# slaves
+			_slave(mpi, mol, calc, exp)
+			return
+
+
+def _master(mpi, mol, calc, exp):
+		""" master function """
+		# print header
+		output.screen_header(exp, exp.thres)
+		if exp.count[-1] == 0:
+			# converged
+			exp.tuples.append(np.array([], dtype=np.int32).reshape(-1, exp.order+1))
+			exp.time['screen'].append(0.0)
+			return
 		# wake up slaves
-		if mpi.master:
-			msg = {'task': 'screen', 'order': exp.order}
-			# bcast
-			mpi.comm.bcast(msg, root=0)
+		msg = {'task': 'screen', 'order': exp.order}
+		mpi.comm.bcast(msg, root=0)
+		# start time
+		time = MPI.Wtime()
+		# number of slaves
+		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
+		# task list and number of tasks
+		tasks = tools.tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
+		n_tasks = len(tasks)
+		# init request
+		req = MPI.Request()
+		# start index
+		i = 0
+		# loop until no tasks left
+		while True:
+			# probe for available slaves
+			if mpi.comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+				# receive slave status
+				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
+				# any tasks left?
+				if i < n_tasks:
+					# send index
+					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					# increment index
+					i += 1
+					# wait for completion
+					req.Wait()
+				else:
+					# send exit signal
+					mpi.comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
+					# remove slave
+					slaves_avail -= 1
+					# wait for completion
+					req.Wait()
+					# any slaves left?
+					if slaves_avail == 0:
+						# exit loop
+						break
 		# init child_tup/child_hash lists
 		child_tup = []; child_hash = []
-		# task list
-		tasks = tools.screen_tasks(len(exp.tuples[-1]), mpi.size)
-		# start time
-		if mpi.master: time = MPI.Wtime()
-		# compute child tuples/hashes
-		for idx in tasks[mpi.rank]:
-			lst = _test(mol, calc, exp, exp.tuples[-1][idx])
-			parent_tup = exp.tuples[-1][idx].tolist()
-			for m in lst:
-				tup = parent_tup+[m]
-				if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32))):
-					child_tup += tup
-					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-				else:
-					if mol.debug >= 2:
-						print('screen [sigma]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
 		# allgatherv tuples/hashes
 		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order-calc.no_exp)
 		# append tuples and hashes
 		exp.tuples.append(tuples)
 		exp.hashes.append(hashes)
 		# collect time
-		if mpi.master: exp.time['screen'].append(MPI.Wtime() - time)
+		exp.time['screen'].append(MPI.Wtime() - time)
+
+
+def _slave(mpi, mol, calc, exp):
+		""" slave function """
+		# init idx
+		idx = np.empty(1, dtype=np.int32)
+		# number of slaves
+		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
+		# task list
+		tasks = tools.tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
+		# send availability to master
+		if mpi.rank <= num_slaves:
+			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+		# init child_tup/child_hash lists
+		child_tup = []; child_hash = []
+		# receive work from master
+		while True:
+			# early exit in case of large proc count
+			if mpi.rank > num_slaves:
+				break
+			# receive index
+			mpi.comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
+			# do jobs
+			if mpi.stat.tag == TAGS.start:
+				# get task
+				task = tasks[idx[0]]
+				# loop over tasks
+				for n, task_idx in enumerate(task):
+					# send availability to master
+					if n == task.size - 1:
+						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+					# compute child tuples/hashes
+					lst = _test(mol, calc, exp, exp.tuples[-1][task_idx])
+					parent_tup = exp.tuples[-1][task_idx].tolist()
+					for m in lst:
+						tup = parent_tup+[m]
+						if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32))):
+							child_tup += tup
+							child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+						else:
+							if mol.debug >= 2:
+								print('screen [sigma]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
+			elif mpi.stat.tag == TAGS.exit:
+				# exit
+				break
+		# allgatherv tuples/hashes
+		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order-calc.no_exp)
+		# append tuples and hashes
+		exp.tuples.append(tuples)
+		exp.hashes.append(hashes)
 
 
 def _test(mol, calc, exp, tup):
