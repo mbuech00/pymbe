@@ -40,7 +40,7 @@ class CalcCls():
 				# init mo
 				self.mo = None
 				# set calculation parameters
-				if mpi.global_master:
+				if mpi.master:
 					# read parameters
 					self.model, self.target, self.prot, self.ref, \
 						self.base, self.thres, self.state, self.extra, \
@@ -308,22 +308,6 @@ class CalcCls():
 					if not isinstance(self.misc['async'], bool):
 						raise ValueError('wrong input -- asynchronous key (async) must be a bool')
 					# mpi
-					if not isinstance(self.mpi['masters'], int):
-						raise ValueError('wrong input -- number of mpi masters (masters) must be an int >= 1')
-					if mpi.parallel:
-						if self.mpi['masters'] < 1:
-							raise ValueError('wrong input -- number of mpi masters (masters) must be an int >= 1')
-						elif self.mpi['masters'] == 1:
-							if self.model['type'] == 'comb':
-								raise ValueError('wrong input -- combined expansions are only valid in ' + \
-												'combination with at least one local mpi master (i.e., masters > 1)')
-						else:
-							if self.model['type'] != 'comb':
-								raise ValueError('wrong input -- the use of local mpi masters (i.e., masters > 1) ' + \
-												'is currently not implemented for occ and virt expansions')
-					else:
-						if self.mpi['masters'] > 1:
-							raise ValueError('wrong input -- local masters requested in mpi dict (mpi), but non-mpi run requested')
 					if not isinstance(self.mpi['task_size'], int):
 						raise ValueError('wrong input -- size of mpi tasks (task_size) must be an int')
 					if self.mpi['task_size'] < 1:

@@ -33,7 +33,7 @@ class MolCls(gto.Mole):
 							'unit': 'ang', 'frozen': False, 'occup': {}, 'debug': 0, \
 							't': 1.0, 'u': 1.0, 'dim': 1, 'nsites': 6, 'pbc': True, 'nelec': 0}
 				# set geometric and molecular parameters
-				if mpi.global_master:
+				if mpi.master:
 					# read atom and molecule settings
 					self.atom, self.system = self.set_system()
 					# sanity check
@@ -162,7 +162,7 @@ class MolCls(gto.Mole):
 					try:
 						raise RuntimeError
 					except RuntimeError:
-						if mpi.global_master:
+						if mpi.master:
 							restart.rm()
 							sys.stderr.write('\nValueError: non-sensible system input\n'
 												'PySCF error : {:}\n\n'.format(err))

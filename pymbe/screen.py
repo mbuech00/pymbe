@@ -27,69 +27,33 @@ def main(mpi, mol, calc, exp):
 		""" input generation for subsequent order """
 		# update expansion threshold
 		exp.thres = update(exp.order, calc.thres['init'], calc.thres['relax'])
-		# print header
-		if mpi.global_master: output.screen_header(exp, exp.thres)
-		# mpi parallel or serial version
-		if mpi.parallel:
-			_parallel(mpi, mol, calc, exp)
-		else:
-			_serial(mol, calc, exp)
-
-
-def _serial(mol, calc, exp):
-		""" serial version """
-		# start time
-		time = MPI.Wtime()
-		# init child tuples list
-		child_tup = []
-		# screen
-		if exp.count[-1] > 0:
-	        # loop over parent tuples
-			for i in range(len(exp.tuples[-1])):
-				lst = _test(mol, calc, exp, exp.tuples[-1][i])
-				parent_tup = exp.tuples[-1][i].tolist()
-				for m in lst:
-					tup = parent_tup+[m]
-					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32))):
-						child_tup += tup
-		# convert child tuple list to array
-		tuples = np.asarray(child_tup, dtype=np.int32).reshape(-1, (exp.order-calc.no_exp)+1)
-		# collect time
-		exp.time['screen'].append(MPI.Wtime() - time)
-		# when done, write to tup list if expansion has not converged
-		if tuples.shape[0] > 0:
-			# get hashes
-			hashes = tools.hash_2d(tuples)
-			# sort wrt hashes
-			exp.tuples.append(tuples[hashes.argsort()])
-			exp.hashes.append(np.sort(hashes))
-		else:
-			exp.tuples.append(np.array([], dtype=np.int32))
+		# master and slave functions
+		_parallel(mpi, mol, calc, exp)
 
 
 def _parallel(mpi, mol, calc, exp):
 		""" parallel routine """
-		if mpi.global_master:
+		if mpi.master:
+			# print header
+			output.screen_header(exp, exp.thres)
 			if exp.count[-1] == 0:
 				# converged
 				exp.tuples.append(np.array([], dtype=np.int32).reshape(-1, exp.order+1))
 				exp.time['screen'].append(0.0)
 				return
-		# set communicator
-		comm = mpi.local_comm
 		# wake up slaves
-		if mpi.global_master:
+		if mpi.master:
 			msg = {'task': 'screen', 'order': exp.order}
 			# bcast
-			comm.bcast(msg, root=0)
+			mpi.comm.bcast(msg, root=0)
 		# init child_tup/child_hash lists
 		child_tup = []; child_hash = []
 		# task list
-		tasks = tools.screen_tasks(len(exp.tuples[-1]), mpi.local_size)
+		tasks = tools.screen_tasks(len(exp.tuples[-1]), mpi.size)
 		# start time
-		if mpi.global_master: time = MPI.Wtime()
+		if mpi.master: time = MPI.Wtime()
 		# compute child tuples/hashes
-		for idx in tasks[mpi.local_rank]:
+		for idx in tasks[mpi.rank]:
 			lst = _test(mol, calc, exp, exp.tuples[-1][idx])
 			parent_tup = exp.tuples[-1][idx].tolist()
 			for m in lst:
@@ -101,12 +65,12 @@ def _parallel(mpi, mol, calc, exp):
 					if mol.debug >= 2:
 						print('screen [sigma]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
 		# allgatherv tuples/hashes
-		tuples, hashes = parallel.screen(child_tup, child_hash, exp.order-calc.no_exp, comm)
+		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order-calc.no_exp)
 		# append tuples and hashes
 		exp.tuples.append(tuples)
 		exp.hashes.append(hashes)
 		# collect time
-		if mpi.global_master: exp.time['screen'].append(MPI.Wtime() - time)
+		if mpi.master: exp.time['screen'].append(MPI.Wtime() - time)
 
 
 def _test(mol, calc, exp, tup):

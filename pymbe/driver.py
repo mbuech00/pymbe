@@ -26,24 +26,24 @@ import parallel
 def main(mpi, mol, calc, exp):
 		""" main driver routine """
 		# print expansion headers
-		if mpi.global_master:
+		if mpi.master:
 			output.main_header()
 			output.exp_header(calc, exp)
 		# restart
-		if mpi.global_master and calc.restart:
+		if mpi.master and calc.restart:
 			exp.thres, exp.rst_freq, calc.restart = _rst_print(mol, calc, exp)
 		# now do expansion
 		for exp.order in range(exp.min_order, exp.max_order+1):
 			#** mbe phase **#
-			if mpi.global_master:
+			if mpi.master:
 				# print header
 				output.mbe_header(exp)
 			if len(exp.tuples) > len(exp.count):
 				mbe.main(mpi, mol, calc, exp)
-				if mpi.global_master:
+				if mpi.master:
 					# write restart files
 					restart.mbe_write(calc, exp)
-			if mpi.global_master:
+			if mpi.master:
 				# print mbe end
 				output.mbe_end(calc, exp)
 				# print mbe results
@@ -52,17 +52,17 @@ def main(mpi, mol, calc, exp):
 			if exp.order < exp.max_order:
 				# perform screening
 				screen.main(mpi, mol, calc, exp)
-				if mpi.global_master:
+				if mpi.master:
 					# write restart files
 					if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 					# print screen end
 					output.screen_end(exp)
 			else:
-				if mpi.global_master:
+				if mpi.master:
 					# collect time
 					exp.time['screen'].append(0.0)
 			# update restart frequency
-			if mpi.global_master: exp.rst_freq = max(exp.rst_freq // 2, 1)
+			if mpi.master: exp.rst_freq = max(exp.rst_freq // 2, 1)
 			# convergence check
 			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
 				# timings
@@ -72,22 +72,6 @@ def main(mpi, mol, calc, exp):
 				break
 
 
-def master(mpi, mol, calc, exp):
-		""" local master routine """
-		raise NotImplementedError('combined expansions not implemented...')
-		# set loop/waiting logical
-		local_master = True
-		# enter local master state
-		while local_master:
-			# task id
-			msg = mpi.master_comm.bcast(None, root=0)
-#			#** exit **#
-#			elif msg['task'] == 'exit':
-#				local_master = False
-		# finalize
-		parallel.final(mpi)
-
-
 def slave(mpi, mol, calc, exp):
 		""" slave routine """
 		# set loop/waiting logical
@@ -95,7 +79,7 @@ def slave(mpi, mol, calc, exp):
 		# enter slave state
 		while slave:
 			# task id
-			msg = mpi.local_comm.bcast(None, root=0)
+			msg = mpi.comm.bcast(None, root=0)
 			#** mbe phase **#
 			if msg['task'] == 'mbe':
 				exp.order = msg['order']

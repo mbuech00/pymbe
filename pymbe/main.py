@@ -40,13 +40,9 @@ def main():
 		# mpi, mol, calc, and exp objects
 		mpi, mol, calc, exp = _init()
 		# branch
-		if not mpi.global_master:
-			if mpi.local_master:
-				# proceed to local master driver
-				driver.master(mpi, mol, calc, exp)
-			else:
-				# proceed to slave driver
-				driver.slave(mpi, mol, calc, exp)
+		if not mpi.master:
+			# proceed to slave driver
+			driver.slave(mpi, mol, calc, exp)
 		else:
 			# proceed to main driver
 			driver.main(mpi, mol, calc, exp)
@@ -64,12 +60,10 @@ def _init():
 		calc = _calc(mpi, mol)
 		# set max_mem
 		mol.max_memory = calc.misc['mem']
-		# configure mpi
-		parallel.set_mpi(mpi, calc)
 		# exp object
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
-		if mpi.parallel and calc.restart: parallel.exp(mpi, calc, exp, mpi.global_comm)
+		if calc.restart: parallel.exp(mpi, calc, exp)
 		return mpi, mol, calc, exp
 
 
@@ -92,7 +86,7 @@ def _calc(mpi, mol):
 
 def _exp(mpi, mol, calc):
 		""" init exp object """
-		if mpi.global_master:
+		if mpi.master:
 			# restart
 			if calc.restart:
 				# get ao integrals
@@ -146,7 +140,7 @@ def _exp(mpi, mol, calc):
 		# bcast fundamental info
 		parallel.fund(mpi, mol, calc)
 		# exp object on slaves
-		if not mpi.global_master:
+		if not mpi.master:
 			# exp object
 			if calc.model['type'] != 'comb':
 				exp = expansion.ExpCls(mol, calc, calc.model['type'])
@@ -156,7 +150,7 @@ def _exp(mpi, mol, calc):
 		# init tuples and hashes
 		exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
 		# restart
-		if mpi.global_master:
+		if mpi.master:
 			exp.min_order = restart.main(calc, exp)
 		return exp
 

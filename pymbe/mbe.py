@@ -40,17 +40,14 @@ def main(mpi, mol, calc, exp):
 			exp.prop['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
 		if calc.target['trans']:
 			exp.prop['trans']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
-		# mpi parallel or serial version
-		if mpi.parallel:
-			if mpi.global_master:
-				# master
-				_master(mpi, mol, calc, exp)
-			else:
-				# slaves
-				_slave(mpi, mol, calc, exp)
-				return
+		# master and slave functions
+		if mpi.master:
+			# master
+			_master(mpi, mol, calc, exp)
 		else:
-			_serial(mpi, mol, calc, exp)
+			# slaves
+			_slave(mpi, mol, calc, exp)
+			return
 		# sum up total quantities
 		if mol.debug >= 1 and exp.order == 1:
 			if calc.target['energy']:
@@ -97,35 +94,15 @@ def main(mpi, mol, calc, exp):
 				exp.prop['trans']['tot'][-1] += exp.prop['trans']['tot'][-2]
 
 
-def _serial(mpi, mol, calc, exp):
-		""" serial version """
-		# start time
-		time = MPI.Wtime()
-		# init counter
-		exp.count.append(0)
-		# loop over tuples
-		for i in range(len(exp.tuples[-1])):
-			# calculate increments
-			if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][i], mbe=True)):
-				_calc(mpi, mol, calc, exp, i)
-				exp.count[-1] += 1
-				# print status
-				output.mbe_status(exp, float(i+1) / float(len(exp.tuples[-1])))
-		# collect time
-		exp.time['mbe'].append(MPI.Wtime() - time)
-
-
 def _master(mpi, mol, calc, exp):
 		""" master function """
-		# set communicator
-		comm = mpi.local_comm
 		# wake up slaves
 		msg = {'task': 'mbe', 'order': exp.order}
-		comm.bcast(msg, root=0)
+		mpi.comm.bcast(msg, root=0)
 		# start time
 		time = MPI.Wtime()
 		# number of slaves
-		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
+		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
 		# task list and number of tasks
 		tasks = tools.mbe_tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
 		n_tasks = len(tasks)
@@ -136,20 +113,20 @@ def _master(mpi, mol, calc, exp):
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
-			if comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+			if mpi.comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
 				# receive slave status
-				req = comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
+				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
 				if i < n_tasks:
 					# send index
-					comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 					# increment index
 					i += 1
 					# wait for completion
 					req.Wait()
 				else:
 					# send exit signal
-					comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
+					mpi.comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
 					# wait for completion
@@ -162,19 +139,19 @@ def _master(mpi, mol, calc, exp):
 		exp.count.append(0)
 		# allreduce properties
 		if calc.target['energy']:
-			parallel.mbe(exp.prop['energy']['inc'][-1], comm)
+			parallel.mbe(mpi, exp.prop['energy']['inc'][-1])
 			if exp.count[-1] == 0:
 				exp.count[-1] = np.count_nonzero(exp.prop['energy']['inc'][-1])
 		if calc.target['excitation']:
-			parallel.mbe(exp.prop['excitation']['inc'][-1], comm)
+			parallel.mbe(mpi, exp.prop['excitation']['inc'][-1])
 			if exp.count[-1] == 0:
 				exp.count[-1] = np.count_nonzero(exp.prop['excitation']['inc'][-1])
 		if calc.target['dipole']:
-			parallel.mbe(exp.prop['dipole']['inc'][-1], comm)
+			parallel.mbe(mpi, exp.prop['dipole']['inc'][-1])
 			if exp.count[-1] == 0:
 				exp.count[-1] = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][-1], axis=1))
 		if calc.target['trans']:
-			parallel.mbe(exp.prop['trans']['inc'][-1], comm)
+			parallel.mbe(mpi, exp.prop['trans']['inc'][-1])
 			if exp.count[-1] == 0:
 				exp.count[-1] = np.count_nonzero(np.count_nonzero(exp.prop['trans']['inc'][-1], axis=1))
 		# collect time
@@ -183,24 +160,22 @@ def _master(mpi, mol, calc, exp):
 
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
-		# set communicator
-		comm = mpi.local_comm
 		# init idx
 		idx = np.empty(1, dtype=np.int32)
 		# number of slaves
-		num_slaves = slaves_avail = min(mpi.local_size - 1, len(exp.tuples[-1]))
+		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
 		# task list
 		tasks = tools.mbe_tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
 		# send availability to master
-		if mpi.local_rank <= num_slaves:
-			comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+		if mpi.rank <= num_slaves:
+			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
 			# early exit in case of large proc count
-			if mpi.local_rank > num_slaves:
+			if mpi.rank > num_slaves:
 				break
 			# receive index
-			comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
+			mpi.comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
 				# get task
@@ -209,7 +184,7 @@ def _slave(mpi, mol, calc, exp):
 				for n, task_idx in enumerate(task):
 					# send availability to master
 					if n == task.size - 1:
-						comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
 					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
 						_calc(mpi, mol, calc, exp, task_idx)
@@ -218,13 +193,13 @@ def _slave(mpi, mol, calc, exp):
 				break
 		# allreduce properties
 		if calc.target['energy']:
-			parallel.mbe(exp.prop['energy']['inc'][-1], comm)
+			parallel.mbe(mpi, exp.prop['energy']['inc'][-1])
 		if calc.target['excitation']:
-			parallel.mbe(exp.prop['excitation']['inc'][-1], comm)
+			parallel.mbe(mpi, exp.prop['excitation']['inc'][-1])
 		if calc.target['dipole']:
-			parallel.mbe(exp.prop['dipole']['inc'][-1], comm)
+			parallel.mbe(mpi, exp.prop['dipole']['inc'][-1])
 		if calc.target['trans']:
-			parallel.mbe(exp.prop['trans']['inc'][-1], comm)
+			parallel.mbe(mpi, exp.prop['trans']['inc'][-1])
 
 
 def _calc(mpi, mol, calc, exp, idx):
