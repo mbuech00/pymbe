@@ -5,7 +5,7 @@
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __license__ = '???'
-__version__ = '0.10'
+__version__ = '0.20'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
