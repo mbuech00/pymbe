@@ -126,7 +126,7 @@ def exp(mpi, calc, exp):
 		""" bcast exp info """
 		if mpi.master:
 			# collect info
-			info = {'len_tup': [len(exp.tuples[i]) for i in range(len(exp.tuples))], \
+			info = {'len_tup': [exp.tuples[i].shape[0] for i in range(len(exp.tuples))], \
 						'min_order': exp.min_order, 'start_order': exp.start_order}
 			if calc.target['energy']:
 				info['len_e_inc'] = [exp.prop['energy']['inc'][i].size for i in range(len(exp.prop['energy']['inc']))]
@@ -139,9 +139,9 @@ def exp(mpi, calc, exp):
 			# bcast info
 			mpi.comm.bcast(info, root=0)
 			# bcast tuples and hashes
-			for i in range(1,len(exp.tuples)):
+			for i in range(1, len(exp.tuples)):
 				mpi.comm.Bcast([exp.tuples[i], MPI.INT], root=0)
-			for i in range(1,len(exp.hashes)):
+			for i in range(1, len(exp.hashes)):
 				mpi.comm.Bcast([exp.hashes[i], MPI.INT], root=0)
 			# bcast increments
 			if calc.target['energy']:

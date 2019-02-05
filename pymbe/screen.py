@@ -52,10 +52,9 @@ def _master(mpi, mol, calc, exp):
 		# start time
 		time = MPI.Wtime()
 		# number of slaves
-		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
+		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# task list and number of tasks
-		tasks = tools.tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
-		n_tasks = len(tasks)
+		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
 		# init request
 		req = MPI.Request()
 		# start index
@@ -67,7 +66,7 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
-				if i < n_tasks:
+				if i < len(tasks):
 					# send index
 					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 					# increment index
@@ -101,9 +100,9 @@ def _slave(mpi, mol, calc, exp):
 		# init idx
 		idx = np.empty(1, dtype=np.int32)
 		# number of slaves
-		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
+		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# task list
-		tasks = tools.tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
+		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
@@ -149,14 +148,14 @@ def _slave(mpi, mol, calc, exp):
 def _test(mol, calc, exp, tup):
 		""" screening test """
 		if exp.order == exp.start_order:
-			return [m for m in range(tup[-1]+1, calc.exp_space[-1]+1)]
+			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
 		else:
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, (exp.order-calc.no_exp)-1)], dtype=np.int32)
 			# loop over new orbs 'm'
-			for m in range(tup[-1]+1, calc.exp_space[-1]+1):
+			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
 				# add orbital m to combinations
 				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
 				# sigma pruning

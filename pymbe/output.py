@@ -71,7 +71,7 @@ def mbe_header(exp):
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total\n'
 		string += DIVIDER
-		form = (exp.order, len(exp.tuples[exp.order-exp.start_order]))
+		form = (exp.order, exp.tuples[exp.order-exp.start_order].shape[0])
 		_print(string, form)
 
 

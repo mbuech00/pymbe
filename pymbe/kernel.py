@@ -187,8 +187,8 @@ def _dim(hf, calc):
 			occ = np.where(hf.mo_occ > 0.)[0]
 			virt = np.where(hf.mo_occ == 0.)[0]
 		# nocc, nvirt, and norb
-		nocc = len(occ)
-		nvirt = len(virt)
+		nocc = occ.size
+		nvirt = virt.size
 		norb = nocc + nvirt
 		return norb, nocc, nvirt
 
@@ -655,9 +655,9 @@ def _ci(mol, calc, exp):
 		hf._eri = h2e 
 		# init ccsd
 		if mol.spin == 0:
-			cisd = ci.cisd.CISD(hf, mo_coeff=np.eye(len(exp.cas_idx)), mo_occ=calc.occup[exp.cas_idx])
+			cisd = ci.cisd.CISD(hf, mo_coeff=np.eye(exp.cas_idx.size), mo_occ=calc.occup[exp.cas_idx])
 		else:
-			cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(len(exp.cas_idx)), np.eye(len(exp.cas_idx)))), \
+			cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(exp.cas_idx.size), np.eye(exp.cas_idx.size))), \
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
 		cisd.conv_tol = max(calc.thres['init'], 1.0e-10)
@@ -689,9 +689,9 @@ def _cc(mol, calc, exp, pt=False):
 		hf._eri = h2e 
 		# init ccsd
 		if mol.spin == 0:
-			ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(len(exp.cas_idx)), mo_occ=calc.occup[exp.cas_idx])
+			ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(exp.cas_idx.size), mo_occ=calc.occup[exp.cas_idx])
 		else:
-			ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(len(exp.cas_idx)), np.eye(len(exp.cas_idx)))), \
+			ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(exp.cas_idx.size), np.eye(exp.cas_idx.size))), \
 									mo_occ=np.array((calc.occup[exp.cas_idx] > 0., calc.occup[exp.cas_idx] == 2.), dtype=np.double))
 		# settings
 		ccsd.conv_tol = max(calc.thres['init'], 1.0e-10)
@@ -727,7 +727,7 @@ def _cc(mol, calc, exp, pt=False):
 		# calculate (t) correction
 		if pt:
 			if np.amin(calc.occup[exp.cas_idx]) == 1.0:
-				if len(np.where(calc.occup[exp.cas_idx] == 1.)[0]) >= 3:
+				if np.where(calc.occup[exp.cas_idx] == 1.)[0].size >= 3:
 					res['energy'] += ccsd.ccsd_t(eris=eris)
 			else:
 				res['energy'] += ccsd.ccsd_t(eris=eris)

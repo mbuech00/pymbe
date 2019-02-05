@@ -33,13 +33,13 @@ def main(mpi, mol, calc, exp):
 		""" mbe phase """
 		# init increments
 		if calc.target['energy']:
-			exp.prop['energy']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+			exp.prop['energy']['inc'].append(np.zeros(exp.tuples[-1].shape[0], dtype=np.float64))
 		if calc.target['excitation']:
-			exp.prop['excitation']['inc'].append(np.zeros(len(exp.tuples[-1]), dtype=np.float64))
+			exp.prop['excitation']['inc'].append(np.zeros(exp.tuples[-1].shape[0], dtype=np.float64))
 		if calc.target['dipole']:
-			exp.prop['dipole']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
+			exp.prop['dipole']['inc'].append(np.zeros([exp.tuples[-1].shape[0], 3], dtype=np.float64))
 		if calc.target['trans']:
-			exp.prop['trans']['inc'].append(np.zeros([len(exp.tuples[-1]), 3], dtype=np.float64))
+			exp.prop['trans']['inc'].append(np.zeros([exp.tuples[-1].shape[0], 3], dtype=np.float64))
 		# master and slave functions
 		if mpi.master:
 			# master
@@ -102,10 +102,9 @@ def _master(mpi, mol, calc, exp):
 		# start time
 		time = MPI.Wtime()
 		# number of slaves
-		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
+		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# task list and number of tasks
-		tasks = tools.tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
-		n_tasks = len(tasks)
+		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
 		# init request
 		req = MPI.Request()
 		# start index
@@ -117,7 +116,7 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
-				if i < n_tasks:
+				if i < len(tasks):
 					# send index
 					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
 					# increment index
@@ -163,9 +162,9 @@ def _slave(mpi, mol, calc, exp):
 		# init idx
 		idx = np.empty(1, dtype=np.int32)
 		# number of slaves
-		num_slaves = slaves_avail = min(mpi.size - 1, len(exp.tuples[-1]))
+		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# task list
-		tasks = tools.tasks(len(exp.tuples[-1]), num_slaves, calc.mpi['task_size'])
+		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
