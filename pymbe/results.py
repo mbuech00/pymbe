@@ -169,12 +169,7 @@ def _state(mol, calc):
 
 def _ref(mol, calc):
 		""" ref print """
-		if calc.ref['method'] == 'hf':
-			if mol.spin == 0:
-				return 'RHF'
-			else:
-				return 'ROHF'
-		elif calc.ref['method'] == 'casci':
+		if calc.ref['method'] == 'casci':
 			return 'CASCI'
 		elif calc.ref['method'] == 'casscf':
 			if len(calc.ref['wfnsym']) == 1:
@@ -228,10 +223,7 @@ def _frozen(mol):
 
 def _active(calc):
 		""" active space print """
-		if calc.ref['method'] == 'hf':
-			return 'none'
-		else:
-			return '{0:} e / {1:} o'.format(calc.ref['nelec'][0] + calc.ref['nelec'][1], calc.ref_space.size)
+		return '{0:} e / {1:} o'.format(calc.ref['nelec'][0] + calc.ref['nelec'][1], calc.ref_space.size)
 
 
 def _orbs(calc):

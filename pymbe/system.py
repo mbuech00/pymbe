@@ -59,7 +59,6 @@ class MolCls(gto.Mole):
 						self.u = self.system['u']
 						self.dim = self.system['dim']
 						self.nsites = self.system['nsites']
-						self.nelectron = self.system['nelec']
 						self.pbc = self.system['pbc']
 					# add pymbe parameters
 					self.frozen = self.system['frozen']

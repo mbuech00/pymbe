@@ -29,7 +29,10 @@ class CalcCls():
 				self.model = {'method': 'fci'}
 				self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
-				self.ref = {'method': 'hf', 'hf_guess': True, 'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
+				self.ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
+							'select': [i for i in range(mol.ncore, mol.nelectron // 2)], \
+							'nelec': (mol.nelec[0] - mol.ncore, mol.nelec[1] - mol.ncore), \
+							'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
 				self.extra = {'hf_guess': True, 'sigma': False}
@@ -188,33 +191,20 @@ class CalcCls():
 						raise ValueError('wrong input -- valid expansion models ' + \
 										'are currently: cisd, ccsd, ccsd(t), and fci')
 					# reference model
-					if self.ref['method'] not in ['hf', 'casci', 'casscf']:
-						raise ValueError('wrong input -- valid reference models are currently: hf, casci, and casscf')
+					if self.ref['method'] not in ['casci', 'casscf']:
+						raise ValueError('wrong input -- valid reference models are: casci and casscf')
 					if self.ref['method'] in ['casci', 'casscf']:
 						if self.ref['method'] == 'casscf' and self.model['method'] != 'fci':
 							raise ValueError('wrong input -- a casscf reference is only meaningful for an fci expansion model')
-						if 'active' not in self.ref:
-							raise ValueError('wrong input -- an active space (active) choice is required for casci/casscf references')
-					if 'active' in self.ref:
-						if self.ref['method'] == 'hf':
-							raise ValueError('wrong input -- an active space is only meaningful for casci/casscf references')
-						if self.ref['active'] == 'manual':
-							if 'select' not in self.ref:
-								raise ValueError('wrong input -- a selection (select) of hf orbs is required for manual active space')
-							if not isinstance(self.ref['select'], (list, dict)): 
-								raise ValueError('wrong input -- select key (select) for active space must be a list/dict of orbitals')
-							if 'nelec' in self.ref:
-								if not isinstance(self.ref['nelec'], tuple):
-									raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
-							else:
-								raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
-						elif self.ref['active'] == 'avas':
-							if 'ao_labels' not in self.ref:
-								raise ValueError('wrong input -- AO labels (ao_labels) is required for avas active space')
-							if not isinstance(self.ref['ao_labels'], list): 
-								raise ValueError('wrong input -- AO labels key (ao_labels) for active space must be a list')
+					if self.ref['active'] == 'manual':
+						if not isinstance(self.ref['select'], (list, dict)): 
+							raise ValueError('wrong input -- select key (select) for active space must be a list/dict of orbitals')
+						if not isinstance(self.ref['nelec'], tuple):
+							raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
 						else:
-							raise ValueError('wrong input -- active space choices are currently: manual and avas')
+							raise ValueError('wrong input -- number of electrons (nelec) in active space must be specified')
+					else:
+						raise ValueError('wrong input -- active space choices are currently: manual')
 					if not isinstance(self.ref['hf_guess'], bool):
 						raise ValueError('wrong input -- HF initial guess for CASSCF calc (hf_guess) must be a bool')
 					if mol.atom:
