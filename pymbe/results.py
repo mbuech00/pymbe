@@ -53,7 +53,7 @@ def main(mpi, mol, calc, exp):
 			info['occ'], info['virt'], info['mpi'], info['thres'], info['symm'], \
 			info['energy'], info['excitation'], \
 			info['dipole'], info['nuc_dipole'], info['trans'] = _setup(mpi, mol, calc, exp)
-		info['final_order'] = exp.prop['energy']['tot'].size
+		info['final_order'] = exp.prop['energy']['tot'].size + 1
 		# results
 		_table(info, mpi, mol, calc, exp)
 		# plot
@@ -200,7 +200,7 @@ def _prot(calc):
 
 def _system(mol, calc):
 		""" system size print """
-		return '{0:} e / {1:} o'.format(mol.nelectron - 2*mol.ncore, calc.ref_space.size + calc.exp_space.size)
+		return '{0:} e / {1:} o'.format(mol.nelectron - 2 * mol.ncore, calc.ref_space.size + calc.exp_space.size)
 
 
 def _hubbard(mol):
@@ -223,7 +223,7 @@ def _frozen(mol):
 
 def _active(calc):
 		""" active space print """
-		return '{0:} e / {1:} o'.format(calc.ref['nelec'][0] + calc.ref['nelec'][1], calc.ref_space.size)
+		return '{0:} e / {1:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
 
 
 def _orbs(calc):
@@ -402,7 +402,7 @@ def _timings_prt(info, calc, exp):
 						'','|','','sum','','|','','calculations'))
 		print(DIVIDER[:98])
 		calcs = 0
-		for i, j in enumerate(range(info['final_order'])):
+		for i, j in enumerate(range(1, info['final_order'])):
 			calc_i = exp.count[i]
 			calcs += calc_i
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:2}{5:>15s}{6:2}{7:1}{8:2}{9:>15s}{10:2}{11:1}'
@@ -432,10 +432,10 @@ def _energy_prt(info, calc, exp):
 		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:4}{9:}'. \
 				format('','MBE order','','|','','total energy','','|','','correlation energy'))
 		print(DIVIDER[:66])
-		print('{0:7}{1:>3s}{2:7}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:11.4e}'. \
+		print('{0:9}{1:>3s}{2:5}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:11.4e}'. \
 				format('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'],'','|','',calc.prop['ref']['energy']))
 		print(DIVIDER[:66])
-		for i, j in enumerate(range(info['final_order'])):
+		for i, j in enumerate(range(1, info['final_order'])):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:11.4e}'. \
 					format('',j, \
 						'','|','',info['energy'][i], \
@@ -453,11 +453,11 @@ def _energies_plot(info, calc, exp):
 		# array of MBE total energy
 		energy = info['energy'].copy()
 		# plot results
-		ax1.plot(np.arange(info['final_order']), \
+		ax1.plot(np.arange(1, info['final_order']), \
 				energy, marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
 				linestyle='-', label='state {:}'.format(calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order']-0.5])
+		ax1.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax1.xaxis.grid(False)
 		# set labels
@@ -469,11 +469,11 @@ def _energies_plot(info, calc, exp):
 		mbe = exp.prop['energy']['tot'].copy()
 		mbe[1:] = np.diff(mbe)
 		# plot results
-		ax2.semilogy(np.arange(info['final_order']), \
+		ax2.semilogy(np.arange(1, info['final_order']), \
 				np.abs(mbe), marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
 				linestyle='-', label='state {:}'.format(calc.state['root']))
 		# set x limits
-		ax2.set_xlim([0.5, info['final_order']-0.5])
+		ax2.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax2.xaxis.grid(False)
 		# set labels
@@ -504,10 +504,10 @@ def _excitation_prt(info, calc, exp):
 		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:}'. \
 				format('','MBE order','','|','','excitation energy'))
 		print(DIVIDER[:43])
-		print('{0:7}{1:>3s}{2:7}{3:1}{4:8}{5:9.4e}'. \
+		print('{0:9}{1:>3s}{2:5}{3:1}{4:8}{5:9.4e}'. \
 				format('','ref','','|','',calc.prop['ref']['excitation']))
 		print(DIVIDER[:43])
-		for i, j in enumerate(range(info['final_order'])):
+		for i, j in enumerate(range(1, info['final_order'])):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:8}{5:9.4e}'. \
 					format('',j,'','|','',info['excitation'][i]))
 		print(DIVIDER[:43]+'\n')
@@ -523,11 +523,11 @@ def _excitation_plot(info, calc, exp):
 		# array of MBE total energy
 		excitation = info['excitation'].copy()
 		# plot results
-		ax1.plot(np.arange(info['final_order']), \
+		ax1.plot(np.arange(1, info['final_order']), \
 				excitation, marker='x', linewidth=2, mew=1, color='xkcd:dull blue', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order']-0.5])
+		ax1.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax1.xaxis.grid(False)
 		# set labels
@@ -539,11 +539,11 @@ def _excitation_plot(info, calc, exp):
 		mbe = exp.prop['excitation']['tot'].copy()
 		mbe[1:] = np.diff(mbe)
 		# plot results
-		ax2.semilogy(np.arange(info['final_order']), \
+		ax2.semilogy(np.arange(1, info['final_order']), \
 				np.abs(mbe), marker='x', linewidth=2, mew=1, color='xkcd:dull blue', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax2.set_xlim([0.5, info['final_order']-0.5])
+		ax2.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax2.xaxis.grid(False)
 		# set labels
@@ -574,7 +574,7 @@ def _dipole_prt(info, calc, exp):
 		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:}'. \
 				format('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment'))
 		print(DIVIDER[:82])
-		print('{0:7}{1:>3s}{2:7}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+		print('{0:9}{1:>3s}{2:5}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 			'{10:5}{11:1}{12:6}{13:9.6f}'. \
 				format('','ref', \
 					'','|','',info['nuc_dipole'][0] - calc.prop['hf']['dipole'][0] + calc.prop['ref']['dipole'][0], \
@@ -582,7 +582,7 @@ def _dipole_prt(info, calc, exp):
 					'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2] + calc.prop['ref']['dipole'][2], \
 					'','|','',np.linalg.norm(info['nuc_dipole'] - calc.prop['hf']['dipole'])))
 		print(DIVIDER[:82])
-		for i, j in enumerate(range(info['final_order'])):
+		for i, j in enumerate(range(1, info['final_order'])):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 				'{10:5}{11:1}{12:6}{13:9.6f}'. \
 					format('',j, \
@@ -605,11 +605,11 @@ def _dipole_plot(info, calc, exp):
 		for i in range(info['final_order']):
 			dipole[i] = np.linalg.norm(info['nuc_dipole'] - info['dipole'][i, :])
 		# plot results
-		ax1.plot(np.arange(info['final_order']), \
+		ax1.plot(np.arange(1, info['final_order']), \
 				dipole, marker='*', linewidth=2, mew=1, color='xkcd:salmon', \
 				linestyle='-', label='state {:}'.format(calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order']-0.5])
+		ax1.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax1.xaxis.grid(False)
 		# set labels
@@ -623,11 +623,11 @@ def _dipole_plot(info, calc, exp):
 			mbe[i] = np.linalg.norm(exp.prop['dipole']['tot'][i, :])
 		mbe[1:] = np.diff(mbe)
 		# plot results
-		ax2.semilogy(np.arange(info['final_order']), \
+		ax2.semilogy(np.arange(1, info['final_order']), \
 				np.abs(mbe), marker='*', linewidth=2, mew=1, color='xkcd:salmon', \
 				linestyle='-', label='state {:}'.format(calc.state['root']))
 		# set x limits
-		ax2.set_xlim([0.5, info['final_order']-0.5])
+		ax2.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax2.xaxis.grid(False)
 		# set labels
@@ -659,7 +659,7 @@ def _trans_prt(info, calc, exp):
 				format('','MBE order','','|','','dipole components (x,y,z)', \
 						'','|','','dipole moment','','|','','oscillator strength'))
 		print(DIVIDER[:109])
-		print('{0:7}{1:>3s}{2:7}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
+		print('{0:9}{1:>3s}{2:5}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 			'{10:5}{11:1}{12:6}{13:9.6f}{14:6}{15:1}{16:8}{17:9.6f}'. \
 				format('','ref', \
 					'','|','',calc.prop['ref']['trans'][0], \
@@ -668,7 +668,7 @@ def _trans_prt(info, calc, exp):
 					'','|','',np.linalg.norm(calc.prop['ref']['trans'][:]), \
 					'','|','',(2./3.) * calc.prop['ref']['excitation'] * np.linalg.norm(calc.prop['ref']['trans'][:])**2))
 		print(DIVIDER[:109])
-		for i, j in enumerate(range(info['final_order'])):
+		for i, j in enumerate(range(1, info['final_order'])):
 			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
 				'{10:5}{11:1}{12:6}{13:9.6f}{14:6}{15:1}{16:8}{17:9.6f}'. \
 					format('',j, \
@@ -692,11 +692,11 @@ def _trans_plot(info, calc, exp):
 		for i in range(info['final_order']):
 			trans[i] = np.linalg.norm(info['trans'][i, :])
 		# plot results
-		ax1.plot(np.arange(info['final_order']), \
+		ax1.plot(np.arange(1, info['final_order']), \
 				trans, marker='s', linewidth=2, mew=1, color='xkcd:dark magenta', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order']-0.5])
+		ax1.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax1.xaxis.grid(False)
 		# set labels
@@ -708,11 +708,11 @@ def _trans_plot(info, calc, exp):
 		mbe = trans.copy()
 		mbe[1:] = np.diff(mbe)
 		# plot results
-		ax2.semilogy(np.arange(info['final_order']), \
+		ax2.semilogy(np.arange(1, info['final_order']), \
 				np.abs(mbe), marker='s', linewidth=2, mew=1, color='xkcd:dark magenta', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax2.set_xlim([0.5, info['final_order']-0.5])
+		ax2.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax2.xaxis.grid(False)
 		# set labels
@@ -746,11 +746,11 @@ def _osc_strength_plot(info, calc, exp):
 		for i in range(info['final_order']):
 			osc_strength[i] = (2./3.) * info['excitation'][i] * np.linalg.norm(info['trans'][i, :])**2
 		# plot results
-		ax1.plot(np.arange(info['final_order']), \
+		ax1.plot(np.arange(1, info['final_order']), \
 				osc_strength, marker='+', linewidth=2, mew=1, color='xkcd:royal blue', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order']-0.5])
+		ax1.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax1.xaxis.grid(False)
 		# set labels
@@ -762,11 +762,11 @@ def _osc_strength_plot(info, calc, exp):
 		mbe = osc_strength.copy()
 		mbe[1:] = np.diff(mbe)
 		# plot results
-		ax2.semilogy(np.arange(info['final_order']), \
+		ax2.semilogy(np.arange(1, info['final_order']), \
 				np.abs(mbe), marker='+', linewidth=2, mew=1, color='xkcd:royal blue', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax2.set_xlim([0.5, info['final_order']-0.5])
+		ax2.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
 		ax2.xaxis.grid(False)
 		# set labels

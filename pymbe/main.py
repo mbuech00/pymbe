@@ -108,7 +108,7 @@ def _exp(mpi, mol, calc):
 				base = kernel.base(mol, calc)
 				calc.prop['base']['energy'] = base['energy']
 				# reference and expansion spaces and mo coefficients
-				calc.mo_energy, calc.mo_coeff, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
+				calc.mo_energy, calc.mo_coeff, calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
 				# exp object
 				exp = expansion.ExpCls(mol, calc)
 				# reference space properties
@@ -136,7 +136,7 @@ def _exp(mpi, mol, calc):
 		exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
 		# restart
 		if mpi.master:
-			exp.min_order = restart.main(calc, exp)
+			exp.start_order = restart.main(calc, exp)
 		return exp
 
 
