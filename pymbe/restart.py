@@ -19,7 +19,7 @@ import re
 from pyscf import symm
 
 
-# rst parameters
+# restart folder
 RST = os.getcwd()+'/rst'
 
 

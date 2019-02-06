@@ -12,10 +12,16 @@ __status__ = 'Development'
 
 import os
 import sys
+import traceback
+import contextlib
 import subprocess
 import numpy as np
 import math
 
+import parallel
+
+# output folder
+OUT = os.getcwd()+'/output'
 # array of degenerate (dooh) orbsym IDs
 # E1gx (2) , E1gy (3)
 # E1uy (6) , E1ux (7)
@@ -142,5 +148,22 @@ def sigma_prune(mo_energy, orbsym, tup, mbe=False):
 							# the pi orbs are not pair-wise degenerated
 							return False
 		return True
+
+
+def assertion(condition, reason):
+		""" assertion of condition """
+		if not condition:
+			# get stack
+			stack = ''.join(traceback.format_stack()[:-1])
+			# print to error file and stdout
+			with open(OUT+'/error.out','a') as f:
+				with contextlib.redirect_stdout(f):
+					print('\n\n'+stack)
+					print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
+			print('\n\n'+stack)
+			print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
+			# abort calculation
+			parallel.abort()
+
 
 

@@ -186,7 +186,7 @@ def ref_mo(mol, calc):
 		if calc.ref['active'] == 'manual':
 			# electrons
 			nelec = calc.ref['nelec']
-			assert np.sum(nelec) > 0
+			tools.assertion(np.sum(nelec) > 0, 'no electrons in the reference space')
 			# active orbs
 			if isinstance(calc.ref['select'], dict):
 				cas = mcscf.CASSCF(calc.hf, np.sum(list(calc.ref['select'].values())), nelec)
@@ -194,7 +194,7 @@ def ref_mo(mol, calc):
 			calc.ref['select'] = np.asarray(calc.ref['select'])
 			# inactive orbitals
 			inact_elec = mol.nelectron - (nelec[0] + nelec[1])
-			assert inact_elec % 2 == 0
+			tools.assertion(inact_elec % 2 == 0, 'odd number of inactive electrons')
 			inact_orbs = inact_elec // 2
 			# active orbitals
 			act_orbs = calc.ref['select'].size
@@ -474,9 +474,9 @@ def _casscf(mol, calc, mo_coeff, ref_space, nelec):
 				# verify correct spin
 				for root in range(len(c)):
 					s, mult = fcisolver.spin_square(c[root], ref_space.size, nelec)
-					assert np.abs((mol.spin + 1) - mult) < SPIN_TOL, ('\nCASSCF Error: spin contamination for root entry = {:}\n\n'
-															'2*S + 1 = {:.6f}\n\n'). \
-															format(root, mult)
+					tools.assertion(np.abs((mol.spin + 1) - mult) < SPIN_TOL, \
+									'spin contamination for root entry = {:} , 2*S + 1 = {:.6f}'. \
+										format(root, mult))
 		# convergence check
 		if not cas.converged:
 			try:
@@ -563,25 +563,22 @@ def _fci(mol, calc, core_idx, cas_idx):
 				# verify correct spin
 				for root in range(len(civec)):
 					s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-					assert np.abs((mol.spin + 1) - mult) < SPIN_TOL, ('\nFCI Error: spin contamination for root entry = {0:}\n\n'
-															'2*S + 1 = {1:.6f}\n'
-															'core_idx = {2:} , cas_idx = {3:}\n\n'). \
-															format(root, mult, core_idx, cas_idx)
+					tools.assertion(np.abs((mol.spin + 1) - mult) < SPIN_TOL, \
+									'spin contamination for root entry = {:} , 2*S + 1 = {:.6f} , '
+									'core_idx = {:} , cas_idx = {:}'. \
+										format(root, mult, core_idx, cas_idx))
 		# convergence check
 		if solver.nroots == 1:
-			assert solver.converged, ('FCI Error: state 0 not converged\n\n'
-										'core_idx = {0:} , cas_idx = {1:}\n\n'). \
-										format(core_idx, cas_idx)
+			tools.assertion(solver.converged, 'state 0 not converged , core_idx = {:} , cas_idx = {:}'. \
+								format(core_idx, cas_idx))
 		else:
 			if calc.target['excitation']:
 				for root in [0, solver.nroots-1]:
-					assert solver.converged[root], ('FCI Error: state {0:} not converged\n\n'
-											'core_idx = {1:} , cas_idx = {2:}\n\n'). \
-											format(root, core_idx, cas_idx)
+					tools.assertion(solver.converged[root], 'state {:} not converged , core_idx = {:} , cas_idx = {:}'. \
+										format(root, core_idx, cas_idx))
 			else:
-				assert solver.converged[solver.nroots-1], ('FCI Error: state {0:} not converged\n\n'
-										'core_idx = {1:} , cas_idx = {2:}\n\n'). \
-										format(solver.nroots-1, core_idx, cas_idx)
+				tools.assertion(solver.converged[solver.nroots-1], 'state {:} not converged , core_idx = {:} , cas_idx = {:}'. \
+										format(solver.nroots-1, core_idx, cas_idx))
 		res = {}
 		# e_corr
 		if calc.target['energy']:

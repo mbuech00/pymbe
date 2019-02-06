@@ -306,7 +306,7 @@ def _sum(calc, exp, tup, prop):
 			combs_hash.sort()
 			# get indices
 			indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
-			assert indx is not None
+			tools.assertion(indx is not None, 'error in recursive increment calculation (tuple not found)')
 			# add up lower-order increments
 			if prop == 'energy':
 				res['energy'] += tools.fsum(exp.prop['energy']['inc'][k-1][indx])

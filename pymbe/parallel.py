@@ -12,11 +12,8 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-import sys
-import traceback
 from pyscf import symm
 
-import tools
 import restart
 
 
@@ -31,20 +28,6 @@ class MPICls():
 				self.slave = not self.master
 				self.host = MPI.Get_processor_name()
 				self.stat = MPI.Status()
-				# save sys.excepthook
-				sys_excepthook = sys.excepthook
-				# define mpi exception hook
-				def mpi_excepthook(variant, value, trace):
-					""" custom mpi exception hook """
-					if not issubclass(variant, OSError):
-						print('\n-- Error information --')
-						print('\ntype:\n\n  {0:}'.format(variant))
-						print('\nvalue:\n\n  {0:}'.format(value))
-						print('\ntraceback:\n\n{0:}'.format(''.join(traceback.format_tb(trace))))
-					sys_excepthook(variant, value, trace)
-					self.comm.Abort(1)
-				# overwrite sys.excepthook
-				sys.excepthook = mpi_excepthook
 
 
 def mol(mpi, mol):
@@ -216,6 +199,11 @@ def screen(mpi, child_tup, child_hash, order):
 		else:
 			hashes = np.array([], dtype=np.int64)
 		return tuples, hashes
+
+
+def abort():
+		""" abort calculation """
+		MPI.COMM_WORLD.Abort()
 
 
 def final(mpi):

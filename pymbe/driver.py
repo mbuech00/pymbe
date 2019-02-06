@@ -20,6 +20,7 @@ import kernel
 import output
 import screen
 import expansion
+import tools
 import parallel
 
 
@@ -28,6 +29,8 @@ def master(mpi, mol, calc, exp):
 		# print expansion headers
 		output.main_header()
 		output.exp_header(calc, exp)
+		# mpi assertion
+		tools.assertion(mpi.size >= 2, 'PyMBE requires two or more MPI processes')
 		# restart
 		if calc.restart:
 			exp.thres, exp.rst_freq, calc.restart = _rst_print(mol, calc, exp)

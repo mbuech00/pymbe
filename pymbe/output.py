@@ -21,8 +21,9 @@ import kernel
 import tools
 
 
-# output parameters
+# output folder
 OUT = os.getcwd()+'/output'
+# output parameters
 HEADER = '{0:^87}'.format('-'*45)
 DIVIDER = ' '+'-'*92
 FILL = ' '+'|'*92
