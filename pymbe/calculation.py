@@ -200,13 +200,16 @@ class CalcCls():
 						if not isinstance(self.ref['select'], (list, dict)): 
 							raise ValueError('wrong input -- select key (select) for active space must be a list/dict of orbitals')
 						if not isinstance(self.ref['nelec'], tuple):
-							raise ValueError('wrong input -- number of electrons (nelec) in active space must be a tuple (alpha,beta)')
+							raise ValueError('wrong input -- number of electrons (nelec) in active space '
+												'must be a tuple (alpha,beta)')
 					else:
 						raise ValueError('wrong input -- active space choices are currently: manual')
 					if not isinstance(self.ref['hf_guess'], bool):
 						raise ValueError('wrong input -- HF initial guess for CASSCF calc (hf_guess) must be a bool')
 					if mol.atom:
-						if self.ref['hf_guess'] and (len(set(self.ref['wfnsym'])) > 1 or list(set(self.ref['wfnsym']))[0] != symm.addons.irrep_id2name(mol.symmetry, 0)):
+						if self.ref['hf_guess'] and len(set(self.ref['wfnsym'])) > 1:
+							raise ValueError('wrong input -- illegal choice of ref wfnsym when enforcing hf initial guess')
+						if self.ref['hf_guess'] and list(set(self.ref['wfnsym']))[0] != symm.addons.irrep_id2name(mol.symmetry, 0):
 							raise ValueError('wrong input -- illegal choice of ref wfnsym when enforcing hf initial guess')
 						for i in range(len(self.ref['wfnsym'])):
 							try:
@@ -230,22 +233,30 @@ class CalcCls():
 					if self.state['root'] > 0 and self.model['method'] != 'fci':
 						raise ValueError('wrong input -- excited states only implemented for an fci expansion model')
 					# targets
-					if not any(self.target.values()):
-						raise ValueError('wrong input -- at least one target property must be requested. valid choice are: energy, excitation energy (excitation), dipole, and transition dipole (trans)')
+					if not any(self.target.values()) or len([x for x in self.target.keys() if self.target[x]]) > 1:
+						raise ValueError('wrong input -- one and only one target property must be requested. '
+											'valid choice are: energy, excitation energy (excitation), '
+											'dipole, and transition dipole (trans)')
 					if not all(isinstance(i, bool) for i in self.target.values()):
 						raise ValueError('wrong input -- values in target input (target) must be bools')
 					if not set(list(self.target.keys())) <= set(['energy', 'excitation', 'dipole', 'trans']):
-						raise ValueError('wrong input -- valid choices for target properties are: energy, excitation energy (excitation), dipole, and transition dipole (trans)')
+						raise ValueError('wrong input -- valid choices for target properties are: energy, '
+											'excitation energy (excitation), dipole, and transition dipole (trans)')
 					if self.target['excitation'] and self.base['method'] is not None:
-						raise ValueError('wrong input -- calculation of excitation energy (excitation) is only allowed in the absence of a base model')
+						raise ValueError('wrong input -- calculation of excitation energy (excitation) is only '
+											'allowed in the absence of a base model')
 					if self.target['excitation'] and self.state['root'] == 0:
-						raise ValueError('wrong input -- calculation of excitation energy (excitation) requires target state root >= 1')
+						raise ValueError('wrong input -- calculation of excitation energy (excitation) '
+											'requires target state root >= 1')
 					if self.target['dipole'] and self.base['method'] is not None:
-						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only allowed in the absence of a base model')
+						raise ValueError('wrong input -- calculation of dipole moment (dipole) is only '
+											'allowed in the absence of a base model')
 					if self.target['trans'] and self.base['method'] is not None:
-						raise ValueError('wrong input -- calculation of transition dipole moment (trans) is only allowed in the absence of a base model')
+						raise ValueError('wrong input -- calculation of transition dipole moment (trans) '
+											'is only allowed in the absence of a base model')
 					if self.target['trans'] and not self.target['excitation']:
-						raise ValueError('wrong input -- calculation of transition dipole moment (trans) requires calculation of excitation energy (excitation)')
+						raise ValueError('wrong input -- calculation of transition dipole moment (trans) '
+											'requires calculation of excitation energy (excitation)')
 					# extra
 					if not isinstance(self.extra['hf_guess'], bool):
 						raise ValueError('wrong input -- HF initial guess for FCI calcs (hf_guess) must be a bool')

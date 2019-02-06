@@ -49,32 +49,6 @@ def main(mpi, mol, calc, exp):
 			_slave(mpi, mol, calc, exp)
 			return
 		# sum up total quantities
-		if mol.debug >= 1 and exp.order == 1:
-			if calc.target['energy']:
-				print('')
-				a = np.abs(exp.prop['energy']['inc'][0])
-				for j in range(exp.tuples[0].shape[0]):
-					print('o = {0:} , root {1:} energy = {2:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], \
-																			calc.state['root'], a[np.argsort(a)[::-1]][j]))
-			if calc.target['excitation']:
-				print('')
-				a = np.abs(exp.prop['excitation']['inc'][0])
-				for j in range(exp.tuples[0].shape[0]):
-					print('o = {0:} , roots 0 -> {1:} excitation energy = {2:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], \
-																			calc.state['root'], a[np.argsort(a)[::-1]][j]))
-			if calc.target['dipole']:
-				print('')
-				a = np.linalg.norm(exp.prop['dipole']['inc'][0], axis=1)
-				for j in range(exp.tuples[0].shape[0]):
-					print('o = {0:} , root {1:} dipole = {2:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], \
-																			calc.state['root'], a[np.argsort(a)[::-1]][j]))
-			if calc.target['trans']:
-				print('')
-				a = np.linalg.norm(exp.prop['trans']['inc'][0], axis=1)
-				for j in range(exp.tuples[0].shape[0]):
-					print('o = {0:} , roots 0 -> {1:} trans = {2:.2e}'.format(exp.tuples[0][np.argsort(a)[::-1]][j], \
-																				calc.state['root'], a[np.argsort(a)[::-1]][j]))
-			print('')
 		if calc.target['energy']:
 			exp.prop['energy']['tot'].append(tools.fsum(exp.prop['energy']['inc'][-1]))
 		if calc.target['excitation']:
