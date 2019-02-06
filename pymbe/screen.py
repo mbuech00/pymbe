@@ -222,9 +222,9 @@ def _prot_scheme(thres, scheme, prop):
 
 def update(order, thres_init, thres_relax):
 		""" update expansion threshold """
-		if order < 3:
+		if order < 2:
 			return 0.0
 		else:
-			return thres_init * thres_relax ** (order - 3)
+			return thres_init * thres_relax ** (order - 2)
 
 

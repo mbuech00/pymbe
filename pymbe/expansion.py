@@ -33,12 +33,6 @@ class ExpCls():
 				# init timings and calculation counter
 				self.count = []
 				self.time = {'mbe': [], 'screen': []}
-				# init thres
-				# here: define order
-#				if order < 3:
-#					self.thres = 0.0
-#				else:
-#					self.thres = calc.thres['init'] * calc.thres['relax'] ** (order - 3)
 				# init order (pre-calc)
 				self.order = 0
 				# restart frequency
