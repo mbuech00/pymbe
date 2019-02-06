@@ -107,15 +107,8 @@ def exp(mpi, calc, exp):
 		""" bcast exp info """
 		if mpi.master:
 			# collect info
-			info = {'len_tup': [exp.tuples[i].shape[0] for i in range(len(exp.tuples))], 'start_order': exp.start_order}
-			if calc.target['energy']:
-				info['len_e_inc'] = [exp.prop['energy']['inc'][i].size for i in range(len(exp.prop['energy']['inc']))]
-			if calc.target['excitation']:
-				info['len_exc_inc'] = [exp.prop['excitation']['inc'][i].size for i in range(len(exp.prop['excitation']['inc']))]
-			if calc.target['dipole']:
-				info['len_dip_inc'] = [exp.prop['dipole']['inc'][i].shape[0] for i in range(len(exp.prop['dipole']['inc']))]
-			if calc.target['trans']:
-				info['len_trans_inc'] = [exp.prop['trans']['inc'][i].shape[0] for i in range(len(exp.prop['trans']['inc']))]
+			info = {'len_tup': [exp.tuples[i].shape[0] for i in range(len(exp.tuples))]}
+			info['len_prop'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
 			# bcast info
 			mpi.comm.bcast(info, root=0)
 			# bcast tuples and hashes
@@ -124,23 +117,11 @@ def exp(mpi, calc, exp):
 			for i in range(1, len(exp.hashes)):
 				mpi.comm.Bcast([exp.hashes[i], MPI.INT], root=0)
 			# bcast increments
-			if calc.target['energy']:
-				for i in range(len(exp.prop['energy']['inc'])):
-					mpi.comm.Bcast([exp.prop['energy']['inc'][i], MPI.DOUBLE], root=0)
-			if calc.target['excitation']:
-				for i in range(len(exp.prop['excitation']['inc'])):
-					mpi.comm.Bcast([exp.prop['excitation']['inc'][i], MPI.DOUBLE], root=0)
-			if calc.target['dipole']:
-				for i in range(len(exp.prop['dipole']['inc'])):
-					mpi.comm.Bcast([exp.prop['dipole']['inc'][i], MPI.DOUBLE], root=0)
-			if calc.target['trans']:
-				for i in range(len(exp.prop['trans']['inc'])):
-					mpi.comm.Bcast([exp.prop['trans']['inc'][i], MPI.DOUBLE], root=0)
+			for i in range(len(exp.prop[calc.target]['inc'])):
+				mpi.comm.Bcast([exp.prop[calc.target]['inc'][i], MPI.DOUBLE], root=0)
 		else:
 			# receive info
 			info = mpi.comm.bcast(None, root=0)
-			# set start_order
-			exp.start_order = info['start_order']
 			# receive tuples and hashes
 			for i in range(1, len(info['len_tup'])):
 				buff = np.empty([info['len_tup'][i], i+1], dtype=np.int32)
@@ -151,26 +132,16 @@ def exp(mpi, calc, exp):
 				mpi.comm.Bcast([buff, MPI.INT], root=0)
 				exp.hashes.append(buff)
 			# receive increments
-			if calc.target['energy']:
-				for i in range(len(info['len_e_inc'])):
-					buff = np.zeros(info['len_e_inc'][i], dtype=np.float64)
+			if calc.target in ['energy', 'excitation']:
+				for i in range(len(info['len_prop'])):
+					buff = np.zeros(info['len_prop'][i], dtype=np.float64)
 					mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop['energy']['inc'].append(buff)
-			if calc.target['excitation']:
-				for i in range(len(info['len_exc_inc'])):
-					buff = np.zeros(info['len_exc_inc'][i], dtype=np.float64)
+					exp.prop[calc.target]['inc'].append(buff)
+			else:
+				for i in range(len(info['len_prop'])):
+					buff = np.zeros([info['len_prop'][i], 3], dtype=np.float64)
 					mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop['excitation']['inc'].append(buff)
-			if calc.target['dipole']:
-				for i in range(len(info['len_dip_inc'])):
-					buff = np.zeros([info['len_dip_inc'][i], 3], dtype=np.float64)
-					mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop['dipole']['inc'].append(buff)
-			if calc.target['trans']:
-				for i in range(len(info['len_trans_inc'])):
-					buff = np.zeros([info['len_trans_inc'][i], 3], dtype=np.float64)
-					mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop['trans']['inc'].append(buff)
+					exp.prop[calc.target]['inc'].append(buff)
 
 
 def mbe(mpi, prop):

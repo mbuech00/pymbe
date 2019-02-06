@@ -30,11 +30,13 @@ def main(mpi, mol, calc, exp):
 		# master and slave functions
 		if mpi.master:
 			# master
-			_master(mpi, mol, calc, exp)
+			tuples, hashes = _master(mpi, mol, calc, exp)
 		else:
 			# slaves
-			_slave(mpi, mol, calc, exp)
-			return
+			tuples, hashes = _slave(mpi, mol, calc, exp)
+		# append tuples and hashes
+		exp.tuples.append(tuples)
+		exp.hashes.append(hashes)
 
 
 def _master(mpi, mol, calc, exp):
@@ -88,11 +90,9 @@ def _master(mpi, mol, calc, exp):
 		child_tup = []; child_hash = []
 		# allgatherv tuples/hashes
 		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order)
-		# append tuples and hashes
-		exp.tuples.append(tuples)
-		exp.hashes.append(hashes)
 		# collect time
 		exp.time['screen'].append(MPI.Wtime() - time)
+		return tuples, hashes
 
 
 def _slave(mpi, mol, calc, exp):
@@ -139,10 +139,7 @@ def _slave(mpi, mol, calc, exp):
 				# exit
 				break
 		# allgatherv tuples/hashes
-		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order)
-		# append tuples and hashes
-		exp.tuples.append(tuples)
-		exp.hashes.append(hashes)
+		return parallel.screen(mpi, child_tup, child_hash, exp.order)
 
 
 def _test(mol, calc, exp, tup):
@@ -196,21 +193,17 @@ def _test(mol, calc, exp, tup):
 
 def _prot_screen(thres, scheme, target, prop, indx):
 		""" protocol check """
-		screen = True
-		for t in ['energy', 'excitation', 'dipole', 'trans']:
-			if target[t]:
-				if t in ['energy', 'excitation']:
-					screen = _prot_scheme(thres, scheme, prop[t]['inc'][-1][indx])
-				elif t in ['dipole', 'trans']:
-					for dim in range(3):
-						# (x,y,z) = (0,1,2)
-						if np.sum(prop[t]['inc'][-1][indx, dim]) != 0.0:
-							screen = _prot_scheme(thres, scheme, prop[t]['inc'][-1][indx, dim])
-						if not screen:
-							break
+		if target in ['energy', 'excitation']:
+			return _prot_scheme(thres, scheme, prop[target]['inc'][-1][indx])
+		else:
+			screen = True
+			for dim in range(3):
+				# (x,y,z) = (0,1,2)
+				if np.sum(prop[t]['inc'][-1][indx, dim]) != 0.0:
+					screen = _prot_scheme(thres, scheme, prop[target]['inc'][-1][indx, dim])
 				if not screen:
 					break
-		return screen
+			return screen
 
 
 def _prot_scheme(thres, scheme, prop):

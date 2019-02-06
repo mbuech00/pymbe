@@ -104,22 +104,13 @@ def _exp(mpi, mol, calc):
 					calc.occup, calc.orbsym, \
 					calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
 				# base energy
-				base = kernel.base(mol, calc)
-				calc.prop['base']['energy'] = base['energy']
+				calc.prop['base']['energy'] = kernel.base(mol, calc)
 				# reference and expansion spaces and mo coefficients
 				calc.mo_energy, calc.mo_coeff, calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
 				# exp object
 				exp = expansion.ExpCls(mol, calc)
 				# reference space properties
-				ref = kernel.ref_prop(mol, calc, exp)
-				if calc.target['energy']:
-					calc.prop['ref']['energy'] = ref['energy']
-				if calc.target['excitation']:
-					calc.prop['ref']['excitation'] = ref['excitation']
-				if calc.target['dipole']:
-					calc.prop['ref']['dipole'] = ref['dipole']
-				if calc.target['trans']:
-					calc.prop['ref']['trans'] = ref['trans']
+				calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc, exp)
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:

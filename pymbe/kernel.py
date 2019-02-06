@@ -39,7 +39,7 @@ def ao_ints(mol, calc):
 			hcore = _hubbard_h1(mol)
 			eri = _hubbard_eri(mol)
 		# dipole integrals with gauge origin at origo
-		if calc.target['dipole'] or calc.target['trans']:
+		if calc.target in ['dipole', 'trans']:
 			with mol.with_common_origin([0.0, 0.0, 0.0]):
 				dipole = mol.intor_symmetric('int1e_r', comp=3)
 		else:
@@ -138,7 +138,7 @@ def hf(mol, calc):
 				sys.stderr.write(str(err))
 				raise
 		# dipole moment
-		if calc.target['dipole']:
+		if calc.target == 'dipole':
 			dm = hf.make_rdm1()
 			elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
 			elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
@@ -225,36 +225,17 @@ def ref_prop(mol, calc, exp):
 		""" calculate reference space properties """
 		# set core and cas spaces
 		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, np.array([], dtype=np.int32))
-		# calculate properties
-		ref = {}
 		# closed-shell HF exception
 		if np.all(calc.occup[calc.ref_space] == 2.):
-			if calc.target['energy']:
-				ref['energy'] = 0.0
-			if calc.target['excitation']:
-				ref['excitation'] = 0.0
-			if calc.target['dipole']:
-				ref['dipole'] = np.zeros(3, dtype=np.float64)
-			if calc.target['trans']:
-				ref['trans'] = np.zeros(3, dtype=np.float64)
+			if calc.target in ['energy', 'excitation']:
+				ref = 0.0
+			else:
+				ref = np.zeros(3, dtype=np.float64)
 		else:
 			# exp model
-			res = main(mol, calc, exp, calc.model['method'])
-			# e_ref
-			if calc.target['energy']:
-				ref['energy'] = res['energy']
-				if calc.base['method'] is not None:
-					res = main(mol, calc, exp, calc.base['method'])
-					ref['energy'] -= res['energy']
-			# excitation_ref
-			if calc.target['excitation']:
-				ref['excitation'] = res['excitation']
-			# dipole_ref
-			if calc.target['dipole']:
-				ref['dipole'] = res['dipole']
-			# trans_dipole_ref
-			if calc.target['trans']:
-				ref['trans'] = res['trans']
+			ref = main(mol, calc, exp, calc.model['method'])
+			if calc.base['method'] is not None:
+				ref -= main(mol, calc, exp, calc.base['method'])
 		return ref
 
 
@@ -269,24 +250,14 @@ def main(mol, calc, exp, method):
 		# ccsd / ccsd(t) calc
 		elif method in ['ccsd','ccsd(t)']:
 			res_tmp = _cc(mol, calc, exp.core_idx, exp.cas_idx, exp.order, method == 'ccsd(t)')
-		# return correlation energy
-		res = {}
-		if calc.target['energy']:
-			res['energy'] = res_tmp['energy']
-		if calc.target['excitation']:
-			res['excitation'] = res_tmp['excitation']
+		if calc.target in ['energy', 'excitation']:
+			res = res_tmp[calc.target]
 		# return first-order properties
-		if calc.target['dipole']:
-			if res_tmp['rdm1'] is None:
-				res['dipole'] = None
-			else:
-				res['dipole'] = _dipole(mol, calc, exp, res_tmp['rdm1'])
-		if calc.target['trans']:
-			if res_tmp['t_rdm1'] is None:
-				res['trans'] = None
-			else:
-				res['trans'] = _trans(mol, calc, exp, res_tmp['t_rdm1'], \
-										res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
+		elif calc.target == 'dipole':
+			res = _dipole(mol, calc, exp, res_tmp['rdm1'])
+		elif calc.target == 'trans':
+			res = _trans(mol, calc, exp, res_tmp['t_rdm1'], \
+							res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 		return res
 
 
@@ -324,11 +295,11 @@ def base(mol, calc):
 		rdm1 = None
 		# no base
 		if calc.base['method'] is None:
-			base = {'energy': 0.0}
+			base = 0.0
 		# cisd base
 		elif calc.base['method'] == 'cisd':
 			res = _ci(mol, calc, core_idx, cas_idx, 0)
-			base = {'energy': res['energy']}
+			base = res['energy']
 			if 'rdm1' in res:
 				rdm1 = res['rdm1']
 				if mol.spin > 0:
@@ -337,7 +308,7 @@ def base(mol, calc):
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
 			res = _cc(mol, calc, core_idx, cas_idx, 0, \
 						calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] == 'can' and calc.orbs['virt'] == 'can'))
-			base = {'energy': res['energy']}
+			base = res['energy']
 			if 'rdm1' in res:
 				rdm1 = res['rdm1']
 				if mol.spin > 0:
@@ -381,7 +352,7 @@ def base(mol, calc):
 		# extra calculation for non-invariant ccsd(t)
 		if calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can'):
 			res = _cc(mol, calc, core_idx, cas_idx, 0, True)
-			base['energy'] = res['energy']
+			base = res['energy']
 		# update orbsym
 		if mol.atom:
 			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
@@ -512,7 +483,7 @@ def _fci(mol, calc, core_idx, cas_idx):
 			solver = fci.direct_spin1_symm.FCI(mol)
 		# settings
 		solver.conv_tol = max(calc.thres['init'], 1.0e-10)
-		if calc.target['dipole'] or calc.target['trans']:
+		if calc.target in ['dipole', 'trans']:
 			solver.conv_tol *= 1.0e-04
 			solver.lindep = solver.conv_tol * 1.0e-01
 		solver.max_cycle = 5000
@@ -572,7 +543,7 @@ def _fci(mol, calc, core_idx, cas_idx):
 			tools.assertion(solver.converged, 'state 0 not converged , core_idx = {:} , cas_idx = {:}'. \
 								format(core_idx, cas_idx))
 		else:
-			if calc.target['excitation']:
+			if calc.target == 'excitation':
 				for root in [0, solver.nroots-1]:
 					tools.assertion(solver.converged[root], 'state {:} not converged , core_idx = {:} , cas_idx = {:}'. \
 										format(root, core_idx, cas_idx))
@@ -581,14 +552,14 @@ def _fci(mol, calc, core_idx, cas_idx):
 										format(solver.nroots-1, core_idx, cas_idx))
 		res = {}
 		# e_corr
-		if calc.target['energy']:
+		if calc.target == 'energy':
 			res['energy'] = energy[-1] - calc.prop['hf']['energy']
-		if calc.target['excitation']:
+		if calc.target == 'excitation':
 			res['excitation'] = energy[-1] - energy[0]
 		# fci rdm1 and t_rdm1
-		if calc.target['dipole']:
+		if calc.target == 'dipole':
 			res['rdm1'] = solver.make_rdm1(civec[-1], cas_idx.size, nelec)
-		if calc.target['trans']:
+		if calc.target == 'trans':
 			res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[-1], cas_idx.size, nelec)
 			res['hf_weight'] = [civec[i][0, 0] for i in range(2)]
 		return res

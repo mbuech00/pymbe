@@ -24,14 +24,7 @@ class ExpCls():
 				self.model = copy.deepcopy(calc.model)
 				# init prop dict
 				self.prop = {}
-				if calc.target['energy']:
-					self.prop['energy'] = {'inc': [], 'tot': []}
-				if calc.target['excitation']:
-					self.prop['excitation'] = {'inc': [], 'tot': []}
-				if calc.target['dipole']:
-					self.prop['dipole'] = {'inc': [], 'tot': []}
-				if calc.target['trans']:
-					self.prop['trans'] = {'inc': [], 'tot': []}
+				self.prop[calc.target] = {'inc': [], 'tot': []}
 				# set max_order
 				if calc.misc['order'] is not None:
 					self.max_order = min(calc.exp_space.size, calc.misc['order'])

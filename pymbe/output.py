@@ -93,83 +93,81 @@ def mbe_end(calc, exp):
 
 def mbe_results(mol, calc, exp):
 		""" print mbe result statistics """
-		for i in ['energy', 'excitation', 'dipole', 'trans']:
-			if calc.target[i]:
-				if i in ['energy', 'excitation']:
-					string = FILL+'\n'
-					prop_inc = exp.prop[i]['inc'][exp.order-1]
-					prop_tot = exp.prop[i]['tot']
-					# statistics
-					if prop_inc.any():
-						mean_val = np.mean(prop_inc[np.nonzero(prop_inc)])
-						min_val = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
-						max_val = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
-					else:
-						mean_val = min_val = max_val = 0.0
-					# calculate total inc
-					if exp.order == 1:
-						tot_inc = prop_tot[exp.order-1]
-					else:
-						tot_inc = prop_tot[exp.order-1] - prop_tot[exp.order-2]
-					# set header
-					if i == 'energy':
-						header = 'energy for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
-					elif i == 'excitation':
-						header = 'excitation energy for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
-					# set string
-					string += DIVIDER+'\n'
-					string += ' RESULT:{:^81}\n'
-					string += DIVIDER+'\n'
-					string += DIVIDER+'\n'
-					string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
-					string += DIVIDER+'\n'
-					string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
-					string += DIVIDER
-					form = (header, mean_val, min_val, max_val)
-					_print(string, form)
-				elif i in ['dipole', 'trans']:
-					string = FILL+'\n'
-					prop_tot = exp.prop[i]['tot']
-					# calculate total inc
-					if exp.order == 1:
-						tot_inc = np.linalg.norm(prop_tot[exp.order-1])
-					else:
-						tot_inc = np.linalg.norm(prop_tot[exp.order-1]) - np.linalg.norm(prop_tot[exp.order-2])
-					# set header
-					if i == 'dipole':
-						header = 'dipole moment for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
-					elif i == 'trans':
-						header = 'transition dipole for excitation 0 -> {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
-					# set string/form
-					string += DIVIDER+'\n'
-					string += ' RESULT:{:^81}\n'
-					string += DIVIDER+'\n'
-					string += DIVIDER
-					form = (header,)
-					# set components
-					comp = ('x-component', 'y-component', 'z-component')
-					# init result arrays
-					mean_val = np.empty(3, dtype=np.float64)
-					min_val = np.empty(3, dtype=np.float64)
-					max_val = np.empty(3, dtype=np.float64)
-					# loop over x, y, and z
-					for k in range(3):
-						prop_inc = exp.prop[i]['inc'][exp.order-1][:, k]
-						# statistics
-						if prop_inc.any():
-							mean_val[k] = np.mean(prop_inc[np.nonzero(prop_inc)])
-							min_val[k] = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
-							max_val[k] = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
-						else:
-							mean_val[k] = min_val[k] = max_val[k] = 0.0
-						string += '\n RESULT:{:^81}\n'
-						string += DIVIDER+'\n'
-						string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
-						string += DIVIDER+'\n'
-						string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
-						string += DIVIDER
-						form += (comp[k], mean_val[k], min_val[k], max_val[k],)
-					_print(string, form)
+		if calc.target in ['energy', 'excitation']:
+			string = FILL+'\n'
+			prop_inc = exp.prop[calc.target]['inc'][exp.order-1]
+			prop_tot = exp.prop[calc.target]['tot']
+			# statistics
+			if prop_inc.any():
+				mean_val = np.mean(prop_inc[np.nonzero(prop_inc)])
+				min_val = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
+				max_val = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
+			else:
+				mean_val = min_val = max_val = 0.0
+			# calculate total inc
+			if exp.order == 1:
+				tot_inc = prop_tot[exp.order-1]
+			else:
+				tot_inc = prop_tot[exp.order-1] - prop_tot[exp.order-2]
+			# set header
+			if calc.target == 'energy':
+				header = 'energy for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+			else:
+				header = 'excitation energy for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+			# set string
+			string += DIVIDER+'\n'
+			string += ' RESULT:{:^81}\n'
+			string += DIVIDER+'\n'
+			string += DIVIDER+'\n'
+			string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+			string += DIVIDER+'\n'
+			string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+			string += DIVIDER
+			form = (header, mean_val, min_val, max_val)
+			_print(string, form)
+		else:
+			string = FILL+'\n'
+			prop_tot = exp.prop[calc.target]['tot']
+			# calculate total inc
+			if exp.order == 1:
+				tot_inc = np.linalg.norm(prop_tot[exp.order-1])
+			else:
+				tot_inc = np.linalg.norm(prop_tot[exp.order-1]) - np.linalg.norm(prop_tot[exp.order-2])
+			# set header
+			if calc.target == 'dipole':
+				header = 'dipole moment for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+			else:
+				header = 'transition dipole for excitation 0 -> {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+			# set string/form
+			string += DIVIDER+'\n'
+			string += ' RESULT:{:^81}\n'
+			string += DIVIDER+'\n'
+			string += DIVIDER
+			form = (header,)
+			# set components
+			comp = ('x-component', 'y-component', 'z-component')
+			# init result arrays
+			mean_val = np.empty(3, dtype=np.float64)
+			min_val = np.empty(3, dtype=np.float64)
+			max_val = np.empty(3, dtype=np.float64)
+			# loop over x, y, and z
+			for k in range(3):
+				prop_inc = exp.prop[calc.target]['inc'][exp.order-1][:, k]
+				# statistics
+				if prop_inc.any():
+					mean_val[k] = np.mean(prop_inc[np.nonzero(prop_inc)])
+					min_val[k] = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
+					max_val[k] = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
+				else:
+					mean_val[k] = min_val[k] = max_val[k] = 0.0
+				string += '\n RESULT:{:^81}\n'
+				string += DIVIDER+'\n'
+				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+				string += DIVIDER+'\n'
+				string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+				string += DIVIDER
+				form += (comp[k], mean_val[k], min_val[k], max_val[k],)
+			_print(string, form)
 		if exp.order < exp.max_order:
 			with open(OUT+'/output.out','a') as f:
 				with contextlib.redirect_stdout(f):

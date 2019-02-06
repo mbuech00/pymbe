@@ -38,14 +38,7 @@ FILL = '{0:^143}'.format('|'*137)
 def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
 		# convert final results to numpy arrays
-		if calc.target['energy']:
-			exp.prop['energy']['tot'] = np.asarray(exp.prop['energy']['tot'])
-		if calc.target['excitation']:
-			exp.prop['excitation']['tot'] = np.asarray(exp.prop['excitation']['tot'])
-		if calc.target['dipole']:
-			exp.prop['dipole']['tot'] = np.asarray(exp.prop['dipole']['tot'])
-		if calc.target['trans']:
-			exp.prop['trans']['tot'] = np.asarray(exp.prop['trans']['tot'])
+		exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])
 		# setup
 		info = {}
 		info['model'], info['basis'], info['state'], info['ref'], info['base'], info['prot'], \
@@ -79,19 +72,19 @@ def _setup(mpi, mol, calc, exp):
 		mpi = _mpi(mpi, calc)
 		thres = _thres(calc)
 		symm = _symm(mol, calc)
-		if calc.target['energy']:
+		if calc.target == 'energy':
 			energy = _energy(calc, exp)
 		else:
 			energy = None
-		if calc.target['excitation']:
+		if calc.target == 'excitation':
 			excitation = _excitation(calc, exp)
 		else:
 			excitation = None
-		if calc.target['dipole']:
+		if calc.target == 'dipole':
 			dipole, nuc_dipole = _dipole(mol, calc, exp)
 		else:
 			dipole = nuc_dipole = None
-		if calc.target['trans']:
+		if calc.target == 'trans':
 			trans = _trans(mol, calc, exp)
 		else:
 			trans = None
@@ -107,26 +100,26 @@ def _table(info, mpi, mol, calc, exp):
 			with contextlib.redirect_stdout(f):
 				_summary_prt(info, mol, calc, exp)
 				_timings_prt(info, calc, exp)
-				if calc.target['energy']:
+				if calc.target == 'energy' :
 					_energy_prt(info, calc, exp)
-				if calc.target['excitation']:
+				if calc.target == 'excitation':
 					_excitation_prt(info, calc, exp)
-				if calc.target['dipole']:
+				if calc.target == 'dipole' :
 					_dipole_prt(info, calc, exp)
-				if calc.target['trans']:
+				if calc.target == 'trans':
 					_trans_prt(info, calc, exp)
 	
 
 def _plot(info, calc, exp):
 		""" plot results """
 		# plot MBE quantitites
-		if calc.target['energy']:
+		if calc.target == 'energy':
 			_energies_plot(info, calc, exp)
-		if calc.target['excitation']:
+		elif calc.target == 'excitation':
 			_excitation_plot(info, calc, exp)
-		if calc.target['dipole']:
+		elif calc.target == 'dipole':
 			_dipole_plot(info, calc, exp)
-		if calc.target['trans']:
+		elif calc.target == 'trans':
 			_trans_plot(info, calc, exp)
 			_osc_strength_plot(info, calc, exp)
 

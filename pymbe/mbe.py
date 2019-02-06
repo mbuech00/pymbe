@@ -32,14 +32,7 @@ TAGS = tools.enum('start', 'ready', 'exit')
 def main(mpi, mol, calc, exp):
 		""" mbe phase """
 		# init increments
-		if calc.target['energy']:
-			exp.prop['energy']['inc'].append(np.zeros(exp.tuples[-1].shape[0], dtype=np.float64))
-		if calc.target['excitation']:
-			exp.prop['excitation']['inc'].append(np.zeros(exp.tuples[-1].shape[0], dtype=np.float64))
-		if calc.target['dipole']:
-			exp.prop['dipole']['inc'].append(np.zeros([exp.tuples[-1].shape[0], 3], dtype=np.float64))
-		if calc.target['trans']:
-			exp.prop['trans']['inc'].append(np.zeros([exp.tuples[-1].shape[0], 3], dtype=np.float64))
+		exp.prop[calc.target]['inc'].append(_init_inc(exp.tuples[-1].shape[0], calc.target))
 		# master and slave functions
 		if mpi.master:
 			# master
@@ -48,24 +41,10 @@ def main(mpi, mol, calc, exp):
 			# slaves
 			_slave(mpi, mol, calc, exp)
 			return
-		# sum up total quantities
-		if calc.target['energy']:
-			exp.prop['energy']['tot'].append(tools.fsum(exp.prop['energy']['inc'][-1]))
-		if calc.target['excitation']:
-			exp.prop['excitation']['tot'].append(tools.fsum(exp.prop['excitation']['inc'][-1]))
-		if calc.target['dipole']:
-			exp.prop['dipole']['tot'].append(tools.fsum(exp.prop['dipole']['inc'][-1]))
-		if calc.target['trans']:
-			exp.prop['trans']['tot'].append(tools.fsum(exp.prop['trans']['inc'][-1]))
+		# sum up total property
+		exp.prop[calc.target]['tot'].append(tools.fsum(exp.prop[calc.target]['inc'][-1]))
 		if exp.order > 1:
-			if calc.target['energy']:
-				exp.prop['energy']['tot'][-1] += exp.prop['energy']['tot'][-2]
-			if calc.target['excitation']:
-				exp.prop['excitation']['tot'][-1] += exp.prop['excitation']['tot'][-2]
-			if calc.target['dipole']:
-				exp.prop['dipole']['tot'][-1] += exp.prop['dipole']['tot'][-2]
-			if calc.target['trans']:
-				exp.prop['trans']['tot'][-1] += exp.prop['trans']['tot'][-2]
+			exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
 
 
 def _master(mpi, mol, calc, exp):
@@ -108,25 +87,10 @@ def _master(mpi, mol, calc, exp):
 					if slaves_avail == 0:
 						# exit loop
 						break
-		# init counter
-		exp.count.append(0)
 		# allreduce properties
-		if calc.target['energy']:
-			parallel.mbe(mpi, exp.prop['energy']['inc'][-1])
-			if exp.count[-1] == 0:
-				exp.count[-1] = np.count_nonzero(exp.prop['energy']['inc'][-1])
-		if calc.target['excitation']:
-			parallel.mbe(mpi, exp.prop['excitation']['inc'][-1])
-			if exp.count[-1] == 0:
-				exp.count[-1] = np.count_nonzero(exp.prop['excitation']['inc'][-1])
-		if calc.target['dipole']:
-			parallel.mbe(mpi, exp.prop['dipole']['inc'][-1])
-			if exp.count[-1] == 0:
-				exp.count[-1] = np.count_nonzero(np.count_nonzero(exp.prop['dipole']['inc'][-1], axis=1))
-		if calc.target['trans']:
-			parallel.mbe(mpi, exp.prop['trans']['inc'][-1])
-			if exp.count[-1] == 0:
-				exp.count[-1] = np.count_nonzero(np.count_nonzero(exp.prop['trans']['inc'][-1], axis=1))
+		parallel.mbe(mpi, exp.prop[calc.target]['inc'][-1])
+		exp.count.append(np.count_nonzero(exp.prop[calc.target]['inc'][-1], \
+											axis=0 if calc.target in ['energy', 'excitation'] else 1))
 		# collect time
 		exp.time['mbe'].append(MPI.Wtime() - time)
 
@@ -160,32 +124,12 @@ def _slave(mpi, mol, calc, exp):
 						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
 					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
-						_calc(mpi, mol, calc, exp, task_idx)
+						exp.prop[calc.target]['inc'][-1][task_idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][task_idx])
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
 		# allreduce properties
-		if calc.target['energy']:
-			parallel.mbe(mpi, exp.prop['energy']['inc'][-1])
-		if calc.target['excitation']:
-			parallel.mbe(mpi, exp.prop['excitation']['inc'][-1])
-		if calc.target['dipole']:
-			parallel.mbe(mpi, exp.prop['dipole']['inc'][-1])
-		if calc.target['trans']:
-			parallel.mbe(mpi, exp.prop['trans']['inc'][-1])
-
-
-def _calc(mpi, mol, calc, exp, idx):
-		""" calculate increments """
-		res = _inc(mpi, mol, calc, exp, exp.tuples[-1][idx])
-		if calc.target['energy']:
-			exp.prop['energy']['inc'][-1][idx] = res['energy']
-		if calc.target['excitation']:
-			exp.prop['excitation']['inc'][-1][idx] = res['excitation']
-		if calc.target['dipole']:
-			exp.prop['dipole']['inc'][-1][idx] = res['dipole']
-		if calc.target['trans']:
-			exp.prop['trans']['inc'][-1][idx] = res['trans']
+		parallel.mbe(mpi, exp.prop[calc.target]['inc'][-1])
 
 
 def _inc(mpi, mol, calc, exp, tup):
@@ -193,46 +137,13 @@ def _inc(mpi, mol, calc, exp, tup):
 		# generate input
 		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, tup)
 		# perform calc
-		res = kernel.main(mol, calc, exp, calc.model['method'])
-		inc = {}
-		if calc.target['energy']:
-			inc['energy'] = res['energy']
-			if calc.base['method'] is not None:
-				res = kernel.main(mol, calc, exp, calc.base['method'])
-				inc['energy'] -= res['energy']
-			inc['energy'] -= calc.prop['ref']['energy']
-		if calc.target['excitation']:
-			inc['excitation'] = res['excitation']
-			inc['excitation'] -= calc.prop['ref']['excitation']
-		if calc.target['dipole']:
-			if res['dipole'] is None:
-				inc['dipole'] = np.zeros(3, dtype=np.float64)
-			else:
-				inc['dipole'] = res['dipole']
-				inc['dipole'] -= calc.prop['ref']['dipole']
-		if calc.target['trans']:
-			if res['trans'] is None:
-				inc['trans'] = np.zeros(3, dtype=np.float64)
-			else:
-				inc['trans'] = res['trans']
-				inc['trans'] -= calc.prop['ref']['trans']
+		inc = kernel.main(mol, calc, exp, calc.model['method'])
+		if calc.base['method'] is not None:
+			inc -= kernel.main(mol, calc, exp, calc.base['method'])
+		inc -= calc.prop['ref'][calc.target]
 		if exp.order > 1:
-			if calc.target['energy']:
-				if inc['energy'] != 0.0:
-					res = _sum(calc, exp, tup, 'energy')
-					inc['energy'] -= res['energy']
-			if calc.target['excitation']:
-				if inc['excitation'] != 0.0:
-					res = _sum(calc, exp, tup, 'excitation')
-					inc['excitation'] -= res['excitation']
-			if calc.target['dipole']:
-				if np.any(inc['dipole'] != 0.0):
-					res = _sum(calc, exp, tup, 'dipole')
-					inc['dipole'] -= res['dipole']
-			if calc.target['trans']:
-				if np.any(inc['trans'] != 0.0):
-					res = _sum(calc, exp, tup, 'trans')
-					inc['trans'] -= res['trans']
+			if np.any(inc != 0.0):
+				inc -= _sum(calc, exp, tup, calc.target)
 		# debug print
 		if mol.debug >= 1:
 			tup_lst = [i for i in tup]
@@ -240,34 +151,23 @@ def _inc(mpi, mol, calc, exp, tup):
 			string = ' INC: order = {:} , tup = {:}\n'
 			string += '      symmetry = {:}\n'
 			form = (exp.order, tup_lst, tup_sym)
-			if calc.target['energy']:
-				string += '      correlation energy increment for state {:} = {:.4e}\n'
-				form += (calc.state['root'], inc['energy'],)
-			if calc.target['excitation']:
-				string += '      excitation energy increment for root {:} = {:.4e}\n'
-				form += (calc.state['root'], inc['excitation'],)
-			if calc.target['dipole']:
-				string += '      dipole moment increment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
-				form += (calc.state['root'], *inc['dipole'],)
-			if calc.target['trans']:
-				string += '      transition dipole moment increment for excitation 0 -> {:} = ({:.4e}, {:.4e}, {:.4e})\n'
-				form += (calc.state['root'], *inc['trans'],)
+			if calc.target in ['energy', 'excitation']:
+				string += '      increment for root {:} = {:.4e}\n'
+				form += (calc.state['root'], inc,)
+			else:
+				string += '      increment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
+				form += (calc.state['root'], *inc,)
 			print(string.format(*form))
 		return inc
 
 
-def _sum(calc, exp, tup, prop):
+def _sum(calc, exp, tup, target):
 		""" recursive summation """
 		# init res
-		res = {}
-		if prop == 'energy':
-			res['energy'] = 0.0
-		elif prop == 'excitation':
-			res['excitation'] = 0.0
-		elif prop == 'dipole':
-			res['dipole'] = np.zeros(3, dtype=np.float64)
-		elif prop == 'trans':
-			res['trans'] = np.zeros(3, dtype=np.float64)
+		if target in ['energy', 'excitation']:
+			res = 0.0
+		else:
+			res = np.zeros(3, dtype=np.float64)
 		# compute contributions from lower-order increments
 		for k in range(exp.order-1, 0, -1):
 			# generate array with all subsets of particular tuple
@@ -282,16 +182,18 @@ def _sum(calc, exp, tup, prop):
 			indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
 			tools.assertion(indx is not None, 'error in recursive increment calculation (tuple not found)')
 			# add up lower-order increments
-			if prop == 'energy':
-				res['energy'] += tools.fsum(exp.prop['energy']['inc'][k-1][indx])
-			elif prop == 'excitation':
-				res['excitation'] += tools.fsum(exp.prop['excitation']['inc'][k-1][indx])
-			elif prop == 'dipole':
-				res['dipole'] += tools.fsum(exp.prop['dipole']['inc'][k-1][indx, :])
-			elif prop == 'trans':
-				res['trans'] += tools.fsum(exp.prop['trans']['inc'][k-1][indx, :])
+			if target in ['energy', 'excitation']:
+				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx])
+			else:
+				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx, :])
 		return res
 
 
+def _init_inc(n_tuples, target):
+		""" init array of increments """
+		if target in ['energy', 'excitation']:
+			return np.zeros(n_tuples, dtype=np.float64)
+		else:
+			return np.zeros([n_tuples, 3], dtype=np.float64)
 
 

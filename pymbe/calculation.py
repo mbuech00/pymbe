@@ -50,6 +50,8 @@ class CalcCls():
 						self.misc, self.orbs, self.mpi = self.set_calc()
 					# sanity check
 					self.sanity_chk(mpi, mol)
+					# set target
+					self.target = [x for x in self.target.keys() if self.target[x]][0]
 					# restart logical
 					self.restart = restart.restart()
 				# init prop dict
