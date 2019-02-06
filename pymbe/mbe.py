@@ -31,20 +31,25 @@ TAGS = tools.enum('start', 'ready', 'exit')
 
 def main(mpi, mol, calc, exp):
 		""" mbe phase """
-		# init increments
-		exp.prop[calc.target]['inc'].append(_init_inc(exp.tuples[-1].shape[0], calc.target))
 		# master and slave functions
 		if mpi.master:
-			# master
-			_master(mpi, mol, calc, exp)
+			# start time
+			time = MPI.Wtime()
+			# master function
+			inc = _master(mpi, mol, calc, exp)
+			# collect time
+			exp.time['mbe'].append(MPI.Wtime() - time)
+			# count non-zero increments
+			exp.count.append(np.count_nonzero(inc, axis=0 if calc.target in ['energy', 'excitation'] else 1))
+			# sum up total property
+			exp.prop[calc.target]['tot'].append(tools.fsum(inc))
+			if exp.order > 1:
+				exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
 		else:
-			# slaves
-			_slave(mpi, mol, calc, exp)
-			return
-		# sum up total property
-		exp.prop[calc.target]['tot'].append(tools.fsum(exp.prop[calc.target]['inc'][-1]))
-		if exp.order > 1:
-			exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
+			# slave function
+			inc = _slave(mpi, mol, calc, exp)
+		# append increments
+		exp.prop[calc.target]['inc'].append(inc)
 
 
 def _master(mpi, mol, calc, exp):
@@ -52,8 +57,6 @@ def _master(mpi, mol, calc, exp):
 		# wake up slaves
 		msg = {'task': 'mbe', 'order': exp.order}
 		mpi.comm.bcast(msg, root=0)
-		# start time
-		time = MPI.Wtime()
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# task list and number of tasks
@@ -62,6 +65,8 @@ def _master(mpi, mol, calc, exp):
 		req = MPI.Request()
 		# start index
 		i = 0
+		# init increments
+		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
@@ -87,12 +92,9 @@ def _master(mpi, mol, calc, exp):
 					if slaves_avail == 0:
 						# exit loop
 						break
-		# allreduce properties
-		parallel.mbe(mpi, exp.prop[calc.target]['inc'][-1])
-		exp.count.append(np.count_nonzero(exp.prop[calc.target]['inc'][-1], \
-											axis=0 if calc.target in ['energy', 'excitation'] else 1))
-		# collect time
-		exp.time['mbe'].append(MPI.Wtime() - time)
+		# allreduce increments
+		parallel.mbe(mpi, inc)
+		return inc
 
 
 def _slave(mpi, mol, calc, exp):
@@ -103,6 +105,8 @@ def _slave(mpi, mol, calc, exp):
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# task list
 		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
+		# init increments
+		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
@@ -124,12 +128,13 @@ def _slave(mpi, mol, calc, exp):
 						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
 					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
-						exp.prop[calc.target]['inc'][-1][task_idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][task_idx])
+						inc[task_idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][task_idx])
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
-		# allreduce properties
-		parallel.mbe(mpi, exp.prop[calc.target]['inc'][-1])
+		# allreduce increments
+		parallel.mbe(mpi, inc)
+		return inc
 
 
 def _inc(mpi, mol, calc, exp, tup):
@@ -137,13 +142,13 @@ def _inc(mpi, mol, calc, exp, tup):
 		# generate input
 		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, tup)
 		# perform calc
-		inc = kernel.main(mol, calc, exp, calc.model['method'])
+		inc_tup = kernel.main(mol, calc, exp, calc.model['method'])
 		if calc.base['method'] is not None:
-			inc -= kernel.main(mol, calc, exp, calc.base['method'])
-		inc -= calc.prop['ref'][calc.target]
+			inc_tup -= kernel.main(mol, calc, exp, calc.base['method'])
+		inc_tup -= calc.prop['ref'][calc.target]
 		if exp.order > 1:
-			if np.any(inc != 0.0):
-				inc -= _sum(calc, exp, tup, calc.target)
+			if np.any(inc_tup != 0.0):
+				inc_tup -= _sum(calc, exp, tup, calc.target)
 		# debug print
 		if mol.debug >= 1:
 			tup_lst = [i for i in tup]
@@ -153,12 +158,12 @@ def _inc(mpi, mol, calc, exp, tup):
 			form = (exp.order, tup_lst, tup_sym)
 			if calc.target in ['energy', 'excitation']:
 				string += '      increment for root {:} = {:.4e}\n'
-				form += (calc.state['root'], inc,)
+				form += (calc.state['root'], inc_tup,)
 			else:
 				string += '      increment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
-				form += (calc.state['root'], *inc,)
+				form += (calc.state['root'], *inc_tup,)
 			print(string.format(*form))
-		return inc
+		return inc_tup
 
 
 def _sum(calc, exp, tup, target):

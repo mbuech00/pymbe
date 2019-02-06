@@ -29,10 +29,14 @@ def main(mpi, mol, calc, exp):
 		exp.thres = update(exp.order, calc.thres['init'], calc.thres['relax'])
 		# master and slave functions
 		if mpi.master:
-			# master
+			# start time
+			time = MPI.Wtime()
+			# master function
 			tuples, hashes = _master(mpi, mol, calc, exp)
+			# collect time
+			exp.time['screen'].append(MPI.Wtime() - time)
 		else:
-			# slaves
+			# slave function
 			tuples, hashes = _slave(mpi, mol, calc, exp)
 		# append tuples and hashes
 		exp.tuples.append(tuples)
@@ -43,16 +47,14 @@ def _master(mpi, mol, calc, exp):
 		""" master function """
 		# print header
 		output.screen_header(exp, exp.thres)
+		# converged
 		if exp.count[-1] == 0:
-			# converged
-			exp.tuples.append(np.array([], dtype=np.int32).reshape(-1, exp.order+1))
-			exp.time['screen'].append(0.0)
-			return
+			tuples = np.array([], dtype=np.int32).reshape(-1, exp.order+1)
+			hashes = np.array([], dtype=np.int64)
+			return tuples, hashes
 		# wake up slaves
 		msg = {'task': 'screen', 'order': exp.order}
 		mpi.comm.bcast(msg, root=0)
-		# start time
-		time = MPI.Wtime()
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# task list and number of tasks
@@ -89,10 +91,7 @@ def _master(mpi, mol, calc, exp):
 		# init child_tup/child_hash lists
 		child_tup = []; child_hash = []
 		# allgatherv tuples/hashes
-		tuples, hashes = parallel.screen(mpi, child_tup, child_hash, exp.order)
-		# collect time
-		exp.time['screen'].append(MPI.Wtime() - time)
-		return tuples, hashes
+		return parallel.screen(mpi, child_tup, child_hash, exp.order)
 
 
 def _slave(mpi, mol, calc, exp):
