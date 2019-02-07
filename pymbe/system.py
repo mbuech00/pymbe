@@ -88,7 +88,7 @@ class MolCls(gto.Mole):
 									try:
 										tmp = ast.literal_eval(re.split('=',content[i])[1].strip())
 									except ValueError:
-										raise ValueError('wrong input -- values in system dict (system) must be strings, dicts, ints, and bools')
+										raise ValueError('wrong input -- error in reading in system dictionary')
 									tmp = tools.dict_conv(tmp)
 									for key, val in tmp.items():
 										self.system[key] = val
@@ -104,53 +104,47 @@ class MolCls(gto.Mole):
 
 		def sanity_chk(self):
 				""" sanity check for system parameters """
-				try:
-					# charge
-					if not isinstance(self.system['charge'], int):
-						raise ValueError('wrong input -- charge input in system dict (charge) must be an int')
-					# spin
-					if not isinstance(self.system['spin'], int):
-						raise ValueError('wrong input -- spin input (2S) in system dict (spin) must be an int >= 0')
-					if self.system['spin'] < 0:
-						raise ValueError('wrong input -- spin input (2S) in system dict (spin) must be an int >= 0')
-					# sym
-					if not isinstance(self.system['sym'], str):
-						raise ValueError('wrong input -- symmetry input in system dict (sym) must be a str')
-					if symm.addons.std_symb(self.system['sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
-						raise ValueError('wrong input -- illegal symmetry input in system dict (sym)')
-					# hf_sym
-					if not isinstance(self.system['hf_sym'], str):
-						raise ValueError('wrong input -- HF symmetry input in system dict (hf_sym) must be a str')
-					if symm.addons.std_symb(self.system['hf_sym']) not in symm.param.POINTGROUP + ('Dooh', 'Coov',):
-						raise ValueError('wrong input -- illegal HF symmetry input in system dict (hf_sym)')
-					# hf_init_guess
-					if not isinstance(self.system['hf_init_guess'], str):
-						raise ValueError('wrong input -- HF initial guess in system dict (hf_init_guess) must be a str')
-					if self.system['hf_init_guess'] not in ['minao', 'atom', '1e']:
-						raise ValueError('wrong input -- valid HF initial guesses in system dict (hf_init_guess) are: minao, atom, and 1e')
-					# basis
-					if not isinstance(self.system['basis'], (str, dict)):
-						raise ValueError('wrong input -- basis set input in system dict (basis) must be a str or a dict')
-					# cart
-					if not isinstance(self.system['cart'], bool):
-						raise ValueError('wrong input -- cartesian gto basis input in system dict (cart) must be a bool')
-					# occup
-					if not isinstance(self.system['occup'], dict):
-						raise ValueError('wrong input -- occupation input in system dict (occup) must be a dict')
-					# unit
-					if not isinstance(self.system['unit'], str):
-						raise ValueError('wrong input -- unit input in system dict (unit) must be a str')
-					# frozen
-					if not isinstance(self.system['frozen'], bool):
-						raise ValueError('wrong input -- frozen core input in system dict (frozen) must be a bool')
-					# debug
-					if type(self.system['debug']) is not int:
-						raise ValueError('wrong input -- debug input in system dict (debug) must be an int')
-					if self.system['debug'] < 0:
-						raise ValueError('wrong input -- debug input in system dict (debug) must be an int >= 0')
-				except Exception as err:
-					sys.stderr.write('\n{:}\n\n'.format(err))
-					raise
+				# charge
+				tools.assertion(isinstance(self.system['charge'], int), \
+								'charge input in system dict (charge) must be an int')
+				# spin
+				tools.assertion(isinstance(self.system['spin'], int) and self.system['spin'] >= 0, \
+								'spin input (2S) in system dict (spin) must be an int >= 0')
+				# sym
+				tools.assertion(isinstance(self.system['sym'], str), \
+								'symmetry input in system dict (sym) must be a str')
+				tools.assertion(symm.addons.std_symb(self.system['sym']) in symm.param.POINTGROUP + ('Dooh', 'Coov',), \
+								'illegal symmetry input in system dict (sym)')
+				# hf_sym
+				tools.assertion(isinstance(self.system['hf_sym'], str), \
+								'HF symmetry input in system dict (hf_sym) must be a str')
+				tools.assertion(symm.addons.std_symb(self.system['hf_sym']) in symm.param.POINTGROUP + ('Dooh', 'Coov',), \
+								'illegal HF symmetry input in system dict (hf_sym)')
+				# hf_init_guess
+				tools.assertion(isinstance(self.system['hf_init_guess'], str), \
+								'HF initial guess in system dict (hf_init_guess) must be a str')
+				tools.assertion(self.system['hf_init_guess'] in ['minao', 'atom', '1e'], \
+								'valid HF initial guesses in system dict (hf_init_guess) are: minao, atom, and 1e')
+				# basis
+				tools.assertion(isinstance(self.system['basis'], (str, dict)), \
+								'basis set input in system dict (basis) must be a str or a dict')
+				# cart
+				tools.assertion(isinstance(self.system['cart'], bool), \
+								'cartesian gto basis input in system dict (cart) must be a bool')
+				# occup
+				tools.assertion(isinstance(self.system['occup'], dict), \
+								'occupation input in system dict (occup) must be a dict')
+				# unit
+				tools.assertion(isinstance(self.system['unit'], str), \
+								'unit input in system dict (unit) must be a str')
+				# frozen
+				tools.assertion(isinstance(self.system['frozen'], bool), \
+								'frozen core input in system dict (frozen) must be a bool')
+				# debug
+				tools.assertion(type(self.system['debug']) is int, \
+								'debug input in system dict (debug) must be an int')
+				tools.assertion(self.system['debug'] >= 0, \
+								'debug input in system dict (debug) must be an int >= 0')
 
 
 		def make(self, mpi):
