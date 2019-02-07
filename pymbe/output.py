@@ -16,6 +16,7 @@ import os.path
 import shutil
 import numpy as np
 import contextlib
+from pyscf import symm
 
 import kernel
 import tools
@@ -71,14 +72,20 @@ def mbe_header(exp):
 		_print(string, form)
 
 
-def mbe_status(exp, prog):
-		""" print status bar """
-		# write only to stdout
-		bar_length = 50
-		status = ""
-		block = int(round(bar_length * prog))
-		print(' STATUS:   [{0}]   ---  {1:>6.2f} % {2}'.\
-				format('#' * block + '-' * (bar_length - block), prog * 100, status))
+def mbe_debug(symmetry, orbsym, state, target, order, tup, inc_tup):
+		""" print mbe debug information """
+		tup_lst = [i for i in tup]
+		tup_sym = [symm.addons.irrep_id2name(symmetry, i) for i in orbsym[tup]]
+		string = ' INC: order = {:} , tup = {:}\n'
+		string += '      symmetry = {:}\n'
+		form = (order, tup_lst, tup_sym)
+		if target in ['energy', 'excitation']:
+			string += '      increment for root {:} = {:.4e}\n'
+			form += (state, inc_tup,)
+		else:
+			string += '      increment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
+			form += (state, *inc_tup,)
+		return string.format(*form)
 
 
 def mbe_end(calc, exp):

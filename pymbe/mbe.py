@@ -12,7 +12,6 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-from pyscf import symm
 import sys
 import itertools
 import scipy.misc
@@ -151,18 +150,8 @@ def _inc(mpi, mol, calc, exp, tup):
 				inc_tup -= _sum(calc, exp, tup, calc.target)
 		# debug print
 		if mol.debug >= 1:
-			tup_lst = [i for i in tup]
-			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
-			string = ' INC: order = {:} , tup = {:}\n'
-			string += '      symmetry = {:}\n'
-			form = (exp.order, tup_lst, tup_sym)
-			if calc.target in ['energy', 'excitation']:
-				string += '      increment for root {:} = {:.4e}\n'
-				form += (calc.state['root'], inc_tup,)
-			else:
-				string += '      increment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
-				form += (calc.state['root'], *inc_tup,)
-			print(string.format(*form))
+			print(output.mbe_debug(mol.symmetry, calc.orbsym, calc.state['root'], \
+									calc.target, exp.order, tup, inc_tup))
 		return inc_tup
 
 
