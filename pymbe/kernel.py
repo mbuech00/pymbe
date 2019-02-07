@@ -128,15 +128,12 @@ def hf(mol, calc):
 			hf.diis_start_cycle = i
 			try:
 				hf.kernel()
-			except sp.linalg.LinAlgError: pass
-			if hf.converged: break
+			except sp.linalg.LinAlgError:
+				pass
+			if hf.converged:
+				break
 		# convergence check
-		if not hf.converged:
-			try:
-				raise RuntimeError('\nHF Error : no convergence\n\n')
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
+		tools.assertion(hf.converged, 'HF error: no convergence')
 		# dipole moment
 		if calc.target == 'dipole':
 			dm = hf.make_rdm1()
@@ -449,12 +446,7 @@ def _casscf(mol, calc, mo_coeff, ref_space, nelec):
 									'spin contamination for root entry = {:} , 2*S + 1 = {:.6f}'. \
 										format(root, mult))
 		# convergence check
-		if not cas.converged:
-			try:
-				raise RuntimeError('\nCASSCF Error: no convergence\n\n')
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
+		tools.assertion(cas.converged, 'CASSCF error: no convergence')
 		# debug print of orbital energies
 		if mol.atom:
 			orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, cas.mo_coeff)
@@ -635,14 +627,10 @@ def _cc(mol, calc, core_idx, cas_idx, order, pt=False):
 				ccsd.kernel(eris=eris)
 			except sp.linalg.LinAlgError:
 				pass
-			if ccsd.converged: break
+			if ccsd.converged:
+				break
 		# convergence check
-		if not ccsd.converged:
-			try:
-				raise RuntimeError('\nCCSD Error: no convergence\n\n')
-			except Exception as err:
-				sys.stderr.write(str(err))
-				raise
+		tools.assertion(ccsd.converged, 'CCSD error: no convergence')
 		# e_corr
 		res = {'energy': ccsd.e_corr}
 		# rdm1

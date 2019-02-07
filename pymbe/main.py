@@ -30,6 +30,7 @@ import kernel
 import driver
 import restart
 import results
+import tools
 
 
 def main():
@@ -138,13 +139,8 @@ def _setup():
 		scf.hf.MUTE_CHKFILE = True
 		# PYTHONHASHSEED
 		pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)
-		try:
-			if pythonhashseed == -1:
-				raise RuntimeError('\nenvironment variable PYTHONHASHSEED appears not to have been set - \n'
-									'please set this to an arbitrary integer, e.g., export PYTHONHASHSEED=0\n')
-		except Exception as err:
-			sys.stderr.write('\nRuntimeError : {0:}\n\n'.format(err))
-			raise
+		tools.assertion(int(pythonhashseed) == 0, \
+						'environment variable PYTHONHASHSEED must be set to zero')
 
 
 if __name__ == '__main__':
