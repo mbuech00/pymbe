@@ -65,8 +65,6 @@ def _master(mpi, mol, calc, exp):
 		req = MPI.Request()
 		# start index
 		i = 0
-		# init increments
-		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
@@ -92,6 +90,8 @@ def _master(mpi, mol, calc, exp):
 					if slaves_avail == 0:
 						# exit loop
 						break
+		# init increments
+		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
 		# allreduce increments
 		parallel.mbe(mpi, inc)
 		return inc
