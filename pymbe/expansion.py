@@ -16,7 +16,7 @@ import numpy as np
 import tools
 
 
-class ExpCls():
+class ExpCls(object):
 		""" expansion class """
 		def __init__(self, mol, calc):
 				""" init parameters """

@@ -29,24 +29,19 @@ except (ImportError, OSError):
 	pass
 	SNS_FOUND = False
 
+import output
+import tools
+
+
 # results parameters
-OUT = os.getcwd()+'/output'
-DIVIDER = '{0:^143}'.format('-'*137)
-FILL = '{0:^143}'.format('|'*137)
+DIVIDER = '{:^143}'.format('-'*137)
+FILL = '{:^143}'.format('|'*137)
 
 
 def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
-		# convert final results to numpy arrays
-		exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])
 		# setup
-		info = {}
-		info['model'], info['basis'], info['state'], info['ref'], info['base'], info['prot'], \
-			info['system'], info['frozen'], info['hubbard'], info['active'], \
-			info['occ'], info['virt'], info['mpi'], info['thres'], info['symm'], \
-			info['energy'], info['excitation'], \
-			info['dipole'], info['nuc_dipole'], info['trans'] = _setup(mpi, mol, calc, exp)
-		info['final_order'] = exp.prop['energy']['tot'].size + 1
+		info = _setup(mpi, mol, calc, exp)
 		# results
 		_table(info, mpi, mol, calc, exp)
 		# plot
@@ -54,60 +49,62 @@ def main(mpi, mol, calc, exp):
 
 
 def _setup(mpi, mol, calc, exp):
-		""" init parameters """
-		model = _model(calc)
-		basis = _basis(mol)
-		state = _state(mol, calc)
-		ref = _ref(mol, calc)
-		base = _base(calc)
-		prot = _prot(calc)
-		system = _system(mol, calc)
-		frozen = _frozen(mol)
+		""" parameters """
+		# init info dict
+		info = {}
+		# parameters
+		info['model'] = _model(calc)
+		info['basis'] = _basis(mol)
+		info['state'] = _state(mol, calc)
+		info['ref'] = _ref(mol, calc)
+		info['base'] = _base(calc)
+		info['prot'] = _prot(calc)
+		info['system'] = _system(mol, calc)
+		info['frozen'] = _frozen(mol)
 		if mol.atom:
-			hubbard = None
+			info['hubbard'] = None
 		else:
-			hubbard = _hubbard(mol)
-		active = _active(calc)
-		occ, virt = _orbs(calc)
-		mpi = _mpi(mpi, calc)
-		thres = _thres(calc)
-		symm = _symm(mol, calc)
+			info['hubbard'] = _hubbard(mol)
+		info['active'] = _active(calc)
+		info['occ'], info['virt'] = _orbs(calc)
+		info['mpi'] = _mpi(mpi, calc)
+		info['thres'] = _thres(calc)
+		info['symm'] = _symm(mol, calc)
 		if calc.target == 'energy':
-			energy = _energy(calc, exp)
+			info['energy'] = _energy(calc, exp)
 		else:
-			energy = None
+			info['energy'] = None
 		if calc.target == 'excitation':
-			excitation = _excitation(calc, exp)
+			info['excitation'] = _excitation(calc, exp)
 		else:
-			excitation = None
+			info['excitation'] = None
 		if calc.target == 'dipole':
-			dipole, nuc_dipole = _dipole(mol, calc, exp)
+			info['dipole'], info['nuc_dipole'] = _dipole(mol, calc, exp)
 		else:
-			dipole = nuc_dipole = None
+			info['dipole'] = info['nuc_dipole'] = None
 		if calc.target == 'trans':
-			trans = _trans(mol, calc, exp)
+			info['trans'] = _trans(mol, calc, exp)
 		else:
-			trans = None
-		return model, basis, state, ref, base, prot, system, frozen, \
-				hubbard, active, occ, virt, mpi, thres, symm, \
-				energy, excitation, dipole, nuc_dipole, trans
+			info['trans'] = None
+		info['final_order'] = exp.prop['energy']['tot'].size + 1
+		return info
 
 
 def _table(info, mpi, mol, calc, exp):
 		""" print results """
+		# print header
+		print(output.main_header())
 		# write results to results.out
-		with open(OUT+'/results.out','a') as f:
-			with contextlib.redirect_stdout(f):
-				_summary_prt(info, mol, calc, exp)
-				_timings_prt(info, calc, exp)
-				if calc.target == 'energy' :
-					_energy_prt(info, calc, exp)
-				if calc.target == 'excitation':
-					_excitation_prt(info, calc, exp)
-				if calc.target == 'dipole' :
-					_dipole_prt(info, calc, exp)
-				if calc.target == 'trans':
-					_trans_prt(info, calc, exp)
+		print(_summary_prt(info, mol, calc, exp))
+		print(_timings_prt(info, calc, exp))
+		if calc.target == 'energy' :
+			print(_energy_prt(info, calc, exp))
+		if calc.target == 'excitation':
+			print(_excitation_prt(info, calc, exp))
+		if calc.target == 'dipole' :
+			print(_dipole_prt(info, calc, exp))
+		if calc.target == 'trans':
+			print(_trans_prt(info, calc, exp))
 	
 
 def _plot(info, calc, exp):
@@ -126,7 +123,7 @@ def _plot(info, calc, exp):
 
 def _model(calc):
 		""" model print """
-		return '{0:}'.format(calc.model['method'].upper())
+		return '{:}'.format(calc.model['method'].upper())
 
 
 def _basis(mol):
@@ -193,16 +190,16 @@ def _prot(calc):
 
 def _system(mol, calc):
 		""" system size print """
-		return '{0:} e / {1:} o'.format(mol.nelectron - 2 * mol.ncore, calc.ref_space.size + calc.exp_space.size)
+		return '{:} e / {:} o'.format(mol.nelectron - 2 * mol.ncore, calc.ref_space.size + calc.exp_space.size)
 
 
 def _hubbard(mol):
 		""" hubbard print """
 		if mol.dim == 1:
-			hubbard = ['1d / {0:}x{1:}'.format(mol.nsites, 1)]
+			hubbard = ['1d / {:}x{:}'.format(mol.nsites, 1)]
 		else:
-			hubbard = ['2d / {0:}x{1:}'.format(int(np.sqrt(mol.nsites)), int(np.sqrt(mol.nsites)))]
-		hubbard.append('{0:} / {1:}'.format(mol.u, mol.t))
+			hubbard = ['2d / {:}x{:}'.format(int(np.sqrt(mol.nsites)), int(np.sqrt(mol.nsites)))]
+		hubbard.append('{:} / {:}'.format(mol.u, mol.t))
 		return hubbard
 
 
@@ -216,7 +213,7 @@ def _frozen(mol):
 
 def _active(calc):
 		""" active space print """
-		return '{0:} e / {1:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
+		return '{:} e / {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
 
 
 def _orbs(calc):
@@ -250,12 +247,12 @@ def _orbs(calc):
 
 def _mpi(mpi, calc):
 		""" mpi print """
-		return '{0:} / {1:}'.format(calc.mpi['masters'], mpi.size - calc.mpi['masters'])
+		return '{:} / {:}'.format(calc.mpi['masters'], mpi.size - calc.mpi['masters'])
 
 
 def _thres(calc):
 		""" threshold print """
-		return '{0:.0e} / {1:<.1f}'.format(calc.thres['init'], calc.thres['relax'])
+		return '{:.0e} / {:<.1f}'.format(calc.thres['init'], calc.thres['relax'])
 
 
 def _symm(mol, calc):
@@ -330,110 +327,113 @@ def _time(exp, comp, idx):
 
 def _summary_prt(info, mol, calc, exp):
 		""" summary table """
-		print(DIVIDER)
-		print('{0:14}{1:21}{2:12}{3:1}{4:12}{5:21}{6:11}{7:1}{8:13}{9:}'. \
-				format('','molecular information','','|','', \
-					'expansion information','','|','','calculation information'))
-		print(DIVIDER)
+		string = DIVIDER+'\n'
+		string += '{:14}{:21}{:12}{:1}{:12}{:21}{:11}{:1}{:13}{:}\n'
+		form = ('','molecular information','','|','', \
+					'expansion information','','|','','calculation information',)
+		string += DIVIDER+'\n'
 		if mol.atom:
-			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
-						format('','basis set','','=','',info['basis'], \
-							'','|','','exp. model','','=','',info['model'], \
-							'','|','','mpi masters / slaves','','=','',info['mpi']))
-			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
-						format('','frozen core','','=','',info['frozen'], \
-							'','|','','ref. function','','=','',info['ref'], \
-							'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy']))
+			string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+						'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
+			form += ('','basis set','','=','',info['basis'], \
+						'','|','','exp. model','','=','',info['model'], \
+						'','|','','mpi masters / slaves','','=','',info['mpi'],)
+			string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+					'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+			form += ('','frozen core','','=','',info['frozen'], \
+						'','|','','ref. function','','=','',info['ref'], \
+						'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy'],)
 		else:
-			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
-						format('','hubbard lattice','','=','',info['hubbard'][0], \
-							'','|','','exp. model','','=','',info['model'], \
-							'','|','','mpi masters / slaves','','=','',info['mpi']))
-			print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-					'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
-						format('','hubbard U / t','','=','',info['hubbard'][1], \
-							'','|','','ref. function','','=','',info['ref'], \
-							'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy']))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
-					format('','system size','','=','',info['system'], \
-						'','|','','cas size','','=','',info['active'], \
-						'','|','','base model energy','','=','', \
-						calc.prop['hf']['energy']+calc.prop['base']['energy']))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:1}{21:.6f}'. \
-					format('','state / mult.','','=','',info['state'], \
-						'','|','','base model','','=','',info['base'], \
-						'','|','','MBE total energy','','=','', \
-						calc.prop['hf']['energy'] if info['energy'] is None else info['energy'][-1]))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'.\
-					format('','occupied orbs','','=','',info['occ'], \
-						'','|','','screen. prot.','','=','',info['prot'], \
-						'','|','','total time','','=','',_time(exp, 'tot_sum', -1)))
-		print('{0:9}{1:18}{2:2}{3:1}{4:2}{5:<13s}{6:2}{7:1}{8:7}{9:15}{10:2}{11:1}{12:2}'
-				'{13:<16s}{14:1}{15:1}{16:7}{17:21}{18:3}{19:1}{20:2}{21:<s}'. \
-					format('','virtual orbs','','=','',info['virt'], \
-						'','|','','screen. thres.','','=','',info['thres'], \
-						'','|','','wave funct. symmetry','','=','',info['symm']))
-		print(DIVIDER)
-		print(FILL)
-		print(DIVIDER+'\n')
+			string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+					'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
+			form += ('','hubbard lattice','','=','',info['hubbard'][0], \
+						'','|','','exp. model','','=','',info['model'], \
+						'','|','','mpi masters / slaves','','=','',info['mpi'],)
+			string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+					'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+			form += ('','hubbard U / t','','=','',info['hubbard'][1], \
+						'','|','','ref. function','','=','',info['ref'], \
+						'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy'],)
+		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+		form += ('','system size','','=','',info['system'], \
+					'','|','','cas size','','=','',info['active'], \
+					'','|','','base model energy','','=','', \
+					calc.prop['hf']['energy']+calc.prop['base']['energy'],)
+		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+		form += ('','state / mult.','','=','',info['state'], \
+					'','|','','base model','','=','',info['base'], \
+					'','|','','MBE total energy','','=','', \
+					calc.prop['hf']['energy'] if info['energy'] is None else info['energy'][-1],)
+		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
+		form += ('','occupied orbs','','=','',info['occ'], \
+					'','|','','screen. prot.','','=','',info['prot'], \
+					'','|','','total time','','=','',_time(exp, 'tot_sum', -1),)
+		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
+		form += ('','virtual orbs','','=','',info['virt'], \
+					'','|','','screen. thres.','','=','',info['thres'], \
+					'','|','','wave funct. symmetry','','=','',info['symm'],)
+		string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'
+		return string.format(*form)
 
 
 def _timings_prt(info, calc, exp):
 		""" timings """
-		print(DIVIDER[:98])
-		print('{0:^98}'.format('MBE timings'))
-		print(DIVIDER[:98])
-		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:3}{6:8}{7:1}{8:5}{9:9}{10:5}'
-				'{11:1}{12:8}{13:3}{14:8}{15:1}{16:5}{17:}'. \
-				format('','MBE order','','|','','MBE','','|','','screening', \
-						'','|','','sum','','|','','calculations'))
-		print(DIVIDER[:98])
+		string = DIVIDER[:98]+'\n'
+		string += '{:^98}\n'
+		form = ('MBE timings',)
+		string += DIVIDER[:98]+'\n'
+		string += '{:6}{:9}{:2}{:1}{:8}{:3}{:8}{:1}{:5}{:9}{:5}' \
+				'{:1}{:8}{:3}{:8}{:1}{:5}{:}\n'
+		form += ('','MBE order','','|','','MBE','','|','','screening', \
+					'','|','','sum','','|','','calculations',)
+		string += DIVIDER[:98]+'\n'
 		calcs = 0
 		for i, j in enumerate(range(1, info['final_order'])):
 			calc_i = exp.count[i]
 			calcs += calc_i
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:2}{5:>15s}{6:2}{7:1}{8:2}{9:>15s}{10:2}{11:1}'
-					'{12:2}{13:>15s}{14:2}{15:1}{16:5}{17:>9d}'. \
-					format('',j, \
+			string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
+					'{:2}{:>15s}{:2}{:1}{:5}{:>9d}\n'
+			form += ('',j, \
 						'','|','',_time(exp, 'mbe', i), \
 						'','|','',_time(exp, 'screen', i), \
 						'','|','',_time(exp, 'sum', i), \
-						'','|','',calc_i))
-		print(DIVIDER[:98])
-		print('{0:8}{1:5s}{2:4}{3:1}{4:2}{5:>15s}{6:2}{7:1}{8:2}{9:>15s}{10:2}{11:1}'
-				'{12:2}{13:>15s}{14:2}{15:1}{16:5}{17:>9d}'. \
-				format('','total', \
+						'','|','',calc_i,)
+		string += DIVIDER[:98]+'\n'
+		string += '{:8}{:5s}{:4}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
+				'{:2}{:>15s}{:2}{:1}{:5}{:>9d}\n'
+		form += ('','total', \
 					'','|','',_time(exp, 'tot_mbe', -1), \
 					'','|','',_time(exp, 'tot_screen', -1), \
 					'','|','',_time(exp, 'tot_sum', -1), \
-					'','|','',calcs))
-		print(DIVIDER[:98]+'\n')
+					'','|','',calcs,)
+		string += DIVIDER[:98]+'\n'
+		return string.format(*form)
 
 
 def _energy_prt(info, calc, exp):
 		""" energies """
-		print(DIVIDER[:66])
-		string = 'MBE energy (root = {:})'.format(calc.state['root'])
-		print('{0:^66}'.format(string))
-		print(DIVIDER[:66])
-		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:12}{6:5}{7:1}{8:4}{9:}'. \
-				format('','MBE order','','|','','total energy','','|','','correlation energy'))
-		print(DIVIDER[:66])
-		print('{0:9}{1:>3s}{2:5}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:11.4e}'. \
-				format('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'],'','|','',calc.prop['ref']['energy']))
-		print(DIVIDER[:66])
+		string = DIVIDER[:66]+'\n'
+		string_in = 'MBE energy (root = '+str(calc.state['root'])+')'
+		string += '{:^66}\n'
+		form = (string_in,)
+		string += DIVIDER[:66]+'\n'
+		string += '{:6}{:9}{:2}{:1}{:5}{:12}{:5}{:1}{:4}{:}\n'
+		form += ('','MBE order','','|','','total energy','','|','','correlation energy',)
+		string += DIVIDER[:66]+'\n'
+		string += '{:9}{:>3s}{:5}{:1}{:5}{:>11.6f}{:6}{:1}{:7}{:11.4e}\n'
+		form += ('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'],'','|','',calc.prop['ref']['energy'],)
+		string += DIVIDER[:66]+'\n'
 		for i, j in enumerate(range(1, info['final_order'])):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:5}{5:>11.6f}{6:6}{7:1}{8:7}{9:11.4e}'. \
-					format('',j, \
+			string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:7}{:11.4e}\n'
+			form += ('',j, \
 						'','|','',info['energy'][i], \
-						'','|','',info['energy'][i] - calc.prop['hf']['energy']))
-		print(DIVIDER[:66]+'\n')
+						'','|','',info['energy'][i] - calc.prop['hf']['energy'],)
+		string += DIVIDER[:66]+'\n'
+		return string.format(*form)
 
 
 def _energies_plot(info, calc, exp):
@@ -485,25 +485,27 @@ def _energies_plot(info, calc, exp):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/energy_state_{:}.pdf'.format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/energy_state_{:}.pdf'.format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _excitation_prt(info, calc, exp):
 		""" excitation energies """
-		print(DIVIDER[:43])
-		string = 'MBE excitation energy (root = {:})'.format(calc.state['root'])
-		print('{0:^46}'.format(string))
-		print(DIVIDER[:43])
-		print('{0:6}{1:9}{2:2}{3:1}{4:5}{5:}'. \
-				format('','MBE order','','|','','excitation energy'))
-		print(DIVIDER[:43])
-		print('{0:9}{1:>3s}{2:5}{3:1}{4:8}{5:9.4e}'. \
-				format('','ref','','|','',calc.prop['ref']['excitation']))
-		print(DIVIDER[:43])
+		string = DIVIDER[:43]+'\n'
+		string_in = 'MBE excitation energy (root = '+str(calc.state['root'])+')'
+		string += '{:^46}\n'
+		form = (string_in,)
+		string += DIVIDER[:43]+'\n'
+		string += '{:6}{:9}{:2}{:1}{:5}{:}\n'
+		form += ('','MBE order','','|','','excitation energy',)
+		string += DIVIDER[:43]+'\n'
+		string += '{:9}{:>3s}{:5}{:1}{:8}{:9.4e}\n'
+		form += ('','ref','','|','',calc.prop['ref']['excitation'],)
+		string += DIVIDER[:43]+'\n'
 		for i, j in enumerate(range(1, info['final_order'])):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:8}{5:9.4e}'. \
-					format('',j,'','|','',info['excitation'][i]))
-		print(DIVIDER[:43]+'\n')
+			string += '{:7}{:>4d}{:6}{:1}{:8}{:9.4e}\n'
+			form += ('',j,'','|','',info['excitation'][i],)
+		string += DIVIDER[:43]+'\n'
+		return string.format(*form)
 
 
 def _excitation_plot(info, calc, exp):
@@ -555,35 +557,35 @@ def _excitation_plot(info, calc, exp):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/excitation_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/excitation_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _dipole_prt(info, calc, exp):
 		""" dipole moments """
-		print(DIVIDER[:82])
-		string = 'MBE dipole moment (root = {:})'.format(calc.state['root'])
-		print('{0:^82}'.format(string))
-		print(DIVIDER[:82])
-		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:}'. \
-				format('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment'))
-		print(DIVIDER[:82])
-		print('{0:9}{1:>3s}{2:5}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
-			'{10:5}{11:1}{12:6}{13:9.6f}'. \
-				format('','ref', \
+		string = DIVIDER[:82]+'\n'
+		string_in = 'MBE dipole moment (root = '+str(calc.state['root'])+')'
+		string += '{:^82}\n'
+		form = (string_in,)
+		string += DIVIDER[:82]+'\n'
+		string += '{:6}{:9}{:2}{:1}{:8}{:25}{:9}{:1}{:5}{:}\n'
+		form += ('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment',)
+		string += DIVIDER[:82]+'\n'
+		string += '{:9}{:>3s}{:5}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
+		form += ('','ref', \
 					'','|','',info['nuc_dipole'][0] - calc.prop['hf']['dipole'][0] + calc.prop['ref']['dipole'][0], \
 					'',info['nuc_dipole'][1] - calc.prop['hf']['dipole'][1] + calc.prop['ref']['dipole'][1], \
 					'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2] + calc.prop['ref']['dipole'][2], \
-					'','|','',np.linalg.norm(info['nuc_dipole'] - calc.prop['hf']['dipole'])))
-		print(DIVIDER[:82])
+					'','|','',np.linalg.norm(info['nuc_dipole'] - calc.prop['hf']['dipole']),)
+		string += DIVIDER[:82]+'\n'
 		for i, j in enumerate(range(1, info['final_order'])):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
-				'{10:5}{11:1}{12:6}{13:9.6f}'. \
-					format('',j, \
+			string += '{:7}{:>4d}{:6}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
+			form += ('',j, \
 						'','|','',info['nuc_dipole'][0] - info['dipole'][i, 0], \
 						'',info['nuc_dipole'][1] - info['dipole'][i, 1], \
 						'',info['nuc_dipole'][2] - info['dipole'][i, 2], \
-						'','|','',np.linalg.norm(info['nuc_dipole'] - info['dipole'][i, :])))
-		print(DIVIDER[:82]+'\n')
+						'','|','',np.linalg.norm(info['nuc_dipole'] - info['dipole'][i, :]),)
+		string += DIVIDER[:82]+'\n'
+		return string.format(*form)
 
 
 def _dipole_plot(info, calc, exp):
@@ -639,38 +641,38 @@ def _dipole_plot(info, calc, exp):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/dipole_state_{:}.pdf'.format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/dipole_state_{:}.pdf'.format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _trans_prt(info, calc, exp):
 		""" transition dipole moments """
-		print(DIVIDER[:109])
-		string = 'MBE transition dipole moment (excitation {:} > {:})'.format(0, calc.state['root'])
-		print('{0:^109}'.format(string))
-		print(DIVIDER[:109])
-		print('{0:6}{1:9}{2:2}{3:1}{4:8}{5:25}{6:9}{7:1}{8:5}{9:13}{10:3}{11:1}{12:4}{13:}'. \
-				format('','MBE order','','|','','dipole components (x,y,z)', \
-						'','|','','dipole moment','','|','','oscillator strength'))
-		print(DIVIDER[:109])
-		print('{0:9}{1:>3s}{2:5}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
-			'{10:5}{11:1}{12:6}{13:9.6f}{14:6}{15:1}{16:8}{17:9.6f}'. \
-				format('','ref', \
+		string = DIVIDER[:109]+'\n'
+		string_in = 'MBE transition dipole moment (excitation 0 > '+str(calc.state['root'])+')'
+		string += '{:^109}\n'
+		form = (string_in,)
+		string += DIVIDER[:109]+'\n'
+		string += '{:6}{:9}{:2}{:1}{:8}{:25}{:9}{:1}{:5}{:13}{:3}{:1}{:4}{:}\n'
+		form += ('','MBE order','','|','','dipole components (x,y,z)', \
+					'','|','','dipole moment','','|','','oscillator strength',)
+		string += DIVIDER[:109]+'\n'
+		string += '{:9}{:>3s}{:5}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}{:6}{:1}{:8}{:9.6f}\n'
+		form += ('','ref', \
 					'','|','',calc.prop['ref']['trans'][0], \
 					'',calc.prop['ref']['trans'][1], \
 					'',calc.prop['ref']['trans'][2], \
 					'','|','',np.linalg.norm(calc.prop['ref']['trans'][:]), \
-					'','|','',(2./3.) * calc.prop['ref']['excitation'] * np.linalg.norm(calc.prop['ref']['trans'][:])**2))
-		print(DIVIDER[:109])
+					'','|','',(2./3.) * calc.prop['ref']['excitation'] * np.linalg.norm(calc.prop['ref']['trans'][:])**2,)
+		string += DIVIDER[:109]+'\n'
 		for i, j in enumerate(range(1, info['final_order'])):
-			print('{0:7}{1:>4d}{2:6}{3:1}{4:4}{5:9.6f}{6:^3}{7:9.6f}{8:^3}{9:9.6f}'
-				'{10:5}{11:1}{12:6}{13:9.6f}{14:6}{15:1}{16:8}{17:9.6f}'. \
-					format('',j, \
+			string += '{:7}{:>4d}{:6}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}{:6}{:1}{:8}{:9.6f}\n'
+			form += ('',j, \
 						'','|','',info['trans'][i, 0], \
 						'',info['trans'][i, 1], \
 						'',info['trans'][i, 2], \
 						'','|','',np.linalg.norm(info['trans'][i, :]), \
-						'','|','',(2./3.) * info['excitation'][i] * np.linalg.norm(info['trans'][i, :])**2))
-		print(DIVIDER[:109]+'\n')
+						'','|','',(2./3.) * info['excitation'][i] * np.linalg.norm(info['trans'][i, :])**2,)
+		string += DIVIDER[:109]+'\n'
+		return string.format(*form)
 
 
 def _trans_plot(info, calc, exp):
@@ -724,7 +726,7 @@ def _trans_plot(info, calc, exp):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/trans_dipole_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _osc_strength_plot(info, calc, exp):
@@ -778,6 +780,6 @@ def _osc_strength_plot(info, calc, exp):
 		# set legend
 		ax1.legend(loc=1)
 		# save plot
-		plt.savefig(OUT+'/osc_strength_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/osc_strength_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 

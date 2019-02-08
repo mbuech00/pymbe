@@ -46,7 +46,7 @@ def main(mpi, mol, calc, exp):
 def _master(mpi, mol, calc, exp):
 		""" master function """
 		# print header
-		output.screen_header(exp, exp.thres)
+		print(output.screen_header(exp, exp.thres))
 		# converged
 		if exp.count[-1] == 0:
 			tuples = np.array([], dtype=np.int32).reshape(-1, exp.order+1)

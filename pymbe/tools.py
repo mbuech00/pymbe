@@ -13,19 +13,34 @@ __status__ = 'Development'
 import os
 import sys
 import traceback
-import contextlib
 import subprocess
 import numpy as np
 import math
 
 import parallel
 
-# output folder
+# output folder and files
 OUT = os.getcwd()+'/output'
+OUT_FILE = OUT+'/output.out'
+RES_FILE = OUT+'/results.out'
 # array of degenerate (dooh) orbsym IDs
 # E1gx (2) , E1gy (3)
 # E1uy (6) , E1ux (7)
 DEG_ID = np.array([2, 6]) 
+
+
+class Logger(object):
+		""" write to both stdout and output_file """
+		def __init__(self, output_file, both=True):
+			self.terminal = sys.stdout
+			self.log = open(output_file, 'a')
+			self.both = both
+		def write(self, message):
+			self.log.write(message)
+			if self.both:
+				self.terminal.write(message)
+		def flush(self):
+			pass
 
 
 def enum(*sequential, **named):
@@ -155,11 +170,7 @@ def assertion(condition, reason):
 		if not condition:
 			# get stack
 			stack = ''.join(traceback.format_stack()[:-1])
-			# print to error file and stdout
-			with open(OUT+'/error.out','a') as f:
-				with contextlib.redirect_stdout(f):
-					print('\n\n'+stack)
-					print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
+			# print stack
 			print('\n\n'+stack)
 			print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
 			# abort calculation

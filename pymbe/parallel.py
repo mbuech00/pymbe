@@ -17,7 +17,7 @@ from pyscf import symm
 import restart
 
 
-class MPICls():
+class MPICls(object):
 		""" mpi parameters """
 		def __init__(self):
 				""" init parameters """

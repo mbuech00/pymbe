@@ -25,7 +25,7 @@ import restart
 COMP = ['model', 'base', 'orbs', 'target', 'prot', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
 
 
-class CalcCls():
+class CalcCls(object):
 		""" calculation class """
 		def __init__(self, mpi, mol):
 				""" init parameters """

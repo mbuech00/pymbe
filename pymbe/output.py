@@ -10,20 +10,13 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
-import sys
-import os
-import os.path
-import shutil
 import numpy as np
-import contextlib
 from pyscf import symm
 
 import kernel
 import tools
 
 
-# output folder
-OUT = os.getcwd()+'/output'
 # output parameters
 HEADER = '{0:^87}'.format('-'*45)
 DIVIDER = ' '+'-'*92
@@ -32,24 +25,18 @@ FILL = ' '+'|'*92
 
 def main_header():
 		""" print main header """
-		# rm out if present
-		if os.path.isdir(OUT): shutil.rmtree(OUT)
-		# mkdir out
-		os.mkdir(OUT)
-		# print headers
-		for i in [OUT+'/output.out',OUT+'/results.out']:
-			with open(i,'a') as f:
-				with contextlib.redirect_stdout(f):
-					print("\n\n   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo")
-					print("   `888   `Y88.             `88.       .888' `888'   `Y8b `888'     `8")
-					print("    888   .d88' oooo    ooo  888b     d'888   888     888  888")
-					print("    888ooo88P'   `88.  .8'   8 Y88. .P  888   888oooo888'  888oooo8")
-					print("    888           `88..8'    8  `888'   888   888    `88b  888    \"")
-					print("    888            `888'     8    Y     888   888    .88P  888       o")
-					print("   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8")
-					print("                .o..P'")
-					print("                `Y8P'\n\n")
-					print("   -- git version: {:}\n\n".format(tools.git_version()))
+		string = "\n\n   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo\n"
+		string += "   `888   `Y88.             `88.       .888' `888'   `Y8b `888'     `8\n"
+		string += "    888   .d88' oooo    ooo  888b     d'888   888     888  888\n"
+		string += "    888ooo88P'   `88.  .8'   8 Y88. .P  888   888oooo888'  888oooo8\n"
+		string += "    888           `88..8'    8  `888'   888   888    `88b  888    \"\n"
+		string += "    888            `888'     8    Y     888   888    .88P  888       o\n"
+		string += "   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8\n"
+		string += "                .o..P'\n"
+		string += "                `Y8P'\n\n\n"
+		string += "   -- git version: {:}\n\n\n"
+		form = (tools.git_version(),)
+		return string.format(*form)
 
 
 def exp_header(calc, exp):
@@ -59,7 +46,7 @@ def exp_header(calc, exp):
 		string += '{0:^87}\n'
 		string += HEADER+'\n\n'
 		form = (calc.model['method'].upper()+' expansion',)
-		_print(string, form)
+		return string.format(*form)
 
 
 def mbe_header(exp):
@@ -69,22 +56,22 @@ def mbe_header(exp):
 		string += ' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total\n'
 		string += DIVIDER
 		form = (exp.order, exp.tuples[exp.order-1].shape[0])
-		_print(string, form)
+		return string.format(*form)
 
 
-def mbe_debug(symmetry, orbsym, state, target, order, tup, inc_tup):
+def mbe_debug(mol, calc, exp, tup, inc_tup):
 		""" print mbe debug information """
 		tup_lst = [i for i in tup]
-		tup_sym = [symm.addons.irrep_id2name(symmetry, i) for i in orbsym[tup]]
+		tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
 		string = ' INC: order = {:} , tup = {:}\n'
 		string += '      symmetry = {:}\n'
-		form = (order, tup_lst, tup_sym)
-		if target in ['energy', 'excitation']:
+		form = (exp.order, tup_lst, tup_sym)
+		if calc.target in ['energy', 'excitation']:
 			string += '      increment for root {:} = {:.4e}\n'
-			form += (state, inc_tup,)
+			form += (calc.state['root'], inc_tup,)
 		else:
 			string += '      increment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
-			form += (state, *inc_tup,)
+			form += (calc.state['root'], *inc_tup,)
 		return string.format(*form)
 
 
@@ -95,15 +82,15 @@ def mbe_end(calc, exp):
 		string += ' STATUS:  order k = {0:>d} MBE done  ---  {1:d} tuples in total\n'
 		string += DIVIDER
 		form = (exp.order, exp.count[exp.order-1])
-		_print(string, form)
+		return string.format(*form)
 
 
 def mbe_results(mol, calc, exp):
 		""" print mbe result statistics """
 		if calc.target in ['energy', 'excitation']:
 			string = FILL+'\n'
-			prop_inc = exp.prop[calc.target]['inc'][exp.order-1]
 			prop_tot = exp.prop[calc.target]['tot']
+			prop_inc = exp.prop[calc.target]['inc'][exp.order-1]
 			# statistics
 			if prop_inc.any():
 				mean_val = np.mean(prop_inc[np.nonzero(prop_inc)])
@@ -129,9 +116,8 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
-			string += DIVIDER
+			string += DIVIDER+'\n'
 			form = (header, mean_val, min_val, max_val)
-			_print(string, form)
 		else:
 			string = FILL+'\n'
 			prop_tot = exp.prop[calc.target]['tot']
@@ -172,21 +158,13 @@ def mbe_results(mol, calc, exp):
 				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 				string += DIVIDER+'\n'
 				string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
-				string += DIVIDER
+				string += DIVIDER+'\n'
 				form += (comp[k], mean_val[k], min_val[k], max_val[k],)
-			_print(string, form)
 		if exp.order < exp.max_order:
-			with open(OUT+'/output.out','a') as f:
-				with contextlib.redirect_stdout(f):
-					print(FILL)
-			# write also to stdout
-			print(FILL)
+			string += FILL
 		else:
-			with open(OUT+'/output.out','a') as f:
-				with contextlib.redirect_stdout(f):
-					print('\n\n')
-			# write also to stdout
-			print('\n\n')
+			string += '\n\n'
+		return string.format(*form)
 
 
 def screen_header(exp, thres):
@@ -196,7 +174,7 @@ def screen_header(exp, thres):
 		string += ' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})\n'
 		string += DIVIDER
 		form = (exp.order, thres)
-		_print(string, form)
+		return string.format(*form)
 
 
 def screen_end(exp):
@@ -207,14 +185,6 @@ def screen_end(exp):
 			string += ' STATUS:                  *** convergence has been reached ***                         \n'
 		string += DIVIDER+'\n\n'
 		form = (exp.order,)
-		_print(string, form)
+		return string.format(*form)
 		
-	
-def _print(string, form):
-		""" print to output file and stdout """
-		with open(OUT+'/output.out','a') as f:
-			with contextlib.redirect_stdout(f):
-				print(string.format(*form))
-		print(string.format(*form))
-
 	

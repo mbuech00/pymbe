@@ -150,8 +150,7 @@ def _inc(mpi, mol, calc, exp, tup):
 				inc_tup -= _sum(calc, exp, tup, calc.target)
 		# debug print
 		if mol.debug >= 1:
-			print(output.mbe_debug(mol.symmetry, calc.orbsym, calc.state['root'], \
-									calc.target, exp.order, tup, inc_tup))
+			print(output.mbe_debug(mol, calc, exp, tup, inc_tup))
 		return inc_tup
 
 

@@ -12,6 +12,8 @@ __status__ = 'Development'
 
 import sys
 import os
+import os.path
+import shutil
 import numpy as np
 try:
 	from mpi4py import MPI
@@ -44,8 +46,17 @@ def main():
 			# proceed to slave driver
 			driver.slave(mpi, mol, calc, exp)
 		else:
+			# rm out if present
+			if os.path.isdir(tools.OUT):
+				shutil.rmtree(tools.OUT, ignore_errors=True)
+			# mkdir out
+			os.mkdir(tools.OUT)
+			# init logger
+			sys.stdout = tools.Logger(tools.OUT_FILE)
 			# proceed to main driver
 			driver.master(mpi, mol, calc, exp)
+			# re-init logger
+			sys.stdout = tools.Logger(tools.RES_FILE, both=False)
 			# print/plot results
 			results.main(mpi, mol, calc, exp)
 			# finalize
