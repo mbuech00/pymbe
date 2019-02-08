@@ -153,6 +153,8 @@ class CalcCls(object):
 							raise ValueError('illegal choice of ref wfnsym -- PySCF error: {:}'.format(err))
 				# base model
 				if self.base['method'] is not None:
+					tools.assertion(self.ref['method'] == 'casci', \
+									'use of base model is only permitted for casci expansion references')
 					tools.assertion(self.target['energy'], \
 									'use of base model is only permitted for target energies')
 					tools.assertion(self.base['method'] in ['cisd', 'ccsd', 'ccsd(t)'], \
