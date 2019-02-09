@@ -74,7 +74,7 @@ def main(calc, exp):
 def write_fund(mol, calc):
 		""" write fundamental info restart files """
 		# write dimensions
-		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'norb': mol.norb}
+		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'norb': mol.norb, 'nelec': calc.nelec}
 		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
 			json.dump(dims, f)
 		# write hf, reference, and base properties
@@ -122,7 +122,8 @@ def read_fund(mol, calc):
 			if 'dims' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					dims = json.load(f)
-				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']; mol.norb = dims['norb']
+				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']
+				mol.norb = dims['norb']; calc.nelec = dims['nelec']
 			# read hf and base properties
 			elif 'energies' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
