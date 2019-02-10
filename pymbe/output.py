@@ -59,13 +59,16 @@ def mbe_header(exp):
 		return string.format(*form)
 
 
-def mbe_debug(mol, calc, exp, tup, inc_tup):
+def mbe_debug(mol, calc, exp, tup, inc_tup, cas_idx):
 		""" print mbe debug information """
+		# electrons
+		nelec = (np.count_nonzero(calc.occup[cas_idx] > 0.), np.count_nonzero(calc.occup[cas_idx] > 1.))
+		# tup and symmetry
 		tup_lst = [i for i in tup]
 		tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
-		string = ' INC: order = {:} , tup = {:}\n'
+		string = ' INC: order = {:} , tup = {:} , space = ({:},{:})\n'
 		string += '      symmetry = {:}\n'
-		form = (exp.order, tup_lst, tup_sym)
+		form = (exp.order, tup_lst, nelec[0] + nelec[1], cas_idx.size, tup_sym)
 		if calc.target in ['energy', 'excitation']:
 			string += '      increment for root {:} = {:.4e}\n'
 			form += (calc.state['root'], inc_tup,)
