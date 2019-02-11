@@ -144,9 +144,10 @@ def exp(mpi, calc, exp):
 					exp.prop[calc.target]['inc'].append(buff)
 
 
-def mbe(mpi, prop):
+def mbe(mpi, prop, nelec):
 		""" Allreduce property """
 		mpi.comm.Allreduce(MPI.IN_PLACE, prop, op=MPI.SUM)
+		mpi.comm.Allreduce(MPI.IN_PLACE, nelec, op=MPI.SUM)
 
 
 def screen(mpi, child_tup, child_hash, order):

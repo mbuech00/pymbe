@@ -59,16 +59,14 @@ def mbe_header(n_tuples, n_orbs, order):
 		return string.format(*form)
 
 
-def mbe_debug(mol, calc, exp, tup, inc_tup, cas_idx):
+def mbe_debug(mol, calc, exp, tup, nelec_tup, inc_tup, cas_idx):
 		""" print mbe debug information """
-		# electrons
-		nelec = (np.count_nonzero(calc.occup[cas_idx] > 0.), np.count_nonzero(calc.occup[cas_idx] > 1.))
 		# tup and symmetry
 		tup_lst = [i for i in tup]
 		tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
 		string = ' INC: order = {:} , tup = {:} , space = ({:},{:})\n'
 		string += '      symmetry = {:}\n'
-		form = (exp.order, tup_lst, nelec[0] + nelec[1], cas_idx.size, tup_sym)
+		form = (exp.order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, tup_sym)
 		if calc.target in ['energy', 'excitation']:
 			string += '      increment for root {:} = {:.4e}\n'
 			form += (calc.state['root'], inc_tup,)
@@ -119,8 +117,22 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
-			string += DIVIDER+'\n'
 			form = (header, mean_val, min_val, max_val)
+			# statistics
+			nelec_sum = np.sum(exp.nelec[exp.order-1], axis=1)
+			if nelec_sum.any():
+				mean_nelec = np.mean(nelec_sum[np.nonzero(nelec_sum)]) 
+				min_nelec = np.min(nelec_sum[np.nonzero(nelec_sum)])
+				max_nelec = np.max(nelec_sum[np.nonzero(nelec_sum)])
+			else:
+				mean_nelec = min_nelec = max_nelec = 0.0
+			string += DIVIDER+'\n'
+			string += DIVIDER+'\n'
+			string += ' RESULT:     mean # electrons    |        min. # electrons      |       max. # electrons\n'
+			string += DIVIDER+'\n'
+			string += ' RESULT:          {:>5.2f}          |               {:>2.0f}             |              {:>2.0f}\n'
+			string += DIVIDER+'\n'
+			form += (mean_nelec, min_nelec, max_nelec)
 		else:
 			string = FILL+'\n'
 			prop_tot = exp.prop[calc.target]['tot']
@@ -161,8 +173,22 @@ def mbe_results(mol, calc, exp):
 				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 				string += DIVIDER+'\n'
 				string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
-				string += DIVIDER+'\n'
 				form += (comp[k], mean_val[k], min_val[k], max_val[k],)
+			# statistics
+			nelec_sum = np.sum(exp.nelec[exp.order-1], axis=1)
+			if nelec_sum.any():
+				mean_nelec = np.mean(nelec_sum[np.nonzero(nelec_sum)]) 
+				min_nelec = np.min(nelec_sum[np.nonzero(nelec_sum)])
+				max_nelec = np.max(nelec_sum[np.nonzero(nelec_sum)])
+			else:
+				mean_nelec = min_nelec = max_nelec = 0.0
+			string += DIVIDER+'\n'
+			string += DIVIDER+'\n'
+			string += ' RESULT:     mean # electrons    |        min. # electrons      |       max. # electrons\n'
+			string += DIVIDER+'\n'
+			string += ' RESULT:          {:>5.2f}          |               {:>2.0f}             |              {:>2.0f}\n'
+			string += DIVIDER+'\n'
+			form += (mean_nelec, min_nelec, max_nelec)
 		if exp.order < exp.max_order:
 			string += FILL
 		else:

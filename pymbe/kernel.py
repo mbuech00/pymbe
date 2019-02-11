@@ -230,17 +230,19 @@ def ref_prop(mol, calc, exp):
 				ref = np.zeros(3, dtype=np.float64)
 		else:
 			# exp model
-			ref = main(mol, calc, exp, calc.model['method'])
+			ref = main(mol, calc, exp, calc.model['method'])[1]
 			if calc.base['method'] is not None:
-				ref -= main(mol, calc, exp, calc.base['method'])
+				ref -= main(mol, calc, exp, calc.base['method'])[1]
 		return ref
 
 
 def main(mol, calc, exp, method):
 		""" main prop function """
+		# nelec
+		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
 		# fci calc
 		if method == 'fci':
-			res_tmp = _fci(mol, calc, exp.core_idx, exp.cas_idx)
+			res_tmp = _fci(mol, calc, exp.core_idx, exp.cas_idx, nelec)
 		# cisd calc
 		elif method == 'cisd':
 			res_tmp = _ci(mol, calc, exp.core_idx, exp.cas_idx, exp.order)
@@ -255,7 +257,7 @@ def main(mol, calc, exp, method):
 		elif calc.target == 'trans':
 			res = _trans(mol, calc, exp, res_tmp['t_rdm1'], \
 							res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
-		return res
+		return nelec, res
 
 
 def _dipole(mol, calc, exp, cas_rdm1, trans=False):
@@ -464,10 +466,8 @@ def _casscf(mol, calc, mo_coeff, ref_space, nelec):
 		return cas.mo_energy, np.asarray(cas.mo_coeff, order='C')
 
 
-def _fci(mol, calc, core_idx, cas_idx):
+def _fci(mol, calc, core_idx, cas_idx, nelec):
 		""" fci calc """
-		# electrons
-		nelec = (np.count_nonzero(calc.occup[cas_idx] > 0.), np.count_nonzero(calc.occup[cas_idx] > 1.))
 		# init fci solver
 		if mol.spin == 0:
 			solver = fci.direct_spin0_symm.FCI(mol)
