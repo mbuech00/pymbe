@@ -221,23 +221,23 @@ def _orbs(calc):
 		if calc.orbs['occ'] == 'can':
 			occ = 'canonical'
 		elif calc.orbs['occ'] == 'cisd':
-			occ = 'CISD natural'
+			occ = 'CISD NOs'
 		elif calc.orbs['occ'] == 'ccsd':
-			occ = 'CCSD natural'
+			occ = 'CCSD NOs'
 		elif calc.orbs['occ'] == 'pm':
 			occ = 'pipek-mezey'
 		elif calc.orbs['occ'] == 'fb':
 			occ = 'foster-boys'
 		elif calc.orbs['occ'] == 'ibo-1':
-			occ = 'intrin. bond'
+			occ = 'IBOs'
 		elif calc.orbs['occ'] == 'ibo-2':
-			occ = 'intrin. bond'
+			occ = 'IBOs'
 		if calc.orbs['virt'] == 'can':
 			virt = 'canonical'
 		elif calc.orbs['virt'] == 'cisd':
-			virt = 'CISD natural'
+			virt = 'CISD NOs'
 		elif calc.orbs['virt'] == 'ccsd':
-			virt = 'CCSD natural'
+			virt = 'CCSD NOs'
 		elif calc.orbs['virt'] == 'pm':
 			virt = 'pipek-mezey'
 		elif calc.orbs['virt'] == 'fb':
@@ -366,14 +366,14 @@ def _summary_prt(info, mol, calc, exp):
 					'','|','','base model','','=','',info['base'], \
 					'','|','','MBE total energy','','=','', \
 					calc.prop['hf']['energy'] if info['energy'] is None else info['energy'][-1],)
-		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+		string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-		form += ('','occupied orbs','','=','',info['occ'], \
+		form += ('','occupied MOs','','=','',info['occ'], \
 					'','|','','screen. prot.','','=','',info['prot'], \
 					'','|','','total time','','=','',_time(exp, 'tot_sum', -1),)
-		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+		string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-		form += ('','virtual orbs','','=','',info['virt'], \
+		form += ('','virtual MOs','','=','',info['virt'], \
 					'','|','','screen. thres.','','=','',info['thres'], \
 					'','|','','wave funct. symmetry','','=','',info['symm'],)
 		string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'
