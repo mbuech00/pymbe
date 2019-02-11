@@ -39,23 +39,23 @@ def main_header():
 		return string.format(*form)
 
 
-def exp_header(calc, exp):
+def exp_header(method):
 		""" print expansion header """
 		# set string
 		string = HEADER+'\n'
-		string += '{0:^87}\n'
+		string += '{:^87}\n'
 		string += HEADER+'\n\n'
-		form = (calc.model['method'].upper()+' expansion',)
+		form = (method.upper()+' expansion',)
 		return string.format(*form)
 
 
-def mbe_header(exp):
+def mbe_header(n_tuples, n_orbs, order):
 		""" print mbe header """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {0:>d} MBE started  ---  {1:d} tuples in total\n'
+		string += ' STATUS:  order k = {:} MBE started  ---  {:} tuples in total (each spanning {:} orbitals)\n'
 		string += DIVIDER
-		form = (exp.order, exp.tuples[exp.order-1].shape[0])
+		form = (order, n_tuples, n_orbs)
 		return string.format(*form)
 
 
@@ -78,13 +78,13 @@ def mbe_debug(mol, calc, exp, tup, inc_tup, cas_idx):
 		return string.format(*form)
 
 
-def mbe_end(calc, exp):
+def mbe_end(n_count, n_orbs, order):
 		""" print end of mbe """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {0:>d} MBE done  ---  {1:d} tuples in total\n'
+		string += ' STATUS:  order k = {:} MBE done  ---  {:} tuples in total (each spanning {:} orbitals)\n'
 		string += DIVIDER
-		form = (exp.order, exp.count[exp.order-1])
+		form = (order, n_count, n_orbs)
 		return string.format(*form)
 
 
@@ -170,24 +170,24 @@ def mbe_results(mol, calc, exp):
 		return string.format(*form)
 
 
-def screen_header(exp, thres):
+def screen_header(thres, order):
 		""" print screening header """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {0:>d} screening started (thres. = {1:5.2e})\n'
+		string += ' STATUS:  order k = {:} screening started (thres. = {:5.2e})\n'
 		string += DIVIDER
-		form = (exp.order, thres)
+		form = (order, thres)
 		return string.format(*form)
 
 
-def screen_end(exp):
+def screen_end(n_tuples, order):
 		""" print end of screening """
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {0:>d} screening done\n'
-		if exp.tuples[-1].shape[0] == 0:
+		string += ' STATUS:  order k = {:} screening done\n'
+		if n_tuples == 0:
 			string += ' STATUS:                  *** convergence has been reached ***                         \n'
 		string += DIVIDER+'\n\n'
-		form = (exp.order,)
+		form = (order,)
 		return string.format(*form)
 		
 	
