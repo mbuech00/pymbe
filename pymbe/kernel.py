@@ -185,9 +185,6 @@ def ref_mo(mol, calc):
 			nelec = calc.ref['nelec']
 			tools.assertion(np.sum(nelec) > 0, 'no electrons in the reference space')
 			# active orbs
-			if isinstance(calc.ref['select'], dict):
-				cas = mcscf.CASSCF(calc.hf, np.sum(list(calc.ref['select'].values())), nelec)
-				calc.ref['select'] = mcscf.caslst_by_irrep(cas, calc.mo_coeff, calc.ref['select'], base=0)
 			calc.ref['select'] = np.asarray(calc.ref['select'])
 			# inactive orbitals
 			inact_elec = mol.nelectron - (nelec[0] + nelec[1])

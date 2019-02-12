@@ -134,8 +134,8 @@ class CalcCls(object):
 									'a casscf reference is only meaningful for an fci expansion model')
 				tools.assertion(self.ref['active'] == 'manual', \
 								'active space choices are currently: manual')
-				tools.assertion(isinstance(self.ref['select'], (list, dict)), \
-								'select key (select) for active space must be a list/dict of orbitals')
+				tools.assertion(isinstance(self.ref['select'], list), \
+								'select key (select) for active space must be a list of orbitals')
 				tools.assertion(isinstance(self.ref['nelec'], tuple), \
 								'number of electrons (nelec) in active space must be a tuple (alpha,beta)')
 				tools.assertion(isinstance(self.ref['hf_guess'], bool), \
