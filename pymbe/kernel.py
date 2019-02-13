@@ -237,6 +237,12 @@ def main(mol, calc, exp, method):
 		""" main prop function """
 		# nelec
 		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
+		# no virtuals
+		if np.count_nonzero(calc.occup[exp.cas_idx] == 0.) == 0:
+			if calc.target in ['energy', 'excitation']:
+				return nelec, 0.0
+			else:
+				return nelec, np.zeros(3, dtype=np.float64)
 		# fci calc
 		if method == 'fci':
 			res_tmp = _fci(mol, calc, exp.core_idx, exp.cas_idx, nelec)

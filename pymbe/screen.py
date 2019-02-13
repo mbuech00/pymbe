@@ -208,7 +208,6 @@ def _prot_screen(thres, scheme, target, prop, indx):
 def _prot_scheme(thres, scheme, prop):
 		""" screen according to chosen scheme """
 		if np.sum(prop) == 0.0:
-			# sigma pruning
 			return False
 		else:
 			# are *all* increments below the threshold?
