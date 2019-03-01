@@ -160,17 +160,18 @@ class CalcCls(object):
 					tools.assertion(self.base['method'] in ['cisd', 'ccsd', 'ccsd(t)'], \
 									'valid base models are currently: cisd, ccsd, and ccsd(t)')
 				# state
-				try:
-					self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
-				except Exception as err:
-					raise ValueError('illegal choice of state wfnsym -- PySCF error: {:}'.format(err))
-				tools.assertion(self.state['root'] >= 0, \
-								'choice of target state (root) must be an int >= 0')
-				if self.model['method'] != 'fci':
-					tools.assertion(self.state['wfnsym'] == 0, \
-									'illegal choice of wfnsym for chosen expansion model')
-					tools.assertion(self.state['root'] == 0, \
-									'excited states not implemented for chosen expansion model')
+				if mol.atom:
+					try:
+						self.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, self.state['wfnsym'])
+					except Exception as err:
+						raise ValueError('illegal choice of state wfnsym -- PySCF error: {:}'.format(err))
+					tools.assertion(self.state['root'] >= 0, \
+									'choice of target state (root) must be an int >= 0')
+					if self.model['method'] != 'fci':
+						tools.assertion(self.state['wfnsym'] == 0, \
+										'illegal choice of wfnsym for chosen expansion model')
+						tools.assertion(self.state['root'] == 0, \
+										'excited states not implemented for chosen expansion model')
 				# targets
 				tools.assertion(any(self.target.values()) and len([x for x in self.target.keys() if self.target[x]]) == 1, \
 								'one and only one target property must be requested')

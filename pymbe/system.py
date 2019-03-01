@@ -52,7 +52,7 @@ class MolCls(gto.Mole):
 					# hubbard hamiltonian
 					if not self.atom:
 						self.atom = []
-						self.symmetry = False
+						self.symmetry = self.hf_sym = False
 						self.ncore = 0
 						self.nelectron = self.system['nelec']
 						self.t = self.system['t']

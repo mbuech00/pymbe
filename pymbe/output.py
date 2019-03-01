@@ -63,7 +63,10 @@ def mbe_debug(mol, calc, exp, tup, nelec_tup, inc_tup, cas_idx):
 		""" print mbe debug information """
 		# tup and symmetry
 		tup_lst = [i for i in tup]
-		tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
+		if mol.atom:
+			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
+		else:
+			tup_sym = ['A'] * tup.size
 		string = ' INC: order = {:} , tup = {:} , space = ({:},{:})\n'
 		string += '      symmetry = {:}\n'
 		form = (exp.order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, tup_sym)

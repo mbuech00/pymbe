@@ -183,7 +183,6 @@ def ref_mo(mol, calc):
 		if calc.ref['active'] == 'manual':
 			# electrons
 			nelec = calc.ref['nelec']
-			tools.assertion(np.sum(nelec) > 0, 'no electrons in the reference space')
 			# active orbs
 			calc.ref['select'] = np.asarray(calc.ref['select'])
 			# inactive orbitals
@@ -237,8 +236,8 @@ def main(mol, calc, exp, method):
 		""" main prop function """
 		# nelec
 		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
-		# no virtuals
-		if np.count_nonzero(calc.occup[exp.cas_idx] == 0.) == 0:
+		# no occupied or no virtuals
+		if np.count_nonzero(calc.occup[exp.cas_idx] == 2.) == 0 or np.count_nonzero(calc.occup[exp.cas_idx] == 0.) == 0:
 			if calc.target in ['energy', 'excitation']:
 				return nelec, 0.0
 			else:
@@ -375,15 +374,9 @@ def _casscf(mol, calc, mo_coeff, ref_space, nelec):
 			cas.verbose = 4
 		# fcisolver
 		if np.abs(nelec[0]-nelec[1]) == 0:
-			if mol.symmetry:
-				fcisolver = fci.direct_spin0_symm.FCI(mol)
-			else:
-				fcisolver = fci.direct_spin0.FCI(mol)
+			fcisolver = fci.direct_spin0_symm.FCI(mol)
 		else:
-			if mol.symmetry:
-				fcisolver = fci.direct_spin1_symm.FCI(mol)
-			else:
-				fcisolver = fci.direct_spin1.FCI(mol)
+			fcisolver = fci.direct_spin1_symm.FCI(mol)
 		# conv_tol
 		fcisolver.conv_tol = max(calc.thres['init'], 1.0e-10)
 		# orbital symmetry
