@@ -187,8 +187,7 @@ def ref_mo(mol, calc):
 			core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))
 			# NOs
 			if calc.orbs['type'] in ['ccsd', 'ccsd(t)']:
-				res = _cc(mol, calc, core_idx, cas_idx, calc.orbs['type'], True)
-				rdm1 = res['rdm1']
+				rdm1 = _cc(mol, calc, core_idx, cas_idx, calc.orbs['type'], True)
 				if mol.spin > 0:
 					rdm1 = rdm1[0] + rdm1[1]
 				# occ-occ block
@@ -197,6 +196,7 @@ def ref_mo(mol, calc):
 				# virt-virt block
 				occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
 				calc.mo_coeff[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.nocc:], no[:, ::-1])
+			# pipek-mezey localized orbitals
 			elif calc.orbs['type'] == 'local':
 				# occ-occ block
 				if mol.atom:
@@ -279,20 +279,19 @@ def main(mol, calc, exp, method):
 				return nelec, 0.0
 			else:
 				return nelec, np.zeros(3, dtype=np.float64)
-		# fci calc
-		if method == 'fci':
+		if method in ['ccsd','ccsd(t)']:
+			# ccsd / ccsd(t) calc
+			res = _cc(mol, calc, exp.core_idx, exp.cas_idx, method)
+		elif method == 'fci':
+			# fci calc
 			res_tmp = _fci(mol, calc, exp.core_idx, exp.cas_idx, nelec)
-		# ccsd / ccsd(t) calc
-		elif method in ['ccsd','ccsd(t)']:
-			res_tmp = _cc(mol, calc, exp.core_idx, exp.cas_idx, method)
-		if calc.target in ['energy', 'excitation']:
-			res = res_tmp[calc.target]
-		# return first-order properties
-		elif calc.target == 'dipole':
-			res = _dipole(mol, calc, exp, res_tmp['rdm1'])
-		elif calc.target == 'trans':
-			res = _trans(mol, calc, exp, res_tmp['t_rdm1'], \
-							res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
+			if calc.target in ['energy', 'excitation']:
+				res = res_tmp[calc.target]
+			elif calc.target == 'dipole':
+				res = _dipole(mol, calc, exp, res_tmp['rdm1'])
+			elif calc.target == 'trans':
+				res = _trans(mol, calc, exp, res_tmp['t_rdm1'], \
+								res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 		return nelec, res
 
 
@@ -330,12 +329,11 @@ def base(mol, calc):
 		rdm1 = None
 		# no base
 		if calc.base['method'] is None:
-			base = 0.0
+			e_base = 0.0
 		# ccsd / ccsd(t) base
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
-			res = _cc(mol, calc, core_idx, cas_idx, calc.base['method'])
-			base = res['energy']
-		return base
+			e_base = _cc(mol, calc, core_idx, cas_idx, calc.base['method'])
+		return e_base
 
 
 def _casscf(mol, calc, mo_coeff, ref_space, nelec):
@@ -572,23 +570,25 @@ def _cc(mol, calc, core_idx, cas_idx, method, rdm=False):
 		# convergence check
 		tools.assertion(ccsd.converged, 'CCSD error: no convergence')
 		# e_corr
-		res = {'energy': ccsd.e_corr}
+		e_cc = ccsd.e_corr
 		# calculate (t) correction
 		if method == 'ccsd(t)':
 			if np.amin(calc.occup[cas_idx]) == 1.0:
 				if np.where(calc.occup[cas_idx] == 1.)[0].size >= 3:
-					res['energy'] += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
+					e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 			else:
-				res['energy'] += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
+				e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 		# rdm1
-		if rdm:
+		if not rdm:
+			return e_cc
+		else:
 			if method == 'ccsd':
 				ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-				res['rdm1'] = ccsd.make_rdm1()
+				rdm1 = ccsd.make_rdm1()
 			elif method == 'ccsd(t)':
 				l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
-				res['rdm1'] = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
-		return res
+				rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+			return rdm1
 
 
 def _prepare(mol, calc, core_idx, cas_idx):
