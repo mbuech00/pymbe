@@ -213,7 +213,8 @@ def ref_mo(mol, calc):
 		mo_coeff = calc.mo_coeff
 		if calc.ref['active'] == 'manual':
 			# electrons
-			nelec = calc.ref['nelec']
+			nelec = np.asarray((np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
+								np.count_nonzero(calc.occup[calc.ref['select']] > 1.)), dtype=np.int32)
 			# active orbs
 			calc.ref['select'] = np.asarray(calc.ref['select'])
 			# inactive orbitals
@@ -272,7 +273,8 @@ def ref_prop(mol, calc, exp):
 def main(mol, calc, exp, method):
 		""" main prop function """
 		# nelec
-		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
+		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), \
+							np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
 		# no occupied or no virtuals
 		if np.count_nonzero(calc.occup[exp.cas_idx] == 2.) == 0 or np.count_nonzero(calc.occup[exp.cas_idx] == 0.) == 0:
 			if calc.target in ['energy', 'excitation']:
