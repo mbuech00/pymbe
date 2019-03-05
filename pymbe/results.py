@@ -349,7 +349,7 @@ def _summary_prt(info, mol, calc, exp):
 		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
 		form += ('','system size','','=','',info['system'], \
-					'','|','','cas size','','=','',info['active'], \
+					'','|','','exp. reference','','=','',info['active'], \
 					'','|','','base model energy','','=','', \
 					calc.prop['hf']['energy']+calc.prop['base']['energy'],)
 		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
