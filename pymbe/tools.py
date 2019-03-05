@@ -16,6 +16,7 @@ import traceback
 import subprocess
 import numpy as np
 import math
+from pyscf import lo
 
 import parallel
 
@@ -163,6 +164,14 @@ def sigma_prune(mo_energy, orbsym, tup, mbe=False):
 							# the pi orbs are not pair-wise degenerated
 							return False
 		return True
+
+
+class hubbard_PM(lo.pipek.PM):
+		""" Construct the site-population tensor for each orbital-pair density
+			(pyscf example: 40-hubbard_model_PM_localization.py) """
+		def atomic_pops(self, mol, mo_coeff, method=None):
+			""" This tensor is used in cost-function and its gradients """
+			return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
 def assertion(condition, reason):

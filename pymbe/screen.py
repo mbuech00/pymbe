@@ -47,8 +47,8 @@ def _master(mpi, mol, calc, exp):
 		""" master function """
 		# print header
 		print(output.screen_header(exp.thres, exp.order))
-		# converged
-		if exp.count[-1] == 0:
+		# converged due to pi screening
+		if exp.order > 1 and exp.count[-1] == 0:
 			tuples = np.array([], dtype=np.int32).reshape(-1, exp.order+1)
 			hashes = np.array([], dtype=np.int64)
 			return tuples, hashes

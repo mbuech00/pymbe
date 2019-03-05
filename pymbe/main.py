@@ -115,10 +115,10 @@ def _exp(mpi, mol, calc):
 					calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
 					calc.occup, calc.orbsym, \
 					calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
-				# base energy
-				calc.prop['base']['energy'] = kernel.base(mol, calc)
 				# reference and expansion spaces and mo coefficients
 				calc.mo_energy, calc.mo_coeff, calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
+				# base energy
+				calc.prop['base']['energy'] = kernel.base(mol, calc)
 				# exp object
 				exp = expansion.ExpCls(mol, calc)
 				# reference space properties

@@ -19,6 +19,9 @@ import scipy as sp
 from functools import reduce
 from mpi4py import MPI
 from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
+from pyscf.cc import ccsd_t
+from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
+from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 
 import tools
 
@@ -91,6 +94,8 @@ def _hubbard_h1(mol):
 				# up-down
 				for i in range(n):
 					h1[i, n*(n-1)+i] = h1[n*(n-1)+i, i] = -t
+				# corners (for t_prime)
+#				h1[-1, 0] = h1[0, -1] = h1[n-1, n**2-n] = h1[n**2-n, n-1] = -t
 		return h1
 
 
@@ -177,6 +182,32 @@ def _dim(hf, calc):
 
 def ref_mo(mol, calc):
 		""" determine reference mo coefficients """
+		if calc.orbs['type'] != 'can':
+			# set core and cas spaces
+			core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))
+			# NOs
+			if calc.orbs['type'] in ['ccsd', 'ccsd(t)']:
+				res = _cc(mol, calc, core_idx, cas_idx, calc.orbs['type'], True)
+				rdm1 = res['rdm1']
+				if mol.spin > 0:
+					rdm1 = rdm1[0] + rdm1[1]
+				# occ-occ block
+				occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
+				calc.mo_coeff[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
+				# virt-virt block
+				occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
+				calc.mo_coeff[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.nocc:], no[:, ::-1])
+			elif calc.orbs['type'] == 'local':
+				# occ-occ block
+				if mol.atom:
+					calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
+				else:
+					calc.mo_coeff[:, mol.ncore:mol.nocc] = tools.hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
+				# virt-virt block
+				if mol.atom:
+					calc.mo_coeff[:, mol.nocc:] = lo.PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
+				else:
+					calc.mo_coeff[:, mol.nocc:] = tools.hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
 		# sort mo coefficients
 		mo_energy = calc.mo_energy
 		mo_coeff = calc.mo_coeff
@@ -195,15 +226,17 @@ def ref_mo(mol, calc):
 			virt_orbs = mol.norb - inact_orbs - act_orbs
 			# divide into inactive-active-virtual
 			idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
-			mo_coeff = np.concatenate((mo_coeff[:, idx[:inact_orbs]], mo_coeff[:, calc.ref['select']], mo_coeff[:, idx[inact_orbs:]]), axis=1)
-			if mol.atom:
-				calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+			if act_orbs > 0:
+				mo_coeff = np.concatenate((mo_coeff[:, idx[:inact_orbs]], mo_coeff[:, calc.ref['select']], mo_coeff[:, idx[inact_orbs:]]), axis=1)
+				if mol.atom:
+					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
 		# reference and expansion spaces
 		ref_space = np.arange(inact_orbs, inact_orbs+act_orbs)
 		exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
 		# casci or casscf
 		if calc.ref['method'] == 'casci':
-			mo_energy = np.concatenate((mo_energy[idx[:inact_orbs]], mo_energy[calc.ref['select']], mo_energy[idx[inact_orbs:]]))
+			if act_orbs > 0:
+				mo_energy = np.concatenate((mo_energy[idx[:inact_orbs]], mo_energy[calc.ref['select']], mo_energy[idx[inact_orbs:]]))
 		elif calc.ref['method'] == 'casscf':
 			tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] == 2.) != 0, \
 							'no occupied orbitals in CASSCF calculation')
@@ -249,12 +282,9 @@ def main(mol, calc, exp, method):
 		# fci calc
 		if method == 'fci':
 			res_tmp = _fci(mol, calc, exp.core_idx, exp.cas_idx, nelec)
-		# cisd calc
-		elif method == 'cisd':
-			res_tmp = _ci(mol, calc, exp.core_idx, exp.cas_idx, exp.order)
 		# ccsd / ccsd(t) calc
 		elif method in ['ccsd','ccsd(t)']:
-			res_tmp = _cc(mol, calc, exp.core_idx, exp.cas_idx, exp.order, method == 'ccsd(t)')
+			res_tmp = _cc(mol, calc, exp.core_idx, exp.cas_idx, method)
 		if calc.target in ['energy', 'excitation']:
 			res = res_tmp[calc.target]
 		# return first-order properties
@@ -301,66 +331,10 @@ def base(mol, calc):
 		# no base
 		if calc.base['method'] is None:
 			base = 0.0
-		# cisd base
-		elif calc.base['method'] == 'cisd':
-			res = _ci(mol, calc, core_idx, cas_idx, 0)
-			base = res['energy']
-			if 'rdm1' in res:
-				rdm1 = res['rdm1']
-				if mol.spin > 0:
-					rdm1 = rdm1[0] + rdm1[1]
 		# ccsd / ccsd(t) base
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
-			res = _cc(mol, calc, core_idx, cas_idx, 0, \
-						calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] == 'can' and calc.orbs['virt'] == 'can'))
+			res = _cc(mol, calc, core_idx, cas_idx, calc.base['method'])
 			base = res['energy']
-			if 'rdm1' in res:
-				rdm1 = res['rdm1']
-				if mol.spin > 0:
-					rdm1 = rdm1[0] + rdm1[1]
-		# NOs
-		if (calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd') and rdm1 is None:
-			res = _ci(mol, calc, core_idx, cas_idx, 0)
-			rdm1 = res['rdm1']
-			if mol.spin > 0:
-				rdm1 = rdm1[0] + rdm1[1]
-		elif (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and rdm1 is None:
-			res = _cc(mol, calc, core_idx, cas_idx, 0, False)
-			rdm1 = res['rdm1']
-			if mol.spin > 0:
-				rdm1 = rdm1[0] + rdm1[1]
-		# occ-occ block (local or NOs)
-		if calc.orbs['occ'] != 'can':
-			if calc.orbs['occ'] in ['cisd', 'ccsd']:
-				occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
-				calc.mo_coeff[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
-			elif calc.orbs['occ'] == 'pm':
-				calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.orbs['occ'] == 'fb':
-				calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.Boys(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
-			elif calc.orbs['occ'] in ['ibo-1','ibo-2']:
-				iao = lo.iao.iao(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
-				if calc.orbs['occ'] == 'ibo-1':
-					iao = lo.vec_lowdin(iao, calc.hf.get_ovlp())
-					calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.ibo.ibo(mol, calc.mo_coeff[:, mol.ncore:mol.nocc], iao)
-				elif calc.orbs['occ'] == 'ibo-2':
-					calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.ibo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc], iao).kernel()
-		# virt-virt block (local or NOs)
-		if calc.orbs['virt'] != 'can':
-			if calc.orbs['virt'] in ['cisd', 'ccsd']:
-				occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
-				calc.mo_coeff[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.nocc:], no[:, ::-1])
-			elif calc.orbs['virt'] == 'pm':
-				calc.mo_coeff[:, mol.nocc:] = lo.PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
-			elif calc.orbs['virt'] == 'fb':
-				calc.mo_coeff[:, mol.nocc:] = lo.Boys(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
-		# extra calculation for non-invariant ccsd(t)
-		if calc.base['method'] == 'ccsd(t)' and (calc.orbs['occ'] != 'can' or calc.orbs['virt'] != 'can'):
-			res = _cc(mol, calc, core_idx, cas_idx, 0, True)
-			base = res['energy']
-		# update orbsym
-		if mol.atom:
-			calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 		return base
 
 
@@ -557,41 +531,7 @@ def _fci(mol, calc, core_idx, cas_idx, nelec):
 		return res
 
 
-def _ci(mol, calc, core_idx, cas_idx, order):
-		""" cisd calc """
-		# get integrals
-		h1e, h2e = _prepare(mol, calc, core_idx, cas_idx)
-		mol_tmp = gto.M(verbose=0)
-		mol_tmp.incore_anyway = mol.incore_anyway
-		mol_tmp.max_memory = mol.max_memory
-		if mol.spin == 0:
-			hf = scf.RHF(mol_tmp)
-		else:
-			hf = scf.UHF(mol_tmp)
-		hf.get_hcore = lambda *args: h1e
-		hf._eri = h2e 
-		# init ccsd
-		if mol.spin == 0:
-			cisd = ci.cisd.CISD(hf, mo_coeff=np.eye(cas_idx.size), mo_occ=calc.occup[cas_idx])
-		else:
-			cisd = ci.ucisd.UCISD(hf, mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))), \
-									mo_occ=np.array((calc.occup[cas_idx] > 0., calc.occup[cas_idx] == 2.), dtype=np.double))
-		# settings
-		cisd.conv_tol = max(calc.thres['init'], 1.0e-10)
-		cisd.max_cycle = 500
-		cisd.max_space = 25
-		eris = cisd.ao2mo()
-		# calculate cisd energy
-		cisd.kernel(eris=eris)
-		# e_corr
-		res = {'energy': cisd.e_corr}
-		# rdm1
-		if order == 0 and (calc.orbs['occ'] == 'cisd' or calc.orbs['virt'] == 'cisd'):
-			res['rdm1'] = cisd.make_rdm1()
-		return res
-
-
-def _cc(mol, calc, core_idx, cas_idx, order, pt=False):
+def _cc(mol, calc, core_idx, cas_idx, method, rdm=False):
 		""" ccsd / ccsd(t) calc """
 		# get integrals
 		h1e, h2e = _prepare(mol, calc, core_idx, cas_idx)
@@ -612,7 +552,7 @@ def _cc(mol, calc, core_idx, cas_idx, order, pt=False):
 									mo_occ=np.array((calc.occup[cas_idx] > 0., calc.occup[cas_idx] == 2.), dtype=np.double))
 		# settings
 		ccsd.conv_tol = max(calc.thres['init'], 1.0e-10)
-		if order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and not pt:
+		if rdm:
 			ccsd.conv_tol_normt = ccsd.conv_tol
 		ccsd.max_cycle = 500
 		# avoid async function execution if requested
@@ -633,17 +573,21 @@ def _cc(mol, calc, core_idx, cas_idx, order, pt=False):
 		tools.assertion(ccsd.converged, 'CCSD error: no convergence')
 		# e_corr
 		res = {'energy': ccsd.e_corr}
-		# rdm1
-		if order == 0 and (calc.orbs['occ'] == 'ccsd' or calc.orbs['virt'] == 'ccsd') and not pt:
-			ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-			res['rdm1'] = ccsd.make_rdm1()
 		# calculate (t) correction
-		if pt:
+		if method == 'ccsd(t)':
 			if np.amin(calc.occup[cas_idx]) == 1.0:
 				if np.where(calc.occup[cas_idx] == 1.)[0].size >= 3:
-					res['energy'] += ccsd.ccsd_t(eris=eris)
+					res['energy'] += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 			else:
-				res['energy'] += ccsd.ccsd_t(eris=eris)
+				res['energy'] += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
+		# rdm1
+		if rdm:
+			if method == 'ccsd':
+				ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
+				res['rdm1'] = ccsd.make_rdm1()
+			elif method == 'ccsd(t)':
+				l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
+				res['rdm1'] = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
 		return res
 
 

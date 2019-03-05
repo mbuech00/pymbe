@@ -66,7 +66,7 @@ def _setup(mpi, mol, calc, exp):
 		else:
 			info['hubbard'] = _hubbard(mol)
 		info['active'] = _active(calc)
-		info['occ'], info['virt'] = _orbs(calc)
+		info['orbs'] = _orbs(calc)
 		info['mpi'] = _mpi(mpi, calc)
 		info['thres'] = _thres(calc)
 		info['symm'] = _symm(mol, calc)
@@ -218,31 +218,14 @@ def _active(calc):
 
 def _orbs(calc):
 		""" orbital print """
-		if calc.orbs['occ'] == 'can':
-			occ = 'canonical'
-		elif calc.orbs['occ'] == 'cisd':
-			occ = 'CISD NOs'
-		elif calc.orbs['occ'] == 'ccsd':
-			occ = 'CCSD NOs'
-		elif calc.orbs['occ'] == 'pm':
-			occ = 'pipek-mezey'
-		elif calc.orbs['occ'] == 'fb':
-			occ = 'foster-boys'
-		elif calc.orbs['occ'] == 'ibo-1':
-			occ = 'IBOs'
-		elif calc.orbs['occ'] == 'ibo-2':
-			occ = 'IBOs'
-		if calc.orbs['virt'] == 'can':
-			virt = 'canonical'
-		elif calc.orbs['virt'] == 'cisd':
-			virt = 'CISD NOs'
-		elif calc.orbs['virt'] == 'ccsd':
-			virt = 'CCSD NOs'
-		elif calc.orbs['virt'] == 'pm':
-			virt = 'pipek-mezey'
-		elif calc.orbs['virt'] == 'fb':
-			virt = 'foster-boys'
-		return occ, virt
+		if calc.orbs['type'] == 'can':
+			return 'canonical'
+		elif calc.orbs['type'] == 'ccsd':
+			return 'CCSD NOs'
+		elif calc.orbs['type'] == 'ccsd(t)':
+			return 'CCSD(T) NOs'
+		elif calc.orbs['occ'] == 'local':
+			return 'pipek-mezey'
 
 
 def _mpi(mpi, calc):
@@ -368,12 +351,12 @@ def _summary_prt(info, mol, calc, exp):
 					calc.prop['hf']['energy'] if info['energy'] is None else info['energy'][-1],)
 		string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-		form += ('','occupied MOs','','=','',info['occ'], \
+		form += ('','orbitals','','=','',info['orbs'], \
 					'','|','','screen. prot.','','=','',info['prot'], \
 					'','|','','total time','','=','',_time(exp, 'tot_sum', -1),)
 		string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-		form += ('','virtual MOs','','=','',info['virt'], \
+		form += ('','FCI solver','','=','','PySCF (spin0)', \
 					'','|','','screen. thres.','','=','',info['thres'], \
 					'','|','','wave funct. symmetry','','=','',info['symm'],)
 		string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'

@@ -42,7 +42,7 @@ class CalcCls(object):
 				self.extra = {'hf_guess': True, 'sigma': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
-				self.orbs = {'occ': 'can', 'virt': 'can'}
+				self.orbs = {'type': 'can'}
 				self.mpi = {'masters': 1, 'task_size': 1}
 				# init mo
 				self.mo = None
@@ -124,8 +124,8 @@ class CalcCls(object):
 				# expansion model
 				tools.assertion(isinstance(self.model['method'], str), \
 								'input electronic structure method (method) must be a string')
-				tools.assertion(self.model['method'] in ['cisd', 'ccsd', 'ccsd(t)', 'fci'], \
-								'valid expansion models are: cisd, ccsd, ccsd(t), and fci')
+				tools.assertion(self.model['method'] in ['ccsd', 'ccsd(t)', 'fci'], \
+								'valid expansion models are: ccsd, ccsd(t), and fci')
 				# reference model
 				tools.assertion(self.ref['method'] in ['casci', 'casscf'], \
 								'valid reference models are: casci and casscf')
@@ -157,8 +157,8 @@ class CalcCls(object):
 									'use of base model is only permitted for casci expansion references')
 					tools.assertion(self.target['energy'], \
 									'use of base model is only permitted for target energies')
-					tools.assertion(self.base['method'] in ['cisd', 'ccsd', 'ccsd(t)'], \
-									'valid base models are currently: cisd, ccsd, and ccsd(t)')
+					tools.assertion(self.base['method'] in ['ccsd', 'ccsd(t)'], \
+									'valid base models are currently: ccsd, and ccsd(t)')
 				# state
 				if mol.atom:
 					try:
@@ -207,14 +207,13 @@ class CalcCls(object):
 				tools.assertion(self.thres['relax'] >= 1.0, \
 								'threshold relaxation (relax) must be a float >= 1.0')
 				# orbital representation
-				tools.assertion(self.orbs['occ'] in ['can', 'pm', 'fb', 'ibo-1', 'ibo-2', 'cisd', 'ccsd'], \
+				tools.assertion(self.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \
 								'valid occupied orbital representations (occ) are currently: '
-								'canonical (can), local (pm or fb), '
-								'intrinsic bond orbs (ibo-1 or ibo-2), or natural orbs (cisd or ccsd)')
-				tools.assertion(self.orbs['virt'] in ['can', 'pm', 'fb', 'cisd', 'ccsd'], \
-								'valid virtual orbital representations (virt) are currently: '
-								'canonical (can), local (pm or fb), or natural orbs (cisd or ccsd)')
-				if self.orbs['occ'] in ['pm', 'fb', 'ibo-1', 'ibo-2'] or self.orbs['virt'] in ['pm', 'fb']:
+								'canonical (can), pipek-mezey (local), or natural orbs (ccsd or ccsd(t))')
+				if self.orbs['type'] != 'can':
+					tools.assertion(self.ref['method'] == 'casci', \
+									'non-canonical orbitals requires casci expansion reference')
+				if mol.atom and self.orbs['type'] == 'local':
 					tools.assertion(mol.symmetry == 'C1', \
 									'the combination of local orbs and point group symmetry '
 									'different from c1 is not allowed')
