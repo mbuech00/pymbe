@@ -30,7 +30,7 @@ class CalcCls(object):
 		def __init__(self, mpi, mol):
 				""" init parameters """
 				# set defaults
-				self.model = {'method': 'fci'}
+				self.model = {'method': 'fci', 'solver': 'pyscf_spin0'}
 				self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
 				self.prot = {'scheme': 'new'}
 				self.ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
@@ -125,6 +125,14 @@ class CalcCls(object):
 								'input electronic structure method (method) must be a string')
 				tools.assertion(self.model['method'] in ['ccsd', 'ccsd(t)', 'fci'], \
 								'valid expansion models are: ccsd, ccsd(t), and fci')
+				tools.assertion(self.model['solver'] in ['pyscf_spin0', 'pyscf_spin1'], \
+								'valid FCI solvers are: pyscf_spin0 and pyscf_spin1')
+				if self.model['method'] != 'fci':
+					tools.assertion(self.model['solver'] == 'pyscf_spin0', \
+									'setting a FCI solver for a non-FCI expansion model is not meaningful')
+				if mol.spin > 0:
+					tools.assertion(self.model['solver'] != 'pyscf_spin0', \
+									'the pyscf_spin0 FCI solver is designed for spin singlets only')
 				# reference model
 				tools.assertion(self.ref['method'] in ['casci', 'casscf'], \
 								'valid reference models are: casci and casscf')

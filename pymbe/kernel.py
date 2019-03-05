@@ -351,9 +351,9 @@ def _casscf(mol, calc, mo_coeff, ref_space, nelec):
 		if mol.debug >= 1:
 			cas.verbose = 4
 		# fcisolver
-		if np.abs(nelec[0]-nelec[1]) == 0:
+		if calc.model['solver'] == 'pyscf_spin0':
 			fcisolver = fci.direct_spin0_symm.FCI(mol)
-		else:
+		elif calc.model['solver'] == 'pyscf_spin1':
 			fcisolver = fci.direct_spin1_symm.FCI(mol)
 		# conv_tol
 		fcisolver.conv_tol = max(calc.thres['init'], 1.0e-10)
@@ -443,9 +443,9 @@ def _casscf(mol, calc, mo_coeff, ref_space, nelec):
 def _fci(mol, calc, core_idx, cas_idx, nelec):
 		""" fci calc """
 		# init fci solver
-		if mol.spin == 0:
+		if calc.model['solver'] == 'pyscf_spin0':
 			solver = fci.direct_spin0_symm.FCI(mol)
-		else:
+		elif calc.model['solver'] == 'pyscf_spin1':
 			solver = fci.direct_spin1_symm.FCI(mol)
 		# settings
 		solver.conv_tol = max(calc.thres['init'], 1.0e-10)
