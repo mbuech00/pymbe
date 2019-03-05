@@ -65,6 +65,7 @@ def _setup(mpi, mol, calc, exp):
 			info['hubbard'] = None
 		else:
 			info['hubbard'] = _hubbard(mol)
+		info['solver'] = _solver(calc)
 		info['active'] = _active(calc)
 		info['orbs'] = _orbs(calc)
 		info['mpi'] = _mpi(mpi, calc)
@@ -143,17 +144,17 @@ def _state(mol, calc):
 		""" state print """
 		string = '{:}'.format(calc.state['root'])
 		if mol.spin == 0:
-			string += ' / singlet'
+			string += ' (singlet)'
 		elif mol.spin == 1:
-			string += ' / doublet'
+			string += ' (doublet)'
 		elif mol.spin == 2:
-			string += ' / triplet'
+			string += ' (triplet)'
 		elif mol.spin == 3:
-			string += ' / quartet'
+			string += ' (quartet)'
 		elif mol.spin == 4:
-			string += ' / quintet'
+			string += ' (quintet)'
 		else:
-			string += ' / {:}'.format(mol.spin+1)
+			string += ' ({:})'.format(mol.spin+1)
 		return string
 
 
@@ -190,14 +191,25 @@ def _prot(calc):
 
 def _system(mol, calc):
 		""" system size print """
-		return '{:} e / {:} o'.format(mol.nelectron - 2 * mol.ncore, calc.ref_space.size + calc.exp_space.size)
+		return '{:} e in {:} o'.format(mol.nelectron - 2 * mol.ncore, calc.ref_space.size + calc.exp_space.size)
 
 
 def _hubbard(mol):
 		""" hubbard print """
 		hubbard = ['{:} x {:}'.format(mol.matrix[0], mol.matrix[1])]
-		hubbard.append('{:} / {:} / {:}'.format(mol.u, 1.0, mol.n))
+		hubbard.append('{:} & {:}'.format(mol.u, mol.n))
 		return hubbard
+
+
+def _solver(calc):
+		""" FCI solver print """
+		if calc.model['method'] != 'fci':
+			return 'none'
+		else:
+			if calc.model['solver'] == 'pyscf_spin0':
+				return 'PySCF (spin0)'
+			elif calc.model['solver'] == 'pyscf_spin1':
+				return 'PySCF (spin1)'
 
 
 def _frozen(mol):
@@ -210,7 +222,7 @@ def _frozen(mol):
 
 def _active(calc):
 		""" active space print """
-		return '{:} e / {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
+		return '{:} e in {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
 
 
 def _orbs(calc):
@@ -227,12 +239,12 @@ def _orbs(calc):
 
 def _mpi(mpi, calc):
 		""" mpi print """
-		return '{:} / {:}'.format(calc.mpi['masters'], mpi.size - calc.mpi['masters'])
+		return '{:} & {:}'.format(calc.mpi['masters'], mpi.size - calc.mpi['masters'])
 
 
 def _thres(calc):
 		""" threshold print """
-		return '{:.0e} / {:<.1f}'.format(calc.thres['init'], calc.thres['relax'])
+		return '{:.0e} ({:<.1f})'.format(calc.thres['init'], calc.thres['relax'])
 
 
 def _symm(mol, calc):
@@ -317,7 +329,7 @@ def _summary_prt(info, mol, calc, exp):
 						'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
 			form += ('','basis set','','=','',info['basis'], \
 						'','|','','exp. model','','=','',info['model'], \
-						'','|','','mpi masters / slaves','','=','',info['mpi'],)
+						'','|','','mpi masters & slaves','','=','',info['mpi'],)
 			string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 					'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
 			form += ('','frozen core','','=','',info['frozen'], \
@@ -328,10 +340,10 @@ def _summary_prt(info, mol, calc, exp):
 					'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
 			form += ('','hubbard matrix','','=','',info['hubbard'][0], \
 						'','|','','exp. model','','=','',info['model'], \
-						'','|','','mpi masters / slaves','','=','',info['mpi'],)
+						'','|','','mpi masters & slaves','','=','',info['mpi'],)
 			string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 					'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
-			form += ('','hubbard U / t / n','','=','',info['hubbard'][1], \
+			form += ('','hubbard U/t & n','','=','',info['hubbard'][1], \
 						'','|','','ref. function','','=','',info['ref'], \
 						'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy'],)
 		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
@@ -342,7 +354,7 @@ def _summary_prt(info, mol, calc, exp):
 					calc.prop['hf']['energy']+calc.prop['base']['energy'],)
 		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
-		form += ('','state / mult.','','=','',info['state'], \
+		form += ('','state (mult.)','','=','',info['state'], \
 					'','|','','base model','','=','',info['base'], \
 					'','|','','MBE total energy','','=','', \
 					calc.prop['hf']['energy'] if info['energy'] is None else info['energy'][-1],)
@@ -353,7 +365,7 @@ def _summary_prt(info, mol, calc, exp):
 					'','|','','total time','','=','',_time(exp, 'tot_sum', -1),)
 		string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 				'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-		form += ('','FCI solver','','=','','PySCF (spin0)', \
+		form += ('','FCI solver','','=','',info['solver'], \
 					'','|','','screen. thres.','','=','',info['thres'], \
 					'','|','','wave funct. symmetry','','=','',info['symm'],)
 		string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'

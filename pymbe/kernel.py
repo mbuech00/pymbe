@@ -201,11 +201,11 @@ def ref_mo(mol, calc):
 		mo_energy = calc.mo_energy
 		mo_coeff = calc.mo_coeff
 		if calc.ref['active'] == 'manual':
-			# electrons
-			nelec = np.asarray((np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
-								np.count_nonzero(calc.occup[calc.ref['select']] > 1.)), dtype=np.int32)
 			# active orbs
-			calc.ref['select'] = np.asarray(calc.ref['select'])
+			calc.ref['select'] = np.asarray(calc.ref['select'], dtype=np.int32)
+			# electrons
+			nelec = (np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
+						np.count_nonzero(calc.occup[calc.ref['select']] > 1.))
 			# inactive orbitals
 			inact_elec = mol.nelectron - (nelec[0] + nelec[1])
 			tools.assertion(inact_elec % 2 == 0, 'odd number of inactive electrons')
