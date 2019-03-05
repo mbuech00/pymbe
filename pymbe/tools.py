@@ -174,6 +174,22 @@ class hubbard_PM(lo.pipek.PM):
 			return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
+def mat_indx(site, nx, ny):
+		""" get x and y indices of a matrix """
+		x = site % nx
+		y = int(math.floor(float(site) / ny))
+		return x, y
+
+
+def near_nbrs(site_xy, nx, ny):
+		""" get list of nearest neighbour indices """
+		left = ((site_xy[0] - 1) % nx, site_xy[1])
+		right = ((site_xy[0] + 1) % nx, site_xy[1])
+		down = (site_xy[0], (site_xy[1] + 1) % ny)
+		up = (site_xy[0], (site_xy[1] - 1) % ny)
+		return [left, right, down, up]
+
+
 def assertion(condition, reason):
 		""" assertion of condition """
 		if not condition:

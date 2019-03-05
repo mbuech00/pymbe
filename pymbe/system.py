@@ -14,6 +14,7 @@ import re
 import sys
 import os
 import ast
+import math
 from pyscf import gto, symm, ao2mo
 
 import tools
@@ -31,7 +32,7 @@ class MolCls(gto.Mole):
 				self.system = {'charge': 0, 'spin': 0, 'sym': 'c1', 'hf_sym': None, \
 							'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
 							'unit': 'ang', 'frozen': False, 'occup': {}, 'debug': 0, \
-							't': 1.0, 'u': 1.0, 'dim': 1, 'nsites': 6, 'pbc': True, 'nelec': 0}
+							'u': 1.0, 'n': 1.0, 'matrix': (1, 6), 'pbc': True}
 				# set geometric and molecular parameters
 				if mpi.master:
 					# read atom and molecule settings
@@ -54,11 +55,11 @@ class MolCls(gto.Mole):
 						self.atom = []
 						self.symmetry = self.hf_sym = False
 						self.ncore = 0
-						self.nelectron = self.system['nelec']
-						self.t = self.system['t']
 						self.u = self.system['u']
-						self.dim = self.system['dim']
-						self.nsites = self.system['nsites']
+						self.n = self.system['n']
+						self.matrix = self.system['matrix']
+						self.nsites = self.matrix[0] * self.matrix[1]
+						self.nelectron = math.floor(self.nsites * self.system['n'])
 						self.pbc = self.system['pbc']
 					# add pymbe parameters
 					self.frozen = self.system['frozen']
@@ -145,6 +146,27 @@ class MolCls(gto.Mole):
 								'debug input in system dict (debug) must be an int')
 				tools.assertion(self.system['debug'] >= 0, \
 								'debug input in system dict (debug) must be an int >= 0')
+				if not self.atom:
+					# matrix
+					tools.assertion(isinstance(self.system['matrix'], tuple), \
+									'hubbard matrix input in system dict (matrix) must be a tuple')
+					tools.assertion(len(self.system['matrix']) == 2, \
+									'hubbard matrix input in system dict (matrix) must have a dimension of 2')
+					tools.assertion(isinstance(self.system['matrix'][0], int) and isinstance(self.system['matrix'][1], int), \
+									'hubbard matrix input in system dict (matrix) must be a tuple of ints')
+					# u parameter
+					tools.assertion(isinstance(self.system['u'], float), \
+									'hubbard on-site repulsion parameter (u) must be a float')
+					tools.assertion(self.system['u'] > 0.0, \
+									'only repulsive hubbard models are implemented (u > 0.0)')
+					# n parameter
+					tools.assertion(isinstance(self.system['n'], float), \
+									'hubbard model filling parameter (n) must be a float')
+					tools.assertion(self.system['n'] > 0.0 and self.system['n'] < 2.0, \
+									'hubbard model filling parameter (n) must be a float between 0.0 < n < 2.0')
+					# periodic boundary conditions
+					tools.assertion(isinstance(self.system['pbc'], bool), \
+									'hubbard model pbc parameter (pbc) must be a bool')
 
 
 		def make(self, mpi):

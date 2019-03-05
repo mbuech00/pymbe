@@ -52,61 +52,50 @@ def ao_ints(mol, calc):
 
 def _hubbard_h1(mol):
 		""" set hubbard hopping hamiltonian """
+		# dimension
+		if 1 in mol.matrix:
+			dim = 1
+		else:
+			dim = 2
+		# init h1
+		h1 = np.zeros([mol.nsites] * 2, dtype=np.float64)
 		# 1d
-		if mol.dim == 1:
-			# init
-			n = mol.nsites
-			t = mol.t
-			h1 = np.zeros([n]*2, dtype=np.float64)
+		if dim == 1:
 			# adjacent neighbours
-			for i in range(n-1):
-				h1[i, i+1] = h1[i+1, i] = -t
+			for i in range(mol.nsites-1):
+				h1[i, i+1] = h1[i+1, i] = -1.0
 			# pbc
 			if mol.pbc:
-				h1[-1, 0] = h1[0, -1] = -t
+				h1[-1, 0] = h1[0, -1] = -1.0
 		# 2d
-		elif mol.dim == 2:
+		elif dim == 2:
 			# init
-			n = int(np.sqrt(mol.nsites))
-			t = mol.t
-			h1 = np.zeros([n**2]*2, dtype=np.float64)
-			# adjacent neighbours - sideways
-			for i in range(n**2):
-				if i % n == 0:
-					h1[i, i+1] = -t
-				elif i % n == n-1:
-					h1[i, i-1] = -t
-				else:
-					h1[i, i-1] = h1[i, i+1] = -t
-			# adjacent neighbours - up-down
-			for i in range(n**2):
-				if i < n:
-					h1[i, i+n] = -t
-				elif i >= n**2 - n:
-					h1[i, i-n] = -t
-				else:
-					h1[i, i-n] = h1[i, i+n] = -t
+			for site_1 in range(mol.nsites):
+				site_1_xy = tools.mat_indx(site_1, mol.matrix[0], mol.matrix[1])
+				nbrs = tools.near_nbrs(site_1_xy, mol.matrix[0], mol.matrix[1])
+				for site_2 in range(site_1):
+					site_2_xy = tools.mat_indx(site_2, mol.matrix[0], mol.matrix[1])
+					if site_2_xy in nbrs:
+						h1[site_1, site_2] = h1[site_2, site_1] = -1.0
 			# pbc
 			if mol.pbc:
-				# sideways
-				for i in range(n):
-					h1[i*n, i*n+(n-1)] = h1[i*n+(n-1), i*n] = -t
-				# up-down
-				for i in range(n):
-					h1[i, n*(n-1)+i] = h1[n*(n-1)+i, i] = -t
-				# corners (for t_prime)
-#				h1[-1, 0] = h1[0, -1] = h1[n-1, n**2-n] = h1[n**2-n, n-1] = -t
+				raise NotImplementedError('pbc for 2d hubbard is not implemented (yet)...')
+#				# i think we just need to outer boundary of h1
+#				# sideways
+#				for i in range(n):
+#					h1[i*n, i*n+(n-1)] = h1[i*n+(n-1), i*n] = -t
+#				# up-down
+#				for i in range(n):
+#					h1[i, n*(n-1)+i] = h1[n*(n-1)+i, i] = -t
 		return h1
 
 
 def _hubbard_eri(mol):
 		""" set hubbard two-electron hamiltonian """
-		# init
-		n = mol.nsites
-		u = mol.u
-		eri = np.zeros([n]*4, dtype=np.float64)
-		for i in range(n):
-			eri[i,i,i,i] = u
+		# init eri
+		eri = np.zeros([mol.nsites] * 4, dtype=np.float64)
+		for i in range(mol.nsites):
+			eri[i,i,i,i] = mol.u
 		return eri
 
 

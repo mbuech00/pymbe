@@ -195,11 +195,8 @@ def _system(mol, calc):
 
 def _hubbard(mol):
 		""" hubbard print """
-		if mol.dim == 1:
-			hubbard = ['1d / {:}x{:}'.format(mol.nsites, 1)]
-		else:
-			hubbard = ['2d / {:}x{:}'.format(int(np.sqrt(mol.nsites)), int(np.sqrt(mol.nsites)))]
-		hubbard.append('{:} / {:}'.format(mol.u, mol.t))
+		hubbard = ['{:} x {:}'.format(mol.matrix[0], mol.matrix[1])]
+		hubbard.append('{:} / {:} / {:}'.format(mol.u, 1.0, mol.n))
 		return hubbard
 
 
@@ -329,12 +326,12 @@ def _summary_prt(info, mol, calc, exp):
 		else:
 			string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 					'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-			form += ('','hubbard lattice','','=','',info['hubbard'][0], \
+			form += ('','hubbard matrix','','=','',info['hubbard'][0], \
 						'','|','','exp. model','','=','',info['model'], \
 						'','|','','mpi masters / slaves','','=','',info['mpi'],)
 			string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
 					'{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
-			form += ('','hubbard U / t','','=','',info['hubbard'][1], \
+			form += ('','hubbard U / t / n','','=','',info['hubbard'][1], \
 						'','|','','ref. function','','=','',info['ref'], \
 						'','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy'],)
 		string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \

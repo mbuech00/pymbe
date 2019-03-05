@@ -37,9 +37,9 @@ def mol(mpi, mol):
 					'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
 					'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
 			if not mol.atom:
-				info['t'] = mol.t
 				info['u'] = mol.u
-				info['dim'] = mol.dim
+				info['n'] = mol.n
+				info['matrix'] = mol.matrix
 				info['nsites'] = mol.nsites
 				info['pbc'] = mol.pbc
 				info['nelec'] = mol.nelectron
@@ -53,8 +53,9 @@ def mol(mpi, mol):
 			mol.unit = info['unit']; mol.frozen = info['frozen']
 			mol.debug = info['debug']
 			if not mol.atom:
-				mol.t = info['t']; mol.u = info['u']; mol.dim = info['dim']
-				mol.nsites = info['nsites']; mol.pbc = info['pbc']; mol.nelectron = info['nelec']
+				mol.u = info['u']; mol.n = info['n']
+				mol.matrix = info['matrix']; mol.nsites = info['nsites'] 
+				mol.pbc = info['pbc']; mol.nelectron = info['nelec']
 
 
 def calc(mpi, calc):
