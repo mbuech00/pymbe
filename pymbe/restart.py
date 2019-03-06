@@ -63,9 +63,9 @@ def main(calc, exp):
 				# read counter
 				elif 'counter' in files[i]:
 					exp.count.append(np.load(os.path.join(RST, files[i])).tolist())
-				# read nelec
-				elif 'nelec' in files[i]:
-					exp.nelec.append(np.load(os.path.join(RST, files[i])))
+				# read ndets
+				elif 'ndets' in files[i]:
+					exp.ndets.append(np.load(os.path.join(RST, files[i])))
 				# read timings
 				elif 'time_mbe' in files[i]:
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
@@ -176,8 +176,8 @@ def mbe_write(calc, exp):
 		np.save(os.path.join(RST, 'tot_{:}'.format(exp.order)), exp.prop[calc.target]['tot'][-1])
 		# write counter
 		np.save(os.path.join(RST, 'counter_'+str(exp.order)), np.asarray(exp.count[-1]))
-		# write nelec
-		np.save(os.path.join(RST, 'nelec_'+str(exp.order)), exp.nelec[-1])
+		# write ndets
+		np.save(os.path.join(RST, 'ndets_'+str(exp.order)), exp.ndets[-1])
 		# write time
 		np.save(os.path.join(RST, 'time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
 

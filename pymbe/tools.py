@@ -15,6 +15,7 @@ import sys
 import traceback
 import subprocess
 import numpy as np
+import scipy.special
 import math
 from pyscf import lo
 
@@ -188,6 +189,11 @@ def near_nbrs(site_xy, nx, ny):
 		down = (site_xy[0], (site_xy[1] + 1) % ny)
 		up = (site_xy[0], (site_xy[1] - 1) % ny)
 		return [left, right, down, up]
+
+
+def num_dets(n_orbs, n_alpha, n_beta):
+		""" number of determinants in given CASCI calculation (ignoring spatial symmetry) """
+		return scipy.special.binom(n_orbs, n_alpha) * scipy.special.binom(n_orbs, n_beta)
 
 
 def assertion(condition, reason):

@@ -69,24 +69,23 @@ def _hubbard_h1(mol):
 				h1[-1, 0] = h1[0, -1] = -1.0
 		# 2d
 		elif dim == 2:
+			nx, ny = mol.matrix[0], mol.matrix[1]
 			# init
 			for site_1 in range(mol.nsites):
-				site_1_xy = tools.mat_indx(site_1, mol.matrix[0], mol.matrix[1])
-				nbrs = tools.near_nbrs(site_1_xy, mol.matrix[0], mol.matrix[1])
+				site_1_xy = tools.mat_indx(site_1, nx, ny)
+				nbrs = tools.near_nbrs(site_1_xy, nx, ny)
 				for site_2 in range(site_1):
-					site_2_xy = tools.mat_indx(site_2, mol.matrix[0], mol.matrix[1])
+					site_2_xy = tools.mat_indx(site_2, nx, ny)
 					if site_2_xy in nbrs:
 						h1[site_1, site_2] = h1[site_2, site_1] = -1.0
 			# pbc
 			if mol.pbc:
-				raise NotImplementedError('pbc for 2d hubbard is not implemented (yet)...')
-#				# i think we just need to outer boundary of h1
-#				# sideways
-#				for i in range(n):
-#					h1[i*n, i*n+(n-1)] = h1[i*n+(n-1), i*n] = -t
-#				# up-down
-#				for i in range(n):
-#					h1[i, n*(n-1)+i] = h1[n*(n-1)+i, i] = -t
+				# sideways
+				for i in range(ny):
+					h1[i, ny * (nx - 1) + i] = h1[ny * (nx - 1) + i, i] = -1.0
+				# up-down
+				for i in range(nx):
+					h1[i * ny, i * ny + (ny - 1)] = h1[i * ny + (ny - 1), i * ny] = -1.0
 		return h1
 
 
@@ -96,7 +95,7 @@ def _hubbard_eri(mol):
 		eri = np.zeros([mol.nsites] * 4, dtype=np.float64)
 		for i in range(mol.nsites):
 			eri[i,i,i,i] = mol.u
-		return eri
+		return ao2mo.restore(8, eri, mol.nsites)
 
 
 def hf(mol, calc):
@@ -259,17 +258,14 @@ def ref_prop(mol, calc, exp):
 		return ref
 
 
-def main(mol, calc, exp, method):
+def main(mol, calc, exp, method, nelec):
 		""" main prop function """
-		# nelec
-		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), \
-							np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
 		# no occupied or no virtuals
 		if np.count_nonzero(calc.occup[exp.cas_idx] == 2.) == 0 or np.count_nonzero(calc.occup[exp.cas_idx] == 0.) == 0:
 			if calc.target in ['energy', 'excitation']:
-				return nelec, 0.0
+				return 0.0
 			else:
-				return nelec, np.zeros(3, dtype=np.float64)
+				return np.zeros(3, dtype=np.float64)
 		if method in ['ccsd','ccsd(t)']:
 			# ccsd / ccsd(t) calc
 			res = _cc(mol, calc, exp.core_idx, exp.cas_idx, method)
@@ -283,7 +279,7 @@ def main(mol, calc, exp, method):
 			elif calc.target == 'trans':
 				res = _trans(mol, calc, exp, res_tmp['t_rdm1'], \
 								res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
-		return nelec, res
+		return res
 
 
 def _dipole(mol, calc, exp, cas_rdm1, trans=False):

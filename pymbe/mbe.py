@@ -35,7 +35,7 @@ def main(mpi, mol, calc, exp):
 			# start time
 			time = MPI.Wtime()
 			# master function
-			nelec, inc = _master(mpi, mol, calc, exp)
+			ndets, inc = _master(mpi, mol, calc, exp)
 			# collect time
 			exp.time['mbe'].append(MPI.Wtime() - time)
 			# count non-zero increments
@@ -46,10 +46,10 @@ def main(mpi, mol, calc, exp):
 				exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
 		else:
 			# slave function
-			nelec, inc = _slave(mpi, mol, calc, exp)
-		# append increments and nelec
+			ndets, inc = _slave(mpi, mol, calc, exp)
+		# append increments and ndets
 		exp.prop[calc.target]['inc'].append(inc)
-		exp.nelec.append(nelec)
+		exp.ndets.append(ndets)
 
 
 def _master(mpi, mol, calc, exp):
@@ -90,12 +90,12 @@ def _master(mpi, mol, calc, exp):
 					if slaves_avail == 0:
 						# exit loop
 						break
-		# init increments and nelec
+		# init increments and ndets
 		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
-		nelec = _init_nelec(exp.tuples[-1].shape[0])
+		ndets = _init_ndets(exp.tuples[-1].shape[0])
 		# allreduce increments
-		parallel.mbe(mpi, inc, nelec)
-		return nelec, inc
+		parallel.mbe(mpi, inc, ndets)
+		return ndets, inc
 
 
 def _slave(mpi, mol, calc, exp):
@@ -106,9 +106,9 @@ def _slave(mpi, mol, calc, exp):
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# task list
 		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
-		# init increments and nelec
+		# init increments and ndets
 		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
-		nelec = _init_nelec(exp.tuples[-1].shape[0])
+		ndets = _init_ndets(exp.tuples[-1].shape[0])
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
@@ -130,31 +130,36 @@ def _slave(mpi, mol, calc, exp):
 						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 					# calculate increments
 					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
-						nelec[task_idx], inc[task_idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][task_idx])
+						ndets[task_idx], inc[task_idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][task_idx])
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
 		# allreduce increments
-		parallel.mbe(mpi, inc, nelec)
-		return nelec, inc
+		parallel.mbe(mpi, inc, ndets)
+		return ndets, inc
 
 
 def _inc(mpi, mol, calc, exp, tup):
 		""" calculate increments corresponding to tup """
 		# generate input
 		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, tup)
+		# nelec
+		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), \
+							np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
+		# ndets
+		ndets_tup = tools.num_dets(exp.cas_idx.size, nelec[0], nelec[1])
 		# perform calc
-		nelec_tup, inc_tup = kernel.main(mol, calc, exp, calc.model['method'])
+		inc_tup = kernel.main(mol, calc, exp, calc.model['method'], nelec)
 		if calc.base['method'] is not None:
-			inc_tup -= kernel.main(mol, calc, exp, calc.base['method'])[1]
+			inc_tup -= kernel.main(mol, calc, exp, calc.base['method'], nelec)
 		inc_tup -= calc.prop['ref'][calc.target]
 		if exp.order > 1:
 			if np.any(inc_tup != 0.0):
 				inc_tup -= _sum(calc, exp, tup, calc.target)
 		# debug print
 		if mol.debug >= 1:
-			print(output.mbe_debug(mol, calc, exp, tup, nelec_tup, inc_tup, exp.cas_idx))
-		return nelec_tup, inc_tup
+			print(output.mbe_debug(mol, calc, exp, tup, ndets_tup, nelec, inc_tup, exp.cas_idx))
+		return ndets_tup, inc_tup
 
 
 def _sum(calc, exp, tup, target):
@@ -193,8 +198,8 @@ def _init_inc(n_tuples, target):
 			return np.zeros([n_tuples, 3], dtype=np.float64)
 
 
-def _init_nelec(n_tuples):
-		""" init nelec array """
-		return np.zeros([n_tuples, 2], dtype=np.int32)
+def _init_ndets(n_tuples):
+		""" init ndets array """
+		return np.zeros(n_tuples, dtype=np.float64)
 
 

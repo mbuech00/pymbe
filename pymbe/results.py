@@ -233,7 +233,7 @@ def _orbs(calc):
 			return 'CCSD NOs'
 		elif calc.orbs['type'] == 'ccsd(t)':
 			return 'CCSD(T) NOs'
-		elif calc.orbs['occ'] == 'local':
+		elif calc.orbs['type'] == 'local':
 			return 'pipek-mezey'
 
 

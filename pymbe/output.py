@@ -59,7 +59,7 @@ def mbe_header(n_tuples, n_orbs, order):
 		return string.format(*form)
 
 
-def mbe_debug(mol, calc, exp, tup, nelec_tup, inc_tup, cas_idx):
+def mbe_debug(mol, calc, exp, tup, ndets_tup, nelec_tup, inc_tup, cas_idx):
 		""" print mbe debug information """
 		# tup and symmetry
 		tup_lst = [i for i in tup]
@@ -67,9 +67,9 @@ def mbe_debug(mol, calc, exp, tup, nelec_tup, inc_tup, cas_idx):
 			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
 		else:
 			tup_sym = ['A'] * tup.size
-		string = ' INC: order = {:} , tup = {:} , space = ({:},{:})\n'
+		string = ' INC: order = {:} , tup = {:} , space = ({:}e,{:}o) , n_dets = {:.2e}\n'
 		string += '      symmetry = {:}\n'
-		form = (exp.order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, tup_sym)
+		form = (exp.order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, ndets_tup, tup_sym)
 		if calc.target in ['energy', 'excitation']:
 			string += '      increment for root {:} = {:.4e}\n'
 			form += (calc.state['root'], inc_tup,)
@@ -122,20 +122,25 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 			form = (header, mean_val, min_val, max_val)
 			# statistics
-			nelec_sum = np.sum(exp.nelec[exp.order-1], axis=1)
-			if nelec_sum.any():
-				mean_nelec = np.mean(nelec_sum[np.nonzero(nelec_sum)]) 
-				min_nelec = np.min(nelec_sum[np.nonzero(nelec_sum)])
-				max_nelec = np.max(nelec_sum[np.nonzero(nelec_sum)])
-			else:
-				mean_nelec = min_nelec = max_nelec = 0.0
+			mean_ndets = np.mean(exp.ndets[exp.order-1])
+			min_ndets = np.min(exp.ndets[exp.order-1])
+			max_ndets = np.max(exp.ndets[exp.order-1])
 			string += DIVIDER+'\n'
 			string += DIVIDER+'\n'
-			string += ' RESULT:     mean # electrons    |        min. # electrons      |       max. # electrons\n'
+			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
-			string += ' RESULT:          {:>5.2f}          |               {:>2.0f}             |              {:>2.0f}\n'
+			string += ' RESULT:         {:>8.2e}        |           {:>9.3e}          |          {:>9.3e}\n'
+			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(exp.ndets[exp.order-1])])[1]
+			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
+									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
+			cas_idx_min = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmin(exp.ndets[exp.order-1])])[1]
+			nelec_min = np.asarray((np.count_nonzero(calc.occup[cas_idx_min] > 0.), \
+									np.count_nonzero(calc.occup[cas_idx_min] > 1.)), dtype=np.int32)
+			string += ' RESULT:         --------        |           ({:>2.0f}e,{:>2.0f}o)          |          ({:>2.0f}e,{:>2.0f}o)\n'
 			string += DIVIDER+'\n'
-			form += (mean_nelec, min_nelec, max_nelec)
+			form += (mean_ndets, min_ndets, max_ndets, \
+						nelec_min[0] + nelec_min[1], cas_idx_min.size, \
+						nelec_max[0] + nelec_max[1], cas_idx_max.size)
 		else:
 			string = FILL+'\n'
 			prop_tot = exp.prop[calc.target]['tot']
@@ -178,20 +183,25 @@ def mbe_results(mol, calc, exp):
 				string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 				form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 			# statistics
-			nelec_sum = np.sum(exp.nelec[exp.order-1], axis=1)
-			if nelec_sum.any():
-				mean_nelec = np.mean(nelec_sum[np.nonzero(nelec_sum)]) 
-				min_nelec = np.min(nelec_sum[np.nonzero(nelec_sum)])
-				max_nelec = np.max(nelec_sum[np.nonzero(nelec_sum)])
-			else:
-				mean_nelec = min_nelec = max_nelec = 0.0
+			mean_ndets = np.mean(exp.ndets[exp.order-1])
+			min_ndets = np.min(exp.ndets[exp.order-1])
+			max_ndets = np.max(exp.ndets[exp.order-1])
 			string += DIVIDER+'\n'
 			string += DIVIDER+'\n'
-			string += ' RESULT:     mean # electrons    |        min. # electrons      |       max. # electrons\n'
+			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
-			string += ' RESULT:          {:>5.2f}          |               {:>2.0f}             |              {:>2.0f}\n'
+			string += ' RESULT:         {:>8.2e}        |           {:>9.3e}          |          {:>9.3e}\n'
+			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(exp.ndets[exp.order-1])])[1]
+			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
+									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
+			cas_idx_min = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmin(exp.ndets[exp.order-1])])[1]
+			nelec_min = np.asarray((np.count_nonzero(calc.occup[cas_idx_min] > 0.), \
+									np.count_nonzero(calc.occup[cas_idx_min] > 1.)), dtype=np.int32)
+			string += ' RESULT:         --------        |           ({:>2.0f}e,{:>2.0f}o)          |          ({:>2.0f}e,{:>2.0f}o)\n'
 			string += DIVIDER+'\n'
-			form += (mean_nelec, min_nelec, max_nelec)
+			form += (mean_ndets, min_ndets, max_ndets, \
+						nelec_min[0] + nelec_min[1], cas_idx_min.size, \
+						nelec_max[0] + nelec_max[1], cas_idx_max.size)
 		if exp.order < exp.max_order:
 			string += FILL
 		else:
