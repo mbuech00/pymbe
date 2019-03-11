@@ -27,6 +27,7 @@ import tools
 
 
 SPIN_TOL = 1.0e-05
+DIPOLE_TOL = 1.0e-14
 
 
 def ao_ints(mol, calc):
@@ -131,7 +132,7 @@ def hf(mol, calc):
 		if calc.target == 'dipole':
 			dm = hf.make_rdm1()
 			elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
-			elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
+			elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0.0 for i in range(elec_dipole.size)])
 		else:
 			elec_dipole = None
 		# determine dimensions
@@ -242,19 +243,24 @@ def ref_mo(mol, calc):
 
 def ref_prop(mol, calc, exp):
 		""" calculate reference space properties """
-		# set core and cas spaces
+		# generate input
 		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, np.array([], dtype=np.int32))
-		# closed-shell HF exception
-		if np.all(calc.occup[calc.ref_space] == 2.):
+		# nelec
+		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), \
+							np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
+		# reference space prop
+		if np.any(calc.occup[calc.ref_space] == 2.) and np.any(calc.occup[calc.ref_space] == 0.):
+			# exp model
+			ref = main(mol, calc, exp, calc.model['method'], nelec)
+			if calc.base['method'] is not None:
+				# base model
+				ref -= main(mol, calc, exp, calc.base['method'], nelec)
+		else:
+			# no correlation in expansion reference space
 			if calc.target in ['energy', 'excitation']:
 				ref = 0.0
 			else:
 				ref = np.zeros(3, dtype=np.float64)
-		else:
-			# exp model
-			ref = main(mol, calc, exp, calc.model['method'])[1]
-			if calc.base['method'] is not None:
-				ref -= main(mol, calc, exp, calc.base['method'])[1]
 		return ref
 
 
@@ -296,7 +302,7 @@ def _dipole(mol, calc, exp, cas_rdm1, trans=False):
 		# compute elec_dipole
 		elec_dipole = np.einsum('xij,ji->x', mol.dipole, rdm1)
 		# remove noise
-		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > 1.0e-15 else 0.0 for i in range(elec_dipole.size)])
+		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0.0 for i in range(elec_dipole.size)])
 		# 'correlation' dipole
 		if not trans:
 			elec_dipole -= calc.prop['hf']['dipole']

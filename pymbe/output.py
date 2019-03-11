@@ -180,13 +180,15 @@ def mbe_results(mol, calc, exp):
 				string += DIVIDER+'\n'
 				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 				string += DIVIDER+'\n'
-				string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+				string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}'
+				if k < 2:
+					string += '\n'+DIVIDER
 				form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 			# statistics
 			mean_ndets = np.mean(exp.ndets[exp.order-1])
 			min_ndets = np.min(exp.ndets[exp.order-1])
 			max_ndets = np.max(exp.ndets[exp.order-1])
-			string += DIVIDER+'\n'
+			string += '\n'+DIVIDER+'\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'

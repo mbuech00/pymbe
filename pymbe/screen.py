@@ -198,7 +198,7 @@ def _prot_screen(thres, scheme, target, prop, indx):
 			screen = True
 			for dim in range(3):
 				# (x,y,z) = (0,1,2)
-				if np.sum(prop[t]['inc'][-1][indx, dim]) != 0.0:
+				if np.sum(prop[target]['inc'][-1][indx, dim]) != 0.0:
 					screen = _prot_scheme(thres, scheme, prop[target]['inc'][-1][indx, dim])
 				if not screen:
 					break

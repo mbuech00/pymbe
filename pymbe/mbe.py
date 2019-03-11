@@ -39,7 +39,10 @@ def main(mpi, mol, calc, exp):
 			# collect time
 			exp.time['mbe'].append(MPI.Wtime() - time)
 			# count non-zero increments
-			exp.count.append(np.count_nonzero(inc, axis=0 if calc.target in ['energy', 'excitation'] else 1))
+			if calc.target in ['energy', 'excitation']:
+				exp.count.append(np.count_nonzero(inc))
+			elif calc.target in ['dipole', 'trans']:
+				exp.count.append(np.count_nonzero(np.count_nonzero(inc, axis=1)))
 			# sum up total property
 			exp.prop[calc.target]['tot'].append(tools.fsum(inc))
 			if exp.order > 1:

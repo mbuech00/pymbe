@@ -87,7 +87,7 @@ def _setup(mpi, mol, calc, exp):
 			info['trans'] = _trans(mol, calc, exp)
 		else:
 			info['trans'] = None
-		info['final_order'] = exp.prop['energy']['tot'].size + 1
+		info['final_order'] = exp.order + 1
 		return info
 
 
@@ -588,8 +588,8 @@ def _dipole_plot(info, calc, exp):
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of total MBE dipole moment
-		dipole = np.empty(info['final_order'], dtype=np.float64)
-		for i in range(info['final_order']):
+		dipole = np.empty(info['dipole'].shape[0], dtype=np.float64)
+		for i in range(dipole.size):
 			dipole[i] = np.linalg.norm(info['nuc_dipole'] - info['dipole'][i, :])
 		# plot results
 		ax1.plot(np.arange(1, info['final_order']), \
@@ -675,8 +675,8 @@ def _trans_plot(info, calc, exp):
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of total MBE transition dipole moment
-		trans = np.empty(info['final_order'], dtype=np.float64)
-		for i in range(info['final_order']):
+		trans = np.empty(info['trans'].shape[0], dtype=np.float64)
+		for i in range(trans.size):
 			trans[i] = np.linalg.norm(info['trans'][i, :])
 		# plot results
 		ax1.plot(np.arange(1, info['final_order']), \
