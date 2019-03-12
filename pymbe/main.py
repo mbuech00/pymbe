@@ -12,6 +12,8 @@ __status__ = 'Development'
 
 import sys
 import os
+import os.path
+import shutil
 import numpy as np
 try:
 	from mpi4py import MPI
@@ -28,9 +30,9 @@ import calculation
 import expansion
 import kernel
 import driver
-import tools
 import restart
 import results
+import tools
 
 
 def main():
@@ -44,8 +46,17 @@ def main():
 			# proceed to slave driver
 			driver.slave(mpi, mol, calc, exp)
 		else:
+			# rm out if present
+			if os.path.isdir(tools.OUT):
+				shutil.rmtree(tools.OUT, ignore_errors=True)
+			# mkdir out
+			os.mkdir(tools.OUT)
+			# init logger
+			sys.stdout = tools.Logger(tools.OUT_FILE)
 			# proceed to main driver
 			driver.master(mpi, mol, calc, exp)
+			# re-init logger
+			sys.stdout = tools.Logger(tools.RES_FILE, both=False)
 			# print/plot results
 			results.main(mpi, mol, calc, exp)
 			# finalize
@@ -94,11 +105,7 @@ def _exp(mpi, mol, calc):
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# exp object
-				if calc.model['type'] != 'comb':
-					exp = expansion.ExpCls(mol, calc, calc.model['type'])
-				else:
-					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
-					raise NotImplementedError('combined expansions not implemented')
+				exp = expansion.ExpCls(mol, calc)
 			# no restart
 			else:
 				# get ao integrals
@@ -108,30 +115,14 @@ def _exp(mpi, mol, calc):
 					calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
 					calc.occup, calc.orbsym, \
 					calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
-				# reference and expansion spaces
-				calc.ref_space, calc.exp_space, \
-					calc.no_exp, calc.no_act, calc.ne_act = kernel.active(mol, calc)
-				# exp object
-				if calc.model['type'] != 'comb':
-					exp = expansion.ExpCls(mol, calc, calc.model['type'])
-				else:
-					# exp.typ = 'occ' for occ-virt and exp.typ = 'virt' for virt-occ combined expansions
-					raise NotImplementedError('combined expansions not implemented')
+				# reference and expansion spaces and mo coefficients
+				calc.mo_energy, calc.mo_coeff, calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
 				# base energy
-				base = kernel.base(mol, calc, exp)
-				calc.prop['base']['energy'] = base['energy']
-				# reference mo coefficients
-				calc.mo_energy, calc.mo_coeff = kernel.ref_mo(mol, calc, exp)
+				calc.prop['base']['energy'] = kernel.base(mol, calc)
+				# exp object
+				exp = expansion.ExpCls(mol, calc)
 				# reference space properties
-				ref = kernel.ref_prop(mol, calc, exp)
-				if calc.target['energy']:
-					calc.prop['ref']['energy'] = ref['energy']
-				if calc.target['excitation']:
-					calc.prop['ref']['excitation'] = ref['excitation']
-				if calc.target['dipole']:
-					calc.prop['ref']['dipole'] = ref['dipole']
-				if calc.target['trans']:
-					calc.prop['ref']['trans'] = ref['trans']
+				calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc, exp)
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:
@@ -142,16 +133,12 @@ def _exp(mpi, mol, calc):
 		# exp object on slaves
 		if not mpi.master:
 			# exp object
-			if calc.model['type'] != 'comb':
-				exp = expansion.ExpCls(mol, calc, calc.model['type'])
-			else:
-				# exp.typ = 'virt' for occ-virt and exp.typ = 'occ' for virt-occ combined expansions
-				raise NotImplementedError('comb expansion not implemented')
+			exp = expansion.ExpCls(mol, calc)
 		# init tuples and hashes
 		exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
 		# restart
 		if mpi.master:
-			exp.min_order = restart.main(calc, exp)
+			exp.start_order = restart.main(calc, exp)
 		return exp
 
 
@@ -163,13 +150,8 @@ def _setup():
 		scf.hf.MUTE_CHKFILE = True
 		# PYTHONHASHSEED
 		pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)
-		try:
-			if pythonhashseed == -1:
-				raise RuntimeError('\nenvironment variable PYTHONHASHSEED appears not to have been set - \n'
-									'please set this to an arbitrary integer, e.g., export PYTHONHASHSEED=0\n')
-		except Exception as err:
-			sys.stderr.write('\nRuntimeError : {0:}\n\n'.format(err))
-			raise
+		tools.assertion(int(pythonhashseed) == 0, \
+						'environment variable PYTHONHASHSEED must be set to zero')
 
 
 if __name__ == '__main__':

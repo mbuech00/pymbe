@@ -20,30 +20,33 @@ import kernel
 import output
 import screen
 import expansion
+import tools
 import parallel
 
 
 def master(mpi, mol, calc, exp):
 		""" master routine """
 		# print expansion headers
-		output.main_header()
-		output.exp_header(calc, exp)
+		print(output.main_header())
+		print(output.exp_header(calc.model['method']))
+		# mpi assertion
+		tools.assertion(mpi.size >= 2, 'PyMBE requires two or more MPI processes')
 		# restart
 		if calc.restart:
 			exp.thres, exp.rst_freq, calc.restart = _rst_print(mol, calc, exp)
 		# now do expansion
-		for exp.order in range(exp.min_order, exp.max_order+1):
+		for exp.order in range(exp.start_order, exp.max_order+1):
 			#** mbe phase **#
 			# print header
-			output.mbe_header(exp)
+			print(output.mbe_header(exp.tuples[-1].shape[0], calc.ref_space.size + exp.tuples[-1].shape[1], exp.order))
 			if len(exp.tuples) > len(exp.count):
 				mbe.main(mpi, mol, calc, exp)
 				# write restart files
 				restart.mbe_write(calc, exp)
 			# print mbe end
-			output.mbe_end(calc, exp)
+			print(output.mbe_end(exp.count[-1], calc.ref_space.size + exp.tuples[-1].shape[1], exp.order))
 			# print mbe results
-			output.mbe_results(mol, calc, exp)
+			print(output.mbe_results(mol, calc, exp))
 			#** screening phase **#
 			if exp.order < exp.max_order:
 				# perform screening
@@ -51,7 +54,7 @@ def master(mpi, mol, calc, exp):
 				# write restart files
 				if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 				# print screen end
-				output.screen_end(exp)
+				print(output.screen_end(exp.tuples[-1].shape[0], exp.order))
 			else:
 				# collect time
 				exp.time['screen'].append(0.0)
@@ -63,6 +66,8 @@ def master(mpi, mol, calc, exp):
 				exp.time['mbe'] = np.asarray(exp.time['mbe'])
 				exp.time['screen'] = np.asarray(exp.time['screen'])
 				exp.time['total'] = exp.time['mbe'] + exp.time['screen']
+				# final results
+				exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])
 				break
 
 
@@ -93,13 +98,14 @@ def _rst_print(mol, calc, exp):
 		""" print output in case of restart """
 		# init rst_freq
 		rst_freq = exp.rst_freq
-		for exp.order in range(exp.start_order, exp.min_order):
-			output.mbe_header(exp)
-			output.mbe_end(calc, exp)
-			output.mbe_results(mol, calc, exp)
+		for exp.order in range(1, exp.start_order):
+			print(output.main_header())
+			print(output.mbe_header(exp.tuples[exp.order-1].shape[0], calc.ref_space.size + exp.tuples[exp.order-1].shape[1], exp.order))
+			print(output.mbe_end(exp.count[exp.order-1], calc.ref_space.size + exp.tuples[exp.order-1].shape[1], exp.order))
+			print(output.mbe_results(mol, calc, exp))
 			thres = screen.update(exp.order, calc.thres['init'], calc.thres['relax'])
-			output.screen_header(exp, thres)
-			output.screen_end(exp)
+			print(output.screen_header(thres, exp.order))
+			print(output.screen_end(exp.tuples[exp.order-1].shape[0], exp.order))
 			rst_freq = max(rst_freq // 2, 1)
 		return thres, rst_freq, False
 
