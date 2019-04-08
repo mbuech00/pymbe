@@ -98,12 +98,12 @@ def _rst_print(mol, calc, exp):
 		""" print output in case of restart """
 		# init rst_freq
 		rst_freq = exp.rst_freq
+		print(output.main_header())
 		for exp.order in range(1, exp.start_order):
-			print(output.main_header())
 			print(output.mbe_header(exp.tuples[exp.order-1].shape[0], calc.ref_space.size + exp.tuples[exp.order-1].shape[1], exp.order))
 			print(output.mbe_end(exp.count[exp.order-1], calc.ref_space.size + exp.tuples[exp.order-1].shape[1], exp.order))
 			print(output.mbe_results(mol, calc, exp))
-			print(output.screen_header(thres, exp.order))
+			print(output.screen_header(exp.order))
 			print(output.screen_end(exp.tuples[exp.order-1].shape[0], exp.order))
 			rst_freq = max(rst_freq // 2, 1)
 		return rst_freq, False

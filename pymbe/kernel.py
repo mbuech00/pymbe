@@ -228,10 +228,10 @@ def ref_mo(mol, calc):
 			if act_orbs > 0:
 				mo_energy = np.concatenate((mo_energy[idx[:inact_orbs]], mo_energy[calc.ref['select']], mo_energy[idx[inact_orbs:]]))
 		elif calc.ref['method'] == 'casscf':
-			tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] == 2.) != 0, \
-							'no occupied orbitals in CASSCF calculation')
-			tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] == 0.) != 0, \
-							'no virtual orbitals in CASSCF calculation')
+			tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] > 0.) != 0, \
+							'no singly/doubly occupied orbitals in CASSCF calculation')
+			tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] < 2.) != 0, \
+							'no virtual/singly occupied orbitals in CASSCF calculation')
 			# casscf quantities
 			mo_energy, mo_coeff = _casscf(mol, calc, mo_coeff, ref_space, nelec)
 		if mol.debug >= 1:
