@@ -149,20 +149,27 @@ def _inc(mpi, mol, calc, exp, tup):
 		# nelec
 		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), \
 							np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
-		# ndets
-		ndets_tup = tools.num_dets(exp.cas_idx.size, nelec[0], nelec[1])
-		# perform calc
-		inc_tup = kernel.main(mol, calc, exp, calc.model['method'], nelec)
-		if calc.base['method'] is not None:
-			inc_tup -= kernel.main(mol, calc, exp, calc.base['method'], nelec)
-		inc_tup -= calc.prop['ref'][calc.target]
-		if exp.order > 1:
-			if np.any(inc_tup != 0.0):
-				inc_tup -= _sum(calc, exp, tup, calc.target)
-		# debug print
-		if mol.debug >= 1:
-			print(output.mbe_debug(mol, calc, exp, tup, ndets_tup, nelec, inc_tup, exp.cas_idx))
-		return ndets_tup, inc_tup
+		if np.all(calc.occup[exp.cas_idx] == 2.) or np.all(calc.occup[exp.cas_idx] == 0.):
+			# return in case of no correlation (no occupied or no virtuals)
+			if calc.target in ['energy', 'excitation']:
+				return 0.0, 0.0
+			else:
+				return 0.0, np.zeros(3, dtype=np.float64)
+		else:
+			# ndets
+			ndets_tup = tools.num_dets(exp.cas_idx.size, nelec[0], nelec[1])
+			# perform calc
+			inc_tup = kernel.main(mol, calc, exp, calc.model['method'], nelec)
+			if calc.base['method'] is not None:
+				inc_tup -= kernel.main(mol, calc, exp, calc.base['method'], nelec)
+			inc_tup -= calc.prop['ref'][calc.target]
+			if exp.order > 1:
+				if np.any(inc_tup != 0.0):
+					inc_tup -= _sum(calc, exp, tup, calc.target)
+			# debug print
+			if mol.debug >= 1:
+				print(output.mbe_debug(mol, calc, exp, tup, ndets_tup, nelec, inc_tup, exp.cas_idx))
+			return ndets_tup, inc_tup
 
 
 def _sum(calc, exp, tup, target):

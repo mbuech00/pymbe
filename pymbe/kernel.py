@@ -266,12 +266,6 @@ def ref_prop(mol, calc, exp):
 
 def main(mol, calc, exp, method, nelec):
 		""" main prop function """
-		# no occupied or no virtuals
-		if np.all(calc.occup[exp.cas_idx] == 2.) or np.all(calc.occup[exp.cas_idx] == 0.):
-			if calc.target in ['energy', 'excitation']:
-				return 0.0
-			else:
-				return np.zeros(3, dtype=np.float64)
 		if method in ['ccsd','ccsd(t)']:
 			# ccsd / ccsd(t) calc
 			res = _cc(mol, calc, exp.core_idx, exp.cas_idx, method)
@@ -588,9 +582,9 @@ def _prepare(mol, calc, core_idx, cas_idx):
 		if core_idx.size > 0:
 			core_dm = np.einsum('ip,jp->ij', calc.mo_coeff[:, core_idx], calc.mo_coeff[:, core_idx]) * 2
 			vj, vk = scf.hf.dot_eri_dm(mol.eri, core_dm)
-			mol.core_vhf = vj - vk * .5
-			mol.e_core = mol.energy_nuc() + np.einsum('ij,ji', core_dm, mol.hcore)
-			mol.e_core += np.einsum('ij,ji', core_dm, mol.core_vhf) * .5
+			mol.core_vhf = vj - vk * 0.5
+			mol.e_core = mol.energy_nuc()
+			mol.e_core += np.einsum('ij,ji', core_dm, mol.hcore + mol.core_vhf * 0.5)
 		else:
 			mol.e_core = mol.energy_nuc()
 			mol.core_vhf = 0

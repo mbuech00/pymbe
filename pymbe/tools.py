@@ -192,7 +192,7 @@ def near_nbrs(site_xy, nx, ny):
 
 
 def num_dets(n_orbs, n_alpha, n_beta):
-		""" number of determinants in given CASCI calculation (ignoring spatial symmetry) """
+		""" estimated number of determinants in given CASCI calculation (ignoring point group symmetry) """
 		return scipy.special.binom(n_orbs, n_alpha) * scipy.special.binom(n_orbs, n_beta)
 
 

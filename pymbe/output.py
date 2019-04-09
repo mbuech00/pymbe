@@ -122,24 +122,24 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 			form = (header, mean_val, min_val, max_val)
 			# statistics
-			mean_ndets = np.mean(exp.ndets[exp.order-1])
-			min_ndets = np.min(exp.ndets[exp.order-1])
-			max_ndets = np.max(exp.ndets[exp.order-1])
+			ndets = exp.ndets[exp.order-1]
+			if ndets.any():
+				mean_ndets = np.mean(ndets[np.nonzero(ndets)])
+				min_ndets = np.min(ndets[np.nonzero(ndets)])
+				max_ndets = np.max(ndets[np.nonzero(ndets)])
+			else:
+				mean_ndets = min_ndets = max_ndets = 0.0
 			string += DIVIDER+'\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:         {:>8.2e}        |           {:>9.3e}          |          {:>9.3e}\n'
-			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(exp.ndets[exp.order-1])])[1]
+			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(ndets)])[1]
 			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
 									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
-			cas_idx_min = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmin(exp.ndets[exp.order-1])])[1]
-			nelec_min = np.asarray((np.count_nonzero(calc.occup[cas_idx_min] > 0.), \
-									np.count_nonzero(calc.occup[cas_idx_min] > 1.)), dtype=np.int32)
-			string += ' RESULT:         --------        |           ({:>2.0f}e,{:>2.0f}o)          |          ({:>2.0f}e,{:>2.0f}o)\n'
+			string += ' RESULT:         --------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
 			string += DIVIDER+'\n'
 			form += (mean_ndets, min_ndets, max_ndets, \
-						nelec_min[0] + nelec_min[1], cas_idx_min.size, \
 						nelec_max[0] + nelec_max[1], cas_idx_max.size)
 		else:
 			string = FILL+'\n'
@@ -185,24 +185,24 @@ def mbe_results(mol, calc, exp):
 					string += '\n'+DIVIDER
 				form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 			# statistics
-			mean_ndets = np.mean(exp.ndets[exp.order-1])
-			min_ndets = np.min(exp.ndets[exp.order-1])
-			max_ndets = np.max(exp.ndets[exp.order-1])
+			ndets = exp.ndets[exp.order-1]
+			if ndets.any():
+				mean_ndets = np.mean(ndets[np.nonzero(ndets)])
+				min_ndets = np.min(ndets[np.nonzero(ndets)])
+				max_ndets = np.max(ndets[np.nonzero(ndets)])
+			else:
+				mean_ndets = min_ndets = max_ndets = 0.0
 			string += '\n'+DIVIDER+'\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:         {:>8.2e}        |           {:>9.3e}          |          {:>9.3e}\n'
-			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(exp.ndets[exp.order-1])])[1]
+			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(ndets)])[1]
 			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
 									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
-			cas_idx_min = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmin(exp.ndets[exp.order-1])])[1]
-			nelec_min = np.asarray((np.count_nonzero(calc.occup[cas_idx_min] > 0.), \
-									np.count_nonzero(calc.occup[cas_idx_min] > 1.)), dtype=np.int32)
-			string += ' RESULT:         --------        |           ({:>2.0f}e,{:>2.0f}o)          |          ({:>2.0f}e,{:>2.0f}o)\n'
+			string += ' RESULT:         --------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
 			string += DIVIDER+'\n'
 			form += (mean_ndets, min_ndets, max_ndets, \
-						nelec_min[0] + nelec_min[1], cas_idx_min.size, \
 						nelec_max[0] + nelec_max[1], cas_idx_max.size)
 		if exp.order < exp.max_order:
 			string += FILL
