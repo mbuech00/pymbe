@@ -142,7 +142,7 @@ def _slave(mpi, mol, calc, exp):
 				mpi.comm.Recv([h1e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
 				mpi.comm.Recv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
 				# calculate increment
-				if not calc.extra['pruning'] or (calc.extra['pruning'] and tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, cas_idx[-exp.order:], mbe=True)):
+				if not calc.extra['pruning'] or (calc.extra['pruning'] and tools.n_pi_orbs(calc.orbsym, cas_idx[-exp.order:]) % 2 == 0):
 					ndets[task_idx[0]], inc[task_idx[0]] = _inc(mol, calc, exp, e_core[0], h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
 				mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
@@ -175,17 +175,15 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 			inc_tup -= calc.prop['ref'][calc.target]
 			if exp.order > 1:
 				if np.any(inc_tup != 0.0):
-					inc_tup -= _sum(calc, exp, cas_idx)
+					inc_tup -= _sum(calc, exp, cas_idx[-exp.order:])
 			# debug print
 			if mol.debug >= 1:
 				print(output.mbe_debug(mol, calc, exp, ndets_tup, nelec, inc_tup, cas_idx))
 			return ndets_tup, inc_tup
 
 
-def _sum(calc, exp, cas_idx):
+def _sum(calc, exp, tup):
 		""" recursive summation """
-		# set tup
-		tup = cas_idx[-exp.order:]
 		# init res
 		if calc.target in ['energy', 'excitation']:
 			res = 0.0

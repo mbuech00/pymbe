@@ -202,7 +202,7 @@ def ref_mo(mol, calc):
 		""" determine reference mo coefficients """
 		# check for even number of pi-orbitals
 		if calc.extra['pruning']:
-			tools.assertion(tools.n_pi_orbs % 2 == 0, 'uneven number of pi-orbitals in reference space')
+			tools.assertion(tools.n_pi_orbs(calc.orbsym, calc.ref_space) % 2 == 0, 'uneven number of pi-orbitals in reference space')
 		if calc.orbs['type'] != 'can':
 			# set core and cas spaces
 			core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))

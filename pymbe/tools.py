@@ -179,14 +179,14 @@ def prepare(e_nuc, hcore, vhf, eri, core_idx, cas_idx):
 		return e_core, h1e_cas, h2e_cas
 
 
-def n_pi_orbs(orbsym, ref_space):
-		""" determine number of pi_orbs """
+def n_pi_orbs(orbsym, orbs):
+		""" determine number of pi_orbs in orbs tuple of orbitals """
 		# init counter
 		n_pi_orbs = 0
 		# loop over IDs
 		for sym in DEG_ID:
 			# given set of x and y pi orbs
-			pi_orbs = _pi_orbs(orbsym, ref_space, sym)
+			pi_orbs = _pi_orbs(orbsym, orbs, sym)
 			n_pi_orbs += pi_orbs.size
 		return n_pi_orbs
 
@@ -196,7 +196,7 @@ def _pi_orbs(orbsym, orbs, sym):
 		return np.where((orbsym[orbs] == sym) | (orbsym[orbs] == (sym+1)))[0]
 
 
-def pi_orb_pruning(mo_energy, orbsym, tup, mbe=False):
+def pi_orb_pruning(mo_energy, orbsym, tup):
 		""" pi-orbital pruning """
 		# loop over IDs
 		for sym in DEG_ID:
@@ -204,10 +204,6 @@ def pi_orb_pruning(mo_energy, orbsym, tup, mbe=False):
 			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
 			if pi_orbs.size > 0:
 				if pi_orbs.size % 2 > 0:
-					# uneven number of pi orbs
-					if mbe:
-						# mbe phase
-						return False
 					if orbsym[tup[-1]] not in [sym, sym+1]:
 						# last orbital is not a pi orbital
 						return False
