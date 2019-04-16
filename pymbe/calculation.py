@@ -42,7 +42,7 @@ class CalcCls(object):
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'type': 'can'}
-				self.mpi = {'masters': 1, 'task_size': 1}
+				self.mpi = {'masters': 1, 'task_size': 3}
 				# init mo
 				self.mo = None
 				# set calculation parameters

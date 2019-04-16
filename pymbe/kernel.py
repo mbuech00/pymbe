@@ -30,7 +30,7 @@ SPIN_TOL = 1.0e-05
 DIPOLE_TOL = 1.0e-14
 
 
-def ao_ints(mol, calc):
+def ao_ints(mol):
 		""" get AO integrals """
 		# core hamiltonian and electron repulsion ints
 		if mol.atom: # ab initio hamiltonian
@@ -42,13 +42,33 @@ def ao_ints(mol, calc):
 		else: # model hamiltonian
 			hcore = _hubbard_h1(mol)
 			eri = _hubbard_eri(mol)
+		return hcore, eri
+
+
+def dipole_ints(mol):
+		""" get dipole integrals (AO basis) """
 		# dipole integrals with gauge origin at origo
-		if calc.target in ['dipole', 'trans']:
-			with mol.with_common_origin([0.0, 0.0, 0.0]):
-				dipole = mol.intor_symmetric('int1e_r', comp=3)
-		else:
-			dipole = None
-		return hcore, eri, dipole
+		with mol.with_common_origin([0.0, 0.0, 0.0]):
+			dipole = mol.intor_symmetric('int1e_r', comp=3)
+		return dipole
+
+
+def mo_ints(mol, mo_coeff):
+		""" transform MO integrals """
+		# hcore
+		hcore = np.einsum('pi,pq,qj->ij', mo_coeff, mol.hcore, mo_coeff)
+		# eri w/o symmetry
+		eri = ao2mo.incore.full(mol.eri, mo_coeff)
+		eri = ao2mo.restore(1, eri, mol.norb)
+		# effective fock potential 
+		vhf = np.zeros([mol.nocc, mol.norb, mol.norb])
+		for i in range(mol.nocc):
+			idx = np.asarray([i])
+			vhf[i] = np.einsum('pqrs->rs', eri[idx[:, None], idx, :, :]) * 2.
+			vhf[i] -= np.einsum('pqrs->ps', eri[:, idx[:, None], idx, :]) * 2. * .5
+		# eri w/ 4-fold symmetry
+		eri = ao2mo.restore(4, eri, mol.norb)
+		return hcore, vhf, eri
 
 
 def _hubbard_h1(mol):
@@ -97,6 +117,14 @@ def _hubbard_eri(mol):
 		for i in range(mol.nsites):
 			eri[i,i,i,i] = mol.u
 		return ao2mo.restore(8, eri, mol.nsites)
+
+
+class _hubbard_PM(lo.pipek.PM):
+		""" Construct the site-population tensor for each orbital-pair density
+			(pyscf example: 40-hubbard_model_PM_localization.py) """
+		def atomic_pops(self, mol, mo_coeff, method=None):
+			""" This tensor is used in cost-function and its gradients """
+			return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
 def hf(mol, calc):
@@ -154,7 +182,8 @@ def hf(mol, calc):
 			for i in range(hf.mo_energy.size):
 				print('     {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
 			print('\n')
-		return nocc, nvirt, norb, hf, np.asscalar(e_hf), elec_dipole, occup, orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
+		return nocc, nvirt, norb, hf, np.asscalar(mol.energy_nuc()), np.asscalar(e_hf), \
+				elec_dipole, occup, orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(hf, calc):
@@ -171,6 +200,9 @@ def _dim(hf, calc):
 
 def ref_mo(mol, calc):
 		""" determine reference mo coefficients """
+		# check for even number of pi-orbitals
+		if calc.extra['sigma']:
+			tools.assertion(tools.n_pi_orbs % 2 == 0, 'uneven number of pi-orbitals in reference space')
 		if calc.orbs['type'] != 'can':
 			# set core and cas spaces
 			core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))
@@ -191,12 +223,12 @@ def ref_mo(mol, calc):
 				if mol.atom:
 					calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
 				else:
-					calc.mo_coeff[:, mol.ncore:mol.nocc] = tools.hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
+					calc.mo_coeff[:, mol.ncore:mol.nocc] = _hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
 				# virt-virt block
 				if mol.atom:
 					calc.mo_coeff[:, mol.nocc:] = lo.PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
 				else:
-					calc.mo_coeff[:, mol.nocc:] = tools.hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
+					calc.mo_coeff[:, mol.nocc:] = _hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
 		# sort mo coefficients
 		mo_energy = calc.mo_energy
 		mo_coeff = calc.mo_coeff
@@ -244,10 +276,10 @@ def ref_mo(mol, calc):
 def ref_prop(mol, calc, exp):
 		""" calculate reference space properties """
 		# generate input
-		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, np.array([], dtype=np.int32))
+		core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, np.array([], dtype=np.int32))
 		# nelec
-		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), \
-							np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
+		nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
+							np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int32)
 		# reference space prop
 		if np.any(calc.occup[calc.ref_space] == 2.) and np.any(calc.occup[calc.ref_space] < 2.):
 			# exp model
@@ -264,25 +296,30 @@ def ref_prop(mol, calc, exp):
 		return ref
 
 
-def main(mol, calc, exp, method, nelec):
+def main(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec, base=False):
 		""" main prop function """
+		# set method
+		if base:
+			method = calc.base['method']
+		else:
+			method = calc.model['method']
 		if method in ['ccsd','ccsd(t)']:
 			# ccsd / ccsd(t) calc
-			res = _cc(mol, calc, exp.core_idx, exp.cas_idx, method)
+			res = _cc(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, method)
 		elif method == 'fci':
 			# fci calc
-			res_tmp = _fci(mol, calc, exp.core_idx, exp.cas_idx, nelec)
+			res_tmp = _fci(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec)
 			if calc.target in ['energy', 'excitation']:
 				res = res_tmp[calc.target]
 			elif calc.target == 'dipole':
-				res = _dipole(mol, calc, exp, res_tmp['rdm1'])
+				res = _dipole(mol, calc, cas_idx, res_tmp['rdm1'])
 			elif calc.target == 'trans':
-				res = _trans(mol, calc, exp, res_tmp['t_rdm1'], \
+				res = _trans(mol, calc, cas_idx, res_tmp['t_rdm1'], \
 								res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 		return res
 
 
-def _dipole(mol, calc, exp, cas_rdm1, trans=False):
+def _dipole(mol, calc, cas_idx, cas_rdm1, trans=False):
 		""" calculate electronic (transition) dipole moment """
 		# init (transition) rdm1
 		if trans:
@@ -290,7 +327,7 @@ def _dipole(mol, calc, exp, cas_rdm1, trans=False):
 		else:
 			rdm1 = np.diag(calc.occup)
 		# insert correlated subblock
-		rdm1[exp.cas_idx[:, None], exp.cas_idx] = cas_rdm1
+		rdm1[cas_idx[:, None], cas_idx] = cas_rdm1
 		# ao representation
 		rdm1 = np.einsum('pi,ij,qj->pq', calc.mo_coeff, rdm1, calc.mo_coeff)
 		# compute elec_dipole
@@ -303,9 +340,9 @@ def _dipole(mol, calc, exp, cas_rdm1, trans=False):
 		return elec_dipole
 
 
-def _trans(mol, calc, exp, cas_t_rdm1, hf_weight_gs, hf_weight_ex):
+def _trans(mol, calc, cas_idx, cas_t_rdm1, hf_weight_gs, hf_weight_ex):
 		""" calculate electronic transition dipole moment """
-		return _dipole(mol, calc, exp, cas_t_rdm1, True) * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
+		return _dipole(mol, calc, cas_idx, cas_t_rdm1, True) * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
 def base(mol, calc):
@@ -423,7 +460,7 @@ def _casscf(mol, calc, mo_coeff, ref_space, nelec):
 		return cas.mo_energy, np.asarray(cas.mo_coeff, order='C')
 
 
-def _fci(mol, calc, core_idx, cas_idx, nelec):
+def _fci(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec):
 		""" fci calc """
 		# init fci solver
 		if calc.model['solver'] == 'pyscf_spin0':
@@ -444,8 +481,6 @@ def _fci(mol, calc, core_idx, cas_idx, nelec):
 			solver.verbose = 10
 		# wfnsym
 		solver.wfnsym = calc.state['wfnsym']
-		# get integrals and core energy
-		h1e, h2e = _prepare(mol, calc, core_idx, cas_idx)
 		# orbital symmetry
 		solver.orbsym = calc.orbsym[cas_idx]
 		# hf starting guess
@@ -462,7 +497,7 @@ def _fci(mol, calc, core_idx, cas_idx, nelec):
 		def _fci_kernel():
 				""" interface to solver.kernel """
 				# perform calc
-				e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=mol.e_core, \
+				e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, \
 										orbsym=solver.orbsym, ci0=ci0)
 				# collect results
 				if solver.nroots == 1:
@@ -514,10 +549,8 @@ def _fci(mol, calc, core_idx, cas_idx, nelec):
 		return res
 
 
-def _cc(mol, calc, core_idx, cas_idx, method, rdm=False):
+def _cc(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, method, rdm=False):
 		""" ccsd / ccsd(t) calc """
-		# get integrals
-		h1e, h2e = _prepare(mol, calc, core_idx, cas_idx)
 		mol_tmp = gto.M(verbose=0)
 		mol_tmp.incore_anyway = mol.incore_anyway
 		mol_tmp.max_memory = mol.max_memory
@@ -553,7 +586,8 @@ def _cc(mol, calc, core_idx, cas_idx, method, rdm=False):
 			if ccsd.converged:
 				break
 		# convergence check
-		tools.assertion(ccsd.converged, 'CCSD error: no convergence')
+		tools.assertion(ccsd.converged, 'CCSD error: no convergence , core_idx = {:} , cas_idx = {:}'. \
+										format(core_idx, cas_idx))
 		# e_corr
 		e_cc = ccsd.e_corr
 		# calculate (t) correction
@@ -574,22 +608,5 @@ def _cc(mol, calc, core_idx, cas_idx, method, rdm=False):
 				l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
 				rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
 			return rdm1
-
-
-def _prepare(mol, calc, core_idx, cas_idx):
-		""" generate input for correlated calculation """
-		# extract cas integrals and calculate core energy
-		if core_idx.size > 0:
-			core_dm = np.einsum('ip,jp->ij', calc.mo_coeff[:, core_idx], calc.mo_coeff[:, core_idx]) * 2
-			vj, vk = scf.hf.dot_eri_dm(mol.eri, core_dm)
-			mol.core_vhf = vj - vk * 0.5
-			mol.e_core = mol.energy_nuc()
-			mol.e_core += np.einsum('ij,ji', core_dm, mol.hcore + mol.core_vhf * 0.5)
-		else:
-			mol.e_core = mol.energy_nuc()
-			mol.core_vhf = 0
-		h1e_cas = np.einsum('pi,pq,qj->ij', calc.mo_coeff[:, cas_idx], mol.hcore + mol.core_vhf, calc.mo_coeff[:, cas_idx])
-		h2e_cas = ao2mo.incore.full(mol.eri, calc.mo_coeff[:, cas_idx])
-		return h1e_cas, h2e_cas
 
 

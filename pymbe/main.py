@@ -100,8 +100,8 @@ def _exp(mpi, mol, calc):
 		if mpi.master:
 			# restart
 			if calc.restart:
-				# get ao integrals
-				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
+				# get dipole integrals
+				calc.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
 				# read fundamental info
 				restart.read_fund(mol, calc)
 				# exp object
@@ -109,14 +109,16 @@ def _exp(mpi, mol, calc):
 			# no restart
 			else:
 				# get ao integrals
-				mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
+				mol.hcore, mol.eri = kernel.ao_ints(mol)
 				# hf calculation
-				mol.nocc, mol.nvirt, mol.norb, \
-					calc.hf, calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
+				mol.nocc, mol.nvirt, mol.norb, calc.hf, mol.e_nuc, \
+					calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
 					calc.occup, calc.orbsym, \
 					calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
 				# reference and expansion spaces and mo coefficients
 				calc.mo_energy, calc.mo_coeff, calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
+				# get mo integrals
+				mol.hcore, mol.vhf, mol.eri = kernel.mo_ints(mol, calc.mo_coeff)
 				# base energy
 				calc.prop['base']['energy'] = kernel.base(mol, calc)
 				# exp object
@@ -126,8 +128,8 @@ def _exp(mpi, mol, calc):
 				# write fundamental info
 				restart.write_fund(mol, calc)
 		else:
-			# get ao integrals
-			mol.hcore, mol.eri, mol.dipole = kernel.ao_ints(mol, calc)
+			# get dipole integrals
+			calc.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
 		# bcast fundamental info
 		parallel.fund(mpi, mol, calc)
 		# exp object on slaves

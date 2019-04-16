@@ -33,7 +33,7 @@ class MPICls(object):
 def mol(mpi, mol):
 		""" bcast mol info """
 		if mpi.master:
-			info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'e_core': mol.e_core, \
+			info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
 					'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
 					'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
 			if not mol.atom:
@@ -46,8 +46,7 @@ def mol(mpi, mol):
 			mpi.comm.bcast(info, root=0)
 		else:
 			info = mpi.comm.bcast(None, root=0)
-			mol.atom = info['atom']; mol.charge = info['charge']
-			mol.spin = info['spin']; mol.e_core = info['e_core']
+			mol.atom = info['atom']; mol.charge = info['charge']; mol.spin = info['spin']
 			mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
 			mol.basis = info['basis']; mol.cart = info['cart']
 			mol.unit = info['unit']; mol.frozen = info['frozen']

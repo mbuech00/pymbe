@@ -65,7 +65,8 @@ def fsum(a):
 
 def hash_2d(a):
 		""" convert a 2d numpy array to a 1d array of hashes """
-		return np.fromiter(map(hash_1d, a), dtype=np.int64, count=a.shape[0])
+		return np.fromiter(map(hash_1d, a), \
+							dtype=np.int64, count=a.shape[0])
 
 
 def hash_1d(a):
@@ -139,6 +140,62 @@ def core_cas(mol, ref_space, tup):
 		return core_idx, cas_idx
 
 
+def _cas_idx_cart(cas_idx):
+		""" generate a cartesian product of (cas_idx, cas_idx) """
+		return np.array(np.meshgrid(cas_idx, cas_idx)).T.reshape(-1, 2)
+
+
+def _coor_to_idx(ij):
+		""" compute lower triangular index corresponding to (i, j) (ij[0], ij[1]) """
+		i = ij[0]; j = ij[1]
+		if i >= j:
+			return i * (i + 1) // 2 + j
+		else:
+			return j * (j + 1) // 2 + i
+
+
+def _cas_idx_tril(cas_idx):
+		""" compute lower triangular cas_idx """
+		cas_idx_cart = _cas_idx_cart(cas_idx)
+		return np.unique(np.fromiter(map(_coor_to_idx, cas_idx_cart), \
+										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
+
+
+def prepare(e_nuc, hcore, vhf, eri, core_idx, cas_idx):
+		""" generate input for correlated calculation """
+		# init core energy
+		e_core = e_nuc
+		# determine effective core fock potential
+		if core_idx.size > 0:
+			core_vhf = np.sum(vhf[core_idx], axis=0)
+		else:
+			core_vhf = 0
+		# calculate core energy
+		e_core += np.trace((hcore + .5 * core_vhf)[core_idx[:, None], core_idx]) * 2.
+		# extract cas integrals
+		h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]
+		cas_idx_tril = _cas_idx_tril(cas_idx)
+		h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+		return e_core, h1e_cas, h2e_cas
+
+
+def n_pi_orbs(orbsym, ref_space):
+		""" determine number of pi_orbs """
+		# init counter
+		n_pi_orbs = 0
+		# loop over IDs
+		for sym in DEG_ID:
+			# given set of x and y pi orbs
+			pi_orbs = _pi_orbs(orbsym, ref_space, sym)
+			n_pi_orbs += pi_orbs.size
+		return n_pi_orbs
+
+
+def _pi_orbs(orbsym, orbs, sym):
+		""" get indices of pi-orbitals in orbs tuple of orbitals """
+		return np.where((orbsym[orbs] == sym) | (orbsym[orbs] == (sym+1)))[0]
+
+
 def sigma_prune(mo_energy, orbsym, tup, mbe=False):
 		""" sigma pruning """
 		# loop over IDs
@@ -165,14 +222,6 @@ def sigma_prune(mo_energy, orbsym, tup, mbe=False):
 							# the pi orbs are not pair-wise degenerated
 							return False
 		return True
-
-
-class hubbard_PM(lo.pipek.PM):
-		""" Construct the site-population tensor for each orbital-pair density
-			(pyscf example: 40-hubbard_model_PM_localization.py) """
-		def atomic_pops(self, mol, mo_coeff, method=None):
-			""" This tensor is used in cost-function and its gradients """
-			return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
 def mat_indx(site, nx, ny):

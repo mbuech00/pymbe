@@ -25,7 +25,7 @@ import tools
 
 
 # tags
-TAGS = tools.enum('start', 'ready', 'exit')
+TAGS = tools.enum('start', 'data', 'ready', 'exit')
 
 
 def main(mpi, mol, calc, exp):
@@ -62,8 +62,8 @@ def _master(mpi, mol, calc, exp):
 		mpi.comm.bcast(msg, root=0)
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# task list and number of tasks
-		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
+		# number of tasks
+		n_tasks = exp.tuples[-1].shape[0]
 		# init request
 		req = MPI.Request()
 		# start index
@@ -75,9 +75,17 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
-				if i < len(tasks):
-					# send index
+				if i < n_tasks:
+					# send task idx
 					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					# get core and cas indices
+					core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
+					# get core energy and cas integrals
+					e_core, h1e_cas, h2e_cas = tools.prepare(mol.e_nuc, mol.hcore, mol.vhf, mol.eri, core_idx, cas_idx)
+					# send e_core, h1e_cas, and h2e_cas 
+					mpi.comm.Send([np.array([e_core], dtype=np.float64), MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.data)
+					mpi.comm.Send([h1e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.data)
+					mpi.comm.Send([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.data)
 					# increment index
 					i += 1
 					# wait for completion
@@ -94,8 +102,8 @@ def _master(mpi, mol, calc, exp):
 						# exit loop
 						break
 		# init increments and ndets
-		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
-		ndets = _init_ndets(exp.tuples[-1].shape[0])
+		inc = _init_inc(n_tasks, calc.target)
+		ndets = _init_ndets(n_tasks)
 		# allreduce increments
 		parallel.mbe(mpi, inc, ndets)
 		return ndets, inc
@@ -103,15 +111,18 @@ def _master(mpi, mol, calc, exp):
 
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
-		# init idx
-		idx = np.empty(1, dtype=np.int32)
+		# init task_idx
+		task_idx = np.empty(1, dtype=np.int32)
+		# number of task
+		n_tasks = exp.tuples[-1].shape[0]
 		# number of slaves
-		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# task list
-		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
+		num_slaves = slaves_avail = min(mpi.size - 1, n_tasks)
 		# init increments and ndets
-		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
-		ndets = _init_ndets(exp.tuples[-1].shape[0])
+		inc = _init_inc(n_tasks, calc.target)
+		ndets = _init_ndets(n_tasks)
+		# init e_core and ints
+		e_core = np.empty(1, dtype=np.float64)
+		h1e_cas, h2e_cas = _init_ints(calc.ref_space, exp.order)
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
@@ -120,20 +131,21 @@ def _slave(mpi, mol, calc, exp):
 			# early exit in case of large proc count
 			if mpi.rank > num_slaves:
 				break
-			# receive index
-			mpi.comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
+			# receive task_idx
+			mpi.comm.Recv([task_idx, MPI.INT], source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
-				# get task
-				task = tasks[idx[0]]
-				# loop over tasks
-				for n, task_idx in enumerate(task):
-					# send availability to master
-					if n == task.size - 1:
-						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-					# calculate increments
-					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
-						ndets[task_idx], inc[task_idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][task_idx])
+				# get core and cas indices
+				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][task_idx[0]])
+				# receive e_core, h1e_cas, and h2e_cas
+				mpi.comm.Recv([e_core, MPI.DOUBLE], source=0, tag=TAGS.data)
+				mpi.comm.Recv([h1e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
+				mpi.comm.Recv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
+				# calculate increment
+				if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, cas_idx[-exp.order:], mbe=True)):
+					ndets[task_idx[0]], inc[task_idx[0]] = _inc(mol, calc, exp, e_core[0], h1e_cas, h2e_cas, core_idx, cas_idx)
+				# send availability to master
+				mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
@@ -142,14 +154,12 @@ def _slave(mpi, mol, calc, exp):
 		return ndets, inc
 
 
-def _inc(mpi, mol, calc, exp, tup):
+def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 		""" calculate increments corresponding to tup """
-		# generate input
-		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, tup)
 		# nelec
-		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), \
-							np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
-		if np.all(calc.occup[exp.cas_idx] == 2.) or np.all(calc.occup[exp.cas_idx] == 0.):
+		nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
+							np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int32)
+		if np.all(calc.occup[cas_idx] == 2.) or np.all(calc.occup[cas_idx] == 0.):
 			# return in case of no correlation (no occupied or no virtuals)
 			if calc.target in ['energy', 'excitation']:
 				return 0.0, 0.0
@@ -157,25 +167,27 @@ def _inc(mpi, mol, calc, exp, tup):
 				return 0.0, np.zeros(3, dtype=np.float64)
 		else:
 			# ndets
-			ndets_tup = tools.num_dets(exp.cas_idx.size, nelec[0], nelec[1])
+			ndets_tup = tools.num_dets(cas_idx.size, nelec[0], nelec[1])
 			# perform calc
-			inc_tup = kernel.main(mol, calc, exp, calc.model['method'], nelec)
+			inc_tup = kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 			if calc.base['method'] is not None:
-				inc_tup -= kernel.main(mol, calc, exp, calc.base['method'], nelec)
+				inc_tup -= kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, base=True)
 			inc_tup -= calc.prop['ref'][calc.target]
 			if exp.order > 1:
 				if np.any(inc_tup != 0.0):
-					inc_tup -= _sum(calc, exp, tup, calc.target)
+					inc_tup -= _sum(calc, exp, cas_idx)
 			# debug print
 			if mol.debug >= 1:
-				print(output.mbe_debug(mol, calc, exp, tup, ndets_tup, nelec, inc_tup, exp.cas_idx))
+				print(output.mbe_debug(mol, calc, exp, ndets_tup, nelec, inc_tup, cas_idx))
 			return ndets_tup, inc_tup
 
 
-def _sum(calc, exp, tup, target):
+def _sum(calc, exp, cas_idx):
 		""" recursive summation """
+		# set tup
+		tup = cas_idx[-exp.order:]
 		# init res
-		if target in ['energy', 'excitation']:
+		if calc.target in ['energy', 'excitation']:
 			res = 0.0
 		else:
 			res = np.zeros(3, dtype=np.float64)
@@ -193,7 +205,7 @@ def _sum(calc, exp, tup, target):
 			indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
 			tools.assertion(indx is not None, 'error in recursive increment calculation (tuple not found)')
 			# add up lower-order increments
-			if target in ['energy', 'excitation']:
+			if calc.target in ['energy', 'excitation']:
 				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx])
 			else:
 				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx, :])
@@ -211,5 +223,13 @@ def _init_inc(n_tuples, target):
 def _init_ndets(n_tuples):
 		""" init ndets array """
 		return np.zeros(n_tuples, dtype=np.float64)
+
+
+def _init_ints(ref_space, order):
+		""" init cas space h1e and h2e """
+		n_orb = ref_space.size + order
+		h1e_cas = np.empty([n_orb, n_orb], dtype=np.float64)
+		h2e_cas = np.empty([(n_orb * (n_orb + 1)) // 2, (n_orb * (n_orb + 1)) // 2], dtype=np.float64)
+		return h1e_cas, h2e_cas
 
 

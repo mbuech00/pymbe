@@ -59,9 +59,10 @@ def mbe_header(n_tuples, n_orbs, order):
 		return string.format(*form)
 
 
-def mbe_debug(mol, calc, exp, tup, ndets_tup, nelec_tup, inc_tup, cas_idx):
+def mbe_debug(mol, calc, exp, ndets_tup, nelec_tup, inc_tup, cas_idx):
 		""" print mbe debug information """
 		# tup and symmetry
+		tup = cas_idx[-exp.order:]
 		tup_lst = [i for i in tup]
 		if mol.atom:
 			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
