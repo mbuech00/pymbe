@@ -38,7 +38,7 @@ class CalcCls(object):
 							'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'sigma': False}
+				self.extra = {'hf_guess': True, 'pruning': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'type': 'can'}
@@ -197,8 +197,8 @@ class CalcCls(object):
 				# extra
 				tools.assertion(isinstance(self.extra['hf_guess'], bool), \
 								'HF initial guess for FCI calcs (hf_guess) must be a bool')
-				tools.assertion(isinstance(self.extra['sigma'], bool), \
-								'sigma state pruning for FCI calcs (sigma) must be a bool')
+				tools.assertion(isinstance(self.extra['pruning'], bool), \
+								'pi-orbital pruning for FCI calcs (pruning) must be a bool')
 				# screening protocol
 				tools.assertion(all(isinstance(i, str) for i in self.prot.values()), \
 								'values in prot input (prot) must be string and bools')

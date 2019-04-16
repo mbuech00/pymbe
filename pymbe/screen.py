@@ -126,12 +126,12 @@ def _slave(mpi, mol, calc, exp):
 					parent_tup = exp.tuples[-1][task_idx].tolist()
 					for m in lst:
 						tup = parent_tup+[m]
-						if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32))):
+						if not calc.extra['pruning'] or (calc.extra['pruning'] and tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32))):
 							child_tup += tup
 							child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 						else:
 							if mol.debug >= 2:
-								print('screen [sigma]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
+								print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
@@ -159,28 +159,28 @@ def _test(mol, calc, exp, tup):
 			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
 				# add orbital m to combinations
 				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
-				# sigma pruning
-				if calc.extra['sigma']:
-					combs_m = combs_m[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
+				# pi-orbital pruning
+				if calc.extra['pruning']:
+					combs_m = combs_m[[tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
 				# convert to sorted hashes
 				combs_m_hash = tools.hash_2d(combs_m)
 				combs_m_hash.sort()
 				# get indices
 				indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
-				if calc.extra['sigma']:
+				if calc.extra['pruning']:
 					# deep pruning (to check validity of tup + [m])
 					for k in range(exp.order-1, 0, -1):
-						combs_sigma = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+						combs_pruned = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 						# add orbital m to combinations
-						combs_sigma = np.concatenate((combs_sigma, m * np.ones(combs_sigma.shape[0], dtype=np.int32)[:, None]), axis=1)
-						combs_sigma = combs_sigma[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs_sigma[comb, :]) for comb in range(combs_sigma.shape[0])]]
+						combs_pruned = np.concatenate((combs_pruned, m * np.ones(combs_pruned.shape[0], dtype=np.int32)[:, None]), axis=1)
+						combs_pruned = combs_pruned[[tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, combs_pruned[comb, :]) for comb in range(combs_pruned.shape[0])]]
 						# convert to sorted hashes
-						combs_sigma_hash = tools.hash_2d(combs_sigma)
-						combs_sigma_hash.sort()
+						combs_pruned_hash = tools.hash_2d(combs_pruned)
+						combs_pruned_hash.sort()
 						# get indices
-						indx_sigma = tools.hash_compare(exp.hashes[k], combs_sigma_hash)
+						indx_pruned = tools.hash_compare(exp.hashes[k], combs_pruned_hash)
 						# break if disallowed
-						if indx_sigma is None:
+						if indx_pruned is None:
 							indx = None
 							break
 				if indx is not None:

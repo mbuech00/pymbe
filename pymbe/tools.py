@@ -196,8 +196,8 @@ def _pi_orbs(orbsym, orbs, sym):
 		return np.where((orbsym[orbs] == sym) | (orbsym[orbs] == (sym+1)))[0]
 
 
-def sigma_prune(mo_energy, orbsym, tup, mbe=False):
-		""" sigma pruning """
+def pi_orb_pruning(mo_energy, orbsym, tup, mbe=False):
+		""" pi-orbital pruning """
 		# loop over IDs
 		for sym in DEG_ID:
 			# given set of x and y pi orbs

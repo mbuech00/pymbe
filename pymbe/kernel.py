@@ -201,7 +201,7 @@ def _dim(hf, calc):
 def ref_mo(mol, calc):
 		""" determine reference mo coefficients """
 		# check for even number of pi-orbitals
-		if calc.extra['sigma']:
+		if calc.extra['pruning']:
 			tools.assertion(tools.n_pi_orbs % 2 == 0, 'uneven number of pi-orbitals in reference space')
 		if calc.orbs['type'] != 'can':
 			# set core and cas spaces

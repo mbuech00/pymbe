@@ -142,7 +142,7 @@ def _slave(mpi, mol, calc, exp):
 				mpi.comm.Recv([h1e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
 				mpi.comm.Recv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
 				# calculate increment
-				if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, cas_idx[-exp.order:], mbe=True)):
+				if not calc.extra['pruning'] or (calc.extra['pruning'] and tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, cas_idx[-exp.order:], mbe=True)):
 					ndets[task_idx[0]], inc[task_idx[0]] = _inc(mol, calc, exp, e_core[0], h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
 				mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
@@ -195,9 +195,9 @@ def _sum(calc, exp, cas_idx):
 		for k in range(exp.order-1, 0, -1):
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-			# sigma pruning
-			if calc.extra['sigma']:
-				combs = combs[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
+			# pi-orbital pruning
+			if calc.extra['pruning']:
+				combs = combs[[tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)
 			combs_hash.sort()
