@@ -40,7 +40,7 @@ def ao_ints(mol):
 			else:
 				eri = mol.intor('int2e_sph', aosym=4)
 		else: # model hamiltonian
-			hcore = _hubbard_h1(mol)
+			hcore = _hubbard_h1e(mol)
 			eri = _hubbard_eri(mol)
 		return hcore, eri
 
@@ -71,7 +71,23 @@ def mo_ints(mol, mo_coeff):
 		return hcore, vhf, eri
 
 
-def _hubbard_h1(mol):
+def e_core_h1e(e_nuc, hcore, vhf, core_idx, cas_idx):
+		""" compute core energy and cas space h1e for correlated calculation """
+		# init core energy
+		e_core = e_nuc
+		# determine effective core fock potential
+		if core_idx.size > 0:
+			core_vhf = np.sum(vhf[core_idx], axis=0)
+		else:
+			core_vhf = 0
+		# calculate core energy
+		e_core += np.trace((hcore + .5 * core_vhf)[core_idx[:, None], core_idx]) * 2.
+		# extract cas integrals
+		h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]
+		return e_core, h1e_cas
+
+
+def _hubbard_h1e(mol):
 		""" set hubbard hopping hamiltonian """
 		# dimension
 		if 1 in mol.matrix:
@@ -350,8 +366,11 @@ def base(mol, calc):
 		""" calculate base energy and mo coefficients """
 		# set core and cas spaces
 		core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore, mol.nocc), np.arange(mol.nocc, mol.norb))
-		# get core energy and cas integrals
-		e_core, h1e_cas, h2e_cas = tools.prepare(mol.e_nuc, mol.hcore, mol.vhf, mol.eri, core_idx, cas_idx)
+		# get cas space h2e
+		cas_idx_tril = tools.cas_idx_tril(cas_idx)
+		h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
+		# compute e_core and h1e_cas
+		e_core, h1e_cas = e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
 		# no base
 		if calc.base['method'] is None:
 			e_base = 0.0

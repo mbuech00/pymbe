@@ -154,29 +154,11 @@ def _coor_to_idx(ij):
 			return j * (j + 1) // 2 + i
 
 
-def _cas_idx_tril(cas_idx):
+def cas_idx_tril(cas_idx):
 		""" compute lower triangular cas_idx """
 		cas_idx_cart = _cas_idx_cart(cas_idx)
 		return np.unique(np.fromiter(map(_coor_to_idx, cas_idx_cart), \
 										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
-
-
-def prepare(e_nuc, hcore, vhf, eri, core_idx, cas_idx):
-		""" generate input for correlated calculation """
-		# init core energy
-		e_core = e_nuc
-		# determine effective core fock potential
-		if core_idx.size > 0:
-			core_vhf = np.sum(vhf[core_idx], axis=0)
-		else:
-			core_vhf = 0
-		# calculate core energy
-		e_core += np.trace((hcore + .5 * core_vhf)[core_idx[:, None], core_idx]) * 2.
-		# extract cas integrals
-		h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]
-		cas_idx_tril = _cas_idx_tril(cas_idx)
-		h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
-		return e_core, h1e_cas, h2e_cas
 
 
 def n_pi_orbs(orbsym, orbs):

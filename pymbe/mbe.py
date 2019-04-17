@@ -77,25 +77,25 @@ def _master(mpi, mol, calc, exp):
 				# any tasks left?
 				if i < n_tasks:
 					# send task idx
-					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], \
+									dest=mpi.stat.source, tag=TAGS.start)
 					# get core and cas indices
 					core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
-					# get core energy and cas integrals
-					e_core, h1e_cas, h2e_cas = tools.prepare(mol.e_nuc, mol.hcore, mol.vhf, mol.eri, core_idx, cas_idx)
-					# send e_core, h1e_cas, and h2e_cas 
-					mpi.comm.Send([np.array([e_core], dtype=np.float64), MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.data)
-					mpi.comm.Send([h1e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.data)
-					mpi.comm.Send([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.data)
+					# get h2e indices
+					cas_idx_tril = tools.cas_idx_tril(cas_idx)
+					# send h2e_cas 
+					mpi.comm.Isend([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
+									dest=mpi.stat.source, tag=TAGS.data)
 					# increment index
 					i += 1
-					# wait for completion
+					# wait for slave status
 					req.Wait()
 				else:
 					# send exit signal
 					mpi.comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
-					# wait for completion
+					# wait for slave status
 					req.Wait()
 					# any slaves left?
 					if slaves_avail == 0:
@@ -120,9 +120,8 @@ def _slave(mpi, mol, calc, exp):
 		# init increments and ndets
 		inc = _init_inc(n_tasks, calc.target)
 		ndets = _init_ndets(n_tasks)
-		# init e_core and ints
-		e_core = np.empty(1, dtype=np.float64)
-		h1e_cas, h2e_cas = _init_ints(calc.ref_space, exp.order)
+		# init h2e_cas
+		h2e_cas = _init_h2e(calc.ref_space, exp.order)
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
@@ -135,15 +134,17 @@ def _slave(mpi, mol, calc, exp):
 			mpi.comm.Recv([task_idx, MPI.INT], source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
+				# receive h2e_cas
+				req = mpi.comm.Irecv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
 				# get core and cas indices
 				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][task_idx[0]])
-				# receive e_core, h1e_cas, and h2e_cas
-				mpi.comm.Recv([e_core, MPI.DOUBLE], source=0, tag=TAGS.data)
-				mpi.comm.Recv([h1e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
-				mpi.comm.Recv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
+				# compute e_core and h1e_cas
+				e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
+				# wait for h2e
+				req.Wait()
 				# calculate increment
 				if not calc.extra['pruning'] or (calc.extra['pruning'] and tools.n_pi_orbs(calc.orbsym, cas_idx[-exp.order:]) % 2 == 0):
-					ndets[task_idx[0]], inc[task_idx[0]] = _inc(mol, calc, exp, e_core[0], h1e_cas, h2e_cas, core_idx, cas_idx)
+					ndets[task_idx[0]], inc[task_idx[0]] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
 				mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
@@ -223,11 +224,9 @@ def _init_ndets(n_tuples):
 		return np.zeros(n_tuples, dtype=np.float64)
 
 
-def _init_ints(ref_space, order):
-		""" init cas space h1e and h2e """
+def _init_h2e(ref_space, order):
+		""" init cas space h2e """
 		n_orb = ref_space.size + order
-		h1e_cas = np.empty([n_orb, n_orb], dtype=np.float64)
-		h2e_cas = np.empty([(n_orb * (n_orb + 1)) // 2, (n_orb * (n_orb + 1)) // 2], dtype=np.float64)
-		return h1e_cas, h2e_cas
+		return np.empty([(n_orb * (n_orb + 1)) // 2, (n_orb * (n_orb + 1)) // 2], dtype=np.float64)
 
 
