@@ -11,6 +11,7 @@ __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import numpy as np
+import functools
 from mpi4py import MPI
 import sys
 import itertools
@@ -196,7 +197,8 @@ def _sum(calc, exp, tup):
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# pi-orbital pruning
 			if calc.extra['pruning']:
-				combs = combs[[tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
+				combs = combs[np.fromiter(map(functools.partial(tools.pi_orb_pruning, calc.mo_energy, calc.orbsym), combs), \
+									dtype=bool, count=combs.shape[0])]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)
 			combs_hash.sort()

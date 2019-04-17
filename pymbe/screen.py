@@ -12,6 +12,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
+import functools
 import itertools
 
 import parallel
@@ -161,7 +162,8 @@ def _test(mol, calc, exp, tup):
 				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
 				# pi-orbital pruning
 				if calc.extra['pruning']:
-					combs_m = combs_m[[tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
+					combs_m = combs_m[np.fromiter(map(functools.partial(tools.pi_orb_pruning, calc.mo_energy, calc.orbsym), combs_m), \
+										dtype=bool, count=combs_m.shape[0])]
 				# convert to sorted hashes
 				combs_m_hash = tools.hash_2d(combs_m)
 				combs_m_hash.sort()
@@ -173,7 +175,8 @@ def _test(mol, calc, exp, tup):
 						combs_pruned = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 						# add orbital m to combinations
 						combs_pruned = np.concatenate((combs_pruned, m * np.ones(combs_pruned.shape[0], dtype=np.int32)[:, None]), axis=1)
-						combs_pruned = combs_pruned[[tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, combs_pruned[comb, :]) for comb in range(combs_pruned.shape[0])]]
+						combs_pruned = combs_pruned[np.fromiter(map(functools.partial(tools.pi_orb_pruning, calc.mo_energy, calc.orbsym), combs_pruned), \
+													dtype=bool, count=combs_pruned.shape[0])]
 						# convert to sorted hashes
 						combs_pruned_hash = tools.hash_2d(combs_pruned)
 						combs_pruned_hash.sort()

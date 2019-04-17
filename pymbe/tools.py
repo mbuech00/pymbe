@@ -183,7 +183,7 @@ def pi_orb_pruning(mo_energy, orbsym, tup):
 		# loop over IDs
 		for sym in DEG_ID:
 			# given set of x and y pi orbs
-			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
+			pi_orbs = _pi_orbs(orbsym, tup, sym)
 			if pi_orbs.size > 0:
 				if pi_orbs.size % 2 > 0:
 					if orbsym[tup[-1]] not in [sym, sym+1]:
