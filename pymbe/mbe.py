@@ -143,7 +143,7 @@ def _slave(mpi, mol, calc, exp):
 				# wait for h2e
 				req.Wait()
 				# calculate increment
-				if not calc.extra['pruning'] or (calc.extra['pruning'] and tools.n_pi_orbs(calc.orbsym, cas_idx[-exp.order:]) % 2 == 0):
+				if not calc.extra['pruning'] or tools.n_pi_orbs(calc.orbsym, cas_idx[-exp.order:]) % 2 == 0:
 					ndets[task_idx[0]], inc[task_idx[0]] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
 				mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)

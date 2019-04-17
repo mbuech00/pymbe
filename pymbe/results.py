@@ -120,6 +120,7 @@ def _plot(info, calc, exp):
 		elif calc.target == 'trans':
 			_trans_plot(info, calc, exp)
 			_osc_strength_plot(info, calc, exp)
+		_ndets_plot(info, exp)
 
 
 def _model(calc):
@@ -729,8 +730,8 @@ def _osc_strength_plot(info, calc, exp):
 		# set 2 subplots
 		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
 		# array of total MBE oscillator strength
-		osc_strength = np.empty(info['final_order'], dtype=np.float64)
-		for i in range(info['final_order']):
+		osc_strength = np.empty(info['final_order']-1, dtype=np.float64)
+		for i in range(info['final_order']-1):
 			osc_strength[i] = (2./3.) * info['excitation'][i] * np.linalg.norm(info['trans'][i, :])**2
 		# plot results
 		ax1.plot(np.arange(1, info['final_order']), \
@@ -773,5 +774,41 @@ def _osc_strength_plot(info, calc, exp):
 		ax1.legend(loc=1)
 		# save plot
 		plt.savefig(tools.OUT+'/osc_strength_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+
+
+def _ndets_plot(info, exp):
+		""" plot number of determinants """
+		# set seaborn
+		if SNS_FOUND:
+			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
+		# set 2 subplots
+		fig, ax = plt.subplots()
+		# array of max number of determinants at each order
+		max_ndets = np.empty(info['final_order']-1, dtype=np.float64)
+		for i in range(info['final_order']-1):
+			ndets = exp.ndets[i]
+			if ndets.any():
+				max_ndets[i] = np.max(ndets[np.nonzero(ndets)])
+			else:
+				max_ndets[i] = 0.0
+		# plot results
+		start = 1 if max_ndets[0] != 0.0 else 2
+		ax.semilogy(np.arange(start, info['final_order']), \
+					max_ndets[start-1:], marker='x', linewidth=2, mew=1, color='red', linestyle='-')
+		# set x limits
+		ax.set_xlim([0.5, info['final_order'] - 0.5])
+		# turn off x-grid
+		ax.xaxis.grid(False)
+		# set labels
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Number of determinants')
+		# force integer ticks on x-axis
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.2e'))
+		# despine
+		if SNS_FOUND:
+			sns.despine()
+		# save plot
+		plt.savefig(tools.OUT+'/ndets.pdf', bbox_inches = 'tight', dpi=1000)
 
 
