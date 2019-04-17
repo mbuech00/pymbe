@@ -253,7 +253,7 @@ def _symm(mol, calc):
 			if mol.atom:
 				string = symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+'('+mol.symmetry+')'
 				if calc.extra['pruning']:
-					string += ' * pi'
+					string += '-pruned'
 				return string
 			else:
 				return 'C1(A)'

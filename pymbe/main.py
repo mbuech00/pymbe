@@ -104,6 +104,10 @@ def _exp(mpi, mol, calc):
 				calc.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
 				# read fundamental info
 				restart.read_fund(mol, calc)
+				# get ao integrals
+				mol.hcore, mol.eri = kernel.ao_ints(mol)
+				# get mo integrals
+				mol.hcore, mol.vhf, mol.eri = kernel.mo_ints(mol, calc.mo_coeff)
 				# exp object
 				exp = expansion.ExpCls(mol, calc)
 			# no restart

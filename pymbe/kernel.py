@@ -18,7 +18,7 @@ import numpy as np
 import scipy as sp
 from functools import reduce
 from mpi4py import MPI
-from pyscf import gto, symm, scf, ao2mo, lo, ci, cc, mcscf, fci
+from pyscf import gto, symm, scf, ao2mo, lib, lo, ci, cc, mcscf, fci
 from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
@@ -146,7 +146,7 @@ def hf(mol, calc):
 			hf.get_hcore = lambda *args: mol.hcore 
 			hf._eri = mol.eri
 		# perform hf calc
-		for i in list(range(0, 12, 2)):
+		for i in range(0, 12, 2):
 			hf.diis_start_cycle = i
 			try:
 				hf.kernel()
@@ -200,15 +200,13 @@ def _dim(hf, calc):
 
 def ref_mo(mol, calc):
 		""" determine reference mo coefficients """
-		# check for even number of pi-orbitals
-		if calc.extra['pruning']:
-			tools.assertion(tools.n_pi_orbs(calc.orbsym, calc.ref_space) % 2 == 0, 'uneven number of pi-orbitals in reference space')
 		if calc.orbs['type'] != 'can':
 			# set core and cas spaces
 			core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))
 			# NOs
 			if calc.orbs['type'] in ['ccsd', 'ccsd(t)']:
-				rdm1 = _cc(mol, calc, core_idx, cas_idx, calc.orbs['type'], True)
+				# compute rmd1
+				rdm1 = _cc(mol, calc, core_idx, cas_idx, calc.orbs['type'], rdm1=True)
 				if mol.spin > 0:
 					rdm1 = rdm1[0] + rdm1[1]
 				# occ-occ block
@@ -255,6 +253,9 @@ def ref_mo(mol, calc):
 		# reference and expansion spaces
 		ref_space = np.arange(inact_orbs, inact_orbs+act_orbs)
 		exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
+		# check for even number of pi-orbitals
+		if calc.extra['pruning']:
+			tools.assertion(tools.n_pi_orbs(calc.orbsym, ref_space) % 2 == 0, 'uneven number of pi-orbitals in reference space')
 		# casci or casscf
 		if calc.ref['method'] == 'casci':
 			if act_orbs > 0:
@@ -305,7 +306,7 @@ def main(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec, base=False):
 			method = calc.model['method']
 		if method in ['ccsd','ccsd(t)']:
 			# ccsd / ccsd(t) calc
-			res = _cc(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, method)
+			res = _cc(mol, calc, core_idx, cas_idx, method, h1e=h1e, h2e=h2e)
 		elif method == 'fci':
 			# fci calc
 			res_tmp = _fci(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec)
@@ -349,12 +350,14 @@ def base(mol, calc):
 		""" calculate base energy and mo coefficients """
 		# set core and cas spaces
 		core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore, mol.nocc), np.arange(mol.nocc, mol.norb))
+		# get core energy and cas integrals
+		e_core, h1e_cas, h2e_cas = tools.prepare(mol.e_nuc, mol.hcore, mol.vhf, mol.eri, core_idx, cas_idx)
 		# no base
 		if calc.base['method'] is None:
 			e_base = 0.0
 		# ccsd / ccsd(t) base
 		elif calc.base['method'] in ['ccsd','ccsd(t)']:
-			e_base = _cc(mol, calc, core_idx, cas_idx, calc.base['method'])
+			e_base = _cc(mol, calc, core_idx, cas_idx, calc.base['method'], h1e=h1e_cas, h2e=h2e_cas)
 		return e_base
 
 
@@ -549,26 +552,29 @@ def _fci(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec):
 		return res
 
 
-def _cc(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, method, rdm=False):
+def _cc(mol, calc, core_idx, cas_idx, method, h1e=None, h2e=None, rdm1=False):
 		""" ccsd / ccsd(t) calc """
-		mol_tmp = gto.M(verbose=0)
-		mol_tmp.incore_anyway = mol.incore_anyway
-		mol_tmp.max_memory = mol.max_memory
-		if mol.spin == 0:
-			hf = scf.RHF(mol_tmp)
+		if h1e is not None and h2e is not None:
+			mol_tmp = gto.M(verbose=0)
+			mol_tmp.incore_anyway = mol.incore_anyway
+			mol_tmp.max_memory = mol.max_memory
+			if mol.spin == 0:
+				hf = scf.RHF(mol_tmp)
+			else:
+				hf = scf.UHF(mol_tmp)
+			hf.get_hcore = lambda *args: h1e
+			hf._eri = h2e
+			# init ccsd
+			if mol.spin == 0:
+				ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(cas_idx.size), mo_occ=calc.occup[cas_idx])
+			else:
+				ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))), \
+										mo_occ=np.array((calc.occup[cas_idx] > 0., calc.occup[cas_idx] == 2.), dtype=np.double))
 		else:
-			hf = scf.UHF(mol_tmp)
-		hf.get_hcore = lambda *args: h1e
-		hf._eri = h2e 
-		# init ccsd
-		if mol.spin == 0:
-			ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(cas_idx.size), mo_occ=calc.occup[cas_idx])
-		else:
-			ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))), \
-									mo_occ=np.array((calc.occup[cas_idx] > 0., calc.occup[cas_idx] == 2.), dtype=np.double))
+			ccsd = cc.CCSD(calc.hf)
 		# settings
 		ccsd.conv_tol = max(calc.thres['init'], 1.0e-10)
-		if rdm:
+		if rdm1:
 			ccsd.conv_tol_normt = ccsd.conv_tol
 		ccsd.max_cycle = 500
 		# avoid async function execution if requested
@@ -577,7 +583,7 @@ def _cc(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, method, rdm=False):
 		if not calc.misc['async']: ccsd.incore_complete = True
 		eris = ccsd.ao2mo()
 		# calculate ccsd energy
-		for i in list(range(0, 12, 2)):
+		for i in range(0, 12, 2):
 			ccsd.diis_start_cycle = i
 			try:
 				ccsd.kernel(eris=eris)
@@ -598,7 +604,7 @@ def _cc(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, method, rdm=False):
 			else:
 				e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 		# rdm1
-		if not rdm:
+		if not rdm1:
 			return e_cc
 		else:
 			if method == 'ccsd':
