@@ -434,49 +434,27 @@ def _energies_plot(info, calc, exp):
 		# set seaborn
 		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 2 subplots
-		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
-		# array of MBE total energy
-		energy = info['energy'].copy()
+		# set subplot
+		fig, ax = plt.subplots()
 		# plot results
-		ax1.plot(np.arange(1, info['final_order']), \
-				energy, marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
+		ax.plot(np.arange(1, info['final_order']), \
+				info['energy'], marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
 				linestyle='-', label='state {:}'.format(calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order'] - 0.5])
+		ax.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
-		ax1.xaxis.grid(False)
+		ax.xaxis.grid(False)
 		# set labels
-		ax1.set_ylabel('Energy (in au)')
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Energy (in au)')
 		# force integer ticks on x-axis
-		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
-		# array of MBE total energy increments
-		mbe = exp.prop['energy']['tot'].copy()
-		mbe[1:] = np.diff(mbe)
-		# plot results
-		ax2.semilogy(np.arange(1, info['final_order']), \
-				np.abs(mbe), marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
-				linestyle='-', label='state {:}'.format(calc.state['root']))
-		# set x limits
-		ax2.set_xlim([0.5, info['final_order'] - 0.5])
-		# turn off x-grid
-		ax2.xaxis.grid(False)
-		# set labels
-		ax2.set_xlabel('Expansion order')
-		ax2.set_ylabel('Increments (in au)')
-		# force integer ticks on x-axis
-		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
-		# set upper limit on y-axis
-		ax2.set_ylim(top=2.0e-01)
-		# no spacing
-		plt.subplots_adjust(hspace=0.05)
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
 		# despine
 		if SNS_FOUND:
 			sns.despine()
 		# set legend
-		ax1.legend(loc=1)
+		ax.legend(loc=1)
 		# save plot
 		plt.savefig(tools.OUT+'/energy_state_{:}.pdf'.format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
@@ -506,49 +484,27 @@ def _excitation_plot(info, calc, exp):
 		# set seaborn
 		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 2 subplots
-		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
-		# array of MBE total energy
-		excitation = info['excitation'].copy()
+		# set subplot
+		fig, ax = plt.subplots()
 		# plot results
-		ax1.plot(np.arange(1, info['final_order']), \
-				excitation, marker='x', linewidth=2, mew=1, color='xkcd:dull blue', \
+		ax.plot(np.arange(1, info['final_order']), \
+				info['excitation'], marker='x', linewidth=2, mew=1, color='xkcd:dull blue', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order'] - 0.5])
+		ax.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
-		ax1.xaxis.grid(False)
+		ax.xaxis.grid(False)
 		# set labels
-		ax1.set_ylabel('Excitation energy (in au)')
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Excitation energy (in au)')
 		# force integer ticks on x-axis
-		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
-		# array of MBE total energy increments
-		mbe = exp.prop['excitation']['tot'].copy()
-		mbe[1:] = np.diff(mbe)
-		# plot results
-		ax2.semilogy(np.arange(1, info['final_order']), \
-				np.abs(mbe), marker='x', linewidth=2, mew=1, color='xkcd:dull blue', \
-				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
-		# set x limits
-		ax2.set_xlim([0.5, info['final_order'] - 0.5])
-		# turn off x-grid
-		ax2.xaxis.grid(False)
-		# set labels
-		ax2.set_xlabel('Expansion order')
-		ax2.set_ylabel('Increments (in au)')
-		# force integer ticks on x-axis
-		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
-		# set upper limit on y-axis
-		ax2.set_ylim(top=2.0e-01)
-		# no spacing
-		plt.subplots_adjust(hspace=0.05)
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
 		# despine
 		if SNS_FOUND:
 			sns.despine()
 		# set legend
-		ax1.legend(loc=1)
+		ax.legend(loc=1)
 		# save plot
 		plt.savefig(tools.OUT+'/excitation_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
@@ -586,53 +542,31 @@ def _dipole_plot(info, calc, exp):
 		# set seaborn
 		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 2 subplots
-		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+		# set subplot
+		fig, ax = plt.subplots()
 		# array of total MBE dipole moment
 		dipole = np.empty(info['dipole'].shape[0], dtype=np.float64)
 		for i in range(dipole.size):
 			dipole[i] = np.linalg.norm(info['nuc_dipole'] - info['dipole'][i, :])
 		# plot results
-		ax1.plot(np.arange(1, info['final_order']), \
+		ax.plot(np.arange(1, info['final_order']), \
 				dipole, marker='*', linewidth=2, mew=1, color='xkcd:salmon', \
 				linestyle='-', label='state {:}'.format(calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order'] - 0.5])
+		ax.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
-		ax1.xaxis.grid(False)
+		ax.xaxis.grid(False)
 		# set labels
-		ax1.set_ylabel('Dipole moment (in au)')
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Dipole moment (in au)')
 		# force integer ticks on x-axis
-		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
-		# array of MBE total dipole increments
-		mbe = np.empty_like(dipole)
-		for i in range(mbe.size):
-			mbe[i] = np.linalg.norm(exp.prop['dipole']['tot'][i, :])
-		mbe[1:] = np.diff(mbe)
-		# plot results
-		ax2.semilogy(np.arange(1, info['final_order']), \
-				np.abs(mbe), marker='*', linewidth=2, mew=1, color='xkcd:salmon', \
-				linestyle='-', label='state {:}'.format(calc.state['root']))
-		# set x limits
-		ax2.set_xlim([0.5, info['final_order'] - 0.5])
-		# turn off x-grid
-		ax2.xaxis.grid(False)
-		# set labels
-		ax2.set_xlabel('Expansion order')
-		ax2.set_ylabel('Increments (in au)')
-		# force integer ticks on x-axis
-		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
-		# set upper limit on y-axis
-		ax2.set_ylim(top=2.0e-01)
-		# no spacing
-		plt.subplots_adjust(hspace=0.05)
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
 		# despine
 		if SNS_FOUND:
 			sns.despine()
 		# set legend
-		ax1.legend(loc=1)
+		ax.legend(loc=1)
 		# save plot
 		plt.savefig(tools.OUT+'/dipole_state_{:}.pdf'.format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
@@ -673,51 +607,31 @@ def _trans_plot(info, calc, exp):
 		# set seaborn
 		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 2 subplots
-		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+		# set subplot
+		fig, ax = plt.subplots()
 		# array of total MBE transition dipole moment
 		trans = np.empty(info['trans'].shape[0], dtype=np.float64)
 		for i in range(trans.size):
 			trans[i] = np.linalg.norm(info['trans'][i, :])
 		# plot results
-		ax1.plot(np.arange(1, info['final_order']), \
+		ax.plot(np.arange(1, info['final_order']), \
 				trans, marker='s', linewidth=2, mew=1, color='xkcd:dark magenta', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order'] - 0.5])
+		ax.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
-		ax1.xaxis.grid(False)
+		ax.xaxis.grid(False)
 		# set labels
-		ax1.set_ylabel('Transition dipole (in au)')
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Transition dipole (in au)')
 		# force integer ticks on x-axis
-		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
-		# array of MBE total transition dipole increments
-		mbe = trans.copy()
-		mbe[1:] = np.diff(mbe)
-		# plot results
-		ax2.semilogy(np.arange(1, info['final_order']), \
-				np.abs(mbe), marker='s', linewidth=2, mew=1, color='xkcd:dark magenta', \
-				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
-		# set x limits
-		ax2.set_xlim([0.5, info['final_order'] - 0.5])
-		# turn off x-grid
-		ax2.xaxis.grid(False)
-		# set labels
-		ax2.set_xlabel('Expansion order')
-		ax2.set_ylabel('Increments (in au)')
-		# force integer ticks on x-axis
-		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
-		# set upper limit on y-axis
-		ax2.set_ylim(top=2.0e-01)
-		# no spacing
-		plt.subplots_adjust(hspace=0.05)
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
 		# despine
 		if SNS_FOUND:
 			sns.despine()
 		# set legend
-		ax1.legend(loc=1)
+		ax.legend(loc=1)
 		# save plot
 		plt.savefig(tools.OUT+'/trans_dipole_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
@@ -727,51 +641,31 @@ def _osc_strength_plot(info, calc, exp):
 		# set seaborn
 		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 2 subplots
-		fig, (ax1, ax2) = plt.subplots(2, 1, sharex='col', sharey='row')
+		# set subplot
+		fig, ax = plt.subplots()
 		# array of total MBE oscillator strength
 		osc_strength = np.empty(info['final_order']-1, dtype=np.float64)
 		for i in range(info['final_order']-1):
 			osc_strength[i] = (2./3.) * info['excitation'][i] * np.linalg.norm(info['trans'][i, :])**2
 		# plot results
-		ax1.plot(np.arange(1, info['final_order']), \
+		ax.plot(np.arange(1, info['final_order']), \
 				osc_strength, marker='+', linewidth=2, mew=1, color='xkcd:royal blue', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
-		ax1.set_xlim([0.5, info['final_order'] - 0.5])
+		ax.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid
-		ax1.xaxis.grid(False)
+		ax.xaxis.grid(False)
 		# set labels
-		ax1.set_ylabel('Oscillator strength (in au)')
+		ax.set_xlabel('Expansion order')
+		ax.set_ylabel('Oscillator strength (in au)')
 		# force integer ticks on x-axis
-		ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax1.yaxis.set_major_formatter(FormatStrFormatter('%8.3f'))
-		# array of MBE total oscillator strength increments
-		mbe = osc_strength.copy()
-		mbe[1:] = np.diff(mbe)
-		# plot results
-		ax2.semilogy(np.arange(1, info['final_order']), \
-				np.abs(mbe), marker='+', linewidth=2, mew=1, color='xkcd:royal blue', \
-				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
-		# set x limits
-		ax2.set_xlim([0.5, info['final_order'] - 0.5])
-		# turn off x-grid
-		ax2.xaxis.grid(False)
-		# set labels
-		ax2.set_xlabel('Expansion order')
-		ax2.set_ylabel('Increments (in au)')
-		# force integer ticks on x-axis
-		ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
-		ax2.yaxis.set_major_formatter(FormatStrFormatter('%7.1e'))
-		# set upper limit on y-axis
-		ax2.set_ylim(top=2.0e-01)
-		# no spacing
-		plt.subplots_adjust(hspace=0.05)
+		ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+		ax.yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
 		# despine
 		if SNS_FOUND:
 			sns.despine()
 		# set legend
-		ax1.legend(loc=1)
+		ax.legend(loc=1)
 		# save plot
 		plt.savefig(tools.OUT+'/osc_strength_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
@@ -781,7 +675,7 @@ def _ndets_plot(info, exp):
 		# set seaborn
 		if SNS_FOUND:
 			sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-		# set 2 subplots
+		# set subplot
 		fig, ax = plt.subplots()
 		# array of max number of determinants at each order
 		max_ndets = np.empty(info['final_order']-1, dtype=np.float64)
