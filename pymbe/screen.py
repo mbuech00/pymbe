@@ -58,31 +58,25 @@ def _master(mpi, mol, calc, exp):
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# number of tasks
 		n_tasks = exp.tuples[-1].shape[0]
-		# init request
-		req = MPI.Request()
 		# start index
 		i = 0
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
-			if mpi.comm.iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+			if mpi.comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
 				# receive slave status
-				req = mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+				mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
 				if i < n_tasks:
 					# send index
-					mpi.comm.isend(i, dest=mpi.stat.source, tag=TAGS.start)
+					mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
 					# increment index
 					i += 1
-					# wait for completion
-					req.wait()
 				else:
 					# send exit signal
-					mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
+					mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
-					# wait for completion
-					req.wait()
 					# any slaves left?
 					if slaves_avail == 0:
 						# exit loop
@@ -97,11 +91,11 @@ def _slave(mpi, mol, calc, exp):
 		""" slave function """
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# send availability to master
-		if mpi.rank <= num_slaves:
-			mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 		# init child_tup/child_hash lists
 		child_tup = []; child_hash = []
+		# send availability to master
+		if mpi.rank <= num_slaves:
+			mpi.comm.send(None, dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
 			# early exit in case of large proc count
@@ -123,7 +117,7 @@ def _slave(mpi, mol, calc, exp):
 					else:
 						if mol.debug >= 2:
 							print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
-				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
+				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break

@@ -65,8 +65,6 @@ def _master(mpi, mol, calc, exp):
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
 		# number of tasks
 		n_tasks = exp.tuples[-1].shape[0]
-		# init request
-		req = MPI.Request()
 		# start index
 		i = 0
 		# loop until no tasks left
@@ -85,34 +83,30 @@ def _master(mpi, mol, calc, exp):
 				# check if correlation is possible
 				if np.any(calc.occup[cas_idx] < 2.0) and np.any(calc.occup[cas_idx] > 0.0):
 					# probe for available slaves
-					if mpi.comm.iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+					if mpi.comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
 						# receive slave status
-						req = mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+						mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 						# send task idx
-						mpi.comm.isend(i, dest=mpi.stat.source, tag=TAGS.start)
+						mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
 						# get h2e indices
 						cas_idx_tril = tools.cas_idx_tril(cas_idx)
 						# send h2e_cas 
-						mpi.comm.Isend([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
+						mpi.comm.Send([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
 										dest=mpi.stat.source, tag=TAGS.data)
 						# increment index
 						i += 1
-						# wait for slave status
-						req.wait()
 				else:
 					# increment index
 					i += 1
 			else:
 				# probe for available slaves
-				if mpi.comm.iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+				if mpi.comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
 					# receive slave status
-					req = mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+					mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 					# send exit signal
-					mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
+					mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
-					# wait for slave status
-					req.wait()
 					# any slaves left?
 					if slaves_avail == 0:
 						# exit loop
@@ -138,7 +132,7 @@ def _slave(mpi, mol, calc, exp):
 		h2e_cas = _init_h2e(calc.ref_space, exp.order)
 		# send availability to master
 		if mpi.rank <= num_slaves:
-			mpi.comm.isend(None, dest=0, tag=TAGS.ready)
+			mpi.comm.send(None, dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
 			# early exit in case of large proc count
@@ -160,7 +154,7 @@ def _slave(mpi, mol, calc, exp):
 				ndets[task_idx], inc[task_idx] = _inc(mol, calc, exp, e_core, \
 														h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
-				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
+				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
