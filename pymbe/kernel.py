@@ -296,11 +296,16 @@ def ref_prop(mol, calc, exp):
 							np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int32)
 		# reference space prop
 		if np.any(calc.occup[calc.ref_space] == 2.) and np.any(calc.occup[calc.ref_space] < 2.):
+			# get cas space h2e
+			cas_idx_tril = tools.cas_idx_tril(cas_idx)
+			h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
+			# compute e_core and h1e_cas
+			e_core, h1e_cas = e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
 			# exp model
-			ref = main(mol, calc, exp, calc.model['method'], nelec)
+			ref = main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 			if calc.base['method'] is not None:
 				# base model
-				ref -= main(mol, calc, exp, calc.base['method'], nelec)
+				ref -= main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, base=True)
 		else:
 			# no correlation in expansion reference space
 			if calc.target in ['energy', 'excitation']:
