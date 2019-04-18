@@ -73,8 +73,7 @@ def _master(mpi, mol, calc, exp):
 		while True:
 			# avoid distributing pi-pruned tasks
 			if calc.extra['pruning'] and i < n_tasks: 
-#				while not tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, exp.tuples[-1][i]):
-				while tools.n_pi_orbs(calc.orbsym, exp.tuples[-1][i]) % 2 > 0:
+				while not tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, exp.tuples[-1][i], mbe=True):
 					# increment index
 					i += 1
 					if i == n_tasks:

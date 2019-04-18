@@ -116,13 +116,15 @@ def _slave(mpi, mol, calc, exp):
 				parent_tup = exp.tuples[-1][task_idx].tolist()
 				for m in lst:
 					tup = parent_tup+[m]
-					if not calc.extra['pruning'] or \
-					tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
-						child_tup += tup
-						child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-					else:
-						if mol.debug >= 2:
-							print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
+#					if not calc.extra['pruning'] or \
+#					tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
+#						child_tup += tup
+#						child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+#					else:
+#						if mol.debug >= 2:
+#							print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
+					child_tup += tup
+					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -147,11 +149,16 @@ def _test(mol, calc, exp, tup):
 			lst = []
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
+			# 1st pi-orbital pruning
+			if calc.extra['pruning']:
+				combs = combs[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
+									calc.mo_energy, calc.orbsym), combs), \
+									dtype=bool, count=combs.shape[0])]
 			# loop over new orbs 'm'
 			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
 				# add orbital m to combinations
 				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
-				# pi-orbital pruning
+				# 2nd pi-orbital pruning
 				if calc.extra['pruning']:
 					combs_m = combs_m[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
 										calc.mo_energy, calc.orbsym), combs_m), \
@@ -161,25 +168,25 @@ def _test(mol, calc, exp, tup):
 				combs_m_hash.sort()
 				# get indices
 				indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
-				if calc.extra['pruning']:
-					# deep pruning (to check validity of tup + [m])
-					for k in range(exp.order-1, 0, -1):
-						combs_pruned = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-						# add orbital m to combinations
-						combs_pruned = np.concatenate((combs_pruned, m * \
-														np.ones(combs_pruned.shape[0], dtype=np.int32)[:, None]), axis=1)
-						combs_pruned = combs_pruned[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
-													calc.mo_energy, calc.orbsym), combs_pruned), \
-													dtype=bool, count=combs_pruned.shape[0])]
-						# convert to sorted hashes
-						combs_pruned_hash = tools.hash_2d(combs_pruned)
-						combs_pruned_hash.sort()
-						# get indices
-						indx_pruned = tools.hash_compare(exp.hashes[k], combs_pruned_hash)
-						# break if disallowed
-						if indx_pruned is None:
-							indx = None
-							break
+#				if calc.extra['pruning']:
+#					# deep pruning (to check validity of tup + [m])
+#					for k in range(exp.order-1, 0, -1):
+#						combs_pruned = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+#						# add orbital m to combinations
+#						combs_pruned = np.concatenate((combs_pruned, m * \
+#														np.ones(combs_pruned.shape[0], dtype=np.int32)[:, None]), axis=1)
+#						combs_pruned = combs_pruned[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
+#													calc.mo_energy, calc.orbsym), combs_pruned), \
+#													dtype=bool, count=combs_pruned.shape[0])]
+#						# convert to sorted hashes
+#						combs_pruned_hash = tools.hash_2d(combs_pruned)
+#						combs_pruned_hash.sort()
+#						# get indices
+#						indx_pruned = tools.hash_compare(exp.hashes[k], combs_pruned_hash)
+#						# break if disallowed
+#						if indx_pruned is None:
+#							indx = None
+#							break
 				if indx is not None:
 					if not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, indx):
 						lst += [m]

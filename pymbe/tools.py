@@ -152,24 +152,12 @@ def cas_idx_tril(cas_idx):
 										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def n_pi_orbs(orbsym, orbs):
-		""" determine number of pi_orbs in orbs tuple of orbitals """
-		# init counter
-		n_pi_orbs = 0
-		# loop over IDs
-		for sym in DEG_ID:
-			# given set of x and y pi orbs
-			pi_orbs = _pi_orbs(orbsym, orbs, sym)
-			n_pi_orbs += pi_orbs.size
-		return n_pi_orbs
-
-
 def _pi_orbs(orbsym, orbs, sym):
 		""" get indices of pi-orbitals in orbs tuple of orbitals """
 		return np.where((orbsym[orbs] == sym) | (orbsym[orbs] == (sym+1)))[0]
 
 
-def pi_orb_pruning(mo_energy, orbsym, tup):
+def pi_orb_pruning(mo_energy, orbsym, tup, mbe=False):
 		""" pi-orbital pruning """
 		# loop over IDs
 		for sym in DEG_ID:
@@ -177,6 +165,8 @@ def pi_orb_pruning(mo_energy, orbsym, tup):
 			pi_orbs = _pi_orbs(orbsym, tup, sym)
 			if pi_orbs.size > 0:
 				if pi_orbs.size % 2 > 0:
+					if mbe:
+						return False
 					if orbsym[tup[-1]] not in [sym, sym+1]:
 						# last orbital is not a pi orbital
 						return False
