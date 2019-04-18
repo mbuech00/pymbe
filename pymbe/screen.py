@@ -116,15 +116,13 @@ def _slave(mpi, mol, calc, exp):
 				parent_tup = exp.tuples[-1][task_idx].tolist()
 				for m in lst:
 					tup = parent_tup+[m]
-#					if not calc.extra['pruning'] or \
-#					tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
-#						child_tup += tup
-#						child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-#					else:
-#						if mol.debug >= 2:
-#							print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
-					child_tup += tup
-					child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+					if not calc.extra['pruning'] or \
+					tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
+						child_tup += tup
+						child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+					else:
+						if mol.debug >= 2:
+							print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
 				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit

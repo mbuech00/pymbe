@@ -28,7 +28,7 @@ RES_FILE = OUT+'/results.out'
 # array of degenerate (dooh) orbsym IDs
 # E1gx (2) , E1gy (3)
 # E1uy (6) , E1ux (7)
-DEG_ID = np.array([2, 6]) 
+DEG_ID = np.array([2, 3, 6, 7]) 
 
 
 class Logger(object):
@@ -152,34 +152,28 @@ def cas_idx_tril(cas_idx):
 										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def _pi_orbs(orbsym, orbs, sym):
-		""" get indices of pi-orbitals in orbs tuple of orbitals """
-		return np.where((orbsym[orbs] == sym) | (orbsym[orbs] == (sym+1)))[0]
-
-
 def pi_orb_pruning(mo_energy, orbsym, tup, mbe=False):
 		""" pi-orbital pruning """
-		# loop over IDs
-		for sym in DEG_ID:
-			# given set of x and y pi orbs
-			pi_orbs = _pi_orbs(orbsym, tup, sym)
-			if pi_orbs.size > 0:
-				if pi_orbs.size % 2 > 0:
-					if mbe:
-						return False
-					if orbsym[tup[-1]] not in [sym, sym+1]:
-						# last orbital is not a pi orbital
-						return False
-					else:
-						if np.abs(mo_energy[tup[-1]] - mo_energy[tup[-1]-1]) < 1.0e-05:
-							# this is the second member of a pair of degenerated pi orbs
-							return False
+		# get indices of all pi-orbitals
+		pi_orbs = np.where(np.in1d(orbsym[tup], DEG_ID))[0]
+		# pruning
+		if pi_orbs.size > 0:
+			if pi_orbs.size % 2 > 0:
+				if mbe:
+					return False
+				if orbsym[tup[-1]] not in DEG_ID:
+					# last orbital is not a pi-orbital
+					return False
 				else:
-					# even number of pi orbs
-					for i in range(1, pi_orbs.size, 2):
-						if np.abs(mo_energy[tup[pi_orbs[i]]] - mo_energy[tup[pi_orbs[i-1]]]) > 1.0e-05:
-							# the pi orbs are not pair-wise degenerated
-							return False
+					if np.abs(mo_energy[tup[-1]] - mo_energy[tup[-1]-1]) < 1.0e-05:
+						# this is the second member of a pair of degenerated pi-orbitals
+						return False
+			else:
+				# even number of pi orbs
+				for i in range(1, pi_orbs.size, 2):
+					if np.abs(mo_energy[tup[pi_orbs[i]]] - mo_energy[tup[pi_orbs[i-1]]]) > 1.0e-05:
+						# the pi-orbitals are not pair-wise degenerated
+						return False
 		return True
 
 
