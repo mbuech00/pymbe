@@ -71,15 +71,23 @@ def _master(mpi, mol, calc, exp):
 		i = 0
 		# loop until no tasks left
 		while True:
+			# avoid distributing pi-pruned tasks
+			if calc.extra['pruning'] and i < n_tasks: 
+				while not tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, exp.tuples[-1][i]):
+					if i < n_tasks:
+						# increment index
+						i += 1
+					else:
+						# exit loop
+						break
 			# probe for available slaves
-			if mpi.comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+			if mpi.comm.iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
 				# receive slave status
-				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
+				req = mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
 				if i < n_tasks:
 					# send task idx
-					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], \
-									dest=mpi.stat.source, tag=TAGS.start)
+					mpi.comm.isend(i, dest=mpi.stat.source, tag=TAGS.start)
 					# get core and cas indices
 					core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
 					# get h2e indices
@@ -90,14 +98,14 @@ def _master(mpi, mol, calc, exp):
 					# increment index
 					i += 1
 					# wait for slave status
-					req.Wait()
+					req.wait()
 				else:
 					# send exit signal
-					mpi.comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
+					mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
 					# wait for slave status
-					req.Wait()
+					req.wait()
 					# any slaves left?
 					if slaves_avail == 0:
 						# exit loop
@@ -112,8 +120,6 @@ def _master(mpi, mol, calc, exp):
 
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
-		# init task_idx
-		task_idx = np.empty(1, dtype=np.int32)
 		# number of task
 		n_tasks = exp.tuples[-1].shape[0]
 		# number of slaves
@@ -125,29 +131,28 @@ def _slave(mpi, mol, calc, exp):
 		h2e_cas = _init_h2e(calc.ref_space, exp.order)
 		# send availability to master
 		if mpi.rank <= num_slaves:
-			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+			mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
 			# early exit in case of large proc count
 			if mpi.rank > num_slaves:
 				break
 			# receive task_idx
-			mpi.comm.Recv([task_idx, MPI.INT], source=0, status=mpi.stat)
+			task_idx = mpi.comm.recv(source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
 				# receive h2e_cas
 				req = mpi.comm.Irecv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
 				# get core and cas indices
-				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][task_idx[0]])
+				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][task_idx])
 				# compute e_core and h1e_cas
 				e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
 				# wait for h2e
 				req.Wait()
 				# calculate increment
-				if not calc.extra['pruning'] or tools.n_pi_orbs(calc.orbsym, cas_idx[-exp.order:]) % 2 == 0:
-					ndets[task_idx[0]], inc[task_idx[0]] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
+				ndets[task_idx], inc[task_idx] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
-				mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
