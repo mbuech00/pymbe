@@ -152,7 +152,7 @@ def cas_idx_tril(cas_idx):
 										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def pi_orb_pruning(mo_energy, orbsym, tup, mbe=False):
+def pi_orb_pruning(mbe, mo_energy, orbsym, tup):
 		""" pi-orbital pruning """
 		# get indices of all pi-orbitals
 		pi_orbs = np.where(np.in1d(orbsym[tup], DEG_ID))[0]

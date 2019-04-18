@@ -111,7 +111,7 @@ def _slave(mpi, mol, calc, exp):
 				for m in lst:
 					tup = parent_tup+[m]
 					if not calc.extra['pruning'] or \
-					tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
+					tools.pi_orb_pruning(False, calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
 						child_tup += tup
 						child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
 					else:
@@ -144,7 +144,7 @@ def _test(mol, calc, exp, tup):
 			# 1st pi-orbital pruning
 			if calc.extra['pruning']:
 				combs = combs[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
-									calc.mo_energy, calc.orbsym), combs), \
+									False, calc.mo_energy, calc.orbsym), combs), \
 									dtype=bool, count=combs.shape[0])]
 			# loop over new orbs 'm'
 			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
@@ -153,7 +153,7 @@ def _test(mol, calc, exp, tup):
 				# 2nd pi-orbital pruning
 				if calc.extra['pruning']:
 					combs_m = combs_m[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
-										calc.mo_energy, calc.orbsym), combs_m), \
+										False, calc.mo_energy, calc.orbsym), combs_m), \
 										dtype=bool, count=combs_m.shape[0])]
 				# convert to sorted hashes
 				combs_m_hash = tools.hash_2d(combs_m)

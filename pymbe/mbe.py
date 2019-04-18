@@ -71,7 +71,7 @@ def _master(mpi, mol, calc, exp):
 		while True:
 			# avoid distributing pi-pruned tasks
 			if calc.extra['pruning'] and i < n_tasks: 
-				while not tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, exp.tuples[-1][i], mbe=True):
+				while not tools.pi_orb_pruning(True, calc.mo_energy, calc.orbsym, exp.tuples[-1][i]):
 					# increment index
 					i += 1
 					if i == n_tasks:
@@ -202,7 +202,7 @@ def _sum(calc, exp, tup):
 			# pi-orbital pruning
 			if calc.extra['pruning']:
 				combs = combs[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
-									calc.mo_energy, calc.orbsym), combs), \
+									True, calc.mo_energy, calc.orbsym), combs), \
 									dtype=bool, count=combs.shape[0])]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)

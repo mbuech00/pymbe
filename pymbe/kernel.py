@@ -267,7 +267,7 @@ def ref_mo(mol, calc):
 		exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
 		# check for even number of pi-orbitals if pi-pruning is requested 
 		if calc.extra['pruning']:
-			tools.assertion(tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, ref_space), \
+			tools.assertion(tools.pi_orb_pruning(False, calc.mo_energy, calc.orbsym, ref_space), \
 							'uneven number of degenerate pi-orbitals in reference space')
 		# casci or casscf
 		if calc.ref['method'] == 'casci':
