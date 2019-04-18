@@ -56,8 +56,8 @@ def _master(mpi, mol, calc, exp):
 		mpi.comm.bcast(msg, root=0)
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# task list and number of tasks
-		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
+		# number of tasks
+		n_tasks = exp.tuples[-1].shape[0]
 		# init request
 		req = MPI.Request()
 		# start index
@@ -65,24 +65,24 @@ def _master(mpi, mol, calc, exp):
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
-			if mpi.comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+			if mpi.comm.iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
 				# receive slave status
-				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
+				req = mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
-				if i < len(tasks):
+				if i < n_tasks:
 					# send index
-					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
+					mpi.comm.isend(i, dest=mpi.stat.source, tag=TAGS.start)
 					# increment index
 					i += 1
 					# wait for completion
-					req.Wait()
+					req.wait()
 				else:
 					# send exit signal
-					mpi.comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
+					mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
 					# wait for completion
-					req.Wait()
+					req.wait()
 					# any slaves left?
 					if slaves_avail == 0:
 						# exit loop
@@ -95,15 +95,11 @@ def _master(mpi, mol, calc, exp):
 
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
-		# init idx
-		idx = np.empty(1, dtype=np.int32)
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# task list
-		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
 		# send availability to master
 		if mpi.rank <= num_slaves:
-			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
+			mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 		# init child_tup/child_hash lists
 		child_tup = []; child_hash = []
 		# receive work from master
@@ -112,27 +108,22 @@ def _slave(mpi, mol, calc, exp):
 			if mpi.rank > num_slaves:
 				break
 			# receive index
-			mpi.comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
+			task_idx = mpi.comm.recv(source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
-				# get task
-				task = tasks[idx[0]]
-				# loop over tasks
-				for n, task_idx in enumerate(task):
-					# send availability to master
-					if n == task.size - 1:
-						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-					# compute child tuples/hashes
-					lst = _test(mol, calc, exp, exp.tuples[-1][task_idx])
-					parent_tup = exp.tuples[-1][task_idx].tolist()
-					for m in lst:
-						tup = parent_tup+[m]
-						if not calc.extra['pruning'] or tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
-							child_tup += tup
-							child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-						else:
-							if mol.debug >= 2:
-								print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
+				# compute child tuples/hashes
+				lst = _test(mol, calc, exp, exp.tuples[-1][task_idx])
+				parent_tup = exp.tuples[-1][task_idx].tolist()
+				for m in lst:
+					tup = parent_tup+[m]
+					if not calc.extra['pruning'] or \
+					tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
+						child_tup += tup
+						child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
+					else:
+						if mol.debug >= 2:
+							print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
+				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
@@ -162,7 +153,8 @@ def _test(mol, calc, exp, tup):
 				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
 				# pi-orbital pruning
 				if calc.extra['pruning']:
-					combs_m = combs_m[np.fromiter(map(functools.partial(tools.pi_orb_pruning, calc.mo_energy, calc.orbsym), combs_m), \
+					combs_m = combs_m[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
+										calc.mo_energy, calc.orbsym), combs_m), \
 										dtype=bool, count=combs_m.shape[0])]
 				# convert to sorted hashes
 				combs_m_hash = tools.hash_2d(combs_m)
@@ -174,8 +166,10 @@ def _test(mol, calc, exp, tup):
 					for k in range(exp.order-1, 0, -1):
 						combs_pruned = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 						# add orbital m to combinations
-						combs_pruned = np.concatenate((combs_pruned, m * np.ones(combs_pruned.shape[0], dtype=np.int32)[:, None]), axis=1)
-						combs_pruned = combs_pruned[np.fromiter(map(functools.partial(tools.pi_orb_pruning, calc.mo_energy, calc.orbsym), combs_pruned), \
+						combs_pruned = np.concatenate((combs_pruned, m * \
+														np.ones(combs_pruned.shape[0], dtype=np.int32)[:, None]), axis=1)
+						combs_pruned = combs_pruned[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
+													calc.mo_energy, calc.orbsym), combs_pruned), \
 													dtype=bool, count=combs_pruned.shape[0])]
 						# convert to sorted hashes
 						combs_pruned_hash = tools.hash_2d(combs_pruned)

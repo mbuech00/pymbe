@@ -124,15 +124,6 @@ def get_pymbe_path():
 		return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
-def tasks(n_tuples, num_slaves, task_size):
-		""" task list """
-		if num_slaves * task_size < n_tuples:
-			n_tasks = n_tuples // task_size
-		else:
-			n_tasks = num_slaves
-		return np.array_split(np.arange(n_tuples), n_tasks)
-
-
 def core_cas(mol, ref_space, tup):
 		""" define core and cas spaces """
 		cas_idx = np.sort(np.append(ref_space, tup))

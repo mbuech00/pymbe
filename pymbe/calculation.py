@@ -42,7 +42,7 @@ class CalcCls(object):
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'mem': 2000, 'order': None, 'async': False}
 				self.orbs = {'type': 'can'}
-				self.mpi = {'masters': 1, 'task_size': 3}
+				self.mpi = {'masters': 1}
 				# init mo
 				self.mo = None
 				# set calculation parameters
@@ -234,8 +234,5 @@ class CalcCls(object):
 									'maximum expansion order (order) must be an int >= 1')
 				tools.assertion(isinstance(self.misc['async'], bool), \
 								'asynchronous key (async) must be a bool')
-				# mpi
-				tools.assertion(isinstance(self.mpi['task_size'], int) and self.mpi['task_size'] >= 1, \
-								'size of mpi tasks (task_size) must be an int >= 1')
 
 

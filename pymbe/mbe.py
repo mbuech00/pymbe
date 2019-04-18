@@ -73,11 +73,11 @@ def _master(mpi, mol, calc, exp):
 		while True:
 			# avoid distributing pi-pruned tasks
 			if calc.extra['pruning'] and i < n_tasks: 
-				while not tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, exp.tuples[-1][i]):
-					if i < n_tasks:
-						# increment index
-						i += 1
-					else:
+#				while not tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, exp.tuples[-1][i]):
+				while tools.n_pi_orbs(calc.orbsym, exp.tuples[-1][i]) % 2 > 0:
+					# increment index
+					i += 1
+					if i == n_tasks:
 						# exit loop
 						break
 			# probe for available slaves
@@ -150,7 +150,8 @@ def _slave(mpi, mol, calc, exp):
 				# wait for h2e
 				req.Wait()
 				# calculate increment
-				ndets[task_idx], inc[task_idx] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
+				ndets[task_idx], inc[task_idx] = _inc(mol, calc, exp, e_core, \
+														h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
 				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
@@ -178,7 +179,8 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 			# perform calc
 			inc_tup = kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 			if calc.base['method'] is not None:
-				inc_tup -= kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, base=True)
+				inc_tup -= kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, \
+										core_idx, cas_idx, nelec, base=True)
 			inc_tup -= calc.prop['ref'][calc.target]
 			if exp.order > 1:
 				if np.any(inc_tup != 0.0):
@@ -202,7 +204,8 @@ def _sum(calc, exp, tup):
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# pi-orbital pruning
 			if calc.extra['pruning']:
-				combs = combs[np.fromiter(map(functools.partial(tools.pi_orb_pruning, calc.mo_energy, calc.orbsym), combs), \
+				combs = combs[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
+									calc.mo_energy, calc.orbsym), combs), \
 									dtype=bool, count=combs.shape[0])]
 			# convert to sorted hashes
 			combs_hash = tools.hash_2d(combs)
