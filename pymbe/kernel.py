@@ -265,7 +265,7 @@ def ref_mo(mol, calc):
 		# reference and expansion spaces
 		ref_space = np.arange(inact_orbs, inact_orbs+act_orbs)
 		exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
-		# check for even number of pi-orbitals
+		# check for even number of pi-orbitals if pi-pruning is requested 
 		if calc.extra['pruning']:
 			tools.assertion(tools.pi_orb_pruning(calc.mo_energy, calc.orbsym, ref_space), \
 							'uneven number of degenerate pi-orbitals in reference space')

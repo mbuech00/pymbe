@@ -79,26 +79,34 @@ def _master(mpi, mol, calc, exp):
 					if i == n_tasks:
 						# exit loop
 						break
-			# probe for available slaves
-			if mpi.comm.iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# receive slave status
-				req = mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-				# any tasks left?
-				if i < n_tasks:
-					# send task idx
-					mpi.comm.isend(i, dest=mpi.stat.source, tag=TAGS.start)
-					# get core and cas indices
-					core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
-					# get h2e indices
-					cas_idx_tril = tools.cas_idx_tril(cas_idx)
-					# send h2e_cas 
-					mpi.comm.Isend([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
-									dest=mpi.stat.source, tag=TAGS.data)
+			if i < n_tasks: 
+				# get core and cas indices
+				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
+				# check if correlation is possible
+				if np.any(calc.occup[cas_idx] < 2.0) and np.any(calc.occup[cas_idx] > 0.0):
+					# probe for available slaves
+					if mpi.comm.iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+						# receive slave status
+						req = mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+						# send task idx
+						mpi.comm.isend(i, dest=mpi.stat.source, tag=TAGS.start)
+						# get h2e indices
+						cas_idx_tril = tools.cas_idx_tril(cas_idx)
+						# send h2e_cas 
+						mpi.comm.Isend([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
+										dest=mpi.stat.source, tag=TAGS.data)
+						# increment index
+						i += 1
+						# wait for slave status
+						req.wait()
+				else:
 					# increment index
 					i += 1
-					# wait for slave status
-					req.wait()
-				else:
+			else:
+				# probe for available slaves
+				if mpi.comm.iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+					# receive slave status
+					req = mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
 					# send exit signal
 					mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
@@ -166,28 +174,24 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 		# nelec
 		nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
 							np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int32)
-		if np.all(calc.occup[cas_idx] == 2.) or np.all(calc.occup[cas_idx] == 0.):
-			# return in case of no correlation (no occupied or no virtuals)
-			if calc.target in ['energy', 'excitation']:
-				return 0.0, 0.0
-			else:
-				return 0.0, np.zeros(3, dtype=np.float64)
-		else:
-			# ndets
-			ndets_tup = tools.num_dets(cas_idx.size, nelec[0], nelec[1])
-			# perform calc
-			inc_tup = kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
-			if calc.base['method'] is not None:
-				inc_tup -= kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, \
-										core_idx, cas_idx, nelec, base=True)
-			inc_tup -= calc.prop['ref'][calc.target]
-			if exp.order > 1:
-				if np.any(inc_tup != 0.0):
-					inc_tup -= _sum(calc, exp, cas_idx[-exp.order:])
-			# debug print
-			if mol.debug >= 1:
-				print(output.mbe_debug(mol, calc, exp, ndets_tup, nelec, inc_tup, cas_idx))
-			return ndets_tup, inc_tup
+		# ndets
+		ndets_tup = tools.num_dets(cas_idx.size, nelec[0], nelec[1])
+		# perform main calc
+		inc_tup = kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+		# perform base calc
+		if calc.base['method'] is not None:
+			inc_tup -= kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, \
+									core_idx, cas_idx, nelec, base=True)
+		# subtract reference space correlation energy
+		inc_tup -= calc.prop['ref'][calc.target]
+		# calculate increment
+		if exp.order > 1:
+			if np.any(inc_tup != 0.0):
+				inc_tup -= _sum(calc, exp, cas_idx[-exp.order:])
+		# debug print
+		if mol.debug >= 1:
+			print(output.mbe_debug(mol, calc, exp, ndets_tup, nelec, inc_tup, cas_idx))
+		return ndets_tup, inc_tup
 
 
 def _sum(calc, exp, tup):
