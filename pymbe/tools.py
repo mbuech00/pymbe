@@ -160,6 +160,7 @@ def pi_orb_pruning(mo_energy, orbsym, tup, mbe=False):
 		if pi_orbs.size > 0:
 			if pi_orbs.size % 2 > 0:
 				if mbe:
+					# never calculate increment for tuple with odd number of pi-orbitals
 					return False
 				if orbsym[tup[-1]] not in DEG_ID:
 					# last orbital is not a pi-orbital
