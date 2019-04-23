@@ -113,7 +113,7 @@ def _slave(mpi, mol, calc, exp):
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
 				# compute child tuples
-				for m in _orbs(mol, calc, exp, exp.tuples[-1][task_idx], exp.order):
+				for m in _orbs(mol, calc, exp, exp.tuples[-1][task_idx], exp.order, calc.extra['pruning']):
 					child_tup += exp.tuples[-1][task_idx].tolist() + [m]
 				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
@@ -124,10 +124,10 @@ def _slave(mpi, mol, calc, exp):
 		return parallel.screen(mpi, child_tup, exp.order)
 
 
-def _orbs(mol, calc, exp, tup, order):
+def _orbs(mol, calc, exp, tup, order, pruning=False):
 		""" determine list of child tuple orbitals """
 		if order == 1:
-			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
+			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
 		else:
 			# check for missing occupied orbitals
 			if not tools.cas_occ(calc.occup, calc.ref_space, tup):
@@ -143,7 +143,7 @@ def _orbs(mol, calc, exp, tup, order):
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
-			if calc.extra['pruning']:
+			if pruning:
 				if tools.all_pi_orbs(calc.orbsym, tup):
 					# tup consists entirely of pi-orbitals, automatically allow for all child tuples
 					return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
@@ -151,14 +151,16 @@ def _orbs(mol, calc, exp, tup, order):
 					combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
 										calc.mo_energy, calc.orbsym), combs), \
 										dtype=bool, count=combs.shape[0])]
+					# find child tuple orbitals which are allowed wrt to sigma orbitals of tuple
+					tup_sigma = tools.sigma_orbs(calc.orbsym, tup)
+					# recursive call to _orbs
+					orb_lst = np.array(_orbs(mol, calc, exp, tup_sigma, tup_sigma.size))
 					if combs.size == 0:
-						# find child tuple orbitals which are allowed wrt to sigma orbitals of tuple
-						tup_sigma = tools.sigma_orbs(calc.orbsym, tup)
-						# recursive call to _orbs
-						lst_tmp = np.array(_orbs(mol, calc, exp, tup_sigma, tup_sigma.size))
-						return lst_tmp[np.where(lst_tmp > tup[-1])].tolist()
+						return orb_lst[np.where(orb_lst > tup[-1])]
+			else:
+				orb_lst = calc.exp_space
 			# loop over new orbs 'm'
-			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
+			for m in orb_lst[np.where(orb_lst > tup[-1])]:
 				# add orbital m to combinations
 				orb = np.empty(combs.shape[0], dtype=np.int32)
 				orb[:] = m
@@ -167,13 +169,13 @@ def _orbs(mol, calc, exp, tup, order):
 				combs_orb_hash = tools.hash_2d(combs_orb)
 				combs_orb_hash.sort()
 				# get indices
-				indx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
+				indx = tools.hash_compare(exp.hashes[order-1], combs_orb_hash)
 				# add m to lst
 				if indx is not None:
 					if thres == 0.0:
 						lst += [m]
 					else:
-						if not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, indx):
+						if not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, order, indx):
 							lst += [m]
 						else:
 							if mol.debug >= 2:
@@ -184,16 +186,16 @@ def _orbs(mol, calc, exp, tup, order):
 			return lst
 
 
-def _prot_screen(thres, scheme, target, prop, indx):
+def _prot_screen(thres, scheme, target, prop, order, indx):
 		""" protocol check """
 		if target in ['energy', 'excitation']:
-			return _prot_scheme(thres, scheme, prop[target]['inc'][-1][indx])
+			return _prot_scheme(thres, scheme, prop[target]['inc'][order-1][indx])
 		else:
 			screen = True
 			for dim in range(3):
 				# (x,y,z) = (0,1,2)
-				if np.sum(prop[target]['inc'][-1][indx, dim]) != 0.0:
-					screen = _prot_scheme(thres, scheme, prop[target]['inc'][-1][indx, dim])
+				if np.sum(prop[target]['inc'][order-1][indx, dim]) != 0.0:
+					screen = _prot_scheme(thres, scheme, prop[target]['inc'][order-1][indx, dim])
 				if not screen:
 					break
 			return screen
@@ -211,11 +213,16 @@ def _prot_scheme(thres, scheme, prop):
 
 def _thres(occup, ref_space, thres, tup):
 		""" set screening threshold for tup """
-		n_virt = np.count_nonzero(occup[ref_space] == 0.)
-		n_virt += np.count_nonzero(occup[tup] == 0.)
-		if n_virt < 3:
+		nocc = np.count_nonzero(occup[ref_space] > 0.)
+		nocc += np.count_nonzero(occup[tup] > 0.)
+		nvirt = np.count_nonzero(occup[ref_space] == 0.)
+		nvirt += np.count_nonzero(occup[tup] == 0.)
+		if nvirt < 3:
 			return 0.0
 		else:
-			return thres['init'] * thres['relax'] ** (n_virt - 3)
+			if nocc == 0:
+				return 0.0
+			else:
+				return thres['init'] * thres['relax'] ** (nvirt - 3)
 
 

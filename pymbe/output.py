@@ -53,7 +53,7 @@ def mbe_header(n_tuples, n_orbs, order):
 		""" print mbe header """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {:} MBE started  ---  {:} tuples in total (each w/ {:} MOs)\n'
+		string += ' STATUS:  order k = {:} MBE started  ---  {:} tuples in total\n'
 		string += DIVIDER
 		form = (order, n_tuples, n_orbs)
 		return string.format(*form)
@@ -84,7 +84,7 @@ def mbe_end(n_count, n_orbs, order):
 		""" print end of mbe """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {:} MBE done  ---  {:} tuples in total (each w/ {:} MOs)\n'
+		string += ' STATUS:  order k = {:} MBE done  ---  {:} tuples in total\n'
 		string += DIVIDER
 		form = (order, n_count, n_orbs)
 		return string.format(*form)
