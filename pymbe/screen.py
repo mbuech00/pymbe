@@ -112,8 +112,13 @@ def _slave(mpi, mol, calc, exp):
 			task_idx = mpi.comm.recv(source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
-				# compute child tuples
-				for m in _orbs(mol, calc, exp, exp.tuples[-1][task_idx], exp.order, calc.extra['pruning']):
+				# child tuples wrt order k-1
+				orb_lst = _orbs(mol, calc, exp, exp.tuples[-1][task_idx], exp.order)
+				if calc.extra['pruning']:
+					# deep pruning wrt to lower order k-2, k-4, etc.
+					for k in range(tools.n_pi_orbs(calc.orbsym, exp.tuples[-1][task_idx]) // 2):
+						orb_lst = np.intersect1d(orb_lst, _orbs(mol, calc, exp, exp.tuples[-1][task_idx], exp.order - (2*k+1)))
+				for m in orb_lst:
 					child_tup += exp.tuples[-1][task_idx].tolist() + [m]
 				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
@@ -124,7 +129,7 @@ def _slave(mpi, mol, calc, exp):
 		return parallel.screen(mpi, child_tup, exp.order)
 
 
-def _orbs(mol, calc, exp, tup, order, pruning=False):
+def _orbs(mol, calc, exp, tup, order):
 		""" determine list of child tuple orbitals """
 		if order == 1:
 			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
@@ -143,47 +148,29 @@ def _orbs(mol, calc, exp, tup, order, pruning=False):
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
-			if pruning:
-				if tools.all_pi_orbs(calc.orbsym, tup):
-					# tup consists entirely of pi-orbitals, automatically allow for all child tuples
-					return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
-				else:
-					combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
-										calc.mo_energy, calc.orbsym), combs), \
-										dtype=bool, count=combs.shape[0])]
-					# find child tuple orbitals which are allowed wrt to sigma orbitals of tuple
-					tup_sigma = tools.sigma_orbs(calc.orbsym, tup)
-					# recursive call to _orbs
-					orb_lst = np.array(_orbs(mol, calc, exp, tup_sigma, tup_sigma.size))
-					if combs.size == 0:
-						return orb_lst[np.where(orb_lst > tup[-1])]
+			if calc.extra['pruning']:
+				combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
+									calc.mo_energy, calc.orbsym), combs), \
+									dtype=bool, count=combs.shape[0])]
+			if combs.size == 0:
+				return np.array([m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]], dtype=np.int32)
 			else:
-				orb_lst = calc.exp_space
-			# loop over new orbs 'm'
-			for m in orb_lst[np.where(orb_lst > tup[-1])]:
-				# add orbital m to combinations
-				orb = np.empty(combs.shape[0], dtype=np.int32)
-				orb[:] = m
-				combs_orb = np.concatenate((combs, orb[:, None]), axis=1)
-				# convert to sorted hashes
-				combs_orb_hash = tools.hash_2d(combs_orb)
-				combs_orb_hash.sort()
-				# get indices
-				indx = tools.hash_compare(exp.hashes[order-1], combs_orb_hash)
-				# add m to lst
-				if indx is not None:
-					if thres == 0.0:
-						lst += [m]
-					else:
-						if not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, order, indx):
+				# loop over new orbs 'm'
+				for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
+					# add orbital m to combinations
+					orb = np.empty(combs.shape[0], dtype=np.int32)
+					orb[:] = m
+					combs_orb = np.concatenate((combs, orb[:, None]), axis=1)
+					# convert to sorted hashes
+					combs_orb_hash = tools.hash_2d(combs_orb)
+					combs_orb_hash.sort()
+					# get indices
+					indx = tools.hash_compare(exp.hashes[order-1], combs_orb_hash)
+					# add m to lst
+					if indx is not None:
+						if thres == 0.0 or not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, order, indx):
 							lst += [m]
-						else:
-							if mol.debug >= 2:
-								print('screen [prot_screen]\nparent_tup:\n{:}\nm:\n{:}\ncombs_m:\n{:}'.format(tup, m, combs_m))
-				else:
-					if mol.debug >= 2:
-						print('screen [indx is None]\nparent_tup:\n{:}\nm:\n{:}\ncombs_m:\n{:}'.format(tup, m, combs_m))
-			return lst
+				return np.array(lst, dtype=np.int32)
 
 
 def _prot_screen(thres, scheme, target, prop, order, indx):

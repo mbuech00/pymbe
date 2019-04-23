@@ -179,8 +179,13 @@ def pi_orbs(mo_energy, orbsym, tup):
 
 
 def all_pi_orbs(orbsym, tup):
-		""" check to see if all orbitals are pi-orbitals """
+		""" check to see if all orbitals of tuple are pi-orbitals """
 		return np.all(np.in1d(orbsym[tup], DEG_ID))
+
+
+def n_pi_orbs(orbsym, tup):
+		""" count number of pi-orbitals in tuple of orbitals """
+		return np.count_nonzero(np.in1d(orbsym[tup], DEG_ID))
 
 
 def pruning(mo_energy, orbsym, tup):
