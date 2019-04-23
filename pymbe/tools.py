@@ -163,21 +163,24 @@ def cas_idx_tril(cas_idx):
 										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def sigma_orbs(orbsym, exp_space):
-		""" extract non-degenerate orbitals from expansion space """
-		return exp_space[np.where(np.invert(np.in1d(orbsym[exp_space], DEG_ID)))]
+def sigma_orbs(orbsym, tup):
+		""" extract non-degenerate orbitals from tuple of orbitals """
+		return tup[np.where(np.invert(np.in1d(orbsym[tup], DEG_ID)))]
 
 
-def pi_orbs(mo_energy, orbsym, exp_space):
-		""" extract degenerate orbitals from expansion space """
-		exp_space_pi = exp_space[np.where(np.in1d(orbsym[exp_space], DEG_ID))]
+def pi_orbs(mo_energy, orbsym, tup):
+		""" extract degenerate orbitals from tuple of orbitals """
+		tup_pi = tup[np.where(np.in1d(orbsym[tup], DEG_ID))]
 		# make all pairs of pi-orbitals
-		pairs = np.array(list(itertools.combinations(exp_space_pi, 2)))
-		pairs_2 = pairs[np.fromiter(map(functools.partial(pruning, mo_energy, orbsym), pairs), \
-									dtype=bool, count=pairs.shape[0])]
+		pairs = np.array(list(itertools.combinations(tup_pi, 2)))
 		# keep only degenerate pairs
 		return pairs[np.fromiter(map(functools.partial(pruning, mo_energy, orbsym), pairs), \
 									dtype=bool, count=pairs.shape[0])]
+
+
+def all_pi_orbs(orbsym, tup):
+		""" check to see if all orbitals are pi-orbitals """
+		return np.all(np.in1d(orbsym[tup], DEG_ID))
 
 
 def pruning(mo_energy, orbsym, tup):

@@ -113,7 +113,7 @@ def _slave(mpi, mol, calc, exp):
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
 				# compute child tuples
-				for m in _orbs(mol, calc, exp, exp.tuples[-1][task_idx]):
+				for m in _orbs(mol, calc, exp, exp.tuples[-1][task_idx], exp.order):
 					child_tup += exp.tuples[-1][task_idx].tolist() + [m]
 				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
@@ -124,9 +124,9 @@ def _slave(mpi, mol, calc, exp):
 		return parallel.screen(mpi, child_tup, exp.order)
 
 
-def _orbs(mol, calc, exp, tup):
+def _orbs(mol, calc, exp, tup, order):
 		""" determine list of child tuple orbitals """
-		if exp.order == 1:
+		if order == 1:
 			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
 		else:
 			# check for missing occupied orbitals
@@ -137,19 +137,26 @@ def _orbs(mol, calc, exp, tup):
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
-			combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
+			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
 			# prune combinations with no occupied orbitals
 			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
 			if calc.extra['pruning']:
-				combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
-									calc.mo_energy, calc.orbsym), combs), \
-									dtype=bool, count=combs.shape[0])]
-				if combs.size == 0:
+				if tools.all_pi_orbs(calc.orbsym, tup):
 					# tup consists entirely of pi-orbitals, automatically allow for all child tuples
 					return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
+				else:
+					combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
+										calc.mo_energy, calc.orbsym), combs), \
+										dtype=bool, count=combs.shape[0])]
+					if combs.size == 0:
+						# find child tuple orbitals which are allowed wrt to sigma orbitals of tuple
+						tup_sigma = tools.sigma_orbs(calc.orbsym, tup)
+						# recursive call to _orbs
+						lst_tmp = np.array(_orbs(mol, calc, exp, tup_sigma, tup_sigma.size))
+						return lst_tmp[np.where(lst_tmp > tup[-1])].tolist()
 			# loop over new orbs 'm'
 			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
 				# add orbital m to combinations
