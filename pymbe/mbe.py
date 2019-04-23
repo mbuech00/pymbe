@@ -69,40 +69,35 @@ def _master(mpi, mol, calc, exp):
 		i = 0
 		# loop until no tasks left
 		while True:
-			# avoid distributing pi-pruned tasks
-			if calc.extra['pruning'] and i < n_tasks: 
-				while not tools.pi_orb_pruning(True, calc.mo_energy, calc.orbsym, exp.tuples[-1][i]):
-					# increment index
-					i += 1
-					if i == n_tasks:
-						# exit loop
-						break
+			# avoid distributing tasks with no correlation
 			if i < n_tasks: 
 				# get core and cas indices
 				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
-				# check if correlation is possible
-				if np.any(calc.occup[cas_idx] < 2.0) and np.any(calc.occup[cas_idx] > 0.0):
-					# probe for available slaves
-					if mpi.comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-						# receive slave status
-						mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
-						# send task idx
-						mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
-						# get h2e indices
-						cas_idx_tril = tools.cas_idx_tril(cas_idx)
-						# send h2e_cas 
-						mpi.comm.Send([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
-										dest=mpi.stat.source, tag=TAGS.data)
-						# increment index
-						i += 1
-				else:
+				# no occupied or no virtual orbitals
+				while np.all(calc.occup[cas_idx] == 2.0) or np.all(calc.occup[cas_idx] == 0.0):
 					# increment index
 					i += 1
-			else:
-				# probe for available slaves
-				if mpi.comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-					# receive slave status
-					mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
+					if i < n_tasks:
+						# get core and cas indices
+						core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
+					else:
+						# exit loop
+						break
+			# probe for available slaves
+			if mpi.comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+				# receive slave status
+				mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
+				if i < n_tasks: 
+					# send task idx
+					mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
+					# get h2e indices
+					cas_idx_tril = tools.cas_idx_tril(cas_idx)
+					# send h2e_cas 
+					mpi.comm.Send([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
+									dest=mpi.stat.source, tag=TAGS.data)
+					# increment index
+					i += 1
+				else:
 					# send exit signal
 					mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
@@ -199,23 +194,25 @@ def _sum(calc, exp, tup):
 		for k in range(exp.order-1, 0, -1):
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+			# prune combinations with no occupied orbitals
+			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
+								calc.occup, calc.ref_space), combs), \
+								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
 			if calc.extra['pruning']:
-				combs = combs[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
-									True, calc.mo_energy, calc.orbsym), combs), \
+				combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
+									calc.mo_energy, calc.orbsym), combs), \
 									dtype=bool, count=combs.shape[0])]
-			# convert to sorted hashes
-			combs_hash = tools.hash_2d(combs)
-			combs_hash.sort()
-			# get indices
-			indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
-			tools.assertion(indx is not None, 'error in recursive increment calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
-							format(k, tup, combs))
-			# add up lower-order increments
-			if calc.target in ['energy', 'excitation']:
+			if combs.size > 0:
+				# convert to sorted hashes
+				combs_hash = tools.hash_2d(combs)
+				combs_hash.sort()
+				# get indices
+				indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
+				tools.assertion(indx is not None, 'error in recursive increment calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
+								format(k, tup, combs))
+				# add up lower-order increments
 				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx])
-			else:
-				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx, :])
 		return res
 
 

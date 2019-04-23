@@ -43,11 +43,7 @@ class ExpCls(object):
 def init_tup(mol, calc):
 		""" init tuples and hashes """
 		# tuples
-		if calc.extra['pruning']:
-			tuples = [np.array([[i] for i in calc.exp_space if tools.pi_orb_pruning(False, calc.mo_energy, \
-								calc.orbsym, np.asarray([i], dtype=np.int32))], dtype=np.int32)]
-		else:
-			tuples = [np.array([[i] for i in calc.exp_space], dtype=np.int32)]
+		tuples = [np.array([[i] for i in calc.exp_space if tools.cas_occ(calc.occup, calc.ref_space, i)], dtype=np.int32)]
 		# hashes
 		hashes = [tools.hash_2d(tuples[0])]
 		# sort wrt hashes

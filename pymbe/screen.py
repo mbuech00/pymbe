@@ -46,11 +46,6 @@ def _master(mpi, mol, calc, exp):
 		""" master function """
 		# print header
 		print(output.screen_header(exp.order))
-		# converged due to pi screening
-		if exp.order > 1 and exp.count[-1] == 0:
-			tuples = np.array([], dtype=np.int32).reshape(-1, exp.order+1)
-			hashes = np.array([], dtype=np.int64)
-			return tuples, hashes
 		# wake up slaves
 		msg = {'task': 'screen', 'order': exp.order}
 		mpi.comm.bcast(msg, root=0)
@@ -82,17 +77,29 @@ def _master(mpi, mol, calc, exp):
 						# exit loop
 						break
 		# init child_tup/child_hash lists
-		child_tup = []; child_hash = []
-		# allgatherv tuples/hashes
-		return parallel.screen(mpi, child_tup, child_hash, exp.order)
+		if not calc.extra['pruning']:
+			child_tup = np.array([], dtype=np.int32)
+		else:
+			child_tup = []
+			if exp.order == 1:
+				for j in range(exp.pi_orbs.shape[0]):
+					child_tup += exp.pi_orbs[j].tolist()
+			else:
+				for i in range(exp.tuples[-2].shape[0]):
+					for j in range(exp.pi_orbs.shape[0]):
+						if exp.tuples[-2][i, -1] < exp.pi_orbs[j, 0]:
+							child_tup += exp.tuples[-2][i].tolist() + exp.pi_orbs[j].tolist()
+			child_tup = np.array(child_tup, dtype=np.int32)
+		# allgatherv tuples
+		return parallel.screen(mpi, child_tup, exp.order)
 
 
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# init child_tup/child_hash lists
-		child_tup = []; child_hash = []
+		# init child_tup list
+		child_tup = []
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -105,58 +112,50 @@ def _slave(mpi, mol, calc, exp):
 			task_idx = mpi.comm.recv(source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
-				# compute child tuples/hashes
-				lst = _test(mol, calc, exp, exp.tuples[-1][task_idx])
-				parent_tup = exp.tuples[-1][task_idx].tolist()
-				for m in lst:
-					tup = parent_tup+[m]
-					if not calc.extra['pruning'] or \
-					tools.pi_orb_pruning(False, calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32)):
-						child_tup += tup
-						child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-					else:
-						if mol.debug >= 2:
-							print('screen [pi-pruned]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
+				# compute child tuples
+				for m in _orbs(mol, calc, exp, exp.tuples[-1][task_idx]):
+					child_tup += exp.tuples[-1][task_idx].tolist() + [m]
 				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
-		# allgatherv tuples/hashes
-		return parallel.screen(mpi, child_tup, child_hash, exp.order)
+		# allgatherv tuples
+		child_tup = np.array(child_tup, dtype=np.int32)
+		return parallel.screen(mpi, child_tup, exp.order)
 
 
-def _test(mol, calc, exp, tup):
-		""" screening test """
+def _orbs(mol, calc, exp, tup):
+		""" determine list of child tuple orbitals """
 		if exp.order == 1:
 			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
 		else:
+			# check for missing occupied orbitals
+			if not tools.cas_occ(calc.occup, calc.ref_space, tup):
+				return []
 			# set threshold
-			n_virt = np.count_nonzero(calc.occup[calc.ref_space] == 0.)
-			n_virt += np.count_nonzero(calc.occup[tup] == 0.)
-			if n_virt < 3:
-				thres = 0.0
-			else:
-				thres = calc.thres['init'] * calc.thres['relax'] ** (n_virt - 3)
+			thres = _thres(calc.occup, calc.ref_space, calc.thres, tup)
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
-			# 1st pi-orbital pruning
+			# prune combinations with no occupied orbitals
+			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
+								calc.occup, calc.ref_space), combs), \
+								dtype=bool, count=combs.shape[0])]
+			# pi-orbital pruning
 			if calc.extra['pruning']:
-				combs = combs[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
-									False, calc.mo_energy, calc.orbsym), combs), \
+				combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
+									calc.mo_energy, calc.orbsym), combs), \
 									dtype=bool, count=combs.shape[0])]
+				if combs.size == 0:
+					# tup consists entirely of pi-orbitals, automatically allow for all child tuples
+					return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
 			# loop over new orbs 'm'
 			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
 				# add orbital m to combinations
 				orb = np.empty(combs.shape[0], dtype=np.int32)
 				orb[:] = m
-				combs_orb = np.concatenate((combs, orb[:, None], axis=1)
-				# 2nd pi-orbital pruning
-				if calc.extra['pruning']:
-					combs_orb = combs_orb[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
-											False, calc.mo_energy, calc.orbsym), combs_orb), \
-											dtype=bool, count=combs_orb.shape[0])]
+				combs_orb = np.concatenate((combs, orb[:, None]), axis=1)
 				# convert to sorted hashes
 				combs_orb_hash = tools.hash_2d(combs_orb)
 				combs_orb_hash.sort()
@@ -164,11 +163,14 @@ def _test(mol, calc, exp, tup):
 				indx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
 				# add m to lst
 				if indx is not None:
-					if not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, indx):
+					if thres == 0.0:
 						lst += [m]
 					else:
-						if mol.debug >= 2:
-							print('screen [prot_screen]\nparent_tup:\n{:}\nm:\n{:}\ncombs_m:\n{:}'.format(tup, m, combs_m))
+						if not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, indx):
+							lst += [m]
+						else:
+							if mol.debug >= 2:
+								print('screen [prot_screen]\nparent_tup:\n{:}\nm:\n{:}\ncombs_m:\n{:}'.format(tup, m, combs_m))
 				else:
 					if mol.debug >= 2:
 						print('screen [indx is None]\nparent_tup:\n{:}\nm:\n{:}\ncombs_m:\n{:}'.format(tup, m, combs_m))
@@ -192,14 +194,21 @@ def _prot_screen(thres, scheme, target, prop, indx):
 
 def _prot_scheme(thres, scheme, prop):
 		""" screen according to chosen scheme """
-		if np.sum(prop) == 0.0:
-			return False
+		# are *all* increments below the threshold?
+		if scheme == 'new':
+			return np.max(np.abs(prop)) < thres
+		# are *any* increments below the threshold?
+		elif scheme == 'old':
+			return np.min(np.abs(prop)) < thres
+
+
+def _thres(occup, ref_space, thres, tup):
+		""" set screening threshold for tup """
+		n_virt = np.count_nonzero(occup[ref_space] == 0.)
+		n_virt += np.count_nonzero(occup[tup] == 0.)
+		if n_virt < 3:
+			return 0.0
 		else:
-			# are *all* increments below the threshold?
-			if scheme == 'new':
-				return np.max(np.abs(prop)) < thres
-			# are *any* increments below the threshold?
-			elif scheme == 'old':
-				return np.min(np.abs(prop)) < thres
+			return thres['init'] * thres['relax'] ** (n_virt - 3)
 
 

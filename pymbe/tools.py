@@ -16,6 +16,8 @@ import traceback
 import subprocess
 import numpy as np
 import scipy.special
+import functools
+import itertools
 import math
 from pyscf import lo
 
@@ -65,8 +67,7 @@ def fsum(a):
 
 def hash_2d(a):
 		""" convert a 2d numpy array to a 1d array of hashes """
-		return np.fromiter(map(hash_1d, a), \
-							dtype=np.int64, count=a.shape[0])
+		return np.fromiter(map(hash_1d, a), dtype=np.int64, count=a.shape[0])
 
 
 def hash_1d(a):
@@ -124,9 +125,19 @@ def get_pymbe_path():
 		return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
+def cas(ref_space, tup):
+		""" define cas space """
+		return np.sort(np.append(ref_space, tup))
+
+
+def cas_occ(occup, ref_space, tup):
+		""" check for occupied orbitals in cas space """
+		return np.any(occup[cas(ref_space, tup)] > 0.0)
+
+
 def core_cas(mol, ref_space, tup):
 		""" define core and cas spaces """
-		cas_idx = np.sort(np.append(ref_space, tup))
+		cas_idx = cas(ref_space, tup)
 		core_idx = np.setdiff1d(np.arange(mol.nocc), cas_idx)
 		return core_idx, cas_idx
 
@@ -152,29 +163,37 @@ def cas_idx_tril(cas_idx):
 										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def pi_orb_pruning(mbe, mo_energy, orbsym, tup):
+def sigma_orbs(orbsym, exp_space):
+		""" extract non-degenerate orbitals from expansion space """
+		return exp_space[np.where(np.invert(np.in1d(orbsym[exp_space], DEG_ID)))]
+
+
+def pi_orbs(mo_energy, orbsym, exp_space):
+		""" extract degenerate orbitals from expansion space """
+		exp_space_pi = exp_space[np.where(np.in1d(orbsym[exp_space], DEG_ID))]
+		# make all pairs of pi-orbitals
+		pairs = np.array(list(itertools.combinations(exp_space_pi, 2)))
+		pairs_2 = pairs[np.fromiter(map(functools.partial(pruning, mo_energy, orbsym), pairs), \
+									dtype=bool, count=pairs.shape[0])]
+		# keep only degenerate pairs
+		return pairs[np.fromiter(map(functools.partial(pruning, mo_energy, orbsym), pairs), \
+									dtype=bool, count=pairs.shape[0])]
+
+
+def pruning(mo_energy, orbsym, tup):
 		""" pi-orbital pruning """
 		# get indices of all pi-orbitals
 		pi_orbs = np.where(np.in1d(orbsym[tup], DEG_ID))[0]
 		# pruning
 		if pi_orbs.size > 0:
 			if pi_orbs.size % 2 > 0:
-				if mbe:
-					# never calculate increment for tuple with odd number of pi-orbitals
-					return False
-				if orbsym[tup[-1]] not in DEG_ID:
-					# last orbital is not a pi-orbital
-					return False
-				else:
-					if np.abs(mo_energy[tup[-1]] - mo_energy[tup[-1]-1]) < 1.0e-05:
-						# this is the second member of a pair of degenerated pi-orbitals
-						return False
+				# never consider tuples with odd number of pi-orbitals
+				return False
 			else:
-				# even number of pi orbs
-				for i in range(1, pi_orbs.size, 2):
-					if np.abs(mo_energy[tup[pi_orbs[i]]] - mo_energy[tup[pi_orbs[i-1]]]) > 1.0e-05:
-						# the pi-orbitals are not pair-wise degenerated
-						return False
+				# are the pi-orbitals pair-wise degenerated?
+				mo_energy_pi = mo_energy[tup[pi_orbs]]
+				mo_energy_diff = np.array([mo_energy_pi[i+1] - mo_energy_pi[i] for i in range(0, pi_orbs.size, 2)])
+				return np.sum(np.abs(mo_energy_diff)) < 1.0e-04
 		return True
 
 

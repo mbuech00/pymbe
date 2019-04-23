@@ -14,6 +14,7 @@ import numpy as np
 from mpi4py import MPI
 from pyscf import symm
 
+import tools
 import restart
 
 
@@ -84,6 +85,9 @@ def fund(mpi, mol, calc):
 						'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 						'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 						'occup': calc.occup, 'mo_energy': calc.mo_energy, 'e_nuc': mol.e_nuc}
+			if calc.extra['pruning']:
+				info['exp_space_sigma'] = calc.exp_space_sigma
+				info['exp_space_pi'] = calc.exp_space_pi
 			mpi.comm.bcast(info, root=0)
 			# bcast mo coefficients
 			mpi.comm.Bcast([calc.mo_coeff, MPI.DOUBLE], root=0)
@@ -108,6 +112,9 @@ def fund(mpi, mol, calc):
 			mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 			calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 			calc.occup = info['occup']; calc.mo_energy = info['mo_energy']; mol.e_nuc = info['e_nuc']
+			if calc.extra['pruning']:
+				calc.exp_space_sigma = info['exp_space_sigma']
+				calc.exp_space_pi = info['exp_space_pi']
 			# receive mo coefficients
 			buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 			mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
@@ -174,20 +181,15 @@ def mbe(mpi, prop, ndets):
 		mpi.comm.Allreduce(MPI.IN_PLACE, ndets, op=MPI.SUM)
 
 
-def screen(mpi, child_tup, child_hash, order):
-		""" Allgatherv tuples / hashes """
+def screen(mpi, child_tup, order):
+		""" Allgatherv tuples """
 		# allgatherv tuples
-		child_tup = np.asarray(child_tup, dtype=np.int32)
 		recv_counts = np.array(mpi.comm.allgather(child_tup.size), dtype=np.int32)
 		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
 		mpi.comm.Allgatherv(child_tup, [tuples, recv_counts])
 		tuples = tuples.reshape(-1, order+1)
 		if tuples.shape[0] > 0:
-			# allgatherv hashes
-			child_hash = np.asarray(child_hash, dtype=np.int64)
-			recv_counts = np.array(mpi.comm.allgather(child_hash.size), dtype=np.int64)
-			hashes = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int64)
-			mpi.comm.Allgatherv(child_hash, [hashes, recv_counts])
+			hashes = tools.hash_2d(tuples)
 			# sort wrt hashes
 			tuples = tuples[hashes.argsort()]
 			# sort hashes
