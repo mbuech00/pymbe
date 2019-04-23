@@ -209,7 +209,7 @@ def _sum(calc, exp, tup):
 			combs_hash.sort()
 			# get indices
 			indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
-			tools.assertion(indx is not None, 'error in recursive increment calculation for k = {:}\ntup:\n{:}\ncombs:\n{:}'. \
+			tools.assertion(indx is not None, 'error in recursive increment calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
 							format(k, tup, combs))
 			# add up lower-order increments
 			if calc.target in ['energy', 'excitation']:

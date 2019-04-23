@@ -149,27 +149,29 @@ def _test(mol, calc, exp, tup):
 			# loop over new orbs 'm'
 			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
 				# add orbital m to combinations
-				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
+				orb = np.empty(combs.shape[0], dtype=np.int32)
+				orb[:] = m
+				combs_orb = np.concatenate((combs, orb[:, None], axis=1)
 				# 2nd pi-orbital pruning
 				if calc.extra['pruning']:
-					combs_m = combs_m[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
-										False, calc.mo_energy, calc.orbsym), combs_m), \
-										dtype=bool, count=combs_m.shape[0])]
+					combs_orb = combs_orb[np.fromiter(map(functools.partial(tools.pi_orb_pruning, \
+											False, calc.mo_energy, calc.orbsym), combs_orb), \
+											dtype=bool, count=combs_orb.shape[0])]
 				# convert to sorted hashes
-				combs_m_hash = tools.hash_2d(combs_m)
-				combs_m_hash.sort()
+				combs_orb_hash = tools.hash_2d(combs_orb)
+				combs_orb_hash.sort()
 				# get indices
-				indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
+				indx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
 				# add m to lst
 				if indx is not None:
 					if not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, indx):
 						lst += [m]
 					else:
 						if mol.debug >= 2:
-							print('screen [prot_screen]: parent_tup = {:} , m = {:}, combs_m = {:}'.format(tup, m, combs_m))
+							print('screen [prot_screen]\nparent_tup:\n{:}\nm:\n{:}\ncombs_m:\n{:}'.format(tup, m, combs_m))
 				else:
 					if mol.debug >= 2:
-						print('screen [indx is None]: parent_tup = {:} , m = {:}, combs_m = {:}'.format(tup, m, combs_m))
+						print('screen [indx is None]\nparent_tup:\n{:}\nm:\n{:}\ncombs_m:\n{:}'.format(tup, m, combs_m))
 			return lst
 
 
