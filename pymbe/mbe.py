@@ -139,15 +139,17 @@ def _slave(mpi, mol, calc, exp):
 			if mpi.stat.tag == TAGS.start:
 				# receive h2e_cas
 				req = mpi.comm.Irecv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
+				# set tup
+				tup = exp.tuples[-1][task_idx]
 				# get core and cas indices
-				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][task_idx])
+				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, tup)
 				# compute e_core and h1e_cas
 				e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
 				# wait for h2e
 				req.Wait()
 				# calculate increment
-				ndets[task_idx], inc[task_idx] = _inc(mol, calc, exp, e_core, \
-														h1e_cas, h2e_cas, core_idx, cas_idx)
+				ndets[task_idx], inc[task_idx] = _inc(mol, calc, exp, tup, \
+														e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
 				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
@@ -158,7 +160,7 @@ def _slave(mpi, mol, calc, exp):
 		return ndets, inc
 
 
-def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
+def _inc(mol, calc, exp, tup, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 		""" calculate increments corresponding to tup """
 		# nelec
 		nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
@@ -179,7 +181,7 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 				inc_tup -= _sum(calc, exp, cas_idx[-exp.order:])
 		# debug print
 		if mol.debug >= 1:
-			print(output.mbe_debug(mol, calc, exp, ndets_tup, nelec, inc_tup, cas_idx))
+			print(output.mbe_debug(mol, calc, ndets_tup, nelec, inc_tup, exp.order, cas_idx, tup))
 		return ndets_tup, inc_tup
 
 
