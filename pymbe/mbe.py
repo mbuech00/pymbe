@@ -178,7 +178,7 @@ def _inc(mol, calc, exp, tup, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 		# calculate increment
 		if exp.order > 1:
 			if np.any(inc_tup != 0.0):
-				inc_tup -= _sum(calc, exp, cas_idx[-exp.order:])
+				inc_tup -= _sum(calc, exp, tup)
 		# debug print
 		if mol.debug >= 1:
 			print(output.mbe_debug(mol, calc, ndets_tup, nelec, inc_tup, exp.order, cas_idx, tup))
