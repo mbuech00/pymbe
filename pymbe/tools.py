@@ -205,7 +205,7 @@ def pruning(mo_energy, orbsym, tup):
 		return True
 
 
-def mat_indx(site, nx, ny):
+def mat_idx(site, nx, ny):
 		""" get x and y indices of a matrix """
 		x = site % nx
 		y = int(math.floor(float(site) / ny))

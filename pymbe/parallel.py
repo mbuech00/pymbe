@@ -85,9 +85,6 @@ def fund(mpi, mol, calc):
 						'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
 						'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
 						'occup': calc.occup, 'mo_energy': calc.mo_energy, 'e_nuc': mol.e_nuc}
-			if calc.extra['pruning']:
-				info['exp_space_sigma'] = calc.exp_space_sigma
-				info['exp_space_pi'] = calc.exp_space_pi
 			mpi.comm.bcast(info, root=0)
 			# bcast mo coefficients
 			mpi.comm.Bcast([calc.mo_coeff, MPI.DOUBLE], root=0)
@@ -112,9 +109,6 @@ def fund(mpi, mol, calc):
 			mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
 			calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
 			calc.occup = info['occup']; calc.mo_energy = info['mo_energy']; mol.e_nuc = info['e_nuc']
-			if calc.extra['pruning']:
-				calc.exp_space_sigma = info['exp_space_sigma']
-				calc.exp_space_pi = info['exp_space_pi']
 			# receive mo coefficients
 			buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
 			mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)

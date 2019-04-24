@@ -121,9 +121,6 @@ def _exp(mpi, mol, calc):
 					calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
 				# reference and expansion spaces and mo coefficients
 				calc.mo_energy, calc.mo_coeff, calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
-				if calc.extra['pruning']:
-					calc.exp_space_sigma = calc.exp_space[np.where(np.invert(np.in1d(calc.orbsym[calc.exp_space], tools.DEG_ID)))]
-					calc.exp_space_pi = calc.exp_space[np.where(np.in1d(calc.orbsym[calc.exp_space], tools.DEG_ID))]
 				# get mo integrals
 				mol.hcore, mol.vhf, mol.eri = kernel.mo_ints(mol, calc.mo_coeff)
 				# base energy
@@ -145,8 +142,7 @@ def _exp(mpi, mol, calc):
 			exp = expansion.ExpCls(mol, calc)
 		# pi-orbitals in case of pi-pruning, treat non-degenerate and degenerate orbitals separately
 		if calc.extra['pruning']:
-			if mpi.master:
-				exp.pi_orbs = tools.pi_orbs(calc.mo_energy, calc.orbsym, calc.exp_space)
+			calc.pi_orbs = tools.pi_orbs(calc.mo_energy, calc.orbsym, calc.exp_space)
 			calc.exp_space = tools.sigma_orbs(calc.orbsym, calc.exp_space)
 		# init tuples and hashes
 		exp.tuples, exp.hashes = expansion.init_tup(mol, calc)

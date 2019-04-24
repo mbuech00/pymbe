@@ -208,11 +208,11 @@ def _sum(calc, exp, tup):
 				combs_hash = tools.hash_2d(combs)
 				combs_hash.sort()
 				# get indices
-				indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
-				tools.assertion(indx is not None, 'error in recursive increment calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
+				idx = tools.hash_compare(exp.hashes[k-1], combs_hash)
+				tools.assertion(idx is not None, 'error in recursive increment calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
 								format(k, tup, combs))
 				# add up lower-order increments
-				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx])
+				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][idx])
 		return res
 
 

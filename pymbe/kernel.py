@@ -105,10 +105,10 @@ def _hubbard_h1e(mol):
 			nx, ny = mol.matrix[0], mol.matrix[1]
 			# init
 			for site_1 in range(mol.nsites):
-				site_1_xy = tools.mat_indx(site_1, nx, ny)
+				site_1_xy = tools.mat_idx(site_1, nx, ny)
 				nbrs = tools.near_nbrs(site_1_xy, nx, ny)
 				for site_2 in range(site_1):
-					site_2_xy = tools.mat_indx(site_2, nx, ny)
+					site_2_xy = tools.mat_idx(site_2, nx, ny)
 					if site_2_xy in nbrs:
 						h1[site_1, site_2] = h1[site_2, site_1] = -1.0
 			# pbc
