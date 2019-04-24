@@ -84,28 +84,28 @@ def _master(mpi, mol, calc, exp):
 						# exit loop
 						break
 			# probe for available slaves
-			if mpi.comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# receive slave status
-				mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
-				if i < n_tasks: 
-					# send task idx
-					mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
-					# get h2e indices
-					cas_idx_tril = tools.cas_idx_tril(cas_idx)
-					# send h2e_cas 
-					mpi.comm.Send([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
-									dest=mpi.stat.source, tag=TAGS.data)
-					# increment index
-					i += 1
-				else:
-					# send exit signal
-					mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
-					# remove slave
-					slaves_avail -= 1
-					# any slaves left?
-					if slaves_avail == 0:
-						# exit loop
-						break
+			mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+			# receive slave status
+			mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
+			if i < n_tasks: 
+				# send task idx
+				mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
+				# get h2e indices
+				cas_idx_tril = tools.cas_idx_tril(cas_idx)
+				# send h2e_cas 
+				mpi.comm.Send([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
+								dest=mpi.stat.source, tag=TAGS.data)
+				# increment index
+				i += 1
+			else:
+				# send exit signal
+				mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
+				# remove slave
+				slaves_avail -= 1
+				# any slaves left?
+				if slaves_avail == 0:
+					# exit loop
+					break
 		# init increments and ndets
 		inc = _init_inc(n_tasks, calc.target)
 		ndets = _init_ndets(n_tasks)

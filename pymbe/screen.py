@@ -55,10 +55,25 @@ def _master(mpi, mol, calc, exp):
 		n_tasks = exp.tuples[-1].shape[0]
 		# start index
 		i = 0
+		# init child_tup list
+		child_tup = []
+		# add pi-orbitals if pi-pruning is requested
+		if calc.extra['pruning']:
+			# start index
+			j = 0
+			if exp.order == 1:
+				# add degenerate pairs of pi-orbitals
+				for k in range(exp.pi_orbs.shape[0]):
+					child_tup += exp.pi_orbs[k].tolist()
+				# number of tasks
+				n_tasks_pi = 0
+			else:
+				# number of tasks
+				n_tasks_pi = exp.tuples[-2].shape[0]
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
-			if mpi.comm.probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
+			if mpi.comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
 				# receive slave status
 				mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 				# any tasks left?
@@ -74,23 +89,33 @@ def _master(mpi, mol, calc, exp):
 					slaves_avail -= 1
 					# any slaves left?
 					if slaves_avail == 0:
+						# remaining pairs of pi-orbitals
+						if calc.extra['pruning']:
+							while j < n_tasks_pi:
+								# child tuples wrt order k-2
+								orb_lst = _orbs_pi(mol, calc, exp, exp.tuples[-2][j], exp.order-1)
+								# deep pruning wrt orders k-3, k-5, etc.
+								orb_lst = _deep_pruning(mol, calc, exp, exp.tuples[-2][j], orb_lst, master=True)
+								# add degenerate pairs of pi-orbitals
+								for m_1, m_2 in orb_lst.reshape(-1, 2):
+									child_tup += exp.tuples[-2][j].tolist() + [m_1, m_2]
+								# increment index
+								j += 1
 						# exit loop
 						break
-		# init child_tup/child_hash lists
-		if not calc.extra['pruning']:
-			child_tup = np.array([], dtype=np.int32)
-		else:
-			child_tup = []
-			if exp.order == 1:
-				for j in range(exp.pi_orbs.shape[0]):
-					child_tup += exp.pi_orbs[j].tolist()
-			else:
-				for i in range(exp.tuples[-2].shape[0]):
-					for j in range(exp.pi_orbs.shape[0]):
-						if exp.tuples[-2][i, -1] < exp.pi_orbs[j, 0]:
-							child_tup += exp.tuples[-2][i].tolist() + exp.pi_orbs[j].tolist()
-			child_tup = np.array(child_tup, dtype=np.int32)
+			if calc.extra['pruning']:
+				if j < n_tasks_pi:
+					# child tuples wrt order k-2
+					orb_lst = _orbs_pi(mol, calc, exp, exp.tuples[-2][j], exp.order-1)
+					# deep pruning wrt orders k-3, k-5, etc.
+					orb_lst = _deep_pruning(mol, calc, exp, exp.tuples[-2][j], orb_lst, master=True)
+					# add degenerate pairs of pi-orbitals
+					for m_1, m_2 in orb_lst.reshape(-1, 2):
+						child_tup += exp.tuples[-2][j].tolist() + [m_1, m_2]
+					# increment index
+					j += 1
 		# allgatherv tuples
+		child_tup = np.array(child_tup, dtype=np.int32)
 		return parallel.screen(mpi, child_tup, exp.order)
 
 
@@ -115,9 +140,8 @@ def _slave(mpi, mol, calc, exp):
 				# child tuples wrt order k-1
 				orb_lst = _orbs(mol, calc, exp, exp.tuples[-1][task_idx], exp.order)
 				if calc.extra['pruning']:
-					# deep pruning wrt to lower order k-2, k-4, etc.
-					for k in range(tools.n_pi_orbs(calc.orbsym, exp.tuples[-1][task_idx]) // 2):
-						orb_lst = np.intersect1d(orb_lst, _orbs(mol, calc, exp, exp.tuples[-1][task_idx], exp.order - (2*k+1)))
+					# deep pruning wrt orders k-2, k-4, etc.
+					orb_lst = _deep_pruning(mol, calc, exp, exp.tuples[-1][task_idx], orb_lst)
 				for m in orb_lst:
 					child_tup += exp.tuples[-1][task_idx].tolist() + [m]
 				mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -132,11 +156,11 @@ def _slave(mpi, mol, calc, exp):
 def _orbs(mol, calc, exp, tup, order):
 		""" determine list of child tuple orbitals """
 		if order == 1:
-			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
+			lst = [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
 		else:
 			# check for missing occupied orbitals
 			if not tools.cas_occ(calc.occup, calc.ref_space, tup):
-				return []
+				return np.array([], dtype=np.int32)
 			# set threshold
 			thres = _thres(calc.occup, calc.ref_space, calc.thres, tup)
 			# init return list
@@ -153,11 +177,11 @@ def _orbs(mol, calc, exp, tup, order):
 									calc.mo_energy, calc.orbsym), combs), \
 									dtype=bool, count=combs.shape[0])]
 			if combs.size == 0:
-				return np.array([m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]], dtype=np.int32)
+				lst = [m for m in calc.exp_space[np.where(tup[-1] < calc.exp_space)]]
 			else:
 				# loop over new orbs 'm'
-				for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
-					# add orbital m to combinations
+				for m in calc.exp_space[np.where(tup[-1] < calc.exp_space)]:
+					# add orbital to combinations
 					orb = np.empty(combs.shape[0], dtype=np.int32)
 					orb[:] = m
 					combs_orb = np.concatenate((combs, orb[:, None]), axis=1)
@@ -166,11 +190,64 @@ def _orbs(mol, calc, exp, tup, order):
 					combs_orb_hash.sort()
 					# get indices
 					indx = tools.hash_compare(exp.hashes[order-1], combs_orb_hash)
-					# add m to lst
+					# add orbital to lst
 					if indx is not None:
 						if thres == 0.0 or not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, order, indx):
 							lst += [m]
-				return np.array(lst, dtype=np.int32)
+		return np.array(lst, dtype=np.int32)
+
+
+def _orbs_pi(mol, calc, exp, tup, order):
+		""" determine list of child tuple pi-orbitals """
+		if order == 1:
+			# init return list
+			lst = []
+			# loop over pairs of degenerate pi-orbitals
+			for j in range(exp.pi_orbs.shape[0]):
+				if tup[-1] < exp.pi_orbs[j, 0]:
+					lst += exp.pi_orbs[j].tolist()
+		else:
+			# check for missing occupied orbitals
+			if not tools.cas_occ(calc.occup, calc.ref_space, tup):
+				return np.array([], dtype=np.int32)
+			# set threshold
+			thres = _thres(calc.occup, calc.ref_space, calc.thres, tup)
+			# init return list
+			lst = []
+			# generate array with all subsets of particular tuple
+			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
+			# prune combinations with no occupied orbitals
+			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
+								calc.occup, calc.ref_space), combs), \
+								dtype=bool, count=combs.shape[0])]
+			# pi-orbital pruning
+			combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
+								calc.mo_energy, calc.orbsym), combs), \
+								dtype=bool, count=combs.shape[0])]
+			if combs.size == 0:
+				# loop over pairs of degenerate pi-orbitals
+				for j in range(exp.pi_orbs.shape[0]):
+					if tup[-1] < exp.pi_orbs[j, 0]:
+						lst += exp.pi_orbs[j].tolist()
+			else:
+				# loop over pairs of degenerate pi-orbitals
+				for j in range(exp.pi_orbs.shape[0]):
+					if tup[-1] < exp.pi_orbs[j, 0]:
+						# add pi-orbitals to combinations
+						orb = np.empty([combs.shape[0], 2], dtype=np.int32)
+						orb[:, 0] = exp.pi_orbs[j, 0]
+						orb[:, 1] = exp.pi_orbs[j, 1]
+						combs_orb = np.concatenate((combs, orb), axis=1)
+						# convert to sorted hashes
+						combs_orb_hash = tools.hash_2d(combs_orb)
+						combs_orb_hash.sort()
+						# get indices
+						indx = tools.hash_compare(exp.hashes[(order+1)-1], combs_orb_hash)
+						# add orbitals to lst
+						if indx is not None:
+							if thres == 0.0 or not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, order+1, indx):
+								lst += exp.pi_orbs[j].tolist()
+		return np.array(lst, dtype=np.int32)
 
 
 def _prot_screen(thres, scheme, target, prop, order, indx):
@@ -198,18 +275,24 @@ def _prot_scheme(thres, scheme, prop):
 			return np.min(np.abs(prop)) < thres
 
 
+def _deep_pruning(mol, calc, exp, tup, orb_lst, master=False):
+		""" deep pruning """
+		# deep pruning wrt to lower orders
+		for k in range(tools.n_pi_orbs(calc.orbsym, tup) // 2):
+			if master:
+				orb_lst = np.intersect1d(orb_lst, _orbs_pi(mol, calc, exp, tup, exp.order - (2*k+2)))
+			else:
+				orb_lst = np.intersect1d(orb_lst, _orbs(mol, calc, exp, tup, exp.order - (2*k+1)))
+		return orb_lst
+
+
 def _thres(occup, ref_space, thres, tup):
 		""" set screening threshold for tup """
-		nocc = np.count_nonzero(occup[ref_space] > 0.)
-		nocc += np.count_nonzero(occup[tup] > 0.)
 		nvirt = np.count_nonzero(occup[ref_space] == 0.)
 		nvirt += np.count_nonzero(occup[tup] == 0.)
 		if nvirt < 3:
 			return 0.0
 		else:
-			if nocc == 0:
-				return 0.0
-			else:
-				return thres['init'] * thres['relax'] ** (nvirt - 3)
+			return thres['init'] * thres['relax'] ** (nvirt - 3)
 
 
