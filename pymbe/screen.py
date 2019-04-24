@@ -62,9 +62,10 @@ def _master(mpi, mol, calc, exp):
 			# start index
 			j = 0
 			if exp.order == 1:
-				# add degenerate pairs of pi-orbitals
+				# add degenerate pairs of occupied pi-orbitals
 				for k in range(exp.pi_orbs.shape[0]):
-					child_tup += exp.pi_orbs[k].tolist()
+					if tools.cas_occ(calc.occup, calc.ref_space, exp.pi_orbs[k]):
+						child_tup += exp.pi_orbs[k].tolist()
 				# number of tasks
 				n_tasks_pi = 0
 			else:
@@ -158,9 +159,6 @@ def _orbs(mol, calc, exp, tup, order):
 		if order == 1:
 			lst = [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
 		else:
-			# check for missing occupied orbitals
-			if not tools.cas_occ(calc.occup, calc.ref_space, tup):
-				return np.array([], dtype=np.int32)
 			# set threshold
 			thres = _thres(calc.occup, calc.ref_space, calc.thres, tup)
 			# init return list
@@ -207,9 +205,6 @@ def _orbs_pi(mol, calc, exp, tup, order):
 				if tup[-1] < exp.pi_orbs[j, 0]:
 					lst += exp.pi_orbs[j].tolist()
 		else:
-			# check for missing occupied orbitals
-			if not tools.cas_occ(calc.occup, calc.ref_space, tup):
-				return np.array([], dtype=np.int32)
 			# set threshold
 			thres = _thres(calc.occup, calc.ref_space, calc.thres, tup)
 			# init return list
