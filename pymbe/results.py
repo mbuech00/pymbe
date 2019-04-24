@@ -59,7 +59,7 @@ def _setup(mpi, mol, calc, exp):
 		info['ref'] = _ref(mol, calc)
 		info['base'] = _base(calc)
 		info['prot'] = _prot(calc)
-		info['system'] = _system(mol, calc)
+		info['system'] = _system(mol)
 		info['frozen'] = _frozen(mol)
 		if mol.atom:
 			info['hubbard'] = None
@@ -190,9 +190,9 @@ def _prot(calc):
 		return calc.prot['scheme']
 
 
-def _system(mol, calc):
+def _system(mol):
 		""" system size print """
-		return '{:} e in {:} o'.format(mol.nelectron - 2 * mol.ncore, calc.ref_space.size + calc.exp_space.size)
+		return '{:} e in {:} o'.format(mol.nelectron - 2 * mol.ncore, mol.norb)
 
 
 def _hubbard(mol):
