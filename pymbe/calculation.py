@@ -101,7 +101,7 @@ class CalcCls(object):
 											elif entry == 'ref':
 												if key == 'wfnsym':
 													if not isinstance(val, list):
-														self.ref[key] = [val]
+														self.ref[key] = list(val)
 													else:
 														self.ref[key] = val
 													self.ref[key] = [symm.addons.std_symb(self.ref[key][j]) for j in range(len(self.ref[key]))]
