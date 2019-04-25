@@ -69,8 +69,6 @@ def _init():
 		mpi = parallel.MPICls()
 		mol = _mol(mpi)
 		calc = _calc(mpi, mol)
-		# set max_mem
-		mol.max_memory = calc.misc['mem']
 		# exp object
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info

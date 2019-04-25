@@ -40,7 +40,7 @@ class CalcCls(object):
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
 				self.extra = {'hf_guess': True, 'pruning': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
-				self.misc = {'mem': 6000, 'order': None, 'async': False}
+				self.misc = {'order': None}
 				self.orbs = {'type': 'can'}
 				self.mpi = {'masters': 1}
 				# init mo
@@ -225,14 +225,10 @@ class CalcCls(object):
 									'the combination of local orbs and point group symmetry '
 									'different from c1 is not allowed')
 				# misc
-				tools.assertion(isinstance(self.misc['mem'], int) and self.misc['mem'] >= 1, \
-								'maximum memory (mem) in units of MB must be an int >= 1')
 				tools.assertion(isinstance(self.misc['order'], (int, type(None))), \
 								'maximum expansion order (order) must be an int >= 1')
 				if self.misc['order'] is not None:
 					tools.assertion(self.misc['order'] >= 0, \
 									'maximum expansion order (order) must be an int >= 1')
-				tools.assertion(isinstance(self.misc['async'], bool), \
-								'asynchronous key (async) must be a bool')
 
 
