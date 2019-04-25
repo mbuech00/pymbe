@@ -40,7 +40,7 @@ class CalcCls(object):
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
 				self.extra = {'hf_guess': True, 'pruning': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
-				self.misc = {'mem': 2000, 'order': None, 'async': False}
+				self.misc = {'mem': 6000, 'order': None, 'async': False}
 				self.orbs = {'type': 'can'}
 				self.mpi = {'masters': 1}
 				# init mo
