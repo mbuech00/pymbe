@@ -187,7 +187,12 @@ def _base(calc):
 
 def _prot(calc):
 		""" protocol print """
-		return calc.prot['scheme']
+		if calc.prot['scheme'] == 1:
+			return '1st generation'
+		elif calc.prot['scheme'] == 2:
+			return '2nd generation'
+		elif calc.prot['scheme'] == 3:
+			return '3rd generation'
 
 
 def _system(mol):

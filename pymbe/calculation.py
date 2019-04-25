@@ -32,7 +32,7 @@ class CalcCls(object):
 				# set defaults
 				self.model = {'method': 'fci', 'solver': 'pyscf_spin0'}
 				self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
-				self.prot = {'scheme': 'new'}
+				self.prot = {'scheme': 2}
 				self.ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
 							'select': [i for i in range(mol.ncore, mol.nelectron // 2)], \
 							'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
@@ -200,10 +200,10 @@ class CalcCls(object):
 				tools.assertion(isinstance(self.extra['pruning'], bool), \
 								'pi-orbital pruning for FCI calcs (pruning) must be a bool')
 				# screening protocol
-				tools.assertion(all(isinstance(i, str) for i in self.prot.values()), \
-								'values in prot input (prot) must be string and bools')
-				tools.assertion(self.prot['scheme'] in ['new', 'old'], \
-								'valid protocol schemes are: new and old')
+				tools.assertion(all(isinstance(i, int) for i in self.prot.values()), \
+								'values in prot input (prot) must be ints')
+				tools.assertion(self.prot['scheme'] > 0 and self.prot['scheme'] < 4, \
+								'valid protocol schemes (scheme) are: 1 (1st gen), 2 (2nd) gen, 3 (3rd gen)')
 				# expansion thresholds
 				tools.assertion(all(isinstance(i, float) for i in self.thres.values()), \
 								'values in threshold input (thres) must be floats')

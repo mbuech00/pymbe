@@ -162,7 +162,7 @@ def _orbs(mol, calc, exp, tup, order):
 			lst = [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
 		else:
 			# set threshold
-			thres = _thres(calc.occup, calc.ref_space, calc.thres, tup)
+			thres = _thres(calc.occup, calc.ref_space, calc.thres, calc.prot['scheme'], tup)
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
@@ -208,7 +208,7 @@ def _orbs_pi(mol, calc, exp, tup, order):
 					lst += calc.pi_orbs[j].tolist()
 		else:
 			# set threshold
-			thres = _thres(calc.occup, calc.ref_space, calc.thres, tup)
+			thres = _thres(calc.occup, calc.ref_space, calc.thres, calc.prot['scheme'], tup)
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
@@ -264,12 +264,12 @@ def _prot_screen(thres, scheme, target, prop, order, idx):
 
 def _prot_scheme(thres, scheme, prop):
 		""" screen according to chosen scheme """
-		# are *all* increments below the threshold?
-		if scheme == 'new':
-			return np.max(np.abs(prop)) < thres
 		# are *any* increments below the threshold?
-		elif scheme == 'old':
+		if scheme == 1:
 			return np.min(np.abs(prop)) < thres
+		# are *all* increments below the threshold?
+		elif scheme > 1:
+			return np.max(np.abs(prop)) < thres
 
 
 def _deep_pruning(mol, calc, exp, tup, orb_lst, master=False):
@@ -283,13 +283,21 @@ def _deep_pruning(mol, calc, exp, tup, orb_lst, master=False):
 		return orb_lst
 
 
-def _thres(occup, ref_space, thres, tup):
+def _thres(occup, ref_space, thres, scheme, tup):
 		""" set screening threshold for tup """
-		nvirt = np.count_nonzero(occup[ref_space] == 0.)
-		nvirt += np.count_nonzero(occup[tup] == 0.)
-		if nvirt < 3:
-			return 0.0
-		else:
-			return thres['init'] * thres['relax'] ** (nvirt - 3)
+		nocc_ref = np.count_nonzero(occup[ref_space] > 0.0)
+		nocc_tup = np.count_nonzero(occup[tup] > 0.0)
+		nvirt_ref = np.count_nonzero(occup[ref_space] == 0.0)
+		nvirt_tup = np.count_nonzero(occup[tup] == 0.0)
+		if scheme < 3:
+			if nvirt_ref + nvirt_tup < 3:
+				return 0.0
+			else:
+				return thres['init'] * thres['relax'] ** ((nvirt_ref + nvirt_tup) - 3)
+		elif scheme == 3:
+			if max(nocc_tup, nvirt_tup) < 3:
+				return 0.0
+			else:
+				return thres['init'] * thres['relax'] ** (max(nocc_tup, nvirt_tup) - 3)
 
 
