@@ -16,6 +16,8 @@ import traceback
 import subprocess
 import numpy as np
 import scipy.special
+import functools
+import itertools
 import math
 from pyscf import lo
 
@@ -28,7 +30,7 @@ RES_FILE = OUT+'/results.out'
 # array of degenerate (dooh) orbsym IDs
 # E1gx (2) , E1gy (3)
 # E1uy (6) , E1ux (7)
-DEG_ID = np.array([2, 6]) 
+DEG_ID = np.array([2, 3, 6, 7]) 
 
 
 class Logger(object):
@@ -87,7 +89,7 @@ def dict_conv(old_dict):
 		""" convert dict keys """
 		new_dict = {}
 		for key, value in old_dict.items():
-			if key.lower() in ['method', 'active', 'scheme']:
+			if key.lower() in ['method', 'active']:
 				new_dict[key.lower()] = value.lower()
 			else:
 				new_dict[key.lower()] = value
@@ -123,59 +125,87 @@ def get_pymbe_path():
 		return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
-def tasks(n_tuples, num_slaves, task_size):
-		""" task list """
-		if num_slaves * task_size < n_tuples:
-			n_tasks = n_tuples // task_size
-		else:
-			n_tasks = num_slaves
-		return np.array_split(np.arange(n_tuples), n_tasks)
+def cas(ref_space, tup):
+		""" define cas space """
+		return np.sort(np.append(ref_space, tup))
+
+
+def cas_occ(occup, ref_space, tup):
+		""" check for occupied orbitals in cas space """
+		return np.any(occup[cas(ref_space, tup)] > 0.0)
 
 
 def core_cas(mol, ref_space, tup):
 		""" define core and cas spaces """
-		cas_idx = np.sort(np.append(ref_space, tup))
+		cas_idx = cas(ref_space, tup)
 		core_idx = np.setdiff1d(np.arange(mol.nocc), cas_idx)
 		return core_idx, cas_idx
 
 
-def sigma_prune(mo_energy, orbsym, tup, mbe=False):
-		""" sigma pruning """
-		# loop over IDs
-		for sym in DEG_ID:
-			# given set of x and y pi orbs
-			pi_orbs = np.where((orbsym[tup] == sym) | (orbsym[tup] == (sym+1)))[0]
-			if pi_orbs.size > 0:
-				if pi_orbs.size % 2 > 0:
-					# uneven number of pi orbs
-					if mbe:
-						# mbe phase
-						return False
-					if orbsym[tup[-1]] not in [sym, sym+1]:
-						# last orbital is not a pi orbital
-						return False
-					else:
-						if np.abs(mo_energy[tup[-1]] - mo_energy[tup[-1]-1]) < 1.0e-05:
-							# this is the second member of a pair of degenerated pi orbs
-							return False
-				else:
-					# even number of pi orbs
-					for i in range(1, pi_orbs.size, 2):
-						if np.abs(mo_energy[tup[pi_orbs[i]]] - mo_energy[tup[pi_orbs[i-1]]]) > 1.0e-05:
-							# the pi orbs are not pair-wise degenerated
-							return False
+def _cas_idx_cart(cas_idx):
+		""" generate a cartesian product of (cas_idx, cas_idx) """
+		return np.array(np.meshgrid(cas_idx, cas_idx)).T.reshape(-1, 2)
+
+
+def _coor_to_idx(ij):
+		""" compute lower triangular index corresponding to (i, j) (ij[0], ij[1]) """
+		i = ij[0]; j = ij[1]
+		if i >= j:
+			return i * (i + 1) // 2 + j
+		else:
+			return j * (j + 1) // 2 + i
+
+
+def cas_idx_tril(cas_idx):
+		""" compute lower triangular cas_idx """
+		cas_idx_cart = _cas_idx_cart(cas_idx)
+		return np.unique(np.fromiter(map(_coor_to_idx, cas_idx_cart), \
+										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
+
+
+def sigma_orbs(orbsym, tup):
+		""" extract non-degenerate orbitals from tuple of orbitals """
+		return tup[np.where(np.invert(np.in1d(orbsym[tup], DEG_ID)))]
+
+
+def pi_orbs(mo_energy, orbsym, tup):
+		""" extract degenerate orbitals from tuple of orbitals """
+		tup_pi = tup[np.where(np.in1d(orbsym[tup], DEG_ID))]
+		# make all pairs of pi-orbitals
+		pairs = np.array(list(itertools.combinations(tup_pi, 2)))
+		# keep only degenerate pairs
+		return pairs[np.fromiter(map(functools.partial(pruning, mo_energy, orbsym), pairs), \
+									dtype=bool, count=pairs.shape[0])]
+
+
+def all_pi_orbs(orbsym, tup):
+		""" check to see if all orbitals of tuple are pi-orbitals """
+		return np.all(np.in1d(orbsym[tup], DEG_ID))
+
+
+def n_pi_orbs(orbsym, tup):
+		""" count number of pi-orbitals in tuple of orbitals """
+		return np.count_nonzero(np.in1d(orbsym[tup], DEG_ID))
+
+
+def pruning(mo_energy, orbsym, tup):
+		""" pi-orbital pruning """
+		# get indices of all pi-orbitals
+		pi_orbs = np.where(np.in1d(orbsym[tup], DEG_ID))[0]
+		# pruning
+		if pi_orbs.size > 0:
+			if pi_orbs.size % 2 > 0:
+				# never consider tuples with odd number of pi-orbitals
+				return False
+			else:
+				# are the pi-orbitals pair-wise degenerated?
+				mo_energy_pi = mo_energy[tup[pi_orbs]]
+				mo_energy_diff = np.array([mo_energy_pi[i+1] - mo_energy_pi[i] for i in range(0, pi_orbs.size, 2)])
+				return np.sum(np.abs(mo_energy_diff)) < 1.0e-04
 		return True
 
 
-class hubbard_PM(lo.pipek.PM):
-		""" Construct the site-population tensor for each orbital-pair density
-			(pyscf example: 40-hubbard_model_PM_localization.py) """
-		def atomic_pops(self, mol, mo_coeff, method=None):
-			""" This tensor is used in cost-function and its gradients """
-			return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
-
-
-def mat_indx(site, nx, ny):
+def mat_idx(site, nx, ny):
 		""" get x and y indices of a matrix """
 		x = site % nx
 		y = int(math.floor(float(site) / ny))

@@ -33,6 +33,10 @@ class MolCls(gto.Mole):
 							'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
 							'unit': 'ang', 'frozen': False, 'occup': {}, 'debug': 0, \
 							'u': 1.0, 'n': 1.0, 'matrix': (1, 6), 'pbc': True}
+				# set max_mem to ridiculously large value to force incore
+				self.max_memory = 1e10
+				# set incore_anyway to True (for use in cc)
+				self.incore_anyway = True
 				# set geometric and molecular parameters
 				if mpi.master:
 					# read atom and molecule settings
@@ -40,7 +44,6 @@ class MolCls(gto.Mole):
 					# sanity check
 					self.sanity_chk()
 					# translate to Mole input
-					self.incore_anyway = True
 					self.irrep_nelec = self.system['occup']
 					self.charge = self.system['charge']
 					self.spin = self.system['spin']

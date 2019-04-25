@@ -82,7 +82,8 @@ def write_fund(mol, calc):
 			json.dump(dims, f)
 		# write hf, reference, and base properties
 		if calc.target == 'energy':
-			energies = {'hf': calc.prop['hf']['energy'], \
+			energies = {'e_nuc': mol.e_nuc, \
+						'hf': calc.prop['hf']['energy'], \
 						'base': calc.prop['base']['energy'], \
 						'ref': calc.prop['ref']['energy']}
 			with open(os.path.join(RST, 'energies.rst'), 'w') as f:
@@ -131,6 +132,7 @@ def read_fund(mol, calc):
 			elif 'energies' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					energies = json.load(f)
+				mol.e_nuc = energies['e_nuc']
 				calc.prop['hf']['energy'] = energies['hf']
 				calc.prop['base']['energy'] = energies['base'] 
 				calc.prop['ref']['energy'] = energies['ref']

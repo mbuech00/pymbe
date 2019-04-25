@@ -12,6 +12,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
+import functools
 import itertools
 
 import parallel
@@ -45,181 +46,272 @@ def _master(mpi, mol, calc, exp):
 		""" master function """
 		# print header
 		print(output.screen_header(exp.order))
-		# converged due to pi screening
-		if exp.order > 1 and exp.count[-1] == 0:
-			tuples = np.array([], dtype=np.int32).reshape(-1, exp.order+1)
-			hashes = np.array([], dtype=np.int64)
-			return tuples, hashes
 		# wake up slaves
 		msg = {'task': 'screen', 'order': exp.order}
 		mpi.comm.bcast(msg, root=0)
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# task list and number of tasks
-		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
-		# init request
-		req = MPI.Request()
+		# number of tasks
+		n_tasks = exp.tuples[-1].shape[0]
 		# start index
 		i = 0
+		# init child_tup list
+		child_tup = []
+		# add pi-orbitals if pi-pruning is requested
+		if calc.extra['pruning']:
+			# start index
+			j = 0
+			if exp.order == 1:
+				# add degenerate pairs of occupied pi-orbitals
+				for k in range(calc.pi_orbs.shape[0]):
+					if tools.cas_occ(calc.occup, calc.ref_space, calc.pi_orbs[k]):
+						child_tup += calc.pi_orbs[k].tolist()
+				# number of tasks
+				n_tasks_pi = 0
+			else:
+				# number of tasks
+				n_tasks_pi = exp.tuples[-2].shape[0]
 		# loop until no tasks left
 		while True:
 			# probe for available slaves
-			if mpi.comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# receive slave status
-				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
-				# any tasks left?
-				if i < len(tasks):
-					# send index
-					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-					# increment index
-					i += 1
-					# wait for completion
-					req.Wait()
+			mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+			# receive slave status
+			mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
+			# any tasks left?
+			if i < n_tasks:
+				# send task
+				mpi.comm.send({'idx': i, 'pi': False}, dest=mpi.stat.source, tag=TAGS.start)
+				# increment index
+				i += 1
+			else:
+				if calc.extra['pruning']:
+					if j < n_tasks_pi:
+						# send task
+						mpi.comm.send({'idx': j, 'pi': True}, dest=mpi.stat.source, tag=TAGS.start)
+						# increment index
+						j += 1
+					else:
+						# send exit signal
+						mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
+						# remove slave
+						slaves_avail -= 1
+						# any slaves left?
+						if slaves_avail == 0:
+							# exit loop
+							break
 				else:
 					# send exit signal
-					mpi.comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
+					mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
-					# wait for completion
-					req.Wait()
 					# any slaves left?
 					if slaves_avail == 0:
 						# exit loop
 						break
-		# init child_tup/child_hash lists
-		child_tup = []; child_hash = []
-		# allgatherv tuples/hashes
-		return parallel.screen(mpi, child_tup, child_hash, exp.order)
+		# allgatherv tuples
+		child_tup = np.array(child_tup, dtype=np.int32)
+		return parallel.screen(mpi, child_tup, exp.order)
 
 
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
-		# init idx
-		idx = np.empty(1, dtype=np.int32)
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# task list
-		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
+		# init child_tup list
+		child_tup = []
 		# send availability to master
 		if mpi.rank <= num_slaves:
-			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-		# init child_tup/child_hash lists
-		child_tup = []; child_hash = []
+			mpi.comm.send(None, dest=0, tag=TAGS.ready)
 		# receive work from master
 		while True:
 			# early exit in case of large proc count
 			if mpi.rank > num_slaves:
 				break
-			# receive index
-			mpi.comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
+			# receive task
+			task = mpi.comm.recv(source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
-				# get task
-				task = tasks[idx[0]]
-				# loop over tasks
-				for n, task_idx in enumerate(task):
-					# send availability to master
-					if n == task.size - 1:
-						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-					# compute child tuples/hashes
-					lst = _test(mol, calc, exp, exp.tuples[-1][task_idx])
-					parent_tup = exp.tuples[-1][task_idx].tolist()
-					for m in lst:
-						tup = parent_tup+[m]
-						if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, np.asarray(tup, dtype=np.int32))):
-							child_tup += tup
-							child_hash.append(tools.hash_1d(np.asarray(tup, dtype=np.int32)))
-						else:
-							if mol.debug >= 2:
-								print('screen [sigma]: parent_tup = {:} , m = {:}'.format(parent_tup, m))
+				if not task['pi']:
+					# child tuples wrt order k-1
+					orb_lst = _orbs(mol, calc, exp, exp.tuples[-1][task['idx']], exp.order)
+					if calc.extra['pruning']:
+						# deep pruning wrt orders k-2, k-4, etc.
+						orb_lst = _deep_pruning(mol, calc, exp, exp.tuples[-1][task['idx']], orb_lst)
+					for m in orb_lst:
+						child_tup += exp.tuples[-1][task['idx']].tolist() + [m]
+				else:
+					# child tuples wrt order k-2
+					orb_lst = _orbs_pi(mol, calc, exp, exp.tuples[-2][task['idx']], exp.order-1)
+					# deep pruning wrt orders k-3, k-5, etc.
+					orb_lst = _deep_pruning(mol, calc, exp, exp.tuples[-2][task['idx']], orb_lst, master=True)
+					# add degenerate pairs of pi-orbitals
+					for m_1, m_2 in orb_lst.reshape(-1, 2):
+						child_tup += exp.tuples[-2][task['idx']].tolist() + [m_1, m_2]
+				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				break
-		# allgatherv tuples/hashes
-		return parallel.screen(mpi, child_tup, child_hash, exp.order)
+		# allgatherv tuples
+		child_tup = np.array(child_tup, dtype=np.int32)
+		return parallel.screen(mpi, child_tup, exp.order)
 
 
-def _test(mol, calc, exp, tup):
-		""" screening test """
-		if exp.order == 1:
-			return [m for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]]
+def _orbs(mol, calc, exp, tup, order):
+		""" determine list of child tuple orbitals """
+		if order == 1:
+			lst = [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
 		else:
-			# set threshold
-			n_virt = np.count_nonzero(calc.occup[calc.ref_space] == 0.)
-			n_virt += np.count_nonzero(calc.occup[tup] == 0.)
-			if n_virt < 3:
-				thres = 0.0
-			else:
-				thres = calc.thres['init'] * calc.thres['relax'] ** (n_virt - 3)
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
-			combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
-			# loop over new orbs 'm'
-			for m in calc.exp_space[np.where(calc.exp_space > tup[-1])]:
-				# add orbital m to combinations
-				combs_m = np.concatenate((combs, m * np.ones(combs.shape[0], dtype=np.int32)[:, None]), axis=1)
-				# sigma pruning
-				if calc.extra['sigma']:
-					combs_m = combs_m[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs_m[comb, :]) for comb in range(combs_m.shape[0])]]
-				# convert to sorted hashes
-				combs_m_hash = tools.hash_2d(combs_m)
-				combs_m_hash.sort()
-				# get indices
-				indx = tools.hash_compare(exp.hashes[-1], combs_m_hash)
-				if calc.extra['sigma']:
-					# deep pruning (to check validity of tup + [m])
-					for k in range(exp.order-1, 0, -1):
-						combs_sigma = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-						# add orbital m to combinations
-						combs_sigma = np.concatenate((combs_sigma, m * np.ones(combs_sigma.shape[0], dtype=np.int32)[:, None]), axis=1)
-						combs_sigma = combs_sigma[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs_sigma[comb, :]) for comb in range(combs_sigma.shape[0])]]
+			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
+			# prune combinations with no occupied orbitals
+			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
+								calc.occup, calc.ref_space), combs), \
+								dtype=bool, count=combs.shape[0])]
+			# pi-orbital pruning
+			if calc.extra['pruning']:
+				combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
+									calc.mo_energy, calc.orbsym), combs), \
+									dtype=bool, count=combs.shape[0])]
+			if combs.size == 0:
+				lst = [m for m in calc.exp_space[np.where(tup[-1] < calc.exp_space)]]
+			else:
+				# loop over new orbs 'm'
+				for m in calc.exp_space[np.where(tup[-1] < calc.exp_space)]:
+					# add orbital to combinations
+					orb = np.empty(combs.shape[0], dtype=np.int32)
+					orb[:] = m
+					combs_orb = np.concatenate((combs, orb[:, None]), axis=1)
+					# convert to sorted hashes
+					combs_orb_hash = tools.hash_2d(combs_orb)
+					combs_orb_hash.sort()
+					# get indices
+					idx = tools.hash_compare(exp.hashes[order-1], combs_orb_hash)
+					# add orbital to lst
+					if idx is not None:
+						# compute thresholds
+						thres = np.fromiter(map(functools.partial(_thres, \
+											calc.occup, calc.ref_space, calc.thres, \
+											calc.prot['scheme']), combs_orb), \
+											dtype=np.float64, count=idx.size)
+						if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, order, thres, idx):
+							lst += [m]
+		return np.array(lst, dtype=np.int32)
+
+
+def _orbs_pi(mol, calc, exp, tup, order):
+		""" determine list of child tuple pi-orbitals """
+		if order == 1:
+			# init return list
+			lst = []
+			# loop over pairs of degenerate pi-orbitals
+			for j in range(calc.pi_orbs.shape[0]):
+				if tup[-1] < calc.pi_orbs[j, 0]:
+					lst += calc.pi_orbs[j].tolist()
+		else:
+			# init return list
+			lst = []
+			# generate array with all subsets of particular tuple
+			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
+			# prune combinations with no occupied orbitals
+			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
+								calc.occup, calc.ref_space), combs), \
+								dtype=bool, count=combs.shape[0])]
+			# pi-orbital pruning
+			combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
+								calc.mo_energy, calc.orbsym), combs), \
+								dtype=bool, count=combs.shape[0])]
+			if combs.size == 0:
+				# loop over pairs of degenerate pi-orbitals
+				for j in range(calc.pi_orbs.shape[0]):
+					if tup[-1] < calc.pi_orbs[j, 0]:
+						lst += calc.pi_orbs[j].tolist()
+			else:
+				# loop over pairs of degenerate pi-orbitals
+				for j in range(calc.pi_orbs.shape[0]):
+					if tup[-1] < calc.pi_orbs[j, 0]:
+						# add pi-orbitals to combinations
+						orb = np.empty([combs.shape[0], 2], dtype=np.int32)
+						orb[:, 0] = calc.pi_orbs[j, 0]
+						orb[:, 1] = calc.pi_orbs[j, 1]
+						combs_orb = np.concatenate((combs, orb), axis=1)
 						# convert to sorted hashes
-						combs_sigma_hash = tools.hash_2d(combs_sigma)
-						combs_sigma_hash.sort()
+						combs_orb_hash = tools.hash_2d(combs_orb)
+						combs_orb_hash.sort()
 						# get indices
-						indx_sigma = tools.hash_compare(exp.hashes[k], combs_sigma_hash)
-						# break if disallowed
-						if indx_sigma is None:
-							indx = None
-							break
-				if indx is not None:
-					if not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, indx):
-						lst += [m]
-					else:
-						if mol.debug >= 2:
-							print('screen [prot_screen]: parent_tup = {:} , m = {:}, combs_m = {:}'.format(tup, m, combs_m))
-				else:
-					if mol.debug >= 2:
-						print('screen [indx is None]: parent_tup = {:} , m = {:}, combs_m = {:}'.format(tup, m, combs_m))
-			return lst
+						idx = tools.hash_compare(exp.hashes[(order+1)-1], combs_orb_hash)
+						# add orbitals to lst
+						if idx is not None:
+							# compute thresholds
+							thres = np.fromiter(map(functools.partial(_thres, \
+												calc.occup, calc.ref_space, calc.thres, \
+												calc.prot['scheme']), combs_orb), \
+												dtype=np.float64, count=idx.size)
+							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, order+1, thres, idx):
+								lst += calc.pi_orbs[j].tolist()
+		return np.array(lst, dtype=np.int32)
 
 
-def _prot_screen(thres, scheme, target, prop, indx):
+def _prot_screen(scheme, target, prop, order, thres, idx):
 		""" protocol check """
 		if target in ['energy', 'excitation']:
-			return _prot_scheme(thres, scheme, prop[target]['inc'][-1][indx])
+			return _prot_scheme(scheme, thres, prop[target]['inc'][order-1][idx])
 		else:
 			screen = True
 			for dim in range(3):
 				# (x,y,z) = (0,1,2)
-				if np.sum(prop[target]['inc'][-1][indx, dim]) != 0.0:
-					screen = _prot_scheme(thres, scheme, prop[target]['inc'][-1][indx, dim])
+				if np.sum(prop[target]['inc'][order-1][idx, dim]) != 0.0:
+					screen = _prot_scheme(scheme, thres, prop[target]['inc'][order-1][idx, dim])
 				if not screen:
 					break
 			return screen
 
 
-def _prot_scheme(thres, scheme, prop):
+def _prot_scheme(scheme, thres, prop):
 		""" screen according to chosen scheme """
-		if np.sum(prop) == 0.0:
+		if np.any(thres == 0.0):
+			# do not screen if any of the thresholds are zero (tuples with no correlation)
 			return False
 		else:
-			# are *all* increments below the threshold?
-			if scheme == 'new':
-				return np.max(np.abs(prop)) < thres
-			# are *any* increments below the threshold?
-			elif scheme == 'old':
-				return np.min(np.abs(prop)) < thres
+			if scheme == 1:
+				# are *any* increments below their given threshold
+				return np.any(np.abs(prop) < thres)
+			elif scheme > 1:
+				# are *all* increments below their given threshold
+				return np.all(np.abs(prop) < thres)
+
+
+def _deep_pruning(mol, calc, exp, tup, orb_lst, master=False):
+		""" deep pruning """
+		# deep pruning wrt to lower orders
+		for k in range(tools.n_pi_orbs(calc.orbsym, tup) // 2):
+			if master:
+				orb_lst = np.intersect1d(orb_lst, _orbs_pi(mol, calc, exp, tup, exp.order - (2*k+2)))
+			else:
+				orb_lst = np.intersect1d(orb_lst, _orbs(mol, calc, exp, tup, exp.order - (2*k+1)))
+		return orb_lst
+
+
+def _thres(occup, ref_space, thres, scheme, tup):
+		""" set screening threshold for tup """
+		# involved dimensions
+		nocc = np.count_nonzero(occup[ref_space] > 0.0)
+		nocc += np.count_nonzero(occup[tup] > 0.0)
+		nvirt = np.count_nonzero(occup[ref_space] == 0.0)
+		nvirt += np.count_nonzero(occup[tup] == 0.0)
+		# init thres
+		threshold = 0.0
+		# possibly update thres
+		if nocc > 0 and nvirt > 0:
+			if scheme < 3:
+				# schemes 1 & 2
+				if nvirt >= 3:
+					threshold = thres['init'] * thres['relax'] ** (nvirt - 3)
+			else:
+				# scheme 3
+				if max(nocc, nvirt) >= 3:
+					threshold = thres['init'] * thres['relax'] ** (max(nocc, nvirt) - 3)
+		return threshold
 
 

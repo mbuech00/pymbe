@@ -32,17 +32,17 @@ class CalcCls(object):
 				# set defaults
 				self.model = {'method': 'fci', 'solver': 'pyscf_spin0'}
 				self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
-				self.prot = {'scheme': 'new'}
+				self.prot = {'scheme': 2}
 				self.ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
 							'select': [i for i in range(mol.ncore, mol.nelectron // 2)], \
 							'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'sigma': False}
+				self.extra = {'hf_guess': True, 'pruning': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
-				self.misc = {'mem': 2000, 'order': None, 'async': False}
+				self.misc = {'order': None}
 				self.orbs = {'type': 'can'}
-				self.mpi = {'masters': 1, 'task_size': 1}
+				self.mpi = {'masters': 1}
 				# init mo
 				self.mo = None
 				# set calculation parameters
@@ -101,7 +101,7 @@ class CalcCls(object):
 											elif entry == 'ref':
 												if key == 'wfnsym':
 													if not isinstance(val, list):
-														self.ref[key] = [val]
+														self.ref[key] = list(val)
 													else:
 														self.ref[key] = val
 													self.ref[key] = [symm.addons.std_symb(self.ref[key][j]) for j in range(len(self.ref[key]))]
@@ -197,13 +197,13 @@ class CalcCls(object):
 				# extra
 				tools.assertion(isinstance(self.extra['hf_guess'], bool), \
 								'HF initial guess for FCI calcs (hf_guess) must be a bool')
-				tools.assertion(isinstance(self.extra['sigma'], bool), \
-								'sigma state pruning for FCI calcs (sigma) must be a bool')
+				tools.assertion(isinstance(self.extra['pruning'], bool), \
+								'pi-orbital pruning for FCI calcs (pruning) must be a bool')
 				# screening protocol
-				tools.assertion(all(isinstance(i, str) for i in self.prot.values()), \
-								'values in prot input (prot) must be string and bools')
-				tools.assertion(self.prot['scheme'] in ['new', 'old'], \
-								'valid protocol schemes are: new and old')
+				tools.assertion(all(isinstance(i, int) for i in self.prot.values()), \
+								'values in prot input (prot) must be ints')
+				tools.assertion(self.prot['scheme'] > 0 and self.prot['scheme'] < 4, \
+								'valid protocol schemes (scheme) are: 1 (1st gen), 2 (2nd) gen, 3 (3rd gen)')
 				# expansion thresholds
 				tools.assertion(all(isinstance(i, float) for i in self.thres.values()), \
 								'values in threshold input (thres) must be floats')
@@ -225,17 +225,10 @@ class CalcCls(object):
 									'the combination of local orbs and point group symmetry '
 									'different from c1 is not allowed')
 				# misc
-				tools.assertion(isinstance(self.misc['mem'], int) and self.misc['mem'] >= 1, \
-								'maximum memory (mem) in units of MB must be an int >= 1')
 				tools.assertion(isinstance(self.misc['order'], (int, type(None))), \
 								'maximum expansion order (order) must be an int >= 1')
 				if self.misc['order'] is not None:
 					tools.assertion(self.misc['order'] >= 0, \
 									'maximum expansion order (order) must be an int >= 1')
-				tools.assertion(isinstance(self.misc['async'], bool), \
-								'asynchronous key (async) must be a bool')
-				# mpi
-				tools.assertion(isinstance(self.mpi['task_size'], int) and self.mpi['task_size'] >= 1, \
-								'size of mpi tasks (task_size) must be an int >= 1')
 
 
