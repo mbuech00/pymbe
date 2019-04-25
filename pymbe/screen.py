@@ -161,8 +161,6 @@ def _orbs(mol, calc, exp, tup, order):
 		if order == 1:
 			lst = [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
 		else:
-			# set threshold
-			thres = _thres(calc.occup, calc.ref_space, calc.thres, calc.prot['scheme'], tup)
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
@@ -192,7 +190,12 @@ def _orbs(mol, calc, exp, tup, order):
 					idx = tools.hash_compare(exp.hashes[order-1], combs_orb_hash)
 					# add orbital to lst
 					if idx is not None:
-						if thres == 0.0 or not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, order, idx):
+						# compute thresholds
+						thres = np.fromiter(map(functools.partial(_thres, \
+											calc.occup, calc.ref_space, calc.thres, \
+											calc.prot['scheme']), combs_orb), \
+											dtype=np.float64, count=idx.size)
+						if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, order, thres, idx):
 							lst += [m]
 		return np.array(lst, dtype=np.int32)
 
@@ -207,8 +210,6 @@ def _orbs_pi(mol, calc, exp, tup, order):
 				if tup[-1] < calc.pi_orbs[j, 0]:
 					lst += calc.pi_orbs[j].tolist()
 		else:
-			# set threshold
-			thres = _thres(calc.occup, calc.ref_space, calc.thres, calc.prot['scheme'], tup)
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
@@ -242,34 +243,43 @@ def _orbs_pi(mol, calc, exp, tup, order):
 						idx = tools.hash_compare(exp.hashes[(order+1)-1], combs_orb_hash)
 						# add orbitals to lst
 						if idx is not None:
-							if thres == 0.0 or not _prot_screen(thres, calc.prot['scheme'], calc.target, exp.prop, order+1, idx):
+							# compute thresholds
+							thres = np.fromiter(map(functools.partial(_thres, \
+												calc.occup, calc.ref_space, calc.thres, \
+												calc.prot['scheme']), combs_orb), \
+												dtype=np.float64, count=idx.size)
+							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, order+1, thres, idx):
 								lst += calc.pi_orbs[j].tolist()
 		return np.array(lst, dtype=np.int32)
 
 
-def _prot_screen(thres, scheme, target, prop, order, idx):
+def _prot_screen(scheme, target, prop, order, thres, idx):
 		""" protocol check """
 		if target in ['energy', 'excitation']:
-			return _prot_scheme(thres, scheme, prop[target]['inc'][order-1][idx])
+			return _prot_scheme(scheme, thres, prop[target]['inc'][order-1][idx])
 		else:
 			screen = True
 			for dim in range(3):
 				# (x,y,z) = (0,1,2)
 				if np.sum(prop[target]['inc'][order-1][idx, dim]) != 0.0:
-					screen = _prot_scheme(thres, scheme, prop[target]['inc'][order-1][idx, dim])
+					screen = _prot_scheme(scheme, thres, prop[target]['inc'][order-1][idx, dim])
 				if not screen:
 					break
 			return screen
 
 
-def _prot_scheme(thres, scheme, prop):
+def _prot_scheme(scheme, thres, prop):
 		""" screen according to chosen scheme """
-		# are *any* increments below the threshold?
-		if scheme == 1:
-			return np.min(np.abs(prop)) < thres
-		# are *all* increments below the threshold?
-		elif scheme > 1:
-			return np.max(np.abs(prop)) < thres
+		if np.any(thres == 0.0):
+			# do not screen if any of the thresholds are zero (tuples with no correlation)
+			return False
+		else:
+			if scheme == 1:
+				# are *any* increments below their given threshold
+				return np.any(np.abs(prop) < thres)
+			elif scheme > 1:
+				# are *all* increments below their given threshold
+				return np.all(np.abs(prop) < thres)
 
 
 def _deep_pruning(mol, calc, exp, tup, orb_lst, master=False):
@@ -285,22 +295,23 @@ def _deep_pruning(mol, calc, exp, tup, orb_lst, master=False):
 
 def _thres(occup, ref_space, thres, scheme, tup):
 		""" set screening threshold for tup """
-		nocc_ref = np.count_nonzero(occup[ref_space] > 0.0)
-		nocc_tup = np.count_nonzero(occup[tup] > 0.0)
-		nvirt_ref = np.count_nonzero(occup[ref_space] == 0.0)
-		nvirt_tup = np.count_nonzero(occup[tup] == 0.0)
-		if scheme < 3:
-			if nvirt_ref + nvirt_tup < 3:
-				return 0.0
+		# involved dimensions
+		nocc = np.count_nonzero(occup[ref_space] > 0.0)
+		nocc += np.count_nonzero(occup[tup] > 0.0)
+		nvirt = np.count_nonzero(occup[ref_space] == 0.0)
+		nvirt += np.count_nonzero(occup[tup] == 0.0)
+		# init thres
+		threshold = 0.0
+		# possibly update thres
+		if nocc > 0 and nvirt > 0:
+			if scheme < 3:
+				# schemes 1 & 2
+				if nvirt >= 3:
+					threshold = thres['init'] * thres['relax'] ** (nvirt - 3)
 			else:
-				return thres['init'] * thres['relax'] ** ((nvirt_ref + nvirt_tup) - 3)
-		elif scheme == 3:
-			if max(nocc_tup, nvirt_tup) < 3:
-				return 0.0
-			else:
-				if nvirt_ref + nvirt_tup == 0:
-					return 0.0
-				else:
-					return thres['init'] * thres['relax'] ** (max(nocc_tup, nvirt_tup) - 3)
+				# scheme 3
+				if max(nocc, nvirt) >= 3:
+					threshold = thres['init'] * thres['relax'] ** (max(nocc, nvirt) - 3)
+		return threshold
 
 
