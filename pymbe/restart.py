@@ -5,7 +5,7 @@
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __license__ = '???'
-__version__ = '0.10'
+__version__ = '0.20'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -19,7 +19,7 @@ import re
 from pyscf import symm
 
 
-# rst parameters
+# restart folder
 RST = os.getcwd()+'/rst'
 
 
@@ -40,7 +40,7 @@ def rm():
 def main(calc, exp):
 		""" main restart driver """
 		if not calc.restart:
-			return exp.start_order
+			return 1
 		else:
 			# list filenames in files list
 			files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
@@ -55,58 +55,48 @@ def main(calc, exp):
 				elif 'hash' in files[i]:
 					exp.hashes.append(np.load(os.path.join(RST, files[i])))
 				# read increments
-				elif 'e_inc' in files[i]:
-					exp.prop['energy']['inc'].append(np.load(os.path.join(RST, files[i])))
-				elif 'exc_inc' in files[i]:
-					exp.prop['excitation']['inc'].append(np.load(os.path.join(RST, files[i])))
-				elif 'dip_inc' in files[i]:
-					exp.prop['dipole']['inc'].append(np.load(os.path.join(RST, files[i])))
-				elif 'trans_inc' in files[i]:
-					exp.prop['trans']['inc'].append(np.load(os.path.join(RST, files[i])))
+				elif 'inc' in files[i]:
+					exp.prop[calc.target]['inc'].append(np.load(os.path.join(RST, files[i])))
 				# read total properties
-				elif 'e_tot' in files[i]:
-					exp.prop['energy']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
-				elif 'exc_tot' in files[i]:
-					exp.prop['excitation']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
-				elif 'dip_tot' in files[i]:
-					exp.prop['dipole']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
-				elif 'trans_tot' in files[i]:
-					exp.prop['trans']['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+				elif 'tot' in files[i]:
+					exp.prop[calc.target]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 				# read counter
 				elif 'counter' in files[i]:
 					exp.count.append(np.load(os.path.join(RST, files[i])).tolist())
+				# read ndets
+				elif 'ndets' in files[i]:
+					exp.ndets.append(np.load(os.path.join(RST, files[i])))
 				# read timings
 				elif 'time_mbe' in files[i]:
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
 				elif 'time_screen' in files[i]:
 					exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
-			return exp.tuples[-1].shape[1] + calc.no_exp
+			return exp.tuples[-1].shape[1]
 
 
 def write_fund(mol, calc):
 		""" write fundamental info restart files """
 		# write dimensions
-		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'no_exp': calc.no_exp, \
-				'ne_act': calc.ne_act, 'no_act': calc.no_act}
+		dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'norb': mol.norb, 'nelec': calc.nelec}
 		with open(os.path.join(RST, 'dims.rst'), 'w') as f:
 			json.dump(dims, f)
 		# write hf, reference, and base properties
-		if calc.target['energy']:
+		if calc.target == 'energy':
 			energies = {'hf': calc.prop['hf']['energy'], \
 						'base': calc.prop['base']['energy'], \
 						'ref': calc.prop['ref']['energy']}
 			with open(os.path.join(RST, 'energies.rst'), 'w') as f:
 				json.dump(energies, f)
-		if calc.target['excitation']:
+		elif calc.target == 'excitation':
 			excitations = {'ref': calc.prop['ref']['excitation']}
 			with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
 				json.dump(excitations, f)
-		if calc.target['dipole']:
+		elif calc.target == 'dipole':
 			dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
 						'ref': calc.prop['ref']['dipole'].tolist()}
 			with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
 				json.dump(dipoles, f)
-		if calc.target['trans']:
+		elif calc.target == 'trans':
 			transitions = {'ref': calc.prop['ref']['trans'].tolist()}
 			with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
 				json.dump(transitions, f)
@@ -135,9 +125,8 @@ def read_fund(mol, calc):
 			if 'dims' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
 					dims = json.load(f)
-				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']; calc.no_exp = dims['no_exp']
-				mol.norb = mol.nocc + mol.nvirt
-				calc.ne_act = dims['ne_act']; calc.no_act = dims['no_act']
+				mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']
+				mol.norb = dims['norb']; calc.nelec = dims['nelec']
 			# read hf and base properties
 			elif 'energies' in files[i]:
 				with open(os.path.join(RST, files[i]), 'r') as f:
@@ -182,25 +171,13 @@ def mbe_write(calc, exp):
 		""" write mbe restart files """
 		# write incremental and total quantities
 		# increments
-		if calc.target['energy']:
-			np.save(os.path.join(RST, 'e_inc_{:}'.format(exp.order)), exp.prop['energy']['inc'][-1])
-		if calc.target['excitation']:
-			np.save(os.path.join(RST, 'exc_inc_{:}'.format(exp.order)), exp.prop['excitation']['inc'][-1])
-		if calc.target['dipole']:
-			np.save(os.path.join(RST, 'dip_inc_{:}'.format(exp.order)), exp.prop['dipole']['inc'][-1])
-		if calc.target['trans']:
-			np.save(os.path.join(RST, 'trans_inc_{:}'.format(exp.order)), exp.prop['trans']['inc'][-1])
+		np.save(os.path.join(RST, 'inc_{:}'.format(exp.order)), exp.prop[calc.target]['inc'][-1])
 		# total properties
-		if calc.target['energy']:
-			np.save(os.path.join(RST, 'e_tot_{:}'.format(exp.order)), exp.prop['energy']['tot'][-1])
-		if calc.target['excitation']:
-			np.save(os.path.join(RST, 'exc_tot_{:}'.format(exp.order)), exp.prop['excitation']['tot'][-1])
-		if calc.target['dipole']:
-			np.save(os.path.join(RST, 'dip_tot_{:}'.format(exp.order)), exp.prop['dipole']['tot'][-1])
-		if calc.target['trans']:
-			np.save(os.path.join(RST, 'trans_tot_{:}'.format(exp.order)), exp.prop['trans']['tot'][-1])
+		np.save(os.path.join(RST, 'tot_{:}'.format(exp.order)), exp.prop[calc.target]['tot'][-1])
 		# write counter
 		np.save(os.path.join(RST, 'counter_'+str(exp.order)), np.asarray(exp.count[-1]))
+		# write ndets
+		np.save(os.path.join(RST, 'ndets_'+str(exp.order)), exp.ndets[-1])
 		# write time
 		np.save(os.path.join(RST, 'time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
 

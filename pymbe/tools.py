@@ -5,21 +5,44 @@
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __license__ = '???'
-__version__ = '0.10'
+__version__ = '0.20'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
 
 import os
 import sys
+import traceback
 import subprocess
 import numpy as np
+import scipy.special
 import math
+from pyscf import lo
 
+import parallel
+
+# output folder and files
+OUT = os.getcwd()+'/output'
+OUT_FILE = OUT+'/output.out'
+RES_FILE = OUT+'/results.out'
 # array of degenerate (dooh) orbsym IDs
 # E1gx (2) , E1gy (3)
 # E1uy (6) , E1ux (7)
 DEG_ID = np.array([2, 6]) 
+
+
+class Logger(object):
+		""" write to both stdout and output_file """
+		def __init__(self, output_file, both=True):
+			self.terminal = sys.stdout
+			self.log = open(output_file, 'a')
+			self.both = both
+		def write(self, message):
+			self.log.write(message)
+			if self.both:
+				self.terminal.write(message)
+		def flush(self):
+			pass
 
 
 def enum(*sequential, **named):
@@ -64,7 +87,7 @@ def dict_conv(old_dict):
 		""" convert dict keys """
 		new_dict = {}
 		for key, value in old_dict.items():
-			if key.lower() in ['method', 'active', 'type', 'occ', 'virt', 'scheme']:
+			if key.lower() in ['method', 'active', 'scheme']:
 				new_dict[key.lower()] = value.lower()
 			else:
 				new_dict[key.lower()] = value
@@ -100,18 +123,13 @@ def get_pymbe_path():
 		return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
-def mbe_tasks(n_tuples, num_slaves, task_size):
-		""" task list for mbe phase """
+def tasks(n_tuples, num_slaves, task_size):
+		""" task list """
 		if num_slaves * task_size < n_tuples:
 			n_tasks = n_tuples // task_size
 		else:
 			n_tasks = num_slaves
 		return np.array_split(np.arange(n_tuples), n_tasks)
-
-
-def screen_tasks(n_tuples, num_slaves):
-		""" task list for screen phase """
-		return np.array_split(np.arange(n_tuples), num_slaves)
 
 
 def core_cas(mol, ref_space, tup):
@@ -147,5 +165,46 @@ def sigma_prune(mo_energy, orbsym, tup, mbe=False):
 							# the pi orbs are not pair-wise degenerated
 							return False
 		return True
+
+
+class hubbard_PM(lo.pipek.PM):
+		""" Construct the site-population tensor for each orbital-pair density
+			(pyscf example: 40-hubbard_model_PM_localization.py) """
+		def atomic_pops(self, mol, mo_coeff, method=None):
+			""" This tensor is used in cost-function and its gradients """
+			return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
+
+
+def mat_indx(site, nx, ny):
+		""" get x and y indices of a matrix """
+		x = site % nx
+		y = int(math.floor(float(site) / ny))
+		return x, y
+
+
+def near_nbrs(site_xy, nx, ny):
+		""" get list of nearest neighbour indices """
+		left = ((site_xy[0] - 1) % nx, site_xy[1])
+		right = ((site_xy[0] + 1) % nx, site_xy[1])
+		down = (site_xy[0], (site_xy[1] + 1) % ny)
+		up = (site_xy[0], (site_xy[1] - 1) % ny)
+		return [left, right, down, up]
+
+
+def num_dets(n_orbs, n_alpha, n_beta):
+		""" estimated number of determinants in given CASCI calculation (ignoring point group symmetry) """
+		return scipy.special.binom(n_orbs, n_alpha) * scipy.special.binom(n_orbs, n_beta)
+
+
+def assertion(condition, reason):
+		""" assertion of condition """
+		if not condition:
+			# get stack
+			stack = ''.join(traceback.format_stack()[:-1])
+			# print stack
+			print('\n\n'+stack)
+			print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
+			# abort calculation
+			parallel.abort()
 
 

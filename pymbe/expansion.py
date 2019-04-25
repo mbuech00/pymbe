@@ -5,7 +5,7 @@
 
 __author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
 __license__ = '???'
-__version__ = '0.10'
+__version__ = '0.20'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'jeriksen@uni-mainz.de'
 __status__ = 'Development'
@@ -16,37 +16,24 @@ import numpy as np
 import tools
 
 
-class ExpCls():
+class ExpCls(object):
 		""" expansion class """
-		def __init__(self, mol, calc, typ):
+		def __init__(self, mol, calc):
 				""" init parameters """
 				# set expansion model dict
 				self.model = copy.deepcopy(calc.model)
-				self.model['type'] = typ
 				# init prop dict
 				self.prop = {}
-				if calc.target['energy']:
-					self.prop['energy'] = {'inc': [], 'tot': []}
-				if calc.target['excitation']:
-					self.prop['excitation'] = {'inc': [], 'tot': []}
-				if calc.target['dipole']:
-					self.prop['dipole'] = {'inc': [], 'tot': []}
-				if calc.target['trans']:
-					self.prop['trans'] = {'inc': [], 'tot': []}
-				# set start_order/max_order
-				self.start_order = calc.no_exp + 1
+				self.prop[calc.target] = {'inc': [], 'tot': []}
+				# set max_order
 				if calc.misc['order'] is not None:
-					self.max_order = min(calc.exp_space.size + calc.no_exp, calc.misc['order'])
+					self.max_order = min(calc.exp_space.size, calc.misc['order'])
 				else:
-					self.max_order = calc.exp_space.size + calc.no_exp
-				# init timings and calculation counter
+					self.max_order = calc.exp_space.size
+				# init timings, calculation counter, and ndets lists
 				self.count = []
+				self.ndets = []
 				self.time = {'mbe': [], 'screen': []}
-				# init thres
-				if self.start_order < 3:
-					self.thres = 0.0
-				else:
-					self.thres = calc.thres['init'] * calc.thres['relax'] ** (self.start_order - 3)
 				# init order (pre-calc)
 				self.order = 0
 				# restart frequency
