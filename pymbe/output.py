@@ -133,11 +133,11 @@ def mbe_results(mol, calc, exp):
 			string += DIVIDER+'\n'
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
-			string += ' RESULT:         {:>8.2e}        |           {:>9.3e}          |          {:>9.3e}\n'
+			string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
 			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(ndets)])[1]
 			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
 									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
-			string += ' RESULT:         --------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
+			string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
 			string += DIVIDER+'\n'
 			form += (mean_ndets, min_ndets, max_ndets, \
 						nelec_max[0] + nelec_max[1], cas_idx_max.size)
@@ -196,11 +196,11 @@ def mbe_results(mol, calc, exp):
 			string += DIVIDER+'\n'
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
-			string += ' RESULT:         {:>8.2e}        |           {:>9.3e}          |          {:>9.3e}\n'
+			string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
 			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(ndets)])[1]
 			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
 									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
-			string += ' RESULT:         --------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
+			string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
 			string += DIVIDER+'\n'
 			form += (mean_ndets, min_ndets, max_ndets, \
 						nelec_max[0] + nelec_max[1], cas_idx_max.size)
