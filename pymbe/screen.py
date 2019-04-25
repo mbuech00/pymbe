@@ -298,6 +298,9 @@ def _thres(occup, ref_space, thres, scheme, tup):
 			if max(nocc_tup, nvirt_tup) < 3:
 				return 0.0
 			else:
-				return thres['init'] * thres['relax'] ** (max(nocc_tup, nvirt_tup) - 3)
+				if nvirt_ref + nvirt_tup == 0:
+					return 0.0
+				else:
+					return thres['init'] * thres['relax'] ** (max(nocc_tup, nvirt_tup) - 3)
 
 
