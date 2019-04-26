@@ -42,7 +42,9 @@ def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
 		# setup
 		info = _setup(mpi, mol, calc, exp)
-		# results
+		# print atom
+		_atom(mol)
+		# print results
 		_table(info, mpi, mol, calc, exp)
 		# plot
 		_plot(info, calc, exp)
@@ -91,10 +93,28 @@ def _setup(mpi, mol, calc, exp):
 		return info
 
 
-def _table(info, mpi, mol, calc, exp):
-		""" print results """
+def _atom(mol):
+		""" print geometry """
 		# print header
 		print(output.main_header())
+		# print atom
+		string = DIVIDER[:39]+'\n'
+		string += '{:^43}\n'
+		form = ('geometry',)
+		string += DIVIDER[:39]+'\n'
+		molecule = mol.atom.split('\n')
+		for i in range(len(molecule)-1):
+			atom = molecule[i].split()
+			for j in range(1, 4):
+				atom[j] = float(atom[j])
+			string += '   {:<3s} {:>10.5f} {:>10.5f} {:>10.5f}\n'
+			form += (*atom,)
+		string += DIVIDER[:39]+'\n'
+		print(string.format(*form))
+
+
+def _table(info, mpi, mol, calc, exp):
+		""" print results """
 		# write results to results.out
 		print(_summary_prt(info, mol, calc, exp))
 		print(_timings_prt(info, calc, exp))
