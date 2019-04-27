@@ -501,7 +501,6 @@ def _fci(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec):
 		solver.max_space = 25
 		solver.davidson_only = True
 		solver.pspace_size = 0
-		solver.conv_tol_residual = 1.0e-04
 		# debug print
 		if mol.debug >= 3:
 			solver.verbose = 10
