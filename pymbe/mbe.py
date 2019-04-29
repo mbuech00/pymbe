@@ -71,14 +71,14 @@ def _master(mpi, mol, calc, exp):
 		while True:
 			# avoid distributing tasks with no correlation
 			if i < n_tasks: 
-				# get core and cas indices
+				# get cas indices
 				cas_idx = tools.cas(calc.ref_space, exp.tuples[-1][i])
 				# no occupied or no virtual orbitals
 				while np.all(calc.occup[cas_idx] == 2.0) or np.all(calc.occup[cas_idx] == 0.0):
 					# increment index
 					i += 1
 					if i < n_tasks:
-						# get core and cas indices
+						# get cas indices
 						cas_idx = tools.cas(calc.ref_space, exp.tuples[-1][i])
 					else:
 						# exit loop
@@ -87,11 +87,14 @@ def _master(mpi, mol, calc, exp):
 			mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
 			# receive slave status
 			mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
+			# send signal to slave
 			if i < n_tasks: 
 				# send task idx
 				mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
-				# send tuple
-				req = mpi.comm.Isend(exp.tuples[-1][i], dest=mpi.stat.source, tag=TAGS.data)
+				# set tup
+				tup = exp.tuples[-1][i]
+				# send tup
+				req = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.data)
 				# get h2e indices
 				cas_idx_tril = tools.cas_idx_tril(cas_idx)
 				# h2e_cas
