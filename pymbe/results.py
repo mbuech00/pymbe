@@ -443,7 +443,8 @@ def _energy_prt(info, calc, exp):
 		form += ('','MBE order','','|','','total energy','','|','','correlation energy',)
 		string += DIVIDER[:66]+'\n'
 		string += '{:9}{:>3s}{:5}{:1}{:5}{:>11.6f}{:6}{:1}{:7}{:11.4e}\n'
-		form += ('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'],'','|','',calc.prop['ref']['energy'],)
+		form += ('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'], \
+					'','|','',calc.prop['ref']['energy'],)
 		string += DIVIDER[:66]+'\n'
 		for i, j in enumerate(range(1, info['final_order'])):
 			string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:7}{:11.4e}\n'
@@ -481,7 +482,8 @@ def _energies_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/energy_state_{:}.pdf'.format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/energy_state_{:}.pdf'. \
+						format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _excitation_prt(info, calc, exp):
@@ -531,7 +533,8 @@ def _excitation_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/excitation_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/excitation_states_{:}_{:}.pdf'. \
+						format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _dipole_prt(info, calc, exp):
@@ -593,7 +596,8 @@ def _dipole_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/dipole_state_{:}.pdf'.format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/dipole_state_{:}.pdf'. \
+						format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _trans_prt(info, calc, exp):
@@ -658,7 +662,8 @@ def _trans_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/trans_dipole_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
+						format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _osc_strength_plot(info, calc, exp):
@@ -692,7 +697,8 @@ def _osc_strength_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/osc_strength_states_{:}_{:}.pdf'.format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+		plt.savefig(tools.OUT+'/osc_strength_states_{:}_{:}.pdf'. \
+						format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
 def _ndets_plot(info, exp):

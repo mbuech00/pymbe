@@ -71,15 +71,19 @@ def _master(mpi, mol, calc, exp):
 		while True:
 			# avoid distributing tasks with no correlation
 			if i < n_tasks: 
+				# set tup
+				tup = exp.tuples[-1][i]
 				# get cas indices
-				cas_idx = tools.cas(calc.ref_space, exp.tuples[-1][i])
+				cas_idx = tools.cas(calc.ref_space, tup)
 				# no occupied or no virtual orbitals
 				while np.all(calc.occup[cas_idx] == 2.0) or np.all(calc.occup[cas_idx] == 0.0):
 					# increment index
 					i += 1
 					if i < n_tasks:
+						# set tup
+						tup = exp.tuples[-1][i]
 						# get cas indices
-						cas_idx = tools.cas(calc.ref_space, exp.tuples[-1][i])
+						cas_idx = tools.cas(calc.ref_space, tup)
 					else:
 						# exit loop
 						break
@@ -91,8 +95,6 @@ def _master(mpi, mol, calc, exp):
 			if i < n_tasks: 
 				# send task idx
 				mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
-				# set tup
-				tup = exp.tuples[-1][i]
 				# send tup
 				req = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.data)
 				# get h2e indices
@@ -221,8 +223,9 @@ def _sum(calc, exp, tup):
 				combs_hash.sort()
 				# get indices
 				idx = tools.hash_compare(exp.hashes[k-1], combs_hash)
-				tools.assertion(idx is not None, 'error in recursive increment calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
-								format(k, tup, combs))
+				tools.assertion(idx is not None, 'error in recursive increment '
+													'calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
+													format(k, tup, combs))
 				# add up lower-order increments
 				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][idx])
 		return res
