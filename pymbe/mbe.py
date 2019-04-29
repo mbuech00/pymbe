@@ -72,14 +72,14 @@ def _master(mpi, mol, calc, exp):
 			# avoid distributing tasks with no correlation
 			if i < n_tasks: 
 				# get core and cas indices
-				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
+				cas_idx = tools.cas(calc.ref_space, exp.tuples[-1][i])
 				# no occupied or no virtual orbitals
 				while np.all(calc.occup[cas_idx] == 2.0) or np.all(calc.occup[cas_idx] == 0.0):
 					# increment index
 					i += 1
 					if i < n_tasks:
 						# get core and cas indices
-						core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][i])
+						cas_idx = tools.cas(calc.ref_space, exp.tuples[-1][i])
 					else:
 						# exit loop
 						break
