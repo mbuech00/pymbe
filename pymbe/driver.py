@@ -33,7 +33,7 @@ def master(mpi, mol, calc, exp):
 		tools.assertion(mpi.size >= 2, 'PyMBE requires two or more MPI processes')
 		# restart
 		if calc.restart:
-			exp.rst_freq, calc.restart = _rst_print(mol, calc, exp)
+			_rst(mol, calc, exp)
 		# now do expansion
 		for exp.order in range(exp.start_order, exp.max_order+1):
 			#** mbe phase **#
@@ -58,8 +58,6 @@ def master(mpi, mol, calc, exp):
 			else:
 				# collect time
 				exp.time['screen'].append(0.0)
-			# update restart frequency
-			exp.rst_freq = max(exp.rst_freq // 2, 1)
 			# convergence check
 			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
 				# timings
@@ -94,10 +92,8 @@ def slave(mpi, mol, calc, exp):
 		parallel.final(mpi)
 	
 
-def _rst_print(mol, calc, exp):
+def _rst(mol, calc, exp):
 		""" print output in case of restart """
-		# init rst_freq
-		rst_freq = exp.rst_freq
 		print(output.main_header())
 		for exp.order in range(1, exp.start_order):
 			print(output.mbe_header(exp.tuples[exp.order-1].shape[0], calc.ref_space.size + exp.tuples[exp.order-1].shape[1], exp.order))
@@ -105,7 +101,5 @@ def _rst_print(mol, calc, exp):
 			print(output.mbe_results(mol, calc, exp))
 			print(output.screen_header(exp.order))
 			print(output.screen_end(exp.tuples[exp.order-1].shape[0], exp.order))
-			rst_freq = max(rst_freq // 2, 1)
-		return rst_freq, False
 
 	

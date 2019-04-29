@@ -36,8 +36,6 @@ class ExpCls(object):
 				self.time = {'mbe': [], 'screen': []}
 				# init order (pre-calc)
 				self.order = 0
-				# restart frequency
-				self.rst_freq = 50000
 
 
 def init_tup(mol, calc, hashes_only=False):
