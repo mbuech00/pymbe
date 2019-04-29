@@ -149,7 +149,10 @@ def _exp(mpi, mol, calc):
 								'uneven number of degenerate pi-orbitals in reference space')
 			calc.exp_space = tools.sigma_orbs(calc.orbsym, calc.exp_space)
 		# init tuples and hashes
-		exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
+		if mpi.master:
+			exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
+		else:
+			exp.hashes = expansion.init_tup(mol, calc, hashes_only=True)
 		# restart
 		if mpi.master:
 			exp.start_order = restart.main(calc, exp)

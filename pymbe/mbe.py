@@ -90,11 +90,16 @@ def _master(mpi, mol, calc, exp):
 			if i < n_tasks: 
 				# send task idx
 				mpi.comm.send(i, dest=mpi.stat.source, tag=TAGS.start)
+				# send tuple
+				req = mpi.comm.Isend(exp.tuples[-1][i], dest=mpi.stat.source, tag=TAGS.data)
 				# get h2e indices
 				cas_idx_tril = tools.cas_idx_tril(cas_idx)
+				# h2e_cas
+				h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
 				# send h2e_cas 
-				mpi.comm.Send([mol.eri[cas_idx_tril[:, None], cas_idx_tril], MPI.DOUBLE], \
-								dest=mpi.stat.source, tag=TAGS.data)
+				mpi.comm.Send([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.data)
+				# wait for all data communication to be finished
+				req.Wait()
 				# increment index
 				i += 1
 			else:
@@ -117,9 +122,11 @@ def _master(mpi, mol, calc, exp):
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
 		# number of task
-		n_tasks = exp.tuples[-1].shape[0]
+		n_tasks = exp.hashes[-1].size
 		# number of slaves
 		num_slaves = slaves_avail = min(mpi.size - 1, n_tasks)
+		# init tup
+		tup = np.empty(exp.order, dtype=np.int32)
 		# init increments and ndets
 		inc = _init_inc(n_tasks, calc.target)
 		ndets = _init_ndets(n_tasks)
@@ -137,10 +144,10 @@ def _slave(mpi, mol, calc, exp):
 			task_idx = mpi.comm.recv(source=0, status=mpi.stat)
 			# do jobs
 			if mpi.stat.tag == TAGS.start:
+				# receive tup
+				mpi.comm.Recv([tup, MPI.INT], source=0, tag=TAGS.data)
 				# receive h2e_cas
 				req = mpi.comm.Irecv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.data)
-				# set tup
-				tup = exp.tuples[-1][task_idx]
 				# get core and cas indices
 				core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, tup)
 				# compute e_core and h1e_cas
@@ -218,17 +225,17 @@ def _sum(calc, exp, tup):
 		return res
 
 
-def _init_inc(n_tuples, target):
+def _init_inc(n_tasks, target):
 		""" init increments array """
 		if target in ['energy', 'excitation']:
-			return np.zeros(n_tuples, dtype=np.float64)
+			return np.zeros(n_tasks, dtype=np.float64)
 		else:
-			return np.zeros([n_tuples, 3], dtype=np.float64)
+			return np.zeros([n_tasks, 3], dtype=np.float64)
 
 
-def _init_ndets(n_tuples):
+def _init_ndets(n_tasks):
 		""" init ndets array """
-		return np.zeros(n_tuples, dtype=np.float64)
+		return np.zeros(n_tasks, dtype=np.float64)
 
 
 def _init_h2e(ref_space, order):

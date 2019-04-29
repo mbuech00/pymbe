@@ -21,7 +21,7 @@ import output
 
 
 # tags
-TAGS = tools.enum('start', 'ready', 'exit')
+TAGS = tools.enum('ready', 'data', 'exit')
 
 
 def main(mpi, mol, calc, exp):
@@ -34,12 +34,14 @@ def main(mpi, mol, calc, exp):
 			tuples, hashes = _master(mpi, mol, calc, exp)
 			# collect time
 			exp.time['screen'].append(MPI.Wtime() - time)
+			# append tuples and hashes
+			exp.tuples.append(tuples)
+			exp.hashes.append(hashes)
 		else:
 			# slave function
-			tuples, hashes = _slave(mpi, mol, calc, exp)
-		# append tuples and hashes
-		exp.tuples.append(tuples)
-		exp.hashes.append(hashes)
+			hashes = _slave(mpi, mol, calc, exp)
+			# append hashes
+			exp.hashes.append(hashes)
 
 
 def _master(mpi, mol, calc, exp):
@@ -79,20 +81,24 @@ def _master(mpi, mol, calc, exp):
 			mpi.comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 			# any tasks left?
 			if i < n_tasks:
-				# send task
-				mpi.comm.send({'idx': i, 'pi': False}, dest=mpi.stat.source, tag=TAGS.start)
+				# set tup
+				tup = exp.tuples[-1][i]
+				# send tuple
+				mpi.comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.data)
 				# increment index
 				i += 1
 			else:
 				if calc.extra['pi_pruning']:
 					if j < n_tasks_pi:
+						# set tup 
+						tup = exp.tuples[-2][j]
 						# send task
-						mpi.comm.send({'idx': j, 'pi': True}, dest=mpi.stat.source, tag=TAGS.start)
+						mpi.comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.data)
 						# increment index
 						j += 1
 					else:
 						# send exit signal
-						mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
+						mpi.comm.Send([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
 						# remove slave
 						slaves_avail -= 1
 						# any slaves left?
@@ -101,7 +107,7 @@ def _master(mpi, mol, calc, exp):
 							break
 				else:
 					# send exit signal
-					mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
+					mpi.comm.Send([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
 					# remove slave
 					slaves_avail -= 1
 					# any slaves left?
@@ -116,9 +122,13 @@ def _master(mpi, mol, calc, exp):
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
 		# number of slaves
-		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
+		num_slaves = slaves_avail = min(mpi.size - 1, exp.hashes[-1].size)
 		# init child_tup list
 		child_tup = []
+		# init tup
+		tup = np.empty(exp.order, dtype=np.int32)
+		if calc.extra['pi_pruning']:
+			tup_pi = np.empty(exp.order-1, dtype=np.int32)
 		# send availability to master
 		if mpi.rank <= num_slaves:
 			mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -127,26 +137,30 @@ def _slave(mpi, mol, calc, exp):
 			# early exit in case of large proc count
 			if mpi.rank > num_slaves:
 				break
-			# receive task
-			task = mpi.comm.recv(source=0, status=mpi.stat)
+			# probe for task
+			mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 			# do jobs
-			if mpi.stat.tag == TAGS.start:
-				if not task['pi']:
+			if mpi.stat.tag == TAGS.data:
+				if mpi.stat.Get_elements(MPI.INT) == exp.order:
+					# receive tuple
+					mpi.comm.Recv([tup, MPI.INT], source=0, status=mpi.stat)
 					# child tuples wrt order k-1
-					orb_lst = _orbs(mol, calc, exp, exp.tuples[-1][task['idx']], exp.order)
+					orb_lst = _orbs(mol, calc, exp, tup, exp.order)
 					if calc.extra['pi_pruning']:
 						# deep pruning wrt orders k-2, k-4, etc.
-						orb_lst = _deep_pruning(mol, calc, exp, exp.tuples[-1][task['idx']], orb_lst)
+						orb_lst = _deep_pruning(mol, calc, exp, tup, orb_lst, exp.order, _orbs)
 					for m in orb_lst:
-						child_tup += exp.tuples[-1][task['idx']].tolist() + [m]
+						child_tup += tup.tolist() + [m]
 				else:
+					# receive tuple
+					mpi.comm.Recv([tup_pi, MPI.INT], source=0, status=mpi.stat)
 					# child tuples wrt order k-2
-					orb_lst = _orbs_pi(mol, calc, exp, exp.tuples[-2][task['idx']], exp.order-1)
+					orb_lst = _orbs_pi(mol, calc, exp, tup_pi, exp.order-1)
 					# deep pruning wrt orders k-3, k-5, etc.
-					orb_lst = _deep_pruning(mol, calc, exp, exp.tuples[-2][task['idx']], orb_lst, master=True)
+					orb_lst = _deep_pruning(mol, calc, exp, tup_pi, orb_lst, exp.order-1, _orbs_pi)
 					# add degenerate pairs of pi-orbitals
 					for m_1, m_2 in orb_lst.reshape(-1, 2):
-						child_tup += exp.tuples[-2][task['idx']].tolist() + [m_1, m_2]
+						child_tup += tup_pi.tolist() + [m_1, m_2]
 				mpi.comm.send(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
@@ -282,14 +296,11 @@ def _prot_scheme(scheme, thres, prop):
 				return np.all(np.abs(prop) < thres)
 
 
-def _deep_pruning(mol, calc, exp, tup, orb_lst, master=False):
+def _deep_pruning(mol, calc, exp, tup, orb_lst, order, func):
 		""" deep pruning """
 		# deep pruning wrt to lower orders
 		for k in range(tools.n_pi_orbs(calc.orbsym, tup) // 2):
-			if master:
-				orb_lst = np.intersect1d(orb_lst, _orbs_pi(mol, calc, exp, tup, exp.order - (2*k+2)))
-			else:
-				orb_lst = np.intersect1d(orb_lst, _orbs(mol, calc, exp, tup, exp.order - (2*k+1)))
+			orb_lst = np.intersect1d(orb_lst, func(mol, calc, exp, tup, order - (2*k+1)))
 		return orb_lst
 
 
