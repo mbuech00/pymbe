@@ -201,9 +201,9 @@ def _sum(calc, exp, tup):
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
-			if calc.extra['pruning']:
-				combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
-									calc.mo_energy, calc.orbsym), combs), \
+			if calc.extra['pi_pruning']:
+				combs = combs[np.fromiter(map(functools.partial(tools.pi_pruning, \
+									calc.orbsym, calc.pi_hashes), combs), \
 									dtype=bool, count=combs.shape[0])]
 			if combs.size > 0:
 				# convert to sorted hashes

@@ -58,7 +58,7 @@ def _master(mpi, mol, calc, exp):
 		# init child_tup list
 		child_tup = []
 		# add pi-orbitals if pi-pruning is requested
-		if calc.extra['pruning']:
+		if calc.extra['pi_pruning']:
 			# start index
 			j = 0
 			if exp.order == 1:
@@ -84,7 +84,7 @@ def _master(mpi, mol, calc, exp):
 				# increment index
 				i += 1
 			else:
-				if calc.extra['pruning']:
+				if calc.extra['pi_pruning']:
 					if j < n_tasks_pi:
 						# send task
 						mpi.comm.send({'idx': j, 'pi': True}, dest=mpi.stat.source, tag=TAGS.start)
@@ -134,7 +134,7 @@ def _slave(mpi, mol, calc, exp):
 				if not task['pi']:
 					# child tuples wrt order k-1
 					orb_lst = _orbs(mol, calc, exp, exp.tuples[-1][task['idx']], exp.order)
-					if calc.extra['pruning']:
+					if calc.extra['pi_pruning']:
 						# deep pruning wrt orders k-2, k-4, etc.
 						orb_lst = _deep_pruning(mol, calc, exp, exp.tuples[-1][task['idx']], orb_lst)
 					for m in orb_lst:
@@ -170,9 +170,9 @@ def _orbs(mol, calc, exp, tup, order):
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
-			if calc.extra['pruning']:
-				combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
-									calc.mo_energy, calc.orbsym), combs), \
+			if calc.extra['pi_pruning']:
+				combs = combs[np.fromiter(map(functools.partial(tools.pi_pruning, \
+									calc.orbsym, calc.pi_hashes), combs), \
 									dtype=bool, count=combs.shape[0])]
 			if combs.size == 0:
 				lst = [m for m in calc.exp_space[np.where(tup[-1] < calc.exp_space)]]
@@ -219,8 +219,8 @@ def _orbs_pi(mol, calc, exp, tup, order):
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
-			combs = combs[np.fromiter(map(functools.partial(tools.pruning, \
-								calc.mo_energy, calc.orbsym), combs), \
+			combs = combs[np.fromiter(map(functools.partial(tools.pi_pruning, \
+								calc.orbsym, calc.pi_hashes), combs), \
 								dtype=bool, count=combs.shape[0])]
 			if combs.size == 0:
 				# loop over pairs of degenerate pi-orbitals

@@ -168,19 +168,19 @@ def sigma_orbs(orbsym, tup):
 		return tup[np.where(np.invert(np.in1d(orbsym[tup], DEG_ID)))]
 
 
+def pi_degenerate(mo_energy, pair):
+		""" screen away non-degenerate pairs """
+		return np.abs(mo_energy[pair[1]] - mo_energy[pair[0]]) < 1.0e-04
+
+
 def pi_orbs(mo_energy, orbsym, tup):
 		""" extract degenerate orbitals from tuple of orbitals """
 		tup_pi = tup[np.where(np.in1d(orbsym[tup], DEG_ID))]
 		# make all pairs of pi-orbitals
 		pairs = np.array(list(itertools.combinations(tup_pi, 2)))
-		# keep only degenerate pairs
-		return pairs[np.fromiter(map(functools.partial(pruning, mo_energy, orbsym), pairs), \
-									dtype=bool, count=pairs.shape[0])]
-
-
-def all_pi_orbs(orbsym, tup):
-		""" check to see if all orbitals of tuple are pi-orbitals """
-		return np.all(np.in1d(orbsym[tup], DEG_ID))
+		# keep only degenerate pairs (return as proper np.int32 array type)
+		return np.asarray(pairs[np.fromiter(map(functools.partial(pi_degenerate, mo_energy), pairs), \
+									dtype=bool, count=pairs.shape[0])], dtype=np.int32)
 
 
 def n_pi_orbs(orbsym, tup):
@@ -188,21 +188,25 @@ def n_pi_orbs(orbsym, tup):
 		return np.count_nonzero(np.in1d(orbsym[tup], DEG_ID))
 
 
-def pruning(mo_energy, orbsym, tup):
+def pi_pruning(orbsym, ref_hashes, tup):
 		""" pi-orbital pruning """
 		# get indices of all pi-orbitals
-		pi_orbs = np.where(np.in1d(orbsym[tup], DEG_ID))[0]
+		pi_orbs = tup[np.where(np.in1d(orbsym[tup], DEG_ID))]
 		# pruning
-		if pi_orbs.size > 0:
+		if pi_orbs.size == 0:
+			return True
+		else:
 			if pi_orbs.size % 2 > 0:
 				# never consider tuples with odd number of pi-orbitals
 				return False
 			else:
-				# are the pi-orbitals pair-wise degenerated?
-				mo_energy_pi = mo_energy[tup[pi_orbs]]
-				mo_energy_diff = np.array([mo_energy_pi[i+1] - mo_energy_pi[i] for i in range(0, pi_orbs.size, 2)])
-				return np.sum(np.abs(mo_energy_diff)) < 1.0e-04
-		return True
+				# get hashes of pairs of pi-orbitals
+				pi_orbs = np.asarray(pi_orbs, dtype=np.int32).reshape(-1, 2)
+				pi_hashes = hash_2d(pi_orbs)
+				pi_hashes.sort()
+				# compare to reference pair hashes (if idx is None, non-degenerate pi-orbs are present in tup)
+				idx = hash_compare(ref_hashes, pi_hashes)
+				return idx is not None
 
 
 def mat_idx(site, nx, ny):
