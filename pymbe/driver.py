@@ -38,13 +38,16 @@ def master(mpi, mol, calc, exp):
 		for exp.order in range(exp.start_order, exp.max_order+1):
 			#** mbe phase **#
 			# print header
-			print(output.mbe_header(exp.tuples[-1].shape[0], calc.ref_space.size + exp.tuples[-1].shape[1], exp.order))
+			print(output.mbe_header(exp.tuples[-1].shape[0], \
+									calc.ref_space.size + exp.tuples[-1].shape[1], exp.order))
 			if len(exp.tuples) > len(exp.count):
 				mbe.main(mpi, mol, calc, exp)
 				# write restart files
 				restart.mbe_write(calc, exp)
 			# print mbe end
-			print(output.mbe_end(exp.count[-1], calc.ref_space.size + exp.tuples[-1].shape[1], exp.order))
+			print(output.mbe_end(exp.count[-1], \
+									calc.ref_space.size + exp.tuples[-1].shape[1], \
+									exp.time['mbe'][-1], exp.order))
 			# print mbe results
 			print(output.mbe_results(mol, calc, exp))
 			#** screening phase **#
@@ -54,7 +57,8 @@ def master(mpi, mol, calc, exp):
 				# write restart files
 				if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 				# print screen end
-				print(output.screen_end(exp.tuples[-1].shape[0], exp.order))
+				print(output.screen_end(exp.tuples[-1].shape[0], \
+										exp.time['screen'][-1], exp.order))
 			else:
 				# collect time
 				exp.time['screen'].append(0.0)
