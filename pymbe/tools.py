@@ -55,6 +55,27 @@ def enum(*sequential, **named):
 		return type('Enum', (), enums)
 
 
+def time_str(time):
+		""" write time as HH:MM:SS string """
+		# hours, minutes, and seconds
+		hours = int(time // 3600)
+		minutes = int((time - (time // 3600) * 3600.)//60)
+		seconds = time - hours * 3600. - minutes * 60.
+		# init time string
+		string = ''
+		form = ()
+		# write time string
+		if hours > 0:
+			string += '{:}h '
+			form += (hours,)
+		if minutes > 0:
+			string += '{:}m '
+			form += (minutes,)
+		string += '{:.2f}s'
+		form += (seconds,)
+		return string.format(*form)
+
+
 def fsum(a):
 		""" use math.fsum to safely sum 1d array or 2d array (column-wise) """
 		if a.ndim == 1:

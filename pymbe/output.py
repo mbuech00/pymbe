@@ -34,7 +34,7 @@ def main_header():
 		string += "   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8\n"
 		string += "                .o..P'\n"
 		string += "                `Y8P'\n\n\n"
-		string += "   -- git version: {:}\n\n\n"
+		string += "   -- git version: {:s}\n\n\n"
 		form = (tools.git_version(),)
 		return string.format(*form)
 
@@ -43,7 +43,7 @@ def exp_header(method):
 		""" print expansion header """
 		# set string
 		string = HEADER+'\n'
-		string += '{:^87}\n'
+		string += '{:^87s}\n'
 		string += HEADER+'\n\n'
 		form = (method.upper()+' expansion',)
 		return string.format(*form)
@@ -53,9 +53,9 @@ def mbe_header(n_tuples, n_orbs, order):
 		""" print mbe header """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {:} MBE started  ---  {:} tuples in total\n'
+		string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
 		string += DIVIDER
-		form = (order, n_tuples, n_orbs)
+		form = (order, n_tuples)
 		return string.format(*form)
 
 
@@ -67,25 +67,25 @@ def mbe_debug(mol, calc, ndets_tup, nelec_tup, inc_tup, order, cas_idx, tup):
 			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
 		else:
 			tup_sym = ['A'] * tup.size
-		string = ' INC: order = {:} , tup = {:} , space = ({:}e,{:}o) , n_dets = {:.2e}\n'
-		string += '      symmetry = {:}\n'
+		string = ' INC: order = {:d} , tup = {:d} , space = ({:d}e,{:d}o) , n_dets = {:.2e}\n'
+		string += '      symmetry = {:s}\n'
 		form = (order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, ndets_tup, tup_sym)
 		if calc.target in ['energy', 'excitation']:
-			string += '      increment for root {:} = {:.4e}\n'
+			string += '      increment for root {:d} = {:.4e}\n'
 			form += (calc.state['root'], inc_tup,)
 		else:
-			string += '      increment for root {:} = ({:.4e}, {:.4e}, {:.4e})\n'
+			string += '      increment for root {:d} = ({:.4e}, {:.4e}, {:.4e})\n'
 			form += (calc.state['root'], *inc_tup,)
 		return string.format(*form)
 
 
-def mbe_end(n_count, n_orbs, order):
+def mbe_end(n_count, n_orbs, time, order):
 		""" print end of mbe """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {:} MBE done  ---  {:} tuples in total\n'
+		string += ' STATUS:  order k = {:d} MBE done  ---  {:d} tuples in total in {:s}\n'
 		string += DIVIDER
-		form = (order, n_count, n_orbs)
+		form = (order, n_count, tools.time_str(time),)
 		return string.format(*form)
 
 
@@ -219,20 +219,20 @@ def screen_header(order):
 		""" print screening header """
 		# set string
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {:} screening started\n'
+		string += ' STATUS:  order k = {:d} screening started\n'
 		string += DIVIDER
 		form = (order,)
 		return string.format(*form)
 
 
-def screen_end(n_tuples, order):
+def screen_end(n_tuples, time, order):
 		""" print end of screening """
 		string = DIVIDER+'\n'
-		string += ' STATUS:  order k = {:} screening done\n'
+		string += ' STATUS:  order k = {:d} screening done in {:s}\n'
 		if n_tuples == 0:
 			string += ' STATUS:                  *** convergence has been reached ***                         \n'
 		string += DIVIDER+'\n\n'
-		form = (order,)
+		form = (order, tools.time_str(time),)
 		return string.format(*form)
 		
 	
