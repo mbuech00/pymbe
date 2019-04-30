@@ -136,25 +136,19 @@ def exp(mpi, calc, exp):
 			info['len_prop'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
 			# bcast info
 			mpi.comm.bcast(info, root=0)
-			# bcast tuples and hashes
-			for i in range(1, len(exp.tuples)):
-				mpi.comm.Bcast([exp.tuples[i], MPI.INT], root=0)
+			# bcast hashes
 			for i in range(1, len(exp.hashes)):
-				mpi.comm.Bcast([exp.hashes[i], MPI.INT], root=0)
+				mpi.comm.Bcast([exp.hashes[i], MPI.LONG], root=0)
 			# bcast increments
 			for i in range(len(exp.prop[calc.target]['inc'])):
 				mpi.comm.Bcast([exp.prop[calc.target]['inc'][i], MPI.DOUBLE], root=0)
 		else:
 			# receive info
 			info = mpi.comm.bcast(None, root=0)
-			# receive tuples and hashes
-			for i in range(1, len(info['len_tup'])):
-				buff = np.empty([info['len_tup'][i], i+1], dtype=np.int32)
-				mpi.comm.Bcast([buff, MPI.INT], root=0)
-				exp.tuples.append(buff)
+			# receive hashes
 			for i in range(1, len(info['len_tup'])):
 				buff = np.empty(info['len_tup'][i], dtype=np.int64)
-				mpi.comm.Bcast([buff, MPI.INT], root=0)
+				mpi.comm.Bcast([buff, MPI.LONG], root=0)
 				exp.hashes.append(buff)
 			# receive increments
 			if calc.target in ['energy', 'excitation']:
@@ -176,21 +170,37 @@ def mbe(mpi, prop, ndets):
 
 
 def screen(mpi, child_tup, order):
-		""" Allgatherv tuples """
-		# allgatherv tuples
+		""" Gatherv tuples and Bcast hashes """
+		# receive counts
 		recv_counts = np.array(mpi.comm.allgather(child_tup.size), dtype=np.int32)
-		tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
-		mpi.comm.Allgatherv(child_tup, [tuples, recv_counts])
-		tuples = tuples.reshape(-1, order+1)
-		if tuples.shape[0] > 0:
-			hashes = tools.hash_2d(tuples)
-			# sort wrt hashes
-			tuples = tuples[hashes.argsort()]
-			# sort hashes
-			hashes.sort()
+		if np.sum(recv_counts, dtype=np.int64) == 0:
+			if mpi.master:
+				return np.array([], dtype=np.int32).reshape(-1, order+1), \
+						np.array([], dtype=np.int64)
+			else:
+				return np.array([], dtype=np.int64)
 		else:
-			hashes = np.array([], dtype=np.int64)
-		return tuples, hashes
+			# tuples
+			if mpi.master:
+				tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
+			else:
+				tuples = None
+			mpi.comm.Gatherv([child_tup, MPI.INT], [tuples, recv_counts, MPI.INT], root=0)
+			# hashes
+			if mpi.master:
+				tuples = tuples.reshape(-1, order+1)
+				hashes = tools.hash_2d(tuples)
+				# sort wrt hashes
+				tuples = tuples[hashes.argsort()]
+				# sort hashes
+				hashes.sort()
+				# bcast hashes
+				mpi.comm.Bcast([hashes, MPI.LONG], root=0)
+				return tuples, hashes
+			else:
+				hashes = np.empty(np.sum(recv_counts, dtype=np.int64) // (order+1), dtype=np.int64)
+				mpi.comm.Bcast([hashes, MPI.LONG], root=0)
+				return hashes
 
 
 def abort():

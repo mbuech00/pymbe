@@ -38,11 +38,11 @@ class CalcCls(object):
 							'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
 				self.base = {'method': None}
 				self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-				self.extra = {'hf_guess': True, 'pruning': False}
+				self.extra = {'hf_guess': True, 'pi_pruning': False}
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'order': None}
 				self.orbs = {'type': 'can'}
-				self.mpi = {'masters': 1}
+				self.mpi = {'masters': 1, 'task_size': 5}
 				# init mo
 				self.mo = None
 				# set calculation parameters
@@ -52,7 +52,7 @@ class CalcCls(object):
 						self.base, self.thres, self.state, self.extra, \
 						self.misc, self.orbs, self.mpi = self.set_calc()
 					# sanity check
-					self.sanity_chk(mpi, mol)
+					self.sanity_chk(mol)
 					# set target
 					self.target = [x for x in self.target.keys() if self.target[x]][0]
 					# restart logical
@@ -120,7 +120,7 @@ class CalcCls(object):
 							self.thres, self.state, self.extra, self.misc, self.orbs, self.mpi
 
 
-		def sanity_chk(self, mpi, mol):
+		def sanity_chk(self, mol):
 				""" sanity check for calculation and mpi parameters """
 				# expansion model
 				tools.assertion(isinstance(self.model['method'], str), \
@@ -197,8 +197,8 @@ class CalcCls(object):
 				# extra
 				tools.assertion(isinstance(self.extra['hf_guess'], bool), \
 								'HF initial guess for FCI calcs (hf_guess) must be a bool')
-				tools.assertion(isinstance(self.extra['pruning'], bool), \
-								'pi-orbital pruning for FCI calcs (pruning) must be a bool')
+				tools.assertion(isinstance(self.extra['pi_pruning'], bool), \
+								'pi-orbital pruning for FCI calcs (pi_pruning) must be a bool')
 				# screening protocol
 				tools.assertion(all(isinstance(i, int) for i in self.prot.values()), \
 								'values in prot input (prot) must be ints')
@@ -230,5 +230,13 @@ class CalcCls(object):
 				if self.misc['order'] is not None:
 					tools.assertion(self.misc['order'] >= 0, \
 									'maximum expansion order (order) must be an int >= 1')
+				# mpi parameters
+				tools.assertion(all(isinstance(i, int) for i in self.mpi.values()), \
+								'values in mpi input (mpi) must be ints')
+				tools.assertion(self.mpi['masters'] == 1, \
+								'number of mpi masters (masters) must be 1 (at the current moment)')
+				tools.assertion(self.mpi['task_size'] >= 1, \
+								'mpi task size (task_size) must be an int >= 1')
+
 
 

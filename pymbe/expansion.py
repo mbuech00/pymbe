@@ -36,11 +36,9 @@ class ExpCls(object):
 				self.time = {'mbe': [], 'screen': []}
 				# init order (pre-calc)
 				self.order = 0
-				# restart frequency
-				self.rst_freq = 50000
 
 
-def init_tup(mol, calc):
+def init_tup(mol, calc, hashes_only=False):
 		""" init tuples and hashes """
 		# tuples
 		tuples = [np.array([[i] for i in calc.exp_space if tools.cas_occ(calc.occup, calc.ref_space, i)], dtype=np.int32)]
@@ -49,6 +47,9 @@ def init_tup(mol, calc):
 		# sort wrt hashes
 		tuples[0] = tuples[0][hashes[0].argsort()]
 		hashes[0].sort()
-		return tuples, hashes
+		if hashes_only:
+			return hashes
+		else:
+			return tuples, hashes
 
 

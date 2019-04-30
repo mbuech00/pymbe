@@ -139,11 +139,20 @@ def _exp(mpi, mol, calc):
 			# exp object
 			exp = expansion.ExpCls(mol, calc)
 		# pi-orbitals in case of pi-pruning, treat non-degenerate and degenerate orbitals separately
-		if calc.extra['pruning']:
+		if calc.extra['pi_pruning']:
 			calc.pi_orbs = tools.pi_orbs(calc.mo_energy, calc.orbsym, calc.exp_space)
+			calc.pi_hashes = tools.hash_2d(calc.pi_orbs)
+			calc.pi_hashes.sort()
+			# check for even number of pi-orbitals if pi-pruning is requested 
+			if calc.extra['pi_pruning']:
+				tools.assertion(tools.pi_pruning(calc.orbsym, calc.pi_hashes, calc.ref_space), \
+								'uneven number of degenerate pi-orbitals in reference space')
 			calc.exp_space = tools.sigma_orbs(calc.orbsym, calc.exp_space)
 		# init tuples and hashes
-		exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
+		if mpi.master:
+			exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
+		else:
+			exp.hashes = expansion.init_tup(mol, calc, hashes_only=True)
 		# restart
 		if mpi.master:
 			exp.start_order = restart.main(calc, exp)

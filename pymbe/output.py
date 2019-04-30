@@ -109,9 +109,11 @@ def mbe_results(mol, calc, exp):
 				tot_inc = prop_tot[exp.order-1] - prop_tot[exp.order-2]
 			# set header
 			if calc.target == 'energy':
-				header = 'energy for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+				header = 'energy for root {:} (total increment = {:.4e})'. \
+							format(calc.state['root'], tot_inc)
 			else:
-				header = 'excitation energy for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+				header = 'excitation energy for root {:} (total increment = {:.4e})'. \
+							format(calc.state['root'], tot_inc)
 			# set string
 			string += DIVIDER+'\n'
 			string += ' RESULT:{:^81}\n'
@@ -151,9 +153,11 @@ def mbe_results(mol, calc, exp):
 				tot_inc = np.linalg.norm(prop_tot[exp.order-1]) - np.linalg.norm(prop_tot[exp.order-2])
 			# set header
 			if calc.target == 'dipole':
-				header = 'dipole moment for root {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+				header = 'dipole moment for root {:} (total increment = {:.4e})'. \
+							format(calc.state['root'], tot_inc)
 			else:
-				header = 'transition dipole for excitation 0 -> {:} (total increment = {:.4e})'.format(calc.state['root'], tot_inc)
+				header = 'transition dipole for excitation 0 -> {:} (total increment = {:.4e})'. \
+							format(calc.state['root'], tot_inc)
 			# set string/form
 			string += DIVIDER+'\n'
 			string += ' RESULT:{:^81}\n'
