@@ -42,7 +42,7 @@ class CalcCls(object):
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'order': None}
 				self.orbs = {'type': 'can'}
-				self.mpi = {'masters': 1}
+				self.mpi = {'masters': 1, 'task_size': 5}
 				# init mo
 				self.mo = None
 				# set calculation parameters
@@ -52,7 +52,7 @@ class CalcCls(object):
 						self.base, self.thres, self.state, self.extra, \
 						self.misc, self.orbs, self.mpi = self.set_calc()
 					# sanity check
-					self.sanity_chk(mpi, mol)
+					self.sanity_chk(mol)
 					# set target
 					self.target = [x for x in self.target.keys() if self.target[x]][0]
 					# restart logical
@@ -120,7 +120,7 @@ class CalcCls(object):
 							self.thres, self.state, self.extra, self.misc, self.orbs, self.mpi
 
 
-		def sanity_chk(self, mpi, mol):
+		def sanity_chk(self, mol):
 				""" sanity check for calculation and mpi parameters """
 				# expansion model
 				tools.assertion(isinstance(self.model['method'], str), \
@@ -230,5 +230,13 @@ class CalcCls(object):
 				if self.misc['order'] is not None:
 					tools.assertion(self.misc['order'] >= 0, \
 									'maximum expansion order (order) must be an int >= 1')
+				# mpi parameters
+				tools.assertion(all(isinstance(i, int) for i in self.mpi.values()), \
+								'values in mpi input (mpi) must be ints')
+				tools.assertion(self.mpi['masters'] == 1, \
+								'number of mpi masters (masters) must be 1 (at the current moment)')
+				tools.assertion(self.mpi['task_size'] >= 1, \
+								'mpi task size (task_size) must be an int >= 1')
+
 
 

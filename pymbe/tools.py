@@ -125,6 +125,15 @@ def get_pymbe_path():
 		return os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
+def tasks(n_tuples, n_slaves, task_size):
+		""" task list """
+		if n_slaves * task_size < n_tuples:
+			n_tasks = n_tuples // task_size
+		else:
+			n_tasks = n_slaves
+		return np.array_split(np.arange(n_tuples), n_tasks)
+
+
 def cas(ref_space, tup):
 		""" define cas space """
 		return np.sort(np.append(ref_space, tup))
