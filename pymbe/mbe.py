@@ -83,9 +83,10 @@ def _master(mpi, mol, calc, exp):
 				req_tup = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 				# get h2e indices
 				cas_idx_tril = tools.cas_idx_tril(cas_idx)
+				# get h2e_cas
+				h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
 				# send h2e_cas
 				req_h2e.Wait()
-				h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
 				req_h2e = mpi.comm.Isend([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
 		# done with all tasks
 		while slaves_avail > 0:
