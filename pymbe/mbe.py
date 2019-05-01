@@ -68,6 +68,15 @@ def _master(mpi, mol, calc, exp):
 		# init requests
 		req_tup = MPI.Request()
 		req_h2e = MPI.Request()
+		# rank tuples based on number of electrons (from most electrons to fewest electrons)
+		def nelec(tup):
+				""" number of electrons in tuple of orbitals """
+				occup_tup = calc.occup[tup]
+				return np.count_nonzero(occup_tup > 0.) + np.count_nonzero(occup_tup > 1.)
+		# compute array with number of electrons
+		nelec_tups = np.fromiter(map(nelec, exp.tuples[-1]), dtype=np.int, count=n_tuples)
+		# reorder tuples
+		exp.tuples[-1] = exp.tuples[-1][np.argsort(nelec_tups)[::-1]]
 		# loop until no tasks left
 		for tup in exp.tuples[-1]:
 			# get cas indices
@@ -83,9 +92,10 @@ def _master(mpi, mol, calc, exp):
 				req_tup = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 				# get h2e indices
 				cas_idx_tril = tools.cas_idx_tril(cas_idx)
+				# get h2e_cas
+				h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
 				# send h2e_cas
 				req_h2e.Wait()
-				h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
 				req_h2e = mpi.comm.Isend([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
 		# done with all tasks
 		while slaves_avail > 0:
