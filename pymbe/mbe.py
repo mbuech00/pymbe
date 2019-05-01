@@ -50,10 +50,11 @@ def main(mpi, mol, calc, exp):
 				exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
 		else:
 			# slave function
-			ndets, inc = _slave(mpi, mol, calc, exp)
+			inc = _slave(mpi, mol, calc, exp)
 		# append increments and ndets
 		exp.prop[calc.target]['inc'].append(inc)
-		exp.ndets.append(ndets)
+		if mpi.master:
+			exp.ndets.append(ndets)
 
 
 def _master(mpi, mol, calc, exp):
@@ -68,19 +69,13 @@ def _master(mpi, mol, calc, exp):
 		# init requests
 		req_tup = MPI.Request()
 		req_h2e = MPI.Request()
-		# rank tuples based on number of electrons (from most electrons to fewest electrons)
-		def nelec(tup):
-				""" number of electrons in tuple of orbitals """
-				occup_tup = calc.occup[tup]
-				return np.count_nonzero(occup_tup > 0.) + np.count_nonzero(occup_tup > 1.)
-		# compute array with number of electrons
-		nelec_tups = np.fromiter(map(nelec, exp.tuples[-1]), dtype=np.int, count=n_tuples)
-		# reorder tuples
-		exp.tuples[-1] = exp.tuples[-1][np.argsort(nelec_tups)[::-1]]
+		# rank tuples wrt number of determinants (from most electrons to fewest electrons)
+		ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup), \
+														exp.tuples[-1]), dtype=np.float64, count=n_tuples)
+		exp.tuples[-1] = exp.tuples[-1][np.argsort(ndets)[::-1]]
 		# loop until no tasks left
 		for tup in exp.tuples[-1]:
 			# get cas indices
-			req_tup.Wait()
 			cas_idx = tools.cas(calc.ref_space, tup)
 			# only consider tuples with occupied and virtual orbitals
 			if np.any(calc.occup[cas_idx] < 2.0) and np.any(calc.occup[cas_idx] > 0.0):
@@ -89,6 +84,7 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
 				# send tup
+				req_tup.Wait()
 				req_tup = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 				# get h2e indices
 				cas_idx_tril = tools.cas_idx_tril(cas_idx)
@@ -109,11 +105,12 @@ def _master(mpi, mol, calc, exp):
 			slaves_avail -= 1
 		# wait for all data communication to be finished
 		MPI.Request.Waitall([req_tup, req_h2e])
-		# init increments and ndets
+		# init increments
 		inc = _init_inc(n_tuples, calc.target)
-		ndets = _init_ndets(n_tuples)
 		# allreduce increments
-		parallel.mbe(mpi, inc, ndets)
+		parallel.mbe(mpi, inc)
+		# revert back to sorting of tuples wrt hashes
+		exp.tuples[-1] = exp.tuples[-1][np.argsort(np.argsort(ndets)[::-1])]
 		return ndets, inc
 
 
@@ -125,9 +122,8 @@ def _slave(mpi, mol, calc, exp):
 		slaves_needed = min(mpi.size - 1, n_tuples)
 		# init tup
 		tup = np.empty(exp.order, dtype=np.int32)
-		# init increments and ndets
+		# init increments
 		inc = _init_inc(n_tuples, calc.target)
-		ndets = _init_ndets(n_tuples)
 		# init h2e_cas
 		h2e_cas = _init_h2e(calc.ref_space, exp.order)
 		# send availability to master
@@ -155,8 +151,8 @@ def _slave(mpi, mol, calc, exp):
 				task_idx = tools.hash_compare(exp.hashes[-1], tools.hash_1d(tup))
 				# calculate increment
 				req_h2e.Wait()
-				ndets[task_idx], inc[task_idx] = _inc(mol, calc, exp, tup, \
-														e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
+				inc[task_idx] = _inc(mol, calc, exp, tup, \
+										e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
 				# send availability to master
 				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
@@ -164,17 +160,14 @@ def _slave(mpi, mol, calc, exp):
 				mpi.comm.irecv(None, source=0, tag=TAGS.exit)
 				break
 		# allreduce increments
-		parallel.mbe(mpi, inc, ndets)
-		return ndets, inc
+		parallel.mbe(mpi, inc)
+		return inc
 
 
 def _inc(mol, calc, exp, tup, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 		""" calculate increments corresponding to tup """
 		# nelec
-		nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
-							np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int32)
-		# ndets
-		ndets_tup = tools.num_dets(cas_idx.size, nelec[0], nelec[1])
+		nelec = tools.nelec(calc.occup, cas_idx)
 		# perform main calc
 		inc_tup = kernel.main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 		# perform base calc
@@ -189,8 +182,10 @@ def _inc(mol, calc, exp, tup, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 				inc_tup -= _sum(calc, exp, tup)
 		# debug print
 		if mol.debug >= 1:
+			# ndets
+			ndets_tup = tools.ndets(calc.occup, cas_idx, nelec)
 			print(output.mbe_debug(mol, calc, ndets_tup, nelec, inc_tup, exp.order, cas_idx, tup))
-		return ndets_tup, inc_tup
+		return inc_tup
 
 
 def _sum(calc, exp, tup):
@@ -233,11 +228,6 @@ def _init_inc(n_tuples, target):
 			return np.zeros(n_tuples, dtype=np.float64)
 		else:
 			return np.zeros([n_tuples, 3], dtype=np.float64)
-
-
-def _init_ndets(n_tuples):
-		""" init ndets array """
-		return np.zeros(n_tuples, dtype=np.float64)
 
 
 def _init_h2e(ref_space, order):
