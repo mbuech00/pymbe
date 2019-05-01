@@ -163,10 +163,9 @@ def exp(mpi, calc, exp):
 					exp.prop[calc.target]['inc'].append(buff)
 
 
-def mbe(mpi, prop, ndets):
+def mbe(mpi, prop):
 		""" Allreduce property """
 		mpi.comm.Allreduce(MPI.IN_PLACE, prop, op=MPI.SUM)
-		mpi.comm.Allreduce(MPI.IN_PLACE, ndets, op=MPI.SUM)
 
 
 def screen(mpi, child_tup, order):
@@ -192,6 +191,8 @@ def screen(mpi, child_tup, order):
 				tuples = tuples.reshape(-1, order+1)
 				# compute hashes
 				hashes = tools.hash_2d(tuples)
+				# sort tuples wrt hashes
+				tuples = tuples[hashes.argsort()]
 				# sort hashes
 				hashes.sort()
 				# bcast hashes

@@ -255,9 +255,18 @@ def near_nbrs(site_xy, nx, ny):
 		return [left, right, down, up]
 
 
-def num_dets(n_orbs, n_alpha, n_beta):
+def nelec(occup, tup):
+		""" number of electrons in tuple of orbitals """
+		occup_tup = occup[tup]
+		return (np.count_nonzero(occup_tup > 0.), np.count_nonzero(occup_tup > 1.))
+
+
+def ndets(occup, cas_idx, n_elec=None):
 		""" estimated number of determinants in given CASCI calculation (ignoring point group symmetry) """
-		return scipy.special.binom(n_orbs, n_alpha) * scipy.special.binom(n_orbs, n_beta)
+		if n_elec is None:
+			n_elec = nelec(occup, cas_idx)
+		n_orbs = cas_idx.size
+		return scipy.special.binom(n_orbs, n_elec[0]) * scipy.special.binom(n_orbs, n_elec[1])
 
 
 def assertion(condition, reason):
