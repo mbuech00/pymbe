@@ -67,8 +67,8 @@ def mbe_debug(mol, calc, ndets_tup, nelec_tup, inc_tup, order, cas_idx, tup):
 			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
 		else:
 			tup_sym = ['A'] * tup.size
-		string = ' INC: order = {:d} , tup = {:d} , space = ({:d}e,{:d}o) , n_dets = {:.2e}\n'
-		string += '      symmetry = {:s}\n'
+		string = ' INC: order = {:d} , tup = {:} , space = ({:d}e,{:d}o) , n_dets = {:.2e}\n'
+		string += '      symmetry = {:}\n'
 		form = (order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, ndets_tup, tup_sym)
 		if calc.target in ['energy', 'excitation']:
 			string += '      increment for root {:d} = {:.4e}\n'
