@@ -188,16 +188,17 @@ def screen(mpi, child_tup, order):
 			mpi.comm.Gatherv([child_tup, MPI.INT], [tuples, recv_counts, MPI.INT], root=0)
 			# hashes
 			if mpi.master:
+				# reshape tuples
 				tuples = tuples.reshape(-1, order+1)
+				# compute hashes
 				hashes = tools.hash_2d(tuples)
-				# sort wrt hashes
-				tuples = tuples[hashes.argsort()]
 				# sort hashes
 				hashes.sort()
 				# bcast hashes
 				mpi.comm.Bcast([hashes, MPI.LONG], root=0)
 				return tuples, hashes
 			else:
+				# init and receive hashes
 				hashes = np.empty(np.sum(recv_counts, dtype=np.int64) // (order+1), dtype=np.int64)
 				mpi.comm.Bcast([hashes, MPI.LONG], root=0)
 				return hashes
