@@ -80,7 +80,6 @@ def _master(mpi, mol, calc, exp):
 		# loop until no tasks left
 		for tup in exp.tuples[-1]:
 			# get cas indices
-			req_tup.Wait()
 			cas_idx = tools.cas(calc.ref_space, tup)
 			# only consider tuples with occupied and virtual orbitals
 			if np.any(calc.occup[cas_idx] < 2.0) and np.any(calc.occup[cas_idx] > 0.0):
@@ -89,6 +88,7 @@ def _master(mpi, mol, calc, exp):
 				# receive slave status
 				mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
 				# send tup
+				req_tup.Wait()
 				req_tup = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 				# get h2e indices
 				cas_idx_tril = tools.cas_idx_tril(cas_idx)
