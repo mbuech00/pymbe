@@ -171,8 +171,8 @@ def mbe(mpi, prop):
 def screen(mpi, child_tup, order):
 		""" Gatherv tuples and Bcast hashes """
 		# receive counts
-		recv_counts = np.array(mpi.comm.allgather(child_tup.size), dtype=np.int32)
-		if np.sum(recv_counts, dtype=np.int64) == 0:
+		recv_counts = np.array(mpi.comm.allgather(child_tup.size))
+		if np.sum(recv_counts) == 0:
 			if mpi.master:
 				return np.array([], dtype=np.int32).reshape(-1, order+1), \
 						np.array([], dtype=np.int64)
@@ -181,7 +181,7 @@ def screen(mpi, child_tup, order):
 		else:
 			# tuples
 			if mpi.master:
-				tuples = np.empty(np.sum(recv_counts, dtype=np.int64), dtype=np.int32)
+				tuples = np.empty(np.sum(recv_counts), dtype=np.int32)
 			else:
 				tuples = None
 			mpi.comm.Gatherv([child_tup, MPI.INT], [tuples, recv_counts, MPI.INT], root=0)
