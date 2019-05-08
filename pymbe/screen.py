@@ -271,14 +271,21 @@ def _orbs_pi(mol, calc, exp, tup, order):
 
 def _prot_screen(scheme, target, prop, order, thres, idx):
 		""" protocol check """
+		# all tuples have zero correlation
+		if np.sum(thres) == 0.0:
+			return False
+		# extract increments with non-zero thresholds
+		inc = prop[target]['inc'][order-1][idx]
+		inc = inc[np.nonzero(thres)]
+		# screening procedure
 		if target in ['energy', 'excitation']:
-			return _prot_scheme(scheme, thres, prop[target]['inc'][order-1][idx])
+			return _prot_scheme(scheme, thres[np.nonzero(thres)], inc)
 		else:
 			screen = True
 			for dim in range(3):
 				# (x,y,z) = (0,1,2)
-				if np.sum(prop[target]['inc'][order-1][idx, dim]) != 0.0:
-					screen = _prot_scheme(scheme, thres, prop[target]['inc'][order-1][idx, dim])
+				if np.sum(inc[:, dim]) != 0.0:
+					screen = _prot_scheme(scheme, thres[np.nonzero(thres)], inc[:, dim])
 				if not screen:
 					break
 			return screen
@@ -286,16 +293,12 @@ def _prot_screen(scheme, target, prop, order, thres, idx):
 
 def _prot_scheme(scheme, thres, prop):
 		""" screen according to chosen scheme """
-		if np.any(thres == 0.0):
-			# do not screen if any of the thresholds are zero (tuples with no correlation)
-			return False
-		else:
-			if scheme == 1:
-				# are *any* increments below their given threshold
-				return np.any(np.abs(prop) < thres)
-			elif scheme > 1:
-				# are *all* increments below their given threshold
-				return np.all(np.abs(prop) < thres)
+		if scheme == 1:
+			# are *any* increments below their given threshold
+			return np.any(np.abs(prop) < thres)
+		elif scheme > 1:
+			# are *all* increments below their given threshold
+			return np.all(np.abs(prop) < thres)
 
 
 def _deep_pruning(mol, calc, exp, tup, orb_lst, order, func):
