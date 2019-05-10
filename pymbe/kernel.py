@@ -266,6 +266,8 @@ def ref_mo(mol, calc):
 		# reference and expansion spaces
 		ref_space = np.arange(inact_orbs, inact_orbs+act_orbs)
 		exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
+		# alternate expansion space
+		exp_space = tools.alternate(exp_space, calc.occup)
 		# casci or casscf
 		if calc.ref['method'] == 'casci':
 			if act_orbs > 0:
