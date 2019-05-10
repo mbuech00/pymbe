@@ -56,21 +56,26 @@ def master(mpi, mol, calc, exp):
 				screen.main(mpi, mol, calc, exp)
 				# write restart files
 				if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
-				# print screen end
-				print(output.screen_end(exp.tuples[-1].shape[0], \
-										exp.time['screen'][-1], exp.order))
 			else:
 				# collect time
 				exp.time['screen'].append(0.0)
 			# convergence check
-			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
+			if exp.tuples[-1].shape[0] == 0 or exp.count[-1] == 0 or exp.order == exp.max_order:
 				# timings
 				exp.time['mbe'] = np.asarray(exp.time['mbe'])
 				exp.time['screen'] = np.asarray(exp.time['screen'])
 				exp.time['total'] = exp.time['mbe'] + exp.time['screen']
 				# final results
 				exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])
+				# print screen end
+				print(output.screen_end(exp.tuples[-1].shape[0], \
+										exp.time['screen'][-1], exp.order, True))
 				break
+			else:
+				# print screen end
+				print(output.screen_end(exp.tuples[-1].shape[0], \
+										exp.time['screen'][-1], exp.order, False))
+
 
 
 def slave(mpi, mol, calc, exp):
