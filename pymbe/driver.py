@@ -31,11 +31,8 @@ def master(mpi, mol, calc, exp):
 		print(output.exp_header(calc.model['method']))
 		# mpi assertion
 		tools.assertion(mpi.size >= 2, 'PyMBE requires two or more MPI processes')
-		# restart
-		if calc.restart:
-			_rst(mol, calc, exp)
 		# now do expansion
-		for exp.order in range(exp.start_order, exp.max_order+1):
+		for exp.order in range(exp.min_order, exp.max_order+1):
 			#** mbe phase **#
 			# print header
 			print(output.mbe_header(exp.tuples[-1].shape[0], \
