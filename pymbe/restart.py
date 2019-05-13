@@ -39,9 +39,7 @@ def rm():
 
 def main(calc, exp):
 		""" main restart driver """
-		if not calc.restart:
-			return 1
-		else:
+		if calc.restart:
 			# list filenames in files list
 			files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
 			# sort the list of files
@@ -71,7 +69,7 @@ def main(calc, exp):
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
 				elif 'time_screen' in files[i]:
 					exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
-			return exp.tuples[-1].shape[1]
+		return exp.tuples[-1].shape[1]
 
 
 def write_fund(mol, calc):

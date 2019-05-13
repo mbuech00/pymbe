@@ -38,18 +38,21 @@ class ExpCls(object):
 				self.order = 0
 
 
-def init_tup(mol, calc, hashes_only=False):
+def init_tup(mol, calc):
 		""" init tuples and hashes """
+		# occupied and virtual subspaces of exp_space
+		exp_space_occ = calc.exp_space[calc.exp_space < mol.nocc]
+		exp_space_virt = calc.exp_space[mol.nocc <= calc.exp_space]
 		# tuples
-		tuples = [np.array([[i] for i in calc.exp_space if tools.cas_occ(calc.occup, calc.ref_space, i)], dtype=np.int32)]
+		if calc.ref_space.size == 0:
+			tuples = [np.array([[i, a] for i in exp_space_occ for a in exp_space_virt], dtype=np.int32)]
+		else:
+			tuples = [np.array([[p] for p in calc.exp_space if tools.cas_allow(calc.occup, calc.ref_space, p)], dtype=np.int32)]
 		# hashes
 		hashes = [tools.hash_2d(tuples[0])]
 		# sort wrt hashes
 		tuples[0] = tuples[0][hashes[0].argsort()]
 		hashes[0].sort()
-		if hashes_only:
-			return hashes
-		else:
-			return tuples, hashes
+		return hashes, tuples
 
 

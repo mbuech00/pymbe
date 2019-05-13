@@ -132,35 +132,41 @@ def exp(mpi, calc, exp):
 		""" bcast exp info """
 		if mpi.master:
 			# collect info
-			info = {'len_tup': [exp.tuples[i].shape[0] for i in range(len(exp.tuples))]}
-			info['len_prop'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
+			info = {'min_order': exp.min_order}
+			if calc.restart:
+				info['len_tup'] = [exp.tuples[i].shape[0] for i in range(len(exp.tuples))]
+				info['len_prop'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
 			# bcast info
 			mpi.comm.bcast(info, root=0)
-			# bcast hashes
-			for i in range(1, len(exp.hashes)):
-				mpi.comm.Bcast([exp.hashes[i], MPI.LONG], root=0)
-			# bcast increments
-			for i in range(len(exp.prop[calc.target]['inc'])):
-				mpi.comm.Bcast([exp.prop[calc.target]['inc'][i], MPI.DOUBLE], root=0)
+			if calc.restart:
+				# bcast hashes
+				for i in range(1, len(exp.hashes)):
+					mpi.comm.Bcast([exp.hashes[i], MPI.LONG], root=0)
+				# bcast increments
+				for i in range(len(exp.prop[calc.target]['inc'])):
+					mpi.comm.Bcast([exp.prop[calc.target]['inc'][i], MPI.DOUBLE], root=0)
 		else:
 			# receive info
 			info = mpi.comm.bcast(None, root=0)
-			# receive hashes
-			for i in range(1, len(info['len_tup'])):
-				buff = np.empty(info['len_tup'][i], dtype=np.int64)
-				mpi.comm.Bcast([buff, MPI.LONG], root=0)
-				exp.hashes.append(buff)
-			# receive increments
-			if calc.target in ['energy', 'excitation']:
-				for i in range(len(info['len_prop'])):
-					buff = np.zeros(info['len_prop'][i], dtype=np.float64)
-					mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop[calc.target]['inc'].append(buff)
-			else:
-				for i in range(len(info['len_prop'])):
-					buff = np.zeros([info['len_prop'][i], 3], dtype=np.float64)
-					mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-					exp.prop[calc.target]['inc'].append(buff)
+			# receive min_order
+			exp.min_order = info['min_order']
+			if calc.restart:
+				# receive hashes
+				for i in range(1, len(info['len_tup'])):
+					buff = np.empty(info['len_tup'][i], dtype=np.int64)
+					mpi.comm.Bcast([buff, MPI.LONG], root=0)
+					exp.hashes.append(buff)
+				# receive increments
+				if calc.target in ['energy', 'excitation']:
+					for i in range(len(info['len_prop'])):
+						buff = np.zeros(info['len_prop'][i], dtype=np.float64)
+						mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
+						exp.prop[calc.target]['inc'].append(buff)
+				else:
+					for i in range(len(info['len_prop'])):
+						buff = np.zeros([info['len_prop'][i], 3], dtype=np.float64)
+						mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
+						exp.prop[calc.target]['inc'].append(buff)
 
 
 def mbe(mpi, prop):

@@ -150,12 +150,12 @@ def _exp(mpi, mol, calc):
 			calc.exp_space = tools.sigma_orbs(calc.orbsym, calc.exp_space)
 		# init tuples and hashes
 		if mpi.master:
-			exp.tuples, exp.hashes = expansion.init_tup(mol, calc)
+			exp.hashes, exp.tuples = expansion.init_tup(mol, calc)
 		else:
-			exp.hashes = expansion.init_tup(mol, calc, hashes_only=True)
+			exp.hashes = expansion.init_tup(mol, calc)[0]
 		# restart
 		if mpi.master:
-			exp.start_order = restart.main(calc, exp)
+			exp.min_order = restart.main(calc, exp)
 		return exp
 
 
