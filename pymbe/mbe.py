@@ -200,7 +200,7 @@ def _sum(calc, exp, tup):
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# prune combinations with no occupied orbitals
-			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
+			combs = combs[np.fromiter(map(functools.partial(tools.cas_allow, \
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning

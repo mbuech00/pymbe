@@ -80,7 +80,7 @@ def _master(mpi, mol, calc, exp):
 			if exp.order == 1:
 				# master adds degenerate pairs of occupied pi-orbitals
 				for k in range(calc.pi_orbs.shape[0]):
-					if tools.cas_occ(calc.occup, calc.ref_space, calc.pi_orbs[k]):
+					if tools.cas_allow(calc.occup, calc.ref_space, calc.pi_orbs[k]):
 						child_tup += calc.pi_orbs[k].tolist()
 			else:
 				# loop until no tasks left
@@ -174,15 +174,20 @@ def _slave(mpi, mol, calc, exp):
 
 def _orbs(mol, calc, exp, tup, order):
 		""" determine list of child tuple orbitals """
+		tup_occ = tup[tup < mol.nocc]
+		exp_space_occ = calc.exp_space[(calc.exp_space < mol.nocc) & (tup_occ[-1] < calc.exp_space)] 
+		tup_virt = tup[mol.nocc <= tup]
+		exp_space_virt = calc.exp_space[tup_virt[-1] < calc.exp_space] 
+		exp_space = np.concatenate((exp_space_occ, exp_space_virt))
 		if order == 1:
-			lst = [m for m in calc.exp_space[np.where(calc.exp_space > tup[order-1])]]
+			lst = [m for m in exp_space]
 		else:
 			# init return list
 			lst = []
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
 			# prune combinations with no occupied orbitals
-			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
+			combs = combs[np.fromiter(map(functools.partial(tools.cas_allow, \
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
@@ -191,10 +196,10 @@ def _orbs(mol, calc, exp, tup, order):
 									calc.orbsym, calc.pi_hashes), combs), \
 									dtype=bool, count=combs.shape[0])]
 			if combs.size == 0:
-				lst = [m for m in calc.exp_space[np.where(tup[-1] < calc.exp_space)]]
+				lst = [m for m in exp_space]
 			else:
 				# loop over new orbs 'm'
-				for m in calc.exp_space[np.where(tup[-1] < calc.exp_space)]:
+				for m in exp_space:
 					# add orbital to combinations
 					orb = np.empty(combs.shape[0], dtype=np.int32)
 					orb[:] = m
@@ -231,7 +236,7 @@ def _orbs_pi(mol, calc, exp, tup, order):
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
 			# prune combinations with no occupied orbitals
-			combs = combs[np.fromiter(map(functools.partial(tools.cas_occ, \
+			combs = combs[np.fromiter(map(functools.partial(tools.cas_allow, \
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
