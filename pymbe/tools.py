@@ -155,13 +155,6 @@ def tasks(n_tuples, n_slaves, task_size):
 		return np.array_split(np.arange(n_tuples), n_tasks)
 
 
-def alternate(space, occup):
-		""" alternate occ and virt orbitals in space """
-		occ = space[np.where(occup[space] > 0.0)].tolist()
-		virt = space[np.where(occup[space] == 0.0)].tolist()
-		return np.array([occ.pop(0) if i % 2 == 0 and len(occ) > 0 else virt.pop(0) for i in range(space.size)])
-
-
 def cas(ref_space, tup):
 		""" define cas space """
 		return np.sort(np.append(ref_space, tup))

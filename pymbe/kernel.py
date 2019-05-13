@@ -195,7 +195,7 @@ def hf(mol, calc):
 			for i in range(hf.mo_energy.size):
 				print('     {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
 			print('\n')
-		return nocc, nvirt, norb, hf, np.asscalar(mol.energy_nuc()), np.asscalar(e_hf), \
+		return nocc, nvirt, norb, hf, np.asscalar(mol.energy_nuc()) if mol.atom else 0.0, np.asscalar(e_hf), \
 				elec_dipole, occup, orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
 
 
@@ -266,8 +266,6 @@ def ref_mo(mol, calc):
 		# reference and expansion spaces
 		ref_space = np.arange(inact_orbs, inact_orbs+act_orbs)
 		exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
-		# alternate expansion space
-		exp_space = tools.alternate(exp_space, calc.occup)
 		# casci or casscf
 		if calc.ref['method'] == 'casci':
 			if act_orbs > 0:
