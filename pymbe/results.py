@@ -400,7 +400,7 @@ def _timings_prt(info, calc, exp):
 					'','|','','sum','','|','','calculations',)
 		string += DIVIDER[:98]+'\n'
 		calcs = 0
-		for i, j in enumerate(range(1, info['final_order'])):
+		for i, j in enumerate(range(exp.min_order, info['final_order'])):
 			calc_i = exp.count[i]
 			calcs += calc_i
 			string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
@@ -436,7 +436,7 @@ def _energy_prt(info, calc, exp):
 		form += ('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'], \
 					'','|','',calc.prop['ref']['energy'],)
 		string += DIVIDER[:66]+'\n'
-		for i, j in enumerate(range(1, info['final_order'])):
+		for i, j in enumerate(range(exp.min_order, info['final_order'])):
 			string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:7}{:11.4e}\n'
 			form += ('',j, \
 						'','|','',info['energy'][i], \
@@ -453,7 +453,7 @@ def _energies_plot(info, calc, exp):
 		# set subplot
 		fig, ax = plt.subplots()
 		# plot results
-		ax.plot(np.arange(1, info['final_order']), \
+		ax.plot(np.arange(exp.min_order, info['final_order']), \
 				info['energy'], marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
 				linestyle='-', label='state {:}'.format(calc.state['root']))
 		# set x limits
@@ -489,7 +489,7 @@ def _excitation_prt(info, calc, exp):
 		string += '{:9}{:>3s}{:5}{:1}{:8}{:9.4e}\n'
 		form += ('','ref','','|','',calc.prop['ref']['excitation'],)
 		string += DIVIDER[:43]+'\n'
-		for i, j in enumerate(range(1, info['final_order'])):
+		for i, j in enumerate(range(exp.min_order, info['final_order'])):
 			string += '{:7}{:>4d}{:6}{:1}{:8}{:9.4e}\n'
 			form += ('',j,'','|','',info['excitation'][i],)
 		string += DIVIDER[:43]+'\n'
@@ -504,7 +504,7 @@ def _excitation_plot(info, calc, exp):
 		# set subplot
 		fig, ax = plt.subplots()
 		# plot results
-		ax.plot(np.arange(1, info['final_order']), \
+		ax.plot(np.arange(exp.min_order, info['final_order']), \
 				info['excitation'], marker='x', linewidth=2, mew=1, color='xkcd:dull blue', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
@@ -544,7 +544,7 @@ def _dipole_prt(info, calc, exp):
 					'',info['nuc_dipole'][2] - calc.prop['hf']['dipole'][2] + calc.prop['ref']['dipole'][2], \
 					'','|','',np.linalg.norm(info['nuc_dipole'] - calc.prop['hf']['dipole']),)
 		string += DIVIDER[:82]+'\n'
-		for i, j in enumerate(range(1, info['final_order'])):
+		for i, j in enumerate(range(exp.min_order, info['final_order'])):
 			string += '{:7}{:>4d}{:6}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
 			form += ('',j, \
 						'','|','',info['nuc_dipole'][0] - info['dipole'][i, 0], \
@@ -567,7 +567,7 @@ def _dipole_plot(info, calc, exp):
 		for i in range(dipole.size):
 			dipole[i] = np.linalg.norm(info['nuc_dipole'] - info['dipole'][i, :])
 		# plot results
-		ax.plot(np.arange(1, info['final_order']), \
+		ax.plot(np.arange(exp.min_order, info['final_order']), \
 				dipole, marker='*', linewidth=2, mew=1, color='xkcd:salmon', \
 				linestyle='-', label='state {:}'.format(calc.state['root']))
 		# set x limits
@@ -609,7 +609,7 @@ def _trans_prt(info, calc, exp):
 					'','|','',np.linalg.norm(calc.prop['ref']['trans'][:]), \
 					'','|','',(2./3.) * calc.prop['ref']['excitation'] * np.linalg.norm(calc.prop['ref']['trans'][:])**2,)
 		string += DIVIDER[:109]+'\n'
-		for i, j in enumerate(range(1, info['final_order'])):
+		for i, j in enumerate(range(exp.min_order, info['final_order'])):
 			string += '{:7}{:>4d}{:6}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}{:6}{:1}{:8}{:9.6f}\n'
 			form += ('',j, \
 						'','|','',info['trans'][i, 0], \
@@ -633,7 +633,7 @@ def _trans_plot(info, calc, exp):
 		for i in range(trans.size):
 			trans[i] = np.linalg.norm(info['trans'][i, :])
 		# plot results
-		ax.plot(np.arange(1, info['final_order']), \
+		ax.plot(np.arange(exp.min_order, info['final_order']), \
 				trans, marker='s', linewidth=2, mew=1, color='xkcd:dark magenta', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
@@ -664,11 +664,11 @@ def _osc_strength_plot(info, calc, exp):
 		# set subplot
 		fig, ax = plt.subplots()
 		# array of total MBE oscillator strength
-		osc_strength = np.empty(info['final_order']-1, dtype=np.float64)
-		for i in range(info['final_order']-1):
+		osc_strength = np.empty(info['trans'].shape[0], dtype=np.float64)
+		for i in range(osc_strength.size):
 			osc_strength[i] = (2./3.) * info['excitation'][i] * np.linalg.norm(info['trans'][i, :])**2
 		# plot results
-		ax.plot(np.arange(1, info['final_order']), \
+		ax.plot(np.arange(exp.min_order, info['final_order']), \
 				osc_strength, marker='+', linewidth=2, mew=1, color='xkcd:royal blue', \
 				linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
 		# set x limits
@@ -699,16 +699,15 @@ def _ndets_plot(info, exp):
 		# set subplot
 		fig, ax = plt.subplots()
 		# array of max number of determinants at each order
-		max_ndets = np.empty(info['final_order']-1, dtype=np.float64)
-		for i in range(info['final_order']-1):
+		max_ndets = np.empty(info['final_order']-exp.min_order, dtype=np.float64)
+		for i in range(info['final_order']-exp.min_order):
 			ndets = exp.ndets[i]
 			if ndets.any():
 				max_ndets[i] = np.max(ndets[np.nonzero(ndets)])
 			else:
 				max_ndets[i] = 0.0
 		# plot results
-		start = 1 if max_ndets[0] != 0.0 else 2
-		ax.semilogy(np.arange(start, info['final_order']), \
+		ax.semilogy(np.arange(exp.min_order, info['final_order']), \
 					max_ndets[start-1:], marker='x', linewidth=2, mew=1, color='red', linestyle='-')
 		# set x limits
 		ax.set_xlim([0.5, info['final_order'] - 0.5])
