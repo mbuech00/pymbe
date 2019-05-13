@@ -113,6 +113,6 @@ def _rst(mol, calc, exp):
 									exp.time['mbe'][exp.order-1], exp.order))
 			print(output.mbe_results(mol, calc, exp))
 			print(output.screen_header(exp.order))
-			print(output.screen_end(exp.tuples[exp.order-1].shape[0], exp.time['screen'][exp.order-1], exp.order))
+			print(output.screen_end(exp.tuples[exp.order-1].shape[0], exp.time['screen'][exp.order-1], exp.order, False))
 
 	
