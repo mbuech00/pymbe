@@ -94,7 +94,7 @@ def mbe_results(mol, calc, exp):
 		if calc.target in ['energy', 'excitation']:
 			string = FILL+'\n'
 			prop_tot = exp.prop[calc.target]['tot']
-			prop_inc = exp.prop[calc.target]['inc'][exp.order-1]
+			prop_inc = exp.prop[calc.target]['inc'][-1]
 			# statistics
 			if prop_inc.any():
 				mean_val = np.mean(prop_inc[np.nonzero(prop_inc)])
@@ -103,10 +103,10 @@ def mbe_results(mol, calc, exp):
 			else:
 				mean_val = min_val = max_val = 0.0
 			# calculate total inc
-			if exp.order == 1:
-				tot_inc = prop_tot[exp.order-1]
+			if exp.order == exp.min_order:
+				tot_inc = prop_tot[-1]
 			else:
-				tot_inc = prop_tot[exp.order-1] - prop_tot[exp.order-2]
+				tot_inc = prop_tot[-1] - prop_tot[-2]
 			# set header
 			if calc.target == 'energy':
 				header = 'energy for root {:} (total increment = {:.4e})'. \
@@ -124,7 +124,7 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 			form = (header, mean_val, min_val, max_val)
 			# statistics
-			ndets = exp.ndets[exp.order-1]
+			ndets = exp.ndets[-1]
 			if ndets.any():
 				mean_ndets = np.mean(ndets[np.nonzero(ndets)])
 				min_ndets = np.min(ndets[np.nonzero(ndets)])
@@ -136,7 +136,7 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
-			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(ndets)])[1]
+			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][np.argmax(ndets)])[1]
 			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
 									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
 			string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
@@ -147,10 +147,10 @@ def mbe_results(mol, calc, exp):
 			string = FILL+'\n'
 			prop_tot = exp.prop[calc.target]['tot']
 			# calculate total inc
-			if exp.order == 1:
-				tot_inc = np.linalg.norm(prop_tot[exp.order-1])
+			if exp.order == exp.min_order:
+				tot_inc = np.linalg.norm(prop_tot[-1])
 			else:
-				tot_inc = np.linalg.norm(prop_tot[exp.order-1]) - np.linalg.norm(prop_tot[exp.order-2])
+				tot_inc = np.linalg.norm(prop_tot[-1]) - np.linalg.norm(prop_tot[-2])
 			# set header
 			if calc.target == 'dipole':
 				header = 'dipole moment for root {:} (total increment = {:.4e})'. \
@@ -172,7 +172,7 @@ def mbe_results(mol, calc, exp):
 			max_val = np.empty(3, dtype=np.float64)
 			# loop over x, y, and z
 			for k in range(3):
-				prop_inc = exp.prop[calc.target]['inc'][exp.order-1][:, k]
+				prop_inc = exp.prop[calc.target]['inc'][-1][:, k]
 				# statistics
 				if prop_inc.any():
 					mean_val[k] = np.mean(prop_inc[np.nonzero(prop_inc)])
@@ -189,7 +189,7 @@ def mbe_results(mol, calc, exp):
 					string += '\n'+DIVIDER
 				form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 			# statistics
-			ndets = exp.ndets[exp.order-1]
+			ndets = exp.ndets[-1]
 			if ndets.any():
 				mean_ndets = np.mean(ndets[np.nonzero(ndets)])
 				min_ndets = np.min(ndets[np.nonzero(ndets)])
@@ -201,7 +201,7 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
-			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[exp.order-1][np.argmax(ndets)])[1]
+			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][np.argmax(ndets)])[1]
 			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
 									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
 			string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
@@ -225,11 +225,11 @@ def screen_header(order):
 		return string.format(*form)
 
 
-def screen_end(n_tuples, time, order, conv):
+def screen_end(n_tuples, time, order):
 		""" print end of screening """
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {:d} screening done in {:s}\n'
-		if conv:
+		if n_tuples == 0:
 			string += ' STATUS:                  *** convergence has been reached ***                         \n'
 		string += DIVIDER+'\n\n'
 		form = (order, tools.time_str(time),)
