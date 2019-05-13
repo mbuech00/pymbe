@@ -179,7 +179,7 @@ def _orbs(mol, calc, exp, tup, order):
 		tup_virt = tup[mol.nocc <= tup]
 		exp_space_virt = calc.exp_space[tup_virt[-1] < calc.exp_space] 
 		exp_space = np.concatenate((exp_space_occ, exp_space_virt))
-		if order == 1:
+		if order == exp.min_order:
 			lst = [m for m in exp_space]
 		else:
 			# init return list
@@ -204,11 +204,12 @@ def _orbs(mol, calc, exp, tup, order):
 					orb = np.empty(combs.shape[0], dtype=np.int32)
 					orb[:] = m
 					combs_orb = np.concatenate((combs, orb[:, None]), axis=1)
+					combs_orb = np.sort(combs_orb)
 					# convert to sorted hashes
 					combs_orb_hash = tools.hash_2d(combs_orb)
 					combs_orb_hash.sort()
 					# get indices
-					idx = tools.hash_compare(exp.hashes[order-1], combs_orb_hash)
+					idx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
 					# add orbital to lst
 					if idx is not None:
 						# compute thresholds

@@ -46,7 +46,7 @@ def main(mpi, mol, calc, exp):
 				exp.count.append(np.count_nonzero(np.count_nonzero(inc, axis=1)))
 			# sum up total property
 			exp.prop[calc.target]['tot'].append(tools.fsum(inc))
-			if exp.order > 1:
+			if exp.order > exp.min_order:
 				exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
 		else:
 			# slave function
@@ -177,7 +177,7 @@ def _inc(mol, calc, exp, tup, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
 		# subtract reference space correlation energy
 		inc_tup -= calc.prop['ref'][calc.target]
 		# calculate increment
-		if exp.order > 1:
+		if exp.order > exp.min_order:
 			if np.any(inc_tup != 0.0):
 				inc_tup -= _sum(calc, exp, tup)
 		# debug print
@@ -196,7 +196,7 @@ def _sum(calc, exp, tup):
 		else:
 			res = np.zeros(3, dtype=np.float64)
 		# compute contributions from lower-order increments
-		for k in range(exp.order-1, 0, -1):
+		for k in range(exp.order-1, exp.min_order-1, -1):
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 			# prune combinations with no occupied orbitals
@@ -213,12 +213,12 @@ def _sum(calc, exp, tup):
 				combs_hash = tools.hash_2d(combs)
 				combs_hash.sort()
 				# get indices
-				idx = tools.hash_compare(exp.hashes[k-1], combs_hash)
+				idx = tools.hash_compare(exp.hashes[k-exp.min_order], combs_hash)
 				tools.assertion(idx is not None, 'error in recursive increment '
 													'calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
 													format(k, tup, combs))
 				# add up lower-order increments
-				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][idx])
+				res += tools.fsum(exp.prop[calc.target]['inc'][k-exp.min_order][idx])
 		return res
 
 
