@@ -225,11 +225,11 @@ def screen_header(order):
 		return string.format(*form)
 
 
-def screen_end(n_tuples, time, order):
+def screen_end(n_tuples, time, order, conv):
 		""" print end of screening """
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {:d} screening done in {:s}\n'
-		if n_tuples == 0:
+		if conv:
 			string += ' STATUS:                  *** convergence has been reached ***                         \n'
 		string += DIVIDER+'\n\n'
 		form = (order, tools.time_str(time),)
