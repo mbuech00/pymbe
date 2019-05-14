@@ -55,7 +55,7 @@ def _master(mpi, mol, calc, exp):
 		# init child_tup list
 		child_tup = []
 		# potential seed of occupied tuples
-		if calc.exp_space['occ'].size > 0:
+		if calc.exp_space['occ'].size > 0 and exp.order <= calc.exp_space['occ'].size:
 			# generate array with all subsets of particular tuple
 			tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], dtype=np.int32)
 			# number of tuples
