@@ -42,8 +42,11 @@ def main(mpi, mol, calc, exp):
 		""" printing and plotting of results """
 		# setup
 		info = _setup(mpi, mol, calc, exp)
+		# print header
+		print(output.main_header())
 		# print atom
-		_atom(mol)
+		if mol.atom:
+			_atom(mol)
 		# print results
 		_table(info, mpi, mol, calc, exp)
 		# plot
@@ -95,8 +98,6 @@ def _setup(mpi, mol, calc, exp):
 
 def _atom(mol):
 		""" print geometry """
-		# print header
-		print(output.main_header())
 		# print atom
 		string = DIVIDER[:39]+'\n'
 		string += '{:^43}\n'
