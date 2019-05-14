@@ -195,8 +195,6 @@ def screen(mpi, child_tup, order):
 			if mpi.master:
 				# reshape tuples
 				tuples = tuples.reshape(-1, order+1)
-				# sort tuples
-				tuples = np.sort(tuples)
 				# compute hashes
 				hashes = tools.hash_2d(tuples)
 				# sort tuples wrt hashes
