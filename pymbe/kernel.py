@@ -266,6 +266,8 @@ def ref_mo(mol, calc):
 		# reference and expansion spaces
 		ref_space = np.arange(inact_orbs, inact_orbs+act_orbs)
 		exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
+		# divide exp_space into occupied and virtual parts
+		exp_space = {'occ': exp_space[exp_space < mol.nocc], 'virt': exp_space[mol.nocc <= exp_space]}
 		# casci or casscf
 		if calc.ref['method'] == 'casci':
 			if act_orbs > 0:
@@ -278,9 +280,10 @@ def ref_mo(mol, calc):
 			# casscf quantities
 			mo_energy, mo_coeff = _casscf(mol, calc, mo_coeff, ref_space, nelec)
 		if mol.debug >= 1:
-			print('\n reference nelec  = {:}'.format(nelec))
-			print(' reference space  = {:}'.format(ref_space))
-			print(' expansion space  = {:}\n'.format(exp_space))
+			print('\n reference nelec        = {:}'.format(nelec))
+			print(' reference space        = {:}'.format(ref_space))
+			print(' expansion space [occ]  = {:}'.format(exp_space['occ']))
+			print(' expansion space [virt] = {:}\n'.format(exp_space['virt']))
 		return mo_energy, np.asarray(mo_coeff, order='C'), nelec, ref_space, exp_space
 
 

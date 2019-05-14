@@ -27,9 +27,10 @@ class ExpCls(object):
 				self.prop[calc.target] = {'inc': [], 'tot': []}
 				# set max_order
 				if calc.misc['order'] is not None:
-					self.max_order = min(calc.exp_space.size, calc.misc['order'])
+					self.max_order = min(calc.exp_space['occ'].size + calc.exp_space['virt'].size, \
+											calc.misc['order'])
 				else:
-					self.max_order = calc.exp_space.size
+					self.max_order = calc.exp_space['occ'].size + calc.exp_space['virt'].size
 				# init timings, calculation counter, and ndets lists
 				self.count = []
 				self.ndets = []
@@ -40,14 +41,12 @@ class ExpCls(object):
 
 def init_tup(mol, calc):
 		""" init tuples and hashes """
-		# occupied and virtual subspaces of exp_space
-		exp_space_occ = calc.exp_space[calc.exp_space < mol.nocc]
-		exp_space_virt = calc.exp_space[mol.nocc <= calc.exp_space]
 		# tuples
 		if calc.ref_space.size == 0:
-			tuples = [np.array([[i, a] for i in exp_space_occ for a in exp_space_virt], dtype=np.int32)]
+			tuples = [np.array([[i, a] for i in calc.exp_space['occ'] for a in calc.exp_space['virt']], dtype=np.int32)]
 		else:
-			tuples = [np.array([[p] for p in calc.exp_space if tools.cas_allow(calc.occup, calc.ref_space, p)], dtype=np.int32)]
+			tuples = [np.array([[p] for p in np.concatenate((calc.exp_space['occ'], calc.exp_space['virt'])) \
+						if tools.cas_allow(calc.occup, calc.ref_space, p)], dtype=np.int32)]
 		# hashes
 		hashes = [tools.hash_2d(tuples[0])]
 		# sort wrt hashes

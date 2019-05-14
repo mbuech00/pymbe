@@ -60,11 +60,9 @@ def _master(mpi, mol, calc, exp):
 		# init child_tup list
 		child_tup = []
 		# potential seed of occupied tuples
-		if exp.min_order == 2:
-			# occupied expansion space
-			exp_space_occ = calc.exp_space[calc.exp_space < mol.nocc]
+		if calc.exp_space['occ'].size > 0:
 			# generate array with all subsets of particular tuple
-			tuples_occ = np.array([tup for tup in itertools.combinations(exp_space_occ, exp.order)], dtype=np.int32)
+			tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], dtype=np.int32)
 			# number of tuples
 			n_tuples_occ = tuples_occ.shape[0]
 			# tasks
@@ -154,7 +152,7 @@ def _slave(mpi, mol, calc, exp):
 def _orbs(mol, calc, exp, tup, order):
 		""" determine list of child tuple orbitals """
 		# set virtual expansion space
-		exp_space = calc.exp_space[(mol.nocc <= calc.exp_space) & (tup[-1] < calc.exp_space)] 
+		exp_space = calc.exp_space['virt'][tup[-1] < calc.exp_space['virt']] 
 		# add orbitals to return list
 		if order == exp.min_order:
 			lst = [m for m in exp_space]
@@ -163,33 +161,41 @@ def _orbs(mol, calc, exp, tup, order):
 			lst = []
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
-			# prune combinations without occupied and virtual orbitals
+			# prune combinations without a mix of occupied and virtual orbitals
 			combs = combs[np.fromiter(map(functools.partial(tools.cas_allow, \
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			if combs.size == 0:
 				lst = [m for m in exp_space]
 			else:
-				# loop over new orbs 'm'
+				# loop over expansion space
 				for m in exp_space:
 					# add orbital to combinations
 					orb = np.empty(combs.shape[0], dtype=np.int32)
 					orb[:] = m
 					combs_orb = np.concatenate((combs, orb[:, None]), axis=1)
-					# convert to sorted hashes
-					combs_orb_hash = tools.hash_2d(combs_orb)
-					combs_orb_hash.sort()
-					# get indices
-					idx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
-					# add orbital to lst
-					if idx is not None:
-						# compute thresholds
-						thres = np.fromiter(map(functools.partial(_thres, \
-											calc.occup, calc.ref_space, calc.thres, \
-											calc.prot['scheme']), combs_orb), \
-											dtype=np.float64, count=idx.size)
-						if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
-							lst += [m]
+					if calc.extra['pi_pruning']:
+						# prune combinations with invalid sets of pi-orbitals
+						combs_orb = combs_orb[np.fromiter(map(functools.partial(tools.pi_pruning, \
+												calc.orbsym, calc.pi_hashes), combs_orb), \
+												dtype=bool, count=combs_orb.shape[0])]
+					if combs_orb.size > 0:
+						# convert to sorted hashes
+						combs_orb_hash = tools.hash_2d(combs_orb)
+						combs_orb_hash.sort()
+						# get indices
+						idx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
+						# add orbital to lst
+						if idx is not None:
+							# compute thresholds
+							thres = np.fromiter(map(functools.partial(_thres, \
+												calc.occup, calc.ref_space, calc.thres, \
+												calc.prot['scheme']), combs_orb), \
+												dtype=np.float64, count=idx.size)
+							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
+								lst += [m]
+					else:
+						lst += [m]
 		return np.array(lst, dtype=np.int32)
 
 

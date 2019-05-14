@@ -199,15 +199,15 @@ def _sum(calc, exp, tup):
 		for k in range(exp.order-1, exp.min_order-1, -1):
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-			# prune combinations with no occupied orbitals
+			# prune combinations without a mix of occupied and virtual orbitals
 			combs = combs[np.fromiter(map(functools.partial(tools.cas_allow, \
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			# pi-orbital pruning
 			if calc.extra['pi_pruning']:
 				combs = combs[np.fromiter(map(functools.partial(tools.pi_pruning, \
-									calc.orbsym, calc.pi_hashes), combs), \
-									dtype=bool, count=combs.shape[0])]
+								calc.orbsym, calc.pi_hashes), combs), \
+								dtype=bool, count=combs.shape[0])]
 			if combs.size > 0:
 				# convert to sorted hashes
 				combs_hash = tools.hash_2d(combs)
