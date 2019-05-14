@@ -138,6 +138,9 @@ def _slave(mpi, mol, calc, exp):
 				for tup in tups:
 					# child tuples wrt order k-1
 					orb_lst = _orbs(mol, calc, exp, tup, exp.order)
+					if exp.min_order == 2:
+						# check for validity wrt order k-2
+						orb_lst = np.intersect1d(orb_lst, _orbs(mol, calc, exp, tup, exp.order-1))
 					if calc.extra['pi_pruning']:
 						# deep pruning wrt orders k-2, k-4, etc.
 						orb_lst = _deep_pruning(mol, calc, exp, tup, orb_lst, exp.order, _orbs)
@@ -174,14 +177,17 @@ def _slave(mpi, mol, calc, exp):
 
 def _orbs(mol, calc, exp, tup, order):
 		""" determine list of child tuple orbitals """
-		tup_occ = tup[tup < mol.nocc]
-		exp_space_occ = calc.exp_space[(calc.exp_space < mol.nocc) & (tup_occ[-1] < calc.exp_space)] 
-		tup_virt = tup[mol.nocc <= tup]
-		exp_space_virt = calc.exp_space[tup_virt[-1] < calc.exp_space] 
-		if tup_virt.size == 1:
-			exp_space = np.concatenate((exp_space_occ, exp_space_virt))
+		if exp.min_order == 1:
+			exp_space = calc.exp_space
 		else:
-			exp_space = exp_space_virt
+			tup_occ = tup[tup < mol.nocc]
+			exp_space_occ = calc.exp_space[(calc.exp_space < mol.nocc) & (tup_occ[-1] < calc.exp_space)] 
+			tup_virt = tup[mol.nocc <= tup]
+			exp_space_virt = calc.exp_space[tup_virt[-1] < calc.exp_space] 
+			if tup_virt.size == 1:
+				exp_space = np.concatenate((exp_space_occ, exp_space_virt))
+			else:
+				exp_space = exp_space_virt
 		if order == exp.min_order:
 			lst = [m for m in exp_space]
 		else:
@@ -189,7 +195,7 @@ def _orbs(mol, calc, exp, tup, order):
 			lst = []
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
-			# prune combinations with no occupied orbitals
+			# prune combinations without occupied and virtual orbitals
 			combs = combs[np.fromiter(map(functools.partial(tools.cas_allow, \
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
@@ -212,7 +218,7 @@ def _orbs(mol, calc, exp, tup, order):
 					combs_orb_hash = tools.hash_2d(combs_orb)
 					combs_orb_hash.sort()
 					# get indices
-					idx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
+					idx = tools.hash_compare(exp.hashes[order-exp.min_order], combs_orb_hash)
 					# add orbital to lst
 					if idx is not None:
 						# compute thresholds
@@ -220,7 +226,7 @@ def _orbs(mol, calc, exp, tup, order):
 											calc.occup, calc.ref_space, calc.thres, \
 											calc.prot['scheme']), combs_orb), \
 											dtype=np.float64, count=idx.size)
-						if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
+						if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, exp.min_order, exp.order, thres, idx):
 							lst += [m]
 		return np.array(lst, dtype=np.int32)
 
@@ -273,18 +279,18 @@ def _orbs_pi(mol, calc, exp, tup, order):
 												calc.occup, calc.ref_space, calc.thres, \
 												calc.prot['scheme']), combs_orb), \
 												dtype=np.float64, count=idx.size)
-							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
+							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, exp.min_order, exp.order+1, thres, idx):
 								lst += calc.pi_orbs[j].tolist()
 		return np.array(lst, dtype=np.int32)
 
 
-def _prot_screen(scheme, target, prop, thres, idx):
+def _prot_screen(scheme, target, prop, min_order, order, thres, idx):
 		""" protocol check """
 		# all tuples have zero correlation
 		if np.sum(thres) == 0.0:
 			return False
 		# extract increments with non-zero thresholds
-		inc = prop[target]['inc'][-1][idx]
+		inc = prop[target]['inc'][order-min_order][idx]
 		inc = inc[np.nonzero(thres)]
 		# screening procedure
 		if target in ['energy', 'excitation']:
