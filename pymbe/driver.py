@@ -86,6 +86,7 @@ def slave(mpi, mol, calc, exp):
 			#** screening phase **#
 			elif msg['task'] == 'screen':
 				exp.order = msg['order']
+				exp.n_tasks = msg['n_tasks']
 				screen.main(mpi, mol, calc, exp)
 			#** exit **#
 			elif msg['task'] == 'exit':

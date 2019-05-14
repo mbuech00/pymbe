@@ -48,15 +48,10 @@ def _master(mpi, mol, calc, exp):
 		""" master function """
 		# print header
 		print(output.screen_header(exp.order))
-		# wake up slaves
-		msg = {'task': 'screen', 'order': exp.order}
-		mpi.comm.bcast(msg, root=0)
 		# number of tuples
 		n_tuples = exp.tuples[-1].shape[0]
-		# number of available slaves
-		slaves_avail = min(mpi.size - 1, n_tuples)
 		# tasks
-		tasks = tools.tasks(n_tuples, slaves_avail, calc.mpi['task_size'])
+		tasks = tools.tasks(n_tuples, min(mpi.size - 1, n_tuples), calc.mpi['task_size'])
 		# init child_tup list
 		child_tup = []
 		# potential seed of occupied tuples
@@ -66,10 +61,16 @@ def _master(mpi, mol, calc, exp):
 			# number of tuples
 			n_tuples_occ = tuples_occ.shape[0]
 			# tasks
-			tasks_occ = tools.tasks(n_tuples_occ, slaves_avail, calc.mpi['task_size'])
+			tasks_occ = tools.tasks(n_tuples_occ, min(mpi.size - 1, n_tuples_occ), calc.mpi['task_size'])
 		else:
 			# empty space
 			tasks_occ = np.array([], dtype=np.int32)
+			n_tuples_occ = 0
+		# number of available slaves
+		slaves_avail = min(mpi.size - 1, n_tuples + n_tuples_occ)
+		# wake up slaves
+		msg = {'task': 'screen', 'order': exp.order, 'n_tasks': n_tuples + n_tuples_occ}
+		mpi.comm.bcast(msg, root=0)
 		# loop until no tasks left
 		for task in tasks:
 			# set tups
@@ -107,10 +108,10 @@ def _master(mpi, mol, calc, exp):
 
 def _slave(mpi, mol, calc, exp):
 		""" slave function """
-		# number of tuples
-		n_tuples = exp.hashes[-1].size
+		# number of tasks
+		n_tasks = exp.n_tasks
 		# number of needed slaves
-		slaves_needed = min(mpi.size - 1, n_tuples)
+		slaves_needed = min(mpi.size - 1, n_tasks)
 		# init child_tup list
 		child_tup = []
 		# send availability to master
