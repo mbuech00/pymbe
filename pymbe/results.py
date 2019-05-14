@@ -708,7 +708,7 @@ def _ndets_plot(info, exp):
 				max_ndets[i] = 0.0
 		# plot results
 		ax.semilogy(np.arange(exp.min_order, info['final_order']), \
-					max_ndets[start-1:], marker='x', linewidth=2, mew=1, color='red', linestyle='-')
+					max_ndets, marker='x', linewidth=2, mew=1, color='red', linestyle='-')
 		# set x limits
 		ax.set_xlim([0.5, info['final_order'] - 0.5])
 		# turn off x-grid

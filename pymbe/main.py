@@ -72,7 +72,7 @@ def _init():
 		# exp object
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
-		if calc.restart: parallel.exp(mpi, calc, exp)
+		parallel.exp(mpi, calc, exp)
 		return mpi, mol, calc, exp
 
 

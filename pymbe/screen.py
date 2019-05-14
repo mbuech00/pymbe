@@ -178,7 +178,10 @@ def _orbs(mol, calc, exp, tup, order):
 		exp_space_occ = calc.exp_space[(calc.exp_space < mol.nocc) & (tup_occ[-1] < calc.exp_space)] 
 		tup_virt = tup[mol.nocc <= tup]
 		exp_space_virt = calc.exp_space[tup_virt[-1] < calc.exp_space] 
-		exp_space = np.concatenate((exp_space_occ, exp_space_virt))
+		if tup_virt.size == 1:
+			exp_space = np.concatenate((exp_space_occ, exp_space_virt))
+		else:
+			exp_space = exp_space_virt
 		if order == exp.min_order:
 			lst = [m for m in exp_space]
 		else:
@@ -217,7 +220,7 @@ def _orbs(mol, calc, exp, tup, order):
 											calc.occup, calc.ref_space, calc.thres, \
 											calc.prot['scheme']), combs_orb), \
 											dtype=np.float64, count=idx.size)
-						if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, order, thres, idx):
+						if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
 							lst += [m]
 		return np.array(lst, dtype=np.int32)
 
@@ -270,18 +273,18 @@ def _orbs_pi(mol, calc, exp, tup, order):
 												calc.occup, calc.ref_space, calc.thres, \
 												calc.prot['scheme']), combs_orb), \
 												dtype=np.float64, count=idx.size)
-							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, order+1, thres, idx):
+							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
 								lst += calc.pi_orbs[j].tolist()
 		return np.array(lst, dtype=np.int32)
 
 
-def _prot_screen(scheme, target, prop, order, thres, idx):
+def _prot_screen(scheme, target, prop, thres, idx):
 		""" protocol check """
 		# all tuples have zero correlation
 		if np.sum(thres) == 0.0:
 			return False
 		# extract increments with non-zero thresholds
-		inc = prop[target]['inc'][order-1][idx]
+		inc = prop[target]['inc'][-1][idx]
 		inc = inc[np.nonzero(thres)]
 		# screening procedure
 		if target in ['energy', 'excitation']:
