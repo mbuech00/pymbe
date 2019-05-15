@@ -205,7 +205,7 @@ def pi_degenerate(mo_energy, pair):
 
 def pi_orbs(mo_energy, orbsym, tup):
 		""" extract degenerate orbitals from tuple of orbitals """
-		tup_pi = tup[np.where(np.in1d(orbsym[tup], DEG_ID))]
+		tup_pi = tup[np.in1d(orbsym[tup], DEG_ID)]
 		# make all pairs of pi-orbitals
 		pairs = np.array(list(itertools.combinations(tup_pi, 2)))
 		# keep only degenerate pairs (return as proper np.int32 array type)
@@ -221,21 +221,22 @@ def n_pi_orbs(orbsym, tup):
 def pi_pruning(orbsym, ref_hashes, tup):
 		""" pi-orbital pruning """
 		# get indices of all pi-orbitals
-		pi_orbs = tup[np.where(np.in1d(orbsym[tup], DEG_ID))]
+		pi_orbs = tup[np.in1d(orbsym[tup], DEG_ID)]
 		# pruning
 		if pi_orbs.size == 0:
 			return True
 		else:
 			if pi_orbs.size % 2 > 0:
-				# never consider tuples with odd number of pi-orbitals
+				# always prune tuples with an odd number of pi-orbs
 				return False
 			else:
 				# get hashes of pairs of pi-orbitals
 				pi_orbs = np.asarray(pi_orbs, dtype=np.int32).reshape(-1, 2)
 				pi_hashes = hash_2d(pi_orbs)
 				pi_hashes.sort()
-				# compare to reference pair hashes (if idx is None, non-degenerate pi-orbs are present in tup)
+				# compare to reference pair hashes
 				idx = hash_compare(ref_hashes, pi_hashes)
+				# if idx is None, non-degenerate pi-orbs are present in tup
 				return idx is not None
 
 

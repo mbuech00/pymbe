@@ -140,11 +140,13 @@ def _exp(mpi, mol, calc):
 			exp = expansion.ExpCls(mol, calc)
 		# check for validity of pi-orbitals in case of pi-pruning
 		if calc.extra['pi_pruning']:
-			calc.pi_hashes = tools.hash_2d(tools.pi_orbs(calc.mo_energy, calc.orbsym, \
-											np.concatenate((calc.exp_space['occ'], calc.exp_space['virt']))))
+			calc.pi_orbs = {'occ': tools.pi_orbs(calc.mo_energy, calc.orbsym, calc.exp_space['occ'])}
+			calc.pi_orbs['virt'] = tools.pi_orbs(calc.mo_energy, calc.orbsym, calc.exp_space['virt'])
+			calc.pi_hashes = tools.hash_2d(np.concatenate((calc.pi_orbs['occ'], calc.pi_orbs['virt'])))
 			calc.pi_hashes.sort()
 			tools.assertion(tools.pi_pruning(calc.orbsym, calc.pi_hashes, calc.ref_space), \
-							'uneven number of degenerate pi-orbitals in reference space')
+							'odd number of degenerate pi-orbitals in reference space')
+			calc.exp_space['virt'] = tools.sigma_orbs(calc.orbsym, calc.exp_space['virt'])
 		# init tuples and hashes
 		if mpi.master:
 			exp.hashes, exp.tuples = expansion.init_tup(mol, calc)
