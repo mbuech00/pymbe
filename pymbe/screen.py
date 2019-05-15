@@ -79,7 +79,7 @@ def _master(mpi, mol, calc, exp):
 			mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
 			# receive slave status
 			mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-			# send tuple
+			# send tups
 			mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 		# potential seed of occupied tuples
 		for task in tasks_occ:
@@ -89,7 +89,7 @@ def _master(mpi, mol, calc, exp):
 			mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
 			# receive slave status
 			mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-			# send tuple
+			# send tups
 			mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 		# done with all tasks
 		while slaves_avail > 0:
@@ -130,15 +130,15 @@ def _slave(mpi, mol, calc, exp):
 				n_elms = mpi.stat.Get_elements(MPI.INT)
 				# init tups
 				tups = np.empty([n_elms // exp.order, exp.order], dtype=np.int32)
-				# receive tuples
+				# receive tups
 				mpi.comm.Recv([tups, MPI.INT], source=0, tag=TAGS.tup)
-				# loop over tuples
+				# loop over tups
 				for tup in tups:
-					# child tuples wrt order k-1
+					# spawn child tuples from parent tuples at order k-1
 					orb_lst = _orbs(mol, calc, exp, tup, exp.order)
 					# loop over orbitals
-					for m in orb_lst:
-						child_tup += tup.tolist() + [m]
+					for orb in orb_lst:
+						child_tup += tup.tolist() + [orb]
 				# send availability to master
 				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
 			elif mpi.stat.tag == TAGS.exit:
@@ -156,7 +156,7 @@ def _orbs(mol, calc, exp, tup, order):
 		exp_space = calc.exp_space['virt'][tup[-1] < calc.exp_space['virt']] 
 		# add orbitals to return list
 		if order == exp.min_order:
-			lst = [m for m in exp_space]
+			lst = [orb for orb in exp_space]
 		else:
 			# init return list
 			lst = []
@@ -167,13 +167,13 @@ def _orbs(mol, calc, exp, tup, order):
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
 			if combs.size == 0:
-				lst = [m for m in exp_space]
+				lst = [orb for orb in exp_space]
 			else:
-				# loop over expansion space
-				for m in exp_space:
+				# loop over orbitals of expansion space
+				for orb in exp_space:
 					# add orbital to combinations
 					orb = np.empty(combs.shape[0], dtype=np.int32)
-					orb[:] = m
+					orb[:] = orb
 					combs_orb = np.concatenate((combs, orb[:, None]), axis=1)
 					if calc.extra['pi_pruning']:
 						# prune combinations with invalid sets of pi-orbitals
@@ -194,9 +194,9 @@ def _orbs(mol, calc, exp, tup, order):
 												calc.prot['scheme']), combs_orb), \
 												dtype=np.float64, count=idx.size)
 							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
-								lst += [m]
+								lst += [orb]
 					else:
-						lst += [m]
+						lst += [orb]
 		return np.array(lst, dtype=np.int32)
 
 
