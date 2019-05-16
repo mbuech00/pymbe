@@ -21,7 +21,7 @@ import output
 
 
 # tags
-TAGS = tools.enum('ready', 'tup', 'tup_pi', 'exit')
+TAGS = tools.enum('ready', 'tup', 'exit')
 
 
 def main(mpi, mol, calc, exp):
@@ -59,43 +59,17 @@ def _master(mpi, mol, calc, exp):
 		tasks = tools.tasks(n_tuples, slaves_avail, calc.mpi['task_size'])
 		# init child_tup list
 		child_tup = []
-		# potential seed of occupied tuples
-		if calc.exp_space['occ'].size > 0:
-			if exp.order <= calc.exp_space['occ'].size:
-				# generate array with all subsets of particular tuple
-				tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
-										dtype=np.int32)
-				if calc.extra['pi_pruning']:
-					# prune combinations with invalid sets of pi-orbitals
-					tuples_occ = np.array([tup for tup in tuples_occ if tools.pi_pruning(calc.orbsym, calc.pi_hashes, tup)], \
-											dtype=np.int32)
-				for tup in tuples_occ:
-					orbs = _orbs(mol, calc, exp, tup, exp.order)
-					# loop over orbitals
-					for orb in orbs:
-						child_tup += tup.tolist() + [orb]
-			if calc.extra['pi_pruning'] and exp.min_order < exp.order <= calc.exp_space['occ'].size + 1:
-				# generate array with all subsets of particular tuple
-				tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
-										dtype=np.int32)
-				if exp.order == 8:
-					print('tuples_occ(1) = {:}'.format(tuples_occ))
-				# prune combinations with invalid sets of pi-orbitals
-				tuples_occ = np.array([tup for tup in tuples_occ if tools.pi_pruning(calc.orbsym, calc.pi_hashes, tup)], \
-										dtype=np.int32)
-				if exp.order == 8:
-					print('tuples_occ(2) = {:}'.format(tuples_occ))
-				for tup in tuples_occ: 
-					for pi_orbs in calc.pi_orbs['virt']:
-						if exp.order == 8:
-							print('tup = {:} , pi_orbs = {:}'.format(tup, pi_orbs))
-						child_tup += tup.tolist() + pi_orbs.tolist()
-		# potential seed of k-1 tuples if pi-pruning is requested
-		if calc.extra['pi_pruning'] and exp.order > exp.min_order:
-			# number of tuples
-			n_tuples_pi = exp.tuples[-2].shape[0]
-			# tasks
-			tasks_pi = tools.tasks(n_tuples_pi, slaves_avail, calc.mpi['task_size'])
+		# potential seed of occupied tuples for vacuum reference spaces
+		if exp.min_order > 1 and exp.order <= calc.exp_space['occ'].size:
+			# generate array with all k order subsets of occupied expansion space
+			tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
+									dtype=np.int32)
+			# loop over occupied tuples
+			for tup in tuples_occ:
+				orbs = _orbs(mol, calc, exp, tup)
+				# loop over orbitals
+				for orb in orbs:
+					child_tup += tup.tolist() + [orb]
 		# loop until no tasks left
 		for task in tasks:
 			# set tups
@@ -106,30 +80,6 @@ def _master(mpi, mol, calc, exp):
 			mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
 			# send tups
 			mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
-		# potential pi_pruning
-		if calc.extra['pi_pruning']:
-			if exp.order == exp.min_order:
-				# master adds degenerate pairs of occupied pi-orbitals at min_order
-				if exp.min_order == 1:
-					for pi_orbs in calc.pi_orbs['virt']:
-						if tools.cas_allow(calc.occup, calc.ref_space, pi_orbs):
-							child_tup += pi_orbs.tolist()
-				elif exp.min_order == 2:
-					occ_orbs = tools.sigma_orbs(calc.orbsym, calc.exp_space['occ'])
-					for occ_orb in occ_orbs: 
-						for pi_orbs in calc.pi_orbs['virt']:
-							child_tup += [occ_orb] + pi_orbs.tolist()
-			else:
-				# loop until no tasks left
-				for task in tasks_pi:
-					# set tups
-					tups = exp.tuples[-2][task]
-					# probe for available slaves
-					mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-					# receive slave status
-					mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-					# send tuple
-					mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
 		# done with all tasks
 		while slaves_avail > 0:
 			# probe for available slaves
@@ -174,34 +124,12 @@ def _slave(mpi, mol, calc, exp):
 				# loop over tups
 				for tup in tups:
 					# spawn child tuples from parent tuples at order k-1
-					orbs = _orbs(mol, calc, exp, tup, exp.order)
-					if calc.extra['pi_pruning']:
-						# deep pruning wrt orders k-2, k-4, etc.
-						orbs = _deep_pruning(mol, calc, exp, tup, orbs, exp.order, _orbs)
+					orbs = _orbs(mol, calc, exp, tup)
 					# loop over orbitals
 					for orb in orbs:
 						child_tup += tup.tolist() + [orb]
 				# send availability to master
 				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
-			elif mpi.stat.tag == TAGS.tup_pi:
-				# number of elements in tups
-				n_elms = mpi.stat.Get_elements(MPI.INT)
-				# init tups
-				tups = np.empty([n_elms // (exp.order-1), (exp.order-1)], dtype=np.int32)
-				# receive tuples
-				mpi.comm.Recv([tups, MPI.INT], source=0, tag=TAGS.tup_pi)
-				# loop over tuples
-				for tup in tups:
-					# child tuples wrt order k-2
-					orbs = _orbs_pi(mol, calc, exp, tup, exp.order-1)
-					# deep pruning wrt orders k-3, k-5, etc.
-					orbs = _deep_pruning(mol, calc, exp, tup, orbs, exp.order-1, _orbs_pi)
-					# add degenerate pairs of pi-orbitals
-					for pi_1, pi_2 in orbs.reshape(-1, 2):
-						child_tup += tup.tolist() + [pi_1, pi_2]
-				# send availability to master
-				mpi.comm.isend(None, dest=0, tag=TAGS.ready)
-
 			elif mpi.stat.tag == TAGS.exit:
 				# exit
 				mpi.comm.irecv(None, source=0, tag=TAGS.exit)
@@ -211,113 +139,50 @@ def _slave(mpi, mol, calc, exp):
 		return parallel.screen(mpi, child_tup, exp.order)
 
 
-def _orbs(mol, calc, exp, tup, order):
+def _orbs(mol, calc, exp, tup):
 		""" determine list of child tuple orbitals """
-		# set virtual expansion space
-		exp_space = calc.exp_space['virt'][tup[-1] < calc.exp_space['virt']] 
-		# generate array with all subsets of particular tuple
-		combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
+		# set expansion space
+		if exp.min_order == 1:
+			exp_space = calc.exp_space['tot'][tup[-1] < calc.exp_space['tot']] 
+		elif exp.min_order == 2:
+			exp_space = calc.exp_space['virt'][tup[-1] < calc.exp_space['virt']] 
+		# generate array with all k-1 order subsets of particular tuple
+		combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
 		# prune combinations without a mix of occupied and virtual orbitals
 		combs = np.array([comb for comb in combs if tools.cas_allow(calc.occup, calc.ref_space, comb)], \
 							dtype=np.int32)
-		if calc.extra['pi_pruning']:
-			# prune combinations with invalid sets of pi-orbitals
-			combs = np.array([comb for comb in combs if tools.pi_pruning(calc.orbsym, calc.pi_hashes, comb)], \
-								dtype=np.int32)
-		if combs.size == 0:
-			return np.array([orb for orb in exp_space], dtype=np.int32)
-		else:
-			# init return list
-			lst = []
-			# loop over orbitals of expansion space
-			for orb in exp_space:
-				# add orbital to combinations
-				orb_column = np.empty(combs.shape[0], dtype=np.int32)
-				orb_column[:] = orb
-				combs_orb = np.concatenate((combs, orb_column[:, None]), axis=1)
-				# convert to sorted hashes
-				combs_orb_hash = tools.hash_2d(combs_orb)
-				combs_orb_hash.sort()
-				# get indices
-				idx = tools.hash_compare(exp.hashes[order-exp.min_order], combs_orb_hash)
-				# add orbital to lst
-				if idx is not None:
-					# compute thresholds
-					thres = np.fromiter(map(functools.partial(_thres, \
-										calc.occup, calc.ref_space, calc.thres, \
-										calc.prot['scheme']), combs_orb), \
-										dtype=np.float64, count=idx.size)
-					if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, \
-					exp.min_order, order, thres, idx):
-						lst += [orb]
-			return np.array(lst, dtype=np.int32)
-
-
-def _orbs_pi(mol, calc, exp, tup, order):
-		""" determine list of child tuple pi-orbitals """
 		# init return list
 		lst = []
-		if order == 1:
-			# loop over pairs of degenerate pi-orbitals
-			for pi_orbs in calc.pi_orbs['virt']:
-				if tup[-1] < pi_orbs[0]:
-					lst += pi_orbs.tolist()
-		else:
-			# generate array with all subsets of particular tuple
-			combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
-			# prune combinations without a mix of occupied and virtual orbitals
-			combs = np.array([comb for comb in combs if tools.cas_allow(calc.occup, calc.ref_space, comb)], \
-								dtype=np.int32)
-			# prune combinations with invalid sets of pi-orbitals
-			combs = np.array([comb for comb in combs if tools.pi_pruning(calc.orbsym, calc.pi_hashes, comb)], \
-								dtype=np.int32)
-			if combs.size == 0:
-				# loop over pairs of degenerate pi-orbitals
-				for pi_orbs in calc.pi_orbs['virt']:
-					if tup[-1] < pi_orbs[0]:
-						lst += pi_orbs.tolist()
-			else:
-				# loop over pairs of degenerate pi-orbitals
-				for pi_orbs in calc.pi_orbs['virt']:
-					if tup[-1] < pi_orbs[0]:
-						# add pi-orbitals to combinations
-						orb = np.empty([combs.shape[0], 2], dtype=np.int32)
-						orb[:, 0] = pi_orbs[0]
-						orb[:, 1] = pi_orbs[1]
-						combs_orb = np.concatenate((combs, orb), axis=1)
-						# convert to sorted hashes
-						combs_orb_hash = tools.hash_2d(combs_orb)
-						combs_orb_hash.sort()
-						# get indices
-						idx = tools.hash_compare(exp.hashes[(order+1)-exp.min_order], combs_orb_hash)
-						# add orbitals to lst
-						if idx is not None:
-							# compute thresholds
-							thres = np.fromiter(map(functools.partial(_thres, \
-												calc.occup, calc.ref_space, calc.thres, \
-												calc.prot['scheme']), combs_orb), \
-												dtype=np.float64, count=idx.size)
-							if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, \
-							exp.min_order, order+1, thres, idx):
-								lst += pi_orbs.tolist()
+		# loop over orbitals of expansion space
+		for orb in exp_space:
+			# add orbital to combinations
+			orb_column = np.empty(combs.shape[0], dtype=np.int32)
+			orb_column[:] = orb
+			combs_orb = np.concatenate((combs, orb_column[:, None]), axis=1)
+			# convert to sorted hashes
+			combs_orb_hash = tools.hash_2d(combs_orb)
+			combs_orb_hash.sort()
+			# get indices
+			idx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
+			# add orbital to lst
+			if idx is not None:
+				# compute thresholds
+				thres = np.fromiter(map(functools.partial(_thres, \
+									calc.occup, calc.ref_space, calc.thres, \
+									calc.prot['scheme']), combs_orb), \
+									dtype=np.float64, count=idx.size)
+				if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
+					lst += [orb]
 		return np.array(lst, dtype=np.int32)
 
 
-def _deep_pruning(mol, calc, exp, tup, orbs, order, func):
-		""" deep pruning """
-		# deep pruning wrt to lower orders
-		for k in range(tools.n_pi_orbs(calc.orbsym, tup) // 2):
-			orbs = np.intersect1d(orbs, func(mol, calc, exp, tup, order - (2*k+1)))
-		return orbs
-
-
-def _prot_screen(scheme, target, prop, min_order, order, thres, idx):
+def _prot_screen(scheme, target, prop, thres, idx):
 		""" protocol check """
 		# all tuples have zero correlation
 		if np.sum(thres) == 0.0:
 			return False
 		# extract increments with non-zero thresholds
-		inc = prop[target]['inc'][order-min_order][idx]
+		inc = prop[target]['inc'][-1][idx]
 		inc = inc[np.nonzero(thres)]
 		# screening procedure
 		if target in ['energy', 'excitation']:

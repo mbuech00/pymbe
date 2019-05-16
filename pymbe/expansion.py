@@ -27,10 +27,9 @@ class ExpCls(object):
 				self.prop[calc.target] = {'inc': [], 'tot': []}
 				# set max_order
 				if calc.misc['order'] is not None:
-					self.max_order = min(calc.exp_space['occ'].size + calc.exp_space['virt'].size, \
-											calc.misc['order'])
+					self.max_order = min(calc.exp_space['tot'].size, calc.misc['order'])
 				else:
-					self.max_order = calc.exp_space['occ'].size + calc.exp_space['virt'].size
+					self.max_order = calc.exp_space['tot'].size
 				# init timings, calculation counter, and ndets lists
 				self.count = []
 				self.ndets = []
@@ -43,13 +42,11 @@ def init_tup(mol, calc):
 		""" init tuples and hashes """
 		# tuples
 		if calc.ref_space.size == 0:
-			tuples = np.array([[i, a] for i in calc.exp_space['occ'] for a in calc.exp_space['virt']], dtype=np.int32)
+			tuples = np.array([[i, a] for i in calc.exp_space['occ'] for a in calc.exp_space['virt']], \
+								dtype=np.int32)
 		else:
-			tuples = np.array([[p] for p in np.concatenate((calc.exp_space['occ'], calc.exp_space['virt'])) \
-						if tools.cas_allow(calc.occup, calc.ref_space, p)], dtype=np.int32)
-		if calc.extra['pi_pruning']:
-			tuples = np.array([tup for tup in tuples if tools.pi_pruning(calc.orbsym, calc.pi_hashes, tup)], \
-									dtype=np.int32)
+			tuples = np.array([[p] for p in calc.exp_space['tot'] if tools.cas_allow(calc.occup, calc.ref_space, p)], \
+								dtype=np.int32)
 		# hashes
 		hashes = tools.hash_2d(tuples)
 		# sort wrt hashes

@@ -267,7 +267,9 @@ def ref_mo(mol, calc):
 		ref_space = np.arange(inact_orbs, inact_orbs+act_orbs)
 		exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
 		# divide exp_space into occupied and virtual parts
-		exp_space = {'occ': exp_space[exp_space < mol.nocc], 'virt': exp_space[mol.nocc <= exp_space]}
+		exp_space = {'tot': exp_space}
+		exp_space['occ'] = exp_space['tot'][exp_space['tot'] < mol.nocc]
+		exp_space['virt'] = exp_space['tot'][mol.nocc <= exp_space['tot']]
 		# casci or casscf
 		if calc.ref['method'] == 'casci':
 			if act_orbs > 0:

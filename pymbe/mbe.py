@@ -203,21 +203,16 @@ def _sum(calc, exp, tup):
 			combs = combs[np.fromiter(map(functools.partial(tools.cas_allow, \
 								calc.occup, calc.ref_space), combs), \
 								dtype=bool, count=combs.shape[0])]
-			# pi-orbital pruning
-			if calc.extra['pi_pruning']:
-				combs = np.array([comb for comb in combs if tools.pi_pruning(calc.orbsym, calc.pi_hashes, comb)], \
-									dtype=np.int32)
-			if combs.size > 0:
-				# convert to sorted hashes
-				combs_hash = tools.hash_2d(combs)
-				combs_hash.sort()
-				# get indices
-				idx = tools.hash_compare(exp.hashes[k-exp.min_order], combs_hash)
-				tools.assertion(idx is not None, 'error in recursive increment '
-													'calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
-													format(k, tup, combs))
-				# add up lower-order increments
-				res += tools.fsum(exp.prop[calc.target]['inc'][k-exp.min_order][idx])
+			# convert to sorted hashes
+			combs_hash = tools.hash_2d(combs)
+			combs_hash.sort()
+			# get indices
+			idx = tools.hash_compare(exp.hashes[k-exp.min_order], combs_hash)
+			tools.assertion(idx is not None, 'error in recursive increment '
+												'calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
+												format(k, tup, combs))
+			# add up lower-order increments
+			res += tools.fsum(exp.prop[calc.target]['inc'][k-exp.min_order][idx])
 		return res
 
 

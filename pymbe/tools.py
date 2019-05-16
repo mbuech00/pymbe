@@ -193,52 +193,6 @@ def cas_idx_tril(cas_idx):
 										dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def sigma_orbs(orbsym, tup):
-		""" extract non-degenerate orbitals from tuple of orbitals """
-		return tup[np.where(np.invert(np.in1d(orbsym[tup], DEG_ID)))]
-
-
-def pi_degenerate(mo_energy, pair):
-		""" screen away non-degenerate pairs """
-		return np.abs(mo_energy[pair[1]] - mo_energy[pair[0]]) < 1.0e-04
-
-
-def pi_orbs(mo_energy, orbsym, tup):
-		""" extract degenerate orbitals from tuple of orbitals """
-		tup_pi = tup[np.in1d(orbsym[tup], DEG_ID)]
-		# make all pairs of pi-orbitals
-		pairs = np.array(list(itertools.combinations(tup_pi, 2)))
-		# keep only degenerate pairs
-		return np.array([pair for pair in pairs if pi_degenerate(mo_energy, pair)], dtype=np.int32)
-
-
-def n_pi_orbs(orbsym, tup):
-		""" count number of pi-orbitals in tuple of orbitals """
-		return np.count_nonzero(np.in1d(orbsym[tup], DEG_ID))
-
-
-def pi_pruning(orbsym, ref_hashes, tup):
-		""" pi-orbital pruning """
-		# get indices of all pi-orbitals
-		pi_orbs = tup[np.in1d(orbsym[tup], DEG_ID)]
-		# pruning
-		if pi_orbs.size == 0:
-			return True
-		else:
-			if pi_orbs.size % 2 > 0:
-				# always prune tuples with an odd number of pi-orbs
-				return False
-			else:
-				# get hashes of pairs of pi-orbitals
-				pi_orbs = np.asarray(pi_orbs, dtype=np.int32).reshape(-1, 2)
-				pi_hashes = hash_2d(pi_orbs)
-				pi_hashes.sort()
-				# compare to reference pair hashes
-				idx = hash_compare(ref_hashes, pi_hashes)
-				# if idx is None, non-degenerate pi-orbs are present in tup
-				return idx is not None
-
-
 def mat_idx(site, nx, ny):
 		""" get x and y indices of a matrix """
 		x = site % nx

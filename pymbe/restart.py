@@ -101,6 +101,7 @@ def write_fund(mol, calc):
 				json.dump(transitions, f)
 		# write expansion spaces
 		np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
+		np.save(os.path.join(RST, 'exp_space_tot'), calc.exp_space['tot'])
 		np.save(os.path.join(RST, 'exp_space_occ'), calc.exp_space['occ'])
 		np.save(os.path.join(RST, 'exp_space_virt'), calc.exp_space['virt'])
 		# occupation
@@ -154,7 +155,9 @@ def read_fund(mol, calc):
 			elif 'ref_space' in files[i]:
 				calc.ref_space = np.load(os.path.join(RST, files[i]))
 			elif 'exp_space' in files[i]:
-				if 'occ' in files[i]:
+				if 'tot' in files[i]:
+					calc.exp_space['tot'] = np.load(os.path.join(RST, files[i]))
+				elif 'occ' in files[i]:
 					calc.exp_space['occ'] = np.load(os.path.join(RST, files[i]))
 				elif 'virt' in files[i]:
 					calc.exp_space['virt'] = np.load(os.path.join(RST, files[i]))
