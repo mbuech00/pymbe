@@ -31,7 +31,7 @@ def main(mpi, mol, calc, exp):
 			# start time
 			time = MPI.Wtime()
 			# master function
-			tuples, hashes = _master(mpi, mol, calc, exp)
+			hashes, tuples = _master(mpi, mol, calc, exp)
 			# collect time
 			exp.time['screen'].append(MPI.Wtime() - time)
 			# append tuples and hashes
@@ -57,19 +57,8 @@ def _master(mpi, mol, calc, exp):
 		slaves_avail = min(mpi.size - 1, n_tuples)
 		# tasks
 		tasks = tools.tasks(n_tuples, slaves_avail, calc.mpi['task_size'])
-		# init child_tup list
-		child_tup = []
-		# potential seed of occupied tuples for vacuum reference spaces
-		if exp.min_order > 1 and exp.order <= calc.exp_space['occ'].size:
-			# generate array with all k order subsets of occupied expansion space
-			tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
-									dtype=np.int32)
-			# loop over occupied tuples
-			for tup in tuples_occ:
-				orbs = _orbs(mol, calc, exp, tup)
-				# loop over orbitals
-				for orb in orbs:
-					child_tup += tup.tolist() + [orb]
+		# init child_tup array
+		child_tup = np.array([], dtype=np.int32)
 		# loop until no tasks left
 		for task in tasks:
 			# set tups
@@ -90,9 +79,26 @@ def _master(mpi, mol, calc, exp):
 			mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
 			# remove slave
 			slaves_avail -= 1
-		# allgatherv tuples
-		child_tup = np.array(child_tup, dtype=np.int32)
-		return parallel.screen(mpi, child_tup, exp.order)
+		# allgather number of child tuples
+		recv_counts = parallel.screen_1(mpi, child_tup.size)
+		# potential seed of occupied tuples for vacuum reference spaces
+		if 1 < exp.min_order and np.sum(recv_counts) > 0:
+			# generate array with all k order subsets of occupied expansion space
+			tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
+									dtype=np.int32)
+			# recast child_tup as list
+			child_tup = []
+			# loop over occupied tuples
+			for tup in tuples_occ:
+				# loop over valid orbitals in virtual expansion space
+				for orb in calc.exp_space['virt'][tup[-1] < calc.exp_space['virt']]:
+					child_tup += tup.tolist() + [orb]
+			# recast child_tup as array once again
+			child_tup = np.array(child_tup, dtype=np.int32)
+			# add number of child tuples to recv_counts
+			recv_counts[0] = child_tup.size
+		# allgatherv tuples and hashes
+		return parallel.screen_2(mpi, child_tup, recv_counts, exp.order)
 
 
 def _slave(mpi, mol, calc, exp):
@@ -134,9 +140,12 @@ def _slave(mpi, mol, calc, exp):
 				# exit
 				mpi.comm.irecv(None, source=0, tag=TAGS.exit)
 				break
-		# allgatherv tuples
+		# recast as array
 		child_tup = np.array(child_tup, dtype=np.int32)
-		return parallel.screen(mpi, child_tup, exp.order)
+		# allgather number of child tuples
+		recv_counts = parallel.screen_1(mpi, child_tup.size)
+		# allgatherv hashes
+		return parallel.screen_2(mpi, child_tup, recv_counts, exp.order)[0]
 
 
 def _orbs(mol, calc, exp, tup):

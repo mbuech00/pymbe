@@ -174,16 +174,18 @@ def mbe(mpi, prop):
 		mpi.comm.Allreduce(MPI.IN_PLACE, prop, op=MPI.SUM)
 
 
-def screen(mpi, child_tup, order):
+def screen_1(mpi, n_child_tup):
+		""" allgather number of child tuples """
+		return np.array(mpi.comm.allgather(n_child_tup))
+
+
+def screen_2(mpi, child_tup, recv_counts, order):
 		""" Gatherv tuples and Bcast hashes """
-		# receive counts
-		recv_counts = np.array(mpi.comm.allgather(child_tup.size))
+		# bcast recv_counts
+		mpi.comm.Bcast([recv_counts, MPI.INT], root=0)
 		if np.sum(recv_counts) == 0:
-			if mpi.master:
-				return np.array([], dtype=np.int32).reshape(-1, order+1), \
-						np.array([], dtype=np.int64)
-			else:
-				return np.array([], dtype=np.int64)
+			return np.array([], dtype=np.int64), \
+					np.array([], dtype=np.int32).reshape(-1, order+1)
 		else:
 			# tuples
 			if mpi.master:
@@ -203,12 +205,11 @@ def screen(mpi, child_tup, order):
 				hashes.sort()
 				# bcast hashes
 				mpi.comm.Bcast([hashes, MPI.LONG], root=0)
-				return tuples, hashes
 			else:
 				# init and receive hashes
 				hashes = np.empty(np.sum(recv_counts, dtype=np.int64) // (order+1), dtype=np.int64)
 				mpi.comm.Bcast([hashes, MPI.LONG], root=0)
-				return hashes
+			return hashes, tuples
 
 
 def abort():
