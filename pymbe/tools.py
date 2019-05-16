@@ -208,9 +208,8 @@ def pi_orbs(mo_energy, orbsym, tup):
 		tup_pi = tup[np.in1d(orbsym[tup], DEG_ID)]
 		# make all pairs of pi-orbitals
 		pairs = np.array(list(itertools.combinations(tup_pi, 2)))
-		# keep only degenerate pairs (return as proper np.int32 array type)
-		return np.asarray(pairs[np.fromiter(map(functools.partial(pi_degenerate, mo_energy), pairs), \
-									dtype=bool, count=pairs.shape[0])], dtype=np.int32)
+		# keep only degenerate pairs
+		return np.array([pair for pair in pairs if pi_degenerate(mo_energy, pair)], dtype=np.int32)
 
 
 def n_pi_orbs(orbsym, tup):
