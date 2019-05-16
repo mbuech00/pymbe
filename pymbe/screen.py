@@ -60,28 +60,35 @@ def _master(mpi, mol, calc, exp):
 		# init child_tup list
 		child_tup = []
 		# potential seed of occupied tuples
-		if calc.exp_space['occ'].size > 0 and exp.order <= calc.exp_space['occ'].size:
-			# generate array with all subsets of particular tuple
-			tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
-									dtype=np.int32)
-			if calc.extra['pi_pruning']:
-				# prune combinations with invalid sets of pi-orbitals
-				tuples_occ = np.array([tup for tup in tuples_occ if tools.pi_pruning(calc.orbsym, calc.pi_hashes, tup)], \
+		if calc.exp_space['occ'].size > 0:
+			if exp.order <= calc.exp_space['occ'].size:
+				# generate array with all subsets of particular tuple
+				tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
 										dtype=np.int32)
-			for tup in tuples_occ:
-				orbs = _orbs(mol, calc, exp, tup, exp.order)
-				# loop over orbitals
-				for orb in orbs:
-					child_tup += tup.tolist() + [orb]
-			if calc.extra['pi_pruning'] and exp.min_order < exp.order:
+				if calc.extra['pi_pruning']:
+					# prune combinations with invalid sets of pi-orbitals
+					tuples_occ = np.array([tup for tup in tuples_occ if tools.pi_pruning(calc.orbsym, calc.pi_hashes, tup)], \
+											dtype=np.int32)
+				for tup in tuples_occ:
+					orbs = _orbs(mol, calc, exp, tup, exp.order)
+					# loop over orbitals
+					for orb in orbs:
+						child_tup += tup.tolist() + [orb]
+			if calc.extra['pi_pruning'] and exp.min_order < exp.order <= calc.exp_space['occ'].size + 1:
 				# generate array with all subsets of particular tuple
 				tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
 										dtype=np.int32)
+				if exp.order == 8:
+					print('tuples_occ(1) = {:}'.format(tuples_occ))
 				# prune combinations with invalid sets of pi-orbitals
 				tuples_occ = np.array([tup for tup in tuples_occ if tools.pi_pruning(calc.orbsym, calc.pi_hashes, tup)], \
 										dtype=np.int32)
+				if exp.order == 8:
+					print('tuples_occ(2) = {:}'.format(tuples_occ))
 				for tup in tuples_occ: 
 					for pi_orbs in calc.pi_orbs['virt']:
+						if exp.order == 8:
+							print('tup = {:} , pi_orbs = {:}'.format(tup, pi_orbs))
 						child_tup += tup.tolist() + pi_orbs.tolist()
 		# potential seed of k-1 tuples if pi-pruning is requested
 		if calc.extra['pi_pruning'] and exp.order > exp.min_order:
