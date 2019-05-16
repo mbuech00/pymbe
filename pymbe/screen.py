@@ -178,19 +178,19 @@ def _orbs(mol, calc, exp, tup):
 
 			# get indices of combinations
 			idx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
-			tools.assertion(idx is not None, 'error in screening calculation:\n'
-												'tup:\n{:}\ncombs_orb:\n{:}'. \
-												format(tup, combs_orb))
 
-			# compute thresholds
-			thres = np.fromiter(map(functools.partial(_thres, \
-								calc.occup, calc.ref_space, calc.thres, \
-								calc.prot['scheme']), combs_orb), \
-								dtype=np.float64, count=idx.size)
+			# only continue if child orbital is valid
+			if idx is not None:
 
-			# add orbital to list of child orbitals if allowed
-			if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
-				child_orbs += [orb]
+				# compute thresholds
+				thres = np.fromiter(map(functools.partial(_thres, \
+									calc.occup, calc.ref_space, calc.thres, \
+									calc.prot['scheme']), combs_orb), \
+									dtype=np.float64, count=idx.size)
+	
+				# add orbital to list of child orbitals if allowed
+				if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
+					child_orbs += [orb]
 
 		return np.array(child_orbs, dtype=np.int32)
 
