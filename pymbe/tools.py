@@ -160,7 +160,7 @@ def cas(ref_space, tup):
 		return np.sort(np.append(ref_space, tup))
 
 
-def cas_allow(occup, ref_space, tup):
+def cas_corr(occup, ref_space, tup):
 		""" check for presence of both occupied and virtual orbitals in cas space """
 		return np.any(occup[cas(ref_space, tup)] > 0.0) and np.any(occup[cas(ref_space, tup)] == 0.0)
 
