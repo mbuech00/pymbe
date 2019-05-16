@@ -172,11 +172,6 @@ def _orbs(mol, calc, exp, tup):
 			orb_column[:] = orb
 			combs_orb = np.concatenate((combs, orb_column[:, None]), axis=1)
 
-			# prune combinations that do not corrspond to a correlated cas spaces
-			combs_orb = combs_orb[np.fromiter(map(functools.partial(tools.cas_corr, \
-												calc.occup, calc.ref_space), combs_orb), \
-												dtype=bool, count=combs_orb.shape[0])]
-
 			# convert to sorted hashes
 			combs_orb_hash = tools.hash_2d(combs_orb)
 			combs_orb_hash.sort()
