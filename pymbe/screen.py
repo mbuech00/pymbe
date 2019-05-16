@@ -146,34 +146,41 @@ def _orbs(mol, calc, exp, tup):
 			exp_space = calc.exp_space['tot'][tup[-1] < calc.exp_space['tot']] 
 		elif exp.min_order == 2:
 			exp_space = calc.exp_space['virt'][tup[-1] < calc.exp_space['virt']] 
+		# at min_order, spawn all possible child tuples
+		if exp.order == exp.min_order:
+			return np.array([orb for orb in exp_space], dtype=np.int32)
 		# generate array with all k-1 order subsets of particular tuple
 		combs = np.array([comb for comb in itertools.combinations(tup, exp.order-1)], dtype=np.int32)
-		# prune combinations without a mix of occupied and virtual orbitals
+		# prune combinations that will not result in cas spaces
+		# with a mix of occupied and virtual orbitals
 		combs = np.array([comb for comb in combs if tools.cas_allow(calc.occup, calc.ref_space, comb)], \
 							dtype=np.int32)
-		# init return list
-		lst = []
-		# loop over orbitals of expansion space
-		for orb in exp_space:
-			# add orbital to combinations
-			orb_column = np.empty(combs.shape[0], dtype=np.int32)
-			orb_column[:] = orb
-			combs_orb = np.concatenate((combs, orb_column[:, None]), axis=1)
-			# convert to sorted hashes
-			combs_orb_hash = tools.hash_2d(combs_orb)
-			combs_orb_hash.sort()
-			# get indices
-			idx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
-			# add orbital to lst
-			if idx is not None:
-				# compute thresholds
-				thres = np.fromiter(map(functools.partial(_thres, \
-									calc.occup, calc.ref_space, calc.thres, \
-									calc.prot['scheme']), combs_orb), \
-									dtype=np.float64, count=idx.size)
-				if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
-					lst += [orb]
-		return np.array(lst, dtype=np.int32)
+		if combs.size == 0:
+			return np.array([orb for orb in exp_space], dtype=np.int32)
+		else:
+			# init return list
+			lst = []
+			# loop over orbitals of expansion space
+			for orb in exp_space:
+				# add orbital to combinations
+				orb_column = np.empty(combs.shape[0], dtype=np.int32)
+				orb_column[:] = orb
+				combs_orb = np.concatenate((combs, orb_column[:, None]), axis=1)
+				# convert to sorted hashes
+				combs_orb_hash = tools.hash_2d(combs_orb)
+				combs_orb_hash.sort()
+				# get indices
+				idx = tools.hash_compare(exp.hashes[-1], combs_orb_hash)
+				# add orbital to lst
+				if idx is not None:
+					# compute thresholds
+					thres = np.fromiter(map(functools.partial(_thres, \
+										calc.occup, calc.ref_space, calc.thres, \
+										calc.prot['scheme']), combs_orb), \
+										dtype=np.float64, count=idx.size)
+					if not _prot_screen(calc.prot['scheme'], calc.target, exp.prop, thres, idx):
+						lst += [orb]
+			return np.array(lst, dtype=np.int32)
 
 
 def _prot_screen(scheme, target, prop, thres, idx):

@@ -199,20 +199,21 @@ def _sum(calc, exp, tup):
 		for k in range(exp.order-1, exp.min_order-1, -1):
 			# generate array with all subsets of particular tuple
 			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-			# prune combinations without a mix of occupied and virtual orbitals
-			combs = combs[np.fromiter(map(functools.partial(tools.cas_allow, \
-								calc.occup, calc.ref_space), combs), \
-								dtype=bool, count=combs.shape[0])]
-			# convert to sorted hashes
-			combs_hash = tools.hash_2d(combs)
-			combs_hash.sort()
-			# get indices
-			idx = tools.hash_compare(exp.hashes[k-exp.min_order], combs_hash)
-			tools.assertion(idx is not None, 'error in recursive increment '
-												'calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
-												format(k, tup, combs))
-			# add up lower-order increments
-			res += tools.fsum(exp.prop[calc.target]['inc'][k-exp.min_order][idx])
+			# prune combinations that will not result in cas spaces
+			# with a mix of occupied and virtual orbitals
+			combs = np.array([comb for comb in combs if tools.cas_allow(calc.occup, calc.ref_space, comb)], \
+								dtype=np.int32)
+			if combs.size > 0:
+				# convert to sorted hashes
+				combs_hash = tools.hash_2d(combs)
+				combs_hash.sort()
+				# get indices
+				idx = tools.hash_compare(exp.hashes[k-exp.min_order], combs_hash)
+				tools.assertion(idx is not None, 'error in recursive increment '
+													'calculation\nk = {:}\ntup:\n{:}\ncombs:\n{:}'. \
+													format(k, tup, combs))
+				# add up lower-order increments
+				res += tools.fsum(exp.prop[calc.target]['inc'][k-exp.min_order][idx])
 		return res
 
 
