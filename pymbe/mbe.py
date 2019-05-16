@@ -71,7 +71,7 @@ def _master(mpi, mol, calc, exp):
 		req_h2e = MPI.Request()
 		# rank tuples wrt number of determinants (from most electrons to fewest electrons)
 		ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup), \
-														exp.tuples[-1]), dtype=np.float64, count=n_tuples)
+								exp.tuples[-1]), dtype=np.float64, count=n_tuples)
 		exp.tuples[-1] = exp.tuples[-1][np.argsort(ndets)[::-1]]
 		# loop until no tasks left
 		for tup in exp.tuples[-1]:
