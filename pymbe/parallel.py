@@ -176,6 +176,7 @@ def exp(mpi, calc, exp):
 def bcast(mpi, buff):
 		"""
 		this function performs a tiled Bcast operation
+		inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
 		:param mpi: pymbe mpi object
 		:param buff: buffer. numpy array of any kind of shape and dtype (may not be allocated on slave procs)
@@ -194,6 +195,7 @@ def bcast(mpi, buff):
 def allreduce(mpi, send_buff):
 		"""
 		this function performs a tiled Allreduce operation
+		inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
 		:param mpi: pymbe mpi object
 		:param send_buff: send buffer. numpy array of any kind of shape and dtype
@@ -230,6 +232,7 @@ def recv_counts(mpi, n_elms):
 def gatherv(mpi, send_buff):
 		"""
 		this function performs a tiled gatherv operation
+		inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
 		:param mpi: pymbe mpi object
 		:param send_buff: send buffer. numpy array of any kind of shape and dtype
@@ -272,6 +275,7 @@ def gatherv(mpi, send_buff):
 def _tile_counts(counts, p0, p1):
 		"""
 		this function counts the individual tiles
+		inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
 		:param counts: main counts. numpy array of shape (n_procs,)
 		:param p0: start index. integer
