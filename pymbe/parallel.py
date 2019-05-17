@@ -12,10 +12,14 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-from pyscf import symm
+from pyscf import symm, lib
 
 import tools
 import restart
+
+
+INT_MAX = 2147483647
+BLKSIZE = INT_MAX // 32 + 1
 
 
 class MPICls(object):
@@ -169,59 +173,138 @@ def exp(mpi, calc, exp):
 						exp.prop[calc.target]['inc'].append(buff)
 
 
-def mbe(mpi, prop):
-		""" Allreduce property """
-		mpi.comm.Allreduce(MPI.IN_PLACE, prop, op=MPI.SUM)
+def bcast(mpi, buff):
+		"""
+		this function performs a tiled Bcast operation
+
+		:param mpi: pymbe mpi object
+		:param buff: buffer. numpy array of any kind of shape and dtype (may not be allocated on slave procs)
+		:return: numpy array of same shape and dtype as master buffer
+		"""
+		# init buff_tile
+		buff_tile = np.ndarray(buff.size, dtype=buff.dtype, buffer=buff)
+
+		# bcast all tiles
+		for p0, p1 in lib.prange(0, buff.size, BLKSIZE):
+			mpi.comm.Bcast(buff_tile[p0:p1], root=0)
+
+		return buff
 
 
-def screen_1(mpi, n_child_tup):
-		""" allgather number of child tuples """
-		return np.array(mpi.comm.allgather(n_child_tup))
+def allreduce(mpi, send_buff):
+		"""
+		this function performs a tiled Allreduce operation
+
+		:param mpi: pymbe mpi object
+		:param send_buff: send buffer. numpy array of any kind of shape and dtype
+		:return: numpy array of same shape and dtype as send_buff
+		"""
+		# bcast shape and dtype of send_buff to slaves
+		shape, mpi_dtype = mpi.comm.bcast((send_buff.shape, send_buff.dtype.char))
+
+		# init recv_buff		
+		recv_buff = np.zeros_like(send_buff)
+
+		# init send_tile and recv_tile
+		send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
+		recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
+
+		# allreduce all tiles
+		for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
+			mpi.comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM)
+
+		return recv_buff
 
 
-def screen_2(mpi, child_tup, recv_counts, order):
-		""" Gatherv tuples and Bcast hashes """
-		# bcast recv_counts
-		mpi.comm.Bcast([recv_counts, MPI.INT], root=0)
-		if np.sum(recv_counts) == 0:
-			return np.array([], dtype=np.int64), \
-					np.array([], dtype=np.int32).reshape(-1, order+1)
+def recv_counts(mpi, n_elms):
+		"""
+		this function performs an allgather operation to return an array with n_elms from all procs
+
+		:param mpi: pymbe mpi object
+		:param n_elms: number of elements. integer
+		:return: numpy array of shape (n_procs,)
+		"""
+		return np.array(mpi.comm.allgather(n_elms))
+
+
+def gatherv(mpi, send_buff):
+		"""
+		this function performs a tiled gatherv operation
+
+		:param mpi: pymbe mpi object
+		:param send_buff: send buffer. numpy array of any kind of shape and dtype
+		:return: numpy array of shape (n_child_tuples * (order+1),)
+		"""
+		# allgather shape and dtype of send_buff from slaves
+		shape = send_buff.shape
+		size_dtype = mpi.comm.allgather((shape, send_buff.dtype.char))
+		rshape = [x[0] for x in size_dtype]
+		mpi_dtype = np.result_type(*[x[1] for x in size_dtype]).char
+
+		# compute counts
+		counts = np.array([np.prod(x) for x in rshape])
+
+		if mpi.master:
+
+			# compute displacements
+			displs = np.append(0, np.cumsum(counts[:-1]))
+
+			# init recv_buff
+			recv_buff = np.empty(sum(counts), dtype=mpi_dtype)
+
+			# gatherv all tiles
+			for p0, p1 in lib.prange(0, np.max(counts), BLKSIZE):
+				counts_tile = _tile_counts(counts, p0, p1)
+				mpi.comm.Gatherv([send_buff[p0:p1], mpi_dtype], \
+									[recv_buff, counts_tile, displs+p0, mpi_dtype], root=0)
+
+			return recv_buff#.reshape((-1,) + shape[1:])
+
 		else:
-			# tuples
-			if mpi.master:
-				tuples = np.empty(np.sum(recv_counts), dtype=np.int32)
-			else:
-				tuples = None
-			mpi.comm.Gatherv([child_tup, MPI.INT], [tuples, recv_counts, MPI.INT], root=0)
-			# hashes
-			if mpi.master:
-				# reshape tuples
-				tuples = tuples.reshape(-1, order+1)
-				# compute hashes
-				hashes = tools.hash_2d(tuples)
-				# sort tuples wrt hashes
-				tuples = tuples[hashes.argsort()]
-				# sort hashes
-				hashes.sort()
-				# bcast hashes
-				mpi.comm.Bcast([hashes, MPI.LONG], root=0)
-			else:
-				# init and receive hashes
-				hashes = np.empty(np.sum(recv_counts, dtype=np.int64) // (order+1), dtype=np.int64)
-				mpi.comm.Bcast([hashes, MPI.LONG], root=0)
-			return hashes, tuples
+
+			# gatherv all tiles
+			for p0, p1 in lib.prange(0, np.max(counts), BLKSIZE):
+				mpi.comm.Gatherv([send_buff[p0:p1], mpi_dtype], None, root=0)
+
+			return send_buff
+
+
+def _tile_counts(counts, p0, p1):
+		"""
+		this function counts the individual tiles
+
+		:param counts: main counts. numpy array of shape (n_procs,)
+		:param p0: start index. integer
+		:param p1: end index. integer
+		:return: tile counter. numpy array of shape (n_procs,)
+		"""
+		# compute counts_tile
+		counts_tile = counts - p0
+		counts_tile[counts <= p0] = 0
+		counts_tile[counts > p1] = p1 - p0
+
+		return counts_tile
 
 
 def abort():
-		""" abort calculation """
+		"""
+		this function aborts mpi in case of a pymbe error
+		"""
 		MPI.COMM_WORLD.Abort()
 
 
-def final(mpi):
-		""" terminate calculation """
+def finalize(mpi):
+		"""
+		this function terminates a successful pymbe calculation
+
+		:param mpi: pymbe mpi object
+		"""
+		# wake up slaves
 		if mpi.master:
 			restart.rm()
 			mpi.comm.bcast({'task': 'exit'}, root=0)
+
+		# finalize
 		mpi.comm.Barrier()
 		MPI.Finalize()
 

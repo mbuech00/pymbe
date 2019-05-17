@@ -60,7 +60,7 @@ def main():
 			# print/plot results
 			results.main(mpi, mol, calc, exp)
 			# finalize
-			parallel.final(mpi)
+			parallel.finalize(mpi)
 
 
 def _init():

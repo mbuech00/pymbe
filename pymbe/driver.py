@@ -106,6 +106,6 @@ def slave(mpi, mol, calc, exp):
 			elif msg['task'] == 'exit':
 				slave = False
 		# finalize
-		parallel.final(mpi)
+		parallel.finalize(mpi)
 	
 

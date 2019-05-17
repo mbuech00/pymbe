@@ -29,7 +29,7 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 		"""
 		this master function returns two arrays of (i) child tuple hashes and (ii) the actual child tuples
 
-		:param mpi: instance of the pymbe mpi class
+		:param mpi: pymbe mpi object
 		:param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
 		:param min_order: minimum (start) order. integer
 		:param order: current order. integer
@@ -37,7 +37,6 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 		:param tuples: current order tuples. numpy array of shape (n_tuples, order)
 		:return: two numpy arrays of shapes (n_child_tup,) [hashes] and (n_child_tuples, order+1) [tuples]
 		"""
-
 		# wake up slaves
 		msg = {'task': 'screen', 'order': order}
 		mpi.comm.bcast(msg, root=0)
@@ -84,7 +83,7 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 			slaves_avail -= 1
 
 		# allgather number of child tuples
-		recv_counts = parallel.screen_1(mpi, child_tup.size)
+		recv_counts = parallel.recv_counts(mpi, child_tup.size)
 
 		# potential seed of occupied tuples for vacuum reference spaces
 		if 1 < min_order and np.sum(recv_counts) > 0:
@@ -112,15 +111,40 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 			# add number of child tuples to recv_counts
 			recv_counts[0] = child_tup.size
 
-		# allgatherv tuples and hashes
-		return parallel.screen_2(mpi, child_tup, recv_counts, order)
+		# bcast possibly updated recv_counts
+		recv_counts = parallel.bcast(mpi, recv_counts)
+
+		# no child tuples - expansion is converged
+		if np.sum(recv_counts) == 0:
+			return np.array([], dtype=np.int64), \
+					np.array([], dtype=np.int32).reshape(-1, order+1)
+
+		# gatherv all child tuples
+		tuples_new = parallel.gatherv(mpi, child_tup)
+
+		# reshape tuples
+		tuples_new = tuples_new.reshape(-1, order+1)
+
+		# compute hashes
+		hashes_new = tools.hash_2d(tuples_new)
+
+		# sort tuples wrt hashes
+		tuples_new = tuples_new[hashes_new.argsort()]
+
+		# sort hashes
+		hashes_new.sort()
+
+		# bcast hashes
+		hashes_new = parallel.bcast(mpi, hashes_new)
+
+		return hashes_new, tuples_new
 
 
 def slave(mpi, occup, scheme, thres, ref_space, exp_space, min_order, order, hashes, prop):
 		"""
 		this slave function returns an array of child tuple hashes
 
-		:param mpi: instance of the pymbe mpi class
+		:param mpi: pymbe mpi object
 		:param occup: orbital occupation. numpy array of shape (n_orbs,)
 		:param scheme: protocol scheme. integer
 		:param thres: threshold settings. dict 
@@ -132,7 +156,6 @@ def slave(mpi, occup, scheme, thres, ref_space, exp_space, min_order, order, has
 		:param prop: current order property increments. numpy array of shape (n_tuples,)
 		:return: numpy array of shape (n_child_tup,)
 		"""
-
 		# number of tasks
 		n_tasks = hashes.size
 		# number of needed slaves
@@ -194,10 +217,23 @@ def slave(mpi, occup, scheme, thres, ref_space, exp_space, min_order, order, has
 		child_tup = np.array(child_tup, dtype=np.int32)
 
 		# allgather number of child tuples
-		recv_counts = parallel.screen_1(mpi, child_tup.size)
+		recv_counts = parallel.recv_counts(mpi, child_tup.size)
 
-		# allgatherv hashes
-		return parallel.screen_2(mpi, child_tup, recv_counts, order)[0]
+		# receive possibly updated recv_counts
+		recv_counts = parallel.bcast(mpi, recv_counts)
+
+		# no child tuples - expansion is converged
+		if np.sum(recv_counts) == 0:
+			return np.array([], dtype=np.int64)
+
+		# gatherv all child tuples
+		child_tup = parallel.gatherv(mpi, child_tup)
+
+		# init new hashes
+		hashes_new = np.empty(np.sum(recv_counts) // (order+1), dtype=np.int64)
+
+		# receive new hashes
+		return parallel.bcast(mpi, hashes_new)
 
 
 def _orbs(occup, scheme, thres, ref_space, exp_space, min_order, order, hashes, prop, tup):
@@ -216,7 +252,6 @@ def _orbs(occup, scheme, thres, ref_space, exp_space, min_order, order, hashes, 
 		:param tup: current orbital tuple. numpy array of shape (order,)
 		:return: numpy array of shape (n_child_orbs,)
 		"""
-
 		# set expansion space
 		if min_order == 1:
 			exp_space = exp_space['tot'][tup[-1] < exp_space['tot']] 
@@ -278,7 +313,6 @@ def _prot_screen(scheme, thres, prop):
 		:param prop: property increments corresponding to given tuple of orbitals. numpy array of shape (n_inc,)
 		:return: bool
 		"""
-
 		# extract increments with non-zero thresholds
 		inc = prop[np.nonzero(thres)]
 
@@ -315,7 +349,6 @@ def _prot_scheme(scheme, thres, prop):
 		:param prop: property increments corresponding to given tuple of orbitals. numpy array of shape (n_inc,)
 		:return: bool
 		"""
-
 		if scheme == 1:
 			# are *any* increments below their given threshold
 			return np.any(np.abs(prop) < thres)
@@ -335,7 +368,6 @@ def _thres(occup, thres, ref_space, scheme, tup):
 		:param tup: current orbital tuple. numpy array of shape (order,)
 		:return: scalar
 		"""
-
 		# determine involved dimensions
 		nocc = np.count_nonzero(occup[ref_space] > 0.0)
 		nocc += np.count_nonzero(occup[tup] > 0.0)

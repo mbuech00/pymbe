@@ -105,12 +105,12 @@ def _master(mpi, mol, calc, exp):
 			slaves_avail -= 1
 		# wait for all data communication to be finished
 		MPI.Request.Waitall([req_tup, req_h2e])
+		# revert back to sorting of tuples wrt hashes
+		exp.tuples[-1] = exp.tuples[-1][np.argsort(np.argsort(ndets)[::-1])]
 		# init increments
 		inc = _init_inc(n_tuples, calc.target)
 		# allreduce increments
-		parallel.mbe(mpi, inc)
-		# revert back to sorting of tuples wrt hashes
-		exp.tuples[-1] = exp.tuples[-1][np.argsort(np.argsort(ndets)[::-1])]
+		inc = parallel.allreduce(mpi, inc)
 		return ndets, inc
 
 
@@ -160,8 +160,7 @@ def _slave(mpi, mol, calc, exp):
 				mpi.comm.irecv(None, source=0, tag=TAGS.exit)
 				break
 		# allreduce increments
-		parallel.mbe(mpi, inc)
-		return inc
+		return parallel.allreduce(mpi, inc)
 
 
 def _inc(mol, calc, exp, tup, e_core, h1e_cas, h2e_cas, core_idx, cas_idx):
