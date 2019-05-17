@@ -3,11 +3,11 @@
 
 """ kernel.py: kernel module """
 
-__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__license__ = '???'
-__version__ = '0.20'
+__author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
+__license__ = 'MIT'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
-__email__ = 'jeriksen@uni-mainz.de'
+__email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import sys

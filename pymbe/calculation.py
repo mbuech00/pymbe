@@ -3,11 +3,11 @@
 
 """ calculation.py: calculation class """
 
-__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__license__ = '???'
-__version__ = '0.20'
+__author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
+__license__ = 'MIT'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
-__email__ = 'jeriksen@uni-mainz.de'
+__email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import re
@@ -42,7 +42,7 @@ class CalcCls(object):
 				self.thres = {'init': 1.0e-10, 'relax': 1.0}
 				self.misc = {'order': None}
 				self.orbs = {'type': 'can'}
-				self.mpi = {'masters': 1, 'task_size': 5}
+				self.mpi = {'task_size': 5}
 				# init mo
 				self.mo = None
 				# set calculation parameters
@@ -57,6 +57,8 @@ class CalcCls(object):
 					self.target = [x for x in self.target.keys() if self.target[x]][0]
 					# restart logical
 					self.restart = restart.restart()
+					# put calc.mpi info into mpi object
+					mpi.task_size = self.mpi['task_size']
 				# init prop dict
 				self.prop = {'hf': {}, 'base': {}, 'ref': {}}
 
@@ -231,8 +233,6 @@ class CalcCls(object):
 				# mpi parameters
 				tools.assertion(all(isinstance(i, int) for i in self.mpi.values()), \
 								'values in mpi input (mpi) must be ints')
-				tools.assertion(self.mpi['masters'] == 1, \
-								'number of mpi masters (masters) must be 1 (at the current moment)')
 				tools.assertion(self.mpi['task_size'] >= 1, \
 								'mpi task size (task_size) must be an int >= 1')
 

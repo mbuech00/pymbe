@@ -3,11 +3,11 @@
 
 """ driver.py: driver module """
 
-__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__license__ = '???'
-__version__ = '0.20'
+__author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
+__license__ = 'MIT'
+__version__ = '0.6'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
-__email__ = 'jeriksen@uni-mainz.de'
+__email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import sys
@@ -42,15 +42,24 @@ def master(mpi, mol, calc, exp):
 				# write restart files
 				restart.mbe_write(calc, exp)
 			# print mbe end
-			print(output.mbe_end(exp.count[-1], \
-									calc.ref_space.size + exp.tuples[-1].shape[1], \
+			print(output.mbe_end(exp.count[-1], calc.ref_space.size + exp.tuples[-1].shape[1], \
 									exp.time['mbe'][-1], exp.order))
 			# print mbe results
 			print(output.mbe_results(mol, calc, exp))
 			#** screening phase **#
 			if exp.order < exp.max_order:
+				# print header
+				print(output.screen_header(exp.order))
+				# start time
+				time = MPI.Wtime()
 				# perform screening
-				screen.main(mpi, mol, calc, exp)
+				hashes, tuples = screen.master(mpi, calc.exp_space, exp.min_order, exp.order, \
+												exp.hashes[-1], exp.tuples[-1])
+				# append tuples and hashes
+				exp.tuples.append(tuples)
+				exp.hashes.append(hashes)
+				# collect time
+				exp.time['screen'].append(MPI.Wtime() - time)
 				# write restart files
 				if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
 			else:
@@ -85,8 +94,14 @@ def slave(mpi, mol, calc, exp):
 				mbe.main(mpi, mol, calc, exp)
 			#** screening phase **#
 			elif msg['task'] == 'screen':
+				# receive order
 				exp.order = msg['order']
-				screen.main(mpi, mol, calc, exp)
+				# perform screening
+				hashes = screen.slave(mpi, calc.occup, calc.prot['scheme'], calc.thres, \
+										calc.ref_space, calc.exp_space, exp.min_order, exp.order, \
+										exp.hashes[-1], exp.prop[calc.target]['inc'][-1])
+				# append hashes
+				exp.hashes.append(hashes)
 			#** exit **#
 			elif msg['task'] == 'exit':
 				slave = False
