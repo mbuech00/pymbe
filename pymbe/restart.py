@@ -47,27 +47,27 @@ def main(calc, exp):
 			# loop over files
 			for i in range(len(files)):
 				# read tuples
-				if 'tup' in files[i]:
+				if 'mbe_tup' in files[i]:
 					exp.tuples.append(np.load(os.path.join(RST, files[i])))
 				# read hashes
-				elif 'hash' in files[i]:
+				elif 'mbe_hash' in files[i]:
 					exp.hashes.append(np.load(os.path.join(RST, files[i])))
 				# read increments
-				elif 'inc' in files[i]:
+				elif 'mbe_inc' in files[i]:
 					exp.prop[calc.target]['inc'].append(np.load(os.path.join(RST, files[i])))
 				# read total properties
-				elif 'tot' in files[i]:
+				elif 'mbe_tot' in files[i]:
 					exp.prop[calc.target]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 				# read counter
-				elif 'counter' in files[i]:
+				elif 'mbe_counter' in files[i]:
 					exp.count.append(np.load(os.path.join(RST, files[i])).tolist())
 				# read ndets
-				elif 'ndets' in files[i]:
+				elif 'mbe_ndets' in files[i]:
 					exp.ndets.append(np.load(os.path.join(RST, files[i])))
 				# read timings
-				elif 'time_mbe' in files[i]:
+				elif 'mbe_time_mbe' in files[i]:
 					exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
-				elif 'time_screen' in files[i]:
+				elif 'mbe_time_screen' in files[i]:
 					exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
 		return exp.tuples[-1].shape[1]
 
@@ -154,13 +154,12 @@ def read_fund(mol, calc):
 			# read expansion spaces
 			elif 'ref_space' in files[i]:
 				calc.ref_space = np.load(os.path.join(RST, files[i]))
-			elif 'exp_space' in files[i]:
-				if 'tot' in files[i]:
-					calc.exp_space['tot'] = np.load(os.path.join(RST, files[i]))
-				elif 'occ' in files[i]:
-					calc.exp_space['occ'] = np.load(os.path.join(RST, files[i]))
-				elif 'virt' in files[i]:
-					calc.exp_space['virt'] = np.load(os.path.join(RST, files[i]))
+			elif 'exp_space_tot' in files[i]:
+				calc.exp_space['tot'] = np.load(os.path.join(RST, files[i]))
+			elif 'exp_space_occ' in files[i]:
+				calc.exp_space['occ'] = np.load(os.path.join(RST, files[i]))
+			elif 'exp_space_virt' in files[i]:
+				calc.exp_space['virt'] = np.load(os.path.join(RST, files[i]))
 			# read occupation
 			elif 'occup' in files[i]:
 				calc.occup = np.load(os.path.join(RST, files[i]))
@@ -180,25 +179,25 @@ def mbe_write(calc, exp):
 		""" write mbe restart files """
 		# write incremental and total quantities
 		# increments
-		np.save(os.path.join(RST, 'inc_{:}'.format(exp.order)), exp.prop[calc.target]['inc'][-1])
+		np.save(os.path.join(RST, 'mbe_inc_{:}'.format(exp.order)), exp.prop[calc.target]['inc'][-1])
 		# total properties
-		np.save(os.path.join(RST, 'tot_{:}'.format(exp.order)), exp.prop[calc.target]['tot'][-1])
+		np.save(os.path.join(RST, 'mbe_tot_{:}'.format(exp.order)), exp.prop[calc.target]['tot'][-1])
 		# write counter
-		np.save(os.path.join(RST, 'counter_'+str(exp.order)), np.asarray(exp.count[-1]))
+		np.save(os.path.join(RST, 'mbe_counter_'+str(exp.order)), np.asarray(exp.count[-1]))
 		# write ndets
-		np.save(os.path.join(RST, 'ndets_'+str(exp.order)), exp.ndets[-1])
+		np.save(os.path.join(RST, 'mbe_ndets_'+str(exp.order)), exp.ndets[-1])
 		# write time
-		np.save(os.path.join(RST, 'time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
+		np.save(os.path.join(RST, 'mbe_time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
 
 
 def screen_write(exp):
 		""" write screening restart files """
 		# write tuples
-		np.save(os.path.join(RST, 'tup_'+str(exp.order+1)), exp.tuples[-1])
+		np.save(os.path.join(RST, 'mbe_tup_'+str(exp.order+1)), exp.tuples[-1])
 		# write hashes
-		np.save(os.path.join(RST, 'hash_'+str(exp.order+1)), exp.hashes[-1])
+		np.save(os.path.join(RST, 'mbe_hash_'+str(exp.order+1)), exp.hashes[-1])
 		# write time
-		np.save(os.path.join(RST, 'time_screen_'+str(exp.order)), np.asarray(exp.time['screen'][-1]))
+		np.save(os.path.join(RST, 'mbe_time_screen_'+str(exp.order)), np.asarray(exp.time['screen'][-1]))
 
 
 def _natural_keys(txt):

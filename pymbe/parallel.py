@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" parallel.py: mpi class """
+"""
+parallel module containing all mpi operations in pymbe
+"""
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
@@ -18,14 +20,19 @@ import tools
 import restart
 
 
+# parameters for tiled mpi operations
 INT_MAX = 2147483647
 BLKSIZE = INT_MAX // 32 + 1
 
 
 class MPICls(object):
-		""" mpi parameters """
+		"""
+		this class contains the pymbe mpi parameters
+		"""
 		def __init__(self):
-				""" init parameters """
+				"""
+				init parameters
+				"""
 				self.comm = MPI.COMM_WORLD
 				self.size = self.comm.Get_size()
 				self.rank = self.comm.Get_rank()
@@ -36,141 +43,219 @@ class MPICls(object):
 
 
 def mol(mpi, mol):
-		""" bcast mol info """
+		"""
+		this function bcast all standard mol info to slaves
+
+		:param mpi: pymbe mpi object
+		:param mol: pymbe mol object
+		:return: updated mol object
+		"""
 		if mpi.master:
+
+			# collect standard info (must be updated with new future attributes)
 			info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
 					'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
 					'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
+
+			# add hubbard info if relevant (also needs to be updated with new future attributes)
 			if not mol.atom:
+
 				info['u'] = mol.u
 				info['n'] = mol.n
 				info['matrix'] = mol.matrix
 				info['nsites'] = mol.nsites
 				info['pbc'] = mol.pbc
 				info['nelec'] = mol.nelectron
+
+			# bcast to slaves
 			mpi.comm.bcast(info, root=0)
+
 		else:
+
+			# receive info from master
 			info = mpi.comm.bcast(None, root=0)
-			mol.atom = info['atom']; mol.charge = info['charge']; mol.spin = info['spin']
-			mol.symmetry = info['symmetry']; mol.irrep_nelec = info['irrep_nelec']
-			mol.basis = info['basis']; mol.cart = info['cart']
-			mol.unit = info['unit']; mol.frozen = info['frozen']
-			mol.debug = info['debug']
-			if not mol.atom:
-				mol.u = info['u']; mol.n = info['n']
-				mol.matrix = info['matrix']; mol.nsites = info['nsites'] 
-				mol.pbc = info['pbc']; mol.nelectron = info['nelec']
+
+			# set mol attributes from info dict
+			for key, val in info.items():
+				setattr(mol, key, val)
+
+		return mol
 
 
 def calc(mpi, calc):
-		""" bcast calc info """
+		"""
+		this function bcast all standard calc info to slaves
+
+		:param mpi: pymbe mpi object
+		:param calc: pymbe calc object
+		:return: updated calc object
+		"""
 		if mpi.master:
-			info = {'model': calc.model, 'target': calc.target, \
-					'base': calc.base, \
-					'thres': calc.thres, 'prot': calc.prot, \
-					'state': calc.state, 'extra': calc.extra, \
-					'misc': calc.misc, 'mpi': calc.mpi, \
+
+			# collect standard info (must be updated with new future attributes)
+			info = {'model': calc.model, 'target': calc.target, 'base': calc.base, \
+					'thres': calc.thres, 'prot': calc.prot, 'state': calc.state, \
+					'extra': calc.extra, 'misc': calc.misc, 'mpi': calc.mpi, \
 					'orbs': calc.orbs, 'restart': calc.restart}
+
+			# bcast to slaves
 			mpi.comm.bcast(info, root=0)
+
 		else:
+
+			# receive info from master
 			info = mpi.comm.bcast(None, root=0)
-			calc.model = info['model']; calc.target = info['target']
-			calc.base = info['base']
-			calc.thres = info['thres']; calc.prot = info['prot']
-			calc.state = info['state']; calc.extra = info['extra']
-			calc.misc = info['misc']; calc.mpi = info['mpi']
-			calc.orbs = info['orbs']; calc.restart = info['restart']
+
+			# set calc attributes from info dict
+			for key, val in info.items():
+				setattr(calc, key, val)
+
+		return calc
 
 
 def fund(mpi, mol, calc):
-		""" bcast fundamental info """
+		"""
+		this function bcast all fundamental mol and calc info to slaves
+
+		:param mpi: pymbe mpi object
+		:param mol: pymbe mol object
+		:param calc: pymbe calc object
+		:return: updated mol and calc objects
+		"""
 		if mpi.master:
-			info = {'prop': calc.prop, \
-						'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, \
-						'ref_space': calc.ref_space, 'exp_space': calc.exp_space, \
-						'occup': calc.occup, 'mo_energy': calc.mo_energy, 'e_nuc': mol.e_nuc}
+
+			# collect standard info (must be updated with new future attributes)
+			info = {'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, 'e_nuc': mol.e_nuc}
+
+			# bcast to slaves
 			mpi.comm.bcast(info, root=0)
+
+			# collect standard info (must be updated with new future attributes)
+			info = {'prop': calc.prop, 'occup': calc.occup, 'mo_energy': calc.mo_energy, \
+					'ref_space': calc.ref_space, 'exp_space': calc.exp_space}
+
+			# bcast to slaves
+			mpi.comm.bcast(info, root=0)
+
 			# bcast mo coefficients
-			mpi.comm.Bcast([calc.mo_coeff, MPI.DOUBLE], root=0)
+			calc.mo_coeff = bcast(mpi, calc.mo_coeff)
+
 			# update orbsym
 			if mol.atom:
 				calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 			else:
 				calc.orbsym = np.zeros(mol.norb, dtype=np.int)
+
 			# mo_coeff not needed on master anymore
 			del calc.mo_coeff
+
 			# bcast core hamiltonian (MO basis)
-			mpi.comm.Bcast([mol.hcore, MPI.DOUBLE], root=0)
+			mol.hcore = bcast(mpi, mol.hcore)
+
 			# hcore not needed on master anymore
 			del mol.hcore
+
 			# bcast effective fock potentials (MO basis)
-			mpi.comm.Bcast([mol.vhf, MPI.DOUBLE], root=0)
+			mol.vhf = bcast(mpi, mol.vhf)
+
 			# vhf not needed on master anymore
 			del mol.vhf
+
 		else:
+
+			# receive info from master
 			info = mpi.comm.bcast(None, root=0)
-			calc.prop = info['prop']
-			mol.norb = info['norb']; mol.nocc = info['nocc']; mol.nvirt = info['nvirt']
-			calc.ref_space = info['ref_space']; calc.exp_space = info['exp_space']
-			calc.occup = info['occup']; calc.mo_energy = info['mo_energy']; mol.e_nuc = info['e_nuc']
+
+			# set mol attributes from info dict
+			for key, val in info.items():
+				setattr(mol, key, val)
+
+			# receive info from master
+			info = mpi.comm.bcast(None, root=0)
+
+			# set calc attributes from info dict
+			for key, val in info.items():
+				setattr(calc, key, val)
+
 			# receive mo coefficients
-			buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-			mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-			calc.mo_coeff = buff
+			calc.mo_coeff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
+			calc.mo_coeff = bcast(mpi, calc.mo_coeff)
+
 			# receive hcore
-			buff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-			mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-			mol.hcore = buff
+			mol.hcore = np.zeros([mol.norb, mol.norb], dtype=np.float64)
+			mol.hcore = bcast(mpi, mol.hcore)
+
 			# receive fock potentials
-			buff = np.zeros([mol.nocc, mol.norb, mol.norb], dtype=np.float64)
-			mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-			mol.vhf = buff
+			mol.vhf = np.zeros([mol.nocc, mol.norb, mol.norb], dtype=np.float64)
+			mol.vhf = bcast(mpi, mol.vhf)
+
 			# update orbsym
 			if mol.atom:
 				calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 			else:
 				calc.orbsym = np.zeros(mol.norb, dtype=np.int)
+
+		return mol, calc
 
 
 def exp(mpi, calc, exp):
-		""" bcast exp info """
+		"""
+		this function bcast all standard exp info to slaves
+
+		:param mpi: pymbe mpi object
+		:param calc: pymbe calc object
+		:param exp: pymbe exp object
+		:return: updated exp object
+		"""
 		if mpi.master:
+
 			# collect info
 			info = {'min_order': exp.min_order}
+
+			# if restart, collect info on previous orders
 			if calc.restart:
-				info['len_tup'] = [exp.tuples[i].shape[0] for i in range(len(exp.tuples))]
-				info['len_prop'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
+				info['n_tuples'] = [exp.tuples[i].shape[0] for i in range(len(exp.tuples))]
+				info['n_props'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
+
 			# bcast info
 			mpi.comm.bcast(info, root=0)
+
+			# bcast results from previous orders
 			if calc.restart:
+
 				# bcast hashes
-				for i in range(1, len(exp.hashes)):
-					mpi.comm.Bcast([exp.hashes[i], MPI.LONG], root=0)
+				for i in range(1, len(info['n_tuples'])):
+					exp.hashes[i] = bcast(mpi, exp.hashes[i])
+
 				# bcast increments
-				for i in range(len(exp.prop[calc.target]['inc'])):
-					mpi.comm.Bcast([exp.prop[calc.target]['inc'][i], MPI.DOUBLE], root=0)
+				for i in range(len(info['n_props'])):
+					exp.prop[calc.target]['inc'][i] = bcast(mpi, exp.prop[calc.target]['inc'][i])
+
 		else:
+
 			# receive info
 			info = mpi.comm.bcast(None, root=0)
+
 			# receive min_order
 			exp.min_order = info['min_order']
+
+			# receive results from previous orders
 			if calc.restart:
+
 				# receive hashes
-				for i in range(1, len(info['len_tup'])):
-					buff = np.empty(info['len_tup'][i], dtype=np.int64)
-					mpi.comm.Bcast([buff, MPI.LONG], root=0)
-					exp.hashes.append(buff)
+				for i in range(1, len(info['n_tuples'])):
+					exp.hashes.append(np.empty(info['n_tuples'][i], dtype=np.int64))
+					exp.hashes[i] = bcast(mpi, exp.hashes[i])
+
 				# receive increments
-				if calc.target in ['energy', 'excitation']:
-					for i in range(len(info['len_prop'])):
-						buff = np.zeros(info['len_prop'][i], dtype=np.float64)
-						mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-						exp.prop[calc.target]['inc'].append(buff)
-				else:
-					for i in range(len(info['len_prop'])):
-						buff = np.zeros([info['len_prop'][i], 3], dtype=np.float64)
-						mpi.comm.Bcast([buff, MPI.DOUBLE], root=0)
-						exp.prop[calc.target]['inc'].append(buff)
+				for i in range(len(info['n_props'])):
+					if calc.target in ['energy', 'excitation']:
+						exp.prop[calc.target]['inc'].append(np.zeros(info['n_props'][i], dtype=np.float64))
+					else:
+						exp.prop[calc.target]['inc'].append(np.zeros([info['n_props'][i], 3], dtype=np.float64))
+					exp.prop[calc.target]['inc'][i] = bcast(mpi, exp.prop[calc.target]['inc'][i])
+
+		return exp
 
 
 def bcast(mpi, buff):
@@ -261,7 +346,7 @@ def gatherv(mpi, send_buff):
 				mpi.comm.Gatherv([send_buff[p0:p1], mpi_dtype], \
 									[recv_buff, counts_tile, displs+p0, mpi_dtype], root=0)
 
-			return recv_buff#.reshape((-1,) + shape[1:])
+			return recv_buff
 
 		else:
 

@@ -266,7 +266,7 @@ def _orbs(calc):
 
 def _mpi(mpi, calc):
 		""" mpi print """
-		return '{:} & {:}'.format(calc.mpi['masters'], mpi.size - calc.mpi['masters'])
+		return '{:} & {:}'.format(1, mpi.size - 1)
 
 
 def _thres(calc):

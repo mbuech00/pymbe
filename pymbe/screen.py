@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-screening module which handles all input generation for subsequent order
+screening module containing all input generation in pymbe
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
@@ -252,15 +252,15 @@ def _orbs(occup, scheme, thres, ref_space, exp_space, min_order, order, hashes, 
 		:param tup: current orbital tuple. numpy array of shape (order,)
 		:return: numpy array of shape (n_child_orbs,)
 		"""
-		# set expansion space
+		# truncate expansion space
 		if min_order == 1:
-			exp_space = exp_space['tot'][tup[-1] < exp_space['tot']] 
+			exp_space_trunc = exp_space['tot'][tup[-1] < exp_space['tot']] 
 		elif min_order == 2:
-			exp_space = exp_space['virt'][tup[-1] < exp_space['virt']] 
+			exp_space_trunc = exp_space['virt'][tup[-1] < exp_space['virt']] 
 
 		# at min_order, spawn all possible child tuples
 		if order == min_order:
-			return np.array([orb for orb in exp_space], dtype=np.int32)
+			return np.array([orb for orb in exp_space_trunc], dtype=np.int32)
 
 		# generate array with all k-1 order subsets of particular tuple
 		combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
@@ -274,8 +274,8 @@ def _orbs(occup, scheme, thres, ref_space, exp_space, min_order, order, hashes, 
 		# init list of child orbitals
 		child_orbs = []
 
-		# loop over orbitals of expansion space
-		for orb in exp_space:
+		# loop over orbitals of truncated expansion space
+		for orb in exp_space_trunc:
 
 			# add orbital to combinations
 			orb_column = np.empty(combs.shape[0], dtype=np.int32)

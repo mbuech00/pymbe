@@ -72,7 +72,7 @@ def _init():
 		# exp object
 		exp = _exp(mpi, mol, calc)
 		# bcast restart info
-		parallel.exp(mpi, calc, exp)
+		exp = parallel.exp(mpi, calc, exp)
 		return mpi, mol, calc, exp
 
 
@@ -80,7 +80,7 @@ def _mol(mpi):
 		""" init mol object """
 		# mol object
 		mol = system.MolCls(mpi)
-		parallel.mol(mpi, mol)
+		mol = parallel.mol(mpi, mol)
 		mol.make(mpi)
 		return mol
 
@@ -89,7 +89,7 @@ def _calc(mpi, mol):
 		""" init calc object """
 		# calc object
 		calc = calculation.CalcCls(mpi, mol)
-		parallel.calc(mpi, calc)
+		calc = parallel.calc(mpi, calc)
 		return calc
 
 
@@ -133,7 +133,7 @@ def _exp(mpi, mol, calc):
 			# get dipole integrals
 			calc.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
 		# bcast fundamental info
-		parallel.fund(mpi, mol, calc)
+		mol, calc = parallel.fund(mpi, mol, calc)
 		# exp object on slaves
 		if not mpi.master:
 			# exp object
@@ -141,11 +141,12 @@ def _exp(mpi, mol, calc):
 		# init tuples and hashes
 		if mpi.master:
 			exp.hashes, exp.tuples = expansion.init_tup(mol, calc)
+			exp.min_order = exp.tuples[0].shape[1]
 		else:
 			exp.hashes = expansion.init_tup(mol, calc)[0]
 		# restart
 		if mpi.master:
-			exp.min_order = restart.main(calc, exp)
+			exp.start_order = restart.main(calc, exp)
 		return exp
 
 
