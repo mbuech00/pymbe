@@ -27,11 +27,11 @@ BLKSIZE = INT_MAX // 32 + 1
 
 class MPICls(object):
 		"""
-		this class contains the pymbe mpi parameters and attributes
+		this class contains the pymbe mpi attributes
 		"""
 		def __init__(self):
 				"""
-				init parameters
+				init mpi attributes
 				"""
 				self.comm = MPI.COMM_WORLD
 				self.size = self.comm.Get_size()

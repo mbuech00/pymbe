@@ -89,7 +89,30 @@ def _calc(mpi, mol):
 		""" init calc object """
 		# calc object
 		calc = calculation.CalcCls(mpi, mol)
+
+		# input handling
+		if mpi.master:
+
+			# read input
+			calc = calculation.set_calc(calc)
+			print('calc.model = {:}'.format(calc.model))
+			print('calc.target = {:}'.format(calc.target))
+
+			# sanity check
+			calculation.sanity_chk(mol, calc)
+
+			# set target
+			calc.target = [x for x in calc.target.keys() if calc.target[x]][0]
+
+			# restart logical
+			calc.restart = restart.restart()
+
+			# put calc.mpi info into mpi object
+			mpi.task_size = calc.mpi['task_size']
+
+		# bcast info from master to slaves
 		calc = parallel.calc(mpi, calc)
+
 		return calc
 
 

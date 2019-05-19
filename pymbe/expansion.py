@@ -24,7 +24,7 @@ class ExpCls(object):
 		"""
 		def __init__(self, mol, calc):
 				"""
-				init expansion parameters
+				init expansion attributes
 
 				:param mol: pymbe mol object
 				:param calc: pymbe calc object
@@ -42,9 +42,9 @@ class ExpCls(object):
 					self.max_order = calc.exp_space['tot'].size
 
 				# init timings, calculation counter, and ndets lists
+				self.time = {'mbe': [], 'screen': []}
 				self.count = []
 				self.ndets = []
-				self.time = {'mbe': [], 'screen': []}
 
 				# init order
 				self.order = 0
