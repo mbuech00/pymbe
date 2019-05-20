@@ -24,10 +24,6 @@ import math
 
 import parallel
 
-# output folder and files
-OUT = os.getcwd()+'/output'
-OUT_FILE = OUT+'/output.out'
-RES_FILE = OUT+'/results.out'
 # array of degenerate (dooh) orbsym IDs
 # E1gx (2) , E1gy (3)
 # E1uy (6) , E1ux (7)

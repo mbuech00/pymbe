@@ -12,8 +12,15 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
-import numpy as np
-from mpi4py import MPI
+import sys
+try:
+	from mpi4py import MPI
+except ImportError:
+	sys.stderr.write('\nImportError : mpi4py module not found\n\n')
+try:
+	import numpy as np
+except ImportError:
+	sys.stderr.write('\nImportError : numpy module not found\n\n')
 from pyscf import symm, lib
 
 import tools

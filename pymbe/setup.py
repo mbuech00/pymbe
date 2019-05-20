@@ -12,12 +12,20 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
+import sys
+import os
+try:
+	from pyscf import lib, scf
+except ImportError:
+	sys.stderr.write('\nImportError : pyscf module not found\n\n')
+
 import parallel
 import system
 import calculation
 import expansion
 import kernel
 import restart
+import tools
 
 
 def main():
@@ -183,5 +191,21 @@ def _exp(mpi, mol, calc):
 			exp.start_order = restart.main(calc, exp)
 
 		return mol, calc, exp
+
+
+def settings():
+		"""
+		this function sets and asserts some general settings
+		"""
+		# force OMP_NUM_THREADS = 1
+		lib.num_threads(1)
+
+		# mute scf checkpoint files
+		scf.hf.MUTE_CHKFILE = True
+
+		# PYTHONHASHSEED = 0
+		pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)
+		tools.assertion(int(pythonhashseed) == 0, \
+						'environment variable PYTHONHASHSEED must be set to zero')
 
 

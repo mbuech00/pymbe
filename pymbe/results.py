@@ -32,7 +32,10 @@ except (ImportError, OSError):
 import output
 import tools
 
-
+# output folder and files
+OUT = os.getcwd()+'/output'
+OUT_FILE = OUT+'/output.out'
+RES_FILE = OUT+'/results.out'
 # results parameters
 DIVIDER = '{:^143}'.format('-'*137)
 FILL = '{:^143}'.format('|'*137)
@@ -471,7 +474,7 @@ def _energies_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/energy_state_{:}.pdf'. \
+		plt.savefig(OUT+'/energy_state_{:}.pdf'. \
 						format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
@@ -522,7 +525,7 @@ def _excitation_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/excitation_states_{:}_{:}.pdf'. \
+		plt.savefig(OUT+'/excitation_states_{:}_{:}.pdf'. \
 						format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
@@ -585,7 +588,7 @@ def _dipole_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/dipole_state_{:}.pdf'. \
+		plt.savefig(OUT+'/dipole_state_{:}.pdf'. \
 						format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
@@ -651,7 +654,7 @@ def _trans_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
+		plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
 						format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
@@ -686,7 +689,7 @@ def _osc_strength_plot(info, calc, exp):
 		# set legend
 		ax.legend(loc=1)
 		# save plot
-		plt.savefig(tools.OUT+'/osc_strength_states_{:}_{:}.pdf'. \
+		plt.savefig(OUT+'/osc_strength_states_{:}_{:}.pdf'. \
 						format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
@@ -722,6 +725,6 @@ def _ndets_plot(info, exp):
 		if SNS_FOUND:
 			sns.despine()
 		# save plot
-		plt.savefig(tools.OUT+'/ndets.pdf', bbox_inches = 'tight', dpi=1000)
+		plt.savefig(OUT+'/ndets.pdf', bbox_inches = 'tight', dpi=1000)
 
 
