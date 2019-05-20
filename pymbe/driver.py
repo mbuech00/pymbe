@@ -103,8 +103,7 @@ def master(mpi, mol, calc, exp):
 					restart.screen_write(exp)
 
 				# print screen end
-				print(output.screen_end(exp.tuples[-1].shape[0], \
-										exp.time['screen'][-1], exp.order))
+				print(output.screen_end(exp.tuples[-1].shape[0], exp.order, exp.time['screen'][-1]))
 
 			# convergence check
 			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
