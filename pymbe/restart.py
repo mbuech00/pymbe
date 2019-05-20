@@ -170,6 +170,7 @@ def read_fund(mol, calc):
 					calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
 				else:
 					calc.orbsym = np.zeros(mol.norb, dtype=np.int)
+		return mol, calc
 
 
 def mbe_write(calc, exp):

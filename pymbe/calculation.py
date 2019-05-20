@@ -51,7 +51,6 @@ class CalcCls(object):
 				self.misc = {'order': None}
 				self.orbs = {'type': 'can'}
 				self.mpi = {'task_size': 5}
-				self.mo = None
 				self.prop = {'hf': {}, 'base': {}, 'ref': {}}
 
 
