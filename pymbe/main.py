@@ -33,6 +33,7 @@ import setup
 import driver
 import tools
 import results
+import parallel
 
 
 def settings():
