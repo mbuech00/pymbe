@@ -246,7 +246,7 @@ def _sum(occup, ref_space, target, min_order, order, prop, hashes, tup):
 		:param target: calculation target. string
 		:param min_order: minimum (start) order. integer
 		:param order: current order. integer
-		:param prop: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples,3) depending on target
+		:param prop: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
 		:param hashes: hashes to all order. list of numpy arrays of shapes (n_tuples,)
 		:param tup: given tuple of orbitals. numpy array of shape (order,)
 		:return: scalar or numpy array of shape (3,) depending on target

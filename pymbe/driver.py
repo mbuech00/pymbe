@@ -75,7 +75,9 @@ def master(mpi, mol, calc, exp):
 				print(output.mbe_end(exp.tuples[-1].shape[0], exp.order, exp.time['mbe'][-1]))
 
 				# print mbe results
-				print(output.mbe_results(mol, calc, exp))
+				print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
+											exp.max_order, exp.order, exp.tuples[-1], exp.prop[calc.target]['inc'][-1], \
+											exp.prop[calc.target]['tot'], exp.ndets[-1]))
 
 			# init screening time
 			exp.time['screen'].append(0.0)

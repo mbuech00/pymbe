@@ -139,97 +139,99 @@ def mbe_end(n_tuples, order, time):
 		return string.format(*form)
 
 
-def mbe_results(target, prop_inc, prop_tot, ):
-		""" print mbe result statistics """
-		if calc.target in ['energy', 'excitation']:
-			string = FILL+'\n'
-			prop_tot = exp.prop[calc.target]['tot']
-			prop_inc = exp.prop[calc.target]['inc'][-1]
-			# statistics
+def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tuples, prop_inc, prop_tot, ndets):
+		"""
+		this function prints mbe results statistics
+
+		:param occup: orbital occupation. numpy array of shape (n_orbs,)
+		:param ref_space: reference space. numpy array of shape (n_ref_tot,)
+		:param target: calculation target. string
+		:param root: state root. integer
+		:param min_order: minimum (start) order. integer
+		:param max_order: maximum (final) order. integer
+		:param order: current order. integer
+		:param tuples: current order tuples. numpy array of shape (n_tuples, order)
+		:param prop_inc: current order property increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
+		:param prop_tot: total mbe energy. list of scalars or numpy arrays of shape (3,) depending on target
+		:param ndets: current order number of determinants. numpy array of shape (n_tuples,)
+		:return: formatted string
+		"""
+		# calculate total inc
+		if target in ['energy', 'excitation']:
+
+			if order == min_order:
+				tot_inc = prop_tot[-1]
+			else:
+				tot_inc = prop_tot[-1] - prop_tot[-2]
+
+		elif target in ['dipole', 'trans']:
+
+			if order == min_order:
+				tot_inc = np.linalg.norm(prop_tot[-1])
+			else:
+				tot_inc = np.linalg.norm(prop_tot[-1]) - np.linalg.norm(prop_tot[-2])
+
+		# set header
+		if target == 'energy':
+			header = 'energy for root {:} (total increment = {:.4e})'. \
+						format(root, tot_inc)
+		elif target == 'excitation':
+			header = 'excitation energy for root {:} (total increment = {:.4e})'. \
+						format(root, tot_inc)
+		elif target == 'dipole':
+			header = 'dipole moment for root {:} (total increment = {:.4e})'. \
+						format(root, tot_inc)
+		elif target == 'trans':
+			header = 'transition dipole moment for excitation 0 -> {:} (total increment = {:.4e})'. \
+						format(root, tot_inc)
+		# set string
+		string = FILL+'\n'
+		string += DIVIDER+'\n'
+		string += ' RESULT:{:^81}\n'
+		string += DIVIDER+'\n'
+
+		if target in ['energy', 'excitation']:
+
+			# increments
 			if prop_inc.any():
 				mean_val = np.mean(prop_inc[np.nonzero(prop_inc)])
 				min_val = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
 				max_val = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
 			else:
 				mean_val = min_val = max_val = 0.0
-			# calculate total inc
-			if exp.order == exp.min_order:
-				tot_inc = prop_tot[-1]
-			else:
-				tot_inc = prop_tot[-1] - prop_tot[-2]
-			# set header
-			if calc.target == 'energy':
-				header = 'energy for root {:} (total increment = {:.4e})'. \
-							format(calc.state['root'], tot_inc)
-			else:
-				header = 'excitation energy for root {:} (total increment = {:.4e})'. \
-							format(calc.state['root'], tot_inc)
+
 			# set string
-			string += DIVIDER+'\n'
-			string += ' RESULT:{:^81}\n'
-			string += DIVIDER+'\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+
 			form = (header, mean_val, min_val, max_val)
-			# statistics
-			ndets = exp.ndets[-1]
-			if ndets.any():
-				mean_ndets = np.mean(ndets[np.nonzero(ndets)])
-				min_ndets = np.min(ndets[np.nonzero(ndets)])
-				max_ndets = np.max(ndets[np.nonzero(ndets)])
-			else:
-				mean_ndets = min_ndets = max_ndets = 0.0
-			string += DIVIDER+'\n'
-			string += DIVIDER+'\n'
-			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
-			string += DIVIDER+'\n'
-			string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
-			cas_idx_max = tools.core_cas(mol.nocc, calc.ref_space, exp.tuples[-1][np.argmax(ndets)])[1]
-			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
-									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
-			string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
-			string += DIVIDER+'\n'
-			form += (mean_ndets, min_ndets, max_ndets, \
-						nelec_max[0] + nelec_max[1], cas_idx_max.size)
-		else:
-			string = FILL+'\n'
-			prop_tot = exp.prop[calc.target]['tot']
-			# calculate total inc
-			if exp.order == exp.min_order:
-				tot_inc = np.linalg.norm(prop_tot[-1])
-			else:
-				tot_inc = np.linalg.norm(prop_tot[-1]) - np.linalg.norm(prop_tot[-2])
-			# set header
-			if calc.target == 'dipole':
-				header = 'dipole moment for root {:} (total increment = {:.4e})'. \
-							format(calc.state['root'], tot_inc)
-			else:
-				header = 'transition dipole moment for excitation 0 -> {:} (total increment = {:.4e})'. \
-							format(calc.state['root'], tot_inc)
-			# set string/form
-			string += DIVIDER+'\n'
-			string += ' RESULT:{:^81}\n'
-			string += DIVIDER+'\n'
+
+		elif target in ['dipole', 'trans']:
+
+			# set components
 			string += DIVIDER
 			form = (header,)
-			# set components
 			comp = ('x-component', 'y-component', 'z-component')
+
 			# init result arrays
 			mean_val = np.empty(3, dtype=np.float64)
 			min_val = np.empty(3, dtype=np.float64)
 			max_val = np.empty(3, dtype=np.float64)
+
 			# loop over x, y, and z
 			for k in range(3):
-				prop_inc = exp.prop[calc.target]['inc'][-1][:, k]
-				# statistics
+
+				# increments
 				if prop_inc.any():
-					mean_val[k] = np.mean(prop_inc[np.nonzero(prop_inc)])
-					min_val[k] = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
-					max_val[k] = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
+					mean_val[k] = np.mean(prop_inc[:, k][np.nonzero(prop_inc[:, k])])
+					min_val[k] = np.min(np.abs(prop_inc[:, k][np.nonzero(prop_inc[:, k])]))
+					max_val[k] = np.max(np.abs(prop_inc[:, k][np.nonzero(prop_inc[:, k])]))
 				else:
 					mean_val[k] = min_val[k] = max_val[k] = 0.0
+
+				# set string
 				string += '\n RESULT:{:^81}\n'
 				string += DIVIDER+'\n'
 				string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
@@ -238,30 +240,35 @@ def mbe_results(target, prop_inc, prop_tot, ):
 				if k < 2:
 					string += '\n'+DIVIDER
 				form += (comp[k], mean_val[k], min_val[k], max_val[k],)
-			# statistics
-			ndets = exp.ndets[-1]
-			if ndets.any():
-				mean_ndets = np.mean(ndets[np.nonzero(ndets)])
-				min_ndets = np.min(ndets[np.nonzero(ndets)])
-				max_ndets = np.max(ndets[np.nonzero(ndets)])
-			else:
-				mean_ndets = min_ndets = max_ndets = 0.0
-			string += '\n'+DIVIDER+'\n'
-			string += DIVIDER+'\n'
-			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
-			string += DIVIDER+'\n'
-			string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
-			cas_idx_max = tools.core_cas(mol.nocc, calc.ref_space, exp.tuples[-1][np.argmax(ndets)])[1]
-			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
-									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
-			string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
-			string += DIVIDER+'\n'
-			form += (mean_ndets, min_ndets, max_ndets, \
-						nelec_max[0] + nelec_max[1], cas_idx_max.size)
-		if exp.order < exp.max_order:
+
+		# determinants
+		if ndets.any():
+			mean_ndets = np.mean(ndets[np.nonzero(ndets)])
+			min_ndets = np.min(ndets[np.nonzero(ndets)])
+			max_ndets = np.max(ndets[np.nonzero(ndets)])
+		else:
+			mean_ndets = min_ndets = max_ndets = 0.0
+
+		# extract info on largest calculation
+		cas_idx_max = tools.cas(ref_space, tuples[np.argmax(ndets)])
+		nelec_max = np.asarray((np.count_nonzero(occup[cas_idx_max] > 0.), \
+								np.count_nonzero(occup[cas_idx_max] > 1.)), dtype=np.int32)
+
+		# set string
+		string += DIVIDER+'\n'
+		string += DIVIDER+'\n'
+		string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
+		string += DIVIDER+'\n'
+		string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
+		string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
+		string += DIVIDER+'\n'
+		form += (mean_ndets, min_ndets, max_ndets, nelec_max[0] + nelec_max[1], cas_idx_max.size)
+
+		if order < max_order:
 			string += FILL
 		else:
 			string += '\n\n'
+
 		return string.format(*form)
 
 
