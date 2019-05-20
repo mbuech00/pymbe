@@ -79,24 +79,39 @@ def _init():
 def _mol(mpi):
 		""" init mol object """
 		# mol object
-		mol = system.MolCls(mpi)
+		mol = system.MolCls()
+
+		# input handling
+		if mpi.master:
+
+			# read input
+			mol = system.set_system(mol)
+
+			# translate input
+			mol = system.translate_system(mol)
+
+			# sanity check
+			system.sanity_chk(mol)
+
+		# bcast info from master to slaves
 		mol = parallel.mol(mpi, mol)
+
+		# make pyscf mol object
 		mol.make(mpi)
+
 		return mol
 
 
 def _calc(mpi, mol):
 		""" init calc object """
 		# calc object
-		calc = calculation.CalcCls(mpi, mol)
+		calc = calculation.CalcCls(mol)
 
 		# input handling
 		if mpi.master:
 
 			# read input
 			calc = calculation.set_calc(calc)
-			print('calc.model = {:}'.format(calc.model))
-			print('calc.target = {:}'.format(calc.target))
 
 			# sanity check
 			calculation.sanity_chk(mol, calc)

@@ -144,7 +144,7 @@ def hf(mol, calc):
 		""" hartree-fock calculation """
 		# perform restricted hf calc
 		mol_hf = mol.copy()
-		mol_hf.build(0, 0, symmetry = mol.hf_sym)
+		mol_hf.build(0, 0, symmetry = mol.hf_symmetry)
 		hf = scf.RHF(mol_hf)
 		# debug print
 		if mol.debug >= 1:

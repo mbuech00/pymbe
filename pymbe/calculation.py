@@ -30,7 +30,7 @@ class CalcCls(object):
 		"""
 		this class contains the pymbe calculation attributes
 		"""
-		def __init__(self, mpi, mol):
+		def __init__(self, mol):
 				"""
 				init calculation attributes
 
@@ -87,16 +87,13 @@ def set_calc(calc):
 
 								# make keys uniformly lower-case
 								keys = [key.lower() for key in inp.keys()]
-								if attr == 'target':
-									print('keys = {:}'.format(keys))
 
 								# make string values lower-case as well
 								vals = [val.lower() if isinstance(val, str) else val for val in inp.values()]
-								if attr == 'target':
-									print('vals = {:}'.format(vals))
 
 								# recast wfnsym as standard symbol
 								if 'wfnsym' in inp.keys():
+
 									if attr == 'state':
 										inp['wfnsym'] = symm.addons.std_symb(inp['wfnsym'])
 									elif attr == 'ref':
