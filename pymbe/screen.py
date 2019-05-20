@@ -83,7 +83,7 @@ def master(mpi, calc, exp):
 		recv_counts = parallel.recv_counts(mpi, child_tup.size)
 
 		# potential seed of occupied tuples for vacuum reference spaces
-		if 1 < exp.min_order and np.sum(recv_counts) > 0:
+		if calc.ref_space.size == 0 and np.sum(recv_counts) > 0:
 
 			# generate array with all k order subsets of occupied expansion space
 			tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
