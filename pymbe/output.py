@@ -49,7 +49,7 @@ def exp_header(method):
 		return string.format(*form)
 
 
-def mbe_header(n_tuples, n_orbs, order):
+def mbe_header(n_tuples, order):
 		""" print mbe header """
 		# set string
 		string = DIVIDER+'\n'
@@ -79,13 +79,13 @@ def mbe_debug(mol, calc, ndets_tup, nelec_tup, inc_tup, order, cas_idx, tup):
 		return string.format(*form)
 
 
-def mbe_end(n_count, n_orbs, time, order):
+def mbe_end(n_tuples, order, time):
 		""" print end of mbe """
 		# set string
 		string = DIVIDER+'\n'
 		string += ' STATUS:  order k = {:d} MBE done  ---  {:d} tuples in total in {:s}\n'
 		string += DIVIDER
-		form = (order, n_count, tools.time_str(time),)
+		form = (order, n_tuples, tools.time_str(time),)
 		return string.format(*form)
 
 

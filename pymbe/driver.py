@@ -42,24 +42,30 @@ def master(mpi, mol, calc, exp):
 		# mbe expansion
 		for exp.order in range(exp.start_order, exp.max_order+1):
 
-			#################
-			#** mbe phase **#
-			#################
+			###########
+			#** mbe **#
+			###########
 
 			# init time
 			exp.time['mbe'].append(0.0)
 
-			if len(exp.tuples) > len(exp.count):
+			if len(exp.tuples) > len(exp.prop[calc.target]['tot']):
 
 				# print header
-				print(output.mbe_header(exp.tuples[-1].shape[0], \
-										calc.ref_space.size + exp.tuples[-1].shape[1], exp.order))
+				print(output.mbe_header(exp.tuples[-1].shape[0], exp.order))
 
 				# start time
 				time = MPI.Wtime()
 
 				# main mbe function
-				mbe.main(mpi, mol, calc, exp)
+				ndets, inc, tot = mbe.master(mpi, mol, calc, exp)
+
+				# append number of determinants, increments, and total energy
+				exp.prop[calc.target]['inc'].append(inc)
+				exp.ndets.append(ndets)
+				exp.prop[calc.target]['tot'].append(tot)
+				if exp.order > exp.min_order:
+					exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
 
 				# collect time
 				exp.time['mbe'][-1] = MPI.Wtime() - time
@@ -68,15 +74,14 @@ def master(mpi, mol, calc, exp):
 				restart.mbe_write(calc, exp)
 
 				# print mbe end
-				print(output.mbe_end(exp.count[-1], calc.ref_space.size + exp.tuples[-1].shape[1], \
-										exp.time['mbe'][-1], exp.order))
+				print(output.mbe_end(exp.tuples[-1].shape[0], exp.order, exp.time['mbe'][-1]))
 
 				# print mbe results
 				print(output.mbe_results(mol, calc, exp))
 
-			#######################
-			#** screening phase **#
-			#######################
+			#################
+			#** screening **#
+			#################
 
 			# init time
 			exp.time['screen'].append(0.0)
@@ -143,9 +148,9 @@ def slave(mpi, mol, calc, exp):
 			# task id
 			msg = mpi.comm.bcast(None, root=0)
 
-			#################
-			#** mbe phase **#
-			#################
+			###########
+			#** mbe **#
+			###########
 
 			if msg['task'] == 'mbe':
 
@@ -153,11 +158,14 @@ def slave(mpi, mol, calc, exp):
 				exp.order = msg['order']
 
 				# main mbe function
-				mbe.main(mpi, mol, calc, exp)
+				inc = mbe.slave(mpi, mol, calc, exp)
 
-			#######################
-			#** screening phase **#
-			#######################
+				# append increments
+				exp.prop[calc.target]['inc'].append(inc)
+
+			#################
+			#** screening **#
+			#################
 
 			elif msg['task'] == 'screen':
 

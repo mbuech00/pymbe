@@ -400,7 +400,7 @@ def _timings_prt(info, calc, exp):
 		string += DIVIDER[:98]+'\n'
 		calcs = 0
 		for i, j in enumerate(range(exp.min_order, info['final_order'])):
-			calc_i = exp.count[i]
+			calc_i = exp.prop[calc.target]['inc'][i].shape[0]
 			calcs += calc_i
 			string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
 					'{:2}{:>15s}{:2}{:1}{:5}{:>9d}\n'

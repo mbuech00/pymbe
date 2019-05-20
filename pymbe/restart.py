@@ -58,9 +58,6 @@ def main(calc, exp):
 				# read total properties
 				elif 'mbe_tot' in files[i]:
 					exp.prop[calc.target]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
-				# read counter
-				elif 'mbe_counter' in files[i]:
-					exp.count.append(np.load(os.path.join(RST, files[i])).tolist())
 				# read ndets
 				elif 'mbe_ndets' in files[i]:
 					exp.ndets.append(np.load(os.path.join(RST, files[i])))
@@ -182,8 +179,6 @@ def mbe_write(calc, exp):
 		np.save(os.path.join(RST, 'mbe_inc_{:}'.format(exp.order)), exp.prop[calc.target]['inc'][-1])
 		# total properties
 		np.save(os.path.join(RST, 'mbe_tot_{:}'.format(exp.order)), exp.prop[calc.target]['tot'][-1])
-		# write counter
-		np.save(os.path.join(RST, 'mbe_counter_'+str(exp.order)), np.asarray(exp.count[-1]))
 		# write ndets
 		np.save(os.path.join(RST, 'mbe_ndets_'+str(exp.order)), exp.ndets[-1])
 		# write time

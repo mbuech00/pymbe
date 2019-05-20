@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" mbe.py: mbe module """
+"""
+mbe module containing all functions related to MBEs in pymbe
+"""
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
@@ -29,31 +31,7 @@ import tools
 TAGS = tools.enum('ready', 'tup', 'h2e', 'exit')
 
 
-def main(mpi, mol, calc, exp):
-		""" mbe phase """
-		# master and slave functions
-		if mpi.master:
-			# master function
-			ndets, inc = _master(mpi, mol, calc, exp)
-			# count non-zero increments
-			if calc.target in ['energy', 'excitation']:
-				exp.count.append(np.count_nonzero(inc))
-			elif calc.target in ['dipole', 'trans']:
-				exp.count.append(np.count_nonzero(np.count_nonzero(inc, axis=1)))
-			# sum up total property
-			exp.prop[calc.target]['tot'].append(tools.fsum(inc))
-			if exp.order > exp.min_order:
-				exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
-		else:
-			# slave function
-			inc = _slave(mpi, mol, calc, exp)
-		# append increments and ndets
-		exp.prop[calc.target]['inc'].append(inc)
-		if mpi.master:
-			exp.ndets.append(ndets)
-
-
-def _master(mpi, mol, calc, exp):
+def master(mpi, mol, calc, exp):
 		""" master function """
 		# wake up slaves
 		msg = {'task': 'mbe', 'order': exp.order}
@@ -107,10 +85,12 @@ def _master(mpi, mol, calc, exp):
 		inc = _init_inc(n_tuples, calc.target)
 		# allreduce increments
 		inc = parallel.allreduce(mpi, inc)
-		return ndets, inc
+		# sum up total property
+		tot = tools.fsum(inc)
+		return ndets, inc, tot
 
 
-def _slave(mpi, mol, calc, exp):
+def slave(mpi, mol, calc, exp):
 		""" slave function """
 		# number of tuples
 		n_tuples = exp.hashes[-1].size

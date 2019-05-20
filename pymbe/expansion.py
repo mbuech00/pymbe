@@ -41,9 +41,8 @@ class ExpCls(object):
 				else:
 					self.max_order = calc.exp_space['tot'].size
 
-				# init timings, calculation counter, and ndets lists
+				# init timings and and ndets lists
 				self.time = {'mbe': [], 'screen': []}
-				self.count = []
 				self.ndets = []
 
 				# init order
