@@ -42,11 +42,7 @@ def master(mpi, mol, calc, exp):
 		# mbe expansion
 		for exp.order in range(exp.start_order, exp.max_order+1):
 
-			###########
-			#** mbe **#
-			###########
-
-			# init time
+			# init mbe time
 			exp.time['mbe'].append(0.0)
 
 			if len(exp.tuples) > len(exp.prop[calc.target]['tot']):
@@ -81,11 +77,7 @@ def master(mpi, mol, calc, exp):
 				# print mbe results
 				print(output.mbe_results(mol, calc, exp))
 
-			#################
-			#** screening **#
-			#################
-
-			# init time
+			# init screening time
 			exp.time['screen'].append(0.0)
 
 			if exp.order < exp.max_order:
@@ -114,10 +106,7 @@ def master(mpi, mol, calc, exp):
 				print(output.screen_end(exp.tuples[-1].shape[0], \
 										exp.time['screen'][-1], exp.order))
 
-			#########################
-			#** convergence check **#
-			#########################
-
+			# convergence check
 			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
 
 				# timings
@@ -149,10 +138,6 @@ def slave(mpi, mol, calc, exp):
 			# task id
 			msg = mpi.comm.bcast(None, root=0)
 
-			###########
-			#** mbe **#
-			###########
-
 			if msg['task'] == 'mbe':
 
 				# receive order
@@ -164,10 +149,6 @@ def slave(mpi, mol, calc, exp):
 				# append increments
 				exp.prop[calc.target]['inc'].append(inc)
 
-			#################
-			#** screening **#
-			#################
-
 			elif msg['task'] == 'screen':
 
 				# receive order
@@ -178,10 +159,6 @@ def slave(mpi, mol, calc, exp):
 
 				# append hashes
 				exp.hashes.append(hashes)
-
-			############
-			#** exit **#
-			############
 
 			elif msg['task'] == 'exit':
 
