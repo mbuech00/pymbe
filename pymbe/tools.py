@@ -165,10 +165,10 @@ def cas_corr(occup, ref_space, tup):
 		return np.any(occup[cas(ref_space, tup)] > 0.0) and np.any(occup[cas(ref_space, tup)] == 0.0)
 
 
-def core_cas(mol, ref_space, tup):
+def core_cas(nocc, ref_space, tup):
 		""" define core and cas spaces """
 		cas_idx = cas(ref_space, tup)
-		core_idx = np.setdiff1d(np.arange(mol.nocc), cas_idx)
+		core_idx = np.setdiff1d(np.arange(nocc), cas_idx)
 		return core_idx, cas_idx
 
 

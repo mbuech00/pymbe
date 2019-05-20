@@ -25,24 +25,21 @@ import tools
 TAGS = tools.enum('ready', 'tup', 'exit')
 
 
-def master(mpi, exp_space, min_order, order, hashes, tuples):
+def master(mpi, calc, exp):
 		"""
 		this master function returns two arrays of (i) child tuple hashes and (ii) the actual child tuples
 
 		:param mpi: pymbe mpi object
-		:param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
-		:param min_order: minimum (start) order. integer
-		:param order: current order. integer
-		:param hashes: current order hashes. numpy array of shape (n_tuples,)
-		:param tuples: current order tuples. numpy array of shape (n_tuples, order)
+		:param calc: pymbe calc object
+		:param exp: pymbe exp object
 		:return: two numpy arrays of shapes (n_child_tup,) [hashes] and (n_child_tuples, order+1) [tuples]
 		"""
 		# wake up slaves
-		msg = {'task': 'screen', 'order': order}
+		msg = {'task': 'screen', 'order': exp.order}
 		mpi.comm.bcast(msg, root=0)
 
 		# number of tasks
-		n_tasks = hashes.size
+		n_tasks = exp.hashes[-1].size
 		# number of available slaves
 		slaves_avail = min(mpi.size - 1, n_tasks)
 
@@ -56,7 +53,7 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 		for task in tasks:
 
 			# set tups
-			tups = tuples[task]
+			tups = exp.tuples[-1][task]
 
 			# probe for available slaves
 			mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
@@ -86,10 +83,10 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 		recv_counts = parallel.recv_counts(mpi, child_tup.size)
 
 		# potential seed of occupied tuples for vacuum reference spaces
-		if 1 < min_order and np.sum(recv_counts) > 0:
+		if 1 < exp.min_order and np.sum(recv_counts) > 0:
 
 			# generate array with all k order subsets of occupied expansion space
-			tuples_occ = np.array([tup for tup in itertools.combinations(exp_space['occ'], order)], \
+			tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
 									dtype=np.int32)
 
 			# recast child tuples array as list
@@ -102,7 +99,7 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 				tup = tup.tolist()
 
 				# loop over valid orbitals in virtual expansion space
-				for orb in exp_space['virt'][tup[-1] < exp_space['virt']]:
+				for orb in calc.exp_space['virt'][tup[-1] < calc.exp_space['virt']]:
 					child_tup += tup + [orb]
 
 			# recast child_tup as array once again
@@ -123,7 +120,7 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 		tuples_new = parallel.gatherv(mpi, child_tup)
 
 		# reshape tuples
-		tuples_new = tuples_new.reshape(-1, order+1)
+		tuples_new = tuples_new.reshape(-1, exp.order+1)
 
 		# compute hashes
 		hashes_new = tools.hash_2d(tuples_new)
@@ -140,24 +137,17 @@ def master(mpi, exp_space, min_order, order, hashes, tuples):
 		return hashes_new, tuples_new
 
 
-def slave(mpi, occup, scheme, thres, ref_space, exp_space, min_order, order, hashes, prop):
+def slave(mpi, calc, exp):
 		"""
 		this slave function returns an array of child tuple hashes
 
 		:param mpi: pymbe mpi object
-		:param occup: orbital occupation. numpy array of shape (n_orbs,)
-		:param scheme: protocol scheme. integer
-		:param thres: threshold settings. dict 
-		:param ref_space: reference space. numpy array of shape (n_ref_tot,)
-		:param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
-		:param min_order: minimum (start) order. integer
-		:param order: current order. integer
-		:param hashes: current order hashes. numpy array of shape (n_tuples,)
-		:param prop: current order property increments. numpy array of shape (n_tuples,)
+		:param calc: pymbe calc object
+		:param exp: pymbe exp object
 		:return: numpy array of shape (n_child_tup,)
 		"""
 		# number of tasks
-		n_tasks = hashes.size
+		n_tasks = exp.hashes[-1].size
 		# number of needed slaves
 		slaves_needed = min(mpi.size - 1, n_tasks)
 
@@ -178,14 +168,14 @@ def slave(mpi, occup, scheme, thres, ref_space, exp_space, min_order, order, has
 			# probe for task
 			mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
-			# do jobs
+			# do task
 			if mpi.stat.tag == TAGS.tup:
 
 				# get number of elements in tups
 				n_elms = mpi.stat.Get_elements(MPI.INT)
 
 				# init tups
-				tups = np.empty([n_elms // order, order], dtype=np.int32)
+				tups = np.empty([n_elms // exp.order, exp.order], dtype=np.int32)
 
 				# receive tups
 				mpi.comm.Recv([tups, MPI.INT], source=0, tag=TAGS.tup)
@@ -194,8 +184,9 @@ def slave(mpi, occup, scheme, thres, ref_space, exp_space, min_order, order, has
 				for tup in tups:
 
 					# spawn child tuples from parent tuples at order k-1
-					orbs = _orbs(occup, scheme, thres, ref_space, exp_space, \
-									min_order, order, hashes, prop, tup)
+					orbs = _orbs(calc.occup, calc.prot['scheme'], calc.thres, \
+									calc.ref_space, calc.exp_space, exp.min_order, exp.order, \
+									exp.hashes[-1], exp.prop[calc.target]['inc'][-1], tup)
 
 					# recast parent tuple as list
 					tup = tup.tolist()
@@ -230,7 +221,7 @@ def slave(mpi, occup, scheme, thres, ref_space, exp_space, min_order, order, has
 		child_tup = parallel.gatherv(mpi, child_tup)
 
 		# init new hashes
-		hashes_new = np.empty(np.sum(recv_counts) // (order+1), dtype=np.int64)
+		hashes_new = np.empty(np.sum(recv_counts) // (exp.order+1), dtype=np.int64)
 
 		# receive new hashes
 		return parallel.bcast(mpi, hashes_new)

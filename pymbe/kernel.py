@@ -215,7 +215,7 @@ def ref_mo(mol, calc):
 		""" determine reference mo coefficients """
 		if calc.orbs['type'] != 'can':
 			# set core and cas spaces
-			core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))
+			core_idx, cas_idx = tools.core_cas(mol.nocc, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))
 			# NOs
 			if calc.orbs['type'] in ['ccsd', 'ccsd(t)']:
 				# compute rmd1
@@ -292,7 +292,7 @@ def ref_mo(mol, calc):
 def ref_prop(mol, calc, exp):
 		""" calculate reference space properties """
 		# generate input
-		core_idx, cas_idx = tools.core_cas(mol, calc.ref_space, np.array([], dtype=np.int32))
+		core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, np.array([], dtype=np.int32))
 		# nelec
 		nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
 							np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int32)
@@ -317,13 +317,8 @@ def ref_prop(mol, calc, exp):
 		return ref
 
 
-def main(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec, base=False):
+def main(mol, calc, method, e_core, h1e, h2e, core_idx, cas_idx, nelec):
 		""" main prop function """
-		# set method
-		if base:
-			method = calc.base['method']
-		else:
-			method = calc.model['method']
 		if method in ['ccsd','ccsd(t)']:
 			# ccsd / ccsd(t) calc
 			res = _cc(mol, calc, core_idx, cas_idx, method, h1e=h1e, h2e=h2e)
@@ -333,43 +328,46 @@ def main(mol, calc, e_core, h1e, h2e, core_idx, cas_idx, nelec, base=False):
 			if calc.target in ['energy', 'excitation']:
 				res = res_tmp[calc.target]
 			elif calc.target == 'dipole':
-				res = _dipole(mol, calc, cas_idx, res_tmp['rdm1'])
+				res = _dipole(mol.norb, mol.dipole, calc.occup, calc.prop['hf']['dipole'], \
+								calc.mo_coeff, cas_idx, res_tmp['rdm1'])
 			elif calc.target == 'trans':
-				res = _trans(mol, calc, cas_idx, res_tmp['t_rdm1'], \
+				res = _trans(mol.norb, mol.dipole, calc.occup, calc.prop['hf']['dipole'], \
+								calc.mo_coeff, cas_idx, res_tmp['rdm1'], \
 								res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 		return res
 
 
-def _dipole(mol, calc, cas_idx, cas_rdm1, trans=False):
+def _dipole(norb, ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, trans=False):
 		""" calculate electronic (transition) dipole moment """
 		# init (transition) rdm1
 		if trans:
-			rdm1 = np.zeros([mol.norb, mol.norb], dtype=np.float64)
+			rdm1 = np.zeros([norb, norb], dtype=np.float64)
 		else:
-			rdm1 = np.diag(calc.occup)
+			rdm1 = np.diag(occup)
 		# insert correlated subblock
 		rdm1[cas_idx[:, None], cas_idx] = cas_rdm1
 		# ao representation
-		rdm1 = np.einsum('pi,ij,qj->pq', calc.mo_coeff, rdm1, calc.mo_coeff)
+		rdm1 = np.einsum('pi,ij,qj->pq', mo_coeff, rdm1, mo_coeff)
 		# compute elec_dipole
-		elec_dipole = np.einsum('xij,ji->x', mol.dipole, rdm1)
+		elec_dipole = np.einsum('xij,ji->x', ao_dipole, rdm1)
 		# remove noise
 		elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0.0 for i in range(elec_dipole.size)])
 		# 'correlation' dipole
 		if not trans:
-			elec_dipole -= calc.prop['hf']['dipole']
+			elec_dipole -= hf_dipole
 		return elec_dipole
 
 
-def _trans(mol, calc, cas_idx, cas_t_rdm1, hf_weight_gs, hf_weight_ex):
+def _dipole(norb, ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, hf_weight_gs, hf_weight_ex):
 		""" calculate electronic transition dipole moment """
-		return _dipole(mol, calc, cas_idx, cas_t_rdm1, True) * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
+		return _dipole(norb, ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, True) \
+						* np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
 def base(mol, calc):
 		""" calculate base energy and mo coefficients """
 		# set core and cas spaces
-		core_idx, cas_idx = tools.core_cas(mol, np.arange(mol.ncore, mol.nocc), np.arange(mol.nocc, mol.norb))
+		core_idx, cas_idx = tools.core_cas(mol.nocc, np.arange(mol.ncore, mol.nocc), np.arange(mol.nocc, mol.norb))
 		# get cas space h2e
 		cas_idx_tril = tools.cas_idx_tril(cas_idx)
 		h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]

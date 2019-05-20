@@ -58,12 +58,14 @@ def master(mpi, mol, calc, exp):
 				time = MPI.Wtime()
 
 				# main mbe function
-				ndets, inc, tot = mbe.master(mpi, mol, calc, exp)
+				ndets, inc = mbe.master(mpi, mol, calc, exp)
 
-				# append number of determinants, increments, and total energy
+				# append number of determinants and increments
 				exp.prop[calc.target]['inc'].append(inc)
 				exp.ndets.append(ndets)
-				exp.prop[calc.target]['tot'].append(tot)
+
+				# calculate and append total property
+				exp.prop[calc.target]['tot'].append(tools.fsum(inc))
 				if exp.order > exp.min_order:
 					exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
 
@@ -95,8 +97,7 @@ def master(mpi, mol, calc, exp):
 				time = MPI.Wtime()
 
 				# main screening function
-				hashes, tuples = screen.master(mpi, calc.exp_space, exp.min_order, exp.order, \
-												exp.hashes[-1], exp.tuples[-1])
+				hashes, tuples = screen.master(mpi, calc, exp)
 
 				# append tuples and hashes
 				exp.tuples.append(tuples)
@@ -173,9 +174,7 @@ def slave(mpi, mol, calc, exp):
 				exp.order = msg['order']
 
 				# main screening function
-				hashes = screen.slave(mpi, calc.occup, calc.prot['scheme'], calc.thres, \
-										calc.ref_space, calc.exp_space, exp.min_order, exp.order, \
-										exp.hashes[-1], exp.prop[calc.target]['inc'][-1])
+				hashes = screen.slave(mpi, calc, exp)
 
 				# append hashes
 				exp.hashes.append(hashes)

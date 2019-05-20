@@ -59,23 +59,23 @@ def mbe_header(n_tuples, order):
 		return string.format(*form)
 
 
-def mbe_debug(mol, calc, ndets_tup, nelec_tup, inc_tup, order, cas_idx, tup):
+def mbe_debug(symmetry, orbsym, root, ndets_tup, nelec_tup, inc_tup, order, cas_idx, tup):
 		""" print mbe debug information """
 		# symmetry
 		tup_lst = [i for i in tup]
 		if mol.atom:
-			tup_sym = [symm.addons.irrep_id2name(mol.symmetry, i) for i in calc.orbsym[tup]]
+			tup_sym = [symm.addons.irrep_id2name(symmetry, i) for i in orbsym[tup]]
 		else:
 			tup_sym = ['A'] * tup.size
 		string = ' INC: order = {:d} , tup = {:} , space = ({:d}e,{:d}o) , n_dets = {:.2e}\n'
 		string += '      symmetry = {:}\n'
 		form = (order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, ndets_tup, tup_sym)
-		if calc.target in ['energy', 'excitation']:
+		if inc_tup.ndim == 1:
 			string += '      increment for root {:d} = {:.4e}\n'
-			form += (calc.state['root'], inc_tup,)
+			form += (root, inc_tup,)
 		else:
 			string += '      increment for root {:d} = ({:.4e}, {:.4e}, {:.4e})\n'
-			form += (calc.state['root'], *inc_tup,)
+			form += (root, *inc_tup,)
 		return string.format(*form)
 
 
@@ -136,7 +136,7 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
-			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][np.argmax(ndets)])[1]
+			cas_idx_max = tools.core_cas(mol.nocc, calc.ref_space, exp.tuples[-1][np.argmax(ndets)])[1]
 			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
 									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
 			string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
@@ -201,7 +201,7 @@ def mbe_results(mol, calc, exp):
 			string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
 			string += DIVIDER+'\n'
 			string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
-			cas_idx_max = tools.core_cas(mol, calc.ref_space, exp.tuples[-1][np.argmax(ndets)])[1]
+			cas_idx_max = tools.core_cas(mol.nocc, calc.ref_space, exp.tuples[-1][np.argmax(ndets)])[1]
 			nelec_max = np.asarray((np.count_nonzero(calc.occup[cas_idx_max] > 0.), \
 									np.count_nonzero(calc.occup[cas_idx_max] > 1.)), dtype=np.int32)
 			string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
