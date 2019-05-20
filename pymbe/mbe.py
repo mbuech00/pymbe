@@ -33,12 +33,8 @@ def main(mpi, mol, calc, exp):
 		""" mbe phase """
 		# master and slave functions
 		if mpi.master:
-			# start time
-			time = MPI.Wtime()
 			# master function
 			ndets, inc = _master(mpi, mol, calc, exp)
-			# collect time
-			exp.time['mbe'].append(MPI.Wtime() - time)
 			# count non-zero increments
 			if calc.target in ['energy', 'excitation']:
 				exp.count.append(np.count_nonzero(inc))

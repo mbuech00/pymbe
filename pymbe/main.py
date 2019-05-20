@@ -65,14 +65,21 @@ def main():
 
 def _init():
 		""" init mpi, mol, calc, and exp objects """
-		# mpi, mol, and calc objects
+		# mpi object
 		mpi = parallel.MPICls()
+
+		# mol object
 		mol = _mol(mpi)
+
+		# calc object
 		calc = _calc(mpi, mol)
+
 		# exp object
 		exp = _exp(mpi, mol, calc)
+
 		# bcast restart info
 		exp = parallel.exp(mpi, calc, exp)
+
 		return mpi, mol, calc, exp
 
 

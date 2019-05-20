@@ -41,6 +41,9 @@ class MPICls(object):
 				self.host = MPI.Get_processor_name()
 				self.stat = MPI.Status()
 
+				if self.master:
+					tools.assertion(self.size >= 2, 'PyMBE requires two or more MPI processes')
+
 
 def mol(mpi, mol):
 		"""
