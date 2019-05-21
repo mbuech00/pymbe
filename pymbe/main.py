@@ -26,44 +26,44 @@ import parallel
 
 
 def main():
-		""" main program """
-		# general settings
-		setup.settings()
+        """ main program """
+        # general settings
+        setup.settings()
 
-		# init mpi, mol, calc, and exp objects
-		mpi, mol, calc, exp = setup.main()
+        # init mpi, mol, calc, and exp objects
+        mpi, mol, calc, exp = setup.main()
 
-		if mpi.master:
+        if mpi.master:
 
-			# rm out dir if present
-			if os.path.isdir(output.OUT):
-				shutil.rmtree(output.OUT, ignore_errors=True)
+            # rm out dir if present
+            if os.path.isdir(output.OUT):
+                shutil.rmtree(output.OUT, ignore_errors=True)
 
-			# make out dir
-			os.mkdir(output.OUT)
+            # make out dir
+            os.mkdir(output.OUT)
 
-			# init logger
-			sys.stdout = tools.Logger(output.OUT_FILE)
+            # init logger
+            sys.stdout = tools.Logger(output.OUT_FILE)
 
-			# main master driver
-			driver.master(mpi, mol, calc, exp)
+            # main master driver
+            driver.master(mpi, mol, calc, exp)
 
-			# re-init logger
-			sys.stdout = tools.Logger(results.RES_FILE, both=False)
+            # re-init logger
+            sys.stdout = tools.Logger(results.RES_FILE, both=False)
 
-			# print/plot results
-			results.main(mpi, mol, calc, exp)
+            # print/plot results
+            results.main(mpi, mol, calc, exp)
 
-			# finalize mpi
-			parallel.finalize(mpi)
+            # finalize mpi
+            parallel.finalize(mpi)
 
-		else:
+        else:
 
-			# main slave driver
-			driver.slave(mpi, mol, calc, exp)
+            # main slave driver
+            driver.slave(mpi, mol, calc, exp)
 
 
 if __name__ == '__main__':
-	main()
+    main()
 
 
