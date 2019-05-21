@@ -19,6 +19,7 @@ from pyscf import symm
 import kernel
 import tools
 
+
 # output folder and files
 OUT = os.getcwd()+'/output'
 OUT_FILE = OUT+'/output.out'
