@@ -138,7 +138,10 @@ def _exp(mpi, mol, calc):
 				mol, calc = restart.read_fund(mol, calc)
 
 				# get mo integrals
-				mol.hcore, mol.vhf, mol.eri = kernel.mo_ints(mol, calc.mo_coeff)
+				mol.hcore, mol.eri = kernel.mo_ints(mol.hcore, mol.eri, calc.mo_coeff)
+
+				# get effective fock potentials
+				mol.eri, mol.vhf = kernel.vhf(mol.nocc, mol.norb, mol.eri)
 
 				# exp object
 				exp = expansion.ExpCls(mol, calc)
@@ -155,19 +158,25 @@ def _exp(mpi, mol, calc):
 					calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
 
 				# get mo integrals
-				mol.hcore, mol.vhf, mol.eri = kernel.mo_ints(mol, calc.mo_coeff)
+				mol.hcore, mol.eri = kernel.mo_ints(mol.hcore, mol.eri, calc.mo_coeff)
+
+				# get effective fock potentials
+				mol.eri, mol.vhf = kernel.vhf(mol.nocc, mol.norb, mol.eri)
 
 				# base energy
-				calc.prop['base']['energy'] = kernel.base(mol, calc)
-
-				# exp object
-				exp = expansion.ExpCls(mol, calc)
+				if calc.base['method'] is not None:
+					calc.prop['base']['energy'] = kernel.base(mol, calc.occup, calc.base['method'])
+				else:
+					calc.prop['base']['energy'] = 0.0
 
 				# reference space properties
-				calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc, exp)
+				calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
 
 				# write fundamental info
 				restart.write_fund(mol, calc)
+
+				# exp object
+				exp = expansion.ExpCls(mol, calc)
 
 		# get dipole integrals
 		mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None

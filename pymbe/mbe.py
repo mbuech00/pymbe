@@ -290,6 +290,7 @@ def _init_inc(n_tasks, target):
 		this function initializes the current order increments array
 
 		:param n_tasks: number of tasks (tuples). integer
+		:param target: calculation target. string
 		:return: numpy array of shape (n_tasks,) or (n_tasks, 3) depending on target
 		"""
 		if target in ['energy', 'excitation']:
