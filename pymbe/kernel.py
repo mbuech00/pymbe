@@ -842,28 +842,34 @@ def _fci(mol, solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
                 for root in range(len(civec)):
                     s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
                     tools.assertion(np.abs((mol.spin + 1) - mult) < SPIN_TOL, \
-                                    'spin contamination for root entry = {:} , 2*S + 1 = {:.6f} , '
-                                    'core_idx = {:} , cas_idx = {:}'. \
-                                        format(root, mult, core_idx, cas_idx))
+                                    'spin contamination for root entry = {:}\n2*S + 1 = {:.6f}\n'
+                                    'core_idx = {:}\ncore_sym = {:}\ncas_idx = {:}\ncas_sym = {:}'. \
+                                    format(root, mult, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
 
         # convergence check
         if solver.nroots == 1:
 
-            tools.assertion(solver.converged, 'state 0 not converged , core_idx = {:} , cas_idx = {:}'. \
-                                format(core_idx, cas_idx))
+            tools.assertion(solver.converged, \
+                                 'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                 'cas_idx = {:}\ncas_sym = {:}'. \
+                                 format(root, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
 
         else:
 
             if target == 'excitation':
 
                 for root in [0, solver.nroots-1]:
-                    tools.assertion(solver.converged[root], 'state {:} not converged , core_idx = {:} , cas_idx = {:}'. \
-                                        format(root, core_idx, cas_idx))
+                    tools.assertion(solver.converged[root], \
+                                         'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                         'cas_idx = {:}\ncas_sym = {:}'. \
+                                         format(root, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
 
             else:
 
-                tools.assertion(solver.converged[solver.nroots-1], 'state {:} not converged , core_idx = {:} , cas_idx = {:}'. \
-                                        format(solver.nroots-1, core_idx, cas_idx))
+                tools.assertion(solver.converged[solver.nroots-1], \
+                                     'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                     'cas_idx = {:}\ncas_sym = {:}'. \
+                                     format(solver.nroots-1, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
 
         # collect results
         if target == 'energy':
