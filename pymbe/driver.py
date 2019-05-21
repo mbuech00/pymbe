@@ -110,6 +110,9 @@ def master(mpi, mol, calc, exp):
 			# convergence check
 			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
 
+				# final order
+				exp.final_order = exp.order
+
 				# timings
 				exp.time['mbe'] = np.asarray(exp.time['mbe'])
 				exp.time['screen'] = np.asarray(exp.time['screen'])

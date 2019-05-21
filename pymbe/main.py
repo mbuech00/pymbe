@@ -20,6 +20,7 @@ import shutil
 import setup
 import driver
 import tools
+import output
 import results
 import parallel
 
@@ -35,14 +36,14 @@ def main():
 		if mpi.master:
 
 			# rm out dir if present
-			if os.path.isdir(results.OUT):
-				shutil.rmtree(results.OUT, ignore_errors=True)
+			if os.path.isdir(output.OUT):
+				shutil.rmtree(output.OUT, ignore_errors=True)
 
 			# make out dir
-			os.mkdir(results.OUT)
+			os.mkdir(output.OUT)
 
 			# init logger
-			sys.stdout = tools.Logger(results.OUT_FILE)
+			sys.stdout = tools.Logger(output.OUT_FILE)
 
 			# main master driver
 			driver.master(mpi, mol, calc, exp)

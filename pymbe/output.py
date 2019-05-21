@@ -12,13 +12,16 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
+import os
 import numpy as np
 from pyscf import symm
 
 import kernel
 import tools
 
-
+# output folder and files
+OUT = os.getcwd()+'/output'
+OUT_FILE = OUT+'/output.out'
 # output parameters
 HEADER = '{0:^87}'.format('-'*45)
 DIVIDER = ' '+'-'*92
