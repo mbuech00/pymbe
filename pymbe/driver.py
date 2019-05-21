@@ -72,7 +72,7 @@ def master(mpi, mol, calc, exp):
                 restart.mbe_write(calc, exp)
 
                 # print mbe end
-                print(output.mbe_end(exp.tuples[-1].shape[0], exp.order, exp.time['mbe'][-1]))
+                print(output.mbe_end(exp.prop[calc.target]['inc'][-1], exp.order, exp.time['mbe'][-1]))
 
                 # print mbe results
                 print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \

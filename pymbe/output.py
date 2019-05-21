@@ -124,15 +124,21 @@ def mbe_debug(atom, symmetry, orbsym, root, ndets_tup, nelec_tup, inc_tup, order
         return string.format(*form)
 
 
-def mbe_end(n_tuples, order, time):
+def mbe_end(prop_inc, order, time):
         """
         this function prints the end mbe information
 
-        :param n_tuples: number of tuples at a given order. integer
+        :param prop_inc: current order property increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
         :param order. expansion order. integer
         :param time. time in seconds. scalar
         :return: formatted string
         """
+        # determine number of nonzero increments
+        if prop_inc.ndim == 1:
+            n_tuples = np.count_nonzero(prop_inc)
+        else:
+            n_tuples = np.count_nonzero(np.count_nonzero(prop_inc, axis=1))
+
         # set string
         string = DIVIDER+'\n'
         string += ' STATUS:  order k = {:d} MBE done  ---  {:d} tuples in total in {:s}\n'
