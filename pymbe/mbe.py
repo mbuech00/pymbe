@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" mbe.py: mbe module """
+"""
+mbe module containing all functions related to MBEs in pymbe
+"""
 
-__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__license__ = '???'
-__version__ = '0.20'
+__author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
+__license__ = 'MIT'
+__version__ = '0.8'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
-__email__ = 'jeriksen@uni-mainz.de'
+__email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import numpy as np
+import functools
 from mpi4py import MPI
 import sys
 import itertools
@@ -25,191 +28,286 @@ import tools
 
 
 # tags
-TAGS = tools.enum('start', 'ready', 'exit')
+TAGS = tools.enum('ready', 'tup', 'h2e', 'exit')
 
 
-def main(mpi, mol, calc, exp):
-		""" mbe phase """
-		# master and slave functions
-		if mpi.master:
-			# start time
-			time = MPI.Wtime()
-			# master function
-			ndets, inc = _master(mpi, mol, calc, exp)
-			# collect time
-			exp.time['mbe'].append(MPI.Wtime() - time)
-			# count non-zero increments
-			if calc.target in ['energy', 'excitation']:
-				exp.count.append(np.count_nonzero(inc))
-			elif calc.target in ['dipole', 'trans']:
-				exp.count.append(np.count_nonzero(np.count_nonzero(inc, axis=1)))
-			# sum up total property
-			exp.prop[calc.target]['tot'].append(tools.fsum(inc))
-			if exp.order > 1:
-				exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
-		else:
-			# slave function
-			ndets, inc = _slave(mpi, mol, calc, exp)
-		# append increments and ndets
-		exp.prop[calc.target]['inc'].append(inc)
-		exp.ndets.append(ndets)
+def master(mpi, mol, calc, exp):
+        """
+        this master function returns two arrays of (i) number of determinants and (ii) mbe increments
+
+        :param mpi: pymbe mpi object
+        :param mol: pymbe mol object
+        :param calc: pymbe calc object
+        :param exp: pymbe exp object
+        :return: two numpy arrays of shapes (n_tuples,) [ndets] and (n_tuples,) or (n_tuples, 3) [inc] depending on target
+        """
+        # wake up slaves
+        msg = {'task': 'mbe', 'order': exp.order}
+        mpi.comm.bcast(msg, root=0)
+
+        # number of tasks
+        n_tasks = exp.hashes[-1].size
+        # number of available slaves
+        slaves_avail = min(mpi.size - 1, n_tasks)
+
+        # init requests
+        req_tup = MPI.Request()
+        req_h2e = MPI.Request()
+
+        # compute number of determinants in the individual casci calculations (ignoring symmetry)
+        ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup), \
+                                exp.tuples[-1]), dtype=np.float64, count=n_tasks)
+
+        # rank tuples wrt number of determinants (from most electrons to fewest electrons)
+        exp.tuples[-1] = exp.tuples[-1][np.argsort(ndets)[::-1]]
+
+        # loop until no tasks left
+        for tup in exp.tuples[-1]:
+
+            # get cas indices
+            cas_idx = tools.cas(calc.ref_space, tup)
+
+            # only consider tuples with occupied and virtual orbitals
+            if np.any(calc.occup[cas_idx] < 2.0) and np.any(calc.occup[cas_idx] > 0.0):
+
+                # probe for available slaves
+                mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+                # receive slave status
+                mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+
+                # send tup
+                req_tup.Wait()
+                req_tup = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
+
+                # get h2e indices
+                cas_idx_tril = tools.cas_idx_tril(cas_idx)
+
+                # get h2e_cas
+                h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
+
+                # send h2e_cas
+                req_h2e.Wait()
+                req_h2e = mpi.comm.Isend([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
+
+        # done with all tasks
+        while slaves_avail > 0:
+
+            # probe for available slaves
+            mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+            # receive slave status
+            mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+
+            # send exit signal
+            mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
+
+            # remove slave
+            slaves_avail -= 1
+
+        # wait for all data communication to be finished
+        MPI.Request.Waitall([req_tup, req_h2e])
+
+        # revert back to sorting of tuples wrt hashes
+        exp.tuples[-1] = exp.tuples[-1][np.argsort(np.argsort(ndets)[::-1])]
+
+        # init increments
+        inc = _init_inc(n_tasks, calc.target)
+
+        # allreduce increments
+        inc = parallel.allreduce(mpi, inc)
+
+        return ndets, inc
 
 
-def _master(mpi, mol, calc, exp):
-		""" master function """
-		# wake up slaves
-		msg = {'task': 'mbe', 'order': exp.order}
-		mpi.comm.bcast(msg, root=0)
-		# number of slaves
-		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# task list and number of tasks
-		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
-		# init request
-		req = MPI.Request()
-		# start index
-		i = 0
-		# loop until no tasks left
-		while True:
-			# probe for available slaves
-			if mpi.comm.Iprobe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat):
-				# receive slave status
-				req = mpi.comm.Irecv([None, MPI.INT], source=mpi.stat.source, tag=TAGS.ready)
-				# any tasks left?
-				if i < len(tasks):
-					# send index
-					mpi.comm.Isend([np.array([i], dtype=np.int32), MPI.INT], dest=mpi.stat.source, tag=TAGS.start)
-					# increment index
-					i += 1
-					# wait for completion
-					req.Wait()
-				else:
-					# send exit signal
-					mpi.comm.Isend([None, MPI.INT], dest=mpi.stat.source, tag=TAGS.exit)
-					# remove slave
-					slaves_avail -= 1
-					# wait for completion
-					req.Wait()
-					# any slaves left?
-					if slaves_avail == 0:
-						# exit loop
-						break
-		# init increments and ndets
-		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
-		ndets = _init_ndets(exp.tuples[-1].shape[0])
-		# allreduce increments
-		parallel.mbe(mpi, inc, ndets)
-		return ndets, inc
+def slave(mpi, mol, calc, exp):
+        """
+        this slave function returns an array of mbe increments
+
+        :param mpi: pymbe mpi object
+        :param mol: pymbe mol object
+        :param calc: pymbe calc object
+        :param exp: pymbe exp object
+        :return: numpy array of shape (n_tuples,)
+        """
+        # number of tasks
+        n_tasks = exp.hashes[-1].size
+        # number of needed slaves
+        slaves_needed = min(mpi.size - 1, n_tasks)
+
+        # init tup
+        tup = np.empty(exp.order, dtype=np.int32)
+
+        # init increments
+        inc = _init_inc(n_tasks, calc.target)
+
+        # init h2e_cas
+        h2e_cas = _init_h2e(calc.ref_space, exp.order)
+
+        # send availability to master
+        if mpi.rank <= slaves_needed:
+            mpi.comm.send(None, dest=0, tag=TAGS.ready)
+
+        # receive work from master
+        while True:
+
+            # early exit in case of large proc count
+            if mpi.rank > slaves_needed:
+                break
+
+            # probe for available task
+            mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+
+            # do task
+            if mpi.stat.tag == TAGS.tup:
+
+                # receive tup
+                req_tup = mpi.comm.Irecv([tup, MPI.INT], source=0, tag=TAGS.tup)
+
+                # receive h2e_cas
+                req_h2e = mpi.comm.Irecv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.h2e)
+
+                # get core and cas indices
+                req_tup.Wait()
+                core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
+
+                # compute e_core and h1e_cas
+                e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
+
+                # get task_idx
+                task_idx = tools.hash_compare(exp.hashes[-1], tools.hash_1d(tup))
+
+                # calculate increment
+                req_h2e.Wait()
+                inc[task_idx] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx)
+
+                # send availability to master
+                mpi.comm.isend(None, dest=0, tag=TAGS.ready)
+
+            elif mpi.stat.tag == TAGS.exit:
+
+                # exit
+                mpi.comm.irecv(None, source=0, tag=TAGS.exit)
+                break
+
+        # allreduce increments
+        return parallel.allreduce(mpi, inc)
 
 
-def _slave(mpi, mol, calc, exp):
-		""" slave function """
-		# init idx
-		idx = np.empty(1, dtype=np.int32)
-		# number of slaves
-		num_slaves = slaves_avail = min(mpi.size - 1, exp.tuples[-1].shape[0])
-		# task list
-		tasks = tools.tasks(exp.tuples[-1].shape[0], num_slaves, calc.mpi['task_size'])
-		# init increments and ndets
-		inc = _init_inc(exp.tuples[-1].shape[0], calc.target)
-		ndets = _init_ndets(exp.tuples[-1].shape[0])
-		# send availability to master
-		if mpi.rank <= num_slaves:
-			mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-		# receive work from master
-		while True:
-			# early exit in case of large proc count
-			if mpi.rank > num_slaves:
-				break
-			# receive index
-			mpi.comm.Recv([idx, MPI.INT], source=0, status=mpi.stat)
-			# do jobs
-			if mpi.stat.tag == TAGS.start:
-				# get task
-				task = tasks[idx[0]]
-				# loop over tasks
-				for n, task_idx in enumerate(task):
-					# send availability to master
-					if n == task.size - 1:
-						mpi.comm.Isend([None, MPI.INT], dest=0, tag=TAGS.ready)
-					# calculate increments
-					if not calc.extra['sigma'] or (calc.extra['sigma'] and tools.sigma_prune(calc.mo_energy, calc.orbsym, exp.tuples[-1][task_idx], mbe=True)):
-						ndets[task_idx], inc[task_idx] = _inc(mpi, mol, calc, exp, exp.tuples[-1][task_idx])
-			elif mpi.stat.tag == TAGS.exit:
-				# exit
-				break
-		# allreduce increments
-		parallel.mbe(mpi, inc, ndets)
-		return ndets, inc
+def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
+        """
+        this function calculates the increment associated with a given tuple
+
+        :param mol: pymbe mol object
+        :param calc: pymbe calc object
+        :param exp: pymbe exp object
+        :param e_core: core energy. scalar
+        :param h1e_cas: cas space 1-e Hamiltonian. numpy array of shape (n_cas, n_cas)
+        :param h2e_cas: cas space 2-e Hamiltonian. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
+        :param tup: given tuple of orbitals. numpy array of shape (order,)
+        :param core_idx: core space indices. numpy array of shape (n_core,)
+        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
+        :return: scalar or numpy array of shape (3,) depending on target
+        """
+        # nelec
+        nelec = tools.nelec(calc.occup, cas_idx)
+
+        # perform main calc
+        inc_tup = kernel.main(mol, calc, calc.model['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+
+        # perform base calc
+        if calc.base['method'] is not None:
+            inc_tup -= kernel.main(mol, calc, calc.base['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+
+        # subtract reference space property
+        inc_tup -= calc.prop['ref'][calc.target]
+
+        # calculate increment
+        if exp.order > exp.min_order:
+            if np.any(inc_tup != 0.0):
+                inc_tup -= _sum(calc.occup, calc.ref_space, calc.target, exp.min_order, exp.order, \
+                                exp.prop[calc.target]['inc'], exp.hashes, tup)
+
+        # debug print
+        if mol.debug >= 1:
+            print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
+                                    tools.ndets(occup, cas_idx, nelec), \
+                                    nelec, inc_tup, exp.order, cas_idx, tup))
+
+        return inc_tup
 
 
-def _inc(mpi, mol, calc, exp, tup):
-		""" calculate increments corresponding to tup """
-		# generate input
-		exp.core_idx, exp.cas_idx = tools.core_cas(mol, calc.ref_space, tup)
-		# nelec
-		nelec = np.asarray((np.count_nonzero(calc.occup[exp.cas_idx] > 0.), \
-							np.count_nonzero(calc.occup[exp.cas_idx] > 1.)), dtype=np.int32)
-		if np.all(calc.occup[exp.cas_idx] == 2.) or np.all(calc.occup[exp.cas_idx] == 0.):
-			# return in case of no correlation (no occupied or no virtuals)
-			if calc.target in ['energy', 'excitation']:
-				return 0.0, 0.0
-			else:
-				return 0.0, np.zeros(3, dtype=np.float64)
-		else:
-			# ndets
-			ndets_tup = tools.num_dets(exp.cas_idx.size, nelec[0], nelec[1])
-			# perform calc
-			inc_tup = kernel.main(mol, calc, exp, calc.model['method'], nelec)
-			if calc.base['method'] is not None:
-				inc_tup -= kernel.main(mol, calc, exp, calc.base['method'], nelec)
-			inc_tup -= calc.prop['ref'][calc.target]
-			if exp.order > 1:
-				if np.any(inc_tup != 0.0):
-					inc_tup -= _sum(calc, exp, tup, calc.target)
-			# debug print
-			if mol.debug >= 1:
-				print(output.mbe_debug(mol, calc, exp, tup, ndets_tup, nelec, inc_tup, exp.cas_idx))
-			return ndets_tup, inc_tup
+def _sum(occup, ref_space, target, min_order, order, prop, hashes, tup):
+        """
+        this function performs a recursive summation
+
+        :param occup: orbital occupation. numpy array of shape (n_orbs,)
+        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
+        :param target: calculation target. string
+        :param min_order: minimum (start) order. integer
+        :param order: current order. integer
+        :param prop: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
+        :param hashes: hashes to all order. list of numpy arrays of shapes (n_tuples,)
+        :param tup: given tuple of orbitals. numpy array of shape (order,)
+        :return: scalar or numpy array of shape (3,) depending on target
+        """
+        # init res
+        if target in ['energy', 'excitation']:
+            res = 0.0
+        else:
+            res = np.zeros(3, dtype=np.float64)
+
+        # compute contributions from lower-order increments
+        for k in range(order-1, min_order-1, -1):
+
+            # generate array with all subsets of particular tuple
+            combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+
+            # prune combinations that do not corrspond to a correlated cas spaces
+            combs = combs[np.fromiter(map(functools.partial(tools.cas_corr, occup, ref_space), combs), \
+                                        dtype=bool, count=combs.shape[0])]
+
+            # convert to sorted hashes
+            combs_hash = tools.hash_2d(combs)
+            combs_hash.sort()
+
+            # get indices of combinations
+            idx = tools.hash_compare(hashes[k-min_order], combs_hash)
+
+            # assertion
+            tools.assertion(idx is not None, 'error in recursive increment calculation:\n'
+                                                'k = {:}\ntup:\n{:}\ncombs:\n{:}'. \
+                                                format(k, tup, combs))
+
+            # add up lower-order increments
+            res += tools.fsum(prop[k-min_order][idx])
+
+        return res
 
 
-def _sum(calc, exp, tup, target):
-		""" recursive summation """
-		# init res
-		if target in ['energy', 'excitation']:
-			res = 0.0
-		else:
-			res = np.zeros(3, dtype=np.float64)
-		# compute contributions from lower-order increments
-		for k in range(exp.order-1, 0, -1):
-			# generate array with all subsets of particular tuple
-			combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
-			# sigma pruning
-			if calc.extra['sigma']:
-				combs = combs[[tools.sigma_prune(calc.mo_energy, calc.orbsym, combs[comb, :]) for comb in range(combs.shape[0])]]
-			# convert to sorted hashes
-			combs_hash = tools.hash_2d(combs)
-			combs_hash.sort()
-			# get indices
-			indx = tools.hash_compare(exp.hashes[k-1], combs_hash)
-			tools.assertion(indx is not None, 'error in recursive increment calculation (tuple not found)')
-			# add up lower-order increments
-			if target in ['energy', 'excitation']:
-				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx])
-			else:
-				res += tools.fsum(exp.prop[calc.target]['inc'][k-1][indx, :])
-		return res
+def _init_inc(n_tasks, target):
+        """
+        this function initializes the current order increments array
+
+        :param n_tasks: number of tasks (tuples). integer
+        :param target: calculation target. string
+        :return: numpy array of shape (n_tasks,) or (n_tasks, 3) depending on target
+        """
+        if target in ['energy', 'excitation']:
+            return np.zeros(n_tasks, dtype=np.float64)
+        else:
+            return np.zeros([n_tasks, 3], dtype=np.float64)
 
 
-def _init_inc(n_tuples, target):
-		""" init increments array """
-		if target in ['energy', 'excitation']:
-			return np.zeros(n_tuples, dtype=np.float64)
-		else:
-			return np.zeros([n_tuples, 3], dtype=np.float64)
+def _init_h2e(ref_space, order):
+        """
+        this function initializes the cas space 2-e Hamiltonian array
 
-
-def _init_ndets(n_tuples):
-		""" init ndets array """
-		return np.zeros(n_tuples, dtype=np.float64)
+        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
+        :param order: current order. integer
+        :return: numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
+        """
+        n_orb = ref_space.size + order
+        return np.empty([(n_orb * (n_orb + 1)) // 2, (n_orb * (n_orb + 1)) // 2], dtype=np.float64)
 
 

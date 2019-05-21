@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 
-""" driver.py: driver module """
+"""
+driver module containing main master and slave pymbe functions
+"""
 
-__author__ = 'Dr. Janus Juul Eriksen, JGU Mainz'
-__license__ = '???'
-__version__ = '0.20'
+__author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
+__license__ = 'MIT'
+__version__ = '0.8'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
-__email__ = 'jeriksen@uni-mainz.de'
+__email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import sys
@@ -25,87 +27,148 @@ import parallel
 
 
 def master(mpi, mol, calc, exp):
-		""" master routine """
-		# print expansion headers
-		print(output.main_header())
-		print(output.exp_header(calc.model['method']))
-		# mpi assertion
-		tools.assertion(mpi.size >= 2, 'PyMBE requires two or more MPI processes')
-		# restart
-		if calc.restart:
-			exp.rst_freq, calc.restart = _rst_print(mol, calc, exp)
-		# now do expansion
-		for exp.order in range(exp.start_order, exp.max_order+1):
-			#** mbe phase **#
-			# print header
-			print(output.mbe_header(exp.tuples[-1].shape[0], calc.ref_space.size + exp.tuples[-1].shape[1], exp.order))
-			if len(exp.tuples) > len(exp.count):
-				mbe.main(mpi, mol, calc, exp)
-				# write restart files
-				restart.mbe_write(calc, exp)
-			# print mbe end
-			print(output.mbe_end(exp.count[-1], calc.ref_space.size + exp.tuples[-1].shape[1], exp.order))
-			# print mbe results
-			print(output.mbe_results(mol, calc, exp))
-			#** screening phase **#
-			if exp.order < exp.max_order:
-				# perform screening
-				screen.main(mpi, mol, calc, exp)
-				# write restart files
-				if exp.tuples[-1].shape[0] > 0: restart.screen_write(exp)
-				# print screen end
-				print(output.screen_end(exp.tuples[-1].shape[0], exp.order))
-			else:
-				# collect time
-				exp.time['screen'].append(0.0)
-			# update restart frequency
-			exp.rst_freq = max(exp.rst_freq // 2, 1)
-			# convergence check
-			if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
-				# timings
-				exp.time['mbe'] = np.asarray(exp.time['mbe'])
-				exp.time['screen'] = np.asarray(exp.time['screen'])
-				exp.time['total'] = exp.time['mbe'] + exp.time['screen']
-				# final results
-				exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])
-				break
+        """
+        this function is the main master function
+
+        :param mpi: pymbe mpi object
+        :param mol: pymbe mol object
+        :param calc: pymbe calc object
+        :param exp: pymbe exp object
+        """
+        # print expansion headers
+        print(output.main_header())
+        print(output.exp_header(calc.model['method']))
+
+        # mbe expansion
+        for exp.order in range(exp.start_order, exp.max_order+1):
+
+            # init mbe time
+            exp.time['mbe'].append(0.0)
+
+            if len(exp.tuples) > len(exp.prop[calc.target]['tot']):
+
+                # print header
+                print(output.mbe_header(exp.tuples[-1].shape[0], exp.order))
+
+                # start time
+                time = MPI.Wtime()
+
+                # main mbe function
+                ndets, inc = mbe.master(mpi, mol, calc, exp)
+
+                # append number of determinants and increments
+                exp.prop[calc.target]['inc'].append(inc)
+                exp.ndets.append(ndets)
+
+                # calculate and append total property
+                exp.prop[calc.target]['tot'].append(tools.fsum(inc))
+                if exp.order > exp.min_order:
+                    exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
+
+                # collect time
+                exp.time['mbe'][-1] = MPI.Wtime() - time
+
+                # write restart files
+                restart.mbe_write(calc, exp)
+
+                # print mbe end
+                print(output.mbe_end(exp.tuples[-1].shape[0], exp.order, exp.time['mbe'][-1]))
+
+                # print mbe results
+                print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
+                                            exp.max_order, exp.order, exp.tuples[-1], exp.prop[calc.target]['inc'][-1], \
+                                            exp.prop[calc.target]['tot'], exp.ndets[-1]))
+
+            # init screening time
+            exp.time['screen'].append(0.0)
+
+            if exp.order < exp.max_order:
+
+                # print header
+                print(output.screen_header(exp.order))
+
+                # start time
+                time = MPI.Wtime()
+
+                # main screening function
+                hashes, tuples = screen.master(mpi, calc, exp)
+
+                # append tuples and hashes
+                exp.tuples.append(tuples)
+                exp.hashes.append(hashes)
+
+                # collect time
+                exp.time['screen'][-1] = MPI.Wtime() - time
+
+                # write restart files
+                if exp.tuples[-1].shape[0] > 0:
+                    restart.screen_write(exp)
+
+                # print screen end
+                print(output.screen_end(exp.tuples[-1].shape[0], exp.order, exp.time['screen'][-1]))
+
+            # convergence check
+            if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
+
+                # final order
+                exp.final_order = exp.order
+
+                # timings
+                exp.time['mbe'] = np.asarray(exp.time['mbe'])
+                exp.time['screen'] = np.asarray(exp.time['screen'])
+                exp.time['total'] = exp.time['mbe'] + exp.time['screen']
+
+                # final results
+                exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])
+
+                break
 
 
 def slave(mpi, mol, calc, exp):
-		""" slave routine """
-		# set loop/waiting logical
-		slave = True
-		# enter slave state
-		while slave:
-			# task id
-			msg = mpi.comm.bcast(None, root=0)
-			#** mbe phase **#
-			if msg['task'] == 'mbe':
-				exp.order = msg['order']
-				mbe.main(mpi, mol, calc, exp)
-			#** screening phase **#
-			elif msg['task'] == 'screen':
-				exp.order = msg['order']
-				screen.main(mpi, mol, calc, exp)
-			#** exit **#
-			elif msg['task'] == 'exit':
-				slave = False
-		# finalize
-		parallel.final(mpi)
-	
+        """
+        this function is the main slave function
 
-def _rst_print(mol, calc, exp):
-		""" print output in case of restart """
-		# init rst_freq
-		rst_freq = exp.rst_freq
-		print(output.main_header())
-		for exp.order in range(1, exp.start_order):
-			print(output.mbe_header(exp.tuples[exp.order-1].shape[0], calc.ref_space.size + exp.tuples[exp.order-1].shape[1], exp.order))
-			print(output.mbe_end(exp.count[exp.order-1], calc.ref_space.size + exp.tuples[exp.order-1].shape[1], exp.order))
-			print(output.mbe_results(mol, calc, exp))
-			print(output.screen_header(exp.order))
-			print(output.screen_end(exp.tuples[exp.order-1].shape[0], exp.order))
-			rst_freq = max(rst_freq // 2, 1)
-		return rst_freq, False
+        :param mpi: pymbe mpi object
+        :param mol: pymbe mol object
+        :param calc: pymbe calc object
+        :param exp: pymbe exp object
+        """
+        # set loop/waiting logical
+        slave = True
 
-	
+        # enter slave state
+        while slave:
+
+            # task id
+            msg = mpi.comm.bcast(None, root=0)
+
+            if msg['task'] == 'mbe':
+
+                # receive order
+                exp.order = msg['order']
+
+                # main mbe function
+                inc = mbe.slave(mpi, mol, calc, exp)
+
+                # append increments
+                exp.prop[calc.target]['inc'].append(inc)
+
+            elif msg['task'] == 'screen':
+
+                # receive order
+                exp.order = msg['order']
+
+                # main screening function
+                hashes = screen.slave(mpi, calc, exp)
+
+                # append hashes
+                exp.hashes.append(hashes)
+
+            elif msg['task'] == 'exit':
+
+                slave = False
+
+        # finalize mpi
+        parallel.finalize(mpi)
+    
+
