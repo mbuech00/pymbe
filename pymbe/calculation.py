@@ -46,7 +46,7 @@ class CalcCls(object):
                             'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
                 self.base = {'method': None}
                 self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-                self.extra = {'hf_guess': True}
+                self.extra = {'hf_guess': True, 'pi_prune': False}
                 self.thres = {'init': 1.0e-10, 'relax': 1.0}
                 self.misc = {'order': None}
                 self.orbs = {'type': 'can'}
@@ -199,6 +199,10 @@ def sanity_chk(mol, calc):
         # extra
         tools.assertion(isinstance(calc.extra['hf_guess'], bool), \
                         'HF initial guess for FCI calcs (hf_guess) must be a bool')
+        tools.assertion(isinstance(calc.extra['pi_prune'], bool), \
+                        'pruning of pi-orbitals (pi_prune) must be a bool')
+        tools.assertion(calc.extra['pi_prune'] and symm.addons.std_symb(mol.symmetry) == 'D2h', \
+                        'pruning of pi-orbitals (pi_prune) is only implemented for D2h symmetry')
 
         # screening protocol
         tools.assertion(all(isinstance(i, int) for i in calc.prot.values()), \

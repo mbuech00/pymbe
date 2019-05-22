@@ -185,7 +185,7 @@ def sanity_chk(mol):
         # symmetry
         tools.assertion(isinstance(mol.symmetry, str), \
                         'symmetry input in system dict (symmetry) must be a str')
-        tools.assertion(symm.addons.std_symb(mol.symmetry) in symm.param.POINTGROUP + ('Dooh', 'Coov',), \
+        tools.assertion(symm.addons.std_symb(mol.symmetry) in symm.param.POINTGROUP, \
                         'illegal symmetry input in system dict (symmetry)')
 
         # hf_symmetry

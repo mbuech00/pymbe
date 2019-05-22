@@ -65,6 +65,11 @@ def init_tup(mol, calc):
             tuples = np.array([[p] for p in calc.exp_space['tot'] if tools.cas_corr(calc.occup, calc.ref_space, p)], \
                                 dtype=np.int32)
 
+        # pi-orbital pruning
+        if calc.extra['pi_prune']:
+            tuples = np.array([tup for tup in tuples if tools.pi_prune(calc.mo_energy, calc.orbsym, tup)], \
+                                dtype=np.int32)
+
         # init hashes
         hashes = tools.hash_2d(tuples)
 

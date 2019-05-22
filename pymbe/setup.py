@@ -157,6 +157,11 @@ def _exp(mpi, mol, calc):
                 calc.mo_energy, calc.mo_coeff, \
                     calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
 
+                # check validity of ref_space in terms of pairs of degenerate pi-orbitals
+                if calc.extra['pi_prune']:
+                    tools.assertion(tools.pi_prune(calc.mo_energy, calc.orbsym, calc.ref_space), \
+                                                   'reference space is not pi-pruned')
+
                 # get mo integrals
                 mol.hcore, mol.eri = kernel.mo_ints(mol.hcore, mol.eri, calc.mo_coeff)
 
