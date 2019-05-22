@@ -114,6 +114,35 @@ def master(mpi, calc, exp):
         # potential seed of occupied tuples for vacuum reference spaces
         if calc.ref_space.size == 0 and np.sum(recv_counts) > 0:
 
+            # recast child tuples array as list
+            child_tup = []
+
+            # manually add tuples with a single pair of degenerate virtual pi-orbitals
+            if calc.extra['pi_prune']:
+
+                # generate array with all k-1 order subsets of occupied expansion space
+                tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
+                                        dtype=np.int32)
+    
+                # prune combinations that contain non-degenerate pairs of pi-orbitals
+                if calc.extra['pi_prune']:
+                    tuples_occ = tuples_occ[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                        calc.mo_energy, calc.orbsym), tuples_occ), \
+                                                        dtype=bool, count=tuples_occ.shape[0])]
+
+                # contrain virtual expansion space to degenerate pairs of pi-orbitals
+                exp_space = tools.pi_pairs_deg(calc.mo_energy, calc.orbsym, calc.exp_space['virt'])
+
+                # loop over non-degenerate occupied orbitals
+                for tup in tuples_occ:
+
+                    # recast parent tuple as list
+                    tup = tup.tolist()
+
+                    # loop over degenerate pi-orbital pairs
+                    for pair in exp_space:
+                        child_tup += tup + pair.tolist()
+
             # generate array with all k order subsets of occupied expansion space
             tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
                                     dtype=np.int32)
@@ -124,8 +153,11 @@ def master(mpi, calc, exp):
                                                     calc.mo_energy, calc.orbsym), tuples_occ), \
                                                     dtype=bool, count=tuples_occ.shape[0])]
 
-            # recast child tuples array as list
-            child_tup = []
+            # virtual expansion space
+            exp_space = calc.exp_space['virt']
+            if calc.extra['pi_prune']:
+                # consider only non-degenerate orbitals in virutal expansion space
+                exp_space = tools.non_deg_orbs(calc.orbsym, exp_space)
 
             # loop over occupied tuples
             for tup in tuples_occ:
@@ -134,7 +166,7 @@ def master(mpi, calc, exp):
                 tup = tup.tolist()
 
                 # loop over valid orbitals in virtual expansion space
-                for orb in calc.exp_space['virt'][tup[-1] < calc.exp_space['virt']]:
+                for orb in exp_space:
                     child_tup += tup + [orb]
 
             # recast child_tup as array once again
@@ -226,25 +258,15 @@ def slave(mpi, calc, exp):
                     # spawn child tuples from parent tuples at exp.order
                     orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
                                     calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                    exp.order, exp.hashes[-1], exp.prop[calc.target]['inc'][-1], \
+                                    tup_order, exp.hashes[-1], exp.prop[calc.target]['inc'][-1], \
                                     tup, pi_prune=calc.extra['pi_prune'], pi_gen=mpi.stat.tag == TAGS.tup_pi)
 
-#                    if calc.extra['pi_prune']:
-#                        # deep pruning by removing an increasing number of pi-orbital pairs
-#                        for k in range(tools.n_pi_orbs(calc.orbsym, tup) // 2):
-#
-#                            # next-highest order without k number of pi-orbital pairs
-#                            deep_order = exp.order - (2 * k + 1)
-#
-#                            # spawn child tuples from parent tuples at deep_order
-#                            orbs_deep = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
-#                                                 calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-#                                                 deep_order, exp.hashes[deep_order-exp.min_order], \
-#                                                 exp.prop[calc.target]['inc'][deep_order-exp.min_order], tup, \
-#                                                 pi_prune=calc.extra['pi_prune'], pi_gen=mpi.stat.tag == TAGS.tup_pi)
-#
-#                            # update orbs
-#                            orbs = np.intersect1d(orbs, orbs_deep)
+                    # deep pruning
+                    if calc.extra['pi_prune'] and exp.min_order < tup_order:
+                        orbs = _deep_pruning(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
+                                                calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
+                                                tup_order, exp.hashes, exp.prop[calc.target]['inc'], \
+                                                tup, orbs, pi_gen=mpi.stat.tag == TAGS.tup_pi)
 
                     # recast parent tuple as list
                     tup = tup.tolist()
@@ -295,7 +317,7 @@ def slave(mpi, calc, exp):
 def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
             min_order, order, hashes, prop, tup, pi_prune=False, pi_gen=False):
         """
-        this function returns an array child tuple orbitals subject to a given screening protocol
+        this function returns an array of child tuple orbitals subject to a given screening protocol
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
@@ -336,18 +358,15 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
 
         # prune combinations that do not correspond to a correlated cas spaces
         if np.any(occup[tup] == 0.0):
-
             combs = combs[np.fromiter(map(functools.partial(tools.cas_corr, \
                                             occup, ref_space), combs), \
                                             dtype=bool, count=combs.shape[0])]
 
         # prune combinations that contain non-degenerate pairs of pi-orbitals
         if pi_prune:
-
             combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
                                             mo_energy, orbsym), combs), \
                                             dtype=bool, count=combs.shape[0])]
-
             if combs.size == 0:
                 return exp_space_trunc.ravel()
 
@@ -355,10 +374,7 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
         child_orbs = []
 
         # init orb_arr
-        if pi_gen:
-            orb_arr = np.empty([combs.shape[0], 2], dtype=np.int32)
-        else:
-            orb_arr = np.empty([combs.shape[0], 1], dtype=np.int32)
+        orb_arr = np.empty([combs.shape[0], 2 if pi_gen else 1], dtype=np.int32)
 
         # loop over orbitals of truncated expansion space
         for orb in exp_space_trunc:
@@ -391,6 +407,49 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
                         child_orbs += [orb]
 
         return np.array(child_orbs, dtype=np.int32)
+
+
+def _deep_pruning(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
+            min_order, order, hashes, prop, tup, orbs, pi_gen=False):
+        """
+        this function returns an updated array of child tuple orbitals upon deep pruning
+
+        :param occup: orbital occupation. numpy array of shape (n_orbs,)
+        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
+        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
+        :param scheme: protocol scheme. integer
+        :param thres: threshold settings. dict 
+        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
+        :param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
+        :param min_order: minimum (start) order. integer
+        :param order: current order. integer
+        :param hashes: hashes to all orders. numpy array of shape (n_tuples,)
+        :param prop: property increments to all orders. numpy array of shape (n_tuples,)
+        :param tup: current orbital tuple. numpy array of shape (order,)
+        :param orbs: initial array of child tuple orbitals. numpy array of shape (n_child_orbs_old,)
+        :param pi_gen: pi-orbital generation logical. bool
+        :return: numpy array of shape (n_child_orbs_new,)
+        """
+        # deep pruning by removing an increasing number of pi-orbital pairs
+        for k in range(tools.n_pi_orbs(orbsym, tup) // 2):
+ 
+            # next-highest order without k number of pi-orbital pairs
+            deep_order = order - (2 * k + 1)
+ 
+            # spawn child tuples from parent tuples at deep_order
+            if pi_gen:
+                orbs_deep = _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
+                                     min_order, deep_order, hashes[(deep_order+1)-min_order], \
+                                     prop[(deep_order+1)-min_order], tup, pi_prune=True, pi_gen=True)
+            else:
+                orbs_deep = _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
+                                     min_order, deep_order, hashes[deep_order-min_order], \
+                                     prop[deep_order-min_order], tup, pi_prune=True, pi_gen=False)
+ 
+            # update orbs
+            orbs = np.intersect1d(orbs, orbs_deep)
+
+        return orbs
 
 
 def _prot_screen(scheme, thres, prop):

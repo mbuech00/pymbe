@@ -233,7 +233,7 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
         # debug print
         if mol.debug >= 1:
             print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
-                                    tools.ndets(occup, cas_idx, nelec), \
+                                    tools.ndets(calc.occup, cas_idx, nelec), \
                                     nelec, inc_tup, exp.order, cas_idx, tup))
 
         return inc_tup

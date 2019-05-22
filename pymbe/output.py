@@ -114,7 +114,7 @@ def mbe_debug(atom, symmetry, orbsym, root, ndets_tup, nelec_tup, inc_tup, order
         string += '      symmetry = {:}\n'
         form = (order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, ndets_tup, tup_sym)
 
-        if inc_tup.ndim == 1:
+        if np.isscalar(inc_tup):
             string += '      increment for root {:d} = {:.4e}\n'
             form += (root, inc_tup,)
         else:
