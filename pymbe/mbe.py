@@ -225,8 +225,10 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
         # calculate increment
         if exp.order > exp.min_order:
             if np.any(inc_tup != 0.0):
-                inc_tup -= _sum(calc.occup, calc.ref_space, calc.target, exp.min_order, exp.order, \
-                                exp.prop[calc.target]['inc'], exp.hashes, tup)
+                inc_tup -= _sum(calc.occup, calc.mo_energy, calc.orbsym, calc.ref_space, \
+                                calc.target, exp.min_order, exp.order, \
+                                exp.prop[calc.target]['inc'], exp.hashes, \
+                                tup, pi_prune=calc.extra['pi_prune'])
 
         # debug print
         if mol.debug >= 1:
@@ -237,11 +239,13 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
         return inc_tup
 
 
-def _sum(occup, ref_space, target, min_order, order, prop, hashes, tup):
+def _sum(occup, mo_energy, orbsym, ref_space, target, min_order, order, prop, hashes, tup, pi_prune=False):
         """
         this function performs a recursive summation
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
+        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
+        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param target: calculation target. string
         :param min_order: minimum (start) order. integer
@@ -266,6 +270,15 @@ def _sum(occup, ref_space, target, min_order, order, prop, hashes, tup):
             # prune combinations that do not corrspond to a correlated cas spaces
             combs = combs[np.fromiter(map(functools.partial(tools.cas_corr, occup, ref_space), combs), \
                                         dtype=bool, count=combs.shape[0])]
+
+            # prune combinations that contain non-degenerate pairs of pi-orbitals
+            if pi_prune:
+                combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                mo_energy, orbsym), combs), \
+                                                dtype=bool, count=combs.shape[0])]
+
+            if combs.size == 0:
+                continue
 
             # convert to sorted hashes
             combs_hash = tools.hash_2d(combs)

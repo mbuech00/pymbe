@@ -207,40 +207,51 @@ def slave(mpi, calc, exp):
             if mpi.stat.tag in [TAGS.tup, TAGS.tup_pi]:
 
                 # set order
-                order = exp.order
+                tup_order = exp.order
                 if mpi.stat.tag == TAGS.tup_pi:
-                    order -= 1
+                    tup_order -= 1
 
                 # get number of elements in tups
                 n_elms = mpi.stat.Get_elements(MPI.INT)
 
                 # init tups
-                tups = np.empty([n_elms // order, order], dtype=np.int32)
+                tups = np.empty([n_elms // tup_order, tup_order], dtype=np.int32)
 
                 # receive tups
-                mpi.comm.Recv([tups, MPI.INT], source=0, tag=TAGS.tup)
+                mpi.comm.Recv([tups, MPI.INT], source=0, tag=mpi.stat.tag)
 
                 # loop over tups
                 for tup in tups:
 
-                    # spawn child tuples from parent tuples
+                    # spawn child tuples from parent tuples at exp.order
                     orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
-                                    calc.thres, calc.ref_space, calc.exp_space, exp.min_order, order, \
-                                    exp.hashes[order-exp.min_order], exp.prop[calc.target]['inc'][order-exp.min_order], \
+                                    calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
+                                    exp.order, exp.hashes[-1], exp.prop[calc.target]['inc'][-1], \
                                     tup, pi_prune=calc.extra['pi_prune'], pi_gen=mpi.stat.tag == TAGS.tup_pi)
 
-#                    # deep pruning
 #                    if calc.extra['pi_prune']:
-#                        for k in range(tools.n_pi_orbs(orbsym, tup) // 2):
-#                            order -= (2*k+1)
+#                        # deep pruning by removing an increasing number of pi-orbital pairs
+#                        for k in range(tools.n_pi_orbs(calc.orbsym, tup) // 2):
+#
+#                            # next-highest order without k number of pi-orbital pairs
+#                            deep_order = exp.order - (2 * k + 1)
+#
+#                            # spawn child tuples from parent tuples at deep_order
 #                            orbs_deep = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
-#                                                 calc.thres, calc.ref_space, calc.exp_space, exp.min_order, order, \
-#                                                 exp.hashes[order-1], exp.prop[calc.target]['inc'][order-1], tup, \
+#                                                 calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
+#                                                 deep_order, exp.hashes[deep_order-exp.min_order], \
+#                                                 exp.prop[calc.target]['inc'][deep_order-exp.min_order], tup, \
 #                                                 pi_prune=calc.extra['pi_prune'], pi_gen=mpi.stat.tag == TAGS.tup_pi)
+#
+#                            # update orbs
 #                            orbs = np.intersect1d(orbs, orbs_deep)
 
                     # recast parent tuple as list
                     tup = tup.tolist()
+
+                    # reshape orbs in pairs of pi-orbitals
+                    if mpi.stat.tag == TAGS.tup_pi:
+                        orbs = orbs.reshape(-1, 2)
 
                     # loop over orbitals and add to list of child tuples
                     for orb in orbs:
@@ -312,13 +323,13 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
             # consider only pairs of degenerate pi-orbitals in truncated expansion space
             exp_space_trunc = tools.pi_pairs_deg(mo_energy, orbsym, exp_space_trunc)
         else:
-            # consider only non-degenerate orbitals in truncated expansion space
             if pi_prune:
+                # consider only non-degenerate orbitals in truncated expansion space
                 exp_space_trunc = tools.non_deg_orbs(orbsym, exp_space_trunc)
 
         # at min_order, spawn all possible child tuples
         if order == min_order:
-            return exp_space_trunc
+            return exp_space_trunc.ravel()
 
         # generate array with all k-1 order subsets of particular tuple
         combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
@@ -337,12 +348,8 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
                                             mo_energy, orbsym), combs), \
                                             dtype=bool, count=combs.shape[0])]
 
-            # if all combinations have been pruned, the tuple consists only of pi-orbitals
             if combs.size == 0:
-
-                tools.assertion(tools.n_pi_orbs(orbsym, tup) == tup.size, \
-                                'tup = {:}\ncombs = {:}'.format(tup, combs))
-                return exp_space_trunc
+                return exp_space_trunc.ravel()
 
         # init list of child orbitals
         child_orbs = []
