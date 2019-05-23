@@ -217,7 +217,7 @@ def _system(mol):
         :param mol: pymbe mol object
         :return: formatted string
         """
-        return '{:} e in {:} o'.format(mol.nelectron - 2 * mol.ncore, mol.norb)
+        return '{:} e in {:} o'.format(mol.nelectron - 2 * mol.ncore, mol.norb - mol.ncore)
 
 
 def _hubbard(mol):
