@@ -64,31 +64,28 @@ def master(mpi, mol, calc, exp):
         # loop until no tasks left
         for tup in exp.tuples[-1]:
 
+            # probe for available slaves
+            mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+            # receive slave status
+            mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+
+            # send tup
+            req_tup.Wait()
+            req_tup = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
+
             # get cas indices
             cas_idx = tools.cas(calc.ref_space, tup)
 
-            # only consider tuples with occupied and virtual orbitals
-            if np.any(calc.occup[cas_idx] < 2.0) and np.any(calc.occup[cas_idx] > 0.0):
+            # get h2e indices
+            cas_idx_tril = tools.cas_idx_tril(cas_idx)
 
-                # probe for available slaves
-                mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+            # get h2e_cas
+            h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
 
-                # receive slave status
-                mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-
-                # send tup
-                req_tup.Wait()
-                req_tup = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
-
-                # get h2e indices
-                cas_idx_tril = tools.cas_idx_tril(cas_idx)
-
-                # get h2e_cas
-                h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
-
-                # send h2e_cas
-                req_h2e.Wait()
-                req_h2e = mpi.comm.Isend([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
+            # send h2e_cas
+            req_h2e.Wait()
+            req_h2e = mpi.comm.Isend([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
 
         # done with all tasks
         while slaves_avail > 0:
@@ -233,7 +230,7 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
         # debug print
         if mol.debug >= 1:
             print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
-                                    tools.ndets(calc.occup, cas_idx, nelec), \
+                                    tools.ndets(calc.occup, cas_idx, n_elec=nelec), \
                                     nelec, inc_tup, exp.order, cas_idx, tup))
 
         return inc_tup

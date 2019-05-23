@@ -237,8 +237,12 @@ def sanity_chk(mol, calc):
         tools.assertion(isinstance(calc.misc['order'], (int, type(None))), \
                         'maximum expansion order (order) must be an int >= 1')
         if calc.misc['order'] is not None:
-            tools.assertion(calc.misc['order'] >= 0, \
+            tools.assertion(calc.misc['order'] >= 1, \
                             'maximum expansion order (order) must be an int >= 1')
+            if len(calc.ref['select']) == 0:
+                tools.assertion(calc.misc['order'] >= 2, \
+                                'maximum expansion order (order) must be an int >= 2 '
+                                'for vacuum reference spaces')
 
         # mpi parameters
         tools.assertion(all(isinstance(i, int) for i in calc.mpi.values()), \

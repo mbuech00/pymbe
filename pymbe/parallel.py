@@ -63,7 +63,7 @@ def mol(mpi, mol):
         if mpi.master:
 
             # collect standard info (must be updated with new future attributes)
-            info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
+            info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'ncore': mol.ncore, \
                     'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
                     'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
 
@@ -75,7 +75,7 @@ def mol(mpi, mol):
                 info['matrix'] = mol.matrix
                 info['nsites'] = mol.nsites
                 info['pbc'] = mol.pbc
-                info['nelec'] = mol.nelectron
+                info['nelectron'] = mol.nelectron
 
             # bcast to slaves
             mpi.comm.bcast(info, root=0)

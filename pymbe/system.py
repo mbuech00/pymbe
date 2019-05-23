@@ -187,16 +187,18 @@ def sanity_chk(mol):
                         'spin input (2S) in system dict (spin) must be an int >= 0')
 
         # symmetry
-        tools.assertion(isinstance(mol.symmetry, str), \
-                        'symmetry input in system dict (symmetry) must be a str')
-        tools.assertion(symm.addons.std_symb(mol.symmetry) in symm.param.POINTGROUP, \
-                        'illegal symmetry input in system dict (symmetry)')
+        tools.assertion(isinstance(mol.symmetry, (str, bool)), \
+                        'symmetry input in system dict (symmetry) must be a str or bool')
+        if isinstance(mol.symmetry, str):
+            tools.assertion(symm.addons.std_symb(mol.symmetry) in symm.param.POINTGROUP, \
+                            'illegal symmetry input in system dict (symmetry)')
 
         # hf_symmetry
-        tools.assertion(isinstance(mol.hf_symmetry, str), \
-                        'HF symmetry input in system dict (hf_symmetry) must be a str')
-        tools.assertion(symm.addons.std_symb(mol.hf_symmetry) in symm.param.POINTGROUP + ('Dooh', 'Coov',), \
-                        'illegal HF symmetry input in system dict (hf_symmetry)')
+        tools.assertion(isinstance(mol.hf_symmetry, (str, bool)), \
+                        'HF symmetry input in system dict (hf_symmetry) must be a str or bool')
+        if isinstance(mol.hf_symmetry, str):
+            tools.assertion(symm.addons.std_symb(mol.hf_symmetry) in symm.param.POINTGROUP, \
+                            'illegal HF symmetry input in system dict (hf_symmetry)')
 
         # hf_init_guess
         tools.assertion(isinstance(mol.hf_init_guess, str), \
