@@ -181,7 +181,7 @@ def master(mpi, calc, exp):
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
             return np.array([], dtype=np.int64), \
-                    np.array([], dtype=np.int32).reshape(-1, order+1)
+                    np.array([], dtype=np.int32).reshape(-1, exp.order+1)
 
         # gatherv all child tuples
         tuples_new = parallel.gatherv(mpi, child_tup)
