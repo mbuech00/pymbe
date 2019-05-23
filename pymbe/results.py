@@ -949,13 +949,7 @@ def _ndets_plot(exp):
         fig, ax = plt.subplots()
 
         # array of max number of determinants at each order
-        max_ndets = np.empty(len(exp.ndets), dtype=np.float64)
-        for i in range(max_ndets.size):
-            ndets = exp.ndets[i]
-            if ndets.any():
-                max_ndets[i] = np.max(ndets[np.nonzero(ndets)])
-            else:
-                max_ndets[i] = 0.0
+        max_ndets = np.array([np.max(nd) for nd in exp.ndets], dtype=np.float64)
 
         # plot results
         ax.semilogy(np.arange(exp.min_order, exp.final_order+1), \

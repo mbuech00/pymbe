@@ -396,21 +396,26 @@ def nelec(occup, tup):
         :return: tuple of alpha- and beta-electrons
         """
         occup_tup = occup[tup]
-        return (np.count_nonzero(occup_tup > 0.), np.count_nonzero(occup_tup > 1.))
+        return (np.count_nonzero(occup_tup > 0.0), np.count_nonzero(occup_tup > 1.0))
 
 
-def ndets(occup, cas_idx, n_elec=None):
+def ndets(occup, cas_idx, ref_space=None, n_elec=None):
         """
         this function returns the number of determinants in given casci calculation (ignoring point group symmetry)
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
+        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param n_elec: number of electrons in cas space. tuple of two integers
         :return: scalar
         """
         if n_elec is None:
             n_elec = nelec(occup, cas_idx)
         n_orbs = cas_idx.size
+        if ref_space is not None:
+            ref_n_elec = nelec(occup, ref_space)
+            n_elec = tuple(map(sum, zip(n_elec, ref_n_elec)))
+            n_orbs += ref_space.size
         return scipy.special.binom(n_orbs, n_elec[0]) * scipy.special.binom(n_orbs, n_elec[1])
 
 

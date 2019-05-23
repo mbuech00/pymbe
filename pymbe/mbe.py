@@ -55,7 +55,7 @@ def master(mpi, mol, calc, exp):
         req_h2e = MPI.Request()
 
         # compute number of determinants in the individual casci calculations (ignoring symmetry)
-        ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup), \
+        ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
                                 exp.tuples[-1]), dtype=np.float64, count=n_tasks)
 
         # rank tuples wrt number of determinants (from most electrons to fewest electrons)

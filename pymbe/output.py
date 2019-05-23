@@ -163,16 +163,16 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
         if target in ['energy', 'excitation']:
 
             if order == min_order:
-                tot_inc = prop_tot[-1]
+                tot_inc = prop_tot[order-min_order]
             else:
-                tot_inc = prop_tot[-1] - prop_tot[-2]
+                tot_inc = prop_tot[order-min_order] - prop_tot[order-min_order-1]
 
         elif target in ['dipole', 'trans']:
 
             if order == min_order:
-                tot_inc = np.linalg.norm(prop_tot[-1])
+                tot_inc = np.linalg.norm(prop_tot[order-min_order])
             else:
-                tot_inc = np.linalg.norm(prop_tot[-1]) - np.linalg.norm(prop_tot[-2])
+                tot_inc = np.linalg.norm(prop_tot[order-min_order]) - np.linalg.norm(prop_tot[order-min_order-1])
 
         # set header
         if target == 'energy':
