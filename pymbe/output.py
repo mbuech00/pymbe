@@ -29,10 +29,11 @@ DIVIDER = ' '+'-'*92
 FILL = ' '+'|'*92
 
 
-def main_header():
+def main_header(method=None):
         """
         this function prints the main pymbe header
 
+        :param method: main method. string
         :return: formatted string
         """
         string = "\n\n   ooooooooo.               ooo        ooooo oooooooooo.  oooooooooooo\n"
@@ -48,22 +49,14 @@ def main_header():
 
         form = (tools.git_version(),)
 
-        return string.format(*form)
+        # method
+        if method is not None:
 
-
-def exp_header(method):
-        """
-        this function prints the expansion header
-
-        :param method: main method. string
-        :return: formatted string
-        """
-        # set string
-        string = HEADER+'\n'
-        string += '{:^87s}\n'
-        string += HEADER+'\n\n'
-
-        form = (method.upper()+' expansion',)
+            string += HEADER+'\n'
+            string += '{:^87s}\n'
+            string += HEADER+'\n\n'
+    
+            form += (method.upper()+' expansion',)
 
         return string.format(*form)
 

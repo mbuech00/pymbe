@@ -149,6 +149,10 @@ def translate_system(mol):
         for key, val in mol.system.items():
             setattr(mol, key, val)
 
+        # backwards compatibility for sym <-> symmetry
+        if hasattr(mol, 'sym'):
+            mol.symmetry = mol.sym
+
         # hf symmetry
         if mol.hf_symmetry is None:
             mol.hf_symmetry = mol.symmetry

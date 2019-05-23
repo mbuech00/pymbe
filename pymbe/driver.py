@@ -36,10 +36,30 @@ def master(mpi, mol, calc, exp):
         :param exp: pymbe exp object
         """
         # print expansion headers
-        print(output.main_header())
-        print(output.exp_header(calc.model['method']))
+        print(output.main_header(method=calc.model['method']))
 
-        # mbe expansion
+        # print output from restarted calculation
+        if calc.restart:
+            for i in range(exp.start_order - exp.min_order):
+
+                # print mbe header
+                print(output.mbe_header(exp.tuples[i].shape[0], i + exp.min_order))
+
+                # print mbe end
+                print(output.mbe_end(exp.prop[calc.target]['inc'][i], i + exp.min_order, exp.time['mbe'][i]))
+
+                # print mbe results
+                print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
+                                            exp.max_order, i + exp.min_order, exp.tuples[i], exp.prop[calc.target]['inc'][i], \
+                                            exp.prop[calc.target]['tot'], exp.ndets[i]))
+
+                # print header
+                print(output.screen_header(i + exp.min_order))
+
+                # print screen end
+                print(output.screen_end(exp.tuples[i].shape[0], i + exp.min_order, exp.time['screen'][i]))
+
+        # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
             if len(exp.tuples) > len(exp.prop[calc.target]['tot']):
@@ -47,7 +67,7 @@ def master(mpi, mol, calc, exp):
                 # init mbe time
                 exp.time['mbe'].append(0.0)
 
-                # print header
+                # print mbe header
                 print(output.mbe_header(exp.tuples[-1].shape[0], exp.order))
 
                 # start time
