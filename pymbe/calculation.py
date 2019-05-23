@@ -201,8 +201,9 @@ def sanity_chk(mol, calc):
                         'HF initial guess for FCI calcs (hf_guess) must be a bool')
         tools.assertion(isinstance(calc.extra['pi_prune'], bool), \
                         'pruning of pi-orbitals (pi_prune) must be a bool')
-        tools.assertion(calc.extra['pi_prune'] and symm.addons.std_symb(mol.symmetry) == 'D2h', \
-                        'pruning of pi-orbitals (pi_prune) is only implemented for D2h symmetry')
+        if calc.extra['pi_prune']:
+            tools.assertion(symm.addons.std_symb(mol.symmetry) == 'D2h', \
+                            'pruning of pi-orbitals (pi_prune) is only implemented for D2h symmetry')
 
         # screening protocol
         tools.assertion(all(isinstance(i, int) for i in calc.prot.values()), \
