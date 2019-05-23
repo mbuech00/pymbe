@@ -42,10 +42,10 @@ def master(mpi, mol, calc, exp):
         # mbe expansion
         for exp.order in range(exp.start_order, exp.max_order+1):
 
-            # init mbe time
-            exp.time['mbe'].append(0.0)
-
             if len(exp.tuples) > len(exp.prop[calc.target]['tot']):
+
+                # init mbe time
+                exp.time['mbe'].append(0.0)
 
                 # print header
                 print(output.mbe_header(exp.tuples[-1].shape[0], exp.order))
