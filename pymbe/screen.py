@@ -22,7 +22,7 @@ import tools
 
 
 # tags
-TAGS = tools.enum('ready', 'tup', 'tup_pi', 'exit')
+TAGS = tools.enum('ready', 'tup', 'tup_pi', 'tup_occ', 'tup_occ_pi', 'exit')
 
 
 def master(mpi, calc, exp):
@@ -38,8 +38,12 @@ def master(mpi, calc, exp):
         msg = {'task': 'screen', 'order': exp.order}
         mpi.comm.bcast(msg, root=0)
 
+        # set tuples
+        tuples = exp.tuples[-1]
+
         # number of tasks
-        n_tasks = exp.hashes[-1].size
+        n_tasks = tuples.shape[0]
+
         # number of available slaves
         slaves_avail = min(mpi.size - 1, n_tasks)
 
@@ -49,16 +53,51 @@ def master(mpi, calc, exp):
         # option to treat pi-orbitals independently
         if calc.extra['pi_prune'] and exp.min_order < exp.order:
 
+            # set tuples_pi
+            tuples_pi = exp.tuples[-2]
+
             # number of tasks
-            n_tasks_pi = exp.hashes[-2].size
+            n_tasks_pi = tuples_pi.shape[0]
     
             # make array of individual tasks
             tasks_pi = tools.tasks(n_tasks_pi, slaves_avail, mpi.task_size)
 
-        else:
+        # potential seed of occupied tuples for vacuum reference spaces
+        if calc.ref_space.size == 0:
 
-            # no additional tasks
-            tasks_pi = np.array([])
+            # set tuples_occ
+            tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
+                                    dtype=np.int32)
+
+            # prune combinations that contain non-degenerate pairs of pi-orbitals
+            if calc.extra['pi_prune']:
+                tuples_occ = tuples_occ[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                    calc.mo_energy, calc.orbsym), tuples_occ), \
+                                                    dtype=bool, count=tuples_occ.shape[0])]
+
+            # number of tasks
+            n_tasks_occ = tuples_occ.shape[0]
+
+            # make array of individual tasks
+            tasks_occ = tools.tasks(n_tasks_occ, slaves_avail, mpi.task_size)
+
+            # option to treat pi-orbitals independently
+            if calc.extra['pi_prune']:
+
+                # set tuples_occ_pi
+                tuples_occ_pi = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
+                                           dtype=np.int32)
+    
+                # prune combinations that contain non-degenerate pairs of pi-orbitals
+                tuples_occ_pi = tuples_occ_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                          calc.mo_energy, calc.orbsym), tuples_occ_pi), \
+                                                          dtype=bool, count=tuples_occ_pi.shape[0])]
+
+                # number of tasks
+                n_tasks_occ_pi = tuples_occ_pi.shape[0]
+    
+                # make array of individual tasks
+                tasks_occ_pi = tools.tasks(n_tasks_occ_pi, slaves_avail, mpi.task_size)
 
         # init child tuples array
         child_tup = np.array([], dtype=np.int32)
@@ -79,19 +118,52 @@ def master(mpi, calc, exp):
             mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 
         # pi-pruning
-        for task in tasks_pi:
+        if calc.extra['pi_prune'] and exp.min_order < exp.order:
+            for task in tasks_pi:
+    
+                # set tups
+                tups = exp.tuples[-2][task]
+    
+                # probe for available slaves
+                mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+    
+                # receive slave status
+                mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+    
+                # send tups
+                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
 
-            # set tups
-            tups = exp.tuples[-2][task]
+        # occupied seed
+        if calc.ref_space.size == 0:
+            for task in tasks_occ:
+    
+                # set tups
+                tups = tuples_occ[task]
+    
+                # probe for available slaves
+                mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+    
+                # receive slave status
+                mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+    
+                # send tups
+                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_occ)
 
-            # probe for available slaves
-            mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-
-            # receive slave status
-            mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-
-            # send tups
-            mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
+        # occupied seed w/ pi-pruning
+        if calc.ref_space.size == 0 and calc.extra['pi_prune']:
+            for task in tasks_occ_pi:
+    
+                # set tups
+                tups = tuples_occ_pi[task]
+    
+                # probe for available slaves
+                mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+    
+                # receive slave status
+                mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+    
+                # send tups
+                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_occ_pi)
 
         # done with all tasks
         while slaves_avail > 0:
@@ -110,73 +182,6 @@ def master(mpi, calc, exp):
 
         # allgather number of child tuples
         recv_counts = parallel.recv_counts(mpi, child_tup.size)
-
-        # potential seed of occupied tuples for vacuum reference spaces
-        if calc.ref_space.size == 0 and np.sum(recv_counts) > 0:
-
-            # recast child tuples array as list
-            child_tup = []
-
-            # manually add tuples with a single pair of degenerate virtual pi-orbitals
-            if calc.extra['pi_prune']:
-
-                # generate array with all k-1 order subsets of occupied expansion space
-                tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
-                                        dtype=np.int32)
-    
-                # prune combinations that contain non-degenerate pairs of pi-orbitals
-                if calc.extra['pi_prune']:
-                    tuples_occ = tuples_occ[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                        calc.mo_energy, calc.orbsym), tuples_occ), \
-                                                        dtype=bool, count=tuples_occ.shape[0])]
-
-                # contrain virtual expansion space to degenerate pairs of pi-orbitals
-                exp_space = tools.pi_pairs_deg(calc.mo_energy, calc.orbsym, calc.exp_space['virt'])
-
-                # loop over non-degenerate occupied orbitals
-                for tup in tuples_occ:
-
-                    # recast parent tuple as list
-                    tup = tup.tolist()
-
-                    # loop over degenerate pi-orbital pairs
-                    for pair in exp_space:
-                        child_tup += tup + pair.tolist()
-
-            # generate array with all k order subsets of occupied expansion space
-            tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
-                                    dtype=np.int32)
-
-            # prune combinations that contain non-degenerate pairs of pi-orbitals
-            if calc.extra['pi_prune']:
-                tuples_occ = tuples_occ[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                    calc.mo_energy, calc.orbsym), tuples_occ), \
-                                                    dtype=bool, count=tuples_occ.shape[0])]
-
-            # virtual expansion space
-            exp_space = calc.exp_space['virt']
-            if calc.extra['pi_prune']:
-                # consider only non-degenerate orbitals in virutal expansion space
-                exp_space = tools.non_deg_orbs(calc.orbsym, exp_space)
-
-            # loop over occupied tuples
-            for tup in tuples_occ:
-
-                # recast parent tuple as list
-                tup = tup.tolist()
-
-                # loop over valid orbitals in virtual expansion space
-                for orb in exp_space:
-                    child_tup += tup + [orb]
-
-            # recast child_tup as array once again
-            child_tup = np.array(child_tup, dtype=np.int32)
-
-            # add number of child tuples to recv_counts
-            recv_counts[0] = child_tup.size
-
-        # bcast possibly updated recv_counts
-        recv_counts = parallel.bcast(mpi, recv_counts)
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
@@ -215,6 +220,7 @@ def slave(mpi, calc, exp):
         """
         # number of tasks
         n_tasks = exp.hashes[-1].size
+
         # number of needed slaves
         slaves_needed = min(mpi.size - 1, n_tasks)
 
@@ -236,11 +242,11 @@ def slave(mpi, calc, exp):
             mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
             # do task
-            if mpi.stat.tag in [TAGS.tup, TAGS.tup_pi]:
+            if mpi.stat.tag in [TAGS.tup, TAGS.tup_pi, TAGS.tup_occ, TAGS.tup_occ_pi]:
 
-                # set order
+                # set tup_order
                 tup_order = exp.order
-                if mpi.stat.tag == TAGS.tup_pi:
+                if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi]:
                     tup_order -= 1
 
                 # get number of elements in tups
@@ -259,25 +265,26 @@ def slave(mpi, calc, exp):
                     orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
                                     calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
                                     tup_order, exp.hashes[-1], exp.prop[calc.target]['inc'][-1], \
-                                    tup, pi_prune=calc.extra['pi_prune'], pi_gen=mpi.stat.tag == TAGS.tup_pi)
+                                    tup, pi_prune=calc.extra['pi_prune'], \
+                                    pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi])
 
                     # deep pruning
                     if calc.extra['pi_prune'] and exp.min_order < tup_order:
                         orbs = _deep_pruning(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
                                                 calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
                                                 tup_order, exp.hashes, exp.prop[calc.target]['inc'], \
-                                                tup, orbs, pi_gen=mpi.stat.tag == TAGS.tup_pi)
+                                                tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi])
 
                     # recast parent tuple as list
                     tup = tup.tolist()
 
                     # reshape orbs in pairs of pi-orbitals
-                    if mpi.stat.tag == TAGS.tup_pi:
+                    if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi]:
                         orbs = orbs.reshape(-1, 2)
 
                     # loop over orbitals and add to list of child tuples
                     for orb in orbs:
-                        if mpi.stat.tag == TAGS.tup_pi:
+                        if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi]:
                             child_tup += tup + orb.tolist()
                         else:
                             child_tup += tup + [orb]
@@ -296,9 +303,6 @@ def slave(mpi, calc, exp):
 
         # allgather number of child tuples
         recv_counts = parallel.recv_counts(mpi, child_tup.size)
-
-        # receive possibly updated recv_counts
-        recv_counts = parallel.bcast(mpi, recv_counts)
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
@@ -350,7 +354,7 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
                 exp_space_trunc = tools.non_deg_orbs(orbsym, exp_space_trunc)
 
         # at min_order, spawn all possible child tuples
-        if order == min_order:
+        if order <= min_order:
             return exp_space_trunc.ravel()
 
         # generate array with all k-1 order subsets of particular tuple
