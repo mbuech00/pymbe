@@ -248,12 +248,12 @@ def _set_mbe(mpi, calc, exp):
         :return: integer [slaves_avail],
                  numpy array of shape (n_tuples, order) [tuples],
                  list of numpy arrays of various shapes [tasks],
-                 numpy array of shape (n_tuples_pi, order-1) or None [tuples_pi],
-                 list of numpy arrays of various shapes or None [tasks_pi],
-                 numpy array of shape (n_tuples_occ, order) or None [tuples_occ],
-                 list of numpy arrays of various shapes or None [tasks_occ],
-                 numpy array of shape (n_tuples_occ_pi, order-1) or None [tuples_occ_pi],
-                 list of numpy arrays of various shapes or None [tasks_occ_pi],
+                 numpy array of shape (n_tuples_pi, order-1) or None [tuples_pi] depending on pi-pruning,
+                 list of numpy arrays of various shapes or None [tasks_pi] depending on pi-pruning,
+                 numpy array of shape (n_tuples_occ, order) or None [tuples_occ] depending on ref_space,
+                 list of numpy arrays of various shapes or None [tasks_occ] depending on ref_space,
+                 numpy array of shape (n_tuples_occ_pi, order-1) or None [tuples_occ_pi] depending on ref_space and pi-pruning,
+                 list of numpy arrays of various shapes or None [tasks_occ_pi] depending on ref_space and pi-pruning,
         """
         # set main task tuples
         tuples = exp.tuples[-1]
