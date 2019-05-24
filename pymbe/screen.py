@@ -32,153 +32,73 @@ def master(mpi, calc, exp):
         :param mpi: pymbe mpi object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: two numpy arrays of shapes (n_child_tup,) [hashes] and (n_child_tuples, order+1) [tuples]
+        :return: numpy array of shape (n_child_tup,) [hashes],
+                 numpy array of shaoe (n_child_tuples, order+1) [tuples]
         """
         # wake up slaves
         msg = {'task': 'screen', 'order': exp.order}
         mpi.comm.bcast(msg, root=0)
 
-        # set tuples
-        tuples = exp.tuples[-1]
-
-        # number of tasks
-        n_tasks = tuples.shape[0]
-
-        # number of available slaves
-        slaves_avail = min(mpi.size - 1, n_tasks)
-
-        # make array of individual tasks
-        tasks = tools.tasks(n_tasks, slaves_avail, mpi.task_size)
-
-        # option to treat pi-orbitals independently
-        if calc.extra['pi_prune'] and exp.min_order < exp.order:
-
-            # set tuples_pi
-            tuples_pi = exp.tuples[-2]
-
-            # number of tasks
-            n_tasks_pi = tuples_pi.shape[0]
-    
-            # make array of individual tasks
-            tasks_pi = tools.tasks(n_tasks_pi, slaves_avail, mpi.task_size)
-
-        # potential seed of occupied tuples for vacuum reference spaces
-        if calc.ref_space.size == 0:
-
-            # set tuples_occ
-            tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
-                                    dtype=np.int32)
-
-            # prune combinations that contain non-degenerate pairs of pi-orbitals
-            if calc.extra['pi_prune']:
-                tuples_occ = tuples_occ[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                    calc.mo_energy, calc.orbsym), tuples_occ), \
-                                                    dtype=bool, count=tuples_occ.shape[0])]
-
-            # number of tasks
-            n_tasks_occ = tuples_occ.shape[0]
-
-            # make array of individual tasks
-            tasks_occ = tools.tasks(n_tasks_occ, slaves_avail, mpi.task_size)
-
-            # option to treat pi-orbitals independently
-            if calc.extra['pi_prune']:
-
-                # set tuples_occ_pi
-                tuples_occ_pi = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
-                                           dtype=np.int32)
-    
-                # prune combinations that contain non-degenerate pairs of pi-orbitals
-                tuples_occ_pi = tuples_occ_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                          calc.mo_energy, calc.orbsym), tuples_occ_pi), \
-                                                          dtype=bool, count=tuples_occ_pi.shape[0])]
-
-                # number of tasks
-                n_tasks_occ_pi = tuples_occ_pi.shape[0]
-    
-                # make array of individual tasks
-                tasks_occ_pi = tools.tasks(n_tasks_occ_pi, slaves_avail, mpi.task_size)
-
-        # init child tuples array
-        child_tup = np.array([], dtype=np.int32)
+        # set number of available slaves, various tuples, and various task arrays
+        slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
+            tuples_occ, tasks_occ, tuples_occ_pi, tasks_occ_pi = _set_mbe(mpi, calc, exp)
 
         # loop until no tasks left
         for task in tasks:
 
             # set tups
-            tups = exp.tuples[-1][task]
-
-            # probe for available slaves
-            mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-
-            # receive slave status
-            mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+            tups = tuples[task]
 
             # send tups
-            mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
+            parallel.mbe_tasks(mpi, tups, TAGS.ready, TAGS.tup)
 
         # pi-pruning
-        if calc.extra['pi_prune'] and exp.min_order < exp.order:
+        if tasks_pi is not None:
+
+            # loop until no tasks left
             for task in tasks_pi:
     
                 # set tups
-                tups = exp.tuples[-2][task]
-    
-                # probe for available slaves
-                mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-    
-                # receive slave status
-                mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+                tups = tuples_pi[task]
     
                 # send tups
-                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
+                parallel.mbe_tasks(mpi, tups, TAGS.ready, TAGS.tup_pi)
 
         # occupied seed
-        if calc.ref_space.size == 0:
+        if tasks_occ is not None:
+
+            # loop until no tasks left
             for task in tasks_occ:
     
                 # set tups
                 tups = tuples_occ[task]
     
-                # probe for available slaves
-                mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-    
-                # receive slave status
-                mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-    
                 # send tups
-                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_occ)
+                parallel.mbe_tasks(mpi, tups, TAGS.ready, TAGS.tup_occ)
 
         # occupied seed w/ pi-pruning
-        if calc.ref_space.size == 0 and calc.extra['pi_prune']:
+        if tasks_occ_pi is not None:
+
+            # loop until no tasks left
             for task in tasks_occ_pi:
     
                 # set tups
                 tups = tuples_occ_pi[task]
     
-                # probe for available slaves
-                mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-    
-                # receive slave status
-                mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-    
                 # send tups
-                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_occ_pi)
+                parallel.mbe_tasks(mpi, tups, TAGS.ready, TAGS.tup_occ_pi)
 
         # done with all tasks
         while slaves_avail > 0:
 
-            # probe for available slaves
-            mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-
-            # receive slave status
-            mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-
-            # send exit signal
-            mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
+            # send exit signal to slave
+            parallel.mbe_exit(mpi, TAGS.ready, TAGS.exit)
 
             # remove slave
             slaves_avail -= 1
+
+        # init child tuples array
+        child_tup = np.array([], dtype=np.int32)
 
         # allgather number of child tuples
         recv_counts = parallel.recv_counts(mpi, child_tup.size)
@@ -316,6 +236,104 @@ def slave(mpi, calc, exp):
 
         # receive new hashes
         return parallel.bcast(mpi, hashes_new)
+
+
+def _set_mbe(mpi, calc, exp):
+        """
+        this function returns number of available slave, various tuples, and various task arrays
+
+        :param mpi: pymbe mpi object
+        :param calc: pymbe calc object
+        :param exp: pymbe exp object
+        :return: integer [slaves_avail],
+                 numpy array of shape (n_tuples, order) [tuples],
+                 list of numpy arrays of various shapes [tasks],
+                 numpy array of shape (n_tuples_pi, order-1) or None [tuples_pi],
+                 list of numpy arrays of various shapes or None [tasks_pi],
+                 numpy array of shape (n_tuples_occ, order) or None [tuples_occ],
+                 list of numpy arrays of various shapes or None [tasks_occ],
+                 numpy array of shape (n_tuples_occ_pi, order-1) or None [tuples_occ_pi],
+                 list of numpy arrays of various shapes or None [tasks_occ_pi],
+        """
+        # set main task tuples
+        tuples = exp.tuples[-1]
+
+        # number of tasks
+        n_tasks = tuples.shape[0]
+
+        # number of available slaves
+        slaves_avail = min(mpi.size - 1, n_tasks)
+
+        # make array of individual tasks
+        tasks = tools.tasks(n_tasks, slaves_avail, mpi.task_size)
+
+        # option to treat pi-orbitals independently
+        if calc.extra['pi_prune'] and exp.min_order < exp.order:
+
+            # set tuples_pi
+            tuples_pi = exp.tuples[-2]
+
+            # number of tasks
+            n_tasks_pi = tuples_pi.shape[0]
+    
+            # make array of individual tasks
+            tasks_pi = tools.tasks(n_tasks_pi, slaves_avail, mpi.task_size)
+
+        else:
+
+            # not relevant
+            tuples_pi = tasks_pi = None
+
+        # potential seed of occupied tuples for vacuum reference spaces
+        if calc.ref_space.size == 0:
+
+            # set tuples_occ
+            tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
+                                    dtype=np.int32)
+
+            # prune combinations that contain non-degenerate pairs of pi-orbitals
+            if calc.extra['pi_prune']:
+                tuples_occ = tuples_occ[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                    calc.mo_energy, calc.orbsym), tuples_occ), \
+                                                    dtype=bool, count=tuples_occ.shape[0])]
+
+            # number of tasks
+            n_tasks_occ = tuples_occ.shape[0]
+
+            # make array of individual tasks
+            tasks_occ = tools.tasks(n_tasks_occ, slaves_avail, mpi.task_size)
+
+            # option to treat pi-orbitals independently
+            if calc.extra['pi_prune']:
+
+                # set tuples_occ_pi
+                tuples_occ_pi = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
+                                           dtype=np.int32)
+    
+                # prune combinations that contain non-degenerate pairs of pi-orbitals
+                tuples_occ_pi = tuples_occ_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                          calc.mo_energy, calc.orbsym), tuples_occ_pi), \
+                                                          dtype=bool, count=tuples_occ_pi.shape[0])]
+
+                # number of tasks
+                n_tasks_occ_pi = tuples_occ_pi.shape[0]
+    
+                # make array of individual tasks
+                tasks_occ_pi = tools.tasks(n_tasks_occ_pi, slaves_avail, mpi.task_size)
+
+            else:
+    
+                # not relevant
+                tuples_occ_pi = tasks_occ_pi = None
+
+        else:
+
+            # not relevant
+            tuples_occ = tasks_occ = None
+            tuples_occ_pi = tasks_occ_pi = None
+
+        return slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
+                tuples_occ, tasks_occ, tuples_occ_pi, tasks_occ_pi
 
 
 def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \

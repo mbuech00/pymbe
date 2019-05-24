@@ -32,7 +32,10 @@ def main():
         """
         this function initializes and broadcasts mpi, mol, calc, and exp objects
 
-        :return: mpi, mol, calc, and exp objects
+        :return: pymbe mpi object,
+                 pymbe mol object,
+                 pymbe calc object,
+                 pymbe exp object
         """
         # mpi object
         mpi = parallel.MPICls()
@@ -125,7 +128,9 @@ def _exp(mpi, mol, calc):
         :param mpi: pymbe mpi object
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :return: updated mol and calc object and new pymbe exp object
+        :return: updated mol object,
+                 updated calc object,
+                 pymbe exp object
         """
         if mpi.master:
 

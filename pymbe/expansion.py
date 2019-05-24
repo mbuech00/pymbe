@@ -55,7 +55,8 @@ def init_tup(mol, calc):
 
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :return: two lists with numpy arrays of shapes (n_tuples,) [hashes] and (n_tuples, min_order) [tuples]
+        :return: list with numpy array of shape (n_tuples,) [hashes],
+                 list with numpy array of shape (n_tuples, min_order) [tuples]
         """
         # init tuples
         if calc.ref_space.size == 0:

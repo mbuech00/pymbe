@@ -192,7 +192,8 @@ def read_fund(mol, calc):
 
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :return: updated mol and calc objects
+        :return: updated mol object,
+                 updated calc object
         """
         # list filenames in files list
         files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]

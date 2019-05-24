@@ -130,7 +130,8 @@ def fund(mpi, mol, calc):
         :param mpi: pymbe mpi object
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :return: updated mol and calc objects
+        :return: updated mol object,
+                 updated calc object
         """
         if mpi.master:
 
@@ -268,6 +269,51 @@ def exp(mpi, calc, exp):
         return exp
 
 
+def mbe_tasks(mpi, tasks, tag_ready, tag_task):
+        """
+        this function sends tasks to available slaves
+
+        :param mpi: pymbe mpi object
+        :param tasks: given set of tuples. numpy array of shape (n_tasks, tup_order)
+        :param tag_ready: mpi ready tag. enum
+        :param tag_task: mpi task tag. enum
+        """
+        # get slave
+        probe_irecv(mpi, tag_ready)
+
+        # send tups to available slave
+        mpi.comm.Send([tasks, MPI.INT], dest=mpi.stat.source, tag=tag_task)
+
+
+def mbe_exit(mpi, tag_ready, tag_exit):
+        """
+        this function sends tasks to available slaves
+
+        :param mpi: pymbe mpi object
+        :param tag_ready: mpi ready tag. enum
+        :param tag_exit: mpi exit tag. enum
+        """
+        # get slave
+        probe_irecv(mpi, tag_ready)
+
+        # send exit signal
+        mpi.comm.isend(None, dest=mpi.stat.source, tag=tag_exit)
+
+
+def probe_irecv(mpi, tag_ready):
+        """
+        this function probes for available slaves and receive their status
+
+        :param mpi: pymbe mpi object
+        :param tag_ready: mpi ready tag. enum
+        """
+        # probe for available slaves
+        mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=tag_ready, status=mpi.stat)
+
+        # receive slave status
+        mpi.comm.irecv(None, source=mpi.stat.source, tag=tag_ready)
+
+
 def bcast(mpi, buff):
         """
         this function performs a tiled Bcast operation
@@ -375,7 +421,7 @@ def _tile_counts(counts, p0, p1):
         :param counts: main counts. numpy array of shape (n_procs,)
         :param p0: start index. integer
         :param p1: end index. integer
-        :return: tile counter. numpy array of shape (n_procs,)
+        :return: numpy array of shape (n_procs,)
         """
         # compute counts_tile
         counts_tile = counts - p0

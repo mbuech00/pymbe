@@ -60,6 +60,8 @@ def git_version():
         """
         this function returns the git revision as a string
         see: https://github.com/numpy/numpy/blob/master/setup.py#L70-L92
+
+        :return: string
         """
         def _minimal_ext_cmd(cmd):
             env = {}
@@ -86,6 +88,8 @@ def git_version():
 def get_pymbe_path():
         """
         this function returns the path to pymbe
+
+        :return: string
         """
         return os.path.dirname(os.path.realpath(sys.argv[0]))
 
@@ -114,6 +118,8 @@ def enum(*sequential, **named):
         """
         this function returns hardcoded enums
         see: https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+
+        :return: enum
         """
         enums = dict(zip(sequential, range(len(sequential))), **named)
         return type('Enum', (), enums)
@@ -157,7 +163,7 @@ def fsum(a):
         this function uses math.fsum to safely sum 1d array or 2d array (column-wise)
 
         :param a: quantity to sum. numpy array of shape (n_a,) or (n_a_1, n_a_2)
-        :return: scalar or numpy array of shape (n_a_1,)
+        :return: scalar or numpy array of shape (n_a_1,) depending on dimensions of a
         """
         if a.ndim == 1:
             return math.fsum(a)
@@ -393,7 +399,7 @@ def nelec(occup, tup):
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
         :param tup: current orbital tuple. numpy array of shape (order,)
-        :return: tuple of alpha- and beta-electrons
+        :return: tuple of integers
         """
         occup_tup = occup[tup]
         return (np.count_nonzero(occup_tup > 0.0), np.count_nonzero(occup_tup > 1.0))
@@ -426,7 +432,7 @@ def mat_idx(site_xy, nx, ny):
         :param site_xy: matrix index. integer
         :param nx: x-dimension of matrix. integer
         :param ny: y-dimension of matrix. integer
-        :return: tuple of x- and y-indices
+        :return: tuple of integers
         """
         x = site_xy % nx
         y = int(math.floor(float(site_xy) / ny))
@@ -440,7 +446,7 @@ def near_nbrs(site_xy, nx, ny):
         :param site_xy: matrix index. integer
         :param nx: x-dimension of matrix. integer
         :param ny: y-dimension of matrix. integer
-        :return: list of tuples with all nearest neighbours
+        :return: list of tuples of integers
         """
         left = ((site_xy[0] - 1) % nx, site_xy[1])
         right = ((site_xy[0] + 1) % nx, site_xy[1])

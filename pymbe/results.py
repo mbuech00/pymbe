@@ -569,7 +569,6 @@ def _energies_plot(calc, exp):
 
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
         """
         # set seaborn
         if SNS_FOUND:
@@ -648,7 +647,6 @@ def _excitation_plot(calc, exp):
 
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
         """
         # set seaborn
         if SNS_FOUND:
@@ -736,7 +734,6 @@ def _dipole_plot(calc, exp):
 
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
         """
         # set seaborn
         if SNS_FOUND:
@@ -835,7 +832,6 @@ def _trans_plot(calc, exp):
 
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
         """
         # set seaborn
         if SNS_FOUND:
@@ -887,7 +883,6 @@ def _osc_strength_plot(calc, exp):
 
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
         """
         # set seaborn
         if SNS_FOUND:
@@ -939,7 +934,6 @@ def _ndets_plot(exp):
         this function plots the number of determinants
 
         :param exp: pymbe exp object
-        :return: formatted string
         """
         # set seaborn
         if SNS_FOUND:

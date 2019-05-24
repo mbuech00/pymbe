@@ -74,7 +74,7 @@ class MolCls(gto.Mole):
                 """
                 this function sets ncore
 
-                :return: number of core MOs. integer
+                :return: integer
                 """
                 # init ncore
                 ncore = 0
