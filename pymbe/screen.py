@@ -41,7 +41,7 @@ def master(mpi, calc, exp):
 
         # set number of available slaves, various tuples, and various task arrays
         slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
-            tuples_occ, tasks_occ, tuples_occ_pi, tasks_occ_pi = _set_mbe(mpi, calc, exp)
+            tuples_occ, tasks_occ, tuples_occ_pi, tasks_occ_pi = _set_screen(mpi, calc, exp)
 
         # loop until no tasks left
         for task in tasks:
@@ -50,7 +50,7 @@ def master(mpi, calc, exp):
             tups = tuples[task]
 
             # send tups
-            parallel.mbe_tasks(mpi, tups, TAGS.ready, TAGS.tup)
+            parallel.screen_tasks(mpi, tups, TAGS.ready, TAGS.tup)
 
         # pi-pruning
         if tasks_pi is not None:
@@ -62,7 +62,7 @@ def master(mpi, calc, exp):
                 tups = tuples_pi[task]
     
                 # send tups
-                parallel.mbe_tasks(mpi, tups, TAGS.ready, TAGS.tup_pi)
+                parallel.screen_tasks(mpi, tups, TAGS.ready, TAGS.tup_pi)
 
         # occupied seed
         if tasks_occ is not None:
@@ -74,7 +74,7 @@ def master(mpi, calc, exp):
                 tups = tuples_occ[task]
     
                 # send tups
-                parallel.mbe_tasks(mpi, tups, TAGS.ready, TAGS.tup_occ)
+                parallel.screen_tasks(mpi, tups, TAGS.ready, TAGS.tup_occ)
 
         # occupied seed w/ pi-pruning
         if tasks_occ_pi is not None:
@@ -86,13 +86,13 @@ def master(mpi, calc, exp):
                 tups = tuples_occ_pi[task]
     
                 # send tups
-                parallel.mbe_tasks(mpi, tups, TAGS.ready, TAGS.tup_occ_pi)
+                parallel.screen_tasks(mpi, tups, TAGS.ready, TAGS.tup_occ_pi)
 
         # done with all tasks
         while slaves_avail > 0:
 
             # send exit signal to slave
-            parallel.mbe_exit(mpi, TAGS.ready, TAGS.exit)
+            parallel.screen_exit(mpi, TAGS.ready, TAGS.exit)
 
             # remove slave
             slaves_avail -= 1
@@ -238,7 +238,7 @@ def slave(mpi, calc, exp):
         return parallel.bcast(mpi, hashes_new)
 
 
-def _set_mbe(mpi, calc, exp):
+def _set_screen(mpi, calc, exp):
         """
         this function returns number of available slave, various tuples, and various task arrays
 
