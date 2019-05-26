@@ -269,9 +269,8 @@ def _sum(occup, mo_energy, orbsym, ref_space, target, min_order, order, prop, ha
                 combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
                                                 mo_energy, orbsym), combs), \
                                                 dtype=bool, count=combs.shape[0])]
-
-            if combs.size == 0:
-                continue
+                if combs.size == 0:
+                    continue
 
             # convert to sorted hashes
             combs_hash = tools.hash_2d(combs)
