@@ -59,12 +59,15 @@ def init_tup(mol, calc):
                  list with numpy array of shape (n_tuples, min_order) [tuples]
         """
         # init tuples
-        if calc.ref_space.size == 0:
-            tuples = np.array([[i, a] for i in calc.exp_space['occ'] for a in calc.exp_space['virt']], \
-                                dtype=np.int32)
+        if calc.ref_space.size > 0:
+            if np.all(occup[calc.ref_space] == 0.0):
+                tuples = np.array([[i] for i in calc.exp_space['occ']], dtype=np.int32)
+            elif np.all(occup[calc.ref_space] > 0.0):
+                tuples = np.array([[a] for a in calc.exp_space['virt']], dtype=np.int32)
+            else:
+                tuples = np.array([[p] for p in calc.exp_space['tot']], dtype=np.int32)
         else:
-            tuples = np.array([[p] for p in calc.exp_space['tot'] if tools.cas_corr(calc.occup, calc.ref_space, p)], \
-                                dtype=np.int32)
+            tuples = np.array([[i, a] for i in calc.exp_space['occ'] for a in calc.exp_space['virt']], dtype=np.int32)
 
         # pi-orbital pruning
         if calc.extra['pi_prune']:

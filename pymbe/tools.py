@@ -235,18 +235,6 @@ def cas(ref_space, tup):
         return np.sort(np.append(ref_space, tup))
 
 
-def cas_corr(occup, ref_space, tup):
-        """
-        thus function checks for the presence of both occupied and virtual orbitals in a given cas space
-
-        :param occup: orbital occupation. numpy array of shape (n_orbs,)
-        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
-        :param tup: current orbital tuple. numpy array of shape (order,)
-        :return: bool
-        """
-        return np.any(occup[cas(ref_space, tup)] > 0.0) and np.any(occup[cas(ref_space, tup)] == 0.0)
-
-
 def core_cas(nocc, ref_space, tup):
         """
         this function returns a core and a cas space

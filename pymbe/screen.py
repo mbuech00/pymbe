@@ -359,9 +359,9 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
         """
         # truncate expansion space
         if min_order == 1:
-            exp_space_trunc = exp_space['tot'][tup[-1] < exp_space['tot']] 
+            exp_space_trunc = exp_space['tot'][tup[-1] < exp_space['tot']]
         elif min_order == 2:
-            exp_space_trunc = exp_space['virt'][tup[-1] < exp_space['virt']] 
+            exp_space_trunc = exp_space['virt'][tup[-1] < exp_space['virt']]
 
         if pi_gen:
             # consider only pairs of degenerate pi-orbitals in truncated expansion space
@@ -378,17 +378,11 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
         # generate array with all k-1 order subsets of particular tuple
         combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
 
-        # prune combinations that do not correspond to a correlated cas spaces
-        if np.any(occup[tup] == 0.0):
-            combs = combs[np.fromiter(map(functools.partial(tools.cas_corr, \
-                                            occup, ref_space), combs), \
-                                            dtype=bool, count=combs.shape[0])]
-
         # prune combinations that contain non-degenerate pairs of pi-orbitals
         if pi_prune:
             combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                            mo_energy, orbsym), combs), \
-                                            dtype=bool, count=combs.shape[0])]
+                                          mo_energy, orbsym), combs), \
+                                          dtype=bool, count=combs.shape[0])]
             if combs.size == 0:
                 return exp_space_trunc.ravel()
 

@@ -264,10 +264,6 @@ def _sum(occup, mo_energy, orbsym, ref_space, target, min_order, order, prop, ha
             # generate array with all subsets of particular tuple
             combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 
-            # prune combinations that do not corrspond to a correlated cas spaces
-            combs = combs[np.fromiter(map(functools.partial(tools.cas_corr, occup, ref_space), combs), \
-                                        dtype=bool, count=combs.shape[0])]
-
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             if pi_prune:
                 combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
