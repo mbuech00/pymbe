@@ -353,7 +353,7 @@ def pi_pairs_deg(mo_energy, orbsym, tup):
 
 def pi_prune(mo_energy, orbsym, tup):
         """
-        this function returns True for a tuple of orbitals allowed under pi-pruning
+        this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
 
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
@@ -379,6 +379,28 @@ def pi_prune(mo_energy, orbsym, tup):
 
                 # check if all pi-orbitals are pair-wise degenerate
                 return pi_orbs.size == pi_pairs_deg(mo_energy, orbsym, tup).size
+
+
+def occ_prune(occup, tup):
+        """
+        this function returns True for a tuple of orbitals allowed under pruning wrt occupied orbitals
+
+        :param occup: orbital occupation. numpy array of shape (n_orbs,)
+        :param tup: current orbital tuple. numpy array of shape (order,)
+        :return: bool
+        """
+        return np.any(occup[tup] > 0.0)
+
+
+def occ_virt_prune(occup, tup):
+        """
+        this function returns True for a tuple of orbitals allowed under pruning wrt occupied and virtual orbitals
+
+        :param occup: orbital occupation. numpy array of shape (n_orbs,)
+        :param tup: current orbital tuple. numpy array of shape (order,)
+        :return: bool
+        """
+        return np.any(occup[tup] > 0.0) and np.any(occup[tup] == 0.0)
 
 
 def nelec(occup, tup):

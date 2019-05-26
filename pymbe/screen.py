@@ -49,8 +49,11 @@ def master(mpi, calc, exp):
             # set tups
             tups = tuples[task]
 
-            # send tups
-            parallel.screen_tasks(mpi, tups, TAGS.ready, TAGS.tup)
+            # get slave
+            parallel.probe_irecv(mpi, TAGS.ready)
+
+            # send tups to available slave
+            mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 
         # pi-pruning
         if tasks_pi is not None:
@@ -61,8 +64,11 @@ def master(mpi, calc, exp):
                 # set tups
                 tups = tuples_pi[task]
     
-                # send tups
-                parallel.screen_tasks(mpi, tups, TAGS.ready, TAGS.tup_pi)
+                # get slave
+                parallel.probe_irecv(mpi, TAGS.ready)
+
+                # send tups to available slave
+                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
 
         # occupied seed
         if tasks_occ is not None:
@@ -73,8 +79,11 @@ def master(mpi, calc, exp):
                 # set tups
                 tups = tuples_occ[task]
     
-                # send tups
-                parallel.screen_tasks(mpi, tups, TAGS.ready, TAGS.tup_occ)
+                # get slave
+                parallel.probe_irecv(mpi, TAGS.ready)
+
+                # send tups to available slave
+                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_occ)
 
         # occupied seed w/ pi-pruning
         if tasks_occ_pi is not None:
@@ -85,14 +94,20 @@ def master(mpi, calc, exp):
                 # set tups
                 tups = tuples_occ_pi[task]
     
-                # send tups
-                parallel.screen_tasks(mpi, tups, TAGS.ready, TAGS.tup_occ_pi)
+                # get slave
+                parallel.probe_irecv(mpi, TAGS.ready)
+
+                # send tups to available slave
+                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_occ_pi)
 
         # done with all tasks
         while slaves_avail > 0:
 
+            # get slave
+            parallel.probe_irecv(mpi, TAGS.ready)
+
             # send exit signal to slave
-            parallel.screen_exit(mpi, TAGS.ready, TAGS.exit)
+            mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
 
             # remove slave
             slaves_avail -= 1
@@ -294,8 +309,8 @@ def _set_screen(mpi, calc, exp):
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             if calc.extra['pi_prune']:
                 tuples_occ = tuples_occ[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                    calc.mo_energy, calc.orbsym), tuples_occ), \
-                                                    dtype=bool, count=tuples_occ.shape[0])]
+                                                        calc.mo_energy, calc.orbsym), tuples_occ), \
+                                                        dtype=bool, count=tuples_occ.shape[0])]
 
             # number of tasks
             n_tasks_occ = tuples_occ.shape[0]
@@ -312,8 +327,8 @@ def _set_screen(mpi, calc, exp):
     
                 # prune combinations that contain non-degenerate pairs of pi-orbitals
                 tuples_occ_pi = tuples_occ_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                          calc.mo_energy, calc.orbsym), tuples_occ_pi), \
-                                                          dtype=bool, count=tuples_occ_pi.shape[0])]
+                                                              calc.mo_energy, calc.orbsym), tuples_occ_pi), \
+                                                              dtype=bool, count=tuples_occ_pi.shape[0])]
 
                 # number of tasks
                 n_tasks_occ_pi = tuples_occ_pi.shape[0]
@@ -378,13 +393,19 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
         # generate array with all k-1 order subsets of particular tuple
         combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
 
+        # prune combinations without occupied orbitals
+        if min_order == 2:
+            combs = combs[np.fromiter(map(functools.partial(tools.occ_prune, occup), combs), \
+                                          dtype=bool, count=combs.shape[0])]
+
         # prune combinations that contain non-degenerate pairs of pi-orbitals
         if pi_prune:
             combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
                                           mo_energy, orbsym), combs), \
                                           dtype=bool, count=combs.shape[0])]
-            if combs.size == 0:
-                return exp_space_trunc.ravel()
+
+        if combs.size == 0:
+            return exp_space_trunc.ravel()
 
         # init list of child orbitals
         child_orbs = []

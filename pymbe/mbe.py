@@ -64,11 +64,8 @@ def master(mpi, mol, calc, exp):
         # loop until no tasks left
         for tup in exp.tuples[-1]:
 
-            # probe for available slaves
-            mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-
-            # receive slave status
-            mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
+            # get slave
+            parallel.probe_irecv(mpi, TAGS.ready)
 
             # send tup
             req_tup.Wait()
@@ -90,13 +87,10 @@ def master(mpi, mol, calc, exp):
         # done with all tasks
         while slaves_avail > 0:
 
-            # probe for available slaves
-            mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+            # get slave
+            parallel.probe_irecv(mpi, TAGS.ready)
 
-            # receive slave status
-            mpi.comm.irecv(None, source=mpi.stat.source, tag=TAGS.ready)
-
-            # send exit signal
+            # send exit signal to slave
             mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
 
             # remove slave
@@ -264,13 +258,19 @@ def _sum(occup, mo_energy, orbsym, ref_space, target, min_order, order, prop, ha
             # generate array with all subsets of particular tuple
             combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 
-            # prune combinations that contain non-degenerate pairs of pi-orbitals
+            # prune combinations without occupied and virtual orbitals
+            if min_order == 2:
+                combs = combs[np.fromiter(map(functools.partial(tools.occ_virt_prune, occup), combs), \
+                                              dtype=bool, count=combs.shape[0])]
+
+            # prune combinations with non-degenerate pairs of pi-orbitals
             if pi_prune:
                 combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                mo_energy, orbsym), combs), \
-                                                dtype=bool, count=combs.shape[0])]
-                if combs.size == 0:
-                    continue
+                                              mo_energy, orbsym), combs), \
+                                              dtype=bool, count=combs.shape[0])]
+
+            if combs.size == 0:
+                continue
 
             # convert to sorted hashes
             combs_hash = tools.hash_2d(combs)

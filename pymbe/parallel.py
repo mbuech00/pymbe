@@ -269,37 +269,6 @@ def exp(mpi, calc, exp):
         return exp
 
 
-def mbe_tasks(mpi, tasks, tag_ready, tag_task):
-        """
-        this function sends tasks to available slaves
-
-        :param mpi: pymbe mpi object
-        :param tasks: given set of tuples. numpy array of shape (n_tasks, tup_order)
-        :param tag_ready: mpi ready tag. enum
-        :param tag_task: mpi task tag. enum
-        """
-        # get slave
-        probe_irecv(mpi, tag_ready)
-
-        # send tups to available slave
-        mpi.comm.Send([tasks, MPI.INT], dest=mpi.stat.source, tag=tag_task)
-
-
-def mbe_exit(mpi, tag_ready, tag_exit):
-        """
-        this function sends tasks to available slaves
-
-        :param mpi: pymbe mpi object
-        :param tag_ready: mpi ready tag. enum
-        :param tag_exit: mpi exit tag. enum
-        """
-        # get slave
-        probe_irecv(mpi, tag_ready)
-
-        # send exit signal
-        mpi.comm.isend(None, dest=mpi.stat.source, tag=tag_exit)
-
-
 def probe_irecv(mpi, tag_ready):
         """
         this function probes for available slaves and receive their status
