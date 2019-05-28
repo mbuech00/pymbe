@@ -179,7 +179,7 @@ def slave(mpi, mol, calc, exp):
                 exp.order = msg['order']
 
                 # main screening function
-                hashes = screen.slave(mpi, mol, calc, exp)
+                hashes = screen.slave(mpi, calc, exp, msg['slaves_needed'])
 
                 # append hashes
                 exp.hashes.append(hashes)

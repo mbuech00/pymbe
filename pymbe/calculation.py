@@ -40,7 +40,7 @@ class CalcCls(object):
                 # set defaults
                 self.model = {'method': 'fci', 'solver': 'pyscf_spin0'}
                 self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
-                self.prot = {'scheme': 2, 'seed': 'occ'}
+                self.prot = {'scheme': 2}
                 self.ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
                             'select': [i for i in range(mol.ncore, mol.nelectron // 2)], \
                             'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
@@ -210,10 +210,6 @@ def sanity_chk(mol, calc):
                         'screening protocol scheme (scheme) must be an int')
         tools.assertion(0 < calc.prot['scheme'] < 4, \
                         'valid screening protocol schemes (scheme) are: 1 (1st gen), 2 (2nd) gen, 3 (3rd gen)')
-        tools.assertion(isinstance(calc.prot['seed'], str), \
-                        'screening seed space (seed) must be a string')
-        tools.assertion(calc.prot['seed'] in ['occ', 'virt'], \
-                        'valid screening seed spaces are: occ and virt')
 
         # expansion thresholds
         tools.assertion(all(isinstance(i, float) for i in calc.thres.values()), \
