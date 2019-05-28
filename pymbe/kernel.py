@@ -392,6 +392,8 @@ def ref_mo(mol, calc):
                 else:
                     loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
                 loc.conv_tol = 1.0e-10
+                if mol.debug >= 1:
+                    loc.verbose = 4
                 calc.mo_coeff[:, mol.ncore:mol.nocc] = loc.kernel()
 
                 # virt-virt block
@@ -400,6 +402,8 @@ def ref_mo(mol, calc):
                 else:
                     loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:])
                 loc.conv_tol = 1.0e-10
+                if mol.debug >= 1:
+                    loc.verbose = 4
                 calc.mo_coeff[:, mol.nocc:] = loc.kernel()
 
         # sort orbitals
