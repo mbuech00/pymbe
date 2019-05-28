@@ -381,20 +381,23 @@ def pi_prune(mo_energy, orbsym, tup):
                 return pi_orbs.size == pi_pairs_deg(mo_energy, orbsym, tup).size
 
 
-def occ_prune(occup, tup):
+def seed_prune(seed, occup, tup):
         """
-        this function returns True for a tuple of orbitals allowed under pruning wrt occupied orbitals
+        this function returns True for a tuple of orbitals allowed under pruning wrt seed orbitals
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
         :param tup: current orbital tuple. numpy array of shape (order,)
         :return: bool
         """
-        return np.any(occup[tup] > 0.0)
+        if seed == 'occ':
+            return np.any(occup[tup] > 0.0)
+        else:
+            return np.any(occup[tup] == 0.0)
 
 
-def occ_virt_prune(occup, tup):
+def corr_prune(occup, tup):
         """
-        this function returns True for a tuple of orbitals allowed under pruning wrt occupied and virtual orbitals
+        this function returns True for a tuple of orbitals allowed under pruning wrt a mix of occupied and virtual orbitals
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
         :param tup: current orbital tuple. numpy array of shape (order,)

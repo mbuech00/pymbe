@@ -203,11 +203,14 @@ def _prot(calc):
         :return: formatted string
         """
         if calc.prot['scheme'] == 1:
-            return '1st generation'
+            string = '1st gen.'
         elif calc.prot['scheme'] == 2:
-            return '2nd generation'
+            string = '2nd gen.'
         elif calc.prot['scheme'] == 3:
-            return '3rd generation'
+            string = '3rd gen.'
+        if calc.ref_space.size == 0:
+            string += ' ({:})'.format(calc.prot['seed'])
+        return string
 
 
 def _system(mol):

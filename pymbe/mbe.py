@@ -258,9 +258,9 @@ def _sum(occup, mo_energy, orbsym, ref_space, target, min_order, order, prop, ha
             # generate array with all subsets of particular tuple
             combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
 
-            # prune combinations without occupied and virtual orbitals
+            # prune combinations without a mix of occupied and virtual orbitals
             if min_order == 2:
-                combs = combs[np.fromiter(map(functools.partial(tools.occ_virt_prune, occup), combs), \
+                combs = combs[np.fromiter(map(functools.partial(tools.corr_prune, occup), combs), \
                                               dtype=bool, count=combs.shape[0])]
 
             # prune combinations with non-degenerate pairs of pi-orbitals

@@ -22,7 +22,7 @@ import tools
 
 
 # tags
-TAGS = tools.enum('ready', 'tup', 'tup_pi', 'tup_occ', 'tup_occ_pi', 'exit')
+TAGS = tools.enum('ready', 'tup', 'tup_pi', 'tup_seed', 'tup_seed_pi', 'exit')
 
 
 def master(mpi, calc, exp):
@@ -33,7 +33,7 @@ def master(mpi, calc, exp):
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         :return: numpy array of shape (n_child_tup,) [hashes],
-                 numpy array of shaoe (n_child_tuples, order+1) [tuples]
+                 numpy array of shape (n_child_tuples, order+1) [tuples]
         """
         # wake up slaves
         msg = {'task': 'screen', 'order': exp.order}
@@ -41,7 +41,7 @@ def master(mpi, calc, exp):
 
         # set number of available slaves, various tuples, and various task arrays
         slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
-            tuples_occ, tasks_occ, tuples_occ_pi, tasks_occ_pi = _set_screen(mpi, calc, exp)
+            tuples_seed, tasks_seed, tuples_seed_pi, tasks_seed_pi = _set_screen(mpi, calc, exp)
 
         # loop until no tasks left
         for task in tasks:
@@ -70,35 +70,35 @@ def master(mpi, calc, exp):
                 # send tups to available slave
                 mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
 
-        # occupied seed
-        if tasks_occ is not None:
+        # seed
+        if tasks_seed is not None:
 
             # loop until no tasks left
-            for task in tasks_occ:
+            for task in tasks_seed:
     
                 # set tups
-                tups = tuples_occ[task]
+                tups = tuples_seed[task]
     
                 # get slave
                 parallel.probe_irecv(mpi, TAGS.ready)
 
                 # send tups to available slave
-                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_occ)
+                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed)
 
-        # occupied seed w/ pi-pruning
-        if tasks_occ_pi is not None:
+        # seed w/ pi-pruning
+        if tasks_seed_pi is not None:
 
             # loop until no tasks left
-            for task in tasks_occ_pi:
+            for task in tasks_seed_pi:
     
                 # set tups
-                tups = tuples_occ_pi[task]
+                tups = tuples_seed_pi[task]
     
                 # get slave
                 parallel.probe_irecv(mpi, TAGS.ready)
 
                 # send tups to available slave
-                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_occ_pi)
+                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
 
         # done with all tasks
         while slaves_avail > 0:
@@ -144,7 +144,7 @@ def master(mpi, calc, exp):
         return hashes_new, tuples_new
 
 
-def slave(mpi, calc, exp):
+def slave(mpi, mol, calc, exp):
         """
         this slave function returns an array of child tuple hashes
 
@@ -177,11 +177,11 @@ def slave(mpi, calc, exp):
             mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
             # do task
-            if mpi.stat.tag in [TAGS.tup, TAGS.tup_pi, TAGS.tup_occ, TAGS.tup_occ_pi]:
+            if mpi.stat.tag in [TAGS.tup, TAGS.tup_pi, TAGS.tup_seed, TAGS.tup_seed_pi]:
 
                 # set tup_order
                 tup_order = exp.order
-                if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi]:
+                if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi]:
                     tup_order -= 1
 
                 # get number of elements in tups
@@ -197,32 +197,38 @@ def slave(mpi, calc, exp):
                 for tup in tups:
 
                     # spawn child tuples from parent tuples at exp.order
-                    orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
+                    orbs = _orbs(mol.nocc, calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
                                     calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
                                     tup_order, exp.hashes[-1], exp.prop[calc.target]['inc'][-1], \
                                     tup, pi_prune=calc.extra['pi_prune'], \
-                                    pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi])
+                                    pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
                     # deep pruning
                     if calc.extra['pi_prune'] and exp.min_order < tup_order:
-                        orbs = _deep_pruning(calc.occup, calc.mo_energy, calc.orbsym, calc.prot['scheme'], \
+                        orbs = _deep_pruning(mol.nocc, calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
                                                 calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
                                                 tup_order, exp.hashes, exp.prop[calc.target]['inc'], \
-                                                tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi])
+                                                tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
                     # recast parent tuple as list
                     tup = tup.tolist()
 
                     # reshape orbs in pairs of pi-orbitals
-                    if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi]:
+                    if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi]:
                         orbs = orbs.reshape(-1, 2)
 
                     # loop over orbitals and add to list of child tuples
                     for orb in orbs:
-                        if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_occ_pi]:
-                            child_tup += tup + orb.tolist()
+                        if calc.prot['seed'] == 'occ':
+                            if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi]:
+                                child_tup += tup + orb.tolist()
+                            else:
+                                child_tup += tup + [orb]
                         else:
-                            child_tup += tup + [orb]
+                            if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi]:
+                                child_tup += orb.tolist() + tup
+                            else:
+                                child_tup += [orb] + tup
 
                 # send availability to master
                 mpi.comm.isend(None, dest=0, tag=TAGS.ready)
@@ -265,10 +271,10 @@ def _set_screen(mpi, calc, exp):
                  list of numpy arrays of various shapes [tasks],
                  numpy array of shape (n_tuples_pi, order-1) or None [tuples_pi] depending on pi-pruning,
                  list of numpy arrays of various shapes or None [tasks_pi] depending on pi-pruning,
-                 numpy array of shape (n_tuples_occ, order) or None [tuples_occ] depending on ref_space,
-                 list of numpy arrays of various shapes or None [tasks_occ] depending on ref_space,
-                 numpy array of shape (n_tuples_occ_pi, order-1) or None [tuples_occ_pi] depending on ref_space and pi-pruning,
-                 list of numpy arrays of various shapes or None [tasks_occ_pi] depending on ref_space and pi-pruning,
+                 numpy array of shape (n_tuples_seed, order) or None [tuples_seed] depending on ref_space,
+                 list of numpy arrays of various shapes or None [tasks_seed] depending on ref_space,
+                 numpy array of shape (n_tuples_seed_pi, order-1) or None [tuples_seed_pi] depending on ref_space and pi-pruning,
+                 list of numpy arrays of various shapes or None [tasks_seed_pi] depending on ref_space and pi-pruning,
         """
         # set main task tuples
         tuples = exp.tuples[-1]
@@ -299,67 +305,68 @@ def _set_screen(mpi, calc, exp):
             # not relevant
             tuples_pi = tasks_pi = None
 
-        # potential seed of occupied tuples for vacuum reference spaces
+        # potential seed for vacuum reference spaces
         if calc.ref_space.size == 0:
 
-            # set tuples_occ
-            tuples_occ = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
+            # set tuples_seed
+            tuples_seed = np.array([tup for tup in itertools.combinations(calc.exp_space[calc.prot['seed']], exp.order)], \
                                     dtype=np.int32)
 
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             if calc.extra['pi_prune']:
-                tuples_occ = tuples_occ[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                        calc.mo_energy, calc.orbsym), tuples_occ), \
-                                                        dtype=bool, count=tuples_occ.shape[0])]
+                tuples_seed = tuples_seed[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                        calc.mo_energy, calc.orbsym), tuples_seed), \
+                                                        dtype=bool, count=tuples_seed.shape[0])]
 
             # number of tasks
-            n_tasks_occ = tuples_occ.shape[0]
+            n_tasks_seed = tuples_seed.shape[0]
 
             # make array of individual tasks
-            tasks_occ = tools.tasks(n_tasks_occ, slaves_avail, mpi.task_size)
+            tasks_seed = tools.tasks(n_tasks_seed, slaves_avail, mpi.task_size)
 
             # option to treat pi-orbitals independently
             if calc.extra['pi_prune']:
 
-                # set tuples_occ_pi
-                tuples_occ_pi = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
+                # set tuples_seed_pi
+                tuples_seed_pi = np.array([tup for tup in itertools.combinations(calc.exp_space[calc.prot['seed']], exp.order-1)], \
                                            dtype=np.int32)
     
                 # prune combinations that contain non-degenerate pairs of pi-orbitals
-                tuples_occ_pi = tuples_occ_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                              calc.mo_energy, calc.orbsym), tuples_occ_pi), \
-                                                              dtype=bool, count=tuples_occ_pi.shape[0])]
+                tuples_seed_pi = tuples_seed_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                              calc.mo_energy, calc.orbsym), tuples_seed_pi), \
+                                                              dtype=bool, count=tuples_seed_pi.shape[0])]
 
                 # number of tasks
-                n_tasks_occ_pi = tuples_occ_pi.shape[0]
+                n_tasks_seed_pi = tuples_seed_pi.shape[0]
     
                 # make array of individual tasks
-                tasks_occ_pi = tools.tasks(n_tasks_occ_pi, slaves_avail, mpi.task_size)
+                tasks_seed_pi = tools.tasks(n_tasks_seed_pi, slaves_avail, mpi.task_size)
 
             else:
     
                 # not relevant
-                tuples_occ_pi = tasks_occ_pi = None
+                tuples_seed_pi = tasks_seed_pi = None
 
         else:
 
             # not relevant
-            tuples_occ = tasks_occ = None
-            tuples_occ_pi = tasks_occ_pi = None
+            tuples_seed = tasks_seed = None
+            tuples_seed_pi = tasks_seed_pi = None
 
         return slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
-                tuples_occ, tasks_occ, tuples_occ_pi, tasks_occ_pi
+                tuples_seed, tasks_seed, tuples_seed_pi, tasks_seed_pi
 
 
-def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
+def _orbs(nocc, occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
             min_order, order, hashes, prop, tup, pi_prune=False, pi_gen=False):
         """
         this function returns an array of child tuple orbitals subject to a given screening protocol
 
+        :param nocc: number of occupied orbitals. integer
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
-        :param scheme: protocol scheme. integer
+        :param prot: screening protocol scheme. dict
         :param thres: threshold settings. dict 
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
@@ -376,7 +383,18 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
         if min_order == 1:
             exp_space_trunc = exp_space['tot'][tup[-1] < exp_space['tot']]
         elif min_order == 2:
-            exp_space_trunc = exp_space['virt'][tup[-1] < exp_space['virt']]
+            if prot['seed'] == 'occ':
+                tup_virt = tup[nocc <= tup]
+                if tup_virt.size > 0:
+                    exp_space_trunc = exp_space['virt'][tup_virt[-1] < exp_space['virt']]
+                else:
+                    exp_space_trunc = exp_space['virt']
+            else:
+                tup_occ = tup[tup < nocc]
+                if tup_occ.size > 0:
+                    exp_space_trunc = exp_space['occ'][tup_occ[-1] < exp_space['occ']]
+                else:
+                    exp_space_trunc = exp_space['occ']
 
         if pi_gen:
             # consider only pairs of degenerate pi-orbitals in truncated expansion space
@@ -393,9 +411,9 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
         # generate array with all k-1 order subsets of particular tuple
         combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
 
-        # prune combinations without occupied orbitals
+        # prune combinations without seed orbitals
         if min_order == 2:
-            combs = combs[np.fromiter(map(functools.partial(tools.occ_prune, occup), combs), \
+            combs = combs[np.fromiter(map(functools.partial(tools.seed_prune, prot['seed'], occup), combs), \
                                           dtype=bool, count=combs.shape[0])]
 
         # prune combinations that contain non-degenerate pairs of pi-orbitals
@@ -418,7 +436,10 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
 
             # add orbital(s) to combinations
             orb_arr[:] = orb
-            combs_orb = np.concatenate((combs, orb_arr), axis=1)
+            if prot['seed'] == 'occ':
+                combs_orb = np.concatenate((combs, orb_arr), axis=1)
+            else:
+                combs_orb = np.concatenate((orb_arr, combs), axis=1)
 
             # convert to sorted hashes
             combs_orb_hash = tools.hash_2d(combs_orb)
@@ -432,11 +453,11 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
 
                 # compute screening thresholds
                 screen_thres = np.fromiter(map(functools.partial(_thres, \
-                                    occup, thres, ref_space, scheme), combs_orb), \
+                                    occup, thres, ref_space, prot['scheme']), combs_orb), \
                                     dtype=np.float64, count=idx.size)
     
                 # add orbital to list of child orbitals if allowed
-                if not _prot_screen(scheme, screen_thres, prop[idx]) or np.sum(screen_thres) == 0.0:
+                if not _prot_screen(prot['scheme'], screen_thres, prop[idx]) or np.sum(screen_thres) == 0.0:
 
                     if pi_gen:
                         child_orbs += orb.tolist()
@@ -446,15 +467,16 @@ def _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
         return np.array(child_orbs, dtype=np.int32)
 
 
-def _deep_pruning(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
+def _deep_pruning(nocc, occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
             min_order, order, hashes, prop, tup, orbs, pi_gen=False):
         """
         this function returns an updated array of child tuple orbitals upon deep pruning
 
+        :param nocc: number of occupied orbitals. integer
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
-        :param scheme: protocol scheme. integer
+        :param prot: screening protocols. dict
         :param thres: threshold settings. dict 
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
@@ -475,11 +497,11 @@ def _deep_pruning(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space,
  
             # spawn child tuples from parent tuples at deep_order
             if pi_gen:
-                orbs_deep = _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
+                orbs_deep = _orbs(nocc, occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
                                      min_order, deep_order, hashes[(deep_order+1)-min_order], \
                                      prop[(deep_order+1)-min_order], tup, pi_prune=True, pi_gen=True)
             else:
-                orbs_deep = _orbs(occup, mo_energy, orbsym, scheme, thres, ref_space, exp_space, \
+                orbs_deep = _orbs(nocc, occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
                                      min_order, deep_order, hashes[deep_order-min_order], \
                                      prop[deep_order-min_order], tup, pi_prune=True, pi_gen=False)
  
