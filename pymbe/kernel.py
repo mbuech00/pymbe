@@ -388,15 +388,19 @@ def ref_mo(mol, calc):
 
                 # occ-occ block
                 if mol.atom:
-                    calc.mo_coeff[:, mol.ncore:mol.nocc] = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
+                    loc = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
                 else:
-                    calc.mo_coeff[:, mol.ncore:mol.nocc] = _hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc]).kernel()
+                    loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
+                loc.conv_tol = 1.0e-10
+                calc.mo_coeff[:, mol.ncore:mol.nocc] = loc.kernel()
 
                 # virt-virt block
                 if mol.atom:
-                    calc.mo_coeff[:, mol.nocc:] = lo.PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
+                    loc = lo.PM(mol, calc.mo_coeff[:, mol.nocc:])
                 else:
-                    calc.mo_coeff[:, mol.nocc:] = _hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:]).kernel()
+                    loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:])
+                loc.conv_tol = 1.0e-10
+                calc.mo_coeff[:, mol.nocc:] = loc.kernel()
 
         # sort orbitals
         if calc.ref['active'] == 'manual':
