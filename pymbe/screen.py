@@ -286,7 +286,7 @@ def _set_screen(mpi, calc, exp):
             tuples_pi = tasks_pi = None; n_tasks_pi = 0
 
         # potential seed for vacuum reference spaces
-        if calc.ref_space.size == 0:
+        if calc.ref_space.size == 0 and exp.order <= calc.exp_space['occ'].size:
 
             # set tuples_seed
             tuples_seed = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
