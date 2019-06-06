@@ -497,11 +497,11 @@ def ref_prop(mol, calc):
             e_core, h1e_cas = e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
 
             # exp model
-            ref = main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+            ref = main(mol, calc, calc.model['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 
             # base model
             if calc.base['method'] is not None:
-                ref -= main(mol, calc, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, base=True)
+                ref -= main(mol, calc, calc.base['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 
         else:
 
