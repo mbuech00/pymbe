@@ -60,10 +60,10 @@ def master(mpi, calc, exp):
 
             # loop until no tasks left
             for task in tasks_pi:
-    
+
                 # set tups
                 tups = tuples_pi[task]
-    
+
                 # get slave
                 parallel.probe_irecv(mpi, TAGS.ready)
 
@@ -75,10 +75,10 @@ def master(mpi, calc, exp):
 
             # loop until no tasks left
             for task in tasks_seed:
-    
+
                 # set tups
                 tups = tuples_seed[task]
-    
+
                 # get slave
                 parallel.probe_irecv(mpi, TAGS.ready)
 
@@ -90,10 +90,10 @@ def master(mpi, calc, exp):
 
             # loop until no tasks left
             for task in tasks_seed_pi:
-    
+
                 # set tups
                 tups = tuples_seed_pi[task]
-    
+
                 # get slave
                 parallel.probe_irecv(mpi, TAGS.ready)
 
@@ -113,7 +113,13 @@ def master(mpi, calc, exp):
             slaves_avail -= 1
 
         # init child tuples array
-        child_tup = np.array([], dtype=np.int32)
+        if calc.extra['pi_prune'] and exp.order == 1:
+
+            child_tup = tools.pi_pairs_deg(calc.mo_energy, calc.orbsym, calc.exp_space['tot'])
+
+        else:
+
+            child_tup = np.array([], dtype=np.int32)
 
         # allgather number of child tuples
         recv_counts = parallel.recv_counts(mpi, child_tup.size)
@@ -272,6 +278,8 @@ def _set_screen(mpi, calc, exp):
         n_tasks = tuples.shape[0]
 
         # option to treat pi-orbitals independently
+        tuples_pi = tasks_pi = None; n_tasks_pi = 0
+
         if calc.extra['pi_prune'] and exp.min_order < exp.order:
 
             # set tuples_pi
@@ -279,13 +287,11 @@ def _set_screen(mpi, calc, exp):
 
             # number of tasks
             n_tasks_pi = tuples_pi.shape[0]
-    
-        else:
-
-            # not relevant
-            tuples_pi = tasks_pi = None; n_tasks_pi = 0
 
         # potential seed for vacuum reference spaces
+        tuples_seed = tasks_seed = None; n_tasks_seed = 0
+        tuples_seed_pi = tasks_seed_pi = None; n_tasks_seed_pi = 0
+
         if calc.ref_space.size == 0 and exp.order <= calc.exp_space['occ'].size:
 
             # set tuples_seed
@@ -307,7 +313,7 @@ def _set_screen(mpi, calc, exp):
                 # set tuples_seed_pi
                 tuples_seed_pi = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
                                            dtype=np.int32)
-    
+
                 # prune combinations that contain non-degenerate pairs of pi-orbitals
                 tuples_seed_pi = tuples_seed_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
                                                               calc.mo_energy, calc.orbsym), tuples_seed_pi), \
@@ -315,17 +321,6 @@ def _set_screen(mpi, calc, exp):
 
                 # number of tasks
                 n_tasks_seed_pi = tuples_seed_pi.shape[0]
-    
-            else:
-    
-                # not relevant
-                tuples_seed_pi = tasks_seed_pi = None; n_tasks_seed_pi = 0
-
-        else:
-
-            # not relevant
-            tuples_seed = tasks_seed = None; n_tasks_seed = 0
-            tuples_seed_pi = tasks_seed_pi = None; n_tasks_seed_pi = 0
 
         # number of available slaves
         slaves_avail = min(mpi.size - 1, n_tasks + n_tasks_pi + n_tasks_seed + n_tasks_seed_pi)
@@ -352,7 +347,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
         :param prot: screening protocol scheme. dict
-        :param thres: threshold settings. dict 
+        :param thres: threshold settings. dict
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
         :param min_order: minimum (start) order. integer
@@ -426,7 +421,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
                 screen_thres = np.fromiter(map(functools.partial(_thres, \
                                     occup, thres, ref_space, prot['scheme']), combs_orb), \
                                     dtype=np.float64, count=idx.size)
-    
+
                 # add orbital to list of child orbitals if allowed
                 if not _prot_screen(prot['scheme'], screen_thres, prop[idx]) or np.sum(screen_thres) == 0.0:
 
@@ -447,7 +442,7 @@ def _deep_pruning(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
         :param prot: screening protocols. dict
-        :param thres: threshold settings. dict 
+        :param thres: threshold settings. dict
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
         :param min_order: minimum (start) order. integer
@@ -461,10 +456,10 @@ def _deep_pruning(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         """
         # deep pruning by removing an increasing number of pi-orbital pairs
         for k in range(tools.n_pi_orbs(orbsym, tup) // 2):
- 
+
             # next-highest order without k number of pi-orbital pairs
             deep_order = order - (2 * k + 1)
- 
+
             # spawn child tuples from parent tuples at deep_order
             if pi_gen:
                 orbs_deep = _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
@@ -474,7 +469,7 @@ def _deep_pruning(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
                 orbs_deep = _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
                                      min_order, deep_order, hashes[deep_order-min_order], \
                                      prop[deep_order-min_order], tup, pi_prune=True, pi_gen=False)
- 
+
             # update orbs
             orbs = np.intersect1d(orbs, orbs_deep)
 
@@ -539,7 +534,7 @@ def _thres(occup, thres, ref_space, scheme, tup):
         this function computes the screening threshold for the given tuple of orbitals
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
-        :param thres: threshold settings. dict 
+        :param thres: threshold settings. dict
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param scheme: protocol scheme. integer
         :param tup: current orbital tuple. numpy array of shape (order,)
