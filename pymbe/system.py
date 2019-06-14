@@ -82,10 +82,14 @@ class MolCls(gto.Mole):
                 # loop over atoms
                 for i in range(self.natm):
 
-                    if self.atom_charge(i) > 2: ncore += 1
-                    if self.atom_charge(i) > 12: ncore += 4
-                    if self.atom_charge(i) > 20: ncore += 4
-                    if self.atom_charge(i) > 30: ncore += 6
+                    if self.atom_charge(i) > 2:
+                        ncore += 1
+                    if self.atom_charge(i) > 12:
+                        ncore += 4
+                    if self.atom_charge(i) > 20:
+                        ncore += 4
+                    if self.atom_charge(i) > 30:
+                        ncore += 6
 
                 return ncore
 
