@@ -269,9 +269,9 @@ def exp(mpi, calc, exp):
         return exp
 
 
-def probe_irecv(mpi, tag_ready):
+def probe(mpi, tag_ready):
         """
-        this function probes for available slaves and receive their status
+        this function probes for available slaves
 
         :param mpi: pymbe mpi object
         :param tag_ready: mpi ready tag. enum
@@ -280,7 +280,7 @@ def probe_irecv(mpi, tag_ready):
         mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=tag_ready, status=mpi.stat)
 
         # receive slave status
-        mpi.comm.irecv(None, source=mpi.stat.source, tag=tag_ready)
+        mpi.comm.recv(None, source=mpi.stat.source, tag=tag_ready)
 
 
 def bcast(mpi, buff):

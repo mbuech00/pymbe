@@ -50,7 +50,7 @@ def master(mpi, calc, exp):
             tups = tuples[task]
 
             # get slave
-            parallel.probe_irecv(mpi, TAGS.ready)
+            parallel.probe(mpi, TAGS.ready)
 
             # send tups to available slave
             mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
@@ -65,7 +65,7 @@ def master(mpi, calc, exp):
                 tups = tuples_pi[task]
 
                 # get slave
-                parallel.probe_irecv(mpi, TAGS.ready)
+                parallel.probe(mpi, TAGS.ready)
 
                 # send tups to available slave
                 mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
@@ -80,7 +80,7 @@ def master(mpi, calc, exp):
                 tups = tuples_seed[task]
 
                 # get slave
-                parallel.probe_irecv(mpi, TAGS.ready)
+                parallel.probe(mpi, TAGS.ready)
 
                 # send tups to available slave
                 mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed)
@@ -95,7 +95,7 @@ def master(mpi, calc, exp):
                 tups = tuples_seed_pi[task]
 
                 # get slave
-                parallel.probe_irecv(mpi, TAGS.ready)
+                parallel.probe(mpi, TAGS.ready)
 
                 # send tups to available slave
                 mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
@@ -104,10 +104,10 @@ def master(mpi, calc, exp):
         while slaves_avail > 0:
 
             # get slave
-            parallel.probe_irecv(mpi, TAGS.ready)
+            parallel.probe(mpi, TAGS.ready)
 
             # send exit signal to slave
-            mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
+            mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 
             # remove slave
             slaves_avail -= 1
@@ -165,7 +165,7 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # send availability to master
         if mpi.rank <= slaves_needed:
-            mpi.comm.isend(None, dest=0, tag=TAGS.ready)
+            mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
         # receive work from master
         while True:
@@ -226,12 +226,12 @@ def slave(mpi, calc, exp, slaves_needed):
                             child_tup += tup + [orb]
 
                 # send availability to master
-                mpi.comm.isend(None, dest=0, tag=TAGS.ready)
+                mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
             elif mpi.stat.tag == TAGS.exit:
 
                 # exit
-                mpi.comm.irecv(None, source=0, tag=TAGS.exit)
+                mpi.comm.recv(None, source=0, tag=TAGS.exit)
                 break
 
         # recast child tuples as array

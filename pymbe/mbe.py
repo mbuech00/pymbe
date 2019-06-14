@@ -65,7 +65,7 @@ def master(mpi, mol, calc, exp):
         for tup in exp.tuples[-1]:
 
             # get slave
-            parallel.probe_irecv(mpi, TAGS.ready)
+            parallel.probe(mpi, TAGS.ready)
 
             # send tup
             req_tup.Wait()
@@ -88,10 +88,10 @@ def master(mpi, mol, calc, exp):
         while slaves_avail > 0:
 
             # get slave
-            parallel.probe_irecv(mpi, TAGS.ready)
+            parallel.probe(mpi, TAGS.ready)
 
             # send exit signal to slave
-            mpi.comm.isend(None, dest=mpi.stat.source, tag=TAGS.exit)
+            mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 
             # remove slave
             slaves_avail -= 1
@@ -173,12 +173,12 @@ def slave(mpi, mol, calc, exp):
                 inc[task_idx] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx)
 
                 # send availability to master
-                mpi.comm.isend(None, dest=0, tag=TAGS.ready)
+                mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
             elif mpi.stat.tag == TAGS.exit:
 
                 # exit
-                mpi.comm.irecv(None, source=0, tag=TAGS.exit)
+                mpi.comm.recv(None, source=0, tag=TAGS.exit)
                 break
 
         # allreduce increments
