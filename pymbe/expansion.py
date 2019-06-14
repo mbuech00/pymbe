@@ -71,7 +71,7 @@ def init_tup(mol, calc):
 
         # pi-orbital pruning
         if calc.extra['pi_prune']:
-            tuples = np.array([tup for tup in tuples if tools.pi_prune(calc.mo_energy, calc.orbsym, tup)], \
+            tuples = np.array([tup for tup in tuples if tools.pi_prune(calc.mo_energy, calc.exp_space['pi_orbs'], tup)], \
                                 dtype=np.int32)
 
         # init hashes

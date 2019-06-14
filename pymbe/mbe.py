@@ -216,7 +216,7 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
         # calculate increment
         if exp.order > exp.min_order:
             if np.any(inc_tup != 0.0):
-                inc_tup -= _sum(calc.occup, calc.mo_energy, calc.orbsym, calc.ref_space, \
+                inc_tup -= _sum(calc.occup, calc.mo_energy, calc.ref_space, calc.exp_space, \
                                 calc.target, exp.min_order, exp.order, \
                                 exp.prop[calc.target]['inc'], exp.hashes, \
                                 tup, pi_prune=calc.extra['pi_prune'])
@@ -230,14 +230,14 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
         return inc_tup
 
 
-def _sum(occup, mo_energy, orbsym, ref_space, target, min_order, order, prop, hashes, tup, pi_prune=False):
+def _sum(occup, mo_energy, ref_space, exp_space, target, min_order, order, prop, hashes, tup, pi_prune=False):
         """
         this function performs a recursive summation
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
+        :param exp_space: dictionary of expansion spaces. dict
         :param target: calculation target. string
         :param min_order: minimum (start) order. integer
         :param order: current order. integer
@@ -266,7 +266,7 @@ def _sum(occup, mo_energy, orbsym, ref_space, target, min_order, order, prop, ha
             # prune combinations with non-degenerate pairs of pi-orbitals
             if pi_prune:
                 combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                              mo_energy, orbsym), combs), \
+                                              mo_energy, exp_space['pi_orbs']), combs), \
                                               dtype=bool, count=combs.shape[0])]
 
             if combs.size == 0:

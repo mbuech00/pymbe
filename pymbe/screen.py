@@ -115,7 +115,7 @@ def master(mpi, calc, exp):
         # init child tuples array
         if calc.extra['pi_prune'] and exp.order == 1:
 
-            child_tup = tools.pi_pairs_deg(calc.mo_energy, calc.orbsym, calc.exp_space['tot'])
+            child_tup = tools.pi_pairs_deg(calc.mo_energy, calc.exp_space['pi_orbs'], calc.exp_space['tot'])
 
         else:
 
@@ -301,7 +301,7 @@ def _set_screen(mpi, calc, exp):
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             if calc.extra['pi_prune']:
                 tuples_seed = tuples_seed[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                        calc.mo_energy, calc.orbsym), tuples_seed), \
+                                                        calc.mo_energy, calc.exp_space['pi_orbs']), tuples_seed), \
                                                         dtype=bool, count=tuples_seed.shape[0])]
 
             # number of tasks
@@ -316,7 +316,7 @@ def _set_screen(mpi, calc, exp):
 
                 # prune combinations that contain non-degenerate pairs of pi-orbitals
                 tuples_seed_pi = tuples_seed_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                              calc.mo_energy, calc.orbsym), tuples_seed_pi), \
+                                                              calc.mo_energy, calc.exp_space['pi_orbs']), tuples_seed_pi), \
                                                               dtype=bool, count=tuples_seed_pi.shape[0])]
 
                 # number of tasks
@@ -349,7 +349,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         :param prot: screening protocol scheme. dict
         :param thres: threshold settings. dict
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
-        :param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
+        :param exp_space: dictionary of expansion spaces. dict
         :param min_order: minimum (start) order. integer
         :param order: current order. integer
         :param hashes: current order hashes. numpy array of shape (n_tuples,)
@@ -367,11 +367,11 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
 
         if pi_gen:
             # consider only pairs of degenerate pi-orbitals in truncated expansion space
-            exp_space_trunc = tools.pi_pairs_deg(mo_energy, orbsym, exp_space_trunc)
+            exp_space_trunc = tools.pi_pairs_deg(mo_energy, exp_space['pi_orbs'], exp_space_trunc)
         else:
             if pi_prune:
                 # consider only non-degenerate orbitals in truncated expansion space
-                exp_space_trunc = tools.non_deg_orbs(orbsym, exp_space_trunc)
+                exp_space_trunc = tools.non_deg_orbs(exp_space['pi_orbs'], exp_space_trunc)
 
         # at min_order, spawn all possible child tuples
         if order <= min_order:
@@ -388,7 +388,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         # prune combinations that contain non-degenerate pairs of pi-orbitals
         if pi_prune:
             combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                          mo_energy, orbsym), combs), \
+                                          mo_energy, exp_space['pi_orbs']), combs), \
                                           dtype=bool, count=combs.shape[0])]
 
         if combs.size == 0:
@@ -455,7 +455,7 @@ def _deep_pruning(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         :return: numpy array of shape (n_child_orbs_new,)
         """
         # deep pruning by removing an increasing number of pi-orbital pairs
-        for k in range(tools.n_pi_orbs(orbsym, tup) // 2):
+        for k in range(tools.n_pi_orbs(exp_space['pi_orbs'], tup) // 2):
 
             # next-highest order without k number of pi-orbital pairs
             deep_order = order - (2 * k + 1)

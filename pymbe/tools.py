@@ -24,9 +24,7 @@ import math
 
 import parallel
 
-PI_THRES = 1.0e-04
-NON_DEG_ID = np.array([0, 1, 4, 5])
-DEG_ID = np.array([2, 3, 6, 7]) 
+PI_THRES = 1.0e-03
 
 
 class Logger(object):
@@ -285,47 +283,73 @@ def cas_idx_tril(cas_idx):
                                         dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def non_deg_orbs(orbsym, tup):
+def pi_space(mo_energy, exp_space):
+        """
+        this function returns pi-orbitals from total expansion space
+
+        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
+        :param exp_space: dictionary of expansion spaces. dict
+        :return: numpy array of shape (n_pi_orbs,)
+        """
+        # init pi_space list
+        pi_space = []
+
+        # loop over all orbitals of total expansion space
+        for i in range(1, exp_space['tot'].size):
+
+            if np.abs(mo_energy[exp_space['tot'][i]] - mo_energy[exp_space['tot'][i-1]]) < PI_THRES:
+
+                # pair of degenerate pi-orbitals
+                pi_space.append(exp_space['tot'][i-1])
+                pi_space.append(exp_space['tot'][i])
+
+        # recast as array
+        pi_space = np.array(pi_space, dtype=np.int32)
+
+        return np.unique(pi_space)
+
+
+def non_deg_orbs(pi_space, tup):
         """
         this function returns non-degenerate orbitals from tuple of orbitals
 
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
+        :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: numpy array of shape (n_non_deg_orbs,)
         """
-        return tup[np.in1d(orbsym[tup], NON_DEG_ID)]
+        return tup[np.invert(np.in1d(tup, pi_space))]
 
 
-def _pi_orbs(orbsym, tup):
+def _pi_orbs(pi_space, tup):
         """
         this function returns pi-orbitals from tuple of orbitals
 
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
+        :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: numpy array of shape (n_pi_orbs,)
         """
-        return tup[np.in1d(orbsym[tup], DEG_ID)]
+        return tup[np.in1d(tup, pi_space)]
 
 
-def n_pi_orbs(orbsym, tup):
-        """ this function returnsnumber of pi-orbitals in tuple of orbitals
+def n_pi_orbs(pi_space, tup):
+        """ this function returns number of pi-orbitals in tuple of orbitals
 
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
+        :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: integer
         """
-        return np.count_nonzero(_pi_orbs(orbsym, tup))
+        return np.count_nonzero(_pi_orbs(pi_space, tup))
 
 
-def _pi_pairs(orbsym, tup):
+def _pi_pairs(pi_space, tup):
         """
         this function returns pairs of pi-orbitals from tuple of orbitals
 
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
+        :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: numpy array of shape (n_pi_pairs, 2)
         """
-        return np.array(list(itertools.combinations(_pi_orbs(orbsym, tup), 2)))
+        return np.array(list(itertools.combinations(_pi_orbs(pi_space, tup), 2)))
 
 
 def _pi_deg(mo_energy, pair):
@@ -339,29 +363,29 @@ def _pi_deg(mo_energy, pair):
         return np.abs(mo_energy[pair[1]] - mo_energy[pair[0]]) < PI_THRES
 
 
-def pi_pairs_deg(mo_energy, orbsym, tup):
+def pi_pairs_deg(mo_energy, pi_space, tup):
         """
         this function returns pairs of degenerate pi-orbitals from tuple of orbitals
 
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
+        :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: numpy array of shape (n_pi_deg_pairs, 2)
         """
-        return np.array([pair for pair in _pi_pairs(orbsym, tup) if _pi_deg(mo_energy, pair)], dtype=np.int32)
+        return np.array([pair for pair in _pi_pairs(pi_space, tup) if _pi_deg(mo_energy, pair)], dtype=np.int32)
 
 
-def pi_prune(mo_energy, orbsym, tup):
+def pi_prune(mo_energy, pi_space, tup):
         """
         this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
 
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
+        :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: bool
         """
         # get all pi-orbitals in tup
-        pi_orbs = _pi_orbs(orbsym, tup)
+        pi_orbs = _pi_orbs(pi_space, tup)
 
         if pi_orbs.size == 0:
 
@@ -378,7 +402,7 @@ def pi_prune(mo_energy, orbsym, tup):
             else:
 
                 # check if all pi-orbitals are pair-wise degenerate
-                return pi_orbs.size == pi_pairs_deg(mo_energy, orbsym, tup).size
+                return pi_orbs.size == pi_pairs_deg(mo_energy, pi_space, tup).size
 
 
 def seed_prune(occup, tup):
