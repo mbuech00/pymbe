@@ -289,7 +289,7 @@ def pi_space(mo_energy, exp_space):
 
         :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param exp_space: dictionary of expansion spaces. dict
-        :return: numpy array of shape (n_pi_orbs,)
+        :return: numpy array of shape (n_pi_orbs,) [pi_space] and shape (n_pi_pairs,) [pi_hashes]
         """
         # init pi_space list
         pi_space = []
@@ -304,9 +304,15 @@ def pi_space(mo_energy, exp_space):
                 pi_space.append(exp_space['tot'][i])
 
         # recast as array
-        pi_space = np.array(pi_space, dtype=np.int32)
+        pi_space = np.unique(np.array(pi_space, dtype=np.int32))
 
-        return np.unique(pi_space)
+        # get all degenerate pi-pairs
+        pi_pairs = pi_space.reshape(-1, 2)
+
+        # get hashes of all pi-pairs
+        pi_hashes = hash_2d(pi_pairs)
+
+        return pi_space, pi_pairs, pi_hashes.sort()
 
 
 def non_deg_orbs(pi_space, tup):
@@ -341,68 +347,58 @@ def n_pi_orbs(pi_space, tup):
         return np.count_nonzero(_pi_orbs(pi_space, tup))
 
 
-def _pi_pairs(pi_space, tup):
-        """
-        this function returns pairs of pi-orbitals from tuple of orbitals
-
-        :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
-        :param tup: tuple of orbitals. numpy array of shape (n_tup,)
-        :return: numpy array of shape (n_pi_pairs, 2)
-        """
-        return np.array(list(itertools.combinations(_pi_orbs(pi_space, tup), 2)))
-
-
-def _pi_deg(mo_energy, pair):
-        """
-        this function returns True for degenerate pairs of pi-orbitals
-
-        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
-        :param pair: orbital pair. numpy array of shape (2,)
-        :return: bool
-        """
-        return np.abs(mo_energy[pair[1]] - mo_energy[pair[0]]) < PI_THRES
-
-
-def pi_pairs_deg(mo_energy, pi_space, tup):
+def pi_pairs_deg(pi_space, tup):
         """
         this function returns pairs of degenerate pi-orbitals from tuple of orbitals
 
-        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: numpy array of shape (n_pi_deg_pairs, 2)
         """
-        return np.array([pair for pair in _pi_pairs(pi_space, tup) if _pi_deg(mo_energy, pair)], dtype=np.int32)
+        # get all pi-orbitals in tup
+        tup_pi_orbs = _pi_orbs(pi_space, tup)
+
+        # return degenerate pairs
+        if tup_pi_orbs.size % 2 > 0:
+            return tup_pi_orbs[1:].reshape(-1, 2)
+        else:
+            return tup_pi_orbs.reshape(-1, 2)
 
 
-def pi_prune(mo_energy, pi_space, tup):
+def pi_prune(pi_space, pi_hashes, tup):
         """
         this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
 
-        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param pi_space: degenerate pi-orbitals. numpy array of shape (n_pi_orbs,)
+        :param pi_hashes: hashes of degenerate pi-pairs. numpy array of shape (n_pi_pairs,)
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: bool
         """
         # get all pi-orbitals in tup
-        pi_orbs = _pi_orbs(pi_space, tup)
+        tup_pi_orbs = _pi_orbs(pi_space, tup)
 
-        if pi_orbs.size == 0:
+        if tup_pi_orbs.size == 0:
 
             # no pi-orbitals
             return True
 
         else:
 
-            if pi_orbs.size % 2 > 0:
+            if tup_pi_orbs.size % 2 > 0:
 
                 # always prune tuples with an odd number of pi-orbitals
                 return False
 
             else:
 
-                # check if all pi-orbitals are pair-wise degenerate
-                return pi_orbs.size == pi_pairs_deg(mo_energy, pi_space, tup).size
+                # get hashes of pi-pairs
+                tup_pi_hashes = hash_2d(tup_pi_orbs.reshape(-1, 2))
+                tup_pi_hashes.sort()
+
+                # get indices of pi-pairs
+                idx = hash_compare(pi_hashes, tup_pi_hashes)
+
+                return idx is not None
 
 
 def seed_prune(occup, tup):

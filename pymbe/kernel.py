@@ -450,7 +450,9 @@ def ref_mo(mol, calc):
         if calc.ref['method'] == 'casci':
 
             if act_orbs > 0:
-                mo_energy = np.concatenate((mo_energy[idx[:inact_orbs]], mo_energy[calc.ref['select']], mo_energy[idx[inact_orbs:]]))
+                mo_energy = np.concatenate((mo_energy[idx[:inact_orbs]], \
+                                            mo_energy[calc.ref['select']], \
+                                            mo_energy[idx[inact_orbs:]]))
 
         elif calc.ref['method'] == 'casscf':
 
@@ -464,14 +466,15 @@ def ref_mo(mol, calc):
 
         # pi-orbital space
         if calc.extra['pi_prune']:
-            exp_space['pi_orbs'] = tools.pi_space(mo_energy, exp_space)
+            exp_space['pi_orbs'], exp_space['pi_pairs'], \
+                exp_space['pi_hashes'] = tools.pi_space(mo_energy, exp_space)
 
         # debug print of reference and expansion spaces
         if mol.debug >= 1:
             print('\n reference nelec        = {:}'.format(nelec))
             print(' reference space        = {:}'.format(ref_space))
             if calc.extra['pi_prune']:
-                print(' expansion space [pi]   = {:}'.format(exp_space['pi_orbs']))
+                print(' expansion space [pi]   =\n{:}'.format(exp_space['pi_pairs']))
             print(' expansion space [occ]  = {:}'.format(exp_space['occ']))
             print(' expansion space [virt] = {:}\n'.format(exp_space['virt']))
 

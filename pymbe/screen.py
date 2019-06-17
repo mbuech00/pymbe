@@ -115,7 +115,7 @@ def master(mpi, calc, exp):
         # init child tuples array
         if calc.extra['pi_prune'] and exp.order == 1:
 
-            child_tup = tools.pi_pairs_deg(calc.mo_energy, calc.exp_space['pi_orbs'], calc.exp_space['tot'])
+            child_tup = tools.pi_pairs_deg(calc.exp_space['pi_orbs'], calc.exp_space['tot'])
 
         else:
 
@@ -367,7 +367,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
 
         if pi_gen:
             # consider only pairs of degenerate pi-orbitals in truncated expansion space
-            exp_space_trunc = tools.pi_pairs_deg(mo_energy, exp_space['pi_orbs'], exp_space_trunc)
+            exp_space_trunc = tools.pi_pairs_deg(exp_space['pi_orbs'], exp_space_trunc)
         else:
             if pi_prune:
                 # consider only non-degenerate orbitals in truncated expansion space
