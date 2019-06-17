@@ -24,7 +24,7 @@ import math
 
 import parallel
 
-PI_THRES = 1.0e-03
+PI_THRES = 1.0e-04
 
 
 class Logger(object):

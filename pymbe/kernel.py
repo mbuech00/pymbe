@@ -324,7 +324,7 @@ def hf(mol, target):
                 gpname = 'C1'
             print('\n HF:  mo   symmetry    energy')
             for i in range(hf.mo_energy.size):
-                print('     {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
+                print('     {:>3d}   {:>5s}     {:>7.5f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
             print('\n')
 
         return nocc, nvirt, norb, hf, np.asscalar(mol.energy_nuc()) if mol.atom else 0.0, np.asscalar(e_hf), \
