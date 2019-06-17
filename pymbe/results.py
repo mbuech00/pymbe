@@ -319,6 +319,8 @@ def _symm(mol, calc):
         if calc.model['method'] == 'fci':
             if mol.atom:
                 string = symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+'('+mol.symmetry+')'
+                if calc.extra['pi_prune']:
+                    string += ' (pi)'
                 return string
             else:
                 return 'C1(A)'
