@@ -468,8 +468,6 @@ def ref_mo(mol, calc):
         if calc.extra['pi_prune']:
             exp_space['pi_orbs'], exp_space['pi_hashes'] = tools.pi_space(mo_energy, exp_space)
 
-        print('{:}'.format(exp_space['pi_hashes']))
-
         # debug print of reference and expansion spaces
         if mol.debug >= 1:
             print('\n reference nelec        = {:}'.format(nelec))

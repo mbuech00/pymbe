@@ -601,7 +601,7 @@ def _energies_plot(calc, exp):
             sns.despine()
 
         # set legend
-        ax.legend(loc=1)
+        ax.legend(loc=1, frameon=False)
 
         # save plot
         plt.savefig(output.OUT+'/energy_state_{:}.pdf'. \
@@ -679,7 +679,7 @@ def _excitation_plot(calc, exp):
             sns.despine()
 
         # set legend
-        ax.legend(loc=1)
+        ax.legend(loc=1, frameon=False)
 
         # save plot
         plt.savefig(output.OUT+'/excitation_states_{:}_{:}.pdf'. \
@@ -772,7 +772,7 @@ def _dipole_plot(calc, exp):
             sns.despine()
 
         # set legend
-        ax.legend(loc=1)
+        ax.legend(loc=1, frameon=False)
 
         # save plot
         plt.savefig(output.OUT+'/dipole_state_{:}.pdf'. \
@@ -870,7 +870,7 @@ def _trans_plot(calc, exp):
             sns.despine()
 
         # set legend
-        ax.legend(loc=1)
+        ax.legend(loc=1, frameon=False)
 
         # save plot
         plt.savefig(output.OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
@@ -922,7 +922,7 @@ def _osc_strength_plot(calc, exp):
             sns.despine()
 
         # set legend
-        ax.legend(loc=1)
+        ax.legend(loc=1, frameon=False)
 
         # save plot
         plt.savefig(output.OUT+'/osc_strength_states_{:}_{:}.pdf'. \
