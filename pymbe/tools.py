@@ -309,10 +309,11 @@ def pi_space(mo_energy, exp_space):
         # get all degenerate pi-pairs
         pi_pairs = pi_space.reshape(-1, 2)
 
-        # get hashes of all pi-pairs
+        # get hashes of all degenerate pi-pairs
         pi_hashes = hash_2d(pi_pairs)
+        pi_hashes.sort()
 
-        return pi_space, pi_pairs, pi_hashes.sort()
+        return pi_space, pi_hashes
 
 
 def non_deg_orbs(pi_space, tup):

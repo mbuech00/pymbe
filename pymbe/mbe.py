@@ -266,7 +266,7 @@ def _sum(occup, mo_energy, ref_space, exp_space, target, min_order, order, prop,
             # prune combinations with non-degenerate pairs of pi-orbitals
             if pi_prune:
                 combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                              mo_energy, exp_space['pi_orbs']), combs), \
+                                              exp_space['pi_orbs'], exp_space['pi_hashes']), combs), \
                                               dtype=bool, count=combs.shape[0])]
 
             if combs.size == 0:

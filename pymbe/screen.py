@@ -114,11 +114,8 @@ def master(mpi, calc, exp):
 
         # init child tuples array
         if calc.extra['pi_prune'] and exp.order == 1:
-
             child_tup = tools.pi_pairs_deg(calc.exp_space['pi_orbs'], calc.exp_space['tot'])
-
         else:
-
             child_tup = np.array([], dtype=np.int32)
 
         # allgather number of child tuples
@@ -301,7 +298,8 @@ def _set_screen(mpi, calc, exp):
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             if calc.extra['pi_prune']:
                 tuples_seed = tuples_seed[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                        calc.mo_energy, calc.exp_space['pi_orbs']), tuples_seed), \
+                                                        calc.exp_space['pi_orbs'], \
+                                                        calc.exp_space['pi_hashes']), tuples_seed), \
                                                         dtype=bool, count=tuples_seed.shape[0])]
 
             # number of tasks
@@ -316,7 +314,8 @@ def _set_screen(mpi, calc, exp):
 
                 # prune combinations that contain non-degenerate pairs of pi-orbitals
                 tuples_seed_pi = tuples_seed_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                              calc.mo_energy, calc.exp_space['pi_orbs']), tuples_seed_pi), \
+                                                              calc.exp_space['pi_orbs'], \
+                                                              calc.exp_space['pi_hashes']), tuples_seed_pi), \
                                                               dtype=bool, count=tuples_seed_pi.shape[0])]
 
                 # number of tasks
@@ -388,7 +387,8 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         # prune combinations that contain non-degenerate pairs of pi-orbitals
         if pi_prune:
             combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                          mo_energy, exp_space['pi_orbs']), combs), \
+                                          exp_space['pi_orbs'], \
+                                          exp_space['pi_hashes']), combs), \
                                           dtype=bool, count=combs.shape[0])]
 
         if combs.size == 0:

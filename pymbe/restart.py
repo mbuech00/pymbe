@@ -177,7 +177,6 @@ def write_fund(mol, calc):
         np.save(os.path.join(RST, 'exp_space_virt'), calc.exp_space['virt'])
         if calc.extra['pi_prune']:
             np.save(os.path.join(RST, 'exp_space_pi_orbs'), calc.exp_space['pi_orbs'])
-            np.save(os.path.join(RST, 'exp_space_pi_pairs'), calc.exp_space['pi_pairs'])
             np.save(os.path.join(RST, 'exp_space_pi_hashes'), calc.exp_space['pi_hashes'])
 
         # occupation
@@ -258,8 +257,6 @@ def read_fund(mol, calc):
                 calc.exp_space['virt'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_pi_orbs' in files[i]:
                 calc.exp_space['pi_orbs'] = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space_pi_pairs' in files[i]:
-                calc.exp_space['pi_pairs'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_pi_hashes' in files[i]:
                 calc.exp_space['pi_hashes'] = np.load(os.path.join(RST, files[i]))
 
