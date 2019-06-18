@@ -345,7 +345,7 @@ def n_pi_orbs(pi_space, tup):
         :param tup: tuple of orbitals. numpy array of shape (n_tup,)
         :return: integer
         """
-        return np.count_nonzero(_pi_orbs(pi_space, tup))
+        return _pi_orbs(pi_space, tup).size
 
 
 def pi_pairs_deg(pi_space, tup):
