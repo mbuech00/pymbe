@@ -438,8 +438,9 @@ def ref_mo(mol, calc):
                     calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
 
         # reference and expansion spaces
-        ref_space = np.arange(inact_orbs, inact_orbs+act_orbs)
-        exp_space = np.append(np.arange(mol.ncore, inact_orbs), np.arange(inact_orbs+act_orbs, mol.norb))
+        ref_space = np.arange(inact_orbs, inact_orbs+act_orbs, dtype=np.int32)
+        exp_space = np.append(np.arange(mol.ncore, inact_orbs, dtype=np.int32), \
+                              np.arange(inact_orbs+act_orbs, mol.norb, dtype=np.int32))
 
         # divide exp_space into occupied and virtual parts
         exp_space = {'tot': exp_space}
