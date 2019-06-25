@@ -63,7 +63,7 @@ def dipole_ints(mol):
         this function returns dipole integrals (in AO basis)
 
         :param mol: pymbe mol object
-        :return: numpy array of shape (n_orb, n_orb)
+        :return: numpy array of shape (3, n_orb, n_orb)
         """
         # gauge origin at (0.0, 0.0, 0.0)
         with mol.with_common_origin([0.0, 0.0, 0.0]):
@@ -571,7 +571,7 @@ def _dipole(norb, ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, tran
         this function returns an electronic (transition) dipole moment
 
         :param norb: number of orbitals. integer
-        :param ao_dipole: dipole integrals in ao basis. numpy array of shape (n_orb, n_orb)
+        :param ao_dipole: dipole integrals in ao basis. numpy array of shape (3, n_orb, n_orb)
         :param occup: orbital occupation. numpy array of shape (n_orb,)
         :param hf_dipole: hf dipole moment. numpy array of shape (3,)
         :param mo_coeff: mo coefficient. numpy array of shape (n_orb, n_orb)
