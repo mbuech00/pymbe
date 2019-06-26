@@ -58,11 +58,14 @@ def master(mpi, mol, calc, exp):
         ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
                                 exp.tuples[-1]), dtype=np.float64, count=n_tasks)
 
-        # rank tuples wrt number of determinants (from most electrons to fewest electrons)
-        exp.tuples[-1] = exp.tuples[-1][np.argsort(ndets)[::-1]]
+        # order tasks wrt number of determinants (from most electrons to fewest electrons)
+        tasks = np.argsort(ndets)[::-1]
 
         # loop until no tasks left
-        for tup in exp.tuples[-1]:
+        for task in tasks:
+
+            # get tup
+            tup = exp.tuples[-1][task]
 
             # get slave
             parallel.probe(mpi, TAGS.ready)
@@ -98,9 +101,6 @@ def master(mpi, mol, calc, exp):
 
         # wait for all data communication to be finished
         MPI.Request.Waitall([req_tup, req_h2e])
-
-        # revert back to sorting of tuples wrt hashes
-        exp.tuples[-1] = exp.tuples[-1][np.argsort(np.argsort(ndets)[::-1])]
 
         # init increments
         inc = _init_inc(n_tasks, calc.target)
