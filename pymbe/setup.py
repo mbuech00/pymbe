@@ -211,6 +211,10 @@ def settings():
         """
         this function sets and asserts some general settings
         """
+        # only run with python3+
+        tools.assertion(3 <= sys.version_info[0], \
+                        'PyMBE only runs under python3+')
+
         # force OMP_NUM_THREADS = 1
         lib.num_threads(1)
 
