@@ -311,9 +311,6 @@ def allreduce(mpi, send_buff):
         :param send_buff: send buffer. numpy array of any kind of shape and dtype
         :return: numpy array of same shape and dtype as send_buff
         """
-        # bcast shape and dtype of send_buff to slaves
-        shape, mpi_dtype = mpi.comm.bcast((send_buff.shape, send_buff.dtype.char))
-
         # init recv_buff        
         recv_buff = np.zeros_like(send_buff)
 
@@ -341,63 +338,41 @@ def recv_counts(mpi, n_elms):
 
 def gatherv(mpi, send_buff):
         """
-        this function performs a tiled gatherv operation
+        this function performs a gatherv operation using point-to-point operations
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
         :param mpi: pymbe mpi object
         :param send_buff: send buffer. numpy array of any kind of shape and dtype
         :return: numpy array of shape (n_child_tuples * (order+1),)
         """
-        # allgather shape and dtype of send_buff from slaves
-        shape = send_buff.shape
-        size_dtype = mpi.comm.allgather((shape, send_buff.dtype.char))
-        rshape = [x[0] for x in size_dtype]
-        mpi_dtype = np.result_type(*[x[1] for x in size_dtype]).char
+        # allgather shape of send_buff from slaves
+        rshape = mpi.comm.allgather((send_buff.shape,))
 
         # compute counts
-        counts = np.array([np.prod(x) for x in rshape])
+        counts = np.array([np.prod(x[0]) for x in rshape])
 
         if mpi.master:
 
-            # compute displacements
-            displs = np.append(0, np.cumsum(counts[:-1]))
-
             # init recv_buff
-            recv_buff = np.empty(sum(counts), dtype=mpi_dtype)
+            recv_buff = np.empty(np.sum(counts), dtype=np.int32)
 
             # gatherv all tiles
-            for p0, p1 in lib.prange(0, np.max(counts), BLKSIZE):
-                counts_tile = _tile_counts(counts, p0, p1)
-                mpi.comm.Gatherv([send_buff[p0:p1], mpi_dtype], \
-                                    [recv_buff, counts_tile, displs+p0, mpi_dtype], root=0)
+            for slave in range(1, mpi.size):
+
+                slave_idx = np.sum(counts[:slave])
+
+                for p0, p1 in lib.prange(0, counts[slave], BLKSIZE):
+                    mpi.comm.Recv(recv_buff[slave_idx+p0:slave_idx+p1], source=slave)
 
             return recv_buff
 
         else:
 
             # gatherv all tiles
-            for p0, p1 in lib.prange(0, np.max(counts), BLKSIZE):
-                mpi.comm.Gatherv([send_buff[p0:p1], mpi_dtype], None, root=0)
+            for p0, p1 in lib.prange(0, counts[mpi.rank], BLKSIZE):
+                mpi.comm.Send(send_buff[p0:p1], dest=0)
 
             return send_buff
-
-
-def _tile_counts(counts, p0, p1):
-        """
-        this function counts the individual tiles
-        inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-
-        :param counts: main counts. numpy array of shape (n_procs,)
-        :param p0: start index. integer
-        :param p1: end index. integer
-        :return: numpy array of shape (n_procs,)
-        """
-        # compute counts_tile
-        counts_tile = counts - p0
-        counts_tile[counts <= p0] = 0
-        counts_tile[counts > p1] = p1 - p0
-
-        return counts_tile
 
 
 def abort():
