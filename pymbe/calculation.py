@@ -50,7 +50,7 @@ class CalcCls(object):
                 self.thres = {'init': 1.0e-10, 'relax': 1.0}
                 self.misc = {'order': None}
                 self.orbs = {'type': 'can'}
-                self.mpi = {'task_size': 5}
+                self.mpi = {'task_size': 5, 'non_block': True}
                 self.prop = {'hf': {}, 'base': {}, 'ref': {}}
 
 
@@ -99,7 +99,7 @@ def set_calc(calc):
                                         if not isinstance(inp['wfnsym'], list):
                                             inp['wfnsym'] = list(inp['wfnsym'])
                                         inp['wfnsym'] = [symm.addons.std_symb(sym) for sym in inp['wfnsym']]
-                                
+
                                 # update calc attribute
                                 setattr(calc, attr, {**getattr(calc, attr), **inp})
 
@@ -245,10 +245,12 @@ def sanity_chk(mol, calc):
                                 'for vacuum reference spaces')
 
         # mpi parameters
-        tools.assertion(all(isinstance(i, int) for i in calc.mpi.values()), \
-                        'values in mpi input (mpi) must be ints')
+        tools.assertion(isinstance(calc.mpi['task_size'], int), \
+                        'mpi task size (task_size) must be an int >= 1')
         tools.assertion(calc.mpi['task_size'] >= 1, \
                         'mpi task size (task_size) must be an int >= 1')
+        tools.assertion(isinstance(calc.mpi['non_block'], bool), \
+                        'non-blocking mpi logical (non_block) must be a bool')
 
 
 

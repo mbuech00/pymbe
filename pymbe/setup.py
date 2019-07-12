@@ -112,11 +112,12 @@ def _calc(mpi, mol):
             # restart logical
             calc.restart = restart.restart()
 
-            # put calc.mpi info into mpi object
-            mpi.task_size = calc.mpi['task_size']
-
         # bcast info from master to slaves
         calc = parallel.calc(mpi, calc)
+
+        # put calc.mpi info into mpi object
+        mpi.task_size = calc.mpi['task_size']
+        mpi.non_block = calc.mpi['non_block']
 
         return calc
 

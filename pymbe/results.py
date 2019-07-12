@@ -295,7 +295,10 @@ def _mpi(mpi):
         :param mpi: pymbe mpi object
         :return: formatted string
         """
-        return '{:} & {:}'.format(1, mpi.size - 1)
+        if mpi.non_block:
+            return '{:} & {:} (nb)'.format(1, mpi.size - 1)
+        else:
+            return '{:} & {:} (b)'.format(1, mpi.size - 1)
 
 
 def _thres(calc):
