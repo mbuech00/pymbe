@@ -43,32 +43,32 @@ def master(mpi, mol, calc, exp):
             for i in range(exp.start_order - exp.min_order):
 
                 # print mbe header
-                print(output.mbe_header(exp.tuples[i].shape[0], i + exp.min_order))
+                print(output.mbe_header(exp.tuples.shape[0], i + exp.min_order))
 
                 # print mbe end
                 print(output.mbe_end(exp.prop[calc.target]['inc'][i], i + exp.min_order, exp.time['mbe'][i]))
 
                 # print mbe results
                 print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-                                            exp.max_order, i + exp.min_order, exp.tuples[i], exp.prop[calc.target]['inc'][i], \
+                                            exp.max_order, i + exp.min_order, exp.tuples, exp.prop[calc.target]['inc'][i], \
                                             exp.prop[calc.target]['tot'], exp.ndets[i]))
 
                 # print header
                 print(output.screen_header(i + exp.min_order))
 
                 # print screen end
-                print(output.screen_end(exp.tuples[i].shape[0], i + exp.min_order, exp.time['screen'][i]))
+                print(output.screen_end(exp.tuples.shape[0], i + exp.min_order, exp.time['screen'][i]))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
-            if len(exp.tuples) > len(exp.prop[calc.target]['tot']):
+            if len(exp.hashes) > len(exp.prop[calc.target]['tot']):
 
                 # init mbe time
                 exp.time['mbe'].append(0.0)
 
                 # print mbe header
-                print(output.mbe_header(exp.tuples[-1].shape[0], exp.order))
+                print(output.mbe_header(exp.tuples.shape[0], exp.order))
 
                 # start time
                 time = MPI.Wtime()
@@ -96,7 +96,7 @@ def master(mpi, mol, calc, exp):
 
             # print mbe results
             print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-                                     exp.max_order, exp.order, exp.tuples[-1], exp.prop[calc.target]['inc'][-1], \
+                                     exp.max_order, exp.order, exp.tuples, exp.prop[calc.target]['inc'][-1], \
                                      exp.prop[calc.target]['tot'], exp.ndets[-1]))
 
             # init screening time
@@ -113,22 +113,22 @@ def master(mpi, mol, calc, exp):
                 # main screening function
                 hashes, tuples = screen.master(mpi, calc, exp)
 
-                # append tuples and hashes
-                exp.tuples.append(tuples)
+                # overwrite tuples and append hashes
+                exp.tuples = tuples
                 exp.hashes.append(hashes)
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
                 # write restart files
-                if exp.tuples[-1].shape[0] > 0:
+                if exp.tuples.shape[0] > 0:
                     restart.screen_write(exp)
 
                 # print screen end
-                print(output.screen_end(exp.tuples[-1].shape[0], exp.order, exp.time['screen'][-1]))
+                print(output.screen_end(exp.tuples.shape[0], exp.order, exp.time['screen'][-1]))
 
             # convergence check
-            if exp.tuples[-1].shape[0] == 0 or exp.order == exp.max_order:
+            if exp.tuples.shape[0] == 0 or exp.order == exp.max_order:
 
                 # final order
                 exp.final_order = exp.order

@@ -197,7 +197,7 @@ def _exp(mpi, mol, calc):
         # init tuples and hashes
         if mpi.master:
             exp.hashes, exp.tuples = expansion.init_tup(mol, calc)
-            exp.min_order = exp.tuples[0].shape[1]
+            exp.min_order = exp.tuples.shape[1]
         else:
             exp.hashes = expansion.init_tup(mol, calc)[0]
 

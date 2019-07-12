@@ -66,7 +66,7 @@ def main(calc, exp):
 
                 # read tuples
                 if 'mbe_tup' in files[i]:
-                    exp.tuples.append(np.load(os.path.join(RST, files[i])))
+                    exp.tuples = np.load(os.path.join(RST, files[i]))
 
                 # read hashes
                 elif 'mbe_hash' in files[i]:
@@ -90,7 +90,7 @@ def main(calc, exp):
                 elif 'mbe_time_screen' in files[i]:
                     exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
 
-        return exp.tuples[-1].shape[1]
+        return exp.tuples.shape[1]
 
 
 def mbe_write(calc, exp):
@@ -120,7 +120,7 @@ def screen_write(exp):
         :param exp: pymbe exp object
         """
         # write tuples
-        np.save(os.path.join(RST, 'mbe_tup_'+str(exp.order+1)), exp.tuples[-1])
+        np.save(os.path.join(RST, 'mbe_tup'), exp.tuples)
 
         # write hashes
         np.save(os.path.join(RST, 'mbe_hash_'+str(exp.order+1)), exp.hashes[-1])

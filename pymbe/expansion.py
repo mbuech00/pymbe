@@ -56,7 +56,7 @@ def init_tup(mol, calc):
         :param mol: pymbe mol object
         :param calc: pymbe calc object
         :return: list with numpy array of shape (n_tuples,) [hashes],
-                 list with numpy array of shape (n_tuples, min_order) [tuples]
+                 numpy array of shape (n_tuples, min_order) [tuples]
         """
         # init tuples
         if calc.ref_space.size > 0:
@@ -81,6 +81,6 @@ def init_tup(mol, calc):
         tuples = tuples[hashes.argsort()]
         hashes.sort()
 
-        return [hashes], [tuples]
+        return [hashes], tuples
 
 

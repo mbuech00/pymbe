@@ -225,7 +225,7 @@ def exp(mpi, calc, exp):
 
             # if restart, collect info on previous orders
             if calc.restart:
-                info['n_tuples'] = [exp.tuples[i].shape[0] for i in range(len(exp.tuples))]
+                info['n_hashes'] = [exp.hashes[i].size for i in range(len(exp.hashes))]
                 info['n_props'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
 
             # bcast info
@@ -235,7 +235,7 @@ def exp(mpi, calc, exp):
             if calc.restart:
 
                 # bcast hashes
-                for i in range(1, len(info['n_tuples'])):
+                for i in range(1, len(info['n_hashes'])):
                     exp.hashes[i] = bcast(mpi, exp.hashes[i])
 
                 # bcast increments
@@ -254,8 +254,8 @@ def exp(mpi, calc, exp):
             if calc.restart:
 
                 # receive hashes
-                for i in range(1, len(info['n_tuples'])):
-                    exp.hashes.append(np.empty(info['n_tuples'][i], dtype=np.int64))
+                for i in range(1, len(info['n_hashes'])):
+                    exp.hashes.append(np.empty(info['n_hashes'][i], dtype=np.int64))
                     exp.hashes[i] = bcast(mpi, exp.hashes[i])
 
                 # receive increments

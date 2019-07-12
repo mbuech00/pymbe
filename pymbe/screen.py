@@ -269,7 +269,7 @@ def _set_screen(mpi, calc, exp):
                  list of numpy arrays of various shapes or None [tasks_seed_pi] depending on ref_space and pi-pruning,
         """
         # set main task tuples
-        tuples = exp.tuples[-1]
+        tuples = exp.tuples
 
         # number of tasks
         n_tasks = tuples.shape[0]
@@ -280,7 +280,17 @@ def _set_screen(mpi, calc, exp):
         if calc.extra['pi_prune'] and exp.min_order < exp.order:
 
             # set tuples_pi
-            tuples_pi = exp.tuples[-2]
+            tuples_pi = np.unique(exp.tuples[:, :-1], axis=0)
+
+            # prune combinations without a mix of occupied and virtual orbitals
+            tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, calc.occup), tuples_pi), \
+                                          dtype=bool, count=tuples_pi.shape[0])]
+
+            # prune combinations that contain non-degenerate pairs of pi-orbitals
+            tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
+                                                calc.exp_space['pi_orbs'], \
+                                                calc.exp_space['pi_hashes']), tuples_pi), \
+                                                dtype=bool, count=tuples_pi.shape[0])]
 
             # number of tasks
             n_tasks_pi = tuples_pi.shape[0]

@@ -57,7 +57,7 @@ def master(mpi, mol, calc, exp):
 
         # compute number of determinants in the individual casci calculations (ignoring symmetry)
         ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
-                                exp.tuples[-1]), dtype=np.float64, count=n_tasks)
+                                exp.tuples), dtype=np.float64, count=n_tasks)
 
         # order tasks wrt number of determinants (from most electrons to fewest electrons)
         tasks = np.argsort(ndets)[::-1]
@@ -66,7 +66,7 @@ def master(mpi, mol, calc, exp):
         for task in tasks:
 
             # get tup
-            tup = exp.tuples[-1][task]
+            tup = exp.tuples[task]
 
             # get slave
             parallel.probe(mpi, TAGS.ready)
