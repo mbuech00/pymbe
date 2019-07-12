@@ -43,7 +43,7 @@ def master(mpi, mol, calc, exp):
             for i in range(exp.start_order - exp.min_order):
 
                 # print mbe header
-                print(output.mbe_header(exp.tuples.shape[0], i + exp.min_order))
+                print(output.mbe_header(exp.hashes[i].size, i + exp.min_order))
 
                 # print mbe end
                 print(output.mbe_end(exp.prop[calc.target]['inc'][i], i + exp.min_order, exp.time['mbe'][i]))
