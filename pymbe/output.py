@@ -13,6 +13,7 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import os
+from datetime import datetime
 import numpy as np
 from pyscf import symm
 
@@ -45,9 +46,14 @@ def main_header(method=None):
         string += "   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8\n"
         string += "                .o..P'\n"
         string += "                `Y8P'\n\n\n"
+        string += "   -- date & time: {:s}\n"
         string += "   -- git version: {:s}\n\n\n"
 
-        form = (tools.git_version(),)
+        # date & time
+        form = (datetime.now().strftime('%Y-%m-%d & %H:%M:%S'),)
+
+        # git hash
+        form += (tools.git_version(),)
 
         # method
         if method is not None:
@@ -55,7 +61,7 @@ def main_header(method=None):
             string += HEADER+'\n'
             string += '{:^87s}\n'
             string += HEADER+'\n\n'
-    
+
             form += (method.upper()+' expansion',)
 
         return string.format(*form)
