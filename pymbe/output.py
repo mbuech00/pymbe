@@ -148,7 +148,8 @@ def mbe_end(prop_inc, order, time):
         return string.format(*form)
 
 
-def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tuples, prop_inc, prop_tot, ndets):
+def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tuples, \
+                prop_inc, prop_tot, mean_ndets, min_ndets, max_ndets):
         """
         this function prints mbe results statistics
 
@@ -162,7 +163,9 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
         :param tuples: current order tuples. numpy array of shape (n_tuples, order)
         :param prop_inc: current order property increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
         :param prop_tot: total mbe energy. list of scalars or numpy arrays of shape (3,) depending on target
-        :param ndets: current order number of determinants. numpy array of shape (n_tuples,)
+        :param mean_ndets: mean number of determinants. float
+        :param min_ndets: min number of determinants. float
+        :param max_ndets: max number of determinants. float
         :return: formatted string
         """
         # calculate total inc
@@ -250,28 +253,14 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
                     string += '\n'+DIVIDER
                 form += (comp[k], mean_val[k], min_val[k], max_val[k],)
 
-        # determinants
-        if ndets.any():
-            mean_ndets = np.mean(ndets[np.nonzero(ndets)])
-            min_ndets = np.min(ndets[np.nonzero(ndets)])
-            max_ndets = np.max(ndets[np.nonzero(ndets)])
-        else:
-            mean_ndets = min_ndets = max_ndets = 0.0
-
-        # extract info on largest calculation
-        cas_idx_max = tools.cas(ref_space, tuples[np.argmax(ndets)])
-        nelec_max = np.asarray((np.count_nonzero(occup[cas_idx_max] > 0.), \
-                                np.count_nonzero(occup[cas_idx_max] > 1.)), dtype=np.int32)
-
         # set string
         string += DIVIDER+'\n'
         string += DIVIDER+'\n'
         string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
         string += DIVIDER+'\n'
         string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
-        string += ' RESULT:        ---------        |           ---------          |      {:>2.0f} el. in {:>2.0f} orb.\n'
         string += DIVIDER+'\n'
-        form += (mean_ndets, min_ndets, max_ndets, nelec_max[0] + nelec_max[1], cas_idx_max.size)
+        form += (mean_ndets, min_ndets, max_ndets)
 
         if order < max_order:
             string += FILL

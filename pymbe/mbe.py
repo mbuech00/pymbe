@@ -59,8 +59,15 @@ def master(mpi, mol, calc, exp):
         ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
                                 exp.tuples), dtype=np.float64, count=n_tasks)
 
+        mean_ndets = np.mean(ndets[np.nonzero(ndets)])
+        min_ndets = np.min(ndets[np.nonzero(ndets)])
+        max_ndets = np.max(ndets[np.nonzero(ndets)])
+
         # order tasks wrt number of determinants (from most electrons to fewest electrons)
         tasks = np.argsort(ndets)[::-1]
+
+        # free memory allocated for ndets
+        del ndets
 
         # loop until no tasks left
         for task in tasks:
@@ -116,7 +123,7 @@ def master(mpi, mol, calc, exp):
         # allreduce increments
         inc = parallel.allreduce(mpi, inc)
 
-        return ndets, inc
+        return inc, mean_ndets, min_ndets, max_ndets
 
 
 def slave(mpi, mol, calc, exp):

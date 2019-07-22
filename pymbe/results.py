@@ -80,7 +80,7 @@ def main(mpi, mol, calc, exp):
             _osc_strength_plot(calc, exp)
 
         # plot number of determinants
-        _ndets_plot(exp)
+        _max_ndets_plot(exp)
 
 
 def _atom(mol):
@@ -934,9 +934,9 @@ def _osc_strength_plot(calc, exp):
                         format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _ndets_plot(exp):
+def _max_ndets_plot(exp):
         """
-        this function plots the number of determinants
+        this function plots the max number of determinants
 
         :param exp: pymbe exp object
         """
@@ -947,12 +947,9 @@ def _ndets_plot(exp):
         # set subplot
         fig, ax = plt.subplots()
 
-        # array of max number of determinants at each order
-        max_ndets = np.array([np.max(nd) for nd in exp.ndets], dtype=np.float64)
-
         # plot results
         ax.semilogy(np.arange(exp.min_order, exp.final_order+1), \
-                    max_ndets, marker='x', linewidth=2, mew=1, color='red', linestyle='-')
+                    np.asarray(exp.max_ndets), marker='x', linewidth=2, mew=1, color='red', linestyle='-')
 
         # set x limits
         ax.set_xlim([0.5, exp.final_order+1 - 0.5])
@@ -973,6 +970,6 @@ def _ndets_plot(exp):
             sns.despine()
 
         # save plot
-        plt.savefig(output.OUT+'/ndets.pdf', bbox_inches = 'tight', dpi=1000)
+        plt.savefig(output.OUT+'/max_ndets.pdf', bbox_inches = 'tight', dpi=1000)
 
 

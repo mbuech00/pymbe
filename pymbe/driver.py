@@ -51,7 +51,8 @@ def master(mpi, mol, calc, exp):
                 # print mbe results
                 print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
                                             exp.max_order, i + exp.min_order, exp.tuples, exp.prop[calc.target]['inc'][i], \
-                                            exp.prop[calc.target]['tot'], exp.ndets[i]))
+                                            exp.prop[calc.target]['tot'], exp.mean_ndets[i], \
+                                            exp.min_ndets[i], exp.max_ndets[i]))
 
                 # print header
                 print(output.screen_header(i + exp.min_order))
@@ -74,11 +75,13 @@ def master(mpi, mol, calc, exp):
                 time = MPI.Wtime()
 
                 # main mbe function
-                ndets, inc = mbe.master(mpi, mol, calc, exp)
+                inc, mean_ndets, min_ndets, max_ndets = mbe.master(mpi, mol, calc, exp)
 
                 # append number of determinants and increments
                 exp.prop[calc.target]['inc'].append(inc)
-                exp.ndets.append(ndets)
+                exp.mean_ndets.append(mean_ndets)
+                exp.min_ndets.append(min_ndets)
+                exp.max_ndets.append(max_ndets)
 
                 # calculate and append total property
                 exp.prop[calc.target]['tot'].append(tools.fsum(inc))
@@ -97,7 +100,8 @@ def master(mpi, mol, calc, exp):
             # print mbe results
             print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
                                      exp.max_order, exp.order, exp.tuples, exp.prop[calc.target]['inc'][-1], \
-                                     exp.prop[calc.target]['tot'], exp.ndets[-1]))
+                                     exp.prop[calc.target]['tot'], exp.mean_ndets[-1], \
+                                     exp.min_ndets[-1], exp.max_ndets[-1]))
 
             # init screening time
             exp.time['screen'].append(0.0)

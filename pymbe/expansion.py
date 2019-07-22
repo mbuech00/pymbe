@@ -43,7 +43,9 @@ class ExpCls(object):
 
                 # init timings and and ndets lists
                 self.time = {'mbe': [], 'screen': []}
-                self.ndets = []
+                self.mean_ndets = []
+                self.min_ndets = []
+                self.max_ndets = []
 
                 # init order
                 self.order = 0

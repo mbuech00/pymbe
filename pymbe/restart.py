@@ -81,8 +81,12 @@ def main(calc, exp):
                     exp.prop[calc.target]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 
                 # read ndets
-                elif 'mbe_ndets' in files[i]:
-                    exp.ndets.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_mean_ndets' in files[i]:
+                    exp.mean_ndets.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_min_ndets' in files[i]:
+                    exp.min_ndets.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_max_ndets' in files[i]:
+                    exp.max_ndets.append(np.load(os.path.join(RST, files[i])))
 
                 # read timings
                 elif 'mbe_time_mbe' in files[i]:
@@ -107,7 +111,9 @@ def mbe_write(calc, exp):
         np.save(os.path.join(RST, 'mbe_tot_{:}'.format(exp.order)), exp.prop[calc.target]['tot'][-1])
 
         # write ndets
-        np.save(os.path.join(RST, 'mbe_ndets_'+str(exp.order)), exp.ndets[-1])
+        np.save(os.path.join(RST, 'mbe_mean_ndets_'+str(exp.order)), exp.mean_ndets[-1])
+        np.save(os.path.join(RST, 'mbe_max_ndets_'+str(exp.order)), exp.max_ndets[-1])
+        np.save(os.path.join(RST, 'mbe_min_ndets_'+str(exp.order)), exp.min_ndets[-1])
 
         # write time
         np.save(os.path.join(RST, 'mbe_time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
