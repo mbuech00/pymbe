@@ -949,7 +949,7 @@ def _max_ndets_plot(exp):
 
         # plot results
         ax.semilogy(np.arange(exp.min_order, exp.final_order+1), \
-                    np.asarray(exp.max_ndets), marker='x', linewidth=2, mew=1, color='red', linestyle='-')
+                    exp.max_ndets, marker='x', linewidth=2, mew=1, color='red', linestyle='-')
 
         # set x limits
         ax.set_xlim([0.5, exp.final_order+1 - 0.5])

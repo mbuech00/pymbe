@@ -92,7 +92,8 @@ def master(mpi, mol, calc, exp):
                 exp.time['mbe'][-1] = MPI.Wtime() - time
 
                 # write restart files
-                restart.mbe_write(calc, exp)
+                if calc.misc['rst']:
+                    restart.mbe_write(calc, exp)
 
                 # print mbe end
                 print(output.mbe_end(exp.prop[calc.target]['inc'][-1], exp.order, exp.time['mbe'][-1]))
@@ -125,7 +126,7 @@ def master(mpi, mol, calc, exp):
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
                 # write restart files
-                if exp.tuples.shape[0] > 0:
+                if calc.misc['rst'] and exp.tuples.shape[0] > 0:
                     restart.screen_write(exp)
 
                 # print screen end
@@ -141,6 +142,11 @@ def master(mpi, mol, calc, exp):
                 exp.time['mbe'] = np.asarray(exp.time['mbe'])
                 exp.time['screen'] = np.asarray(exp.time['screen'])
                 exp.time['total'] = exp.time['mbe'] + exp.time['screen']
+
+                # ndets
+                exp.mean_ndets = np.asarray(exp.mean_ndets)
+                exp.min_ndets = np.asarray(exp.min_ndets)
+                exp.max_ndets = np.asarray(exp.max_ndets)
 
                 # final results
                 exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])

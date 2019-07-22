@@ -48,7 +48,7 @@ class CalcCls(object):
                 self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
                 self.extra = {'hf_guess': True, 'pi_prune': False}
                 self.thres = {'init': 1.0e-10, 'relax': 1.0}
-                self.misc = {'order': None}
+                self.misc = {'order': None, 'rst': True}
                 self.orbs = {'type': 'can'}
                 self.mpi = {'task_size': 5, 'non_block': True}
                 self.prop = {'hf': {}, 'base': {}, 'ref': {}}
@@ -243,6 +243,8 @@ def sanity_chk(mol, calc):
                 tools.assertion(calc.misc['order'] >= 2, \
                                 'maximum expansion order (order) must be an int >= 2 '
                                 'for vacuum reference spaces')
+        tools.assertion(isinstance(calc.misc['rst'], bool), \
+                        'restart logical (rst) must be a bool')
 
         # mpi parameters
         tools.assertion(isinstance(calc.mpi['task_size'], int), \
