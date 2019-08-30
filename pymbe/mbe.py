@@ -69,8 +69,17 @@ def master(mpi, mol, calc, exp):
         # free memory allocated for ndets
         del ndets
 
+        # task counter
+        task_count = 0
+
         # loop until no tasks left
         for task in tasks:
+
+            # increment task counters
+            task_count += 1
+
+            if task_count % calc.misc['rst_interval'] == 0:
+                print(output.mbe_status(task_count / n_tasks))
 
             # get tup
             tup = exp.tuples[task]
@@ -112,6 +121,9 @@ def master(mpi, mol, calc, exp):
 
             # remove slave
             slaves_avail -= 1
+
+        # print 100. % status
+        print(output.mbe_status(1.0))
 
         # wait for all data communication to be finished
         if mpi.non_block:

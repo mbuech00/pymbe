@@ -28,6 +28,7 @@ OUT_FILE = OUT+'/output.out'
 HEADER = '{0:^87}'.format('-'*45)
 DIVIDER = ' '+'-'*92
 FILL = ' '+'|'*92
+BAR_LENGTH = 50
 
 
 def main_header(method=None):
@@ -121,6 +122,20 @@ def mbe_debug(atom, symmetry, orbsym, root, ndets_tup, nelec_tup, inc_tup, order
             form += (root, *inc_tup,)
 
         return string.format(*form)
+
+
+def mbe_status(prog):
+        """
+        this function prints the status of an mbe phase
+
+        :param prog: progress. scalar (0. <= prog <= 1.)
+        :return: formatted string
+        """
+        status = int(round(BAR_LENGTH * prog))
+        remainder = (BAR_LENGTH - status)
+
+        return ' STATUS:   [{:}]   ---  {:>6.2f} %'.\
+            format('#' * status + '-' * remainder, prog * 100.)
 
 
 def mbe_end(prop_inc, order, time):
@@ -307,5 +322,5 @@ def screen_end(n_tuples, order, time):
         form = (order, tools.time_str(time),)
 
         return string.format(*form)
-        
-    
+
+
