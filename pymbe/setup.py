@@ -117,7 +117,6 @@ def _calc(mpi, mol):
 
         # put calc.mpi info into mpi object
         mpi.task_size = calc.mpi['task_size']
-        mpi.non_block = calc.mpi['non_block']
 
         return calc
 

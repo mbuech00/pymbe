@@ -50,7 +50,7 @@ class CalcCls(object):
                 self.thres = {'init': 1.0e-10, 'relax': 1.0}
                 self.misc = {'order': None, 'rst': True, 'rst_interval': 1000000}
                 self.orbs = {'type': 'can'}
-                self.mpi = {'task_size': 5, 'non_block': True}
+                self.mpi = {'task_size': 5}
                 self.prop = {'hf': {}, 'base': {}, 'ref': {}}
 
 
@@ -255,8 +255,5 @@ def sanity_chk(mol, calc):
                         'mpi task size (task_size) must be an int >= 1')
         tools.assertion(calc.mpi['task_size'] >= 1, \
                         'mpi task size (task_size) must be an int >= 1')
-        tools.assertion(isinstance(calc.mpi['non_block'], bool), \
-                        'non-blocking mpi logical (non_block) must be a bool')
-
 
 

@@ -50,11 +50,6 @@ def master(mpi, mol, calc, exp):
         # number of available slaves
         slaves_avail = min(mpi.size - 1, n_tasks)
 
-        # init requests
-        if mpi.non_block:
-            req_tup = MPI.Request()
-            req_h2e = MPI.Request()
-
         # compute number of determinants in the individual casci calculations (ignoring symmetry)
         ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
                                 exp.tuples), dtype=np.float64, count=n_tasks)
@@ -88,11 +83,7 @@ def master(mpi, mol, calc, exp):
             parallel.probe(mpi, TAGS.ready)
 
             # send tup
-            if mpi.non_block:
-                req_tup.Wait()
-                req_tup = mpi.comm.Isend([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
-            else:
-                mpi.comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
+            mpi.comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 
             # get cas indices
             cas_idx = tools.cas(calc.ref_space, tup)
@@ -104,11 +95,7 @@ def master(mpi, mol, calc, exp):
             h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
 
             # send h2e_cas
-            if mpi.non_block:
-                req_h2e.Wait()
-                req_h2e = mpi.comm.Isend([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
-            else:
-                mpi.comm.Send([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
+            mpi.comm.Send([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
 
         # done with all tasks
         while slaves_avail > 0:
@@ -124,10 +111,6 @@ def master(mpi, mol, calc, exp):
 
         # print 100. % status
         print(output.mbe_status(1.0))
-
-        # wait for all data communication to be finished
-        if mpi.non_block:
-            MPI.Request.Waitall([req_tup, req_h2e])
 
         # init increments
         inc = _init_inc(n_tasks, calc.target)
@@ -180,20 +163,12 @@ def slave(mpi, mol, calc, exp):
             if mpi.stat.tag == TAGS.tup:
 
                 # receive tup
-                if mpi.non_block:
-                    req_tup = mpi.comm.Irecv([tup, MPI.INT], source=0, tag=TAGS.tup)
-                else:
-                    mpi.comm.Recv([tup, MPI.INT], source=0, tag=TAGS.tup)
+                mpi.comm.Recv([tup, MPI.INT], source=0, tag=TAGS.tup)
 
                 # receive h2e_cas
-                if mpi.non_block:
-                    req_h2e = mpi.comm.Irecv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.h2e)
-                else:
-                    mpi.comm.Recv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.h2e)
+                mpi.comm.Recv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.h2e)
 
                 # get core and cas indices
-                if mpi.non_block:
-                    req_tup.Wait()
                 core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
 
                 # compute e_core and h1e_cas
@@ -203,8 +178,6 @@ def slave(mpi, mol, calc, exp):
                 task_idx = tools.hash_compare(exp.hashes[-1], tools.hash_1d(tup))
 
                 # calculate increment
-                if mpi.non_block:
-                    req_h2e.Wait()
                 inc[task_idx] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx)
 
                 # send availability to master
