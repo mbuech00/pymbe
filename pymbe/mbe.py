@@ -19,6 +19,7 @@ import sys
 import itertools
 import scipy.misc
 
+import restart
 import kernel
 import output
 import expansion
@@ -28,7 +29,7 @@ import tools
 
 
 # tags
-TAGS = tools.enum('ready', 'tup', 'h2e', 'exit')
+TAGS = tools.enum('ready', 'tup', 'h2e', 'rst', 'exit')
 
 
 def master(mpi, mol, calc, exp):
@@ -39,7 +40,8 @@ def master(mpi, mol, calc, exp):
         :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: two numpy arrays of shapes (n_tuples,) [ndets] and (n_tuples,) or (n_tuples, 3) [inc] depending on target
+        :return: three scalars [mean_ndets, min_ndets, max_ndets],
+                 numpy array of shapes (n_tuples,) [ndets] and (n_tuples,) or (n_tuples, 3) [inc] depending on target
         """
         # wake up slaves
         msg = {'task': 'mbe', 'order': exp.order}
@@ -47,8 +49,8 @@ def master(mpi, mol, calc, exp):
 
         # number of tasks
         n_tasks = exp.hashes[-1].size
-        # number of available slaves
-        slaves_avail = min(mpi.size - 1, n_tasks)
+        # number of slaves
+        n_slaves = mpi.size - 1
 
         # compute number of determinants in the individual casci calculations (ignoring symmetry)
         ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
@@ -64,20 +66,32 @@ def master(mpi, mol, calc, exp):
         # free memory allocated for ndets
         del ndets
 
-        # task counter
-        task_count = 0
+        # init increments
+        if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
+
+            # load restart increments
+            inc = exp.prop[calc.target]['inc'][-1]
+
+        else:
+
+            # init with zeros
+            inc = _init_inc(n_tasks, calc.target)
+
+            # save increments
+            if calc.misc['rst']:
+                restart.mbe_write(exp.order, inc)
+
+        # start index
+        if inc.ndim == 1:
+            task_start = np.count_nonzero(inc)
+        else:
+            task_start = np.count_nonzero(np.count_nonzero(inc, axis=1))
 
         # loop until no tasks left
-        for task in tasks:
-
-            # increment task counters
-            task_count += 1
-
-            if task_count % calc.misc['rst_interval'] == 0:
-                print(output.mbe_status(task_count / n_tasks))
+        for task_idx in range(task_start, n_tasks):
 
             # get tup
-            tup = exp.tuples[task]
+            tup = exp.tuples[tasks[task_idx]]
 
             # get slave
             parallel.probe(mpi, TAGS.ready)
@@ -97,8 +111,29 @@ def master(mpi, mol, calc, exp):
             # send h2e_cas
             mpi.comm.Send([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
 
+            # write restart file
+            if calc.misc['rst'] and task_idx % calc.misc['rst_interval'] == 0:
+
+                # send rst signal to all slaves
+                for slave_idx in range(n_slaves):
+
+                    # get slave
+                    mpi.comm.recv(None, source=slave_idx+1, tag=TAGS.ready)
+
+                    # send rst signal to slave
+                    mpi.comm.send(None, dest=slave_idx+1, tag=TAGS.rst)
+
+                # reduce increments
+                inc = parallel.reduce(mpi, inc)
+
+                # save increments
+                restart.mbe_write(exp.order, inc)
+
+                # print status
+                print(output.mbe_status(task_idx / n_tasks))
+
         # done with all tasks
-        while slaves_avail > 0:
+        while n_slaves > 0:
 
             # get slave
             parallel.probe(mpi, TAGS.ready)
@@ -107,13 +142,10 @@ def master(mpi, mol, calc, exp):
             mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 
             # remove slave
-            slaves_avail -= 1
+            n_slaves -= 1
 
-        # print 100. % status
+        # print final status
         print(output.mbe_status(1.0))
-
-        # init increments
-        inc = _init_inc(n_tasks, calc.target)
 
         # allreduce increments
         inc = parallel.allreduce(mpi, inc)
@@ -133,8 +165,6 @@ def slave(mpi, mol, calc, exp):
         """
         # number of tasks
         n_tasks = exp.hashes[-1].size
-        # number of needed slaves
-        slaves_needed = min(mpi.size - 1, n_tasks)
 
         # init tup
         tup = np.empty(exp.order, dtype=np.int32)
@@ -146,15 +176,10 @@ def slave(mpi, mol, calc, exp):
         h2e_cas = _init_h2e(calc.ref_space, exp.order)
 
         # send availability to master
-        if mpi.rank <= slaves_needed:
-            mpi.comm.send(None, dest=0, tag=TAGS.ready)
+        mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
         # receive work from master
         while True:
-
-            # early exit in case of large proc count
-            if mpi.rank > slaves_needed:
-                break
 
             # probe for available task
             mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
@@ -183,10 +208,25 @@ def slave(mpi, mol, calc, exp):
                 # send availability to master
                 mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
+            elif mpi.stat.tag == TAGS.rst:
+
+                # receive rst signal
+                mpi.comm.recv(None, source=0, tag=TAGS.rst)
+
+                # reduce increments
+                inc = parallel.reduce(mpi, inc)
+
+                # re-initialize inc
+                inc.fill(0.)
+
+                # send availability to master
+                mpi.comm.send(None, dest=0, tag=TAGS.ready)
+
             elif mpi.stat.tag == TAGS.exit:
 
-                # exit
+                # receive exit signal
                 mpi.comm.recv(None, source=0, tag=TAGS.exit)
+
                 break
 
         # allreduce increments

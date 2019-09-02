@@ -78,7 +78,10 @@ def master(mpi, mol, calc, exp):
                 inc, mean_ndets, min_ndets, max_ndets = mbe.master(mpi, mol, calc, exp)
 
                 # append number of determinants and increments
-                exp.prop[calc.target]['inc'].append(inc)
+                if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
+                    exp.prop[calc.target]['inc'][-1] = inc
+                else:
+                    exp.prop[calc.target]['inc'].append(inc)
                 exp.mean_ndets.append(mean_ndets)
                 exp.min_ndets.append(min_ndets)
                 exp.max_ndets.append(max_ndets)
@@ -93,7 +96,10 @@ def master(mpi, mol, calc, exp):
 
                 # write restart files
                 if calc.misc['rst']:
-                    restart.mbe_write(calc, exp)
+                    restart.mbe_write(exp.order, \
+                                      exp.prop[calc.target]['inc'][-1], exp.prop[calc.target]['tot'][-1], \
+                                      exp.mean_ndets[-1], exp.max_ndets[-1], exp.min_ndets[-1], \
+                                      np.asarray(exp.time['mbe'][-1]))
 
                 # print mbe end
                 print(output.mbe_end(exp.prop[calc.target]['inc'][-1], exp.order, exp.time['mbe'][-1]))
@@ -127,7 +133,8 @@ def master(mpi, mol, calc, exp):
 
                 # write restart files
                 if calc.misc['rst'] and exp.tuples.shape[0] > 0:
-                    restart.screen_write(exp)
+                    restart.screen_write(exp.order, exp.tuples, exp.hashes[-1], \
+                                         np.asarray(exp.time['screen'][-1]))
 
                 # print screen end
                 print(output.screen_end(exp.tuples.shape[0], exp.order, exp.time['screen'][-1]))

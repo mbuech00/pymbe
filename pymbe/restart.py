@@ -97,42 +97,56 @@ def main(calc, exp):
         return exp.tuples.shape[1]
 
 
-def mbe_write(calc, exp):
+def mbe_write(order, inc, tot=None, mean_ndets=None, max_ndets=None, min_ndets=None, time_mbe=None):
         """
         this function writes all mbe restart files
 
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
+        :param order: current mbe order. integer
+        :param inc: increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
+        :param tot: total prop. numpy array of shape (order-start_order,) or (order-start_order, 3) depending on target
+        :param mean_ndets: mean number of determinants. scalar
+        :param max_ndets: max number of determinants. scalar
+        :param min_ndets: min number of determinants. scalar
+        :param time_mbe: mbe timings. scalar
+        :param total: logical controlling whether or not this is final call. bool
         """
         # increments
-        np.save(os.path.join(RST, 'mbe_inc_{:}'.format(exp.order)), exp.prop[calc.target]['inc'][-1])
+        np.save(os.path.join(RST, 'mbe_inc_{:}'.format(order)), inc)
 
-        # total properties
-        np.save(os.path.join(RST, 'mbe_tot_{:}'.format(exp.order)), exp.prop[calc.target]['tot'][-1])
+        if tot is not None:
+            # total properties
+            np.save(os.path.join(RST, 'mbe_tot_{:}'.format(order)), tot)
 
         # write ndets
-        np.save(os.path.join(RST, 'mbe_mean_ndets_'+str(exp.order)), exp.mean_ndets[-1])
-        np.save(os.path.join(RST, 'mbe_max_ndets_'+str(exp.order)), exp.max_ndets[-1])
-        np.save(os.path.join(RST, 'mbe_min_ndets_'+str(exp.order)), exp.min_ndets[-1])
+        if mean_ndets is not None:
+            np.save(os.path.join(RST, 'mbe_mean_ndets_'+str(order)), mean_ndets)
+        if max_ndets is not None:
+            np.save(os.path.join(RST, 'mbe_max_ndets_'+str(order)), max_ndets)
+        if min_ndets is not None:
+            np.save(os.path.join(RST, 'mbe_min_ndets_'+str(order)), min_ndets)
 
         # write time
-        np.save(os.path.join(RST, 'mbe_time_mbe_'+str(exp.order)), np.asarray(exp.time['mbe'][-1]))
+        if time_mbe is not None:
+            np.save(os.path.join(RST, 'mbe_time_mbe_'+str(order)), time_mbe)
 
 
-def screen_write(exp):
+def screen_write(order, tuples, hashes, time_screen):
         """
         this function writes all screening restart files
 
-        :param exp: pymbe exp object
+        :param order: current mbe order. integer
+        :param tuples: tuples. numpy array of shape (n_tuples, order)
+        :param hashes: hashes. numpy array of shape (n_tuples,)
+        :param time_screen: screening timings. scalar
         """
         # write tuples
-        np.save(os.path.join(RST, 'mbe_tup'), exp.tuples)
+        np.save(os.path.join(RST, 'mbe_tup'), tuples)
 
         # write hashes
-        np.save(os.path.join(RST, 'mbe_hash_'+str(exp.order+1)), exp.hashes[-1])
+        np.save(os.path.join(RST, 'mbe_hash_'+str(order+1)), hashes)
 
         # write time
-        np.save(os.path.join(RST, 'mbe_time_screen_'+str(exp.order)), np.asarray(exp.time['screen'][-1]))
+        np.save(os.path.join(RST, 'mbe_time_screen_'+str(order)), time_screen)
 
 
 def write_fund(mol, calc):
