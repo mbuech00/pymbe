@@ -312,17 +312,24 @@ def reduce(mpi, send_buff):
         :return: numpy array of same shape and dtype as send_buff
         """
         # init recv_buff        
-        recv_buff = np.zeros_like(send_buff)
+        if mpi.rank == 0:
+            recv_buff = np.zeros_like(send_buff)
+        else:
+            recv_buff = send_buff
 
         # init send_tile and recv_tile
         send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
-        recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
+        if mpi.rank == 0:
+            recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
 
         # allreduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
-            mpi.comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM, root=0)
+            if mpi.rank == 0:
+                mpi.comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM, root=0)
+            else:
+                mpi.comm.Reduce(send_tile[p0:p1], None, op=MPI.SUM, root=0)
 
-        return recv_buff if mpi.rank == 0 else send_buff
+        return recv_buff
 
 
 def allreduce(mpi, send_buff):
