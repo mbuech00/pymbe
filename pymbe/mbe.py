@@ -264,7 +264,7 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
         # calculate increment
         if exp.order > exp.min_order:
             if np.any(inc_tup != 0.0):
-                inc_tup -= _sum(calc.occup, calc.mo_energy, calc.ref_space, calc.exp_space, \
+                inc_tup -= _sum(calc.occup, calc.ref_space, calc.exp_space, \
                                 calc.target, exp.min_order, exp.order, \
                                 exp.prop[calc.target]['inc'], exp.hashes, \
                                 tup, pi_prune=calc.extra['pi_prune'])
@@ -278,12 +278,11 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
         return inc_tup
 
 
-def _sum(occup, mo_energy, ref_space, exp_space, target, min_order, order, prop, hashes, tup, pi_prune=False):
+def _sum(occup, ref_space, exp_space, target, min_order, order, prop, hashes, tup, pi_prune=False):
         """
         this function performs a recursive summation
 
         :param occup: orbital occupation. numpy array of shape (n_orbs,)
-        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param exp_space: dictionary of expansion spaces. dict
         :param target: calculation target. string
@@ -329,8 +328,8 @@ def _sum(occup, mo_energy, ref_space, exp_space, target, min_order, order, prop,
 
             # assertion
             tools.assertion(idx is not None, 'error in recursive increment calculation:\n'
-                                                'k = {:}\ntup:\n{:}\ncombs:\n{:}'. \
-                                                format(k, tup, combs))
+                                             'k = {:}\ntup:\n{:}\ncombs:\n{:}'. \
+                                             format(k, tup, combs))
 
             # add up lower-order increments
             res += tools.fsum(prop[k-min_order][idx])
