@@ -66,6 +66,11 @@ def master(mpi, mol, calc, exp):
         # free memory allocated for ndets
         del ndets
 
+        win = MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.comm)
+
+        buf = win.Shared_query(0)[0]
+        inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
+
         # init increments
         if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
 
@@ -148,9 +153,10 @@ def master(mpi, mol, calc, exp):
         print(output.mbe_status(1.0))
 
         # allreduce increments
-        inc = parallel.allreduce(mpi, inc)
+#        inc = parallel.allreduce(mpi, inc)
+        mpi.comm.Barrier()
 
-        return inc, mean_ndets, min_ndets, max_ndets
+        return win, mean_ndets, min_ndets, max_ndets
 
 
 def slave(mpi, mol, calc, exp):
@@ -163,14 +169,17 @@ def slave(mpi, mol, calc, exp):
         :param exp: pymbe exp object
         :return: numpy array of shape (n_tuples,)
         """
-        # number of tasks
-        n_tasks = exp.hashes[-1].size
+        # init increments
+        inc = []
+        for k in range(len(exp.hashes)-1):
+            buf = exp.prop[calc.target]['inc'][k].Shared_query(0)[0]
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[k].size,)))
+        win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+        buf = win.Shared_query(0)[0]
+        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[-1].size,)))
 
         # init tup
         tup = np.empty(exp.order, dtype=np.int32)
-
-        # init increments
-        inc = _init_inc(n_tasks, calc.target)
 
         # init h2e_cas
         h2e_cas = _init_h2e(calc.ref_space, exp.order)
@@ -203,7 +212,7 @@ def slave(mpi, mol, calc, exp):
                 task_idx = tools.hash_compare(exp.hashes[-1], tools.hash_1d(tup))
 
                 # calculate increment
-                inc[task_idx] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx)
+                inc[-1][task_idx] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx, inc)
 
                 # send availability to master
                 mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -230,10 +239,13 @@ def slave(mpi, mol, calc, exp):
                 break
 
         # allreduce increments
-        return parallel.allreduce(mpi, inc)
+#        return parallel.allreduce(mpi, inc)
+
+        mpi.comm.Barrier()
+        return win
 
 
-def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
+def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx, inc):
         """
         this function calculates the increment associated with a given tuple
 
@@ -266,7 +278,7 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx):
             if np.any(inc_tup != 0.0):
                 inc_tup -= _sum(calc.occup, calc.ref_space, calc.exp_space, \
                                 calc.target, exp.min_order, exp.order, \
-                                exp.prop[calc.target]['inc'], exp.hashes, \
+                                inc, exp.hashes, \
                                 tup, pi_prune=calc.extra['pi_prune'])
 
         # debug print
@@ -332,6 +344,9 @@ def _sum(occup, ref_space, exp_space, target, min_order, order, prop, hashes, tu
                                              format(k, tup, combs))
 
             # add up lower-order increments
+#            buf = prop[k-min_order].Shared_query(0)[0]
+#            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(hashes[k-min_order].size,))
+#            res += tools.fsum(inc[idx])
             res += tools.fsum(prop[k-min_order][idx])
 
         return res

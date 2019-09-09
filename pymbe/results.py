@@ -505,7 +505,7 @@ def _timings_prt(calc, exp):
         calcs = 0
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            calc_i = exp.prop[calc.target]['inc'][i].shape[0]
+            calc_i = exp.hashes[i].size
             calcs += calc_i
             string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
                     '{:2}{:>15s}{:2}{:1}{:5}{:>9d}\n'

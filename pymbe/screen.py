@@ -164,6 +164,9 @@ def slave(mpi, calc, exp, slaves_needed):
         if mpi.rank <= slaves_needed:
             mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
+        buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
+        inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[-1].size,))
+
         # receive work from master
         while True:
 
@@ -197,7 +200,7 @@ def slave(mpi, calc, exp, slaves_needed):
                     # spawn child tuples from parent tuples at exp.order
                     orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
                                     calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                    tup_order, exp.hashes[-1], exp.prop[calc.target]['inc'][-1], \
+                                    tup_order, exp.hashes[-1], inc, \
                                     tup, pi_prune=calc.extra['pi_prune'], \
                                     pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
@@ -205,7 +208,7 @@ def slave(mpi, calc, exp, slaves_needed):
                     if calc.extra['pi_prune'] and exp.min_order < tup_order:
                         orbs = _deep_pruning(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
                                                 calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                                tup_order, exp.hashes, exp.prop[calc.target]['inc'], \
+                                                tup_order, exp.hashes, inc, \
                                                 tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
                     # recast parent tuple as list

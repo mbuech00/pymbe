@@ -87,6 +87,8 @@ def master(mpi, mol, calc, exp):
                 exp.max_ndets.append(max_ndets)
 
                 # calculate and append total property
+                buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
+                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[-1].size,))
                 exp.prop[calc.target]['tot'].append(tools.fsum(inc))
                 if exp.order > exp.min_order:
                     exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
@@ -102,11 +104,11 @@ def master(mpi, mol, calc, exp):
                                       np.asarray(exp.time['mbe'][-1]))
 
                 # print mbe end
-                print(output.mbe_end(exp.prop[calc.target]['inc'][-1], exp.order, exp.time['mbe'][-1]))
+                print(output.mbe_end(inc, exp.order, exp.time['mbe'][-1]))
 
             # print mbe results
             print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-                                     exp.max_order, exp.order, exp.tuples, exp.prop[calc.target]['inc'][-1], \
+                                     exp.max_order, exp.order, exp.tuples, inc, \
                                      exp.prop[calc.target]['tot'], exp.mean_ndets[-1], \
                                      exp.min_ndets[-1], exp.max_ndets[-1]))
 
@@ -207,5 +209,5 @@ def slave(mpi, mol, calc, exp):
 
         # finalize mpi
         parallel.finalize(mpi)
-    
+
 
