@@ -75,19 +75,16 @@ def master(mpi, mol, calc, exp):
                 time = MPI.Wtime()
 
                 # main mbe function
-                inc, mean_ndets, min_ndets, max_ndets = mbe.master(mpi, mol, calc, exp)
+                win, mean_ndets, min_ndets, max_ndets = mbe.master(mpi, mol, calc, exp)
 
-                # append number of determinants and increments
-                if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
-                    exp.prop[calc.target]['inc'][-1] = inc
-                else:
-                    exp.prop[calc.target]['inc'].append(inc)
+                # append number of determinants and window to increments
+                exp.prop[calc.target]['inc'].append(win)
                 exp.mean_ndets.append(mean_ndets)
                 exp.min_ndets.append(min_ndets)
                 exp.max_ndets.append(max_ndets)
 
                 # calculate and append total property
-                buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
+                buf = win.Shared_query(0)[0]
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[-1].size,))
                 exp.prop[calc.target]['tot'].append(tools.fsum(inc))
                 if exp.order > exp.min_order:
@@ -99,7 +96,7 @@ def master(mpi, mol, calc, exp):
                 # write restart files
                 if calc.misc['rst']:
                     restart.mbe_write(exp.order, \
-                                      exp.prop[calc.target]['inc'][-1], exp.prop[calc.target]['tot'][-1], \
+                                      inc, exp.prop[calc.target]['tot'][-1], \
                                       exp.mean_ndets[-1], exp.max_ndets[-1], exp.min_ndets[-1], \
                                       np.asarray(exp.time['mbe'][-1]))
 
@@ -129,6 +126,9 @@ def master(mpi, mol, calc, exp):
                 # overwrite tuples and append hashes
                 exp.tuples = tuples
                 exp.hashes.append(hashes)
+
+                # n_tasks
+                exp.n_tasks.append(exp.hashes[-1].size)
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
@@ -202,6 +202,9 @@ def slave(mpi, mol, calc, exp):
 
                 # append hashes
                 exp.hashes.append(hashes)
+
+                # n_tasks
+                exp.n_tasks.append(exp.hashes[-1].size)
 
             elif msg['task'] == 'exit':
 

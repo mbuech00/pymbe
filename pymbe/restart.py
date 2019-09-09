@@ -13,6 +13,7 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import numpy as np
+from mpi4py import MPI
 import json
 import os
 import os.path
@@ -45,7 +46,7 @@ def rm():
         shutil.rmtree(RST)
 
 
-def main(calc, exp):
+def main(mpi, calc, exp):
         """
         this function reads in all expansion restart files and returns the start order
 
@@ -74,7 +75,16 @@ def main(calc, exp):
 
                 # read increments
                 elif 'mbe_inc' in files[i]:
-                    exp.prop[calc.target]['inc'].append(np.load(os.path.join(RST, files[i])))
+                    n_tasks = exp.n_tasks[len(exp.prop[calc.target]['inc'])]
+                    if mpi.master:
+                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.comm))
+                    else:
+                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.comm))
+                    buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
+                    if mpi.master:
+                        inc = np.load(os.path.join(RST, files[i]))
+#                    exp.prop[calc.target]['inc'].append(np.load(os.path.join(RST, files[i])))
 
                 # read total properties
                 elif 'mbe_tot' in files[i]:

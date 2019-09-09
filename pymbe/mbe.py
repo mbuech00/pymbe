@@ -41,20 +41,19 @@ def master(mpi, mol, calc, exp):
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         :return: three scalars [mean_ndets, min_ndets, max_ndets],
+                 MPI window handle to increments:
                  numpy array of shapes (n_tuples,) [ndets] and (n_tuples,) or (n_tuples, 3) [inc] depending on target
         """
         # wake up slaves
         msg = {'task': 'mbe', 'order': exp.order}
         mpi.comm.bcast(msg, root=0)
 
-        # number of tasks
-        n_tasks = exp.hashes[-1].size
         # number of slaves
         n_slaves = mpi.size - 1
 
         # compute number of determinants in the individual casci calculations (ignoring symmetry)
         ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
-                                exp.tuples), dtype=np.float64, count=n_tasks)
+                                exp.tuples), dtype=np.float64, count=exp.n_tasks[-1])
 
         mean_ndets = np.mean(ndets[np.nonzero(ndets)])
         min_ndets = np.min(ndets[np.nonzero(ndets)])
@@ -66,21 +65,20 @@ def master(mpi, mol, calc, exp):
         # free memory allocated for ndets
         del ndets
 
-        win = MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.comm)
-
-        buf = win.Shared_query(0)[0]
-        inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
-
         # init increments
         if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
 
             # load restart increments
+            buf = win.Shared_query(0)[0]
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
             inc = exp.prop[calc.target]['inc'][-1]
 
         else:
 
-            # init with zeros
-            inc = _init_inc(n_tasks, calc.target)
+            # new increments
+            win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.comm)
+            buf = win.Shared_query(0)[0]
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
 
             # save increments
             if calc.misc['rst']:
@@ -93,7 +91,7 @@ def master(mpi, mol, calc, exp):
             task_start = np.count_nonzero(np.count_nonzero(inc, axis=1))
 
         # loop until no tasks left
-        for task_idx in range(task_start, n_tasks):
+        for task_idx in range(task_start, exp.n_tasks[-1]):
 
             # get tup
             tup = exp.tuples[tasks[task_idx]]
@@ -128,14 +126,17 @@ def master(mpi, mol, calc, exp):
                     # send rst signal to slave
                     mpi.comm.send(None, dest=slave_idx+1, tag=TAGS.rst)
 
-                # reduce increments
-                inc = parallel.reduce(mpi, inc)
+                # mpi barrier
+                mpi.comm.Barrier()
 
                 # save increments
-                restart.mbe_write(exp.order, inc)
+                restart.mbe_write(exp.order, inc[-1])
 
                 # print status
-                print(output.mbe_status(task_idx / n_tasks))
+                print(output.mbe_status(task_idx / exp.n_tasks[-1]))
+
+                # mpi barrier
+                mpi.comm.Barrier()
 
         # done with all tasks
         while n_slaves > 0:
@@ -152,8 +153,7 @@ def master(mpi, mol, calc, exp):
         # print final status
         print(output.mbe_status(1.0))
 
-        # allreduce increments
-#        inc = parallel.allreduce(mpi, inc)
+        # mpi barrier
         mpi.comm.Barrier()
 
         return win, mean_ndets, min_ndets, max_ndets
@@ -167,13 +167,16 @@ def slave(mpi, mol, calc, exp):
         :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: numpy array of shape (n_tuples,)
+        :return: MPI window handle to increments:
+                 numpy array of shapes (n_tuples,) [ndets] and (n_tuples,) or (n_tuples, 3) [inc] depending on target
         """
-        # init increments
+        # load increments for previous orders
         inc = []
         for k in range(len(exp.hashes)-1):
             buf = exp.prop[calc.target]['inc'][k].Shared_query(0)[0]
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[k].size,)))
+
+        # init increments for present order
         win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
         buf = win.Shared_query(0)[0]
         inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[-1].size,)))
@@ -212,7 +215,8 @@ def slave(mpi, mol, calc, exp):
                 task_idx = tools.hash_compare(exp.hashes[-1], tools.hash_1d(tup))
 
                 # calculate increment
-                inc[-1][task_idx] = _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx, inc)
+                inc[-1][task_idx] = _inc(mol, calc, exp.min_order, exp.order, e_core, h1e_cas, h2e_cas, \
+                                         inc, exp.hashes, tup, core_idx, cas_idx)
 
                 # send availability to master
                 mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -222,11 +226,11 @@ def slave(mpi, mol, calc, exp):
                 # receive rst signal
                 mpi.comm.recv(None, source=0, tag=TAGS.rst)
 
-                # reduce increments
-                inc = parallel.reduce(mpi, inc)
+                # mpi barrier
+                mpi.comm.Barrier()
 
-                # re-initialize inc
-                inc.fill(0.)
+                # mpi barrier
+                mpi.comm.Barrier()
 
                 # send availability to master
                 mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -238,23 +242,25 @@ def slave(mpi, mol, calc, exp):
 
                 break
 
-        # allreduce increments
-#        return parallel.allreduce(mpi, inc)
-
+        # mpi barrier
         mpi.comm.Barrier()
+
         return win
 
 
-def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx, inc):
+def _inc(mol, calc, min_order, order, e_core, h1e_cas, h2e_cas, inc, hashes, tup, core_idx, cas_idx):
         """
         this function calculates the increment associated with a given tuple
 
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :param exp: pymbe exp object
+        :param min_order: minimum (start) order. integer
+        :param order: current order. integer
         :param e_core: core energy. scalar
         :param h1e_cas: cas space 1-e Hamiltonian. numpy array of shape (n_cas, n_cas)
         :param h2e_cas: cas space 2-e Hamiltonian. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
+        :param inc: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
+        :param hashes: hashes to all order. list of numpy arrays of shapes (n_tuples,)
         :param tup: given tuple of orbitals. numpy array of shape (order,)
         :param core_idx: core space indices. numpy array of shape (n_core,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
@@ -274,23 +280,22 @@ def _inc(mol, calc, exp, e_core, h1e_cas, h2e_cas, tup, core_idx, cas_idx, inc):
         inc_tup -= calc.prop['ref'][calc.target]
 
         # calculate increment
-        if exp.order > exp.min_order:
+        if order > min_order:
             if np.any(inc_tup != 0.0):
                 inc_tup -= _sum(calc.occup, calc.ref_space, calc.exp_space, \
-                                calc.target, exp.min_order, exp.order, \
-                                inc, exp.hashes, \
-                                tup, pi_prune=calc.extra['pi_prune'])
+                                calc.target, min_order, order, \
+                                inc, hashes, tup, pi_prune=calc.extra['pi_prune'])
 
         # debug print
         if mol.debug >= 1:
             print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
                                     tools.ndets(calc.occup, cas_idx, n_elec=nelec), \
-                                    nelec, inc_tup, exp.order, cas_idx, tup))
+                                    nelec, inc_tup, order, cas_idx, tup))
 
         return inc_tup
 
 
-def _sum(occup, ref_space, exp_space, target, min_order, order, prop, hashes, tup, pi_prune=False):
+def _sum(occup, ref_space, exp_space, target, min_order, order, inc, hashes, tup, pi_prune=False):
         """
         this function performs a recursive summation
 
@@ -300,7 +305,7 @@ def _sum(occup, ref_space, exp_space, target, min_order, order, prop, hashes, tu
         :param target: calculation target. string
         :param min_order: minimum (start) order. integer
         :param order: current order. integer
-        :param prop: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
+        :param inc: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
         :param hashes: hashes to all order. list of numpy arrays of shapes (n_tuples,)
         :param tup: given tuple of orbitals. numpy array of shape (order,)
         :return: scalar or numpy array of shape (3,) depending on target
@@ -344,26 +349,9 @@ def _sum(occup, ref_space, exp_space, target, min_order, order, prop, hashes, tu
                                              format(k, tup, combs))
 
             # add up lower-order increments
-#            buf = prop[k-min_order].Shared_query(0)[0]
-#            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(hashes[k-min_order].size,))
-#            res += tools.fsum(inc[idx])
-            res += tools.fsum(prop[k-min_order][idx])
+            res += tools.fsum(inc[k-min_order][idx])
 
         return res
-
-
-def _init_inc(n_tasks, target):
-        """
-        this function initializes the current order increments array
-
-        :param n_tasks: number of tasks (tuples). integer
-        :param target: calculation target. string
-        :return: numpy array of shape (n_tasks,) or (n_tasks, 3) depending on target
-        """
-        if target in ['energy', 'excitation']:
-            return np.zeros(n_tasks, dtype=np.float64)
-        else:
-            return np.zeros([n_tasks, 3], dtype=np.float64)
 
 
 def _init_h2e(ref_space, order):

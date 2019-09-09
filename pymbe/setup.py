@@ -200,9 +200,13 @@ def _exp(mpi, mol, calc):
         else:
             exp.hashes = expansion.init_tup(mol, calc)[0]
 
+        # n_tasks
+        exp.n_tasks.append(exp.hashes[-1].size)
+
         # restart
+#        exp.start_order = restart.main(mpi, calc, exp)
         if mpi.master:
-            exp.start_order = restart.main(calc, exp)
+            exp.start_order = exp.tuples.shape[1]
 
         return mol, calc, exp
 
@@ -212,8 +216,7 @@ def settings():
         this function sets and asserts some general settings
         """
         # only run with python3+
-        tools.assertion(3 <= sys.version_info[0], \
-                        'PyMBE only runs under python3+')
+        tools.assertion(3 <= sys.version_info[0], 'PyMBE only runs under python3+')
 
         # force OMP_NUM_THREADS = 1
         lib.num_threads(1)

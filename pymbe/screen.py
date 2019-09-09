@@ -164,6 +164,7 @@ def slave(mpi, calc, exp, slaves_needed):
         if mpi.rank <= slaves_needed:
             mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
+        # increments
         buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
         inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[-1].size,))
 

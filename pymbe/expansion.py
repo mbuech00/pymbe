@@ -47,6 +47,9 @@ class ExpCls(object):
                 self.min_ndets = []
                 self.max_ndets = []
 
+                # n_tasks list
+                self.n_tasks = []
+
                 # init order
                 self.order = 0
 
