@@ -327,13 +327,13 @@ def _set_screen(mpi, calc, exp):
 
             # prune combinations without a mix of occupied and virtual orbitals
             tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, calc.occup), tuples_pi), \
-                                          dtype=bool, count=tuples_pi.shape[0])]
+                                              dtype=bool, count=tuples_pi.shape[0])]
 
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                calc.exp_space['pi_orbs'], \
-                                                calc.exp_space['pi_hashes']), tuples_pi), \
-                                                dtype=bool, count=tuples_pi.shape[0])]
+                                              calc.exp_space['pi_orbs'], \
+                                              calc.exp_space['pi_hashes']), tuples_pi), \
+                                              dtype=bool, count=tuples_pi.shape[0])]
 
             # number of tasks
             n_tasks_pi = tuples_pi.shape[0]
