@@ -62,29 +62,44 @@ def init_tup(mpi, mol, calc):
         :param mpi: pymbe mpi object
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :return: list with MPI window handle to hashes: numpy array of shape (n_tuples,),
-                 list with integer [n_tasks],
-                 numpy array of shape (n_tuples, min_order) [tuples]
+        :return: MPI window handle to numpy array of shape (n_tuples,) [hashes],
+                 MPI window handle to numpy array of shape (n_tuples, start_order) [tuples],
+                 integer [n_tasks]
         """
         # init tuples
         if calc.ref_space.size > 0:
             if np.all(calc.occup[calc.ref_space] == 0.0):
-                tuples = np.array([[i] for i in calc.exp_space['occ']], dtype=np.int32)
+                tuples_tmp = np.array([[i] for i in calc.exp_space['occ']], dtype=np.int32)
             elif np.all(calc.occup[calc.ref_space] > 0.0):
-                tuples = np.array([[a] for a in calc.exp_space['virt']], dtype=np.int32)
+                tuples_tmp = np.array([[a] for a in calc.exp_space['virt']], dtype=np.int32)
             else:
-                tuples = np.array([[p] for p in calc.exp_space['tot']], dtype=np.int32)
+                tuples_tmp = np.array([[p] for p in calc.exp_space['tot']], dtype=np.int32)
         else:
-            tuples = np.array([[i, a] for i in calc.exp_space['occ'] for a in calc.exp_space['virt']], dtype=np.int32)
+            tuples_tmp = np.array([[i, a] for i in calc.exp_space['occ'] for a in calc.exp_space['virt']], dtype=np.int32)
 
         # pi-orbital pruning
         if calc.extra['pi_prune']:
-            tuples = np.array([tup for tup in tuples if tools.pi_prune(calc.exp_space['pi_orbs'], \
+            tuples_tmp = np.array([tup for tup in tuples_tmp if tools.pi_prune(calc.exp_space['pi_orbs'], \
                                 calc.exp_space['pi_hashes'], tup)], dtype=np.int32)
 
-        # init hashes
+        # min_order
+        min_order = tuples_tmp.shape[1]
+
+        # init tuples and hashes
         if mpi.master:
 
+            # allocate tuples
+            tuples_win = MPI.Win.Allocate_shared(4 * tuples_tmp.size, 4, comm=mpi.comm)
+            buf = tuples_win.Shared_query(0)[0]
+            tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=tuples_tmp.shape)
+
+            # place tuples in shared memory space
+            tuples[:] = tuples_tmp
+
+            # mpi barrier
+            mpi.comm.Barrier()
+
+            # allocate hashes
             hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=mpi.comm)
             buf = hashes_win.Shared_query(0)[0]
             hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples.shape[0],))
@@ -96,15 +111,23 @@ def init_tup(mpi, mol, calc):
             tuples = tuples[hashes.argsort()]
             hashes.sort()
 
+            # mpi barrier
+            mpi.comm.Barrier()
+
         else:
 
+            # get handle to tuples window
+            tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.comm)
+
+            # mpi barrier
+            mpi.comm.Barrier()
+
+            # get handle to hashes window
             hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
-            buf = hashes_win.Shared_query(0)[0]
-            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples.shape[0],))
 
-        # mpi barrier
-        mpi.comm.Barrier()
+            # mpi barrier
+            mpi.comm.Barrier()
 
-        return [hashes_win], [tuples.shape[0]], tuples
+        return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
 
 

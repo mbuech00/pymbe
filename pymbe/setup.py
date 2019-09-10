@@ -194,16 +194,11 @@ def _exp(mpi, mol, calc):
             exp = expansion.ExpCls(mol, calc)
 
         # init hashes, n_tasks, and tuples
-        if mpi.master:
-            exp.hashes, exp.n_tasks, exp.tuples = expansion.init_tup(mpi, mol, calc)
-            exp.min_order = exp.tuples.shape[1]
-        else:
-            exp.hashes, exp.n_tasks = expansion.init_tup(mpi, mol, calc)[:2]
+        exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
 
-        # restart
-#        exp.start_order = restart.main(mpi, calc, exp)
+        # possible restart
         if mpi.master:
-            exp.start_order = exp.tuples.shape[1]
+            exp.start_order = exp.min_order # restart.main(mpi, calc, exp)
 
         return mol, calc, exp
 

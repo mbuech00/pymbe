@@ -50,7 +50,7 @@ def master(mpi, mol, calc, exp):
 #
 #                # print mbe results
 #                print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-#                                            exp.max_order, i + exp.min_order, exp.tuples, exp.prop[calc.target]['inc'][i], \
+#                                            exp.max_order, i + exp.min_order, exp.prop[calc.target]['inc'][i], \
 #                                            exp.prop[calc.target]['tot'], exp.mean_ndets[i], \
 #                                            exp.min_ndets[i], exp.max_ndets[i]))
 #
@@ -69,7 +69,7 @@ def master(mpi, mol, calc, exp):
                 exp.time['mbe'].append(0.0)
 
                 # print mbe header
-                print(output.mbe_header(exp.tuples.shape[0], exp.order))
+                print(output.mbe_header(exp.n_tasks[-1], exp.order))
 
                 # start time
                 time = MPI.Wtime()
@@ -112,7 +112,7 @@ def master(mpi, mol, calc, exp):
 
             # print mbe results
             print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-                                     exp.max_order, exp.order, exp.tuples, exp.prop[calc.target]['tot'], \
+                                     exp.max_order, exp.order, exp.prop[calc.target]['tot'], \
                                      exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
                                      exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
@@ -128,21 +128,21 @@ def master(mpi, mol, calc, exp):
                 time = MPI.Wtime()
 
                 # main screening function
-                hashes_win, n_tasks, tuples = screen.master(mpi, calc, exp)
+                hashes_win, tuples_win, n_tasks = screen.master(mpi, calc, exp)
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
 #                # write restart files
-#                if calc.misc['rst'] and exp.tuples.shape[0] > 0:
+#                if calc.misc['rst'] and exp.n_tasks > 0:
 #                    restart.screen_write(exp.order, exp.tuples, exp.hashes[-1], \
 #                                         np.asarray(exp.time['screen'][-1]))
 
             # convergence check
-            if exp.tuples is None or exp.order == exp.max_order:
+            if exp.n_tasks[-1] == 0 or exp.order == exp.max_order:
 
                 # print screen end
-                if exp.tuples is None:
+                if exp.n_tasks[-1] == 0:
                     print(output.screen_end(exp.order, exp.time['screen'][-1], conv=True))
 
                 # final order
@@ -170,8 +170,8 @@ def master(mpi, mol, calc, exp):
 
             else:
 
-                # overwrite tuples
-                exp.tuples = tuples
+                # overwrite window to tuples
+                exp.tuples = tuples_win
 
                 # append window to hashes
                 exp.hashes.append(hashes_win)
@@ -218,7 +218,10 @@ def slave(mpi, mol, calc, exp):
                 exp.order = msg['order']
 
                 # main screening function
-                hashes_win, n_tasks = screen.slave(mpi, calc, exp, msg['slaves_needed'])
+                hashes_win, tuples_win, n_tasks = screen.slave(mpi, calc, exp, msg['slaves_needed'])
+
+                # overwrite window to tuples
+                exp.tuples = tuples_win
 
                 # append window to hashes
                 exp.hashes.append(hashes_win)

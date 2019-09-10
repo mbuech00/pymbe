@@ -52,9 +52,13 @@ def master(mpi, mol, calc, exp):
         # number of slaves
         n_slaves = mpi.size - 1
 
+        # load tuples
+        buf = exp.tuples.Shared_query(0)[0]
+        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
+
         # compute number of determinants in the individual casci calculations (ignoring symmetry)
         ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
-                                exp.tuples), dtype=np.float64, count=exp.n_tasks[-1])
+                                tuples), dtype=np.float64, count=exp.n_tasks[-1])
 
         # statistics
         mean_ndets = np.mean(ndets[np.nonzero(ndets)])
@@ -73,7 +77,7 @@ def master(mpi, mol, calc, exp):
             # load restart increments
             buf = inc_win.Shared_query(0)[0]
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
-            inc = exp.prop[calc.target]['inc'][-1]
+#            inc[:] = # load array
 
         else:
 
@@ -96,7 +100,7 @@ def master(mpi, mol, calc, exp):
         for task_idx in range(task_start, exp.n_tasks[-1]):
 
             # get tup
-            tup = exp.tuples[tasks[task_idx]]
+            tup = tuples[tasks[task_idx]]
 
             # get slave
             parallel.probe(mpi, TAGS.ready)

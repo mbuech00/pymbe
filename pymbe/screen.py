@@ -32,9 +32,9 @@ def master(mpi, calc, exp):
         :param mpi: pymbe mpi object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: MPI window handle to numpy array of shape (n_child_tup,) [hashes],
-                 integer [n_tasks],
-                 numpy array of shape (n_child_tuples, order+1) [tuples]
+        :return: MPI window handle to numpy array of shape (n_child_tuples,) [hashes],
+                 MPI window handle to numpy array of shape (n_child_tuples, order+1) [tuples],
+                 integer [n_tasks]
         """
         # set number of available (needed) slaves, various tuples, and various task arrays
         slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
@@ -124,10 +124,18 @@ def master(mpi, calc, exp):
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
-            return None, None, None
+            return None, None, 0
+
+        # allocate tuples
+        tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.comm)
+        buf = tuples_win.Shared_query(0)[0]
+        tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),))
+
+        # mpi barrier
+        mpi.comm.Barrier()
 
         # gatherv all child tuples
-        tuples_new = parallel.gatherv(mpi, child_tup, recv_counts)
+        tuples_new[:] = parallel.gatherv(mpi, child_tup, recv_counts)
 
         # reshape tuples
         tuples_new = tuples_new.reshape(-1, exp.order+1)
@@ -149,7 +157,7 @@ def master(mpi, calc, exp):
         # mpi barrier
         mpi.comm.Barrier()
 
-        return hashes_win, hashes_new.size, tuples_new
+        return hashes_win, tuples_win, hashes_new.size
 
 
 def slave(mpi, calc, exp, slaves_needed):
@@ -160,7 +168,8 @@ def slave(mpi, calc, exp, slaves_needed):
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         :param slaves_needed: the maximum number of required slaves. integer
-        :return: MPI window handle to numpy array of shape (n_child_tup,) [hashes],
+        :return: MPI window handle to numpy array of shape (n_child_tuples,) [hashes],
+                 MPI window handle to numpy array of shape (n_child_tuples, order+1) [tuples],
                  integer [n_tasks]
         """
         # init list of child tuples
@@ -255,18 +264,24 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
-            return None, None
+            return None, None, 0
+
+        # get handle to tuples
+        tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.comm)
+
+        # mpi barrier
+        mpi.comm.Barrier()
 
         # gatherv all child tuples
         child_tup = parallel.gatherv(mpi, child_tup, recv_counts)
 
-        # get handle to hashes
+        # get handle to hashes window
         hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
 
         # mpi barrier
         mpi.comm.Barrier()
 
-        return hashes_win, int(np.sum(recv_counts)) // (exp.order+1)
+        return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order+1)
 
 
 def _set_screen(mpi, calc, exp):
@@ -286,8 +301,9 @@ def _set_screen(mpi, calc, exp):
                  numpy array of shape (n_tuples_seed_pi, order-1) or None [tuples_seed_pi] depending on ref_space and pi-pruning,
                  list of numpy arrays of various shapes or None [tasks_seed_pi] depending on ref_space and pi-pruning,
         """
-        # set main task tuples
-        tuples = exp.tuples
+        # load tuples as main task tuples
+        buf = exp.tuples.Shared_query(0)[0]
+        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
 
         # number of tasks
         n_tasks = tuples.shape[0]
@@ -298,7 +314,7 @@ def _set_screen(mpi, calc, exp):
         if calc.extra['pi_prune'] and exp.min_order < exp.order:
 
             # set tuples_pi
-            tuples_pi = np.unique(exp.tuples[:, :-1], axis=0)
+            tuples_pi = np.unique(tuples[:, :-1], axis=0)
 
             # prune combinations without a mix of occupied and virtual orbitals
             tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, calc.occup), tuples_pi), \

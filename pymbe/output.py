@@ -156,7 +156,7 @@ def mbe_end(order, time):
         return string.format(*form)
 
 
-def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tuples, \
+def mbe_results(occup, ref_space, target, root, min_order, max_order, order, \
                 prop_tot, mean_inc, min_inc, max_inc, mean_ndets, min_ndets, max_ndets):
         """
         this function prints mbe results statistics
@@ -168,7 +168,6 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
         :param min_order: minimum (start) order. integer
         :param max_order: maximum (final) order. integer
         :param order: current order. integer
-        :param tuples: current order tuples. numpy array of shape (n_tuples, order)
         :param prop_tot: total mbe energy. list of scalars or numpy arrays of shape (3,) depending on target
         :param mean_inc: mean increment. float
         :param min_inc: min increment. float
