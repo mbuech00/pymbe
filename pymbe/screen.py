@@ -120,14 +120,14 @@ def master(mpi, calc, exp):
             child_tup = np.array([], dtype=np.int32)
 
         # allgather number of child tuples
-        recv_counts = parallel.recv_counts(mpi, child_tup.size)
+        recv_counts = np.array(mpi.comm.allgather(child_tup.size))
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
             return None, None, None
 
         # gatherv all child tuples
-        tuples_new = parallel.gatherv(mpi, child_tup)
+        tuples_new = parallel.gatherv(mpi, child_tup, recv_counts)
 
         # reshape tuples
         tuples_new = tuples_new.reshape(-1, exp.order+1)
@@ -249,14 +249,14 @@ def slave(mpi, calc, exp, slaves_needed):
         child_tup = np.array(child_tup, dtype=np.int32)
 
         # allgather number of child tuples
-        recv_counts = parallel.recv_counts(mpi, child_tup.size)
+        recv_counts = np.array(mpi.comm.allgather(child_tup.size))
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
             return None, None
 
         # gatherv all child tuples
-        child_tup, counts = parallel.gatherv(mpi, child_tup)
+        child_tup = parallel.gatherv(mpi, child_tup, recv_counts)
 
         # new hashes
         hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
@@ -264,7 +264,7 @@ def slave(mpi, calc, exp, slaves_needed):
         # mpi barrier
         mpi.comm.Barrier()
 
-        return hashes_win, int(np.sum(counts)) // (exp.order+1)
+        return hashes_win, int(np.sum(recv_counts)) // (exp.order+1)
 
 
 def _set_screen(mpi, calc, exp):

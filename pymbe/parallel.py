@@ -355,32 +355,16 @@ def allreduce(mpi, send_buff):
         return recv_buff
 
 
-def recv_counts(mpi, n_elms):
-        """
-        this function performs an allgather operation to return an array with n_elms from all procs
-
-        :param mpi: pymbe mpi object
-        :param n_elms: number of elements. integer
-        :return: numpy array of shape (n_procs,)
-        """
-        return np.array(mpi.comm.allgather(n_elms))
-
-
-def gatherv(mpi, send_buff):
+def gatherv(mpi, send_buff, counts):
         """
         this function performs a gatherv operation using point-to-point operations
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
         :param mpi: pymbe mpi object
         :param send_buff: send buffer. numpy array of any kind of shape and dtype
+        :param counts: number of elements from individual processes. numpy array of shape (n_procs,)
         :return: numpy array of shape (n_child_tuples * (order+1),)
         """
-        # allgather shape of send_buff from slaves
-        rshape = mpi.comm.allgather((send_buff.shape,))
-
-        # compute counts
-        counts = np.array([np.prod(x[0]) for x in rshape])
-
         if mpi.master:
 
             # init recv_buff
@@ -402,7 +386,7 @@ def gatherv(mpi, send_buff):
             for p0, p1 in lib.prange(0, counts[mpi.rank], BLKSIZE):
                 mpi.comm.Send(send_buff[p0:p1], dest=0)
 
-            return send_buff, counts
+            return send_buff
 
 
 def abort():
