@@ -29,7 +29,7 @@ import tools
 
 
 # tags
-TAGS = tools.enum('ready', 'tup', 'h2e', 'rst', 'exit')
+TAGS = tools.enum('ready', 'task', 'h2e', 'rst', 'exit')
 
 
 def master(mpi, mol, calc, exp):
@@ -97,19 +97,16 @@ def master(mpi, mol, calc, exp):
             task_start = np.count_nonzero(np.count_nonzero(inc, axis=1))
 
         # loop until no tasks left
-        for task_idx in range(task_start, exp.n_tasks[-1]):
-
-            # get tup
-            tup = tuples[tasks[task_idx]]
+        for task_count, task_idx in enumerate(tasks[task_start:]):
 
             # get slave
             parallel.probe(mpi, TAGS.ready)
 
-            # send tup
-            mpi.comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
+            # send task_idx
+            mpi.comm.send(task_idx, dest=mpi.stat.source, tag=TAGS.task)
 
             # get cas indices
-            cas_idx = tools.cas(calc.ref_space, tup)
+            cas_idx = tools.cas(calc.ref_space, tuples[task_idx])
 
             # get h2e indices
             cas_idx_tril = tools.cas_idx_tril(cas_idx)
@@ -139,7 +136,7 @@ def master(mpi, mol, calc, exp):
                 restart.mbe_write(exp.order, inc[-1])
 
                 # print status
-                print(output.mbe_status(task_idx / exp.n_tasks[-1]))
+                print(output.mbe_status(task_count / exp.n_tasks[-1]))
 
                 # mpi barrier
                 mpi.comm.Barrier()
@@ -207,6 +204,10 @@ def slave(mpi, mol, calc, exp):
         :param exp: pymbe exp object
         :return: MPI window handle to increments
         """
+        # load tuples
+        buf = exp.tuples.Shared_query(0)[0]
+        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
+
         # load increments for previous orders
         inc = []
         for k in range(exp.order-exp.min_order):
@@ -224,9 +225,6 @@ def slave(mpi, mol, calc, exp):
             buf = exp.hashes[k].Shared_query(0)[0]
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
-        # init tup
-        tup = np.empty(exp.order, dtype=np.int32)
-
         # init h2e_cas
         h2e_cas = _init_h2e(calc.ref_space, exp.order)
 
@@ -240,10 +238,13 @@ def slave(mpi, mol, calc, exp):
             mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
             # do task
-            if mpi.stat.tag == TAGS.tup:
+            if mpi.stat.tag == TAGS.task:
 
-                # receive tup
-                mpi.comm.Recv([tup, MPI.INT], source=0, tag=TAGS.tup)
+                # receive task_idx
+                task_idx = mpi.comm.recv(source=0, tag=TAGS.task)
+
+                # recover tup
+                tup = tuples[task_idx]
 
                 # receive h2e_cas
                 mpi.comm.Recv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.h2e)
