@@ -134,13 +134,15 @@ def _exp(mpi, mol, calc):
         """
         if mpi.master:
 
-#            if calc.restart:
-#
-#                # read fundamental info
-#                mol, calc = restart.read_fund(mol, calc)
-#
-#            else:
-            if not calc.restart:
+            if calc.restart:
+
+                # read fundamental info
+                mol, calc = restart.read_fund(mol, calc)
+
+                # read properties
+                mol, calc = restart.read_prop(mol, calc)
+
+            else:
 
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, mol.e_nuc, \
@@ -157,8 +159,17 @@ def _exp(mpi, mol, calc):
         # get handles to all integral windows
         mol.hcore, mol.vhf, mol.eri = kernel.ints(mpi, mol, calc.mo_coeff)
 
+        # write fundamental info
+        if mpi.master and calc.misc['rst']:
+            restart.write_fund(mol, calc)
+
         # mo_coeff not needed anymore
-        del calc.mo_coeff
+        if mpi.master:
+            del calc.mo_coeff
+
+        # pyscf hf object not needed anymore
+        if mpi.master:
+            del calc.hf
 
         if mpi.master:
 
@@ -174,8 +185,9 @@ def _exp(mpi, mol, calc):
         # bcast properties
         calc = parallel.prop(mpi, calc)
 
-#        # write fundamental info
-#        restart.write_fund(mol, calc)
+        # write properties
+        if mpi.master and calc.misc['rst']:
+            restart.write_prop(mol, calc)
 
         # exp object
         exp = expansion.ExpCls(mol, calc)
@@ -187,8 +199,10 @@ def _exp(mpi, mol, calc):
         exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
 
         # possible restart
-        if mpi.master:
-            exp.start_order = exp.min_order # restart.main(mpi, calc, exp)
+        if calc.restart:
+            exp.start_order = restart.main(mpi, calc, exp)
+        else:
+            exp.start_order = exp.min_order
 
         return mol, calc, exp
 

@@ -17,6 +17,7 @@ from mpi4py import MPI
 import functools
 import itertools
 
+import restart
 import parallel
 import tools
 
@@ -151,8 +152,16 @@ def master(mpi, calc, exp):
         # sort tuples wrt hashes
         tuples_new = tuples_new[hashes_new.argsort()]
 
+        # save tuples
+        if calc.misc['rst']:
+            restart.write_gen(None, tuples_new, 'mbe_tup')
+
         # sort hashes
         hashes_new.sort()
+
+        # save hashes
+        if calc.misc['rst']:
+            restart.write_gen(exp.order, hashes_new, 'mbe_hash')
 
         # mpi barrier
         mpi.comm.Barrier()

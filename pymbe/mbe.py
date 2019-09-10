@@ -75,9 +75,8 @@ def master(mpi, mol, calc, exp):
         if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
 
             # load restart increments
-            buf = inc_win.Shared_query(0)[0]
+            buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
-#            inc[:] = # load array
 
         else:
 
@@ -88,7 +87,7 @@ def master(mpi, mol, calc, exp):
 
             # save increments
             if calc.misc['rst']:
-                restart.mbe_write(exp.order, inc)
+                restart.write_gen(exp.order, inc, 'mbe_inc')
 
         # start index
         if inc.ndim == 1:
@@ -121,7 +120,7 @@ def master(mpi, mol, calc, exp):
                 mpi.comm.Barrier()
 
                 # save increments
-                restart.mbe_write(exp.order, inc[-1])
+                restart.write_gen(exp.order, inc, 'mbe_inc')
 
                 # print status
                 print(output.mbe_status(task_count / exp.n_tasks[-1]))
@@ -143,6 +142,9 @@ def master(mpi, mol, calc, exp):
 
         # mpi barrier
         mpi.comm.Barrier()
+
+        # save increments
+        restart.write_gen(exp.order, inc, 'mbe_inc')
 
         # total property
         tot = tools.fsum(inc)

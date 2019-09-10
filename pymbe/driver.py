@@ -38,27 +38,27 @@ def master(mpi, mol, calc, exp):
         # print expansion headers
         print(output.main_header(method=calc.model['method']))
 
-#        # print output from restarted calculation
-#        if calc.restart:
-#            for i in range(exp.start_order - exp.min_order):
-#
-#                # print mbe header
-#                print(output.mbe_header(exp.n_tasks[i], i + exp.min_order))
-#
-#                # print mbe end
-#                print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i]))
-#
-#                # print mbe results
-#                print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-#                                            exp.max_order, i + exp.min_order, exp.prop[calc.target]['inc'][i], \
-#                                            exp.prop[calc.target]['tot'], exp.mean_ndets[i], \
-#                                            exp.min_ndets[i], exp.max_ndets[i]))
-#
-#                # print header
-#                print(output.screen_header(i + exp.min_order))
-#
-#                # print screen end
-#                print(output.screen_end(i + exp.min_order, exp.time['screen'][i]))
+        # print output from restarted calculation
+        if calc.restart:
+            for i in range(exp.start_order - exp.min_order):
+
+                # print mbe header
+                print(output.mbe_header(exp.n_tasks[i], i + exp.min_order))
+
+                # print mbe end
+                print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i]))
+
+                # print mbe results
+                print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
+                                            exp.max_order, i + exp.min_order, exp.prop[calc.target]['tot'], \
+                                            exp.mean_inc[i], exp.min_inc[i], exp.max_inc[i], \
+                                            exp.mean_ndets[i], exp.min_ndets[i], exp.max_ndets[i]))
+
+                # print header
+                print(output.screen_header(i + exp.min_order))
+
+                # print screen end
+                print(output.screen_end(i + exp.min_order, exp.time['screen'][i]))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
@@ -99,13 +99,16 @@ def master(mpi, mol, calc, exp):
                 # collect time
                 exp.time['mbe'][-1] = MPI.Wtime() - time
 
-#                # write restart files
-#                if calc.misc['rst']:
-#                    restart.mbe_write(exp.order, \
-#                                      inc, exp.prop[calc.target]['tot'][-1], \
-#                                      exp.mean_inc[-1], exp.max_inc[-1], exp.min_inc[-1], \
-#                                      exp.mean_ndets[-1], exp.max_ndets[-1], exp.min_ndets[-1], \
-#                                      np.asarray(exp.time['mbe'][-1]))
+                # write restart files
+                if calc.misc['rst']:
+                    restart.write_gen(exp.order, exp.prop[calc.target]['tot'][-1], 'mbe_tot')
+                    restart.write_gen(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
+                    restart.write_gen(exp.order, exp.max_inc[-1], 'mbe_max_inc')
+                    restart.write_gen(exp.order, exp.min_inc[-1], 'mbe_min_inc')
+                    restart.write_gen(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
+                    restart.write_gen(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
+                    restart.write_gen(exp.order, exp.min_ndets[-1], 'mbe_min_ndets')
+                    restart.write_gen(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
 
                 # print mbe end
                 print(output.mbe_end(exp.order, exp.time['mbe'][-1]))
@@ -133,10 +136,9 @@ def master(mpi, mol, calc, exp):
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
-#                # write restart files
-#                if calc.misc['rst'] and exp.n_tasks > 0:
-#                    restart.screen_write(exp.order, exp.tuples, exp.hashes[-1], \
-#                                         np.asarray(exp.time['screen'][-1]))
+                # write restart files
+                if calc.misc['rst']:
+                    restart.write_gen(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
             # convergence check
             if exp.n_tasks[-1] == 0 or exp.order == exp.max_order:
