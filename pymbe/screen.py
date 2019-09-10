@@ -132,10 +132,12 @@ def master(mpi, calc, exp):
         # reshape tuples
         tuples_new = tuples_new.reshape(-1, exp.order+1)
 
-        # compute hashes
+        # allocate hashes
         hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.comm)
         buf = hashes_win.Shared_query(0)[0]
         hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples_new.shape[0],))
+
+        # compute hashes
         hashes_new[:] = tools.hash_2d(tuples_new)
 
         # sort tuples wrt hashes
@@ -258,7 +260,7 @@ def slave(mpi, calc, exp, slaves_needed):
         # gatherv all child tuples
         child_tup = parallel.gatherv(mpi, child_tup, recv_counts)
 
-        # new hashes
+        # get handle to hashes
         hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
 
         # mpi barrier
