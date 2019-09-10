@@ -300,59 +300,6 @@ def bcast(mpi, buff):
         return buff
 
 
-def reduce(mpi, send_buff):
-        """
-        this function performs a tiled Reduce operation
-        inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-
-        :param mpi: pymbe mpi object
-        :param send_buff: send buffer. numpy array of any kind of shape and dtype
-        :return: numpy array of same shape and dtype as send_buff
-        """
-        # init recv_buff        
-        if mpi.rank == 0:
-            recv_buff = np.zeros_like(send_buff)
-        else:
-            recv_buff = send_buff
-
-        # init send_tile and recv_tile
-        send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
-        if mpi.rank == 0:
-            recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
-
-        # allreduce all tiles
-        for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
-            if mpi.rank == 0:
-                mpi.comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM, root=0)
-            else:
-                mpi.comm.Reduce(send_tile[p0:p1], None, op=MPI.SUM, root=0)
-
-        return recv_buff
-
-
-def allreduce(mpi, send_buff):
-        """
-        this function performs a tiled Allreduce operation
-        inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-
-        :param mpi: pymbe mpi object
-        :param send_buff: send buffer. numpy array of any kind of shape and dtype
-        :return: numpy array of same shape and dtype as send_buff
-        """
-        # init recv_buff        
-        recv_buff = np.zeros_like(send_buff)
-
-        # init send_tile and recv_tile
-        send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
-        recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
-
-        # allreduce all tiles
-        for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
-            mpi.comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM)
-
-        return recv_buff
-
-
 def gatherv(mpi, send_buff, counts):
         """
         this function performs a gatherv operation using point-to-point operations
