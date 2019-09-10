@@ -12,8 +12,9 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
-import copy
 import numpy as np
+from mpi4py import MPI
+import copy
 
 import tools
 
@@ -41,26 +42,28 @@ class ExpCls(object):
                 else:
                     self.max_order = calc.exp_space['tot'].size
 
-                # init timings and and ndets lists
+                # init timings and and statistics lists
                 self.time = {'mbe': [], 'screen': []}
+                self.mean_inc = []
+                self.min_inc = []
+                self.max_inc = []
                 self.mean_ndets = []
                 self.min_ndets = []
                 self.max_ndets = []
-
-                # n_tasks list
-                self.n_tasks = []
 
                 # init order
                 self.order = 0
 
 
-def init_tup(mol, calc):
+def init_tup(mpi, mol, calc):
         """
         this function initializes tuples and hashes
 
+        :param mpi: pymbe mpi object
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :return: list with numpy array of shape (n_tuples,) [hashes],
+        :return: list with MPI window handle to hashes: numpy array of shape (n_tuples,),
+                 list with integer [n_tasks],
                  numpy array of shape (n_tuples, min_order) [tuples]
         """
         # init tuples
@@ -80,12 +83,28 @@ def init_tup(mol, calc):
                                 calc.exp_space['pi_hashes'], tup)], dtype=np.int32)
 
         # init hashes
-        hashes = tools.hash_2d(tuples)
+        if mpi.master:
 
-        # sort wrt hashes
-        tuples = tuples[hashes.argsort()]
-        hashes.sort()
+            hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=mpi.comm)
+            buf = hashes_win.Shared_query(0)[0]
+            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples.shape[0],))
 
-        return [hashes], tuples
+            # compute hashes
+            hashes[:] = tools.hash_2d(tuples)
+
+            # sort wrt hashes
+            tuples = tuples[hashes.argsort()]
+            hashes.sort()
+
+        else:
+
+            hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+            buf = hashes_win.Shared_query(0)[0]
+            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples.shape[0],))
+
+        # mpi barrier
+        mpi.comm.Barrier()
+
+        return [hashes_win], [tuples.shape[0]], tuples
 
 

@@ -138,33 +138,26 @@ def mbe_status(prog):
             format('#' * status + '-' * remainder, prog * 100.)
 
 
-def mbe_end(prop_inc, order, time):
+def mbe_end(order, time):
         """
         this function prints the end mbe information
 
-        :param prop_inc: current order property increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
         :param order. expansion order. integer
         :param time. time in seconds. scalar
         :return: formatted string
         """
-        # determine number of nonzero increments
-        if prop_inc.ndim == 1:
-            n_tuples = np.count_nonzero(prop_inc)
-        else:
-            n_tuples = np.count_nonzero(np.count_nonzero(prop_inc, axis=1))
-
         # set string
         string = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} MBE done  ---  {:d} tuples in total in {:s}\n'
+        string += ' STATUS:  order k = {:d} MBE done in {:s}\n'
         string += DIVIDER
 
-        form = (order, n_tuples, tools.time_str(time),)
+        form = (order, tools.time_str(time),)
 
         return string.format(*form)
 
 
 def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tuples, \
-                prop_inc, prop_tot, mean_ndets, min_ndets, max_ndets):
+                prop_tot, mean_inc, min_inc, max_inc, mean_ndets, min_ndets, max_ndets):
         """
         this function prints mbe results statistics
 
@@ -176,8 +169,10 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
         :param max_order: maximum (final) order. integer
         :param order: current order. integer
         :param tuples: current order tuples. numpy array of shape (n_tuples, order)
-        :param prop_inc: current order property increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
         :param prop_tot: total mbe energy. list of scalars or numpy arrays of shape (3,) depending on target
+        :param mean_inc: mean increment. float
+        :param min_inc: min increment. float
+        :param max_inc: max increment. float
         :param mean_ndets: mean number of determinants. float
         :param min_ndets: min number of determinants. float
         :param max_ndets: max number of determinants. float
@@ -219,21 +214,13 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
 
         if target in ['energy', 'excitation']:
 
-            # increments
-            if prop_inc.any():
-                mean_val = np.mean(prop_inc[np.nonzero(prop_inc)])
-                min_val = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
-                max_val = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
-            else:
-                mean_val = min_val = max_val = 0.0
-
             # set string
             string += DIVIDER+'\n'
             string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
             string += DIVIDER+'\n'
             string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 
-            form = (header, mean_val, min_val, max_val)
+            form = (header, mean_inc, min_inc, max_inc)
 
         elif target in ['dipole', 'trans']:
 
@@ -242,21 +229,8 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
             form = (header,)
             comp = ('x-component', 'y-component', 'z-component')
 
-            # init result arrays
-            mean_val = np.empty(3, dtype=np.float64)
-            min_val = np.empty(3, dtype=np.float64)
-            max_val = np.empty(3, dtype=np.float64)
-
             # loop over x, y, and z
             for k in range(3):
-
-                # increments
-                if prop_inc.any():
-                    mean_val[k] = np.mean(prop_inc[:, k][np.nonzero(prop_inc[:, k])])
-                    min_val[k] = np.min(np.abs(prop_inc[:, k][np.nonzero(prop_inc[:, k])]))
-                    max_val[k] = np.max(np.abs(prop_inc[:, k][np.nonzero(prop_inc[:, k])]))
-                else:
-                    mean_val[k] = min_val[k] = max_val[k] = 0.0
 
                 # set string
                 string += '\n RESULT:{:^81}\n'
@@ -266,7 +240,7 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
                 string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}'
                 if k < 2:
                     string += '\n'+DIVIDER
-                form += (comp[k], mean_val[k], min_val[k], max_val[k],)
+                form += (comp[k], mean_inc[k], min_inc[k], max_inc[k],)
 
         # set string
         string += DIVIDER+'\n'
@@ -302,11 +276,10 @@ def screen_header(order):
         return string.format(*form)
 
 
-def screen_end(n_tuples, order, time):
+def screen_end(order, time, conv=False):
         """
         this function prints the end screening information
 
-        :param n_tuples: number of tuples at a given order. integer
         :param order. expansion order. integer
         :param time. time in seconds. scalar
         :return: formatted string
@@ -314,7 +287,7 @@ def screen_end(n_tuples, order, time):
         string = DIVIDER+'\n'
         string += ' STATUS:  order k = {:d} screening done in {:s}\n'
 
-        if n_tuples == 0:
+        if conv:
             string += ' STATUS:                  *** convergence has been reached ***                         \n'
 
         string += DIVIDER+'\n\n'

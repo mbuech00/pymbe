@@ -402,7 +402,7 @@ def gatherv(mpi, send_buff):
             for p0, p1 in lib.prange(0, counts[mpi.rank], BLKSIZE):
                 mpi.comm.Send(send_buff[p0:p1], dest=0)
 
-            return send_buff
+            return send_buff, counts
 
 
 def abort():

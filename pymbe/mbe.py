@@ -13,8 +13,8 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import numpy as np
-import functools
 from mpi4py import MPI
+import functools
 import sys
 import itertools
 import scipy.misc
@@ -40,9 +40,10 @@ def master(mpi, mol, calc, exp):
         :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: three scalars [mean_ndets, min_ndets, max_ndets],
-                 MPI window handle to increments:
-                 numpy array of shapes (n_tuples,) [ndets] and (n_tuples,) or (n_tuples, 3) [inc] depending on target
+        :return: MPI window handle to increments [inc_win],
+                 scalar with total energy correction [tot],
+                 three scalars or numpy array of shapes (n_tuples, 3) depending on target [mean_inc, min_inc, max_inc]
+                 three scalars [mean_ndets, min_ndets, max_ndets]
         """
         # wake up slaves
         msg = {'task': 'mbe', 'order': exp.order}
@@ -55,6 +56,7 @@ def master(mpi, mol, calc, exp):
         ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
                                 exp.tuples), dtype=np.float64, count=exp.n_tasks[-1])
 
+        # statistics
         mean_ndets = np.mean(ndets[np.nonzero(ndets)])
         min_ndets = np.min(ndets[np.nonzero(ndets)])
         max_ndets = np.max(ndets[np.nonzero(ndets)])
@@ -69,15 +71,15 @@ def master(mpi, mol, calc, exp):
         if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
 
             # load restart increments
-            buf = win.Shared_query(0)[0]
+            buf = inc_win.Shared_query(0)[0]
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
             inc = exp.prop[calc.target]['inc'][-1]
 
         else:
 
             # new increments
-            win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.comm)
-            buf = win.Shared_query(0)[0]
+            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.comm)
+            buf = inc_win.Shared_query(0)[0]
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
 
             # save increments
@@ -156,7 +158,39 @@ def master(mpi, mol, calc, exp):
         # mpi barrier
         mpi.comm.Barrier()
 
-        return win, mean_ndets, min_ndets, max_ndets
+        # total property
+        tot = tools.fsum(inc)
+
+        # statistics
+        if calc.target in ['energy', 'excitation']:
+
+            # increments
+            if inc.any():
+                mean_inc = np.mean(inc[np.nonzero(inc)])
+                min_inc = np.min(np.abs(inc[np.nonzero(inc)]))
+                max_inc = np.max(np.abs(inc[np.nonzero(inc)]))
+            else:
+                mean_inc = min_inc = max_inc = 0.0
+
+        elif calc.target in ['dipole', 'trans']:
+
+            # init result arrays
+            mean_inc = np.empty(3, dtype=np.float64)
+            min_inc = np.empty(3, dtype=np.float64)
+            max_inc = np.empty(3, dtype=np.float64)
+
+            # loop over x, y, and z
+            for k in range(3):
+
+                # increments
+                if inc.any():
+                    mean_inc[k] = np.mean(inc[:, k][np.nonzero(inc[:, k])])
+                    min_inc[k] = np.min(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
+                    max_inc[k] = np.max(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
+                else:
+                    mean_inc[k] = min_inc[k] = max_inc[k] = 0.0
+
+        return inc_win, tot, mean_inc, min_inc, max_inc, mean_ndets, min_ndets, max_ndets
 
 
 def slave(mpi, mol, calc, exp):
@@ -167,19 +201,24 @@ def slave(mpi, mol, calc, exp):
         :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: MPI window handle to increments:
-                 numpy array of shapes (n_tuples,) [ndets] and (n_tuples,) or (n_tuples, 3) [inc] depending on target
+        :return: MPI window handle to increments
         """
         # load increments for previous orders
         inc = []
-        for k in range(len(exp.hashes)-1):
+        for k in range(exp.order-exp.min_order):
             buf = exp.prop[calc.target]['inc'][k].Shared_query(0)[0]
-            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[k].size,)))
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
 
         # init increments for present order
-        win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
-        buf = win.Shared_query(0)[0]
-        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[-1].size,)))
+        inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+        buf = inc_win.Shared_query(0)[0]
+        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
+
+        # load hashes for current and previous orders
+        hashes = []
+        for k in range(exp.order-exp.min_order+1):
+            buf = exp.hashes[k].Shared_query(0)[0]
+            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
         # init tup
         tup = np.empty(exp.order, dtype=np.int32)
@@ -212,11 +251,11 @@ def slave(mpi, mol, calc, exp):
                 e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
 
                 # get task_idx
-                task_idx = tools.hash_compare(exp.hashes[-1], tools.hash_1d(tup))
+                task_idx = tools.hash_compare(hashes[-1], tools.hash_1d(tup))
 
                 # calculate increment
                 inc[-1][task_idx] = _inc(mol, calc, exp.min_order, exp.order, e_core, h1e_cas, h2e_cas, \
-                                         inc, exp.hashes, tup, core_idx, cas_idx)
+                                         inc, hashes, tup, core_idx, cas_idx)
 
                 # send availability to master
                 mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -245,7 +284,7 @@ def slave(mpi, mol, calc, exp):
         # mpi barrier
         mpi.comm.Barrier()
 
-        return win
+        return inc_win
 
 
 def _inc(mol, calc, min_order, order, e_core, h1e_cas, h2e_cas, inc, hashes, tup, core_idx, cas_idx):

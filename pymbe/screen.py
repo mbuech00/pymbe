@@ -32,7 +32,8 @@ def master(mpi, calc, exp):
         :param mpi: pymbe mpi object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: numpy array of shape (n_child_tup,) [hashes],
+        :return: MPI window handle to numpy array of shape (n_child_tup,) [hashes],
+                 integer [n_tasks],
                  numpy array of shape (n_child_tuples, order+1) [tuples]
         """
         # set number of available (needed) slaves, various tuples, and various task arrays
@@ -123,8 +124,7 @@ def master(mpi, calc, exp):
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
-            return np.array([], dtype=np.int64), \
-                    np.array([], dtype=np.int32).reshape(-1, exp.order+1)
+            return None, None, None
 
         # gatherv all child tuples
         tuples_new = parallel.gatherv(mpi, child_tup)
@@ -133,7 +133,10 @@ def master(mpi, calc, exp):
         tuples_new = tuples_new.reshape(-1, exp.order+1)
 
         # compute hashes
-        hashes_new = tools.hash_2d(tuples_new)
+        hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.comm)
+        buf = hashes_win.Shared_query(0)[0]
+        hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples_new.shape[0],))
+        hashes_new[:] = tools.hash_2d(tuples_new)
 
         # sort tuples wrt hashes
         tuples_new = tuples_new[hashes_new.argsort()]
@@ -141,10 +144,10 @@ def master(mpi, calc, exp):
         # sort hashes
         hashes_new.sort()
 
-        # bcast hashes
-        hashes_new = parallel.bcast(mpi, hashes_new)
+        # mpi barrier
+        mpi.comm.Barrier()
 
-        return hashes_new, tuples_new
+        return hashes_win, hashes_new.size, tuples_new
 
 
 def slave(mpi, calc, exp, slaves_needed):
@@ -155,7 +158,8 @@ def slave(mpi, calc, exp, slaves_needed):
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         :param slaves_needed: the maximum number of required slaves. integer
-        :return: numpy array of shape (n_child_tup,)
+        :return: MPI window handle to numpy array of shape (n_child_tup,) [hashes],
+                 integer [n_tasks]
         """
         # init list of child tuples
         child_tup = []
@@ -164,9 +168,15 @@ def slave(mpi, calc, exp, slaves_needed):
         if mpi.rank <= slaves_needed:
             mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
-        # increments
+        # load increments for current order
         buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
-        inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.hashes[-1].size,))
+        inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
+
+        # load hashes for current and previous orders
+        hashes = []
+        for k in range(exp.order-exp.min_order+1):
+            buf = exp.hashes[k].Shared_query(0)[0]
+            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
         # receive work from master
         while True:
@@ -201,7 +211,7 @@ def slave(mpi, calc, exp, slaves_needed):
                     # spawn child tuples from parent tuples at exp.order
                     orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
                                     calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                    tup_order, exp.hashes[-1], inc, \
+                                    tup_order, hashes[-1], inc, \
                                     tup, pi_prune=calc.extra['pi_prune'], \
                                     pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
@@ -209,7 +219,7 @@ def slave(mpi, calc, exp, slaves_needed):
                     if calc.extra['pi_prune'] and exp.min_order < tup_order:
                         orbs = _deep_pruning(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
                                                 calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                                tup_order, exp.hashes, inc, \
+                                                tup_order, hashes, inc, \
                                                 tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
                     # recast parent tuple as list
@@ -243,16 +253,18 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
-            return np.array([], dtype=np.int64)
+            return None, None
 
         # gatherv all child tuples
-        child_tup = parallel.gatherv(mpi, child_tup)
+        child_tup, counts = parallel.gatherv(mpi, child_tup)
 
-        # init new hashes
-        hashes_new = np.empty(np.sum(recv_counts) // (exp.order+1), dtype=np.int64)
+        # new hashes
+        hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
 
-        # receive new hashes
-        return parallel.bcast(mpi, hashes_new)
+        # mpi barrier
+        mpi.comm.Barrier()
+
+        return hashes_win, int(np.sum(counts)) // (exp.order+1)
 
 
 def _set_screen(mpi, calc, exp):
