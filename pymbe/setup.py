@@ -134,24 +134,13 @@ def _exp(mpi, mol, calc):
         """
         if mpi.master:
 
-            # get ao integrals
-            mol.hcore, mol.eri = kernel.ao_ints(mol)
-
-            if calc.restart:
-
-                # read fundamental info
-                mol, calc = restart.read_fund(mol, calc)
-
-                # get mo integrals
-                mol.hcore, mol.eri = kernel.mo_ints(mol.hcore, mol.eri, calc.mo_coeff)
-
-                # get effective fock potentials
-                mol.eri, mol.vhf = kernel.vhf(mol.nocc, mol.norb, mol.eri)
-
-                # exp object
-                exp = expansion.ExpCls(mol, calc)
-
-            else:
+#            if calc.restart:
+#
+#                # read fundamental info
+#                mol, calc = restart.read_fund(mol, calc)
+#
+#            else:
+            if not calc.restart:
 
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, mol.e_nuc, \
@@ -162,36 +151,37 @@ def _exp(mpi, mol, calc):
                 calc.mo_energy, calc.mo_coeff, \
                     calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
 
-                # get mo integrals
-                mol.hcore, mol.eri = kernel.mo_ints(mol.hcore, mol.eri, calc.mo_coeff)
-
-                # get effective fock potentials
-                mol.eri, mol.vhf = kernel.vhf(mol.nocc, mol.norb, mol.eri)
-
-                # base energy
-                if calc.base['method'] is not None:
-                    calc.prop['base']['energy'] = kernel.base(mol, calc.occup, calc.base['method'])
-                else:
-                    calc.prop['base']['energy'] = 0.0
-
-                # reference space properties
-                calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
-
-                # write fundamental info
-                restart.write_fund(mol, calc)
-
-                # exp object
-                exp = expansion.ExpCls(mol, calc)
-
-        # get dipole integrals
-        mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
-
         # bcast fundamental info
         mol, calc = parallel.fund(mpi, mol, calc)
 
-        # exp object on slaves
-        if not mpi.master:
-            exp = expansion.ExpCls(mol, calc)
+        # get handles to all integral windows
+        mol.hcore, mol.vhf, mol.eri = kernel.ints(mpi, mol, calc.mo_coeff)
+
+        # mo_coeff not needed anymore
+        del calc.mo_coeff
+
+        if mpi.master:
+
+            # base energy
+            if calc.base['method'] is not None:
+                calc.prop['base']['energy'] = kernel.base(mol, calc.occup, calc.base['method'])
+            else:
+                calc.prop['base']['energy'] = 0.0
+
+            # reference space properties
+            calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
+
+        # bcast properties
+        calc = parallel.prop(mpi, calc)
+
+#        # write fundamental info
+#        restart.write_fund(mol, calc)
+
+        # exp object
+        exp = expansion.ExpCls(mol, calc)
+
+        # get dipole integrals
+        mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
 
         # init hashes, n_tasks, and tuples
         exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)

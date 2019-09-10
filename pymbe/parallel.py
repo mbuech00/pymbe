@@ -125,7 +125,7 @@ def calc(mpi, calc):
 
 def fund(mpi, mol, calc):
         """
-        this function bcast all fundamental mol and calc info to slaves
+        this function bcasts all fundamental mol and calc info to slaves
 
         :param mpi: pymbe mpi object
         :param mol: pymbe mol object
@@ -142,7 +142,7 @@ def fund(mpi, mol, calc):
             mpi.comm.bcast(info, root=0)
 
             # collect standard info (must be updated with new future attributes)
-            info = {'prop': calc.prop, 'occup': calc.occup, 'mo_energy': calc.mo_energy, \
+            info = {'occup': calc.occup, 'mo_energy': calc.mo_energy, \
                     'ref_space': calc.ref_space, 'exp_space': calc.exp_space}
 
             # bcast to slaves
@@ -156,21 +156,6 @@ def fund(mpi, mol, calc):
                 calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
             else:
                 calc.orbsym = np.zeros(mol.norb, dtype=np.int)
-
-            # mo_coeff not needed on master anymore
-            del calc.mo_coeff
-
-            # bcast core hamiltonian (MO basis)
-            mol.hcore = bcast(mpi, mol.hcore)
-
-            # hcore not needed on master anymore
-            del mol.hcore
-
-            # bcast effective fock potentials (MO basis)
-            mol.vhf = bcast(mpi, mol.vhf)
-
-            # vhf not needed on master anymore
-            del mol.vhf
 
         else:
 
@@ -192,14 +177,6 @@ def fund(mpi, mol, calc):
             calc.mo_coeff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
             calc.mo_coeff = bcast(mpi, calc.mo_coeff)
 
-            # receive hcore
-            mol.hcore = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-            mol.hcore = bcast(mpi, mol.hcore)
-
-            # receive fock potentials
-            mol.vhf = np.zeros([mol.nocc, mol.norb, mol.norb], dtype=np.float64)
-            mol.vhf = bcast(mpi, mol.vhf)
-
             # update orbsym
             if mol.atom:
                 calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
@@ -207,6 +184,27 @@ def fund(mpi, mol, calc):
                 calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 
         return mol, calc
+
+
+def prop(mpi, calc):
+        """
+        this function bcasts properties to slaves
+
+        :param mpi: pymbe mpi object
+        :param calc: pymbe calc object
+        :return: updated calc object
+        """
+        if mpi.master:
+
+            # bcast to slaves
+            mpi.comm.bcast(calc.prop, root=0)
+
+        else:
+
+            # receive prop from master
+            calc.prop = mpi.comm.bcast(None, root=0)
+
+        return calc
 
 
 def exp(mpi, calc, exp):

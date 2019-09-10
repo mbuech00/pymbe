@@ -30,29 +30,90 @@ SPIN_TOL = 1.0e-05
 DIPOLE_TOL = 1.0e-14
 
 
-def ao_ints(mol):
+def ints(mpi, mol, mo_coeff):
+        """
+        this function returns 1e and 2e mo integrals and effective fock potentials from individual occupied orbitals
+
+        :param mpi: pymbe mpi object
+        :param mol: pymbe mol object
+        :param mo_coeff: mo coefficients. numpy array of shape (n_orb, n_orb)
+        :return: MPI window handle to numpy array of shape (n_orb, n_orb) [hcore],
+                 MPI window handle to numpy array of shape (nocc, norb, norb) [vhf],
+                 MPI window handle to numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) [eri]
+        """
+        # hcore_ao and eri_ao w/o symmetry
+        if mpi.master:
+            hcore_tmp, eri_tmp = _ao_ints(mol)
+
+        # allocate hcore in shared mem
+        if mpi.master:
+            hcore_win = MPI.Win.Allocate_shared(8 * mol.norb**2, 8, comm=mpi.comm)
+        else:
+            hcore_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+        buf = hcore_win.Shared_query(0)[0]
+        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
+
+        # compute hcore
+        if mpi.master:
+            hcore[:] = np.einsum('pi,pq,qj->ij', mo_coeff, hcore_tmp, mo_coeff)
+
+        # eri_mo w/o symmetry
+        if mpi.master:
+            eri_tmp = ao2mo.incore.full(eri_tmp, mo_coeff)
+
+        # allocate vhf in shared mem
+        if mpi.master:
+            vhf_win = MPI.Win.Allocate_shared(8 * mol.nocc*mol.norb**2, 8, comm=mpi.comm)
+        else:
+            vhf_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+        buf = vhf_win.Shared_query(0)[0]
+        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
+
+        # compute vhf
+        if mpi.master:
+            for i in range(mol.nocc):
+                idx = np.asarray([i])
+                vhf[i] = np.einsum('pqrs->rs', eri_tmp[idx[:, None], idx, :, :]) * 2.
+                vhf[i] -= np.einsum('pqrs->ps', eri_tmp[:, idx[:, None], idx, :]) * 2. * .5
+
+        # allocate eri in shared mem
+        if mpi.master:
+            eri_win = MPI.Win.Allocate_shared(8 * (mol.norb * (mol.norb + 1) // 2) ** 2, 8, comm=mpi.comm)
+        else:
+            eri_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+        buf = eri_win.Shared_query(0)[0]
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
+
+        # restore 4-fold symmetry in eri_mo
+        if mpi.master:
+            eri[:] = ao2mo.restore(4, eri_tmp, mol.norb)
+
+        return hcore_win, vhf_win, eri_win
+
+
+def _ao_ints(mol):
         """
         this function returns 1e and 2e ao integrals
 
         :param mol: pymbe mol object
-        :return: numpy array of shape (n_orb, n_orb) [hcore],
-                 numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) [eri]
+        :return: numpy array of shape (n_orb, n_orb) [hcore_tmp],
+                 numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) [eri_tmp]
         """
         if mol.atom:
 
-            # hcore
+            # hcore_ao
             hcore = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
-            # eri
+            # eri_ao w/o symmetry
             if mol.cart:
-                eri = mol.intor('int2e_cart', aosym=4)
+                eri = mol.intor('int2e_cart', aosym=1)
             else:
-                eri = mol.intor('int2e_sph', aosym=4)
+                eri = mol.intor('int2e_sph', aosym=1)
 
         else:
 
-            # hcore
+            # hcore_ao
             hcore = _hubbard_h1e(mol.matrix, mol.nsites, mol.pbc)
-            # eri
+            # eri_ao
             eri = _hubbard_eri(mol)
 
         return hcore, eri
@@ -70,53 +131,6 @@ def dipole_ints(mol):
             dipole = mol.intor_symmetric('int1e_r', comp=3)
 
         return dipole
-
-
-def mo_ints(hcore_ao, eri_ao, mo_coeff):
-        """
-        this function returns transformed integrals from ao to mo basis
-
-        :param hcore_ao: 1e integrals in ao basis. numpy array of shape (n_orb, n_orb)
-        :param eri_ao: 2e integrals in ao basis. numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) 
-        :param mo_coeff: mo coefficients. numpy array of shape (n_orb, n_orb)
-        :return: numpy array of shape (n_orb, n_orb) [hcore],
-                 numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) [eri]
-        """
-        # hcore
-        hcore = np.einsum('pi,pq,qj->ij', mo_coeff, hcore_ao, mo_coeff)
-
-        # eri w/o symmetry
-        eri = ao2mo.incore.full(eri_ao, mo_coeff)
-
-        return hcore, eri
-
-
-def vhf(nocc, norb, eri):
-        """
-        this function returns effective fock potentials from individual occupied orbitals
-
-        :param nocc: number of occupied orbitals. integer
-        :param norb: number of orbitals. integer
-        :param eri: 2e integrals in mo basis. numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2)
-        :return: numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) [eri],
-                 numpy array of shape (nocc, norb, norb) [vhf]
-        """
-        # remove symmetry in eri
-        eri = ao2mo.restore(1, eri, norb)
-
-        # init vhf
-        vhf = np.zeros([nocc, norb, norb])
-
-        # compute vhf
-        for i in range(nocc):
-            idx = np.asarray([i])
-            vhf[i] = np.einsum('pqrs->rs', eri[idx[:, None], idx, :, :]) * 2.
-            vhf[i] -= np.einsum('pqrs->ps', eri[:, idx[:, None], idx, :]) * 2. * .5
-
-        # restore 4-fold symmetry in eri
-        eri = ao2mo.restore(4, eri, norb)
-
-        return eri, vhf
 
 
 def e_core_h1e(e_nuc, hcore, vhf, core_idx, cas_idx):
@@ -246,7 +260,7 @@ def hf(mol, target):
         """
         this function returns the results of a hartree-fock calculation
 
-        :param mol: pymbe mol object 
+        :param mol: pymbe mol object
         :param target: calculation target. string
         :return: integer [nocc],
                  integer [nvirt],
@@ -278,8 +292,8 @@ def hf(mol, target):
         else:
             # model hamiltonian
             hf.get_ovlp = lambda *args: np.eye(mol.nsites)
-            hf.get_hcore = lambda *args: mol.hcore 
-            hf._eri = mol.eri
+            hf.get_hcore = _hubbard_h1e(mol.matrix, mol.nsites, mol.pbc)
+            hf._eri = _hubbard_eri(mol)
 
         # perform hf calc
         for i in range(0, 12, 2):
@@ -489,6 +503,18 @@ def ref_prop(mol, calc):
         :param calc: pymbe calc object
         :return: scalar or numpy array of shape (3,) depending on calc.target
         """
+        # load hcore
+        buf = mol.hcore.Shared_query(0)[0]
+        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
+
+        # load vhf
+        buf = mol.vhf.Shared_query(0)[0]
+        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
+
+        # load eri
+        buf = mol.eri.Shared_query(0)[0]
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
+
         # core_idx and cas_idx
         core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, np.array([], dtype=np.int32))
 
@@ -500,10 +526,10 @@ def ref_prop(mol, calc):
 
             # get cas space h2e
             cas_idx_tril = tools.cas_idx_tril(cas_idx)
-            h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
+            h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
 
             # compute e_core and h1e_cas
-            e_core, h1e_cas = e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
+            e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # exp model
             ref = main(mol, calc, calc.model['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
@@ -632,15 +658,27 @@ def base(mol, occup, method):
         :param occup: orbital occupation. numpy array of shape (n_orb,)
         :param method: base model. string
         """
+        # load hcore
+        buf = mol.hcore.Shared_query(0)[0]
+        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
+
+        # load vhf
+        buf = mol.vhf.Shared_query(0)[0]
+        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
+
+        # load eri
+        buf = mol.eri.Shared_query(0)[0]
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
+
         # set core and cas spaces
         core_idx, cas_idx = tools.core_cas(mol.nocc, np.arange(mol.ncore, mol.nocc), np.arange(mol.nocc, mol.norb))
 
         # get cas space h2e
         cas_idx_tril = tools.cas_idx_tril(cas_idx)
-        h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
+        h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
 
         # get e_core and h1e_cas
-        e_core, h1e_cas = e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
+        e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
         return _cc(mol, occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas)
 

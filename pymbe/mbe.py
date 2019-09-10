@@ -29,7 +29,7 @@ import tools
 
 
 # tags
-TAGS = tools.enum('ready', 'task', 'h2e', 'rst', 'exit')
+TAGS = tools.enum('ready', 'task', 'rst', 'exit')
 
 
 def master(mpi, mol, calc, exp):
@@ -102,20 +102,8 @@ def master(mpi, mol, calc, exp):
             # get slave
             parallel.probe(mpi, TAGS.ready)
 
-            # send task_idx
+            # send task_idx to slave
             mpi.comm.send(task_idx, dest=mpi.stat.source, tag=TAGS.task)
-
-            # get cas indices
-            cas_idx = tools.cas(calc.ref_space, tuples[task_idx])
-
-            # get h2e indices
-            cas_idx_tril = tools.cas_idx_tril(cas_idx)
-
-            # get h2e_cas
-            h2e_cas = mol.eri[cas_idx_tril[:, None], cas_idx_tril]
-
-            # send h2e_cas
-            mpi.comm.Send([h2e_cas, MPI.DOUBLE], dest=mpi.stat.source, tag=TAGS.h2e)
 
             # write restart file
             if calc.misc['rst'] and task_idx % calc.misc['rst_interval'] == 0:
@@ -137,9 +125,6 @@ def master(mpi, mol, calc, exp):
 
                 # print status
                 print(output.mbe_status(task_count / exp.n_tasks[-1]))
-
-                # mpi barrier
-                mpi.comm.Barrier()
 
         # done with all tasks
         while n_slaves > 0:
@@ -204,6 +189,18 @@ def slave(mpi, mol, calc, exp):
         :param exp: pymbe exp object
         :return: MPI window handle to increments
         """
+        # load eri
+        buf = mol.eri.Shared_query(0)[0]
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
+
+        # load hcore
+        buf = mol.hcore.Shared_query(0)[0]
+        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
+
+        # load vhf
+        buf = mol.vhf.Shared_query(0)[0]
+        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
+
         # load tuples
         buf = exp.tuples.Shared_query(0)[0]
         tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
@@ -225,9 +222,6 @@ def slave(mpi, mol, calc, exp):
             buf = exp.hashes[k].Shared_query(0)[0]
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
-        # init h2e_cas
-        h2e_cas = _init_h2e(calc.ref_space, exp.order)
-
         # send availability to master
         mpi.comm.send(None, dest=0, tag=TAGS.ready)
 
@@ -246,17 +240,17 @@ def slave(mpi, mol, calc, exp):
                 # recover tup
                 tup = tuples[task_idx]
 
-                # receive h2e_cas
-                mpi.comm.Recv([h2e_cas, MPI.DOUBLE], source=0, tag=TAGS.h2e)
-
                 # get core and cas indices
                 core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
 
-                # compute e_core and h1e_cas
-                e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, mol.hcore, mol.vhf, core_idx, cas_idx)
+                # get h2e indices
+                cas_idx_tril = tools.cas_idx_tril(cas_idx)
 
-                # get task_idx
-                task_idx = tools.hash_compare(hashes[-1], tools.hash_1d(tup))
+                # get h2e_cas
+                h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+
+                # compute e_core and h1e_cas
+                e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
                 # calculate increment
                 inc[-1][task_idx] = _inc(mol, calc, exp.min_order, exp.order, e_core, h1e_cas, h2e_cas, \
@@ -269,9 +263,6 @@ def slave(mpi, mol, calc, exp):
 
                 # receive rst signal
                 mpi.comm.recv(None, source=0, tag=TAGS.rst)
-
-                # mpi barrier
-                mpi.comm.Barrier()
 
                 # mpi barrier
                 mpi.comm.Barrier()
