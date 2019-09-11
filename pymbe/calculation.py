@@ -192,9 +192,8 @@ def sanity_chk(mol, calc):
             tools.assertion(calc.state['root'] > 0, \
                             'calculation of excitation energy (excitation) requires target state root >= 1')
         if calc.target['trans']:
-            tools.assertion(calc.target['excitation'], \
-                            'calculation of transition dipole moment (trans) '
-                            'requires calculation of excitation energy (excitation)')
+            tools.assertion(calc.state['root'] > 0, \
+                            'calculation of transition dipole moment (trans) requires target state root >= 1')
 
         # extra
         tools.assertion(isinstance(calc.extra['hf_guess'], bool), \

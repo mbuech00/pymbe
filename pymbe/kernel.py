@@ -585,7 +585,7 @@ def main(mol, calc, method, e_core, h1e, h2e, core_idx, cas_idx, nelec):
             elif calc.target == 'trans':
 
                 res = _trans(mol.norb, mol.dipole, calc.occup, calc.prop['hf']['dipole'], \
-                                calc.mo_coeff, cas_idx, res_tmp['rdm1'], \
+                                calc.mo_coeff, cas_idx, res_tmp['t_rdm1'], \
                                 res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 
         return res

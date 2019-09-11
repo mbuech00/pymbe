@@ -167,10 +167,6 @@ def _exp(mpi, mol, calc):
         if mpi.master and calc.misc['rst']:
             restart.write_fund(mol, calc)
 
-        # mo_coeff not needed anymore
-        if mpi.master:
-            del calc.mo_coeff
-
         # pyscf hf object not needed anymore
         if mpi.master and not calc.restart:
             del calc.hf
@@ -185,6 +181,10 @@ def _exp(mpi, mol, calc):
 
             # reference space properties
             calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
+
+        # mo_coeff not needed anymore
+        if mpi.master:
+            del calc.mo_coeff
 
         # bcast properties
         calc = parallel.prop(mpi, calc)
