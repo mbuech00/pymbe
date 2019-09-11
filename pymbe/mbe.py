@@ -41,9 +41,8 @@ def master(mpi, mol, calc, exp):
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         :return: MPI window handle to increments [inc_win],
-                 scalar with total energy correction [tot],
-                 three scalars or numpy array of shapes (n_tuples, 3) depending on target [mean_inc, min_inc, max_inc]
-                 three scalars [mean_ndets, min_ndets, max_ndets]
+                 float with total energy correction [tot],
+                 three floats or numpy array of shapes (n_tuples, 3) depending on target [mean_inc, min_inc, max_inc]
         """
         # wake up slaves
         msg = {'task': 'mbe', 'order': exp.order}
@@ -307,7 +306,7 @@ def _inc(mol, calc, min_order, order, e_core, h1e_cas, h2e_cas, inc, hashes, tup
         :param calc: pymbe calc object
         :param min_order: minimum (start) order. integer
         :param order: current order. integer
-        :param e_core: core energy. scalar
+        :param e_core: core energy. float
         :param h1e_cas: cas space 1-e Hamiltonian. numpy array of shape (n_cas, n_cas)
         :param h2e_cas: cas space 2-e Hamiltonian. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
         :param inc: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
@@ -315,7 +314,7 @@ def _inc(mol, calc, min_order, order, e_core, h1e_cas, h2e_cas, inc, hashes, tup
         :param tup: given tuple of orbitals. numpy array of shape (order,)
         :param core_idx: core space indices. numpy array of shape (n_core,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :return: scalar or numpy array of shape (3,) depending on target
+        :return: float or numpy array of shape (3,) depending on target
         """
         # nelec
         nelec = tools.nelec(calc.occup, cas_idx)
@@ -359,7 +358,7 @@ def _sum(occup, ref_space, exp_space, target, min_order, order, inc, hashes, tup
         :param inc: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
         :param hashes: hashes to all order. list of numpy arrays of shapes (n_tuples,)
         :param tup: given tuple of orbitals. numpy array of shape (order,)
-        :return: scalar or numpy array of shape (3,) depending on target
+        :return: float or numpy array of shape (3,) depending on target
         """
         # init res
         if target in ['energy', 'excitation']:

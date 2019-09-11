@@ -150,7 +150,7 @@ def write_gen(order, arr, string):
         this function writes a general restart file corresponding to input string
 
         :param order: current mbe order. integer or None
-        :param arr: saved quantity. numpy array of arbitrary shape, integer, or scalar
+        :param arr: saved quantity. numpy array of arbitrary shape, integer, or float
         :param string: specifier. string
         """
         if order is None:

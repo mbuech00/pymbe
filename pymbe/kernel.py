@@ -137,12 +137,12 @@ def e_core_h1e(e_nuc, hcore, vhf, core_idx, cas_idx):
         """
         this function returns core energy and cas space 1e integrals
 
-        :param e_nuc: nuclear energy. scalar
+        :param e_nuc: nuclear energy. float
         :param hcore: 1e integrals in mo basis. numpy array of shape (n_orb, n_orb)
         :param vhf: effective fock potentials. numpy array of shape (n_occ, n_orb, n_orb)
         :param core_idx: core space indices. numpy array of shape (n_inactive,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :return: scalar [e_core],
+        :return: float [e_core],
                  numpy array of shape (n_cas, n_cas) [h1e_cas]
         """
         # init core energy
@@ -226,7 +226,7 @@ def _hubbard_eri(mol):
         this function returns the hubbard two-electron hamiltonian
 
         :param nsites: number of lattice sites. integer
-        :param u: hubbard u/t. scalar
+        :param u: hubbard u/t. float
         :return: numpy array of shape (n_sites*(n_sites + 1) // 2, n_sites*(n_sites + 1) // 2)
         """
         # init eri
@@ -266,7 +266,7 @@ def hf(mol, target):
                  integer [nvirt],
                  integer [norb],
                  pyscf hf object [hf],
-                 scalar [e_hf],
+                 float [e_hf],
                  numpy array of shape (3,) or None [elec_dipole],
                  numpy array of shape (n_orb,) [occup],
                  numpy array of shape (n_orb,) [orbsym],
@@ -500,7 +500,7 @@ def ref_prop(mol, calc):
 
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :return: scalar or numpy array of shape (3,) depending on calc.target
+        :return: float or numpy array of shape (3,) depending on calc.target
         """
         # load hcore
         buf = mol.hcore.Shared_query(0)[0]
@@ -555,13 +555,13 @@ def main(mol, calc, method, e_core, h1e, h2e, core_idx, cas_idx, nelec):
         :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param method: correlated method. string
-        :param e_core: core space energy. scalar
+        :param e_core: core space energy. float
         :param h1e: cas space 1e integrals. numpy array of shape (n_cas, n_cas)
         :param h2e: cas space 2e integrals. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
         :param core_idx: core space indices. numpy array of shape (n_inactive,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
         :param nelec: number of correlated electrons. tuple of integers
-        :return: scalar or numpy array of shape (3,) depending on target
+        :return: float or numpy array of shape (3,) depending on target
         """
         if method in ['ccsd','ccsd(t)']:
 
@@ -641,8 +641,8 @@ def _trans(norb, ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, hf_we
         :param mo_coeff: mo coefficient. numpy array of shape (n_orb, n_orb)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
         :param cas_rdm1: cas space rdm1. numpy array of shape (n_cas, n_cas)
-        :param hf_weight_gs: weight of ground state in ci vector. scalar
-        :param hf_weight_ex: weight of excited state in ci vector. scalar
+        :param hf_weight_gs: weight of ground state in ci vector. float
+        :param hf_weight_ex: weight of excited state in ci vector. float
         :return: numpy array of shape (3,)
         """
         return _dipole(norb, ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, True) \
@@ -836,16 +836,16 @@ def _fci(mol, solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
         :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
         :param hf_guess: hf as initial guess. bool
         :param root: state root of interest. integer
-        :param hf_energy: hf energy. scalar
-        :param e_core: core space energy. scalar
+        :param hf_energy: hf energy. float
+        :param e_core: core space energy. float
         :param h1e: cas space 1e integrals. numpy array of shape (n_cas, n_cas)
         :param h2e: cas space 2e integrals. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
         :param core_idx: core space indices. numpy array of shape (n_inactive,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
         :param nelec: number of correlated electrons. tuple of integers
-        :return: dict of scalars [energy and excitation],
+        :return: dict of floats [energy and excitation],
                  numpy array of shape (n_cas, n_cas) [dipole],
-                 or numpy array of shape (n_cas, n_cas) and a list of scalars [trans]
+                 or numpy array of shape (n_cas, n_cas) and a list of floats [trans]
         """
         # init fci solver
         if solver == 'pyscf_spin0':
@@ -969,7 +969,7 @@ def _cc(mol, occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1
         :param h2e: cas space 2e integrals. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
         :param hf: pyscf hf object
         :param rdm1: rdm1 logical. bool
-        :return: scalar or numpy array of shape (n_orb-n_core, n_orb-n_core) depending on rdm1 bool
+        :return: float or numpy array of shape (n_orb-n_core, n_orb-n_core) depending on rdm1 bool
         """
         # init ccsd solver
         if h1e is not None and h2e is not None:

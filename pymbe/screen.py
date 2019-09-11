@@ -35,7 +35,8 @@ def master(mpi, calc, exp):
         :param exp: pymbe exp object
         :return: MPI window handle to numpy array of shape (n_child_tuples,) [hashes],
                  MPI window handle to numpy array of shape (n_child_tuples, order+1) [tuples],
-                 integer [n_tasks]
+                 integer [n_tasks],
+                 three floats [mean_ndets, min_ndets, max_ndets]
         """
         # set number of available (needed) slaves, various tuples, and various task arrays
         slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
@@ -600,7 +601,7 @@ def _thres(occup, thres, ref_space, scheme, tup):
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param scheme: protocol scheme. integer
         :param tup: current orbital tuple. numpy array of shape (order,)
-        :return: scalar
+        :return: float
         """
         # determine involved dimensions
         nocc = np.count_nonzero(occup[ref_space] > 0.0)

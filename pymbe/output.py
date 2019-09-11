@@ -94,9 +94,9 @@ def mbe_debug(atom, symmetry, orbsym, root, ndets_tup, nelec_tup, inc_tup, order
         :param symmetry: molecular point group. string
         :param orbsym: orbital symmetries. numpy array of shape (n_orbs,)
         :param root: state root. integer
-        :param ndets_tup: number of determinants in casci calculation on tuple. scalar
+        :param ndets_tup: number of determinants in casci calculation on tuple. float
         :param nelec_tup: number of alpha- and beta-electrons. tuples of integers
-        :param inc_tup: property increment from tuple. scalar
+        :param inc_tup: property increment from tuple. float
         :param order: expansion order. integer
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
         :param tup: tuple of orbitals. numpy array of shape (order,)
@@ -128,7 +128,7 @@ def mbe_status(prog):
         """
         this function prints the status of an mbe phase
 
-        :param prog: progress. scalar (0. <= prog <= 1.)
+        :param prog: progress. float (0. <= prog <= 1.)
         :return: formatted string
         """
         status = int(round(BAR_LENGTH * prog))
@@ -143,7 +143,7 @@ def mbe_end(order, time):
         this function prints the end mbe information
 
         :param order. expansion order. integer
-        :param time. time in seconds. scalar
+        :param time. time in seconds. float
         :return: formatted string
         """
         # set string
@@ -168,7 +168,7 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, \
         :param min_order: minimum (start) order. integer
         :param max_order: maximum (final) order. integer
         :param order: current order. integer
-        :param prop_tot: total mbe energy. list of scalars or numpy arrays of shape (3,) depending on target
+        :param prop_tot: total mbe energy. list of floats or numpy arrays of shape (3,) depending on target
         :param mean_inc: mean increment. float
         :param min_inc: min increment. float
         :param max_inc: max increment. float
@@ -280,7 +280,7 @@ def screen_end(order, time, conv=False):
         this function prints the end screening information
 
         :param order. expansion order. integer
-        :param time. time in seconds. scalar
+        :param time. time in seconds. float
         :return: formatted string
         """
         string = DIVIDER+'\n'

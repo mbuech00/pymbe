@@ -127,7 +127,7 @@ def time_str(time):
         """
         this function returns time as a HH:MM:SS string
 
-        :param time: time in seconds. scalar
+        :param time: time in seconds. float
         :return: string
         """
         # hours, minutes, and seconds
@@ -161,7 +161,7 @@ def fsum(a):
         this function uses math.fsum to safely sum 1d array or 2d array (column-wise)
 
         :param a: quantity to sum. numpy array of shape (n_a,) or (n_a_1, n_a_2)
-        :return: scalar or numpy array of shape (n_a_1,) depending on dimensions of a
+        :return: float or numpy array of shape (n_a_1,) depending on dimensions of a
         """
         if a.ndim == 1:
             return math.fsum(a)
@@ -444,7 +444,7 @@ def ndets(occup, cas_idx, ref_space=None, n_elec=None):
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
         :param ref_space: reference space. numpy array of shape (n_ref_tot,)
         :param n_elec: number of electrons in cas space. tuple of two integers
-        :return: scalar
+        :return: float
         """
         if n_elec is None:
             n_elec = nelec(occup, cas_idx)
