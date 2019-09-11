@@ -72,10 +72,11 @@ def master(mpi, mol, calc, exp):
         del ndets
 
         # init increments
-        if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
+        if len(exp.prop[calc.target]['inc']) == len(exp.hashes):
 
             # load restart increments
-            buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
+            inc_win = exp.prop[calc.target]['inc'][-1]
+            buf = inc_win.Shared_query(0)[0]
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
 
         else:
@@ -89,6 +90,9 @@ def master(mpi, mol, calc, exp):
             if calc.misc['rst']:
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
+        # mpi barrier
+        mpi.comm.Barrier()
+
         # start index
         if inc.ndim == 1:
             task_start = np.count_nonzero(inc)
@@ -96,16 +100,16 @@ def master(mpi, mol, calc, exp):
             task_start = np.count_nonzero(np.count_nonzero(inc, axis=1))
 
         # loop until no tasks left
-        for task_count, task_idx in enumerate(tasks[task_start:]):
+        for task_idx, tup_idx in enumerate(tasks[task_start:]):
 
             # get slave
             parallel.probe(mpi, TAGS.ready)
 
-            # send task_idx to slave
-            mpi.comm.send(task_idx, dest=mpi.stat.source, tag=TAGS.task)
+            # send tup_idx to slave
+            mpi.comm.send(tup_idx, dest=mpi.stat.source, tag=TAGS.task)
 
             # write restart file
-            if calc.misc['rst'] and task_idx % calc.misc['rst_interval'] == 0:
+            if calc.misc['rst'] and (task_idx + task_start) % calc.misc['rst_interval'] == 0:
 
                 # send rst signal to all slaves
                 for slave_idx in range(n_slaves):
@@ -123,7 +127,7 @@ def master(mpi, mol, calc, exp):
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
                 # print status
-                print(output.mbe_status(task_count / exp.n_tasks[-1]))
+                print(output.mbe_status((task_idx + task_start) / exp.n_tasks[-1]))
 
         # done with all tasks
         while n_slaves > 0:
@@ -214,8 +218,12 @@ def slave(mpi, mol, calc, exp):
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
 
         # init increments for present order
-        inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
-        buf = inc_win.Shared_query(0)[0]
+        if len(exp.prop[calc.target]['inc']) == len(exp.hashes):
+            inc_win = exp.prop[calc.target]['inc'][-1]
+            buf = inc_win.Shared_query(0)[0]
+        else:
+            inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+            buf = inc_win.Shared_query(0)[0]
         inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
 
         # load hashes for current and previous orders
@@ -223,6 +231,9 @@ def slave(mpi, mol, calc, exp):
         for k in range(exp.order-exp.min_order+1):
             buf = exp.hashes[k].Shared_query(0)[0]
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
+
+        # mpi barrier
+        mpi.comm.Barrier()
 
         # send availability to master
         mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -236,11 +247,11 @@ def slave(mpi, mol, calc, exp):
             # do task
             if mpi.stat.tag == TAGS.task:
 
-                # receive task_idx
-                task_idx = mpi.comm.recv(source=0, tag=TAGS.task)
+                # receive tup_idx
+                tup_idx = mpi.comm.recv(source=0, tag=TAGS.task)
 
                 # recover tup
-                tup = tuples[task_idx]
+                tup = tuples[tup_idx]
 
                 # get core and cas indices
                 core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
@@ -254,9 +265,12 @@ def slave(mpi, mol, calc, exp):
                 # compute e_core and h1e_cas
                 e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
+                # get inc_idx
+                inc_idx = tools.hash_compare(hashes[-1], tools.hash_1d(tup))
+
                 # calculate increment
-                inc[-1][task_idx] = _inc(mol, calc, exp.min_order, exp.order, e_core, h1e_cas, h2e_cas, \
-                                         inc, hashes, tup, core_idx, cas_idx)
+                inc[-1][inc_idx] = _inc(mol, calc, exp.min_order, exp.order, e_core, h1e_cas, h2e_cas, \
+                                        inc, hashes, tup, core_idx, cas_idx)
 
                 # send availability to master
                 mpi.comm.send(None, dest=0, tag=TAGS.ready)
@@ -389,17 +403,5 @@ def _sum(occup, ref_space, exp_space, target, min_order, order, inc, hashes, tup
             res += tools.fsum(inc[k-min_order][idx])
 
         return res
-
-
-def _init_h2e(ref_space, order):
-        """
-        this function initializes the cas space 2-e Hamiltonian array
-
-        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
-        :param order: current order. integer
-        :return: numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
-        """
-        n_orb = ref_space.size + order
-        return np.empty([(n_orb * (n_orb + 1)) // 2, (n_orb * (n_orb + 1)) // 2], dtype=np.float64)
 
 

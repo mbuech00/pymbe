@@ -207,66 +207,6 @@ def prop(mpi, calc):
         return calc
 
 
-def exp(mpi, calc, exp):
-        """
-        this function bcast all standard exp info to slaves
-
-        :param mpi: pymbe mpi object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: updated exp object
-        """
-        if mpi.master:
-
-            # collect info
-            info = {'min_order': exp.min_order}
-
-            # if restart, collect info on previous orders
-            if calc.restart:
-                info['n_hashes'] = [exp.hashes[i].size for i in range(len(exp.hashes))]
-                info['n_props'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
-
-            # bcast info
-            mpi.comm.bcast(info, root=0)
-
-            # bcast results from previous orders
-            if calc.restart:
-
-                # bcast hashes
-                for i in range(1, len(info['n_hashes'])):
-                    exp.hashes[i] = bcast(mpi, exp.hashes[i])
-
-                # bcast increments
-                for i in range(len(info['n_props'])):
-                    exp.prop[calc.target]['inc'][i] = bcast(mpi, exp.prop[calc.target]['inc'][i])
-
-        else:
-
-            # receive info
-            info = mpi.comm.bcast(None, root=0)
-
-            # receive min_order
-            exp.min_order = info['min_order']
-
-            # receive results from previous orders
-            if calc.restart:
-
-                # receive hashes
-                for i in range(1, len(info['n_hashes'])):
-                    exp.hashes.append(np.empty(info['n_hashes'][i], dtype=np.int64))
-                    exp.hashes[i] = bcast(mpi, exp.hashes[i])
-
-                # receive increments
-                for i in range(len(info['n_props'])):
-                    if calc.target in ['energy', 'excitation']:
-                        exp.prop[calc.target]['inc'].append(np.zeros(info['n_props'][i], dtype=np.float64))
-                    else:
-                        exp.prop[calc.target]['inc'].append(np.zeros([info['n_props'][i], 3], dtype=np.float64))
-                    exp.prop[calc.target]['inc'][i] = bcast(mpi, exp.prop[calc.target]['inc'][i])
-
-        return exp
-
-
 def probe(mpi, tag_ready):
         """
         this function probes for available slaves

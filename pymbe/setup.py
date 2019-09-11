@@ -49,9 +49,6 @@ def main():
         # exp object
         mol, calc, exp = _exp(mpi, mol, calc)
 
-        # bcast restart info
-        exp = parallel.exp(mpi, calc, exp)
-
         return mpi, mol, calc, exp
 
 
@@ -168,7 +165,7 @@ def _exp(mpi, mol, calc):
             del calc.mo_coeff
 
         # pyscf hf object not needed anymore
-        if mpi.master:
+        if mpi.master and not calc.restart:
             del calc.hf
 
         if mpi.master:

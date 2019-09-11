@@ -136,10 +136,6 @@ def master(mpi, mol, calc, exp):
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
-                # write restart files
-                if calc.misc['rst']:
-                    restart.write_gen(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
-
             # convergence check
             if exp.n_tasks[-1] == 0 or exp.order == exp.max_order:
 
@@ -180,6 +176,11 @@ def master(mpi, mol, calc, exp):
 
                 # append n_tasks
                 exp.n_tasks.append(n_tasks)
+
+                # write restart files
+                if calc.misc['rst']:
+                    restart.write_gen(exp.order, exp.n_tasks[-1], 'mbe_n_tasks')
+                    restart.write_gen(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
                 # print screen end
                 print(output.screen_end(exp.order, exp.time['screen'][-1]))
