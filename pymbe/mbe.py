@@ -62,14 +62,23 @@ def master(mpi, mol, calc, exp):
             # load restart increments
             inc_win = exp.prop[calc.target]['inc'][-1]
             buf = inc_win.Shared_query(0)[0]
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
+            if calc.target in ['energy', 'excitation']:
+                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
+            elif calc.target in ['dipole', 'trans']:
+                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3))
 
         else:
 
             # new increments
-            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.comm)
+            if calc.target in ['energy', 'excitation']:
+                inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.comm)
+            elif calc.target in ['dipole', 'trans']:
+                inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1] * 3, 8, comm=mpi.comm)
             buf = inc_win.Shared_query(0)[0]
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
+            if calc.target in ['energy', 'excitation']:
+                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
+            elif calc.target in ['dipole', 'trans']:
+                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3))
 
             # save increments
             if calc.misc['rst']:
@@ -79,9 +88,9 @@ def master(mpi, mol, calc, exp):
         mpi.comm.Barrier()
 
         # start index
-        if inc.ndim == 1:
+        if calc.target in ['energy', 'excitation']:
             task_start = np.count_nonzero(inc)
-        else:
+        elif calc.target in ['dipole', 'trans']:
             task_start = np.count_nonzero(np.count_nonzero(inc, axis=1))
 
         # loop until no tasks left
@@ -160,7 +169,7 @@ def master(mpi, mol, calc, exp):
             for k in range(3):
 
                 # increments
-                if inc.any():
+                if inc[:, k].any():
                     mean_inc[k] = np.mean(inc[:, k][np.nonzero(inc[:, k])])
                     min_inc[k] = np.min(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
                     max_inc[k] = np.max(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
@@ -200,7 +209,10 @@ def slave(mpi, mol, calc, exp):
         inc = []
         for k in range(exp.order-exp.min_order):
             buf = exp.prop[calc.target]['inc'][k].Shared_query(0)[0]
-            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
+            if calc.target in ['energy', 'excitation']:
+                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
+            elif calc.target in ['dipole', 'trans']:
+                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k], 3)))
 
         # init increments for present order
         if len(exp.prop[calc.target]['inc']) == len(exp.hashes):
@@ -209,7 +221,10 @@ def slave(mpi, mol, calc, exp):
         else:
             inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
             buf = inc_win.Shared_query(0)[0]
-        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
+        if calc.target in ['energy', 'excitation']:
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
+        elif calc.target in ['dipole', 'trans']:
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3)))
 
         # load hashes for current and previous orders
         hashes = []

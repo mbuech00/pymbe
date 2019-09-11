@@ -266,7 +266,6 @@ def hf(mol, target):
                  integer [nvirt],
                  integer [norb],
                  pyscf hf object [hf],
-                 scalar [e_nuc],
                  scalar [e_hf],
                  numpy array of shape (3,) or None [elec_dipole],
                  numpy array of shape (n_orb,) [occup],
@@ -341,8 +340,8 @@ def hf(mol, target):
                 print('     {:>3d}   {:>5s}     {:>7.5f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
             print('\n')
 
-        return nocc, nvirt, norb, hf, np.asscalar(mol.energy_nuc()) if mol.atom else 0.0, np.asscalar(e_hf), \
-                elec_dipole, occup, orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
+        return nocc, nvirt, norb, hf, np.asscalar(e_hf), elec_dipole, occup, \
+                orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(mo_occ):

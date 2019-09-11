@@ -199,7 +199,10 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # load increments for current order
         buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
-        inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
+        if calc.target in ['energy', 'excitation']:
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
+        elif calc.target in ['dipole', 'trans']:
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3))
 
         # load hashes for current and previous orders
         hashes = []

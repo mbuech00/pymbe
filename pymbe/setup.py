@@ -14,6 +14,7 @@ __status__ = 'Development'
 
 import sys
 import os
+import numpy as np
 try:
     from pyscf import lib, scf
 except ImportError:
@@ -129,6 +130,12 @@ def _exp(mpi, mol, calc):
                  updated calc object,
                  pymbe exp object
         """
+        # get dipole integrals
+        mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
+
+        # nuclear repulsion energy
+        mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.0
+
         if mpi.master:
 
             if calc.restart:
@@ -142,9 +149,9 @@ def _exp(mpi, mol, calc):
             else:
 
                 # hf calculation
-                mol.nocc, mol.nvirt, mol.norb, calc.hf, mol.e_nuc, \
+                mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
+                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc.target)
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_energy, calc.mo_coeff, \
@@ -188,9 +195,6 @@ def _exp(mpi, mol, calc):
 
         # exp object
         exp = expansion.ExpCls(mol, calc)
-
-        # get dipole integrals
-        mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
 
         # init hashes, n_tasks, and tuples
         if mpi.master:

@@ -72,8 +72,8 @@ def main(mpi, mol, calc, exp):
             print(_excitation_prt(calc, exp))
             _excitation_plot(calc, exp)
         if calc.target == 'dipole' :
-            print(_dipole_prt(calc, exp))
-            _dipole_plot(calc, exp)
+            print(_dipole_prt(mol, calc, exp))
+            _dipole_plot(mol, calc, exp)
         if calc.target == 'trans':
             print(_trans_prt(calc, exp))
             _trans_plot(calc, exp)
@@ -334,7 +334,7 @@ def _energy(calc, exp):
 
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
+        :return: float
         """
         return exp.prop['energy']['tot'] \
                 + calc.prop['hf']['energy'] \
@@ -348,7 +348,7 @@ def _excitation(calc, exp):
 
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
+        :return: float
         """
         return exp.prop['excitation']['tot'] \
                 + calc.prop['ref']['excitation']
@@ -361,7 +361,8 @@ def _dipole(mol, calc, exp):
         :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
+        :return: numpy array of shape (1, 3) [nuc_dipole],
+                 numpy array of shape (final_order, 3) [dipole]
         """
         # nuclear dipole moment
         charges = mol.atom_charges()
@@ -380,7 +381,7 @@ def _trans(mol, calc, exp):
         :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
-        :return: formatted string
+        :return: numpy array of shape (1, 3)
         """
         return exp.prop['trans']['tot'] \
                 + calc.prop['ref']['trans']
@@ -688,10 +689,11 @@ def _excitation_plot(calc, exp):
                         format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _dipole_prt(calc, exp):
+def _dipole_prt(mol, calc, exp):
         """
         this function returns the dipole moments table
 
+        :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         :return: formatted string
@@ -730,10 +732,11 @@ def _dipole_prt(calc, exp):
         return string.format(*form)
 
 
-def _dipole_plot(calc, exp):
+def _dipole_plot(mol, calc, exp):
         """
         this function plots the dipole moments
 
+        :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         """
@@ -747,7 +750,7 @@ def _dipole_plot(calc, exp):
         # array of total MBE dipole moment
         dipole, nuc_dipole = _dipole(mol, calc, exp)
         dipole_arr = np.empty(dipole.shape[0], dtype=np.float64)
-        for i in range(dipole.size):
+        for i in range(dipole.shape[0]):
             dipole_arr[i] = np.linalg.norm(nuc_dipole - dipole[i, :])
 
         # plot results
@@ -781,10 +784,11 @@ def _dipole_plot(calc, exp):
                         format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _trans_prt(calc, exp):
+def _trans_prt(mol, calc, exp):
         """
         this function returns the transition dipole moments and oscillator strengths table
 
+        :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         :return: formatted string
@@ -828,10 +832,11 @@ def _trans_prt(calc, exp):
         return string.format(*form)
 
 
-def _trans_plot(calc, exp):
+def _trans_plot(mol, calc, exp):
         """
         this function plots the transition dipole moments
 
+        :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         """
@@ -845,7 +850,7 @@ def _trans_plot(calc, exp):
         # array of total MBE transition dipole moment
         trans = _trans(mol, calc, exp)
         trans_arr = np.empty(trans.shape[0], dtype=np.float64)
-        for i in range(trans.size):
+        for i in range(trans.shape[0]):
             trans_arr[i] = np.linalg.norm(trans[i, :])
 
         # plot results
@@ -879,10 +884,11 @@ def _trans_plot(calc, exp):
                         format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _osc_strength_plot(calc, exp):
+def _osc_strength_plot(mol, calc, exp):
         """
         this function plots the oscillator strengths
 
+        :param mol: pymbe mol object
         :param calc: pymbe calc object
         :param exp: pymbe exp object
         """
@@ -897,7 +903,7 @@ def _osc_strength_plot(calc, exp):
         excitation = _excitation(calc, exp)
         trans = _trans(mol, calc, exp)
         osc_strength = np.empty(trans.shape[0], dtype=np.float64)
-        for i in range(osc_strength.size):
+        for i in range(osc_strength.shape[0]):
             osc_strength[i] = (2./3.) * excitation[i] * np.linalg.norm(trans[i, :])**2
 
         # plot results

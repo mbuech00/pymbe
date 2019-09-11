@@ -99,11 +99,17 @@ def main(mpi, calc, exp):
             elif 'mbe_inc' in files[i]:
                 n_tasks = exp.n_tasks[len(exp.prop[calc.target]['inc'])]
                 if mpi.master:
-                    exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.comm))
+                    if calc.target in ['energy', 'excitation']:
+                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.comm))
+                    elif calc.target in ['dipole', 'trans']:
+                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.comm))
                 else:
                     exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.comm))
                 buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
-                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
+                if calc.target in ['energy', 'excitation']:
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
+                elif calc.target in ['dipole', 'trans']:
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks, 3))
                 if mpi.master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
 
@@ -192,16 +198,17 @@ def write_prop(mol, calc):
         :param calc: pymbe calc object
         """
         # write hf, reference, and base properties
+        energies = {'hf': calc.prop['hf']['energy']}
+
         if calc.target == 'energy':
 
-            energies = {'e_nuc': mol.e_nuc, \
-                        'hf': calc.prop['hf']['energy'], \
-                        'base': calc.prop['base']['energy'], \
-                        'ref': calc.prop['ref']['energy']}
-            with open(os.path.join(RST, 'energies.rst'), 'w') as f:
-                json.dump(energies, f)
+            energies['base'] = calc.prop['base']['energy']
+            energies['ref'] = calc.prop['ref']['energy']
 
-        elif calc.target == 'excitation':
+        with open(os.path.join(RST, 'energies.rst'), 'w') as f:
+            json.dump(energies, f)
+
+        if calc.target == 'excitation':
 
             excitations = {'ref': calc.prop['ref']['excitation']}
             with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
@@ -305,10 +312,11 @@ def read_prop(mol, calc):
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     energies = json.load(f)
-                mol.e_nuc = energies['e_nuc']
                 calc.prop['hf']['energy'] = energies['hf']
-                calc.prop['base']['energy'] = energies['base']
-                calc.prop['ref']['energy'] = energies['ref']
+
+                if calc.target == 'energy':
+                    calc.prop['base']['energy'] = energies['base']
+                    calc.prop['ref']['energy'] = energies['ref']
 
             elif 'excitations' in files[i]:
 

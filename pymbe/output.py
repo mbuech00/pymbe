@@ -236,9 +236,9 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, \
                 string += DIVIDER+'\n'
                 string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
                 string += DIVIDER+'\n'
-                string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}'
+                string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
                 if k < 2:
-                    string += '\n'+DIVIDER
+                    string += DIVIDER
                 form += (comp[k], mean_inc[k], min_inc[k], max_inc[k],)
 
         # set string
