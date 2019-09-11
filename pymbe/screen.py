@@ -132,14 +132,30 @@ def master(mpi, calc, exp):
         buf = tuples_win.Shared_query(0)[0]
         tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),))
 
-        # mpi barrier
-        mpi.comm.Barrier()
-
         # gatherv all child tuples
         tuples_new[:] = parallel.gatherv(mpi, child_tup, recv_counts)
 
         # reshape tuples
         tuples_new = tuples_new.reshape(-1, exp.order+1)
+
+        # compute number of determinants in the individual casci calculations (ignoring symmetry)
+        ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
+                                tuples_new), dtype=np.float64, count=tuples_new.shape[0])
+
+        # statistics
+        mean_ndets = np.mean(ndets[np.nonzero(ndets)])
+        min_ndets = np.min(ndets[np.nonzero(ndets)])
+        max_ndets = np.max(ndets[np.nonzero(ndets)])
+
+        # order tuples wrt number of determinants (from most electrons to fewest electrons)
+        tuples_new[:] = tuples_new[ndets.argsort()[::-1]]
+
+        # free memory allocated for ndets
+        del ndets
+
+        # save tuples
+        if calc.misc['rst']:
+            restart.write_gen(None, tuples_new, 'mbe_tup')
 
         # allocate hashes
         hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.comm)
@@ -148,13 +164,6 @@ def master(mpi, calc, exp):
 
         # compute hashes
         hashes_new[:] = tools.hash_2d(tuples_new)
-
-        # sort tuples wrt hashes
-        tuples_new = tuples_new[hashes_new.argsort()]
-
-        # save tuples
-        if calc.misc['rst']:
-            restart.write_gen(None, tuples_new, 'mbe_tup')
 
         # sort hashes
         hashes_new.sort()
@@ -166,7 +175,7 @@ def master(mpi, calc, exp):
         # mpi barrier
         mpi.comm.Barrier()
 
-        return hashes_win, tuples_win, hashes_new.size
+        return hashes_win, tuples_win, hashes_new.size, mean_ndets, min_ndets, max_ndets
 
 
 def slave(mpi, calc, exp, slaves_needed):
@@ -277,9 +286,6 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # get handle to tuples
         tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.comm)
-
-        # mpi barrier
-        mpi.comm.Barrier()
 
         # gatherv all child tuples
         child_tup = parallel.gatherv(mpi, child_tup, recv_counts)

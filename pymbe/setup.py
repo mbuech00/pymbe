@@ -193,7 +193,11 @@ def _exp(mpi, mol, calc):
         mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
 
         # init hashes, n_tasks, and tuples
-        exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
+        if mpi.master:
+            exp.hashes, exp.tuples, exp.n_tasks, exp.min_order, \
+                exp.mean_ndets, exp.min_ndets, exp.max_ndets = expansion.init_tup(mpi, mol, calc)
+        else:
+            exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
 
         # possible restart
         if calc.restart:

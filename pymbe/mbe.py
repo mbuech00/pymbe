@@ -56,21 +56,6 @@ def master(mpi, mol, calc, exp):
         buf = exp.tuples.Shared_query(0)[0]
         tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
 
-        # compute number of determinants in the individual casci calculations (ignoring symmetry)
-        ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
-                                tuples), dtype=np.float64, count=exp.n_tasks[-1])
-
-        # statistics
-        mean_ndets = np.mean(ndets[np.nonzero(ndets)])
-        min_ndets = np.min(ndets[np.nonzero(ndets)])
-        max_ndets = np.max(ndets[np.nonzero(ndets)])
-
-        # order tasks wrt number of determinants (from most electrons to fewest electrons)
-        tasks = np.argsort(ndets)[::-1]
-
-        # free memory allocated for ndets
-        del ndets
-
         # init increments
         if len(exp.prop[calc.target]['inc']) == len(exp.hashes):
 
@@ -100,7 +85,7 @@ def master(mpi, mol, calc, exp):
             task_start = np.count_nonzero(np.count_nonzero(inc, axis=1))
 
         # loop until no tasks left
-        for task_idx, tup_idx in enumerate(tasks[task_start:]):
+        for tup_idx in range(task_start, exp.n_tasks[-1]):
 
             # get slave
             parallel.probe(mpi, TAGS.ready)
@@ -109,7 +94,7 @@ def master(mpi, mol, calc, exp):
             mpi.comm.send(tup_idx, dest=mpi.stat.source, tag=TAGS.task)
 
             # write restart file
-            if calc.misc['rst'] and (task_idx + task_start) % calc.misc['rst_interval'] == 0:
+            if calc.misc['rst'] and tup_idx % calc.misc['rst_interval'] == 0:
 
                 # send rst signal to all slaves
                 for slave_idx in range(n_slaves):
@@ -127,7 +112,7 @@ def master(mpi, mol, calc, exp):
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
                 # print status
-                print(output.mbe_status((task_idx + task_start) / exp.n_tasks[-1]))
+                print(output.mbe_status(tup_idx / exp.n_tasks[-1]))
 
         # done with all tasks
         while n_slaves > 0:
@@ -182,7 +167,7 @@ def master(mpi, mol, calc, exp):
                 else:
                     mean_inc[k] = min_inc[k] = max_inc[k] = 0.0
 
-        return inc_win, tot, mean_inc, min_inc, max_inc, mean_ndets, min_ndets, max_ndets
+        return inc_win, tot, mean_inc, min_inc, max_inc
 
 
 def slave(mpi, mol, calc, exp):

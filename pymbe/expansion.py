@@ -14,6 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
+import functools
 import copy
 
 import tools
@@ -96,8 +97,20 @@ def init_tup(mpi, mol, calc):
             # place tuples in shared memory space
             tuples[:] = tuples_tmp
 
-            # mpi barrier
-            mpi.comm.Barrier()
+            # compute number of determinants in the individual casci calculations (ignoring symmetry)
+            ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
+                                    tuples), dtype=np.float64, count=tuples.shape[0])
+
+            # statistics
+            mean_ndets = np.mean(ndets[np.nonzero(ndets)])
+            min_ndets = np.min(ndets[np.nonzero(ndets)])
+            max_ndets = np.max(ndets[np.nonzero(ndets)])
+
+            # order tuples wrt number of determinants (from most electrons to fewest electrons)
+            tuples = tuples[ndets.argsort()[::-1]]
+
+            # free memory allocated for ndets
+            del ndets
 
             # allocate hashes
             hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=mpi.comm)
@@ -107,20 +120,19 @@ def init_tup(mpi, mol, calc):
             # compute hashes
             hashes[:] = tools.hash_2d(tuples)
 
-            # sort wrt hashes
-            tuples = tuples[hashes.argsort()]
+            # sort hashes
             hashes.sort()
 
             # mpi barrier
             mpi.comm.Barrier()
 
+            return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order, \
+                        [mean_ndets], [min_ndets], [max_ndets]
+
         else:
 
             # get handle to tuples window
             tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.comm)
-
-            # mpi barrier
-            mpi.comm.Barrier()
 
             # get handle to hashes window
             hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
@@ -128,6 +140,6 @@ def init_tup(mpi, mol, calc):
             # mpi barrier
             mpi.comm.Barrier()
 
-        return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
+            return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
 
 
