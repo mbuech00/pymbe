@@ -119,7 +119,9 @@ def master(mpi, mol, calc, exp):
                 # mpi barrier
                 mpi.global_comm.Barrier()
 
-                # here, allreduce among local masters if master_comm.size > 1
+                # allreduce increments among local masters
+                if mpi.num_masters > 1:
+                    inc[:] = parallel.allreduce(mpi.master_comm, inc)
 
                 # save increments
                 restart.write_gen(exp.order, inc, 'mbe_inc')
@@ -148,7 +150,12 @@ def master(mpi, mol, calc, exp):
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        # here, allreduce among local masters if master_comm.size > 1
+        # allreduce increments among local masters
+        if mpi.num_masters > 1:
+            inc[:] = parallel.allreduce(mpi.master_comm, inc)
+
+        # mpi barrier
+        mpi.local_comm.Barrier()
 
         # save increments
         restart.write_gen(exp.order, inc, 'mbe_inc')
@@ -292,6 +299,10 @@ def slave(mpi, mol, calc, exp):
                 # mpi barrier
                 mpi.global_comm.Barrier()
 
+                # allreduce increments among local masters
+                if mpi.num_masters > 1:
+                    inc[:] = parallel.allreduce(mpi.master_comm, inc)
+
                 # send availability to master
                 mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
@@ -304,6 +315,13 @@ def slave(mpi, mol, calc, exp):
 
         # mpi barrier
         mpi.global_comm.Barrier()
+
+        # allreduce increments among local masters
+        if mpi.num_masters > 1:
+            inc[:] = parallel.allreduce(mpi.master_comm, inc)
+
+        # mpi barrier
+        mpi.local_comm.Barrier()
 
         return inc_win
 

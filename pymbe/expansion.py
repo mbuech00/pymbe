@@ -87,7 +87,7 @@ def init_tup(mpi, mol, calc):
         min_order = tuples_tmp.shape[1]
 
         # init tuples and hashes
-        if mpi.master:
+        if mpi.local_master:
 
             # allocate tuples
             tuples_win = MPI.Win.Allocate_shared(4 * tuples_tmp.size, 4, comm=mpi.local_comm)
