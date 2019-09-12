@@ -95,8 +95,11 @@ def master(mpi, mol, calc, exp):
         # loop until no tasks left
         for tup_idx in range(task_start, exp.n_tasks[-1]):
 
-            # get slave
-            parallel.probe(mpi, TAGS.ready)
+            # probe for available slaves
+            mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+            # receive slave status
+            mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
             # send tup_idx to slave
             mpi.global_comm.send(tup_idx, dest=mpi.stat.source, tag=TAGS.task)
@@ -127,8 +130,11 @@ def master(mpi, mol, calc, exp):
         # done with all tasks
         while n_slaves > 0:
 
-            # get slave
-            parallel.probe(mpi, TAGS.ready)
+            # probe for available slaves
+            mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+            # receive slave status
+            mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
             # send exit signal to slave
             mpi.global_comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
@@ -244,7 +250,7 @@ def slave(mpi, mol, calc, exp):
         # receive work from master
         while True:
 
-            # probe for available task
+            # probe for task
             mpi.global_comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
             # do task

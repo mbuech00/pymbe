@@ -164,7 +164,7 @@ def fund(mpi, mol, calc):
             mpi.global_comm.bcast(info, root=0)
 
             # bcast mo coefficients
-            calc.mo_coeff = bcast(mpi, calc.mo_coeff)
+            calc.mo_coeff = bcast(mpi.global_comm, calc.mo_coeff)
 
             # update orbsym
             if mol.atom:
@@ -190,7 +190,7 @@ def fund(mpi, mol, calc):
 
             # receive mo coefficients
             calc.mo_coeff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-            calc.mo_coeff = bcast(mpi, calc.mo_coeff)
+            calc.mo_coeff = bcast(mpi.global_comm, calc.mo_coeff)
 
             # update orbsym
             if mol.atom:
@@ -222,26 +222,12 @@ def prop(mpi, calc):
         return calc
 
 
-def probe(mpi, tag_ready):
-        """
-        this function probes for available slaves
-
-        :param mpi: pymbe mpi object
-        :param tag_ready: mpi ready tag. enum
-        """
-        # probe for available slaves
-        mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=tag_ready, status=mpi.stat)
-
-        # receive slave status
-        mpi.global_comm.recv(None, source=mpi.stat.source, tag=tag_ready)
-
-
-def bcast(mpi, buff):
+def bcast(comm, buff):
         """
         this function performs a tiled Bcast operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
-        :param mpi: pymbe mpi object
+        :param comm: mpi communicator
         :param buff: buffer. numpy array of any kind of shape and dtype (may not be allocated on slave procs)
         :return: numpy array of same shape and dtype as master buffer
         """
@@ -250,17 +236,40 @@ def bcast(mpi, buff):
 
         # bcast all tiles
         for p0, p1 in lib.prange(0, buff.size, BLKSIZE):
-            mpi.global_comm.Bcast(buff_tile[p0:p1], root=0)
+            comm.Bcast(buff_tile[p0:p1], root=0)
 
         return buff
 
 
-def gatherv(mpi, send_buff, counts):
+def allreduce(comm, send_buff):
+        """
+        this function performs a tiled Allreduce operation
+        inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
+
+        :param comm: mpi communicator
+        :param send_buff: send buffer. numpy array of any kind of shape and dtype
+        :return: numpy array of same shape and dtype as send_buff
+        """
+        # init recv_buff        
+        recv_buff = np.zeros_like(send_buff)
+
+        # init send_tile and recv_tile
+        send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
+        recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
+
+        # allreduce all tiles
+        for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
+            comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM)
+
+        return recv_buff
+
+
+def gatherv(comm, send_buff, counts):
         """
         this function performs a gatherv operation using point-to-point operations
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
-        :param mpi: pymbe mpi object
+        :param comm: mpi communicator
         :param send_buff: send buffer. numpy array of any kind of shape and dtype
         :param counts: number of elements from individual processes. numpy array of shape (n_procs,)
         :return: numpy array of shape (n_child_tuples * (order+1),)
@@ -276,7 +285,7 @@ def gatherv(mpi, send_buff, counts):
                 slave_idx = np.sum(counts[:slave])
 
                 for p0, p1 in lib.prange(0, counts[slave], BLKSIZE):
-                    mpi.global_comm.Recv(recv_buff[slave_idx+p0:slave_idx+p1], source=slave)
+                    comm.Recv(recv_buff[slave_idx+p0:slave_idx+p1], source=slave)
 
             return recv_buff
 
@@ -284,7 +293,7 @@ def gatherv(mpi, send_buff, counts):
 
             # gatherv all tiles
             for p0, p1 in lib.prange(0, counts[mpi.rank], BLKSIZE):
-                mpi.global_comm.Send(send_buff[p0:p1], dest=0)
+                comm.Send(send_buff[p0:p1], dest=0)
 
             return send_buff
 

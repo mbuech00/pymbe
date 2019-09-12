@@ -52,8 +52,11 @@ def master(mpi, calc, exp):
             # set tups
             tups = tuples[task]
 
-            # get slave
-            parallel.probe(mpi, TAGS.ready)
+            # probe for available slaves
+            mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+            # receive slave status
+            mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
             # send tups to available slave
             mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
@@ -67,8 +70,11 @@ def master(mpi, calc, exp):
                 # set tups
                 tups = tuples_pi[task]
 
-                # get slave
-                parallel.probe(mpi, TAGS.ready)
+                # probe for available slaves
+                mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+                # receive slave status
+                mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
                 # send tups to available slave
                 mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
@@ -82,8 +88,11 @@ def master(mpi, calc, exp):
                 # set tups
                 tups = tuples_seed[task]
 
-                # get slave
-                parallel.probe(mpi, TAGS.ready)
+                # probe for available slaves
+                mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+                # receive slave status
+                mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
                 # send tups to available slave
                 mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed)
@@ -97,8 +106,11 @@ def master(mpi, calc, exp):
                 # set tups
                 tups = tuples_seed_pi[task]
 
-                # get slave
-                parallel.probe(mpi, TAGS.ready)
+                # probe for available slaves
+                mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+                # receive slave status
+                mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
                 # send tups to available slave
                 mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
@@ -106,8 +118,11 @@ def master(mpi, calc, exp):
         # done with all tasks
         while slaves_avail > 0:
 
-            # get slave
-            parallel.probe(mpi, TAGS.ready)
+            # probe for available slaves
+            mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
+
+            # receive slave status
+            mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
             # send exit signal to slave
             mpi.global_comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
@@ -136,7 +151,7 @@ def master(mpi, calc, exp):
         tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),)) # here, change this argument
 
         # gatherv all child tuples
-        tuples_new[:] = parallel.gatherv(mpi, child_tup, recv_counts)
+        tuples_new[:] = parallel.gatherv(mpi.local_comm, child_tup, recv_counts)
 
         # reshape tuples
         tuples_new = tuples_new.reshape(-1, exp.order+1)
@@ -294,7 +309,7 @@ def slave(mpi, calc, exp, slaves_needed):
         tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
 
         # gatherv all child tuples
-        child_tup = parallel.gatherv(mpi, child_tup, recv_counts)
+        child_tup = parallel.gatherv(mpi.local_comm, child_tup, recv_counts)
 
         # get handle to hashes window
         hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
