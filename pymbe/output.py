@@ -31,10 +31,11 @@ FILL = ' '+'|'*92
 BAR_LENGTH = 50
 
 
-def main_header(method=None):
+def main_header(mpi=None, method=None):
         """
         this function prints the main pymbe header
 
+        :param mpi: pymbe mpi object
         :param method: main method. string
         :return: formatted string
         """
@@ -47,14 +48,18 @@ def main_header(method=None):
         string += "   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8\n"
         string += "                .o..P'\n"
         string += "                `Y8P'\n\n\n"
-        string += "   -- date & time: {:s}\n"
-        string += "   -- git version: {:s}\n\n\n"
-
         # date & time
+        string += "   -- date & time   : {:s}\n"
         form = (datetime.now().strftime('%Y-%m-%d & %H:%M:%S'),)
-
         # git hash
+        string += "   -- git version   : {:s}\n"
         form += (tools.git_version(),)
+        if mpi is not None:
+            string += "   -- local masters :\n"
+            for master_idx in range(mpi.num_masters):
+                string += "   #### rank / node : {:>6d} / {:s}\n"
+                form += (mpi.master_global_ranks[master_idx], mpi.master_global_hosts[master_idx])
+        string += "\n\n"
 
         # method
         if method is not None:

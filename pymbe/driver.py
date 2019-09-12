@@ -36,7 +36,7 @@ def master(mpi, mol, calc, exp):
         :param exp: pymbe exp object
         """
         # print expansion headers
-        print(output.main_header(method=calc.model['method']))
+        print(output.main_header(mpi=mpi, method=calc.model['method']))
 
         # print output from restarted calculation
         if calc.restart:

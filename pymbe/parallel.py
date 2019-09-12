@@ -58,6 +58,8 @@ class MPICls(object):
                 self.master_comm = self.global_comm.Split(1 if self.local_master else MPI.UNDEFINED, self.global_rank)
                 if self.local_master:
                     self.num_masters = self.master_comm.Get_size()
+                    self.master_global_ranks = np.array(self.master_comm.allgather(self.global_rank))
+                    self.master_global_hosts = np.array(self.master_comm.allgather(self.host))
                 if self.global_master:
                     self.global_comm.bcast(self.num_masters, root=0)
                 else:
