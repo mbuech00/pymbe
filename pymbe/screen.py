@@ -170,7 +170,7 @@ def master(mpi, calc, exp):
         del ndets
 
         # bcast tuples
-        if mpi.num_masters > 1:
+        if mpi.num_masters > 1 and mpi.local_master:
             tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
 
         # mpi barrier
@@ -312,7 +312,7 @@ def slave(mpi, calc, exp, slaves_needed):
         child_tup = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
 
         # bcast tuples
-        if mpi.num_masters > 1:
+        if mpi.num_masters > 1 and mpi.local_master:
             tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
 
         # mpi barrier

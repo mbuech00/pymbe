@@ -59,7 +59,7 @@ def ints(mpi, mol, mo_coeff):
             hcore[:] = np.einsum('pi,pq,qj->ij', mo_coeff, hcore_tmp, mo_coeff)
 
         # bcast hcore
-        if mpi.num_masters > 1:
+        if mpi.num_masters > 1 and mpi.local_master:
             hcore[:] = parallel.bcast(mpi.master_comm, hcore)
 
         # eri_mo w/o symmetry
@@ -82,7 +82,7 @@ def ints(mpi, mol, mo_coeff):
                 vhf[i] -= np.einsum('pqrs->ps', eri_tmp[:, idx[:, None], idx, :]) * 2. * .5
 
         # bcast vhf
-        if mpi.num_masters > 1:
+        if mpi.num_masters > 1 and mpi.local_master:
             vhf[:] = parallel.bcast(mpi.master_comm, vhf)
 
         # allocate eri in shared mem
@@ -98,7 +98,7 @@ def ints(mpi, mol, mo_coeff):
             eri[:] = ao2mo.restore(4, eri_tmp, mol.norb)
 
         # bcast eri
-        if mpi.num_masters > 1:
+        if mpi.num_masters > 1 and mpi.local_master:
             eri[:] = parallel.bcast(mpi.master_comm, eri)
 
         # mpi barrier
