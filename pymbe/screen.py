@@ -200,7 +200,7 @@ def master(mpi, calc, exp):
             restart.write_gen(exp.order, hashes_new, 'mbe_hash')
 
         # mpi barrier
-        mpi.local_comm.barrier()
+        mpi.global_comm.barrier()
 
         return hashes_win, tuples_win, hashes_new.size, mean_ndets, min_ndets, max_ndets
 

@@ -192,6 +192,9 @@ def master(mpi, mol, calc, exp):
                 else:
                     mean_inc[k] = min_inc[k] = max_inc[k] = 0.0
 
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
         return inc_win, tot, mean_inc, min_inc, max_inc
 
 
