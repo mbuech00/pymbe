@@ -126,8 +126,14 @@ def init_tup(mpi, mol, calc):
             # mpi barrier
             mpi.local_comm.Barrier()
 
-            return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order, \
-                        [mean_ndets], [min_ndets], [max_ndets]
+            if mpi.global_master:
+
+                return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order, \
+                            [mean_ndets], [min_ndets], [max_ndets]
+
+            else:
+
+                return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
 
         else:
 
