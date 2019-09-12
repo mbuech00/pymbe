@@ -21,6 +21,8 @@ import shutil
 import re
 from pyscf import symm
 
+import parallel
+
 
 # restart folder
 RST = os.getcwd()+'/rst'
