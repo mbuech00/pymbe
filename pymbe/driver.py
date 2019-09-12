@@ -204,7 +204,7 @@ def slave(mpi, mol, calc, exp):
         while slave:
 
             # task id
-            msg = mpi.comm.bcast(None, root=0)
+            msg = mpi.global_comm.bcast(None, root=0)
 
             if msg['task'] == 'mbe':
 

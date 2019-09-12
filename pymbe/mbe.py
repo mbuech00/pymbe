@@ -46,7 +46,7 @@ def master(mpi, mol, calc, exp):
         """
         # wake up slaves
         msg = {'task': 'mbe', 'order': exp.order}
-        mpi.comm.bcast(msg, root=0)
+        mpi.global_comm.bcast(msg, root=0)
 
         # number of slaves
         n_slaves = mpi.size - 1
@@ -70,9 +70,9 @@ def master(mpi, mol, calc, exp):
 
             # new increments
             if calc.target in ['energy', 'excitation']:
-                inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.comm)
+                inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.local_comm)
             elif calc.target in ['dipole', 'trans']:
-                inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1] * 3, 8, comm=mpi.comm)
+                inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1] * 3, 8, comm=mpi.local_comm)
             buf = inc_win.Shared_query(0)[0]
             if calc.target in ['energy', 'excitation']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
@@ -84,7 +84,7 @@ def master(mpi, mol, calc, exp):
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
         # mpi barrier
-        mpi.comm.Barrier()
+        mpi.local_comm.Barrier()
 
         # start index
         if calc.target in ['energy', 'excitation']:
@@ -99,7 +99,7 @@ def master(mpi, mol, calc, exp):
             parallel.probe(mpi, TAGS.ready)
 
             # send tup_idx to slave
-            mpi.comm.send(tup_idx, dest=mpi.stat.source, tag=TAGS.task)
+            mpi.global_comm.send(tup_idx, dest=mpi.stat.source, tag=TAGS.task)
 
             # write restart file
             if calc.misc['rst'] and tup_idx % calc.misc['rst_interval'] == 0:
@@ -108,13 +108,15 @@ def master(mpi, mol, calc, exp):
                 for slave_idx in range(n_slaves):
 
                     # get slave
-                    mpi.comm.recv(None, source=slave_idx+1, tag=TAGS.ready)
+                    mpi.global_comm.recv(None, source=slave_idx+1, tag=TAGS.ready)
 
                     # send rst signal to slave
-                    mpi.comm.send(None, dest=slave_idx+1, tag=TAGS.rst)
+                    mpi.global_comm.send(None, dest=slave_idx+1, tag=TAGS.rst)
 
                 # mpi barrier
-                mpi.comm.Barrier()
+                mpi.global_comm.Barrier()
+
+                # here, allreduce among local masters if master_comm.size > 1
 
                 # save increments
                 restart.write_gen(exp.order, inc, 'mbe_inc')
@@ -129,7 +131,7 @@ def master(mpi, mol, calc, exp):
             parallel.probe(mpi, TAGS.ready)
 
             # send exit signal to slave
-            mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
+            mpi.global_comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 
             # remove slave
             n_slaves -= 1
@@ -138,7 +140,9 @@ def master(mpi, mol, calc, exp):
         print(output.mbe_status(1.0))
 
         # mpi barrier
-        mpi.comm.Barrier()
+        mpi.global_comm.Barrier()
+
+        # here, allreduce among local masters if master_comm.size > 1
 
         # save increments
         restart.write_gen(exp.order, inc, 'mbe_inc')
@@ -218,7 +222,7 @@ def slave(mpi, mol, calc, exp):
             inc_win = exp.prop[calc.target]['inc'][-1]
             buf = inc_win.Shared_query(0)[0]
         else:
-            inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+            inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
             buf = inc_win.Shared_query(0)[0]
         if calc.target in ['energy', 'excitation']:
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
@@ -232,22 +236,22 @@ def slave(mpi, mol, calc, exp):
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
         # mpi barrier
-        mpi.comm.Barrier()
+        mpi.local_comm.Barrier()
 
         # send availability to master
-        mpi.comm.send(None, dest=0, tag=TAGS.ready)
+        mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
         # receive work from master
         while True:
 
             # probe for available task
-            mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+            mpi.global_comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
             # do task
             if mpi.stat.tag == TAGS.task:
 
                 # receive tup_idx
-                tup_idx = mpi.comm.recv(source=0, tag=TAGS.task)
+                tup_idx = mpi.global_comm.recv(source=0, tag=TAGS.task)
 
                 # recover tup
                 tup = tuples[tup_idx]
@@ -272,28 +276,28 @@ def slave(mpi, mol, calc, exp):
                                         inc, hashes, tup, core_idx, cas_idx)
 
                 # send availability to master
-                mpi.comm.send(None, dest=0, tag=TAGS.ready)
+                mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
             elif mpi.stat.tag == TAGS.rst:
 
                 # receive rst signal
-                mpi.comm.recv(None, source=0, tag=TAGS.rst)
+                mpi.global_comm.recv(None, source=0, tag=TAGS.rst)
 
                 # mpi barrier
-                mpi.comm.Barrier()
+                mpi.global_comm.Barrier()
 
                 # send availability to master
-                mpi.comm.send(None, dest=0, tag=TAGS.ready)
+                mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
             elif mpi.stat.tag == TAGS.exit:
 
                 # receive exit signal
-                mpi.comm.recv(None, source=0, tag=TAGS.exit)
+                mpi.global_comm.recv(None, source=0, tag=TAGS.exit)
 
                 break
 
         # mpi barrier
-        mpi.comm.Barrier()
+        mpi.global_comm.Barrier()
 
         return inc_win
 

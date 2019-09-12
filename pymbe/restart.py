@@ -70,14 +70,18 @@ def main(mpi, calc, exp):
         # loop over all other files
         for i in range(len(files)):
 
+            # first, only global_master reads file
+            # second, bcast among local masters if master_comm.size > 1
+            # third, place in shared memory
+
             # read tuples
             if 'mbe_tup' in files[i]:
                 n_tasks = exp.n_tasks[-1]
                 order = len(exp.n_tasks) + exp.min_order - 1
                 if mpi.master:
-                    exp.tuples = MPI.Win.Allocate_shared(4 * n_tasks * order, 4, comm=mpi.comm)
+                    exp.tuples = MPI.Win.Allocate_shared(4 * n_tasks * order, 4, comm=mpi.local_comm)
                 else:
-                    exp.tuples = MPI.Win.Allocate_shared(0, 4, comm=mpi.comm)
+                    exp.tuples = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
                 buf = exp.tuples.Shared_query(0)[0]
                 tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(n_tasks, order))
                 if mpi.master:
@@ -87,9 +91,9 @@ def main(mpi, calc, exp):
             elif 'mbe_hash' in files[i]:
                 n_tasks = exp.n_tasks[len(exp.hashes)]
                 if mpi.master:
-                    exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.comm))
+                    exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
                 else:
-                    exp.hashes.append(MPI.Win.Allocate_shared(0, 8, comm=mpi.comm))
+                    exp.hashes.append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
                 buf = exp.hashes[-1].Shared_query(0)[0]
                 hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
                 if mpi.master:
@@ -100,11 +104,11 @@ def main(mpi, calc, exp):
                 n_tasks = exp.n_tasks[len(exp.prop[calc.target]['inc'])]
                 if mpi.master:
                     if calc.target in ['energy', 'excitation']:
-                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.comm))
+                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
                     elif calc.target in ['dipole', 'trans']:
-                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.comm))
+                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.local_comm))
                 else:
-                    exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.comm))
+                    exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
                 buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
                 if calc.target in ['energy', 'excitation']:
                     inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
@@ -140,7 +144,7 @@ def main(mpi, calc, exp):
                 exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
 
         # mpi barrier
-        mpi.comm.Barrier()
+        mpi.global_comm.Barrier()
 
         return tuples.shape[1]
 

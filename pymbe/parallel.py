@@ -40,16 +40,31 @@ class MPICls(object):
                 """
                 init mpi attributes
                 """
-                self.comm = MPI.COMM_WORLD
-                self.size = self.comm.Get_size()
-                self.rank = self.comm.Get_rank()
-                self.master = (self.rank == 0)
-                self.slave = not self.master
+                # general
                 self.host = MPI.Get_processor_name()
                 self.stat = MPI.Status()
-
-                if self.master:
-                    tools.assertion(self.size >= 2, 'PyMBE requires two or more MPI processes')
+                # global communicator
+                self.global_comm = MPI.COMM_WORLD
+                self.global_size = self.global_comm.Get_size()
+                if self.global_master:
+                    tools.assertion(self.global_size >= 2, 'PyMBE requires two or more MPI processes')
+                self.global_rank = self.global_comm.Get_rank()
+                self.global_master = (self.rank == 0)
+                self.global_slave = not self.global_master
+                # local node communicator (memory sharing)
+                self.local_comm = self.global_comm.Split_type(MPI.COMM_TYPE_SHARED)
+                self.local_size = self.local_comm.Get_size()
+                self.local_rank = self.local_comm.Get_rank()
+                self.local_master = self.local_rank == 0
+                # master communicator
+                mpi.master_comm = mpi.global_comm.Split(1 if self.local_master else MPI.UNDEFINED)
+                if self.local_master:
+                    self.master_size = self.num_masters = self.master_comm.Get_size()
+                    self.master_rank = self.master_comm.Get_rank()
+                if self.global_master:
+                    mpi.global_comm.bcast(self.num_masters, root=0)
+                else:
+                    self.num_masters = mpi.global_comm.bcast(None, root=0)
 
 
 def mol(mpi, mol):
@@ -78,12 +93,12 @@ def mol(mpi, mol):
                 info['nelectron'] = mol.nelectron
 
             # bcast to slaves
-            mpi.comm.bcast(info, root=0)
+            mpi.global_comm.bcast(info, root=0)
 
         else:
 
             # receive info from master
-            info = mpi.comm.bcast(None, root=0)
+            info = mpi.global_comm.bcast(None, root=0)
 
             # set mol attributes from info dict
             for key, val in info.items():
@@ -109,12 +124,12 @@ def calc(mpi, calc):
                     'orbs': calc.orbs, 'restart': calc.restart}
 
             # bcast to slaves
-            mpi.comm.bcast(info, root=0)
+            mpi.global_comm.bcast(info, root=0)
 
         else:
 
             # receive info from master
-            info = mpi.comm.bcast(None, root=0)
+            info = mpi.global_comm.bcast(None, root=0)
 
             # set calc attributes from info dict
             for key, val in info.items():
@@ -139,14 +154,14 @@ def fund(mpi, mol, calc):
             info = {'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, 'e_nuc': mol.e_nuc}
 
             # bcast to slaves
-            mpi.comm.bcast(info, root=0)
+            mpi.global_comm.bcast(info, root=0)
 
             # collect standard info (must be updated with new future attributes)
             info = {'occup': calc.occup, 'mo_energy': calc.mo_energy, \
                     'ref_space': calc.ref_space, 'exp_space': calc.exp_space}
 
             # bcast to slaves
-            mpi.comm.bcast(info, root=0)
+            mpi.global_comm.bcast(info, root=0)
 
             # bcast mo coefficients
             calc.mo_coeff = bcast(mpi, calc.mo_coeff)
@@ -160,14 +175,14 @@ def fund(mpi, mol, calc):
         else:
 
             # receive info from master
-            info = mpi.comm.bcast(None, root=0)
+            info = mpi.global_comm.bcast(None, root=0)
 
             # set mol attributes from info dict
             for key, val in info.items():
                 setattr(mol, key, val)
 
             # receive info from master
-            info = mpi.comm.bcast(None, root=0)
+            info = mpi.global_comm.bcast(None, root=0)
 
             # set calc attributes from info dict
             for key, val in info.items():
@@ -197,12 +212,12 @@ def prop(mpi, calc):
         if mpi.master:
 
             # bcast to slaves
-            mpi.comm.bcast(calc.prop, root=0)
+            mpi.global_comm.bcast(calc.prop, root=0)
 
         else:
 
             # receive prop from master
-            calc.prop = mpi.comm.bcast(None, root=0)
+            calc.prop = mpi.global_comm.bcast(None, root=0)
 
         return calc
 
@@ -215,10 +230,10 @@ def probe(mpi, tag_ready):
         :param tag_ready: mpi ready tag. enum
         """
         # probe for available slaves
-        mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=tag_ready, status=mpi.stat)
+        mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=tag_ready, status=mpi.stat)
 
         # receive slave status
-        mpi.comm.recv(None, source=mpi.stat.source, tag=tag_ready)
+        mpi.global_comm.recv(None, source=mpi.stat.source, tag=tag_ready)
 
 
 def bcast(mpi, buff):
@@ -235,7 +250,7 @@ def bcast(mpi, buff):
 
         # bcast all tiles
         for p0, p1 in lib.prange(0, buff.size, BLKSIZE):
-            mpi.comm.Bcast(buff_tile[p0:p1], root=0)
+            mpi.global_comm.Bcast(buff_tile[p0:p1], root=0)
 
         return buff
 
@@ -261,7 +276,7 @@ def gatherv(mpi, send_buff, counts):
                 slave_idx = np.sum(counts[:slave])
 
                 for p0, p1 in lib.prange(0, counts[slave], BLKSIZE):
-                    mpi.comm.Recv(recv_buff[slave_idx+p0:slave_idx+p1], source=slave)
+                    mpi.global_comm.Recv(recv_buff[slave_idx+p0:slave_idx+p1], source=slave)
 
             return recv_buff
 
@@ -269,7 +284,7 @@ def gatherv(mpi, send_buff, counts):
 
             # gatherv all tiles
             for p0, p1 in lib.prange(0, counts[mpi.rank], BLKSIZE):
-                mpi.comm.Send(send_buff[p0:p1], dest=0)
+                mpi.global_comm.Send(send_buff[p0:p1], dest=0)
 
             return send_buff
 
@@ -290,10 +305,10 @@ def finalize(mpi):
         # wake up slaves
         if mpi.master:
             restart.rm()
-            mpi.comm.bcast({'task': 'exit'}, root=0)
+            mpi.global_comm.bcast({'task': 'exit'}, root=0)
 
         # finalize
-        mpi.comm.Barrier()
+        mpi.global_comm.Barrier()
         MPI.Finalize()
 
 

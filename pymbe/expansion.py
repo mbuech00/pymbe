@@ -90,7 +90,7 @@ def init_tup(mpi, mol, calc):
         if mpi.master:
 
             # allocate tuples
-            tuples_win = MPI.Win.Allocate_shared(4 * tuples_tmp.size, 4, comm=mpi.comm)
+            tuples_win = MPI.Win.Allocate_shared(4 * tuples_tmp.size, 4, comm=mpi.local_comm)
             buf = tuples_win.Shared_query(0)[0]
             tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=tuples_tmp.shape)
 
@@ -113,7 +113,7 @@ def init_tup(mpi, mol, calc):
             del ndets
 
             # allocate hashes
-            hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=mpi.comm)
+            hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=mpi.local_comm)
             buf = hashes_win.Shared_query(0)[0]
             hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples.shape[0],))
 
@@ -124,7 +124,7 @@ def init_tup(mpi, mol, calc):
             hashes.sort()
 
             # mpi barrier
-            mpi.comm.Barrier()
+            mpi.local_comm.Barrier()
 
             return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order, \
                         [mean_ndets], [min_ndets], [max_ndets]
@@ -132,13 +132,13 @@ def init_tup(mpi, mol, calc):
         else:
 
             # get handle to tuples window
-            tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.comm)
+            tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
 
             # get handle to hashes window
-            hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+            hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
 
             # mpi barrier
-            mpi.comm.Barrier()
+            mpi.local_comm.Barrier()
 
             return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
 

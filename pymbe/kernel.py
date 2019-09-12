@@ -47,9 +47,9 @@ def ints(mpi, mol, mo_coeff):
 
         # allocate hcore in shared mem
         if mpi.master:
-            hcore_win = MPI.Win.Allocate_shared(8 * mol.norb**2, 8, comm=mpi.comm)
+            hcore_win = MPI.Win.Allocate_shared(8 * mol.norb**2, 8, comm=mpi.local_comm)
         else:
-            hcore_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+            hcore_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
         buf = hcore_win.Shared_query(0)[0]
         hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
 
@@ -63,9 +63,9 @@ def ints(mpi, mol, mo_coeff):
 
         # allocate vhf in shared mem
         if mpi.master:
-            vhf_win = MPI.Win.Allocate_shared(8 * mol.nocc*mol.norb**2, 8, comm=mpi.comm)
+            vhf_win = MPI.Win.Allocate_shared(8 * mol.nocc*mol.norb**2, 8, comm=mpi.local_comm)
         else:
-            vhf_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+            vhf_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
         buf = vhf_win.Shared_query(0)[0]
         vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
 
@@ -78,15 +78,18 @@ def ints(mpi, mol, mo_coeff):
 
         # allocate eri in shared mem
         if mpi.master:
-            eri_win = MPI.Win.Allocate_shared(8 * (mol.norb * (mol.norb + 1) // 2) ** 2, 8, comm=mpi.comm)
+            eri_win = MPI.Win.Allocate_shared(8 * (mol.norb * (mol.norb + 1) // 2) ** 2, 8, comm=mpi.local_comm)
         else:
-            eri_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+            eri_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
         buf = eri_win.Shared_query(0)[0]
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
 
         # restore 4-fold symmetry in eri_mo
         if mpi.master:
             eri[:] = ao2mo.restore(4, eri_tmp, mol.norb)
+
+        # mpi barrier
+        mpi.local_comm.Barrier()
 
         return hcore_win, vhf_win, eri_win
 

@@ -44,7 +44,7 @@ def master(mpi, calc, exp):
 
         # wake up slaves
         msg = {'task': 'screen', 'order': exp.order, 'slaves_needed': slaves_avail}
-        mpi.comm.bcast(msg, root=0)
+        mpi.global_comm.bcast(msg, root=0)
 
         # loop until no tasks left
         for task in tasks:
@@ -56,7 +56,7 @@ def master(mpi, calc, exp):
             parallel.probe(mpi, TAGS.ready)
 
             # send tups to available slave
-            mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
+            mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
 
         # pi-pruning
         if tasks_pi is not None:
@@ -71,7 +71,7 @@ def master(mpi, calc, exp):
                 parallel.probe(mpi, TAGS.ready)
 
                 # send tups to available slave
-                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
+                mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
 
         # seed
         if tasks_seed is not None:
@@ -86,7 +86,7 @@ def master(mpi, calc, exp):
                 parallel.probe(mpi, TAGS.ready)
 
                 # send tups to available slave
-                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed)
+                mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed)
 
         # seed w/ pi-pruning
         if tasks_seed_pi is not None:
@@ -101,7 +101,7 @@ def master(mpi, calc, exp):
                 parallel.probe(mpi, TAGS.ready)
 
                 # send tups to available slave
-                mpi.comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
+                mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
 
         # done with all tasks
         while slaves_avail > 0:
@@ -110,7 +110,7 @@ def master(mpi, calc, exp):
             parallel.probe(mpi, TAGS.ready)
 
             # send exit signal to slave
-            mpi.comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
+            mpi.global_comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
 
             # remove slave
             slaves_avail -= 1
@@ -122,16 +122,18 @@ def master(mpi, calc, exp):
             child_tup = np.array([], dtype=np.int32)
 
         # allgather number of child tuples
-        recv_counts = np.array(mpi.comm.allgather(child_tup.size))
+        recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
             return None, None, 0
 
+        # here, bcast to local masters
+
         # allocate tuples
-        tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.comm)
+        tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
         buf = tuples_win.Shared_query(0)[0]
-        tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),))
+        tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),)) # here, change this argument
 
         # gatherv all child tuples
         tuples_new[:] = parallel.gatherv(mpi, child_tup, recv_counts)
@@ -159,7 +161,7 @@ def master(mpi, calc, exp):
             restart.write_gen(None, tuples_new, 'mbe_tup')
 
         # allocate hashes
-        hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.comm)
+        hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.local_comm)
         buf = hashes_win.Shared_query(0)[0]
         hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples_new.shape[0],))
 
@@ -174,7 +176,7 @@ def master(mpi, calc, exp):
             restart.write_gen(exp.order, hashes_new, 'mbe_hash')
 
         # mpi barrier
-        mpi.comm.Barrier()
+        mpi.global_comm.Barrier()
 
         return hashes_win, tuples_win, hashes_new.size, mean_ndets, min_ndets, max_ndets
 
@@ -196,7 +198,7 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # send availability to master
         if mpi.rank <= slaves_needed:
-            mpi.comm.send(None, dest=0, tag=TAGS.ready)
+            mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
         # load increments for current order
         buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
@@ -219,7 +221,7 @@ def slave(mpi, calc, exp, slaves_needed):
                 break
 
             # probe for task
-            mpi.comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+            mpi.global_comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
             # do task
             if mpi.stat.tag in [TAGS.tup, TAGS.tup_pi, TAGS.tup_seed, TAGS.tup_seed_pi]:
@@ -236,7 +238,7 @@ def slave(mpi, calc, exp, slaves_needed):
                 tups = np.empty([n_elms // tup_order, tup_order], dtype=np.int32)
 
                 # receive tups
-                mpi.comm.Recv([tups, MPI.INT], source=0, tag=mpi.stat.tag)
+                mpi.global_comm.Recv([tups, MPI.INT], source=0, tag=mpi.stat.tag)
 
                 # loop over tups
                 for tup in tups:
@@ -270,35 +272,35 @@ def slave(mpi, calc, exp, slaves_needed):
                             child_tup += tup + [orb]
 
                 # send availability to master
-                mpi.comm.send(None, dest=0, tag=TAGS.ready)
+                mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
             elif mpi.stat.tag == TAGS.exit:
 
                 # exit
-                mpi.comm.recv(None, source=0, tag=TAGS.exit)
+                mpi.global_comm.recv(None, source=0, tag=TAGS.exit)
                 break
 
         # recast child tuples as array
         child_tup = np.array(child_tup, dtype=np.int32)
 
         # allgather number of child tuples
-        recv_counts = np.array(mpi.comm.allgather(child_tup.size))
+        recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
             return None, None, 0
 
         # get handle to tuples
-        tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.comm)
+        tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
 
         # gatherv all child tuples
         child_tup = parallel.gatherv(mpi, child_tup, recv_counts)
 
         # get handle to hashes window
-        hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.comm)
+        hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
 
         # mpi barrier
-        mpi.comm.Barrier()
+        mpi.global_comm.Barrier()
 
         return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order+1)
 
