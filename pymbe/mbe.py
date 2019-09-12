@@ -235,7 +235,13 @@ def slave(mpi, mol, calc, exp):
             inc_win = exp.prop[calc.target]['inc'][-1]
             buf = inc_win.Shared_query(0)[0]
         else:
-            inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+            if mpi.local_master:
+                if calc.target in ['energy', 'excitation']:
+                    inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.local_comm)
+                elif calc.target in ['dipole', 'trans']:
+                    inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1] * 3, 8, comm=mpi.local_comm)
+            else:
+                inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
             buf = inc_win.Shared_query(0)[0]
         if calc.target in ['energy', 'excitation']:
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))

@@ -306,7 +306,10 @@ def slave(mpi, calc, exp, slaves_needed):
             return None, None, 0
 
         # get handle to tuples
-        tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
+        if mpi.local_master:
+            tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
+        else:
+            tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
 
         # gatherv all child tuples
         child_tup = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
@@ -319,12 +322,15 @@ def slave(mpi, calc, exp, slaves_needed):
         mpi.local_comm.barrier()
 
         # get handle to hashes window
-        hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+        if mpi.local_master:
+            hashes_win = MPI.Win.Allocate_shared(8 * (np.sum(recv_counts) // (exp.order + 1)), 8, comm=mpi.local_comm)
+        else:
+            hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
 
         # mpi barrier
         mpi.local_comm.Barrier()
 
-        return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order+1)
+        return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order + 1)
 
 
 def _set_screen(mpi, calc, exp):
