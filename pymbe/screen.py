@@ -143,15 +143,13 @@ def master(mpi, calc, exp):
         if np.sum(recv_counts) == 0:
             return None, None, 0
 
-        # here, bcast to local masters
-
         # allocate tuples
         tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
         buf = tuples_win.Shared_query(0)[0]
-        tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),)) # here, change this argument
+        tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),))
 
-        # gatherv all child tuples
-        tuples_new[:] = parallel.gatherv(mpi.local_comm, child_tup, recv_counts)
+        # gatherv all child tuples onto global master
+        tuples_new[:] = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
 
         # reshape tuples
         tuples_new = tuples_new.reshape(-1, exp.order+1)
@@ -170,6 +168,13 @@ def master(mpi, calc, exp):
 
         # free memory allocated for ndets
         del ndets
+
+        # bcast tuples
+        if mpi.num_masters > 1:
+            tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
+
+        # mpi barrier
+        mpi.local_comm.barrier()
 
         # save tuples
         if calc.misc['rst']:
@@ -191,7 +196,7 @@ def master(mpi, calc, exp):
             restart.write_gen(exp.order, hashes_new, 'mbe_hash')
 
         # mpi barrier
-        mpi.global_comm.Barrier()
+        mpi.local_comm.barrier()
 
         return hashes_win, tuples_win, hashes_new.size, mean_ndets, min_ndets, max_ndets
 
@@ -309,13 +314,20 @@ def slave(mpi, calc, exp, slaves_needed):
         tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
 
         # gatherv all child tuples
-        child_tup = parallel.gatherv(mpi.local_comm, child_tup, recv_counts)
+        child_tup = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
+
+        # bcast tuples
+        if mpi.num_masters > 1:
+            tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
+
+        # mpi barrier
+        mpi.local_comm.barrier()
 
         # get handle to hashes window
         hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
 
         # mpi barrier
-        mpi.global_comm.Barrier()
+        mpi.local_comm.Barrier()
 
         return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order+1)
 
