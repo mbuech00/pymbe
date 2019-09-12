@@ -307,7 +307,7 @@ def slave(mpi, mol, calc, exp):
 
                 # allreduce increments among local masters
                 if mpi.num_masters > 1 and mpi.local_master:
-                    inc[:] = parallel.allreduce(mpi.master_comm, inc)
+                    inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1])
 
                 # send availability to master
                 mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
@@ -324,7 +324,7 @@ def slave(mpi, mol, calc, exp):
 
         # allreduce increments among local masters
         if mpi.num_masters > 1 and mpi.local_master:
-            inc[:] = parallel.allreduce(mpi.master_comm, inc)
+            inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1])
 
         # mpi barrier
         mpi.local_comm.Barrier()
