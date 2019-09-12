@@ -241,7 +241,7 @@ def slave(mpi, calc, exp, slaves_needed):
         while True:
 
             # early exit in case of large proc count
-            if mpi.rank > slaves_needed:
+            if mpi.global_rank > slaves_needed:
                 break
 
             # probe for task
