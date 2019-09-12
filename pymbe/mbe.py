@@ -78,7 +78,6 @@ def master(mpi, mol, calc, exp):
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
             elif calc.target in ['dipole', 'trans']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3))
-                inc[:] = np.zeros_like(inc, dtype=np.float64)
 
             # save increments
             if calc.misc['rst']:
@@ -251,7 +250,6 @@ def slave(mpi, mol, calc, exp):
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
         elif calc.target in ['dipole', 'trans']:
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3)))
-        inc[-1][:] = np.zeros_like(inc[-1], dtype=np.float64)
 
         # load hashes for current and previous orders
         hashes = []
