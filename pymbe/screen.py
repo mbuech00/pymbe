@@ -346,7 +346,7 @@ def slave(mpi, calc, exp, slaves_needed):
             hashes_new[:] = parallel.bcast(mpi.master_comm, hashes_new)
 
         # mpi barrier
-        mpi.local_comm.Barrier()
+        mpi.global_comm.Barrier()
 
         return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order + 1)
 

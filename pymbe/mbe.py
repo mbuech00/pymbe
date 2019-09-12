@@ -332,6 +332,9 @@ def slave(mpi, mol, calc, exp):
         # mpi barrier
         mpi.local_comm.Barrier()
 
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
         return inc_win
 
 
