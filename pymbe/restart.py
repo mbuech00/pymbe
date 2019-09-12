@@ -92,7 +92,7 @@ def main(mpi, calc, exp):
                 tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(n_tasks, order))
                 if mpi.global_master:
                     tuples[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.local_master:
+                if mpi.num_masters > 1 and mpi.local_master:
                     tuples[:] = parallel.bcast(mpi.master_comm, tuples)
                 mpi.local_comm.Barrier()
 
@@ -107,7 +107,7 @@ def main(mpi, calc, exp):
                 hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
                 if mpi.global_master:
                     hashes[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.local_master:
+                if mpi.num_masters > 1 and mpi.local_master:
                     hashes[:] = parallel.bcast(mpi.master_comm, hashes)
                 mpi.local_comm.Barrier()
 
@@ -128,7 +128,7 @@ def main(mpi, calc, exp):
                     inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks, 3))
                 if mpi.global_master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.local_master:
+                if mpi.num_masters > 1 and mpi.local_master:
                     inc[:] = parallel.bcast(mpi.master_comm, inc)
                 mpi.local_comm.Barrier()
 

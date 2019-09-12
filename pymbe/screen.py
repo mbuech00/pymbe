@@ -170,7 +170,7 @@ def master(mpi, calc, exp):
         del ndets
 
         # bcast tuples
-        if mpi.num_masters > 1 and mpi.local_master:
+        if mpi.num_masters > 1:
             tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
 
         # mpi barrier
@@ -190,6 +190,10 @@ def master(mpi, calc, exp):
 
         # sort hashes
         hashes_new.sort()
+
+        # bcast hashes
+        if mpi.num_masters > 1:
+            hashes_new[:] = parallel.bcast(mpi.master_comm, hashes_new)
 
         # save hashes
         if calc.misc['rst']:
@@ -332,7 +336,7 @@ def slave(mpi, calc, exp, slaves_needed):
         else:
             hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
 
-        # bcast tuples
+        # bcast hashes
         if mpi.num_masters > 1 and mpi.local_master:
             hashes_new[:] = parallel.bcast(mpi.master_comm, hashes_new)
 
