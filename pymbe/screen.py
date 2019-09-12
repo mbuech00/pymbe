@@ -221,7 +221,8 @@ def slave(mpi, calc, exp, slaves_needed):
         child_tup = []
 
         # send availability to master
-        mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
+        if mpi.global_rank <= slaves_needed:
+            mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
         # load increments for current order
         buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
@@ -238,6 +239,10 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # receive work from master
         while True:
+
+            # early exit in case of large proc count
+            if mpi.rank > slaves_needed:
+                break
 
             # probe for task
             mpi.global_comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
