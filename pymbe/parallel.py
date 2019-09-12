@@ -48,19 +48,16 @@ class MPICls(object):
                 self.global_size = self.global_comm.Get_size()
                 self.global_rank = self.global_comm.Get_rank()
                 self.global_master = (self.global_rank == 0)
-                self.global_slave = not self.global_master
                 if self.global_master:
                     tools.assertion(self.global_size >= 2, 'PyMBE requires two or more MPI processes')
                 # local node communicator (memory sharing)
-                self.local_comm = self.global_comm.Split_type(MPI.COMM_TYPE_SHARED)
-                self.local_size = self.local_comm.Get_size()
+                self.local_comm = self.global_comm.Split_type(MPI.COMM_TYPE_SHARED, self.global_rank)
                 self.local_rank = self.local_comm.Get_rank()
-                self.local_master = self.local_rank == 0
+                self.local_master = (self.local_rank == 0)
                 # master communicator
-                self.master_comm = self.global_comm.Split(1 if self.local_master else MPI.UNDEFINED)
+                self.master_comm = self.global_comm.Split(1 if self.local_master else MPI.UNDEFINED, self.global_rank)
                 if self.local_master:
-                    self.master_size = self.num_masters = self.master_comm.Get_size()
-                    self.master_rank = self.master_comm.Get_rank()
+                    self.num_masters = self.master_comm.Get_size()
                 if self.global_master:
                     self.global_comm.bcast(self.num_masters, root=0)
                 else:

@@ -84,7 +84,7 @@ def master(mpi, mol, calc, exp):
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
         # mpi barrier
-        mpi.local_comm.Barrier()
+        mpi.global_comm.Barrier()
 
         # start index
         if calc.target in ['energy', 'excitation']:
@@ -258,7 +258,7 @@ def slave(mpi, mol, calc, exp):
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
         # mpi barrier
-        mpi.local_comm.Barrier()
+        mpi.global_comm.Barrier()
 
         # send availability to master
         mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
