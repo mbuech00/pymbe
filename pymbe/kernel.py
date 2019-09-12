@@ -42,11 +42,11 @@ def ints(mpi, mol, mo_coeff):
                  MPI window handle to numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) [eri]
         """
         # hcore_ao and eri_ao w/o symmetry
-        if mpi.master:
+        if mpi.global_master:
             hcore_tmp, eri_tmp = _ao_ints(mol)
 
         # allocate hcore in shared mem
-        if mpi.master:
+        if mpi.local_master:
             hcore_win = MPI.Win.Allocate_shared(8 * mol.norb**2, 8, comm=mpi.local_comm)
         else:
             hcore_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
@@ -54,15 +54,19 @@ def ints(mpi, mol, mo_coeff):
         hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
 
         # compute hcore
-        if mpi.master:
+        if mpi.global_master:
             hcore[:] = np.einsum('pi,pq,qj->ij', mo_coeff, hcore_tmp, mo_coeff)
 
+        # bcast hcore
+        if mpi.num_masters > 1:
+            hcore[:] = parallel.bcast(mpi.master_comm, hcore)
+
         # eri_mo w/o symmetry
-        if mpi.master:
+        if mpi.global_master:
             eri_tmp = ao2mo.incore.full(eri_tmp, mo_coeff)
 
         # allocate vhf in shared mem
-        if mpi.master:
+        if mpi.local_master:
             vhf_win = MPI.Win.Allocate_shared(8 * mol.nocc*mol.norb**2, 8, comm=mpi.local_comm)
         else:
             vhf_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
@@ -70,14 +74,18 @@ def ints(mpi, mol, mo_coeff):
         vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
 
         # compute vhf
-        if mpi.master:
+        if mpi.global_master:
             for i in range(mol.nocc):
                 idx = np.asarray([i])
                 vhf[i] = np.einsum('pqrs->rs', eri_tmp[idx[:, None], idx, :, :]) * 2.
                 vhf[i] -= np.einsum('pqrs->ps', eri_tmp[:, idx[:, None], idx, :]) * 2. * .5
 
+        # bcast vhf
+        if mpi.num_masters > 1:
+            vhf[:] = parallel.bcast(mpi.master_comm, vhf)
+
         # allocate eri in shared mem
-        if mpi.master:
+        if mpi.local_master:
             eri_win = MPI.Win.Allocate_shared(8 * (mol.norb * (mol.norb + 1) // 2) ** 2, 8, comm=mpi.local_comm)
         else:
             eri_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
@@ -85,11 +93,15 @@ def ints(mpi, mol, mo_coeff):
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
 
         # restore 4-fold symmetry in eri_mo
-        if mpi.master:
+        if mpi.global_master:
             eri[:] = ao2mo.restore(4, eri_tmp, mol.norb)
 
+        # bcast eri
+        if mpi.num_masters > 1:
+            eri[:] = parallel.bcast(mpi.master_comm, eri)
+
         # mpi barrier
-        mpi.local_comm.Barrier()
+        mpi.global_comm.Barrier()
 
         return hcore_win, vhf_win, eri_win
 
