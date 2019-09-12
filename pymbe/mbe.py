@@ -49,7 +49,7 @@ def master(mpi, mol, calc, exp):
         mpi.global_comm.bcast(msg, root=0)
 
         # number of slaves
-        n_slaves = mpi.size - 1
+        n_slaves = mpi.global_size - 1
 
         # load tuples
         buf = exp.tuples.Shared_query(0)[0]

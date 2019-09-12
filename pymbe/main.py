@@ -33,7 +33,7 @@ def main():
         # init mpi, mol, calc, and exp objects
         mpi, mol, calc, exp = setup.main()
 
-        if mpi.master:
+        if mpi.global_master:
 
             # rm out dir if present
             if os.path.isdir(output.OUT):

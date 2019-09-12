@@ -64,7 +64,7 @@ def _mol(mpi):
         mol = system.MolCls()
 
         # input handling
-        if mpi.master:
+        if mpi.global_master:
 
             # read input
             mol = system.set_system(mol)
@@ -96,7 +96,7 @@ def _calc(mpi, mol):
         calc = calculation.CalcCls(mol)
 
         # input handling
-        if mpi.master:
+        if mpi.global_master:
 
             # read input
             calc = calculation.set_calc(calc)
@@ -136,7 +136,7 @@ def _exp(mpi, mol, calc):
         # nuclear repulsion energy
         mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.0
 
-        if mpi.master:
+        if mpi.global_master:
 
             if calc.restart:
 
@@ -164,14 +164,14 @@ def _exp(mpi, mol, calc):
         mol.hcore, mol.vhf, mol.eri = kernel.ints(mpi, mol, calc.mo_coeff)
 
         # write fundamental info
-        if mpi.master and calc.misc['rst']:
+        if mpi.global_master and calc.misc['rst']:
             restart.write_fund(mol, calc)
 
         # pyscf hf object not needed anymore
-        if mpi.master and not calc.restart:
+        if mpi.global_master and not calc.restart:
             del calc.hf
 
-        if mpi.master:
+        if mpi.global_master:
 
             # base energy
             if calc.base['method'] is not None:
@@ -183,21 +183,21 @@ def _exp(mpi, mol, calc):
             calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
 
         # mo_coeff not needed anymore
-        if mpi.master:
+        if mpi.global_master:
             del calc.mo_coeff
 
         # bcast properties
         calc = parallel.prop(mpi, calc)
 
         # write properties
-        if mpi.master and calc.misc['rst']:
+        if mpi.global_master and calc.misc['rst']:
             restart.write_prop(mol, calc)
 
         # exp object
         exp = expansion.ExpCls(mol, calc)
 
         # init hashes, n_tasks, and tuples
-        if mpi.master:
+        if mpi.global_master:
             exp.hashes, exp.tuples, exp.n_tasks, exp.min_order, \
                 exp.mean_ndets, exp.min_ndets, exp.max_ndets = expansion.init_tup(mpi, mol, calc)
         else:

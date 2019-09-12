@@ -61,48 +61,58 @@ def main(mpi, calc, exp):
         files.sort(key=_natural_keys)
 
         # loop over n_tasks files
-        for i in range(len(files)):
+        if mpi.global_master:
 
-            # read n_tasks
-            if 'mbe_n_tasks' in files[i]:
-                exp.n_tasks.append(np.load(os.path.join(RST, files[i])))
+            for i in range(len(files)):
+
+                # read n_tasks
+                if 'mbe_n_tasks' in files[i]:
+                    exp.n_tasks.append(np.load(os.path.join(RST, files[i])))
+
+            mpi.global_comm.bcast(exp.n_tasks, root=0)
+
+        else:
+
+            exp.n_tasks = mpi.global_comm.bcast(None, root=0)
 
         # loop over all other files
         for i in range(len(files)):
-
-            # first, only global_master reads file
-            # second, bcast among local masters if master_comm.size > 1
-            # third, place in shared memory
 
             # read tuples
             if 'mbe_tup' in files[i]:
                 n_tasks = exp.n_tasks[-1]
                 order = len(exp.n_tasks) + exp.min_order - 1
-                if mpi.master:
+                if mpi.local_master:
                     exp.tuples = MPI.Win.Allocate_shared(4 * n_tasks * order, 4, comm=mpi.local_comm)
                 else:
                     exp.tuples = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
                 buf = exp.tuples.Shared_query(0)[0]
                 tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(n_tasks, order))
-                if mpi.master:
+                if mpi.global_master:
                     tuples[:] = np.load(os.path.join(RST, files[i]))
+                if mpi.local_master:
+                    tuples[:] = parallel.bcast(mpi.master_comm, tuples)
+                mpi.local_comm.Barrier()
 
             # read hashes
             elif 'mbe_hash' in files[i]:
                 n_tasks = exp.n_tasks[len(exp.hashes)]
-                if mpi.master:
+                if mpi.local_master:
                     exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
                 else:
                     exp.hashes.append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
                 buf = exp.hashes[-1].Shared_query(0)[0]
                 hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
-                if mpi.master:
+                if mpi.global_master:
                     hashes[:] = np.load(os.path.join(RST, files[i]))
+                if mpi.local_master:
+                    hashes[:] = parallel.bcast(mpi.master_comm, hashes)
+                mpi.local_comm.Barrier()
 
             # read increments
             elif 'mbe_inc' in files[i]:
                 n_tasks = exp.n_tasks[len(exp.prop[calc.target]['inc'])]
-                if mpi.master:
+                if mpi.local_master:
                     if calc.target in ['energy', 'excitation']:
                         exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
                     elif calc.target in ['dipole', 'trans']:
@@ -114,34 +124,39 @@ def main(mpi, calc, exp):
                     inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
                 elif calc.target in ['dipole', 'trans']:
                     inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks, 3))
-                if mpi.master:
+                if mpi.global_master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
+                if mpi.local_master:
+                    inc[:] = parallel.bcast(mpi.master_comm, inc)
+                mpi.local_comm.Barrier()
 
-            # read total properties
-            elif 'mbe_tot' in files[i]:
-                exp.prop[calc.target]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+            if mpi.global_master:
 
-            # read ndets statistics
-            elif 'mbe_mean_ndets' in files[i]:
-                exp.mean_ndets.append(np.load(os.path.join(RST, files[i])))
-            elif 'mbe_min_ndets' in files[i]:
-                exp.min_ndets.append(np.load(os.path.join(RST, files[i])))
-            elif 'mbe_max_ndets' in files[i]:
-                exp.max_ndets.append(np.load(os.path.join(RST, files[i])))
+                # read total properties
+                if 'mbe_tot' in files[i]:
+                    exp.prop[calc.target]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 
-            # read inc statistics
-            elif 'mbe_mean_inc' in files[i]:
-                exp.mean_inc.append(np.load(os.path.join(RST, files[i])))
-            elif 'mbe_min_inc' in files[i]:
-                exp.min_inc.append(np.load(os.path.join(RST, files[i])))
-            elif 'mbe_max_inc' in files[i]:
-                exp.max_inc.append(np.load(os.path.join(RST, files[i])))
+                # read ndets statistics
+                elif 'mbe_mean_ndets' in files[i]:
+                    exp.mean_ndets.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_min_ndets' in files[i]:
+                    exp.min_ndets.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_max_ndets' in files[i]:
+                    exp.max_ndets.append(np.load(os.path.join(RST, files[i])))
 
-            # read timings
-            elif 'mbe_time_mbe' in files[i]:
-                exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
-            elif 'mbe_time_screen' in files[i]:
-                exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
+                # read inc statistics
+                elif 'mbe_mean_inc' in files[i]:
+                    exp.mean_inc.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_min_inc' in files[i]:
+                    exp.min_inc.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_max_inc' in files[i]:
+                    exp.max_inc.append(np.load(os.path.join(RST, files[i])))
+
+                # read timings
+                elif 'mbe_time_mbe' in files[i]:
+                    exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
+                elif 'mbe_time_screen' in files[i]:
+                    exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
 
         # mpi barrier
         mpi.global_comm.Barrier()

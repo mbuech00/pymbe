@@ -46,25 +46,25 @@ class MPICls(object):
                 # global communicator
                 self.global_comm = MPI.COMM_WORLD
                 self.global_size = self.global_comm.Get_size()
+                self.global_rank = self.global_comm.Get_rank()
+                self.global_master = (self.global_rank == 0)
+                self.global_slave = not self.global_master
                 if self.global_master:
                     tools.assertion(self.global_size >= 2, 'PyMBE requires two or more MPI processes')
-                self.global_rank = self.global_comm.Get_rank()
-                self.global_master = (self.rank == 0)
-                self.global_slave = not self.global_master
                 # local node communicator (memory sharing)
                 self.local_comm = self.global_comm.Split_type(MPI.COMM_TYPE_SHARED)
                 self.local_size = self.local_comm.Get_size()
                 self.local_rank = self.local_comm.Get_rank()
                 self.local_master = self.local_rank == 0
                 # master communicator
-                mpi.master_comm = mpi.global_comm.Split(1 if self.local_master else MPI.UNDEFINED)
+                self.master_comm = self.global_comm.Split(1 if self.local_master else MPI.UNDEFINED)
                 if self.local_master:
                     self.master_size = self.num_masters = self.master_comm.Get_size()
                     self.master_rank = self.master_comm.Get_rank()
                 if self.global_master:
-                    mpi.global_comm.bcast(self.num_masters, root=0)
+                    self.global_comm.bcast(self.num_masters, root=0)
                 else:
-                    self.num_masters = mpi.global_comm.bcast(None, root=0)
+                    self.num_masters = self.global_comm.bcast(None, root=0)
 
 
 def mol(mpi, mol):
@@ -75,7 +75,7 @@ def mol(mpi, mol):
         :param mol: pymbe mol object
         :return: updated mol object
         """
-        if mpi.master:
+        if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
             info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'ncore': mol.ncore, \
@@ -115,7 +115,7 @@ def calc(mpi, calc):
         :param calc: pymbe calc object
         :return: updated calc object
         """
-        if mpi.master:
+        if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
             info = {'model': calc.model, 'target': calc.target, 'base': calc.base, \
@@ -148,7 +148,7 @@ def fund(mpi, mol, calc):
         :return: updated mol object,
                  updated calc object
         """
-        if mpi.master:
+        if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
             info = {'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, 'e_nuc': mol.e_nuc}
@@ -209,7 +209,7 @@ def prop(mpi, calc):
         :param calc: pymbe calc object
         :return: updated calc object
         """
-        if mpi.master:
+        if mpi.global_master:
 
             # bcast to slaves
             mpi.global_comm.bcast(calc.prop, root=0)
@@ -272,15 +272,19 @@ def gatherv(comm, send_buff, counts):
         :param comm: mpi communicator
         :param send_buff: send buffer. numpy array of any kind of shape and dtype
         :param counts: number of elements from individual processes. numpy array of shape (n_procs,)
+        :param master: logical for rank == 0 (master) on given comm
         :return: numpy array of shape (n_child_tuples * (order+1),)
         """
-        if mpi.master:
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+
+        if rank == 0:
 
             # init recv_buff
             recv_buff = np.empty(np.sum(counts), dtype=np.int32)
 
             # gatherv all tiles
-            for slave in range(1, mpi.size):
+            for slave in range(1, size):
 
                 slave_idx = np.sum(counts[:slave])
 
@@ -292,7 +296,7 @@ def gatherv(comm, send_buff, counts):
         else:
 
             # gatherv all tiles
-            for p0, p1 in lib.prange(0, counts[mpi.rank], BLKSIZE):
+            for p0, p1 in lib.prange(0, counts[rank], BLKSIZE):
                 comm.Send(send_buff[p0:p1], dest=0)
 
             return send_buff
@@ -312,7 +316,7 @@ def finalize(mpi):
         :param mpi: pymbe mpi object
         """
         # wake up slaves
-        if mpi.master:
+        if mpi.global_master:
             restart.rm()
             mpi.global_comm.bcast({'task': 'exit'}, root=0)
 

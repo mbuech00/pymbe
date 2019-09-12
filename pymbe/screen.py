@@ -217,8 +217,7 @@ def slave(mpi, calc, exp, slaves_needed):
         child_tup = []
 
         # send availability to master
-        if mpi.rank <= slaves_needed:
-            mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
+        mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
         # load increments for current order
         buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
@@ -235,10 +234,6 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # receive work from master
         while True:
-
-            # early exit in case of large proc count
-            if mpi.rank > slaves_needed:
-                break
 
             # probe for task
             mpi.global_comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
@@ -414,7 +409,7 @@ def _set_screen(mpi, calc, exp):
                 n_tasks_seed_pi = tuples_seed_pi.shape[0]
 
         # number of available slaves
-        slaves_avail = min(mpi.size - 1, n_tasks + n_tasks_pi + n_tasks_seed + n_tasks_seed_pi)
+        slaves_avail = min(mpi.global_size - 1, n_tasks + n_tasks_pi + n_tasks_seed + n_tasks_seed_pi)
 
         # make arrays of individual tasks
         tasks = tools.tasks(n_tasks, slaves_avail, mpi.task_size)

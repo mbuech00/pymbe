@@ -294,7 +294,7 @@ def _mpi(mpi):
         :param mpi: pymbe mpi object
         :return: formatted string
         """
-        return '{:} & {:}'.format(1, mpi.size - 1)
+        return '{:} & {:}'.format(mpi.num_masters, mpi.global_size - mpi.num_masters)
 
 
 def _thres(calc):
