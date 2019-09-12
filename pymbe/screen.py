@@ -309,7 +309,8 @@ def slave(mpi, calc, exp, slaves_needed):
         if mpi.local_master:
             tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
             buf = tuples_win.Shared_query(0)[0]
-            tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),))
+            tuples_new = np.ndarray(buffer=buf, dtype=np.int32, \
+                                    shape=(np.sum(recv_counts) // (exp.order + 1), exp.order + 1))
         else:
             tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
 
@@ -325,7 +326,7 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # get handle to hashes window
         if mpi.local_master:
-            hashes_win = MPI.Win.Allocate_shared(8 * (np.sum(recv_counts) // (exp.order + 1)), 8, comm=mpi.local_comm)
+            hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.local_comm)
             buf = hashes_win.Shared_query(0)[0]
             hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples_new.shape[0],))
         else:
