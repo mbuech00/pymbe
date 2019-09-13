@@ -127,6 +127,9 @@ def master(mpi, mol, calc, exp):
                 # main screening function
                 hashes_win, tuples_win, n_tasks, mean_ndets, min_ndets, max_ndets = screen.master(mpi, calc, exp)
 
+                # append n_tasks
+                exp.n_tasks.append(n_tasks)
+
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
@@ -167,9 +170,6 @@ def master(mpi, mol, calc, exp):
 
                 # append window to hashes
                 exp.hashes.append(hashes_win)
-
-                # append n_tasks
-                exp.n_tasks.append(n_tasks)
 
                 # append determinant statistics
                 exp.mean_ndets.append(mean_ndets)

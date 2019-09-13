@@ -46,6 +46,9 @@ def master(mpi, calc, exp):
         msg = {'task': 'screen', 'order': exp.order, 'slaves_needed': slaves_avail}
         mpi.global_comm.bcast(msg, root=0)
 
+        # mpi barrier
+        mpi.local_comm.barrier()
+
         # loop until no tasks left
         for task in tasks:
 
@@ -141,7 +144,7 @@ def master(mpi, calc, exp):
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
-            return None, None, 0
+            return None, None, 0, 0., 0., 0.
 
         # allocate tuples
         tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
@@ -236,6 +239,9 @@ def slave(mpi, calc, exp, slaves_needed):
         for k in range(exp.order-exp.min_order+1):
             buf = exp.hashes[k].Shared_query(0)[0]
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
+
+        # mpi barrier
+        mpi.local_comm.barrier()
 
         # receive work from master
         while True:
