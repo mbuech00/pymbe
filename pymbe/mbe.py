@@ -51,10 +51,6 @@ def master(mpi, mol, calc, exp):
         # number of slaves
         n_slaves = mpi.global_size - 1
 
-        # load tuples
-        buf = exp.tuples.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
-
         # init increments
         if len(exp.prop[calc.target]['inc']) == len(exp.hashes):
 
@@ -119,9 +115,9 @@ def master(mpi, mol, calc, exp):
                 # mpi barrier
                 mpi.global_comm.Barrier()
 
-                # allreduce increments among local masters
+                # reduce increments onto global master
                 if mpi.num_masters > 1:
-                    inc[:] = parallel.allreduce(mpi.master_comm, inc)
+                    inc[:] = parallel.reduce(mpi.master_comm, inc, root=0)
 
                 # save increments
                 restart.write_gen(exp.order, inc, 'mbe_inc')
@@ -308,9 +304,10 @@ def slave(mpi, mol, calc, exp):
                 # mpi barrier
                 mpi.global_comm.Barrier()
 
-                # allreduce increments among local masters
+                # reduce increments onto global master
                 if mpi.num_masters > 1 and mpi.local_master:
-                    inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1])
+                    inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0)
+                    inc[-1][:] = np.zeros_like(inc[-1])
 
                 # send availability to master
                 mpi.global_comm.send(None, dest=0, tag=TAGS.ready)

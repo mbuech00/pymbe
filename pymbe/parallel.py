@@ -240,6 +240,39 @@ def bcast(comm, buff):
         return buff
 
 
+def reduce(comm, send_buff, root=0):
+        """
+        this function performs a tiled Reduce operation
+        inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
+
+        :param comm: mpi communicator
+        :param send_buff: send buffer. numpy array of any kind of shape and dtype
+        :return: numpy array of same shape and dtype as send_buff
+        """
+        # rank
+        rank = comm.Get_rank()
+
+        # init recv_buff        
+        if rank == 0:
+            recv_buff = np.zeros_like(send_buff)
+        else:
+            recv_buff = send_buff
+
+        # init send_tile and recv_tile
+        send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
+        if rank == 0:
+            recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
+
+        # reduce all tiles
+        for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
+            if rank == 0:
+                comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM, root=root)
+            else:
+                comm.Reduce(send_tile[p0:p1], None, op=MPI.SUM, root=root)
+
+        return recv_buff
+
+
 def allreduce(comm, send_buff):
         """
         this function performs a tiled Allreduce operation
@@ -274,6 +307,7 @@ def gatherv(comm, send_buff, counts):
         :param master: logical for rank == 0 (master) on given comm
         :return: numpy array of shape (n_child_tuples * (order+1),)
         """
+        # rank and size
         rank = comm.Get_rank()
         size = comm.Get_size()
 
