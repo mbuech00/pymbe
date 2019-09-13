@@ -310,11 +310,13 @@ def gatherv(comm, send_buff, counts):
         # rank and size
         rank = comm.Get_rank()
         size = comm.Get_size()
+        # dtype
+        dtype = send_buff.dtype
 
         if rank == 0:
 
             # init recv_buff
-            recv_buff = np.empty(np.sum(counts), dtype=np.int32)
+            recv_buff = np.empty(np.sum(counts), dtype=dtype)
 
             # gatherv all tiles
             for slave in range(1, size):

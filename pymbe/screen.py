@@ -136,8 +136,12 @@ def master(mpi, calc, exp):
         # init child tuples array
         if calc.extra['pi_prune'] and exp.order == 1:
             child_tup = tools.pi_pairs_deg(calc.exp_space['pi_orbs'], calc.exp_space['tot'])
+            # compute number of determinants in the individual casci calculations (ignoring symmetry)
+            ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
+                                    child_tup), dtype=np.float64, count=child_tup.shape[0])
         else:
             child_tup = np.array([], dtype=np.int32)
+            ndets = np.array([], dtype=np.float64)
 
         # allgather number of child tuples
         recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
@@ -154,12 +158,11 @@ def master(mpi, calc, exp):
         # gatherv all child tuples onto global master
         tuples_new[:] = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
 
-        # reshape tuples
-        tuples_new = tuples_new.reshape(-1, exp.order+1)
+        # reshape tuples_new
+        tuples_new = tuples_new.reshape(-1, exp.order + 1)
 
-        # compute number of determinants in the individual casci calculations (ignoring symmetry)
-        ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
-                                tuples_new), dtype=np.float64, count=tuples_new.shape[0])
+        # gatherv ndets
+        ndets = parallel.gatherv(mpi.global_comm, ndets, recv_counts // (exp.order + 1) )
 
         # statistics
         mean_ndets = np.mean(ndets[np.nonzero(ndets)])
@@ -313,6 +316,13 @@ def slave(mpi, calc, exp, slaves_needed):
         # recast child tuples as array
         child_tup = np.array(child_tup, dtype=np.int32)
 
+        # reshape child tuples
+        child_tup = child_tup.reshape(-1, exp.order + 1)
+
+        # compute number of determinants in the individual casci calculations (ignoring symmetry)
+        ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
+                                child_tup), dtype=np.float64, count=child_tup.shape[0])
+
         # allgather number of child tuples
         recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
 
@@ -331,6 +341,9 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # gatherv all child tuples
         child_tup = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
+
+        # gatherv ndets
+        ndets = parallel.gatherv(mpi.global_comm, ndets, recv_counts // (exp.order + 1) )
 
         # bcast tuples
         if mpi.num_masters > 1 and mpi.local_master:
