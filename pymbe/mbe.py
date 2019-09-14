@@ -101,7 +101,7 @@ def master(mpi, mol, calc, exp):
             mpi.global_comm.send(tup_idx, dest=mpi.stat.source, tag=TAGS.task)
 
             # write restart file
-            if calc.misc['rst'] and tup_idx % calc.misc['rst_interval'] == 0:
+            if calc.misc['rst'] and tup_idx > 0 and tup_idx % calc.misc['rst_interval'] == 0:
 
                 # send rst signal to all slaves
                 for slave_idx in range(n_slaves):
