@@ -252,7 +252,7 @@ def _hubbard_eri(mol):
         for i in range(mol.nsites):
             eri[i,i,i,i] = mol.u
 
-        return ao2mo.restore(4, eri, mol.nsites)
+        return eri
 
 
 class _hubbard_PM(lo.pipek.PM):
@@ -307,7 +307,7 @@ def hf(mol, target):
         else:
             # model hamiltonian
             hf.get_ovlp = lambda *args: np.eye(mol.nsites)
-            hf.get_hcore = _hubbard_h1e(mol.matrix, mol.nsites, mol.pbc)
+            hf.get_hcore = lambda *args: _hubbard_h1e(mol.matrix, mol.nsites, mol.pbc)
             hf._eri = _hubbard_eri(mol)
 
         # perform hf calc
