@@ -150,6 +150,18 @@ def master(mpi, calc, exp):
         if np.sum(recv_counts) == 0:
             return None, None, 0, 0., 0., 0.
 
+        # gatherv ndets
+        ndets = parallel.gatherv(mpi.global_comm, ndets, recv_counts // (exp.order + 1) )
+
+        # statistics
+        mean_ndets = np.mean(ndets[np.nonzero(ndets)])
+        min_ndets = np.min(ndets[np.nonzero(ndets)])
+        max_ndets = np.max(ndets[np.nonzero(ndets)])
+
+        # free memory allocated for ndets
+        if not calc.extra['ranking']:
+            del ndets
+
         # allocate tuples
         tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
         buf = tuples_win.Shared_query(0)[0]
@@ -161,19 +173,11 @@ def master(mpi, calc, exp):
         # reshape tuples_new
         tuples_new = tuples_new.reshape(-1, exp.order + 1)
 
-        # gatherv ndets
-        ndets = parallel.gatherv(mpi.global_comm, ndets, recv_counts // (exp.order + 1) )
-
-        # statistics
-        mean_ndets = np.mean(ndets[np.nonzero(ndets)])
-        min_ndets = np.min(ndets[np.nonzero(ndets)])
-        max_ndets = np.max(ndets[np.nonzero(ndets)])
-
-        # order tuples wrt number of determinants (from most electrons to fewest electrons)
-        tuples_new[:] = tuples_new[ndets.argsort()[::-1]]
-
-        # free memory allocated for ndets
-        del ndets
+        if calc.extra['ranking']:
+            # order tuples wrt number of determinants (from most electrons to fewest electrons)
+            tuples_new[:] = tuples_new[ndets.argsort()[::-1]]
+            # free memory allocated for ndets
+            del ndets
 
         # bcast tuples
         if mpi.num_masters > 1:
@@ -330,6 +334,9 @@ def slave(mpi, calc, exp, slaves_needed):
         if np.sum(recv_counts) == 0:
             return None, None, 0
 
+        # gatherv ndets
+        ndets = parallel.gatherv(mpi.global_comm, ndets, recv_counts // (exp.order + 1) )
+
         # get handle to tuples
         if mpi.local_master:
             tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
@@ -341,9 +348,6 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # gatherv all child tuples
         child_tup = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
-
-        # gatherv ndets
-        ndets = parallel.gatherv(mpi.global_comm, ndets, recv_counts // (exp.order + 1) )
 
         # bcast tuples
         if mpi.num_masters > 1 and mpi.local_master:
