@@ -453,7 +453,7 @@ def ndets(occup, cas_idx, ref_space=None, n_elec=None):
             ref_n_elec = nelec(occup, ref_space)
             n_elec = tuple(map(sum, zip(n_elec, ref_n_elec)))
             n_orbs += ref_space.size
-        return scipy.special.binom(n_orbs, n_elec[0]) * scipy.special.binom(n_orbs, n_elec[1])
+        return int(scipy.special.binom(n_orbs, n_elec[0]) * scipy.special.binom(n_orbs, n_elec[1]))
 
 
 def mat_idx(site_xy, nx, ny):

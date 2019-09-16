@@ -80,9 +80,9 @@ def master(mpi, mol, calc, exp):
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
         # init determinant statistics
-        min_ndets = 1.e12
-        max_ndets = 0.
-        sum_ndets = 0.
+        min_ndets = 1e12
+        max_ndets = 0
+        sum_ndets = 0
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -123,9 +123,9 @@ def master(mpi, mol, calc, exp):
                 # reduce increments onto global master
                 if mpi.num_masters > 1:
                     inc[:] = parallel.reduce(mpi.master_comm, inc, root=0)
-                    min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
-                    max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
-                    sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
+                min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
+                max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
+                sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
 
                 # save increments
                 restart.write_gen(exp.order, inc, 'mbe_inc')
@@ -275,9 +275,9 @@ def slave(mpi, mol, calc, exp):
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
         # init determinant statistics
-        min_ndets = 1.e12
-        max_ndets = 0.
-        sum_ndets = 0.
+        min_ndets = 1e12
+        max_ndets = 0
+        sum_ndets = 0
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -339,10 +339,10 @@ def slave(mpi, mol, calc, exp):
                 if mpi.num_masters > 1 and mpi.local_master:
                     inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0)
                     inc[-1][:] = np.zeros_like(inc[-1])
-                    min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
-                    max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
-                    sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
-                    sum_ndets = 0.
+                _ = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
+                _ = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
+                _ = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
+                sum_ndets = 0.
 
                 # send availability to master
                 mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
