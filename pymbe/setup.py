@@ -197,11 +197,7 @@ def _exp(mpi, mol, calc):
         exp = expansion.ExpCls(mol, calc)
 
         # init hashes, n_tasks, and tuples
-        if mpi.global_master:
-            exp.hashes, exp.tuples, exp.n_tasks, exp.min_order, \
-                exp.mean_ndets, exp.min_ndets, exp.max_ndets = expansion.init_tup(mpi, mol, calc)
-        else:
-            exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
+        exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
 
         # possible restart
         if calc.restart:

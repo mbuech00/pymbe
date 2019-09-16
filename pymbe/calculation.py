@@ -46,7 +46,7 @@ class CalcCls(object):
                             'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
                 self.base = {'method': None}
                 self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-                self.extra = {'hf_guess': True, 'pi_prune': False, 'ranking': True}
+                self.extra = {'hf_guess': True, 'pi_prune': False}
                 self.thres = {'init': 1.0e-10, 'relax': 1.0}
                 self.misc = {'order': None, 'rst': True, 'rst_interval': int(1e6)}
                 self.orbs = {'type': 'can'}
@@ -204,8 +204,6 @@ def sanity_chk(mol, calc):
             tools.assertion(symm.addons.std_symb(mol.symmetry) == 'D2h', \
                             'pruning of pi-orbitals (pi_prune) is only implemented for D2h symmetry')
 
-        tools.assertion(isinstance(calc.extra['ranking'], bool), \
-                        'ranking of CASCI calculations based on number of determinants (ranking) must be a bool')
         # screening protocol
         tools.assertion(isinstance(calc.prot['scheme'], int), \
                         'screening protocol scheme (scheme) must be an int')

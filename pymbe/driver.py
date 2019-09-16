@@ -75,13 +75,19 @@ def master(mpi, mol, calc, exp):
                 time = MPI.Wtime()
 
                 # main mbe function
-                inc_win, tot, mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
+                inc_win, tot, mean_ndets, min_ndets, max_ndets, \
+                    mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
 
                 # append window to increments
                 if len(exp.prop[calc.target]['inc']) < len(exp.hashes):
                     exp.prop[calc.target]['inc'].append(inc_win)
                 else:
                     exp.prop[calc.target]['inc'][-1] = inc_win
+
+                # append determinant statistics
+                exp.mean_ndets.append(np.asarray(mean_ndets))
+                exp.min_ndets.append(np.asarray(min_ndets))
+                exp.max_ndets.append(np.asarray(max_ndets))
 
                 # append increment statistics
                 exp.mean_inc.append(mean_inc)
@@ -99,6 +105,9 @@ def master(mpi, mol, calc, exp):
                 # write restart files
                 if calc.misc['rst']:
                     restart.write_gen(exp.order, exp.prop[calc.target]['tot'][-1], 'mbe_tot')
+                    restart.write_gen(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
+                    restart.write_gen(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
+                    restart.write_gen(exp.order, exp.min_ndets[-1], 'mbe_min_ndets')
                     restart.write_gen(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
                     restart.write_gen(exp.order, exp.max_inc[-1], 'mbe_max_inc')
                     restart.write_gen(exp.order, exp.min_inc[-1], 'mbe_min_inc')
@@ -125,7 +134,7 @@ def master(mpi, mol, calc, exp):
                 time = MPI.Wtime()
 
                 # main screening function
-                hashes_win, tuples_win, n_tasks, mean_ndets, min_ndets, max_ndets = screen.master(mpi, calc, exp)
+                hashes_win, tuples_win, n_tasks = screen.master(mpi, calc, exp)
 
                 # append n_tasks
                 exp.n_tasks.append(n_tasks)
@@ -171,17 +180,9 @@ def master(mpi, mol, calc, exp):
                 # append window to hashes
                 exp.hashes.append(hashes_win)
 
-                # append determinant statistics
-                exp.mean_ndets.append(mean_ndets)
-                exp.min_ndets.append(min_ndets)
-                exp.max_ndets.append(max_ndets)
-
                 # write restart files
                 if calc.misc['rst']:
                     restart.write_gen(exp.order+1, exp.n_tasks[-1], 'mbe_n_tasks')
-                    restart.write_gen(exp.order+1, exp.mean_ndets[-1], 'mbe_mean_ndets')
-                    restart.write_gen(exp.order+1, exp.max_ndets[-1], 'mbe_max_ndets')
-                    restart.write_gen(exp.order+1, exp.min_ndets[-1], 'mbe_min_ndets')
                     restart.write_gen(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
                 # print screen end

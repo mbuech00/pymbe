@@ -35,8 +35,7 @@ def master(mpi, calc, exp):
         :param exp: pymbe exp object
         :return: MPI window handle to numpy array of shape (n_child_tuples,) [hashes],
                  MPI window handle to numpy array of shape (n_child_tuples, order+1) [tuples],
-                 integer [n_tasks],
-                 three floats [mean_ndets, min_ndets, max_ndets]
+                 integer [n_tasks]
         """
         # set number of available (needed) slaves, various tuples, and various task arrays
         slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
@@ -136,12 +135,8 @@ def master(mpi, calc, exp):
         # init child tuples array
         if calc.extra['pi_prune'] and exp.order == 1:
             child_tup = tools.pi_pairs_deg(calc.exp_space['pi_orbs'], calc.exp_space['tot'])
-            # compute number of determinants in the individual casci calculations (ignoring symmetry)
-            ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
-                                    child_tup), dtype=np.float64, count=child_tup.shape[0])
         else:
             child_tup = np.array([], dtype=np.int32)
-            ndets = np.array([], dtype=np.float64)
 
         # allgather number of child tuples
         recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
@@ -149,18 +144,6 @@ def master(mpi, calc, exp):
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
             return None, None, 0, 0., 0., 0.
-
-        # gatherv ndets
-        ndets = parallel.gatherv(mpi.global_comm, ndets, recv_counts // (exp.order + 1) )
-
-        # statistics
-        mean_ndets = np.mean(ndets[np.nonzero(ndets)])
-        min_ndets = np.min(ndets[np.nonzero(ndets)])
-        max_ndets = np.max(ndets[np.nonzero(ndets)])
-
-        # free memory allocated for ndets
-        if not calc.extra['ranking']:
-            del ndets
 
         # allocate tuples
         tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
@@ -172,12 +155,6 @@ def master(mpi, calc, exp):
 
         # reshape tuples_new
         tuples_new = tuples_new.reshape(-1, exp.order + 1)
-
-        if calc.extra['ranking']:
-            # order tuples wrt number of determinants (from most electrons to fewest electrons)
-            tuples_new[:] = tuples_new[ndets.argsort()[::-1]]
-            # free memory allocated for ndets
-            del ndets
 
         # bcast tuples
         if mpi.num_masters > 1:
@@ -212,7 +189,7 @@ def master(mpi, calc, exp):
         # mpi barrier
         mpi.global_comm.barrier()
 
-        return hashes_win, tuples_win, hashes_new.size, mean_ndets, min_ndets, max_ndets
+        return hashes_win, tuples_win, hashes_new.size
 
 
 def slave(mpi, calc, exp, slaves_needed):
@@ -323,19 +300,12 @@ def slave(mpi, calc, exp, slaves_needed):
         # reshape child tuples
         child_tup = child_tup.reshape(-1, exp.order + 1)
 
-        # compute number of determinants in the individual casci calculations (ignoring symmetry)
-        ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
-                                child_tup), dtype=np.float64, count=child_tup.shape[0])
-
         # allgather number of child tuples
         recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
             return None, None, 0
-
-        # gatherv ndets
-        ndets = parallel.gatherv(mpi.global_comm, ndets, recv_counts // (exp.order + 1) )
 
         # get handle to tuples
         if mpi.local_master:

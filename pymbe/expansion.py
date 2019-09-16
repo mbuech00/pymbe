@@ -97,21 +97,6 @@ def init_tup(mpi, mol, calc):
             # place tuples in shared memory space
             tuples[:] = tuples_tmp
 
-            # compute number of determinants in the individual casci calculations (ignoring symmetry)
-            ndets = np.fromiter(map(functools.partial(tools.ndets, calc.occup, ref_space=calc.ref_space), \
-                                    tuples), dtype=np.float64, count=tuples.shape[0])
-
-            # statistics
-            mean_ndets = np.mean(ndets[np.nonzero(ndets)])
-            min_ndets = np.min(ndets[np.nonzero(ndets)])
-            max_ndets = np.max(ndets[np.nonzero(ndets)])
-
-            # order tuples wrt number of determinants (from most electrons to fewest electrons)
-            tuples = tuples[ndets.argsort()[::-1]]
-
-            # free memory allocated for ndets
-            del ndets
-
             # allocate hashes
             hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=mpi.local_comm)
             buf = hashes_win.Shared_query(0)[0]
@@ -126,14 +111,7 @@ def init_tup(mpi, mol, calc):
             # mpi barrier
             mpi.local_comm.Barrier()
 
-            if mpi.global_master:
-
-                return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order, \
-                            [mean_ndets], [min_ndets], [max_ndets]
-
-            else:
-
-                return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
+            return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
 
         else:
 

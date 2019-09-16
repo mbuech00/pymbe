@@ -79,6 +79,11 @@ def master(mpi, mol, calc, exp):
             if calc.misc['rst']:
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
+        # init determinant statistics
+        min_ndets = 1.e12
+        max_ndets = 0.
+        sum_ndets = 0.
+
         # mpi barrier
         mpi.global_comm.Barrier()
 
@@ -118,9 +123,17 @@ def master(mpi, mol, calc, exp):
                 # reduce increments onto global master
                 if mpi.num_masters > 1:
                     inc[:] = parallel.reduce(mpi.master_comm, inc, root=0)
+                    min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
+                    max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
+                    sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
 
                 # save increments
                 restart.write_gen(exp.order, inc, 'mbe_inc')
+
+                # save determinant statistics
+                restart.write_gen(exp.order, np.asarray(max_ndets), 'mbe_max_ndets')
+                restart.write_gen(exp.order, np.asarray(min_ndets), 'mbe_min_ndets')
+                restart.write_gen(exp.order, np.asarray(mean_ndets), 'mbe_mean_ndets')
 
                 # print status
                 print(output.mbe_status(tup_idx / exp.n_tasks[-1]))
@@ -145,6 +158,14 @@ def master(mpi, mol, calc, exp):
 
         # mpi barrier
         mpi.global_comm.Barrier()
+
+        # determinant statistics
+        min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
+        max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
+        sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
+
+        # mean number of determinants
+        mean_ndets = sum_ndets / exp.n_tasks[-1]
 
         # allreduce increments among local masters
         if mpi.num_masters > 1:
@@ -191,7 +212,7 @@ def master(mpi, mol, calc, exp):
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return inc_win, tot, mean_inc, min_inc, max_inc
+        return inc_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
 
 
 def slave(mpi, mol, calc, exp):
@@ -253,6 +274,11 @@ def slave(mpi, mol, calc, exp):
             buf = exp.hashes[k].Shared_query(0)[0]
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
+        # init determinant statistics
+        min_ndets = 1.e12
+        max_ndets = 0.
+        sum_ndets = 0.
+
         # mpi barrier
         mpi.global_comm.Barrier()
 
@@ -290,8 +316,13 @@ def slave(mpi, mol, calc, exp):
                 inc_idx = tools.hash_compare(hashes[-1], tools.hash_1d(tup))
 
                 # calculate increment
-                inc[-1][inc_idx] = _inc(mol, calc, exp.min_order, exp.order, e_core, h1e_cas, h2e_cas, \
-                                        inc, hashes, tup, core_idx, cas_idx)
+                inc[-1][inc_idx], ndets = _inc(mol, calc, exp.min_order, exp.order, e_core, h1e_cas, h2e_cas, \
+                                                 inc, hashes, tup, core_idx, cas_idx)
+
+                # update determinant statistics
+                min_ndets = min(min_ndets, ndets)
+                max_ndets = max(max_ndets, ndets)
+                sum_ndets += ndets
 
                 # send availability to master
                 mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
@@ -308,6 +339,10 @@ def slave(mpi, mol, calc, exp):
                 if mpi.num_masters > 1 and mpi.local_master:
                     inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0)
                     inc[-1][:] = np.zeros_like(inc[-1])
+                    min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
+                    max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
+                    sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
+                    sum_ndets = 0.
 
                 # send availability to master
                 mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
@@ -321,6 +356,11 @@ def slave(mpi, mol, calc, exp):
 
         # mpi barrier
         mpi.global_comm.Barrier()
+
+        # determinant statistics
+        min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
+        max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
+        sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
 
         # allreduce increments among local masters
         if mpi.num_masters > 1 and mpi.local_master:
@@ -351,17 +391,18 @@ def _inc(mol, calc, min_order, order, e_core, h1e_cas, h2e_cas, inc, hashes, tup
         :param tup: given tuple of orbitals. numpy array of shape (order,)
         :param core_idx: core space indices. numpy array of shape (n_core,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :return: float or numpy array of shape (3,) depending on target
+        :return: float or numpy array of shape (3,) depending on target [inc_tup],
+                 float [ndets]
         """
         # nelec
         nelec = tools.nelec(calc.occup, cas_idx)
 
         # perform main calc
-        inc_tup = kernel.main(mol, calc, calc.model['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+        inc_tup, ndets = kernel.main(mol, calc, calc.model['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 
         # perform base calc
         if calc.base['method'] is not None:
-            inc_tup -= kernel.main(mol, calc, calc.base['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+            inc_tup -= kernel.main(mol, calc, calc.base['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)[0]
 
         # subtract reference space property
         inc_tup -= calc.prop['ref'][calc.target]
@@ -376,10 +417,9 @@ def _inc(mol, calc, min_order, order, e_core, h1e_cas, h2e_cas, inc, hashes, tup
         # debug print
         if mol.debug >= 1:
             print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
-                                    tools.ndets(calc.occup, cas_idx, n_elec=nelec), \
-                                    nelec, inc_tup, order, cas_idx, tup))
+                                    ndets, nelec, inc_tup, order, cas_idx, tup))
 
-        return inc_tup
+        return inc_tup, ndets
 
 
 def _sum(occup, ref_space, exp_space, target, min_order, order, inc, hashes, tup, pi_prune=False):

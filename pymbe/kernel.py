@@ -577,17 +577,21 @@ def main(mol, calc, method, e_core, h1e, h2e, core_idx, cas_idx, nelec):
         :param core_idx: core space indices. numpy array of shape (n_inactive,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
         :param nelec: number of correlated electrons. tuple of integers
-        :return: float or numpy array of shape (3,) depending on target
+        :return: float or numpy array of shape (3,) depending on target [res],
+                 float [ndets]
         """
         if method in ['ccsd','ccsd(t)']:
 
             res = _cc(mol, calc.occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e)
+            ndets = tools.ndets(calc.occup, cas_idx, n_elec=nelec)
 
         elif method == 'fci':
 
             res_tmp = _fci(mol, calc.model['solver'], calc.target, calc.state['wfnsym'], \
                             calc.orbsym, calc.extra['hf_guess'], calc.state['root'], \
                             calc.prop['hf']['energy'], e_core, h1e, h2e, core_idx, cas_idx, nelec)
+
+            ndets = res_tmp['ndets']
 
             if calc.target in ['energy', 'excitation']:
 
@@ -604,7 +608,7 @@ def main(mol, calc, method, e_core, h1e, h2e, core_idx, cas_idx, nelec):
                                 calc.mo_coeff, cas_idx, res_tmp['t_rdm1'], \
                                 res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 
-        return res
+        return res, ndets
 
 
 def _dipole(norb, ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, trans=False):
@@ -859,7 +863,8 @@ def _fci(mol, solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
         :param core_idx: core space indices. numpy array of shape (n_inactive,)
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
         :param nelec: number of correlated electrons. tuple of integers
-        :return: dict of floats [energy and excitation],
+        :return: dict of float [ndets],
+                 floats [energy and excitation],
                  numpy array of shape (n_cas, n_cas) [dipole],
                  or numpy array of shape (n_cas, n_cas) and a list of floats [trans]
         """
@@ -959,14 +964,15 @@ def _fci(mol, solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
                                      format(solver.nroots-1, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
 
         # collect results
+        res = {'ndets': np.count_nonzero(civec[-1])}
         if target == 'energy':
-            res = {'energy': energy[-1] - hf_energy}
+            res['energy'] = energy[-1] - hf_energy
         elif target == 'excitation':
-            res = {'excitation': energy[-1] - energy[0]}
+            res['excitation'] = energy[-1] - energy[0]
         elif target == 'dipole':
-            res = {'rdm1': solver.make_rdm1(civec[-1], cas_idx.size, nelec)}
+            res['rdm1'] = solver.make_rdm1(civec[-1], cas_idx.size, nelec)
         elif target == 'trans':
-            res = {'t_rdm1': solver.trans_rdm1(civec[0], civec[-1], cas_idx.size, nelec)}
+            res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[-1], cas_idx.size, nelec)
             res['hf_weight'] = [civec[i][0, 0] for i in range(2)]
 
         return res
