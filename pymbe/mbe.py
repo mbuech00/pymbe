@@ -133,7 +133,7 @@ def master(mpi, mol, calc, exp):
                 # save determinant statistics
                 restart.write_gen(exp.order, np.asarray(max_ndets), 'mbe_max_ndets')
                 restart.write_gen(exp.order, np.asarray(min_ndets), 'mbe_min_ndets')
-                restart.write_gen(exp.order, np.asarray(mean_ndets), 'mbe_mean_ndets')
+                restart.write_gen(exp.order, np.asarray(sum_ndets) / tup_idx, 'mbe_mean_ndets')
 
                 # print status
                 print(output.mbe_status(tup_idx / exp.n_tasks[-1]))
