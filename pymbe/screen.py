@@ -207,7 +207,7 @@ def master(mpi, calc, exp):
 
         # save hashes
         if calc.misc['rst']:
-            restart.write_gen(exp.order, hashes_new, 'mbe_hash')
+            restart.write_gen(exp.order+1, hashes_new, 'mbe_hash')
 
         # mpi barrier
         mpi.global_comm.barrier()

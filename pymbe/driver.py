@@ -178,10 +178,10 @@ def master(mpi, mol, calc, exp):
 
                 # write restart files
                 if calc.misc['rst']:
-                    restart.write_gen(exp.order, exp.n_tasks[-1], 'mbe_n_tasks')
-                    restart.write_gen(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
-                    restart.write_gen(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
-                    restart.write_gen(exp.order, exp.min_ndets[-1], 'mbe_min_ndets')
+                    restart.write_gen(exp.order+1, exp.n_tasks[-1], 'mbe_n_tasks')
+                    restart.write_gen(exp.order+1, exp.mean_ndets[-1], 'mbe_mean_ndets')
+                    restart.write_gen(exp.order+1, exp.max_ndets[-1], 'mbe_max_ndets')
+                    restart.write_gen(exp.order+1, exp.min_ndets[-1], 'mbe_min_ndets')
                     restart.write_gen(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
                 # print screen end
