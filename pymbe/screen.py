@@ -143,7 +143,7 @@ def master(mpi, calc, exp):
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
-            return None, None, 0, 0., 0., 0.
+            return None, None, 0
 
         # allocate tuples
         tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
