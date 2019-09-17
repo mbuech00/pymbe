@@ -163,7 +163,7 @@ def main(mpi, calc, exp):
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return len(exp.hashes)
+        return tuples.shape[1]
 
 
 def write_gen(order, arr, string):
