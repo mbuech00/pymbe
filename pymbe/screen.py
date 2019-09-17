@@ -163,9 +163,13 @@ def master(mpi, calc, exp):
         # mpi barrier
         mpi.local_comm.barrier()
 
+        # n_tasks
+        n_tasks = tuples_new.shape[0]
+
         # save tuples
         if calc.misc['rst']:
             restart.write_gen(None, tuples_new, 'mbe_tup')
+            restart.write_gen(exp.order+1, np.asarray(n_tasks), 'mbe_n_tasks')
 
         # allocate hashes
         hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.local_comm)
