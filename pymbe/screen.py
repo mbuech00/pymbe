@@ -166,15 +166,10 @@ def master(mpi, calc, exp):
         # n_tasks
         n_tasks = tuples_new.shape[0]
 
-        # save tuples
-        if calc.misc['rst']:
-            restart.write_gen(None, tuples_new, 'mbe_tup')
-            restart.write_gen(exp.order+1, np.asarray(n_tasks), 'mbe_n_tasks')
-
         # allocate hashes
-        hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.local_comm)
+        hashes_win = MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm)
         buf = hashes_win.Shared_query(0)[0]
-        hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples_new.shape[0],))
+        hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
 
         # compute hashes
         hashes_new[:] = tools.hash_2d(tuples_new)
@@ -186,14 +181,16 @@ def master(mpi, calc, exp):
         if mpi.num_masters > 1:
             hashes_new[:] = parallel.bcast(mpi.master_comm, hashes_new)
 
-        # save hashes
+        # save restart files
         if calc.misc['rst']:
+            restart.write_gen(None, tuples_new, 'mbe_tup')
             restart.write_gen(exp.order+1, hashes_new, 'mbe_hash')
+            restart.write_gen(exp.order+1, np.asarray(n_tasks), 'mbe_n_tasks')
 
         # mpi barrier
         mpi.global_comm.barrier()
 
-        return hashes_win, tuples_win, hashes_new.size
+        return hashes_win, tuples_win, n_tasks
 
 
 def slave(mpi, calc, exp, slaves_needed):
