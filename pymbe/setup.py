@@ -113,9 +113,6 @@ def _calc(mpi, mol):
         # bcast info from master to slaves
         calc = parallel.calc(mpi, calc)
 
-        # put calc.mpi info into mpi object
-        mpi.task_size = calc.mpi['task_size']
-
         return calc
 
 

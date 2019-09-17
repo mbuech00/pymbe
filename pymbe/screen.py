@@ -37,9 +37,8 @@ def master(mpi, calc, exp):
                  MPI window handle to numpy array of shape (n_child_tuples, order+1) [tuples],
                  integer [n_tasks]
         """
-        # set number of available (needed) slaves, various tuples, and various task arrays
-        slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
-            tuples_seed, tasks_seed, tuples_seed_pi, tasks_seed_pi = _set_screen(mpi, calc, exp)
+        # set number of available (needed) slaves and various tuples
+        slaves_avail, tuples, tuples_pi, tuples_seed, tuples_seed_pi = _set_screen(mpi, calc, exp)
 
         # wake up slaves
         msg = {'task': 'screen', 'order': exp.order, 'slaves_needed': slaves_avail}
@@ -48,11 +47,8 @@ def master(mpi, calc, exp):
         # mpi barrier
         mpi.local_comm.barrier()
 
-        # loop until no tasks left
-        for task in tasks:
-
-            # set tups
-            tups = tuples[task]
+        # loop until no tuples left
+        for tup_idx in range(exp.n_tasks[-1]):
 
             # probe for available slaves
             mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
@@ -61,16 +57,13 @@ def master(mpi, calc, exp):
             mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
             # send tups to available slave
-            mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup)
+            mpi.global_comm.send(tup_idx, dest=mpi.stat.source, tag=TAGS.tup)
 
         # pi-pruning
-        if tasks_pi is not None:
+        if tuples_pi is not None:
 
-            # loop until no tasks left
-            for task in tasks_pi:
-
-                # set tups
-                tups = tuples_pi[task]
+            # loop until no tuples left
+            for tup in tuples_pi:
 
                 # probe for available slaves
                 mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
@@ -78,17 +71,14 @@ def master(mpi, calc, exp):
                 # receive slave status
                 mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
-                # send tups to available slave
-                mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
+                # send tup to available slave
+                mpi.global_comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
 
         # seed
-        if tasks_seed is not None:
+        if tuples_seed is not None:
 
-            # loop until no tasks left
-            for task in tasks_seed:
-
-                # set tups
-                tups = tuples_seed[task]
+            # loop until no tuples left
+            for tup in tuples_seed:
 
                 # probe for available slaves
                 mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
@@ -96,17 +86,14 @@ def master(mpi, calc, exp):
                 # receive slave status
                 mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
-                # send tups to available slave
-                mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed)
+                # send tup to available slave
+                mpi.global_comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed)
 
         # seed w/ pi-pruning
-        if tasks_seed_pi is not None:
+        if tuples_seed_pi is not None:
 
-            # loop until no tasks left
-            for task in tasks_seed_pi:
-
-                # set tups
-                tups = tuples_seed_pi[task]
+            # loop until no tuples left
+            for tup in tuples_seed_pi:
 
                 # probe for available slaves
                 mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
@@ -114,8 +101,8 @@ def master(mpi, calc, exp):
                 # receive slave status
                 mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
-                # send tups to available slave
-                mpi.global_comm.Send([tups, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
+                # send tup to available slave
+                mpi.global_comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
 
         # done with all tasks
         while slaves_avail > 0:
@@ -137,6 +124,17 @@ def master(mpi, calc, exp):
             child_tup = tools.pi_pairs_deg(calc.exp_space['pi_orbs'], calc.exp_space['tot'])
         else:
             child_tup = np.array([], dtype=np.int32)
+
+        # free parent_tuples window
+        exp.tuples.Free()
+
+        # free other parent tuples
+        if tuples_pi is not None:
+            del tuples_pi
+        if tuples_seed is not None:
+            del tuples_seed
+        if tuples_seed_pi is not None:
+            del tuples_seed_pi
 
         # allgather number of child tuples
         recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
@@ -185,7 +183,6 @@ def master(mpi, calc, exp):
         if calc.misc['rst']:
             restart.write_gen(None, tuples_new, 'mbe_tup')
             restart.write_gen(exp.order+1, hashes_new, 'mbe_hash')
-            restart.write_gen(exp.order+1, np.asarray(n_tasks), 'mbe_n_tasks')
 
         # mpi barrier
         mpi.global_comm.barrier()
@@ -212,6 +209,10 @@ def slave(mpi, calc, exp, slaves_needed):
         if mpi.global_rank <= slaves_needed:
             mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
 
+        # load tuples as main task tuples
+        buf = exp.tuples.Shared_query(0)[0]
+        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
+
         # load increments for current order
         buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
         if calc.target in ['energy', 'excitation']:
@@ -224,6 +225,10 @@ def slave(mpi, calc, exp, slaves_needed):
         for k in range(exp.order-exp.min_order+1):
             buf = exp.hashes[k].Shared_query(0)[0]
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
+
+        # init tup_seed and tup_pi
+        tup_seed = np.empty(exp.order, dtype=np.int32)
+        tup_pi = np.empty(exp.order-1, dtype=np.int32)
 
         # mpi barrier
         mpi.local_comm.barrier()
@@ -241,50 +246,56 @@ def slave(mpi, calc, exp, slaves_needed):
             # do task
             if mpi.stat.tag in [TAGS.tup, TAGS.tup_pi, TAGS.tup_seed, TAGS.tup_seed_pi]:
 
-                # set tup_order
-                tup_order = exp.order
+                if mpi.stat.tag == TAGS.tup:
+
+                    # receive tup_idx
+                    tup_idx = mpi.global_comm.recv(source=0, tag=mpi.stat.tag)
+                    tup = tuples[tup_idx]
+                    tup_order = exp.order
+
+                else:
+
+                    if mpi.stat.tag == TAGS.tup_seed:
+
+                        # receive tup_seed
+                        mpi.global_comm.Recv([tup_seed, MPI.INT], source=0, tag=mpi.stat.tag)
+                        tup = tup_seed
+                        tup_order = exp.order
+
+                    else:
+
+                        # receive tup_pi or tup_seed_pi
+                        mpi.global_comm.Recv([tup_pi, MPI.INT], source=0, tag=mpi.stat.tag)
+                        tup = tup_pi
+                        tup_order = exp.order - 1
+
+                # spawn child tuples from parent tuples at exp.order
+                orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
+                                calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
+                                tup_order, hashes[-1], inc, \
+                                tup, pi_prune=calc.extra['pi_prune'], \
+                                pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
+
+                # deep pruning
+                if calc.extra['pi_prune'] and exp.min_order < tup_order:
+                    orbs = _deep_pruning(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
+                                            calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
+                                            tup_order, hashes, inc, \
+                                            tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
+
+                # recast parent tuple as list
+                tup = tup.tolist()
+
+                # reshape orbs in pairs of pi-orbitals
                 if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi]:
-                    tup_order -= 1
+                    orbs = orbs.reshape(-1, 2)
 
-                # get number of elements in tups
-                n_elms = mpi.stat.Get_elements(MPI.INT)
-
-                # init tups
-                tups = np.empty([n_elms // tup_order, tup_order], dtype=np.int32)
-
-                # receive tups
-                mpi.global_comm.Recv([tups, MPI.INT], source=0, tag=mpi.stat.tag)
-
-                # loop over tups
-                for tup in tups:
-
-                    # spawn child tuples from parent tuples at exp.order
-                    orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
-                                    calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                    tup_order, hashes[-1], inc, \
-                                    tup, pi_prune=calc.extra['pi_prune'], \
-                                    pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
-
-                    # deep pruning
-                    if calc.extra['pi_prune'] and exp.min_order < tup_order:
-                        orbs = _deep_pruning(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
-                                                calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                                tup_order, hashes, inc, \
-                                                tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
-
-                    # recast parent tuple as list
-                    tup = tup.tolist()
-
-                    # reshape orbs in pairs of pi-orbitals
+                # loop over orbitals and add to list of child tuples
+                for orb in orbs:
                     if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi]:
-                        orbs = orbs.reshape(-1, 2)
-
-                    # loop over orbitals and add to list of child tuples
-                    for orb in orbs:
-                        if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi]:
-                            child_tup += tup + orb.tolist()
-                        else:
-                            child_tup += tup + [orb]
+                        child_tup += tup + orb.tolist()
+                    else:
+                        child_tup += tup + [orb]
 
                 # send availability to master
                 mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
@@ -300,6 +311,9 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # reshape child tuples
         child_tup = child_tup.reshape(-1, exp.order + 1)
+
+        # free parent_tuples window
+        exp.tuples.Free()
 
         # allgather number of child tuples
         recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
@@ -354,13 +368,9 @@ def _set_screen(mpi, calc, exp):
         :param exp: pymbe exp object
         :return: integer [slaves_avail],
                  numpy array of shape (n_tuples, order) [tuples],
-                 list of numpy arrays of various shapes [tasks],
                  numpy array of shape (n_tuples_pi, order-1) or None [tuples_pi] depending on pi-pruning,
-                 list of numpy arrays of various shapes or None [tasks_pi] depending on pi-pruning,
                  numpy array of shape (n_tuples_seed, order) or None [tuples_seed] depending on ref_space,
-                 list of numpy arrays of various shapes or None [tasks_seed] depending on ref_space,
-                 numpy array of shape (n_tuples_seed_pi, order-1) or None [tuples_seed_pi] depending on ref_space and pi-pruning,
-                 list of numpy arrays of various shapes or None [tasks_seed_pi] depending on ref_space and pi-pruning,
+                 numpy array of shape (n_tuples_seed_pi, order-1) or None [tuples_seed_pi] depending on ref_space and pi-pruning
         """
         # load tuples as main task tuples
         buf = exp.tuples.Shared_query(0)[0]
@@ -370,7 +380,7 @@ def _set_screen(mpi, calc, exp):
         n_tasks = tuples.shape[0]
 
         # option to treat pi-orbitals independently
-        tuples_pi = tasks_pi = None; n_tasks_pi = 0
+        tuples_pi = None; n_tasks_pi = 0
 
         if calc.extra['pi_prune'] and exp.min_order < exp.order:
 
@@ -391,8 +401,8 @@ def _set_screen(mpi, calc, exp):
             n_tasks_pi = tuples_pi.shape[0]
 
         # potential seed for vacuum reference spaces
-        tuples_seed = tasks_seed = None; n_tasks_seed = 0
-        tuples_seed_pi = tasks_seed_pi = None; n_tasks_seed_pi = 0
+        tuples_seed = None; n_tasks_seed = 0
+        tuples_seed_pi = None; n_tasks_seed_pi = 0
 
         if calc.ref_space.size == 0 and exp.order <= calc.exp_space['occ'].size:
 
@@ -429,17 +439,7 @@ def _set_screen(mpi, calc, exp):
         # number of available slaves
         slaves_avail = min(mpi.global_size - 1, n_tasks + n_tasks_pi + n_tasks_seed + n_tasks_seed_pi)
 
-        # make arrays of individual tasks
-        tasks = tools.tasks(n_tasks, slaves_avail, mpi.task_size)
-        if n_tasks_pi > 0:
-            tasks_pi = tools.tasks(n_tasks_pi, slaves_avail, mpi.task_size)
-        if n_tasks_seed > 0:
-            tasks_seed = tools.tasks(n_tasks_seed, slaves_avail, mpi.task_size)
-        if n_tasks_seed_pi > 0:
-            tasks_seed_pi = tools.tasks(n_tasks_seed_pi, slaves_avail, mpi.task_size)
-
-        return slaves_avail, tuples, tasks, tuples_pi, tasks_pi, \
-                tuples_seed, tasks_seed, tuples_seed_pi, tasks_seed_pi
+        return slaves_avail, tuples, tuples_pi, tuples_seed, tuples_seed_pi
 
 
 def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \

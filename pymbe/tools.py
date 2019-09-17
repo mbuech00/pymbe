@@ -207,21 +207,6 @@ def hash_compare(a, b):
             return None
 
 
-def tasks(n_tasks, n_slaves, task_size):
-        """
-        this function returns an array of tasks
-
-        :param n_tasks: number of tasks. integer
-        :param n_slaves: number of slaves. integer
-        :param task_size: mpi task size. integer
-        :return: list of numpy arrays of various shapes
-        """
-        if n_slaves * task_size < n_tasks:
-            return np.array_split(np.arange(n_tasks), n_tasks // task_size)
-        else:
-            return np.array_split(np.arange(n_tasks), n_slaves)
-
-
 def cas(ref_space, tup):
         """
         this function returns a cas space

@@ -182,6 +182,7 @@ def master(mpi, mol, calc, exp):
 
                 # write restart files
                 if calc.misc['rst']:
+                    restart.write_gen(exp.order+1, np.asarray(exp.n_tasks[-1]), 'mbe_n_tasks')
                     restart.write_gen(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
                 # print screen end

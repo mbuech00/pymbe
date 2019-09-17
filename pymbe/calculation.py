@@ -50,7 +50,7 @@ class CalcCls(object):
                 self.thres = {'init': 1.0e-10, 'relax': 1.0}
                 self.misc = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
                 self.orbs = {'type': 'can'}
-                self.mpi = {'task_size': 5}
+                self.mpi = {}
                 self.prop = {'hf': {}, 'base': {}, 'ref': {}}
 
 
@@ -248,11 +248,5 @@ def sanity_chk(mol, calc):
                         'restart freqeuncy (rst_freq) must be an int')
         tools.assertion(calc.misc['rst_freq'] >= 1, \
                         'restart frequency (rst_freq) must be an int >= 1')
-
-        # mpi parameters
-        tools.assertion(isinstance(calc.mpi['task_size'], int), \
-                        'mpi task size (task_size) must be an int >= 1')
-        tools.assertion(calc.mpi['task_size'] >= 1, \
-                        'mpi task size (task_size) must be an int >= 1')
 
 
