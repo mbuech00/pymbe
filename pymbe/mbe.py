@@ -80,9 +80,14 @@ def master(mpi, mol, calc, exp):
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
         # init determinant statistics
-        min_ndets = 1e12
-        max_ndets = 0
-        sum_ndets = 0
+        if len(exp.max_ndets) == len(exp.hashes):
+            min_ndets = exp.min_ndets[-1]
+            max_ndets = exp.max_ndets[-1]
+            sum_ndets = exp.mean_ndets[-1]
+        else:
+            min_ndets = 1e12
+            max_ndets = 0
+            sum_ndets = 0
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -133,7 +138,7 @@ def master(mpi, mol, calc, exp):
                 # save determinant statistics
                 restart.write_gen(exp.order, np.asarray(max_ndets), 'mbe_max_ndets')
                 restart.write_gen(exp.order, np.asarray(min_ndets), 'mbe_min_ndets')
-                restart.write_gen(exp.order, np.asarray(sum_ndets) / tup_idx, 'mbe_mean_ndets')
+                restart.write_gen(exp.order, np.asarray(sum_ndets), 'mbe_mean_ndets')
 
                 # print status
                 print(output.mbe_status(tup_idx / exp.n_tasks[-1]))

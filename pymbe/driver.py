@@ -85,9 +85,14 @@ def master(mpi, mol, calc, exp):
                     exp.prop[calc.target]['inc'][-1] = inc_win
 
                 # append determinant statistics
-                exp.mean_ndets.append(np.asarray(mean_ndets))
-                exp.min_ndets.append(np.asarray(min_ndets))
-                exp.max_ndets.append(np.asarray(max_ndets))
+                if len(exp.max_ndets) == len(exp.hashes):
+                    exp.min_ndets[-1] = min_ndets
+                    exp.max_ndets[-1] = max_ndets
+                    exp.mean_ndets[-1] = mean_ndets
+                else:
+                    exp.min_ndets.append(min_ndets)
+                    exp.max_ndets.append(max_ndets)
+                    exp.mean_ndets.append(mean_ndets)
 
                 # append increment statistics
                 exp.mean_inc.append(mean_inc)
@@ -105,9 +110,9 @@ def master(mpi, mol, calc, exp):
                 # write restart files
                 if calc.misc['rst']:
                     restart.write_gen(exp.order, exp.prop[calc.target]['tot'][-1], 'mbe_tot')
-                    restart.write_gen(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
-                    restart.write_gen(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
-                    restart.write_gen(exp.order, exp.min_ndets[-1], 'mbe_min_ndets')
+                    restart.write_gen(exp.order, np.asarray(exp.mean_ndets[-1]), 'mbe_mean_ndets')
+                    restart.write_gen(exp.order, np.asarray(exp.max_ndets[-1]), 'mbe_max_ndets')
+                    restart.write_gen(exp.order, np.asarray(exp.min_ndets[-1]), 'mbe_min_ndets')
                     restart.write_gen(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
                     restart.write_gen(exp.order, exp.max_inc[-1], 'mbe_max_inc')
                     restart.write_gen(exp.order, exp.min_inc[-1], 'mbe_min_inc')
