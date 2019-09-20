@@ -128,8 +128,6 @@ def main(mpi, calc, exp):
                     inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks, 3))
                 if mpi.global_master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.num_masters > 1 and mpi.local_master:
-                    inc[:] = parallel.bcast(mpi.master_comm, inc)
                 mpi.local_comm.Barrier()
 
             if mpi.global_master:
