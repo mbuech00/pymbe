@@ -51,6 +51,11 @@ def master(mpi, mol, calc, exp):
         # number of slaves
         n_slaves = mpi.global_size - 1
 
+        # init time
+        if len(exp.time['mbe']) < len(exp.hashes):
+            exp.time['mbe'].append(0.0)
+        time = MPI.Wtime()
+
         # init increments
         if len(exp.prop[calc.target]['inc']) == len(exp.hashes):
 
@@ -140,6 +145,13 @@ def master(mpi, mol, calc, exp):
                 restart.write_gen(exp.order, np.asarray(min_ndets), 'mbe_min_ndets')
                 restart.write_gen(exp.order, np.asarray(sum_ndets), 'mbe_mean_ndets')
 
+                # save timing
+                exp.time['mbe'][-1] += MPI.Wtime() - time
+                restart.write_gen(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
+
+                # re-init time
+                time = MPI.Wtime()
+
                 # print status
                 print(output.mbe_status(tup_idx / exp.n_tasks[-1]))
 
@@ -216,6 +228,9 @@ def master(mpi, mol, calc, exp):
 
         # mpi barrier
         mpi.global_comm.Barrier()
+
+        # save timing
+        exp.time['mbe'][-1] += MPI.Wtime() - time
 
         return inc_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
 

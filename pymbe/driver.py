@@ -65,14 +65,8 @@ def master(mpi, mol, calc, exp):
 
             if len(exp.hashes) > len(exp.prop[calc.target]['tot']):
 
-                # init mbe time
-                exp.time['mbe'].append(0.0)
-
                 # print mbe header
                 print(output.mbe_header(exp.n_tasks[-1], exp.order))
-
-                # start time
-                time = MPI.Wtime()
 
                 # main mbe function
                 inc_win, tot, mean_ndets, min_ndets, max_ndets, \
@@ -103,9 +97,6 @@ def master(mpi, mol, calc, exp):
                 exp.prop[calc.target]['tot'].append(tot)
                 if exp.order > exp.min_order:
                     exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
-
-                # collect time
-                exp.time['mbe'][-1] = MPI.Wtime() - time
 
                 # write restart files
                 if calc.misc['rst']:
