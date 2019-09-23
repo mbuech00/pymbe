@@ -79,10 +79,7 @@ def master(mpi, mol, calc, exp):
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
             elif calc.target in ['dipole', 'trans']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3))
-
-            # save increments
-            if calc.misc['rst']:
-                restart.write_gen(exp.order, inc, 'mbe_inc')
+            inc[:] = np.zeros_like(inc)
 
         # init determinant statistics
         if len(exp.max_ndets) == len(exp.hashes):
@@ -287,6 +284,8 @@ def slave(mpi, mol, calc, exp):
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
         elif calc.target in ['dipole', 'trans']:
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3)))
+        if mpi.local_master and not mpi.global_master:
+            inc[-1][:] = np.zeros_like(inc[-1])
 
         # load hashes for current and previous orders
         hashes = []
