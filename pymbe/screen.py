@@ -213,12 +213,14 @@ def slave(mpi, calc, exp, slaves_needed):
         buf = exp.tuples.Shared_query(0)[0]
         tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
 
-        # load increments for current order
-        buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
-        if calc.target in ['energy', 'excitation']:
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
-        elif calc.target in ['dipole', 'trans']:
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3))
+        # load increments for current and previous orders
+        inc = []
+        for k in range(exp.order-exp.min_order+1):
+            buf = exp.prop[calc.target]['inc'][k].Shared_query(0)[0]
+            if calc.target in ['energy', 'excitation']:
+                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
+            elif calc.target in ['dipole', 'trans']:
+                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k], 3)))
 
         # load hashes for current and previous orders
         hashes = []
@@ -272,7 +274,7 @@ def slave(mpi, calc, exp, slaves_needed):
                 # spawn child tuples from parent tuples at exp.order
                 orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
                                 calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                tup_order, hashes[-1], inc, \
+                                tup_order, hashes[-1], inc[-1], \
                                 tup, pi_prune=calc.extra['pi_prune'], \
                                 pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
@@ -552,8 +554,8 @@ def _deep_pruning(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         :param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
         :param min_order: minimum (start) order. integer
         :param order: current order. integer
-        :param hashes: hashes to all orders. numpy array of shape (n_tuples,)
-        :param prop: property increments to all orders. numpy array of shape (n_tuples,)
+        :param hashes: hashes to all orders. list of numpy arrays of shapes (n_tuples,)
+        :param prop: property increments to all orders. list of numpy arrays of shapes (n_tuples,)
         :param tup: current orbital tuple. numpy array of shape (order,)
         :param orbs: initial array of child tuple orbitals. numpy array of shape (n_child_orbs_old,)
         :param pi_gen: pi-orbital generation logical. bool
