@@ -14,7 +14,7 @@ Prerequisites
 
 * [Python](https://www.python.org/) 3.7 or higher
 * [PySCF](https://pyscf.github.io/) 1.6 or higher and its requirements
-* [mpi4py](https://mpi4py.readthedocs.io/en/stable/) 3.0.2 built upon an MPI-3 library 
+* [mpi4py](https://mpi4py.readthedocs.io/en/stable/) 3.0.0 or higher built upon an MPI-3 library 
 
 
 Features
