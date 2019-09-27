@@ -48,9 +48,9 @@ class CalcCls(object):
                 self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
                 self.extra = {'hf_guess': True, 'pi_prune': False}
                 self.thres = {'init': 1.0e-10, 'relax': 1.0}
-                self.misc = {'order': None, 'rst': True, 'rst_interval': int(1e6)}
+                self.misc = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
                 self.orbs = {'type': 'can'}
-                self.mpi = {'task_size': 5}
+                self.mpi = {}
                 self.prop = {'hf': {}, 'base': {}, 'ref': {}}
 
 
@@ -192,9 +192,8 @@ def sanity_chk(mol, calc):
             tools.assertion(calc.state['root'] > 0, \
                             'calculation of excitation energy (excitation) requires target state root >= 1')
         if calc.target['trans']:
-            tools.assertion(calc.target['excitation'], \
-                            'calculation of transition dipole moment (trans) '
-                            'requires calculation of excitation energy (excitation)')
+            tools.assertion(calc.state['root'] > 0, \
+                            'calculation of transition dipole moment (trans) requires target state root >= 1')
 
         # extra
         tools.assertion(isinstance(calc.extra['hf_guess'], bool), \
@@ -245,15 +244,9 @@ def sanity_chk(mol, calc):
                                 'for vacuum reference spaces')
         tools.assertion(isinstance(calc.misc['rst'], bool), \
                         'restart logical (rst) must be a bool')
-        tools.assertion(isinstance(calc.misc['rst_interval'], int), \
-                        'restart interval (rst_interval) must be an int')
-        tools.assertion(calc.misc['rst_interval'] >= 1, \
-                        'restart interval (rst_intervl) must be an int >= 1')
-
-        # mpi parameters
-        tools.assertion(isinstance(calc.mpi['task_size'], int), \
-                        'mpi task size (task_size) must be an int >= 1')
-        tools.assertion(calc.mpi['task_size'] >= 1, \
-                        'mpi task size (task_size) must be an int >= 1')
+        tools.assertion(isinstance(calc.misc['rst_freq'], int), \
+                        'restart freqeuncy (rst_freq) must be an int')
+        tools.assertion(calc.misc['rst_freq'] >= 1, \
+                        'restart frequency (rst_freq) must be an int >= 1')
 
 

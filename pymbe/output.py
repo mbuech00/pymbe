@@ -31,10 +31,11 @@ FILL = ' '+'|'*92
 BAR_LENGTH = 50
 
 
-def main_header(method=None):
+def main_header(mpi=None, method=None):
         """
         this function prints the main pymbe header
 
+        :param mpi: pymbe mpi object
         :param method: main method. string
         :return: formatted string
         """
@@ -47,14 +48,18 @@ def main_header(method=None):
         string += "   o888o            .8'     o8o        o888o o888bood8P'  o888ooooood8\n"
         string += "                .o..P'\n"
         string += "                `Y8P'\n\n\n"
-        string += "   -- date & time: {:s}\n"
-        string += "   -- git version: {:s}\n\n\n"
-
         # date & time
+        string += "   -- date & time   : {:s}\n"
         form = (datetime.now().strftime('%Y-%m-%d & %H:%M:%S'),)
-
         # git hash
+        string += "   -- git version   : {:s}\n"
         form += (tools.git_version(),)
+        if mpi is not None:
+            string += "   -- local masters :\n"
+            for master_idx in range(mpi.num_masters):
+                string += "   #### rank / node : {:>6d} / {:s}\n"
+                form += (mpi.master_global_ranks[master_idx], mpi.master_global_hosts[master_idx])
+        string += "\n\n"
 
         # method
         if method is not None:
@@ -94,9 +99,9 @@ def mbe_debug(atom, symmetry, orbsym, root, ndets_tup, nelec_tup, inc_tup, order
         :param symmetry: molecular point group. string
         :param orbsym: orbital symmetries. numpy array of shape (n_orbs,)
         :param root: state root. integer
-        :param ndets_tup: number of determinants in casci calculation on tuple. scalar
+        :param ndets_tup: number of determinants in casci calculation on tuple. float
         :param nelec_tup: number of alpha- and beta-electrons. tuples of integers
-        :param inc_tup: property increment from tuple. scalar
+        :param inc_tup: property increment from tuple. float
         :param order: expansion order. integer
         :param cas_idx: cas space indices. numpy array of shape (n_cas,)
         :param tup: tuple of orbitals. numpy array of shape (order,)
@@ -128,7 +133,7 @@ def mbe_status(prog):
         """
         this function prints the status of an mbe phase
 
-        :param prog: progress. scalar (0. <= prog <= 1.)
+        :param prog: progress. float (0. <= prog <= 1.)
         :return: formatted string
         """
         status = int(round(BAR_LENGTH * prog))
@@ -138,33 +143,26 @@ def mbe_status(prog):
             format('#' * status + '-' * remainder, prog * 100.)
 
 
-def mbe_end(prop_inc, order, time):
+def mbe_end(order, time):
         """
         this function prints the end mbe information
 
-        :param prop_inc: current order property increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
         :param order. expansion order. integer
-        :param time. time in seconds. scalar
+        :param time. time in seconds. float
         :return: formatted string
         """
-        # determine number of nonzero increments
-        if prop_inc.ndim == 1:
-            n_tuples = np.count_nonzero(prop_inc)
-        else:
-            n_tuples = np.count_nonzero(np.count_nonzero(prop_inc, axis=1))
-
         # set string
         string = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} MBE done  ---  {:d} tuples in total in {:s}\n'
+        string += ' STATUS:  order k = {:d} MBE done in {:s}\n'
         string += DIVIDER
 
-        form = (order, n_tuples, tools.time_str(time),)
+        form = (order, tools.time_str(time),)
 
         return string.format(*form)
 
 
-def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tuples, \
-                prop_inc, prop_tot, mean_ndets, min_ndets, max_ndets):
+def mbe_results(occup, ref_space, target, root, min_order, max_order, order, \
+                prop_tot, mean_inc, min_inc, max_inc, mean_ndets, min_ndets, max_ndets):
         """
         this function prints mbe results statistics
 
@@ -175,9 +173,10 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
         :param min_order: minimum (start) order. integer
         :param max_order: maximum (final) order. integer
         :param order: current order. integer
-        :param tuples: current order tuples. numpy array of shape (n_tuples, order)
-        :param prop_inc: current order property increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
-        :param prop_tot: total mbe energy. list of scalars or numpy arrays of shape (3,) depending on target
+        :param prop_tot: total mbe energy. list of floats or numpy arrays of shape (3,) depending on target
+        :param mean_inc: mean increment. float
+        :param min_inc: min increment. float
+        :param max_inc: max increment. float
         :param mean_ndets: mean number of determinants. float
         :param min_ndets: min number of determinants. float
         :param max_ndets: max number of determinants. float
@@ -219,21 +218,13 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
 
         if target in ['energy', 'excitation']:
 
-            # increments
-            if prop_inc.any():
-                mean_val = np.mean(prop_inc[np.nonzero(prop_inc)])
-                min_val = np.min(np.abs(prop_inc[np.nonzero(prop_inc)]))
-                max_val = np.max(np.abs(prop_inc[np.nonzero(prop_inc)]))
-            else:
-                mean_val = min_val = max_val = 0.0
-
             # set string
             string += DIVIDER+'\n'
             string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
             string += DIVIDER+'\n'
             string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 
-            form = (header, mean_val, min_val, max_val)
+            form = (header, mean_inc, min_inc, max_inc)
 
         elif target in ['dipole', 'trans']:
 
@@ -242,31 +233,18 @@ def mbe_results(occup, ref_space, target, root, min_order, max_order, order, tup
             form = (header,)
             comp = ('x-component', 'y-component', 'z-component')
 
-            # init result arrays
-            mean_val = np.empty(3, dtype=np.float64)
-            min_val = np.empty(3, dtype=np.float64)
-            max_val = np.empty(3, dtype=np.float64)
-
             # loop over x, y, and z
             for k in range(3):
-
-                # increments
-                if prop_inc.any():
-                    mean_val[k] = np.mean(prop_inc[:, k][np.nonzero(prop_inc[:, k])])
-                    min_val[k] = np.min(np.abs(prop_inc[:, k][np.nonzero(prop_inc[:, k])]))
-                    max_val[k] = np.max(np.abs(prop_inc[:, k][np.nonzero(prop_inc[:, k])]))
-                else:
-                    mean_val[k] = min_val[k] = max_val[k] = 0.0
 
                 # set string
                 string += '\n RESULT:{:^81}\n'
                 string += DIVIDER+'\n'
                 string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
                 string += DIVIDER+'\n'
-                string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}'
+                string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
                 if k < 2:
-                    string += '\n'+DIVIDER
-                form += (comp[k], mean_val[k], min_val[k], max_val[k],)
+                    string += DIVIDER
+                form += (comp[k], mean_inc[k], min_inc[k], max_inc[k],)
 
         # set string
         string += DIVIDER+'\n'
@@ -302,19 +280,18 @@ def screen_header(order):
         return string.format(*form)
 
 
-def screen_end(n_tuples, order, time):
+def screen_end(order, time, conv=False):
         """
         this function prints the end screening information
 
-        :param n_tuples: number of tuples at a given order. integer
         :param order. expansion order. integer
-        :param time. time in seconds. scalar
+        :param time. time in seconds. float
         :return: formatted string
         """
         string = DIVIDER+'\n'
         string += ' STATUS:  order k = {:d} screening done in {:s}\n'
 
-        if n_tuples == 0:
+        if conv:
             string += ' STATUS:                  *** convergence has been reached ***                         \n'
 
         string += DIVIDER+'\n\n'

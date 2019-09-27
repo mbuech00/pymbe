@@ -14,6 +14,7 @@ __status__ = 'Development'
 
 import sys
 import os
+import numpy as np
 try:
     from pyscf import lib, scf
 except ImportError:
@@ -49,9 +50,6 @@ def main():
         # exp object
         mol, calc, exp = _exp(mpi, mol, calc)
 
-        # bcast restart info
-        exp = parallel.exp(mpi, calc, exp)
-
         return mpi, mol, calc, exp
 
 
@@ -66,7 +64,7 @@ def _mol(mpi):
         mol = system.MolCls()
 
         # input handling
-        if mpi.master:
+        if mpi.global_master:
 
             # read input
             mol = system.set_system(mol)
@@ -98,7 +96,7 @@ def _calc(mpi, mol):
         calc = calculation.CalcCls(mol)
 
         # input handling
-        if mpi.master:
+        if mpi.global_master:
 
             # read input
             calc = calculation.set_calc(calc)
@@ -115,9 +113,6 @@ def _calc(mpi, mol):
         # bcast info from master to slaves
         calc = parallel.calc(mpi, calc)
 
-        # put calc.mpi info into mpi object
-        mpi.task_size = calc.mpi['task_size']
-
         return calc
 
 
@@ -132,77 +127,80 @@ def _exp(mpi, mol, calc):
                  updated calc object,
                  pymbe exp object
         """
-        if mpi.master:
+        # get dipole integrals
+        mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
 
-            # get ao integrals
-            mol.hcore, mol.eri = kernel.ao_ints(mol)
+        # nuclear repulsion energy
+        mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.0
+
+        if mpi.global_master:
 
             if calc.restart:
 
                 # read fundamental info
                 mol, calc = restart.read_fund(mol, calc)
 
-                # get mo integrals
-                mol.hcore, mol.eri = kernel.mo_ints(mol.hcore, mol.eri, calc.mo_coeff)
-
-                # get effective fock potentials
-                mol.eri, mol.vhf = kernel.vhf(mol.nocc, mol.norb, mol.eri)
-
-                # exp object
-                exp = expansion.ExpCls(mol, calc)
+                # read properties
+                mol, calc = restart.read_prop(mol, calc)
 
             else:
 
                 # hf calculation
-                mol.nocc, mol.nvirt, mol.norb, calc.hf, mol.e_nuc, \
+                mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc)
+                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc.target)
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_energy, calc.mo_coeff, \
                     calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
 
-                # get mo integrals
-                mol.hcore, mol.eri = kernel.mo_ints(mol.hcore, mol.eri, calc.mo_coeff)
-
-                # get effective fock potentials
-                mol.eri, mol.vhf = kernel.vhf(mol.nocc, mol.norb, mol.eri)
-
-                # base energy
-                if calc.base['method'] is not None:
-                    calc.prop['base']['energy'] = kernel.base(mol, calc.occup, calc.base['method'])
-                else:
-                    calc.prop['base']['energy'] = 0.0
-
-                # reference space properties
-                calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
-
-                # write fundamental info
-                restart.write_fund(mol, calc)
-
-                # exp object
-                exp = expansion.ExpCls(mol, calc)
-
-        # get dipole integrals
-        mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
-
         # bcast fundamental info
         mol, calc = parallel.fund(mpi, mol, calc)
 
-        # exp object on slaves
-        if not mpi.master:
-            exp = expansion.ExpCls(mol, calc)
+        # get handles to all integral windows
+        mol.hcore, mol.vhf, mol.eri = kernel.ints(mpi, mol, calc.mo_coeff)
 
-        # init tuples and hashes
-        if mpi.master:
-            exp.hashes, exp.tuples = expansion.init_tup(mol, calc)
-            exp.min_order = exp.tuples.shape[1]
+        # write fundamental info
+        if mpi.global_master and calc.misc['rst']:
+            restart.write_fund(mol, calc)
+
+        # pyscf hf object not needed anymore
+        if mpi.global_master and not calc.restart:
+            del calc.hf
+
+        if mpi.global_master:
+
+            # base energy
+            if calc.base['method'] is not None:
+                calc.prop['base']['energy'] = kernel.base(mol, calc.occup, calc.base['method'])
+            else:
+                calc.prop['base']['energy'] = 0.0
+
+            # reference space properties
+            calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
+
+        # mo_coeff not needed anymore
+        if mpi.global_master:
+            del calc.mo_coeff
+
+        # bcast properties
+        calc = parallel.prop(mpi, calc)
+
+        # write properties
+        if mpi.global_master and calc.misc['rst']:
+            restart.write_prop(mol, calc)
+
+        # exp object
+        exp = expansion.ExpCls(mol, calc)
+
+        # init hashes, n_tasks, and tuples
+        exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
+
+        # possible restart
+        if calc.restart:
+            exp.start_order = restart.main(mpi, calc, exp)
         else:
-            exp.hashes = expansion.init_tup(mol, calc)[0]
-
-        # restart
-        if mpi.master:
-            exp.start_order = restart.main(calc, exp)
+            exp.start_order = exp.min_order
 
         return mol, calc, exp
 
@@ -212,8 +210,7 @@ def settings():
         this function sets and asserts some general settings
         """
         # only run with python3+
-        tools.assertion(3 <= sys.version_info[0], \
-                        'PyMBE only runs under python3+')
+        tools.assertion(3 <= sys.version_info[0], 'PyMBE only runs under python3+')
 
         # force OMP_NUM_THREADS = 1
         lib.num_threads(1)

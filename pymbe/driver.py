@@ -36,79 +36,87 @@ def master(mpi, mol, calc, exp):
         :param exp: pymbe exp object
         """
         # print expansion headers
-        print(output.main_header(method=calc.model['method']))
+        print(output.main_header(mpi=mpi, method=calc.model['method']))
 
         # print output from restarted calculation
         if calc.restart:
             for i in range(exp.start_order - exp.min_order):
 
                 # print mbe header
-                print(output.mbe_header(exp.hashes[i].size, i + exp.min_order))
+                print(output.mbe_header(exp.n_tasks[i], i + exp.min_order))
 
                 # print mbe end
-                print(output.mbe_end(exp.prop[calc.target]['inc'][i], i + exp.min_order, exp.time['mbe'][i]))
+                print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i]))
 
                 # print mbe results
                 print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-                                            exp.max_order, i + exp.min_order, exp.tuples, exp.prop[calc.target]['inc'][i], \
-                                            exp.prop[calc.target]['tot'], exp.mean_ndets[i], \
-                                            exp.min_ndets[i], exp.max_ndets[i]))
+                                            exp.max_order, i + exp.min_order, exp.prop[calc.target]['tot'], \
+                                            exp.mean_inc[i], exp.min_inc[i], exp.max_inc[i], \
+                                            exp.mean_ndets[i], exp.min_ndets[i], exp.max_ndets[i]))
 
                 # print header
                 print(output.screen_header(i + exp.min_order))
 
                 # print screen end
-                print(output.screen_end(exp.tuples.shape[0], i + exp.min_order, exp.time['screen'][i]))
+                print(output.screen_end(i + exp.min_order, exp.time['screen'][i]))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
             if len(exp.hashes) > len(exp.prop[calc.target]['tot']):
 
-                # init mbe time
-                exp.time['mbe'].append(0.0)
-
                 # print mbe header
-                print(output.mbe_header(exp.tuples.shape[0], exp.order))
-
-                # start time
-                time = MPI.Wtime()
+                print(output.mbe_header(exp.n_tasks[-1], exp.order))
 
                 # main mbe function
-                inc, mean_ndets, min_ndets, max_ndets = mbe.master(mpi, mol, calc, exp)
+                inc_win, tot, mean_ndets, min_ndets, max_ndets, \
+                    mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
 
-                # append number of determinants and increments
-                if len(exp.prop[calc.target]['inc']) > len(exp.prop[calc.target]['tot']):
-                    exp.prop[calc.target]['inc'][-1] = inc
+                # append window to increments
+                if len(exp.prop[calc.target]['inc']) < len(exp.hashes):
+                    exp.prop[calc.target]['inc'].append(inc_win)
                 else:
-                    exp.prop[calc.target]['inc'].append(inc)
-                exp.mean_ndets.append(mean_ndets)
-                exp.min_ndets.append(min_ndets)
-                exp.max_ndets.append(max_ndets)
+                    exp.prop[calc.target]['inc'][-1] = inc_win
 
-                # calculate and append total property
-                exp.prop[calc.target]['tot'].append(tools.fsum(inc))
+                # append determinant statistics
+                if len(exp.max_ndets) == len(exp.hashes):
+                    exp.min_ndets[-1] = min_ndets
+                    exp.max_ndets[-1] = max_ndets
+                    exp.mean_ndets[-1] = mean_ndets
+                else:
+                    exp.min_ndets.append(min_ndets)
+                    exp.max_ndets.append(max_ndets)
+                    exp.mean_ndets.append(mean_ndets)
+
+                # append increment statistics
+                exp.mean_inc.append(mean_inc)
+                exp.min_inc.append(min_inc)
+                exp.max_inc.append(max_inc)
+
+                # append total property
+                exp.prop[calc.target]['tot'].append(tot)
                 if exp.order > exp.min_order:
                     exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
 
-                # collect time
-                exp.time['mbe'][-1] = MPI.Wtime() - time
-
                 # write restart files
                 if calc.misc['rst']:
-                    restart.mbe_write(exp.order, \
-                                      exp.prop[calc.target]['inc'][-1], exp.prop[calc.target]['tot'][-1], \
-                                      exp.mean_ndets[-1], exp.max_ndets[-1], exp.min_ndets[-1], \
-                                      np.asarray(exp.time['mbe'][-1]))
+                    restart.write_gen(exp.order, exp.prop[calc.target]['tot'][-1], 'mbe_tot')
+                    restart.write_gen(exp.order, np.asarray(exp.mean_ndets[-1]), 'mbe_mean_ndets')
+                    restart.write_gen(exp.order, np.asarray(exp.max_ndets[-1]), 'mbe_max_ndets')
+                    restart.write_gen(exp.order, np.asarray(exp.min_ndets[-1]), 'mbe_min_ndets')
+                    restart.write_gen(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
+                    restart.write_gen(exp.order, exp.max_inc[-1], 'mbe_max_inc')
+                    restart.write_gen(exp.order, exp.min_inc[-1], 'mbe_min_inc')
+                    restart.write_gen(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
 
                 # print mbe end
-                print(output.mbe_end(exp.prop[calc.target]['inc'][-1], exp.order, exp.time['mbe'][-1]))
+                print(output.mbe_end(exp.order, exp.time['mbe'][-1]))
 
             # print mbe results
             print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-                                     exp.max_order, exp.order, exp.tuples, exp.prop[calc.target]['inc'][-1], \
-                                     exp.prop[calc.target]['tot'], exp.mean_ndets[-1], \
-                                     exp.min_ndets[-1], exp.max_ndets[-1]))
+                                     exp.max_order, exp.order, exp.prop[calc.target]['tot'], \
+                                     exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
+                                     exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
             # init screening time
             exp.time['screen'].append(0.0)
@@ -122,25 +130,20 @@ def master(mpi, mol, calc, exp):
                 time = MPI.Wtime()
 
                 # main screening function
-                hashes, tuples = screen.master(mpi, calc, exp)
+                hashes_win, tuples_win, n_tasks = screen.master(mpi, calc, exp)
 
-                # overwrite tuples and append hashes
-                exp.tuples = tuples
-                exp.hashes.append(hashes)
+                # append n_tasks
+                exp.n_tasks.append(n_tasks)
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
-                # write restart files
-                if calc.misc['rst'] and exp.tuples.shape[0] > 0:
-                    restart.screen_write(exp.order, exp.tuples, exp.hashes[-1], \
-                                         np.asarray(exp.time['screen'][-1]))
+            # convergence check
+            if exp.n_tasks[-1] == 0 or exp.order == exp.max_order:
 
                 # print screen end
-                print(output.screen_end(exp.tuples.shape[0], exp.order, exp.time['screen'][-1]))
-
-            # convergence check
-            if exp.tuples.shape[0] == 0 or exp.order == exp.max_order:
+                if exp.n_tasks[-1] == 0:
+                    print(output.screen_end(exp.order, exp.time['screen'][-1], conv=True))
 
                 # final order
                 exp.final_order = exp.order
@@ -149,6 +152,11 @@ def master(mpi, mol, calc, exp):
                 exp.time['mbe'] = np.asarray(exp.time['mbe'])
                 exp.time['screen'] = np.asarray(exp.time['screen'])
                 exp.time['total'] = exp.time['mbe'] + exp.time['screen']
+
+                # increments
+                exp.mean_inc = np.asarray(exp.mean_inc)
+                exp.min_inc = np.asarray(exp.min_inc)
+                exp.max_inc = np.asarray(exp.max_inc)
 
                 # ndets
                 exp.mean_ndets = np.asarray(exp.mean_ndets)
@@ -159,6 +167,22 @@ def master(mpi, mol, calc, exp):
                 exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])
 
                 break
+
+            else:
+
+                # overwrite window to tuples
+                exp.tuples = tuples_win
+
+                # append window to hashes
+                exp.hashes.append(hashes_win)
+
+                # write restart files
+                if calc.misc['rst']:
+                    restart.write_gen(exp.order+1, np.asarray(exp.n_tasks[-1]), 'mbe_n_tasks')
+                    restart.write_gen(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
+
+                # print screen end
+                print(output.screen_end(exp.order, exp.time['screen'][-1]))
 
 
 def slave(mpi, mol, calc, exp):
@@ -177,7 +201,7 @@ def slave(mpi, mol, calc, exp):
         while slave:
 
             # task id
-            msg = mpi.comm.bcast(None, root=0)
+            msg = mpi.global_comm.bcast(None, root=0)
 
             if msg['task'] == 'mbe':
 
@@ -185,10 +209,13 @@ def slave(mpi, mol, calc, exp):
                 exp.order = msg['order']
 
                 # main mbe function
-                inc = mbe.slave(mpi, mol, calc, exp)
+                inc_win = mbe.slave(mpi, mol, calc, exp)
 
-                # append increments
-                exp.prop[calc.target]['inc'].append(inc)
+                # append window to increments
+                if len(exp.prop[calc.target]['inc']) < len(exp.hashes):
+                    exp.prop[calc.target]['inc'].append(inc_win)
+                else:
+                    exp.prop[calc.target]['inc'][-1] = inc_win
 
             elif msg['task'] == 'screen':
 
@@ -196,10 +223,16 @@ def slave(mpi, mol, calc, exp):
                 exp.order = msg['order']
 
                 # main screening function
-                hashes = screen.slave(mpi, calc, exp, msg['slaves_needed'])
+                hashes_win, tuples_win, n_tasks = screen.slave(mpi, calc, exp, msg['slaves_needed'])
 
-                # append hashes
-                exp.hashes.append(hashes)
+                # overwrite window to tuples
+                exp.tuples = tuples_win
+
+                # append window to hashes
+                exp.hashes.append(hashes_win)
+
+                # append n_tasks
+                exp.n_tasks.append(n_tasks)
 
             elif msg['task'] == 'exit':
 
@@ -207,5 +240,5 @@ def slave(mpi, mol, calc, exp):
 
         # finalize mpi
         parallel.finalize(mpi)
-    
+
 

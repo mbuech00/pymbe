@@ -13,12 +13,15 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import numpy as np
+from mpi4py import MPI
 import json
 import os
 import os.path
 import shutil
 import re
 from pyscf import symm
+
+import parallel
 
 
 # restart folder
@@ -45,7 +48,7 @@ def rm():
         shutil.rmtree(RST)
 
 
-def main(calc, exp):
+def main(mpi, calc, exp):
         """
         this function reads in all expansion restart files and returns the start order
 
@@ -53,34 +56,89 @@ def main(calc, exp):
         :param exp: pymbe exp object
         :return: integer
         """
-        if calc.restart:
+        # list filenames in files list
+        files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
 
-            # list filenames in files list
-            files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
+        # sort the list of files
+        files.sort(key=_natural_keys)
 
-            # sort the list of files
-            files.sort(key=_natural_keys)
+        # loop over n_tasks files
+        if mpi.global_master:
 
-            # loop over files
             for i in range(len(files)):
 
-                # read tuples
-                if 'mbe_tup' in files[i]:
-                    exp.tuples = np.load(os.path.join(RST, files[i]))
+                # read n_tasks
+                if 'mbe_n_tasks' in files[i]:
+                    exp.n_tasks.append(np.load(os.path.join(RST, files[i])))
 
-                # read hashes
-                elif 'mbe_hash' in files[i]:
-                    exp.hashes.append(np.load(os.path.join(RST, files[i])))
+            mpi.global_comm.bcast(exp.n_tasks, root=0)
 
-                # read increments
-                elif 'mbe_inc' in files[i]:
-                    exp.prop[calc.target]['inc'].append(np.load(os.path.join(RST, files[i])))
+        else:
+
+            exp.n_tasks = mpi.global_comm.bcast(None, root=0)
+
+        # loop over all other files
+        for i in range(len(files)):
+
+            # read tuples
+            if 'mbe_tup' in files[i]:
+                n_tasks = exp.n_tasks[-1]
+                order = len(exp.n_tasks) + exp.min_order - 1
+                if mpi.local_master:
+                    exp.tuples = MPI.Win.Allocate_shared(4 * n_tasks * order, 4, comm=mpi.local_comm)
+                else:
+                    exp.tuples = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
+                buf = exp.tuples.Shared_query(0)[0]
+                tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(n_tasks, order))
+                if mpi.global_master:
+                    tuples[:] = np.load(os.path.join(RST, files[i]))
+                if mpi.num_masters > 1 and mpi.local_master:
+                    tuples[:] = parallel.bcast(mpi.master_comm, tuples)
+                mpi.local_comm.Barrier()
+
+            # read hashes
+            elif 'mbe_hash' in files[i]:
+                n_tasks = exp.n_tasks[len(exp.hashes)]
+                if mpi.local_master:
+                    exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
+                else:
+                    exp.hashes.append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
+                buf = exp.hashes[-1].Shared_query(0)[0]
+                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
+                if mpi.global_master:
+                    hashes[:] = np.load(os.path.join(RST, files[i]))
+                if mpi.num_masters > 1 and mpi.local_master:
+                    hashes[:] = parallel.bcast(mpi.master_comm, hashes)
+                mpi.local_comm.Barrier()
+
+            # read increments
+            elif 'mbe_inc' in files[i]:
+                n_tasks = exp.n_tasks[len(exp.prop[calc.target]['inc'])]
+                if mpi.local_master:
+                    if calc.target in ['energy', 'excitation']:
+                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
+                    elif calc.target in ['dipole', 'trans']:
+                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.local_comm))
+                else:
+                    exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
+                buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
+                if calc.target in ['energy', 'excitation']:
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
+                elif calc.target in ['dipole', 'trans']:
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks, 3))
+                if mpi.global_master:
+                    inc[:] = np.load(os.path.join(RST, files[i]))
+                if mpi.num_masters > 1 and mpi.local_master and len(exp.prop[calc.target]['inc']) < len(exp.n_tasks):
+                    inc[:] = parallel.bcast(mpi.master_comm, inc)
+                mpi.local_comm.Barrier()
+
+            if mpi.global_master:
 
                 # read total properties
-                elif 'mbe_tot' in files[i]:
+                if 'mbe_tot' in files[i]:
                     exp.prop[calc.target]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 
-                # read ndets
+                # read ndets statistics
                 elif 'mbe_mean_ndets' in files[i]:
                     exp.mean_ndets.append(np.load(os.path.join(RST, files[i])))
                 elif 'mbe_min_ndets' in files[i]:
@@ -88,65 +146,38 @@ def main(calc, exp):
                 elif 'mbe_max_ndets' in files[i]:
                     exp.max_ndets.append(np.load(os.path.join(RST, files[i])))
 
+                # read inc statistics
+                elif 'mbe_mean_inc' in files[i]:
+                    exp.mean_inc.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_min_inc' in files[i]:
+                    exp.min_inc.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_max_inc' in files[i]:
+                    exp.max_inc.append(np.load(os.path.join(RST, files[i])))
+
                 # read timings
                 elif 'mbe_time_mbe' in files[i]:
                     exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
                 elif 'mbe_time_screen' in files[i]:
                     exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
 
-        return exp.tuples.shape[1]
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
+        return tuples.shape[1]
 
 
-def mbe_write(order, inc, tot=None, mean_ndets=None, max_ndets=None, min_ndets=None, time_mbe=None):
+def write_gen(order, arr, string):
         """
-        this function writes all mbe restart files
+        this function writes a general restart file corresponding to input string
 
-        :param order: current mbe order. integer
-        :param inc: increments. numpy array of shape (n_tuples,) or (n_tuples, 3) depending on target
-        :param tot: total prop. numpy array of shape (order-start_order,) or (order-start_order, 3) depending on target
-        :param mean_ndets: mean number of determinants. scalar
-        :param max_ndets: max number of determinants. scalar
-        :param min_ndets: min number of determinants. scalar
-        :param time_mbe: mbe timings. scalar
-        :param total: logical controlling whether or not this is final call. bool
+        :param order: current mbe order. integer or None
+        :param arr: saved quantity. numpy array of arbitrary shape, integer, or float
+        :param string: specifier. string
         """
-        # increments
-        np.save(os.path.join(RST, 'mbe_inc_{:}'.format(order)), inc)
-
-        if tot is not None:
-            # total properties
-            np.save(os.path.join(RST, 'mbe_tot_{:}'.format(order)), tot)
-
-        # write ndets
-        if mean_ndets is not None:
-            np.save(os.path.join(RST, 'mbe_mean_ndets_'+str(order)), mean_ndets)
-        if max_ndets is not None:
-            np.save(os.path.join(RST, 'mbe_max_ndets_'+str(order)), max_ndets)
-        if min_ndets is not None:
-            np.save(os.path.join(RST, 'mbe_min_ndets_'+str(order)), min_ndets)
-
-        # write time
-        if time_mbe is not None:
-            np.save(os.path.join(RST, 'mbe_time_mbe_'+str(order)), time_mbe)
-
-
-def screen_write(order, tuples, hashes, time_screen):
-        """
-        this function writes all screening restart files
-
-        :param order: current mbe order. integer
-        :param tuples: tuples. numpy array of shape (n_tuples, order)
-        :param hashes: hashes. numpy array of shape (n_tuples,)
-        :param time_screen: screening timings. scalar
-        """
-        # write tuples
-        np.save(os.path.join(RST, 'mbe_tup'), tuples)
-
-        # write hashes
-        np.save(os.path.join(RST, 'mbe_hash_'+str(order+1)), hashes)
-
-        # write time
-        np.save(os.path.join(RST, 'mbe_time_screen_'+str(order)), time_screen)
+        if order is None:
+            np.save(os.path.join(RST, '{:}'.format(string)), arr)
+        else:
+            np.save(os.path.join(RST, '{:}_{:}'.format(string, order)), arr)
 
 
 def write_fund(mol, calc):
@@ -160,35 +191,6 @@ def write_fund(mol, calc):
         dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'norb': mol.norb, 'nelec': calc.nelec}
         with open(os.path.join(RST, 'dims.rst'), 'w') as f:
             json.dump(dims, f)
-
-        # write hf, reference, and base properties
-        if calc.target == 'energy':
-
-            energies = {'e_nuc': mol.e_nuc, \
-                        'hf': calc.prop['hf']['energy'], \
-                        'base': calc.prop['base']['energy'], \
-                        'ref': calc.prop['ref']['energy']}
-            with open(os.path.join(RST, 'energies.rst'), 'w') as f:
-                json.dump(energies, f)
-
-        elif calc.target == 'excitation':
-
-            excitations = {'ref': calc.prop['ref']['excitation']}
-            with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
-                json.dump(excitations, f)
-
-        elif calc.target == 'dipole':
-
-            dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
-                        'ref': calc.prop['ref']['dipole'].tolist()}
-            with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
-                json.dump(dipoles, f)
-
-        elif calc.target == 'trans':
-
-            transitions = {'ref': calc.prop['ref']['trans'].tolist()}
-            with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
-                json.dump(transitions, f)
 
         # write expansion spaces
         np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
@@ -207,6 +209,44 @@ def write_fund(mol, calc):
 
         # write orbital coefficients
         np.save(os.path.join(RST, 'mo_coeff'), calc.mo_coeff)
+
+
+def write_prop(mol, calc):
+        """
+        this function writes all property restart files
+
+        :param mol: pymbe mol object
+        :param calc: pymbe calc object
+        """
+        # write hf, reference, and base properties
+        energies = {'hf': calc.prop['hf']['energy']}
+
+        if calc.target == 'energy':
+
+            energies['base'] = calc.prop['base']['energy']
+            energies['ref'] = calc.prop['ref']['energy']
+
+        with open(os.path.join(RST, 'energies.rst'), 'w') as f:
+            json.dump(energies, f)
+
+        if calc.target == 'excitation':
+
+            excitations = {'ref': calc.prop['ref']['excitation']}
+            with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
+                json.dump(excitations, f)
+
+        elif calc.target == 'dipole':
+
+            dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
+                        'ref': calc.prop['ref']['dipole'].tolist()}
+            with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
+                json.dump(dipoles, f)
+
+        elif calc.target == 'trans':
+
+            transitions = {'ref': calc.prop['ref']['trans'].tolist()}
+            with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
+                json.dump(transitions, f)
 
 
 def read_fund(mol, calc):
@@ -237,35 +277,6 @@ def read_fund(mol, calc):
                 mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']
                 mol.norb = dims['norb']; calc.nelec = dims['nelec']
 
-            # read hf and base properties
-            elif 'energies' in files[i]:
-
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    energies = json.load(f)
-                mol.e_nuc = energies['e_nuc']
-                calc.prop['hf']['energy'] = energies['hf']
-                calc.prop['base']['energy'] = energies['base'] 
-                calc.prop['ref']['energy'] = energies['ref']
-
-            elif 'excitations' in files[i]:
-
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    excitations = json.load(f)
-                calc.prop['ref']['excitation'] = excitations['ref']
-
-            elif 'dipoles' in files[i]:
-
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    dipoles = json.load(f)
-                calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
-                calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
-
-            elif 'transitions' in files[i]:
-
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    transitions = json.load(f)
-                calc.prop['ref']['trans'] = np.asarray(transitions['ref'])
-
             # read expansion spaces
             elif 'ref_space' in files[i]:
                 calc.ref_space = np.load(os.path.join(RST, files[i]))
@@ -295,6 +306,57 @@ def read_fund(mol, calc):
                     calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
                 else:
                     calc.orbsym = np.zeros(mol.norb, dtype=np.int)
+
+        return mol, calc
+
+
+def read_prop(mol, calc):
+        """
+        this function reads all property restart files
+
+        :param mol: pymbe mol object
+        :param calc: pymbe calc object
+        :return: updated mol object,
+                 updated calc object
+        """
+        # list filenames in files list
+        files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
+
+        # sort the list of files
+        files.sort(key=_natural_keys)
+
+        # loop over files
+        for i in range(len(files)):
+
+            # read hf and base properties
+            if 'energies' in files[i]:
+
+                with open(os.path.join(RST, files[i]), 'r') as f:
+                    energies = json.load(f)
+                calc.prop['hf']['energy'] = energies['hf']
+
+                if calc.target == 'energy':
+                    calc.prop['base']['energy'] = energies['base']
+                    calc.prop['ref']['energy'] = energies['ref']
+
+            elif 'excitations' in files[i]:
+
+                with open(os.path.join(RST, files[i]), 'r') as f:
+                    excitations = json.load(f)
+                calc.prop['ref']['excitation'] = excitations['ref']
+
+            elif 'dipoles' in files[i]:
+
+                with open(os.path.join(RST, files[i]), 'r') as f:
+                    dipoles = json.load(f)
+                calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
+                calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
+
+            elif 'transitions' in files[i]:
+
+                with open(os.path.join(RST, files[i]), 'r') as f:
+                    transitions = json.load(f)
+                calc.prop['ref']['trans'] = np.asarray(transitions['ref'])
 
         return mol, calc
 

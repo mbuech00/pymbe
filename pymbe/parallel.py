@@ -40,16 +40,30 @@ class MPICls(object):
                 """
                 init mpi attributes
                 """
-                self.comm = MPI.COMM_WORLD
-                self.size = self.comm.Get_size()
-                self.rank = self.comm.Get_rank()
-                self.master = (self.rank == 0)
-                self.slave = not self.master
+                # general
                 self.host = MPI.Get_processor_name()
                 self.stat = MPI.Status()
-
-                if self.master:
-                    tools.assertion(self.size >= 2, 'PyMBE requires two or more MPI processes')
+                # global communicator
+                self.global_comm = MPI.COMM_WORLD
+                self.global_size = self.global_comm.Get_size()
+                self.global_rank = self.global_comm.Get_rank()
+                self.global_master = (self.global_rank == 0)
+                if self.global_master:
+                    tools.assertion(self.global_size >= 2, 'PyMBE requires two or more MPI processes')
+                # local node communicator (memory sharing)
+                self.local_comm = self.global_comm.Split_type(MPI.COMM_TYPE_SHARED, self.global_rank)
+                self.local_rank = self.local_comm.Get_rank()
+                self.local_master = (self.local_rank == 0)
+                # master communicator
+                self.master_comm = self.global_comm.Split(1 if self.local_master else MPI.UNDEFINED, self.global_rank)
+                if self.local_master:
+                    self.num_masters = self.master_comm.Get_size()
+                    self.master_global_ranks = np.array(self.master_comm.allgather(self.global_rank))
+                    self.master_global_hosts = np.array(self.master_comm.allgather(self.host))
+                if self.global_master:
+                    self.global_comm.bcast(self.num_masters, root=0)
+                else:
+                    self.num_masters = self.global_comm.bcast(None, root=0)
 
 
 def mol(mpi, mol):
@@ -60,7 +74,7 @@ def mol(mpi, mol):
         :param mol: pymbe mol object
         :return: updated mol object
         """
-        if mpi.master:
+        if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
             info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'ncore': mol.ncore, \
@@ -78,12 +92,12 @@ def mol(mpi, mol):
                 info['nelectron'] = mol.nelectron
 
             # bcast to slaves
-            mpi.comm.bcast(info, root=0)
+            mpi.global_comm.bcast(info, root=0)
 
         else:
 
             # receive info from master
-            info = mpi.comm.bcast(None, root=0)
+            info = mpi.global_comm.bcast(None, root=0)
 
             # set mol attributes from info dict
             for key, val in info.items():
@@ -100,7 +114,7 @@ def calc(mpi, calc):
         :param calc: pymbe calc object
         :return: updated calc object
         """
-        if mpi.master:
+        if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
             info = {'model': calc.model, 'target': calc.target, 'base': calc.base, \
@@ -109,12 +123,12 @@ def calc(mpi, calc):
                     'orbs': calc.orbs, 'restart': calc.restart}
 
             # bcast to slaves
-            mpi.comm.bcast(info, root=0)
+            mpi.global_comm.bcast(info, root=0)
 
         else:
 
             # receive info from master
-            info = mpi.comm.bcast(None, root=0)
+            info = mpi.global_comm.bcast(None, root=0)
 
             # set calc attributes from info dict
             for key, val in info.items():
@@ -125,7 +139,7 @@ def calc(mpi, calc):
 
 def fund(mpi, mol, calc):
         """
-        this function bcast all fundamental mol and calc info to slaves
+        this function bcasts all fundamental mol and calc info to slaves
 
         :param mpi: pymbe mpi object
         :param mol: pymbe mol object
@@ -133,23 +147,23 @@ def fund(mpi, mol, calc):
         :return: updated mol object,
                  updated calc object
         """
-        if mpi.master:
+        if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
             info = {'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, 'e_nuc': mol.e_nuc}
 
             # bcast to slaves
-            mpi.comm.bcast(info, root=0)
+            mpi.global_comm.bcast(info, root=0)
 
             # collect standard info (must be updated with new future attributes)
-            info = {'prop': calc.prop, 'occup': calc.occup, 'mo_energy': calc.mo_energy, \
+            info = {'occup': calc.occup, 'mo_energy': calc.mo_energy, \
                     'ref_space': calc.ref_space, 'exp_space': calc.exp_space}
 
             # bcast to slaves
-            mpi.comm.bcast(info, root=0)
+            mpi.global_comm.bcast(info, root=0)
 
             # bcast mo coefficients
-            calc.mo_coeff = bcast(mpi, calc.mo_coeff)
+            calc.mo_coeff = bcast(mpi.global_comm, calc.mo_coeff)
 
             # update orbsym
             if mol.atom:
@@ -157,32 +171,17 @@ def fund(mpi, mol, calc):
             else:
                 calc.orbsym = np.zeros(mol.norb, dtype=np.int)
 
-            # mo_coeff not needed on master anymore
-            del calc.mo_coeff
-
-            # bcast core hamiltonian (MO basis)
-            mol.hcore = bcast(mpi, mol.hcore)
-
-            # hcore not needed on master anymore
-            del mol.hcore
-
-            # bcast effective fock potentials (MO basis)
-            mol.vhf = bcast(mpi, mol.vhf)
-
-            # vhf not needed on master anymore
-            del mol.vhf
-
         else:
 
             # receive info from master
-            info = mpi.comm.bcast(None, root=0)
+            info = mpi.global_comm.bcast(None, root=0)
 
             # set mol attributes from info dict
             for key, val in info.items():
                 setattr(mol, key, val)
 
             # receive info from master
-            info = mpi.comm.bcast(None, root=0)
+            info = mpi.global_comm.bcast(None, root=0)
 
             # set calc attributes from info dict
             for key, val in info.items():
@@ -190,15 +189,7 @@ def fund(mpi, mol, calc):
 
             # receive mo coefficients
             calc.mo_coeff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-            calc.mo_coeff = bcast(mpi, calc.mo_coeff)
-
-            # receive hcore
-            mol.hcore = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-            mol.hcore = bcast(mpi, mol.hcore)
-
-            # receive fock potentials
-            mol.vhf = np.zeros([mol.nocc, mol.norb, mol.norb], dtype=np.float64)
-            mol.vhf = bcast(mpi, mol.vhf)
+            calc.mo_coeff = bcast(mpi.global_comm, calc.mo_coeff)
 
             # update orbsym
             if mol.atom:
@@ -209,86 +200,33 @@ def fund(mpi, mol, calc):
         return mol, calc
 
 
-def exp(mpi, calc, exp):
+def prop(mpi, calc):
         """
-        this function bcast all standard exp info to slaves
+        this function bcasts properties to slaves
 
         :param mpi: pymbe mpi object
         :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: updated exp object
+        :return: updated calc object
         """
-        if mpi.master:
+        if mpi.global_master:
 
-            # collect info
-            info = {'min_order': exp.min_order}
-
-            # if restart, collect info on previous orders
-            if calc.restart:
-                info['n_hashes'] = [exp.hashes[i].size for i in range(len(exp.hashes))]
-                info['n_props'] = [exp.prop[calc.target]['inc'][i].shape[0] for i in range(len(exp.prop[calc.target]['inc']))]
-
-            # bcast info
-            mpi.comm.bcast(info, root=0)
-
-            # bcast results from previous orders
-            if calc.restart:
-
-                # bcast hashes
-                for i in range(1, len(info['n_hashes'])):
-                    exp.hashes[i] = bcast(mpi, exp.hashes[i])
-
-                # bcast increments
-                for i in range(len(info['n_props'])):
-                    exp.prop[calc.target]['inc'][i] = bcast(mpi, exp.prop[calc.target]['inc'][i])
+            # bcast to slaves
+            mpi.global_comm.bcast(calc.prop, root=0)
 
         else:
 
-            # receive info
-            info = mpi.comm.bcast(None, root=0)
+            # receive prop from master
+            calc.prop = mpi.global_comm.bcast(None, root=0)
 
-            # receive min_order
-            exp.min_order = info['min_order']
-
-            # receive results from previous orders
-            if calc.restart:
-
-                # receive hashes
-                for i in range(1, len(info['n_hashes'])):
-                    exp.hashes.append(np.empty(info['n_hashes'][i], dtype=np.int64))
-                    exp.hashes[i] = bcast(mpi, exp.hashes[i])
-
-                # receive increments
-                for i in range(len(info['n_props'])):
-                    if calc.target in ['energy', 'excitation']:
-                        exp.prop[calc.target]['inc'].append(np.zeros(info['n_props'][i], dtype=np.float64))
-                    else:
-                        exp.prop[calc.target]['inc'].append(np.zeros([info['n_props'][i], 3], dtype=np.float64))
-                    exp.prop[calc.target]['inc'][i] = bcast(mpi, exp.prop[calc.target]['inc'][i])
-
-        return exp
+        return calc
 
 
-def probe(mpi, tag_ready):
-        """
-        this function probes for available slaves
-
-        :param mpi: pymbe mpi object
-        :param tag_ready: mpi ready tag. enum
-        """
-        # probe for available slaves
-        mpi.comm.Probe(source=MPI.ANY_SOURCE, tag=tag_ready, status=mpi.stat)
-
-        # receive slave status
-        mpi.comm.recv(None, source=mpi.stat.source, tag=tag_ready)
-
-
-def bcast(mpi, buff):
+def bcast(comm, buff):
         """
         this function performs a tiled Bcast operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
-        :param mpi: pymbe mpi object
+        :param comm: mpi communicator
         :param buff: buffer. numpy array of any kind of shape and dtype (may not be allocated on slave procs)
         :return: numpy array of same shape and dtype as master buffer
         """
@@ -297,47 +235,50 @@ def bcast(mpi, buff):
 
         # bcast all tiles
         for p0, p1 in lib.prange(0, buff.size, BLKSIZE):
-            mpi.comm.Bcast(buff_tile[p0:p1], root=0)
+            comm.Bcast(buff_tile[p0:p1], root=0)
 
         return buff
 
 
-def reduce(mpi, send_buff):
+def reduce(comm, send_buff, root=0):
         """
         this function performs a tiled Reduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
-        :param mpi: pymbe mpi object
+        :param comm: mpi communicator
         :param send_buff: send buffer. numpy array of any kind of shape and dtype
         :return: numpy array of same shape and dtype as send_buff
         """
+        # rank
+        rank = comm.Get_rank()
+
         # init recv_buff        
-        if mpi.rank == 0:
+        if rank == 0:
             recv_buff = np.zeros_like(send_buff)
         else:
             recv_buff = send_buff
 
         # init send_tile and recv_tile
         send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
-        if mpi.rank == 0:
+        if rank == 0:
             recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
 
-        # allreduce all tiles
+        # reduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
-            if mpi.rank == 0:
-                mpi.comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM, root=0)
+            if rank == 0:
+                comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM, root=root)
             else:
-                mpi.comm.Reduce(send_tile[p0:p1], None, op=MPI.SUM, root=0)
+                comm.Reduce(send_tile[p0:p1], None, op=MPI.SUM, root=root)
 
         return recv_buff
 
 
-def allreduce(mpi, send_buff):
+def allreduce(comm, send_buff):
         """
         this function performs a tiled Allreduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
-        :param mpi: pymbe mpi object
+        :param comm: mpi communicator
         :param send_buff: send buffer. numpy array of any kind of shape and dtype
         :return: numpy array of same shape and dtype as send_buff
         """
@@ -350,57 +291,48 @@ def allreduce(mpi, send_buff):
 
         # allreduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
-            mpi.comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM)
+            comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM)
 
         return recv_buff
 
 
-def recv_counts(mpi, n_elms):
-        """
-        this function performs an allgather operation to return an array with n_elms from all procs
-
-        :param mpi: pymbe mpi object
-        :param n_elms: number of elements. integer
-        :return: numpy array of shape (n_procs,)
-        """
-        return np.array(mpi.comm.allgather(n_elms))
-
-
-def gatherv(mpi, send_buff):
+def gatherv(comm, send_buff, counts):
         """
         this function performs a gatherv operation using point-to-point operations
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
 
-        :param mpi: pymbe mpi object
+        :param comm: mpi communicator
         :param send_buff: send buffer. numpy array of any kind of shape and dtype
+        :param counts: number of elements from individual processes. numpy array of shape (n_procs,)
+        :param master: logical for rank == 0 (master) on given comm
         :return: numpy array of shape (n_child_tuples * (order+1),)
         """
-        # allgather shape of send_buff from slaves
-        rshape = mpi.comm.allgather((send_buff.shape,))
+        # rank and size
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+        # dtype
+        dtype = send_buff.dtype
 
-        # compute counts
-        counts = np.array([np.prod(x[0]) for x in rshape])
-
-        if mpi.master:
+        if rank == 0:
 
             # init recv_buff
-            recv_buff = np.empty(np.sum(counts), dtype=np.int32)
+            recv_buff = np.empty(np.sum(counts), dtype=dtype)
 
             # gatherv all tiles
-            for slave in range(1, mpi.size):
+            for slave in range(1, size):
 
                 slave_idx = np.sum(counts[:slave])
 
                 for p0, p1 in lib.prange(0, counts[slave], BLKSIZE):
-                    mpi.comm.Recv(recv_buff[slave_idx+p0:slave_idx+p1], source=slave)
+                    comm.Recv(recv_buff[slave_idx+p0:slave_idx+p1], source=slave)
 
             return recv_buff
 
         else:
 
             # gatherv all tiles
-            for p0, p1 in lib.prange(0, counts[mpi.rank], BLKSIZE):
-                mpi.comm.Send(send_buff[p0:p1], dest=0)
+            for p0, p1 in lib.prange(0, counts[rank], BLKSIZE):
+                comm.Send(send_buff[p0:p1], dest=0)
 
             return send_buff
 
@@ -419,12 +351,12 @@ def finalize(mpi):
         :param mpi: pymbe mpi object
         """
         # wake up slaves
-        if mpi.master:
+        if mpi.global_master:
             restart.rm()
-            mpi.comm.bcast({'task': 'exit'}, root=0)
+            mpi.global_comm.bcast({'task': 'exit'}, root=0)
 
         # finalize
-        mpi.comm.Barrier()
+        mpi.global_comm.Barrier()
         MPI.Finalize()
 
 

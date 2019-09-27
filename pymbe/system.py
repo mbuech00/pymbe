@@ -58,7 +58,7 @@ class MolCls(gto.Mole):
                         raise RuntimeError
                     except RuntimeError:
 
-                        if mpi.master:
+                        if mpi.global_master:
 
                             restart.rm()
                             sys.stderr.write('\nValueError: non-sensible system input\n'
