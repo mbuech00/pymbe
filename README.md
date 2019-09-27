@@ -1,4 +1,3 @@
-
 ![](doc/logo/pymbe_logo.png "PyMBE")
 
 The PyMBE Code
@@ -33,7 +32,7 @@ Features
 Tutorials
 ---------
 
-* None at the moment, but please have a look at the various examples that accompany the code.
+* None at the moment, but please have a look at the various [examples](examples/) that accompany the code.
 
 
 Citing PyMBE
