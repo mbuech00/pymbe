@@ -44,7 +44,7 @@ Tutorials
 Citing PyMBE
 ------------
 
-The following papers should be cited in publications using the PyMBE code:
+The following papers document the development of the PyMBE code and the theory it implements:
 
 * Many-Body Expanded Full Configuration Interaction. II. Strongly Correlated Regime\
 Eriksen, J. J., Gauss, J.\
