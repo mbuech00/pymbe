@@ -24,7 +24,9 @@ Features
     - Calculations of Ground State Correlation Energies, Excitation Energies, and (Transition) Dipole Moments.
     - Coupled Cluster Intermediate Base Models: CCSD & CCSD(T).
     - Arbitrary Reference Spaces.
-    - Restricted (Open-Shell) Hartree-Fock (RHF/ROHF) and Complete Active Space Self-Consistent Field (CASSCF) Molecular Orbitals.
+    - Full Abelian Point Group Symmetry.
+    - Closed- and Open-Shell Implementation.
+    - Restricted Hartree-Fock (RHF/ROHF) and Complete Active Space Self-Consistent Field (CASSCF) Molecular Orbitals.
 * Massively Parallel Implementation.
 * MPI-3 Shared Memory Parallelism.
 
@@ -32,7 +34,7 @@ Features
 Documentation
 -------------
 
-The PyMBE code is deliberately left undocumented, but [doctest](https://docs.python.org/2/library/doctest.html) is used throughout where applicable and the same is true with respect to type hints via the Python [typing](https://docs.python.org/3/library/typing.html) module.
+The PyMBE code is deliberately left undocumented, but [doctest](https://docs.python.org/2/library/doctest.html) is used throughout where applicable and the same is true with respect to type hints using the Python [typing](https://docs.python.org/3/library/typing.html) module.
 
 
 Tutorials
