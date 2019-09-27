@@ -55,6 +55,13 @@ class ExpCls(object):
                 # init order
                 self.order = 0
 
+                # init attributes
+                self.hashes = None
+                self.tuples = None
+                self.n_tasks = None
+                self.min_order = None
+                self.start_order = None
+
 
 def init_tup(mpi, mol, calc):
         """

@@ -19,6 +19,7 @@ try:
     from pyscf import lib, scf
 except ImportError:
     sys.stderr.write('\nImportError : pyscf module not found\n\n')
+from typing import Tuple
 
 import parallel
 import system
@@ -29,14 +30,9 @@ import restart
 import tools
 
 
-def main():
+def main() -> Tuple[parallel.MPICls, system.MolCls, calculation.CalcCls, expansion.ExpCls]:
         """
         this function initializes and broadcasts mpi, mol, calc, and exp objects
-
-        :return: pymbe mpi object,
-                 pymbe mol object,
-                 pymbe calc object,
-                 pymbe exp object
         """
         # mpi object
         mpi = parallel.MPICls()
@@ -53,12 +49,9 @@ def main():
         return mpi, mol, calc, exp
 
 
-def _mol(mpi):
+def _mol(mpi: parallel.MPICls) -> system.MolCls:
         """
-        this function initializes mol object
-
-        :param mpi: pymbe mpi object
-        :return: pymbe mol object
+        this function initializes a mol object
         """
         # mol object
         mol = system.MolCls()
@@ -84,13 +77,9 @@ def _mol(mpi):
         return mol
 
 
-def _calc(mpi, mol):
+def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
         """
-        this function initializes calc object
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :return: pymbe calc object
+        this function initializes a calc object
         """
         # calc object
         calc = calculation.CalcCls(mol)
@@ -116,16 +105,10 @@ def _calc(mpi, mol):
         return calc
 
 
-def _exp(mpi, mol, calc):
+def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc: calculation. CalcCls) -> Tuple[system.MolCls, calculation.CalcCls, expansion.ExpCls]:
         """
-        this function initializes exp object
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: updated mol object,
-                 updated calc object,
-                 pymbe exp object
+        this function initializes an exp object
         """
         # get dipole integrals
         mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
@@ -205,7 +188,7 @@ def _exp(mpi, mol, calc):
         return mol, calc, exp
 
 
-def settings():
+def settings() -> None:
         """
         this function sets and asserts some general settings
         """

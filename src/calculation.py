@@ -53,6 +53,17 @@ class CalcCls(object):
                 self.mpi = {}
                 self.prop = {'hf': {}, 'base': {}, 'ref': {}}
 
+                # init attributes
+                self.restart = None
+                self.hf = None
+                self.occup = None
+                self.orbsym = None
+                self.mo_energy = None
+                self.mo_coeff = None
+                self.nelec = None
+                self.ref_space = None
+                self.exp_space = None
+
 
 def set_calc(calc):
         """
