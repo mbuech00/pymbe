@@ -35,17 +35,17 @@ Citing PyMBE
 
 The following papers should be cited in publications using the PyMBE code:
 
-* Many-Body Expanded Full Configuration Interaction. II. Strongly Correlated Regime
- - Eriksen, J. J., Gauss, J.
- - J. Chem. Theory Comput., 15, 4873 (2019) (arXiv: 1905.02786)
+* Many-Body Expanded Full Configuration Interaction. II. Strongly Correlated Regime\
+Eriksen, J. J., Gauss, J.\
+J. Chem. Theory Comput., 15, 4873 (2019) (arXiv: 1905.02786)
 
-* Many-Body Expanded Full Configuration Interaction. I. Weakly Correlated Regime
- - Eriksen, J. J., Gauss, J.
- - J. Chem. Theory Comput., 14, 5180 (2018) (arXiv: 1807.01328)
+* Many-Body Expanded Full Configuration Interaction. I. Weakly Correlated Regime\
+Eriksen, J. J., Gauss, J.\
+J. Chem. Theory Comput., 14, 5180 (2018) (arXiv: 1807.01328)
 
-* Virtual Orbital Many-Body Expansions: A Possible Route Towards the Full Configuration Interaction Limit
- - Eriksen, J. J., Lipparini, F.; Gauss, J.
- - J. Phys. Chem. Lett., 8, 4633 (2017) (arXiv: 1708.02103)
+* Virtual Orbital Many-Body Expansions: A Possible Route Towards the Full Configuration Interaction Limit\
+Eriksen, J. J., Lipparini, F.; Gauss, J.\
+J. Phys. Chem. Lett., 8, 4633 (2017) (arXiv: 1708.02103)
 
 Bug reports
 -----------
