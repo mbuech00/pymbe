@@ -36,9 +36,6 @@ class CalcCls:
         def __init__(self, mol: system.MolCls) -> None:
                 """
                 init calculation attributes
-
-                :param mpi: pymbe mpi object
-                :param mol: pymbe mol object
                 """
                 # set defaults
                 self.model: Dict[str, str] = {'method': 'fci', 'solver': 'pyscf_spin0'}
@@ -71,9 +68,6 @@ class CalcCls:
 def set_calc(calc: CalcCls) -> CalcCls:
         """
         this function sets calculation and mpi attributes from input file
-
-        :param calc: pymbe calc object
-        :return: updated calc object
         """
         # read input file
         try:
@@ -129,9 +123,6 @@ def set_calc(calc: CalcCls) -> CalcCls:
 def sanity_chk(mol: system.MolCls, calc: CalcCls) -> None:
         """
         this function performs sanity checks of calc and mpi attributes
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
         """
         # expansion model
         tools.assertion(isinstance(calc.model['method'], str), \
