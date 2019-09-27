@@ -32,13 +32,13 @@ Features
 Documentation
 -------------
 
-* No documentation exists, but [doctest](https://docs.python.org/2/library/doctest.html) is used throughout as is type hints via the Python [typing](https://docs.python.org/3/library/typing.html) module.
+No documentation exists, but [doctest](https://docs.python.org/2/library/doctest.html) is used throughout as is type hints via the Python [typing](https://docs.python.org/3/library/typing.html) module.
 
 
 Tutorials
 ---------
 
-* None at the moment, but please have a look at the various [examples](examples/) that accompany the code.
+None at the moment, but please have a look at the various [examples](examples/) that accompany the code.
 
 
 Citing PyMBE
