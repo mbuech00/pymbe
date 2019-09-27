@@ -3,6 +3,8 @@
 PyMBE: A Many-Body Expanded Correlation Code by Dr. Janus Juul Eriksen 
 ======================================================================
 
+{:toc}
+
 News
 ----
 
