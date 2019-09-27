@@ -23,7 +23,9 @@ Features
 
 * Many-Body Expanded Full Configuration Interaction.
     - Calculations of Ground State Correlation Energies, Excitation Energies, and (Transition) Dipole Moments.
+    - Coupled Cluster Intermediate Base Models -- CCSD & CCSD(T).
 * Massively Parallel Implementation.
+* MPI-3 Shared Memory Parallelism.
 
 
 Tutorials
