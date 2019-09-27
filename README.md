@@ -1,7 +1,5 @@
 
-<div align="center">
-  <img src="https://gitlab.com/januseriksen/pymbe/blob/shared_mem/doc/logo/pymbe_logo.png" height="120px"/>
-</div>
+![](doc/logo/pymbe_logo.png)
 
 Many-Body Expanded Electronic Structure Theory
 ===============================================
