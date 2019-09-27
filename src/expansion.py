@@ -16,26 +16,27 @@ import numpy as np
 from mpi4py import MPI
 import functools
 import copy
+from typing import List, Dict, Union, Any
 
+import parallel
+import system
+import calculation
 import tools
 
 
-class ExpCls(object):
+class ExpCls:
         """
         this class contains the pymbe expansion attributes
         """
-        def __init__(self, mol, calc):
+        def __init__(self, mol: system.MolCls, calc: calculation.CalcCls) -> None:
                 """
                 init expansion attributes
-
-                :param mol: pymbe mol object
-                :param calc: pymbe calc object
                 """
                 # set expansion model dict
                 self.model = copy.deepcopy(calc.model)
 
                 # init prop dict
-                self.prop = {calc.target: {'inc': [], 'tot': []}}
+                self.prop: Dict[str, Dict[str, List[np.ndarray]]] = {str(calc.target): {'inc': [], 'tot': []}}
 
                 # set max_order
                 if calc.misc['order'] is not None:
@@ -44,36 +45,30 @@ class ExpCls(object):
                     self.max_order = calc.exp_space['tot'].size
 
                 # init timings and and statistics lists
-                self.time = {'mbe': [], 'screen': []}
-                self.mean_inc = []
-                self.min_inc = []
-                self.max_inc = []
-                self.mean_ndets = []
-                self.min_ndets = []
-                self.max_ndets = []
+                self.time: Dict[str, List[float]] = {'mbe': [], 'screen': []}
+                self.mean_inc: List[float] = []
+                self.min_inc: List[float] = []
+                self.max_inc: List[float] = []
+                self.mean_ndets: List[float] = []
+                self.min_ndets: List[float] = []
+                self.max_ndets: List[float] = []
 
                 # init order
-                self.order = 0
+                self.order: int = 0
 
                 # init attributes
-                self.hashes = None
-                self.tuples = None
-                self.n_tasks = None
-                self.min_order = None
-                self.start_order = None
-                self.final_order = None
+                self.hashes: List[MPI.Win] = [None]
+                self.tuples: MPI.Win = None
+                self.n_tasks: List[int] = [0]
+                self.min_order: int = 0
+                self.start_order: int = 0
+                self.final_order: int = 0
 
 
-def init_tup(mpi, mol, calc):
+def init_tup(mpi: parallel.MPICls, mol: system.MolCls, \
+                calc: calculation.CalcCls) -> Union[List[MPI.Win], MPI.Win, List[int], int]:
         """
         this function initializes tuples and hashes
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: MPI window handle to numpy array of shape (n_tuples,) [hashes],
-                 MPI window handle to numpy array of shape (n_tuples, start_order) [tuples],
-                 integer [n_tasks]
         """
         # init tuples
         if calc.ref_space.size > 0:

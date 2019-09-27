@@ -17,8 +17,8 @@ import sys
 import os
 import ast
 import numpy as np
-from pyscf import symm
-from typing import Dict, List, Union, Any
+from pyscf import symm, scf
+from typing import Dict, List, Tuple, Union, Any
 
 import system
 import tools
@@ -54,15 +54,15 @@ class CalcCls:
                 self.prop: Dict[str, Dict[str, Union[float, np.ndarray]]] = {'hf': {}, 'base': {}, 'ref': {}}
 
                 # init attributes
-                self.restart = None
-                self.hf = None
-                self.occup = None
-                self.orbsym = None
-                self.mo_energy = None
-                self.mo_coeff = None
-                self.nelec = None
-                self.ref_space = None
-                self.exp_space = None
+                self.restart: bool = False
+                self.hf: scf.RHF = None
+                self.occup: np.ndarray = None
+                self.orbsym: np.ndarray = None
+                self.mo_energy: np.ndarray = None
+                self.mo_coeff: np.ndarray = None
+                self.nelec: Tuple[int, ...] = ()
+                self.ref_space: np.ndarray = None
+                self.exp_space: np.ndarray = None
 
 
 def set_calc(calc: CalcCls) -> CalcCls:
