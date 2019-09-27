@@ -29,6 +29,12 @@ Features
 * MPI-3 Shared Memory Parallelism.
 
 
+Documentation
+-------------
+
+* No documentation exists, but [doctest](https://docs.python.org/2/library/doctest.html) is used throughout as is type hints via the Python [typing](https://docs.python.org/3/library/typing.html) module.
+
+
 Tutorials
 ---------
 
