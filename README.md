@@ -7,27 +7,29 @@ The PyMBE Code
 News
 ----
 
-* October 2019: The PyMBE code is now open source under the MIT license. More to follow.
+* **October 2019**: The PyMBE code is now open source under the MIT license. More to follow.
 
 
 Prerequisites
 -------------
 
-* Python 3.7 or higher
-* PySCF 1.6 or higher and its requirements
-* MPI4PY 3.0.0 built upon an MPI 3.0 library 
+* [Python](https://www.python.org/) 3.7 or higher
+* [PySCF](https://pyscf.github.io/) 1.6 or higher and its requirements
+* [mpi4py](https://mpi4py.readthedocs.io/en/stable/) 3.0.2 built upon an MPI-3 library 
 
 
 Features
 --------
 
-* Write me...
+* Many-Body Expanded Full Configuration Interaction.
+    - Calculations of Ground State Correlation Energies, Excitation Energies, and (Transition) Dipole Moments.
+* Massively Parallel Implementation.
 
 
 Tutorials
 ---------
 
-* None at the moment, but please have a look at the various examples.
+* None at the moment, but please have a look at the various examples that accompany the code.
 
 
 Citing PyMBE
@@ -37,15 +39,15 @@ The following papers should be cited in publications using the PyMBE code:
 
 * Many-Body Expanded Full Configuration Interaction. II. Strongly Correlated Regime\
 Eriksen, J. J., Gauss, J.\
-J. Chem. Theory Comput., 15, 4873 (2019) (arXiv: 1905.02786)
+[J. Chem. Theory Comput., 15, 4873 (2019)](https://pubs.acs.org/doi/10.1021/acs.jctc.9b00456) ([arXiv: 1905.02786](https://arxiv.org/abs/1905.02786))
 
 * Many-Body Expanded Full Configuration Interaction. I. Weakly Correlated Regime\
 Eriksen, J. J., Gauss, J.\
-J. Chem. Theory Comput., 14, 5180 (2018) (arXiv: 1807.01328)
+[J. Chem. Theory Comput., 14, 5180 (2018)](https://pubs.acs.org/doi/10.1021/acs.jctc.8b00680) ([arXiv: 1807.01328](https://arxiv.org/abs/1807.01328))
 
 * Virtual Orbital Many-Body Expansions: A Possible Route Towards the Full Configuration Interaction Limit\
 Eriksen, J. J., Lipparini, F.; Gauss, J.\
-J. Phys. Chem. Lett., 8, 4633 (2017) (arXiv: 1708.02103)
+[J. Phys. Chem. Lett., 8, 4633 (2017)](https://pubs.acs.org/doi/10.1021/acs.jpclett.7b02075) ([arXiv: 1708.02103](https://arxiv.org/abs/1708.02103))
 
 Bug reports
 -----------
