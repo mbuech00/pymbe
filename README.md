@@ -32,7 +32,7 @@ Features
 Documentation
 -------------
 
-No documentation exists, but [doctest](https://docs.python.org/2/library/doctest.html) is used throughout as is type hints via the Python [typing](https://docs.python.org/3/library/typing.html) module.
+The PyMBE code is deliberately left undocumented, but [doctest](https://docs.python.org/2/library/doctest.html) is used throughout where applicable and the same is true with respect to type hints via the Python [typing](https://docs.python.org/3/library/typing.html) module.
 
 
 Tutorials

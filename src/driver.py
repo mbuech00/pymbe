@@ -21,19 +21,17 @@ import mbe
 import kernel
 import output
 import screen
+import system
+import calculation
 import expansion
-import tools
 import parallel
+import tools
 
 
-def master(mpi, mol, calc, exp):
+def master(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc:calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
-        this function is the main master function
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
+        this function is the main pymbe master function
         """
         # print expansion headers
         print(output.main_header(mpi=mpi, method=calc.model['method']))
@@ -185,14 +183,10 @@ def master(mpi, mol, calc, exp):
                 print(output.screen_end(exp.order, exp.time['screen'][-1]))
 
 
-def slave(mpi, mol, calc, exp):
+def slave(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
-        this function is the main slave function
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
+        this function is the main pymbe slave function
         """
         # set loop/waiting logical
         slave = True

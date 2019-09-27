@@ -61,6 +61,7 @@ class ExpCls(object):
                 self.n_tasks = None
                 self.min_order = None
                 self.start_order = None
+                self.final_order = None
 
 
 def init_tup(mpi, mol, calc):
