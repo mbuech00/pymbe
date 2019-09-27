@@ -1,5 +1,5 @@
 
-!["PyMBE"|small](doc/logo/pymbe_logo.png)
+![](doc/logo/pymbe_logo.png "PyMBE")
 
 Many-Body Expanded Electronic Structure Theory
 ===============================================
