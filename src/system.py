@@ -102,7 +102,6 @@ def set_system(mol: MolCls) -> MolCls:
             with open(os.getcwd()+'/input') as f:
 
                 content = f.readlines()
-                mol.atom = ''
 
                 for i in range(len(content)):
 
@@ -112,6 +111,7 @@ def set_system(mol: MolCls) -> MolCls:
 
                         elif re.split('=',content[i])[0].strip() == 'atom':
 
+                            mol.atom = ''
                             for j in range(i+1, len(content)):
 
                                 if content[j][:3] == "'''" or content[j][:3] == '"""':
@@ -161,6 +161,7 @@ def translate_system(mol: MolCls) -> MolCls:
         # hubbard hamiltonian
         if not mol.atom:
 
+            mol.atom = []
             mol.symmetry = mol.hf_symmetry = False
             mol.nsites = mol.matrix[0] * mol.matrix[1]
             mol.nelectron = math.floor(mol.nsites * mol.n)
