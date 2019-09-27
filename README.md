@@ -23,7 +23,9 @@ Features
 
 * Many-Body Expanded Full Configuration Interaction.
     - Calculations of Ground State Correlation Energies, Excitation Energies, and (Transition) Dipole Moments.
-    - Coupled Cluster Intermediate Base Models -- CCSD & CCSD(T).
+    - Coupled Cluster Intermediate Base Models: CCSD & CCSD(T).
+    - Arbitrary Reference Spaces.
+    - Restricted (Open-Shell) Hartree-Fock (RHF/ROHF) and Complete Active Space Self-Consistent Field (CASSCF) Molecular Orbitals.
 * Massively Parallel Implementation.
 * MPI-3 Shared Memory Parallelism.
 
