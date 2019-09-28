@@ -180,6 +180,16 @@ def write_gen(order, arr, string):
             np.save(os.path.join(RST, '{:}_{:}'.format(string, order)), arr)
 
 
+def read_gen(order, string):
+        """
+        this function reads a general restart file corresponding to input string
+        """
+        if order is None:
+            return np.load(os.path.join(RST, '{:}.npy'.format(string)))
+        else:
+            return np.load(os.path.join(RST, '{:}_{:}.npy'.format(string, order)))
+
+
 def write_fund(mol, calc):
         """
         this function writes all fundamental info restart files
