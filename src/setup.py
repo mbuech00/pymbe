@@ -90,11 +90,11 @@ def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
             # read input
             calc = calculation.set_calc(calc)
 
+            # set target
+            calc.target_mbe = [x for x in calc.target.keys() if calc.target[x]][0]
+
             # sanity check
             calculation.sanity_chk(mol, calc)
-
-            # set target
-            calc.target = [x for x in calc.target.keys() if calc.target[x]][0]
 
             # restart logical
             calc.restart = restart.restart()
@@ -111,7 +111,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         this function initializes an exp object
         """
         # get dipole integrals
-        mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
+        mol.dipole = kernel.dipole_ints(mol) if calc.target_mbe in ['dipole', 'trans'] else None
 
         # nuclear repulsion energy
         mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.0
@@ -131,7 +131,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc.target)
+                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_energy, calc.mo_coeff, \
@@ -160,7 +160,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 calc.prop['base']['energy'] = 0.0
 
             # reference space properties
-            calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
+            calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc)
 
         # mo_coeff not needed anymore
         if mpi.global_master:
@@ -177,7 +177,8 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         exp = expansion.ExpCls(mol, calc)
 
         # init hashes, n_tasks, and tuples
-        exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
+        exp.hashes, exp.tuples, exp.n_tasks, \
+            exp.min_order = expansion.init_tup(mol, calc, mpi.local_comm, mpi.local_master)
 
         # possible restart
         if calc.restart:

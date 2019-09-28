@@ -55,6 +55,7 @@ class CalcCls:
 
                 # init attributes
                 self.restart: bool = False
+                self.target_mbe: str = ''
                 self.hf: scf.RHF = None
                 self.occup: np.ndarray = None
                 self.orbsym: np.ndarray = None

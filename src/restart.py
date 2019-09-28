@@ -113,22 +113,22 @@ def main(mpi, calc, exp):
 
             # read increments
             elif 'mbe_inc' in files[i]:
-                n_tasks = exp.n_tasks[len(exp.prop[calc.target]['inc'])]
+                n_tasks = exp.n_tasks[len(exp.prop[calc.target_mbe]['inc'])]
                 if mpi.local_master:
-                    if calc.target in ['energy', 'excitation']:
-                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
-                    elif calc.target in ['dipole', 'trans']:
-                        exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.local_comm))
+                    if calc.target_mbe in ['energy', 'excitation']:
+                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
+                    elif calc.target_mbe in ['dipole', 'trans']:
+                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.local_comm))
                 else:
-                    exp.prop[calc.target]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
-                buf = exp.prop[calc.target]['inc'][-1].Shared_query(0)[0]
-                if calc.target in ['energy', 'excitation']:
+                    exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
+                buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0]
+                if calc.target_mbe in ['energy', 'excitation']:
                     inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
-                elif calc.target in ['dipole', 'trans']:
+                elif calc.target_mbe in ['dipole', 'trans']:
                     inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks, 3))
                 if mpi.global_master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.num_masters > 1 and mpi.local_master and len(exp.prop[calc.target]['inc']) < len(exp.n_tasks):
+                if mpi.num_masters > 1 and mpi.local_master and len(exp.prop[calc.target_mbe]['inc']) < len(exp.n_tasks):
                     inc[:] = parallel.bcast(mpi.master_comm, inc)
                 mpi.local_comm.Barrier()
 
@@ -136,7 +136,7 @@ def main(mpi, calc, exp):
 
                 # read total properties
                 if 'mbe_tot' in files[i]:
-                    exp.prop[calc.target]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+                    exp.prop[calc.target_mbe]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
 
                 # read ndets statistics
                 elif 'mbe_mean_ndets' in files[i]:
@@ -221,7 +221,7 @@ def write_prop(mol, calc):
         # write hf, reference, and base properties
         energies = {'hf': calc.prop['hf']['energy']}
 
-        if calc.target == 'energy':
+        if calc.target_mbe == 'energy':
 
             energies['base'] = calc.prop['base']['energy']
             energies['ref'] = calc.prop['ref']['energy']
@@ -229,20 +229,20 @@ def write_prop(mol, calc):
         with open(os.path.join(RST, 'energies.rst'), 'w') as f:
             json.dump(energies, f)
 
-        if calc.target == 'excitation':
+        if calc.target_mbe == 'excitation':
 
             excitations = {'ref': calc.prop['ref']['excitation']}
             with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
                 json.dump(excitations, f)
 
-        elif calc.target == 'dipole':
+        elif calc.target_mbe == 'dipole':
 
             dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
                         'ref': calc.prop['ref']['dipole'].tolist()}
             with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
                 json.dump(dipoles, f)
 
-        elif calc.target == 'trans':
+        elif calc.target_mbe == 'trans':
 
             transitions = {'ref': calc.prop['ref']['trans'].tolist()}
             with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
@@ -335,7 +335,7 @@ def read_prop(mol, calc):
                     energies = json.load(f)
                 calc.prop['hf']['energy'] = energies['hf']
 
-                if calc.target == 'energy':
+                if calc.target_mbe == 'energy':
                     calc.prop['base']['energy'] = energies['base']
                     calc.prop['ref']['energy'] = energies['ref']
 

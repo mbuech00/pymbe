@@ -16,7 +16,7 @@ import numpy as np
 from mpi4py import MPI
 import functools
 import copy
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Tuple, Any
 
 import parallel
 import system
@@ -36,7 +36,7 @@ class ExpCls:
                 self.model = copy.deepcopy(calc.model)
 
                 # init prop dict
-                self.prop: Dict[str, Dict[str, List[np.ndarray]]] = {str(calc.target): {'inc': [], 'tot': []}}
+                self.prop: Dict[str, Dict[str, List[np.ndarray]]] = {str(calc.target_mbe): {'inc': [], 'tot': []}}
 
                 # set max_order
                 if calc.misc['order'] is not None:
@@ -65,10 +65,12 @@ class ExpCls:
                 self.final_order: int = 0
 
 
-def init_tup(mpi: parallel.MPICls, mol: system.MolCls, \
-                calc: calculation.CalcCls) -> Union[List[MPI.Win], MPI.Win, List[int], int]:
+def init_tup(mol: system.MolCls, calc: calculation.CalcCls, \
+                local_comm: MPI.Comm, local_master: bool) -> Tuple[List[MPI.Win], MPI.Win, List[int], int]:
         """
         this function initializes tuples and hashes
+
+        example:
         """
         # init tuples
         if calc.ref_space.size > 0:
@@ -93,10 +95,10 @@ def init_tup(mpi: parallel.MPICls, mol: system.MolCls, \
         min_order = tuples_tmp.shape[1]
 
         # init tuples and hashes
-        if mpi.local_master:
+        if local_master:
 
             # allocate tuples
-            tuples_win = MPI.Win.Allocate_shared(4 * tuples_tmp.size, 4, comm=mpi.local_comm)
+            tuples_win = MPI.Win.Allocate_shared(4 * tuples_tmp.size, 4, comm=local_comm)
             buf = tuples_win.Shared_query(0)[0]
             tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=tuples_tmp.shape)
 
@@ -104,7 +106,7 @@ def init_tup(mpi: parallel.MPICls, mol: system.MolCls, \
             tuples[:] = tuples_tmp
 
             # allocate hashes
-            hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=mpi.local_comm)
+            hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=local_comm)
             buf = hashes_win.Shared_query(0)[0]
             hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples.shape[0],))
 
@@ -115,21 +117,19 @@ def init_tup(mpi: parallel.MPICls, mol: system.MolCls, \
             hashes.sort()
 
             # mpi barrier
-            mpi.local_comm.Barrier()
-
-            return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
+            local_comm.Barrier()
 
         else:
 
             # get handle to tuples window
-            tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
+            tuples_win = MPI.Win.Allocate_shared(0, 4, comm=local_comm)
 
             # get handle to hashes window
-            hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+            hashes_win = MPI.Win.Allocate_shared(0, 8, comm=local_comm)
 
             # mpi barrier
-            mpi.local_comm.Barrier()
+            local_comm.Barrier()
 
-            return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
+        return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
 
 
