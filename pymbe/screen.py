@@ -23,7 +23,8 @@ import tools
 
 
 # tags
-TAGS = tools.enum('ready', 'tup', 'tup_pi', 'tup_seed', 'tup_seed_pi', 'exit')
+class TAGS:
+    ready, tup, tup_pi, tup_seed, tup_seed_pi, exit = range(6)
 
 
 def master(mpi, calc, exp):

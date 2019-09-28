@@ -29,7 +29,8 @@ import tools
 
 
 # tags
-TAGS = tools.enum('ready', 'task', 'rst', 'exit')
+class TAGS:
+    ready, task, rst, exit = range(4)
 
 
 def master(mpi, mol, calc, exp):
