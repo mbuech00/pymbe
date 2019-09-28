@@ -18,7 +18,7 @@ import os
 import ast
 import math
 from pyscf import gto, symm, ao2mo
-from typing import List, Dict, Union, Any
+from typing import List, Tuple, Dict, Union, Any, Callable
 
 import parallel
 import tools
@@ -67,29 +67,35 @@ class MolCls(gto.Mole):
 
                 # set core region
                 if self.frozen:
-                    self.ncore = self._set_ncore()
+                    self.ncore = _set_ncore(self.natm, self.atom_charge)
 
 
-        def _set_ncore(self) -> int:
-                """
-                this function sets ncore
-                """
-                # init ncore
-                ncore = 0
+def _set_ncore(natm: int, atom_charge: Callable[[int], int]) -> int:
+        """
+        this function sets ncore
 
-                # loop over atoms
-                for i in range(self.natm):
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='H 0 0 0; Cl 0 0 1.')
+        >>> _set_ncore(mol.natm, mol.atom_charge)
+        5
+        """
+        # init ncore
+        ncore: int = 0
 
-                    if self.atom_charge(i) > 2:
-                        ncore += 1
-                    if self.atom_charge(i) > 12:
-                        ncore += 4
-                    if self.atom_charge(i) > 20:
-                        ncore += 4
-                    if self.atom_charge(i) > 30:
-                        ncore += 6
+        # loop over atoms
+        for i in range(natm):
 
-                return ncore
+            if atom_charge(i) > 2:
+                ncore += 1
+            if atom_charge(i) > 12:
+                ncore += 4
+            if atom_charge(i) > 20:
+                ncore += 4
+            if atom_charge(i) > 30:
+                ncore += 6
+
+        return ncore
 
 
 def set_system(mol: MolCls) -> MolCls:
@@ -253,5 +259,10 @@ def sanity_chk(mol: MolCls) -> None:
             # periodic boundary conditions
             tools.assertion(isinstance(mol.pbc, bool), \
                             'hubbard model pbc parameter (pbc) must be a bool')
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod(verbose=True)
 
 
