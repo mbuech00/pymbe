@@ -18,7 +18,9 @@ import os
 import ast
 import math
 from pyscf import gto, symm, ao2mo
+from typing import List, Tuple, Dict, Union, Any, Callable
 
+import parallel
 import tools
 import restart
 
@@ -27,7 +29,7 @@ class MolCls(gto.Mole):
         """
         this class contains all molecule attributes (inherited from the pyscf gto.Mole class)
         """
-        def __init__(self):
+        def __init__(self) -> None:
                 """
                 init molecule attributes
                 """
@@ -35,20 +37,18 @@ class MolCls(gto.Mole):
                 gto.Mole.__init__(self)
 
                 # set defaults
-                self.atom = ''
-                self.system = {'charge': 0, 'spin': 0, 'symmetry': 'c1', 'hf_symmetry': None, \
-                            'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
-                            'unit': 'ang', 'frozen': False, 'ncore': 0, 'irrep_nelec': {}, 'debug': 0, \
-                            'u': 1.0, 'n': 1.0, 'matrix': (1, 6), 'pbc': True}
-                self.max_memory = 1e10
-                self.incore_anyway = True
+                self.atom: Union[List[str], str] = ''
+                self.system: Dict[str, Any] = {'charge': 0, 'spin': 0, 'symmetry': 'c1', 'hf_symmetry': None, \
+                                               'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
+                                               'unit': 'ang', 'frozen': False, 'ncore': 0, 'irrep_nelec': {}, 'debug': 0, \
+                                               'u': 1.0, 'n': 1.0, 'matrix': (1, 6), 'pbc': True}
+                self.max_memory: float = 1e10
+                self.incore_anyway: bool = True
 
 
-        def make(self, mpi):
+        def make(self, mpi: parallel.MPICls) -> None:
                 """
                 this function builds the pyscf Mole object
-
-                :param mpi: pymbe mpi object
                 """
                 try:
                     self.build(dump_input=False, parse_arg=False, verbose=0)
@@ -67,39 +67,40 @@ class MolCls(gto.Mole):
 
                 # set core region
                 if self.frozen:
-                    self.ncore = self._set_ncore()
+                    self.ncore = _set_ncore(self.natm, self.atom_charge)
 
 
-        def _set_ncore(self):
-                """
-                this function sets ncore
+def _set_ncore(natm: int, atom_charge: Callable[[int], int]) -> int:
+        """
+        this function sets ncore
 
-                :return: integer
-                """
-                # init ncore
-                ncore = 0
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='H 0 0 0; Cl 0 0 1.')
+        >>> _set_ncore(mol.natm, mol.atom_charge)
+        5
+        """
+        # init ncore
+        ncore: int = 0
 
-                # loop over atoms
-                for i in range(self.natm):
+        # loop over atoms
+        for i in range(natm):
 
-                    if self.atom_charge(i) > 2:
-                        ncore += 1
-                    if self.atom_charge(i) > 12:
-                        ncore += 4
-                    if self.atom_charge(i) > 20:
-                        ncore += 4
-                    if self.atom_charge(i) > 30:
-                        ncore += 6
+            if atom_charge(i) > 2:
+                ncore += 1
+            if atom_charge(i) > 12:
+                ncore += 4
+            if atom_charge(i) > 20:
+                ncore += 4
+            if atom_charge(i) > 30:
+                ncore += 6
 
-                return ncore
+        return ncore
 
 
-def set_system(mol):
+def set_system(mol: MolCls) -> MolCls:
         """
         this function sets system attributes from input file
-
-        :param mol: pymbe mol object
-        :return: updated mol object
         """
         # read input file
         try:
@@ -116,6 +117,7 @@ def set_system(mol):
 
                         elif re.split('=',content[i])[0].strip() == 'atom':
 
+                            mol.atom = ''
                             for j in range(i+1, len(content)):
 
                                 if content[j][:3] == "'''" or content[j][:3] == '"""':
@@ -142,12 +144,9 @@ def set_system(mol):
         return mol
 
 
-def translate_system(mol):
+def translate_system(mol: MolCls) -> MolCls:
         """
         this function translates system input to mol attributes
-
-        :param mol: pymbe mol object
-        :return: updated mol object
         """
         # copy all attributes
         for key, val in mol.system.items():
@@ -176,11 +175,9 @@ def translate_system(mol):
         return mol
 
 
-def sanity_chk(mol):
+def sanity_chk(mol: MolCls) -> None:
         """
         this function performs sanity checks of mol attributes
-
-        :param mol: pymbe mol object
         """
         # charge
         tools.assertion(isinstance(mol.charge, int), \
@@ -262,5 +259,10 @@ def sanity_chk(mol):
             # periodic boundary conditions
             tools.assertion(isinstance(mol.pbc, bool), \
                             'hubbard model pbc parameter (pbc) must be a bool')
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod(verbose=True)
 
 

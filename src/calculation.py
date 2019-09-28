@@ -17,49 +17,58 @@ import sys
 import os
 import ast
 import numpy as np
-from pyscf import symm
+from pyscf import symm, scf
+from typing import Dict, List, Tuple, Union, Any
 
+import system
 import tools
+import restart
 
 
 # attributes
 ATTR = ['model', 'base', 'orbs', 'target', 'prot', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
 
 
-class CalcCls(object):
+class CalcCls:
         """
         this class contains the pymbe calculation attributes
         """
-        def __init__(self, mol):
+        def __init__(self, mol: system.MolCls) -> None:
                 """
                 init calculation attributes
-
-                :param mpi: pymbe mpi object
-                :param mol: pymbe mol object
                 """
                 # set defaults
-                self.model = {'method': 'fci', 'solver': 'pyscf_spin0'}
-                self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
-                self.prot = {'scheme': 2}
-                self.ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
-                            'select': [i for i in range(mol.ncore, mol.nelectron // 2)], \
-                            'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
-                self.base = {'method': None}
-                self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-                self.extra = {'hf_guess': True, 'pi_prune': False}
-                self.thres = {'init': 1.0e-10, 'relax': 1.0}
-                self.misc = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
-                self.orbs = {'type': 'can'}
-                self.mpi = {}
-                self.prop = {'hf': {}, 'base': {}, 'ref': {}}
+                self.model: Dict[str, str] = {'method': 'fci', 'solver': 'pyscf_spin0'}
+                self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
+                self.prot: Dict[str, int] = {'scheme': 2}
+                self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
+                                            'select': [i for i in range(mol.ncore, mol.nelectron // 2)], \
+                                            'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
+                self.base: Dict[str, Union[None, str]] = {'method': None}
+                self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
+                self.extra: Dict[str, bool] = {'hf_guess': True, 'pi_prune': False}
+                self.thres: Dict[str, float] = {'init': 1.0e-10, 'relax': 1.0}
+                self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
+                self.orbs: Dict[str, str] = {'type': 'can'}
+                self.mpi: Dict[str, int] = {}
+                self.prop: Dict[str, Dict[str, Union[float, np.ndarray]]] = {'hf': {}, 'base': {}, 'ref': {}}
+
+                # init attributes
+                self.restart: bool = False
+                self.target_mbe: str = ''
+                self.hf: scf.RHF = None
+                self.occup: np.ndarray = None
+                self.orbsym: np.ndarray = None
+                self.mo_energy: np.ndarray = None
+                self.mo_coeff: np.ndarray = None
+                self.nelec: Tuple[int, ...] = ()
+                self.ref_space: np.ndarray = None
+                self.exp_space: np.ndarray = None
 
 
-def set_calc(calc):
+def set_calc(calc: CalcCls) -> CalcCls:
         """
         this function sets calculation and mpi attributes from input file
-
-        :param calc: pymbe calc object
-        :return: updated calc object
         """
         # read input file
         try:
@@ -112,12 +121,9 @@ def set_calc(calc):
         return calc
 
 
-def sanity_chk(mol, calc):
+def sanity_chk(mol: system.MolCls, calc: CalcCls) -> None:
         """
         this function performs sanity checks of calc and mpi attributes
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
         """
         # expansion model
         tools.assertion(isinstance(calc.model['method'], str), \

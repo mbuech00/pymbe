@@ -65,16 +65,16 @@ def main(mpi, mol, calc, exp):
         print(_timings_prt(calc, exp))
 
         # print and plot results
-        if calc.target == 'energy' :
+        if calc.target_mbe == 'energy' :
             print(_energy_prt(calc, exp))
             _energies_plot(calc, exp)
-        if calc.target == 'excitation':
+        if calc.target_mbe == 'excitation':
             print(_excitation_prt(calc, exp))
             _excitation_plot(calc, exp)
-        if calc.target == 'dipole' :
+        if calc.target_mbe == 'dipole' :
             print(_dipole_prt(mol, calc, exp))
             _dipole_plot(mol, calc, exp)
-        if calc.target == 'trans':
+        if calc.target_mbe == 'trans':
             print(_trans_prt(mol, calc, exp))
             _trans_plot(mol, calc, exp)
 
@@ -463,7 +463,7 @@ def _summary_prt(mpi, mol, calc, exp):
         form += ('','state (mult.)','','=','',_state(mol, calc), \
                     '','|','','base model','','=','',_base(calc), \
                     '','|','','MBE total energy','','=','', \
-                    calc.prop['hf']['energy'] if calc.target != 'energy' \
+                    calc.prop['hf']['energy'] if calc.target_mbe != 'energy' \
                         else _energy(calc, exp)[-1],)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \

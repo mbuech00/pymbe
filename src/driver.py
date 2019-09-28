@@ -21,19 +21,17 @@ import mbe
 import kernel
 import output
 import screen
+import system
+import calculation
 import expansion
-import tools
 import parallel
+import tools
 
 
-def master(mpi, mol, calc, exp):
+def master(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc:calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
-        this function is the main master function
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
+        this function is the main pymbe master function
         """
         # print expansion headers
         print(output.main_header(mpi=mpi, method=calc.model['method']))
@@ -49,8 +47,8 @@ def master(mpi, mol, calc, exp):
                 print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i]))
 
                 # print mbe results
-                print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-                                            exp.max_order, i + exp.min_order, exp.prop[calc.target]['tot'], \
+                print(output.mbe_results(calc.occup, calc.ref_space, calc.target_mbe, calc.state['root'], exp.min_order, \
+                                            exp.max_order, i + exp.min_order, exp.prop[calc.target_mbe]['tot'], \
                                             exp.mean_inc[i], exp.min_inc[i], exp.max_inc[i], \
                                             exp.mean_ndets[i], exp.min_ndets[i], exp.max_ndets[i]))
 
@@ -63,7 +61,7 @@ def master(mpi, mol, calc, exp):
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
-            if len(exp.hashes) > len(exp.prop[calc.target]['tot']):
+            if len(exp.hashes) > len(exp.prop[calc.target_mbe]['tot']):
 
                 # print mbe header
                 print(output.mbe_header(exp.n_tasks[-1], exp.order))
@@ -73,10 +71,10 @@ def master(mpi, mol, calc, exp):
                     mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
 
                 # append window to increments
-                if len(exp.prop[calc.target]['inc']) < len(exp.hashes):
-                    exp.prop[calc.target]['inc'].append(inc_win)
+                if len(exp.prop[calc.target_mbe]['inc']) < len(exp.hashes):
+                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
                 else:
-                    exp.prop[calc.target]['inc'][-1] = inc_win
+                    exp.prop[calc.target_mbe]['inc'][-1] = inc_win
 
                 # append determinant statistics
                 if len(exp.max_ndets) == len(exp.hashes):
@@ -94,13 +92,13 @@ def master(mpi, mol, calc, exp):
                 exp.max_inc.append(max_inc)
 
                 # append total property
-                exp.prop[calc.target]['tot'].append(tot)
+                exp.prop[calc.target_mbe]['tot'].append(tot)
                 if exp.order > exp.min_order:
-                    exp.prop[calc.target]['tot'][-1] += exp.prop[calc.target]['tot'][-2]
+                    exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
 
                 # write restart files
                 if calc.misc['rst']:
-                    restart.write_gen(exp.order, exp.prop[calc.target]['tot'][-1], 'mbe_tot')
+                    restart.write_gen(exp.order, exp.prop[calc.target_mbe]['tot'][-1], 'mbe_tot')
                     restart.write_gen(exp.order, np.asarray(exp.mean_ndets[-1]), 'mbe_mean_ndets')
                     restart.write_gen(exp.order, np.asarray(exp.max_ndets[-1]), 'mbe_max_ndets')
                     restart.write_gen(exp.order, np.asarray(exp.min_ndets[-1]), 'mbe_min_ndets')
@@ -113,8 +111,8 @@ def master(mpi, mol, calc, exp):
                 print(output.mbe_end(exp.order, exp.time['mbe'][-1]))
 
             # print mbe results
-            print(output.mbe_results(calc.occup, calc.ref_space, calc.target, calc.state['root'], exp.min_order, \
-                                     exp.max_order, exp.order, exp.prop[calc.target]['tot'], \
+            print(output.mbe_results(calc.occup, calc.ref_space, calc.target_mbe, calc.state['root'], exp.min_order, \
+                                     exp.max_order, exp.order, exp.prop[calc.target_mbe]['tot'], \
                                      exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
                                      exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
@@ -164,7 +162,7 @@ def master(mpi, mol, calc, exp):
                 exp.max_ndets = np.asarray(exp.max_ndets)
 
                 # final results
-                exp.prop[calc.target]['tot'] = np.asarray(exp.prop[calc.target]['tot'])
+                exp.prop[calc.target_mbe]['tot'] = np.asarray(exp.prop[calc.target_mbe]['tot'])
 
                 break
 
@@ -185,14 +183,10 @@ def master(mpi, mol, calc, exp):
                 print(output.screen_end(exp.order, exp.time['screen'][-1]))
 
 
-def slave(mpi, mol, calc, exp):
+def slave(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
-        this function is the main slave function
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
+        this function is the main pymbe slave function
         """
         # set loop/waiting logical
         slave = True
@@ -212,10 +206,10 @@ def slave(mpi, mol, calc, exp):
                 inc_win = mbe.slave(mpi, mol, calc, exp)
 
                 # append window to increments
-                if len(exp.prop[calc.target]['inc']) < len(exp.hashes):
-                    exp.prop[calc.target]['inc'].append(inc_win)
+                if len(exp.prop[calc.target_mbe]['inc']) < len(exp.hashes):
+                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
                 else:
-                    exp.prop[calc.target]['inc'][-1] = inc_win
+                    exp.prop[calc.target_mbe]['inc'][-1] = inc_win
 
             elif msg['task'] == 'screen':
 

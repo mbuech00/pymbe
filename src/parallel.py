@@ -117,7 +117,7 @@ def calc(mpi, calc):
         if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
-            info = {'model': calc.model, 'target': calc.target, 'base': calc.base, \
+            info = {'model': calc.model, 'target_mbe': calc.target_mbe, 'base': calc.base, \
                     'thres': calc.thres, 'prot': calc.prot, 'state': calc.state, \
                     'extra': calc.extra, 'misc': calc.misc, 'mpi': calc.mpi, \
                     'orbs': calc.orbs, 'restart': calc.restart}

@@ -19,6 +19,7 @@ try:
     from pyscf import lib, scf
 except ImportError:
     sys.stderr.write('\nImportError : pyscf module not found\n\n')
+from typing import Tuple
 
 import parallel
 import system
@@ -29,14 +30,9 @@ import restart
 import tools
 
 
-def main():
+def main() -> Tuple[parallel.MPICls, system.MolCls, calculation.CalcCls, expansion.ExpCls]:
         """
         this function initializes and broadcasts mpi, mol, calc, and exp objects
-
-        :return: pymbe mpi object,
-                 pymbe mol object,
-                 pymbe calc object,
-                 pymbe exp object
         """
         # mpi object
         mpi = parallel.MPICls()
@@ -53,12 +49,9 @@ def main():
         return mpi, mol, calc, exp
 
 
-def _mol(mpi):
+def _mol(mpi: parallel.MPICls) -> system.MolCls:
         """
-        this function initializes mol object
-
-        :param mpi: pymbe mpi object
-        :return: pymbe mol object
+        this function initializes a mol object
         """
         # mol object
         mol = system.MolCls()
@@ -84,13 +77,9 @@ def _mol(mpi):
         return mol
 
 
-def _calc(mpi, mol):
+def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
         """
-        this function initializes calc object
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :return: pymbe calc object
+        this function initializes a calc object
         """
         # calc object
         calc = calculation.CalcCls(mol)
@@ -101,11 +90,11 @@ def _calc(mpi, mol):
             # read input
             calc = calculation.set_calc(calc)
 
+            # set target
+            calc.target_mbe = [x for x in calc.target.keys() if calc.target[x]][0]
+
             # sanity check
             calculation.sanity_chk(mol, calc)
-
-            # set target
-            calc.target = [x for x in calc.target.keys() if calc.target[x]][0]
 
             # restart logical
             calc.restart = restart.restart()
@@ -116,19 +105,13 @@ def _calc(mpi, mol):
         return calc
 
 
-def _exp(mpi, mol, calc):
+def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc: calculation. CalcCls) -> Tuple[system.MolCls, calculation.CalcCls, expansion.ExpCls]:
         """
-        this function initializes exp object
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: updated mol object,
-                 updated calc object,
-                 pymbe exp object
+        this function initializes an exp object
         """
         # get dipole integrals
-        mol.dipole = kernel.dipole_ints(mol) if calc.target in ['dipole', 'trans'] else None
+        mol.dipole = kernel.dipole_ints(mol) if calc.target_mbe in ['dipole', 'trans'] else None
 
         # nuclear repulsion energy
         mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.0
@@ -148,7 +131,7 @@ def _exp(mpi, mol, calc):
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc.target)
+                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_energy, calc.mo_coeff, \
@@ -177,7 +160,7 @@ def _exp(mpi, mol, calc):
                 calc.prop['base']['energy'] = 0.0
 
             # reference space properties
-            calc.prop['ref'][calc.target] = kernel.ref_prop(mol, calc)
+            calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc)
 
         # mo_coeff not needed anymore
         if mpi.global_master:
@@ -194,7 +177,11 @@ def _exp(mpi, mol, calc):
         exp = expansion.ExpCls(mol, calc)
 
         # init hashes, n_tasks, and tuples
-        exp.hashes, exp.tuples, exp.n_tasks, exp.min_order = expansion.init_tup(mpi, mol, calc)
+        exp.hashes, exp.tuples, exp.n_tasks, \
+            exp.min_order = expansion.init_tup(calc.occup, calc.ref_space, calc.exp_space['occ'], \
+                                                calc.exp_space['virt'], calc.exp_space['tot'], \
+                                                mpi.local_master, mpi.local_comm, calc.extra['pi_prune'], \
+                                                calc.exp_space['pi_orbs'], calc.exp_space['pi_hashes'])
 
         # possible restart
         if calc.restart:
@@ -205,7 +192,7 @@ def _exp(mpi, mol, calc):
         return mol, calc, exp
 
 
-def settings():
+def settings() -> None:
         """
         this function sets and asserts some general settings
         """

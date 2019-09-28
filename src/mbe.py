@@ -64,24 +64,24 @@ def master(mpi, mol, calc, exp):
         if rst_mbe:
 
             # load restart increments
-            inc_win = exp.prop[calc.target]['inc'][-1]
+            inc_win = exp.prop[calc.target_mbe]['inc'][-1]
             buf = inc_win.Shared_query(0)[0]
-            if calc.target in ['energy', 'excitation']:
+            if calc.target_mbe in ['energy', 'excitation']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
-            elif calc.target in ['dipole', 'trans']:
+            elif calc.target_mbe in ['dipole', 'trans']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3))
 
         else:
 
             # new increments
-            if calc.target in ['energy', 'excitation']:
+            if calc.target_mbe in ['energy', 'excitation']:
                 inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.local_comm)
-            elif calc.target in ['dipole', 'trans']:
+            elif calc.target_mbe in ['dipole', 'trans']:
                 inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1] * 3, 8, comm=mpi.local_comm)
             buf = inc_win.Shared_query(0)[0]
-            if calc.target in ['energy', 'excitation']:
+            if calc.target_mbe in ['energy', 'excitation']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
-            elif calc.target in ['dipole', 'trans']:
+            elif calc.target_mbe in ['dipole', 'trans']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3))
             inc[:] = np.zeros_like(inc)
 
@@ -202,7 +202,7 @@ def master(mpi, mol, calc, exp):
         tot = tools.fsum(inc)
 
         # statistics
-        if calc.target in ['energy', 'excitation']:
+        if calc.target_mbe in ['energy', 'excitation']:
 
             # increments
             if inc.any():
@@ -212,7 +212,7 @@ def master(mpi, mol, calc, exp):
             else:
                 mean_inc = min_inc = max_inc = 0.0
 
-        elif calc.target in ['dipole', 'trans']:
+        elif calc.target_mbe in ['dipole', 'trans']:
 
             # init result arrays
             mean_inc = np.empty(3, dtype=np.float64)
@@ -268,28 +268,28 @@ def slave(mpi, mol, calc, exp):
         # load increments for previous orders
         inc = []
         for k in range(exp.order-exp.min_order):
-            buf = exp.prop[calc.target]['inc'][k].Shared_query(0)[0]
-            if calc.target in ['energy', 'excitation']:
+            buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0]
+            if calc.target_mbe in ['energy', 'excitation']:
                 inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
-            elif calc.target in ['dipole', 'trans']:
+            elif calc.target_mbe in ['dipole', 'trans']:
                 inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k], 3)))
 
         # init increments for present order
-        if len(exp.prop[calc.target]['inc']) == len(exp.hashes):
-            inc_win = exp.prop[calc.target]['inc'][-1]
+        if len(exp.prop[calc.target_mbe]['inc']) == len(exp.hashes):
+            inc_win = exp.prop[calc.target_mbe]['inc'][-1]
             buf = inc_win.Shared_query(0)[0]
         else:
             if mpi.local_master:
-                if calc.target in ['energy', 'excitation']:
+                if calc.target_mbe in ['energy', 'excitation']:
                     inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.local_comm)
-                elif calc.target in ['dipole', 'trans']:
+                elif calc.target_mbe in ['dipole', 'trans']:
                     inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1] * 3, 8, comm=mpi.local_comm)
             else:
                 inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
             buf = inc_win.Shared_query(0)[0]
-        if calc.target in ['energy', 'excitation']:
+        if calc.target_mbe in ['energy', 'excitation']:
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
-        elif calc.target in ['dipole', 'trans']:
+        elif calc.target_mbe in ['dipole', 'trans']:
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1], 3)))
         if mpi.local_master and not mpi.global_master:
             inc[-1][:] = np.zeros_like(inc[-1])
@@ -431,13 +431,13 @@ def _inc(mol, calc, min_order, order, e_core, h1e_cas, h2e_cas, inc, hashes, tup
             inc_tup -= kernel.main(mol, calc, calc.base['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)[0]
 
         # subtract reference space property
-        inc_tup -= calc.prop['ref'][calc.target]
+        inc_tup -= calc.prop['ref'][calc.target_mbe]
 
         # calculate increment
         if order > min_order:
             if np.any(inc_tup != 0.0):
                 inc_tup -= _sum(calc.occup, calc.ref_space, calc.exp_space, \
-                                calc.target, min_order, order, \
+                                calc.target_mbe, min_order, order, \
                                 inc, hashes, tup, pi_prune=calc.extra['pi_prune'])
 
         # debug print

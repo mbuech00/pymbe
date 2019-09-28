@@ -497,6 +497,8 @@ def ref_mo(mol, calc):
         # pi-orbital space
         if calc.extra['pi_prune']:
             exp_space['pi_orbs'], exp_space['pi_hashes'] = tools.pi_space(mo_energy, exp_space['tot'])
+        else:
+            exp_space['pi_orbs'] = exp_space['pi_hashes'] = None
 
         # debug print of reference and expansion spaces
         if mol.debug >= 1:
@@ -516,7 +518,7 @@ def ref_prop(mol, calc):
 
         :param mol: pymbe mol object
         :param calc: pymbe calc object
-        :return: float or numpy array of shape (3,) depending on calc.target
+        :return: float or numpy array of shape (3,) depending on calc.target_mbe
         """
         # load hcore
         buf = mol.hcore.Shared_query(0)[0]
@@ -556,7 +558,7 @@ def ref_prop(mol, calc):
         else:
 
             # no correlation in expansion reference space
-            if calc.target in ['energy', 'excitation']:
+            if calc.target_mbe in ['energy', 'excitation']:
                 ref = 0.0
             else:
                 ref = np.zeros(3, dtype=np.float64)
@@ -587,22 +589,22 @@ def main(mol, calc, method, e_core, h1e, h2e, core_idx, cas_idx, nelec):
 
         elif method == 'fci':
 
-            res_tmp = _fci(mol, calc.model['solver'], calc.target, calc.state['wfnsym'], \
+            res_tmp = _fci(mol, calc.model['solver'], calc.target_mbe, calc.state['wfnsym'], \
                             calc.orbsym, calc.extra['hf_guess'], calc.state['root'], \
                             calc.prop['hf']['energy'], e_core, h1e, h2e, core_idx, cas_idx, nelec)
 
             ndets = res_tmp['ndets']
 
-            if calc.target in ['energy', 'excitation']:
+            if calc.target_mbe in ['energy', 'excitation']:
 
-                res = res_tmp[calc.target]
+                res = res_tmp[calc.target_mbe]
 
-            elif calc.target == 'dipole':
+            elif calc.target_mbe == 'dipole':
 
                 res = _dipole(mol.norb, mol.dipole, calc.occup, calc.prop['hf']['dipole'], \
                                 calc.mo_coeff, cas_idx, res_tmp['rdm1'])
 
-            elif calc.target == 'trans':
+            elif calc.target_mbe == 'trans':
 
                 res = _trans(mol.norb, mol.dipole, calc.occup, calc.prop['hf']['dipole'], \
                                 calc.mo_coeff, cas_idx, res_tmp['t_rdm1'], \
