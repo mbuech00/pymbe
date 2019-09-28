@@ -49,6 +49,9 @@ def master(mpi, mol, calc, exp):
         msg = {'task': 'mbe', 'order': exp.order}
         mpi.global_comm.bcast(msg, root=0)
 
+        # restart run
+        rst_mbe = len(exp.prop[calc.target]['inc']) == len(exp.hashes)
+
         # number of slaves
         n_slaves = mpi.global_size - 1
 
@@ -58,7 +61,7 @@ def master(mpi, mol, calc, exp):
         time = MPI.Wtime()
 
         # init increments
-        if len(exp.prop[calc.target]['inc']) == len(exp.hashes):
+        if rst_mbe:
 
             # load restart increments
             inc_win = exp.prop[calc.target]['inc'][-1]
@@ -83,7 +86,7 @@ def master(mpi, mol, calc, exp):
             inc[:] = np.zeros_like(inc)
 
         # init determinant statistics
-        if len(exp.max_ndets) == len(exp.hashes):
+        if rst_mbe:
             min_ndets = exp.min_ndets[-1]
             max_ndets = exp.max_ndets[-1]
             sum_ndets = exp.mean_ndets[-1]
@@ -96,10 +99,10 @@ def master(mpi, mol, calc, exp):
         mpi.global_comm.Barrier()
 
         # start index
-        if calc.target in ['energy', 'excitation']:
-            task_start = np.count_nonzero(inc)
-        elif calc.target in ['dipole', 'trans']:
-            task_start = np.count_nonzero(np.count_nonzero(inc, axis=1))
+        if rst_mbe:
+           task_start = restart.read_gen(exp.order, 'mbe_idx')
+        else:
+           task_start = 0
 
         # loop until no tasks left
         for tup_idx in range(task_start, exp.n_tasks[-1]):
@@ -134,6 +137,9 @@ def master(mpi, mol, calc, exp):
                 min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
                 max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
                 sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
+
+                # save tup_idx
+                restart.write_gen(exp.order, np.asarray(tup_idx), 'mbe_idx')
 
                 # save increments
                 restart.write_gen(exp.order, inc, 'mbe_inc')
@@ -245,7 +251,7 @@ def slave(mpi, mol, calc, exp):
         """
         # load eri
         buf = mol.eri.Shared_query(0)[0]
-        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
 
         # load hcore
         buf = mol.hcore.Shared_query(0)[0]
