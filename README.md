@@ -25,7 +25,7 @@ Features
     - Coupled Cluster Intermediate Base Models: CCSD & CCSD(T).
     - Arbitrary Reference Spaces.
     - Full Abelian Point Group Symmetry.
-    - Closed- and Open-Shell Implementation.
+    - Closed- and Open-Shell Implementations.
     - Restricted Hartree-Fock (RHF/ROHF) and Complete Active Space Self-Consistent Field (CASSCF) Molecular Orbitals.
 * Massively Parallel Implementation.
 * MPI-3 Shared Memory Parallelism.
