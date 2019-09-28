@@ -65,31 +65,57 @@ class ExpCls:
                 self.final_order: int = 0
 
 
-def init_tup(mol: system.MolCls, calc: calculation.CalcCls, \
-                local_comm: MPI.Comm, local_master: bool) -> Tuple[List[MPI.Win], MPI.Win, List[int], int]:
+def init_tup(occup: np.ndarray, ref_space: np.ndarray, \
+                exp_space_occ: np.ndarray, exp_space_virt: np.ndarray, \
+                exp_space_tot: np.ndarray, local_master: bool, local_comm: MPI.Comm, \
+                pi_prune: bool, pi_orbs: np.ndarray = None, \
+                pi_hashes: np.ndarray = None) -> Tuple[List[MPI.Win], MPI.Win, List[int], int]:
         """
         this function initializes tuples and hashes
 
         example:
+        >>> occup = np.array([2.] * 4 + [0.] * 6)
+        >>> ref_space = np.arange(2)
+        >>> exp_space_occ = np.arange(2, 4)
+        >>> exp_space_virt = np.arange(4, 10)
+        >>> exp_space_tot = np.arange(2, 10)
+        >>> init_tup(occup, ref_space, exp_space_occ, exp_space_virt, exp_space_tot,
+        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD, False, None, None) # doctest: +ELLIPSIS
+        ([<mpi4py.MPI.Win object at 0x...>], <mpi4py.MPI.Win object at 0x...>, [6], 1)
+        >>> ref_space = np.array([])
+        >>> exp_space_occ = np.arange(4)
+        >>> exp_space_tot = np.arange(10)
+        >>> init_tup(occup, ref_space, exp_space_occ, exp_space_virt, exp_space_tot,
+        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD, False, None, None) # doctest: +ELLIPSIS
+        ([<mpi4py.MPI.Win object at 0x...>], <mpi4py.MPI.Win object at 0x...>, [24], 2)
+        >>> ref_space = np.arange(3)
+        >>> exp_space_occ = np.arange(3, 4)
+        >>> exp_space_tot = np.arange(3, 10)
+        >>> pi_orbs = np.array([1, 2, 4, 5], dtype=np.int32)
+        >>> pi_hashes = np.array([-6970320760023207014,  4340140435613229407])
+        >>> init_tup(occup, ref_space, exp_space_occ, exp_space_virt, exp_space_tot,
+        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD,
+        ...          True, pi_orbs, pi_hashes) # doctest: +ELLIPSIS
+        ([<mpi4py.MPI.Win object at 0x...>], <mpi4py.MPI.Win object at 0x...>, [4], 1)
         """
         # init tuples
-        if calc.ref_space.size > 0:
+        if ref_space.size > 0:
 
-            if np.all(calc.occup[calc.ref_space] == 0.0):
-                tuples_tmp = np.array([[i] for i in calc.exp_space['occ']], dtype=np.int32)
-            elif np.all(calc.occup[calc.ref_space] > 0.0):
-                tuples_tmp = np.array([[a] for a in calc.exp_space['virt']], dtype=np.int32)
+            if np.all(occup[ref_space] == 0.0):
+                tuples_tmp = np.array([[i] for i in exp_space_occ], dtype=np.int32)
+            elif np.all(occup[ref_space] > 0.0):
+                tuples_tmp = np.array([[a] for a in exp_space_virt], dtype=np.int32)
             else:
-                tuples_tmp = np.array([[p] for p in calc.exp_space['tot']], dtype=np.int32)
+                tuples_tmp = np.array([[p] for p in exp_space_tot], dtype=np.int32)
 
         else:
 
-            tuples_tmp = np.array([[i, a] for i in calc.exp_space['occ'] for a in calc.exp_space['virt']], dtype=np.int32)
+            tuples_tmp = np.array([[i, a] for i in exp_space_occ for a in exp_space_virt], dtype=np.int32)
 
         # pi-orbital pruning
-        if calc.extra['pi_prune']:
-            tuples_tmp = np.array([tup for tup in tuples_tmp if tools.pi_prune(calc.exp_space['pi_orbs'], \
-                                calc.exp_space['pi_hashes'], tup)], dtype=np.int32)
+        if pi_prune:
+            tuples_tmp = np.array([tup for tup in tuples_tmp if tools.pi_prune(pi_orbs, \
+                                pi_hashes, tup)], dtype=np.int32)
 
         # min_order
         min_order = tuples_tmp.shape[1]
@@ -131,5 +157,10 @@ def init_tup(mol: system.MolCls, calc: calculation.CalcCls, \
             local_comm.Barrier()
 
         return [hashes_win], tuples_win, [tuples_tmp.shape[0]], min_order
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod(verbose=True)
 
 

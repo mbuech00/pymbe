@@ -497,6 +497,8 @@ def ref_mo(mol, calc):
         # pi-orbital space
         if calc.extra['pi_prune']:
             exp_space['pi_orbs'], exp_space['pi_hashes'] = tools.pi_space(mo_energy, exp_space['tot'])
+        else:
+            exp_space['pi_orbs'] = exp_space['pi_hashes'] = None
 
         # debug print of reference and expansion spaces
         if mol.debug >= 1:

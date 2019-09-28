@@ -178,7 +178,10 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # init hashes, n_tasks, and tuples
         exp.hashes, exp.tuples, exp.n_tasks, \
-            exp.min_order = expansion.init_tup(mol, calc, mpi.local_comm, mpi.local_master)
+            exp.min_order = expansion.init_tup(calc.occup, calc.ref_space, calc.exp_space['occ'], \
+                                                calc.exp_space['virt'], calc.exp_space['tot'], \
+                                                mpi.local_master, mpi.local_comm, calc.extra['pi_prune'], \
+                                                calc.exp_space['pi_orbs'], calc.exp_space['pi_hashes'])
 
         # possible restart
         if calc.restart:
