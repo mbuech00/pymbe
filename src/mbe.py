@@ -50,7 +50,7 @@ def master(mpi, mol, calc, exp):
         mpi.global_comm.bcast(msg, root=0)
 
         # restart run
-        rst_mbe = len(exp.prop[calc.target]['inc']) == len(exp.hashes)
+        rst_mbe = len(exp.prop[calc.target_mbe]['inc']) == len(exp.hashes)
 
         # number of slaves
         n_slaves = mpi.global_size - 1

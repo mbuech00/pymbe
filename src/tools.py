@@ -412,7 +412,7 @@ def seed_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         this function returns True for a tuple of orbitals allowed under pruning wrt occupied seed orbitals
 
         example:
-        >>> occup = np.array([2., 2., 2., 0., 0., 0., 0.])
+        >>> occup = np.array([2.] * 3 + [0.] * 4)
         >>> seed_prune(occup, np.arange(2, 7))
         True
         >>> seed_prune(occup, np.arange(3, 7))
@@ -426,7 +426,7 @@ def corr_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         this function returns True for a tuple of orbitals allowed under pruning wrt a mix of occupied and virtual orbitals
 
         example:
-        >>> occup = np.array([2., 2., 2., 0., 0., 0., 0.])
+        >>> occup = np.array([2.] * 3 + [0.] * 4)
         >>> corr_prune(occup, np.array([2, 4]))
         True
         >>> corr_prune(occup, np.array([3, 4]))
@@ -440,7 +440,7 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
         this function returns the number of electrons in a given tuple of orbitals
 
         example:
-        >>> occup = np.array([2., 2., 2., 0., 0., 0., 0.])
+        >>> occup = np.array([2.] * 3 + [0.] * 4)
         >>> nelec(occup, np.array([2, 4]))
         (1, 1)
         >>> nelec(occup, np.array([3, 4]))
@@ -456,7 +456,7 @@ def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
         this function returns the number of determinants in given casci calculation (ignoring point group symmetry)
 
         example:
-        >>> occup = np.array([2., 2., 2., 0., 0., 0., 0.])
+        >>> occup = np.array([2.] * 3 + [0.] * 4)
         >>> ndets(occup, np.arange(1, 5))
         36
         >>> ndets(occup, np.arange(1, 7), ref_space=np.array([1, 2]))
