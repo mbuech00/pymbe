@@ -42,9 +42,9 @@ mpiexec -np N $PYMBEPATH/src/main.py
 ```
 
 with an input file `input` placed within the same directory. See the [examples](examples/) section for a range of example inputs.\
-Restart files are automatically generated unless otherwise requested in a dedicated directory `rst` within `$SUBMITDIR`, 
+Restart files are automatically generated unless otherwise requested in a dedicated directory `rst` within `$WORKDIR`, 
 which is deleted in case of successful termination of PyMBE. 
-The output and results of a calculation are stored in a dedicated directory `output` within `$SUBMITDIR`.
+The output and results of a calculation are stored in a dedicated directory `output` within `$WORKDIR`.
 
 Documentation
 -------------
