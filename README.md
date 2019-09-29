@@ -38,13 +38,13 @@ PyMBE expects PySCF to be properly exported to Python, for which one needs to se
 Once these requirements are satisfied, PyMBE (located in `$PYMBEPATH`) is simply invoked by the following command:
 
 ```
-mpiexec -np N $PYMBE_PATH/src/main.py
+mpiexec -np N $PYMBEPATH/src/main.py
 ```
 
 with an input file `input` placed within the same directory. See the [examples](examples/) section for a range of example inputs.\
-Restart files are automatically generated unless otherwise requested in a dedicated directory `rst` within `$SUBMIT_DIR`, 
+Restart files are automatically generated unless otherwise requested in a dedicated directory `rst` within `$SUBMITDIR`, 
 which is deleted in case of successful termination of PyMBE. 
-The output and results of a calculation are stored in a dedicated directory `output` within `$SUBMIT_DIR`.
+The output and results of a calculation are stored in a dedicated directory `output` within `$SUBMITDIR`.
 
 Documentation
 -------------
