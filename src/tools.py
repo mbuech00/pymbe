@@ -451,7 +451,7 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
 
 
 def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
-            ref_space: np.ndarray = None, n_elec: Tuple[int, ...] = None) -> float:
+            ref_space: np.ndarray = None, n_elec: Tuple[int, ...] = None) -> int:
         """
         this function returns the number of determinants in given casci calculation (ignoring point group symmetry)
 
