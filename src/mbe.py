@@ -195,6 +195,9 @@ def master(mpi, mol, calc, exp):
         # mpi barrier
         mpi.local_comm.Barrier()
 
+        # save tup_idx
+        restart.write_gen(exp.order, np.asarray(exp.n_tasks[-1]), 'mbe_idx')
+
         # save increments
         restart.write_gen(exp.order, inc, 'mbe_inc')
 
