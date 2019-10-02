@@ -17,13 +17,16 @@ from mpi4py import MPI
 import functools
 import sys
 import itertools
-import scipy.misc
+from pyscf import gto
+from typing import Tuple, List, Dict, Union
 
 import restart
 import kernel
 import output
 import expansion
 import driver
+import system
+import calculation
 import parallel
 import tools
 
@@ -33,17 +36,14 @@ class TAGS:
     ready, task, rst, exit = range(4)
 
 
-def master(mpi, mol, calc, exp):
+def master(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc: calculation.CalcCls, exp: expansion.ExpCls) -> Tuple[MPI.Win, float, \
+                                                                        float, float, float, \
+                                                                        Union[float, np.ndarray], \
+                                                                        Union[float, np.ndarray], \
+                                                                        Union[float, np.ndarray]]:
         """
-        this master function returns two arrays of (i) number of determinants and (ii) mbe increments
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: MPI window handle to increments [inc_win],
-                 float with total energy correction [tot],
-                 three floats or numpy array of shapes (n_tuples, 3) depending on target [mean_inc, min_inc, max_inc]
+        this function is the mbe master function
         """
         # wake up slaves
         msg = {'task': 'mbe', 'order': exp.order}
@@ -242,15 +242,10 @@ def master(mpi, mol, calc, exp):
         return inc_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
 
 
-def slave(mpi, mol, calc, exp):
+def slave(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc: calculation.CalcCls, exp: expansion.ExpCls) -> MPI.Win:
         """
-        this slave function returns an array of mbe increments
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: MPI window handle to increments
+        this slave function is the mbe slave function
         """
         # load eri
         buf = mol.eri.Shared_query(0)[0]
@@ -345,8 +340,29 @@ def slave(mpi, mol, calc, exp):
                 inc_idx = tools.hash_compare(hashes[-1], tools.hash_1d(tup))
 
                 # calculate increment
-                inc[-1][inc_idx], ndets = _inc(mol, calc, exp.min_order, exp.order, e_core, h1e_cas, h2e_cas, \
-                                                 inc, hashes, tup, core_idx, cas_idx)
+                inc_tup, ndets, nelec = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], \
+                                               calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
+                                               calc.extra['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
+                                               calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
+                                               core_idx, cas_idx, mol.debug, \
+                                               mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                               calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                               calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
+
+                # calculate increment
+                if exp.order > exp.min_order:
+                    if np.any(inc_tup != 0.0):
+                        inc_tup -= _sum(calc.occup, calc.ref_space, calc.exp_space, calc.target_mbe, \
+                                        exp.min_order, exp.order, inc, hashes, tup, pi_prune=calc.extra['pi_prune'])
+
+
+                # debug print
+                if mol.debug >= 1:
+                    print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
+                                            ndets, nelec, inc_tup, exp.order, cas_idx, tup))
+
+                # add to inc
+                inc[-1][inc_idx] = inc_tup
 
                 # update determinant statistics
                 min_ndets = min(min_ndets, ndets)
@@ -371,7 +387,7 @@ def slave(mpi, mol, calc, exp):
                 _ = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
                 _ = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
                 _ = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
-                sum_ndets = 0.
+                sum_ndets = 0
 
                 # send availability to master
                 mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
@@ -404,70 +420,86 @@ def slave(mpi, mol, calc, exp):
         return inc_win
 
 
-def _inc(mol, calc, min_order, order, e_core, h1e_cas, h2e_cas, inc, hashes, tup, core_idx, cas_idx):
+def _inc(main_method: str, base_method: Union[str, None], solver: str, \
+            occup: np.ndarray, target_mbe: str, state_wfnsym: str, orbsym: np.ndarray, hf_guess: bool, \
+            state_root: int, e_hf: float, e_ref: float, e_core: float, h1e_cas: np.ndarray, \
+            h2e_cas: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, \
+            debug: int, ao_dipole: Union[np.ndarray, None], mo_coeff: Union[np.ndarray, None], \
+            dipole_hf: Union[np.ndarray, None]) -> Tuple[Union[float, np.ndarray], int, Tuple[int, int]]:
         """
-        this function calculates the increment associated with a given tuple
+        this function calculates the current-order contribution to the increment associated with a given tuple
 
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param min_order: minimum (start) order. integer
-        :param order: current order. integer
-        :param e_core: core energy. float
-        :param h1e_cas: cas space 1-e Hamiltonian. numpy array of shape (n_cas, n_cas)
-        :param h2e_cas: cas space 2-e Hamiltonian. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
-        :param inc: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
-        :param hashes: hashes to all order. list of numpy arrays of shapes (n_tuples,)
-        :param tup: given tuple of orbitals. numpy array of shape (order,)
-        :param core_idx: core space indices. numpy array of shape (n_core,)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :return: float or numpy array of shape (3,) depending on target [inc_tup],
-                 float [ndets]
+        example:
+        >>> n = 4
+        >>> occup = np.array([2.] * (n // 2) + [0.] * (n // 2))
+        >>> orbsym = np.zeros(n, dtype=np.int)
+        >>> h1e_cas, h2e_cas = kernel.hubbard_h1e((1, n), n, False), kernel.hubbard_eri(n, 2.)
+        >>> core_idx, cas_idx = np.array([]), np.arange(n)
+        >>> _inc('fci', None, 'pyscf_spin0', occup, 'energy', None, orbsym, 0,
+        ...      0, 0., 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, False, None, None, None)
+        (-2.875942809005048, 36, (2, 2))
         """
         # nelec
-        nelec = tools.nelec(calc.occup, cas_idx)
+        nelec = tools.nelec(occup, cas_idx)
 
         # perform main calc
-        inc_tup, ndets = kernel.main(mol, calc, calc.model['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+        e_full, ndets = kernel.main(main_method, solver, occup, target_mbe, state_wfnsym, orbsym, \
+                                        hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
+                                        core_idx, cas_idx, nelec, debug, ao_dipole, mo_coeff, dipole_hf)
 
         # perform base calc
-        if calc.base['method'] is not None:
-            inc_tup -= kernel.main(mol, calc, calc.base['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)[0]
+        if base_method is not None:
+            e_full -= kernel.main(base_method, solver, occup, target_mbe, state_wfnsym, orbsym, \
+                                      hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
+                                      core_idx, cas_idx, nelec, debug, ao_dipole, mo_coeff, dipole_hf)[0]
 
-        # subtract reference space property
-        inc_tup -= calc.prop['ref'][calc.target_mbe]
-
-        # calculate increment
-        if order > min_order:
-            if np.any(inc_tup != 0.0):
-                inc_tup -= _sum(calc.occup, calc.ref_space, calc.exp_space, \
-                                calc.target_mbe, min_order, order, \
-                                inc, hashes, tup, pi_prune=calc.extra['pi_prune'])
-
-        # debug print
-        if mol.debug >= 1:
-            print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
-                                    ndets, nelec, inc_tup, order, cas_idx, tup))
-
-        return inc_tup, ndets
+        return e_full - e_ref, ndets, nelec
 
 
-def _sum(occup, ref_space, exp_space, target, min_order, order, inc, hashes, tup, pi_prune=False):
+def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarray], \
+            target_mbe: str, min_order: int, order: int, inc: List[np.ndarray], \
+            hashes: List[np.ndarray], tup: np.ndarray, pi_prune: bool = False) -> Union[float, np.ndarray]:
         """
-        this function performs a recursive summation
+        this function performs a recursive summation and returns the final increment associated with a given tuple
 
-        :param occup: orbital occupation. numpy array of shape (n_orbs,)
-        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
-        :param exp_space: dictionary of expansion spaces. dict
-        :param target: calculation target. string
-        :param min_order: minimum (start) order. integer
-        :param order: current order. integer
-        :param inc: property increments to all order. list of numpy arrays of shapes (n_tuples,) or (n_tuples, 3) depending on target
-        :param hashes: hashes to all order. list of numpy arrays of shapes (n_tuples,)
-        :param tup: given tuple of orbitals. numpy array of shape (order,)
-        :return: float or numpy array of shape (3,) depending on target
+        example:
+        >>> occup = np.array([2.] * 2 + [0.] * 2)
+        >>> ref_space = np.arange(2)
+        >>> exp_space = {'tot': np.arange(2, 4, dtype=np.int16),
+        ...              'occ': np.array([], dtype=np.int16),
+        ...              'virt': np.arange(2, 4, dtype=np.int16),
+        ...              'pi_orbs': None, 'pi_hashes': None}
+        >>> min_order, order = 1, 2
+        ... # [[2], [3]]
+        ... # [[2, 3]]
+        >>> hashes = [np.sort(np.array([-4760325697709127167, -4199509873246364550])),
+        ...           np.array([-5475322122992870313])]
+        >>> inc = [np.array([-.1, -.2])]
+        >>> tup = np.arange(2, 4, dtype=np.int32)
+        >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -.3)
+        True
+        >>> inc = [np.array([[0., 0., .1], [0., .0, .2]])]
+        >>> np.allclose(_sum(occup, ref_space, exp_space, 'dipole', min_order, order, inc, hashes, tup, False), np.array([0., 0., .3]))
+        True
+        >>> ref_space = np.array([])
+        >>> exp_space = {'tot': np.arange(4), 'occ': np.arange(2), 'virt': np.arange(2, 4),
+        ...              'pi_orbs': np.arange(2, dtype=np.int32), 'pi_hashes': np.array([-3821038970866580488])}
+        >>> min_order, order = 2, 4
+        ... # [[0, 2], [0, 3], [1, 2], [1, 3]]
+        ... # [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
+        ... # [[0, 1, 2, 3]]
+        >>> hashes = [np.sort(np.array([-4882741555304645790, 1455941523185766351, -2163557957507198923, -669804309911520350])),
+        ...           np.sort(np.array([-5731810011007442268, 366931854209709639, -7216722148388372205, -3352798558434503475])),
+        ...           np.array([-2930228190932741801])]
+        >>> inc = [np.array([-.11, -.12, -.11, -.12]), np.array([-.01, -.02, -.03, -.03])]
+        >>> tup = np.arange(4, dtype=np.int32)
+        >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -0.55)
+        True
+        >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, True), -0.05)
+        True
         """
         # init res
-        if target in ['energy', 'excitation']:
+        if target_mbe in ['energy', 'excitation']:
             res = 0.0
         else:
             res = np.zeros(3, dtype=np.float64)
@@ -508,5 +540,11 @@ def _sum(occup, ref_space, exp_space, target, min_order, order, inc, hashes, tup
             res += tools.fsum(inc[k-min_order][idx])
 
         return res
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod(verbose=True)
+
 
 

@@ -31,6 +31,21 @@ Features
 * MPI-3 Shared Memory Parallelism.
 
 
+Usage
+-----
+
+PyMBE expects PySCF to be properly exported to Python, for which one needs to set environment variable `$PYTHONPATH`. Furthermore, the mpi4py implementation of the MPI standard needs to be installed, built upon an MPI-3 library.\
+Once these requirements are satisfied, PyMBE (located in `$PYMBEPATH`) is simply invoked by the following command:
+
+```
+mpiexec -np N $PYMBEPATH/src/main.py
+```
+
+with an input file `input` placed within the same directory. See the [examples](examples/) section for a range of example inputs.\
+Restart files are automatically generated unless otherwise requested in a dedicated directory `rst` within `$WORKDIR`, 
+which is deleted in case of successful termination of PyMBE. 
+The output and results of a calculation are stored in a dedicated directory `output` within `$WORKDIR`.
+
 Documentation
 -------------
 
