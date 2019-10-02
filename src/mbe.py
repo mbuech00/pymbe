@@ -195,6 +195,9 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         # mpi barrier
         mpi.local_comm.Barrier()
 
+        # save tup_idx
+        restart.write_gen(exp.order, np.asarray(exp.n_tasks[-1]), 'mbe_idx')
+
         # save increments
         restart.write_gen(exp.order, inc, 'mbe_inc')
 
@@ -258,7 +261,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # load tuples
         buf = exp.tuples.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tasks[-1], exp.order))
 
         # load increments for previous orders
         inc = []
@@ -503,7 +506,7 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         for k in range(order-1, min_order-1, -1):
 
             # generate array with all subsets of particular tuple
-            combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+            combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int16)
 
             # prune combinations without a mix of occupied and virtual orbitals
             if min_order == 2:

@@ -91,8 +91,8 @@ def init_tup(occup: np.ndarray, ref_space: np.ndarray, \
         >>> ref_space = np.arange(3)
         >>> exp_space_occ = np.arange(3, 4)
         >>> exp_space_tot = np.arange(3, 10)
-        >>> pi_orbs = np.array([1, 2, 4, 5], dtype=np.int32)
-        >>> pi_hashes = np.array([-6970320760023207014,  4340140435613229407])
+        >>> pi_orbs = np.array([1, 2, 4, 5], dtype=np.int16)
+        >>> pi_hashes = np.array([-2163557957507198923, 1937934232745943291])
         >>> init_tup(occup, ref_space, exp_space_occ, exp_space_virt, exp_space_tot,
         ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD,
         ...          True, pi_orbs, pi_hashes) # doctest: +ELLIPSIS
@@ -102,20 +102,20 @@ def init_tup(occup: np.ndarray, ref_space: np.ndarray, \
         if ref_space.size > 0:
 
             if np.all(occup[ref_space] == 0.0):
-                tuples_tmp = np.array([[i] for i in exp_space_occ], dtype=np.int32)
+                tuples_tmp = np.array([[i] for i in exp_space_occ], dtype=np.int16)
             elif np.all(occup[ref_space] > 0.0):
-                tuples_tmp = np.array([[a] for a in exp_space_virt], dtype=np.int32)
+                tuples_tmp = np.array([[a] for a in exp_space_virt], dtype=np.int16)
             else:
-                tuples_tmp = np.array([[p] for p in exp_space_tot], dtype=np.int32)
+                tuples_tmp = np.array([[p] for p in exp_space_tot], dtype=np.int16)
 
         else:
 
-            tuples_tmp = np.array([[i, a] for i in exp_space_occ for a in exp_space_virt], dtype=np.int32)
+            tuples_tmp = np.array([[i, a] for i in exp_space_occ for a in exp_space_virt], dtype=np.int16)
 
         # pi-orbital pruning
         if pi_prune:
             tuples_tmp = np.array([tup for tup in tuples_tmp if tools.pi_prune(pi_orbs, \
-                                pi_hashes, tup)], dtype=np.int32)
+                                pi_hashes, tup)], dtype=np.int16)
 
         # min_order
         min_order = tuples_tmp.shape[1]
@@ -124,12 +124,15 @@ def init_tup(occup: np.ndarray, ref_space: np.ndarray, \
         if local_master:
 
             # allocate tuples
-            tuples_win = MPI.Win.Allocate_shared(4 * tuples_tmp.size, 4, comm=local_comm)
+            tuples_win = MPI.Win.Allocate_shared(2 * tuples_tmp.size, 2, comm=local_comm)
             buf = tuples_win.Shared_query(0)[0]
-            tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=tuples_tmp.shape)
+            tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=tuples_tmp.shape)
 
             # place tuples in shared memory space
             tuples[:] = tuples_tmp
+
+            # make tuples read-only
+            tuples.flags.writeable = False
 
             # allocate hashes
             hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=local_comm)
@@ -148,7 +151,7 @@ def init_tup(occup: np.ndarray, ref_space: np.ndarray, \
         else:
 
             # get handle to tuples window
-            tuples_win = MPI.Win.Allocate_shared(0, 4, comm=local_comm)
+            tuples_win = MPI.Win.Allocate_shared(0, 2, comm=local_comm)
 
             # get handle to hashes window
             hashes_win = MPI.Win.Allocate_shared(0, 8, comm=local_comm)
