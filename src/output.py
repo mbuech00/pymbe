@@ -85,8 +85,8 @@ def mbe_header(n_tuples: int, order: int) -> str:
         return string.format(*form)
 
 
-def mbe_debug(atom: str, symmetry: str, orbsym: np.ndarray, root: int, \
-              ndets_tup: float, nelec_tup: Tuple[int, int], inc_tup: Union[float, np.ndarray], \
+def mbe_debug(atom: Union[List[str], str], symmetry: str, orbsym: np.ndarray, root: int, \
+              ndets_tup: int, nelec_tup: Tuple[int, int], inc_tup: Union[float, np.ndarray], \
               order: int, cas_idx: np.ndarray, tup: np.ndarray) -> str:
         """
         this function prints mbe debug information
@@ -141,7 +141,7 @@ def mbe_end(order: int, time: float) -> str:
 def mbe_results(occup: np.ndarray, ref_space: np.ndarray, target: str, root: int, \
                 min_order: int, max_order: int, order: int, prop_tot: List[Union[float, np.ndarray]], \
                 mean_inc: Union[float, np.ndarray], min_inc: Union[float, np.ndarray], \
-                max_inc: Union[float, np.ndarray], mean_ndets: int, min_ndets: int, max_ndets: int) -> str:
+                max_inc: Union[float, np.ndarray], mean_ndets: float, min_ndets: float, max_ndets: float) -> str:
         """
         this function prints mbe results statistics
         """

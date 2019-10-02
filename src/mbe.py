@@ -195,7 +195,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         # mpi barrier
         mpi.local_comm.Barrier()
 
-        if calc.misc['rst']
+        if calc.misc['rst']:
 
             # save tup_idx
             restart.write_gen(exp.order, np.asarray(exp.n_tasks[-1]), 'mbe_idx')
