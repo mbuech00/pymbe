@@ -207,9 +207,8 @@ def write_fund(mol, calc):
         np.save(os.path.join(RST, 'exp_space_tot'), calc.exp_space['tot'])
         np.save(os.path.join(RST, 'exp_space_occ'), calc.exp_space['occ'])
         np.save(os.path.join(RST, 'exp_space_virt'), calc.exp_space['virt'])
-        if calc.extra['pi_prune']:
-            np.save(os.path.join(RST, 'exp_space_pi_orbs'), calc.exp_space['pi_orbs'])
-            np.save(os.path.join(RST, 'exp_space_pi_hashes'), calc.exp_space['pi_hashes'])
+        np.save(os.path.join(RST, 'exp_space_pi_orbs'), calc.exp_space['pi_orbs'])
+        np.save(os.path.join(RST, 'exp_space_pi_hashes'), calc.exp_space['pi_hashes'])
 
         # occupation
         np.save(os.path.join(RST, 'occup'), calc.occup)

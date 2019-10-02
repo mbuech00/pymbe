@@ -144,7 +144,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         mol.hcore, mol.vhf, mol.eri = kernel.ints(mpi, mol, calc.mo_coeff)
 
         # write fundamental info
-        if mpi.global_master and calc.misc['rst']:
+        if not calc.restart and mpi.global_master and calc.misc['rst']:
             restart.write_fund(mol, calc)
 
         # pyscf hf object not needed anymore
@@ -170,7 +170,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         calc = parallel.prop(mpi, calc)
 
         # write properties
-        if mpi.global_master and calc.misc['rst']:
+        if not calc.restart and mpi.global_master and calc.misc['rst']:
             restart.write_prop(mol, calc)
 
         # exp object

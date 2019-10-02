@@ -67,9 +67,9 @@ class ExpCls:
 
 def init_tup(occup: np.ndarray, ref_space: np.ndarray, \
                 exp_space_occ: np.ndarray, exp_space_virt: np.ndarray, \
-                exp_space_tot: np.ndarray, local_master: bool, local_comm: MPI.Comm, \
-                pi_prune: bool, pi_orbs: np.ndarray = None, \
-                pi_hashes: np.ndarray = None) -> Tuple[List[MPI.Win], MPI.Win, List[int], int]:
+                exp_space_tot: np.ndarray, local_master: bool, \
+                local_comm: MPI.Comm, pi_prune: bool, pi_orbs: np.ndarray, \
+                pi_hashes: np.ndarray) -> Tuple[List[MPI.Win], MPI.Win, List[int], int]:
         """
         this function initializes tuples and hashes
 
