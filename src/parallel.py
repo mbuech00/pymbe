@@ -22,7 +22,10 @@ try:
 except ImportError:
     sys.stderr.write('\nImportError : numpy module not found\n\n')
 from pyscf import symm, lib
+from typing import Tuple
 
+import system
+import calculation
 import tools
 import restart
 
@@ -36,43 +39,48 @@ class MPICls(object):
         """
         this class contains the pymbe mpi attributes
         """
-        def __init__(self):
+        def __init__(self) -> None:
                 """
                 init mpi attributes
                 """
                 # general
                 self.host = MPI.Get_processor_name()
                 self.stat = MPI.Status()
+
                 # global communicator
                 self.global_comm = MPI.COMM_WORLD
                 self.global_size = self.global_comm.Get_size()
                 self.global_rank = self.global_comm.Get_rank()
                 self.global_master = (self.global_rank == 0)
+
                 if self.global_master:
                     tools.assertion(self.global_size >= 2, 'PyMBE requires two or more MPI processes')
+
                 # local node communicator (memory sharing)
                 self.local_comm = self.global_comm.Split_type(MPI.COMM_TYPE_SHARED, self.global_rank)
                 self.local_rank = self.local_comm.Get_rank()
                 self.local_master = (self.local_rank == 0)
+
                 # master communicator
                 self.master_comm = self.global_comm.Split(1 if self.local_master else MPI.UNDEFINED, self.global_rank)
+
+                # local masters
                 if self.local_master:
+
                     self.num_masters = self.master_comm.Get_size()
                     self.master_global_ranks = np.array(self.master_comm.allgather(self.global_rank))
                     self.master_global_hosts = np.array(self.master_comm.allgather(self.host))
+
+                # number of masters
                 if self.global_master:
                     self.global_comm.bcast(self.num_masters, root=0)
                 else:
                     self.num_masters = self.global_comm.bcast(None, root=0)
 
 
-def mol(mpi, mol):
+def mol(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
         """
         this function bcast all standard mol info to slaves
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :return: updated mol object
         """
         if mpi.global_master:
 
@@ -106,13 +114,9 @@ def mol(mpi, mol):
         return mol
 
 
-def calc(mpi, calc):
+def calc(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
         """
         this function bcast all standard calc info to slaves
-
-        :param mpi: pymbe mpi object
-        :param calc: pymbe calc object
-        :return: updated calc object
         """
         if mpi.global_master:
 
@@ -137,15 +141,10 @@ def calc(mpi, calc):
         return calc
 
 
-def fund(mpi, mol, calc):
+def fund(mpi: MPICls, mol: system.MolCls, \
+            calc: calculation.CalcCls) -> Tuple[system.MolCls, calculation.CalcCls]:
         """
         this function bcasts all fundamental mol and calc info to slaves
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: updated mol object,
-                 updated calc object
         """
         if mpi.global_master:
 
@@ -200,13 +199,9 @@ def fund(mpi, mol, calc):
         return mol, calc
 
 
-def prop(mpi, calc):
+def prop(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
         """
         this function bcasts properties to slaves
-
-        :param mpi: pymbe mpi object
-        :param calc: pymbe calc object
-        :return: updated calc object
         """
         if mpi.global_master:
 
@@ -221,14 +216,10 @@ def prop(mpi, calc):
         return calc
 
 
-def bcast(comm, buff):
+def bcast(comm: MPI.Comm, buff: np.ndarray) -> np.ndarray:
         """
         this function performs a tiled Bcast operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-
-        :param comm: mpi communicator
-        :param buff: buffer. numpy array of any kind of shape and dtype (may not be allocated on slave procs)
-        :return: numpy array of same shape and dtype as master buffer
         """
         # init buff_tile
         buff_tile = np.ndarray(buff.size, dtype=buff.dtype, buffer=buff)
@@ -240,14 +231,10 @@ def bcast(comm, buff):
         return buff
 
 
-def reduce(comm, send_buff, root=0):
+def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0) -> np.ndarray:
         """
         this function performs a tiled Reduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-
-        :param comm: mpi communicator
-        :param send_buff: send buffer. numpy array of any kind of shape and dtype
-        :return: numpy array of same shape and dtype as send_buff
         """
         # rank
         rank = comm.Get_rank()
@@ -273,14 +260,10 @@ def reduce(comm, send_buff, root=0):
         return recv_buff
 
 
-def allreduce(comm, send_buff):
+def allreduce(comm: MPI.Comm, send_buff: np.ndarray) -> np.ndarray:
         """
         this function performs a tiled Allreduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-
-        :param comm: mpi communicator
-        :param send_buff: send buffer. numpy array of any kind of shape and dtype
-        :return: numpy array of same shape and dtype as send_buff
         """
         # init recv_buff        
         recv_buff = np.zeros_like(send_buff)
@@ -296,16 +279,11 @@ def allreduce(comm, send_buff):
         return recv_buff
 
 
-def gatherv(comm, send_buff, counts):
+def gatherv(comm: MPI.Comm, send_buff: np.ndarray, \
+                counts: np.ndarray, root: int = 0) -> np.ndarray:
         """
         this function performs a gatherv operation using point-to-point operations
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
-
-        :param comm: mpi communicator
-        :param send_buff: send buffer. numpy array of any kind of shape and dtype
-        :param counts: number of elements from individual processes. numpy array of shape (n_procs,)
-        :param master: logical for rank == 0 (master) on given comm
-        :return: numpy array of shape (n_child_tuples * (order+1),)
         """
         # rank and size
         rank = comm.Get_rank()
@@ -313,7 +291,7 @@ def gatherv(comm, send_buff, counts):
         # dtype
         dtype = send_buff.dtype
 
-        if rank == 0:
+        if rank == root:
 
             # init recv_buff
             recv_buff = np.empty(np.sum(counts), dtype=dtype)
@@ -332,23 +310,21 @@ def gatherv(comm, send_buff, counts):
 
             # gatherv all tiles
             for p0, p1 in lib.prange(0, counts[rank], BLKSIZE):
-                comm.Send(send_buff[p0:p1], dest=0)
+                comm.Send(send_buff[p0:p1], dest=root)
 
             return send_buff
 
 
-def abort():
+def abort() -> None:
         """
         this function aborts mpi in case of a pymbe error
         """
         MPI.COMM_WORLD.Abort()
 
 
-def finalize(mpi):
+def finalize(mpi: MPICls) -> None:
         """
         this function terminates a successful pymbe calculation
-
-        :param mpi: pymbe mpi object
         """
         # wake up slaves
         if mpi.global_master:

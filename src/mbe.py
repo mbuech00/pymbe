@@ -38,7 +38,7 @@ class TAGS:
 
 def master(mpi: parallel.MPICls, mol: system.MolCls, \
             calc: calculation.CalcCls, exp: expansion.ExpCls) -> Tuple[MPI.Win, float, \
-                                                                        float, float, float, \
+                                                                        float, int, int, \
                                                                         Union[float, np.ndarray], \
                                                                         Union[float, np.ndarray], \
                                                                         Union[float, np.ndarray]]:
@@ -87,11 +87,11 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # init determinant statistics
         if rst_mbe:
-            min_ndets = exp.min_ndets[-1]
-            max_ndets = exp.max_ndets[-1]
-            sum_ndets = exp.mean_ndets[-1]
+            min_ndets: int = exp.min_ndets[-1]
+            max_ndets: int = exp.max_ndets[-1]
+            sum_ndets: int = int(exp.mean_ndets[-1])
         else:
-            min_ndets = 1e12
+            min_ndets = int(1e12)
             max_ndets = 0
             sum_ndets = 0
 
@@ -145,9 +145,9 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 restart.write_gen(exp.order, inc, 'mbe_inc')
 
                 # save determinant statistics
-                restart.write_gen(exp.order, np.asarray(max_ndets), 'mbe_max_ndets')
-                restart.write_gen(exp.order, np.asarray(min_ndets), 'mbe_min_ndets')
-                restart.write_gen(exp.order, np.asarray(sum_ndets), 'mbe_mean_ndets')
+                restart.write_gen(exp.order, np.asarray(max_ndets, dtype=np.int64), 'mbe_max_ndets')
+                restart.write_gen(exp.order, np.asarray(min_ndets, dtype=np.int64), 'mbe_min_ndets')
+                restart.write_gen(exp.order, np.asarray(sum_ndets, dtype=np.int64), 'mbe_mean_ndets')
 
                 # save timing
                 exp.time['mbe'][-1] += MPI.Wtime() - time
@@ -301,9 +301,9 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
         # init determinant statistics
-        min_ndets = 1e12
-        max_ndets = 0
-        sum_ndets = 0
+        min_ndets: int = int(1e12)
+        max_ndets: int = 0
+        sum_ndets: int = 0
 
         # mpi barrier
         mpi.global_comm.Barrier()

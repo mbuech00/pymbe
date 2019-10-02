@@ -67,7 +67,7 @@ class MolCls(gto.Mole):
 
                 # set core region
                 if self.frozen:
-                    self.ncore = _set_ncore(self.natm, self.atom_charge)
+                    self.ncore: int = _set_ncore(self.natm, self.atom_charge)
 
 
 def _set_ncore(natm: int, atom_charge: Callable[[int], int]) -> int:

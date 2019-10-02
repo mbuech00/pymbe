@@ -576,18 +576,6 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
             mo_coeff: Union[np.ndarray, None], dipole_hf: Union[np.ndarray, None]) -> Tuple[Union[float, np.ndarray], int]:
         """
         this function return the result property from a given method
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param method: correlated method. string
-        :param e_core: core space energy. float
-        :param h1e: cas space 1e integrals. numpy array of shape (n_cas, n_cas)
-        :param h2e: cas space 2e integrals. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
-        :param core_idx: core space indices. numpy array of shape (n_inactive,)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :param nelec: number of correlated electrons. tuple of integers
-        :return: float or numpy array of shape (3,) depending on target [res],
-                 float [ndets]
         """
         if method in ['ccsd', 'ccsd(t)']:
 

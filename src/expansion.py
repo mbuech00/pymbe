@@ -50,8 +50,8 @@ class ExpCls:
                 self.min_inc: List[float] = []
                 self.max_inc: List[float] = []
                 self.mean_ndets: List[float] = []
-                self.min_ndets: List[float] = []
-                self.max_ndets: List[float] = []
+                self.min_ndets: List[int] = []
+                self.max_ndets: List[int] = []
 
                 # init order
                 self.order: int = 0
