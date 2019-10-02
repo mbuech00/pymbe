@@ -465,13 +465,15 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         example:
         >>> occup = np.array([2.] * 2 + [0.] * 2)
         >>> ref_space = np.arange(2)
-        >>> exp_space = {'tot': np.arange(2, 4), 'occ': np.array([]), 'virt': np.arange(2, 4),
+        >>> exp_space = {'tot': np.arange(2, 4, dtype=np.int16),
+        ...              'occ': np.array([], dtype=np.int16),
+        ...              'virt': np.arange(2, 4, dtype=np.int16),
         ...              'pi_orbs': None, 'pi_hashes': None}
         >>> min_order, order = 1, 2
         ... # [[2], [3]]
         ... # [[2, 3]]
-        >>> hashes = [np.sort(np.array([-5519465098313081750, -1347833110307788911])),
-        ...           np.array([-814790181180199542])]
+        >>> hashes = [np.sort(np.array([-4760325697709127167, -4199509873246364550])),
+        ...           np.array([-5475322122992870313])]
         >>> inc = [np.array([-.1, -.2])]
         >>> tup = np.arange(2, 4, dtype=np.int32)
         >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -.3)
@@ -481,19 +483,19 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         True
         >>> ref_space = np.array([])
         >>> exp_space = {'tot': np.arange(4), 'occ': np.arange(2), 'virt': np.arange(2, 4),
-        ...              'pi_orbs': np.arange(2, dtype=np.int32), 'pi_hashes': np.array([8431921271113547532])}
+        ...              'pi_orbs': np.arange(2, dtype=np.int32), 'pi_hashes': np.array([-3821038970866580488])}
         >>> min_order, order = 2, 4
         ... # [[0, 2], [0, 3], [1, 2], [1, 3]]
         ... # [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
         ... # [[0, 1, 2, 3]]
-        >>> hashes = [np.sort(np.array([8626949308497638873, -6108545261438344710, -6970320760023207014, 555267484718050201])),
-        ...           np.sort(np.array([-3114979361724503252, 5507072812400720432, -2081130591822863851, 1611464600887364741])),
-        ...           np.array([1121795289686035296])]
+        >>> hashes = [np.sort(np.array([-4882741555304645790, 1455941523185766351, -2163557957507198923, -669804309911520350])),
+        ...           np.sort(np.array([-5731810011007442268, 366931854209709639, -7216722148388372205, -3352798558434503475])),
+        ...           np.array([-2930228190932741801])]
         >>> inc = [np.array([-.11, -.12, -.11, -.12]), np.array([-.01, -.02, -.03, -.03])]
         >>> tup = np.arange(4, dtype=np.int32)
         >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -0.55)
         True
-        >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, True), -0.04)
+        >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, True), -0.05)
         True
         """
         # init res
