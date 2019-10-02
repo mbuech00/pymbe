@@ -73,7 +73,7 @@ def master(mpi, calc, exp):
                 mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
                 # send tup to available slave
-                mpi.global_comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_pi)
+                mpi.global_comm.Send([tup, MPI.SHORT], dest=mpi.stat.source, tag=TAGS.tup_pi)
 
         # seed
         if tuples_seed is not None:
@@ -88,7 +88,7 @@ def master(mpi, calc, exp):
                 mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
                 # send tup to available slave
-                mpi.global_comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed)
+                mpi.global_comm.Send([tup, MPI.SHORT], dest=mpi.stat.source, tag=TAGS.tup_seed)
 
         # seed w/ pi-pruning
         if tuples_seed_pi is not None:
@@ -103,7 +103,7 @@ def master(mpi, calc, exp):
                 mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
                 # send tup to available slave
-                mpi.global_comm.Send([tup, MPI.INT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
+                mpi.global_comm.Send([tup, MPI.SHORT], dest=mpi.stat.source, tag=TAGS.tup_seed_pi)
 
         # done with all tasks
         while slaves_avail > 0:
@@ -124,7 +124,7 @@ def master(mpi, calc, exp):
         if calc.extra['pi_prune'] and exp.order == 1:
             child_tup = tools.pi_pairs_deg(calc.exp_space['pi_orbs'], calc.exp_space['tot'])
         else:
-            child_tup = np.array([], dtype=np.int32)
+            child_tup = np.array([], dtype=np.int16)
 
         # free parent_tuples window
         exp.tuples.Free()
@@ -145,9 +145,9 @@ def master(mpi, calc, exp):
             return None, None, 0
 
         # allocate tuples
-        tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
+        tuples_win = MPI.Win.Allocate_shared(2 * np.sum(recv_counts), 2, comm=mpi.local_comm)
         buf = tuples_win.Shared_query(0)[0]
-        tuples_new = np.ndarray(buffer=buf, dtype=np.int32, shape=(np.sum(recv_counts),))
+        tuples_new = np.ndarray(buffer=buf, dtype=np.int16, shape=(np.sum(recv_counts),))
 
         # gatherv all child tuples onto global master
         tuples_new[:] = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
@@ -158,6 +158,9 @@ def master(mpi, calc, exp):
         # bcast tuples
         if mpi.num_masters > 1:
             tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
+
+        # make tuples_new read-only
+        tuples_new.flags.writeable = False
 
         # mpi barrier
         mpi.local_comm.barrier()
@@ -208,7 +211,7 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # load tuples as main task tuples
         buf = exp.tuples.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tasks[-1], exp.order))
 
         # load increments for current and previous orders
         inc = []
@@ -226,8 +229,8 @@ def slave(mpi, calc, exp, slaves_needed):
             hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
 
         # init tup_seed and tup_pi
-        tup_seed = np.empty(exp.order, dtype=np.int32)
-        tup_pi = np.empty(exp.order-1, dtype=np.int32)
+        tup_seed = np.empty(exp.order, dtype=np.int16)
+        tup_pi = np.empty(exp.order-1, dtype=np.int16)
 
         # mpi barrier
         mpi.local_comm.barrier()
@@ -257,14 +260,14 @@ def slave(mpi, calc, exp, slaves_needed):
                     if mpi.stat.tag == TAGS.tup_seed:
 
                         # receive tup_seed
-                        mpi.global_comm.Recv([tup_seed, MPI.INT], source=0, tag=mpi.stat.tag)
+                        mpi.global_comm.Recv([tup_seed, MPI.SHORT], source=0, tag=mpi.stat.tag)
                         tup = tup_seed
                         tup_order = exp.order
 
                     else:
 
                         # receive tup_pi or tup_seed_pi
-                        mpi.global_comm.Recv([tup_pi, MPI.INT], source=0, tag=mpi.stat.tag)
+                        mpi.global_comm.Recv([tup_pi, MPI.SHORT], source=0, tag=mpi.stat.tag)
                         tup = tup_pi
                         tup_order = exp.order - 1
 
@@ -306,7 +309,7 @@ def slave(mpi, calc, exp, slaves_needed):
                 break
 
         # recast child tuples as array
-        child_tup = np.array(child_tup, dtype=np.int32)
+        child_tup = np.array(child_tup, dtype=np.int16)
 
         # reshape child tuples
         child_tup = child_tup.reshape(-1, exp.order + 1)
@@ -323,12 +326,12 @@ def slave(mpi, calc, exp, slaves_needed):
 
         # get handle to tuples
         if mpi.local_master:
-            tuples_win = MPI.Win.Allocate_shared(4 * np.sum(recv_counts), 4, comm=mpi.local_comm)
+            tuples_win = MPI.Win.Allocate_shared(2 * np.sum(recv_counts), 2, comm=mpi.local_comm)
             buf = tuples_win.Shared_query(0)[0]
-            tuples_new = np.ndarray(buffer=buf, dtype=np.int32, \
+            tuples_new = np.ndarray(buffer=buf, dtype=np.int16, \
                                     shape=(np.sum(recv_counts) // (exp.order + 1), exp.order + 1))
         else:
-            tuples_win = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
+            tuples_win = MPI.Win.Allocate_shared(0, 2, comm=mpi.local_comm)
 
         # gatherv all child tuples
         child_tup = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
@@ -336,6 +339,9 @@ def slave(mpi, calc, exp, slaves_needed):
         # bcast tuples
         if mpi.num_masters > 1 and mpi.local_master:
             tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
+
+            # make tuples_new read-only
+            tuples_new.flags.writeable = False
 
         # mpi barrier
         mpi.local_comm.barrier()
@@ -377,7 +383,7 @@ def _set_screen(mpi, calc, exp):
         """
         # load tuples as main task tuples
         buf = exp.tuples.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tasks[-1], exp.order))
 
         # number of tasks
         n_tasks = tuples.shape[0]
@@ -410,8 +416,7 @@ def _set_screen(mpi, calc, exp):
         if calc.ref_space.size == 0 and exp.order <= calc.exp_space['occ'].size:
 
             # set tuples_seed
-            tuples_seed = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], \
-                                    dtype=np.int32)
+            tuples_seed = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], dtype=np.int16)
 
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             if calc.extra['pi_prune']:
@@ -427,8 +432,7 @@ def _set_screen(mpi, calc, exp):
             if calc.extra['pi_prune']:
 
                 # set tuples_seed_pi
-                tuples_seed_pi = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], \
-                                           dtype=np.int32)
+                tuples_seed_pi = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], dtype=np.int16)
 
                 # prune combinations that contain non-degenerate pairs of pi-orbitals
                 tuples_seed_pi = tuples_seed_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
@@ -485,7 +489,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
             return exp_space_trunc.ravel()
 
         # generate array with all k-1 order subsets of particular tuple
-        combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int32)
+        combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int16)
 
         # prune combinations without seed orbitals
         if min_order == 2:
@@ -506,7 +510,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         child_orbs = []
 
         # init orb_arr
-        orb_arr = np.empty([combs.shape[0], 2 if pi_gen else 1], dtype=np.int32)
+        orb_arr = np.empty([combs.shape[0], 2 if pi_gen else 1], dtype=np.int16)
 
         # loop over orbitals of truncated expansion space
         for orb in exp_space_trunc:
@@ -538,7 +542,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
                     else:
                         child_orbs += [orb]
 
-        return np.array(child_orbs, dtype=np.int32)
+        return np.array(child_orbs, dtype=np.int16)
 
 
 def _deep_pruning(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \

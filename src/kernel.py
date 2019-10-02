@@ -439,7 +439,7 @@ def ref_mo(mol, calc):
         if calc.ref['active'] == 'manual':
 
             # active orbs
-            calc.ref['select'] = np.asarray(calc.ref['select'], dtype=np.int32)
+            calc.ref['select'] = np.asarray(calc.ref['select'], dtype=np.int16)
 
             # electrons
             nelec = (np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
@@ -467,9 +467,9 @@ def ref_mo(mol, calc):
                     calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
 
         # reference and expansion spaces
-        ref_space = np.arange(inact_orbs, inact_orbs+act_orbs, dtype=np.int32)
-        exp_space = np.append(np.arange(mol.ncore, inact_orbs, dtype=np.int32), \
-                              np.arange(inact_orbs+act_orbs, mol.norb, dtype=np.int32))
+        ref_space = np.arange(inact_orbs, inact_orbs+act_orbs, dtype=np.int16)
+        exp_space = np.append(np.arange(mol.ncore, inact_orbs, dtype=np.int16), \
+                              np.arange(inact_orbs+act_orbs, mol.norb, dtype=np.int16))
 
         # divide exp_space into occupied and virtual parts
         exp_space = {'tot': exp_space}
@@ -533,11 +533,11 @@ def ref_prop(mol, calc):
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
 
         # core_idx and cas_idx
-        core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, np.array([], dtype=np.int32))
+        core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, np.array([], dtype=np.int16))
 
         # nelec
         nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
-                            np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int32)
+                            np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int16)
 
         if np.any(calc.occup[calc.ref_space] == 2.) and np.any(calc.occup[calc.ref_space] < 2.):
 

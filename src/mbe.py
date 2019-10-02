@@ -266,7 +266,7 @@ def slave(mpi, mol, calc, exp):
 
         # load tuples
         buf = exp.tuples.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(exp.n_tasks[-1], exp.order))
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tasks[-1], exp.order))
 
         # load increments for previous orders
         inc = []
@@ -476,7 +476,7 @@ def _sum(occup, ref_space, exp_space, target, min_order, order, inc, hashes, tup
         for k in range(order-1, min_order-1, -1):
 
             # generate array with all subsets of particular tuple
-            combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int32)
+            combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int16)
 
             # prune combinations without a mix of occupied and virtual orbitals
             if min_order == 2:

@@ -163,7 +163,7 @@ def hash_2d(a: np.ndarray) -> np.ndarray:
         this function converts a 2d numpy array to a 1d array of hashes
 
         example:
-        >>> hash_2d(np.arange(4*4).reshape(4,4))
+        >>> hash_2d(np.arange(4*4, dtype=np.int16).reshape(4,4))
         array([-2930228190932741801,  1142744019865853604, -8951855736587463849,
                 4559082070288058232])
         """
@@ -175,10 +175,10 @@ def hash_1d(a: np.ndarray) -> int:
         this function converts a 1d numpy array to a hash
 
         example:
-        >>> hash_1d(np.arange(5))
+        >>> hash_1d(np.arange(5, dtype=np.int16))
         1974765062269638978
         """
-        return hash(a.tobytes())
+        return hash(a.astype(np.int64).tobytes())
 
 
 def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
@@ -186,10 +186,10 @@ def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
         this function finds occurences of b in a through a binary search
 
         example:
-        >>> a = np.arange(10)
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 9]))
+        >>> a = np.arange(10, dtype=np.int16)
+        >>> hash_compare(a, np.array([1, 3, 5, 7, 9], dtype=np.int16))
         array([1, 3, 5, 7, 9])
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 11])) is None
+        >>> hash_compare(a, np.array([1, 3, 5, 7, 11], dtype=np.int16)) is None
         True
         """
         left = a.searchsorted(b, side='left')
@@ -284,8 +284,8 @@ def pi_space(mo_energy: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, 
         this function returns pi-orbitals and hashes from total expansion space
 
         example:
-        >>> pi_space(np.array([-0.3, -0.15, -0.15, 0.05, 0.2, 0.2, 0.4, 0.5]), np.arange(7, dtype=np.int32))
-        (array([1, 2, 4, 5], dtype=int32), array([-6970320760023207014,  4340140435613229407]))
+        >>> pi_space(np.array([-0.3, -0.15, -0.15, 0.05, 0.2, 0.2, 0.4, 0.5]), np.arange(7, dtype=np.int16))
+        (array([1, 2, 4, 5], dtype=int16), array([-2163557957507198923,  1937934232745943291]))
         """
         # init pi_space list
         pi_space: List[int] = []
@@ -300,7 +300,7 @@ def pi_space(mo_energy: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, 
                 pi_space.append(exp_space[i])
 
         # recast as array
-        pi_space_arr = np.unique(np.array(pi_space, dtype=np.int32))
+        pi_space_arr = np.unique(np.array(pi_space, dtype=np.int16))
 
         # get all degenerate pi-pairs
         pi_pairs = pi_space_arr.reshape(-1, 2)
@@ -317,8 +317,8 @@ def non_deg_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns non-degenerate orbitals from tuple of orbitals
 
         example:
-        >>> non_deg_orbs(np.array([1, 2, 4, 5]), np.arange(8))
-        array([0, 3, 6, 7])
+        >>> non_deg_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
+        array([0, 3, 6, 7], dtype=int16)
         """
         return tup[np.invert(np.in1d(tup, pi_space))]
 
@@ -328,8 +328,8 @@ def _pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns pi-orbitals from tuple of orbitals
 
         example:
-        >>> _pi_orbs(np.array([1, 2, 4, 5]), np.arange(8))
-        array([1, 2, 4, 5])
+        >>> _pi_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
+        array([1, 2, 4, 5], dtype=int16)
         """
         return tup[np.in1d(tup, pi_space)]
 
@@ -339,7 +339,7 @@ def n_pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns number of pi-orbitals in tuple of orbitals
 
         example:
-        >>> n_pi_orbs(np.array([1, 2, 4, 5]), np.arange(8))
+        >>> n_pi_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
         4
         """
         return _pi_orbs(pi_space, tup).size
@@ -350,9 +350,9 @@ def pi_pairs_deg(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns pairs of degenerate pi-orbitals from tuple of orbitals
 
         example:
-        >>> pi_pairs_deg(np.array([1, 2, 4, 5]), np.arange(8))
+        >>> pi_pairs_deg(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
         array([[1, 2],
-               [4, 5]])
+               [4, 5]], dtype=int16)
         """
         # get all pi-orbitals in tup
         tup_pi_orbs = _pi_orbs(pi_space, tup)
@@ -369,15 +369,15 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
         this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
 
         example:
-        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int32)
-        >>> pi_hashes = np.array([-6970320760023207014,  4340140435613229407])
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int32))
+        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int16)
+        >>> pi_hashes = np.sort(np.array([-2163557957507198923, 1937934232745943291]))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int16))
         True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int32))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int16))
         True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int32))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int16))
         False
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int32))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int16))
         False
         """
         # get all pi-orbitals in tup
@@ -413,9 +413,9 @@ def seed_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> seed_prune(occup, np.arange(2, 7))
+        >>> seed_prune(occup, np.arange(2, 7, dtype=np.int16))
         True
-        >>> seed_prune(occup, np.arange(3, 7))
+        >>> seed_prune(occup, np.arange(3, 7, dtype=np.int16))
         False
         """
         return np.any(occup[tup] > 0.0)
@@ -427,9 +427,9 @@ def corr_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> corr_prune(occup, np.array([2, 4]))
+        >>> corr_prune(occup, np.array([2, 4], dtype=np.int16))
         True
-        >>> corr_prune(occup, np.array([3, 4]))
+        >>> corr_prune(occup, np.array([3, 4], dtype=np.int16))
         False
         """
         return np.any(occup[tup] > 0.0) and np.any(occup[tup] == 0.0)
@@ -441,9 +441,9 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> nelec(occup, np.array([2, 4]))
+        >>> nelec(occup, np.array([2, 4], dtype=np.int16))
         (1, 1)
-        >>> nelec(occup, np.array([3, 4]))
+        >>> nelec(occup, np.array([3, 4], dtype=np.int16))
         (0, 0)
         """
         occup_tup = occup[tup]
@@ -457,11 +457,14 @@ def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> ndets(occup, np.arange(1, 5))
+        >>> ndets(occup, np.arange(1, 5, dtype=np.int16))
         36
-        >>> ndets(occup, np.arange(1, 7), ref_space=np.array([1, 2]))
+        >>> ndets(occup, np.arange(1, 7, dtype=np.int16),
+        ...       ref_space=np.array([1, 2], dtype=np.int16))
         4900
-        >>> ndets(occup, np.arange(1, 7, 2), ref_space=np.array([1, 3]), n_elec=(1, 1))
+        >>> ndets(occup, np.arange(1, 7, 2, dtype=np.int16),
+        ...       ref_space=np.array([1, 3], dtype=np.int16),
+        ...       n_elec=(1, 1))
         100
         """
         if n_elec is None:
