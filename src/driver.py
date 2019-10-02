@@ -16,7 +16,6 @@ import sys
 import numpy as np
 from mpi4py import MPI
 
-import restart
 import mbe
 import kernel
 import output
@@ -98,14 +97,14 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # write restart files
                 if calc.misc['rst']:
-                    restart.write_gen(exp.order, exp.prop[calc.target_mbe]['tot'][-1], 'mbe_tot')
-                    restart.write_gen(exp.order, np.asarray(exp.mean_ndets[-1]), 'mbe_mean_ndets')
-                    restart.write_gen(exp.order, np.asarray(exp.max_ndets[-1]), 'mbe_max_ndets')
-                    restart.write_gen(exp.order, np.asarray(exp.min_ndets[-1]), 'mbe_min_ndets')
-                    restart.write_gen(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
-                    restart.write_gen(exp.order, exp.max_inc[-1], 'mbe_max_inc')
-                    restart.write_gen(exp.order, exp.min_inc[-1], 'mbe_min_inc')
-                    restart.write_gen(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
+                    tools.write_file(exp.order, exp.prop[calc.target_mbe]['tot'][-1], 'mbe_tot')
+                    tools.write_file(exp.order, np.asarray(exp.mean_ndets[-1]), 'mbe_mean_ndets')
+                    tools.write_file(exp.order, np.asarray(exp.max_ndets[-1]), 'mbe_max_ndets')
+                    tools.write_file(exp.order, np.asarray(exp.min_ndets[-1]), 'mbe_min_ndets')
+                    tools.write_file(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
+                    tools.write_file(exp.order, exp.max_inc[-1], 'mbe_max_inc')
+                    tools.write_file(exp.order, exp.min_inc[-1], 'mbe_min_inc')
+                    tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
 
                 # print mbe end
                 print(output.mbe_end(exp.order, exp.time['mbe'][-1]))
@@ -176,8 +175,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # write restart files
                 if calc.misc['rst']:
-                    restart.write_gen(exp.order+1, np.asarray(exp.n_tasks[-1]), 'mbe_n_tasks')
-                    restart.write_gen(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
+                    tools.write_file(exp.order+1, np.asarray(exp.n_tasks[-1]), 'mbe_n_tasks')
+                    tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
                 # print screen end
                 print(output.screen_end(exp.order, exp.time['screen'][-1]))

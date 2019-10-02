@@ -13,6 +13,7 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import os
+import re
 import sys
 import traceback
 import subprocess
@@ -25,6 +26,9 @@ from typing import Tuple, List, Union
 
 import parallel
 
+# restart folder
+RST = os.getcwd()+'/rst'
+# pi-orbital mo energy threshold
 PI_THRES: float = 1.0e-04
 
 
@@ -507,6 +511,42 @@ def near_nbrs(site_xy: Tuple[int, int], nx: int, ny: int) -> List[Tuple[int, int
         left = (site_xy[0], (site_xy[1] + 1) % ny)
         right = (site_xy[0], (site_xy[1] - 1) % ny)
         return [up, down, left, right]
+
+
+def write_file(order: int, arr: np.ndarray, string: str) -> None:
+        """
+        this function writes a general restart file corresponding to input string
+        """
+        if order is None:
+            np.save(os.path.join(RST, '{:}'.format(string)), arr)
+        else:
+            np.save(os.path.join(RST, '{:}_{:}'.format(string, order)), arr)
+
+
+def read_file(order: int, string: str) -> np.ndarray:
+        """
+        this function reads a general restart file corresponding to input string
+        """
+        if order is None:
+            return np.load(os.path.join(RST, '{:}.npy'.format(string)))
+        else:
+            return np.load(os.path.join(RST, '{:}_{:}.npy'.format(string, order)))
+
+
+def natural_keys(txt: str) -> List[Union[int, str]]:
+        """
+        this function return keys to sort a string in human order (as alist.sort(key=natural_keys))
+        see: http://nedbatchelder.com/blog/200712/human_sorting.html
+        see: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+        """
+        return [_convert(c) for c in re.split('(\d+)', txt)]
+
+
+def _convert(txt: str) -> Union[int, str]:
+        """
+        this function converts strings with numbers in them
+        """
+        return int(txt) if txt.isdigit() else txt
 
 
 if __name__ == "__main__":

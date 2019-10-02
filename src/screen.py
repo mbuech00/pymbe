@@ -17,7 +17,6 @@ from mpi4py import MPI
 import functools
 import itertools
 
-import restart
 import parallel
 import tools
 
@@ -181,8 +180,8 @@ def master(mpi, calc, exp):
 
         # save restart files
         if calc.misc['rst']:
-            restart.write_gen(None, tuples_new, 'mbe_tup')
-            restart.write_gen(exp.order+1, hashes_new, 'mbe_hash')
+            tools.write_file(None, tuples_new, 'mbe_tup')
+            tools.write_file(exp.order+1, hashes_new, 'mbe_hash')
 
         # mpi barrier
         mpi.global_comm.barrier()

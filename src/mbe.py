@@ -20,7 +20,6 @@ import itertools
 from pyscf import gto
 from typing import Tuple, List, Dict, Union
 
-import restart
 import kernel
 import output
 import expansion
@@ -100,7 +99,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # start index
         if rst_mbe:
-           task_start = restart.read_gen(exp.order, 'mbe_idx')
+           task_start = tools.read_file(exp.order, 'mbe_idx')
         else:
            task_start = 0
 
@@ -139,19 +138,19 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
 
                 # save tup_idx
-                restart.write_gen(exp.order, np.asarray(tup_idx), 'mbe_idx')
+                tools.write_file(exp.order, np.asarray(tup_idx), 'mbe_idx')
 
                 # save increments
-                restart.write_gen(exp.order, inc, 'mbe_inc')
+                tools.write_file(exp.order, inc, 'mbe_inc')
 
                 # save determinant statistics
-                restart.write_gen(exp.order, np.asarray(max_ndets, dtype=np.int64), 'mbe_max_ndets')
-                restart.write_gen(exp.order, np.asarray(min_ndets, dtype=np.int64), 'mbe_min_ndets')
-                restart.write_gen(exp.order, np.asarray(sum_ndets, dtype=np.int64), 'mbe_mean_ndets')
+                tools.write_file(exp.order, np.asarray(max_ndets, dtype=np.int64), 'mbe_max_ndets')
+                tools.write_file(exp.order, np.asarray(min_ndets, dtype=np.int64), 'mbe_min_ndets')
+                tools.write_file(exp.order, np.asarray(sum_ndets, dtype=np.int64), 'mbe_mean_ndets')
 
                 # save timing
                 exp.time['mbe'][-1] += MPI.Wtime() - time
-                restart.write_gen(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
+                tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
 
                 # re-init time
                 time = MPI.Wtime()
@@ -198,10 +197,10 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         if calc.misc['rst']:
 
             # save tup_idx
-            restart.write_gen(exp.order, np.asarray(exp.n_tasks[-1]), 'mbe_idx')
+            tools.write_file(exp.order, np.asarray(exp.n_tasks[-1]), 'mbe_idx')
 
             # save increments
-            restart.write_gen(exp.order, inc, 'mbe_inc')
+            tools.write_file(exp.order, inc, 'mbe_inc')
 
         # total property
         tot = tools.fsum(inc)

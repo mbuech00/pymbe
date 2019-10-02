@@ -20,9 +20,7 @@ import math
 from pyscf import gto, symm, ao2mo
 from typing import List, Tuple, Dict, Union, Any, Callable
 
-import parallel
 import tools
-import restart
 
 
 class MolCls(gto.Mole):
@@ -46,7 +44,7 @@ class MolCls(gto.Mole):
                 self.incore_anyway: bool = True
 
 
-        def make(self, mpi: parallel.MPICls) -> None:
+        def make(self) -> None:
                 """
                 this function builds the pyscf Mole object
                 """
@@ -58,12 +56,9 @@ class MolCls(gto.Mole):
                         raise RuntimeError
                     except RuntimeError:
 
-                        if mpi.global_master:
-
-                            restart.rm()
-                            sys.stderr.write('\nValueError: non-sensible system input\n'
-                                                'PySCF error : {:}\n\n'.format(err))
-                            raise
+                        sys.stderr.write('\nValueError: non-sensible system input\n'
+                                            'PySCF error : {:}\n\n'.format(err))
+                        raise
 
                 # set core region
                 if self.frozen:
@@ -137,7 +132,6 @@ def set_system(mol: MolCls) -> MolCls:
 
         except IOError:
 
-            restart.rm()
             sys.stderr.write('\nIOError : input file not found\n\n')
             raise
 

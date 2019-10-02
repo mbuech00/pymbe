@@ -13,6 +13,8 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import sys
+import os
+import shutil
 try:
     from mpi4py import MPI
 except ImportError:
@@ -27,9 +29,10 @@ from typing import Tuple
 import system
 import calculation
 import tools
-import restart
 
 
+# restart folder
+RST = os.getcwd()+'/rst'
 # parameters for tiled mpi operations
 INT_MAX = 2147483647
 BLKSIZE = INT_MAX // 32 + 1
@@ -322,13 +325,20 @@ def abort() -> None:
         MPI.COMM_WORLD.Abort()
 
 
+def rm() -> None:
+        """
+        this function removes the rst directory in case pymbe successfully terminates
+        """
+        shutil.rmtree(RST)
+
+
 def finalize(mpi: MPICls) -> None:
         """
         this function terminates a successful pymbe calculation
         """
         # wake up slaves
         if mpi.global_master:
-            restart.rm()
+            rm()
             mpi.global_comm.bcast({'task': 'exit'}, root=0)
 
         # finalize

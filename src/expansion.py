@@ -19,7 +19,6 @@ import copy
 from typing import List, Dict, Tuple, Any
 
 import parallel
-import system
 import calculation
 import tools
 
@@ -28,7 +27,7 @@ class ExpCls:
         """
         this class contains the pymbe expansion attributes
         """
-        def __init__(self, mol: system.MolCls, calc: calculation.CalcCls) -> None:
+        def __init__(self, calc: calculation.CalcCls) -> None:
                 """
                 init expansion attributes
                 """
