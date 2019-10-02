@@ -1,7 +1,7 @@
 ![](doc/logo/pymbe_logo.png "PyMBE")
 
-PyMBE: A Many-Body Expanded Correlation Code by Dr. Janus Juul Eriksen 
-======================================================================
+PyMBE: A Many-Body Expanded Correlation Code by Janus Juul Eriksen 
+==================================================================
 
 News
 ----
