@@ -20,7 +20,11 @@ import os.path
 import shutil
 import re
 from pyscf import symm
+from typing import Tuple, List, Union
 
+import system
+import calculation
+import expansion
 import parallel
 
 
@@ -28,7 +32,7 @@ import parallel
 RST = os.getcwd()+'/rst'
 
 
-def restart():
+def restart() -> bool:
         """
         this function returns the restart logical
 
@@ -41,20 +45,16 @@ def restart():
             return True
 
 
-def rm():
+def rm() -> None:
         """
         this function removes the rst directory in case pymbe successfully terminates
         """
         shutil.rmtree(RST)
 
 
-def main(mpi, calc, exp):
+def main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> int:
         """
         this function reads in all expansion restart files and returns the start order
-
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: integer
         """
         # list filenames in files list
         files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
@@ -166,13 +166,9 @@ def main(mpi, calc, exp):
         return tuples.shape[1]
 
 
-def write_gen(order, arr, string):
+def write_gen(order: int, arr: np.ndarray, string: str) -> None:
         """
         this function writes a general restart file corresponding to input string
-
-        :param order: current mbe order. integer or None
-        :param arr: saved quantity. numpy array of arbitrary shape, integer, or float
-        :param string: specifier. string
         """
         if order is None:
             np.save(os.path.join(RST, '{:}'.format(string)), arr)
@@ -180,7 +176,7 @@ def write_gen(order, arr, string):
             np.save(os.path.join(RST, '{:}_{:}'.format(string, order)), arr)
 
 
-def read_gen(order, string):
+def read_gen(order: int, string: str) -> np.ndarray:
         """
         this function reads a general restart file corresponding to input string
         """
@@ -190,12 +186,9 @@ def read_gen(order, string):
             return np.load(os.path.join(RST, '{:}_{:}.npy'.format(string, order)))
 
 
-def write_fund(mol, calc):
+def write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         """
         this function writes all fundamental info restart files
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
         """
         # write dimensions
         dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'norb': mol.norb, 'nelec': calc.nelec}
@@ -220,12 +213,9 @@ def write_fund(mol, calc):
         np.save(os.path.join(RST, 'mo_coeff'), calc.mo_coeff)
 
 
-def write_prop(mol, calc):
+def write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         """
         this function writes all property restart files
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
         """
         # write hf, reference, and base properties
         energies = {'hf': calc.prop['hf']['energy']}
@@ -246,26 +236,20 @@ def write_prop(mol, calc):
 
         elif calc.target_mbe == 'dipole':
 
-            dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), \
-                        'ref': calc.prop['ref']['dipole'].tolist()}
+            dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), 'ref': calc.prop['ref']['dipole'].tolist()} # type: ignore
             with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
                 json.dump(dipoles, f)
 
         elif calc.target_mbe == 'trans':
 
-            transitions = {'ref': calc.prop['ref']['trans'].tolist()}
+            transitions = {'ref': calc.prop['ref']['trans'].tolist()} # type: ignore
             with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
                 json.dump(transitions, f)
 
 
-def read_fund(mol, calc):
+def read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[system.MolCls, calculation.CalcCls]:
         """
         this function reads all fundamental info restart files
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: updated mol object,
-                 updated calc object
         """
         # list filenames in files list
         files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
@@ -319,14 +303,9 @@ def read_fund(mol, calc):
         return mol, calc
 
 
-def read_prop(mol, calc):
+def read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[system.MolCls, calculation.CalcCls]:
         """
         this function reads all property restart files
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: updated mol object,
-                 updated calc object
         """
         # list filenames in files list
         files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
@@ -370,24 +349,18 @@ def read_prop(mol, calc):
         return mol, calc
 
 
-def _natural_keys(txt):
+def _natural_keys(txt: str) -> List[Union[int, str]]:
         """
         this function return keys to sort a string in human order (as alist.sort(key=natural_keys))
         see: http://nedbatchelder.com/blog/200712/human_sorting.html
         see: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
-
-        :param txt: text. string
-        :return: list of keys
         """
         return [_convert(c) for c in re.split('(\d+)', txt)]
 
 
-def _convert(txt):
+def _convert(txt: str) -> Union[int, str]:
         """
         this function converts strings with numbers in them
-
-        :param txt: text. string
-        :return: integer or string depending on txt
         """
         return int(txt) if txt.isdigit() else txt
 
