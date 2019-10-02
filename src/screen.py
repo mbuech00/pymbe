@@ -176,10 +176,6 @@ def master(mpi, calc, exp):
         # sort hashes
         hashes_new.sort()
 
-        # bcast hashes
-        if mpi.num_masters > 1:
-            hashes_new[:] = parallel.bcast(mpi.master_comm, hashes_new)
-
         # save restart files
         if calc.misc['rst']:
             restart.write_gen(None, tuples_new, 'mbe_tup')
@@ -352,9 +348,13 @@ def slave(mpi, calc, exp, slaves_needed):
         else:
             hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
 
-        # bcast hashes
-        if mpi.num_masters > 1 and mpi.local_master:
-            hashes_new[:] = parallel.bcast(mpi.master_comm, hashes_new)
+        if mpi.local_master:
+
+            # compute hashes
+            hashes_new[:] = tools.hash_2d(tuples_new)
+
+            # sort hashes
+            hashes_new.sort()
 
         # mpi barrier
         mpi.global_comm.Barrier()
