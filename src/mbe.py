@@ -195,11 +195,13 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         # mpi barrier
         mpi.local_comm.Barrier()
 
-        # save tup_idx
-        restart.write_gen(exp.order, np.asarray(exp.n_tasks[-1]), 'mbe_idx')
+        if calc.misc['rst']
 
-        # save increments
-        restart.write_gen(exp.order, inc, 'mbe_inc')
+            # save tup_idx
+            restart.write_gen(exp.order, np.asarray(exp.n_tasks[-1]), 'mbe_idx')
+
+            # save increments
+            restart.write_gen(exp.order, inc, 'mbe_inc')
 
         # total property
         tot = tools.fsum(inc)
