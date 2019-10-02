@@ -85,11 +85,11 @@ def main(mpi, calc, exp):
                 n_tasks = exp.n_tasks[-1]
                 order = len(exp.n_tasks) + exp.min_order - 1
                 if mpi.local_master:
-                    exp.tuples = MPI.Win.Allocate_shared(4 * n_tasks * order, 4, comm=mpi.local_comm)
+                    exp.tuples = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=mpi.local_comm)
                 else:
-                    exp.tuples = MPI.Win.Allocate_shared(0, 4, comm=mpi.local_comm)
+                    exp.tuples = MPI.Win.Allocate_shared(0, 2, comm=mpi.local_comm)
                 buf = exp.tuples.Shared_query(0)[0]
-                tuples = np.ndarray(buffer=buf, dtype=np.int32, shape=(n_tasks, order))
+                tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
                 if mpi.global_master:
                     tuples[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
