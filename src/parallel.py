@@ -325,20 +325,13 @@ def abort() -> None:
         MPI.COMM_WORLD.Abort()
 
 
-def rm() -> None:
-        """
-        this function removes the rst directory in case pymbe successfully terminates
-        """
-        shutil.rmtree(RST)
-
-
 def finalize(mpi: MPICls) -> None:
         """
         this function terminates a successful pymbe calculation
         """
         # wake up slaves
         if mpi.global_master:
-            rm()
+            shutil.rmtree(RST)
             mpi.global_comm.bcast({'task': 'exit'}, root=0)
 
         # finalize

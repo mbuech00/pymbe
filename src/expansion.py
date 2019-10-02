@@ -130,9 +130,6 @@ def init_tup(occup: np.ndarray, ref_space: np.ndarray, \
             # place tuples in shared memory space
             tuples[:] = tuples_tmp
 
-            # make tuples read-only
-            tuples.flags.writeable = False
-
             # allocate hashes
             hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=local_comm)
             buf = hashes_win.Shared_query(0)[0]

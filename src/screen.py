@@ -158,9 +158,6 @@ def master(mpi, calc, exp):
         if mpi.num_masters > 1:
             tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
 
-        # make tuples_new read-only
-        tuples_new.flags.writeable = False
-
         # mpi barrier
         mpi.local_comm.barrier()
 
@@ -338,9 +335,6 @@ def slave(mpi, calc, exp, slaves_needed):
         # bcast tuples
         if mpi.num_masters > 1 and mpi.local_master:
             tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
-
-            # make tuples_new read-only
-            tuples_new.flags.writeable = False
 
         # mpi barrier
         mpi.local_comm.barrier()
