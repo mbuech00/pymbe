@@ -64,7 +64,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # load restart increments
             inc_win = exp.prop[calc.target_mbe]['inc'][-1]
-            buf = inc_win.Shared_query(0)[0]
+            buf = inc_win.Shared_query(0)[0] # type: ignore
             if calc.target_mbe in ['energy', 'excitation']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
             elif calc.target_mbe in ['dipole', 'trans']:
@@ -77,7 +77,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1], 8, comm=mpi.local_comm)
             elif calc.target_mbe in ['dipole', 'trans']:
                 inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1] * 3, 8, comm=mpi.local_comm)
-            buf = inc_win.Shared_query(0)[0]
+            buf = inc_win.Shared_query(0)[0] # type: ignore
             if calc.target_mbe in ['energy', 'excitation']:
                 inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],))
             elif calc.target_mbe in ['dipole', 'trans']:
@@ -267,7 +267,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
         # load increments for previous orders
         inc = []
         for k in range(exp.order-exp.min_order):
-            buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0]
+            buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
             if calc.target_mbe in ['energy', 'excitation']:
                 inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
             elif calc.target_mbe in ['dipole', 'trans']:
@@ -276,7 +276,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
         # init increments for present order
         if len(exp.prop[calc.target_mbe]['inc']) == len(exp.hashes):
             inc_win = exp.prop[calc.target_mbe]['inc'][-1]
-            buf = inc_win.Shared_query(0)[0]
+            buf = inc_win.Shared_query(0)[0] # type: ignore
         else:
             if mpi.local_master:
                 if calc.target_mbe in ['energy', 'excitation']:
@@ -285,7 +285,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                     inc_win = MPI.Win.Allocate_shared(8 * exp.n_tasks[-1] * 3, 8, comm=mpi.local_comm)
             else:
                 inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
-            buf = inc_win.Shared_query(0)[0]
+            buf = inc_win.Shared_query(0)[0] # type: ignore
         if calc.target_mbe in ['energy', 'excitation']:
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[-1],)))
         elif calc.target_mbe in ['dipole', 'trans']:

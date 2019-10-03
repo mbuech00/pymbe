@@ -16,8 +16,11 @@ import numpy as np
 from mpi4py import MPI
 import functools
 import itertools
+from typing import Tuple, List, Dict, Union
 
 import parallel
+import calculation
+import expansion
 import tools
 
 
@@ -26,19 +29,16 @@ class TAGS:
     ready, tup, tup_pi, tup_seed, tup_seed_pi, exit = range(6)
 
 
-def master(mpi, calc, exp):
+def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
+            exp: expansion.ExpCls) -> Tuple[MPI.Win, MPI.Win, int]:
         """
         this master function returns two arrays of (i) child tuple hashes and (ii) the actual child tuples
-
-        :param mpi: pymbe mpi object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: MPI window handle to numpy array of shape (n_child_tuples,) [hashes],
-                 MPI window handle to numpy array of shape (n_child_tuples, order+1) [tuples],
-                 integer [n_tasks]
         """
         # set number of available (needed) slaves and various tuples
-        slaves_avail, tuples, tuples_pi, tuples_seed, tuples_seed_pi = _set_screen(mpi, calc, exp)
+        slaves_avail, tuples, tuples_pi, \
+            tuples_seed, tuples_seed_pi = _set_screen(calc.occup, calc.ref_space, calc.exp_space, \
+                                                        exp.n_tasks[-1], exp.min_order, exp.order, \
+                                                        calc.extra['pi_prune'], mpi.global_size, exp.tuples)
 
         # wake up slaves
         msg = {'task': 'screen', 'order': exp.order, 'slaves_needed': slaves_avail}
@@ -186,20 +186,13 @@ def master(mpi, calc, exp):
         return hashes_win, tuples_win, n_tasks
 
 
-def slave(mpi, calc, exp, slaves_needed):
+def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
+            exp: expansion.ExpCls, slaves_needed: int) -> Tuple[MPI.Win, MPI.Win, int]:
         """
         this slave function returns an array of child tuple hashes
-
-        :param mpi: pymbe mpi object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :param slaves_needed: the maximum number of required slaves. integer
-        :return: MPI window handle to numpy array of shape (n_child_tuples,) [hashes],
-                 MPI window handle to numpy array of shape (n_child_tuples, order+1) [tuples],
-                 integer [n_tasks]
         """
         # init list of child tuples
-        child_tup = []
+        child_tup: Union[List[int], np.ndarray] = []
 
         # send availability to master
         if mpi.global_rank <= slaves_needed:
@@ -212,7 +205,7 @@ def slave(mpi, calc, exp, slaves_needed):
         # load increments for current and previous orders
         inc = []
         for k in range(exp.order-exp.min_order+1):
-            buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0]
+            buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
             if calc.target_mbe in ['energy', 'excitation']:
                 inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
             elif calc.target_mbe in ['dipole', 'trans']:
@@ -361,42 +354,138 @@ def slave(mpi, calc, exp, slaves_needed):
         return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order + 1)
 
 
-def _set_screen(mpi, calc, exp):
+def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarray], \
+                    n_tasks: int, min_order: int, order: int, pi_prune: bool, global_size: int, \
+                    tuples_win: MPI.Win) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        this function returns number of available slave, various tuples, and various task arrays
+        this function returns number of available slaves and various tuples
 
-        :param mpi: pymbe mpi object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: integer [slaves_avail],
-                 numpy array of shape (n_tuples, order) [tuples],
-                 numpy array of shape (n_tuples_pi, order-1) or None [tuples_pi] depending on pi-pruning,
-                 numpy array of shape (n_tuples_seed, order) or None [tuples_seed] depending on ref_space,
-                 numpy array of shape (n_tuples_seed_pi, order-1) or None [tuples_seed_pi] depending on ref_space and pi-pruning
+        example:
+        >>> occup = np.array([2.] * 4 + [0.] * 6)
+        >>> ref_space = np.arange(4, dtype=np.int16)
+        >>> exp_space = {'occ': np.array([], dtype=np.int16),
+        ...              'virt': np.arange(4, 10, dtype=np.int16),
+        ...              'tot': np.arange(4, 10, dtype=np.int16)}
+        >>> min_order = order = 1
+        >>> n_tasks = 6
+        >>> tuples_win = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=MPI.COMM_WORLD)
+        >>> buf = tuples_win.Shared_query(0)[0]
+        >>> tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
+        >>> tuples[:] = np.array([[4], [5], [6], [7], [8], [9]], dtype=np.int16)
+        >>> _set_screen(occup, ref_space, exp_space, n_tasks,
+        ...             min_order, order, False, 1, tuples_win)
+        (0, array([[4],
+               [5],
+               [6],
+               [7],
+               [8],
+               [9]], dtype=int16), None, None, None)
+        >>> ref_space = np.array([])
+        >>> exp_space['occ'] = np.arange(4, dtype=np.int16)
+        >>> exp_space['tot'] = np.arange(10, dtype=np.int16)
+        >>> min_order = order = 2
+        >>> n_tasks = 24
+        >>> tuples_win = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=MPI.COMM_WORLD)
+        >>> buf = tuples_win.Shared_query(0)[0]
+        >>> tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
+        >>> tuples[:] = np.array([[0, 4], [0, 5], [0, 6], [0, 7], [0, 8], [0, 9],
+        ...                       [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [1, 9],
+        ...                       [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [2, 9],
+        ...                       [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9]], dtype=np.int16)
+        >>> _set_screen(occup, ref_space, exp_space, n_tasks,
+        ...             min_order, order, False, 1, tuples_win)
+        (0, array([[0, 4],
+               [0, 5],
+               [0, 6],
+               [0, 7],
+               [0, 8],
+               [0, 9],
+               [1, 4],
+               [1, 5],
+               [1, 6],
+               [1, 7],
+               [1, 8],
+               [1, 9],
+               [2, 4],
+               [2, 5],
+               [2, 6],
+               [2, 7],
+               [2, 8],
+               [2, 9],
+               [3, 4],
+               [3, 5],
+               [3, 6],
+               [3, 7],
+               [3, 8],
+               [3, 9]], dtype=int16), None, array([[0, 1],
+               [0, 2],
+               [0, 3],
+               [1, 2],
+               [1, 3],
+               [2, 3]], dtype=int16), None)
+        >>> exp_space['pi_orbs'] = np.array([1, 2, 4, 5], dtype=np.int16)
+        >>> exp_space['pi_hashes'] = np.array([-2163557957507198923, 1937934232745943291])
+        >>> min_order, order = 2, 3
+        >>> n_tasks = 22
+        >>> tuples_win = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=MPI.COMM_WORLD)
+        >>> buf = tuples_win.Shared_query(0)[0]
+        >>> tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
+        >>> tuples[:] = np.array([[0, 4, 5], [0, 6, 7], [0, 6, 8], [0, 6, 9], [0, 7, 8], [0, 7, 9], [0, 8, 9],
+        ...                       [0, 3, 6], [0, 3, 7], [0, 3, 8], [0, 3, 9],
+        ...                       [1, 2, 6], [1, 2, 7], [1, 2, 8], [1, 2, 9],
+        ...                       [3, 4, 5], [3, 6, 7], [3, 6, 8], [3, 6, 9], [3, 7, 8], [3, 7, 9], [3, 8, 9]] , dtype=np.int16)
+        >>> _set_screen(occup, ref_space, exp_space, n_tasks,
+        ...             min_order, order, True, 1, tuples_win)
+        (0, array([[0, 4, 5],
+               [0, 6, 7],
+               [0, 6, 8],
+               [0, 6, 9],
+               [0, 7, 8],
+               [0, 7, 9],
+               [0, 8, 9],
+               [0, 3, 6],
+               [0, 3, 7],
+               [0, 3, 8],
+               [0, 3, 9],
+               [1, 2, 6],
+               [1, 2, 7],
+               [1, 2, 8],
+               [1, 2, 9],
+               [3, 4, 5],
+               [3, 6, 7],
+               [3, 6, 8],
+               [3, 6, 9],
+               [3, 7, 8],
+               [3, 7, 9],
+               [3, 8, 9]], dtype=int16), array([[0, 6],
+               [0, 7],
+               [0, 8],
+               [3, 6],
+               [3, 7],
+               [3, 8]], dtype=int16), array([[0, 1, 2],
+               [1, 2, 3]], dtype=int16), array([[0, 3],
+               [1, 2]], dtype=int16))
         """
         # load tuples as main task tuples
-        buf = exp.tuples.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tasks[-1], exp.order))
-
-        # number of tasks
-        n_tasks = tuples.shape[0]
+        buf = tuples_win.Shared_query(0)[0]
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
 
         # option to treat pi-orbitals independently
         tuples_pi = None; n_tasks_pi = 0
 
-        if calc.extra['pi_prune'] and exp.min_order < exp.order:
+        if pi_prune and min_order < order:
 
             # set tuples_pi
             tuples_pi = np.unique(tuples[:, :-1], axis=0)
 
             # prune combinations without a mix of occupied and virtual orbitals
-            tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, calc.occup), tuples_pi), \
+            tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, occup), tuples_pi), \
                                               dtype=bool, count=tuples_pi.shape[0])]
 
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                              calc.exp_space['pi_orbs'], \
-                                              calc.exp_space['pi_hashes']), tuples_pi), \
+                                              exp_space['pi_orbs'], \
+                                              exp_space['pi_hashes']), tuples_pi), \
                                               dtype=bool, count=tuples_pi.shape[0])]
 
             # number of tasks
@@ -406,38 +495,38 @@ def _set_screen(mpi, calc, exp):
         tuples_seed = None; n_tasks_seed = 0
         tuples_seed_pi = None; n_tasks_seed_pi = 0
 
-        if calc.ref_space.size == 0 and exp.order <= calc.exp_space['occ'].size:
+        if ref_space.size == 0 and order <= exp_space['occ'].size:
 
             # set tuples_seed
-            tuples_seed = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order)], dtype=np.int16)
+            tuples_seed = np.array([tup for tup in itertools.combinations(exp_space['occ'], order)], dtype=np.int16)
 
             # prune combinations that contain non-degenerate pairs of pi-orbitals
-            if calc.extra['pi_prune']:
+            if pi_prune:
                 tuples_seed = tuples_seed[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                        calc.exp_space['pi_orbs'], \
-                                                        calc.exp_space['pi_hashes']), tuples_seed), \
+                                                        exp_space['pi_orbs'], \
+                                                        exp_space['pi_hashes']), tuples_seed), \
                                                         dtype=bool, count=tuples_seed.shape[0])]
 
             # number of tasks
             n_tasks_seed = tuples_seed.shape[0]
 
             # option to treat pi-orbitals independently
-            if calc.extra['pi_prune']:
+            if pi_prune:
 
                 # set tuples_seed_pi
-                tuples_seed_pi = np.array([tup for tup in itertools.combinations(calc.exp_space['occ'], exp.order-1)], dtype=np.int16)
+                tuples_seed_pi = np.array([tup for tup in itertools.combinations(exp_space['occ'], order-1)], dtype=np.int16)
 
                 # prune combinations that contain non-degenerate pairs of pi-orbitals
                 tuples_seed_pi = tuples_seed_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                                              calc.exp_space['pi_orbs'], \
-                                                              calc.exp_space['pi_hashes']), tuples_seed_pi), \
+                                                              exp_space['pi_orbs'], \
+                                                              exp_space['pi_hashes']), tuples_seed_pi), \
                                                               dtype=bool, count=tuples_seed_pi.shape[0])]
 
                 # number of tasks
                 n_tasks_seed_pi = tuples_seed_pi.shape[0]
 
         # number of available slaves
-        slaves_avail = min(mpi.global_size - 1, n_tasks + n_tasks_pi + n_tasks_seed + n_tasks_seed_pi)
+        slaves_avail = min(global_size - 1, n_tasks + n_tasks_pi + n_tasks_seed + n_tasks_seed_pi)
 
         return slaves_avail, tuples, tuples_pi, tuples_seed, tuples_seed_pi
 
@@ -635,16 +724,29 @@ def _prot_scheme(scheme, thres, prop):
             return np.all(np.abs(prop) < thres)
 
 
-def _thres(occup, thres, ref_space, scheme, tup):
+def _thres(occup: np.ndarray, thres: Dict[str, float], \
+            ref_space: np.ndarray, scheme: int, tup: np.ndarray) -> float:
         """
         this function computes the screening threshold for the given tuple of orbitals
 
-        :param occup: orbital occupation. numpy array of shape (n_orbs,)
-        :param thres: threshold settings. dict
-        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
-        :param scheme: protocol scheme. integer
-        :param tup: current orbital tuple. numpy array of shape (order,)
-        :return: float
+        example:
+        >>> occup = np.array([2.] * 4 + [0.] * 6)
+        >>> thres = {'init': 1.e-10, 'relax': 5.}
+        >>> tup = np.array([5, 7, 8], dtype=np.int16)
+        >>> ref_space = np.arange(4, dtype=np.int16)
+        >>> scheme = 2
+        >>> _thres(occup, thres, ref_space, scheme, tup)
+        1e-10
+        >>> tup = np.array([5, 7, 8, 9], dtype=np.int16)
+        >>> _thres(occup, thres, ref_space, scheme, tup)
+        5e-10
+        >>> ref_space = np.array([], dtype=np.int16)
+        >>> tup = np.array([0, 1, 2, 3, 5, 7, 9], dtype=np.int16)
+        >>> _thres(occup, thres, ref_space, scheme, tup)
+        1e-10
+        >>> scheme = 3
+        >>> _thres(occup, thres, ref_space, scheme, tup)
+        5e-10
         """
         # determine involved dimensions
         nocc = np.count_nonzero(occup[ref_space] > 0.0)
@@ -666,5 +768,10 @@ def _thres(occup, thres, ref_space, scheme, tup):
                     screen_thres = thres['init'] * thres['relax'] ** (max(nocc, nvirt) - 3)
 
         return screen_thres
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()#verbose=True)
 
 

@@ -35,7 +35,7 @@ class ExpCls:
                 self.model = copy.deepcopy(calc.model)
 
                 # init prop dict
-                self.prop: Dict[str, Dict[str, Union[List[float], np.ndarray]]] = {str(calc.target_mbe): {'inc': [], 'tot': []}}
+                self.prop: Dict[str, Dict[str, Union[List[float], MPI.Win]]] = {str(calc.target_mbe): {'inc': [], 'tot': []}}
 
                 # set max_order
                 if calc.misc['order'] is not None:
@@ -64,57 +64,53 @@ class ExpCls:
                 self.final_order: int = 0
 
 
-def init_tup(occup: np.ndarray, ref_space: np.ndarray, \
-                exp_space_occ: np.ndarray, exp_space_virt: np.ndarray, \
-                exp_space_tot: np.ndarray, local_master: bool, \
-                local_comm: MPI.Comm, pi_prune: bool, pi_orbs: np.ndarray, \
-                pi_hashes: np.ndarray) -> Tuple[List[MPI.Win], MPI.Win, List[int], int]:
+def init_tup(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarray], \
+                local_master: bool, local_comm: MPI.Comm, pi_prune: bool) -> Tuple[List[MPI.Win], MPI.Win, List[int], int]:
         """
         this function initializes tuples and hashes
 
         example:
         >>> occup = np.array([2.] * 4 + [0.] * 6)
-        >>> ref_space = np.arange(2)
-        >>> exp_space_occ = np.arange(2, 4)
-        >>> exp_space_virt = np.arange(4, 10)
-        >>> exp_space_tot = np.arange(2, 10)
-        >>> init_tup(occup, ref_space, exp_space_occ, exp_space_virt, exp_space_tot,
-        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD, False, None, None) # doctest: +ELLIPSIS
+        >>> ref_space = np.arange(2, dtype=np.int16)
+        >>> exp_space = {'occ': np.arange(2, 4, dtype=np.int16),
+        ...              'virt': np.arange(4, 10, dtype=np.int16),
+        ...              'tot': np.arange(2, 10, dtype=np.int16)}
+        >>> init_tup(occup, ref_space, exp_space,
+        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD, False) # doctest: +ELLIPSIS
         ([<mpi4py.MPI.Win object at 0x...>], <mpi4py.MPI.Win object at 0x...>, [6], 1)
         >>> ref_space = np.array([])
-        >>> exp_space_occ = np.arange(4)
-        >>> exp_space_tot = np.arange(10)
-        >>> init_tup(occup, ref_space, exp_space_occ, exp_space_virt, exp_space_tot,
-        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD, False, None, None) # doctest: +ELLIPSIS
+        >>> exp_space['occ'] = np.arange(4, dtype=np.int16)
+        >>> exp_space['tot'] = np.arange(10, dtype=np.int16)
+        >>> init_tup(occup, ref_space, exp_space,
+        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD, False) # doctest: +ELLIPSIS
         ([<mpi4py.MPI.Win object at 0x...>], <mpi4py.MPI.Win object at 0x...>, [24], 2)
-        >>> ref_space = np.arange(3)
-        >>> exp_space_occ = np.arange(3, 4)
-        >>> exp_space_tot = np.arange(3, 10)
-        >>> pi_orbs = np.array([1, 2, 4, 5], dtype=np.int16)
-        >>> pi_hashes = np.array([-2163557957507198923, 1937934232745943291])
-        >>> init_tup(occup, ref_space, exp_space_occ, exp_space_virt, exp_space_tot,
-        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD,
-        ...          True, pi_orbs, pi_hashes) # doctest: +ELLIPSIS
+        >>> ref_space = np.arange(3, dtype=np.int16)
+        >>> exp_space['occ'] = np.arange(3, 4, dtype=np.int16)
+        >>> exp_space['tot'] = np.arange(3, 10, dtype=np.int16)
+        >>> exp_space['pi_orbs'] = np.array([1, 2, 4, 5], dtype=np.int16)
+        >>> exp_space['pi_hashes'] = np.array([-2163557957507198923, 1937934232745943291])
+        >>> init_tup(occup, ref_space, exp_space,
+        ...          MPI.COMM_WORLD.Get_rank() == 0, MPI.COMM_WORLD, True) # doctest: +ELLIPSIS
         ([<mpi4py.MPI.Win object at 0x...>], <mpi4py.MPI.Win object at 0x...>, [4], 1)
         """
         # init tuples
         if ref_space.size > 0:
 
             if np.all(occup[ref_space] == 0.0):
-                tuples_tmp = np.array([[i] for i in exp_space_occ], dtype=np.int16)
+                tuples_tmp = np.array([[i] for i in exp_space['occ']], dtype=np.int16)
             elif np.all(occup[ref_space] > 0.0):
-                tuples_tmp = np.array([[a] for a in exp_space_virt], dtype=np.int16)
+                tuples_tmp = np.array([[a] for a in exp_space['virt']], dtype=np.int16)
             else:
-                tuples_tmp = np.array([[p] for p in exp_space_tot], dtype=np.int16)
+                tuples_tmp = np.array([[p] for p in exp_space['tot']], dtype=np.int16)
 
         else:
 
-            tuples_tmp = np.array([[i, a] for i in exp_space_occ for a in exp_space_virt], dtype=np.int16)
+            tuples_tmp = np.array([[i, a] for i in exp_space['occ'] for a in exp_space['virt']], dtype=np.int16)
 
         # pi-orbital pruning
         if pi_prune:
-            tuples_tmp = np.array([tup for tup in tuples_tmp if tools.pi_prune(pi_orbs, \
-                                pi_hashes, tup)], dtype=np.int16)
+            tuples_tmp = np.array([tup for tup in tuples_tmp if tools.pi_prune(exp_space['pi_orbs'], \
+                                exp_space['pi_hashes'], tup)], dtype=np.int16)
 
         # min_order
         min_order = tuples_tmp.shape[1]

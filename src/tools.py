@@ -516,7 +516,7 @@ def near_nbrs(site_xy: Tuple[int, int], nx: int, ny: int) -> List[Tuple[int, int
         return [up, down, left, right]
 
 
-def write_file(order: int, arr: np.ndarray, string: str) -> None:
+def write_file(order: Union[None, int], arr: np.ndarray, string: str) -> None:
         """
         this function writes a general restart file corresponding to input string
         """

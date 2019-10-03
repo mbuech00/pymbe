@@ -188,10 +188,8 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # init hashes, n_tasks, and tuples
         exp.hashes, exp.tuples, exp.n_tasks, \
-            exp.min_order = expansion.init_tup(calc.occup, calc.ref_space, calc.exp_space['occ'], \
-                                                calc.exp_space['virt'], calc.exp_space['tot'], \
-                                                mpi.local_master, mpi.local_comm, calc.extra['pi_prune'], \
-                                                calc.exp_space['pi_orbs'], calc.exp_space['pi_hashes'])
+            exp.min_order = expansion.init_tup(calc.occup, calc.ref_space, calc.exp_space, \
+                                                mpi.local_master, mpi.local_comm, calc.extra['pi_prune'])
 
         # possible restart
         if calc.restart:
@@ -271,7 +269,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
                         exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.local_comm))
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
-                buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0]
+                buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
                 if calc.target_mbe in ['energy', 'excitation']:
                     inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
                 elif calc.target_mbe in ['dipole', 'trans']:
