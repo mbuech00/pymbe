@@ -37,7 +37,7 @@ class TAGS:
 
 def master(mpi: parallel.MPICls, mol: system.MolCls, \
             calc: calculation.CalcCls, exp: expansion.ExpCls) -> Tuple[MPI.Win, float, \
-                                                                        float, int, int, \
+                                                                        int, int, int, \
                                                                         Union[float, np.ndarray], \
                                                                         Union[float, np.ndarray], \
                                                                         Union[float, np.ndarray]]:
@@ -88,7 +88,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         if rst_mbe:
             min_ndets: int = exp.min_ndets[-1]
             max_ndets: int = exp.max_ndets[-1]
-            sum_ndets: int = int(exp.mean_ndets[-1])
+            sum_ndets: int = exp.mean_ndets[-1]
         else:
             min_ndets = int(1e12)
             max_ndets = 0
@@ -185,7 +185,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
 
         # mean number of determinants
-        mean_ndets = sum_ndets / exp.n_tasks[-1]
+        mean_ndets = round(sum_ndets / exp.n_tasks[-1])
 
         # allreduce increments among local masters
         if mpi.num_masters > 1:

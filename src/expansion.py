@@ -16,7 +16,7 @@ import numpy as np
 from mpi4py import MPI
 import functools
 import copy
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Union, Any
 
 import parallel
 import calculation
@@ -35,7 +35,7 @@ class ExpCls:
                 self.model = copy.deepcopy(calc.model)
 
                 # init prop dict
-                self.prop: Dict[str, Dict[str, List[np.ndarray]]] = {str(calc.target_mbe): {'inc': [], 'tot': []}}
+                self.prop: Dict[str, Dict[str, Union[List[float], np.ndarray]]] = {str(calc.target_mbe): {'inc': [], 'tot': []}}
 
                 # set max_order
                 if calc.misc['order'] is not None:
@@ -44,13 +44,13 @@ class ExpCls:
                     self.max_order = calc.exp_space['tot'].size
 
                 # init timings and and statistics lists
-                self.time: Dict[str, List[float]] = {'mbe': [], 'screen': []}
-                self.mean_inc: List[float] = []
-                self.min_inc: List[float] = []
-                self.max_inc: List[float] = []
-                self.mean_ndets: List[float] = []
-                self.min_ndets: List[int] = []
-                self.max_ndets: List[int] = []
+                self.time: Dict[str, Union[List[float], np.ndarray]] = {'mbe': [], 'screen': []}
+                self.mean_inc: Union[List[float], np.ndarray] = []
+                self.min_inc: Union[List[float], np.ndarray] = []
+                self.max_inc: Union[List[float], np.ndarray] = []
+                self.mean_ndets: Union[List[int], np.ndarray] = []
+                self.min_ndets: Union[List[int], np.ndarray] = []
+                self.max_ndets: Union[List[int], np.ndarray] = []
 
                 # init order
                 self.order: int = 0
