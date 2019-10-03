@@ -512,8 +512,9 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
             orb_arr[:] = orb
             combs_orb = np.concatenate((combs, orb_arr), axis=1)
 
-            # convert to sorted hashes
+            # convert to sorted hashes and reorder combs_orb accordingly
             combs_orb_hash = tools.hash_2d(combs_orb)
+            combs_orb = combs_orb[np.argsort(combs_orb_hash)]
             combs_orb_hash.sort()
 
             # get indices of combinations

@@ -167,7 +167,7 @@ def hash_2d(a: np.ndarray) -> np.ndarray:
         this function converts a 2d numpy array to a 1d array of hashes
 
         example:
-        >>> hash_2d(np.arange(4*4, dtype=np.int16).reshape(4,4))
+        >>> hash_2d(np.arange(4 * 4, dtype=np.int16).reshape(4, 4))
         array([-2930228190932741801,  1142744019865853604, -8951855736587463849,
                 4559082070288058232])
         """
@@ -422,7 +422,7 @@ def seed_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         >>> seed_prune(occup, np.arange(3, 7, dtype=np.int16))
         False
         """
-        return np.any(occup[tup] > 0.0)
+        return np.any(occup[tup] > 0.)
 
 
 def corr_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
@@ -436,7 +436,7 @@ def corr_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         >>> corr_prune(occup, np.array([3, 4], dtype=np.int16))
         False
         """
-        return np.any(occup[tup] > 0.0) and np.any(occup[tup] == 0.0)
+        return np.any(occup[tup] > 0.) and np.any(occup[tup] == 0.)
 
 
 def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
@@ -451,7 +451,7 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
         (0, 0)
         """
         occup_tup = occup[tup]
-        return (np.count_nonzero(occup_tup > 0.0), np.count_nonzero(occup_tup > 1.0))
+        return (np.count_nonzero(occup_tup > 0.), np.count_nonzero(occup_tup > 1.))
 
 
 def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
@@ -473,11 +473,14 @@ def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
         """
         if n_elec is None:
             n_elec = nelec(occup, cas_idx)
+
         n_orbs = cas_idx.size
+
         if ref_space is not None:
             ref_n_elec = nelec(occup, ref_space)
             n_elec = tuple(map(sum, zip(n_elec, ref_n_elec)))
             n_orbs += ref_space.size
+
         return int(scipy.special.binom(n_orbs, n_elec[0]) * scipy.special.binom(n_orbs, n_elec[1]))
 
 
@@ -538,6 +541,12 @@ def natural_keys(txt: str) -> List[Union[int, str]]:
         this function return keys to sort a string in human order (as alist.sort(key=natural_keys))
         see: http://nedbatchelder.com/blog/200712/human_sorting.html
         see: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+
+        example:
+        >>> natural_keys('mbe_test_string')
+        ['mbe_test_string']
+        >>> natural_keys('mbe_test_string_1')
+        ['mbe_test_string_', 1, '']
         """
         return [_convert(c) for c in re.split('(\d+)', txt)]
 
@@ -545,6 +554,12 @@ def natural_keys(txt: str) -> List[Union[int, str]]:
 def _convert(txt: str) -> Union[int, str]:
         """
         this function converts strings with numbers in them
+
+        example:
+        >>> isinstance(_convert('string'), str)
+        True
+        >>> isinstance(_convert('1'), int)
+        True
         """
         return int(txt) if txt.isdigit() else txt
 
