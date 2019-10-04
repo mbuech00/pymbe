@@ -288,7 +288,7 @@ def pi_space(mo_energy: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, 
         this function returns pi-orbitals and hashes from total expansion space
 
         example:
-        >>> pi_space(np.array([-0.3, -0.15, -0.15, 0.05, 0.2, 0.2, 0.4, 0.5]), np.arange(7, dtype=np.int16))
+        >>> pi_space(np.array([-.3, -.15, -.15, .1, .2, .2, .4, .5]), np.arange(7, dtype=np.int16))
         (array([1, 2, 4, 5], dtype=int16), array([-2163557957507198923,  1937934232745943291]))
         """
         # init pi_space list
@@ -311,9 +311,10 @@ def pi_space(mo_energy: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, 
 
         # get hashes of all degenerate pi-pairs
         pi_hashes = hash_2d(pi_pairs)
+        pi_pairs = pi_pairs[np.argsort(pi_hashes)]
         pi_hashes.sort()
 
-        return pi_space_arr, pi_hashes
+        return pi_pairs.reshape(-1,), pi_hashes
 
 
 def non_deg_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:

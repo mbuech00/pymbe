@@ -34,11 +34,15 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         """
         this master function returns two arrays of (i) child tuple hashes and (ii) the actual child tuples
         """
+        # load tuples as main task tuples
+        buf = exp.tuples.Shared_query(0)[0]
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tasks[-1], exp.order))
+
         # set number of available (needed) slaves and various tuples
-        slaves_avail, tuples, tuples_pi, \
+        slaves_avail, tuples_pi, \
             tuples_seed, tuples_seed_pi = _set_screen(calc.occup, calc.ref_space, calc.exp_space, \
                                                         exp.n_tasks[-1], exp.min_order, exp.order, \
-                                                        calc.extra['pi_prune'], mpi.global_size, exp.tuples)
+                                                        calc.extra['pi_prune'], mpi.global_size, tuples)
 
         # wake up slaves
         msg = {'task': 'screen', 'order': exp.order, 'slaves_needed': slaves_avail}
@@ -261,17 +265,15 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
                         tup_order = exp.order - 1
 
                 # spawn child tuples from parent tuples at exp.order
-                orbs = _orbs(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
-                                calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                tup_order, hashes[-1], inc[-1], \
+                orbs = _orbs(calc.occup, calc.prot, calc.thres, calc.ref_space, calc.exp_space, \
+                                exp.min_order, tup_order, hashes[-1], inc[-1], \
                                 tup, pi_prune=calc.extra['pi_prune'], \
                                 pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
                 # deep pruning
                 if calc.extra['pi_prune'] and exp.min_order < tup_order:
-                    orbs = _deep_pruning(calc.occup, calc.mo_energy, calc.orbsym, calc.prot, \
-                                            calc.thres, calc.ref_space, calc.exp_space, exp.min_order, \
-                                            tup_order, hashes, inc, \
+                    orbs = _deep_pruning(calc.occup, calc.prot, calc.thres, calc.ref_space, calc.exp_space, \
+                                            exp.min_order, tup_order, hashes, inc, \
                                             tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
 
                 # recast parent tuple as list
@@ -356,7 +358,8 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
 def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarray], \
                     n_tasks: int, min_order: int, order: int, pi_prune: bool, global_size: int, \
-                    tuples_win: MPI.Win) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+                    tuples: np.ndarray) -> Tuple[int, Union[None, np.ndarray], \
+                                                 Union[None, np.ndarray], Union[None, np.ndarray]]:
         """
         this function returns number of available slaves and various tuples
 
@@ -367,57 +370,21 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
         ...              'virt': np.arange(4, 10, dtype=np.int16),
         ...              'tot': np.arange(4, 10, dtype=np.int16)}
         >>> min_order = order = 1
-        >>> n_tasks = 6
-        >>> tuples_win = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=MPI.COMM_WORLD)
-        >>> buf = tuples_win.Shared_query(0)[0]
-        >>> tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
-        >>> tuples[:] = np.array([[4], [5], [6], [7], [8], [9]], dtype=np.int16)
-        >>> _set_screen(occup, ref_space, exp_space, n_tasks,
-        ...             min_order, order, False, 1, tuples_win)
-        (0, array([[4],
-               [5],
-               [6],
-               [7],
-               [8],
-               [9]], dtype=int16), None, None, None)
+        >>> tuples = np.array([[4], [5], [6], [7], [8], [9]], dtype=np.int16)
+        >>> _set_screen(occup, ref_space, exp_space, tuples.shape[0],
+        ...             min_order, order, False, 1, tuples)
+        (0, None, None, None)
         >>> ref_space = np.array([])
         >>> exp_space['occ'] = np.arange(4, dtype=np.int16)
         >>> exp_space['tot'] = np.arange(10, dtype=np.int16)
         >>> min_order = order = 2
-        >>> n_tasks = 24
-        >>> tuples_win = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=MPI.COMM_WORLD)
-        >>> buf = tuples_win.Shared_query(0)[0]
-        >>> tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
-        >>> tuples[:] = np.array([[0, 4], [0, 5], [0, 6], [0, 7], [0, 8], [0, 9],
-        ...                       [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [1, 9],
-        ...                       [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [2, 9],
-        ...                       [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9]], dtype=np.int16)
-        >>> _set_screen(occup, ref_space, exp_space, n_tasks,
-        ...             min_order, order, False, 1, tuples_win)
-        (0, array([[0, 4],
-               [0, 5],
-               [0, 6],
-               [0, 7],
-               [0, 8],
-               [0, 9],
-               [1, 4],
-               [1, 5],
-               [1, 6],
-               [1, 7],
-               [1, 8],
-               [1, 9],
-               [2, 4],
-               [2, 5],
-               [2, 6],
-               [2, 7],
-               [2, 8],
-               [2, 9],
-               [3, 4],
-               [3, 5],
-               [3, 6],
-               [3, 7],
-               [3, 8],
-               [3, 9]], dtype=int16), None, array([[0, 1],
+        >>> tuples = np.array([[0, 4], [0, 5], [0, 6], [0, 7], [0, 8], [0, 9],
+        ...                    [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [1, 9],
+        ...                    [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [2, 9],
+        ...                    [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9]], dtype=np.int16)
+        >>> _set_screen(occup, ref_space, exp_space, tuples.shape[0],
+        ...             min_order, order, False, 1, tuples)
+        (0, None, array([[0, 1],
                [0, 2],
                [0, 3],
                [1, 2],
@@ -426,38 +393,13 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
         >>> exp_space['pi_orbs'] = np.array([1, 2, 4, 5], dtype=np.int16)
         >>> exp_space['pi_hashes'] = np.array([-2163557957507198923, 1937934232745943291])
         >>> min_order, order = 2, 3
-        >>> n_tasks = 22
-        >>> tuples_win = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=MPI.COMM_WORLD)
-        >>> buf = tuples_win.Shared_query(0)[0]
-        >>> tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
-        >>> tuples[:] = np.array([[0, 4, 5], [0, 6, 7], [0, 6, 8], [0, 6, 9], [0, 7, 8], [0, 7, 9], [0, 8, 9],
-        ...                       [0, 3, 6], [0, 3, 7], [0, 3, 8], [0, 3, 9],
-        ...                       [1, 2, 6], [1, 2, 7], [1, 2, 8], [1, 2, 9],
-        ...                       [3, 4, 5], [3, 6, 7], [3, 6, 8], [3, 6, 9], [3, 7, 8], [3, 7, 9], [3, 8, 9]] , dtype=np.int16)
-        >>> _set_screen(occup, ref_space, exp_space, n_tasks,
-        ...             min_order, order, True, 1, tuples_win)
-        (0, array([[0, 4, 5],
-               [0, 6, 7],
-               [0, 6, 8],
-               [0, 6, 9],
-               [0, 7, 8],
-               [0, 7, 9],
-               [0, 8, 9],
-               [0, 3, 6],
-               [0, 3, 7],
-               [0, 3, 8],
-               [0, 3, 9],
-               [1, 2, 6],
-               [1, 2, 7],
-               [1, 2, 8],
-               [1, 2, 9],
-               [3, 4, 5],
-               [3, 6, 7],
-               [3, 6, 8],
-               [3, 6, 9],
-               [3, 7, 8],
-               [3, 7, 9],
-               [3, 8, 9]], dtype=int16), array([[0, 6],
+        >>> tuples = np.array([[0, 4, 5], [0, 6, 7], [0, 6, 8], [0, 6, 9], [0, 7, 8], [0, 7, 9], [0, 8, 9],
+        ...                    [0, 3, 6], [0, 3, 7], [0, 3, 8], [0, 3, 9],
+        ...                    [1, 2, 6], [1, 2, 7], [1, 2, 8], [1, 2, 9],
+        ...                    [3, 4, 5], [3, 6, 7], [3, 6, 8], [3, 6, 9], [3, 7, 8], [3, 7, 9], [3, 8, 9]] , dtype=np.int16)
+        >>> _set_screen(occup, ref_space, exp_space, tuples.shape[0],
+        ...             min_order, order, True, 1, tuples)
+        (0, array([[0, 6],
                [0, 7],
                [0, 8],
                [3, 6],
@@ -466,10 +408,6 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
                [1, 2, 3]], dtype=int16), array([[0, 3],
                [1, 2]], dtype=int16))
         """
-        # load tuples as main task tuples
-        buf = tuples_win.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
-
         # option to treat pi-orbitals independently
         tuples_pi = None; n_tasks_pi = 0
 
@@ -528,29 +466,66 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
         # number of available slaves
         slaves_avail = min(global_size - 1, n_tasks + n_tasks_pi + n_tasks_seed + n_tasks_seed_pi)
 
-        return slaves_avail, tuples, tuples_pi, tuples_seed, tuples_seed_pi
+        return slaves_avail, tuples_pi, tuples_seed, tuples_seed_pi
 
 
-def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
-            min_order, order, hashes, prop, tup, pi_prune=False, pi_gen=False):
+def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
+            ref_space: np.ndarray, exp_space: np.ndarray, \
+            min_order: int, order: int, hashes: np.ndarray, \
+            prop: np.ndarray, tup: np.ndarray, \
+            pi_prune: bool = False, pi_gen: bool = False) -> np.ndarray:
         """
         this function returns an array of child tuple orbitals subject to a given screening protocol
 
-        :param occup: orbital occupation. numpy array of shape (n_orbs,)
-        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
-        :param prot: screening protocol scheme. dict
-        :param thres: threshold settings. dict
-        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
-        :param exp_space: dictionary of expansion spaces. dict
-        :param min_order: minimum (start) order. integer
-        :param order: current order. integer
-        :param hashes: current order hashes. numpy array of shape (n_tuples,)
-        :param prop: current order property increments. numpy array of shape (n_tuples,)
-        :param tup: current orbital tuple. numpy array of shape (order,)
-        :param pi_prune: pi-orbital pruning logical. bool
-        :param pi_gen: pi-orbital generation logical. bool
-        :return: numpy array of shape (n_child_orbs,)
+        example:
+        >>> occup = np.array([2.] * 3 + [0.] * 3)
+        >>> prot = {'scheme': 3}
+        >>> thres = {'init': 1.e-10, 'relax': 5., 'start': 3}
+        >>> ref_space = np.array([], dtype=np.int16)
+        >>> exp_space = {'occ': np.arange(3, dtype=np.int16),
+        ...              'virt': np.arange(3, 6, dtype=np.int16),
+        ...              'tot': np.arange(6, dtype=np.int16)}
+        >>> min_order = 2
+        ... # [[0, 1, 3], [0, 1, 4], [0, 1, 5]
+        ... #  [0, 2, 3], [0, 2, 4], [0, 2, 5]
+        ... #  [1, 2, 3], [1, 2, 4], [1, 2, 5]
+        ... #  [0, 3, 4], [0, 3, 5], [0, 4, 5]
+        ... #  [1, 3, 4], [1, 3, 5], [1, 4, 5]
+        ... #  [2, 3, 4], [2, 3, 5], [2, 4, 5]]
+        >>> hashes = np.sort(np.array([366931854209709639, 7868645139422709341, -7925134385272954056,
+        ...                            -7216722148388372205, 4429162622039029653, -6906205837173860435,
+        ...                            -3352798558434503475, 8474590989972277172, 6280027850766028273,
+        ...                            680656656239891583, -8862568739552411231, 8046408145842912366,
+        ...                            -7370655119274612396, -4205406112023021717, -6346674104600383423,
+        ...                            -6103692259034244091, -4310406760124882618, 3949415985151233945]))
+        >>> np.random.seed(1234)
+        >>> prop = np.random.rand(hashes.size,) * -5.e-10
+        >>> tup = np.array([0, 1, 3], dtype=np.int16)
+        >>> _orbs(occup, prot, thres, ref_space, exp_space,
+        ...       min_order, tup.size, hashes, prop, tup)
+        array([4, 5], dtype=int16)
+        >>> thres['start'] = 1
+        >>> _orbs(occup, prot, thres, ref_space, exp_space,
+        ...       min_order, tup.size, hashes, prop, tup)
+        array([], dtype=int16)
+        >>> thres['start'] = 3
+        >>> tup = np.array([0, 1, 2], dtype=np.int16)
+        >>> _orbs(occup, prot, thres, ref_space, exp_space,
+        ...       min_order, tup.size, hashes, prop, tup)
+        array([3, 4, 5], dtype=int16)
+        >>> exp_space['pi_orbs'] = np.array([1, 2, 4, 5], dtype=np.int16)
+        >>> exp_space['pi_hashes'] = np.sort(np.array([-2163557957507198923, 1937934232745943291]))
+        >>> _orbs(occup, prot, thres, ref_space, exp_space,
+        ...       min_order, tup.size, hashes, prop, tup, pi_prune=True)
+        array([3], dtype=int16)
+        >>> tup = np.array([0, 3], dtype=np.int16)
+        >>> _orbs(occup, prot, thres, ref_space, exp_space,
+        ...       min_order, tup.size, hashes, prop, tup, pi_prune=True, pi_gen=True)
+        array([4, 5], dtype=int16)
+        >>> tup = np.array([1, 2], dtype=np.int16)
+        >>> _orbs(occup, prot, thres, ref_space, exp_space,
+        ...       min_order, tup.size, hashes, prop, tup, pi_prune=True, pi_gen=True)
+        array([4, 5], dtype=int16)
         """
         # truncate expansion space
         if min_order == 1:
@@ -589,7 +564,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
             return exp_space_trunc.ravel()
 
         # init list of child orbitals
-        child_orbs = []
+        child_orbs: List[int] = []
 
         # init orb_arr
         orb_arr = np.empty([combs.shape[0], 2 if pi_gen else 1], dtype=np.int16)
@@ -628,7 +603,7 @@ def _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         return np.array(child_orbs, dtype=np.int16)
 
 
-def _deep_pruning(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
+def _deep_pruning(occup, prot, thres, ref_space, exp_space, \
             min_order, order, hashes, prop, tup, orbs, pi_gen=False):
         """
         this function returns an updated array of child tuple orbitals upon deep pruning
@@ -671,14 +646,18 @@ def _deep_pruning(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
         return orbs
 
 
-def _prot_screen(scheme, thres, prop):
+def _prot_screen(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
         """
         this function extracts increments with non-zero thresholds and calls screening function
 
-        :param scheme: protocol scheme. integer
-        :param thres: screening thresholds corresponding to increments. numpy array of shape (n_inc,)
-        :param prop: property increments corresponding to given tuple of orbitals. numpy array of shape (n_inc,)
-        :return: bool
+        >>> thres = np.array([1.e-6, 2.e-7, 3.e-8])
+        >>> prop = np.array([0., 1.e-12, 1.e-7])
+        >>> scheme = 3
+        >>> _prot_scheme(scheme, thres, prop)
+        False
+        >>> prop = np.array([[0., 0., 1.e-9], [0., 1.e-8, 2.e-8]])
+        >>> _prot_scheme(scheme, thres, prop)
+        True
         """
         # extract increments with non-zero thresholds
         inc = prop[np.nonzero(thres)]
@@ -707,14 +686,19 @@ def _prot_screen(scheme, thres, prop):
         return screen
 
 
-def _prot_scheme(scheme, thres, prop):
+def _prot_scheme(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
         """
         this function screens according to chosen protocol scheme
 
-        :param scheme: protocol scheme. integer
-        :param thres: screening thresholds corresponding to increments. numpy array of shape (n_inc,)
-        :param prop: property increments corresponding to given tuple of orbitals. numpy array of shape (n_inc,)
-        :return: bool
+        example:
+        >>> thres = np.array([1.e-6, 2.e-7, 3.e-8])
+        >>> prop = np.array([1.e-7] * 3)
+        >>> scheme = 1
+        >>> _prot_scheme(scheme, thres, prop)
+        True
+        >>> scheme = 2
+        >>> _prot_scheme(scheme, thres, prop)
+        False
         """
         if scheme == 1:
             # are *any* increments below their given threshold
@@ -724,29 +708,32 @@ def _prot_scheme(scheme, thres, prop):
             return np.all(np.abs(prop) < thres)
 
 
-def _thres(occup: np.ndarray, thres: Dict[str, float], \
+def _thres(occup: np.ndarray, thres: Dict[str, Union[float, int]], \
             ref_space: np.ndarray, scheme: int, tup: np.ndarray) -> float:
         """
         this function computes the screening threshold for the given tuple of orbitals
 
         example:
         >>> occup = np.array([2.] * 4 + [0.] * 6)
-        >>> thres = {'init': 1.e-10, 'relax': 5.}
+        >>> thres = {'init': 1.e-10, 'relax': 5., 'start': 3}
         >>> tup = np.array([5, 7, 8], dtype=np.int16)
         >>> ref_space = np.arange(4, dtype=np.int16)
         >>> scheme = 2
-        >>> _thres(occup, thres, ref_space, scheme, tup)
-        1e-10
+        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 1e-10)
+        True
         >>> tup = np.array([5, 7, 8, 9], dtype=np.int16)
-        >>> _thres(occup, thres, ref_space, scheme, tup)
-        5e-10
+        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 5e-10)
+        True
         >>> ref_space = np.array([], dtype=np.int16)
         >>> tup = np.array([0, 1, 2, 3, 5, 7, 9], dtype=np.int16)
-        >>> _thres(occup, thres, ref_space, scheme, tup)
-        1e-10
+        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 1e-10)
+        True
         >>> scheme = 3
-        >>> _thres(occup, thres, ref_space, scheme, tup)
-        5e-10
+        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 5e-10)
+        True
+        >>> thres['start'] = 1
+        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 1.25e-8)
+        True
         """
         # determine involved dimensions
         nocc = np.count_nonzero(occup[ref_space] > 0.0)
@@ -761,11 +748,11 @@ def _thres(occup: np.ndarray, thres: Dict[str, float], \
         if nocc > 0 and nvirt > 0:
 
             if scheme < 3:
-                if nvirt >= 3:
-                    screen_thres = thres['init'] * thres['relax'] ** (nvirt - 3)
+                if nvirt >= thres['start']:
+                    screen_thres = thres['init'] * thres['relax'] ** (nvirt - thres['start'])
             else:
-                if max(nocc, nvirt) >= 3:
-                    screen_thres = thres['init'] * thres['relax'] ** (max(nocc, nvirt) - 3)
+                if max(nocc, nvirt) >= thres['start']:
+                    screen_thres = thres['init'] * thres['relax'] ** (max(nocc, nvirt) - thres['start'])
 
         return screen_thres
 
