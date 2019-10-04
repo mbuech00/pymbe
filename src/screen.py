@@ -272,9 +272,25 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
                 # deep pruning
                 if calc.extra['pi_prune'] and exp.min_order < tup_order:
-                    orbs = _deep_pruning(calc.occup, calc.prot, calc.thres, calc.ref_space, calc.exp_space, \
-                                            exp.min_order, tup_order, hashes, inc, \
-                                            tup, orbs, pi_gen=mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi])
+
+                    # deep pruning by removing an increasing number of pi-orbital pairs
+                    for k in range(tools.n_pi_orbs(calc.exp_space['pi_orbs'], tup) // 2):
+
+                        # next-highest order without k number of pi-orbital pairs
+                        deep_order = tup_order - (2 * k + 1)
+
+                        # spawn child tuples from parent tuples at deep_order
+                        if mpi.stat.tag in [TAGS.tup_pi, TAGS.tup_seed_pi]:
+                            orbs_deep = _orbs(calc.occup, calc.prot, calc.thres, calc.ref_space, calc.exp_space, \
+                                                 exp.min_order, deep_order, hashes[(deep_order+1)-exp.min_order], \
+                                                 inc[(deep_order+1)-exp.min_order], tup, pi_prune=True, pi_gen=True)
+                        else:
+                            orbs_deep = _orbs(calc.occup, calc.prot, calc.thres, calc.ref_space, calc.exp_space, \
+                                                 exp.min_order, deep_order, hashes[deep_order-exp.min_order], \
+                                                 inc[deep_order-exp.min_order], tup, pi_prune=True, pi_gen=False)
+
+                        # update orbs
+                        orbs = np.intersect1d(orbs, orbs_deep)
 
                 # recast parent tuple as list
                 tup = tup.tolist()
@@ -603,53 +619,11 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
         return np.array(child_orbs, dtype=np.int16)
 
 
-def _deep_pruning(occup, prot, thres, ref_space, exp_space, \
-            min_order, order, hashes, prop, tup, orbs, pi_gen=False):
-        """
-        this function returns an updated array of child tuple orbitals upon deep pruning
-
-        :param occup: orbital occupation. numpy array of shape (n_orbs,)
-        :param mo_energy: orbital energies. numpy array of shape (n_orb,)
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
-        :param prot: screening protocols. dict
-        :param thres: threshold settings. dict
-        :param ref_space: reference space. numpy array of shape (n_ref_tot,)
-        :param exp_space: dictionary of expansion spaces. dict of three numpy arrays with shapes (n_exp_tot,); (n_exp_occ,); (n_exp_virt)
-        :param min_order: minimum (start) order. integer
-        :param order: current order. integer
-        :param hashes: hashes to all orders. list of numpy arrays of shapes (n_tuples,)
-        :param prop: property increments to all orders. list of numpy arrays of shapes (n_tuples,)
-        :param tup: current orbital tuple. numpy array of shape (order,)
-        :param orbs: initial array of child tuple orbitals. numpy array of shape (n_child_orbs_old,)
-        :param pi_gen: pi-orbital generation logical. bool
-        :return: numpy array of shape (n_child_orbs_new,)
-        """
-        # deep pruning by removing an increasing number of pi-orbital pairs
-        for k in range(tools.n_pi_orbs(exp_space['pi_orbs'], tup) // 2):
-
-            # next-highest order without k number of pi-orbital pairs
-            deep_order = order - (2 * k + 1)
-
-            # spawn child tuples from parent tuples at deep_order
-            if pi_gen:
-                orbs_deep = _orbs(occup, prot, thres, ref_space, exp_space, \
-                                     min_order, deep_order, hashes[(deep_order+1)-min_order], \
-                                     prop[(deep_order+1)-min_order], tup, pi_prune=True, pi_gen=True)
-            else:
-                orbs_deep = _orbs(occup, prot, thres, ref_space, exp_space, \
-                                     min_order, deep_order, hashes[deep_order-min_order], \
-                                     prop[deep_order-min_order], tup, pi_prune=True, pi_gen=False)
-
-            # update orbs
-            orbs = np.intersect1d(orbs, orbs_deep)
-
-        return orbs
-
-
 def _prot_screen(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
         """
         this function extracts increments with non-zero thresholds and calls screening function
 
+        example:
         >>> thres = np.array([1.e-6, 2.e-7, 3.e-8])
         >>> prop = np.array([0., 1.e-12, 1.e-7])
         >>> scheme = 3
