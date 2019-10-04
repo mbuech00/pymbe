@@ -210,7 +210,7 @@ def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns a cas space
 
         example:
-        >>> cas(np.arange(5), np.array([7, 13]))
+        >>> cas(np.array([7, 13]), np.arange(5))
         array([ 0,  1,  2,  3,  4,  7, 13])
         """
         return np.sort(np.append(ref_space, tup))
