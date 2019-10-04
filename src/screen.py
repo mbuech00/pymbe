@@ -632,11 +632,11 @@ def _deep_pruning(occup, prot, thres, ref_space, exp_space, \
 
             # spawn child tuples from parent tuples at deep_order
             if pi_gen:
-                orbs_deep = _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
+                orbs_deep = _orbs(occup, prot, thres, ref_space, exp_space, \
                                      min_order, deep_order, hashes[(deep_order+1)-min_order], \
                                      prop[(deep_order+1)-min_order], tup, pi_prune=True, pi_gen=True)
             else:
-                orbs_deep = _orbs(occup, mo_energy, orbsym, prot, thres, ref_space, exp_space, \
+                orbs_deep = _orbs(occup, prot, thres, ref_space, exp_space, \
                                      min_order, deep_order, hashes[deep_order-min_order], \
                                      prop[deep_order-min_order], tup, pi_prune=True, pi_gen=False)
 
