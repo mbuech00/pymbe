@@ -215,14 +215,20 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'valid screening protocol schemes (scheme) are: 1 (1st gen), 2 (2nd) gen, 3 (3rd gen)')
 
         # expansion thresholds
-        tools.assertion(all(isinstance(i, float) for i in calc.thres.values()), \
-                        'values in threshold input (thres) must be floats')
-        tools.assertion(set(list(calc.thres.keys())) <= set(['init', 'relax']), \
-                        'valid input in thres dict is: init and relax')
+        tools.assertion(set(list(calc.thres.keys())) <= set(['init', 'relax', 'start']), \
+                        'valid input in thres dict is: init, relax, and start')
+        tools.assertion(isinstance(calc.thres['init'], float), \
+                        'initial threshold (init) must be a float')
         tools.assertion(calc.thres['init'] >= 0.0, \
                         'initial threshold (init) must be a float >= 0.0')
+        tools.assertion(isinstance(calc.thres['relax'], float), \
+                        'initial threshold (init) must be a float')
         tools.assertion(calc.thres['relax'] >= 1.0, \
                         'threshold relaxation (relax) must be a float >= 1.0')
+        tools.assertion(isinstance(calc.thres['start'], int), \
+                        'start threshold parameter (start) must be an int')
+        tools.assertion(calc.thres['start'] >= 1, \
+                        'start threshold parameter (start) must be an int >= 1')
 
         # orbital representation
         tools.assertion(calc.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \
