@@ -288,8 +288,8 @@ def _energy(calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
         """
         this function returns the final total energy
         """
-        e_tot = exp.prop['energy']['tot']
-        e_tot += calc.prop['hf']['energy'] # type: ignore
+        e_tot = np.copy(exp.prop['energy']['tot'])
+        e_tot += calc.prop['hf']['energy']
         e_tot += calc.prop['base']['energy']
         e_tot += calc.prop['ref']['energy']
 
@@ -300,8 +300,8 @@ def _excitation(calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
         """
         this function returns the final excitation energy
         """
-        exc_tot = exp.prop['excitation']['tot']
-        exc_tot += calc.prop['ref']['excitation'] # type: ignore
+        exc_tot = np.copy(exp.prop['excitation']['tot'])
+        exc_tot += calc.prop['ref']['excitation']
 
         return exc_tot
 
@@ -316,8 +316,8 @@ def _dipole(mol: system.MolCls, calc: calculation.CalcCls, \
         coords  = mol.atom_coords()
         nuc_dipole = np.einsum('i,ix->x', charges, coords)
 
-        dipole_tot = exp.prop['dipole']['tot']
-        dipole_tot += calc.prop['hf']['dipole'] # type: ignore
+        dipole_tot = np.copy(exp.prop['dipole']['tot'])
+        dipole_tot += calc.prop['hf']['dipole']
         dipole_tot += calc.prop['ref']['dipole']
 
         return dipole_tot, nuc_dipole
@@ -328,8 +328,8 @@ def _trans(mol: system.MolCls, calc: calculation.CalcCls, \
         """
         this function returns the final molecular transition dipole moment
         """
-        trans_tot = exp.prop['trans']['tot']
-        trans_tot += calc.prop['ref']['trans'] # type: ignore
+        trans_tot = np.copy(exp.prop['trans']['tot'])
+        trans_tot += calc.prop['ref']['trans']
 
         return trans_tot
 
