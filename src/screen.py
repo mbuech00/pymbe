@@ -150,23 +150,23 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         # allocate tuples
         tuples_win = MPI.Win.Allocate_shared(2 * np.sum(recv_counts), 2, comm=mpi.local_comm)
         buf = tuples_win.Shared_query(0)[0]
-        tuples_new = np.ndarray(buffer=buf, dtype=np.int16, shape=(np.sum(recv_counts),))
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(np.sum(recv_counts),))
 
         # gatherv all child tuples onto global master
-        tuples_new[:] = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
+        tuples[:] = parallel.gatherv(mpi.global_comm, child_tup, recv_counts)
 
-        # reshape tuples_new
-        tuples_new = tuples_new.reshape(-1, exp.order + 1)
+        # reshape tuples
+        tuples = tuples.reshape(-1, exp.order + 1)
 
         # bcast tuples
         if mpi.num_masters > 1:
-            tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
+            tuples[:] = parallel.bcast(mpi.master_comm, tuples)
 
         # mpi barrier
         mpi.local_comm.barrier()
 
         # n_tasks
-        n_tasks = tuples_new.shape[0]
+        n_tasks = tuples.shape[0]
 
         # allocate hashes
         hashes_win = MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm)
@@ -174,14 +174,14 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
 
         # compute hashes
-        hashes_new[:] = tools.hash_2d(tuples_new)
+        hashes_new[:] = tools.hash_2d(tuples)
 
         # sort hashes
         hashes_new.sort()
 
         # save restart files
         if calc.misc['rst']:
-            tools.write_file(None, tuples_new, 'mbe_tup')
+            tools.write_file(None, tuples, 'mbe_tup')
             tools.write_file(exp.order+1, hashes_new, 'mbe_hash')
 
         # mpi barrier
@@ -335,7 +335,7 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         if mpi.local_master:
             tuples_win = MPI.Win.Allocate_shared(2 * np.sum(recv_counts), 2, comm=mpi.local_comm)
             buf = tuples_win.Shared_query(0)[0]
-            tuples_new = np.ndarray(buffer=buf, dtype=np.int16, \
+            tuples = np.ndarray(buffer=buf, dtype=np.int16, \
                                     shape=(np.sum(recv_counts) // (exp.order + 1), exp.order + 1))
         else:
             tuples_win = MPI.Win.Allocate_shared(0, 2, comm=mpi.local_comm)
@@ -345,23 +345,23 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
         # bcast tuples
         if mpi.num_masters > 1 and mpi.local_master:
-            tuples_new[:] = parallel.bcast(mpi.master_comm, tuples_new)
+            tuples[:] = parallel.bcast(mpi.master_comm, tuples)
 
         # mpi barrier
         mpi.local_comm.barrier()
 
         # get handle to hashes window
         if mpi.local_master:
-            hashes_win = MPI.Win.Allocate_shared(8 * tuples_new.shape[0], 8, comm=mpi.local_comm)
+            hashes_win = MPI.Win.Allocate_shared(8 * tuples.shape[0], 8, comm=mpi.local_comm)
             buf = hashes_win.Shared_query(0)[0]
-            hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples_new.shape[0],))
+            hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(tuples.shape[0],))
         else:
             hashes_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
 
         if mpi.local_master:
 
             # compute hashes
-            hashes_new[:] = tools.hash_2d(tuples_new)
+            hashes_new[:] = tools.hash_2d(tuples)
 
             # sort hashes
             hashes_new.sort()
