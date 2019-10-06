@@ -24,6 +24,7 @@ from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from typing import Tuple, List, Union
 
 import parallel
+import system
 import tools
 
 
@@ -109,13 +110,30 @@ def ints(mpi, mol, mo_coeff):
         return hcore_win, vhf_win, eri_win
 
 
-def _ao_ints(mol):
+def _ao_ints(mol: system.MolCls) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns 1e and 2e ao integrals
 
-        :param mol: pymbe mol object
-        :return: numpy array of shape (n_orb, n_orb) [hcore_tmp],
-                 numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) [eri_tmp]
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g')
+        >>> hcore, eri = _ao_ints(mol)
+        >>> hcore.shape
+        (13, 13)
+        >>> eri.shape
+        (13, 13, 13, 13)
+        >>> mol = gto.M()
+        >>> mol.matrix = (1, 6)
+        >>> mol.nsites = 6
+        >>> mol.n = 1.
+        >>> mol.u = 2.
+        >>> mol.pbc = True
+        >>> hcore, eri = _ao_ints(mol)
+        >>> hcore.shape
+        (6, 6)
+        >>> eri.shape
+        (6, 6, 6, 6)
         """
         if mol.atom:
 
@@ -1082,5 +1100,10 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
                 rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
 
             return rdm1
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod(verbose=True)
 
 

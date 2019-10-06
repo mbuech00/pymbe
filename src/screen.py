@@ -733,6 +733,6 @@ def _thres(occup: np.ndarray, thres: Dict[str, Union[float, int]], \
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()#verbose=True)
+    doctest.testmod(verbose=True)
 
 

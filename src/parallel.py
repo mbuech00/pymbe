@@ -38,7 +38,7 @@ INT_MAX = 2147483647
 BLKSIZE = INT_MAX // 32 + 1
 
 
-class MPICls(object):
+class MPICls:
         """
         this class contains the pymbe mpi attributes
         """
