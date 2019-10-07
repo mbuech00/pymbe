@@ -164,7 +164,7 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
             tuples[:] = parallel.bcast(mpi.master_comm, tuples)
 
         # mpi barrier
-        mpi.local_comm.barrier()
+        mpi.global_comm.barrier()
 
         # n_tasks
         n_tasks = tuples.shape[0]
@@ -184,9 +184,6 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         if calc.misc['rst']:
             tools.write_file(None, tuples, 'mbe_tup')
             tools.write_file(exp.order+1, hashes_new, 'mbe_hash')
-
-        # mpi barrier
-        mpi.global_comm.barrier()
 
         return hashes_win, tuples_win, n_tasks
 
@@ -350,7 +347,7 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
             tuples[:] = parallel.bcast(mpi.master_comm, tuples)
 
         # mpi barrier
-        mpi.local_comm.barrier()
+        mpi.global_comm.barrier()
 
         # get handle to hashes window
         if mpi.local_master:
@@ -367,9 +364,6 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
             # sort hashes
             hashes_new.sort()
-
-        # mpi barrier
-        mpi.global_comm.Barrier()
 
         return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order + 1)
 
