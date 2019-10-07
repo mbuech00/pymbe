@@ -174,7 +174,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             n_slaves -= 1
 
         # print final status
-        print(output.mbe_status(1.0))
+        print(output.mbe_status(1.))
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -192,7 +192,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             inc[:] = parallel.allreduce(mpi.master_comm, inc)
 
         # mpi barrier
-        mpi.local_comm.Barrier()
+        mpi.global_comm.Barrier()
 
         if calc.misc['rst']:
 
@@ -233,9 +233,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                     max_inc[k] = np.max(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
                 else:
                     mean_inc[k] = min_inc[k] = max_inc[k] = 0.0
-
-        # mpi barrier
-        mpi.global_comm.Barrier()
 
         # save timing
         exp.time['mbe'][-1] += MPI.Wtime() - time
@@ -411,9 +408,6 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
         # allreduce increments among local masters
         if mpi.num_masters > 1 and mpi.local_master:
             inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1])
-
-        # mpi barrier
-        mpi.local_comm.Barrier()
 
         # mpi barrier
         mpi.global_comm.Barrier()
