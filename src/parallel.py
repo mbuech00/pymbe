@@ -98,7 +98,6 @@ def mol(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
                 info['u'] = mol.u
                 info['n'] = mol.n
                 info['matrix'] = mol.matrix
-                info['nsites'] = mol.nsites
                 info['pbc'] = mol.pbc
                 info['nelectron'] = mol.nelectron
 

@@ -163,8 +163,7 @@ def translate_system(mol: MolCls) -> MolCls:
 
             mol.atom = []
             mol.symmetry = mol.hf_symmetry = False
-            mol.nsites = mol.matrix[0] * mol.matrix[1]
-            mol.nelectron = math.floor(mol.nsites * mol.n)
+            mol.nelectron = math.floor(mol.matrix[0] * mol.matrix[1] * mol.n)
 
         return mol
 

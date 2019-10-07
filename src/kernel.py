@@ -22,6 +22,7 @@ from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from typing import Tuple, List, Union
+import warnings
 
 import parallel
 import system
@@ -131,7 +132,6 @@ def _ao_ints(mol: system.MolCls) -> Tuple[np.ndarray, np.ndarray]:
         (13, 13, 13, 13)
         >>> mol = gto.M()
         >>> mol.matrix = (1, 6)
-        >>> mol.nsites = 6
         >>> mol.n = 1.
         >>> mol.u = 2.
         >>> mol.pbc = True
@@ -154,9 +154,9 @@ def _ao_ints(mol: system.MolCls) -> Tuple[np.ndarray, np.ndarray]:
         else:
 
             # hcore_ao
-            hcore = hubbard_h1e(mol.matrix, mol.nsites, mol.pbc)
+            hcore = hubbard_h1e(mol.matrix, mol.pbc)
             # eri_ao
-            eri = hubbard_eri(mol.nsites, mol.u)
+            eri = hubbard_eri(mol.matrix, mol.u)
 
         return hcore, eri
 
@@ -222,20 +222,50 @@ def e_core_h1e(e_nuc: float, hcore: np.ndarray, vhf: np.ndarray, \
         return e_core, h1e_cas
 
 
-def hubbard_h1e(matrix, nsites, pbc):
+def hubbard_h1e(matrix: Tuple[int, int], pbc: bool = False) -> np.ndarray:
         """
         this function returns the hubbard hopping hamiltonian
 
-        :param matrix: hubbard dimensions. tuple of integers
-        :param nsites: number of lattice sites. integer
-        :param pbc: periodic boundary condition logical. bool
-        :return: numpy array of shape(matrix)
+        example:
+        >>> matrix = (1, 4)
+        >>> h1e = hubbard_h1e(matrix, False)
+        >>> h1e_ref = np.array([[ 0., -1.,  0.,  0.],
+        ...                     [-1.,  0., -1.,  0.],
+        ...                     [ 0., -1.,  0., -1.],
+        ...                     [ 0.,  0., -1.,  0.]])
+        >>> np.allclose(h1e, h1e_ref)
+        True
+        >>> h1e = hubbard_h1e(matrix, True)
+        >>> h1e_ref[-1, 0] = h1e_ref[0, -1] = -1.
+        >>> np.allclose(h1e, h1e_ref)
+        True
+        >>> matrix = (2, 2)
+        >>> h1e = hubbard_h1e(matrix)
+        >>> h1e_ref = np.array([[ 0., -1., -1.,  0.],
+        ...                     [-1.,  0.,  0., -1.],
+        ...                     [-1.,  0.,  0., -1.],
+        ...                     [ 0., -1., -1.,  0.]])
+        >>> np.allclose(h1e, h1e_ref)
+        True
+        >>> matrix = (2, 3)
+        >>> h1e = hubbard_h1e(matrix)
+        >>> h1e_ref = np.array([[ 0., -1.,  0.,  0., -1.,  0.],
+        ...                     [-1.,  0., -1., -1.,  0., -1.],
+        ...                     [ 0., -1.,  0.,  0., -1.,  0.],
+        ...                     [ 0., -1.,  0.,  0., -1.,  0.],
+        ...                     [-1.,  0., -1., -1.,  0., -1.],
+        ...                     [ 0., -1.,  0.,  0., -1.,  0.]])
+        >>> np.allclose(h1e, h1e_ref)
+        True
         """
         # dimension
         if 1 in matrix:
             ndim = 1
         else:
             ndim = 2
+
+        # nsites
+        nsites = matrix[0] * matrix[1]
 
         # init h1e
         h1e = np.zeros([nsites] * 2, dtype=np.float64)
@@ -267,27 +297,30 @@ def hubbard_h1e(matrix, nsites, pbc):
                     if site_2_xy in nbrs:
                         h1e[site_1, site_2] = h1e[site_2, site_1] = -1.0
 
-            if pbc:
-
-                # sideways
-                for i in range(ny):
-                    h1e[i, ny * (nx - 1) + i] = h1e[ny * (nx - 1) + i, i] = -1.0
-
-                # up-down
-                for i in range(nx):
-                    h1e[i * ny, i * ny + (ny - 1)] = h1e[i * ny + (ny - 1), i * ny] = -1.0
-
         return h1e
 
 
-def hubbard_eri(nsites, u):
+def hubbard_eri(matrix: Tuple[int, int], u: float) -> np.ndarray:
         """
         this function returns the hubbard two-electron hamiltonian
 
-        :param nsites: number of lattice sites. integer
-        :param u: hubbard u/t. float
-        :return: numpy array of shape (n_sites*(n_sites + 1) // 2, n_sites*(n_sites + 1) // 2)
+        example:
+        >>> matrix = (1, 2)
+        >>> eri = hubbard_eri(matrix, 2.)
+        >>> eri_ref = np.array([[[[2., 0.],
+        ...                       [0., 0.]],
+        ...                      [[0., 0.],
+        ...                       [0., 0.]]],
+        ...                     [[[0., 0.],
+        ...                       [0., 0.]],
+        ...                      [[0., 0.],
+        ...                       [0., 2.]]]])
+        >>> np.allclose(eri, eri_ref)
+        True
         """
+        # nsites
+        nsites = matrix[0] * matrix[1]
+
         # init eri
         eri = np.zeros([nsites] * 4, dtype=np.float64)
 
@@ -303,34 +336,51 @@ class _hubbard_PM(lo.pipek.PM):
         this class constructs the site-population tensor for each orbital-pair density
         see: pyscf example - 40-hubbard_model_PM_localization.py
         """
-        def atomic_pops(self, mol, mo_coeff, method=None):
+        def atomic_pops(self, mol: gto.Mole, mo_coeff: np.ndarray, method: str = None) -> np.ndarray:
             """
-            this function returns the tensor used in the pm cost function and its gradients
-
-            :param mol: pyscf mol object
-            :param mo_coeff: mo coefficients. numpy array of shape (n_sites, n_sites)
-            :param method: localization method. string
-            :return: numpy array of shape (n_sites, n_sites, n_sites)
+            this function overwrites the tensor used in the pm cost function and its gradients
             """
             return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
-def hf(mol, target):
+def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
+                                                    np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         this function returns the results of a hartree-fock calculation
 
-        :param mol: pymbe mol object
-        :param target: calculation target. string
-        :return: integer [nocc],
-                 integer [nvirt],
-                 integer [norb],
-                 pyscf hf object [hf],
-                 float [e_hf],
-                 numpy array of shape (3,) or None [elec_dipole],
-                 numpy array of shape (n_orb,) [occup],
-                 numpy array of shape (n_orb,) [orbsym],
-                 numpy array of shape (n_orb,) [mo_energy],
-                 numpy array of shape (n_orb, n_orb) [mo_coeff]
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> mol.hf_symmetry = mol.symmetry
+        >>> mol.debug = 0
+        >>> mol.hf_init_guess = 'minao'
+        >>> mol.irrep_nelec = {}
+        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_energy, mo_coeff = hf(mol, 'energy')
+        >>> nocc
+        5
+        >>> nvirt
+        8
+        >>> norb
+        13
+        >>> np.isclose(e_hf, -75.9838464521063)
+        True
+        >>> dipole is None
+        True
+        >>> occup
+        array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.])
+        >>> orbsym
+        array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0])
+        >>> mo_energy_ref = np.array([-20.56043822,  -1.35751378,  -0.71019175,  -0.56159433, -0.50164834,
+        ...                         0.20395512,   0.30015235,   1.05581618, 1.16430251, 1.19036532,
+        ...                         1.2167634 ,   1.37962513, 1.69745496])
+        >>> np.allclose(mo_energy, mo_energy_ref)
+        True
+        >>> mol.dipole = dipole_ints(mol)
+        >>> dipole = hf(mol, 'dipole')[5]
+        >>> dipole_ref = np.array([0., 0., 0.8642558])
+        >>> np.allclose(dipole, dipole_ref)
+        True
         """
         # initialize restricted hf calc
         mol_hf = mol.copy()
@@ -350,9 +400,9 @@ def hf(mol, target):
             hf.irrep_nelec = mol.irrep_nelec
         else:
             # model hamiltonian
-            hf.get_ovlp = lambda *args: np.eye(mol.nsites)
-            hf.get_hcore = lambda *args: hubbard_h1e(mol.matrix, mol.nsites, mol.pbc)
-            hf._eri = hubbard_eri(mol.nsites, mol.u)
+            hf.get_ovlp = lambda *args: np.eye(mol.matrix[0] * mol.matrix[1])
+            hf.get_hcore = lambda *args: hubbard_h1e(mol.matrix, mol.pbc)
+            hf._eri = hubbard_eri(mol.matrix, mol.u)
 
         # perform hf calc
         for i in range(0, 12, 2):
@@ -360,7 +410,9 @@ def hf(mol, target):
             hf.diis_start_cycle = i
 
             try:
-                hf.kernel()
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    hf.kernel()
             except sp.linalg.LinAlgError:
                 pass
 
@@ -404,14 +456,17 @@ def hf(mol, target):
                 orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
 
 
-def _dim(mo_occ):
+def _dim(mo_occ: np.ndarray) -> Tuple[int, ...]:
         """
         this function determines the involved dimensions (number of occupied, virtual, and total orbitals)
 
-        :param mo_occ: hf occupation. numpy array of shape (n_orb,)
-        :return: integer [norb],
-                 integer [nocc],
-                 integer [nvirt]
+        example:
+        >>> mo_occ = np.array([2.] * 4 + [0.] * 6)
+        >>> _dim(mo_occ)
+        (10, 4, 6)
+        >>> mo_occ = np.array([2.] * 4 + [1.] + [0.] * 6)
+        >>> _dim(mo_occ)
+        (11, 5, 6)
         """
         # occupied and virtual lists
         occ = np.where(mo_occ > 0.)[0]
