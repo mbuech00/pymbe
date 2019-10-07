@@ -34,78 +34,84 @@ SPIN_TOL = 1.0e-05
 DIPOLE_TOL = 1.0e-14
 
 
-def ints(mpi, mol, mo_coeff):
+def ints(mol: system.MolCls, mo_coeff: np.ndarray, global_master: bool, local_master: bool, \
+            global_comm: MPI.Comm, local_comm: MPI.Comm, master_comm: MPI.Comm, \
+            num_masters: int) -> Tuple[MPI.Win, ...]:
         """
         this function returns 1e and 2e mo integrals and effective fock potentials from individual occupied orbitals
 
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param mo_coeff: mo coefficients. numpy array of shape (n_orb, n_orb)
-        :return: MPI window handle to numpy array of shape (n_orb, n_orb) [hcore],
-                 MPI window handle to numpy array of shape (nocc, norb, norb) [vhf],
-                 MPI window handle to numpy array of shape (n_orb*(n_orb + 1) // 2, n_orb*(n_orb + 1) // 2) [eri]
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g')
+        >>> mol.norb = mol.nao_nr()
+        >>> mol.nocc = mol.nelectron // 2
+        >>> np.random.seed(1234)
+        >>> mo_coeff = np.random.rand(mol.norb, mol.norb)
+        >>> ints(mol, mo_coeff, True, True, MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1) # doctest: +ELLIPSIS
+        (<mpi4py.MPI.Win object at 0x...>, <mpi4py.MPI.Win object at 0x...>, <mpi4py.MPI.Win object at 0x...>)
         """
         # hcore_ao and eri_ao w/o symmetry
-        if mpi.global_master:
+        if global_master:
             hcore_tmp, eri_tmp = _ao_ints(mol)
 
         # allocate hcore in shared mem
-        if mpi.local_master:
-            hcore_win = MPI.Win.Allocate_shared(8 * mol.norb**2, 8, comm=mpi.local_comm)
+        if local_master:
+            hcore_win = MPI.Win.Allocate_shared(8 * mol.norb**2, 8, comm=local_comm)
         else:
-            hcore_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+            hcore_win = MPI.Win.Allocate_shared(0, 8, comm=local_comm)
         buf = hcore_win.Shared_query(0)[0]
         hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
 
         # compute hcore
-        if mpi.global_master:
+        if global_master:
             hcore[:] = np.einsum('pi,pq,qj->ij', mo_coeff, hcore_tmp, mo_coeff)
 
         # bcast hcore
-        if mpi.num_masters > 1 and mpi.local_master:
-            hcore[:] = parallel.bcast(mpi.master_comm, hcore)
+        if num_masters > 1 and local_master:
+            hcore[:] = parallel.bcast(master_comm, hcore)
 
         # eri_mo w/o symmetry
-        if mpi.global_master:
+        if global_master:
             eri_tmp = ao2mo.incore.full(eri_tmp, mo_coeff)
 
         # allocate vhf in shared mem
-        if mpi.local_master:
-            vhf_win = MPI.Win.Allocate_shared(8 * mol.nocc*mol.norb**2, 8, comm=mpi.local_comm)
+        if local_master:
+            vhf_win = MPI.Win.Allocate_shared(8 * mol.nocc*mol.norb**2, 8, comm=local_comm)
         else:
-            vhf_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+            vhf_win = MPI.Win.Allocate_shared(0, 8, comm=local_comm)
         buf = vhf_win.Shared_query(0)[0]
         vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
 
         # compute vhf
-        if mpi.global_master:
+        if global_master:
             for i in range(mol.nocc):
                 idx = np.asarray([i])
                 vhf[i] = np.einsum('pqrs->rs', eri_tmp[idx[:, None], idx, :, :]) * 2.
                 vhf[i] -= np.einsum('pqrs->ps', eri_tmp[:, idx[:, None], idx, :]) * 2. * .5
 
         # bcast vhf
-        if mpi.num_masters > 1 and mpi.local_master:
-            vhf[:] = parallel.bcast(mpi.master_comm, vhf)
+        if num_masters > 1 and local_master:
+            vhf[:] = parallel.bcast(master_comm, vhf)
 
         # allocate eri in shared mem
-        if mpi.local_master:
-            eri_win = MPI.Win.Allocate_shared(8 * (mol.norb * (mol.norb + 1) // 2) ** 2, 8, comm=mpi.local_comm)
+        if local_master:
+            eri_win = MPI.Win.Allocate_shared(8 * (mol.norb * (mol.norb + 1) // 2) ** 2, 8, comm=local_comm)
         else:
-            eri_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+            eri_win = MPI.Win.Allocate_shared(0, 8, comm=local_comm)
         buf = eri_win.Shared_query(0)[0]
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
 
         # restore 4-fold symmetry in eri_mo
-        if mpi.global_master:
+        if global_master:
             eri[:] = ao2mo.restore(4, eri_tmp, mol.norb)
 
         # bcast eri
-        if mpi.num_masters > 1 and mpi.local_master:
-            eri[:] = parallel.bcast(mpi.master_comm, eri)
+        if num_masters > 1 and local_master:
+            eri[:] = parallel.bcast(master_comm, eri)
 
         # mpi barrier
-        mpi.global_comm.Barrier()
+        global_comm.Barrier()
 
         return hcore_win, vhf_win, eri_win
 
@@ -155,12 +161,17 @@ def _ao_ints(mol: system.MolCls) -> Tuple[np.ndarray, np.ndarray]:
         return hcore, eri
 
 
-def dipole_ints(mol):
+def dipole_ints(mol: system.MolCls) -> np.ndarray:
         """
         this function returns dipole integrals (in AO basis)
 
-        :param mol: pymbe mol object
-        :return: numpy array of shape (3, n_orb, n_orb)
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g')
+        >>> dipole = dipole_ints(mol)
+        >>> dipole.shape
+        (3, 13, 13)
         """
         # gauge origin at (0.0, 0.0, 0.0)
         with mol.with_common_origin([0.0, 0.0, 0.0]):
@@ -169,17 +180,29 @@ def dipole_ints(mol):
         return dipole
 
 
-def e_core_h1e(e_nuc, hcore, vhf, core_idx, cas_idx):
+def e_core_h1e(e_nuc: float, hcore: np.ndarray, vhf: np.ndarray, \
+                core_idx: np.ndarray, cas_idx: np.ndarray) -> Tuple[float, np.ndarray]:
         """
         this function returns core energy and cas space 1e integrals
 
-        :param e_nuc: nuclear energy. float
-        :param hcore: 1e integrals in mo basis. numpy array of shape (n_orb, n_orb)
-        :param vhf: effective fock potentials. numpy array of shape (n_occ, n_orb, n_orb)
-        :param core_idx: core space indices. numpy array of shape (n_inactive,)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :return: float [e_core],
-                 numpy array of shape (n_cas, n_cas) [h1e_cas]
+        example:
+        >>> e_nuc = 0.
+        >>> np.random.seed(1234)
+        >>> hcore = np.random.rand(6, 6)
+        >>> np.random.seed(1234)
+        >>> vhf = np.random.rand(3, 6, 6)
+        >>> core_idx = np.array([0])
+        >>> cas_idx = np.array([2, 4, 5])
+        >>> e_core, h1e_cas = e_core_h1e(e_nuc, hcore, vhf, core_idx, cas_idx)
+        >>> np.isclose(e_core, 0.5745583511366769)
+        True
+        >>> h1e_cas.shape
+        (3, 3)
+        >>> h1e_cas_ref = np.array([[0.74050151, 1.00616633, 0.02753690],
+        ...                         [0.79440516, 0.63367224, 1.13619731],
+        ...                         [1.60429528, 1.40852194, 1.40916262]])
+        >>> np.allclose(h1e_cas, h1e_cas_ref)
+        True
         """
         # init core energy
         e_core = e_nuc
@@ -317,6 +340,7 @@ def hf(mol, target):
         # hf settings
         if mol.debug >= 1:
             hf.verbose = 4
+
         hf.init_guess = mol.hf_init_guess
         hf.conv_tol = CONV_TOL
         hf.max_cycle = 1000
@@ -1104,6 +1128,6 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod(verbose=True)
+    doctest.testmod()#verbose=True)
 
 

@@ -151,7 +151,8 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         mol, calc = parallel.fund(mpi, mol, calc)
 
         # get handles to all integral windows
-        mol.hcore, mol.vhf, mol.eri = kernel.ints(mpi, mol, calc.mo_coeff)
+        mol.hcore, mol.vhf, mol.eri = kernel.ints(mol, calc.mo_coeff, mpi.global_master, mpi.local_master, \
+                                                    mpi.global_comm, mpi.local_comm, mpi.master_comm, mpi.num_masters)
 
         # write fundamental info
         if not calc.restart and mpi.global_master and calc.misc['rst']:
