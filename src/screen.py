@@ -131,6 +131,7 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
         # free parent_tuples window
         exp.tuples.Free()
+        del tuples
 
         # free other parent tuples
         if tuples_pi is not None:
@@ -323,6 +324,7 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
         # free parent_tuples window
         exp.tuples.Free()
+        del tuples
 
         # allgather number of child tuples
         recv_counts = np.array(mpi.global_comm.allgather(child_tup.size))
