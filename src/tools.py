@@ -29,7 +29,7 @@ import parallel
 # restart folder
 RST = os.getcwd()+'/rst'
 # pi-orbital mo energy threshold
-PI_THRES: float = 1.0e-04
+PI_THRES: float = 1.e-04
 
 
 class Logger:

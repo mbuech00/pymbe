@@ -56,7 +56,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # init time
         if len(exp.time['mbe']) < len(exp.hashes):
-            exp.time['mbe'].append(0.0)
+            exp.time['mbe'].append(0.)
         time = MPI.Wtime()
 
         # init increments
@@ -214,7 +214,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 min_inc = np.min(np.abs(inc[np.nonzero(inc)]))
                 max_inc = np.max(np.abs(inc[np.nonzero(inc)]))
             else:
-                mean_inc = min_inc = max_inc = 0.0
+                mean_inc = min_inc = max_inc = 0.
 
         elif calc.target_mbe in ['dipole', 'trans']:
 
@@ -232,7 +232,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                     min_inc[k] = np.min(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
                     max_inc[k] = np.max(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
                 else:
-                    mean_inc[k] = min_inc[k] = max_inc[k] = 0.0
+                    mean_inc[k] = min_inc[k] = max_inc[k] = 0.
 
         # save timing
         exp.time['mbe'][-1] += MPI.Wtime() - time
@@ -349,7 +349,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # calculate increment
                 if exp.order > exp.min_order:
-                    if np.any(inc_tup != 0.0):
+                    if np.any(inc_tup != 0.):
                         inc_tup -= _sum(calc.occup, calc.ref_space, calc.exp_space, calc.target_mbe, \
                                         exp.min_order, exp.order, inc, hashes, tup, pi_prune=calc.extra['pi_prune'])
 
@@ -473,7 +473,7 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         >>> tup = np.arange(2, 4, dtype=np.int16)
         >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -.3)
         True
-        >>> inc = [np.array([[0., 0., .1], [0., .0, .2]])]
+        >>> inc = [np.array([[0., 0., .1], [0., 0., .2]])]
         >>> np.allclose(_sum(occup, ref_space, exp_space, 'dipole', min_order, order, inc, hashes, tup, False), np.array([0., 0., .3]))
         True
         >>> ref_space = np.array([])
@@ -495,7 +495,7 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         """
         # init res
         if target_mbe in ['energy', 'excitation']:
-            res = 0.0
+            res = 0.
         else:
             res = np.zeros(3, dtype=np.float64)
 

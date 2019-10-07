@@ -611,7 +611,7 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
                                     dtype=np.float64, count=idx.size)
 
                 # add orbital to list of child orbitals if allowed
-                if not _prot_screen(prot['scheme'], screen_thres, prop[idx]) or np.sum(screen_thres) == 0.0:
+                if not _prot_screen(prot['scheme'], screen_thres, prop[idx]) or np.sum(screen_thres) == 0.:
 
                     if pi_gen:
                         child_orbs += orb.tolist()
@@ -652,7 +652,7 @@ def _prot_screen(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
             for dim in range(3):
 
                 # only screen based on relevant dimensions
-                if np.sum(inc[:, dim]) != 0.0:
+                if np.sum(inc[:, dim]) != 0.:
                     screen = _prot_scheme(scheme, thres[np.nonzero(thres)], inc[:, dim])
 
                 # if any increment is large enough, then quit screening
@@ -712,13 +712,13 @@ def _thres(occup: np.ndarray, thres: Dict[str, Union[float, int]], \
         True
         """
         # determine involved dimensions
-        nocc = np.count_nonzero(occup[ref_space] > 0.0)
-        nocc += np.count_nonzero(occup[tup] > 0.0)
-        nvirt = np.count_nonzero(occup[ref_space] == 0.0)
-        nvirt += np.count_nonzero(occup[tup] == 0.0)
+        nocc = np.count_nonzero(occup[ref_space] > 0.)
+        nocc += np.count_nonzero(occup[tup] > 0.)
+        nvirt = np.count_nonzero(occup[ref_space] == 0.)
+        nvirt += np.count_nonzero(occup[tup] == 0.)
 
         # init thres
-        screen_thres = 0.0
+        screen_thres = 0.
 
         # update thres
         if nocc > 0 and nvirt > 0:

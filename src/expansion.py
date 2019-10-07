@@ -96,9 +96,9 @@ def init_tup(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.n
         # init tuples
         if ref_space.size > 0:
 
-            if np.all(occup[ref_space] == 0.0):
+            if np.all(occup[ref_space] == 0.):
                 tuples_tmp = np.array([[i] for i in exp_space['occ']], dtype=np.int16)
-            elif np.all(occup[ref_space] > 0.0):
+            elif np.all(occup[ref_space] > 0.):
                 tuples_tmp = np.array([[a] for a in exp_space['virt']], dtype=np.int16)
             else:
                 tuples_tmp = np.array([[p] for p in exp_space['tot']], dtype=np.int16)

@@ -39,7 +39,7 @@ class MolCls(gto.Mole):
                 self.system: Dict[str, Any] = {'charge': 0, 'spin': 0, 'symmetry': 'c1', 'hf_symmetry': None, \
                                                'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
                                                'unit': 'ang', 'frozen': False, 'ncore': 0, 'irrep_nelec': {}, 'debug': 0, \
-                                               'u': 1.0, 'n': 1.0, 'matrix': (1, 6), 'pbc': True}
+                                               'u': 1., 'n': 1., 'matrix': (1, 6), 'pbc': True}
                 self.max_memory: float = 1e10
                 self.incore_anyway: bool = True
 
@@ -240,13 +240,13 @@ def sanity_chk(mol: MolCls) -> None:
             # u parameter
             tools.assertion(isinstance(mol.u, float), \
                             'hubbard on-site repulsion parameter (u) must be a float')
-            tools.assertion(mol.u > 0.0, \
+            tools.assertion(mol.u > 0., \
                             'only repulsive hubbard models are implemented (u > 0.0)')
 
             # n parameter
             tools.assertion(isinstance(mol.n, float), \
                             'hubbard model filling parameter (n) must be a float')
-            tools.assertion(mol.n > 0.0 and mol.n < 2.0, \
+            tools.assertion(mol.n > 0. and mol.n < 2., \
                             'hubbard model filling parameter (n) must be a float between 0.0 < n < 2.0')
 
             # periodic boundary conditions

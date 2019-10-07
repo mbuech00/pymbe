@@ -116,7 +116,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                                      exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
             # init screening time
-            exp.time['screen'].append(0.0)
+            exp.time['screen'].append(0.)
 
             if exp.order < exp.max_order:
 

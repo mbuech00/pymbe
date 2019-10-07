@@ -30,9 +30,9 @@ import tools
 
 
 MAX_MEM = 1e10
-CONV_TOL = 1.0e-10
-SPIN_TOL = 1.0e-05
-DIPOLE_TOL = 1.0e-14
+CONV_TOL = 1.e-10
+SPIN_TOL = 1.e-05
+DIPOLE_TOL = 1.e-14
 
 
 def ints(mol: system.MolCls, mo_coeff: np.ndarray, global_master: bool, local_master: bool, \
@@ -173,8 +173,8 @@ def dipole_ints(mol: system.MolCls) -> np.ndarray:
         >>> dipole.shape
         (3, 7, 7)
         """
-        # gauge origin at (0.0, 0.0, 0.0)
-        with mol.with_common_origin([0.0, 0.0, 0.0]):
+        # gauge origin
+        with mol.with_common_origin([0., 0., 0.]):
             dipole = mol.intor_symmetric('int1e_r', comp=3)
 
         return dipole
@@ -274,10 +274,10 @@ def hubbard_h1e(matrix: Tuple[int, int], pbc: bool = False) -> np.ndarray:
 
             # adjacent neighbours
             for i in range(nsites-1):
-                h1e[i, i+1] = h1e[i+1, i] = -1.0
+                h1e[i, i+1] = h1e[i+1, i] = -1.
 
             if pbc:
-                h1e[-1, 0] = h1e[0, -1] = -1.0
+                h1e[-1, 0] = h1e[0, -1] = -1.
 
         elif ndim == 2:
 
@@ -295,7 +295,7 @@ def hubbard_h1e(matrix: Tuple[int, int], pbc: bool = False) -> np.ndarray:
                     site_2_xy = tools.mat_idx(site_2, nx, ny)
 
                     if site_2_xy in nbrs:
-                        h1e[site_1, site_2] = h1e[site_2, site_1] = -1.0
+                        h1e[site_1, site_2] = h1e[site_2, site_1] = -1.
 
         return h1e
 
@@ -426,7 +426,7 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
         if target == 'dipole':
             dm = hf.make_rdm1()
             elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
-            elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0.0 for i in range(elec_dipole.size)])
+            elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0. for i in range(elec_dipole.size)])
         else:
             elec_dipole = None
 
@@ -519,7 +519,7 @@ def ref_mo(mol, calc):
                     loc = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
                 else:
                     loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
-                loc.conv_tol = 1.0e-10
+                loc.conv_tol = CONV_TOL
                 if mol.debug >= 1:
                     loc.verbose = 4
                 calc.mo_coeff[:, mol.ncore:mol.nocc] = loc.kernel()
@@ -529,7 +529,7 @@ def ref_mo(mol, calc):
                     loc = lo.PM(mol, calc.mo_coeff[:, mol.nocc:])
                 else:
                     loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:])
-                loc.conv_tol = 1.0e-10
+                loc.conv_tol = CONV_TOL
                 if mol.debug >= 1:
                     loc.verbose = 4
                 calc.mo_coeff[:, mol.nocc:] = loc.kernel()
@@ -658,7 +658,7 @@ def ref_prop(mol, calc):
 
             # no correlation in expansion reference space
             if calc.target_mbe in ['energy', 'excitation']:
-                ref = 0.0
+                ref = 0.
             else:
                 ref = np.zeros(3, dtype=np.float64)
 
@@ -785,7 +785,7 @@ def _dipole(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_
         elec_dipole = np.einsum('xij,ji->x', ao_dipole, rdm1)
 
         # remove noise
-        elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0.0 for i in range(elec_dipole.size)])
+        elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0. for i in range(elec_dipole.size)])
 
         # 'correlation' dipole
         if not trans:
@@ -1028,8 +1028,8 @@ def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
         # settings
         solver.conv_tol = CONV_TOL
         if target in ['dipole', 'trans']:
-            solver.conv_tol *= 1.0e-04
-            solver.lindep = solver.conv_tol * 1.0e-01
+            solver.conv_tol *= 1.e-04
+            solver.lindep = solver.conv_tol * 1.e-01
         solver.max_memory = MAX_MEM
         solver.max_cycle = 5000
         solver.max_space = 25
@@ -1206,7 +1206,7 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
         # calculate (t) correction
         if method == 'ccsd(t)':
 
-            if np.amin(occup[cas_idx]) == 1.0:
+            if np.amin(occup[cas_idx]) == 1.:
                 if np.where(occup[cas_idx] == 1.)[0].size >= 3:
                     e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 

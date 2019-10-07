@@ -124,7 +124,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         mol.dipole = kernel.dipole_ints(mol) if calc.target_mbe in ['dipole', 'trans'] else None
 
         # nuclear repulsion energy
-        mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.0
+        mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.
 
         if mpi.global_master:
 
@@ -168,7 +168,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'] = kernel.base(mol, calc.occup, calc.base['method'])
             else:
-                calc.prop['base']['energy'] = 0.0
+                calc.prop['base']['energy'] = 0.
 
             # reference space properties
             calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc)

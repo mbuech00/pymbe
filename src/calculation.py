@@ -45,7 +45,7 @@ class CalcCls:
                 self.base: Dict[str, Union[None, str]] = {'method': None}
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
                 self.extra: Dict[str, bool] = {'hf_guess': True, 'pi_prune': False}
-                self.thres: Dict[str, float] = {'init': 1.0e-10, 'relax': 1.0, 'start': 3}
+                self.thres: Dict[str, float] = {'init': 1.e-10, 'relax': 1., 'start': 3}
                 self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
                 self.orbs: Dict[str, str] = {'type': 'can'}
                 self.mpi: Dict[str, int] = {}
@@ -219,11 +219,11 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'valid input in thres dict is: init, relax, and start')
         tools.assertion(isinstance(calc.thres['init'], float), \
                         'initial threshold (init) must be a float')
-        tools.assertion(calc.thres['init'] >= 0.0, \
+        tools.assertion(calc.thres['init'] >= 0., \
                         'initial threshold (init) must be a float >= 0.0')
         tools.assertion(isinstance(calc.thres['relax'], float), \
                         'initial threshold (init) must be a float')
-        tools.assertion(calc.thres['relax'] >= 1.0, \
+        tools.assertion(calc.thres['relax'] >= 1., \
                         'threshold relaxation (relax) must be a float >= 1.0')
         tools.assertion(isinstance(calc.thres['start'], int), \
                         'start threshold parameter (start) must be an int')
