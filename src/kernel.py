@@ -168,10 +168,10 @@ def dipole_ints(mol: system.MolCls) -> np.ndarray:
         example:
         >>> mol = gto.Mole()
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g')
+        ...               basis = 'sto-3g')
         >>> dipole = dipole_ints(mol)
         >>> dipole.shape
-        (3, 13, 13)
+        (3, 7, 7)
         """
         # gauge origin at (0.0, 0.0, 0.0)
         with mol.with_common_origin([0.0, 0.0, 0.0]):
@@ -673,6 +673,50 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
             mo_coeff: Union[np.ndarray, None], dipole_hf: Union[np.ndarray, None]) -> Tuple[Union[float, np.ndarray], int]:
         """
         this function return the result property from a given method
+
+        example:
+        >>> occup = np.array([2.] * 3 + [0.] * 3)
+        >>> orbsym = np.zeros(6, dtype=np.int)
+        >>> e_hf = e_core = 0.
+        >>> h1e = hubbard_h1e((1, 6), True)
+        >>> h2e = hubbard_eri((1, 6), 2.)
+        >>> h2e = ao2mo.restore(4, h2e, 6)
+        >>> core_idx = np.array([0])
+        >>> cas_idx = np.arange(1, 5)
+        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
+        >>> cas_idx_tril = tools.cas_idx_tril(cas_idx)
+        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
+        >>> nelec = (2, 2)
+        >>> e, ndets = main('fci', 'pyscf_spin0', occup, 'energy', 'A', orbsym, True, 0,
+        ...                 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)
+        >>> np.isclose(e, -2.8759428090050676)
+        True
+        >>> ndets
+        36
+        >>> exc = main('fci', 'pyscf_spin0', occup, 'excitation', 'A', orbsym, True, 1,
+        ...            0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)[0]
+        >>> np.isclose(exc, 1.850774199956839)
+        True
+        >>> e = main('ccsd', '', occup, 'energy', 'A', orbsym, True, 0,
+        ...          0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)[0]
+        >>> np.isclose(e, 0.8234069541302586)
+        True
+        >>> np.random.seed(1234)
+        >>> ao_dipole = np.random.rand(3, 6, 6)
+        >>> mo_coeff = np.eye(6, dtype=np.float64)
+        >>> dipole_hf = np.zeros(3, dtype=np.float64)
+        >>> dipole = main('fci', 'pyscf_spin0', occup, 'dipole', 'A', orbsym, True, 0,
+        ...               0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
+        ...               ao_dipole, mo_coeff, dipole_hf)[0]
+        >>> dipole_ref = np.array([4.59824861, 4.7898921 , 5.10183542])
+        >>> np.allclose(dipole, dipole_ref)
+        True
+        >>> trans = main('fci', 'pyscf_spin0', occup, 'trans', 'A', orbsym, True, 1,
+        ...              0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
+        ...              ao_dipole, mo_coeff, dipole_hf)[0]
+        >>> trans_ref = np.array([-0.39631621, -0.19800879, -0.31924946])
+        >>> np.allclose(trans, trans_ref)
+        True
         """
         if method in ['ccsd', 'ccsd(t)']:
 
@@ -694,31 +738,36 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
 
             elif target_mbe == 'dipole':
 
-                res = _dipole(dipole_hf, occup, dipole_hf, \
+                res = _dipole(ao_dipole, occup, dipole_hf, \
                                 mo_coeff, cas_idx, res_tmp['rdm1'])
 
             elif target_mbe == 'trans':
 
-                res = _trans(dipole_hf, occup, dipole_hf, \
+                res = _trans(ao_dipole, occup, dipole_hf, \
                                 mo_coeff, cas_idx, res_tmp['t_rdm1'], \
                                 res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 
         return res, ndets
 
 
-def _dipole(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, trans=False):
+def _dipole(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_coeff: np.ndarray, \
+                cas_idx: np.ndarray, cas_rdm1: np.ndarray, trans: bool = False) -> np.ndarray:
         """
         this function returns an electronic (transition) dipole moment
 
-        :param norb: number of orbitals. integer
-        :param ao_dipole: dipole integrals in ao basis. numpy array of shape (3, n_orb, n_orb)
-        :param occup: orbital occupation. numpy array of shape (n_orb,)
-        :param hf_dipole: hf dipole moment. numpy array of shape (3,)
-        :param mo_coeff: mo coefficient. numpy array of shape (n_orb, n_orb)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :param cas_rdm1: cas space rdm1. numpy array of shape (n_cas, n_cas)
-        :param trans: transition dipole moment logical. bool
-        :return: numpy array of shape (3,)
+        example:
+        >>> occup = np.array([2.] * 3 + [0.] * 3)
+        >>> hf_dipole = np.zeros(3, dtype=np.float64)
+        >>> mo_coeff = np.eye(6, dtype=np.float64)
+        >>> cas_idx = np.arange(1, 5)
+        >>> np.random.seed(1234)
+        >>> ao_dipole = np.random.rand(3, 6, 6)
+        >>> np.random.seed(1234)
+        >>> cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
+        >>> dipole = _dipole(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1)
+        >>> dipole_ref = np.array([5.90055525, 5.36437348, 6.40001788])
+        >>> np.allclose(dipole, dipole_ref)
+        True
         """
         # init (transition) rdm1
         if trans:
@@ -745,20 +794,24 @@ def _dipole(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, trans=Fals
         return elec_dipole
 
 
-def _trans(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, hf_weight_gs, hf_weight_ex):
+def _trans(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_coeff: np.ndarray, \
+            cas_idx: np.ndarray, cas_rdm1: np.ndarray, hf_weight_gs: float, hf_weight_ex: float) -> np.ndarray:
         """
         this function returns an electronic transition dipole moment
 
-        :param norb: number of orbitals. integer
-        :param ao_dipole: dipole integrals in ao basis. numpy array of shape (n_orb, n_orb)
-        :param occup: orbital occupation. numpy array of shape (n_orb,)
-        :param hf_dipole: hf dipole moment. numpy array of shape (3,)
-        :param mo_coeff: mo coefficient. numpy array of shape (n_orb, n_orb)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :param cas_rdm1: cas space rdm1. numpy array of shape (n_cas, n_cas)
-        :param hf_weight_gs: weight of ground state in ci vector. float
-        :param hf_weight_ex: weight of excited state in ci vector. float
-        :return: numpy array of shape (3,)
+        example:
+        >>> occup = np.array([2.] * 3 + [0.] * 3)
+        >>> hf_dipole = np.zeros(3, dtype=np.float64)
+        >>> mo_coeff = np.eye(6, dtype=np.float64)
+        >>> cas_idx = np.arange(1, 5)
+        >>> np.random.seed(1234)
+        >>> ao_dipole = np.random.rand(3, 6, 6)
+        >>> np.random.seed(1234)
+        >>> cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
+        >>> trans = _trans(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, .9, .4)
+        >>> trans_ref = np.array([5.51751635, 4.92678927, 5.45675281])
+        >>> np.allclose(trans, trans_ref)
+        True
         """
         return _dipole(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, True) \
                         * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
