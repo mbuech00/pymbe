@@ -449,7 +449,7 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, \
 
         # perform base calc
         if base_method is not None:
-            e_full -= kernel.main(base_method, solver, occup, target_mbe, state_wfnsym, orbsym, \
+            e_full -= kernel.main(base_method, '', occup, target_mbe, state_wfnsym, orbsym, \
                                       hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
                                       core_idx, cas_idx, nelec, debug, ao_dipole, mo_coeff, dipole_hf)[0]
 

@@ -648,11 +648,21 @@ def ref_prop(mol, calc):
             e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # exp model
-            ref = main(mol, calc, calc.model['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+            ref = main(calc.model['method'], calc.model['solver'], calc.occup, calc.target_mbe, \
+                        calc.state['wfnsym'], calc.orbsym, calc.extra['hf_guess'], calc.state['root'], \
+                        calc.prop['hf']['energy'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, mol.debug, \
+                        mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
+                        calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
+                        calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)[0]
 
             # base model
             if calc.base['method'] is not None:
-                ref -= main(mol, calc, calc.base['method'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+                ref -= main(calc.base['method'], '', calc.occup, calc.target_mbe, \
+                            calc.state['wfnsym'], calc.orbsym, calc.extra['hf_guess'], calc.state['root'], \
+                            calc.prop['hf']['energy'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, mol.debug, \
+                            mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
+                            calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
+                            calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)[0]
 
         else:
 
