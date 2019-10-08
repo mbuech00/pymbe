@@ -6,5 +6,6 @@ model = {'method': 'fci'}
 prot = {'scheme': 3}
 target = {'energy': True}
 ref = {'method': 'casci', 'select': []}
+orbs = {'type': 'local'}
 thres = {'init': 1.0e-10, 'relax': 5.0}
 
