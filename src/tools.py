@@ -149,10 +149,10 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
         this function uses math.fsum to safely sum 1d array or 2d array (column-wise)
 
         example:
-        >>> fsum(np.arange(10.))
-        45.0
-        >>> fsum(np.arange(4. ** 2).reshape(4, 4))
-        array([24., 28., 32., 36.])
+        >>> np.isclose(fsum(np.arange(10.)), 45.)
+        True
+        >>> np.allclose(fsum(np.arange(4. ** 2).reshape(4, 4)), np.array([24., 28., 32., 36.]))
+        True
         """
         if a.ndim == 1:
             return math.fsum(a)

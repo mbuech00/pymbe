@@ -428,11 +428,16 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, \
         >>> n = 4
         >>> occup = np.array([2.] * (n // 2) + [0.] * (n // 2))
         >>> orbsym = np.zeros(n, dtype=np.int)
-        >>> h1e_cas, h2e_cas = kernel.hubbard_h1e((1, n), n, False), kernel.hubbard_eri(n, 2.)
+        >>> h1e_cas, h2e_cas = kernel.hubbard_h1e((1, n), False), kernel.hubbard_eri((1, n), 2.)
         >>> core_idx, cas_idx = np.array([]), np.arange(n)
-        >>> _inc('fci', None, 'pyscf_spin0', occup, 'energy', None, orbsym, 0,
-        ...      0, 0., 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, False, None, None, None)
-        (-2.875942809005048, 36, (2, 2))
+        >>> e, ndets, nelec = _inc('fci', None, 'pyscf_spin0', occup, 'energy', None, orbsym, 0,
+        ...                        0, 0., 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, False, None, None, None)
+        >>> np.isclose(e, -2.875942809005048)
+        True
+        >>> ndets
+        36
+        >>> nelec
+        (2, 2)
         """
         # nelec
         nelec = tools.nelec(occup, cas_idx)
