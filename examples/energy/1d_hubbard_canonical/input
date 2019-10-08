@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+
+system = {'u': 2.0, 'n': 1.0, 'matrix': (1, 10), 'pbc': True}
+
+model = {'method': 'fci'}
+prot = {'scheme': 3}
+target = {'energy': True}
+ref = {'method': 'casci', 'select': []}
+thres = {'init': 1.0e-10, 'relax': 5.0}
+

@@ -13,6 +13,7 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import os
+import re
 import sys
 import traceback
 import subprocess
@@ -25,7 +26,10 @@ from typing import Tuple, List, Union
 
 import parallel
 
-PI_THRES: float = 1.0e-04
+# restart folder
+RST = os.getcwd()+'/rst'
+# pi-orbital mo energy threshold
+PI_THRES: float = 1.e-04
 
 
 class Logger:
@@ -145,10 +149,10 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
         this function uses math.fsum to safely sum 1d array or 2d array (column-wise)
 
         example:
-        >>> fsum(np.arange(10.))
-        45.0
-        >>> fsum(np.arange(4. ** 2).reshape(4, 4))
-        array([24., 28., 32., 36.])
+        >>> np.isclose(fsum(np.arange(10.)), 45.)
+        True
+        >>> np.allclose(fsum(np.arange(4. ** 2).reshape(4, 4)), np.array([24., 28., 32., 36.]))
+        True
         """
         if a.ndim == 1:
             return math.fsum(a)
@@ -163,7 +167,7 @@ def hash_2d(a: np.ndarray) -> np.ndarray:
         this function converts a 2d numpy array to a 1d array of hashes
 
         example:
-        >>> hash_2d(np.arange(4*4).reshape(4,4))
+        >>> hash_2d(np.arange(4 * 4, dtype=np.int16).reshape(4, 4))
         array([-2930228190932741801,  1142744019865853604, -8951855736587463849,
                 4559082070288058232])
         """
@@ -175,10 +179,10 @@ def hash_1d(a: np.ndarray) -> int:
         this function converts a 1d numpy array to a hash
 
         example:
-        >>> hash_1d(np.arange(5))
+        >>> hash_1d(np.arange(5, dtype=np.int16))
         1974765062269638978
         """
-        return hash(a.tobytes())
+        return hash(a.astype(np.int64).tobytes())
 
 
 def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
@@ -186,10 +190,10 @@ def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
         this function finds occurences of b in a through a binary search
 
         example:
-        >>> a = np.arange(10)
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 9]))
+        >>> a = np.arange(10, dtype=np.int16)
+        >>> hash_compare(a, np.array([1, 3, 5, 7, 9], dtype=np.int16))
         array([1, 3, 5, 7, 9])
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 11])) is None
+        >>> hash_compare(a, np.array([1, 3, 5, 7, 11], dtype=np.int16)) is None
         True
         """
         left = a.searchsorted(b, side='left')
@@ -206,7 +210,7 @@ def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns a cas space
 
         example:
-        >>> cas(np.arange(5), np.array([7, 13]))
+        >>> cas(np.array([7, 13]), np.arange(5))
         array([ 0,  1,  2,  3,  4,  7, 13])
         """
         return np.sort(np.append(ref_space, tup))
@@ -284,8 +288,8 @@ def pi_space(mo_energy: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, 
         this function returns pi-orbitals and hashes from total expansion space
 
         example:
-        >>> pi_space(np.array([-0.3, -0.15, -0.15, 0.05, 0.2, 0.2, 0.4, 0.5]), np.arange(7, dtype=np.int32))
-        (array([1, 2, 4, 5], dtype=int32), array([-6970320760023207014,  4340140435613229407]))
+        >>> pi_space(np.array([-.3, -.15, -.15, .1, .2, .2, .4, .5]), np.arange(7, dtype=np.int16))
+        (array([1, 2, 4, 5], dtype=int16), array([-2163557957507198923,  1937934232745943291]))
         """
         # init pi_space list
         pi_space: List[int] = []
@@ -300,16 +304,17 @@ def pi_space(mo_energy: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, 
                 pi_space.append(exp_space[i])
 
         # recast as array
-        pi_space_arr = np.unique(np.array(pi_space, dtype=np.int32))
+        pi_space_arr = np.unique(np.array(pi_space, dtype=np.int16))
 
         # get all degenerate pi-pairs
         pi_pairs = pi_space_arr.reshape(-1, 2)
 
         # get hashes of all degenerate pi-pairs
         pi_hashes = hash_2d(pi_pairs)
+        pi_pairs = pi_pairs[np.argsort(pi_hashes)]
         pi_hashes.sort()
 
-        return pi_space_arr, pi_hashes
+        return pi_pairs.reshape(-1,), pi_hashes
 
 
 def non_deg_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -317,8 +322,8 @@ def non_deg_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns non-degenerate orbitals from tuple of orbitals
 
         example:
-        >>> non_deg_orbs(np.array([1, 2, 4, 5]), np.arange(8))
-        array([0, 3, 6, 7])
+        >>> non_deg_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
+        array([0, 3, 6, 7], dtype=int16)
         """
         return tup[np.invert(np.in1d(tup, pi_space))]
 
@@ -328,8 +333,8 @@ def _pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns pi-orbitals from tuple of orbitals
 
         example:
-        >>> _pi_orbs(np.array([1, 2, 4, 5]), np.arange(8))
-        array([1, 2, 4, 5])
+        >>> _pi_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
+        array([1, 2, 4, 5], dtype=int16)
         """
         return tup[np.in1d(tup, pi_space)]
 
@@ -339,7 +344,7 @@ def n_pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns number of pi-orbitals in tuple of orbitals
 
         example:
-        >>> n_pi_orbs(np.array([1, 2, 4, 5]), np.arange(8))
+        >>> n_pi_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
         4
         """
         return _pi_orbs(pi_space, tup).size
@@ -350,9 +355,9 @@ def pi_pairs_deg(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         this function returns pairs of degenerate pi-orbitals from tuple of orbitals
 
         example:
-        >>> pi_pairs_deg(np.array([1, 2, 4, 5]), np.arange(8))
+        >>> pi_pairs_deg(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
         array([[1, 2],
-               [4, 5]])
+               [4, 5]], dtype=int16)
         """
         # get all pi-orbitals in tup
         tup_pi_orbs = _pi_orbs(pi_space, tup)
@@ -369,15 +374,15 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
         this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
 
         example:
-        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int32)
-        >>> pi_hashes = np.array([-6970320760023207014,  4340140435613229407])
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int32))
+        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int16)
+        >>> pi_hashes = np.sort(np.array([-2163557957507198923, 1937934232745943291]))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int16))
         True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int32))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int16))
         True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int32))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int16))
         False
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int32))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int16))
         False
         """
         # get all pi-orbitals in tup
@@ -412,13 +417,13 @@ def seed_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         this function returns True for a tuple of orbitals allowed under pruning wrt occupied seed orbitals
 
         example:
-        >>> occup = np.array([2., 2., 2., 0., 0., 0., 0.])
-        >>> seed_prune(occup, np.arange(2, 7))
+        >>> occup = np.array([2.] * 3 + [0.] * 4)
+        >>> seed_prune(occup, np.arange(2, 7, dtype=np.int16))
         True
-        >>> seed_prune(occup, np.arange(3, 7))
+        >>> seed_prune(occup, np.arange(3, 7, dtype=np.int16))
         False
         """
-        return np.any(occup[tup] > 0.0)
+        return np.any(occup[tup] > 0.)
 
 
 def corr_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
@@ -426,13 +431,13 @@ def corr_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         this function returns True for a tuple of orbitals allowed under pruning wrt a mix of occupied and virtual orbitals
 
         example:
-        >>> occup = np.array([2., 2., 2., 0., 0., 0., 0.])
-        >>> corr_prune(occup, np.array([2, 4]))
+        >>> occup = np.array([2.] * 3 + [0.] * 4)
+        >>> corr_prune(occup, np.array([2, 4], dtype=np.int16))
         True
-        >>> corr_prune(occup, np.array([3, 4]))
+        >>> corr_prune(occup, np.array([3, 4], dtype=np.int16))
         False
         """
-        return np.any(occup[tup] > 0.0) and np.any(occup[tup] == 0.0)
+        return np.any(occup[tup] > 0.) and np.any(occup[tup] == 0.)
 
 
 def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
@@ -440,37 +445,43 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
         this function returns the number of electrons in a given tuple of orbitals
 
         example:
-        >>> occup = np.array([2., 2., 2., 0., 0., 0., 0.])
-        >>> nelec(occup, np.array([2, 4]))
+        >>> occup = np.array([2.] * 3 + [0.] * 4)
+        >>> nelec(occup, np.array([2, 4], dtype=np.int16))
         (1, 1)
-        >>> nelec(occup, np.array([3, 4]))
+        >>> nelec(occup, np.array([3, 4], dtype=np.int16))
         (0, 0)
         """
         occup_tup = occup[tup]
-        return (np.count_nonzero(occup_tup > 0.0), np.count_nonzero(occup_tup > 1.0))
+        return (np.count_nonzero(occup_tup > 0.), np.count_nonzero(occup_tup > 1.))
 
 
 def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
-            ref_space: np.ndarray = None, n_elec: Tuple[int, ...] = None) -> float:
+            ref_space: np.ndarray = None, n_elec: Tuple[int, ...] = None) -> int:
         """
         this function returns the number of determinants in given casci calculation (ignoring point group symmetry)
 
         example:
-        >>> occup = np.array([2., 2., 2., 0., 0., 0., 0.])
-        >>> ndets(occup, np.arange(1, 5))
+        >>> occup = np.array([2.] * 3 + [0.] * 4)
+        >>> ndets(occup, np.arange(1, 5, dtype=np.int16))
         36
-        >>> ndets(occup, np.arange(1, 7), ref_space=np.array([1, 2]))
+        >>> ndets(occup, np.arange(1, 7, dtype=np.int16),
+        ...       ref_space=np.array([1, 2], dtype=np.int16))
         4900
-        >>> ndets(occup, np.arange(1, 7, 2), ref_space=np.array([1, 3]), n_elec=(1, 1))
+        >>> ndets(occup, np.arange(1, 7, 2, dtype=np.int16),
+        ...       ref_space=np.array([1, 3], dtype=np.int16),
+        ...       n_elec=(1, 1))
         100
         """
         if n_elec is None:
             n_elec = nelec(occup, cas_idx)
+
         n_orbs = cas_idx.size
+
         if ref_space is not None:
             ref_n_elec = nelec(occup, ref_space)
             n_elec = tuple(map(sum, zip(n_elec, ref_n_elec)))
             n_orbs += ref_space.size
+
         return int(scipy.special.binom(n_orbs, n_elec[0]) * scipy.special.binom(n_orbs, n_elec[1]))
 
 
@@ -504,6 +515,54 @@ def near_nbrs(site_xy: Tuple[int, int], nx: int, ny: int) -> List[Tuple[int, int
         left = (site_xy[0], (site_xy[1] + 1) % ny)
         right = (site_xy[0], (site_xy[1] - 1) % ny)
         return [up, down, left, right]
+
+
+def write_file(order: Union[None, int], arr: np.ndarray, string: str) -> None:
+        """
+        this function writes a general restart file corresponding to input string
+        """
+        if order is None:
+            np.save(os.path.join(RST, '{:}'.format(string)), arr)
+        else:
+            np.save(os.path.join(RST, '{:}_{:}'.format(string, order)), arr)
+
+
+def read_file(order: int, string: str) -> np.ndarray:
+        """
+        this function reads a general restart file corresponding to input string
+        """
+        if order is None:
+            return np.load(os.path.join(RST, '{:}.npy'.format(string)))
+        else:
+            return np.load(os.path.join(RST, '{:}_{:}.npy'.format(string, order)))
+
+
+def natural_keys(txt: str) -> List[Union[int, str]]:
+        """
+        this function return keys to sort a string in human order (as alist.sort(key=natural_keys))
+        see: http://nedbatchelder.com/blog/200712/human_sorting.html
+        see: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+
+        example:
+        >>> natural_keys('mbe_test_string')
+        ['mbe_test_string']
+        >>> natural_keys('mbe_test_string_1')
+        ['mbe_test_string_', 1, '']
+        """
+        return [_convert(c) for c in re.split('(\d+)', txt)]
+
+
+def _convert(txt: str) -> Union[int, str]:
+        """
+        this function converts strings with numbers in them
+
+        example:
+        >>> isinstance(_convert('string'), str)
+        True
+        >>> isinstance(_convert('1'), int)
+        True
+        """
+        return int(txt) if txt.isdigit() else txt
 
 
 if __name__ == "__main__":

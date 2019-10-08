@@ -17,7 +17,8 @@ import sys
 import os
 import ast
 import numpy as np
-from pyscf import symm
+from pyscf import symm, scf
+from typing import Dict, List, Tuple, Union, Any
 
 import tools
 
@@ -26,40 +27,46 @@ import tools
 ATTR = ['model', 'base', 'orbs', 'target', 'prot', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
 
 
-class CalcCls(object):
+class CalcCls:
         """
         this class contains the pymbe calculation attributes
         """
-        def __init__(self, mol):
+        def __init__(self, ncore: int, nelectron: int, symmetry: Union[bool, str]) -> None:
                 """
                 init calculation attributes
-
-                :param mpi: pymbe mpi object
-                :param mol: pymbe mol object
                 """
                 # set defaults
-                self.model = {'method': 'fci', 'solver': 'pyscf_spin0'}
-                self.target = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
-                self.prot = {'scheme': 2}
-                self.ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
-                            'select': [i for i in range(mol.ncore, mol.nelectron // 2)], \
-                            'wfnsym': [symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0]}
-                self.base = {'method': None}
-                self.state = {'wfnsym': symm.addons.irrep_id2name(mol.symmetry, 0) if mol.symmetry else 0, 'root': 0}
-                self.extra = {'hf_guess': True, 'pi_prune': False}
-                self.thres = {'init': 1.0e-10, 'relax': 1.0}
-                self.misc = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
-                self.orbs = {'type': 'can'}
-                self.mpi = {}
-                self.prop = {'hf': {}, 'base': {}, 'ref': {}}
+                self.model: Dict[str, str] = {'method': 'fci', 'solver': 'pyscf_spin0'}
+                self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
+                self.prot: Dict[str, int] = {'scheme': 2}
+                self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
+                                            'select': [i for i in range(ncore, nelectron // 2)], \
+                                            'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0]}
+                self.base: Dict[str, Union[None, str]] = {'method': None}
+                self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
+                self.extra: Dict[str, bool] = {'hf_guess': True, 'pi_prune': False}
+                self.thres: Dict[str, float] = {'init': 1.e-10, 'relax': 1., 'start': 3}
+                self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
+                self.orbs: Dict[str, str] = {'type': 'can'}
+                self.mpi: Dict[str, int] = {}
+                self.prop: Dict[str, Dict[str, Union[float, np.ndarray]]] = {'hf': {}, 'base': {}, 'ref': {}}
+
+                # init attributes
+                self.restart: bool = False
+                self.target_mbe: str = ''
+                self.hf: scf.RHF = None
+                self.occup: np.ndarray = None
+                self.orbsym: np.ndarray = None
+                self.mo_energy: np.ndarray = None
+                self.mo_coeff: np.ndarray = None
+                self.nelec: Tuple[int, ...] = ()
+                self.ref_space: np.ndarray = None
+                self.exp_space: np.ndarray = None
 
 
-def set_calc(calc):
+def set_calc(calc: CalcCls) -> CalcCls:
         """
         this function sets calculation and mpi attributes from input file
-
-        :param calc: pymbe calc object
-        :return: updated calc object
         """
         # read input file
         try:
@@ -105,19 +112,16 @@ def set_calc(calc):
 
         except IOError:
 
-            restart.rm()
             sys.stderr.write('\nIOError : input file not found\n\n')
             raise
 
         return calc
 
 
-def sanity_chk(mol, calc):
+def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
+                symmetry: Union[bool, str]) -> None:
         """
         this function performs sanity checks of calc and mpi attributes
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
         """
         # expansion model
         tools.assertion(isinstance(calc.model['method'], str), \
@@ -129,7 +133,7 @@ def sanity_chk(mol, calc):
         if calc.model['method'] != 'fci':
             tools.assertion(calc.model['solver'] == 'pyscf_spin0', \
                             'setting a FCI solver for a non-FCI expansion model is not meaningful')
-        if mol.spin > 0:
+        if spin > 0:
             tools.assertion(calc.model['solver'] != 'pyscf_spin0', \
                             'the pyscf_spin0 FCI solver is designed for spin singlets only')
 
@@ -145,15 +149,15 @@ def sanity_chk(mol, calc):
                         'select key (select) for active space must be a list of orbitals')
         tools.assertion(isinstance(calc.ref['hf_guess'], bool), \
                         'HF initial guess for CASSCF calc (hf_guess) must be a bool')
-        if mol.atom:
+        if atom:
             if calc.ref['hf_guess']:
                 tools.assertion(len(set(calc.ref['wfnsym'])) == 1, \
                                 'illegal choice of ref wfnsym when enforcing hf initial guess')
-                tools.assertion(calc.ref['wfnsym'][0] == symm.addons.irrep_id2name(mol.symmetry, 0), \
+                tools.assertion(calc.ref['wfnsym'][0] == symm.addons.irrep_id2name(symmetry, 0), \
                                 'illegal choice of ref wfnsym when enforcing hf initial guess')
             for i in range(len(calc.ref['wfnsym'])):
                 try:
-                    calc.ref['wfnsym'][i] = symm.addons.irrep_name2id(mol.symmetry, calc.ref['wfnsym'][i])
+                    calc.ref['wfnsym'][i] = symm.addons.irrep_name2id(symmetry, calc.ref['wfnsym'][i])
                 except Exception as err:
                     raise ValueError('illegal choice of ref wfnsym -- PySCF error: {:}'.format(err))
 
@@ -167,9 +171,9 @@ def sanity_chk(mol, calc):
                             'valid base models are currently: ccsd, and ccsd(t)')
 
         # state
-        if mol.atom:
+        if atom:
             try:
-                calc.state['wfnsym'] = symm.addons.irrep_name2id(mol.symmetry, calc.state['wfnsym'])
+                calc.state['wfnsym'] = symm.addons.irrep_name2id(symmetry, calc.state['wfnsym'])
             except Exception as err:
                 raise ValueError('illegal choice of state wfnsym -- PySCF error: {:}'.format(err))
             tools.assertion(calc.state['root'] >= 0, \
@@ -201,7 +205,7 @@ def sanity_chk(mol, calc):
         tools.assertion(isinstance(calc.extra['pi_prune'], bool), \
                         'pruning of pi-orbitals (pi_prune) must be a bool')
         if calc.extra['pi_prune']:
-            tools.assertion(symm.addons.std_symb(mol.symmetry) == 'D2h', \
+            tools.assertion(symm.addons.std_symb(symmetry) == 'D2h', \
                             'pruning of pi-orbitals (pi_prune) is only implemented for D2h symmetry')
 
         # screening protocol
@@ -211,14 +215,20 @@ def sanity_chk(mol, calc):
                         'valid screening protocol schemes (scheme) are: 1 (1st gen), 2 (2nd) gen, 3 (3rd gen)')
 
         # expansion thresholds
-        tools.assertion(all(isinstance(i, float) for i in calc.thres.values()), \
-                        'values in threshold input (thres) must be floats')
-        tools.assertion(set(list(calc.thres.keys())) <= set(['init', 'relax']), \
-                        'valid input in thres dict is: init and relax')
-        tools.assertion(calc.thres['init'] >= 0.0, \
+        tools.assertion(set(list(calc.thres.keys())) <= set(['init', 'relax', 'start']), \
+                        'valid input in thres dict is: init, relax, and start')
+        tools.assertion(isinstance(calc.thres['init'], float), \
+                        'initial threshold (init) must be a float')
+        tools.assertion(calc.thres['init'] >= 0., \
                         'initial threshold (init) must be a float >= 0.0')
-        tools.assertion(calc.thres['relax'] >= 1.0, \
+        tools.assertion(isinstance(calc.thres['relax'], float), \
+                        'initial threshold (init) must be a float')
+        tools.assertion(calc.thres['relax'] >= 1., \
                         'threshold relaxation (relax) must be a float >= 1.0')
+        tools.assertion(isinstance(calc.thres['start'], int), \
+                        'start threshold parameter (start) must be an int')
+        tools.assertion(calc.thres['start'] >= 1, \
+                        'start threshold parameter (start) must be an int >= 1')
 
         # orbital representation
         tools.assertion(calc.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \
@@ -227,8 +237,8 @@ def sanity_chk(mol, calc):
         if calc.orbs['type'] != 'can':
             tools.assertion(calc.ref['method'] == 'casci', \
                             'non-canonical orbitals requires casci expansion reference')
-        if mol.atom and calc.orbs['type'] == 'local':
-            tools.assertion(mol.symmetry == 'C1', \
+        if atom and calc.orbs['type'] == 'local':
+            tools.assertion(symmetry == 'C1', \
                             'the combination of local orbs and point group symmetry '
                             'different from c1 is not allowed')
 

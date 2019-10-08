@@ -12,18 +12,15 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
-import sys
-import os
-import contextlib
 import numpy as np
 from pyscf import symm
+from typing import Tuple, List, Any
 import matplotlib
 matplotlib.use('Agg')
 matplotlib.rcParams['font.family'] = 'sans-serif'
 matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, FormatStrFormatter
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 try:
     import seaborn as sns
     SNS_FOUND = True
@@ -31,6 +28,10 @@ except (ImportError, OSError):
     pass
     SNS_FOUND = False
 
+import parallel
+import system
+import calculation
+import expansion
 import output
 import tools
 
@@ -42,14 +43,10 @@ DIVIDER = '{:^143}'.format('-'*137)
 FILL = '{:^143}'.format('|'*137)
 
 
-def main(mpi, mol, calc, exp):
+def main(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
         this function handles all printing and plotting of results
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
         """
         # print header
         print(output.main_header())
@@ -65,16 +62,16 @@ def main(mpi, mol, calc, exp):
         print(_timings_prt(calc, exp))
 
         # print and plot results
-        if calc.target == 'energy' :
+        if calc.target_mbe == 'energy' :
             print(_energy_prt(calc, exp))
             _energies_plot(calc, exp)
-        if calc.target == 'excitation':
+        if calc.target_mbe == 'excitation':
             print(_excitation_prt(calc, exp))
             _excitation_plot(calc, exp)
-        if calc.target == 'dipole' :
+        if calc.target_mbe == 'dipole' :
             print(_dipole_prt(mol, calc, exp))
             _dipole_plot(mol, calc, exp)
-        if calc.target == 'trans':
+        if calc.target_mbe == 'trans':
             print(_trans_prt(mol, calc, exp))
             _trans_plot(mol, calc, exp)
 
@@ -82,64 +79,56 @@ def main(mpi, mol, calc, exp):
         _max_ndets_plot(exp)
 
 
-def _atom(mol):
+def _atom(mol: system.MolCls) -> str:
         """
         this function returns the molecular geometry
-
-        :param mol: pymbe mol object
-        :return: formatted string
         """
         # print atom
-        string = DIVIDER[:39]+'\n'
+        string: str = DIVIDER[:39]+'\n'
         string += '{:^43}\n'
-        form = ('geometry',)
+        form: Tuple[Any] = ('geometry',)
         string += DIVIDER[:39]+'\n'
-        molecule = mol.atom.split('\n')
+        molecule = mol.atom.split('\n') # type: ignore
         for i in range(len(molecule)-1):
             atom = molecule[i].split()
             for j in range(1, 4):
-                atom[j] = float(atom[j])
+                atom[j] = float(atom[j]) # type: ignore
             string += '   {:<3s} {:>10.5f} {:>10.5f} {:>10.5f}\n'
-            form += (*atom,)
+            form += (*atom,) # type: ignore
         string += DIVIDER[:39]+'\n'
         return string.format(*form)
 
 
-def _model(calc):
+def _model(calc: calculation.CalcCls) -> str:
         """
         this function returns the expansion model
-
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         return '{:}'.format(calc.model['method'].upper())
 
 
-def _basis(mol):
+def _basis(mol: system.MolCls) -> str:
         """
         this function returns the basis
-
-        :param mol: pymbe mol object
-        :return: formatted string
         """
-        if isinstance(mol.basis, str):
-            return mol.basis
-        elif isinstance(mol.basis, dict):
+        if isinstance(mol.basis, dict):
+
             for i, val in enumerate(mol.basis.items()):
+
                 if i == 0:
                     basis = val[1]
                 else:
                     basis += '/'+val[1]
+
             return basis
 
+        else:
 
-def _state(mol, calc):
+            return mol.basis
+
+
+def _state(mol: system.MolCls, calc: calculation.CalcCls) -> str:
         """
         this function returns the state of interest
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         string = '{:}'.format(calc.state['root'])
         if mol.spin == 0:
@@ -157,17 +146,13 @@ def _state(mol, calc):
         return string
 
 
-def _ref(mol, calc):
+def _ref(mol: system.MolCls, calc: calculation.CalcCls) -> str:
         """
         this function returns the reference function
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         if calc.ref['method'] == 'casci':
             return 'CASCI'
-        elif calc.ref['method'] == 'casscf':
+        else:
             if len(calc.ref['wfnsym']) == 1:
                 return 'CASSCF'
             else:
@@ -181,12 +166,9 @@ def _ref(mol, calc):
                 return 'CASSCF('+syms+')'
 
 
-def _base(calc):
+def _base(calc: calculation.CalcCls) -> str:
         """
         this function returns the base model
-
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         if calc.base['method'] is None:
             return 'none'
@@ -194,12 +176,9 @@ def _base(calc):
             return calc.base['method'].upper()
 
 
-def _prot(calc):
+def _prot(calc: calculation.CalcCls) -> str:
         """
         this function returns the screening protocol
-
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         if calc.prot['scheme'] == 1:
             return '1st generation'
@@ -207,36 +186,29 @@ def _prot(calc):
             return '2nd generation'
         elif calc.prot['scheme'] == 3:
             return '3rd generation'
+        else:
+            raise NotImplementedError('unknown generation')
 
 
-def _system(mol):
+def _system(mol: system.MolCls) -> str:
         """
         this function returns the system size
-
-        :param mol: pymbe mol object
-        :return: formatted string
         """
         return '{:} e in {:} o'.format(mol.nelectron - 2 * mol.ncore, mol.norb - mol.ncore)
 
 
-def _hubbard(mol):
+def _hubbard(mol: system.MolCls) -> List[str]:
         """
         this function returns the hubbard model
-
-        :param mol: pymbe mol object
-        :return: formatted string
         """
         hubbard = ['{:} x {:}'.format(mol.matrix[0], mol.matrix[1])]
         hubbard.append('{:} & {:}'.format(mol.u, mol.n))
         return hubbard
 
 
-def _solver(calc):
+def _solver(calc: calculation.CalcCls) -> str:
         """
         this function returns the chosen fci solver
-
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         if calc.model['method'] != 'fci':
             return 'none'
@@ -245,14 +217,13 @@ def _solver(calc):
                 return 'PySCF (spin0)'
             elif calc.model['solver'] == 'pyscf_spin1':
                 return 'PySCF (spin1)'
+            else:
+                raise NotImplementedError('unknown solver')
 
 
-def _frozen(mol):
+def _frozen(mol: system.MolCls) -> str:
         """
         this function returns the choice of frozen core
-
-        :param mol: pymbe mol object
-        :return: formatted string
         """
         if mol.frozen:
             return 'true'
@@ -260,22 +231,16 @@ def _frozen(mol):
             return 'false'
 
 
-def _active(calc):
+def _active(calc: calculation.CalcCls) -> str:
         """
         this function returns the active space
-
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         return '{:} e in {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
 
 
-def _orbs(calc):
+def _orbs(calc: calculation.CalcCls) -> str:
         """
         this function returns the choice of orbitals
-
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         if calc.orbs['type'] == 'can':
             return 'canonical'
@@ -285,35 +250,27 @@ def _orbs(calc):
             return 'CCSD(T) NOs'
         elif calc.orbs['type'] == 'local':
             return 'pipek-mezey'
+        else:
+            raise NotImplementedError('unknown orbital basis')
 
 
-def _mpi(mpi):
+def _mpi(mpi: parallel.MPICls) -> str:
         """
         this function returns the mpi information
-
-        :param mpi: pymbe mpi object
-        :return: formatted string
         """
         return '{:} & {:}'.format(mpi.num_masters, mpi.global_size - mpi.num_masters)
 
 
-def _thres(calc):
+def _thres(calc: calculation.CalcCls) -> str:
         """
         this function returns the expansion threshold
-
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         return '{:.0e} ({:<.1f})'.format(calc.thres['init'], calc.thres['relax'])
 
 
-def _symm(mol, calc):
+def _symm(mol: system.MolCls, calc: calculation.CalcCls) -> str:
         """
         this function returns the molecular point group symmetry
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: formatted string
         """
         if calc.model['method'] == 'fci':
             if mol.atom:
@@ -327,73 +284,59 @@ def _symm(mol, calc):
             return 'unknown'
 
 
-def _energy(calc, exp):
+def _energy(calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
         """
         this function returns the final total energy
-
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: float
         """
-        return exp.prop['energy']['tot'] \
-                + calc.prop['hf']['energy'] \
-                + calc.prop['base']['energy'] \
-                + calc.prop['ref']['energy']
+        e_tot = np.copy(exp.prop['energy']['tot'])
+        e_tot += calc.prop['hf']['energy']
+        e_tot += calc.prop['base']['energy']
+        e_tot += calc.prop['ref']['energy']
+
+        return e_tot
 
 
-def _excitation(calc, exp):
+def _excitation(calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
         """
         this function returns the final excitation energy
-
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: float
         """
-        return exp.prop['excitation']['tot'] \
-                + calc.prop['ref']['excitation']
+        exc_tot = np.copy(exp.prop['excitation']['tot'])
+        exc_tot += calc.prop['ref']['excitation']
+
+        return exc_tot
 
 
-def _dipole(mol, calc, exp):
+def _dipole(mol: system.MolCls, calc: calculation.CalcCls, \
+                exp: expansion.ExpCls) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns the final molecular dipole moment
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: numpy array of shape (1, 3) [nuc_dipole],
-                 numpy array of shape (final_order, 3) [dipole]
         """
         # nuclear dipole moment
         charges = mol.atom_charges()
         coords  = mol.atom_coords()
         nuc_dipole = np.einsum('i,ix->x', charges, coords)
-        dipole = exp.prop['dipole']['tot'] \
-                        + calc.prop['hf']['dipole'] \
-                        + calc.prop['ref']['dipole']
-        return dipole, nuc_dipole
+
+        dipole_tot = np.copy(exp.prop['dipole']['tot'])
+        dipole_tot += calc.prop['hf']['dipole']
+        dipole_tot += calc.prop['ref']['dipole']
+
+        return dipole_tot, nuc_dipole
 
 
-def _trans(mol, calc, exp):
+def _trans(mol: system.MolCls, calc: calculation.CalcCls, \
+            exp: expansion.ExpCls) -> np.ndarray:
         """
         this function returns the final molecular transition dipole moment
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: numpy array of shape (1, 3)
         """
-        return exp.prop['trans']['tot'] \
-                + calc.prop['ref']['trans']
+        trans_tot = np.copy(exp.prop['trans']['tot'])
+        trans_tot += calc.prop['ref']['trans']
+
+        return trans_tot
 
 
-def _time(exp, comp, idx):
+def _time(exp: expansion.ExpCls, comp: str, idx: int) -> str:
         """
         this function returns the final timings in (HHH : MM : SS) format
-
-        :param exp: pymbe exp object
-        :param comp: computation part (mbe, screen, sum, or tot_sum). string
-        :param idx: order index. integer
-        :return: formatted string
         """
         # init time
         if comp in ['mbe', 'screen']:
@@ -407,19 +350,14 @@ def _time(exp, comp, idx):
         return tools.time_str(time)
 
 
-def _summary_prt(mpi, mol, calc, exp):
+def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
+                    calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         """
         this function returns the summary table
-
-        :param mpi: pymbe mpi object
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: formatted string
         """
-        string = DIVIDER+'\n'
+        string: str = DIVIDER+'\n'
         string += '{:14}{:21}{:12}{:1}{:12}{:21}{:11}{:1}{:13}{:}\n'
-        form = ('','molecular information','','|','', \
+        form: Tuple[Any, ...] = ('','molecular information','','|','', \
                     'expansion information','','|','','calculation information',)
         string += DIVIDER+'\n'
 
@@ -463,7 +401,7 @@ def _summary_prt(mpi, mol, calc, exp):
         form += ('','state (mult.)','','=','',_state(mol, calc), \
                     '','|','','base model','','=','',_base(calc), \
                     '','|','','MBE total energy','','=','', \
-                    calc.prop['hf']['energy'] if calc.target != 'energy' \
+                    calc.prop['hf']['energy'] if calc.target_mbe != 'energy' \
                         else _energy(calc, exp)[-1],)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
@@ -483,17 +421,13 @@ def _summary_prt(mpi, mol, calc, exp):
         return string.format(*form)
 
 
-def _timings_prt(calc, exp):
+def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         """
         this function returns the timings table
-
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: formatted string
         """
-        string = DIVIDER[:98]+'\n'
+        string: str = DIVIDER[:98]+'\n'
         string += '{:^98}\n'
-        form = ('MBE timings',)
+        form: Tuple[Any, ...] = ('MBE timings',)
 
         string += DIVIDER[:98]+'\n'
         string += '{:6}{:9}{:2}{:1}{:8}{:3}{:8}{:1}{:5}{:9}{:5}' \
@@ -529,18 +463,14 @@ def _timings_prt(calc, exp):
         return string.format(*form)
 
 
-def _energy_prt(calc, exp):
+def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         """
         this function returns the energies table
-
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: formatted string
         """
-        string = DIVIDER[:66]+'\n'
+        string: str = DIVIDER[:66]+'\n'
         string_in = 'MBE energy (root = '+str(calc.state['root'])+')'
         string += '{:^66}\n'
-        form = (string_in,)
+        form: Tuple[Any, ...] = (string_in,)
 
         string += DIVIDER[:66]+'\n'
         string += '{:6}{:9}{:2}{:1}{:5}{:12}{:5}{:1}{:4}{:}\n'
@@ -565,12 +495,9 @@ def _energy_prt(calc, exp):
         return string.format(*form)
 
 
-def _energies_plot(calc, exp):
+def _energies_plot(calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
         this function plots the energies
-
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
         """
         # set seaborn
         if SNS_FOUND:
@@ -610,18 +537,14 @@ def _energies_plot(calc, exp):
                         format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _excitation_prt(calc, exp):
+def _excitation_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         """
         this function returns the excitation energies table
-
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: formatted string
         """
-        string = DIVIDER[:43]+'\n'
+        string: str = DIVIDER[:43]+'\n'
         string_in = 'MBE excitation energy (root = '+str(calc.state['root'])+')'
         string += '{:^46}\n'
-        form = (string_in,)
+        form: Tuple[Any, ...] = (string_in,)
 
         string += DIVIDER[:43]+'\n'
         string += '{:6}{:9}{:2}{:1}{:5}{:}\n'
@@ -643,12 +566,9 @@ def _excitation_prt(calc, exp):
         return string.format(*form)
 
 
-def _excitation_plot(calc, exp):
+def _excitation_plot(calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
         this function plots the excitation energies
-
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
         """
         # set seaborn
         if SNS_FOUND:
@@ -688,19 +608,14 @@ def _excitation_plot(calc, exp):
                         format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _dipole_prt(mol, calc, exp):
+def _dipole_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         """
         this function returns the dipole moments table
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: formatted string
         """
-        string = DIVIDER[:82]+'\n'
+        string: str = DIVIDER[:82]+'\n'
         string_in = 'MBE dipole moment (root = '+str(calc.state['root'])+')'
         string += '{:^82}\n'
-        form = (string_in,)
+        form: Tuple[Any, ...] = (string_in,)
 
         string += DIVIDER[:82]+'\n'
         string += '{:6}{:9}{:2}{:1}{:8}{:25}{:9}{:1}{:5}{:}\n'
@@ -708,12 +623,13 @@ def _dipole_prt(mol, calc, exp):
 
         string += DIVIDER[:82]+'\n'
 
+        dipole_ref: np.ndarray = calc.prop['hf']['dipole'] + calc.prop['ref']['dipole']
         dipole, nuc_dipole = _dipole(mol, calc, exp)
         string += '{:9}{:>3s}{:5}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
         form += ('','ref', \
-                    '','|','',nuc_dipole[0] - calc.prop['hf']['dipole'][0] + calc.prop['ref']['dipole'][0], \
-                    '',nuc_dipole[1] - calc.prop['hf']['dipole'][1] + calc.prop['ref']['dipole'][1], \
-                    '',nuc_dipole[2] - calc.prop['hf']['dipole'][2] + calc.prop['ref']['dipole'][2], \
+                    '','|','',nuc_dipole[0] - dipole_ref[0], \
+                    '',nuc_dipole[1] - dipole_ref[1], \
+                    '',nuc_dipole[2] - dipole_ref[2], \
                     '','|','',np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole']),)
 
         string += DIVIDER[:82]+'\n'
@@ -731,13 +647,9 @@ def _dipole_prt(mol, calc, exp):
         return string.format(*form)
 
 
-def _dipole_plot(mol, calc, exp):
+def _dipole_plot(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
         this function plots the dipole moments
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
         """
         # set seaborn
         if SNS_FOUND:
@@ -783,19 +695,14 @@ def _dipole_plot(mol, calc, exp):
                         format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _trans_prt(mol, calc, exp):
+def _trans_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         """
         this function returns the transition dipole moments and oscillator strengths table
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
-        :return: formatted string
         """
-        string = DIVIDER[:82]+'\n'
+        string: str = DIVIDER[:82]+'\n'
         string_in = 'MBE transition dipole moment (excitation 0 > '+str(calc.state['root'])+')'
         string += '{:^82}\n'
-        form = (string_in,)
+        form: Tuple[Any, ...] = (string_in,)
 
         string += DIVIDER[:82]+'\n'
 
@@ -804,13 +711,12 @@ def _trans_prt(mol, calc, exp):
         string += '{:6}{:9}{:2}{:1}{:8}{:25}{:9}{:1}{:5}{:}\n'
         form += ('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment',)
 
+        trans_ref: np.ndarray = calc.prop['ref']['trans']
         string += DIVIDER[:82]+'\n'
         string += '{:9}{:>3s}{:5}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
         form += ('','ref', \
-                    '','|','',calc.prop['ref']['trans'][0], \
-                    '',calc.prop['ref']['trans'][1], \
-                    '',calc.prop['ref']['trans'][2], \
-                    '','|','',np.linalg.norm(calc.prop['ref']['trans'][:]),)
+                    '','|','',trans_ref[0], '', trans_ref[1], '', trans_ref[2], \
+                    '','|','',np.linalg.norm(trans_ref[:]),)
 
         string += DIVIDER[:82]+'\n'
 
@@ -827,13 +733,9 @@ def _trans_prt(mol, calc, exp):
         return string.format(*form)
 
 
-def _trans_plot(mol, calc, exp):
+def _trans_plot(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         """
         this function plots the transition dipole moments
-
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :param exp: pymbe exp object
         """
         # set seaborn
         if SNS_FOUND:
@@ -879,11 +781,9 @@ def _trans_plot(mol, calc, exp):
                         format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _max_ndets_plot(exp):
+def _max_ndets_plot(exp: expansion.ExpCls) -> None:
         """
         this function plots the max number of determinants
-
-        :param exp: pymbe exp object
         """
         # set seaborn
         if SNS_FOUND:
