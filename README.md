@@ -1,4 +1,4 @@
-![](doc/logo/pymbe_logo.png "PyMBE")
+![](logo/pymbe_logo.png "PyMBE")
 
 PyMBE: A Many-Body Expanded Correlation Code by Janus Juul Eriksen 
 ==================================================================
