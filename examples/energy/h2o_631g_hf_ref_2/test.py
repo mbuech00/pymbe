@@ -21,10 +21,10 @@ assert version_info.major == 2
 
 f = [
     get_filter(from_string = 'MBE order  |        MBE',
-               num_lines = 12,
+               num_lines = 13,
                rel_tolerance = 1.0e-6),
     get_filter(from_string = 'MBE order  |     total energy',
-               num_lines = 12,
+               num_lines = 13,
                rel_tolerance = 1.0e-6)
 ]
 
