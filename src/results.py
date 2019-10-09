@@ -37,7 +37,7 @@ import tools
 
 
 # results file
-RES_FILE = output.OUT+'/results.out'
+RES_FILE = output.OUT+'/pymbe.results'
 # results parameters
 DIVIDER = '{:^143}'.format('-'*137)
 FILL = '{:^143}'.format('|'*137)

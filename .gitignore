@@ -2,3 +2,4 @@
 *bak
 .mypy_cache
 src/.mypy_cache
+examples/energy/*/output
