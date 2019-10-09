@@ -10,9 +10,9 @@ system = {'basis': '631g', 'symmetry': 'c2v', 'frozen': True}
 
 model = {'method': 'fci'}
 target = {'energy': True}
-prot = {'scheme': 3}
+prot = {'scheme': 2}
 base = {'method': 'ccsd(t)'}
 ref = {'method': 'casci', 'select': [1, 2, 3, 4]}
 state = {'wfnsym': 'a1', 'root': 0}
-thres = {'init': 1.0e-10, 'relax': 5.0}
+thres = {'init': 1.0e-10, 'relax': 25.0}
 

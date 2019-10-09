@@ -297,6 +297,7 @@ def gatherv(comm: MPI.Comm, send_buff: np.ndarray, \
 
             # init recv_buff
             recv_buff = np.empty(np.sum(counts), dtype=dtype)
+            recv_buff[:send_buff.size] = send_buff.reshape(-1,)
 
             # gatherv all tiles
             for slave in range(1, size):

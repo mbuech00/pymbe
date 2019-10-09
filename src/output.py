@@ -25,7 +25,7 @@ import tools
 
 # output folder and files
 OUT = os.getcwd()+'/output'
-OUT_FILE = OUT+'/output.out'
+OUT_FILE = OUT+'/pymbe.output'
 # output parameters
 HEADER = '{0:^87}'.format('-'*45)
 DIVIDER = ' '+'-'*92
