@@ -67,7 +67,7 @@ The following papers document the development of the PyMBE code and the theory i
 
 * Generalized Many-Body Expanded Full Configuration Interaction Theory\
 Eriksen, J. J., Gauss, J.\
-[arXiv:1910.03527](https://arxiv.org/abs/1910.03527)
+[arXiv:1910.03527](https://arxiv.org/abs/1910.03527) (2019)
 
 * Many-Body Expanded Full Configuration Interaction. II. Strongly Correlated Regime\
 Eriksen, J. J., Gauss, J.\
