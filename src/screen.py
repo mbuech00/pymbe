@@ -429,8 +429,9 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
             tuples_pi = np.unique(tuples[:, :-1], axis=0)
 
             # prune combinations without a mix of occupied and virtual orbitals
-            tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, occup), tuples_pi), \
-                                              dtype=bool, count=tuples_pi.shape[0])]
+            if ref_space.size == 0:
+                tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, occup), tuples_pi), \
+                                                  dtype=bool, count=tuples_pi.shape[0])]
 
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
