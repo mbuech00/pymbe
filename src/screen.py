@@ -429,7 +429,7 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
             tuples_pi = np.unique(tuples[:, :-1], axis=0)
 
             # prune combinations without a mix of occupied and virtual orbitals
-            if ref_space.size == 0:
+            if min_order == 2:
                 tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, occup), tuples_pi), \
                                                   dtype=bool, count=tuples_pi.shape[0])]
 
@@ -446,10 +446,10 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
         tuples_seed = None; n_tasks_seed = 0
         tuples_seed_pi = None; n_tasks_seed_pi = 0
 
-        if ref_space.size == 0 and order <= exp_space['occ'].size:
+        if order <= exp_space['seed'].size:
 
             # set tuples_seed
-            tuples_seed = np.array([tup for tup in itertools.combinations(exp_space['occ'], order)], dtype=np.int16)
+            tuples_seed = np.array([tup for tup in itertools.combinations(exp_space['seed'], order)], dtype=np.int16)
 
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             if pi_prune:
@@ -465,7 +465,7 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
             if pi_prune:
 
                 # set tuples_seed_pi
-                tuples_seed_pi = np.array([tup for tup in itertools.combinations(exp_space['occ'], order-1)], dtype=np.int16)
+                tuples_seed_pi = np.array([tup for tup in itertools.combinations(exp_space['seed'], order-1)], dtype=np.int16)
 
                 # prune combinations that contain non-degenerate pairs of pi-orbitals
                 tuples_seed_pi = tuples_seed_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
@@ -541,10 +541,7 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
         array([4, 5], dtype=int16)
         """
         # truncate expansion space
-        if min_order == 1:
-            exp_space_trunc = exp_space['tot'][tup[-1] < exp_space['tot']]
-        elif min_order == 2:
-            exp_space_trunc = exp_space['virt'][tup[-1] < exp_space['virt']]
+        exp_space_trunc = exp_space['tot'][tup[-1] < exp_space['tot']]
 
         if pi_gen:
             # consider only pairs of degenerate pi-orbitals in truncated expansion space
@@ -562,8 +559,14 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
         combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int16)
 
         # prune combinations without seed orbitals
-        if min_order == 2:
-            combs = combs[np.fromiter(map(functools.partial(tools.seed_prune, occup), combs), \
+        if exp_space['seed'].size > 0:
+
+            if np.all(occup[exp_space['seed']] > 0.):
+                seed_type = 'occ'
+            else:
+                seed_type = 'virt'
+
+            combs = combs[np.fromiter(map(functools.partial(tools.seed_prune, occup, seed_type), combs), \
                                           dtype=bool, count=combs.shape[0])]
 
         # prune combinations that contain non-degenerate pairs of pi-orbitals

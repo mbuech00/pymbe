@@ -537,61 +537,60 @@ def ref_mo(mol, calc):
         # sort orbitals
         if calc.ref['active'] == 'manual':
 
-            # active orbs
+            # active orbitals
             calc.ref['select'] = np.asarray(calc.ref['select'], dtype=np.int16)
 
-            # electrons
-            nelec = (np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
+            # active electrons
+            act_nelec = (np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
                         np.count_nonzero(calc.occup[calc.ref['select']] > 1.))
 
-            # inactive orbitals
-            inact_elec = mol.nelectron - (nelec[0] + nelec[1])
-            tools.assertion(inact_elec % 2 == 0, 'odd number of inactive electrons')
-            inact_orbs = inact_elec // 2
-
-            # active orbitals
-            act_orbs = calc.ref['select'].size
-
-            # virtual orbitals
-            virt_orbs = mol.norb - inact_orbs - act_orbs
-
-            # divide into inactive-active-virtual
-            idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
-            if act_orbs > 0:
-
-                mo_coeff = np.concatenate((mo_coeff[:, idx[:inact_orbs]], mo_coeff[:, calc.ref['select']], mo_coeff[:, idx[inact_orbs:]]), axis=1)
-
-                # update orbsym
-                if mol.atom:
-                    calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
-
-        # reference and expansion spaces
-        ref_space = np.arange(inact_orbs, inact_orbs+act_orbs, dtype=np.int16)
-        exp_space = np.append(np.arange(mol.ncore, inact_orbs, dtype=np.int16), \
-                              np.arange(inact_orbs+act_orbs, mol.norb, dtype=np.int16))
+        # reference (primary) and secondary spaces
+        ref_space = calc.ref['select']
+        sec_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space])
 
         # divide exp_space into occupied and virtual parts
-        exp_space = {'tot': exp_space}
-        exp_space['occ'] = exp_space['tot'][exp_space['tot'] < mol.nocc]
-        exp_space['virt'] = exp_space['tot'][mol.nocc <= exp_space['tot']]
+        exp_space: Dict[str, np.ndarray] = {}
+        exp_space['occ'] = sec_space[calc.occup[sec_space] > 0.]
+        exp_space['virt'] = sec_space[calc.occup[sec_space] == 0.]
 
-        # casci or casscf
-        if calc.ref['method'] == 'casci':
+        # seed and total expansion spaces
+        if ref_space.size == 0:
+            exp_space['seed'] = exp_space['occ']
+            exp_space['tot'] = exp_space['virt']
+        elif np.all(calc.occup[ref_space] > 0.) and exp_space['occ'].size > 0:
+            exp_space['seed'] = exp_space['occ']
+            exp_space['tot'] = exp_space['virt']
+        elif np.all(calc.occup[ref_space] == 0.) and exp_space['virt'].size > 0:
+            exp_space['seed'] = exp_space['virt']
+            exp_space['tot'] = exp_space['occ']
+        else:
+            exp_space['seed'] = np.array([], dtype=np.int16)
+            exp_space['tot'] = sec_space
 
-            if act_orbs > 0:
-                mo_energy = np.concatenate((mo_energy[idx[:inact_orbs]], \
-                                            mo_energy[calc.ref['select']], \
-                                            mo_energy[idx[inact_orbs:]]))
+        # total expansion space
 
-        elif calc.ref['method'] == 'casscf':
+        # casscf
+        if calc.ref['method'] == 'casscf':
 
-            tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] > 0.) != 0, \
+            tools.assertion(np.count_nonzero(calc.occup[ref_space] > 0.) != 0, \
                             'no singly/doubly occupied orbitals in CASSCF calculation')
-            tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] < 2.) != 0, \
+            tools.assertion(np.count_nonzero(calc.occup[ref_space] < 2.) != 0, \
                             'no virtual/singly occupied orbitals in CASSCF calculation')
 
+            # sorter for active space
+            sort_casscf = np.concatenate((np.arange(mol.ncore), ref_space, exp_space['tot']))
+            # divide into inactive-referance-expansion
+            mo_coeff = mo_coeff[:, sort_casscf]
+
+            # update orbsym
+            if mol.atom:
+                calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+
             mo_energy, mo_coeff = _casscf(mol, calc.model['solver'], calc.ref['wfnsym'], calc.orbsym, \
-                                            calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space, nelec)
+                                            calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space, act_nelec)
+
+            # reorder mo_coeff
+            mo_coeff = mo_coeff[:, np.argsort(sort_casscf)]
 
         # pi-orbital space
         if calc.extra['pi_prune']:
@@ -601,14 +600,14 @@ def ref_mo(mol, calc):
 
         # debug print of reference and expansion spaces
         if mol.debug >= 1:
-            print('\n reference nelec        = {:}'.format(nelec))
+            print('\n reference nelec        = {:}'.format(act_nelec))
             print(' reference space        = {:}'.format(ref_space))
             if calc.extra['pi_prune']:
                 print(' expansion space [pi]   =\n{:}'.format(exp_space['pi_orbs'].reshape(-1, 2)))
             print(' expansion space [occ]  = {:}'.format(exp_space['occ']))
             print(' expansion space [virt] = {:}\n'.format(exp_space['virt']))
 
-        return mo_energy, np.asarray(mo_coeff, order='C'), nelec, ref_space, exp_space
+        return mo_energy, np.asarray(mo_coeff, order='C'), act_nelec, ref_space, exp_space
 
 
 def ref_prop(mol, calc):

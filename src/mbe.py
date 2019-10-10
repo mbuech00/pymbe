@@ -510,6 +510,17 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
             # generate array with all subsets of particular tuple
             combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int16)
 
+            # prune combinations not belonging to expansion space
+            if k <= exp_space['seed'].size:
+
+                if np.all(occup[exp_space['seed']] > 0.):
+                    seed_type = 'virt'
+                else:
+                    seed_type = 'occ'
+
+                combs = combs[np.fromiter(map(functools.partial(tools.seed_prune, occup, seed_type), combs), \
+                                              dtype=bool, count=combs.shape[0])]
+
             # prune combinations without a mix of occupied and virtual orbitals
             if min_order == 2:
                 combs = combs[np.fromiter(map(functools.partial(tools.corr_prune, occup), combs), \

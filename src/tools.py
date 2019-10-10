@@ -412,18 +412,23 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
                 return idx is not None
 
 
-def seed_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
+def seed_prune(occup: np.ndarray, seed_type: str, tup: np.ndarray) -> bool:
         """
         this function returns True for a tuple of orbitals allowed under pruning wrt occupied seed orbitals
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> seed_prune(occup, np.arange(2, 7, dtype=np.int16))
+        >>> seed_prune(occup, 'occ', np.arange(2, 7, dtype=np.int16))
         True
-        >>> seed_prune(occup, np.arange(3, 7, dtype=np.int16))
+        >>> seed_prune(occup, 'virt', np.arange(2, 7, dtype=np.int16))
+        True
+        >>> seed_prune(occup, 'occ', np.arange(3, 7, dtype=np.int16))
         False
         """
-        return np.any(occup[tup] > 0.)
+        if seed_type == 'occ':
+            return np.any(occup[tup] > 0.)
+        else:
+            return np.any(occup[tup] == 0.)
 
 
 def corr_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
