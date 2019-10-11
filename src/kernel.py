@@ -537,61 +537,58 @@ def ref_mo(mol, calc):
         # sort orbitals
         if calc.ref['active'] == 'manual':
 
-            # active orbs
+            # active orbitals
             calc.ref['select'] = np.asarray(calc.ref['select'], dtype=np.int16)
 
-            # electrons
-            nelec = (np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
+            # active electrons
+            act_nelec = (np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
                         np.count_nonzero(calc.occup[calc.ref['select']] > 1.))
 
-            # inactive orbitals
-            inact_elec = mol.nelectron - (nelec[0] + nelec[1])
-            tools.assertion(inact_elec % 2 == 0, 'odd number of inactive electrons')
-            inact_orbs = inact_elec // 2
+        # reference (primary) space
+        ref_space: Dict[str, np.ndarray] = {}
+        ref_space['tot'] = calc.ref['select']
+        ref_space['occ'] = ref_space['tot'][calc.occup[ref_space['tot']] > 0.]
+        ref_space['virt'] = ref_space['tot'][calc.occup[ref_space['tot']] == 0.]
 
-            # active orbitals
-            act_orbs = calc.ref['select'].size
-
-            # virtual orbitals
-            virt_orbs = mol.norb - inact_orbs - act_orbs
-
-            # divide into inactive-active-virtual
-            idx = np.asarray([i for i in range(mol.norb) if i not in calc.ref['select']])
-            if act_orbs > 0:
-
-                mo_coeff = np.concatenate((mo_coeff[:, idx[:inact_orbs]], mo_coeff[:, calc.ref['select']], mo_coeff[:, idx[inact_orbs:]]), axis=1)
-
-                # update orbsym
-                if mol.atom:
-                    calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
-
-        # reference and expansion spaces
-        ref_space = np.arange(inact_orbs, inact_orbs+act_orbs, dtype=np.int16)
-        exp_space = np.append(np.arange(mol.ncore, inact_orbs, dtype=np.int16), \
-                              np.arange(inact_orbs+act_orbs, mol.norb, dtype=np.int16))
+        # secondary space
+        sec_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space['tot']], dtype=np.int16)
 
         # divide exp_space into occupied and virtual parts
-        exp_space = {'tot': exp_space}
-        exp_space['occ'] = exp_space['tot'][exp_space['tot'] < mol.nocc]
-        exp_space['virt'] = exp_space['tot'][mol.nocc <= exp_space['tot']]
+        exp_space: Dict[str, np.ndarray] = {}
+        exp_space['occ'] = sec_space[calc.occup[sec_space] > 0.]
+        exp_space['virt'] = sec_space[calc.occup[sec_space] == 0.]
 
-        # casci or casscf
-        if calc.ref['method'] == 'casci':
+        # seed and total expansion spaces
+        if ref_space['tot'].size == 0 or (ref_space['occ'].size > 0. and ref_space['virt'].size == 0):
+            exp_space['seed'] = exp_space['occ']
+            exp_space['tot'] = exp_space['virt']
+        else:
+            exp_space['seed'] = np.array([], dtype=np.int16)
+            exp_space['tot'] = sec_space
 
-            if act_orbs > 0:
-                mo_energy = np.concatenate((mo_energy[idx[:inact_orbs]], \
-                                            mo_energy[calc.ref['select']], \
-                                            mo_energy[idx[inact_orbs:]]))
+        # casscf
+        if calc.ref['method'] == 'casscf':
 
-        elif calc.ref['method'] == 'casscf':
-
-            tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] > 0.) != 0, \
+            tools.assertion(ref_space['occ'].size > 0, \
                             'no singly/doubly occupied orbitals in CASSCF calculation')
-            tools.assertion(np.count_nonzero(calc.occup[calc.ref['select']] < 2.) != 0, \
+            tools.assertion(ref_space['virt'].size > 0, \
                             'no virtual/singly occupied orbitals in CASSCF calculation')
 
+            # sorter for active space
+            sort_casscf = np.concatenate((np.arange(mol.ncore), ref_space['tot'], exp_space['tot']))
+            # divide into inactive-reference-expansion
+            mo_coeff = mo_coeff[:, sort_casscf]
+
+            # update orbsym
+            if mol.atom:
+                calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+
             mo_energy, mo_coeff = _casscf(mol, calc.model['solver'], calc.ref['wfnsym'], calc.orbsym, \
-                                            calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space, nelec)
+                                            calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space['tot'], act_nelec)
+
+            # reorder mo_energy and mo_coeff
+            mo_energy = mo_energy[np.argsort(sort_casscf)]
+            mo_coeff = mo_coeff[:, np.argsort(sort_casscf)]
 
         # pi-orbital space
         if calc.extra['pi_prune']:
@@ -601,14 +598,15 @@ def ref_mo(mol, calc):
 
         # debug print of reference and expansion spaces
         if mol.debug >= 1:
-            print('\n reference nelec        = {:}'.format(nelec))
-            print(' reference space        = {:}'.format(ref_space))
+            print('\n reference nelec        = {:}'.format(act_nelec))
+            print(' reference space [occ]  = {:}'.format(ref_space['occ']))
+            print(' reference space [virt] = {:}'.format(ref_space['virt']))
             if calc.extra['pi_prune']:
                 print(' expansion space [pi]   =\n{:}'.format(exp_space['pi_orbs'].reshape(-1, 2)))
             print(' expansion space [occ]  = {:}'.format(exp_space['occ']))
             print(' expansion space [virt] = {:}\n'.format(exp_space['virt']))
 
-        return mo_energy, np.asarray(mo_coeff, order='C'), nelec, ref_space, exp_space
+        return mo_energy, np.asarray(mo_coeff, order='C'), act_nelec, ref_space, exp_space
 
 
 def ref_prop(mol, calc):
@@ -632,13 +630,13 @@ def ref_prop(mol, calc):
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
 
         # core_idx and cas_idx
-        core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, np.array([], dtype=np.int16))
+        core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space['tot'], np.array([], dtype=np.int16))
 
         # nelec
         nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
                             np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int16)
 
-        if np.any(calc.occup[calc.ref_space] == 2.) and np.any(calc.occup[calc.ref_space] < 2.):
+        if calc.ref_space['occ'].size > 0 and calc.ref_space['virt'].size > 0:
 
             # get cas space h2e
             cas_idx_tril = tools.cas_idx_tril(cas_idx)

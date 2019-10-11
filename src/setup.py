@@ -325,10 +325,12 @@ def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
             json.dump(dims, f)
 
         # write expansion spaces
-        np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
-        np.save(os.path.join(RST, 'exp_space_tot'), calc.exp_space['tot'])
+        np.save(os.path.join(RST, 'ref_space_occ'), calc.ref_space['occ'])
+        np.save(os.path.join(RST, 'ref_space_virt'), calc.ref_space['virt'])
+        np.save(os.path.join(RST, 'ref_space_tot'), calc.ref_space['tot'])
         np.save(os.path.join(RST, 'exp_space_occ'), calc.exp_space['occ'])
         np.save(os.path.join(RST, 'exp_space_virt'), calc.exp_space['virt'])
+        np.save(os.path.join(RST, 'exp_space_tot'), calc.exp_space['tot'])
         np.save(os.path.join(RST, 'exp_space_pi_orbs'), calc.exp_space['pi_orbs'])
         np.save(os.path.join(RST, 'exp_space_pi_hashes'), calc.exp_space['pi_hashes'])
 
@@ -352,9 +354,6 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
         # sort the list of files
         files.sort(key=tools.natural_keys)
 
-        # init exp_space
-        calc.exp_space = {}
-
         # loop over files
         for i in range(len(files)):
 
@@ -366,14 +365,18 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                 mol.norb = dims['norb']; calc.nelec = dims['nelec']
 
             # read expansion spaces
-            elif 'ref_space' in files[i]:
-                calc.ref_space = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space_tot' in files[i]:
-                calc.exp_space['tot'] = np.load(os.path.join(RST, files[i]))
+            elif 'ref_space_occ' in files[i]:
+                calc.ref_space['occ'] = np.load(os.path.join(RST, files[i]))
+            elif 'ref_space_virt' in files[i]:
+                calc.ref_space['virt'] = np.load(os.path.join(RST, files[i]))
+            elif 'ref_space_tot' in files[i]:
+                calc.ref_space['tot'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_occ' in files[i]:
                 calc.exp_space['occ'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_virt' in files[i]:
                 calc.exp_space['virt'] = np.load(os.path.join(RST, files[i]))
+            elif 'exp_space_tot' in files[i]:
+                calc.exp_space['tot'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_pi_orbs' in files[i]:
                 calc.exp_space['pi_orbs'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_pi_hashes' in files[i]:

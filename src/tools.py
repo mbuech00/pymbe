@@ -412,32 +412,32 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
                 return idx is not None
 
 
-def seed_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
+def occ_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         """
-        this function returns True for a tuple of orbitals allowed under pruning wrt occupied seed orbitals
+        this function returns True for a tuple of orbitals allowed under pruning wrt occupied orbitals
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> seed_prune(occup, np.arange(2, 7, dtype=np.int16))
+        >>> occ_prune(occup, np.arange(2, 7, dtype=np.int16))
         True
-        >>> seed_prune(occup, np.arange(3, 7, dtype=np.int16))
+        >>> occ_prune(occup, np.arange(3, 7, dtype=np.int16))
         False
         """
         return np.any(occup[tup] > 0.)
 
 
-def corr_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
+def virt_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         """
-        this function returns True for a tuple of orbitals allowed under pruning wrt a mix of occupied and virtual orbitals
+        this function returns True for a tuple of orbitals allowed under pruning wrt virtual orbitals
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> corr_prune(occup, np.array([2, 4], dtype=np.int16))
+        >>> virt_prune(occup, np.arange(1, 4, dtype=np.int16))
         True
-        >>> corr_prune(occup, np.array([3, 4], dtype=np.int16))
+        >>> virt_prune(occup, np.arange(1, 3, dtype=np.int16))
         False
         """
-        return np.any(occup[tup] > 0.) and np.any(occup[tup] == 0.)
+        return np.any(occup[tup] == 0.)
 
 
 def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:

@@ -323,7 +323,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 tup = tuples[tup_idx]
 
                 # get core and cas indices
-                core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
+                core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space['tot'], tup)
 
                 # get h2e indices
                 cas_idx_tril = tools.cas_idx_tril(cas_idx)
@@ -464,10 +464,12 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
 
         example:
         >>> occup = np.array([2.] * 2 + [0.] * 2)
-        >>> ref_space = np.arange(2)
-        >>> exp_space = {'tot': np.arange(2, 4, dtype=np.int16),
-        ...              'occ': np.array([], dtype=np.int16),
+        >>> ref_space = {'occ': np.arange(2, dtype=np.int16),
+        ...              'virt': np.array([], dtype=np.int16),
+        ...              'tot': np.arange(2, dtype=np.int16)}
+        >>> exp_space = {'occ': np.array([], dtype=np.int16),
         ...              'virt': np.arange(2, 4, dtype=np.int16),
+        ...              'tot': np.arange(2, 4, dtype=np.int16),
         ...              'pi_orbs': None, 'pi_hashes': None}
         >>> min_order, order = 1, 2
         ... # [[2], [3]]
@@ -481,7 +483,7 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         >>> inc = [np.array([[0., 0., .1], [0., 0., .2]])]
         >>> np.allclose(_sum(occup, ref_space, exp_space, 'dipole', min_order, order, inc, hashes, tup, False), np.array([0., 0., .3]))
         True
-        >>> ref_space = np.array([])
+        >>> ref_space['tot'] = ref_space['occ'] = np.array([], dtype=np.int16)
         >>> exp_space = {'tot': np.arange(4), 'occ': np.arange(2), 'virt': np.arange(2, 4),
         ...              'pi_orbs': np.arange(2, dtype=np.int16), 'pi_hashes': np.array([-3821038970866580488])}
         >>> min_order, order = 2, 4
@@ -510,10 +512,14 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
             # generate array with all subsets of particular tuple
             combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int16)
 
-            # prune combinations without a mix of occupied and virtual orbitals
-            if min_order == 2:
-                combs = combs[np.fromiter(map(functools.partial(tools.corr_prune, occup), combs), \
+            if ref_space['occ'].size == 0:
+                # prune combinations without occupied orbitals
+                combs = combs[np.fromiter(map(functools.partial(tools.occ_prune, occup), combs), \
                                               dtype=bool, count=combs.shape[0])]
+            if ref_space['virt'].size == 0:
+                # prune combinations without virtual orbitals
+                combs = combs[np.fromiter(map(functools.partial(tools.virt_prune, occup), combs), \
+                                                  dtype=bool, count=combs.shape[0])]
 
             # prune combinations with non-degenerate pairs of pi-orbitals
             if pi_prune:
