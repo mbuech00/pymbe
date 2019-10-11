@@ -368,7 +368,7 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order + 1)
 
 
-def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarray], \
+def _set_screen(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: Dict[str, np.ndarray], \
                     n_tasks: int, min_order: int, order: int, pi_prune: bool, global_size: int, \
                     tuples: np.ndarray) -> Tuple[int, Union[None, np.ndarray], \
                                                  Union[None, np.ndarray], Union[None, np.ndarray]]:
@@ -377,18 +377,22 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
 
         example:
         >>> occup = np.array([2.] * 4 + [0.] * 6)
-        >>> ref_space = np.arange(4, dtype=np.int16)
+        >>> ref_space = {'occ': np.arange(4, dtype=np.int16),
+        ...              'virt': np.array([], dtype=np.int16),
+        ...              'tot': np.arange(4, dtype=np.int16)}
         >>> exp_space = {'occ': np.array([], dtype=np.int16),
         ...              'virt': np.arange(4, 10, dtype=np.int16),
-        ...              'tot': np.arange(4, 10, dtype=np.int16)}
+        ...              'tot': np.arange(4, 10, dtype=np.int16),
+        ...              'seed': np.array([], dtype=np.int16)}
         >>> min_order = order = 1
         >>> tuples = np.array([[4], [5], [6], [7], [8], [9]], dtype=np.int16)
         >>> _set_screen(occup, ref_space, exp_space, tuples.shape[0],
         ...             min_order, order, False, 1, tuples)
         (0, None, None, None)
-        >>> ref_space = np.array([])
+        >>> ref_space['tot'] = ref_space['occ'] = np.array([])
         >>> exp_space['occ'] = np.arange(4, dtype=np.int16)
         >>> exp_space['tot'] = np.arange(10, dtype=np.int16)
+        >>> exp_space['seed'] = np.arange(4, dtype=np.int16)
         >>> min_order = order = 2
         >>> tuples = np.array([[0, 4], [0, 5], [0, 6], [0, 7], [0, 8], [0, 9],
         ...                    [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [1, 9],
@@ -428,10 +432,14 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
             # set tuples_pi
             tuples_pi = np.unique(tuples[:, :-1], axis=0)
 
-            # prune combinations without a mix of occupied and virtual orbitals
-            if min_order == 2:
-                tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.corr_prune, occup), tuples_pi), \
-                                                  dtype=bool, count=tuples_pi.shape[0])]
+            if ref_space['occ'].size == 0:
+                # prune combinations without occupied orbitals
+                tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.occ_prune, occup), tuples_pi), \
+                                              dtype=bool, count=tuples_pi.shape[0])]
+            if ref_space['virt'].size == 0:
+                # prune combinations without virtual orbitals
+                tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.virt_prune, occup), tuples_pi), \
+                                              dtype=bool, count=tuples_pi.shape[0])]
 
             # prune combinations that contain non-degenerate pairs of pi-orbitals
             tuples_pi = tuples_pi[np.fromiter(map(functools.partial(tools.pi_prune, \
@@ -483,7 +491,7 @@ def _set_screen(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, n
 
 
 def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
-            ref_space: np.ndarray, exp_space: np.ndarray, \
+            ref_space: Dict[str, np.ndarray], exp_space: Dict[str, np.ndarray], \
             min_order: int, order: int, hashes: np.ndarray, \
             prop: np.ndarray, tup: np.ndarray, \
             pi_prune: bool = False, pi_gen: bool = False) -> np.ndarray:
@@ -494,7 +502,9 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
         >>> occup = np.array([2.] * 3 + [0.] * 3)
         >>> prot = {'scheme': 3}
         >>> thres = {'init': 1.e-10, 'relax': 5., 'start': 3}
-        >>> ref_space = np.array([], dtype=np.int16)
+        >>> ref_space = {'occ': np.array([], dtype=np.int16),
+        ...              'virt': np.array([], dtype=np.int16),
+        ...              'tot': np.array([], dtype=np.int16)}
         >>> exp_space = {'occ': np.arange(3, dtype=np.int16),
         ...              'virt': np.arange(3, 6, dtype=np.int16),
         ...              'tot': np.arange(6, dtype=np.int16)}
@@ -558,15 +568,13 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
         # generate array with all k-1 order subsets of particular tuple
         combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int16)
 
-        # prune combinations without seed orbitals
-        if exp_space['seed'].size > 0:
-
-            if np.all(occup[exp_space['seed']] > 0.):
-                seed_type = 'occ'
-            else:
-                seed_type = 'virt'
-
-            combs = combs[np.fromiter(map(functools.partial(tools.seed_prune, occup, seed_type), combs), \
+        if ref_space['occ'].size == 0:
+            # prune combinations without occupied orbitals
+            combs = combs[np.fromiter(map(functools.partial(tools.occ_prune, occup), combs), \
+                                          dtype=bool, count=combs.shape[0])]
+        if ref_space['virt'].size == 0:
+            # prune combinations without virt orbitals
+            combs = combs[np.fromiter(map(functools.partial(tools.virt_prune, occup), combs), \
                                           dtype=bool, count=combs.shape[0])]
 
         # prune combinations that contain non-degenerate pairs of pi-orbitals
@@ -605,7 +613,7 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
 
                 # compute screening thresholds
                 screen_thres = np.fromiter(map(functools.partial(_thres, \
-                                    occup, thres, ref_space, prot['scheme']), combs_orb), \
+                                    occup, thres, ref_space['tot'], prot['scheme']), combs_orb), \
                                     dtype=np.float64, count=idx.size)
 
                 # add orbital to list of child orbitals if allowed

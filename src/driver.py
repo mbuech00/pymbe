@@ -46,7 +46,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i]))
 
                 # print mbe results
-                print(output.mbe_results(calc.occup, calc.ref_space, calc.target_mbe, calc.state['root'], exp.min_order, \
+                print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
                                             exp.max_order, i + exp.min_order, exp.prop[calc.target_mbe]['tot'], \
                                             exp.mean_inc[i], exp.min_inc[i], exp.max_inc[i], \
                                             exp.mean_ndets[i], exp.min_ndets[i], exp.max_ndets[i]))
@@ -110,7 +110,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 print(output.mbe_end(exp.order, exp.time['mbe'][-1]))
 
             # print mbe results
-            print(output.mbe_results(calc.occup, calc.ref_space, calc.target_mbe, calc.state['root'], exp.min_order, \
+            print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
                                      exp.max_order, exp.order, exp.prop[calc.target_mbe]['tot'], \
                                      exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
                                      exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))

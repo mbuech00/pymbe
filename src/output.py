@@ -138,8 +138,8 @@ def mbe_end(order: int, time: float) -> str:
         return string.format(*form)
 
 
-def mbe_results(occup: np.ndarray, ref_space: np.ndarray, target: str, root: int, \
-                min_order: int, max_order: int, order: int, prop_tot: List[Union[float, np.ndarray]], \
+def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_order: int, \
+                order: int, prop_tot: List[Union[float, np.ndarray]], \
                 mean_inc: Union[float, np.ndarray], min_inc: Union[float, np.ndarray], \
                 max_inc: Union[float, np.ndarray], mean_ndets: float, min_ndets: float, max_ndets: float) -> str:
         """
