@@ -551,7 +551,7 @@ def ref_mo(mol, calc):
         ref_space['virt'] = ref_space['tot'][calc.occup[ref_space['tot']] == 0.]
 
         # secondary space
-        sec_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space['tot']])
+        sec_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space['tot']], dtype=np.int16)
 
         # divide exp_space into occupied and virtual parts
         exp_space: Dict[str, np.ndarray] = {}
@@ -566,8 +566,6 @@ def ref_mo(mol, calc):
             exp_space['seed'] = np.array([], dtype=np.int16)
             exp_space['tot'] = sec_space
 
-        # total expansion space
-
         # casscf
         if calc.ref['method'] == 'casscf':
 
@@ -578,7 +576,7 @@ def ref_mo(mol, calc):
 
             # sorter for active space
             sort_casscf = np.concatenate((np.arange(mol.ncore), ref_space['tot'], exp_space['tot']))
-            # divide into inactive-referance-expansion
+            # divide into inactive-reference-expansion
             mo_coeff = mo_coeff[:, sort_casscf]
 
             # update orbsym
@@ -588,7 +586,8 @@ def ref_mo(mol, calc):
             mo_energy, mo_coeff = _casscf(mol, calc.model['solver'], calc.ref['wfnsym'], calc.orbsym, \
                                             calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space['tot'], act_nelec)
 
-            # reorder mo_coeff
+            # reorder mo_energy and mo_coeff
+            mo_energy = mo_energy[np.argsort(sort_casscf)]
             mo_coeff = mo_coeff[:, np.argsort(sort_casscf)]
 
         # pi-orbital space
