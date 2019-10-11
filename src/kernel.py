@@ -499,7 +499,8 @@ def ref_mo(mol, calc):
             if calc.orbs['type'] in ['ccsd', 'ccsd(t)']:
 
                 # compute rmd1
-                rdm1 = _cc(calc.occup, core_idx, cas_idx, calc.orbs['type'], hf=calc.hf, rdm1=True)
+                res = _cc(calc.occup, core_idx, cas_idx, calc.orbs['type'], hf=calc.hf, rdm1=True)
+                rdm1 = res['rdm1']
                 if mol.spin > 0:
                     rdm1 = rdm1[0] + rdm1[1]
 
@@ -728,7 +729,7 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
         """
         if method in ['ccsd', 'ccsd(t)']:
 
-            res = _cc(occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e)
+            res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole')
             ndets = tools.ndets(occup, cas_idx, n_elec=nelec)
 
         elif method == 'fci':
@@ -737,23 +738,21 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
                             orbsym, hf_guess, state_root, \
                             e_hf, e_core, h1e, h2e, \
                             occup, core_idx, cas_idx, nelec, debug)
-
             ndets = res_tmp['ndets']
 
-            if target_mbe in ['energy', 'excitation']:
+        if target_mbe in ['energy', 'excitation']:
 
-                res = res_tmp[target_mbe]
+            res = res_tmp[target_mbe]
 
-            elif target_mbe == 'dipole':
+        elif target_mbe == 'dipole':
 
-                res = _dipole(ao_dipole, occup, dipole_hf, \
-                                mo_coeff, cas_idx, res_tmp['rdm1'])
+            res = _dipole(ao_dipole, occup, dipole_hf, mo_coeff, cas_idx, res_tmp['rdm1'])
 
-            elif target_mbe == 'trans':
+        elif target_mbe == 'trans':
 
-                res = _trans(ao_dipole, occup, dipole_hf, \
-                                mo_coeff, cas_idx, res_tmp['t_rdm1'], \
-                                res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
+            res = _trans(ao_dipole, occup, dipole_hf, \
+                            mo_coeff, cas_idx, res_tmp['t_rdm1'], \
+                            res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 
         return res, ndets
 
@@ -825,7 +824,7 @@ def _trans(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_c
                         * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
-def base(mol, occup, method):
+def base(mol, occup, method, target, ao_dipole, mo_coeff, dipole_hf):
         """
         this function returns base model energy
 
@@ -855,7 +854,17 @@ def base(mol, occup, method):
         # get e_core and h1e_cas
         e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
-        return _cc(occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas)
+        # run calc
+        res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas, rdm1=target == 'dipole')
+
+        # collect results
+        energy = res_tmp['energy']
+        if target == 'energy':
+            dipole = np.zeros(3, dtype=np.float64)
+        else:
+            dipole = _dipole(ao_dipole, occup, dipole_hf, mo_coeff, cas_idx, res_tmp['rdm1'])
+
+        return energy, dipole
 
 
 def _casscf(mol, solver, wfnsym, orbsym, hf_guess, hf, mo_coeff, ref_space, nelec):
@@ -1125,10 +1134,9 @@ def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
                                      format(solver.nroots-1, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
 
         # collect results
-        res = {'ndets': np.count_nonzero(civec[-1])}
-        if target == 'energy':
-            res['energy'] = energy[-1] - hf_energy
-        elif target == 'excitation':
+        res: Dict[str, Union[int, float, np.ndarray]] = {'ndets': np.count_nonzero(civec[-1])}
+        res['energy'] = energy[-1] - hf_energy
+        if target == 'excitation':
             res['excitation'] = energy[-1] - energy[0]
         elif target == 'dipole':
             res['rdm1'] = solver.make_rdm1(civec[-1], cas_idx.size, nelec)
@@ -1222,24 +1230,19 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
 
                 e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 
+        # collect results
+        res: Dict[str, Union[float, np.ndarray]] = {'energy': e_cc}
+
         # rdm1
-        if not rdm1:
-
-            return e_cc
-
-        else:
-
+        if rdm1:
             if method == 'ccsd':
-
                 ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-                rdm1 = ccsd.make_rdm1()
-
+                res['rdm1'] = ccsd.make_rdm1()
             elif method == 'ccsd(t)':
-
                 l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
-                rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                res['rdm1'] = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
 
-            return rdm1
+        return res
 
 
 if __name__ == "__main__":

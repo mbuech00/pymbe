@@ -165,8 +165,6 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         if calc.base['method'] is not None:
             tools.assertion(calc.ref['method'] == 'casci', \
                             'use of base model is only permitted for casci expansion references')
-            tools.assertion(calc.target['energy'], \
-                            'use of base model is only permitted for target energies')
             tools.assertion(calc.base['method'] in ['ccsd', 'ccsd(t)'], \
                             'valid base models are currently: ccsd, and ccsd(t)')
 

@@ -166,9 +166,12 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # base energy
             if calc.base['method'] is not None:
-                calc.prop['base']['energy'] = kernel.base(mol, calc.occup, calc.base['method'])
+                calc.prop['base']['energy'], \
+                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.base['method'], calc.target_mbe, \
+                                                               mol.dipole, calc.mo_coeff, calc.prop['hf']['dipole'])
             else:
                 calc.prop['base']['energy'] = 0.
+                calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
 
             # reference space properties
             calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc)
@@ -427,7 +430,9 @@ def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
 
         elif calc.target_mbe == 'dipole':
 
-            dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), 'ref': calc.prop['ref']['dipole'].tolist()} # type: ignore
+            dipoles = {'hf': calc.prop['hf']['dipole'].tolist()} # type: ignore
+            dipoles['base'] = calc.prop['base']['dipole'].tolist() # type: ignore
+            dipoles['ref'] = calc.prop['ref']['dipole'].tolist() # type: ignore
             with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
                 json.dump(dipoles, f)
 
@@ -473,6 +478,7 @@ def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     dipoles = json.load(f)
                 calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
+                calc.prop['base']['dipole'] = np.asarray(dipoles['base'])
                 calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
 
             elif 'transitions' in files[i]:
