@@ -330,6 +330,7 @@ def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         np.save(os.path.join(RST, 'ref_space_tot'), calc.ref_space['tot'])
         np.save(os.path.join(RST, 'exp_space_occ'), calc.exp_space['occ'])
         np.save(os.path.join(RST, 'exp_space_virt'), calc.exp_space['virt'])
+        np.save(os.path.join(RST, 'exp_space_seed'), calc.exp_space['seed'])
         np.save(os.path.join(RST, 'exp_space_tot'), calc.exp_space['tot'])
         np.save(os.path.join(RST, 'exp_space_pi_orbs'), calc.exp_space['pi_orbs'])
         np.save(os.path.join(RST, 'exp_space_pi_hashes'), calc.exp_space['pi_hashes'])
@@ -375,6 +376,8 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                 calc.exp_space['occ'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_virt' in files[i]:
                 calc.exp_space['virt'] = np.load(os.path.join(RST, files[i]))
+            elif 'exp_space_seed' in files[i]:
+                calc.exp_space['seed'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_tot' in files[i]:
                 calc.exp_space['tot'] = np.load(os.path.join(RST, files[i]))
             elif 'exp_space_pi_orbs' in files[i]:
