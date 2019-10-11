@@ -67,7 +67,7 @@ The following papers document the development of the PyMBE code and the theory i
 
 * Generalized Many-Body Expanded Full Configuration Interaction Theory\
 Eriksen, J. J., Gauss, J.\
-[arXiv:1910.03527](https://arxiv.org/abs/1910.03527) (2019)
+[arXiv:1910.03527 (2019)](https://arxiv.org/abs/1910.03527)
 
 * Many-Body Expanded Full Configuration Interaction. II. Strongly Correlated Regime\
 Eriksen, J. J., Gauss, J.\
@@ -84,5 +84,5 @@ Eriksen, J. J., Lipparini, F.; Gauss, J.\
 Bug reports
 -----------
 
-Janus Juul Eriksen: <janus.eriksen@bristol.ac.uk> or <januseriksen@gmail.com>
+Janus Juul Eriksen: janus.eriksen [at] bristol [dot] ac [dot] uk or januseriksen [at] gmail [dot] com
 
