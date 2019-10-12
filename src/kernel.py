@@ -590,10 +590,12 @@ def ref_mo(mol, calc):
             # recast mol in dooh point group - make pi-space based on those symmetries
             mol_dooh = mol.copy()
             mol_dooh = mol_dooh.build(0, 0, symmetry='Dooh')
-            orbsym_dooh = symm.label_orb_symm(mol_dooh, mol_dooh.irrep_id, mol_dooh.symm_orb, calc.mo_coeff)
+            orbsym_dooh = symm.label_orb_symm(mol_dooh, mol_dooh.irrep_id, mol_dooh.symm_orb, mo_coeff)
 
             # pi-space
-            exp_space['pi_orbs'], exp_space['pi_hashes'] = tools.pi_space(orbsym_dooh[exp_space['tot']], exp_space['tot'])
+            exp_space_all = np.concatenate((exp_space['occ'], exp_space['virt']))
+            exp_space['pi_orbs'], \
+                exp_space['pi_hashes'] = tools.pi_space(orbsym_dooh[exp_space_all], exp_space_all)
 
         else:
 
