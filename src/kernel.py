@@ -344,7 +344,7 @@ class _hubbard_PM(lo.pipek.PM):
 
 
 def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
-                                                    np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+                                                    np.ndarray, np.ndarray, np.ndarray]:
         """
         this function returns the results of a hartree-fock calculation
 
@@ -356,7 +356,7 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
         >>> mol.debug = 0
         >>> mol.hf_init_guess = 'minao'
         >>> mol.irrep_nelec = {}
-        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_energy, mo_coeff = hf(mol, 'energy')
+        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff = hf(mol, 'energy')
         >>> nocc
         5
         >>> nvirt
@@ -371,11 +371,6 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
         array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.])
         >>> orbsym
         array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0])
-        >>> mo_energy_ref = np.array([-20.56043822,  -1.35751378,  -0.71019175,  -0.56159433, -0.50164834,
-        ...                         0.20395512,   0.30015235,   1.05581618, 1.16430251, 1.19036532,
-        ...                         1.2167634 ,   1.37962513, 1.69745496])
-        >>> np.allclose(mo_energy, mo_energy_ref)
-        True
         >>> mol.dipole = dipole_ints(mol)
         >>> dipole = hf(mol, 'dipole')[5]
         >>> dipole_ref = np.array([0., 0., 0.8642558])
@@ -453,7 +448,7 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
             print('\n')
 
         return nocc, nvirt, norb, hf, np.asscalar(e_hf), elec_dipole, occup, \
-                orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
+                orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(mo_occ: np.ndarray) -> Tuple[int, ...]:
@@ -486,8 +481,7 @@ def ref_mo(mol, calc):
                  numpy array of shape (n_orb) [ref_space],
                  dictionary with numpy arrays of shapes (n_exp_occ,), (n_exp_virt,), and (n_exp_tot)
         """
-        # init mo_energy and mo_coeff
-        mo_energy = calc.mo_energy
+        # init mo_coeff
         mo_coeff = calc.mo_coeff
 
         if calc.orbs['type'] != 'can':
@@ -506,36 +500,36 @@ def ref_mo(mol, calc):
 
                 # occ-occ block
                 occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
-                calc.mo_coeff[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
+                mo_coeff[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
 
                 # virt-virt block
                 occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
-                calc.mo_coeff[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.nocc:], no[:, ::-1])
+                mo_coeff[:, mol.nocc:] = np.einsum('ip,pj->ij', mo_coeff[:, mol.nocc:], no[:, ::-1])
 
             # pipek-mezey localized orbitals
             elif calc.orbs['type'] == 'local':
 
                 # occ-occ block
                 if mol.atom:
-                    loc = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
+                    loc = lo.PM(mol, mo_coeff[:, mol.ncore:mol.nocc])
                 else:
-                    loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
+                    loc = _hubbard_PM(mol, mo_coeff[:, mol.ncore:mol.nocc])
                 loc.conv_tol = CONV_TOL
                 if mol.debug >= 1:
                     loc.verbose = 4
-                calc.mo_coeff[:, mol.ncore:mol.nocc] = loc.kernel()
+                mo_coeff[:, mol.ncore:mol.nocc] = loc.kernel()
 
                 # virt-virt block
                 if mol.atom:
-                    loc = lo.PM(mol, calc.mo_coeff[:, mol.nocc:])
+                    loc = lo.PM(mol, mo_coeff[:, mol.nocc:])
                 else:
-                    loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:])
+                    loc = _hubbard_PM(mol, mo_coeff[:, mol.nocc:])
                 loc.conv_tol = CONV_TOL
                 if mol.debug >= 1:
                     loc.verbose = 4
-                calc.mo_coeff[:, mol.nocc:] = loc.kernel()
+                mo_coeff[:, mol.nocc:] = loc.kernel()
 
-        # sort orbitals
+        # active space
         if calc.ref['active'] == 'manual':
 
             # active orbitals
@@ -584,17 +578,26 @@ def ref_mo(mol, calc):
             if mol.atom:
                 calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
 
-            mo_energy, mo_coeff = _casscf(mol, calc.model['solver'], calc.ref['wfnsym'], calc.orbsym, \
-                                            calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space['tot'], act_nelec)
+            mo_coeff = _casscf(mol, calc.model['solver'], calc.ref['wfnsym'], calc.orbsym, \
+                                calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space['tot'], act_nelec)
 
-            # reorder mo_energy and mo_coeff
-            mo_energy = mo_energy[np.argsort(sort_casscf)]
+            # reorder mo_coeff
             mo_coeff = mo_coeff[:, np.argsort(sort_casscf)]
 
         # pi-orbital space
         if calc.extra['pi_prune']:
-            exp_space['pi_orbs'], exp_space['pi_hashes'] = tools.pi_space(mo_energy, exp_space['tot'])
+
+            # recast mol in dooh point group - make pi-space based on those symmetries
+            mol_dooh = mol.copy()
+            mol_dooh = mol_dooh.build(0, 0, symmetry='Dooh')
+            orbsym_dooh = symm.label_orb_symm(mol_dooh, mol_dooh.irrep_id, mol_dooh.symm_orb, calc.mo_coeff)
+
+            # pi-space
+            exp_space['pi_orbs'], exp_space['pi_hashes'] = tools.pi_space(orbsym_dooh[exp_space['tot']], exp_space['tot'])
+
         else:
+
+            # no pi-space
             exp_space['pi_orbs'] = exp_space['pi_hashes'] = None
 
         # debug print of reference and expansion spaces
@@ -607,7 +610,7 @@ def ref_mo(mol, calc):
             print(' expansion space [occ]  = {:}'.format(exp_space['occ']))
             print(' expansion space [virt] = {:}\n'.format(exp_space['virt']))
 
-        return mo_energy, np.asarray(mo_coeff, order='C'), act_nelec, ref_space, exp_space
+        return np.asarray(mo_coeff, order='C'), act_nelec, ref_space, exp_space
 
 
 def ref_prop(mol, calc):
@@ -1006,7 +1009,7 @@ def _casscf(mol, solver, wfnsym, orbsym, hf_guess, hf, mo_coeff, ref_space, nele
                 print('         {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), cas.mo_energy[i]))
             print('\n')
 
-        return cas.mo_energy, np.asarray(cas.mo_coeff, order='C')
+        return np.asarray(cas.mo_coeff, order='C')
 
 
 def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \

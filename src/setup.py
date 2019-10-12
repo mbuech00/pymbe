@@ -141,11 +141,10 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
+                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
 
                 # reference and expansion spaces and mo coefficients
-                calc.mo_energy, calc.mo_coeff, \
-                    calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
+                calc.mo_coeff, calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
 
         # bcast fundamental info
         mol, calc = parallel.fund(mpi, mol, calc)
@@ -341,9 +340,6 @@ def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         # occupation
         np.save(os.path.join(RST, 'occup'), calc.occup)
 
-        # write orbital energies
-        np.save(os.path.join(RST, 'mo_energy'), calc.mo_energy)
-
         # write orbital coefficients
         np.save(os.path.join(RST, 'mo_coeff'), calc.mo_coeff)
 
@@ -391,10 +387,6 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
             # read occupation
             elif 'occup' in files[i]:
                 calc.occup = np.load(os.path.join(RST, files[i]))
-
-            # read orbital energies
-            elif 'mo_energy' in files[i]:
-                calc.mo_energy = np.load(os.path.join(RST, files[i]))
 
             # read orbital coefficients
             elif 'mo_coeff' in files[i]:

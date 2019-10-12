@@ -28,8 +28,8 @@ import parallel
 
 # restart folder
 RST = os.getcwd()+'/rst'
-# pi-orbital mo energy threshold
-PI_THRES: float = 1.e-04
+# pi-orbitals
+PI_SYMM = np.array([2, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27])
 
 
 class Logger:
@@ -283,28 +283,24 @@ def cas_idx_tril(cas_idx: np.ndarray) -> np.ndarray:
                                         dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def pi_space(mo_energy: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def pi_space(orbsym_dooh: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns pi-orbitals and hashes from total expansion space
 
         example:
-        >>> pi_space(np.array([-.3, -.15, -.15, .1, .2, .2, .4, .5]), np.arange(7, dtype=np.int16))
-        (array([1, 2, 4, 5], dtype=int16), array([-2163557957507198923,  1937934232745943291]))
+        >>> orbsym_dooh = np.array([14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5])
+        >>> exp_space = np.arange(18, dtype=np.int16)
+        >>> pi_pairs, pi_hashes = pi_space(orbsym_dooh, exp_space)
+        >>> pi_pairs_ref = np.array([12, 13,  7,  8,  3,  4,  0,  1,  9, 10, 15, 16], dtype=np.int16)
+        >>> np.allclose(pi_pairs, pi_pairs_ref)
+        True
+        >>> pi_hashes_ref = np.array([-8471304755370577665, -7365615264797734692, -3932386661120954737,
+        ...                           -3821038970866580488,  758718848004794914,   7528999078095043310])
+        >>> np.allclose(pi_hashes, pi_hashes_ref)
+        True
         """
-        # init pi_space list
-        pi_space: List[int] = []
-
-        # loop over all orbitals of total expansion space
-        for i in range(1, exp_space.size):
-
-            if np.abs(mo_energy[exp_space[i]] - mo_energy[exp_space[i-1]]) < PI_THRES:
-
-                # pair of degenerate pi-orbitals
-                pi_space.append(exp_space[i-1])
-                pi_space.append(exp_space[i])
-
-        # recast as array
-        pi_space_arr = np.unique(np.array(pi_space, dtype=np.int16))
+        # all pi-orbitals
+        pi_space_arr = exp_space[np.in1d(orbsym_dooh, PI_SYMM)]
 
         # get all degenerate pi-pairs
         pi_pairs = pi_space_arr.reshape(-1, 2)

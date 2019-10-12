@@ -157,8 +157,7 @@ def fund(mpi: MPICls, mol: system.MolCls, \
             mpi.global_comm.bcast(info, root=0)
 
             # collect standard info (must be updated with new future attributes)
-            info = {'occup': calc.occup, 'mo_energy': calc.mo_energy, \
-                    'ref_space': calc.ref_space, 'exp_space': calc.exp_space}
+            info = {'occup': calc.occup, 'ref_space': calc.ref_space, 'exp_space': calc.exp_space}
 
             # bcast to slaves
             mpi.global_comm.bcast(info, root=0)

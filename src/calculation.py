@@ -57,7 +57,6 @@ class CalcCls:
                 self.hf: scf.RHF = None
                 self.occup: np.ndarray = None
                 self.orbsym: np.ndarray = None
-                self.mo_energy: np.ndarray = None
                 self.mo_coeff: np.ndarray = None
                 self.nelec: Tuple[int, ...] = ()
                 self.ref_space: Dict[str, np.ndarray] = {'tot': None}
