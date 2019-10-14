@@ -568,13 +568,9 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
         # generate array with all k-1 order subsets of particular tuple
         combs = np.array([comb for comb in itertools.combinations(tup, order-1)], dtype=np.int16)
 
-        if ref_space['occ'].size == 0:
-            # prune combinations without occupied orbitals
+        # prune combinations without occupied orbitals
+        if exp_space['seed'].size > 0:
             combs = combs[np.fromiter(map(functools.partial(tools.occ_prune, occup), combs), \
-                                          dtype=bool, count=combs.shape[0])]
-        if ref_space['virt'].size == 0:
-            # prune combinations without virt orbitals
-            combs = combs[np.fromiter(map(functools.partial(tools.virt_prune, occup), combs), \
                                           dtype=bool, count=combs.shape[0])]
 
         # prune combinations that contain non-degenerate pairs of pi-orbitals
