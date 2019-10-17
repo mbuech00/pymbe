@@ -1252,6 +1252,6 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()#verbose=True)
+    doctest.testmod(verbose=True)
 
 

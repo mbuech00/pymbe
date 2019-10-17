@@ -180,14 +180,7 @@ def _prot(calc: calculation.CalcCls) -> str:
         """
         this function returns the screening protocol
         """
-        if calc.prot['scheme'] == 1:
-            return '1st generation'
-        elif calc.prot['scheme'] == 2:
-            return '2nd generation'
-        elif calc.prot['scheme'] == 3:
-            return '3rd generation'
-        else:
-            raise NotImplementedError('unknown generation')
+        return calc.prot['gen'] + ' / ' + calc.prot['cond']
 
 
 def _system(mol: system.MolCls) -> str:

@@ -16,7 +16,7 @@ import numpy as np
 from mpi4py import MPI
 import functools
 import itertools
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Any
 
 import parallel
 import calculation
@@ -490,7 +490,7 @@ def _set_screen(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: 
         return slaves_avail, tuples_pi, tuples_seed, tuples_seed_pi
 
 
-def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
+def _orbs(occup: np.ndarray, prot: Dict[str, str], thres: Dict[str, float], \
             ref_space: Dict[str, np.ndarray], exp_space: Dict[str, np.ndarray], \
             min_order: int, order: int, hashes: np.ndarray, \
             prop: np.ndarray, tup: np.ndarray, \
@@ -500,14 +500,15 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 3)
-        >>> prot = {'scheme': 3}
+        >>> prot = {'cond': 'max', 'gen': 'old'}
         >>> thres = {'init': 1.e-10, 'relax': 5., 'start': 3}
         >>> ref_space = {'occ': np.array([], dtype=np.int16),
         ...              'virt': np.array([], dtype=np.int16),
         ...              'tot': np.array([], dtype=np.int16)}
         >>> exp_space = {'occ': np.arange(3, dtype=np.int16),
         ...              'virt': np.arange(3, 6, dtype=np.int16),
-        ...              'tot': np.arange(6, dtype=np.int16)}
+        ...              'tot': np.arange(6, dtype=np.int16),
+        ...              'seed': np.arange(3, dtype=np.int16)}
         >>> min_order = 2
         ... # [[0, 1, 3], [0, 1, 4], [0, 1, 5]
         ... #  [0, 2, 3], [0, 2, 4], [0, 2, 5]
@@ -602,18 +603,26 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
             combs_orb_hash.sort()
 
             # get indices of combinations
-            idx = tools.hash_compare(hashes, combs_orb_hash)
+            if prot['gen'] == 'old':
+                idx = tools.hash_compare(hashes, combs_orb_hash)
+            else:
+                idx_lst: List[Union[int, Any]] = []
+                for comb_hash in combs_orb_hash:
+                    i = tools.hash_compare(hashes, comb_hash)
+                    if i is not None:
+                        idx_lst.append(i)
+                idx = np.asarray(idx_lst)
 
             # only continue if child orbital is valid
             if idx is not None:
 
                 # compute screening thresholds
                 screen_thres = np.fromiter(map(functools.partial(_thres, \
-                                    occup, thres, ref_space['tot'], prot['scheme']), combs_orb), \
+                                    occup, thres, ref_space['tot']), combs_orb), \
                                     dtype=np.float64, count=idx.size)
 
                 # add orbital to list of child orbitals if allowed
-                if not _prot_screen(prot['scheme'], screen_thres, prop[idx]) or np.sum(screen_thres) == 0.:
+                if not _prot_screen(prot['cond'], screen_thres, prop[idx]) or np.sum(screen_thres) == 0.:
 
                     if pi_gen:
                         child_orbs += orb.tolist()
@@ -623,18 +632,18 @@ def _orbs(occup: np.ndarray, prot: Dict[str, int], thres: Dict[str, float], \
         return np.array(child_orbs, dtype=np.int16)
 
 
-def _prot_screen(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
+def _prot_screen(cond: str, thres: np.ndarray, prop: np.ndarray) -> bool:
         """
         this function extracts increments with non-zero thresholds and calls screening function
 
         example:
         >>> thres = np.array([1.e-6, 2.e-7, 3.e-8])
         >>> prop = np.array([0., 1.e-12, 1.e-7])
-        >>> scheme = 3
-        >>> _prot_scheme(scheme, thres, prop)
+        >>> cond = 'max'
+        >>> _prot_scheme(cond, thres, prop)
         False
         >>> prop = np.array([[0., 0., 1.e-9], [0., 1.e-8, 2.e-8]])
-        >>> _prot_scheme(scheme, thres, prop)
+        >>> _prot_scheme(cond, thres, prop)
         True
         """
         # extract increments with non-zero thresholds
@@ -643,7 +652,7 @@ def _prot_screen(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
         # screening procedure
         if inc.ndim == 1:
 
-            screen = _prot_scheme(scheme, thres[np.nonzero(thres)], inc)
+            screen = _prot_scheme(cond, thres[np.nonzero(thres)], inc)
 
         else:
 
@@ -655,7 +664,7 @@ def _prot_screen(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
 
                 # only screen based on relevant dimensions
                 if np.sum(inc[:, dim]) != 0.:
-                    screen = _prot_scheme(scheme, thres[np.nonzero(thres)], inc[:, dim])
+                    screen = _prot_scheme(cond, thres[np.nonzero(thres)], inc[:, dim])
 
                 # if any increment is large enough, then quit screening
                 if not screen:
@@ -664,21 +673,21 @@ def _prot_screen(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
         return screen
 
 
-def _prot_scheme(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
+def _prot_scheme(cond: str, thres: np.ndarray, prop: np.ndarray) -> bool:
         """
         this function screens according to chosen protocol scheme
 
         example:
         >>> thres = np.array([1.e-6, 2.e-7, 3.e-8])
         >>> prop = np.array([1.e-7] * 3)
-        >>> scheme = 1
-        >>> _prot_scheme(scheme, thres, prop)
+        >>> cond = 'min'
+        >>> _prot_scheme(cond, thres, prop)
         True
-        >>> scheme = 2
-        >>> _prot_scheme(scheme, thres, prop)
+        >>> cond = 'max'
+        >>> _prot_scheme(cond, thres, prop)
         False
         """
-        if scheme == 1:
+        if cond == 'min':
             # are *any* increments below their given threshold
             return np.any(np.abs(prop) < thres)
         else:
@@ -687,30 +696,26 @@ def _prot_scheme(scheme: int, thres: np.ndarray, prop: np.ndarray) -> bool:
 
 
 def _thres(occup: np.ndarray, thres: Dict[str, Union[float, int]], \
-            ref_space: np.ndarray, scheme: int, tup: np.ndarray) -> float:
+            ref_space: np.ndarray, tup: np.ndarray) -> float:
         """
         this function computes the screening threshold for the given tuple of orbitals
 
         example:
         >>> occup = np.array([2.] * 4 + [0.] * 6)
         >>> thres = {'init': 1.e-10, 'relax': 5., 'start': 3}
-        >>> tup = np.array([5, 7, 8], dtype=np.int16)
         >>> ref_space = np.arange(4, dtype=np.int16)
-        >>> scheme = 2
-        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 1e-10)
+        >>> tup = np.array([5, 7, 8], dtype=np.int16)
+        >>> np.isclose(_thres(occup, thres, ref_space, tup), 1e-10)
         True
         >>> tup = np.array([5, 7, 8, 9], dtype=np.int16)
-        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 5e-10)
+        >>> np.isclose(_thres(occup, thres, ref_space, tup), 5e-10)
         True
         >>> ref_space = np.array([], dtype=np.int16)
         >>> tup = np.array([0, 1, 2, 3, 5, 7, 9], dtype=np.int16)
-        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 1e-10)
-        True
-        >>> scheme = 3
-        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 5e-10)
+        >>> np.isclose(_thres(occup, thres, ref_space, tup), 5e-10)
         True
         >>> thres['start'] = 1
-        >>> np.isclose(_thres(occup, thres, ref_space, scheme, tup), 1.25e-8)
+        >>> np.isclose(_thres(occup, thres, ref_space, tup), 1.25e-8)
         True
         """
         # determine involved dimensions
@@ -725,12 +730,8 @@ def _thres(occup: np.ndarray, thres: Dict[str, Union[float, int]], \
         # update thres
         if nocc > 0 and nvirt > 0:
 
-            if scheme < 3:
-                if nvirt >= thres['start']:
-                    screen_thres = thres['init'] * thres['relax'] ** (nvirt - thres['start'])
-            else:
-                if max(nocc, nvirt) >= thres['start']:
-                    screen_thres = thres['init'] * thres['relax'] ** (max(nocc, nvirt) - thres['start'])
+            if max(nocc, nvirt) >= thres['start']:
+                screen_thres = thres['init'] * thres['relax'] ** (max(nocc, nvirt) - thres['start'])
 
         return screen_thres
 
