@@ -516,7 +516,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         >>> exp_space['pi_orbs'] is None and exp_space['pi_hashes'] is None
         True
         >>> exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, True, hf)[-1]
-        >>> pi_orbs_ref = np.array([ 7,  8, 14, 15, 11, 12], dtype=np.int16)
+        >>> pi_orbs_ref = np.array([7, 8, 14, 15, 11, 12], dtype=np.int16)
         >>> np.allclose(exp_space['pi_orbs'], pi_orbs_ref)
         True
         >>> pi_hashes_ref = np.array([-7365615264797734692,  2711701422158015467,  4980488901507643489])
@@ -774,27 +774,42 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
         ...            0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)[0]
         >>> np.isclose(exc, 1.850774199956839)
         True
-        >>> e = main('ccsd', '', occup, 'energy', 'A', orbsym, True, 0,
-        ...          0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)[0]
-        >>> np.isclose(e, 0.8234069541302586)
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> hf = scf.RHF(mol)
+        >>> _ = hf.kernel()
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+        >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
+        >>> h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
+        >>> eri_ao = mol.intor('int2e_sph', aosym=4)
+        >>> h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
+        >>> core_idx = np.array([])
+        >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
+        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
+        >>> cas_idx_tril = tools.cas_idx_tril(cas_idx)
+        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
+        >>> nelec = (5, 5)
+        >>> e_core = mol.energy_nuc()
+        >>> e = main('ccsd', 'pyscf_spin0', hf.mo_occ, 'energy', 'A1', orbsym, True, 0,
+        ...          hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)[0]
+        >>> np.isclose(e, -0.014118607610972691)
         True
-        >>> np.random.seed(1234)
-        >>> ao_dipole = np.random.rand(3, 6, 6)
-        >>> mo_coeff = np.eye(6, dtype=np.float64)
-        >>> dipole_hf = np.zeros(3, dtype=np.float64)
-        >>> dipole = main('fci', 'pyscf_spin0', occup, 'dipole', 'A', orbsym, True, 0,
-        ...               0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
-        ...               ao_dipole, mo_coeff, dipole_hf)[0]
-        >>> dipole_ref = np.array([4.59824861, 4.7898921 , 5.10183542])
+        >>> ao_dipole = dipole_ints(mol)
+        >>> dipole_hf = np.einsum('xij,ji->x', ao_dipole, hf.make_rdm1())
+        >>> dipole = main('fci', 'pyscf_spin0', hf.mo_occ, 'dipole', 'A1', orbsym, True, 0,
+        ...               hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
+        ...               ao_dipole, hf.mo_coeff, dipole_hf)[0]
+        >>> dipole_ref = np.array([0., 0., -7.97781259e-03])
         >>> np.allclose(dipole, dipole_ref)
         True
-        >>> trans = main('fci', 'pyscf_spin0', occup, 'trans', 'A', orbsym, True, 1,
-        ...              0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
-        ...              ao_dipole, mo_coeff, dipole_hf)[0]
-        >>> trans_ref = np.array([-0.39631621, -0.19800879, -0.31924946])
+        >>> trans = main('fci', 'pyscf_spin0', hf.mo_occ, 'trans', 'A1', orbsym, True, 1,
+        ...              hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
+        ...              ao_dipole, hf.mo_coeff, dipole_hf)[0]
+        >>> trans_ref = np.array([0., 0., -0.26497816])
         >>> np.allclose(trans, trans_ref)
         True
-        """
+       """
         if method in ['ccsd', 'ccsd(t)']:
 
             res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole')
@@ -1172,17 +1187,16 @@ def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
                     s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
                     tools.assertion(np.abs((spin + 1) - mult) < SPIN_TOL, \
                                     'spin contamination for root entry = {:}\n2*S + 1 = {:.6f}\n'
-                                    'core_idx = {:}\ncore_sym = {:}\ncas_idx = {:}\ncas_sym = {:}'. \
-                                    format(root, mult, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
+                                    'cas_idx = {:}\ncas_sym = {:}'. \
+                                    format(root, mult, cas_idx, orbsym[cas_idx]))
 
         # convergence check
         if solver.nroots == 1:
 
             tools.assertion(solver.converged, \
-                                 'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                 'state {:} not converged\n'
                                  'cas_idx = {:}\ncas_sym = {:}'. \
-                                 format(root, core_idx, orbsym[core_idx] if core_idx.size > 0 else core_idx, \
-                                        cas_idx, orbsym[cas_idx]))
+                                 format(root, cas_idx, orbsym[cas_idx]))
 
         else:
 
@@ -1190,16 +1204,16 @@ def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
 
                 for root in [0, solver.nroots-1]:
                     tools.assertion(solver.converged[root], \
-                                         'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                         'state {:} not converged\n'
                                          'cas_idx = {:}\ncas_sym = {:}'. \
-                                         format(root, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
+                                         format(root, cas_idx, orbsym[cas_idx]))
 
             else:
 
                 tools.assertion(solver.converged[solver.nroots-1], \
-                                     'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                     'state {:} not converged\n'
                                      'cas_idx = {:}\ncas_sym = {:}'. \
-                                     format(solver.nroots-1, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
+                                     format(solver.nroots-1, cas_idx, orbsym[cas_idx]))
 
         # collect results
         res: Dict[str, Union[int, float, np.ndarray]] = {'ndets': np.count_nonzero(civec[-1])}
