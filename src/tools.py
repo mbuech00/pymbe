@@ -216,7 +216,7 @@ def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         return np.sort(np.append(ref_space, tup))
 
 
-def core_cas(nocc: int, ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
+def core_cas(nocc: int, ref_space: np.ndarray, tup: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns a core and a cas space
 

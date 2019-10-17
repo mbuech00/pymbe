@@ -144,7 +144,10 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                     calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
 
                 # reference and expansion spaces and mo coefficients
-                calc.mo_coeff, calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
+                calc.mo_coeff, calc.nelec, \
+                    calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
+                                                                    calc.orbs, calc.ref, calc.model, \
+                                                                    calc.extra['pi_prune'], calc.hf)
 
         # bcast fundamental info
         mol, calc = parallel.fund(mpi, mol, calc)

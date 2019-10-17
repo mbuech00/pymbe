@@ -21,7 +21,7 @@ from pyscf import gto, symm, scf, ao2mo, lib, lo, ci, cc, mcscf, fci
 from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
-from typing import Tuple, List, Union
+from typing import Tuple, List, Dict, Union, Any
 import warnings
 
 import parallel
@@ -469,45 +469,108 @@ def _dim(mo_occ: np.ndarray) -> Tuple[int, ...]:
         return occ.size + virt.size, occ.size, virt.size
 
 
-def ref_mo(mol, calc):
+def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndarray, \
+            orbs: Dict[str, str], ref: Dict[str, Any], model: Dict[str, str], pi_prune: bool, \
+            hf: scf.RHF) -> Tuple[np.ndarray, Tuple[int, int], np.ndarray, np.ndarray]:
         """
-        this function returns a set of reference mo energies and coefficients plus the associated spaces
+        this function returns a set of reference mo coefficients and symmetries plus the associated spaces
 
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: numpy array of shape (n_orb,) [mo_energy],
-                 numpy array of shape (n_orb, n_orb) [mo_coeff],
-                 tuple of integers [nelec],
-                 numpy array of shape (n_orb) [ref_space],
-                 dictionary with numpy arrays of shapes (n_exp_occ,), (n_exp_virt,), and (n_exp_tot)
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='C 0. 0. 0.625; C 0. 0. -0.625',
+        ...               basis = '631g', symmetry = 'D2h', verbose=0)
+        >>> mol.ncore, mol.nocc, mol.nvirt, mol.norb = 2, 6, 12, 18
+        >>> mol.debug = False
+        >>> hf = scf.RHF(mol)
+        >>> _ = hf.kernel()
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+        >>> model = {'method': 'fci', 'solver': 'pyscf_spin0'}
+        >>> ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual',
+        ...        'select': [i for i in range(2, 6)],
+        ...        'wfnsym': ['Ag']}
+        >>> orbs = {'type': 'can'}
+        >>> mo_coeff, act_nelec, ref_space, exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym,
+        ...                                                     orbs, ref, model, False, hf)
+        >>> np.isclose(np.sum(mo_coeff), -4.995051198781287)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 4.954270427681284)
+        True
+        >>> act_nelec
+        (4, 4)
+        >>> ref_space_ref = np.array([2, 3, 4, 5], dtype=np.int16)
+        >>> np.allclose(ref_space['occ'], ref_space_ref)
+        True
+        >>> np.all(ref_space['occ'] == ref_space['tot'])
+        True
+        >>> ref_space['virt']
+        array([], dtype=int16)
+        >>> exp_space_ref = np.array([ 6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17], dtype=np.int16)
+        >>> np.allclose(exp_space['virt'], exp_space_ref)
+        True
+        >>> np.all(exp_space['virt'] == exp_space['tot'])
+        True
+        >>> exp_space['occ']
+        array([], dtype=int16)
+        >>> np.all(exp_space['occ'] == exp_space['seed'])
+        True
+        >>> exp_space['pi_orbs'] is None and exp_space['pi_hashes'] is None
+        True
+        >>> exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, True, hf)[-1]
+        >>> pi_orbs_ref = np.array([ 7,  8, 14, 15, 11, 12], dtype=np.int16)
+        >>> np.allclose(exp_space['pi_orbs'], pi_orbs_ref)
+        True
+        >>> pi_hashes_ref = np.array([-7365615264797734692,  2711701422158015467,  4980488901507643489])
+        >>> np.allclose(exp_space['pi_hashes'], pi_hashes_ref)
+        True
+        >>> orbs['type'] = 'ccsd'
+        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.isclose(np.sum(mo_coeff), 1.4521896109624048)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 6.953346258094149)
+        True
+        >>> orbs['type'] = 'local'
+        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.isclose(np.sum(mo_coeff), 3.5665242146990463)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 5.510437607766403)
+        True
+        >>> orbs['type'] = 'can'
+        >>> ref['method'] = 'casscf'
+        >>> ref['select'] = [4, 5, 7, 8]
+        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.isclose(np.sum(mo_coeff), -5.0278490212621385)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 4.947394624365791)
+        True
         """
-        # init mo_coeff
-        mo_coeff = calc.mo_coeff
+        # copy mo coefficients
+        mo_coeff_out = np.copy(mo_coeff)
 
-        if calc.orbs['type'] != 'can':
+        if orbs['type'] != 'can':
 
             # set core and cas spaces
-            core_idx, cas_idx = tools.core_cas(mol.nocc, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))
+            core_idx, cas_idx = tools.core_cas(mol.nocc, np.arange(mol.ncore, mol.nocc), \
+                                                np.arange(mol.nocc, mol.norb))
 
             # NOs
-            if calc.orbs['type'] in ['ccsd', 'ccsd(t)']:
+            if orbs['type'] in ['ccsd', 'ccsd(t)']:
 
                 # compute rmd1
-                res = _cc(calc.occup, core_idx, cas_idx, calc.orbs['type'], hf=calc.hf, rdm1=True)
+                res = _cc(occup, core_idx, cas_idx, orbs['type'], hf=hf, rdm1=True)
                 rdm1 = res['rdm1']
                 if mol.spin > 0:
                     rdm1 = rdm1[0] + rdm1[1]
 
                 # occ-occ block
-                occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
-                mo_coeff[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
+                no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], orbsym[mol.ncore:mol.nocc])[-1]
+                mo_coeff_out[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
 
                 # virt-virt block
-                occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
-                mo_coeff[:, mol.nocc:] = np.einsum('ip,pj->ij', mo_coeff[:, mol.nocc:], no[:, ::-1])
+                no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], orbsym[mol.nocc:])[-1]
+                mo_coeff_out[:, mol.nocc:] = np.einsum('ip,pj->ij', mo_coeff[:, mol.nocc:], no[:, ::-1])
 
             # pipek-mezey localized orbitals
-            elif calc.orbs['type'] == 'local':
+            elif orbs['type'] == 'local':
 
                 # occ-occ block
                 if mol.atom:
@@ -517,7 +580,7 @@ def ref_mo(mol, calc):
                 loc.conv_tol = CONV_TOL
                 if mol.debug >= 1:
                     loc.verbose = 4
-                mo_coeff[:, mol.ncore:mol.nocc] = loc.kernel()
+                mo_coeff_out[:, mol.ncore:mol.nocc] = loc.kernel()
 
                 # virt-virt block
                 if mol.atom:
@@ -527,31 +590,30 @@ def ref_mo(mol, calc):
                 loc.conv_tol = CONV_TOL
                 if mol.debug >= 1:
                     loc.verbose = 4
-                mo_coeff[:, mol.nocc:] = loc.kernel()
+                mo_coeff_out[:, mol.nocc:] = loc.kernel()
 
         # active space
-        if calc.ref['active'] == 'manual':
+        if ref['active'] == 'manual':
 
             # active orbitals
-            calc.ref['select'] = np.asarray(calc.ref['select'], dtype=np.int16)
+            ref['select'] = np.asarray(ref['select'], dtype=np.int16)
 
             # active electrons
-            act_nelec = (np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
-                        np.count_nonzero(calc.occup[calc.ref['select']] > 1.))
+            act_nelec = tools.nelec(occup, ref['select'])
 
         # reference (primary) space
         ref_space: Dict[str, np.ndarray] = {}
-        ref_space['tot'] = calc.ref['select']
-        ref_space['occ'] = ref_space['tot'][calc.occup[ref_space['tot']] > 0.]
-        ref_space['virt'] = ref_space['tot'][calc.occup[ref_space['tot']] == 0.]
+        ref_space['tot'] = ref['select']
+        ref_space['occ'] = ref_space['tot'][occup[ref_space['tot']] > 0.]
+        ref_space['virt'] = ref_space['tot'][occup[ref_space['tot']] == 0.]
 
         # secondary space
         sec_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space['tot']], dtype=np.int16)
 
         # divide exp_space into occupied and virtual parts
         exp_space: Dict[str, np.ndarray] = {}
-        exp_space['occ'] = sec_space[calc.occup[sec_space] > 0.]
-        exp_space['virt'] = sec_space[calc.occup[sec_space] == 0.]
+        exp_space['occ'] = sec_space[occup[sec_space] > 0.]
+        exp_space['virt'] = sec_space[occup[sec_space] == 0.]
 
         # seed and total expansion spaces
         if ref_space['tot'].size == 0 or (ref_space['occ'].size > 0. and ref_space['virt'].size == 0):
@@ -562,7 +624,7 @@ def ref_mo(mol, calc):
             exp_space['tot'] = sec_space
 
         # casscf
-        if calc.ref['method'] == 'casscf':
+        if ref['method'] == 'casscf':
 
             tools.assertion(ref_space['occ'].size > 0, \
                             'no singly/doubly occupied orbitals in CASSCF calculation')
@@ -572,25 +634,26 @@ def ref_mo(mol, calc):
             # sorter for active space
             sort_casscf = np.concatenate((np.arange(mol.ncore), ref_space['tot'], exp_space['tot']))
             # divide into inactive-reference-expansion
-            mo_coeff = mo_coeff[:, sort_casscf]
+            mo_coeff_casscf = mo_coeff[:, sort_casscf]
 
             # update orbsym
             if mol.atom:
-                calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+                orbsym_casscf = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff_casscf)
 
-            mo_coeff = _casscf(mol, calc.model['solver'], calc.ref['wfnsym'], calc.orbsym, \
-                                calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space['tot'], act_nelec)
+            # run casscf
+            mo_coeff_out = _casscf(mol, model['solver'], ref['wfnsym'], orbsym_casscf, \
+                                ref['hf_guess'], hf, mo_coeff_casscf, ref_space['tot'], act_nelec)
 
             # reorder mo_coeff
-            mo_coeff = mo_coeff[:, np.argsort(sort_casscf)]
+            mo_coeff_out = mo_coeff_out[:, np.argsort(sort_casscf)]
 
         # pi-orbital space
-        if calc.extra['pi_prune']:
+        if pi_prune:
 
             # recast mol in dooh point group - make pi-space based on those symmetries
             mol_dooh = mol.copy()
             mol_dooh = mol_dooh.build(0, 0, symmetry='Dooh')
-            orbsym_dooh = symm.label_orb_symm(mol_dooh, mol_dooh.irrep_id, mol_dooh.symm_orb, mo_coeff)
+            orbsym_dooh = symm.label_orb_symm(mol_dooh, mol_dooh.irrep_id, mol_dooh.symm_orb, mo_coeff_out)
 
             # pi-space
             exp_space_all = np.concatenate((exp_space['occ'], exp_space['virt']))
@@ -607,12 +670,12 @@ def ref_mo(mol, calc):
             print('\n reference nelec        = {:}'.format(act_nelec))
             print(' reference space [occ]  = {:}'.format(ref_space['occ']))
             print(' reference space [virt] = {:}'.format(ref_space['virt']))
-            if calc.extra['pi_prune']:
+            if pi_prune:
                 print(' expansion space [pi]   =\n{:}'.format(exp_space['pi_orbs'].reshape(-1, 2)))
             print(' expansion space [occ]  = {:}'.format(exp_space['occ']))
             print(' expansion space [virt] = {:}\n'.format(exp_space['virt']))
 
-        return np.asarray(mo_coeff, order='C'), act_nelec, ref_space, exp_space
+        return np.asarray(mo_coeff_out, order='C'), act_nelec, ref_space, exp_space
 
 
 def ref_prop(mol, calc):
@@ -1194,6 +1257,7 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
 
             tools.assertion(hf is not None, 'in the absence of h1e and h2e, hf object must be passed to cc solver')
             ccsd = cc.CCSD(hf)
+            ccsd.frozen = core_idx.size
 
         # settings
         ccsd.conv_tol = CONV_TOL
@@ -1252,6 +1316,6 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod(verbose=True)
+    doctest.testmod()#verbose=True)
 
 
