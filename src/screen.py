@@ -611,7 +611,10 @@ def _orbs(occup: np.ndarray, prot: Dict[str, str], thres: Dict[str, float], \
                     i = tools.hash_compare(hashes, comb_hash)
                     if i is not None:
                         idx_lst.append(i)
-                idx = np.asarray(idx_lst)
+                if len(idx_lst) > 0:
+                    idx = np.asarray(idx_lst)
+                else:
+                    idx = None
 
             # only continue if child orbital is valid
             if idx is not None:
