@@ -1166,7 +1166,7 @@ def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
             hf_guess: bool, root: int, e_hf: float, e_core: float, \
             h1e: np.ndarray, h2e: np.ndarray, occup: np.ndarray, \
             core_idx: np.ndarray, cas_idx: np.ndarray, \
-            nelec: Tuple[int, int], debug: int) -> Dict[str, Union[float, np.ndarray]]:
+            nelec: Tuple[int, int], debug: int) -> Dict[str, Any]:
         """
         this function returns the results of a fci calculation
 
@@ -1316,19 +1316,36 @@ def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
         return res
 
 
-def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=False):
+def _cc(occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: str, \
+            h1e: np.ndarray = None, h2e: np.ndarray = None, hf: scf.RHF = None, \
+            rdm1: bool = False) -> Dict[str, Any]:
         """
         this function returns the results of a ccsd / ccsd(t) calculation
 
-        :param occup: orbital occupation. numpy array of shape (n_orb,)
-        :param core_idx: core space indices. numpy array of shape (n_inactive,)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :param method: cc model. string
-        :param h1e: cas space 1e integrals. numpy array of shape (n_cas, n_cas)
-        :param h2e: cas space 2e integrals. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
-        :param hf: pyscf hf object
-        :param rdm1: rdm1 logical. bool
-        :return: float or numpy array of shape (n_orb-n_core, n_orb-n_core) depending on rdm1 bool
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> hf = scf.RHF(mol)
+        >>> _ = hf.kernel()
+        >>> core_idx = np.array([])
+        >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
+        >>> res = _cc(hf.mo_occ, core_idx, cas_idx, 'ccsd', hf=hf)
+        >>> np.isclose(res['energy'], -0.014118607610972705)
+        True
+        >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
+        >>> h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
+        >>> eri_ao = mol.intor('int2e_sph', aosym=4)
+        >>> h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
+        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
+        >>> cas_idx_tril = tools.cas_idx_tril(cas_idx)
+        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
+        >>> res = _cc(hf.mo_occ, core_idx, cas_idx, 'ccsd', h1e=h1e_cas, h2e=h2e_cas, rdm1=True)
+        >>> np.isclose(res['energy'], -0.014118607610972705)
+        True
+        >>> np.isclose(np.sum(res['rdm1']), 9.978003347693397)
+        True
+        >>> np.isclose(np.amax(res['rdm1']), 2.)
+        True
         """
         spin = np.count_nonzero(occup[cas_idx] == 1.)
         singlet = spin == 0
@@ -1354,11 +1371,11 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
                 ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))), \
                                         mo_occ=np.array((occup[cas_idx] > 0., occup[cas_idx] == 2.), dtype=np.double))
 
-        else:
+        elif hf is not None:
 
             tools.assertion(hf is not None, 'in the absence of h1e and h2e, hf object must be passed to cc solver')
             ccsd = cc.CCSD(hf)
-            ccsd.frozen = core_idx.size
+            ccsd.frozen = np.asarray([i for i in range(hf.mo_coeff.shape[1]) if i not in cas_idx])
 
         # settings
         ccsd.conv_tol = CONV_TOL
@@ -1417,6 +1434,6 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()#verbose=True)
+    doctest.testmod(verbose=True)
 
 
