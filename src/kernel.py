@@ -343,7 +343,7 @@ class _hubbard_PM(lo.pipek.PM):
             return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
-def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
+def hf(mol: system.MolCls, target_mbe: str) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
                                                     np.ndarray, np.ndarray, np.ndarray]:
         """
         this function returns the results of a hartree-fock calculation
@@ -417,7 +417,7 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
         tools.assertion(hf.converged, 'HF error: no convergence')
 
         # dipole moment
-        if target == 'dipole':
+        if target_mbe == 'dipole':
             dm = hf.make_rdm1()
             elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
             elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0. for i in range(elec_dipole.size)])
@@ -1162,42 +1162,59 @@ def _casscf(mol: system.MolCls, solver: str, wfnsym: List[str], \
         return np.asarray(cas.mo_coeff, order='C')
 
 
-def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
-            e_core, h1e, h2e, occup, core_idx, cas_idx, nelec, debug):
+def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
+            hf_guess: bool, root: int, e_hf: float, e_core: float, \
+            h1e: np.ndarray, h2e: np.ndarray, occup: np.ndarray, \
+            core_idx: np.ndarray, cas_idx: np.ndarray, \
+            nelec: Tuple[int, int], debug: int) -> Dict[str, Union[float, np.ndarray]]:
         """
         this function returns the results of a fci calculation
 
-        :param mol: pymbe mol object
-        :param solver: fci solver. string
-        :param target: calculation target. string
-        :param wfnsym: wave function symmetry. string
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
-        :param hf_guess: hf as initial guess. bool
-        :param root: state root of interest. integer
-        :param hf_energy: hf energy. float
-        :param e_core: core space energy. float
-        :param h1e: cas space 1e integrals. numpy array of shape (n_cas, n_cas)
-        :param h2e: cas space 2e integrals. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
-        :param core_idx: core space indices. numpy array of shape (n_inactive,)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :param nelec: number of correlated electrons. tuple of integers
-        :return: dict of float [ndets],
-                 floats [energy and excitation],
-                 numpy array of shape (n_cas, n_cas) [dipole],
-                 or numpy array of shape (n_cas, n_cas) and a list of floats [trans]
+        example:
+        >>> occup = np.array([2.] * 4 + [0.] * 4)
+        >>> orbsym = np.zeros(8, dtype=np.int)
+        >>> h1e = hubbard_h1e((2, 4), True)
+        >>> h2e = hubbard_eri((2, 4), 2.)
+        >>> h2e = ao2mo.restore(4, h2e, 8)
+        >>> res = _fci('pyscf_spin0', 'energy', 'A', orbsym, True, 0, 0., 0.,
+        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
+        >>> res['ndets']
+        4900
+        >>> np.isclose(res['energy'], -5.246918061839909)
+        True
+        >>> res = _fci('pyscf_spin1', 'excitation', 'A', orbsym, True, 1, 0., 0.,
+        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
+        >>> np.isclose(res['energy'], -4.179698414137736)
+        True
+        >>> np.isclose(res['excitation'], 1.0672196477046079)
+        True
+        >>> res = _fci('pyscf_spin0', 'dipole', 'A', orbsym, True, 1, 0., 0.,
+        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
+        >>> np.isclose(np.sum(res['rdm1']), 15.544465598616451)
+        True
+        >>> np.isclose(np.amax(res['rdm1']), 1.)
+        True
+        >>> res = _fci('pyscf_spin1', 'trans', 'A', orbsym, True, 1, 0., 0.,
+        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
+        >>> np.isclose(np.sum(res['t_rdm1']), 0.)
+        True
+        >>> np.isclose(np.amax(res['t_rdm1']), 0.1008447233008727)
+        True
+        >>> np.isclose(np.sum(res['hf_weight']), 0.)
+        True
         """
         # spin
         spin = np.count_nonzero(occup[cas_idx] == 1.)
 
         # init fci solver
-        if solver == 'pyscf_spin0':
+        if solver_type == 'pyscf_spin0':
             solver = fci.direct_spin0_symm.FCI()
-        elif solver == 'pyscf_spin1':
+        elif solver_type == 'pyscf_spin1':
             solver = fci.direct_spin1_symm.FCI()
 
         # settings
         solver.conv_tol = CONV_TOL
-        if target in ['dipole', 'trans']:
+        if target_mbe in ['dipole', 'trans']:
             solver.conv_tol *= 1.e-04
             solver.lindep = solver.conv_tol * 1.e-01
         solver.max_memory = MAX_MEM
@@ -1270,7 +1287,7 @@ def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
 
         else:
 
-            if target == 'excitation':
+            if target_mbe == 'excitation':
 
                 for root in [0, solver.nroots-1]:
                     tools.assertion(solver.converged[root], \
@@ -1287,12 +1304,12 @@ def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
 
         # collect results
         res: Dict[str, Union[int, float, np.ndarray]] = {'ndets': np.count_nonzero(civec[-1])}
-        res['energy'] = energy[-1] - hf_energy
-        if target == 'excitation':
+        res['energy'] = energy[-1] - e_hf
+        if target_mbe == 'excitation':
             res['excitation'] = energy[-1] - energy[0]
-        elif target == 'dipole':
+        elif target_mbe == 'dipole':
             res['rdm1'] = solver.make_rdm1(civec[-1], cas_idx.size, nelec)
-        elif target == 'trans':
+        elif target_mbe == 'trans':
             res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[-1], cas_idx.size, nelec)
             res['hf_weight'] = [civec[i][0, 0] for i in range(2)]
 
