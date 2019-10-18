@@ -1375,7 +1375,9 @@ def _cc(occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: st
 
             tools.assertion(hf is not None, 'in the absence of h1e and h2e, hf object must be passed to cc solver')
             ccsd = cc.CCSD(hf)
-            ccsd.frozen = np.asarray([i for i in range(hf.mo_coeff.shape[1]) if i not in cas_idx])
+            frozen_orbs = np.asarray([i for i in range(hf.mo_coeff.shape[1]) if i not in cas_idx])
+            if frozen_orbs.size > 0:
+                ccsd.frozen = frozen_orbs
 
         # settings
         ccsd.conv_tol = CONV_TOL

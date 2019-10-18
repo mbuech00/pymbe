@@ -10,7 +10,6 @@ system = {'basis': '631g', 'symmetry': 'c2v', 'frozen': True}
 
 model = {'method': 'fci'}
 target = {'energy': True}
-prot = {'scheme': 2}
 ref = {'method': 'casci', 'select': [1, 2, 3, 4]}
 orbs = {'type': 'ccsd'}
 state = {'wfnsym': 'a1', 'root': 0}
