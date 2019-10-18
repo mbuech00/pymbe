@@ -176,7 +176,11 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
 
             # reference space properties
-            calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc)
+            calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc.occup, calc.target_mbe, \
+                                                                calc.orbsym, calc.extra['hf_guess'], \
+                                                                calc.ref_space, calc.model, calc.state, \
+                                                                calc.prop['hf']['energy'], calc.mo_coeff, \
+                                                                calc.prop['hf']['dipole'], calc.base['method'])
 
         # mo_coeff not needed anymore
         if mpi.global_master:
