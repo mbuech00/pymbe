@@ -180,14 +180,7 @@ def _prot(calc: calculation.CalcCls) -> str:
         """
         this function returns the screening protocol
         """
-        if calc.prot['scheme'] == 1:
-            return '1st generation'
-        elif calc.prot['scheme'] == 2:
-            return '2nd generation'
-        elif calc.prot['scheme'] == 3:
-            return '3rd generation'
-        else:
-            raise NotImplementedError('unknown generation')
+        return calc.prot['gen'] + ' / ' + calc.prot['cond']
 
 
 def _system(mol: system.MolCls) -> str:
@@ -318,6 +311,7 @@ def _dipole(mol: system.MolCls, calc: calculation.CalcCls, \
 
         dipole_tot = np.copy(exp.prop['dipole']['tot'])
         dipole_tot += calc.prop['hf']['dipole']
+        dipole_tot += calc.prop['base']['dipole']
         dipole_tot += calc.prop['ref']['dipole']
 
         return dipole_tot, nuc_dipole
@@ -623,7 +617,9 @@ def _dipole_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Ex
 
         string += DIVIDER[:82]+'\n'
 
-        dipole_ref: np.ndarray = calc.prop['hf']['dipole'] + calc.prop['ref']['dipole']
+        dipole_ref: np.ndarray = calc.prop['hf']['dipole'] + \
+                                    calc.prop['base']['dipole'] + \
+                                    calc.prop['ref']['dipole']
         dipole, nuc_dipole = _dipole(mol, calc, exp)
         string += '{:9}{:>3s}{:5}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
         form += ('','ref', \

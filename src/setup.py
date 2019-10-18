@@ -141,11 +141,13 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_energy, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
+                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
 
                 # reference and expansion spaces and mo coefficients
-                calc.mo_energy, calc.mo_coeff, \
-                    calc.nelec, calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc)
+                calc.mo_coeff, calc.nelec, \
+                    calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
+                                                                    calc.orbs, calc.ref, calc.model, \
+                                                                    calc.extra['pi_prune'], calc.hf)
 
         # bcast fundamental info
         mol, calc = parallel.fund(mpi, mol, calc)
@@ -166,12 +168,19 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # base energy
             if calc.base['method'] is not None:
-                calc.prop['base']['energy'] = kernel.base(mol, calc.occup, calc.base['method'])
+                calc.prop['base']['energy'], \
+                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.target_mbe, calc.base['method'], \
+                                                               calc.mo_coeff, calc.prop['hf']['dipole'])
             else:
                 calc.prop['base']['energy'] = 0.
+                calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
 
             # reference space properties
-            calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc)
+            calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc.occup, calc.target_mbe, \
+                                                                calc.orbsym, calc.extra['hf_guess'], \
+                                                                calc.ref_space, calc.model, calc.state, \
+                                                                calc.prop['hf']['energy'], calc.mo_coeff, \
+                                                                calc.prop['hf']['dipole'], calc.base['method'])
 
         # mo_coeff not needed anymore
         if mpi.global_master:
@@ -338,9 +347,6 @@ def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         # occupation
         np.save(os.path.join(RST, 'occup'), calc.occup)
 
-        # write orbital energies
-        np.save(os.path.join(RST, 'mo_energy'), calc.mo_energy)
-
         # write orbital coefficients
         np.save(os.path.join(RST, 'mo_coeff'), calc.mo_coeff)
 
@@ -389,10 +395,6 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
             elif 'occup' in files[i]:
                 calc.occup = np.load(os.path.join(RST, files[i]))
 
-            # read orbital energies
-            elif 'mo_energy' in files[i]:
-                calc.mo_energy = np.load(os.path.join(RST, files[i]))
-
             # read orbital coefficients
             elif 'mo_coeff' in files[i]:
                 calc.mo_coeff = np.load(os.path.join(RST, files[i]))
@@ -427,7 +429,9 @@ def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
 
         elif calc.target_mbe == 'dipole':
 
-            dipoles = {'hf': calc.prop['hf']['dipole'].tolist(), 'ref': calc.prop['ref']['dipole'].tolist()} # type: ignore
+            dipoles = {'hf': calc.prop['hf']['dipole'].tolist()} # type: ignore
+            dipoles['base'] = calc.prop['base']['dipole'].tolist() # type: ignore
+            dipoles['ref'] = calc.prop['ref']['dipole'].tolist() # type: ignore
             with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
                 json.dump(dipoles, f)
 
@@ -473,6 +477,7 @@ def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     dipoles = json.load(f)
                 calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
+                calc.prop['base']['dipole'] = np.asarray(dipoles['base'])
                 calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
 
             elif 'transitions' in files[i]:

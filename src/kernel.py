@@ -21,7 +21,7 @@ from pyscf import gto, symm, scf, ao2mo, lib, lo, ci, cc, mcscf, fci
 from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
-from typing import Tuple, List, Union
+from typing import Tuple, List, Dict, Union, Any
 import warnings
 
 import parallel
@@ -343,8 +343,8 @@ class _hubbard_PM(lo.pipek.PM):
             return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
-def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
-                                                    np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def hf(mol: system.MolCls, target_mbe: str) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
+                                                    np.ndarray, np.ndarray, np.ndarray]:
         """
         this function returns the results of a hartree-fock calculation
 
@@ -356,7 +356,7 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
         >>> mol.debug = 0
         >>> mol.hf_init_guess = 'minao'
         >>> mol.irrep_nelec = {}
-        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_energy, mo_coeff = hf(mol, 'energy')
+        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff = hf(mol, 'energy')
         >>> nocc
         5
         >>> nvirt
@@ -371,15 +371,9 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
         array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.])
         >>> orbsym
         array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0])
-        >>> mo_energy_ref = np.array([-20.56043822,  -1.35751378,  -0.71019175,  -0.56159433, -0.50164834,
-        ...                         0.20395512,   0.30015235,   1.05581618, 1.16430251, 1.19036532,
-        ...                         1.2167634 ,   1.37962513, 1.69745496])
-        >>> np.allclose(mo_energy, mo_energy_ref)
-        True
         >>> mol.dipole = dipole_ints(mol)
         >>> dipole = hf(mol, 'dipole')[5]
-        >>> dipole_ref = np.array([0., 0., 0.8642558])
-        >>> np.allclose(dipole, dipole_ref)
+        >>> np.allclose(dipole, np.array([0., 0., 0.8642558]))
         True
         """
         # initialize restricted hf calc
@@ -423,7 +417,7 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
         tools.assertion(hf.converged, 'HF error: no convergence')
 
         # dipole moment
-        if target == 'dipole':
+        if target_mbe == 'dipole':
             dm = hf.make_rdm1()
             elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
             elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0. for i in range(elec_dipole.size)])
@@ -453,7 +447,7 @@ def hf(mol: system.MolCls, target: str) -> Tuple[int, int, int, scf.RHF, float, 
             print('\n')
 
         return nocc, nvirt, norb, hf, np.asscalar(e_hf), elec_dipole, occup, \
-                orbsym, hf.mo_energy, np.asarray(hf.mo_coeff, order='C')
+                orbsym, np.asarray(hf.mo_coeff, order='C')
 
 
 def _dim(mo_occ: np.ndarray) -> Tuple[int, ...]:
@@ -474,89 +468,147 @@ def _dim(mo_occ: np.ndarray) -> Tuple[int, ...]:
         return occ.size + virt.size, occ.size, virt.size
 
 
-def ref_mo(mol, calc):
+def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndarray, \
+            orbs: Dict[str, str], ref: Dict[str, Any], model: Dict[str, str], pi_prune: bool, \
+            hf: scf.RHF) -> Tuple[np.ndarray, Tuple[int, int], np.ndarray, np.ndarray]:
         """
-        this function returns a set of reference mo energies and coefficients plus the associated spaces
+        this function returns a set of reference mo coefficients and symmetries plus the associated spaces
 
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: numpy array of shape (n_orb,) [mo_energy],
-                 numpy array of shape (n_orb, n_orb) [mo_coeff],
-                 tuple of integers [nelec],
-                 numpy array of shape (n_orb) [ref_space],
-                 dictionary with numpy arrays of shapes (n_exp_occ,), (n_exp_virt,), and (n_exp_tot)
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='C 0. 0. 0.625; C 0. 0. -0.625',
+        ...               basis = '631g', symmetry = 'D2h', verbose=0)
+        >>> mol.ncore, mol.nocc, mol.nvirt, mol.norb = 2, 6, 12, 18
+        >>> mol.debug = 0
+        >>> hf = scf.RHF(mol)
+        >>> _ = hf.kernel()
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+        >>> model = {'method': 'fci', 'solver': 'pyscf_spin0'}
+        >>> ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual',
+        ...        'select': [i for i in range(2, 6)],
+        ...        'wfnsym': ['Ag']}
+        >>> orbs = {'type': 'can'}
+        >>> mo_coeff, act_nelec, ref_space, exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym,
+        ...                                                     orbs, ref, model, False, hf)
+        >>> np.isclose(np.sum(mo_coeff), -4.995051198781287)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 4.954270427681284)
+        True
+        >>> act_nelec
+        (4, 4)
+        >>> np.allclose(ref_space['occ'], np.array([2, 3, 4, 5], dtype=np.int16))
+        True
+        >>> np.all(ref_space['occ'] == ref_space['tot'])
+        True
+        >>> ref_space['virt']
+        array([], dtype=int16)
+        >>> np.allclose(exp_space['virt'], np.array([6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], dtype=np.int16))
+        True
+        >>> np.all(exp_space['virt'] == exp_space['tot'])
+        True
+        >>> exp_space['occ']
+        array([], dtype=int16)
+        >>> np.all(exp_space['occ'] == exp_space['seed'])
+        True
+        >>> exp_space['pi_orbs'] is None and exp_space['pi_hashes'] is None
+        True
+        >>> exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, True, hf)[-1]
+        >>> np.allclose(exp_space['pi_orbs'], np.array([7, 8, 14, 15, 11, 12], dtype=np.int16))
+        True
+        >>> np.allclose(exp_space['pi_hashes'], np.array([-7365615264797734692,  2711701422158015467,  4980488901507643489]))
+        True
+        >>> orbs['type'] = 'ccsd'
+        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.isclose(np.sum(mo_coeff), 1.4521896109624048)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 6.953346258094149)
+        True
+        >>> orbs['type'] = 'local'
+        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.isclose(np.sum(mo_coeff), 3.5665242146990463)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 5.510437607766403)
+        True
+        >>> orbs['type'] = 'can'
+        >>> ref['method'] = 'casscf'
+        >>> ref['select'] = [4, 5, 7, 8]
+        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.isclose(np.sum(mo_coeff), -5.0278490212621385)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 4.947394624365791)
+        True
         """
-        # init mo_energy and mo_coeff
-        mo_energy = calc.mo_energy
-        mo_coeff = calc.mo_coeff
+        # copy mo coefficients
+        mo_coeff_out = np.copy(mo_coeff)
 
-        if calc.orbs['type'] != 'can':
+        if orbs['type'] != 'can':
 
             # set core and cas spaces
-            core_idx, cas_idx = tools.core_cas(mol.nocc, np.arange(mol.ncore), np.arange(mol.ncore, mol.norb))
+            core_idx, cas_idx = tools.core_cas(mol.nocc, np.arange(mol.ncore, mol.nocc), \
+                                                np.arange(mol.nocc, mol.norb))
 
             # NOs
-            if calc.orbs['type'] in ['ccsd', 'ccsd(t)']:
+            if orbs['type'] in ['ccsd', 'ccsd(t)']:
 
                 # compute rmd1
-                rdm1 = _cc(calc.occup, core_idx, cas_idx, calc.orbs['type'], hf=calc.hf, rdm1=True)
+                res = _cc(occup, core_idx, cas_idx, orbs['type'], hf=hf, rdm1=True)
+                rdm1 = res['rdm1']
                 if mol.spin > 0:
                     rdm1 = rdm1[0] + rdm1[1]
 
                 # occ-occ block
-                occup, no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], calc.orbsym[mol.ncore:mol.nocc])
-                calc.mo_coeff[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
+                no = symm.eigh(rdm1[:(mol.nocc-mol.ncore), :(mol.nocc-mol.ncore)], orbsym[mol.ncore:mol.nocc])[-1]
+                mo_coeff_out[:, mol.ncore:mol.nocc] = np.einsum('ip,pj->ij', mo_coeff[:, mol.ncore:mol.nocc], no[:, ::-1])
 
                 # virt-virt block
-                occup, no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], calc.orbsym[mol.nocc:])
-                calc.mo_coeff[:, mol.nocc:] = np.einsum('ip,pj->ij', calc.mo_coeff[:, mol.nocc:], no[:, ::-1])
+                no = symm.eigh(rdm1[-mol.nvirt:, -mol.nvirt:], orbsym[mol.nocc:])[-1]
+                mo_coeff_out[:, mol.nocc:] = np.einsum('ip,pj->ij', mo_coeff[:, mol.nocc:], no[:, ::-1])
 
             # pipek-mezey localized orbitals
-            elif calc.orbs['type'] == 'local':
+            elif orbs['type'] == 'local':
 
                 # occ-occ block
                 if mol.atom:
-                    loc = lo.PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
+                    loc = lo.PM(mol, mo_coeff[:, mol.ncore:mol.nocc])
                 else:
-                    loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.ncore:mol.nocc])
+                    loc = _hubbard_PM(mol, mo_coeff[:, mol.ncore:mol.nocc])
                 loc.conv_tol = CONV_TOL
                 if mol.debug >= 1:
                     loc.verbose = 4
-                calc.mo_coeff[:, mol.ncore:mol.nocc] = loc.kernel()
+                mo_coeff_out[:, mol.ncore:mol.nocc] = loc.kernel()
 
                 # virt-virt block
                 if mol.atom:
-                    loc = lo.PM(mol, calc.mo_coeff[:, mol.nocc:])
+                    loc = lo.PM(mol, mo_coeff[:, mol.nocc:])
                 else:
-                    loc = _hubbard_PM(mol, calc.mo_coeff[:, mol.nocc:])
+                    loc = _hubbard_PM(mol, mo_coeff[:, mol.nocc:])
                 loc.conv_tol = CONV_TOL
                 if mol.debug >= 1:
                     loc.verbose = 4
-                calc.mo_coeff[:, mol.nocc:] = loc.kernel()
+                mo_coeff_out[:, mol.nocc:] = loc.kernel()
 
-        # sort orbitals
-        if calc.ref['active'] == 'manual':
+        # active space
+        if ref['active'] == 'manual':
 
             # active orbitals
-            calc.ref['select'] = np.asarray(calc.ref['select'], dtype=np.int16)
+            ref['select'] = np.asarray(ref['select'], dtype=np.int16)
 
             # active electrons
-            act_nelec = (np.count_nonzero(calc.occup[calc.ref['select']] > 0.), \
-                        np.count_nonzero(calc.occup[calc.ref['select']] > 1.))
+            act_nelec = tools.nelec(occup, ref['select'])
 
         # reference (primary) space
         ref_space: Dict[str, np.ndarray] = {}
-        ref_space['tot'] = calc.ref['select']
-        ref_space['occ'] = ref_space['tot'][calc.occup[ref_space['tot']] > 0.]
-        ref_space['virt'] = ref_space['tot'][calc.occup[ref_space['tot']] == 0.]
+        ref_space['tot'] = ref['select']
+        ref_space['occ'] = ref_space['tot'][occup[ref_space['tot']] > 0.]
+        ref_space['virt'] = ref_space['tot'][occup[ref_space['tot']] == 0.]
 
         # secondary space
         sec_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space['tot']], dtype=np.int16)
 
         # divide exp_space into occupied and virtual parts
         exp_space: Dict[str, np.ndarray] = {}
-        exp_space['occ'] = sec_space[calc.occup[sec_space] > 0.]
-        exp_space['virt'] = sec_space[calc.occup[sec_space] == 0.]
+        exp_space['occ'] = sec_space[occup[sec_space] > 0.]
+        exp_space['virt'] = sec_space[occup[sec_space] == 0.]
 
         # seed and total expansion spaces
         if ref_space['tot'].size == 0 or (ref_space['occ'].size > 0. and ref_space['virt'].size == 0):
@@ -567,7 +619,7 @@ def ref_mo(mol, calc):
             exp_space['tot'] = sec_space
 
         # casscf
-        if calc.ref['method'] == 'casscf':
+        if ref['method'] == 'casscf':
 
             tools.assertion(ref_space['occ'].size > 0, \
                             'no singly/doubly occupied orbitals in CASSCF calculation')
@@ -577,23 +629,35 @@ def ref_mo(mol, calc):
             # sorter for active space
             sort_casscf = np.concatenate((np.arange(mol.ncore), ref_space['tot'], exp_space['tot']))
             # divide into inactive-reference-expansion
-            mo_coeff = mo_coeff[:, sort_casscf]
+            mo_coeff_casscf = mo_coeff[:, sort_casscf]
 
             # update orbsym
             if mol.atom:
-                calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+                orbsym_casscf = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff_casscf)
 
-            mo_energy, mo_coeff = _casscf(mol, calc.model['solver'], calc.ref['wfnsym'], calc.orbsym, \
-                                            calc.ref['hf_guess'], calc.hf, mo_coeff, ref_space['tot'], act_nelec)
+            # run casscf
+            mo_coeff_out = _casscf(mol, model['solver'], ref['wfnsym'], orbsym_casscf, \
+                                ref['hf_guess'], hf, mo_coeff_casscf, ref_space['tot'], act_nelec)
 
-            # reorder mo_energy and mo_coeff
-            mo_energy = mo_energy[np.argsort(sort_casscf)]
-            mo_coeff = mo_coeff[:, np.argsort(sort_casscf)]
+            # reorder mo_coeff
+            mo_coeff_out = mo_coeff_out[:, np.argsort(sort_casscf)]
 
         # pi-orbital space
-        if calc.extra['pi_prune']:
-            exp_space['pi_orbs'], exp_space['pi_hashes'] = tools.pi_space(mo_energy, exp_space['tot'])
+        if pi_prune:
+
+            # recast mol in dooh point group - make pi-space based on those symmetries
+            mol_dooh = mol.copy()
+            mol_dooh = mol_dooh.build(0, 0, symmetry='Dooh')
+            orbsym_dooh = symm.label_orb_symm(mol_dooh, mol_dooh.irrep_id, mol_dooh.symm_orb, mo_coeff_out)
+
+            # pi-space
+            exp_space_all = np.concatenate((exp_space['occ'], exp_space['virt']))
+            exp_space['pi_orbs'], \
+                exp_space['pi_hashes'] = tools.pi_space(orbsym_dooh[exp_space_all], exp_space_all)
+
         else:
+
+            # no pi-space
             exp_space['pi_orbs'] = exp_space['pi_hashes'] = None
 
         # debug print of reference and expansion spaces
@@ -601,21 +665,64 @@ def ref_mo(mol, calc):
             print('\n reference nelec        = {:}'.format(act_nelec))
             print(' reference space [occ]  = {:}'.format(ref_space['occ']))
             print(' reference space [virt] = {:}'.format(ref_space['virt']))
-            if calc.extra['pi_prune']:
+            if pi_prune:
                 print(' expansion space [pi]   =\n{:}'.format(exp_space['pi_orbs'].reshape(-1, 2)))
             print(' expansion space [occ]  = {:}'.format(exp_space['occ']))
             print(' expansion space [virt] = {:}\n'.format(exp_space['virt']))
 
-        return mo_energy, np.asarray(mo_coeff, order='C'), act_nelec, ref_space, exp_space
+        return np.asarray(mo_coeff_out, order='C'), act_nelec, ref_space, exp_space
 
 
-def ref_prop(mol, calc):
+def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
+                orbsym: np.ndarray, hf_guess: bool, ref_space: Dict[str, np.ndarray], \
+                model: Dict[str, str], state: Dict[str, Any], e_hf: float, mo_coeff: np.ndarray, \
+                dipole_hf: np.ndarray, base_method: Union[str, None]) -> Union[float, np.ndarray]:
         """
         this function returns reference space properties
 
-        :param mol: pymbe mol object
-        :param calc: pymbe calc object
-        :return: float or numpy array of shape (3,) depending on calc.target_mbe
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> mol.hf_symmetry = mol.symmetry
+        >>> mol.debug = 0
+        >>> mol.hf_init_guess = 'h1e'
+        >>> mol.irrep_nelec = {}
+        >>> mol.dipole = dipole_ints(mol)
+        >>> mol.e_nuc = mol.energy_nuc()
+        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, 'dipole')
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+        >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
+        ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
+        >>> ref_space = {'occ': np.arange(5), 'virt': np.array([6, 8, 10]),
+        ...              'tot': np.array([0, 1, 2, 3, 4, 6, 8, 10])}
+        >>> state = {'root': 0, 'wfnsym': 'A1'}
+        >>> model = {'method': 'fci', 'solver': 'pyscf_spin0'}
+        >>> e = ref_prop(mol, occup, 'energy', orbsym, True, ref_space,
+        ...              model, state, e_hf, mo_coeff, dipole_hf, None)
+        >>> np.isclose(e, -0.03769780809258805)
+        True
+        >>> e = ref_prop(mol, occup, 'energy', orbsym, True, ref_space,
+        ...              model, state, e_hf, mo_coeff, dipole_hf, 'ccsd')
+        >>> np.isclose(e, -0.00036229313775759664)
+        True
+        >>> dipole = ref_prop(mol, occup, 'dipole', orbsym, True, ref_space,
+        ...                   model, state, e_hf, mo_coeff, dipole_hf, None)
+        >>> np.allclose(dipole, np.array([0., 0., -0.02732937]))
+        True
+        >>> dipole = ref_prop(mol, occup, 'dipole', orbsym, True, ref_space,
+        ...                   model, state, e_hf, mo_coeff, dipole_hf, 'ccsd(t)')
+        >>> np.allclose(dipole, np.array([0., 0., -5.09683894e-05]))
+        True
+        >>> state['root'] = 1
+        >>> exc = ref_prop(mol, occup, 'excitation', orbsym, True, ref_space,
+        ...                model, state, e_hf, mo_coeff, dipole_hf, None)
+        >>> np.isclose(exc, 0.7060145137233889)
+        True
+        >>> trans = ref_prop(mol, occup, 'trans', orbsym, True, ref_space,
+        ...                  model, state, e_hf, mo_coeff, dipole_hf, None)
+        >>> np.allclose(trans, np.array([0., 0., 0.72582795]))
+        True
         """
         # load hcore
         buf = mol.hcore.Shared_query(0)[0]
@@ -630,13 +737,13 @@ def ref_prop(mol, calc):
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
 
         # core_idx and cas_idx
-        core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space['tot'], np.array([], dtype=np.int16))
+        core_idx, cas_idx = tools.core_cas(mol.nocc, ref_space['tot'], np.array([], dtype=np.int16))
 
         # nelec
-        nelec = np.asarray((np.count_nonzero(calc.occup[cas_idx] > 0.), \
-                            np.count_nonzero(calc.occup[cas_idx] > 1.)), dtype=np.int16)
+        nelec = np.asarray((np.count_nonzero(occup[cas_idx] > 0.), \
+                            np.count_nonzero(occup[cas_idx] > 1.)), dtype=np.int16)
 
-        if calc.ref_space['occ'].size > 0 and calc.ref_space['virt'].size > 0:
+        if ref_space['occ'].size > 0 and ref_space['virt'].size > 0:
 
             # get cas space h2e
             cas_idx_tril = tools.cas_idx_tril(cas_idx)
@@ -646,26 +753,26 @@ def ref_prop(mol, calc):
             e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # exp model
-            ref = main(calc.model['method'], calc.model['solver'], calc.occup, calc.target_mbe, \
-                        calc.state['wfnsym'], calc.orbsym, calc.extra['hf_guess'], calc.state['root'], \
-                        calc.prop['hf']['energy'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, mol.debug, \
-                        mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
-                        calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
-                        calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)[0]
+            ref = main(model['method'], model['solver'], occup, target_mbe, \
+                        state['wfnsym'], orbsym, hf_guess, state['root'], \
+                        e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, mol.debug, \
+                        mol.dipole if target_mbe in ['dipole', 'trans'] else None, \
+                        mo_coeff if target_mbe in ['dipole', 'trans'] else None, \
+                        dipole_hf if target_mbe in ['dipole', 'trans'] else None)[0]
 
             # base model
-            if calc.base['method'] is not None:
-                ref -= main(calc.base['method'], '', calc.occup, calc.target_mbe, \
-                            calc.state['wfnsym'], calc.orbsym, calc.extra['hf_guess'], calc.state['root'], \
-                            calc.prop['hf']['energy'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, mol.debug, \
-                            mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
-                            calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
-                            calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)[0]
+            if base_method is not None:
+                ref -= main(base_method, '', occup, target_mbe, \
+                            state['wfnsym'], orbsym, hf_guess, state['root'], \
+                            e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, mol.debug, \
+                            mol.dipole if target_mbe in ['dipole', 'trans'] else None, \
+                            mo_coeff if target_mbe in ['dipole', 'trans'] else None, \
+                            dipole_hf if target_mbe in ['dipole', 'trans'] else None)[0]
 
         else:
 
             # no correlation in expansion reference space
-            if calc.target_mbe in ['energy', 'excitation']:
+            if target_mbe in ['energy', 'excitation']:
                 ref = 0.
             else:
                 ref = np.zeros(3, dtype=np.float64)
@@ -694,7 +801,7 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
         >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
         >>> cas_idx_tril = tools.cas_idx_tril(cas_idx)
         >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-        >>> nelec = (2, 2)
+        >>> nelec = tools.nelec(occup, cas_idx)
         >>> e, ndets = main('fci', 'pyscf_spin0', occup, 'energy', 'A', orbsym, True, 0,
         ...                 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)
         >>> np.isclose(e, -2.8759428090050676)
@@ -705,30 +812,44 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
         ...            0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)[0]
         >>> np.isclose(exc, 1.850774199956839)
         True
-        >>> e = main('ccsd', '', occup, 'energy', 'A', orbsym, True, 0,
-        ...          0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)[0]
-        >>> np.isclose(e, 0.8234069541302586)
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> hf = scf.RHF(mol)
+        >>> _ = hf.kernel()
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+        >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
+        >>> h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
+        >>> eri_ao = mol.intor('int2e_sph', aosym=4)
+        >>> h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
+        >>> core_idx = np.array([])
+        >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
+        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
+        >>> cas_idx_tril = tools.cas_idx_tril(cas_idx)
+        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
+        >>> nelec = tools.nelec(hf.mo_occ, cas_idx)
+        >>> e_core = mol.energy_nuc()
+        >>> e = main('ccsd', 'pyscf_spin0', hf.mo_occ, 'energy', 'A1', orbsym, True, 0,
+        ...          hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
+        ...          None, None, None)[0]
+        >>> np.isclose(e, -0.014118607610972691)
         True
-        >>> np.random.seed(1234)
-        >>> ao_dipole = np.random.rand(3, 6, 6)
-        >>> mo_coeff = np.eye(6, dtype=np.float64)
-        >>> dipole_hf = np.zeros(3, dtype=np.float64)
-        >>> dipole = main('fci', 'pyscf_spin0', occup, 'dipole', 'A', orbsym, True, 0,
-        ...               0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
-        ...               ao_dipole, mo_coeff, dipole_hf)[0]
-        >>> dipole_ref = np.array([4.59824861, 4.7898921 , 5.10183542])
-        >>> np.allclose(dipole, dipole_ref)
+        >>> ao_dipole = dipole_ints(mol)
+        >>> dipole_hf = np.einsum('xij,ji->x', ao_dipole, hf.make_rdm1())
+        >>> dipole = main('fci', 'pyscf_spin0', hf.mo_occ, 'dipole', 'A1', orbsym, True, 0,
+        ...               hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
+        ...               ao_dipole, hf.mo_coeff, dipole_hf)[0]
+        >>> np.allclose(dipole, np.array([0., 0., -7.97781259e-03]))
         True
-        >>> trans = main('fci', 'pyscf_spin0', occup, 'trans', 'A', orbsym, True, 1,
-        ...              0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
-        ...              ao_dipole, mo_coeff, dipole_hf)[0]
-        >>> trans_ref = np.array([-0.39631621, -0.19800879, -0.31924946])
-        >>> np.allclose(trans, trans_ref)
+        >>> trans = main('fci', 'pyscf_spin0', hf.mo_occ, 'trans', 'A1', orbsym, True, 1,
+        ...              hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
+        ...              ao_dipole, hf.mo_coeff, dipole_hf)[0]
+        >>> np.allclose(trans, np.array([0., 0., -0.26497816]))
         True
-        """
+       """
         if method in ['ccsd', 'ccsd(t)']:
 
-            res = _cc(occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e)
+            res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole')
             ndets = tools.ndets(occup, cas_idx, n_elec=nelec)
 
         elif method == 'fci':
@@ -737,23 +858,21 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
                             orbsym, hf_guess, state_root, \
                             e_hf, e_core, h1e, h2e, \
                             occup, core_idx, cas_idx, nelec, debug)
-
             ndets = res_tmp['ndets']
 
-            if target_mbe in ['energy', 'excitation']:
+        if target_mbe in ['energy', 'excitation']:
 
-                res = res_tmp[target_mbe]
+            res = res_tmp[target_mbe]
 
-            elif target_mbe == 'dipole':
+        elif target_mbe == 'dipole':
 
-                res = _dipole(ao_dipole, occup, dipole_hf, \
-                                mo_coeff, cas_idx, res_tmp['rdm1'])
+            res = _dipole(ao_dipole, occup, dipole_hf, mo_coeff, cas_idx, res_tmp['rdm1'])
 
-            elif target_mbe == 'trans':
+        elif target_mbe == 'trans':
 
-                res = _trans(ao_dipole, occup, dipole_hf, \
-                                mo_coeff, cas_idx, res_tmp['t_rdm1'], \
-                                res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
+            res = _trans(ao_dipole, occup, dipole_hf, \
+                            mo_coeff, cas_idx, res_tmp['t_rdm1'], \
+                            res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 
         return res, ndets
 
@@ -773,8 +892,7 @@ def _dipole(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_
         >>> np.random.seed(1234)
         >>> cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
         >>> dipole = _dipole(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1)
-        >>> dipole_ref = np.array([5.90055525, 5.36437348, 6.40001788])
-        >>> np.allclose(dipole, dipole_ref)
+        >>> np.allclose(dipole, np.array([5.90055525, 5.36437348, 6.40001788]))
         True
         """
         # init (transition) rdm1
@@ -817,21 +935,43 @@ def _trans(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_c
         >>> np.random.seed(1234)
         >>> cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
         >>> trans = _trans(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, .9, .4)
-        >>> trans_ref = np.array([5.51751635, 4.92678927, 5.45675281])
-        >>> np.allclose(trans, trans_ref)
+        >>> np.allclose(trans, np.array([5.51751635, 4.92678927, 5.45675281]))
         True
         """
         return _dipole(ao_dipole, occup, hf_dipole, mo_coeff, cas_idx, cas_rdm1, True) \
                         * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
-def base(mol, occup, method):
+def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
+                method: str, mo_coeff: np.ndarray, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
         """
         this function returns base model energy
 
-        :param mol: pymbe mol object
-        :param occup: orbital occupation. numpy array of shape (n_orb,)
-        :param method: base model. string
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> mol.ncore = 1
+        >>> mol.hf_symmetry = mol.symmetry
+        >>> mol.debug = 0
+        >>> mol.hf_init_guess = 'h1e'
+        >>> mol.irrep_nelec = {}
+        >>> mol.dipole = dipole_ints(mol)
+        >>> mol.e_nuc = mol.energy_nuc()
+        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, 'dipole')
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+        >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
+        ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
+        >>> e, dipole = base(mol, occup, 'energy', 'ccsd(t)', mo_coeff, dipole_hf)
+        >>> np.isclose(e, -0.1353082155512597)
+        True
+        >>> np.allclose(dipole, np.zeros(3, dtype=np.float64))
+        True
+        >>> e, dipole = base(mol, occup, 'dipole', 'ccsd', mo_coeff, dipole_hf)
+        >>> np.isclose(e, -0.13432841702437032)
+        True
+        >>> np.allclose(dipole, np.array([0., 0., -0.04312132]))
+        True
         """
         # load hcore
         buf = mol.hcore.Shared_query(0)[0]
@@ -855,24 +995,46 @@ def base(mol, occup, method):
         # get e_core and h1e_cas
         e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
-        return _cc(occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas)
+        # run calc
+        res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas, rdm1=target_mbe == 'dipole')
+
+        # collect results
+        energy = res_tmp['energy']
+        if target_mbe == 'energy':
+            dipole = np.zeros(3, dtype=np.float64)
+        else:
+            dipole = _dipole(mol.dipole, occup, dipole_hf, mo_coeff, cas_idx, res_tmp['rdm1'])
+
+        return energy, dipole
 
 
-def _casscf(mol, solver, wfnsym, orbsym, hf_guess, hf, mo_coeff, ref_space, nelec):
+def _casscf(mol: system.MolCls, solver: str, wfnsym: List[str], \
+                orbsym: np.ndarray, hf_guess: bool, hf: scf.RHF, \
+                mo_coeff: np.ndarray, ref_space: np.ndarray, nelec: Tuple[int, int]) -> np.ndarray:
         """
         this function returns the results of a casscf calculation
 
-        :param mol: pymbe mol object
-        :param solver: fci solver. string
-        :param wfnsym: wave function symmetries for involved states. list of strings
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
-        :param hf_guess: hf as initial guess. bool
-        :param hf: pyscf hf object
-        :param mo_coeff: input mo coefficients. numpy array of shape (n_orb, n_orb)
-        :param ref_space: reference space. numpy array of shape (n_ref,)
-        :param nelec: number of correlated electrons. tuple of integers
-        :return: numpy array of shape (n_orb,) [mo_energy],
-                 numpy array of shape (n_orb, n_orb) [mo_coeff]
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='C 0. 0. 0.625; C 0. 0. -0.625',
+        ...               basis = '631g', symmetry = 'D2h', verbose=0)
+        >>> mol.ncore, mol.nocc, mol.nvirt, mol.norb = 2, 6, 12, 18
+        >>> mol.debug = 0
+        >>> hf = scf.RHF(mol)
+        >>> _ = hf.kernel()
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+        >>> mo_coeff = _casscf(mol, 'pyscf_spin0', ['Ag'], orbsym, True,
+        ...                    hf, hf.mo_coeff, np.arange(2, 10), (4, 4))
+        >>> np.isclose(np.sum(mo_coeff), 2.2922857024683)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 6.528333586540256)
+        True
+        >>> mo_coeff = _casscf(mol, 'pyscf_spin0', ['Ag', 'Ag', 'Ag', 'B1g'], orbsym, False,
+        ...                    hf, hf.mo_coeff, np.arange(2, 10), (4, 4))
+        >>> np.isclose(np.sum(mo_coeff), 2.700100458554667)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 6.437087455128202)
+        True
         """
         # init casscf
         cas = mcscf.CASSCF(hf, ref_space.size, nelec)
@@ -997,45 +1159,62 @@ def _casscf(mol, solver, wfnsym, orbsym, hf_guess, hf, mo_coeff, ref_space, nele
                 print('         {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), cas.mo_energy[i]))
             print('\n')
 
-        return cas.mo_energy, np.asarray(cas.mo_coeff, order='C')
+        return np.asarray(cas.mo_coeff, order='C')
 
 
-def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
-            e_core, h1e, h2e, occup, core_idx, cas_idx, nelec, debug):
+def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
+            hf_guess: bool, root: int, e_hf: float, e_core: float, \
+            h1e: np.ndarray, h2e: np.ndarray, occup: np.ndarray, \
+            core_idx: np.ndarray, cas_idx: np.ndarray, \
+            nelec: Tuple[int, int], debug: int) -> Dict[str, Any]:
         """
         this function returns the results of a fci calculation
 
-        :param mol: pymbe mol object
-        :param solver: fci solver. string
-        :param target: calculation target. string
-        :param wfnsym: wave function symmetry. string
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
-        :param hf_guess: hf as initial guess. bool
-        :param root: state root of interest. integer
-        :param hf_energy: hf energy. float
-        :param e_core: core space energy. float
-        :param h1e: cas space 1e integrals. numpy array of shape (n_cas, n_cas)
-        :param h2e: cas space 2e integrals. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
-        :param core_idx: core space indices. numpy array of shape (n_inactive,)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :param nelec: number of correlated electrons. tuple of integers
-        :return: dict of float [ndets],
-                 floats [energy and excitation],
-                 numpy array of shape (n_cas, n_cas) [dipole],
-                 or numpy array of shape (n_cas, n_cas) and a list of floats [trans]
+        example:
+        >>> occup = np.array([2.] * 4 + [0.] * 4)
+        >>> orbsym = np.zeros(8, dtype=np.int)
+        >>> h1e = hubbard_h1e((2, 4), True)
+        >>> h2e = hubbard_eri((2, 4), 2.)
+        >>> h2e = ao2mo.restore(4, h2e, 8)
+        >>> res = _fci('pyscf_spin0', 'energy', 'A', orbsym, True, 0, 0., 0.,
+        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
+        >>> res['ndets']
+        4900
+        >>> np.isclose(res['energy'], -5.246918061839909)
+        True
+        >>> res = _fci('pyscf_spin1', 'excitation', 'A', orbsym, True, 1, 0., 0.,
+        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
+        >>> np.isclose(res['energy'], -4.179698414137736)
+        True
+        >>> np.isclose(res['excitation'], 1.0672196477046079)
+        True
+        >>> res = _fci('pyscf_spin0', 'dipole', 'A', orbsym, True, 1, 0., 0.,
+        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
+        >>> np.isclose(np.sum(res['rdm1']), 15.544465598616451)
+        True
+        >>> np.isclose(np.amax(res['rdm1']), 1.)
+        True
+        >>> res = _fci('pyscf_spin1', 'trans', 'A', orbsym, True, 1, 0., 0.,
+        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
+        >>> np.isclose(np.sum(res['t_rdm1']), 0.)
+        True
+        >>> np.isclose(np.amax(res['t_rdm1']), 0.1008447233008727)
+        True
+        >>> np.isclose(np.sum(res['hf_weight']), 0.)
+        True
         """
         # spin
         spin = np.count_nonzero(occup[cas_idx] == 1.)
 
         # init fci solver
-        if solver == 'pyscf_spin0':
+        if solver_type == 'pyscf_spin0':
             solver = fci.direct_spin0_symm.FCI()
-        elif solver == 'pyscf_spin1':
+        elif solver_type == 'pyscf_spin1':
             solver = fci.direct_spin1_symm.FCI()
 
         # settings
         solver.conv_tol = CONV_TOL
-        if target in ['dipole', 'trans']:
+        if target_mbe in ['dipole', 'trans']:
             solver.conv_tol *= 1.e-04
             solver.lindep = solver.conv_tol * 1.e-01
         solver.max_memory = MAX_MEM
@@ -1095,63 +1274,78 @@ def _fci(solver, target, wfnsym, orbsym, hf_guess, root, hf_energy, \
                     s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
                     tools.assertion(np.abs((spin + 1) - mult) < SPIN_TOL, \
                                     'spin contamination for root entry = {:}\n2*S + 1 = {:.6f}\n'
-                                    'core_idx = {:}\ncore_sym = {:}\ncas_idx = {:}\ncas_sym = {:}'. \
-                                    format(root, mult, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
+                                    'cas_idx = {:}\ncas_sym = {:}'. \
+                                    format(root, mult, cas_idx, orbsym[cas_idx]))
 
         # convergence check
         if solver.nroots == 1:
 
             tools.assertion(solver.converged, \
-                                 'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                 'state {:} not converged\n'
                                  'cas_idx = {:}\ncas_sym = {:}'. \
-                                 format(root, core_idx, orbsym[core_idx] if core_idx.size > 0 else core_idx, \
-                                        cas_idx, orbsym[cas_idx]))
+                                 format(root, cas_idx, orbsym[cas_idx]))
 
         else:
 
-            if target == 'excitation':
+            if target_mbe == 'excitation':
 
                 for root in [0, solver.nroots-1]:
                     tools.assertion(solver.converged[root], \
-                                         'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                         'state {:} not converged\n'
                                          'cas_idx = {:}\ncas_sym = {:}'. \
-                                         format(root, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
+                                         format(root, cas_idx, orbsym[cas_idx]))
 
             else:
 
                 tools.assertion(solver.converged[solver.nroots-1], \
-                                     'state {:} not converged\ncore_idx = {:}\ncore_sym = {:}\n'
+                                     'state {:} not converged\n'
                                      'cas_idx = {:}\ncas_sym = {:}'. \
-                                     format(solver.nroots-1, core_idx, orbsym[core_idx], cas_idx, orbsym[cas_idx]))
+                                     format(solver.nroots-1, cas_idx, orbsym[cas_idx]))
 
         # collect results
-        res = {'ndets': np.count_nonzero(civec[-1])}
-        if target == 'energy':
-            res['energy'] = energy[-1] - hf_energy
-        elif target == 'excitation':
+        res: Dict[str, Union[int, float, np.ndarray]] = {'ndets': np.count_nonzero(civec[-1])}
+        res['energy'] = energy[-1] - e_hf
+        if target_mbe == 'excitation':
             res['excitation'] = energy[-1] - energy[0]
-        elif target == 'dipole':
+        elif target_mbe == 'dipole':
             res['rdm1'] = solver.make_rdm1(civec[-1], cas_idx.size, nelec)
-        elif target == 'trans':
+        elif target_mbe == 'trans':
             res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[-1], cas_idx.size, nelec)
             res['hf_weight'] = [civec[i][0, 0] for i in range(2)]
 
         return res
 
 
-def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=False):
+def _cc(occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: str, \
+            h1e: np.ndarray = None, h2e: np.ndarray = None, hf: scf.RHF = None, \
+            rdm1: bool = False) -> Dict[str, Any]:
         """
         this function returns the results of a ccsd / ccsd(t) calculation
 
-        :param occup: orbital occupation. numpy array of shape (n_orb,)
-        :param core_idx: core space indices. numpy array of shape (n_inactive,)
-        :param cas_idx: cas space indices. numpy array of shape (n_cas,)
-        :param method: cc model. string
-        :param h1e: cas space 1e integrals. numpy array of shape (n_cas, n_cas)
-        :param h2e: cas space 2e integrals. numpy array of shape (n_cas*(n_cas + 1) // 2, n_cas*(n_cas + 1) // 2)
-        :param hf: pyscf hf object
-        :param rdm1: rdm1 logical. bool
-        :return: float or numpy array of shape (n_orb-n_core, n_orb-n_core) depending on rdm1 bool
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> hf = scf.RHF(mol)
+        >>> _ = hf.kernel()
+        >>> core_idx = np.array([])
+        >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
+        >>> res = _cc(hf.mo_occ, core_idx, cas_idx, 'ccsd', hf=hf)
+        >>> np.isclose(res['energy'], -0.014118607610972705)
+        True
+        >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
+        >>> h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
+        >>> eri_ao = mol.intor('int2e_sph', aosym=4)
+        >>> h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
+        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
+        >>> cas_idx_tril = tools.cas_idx_tril(cas_idx)
+        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
+        >>> res = _cc(hf.mo_occ, core_idx, cas_idx, 'ccsd', h1e=h1e_cas, h2e=h2e_cas, rdm1=True)
+        >>> np.isclose(res['energy'], -0.014118607610972705)
+        True
+        >>> np.isclose(np.sum(res['rdm1']), 9.978003347693397)
+        True
+        >>> np.isclose(np.amax(res['rdm1']), 2.)
+        True
         """
         spin = np.count_nonzero(occup[cas_idx] == 1.)
         singlet = spin == 0
@@ -1177,10 +1371,11 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
                 ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))), \
                                         mo_occ=np.array((occup[cas_idx] > 0., occup[cas_idx] == 2.), dtype=np.double))
 
-        else:
+        elif hf is not None:
 
             tools.assertion(hf is not None, 'in the absence of h1e and h2e, hf object must be passed to cc solver')
             ccsd = cc.CCSD(hf)
+            ccsd.frozen = np.asarray([i for i in range(hf.mo_coeff.shape[1]) if i not in cas_idx])
 
         # settings
         ccsd.conv_tol = CONV_TOL
@@ -1222,28 +1417,23 @@ def _cc(occup, core_idx, cas_idx, method, h1e=None, h2e=None, hf=None, rdm1=Fals
 
                 e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 
+        # collect results
+        res: Dict[str, Union[float, np.ndarray]] = {'energy': e_cc}
+
         # rdm1
-        if not rdm1:
-
-            return e_cc
-
-        else:
-
+        if rdm1:
             if method == 'ccsd':
-
                 ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-                rdm1 = ccsd.make_rdm1()
-
+                res['rdm1'] = ccsd.make_rdm1()
             elif method == 'ccsd(t)':
-
                 l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
-                rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                res['rdm1'] = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
 
-            return rdm1
+        return res
 
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()#verbose=True)
+    doctest.testmod(verbose=True)
 
 
