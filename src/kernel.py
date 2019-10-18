@@ -479,7 +479,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         >>> _ = mol.build(atom='C 0. 0. 0.625; C 0. 0. -0.625',
         ...               basis = '631g', symmetry = 'D2h', verbose=0)
         >>> mol.ncore, mol.nocc, mol.nvirt, mol.norb = 2, 6, 12, 18
-        >>> mol.debug = False
+        >>> mol.debug = 0
         >>> hf = scf.RHF(mol)
         >>> _ = hf.kernel()
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
@@ -1008,21 +1008,33 @@ def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         return energy, dipole
 
 
-def _casscf(mol, solver, wfnsym, orbsym, hf_guess, hf, mo_coeff, ref_space, nelec):
+def _casscf(mol: system.MolCls, solver: str, wfnsym: List[str], \
+                orbsym: np.ndarray, hf_guess: bool, hf: scf.RHF, \
+                mo_coeff: np.ndarray, ref_space: np.ndarray, nelec: Tuple[int, int]) -> np.ndarray:
         """
         this function returns the results of a casscf calculation
 
-        :param mol: pymbe mol object
-        :param solver: fci solver. string
-        :param wfnsym: wave function symmetries for involved states. list of strings
-        :param orbsym: orbital symmetries. numpy array of shape (n_orb,)
-        :param hf_guess: hf as initial guess. bool
-        :param hf: pyscf hf object
-        :param mo_coeff: input mo coefficients. numpy array of shape (n_orb, n_orb)
-        :param ref_space: reference space. numpy array of shape (n_ref,)
-        :param nelec: number of correlated electrons. tuple of integers
-        :return: numpy array of shape (n_orb,) [mo_energy],
-                 numpy array of shape (n_orb, n_orb) [mo_coeff]
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='C 0. 0. 0.625; C 0. 0. -0.625',
+        ...               basis = '631g', symmetry = 'D2h', verbose=0)
+        >>> mol.ncore, mol.nocc, mol.nvirt, mol.norb = 2, 6, 12, 18
+        >>> mol.debug = 0
+        >>> hf = scf.RHF(mol)
+        >>> _ = hf.kernel()
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+        >>> mo_coeff = _casscf(mol, 'pyscf_spin0', ['Ag'], orbsym, True,
+        ...                    hf, hf.mo_coeff, np.arange(2, 10), (4, 4))
+        >>> np.isclose(np.sum(mo_coeff), 2.2922857024683)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 6.528333586540256)
+        True
+        >>> mo_coeff = _casscf(mol, 'pyscf_spin0', ['Ag', 'Ag', 'Ag', 'B1g'], orbsym, False,
+        ...                    hf, hf.mo_coeff, np.arange(2, 10), (4, 4))
+        >>> np.isclose(np.sum(mo_coeff), 2.700100458554667)
+        True
+        >>> np.isclose(np.amax(mo_coeff), 6.437087455128202)
+        True
         """
         # init casscf
         cas = mcscf.CASSCF(hf, ref_space.size, nelec)
