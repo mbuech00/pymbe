@@ -690,9 +690,9 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> mol.irrep_nelec = {}
         >>> mol.dipole = dipole_ints(mol)
         >>> mol.e_nuc = mol.energy_nuc()
-        >>> mol.nocc, mol.nvirt, mol.norb, mf, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, 'dipole')
-        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mf.mo_coeff)
-        >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mf.mo_coeff, True, True,
+        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, 'dipole')
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+        >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
         >>> ref_space = {'occ': np.arange(5), 'virt': np.array([6, 8, 10]),
         ...              'tot': np.array([0, 1, 2, 3, 4, 6, 8, 10])}
@@ -942,13 +942,36 @@ def _trans(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_c
                         * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
-def base(mol, occup, method, target, ao_dipole, mo_coeff, dipole_hf):
+def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
+                method: str, mo_coeff: np.ndarray, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
         """
         this function returns base model energy
 
-        :param mol: pymbe mol object
-        :param occup: orbital occupation. numpy array of shape (n_orb,)
-        :param method: base model. string
+        example:
+        >>> mol = gto.Mole()
+        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
+        ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> mol.ncore = 1
+        >>> mol.hf_symmetry = mol.symmetry
+        >>> mol.debug = 0
+        >>> mol.hf_init_guess = 'h1e'
+        >>> mol.irrep_nelec = {}
+        >>> mol.dipole = dipole_ints(mol)
+        >>> mol.e_nuc = mol.energy_nuc()
+        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, 'dipole')
+        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+        >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
+        ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
+        >>> e, dipole = base(mol, occup, 'energy', 'ccsd(t)', mo_coeff, dipole_hf)
+        >>> np.isclose(e, -0.1353082155512597)
+        True
+        >>> np.allclose(dipole, np.zeros(3, dtype=np.float64))
+        True
+        >>> e, dipole = base(mol, occup, 'dipole', 'ccsd', mo_coeff, dipole_hf)
+        >>> np.isclose(e, -0.13432841702437032)
+        True
+        >>> np.allclose(dipole, np.array([0., 0., -0.04312132]))
+        True
         """
         # load hcore
         buf = mol.hcore.Shared_query(0)[0]
@@ -973,14 +996,14 @@ def base(mol, occup, method, target, ao_dipole, mo_coeff, dipole_hf):
         e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
         # run calc
-        res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas, rdm1=target == 'dipole')
+        res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas, rdm1=target_mbe == 'dipole')
 
         # collect results
         energy = res_tmp['energy']
-        if target == 'energy':
+        if target_mbe == 'energy':
             dipole = np.zeros(3, dtype=np.float64)
         else:
-            dipole = _dipole(ao_dipole, occup, dipole_hf, mo_coeff, cas_idx, res_tmp['rdm1'])
+            dipole = _dipole(mol.dipole, occup, dipole_hf, mo_coeff, cas_idx, res_tmp['rdm1'])
 
         return energy, dipole
 

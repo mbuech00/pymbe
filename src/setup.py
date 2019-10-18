@@ -169,8 +169,8 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             # base energy
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.base['method'], calc.target_mbe, \
-                                                               mol.dipole, calc.mo_coeff, calc.prop['hf']['dipole'])
+                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.target_mbe, calc.base['method'], \
+                                                               calc.mo_coeff, calc.prop['hf']['dipole'])
             else:
                 calc.prop['base']['energy'] = 0.
                 calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
