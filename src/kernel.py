@@ -343,7 +343,7 @@ class _hubbard_PM(lo.pipek.PM):
             return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
-def hf(mol: system.MolCls, target_mbe: str) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
+def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
                                                     np.ndarray, np.ndarray, np.ndarray]:
         """
         this function returns the results of a hartree-fock calculation
@@ -352,11 +352,12 @@ def hf(mol: system.MolCls, target_mbe: str) -> Tuple[int, int, int, scf.RHF, flo
         >>> mol = gto.Mole()
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
+        >>> mol.dipole = dipole_ints(mol)
         >>> mol.hf_symmetry = mol.symmetry
         >>> mol.debug = 0
         >>> mol.hf_init_guess = 'minao'
         >>> mol.irrep_nelec = {}
-        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff = hf(mol, 'energy')
+        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff = hf(mol)
         >>> nocc
         5
         >>> nvirt
@@ -371,8 +372,6 @@ def hf(mol: system.MolCls, target_mbe: str) -> Tuple[int, int, int, scf.RHF, flo
         array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.])
         >>> orbsym
         array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0])
-        >>> mol.dipole = dipole_ints(mol)
-        >>> dipole = hf(mol, 'dipole')[5]
         >>> np.allclose(dipole, np.array([0., 0., 0.8642558]))
         True
         """
@@ -417,12 +416,9 @@ def hf(mol: system.MolCls, target_mbe: str) -> Tuple[int, int, int, scf.RHF, flo
         tools.assertion(hf.converged, 'HF error: no convergence')
 
         # dipole moment
-        if target_mbe == 'dipole':
-            dm = hf.make_rdm1()
-            elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
-            elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0. for i in range(elec_dipole.size)])
-        else:
-            elec_dipole = None
+        dm = hf.make_rdm1()
+        elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
+        elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0. for i in range(elec_dipole.size)])
 
         # determine dimensions
         norb, nocc, nvirt = _dim(hf.mo_occ)

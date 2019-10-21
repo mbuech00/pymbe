@@ -121,7 +121,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         this function initializes an exp object
         """
         # get dipole integrals
-        mol.dipole = kernel.dipole_ints(mol) if calc.target_mbe in ['dipole', 'trans'] else None
+        mol.dipole = kernel.dipole_ints(mol)
 
         # nuclear repulsion energy
         mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.
@@ -141,7 +141,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
+                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol)
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_coeff, calc.nelec, \
