@@ -604,25 +604,26 @@ def _orbs(occup: np.ndarray, prot: Dict[str, str], thres: Dict[str, float], \
 
             # get indices of combinations
             if prot['gen'] == 'old':
-                idx = tools.hash_compare(hashes, combs_orb_hash)
+                idx: np.ndarray = tools.hash_compare(hashes, combs_orb_hash)
             else:
-                idx_lst: List[Union[int, Any]] = []
-                for comb_hash in combs_orb_hash:
-                    i = tools.hash_compare(hashes, comb_hash)
-                    if i is not None:
-                        idx_lst.append(i)
-                if len(idx_lst) > 0:
-                    idx = np.asarray(idx_lst)
-                else:
-                    idx = None
+                idx_lst: List[int] = []
+                screen_thres: Union[np.ndarray, List[float]] = []
+                for i in range(combs_orb_hash.size):
+                    j = tools.hash_compare(hashes, combs_orb_hash[i])
+                    if j is not None:
+                        idx_lst.append(j)
+                        screen_thres.append(_thres(occup, thres, ref_space['tot'], combs_orb[i]))
+                idx = np.asarray(idx_lst)
+                screen_thres = np.asarray(screen_thres)
 
             # only continue if child orbital is valid
-            if idx is not None:
+            if idx.size > 0:
 
                 # compute screening thresholds
-                screen_thres = np.fromiter(map(functools.partial(_thres, \
-                                    occup, thres, ref_space['tot']), combs_orb[idx]), \
-                                    dtype=np.float64, count=idx.size)
+                if prot['gen'] == 'old':
+                    screen_thres = np.fromiter(map(functools.partial(_thres, \
+                                        occup, thres, ref_space['tot']), combs_orb[idx]), \
+                                        dtype=np.float64, count=idx.size)
 
                 # add orbital to list of child orbitals if allowed
                 if not _prot_screen(prot['cond'], screen_thres, prop[idx]) or np.sum(screen_thres) == 0.:
