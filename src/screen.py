@@ -621,7 +621,7 @@ def _orbs(occup: np.ndarray, prot: Dict[str, str], thres: Dict[str, float], \
 
                 # compute screening thresholds
                 screen_thres = np.fromiter(map(functools.partial(_thres, \
-                                    occup, thres, ref_space['tot']), combs_orb), \
+                                    occup, thres, ref_space['tot']), combs_orb[idx]), \
                                     dtype=np.float64, count=idx.size)
 
                 # add orbital to list of child orbitals if allowed
