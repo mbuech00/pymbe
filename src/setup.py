@@ -412,6 +412,7 @@ def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         """
         # write hf, reference, and base properties
         energies = {'hf': calc.prop['hf']['energy']}
+        dipoles = {'hf': calc.prop['hf']['dipole'].tolist()} # type: ignore
 
         if calc.target_mbe == 'energy':
 
@@ -427,15 +428,15 @@ def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
             with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
                 json.dump(excitations, f)
 
-        elif calc.target_mbe == 'dipole':
+        if calc.target_mbe == 'dipole':
 
-            dipoles = {'hf': calc.prop['hf']['dipole'].tolist()} # type: ignore
             dipoles['base'] = calc.prop['base']['dipole'].tolist() # type: ignore
             dipoles['ref'] = calc.prop['ref']['dipole'].tolist() # type: ignore
-            with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
-                json.dump(dipoles, f)
 
-        elif calc.target_mbe == 'trans':
+        with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
+            json.dump(dipoles, f)
+
+        if calc.target_mbe == 'trans':
 
             transitions = {'ref': calc.prop['ref']['trans'].tolist()} # type: ignore
             with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
@@ -466,21 +467,23 @@ def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                     calc.prop['base']['energy'] = energies['base']
                     calc.prop['ref']['energy'] = energies['ref']
 
-            elif 'excitations' in files[i]:
+            if 'excitations' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     excitations = json.load(f)
                 calc.prop['ref']['excitation'] = excitations['ref']
 
-            elif 'dipoles' in files[i]:
+            if 'dipoles' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     dipoles = json.load(f)
                 calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
-                calc.prop['base']['dipole'] = np.asarray(dipoles['base'])
-                calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
 
-            elif 'transitions' in files[i]:
+                if calc.target_mbe == 'dipole':
+                    calc.prop['base']['dipole'] = np.asarray(dipoles['base'])
+                    calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
+
+            if 'transitions' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     transitions = json.load(f)
