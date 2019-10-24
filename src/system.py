@@ -37,7 +37,7 @@ class MolCls(gto.Mole):
                 # set defaults
                 self.atom: Union[List[str], str] = ''
                 self.system: Dict[str, Any] = {'charge': 0, 'spin': 0, 'symmetry': 'c1', 'hf_symmetry': None, \
-                                               'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
+                                               'x2c': False, 'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
                                                'unit': 'ang', 'frozen': False, 'ncore': 0, 'irrep_nelec': {}, 'debug': 0, \
                                                'u': 1., 'n': 1., 'matrix': (1, 6), 'pbc': True}
                 self.max_memory: float = 1e10
@@ -186,6 +186,10 @@ def sanity_chk(mol: MolCls) -> None:
         if isinstance(mol.symmetry, str):
             tools.assertion(symm.addons.std_symb(mol.symmetry) in symm.param.POINTGROUP, \
                             'illegal symmetry input in system dict (symmetry)')
+
+        # x2c
+        tools.assertion(isinstance(mol.x2c, bool), \
+                        'x2c input in system dict (x2c) must be a bool')
 
         # hf_symmetry
         tools.assertion(isinstance(mol.hf_symmetry, (str, bool)), \

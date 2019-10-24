@@ -88,9 +88,10 @@ def mol(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
         if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
-            info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'ncore': mol.ncore, \
-                    'symmetry': mol.symmetry, 'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, \
-                    'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
+            info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
+                    'ncore': mol.ncore, 'symmetry': mol.symmetry, 'x2c': mol.x2c, \
+                    'irrep_nelec': mol.irrep_nelec, 'basis': mol.basis, 'cart': mol.cart, \
+                    'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
 
             # add hubbard info if relevant (also needs to be updated with new future attributes)
             if not mol.atom:

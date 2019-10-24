@@ -378,7 +378,10 @@ def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
         # initialize restricted hf calc
         mol_hf = mol.copy()
         mol_hf.build(0, 0, symmetry = mol.hf_symmetry)
-        hf = scf.RHF(mol_hf)
+        if mol.x2c:
+            hf = scf.RHF(mol_hf).x2c()
+        else:
+            hf = scf.RHF(mol_hf)
 
         # hf settings
         if mol.debug >= 1:
