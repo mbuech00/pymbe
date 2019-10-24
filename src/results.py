@@ -352,6 +352,24 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         """
         this function returns the summary table
         """
+        if calc.target_mbe == 'energy':
+            hf_prop = calc.prop['hf']['energy']
+            base_prop = calc.prop['hf']['energy']+calc.prop['base']['energy']
+            mbe_tot_prop = _energy(calc, exp)[-1]
+        elif calc.target_mbe == 'dipole':
+            dipole, nuc_dipole = _dipole(mol, calc, exp)
+            hf_prop = np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole'])
+            base_prop = np.linalg.norm(nuc_dipole - (calc.prop['hf']['dipole'] + calc.prop['base']['dipole']))
+            mbe_tot_prop = np.linalg.norm(nuc_dipole - dipole[-1, :])
+        elif calc.target_mbe == 'excitation':
+            hf_prop = 0.
+            base_prop = 0.
+            mbe_tot_prop = _excitation(calc, exp)[-1]
+        else:
+            hf_prop = 0.
+            base_prop = 0.
+            mbe_tot_prop = np.linalg.norm(_trans(mol, calc, exp)[-1, :])
+
         string: str = DIVIDER+'\n'
         string += '{:14}{:21}{:12}{:1}{:12}{:21}{:11}{:1}{:13}{:}\n'
         form: Tuple[Any, ...] = ('','molecular information','','|','', \
@@ -370,7 +388,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
                     '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
             form += ('','frozen core','','=','',_frozen(mol), \
                         '','|','','ref. function','','=','',_ref(mol, calc), \
-                        '','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy'],)
+                        '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
 
         else:
 
@@ -384,22 +402,19 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
                     '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
             form += ('','hubbard U/t & n','','=','',_hubbard(mol)[1], \
                         '','|','','ref. function','','=','',_ref(mol, calc), \
-                        '','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy'],)
+                        '','|','','Hartree-Fock +calc.target_mbe','','=','',hf_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
         form += ('','system size','','=','',_system(mol), \
                     '','|','','exp. reference','','=','',_active(calc), \
-                    '','|','','base model energy','','=','', \
-                    calc.prop['hf']['energy']+calc.prop['base']['energy'],)
+                    '','|','','base model '+calc.target_mbe,'','=','',base_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
         form += ('','state (mult.)','','=','',_state(mol, calc), \
                     '','|','','base model','','=','',_base(calc), \
-                    '','|','','MBE total energy','','=','', \
-                    calc.prop['hf']['energy'] if calc.target_mbe != 'energy' \
-                        else _energy(calc, exp)[-1],)
+                    '','|','','MBE total '+calc.target_mbe,'','=','',mbe_tot_prop,)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
