@@ -180,7 +180,7 @@ def _prot(calc: calculation.CalcCls) -> str:
         """
         this function returns the screening protocol
         """
-        return calc.prot['gen'] + ' / ' + calc.prot['cond']
+        return calc.prot['type'] + ' / ' + calc.prot['cond']
 
 
 def _system(mol: system.MolCls) -> str:

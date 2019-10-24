@@ -38,7 +38,7 @@ class CalcCls:
                 # set defaults
                 self.model: Dict[str, str] = {'method': 'fci', 'solver': 'pyscf_spin0'}
                 self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
-                self.prot: Dict[str, str] = {'cond': 'max', 'gen': 'old'}
+                self.prot: Dict[str, str] = {'type': 'lambda', 'cond': 'max'}
                 self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
                                             'select': [i for i in range(ncore, nelectron // 2)], \
                                             'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0]}
@@ -206,12 +206,12 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                             'pruning of pi-orbitals (pi_prune) is only implemented for D2h symmetry')
 
         # screening protocol
-        tools.assertion(set(list(calc.prot.keys())) <= set(['cond', 'gen']), \
-                        'valid input strings in prot dict are: cond and gen')
+        tools.assertion(set(list(calc.prot.keys())) <= set(['type', 'cond']), \
+                        'valid input strings in prot dict are: type and cond')
+        tools.assertion(calc.prot['type'] == 'lambda', \
+                        'valid input options for screening protocol type (type) are: lambda')
         tools.assertion(calc.prot['cond'] in ['min', 'max'], \
                         'valid input options for screening protocol condition (cond) are: min and max')
-        tools.assertion(calc.prot['gen'] in ['old', 'new'], \
-                        'valid input options for screening protocol generation (gen) are: old and new')
 
         # expansion thresholds
         tools.assertion(set(list(calc.thres.keys())) <= set(['init', 'relax', 'start']), \

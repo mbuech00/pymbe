@@ -535,12 +535,7 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
             combs_hash.sort()
 
             # get indices of combinations
-            idx_lst: List[Union[int, Any]] = []
-            for comb_hash in combs_hash:
-                i = tools.hash_compare(hashes[k-min_order], comb_hash)
-                if i is not None:
-                    idx_lst.append(i)
-            idx = np.asarray(idx_lst)
+            idx = tools.hash_compare(hashes[k-min_order], combs_hash)
 
             # assertion
             tools.assertion(idx is not None, 'error in recursive increment calculation:\n'
