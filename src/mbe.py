@@ -470,7 +470,8 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         >>> exp_space = {'occ': np.array([], dtype=np.int16),
         ...              'virt': np.arange(2, 4, dtype=np.int16),
         ...              'tot': np.arange(2, 4, dtype=np.int16),
-        ...              'pi_orbs': None, 'pi_hashes': None}
+        ...              'pi_orbs': np.array([], dtype=np.int16),
+        ...              'pi_hashes': np.array([], dtype=np.int64)}
         >>> min_order, order = 1, 2
         ... # [[2], [3]]
         ... # [[2, 3]]

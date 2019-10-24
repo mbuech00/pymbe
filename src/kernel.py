@@ -357,6 +357,7 @@ def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
         >>> mol.debug = 0
         >>> mol.hf_init_guess = 'minao'
         >>> mol.irrep_nelec = {}
+        >>> mol.x2c = False
         >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff = hf(mol)
         >>> nocc
         5
@@ -365,8 +366,6 @@ def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
         >>> norb
         13
         >>> np.isclose(e_hf, -75.9838464521063)
-        True
-        >>> dipole is None
         True
         >>> occup
         array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.])
@@ -509,7 +508,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         array([], dtype=int16)
         >>> np.all(exp_space['occ'] == exp_space['seed'])
         True
-        >>> exp_space['pi_orbs'] is None and exp_space['pi_hashes'] is None
+        >>> exp_space['pi_orbs'].size == 0 and exp_space['pi_hashes'].size == 0
         True
         >>> exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, True, hf)[-1]
         >>> np.allclose(exp_space['pi_orbs'], np.array([7, 8, 14, 15, 11, 12], dtype=np.int16))
@@ -660,7 +659,8 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         else:
 
             # no pi-space
-            exp_space['pi_orbs'] = exp_space['pi_hashes'] = None
+            exp_space['pi_orbs'] = np.array([], dtype=np.int16)
+            exp_space['pi_hashes'] = np.array([], dtype=np.int64)
 
         # debug print of reference and expansion spaces
         if mol.debug >= 1:
@@ -692,7 +692,8 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> mol.irrep_nelec = {}
         >>> mol.dipole = dipole_ints(mol)
         >>> mol.e_nuc = mol.energy_nuc()
-        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, 'dipole')
+        >>> mol.x2c = False
+        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol)
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
@@ -960,7 +961,8 @@ def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> mol.irrep_nelec = {}
         >>> mol.dipole = dipole_ints(mol)
         >>> mol.e_nuc = mol.energy_nuc()
-        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, 'dipole')
+        >>> mol.x2c = False
+        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol)
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
