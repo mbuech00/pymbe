@@ -202,8 +202,8 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         tools.assertion(isinstance(calc.extra['pi_prune'], bool), \
                         'pruning of pi-orbitals (pi_prune) must be a bool')
         if calc.extra['pi_prune']:
-            tools.assertion(symm.addons.std_symb(symmetry) == 'D2h', \
-                            'pruning of pi-orbitals (pi_prune) is only implemented for D2h symmetry')
+            tools.assertion(symm.addons.std_symb(symmetry) in ['D2h', 'C2v'], \
+                            'pruning of pi-orbitals (pi_prune) is only implemented for D2h and linear C2v symmetries')
 
         # screening protocol
         tools.assertion(set(list(calc.prot.keys())) <= set(['type', 'cond']), \

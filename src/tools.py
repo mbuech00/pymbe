@@ -29,7 +29,8 @@ import parallel
 # restart folder
 RST = os.getcwd()+'/rst'
 # pi-orbitals
-PI_SYMM = np.array([2, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27])
+PI_SYMM_D2H = np.array([2, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27])
+PI_SYMM_C2V = np.array([2, 3, 10, 11, 12, 13, 20, 21, 22, 23])
 
 
 class Logger:
@@ -283,14 +284,14 @@ def cas_idx_tril(cas_idx: np.ndarray) -> np.ndarray:
                                         dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def pi_space(orbsym_dooh: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns pi-orbitals and hashes from total expansion space
 
         example:
         >>> orbsym_dooh = np.array([14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5])
         >>> exp_space = np.arange(18, dtype=np.int16)
-        >>> pi_pairs, pi_hashes = pi_space(orbsym_dooh, exp_space)
+        >>> pi_pairs, pi_hashes = pi_space('dooh', orbsym_dooh, exp_space)
         >>> pi_pairs_ref = np.array([12, 13,  7,  8,  3,  4,  0,  1,  9, 10, 15, 16], dtype=np.int16)
         >>> np.allclose(pi_pairs, pi_pairs_ref)
         True
@@ -300,7 +301,10 @@ def pi_space(orbsym_dooh: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray
         True
         """
         # all pi-orbitals
-        pi_space_arr = exp_space[np.in1d(orbsym_dooh, PI_SYMM)]
+        if group == 'Dooh':
+            pi_space_arr = exp_space[np.in1d(orbsym[exp_space], PI_SYMM_D2H)]
+        else:
+            pi_space_arr = exp_space[np.in1d(orbsym[exp_space], PI_SYMM_C2V)]
 
         # get all degenerate pi-pairs
         pi_pairs = pi_space_arr.reshape(-1, 2)

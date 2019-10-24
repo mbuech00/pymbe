@@ -641,15 +641,18 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         # pi-orbital space
         if pi_prune:
 
-            # recast mol in dooh point group - make pi-space based on those symmetries
-            mol_dooh = mol.copy()
-            mol_dooh = mol_dooh.build(0, 0, symmetry='Dooh')
-            orbsym_dooh = symm.label_orb_symm(mol_dooh, mol_dooh.irrep_id, mol_dooh.symm_orb, mo_coeff_out)
+            # recast mol in parent point group (dooh/coov) - make pi-space based on those symmetries
+            mol_parent = mol.copy()
+            parent_group = 'Dooh' if mol.symmetry == 'D2h' else 'Coov'
+            mol_parent = mol_parent.build(0, 0, symmetry=parent_group)
+
+            orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
+                                                mol_parent.symm_orb, mo_coeff_out)
 
             # pi-space
             exp_space_all = np.concatenate((exp_space['occ'], exp_space['virt']))
             exp_space['pi_orbs'], \
-                exp_space['pi_hashes'] = tools.pi_space(orbsym_dooh[exp_space_all], exp_space_all)
+                exp_space['pi_hashes'] = tools.pi_space(parent_group, orbsym_parent, exp_space_all)
 
         else:
 
