@@ -626,7 +626,7 @@ def _dipole_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Ex
                     '','|','',nuc_dipole[0] - dipole_ref[0], \
                     '',nuc_dipole[1] - dipole_ref[1], \
                     '',nuc_dipole[2] - dipole_ref[2], \
-                    '','|','',np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole']),)
+                    '','|','',np.linalg.norm(nuc_dipole - dipole_ref),)
 
         string += DIVIDER[:82]+'\n'
 
