@@ -385,7 +385,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
             form += ('','frozen core','','=','',_frozen(mol), \
                         '','|','','ref. function','','=','',_ref(mol, calc), \
                         '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
@@ -399,19 +399,19 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
             form += ('','hubbard U/t & n','','=','',_hubbard(mol)[1], \
                         '','|','','ref. function','','=','',_ref(mol, calc), \
-                        '','|','','Hartree-Fock +calc.target_mbe','','=','',hf_prop,)
+                        '','|','','Hartree-Fock 'calc.target_mbe,'','=','',hf_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
         form += ('','system size','','=','',_system(mol), \
                     '','|','','exp. reference','','=','',_active(calc), \
                     '','|','','base model '+calc.target_mbe,'','=','',base_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
         form += ('','state (mult.)','','=','',_state(mol, calc), \
                     '','|','','base model','','=','',_base(calc), \
                     '','|','','MBE total '+calc.target_mbe,'','=','',mbe_tot_prop,)
