@@ -32,7 +32,6 @@ import tools
 MAX_MEM = 1e10
 CONV_TOL = 1.e-10
 SPIN_TOL = 1.e-05
-DIPOLE_TOL = 1.e-14
 
 
 def ints(mol: system.MolCls, mo_coeff: np.ndarray, global_master: bool, local_master: bool, \
@@ -420,7 +419,6 @@ def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
         # dipole moment
         dm = hf.make_rdm1()
         elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
-        elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0. for i in range(elec_dipole.size)])
 
         # determine dimensions
         norb, nocc, nvirt = _dim(hf.mo_occ)
@@ -912,9 +910,6 @@ def _dipole(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_
 
         # compute elec_dipole
         elec_dipole = np.einsum('xij,ji->x', ao_dipole, rdm1)
-
-        # remove noise
-        elec_dipole = np.array([elec_dipole[i] if np.abs(elec_dipole[i]) > DIPOLE_TOL else 0. for i in range(elec_dipole.size)])
 
         # 'correlation' dipole
         if not trans:
