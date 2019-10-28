@@ -24,7 +24,7 @@ import tools
 
 
 # attributes
-ATTR = ['model', 'base', 'orbs', 'target', 'prot', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
+ATTR = ['model', 'hf_ref', 'base', 'orbs', 'target', 'prot', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
 
 
 class CalcCls:
@@ -36,7 +36,9 @@ class CalcCls:
                 init calculation attributes
                 """
                 # set defaults
-                self.model: Dict[str, str] = {'method': 'fci', 'solver': 'pyscf_spin0'}
+                self.model: Dict[str, Any] = {'method': 'fci', 'solver': 'pyscf_spin0', 'hf_guess': True}
+                self.hf_ref: Dict[str, Any] = {'x2c': False, 'symmetry': None, 'irrep_nelec': {}, \
+                                               'init_guess': 'minao', 'newton': False, 'mom': [[],[]]}
                 self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
                 self.prot: Dict[str, str] = {'type': 'lambda', 'cond': 'max'}
                 self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
@@ -44,7 +46,7 @@ class CalcCls:
                                             'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0]}
                 self.base: Dict[str, Union[None, str]] = {'method': None}
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
-                self.extra: Dict[str, bool] = {'hf_guess': True, 'pi_prune': False}
+                self.extra: Dict[str, bool] = {'pi_prune': False}
                 self.thres: Dict[str, float] = {'init': 1.e-10, 'relax': 1., 'start': 3}
                 self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
                 self.orbs: Dict[str, str] = {'type': 'can'}
@@ -129,12 +131,39 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'valid expansion models are: ccsd, ccsd(t), and fci')
         tools.assertion(calc.model['solver'] in ['pyscf_spin0', 'pyscf_spin1'], \
                         'valid FCI solvers are: pyscf_spin0 and pyscf_spin1')
+        tools.assertion(isinstance(calc.model['hf_guess'], bool), \
+                        'HF initial guess for FCI calcs (hf_guess) must be a bool')
         if calc.model['method'] != 'fci':
             tools.assertion(calc.model['solver'] == 'pyscf_spin0', \
                             'setting a FCI solver for a non-FCI expansion model is not meaningful')
+            tools.assertion(calc.model['hf_guess'], \
+                            'non-HF initial guess (hf_guess) only valid for FCI calcs')
         if spin > 0:
             tools.assertion(calc.model['solver'] != 'pyscf_spin0', \
                             'the pyscf_spin0 FCI solver is designed for spin singlets only')
+
+        # hf reference
+        tools.assertion(isinstance(calc.hf_ref['x2c'], bool), \
+                        'x2c input in hf_ref dict (x2c) must be a bool')
+        tools.assertion(isinstance(calc.hf_ref['newton'], bool), \
+                        'newton input in hf_ref dict (newton) must be a bool')
+        tools.assertion(isinstance(calc.hf_ref['symmetry'], (str, bool)), \
+                        'HF symmetry input in hf_ref dict (symmetry) must be a str or bool')
+        if isinstance(calc.hf_ref['symmetry'], str):
+            tools.assertion(symm.addons.std_symb(calc.hf_ref['symmetry']) in symm.param.POINTGROUP, \
+                            'illegal HF symmetry input in hf_ref dict (symmetry)')
+        tools.assertion(isinstance(calc.hf_ref['init_guess'], str), \
+                        'HF initial guess in hf_ref dict (init_guess) must be a str')
+        tools.assertion(calc.hf_ref['init_guess'] in ['minao', 'atom', '1e'], \
+                        'valid HF initial guesses in hf_ref dict (init_guess) are: minao, atom, and 1e')
+        tools.assertion(isinstance(calc.hf_ref['irrep_nelec'], dict), \
+                        'occupation input in hf_ref dict (irrep_nelec) must be a dict')
+        tools.assertion(isinstance(calc.hf_ref['mom'], list), \
+                        'mom input in hf_ref dict (mom) must be a list of lists')
+        tools.assertion(all(isinstance(i, list) for i in calc.hf_ref['mom']), \
+                        'mom input in hf_ref dict (mom) must be a list of lists')
+        tools.assertion(len(calc.hf_ref['mom']) == 2, \
+                        'mom input in hf_ref dict (mom) must be a list of only two lists')
 
         # reference model
         tools.assertion(calc.ref['method'] in ['casci', 'casscf'], \
@@ -197,8 +226,6 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                             'calculation of transition dipole moment (trans) requires target state root >= 1')
 
         # extra
-        tools.assertion(isinstance(calc.extra['hf_guess'], bool), \
-                        'HF initial guess for FCI calcs (hf_guess) must be a bool')
         tools.assertion(isinstance(calc.extra['pi_prune'], bool), \
                         'pruning of pi-orbitals (pi_prune) must be a bool')
         if calc.extra['pi_prune']:

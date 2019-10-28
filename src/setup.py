@@ -99,6 +99,10 @@ def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
             # set target
             calc.target_mbe = [x for x in calc.target.keys() if calc.target[x]][0]
 
+            # hf symmetry
+            if calc.hf_ref['symmetry'] is None:
+                calc.hf_ref['symmetry'] = mol.symmetry
+
             # sanity check
             calculation.sanity_chk(calc, mol.spin, mol.atom, mol.symmetry)
 
@@ -141,7 +145,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol)
+                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.hf_ref)
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_coeff, calc.nelec, \
@@ -177,7 +181,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # reference space properties
             calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc.occup, calc.target_mbe, \
-                                                                calc.orbsym, calc.extra['hf_guess'], \
+                                                                calc.orbsym, calc.model['hf_guess'], \
                                                                 calc.ref_space, calc.model, calc.state, \
                                                                 calc.prop['hf']['energy'], calc.mo_coeff, \
                                                                 calc.prop['hf']['dipole'], calc.base['method'])

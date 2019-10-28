@@ -36,9 +36,9 @@ class MolCls(gto.Mole):
 
                 # set defaults
                 self.atom: Union[List[str], str] = ''
-                self.system: Dict[str, Any] = {'charge': 0, 'spin': 0, 'symmetry': 'c1', 'hf_symmetry': None, \
-                                               'x2c': False, 'hf_init_guess': 'minao', 'basis': 'sto-3g', 'cart': False, \
-                                               'unit': 'ang', 'frozen': False, 'ncore': 0, 'irrep_nelec': {}, 'debug': 0, \
+                self.system: Dict[str, Any] = {'charge': 0, 'spin': 0, 'symmetry': 'c1', \
+                                               'basis': 'sto-3g', 'cart': False, 'unit': 'ang', \
+                                               'frozen': False, 'ncore': 0, 'debug': 0, \
                                                'u': 1., 'n': 1., 'matrix': (1, 6), 'pbc': True}
                 self.max_memory: float = 1e10
                 self.incore_anyway: bool = True
@@ -150,13 +150,8 @@ def translate_system(mol: MolCls) -> MolCls:
         if hasattr(mol, 'sym'):
             mol.symmetry = mol.sym
 
-        # hf symmetry
-        if mol.hf_symmetry is None:
-            mol.hf_symmetry = mol.symmetry
-
         # recast symmetries as standard symbols
         mol.symmetry = symm.addons.std_symb(mol.symmetry)
-        mol.hf_symmetry = symm.addons.std_symb(mol.hf_symmetry)
 
         # hubbard hamiltonian
         if not mol.atom:
@@ -187,23 +182,6 @@ def sanity_chk(mol: MolCls) -> None:
             tools.assertion(symm.addons.std_symb(mol.symmetry) in symm.param.POINTGROUP, \
                             'illegal symmetry input in system dict (symmetry)')
 
-        # x2c
-        tools.assertion(isinstance(mol.x2c, bool), \
-                        'x2c input in system dict (x2c) must be a bool')
-
-        # hf_symmetry
-        tools.assertion(isinstance(mol.hf_symmetry, (str, bool)), \
-                        'HF symmetry input in system dict (hf_symmetry) must be a str or bool')
-        if isinstance(mol.hf_symmetry, str):
-            tools.assertion(symm.addons.std_symb(mol.hf_symmetry) in symm.param.POINTGROUP, \
-                            'illegal HF symmetry input in system dict (hf_symmetry)')
-
-        # hf_init_guess
-        tools.assertion(isinstance(mol.hf_init_guess, str), \
-                        'HF initial guess in system dict (hf_init_guess) must be a str')
-        tools.assertion(mol.hf_init_guess in ['minao', 'atom', '1e'], \
-                        'valid HF initial guesses in system dict (hf_init_guess) are: minao, atom, and 1e')
-
         # basis
         tools.assertion(isinstance(mol.basis, (str, dict)), \
                         'basis set input in system dict (basis) must be a str or a dict')
@@ -211,10 +189,6 @@ def sanity_chk(mol: MolCls) -> None:
         # cart
         tools.assertion(isinstance(mol.cart, bool), \
                         'cartesian gto basis input in system dict (cart) must be a bool')
-
-        # irrep_nelec
-        tools.assertion(isinstance(mol.irrep_nelec, dict), \
-                        'occupation input in system dict (irrep_nelec) must be a dict')
 
         # unit
         tools.assertion(isinstance(mol.unit, str), \

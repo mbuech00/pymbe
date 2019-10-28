@@ -340,7 +340,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 # calculate increment
                 inc_tup, ndets, nelec = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], \
                                                calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
-                                               calc.extra['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
+                                               calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
                                                calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
                                                core_idx, cas_idx, mol.debug, \
                                                mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \

@@ -342,7 +342,7 @@ class _hubbard_PM(lo.pipek.PM):
             return np.einsum('pi,pj->pij', mo_coeff, mo_coeff)
 
 
-def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
+def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
                                                     np.ndarray, np.ndarray, np.ndarray]:
         """
         this function returns the results of a hartree-fock calculation
@@ -352,12 +352,13 @@ def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
         >>> mol.dipole = dipole_ints(mol)
-        >>> mol.hf_symmetry = mol.symmetry
         >>> mol.debug = 0
         >>> mol.hf_init_guess = 'minao'
         >>> mol.irrep_nelec = {}
         >>> mol.x2c = False
-        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff = hf(mol)
+        >>> hf_ref = {'init_guess': 'minao', 'x2c': False, 'symmetry': mol.symmetry,
+        ...           'irrep_nelec': {'A1': 6, 'B1': 2, 'B2': 2}}
+        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff_c2v = hf(mol, hf_ref)
         >>> nocc
         5
         >>> nvirt
@@ -372,11 +373,22 @@ def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
         array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0])
         >>> np.allclose(dipole, np.array([0., 0., 0.8642558]))
         True
+        >>> hf_ref['symmetry'] = 'C1'
+        >>> hf_ref['irrep_nelec'] = {'A': 10}
+        >>> mo_coeff_c1 = hf(mol, hf_ref)[-1]
+        >>> np.allclose(mo_coeff_c2v, mo_coeff_c1)
+        False
+        >>> np.isclose(np.max(mo_coeff_c2v), np.max(mo_coeff_c1))
+        True
+        >>> hf_ref['x2c'] = True
+        >>> mo_coeff_x2c = hf(mol, hf_ref)[-1]
+        >>> np.allclose(mo_coeff_c1, mo_coeff_x2c)
+        False
         """
         # initialize restricted hf calc
         mol_hf = mol.copy()
-        mol_hf.build(0, 0, symmetry = mol.hf_symmetry)
-        if mol.x2c:
+        mol_hf.build(0, 0, symmetry = hf_ref['symmetry'])
+        if hf_ref['x2c']:
             hf = scf.RHF(mol_hf).x2c()
         else:
             hf = scf.RHF(mol_hf)
@@ -385,13 +397,13 @@ def hf(mol: system.MolCls) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
         if mol.debug >= 1:
             hf.verbose = 4
 
-        hf.init_guess = mol.hf_init_guess
+        hf.init_guess = hf_ref['init_guess']
         hf.conv_tol = CONV_TOL
         hf.max_cycle = 1000
 
         if mol.atom:
             # ab initio hamiltonian
-            hf.irrep_nelec = mol.irrep_nelec
+            hf.irrep_nelec = hf_ref['irrep_nelec']
         else:
             # model hamiltonian
             hf.get_ovlp = lambda *args: np.eye(mol.matrix[0] * mol.matrix[1])
@@ -684,14 +696,11 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> mol = gto.Mole()
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
-        >>> mol.hf_symmetry = mol.symmetry
         >>> mol.debug = 0
-        >>> mol.hf_init_guess = 'h1e'
-        >>> mol.irrep_nelec = {}
         >>> mol.dipole = dipole_ints(mol)
         >>> mol.e_nuc = mol.energy_nuc()
-        >>> mol.x2c = False
-        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol)
+        >>> hf_ref = {'x2c': False, 'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry}
+        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, hf_ref)
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
@@ -950,14 +959,11 @@ def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
         >>> mol.ncore = 1
-        >>> mol.hf_symmetry = mol.symmetry
         >>> mol.debug = 0
-        >>> mol.hf_init_guess = 'h1e'
-        >>> mol.irrep_nelec = {}
         >>> mol.dipole = dipole_ints(mol)
         >>> mol.e_nuc = mol.energy_nuc()
-        >>> mol.x2c = False
-        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol)
+        >>> hf_ref = {'x2c': False, 'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry}
+        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, hf_ref)
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
