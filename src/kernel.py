@@ -46,6 +46,7 @@ def ints(mol: system.MolCls, mo_coeff: np.ndarray, global_master: bool, local_ma
         ...               basis = '631g')
         >>> mol.norb = mol.nao_nr()
         >>> mol.nocc = mol.nelectron // 2
+        >>> mol.x2c = False
         >>> np.random.seed(1234)
         >>> mo_coeff = np.random.rand(mol.norb, mol.norb)
         >>> ints(mol, mo_coeff, True, True, MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1) # doctest: +ELLIPSIS
@@ -122,6 +123,7 @@ def _ao_ints(mol: system.MolCls) -> Tuple[np.ndarray, np.ndarray]:
 
         example:
         >>> mol = gto.Mole()
+        >>> mol.x2c = True
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = '631g')
         >>> hcore, eri = _ao_ints(mol)
@@ -143,7 +145,11 @@ def _ao_ints(mol: system.MolCls) -> Tuple[np.ndarray, np.ndarray]:
         if mol.atom:
 
             # hcore_ao
-            hcore = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
+            if mol.x2c:
+                hf = scf.ROHF(mol).x2c()
+            else:
+                hf = scf.ROHF(mol)
+            hcore = hf.get_hcore()
             # eri_ao w/o symmetry
             if mol.cart:
                 eri = mol.intor('int2e_cart', aosym=1)
@@ -353,11 +359,10 @@ def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.R
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
         >>> mol.dipole = dipole_ints(mol)
         >>> mol.debug = 0
-        >>> mol.hf_init_guess = 'minao'
-        >>> mol.irrep_nelec = {}
         >>> mol.x2c = False
-        >>> hf_ref = {'init_guess': 'minao', 'x2c': False, 'symmetry': mol.symmetry,
-        ...           'irrep_nelec': {'A1': 6, 'B1': 2, 'B2': 2}}
+        >>> hf_ref = {'init_guess': 'minao', 'symmetry': mol.symmetry,
+        ...           'irrep_nelec': {'A1': 6, 'B1': 2, 'B2': 2}, 'newton': False,
+        ...           'mom': [[], []]}
         >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff_c2v = hf(mol, hf_ref)
         >>> nocc
         5
@@ -373,32 +378,44 @@ def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.R
         array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0])
         >>> np.allclose(dipole, np.array([0., 0., 0.8642558]))
         True
+        >>> hf_ref['newton'] = True
+        >>> mo_coeff_soscf = hf(mol, hf_ref)[-1]
+        >>> np.allclose(mo_coeff_c2v, mo_coeff_soscf)
+        False
+        >>> np.allclose(scf.hf.make_rdm1(mo_coeff_c2v, occup), scf.hf.make_rdm1(mo_coeff_soscf, occup))
+        True
+        >>> hf_ref['newton'] = False
         >>> hf_ref['symmetry'] = 'C1'
         >>> hf_ref['irrep_nelec'] = {'A': 10}
         >>> mo_coeff_c1 = hf(mol, hf_ref)[-1]
         >>> np.allclose(mo_coeff_c2v, mo_coeff_c1)
         False
-        >>> np.isclose(np.max(mo_coeff_c2v), np.max(mo_coeff_c1))
+        >>> np.allclose(scf.hf.make_rdm1(mo_coeff_c2v, occup), scf.hf.make_rdm1(mo_coeff_c1, occup))
         True
-        >>> hf_ref['x2c'] = True
+        >>> mol.x2c = True
         >>> mo_coeff_x2c = hf(mol, hf_ref)[-1]
         >>> np.allclose(mo_coeff_c1, mo_coeff_x2c)
+        False
+        >>> np.allclose(scf.hf.make_rdm1(mo_coeff_c2v, occup), scf.hf.make_rdm1(mo_coeff_x2c, occup))
         False
         """
         # initialize restricted hf calc
         mol_hf = mol.copy()
         mol_hf.build(0, 0, symmetry = hf_ref['symmetry'])
-        if hf_ref['x2c']:
-            hf = scf.RHF(mol_hf).x2c()
+        if mol.x2c:
+            hf = scf.ROHF(mol_hf).x2c()
         else:
-            hf = scf.RHF(mol_hf)
+            hf = scf.ROHF(mol_hf)
 
         # hf settings
         if mol.debug >= 1:
             hf.verbose = 4
 
         hf.init_guess = hf_ref['init_guess']
-        hf.conv_tol = CONV_TOL
+        if hf_ref['newton']:
+            hf.conv_tol = 1.e-01
+        else:
+            hf.conv_tol = CONV_TOL
         hf.max_cycle = 1000
 
         if mol.atom:
@@ -410,26 +427,57 @@ def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.R
             hf.get_hcore = lambda *args: hubbard_h1e(mol.matrix, mol.pbc)
             hf._eri = hubbard_eri(mol.matrix, mol.u)
 
-        # perform hf calc
-        for i in range(0, 12, 2):
-
-            hf.diis_start_cycle = i
-
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    hf.kernel()
-            except sp.linalg.LinAlgError:
-                pass
-
-            if hf.converged:
-                break
+        # hf calc
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            hf.kernel()
 
         # convergence check
         tools.assertion(hf.converged, 'HF error: no convergence')
 
+        if hf_ref['newton']:
+
+            # initial mo coefficients and occupation
+            mo_coeff = hf.mo_coeff
+            mo_occ = hf.mo_occ
+
+            # new so-hf object
+            hf = hf.newton()
+            hf.conv_tol = CONV_TOL
+
+        # mom calc
+        if len(hf_ref['mom'][0]) > 0:
+
+            # change 1-dim occup list into 2-dim equivalent like for unrestricted calcs
+            mo_coeff = hf.mo_coeff
+            mo_occ = hf.mo_occ
+            setocc = np.zeros((2, mo_occ.size))
+
+            # assign mom occup
+            setocc[0][np.asarray(hf_ref['mom'][0])] = 1.
+            setocc[1][np.asarray(hf_ref['mom'][1])] = 1.
+            mo_occ = setocc[0][:] + setocc[1][:]
+
+            # new mom-hf object
+            hf = scf.addons.mom_occ(hf, mo_coeff, setocc)
+
+        # hf calc
+        if hf_ref['newton'] or len(hf_ref['mom'][0]) > 0:
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                if hf_ref['newton']:
+                    hf.kernel(mo_coeff, mo_occ)
+                if len(hf_ref['mom'][0]) > 0:
+                    dm = hf.make_rdm1(mo_coeff, mo_occ)
+                    hf.kernel(dm)
+
+            # convergence check
+            tools.assertion(hf.converged, 'HF error: no convergence')
+
         # dipole moment
         dm = hf.make_rdm1()
+        dm = dm[0] + dm[1]
         elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
 
         # determine dimensions
@@ -699,7 +747,9 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> mol.debug = 0
         >>> mol.dipole = dipole_ints(mol)
         >>> mol.e_nuc = mol.energy_nuc()
-        >>> hf_ref = {'x2c': False, 'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry}
+        >>> mol.x2c = False
+        >>> hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry,
+        ...           'newton': False, 'mom': [[], []]}
         >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, hf_ref)
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
@@ -962,7 +1012,9 @@ def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> mol.debug = 0
         >>> mol.dipole = dipole_ints(mol)
         >>> mol.e_nuc = mol.energy_nuc()
-        >>> hf_ref = {'x2c': False, 'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry}
+        >>> mol.x2c = False
+        >>> hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry,
+        ...           'newton': True, 'mom': [[], []]}
         >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, hf_ref)
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
@@ -975,7 +1027,7 @@ def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> e, dipole = base(mol, occup, 'dipole', 'ccsd', mo_coeff, dipole_hf)
         >>> np.isclose(e, -0.13432841702437032)
         True
-        >>> np.allclose(dipole, np.array([0., 0., -0.04312132]))
+        >>> np.allclose(dipole, np.array([0., 0., -4.31202762e-02]))
         True
         """
         # load hcore
@@ -1394,17 +1446,7 @@ def _cc(occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: st
         eris = ccsd.ao2mo()
 
         # calculate ccsd energy
-        for i in range(0, 12, 2):
-
-            ccsd.diis_start_cycle = i
-
-            try:
-                ccsd.kernel(eris=eris)
-            except sp.linalg.LinAlgError:
-                pass
-
-            if ccsd.converged:
-                break
+        ccsd.kernel(eris=eris)
 
         # convergence check
         tools.assertion(ccsd.converged, 'CCSD error: no convergence , core_idx = {:} , cas_idx = {:}'. \
@@ -1441,6 +1483,6 @@ def _cc(occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: st
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod(verbose=True)
+    doctest.testmod()#verbose=True)
 
 

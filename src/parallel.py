@@ -88,7 +88,7 @@ def mol(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
         if mpi.global_master:
 
             # collect standard info (must be updated with new future attributes)
-            info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, \
+            info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'x2c': mol.x2c, \
                     'ncore': mol.ncore, 'symmetry': mol.symmetry, 'basis': mol.basis, \
                     'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
 

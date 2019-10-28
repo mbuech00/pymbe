@@ -36,7 +36,7 @@ class MolCls(gto.Mole):
 
                 # set defaults
                 self.atom: Union[List[str], str] = ''
-                self.system: Dict[str, Any] = {'charge': 0, 'spin': 0, 'symmetry': 'c1', \
+                self.system: Dict[str, Any] = {'charge': 0, 'spin': 0, 'symmetry': 'c1', 'x2c': False, \
                                                'basis': 'sto-3g', 'cart': False, 'unit': 'ang', \
                                                'frozen': False, 'ncore': 0, 'debug': 0, \
                                                'u': 1., 'n': 1., 'matrix': (1, 6), 'pbc': True}
@@ -170,6 +170,10 @@ def sanity_chk(mol: MolCls) -> None:
         # charge
         tools.assertion(isinstance(mol.charge, int), \
                         'charge input in system dict (charge) must be an int')
+
+        # x2c
+        tools.assertion(isinstance(mol.x2c, bool), \
+                        'x2c input in system dict (x2c) must be a bool')
 
         # spin
         tools.assertion(isinstance(mol.spin, int) and mol.spin >= 0, \

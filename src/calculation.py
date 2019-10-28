@@ -37,8 +37,8 @@ class CalcCls:
                 """
                 # set defaults
                 self.model: Dict[str, Any] = {'method': 'fci', 'solver': 'pyscf_spin0', 'hf_guess': True}
-                self.hf_ref: Dict[str, Any] = {'x2c': False, 'symmetry': None, 'irrep_nelec': {}, \
-                                               'init_guess': 'minao', 'newton': False, 'mom': [[],[]]}
+                self.hf_ref: Dict[str, Any] = {'symmetry': None, 'irrep_nelec': {}, \
+                                               'init_guess': 'minao', 'newton': False, 'mom': [[], []]}
                 self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
                 self.prot: Dict[str, str] = {'type': 'lambda', 'cond': 'max'}
                 self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
@@ -143,8 +143,6 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                             'the pyscf_spin0 FCI solver is designed for spin singlets only')
 
         # hf reference
-        tools.assertion(isinstance(calc.hf_ref['x2c'], bool), \
-                        'x2c input in hf_ref dict (x2c) must be a bool')
         tools.assertion(isinstance(calc.hf_ref['newton'], bool), \
                         'newton input in hf_ref dict (newton) must be a bool')
         tools.assertion(isinstance(calc.hf_ref['symmetry'], (str, bool)), \
@@ -164,6 +162,8 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'mom input in hf_ref dict (mom) must be a list of lists')
         tools.assertion(len(calc.hf_ref['mom']) == 2, \
                         'mom input in hf_ref dict (mom) must be a list of only two lists')
+        tools.assertion(len(calc.hf_ref['mom'][0]) == len(calc.hf_ref['mom'][1]), \
+                        'mom input in hf_ref dict (mom) must be two lists of equal length')
 
         # reference model
         tools.assertion(calc.ref['method'] in ['casci', 'casscf'], \

@@ -381,7 +381,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
             string += '{:9}{:18}{:2}{:1}{:2}{:<14s}{:1}{:1}{:7}{:15}{:2}{:1}{:2}' \
                         '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
             form += ('','basis set','','=','',_basis(mol), \
-                        '','|','','exp. model','','=','',_model(calc, calc.hf_ref['x2c']), \
+                        '','|','','exp. model','','=','',_model(calc, mol.x2c), \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
@@ -395,7 +395,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                     '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
             form += ('','hubbard matrix','','=','',_hubbard(mol)[0], \
-                        '','|','','exp. model','','=','',_model(calc, calc.hf_ref['x2c']), \
+                        '','|','','exp. model','','=','',_model(calc, mol.x2c), \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
