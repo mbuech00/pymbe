@@ -175,7 +175,7 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'weights for CASSCF calc (weights) must be a list of floats')
         tools.assertion(all(isinstance(i, float) for i in calc.ref['weights']), \
                         'weights for CASSCF calc (weights) must be floats')
-        tools.assertion(sum(calc.ref['weights']) == 1., \
+        tools.assertion(abs(sum(calc.ref['weights']) - 1.) < 1.e-3, \
                         'sum of weights for CASSCF calc (weights) must be equal to 1.')
         if atom:
             if calc.ref['hf_guess']:
