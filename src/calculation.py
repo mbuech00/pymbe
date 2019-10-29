@@ -38,11 +38,11 @@ class CalcCls:
                 # set defaults
                 self.model: Dict[str, Any] = {'method': 'fci', 'solver': 'pyscf_spin0', 'hf_guess': True}
                 self.hf_ref: Dict[str, Any] = {'symmetry': None, 'irrep_nelec': {}, \
-                                               'init_guess': 'minao', 'newton': False, 'mom': [[], []]}
+                                               'init_guess': 'minao', 'newton': False}
                 self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
                 self.prot: Dict[str, str] = {'type': 'lambda', 'cond': 'max'}
                 self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
-                                            'select': [i for i in range(ncore, nelectron // 2)], \
+                                            'select': [i for i in range(ncore, nelectron // 2)], 'weights': [1.], \
                                             'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0]}
                 self.base: Dict[str, Union[None, str]] = {'method': None}
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
@@ -156,14 +156,6 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'valid HF initial guesses in hf_ref dict (init_guess) are: minao, atom, and 1e')
         tools.assertion(isinstance(calc.hf_ref['irrep_nelec'], dict), \
                         'occupation input in hf_ref dict (irrep_nelec) must be a dict')
-        tools.assertion(isinstance(calc.hf_ref['mom'], list), \
-                        'mom input in hf_ref dict (mom) must be a list of lists')
-        tools.assertion(all(isinstance(i, list) for i in calc.hf_ref['mom']), \
-                        'mom input in hf_ref dict (mom) must be a list of lists')
-        tools.assertion(len(calc.hf_ref['mom']) == 2, \
-                        'mom input in hf_ref dict (mom) must be a list of only two lists')
-        tools.assertion(len(calc.hf_ref['mom'][0]) == len(calc.hf_ref['mom'][1]), \
-                        'mom input in hf_ref dict (mom) must be two lists of equal length')
 
         # reference model
         tools.assertion(calc.ref['method'] in ['casci', 'casscf'], \
@@ -177,6 +169,14 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'select key (select) for active space must be a list of orbitals')
         tools.assertion(isinstance(calc.ref['hf_guess'], bool), \
                         'HF initial guess for CASSCF calc (hf_guess) must be a bool')
+        tools.assertion(len(calc.ref['wfnsym']) == len(calc.ref['weights']), \
+                        'list of wfnsym and weights for CASSCF calc (wfnsym/weights) must be of same length')
+        tools.assertion(isinstance(calc.ref['weights'], list), \
+                        'weights for CASSCF calc (weights) must be a list of floats')
+        tools.assertion(all(isinstance(i, float) for i in calc.ref['weights']), \
+                        'weights for CASSCF calc (weights) must be floats')
+        tools.assertion(sum(calc.ref['weights']) == 1., \
+                        'sum of weights for CASSCF calc (weights) must be equal to 1.')
         if atom:
             if calc.ref['hf_guess']:
                 tools.assertion(len(set(calc.ref['wfnsym'])) == 1, \
