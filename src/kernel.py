@@ -178,13 +178,8 @@ def dipole_ints(mol: system.MolCls) -> np.ndarray:
         >>> dipole.shape
         (3, 7, 7)
         """
-        # charge centre
-        charges = mol.atom_charges()
-        coords = mol.atom_coords()
-        charge_centre = np.einsum('z,zr->r', charges, coords)/charges.sum()
-
         # gauge origin
-        with mol.with_common_origin(charge_centre):
+        with mol.with_common_origin([0., 0., 0.]):
             dipole = mol.intor_symmetric('int1e_r', comp=3)
 
         return dipole
@@ -380,7 +375,7 @@ def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.R
         array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.])
         >>> orbsym
         array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0])
-        >>> np.allclose(dipole, np.array([0., 0., 1.03731691]))
+        >>> np.allclose(dipole, np.array([0., 0., 8.64255793e-01]))
         True
         >>> hf_ref['newton'] = True
         >>> mo_coeff_soscf = hf(mol, hf_ref)[-1]
@@ -523,7 +518,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         >>> model = {'method': 'fci', 'solver': 'pyscf_spin0'}
         >>> ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual',
         ...        'select': [i for i in range(2, 6)],
-        ...        'wfnsym': ['Ag']}
+        ...        'wfnsym': ['Ag'], 'weights': [1.]}
         >>> orbs = {'type': 'can'}
         >>> mo_coeff, act_nelec, ref_space, exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym,
         ...                                                     orbs, ref, model, False, hf)
@@ -562,9 +557,9 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         True
         >>> orbs['type'] = 'local'
         >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
-        >>> np.isclose(np.sum(mo_coeff), 3.5665242146990463)
+        >>> np.isclose(np.sum(mo_coeff), 14.076772083684379)
         True
-        >>> np.isclose(np.amax(mo_coeff), 5.510437607766403)
+        >>> np.isclose(np.amax(mo_coeff), 4.792521205206757)
         True
         >>> orbs['type'] = 'can'
         >>> ref['method'] = 'casscf'
@@ -951,8 +946,8 @@ def _dipole(ao_dipole: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, mo_
         elec_dipole = np.einsum('xij,ji->x', ao_dipole, rdm1)
 
         # 'correlation' dipole
-#        if not trans:
-#            elec_dipole -= hf_dipole
+        if not trans:
+            elec_dipole -= hf_dipole
 
         return elec_dipole
 
@@ -1230,9 +1225,7 @@ def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
         True
         >>> res = _fci('pyscf_spin1', 'trans', 'A', orbsym, True, 1, 0., 0.,
         ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
-        >>> np.isclose(np.sum(res['t_rdm1']), 0.)
-        True
-        >>> np.isclose(np.amax(res['t_rdm1']), 0.1008447233008727)
+        >>> np.isclose(np.trace(res['t_rdm1']), 0.)
         True
         >>> np.isclose(np.sum(res['hf_weight']), 0.)
         True
@@ -1460,6 +1453,6 @@ def _cc(occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: st
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()#verbose=True)
+    doctest.testmod()
 
 

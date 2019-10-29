@@ -150,6 +150,6 @@ def init_tup(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: Dic
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod(verbose=True)
+    doctest.testmod()
 
 
