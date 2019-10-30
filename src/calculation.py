@@ -128,9 +128,9 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         tools.assertion(isinstance(calc.model['method'], str), \
                         'input electronic structure method (method) must be a string')
         tools.assertion(calc.model['method'] in ['ccsd', 'ccsd(t)', 'fci'], \
-                        'valid expansion models are: ccsd, ccsd(t), and fci')
+                        'valid expansion methods (method) are: ccsd, ccsd(t), and fci')
         tools.assertion(calc.model['solver'] in ['pyscf_spin0', 'pyscf_spin1'], \
-                        'valid FCI solvers are: pyscf_spin0 and pyscf_spin1')
+                        'valid FCI solvers (solver) are: pyscf_spin0 and pyscf_spin1')
         tools.assertion(isinstance(calc.model['hf_guess'], bool), \
                         'HF initial guess for FCI calcs (hf_guess) must be a bool')
         if calc.model['method'] != 'fci':

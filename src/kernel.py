@@ -174,15 +174,25 @@ def dipole_ints(mol: system.MolCls) -> np.ndarray:
         >>> mol = gto.Mole()
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = 'sto-3g')
-        >>> dipole = dipole_ints(mol)
+        >>> origin, dipole = dipole_ints(mol)
         >>> dipole.shape
         (3, 7, 7)
         """
         # gauge origin
-        with mol.with_common_origin([0., 0., 0.]):
+        if mol.gauge == 'charge':
+
+            charges = mol.atom_charges()
+            coords  = mol.atom_coords()
+            origin = np.einsum('z,zr->r', charges, coords) / charges.sum()
+
+        else:
+
+            origin = np.array([0., 0., 0.])
+
+        with mol.with_common_origin(origin):
             dipole = mol.intor_symmetric('int1e_r', comp=3)
 
-        return dipole
+        return origin, dipole
 
 
 def e_core_h1e(e_nuc: float, hcore: np.ndarray, vhf: np.ndarray, \

@@ -89,7 +89,7 @@ def mol(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
 
             # collect standard info (must be updated with new future attributes)
             info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'x2c': mol.x2c, \
-                    'ncore': mol.ncore, 'symmetry': mol.symmetry, 'basis': mol.basis, \
+                    'ncore': mol.ncore, 'symmetry': mol.symmetry, 'basis': mol.basis, 'gauge': mol.gauge, \
                     'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
 
             # add hubbard info if relevant (also needs to be updated with new future attributes)

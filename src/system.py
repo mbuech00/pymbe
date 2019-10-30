@@ -38,7 +38,7 @@ class MolCls(gto.Mole):
                 self.atom: Union[List[str], str] = ''
                 self.system: Dict[str, Any] = {'charge': 0, 'spin': 0, 'symmetry': 'c1', 'x2c': False, \
                                                'basis': 'sto-3g', 'cart': False, 'unit': 'ang', \
-                                               'frozen': False, 'ncore': 0, 'debug': 0, \
+                                               'frozen': False, 'ncore': 0, 'debug': 0, 'gauge': 'zero', \
                                                'u': 1., 'n': 1., 'matrix': (1, 6), 'pbc': True}
                 self.max_memory: float = 1e10
                 self.incore_anyway: bool = True
@@ -201,6 +201,12 @@ def sanity_chk(mol: MolCls) -> None:
         # frozen
         tools.assertion(isinstance(mol.frozen, bool), \
                         'frozen core input in system dict (frozen) must be a bool')
+
+        # gauge origin
+        tools.assertion(isinstance(mol.gauge, str), \
+                        'gauge origin input in system dict (gauge) must be a string')
+        tools.assertion(mol.gauge in ['zero', 'charge'], \
+                        'valid gauge origins (gauge) are: zero and charge')
 
         # debug
         tools.assertion(type(mol.debug) is int, \

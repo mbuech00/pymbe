@@ -629,7 +629,8 @@ def _dipole_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Ex
         this function returns the dipole moments table
         """
         string: str = DIVIDER[:82]+'\n'
-        string_in = 'MBE dipole moment (root = '+str(calc.state['root'])+')'
+        string_in = 'MBE dipole moment (root = {:}) - gauge origin: ({:.3f}, {:.3f}, {:.3f})'.\
+                        format(calc.state['root'], *mol.gauge_origin)
         string += '{:^82}\n'
         form: Tuple[Any, ...] = (string_in,)
 
@@ -718,8 +719,9 @@ def _trans_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Exp
         this function returns the transition dipole moments and oscillator strengths table
         """
         string: str = DIVIDER[:82]+'\n'
-        string_in = 'MBE transition dipole moment (excitation 0 > '+str(calc.state['root'])+')'
-        string += '{:^82}\n'
+        string_in = 'MBE trans. dipole moment (roots 0 > {:}) - gauge origin: ({:.3f}, {:.3f}, {:.3f})'.\
+                        format(calc.state['root'], *mol.gauge_origin)
+        string += '{:^84}\n'
         form: Tuple[Any, ...] = (string_in,)
 
         string += DIVIDER[:82]+'\n'
