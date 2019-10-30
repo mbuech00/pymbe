@@ -338,7 +338,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 inc_idx = tools.hash_compare(hashes[-1], tools.hash_1d(tup))
 
                 # calculate increment
-                inc_tup, ndets, nelec = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], \
+                inc_tup, ndets, nelec = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], mol.spin, \
                                                calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
                                                calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
                                                calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
@@ -415,7 +415,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
         return inc_win
 
 
-def _inc(main_method: str, base_method: Union[str, None], solver: str, \
+def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int, \
             occup: np.ndarray, target_mbe: str, state_wfnsym: str, orbsym: np.ndarray, hf_guess: bool, \
             state_root: int, e_hf: float, res_ref: Union[float, np.ndarray], e_core: float, \
             h1e_cas: np.ndarray, h2e_cas: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, \
@@ -443,13 +443,13 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, \
         nelec = tools.nelec(occup, cas_idx)
 
         # perform main calc
-        res_full, ndets = kernel.main(main_method, solver, occup, target_mbe, state_wfnsym, orbsym, \
+        res_full, ndets = kernel.main(main_method, solver, spin, occup, target_mbe, state_wfnsym, orbsym, \
                                         hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
                                         core_idx, cas_idx, nelec, debug, ao_dipole, mo_coeff, dipole_hf)
 
         # perform base calc
         if base_method is not None:
-            res_full -= kernel.main(base_method, '', occup, target_mbe, state_wfnsym, orbsym, \
+            res_full -= kernel.main(base_method, '', spin, occup, target_mbe, state_wfnsym, orbsym, \
                                       hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
                                       core_idx, cas_idx, nelec, debug, ao_dipole, mo_coeff, dipole_hf)[0]
 

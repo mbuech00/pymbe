@@ -594,7 +594,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
             if orbs['type'] in ['ccsd', 'ccsd(t)']:
 
                 # compute rmd1
-                res = _cc(occup, core_idx, cas_idx, orbs['type'], hf=hf, rdm1=True)
+                res = _cc(mol.spin, occup, core_idx, cas_idx, orbs['type'], hf=hf, rdm1=True)
                 rdm1 = res['rdm1']
                 if mol.spin > 0:
                     rdm1 = rdm1[0] + rdm1[1]
@@ -789,7 +789,7 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         nelec = np.asarray((np.count_nonzero(occup[cas_idx] > 0.), \
                             np.count_nonzero(occup[cas_idx] > 1.)), dtype=np.int16)
 
-        if ref_space['occ'].size > 0 and ref_space['virt'].size > 0:
+        if (ref_space['occ'].size > 0 and ref_space['virt'].size > 0) or (mol.spin > 0 and ref_space['tot'].size):
 
             # get cas space h2e
             cas_idx_tril = tools.cas_idx_tril(cas_idx)
@@ -799,7 +799,7 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
             e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # exp model
-            ref = main(model['method'], model['solver'], occup, target_mbe, \
+            ref = main(model['method'], model['solver'], mol.spin, occup, target_mbe, \
                         state['wfnsym'], orbsym, hf_guess, state['root'], \
                         e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, mol.debug, \
                         mol.dipole if target_mbe in ['dipole', 'trans'] else None, \
@@ -808,7 +808,7 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
 
             # base model
             if base_method is not None:
-                ref -= main(base_method, '', occup, target_mbe, \
+                ref -= main(base_method, '', mol.spin, occup, target_mbe, \
                             state['wfnsym'], orbsym, hf_guess, state['root'], \
                             e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, mol.debug, \
                             mol.dipole if target_mbe in ['dipole', 'trans'] else None, \
@@ -826,7 +826,7 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         return ref
 
 
-def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
+def main(method: str, solver: str, spin: int, occup: np.ndarray, target_mbe: str, \
             state_wfnsym: str, orbsym: np.ndarray, hf_guess: bool, \
             state_root: int, e_hf: float, e_core: float, h1e: np.ndarray, \
             h2e: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, \
@@ -895,12 +895,12 @@ def main(method: str, solver: str, occup: np.ndarray, target_mbe: str, \
        """
         if method in ['ccsd', 'ccsd(t)']:
 
-            res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole')
+            res_tmp = _cc(spin, occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole')
             ndets = tools.ndets(occup, cas_idx, n_elec=nelec)
 
         elif method == 'fci':
 
-            res_tmp = _fci(solver, target_mbe, state_wfnsym, \
+            res_tmp = _fci(solver, spin, target_mbe, state_wfnsym, \
                             orbsym, hf_guess, state_root, \
                             e_hf, e_core, h1e, h2e, \
                             occup, core_idx, cas_idx, nelec, debug)
@@ -1038,7 +1038,7 @@ def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
         # run calc
-        res_tmp = _cc(occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas, rdm1=target_mbe == 'dipole')
+        res_tmp = _cc(mol.spin, occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas, rdm1=target_mbe == 'dipole')
 
         # collect results
         energy = res_tmp['energy']
@@ -1202,7 +1202,7 @@ def _casscf(mol: system.MolCls, solver: str, wfnsym: List[str], \
         return np.asarray(cas.mo_coeff, order='C')
 
 
-def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
+def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
             hf_guess: bool, root: int, e_hf: float, e_core: float, \
             h1e: np.ndarray, h2e: np.ndarray, occup: np.ndarray, \
             core_idx: np.ndarray, cas_idx: np.ndarray, \
@@ -1242,7 +1242,8 @@ def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
         True
         """
         # spin
-        spin = np.count_nonzero(occup[cas_idx] == 1.)
+        spin_cas = np.count_nonzero(occup[cas_idx] == 1.)
+        tools.assertion(spin_cas == spin, 'casci wrong spin in space: {:}'.format(cas_idx))
 
         # init fci solver
         if solver_type == 'pyscf_spin0':
@@ -1298,7 +1299,7 @@ def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
 
             s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
 
-            if np.abs((spin + 1) - mult) > SPIN_TOL:
+            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
 
                 # fix spin by applyting level shift
                 sz = np.abs(nelec[0]-nelec[1]) * 0.5
@@ -1310,7 +1311,7 @@ def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
                 # verify correct spin
                 for root in range(len(civec)):
                     s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-                    tools.assertion(np.abs((spin + 1) - mult) < SPIN_TOL, \
+                    tools.assertion(np.abs((spin_cas + 1) - mult) < SPIN_TOL, \
                                     'spin contamination for root entry = {:}\n2*S + 1 = {:.6f}\n'
                                     'cas_idx = {:}\ncas_sym = {:}'. \
                                     format(root, mult, cas_idx, orbsym[cas_idx]))
@@ -1354,7 +1355,7 @@ def _fci(solver_type: str, target_mbe: str, wfnsym: str, orbsym: np.ndarray, \
         return res
 
 
-def _cc(occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: str, \
+def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: str, \
             h1e: np.ndarray = None, h2e: np.ndarray = None, hf: scf.RHF = None, \
             rdm1: bool = False) -> Dict[str, Any]:
         """
@@ -1385,8 +1386,9 @@ def _cc(occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: st
         >>> np.isclose(np.amax(res['rdm1']), 2.)
         True
         """
-        spin = np.count_nonzero(occup[cas_idx] == 1.)
-        singlet = spin == 0
+        spin_cas = np.count_nonzero(occup[cas_idx] == 1.)
+        tools.assertion(spin_cas == spin, 'cascc wrong spin in space: {:}'.format(cas_idx))
+        singlet = spin_cas == 0
 
         # init ccsd solver
         if h1e is not None and h2e is not None:
