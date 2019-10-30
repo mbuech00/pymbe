@@ -514,17 +514,20 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         >>> mol.debug = 0
         >>> hf = scf.RHF(mol)
         >>> _ = hf.kernel()
+        >>> hf_rdm1 = scf.hf.make_rdm1(hf.mo_coeff, hf.mo_occ)
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
         >>> model = {'method': 'fci', 'solver': 'pyscf_spin0'}
         >>> ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual',
         ...        'select': [i for i in range(2, 6)],
         ...        'wfnsym': ['Ag'], 'weights': [1.]}
         >>> orbs = {'type': 'can'}
-        >>> mo_coeff, act_nelec, ref_space, exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym,
+        >>> mo_coeff_casci, act_nelec, ref_space, exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym,
         ...                                                     orbs, ref, model, False, hf)
-        >>> np.isclose(np.sum(mo_coeff), -4.995051198781287)
+        >>> np.isclose(np.sum(mo_coeff_casci), -4.995051198781287)
         True
-        >>> np.isclose(np.amax(mo_coeff), 4.954270427681284)
+        >>> np.isclose(np.amax(mo_coeff_casci), 4.954270427681284)
+        True
+        >>> np.allclose(hf.mo_coeff, mo_coeff_casci)
         True
         >>> act_nelec
         (4, 4)
@@ -550,25 +553,33 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         >>> np.allclose(exp_space['pi_hashes'], np.array([-7365615264797734692,  2711701422158015467,  4980488901507643489]))
         True
         >>> orbs['type'] = 'ccsd'
-        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
-        >>> np.isclose(np.sum(mo_coeff), 1.4521896109624048)
+        >>> mo_coeff_ccsd = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.isclose(np.sum(mo_coeff_ccsd), 1.4521896109624048)
         True
-        >>> np.isclose(np.amax(mo_coeff), 6.953346258094149)
+        >>> np.isclose(np.amax(mo_coeff_ccsd), 6.953346258094149)
+        True
+        >>> np.allclose(hf.mo_coeff, mo_coeff_ccsd)
+        False
+        >>> np.allclose(hf_rdm1, scf.hf.make_rdm1(mo_coeff_ccsd, hf.mo_occ))
         True
         >>> orbs['type'] = 'local'
-        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
-        >>> np.isclose(np.sum(mo_coeff), 14.076772083684379)
-        True
-        >>> np.isclose(np.amax(mo_coeff), 4.792521205206757)
+        >>> mo_coeff_local = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.allclose(hf.mo_coeff, mo_coeff_local)
+        False
+        >>> np.allclose(hf_rdm1, scf.hf.make_rdm1(mo_coeff_local, hf.mo_occ))
         True
         >>> orbs['type'] = 'can'
         >>> ref['method'] = 'casscf'
         >>> ref['select'] = [4, 5, 7, 8]
-        >>> mo_coeff = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
-        >>> np.isclose(np.sum(mo_coeff), -5.0278490212621385)
+        >>> mo_coeff_casscf = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
+        >>> np.isclose(np.sum(mo_coeff_casscf), -5.0278490212621385)
         True
-        >>> np.isclose(np.amax(mo_coeff), 4.947394624365791)
+        >>> np.isclose(np.amax(mo_coeff_casscf), 4.947394624365791)
         True
+        >>> np.allclose(hf.mo_coeff, mo_coeff_casscf)
+        False
+        >>> np.allclose(hf_rdm1, scf.hf.make_rdm1(mo_coeff_casscf, hf.mo_occ))
+        False
         """
         # copy mo coefficients
         mo_coeff_out = np.copy(mo_coeff)
