@@ -160,9 +160,6 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         # reference model
         tools.assertion(calc.ref['method'] in ['casci', 'casscf'], \
                         'valid reference models are: casci and casscf')
-        if calc.ref['method'] == 'casscf':
-            tools.assertion(calc.model['method'] == 'fci', \
-                            'a casscf reference is only meaningful for an fci expansion model')
         tools.assertion(calc.ref['active'] == 'manual', \
                         'active space choices are currently: manual')
         tools.assertion(isinstance(calc.ref['select'], list), \
@@ -191,8 +188,6 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
 
         # base model
         if calc.base['method'] is not None:
-            tools.assertion(calc.ref['method'] == 'casci', \
-                            'use of base model is only permitted for casci expansion references')
             tools.assertion(calc.base['method'] in ['ccsd', 'ccsd(t)'], \
                             'valid base models are currently: ccsd, and ccsd(t)')
 
