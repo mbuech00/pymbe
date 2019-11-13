@@ -166,7 +166,7 @@ def _ao_ints(mol: system.MolCls) -> Tuple[np.ndarray, np.ndarray]:
         return hcore, eri
 
 
-def dipole_ints(mol: system.MolCls) -> np.ndarray:
+def dipole_ints(mol: system.MolCls) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns dipole integrals (in AO basis)
 
@@ -174,6 +174,7 @@ def dipole_ints(mol: system.MolCls) -> np.ndarray:
         >>> mol = gto.Mole()
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = 'sto-3g')
+        >>> mol.gauge = 'charge'
         >>> origin, dipole = dipole_ints(mol)
         >>> dipole.shape
         (3, 7, 7)
@@ -361,13 +362,14 @@ class _hubbard_PM(lo.pipek.PM):
 def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, float, np.ndarray, \
                                                     np.ndarray, np.ndarray, np.ndarray]:
         """
-        this function returns the results of a hartree-fock calculation
+        this function returns the results of a restricted (open-shell) hartree-fock calculation
 
         example:
         >>> mol = gto.Mole()
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
-        >>> mol.dipole = dipole_ints(mol)
+        >>> mol.gauge = 'zero'
+        >>> mol.dipole = dipole_ints(mol)[1]
         >>> mol.debug = 0
         >>> mol.x2c = False
         >>> hf_ref = {'init_guess': 'minao', 'symmetry': mol.symmetry,
@@ -742,7 +744,8 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
         >>> mol.debug = 0
-        >>> mol.dipole = dipole_ints(mol)
+        >>> mol.gauge = 'zero'
+        >>> mol.dipole = dipole_ints(mol)[1]
         >>> mol.e_nuc = mol.energy_nuc()
         >>> mol.x2c = False
         >>> hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry, 'newton': False}
@@ -858,13 +861,13 @@ def main(method: str, solver: str, spin: int, occup: np.ndarray, target_mbe: str
         >>> cas_idx_tril = tools.cas_idx_tril(cas_idx)
         >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
         >>> nelec = tools.nelec(occup, cas_idx)
-        >>> e, ndets = main('fci', 'pyscf_spin0', occup, 'energy', 'A', orbsym, True, 0,
+        >>> e, ndets = main('fci', 'pyscf_spin0', 0, occup, 'energy', 'A', orbsym, True, 0,
         ...                 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)
         >>> np.isclose(e, -2.8759428090050676)
         True
         >>> ndets
         36
-        >>> exc = main('fci', 'pyscf_spin0', occup, 'excitation', 'A', orbsym, True, 1,
+        >>> exc = main('fci', 'pyscf_spin0', 0, occup, 'excitation', 'A', orbsym, True, 1,
         ...            0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0, None, None, None)[0]
         >>> np.isclose(exc, 1.850774199956839)
         True
@@ -885,19 +888,20 @@ def main(method: str, solver: str, spin: int, occup: np.ndarray, target_mbe: str
         >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
         >>> nelec = tools.nelec(hf.mo_occ, cas_idx)
         >>> e_core = mol.energy_nuc()
-        >>> e = main('ccsd', 'pyscf_spin0', hf.mo_occ, 'energy', 'A1', orbsym, True, 0,
+        >>> e = main('ccsd', 'pyscf_spin0', 0, hf.mo_occ, 'energy', 'A1', orbsym, True, 0,
         ...          hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
         ...          None, None, None)[0]
         >>> np.isclose(e, -0.014118607610972691)
         True
-        >>> ao_dipole = dipole_ints(mol)
+        >>> mol.gauge = 'zero'
+        >>> ao_dipole = dipole_ints(mol)[1]
         >>> dipole_hf = np.einsum('xij,ji->x', ao_dipole, hf.make_rdm1())
-        >>> dipole = main('fci', 'pyscf_spin0', hf.mo_occ, 'dipole', 'A1', orbsym, True, 0,
+        >>> dipole = main('fci', 'pyscf_spin0', 0, hf.mo_occ, 'dipole', 'A1', orbsym, True, 0,
         ...               hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
         ...               ao_dipole, hf.mo_coeff, dipole_hf)[0]
         >>> np.allclose(dipole, np.array([0., 0., -7.97781259e-03]))
         True
-        >>> trans = main('fci', 'pyscf_spin0', hf.mo_occ, 'trans', 'A1', orbsym, True, 1,
+        >>> trans = main('fci', 'pyscf_spin0', 0, hf.mo_occ, 'trans', 'A1', orbsym, True, 1,
         ...              hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec, 0,
         ...              ao_dipole, hf.mo_coeff, dipole_hf)[0]
         >>> np.allclose(trans, np.array([0., 0., -0.26497816]))
@@ -1006,7 +1010,8 @@ def base(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
         >>> mol.ncore = 1
         >>> mol.debug = 0
-        >>> mol.dipole = dipole_ints(mol)
+        >>> mol.gauge = 'zero'
+        >>> mol.dipole = dipole_ints(mol)[1]
         >>> mol.e_nuc = mol.energy_nuc()
         >>> mol.x2c = False
         >>> hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry, 'newton': True}
@@ -1226,25 +1231,25 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.n
         >>> h1e = hubbard_h1e((2, 4), True)
         >>> h2e = hubbard_eri((2, 4), 2.)
         >>> h2e = ao2mo.restore(4, h2e, 8)
-        >>> res = _fci('pyscf_spin0', 'energy', 'A', orbsym, True, 0, 0., 0.,
+        >>> res = _fci('pyscf_spin0', 0, 'energy', 'A', orbsym, True, 0, 0., 0.,
         ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
         >>> res['ndets']
         4900
         >>> np.isclose(res['energy'], -5.246918061839909)
         True
-        >>> res = _fci('pyscf_spin1', 'excitation', 'A', orbsym, True, 1, 0., 0.,
+        >>> res = _fci('pyscf_spin1', 0, 'excitation', 'A', orbsym, True, 1, 0., 0.,
         ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
         >>> np.isclose(res['energy'], -4.179698414137736)
         True
         >>> np.isclose(res['excitation'], 1.0672196477046079)
         True
-        >>> res = _fci('pyscf_spin0', 'dipole', 'A', orbsym, True, 1, 0., 0.,
+        >>> res = _fci('pyscf_spin0', 0, 'dipole', 'A', orbsym, True, 1, 0., 0.,
         ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
         >>> np.isclose(np.sum(res['rdm1']), 15.544465598616451)
         True
         >>> np.isclose(np.amax(res['rdm1']), 1.)
         True
-        >>> res = _fci('pyscf_spin1', 'trans', 'A', orbsym, True, 1, 0., 0.,
+        >>> res = _fci('pyscf_spin1', 0, 'trans', 'A', orbsym, True, 1, 0., 0.,
         ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
         >>> np.isclose(np.trace(res['t_rdm1']), 0.)
         True
@@ -1378,7 +1383,7 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
         >>> _ = hf.kernel()
         >>> core_idx = np.array([])
         >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
-        >>> res = _cc(hf.mo_occ, core_idx, cas_idx, 'ccsd', hf=hf)
+        >>> res = _cc(0, hf.mo_occ, core_idx, cas_idx, 'ccsd', hf=hf)
         >>> np.isclose(res['energy'], -0.014118607610972705)
         True
         >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
@@ -1388,7 +1393,7 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
         >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
         >>> cas_idx_tril = tools.cas_idx_tril(cas_idx)
         >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-        >>> res = _cc(hf.mo_occ, core_idx, cas_idx, 'ccsd', h1e=h1e_cas, h2e=h2e_cas, rdm1=True)
+        >>> res = _cc(0, hf.mo_occ, core_idx, cas_idx, 'ccsd', h1e=h1e_cas, h2e=h2e_cas, rdm1=True)
         >>> np.isclose(res['energy'], -0.014118607610972705)
         True
         >>> np.isclose(np.sum(res['rdm1']), 9.978003347693397)
