@@ -125,7 +125,10 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         this function initializes an exp object
         """
         # get dipole integrals
-        mol.gauge_origin, mol.dipole = kernel.dipole_ints(mol)
+        if mol.atom:
+            mol.gauge_origin, mol.dipole = kernel.dipole_ints(mol)
+        else:
+            mol.gauge_origin = mol.dipole = None
 
         # nuclear repulsion energy
         mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.

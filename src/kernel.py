@@ -464,9 +464,12 @@ def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.R
             tools.assertion(hf.converged, 'HF error: no convergence')
 
         # dipole moment
-        dm = hf.make_rdm1()
-        dm = dm[0] + dm[1]
-        elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
+        if mol.atom:
+            dm = hf.make_rdm1()
+            dm = dm[0] + dm[1]
+            elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
+        else:
+            elec_dipole = np.zeros(3, dtype=np.float64)
 
         # determine dimensions
         norb, nocc, nvirt = _dim(hf.mo_occ)
