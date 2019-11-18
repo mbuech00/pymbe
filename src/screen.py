@@ -500,7 +500,7 @@ def _orbs(occup: np.ndarray, prot: Dict[str, str], thres: Dict[str, float], \
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 3)
-        >>> prot = {'cond': 'max', 'gen': 'old'}
+        >>> prot = {'cond': 'max', 'type': 'lambda'}
         >>> thres = {'init': 1.e-10, 'relax': 5., 'start': 3}
         >>> ref_space = {'occ': np.array([], dtype=np.int16),
         ...              'virt': np.array([], dtype=np.int16),
@@ -603,26 +603,15 @@ def _orbs(occup: np.ndarray, prot: Dict[str, str], thres: Dict[str, float], \
             combs_orb_hash.sort()
 
             # get indices of combinations
-            if prot['gen'] == 'old':
-                idx = tools.hash_compare(hashes, combs_orb_hash)
-            else:
-                idx_lst: List[Union[int, Any]] = []
-                for comb_hash in combs_orb_hash:
-                    i = tools.hash_compare(hashes, comb_hash)
-                    if i is not None:
-                        idx_lst.append(i)
-                if len(idx_lst) > 0:
-                    idx = np.asarray(idx_lst)
-                else:
-                    idx = None
+            idx: np.ndarray = tools.hash_compare(hashes, combs_orb_hash)
 
             # only continue if child orbital is valid
             if idx is not None:
 
                 # compute screening thresholds
                 screen_thres = np.fromiter(map(functools.partial(_thres, \
-                                    occup, thres, ref_space['tot']), combs_orb), \
-                                    dtype=np.float64, count=idx.size)
+                                             occup, thres, ref_space['tot']), combs_orb), \
+                                             dtype=np.float64, count=idx.size)
 
                 # add orbital to list of child orbitals if allowed
                 if not _prot_screen(prot['cond'], screen_thres, prop[idx]) or np.sum(screen_thres) == 0.:
@@ -741,6 +730,6 @@ def _thres(occup: np.ndarray, thres: Dict[str, Union[float, int]], \
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod(verbose=True)
+    doctest.testmod()
 
 

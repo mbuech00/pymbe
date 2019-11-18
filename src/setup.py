@@ -99,6 +99,10 @@ def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
             # set target
             calc.target_mbe = [x for x in calc.target.keys() if calc.target[x]][0]
 
+            # hf symmetry
+            if calc.hf_ref['symmetry'] is None:
+                calc.hf_ref['symmetry'] = mol.symmetry
+
             # sanity check
             calculation.sanity_chk(calc, mol.spin, mol.atom, mol.symmetry)
 
@@ -121,7 +125,10 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         this function initializes an exp object
         """
         # get dipole integrals
-        mol.dipole = kernel.dipole_ints(mol) if calc.target_mbe in ['dipole', 'trans'] else None
+        if mol.atom:
+            mol.gauge_origin, mol.dipole = kernel.dipole_ints(mol)
+        else:
+            mol.gauge_origin = mol.dipole = None
 
         # nuclear repulsion energy
         mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.
@@ -141,7 +148,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.target_mbe)
+                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.hf_ref)
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_coeff, calc.nelec, \
@@ -177,7 +184,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # reference space properties
             calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc.occup, calc.target_mbe, \
-                                                                calc.orbsym, calc.extra['hf_guess'], \
+                                                                calc.orbsym, calc.model['hf_guess'], \
                                                                 calc.ref_space, calc.model, calc.state, \
                                                                 calc.prop['hf']['energy'], calc.mo_coeff, \
                                                                 calc.prop['hf']['dipole'], calc.base['method'])
@@ -412,6 +419,7 @@ def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         """
         # write hf, reference, and base properties
         energies = {'hf': calc.prop['hf']['energy']}
+        dipoles = {'hf': calc.prop['hf']['dipole'].tolist()} # type: ignore
 
         if calc.target_mbe == 'energy':
 
@@ -427,15 +435,15 @@ def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
             with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
                 json.dump(excitations, f)
 
-        elif calc.target_mbe == 'dipole':
+        if calc.target_mbe == 'dipole':
 
-            dipoles = {'hf': calc.prop['hf']['dipole'].tolist()} # type: ignore
             dipoles['base'] = calc.prop['base']['dipole'].tolist() # type: ignore
             dipoles['ref'] = calc.prop['ref']['dipole'].tolist() # type: ignore
-            with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
-                json.dump(dipoles, f)
 
-        elif calc.target_mbe == 'trans':
+        with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
+            json.dump(dipoles, f)
+
+        if calc.target_mbe == 'trans':
 
             transitions = {'ref': calc.prop['ref']['trans'].tolist()} # type: ignore
             with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
@@ -466,21 +474,23 @@ def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                     calc.prop['base']['energy'] = energies['base']
                     calc.prop['ref']['energy'] = energies['ref']
 
-            elif 'excitations' in files[i]:
+            if 'excitations' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     excitations = json.load(f)
                 calc.prop['ref']['excitation'] = excitations['ref']
 
-            elif 'dipoles' in files[i]:
+            if 'dipoles' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     dipoles = json.load(f)
                 calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
-                calc.prop['base']['dipole'] = np.asarray(dipoles['base'])
-                calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
 
-            elif 'transitions' in files[i]:
+                if calc.target_mbe == 'dipole':
+                    calc.prop['base']['dipole'] = np.asarray(dipoles['base'])
+                    calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
+
+            if 'transitions' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
                     transitions = json.load(f)

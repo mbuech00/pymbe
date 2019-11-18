@@ -9,7 +9,6 @@ system = {'basis': '631g', 'symmetry': 'd2h', 'frozen': True, 'irrep_nelec': {'A
 
 model = {'method': 'fci'}
 target = {'energy': True}
-prot = {'scheme': 2}
 ref = {'method': 'casci', 'active': 'manual', 'select': [2, 3, 4, 5, 6, 7, 8, 9]}
 state = {'wfnsym': 'ag', 'root': 0}
 extra = {'pi_prune': True}

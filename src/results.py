@@ -99,11 +99,14 @@ def _atom(mol: system.MolCls) -> str:
         return string.format(*form)
 
 
-def _model(calc: calculation.CalcCls) -> str:
+def _model(calc: calculation.CalcCls, x2c: bool) -> str:
         """
         this function returns the expansion model
         """
-        return '{:}'.format(calc.model['method'].upper())
+        string = '{:}'.format(calc.model['method'].upper())
+        if x2c:
+            string += ' (x2c)'
+        return string
 
 
 def _basis(mol: system.MolCls) -> str:
@@ -156,6 +159,10 @@ def _ref(mol: system.MolCls, calc: calculation.CalcCls) -> str:
             if len(calc.ref['wfnsym']) == 1:
                 return 'CASSCF'
             else:
+                if 1. in calc.ref['weights']:
+                    typ = 'ss'
+                else:
+                    typ = 'sa'
                 for i in range(len(set(calc.ref['wfnsym']))):
                     sym = symm.addons.irrep_id2name(mol.symmetry, list(set(calc.ref['wfnsym']))[i])
                     num = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[i])
@@ -163,7 +170,7 @@ def _ref(mol: system.MolCls, calc: calculation.CalcCls) -> str:
                         syms = str(num)+'*'+sym
                     else:
                         syms += '/'+sym
-                return 'CASSCF('+syms+')'
+                return typ+'-CASSCF('+syms+')'
 
 
 def _base(calc: calculation.CalcCls) -> str:
@@ -180,7 +187,7 @@ def _prot(calc: calculation.CalcCls) -> str:
         """
         this function returns the screening protocol
         """
-        return calc.prot['gen'] + ' / ' + calc.prot['cond']
+        return calc.prot['type'] + ' / ' + calc.prot['cond']
 
 
 def _system(mol: system.MolCls) -> str:
@@ -349,6 +356,24 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         """
         this function returns the summary table
         """
+        if calc.target_mbe == 'energy':
+            hf_prop = calc.prop['hf']['energy']
+            base_prop = calc.prop['hf']['energy']+calc.prop['base']['energy']
+            mbe_tot_prop = _energy(calc, exp)[-1]
+        elif calc.target_mbe == 'dipole':
+            dipole, nuc_dipole = _dipole(mol, calc, exp)
+            hf_prop = np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole'])
+            base_prop = np.linalg.norm(nuc_dipole - (calc.prop['hf']['dipole'] + calc.prop['base']['dipole']))
+            mbe_tot_prop = np.linalg.norm(nuc_dipole - dipole[-1, :])
+        elif calc.target_mbe == 'excitation':
+            hf_prop = 0.
+            base_prop = 0.
+            mbe_tot_prop = _excitation(calc, exp)[-1]
+        else:
+            hf_prop = 0.
+            base_prop = 0.
+            mbe_tot_prop = np.linalg.norm(_trans(mol, calc, exp)[-1, :])
+
         string: str = DIVIDER+'\n'
         string += '{:14}{:21}{:12}{:1}{:12}{:21}{:11}{:1}{:13}{:}\n'
         form: Tuple[Any, ...] = ('','molecular information','','|','', \
@@ -357,46 +382,43 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
 
         if mol.atom:
 
-            string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+            string += '{:9}{:18}{:2}{:1}{:2}{:<14s}{:1}{:1}{:7}{:15}{:2}{:1}{:2}' \
                         '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
             form += ('','basis set','','=','',_basis(mol), \
-                        '','|','','exp. model','','=','',_model(calc), \
+                        '','|','','exp. model','','=','',_model(calc, mol.x2c), \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
             form += ('','frozen core','','=','',_frozen(mol), \
                         '','|','','ref. function','','=','',_ref(mol, calc), \
-                        '','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy'],)
+                        '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
 
         else:
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                     '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
             form += ('','hubbard matrix','','=','',_hubbard(mol)[0], \
-                        '','|','','exp. model','','=','',_model(calc), \
+                        '','|','','exp. model','','=','',_model(calc, mol.x2c), \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
             form += ('','hubbard U/t & n','','=','',_hubbard(mol)[1], \
                         '','|','','ref. function','','=','',_ref(mol, calc), \
-                        '','|','','Hartree-Fock energy','','=','',calc.prop['hf']['energy'],)
+                        '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
         form += ('','system size','','=','',_system(mol), \
                     '','|','','exp. reference','','=','',_active(calc), \
-                    '','|','','base model energy','','=','', \
-                    calc.prop['hf']['energy']+calc.prop['base']['energy'],)
+                    '','|','','base model '+calc.target_mbe,'','=','',base_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:1}{:.6f}\n'
+                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
         form += ('','state (mult.)','','=','',_state(mol, calc), \
                     '','|','','base model','','=','',_base(calc), \
-                    '','|','','MBE total energy','','=','', \
-                    calc.prop['hf']['energy'] if calc.target_mbe != 'energy' \
-                        else _energy(calc, exp)[-1],)
+                    '','|','','MBE total '+calc.target_mbe,'','=','',mbe_tot_prop,)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
@@ -471,7 +493,7 @@ def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         form += ('','MBE order','','|','','total energy','','|','','correlation energy',)
 
         string += DIVIDER[:66]+'\n'
-        string += '{:9}{:>3s}{:5}{:1}{:5}{:>11.6f}{:6}{:1}{:7}{:11.4e}\n'
+        string += '{:9}{:>3s}{:5}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>.5e}\n'
         form += ('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'], \
                     '','|','',calc.prop['ref']['energy'],)
 
@@ -479,7 +501,7 @@ def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         energy = _energy(calc, exp)
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:7}{:11.4e}\n'
+            string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>.5e}\n'
             form += ('',j, \
                         '','|','',energy[i], \
                         '','|','',energy[i] - calc.prop['hf']['energy'],)
@@ -545,14 +567,14 @@ def _excitation_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         form += ('','MBE order','','|','','excitation energy',)
 
         string += DIVIDER[:43]+'\n'
-        string += '{:9}{:>3s}{:5}{:1}{:8}{:9.4e}\n'
+        string += '{:9}{:>3s}{:5}{:1}{:7}{:>.5e}\n'
         form += ('','ref','','|','',calc.prop['ref']['excitation'],)
 
         string += DIVIDER[:43]+'\n'
         excitation = _excitation(calc, exp)
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            string += '{:7}{:>4d}{:6}{:1}{:8}{:9.4e}\n'
+            string += '{:7}{:>4d}{:6}{:1}{:7}{:>.5e}\n'
             form += ('',j,'','|','',excitation[i],)
 
         string += DIVIDER[:43]+'\n'
@@ -607,7 +629,8 @@ def _dipole_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Ex
         this function returns the dipole moments table
         """
         string: str = DIVIDER[:82]+'\n'
-        string_in = 'MBE dipole moment (root = '+str(calc.state['root'])+')'
+        string_in = 'MBE dipole moment (root = {:}) - gauge origin: ({:.3f}, {:.3f}, {:.3f})'.\
+                        format(calc.state['root'], *mol.gauge_origin)
         string += '{:^82}\n'
         form: Tuple[Any, ...] = (string_in,)
 
@@ -626,7 +649,7 @@ def _dipole_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Ex
                     '','|','',nuc_dipole[0] - dipole_ref[0], \
                     '',nuc_dipole[1] - dipole_ref[1], \
                     '',nuc_dipole[2] - dipole_ref[2], \
-                    '','|','',np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole']),)
+                    '','|','',np.linalg.norm(nuc_dipole - dipole_ref),)
 
         string += DIVIDER[:82]+'\n'
 
@@ -696,8 +719,9 @@ def _trans_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Exp
         this function returns the transition dipole moments and oscillator strengths table
         """
         string: str = DIVIDER[:82]+'\n'
-        string_in = 'MBE transition dipole moment (excitation 0 > '+str(calc.state['root'])+')'
-        string += '{:^82}\n'
+        string_in = 'MBE trans. dipole moment (roots 0 > {:}) - gauge origin: ({:.3f}, {:.3f}, {:.3f})'.\
+                        format(calc.state['root'], *mol.gauge_origin)
+        string += '{:^84}\n'
         form: Tuple[Any, ...] = (string_in,)
 
         string += DIVIDER[:82]+'\n'
