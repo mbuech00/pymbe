@@ -414,9 +414,9 @@ def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.R
         mol_hf = mol.copy()
         mol_hf.build(0, 0, symmetry = hf_ref['symmetry'])
         if mol.x2c:
-            hf = scf.ROHF(mol_hf).x2c()
+            hf = scf.RHF(mol_hf).x2c()
         else:
-            hf = scf.ROHF(mol_hf)
+            hf = scf.RHF(mol_hf)
 
         # hf settings
         if mol.debug >= 1:
@@ -466,7 +466,8 @@ def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.R
         # dipole moment
         if mol.atom:
             dm = hf.make_rdm1()
-            dm = dm[0] + dm[1]
+            if mol.spin > 0:
+                dm = dm[0] + dm[1]
             elec_dipole = np.einsum('xij,ji->x', mol.dipole, dm)
         else:
             elec_dipole = np.zeros(3, dtype=np.float64)

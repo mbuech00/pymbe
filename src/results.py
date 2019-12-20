@@ -493,7 +493,7 @@ def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         form += ('','MBE order','','|','','total energy','','|','','correlation energy',)
 
         string += DIVIDER[:66]+'\n'
-        string += '{:9}{:>3s}{:5}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>.5e}\n'
+        string += '{:9}{:>3s}{:5}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
         form += ('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'], \
                     '','|','',calc.prop['ref']['energy'],)
 
@@ -501,7 +501,7 @@ def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         energy = _energy(calc, exp)
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>.5e}\n'
+            string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
             form += ('',j, \
                         '','|','',energy[i], \
                         '','|','',energy[i] - calc.prop['hf']['energy'],)
