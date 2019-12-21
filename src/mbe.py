@@ -430,7 +430,7 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
         >>> orbsym = np.zeros(n, dtype=np.int)
         >>> h1e_cas, h2e_cas = kernel.hubbard_h1e((1, n), False), kernel.hubbard_eri((1, n), 2.)
         >>> core_idx, cas_idx = np.array([]), np.arange(n)
-        >>> e, ndets, nelec = _inc('fci', None, 'pyscf_spin0', occup, 'energy', None, orbsym, 0,
+        >>> e, ndets, nelec = _inc('fci', None, 'pyscf_spin0', 0, occup, 'energy', None, orbsym, 0,
         ...                        0, 0., 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, False, None, None, None)
         >>> np.isclose(e, -2.875942809005048)
         True

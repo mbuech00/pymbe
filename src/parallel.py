@@ -81,7 +81,7 @@ class MPICls:
                     self.num_masters = self.global_comm.bcast(None, root=0)
 
 
-def mol(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
+def mol_dist(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
         """
         this function bcast all standard mol info to slaves
         """
@@ -116,7 +116,7 @@ def mol(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
         return mol
 
 
-def calc(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
+def calc_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
         """
         this function bcast all standard calc info to slaves
         """
@@ -143,7 +143,7 @@ def calc(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
         return calc
 
 
-def fund(mpi: MPICls, mol: system.MolCls, \
+def fund_dist(mpi: MPICls, mol: system.MolCls, \
             calc: calculation.CalcCls) -> Tuple[system.MolCls, calculation.CalcCls]:
         """
         this function bcasts all fundamental mol and calc info to slaves
@@ -200,7 +200,7 @@ def fund(mpi: MPICls, mol: system.MolCls, \
         return mol, calc
 
 
-def prop(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
+def prop_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
         """
         this function bcasts properties to slaves
         """
@@ -315,13 +315,6 @@ def gatherv(comm: MPI.Comm, send_buff: np.ndarray, \
                 comm.Send(send_buff[p0:p1], dest=root)
 
             return send_buff
-
-
-def abort() -> None:
-        """
-        this function aborts mpi in case of a pymbe error
-        """
-        MPI.COMM_WORLD.Abort()
 
 
 def finalize(mpi: MPICls) -> None:

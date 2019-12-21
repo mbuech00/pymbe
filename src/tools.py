@@ -17,14 +17,13 @@ import re
 import sys
 import traceback
 import subprocess
+from mpi4py import MPI
 import numpy as np
 import scipy.special
 import functools
 import itertools
 import math
 from typing import Tuple, List, Union
-
-import parallel
 
 # restart folder
 RST = os.getcwd()+'/rst'
@@ -108,7 +107,7 @@ def assertion(cond: bool, reason: str) -> None:
             print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
 
             # abort mpi
-            parallel.abort()
+            MPI.COMM_WORLD.Abort()
 
 
 def time_str(time: float) -> str:
@@ -291,7 +290,7 @@ def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.
         example:
         >>> orbsym_dooh = np.array([14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5])
         >>> exp_space = np.arange(18, dtype=np.int16)
-        >>> pi_pairs, pi_hashes = pi_space('dooh', orbsym_dooh, exp_space)
+        >>> pi_pairs, pi_hashes = pi_space('Dooh', orbsym_dooh, exp_space)
         >>> pi_pairs_ref = np.array([12, 13,  7,  8,  3,  4,  0,  1,  9, 10, 15, 16], dtype=np.int16)
         >>> np.allclose(pi_pairs, pi_pairs_ref)
         True

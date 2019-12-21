@@ -75,7 +75,7 @@ def _mol(mpi: parallel.MPICls) -> system.MolCls:
             system.sanity_chk(mol)
 
         # bcast info from master to slaves
-        mol = parallel.mol(mpi, mol)
+        mol = parallel.mol_dist(mpi, mol)
 
         # make pyscf mol object
         mol.make()
@@ -114,7 +114,7 @@ def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
                 calc.restart = True
 
         # bcast info from master to slaves
-        calc = parallel.calc(mpi, calc)
+        calc = parallel.calc_dist(mpi, calc)
 
         return calc
 
@@ -157,7 +157,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                                                                     calc.extra['pi_prune'], calc.hf)
 
         # bcast fundamental info
-        mol, calc = parallel.fund(mpi, mol, calc)
+        mol, calc = parallel.fund_dist(mpi, mol, calc)
 
         # get handles to all integral windows
         mol.hcore, mol.vhf, mol.eri = kernel.ints(mol, calc.mo_coeff, mpi.global_master, mpi.local_master, \
@@ -194,7 +194,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             del calc.mo_coeff
 
         # bcast properties
-        calc = parallel.prop(mpi, calc)
+        calc = parallel.prop_dist(mpi, calc)
 
         # write properties
         if not calc.restart and mpi.global_master and calc.misc['rst']:
