@@ -15,18 +15,24 @@ __status__ = 'Development'
 import numpy as np
 from pyscf import symm
 from typing import Tuple, List, Any
-import matplotlib
-matplotlib.use('Agg')
-matplotlib.rcParams['font.family'] = 'sans-serif'
-matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator, FormatStrFormatter
 try:
-    import seaborn as sns
-    SNS_FOUND = True
+    import matplotlib
+    PLT_FOUND = True
 except (ImportError, OSError):
     pass
-    SNS_FOUND = False
+    PLT_FOUND = False
+if PLT_FOUND:
+    matplotlib.use('Agg')
+    matplotlib.rcParams['font.family'] = 'sans-serif'
+    matplotlib.rcParams['font.sans-serif'] = ['DejaVu Sans']
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator, FormatStrFormatter
+    try:
+        import seaborn as sns
+        SNS_FOUND = True
+    except (ImportError, OSError):
+        pass
+        SNS_FOUND = False
 
 import parallel
 import system
@@ -64,19 +70,24 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         # print and plot results
         if calc.target_mbe == 'energy' :
             print(_energy_prt(calc, exp))
-            _energies_plot(calc, exp)
+            if PLT_FOUND:
+                _energies_plot(calc, exp)
         if calc.target_mbe == 'excitation':
             print(_excitation_prt(calc, exp))
-            _excitation_plot(calc, exp)
+            if PLT_FOUND:
+                _excitation_plot(calc, exp)
         if calc.target_mbe == 'dipole' :
             print(_dipole_prt(mol, calc, exp))
-            _dipole_plot(mol, calc, exp)
+            if PLT_FOUND:
+                _dipole_plot(mol, calc, exp)
         if calc.target_mbe == 'trans':
             print(_trans_prt(mol, calc, exp))
-            _trans_plot(mol, calc, exp)
+            if PLT_FOUND:
+                _trans_plot(mol, calc, exp)
 
         # plot number of determinants
-        _max_ndets_plot(exp)
+        if PLT_FOUND:
+            _max_ndets_plot(exp)
 
 
 def _atom(mol: system.MolCls) -> str:
