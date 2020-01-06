@@ -469,7 +469,7 @@ def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
             calc_i = exp.n_tasks[i]
             calcs += calc_i
             string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
-                    '{:2}{:>15s}{:2}{:1}{:5}{:>9d}\n'
+                    '{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'
             form += ('',j, \
                         '','|','',_time(exp, 'mbe', i), \
                         '','|','',_time(exp, 'screen', i), \
@@ -478,7 +478,7 @@ def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
 
         string += DIVIDER[:98]+'\n'
         string += '{:8}{:5s}{:4}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
-                '{:2}{:>15s}{:2}{:1}{:5}{:>9d}\n'
+                '{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'
         form += ('','total', \
                     '','|','',_time(exp, 'tot_mbe', -1), \
                     '','|','',_time(exp, 'tot_screen', -1), \
