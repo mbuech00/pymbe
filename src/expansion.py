@@ -39,9 +39,9 @@ class ExpCls:
 
                 # set max_order
                 if calc.misc['order'] is not None:
-                    self.max_order = min(calc.exp_space['seed'].size + calc.exp_space['tot'].size, calc.misc['order'])
+                    self.max_order = min(calc.exp_space.size, calc.misc['order'])
                 else:
-                    self.max_order = calc.exp_space['seed'].size + calc.exp_space['tot'].size
+                    self.max_order = calc.exp_space.size
 
                 # init timings and and statistics lists
                 self.time: Dict[str, Union[List[float], np.ndarray]] = {'mbe': [], 'screen': []}

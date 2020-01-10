@@ -61,8 +61,8 @@ class CalcCls:
                 self.orbsym: np.ndarray = None
                 self.mo_coeff: np.ndarray = None
                 self.nelec: Tuple[int, ...] = ()
-                self.ref_space: Dict[str, np.ndarray] = {'tot': None}
-                self.exp_space: Dict[str, np.ndarray] = {'tot': None}
+                self.ref_space: np.ndarray = None
+                self.exp_space: np.ndarray = None
 
 
 def set_calc(calc: CalcCls) -> CalcCls:

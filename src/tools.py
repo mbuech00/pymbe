@@ -230,6 +230,14 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
         ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, restrict=mo)
 
         """
+#        # recast mol in parent point group (dooh/coov) - make pi-space based on those symmetries
+#        mol_parent = mol.copy()
+#        parent_group = 'Dooh' if mol.symmetry == 'D2h' else 'Coov'
+#        mol_parent = mol_parent.build(0, 0, symmetry=parent_group)
+#
+#        orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
+#                                            mol_parent.symm_orb, mo_coeff_out)
+
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             for i in itertools.combinations(occ_space, k):

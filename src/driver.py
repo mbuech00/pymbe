@@ -144,19 +144,15 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                     print('screening away orbital = {:}'.format(i))
                     calc.exp_space = calc.exp_space[calc.exp_space != i]
 
-                # occupied and virtual expansion spaces
-                occ_space = calc.exp_space[calc.exp_space < mol.nocc]
-                virt_space = calc.exp_space[mol.nocc <= calc.exp_space]
-
-                # allow for tuples with only occupied or virtual MOs
-                occ_only = tools.virt_prune(calc.occup, calc.ref_space)
-                virt_only = tools.occ_prune(calc.occup, calc.ref_space)
+                # write restart files
+                if calc.misc['rst']:
+                    tools.write_file(None, calc.exp_space, 'exp_space')
 
                 # append n_tuples
-                exp.n_tuples(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
-                                            calc.exp_space[mol.nocc <= calc.exp_space], \
-                                            tools.virt_prune(calc.occup, calc.ref_space), \
-                                            tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
+                exp.n_tuples.append(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
+                                                   calc.exp_space[mol.nocc <= calc.exp_space], \
+                                                   tools.virt_prune(calc.occup, calc.ref_space), \
+                                                   tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
@@ -236,7 +232,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main screening function
-#                n_tuples = screen.main(mpi, mol, calc, exp)
+#                screen_orbs = screen.main(mpi, mol, calc, exp)
 
                 # receive screen_orbs
                 screen_orbs = mpi.global_comm.bcast(None, root=0)
@@ -245,19 +241,11 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 for i in screen_orbs:
                     calc.exp_space = calc.exp_space[calc.exp_space != i]
 
-                # occupied and virtual expansion spaces
-                occ_space = calc.exp_space[calc.exp_space < mol.nocc]
-                virt_space = calc.exp_space[mol.nocc <= calc.exp_space]
-
-                # allow for tuples with only occupied or virtual MOs
-                occ_only = tools.virt_prune(calc.occup, calc.ref_space)
-                virt_only = tools.occ_prune(calc.occup, calc.ref_space)
-
                 # append n_tuples
-                exp.n_tuples(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
-                                            calc.exp_space[mol.nocc <= calc.exp_space], \
-                                            tools.virt_prune(calc.occup, calc.ref_space), \
-                                            tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
+                exp.n_tuples.append(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
+                                                   calc.exp_space[mol.nocc <= calc.exp_space], \
+                                                   tools.virt_prune(calc.occup, calc.ref_space), \
+                                                   tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
 
             elif msg['task'] == 'exit':
 
