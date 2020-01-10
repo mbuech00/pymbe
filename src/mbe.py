@@ -30,251 +30,24 @@ import parallel
 import tools
 
 
-# tags
-class TAGS:
-    ready, info, rst, exit = range(4)
-
-
-def master(mpi: parallel.MPICls, mol: system.MolCls, \
-            calc: calculation.CalcCls, exp: expansion.ExpCls) -> Tuple[MPI.Win, MPI.Win, \
-                                                                        float, int, int, int, \
-                                                                        Union[float, np.ndarray], \
-                                                                        Union[float, np.ndarray], \
-                                                                        Union[float, np.ndarray]]:
+def main(mpi: parallel.MPICls, mol: system.MolCls, \
+            calc: calculation.CalcCls, exp: expansion.ExpCls, \
+            rst_mbe: bool = False, tup_start: int = 0) -> Tuple[Any, ...]:
         """
-        this function is the mbe master function
+        this function is the mbe main function
         """
-        # restart run
-        rst_mbe = len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot'])
+        if mpi.global_master:
 
-        # wake up slaves
-        msg = {'task': 'mbe', 'order': exp.order, 'rst_mbe': rst_mbe}
-        mpi.global_comm.bcast(msg, root=0)
+            # restart run
+            rst_mbe = len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot'])
 
-        # number of slaves
-        n_slaves = mpi.global_size - 1
+            # start index
+            tup_start = tools.read_file(exp.order, 'mbe_idx') if rst_mbe else 0
 
-        # init time
-        if not rst_mbe:
-            exp.time['mbe'].append(0.)
-        time = MPI.Wtime()
+            # wake up slaves
+            msg = {'task': 'mbe', 'order': exp.order, 'rst_mbe': rst_mbe, 'tup_start': tup_start}
+            mpi.global_comm.bcast(msg, root=0)
 
-        # init increments
-        if rst_mbe:
-
-            # load restart hashes
-            hash_win = exp.hashes[-1]
-            buf = hash_win.Shared_query(0)[0] # type: ignore
-            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],))
-
-            # load restart increments
-            inc_win = exp.prop[calc.target_mbe]['inc'][-1]
-            buf = inc_win.Shared_query(0)[0] # type: ignore
-            if calc.target_mbe in ['energy', 'excitation']:
-                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1],))
-            elif calc.target_mbe in ['dipole', 'trans']:
-                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1], 3))
-
-        else:
-
-            # new hashes
-            hash_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1], 8, comm=mpi.local_comm)
-            buf = hash_win.Shared_query(0)[0] # type: ignore
-            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],))
-            hashes[:] = np.zeros_like(hashes)
-
-            # new increments
-            if calc.target_mbe in ['energy', 'excitation']:
-                inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1], 8, comm=mpi.local_comm)
-            elif calc.target_mbe in ['dipole', 'trans']:
-                inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1] * 3, 8, comm=mpi.local_comm)
-            buf = inc_win.Shared_query(0)[0] # type: ignore
-            if calc.target_mbe in ['energy', 'excitation']:
-                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1],))
-            elif calc.target_mbe in ['dipole', 'trans']:
-                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1], 3))
-            inc[:] = np.zeros_like(inc)
-
-        # init determinant statistics
-        if rst_mbe:
-            min_ndets: int = exp.min_ndets[-1]
-            max_ndets: int = exp.max_ndets[-1]
-            sum_ndets: int = exp.mean_ndets[-1]
-        else:
-            min_ndets = int(1e12)
-            max_ndets = 0
-            sum_ndets = 0
-
-        # mpi barrier
-        mpi.global_comm.Barrier()
-
-        # start index
-        if rst_mbe:
-           tup_start = tools.read_file(exp.order, 'mbe_idx')
-        else:
-           tup_start = 0
-
-        # occupied and virtual expansion spaces
-        occ_space = calc.exp_space[calc.exp_space < mol.nocc]
-        virt_space = calc.exp_space[mol.nocc <= calc.exp_space]
-
-        # allow for tuples with only occupied or virtual MOs
-        occ_only = tools.virt_prune(calc.occup, calc.ref_space)
-        virt_only = tools.occ_prune(calc.occup, calc.ref_space)
-
-        # loop until no tuples left
-        for idx, tup in enumerate(itertools.islice(tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order), \
-                                                    tup_start, None)):
-
-            # probe for available slaves
-            mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-
-            # receive slave status
-            mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
-
-            # send info to slave
-            mpi.global_comm.Send(np.asarray((tup_start + idx,) + tup, dtype=np.int64), dest=mpi.stat.source, tag=TAGS.info)
-
-            # write restart files
-            if calc.misc['rst'] and tup_start + idx > 0 and tup_start + idx % calc.misc['rst_freq'] == 0:
-
-                # send rst signal to all slaves
-                for slave_idx in range(n_slaves):
-
-                    # get slave
-                    mpi.global_comm.recv(None, source=slave_idx+1, tag=TAGS.ready)
-
-                    # send rst signal to slave
-                    mpi.global_comm.send(None, dest=slave_idx+1, tag=TAGS.rst)
-
-                # mpi barrier
-                mpi.global_comm.Barrier()
-
-                # reduce hashes & increments onto global master
-                if mpi.num_masters > 1:
-                    hashes[:] = parallel.reduce(mpi.master_comm, hashes, root=0)
-                    inc[:] = parallel.reduce(mpi.master_comm, inc, root=0)
-                min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
-                max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
-                sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
-
-                # save idx
-                tools.write_file(exp.order, np.asarray(tup_start + idx), 'mbe_idx')
-
-                # save hashes
-                tools.write_file(exp.order, hashes, 'mbe_hashes')
-                # save increments
-                tools.write_file(exp.order, inc, 'mbe_inc')
-
-                # save determinant statistics
-                tools.write_file(exp.order, np.asarray(max_ndets, dtype=np.int64), 'mbe_max_ndets')
-                tools.write_file(exp.order, np.asarray(min_ndets, dtype=np.int64), 'mbe_min_ndets')
-                tools.write_file(exp.order, np.asarray(sum_ndets, dtype=np.int64), 'mbe_mean_ndets')
-
-                # save timing
-                exp.time['mbe'][-1] += MPI.Wtime() - time
-                tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
-
-                # re-init time
-                time = MPI.Wtime()
-
-                # print status
-                print(output.mbe_status((tup_start + idx) / exp.n_tuples[-1]))
-
-        # done with all tuples
-        while n_slaves > 0:
-
-            # probe for available slaves
-            mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
-
-            # receive slave status
-            mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
-
-            # send exit signal to slave
-            mpi.global_comm.send(None, dest=mpi.stat.source, tag=TAGS.exit)
-
-            # remove slave
-            n_slaves -= 1
-
-        # print final status
-        print(output.mbe_status(1.))
-
-        # mpi barrier
-        mpi.global_comm.Barrier()
-
-        # determinant statistics
-        min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
-        max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
-        sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
-
-        # mean number of determinants
-        mean_ndets = round(sum_ndets / exp.n_tuples[-1])
-
-        # allreduce hashes & increments among local masters
-        if mpi.num_masters > 1:
-            hashes[:] = parallel.allreduce(mpi.master_comm, hashes)
-            inc[:] = parallel.allreduce(mpi.master_comm, inc)
-
-        # sort increments wrt hashes
-        inc[:] = inc[np.argsort(hashes)]
-        hashes.sort()
-
-        # mpi barrier
-        mpi.global_comm.Barrier()
-
-        if calc.misc['rst']:
-
-            # save idx
-            tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]-1), 'mbe_idx')
-
-            # save hashes
-            tools.write_file(exp.order, hashes, 'mbe_hashes')
-            # save increments
-            tools.write_file(exp.order, inc, 'mbe_inc')
-
-        # total property
-        tot = tools.fsum(inc)
-
-        # statistics
-        if calc.target_mbe in ['energy', 'excitation']:
-
-            # increments
-            if inc.any():
-                mean_inc = np.mean(inc[np.nonzero(inc)])
-                min_inc = np.min(np.abs(inc[np.nonzero(inc)]))
-                max_inc = np.max(np.abs(inc[np.nonzero(inc)]))
-            else:
-                mean_inc = min_inc = max_inc = 0.
-
-        elif calc.target_mbe in ['dipole', 'trans']:
-
-            # init result arrays
-            mean_inc = np.empty(3, dtype=np.float64)
-            min_inc = np.empty(3, dtype=np.float64)
-            max_inc = np.empty(3, dtype=np.float64)
-
-            # loop over x, y, and z
-            for k in range(3):
-
-                # increments
-                if inc[:, k].any():
-                    mean_inc[k] = np.mean(inc[:, k][np.nonzero(inc[:, k])])
-                    min_inc[k] = np.min(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
-                    max_inc[k] = np.max(np.abs(inc[:, k][np.nonzero(inc[:, k])]))
-                else:
-                    mean_inc[k] = min_inc[k] = max_inc[k] = 0.
-
-        # save timing
-        exp.time['mbe'][-1] += MPI.Wtime() - time
-
-        return inc_win, hash_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
-
-
-def slave(mpi: parallel.MPICls, mol: system.MolCls, \
-            calc: calculation.CalcCls, exp: expansion.ExpCls, rst_mbe: bool) -> MPI.Win:
-        """
-        this slave function is the mbe slave function
-        """
         # load eri
         buf = mol.eri.Shared_query(0)[0]
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
@@ -336,141 +109,210 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
         if mpi.local_master:
             inc[-1][:] = np.zeros_like(inc[-1])
 
-        # init determinant statistics
-        min_ndets: int = int(1e12)
-        max_ndets: int = 0
-        sum_ndets: int = 0
+        # init time
+        if mpi.global_master:
+            if not rst_mbe:
+                exp.time['mbe'].append(0.)
+            time = MPI.Wtime()
 
-        # init info
-        info = np.empty(exp.order + 1, dtype=np.int64)
+        # init determinant statistics
+        if mpi.global_master and rst_mbe:
+            min_ndets: int = exp.min_ndets[-1]
+            max_ndets: int = exp.max_ndets[-1]
+            sum_ndets: int = exp.mean_ndets[-1]
+        else:
+            min_ndets = int(1e12)
+            max_ndets = 0
+            sum_ndets = 0
+
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
+        # occupied and virtual expansion spaces
+        occ_space = calc.exp_space[calc.exp_space < mol.nocc]
+        virt_space = calc.exp_space[mol.nocc <= calc.exp_space]
 
         # allow for tuples with only occupied or virtual MOs
         occ_only = tools.virt_prune(calc.occup, calc.ref_space)
         virt_only = tools.occ_prune(calc.occup, calc.ref_space)
 
-        # mpi barrier
-        mpi.global_comm.Barrier()
+        # loop until no tuples left
+        for idx, tup in enumerate(itertools.islice(tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order), \
+                                                    tup_start, None)):
 
-        # send availability to master
-        mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
+            # distribute tuples
+            if idx % mpi.global_size != mpi.global_rank:
+                continue
 
-        # receive work from master
-        while True:
+            # recast tup as numpy array
+            tup = np.asarray(tup, dtype=np.int64)
 
-            # probe for tup
-            mpi.global_comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
+            # get core and cas indices
+            core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
 
-            # do calculation
-            if mpi.stat.tag == TAGS.info:
+            # get h2e indices
+            cas_idx_tril = tools.cas_idx_tril(cas_idx)
 
-                # receive info
-                mpi.global_comm.Recv(info, source=0, tag=TAGS.info)
+            # get h2e_cas
+            h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
 
-                # recover idx
-                idx = info[0]
+            # compute e_core and h1e_cas
+            e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
-                # recover tup
-                tup = info[1:]
+            # calculate increment
+            inc_tup, ndets, nelec = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], mol.spin, \
+                                           calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
+                                            calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
+                                            calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
+                                            core_idx, cas_idx, mol.debug, \
+                                            mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                            calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                            calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
 
-                # get core and cas indices
-                core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
-
-                # get h2e indices
-                cas_idx_tril = tools.cas_idx_tril(cas_idx)
-
-                # get h2e_cas
-                h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
-
-                # compute e_core and h1e_cas
-                e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
-
-                # calculate increment
-                inc_tup, ndets, nelec = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], mol.spin, \
-                                               calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
-                                               calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
-                                               calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
-                                               core_idx, cas_idx, mol.debug, \
-                                               mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                               calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                               calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
-
-                # calculate increment
-                if exp.order > exp.min_order:
-                    if np.any(inc_tup != 0.):
-                        inc_tup -= _sum(calc.occup, calc.target_mbe, exp.min_order, exp.order, \
-                                        inc, hashes, occ_only, virt_only, tup, pi_prune=calc.extra['pi_prune'])
+            # calculate increment
+            if exp.order > exp.min_order:
+                if np.any(inc_tup != 0.):
+                    inc_tup -= _sum(calc.occup, calc.target_mbe, exp.min_order, exp.order, \
+                                    inc, hashes, occ_only, virt_only, tup, pi_prune=calc.extra['pi_prune'])
 
 
-                # debug print
-                if mol.debug >= 1:
-                    print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
-                                            ndets, nelec, inc_tup, exp.order, cas_idx, tup))
+            # debug print
+            if mol.debug >= 1:
+                print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
+                                        ndets, nelec, inc_tup, exp.order, cas_idx, tup))
 
-                # add to hashes
-                hashes[-1][idx] = tools.hash_1d(tup)
+            # add to hashes
+            hashes[-1][idx] = tools.hash_1d(tup)
 
-                # add to inc
-                inc[-1][idx] = inc_tup
+            # add to inc
+            inc[-1][idx] = inc_tup
 
-                # update determinant statistics
-                min_ndets = min(min_ndets, ndets)
-                max_ndets = max(max_ndets, ndets)
-                sum_ndets += ndets
+            # update determinant statistics
+            min_ndets = min(min_ndets, ndets)
+            max_ndets = max(max_ndets, ndets)
+            sum_ndets += ndets
 
-                # send availability to master
-                mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
-
-            elif mpi.stat.tag == TAGS.rst:
-
-                # receive rst signal
-                mpi.global_comm.recv(None, source=0, tag=TAGS.rst)
-
-                # mpi barrier
-                mpi.global_comm.Barrier()
+            # write restart files
+            if calc.misc['rst'] and tup_start + idx > mpi.global_size and tup_start + idx % calc.misc['rst_freq'] == mpi.global_rank:
 
                 # reduce hashes & increments onto global master
-                if mpi.local_master:
+                if mpi.num_masters > 1:
+
                     hashes[-1][:] = parallel.reduce(mpi.master_comm, hashes[-1], root=0)
-                    hashes[-1][:] = np.zeros_like(hashes[-1])
                     inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0)
-                    inc[-1][:] = np.zeros_like(inc[-1])
-                _ = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
-                _ = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
-                _ = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
-                sum_ndets = 0
+                    min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
+                    max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
+                    sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
 
-                # send availability to master
-                mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
+                    if not mpi.global_master:
 
-            elif mpi.stat.tag == TAGS.exit:
+                        hashes[-1][:] = np.zeros_like(hashes[-1])
+                        inc[-1][:] = np.zeros_like(inc[-1])
+                        sum_ndets = 0
 
-                # receive exit signal
-                mpi.global_comm.recv(None, source=0, tag=TAGS.exit)
+                if mpi.global_master:
 
-                break
+                    # save idx
+                    tools.write_file(exp.order, np.asarray(tup_start + idx), 'mbe_idx')
+                    # save hashes
+                    tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
+                    # save increments
+                    tools.write_file(exp.order, inc[-1], 'mbe_inc')
+                    # save determinant statistics
+                    tools.write_file(exp.order, np.asarray(max_ndets, dtype=np.int64), 'mbe_max_ndets')
+                    tools.write_file(exp.order, np.asarray(min_ndets, dtype=np.int64), 'mbe_min_ndets')
+                    tools.write_file(exp.order, np.asarray(sum_ndets, dtype=np.int64), 'mbe_mean_ndets')
+                    # save timing
+                    exp.time['mbe'][-1] += MPI.Wtime() - time
+                    tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
+
+                    # re-init time
+                    time = MPI.Wtime()
+
+                    # print status
+                    print(output.mbe_status((tup_start + idx) / exp.n_tuples[-1]))
 
         # mpi barrier
         mpi.global_comm.Barrier()
+
+        # print final status
+        if mpi.global_master:
+            print(output.mbe_status(1.))
 
         # determinant statistics
         min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
         max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
         sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
 
-        # allreduce hashes & increments among local masters
+        # mean number of determinants
+        if mpi.global_master:
+            mean_ndets = round(sum_ndets / exp.n_tuples[-1])
+
         if mpi.local_master:
+
+            # allreduce hashes & increments among local masters
             hashes[-1][:] = parallel.allreduce(mpi.master_comm, hashes[-1])
             inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1])
 
-        # sort increments wrt hashes
-        if mpi.local_master:
+            # sort increments wrt hashes
             inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
             hashes[-1].sort()
 
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return inc_win, hash_win
+        # collect results on global master
+        if mpi.global_master:
+
+            if calc.misc['rst']:
+
+                # save idx
+                tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]-1), 'mbe_idx')
+                # save hashes
+                tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
+                # save increments
+                tools.write_file(exp.order, inc[-1], 'mbe_inc')
+
+            # total property
+            tot = tools.fsum(inc[-1])
+
+            # statistics
+            if calc.target_mbe in ['energy', 'excitation']:
+
+                # increments
+                if inc[-1].any():
+                    mean_inc = np.mean(inc[-1][np.nonzero(inc[-1])])
+                    min_inc = np.min(np.abs(inc[-1][np.nonzero(inc[-1])]))
+                    max_inc = np.max(np.abs(inc[-1][np.nonzero(inc[-1])]))
+                else:
+                    mean_inc = min_inc = max_inc = 0.
+
+            elif calc.target_mbe in ['dipole', 'trans']:
+
+                # init result arrays
+                mean_inc = np.empty(3, dtype=np.float64)
+                min_inc = np.empty(3, dtype=np.float64)
+                max_inc = np.empty(3, dtype=np.float64)
+
+                # loop over x, y, and z
+                for k in range(3):
+
+                    # increments
+                    if inc[-1][:, k].any():
+                        mean_inc[k] = np.mean(inc[-1][:, k][np.nonzero(inc[-1][:, k])])
+                        min_inc[k] = np.min(np.abs(inc[-1][:, k][np.nonzero(inc[-1][:, k])]))
+                        max_inc[k] = np.max(np.abs(inc[-1][:, k][np.nonzero(inc[-1][:, k])]))
+                    else:
+                        mean_inc[k] = min_inc[k] = max_inc[k] = 0.
+
+            # save timing
+            exp.time['mbe'][-1] += MPI.Wtime() - time
+
+            return inc_win, hash_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
+
+        else:
+
+            return inc_win, hash_win
 
 
 def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int, \

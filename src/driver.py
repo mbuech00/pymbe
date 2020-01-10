@@ -65,7 +65,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # main mbe function
             inc_win, hash_win, tot, mean_ndets, min_ndets, max_ndets, \
-                mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
+                mean_inc, min_inc, max_inc = mbe.main(mpi, mol, calc, exp)
 
             # append window to hashes
             if len(exp.hashes) > len(exp.prop[calc.target_mbe]['tot']):
@@ -209,7 +209,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main mbe function
-                inc_win, hash_win = mbe.slave(mpi, mol, calc, exp, msg['rst_mbe'])
+                inc_win, hash_win = mbe.main(mpi, mol, calc, exp, rst_mbe=msg['rst_mbe'], tup_start=msg['tup_start'])
 
                 # append window to hashes
                 if msg['rst_mbe']:
