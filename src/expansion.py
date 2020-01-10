@@ -19,6 +19,7 @@ import copy
 from typing import List, Dict, Tuple, Union, Any
 
 import parallel
+import system
 import calculation
 import tools
 
@@ -27,7 +28,7 @@ class ExpCls:
         """
         this class contains the pymbe expansion attributes
         """
-        def __init__(self, calc: calculation.CalcCls) -> None:
+        def __init__(self, mol: system.MolCls, calc: calculation.CalcCls) -> None:
                 """
                 init expansion attributes
                 """
@@ -56,11 +57,14 @@ class ExpCls:
                 self.order: int = 0
 
                 # init attributes
-                self.hashes: List[MPI.Win] = [None]
-                self.n_tuples: List[int] = [0]
-                self.min_order: int = 0
+                self.min_order: int = 2 if calc.ref_space.size == 0 else 1
                 self.start_order: int = 0
                 self.final_order: int = 0
+                self.hashes: List[MPI.Win] = []
+                self.n_tuples: List[int] = [tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
+                                                           calc.exp_space[mol.nocc <= calc.exp_space], \
+                                                           tools.virt_prune(calc.occup, calc.ref_space), \
+                                                           tools.occ_prune(calc.occup, calc.ref_space), self.min_order)]
 
 
 if __name__ == "__main__":

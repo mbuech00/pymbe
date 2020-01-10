@@ -201,7 +201,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             restart_write_prop(mol, calc)
 
         # exp object
-        exp = expansion.ExpCls(calc)
+        exp = expansion.ExpCls(mol, calc)
 
         # possible restart
         if calc.restart:
