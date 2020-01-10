@@ -133,7 +133,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 time = MPI.Wtime()
 
                 # main screening function
-                hashes_win, tuples_win, n_tuples = screen.master(mpi, calc, exp)
+                n_tuples = screen.master(mpi, calc, exp)
 
                 # append n_tuples
                 exp.n_tuples.append(n_tuples)
@@ -141,12 +141,16 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
-            # convergence check
-            if exp.n_tuples[-1] == 0 or exp.order == exp.max_order:
+                # write restart files
+                if calc.misc['rst']:
+                    tools.write_file(exp.order+1, np.asarray(exp.n_tuples[-1]), 'mbe_n_tuples')
+                    tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
                 # print screen end
-                if exp.n_tuples[-1] == 0:
-                    print(output.screen_end(exp.order, exp.time['screen'][-1], conv=True))
+                print(output.screen_end(exp.order, exp.time['screen'][-1], conv=exp.n_tuples[-1] == 0))
+
+            # convergence check
+            if exp.n_tuples[-1] == 0 or exp.order == exp.max_order:
 
                 # final order
                 exp.final_order = exp.order
@@ -170,22 +174,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.prop[calc.target_mbe]['tot'] = np.asarray(exp.prop[calc.target_mbe]['tot'])
 
                 break
-
-            else:
-
-                # overwrite window to tuples
-                exp.tuples = tuples_win
-
-                # append window to hashes
-                exp.hashes.append(hashes_win)
-
-                # write restart files
-                if calc.misc['rst']:
-                    tools.write_file(exp.order+1, np.asarray(exp.n_tuples[-1]), 'mbe_n_tuples')
-                    tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
-
-                # print screen end
-                print(output.screen_end(exp.order, exp.time['screen'][-1]))
 
 
 def slave(mpi: parallel.MPICls, mol: system.MolCls, \
@@ -228,13 +216,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main screening function
-                hashes_win, tuples_win, n_tuples = screen.slave(mpi, calc, exp, msg['slaves_needed'])
-
-                # overwrite window to tuples
-                exp.tuples = tuples_win
-
-                # append window to hashes
-                exp.hashes.append(hashes_win)
+                n_tuples = screen.slave(mpi, calc, exp, msg['slaves_needed'])
 
                 # append n_tuples
                 exp.n_tuples.append(n_tuples)

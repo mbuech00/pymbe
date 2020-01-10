@@ -29,8 +29,7 @@ class TAGS:
     ready, tup, tup_pi, tup_seed, tup_seed_pi, exit = range(6)
 
 
-def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
-            exp: expansion.ExpCls) -> Tuple[MPI.Win, MPI.Win, int]:
+def master(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> int:
         """
         this master function returns two arrays of (i) child tuple hashes and (ii) the actual child tuples
         """
@@ -146,7 +145,7 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
-            return None, None, 0
+            return 0
 
         # allocate tuples
         tuples_win = MPI.Win.Allocate_shared(2 * np.sum(recv_counts), 2, comm=mpi.local_comm)
@@ -185,11 +184,10 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
             tools.write_file(None, tuples, 'mbe_tup')
             tools.write_file(exp.order+1, hashes_new, 'mbe_hash')
 
-        return hashes_win, tuples_win, n_tuples
+        return n_tuples
 
 
-def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
-            exp: expansion.ExpCls, slaves_needed: int) -> Tuple[MPI.Win, MPI.Win, int]:
+def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion.ExpCls, slaves_needed: int) -> int:
         """
         this slave function returns an array of child tuple hashes
         """
@@ -328,7 +326,7 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
         # no child tuples - expansion is converged
         if np.sum(recv_counts) == 0:
-            return None, None, 0
+            return 0
 
         # get handle to tuples
         if mpi.local_master:
@@ -365,7 +363,7 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
             # sort hashes
             hashes_new.sort()
 
-        return hashes_win, tuples_win, int(np.sum(recv_counts)) // (exp.order + 1)
+        return int(np.sum(recv_counts)) // (exp.order + 1)
 
 
 def _set_screen(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: Dict[str, np.ndarray], \

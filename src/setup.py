@@ -203,11 +203,6 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         # exp object
         exp = expansion.ExpCls(calc)
 
-        # init hashes, n_tuples, and tuples
-        exp.hashes, exp.tuples, exp.n_tuples, \
-            exp.min_order = expansion.init_tup(calc.occup, calc.ref_space, calc.exp_space, \
-                                                mpi.local_master, mpi.local_comm, calc.extra['pi_prune'])
-
         # possible restart
         if calc.restart:
             exp.start_order = restart_main(mpi, calc, exp)
@@ -245,24 +240,8 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # loop over all other files
         for i in range(len(files)):
 
-            # read tuples
-            if 'mbe_tup' in files[i]:
-                n_tuples = exp.n_tuples[-1]
-                order = len(exp.n_tuples) + exp.min_order - 1
-                if mpi.local_master:
-                    exp.tuples = MPI.Win.Allocate_shared(2 * n_tuples * order, 2, comm=mpi.local_comm)
-                else:
-                    exp.tuples = MPI.Win.Allocate_shared(0, 2, comm=mpi.local_comm)
-                buf = exp.tuples.Shared_query(0)[0]
-                tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tuples, order))
-                if mpi.global_master:
-                    tuples[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.num_masters > 1 and mpi.local_master:
-                    tuples[:] = parallel.bcast(mpi.master_comm, tuples)
-                mpi.local_comm.Barrier()
-
             # read hashes
-            elif 'mbe_hash' in files[i]:
+            if 'mbe_hash' in files[i]:
                 n_tuples = exp.n_tuples[len(exp.hashes)]
                 if mpi.local_master:
                     exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm))
@@ -328,7 +307,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return tuples.shape[1]
+        return exp.min_order + len(exp.n_tuples)
 
 
 def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
