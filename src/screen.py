@@ -27,7 +27,7 @@ import tools
 
 def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
         """
-        this function returns the number of tuples at the following order
+        this function returns the orbitals to be screened away
         """
         # wake up slaves
         if mpi.global_master:
