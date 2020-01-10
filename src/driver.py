@@ -60,60 +60,58 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
-            if len(exp.hashes) > len(exp.prop[calc.target_mbe]['tot']):
+            # print mbe header
+            print(output.mbe_header(exp.n_tuples[-1], exp.order))
 
-                # print mbe header
-                print(output.mbe_header(exp.n_tuples[-1], exp.order))
+            # main mbe function
+            inc_win, hash_win, tot, mean_ndets, min_ndets, max_ndets, \
+                mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
 
-                # main mbe function
-                inc_win, hash_win, tot, mean_ndets, min_ndets, max_ndets, \
-                    mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
+            # append window to hashes
+            if len(exp.prop[calc.target_mbe]['inc']) == len(exp.prop[calc.target_mbe]['tot']):
+                exp.hashes[-1] = hash_win
+            else:
+                exp.hashes.append(hash_win)
 
-                # append window to hashes
-                if len(exp.prop[calc.target_mbe]['inc']) == len(exp.prop[calc.target_mbe]['tot']):
-                    exp.hashes[-1] = hash_win
-                else:
-                    exp.hashes.append(hash_win)
+            # append window to increments
+            if len(exp.prop[calc.target_mbe]['inc']) == len(exp.prop[calc.target_mbe]['tot']):
+                exp.prop[calc.target_mbe]['inc'][-1] = inc_win
+            else:
+                exp.prop[calc.target_mbe]['inc'].append(inc_win)
 
-                # append window to increments
-                if len(exp.prop[calc.target_mbe]['inc']) == len(exp.prop[calc.target_mbe]['tot']):
-                    exp.prop[calc.target_mbe]['inc'][-1] = inc_win
-                else:
-                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
+            # append determinant statistics
+            if len(exp.max_ndets) == len(exp.hashes):
+                exp.min_ndets[-1] = min_ndets
+                exp.max_ndets[-1] = max_ndets
+                exp.mean_ndets[-1] = mean_ndets
+            else:
+                exp.min_ndets.append(min_ndets)
+                exp.max_ndets.append(max_ndets)
+                exp.mean_ndets.append(mean_ndets)
 
-                # append determinant statistics
-                if len(exp.max_ndets) == len(exp.hashes):
-                    exp.min_ndets[-1] = min_ndets
-                    exp.max_ndets[-1] = max_ndets
-                    exp.mean_ndets[-1] = mean_ndets
-                else:
-                    exp.min_ndets.append(min_ndets)
-                    exp.max_ndets.append(max_ndets)
-                    exp.mean_ndets.append(mean_ndets)
+            # append increment statistics
+            exp.mean_inc.append(mean_inc)
+            exp.min_inc.append(min_inc)
+            exp.max_inc.append(max_inc)
 
-                # append increment statistics
-                exp.mean_inc.append(mean_inc)
-                exp.min_inc.append(min_inc)
-                exp.max_inc.append(max_inc)
+            # append total property
+            exp.prop[calc.target_mbe]['tot'].append(tot)
+            if exp.order > exp.min_order:
+                exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
 
-                # append total property
-                exp.prop[calc.target_mbe]['tot'].append(tot)
-                if exp.order > exp.min_order:
-                    exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
+            # write restart files
+            if calc.misc['rst']:
+                tools.write_file(exp.order, exp.prop[calc.target_mbe]['tot'][-1], 'mbe_tot')
+                tools.write_file(exp.order, np.asarray(exp.mean_ndets[-1]), 'mbe_mean_ndets')
+                tools.write_file(exp.order, np.asarray(exp.max_ndets[-1]), 'mbe_max_ndets')
+                tools.write_file(exp.order, np.asarray(exp.min_ndets[-1]), 'mbe_min_ndets')
+                tools.write_file(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
+                tools.write_file(exp.order, exp.max_inc[-1], 'mbe_max_inc')
+                tools.write_file(exp.order, exp.min_inc[-1], 'mbe_min_inc')
+                tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
 
-                # write restart files
-                if calc.misc['rst']:
-                    tools.write_file(exp.order, exp.prop[calc.target_mbe]['tot'][-1], 'mbe_tot')
-                    tools.write_file(exp.order, np.asarray(exp.mean_ndets[-1]), 'mbe_mean_ndets')
-                    tools.write_file(exp.order, np.asarray(exp.max_ndets[-1]), 'mbe_max_ndets')
-                    tools.write_file(exp.order, np.asarray(exp.min_ndets[-1]), 'mbe_min_ndets')
-                    tools.write_file(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
-                    tools.write_file(exp.order, exp.max_inc[-1], 'mbe_max_inc')
-                    tools.write_file(exp.order, exp.min_inc[-1], 'mbe_min_inc')
-                    tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
-
-                # print mbe end
-                print(output.mbe_end(exp.order, exp.time['mbe'][-1]))
+            # print mbe end
+            print(output.mbe_end(exp.order, exp.time['mbe'][-1]))
 
             # print mbe results
             print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \

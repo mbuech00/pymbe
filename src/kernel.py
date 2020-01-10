@@ -697,7 +697,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
 
 
 def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
-                orbsym: np.ndarray, hf_guess: bool, ref_space: Dict[str, np.ndarray], \
+                orbsym: np.ndarray, hf_guess: bool, ref_space: np.ndarray, \
                 model: Dict[str, str], state: Dict[str, Any], e_hf: float, mo_coeff: np.ndarray, \
                 dipole_hf: np.ndarray, base_method: Union[str, None]) -> Union[float, np.ndarray]:
         """
@@ -760,13 +760,13 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
 
         # core_idx and cas_idx
-        core_idx, cas_idx = tools.core_cas(mol.nocc, ref_space['tot'], np.array([], dtype=np.int16))
+        core_idx, cas_idx = tools.core_cas(mol.nocc, ref_space, np.array([], dtype=np.int16))
 
         # nelec
         nelec = np.asarray((np.count_nonzero(occup[cas_idx] > 0.), \
                             np.count_nonzero(occup[cas_idx] > 1.)), dtype=np.int16)
 
-        if (ref_space['occ'].size > 0 and ref_space['virt'].size > 0) or (mol.spin > 0 and ref_space['tot'].size):
+        if (ref_space[occup[ref_space] > 0.].size > 0 and ref_space[occup[ref_space] == 0.].size > 0) or (mol.spin > 0 and ref_space.size > 0):
 
             # get cas space h2e
             cas_idx_tril = tools.cas_idx_tril(cas_idx)

@@ -216,6 +216,11 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             hashes[:] = parallel.allreduce(mpi.master_comm, hashes)
             inc[:] = parallel.allreduce(mpi.master_comm, inc)
 
+        # sort increments wrt hashes
+        if mpi.local_master:
+            inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
+            hashes[-1].sort()
+
         # mpi barrier
         mpi.global_comm.Barrier()
 
@@ -419,7 +424,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 mpi.global_comm.Barrier()
 
                 # reduce hashes & increments onto global master
-                if mpi.num_masters > 1 and mpi.local_master:
+                if mpi.local_master:
                     hashes[-1][:] = parallel.reduce(mpi.master_comm, hashes[-1], root=0)
                     hashes[-1][:] = np.zeros_like(hashes[-1])
                     inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0)
@@ -448,9 +453,14 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
         sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
 
         # allreduce hashes & increments among local masters
-        if mpi.num_masters > 1 and mpi.local_master:
+        if mpi.local_master:
             hashes[-1][:] = parallel.allreduce(mpi.master_comm, hashes[-1])
             inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1])
+
+        # sort increments wrt hashes
+        if mpi.local_master:
+            inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
+            hashes[-1].sort()
 
         # mpi barrier
         mpi.global_comm.Barrier()
