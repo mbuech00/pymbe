@@ -133,13 +133,13 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # main screening function
                 screen_orbs = screen.main(mpi, mol, calc, exp)
 
-                # bcast n_tuples
-                mpi.global_comm.bcast(screen_orbs, root=0)
+                # print screening results
+                if screen_orbs.size > 0:
+                    print(output.screen_results(screen_orbs))
 
                 # update expansion space wrt screened orbitals
-                for i in screen_orbs:
-                    print('screening away orbital = {:}'.format(i))
-                    calc.exp_space = calc.exp_space[calc.exp_space != i]
+                for mo in screen_orbs:
+                    calc.exp_space = calc.exp_space[calc.exp_space != mo]
 
                 # write restart files
                 if calc.misc['rst']:
@@ -229,14 +229,11 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main screening function
-#                screen_orbs = screen.main(mpi, mol, calc, exp)
-
-                # receive screen_orbs
-                screen_orbs = mpi.global_comm.bcast(None, root=0)
+                screen_orbs = screen.main(mpi, mol, calc, exp)
 
                 # update expansion space wrt screened orbitals
-                for i in screen_orbs:
-                    calc.exp_space = calc.exp_space[calc.exp_space != i]
+                for mo in screen_orbs:
+                    calc.exp_space = calc.exp_space[calc.exp_space != mo]
 
                 # append n_tuples
                 exp.n_tuples.append(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \

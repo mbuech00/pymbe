@@ -276,7 +276,7 @@ def _thres(calc: calculation.CalcCls) -> str:
         """
         this function returns the expansion threshold
         """
-        return '{:.0e} ({:<.1f})'.format(calc.thres['init'], calc.thres['relax'])
+        return '{:.0e}'.format(calc.thres['inc'])
 
 
 def _symm(mol: system.MolCls, calc: calculation.CalcCls) -> str:

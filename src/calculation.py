@@ -47,7 +47,7 @@ class CalcCls:
                 self.base: Dict[str, Union[None, str]] = {'method': None}
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
                 self.extra: Dict[str, bool] = {'pi_prune': False}
-                self.thres: Dict[str, float] = {'init': 1.e-10, 'relax': 1., 'start': 3}
+                self.thres: Dict[str, float] = {'inc': 1.e-10}
                 self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
                 self.orbs: Dict[str, str] = {'type': 'can'}
                 self.mpi: Dict[str, int] = {}
@@ -236,20 +236,8 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'valid input options for screening protocol condition (cond) are: min and max')
 
         # expansion thresholds
-        tools.assertion(set(list(calc.thres.keys())) <= set(['init', 'relax', 'start']), \
-                        'valid input strings in thres dict are: init, relax, and start')
-        tools.assertion(isinstance(calc.thres['init'], float), \
-                        'initial threshold (init) must be a float')
-        tools.assertion(calc.thres['init'] >= 0., \
-                        'initial threshold (init) must be a float >= 0.0')
-        tools.assertion(isinstance(calc.thres['relax'], float), \
-                        'initial threshold (init) must be a float')
-        tools.assertion(calc.thres['relax'] >= 1., \
-                        'threshold relaxation (relax) must be a float >= 1.0')
-        tools.assertion(isinstance(calc.thres['start'], int), \
-                        'start threshold parameter (start) must be an int')
-        tools.assertion(calc.thres['start'] >= 1, \
-                        'start threshold parameter (start) must be an int >= 1')
+        tools.assertion(isinstance(calc.thres['inc'], float), \
+                        'increment threshold (inc) must be a float')
 
         # orbital representation
         tools.assertion(calc.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \

@@ -242,6 +242,17 @@ def screen_header(order: int) -> str:
         return string.format(*form)
 
 
+def screen_results(orbs) -> str:
+        """
+        this function prints the screened MOs
+        """
+        string: str = ' RESULT:  screened MOs - {:}'
+
+        form: Tuple[List[int]] = (orbs.tolist(),)
+
+        return string.format(*form)
+
+
 def screen_end(order: int, time: float, conv: bool = False) -> str:
         """
         this function prints the end screening information

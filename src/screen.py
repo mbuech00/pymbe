@@ -30,12 +30,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         this function returns the number of tuples at the following order
         """
         # wake up slaves
-        msg = {'task': 'screen', 'order': exp.order}
-        mpi.global_comm.bcast(msg, root=0)
-#        # send availability to master
-#        if mpi.global_rank <= ???:
-#            mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
-        return np.array([], dtype=np.int)
+        if mpi.global_master:
+            msg = {'task': 'screen', 'order': exp.order}
+            mpi.global_comm.bcast(msg, root=0)
 
         # load increments for current order
         buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
@@ -48,8 +45,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         buf = exp.hashes[-1].Shared_query(0)[0]
         hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],))
 
-#        # mpi barrier
-#        mpi.local_comm.barrier()
+        # mpi barrier
+        mpi.local_comm.barrier()
 
         # occupied and virtual expansion spaces
         occ_space = calc.exp_space[calc.exp_space < mol.nocc]
@@ -63,38 +60,51 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         screen_orbs: List[int] = []
 
         # loop over orbitals
-        for i in calc.exp_space:
+        for mo_idx, mo in enumerate(calc.exp_space):
+
+            # distribute orbitals
+            if mo_idx % mpi.global_size != mpi.global_rank:
+                continue
 
             # init screen bool
             screen = True
 
             # generate tuples
-            for tup in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=i):
+            for tup in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo):
 
-                # get idx
-                idx: np.ndarray = tools.hash_compare(hashes, tools.hash_1d(tup))
+                # get inc_idx
+                inc_idx: np.ndarray = tools.hash_compare(hashes, tools.hash_1d(tup))
 
                 # screening procedure
                 if inc.ndim == 1:
-
-                    screen &= np.abs(inc[idx]) < calc.thres
-
+                    screen &= np.abs(inc[inc_idx]) < calc.thres['inc']
                 else:
-
-                    screen &= np.all(np.abs(inc[idx]) < calc.thres)
+                    screen &= np.all(np.abs(inc[inc_idx, :]) < calc.thres['inc'])
 
                 # if any increment is large enough, then quit screening
                 if not screen:
                     break
 
-            # add orb i to list of screened orbitals
+            # add orbital to list of screened orbitals
             if screen:
-                screen_orbs.append(i)
+                screen_orbs.append(mo)
 
-#        # mpi barrier
-#        mpi.global_comm.barrier()
+        # allgather number of screened orbitals
+        recv_counts = np.array(mpi.global_comm.allgather(len(screen_orbs)))
 
-        return np.asarray(screen_orbs, dtype=np.int)
+        # allocate total array of screened orbitals
+        tot_screen_orbs = np.empty(np.sum(recv_counts), dtype=np.int16)
+
+        # gatherv all screened orbitals onto global master
+        if mpi.global_master:
+            tot_screen_orbs = parallel.gatherv(mpi.global_comm, np.asarray(screen_orbs, dtype=np.int16), recv_counts)
+        else:
+            screen_orbs = parallel.gatherv(mpi.global_comm, np.asarray(screen_orbs, dtype=np.int16), recv_counts)
+
+        # bcast total array of screened orbitals
+        tot_screen_orbs = parallel.bcast(mpi.global_comm, tot_screen_orbs)
+
+        return tot_screen_orbs
 
 
 if __name__ == "__main__":

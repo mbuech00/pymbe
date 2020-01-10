@@ -66,6 +66,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             hash_win = exp.hashes[-1]
             buf = hash_win.Shared_query(0)[0] # type: ignore
             hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],))
+
             # load restart increments
             inc_win = exp.prop[calc.target_mbe]['inc'][-1]
             buf = inc_win.Shared_query(0)[0] # type: ignore
@@ -81,6 +82,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             buf = hash_win.Shared_query(0)[0] # type: ignore
             hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],))
             hashes[:] = np.zeros_like(hashes)
+
             # new increments
             if calc.target_mbe in ['energy', 'excitation']:
                 inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1], 8, comm=mpi.local_comm)
