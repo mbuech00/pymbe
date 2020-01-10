@@ -481,7 +481,7 @@ def hf(mol: system.MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.R
         if mol.atom:
             orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
         else:
-            orbsym = np.zeros(hf.mo_energy.size, dtype=np.int)
+            orbsym = np.zeros(hf.mo_energy.size, dtype=np.int64)
 
         # debug print of orbital energies
         if mol.debug >= 1:
@@ -547,24 +547,24 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         True
         >>> act_nelec
         (4, 4)
-        >>> np.allclose(ref_space['occ'], np.array([2, 3, 4, 5], dtype=np.int16))
+        >>> np.allclose(ref_space['occ'], np.array([2, 3, 4, 5], dtype=np.int64))
         True
         >>> np.all(ref_space['occ'] == ref_space['tot'])
         True
         >>> ref_space['virt']
-        array([], dtype=int16)
-        >>> np.allclose(exp_space['virt'], np.array([6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], dtype=np.int16))
+        array([], dtype=int)
+        >>> np.allclose(exp_space['virt'], np.array([6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], dtype=np.int64))
         True
         >>> np.all(exp_space['virt'] == exp_space['tot'])
         True
         >>> exp_space['occ']
-        array([], dtype=int16)
+        array([], dtype=int)
         >>> np.all(exp_space['occ'] == exp_space['seed'])
         True
         >>> exp_space['pi_orbs'].size == 0 and exp_space['pi_hashes'].size == 0
         True
         >>> exp_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, True, hf)[-1]
-        >>> np.allclose(exp_space['pi_orbs'], np.array([7, 8, 14, 15, 11, 12], dtype=np.int16))
+        >>> np.allclose(exp_space['pi_orbs'], np.array([7, 8, 14, 15, 11, 12], dtype=np.int64))
         True
         >>> np.allclose(exp_space['pi_hashes'], np.array([-7365615264797734692,  2711701422158015467,  4980488901507643489]))
         True
@@ -650,7 +650,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         if ref['active'] == 'manual':
 
             # active orbitals
-            ref['select'] = np.asarray(ref['select'], dtype=np.int16)
+            ref['select'] = np.asarray(ref['select'], dtype=np.int64)
 
             # active electrons
             act_nelec = tools.nelec(occup, ref['select'])
@@ -659,7 +659,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         ref_space = ref['select']
 
         # expansion space
-        exp_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space], dtype=np.int16)
+        exp_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space], dtype=np.int64)
 
         # casscf
         if ref['method'] == 'casscf':
@@ -760,11 +760,11 @@ def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
 
         # core_idx and cas_idx
-        core_idx, cas_idx = tools.core_cas(mol.nocc, ref_space, np.array([], dtype=np.int16))
+        core_idx, cas_idx = tools.core_cas(mol.nocc, ref_space, np.array([], dtype=np.int64))
 
         # nelec
         nelec = np.asarray((np.count_nonzero(occup[cas_idx] > 0.), \
-                            np.count_nonzero(occup[cas_idx] > 1.)), dtype=np.int16)
+                            np.count_nonzero(occup[cas_idx] > 1.)), dtype=np.int64)
 
         if (ref_space[occup[ref_space] > 0.].size > 0 and ref_space[occup[ref_space] == 0.].size > 0) or (mol.spin > 0 and ref_space.size > 0):
 
@@ -814,7 +814,7 @@ def main(method: str, solver: str, spin: int, occup: np.ndarray, target_mbe: str
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 3)
-        >>> orbsym = np.zeros(6, dtype=np.int)
+        >>> orbsym = np.zeros(6, dtype=np.int64)
         >>> e_hf = e_core = 0.
         >>> h1e = hubbard_h1e((1, 6), True)
         >>> h2e = hubbard_eri((1, 6), 2.)
@@ -1166,7 +1166,7 @@ def _casscf(mol: system.MolCls, solver: str, wfnsym: List[str], \
         if mol.atom:
             orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, cas.mo_coeff)
         else:
-            orbsym = np.zeros(cas.mo_energy.size, dtype=np.int)
+            orbsym = np.zeros(cas.mo_energy.size, dtype=np.int64)
 
         if mol.debug >= 1:
             if mol.symmetry:
@@ -1191,7 +1191,7 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.n
 
         example:
         >>> occup = np.array([2.] * 4 + [0.] * 4)
-        >>> orbsym = np.zeros(8, dtype=np.int)
+        >>> orbsym = np.zeros(8, dtype=np.int64)
         >>> h1e = hubbard_h1e((2, 4), True)
         >>> h2e = hubbard_eri((2, 4), 2.)
         >>> h2e = ao2mo.restore(4, h2e, 8)

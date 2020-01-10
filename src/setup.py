@@ -366,7 +366,7 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                 if mol.atom:
                     calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
                 else:
-                    calc.orbsym = np.zeros(mol.norb, dtype=np.int)
+                    calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
 
         return mol, calc
 

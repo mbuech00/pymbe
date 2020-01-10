@@ -73,7 +73,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
             for tup in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo):
 
                 # get inc_idx
-                inc_idx: np.ndarray = tools.hash_compare(hashes, tools.hash_1d(tup))
+                inc_idx: np.ndarray = tools.hash_compare(hashes, tools.hash_1d(np.asarray(tup, dtype=np.int64)))
 
                 # screening procedure
                 if inc.ndim == 1:
@@ -93,13 +93,13 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         recv_counts = np.array(mpi.global_comm.allgather(len(screen_orbs)))
 
         # allocate total array of screened orbitals
-        tot_screen_orbs = np.empty(np.sum(recv_counts), dtype=np.int16)
+        tot_screen_orbs = np.empty(np.sum(recv_counts), dtype=np.int64)
 
         # gatherv all screened orbitals onto global master
         if mpi.global_master:
-            tot_screen_orbs = parallel.gatherv(mpi.global_comm, np.asarray(screen_orbs, dtype=np.int16), recv_counts)
+            tot_screen_orbs = parallel.gatherv(mpi.global_comm, np.asarray(screen_orbs, dtype=np.int64), recv_counts)
         else:
-            screen_orbs = parallel.gatherv(mpi.global_comm, np.asarray(screen_orbs, dtype=np.int16), recv_counts)
+            screen_orbs = parallel.gatherv(mpi.global_comm, np.asarray(screen_orbs, dtype=np.int64), recv_counts)
 
         # bcast total array of screened orbitals
         tot_screen_orbs = parallel.bcast(mpi.global_comm, tot_screen_orbs)

@@ -32,7 +32,7 @@ import tools
 
 # tags
 class TAGS:
-    ready, idx, tup, rst, exit = range(5)
+    ready, info, rst, exit = range(4)
 
 
 def master(mpi: parallel.MPICls, mol: system.MolCls, \
@@ -132,11 +132,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             # receive slave status
             mpi.global_comm.recv(None, source=mpi.stat.source, tag=TAGS.ready)
 
-            # send idx to slave
-            mpi.global_comm.Send(np.asarray(tup_start + idx, dtype=np.int), dest=mpi.stat.source, tag=TAGS.idx)
-
-            # send tup to slave
-            mpi.global_comm.Send(tup, dest=mpi.stat.source, tag=TAGS.tup)
+            # send info to slave
+            mpi.global_comm.Send(np.asarray((tup_start + idx,) + tup, dtype=np.int64), dest=mpi.stat.source, tag=TAGS.info)
 
             # write restart files
             if calc.misc['rst'] and tup_start + idx > 0 and tup_start + idx % calc.misc['rst_freq'] == 0:
@@ -344,11 +341,12 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
         max_ndets: int = 0
         sum_ndets: int = 0
 
-        # init idx
-        idx = np.empty(1, dtype=np.int)
+        # init info
+        info = np.empty(exp.order + 1, dtype=np.int64)
 
-        # init tup
-        tup = np.empty(exp.order, dtype=np.int16)
+        # allow for tuples with only occupied or virtual MOs
+        occ_only = tools.virt_prune(calc.occup, calc.ref_space)
+        virt_only = tools.occ_prune(calc.occup, calc.ref_space)
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -363,13 +361,16 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
             mpi.global_comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
             # do calculation
-            if mpi.stat.tag == TAGS.idx:
+            if mpi.stat.tag == TAGS.info:
 
-                # receive idx
-                mpi.global_comm.Recv(idx, source=0, tag=TAGS.idx)
+                # receive info
+                mpi.global_comm.Recv(info, source=0, tag=TAGS.info)
 
-                # receive tup
-                mpi.global_comm.Recv(tup, source=0, tag=TAGS.tup)
+                # recover idx
+                idx = info[0]
+
+                # recover tup
+                tup = info[1:]
 
                 # get core and cas indices
                 core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
@@ -396,8 +397,8 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 # calculate increment
                 if exp.order > exp.min_order:
                     if np.any(inc_tup != 0.):
-                        inc_tup -= _sum(calc.occup, calc.ref_space, calc.exp_space, calc.target_mbe, \
-                                        exp.min_order, exp.order, inc, hashes, tup, pi_prune=calc.extra['pi_prune'])
+                        inc_tup -= _sum(calc.occup, calc.target_mbe, exp.min_order, exp.order, \
+                                        inc, hashes, occ_only, virt_only, tup, pi_prune=calc.extra['pi_prune'])
 
 
                 # debug print
@@ -484,7 +485,7 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
         example:
         >>> n = 4
         >>> occup = np.array([2.] * (n // 2) + [0.] * (n // 2))
-        >>> orbsym = np.zeros(n, dtype=np.int)
+        >>> orbsym = np.zeros(n, dtype=np.int64)
         >>> h1e_cas, h2e_cas = kernel.hubbard_h1e((1, n), False), kernel.hubbard_eri((1, n), 2.)
         >>> core_idx, cas_idx = np.array([]), np.arange(n)
         >>> e, ndets, nelec = _inc('fci', None, 'pyscf_spin0', 0, occup, 'energy', None, orbsym, 0,
@@ -513,21 +514,21 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
         return res_full - res_ref, ndets, nelec
 
 
-def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarray], \
-            target_mbe: str, min_order: int, order: int, inc: List[np.ndarray], \
-            hashes: List[np.ndarray], tup: np.ndarray, pi_prune: bool = False) -> Union[float, np.ndarray]:
+def _sum(occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
+            inc: List[np.ndarray], hashes: List[np.ndarray], occ_only: bool, virt_only: bool, \
+            tup: np.ndarray, pi_prune: bool = False) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
 
         example:
         >>> occup = np.array([2.] * 2 + [0.] * 2)
-        >>> ref_space = {'occ': np.arange(2, dtype=np.int16),
-        ...              'virt': np.array([], dtype=np.int16),
-        ...              'tot': np.arange(2, dtype=np.int16)}
-        >>> exp_space = {'occ': np.array([], dtype=np.int16),
-        ...              'virt': np.arange(2, 4, dtype=np.int16),
-        ...              'tot': np.arange(2, 4, dtype=np.int16),
-        ...              'pi_orbs': np.array([], dtype=np.int16),
+        >>> ref_space = {'occ': np.arange(2, dtype=np.int64),
+        ...              'virt': np.array([], dtype=np.int64),
+        ...              'tot': np.arange(2, dtype=np.int64)}
+        >>> exp_space = {'occ': np.array([], dtype=np.int64),
+        ...              'virt': np.arange(2, 4, dtype=np.int64),
+        ...              'tot': np.arange(2, 4, dtype=np.int64),
+        ...              'pi_orbs': np.array([], dtype=np.int64),
         ...              'pi_hashes': np.array([], dtype=np.int64)}
         >>> min_order, order = 1, 2
         ... # [[2], [3]]
@@ -535,15 +536,15 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         >>> hashes = [np.sort(np.array([-4760325697709127167, -4199509873246364550])),
         ...           np.array([-5475322122992870313])]
         >>> inc = [np.array([-.1, -.2])]
-        >>> tup = np.arange(2, 4, dtype=np.int16)
+        >>> tup = np.arange(2, 4, dtype=np.int64)
         >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -.3)
         True
         >>> inc = [np.array([[0., 0., .1], [0., 0., .2]])]
         >>> np.allclose(_sum(occup, ref_space, exp_space, 'dipole', min_order, order, inc, hashes, tup, False), np.array([0., 0., .3]))
         True
-        >>> ref_space['tot'] = ref_space['occ'] = np.array([], dtype=np.int16)
+        >>> ref_space['tot'] = ref_space['occ'] = np.array([], dtype=np.int64)
         >>> exp_space = {'tot': np.arange(4), 'occ': np.arange(2), 'virt': np.arange(2, 4),
-        ...              'pi_orbs': np.arange(2, dtype=np.int16), 'pi_hashes': np.array([-3821038970866580488])}
+        ...              'pi_orbs': np.arange(2, dtype=np.int64), 'pi_hashes': np.array([-3821038970866580488])}
         >>> min_order, order = 2, 4
         ... # [[0, 2], [0, 3], [1, 2], [1, 3]]
         ... # [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
@@ -552,7 +553,7 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         ...           np.sort(np.array([-5731810011007442268, 366931854209709639, -7216722148388372205, -3352798558434503475])),
         ...           np.array([-2930228190932741801])]
         >>> inc = [np.array([-.11, -.12, -.11, -.12]), np.array([-.01, -.02, -.03, -.03])]
-        >>> tup = np.arange(4, dtype=np.int16)
+        >>> tup = np.arange(4, dtype=np.int64)
         >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -0.55)
         True
         >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, True), -0.05)
@@ -568,14 +569,15 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
         for k in range(order-1, min_order-1, -1):
 
             # generate array with all subsets of particular tuple
-            combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int16)
+            combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int64)
 
-            if ref_space[occup[ref_space] > 0.].size == 0:
-                # prune combinations without occupied orbitals
+            # prune combinations without occupied orbitals
+            if not occ_only:
                 combs = combs[np.fromiter(map(functools.partial(tools.occ_prune, occup), combs), \
                                               dtype=bool, count=combs.shape[0])]
-            if ref_space[occup[ref_space] == 0.].size == 0:
-                # prune combinations without virtual orbitals
+
+            # prune combinations without virtual orbitals
+            if not virt_only:
                 combs = combs[np.fromiter(map(functools.partial(tools.virt_prune, occup), combs), \
                                                   dtype=bool, count=combs.shape[0])]
 
