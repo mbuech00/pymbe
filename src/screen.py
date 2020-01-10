@@ -36,12 +36,12 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         """
         # load tuples as main task tuples
         buf = exp.tuples.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tasks[-1], exp.order))
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tuples[-1], exp.order))
 
         # set number of available (needed) slaves and various tuples
         slaves_avail, tuples_pi, \
             tuples_seed, tuples_seed_pi = _set_screen(calc.occup, calc.ref_space, calc.exp_space, \
-                                                        exp.n_tasks[-1], exp.min_order, exp.order, \
+                                                        exp.n_tuples[-1], exp.min_order, exp.order, \
                                                         calc.extra['pi_prune'], mpi.global_size, tuples)
 
         # wake up slaves
@@ -52,7 +52,7 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         mpi.local_comm.barrier()
 
         # loop until no tuples left
-        for tup_idx in range(exp.n_tasks[-1]):
+        for tup_idx in range(exp.n_tuples[-1]):
 
             # probe for available slaves
             mpi.global_comm.Probe(source=MPI.ANY_SOURCE, tag=TAGS.ready, status=mpi.stat)
@@ -166,13 +166,13 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
         # mpi barrier
         mpi.global_comm.barrier()
 
-        # n_tasks
-        n_tasks = tuples.shape[0]
+        # n_tuples
+        n_tuples = tuples.shape[0]
 
         # allocate hashes
-        hashes_win = MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm)
+        hashes_win = MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm)
         buf = hashes_win.Shared_query(0)[0]
-        hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
+        hashes_new = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,))
 
         # compute hashes
         hashes_new[:] = tools.hash_2d(tuples)
@@ -185,7 +185,7 @@ def master(mpi: parallel.MPICls, calc: calculation.CalcCls, \
             tools.write_file(None, tuples, 'mbe_tup')
             tools.write_file(exp.order+1, hashes_new, 'mbe_hash')
 
-        return hashes_win, tuples_win, n_tasks
+        return hashes_win, tuples_win, n_tuples
 
 
 def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
@@ -202,22 +202,22 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
         # load tuples as main task tuples
         buf = exp.tuples.Shared_query(0)[0]
-        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tasks[-1], exp.order))
+        tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(exp.n_tuples[-1], exp.order))
 
         # load increments for current and previous orders
         inc = []
         for k in range(exp.order-exp.min_order+1):
             buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
             if calc.target_mbe in ['energy', 'excitation']:
-                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k],)))
+                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[k],)))
             elif calc.target_mbe in ['dipole', 'trans']:
-                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tasks[k], 3)))
+                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[k], 3)))
 
         # load hashes for current and previous orders
         hashes = []
         for k in range(exp.order-exp.min_order+1):
             buf = exp.hashes[k].Shared_query(0)[0]
-            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tasks[k],)))
+            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[k],)))
 
         # init tup_seed and tup_pi
         tup_seed = np.empty(exp.order, dtype=np.int16)
@@ -369,7 +369,7 @@ def slave(mpi: parallel.MPICls, calc: calculation.CalcCls, \
 
 
 def _set_screen(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: Dict[str, np.ndarray], \
-                    n_tasks: int, min_order: int, order: int, pi_prune: bool, global_size: int, \
+                    n_tuples: int, min_order: int, order: int, pi_prune: bool, global_size: int, \
                     tuples: np.ndarray) -> Tuple[int, Union[None, np.ndarray], \
                                                  Union[None, np.ndarray], Union[None, np.ndarray]]:
         """
@@ -425,7 +425,7 @@ def _set_screen(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: 
                [1, 2]], dtype=int16))
         """
         # option to treat pi-orbitals independently
-        tuples_pi = None; n_tasks_pi = 0
+        tuples_pi = None; n_tuples_pi = 0
 
         if pi_prune and min_order < order:
 
@@ -448,11 +448,11 @@ def _set_screen(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: 
                                               dtype=bool, count=tuples_pi.shape[0])]
 
             # number of tasks
-            n_tasks_pi = tuples_pi.shape[0]
+            n_tuples_pi = tuples_pi.shape[0]
 
         # potential seed for vacuum reference spaces
-        tuples_seed = None; n_tasks_seed = 0
-        tuples_seed_pi = None; n_tasks_seed_pi = 0
+        tuples_seed = None; n_tuples_seed = 0
+        tuples_seed_pi = None; n_tuples_seed_pi = 0
 
         if order <= exp_space['seed'].size:
 
@@ -467,7 +467,7 @@ def _set_screen(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: 
                                                         dtype=bool, count=tuples_seed.shape[0])]
 
             # number of tasks
-            n_tasks_seed = tuples_seed.shape[0]
+            n_tuples_seed = tuples_seed.shape[0]
 
             # option to treat pi-orbitals independently
             if pi_prune:
@@ -482,10 +482,10 @@ def _set_screen(occup: np.ndarray, ref_space: Dict[str, np.ndarray], exp_space: 
                                                               dtype=bool, count=tuples_seed_pi.shape[0])]
 
                 # number of tasks
-                n_tasks_seed_pi = tuples_seed_pi.shape[0]
+                n_tuples_seed_pi = tuples_seed_pi.shape[0]
 
         # number of available slaves
-        slaves_avail = min(global_size - 1, n_tasks + n_tasks_pi + n_tasks_seed + n_tasks_seed_pi)
+        slaves_avail = min(global_size - 1, n_tuples + n_tuples_pi + n_tuples_seed + n_tuples_seed_pi)
 
         return slaves_avail, tuples_pi, tuples_seed, tuples_seed_pi
 

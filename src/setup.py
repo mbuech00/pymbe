@@ -203,8 +203,8 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         # exp object
         exp = expansion.ExpCls(calc)
 
-        # init hashes, n_tasks, and tuples
-        exp.hashes, exp.tuples, exp.n_tasks, \
+        # init hashes, n_tuples, and tuples
+        exp.hashes, exp.tuples, exp.n_tuples, \
             exp.min_order = expansion.init_tup(calc.occup, calc.ref_space, calc.exp_space, \
                                                 mpi.local_master, mpi.local_comm, calc.extra['pi_prune'])
 
@@ -227,34 +227,34 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # sort the list of files
         files.sort(key=tools.natural_keys)
 
-        # loop over n_tasks files
+        # loop over n_tuples files
         if mpi.global_master:
 
             for i in range(len(files)):
 
-                # read n_tasks
-                if 'mbe_n_tasks' in files[i]:
-                    exp.n_tasks.append(np.load(os.path.join(RST, files[i])))
+                # read n_tuples
+                if 'mbe_n_tuples' in files[i]:
+                    exp.n_tuples.append(np.load(os.path.join(RST, files[i])))
 
-            mpi.global_comm.bcast(exp.n_tasks, root=0)
+            mpi.global_comm.bcast(exp.n_tuples, root=0)
 
         else:
 
-            exp.n_tasks = mpi.global_comm.bcast(None, root=0)
+            exp.n_tuples = mpi.global_comm.bcast(None, root=0)
 
         # loop over all other files
         for i in range(len(files)):
 
             # read tuples
             if 'mbe_tup' in files[i]:
-                n_tasks = exp.n_tasks[-1]
-                order = len(exp.n_tasks) + exp.min_order - 1
+                n_tuples = exp.n_tuples[-1]
+                order = len(exp.n_tuples) + exp.min_order - 1
                 if mpi.local_master:
-                    exp.tuples = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=mpi.local_comm)
+                    exp.tuples = MPI.Win.Allocate_shared(2 * n_tuples * order, 2, comm=mpi.local_comm)
                 else:
                     exp.tuples = MPI.Win.Allocate_shared(0, 2, comm=mpi.local_comm)
                 buf = exp.tuples.Shared_query(0)[0]
-                tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
+                tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tuples, order))
                 if mpi.global_master:
                     tuples[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -263,13 +263,13 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
 
             # read hashes
             elif 'mbe_hash' in files[i]:
-                n_tasks = exp.n_tasks[len(exp.hashes)]
+                n_tuples = exp.n_tuples[len(exp.hashes)]
                 if mpi.local_master:
-                    exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
+                    exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm))
                 else:
                     exp.hashes.append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
                 buf = exp.hashes[-1].Shared_query(0)[0]
-                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
+                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,))
                 if mpi.global_master:
                     hashes[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -278,19 +278,19 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
 
             # read increments
             elif 'mbe_inc' in files[i]:
-                n_tasks = exp.n_tasks[len(exp.prop[calc.target_mbe]['inc'])]
+                n_tuples = exp.n_tuples[len(exp.prop[calc.target_mbe]['inc'])]
                 if mpi.local_master:
                     if calc.target_mbe in ['energy', 'excitation']:
-                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
+                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm))
                     elif calc.target_mbe in ['dipole', 'trans']:
-                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.local_comm))
+                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples * 3, 8, comm=mpi.local_comm))
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
                 buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
                 if calc.target_mbe in ['energy', 'excitation']:
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tuples,))
                 elif calc.target_mbe in ['dipole', 'trans']:
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks, 3))
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tuples, 3))
                 if mpi.global_master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:

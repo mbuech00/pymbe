@@ -40,7 +40,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             for i in range(exp.start_order - exp.min_order):
 
                 # print mbe header
-                print(output.mbe_header(exp.n_tasks[i], i + exp.min_order))
+                print(output.mbe_header(exp.n_tuples[i], i + exp.min_order))
 
                 # print mbe end
                 print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i]))
@@ -63,17 +63,23 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             if len(exp.hashes) > len(exp.prop[calc.target_mbe]['tot']):
 
                 # print mbe header
-                print(output.mbe_header(exp.n_tasks[-1], exp.order))
+                print(output.mbe_header(exp.n_tuples[-1], exp.order))
 
                 # main mbe function
-                inc_win, tot, mean_ndets, min_ndets, max_ndets, \
+                inc_win, hash_win, tot, mean_ndets, min_ndets, max_ndets, \
                     mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
 
-                # append window to increments
-                if len(exp.prop[calc.target_mbe]['inc']) < len(exp.hashes):
-                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
+                # append window to hashes
+                if len(exp.prop[calc.target_mbe]['inc']) == len(exp.prop[calc.target_mbe]['tot']):
+                    exp.hashes[-1] = hash_win
                 else:
+                    exp.hashes.append(hash_win)
+
+                # append window to increments
+                if len(exp.prop[calc.target_mbe]['inc']) == len(exp.prop[calc.target_mbe]['tot']):
                     exp.prop[calc.target_mbe]['inc'][-1] = inc_win
+                else:
+                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
 
                 # append determinant statistics
                 if len(exp.max_ndets) == len(exp.hashes):
@@ -127,19 +133,19 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 time = MPI.Wtime()
 
                 # main screening function
-                hashes_win, tuples_win, n_tasks = screen.master(mpi, calc, exp)
+                hashes_win, tuples_win, n_tuples = screen.master(mpi, calc, exp)
 
-                # append n_tasks
-                exp.n_tasks.append(n_tasks)
+                # append n_tuples
+                exp.n_tuples.append(n_tuples)
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
             # convergence check
-            if exp.n_tasks[-1] == 0 or exp.order == exp.max_order:
+            if exp.n_tuples[-1] == 0 or exp.order == exp.max_order:
 
                 # print screen end
-                if exp.n_tasks[-1] == 0:
+                if exp.n_tuples[-1] == 0:
                     print(output.screen_end(exp.order, exp.time['screen'][-1], conv=True))
 
                 # final order
@@ -175,7 +181,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # write restart files
                 if calc.misc['rst']:
-                    tools.write_file(exp.order+1, np.asarray(exp.n_tasks[-1]), 'mbe_n_tasks')
+                    tools.write_file(exp.order+1, np.asarray(exp.n_tuples[-1]), 'mbe_n_tuples')
                     tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
                 # print screen end
@@ -202,13 +208,19 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main mbe function
-                inc_win = mbe.slave(mpi, mol, calc, exp)
+                inc_win, hash_win = mbe.slave(mpi, mol, calc, exp, msg['rst_mbe'])
+
+                # append window to hashes
+                if msg['rst_mbe']:
+                    exp.hashes[-1] = hash_win
+                else:
+                    exp.hashes.append(hash_win)
 
                 # append window to increments
-                if len(exp.prop[calc.target_mbe]['inc']) < len(exp.hashes):
-                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
-                else:
+                if msg['rst_mbe']:
                     exp.prop[calc.target_mbe]['inc'][-1] = inc_win
+                else:
+                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
 
             elif msg['task'] == 'screen':
 
@@ -216,7 +228,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main screening function
-                hashes_win, tuples_win, n_tasks = screen.slave(mpi, calc, exp, msg['slaves_needed'])
+                hashes_win, tuples_win, n_tuples = screen.slave(mpi, calc, exp, msg['slaves_needed'])
 
                 # overwrite window to tuples
                 exp.tuples = tuples_win
@@ -224,8 +236,8 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 # append window to hashes
                 exp.hashes.append(hashes_win)
 
-                # append n_tasks
-                exp.n_tasks.append(n_tasks)
+                # append n_tuples
+                exp.n_tuples.append(n_tuples)
 
             elif msg['task'] == 'exit':
 

@@ -58,7 +58,7 @@ class ExpCls:
                 # init attributes
                 self.hashes: List[MPI.Win] = [None]
                 self.tuples: MPI.Win = None
-                self.n_tasks: List[int] = [0]
+                self.n_tuples: List[int] = [0]
                 self.min_order: int = 0
                 self.start_order: int = 0
                 self.final_order: int = 0

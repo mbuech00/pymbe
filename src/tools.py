@@ -23,7 +23,7 @@ import scipy.special
 import functools
 import itertools
 import math
-from typing import Tuple, List, Union
+from typing import Tuple, List, Generator, Union
 
 # restart folder
 RST = os.getcwd()+'/rst'
@@ -203,6 +203,84 @@ def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
             return left
         else:
             return None
+
+
+def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
+            occ_only: bool, virt_only: bool, order: int, \
+            restrict: Union[None, int] = None) -> Generator[np.ndarray, None, None]:
+        """
+        this function is a generator for tuples, with or without an MO restriction
+
+        example:
+        >>> nocc = 4
+        >>> order = 3
+        >>> occup = np.array([2.] * 4 + [0.] * 4)
+        >>> ref_space = np.array([])
+        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+
+        >>> ref_space = np.array([3, 4])
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+
+        >>> order = 2
+        >>> mo = 1
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, restrict=mo)
+
+        """
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            for i in itertools.combinations(occ_space, k):
+                for a in itertools.combinations(virt_space, order - k):
+                    tup = i + a
+                    if restrict is None or restrict in tup:
+                        yield np.asarray(tup, dtype=np.int16)
+        # only occupied MOs
+        if occ_only:
+            for i in itertools.combinations(occ_space, order):
+                tup = i
+                if restrict is None or restrict in tup:
+                    yield np.asarray(tup, dtype=np.int16)
+        # only virtual MOs
+        if virt_only:
+            for a in itertools.combinations(virt_space, order):
+                tup = a
+                if restrict is None or restrict in tup:
+                    yield np.asarray(tup, dtype=np.int16)
+
+
+def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
+                occ_only: bool, virt_only: bool, order: int) -> int:
+        """
+        this function is a generator for tuples, with or without an MO restriction
+
+        example:
+        >>> order = 3
+        >>> occ_space = np.arange(10)
+        >>> virt_space = np.arange(10, 50)
+        >>> n_tuples(occ_space, virt_space, False, False, 5)
+        1460500
+        >>> n_tuples(occ_space, virt_space, True, False, 5)
+        1460752
+        >>> n_tuples(occ_space, virt_space, False, True, 5)
+        2118508
+        >>> n_tuples(occ_space, virt_space, True, True, 5)
+        2118760
+        """
+        # init n_tuples
+        n = 0.
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            n += scipy.special.binom(occ_space.size, k) * scipy.special.binom(virt_space.size, order - k)
+        # only occupied MOs
+        if occ_only:
+            n += scipy.special.binom(occ_space.size, order)
+        # only virtual MOs
+        if virt_only:
+            n += scipy.special.binom(virt_space.size, order)
+        return int(n)
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:

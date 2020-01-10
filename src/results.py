@@ -466,7 +466,7 @@ def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         calcs = 0
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            calc_i = exp.n_tasks[i]
+            calc_i = exp.n_tuples[i]
             calcs += calc_i
             string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
                     '{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'
