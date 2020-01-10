@@ -246,7 +246,7 @@ def _active(calc: calculation.CalcCls) -> str:
         """
         this function returns the active space
         """
-        return '{:} e in {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space['tot'].size)
+        return '{:} e in {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
 
 
 def _orbs(calc: calculation.CalcCls) -> str:

@@ -217,9 +217,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             inc[:] = parallel.allreduce(mpi.master_comm, inc)
 
         # sort increments wrt hashes
-        if mpi.local_master:
-            inc[:] = inc[np.argsort(hashes)]
-            hashes.sort()
+        inc[:] = inc[np.argsort(hashes)]
+        hashes.sort()
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -404,6 +403,9 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                     print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
                                             ndets, nelec, inc_tup, exp.order, cas_idx, tup))
 
+                # add to hashes
+                hashes[-1][idx] = tools.hash_1d(tup)
+
                 # add to inc
                 inc[-1][idx] = inc_tup
 
@@ -566,20 +568,20 @@ def _sum(occup: np.ndarray, ref_space: np.ndarray, exp_space: Dict[str, np.ndarr
             # generate array with all subsets of particular tuple
             combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int16)
 
-            if ref_space['occ'].size == 0:
+            if ref_space[occup[ref_space] > 0.].size == 0:
                 # prune combinations without occupied orbitals
                 combs = combs[np.fromiter(map(functools.partial(tools.occ_prune, occup), combs), \
                                               dtype=bool, count=combs.shape[0])]
-            if ref_space['virt'].size == 0:
+            if ref_space[occup[ref_space] == 0.].size == 0:
                 # prune combinations without virtual orbitals
                 combs = combs[np.fromiter(map(functools.partial(tools.virt_prune, occup), combs), \
                                                   dtype=bool, count=combs.shape[0])]
 
             # prune combinations with non-degenerate pairs of pi-orbitals
-            if pi_prune:
-                combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
-                                              exp_space['pi_orbs'], exp_space['pi_hashes']), combs), \
-                                              dtype=bool, count=combs.shape[0])]
+#            if pi_prune:
+#                combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
+#                                              exp_space['pi_orbs'], exp_space['pi_hashes']), combs), \
+#                                              dtype=bool, count=combs.shape[0])]
 
             if combs.size == 0:
                 continue

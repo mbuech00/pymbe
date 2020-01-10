@@ -29,9 +29,13 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         """
         this function returns the number of tuples at the following order
         """
+        # wake up slaves
+        msg = {'task': 'screen', 'order': exp.order}
+        mpi.global_comm.bcast(msg, root=0)
 #        # send availability to master
 #        if mpi.global_rank <= ???:
 #            mpi.global_comm.send(None, dest=0, tag=TAGS.ready)
+        return np.array([], dtype=np.int)
 
         # load increments for current order
         buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore

@@ -131,8 +131,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 time = MPI.Wtime()
 
                 # main screening function
-#                screen_orbs = screen.main(mpi, mol, calc, exp)
-                screen_orbs = np.array([], dtype=np.int)
+                screen_orbs = screen.main(mpi, mol, calc, exp)
 
                 # bcast n_tuples
                 mpi.global_comm.bcast(screen_orbs, root=0)
