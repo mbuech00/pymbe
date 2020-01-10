@@ -133,10 +133,30 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 time = MPI.Wtime()
 
                 # main screening function
-                n_tuples = screen.master(mpi, calc, exp)
+#                screen_orbs = screen.main(mpi, mol, calc, exp)
+                screen_orbs = np.array([], dtype=np.int)
+
+                # bcast n_tuples
+                mpi.global_comm.bcast(screen_orbs, root=0)
+
+                # update expansion space wrt screened orbitals
+                for i in screen_orbs:
+                    print('screening away orbital = {:}'.format(i))
+                    calc.exp_space = calc.exp_space[calc.exp_space != i]
+
+                # occupied and virtual expansion spaces
+                occ_space = calc.exp_space[calc.exp_space < mol.nocc]
+                virt_space = calc.exp_space[mol.nocc <= calc.exp_space]
+
+                # allow for tuples with only occupied or virtual MOs
+                occ_only = tools.virt_prune(calc.occup, calc.ref_space)
+                virt_only = tools.occ_prune(calc.occup, calc.ref_space)
 
                 # append n_tuples
-                exp.n_tuples.append(n_tuples)
+                exp.n_tuples(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
+                                            calc.exp_space[mol.nocc <= calc.exp_space], \
+                                            tools.virt_prune(calc.occup, calc.ref_space), \
+                                            tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
@@ -216,10 +236,28 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main screening function
-                n_tuples = screen.slave(mpi, calc, exp, msg['slaves_needed'])
+#                n_tuples = screen.main(mpi, mol, calc, exp)
+
+                # receive screen_orbs
+                screen_orbs = mpi.global_comm.bcast(None, root=0)
+
+                # update expansion space wrt screened orbitals
+                for i in screen_orbs:
+                    calc.exp_space = calc.exp_space[calc.exp_space != i]
+
+                # occupied and virtual expansion spaces
+                occ_space = calc.exp_space[calc.exp_space < mol.nocc]
+                virt_space = calc.exp_space[mol.nocc <= calc.exp_space]
+
+                # allow for tuples with only occupied or virtual MOs
+                occ_only = tools.virt_prune(calc.occup, calc.ref_space)
+                virt_only = tools.occ_prune(calc.occup, calc.ref_space)
 
                 # append n_tuples
-                exp.n_tuples.append(n_tuples)
+                exp.n_tuples(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
+                                            calc.exp_space[mol.nocc <= calc.exp_space], \
+                                            tools.virt_prune(calc.occup, calc.ref_space), \
+                                            tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
 
             elif msg['task'] == 'exit':
 
