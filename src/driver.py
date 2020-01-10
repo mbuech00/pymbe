@@ -68,13 +68,13 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 mean_inc, min_inc, max_inc = mbe.master(mpi, mol, calc, exp)
 
             # append window to hashes
-            if len(exp.prop[calc.target_mbe]['inc']) == len(exp.prop[calc.target_mbe]['tot']):
+            if len(exp.hashes) > len(exp.prop[calc.target_mbe]['tot']):
                 exp.hashes[-1] = hash_win
             else:
                 exp.hashes.append(hash_win)
 
             # append window to increments
-            if len(exp.prop[calc.target_mbe]['inc']) == len(exp.prop[calc.target_mbe]['tot']):
+            if len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot']):
                 exp.prop[calc.target_mbe]['inc'][-1] = inc_win
             else:
                 exp.prop[calc.target_mbe]['inc'].append(inc_win)

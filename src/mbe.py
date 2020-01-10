@@ -55,7 +55,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         n_slaves = mpi.global_size - 1
 
         # init time
-        if len(exp.time['mbe']) < len(exp.hashes):
+        if not rst_mbe:
             exp.time['mbe'].append(0.)
         time = MPI.Wtime()
 
@@ -218,8 +218,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # sort increments wrt hashes
         if mpi.local_master:
-            inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
-            hashes[-1].sort()
+            inc[:] = inc[np.argsort(hashes)]
+            hashes.sort()
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -362,7 +362,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
             mpi.global_comm.Probe(source=0, tag=MPI.ANY_TAG, status=mpi.stat)
 
             # do calculation
-            if mpi.stat.tag == TAGS.tup:
+            if mpi.stat.tag == TAGS.idx:
 
                 # receive idx
                 mpi.global_comm.Recv(idx, source=0, tag=TAGS.idx)
@@ -371,7 +371,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 mpi.global_comm.Recv(tup, source=0, tag=TAGS.tup)
 
                 # get core and cas indices
-                core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space['tot'], tup)
+                core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
 
                 # get h2e indices
                 cas_idx_tril = tools.cas_idx_tril(cas_idx)
