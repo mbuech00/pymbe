@@ -14,9 +14,8 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-import functools
 import itertools
-from typing import Tuple, List, Dict, Union, Any
+from typing import List
 
 import parallel
 import system
@@ -66,24 +65,21 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
             if mo_idx % mpi.global_size != mpi.global_rank:
                 continue
 
-            # init screen bool
-            screen = True
-
             # generate tuples
-            for tup in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo):
+            tups = np.array([i for i in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo)], dtype=np.int64)
 
-                # get inc_idx
-                inc_idx: np.ndarray = tools.hash_compare(hashes, tools.hash_1d(np.asarray(tup, dtype=np.int64)))
+            # convert to sorted hashes
+            tups_hash: np.ndarray = tools.hash_2d(tups)
+            tups_hash.sort()
 
-                # screening procedure
-                if inc.ndim == 1:
-                    screen &= np.abs(inc[inc_idx]) < calc.thres['inc']
-                else:
-                    screen &= np.all(np.abs(inc[inc_idx, :]) < calc.thres['inc'])
+            # get indices of tuples
+            inc_idx: np.ndarray = tools.hash_compare(hashes, tups_hash)
 
-                # if any increment is large enough, then quit screening
-                if not screen:
-                    break
+            # screening procedure
+            if inc.ndim == 1:
+                screen = np.all(np.abs(inc[inc_idx]) < calc.thres['inc'])
+            else:
+                screen = np.all(np.abs(inc[inc_idx, :]) < calc.thres['inc'], axis=1)
 
             # add orbital to list of screened orbitals
             if screen:

@@ -407,42 +407,36 @@ def _sum(occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
         else:
             res = np.zeros(3, dtype=np.float64)
 
+        # occupied & virtual subspace
+        tup_occ = tup[occup[tup] > 0.]
+        tup_virt = tup[occup[tup] == 0.]
+
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
             # generate array with all subsets of particular tuple
-            combs = np.array([comb for comb in itertools.combinations(tup, k)], dtype=np.int64)
+            tups = np.array([i for i in tools.tuples(tup_occ, tup_virt, occ_only, virt_only, k)], dtype=np.int64)
 
-            # prune combinations without occupied orbitals
-            if not occ_only:
-                combs = combs[np.fromiter(map(functools.partial(tools.occ_prune, occup), combs), \
-                                              dtype=bool, count=combs.shape[0])]
-
-            # prune combinations without virtual orbitals
-            if not virt_only:
-                combs = combs[np.fromiter(map(functools.partial(tools.virt_prune, occup), combs), \
-                                                  dtype=bool, count=combs.shape[0])]
-
-            # prune combinations with non-degenerate pairs of pi-orbitals
+#            # prune combinations with non-degenerate pairs of pi-orbitals
 #            if pi_prune:
 #                combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
 #                                              exp_space['pi_orbs'], exp_space['pi_hashes']), combs), \
 #                                              dtype=bool, count=combs.shape[0])]
-
-            if combs.size == 0:
-                continue
+#
+#            if combs.size == 0:
+#                continue
 
             # convert to sorted hashes
-            combs_hash = tools.hash_2d(combs)
-            combs_hash.sort()
+            tups_hash: np.ndarray = tools.hash_2d(tups)
+            tups_hash.sort()
 
-            # get indices of combinations
-            idx = tools.hash_compare(hashes[k-min_order], combs_hash)
+            # get indices of tuples
+            idx = tools.hash_compare(hashes[k-min_order], tups_hash)
 
             # assertion
             tools.assertion(idx is not None, 'error in recursive increment calculation:\n'
                                              'k = {:}\ntup:\n{:}\ncombs:\n{:}'. \
-                                             format(k, tup, combs))
+                                             format(k, tup, tups))
 
             # add up lower-order increments
             res += tools.fsum(inc[k-min_order][idx])
