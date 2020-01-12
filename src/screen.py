@@ -72,7 +72,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
             for tup in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo):
 
                 # convert to hash
-                tup_hash: np.ndarray = tools.hash_1d(np.asarray(tup, dtype=np.int64))
+                tup_hash: np.ndarray = tools.hash_tup(tup)
 
                 # get index of tuple
                 inc_idx: np.ndarray = tools.hash_compare(hashes, tup_hash)

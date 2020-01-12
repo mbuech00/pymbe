@@ -145,10 +145,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 continue
 
             # recast tup as numpy array
-            tup = np.asarray(tup, dtype=np.int64)
+            tup_arr = np.asarray(tup, dtype=np.int64)
 
             # get core and cas indices
-            core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
+            core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup_arr)
 
             # get h2e indices
             cas_idx_tril = tools.cas_idx_tril(cas_idx)
@@ -173,7 +173,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if exp.order > exp.min_order:
                 if np.any(inc_tup != 0.):
                     inc_tup -= _sum(calc.occup, calc.target_mbe, exp.min_order, exp.order, \
-                                    inc, hashes, occ_only, virt_only, tup, pi_prune=calc.extra['pi_prune'])
+                                    inc, hashes, occ_only, virt_only, tup_arr, pi_prune=calc.extra['pi_prune'])
 
 
             # debug print
@@ -182,7 +182,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                                         ndets, nelec, inc_tup, exp.order, cas_idx, tup))
 
             # add to hashes
-            hashes[-1][idx] = tools.hash_1d(tup)
+            hashes[-1][idx] = tools.hash_tup(tup)
 
             # add to inc
             inc[-1][idx] = inc_tup
@@ -427,7 +427,7 @@ def _sum(occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
 #                continue
 
                 # convert to hash
-                tup_sub_hash: np.ndarray = tools.hash_1d(np.asarray(tup_sub, dtype=np.int64))
+                tup_sub_hash: np.ndarray = tools.hash_tup(tup_sub)
 
                 # get index of tuple
                 idx = tools.hash_compare(hashes[k-min_order], tup_sub_hash)

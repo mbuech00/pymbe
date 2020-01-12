@@ -162,27 +162,15 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
             raise NotImplementedError('tools.py: _fsum()')
 
 
-def hash_2d(a: np.ndarray) -> np.ndarray:
-        """
-        this function converts a 2d numpy array to a 1d array of hashes
-
-        example:
-        >>> hash_2d(np.arange(4 * 4, dtype=np.int64).reshape(4, 4))
-        array([-2930228190932741801,  1142744019865853604, -8951855736587463849,
-                4559082070288058232])
-        """
-        return np.fromiter(map(hash_1d, a), dtype=np.int64, count=a.shape[0])
-
-
-def hash_1d(a: np.ndarray) -> int:
+def hash_tup(a: Tuple[int, ...]) -> int:
         """
         this function converts a 1d numpy array to a hash
 
         example:
-        >>> hash_1d(np.arange(5, dtype=np.int64))
+        >>> hash_tup(np.arange(5, dtype=np.int64))
         1974765062269638978
         """
-        return hash(a.tobytes())
+        return hash(a)
 
 
 def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
