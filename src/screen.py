@@ -15,7 +15,7 @@ __status__ = 'Development'
 import numpy as np
 from mpi4py import MPI
 import itertools
-from typing import List
+from typing import List, Union
 
 import parallel
 import system
@@ -71,17 +71,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
             # generate tuples
             for tup in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo):
 
-                # convert to hash
-                tup_hash: np.ndarray = tools.hash_tup(tup)
-
                 # get index of tuple
-                inc_idx: np.ndarray = tools.hash_compare(hashes, tup_hash)
+                inc_idx: Union[int, None] = tools.hash_lookup(hashes, tools.hash_tup(tup))
 
                 # screening procedure
                 if inc.ndim == 1:
-                    screen &= np.all(np.abs(inc[inc_idx]) < calc.thres['inc'])
+                    screen &= np.abs(inc[inc_idx]) < calc.thres['inc']
                 else:
-                    screen &= np.all(np.abs(inc[inc_idx, :]) < calc.thres['inc'], axis=1)
+                    screen &= np.all(np.abs(inc[inc_idx, :]) < calc.thres['inc'])
 
                 # no screening
                 if not screen:

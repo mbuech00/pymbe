@@ -426,16 +426,8 @@ def _sum(occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
 #            if combs.size == 0:
 #                continue
 
-                # convert to hash
-                tup_sub_hash: np.ndarray = tools.hash_tup(tup_sub)
-
                 # get index of tuple
-                idx = tools.hash_compare(hashes[k-min_order], tup_sub_hash)
-
-                # assertion
-                tools.assertion(idx is not None, 'error in recursive increment calculation:\n'
-                                                 'k = {:}\ntup:\n{:}\ntup_sub:\n{:}'. \
-                                                 format(k, tup, tup_sub))
+                idx: Union[int, None] = tools.hash_lookup(hashes[k-min_order], tools.hash_tup(tup_sub))
 
                 # add up lower-order increments
                 res += inc[k-min_order][idx]

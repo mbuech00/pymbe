@@ -173,21 +173,21 @@ def hash_tup(a: Tuple[int, ...]) -> int:
         return hash(a)
 
 
-def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
+def hash_lookup(a: np.ndarray, b: int) -> Union[int, None]:
         """
-        this function finds occurences of b in a through a binary search
+        this function finds index of b in a through a binary search
 
         example:
         >>> a = np.arange(10, dtype=np.int64)
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 9], dtype=np.int64))
+        >>> hash_lookup(a, np.array([1, 3, 5, 7, 9], dtype=np.int64))
         array([1, 3, 5, 7, 9])
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 11], dtype=np.int64)) is None
+        >>> hash_lookup(a, np.array([1, 3, 5, 7, 11], dtype=np.int64)) is None
         True
         """
         left = a.searchsorted(b, side='left')
         right = a.searchsorted(b, side='right')
 
-        if ((right - left) > 0).all():
+        if right - left > 0:
             return left
         else:
             return None
