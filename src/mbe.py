@@ -141,7 +141,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                                                     tup_start, None)):
 
             # distribute tuples
-            if idx % mpi.global_size != mpi.global_rank:
+            if tup_start + idx % mpi.global_size != mpi.global_rank:
                 continue
 
             # recast tup as numpy array
@@ -414,8 +414,8 @@ def _sum(occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
-            # generate array with all subsets of particular tuple
-            tups = np.array([i for i in tools.tuples(tup_occ, tup_virt, occ_only, virt_only, k)], dtype=np.int64)
+            # generate subsets of particular tuple
+            for tup_sub in tools.tuples(tup_occ, tup_virt, occ_only, virt_only, k):
 
 #            # prune combinations with non-degenerate pairs of pi-orbitals
 #            if pi_prune:
@@ -426,20 +426,19 @@ def _sum(occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
 #            if combs.size == 0:
 #                continue
 
-            # convert to sorted hashes
-            tups_hash: np.ndarray = tools.hash_2d(tups)
-            tups_hash.sort()
+                # convert to hash
+                tup_sub_hash: np.ndarray = tools.hash_1d(np.asarray(tup_sub, dtype=np.int64))
 
-            # get indices of tuples
-            idx = tools.hash_compare(hashes[k-min_order], tups_hash)
+                # get index of tuple
+                idx = tools.hash_compare(hashes[k-min_order], tup_sub_hash)
 
-            # assertion
-            tools.assertion(idx is not None, 'error in recursive increment calculation:\n'
-                                             'k = {:}\ntup:\n{:}\ncombs:\n{:}'. \
-                                             format(k, tup, tups))
+                # assertion
+                tools.assertion(idx is not None, 'error in recursive increment calculation:\n'
+                                                 'k = {:}\ntup:\n{:}\ntup_sub:\n{:}'. \
+                                                 format(k, tup, tup_sub))
 
-            # add up lower-order increments
-            res += tools.fsum(inc[k-min_order][idx])
+                # add up lower-order increments
+                res += inc[k-min_order][idx]
 
         return res
 

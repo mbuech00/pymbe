@@ -65,21 +65,27 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
             if mo_idx % mpi.global_size != mpi.global_rank:
                 continue
 
+            # init screen
+            screen = True
+
             # generate tuples
-            tups = np.array([i for i in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo)], dtype=np.int64)
+            for tup in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo):
 
-            # convert to sorted hashes
-            tups_hash: np.ndarray = tools.hash_2d(tups)
-            tups_hash.sort()
+                # convert to hash
+                tup_hash: np.ndarray = tools.hash_1d(np.asarray(tup, dtype=np.int64))
 
-            # get indices of tuples
-            inc_idx: np.ndarray = tools.hash_compare(hashes, tups_hash)
+                # get index of tuple
+                inc_idx: np.ndarray = tools.hash_compare(hashes, tup_hash)
 
-            # screening procedure
-            if inc.ndim == 1:
-                screen = np.all(np.abs(inc[inc_idx]) < calc.thres['inc'])
-            else:
-                screen = np.all(np.abs(inc[inc_idx, :]) < calc.thres['inc'], axis=1)
+                # screening procedure
+                if inc.ndim == 1:
+                    screen &= np.all(np.abs(inc[inc_idx]) < calc.thres['inc'])
+                else:
+                    screen &= np.all(np.abs(inc[inc_idx, :]) < calc.thres['inc'], axis=1)
+
+                # no screening
+                if not screen:
+                    break
 
             # add orbital to list of screened orbitals
             if screen:
