@@ -363,37 +363,37 @@ def cas_idx_tril(cas_idx: np.ndarray) -> np.ndarray:
                                         dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
-def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        this function returns pi-orbitals and hashes from total expansion space
-
-        example:
-        >>> orbsym_dooh = np.array([14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5])
-        >>> exp_space = np.arange(18, dtype=np.int64)
-        >>> pi_pairs, pi_hashes = pi_space('Dooh', orbsym_dooh, exp_space)
-        >>> pi_pairs_ref = np.array([12, 13,  7,  8,  3,  4,  0,  1,  9, 10, 15, 16], dtype=np.int64)
-        >>> np.allclose(pi_pairs, pi_pairs_ref)
-        True
-        >>> pi_hashes_ref = np.array([-8471304755370577665, -7365615264797734692, -3932386661120954737,
-        ...                           -3821038970866580488,  758718848004794914,   7528999078095043310])
-        >>> np.allclose(pi_hashes, pi_hashes_ref)
-        True
-        """
-        # all pi-orbitals
-        if group == 'Dooh':
-            pi_space_arr = exp_space[np.in1d(orbsym[exp_space], PI_SYMM_D2H)]
-        else:
-            pi_space_arr = exp_space[np.in1d(orbsym[exp_space], PI_SYMM_C2V)]
-
-        # get all degenerate pi-pairs
-        pi_pairs = pi_space_arr.reshape(-1, 2)
-
-        # get hashes of all degenerate pi-pairs
-        pi_hashes = hash_2d(pi_pairs)
-        pi_pairs = pi_pairs[np.argsort(pi_hashes)]
-        pi_hashes.sort()
-
-        return pi_pairs.reshape(-1,), pi_hashes
+#def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+#        """
+#        this function returns pi-orbitals and hashes from total expansion space
+#
+#        example:
+#        >>> orbsym_dooh = np.array([14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5])
+#        >>> exp_space = np.arange(18, dtype=np.int64)
+#        >>> pi_pairs, pi_hashes = pi_space('Dooh', orbsym_dooh, exp_space)
+#        >>> pi_pairs_ref = np.array([12, 13,  7,  8,  3,  4,  0,  1,  9, 10, 15, 16], dtype=np.int64)
+#        >>> np.allclose(pi_pairs, pi_pairs_ref)
+#        True
+#        >>> pi_hashes_ref = np.array([-8471304755370577665, -7365615264797734692, -3932386661120954737,
+#        ...                           -3821038970866580488,  758718848004794914,   7528999078095043310])
+#        >>> np.allclose(pi_hashes, pi_hashes_ref)
+#        True
+#        """
+#        # all pi-orbitals
+#        if group == 'Dooh':
+#            pi_space_arr = exp_space[np.in1d(orbsym[exp_space], PI_SYMM_D2H)]
+#        else:
+#            pi_space_arr = exp_space[np.in1d(orbsym[exp_space], PI_SYMM_C2V)]
+#
+#        # get all degenerate pi-pairs
+#        pi_pairs = pi_space_arr.reshape(-1, 2)
+#
+#        # get hashes of all degenerate pi-pairs
+#        pi_hashes = hash_2d(pi_pairs)
+#        pi_pairs = pi_pairs[np.argsort(pi_hashes)]
+#        pi_hashes.sort()
+#
+#        return pi_pairs.reshape(-1,), pi_hashes
 
 
 def non_deg_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -448,47 +448,47 @@ def pi_pairs_deg(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
             return tup_pi_orbs.reshape(-1, 2)
 
 
-def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bool:
-        """
-        this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
-
-        example:
-        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int64)
-        >>> pi_hashes = np.sort(np.array([-2163557957507198923, 1937934232745943291]))
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int64))
-        True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int64))
-        True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int64))
-        False
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int64))
-        False
-        """
-        # get all pi-orbitals in tup
-        tup_pi_orbs = _pi_orbs(pi_space, tup)
-
-        if tup_pi_orbs.size == 0:
-
-            # no pi-orbitals
-            return True
-
-        else:
-
-            if tup_pi_orbs.size % 2 > 0:
-
-                # always prune tuples with an odd number of pi-orbitals
-                return False
-
-            else:
-
-                # get hashes of pi-pairs
-                tup_pi_hashes = hash_2d(tup_pi_orbs.reshape(-1, 2))
-                tup_pi_hashes.sort()
-
-                # get indices of pi-pairs
-                idx = hash_compare(pi_hashes, tup_pi_hashes)
-
-                return idx is not None
+#def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bool:
+#        """
+#        this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
+#
+#        example:
+#        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int64)
+#        >>> pi_hashes = np.sort(np.array([-2163557957507198923, 1937934232745943291]))
+#        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int64))
+#        True
+#        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int64))
+#        True
+#        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int64))
+#        False
+#        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int64))
+#        False
+#        """
+#        # get all pi-orbitals in tup
+#        tup_pi_orbs = _pi_orbs(pi_space, tup)
+#
+#        if tup_pi_orbs.size == 0:
+#
+#            # no pi-orbitals
+#            return True
+#
+#        else:
+#
+#            if tup_pi_orbs.size % 2 > 0:
+#
+#                # always prune tuples with an odd number of pi-orbitals
+#                return False
+#
+#            else:
+#
+#                # get hashes of pi-pairs
+#                tup_pi_hashes = hash_2d(tup_pi_orbs.reshape(-1, 2))
+#                tup_pi_hashes.sort()
+#
+#                # get indices of pi-pairs
+#                idx = hash_compare(pi_hashes, tup_pi_hashes)
+#
+#                return idx is not None
 
 
 def occ_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
