@@ -270,9 +270,15 @@ def allreduce(comm: MPI.Comm, send_buff: np.ndarray) -> np.ndarray:
         send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
         recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
 
+        # operation
+        if send_buff.dtype == bool:
+            op = MPI.LAND
+        else:
+            op = MPI.SUM
+
         # allreduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
-            comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM)
+            comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=op)
 
         return recv_buff
 

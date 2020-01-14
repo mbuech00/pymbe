@@ -51,21 +51,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         ref_occ = tools.occ_prune(calc.occup, calc.ref_space)
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
-        # init list of screened orbitals
-        screen_orbs: List[int] = []
+        # init screen array
+        screen = np.ones(exp.exp_space[-1].size, dtype=bool)
 
         # loop over orbitals
         for mo_idx, mo in enumerate(exp.exp_space[-1]):
 
-            # distribute orbitals
-            if mo_idx % mpi.global_size != mpi.global_rank:
-                continue
-
             # generate restricted tuples
             tups_restrict = tuple(i for i in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, restrict=mo))
-
-            # init screen
-            screen = True
 
             # max_count
             max_count = len(tups_restrict)
@@ -76,46 +69,34 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
             # generate all tuples
             for tup_idx, tup_main in enumerate(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order)):
 
+                # distribute orbitals
+                if tup_idx % mpi.global_size != mpi.global_rank:
+                    continue
+
                 # index
                 if tup_main in tups_restrict:
 
                     # screening procedure
                     if inc.ndim == 1:
-                        screen &= np.abs(inc[tup_idx]) < calc.thres['inc']
+                        screen[mo_idx] &= np.abs(inc[tup_idx]) < calc.thres['inc']
                     else:
-                        screen &= np.all(np.abs(inc[tup_idx, :]) < calc.thres['inc'])
+                        screen[mo_idx] &= np.all(np.abs(inc[tup_idx, :]) < calc.thres['inc'])
 
                     # increment counter
                     count += 1
 
                     # no screening
-                    if not screen:
+                    if not screen[mo_idx]:
                         break
 
                 # break
                 if count == max_count:
                     break
 
-            # add orbital to list of screened orbitals
-            if screen:
-                screen_orbs.append(mo)
+        # allreduce screened orbitals
+        tot_screen = parallel.allreduce(mpi.global_comm, screen)
 
-        # allgather number of screened orbitals
-        recv_counts = np.array(mpi.global_comm.allgather(len(screen_orbs)))
-
-        # allocate total array of screened orbitals
-        tot_screen_orbs = np.empty(np.sum(recv_counts), dtype=np.int64)
-
-        # gatherv all screened orbitals onto global master
-        if mpi.global_master:
-            tot_screen_orbs = parallel.gatherv(mpi.global_comm, np.asarray(screen_orbs, dtype=np.int64), recv_counts)
-        else:
-            screen_orbs = parallel.gatherv(mpi.global_comm, np.asarray(screen_orbs, dtype=np.int64), recv_counts)
-
-        # bcast total array of screened orbitals
-        tot_screen_orbs = parallel.bcast(mpi.global_comm, tot_screen_orbs)
-
-        return tot_screen_orbs
+        return np.array([mo for mo in exp.exp_space[-1][tot_screen]], dtype=np.int64)
 
 
 if __name__ == "__main__":
