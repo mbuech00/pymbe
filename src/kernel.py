@@ -518,7 +518,7 @@ def _dim(mo_occ: np.ndarray) -> Tuple[int, ...]:
 
 def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndarray, \
             orbs: Dict[str, str], ref: Dict[str, Any], model: Dict[str, str], pi_prune: bool, \
-            hf: scf.RHF) -> Tuple[np.ndarray, Tuple[int, int], np.ndarray, np.ndarray]:
+            hf: scf.RHF) -> Tuple[np.ndarray, Tuple[int, int], np.ndarray]:
         """
         this function returns a set of reference mo coefficients and symmetries plus the associated spaces
 
@@ -659,7 +659,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         ref_space = ref['select']
 
         # expansion space
-        exp_space = np.asarray([i for i in range(mol.ncore, mol.norb) if i not in ref_space], dtype=np.int64)
+        exp_space = np.array([i for i in range(mol.ncore, mol.norb) if i not in ref_space], dtype=np.int64)
 
         # casscf
         if ref['method'] == 'casscf':
@@ -693,7 +693,7 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
             print(' expansion space [occ]  = {:}'.format(exp_space[occup[exp_space] > 0.]))
             print(' expansion space [virt] = {:}\n'.format(exp_space[occup[exp_space] == 0.]))
 
-        return np.asarray(mo_coeff_out, order='C'), act_nelec, ref_space, exp_space
+        return np.asarray(mo_coeff_out, order='C'), act_nelec, ref_space
 
 
 def ref_prop(mol: system.MolCls, occup: np.ndarray, target_mbe: str, \

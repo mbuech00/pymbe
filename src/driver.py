@@ -64,14 +64,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             print(output.mbe_header(exp.n_tuples[-1], exp.order))
 
             # main mbe function
-            inc_win, hash_win, tot, mean_ndets, min_ndets, max_ndets, \
+            inc_win, tot, mean_ndets, min_ndets, max_ndets, \
                 mean_inc, min_inc, max_inc = mbe.main(mpi, mol, calc, exp)
-
-            # append window to hashes
-            if len(exp.hashes) > len(exp.prop[calc.target_mbe]['tot']):
-                exp.hashes[-1] = hash_win
-            else:
-                exp.hashes.append(hash_win)
 
             # append window to increments
             if len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot']):
@@ -80,7 +74,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.prop[calc.target_mbe]['inc'].append(inc_win)
 
             # append determinant statistics
-            if len(exp.max_ndets) == len(exp.hashes):
+            if len(exp.max_ndets) == len(exp.prop[calc.target_mbe]['inc']):
                 exp.min_ndets[-1] = min_ndets
                 exp.max_ndets[-1] = max_ndets
                 exp.mean_ndets[-1] = mean_ndets
@@ -138,16 +132,13 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                     print(output.screen_results(screen_orbs))
 
                 # update expansion space wrt screened orbitals
+                exp.exp_space.append(exp.exp_space[-1])
                 for mo in screen_orbs:
-                    calc.exp_space = calc.exp_space[calc.exp_space != mo]
-
-                # write restart files
-                if calc.misc['rst']:
-                    tools.write_file(None, calc.exp_space, 'exp_space')
+                    exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
                 # append n_tuples
-                exp.n_tuples.append(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
-                                                   calc.exp_space[mol.nocc <= calc.exp_space], \
+                exp.n_tuples.append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                                   exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
                                                    tools.virt_prune(calc.occup, calc.ref_space), \
                                                    tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
 
@@ -156,6 +147,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # write restart files
                 if calc.misc['rst']:
+                    tools.write_file(exp.order+1, exp.exp_space[-1], 'exp_space')
                     tools.write_file(exp.order+1, np.asarray(exp.n_tuples[-1]), 'mbe_n_tuples')
                     tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
@@ -209,19 +201,13 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main mbe function
-                inc_win, hash_win = mbe.main(mpi, mol, calc, exp, rst_mbe=msg['rst_mbe'], tup_start=msg['tup_start'])
-
-                # append window to hashes
-                if msg['rst_mbe']:
-                    exp.hashes[-1] = hash_win
-                else:
-                    exp.hashes.append(hash_win)
+                inc_win = mbe.main(mpi, mol, calc, exp, rst_mbe=msg['rst_mbe'], tup_start=msg['tup_start'])
 
                 # append window to increments
                 if msg['rst_mbe']:
-                    exp.prop[calc.target_mbe]['inc'][-1] = inc_win
+                    exp.prop[calc.target_mbe]['inc'][-1] = inc_win # type: ignore
                 else:
-                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
+                    exp.prop[calc.target_mbe]['inc'].append(inc_win) # type: ignore
 
             elif msg['task'] == 'screen':
 
@@ -232,12 +218,13 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 screen_orbs = screen.main(mpi, mol, calc, exp)
 
                 # update expansion space wrt screened orbitals
+                exp.exp_space.append(exp.exp_space[-1])
                 for mo in screen_orbs:
-                    calc.exp_space = calc.exp_space[calc.exp_space != mo]
+                    exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
                 # append n_tuples
-                exp.n_tuples.append(tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
-                                                   calc.exp_space[mol.nocc <= calc.exp_space], \
+                exp.n_tuples.append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                                   exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
                                                    tools.virt_prune(calc.occup, calc.ref_space), \
                                                    tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
 

@@ -56,9 +56,6 @@ class MPICls:
                 self.global_rank = self.global_comm.Get_rank()
                 self.global_master = (self.global_rank == 0)
 
-                if self.global_master:
-                    tools.assertion(self.global_size >= 2, 'PyMBE requires two or more MPI processes')
-
                 # local node communicator (memory sharing)
                 self.local_comm = self.global_comm.Split_type(MPI.COMM_TYPE_SHARED, self.global_rank)
                 self.local_rank = self.local_comm.Get_rank()
@@ -157,7 +154,7 @@ def fund_dist(mpi: MPICls, mol: system.MolCls, \
             mpi.global_comm.bcast(info, root=0)
 
             # collect standard info (must be updated with new future attributes)
-            info = {'occup': calc.occup, 'ref_space': calc.ref_space, 'exp_space': calc.exp_space}
+            info = {'occup': calc.occup, 'ref_space': calc.ref_space}
 
             # bcast to slaves
             mpi.global_comm.bcast(info, root=0)

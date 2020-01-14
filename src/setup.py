@@ -151,10 +151,9 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                     calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.hf_ref)
 
                 # reference and expansion spaces and mo coefficients
-                calc.mo_coeff, calc.nelec, \
-                    calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
-                                                                    calc.orbs, calc.ref, calc.model, \
-                                                                    calc.extra['pi_prune'], calc.hf)
+                calc.mo_coeff, calc.nelec, calc.ref_space = kernel.ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
+                                                                          calc.orbs, calc.ref, calc.model, \
+                                                                          calc.extra['pi_prune'], calc.hf)
 
         # bcast fundamental info
         mol, calc = parallel.fund_dist(mpi, mol, calc)
@@ -240,20 +239,9 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # loop over all other files
         for i in range(len(files)):
 
-            # read hashes
-            if 'mbe_hash' in files[i]:
-                n_tuples = exp.n_tuples[len(exp.hashes)]
-                if mpi.local_master:
-                    exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm))
-                else:
-                    exp.hashes.append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
-                buf = exp.hashes[-1].Shared_query(0)[0]
-                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,))
-                if mpi.global_master:
-                    hashes[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.num_masters > 1 and mpi.local_master:
-                    hashes[:] = parallel.bcast(mpi.master_comm, hashes)
-                mpi.local_comm.Barrier()
+            # read expansion spaces
+            if 'exp_space' in files[i]:
+                exp.exp_space.append(np.load(os.path.join(RST, files[i])))
 
             # read increments
             elif 'mbe_inc' in files[i]:
@@ -321,7 +309,6 @@ def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
 
         # write reference & expansion spaces
         np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
-        np.save(os.path.join(RST, 'exp_space'), calc.exp_space)
 
         # occupation
         np.save(os.path.join(RST, 'occup'), calc.occup)
@@ -350,11 +337,9 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                 mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']
                 mol.norb = dims['norb']; calc.nelec = dims['nelec']
 
-            # read reference & expansion spaces
+            # read reference space
             elif 'ref_space' in files[i]:
                 calc.ref_space = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space' in files[i]:
-                calc.exp_space = np.load(os.path.join(RST, files[i]))
 
             # read occupation
             elif 'occup' in files[i]:
@@ -469,10 +454,5 @@ def settings() -> None:
 
         # mute scf checkpoint files
         scf.hf.MUTE_CHKFILE = True
-
-        # PYTHONHASHSEED = 0
-        pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)
-        tools.assertion(int(pythonhashseed) == 0, \
-                        'environment variable PYTHONHASHSEED must be set to zero')
 
 

@@ -38,12 +38,6 @@ class ExpCls:
                 # init prop dict
                 self.prop: Dict[str, Dict[str, Union[List[float], MPI.Win]]] = {str(calc.target_mbe): {'inc': [], 'tot': []}}
 
-                # set max_order
-                if calc.misc['order'] is not None:
-                    self.max_order = min(calc.exp_space.size, calc.misc['order'])
-                else:
-                    self.max_order = calc.exp_space.size
-
                 # init timings and and statistics lists
                 self.time: Dict[str, Union[List[float], np.ndarray]] = {'mbe': [], 'screen': []}
                 self.mean_inc: Union[List[float], np.ndarray] = []
@@ -60,11 +54,18 @@ class ExpCls:
                 self.min_order: int = 2 if calc.ref_space.size == 0 else 1
                 self.start_order: int = 0
                 self.final_order: int = 0
-                self.hashes: List[MPI.Win] = []
-                self.n_tuples: List[int] = [tools.n_tuples(calc.exp_space[calc.exp_space < mol.nocc], \
-                                                           calc.exp_space[mol.nocc <= calc.exp_space], \
+                self.exp_space: List[np.ndarray] = [np.array([i for i in range(mol.ncore, mol.norb) if i not in calc.ref_space], dtype=np.int64)]
+                self.n_tuples: List[int] = [tools.n_tuples(self.exp_space[0][self.exp_space[0] < mol.nocc], \
+                                                           self.exp_space[0][mol.nocc <= self.exp_space[0]], \
                                                            tools.virt_prune(calc.occup, calc.ref_space), \
                                                            tools.occ_prune(calc.occup, calc.ref_space), self.min_order)]
+
+                # set max_order
+                if calc.misc['order'] is not None:
+                    self.max_order = min(self.exp_space[0].size, calc.misc['order'])
+                else:
+                    self.max_order = self.exp_space[0].size
+
 
 
 if __name__ == "__main__":

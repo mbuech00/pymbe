@@ -32,7 +32,7 @@ import tools
 
 def main(mpi: parallel.MPICls, mol: system.MolCls, \
             calc: calculation.CalcCls, exp: expansion.ExpCls, \
-            rst_mbe: bool = False, tup_start: int = 0) -> Tuple[Any, ...]:
+            rst_mbe: bool = False, tup_start: int = 0) -> Union[Tuple[Any, ...], MPI.Win]:
         """
         this function is the mbe main function
         """
@@ -59,25 +59,6 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         # load vhf
         buf = mol.vhf.Shared_query(0)[0]
         vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
-
-        # load hashes for previous orders
-        hashes = []
-        for k in range(exp.order-exp.min_order):
-            buf = exp.hashes[k].Shared_query(0)[0] # type: ignore
-            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[k],)))
-
-        # init hashes for present order
-        if rst_mbe:
-            hash_win = exp.hashes[-1]
-        else:
-            if mpi.local_master:
-                hash_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1], 8, comm=mpi.local_comm)
-            else:
-                hash_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
-        buf = hash_win.Shared_query(0)[0] # type: ignore
-        hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],)))
-        if mpi.local_master and not rst_mbe:
-            hashes[-1][:] = np.zeros_like(hashes[-1])
 
         # load increments for previous orders
         inc = []
@@ -127,15 +108,15 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         mpi.global_comm.Barrier()
 
         # occupied and virtual expansion spaces
-        occ_space = calc.exp_space[calc.exp_space < mol.nocc]
-        virt_space = calc.exp_space[mol.nocc <= calc.exp_space]
+        exp_occ = exp.exp_space[-1][exp.exp_space[-1] < mol.nocc]
+        exp_virt = exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]]
 
-        # allow for tuples with only occupied or virtual MOs
-        occ_only = tools.virt_prune(calc.occup, calc.ref_space)
-        virt_only = tools.occ_prune(calc.occup, calc.ref_space)
+        # allow for tuples with only virtual or occupied MOs
+        ref_occ = tools.occ_prune(calc.occup, calc.ref_space)
+        ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop until no tuples left
-        for tup_idx, tup in enumerate(itertools.islice(tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order), \
+        for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
                                                     tup_start, None)):
 
             # set inc_idx
@@ -162,28 +143,25 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # calculate increment
             inc_tup, ndets, nelec = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], mol.spin, \
-                                           calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
-                                            calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
-                                            calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
-                                            core_idx, cas_idx, mol.debug, \
-                                            mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                            calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                            calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
+                                         calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
+                                         calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
+                                         calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
+                                         core_idx, cas_idx, mol.debug, \
+                                         mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                         calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                         calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
 
             # calculate increment
             if exp.order > exp.min_order:
                 if np.any(inc_tup != 0.):
-                    inc_tup -= _sum(calc.occup, calc.target_mbe, exp.min_order, exp.order, \
-                                    inc, hashes, occ_only, virt_only, tup_arr, pi_prune=calc.extra['pi_prune'])
+                    inc_tup -= _sum(mol, calc.occup, calc.target_mbe, exp.min_order, exp.order, \
+                                    inc, exp.exp_space, ref_occ, ref_virt, tup_arr, pi_prune=calc.extra['pi_prune'])
 
 
             # debug print
             if mol.debug >= 1:
                 print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
                                         ndets, nelec, inc_tup, exp.order, cas_idx, tup))
-
-            # add to hashes
-            hashes[-1][inc_idx] = tools.hash_tup(tup)
 
             # add to inc
             inc[-1][inc_idx] = inc_tup
@@ -196,13 +174,11 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # write restart files
             if calc.misc['rst'] and inc_idx > mpi.global_size and inc_idx % calc.misc['rst_freq'] == mpi.global_rank:
 
-                # reduce hashes & increments onto global master
+                # reduce increments onto global master
                 if mpi.num_masters > 1:
 
-                    hashes[-1][:] = parallel.reduce(mpi.master_comm, hashes[-1], root=0)
                     inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0)
                     if not mpi.global_master:
-                        hashes[-1][:] = np.zeros_like(hashes[-1])
                         inc[-1][:] = np.zeros_like(inc[-1])
 
                 # reduce n_dets onto global master
@@ -221,8 +197,6 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
                     # save idx
                     tools.write_file(exp.order, np.asarray(mbe_idx + 1), 'mbe_idx')
-                    # save hashes
-                    tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
                     # save increments
                     tools.write_file(exp.order, inc[-1], 'mbe_inc')
                     # save determinant statistics
@@ -255,15 +229,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         if mpi.global_master:
             mean_ndets = round(sum_ndets / exp.n_tuples[-1])
 
+        # allreduce increments among local masters
         if mpi.local_master:
-
-            # allreduce hashes & increments among local masters
-            hashes[-1][:] = parallel.allreduce(mpi.master_comm, hashes[-1])
             inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1])
-
-            # sort increments wrt hashes
-            inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
-            hashes[-1].sort()
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -275,8 +243,6 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # save idx
                 tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]-1), 'mbe_idx')
-                # save hashes
-                tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
                 # save increments
                 tools.write_file(exp.order, inc[-1], 'mbe_inc')
 
@@ -315,11 +281,11 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # save timing
             exp.time['mbe'][-1] += MPI.Wtime() - time
 
-            return inc_win, hash_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
+            return inc_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
 
         else:
 
-            return inc_win, hash_win
+            return inc_win
 
 
 def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int, \
@@ -363,8 +329,8 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
         return res_full - res_ref, ndets, nelec
 
 
-def _sum(occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
-            inc: List[np.ndarray], hashes: List[np.ndarray], occ_only: bool, virt_only: bool, \
+def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
+            inc: List[np.ndarray], exp_space: List[np.ndarray], ref_occ: bool, ref_virt: bool, \
             tup: np.ndarray, pi_prune: bool = False) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
@@ -421,23 +387,34 @@ def _sum(occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
-            # generate subsets of particular tuple
-            for tup_sub in tools.tuples(tup_occ, tup_virt, occ_only, virt_only, k):
+            # generate k-th order subsets of particular tuple
+            tups_sub = tuple(i for i in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k))
 
-#            # prune combinations with non-degenerate pairs of pi-orbitals
-#            if pi_prune:
-#                combs = combs[np.fromiter(map(functools.partial(tools.pi_prune, \
-#                                              exp_space['pi_orbs'], exp_space['pi_hashes']), combs), \
-#                                              dtype=bool, count=combs.shape[0])]
-#
-#            if combs.size == 0:
-#                continue
+            # max_count
+            max_count = len(tups_sub)
 
-                # get index of tuple
-                idx: Union[int, None] = tools.hash_lookup(hashes[k-min_order], tools.hash_tup(tup_sub))
+            # counter
+            count = 0
 
-                # add up lower-order increments
-                res += inc[k-min_order][idx]
+            # occupied and virtual expansion spaces
+            exp_occ = exp_space[k-min_order][exp_space[k-min_order] < mol.nocc]
+            exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
+
+            # generate all tuples at order k
+            for tup_idx, tup_main in enumerate(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, k)):
+
+                # index
+                if tup_main in tups_sub:
+
+                    # add up lower-order increments
+                    res += inc[k-min_order][tup_idx]
+
+                    # increment counter
+                    count += 1
+
+                # break
+                if count == max_count:
+                    break
 
         return res
 

@@ -40,48 +40,60 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         elif calc.target_mbe in ['dipole', 'trans']:
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1], 3))
 
-        # load hashes for current order
-        buf = exp.hashes[-1].Shared_query(0)[0]
-        hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],))
-
         # mpi barrier
         mpi.local_comm.barrier()
 
         # occupied and virtual expansion spaces
-        occ_space = calc.exp_space[calc.exp_space < mol.nocc]
-        virt_space = calc.exp_space[mol.nocc <= calc.exp_space]
+        exp_occ = exp.exp_space[-1][exp.exp_space[-1] < mol.nocc]
+        exp_virt = exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]]
 
-        # allow for tuples with only occupied or virtual MOs
-        occ_only = tools.virt_prune(calc.occup, calc.ref_space)
-        virt_only = tools.occ_prune(calc.occup, calc.ref_space)
+        # allow for tuples with only virtual or occupied MOs
+        ref_occ = tools.occ_prune(calc.occup, calc.ref_space)
+        ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # init list of screened orbitals
         screen_orbs: List[int] = []
 
         # loop over orbitals
-        for mo_idx, mo in enumerate(calc.exp_space):
+        for mo_idx, mo in enumerate(exp.exp_space[-1]):
 
             # distribute orbitals
             if mo_idx % mpi.global_size != mpi.global_rank:
                 continue
 
+            # generate restricted tuples
+            tups_restrict = tuple(i for i in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, restrict=mo))
+
             # init screen
             screen = True
 
-            # generate tuples
-            for tup in tools.tuples(occ_space, virt_space, occ_only, virt_only, exp.order, restrict=mo):
+            # max_count
+            max_count = len(tups_restrict)
 
-                # get index of tuple
-                inc_idx: Union[int, None] = tools.hash_lookup(hashes, tools.hash_tup(tup))
+            # counter
+            count = 0
 
-                # screening procedure
-                if inc.ndim == 1:
-                    screen &= np.abs(inc[inc_idx]) < calc.thres['inc']
-                else:
-                    screen &= np.all(np.abs(inc[inc_idx, :]) < calc.thres['inc'])
+            # generate all tuples
+            for tup_idx, tup_main in enumerate(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order)):
 
-                # no screening
-                if not screen:
+                # index
+                if tup_main in tups_restrict:
+
+                    # screening procedure
+                    if inc.ndim == 1:
+                        screen &= np.abs(inc[tup_idx]) < calc.thres['inc']
+                    else:
+                        screen &= np.all(np.abs(inc[tup_idx, :]) < calc.thres['inc'])
+
+                    # increment counter
+                    count += 1
+
+                    # no screening
+                    if not screen:
+                        break
+
+                # break
+                if count == max_count:
                     break
 
             # add orbital to list of screened orbitals
