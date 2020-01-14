@@ -307,7 +307,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return exp.min_order + len(exp.n_tuples)
+        return exp.min_order + len(exp.n_tuples) - 1
 
 
 def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
