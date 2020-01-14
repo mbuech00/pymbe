@@ -57,30 +57,32 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         # loop over orbitals
         for mo_idx, mo in enumerate(exp.exp_space[-1]):
 
-            # generate restricted tuples
-            tups_restrict = tuple(i for i in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, restrict=mo))
+            # generate sorted hashes of restricted tuples
+            hash_restrict = np.array([hash(i) for i in tools.tuples(exp_occ, exp_virt, ref_occ, \
+                                                                    ref_virt, exp.order, restrict=mo)], dtype=np.int64)
+            hash_restrict.sort()
 
             # max_count
-            max_count = len(tups_restrict)
+            max_count = hash_restrict.size
 
             # counter
             count = 0
 
-            # generate all tuples
-            for tup_idx, tup_main in enumerate(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order)):
+            # generate hashes of all tuples
+            for hash_idx, hash_main in enumerate(tools.hashes(exp_occ, exp_virt, ref_occ, ref_virt, exp.order)):
 
                 # distribute orbitals
-                if tup_idx % mpi.global_size != mpi.global_rank:
+                if hash_idx % mpi.global_size != mpi.global_rank:
                     continue
 
                 # index
-                if tup_main in tups_restrict:
+                if tools.hash_lookup(hash_restrict, hash_main) is not None:
 
                     # screening procedure
                     if inc.ndim == 1:
-                        screen[mo_idx] &= np.abs(inc[tup_idx]) < calc.thres['inc']
+                        screen[mo_idx] &= np.abs(inc[hash_idx]) < calc.thres['inc']
                     else:
-                        screen[mo_idx] &= np.all(np.abs(inc[tup_idx, :]) < calc.thres['inc'])
+                        screen[mo_idx] &= np.all(np.abs(inc[hash_idx, :]) < calc.thres['inc'])
 
                     # increment counter
                     count += 1

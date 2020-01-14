@@ -387,11 +387,12 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
-            # generate k-th order subsets of particular tuple
-            tups_sub = tuple(i for i in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k))
+            # generate sorted hashes of k-th order subsets of particular tuple
+            hash_sub = np.array([hash(i) for i in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k)], dtype=np.int64)
+            hash_sub.sort()
 
             # max_count
-            max_count = len(tups_sub)
+            max_count = hash_sub.size
 
             # counter
             count = 0
@@ -400,14 +401,14 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
             exp_occ = exp_space[k-min_order][exp_space[k-min_order] < mol.nocc]
             exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
 
-            # generate all tuples at order k
-            for tup_idx, tup_main in enumerate(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, k)):
+            # generate hashes of all tuples at order k
+            for hash_idx, hash_main in enumerate(tools.hashes(exp_occ, exp_virt, ref_occ, ref_virt, k)):
 
                 # index
-                if tup_main in tups_sub:
+                if tools.hash_lookup(hash_sub, hash_main) is not None:
 
                     # add up lower-order increments
-                    res += inc[k-min_order][tup_idx]
+                    res += inc[k-min_order][hash_idx]
 
                     # increment counter
                     count += 1
