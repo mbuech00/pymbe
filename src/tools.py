@@ -182,12 +182,12 @@ def tuples_main(occ_space: np.ndarray, virt_space: np.ndarray, \
                     yield tup_1 + tup_2
 
         # only virtual MOs
-        if ref_occ:
+        if ref_occ and not ref_virt:
             for tup in itertools.combinations(virt_space, order):
                 yield tup
 
         # only occupied MOs
-        if ref_virt:
+        if ref_virt and not ref_occ:
             for tup in itertools.combinations(occ_space, order):
                 yield tup
 
@@ -221,21 +221,30 @@ def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
 
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            for tup_1 in itertools.combinations(occ_space, k):
-                for tup_2 in itertools.combinations(virt_space, order - k):
-                    if mo in tup_1 + tup_2:
-                        yield idx
-                    idx += 1
+            if mo in occ_space:
+                for tup_1 in itertools.combinations(occ_space, k):
+                    if mo in tup_1:
+                        for tup_2 in itertools.combinations(virt_space, order - k):
+                            yield idx
+                            idx += 1
+                    else:
+                        idx += int(scipy.special.binom(virt_space.size, order - k))
+            else:
+                for tup_1 in itertools.combinations(occ_space, k):
+                    for tup_2 in itertools.combinations(virt_space, order - k):
+                        if mo in tup_2:
+                            yield idx
+                        idx += 1
 
         # only virtual MOs
-        if ref_occ:
+        if ref_occ and not ref_virt:
             for tup in itertools.combinations(virt_space, order):
                 if mo in tup:
                     yield idx
                 idx += 1
 
         # only occupied MOs
-        if ref_virt:
+        if ref_virt and not ref_occ:
             for tup in itertools.combinations(occ_space, order):
                 if mo in tup:
                     yield idx
@@ -272,20 +281,23 @@ def restricted_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             for tup_1 in itertools.combinations(occ_space, k):
-                for tup_2 in itertools.combinations(virt_space, order - k):
-                    if set(tup_1 + tup_2) < set(tup_main):
-                        yield idx
-                    idx += 1
+                if set(tup_1) < set(tup_main):
+                    for tup_2 in itertools.combinations(virt_space, order - k):
+                        if set(tup_2) < set(tup_main):
+                            yield idx
+                        idx += 1
+                else:
+                    idx += int(scipy.special.binom(virt_space.size, order - k))
 
         # only virtual MOs
-        if ref_occ:
+        if ref_occ and not ref_virt:
             for tup in itertools.combinations(virt_space, order):
                 if set(tup) < set(tup_main):
                     yield idx
                 idx += 1
 
         # only occupied MOs
-        if ref_virt:
+        if ref_virt and not ref_occ:
             for tup in itertools.combinations(occ_space, order):
                 if set(tup) < set(tup_main):
                     yield idx

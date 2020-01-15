@@ -390,10 +390,6 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
         else:
             res = np.zeros(3, dtype=np.float64)
 
-        # occupied & virtual subspace
-        tup_occ = tup[occup[tup] > 0.]
-        tup_virt = tup[occup[tup] == 0.]
-
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
