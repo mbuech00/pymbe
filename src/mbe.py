@@ -94,6 +94,21 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.time['mbe'].append(0.)
             time = MPI.Wtime()
 
+        # init increment statistics
+        if mpi.global_master and rst_mbe:
+            if calc.target_mbe in ['energy', 'excitation']:
+                min_inc: float = exp.min_inc[-1]
+                max_inc: float = exp.max_inc[-1]
+                sum_inc: float = exp.mean_inc[-1]
+            elif calc.target_mbe in ['dipole', 'trans']:
+                min_inc: np.ndarray = exp.min_inc[-1] # type: ignore
+                max_inc: np.ndarray = exp.max_inc[-1] # type: ignore
+                sum_inc: np.ndarray = exp.mean_inc[-1] # type: ignore
+        else:
+            min_inc = 1.e12
+            max_inc = 0.
+            sum_inc = 0.
+
         # init determinant statistics
         if mpi.global_master and rst_mbe:
             min_ndets: int = exp.min_ndets[-1]
@@ -138,14 +153,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, ndets, nelec = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], mol.spin, \
-                                         calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
-                                         calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
-                                         calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
-                                         core_idx, cas_idx, mol.debug, \
-                                         mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                         calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                         calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
+            inc_tup, ndets_tup, nelec_tup = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], mol.spin, \
+                                                 calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
+                                                 calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
+                                                 calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
+                                                 core_idx, cas_idx, mol.debug, \
+                                                 mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                                 calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                                 calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
 
             # calculate increment
             if exp.order > exp.min_order:
@@ -157,15 +172,20 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # debug print
             if mol.debug >= 1:
                 print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
-                                        ndets, nelec, inc_tup, exp.order, cas_idx, tup))
+                                        ndets_tup, nelec_tup, inc_tup, exp.order, cas_idx, tup))
 
             # add to inc
             inc[-1][tup_idx] = inc_tup
 
+            # update increment statistics
+            min_inc = min(min_inc, np.abs(inc_tup))
+            max_inc = max(max_inc, np.abs(inc_tup))
+            sum_inc += inc_tup
+
             # update determinant statistics
-            min_ndets = min(min_ndets, ndets)
-            max_ndets = max(max_ndets, ndets)
-            sum_ndets += ndets
+            min_ndets = min(min_ndets, ndets_tup)
+            max_ndets = max(max_ndets, ndets_tup)
+            sum_ndets += ndets_tup
 
             # write restart files
             if calc.misc['rst'] and tup_idx > mpi.global_size and tup_idx % calc.misc['rst_freq'] == mpi.global_rank:
@@ -177,7 +197,16 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     if not mpi.global_master:
                         inc[-1][:] = np.zeros_like(inc[-1])
 
-                # reduce n_dets onto global master
+                # reduce increment statistics onto global master
+                min_inc = mpi.global_comm.reduce(min_inc, root=0, op=MPI.MIN)
+                max_inc = mpi.global_comm.reduce(max_inc, root=0, op=MPI.MAX)
+                sum_inc = mpi.global_comm.reduce(sum_inc, root=0, op=MPI.SUM)
+                if not mpi.global_master:
+                    min_inc = 1.e12
+                    max_inc = 0.
+                    sum_inc = 0.
+
+                # reduce determinant statistics onto global master
                 min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
                 max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
                 sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
@@ -195,6 +224,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     tools.write_file(exp.order, np.asarray(tup_idx + 1), 'mbe_idx')
                     # save increments
                     tools.write_file(exp.order, inc[-1], 'mbe_inc')
+                    # save increment statistics
+                    tools.write_file(exp.order, np.asarray(max_inc, dtype=np.float64), 'mbe_max_inc')
+                    tools.write_file(exp.order, np.asarray(min_inc, dtype=np.float64), 'mbe_min_inc')
+                    tools.write_file(exp.order, np.asarray(sum_inc, dtype=np.float64), 'mbe_mean_inc')
                     # save determinant statistics
                     tools.write_file(exp.order, np.asarray(max_ndets, dtype=np.int64), 'mbe_max_ndets')
                     tools.write_file(exp.order, np.asarray(min_ndets, dtype=np.int64), 'mbe_min_ndets')
@@ -216,10 +249,19 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         if mpi.global_master:
             print(output.mbe_status(1.))
 
+        # increment statistics
+        min_inc = mpi.global_comm.reduce(min_inc, root=0, op=MPI.MIN)
+        max_inc = mpi.global_comm.reduce(max_inc, root=0, op=MPI.MAX)
+        sum_inc = mpi.global_comm.reduce(sum_inc, root=0, op=MPI.SUM)
+
         # determinant statistics
         min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
         max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
         sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
+
+        # mean increment
+        if mpi.global_master:
+            mean_inc = sum_inc / exp.n_tuples[-1]
 
         # mean number of determinants
         if mpi.global_master:
@@ -243,36 +285,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 tools.write_file(exp.order, inc[-1], 'mbe_inc')
 
             # total property
-            tot = tools.fsum(inc[-1])
-
-            # statistics
-            if calc.target_mbe in ['energy', 'excitation']:
-
-                # increments
-                if inc[-1].any():
-                    mean_inc = np.mean(inc[-1][np.nonzero(inc[-1])])
-                    min_inc = np.min(np.abs(inc[-1][np.nonzero(inc[-1])]))
-                    max_inc = np.max(np.abs(inc[-1][np.nonzero(inc[-1])]))
-                else:
-                    mean_inc = min_inc = max_inc = 0.
-
-            elif calc.target_mbe in ['dipole', 'trans']:
-
-                # init result arrays
-                mean_inc = np.empty(3, dtype=np.float64)
-                min_inc = np.empty(3, dtype=np.float64)
-                max_inc = np.empty(3, dtype=np.float64)
-
-                # loop over x, y, and z
-                for k in range(3):
-
-                    # increments
-                    if inc[-1][:, k].any():
-                        mean_inc[k] = np.mean(inc[-1][:, k][np.nonzero(inc[-1][:, k])])
-                        min_inc[k] = np.min(np.abs(inc[-1][:, k][np.nonzero(inc[-1][:, k])]))
-                        max_inc[k] = np.max(np.abs(inc[-1][:, k][np.nonzero(inc[-1][:, k])]))
-                    else:
-                        mean_inc[k] = min_inc[k] = max_inc[k] = 0.
+            tot = sum_inc
 
             # save timing
             exp.time['mbe'][-1] += MPI.Wtime() - time
