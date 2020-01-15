@@ -177,9 +177,9 @@ def tuples_main(occ_space: np.ndarray, virt_space: np.ndarray, \
 #                                            mol_parent.symm_orb, mo_coeff_out)
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            for tup_1 in itertools.combinations(occ_space, k):
-                for tup_2 in itertools.combinations(virt_space, order - k):
-                    yield tup_1 + tup_2
+            for tup_1 in itertools.combinations(virt_space, k):
+                for tup_2 in itertools.combinations(occ_space, order - k):
+                    yield tup_2 + tup_1
 
         # only virtual MOs
         if ref_occ and not ref_virt:
@@ -221,17 +221,17 @@ def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
 
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            if mo in occ_space:
-                for tup_1 in itertools.combinations(occ_space, k):
+            if mo in virt_space:
+                for tup_1 in itertools.combinations(virt_space, k):
                     if mo in tup_1:
-                        for tup_2 in itertools.combinations(virt_space, order - k):
+                        for tup_2 in itertools.combinations(occ_space, order - k):
                             yield idx
                             idx += 1
                     else:
-                        idx += int(scipy.special.binom(virt_space.size, order - k))
+                        idx += int(scipy.special.binom(occ_space.size, order - k))
             else:
-                for tup_1 in itertools.combinations(occ_space, k):
-                    for tup_2 in itertools.combinations(virt_space, order - k):
+                for tup_1 in itertools.combinations(virt_space, k):
+                    for tup_2 in itertools.combinations(occ_space, order - k):
                         if mo in tup_2:
                             yield idx
                         idx += 1
@@ -280,14 +280,14 @@ def restricted_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
 
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            for tup_1 in itertools.combinations(occ_space, k):
+            for tup_1 in itertools.combinations(virt_space, k):
                 if set(tup_1) < set(tup_main):
-                    for tup_2 in itertools.combinations(virt_space, order - k):
+                    for tup_2 in itertools.combinations(occ_space, order - k):
                         if set(tup_2) < set(tup_main):
                             yield idx
                         idx += 1
                 else:
-                    idx += int(scipy.special.binom(virt_space.size, order - k))
+                    idx += int(scipy.special.binom(occ_space.size, order - k))
 
         # only virtual MOs
         if ref_occ and not ref_virt:
