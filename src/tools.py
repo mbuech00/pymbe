@@ -145,7 +145,7 @@ def time_str(time: float) -> str:
 
 
 def tuples_main(occ_space: np.ndarray, virt_space: np.ndarray, \
-            ref_occ: bool, ref_virt: bool, order: int) -> Generator[Tuple[int, Tuple[int, ...]], None, None]:
+            ref_occ: bool, ref_virt: bool, order: int) -> Generator[Tuple[int, ...], None, None]:
         """
         this function is the main generator for tuples
 
@@ -175,30 +175,21 @@ def tuples_main(occ_space: np.ndarray, virt_space: np.ndarray, \
 #
 #        orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
 #                                            mol_parent.symm_orb, mo_coeff_out)
-        # init counter
-        idx = 0
-
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            for i in itertools.combinations(occ_space, k):
-                for a in itertools.combinations(virt_space, order - k):
-                    tup = i + a
-                    yield idx, tup
-                    idx += 1
+            for tup_1 in itertools.combinations(occ_space, k):
+                for tup_2 in itertools.combinations(virt_space, order - k):
+                    yield tup_1 + tup_2
 
         # only virtual MOs
         if ref_occ:
-            for a in itertools.combinations(virt_space, order):
-                tup = a
-                yield idx, tup
-                idx += 1
+            for tup in itertools.combinations(virt_space, order):
+                yield tup
 
         # only occupied MOs
         if ref_virt:
-            for i in itertools.combinations(occ_space, order):
-                tup = i
-                yield idx, tup
-                idx += 1
+            for tup in itertools.combinations(occ_space, order):
+                yield tup
 
 
 def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \

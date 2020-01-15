@@ -131,7 +131,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop until no tuples left
-        for tup_idx, tup in itertools.islice(tools.tuples_main(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), tup_start, None):
+        for tup_idx, tup in enumerate(itertools.islice(tools.tuples_main(exp_occ, exp_virt, ref_occ, \
+                                                                         ref_virt, exp.order), tup_start, None), tup_start):
 
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
