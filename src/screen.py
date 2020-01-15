@@ -61,7 +61,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         for mo_idx, mo in enumerate(exp.exp_space[-1]):
 
             # generate all possible tuples that include mo
-            for tup_idx, tup_main in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, include=mo):
+            for tup_idx, _ in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, include=mo):
 
                 # increment task_idx
                 task_idx += 1
@@ -75,10 +75,6 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
                     screen[mo_idx] &= np.abs(inc[tup_idx]) < calc.thres['inc']
                 else:
                     screen[mo_idx] &= np.all(np.abs(inc[tup_idx, :]) < calc.thres['inc'])
-
-                # no screening of mo
-                if not screen[mo_idx]:
-                    break
 
         # allreduce screened orbitals
         tot_screen = parallel.allreduce(mpi.global_comm, screen)
