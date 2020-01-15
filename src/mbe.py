@@ -401,7 +401,7 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
             exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
 
             # generate all subtuples at order k
-            for tup_idx, _ in tools.tuples_restricted(exp_occ, exp_virt, ref_occ, ref_virt, k, tup):
+            for tup_idx in tools.restricted_idx(exp_occ, exp_virt, ref_occ, ref_virt, k, tup):
 
                 # add up lower-order increments
                 res += inc[k-min_order][tup_idx]
