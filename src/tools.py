@@ -23,7 +23,7 @@ import scipy.special
 import functools
 import itertools
 import math
-from typing import Tuple, List, Generator, Union
+from typing import Tuple, List, Dict, Any, Generator, Union
 
 # restart folder
 RST = os.getcwd()+'/rst'
@@ -163,8 +163,7 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
 
 
 def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
-            ref_occ: bool, ref_virt: bool, order: int, \
-            restrict: Union[None, int] = None) -> Generator[Tuple[int, ...], None, None]:
+            ref_occ: bool, ref_virt: bool, order: int, **kwargs: Dict[str, Any]) -> Generator[Tuple[int, Tuple[int, ...]], None, None]:
         """
         this function is a generator for tuples, with or without an MO restriction
 
@@ -195,72 +194,57 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
 #        orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
 #                                            mol_parent.symm_orb, mo_coeff_out)
 
-        # combinations of occupied and virtual MOs
-        for k in range(1, order):
-            for i in itertools.combinations(occ_space, k):
-                for a in itertools.combinations(virt_space, order - k):
-                    tup = i + a
-                    if restrict is None or restrict in tup:
-                        yield tup
-
-        # only virtual MOs
-        if ref_occ:
-            for a in itertools.combinations(virt_space, order):
-                tup = a
-                if restrict is None or restrict in tup:
-                    yield tup
-
-        # only occupied MOs
-        if ref_virt:
-            for i in itertools.combinations(occ_space, order):
-                tup = i
-                if restrict is None or restrict in tup:
-                    yield tup
-
-
-def hashes(occ_space: np.ndarray, virt_space: np.ndarray, \
-            ref_occ: bool, ref_virt: bool, order: int, \
-            restrict: Union[None, int] = None) -> Generator[int, None, None]:
-        """
-        this function is a generator for tuples, with or without an MO restriction
-
-        example:
-        """
-#        # recast mol in parent point group (dooh/coov) - make pi-space based on those symmetries
-#        mol_parent = mol.copy()
-#        parent_group = 'Dooh' if mol.symmetry == 'D2h' else 'Coov'
-#        mol_parent = mol_parent.build(0, 0, symmetry=parent_group)
-#
-#        orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
-#                                            mol_parent.symm_orb, mo_coeff_out)
+        # init counter
+        idx = 0
 
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             for i in itertools.combinations(occ_space, k):
                 for a in itertools.combinations(virt_space, order - k):
                     tup = i + a
-                    if restrict is None or restrict in tup:
-                        yield hash(tup)
+                    if 'include' in kwargs:
+                        if kwargs['include'] in tup:
+                            yield idx, tup
+                    elif 'restrict' in kwargs:
+                        if set(tup) < set(kwargs['restrict']):
+                            yield idx, tup
+                    else:
+                        yield idx, tup
+                    idx += 1
 
         # only virtual MOs
         if ref_occ:
             for a in itertools.combinations(virt_space, order):
                 tup = a
-                if restrict is None or restrict in tup:
-                    yield hash(tup)
+                if 'include' in kwargs:
+                    if kwargs['include'] in tup:
+                        yield idx, tup
+                if 'restrict' in kwargs:
+                    if set(tup) < set(kwargs['restrict']):
+                        yield idx, tup
+                else:
+                    yield idx, tup
+                idx += 1
 
         # only occupied MOs
         if ref_virt:
             for i in itertools.combinations(occ_space, order):
                 tup = i
-                if restrict is None or restrict in tup:
-                    yield hash(tup)
+                if 'include' in kwargs:
+                    if kwargs['include'] in tup:
+                        yield idx, tup
+                if 'restrict' in kwargs:
+                    if set(tup) < set(kwargs['restrict']):
+                        yield idx, tup
+                else:
+                    yield idx, tup
+                idx += 1
 
 
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
                 ref_occ: bool, ref_virt: bool, order: int) -> int:
         """
-        this function is a generator for tuples, with or without an MO restriction
+        this function returns the total number of tuples of a given order
 
         example:
         >>> order = 3
@@ -291,26 +275,6 @@ def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
             n += scipy.special.binom(occ_space.size, order)
 
         return int(n)
-
-
-def hash_lookup(a: np.ndarray, b: int) -> Union[int, None]:
-        """
-        this function finds occurences of b in a through a binary search
-
-        example:
-        >>> a = np.arange(10, dtype=np.int16)
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 9], dtype=np.int16))
-
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 11], dtype=np.int16)) is None
-
-        """
-        left = a.searchsorted(b, side='left')
-        right = a.searchsorted(b, side='right')
-
-        if ((right - left) > 0).all():
-            return left
-        else:
-            return None
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:

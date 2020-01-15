@@ -116,14 +116,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop until no tuples left
-        for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
-                                                    tup_start, None)):
-
-            # set inc_idx
-            inc_idx = tup_start + tup_idx
+        for tup_idx, tup in itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), tup_start, None):
 
             # distribute tuples
-            if inc_idx % mpi.global_size != mpi.global_rank:
+            if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
             # recast tup as numpy array
@@ -164,7 +160,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                                         ndets, nelec, inc_tup, exp.order, cas_idx, tup))
 
             # add to inc
-            inc[-1][inc_idx] = inc_tup
+            inc[-1][tup_idx] = inc_tup
 
             # update determinant statistics
             min_ndets = min(min_ndets, ndets)
@@ -172,7 +168,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             sum_ndets += ndets
 
             # write restart files
-            if calc.misc['rst'] and inc_idx > mpi.global_size and inc_idx % calc.misc['rst_freq'] == mpi.global_rank:
+            if calc.misc['rst'] and tup_idx > mpi.global_size and tup_idx % calc.misc['rst_freq'] == mpi.global_rank:
 
                 # reduce increments onto global master
                 if mpi.num_masters > 1:
@@ -191,12 +187,12 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     sum_ndets = 0
 
                 # reduce mbe_idx onto global master
-                mbe_idx = mpi.global_comm.reduce(inc_idx, root=0, op=MPI.MAX)
+                mbe_idx = mpi.global_comm.reduce(tup_idx, root=0, op=MPI.MAX)
 
                 if mpi.global_master:
 
                     # save idx
-                    tools.write_file(exp.order, np.asarray(mbe_idx + 1), 'mbe_idx')
+                    tools.write_file(exp.order, np.asarray(tup_idx + 1), 'mbe_idx')
                     # save increments
                     tools.write_file(exp.order, inc[-1], 'mbe_inc')
                     # save determinant statistics
@@ -211,7 +207,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     time = MPI.Wtime()
 
                     # print status
-                    print(output.mbe_status((inc_idx) / exp.n_tuples[-1]))
+                    print(output.mbe_status((tup_idx) / exp.n_tuples[-1]))
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -387,35 +383,15 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
-            # generate sorted hashes of k-th order subsets of particular tuple
-            hash_sub = np.array([hash(i) for i in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k)], dtype=np.int64)
-            hash_sub.sort()
-
-            # max_count
-            max_count = hash_sub.size
-
-            # counter
-            count = 0
-
             # occupied and virtual expansion spaces
             exp_occ = exp_space[k-min_order][exp_space[k-min_order] < mol.nocc]
             exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
 
-            # generate hashes of all tuples at order k
-            for hash_idx, hash_main in enumerate(tools.hashes(exp_occ, exp_virt, ref_occ, ref_virt, k)):
+            # generate all subtuples at order k
+            for tup_idx, _ in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, k, restrict=tup):
 
-                # index
-                if tools.hash_lookup(hash_sub, hash_main) is not None:
-
-                    # add up lower-order increments
-                    res += inc[k-min_order][hash_idx]
-
-                    # increment counter
-                    count += 1
-
-                # break
-                if count == max_count:
-                    break
+                # add up lower-order increments
+                res += inc[k-min_order][tup_idx]
 
         return res
 

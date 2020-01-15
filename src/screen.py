@@ -54,45 +54,30 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         # init screen array
         screen = np.ones(exp.exp_space[-1].size, dtype=bool)
 
+        # init task_idx
+        task_idx = 0
+
         # loop over orbitals
         for mo_idx, mo in enumerate(exp.exp_space[-1]):
 
-            # generate sorted hashes of restricted tuples
-            hash_restrict = np.array([hash(i) for i in tools.tuples(exp_occ, exp_virt, ref_occ, \
-                                                                    ref_virt, exp.order, restrict=mo)], dtype=np.int64)
-            hash_restrict.sort()
+            # generate all possible tuples that include mo
+            for tup_idx, tup_main in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, include=mo):
 
-            # max_count
-            max_count = hash_restrict.size
+                # increment task_idx
+                task_idx += 1
 
-            # counter
-            count = 0
-
-            # generate hashes of all tuples
-            for hash_idx, hash_main in enumerate(tools.hashes(exp_occ, exp_virt, ref_occ, ref_virt, exp.order)):
-
-                # distribute orbitals
-                if hash_idx % mpi.global_size != mpi.global_rank:
+                # distribute tasks and increment task_idx
+                if (task_idx - 1) % mpi.global_size != mpi.global_rank:
                     continue
 
-                # index
-                if tools.hash_lookup(hash_restrict, hash_main) is not None:
+                # screening procedure
+                if inc.ndim == 1:
+                    screen[mo_idx] &= np.abs(inc[tup_idx]) < calc.thres['inc']
+                else:
+                    screen[mo_idx] &= np.all(np.abs(inc[tup_idx, :]) < calc.thres['inc'])
 
-                    # screening procedure
-                    if inc.ndim == 1:
-                        screen[mo_idx] &= np.abs(inc[hash_idx]) < calc.thres['inc']
-                    else:
-                        screen[mo_idx] &= np.all(np.abs(inc[hash_idx, :]) < calc.thres['inc'])
-
-                    # increment counter
-                    count += 1
-
-                    # no screening
-                    if not screen[mo_idx]:
-                        break
-
-                # break
-                if count == max_count:
+                # no screening of mo
+                if not screen[mo_idx]:
                     break
 
         # allreduce screened orbitals
