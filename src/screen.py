@@ -61,7 +61,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         for mo_idx, mo in enumerate(exp.exp_space[-1]):
 
             # generate all possible tuples that include mo
-            for tup_idx, _ in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, include=mo):
+            for tup_idx, _ in tools.tuples_include(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, mo):
 
                 # increment task_idx
                 task_idx += 1

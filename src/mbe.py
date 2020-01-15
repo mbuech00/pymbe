@@ -131,7 +131,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop until no tuples left
-        for tup_idx, tup in itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), tup_start, None):
+        for tup_idx, tup in itertools.islice(tools.tuples_main(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), tup_start, None):
 
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
@@ -401,7 +401,7 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
             exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
 
             # generate all subtuples at order k
-            for tup_idx, _ in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, k, restrict=tup):
+            for tup_idx, _ in tools.tuples_restricted(exp_occ, exp_virt, ref_occ, ref_virt, k, tup):
 
                 # add up lower-order increments
                 res += inc[k-min_order][tup_idx]

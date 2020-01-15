@@ -144,10 +144,10 @@ def time_str(time: float) -> str:
         return string.format(*form)
 
 
-def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
-            ref_occ: bool, ref_virt: bool, order: int, **kwargs: Dict[str, Any]) -> Generator[Tuple[int, Tuple[int, ...]], None, None]:
+def tuples_main(occ_space: np.ndarray, virt_space: np.ndarray, \
+            ref_occ: bool, ref_virt: bool, order: int) -> Generator[Tuple[int, Tuple[int, ...]], None, None]:
         """
-        this function is a generator for tuples, with or without an MO restriction
+        this function is the main generator for tuples
 
         example:
         >>> nocc = 4
@@ -175,7 +175,6 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
 #
 #        orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
 #                                            mol_parent.symm_orb, mo_coeff_out)
-
         # init counter
         idx = 0
 
@@ -184,13 +183,57 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
             for i in itertools.combinations(occ_space, k):
                 for a in itertools.combinations(virt_space, order - k):
                     tup = i + a
-                    if 'include' in kwargs:
-                        if kwargs['include'] in tup:
-                            yield idx, tup
-                    elif 'restrict' in kwargs:
-                        if set(tup) < set(kwargs['restrict']):
-                            yield idx, tup
-                    else:
+                    yield idx, tup
+                    idx += 1
+
+        # only virtual MOs
+        if ref_occ:
+            for a in itertools.combinations(virt_space, order):
+                tup = a
+                yield idx, tup
+                idx += 1
+
+        # only occupied MOs
+        if ref_virt:
+            for i in itertools.combinations(occ_space, order):
+                tup = i
+                yield idx, tup
+                idx += 1
+
+
+def tuples_include(occ_space: np.ndarray, virt_space: np.ndarray, \
+            ref_occ: bool, ref_virt: bool, order: int, mo: int) -> Generator[Tuple[int, Tuple[int, ...]], None, None]:
+        """
+        this function is a generator for subtuples with an MO restriction
+
+        example:
+        >>> nocc = 4
+        >>> order = 3
+        >>> occup = np.array([2.] * 4 + [0.] * 4)
+        >>> ref_space = np.array([])
+        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+
+        >>> ref_space = np.array([3, 4])
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+
+        >>> order = 2
+        >>> mo = 1
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, restrict=mo)
+
+        """
+        # init counter
+        idx = 0
+
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            for i in itertools.combinations(occ_space, k):
+                for a in itertools.combinations(virt_space, order - k):
+                    tup = i + a
+                    if mo in tup:
                         yield idx, tup
                     idx += 1
 
@@ -198,13 +241,7 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
         if ref_occ:
             for a in itertools.combinations(virt_space, order):
                 tup = a
-                if 'include' in kwargs:
-                    if kwargs['include'] in tup:
-                        yield idx, tup
-                if 'restrict' in kwargs:
-                    if set(tup) < set(kwargs['restrict']):
-                        yield idx, tup
-                else:
+                if mo in tup:
                     yield idx, tup
                 idx += 1
 
@@ -212,13 +249,60 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
         if ref_virt:
             for i in itertools.combinations(occ_space, order):
                 tup = i
-                if 'include' in kwargs:
-                    if kwargs['include'] in tup:
+                if mo in tup:
+                    yield idx, tup
+                idx += 1
+
+
+def tuples_restricted(occ_space: np.ndarray, virt_space: np.ndarray, \
+            ref_occ: bool, ref_virt: bool, order: int, tup_main: np.ndarray) -> Generator[Tuple[int, Tuple[int, ...]], None, None]:
+        """
+        this function is a generator for subtuples, restricted to span a subset of a main tuple
+
+        example:
+        >>> nocc = 4
+        >>> order = 3
+        >>> occup = np.array([2.] * 4 + [0.] * 4)
+        >>> ref_space = np.array([])
+        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+
+        >>> ref_space = np.array([3, 4])
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+
+        >>> order = 2
+        >>> mo = 1
+        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, restrict=mo)
+
+        """
+        # init counter
+        idx = 0
+
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            for i in itertools.combinations(occ_space, k):
+                for a in itertools.combinations(virt_space, order - k):
+                    tup = i + a
+                    if set(tup) < set(tup_main):
                         yield idx, tup
-                if 'restrict' in kwargs:
-                    if set(tup) < set(kwargs['restrict']):
-                        yield idx, tup
-                else:
+                    idx += 1
+
+        # only virtual MOs
+        if ref_occ:
+            for a in itertools.combinations(virt_space, order):
+                tup = a
+                if set(tup) < set(tup_main):
+                    yield idx, tup
+                idx += 1
+
+        # only occupied MOs
+        if ref_virt:
+            for i in itertools.combinations(occ_space, order):
+                tup = i
+                if set(tup) < set(tup_main):
                     yield idx, tup
                 idx += 1
 
