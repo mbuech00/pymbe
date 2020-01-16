@@ -54,20 +54,24 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         # init screen array
         screen = np.ones(exp.exp_space[-1].size, dtype=bool)
 
-        # init task_idx
-        task_idx = 0
+        # init distributions
+        if exp.exp_space[-1].size <= mpi.global_size:
+            dist = np.array_split(np.arange(mpi.global_size), exp.exp_space[-1].size)
+        else:
+            dist = [np.array([mo % mpi.global_size]) for mo in range(exp.exp_space[-1].size)]
 
         # loop over orbitals
         for mo_idx, mo in enumerate(exp.exp_space[-1]):
 
+            # distribute orbitals
+            if mpi.global_rank not in dist[mo_idx]:
+                continue
+
             # generate all possible tuples that include mo
-            for tup_idx in tools.include_idx(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, mo):
+            for task_idx, tup_idx in enumerate(tools.include_idx(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, mo)):
 
-                # increment task_idx
-                task_idx += 1
-
-                # distribute tasks and increment task_idx
-                if (task_idx - 1) % mpi.global_size != mpi.global_rank:
+                # distribute tuples
+                if dist[mo_idx][task_idx % dist[mo_idx].size] != mpi.global_rank:
                     continue
 
                 # screening procedure
