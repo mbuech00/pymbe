@@ -164,7 +164,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if exp.order > exp.min_order:
                 if np.any(inc_tup != 0.):
                     inc_tup -= _sum(mol, calc.occup, calc.target_mbe, exp.min_order, exp.order, \
-                                    inc, exp.exp_space, ref_occ, ref_virt, set(tup), pi_prune=calc.extra['pi_prune'])
+                                    inc, exp.exp_space, ref_occ, ref_virt, \
+                                    np.asarray(tup, dtype=np.int64), pi_prune=calc.extra['pi_prune'])
 
 
             # debug print
@@ -338,7 +339,7 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
 
 def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
             inc: List[np.ndarray], exp_space: List[np.ndarray], ref_occ: bool, ref_virt: bool, \
-            tup: Set[int], pi_prune: bool = False) -> Union[float, np.ndarray]:
+            tup: np.ndarray, pi_prune: bool = False) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
 
@@ -391,14 +392,22 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
         for k in range(order-1, min_order-1, -1):
 
             # occupied and virtual expansion spaces
-            exp_occ = tuple(exp_space[k-min_order][exp_space[k-min_order] < mol.nocc])
-            exp_virt = tuple(exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]])
+            exp_occ = exp_space[k-min_order][exp_space[k-min_order] < mol.nocc]
+            exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
+
+            # n_tasks
+            n_tasks = tools.n_tuples(tup[tup < mol.nocc], tup[mol.nocc <= tup], ref_occ, ref_virt, k)
 
             # generate all subtuples at order k
-            for tup_idx in tools.restricted_idx(exp_occ, exp_virt, ref_occ, ref_virt, k, tup):
+            for task_idx, tup_idx in enumerate(tools.restricted_idx(tuple(exp_occ), tuple(exp_virt), \
+                                                                    ref_occ, ref_virt, k, set(tup))):
 
                 # add up lower-order increments
                 res += inc[k-min_order][tup_idx]
+
+                # break if done
+                if task_idx == n_tasks - 1:
+                    break
 
         return res
 
