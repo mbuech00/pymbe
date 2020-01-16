@@ -229,7 +229,7 @@ def bcast(comm: MPI.Comm, buff: np.ndarray) -> np.ndarray:
         return buff
 
 
-def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0) -> np.ndarray:
+def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0, op: MPI.Op = MPI.SUM) -> np.ndarray:
         """
         this function performs a tiled Reduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
@@ -251,14 +251,14 @@ def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0) -> np.ndarray:
         # reduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
             if rank == root:
-                comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM, root=root)
+                comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=op, root=root)
             else:
-                comm.Reduce(send_tile[p0:p1], None, op=MPI.SUM, root=root)
+                comm.Reduce(send_tile[p0:p1], None, op=op, root=root)
 
         return recv_buff
 
 
-def allreduce(comm: MPI.Comm, send_buff: np.ndarray) -> np.ndarray:
+def allreduce(comm: MPI.Comm, send_buff: np.ndarray, op: MPI.Op = MPI.SUM) -> np.ndarray:
         """
         this function performs a tiled Allreduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
@@ -269,12 +269,6 @@ def allreduce(comm: MPI.Comm, send_buff: np.ndarray) -> np.ndarray:
         # init send_tile and recv_tile
         send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
         recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
-
-        # operation
-        if send_buff.dtype == bool:
-            op = MPI.LAND
-        else:
-            op = MPI.SUM
 
         # allreduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):

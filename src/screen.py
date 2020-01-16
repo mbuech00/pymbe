@@ -81,7 +81,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
                     screen[mo_idx] &= np.all(np.abs(inc[tup_idx, :]) < calc.thres['inc'])
 
         # allreduce screened orbitals
-        tot_screen = parallel.allreduce(mpi.global_comm, screen)
+        tot_screen = parallel.allreduce(mpi.global_comm, screen, op=MPI.LAND)
 
         return np.array([mo for mo in exp.exp_space[-1][tot_screen]], dtype=np.int64)
 

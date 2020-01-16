@@ -188,10 +188,6 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                                                                 calc.prop['hf']['energy'], calc.mo_coeff, \
                                                                 calc.prop['hf']['dipole'], calc.base['method'])
 
-        # mo_coeff not needed anymore
-        if mpi.global_master:
-            del calc.mo_coeff
-
         # bcast properties
         calc = parallel.prop_dist(mpi, calc)
 

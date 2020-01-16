@@ -96,28 +96,28 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # init increment statistics
         if mpi.global_master and rst_mbe:
-            if calc.target_mbe in ['energy', 'excitation']:
-                min_inc: float = exp.min_inc[-1]
-                max_inc: float = exp.max_inc[-1]
-                sum_inc: float = exp.mean_inc[-1]
-            elif calc.target_mbe in ['dipole', 'trans']:
-                min_inc: np.ndarray = exp.min_inc[-1] # type: ignore
-                max_inc: np.ndarray = exp.max_inc[-1] # type: ignore
-                sum_inc: np.ndarray = exp.mean_inc[-1] # type: ignore
+            min_inc = exp.min_inc[-1]
+            max_inc = exp.max_inc[-1]
+            sum_inc = exp.mean_inc[-1]
         else:
-            min_inc = 1.e12
-            max_inc = 0.
-            sum_inc = 0.
+            if calc.target_mbe in ['energy', 'excitation']:
+                min_inc = np.array([1.e12], dtype=np.float64)
+                max_inc = np.array([0.], dtype=np.float64)
+                sum_inc = np.array([0.], dtype=np.float64)
+            elif calc.target_mbe in ['dipole', 'trans']:
+                min_inc = np.array([1.e12] * 3, dtype=np.float64)
+                max_inc = np.array([0.] * 3, dtype=np.float64)
+                sum_inc = np.array([0.] * 3, dtype=np.float64)
 
         # init determinant statistics
         if mpi.global_master and rst_mbe:
-            min_ndets: int = exp.min_ndets[-1]
-            max_ndets: int = exp.max_ndets[-1]
-            sum_ndets: int = exp.mean_ndets[-1]
+            min_ndets = exp.min_ndets[-1]
+            max_ndets = exp.max_ndets[-1]
+            sum_ndets = exp.mean_ndets[-1]
         else:
-            min_ndets = int(1e12)
-            max_ndets = 0
-            sum_ndets = 0
+            min_ndets = np.array([1e12], dtype=np.int64)
+            max_ndets = np.array([0], dtype=np.int64)
+            sum_ndets = np.array([0], dtype=np.int64)
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -177,13 +177,13 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             inc[-1][tup_idx] = inc_tup
 
             # update increment statistics
-            min_inc = min(min_inc, np.abs(inc_tup))
-            max_inc = max(max_inc, np.abs(inc_tup))
+            min_inc = np.minimum(min_inc, np.abs(inc_tup))
+            max_inc = np.maximum(max_inc, np.abs(inc_tup))
             sum_inc += inc_tup
 
             # update determinant statistics
-            min_ndets = min(min_ndets, ndets_tup)
-            max_ndets = max(max_ndets, ndets_tup)
+            min_ndets = np.minimum(min_ndets, ndets_tup)
+            max_ndets = np.maximum(max_ndets, ndets_tup)
             sum_ndets += ndets_tup
 
             # write restart files
@@ -197,18 +197,18 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                         inc[-1][:] = np.zeros_like(inc[-1])
 
                 # reduce increment statistics onto global master
-                min_inc = mpi.global_comm.reduce(min_inc, root=0, op=MPI.MIN)
-                max_inc = mpi.global_comm.reduce(max_inc, root=0, op=MPI.MAX)
-                sum_inc = mpi.global_comm.reduce(sum_inc, root=0, op=MPI.SUM)
+                min_inc = parallel.reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
+                max_inc = parallel.reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
+                sum_inc = parallel.reduce(mpi.global_comm, sum_inc, root=0, op=MPI.SUM)
                 if not mpi.global_master:
                     min_inc = 1.e12
                     max_inc = 0.
                     sum_inc = 0.
 
                 # reduce determinant statistics onto global master
-                min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
-                max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
-                sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
+                min_ndets = parallel.reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
+                max_ndets = parallel.reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
+                sum_ndets = parallel.reduce(mpi.global_comm, sum_ndets, root=0, op=MPI.SUM)
                 if not mpi.global_master:
                     min_ndets = int(1e12)
                     max_ndets = 0
@@ -249,14 +249,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             print(output.mbe_status(1.))
 
         # increment statistics
-        min_inc = mpi.global_comm.reduce(min_inc, root=0, op=MPI.MIN)
-        max_inc = mpi.global_comm.reduce(max_inc, root=0, op=MPI.MAX)
-        sum_inc = mpi.global_comm.reduce(sum_inc, root=0, op=MPI.SUM)
+        min_inc = parallel.reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
+        max_inc = parallel.reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
+        sum_inc = parallel.reduce(mpi.global_comm, sum_inc, root=0, op=MPI.SUM)
 
         # determinant statistics
-        min_ndets = mpi.global_comm.reduce(min_ndets, root=0, op=MPI.MIN)
-        max_ndets = mpi.global_comm.reduce(max_ndets, root=0, op=MPI.MAX)
-        sum_ndets = mpi.global_comm.reduce(sum_ndets, root=0, op=MPI.SUM)
+        min_ndets = parallel.reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
+        max_ndets = parallel.reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
+        sum_ndets = parallel.reduce(mpi.global_comm, sum_ndets, root=0, op=MPI.SUM)
 
         # mean increment
         if mpi.global_master:
@@ -264,7 +264,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # mean number of determinants
         if mpi.global_master:
-            mean_ndets = round(sum_ndets / exp.n_tuples[-1])
+            mean_ndets = np.asarray(np.rint(sum_ndets / exp.n_tuples[-1]), dtype=np.int64)
 
         # allreduce increments among local masters
         if mpi.local_master:

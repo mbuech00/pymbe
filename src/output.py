@@ -140,8 +140,8 @@ def mbe_end(order: int, time: float) -> str:
 
 def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_order: int, \
                 order: int, prop_tot: List[Union[float, np.ndarray]], \
-                mean_inc: Union[float, np.ndarray], min_inc: Union[float, np.ndarray], \
-                max_inc: Union[float, np.ndarray], mean_ndets: float, min_ndets: float, max_ndets: float) -> str:
+                mean_inc: np.ndarray, min_inc: np.ndarray, max_inc: np.ndarray, \
+                mean_ndets: np.ndarray, min_ndets: np.ndarray, max_ndets: np.ndarray) -> str:
         """
         this function prints mbe results statistics
         """
@@ -189,7 +189,7 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_o
             string += DIVIDER+'\n'
             string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 
-            form: Tuple[Any, ...] = (header, mean_inc, min_inc, max_inc)
+            form: Tuple[Any, ...] = (header, mean_inc[0], min_inc[0], max_inc[0])
 
         elif target in ['dipole', 'trans']:
 
@@ -218,7 +218,7 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_o
         string += DIVIDER+'\n'
         string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
         string += DIVIDER+'\n'
-        form += (mean_ndets, min_ndets, max_ndets)
+        form += (mean_ndets[0], min_ndets[0], max_ndets[0])
 
         if order < max_order:
             string += FILL
