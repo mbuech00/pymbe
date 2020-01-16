@@ -48,6 +48,16 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             msg = {'task': 'mbe', 'order': exp.order, 'rst_mbe': rst_mbe, 'tup_start': tup_start}
             mpi.global_comm.bcast(msg, root=0)
 
+        # increment dimensions
+        if calc.target_mbe in ['energy', 'excitation']:
+            dim = 1
+        elif calc.target_mbe in ['dipole', 'trans']:
+            dim = 3
+
+        # increment shape
+        def shape(n, dim):
+            return (n,) if dim == 1 else (n, dim)
+
         # load eri
         buf = mol.eri.Shared_query(0)[0]
         eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
@@ -64,27 +74,15 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         inc = []
         for k in range(exp.order-exp.min_order):
             buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
-            if calc.target_mbe in ['energy', 'excitation']:
-                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[k],)))
-            elif calc.target_mbe in ['dipole', 'trans']:
-                inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[k], 3)))
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[k], dim)))
 
         # init increments for present order
         if rst_mbe:
             inc_win = exp.prop[calc.target_mbe]['inc'][-1]
         else:
-            if mpi.local_master:
-                if calc.target_mbe in ['energy', 'excitation']:
-                    inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1], 8, comm=mpi.local_comm)
-                elif calc.target_mbe in ['dipole', 'trans']:
-                    inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1] * 3, 8, comm=mpi.local_comm)
-            else:
-                inc_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1] * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
         buf = inc_win.Shared_query(0)[0] # type: ignore
-        if calc.target_mbe in ['energy', 'excitation']:
-            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1],)))
-        elif calc.target_mbe in ['dipole', 'trans']:
-            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1], 3)))
+        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[-1], dim)))
         if mpi.local_master and not rst_mbe:
             inc[-1][:] = np.zeros_like(inc[-1])
 
@@ -95,29 +93,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             time = MPI.Wtime()
 
         # init increment statistics
-        if mpi.global_master and rst_mbe:
-            min_inc = exp.min_inc[-1]
-            max_inc = exp.max_inc[-1]
-            sum_inc = exp.mean_inc[-1]
-        else:
-            if calc.target_mbe in ['energy', 'excitation']:
-                min_inc = np.array([1.e12], dtype=np.float64)
-                max_inc = np.array([0.], dtype=np.float64)
-                sum_inc = np.array([0.], dtype=np.float64)
-            elif calc.target_mbe in ['dipole', 'trans']:
-                min_inc = np.array([1.e12] * 3, dtype=np.float64)
-                max_inc = np.array([0.] * 3, dtype=np.float64)
-                sum_inc = np.array([0.] * 3, dtype=np.float64)
+        min_inc = exp.min_inc[-1] if mpi.global_master and rst_mbe else np.array([1.e12] * dim, dtype=np.float64)
+        max_inc = exp.max_inc[-1] if mpi.global_master and rst_mbe else np.array([0.] * dim, dtype=np.float64)
+        sum_inc = exp.mean_inc[-1] if mpi.global_master and rst_mbe else np.array([0.] * dim, dtype=np.float64)
 
         # init determinant statistics
-        if mpi.global_master and rst_mbe:
-            min_ndets = exp.min_ndets[-1]
-            max_ndets = exp.max_ndets[-1]
-            sum_ndets = exp.mean_ndets[-1]
-        else:
-            min_ndets = np.array([1e12], dtype=np.int64)
-            max_ndets = np.array([0], dtype=np.int64)
-            sum_ndets = np.array([0], dtype=np.int64)
+        min_ndets = exp.min_ndets[-1] if mpi.global_master and rst_mbe else np.array([1e12], dtype=np.int64)
+        max_ndets = exp.max_ndets[-1] if mpi.global_master and rst_mbe else np.array([0], dtype=np.int64)
+        sum_ndets = exp.mean_ndets[-1] if mpi.global_master and rst_mbe else np.array([0], dtype=np.int64)
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -191,7 +174,6 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # reduce increments onto global master
                 if mpi.num_masters > 1:
-
                     inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0)
                     if not mpi.global_master:
                         inc[-1][:] = np.zeros_like(inc[-1])
@@ -201,24 +183,20 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 max_inc = parallel.reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
                 sum_inc = parallel.reduce(mpi.global_comm, sum_inc, root=0, op=MPI.SUM)
                 if not mpi.global_master:
-                    min_inc = 1.e12
-                    max_inc = 0.
-                    sum_inc = 0.
+                    min_inc, max_inc, sum_inc = 1.e12, 0., 0.
 
                 # reduce determinant statistics onto global master
                 min_ndets = parallel.reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
                 max_ndets = parallel.reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
                 sum_ndets = parallel.reduce(mpi.global_comm, sum_ndets, root=0, op=MPI.SUM)
                 if not mpi.global_master:
-                    min_ndets = int(1e12)
-                    max_ndets = 0
-                    sum_ndets = 0
+                    min_ndets, max_ndets, sum_ndets = int(1e12), 0, 0
 
                 # reduce mbe_idx onto global master
                 mbe_idx = mpi.global_comm.reduce(tup_idx, root=0, op=MPI.MAX)
 
+                # write restart files
                 if mpi.global_master:
-
                     # save idx
                     tools.write_file(exp.order, np.asarray(tup_idx + 1), 'mbe_idx')
                     # save increments
@@ -276,8 +254,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         # collect results on global master
         if mpi.global_master:
 
+            # write restart files
             if calc.misc['rst']:
-
                 # save idx
                 tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]-1), 'mbe_idx')
                 # save increments

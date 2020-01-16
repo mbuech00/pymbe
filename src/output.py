@@ -148,14 +148,11 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_o
         # calculate total inc
         tot_inc: float = 0.
         if target in ['energy', 'excitation']:
-
             if order == min_order:
                 tot_inc += prop_tot[order-min_order]
             else:
                 tot_inc += prop_tot[order-min_order] - prop_tot[order-min_order-1]
-
         elif target in ['dipole', 'trans']:
-
             if order == min_order:
                 tot_inc += np.linalg.norm(prop_tot[order-min_order])
             else:
@@ -189,7 +186,7 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_o
             string += DIVIDER+'\n'
             string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 
-            form: Tuple[Any, ...] = (header, mean_inc[0], min_inc[0], max_inc[0])
+            form: Tuple[Any, ...] = (header, np.asscalar(mean_inc), np.asscalar(min_inc), np.asscalar(max_inc))
 
         elif target in ['dipole', 'trans']:
 
@@ -218,7 +215,7 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_o
         string += DIVIDER+'\n'
         string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
         string += DIVIDER+'\n'
-        form += (mean_ndets[0], min_ndets[0], max_ndets[0])
+        form += (np.asscalar(mean_ndets), np.asscalar(min_ndets), np.asscalar(max_ndets))
 
         if order < max_order:
             string += FILL
