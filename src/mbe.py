@@ -18,7 +18,7 @@ import functools
 import sys
 import itertools
 from pyscf import gto
-from typing import Tuple, List, Dict, Union, Any
+from typing import Tuple, Set, List, Dict, Union, Any
 
 import kernel
 import output
@@ -123,8 +123,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         mpi.global_comm.Barrier()
 
         # occupied and virtual expansion spaces
-        exp_occ = exp.exp_space[-1][exp.exp_space[-1] < mol.nocc]
-        exp_virt = exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]]
+        exp_occ = tuple(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc])
+        exp_virt = tuple(exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]])
 
         # allow for tuples with only virtual or occupied MOs
         ref_occ = tools.occ_prune(calc.occup, calc.ref_space)
@@ -138,11 +138,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
-            # recast tup as numpy array
-            tup_arr = np.asarray(tup, dtype=np.int64)
-
             # get core and cas indices
-            core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup_arr)
+            core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, np.asarray(tup, dtype=np.int64))
 
             # get h2e indices
             cas_idx_tril = tools.cas_idx_tril(cas_idx)
@@ -167,7 +164,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if exp.order > exp.min_order:
                 if np.any(inc_tup != 0.):
                     inc_tup -= _sum(mol, calc.occup, calc.target_mbe, exp.min_order, exp.order, \
-                                    inc, exp.exp_space, ref_occ, ref_virt, tup_arr, pi_prune=calc.extra['pi_prune'])
+                                    inc, exp.exp_space, ref_occ, ref_virt, set(tup), pi_prune=calc.extra['pi_prune'])
 
 
             # debug print
@@ -341,7 +338,7 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
 
 def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
             inc: List[np.ndarray], exp_space: List[np.ndarray], ref_occ: bool, ref_virt: bool, \
-            tup: np.ndarray, pi_prune: bool = False) -> Union[float, np.ndarray]:
+            tup: Set[int], pi_prune: bool = False) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
 
@@ -394,8 +391,8 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
         for k in range(order-1, min_order-1, -1):
 
             # occupied and virtual expansion spaces
-            exp_occ = exp_space[k-min_order][exp_space[k-min_order] < mol.nocc]
-            exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
+            exp_occ = tuple(exp_space[k-min_order][exp_space[k-min_order] < mol.nocc])
+            exp_virt = tuple(exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]])
 
             # generate all subtuples at order k
             for tup_idx in tools.restricted_idx(exp_occ, exp_virt, ref_occ, ref_virt, k, tup):

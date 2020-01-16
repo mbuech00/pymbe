@@ -23,7 +23,7 @@ import scipy.special
 import functools
 import itertools
 import math
-from typing import Tuple, List, Dict, Any, Generator, Union
+from typing import Tuple, Set, List, Dict, Any, Generator, Union
 
 # restart folder
 RST = os.getcwd()+'/rst'
@@ -144,7 +144,7 @@ def time_str(time: float) -> str:
         return string.format(*form)
 
 
-def tuples_main(occ_space: np.ndarray, virt_space: np.ndarray, \
+def tuples_main(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
             ref_occ: bool, ref_virt: bool, order: int) -> Generator[Tuple[int, ...], None, None]:
         """
         this function is the main generator for tuples
@@ -192,10 +192,10 @@ def tuples_main(occ_space: np.ndarray, virt_space: np.ndarray, \
                 yield tup
 
 
-def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
+def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
             ref_occ: bool, ref_virt: bool, order: int, mo: int) -> Generator[int, None, None]:
         """
-        this function is a generator for indices of subtuples with an MO restriction
+        this function is a generator for indices of subtuples, all with an MO restriction
 
         example:
         """
@@ -211,7 +211,7 @@ def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
                             yield idx
                             idx += 1
                     else:
-                        idx += int(scipy.special.binom(occ_space.size, order - k))
+                        idx += int(scipy.special.binom(len(occ_space), order - k))
             else:
                 for tup_1 in itertools.combinations(virt_space, k):
                     for tup_2 in itertools.combinations(occ_space, order - k):
@@ -234,10 +234,10 @@ def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
                 idx += 1
 
 
-def restricted_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
-            ref_occ: bool, ref_virt: bool, order: int, tup_main: np.ndarray) -> Generator[int, None, None]:
+def restricted_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
+            ref_occ: bool, ref_virt: bool, order: int, tup_main: Set[int]) -> Generator[int, None, None]:
         """
-        this function is a generator for subtuples, restricted to span a subset of a main tuple
+        this function is a generator for indices of subtuples, all restricted to span a subset of a main tuple
 
         example:
         """
@@ -247,25 +247,25 @@ def restricted_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             for tup_1 in itertools.combinations(virt_space, k):
-                if set(tup_1) < set(tup_main):
+                if set(tup_1) < tup_main:
                     for tup_2 in itertools.combinations(occ_space, order - k):
-                        if set(tup_2) < set(tup_main):
+                        if set(tup_2) < tup_main:
                             yield idx
                         idx += 1
                 else:
-                    idx += int(scipy.special.binom(occ_space.size, order - k))
+                    idx += int(scipy.special.binom(len(occ_space), order - k))
 
         # only virtual MOs
         if ref_occ and not ref_virt:
             for tup in itertools.combinations(virt_space, order):
-                if set(tup) < set(tup_main):
+                if set(tup) < tup_main:
                     yield idx
                 idx += 1
 
         # only occupied MOs
         if ref_virt and not ref_occ:
             for tup in itertools.combinations(occ_space, order):
-                if set(tup) < set(tup_main):
+                if set(tup) < tup_main:
                     yield idx
                 idx += 1
 

@@ -44,8 +44,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         mpi.local_comm.barrier()
 
         # occupied and virtual expansion spaces
-        exp_occ = exp.exp_space[-1][exp.exp_space[-1] < mol.nocc]
-        exp_virt = exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]]
+        exp_occ = tuple(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc])
+        exp_virt = tuple(exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]])
 
         # allow for tuples with only virtual or occupied MOs
         ref_occ = tools.occ_prune(calc.occup, calc.ref_space)
