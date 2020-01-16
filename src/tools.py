@@ -198,23 +198,6 @@ def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
         this function is a generator for indices of subtuples with an MO restriction
 
         example:
-        >>> nocc = 4
-        >>> order = 3
-        >>> occup = np.array([2.] * 4 + [0.] * 4)
-        >>> ref_space = np.array([])
-        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
-
-        >>> ref_space = np.array([3, 4])
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
-
-        >>> order = 2
-        >>> mo = 1
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, restrict=mo)
-
         """
         # init counter
         idx = 0
@@ -257,23 +240,6 @@ def restricted_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
         this function is a generator for subtuples, restricted to span a subset of a main tuple
 
         example:
-        >>> nocc = 4
-        >>> order = 3
-        >>> occup = np.array([2.] * 4 + [0.] * 4)
-        >>> ref_space = np.array([])
-        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
-
-        >>> ref_space = np.array([3, 4])
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
-
-        >>> order = 2
-        >>> mo = 1
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, restrict=mo)
-
         """
         # init counter
         idx = 0
