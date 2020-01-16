@@ -182,12 +182,12 @@ def tuples_main(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
                     yield tup_1 + tup_2
 
         # only virtual MOs
-        if ref_occ and not ref_virt:
+        if ref_occ:
             for tup in itertools.combinations(virt_space, order):
                 yield tup
 
         # only occupied MOs
-        if ref_virt and not ref_occ:
+        if ref_virt:
             for tup in itertools.combinations(occ_space, order):
                 yield tup
 
@@ -220,14 +220,14 @@ def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
                         idx += 1
 
         # only virtual MOs
-        if ref_occ and not ref_virt:
+        if ref_occ:
             for tup in itertools.combinations(virt_space, order):
                 if mo in tup:
                     yield idx
                 idx += 1
 
         # only occupied MOs
-        if ref_virt and not ref_occ:
+        if ref_virt:
             for tup in itertools.combinations(occ_space, order):
                 if mo in tup:
                     yield idx
@@ -256,14 +256,14 @@ def restricted_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
                     idx += int(scipy.special.binom(len(virt_space), order - k))
 
         # only virtual MOs
-        if ref_occ and not ref_virt:
+        if ref_occ:
             for tup in itertools.combinations(virt_space, order):
                 if set(tup) < tup_main:
                     yield idx
                 idx += 1
 
         # only occupied MOs
-        if ref_virt and not ref_occ:
+        if ref_virt:
             for tup in itertools.combinations(occ_space, order):
                 if set(tup) < tup_main:
                     yield idx
@@ -296,11 +296,11 @@ def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
             n += scipy.special.binom(occ_space.size, k) * scipy.special.binom(virt_space.size, order - k)
 
         # only virtual MOs
-        if ref_occ and not ref_virt:
+        if ref_occ:
             n += scipy.special.binom(virt_space.size, order)
 
         # only occupied MOs
-        if ref_virt and not ref_occ:
+        if ref_virt:
             n += scipy.special.binom(occ_space.size, order)
 
         return int(n)
