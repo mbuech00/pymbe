@@ -370,7 +370,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         if calc.target_mbe == 'energy':
             hf_prop = calc.prop['hf']['energy']
             base_prop = calc.prop['hf']['energy']+calc.prop['base']['energy']
-            mbe_tot_prop = _energy(calc, exp)[-1]
+            mbe_tot_prop = np.asscalar(_energy(calc, exp)[-1])
         elif calc.target_mbe == 'dipole':
             dipole, nuc_dipole = _dipole(mol, calc, exp)
             hf_prop = np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole'])
@@ -379,7 +379,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         elif calc.target_mbe == 'excitation':
             hf_prop = 0.
             base_prop = 0.
-            mbe_tot_prop = _excitation(calc, exp)[-1]
+            mbe_tot_prop = np.asscalar(_excitation(calc, exp)[-1])
         else:
             hf_prop = 0.
             base_prop = 0.
@@ -514,8 +514,8 @@ def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
             form += ('',j, \
-                        '','|','',energy[i], \
-                        '','|','',energy[i] - calc.prop['hf']['energy'],)
+                        '','|','',np.asscalar(energy[i]), \
+                        '','|','',np.asscalar(energy[i]) - calc.prop['hf']['energy'],)
 
         string += DIVIDER[:66]+'\n'
 
@@ -586,7 +586,7 @@ def _excitation_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:7}{:>.5e}\n'
-            form += ('',j,'','|','',excitation[i],)
+            form += ('',j,'','|','',np.asscalar(excitation[i]),)
 
         string += DIVIDER[:43]+'\n'
 

@@ -162,10 +162,10 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_o
         header: str = ''
         if target == 'energy':
             header += 'energy for root {:} (total increment = {:.4e})'. \
-                        format(root, tot_inc)
+                        format(root, np.asscalar(tot_inc))
         elif target == 'excitation':
             header += 'excitation energy for root {:} (total increment = {:.4e})'. \
-                        format(root, tot_inc)
+                        format(root, np.asscalar(tot_inc))
         elif target == 'dipole':
             header += 'dipole moment for root {:} (total increment = {:.4e})'. \
                         format(root, tot_inc)
