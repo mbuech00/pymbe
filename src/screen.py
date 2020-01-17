@@ -33,6 +33,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
             msg = {'task': 'screen', 'order': exp.order}
             mpi.global_comm.bcast(msg, root=0)
 
+        # do not screen at order k = 1
+        if exp.order == 1:
+            return np.array([mo for mo in exp.exp_space[-1]], dtype=np.int64)
+
         # load increments for current order
         buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
         if calc.target_mbe in ['energy', 'excitation']:
