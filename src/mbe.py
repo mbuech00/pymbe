@@ -376,16 +376,13 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
             # n_tasks
             n_tasks = tools.n_tuples(tup[tup < mol.nocc], tup[mol.nocc <= tup], ref_occ, ref_virt, k)
 
-            # generate all subtuples at order k
-            for task_idx, tup_idx in enumerate(tools.restricted_idx(tuple(exp_occ), tuple(exp_virt), \
-                                                                    ref_occ, ref_virt, k, set(tup))):
+            # indices of all subtuples at order k
+            idx = np.fromiter(tools.restricted_idx(tuple(exp_occ), tuple(exp_virt), \
+                                                   ref_occ, ref_virt, k, set(tup)), \
+                              dtype=np.int64, count=n_tasks)
 
-                # add up lower-order increments
-                res += inc[k-min_order][tup_idx]
-
-                # break if done
-                if task_idx == n_tasks - 1:
-                    break
+            # sum up increments
+            res += tools.fsum(inc[k-min_order][idx])
 
         return res
 
