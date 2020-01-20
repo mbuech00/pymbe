@@ -264,7 +264,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
 
                 # read total properties
                 if 'mbe_tot' in files[i]:
-                    exp.prop[calc.target_mbe]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+                    exp.prop[calc.target_mbe]['tot'].append(np.load(os.path.join(RST, files[i])))
 
                 # read ndets statistics
                 elif 'mbe_mean_ndets' in files[i]:

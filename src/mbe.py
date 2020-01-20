@@ -114,15 +114,15 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop until no tuples left
-        for tup_idx, tup in enumerate(itertools.islice(tools.tuples_main(exp_occ, exp_virt, ref_occ, \
-                                                                         ref_virt, exp.order), tup_start, None), tup_start):
+        for tup_idx, tup in itertools.islice(tools.tuples_main(exp_occ, exp_virt, ref_occ, \
+                                                               ref_virt, exp.order), tup_start, None):
 
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
             # get core and cas indices
-            core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, np.asarray(tup, dtype=np.int64))
+            core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
 
             # get h2e indices
             cas_idx_tril = tools.cas_idx_tril(cas_idx)
@@ -145,10 +145,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # calculate increment
             if exp.order > exp.min_order:
-                if np.any(inc_tup != 0.):
-                    inc_tup -= _sum(mol, calc.occup, calc.target_mbe, exp.min_order, exp.order, \
-                                    inc, exp.exp_space, ref_occ, ref_virt, \
-                                    np.asarray(tup, dtype=np.int64), pi_prune=calc.extra['pi_prune'])
+                inc_tup -= _sum(mol, calc.occup, calc.target_mbe, exp.min_order, exp.order, \
+                                inc, exp.exp_space, ref_occ, ref_virt, tup, pi_prune=calc.extra['pi_prune'])
 
 
             # debug print
@@ -173,8 +171,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if calc.misc['rst'] and tup_idx > mpi.global_size and tup_idx % calc.misc['rst_freq'] == mpi.global_rank:
 
                 # reduce increments onto global master
-                if mpi.num_masters > 1:
-                    inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0)
+                if mpi.num_masters > 1 and mpi.local_master:
+                    inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0, op=MPI.SUM)
                     if not mpi.global_master:
                         inc[-1][:] = np.zeros_like(inc[-1])
 
@@ -183,14 +181,18 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 max_inc = parallel.reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
                 sum_inc = parallel.reduce(mpi.global_comm, sum_inc, root=0, op=MPI.SUM)
                 if not mpi.global_master:
-                    min_inc, max_inc, sum_inc = 1.e12, 0., 0.
+                    min_inc = np.array([1.e12] * dim, dtype=np.float64)
+                    max_inc = np.array([0.] * dim, dtype=np.float64)
+                    sum_inc = np.array([0.] * dim, dtype=np.float64)
 
                 # reduce determinant statistics onto global master
                 min_ndets = parallel.reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
                 max_ndets = parallel.reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
                 sum_ndets = parallel.reduce(mpi.global_comm, sum_ndets, root=0, op=MPI.SUM)
                 if not mpi.global_master:
-                    min_ndets, max_ndets, sum_ndets = int(1e12), 0, 0
+                    min_ndets = np.array([1e12], dtype=np.int64)
+                    max_ndets = np.array([0], dtype=np.int64)
+                    sum_ndets = np.array([0], dtype=np.int64)
 
                 # reduce mbe_idx onto global master
                 mbe_idx = mpi.global_comm.reduce(tup_idx, root=0, op=MPI.MAX)
@@ -198,17 +200,17 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 # write restart files
                 if mpi.global_master:
                     # save idx
-                    tools.write_file(exp.order, np.asarray(tup_idx + 1), 'mbe_idx')
+                    tools.write_file(exp.order, np.asarray(mbe_idx + 1), 'mbe_idx')
                     # save increments
                     tools.write_file(exp.order, inc[-1], 'mbe_inc')
                     # save increment statistics
-                    tools.write_file(exp.order, np.asarray(max_inc, dtype=np.float64), 'mbe_max_inc')
-                    tools.write_file(exp.order, np.asarray(min_inc, dtype=np.float64), 'mbe_min_inc')
-                    tools.write_file(exp.order, np.asarray(sum_inc, dtype=np.float64), 'mbe_mean_inc')
+                    tools.write_file(exp.order, max_inc, 'mbe_max_inc')
+                    tools.write_file(exp.order, min_inc, 'mbe_min_inc')
+                    tools.write_file(exp.order, sum_inc, 'mbe_mean_inc')
                     # save determinant statistics
-                    tools.write_file(exp.order, np.asarray(max_ndets, dtype=np.int64), 'mbe_max_ndets')
-                    tools.write_file(exp.order, np.asarray(min_ndets, dtype=np.int64), 'mbe_min_ndets')
-                    tools.write_file(exp.order, np.asarray(sum_ndets, dtype=np.int64), 'mbe_mean_ndets')
+                    tools.write_file(exp.order, max_ndets, 'mbe_max_ndets')
+                    tools.write_file(exp.order, min_ndets, 'mbe_min_ndets')
+                    tools.write_file(exp.order, sum_ndets, 'mbe_mean_ndets')
                     # save timing
                     exp.time['mbe'][-1] += MPI.Wtime() - time
                     tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
@@ -217,7 +219,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     time = MPI.Wtime()
 
                     # print status
-                    print(output.mbe_status((tup_idx) / exp.n_tuples[-1]))
+                    print(output.mbe_status(tup_idx / exp.n_tuples[-1]))
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -246,7 +248,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # allreduce increments among local masters
         if mpi.local_master:
-            inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1])
+            inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1], op=MPI.SUM)
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -366,6 +368,10 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
         else:
             res = np.zeros(3, dtype=np.float64)
 
+        # occupied and virtual subspaces of tuple
+        tup_occ = tup[tup < mol.nocc]
+        tup_virt = tup[mol.nocc <= tup]
+
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
@@ -374,7 +380,7 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
             exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
 
             # n_tasks
-            n_tasks = tools.n_tuples(tup[tup < mol.nocc], tup[mol.nocc <= tup], ref_occ, ref_virt, k)
+            n_tasks = tools.n_tuples(tup_occ, tup_virt, ref_occ, ref_virt, k)
 
             # indices of all subtuples at order k
             idx = np.fromiter(tools.restricted_idx(tuple(exp_occ), tuple(exp_virt), ref_occ, ref_virt, k, set(tup)), \

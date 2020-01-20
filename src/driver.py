@@ -95,10 +95,10 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # write restart files
             if calc.misc['rst']:
-                tools.write_file(exp.order, exp.prop[calc.target_mbe]['tot'][-1], 'mbe_tot')
-                tools.write_file(exp.order, np.asarray(exp.mean_ndets[-1]), 'mbe_mean_ndets')
-                tools.write_file(exp.order, np.asarray(exp.max_ndets[-1]), 'mbe_max_ndets')
-                tools.write_file(exp.order, np.asarray(exp.min_ndets[-1]), 'mbe_min_ndets')
+                tools.write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
+                tools.write_file(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
+                tools.write_file(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
+                tools.write_file(exp.order, exp.min_ndets[-1], 'mbe_min_ndets')
                 tools.write_file(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
                 tools.write_file(exp.order, exp.max_inc[-1], 'mbe_max_inc')
                 tools.write_file(exp.order, exp.min_inc[-1], 'mbe_min_inc')

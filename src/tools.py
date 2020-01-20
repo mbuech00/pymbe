@@ -24,6 +24,7 @@ import functools
 import itertools
 import math
 from typing import Tuple, Set, List, Dict, Any, Generator, Union
+from numba import njit
 
 # restart folder
 RST = os.getcwd()+'/rst'
@@ -163,7 +164,7 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
 
 
 def tuples_main(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
-                ref_occ: bool, ref_virt: bool, order: int) -> Generator[Tuple[int, ...], None, None]:
+                ref_occ: bool, ref_virt: bool, order: int) -> Generator[Tuple[int, np.ndarray], None, None]:
         """
         this function is the main generator for tuples
 
@@ -193,21 +194,27 @@ def tuples_main(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
 #
 #        orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
 #                                            mol_parent.symm_orb, mo_coeff_out)
+        # init counter
+        idx = 0
+
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             for tup_1 in itertools.combinations(occ_space, k):
                 for tup_2 in itertools.combinations(virt_space, order - k):
-                    yield tup_1 + tup_2
+                    yield idx, np.array(tup_1 + tup_2, dtype=np.int64)
+                    idx += 1
 
         # only virtual MOs
         if ref_occ:
             for tup in itertools.combinations(virt_space, order):
-                yield tup
+                yield idx, np.array(tup, dtype=np.int64)
+                idx += 1
 
         # only occupied MOs
         if ref_virt:
             for tup in itertools.combinations(occ_space, order):
-                yield tup
+                yield idx, np.array(tup, dtype=np.int64)
+                idx += 1
 
 
 def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
