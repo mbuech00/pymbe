@@ -164,7 +164,7 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
 
 
 def tuples_main(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
-                ref_occ: bool, ref_virt: bool, order: int) -> Generator[Tuple[int, np.ndarray], None, None]:
+                ref_occ: bool, ref_virt: bool, order: int) -> Generator[np.ndarray, None, None]:
         """
         this function is the main generator for tuples
 
@@ -194,27 +194,21 @@ def tuples_main(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
 #
 #        orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
 #                                            mol_parent.symm_orb, mo_coeff_out)
-        # init counter
-        idx = 0
-
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             for tup_1 in itertools.combinations(occ_space, k):
                 for tup_2 in itertools.combinations(virt_space, order - k):
-                    yield idx, np.array(tup_1 + tup_2, dtype=np.int64)
-                    idx += 1
+                    yield np.array(tup_1 + tup_2, dtype=np.int64)
 
         # only virtual MOs
         if ref_occ:
             for tup in itertools.combinations(virt_space, order):
-                yield idx, np.array(tup, dtype=np.int64)
-                idx += 1
+                yield np.array(tup, dtype=np.int64)
 
         # only occupied MOs
         if ref_virt:
             for tup in itertools.combinations(occ_space, order):
-                yield idx, np.array(tup, dtype=np.int64)
-                idx += 1
+                yield np.array(tup, dtype=np.int64)
 
 
 def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
@@ -259,40 +253,42 @@ def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
                 idx += 1
 
 
-def restricted_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
-                   ref_occ: bool, ref_virt: bool, order: int, tup_main: Set[int]) -> Generator[int, None, None]:
+def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
+                    tup_occ: np.ndarray, tup_virt: np.ndarray) -> int:
         """
-        this function is a generator for indices of subtuples, all restricted to span a subset of a main tuple
+        this function return the index of a given subtuple, restricted to span a subset of a main tuple
 
         example:
         """
         # init counter
-        idx = 0
+        idx = 0.
 
-        # combinations of occupied and virtual MOs
-        for k in range(1, order):
-            for tup_1 in itertools.combinations(occ_space, k):
-                if set(tup_1) < tup_main:
-                    for tup_2 in itertools.combinations(virt_space, order - k):
-                        if set(tup_2) < tup_main:
-                            yield idx
-                        idx += 1
-                else:
-                    idx += int(scipy.special.binom(len(virt_space), order - k))
+        if tup_occ.size > 0:
+            if tup_virt.size == 0:
+                idx += _sub_idx(exp_occ, tup_occ)
+            else:
+                idx += np.sum(np.fromiter((scipy.special.binom(exp_occ.size, k) * \
+                                           scipy.special.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - k) for k in range(1, tup_occ.size)), \
+                                          dtype=np.float64, count=tup_occ.size - 1))
+                idx += _sub_idx(exp_occ, tup_occ) * scipy.special.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - tup_occ.size)
 
-        # only virtual MOs
-        if ref_occ:
-            for tup in itertools.combinations(virt_space, order):
-                if set(tup) < tup_main:
-                    yield idx
-                idx += 1
+        if tup_virt.size > 0:
+            idx += _sub_idx(exp_virt, tup_virt)
 
-        # only occupied MOs
-        if ref_virt:
-            for tup in itertools.combinations(occ_space, order):
-                if set(tup) < tup_main:
-                    yield idx
-                idx += 1
+        return int(idx)
+
+
+def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
+        order = tup.size
+        idx = _idx(space, tup[0], tup.size)
+        idx += np.sum(np.fromiter((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)), \
+                                  dtype=np.float64, count=tup.size-1))
+        return idx
+
+
+def _idx(space: np.ndarray, idx: int, order: int) -> float:
+        return np.sum(np.fromiter((scipy.special.binom(space[i < space].size, (order - 1)) for i in range(space[0], idx)), \
+                                  dtype=np.float64, count=idx - space[0]))
 
 
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \

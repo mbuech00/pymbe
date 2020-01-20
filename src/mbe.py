@@ -114,8 +114,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop until no tuples left
-        for tup_idx, tup in itertools.islice(tools.tuples_main(exp_occ, exp_virt, ref_occ, \
-                                                               ref_virt, exp.order), tup_start, None):
+        for tup_idx, tup in enumerate(itertools.islice(tools.tuples_main(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
+                                        tup_start, None), tup_start):
 
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
@@ -379,15 +379,18 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
             exp_occ = exp_space[k-min_order][exp_space[k-min_order] < mol.nocc]
             exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
 
-            # n_tasks
-            n_tasks = tools.n_tuples(tup_occ, tup_virt, ref_occ, ref_virt, k)
+            # generate subtuples
+            for tup_sub in tools.tuples_main(tup_occ, tup_virt, ref_occ, ref_virt, k):
 
-            # indices of all subtuples at order k
-            idx = np.fromiter(tools.restricted_idx(tuple(exp_occ), tuple(exp_virt), ref_occ, ref_virt, k, set(tup)), \
-                              dtype=np.int64, count=n_tasks)
+                # occupied and virtual subspaces of tuple
+                tup_sub_occ = tup_sub[tup_sub < mol.nocc]
+                tup_sub_virt = tup_sub[mol.nocc <= tup_sub]
 
-            # sum up increments
-            res += tools.fsum(inc[k-min_order][idx])
+                # get index of given subtuple at order k
+                idx = tools.restricted_idx(exp_occ, exp_virt, tup_sub_occ, tup_sub_virt)
+
+                # sum up increments
+                res += inc[k-min_order][idx]
 
         return res
 
