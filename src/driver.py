@@ -132,7 +132,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                     print(output.screen_results(screen_orbs))
 
                 # update expansion space wrt screened orbitals
-                exp.exp_space.append(exp.exp_space[-1])
+                exp.exp_space.append(np.copy(exp.exp_space[-1]))
                 for mo in screen_orbs:
                     exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
@@ -218,7 +218,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 screen_orbs = screen.main(mpi, mol, calc, exp)
 
                 # update expansion space wrt screened orbitals
-                exp.exp_space.append(exp.exp_space[-1])
+                exp.exp_space.append(np.copy(exp.exp_space[-1]))
                 for mo in screen_orbs:
                     exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
