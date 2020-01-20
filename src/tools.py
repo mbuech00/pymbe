@@ -255,7 +255,7 @@ def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
 def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
                     tup_occ: np.ndarray, tup_virt: np.ndarray) -> int:
         """
-        this function return the index of a given subtuple, restricted to span a subset of a main tuple
+        this function return the index of a given restricted subtuple
 
         example:
         """
@@ -278,6 +278,12 @@ def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
 
 
 def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
+        """
+        this function return the index of a given (ordered) combination
+        returned from itertools.combinations
+
+        example:
+        """
         order = tup.size
         idx = _idx(space, tup[0], tup.size)
         idx += np.sum(np.fromiter((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)), \
@@ -286,8 +292,14 @@ def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
 
 
 def _idx(space: np.ndarray, idx: int, order: int) -> float:
-        return np.sum(np.fromiter((scipy.special.binom(space[i < space].size, (order - 1)) for i in range(space[0], idx)), \
-                                  dtype=np.float64, count=idx - space[0]))
+        """
+        this function return the start index of element space[idx] in
+        position (order+1) from the right in a given combination
+
+        example:
+        """
+        return np.sum(np.fromiter((scipy.special.binom(space[i < space].size, (order - 1)) for i in space[space < idx]), \
+                                  dtype=np.float64, count=int(np.argwhere(space == idx))))
 
 
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
