@@ -24,7 +24,6 @@ import functools
 import itertools
 import math
 from typing import Tuple, Set, List, Dict, Any, Generator, Union
-from numba import njit
 
 # restart folder
 RST = os.getcwd()+'/rst'
