@@ -266,9 +266,8 @@ def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
             if tup_virt.size == 0:
                 idx += _sub_idx(exp_occ, tup_occ)
             else:
-                idx += np.sum(np.fromiter((scipy.special.binom(exp_occ.size, k) * \
-                                           scipy.special.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - k) for k in range(1, tup_occ.size)), \
-                                          dtype=np.float64, count=tup_occ.size - 1))
+                idx += sum((scipy.special.binom(exp_occ.size, k) * \
+                            scipy.special.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - k) for k in range(1, tup_occ.size)))
                 idx += _sub_idx(exp_occ, tup_occ) * scipy.special.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - tup_occ.size)
 
         if tup_virt.size > 0:
@@ -284,10 +283,8 @@ def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
 
         example:
         """
-        order = tup.size
         idx = _idx(space, tup[0], tup.size)
-        idx += np.sum(np.fromiter((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)), \
-                                  dtype=np.float64, count=tup.size-1))
+        idx += sum((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)))
         return idx
 
 
@@ -298,8 +295,7 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
 
         example:
         """
-        return np.sum(np.fromiter((scipy.special.binom(space[i < space].size, (order - 1)) for i in space[space < idx]), \
-                                  dtype=np.float64, count=int(np.argwhere(space == idx))))
+        return sum((scipy.special.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
 
 
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
