@@ -33,8 +33,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
             msg = {'task': 'screen', 'order': exp.order}
             mpi.global_comm.bcast(msg, root=0)
 
-        # do not screen at order k = 1
-        if exp.order == 1:
+        # do not screen at min_order
+        if exp.order == exp.min_order:
             return np.array([], dtype=np.int64)
 
         # load increments for current order
@@ -79,10 +79,12 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
                     continue
 
                 # screening procedure
-                if inc.ndim == 1:
-                    screen[mo_idx] &= np.abs(inc[tup_idx]) < calc.thres['inc']
-                else:
-                    screen[mo_idx] &= np.all(np.abs(inc[tup_idx, :]) < calc.thres['inc'])
+                if np.any(inc[tup_idx]):
+                    screen[mo_idx] &= np.all(np.abs(inc[tup_idx]) < calc.thres['inc'])
+
+                # early break
+                if not screen[mo_idx]:
+                    break
 
         # allreduce screened orbitals
         tot_screen = parallel.allreduce(mpi.global_comm, screen, op=MPI.LAND)

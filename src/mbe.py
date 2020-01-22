@@ -124,6 +124,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
+#            # pi-pruning
+#            if calc.extra['pi_prune']:
+
             # get core and cas indices
             core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)
 
@@ -148,8 +151,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # calculate increment
             if exp.order > exp.min_order:
-                inc_tup -= _sum(mol, calc.occup, calc.target_mbe, exp.min_order, exp.order, \
-                                inc, exp.exp_space, ref_occ, ref_virt, tup, pi_prune=calc.extra['pi_prune'])
+                inc_tup -= _sum(mol, calc.occup, calc.target_mbe, exp.min_order, \
+                                exp.order, inc, exp.exp_space, ref_occ, ref_virt, tup)
 
 
             # debug print
@@ -322,7 +325,7 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
 
 def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
             inc: List[np.ndarray], exp_space: List[np.ndarray], ref_occ: bool, ref_virt: bool, \
-            tup: np.ndarray, pi_prune: bool = False) -> Union[float, np.ndarray]:
+            tup: np.ndarray) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
 
