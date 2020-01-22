@@ -168,7 +168,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             sum_ndets += ndets_tup
 
             # write restart files
-            if calc.misc['rst'] and tup_idx > mpi.global_size and tup_idx % calc.misc['rst_freq'] == mpi.global_rank:
+            if calc.misc['rst'] and tup_idx % calc.misc['rst_freq'] < mpi.global_size:
 
                 # reduce increments onto global master
                 if mpi.num_masters > 1 and mpi.local_master:
