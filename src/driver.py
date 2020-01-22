@@ -201,10 +201,11 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main mbe function
-                inc_win = mbe.main(mpi, mol, calc, exp, rst_mbe=msg['rst_mbe'], tup_start=msg['tup_start'])
+                inc_win = mbe.main(mpi, mol, calc, exp, rst_read=msg['rst_read'], \
+                                   rst_write=msg['rst_write'], tup_start=msg['tup_start'])
 
                 # append window to increments
-                if msg['rst_mbe']:
+                if msg['rst_read']:
                     exp.prop[calc.target_mbe]['inc'][-1] = inc_win # type: ignore
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(inc_win) # type: ignore

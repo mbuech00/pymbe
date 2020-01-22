@@ -162,7 +162,7 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
             raise NotImplementedError('tools.py: _fsum()')
 
 
-def tuples_main(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
+def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
                 ref_occ: bool, ref_virt: bool, order: int) -> Generator[np.ndarray, None, None]:
         """
         this function is the main generator for tuples
@@ -195,22 +195,22 @@ def tuples_main(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
 #                                            mol_parent.symm_orb, mo_coeff_out)
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            for tup_1 in itertools.combinations(occ_space, k):
-                for tup_2 in itertools.combinations(virt_space, order - k):
-                    yield np.array(tup_1 + tup_2, dtype=np.int64)
+            for tup_occ in itertools.combinations(occ_space, k):
+                for tup_virt in itertools.combinations(virt_space, order - k):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
 
         # only virtual MOs
         if ref_occ:
-            for tup in itertools.combinations(virt_space, order):
-                yield np.array(tup, dtype=np.int64)
+            for tup_virt in itertools.combinations(virt_space, order):
+                yield np.array(tup_virt, dtype=np.int64)
 
         # only occupied MOs
         if ref_virt:
-            for tup in itertools.combinations(occ_space, order):
-                yield np.array(tup, dtype=np.int64)
+            for tup_occ in itertools.combinations(occ_space, order):
+                yield np.array(tup_occ, dtype=np.int64)
 
 
-def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
+def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
                 ref_occ: bool, ref_virt: bool, order: int, mo: int) -> Generator[int, None, None]:
         """
         this function is a generator for indices of subtuples, all with an MO restriction
@@ -223,31 +223,31 @@ def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             if mo in occ_space:
-                for tup_1 in itertools.combinations(occ_space, k):
-                    if mo in tup_1:
-                        for tup_2 in itertools.combinations(virt_space, order - k):
+                for tup_occ in itertools.combinations(occ_space, k):
+                    if mo in tup_occ:
+                        for tup_virt in itertools.combinations(virt_space, order - k):
                             yield idx
                             idx += 1
                     else:
-                        idx += int(sc.binom(len(virt_space), order - k))
+                        idx += int(sc.binom(virt_space.size, order - k))
             else:
-                for tup_1 in itertools.combinations(occ_space, k):
-                    for tup_2 in itertools.combinations(virt_space, order - k):
-                        if mo in tup_2:
+                for tup_occ in itertools.combinations(occ_space, k):
+                    for tup_virt in itertools.combinations(virt_space, order - k):
+                        if mo in tup_virt:
                             yield idx
                         idx += 1
 
         # only virtual MOs
         if ref_occ:
-            for tup in itertools.combinations(virt_space, order):
-                if mo in tup:
+            for tup_virt in itertools.combinations(virt_space, order):
+                if mo in tup_virt:
                     yield idx
                 idx += 1
 
         # only occupied MOs
         if ref_virt:
-            for tup in itertools.combinations(occ_space, order):
-                if mo in tup:
+            for tup_occ in itertools.combinations(occ_space, order):
+                if mo in tup_occ:
                     yield idx
                 idx += 1
 

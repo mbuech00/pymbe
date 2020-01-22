@@ -32,20 +32,23 @@ import tools
 
 def main(mpi: parallel.MPICls, mol: system.MolCls, \
             calc: calculation.CalcCls, exp: expansion.ExpCls, \
-            rst_mbe: bool = False, tup_start: int = 0) -> Union[Tuple[Any, ...], MPI.Win]:
+            rst_read: bool = False, rst_write: bool = False, tup_start: int = 0) -> Union[Tuple[Any, ...], MPI.Win]:
         """
         this function is the mbe main function
         """
         if mpi.global_master:
 
-            # restart run
-            rst_mbe = len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot'])
+            # read restart files
+            rst_read = len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot'])
+
+            # write restart files
+            rst_write = calc.misc['rst'] and calc.misc['rst_freq'] < exp.n_tuples[-1]
 
             # start index
-            tup_start = tools.read_file(exp.order, 'mbe_idx') if rst_mbe else 0
+            tup_start = tools.read_file(exp.order, 'mbe_idx') if rst_read else 0
 
             # wake up slaves
-            msg = {'task': 'mbe', 'order': exp.order, 'rst_mbe': rst_mbe, 'tup_start': tup_start}
+            msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'rst_write': rst_write, 'tup_start': tup_start}
             mpi.global_comm.bcast(msg, root=0)
 
         # increment dimensions
@@ -77,44 +80,44 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[k], dim)))
 
         # init increments for present order
-        if rst_mbe:
+        if rst_read:
             inc_win = exp.prop[calc.target_mbe]['inc'][-1]
         else:
             inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1] * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
         buf = inc_win.Shared_query(0)[0] # type: ignore
         inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[-1], dim)))
-        if mpi.local_master and not rst_mbe:
+        if mpi.local_master and not rst_read:
             inc[-1][:] = np.zeros_like(inc[-1])
 
         # init time
         if mpi.global_master:
-            if not rst_mbe:
+            if not rst_read:
                 exp.time['mbe'].append(0.)
             time = MPI.Wtime()
 
         # init increment statistics
-        min_inc = exp.min_inc[-1] if mpi.global_master and rst_mbe else np.array([1.e12] * dim, dtype=np.float64)
-        max_inc = exp.max_inc[-1] if mpi.global_master and rst_mbe else np.array([0.] * dim, dtype=np.float64)
-        sum_inc = exp.mean_inc[-1] if mpi.global_master and rst_mbe else np.array([0.] * dim, dtype=np.float64)
+        min_inc = exp.min_inc[-1] if mpi.global_master and rst_read else np.array([1.e12] * dim, dtype=np.float64)
+        max_inc = exp.max_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
+        sum_inc = exp.mean_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
 
         # init determinant statistics
-        min_ndets = exp.min_ndets[-1] if mpi.global_master and rst_mbe else np.array([1e12], dtype=np.int64)
-        max_ndets = exp.max_ndets[-1] if mpi.global_master and rst_mbe else np.array([0], dtype=np.int64)
-        sum_ndets = exp.mean_ndets[-1] if mpi.global_master and rst_mbe else np.array([0], dtype=np.int64)
+        min_ndets = exp.min_ndets[-1] if mpi.global_master and rst_read else np.array([1e12], dtype=np.int64)
+        max_ndets = exp.max_ndets[-1] if mpi.global_master and rst_read else np.array([0], dtype=np.int64)
+        sum_ndets = exp.mean_ndets[-1] if mpi.global_master and rst_read else np.array([0], dtype=np.int64)
 
         # mpi barrier
         mpi.global_comm.Barrier()
 
         # occupied and virtual expansion spaces
-        exp_occ = tuple(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc])
-        exp_virt = tuple(exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]])
+        exp_occ = exp.exp_space[-1][exp.exp_space[-1] < mol.nocc]
+        exp_virt = exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]]
 
         # allow for tuples with only virtual or occupied MOs
         ref_occ = tools.occ_prune(calc.occup, calc.ref_space)
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop until no tuples left
-        for tup_idx, tup in enumerate(itertools.islice(tools.tuples_main(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
+        for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
                                         tup_start, None), tup_start):
 
             # distribute tuples
@@ -168,7 +171,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             sum_ndets += ndets_tup
 
             # write restart files
-            if calc.misc['rst'] and tup_idx % calc.misc['rst_freq'] < mpi.global_size:
+            if rst_write and tup_idx % calc.misc['rst_freq'] < mpi.global_size:
 
                 # reduce increments onto global master
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -380,7 +383,7 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
             exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
 
             # generate subtuples
-            for tup_sub in tools.tuples_main(tup_occ, tup_virt, ref_occ, ref_virt, k):
+            for tup_sub in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k):
 
                 # occupied and virtual subspaces of tuple
                 tup_sub_occ = tup_sub[tup_sub < mol.nocc]
