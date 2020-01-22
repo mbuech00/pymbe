@@ -219,7 +219,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     time = MPI.Wtime()
 
                     # print status
-                    print(output.mbe_status(tup_idx / exp.n_tuples[-1]))
+                    print(output.mbe_status(mbe_idx / exp.n_tuples[-1]))
 
         # mpi barrier
         mpi.global_comm.Barrier()
