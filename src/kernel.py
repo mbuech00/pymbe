@@ -15,7 +15,6 @@ __status__ = 'Development'
 import sys
 import copy
 import numpy as np
-import scipy as sp
 from mpi4py import MPI
 from pyscf import gto, symm, scf, ao2mo, lib, lo, ci, cc, mcscf, fci
 from pyscf.cc import ccsd_t

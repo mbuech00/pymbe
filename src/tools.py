@@ -19,7 +19,7 @@ import traceback
 import subprocess
 from mpi4py import MPI
 import numpy as np
-import scipy.special
+import scipy.special as sc
 import functools
 import itertools
 import math
@@ -229,7 +229,7 @@ def include_idx(occ_space: Tuple[int, ...], virt_space: Tuple[int, ...], \
                             yield idx
                             idx += 1
                     else:
-                        idx += int(scipy.special.binom(len(virt_space), order - k))
+                        idx += int(sc.binom(len(virt_space), order - k))
             else:
                 for tup_1 in itertools.combinations(occ_space, k):
                     for tup_2 in itertools.combinations(virt_space, order - k):
@@ -266,9 +266,9 @@ def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
             if tup_virt.size == 0:
                 idx += _sub_idx(exp_occ, tup_occ)
             else:
-                idx += sum((scipy.special.binom(exp_occ.size, k) * \
-                            scipy.special.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - k) for k in range(1, tup_occ.size)))
-                idx += _sub_idx(exp_occ, tup_occ) * scipy.special.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - tup_occ.size)
+                idx += sum((sc.binom(exp_occ.size, k) * \
+                            sc.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - k) for k in range(1, tup_occ.size)))
+                idx += _sub_idx(exp_occ, tup_occ) * sc.binom(exp_virt.size, (tup_occ.size + tup_virt.size) - tup_occ.size)
 
         if tup_virt.size > 0:
             idx += _sub_idx(exp_virt, tup_virt)
@@ -295,7 +295,7 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
 
         example:
         """
-        return sum((scipy.special.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
+        return sum((sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
 
 
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
@@ -321,15 +321,15 @@ def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
 
         # combinations of occupied and virtual MOs
         for k in range(1, order):
-            n += scipy.special.binom(occ_space.size, k) * scipy.special.binom(virt_space.size, order - k)
+            n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
 
         # only virtual MOs
         if ref_occ:
-            n += scipy.special.binom(virt_space.size, order)
+            n += sc.binom(virt_space.size, order)
 
         # only occupied MOs
         if ref_virt:
-            n += scipy.special.binom(occ_space.size, order)
+            n += sc.binom(occ_space.size, order)
 
         return int(n)
 
@@ -610,7 +610,7 @@ def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
             n_elec = tuple(map(sum, zip(n_elec, ref_n_elec)))
             n_orbs += ref_space.size
 
-        return int(scipy.special.binom(n_orbs, n_elec[0]) * scipy.special.binom(n_orbs, n_elec[1]))
+        return int(sc.binom(n_orbs, n_elec[0]) * sc.binom(n_orbs, n_elec[1]))
 
 
 def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
