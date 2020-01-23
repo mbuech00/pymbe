@@ -59,6 +59,8 @@ class ExpCls:
                                                            self.exp_space[0][mol.nocc <= self.exp_space[0]], \
                                                            tools.virt_prune(calc.occup, calc.ref_space), \
                                                            tools.occ_prune(calc.occup, calc.ref_space), self.min_order)]
+                self.pi_orbs: np.ndarray = None
+                self.pi_hashes: np.ndarray = None
 
                 # set max_order
                 if calc.misc['order'] is not None:

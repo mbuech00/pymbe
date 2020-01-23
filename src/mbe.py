@@ -124,8 +124,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
-#            # pi-pruning
-#            if calc.extra['pi_prune']:
+            # pi-pruning
+            if calc.extra['pi_prune']:
+                if tools.pi_prune(exp.pi_orbs, exp.pi_hashes, tup):
+                    continue
 
             # get core and cas indices
             core_idx, cas_idx = tools.core_cas(mol.nocc, calc.ref_space, tup)

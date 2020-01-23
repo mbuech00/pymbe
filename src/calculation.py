@@ -167,7 +167,7 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'HF initial guess for CASSCF calc (hf_guess) must be a bool')
         tools.assertion(len(calc.ref['wfnsym']) == len(calc.ref['weights']), \
                         'list of wfnsym and weights for CASSCF calc (wfnsym/weights) must be of same length')
-        tools.assertion(isinstance(calc.ref['weights'], list), \
+        tools.assertion(isinstance(calc.ref['weights'], (tuple, list)), \
                         'weights for CASSCF calc (weights) must be a list of floats')
         tools.assertion(all(isinstance(i, float) for i in calc.ref['weights']), \
                         'weights for CASSCF calc (weights) must be floats')

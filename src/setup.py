@@ -204,6 +204,20 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         else:
             exp.start_order = exp.min_order
 
+        # pi-orbital space
+        if calc.extra['pi_prune']:
+
+            # recast mol in parent point group (dooh/coov) - make pi-space based on those symmetries
+            mol_parent = mol.copy()
+            parent_group = 'Dooh' if mol.symmetry == 'D2h' else 'Coov'
+            mol_parent = mol_parent.build(0, 0, symmetry=parent_group)
+
+            orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
+                                                mol_parent.symm_orb, calc.mo_coeff)
+
+            # pi-space
+            exp.pi_orbs, exp.pi_hashes = tools.pi_space(parent_group, orbsym_parent, exp.exp_space)
+
         return mol, calc, exp
 
 
