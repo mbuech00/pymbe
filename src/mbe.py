@@ -370,9 +370,9 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
         """
         # init res
         if target_mbe in ['energy', 'excitation']:
-            res = 0.
+            res = np.empty(order - min_order, dtype=np.float64)
         else:
-            res = np.zeros(3, dtype=np.float64)
+            res = np.empty([order - min_order, 3], dtype=np.float64)
 
         # occupied and virtual subspaces of tuple
         tup_occ = tup[tup < mol.nocc]
@@ -381,24 +381,17 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
-            # occupied and virtual expansion spaces
-            exp_occ = exp_space[k-min_order][exp_space[k-min_order] < mol.nocc]
-            exp_virt = exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]]
+            # get indices of subtuples
+            idx = np.fromiter((tools.restricted_idx(exp_space[k-min_order][exp_space[k-min_order] < mol.nocc], \
+                                                    exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]], \
+                                                    tup_sub[tup_sub < mol.nocc], tup_sub[mol.nocc <= tup_sub]) \
+                               for tup_sub in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k)), \
+                              dtype=np.int64, count=tools.n_tuples(tup_occ, tup_virt, ref_occ, ref_virt, k))
 
-            # generate subtuples
-            for tup_sub in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k):
+            # sum up order increments
+            res[k-min_order] = tools.fsum(inc[k-min_order][idx])
 
-                # occupied and virtual subspaces of tuple
-                tup_sub_occ = tup_sub[tup_sub < mol.nocc]
-                tup_sub_virt = tup_sub[mol.nocc <= tup_sub]
-
-                # get index of given subtuple at order k
-                idx = tools.restricted_idx(exp_occ, exp_virt, tup_sub_occ, tup_sub_virt)
-
-                # sum up increments
-                res += inc[k-min_order][idx]
-
-        return res
+        return tools.fsum(res)
 
 
 if __name__ == "__main__":
