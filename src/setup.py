@@ -216,7 +216,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                                                 mol_parent.symm_orb, calc.mo_coeff)
 
             # pi-space
-            exp.pi_orbs, exp.pi_hashes = tools.pi_space(parent_group, orbsym_parent, exp.exp_space)
+            exp.pi_orbs, exp.pi_hashes = tools.pi_space(parent_group, orbsym_parent, exp.exp_space[0])
 
         return mol, calc, exp
 

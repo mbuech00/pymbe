@@ -126,7 +126,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # pi-pruning
             if calc.extra['pi_prune']:
-                if tools.pi_prune(exp.pi_orbs, exp.pi_hashes, tup):
+                if not tools.pi_prune(exp.pi_orbs, exp.pi_hashes, tup):
                     continue
 
             # get core and cas indices
