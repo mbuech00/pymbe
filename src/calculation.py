@@ -24,7 +24,7 @@ import tools
 
 
 # attributes
-ATTR = ['model', 'hf_ref', 'base', 'orbs', 'target', 'prot', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
+ATTR = ['model', 'hf_ref', 'base', 'orbs', 'target', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
 
 
 class CalcCls:
@@ -40,7 +40,6 @@ class CalcCls:
                 self.hf_ref: Dict[str, Any] = {'symmetry': None, 'irrep_nelec': {}, \
                                                'init_guess': 'minao', 'newton': False}
                 self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
-                self.prot: Dict[str, str] = {'type': 'lambda', 'cond': 'max'}
                 self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
                                             'select': [i for i in range(ncore, nelectron // 2)], 'weights': [1.], \
                                             'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0]}
@@ -225,14 +224,6 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         if calc.extra['pi_prune']:
             tools.assertion(symm.addons.std_symb(symmetry) in ['D2h', 'C2v'], \
                             'pruning of pi-orbitals (pi_prune) is only implemented for linear D2h and C2v symmetries')
-
-        # screening protocol
-        tools.assertion(set(list(calc.prot.keys())) <= set(['type', 'cond']), \
-                        'valid input strings in prot dict are: type and cond')
-        tools.assertion(calc.prot['type'] == 'lambda', \
-                        'valid input options for screening protocol type (type) are: lambda')
-        tools.assertion(calc.prot['cond'] in ['min', 'max'], \
-                        'valid input options for screening protocol condition (cond) are: min and max')
 
         # expansion thresholds
         tools.assertion(isinstance(calc.thres['inc'], float), \

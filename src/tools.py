@@ -703,6 +703,19 @@ def _convert(txt: str) -> Union[int, str]:
         return int(txt) if txt.isdigit() else txt
 
 
+def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
+        """
+        this generator converts sequential numbers into intervals
+
+        """
+        for key, group in itertools.groupby(enumerate(a), lambda x: x[1] - x[0]):
+            group_lst = list(group)
+            if len(group_lst) == 1:
+                yield [group_lst[0][1]]
+            else:
+                yield [group_lst[0][1], group_lst[-1][1]]
+
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

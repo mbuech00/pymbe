@@ -121,7 +121,7 @@ def calc_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
 
             # collect standard info (must be updated with new future attributes)
             info = {'model': calc.model, 'target_mbe': calc.target_mbe, 'base': calc.base, \
-                    'thres': calc.thres, 'prot': calc.prot, 'state': calc.state, \
+                    'thres': calc.thres, 'state': calc.state, \
                     'extra': calc.extra, 'misc': calc.misc, 'mpi': calc.mpi, \
                     'orbs': calc.orbs, 'restart': calc.restart}
 

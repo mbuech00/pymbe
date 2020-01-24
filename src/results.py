@@ -194,13 +194,6 @@ def _base(calc: calculation.CalcCls) -> str:
             return calc.base['method'].upper()
 
 
-def _prot(calc: calculation.CalcCls) -> str:
-        """
-        this function returns the screening protocol
-        """
-        return calc.prot['type'] + ' / ' + calc.prot['cond']
-
-
 def _system(mol: system.MolCls) -> str:
         """
         this function returns the system size
@@ -242,11 +235,30 @@ def _frozen(mol: system.MolCls) -> str:
             return 'false'
 
 
-def _active(calc: calculation.CalcCls) -> str:
+def _active_space(calc: calculation.CalcCls) -> str:
         """
         this function returns the active space
         """
         return '{:} e in {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
+
+
+def _active_orbs(calc: calculation.CalcCls) -> str:
+        """
+        this function returns the orbitals of the active space
+        """
+        if calc.ref_space.size == 0:
+            return 'vacuum'
+
+        # init string
+        string = ''
+        # divide ref_space into intervals
+        ref_space_ints = [i for i in tools.intervals(calc.ref_space)]
+
+        for idx, i in enumerate(ref_space_ints):
+            elms = '{:} - {:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
+            string += '{:} + '.format(elms) if idx < len(ref_space_ints) - 1 else '{:}'.format(elms)
+
+        return string
 
 
 def _orbs(calc: calculation.CalcCls) -> str:
@@ -422,19 +434,19 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
         form += ('','system size','','=','',_system(mol), \
-                    '','|','','exp. reference','','=','',_active(calc), \
+                    '','|','','reference space','','=','',_active_space(calc), \
                     '','|','','base model '+calc.target_mbe,'','=','',base_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
+                '{:<16}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
         form += ('','state (mult.)','','=','',_state(mol, calc), \
-                    '','|','','base model','','=','',_base(calc), \
+                    '','|','','reference orbs.','','=','',_active_orbs(calc), \
                     '','|','','MBE total '+calc.target_mbe,'','=','',mbe_tot_prop,)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
         form += ('','orbitals','','=','',_orbs(calc), \
-                    '','|','','screen. prot.','','=','',_prot(calc), \
+                    '','|','','base model','','=','',_base(calc), \
                     '','|','','total time','','=','',_time(exp, 'tot_sum', -1),)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
