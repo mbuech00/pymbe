@@ -127,6 +127,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # pi-pruning
             if calc.extra['pi_prune']:
                 if not tools.pi_prune(exp.pi_orbs, exp.pi_hashes, tup):
+                    inc[-1][tup_idx] = np.nan
                     continue
 
             # get core and cas indices
@@ -391,7 +392,7 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
                               dtype=np.int64, count=tools.n_tuples(tup_occ, tup_virt, ref_occ, ref_virt, k))
 
             # sum up order increments
-            res[k-min_order] = tools.fsum(inc[k-min_order][idx])
+            res[k-min_order] = tools.fsum(inc[k-min_order][idx][~np.isnan(inc[k-min_order][idx])])
 
         return tools.fsum(res)
 

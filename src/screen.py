@@ -79,7 +79,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
                     continue
 
                 # screening procedure
-                if np.any(inc[tup_idx]):
+                if np.isfinite(inc[tup_idx]):
                     screen[mo_idx] &= np.all(np.abs(inc[tup_idx]) < calc.thres['inc'])
 
                 # early break
