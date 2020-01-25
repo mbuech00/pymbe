@@ -41,14 +41,11 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # read restart files
             rst_read = len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot'])
 
-            # write restart files
-            rst_write = calc.misc['rst'] and calc.misc['rst_freq'] < exp.n_tuples[-1]
-
             # start index
             tup_start = tools.read_file(exp.order, 'mbe_idx') if rst_read else 0
 
             # wake up slaves
-            msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'rst_write': rst_write, 'tup_start': tup_start}
+            msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'tup_start': tup_start}
             mpi.global_comm.bcast(msg, root=0)
 
         # increment dimensions
@@ -115,6 +112,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         # allow for tuples with only virtual or occupied MOs
         ref_occ = tools.occ_prune(calc.occup, calc.ref_space)
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
+
+        # set rst_write
+        rst_write = calc.misc['rst'] and calc.misc['rst_freq'] < exp.n_tuples[-1]
 
         # loop until no tuples left
         for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
@@ -204,10 +204,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     sum_ndets = np.array([0], dtype=np.int64)
 
                 # reduce mbe_idx onto global master
-                mbe_idx = mpi.global_comm.reduce(tup_idx, root=0, op=MPI.MAX)
+                mbe_idx = mpi.global_comm.allreduce(tup_idx, op=MPI.MAX)
+
+                # reset rst_write
+                rst_write &= (mbe_idx + calc.misc['rst_freq']) < exp.n_tuples[-1]
 
                 # write restart files
                 if mpi.global_master:
+
                     # save idx
                     tools.write_file(exp.order, np.asarray(mbe_idx + 1), 'mbe_idx')
                     # save increments

@@ -201,8 +201,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main mbe function
-                inc_win = mbe.main(mpi, mol, calc, exp, rst_read=msg['rst_read'], \
-                                   rst_write=msg['rst_write'], tup_start=msg['tup_start'])
+                inc_win = mbe.main(mpi, mol, calc, exp, rst_read=msg['rst_read'], tup_start=msg['tup_start'])
 
                 # append window to increments
                 if msg['rst_read']:
