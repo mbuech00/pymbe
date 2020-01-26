@@ -114,7 +114,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # set rst_write
-        rst_write = calc.misc['rst'] and calc.misc['rst_freq'] < exp.n_tuples[-1]
+        rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples[-1]
 
         # loop until no tuples left
         for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
@@ -177,7 +177,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             sum_ndets += ndets_tup
 
             # write restart files
-            if rst_write and tup_idx % calc.misc['rst_freq'] < mpi.global_size:
+            if rst_write and (tup_idx % calc.misc['rst_freq']) < mpi.global_size:
 
                 # reduce increments onto global master
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -212,7 +212,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 # write restart files
                 if mpi.global_master:
 
-                    # save idx
+                    # save mbe_idx
                     tools.write_file(exp.order, np.asarray(mbe_idx + 1), 'mbe_idx')
                     # save increments
                     tools.write_file(exp.order, inc[-1], 'mbe_inc')
@@ -233,6 +233,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
                     # print status
                     print(output.mbe_status(mbe_idx / exp.n_tuples[-1]))
+
+                # mpi barrier
+                mpi.master_comm.Barrier()
 
         # mpi barrier
         mpi.global_comm.Barrier()
