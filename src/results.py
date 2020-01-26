@@ -247,7 +247,7 @@ def _active_orbs(calc: calculation.CalcCls) -> str:
         this function returns the orbitals of the active space
         """
         if calc.ref_space.size == 0:
-            return 'vacuum'
+            return 'none'
 
         # init string
         string = ''
