@@ -235,7 +235,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     print(output.mbe_status(mbe_idx / exp.n_tuples[-1]))
 
                 # mpi barrier
-                mpi.master_comm.Barrier()
+                mpi.local_comm.Barrier()
 
         # mpi barrier
         mpi.global_comm.Barrier()
