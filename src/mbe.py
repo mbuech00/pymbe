@@ -179,6 +179,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # write restart files
             if rst_write and (tup_idx % calc.misc['rst_freq']) < mpi.global_size:
 
+                # mpi barrier
+                mpi.local_comm.Barrier()
+
                 # reduce increments onto global master
                 if mpi.num_masters > 1 and mpi.local_master:
                     inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0, op=MPI.SUM)
