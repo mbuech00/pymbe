@@ -41,7 +41,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
         if calc.target_mbe in ['energy', 'excitation']:
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1],))
-        elif calc.target_mbe in ['dipole', 'trans']:
+        else:
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1], 3))
 
         # mpi barrier
@@ -79,8 +79,12 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
                     continue
 
                 # screening procedure
-                if np.all(np.isfinite(inc[tup_idx])):
-                    screen[mo_idx] &= np.all(np.abs(inc[tup_idx]) < calc.thres['inc'])
+                if calc.target_mbe in ['energy', 'excitation']:
+                    if np.isfinite(inc[tup_idx]):
+                        screen[mo_idx] &= np.abs(inc[tup_idx]) < calc.thres['inc']
+                else:
+                    if np.all(np.isfinite(inc[tup_idx])):
+                        screen[mo_idx] &= np.all(np.abs(inc[tup_idx]) < calc.thres['inc'])
 
                 # early break
                 if not screen[mo_idx]:

@@ -402,7 +402,10 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
                               dtype=np.int64, count=tools.n_tuples(tup_occ, tup_virt, ref_occ, ref_virt, k))
 
             # sum up order increments
-            res[k-min_order] = tools.fsum(inc[k-min_order][idx][~np.isnan(inc[k-min_order][idx])])
+            if target_mbe in ['energy', 'excitation']:
+                res[k-min_order] = tools.fsum(inc[k-min_order][idx][~np.isnan(inc[k-min_order][idx])])
+            else:
+                res[k-min_order] = tools.fsum(inc[k-min_order][idx][~np.any(np.isnan(inc[k-min_order][idx]), axis=1)])
 
         return tools.fsum(res)
 
