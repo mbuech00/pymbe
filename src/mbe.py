@@ -83,7 +83,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1] * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
         buf = inc_win.Shared_query(0)[0] # type: ignore
         inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[-1], dim)))
-        if mpi.local_master and not rst_read:
+        if not rst_read or (rst_read and mpi.local_master and not mpi.global_master):
             inc[-1][:] = np.zeros_like(inc[-1])
 
         # init time
