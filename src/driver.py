@@ -74,19 +74,24 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.prop[calc.target_mbe]['inc'].append(inc_win)
 
             # append determinant statistics
-            if len(exp.max_ndets) == len(exp.prop[calc.target_mbe]['inc']):
+            if len(exp.mean_ndets) == len(exp.prop[calc.target_mbe]['inc']):
+                exp.mean_ndets[-1] = mean_ndets
                 exp.min_ndets[-1] = min_ndets
                 exp.max_ndets[-1] = max_ndets
-                exp.mean_ndets[-1] = mean_ndets
             else:
+                exp.mean_ndets.append(mean_ndets)
                 exp.min_ndets.append(min_ndets)
                 exp.max_ndets.append(max_ndets)
-                exp.mean_ndets.append(mean_ndets)
 
             # append increment statistics
-            exp.mean_inc.append(mean_inc)
-            exp.min_inc.append(min_inc)
-            exp.max_inc.append(max_inc)
+            if len(exp.mean_inc) == len(exp.prop[calc.target_mbe]['inc']):
+                exp.mean_inc[-1] = mean_inc
+                exp.min_inc[-1] = min_inc
+                exp.max_inc[-1] = max_inc
+            else:
+                exp.mean_inc.append(mean_inc)
+                exp.min_inc.append(min_inc)
+                exp.max_inc.append(max_inc)
 
             # append total property
             exp.prop[calc.target_mbe]['tot'].append(tot)

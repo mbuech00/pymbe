@@ -44,9 +44,15 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # start index
             tup_start = np.asscalar(tools.read_file(exp.order, 'mbe_idx')) if rst_read else 0
 
-            # wake up slaves
-            msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'tup_start': tup_start}
-            mpi.global_comm.bcast(msg, root=0)
+            if tup_start == exp.n_tuples[-1]:
+                # return if already done with mbe
+                return exp.prop[calc.target_mbe]['inc'][-1], \
+                        exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1], \
+                        exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1]
+            else:
+                # wake up slaves
+                msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'tup_start': tup_start}
+                mpi.global_comm.bcast(msg, root=0)
 
         # increment dimensions
         if calc.target_mbe in ['energy', 'excitation']:
@@ -92,15 +98,15 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.time['mbe'].append(0.)
             time = MPI.Wtime()
 
-        # init increment statistics
-        min_inc = exp.min_inc[-1] if mpi.global_master and rst_read else np.array([1.e12] * dim, dtype=np.float64)
-        max_inc = exp.max_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
-        sum_inc = exp.mean_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
-
         # init determinant statistics
         min_ndets = exp.min_ndets[-1] if mpi.global_master and rst_read else np.array([1e12], dtype=np.int64)
         max_ndets = exp.max_ndets[-1] if mpi.global_master and rst_read else np.array([0], dtype=np.int64)
         sum_ndets = exp.mean_ndets[-1] if mpi.global_master and rst_read else np.array([0], dtype=np.int64)
+
+        # init increment statistics
+        min_inc = exp.min_inc[-1] if mpi.global_master and rst_read else np.array([1.e12] * dim, dtype=np.float64)
+        max_inc = exp.max_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
+        sum_inc = exp.mean_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -278,7 +284,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # write restart files
             if calc.misc['rst']:
                 # save idx
-                tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]-1), 'mbe_idx')
+                tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]), 'mbe_idx')
                 # save increments
                 tools.write_file(exp.order, inc[-1], 'mbe_inc')
 
