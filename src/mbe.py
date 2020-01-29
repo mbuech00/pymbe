@@ -42,7 +42,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             rst_read = len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot'])
 
             # start index
-            tup_start = tools.read_file(exp.order, 'mbe_idx') if rst_read else 0
+            tup_start = np.asscalar(tools.read_file(exp.order, 'mbe_idx')) if rst_read else 0
 
             # wake up slaves
             msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'tup_start': tup_start}
