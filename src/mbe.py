@@ -46,6 +46,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             if tup_start == exp.n_tuples[-1]:
                 # return if already done with mbe
+                print(output.mbe_status(1.))
                 return exp.prop[calc.target_mbe]['inc'][-1], exp.mean_inc[-1] * exp.n_tuples[-1], \
                         exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1], \
                         exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1]
@@ -130,6 +131,20 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
+            # write restart files and re-init time
+            if rst_write and (tup_idx % calc.misc['rst_freq']) < mpi.global_size:
+
+                rst_write = _rst(mpi, inc[-1], min_inc, max_inc, sum_inc, \
+                                 min_ndets, max_ndets, sum_ndets, dim, calc.misc['rst_freq'], \
+                                 exp.n_tuples[-1], exp.order, tup_idx)
+
+                if mpi.global_master:
+                    # save timing
+                    exp.time['mbe'][-1] += MPI.Wtime() - time
+                    tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
+                    # re-init time
+                    time = MPI.Wtime()
+
             # pi-pruning
             if calc.extra['pi_prune']:
                 if not tools.pi_prune(exp.pi_orbs, exp.pi_hashes, tup):
@@ -173,78 +188,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             inc[-1][tup_idx] = inc_tup
 
             # update increment statistics
-            min_inc = np.minimum(min_inc, np.abs(inc_tup))
-            max_inc = np.maximum(max_inc, np.abs(inc_tup))
-            sum_inc += inc_tup
-
+            min_inc, max_inc, sum_inc = _update(min_inc, max_inc, sum_inc, inc_tup)
             # update determinant statistics
-            min_ndets = np.minimum(min_ndets, ndets_tup)
-            max_ndets = np.maximum(max_ndets, ndets_tup)
-            sum_ndets += ndets_tup
-
-            # write restart files
-            if rst_write and (tup_idx % calc.misc['rst_freq']) < mpi.global_size:
-
-                # mpi barrier
-                mpi.local_comm.Barrier()
-
-                # reduce increments onto global master
-                if mpi.num_masters > 1 and mpi.local_master:
-                    inc[-1][:] = parallel.reduce(mpi.master_comm, inc[-1], root=0, op=MPI.SUM)
-                    if not mpi.global_master:
-                        inc[-1][:] = np.zeros_like(inc[-1])
-
-                # reduce increment statistics onto global master
-                min_inc = parallel.reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
-                max_inc = parallel.reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
-                sum_inc = parallel.reduce(mpi.global_comm, sum_inc, root=0, op=MPI.SUM)
-                if not mpi.global_master:
-                    min_inc = np.array([1.e12] * dim, dtype=np.float64)
-                    max_inc = np.array([0.] * dim, dtype=np.float64)
-                    sum_inc = np.array([0.] * dim, dtype=np.float64)
-
-                # reduce determinant statistics onto global master
-                min_ndets = parallel.reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
-                max_ndets = parallel.reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
-                sum_ndets = parallel.reduce(mpi.global_comm, sum_ndets, root=0, op=MPI.SUM)
-                if not mpi.global_master:
-                    min_ndets = np.array([1e12], dtype=np.int64)
-                    max_ndets = np.array([0], dtype=np.int64)
-                    sum_ndets = np.array([0], dtype=np.int64)
-
-                # reduce mbe_idx onto global master
-                mbe_idx = mpi.global_comm.allreduce(tup_idx, op=MPI.MAX)
-
-                # reset rst_write
-                rst_write &= (mbe_idx + calc.misc['rst_freq']) < exp.n_tuples[-1]
-
-                # write restart files
-                if mpi.global_master:
-
-                    # save mbe_idx
-                    tools.write_file(exp.order, np.asarray(mbe_idx + 1), 'mbe_idx')
-                    # save increments
-                    tools.write_file(exp.order, inc[-1], 'mbe_inc')
-                    # save increment statistics
-                    tools.write_file(exp.order, max_inc, 'mbe_max_inc')
-                    tools.write_file(exp.order, min_inc, 'mbe_min_inc')
-                    tools.write_file(exp.order, sum_inc, 'mbe_mean_inc')
-                    # save determinant statistics
-                    tools.write_file(exp.order, max_ndets, 'mbe_max_ndets')
-                    tools.write_file(exp.order, min_ndets, 'mbe_min_ndets')
-                    tools.write_file(exp.order, sum_ndets, 'mbe_mean_ndets')
-                    # save timing
-                    exp.time['mbe'][-1] += MPI.Wtime() - time
-                    tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
-
-                    # re-init time
-                    time = MPI.Wtime()
-
-                    # print status
-                    print(output.mbe_status(mbe_idx / exp.n_tuples[-1]))
-
-                # mpi barrier
-                mpi.local_comm.Barrier()
+            min_ndets, max_ndets, sum_ndets = _update(min_ndets, max_ndets, sum_ndets, ndets_tup)
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -414,6 +360,76 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
                 res[k-min_order] = tools.fsum(inc[k-min_order][idx][~np.any(np.isnan(inc[k-min_order][idx]), axis=1)])
 
         return tools.fsum(res)
+
+
+def _update(min_prop: Union[float, int], max_prop: Union[float, int], \
+            sum_prop: Union[float, int], tup_prop: Union[float, int]) -> Tuple[Union[float, int], ...]:
+        """
+        this function returns updated statistics
+        """
+        return np.minimum(min_prop, np.abs(tup_prop)), np.maximum(max_prop, np.abs(tup_prop)), sum_prop + tup_prop
+
+
+def _rst(mpi: parallel.MPICls, inc: np.ndarray, \
+         min_inc: np.ndarray, max_inc: np.ndarray, sum_inc: np.ndarray, \
+         min_ndets: np.ndarray, max_ndets: np.ndarray, sum_ndets: np.ndarray, \
+         dim: int, rst_freq: int, n_tuples: int, order: int, tup_idx: int) -> bool:
+        """
+        this function writes restart files and returns new rst_write logical
+        """
+        # mpi barrier
+        mpi.local_comm.Barrier()
+
+        # reduce increments onto global master
+        if mpi.num_masters > 1 and mpi.local_master:
+            inc[:] = parallel.reduce(mpi.master_comm, inc, root=0, op=MPI.SUM)
+            if not mpi.global_master:
+                inc[:] = np.zeros_like(inc)
+
+        # reduce increment statistics onto global master
+        min_inc = parallel.reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
+        max_inc = parallel.reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
+        sum_inc = parallel.reduce(mpi.global_comm, sum_inc, root=0, op=MPI.SUM)
+        if not mpi.global_master:
+            min_inc = np.array([1.e12] * dim, dtype=np.float64)
+            max_inc = np.array([0.] * dim, dtype=np.float64)
+            sum_inc = np.array([0.] * dim, dtype=np.float64)
+
+        # reduce determinant statistics onto global master
+        min_ndets = parallel.reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
+        max_ndets = parallel.reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
+        sum_ndets = parallel.reduce(mpi.global_comm, sum_ndets, root=0, op=MPI.SUM)
+        if not mpi.global_master:
+            min_ndets = np.array([1e12], dtype=np.int64)
+            max_ndets = np.array([0], dtype=np.int64)
+            sum_ndets = np.array([0], dtype=np.int64)
+
+        # reduce mbe_idx onto global master
+        mbe_idx = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
+
+        # write restart files
+        if mpi.global_master:
+
+            # save mbe_idx
+            tools.write_file(order, np.asarray(mbe_idx), 'mbe_idx')
+            # save increments
+            tools.write_file(order, inc, 'mbe_inc')
+            # save increment statistics
+            tools.write_file(order, max_inc, 'mbe_max_inc')
+            tools.write_file(order, min_inc, 'mbe_min_inc')
+            tools.write_file(order, sum_inc, 'mbe_mean_inc')
+            # save determinant statistics
+            tools.write_file(order, max_ndets, 'mbe_max_ndets')
+            tools.write_file(order, min_ndets, 'mbe_min_ndets')
+            tools.write_file(order, sum_ndets, 'mbe_mean_ndets')
+
+            # print status
+            print(output.mbe_status(mbe_idx / n_tuples))
+
+        # mpi barrier
+        mpi.local_comm.Barrier()
+
+        return (mbe_idx + rst_freq) < n_tuples - mpi.global_size
 
 
 if __name__ == "__main__":
