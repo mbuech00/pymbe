@@ -46,7 +46,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             if tup_start == exp.n_tuples[-1]:
                 # return if already done with mbe
-                return exp.prop[calc.target_mbe]['inc'][-1], \
+                return exp.prop[calc.target_mbe]['inc'][-1], exp.mean_inc[-1] * exp.n_tuples[-1], \
                         exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1], \
                         exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1]
             else:
