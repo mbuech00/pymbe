@@ -384,7 +384,7 @@ def _rst(mpi: parallel.MPICls, inc: np.ndarray, \
         if mpi.num_masters > 1 and mpi.local_master:
             inc[:] = parallel.reduce(mpi.master_comm, inc, root=0, op=MPI.SUM)
             if not mpi.global_master:
-                inc[:] = np.zeros_like(inc)
+                inc[:].fill(0.)
 
         # reduce increment statistics onto global master
         min_inc = parallel.reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
