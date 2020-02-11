@@ -124,14 +124,14 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         """
         this function initializes an exp object
         """
-        # get dipole integrals
-        if mol.atom:
-            mol.gauge_origin, mol.dipole = kernel.dipole_ints(mol)
-        else:
-            mol.gauge_origin = mol.dipole = None
-
         # nuclear repulsion energy
         mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.
+
+        # dipole gauge origin
+        if mol.atom:
+            mol.gauge_origin = kernel.gauge_origin(mol)
+        else:
+            mol.gauge_origin = None
 
         if mpi.global_master:
 
@@ -162,6 +162,12 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         mol.hcore, mol.vhf, mol.eri = kernel.ints(mol, calc.mo_coeff, mpi.global_master, mpi.local_master, \
                                                     mpi.global_comm, mpi.local_comm, mpi.master_comm, mpi.num_masters)
 
+        # get dipole integrals
+        if mol.atom:
+            mol.dipole_ints = kernel.dipole_ints(mol, calc.mo_coeff)
+        else:
+            mol.dipole_ints = None
+
         # write fundamental info
         if not calc.restart and mpi.global_master and calc.misc['rst']:
             restart_write_fund(mol, calc)
@@ -175,8 +181,8 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             # base energy
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.target_mbe, calc.base['method'], \
-                                                               calc.mo_coeff, calc.prop['hf']['dipole'])
+                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.target_mbe, \
+                                                               calc.base['method'], calc.prop['hf']['dipole'])
             else:
                 calc.prop['base']['energy'] = 0.
                 calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
@@ -184,8 +190,8 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             # reference space properties
             calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc.occup, calc.target_mbe, \
                                                                 calc.orbsym, calc.model['hf_guess'], \
-                                                                calc.ref_space, calc.model, calc.state, \
-                                                                calc.prop['hf']['energy'], calc.mo_coeff, \
+                                                                calc.ref_space, calc.model, \
+                                                                calc.state, calc.prop['hf']['energy'], \
                                                                 calc.prop['hf']['dipole'], calc.base['method'])
 
         # bcast properties

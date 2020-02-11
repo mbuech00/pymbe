@@ -169,8 +169,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                                                  calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
                                                  calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
                                                  core_idx, cas_idx, mol.debug, \
-                                                 mol.dipole if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                                 calc.mo_coeff if calc.target_mbe in ['dipole', 'trans'] else None, \
+                                                 mol.dipole_ints if calc.target_mbe in ['dipole', 'trans'] else None, \
                                                  calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
 
             # calculate increment
@@ -250,9 +249,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int, \
             occup: np.ndarray, target_mbe: str, state_wfnsym: str, orbsym: np.ndarray, hf_guess: bool, \
             state_root: int, e_hf: float, res_ref: Union[float, np.ndarray], e_core: float, \
-            h1e_cas: np.ndarray, h2e_cas: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, \
-            debug: int, ao_dipole: Union[np.ndarray, None], mo_coeff: Union[np.ndarray, None], \
-            dipole_hf: Union[np.ndarray, None]) -> Tuple[Union[float, np.ndarray], int, Tuple[int, int]]:
+            h1e_cas: np.ndarray, h2e_cas: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, debug: int, \
+            dipole_ints: Union[np.ndarray, None], dipole_hf: Union[np.ndarray, None]) -> Tuple[Union[float, np.ndarray], \
+                                                                                                int, Tuple[int, int]]:
         """
         this function calculates the current-order contribution to the increment associated with a given tuple
 
@@ -277,13 +276,13 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
         # perform main calc
         res_full, ndets = kernel.main(main_method, solver, spin, occup, target_mbe, state_wfnsym, orbsym, \
                                         hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
-                                        core_idx, cas_idx, nelec, debug, ao_dipole, mo_coeff, dipole_hf)
+                                        core_idx, cas_idx, nelec, debug, dipole_ints, dipole_hf)
 
         # perform base calc
         if base_method is not None:
             res_full -= kernel.main(base_method, '', spin, occup, target_mbe, state_wfnsym, orbsym, \
                                       hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
-                                      core_idx, cas_idx, nelec, debug, ao_dipole, mo_coeff, dipole_hf)[0]
+                                      core_idx, cas_idx, nelec, debug, dipole_ints, dipole_hf)[0]
 
         return res_full - res_ref, ndets, nelec
 
