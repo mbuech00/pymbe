@@ -194,13 +194,6 @@ def _base(calc: calculation.CalcCls) -> str:
             return calc.base['method'].upper()
 
 
-def _prot(calc: calculation.CalcCls) -> str:
-        """
-        this function returns the screening protocol
-        """
-        return calc.prot['type'] + ' / ' + calc.prot['cond']
-
-
 def _system(mol: system.MolCls) -> str:
         """
         this function returns the system size
@@ -242,11 +235,30 @@ def _frozen(mol: system.MolCls) -> str:
             return 'false'
 
 
-def _active(calc: calculation.CalcCls) -> str:
+def _active_space(calc: calculation.CalcCls) -> str:
         """
         this function returns the active space
         """
-        return '{:} e in {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space['tot'].size)
+        return '{:} e in {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
+
+
+def _active_orbs(calc: calculation.CalcCls) -> str:
+        """
+        this function returns the orbitals of the active space
+        """
+        if calc.ref_space.size == 0:
+            return 'none'
+
+        # init string
+        string = ''
+        # divide ref_space into intervals
+        ref_space_ints = [i for i in tools.intervals(calc.ref_space)]
+
+        for idx, i in enumerate(ref_space_ints):
+            elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
+            string += '[{:}]+'.format(elms) if idx < len(ref_space_ints) - 1 else '[{:}]'.format(elms)
+
+        return string
 
 
 def _orbs(calc: calculation.CalcCls) -> str:
@@ -276,7 +288,7 @@ def _thres(calc: calculation.CalcCls) -> str:
         """
         this function returns the expansion threshold
         """
-        return '{:.0e} ({:<.1f})'.format(calc.thres['init'], calc.thres['relax'])
+        return '{:.0e}'.format(calc.thres['inc'])
 
 
 def _symm(mol: system.MolCls, calc: calculation.CalcCls) -> str:
@@ -370,7 +382,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         if calc.target_mbe == 'energy':
             hf_prop = calc.prop['hf']['energy']
             base_prop = calc.prop['hf']['energy']+calc.prop['base']['energy']
-            mbe_tot_prop = _energy(calc, exp)[-1]
+            mbe_tot_prop = np.asscalar(_energy(calc, exp)[-1])
         elif calc.target_mbe == 'dipole':
             dipole, nuc_dipole = _dipole(mol, calc, exp)
             hf_prop = np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole'])
@@ -379,7 +391,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         elif calc.target_mbe == 'excitation':
             hf_prop = 0.
             base_prop = 0.
-            mbe_tot_prop = _excitation(calc, exp)[-1]
+            mbe_tot_prop = np.asscalar(_excitation(calc, exp)[-1])
         else:
             hf_prop = 0.
             base_prop = 0.
@@ -422,19 +434,19 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
         form += ('','system size','','=','',_system(mol), \
-                    '','|','','exp. reference','','=','',_active(calc), \
+                    '','|','','reference space','','=','',_active_space(calc), \
                     '','|','','base model '+calc.target_mbe,'','=','',base_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
+                '{:<16}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
         form += ('','state (mult.)','','=','',_state(mol, calc), \
-                    '','|','','base model','','=','',_base(calc), \
+                    '','|','','reference orbs.','','=','',_active_orbs(calc), \
                     '','|','','MBE total '+calc.target_mbe,'','=','',mbe_tot_prop,)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
         form += ('','orbitals','','=','',_orbs(calc), \
-                    '','|','','screen. prot.','','=','',_prot(calc), \
+                    '','|','','base model','','=','',_base(calc), \
                     '','|','','total time','','=','',_time(exp, 'tot_sum', -1),)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
@@ -466,7 +478,7 @@ def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         calcs = 0
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            calc_i = exp.n_tasks[i]
+            calc_i = exp.n_tuples[i]
             calcs += calc_i
             string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
                     '{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'
@@ -514,8 +526,8 @@ def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
             form += ('',j, \
-                        '','|','',energy[i], \
-                        '','|','',energy[i] - calc.prop['hf']['energy'],)
+                        '','|','',np.asscalar(energy[i]), \
+                        '','|','',np.asscalar(energy[i]) - calc.prop['hf']['energy'],)
 
         string += DIVIDER[:66]+'\n'
 
@@ -586,7 +598,7 @@ def _excitation_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:7}{:>.5e}\n'
-            form += ('',j,'','|','',excitation[i],)
+            form += ('',j,'','|','',np.asscalar(excitation[i]),)
 
         string += DIVIDER[:43]+'\n'
 
