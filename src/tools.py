@@ -98,14 +98,11 @@ def assertion(cond: bool, reason: str) -> None:
         this function returns an assertion of a given condition
         """
         if not cond:
-
             # get stack
             stack = ''.join(traceback.format_stack()[:-1])
-
             # print stack
             print('\n\n'+stack)
             print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
-
             # abort mpi
             MPI.COMM_WORLD.Abort()
 
@@ -129,12 +126,10 @@ def time_str(time: float) -> str:
 
         # write time string
         if hours > 0:
-
             string += '{:.0f}h '
             form += (hours,)
 
         if minutes > 0:
-
             string += '{:.0f}m '
             form += (minutes,)
 
@@ -215,20 +210,21 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
         >>> nocc = 4
         >>> order = 3
         >>> occup = np.array([2.] * 4 + [0.] * 4)
-        >>> ref_space = np.array([])
+        >>> ref_space = np.array([], dtype=np.int)
         >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
-
+        >>> gen = tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...              virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+        >>> gen # doctest: +ELLIPSIS
+        <generator object tuples at 0x...>
+        >>> sum(1 for _ in gen)
+        18
         >>> ref_space = np.array([3, 4])
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
-
-        >>> order = 2
-        >>> mo = 1
-        >>> tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...         virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, restrict=mo)
-
+        >>> gen = tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...              virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+        >>> gen # doctest: +ELLIPSIS
+        <generator object tuples at 0x...>
+        >>> sum(1 for _ in gen)
+        20
         """
         # combinations of occupied and virtual MOs
         for k in range(1, order):
@@ -253,6 +249,24 @@ def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
         this function is a generator for indices of subtuples, all with an MO restriction
 
         example:
+        >>> nocc = 4
+        >>> order = 3
+        >>> occup = np.array([2.] * 4 + [0.] * 4)
+        >>> ref_space = np.array([], dtype=np.int)
+        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
+        >>> gen = include_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...                   virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
+        >>> gen # doctest: +ELLIPSIS
+        <generator object include_idx at 0x...>
+        >>> sum(1 for _ in gen)
+        9
+        >>> ref_space = np.array([3, 4])
+        >>> gen = include_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...                   virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
+        >>> gen # doctest: +ELLIPSIS
+        <generator object include_idx at 0x...>
+        >>> sum(1 for _ in gen)
+        10
         """
         # init counter
         idx = 0
@@ -295,6 +309,17 @@ def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
         this function return the index of a given restricted subtuple
 
         example:
+        >>> nocc = 4
+        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
+        >>> tup = np.array([1, 5, 7])
+        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
+        4
+        >>> tup = np.array([1])
+        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
+        1
+        >>> tup = np.array([5, 7])
+        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
+        13
         """
         # init counter
         idx = 0.
@@ -339,6 +364,16 @@ def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
         returned from itertools.combinations
 
         example:
+        >>> space = np.array([0, 1, 2, 5, 6, 7])
+        >>> tup = np.array([1, 2, 6, 7])
+        >>> _sub_idx(space, tup)
+        12.0
+        >>> tup = np.array([1, 2])
+        >>> _sub_idx(space, tup)
+        5.0
+        >>> tup = np.array([5, 7])
+        >>> _sub_idx(space, tup)
+        13.0
         """
         idx = _idx(space, tup[0], tup.size)
         idx += sum((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)))
@@ -351,6 +386,13 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
         position (order+1) from the right in a given combination
 
         example:
+        >>> space = np.array([0, 1, 2, 5, 6, 7])
+        >>> _idx(space, 5, 1)
+        3.0
+        >>> _idx(space, 5, 2)
+        12.0
+        >>> _idx(space, 5, 3)
+        19.0
         """
         return sum((sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
 
@@ -367,9 +409,9 @@ def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
         >>> n_tuples(occ_space, virt_space, False, False, 5)
         1460500
         >>> n_tuples(occ_space, virt_space, True, False, 5)
-        1460752
-        >>> n_tuples(occ_space, virt_space, False, True, 5)
         2118508
+        >>> n_tuples(occ_space, virt_space, False, True, 5)
+        1460752
         >>> n_tuples(occ_space, virt_space, True, True, 5)
         2118760
         """
@@ -508,7 +550,7 @@ def _pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
 
         example:
         >>> _pi_orbs(np.array([1, 2, 4, 5], dtype=np.int64), np.arange(8, dtype=np.int64))
-        array([1, 2, 4, 5], dtype=int)
+        array([1, 2, 4, 5])
         """
         return tup[np.in1d(tup, pi_space)]
 
@@ -707,6 +749,9 @@ def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
         """
         this generator converts sequential numbers into intervals
 
+        example:
+        >>> [i for i in intervals(np.array([0, 1, 2, 5, 7, 8, 10, 11, 12, 13]))]
+        [[0, 2], [5], [7, 8], [10, 13]]
         """
         for key, group in itertools.groupby(enumerate(a), lambda x: x[1] - x[0]):
             group_lst = list(group)
