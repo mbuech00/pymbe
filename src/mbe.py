@@ -174,7 +174,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # calculate increment
             if exp.order > exp.min_order:
-                inc_tup -= _sum(mol, calc.occup, calc.target_mbe, exp.min_order, \
+                inc_tup -= _sum(mol.nocc, calc.occup, calc.target_mbe, exp.min_order, \
                                 exp.order, inc, exp.exp_space, ref_occ, ref_virt, tup)
 
 
@@ -261,8 +261,8 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
         >>> orbsym = np.zeros(n, dtype=np.int64)
         >>> h1e_cas, h2e_cas = kernel.hubbard_h1e((1, n), False), kernel.hubbard_eri((1, n), 2.)
         >>> core_idx, cas_idx = np.array([]), np.arange(n)
-        >>> e, ndets, nelec = _inc('fci', None, 'pyscf_spin0', 0, occup, 'energy', None, orbsym, 0,
-        ...                        0, 0., 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, False, None, None, None)
+        >>> e, ndets, nelec = _inc('fci', None, 'pyscf_spin0', 0, occup, 'energy', 'A', orbsym, True,
+        ...                        0, 0., 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, 0, None, None)
         >>> np.isclose(e, -2.875942809005048)
         True
         >>> ndets
@@ -287,49 +287,32 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
         return res_full - res_ref, ndets, nelec
 
 
-def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
+def _sum(nocc: int, occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
             inc: List[np.ndarray], exp_space: List[np.ndarray], ref_occ: bool, ref_virt: bool, \
             tup: np.ndarray) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
 
         example:
-        >>> occup = np.array([2.] * 2 + [0.] * 2)
-        >>> ref_space = {'occ': np.arange(2, dtype=np.int64),
-        ...              'virt': np.array([], dtype=np.int64),
-        ...              'tot': np.arange(2, dtype=np.int64)}
-        >>> exp_space = {'occ': np.array([], dtype=np.int64),
-        ...              'virt': np.arange(2, 4, dtype=np.int64),
-        ...              'tot': np.arange(2, 4, dtype=np.int64),
-        ...              'pi_orbs': np.array([], dtype=np.int64),
-        ...              'pi_hashes': np.array([], dtype=np.int64)}
-        >>> min_order, order = 1, 2
-        ... # [[2], [3]]
-        ... # [[2, 3]]
-        >>> hashes = [np.sort(np.array([-4760325697709127167, -4199509873246364550])),
-        ...           np.array([-5475322122992870313])]
-        >>> inc = [np.array([-.1, -.2])]
-        >>> tup = np.arange(2, 4, dtype=np.int64)
-        >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -.3)
+        >>> exp_space = [np.arange(10), np.array([1, 2, 3, 4, 5, 7, 8, 9]), np.array([1, 3, 5, 7, 8, 9])]
+        >>> occup = np.array([2.] * 3 + [0.] * 7)
+        >>> min_order = 2
+        >>> inc = []
+        >>> np.random.seed(1)
+        >>> inc.append(np.random.rand(45))
+        >>> np.random.seed(2)
+        >>> inc.append(np.random.rand(56))
+        >>> np.random.seed(3)
+        >>> inc.append(np.random.rand(15))
+        >>> order = 3
+        >>> tup = np.array([1, 7, 8])
+        >>> ref_occ = False
+        >>> ref_virt = False
+        >>> np.isclose(_sum(3, occup, 'energy', min_order, order, inc, exp_space, ref_occ, ref_virt, tup), 0.8896717501282769)
         True
-        >>> inc = [np.array([[0., 0., .1], [0., 0., .2]])]
-        >>> np.allclose(_sum(occup, ref_space, exp_space, 'dipole', min_order, order, inc, hashes, tup, False), np.array([0., 0., .3]))
-        True
-        >>> ref_space['tot'] = ref_space['occ'] = np.array([], dtype=np.int64)
-        >>> exp_space = {'tot': np.arange(4), 'occ': np.arange(2), 'virt': np.arange(2, 4),
-        ...              'pi_orbs': np.arange(2, dtype=np.int64), 'pi_hashes': np.array([-3821038970866580488])}
-        >>> min_order, order = 2, 4
-        ... # [[0, 2], [0, 3], [1, 2], [1, 3]]
-        ... # [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
-        ... # [[0, 1, 2, 3]]
-        >>> hashes = [np.sort(np.array([-4882741555304645790, 1455941523185766351, -2163557957507198923, -669804309911520350])),
-        ...           np.sort(np.array([-5731810011007442268, 366931854209709639, -7216722148388372205, -3352798558434503475])),
-        ...           np.array([-2930228190932741801])]
-        >>> inc = [np.array([-.11, -.12, -.11, -.12]), np.array([-.01, -.02, -.03, -.03])]
-        >>> tup = np.arange(4, dtype=np.int64)
-        >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, False), -0.55)
-        True
-        >>> np.isclose(_sum(occup, ref_space, exp_space, 'energy', min_order, order, inc, hashes, tup, True), -0.05)
+        >>> order = 4
+        >>> tup = np.array([1, 7, 8, 9])
+        >>> np.isclose(_sum(3, occup, 'energy', min_order, order, inc, exp_space, ref_occ, ref_virt, tup), 2.6003871187768177)
         True
         """
         # init res
@@ -339,16 +322,16 @@ def _sum(mol: system.MolCls, occup: np.ndarray, target_mbe: str, min_order: int,
             res = np.empty([order - min_order, 3], dtype=np.float64)
 
         # occupied and virtual subspaces of tuple
-        tup_occ = tup[tup < mol.nocc]
-        tup_virt = tup[mol.nocc <= tup]
+        tup_occ = tup[tup < nocc]
+        tup_virt = tup[nocc <= tup]
 
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
             # get indices of subtuples
-            idx = np.fromiter((tools.restricted_idx(exp_space[k-min_order][exp_space[k-min_order] < mol.nocc], \
-                                                    exp_space[k-min_order][mol.nocc <= exp_space[k-min_order]], \
-                                                    tup_sub[tup_sub < mol.nocc], tup_sub[mol.nocc <= tup_sub]) \
+            idx = np.fromiter((tools.restricted_idx(exp_space[k-min_order][exp_space[k-min_order] < nocc], \
+                                                    exp_space[k-min_order][nocc <= exp_space[k-min_order]], \
+                                                    tup_sub[tup_sub < nocc], tup_sub[nocc <= tup_sub]) \
                                for tup_sub in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k)), \
                               dtype=np.int64, count=tools.n_tuples(tup_occ, tup_virt, ref_occ, ref_virt, k))
 
