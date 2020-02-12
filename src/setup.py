@@ -124,14 +124,14 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         """
         this function initializes an exp object
         """
-        # get dipole integrals
-        if mol.atom:
-            mol.gauge_origin, mol.dipole = kernel.dipole_ints(mol)
-        else:
-            mol.gauge_origin = mol.dipole = None
-
         # nuclear repulsion energy
         mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.
+
+        # dipole gauge origin
+        if mol.atom:
+            mol.gauge_origin = kernel.gauge_origin(mol)
+        else:
+            mol.gauge_origin = None
 
         if mpi.global_master:
 
@@ -151,10 +151,9 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                     calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.hf_ref)
 
                 # reference and expansion spaces and mo coefficients
-                calc.mo_coeff, calc.nelec, \
-                    calc.ref_space, calc.exp_space = kernel.ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
-                                                                    calc.orbs, calc.ref, calc.model, \
-                                                                    calc.extra['pi_prune'], calc.hf)
+                calc.mo_coeff, calc.nelec, calc.ref_space = kernel.ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
+                                                                          calc.orbs, calc.ref, calc.model, \
+                                                                          calc.extra['pi_prune'], calc.hf)
 
         # bcast fundamental info
         mol, calc = parallel.fund_dist(mpi, mol, calc)
@@ -162,6 +161,12 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
         # get handles to all integral windows
         mol.hcore, mol.vhf, mol.eri = kernel.ints(mol, calc.mo_coeff, mpi.global_master, mpi.local_master, \
                                                     mpi.global_comm, mpi.local_comm, mpi.master_comm, mpi.num_masters)
+
+        # get dipole integrals
+        if mol.atom:
+            mol.dipole_ints = kernel.dipole_ints(mol, calc.mo_coeff)
+        else:
+            mol.dipole_ints = None
 
         # write fundamental info
         if not calc.restart and mpi.global_master and calc.misc['rst']:
@@ -176,8 +181,8 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             # base energy
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.target_mbe, calc.base['method'], \
-                                                               calc.mo_coeff, calc.prop['hf']['dipole'])
+                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.target_mbe, \
+                                                               calc.base['method'], calc.prop['hf']['dipole'])
             else:
                 calc.prop['base']['energy'] = 0.
                 calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
@@ -185,13 +190,9 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             # reference space properties
             calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc.occup, calc.target_mbe, \
                                                                 calc.orbsym, calc.model['hf_guess'], \
-                                                                calc.ref_space, calc.model, calc.state, \
-                                                                calc.prop['hf']['energy'], calc.mo_coeff, \
+                                                                calc.ref_space, calc.model, \
+                                                                calc.state, calc.prop['hf']['energy'], \
                                                                 calc.prop['hf']['dipole'], calc.base['method'])
-
-        # mo_coeff not needed anymore
-        if mpi.global_master:
-            del calc.mo_coeff
 
         # bcast properties
         calc = parallel.prop_dist(mpi, calc)
@@ -201,18 +202,27 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             restart_write_prop(mol, calc)
 
         # exp object
-        exp = expansion.ExpCls(calc)
-
-        # init hashes, n_tasks, and tuples
-        exp.hashes, exp.tuples, exp.n_tasks, \
-            exp.min_order = expansion.init_tup(calc.occup, calc.ref_space, calc.exp_space, \
-                                                mpi.local_master, mpi.local_comm, calc.extra['pi_prune'])
+        exp = expansion.ExpCls(mol, calc)
 
         # possible restart
         if calc.restart:
             exp.start_order = restart_main(mpi, calc, exp)
         else:
             exp.start_order = exp.min_order
+
+        # pi-orbital space
+        if calc.extra['pi_prune']:
+
+            # recast mol in parent point group (dooh/coov) - make pi-space based on those symmetries
+            mol_parent = mol.copy()
+            parent_group = 'Dooh' if mol.symmetry == 'D2h' else 'Coov'
+            mol_parent = mol_parent.build(0, 0, symmetry=parent_group)
+
+            orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
+                                                mol_parent.symm_orb, calc.mo_coeff)
+
+            # pi-space
+            exp.pi_orbs, exp.pi_hashes = tools.pi_space(parent_group, orbsym_parent, exp.exp_space[0])
 
         return mol, calc, exp
 
@@ -227,70 +237,43 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # sort the list of files
         files.sort(key=tools.natural_keys)
 
-        # loop over n_tasks files
+        # loop over n_tuples files
         if mpi.global_master:
 
             for i in range(len(files)):
 
-                # read n_tasks
-                if 'mbe_n_tasks' in files[i]:
-                    exp.n_tasks.append(np.load(os.path.join(RST, files[i])))
+                # read n_tuples
+                if 'mbe_n_tuples' in files[i]:
+                    exp.n_tuples.append(np.load(os.path.join(RST, files[i])))
 
-            mpi.global_comm.bcast(exp.n_tasks, root=0)
+            mpi.global_comm.bcast(exp.n_tuples, root=0)
 
         else:
 
-            exp.n_tasks = mpi.global_comm.bcast(None, root=0)
+            exp.n_tuples = mpi.global_comm.bcast(None, root=0)
 
         # loop over all other files
         for i in range(len(files)):
 
-            # read tuples
-            if 'mbe_tup' in files[i]:
-                n_tasks = exp.n_tasks[-1]
-                order = len(exp.n_tasks) + exp.min_order - 1
-                if mpi.local_master:
-                    exp.tuples = MPI.Win.Allocate_shared(2 * n_tasks * order, 2, comm=mpi.local_comm)
-                else:
-                    exp.tuples = MPI.Win.Allocate_shared(0, 2, comm=mpi.local_comm)
-                buf = exp.tuples.Shared_query(0)[0]
-                tuples = np.ndarray(buffer=buf, dtype=np.int16, shape=(n_tasks, order))
-                if mpi.global_master:
-                    tuples[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.num_masters > 1 and mpi.local_master:
-                    tuples[:] = parallel.bcast(mpi.master_comm, tuples)
-                mpi.local_comm.Barrier()
-
-            # read hashes
-            elif 'mbe_hash' in files[i]:
-                n_tasks = exp.n_tasks[len(exp.hashes)]
-                if mpi.local_master:
-                    exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
-                else:
-                    exp.hashes.append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
-                buf = exp.hashes[-1].Shared_query(0)[0]
-                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tasks,))
-                if mpi.global_master:
-                    hashes[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.num_masters > 1 and mpi.local_master:
-                    hashes[:] = parallel.bcast(mpi.master_comm, hashes)
-                mpi.local_comm.Barrier()
+            # read expansion spaces
+            if 'exp_space' in files[i]:
+                exp.exp_space.append(np.load(os.path.join(RST, files[i])))
 
             # read increments
             elif 'mbe_inc' in files[i]:
-                n_tasks = exp.n_tasks[len(exp.prop[calc.target_mbe]['inc'])]
+                n_tuples = exp.n_tuples[len(exp.prop[calc.target_mbe]['inc'])]
                 if mpi.local_master:
                     if calc.target_mbe in ['energy', 'excitation']:
-                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks, 8, comm=mpi.local_comm))
+                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm))
                     elif calc.target_mbe in ['dipole', 'trans']:
-                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tasks * 3, 8, comm=mpi.local_comm))
+                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples * 3, 8, comm=mpi.local_comm))
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
                 buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
                 if calc.target_mbe in ['energy', 'excitation']:
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks,))
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tuples,))
                 elif calc.target_mbe in ['dipole', 'trans']:
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tasks, 3))
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tuples, 3))
                 if mpi.global_master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -301,7 +284,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
 
                 # read total properties
                 if 'mbe_tot' in files[i]:
-                    exp.prop[calc.target_mbe]['tot'].append(np.load(os.path.join(RST, files[i])).tolist())
+                    exp.prop[calc.target_mbe]['tot'].append(np.load(os.path.join(RST, files[i])))
 
                 # read ndets statistics
                 elif 'mbe_mean_ndets' in files[i]:
@@ -328,7 +311,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return tuples.shape[1]
+        return exp.min_order + len(exp.n_tuples) - 1
 
 
 def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
@@ -340,16 +323,8 @@ def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         with open(os.path.join(RST, 'dims.rst'), 'w') as f:
             json.dump(dims, f)
 
-        # write expansion spaces
-        np.save(os.path.join(RST, 'ref_space_occ'), calc.ref_space['occ'])
-        np.save(os.path.join(RST, 'ref_space_virt'), calc.ref_space['virt'])
-        np.save(os.path.join(RST, 'ref_space_tot'), calc.ref_space['tot'])
-        np.save(os.path.join(RST, 'exp_space_occ'), calc.exp_space['occ'])
-        np.save(os.path.join(RST, 'exp_space_virt'), calc.exp_space['virt'])
-        np.save(os.path.join(RST, 'exp_space_seed'), calc.exp_space['seed'])
-        np.save(os.path.join(RST, 'exp_space_tot'), calc.exp_space['tot'])
-        np.save(os.path.join(RST, 'exp_space_pi_orbs'), calc.exp_space['pi_orbs'])
-        np.save(os.path.join(RST, 'exp_space_pi_hashes'), calc.exp_space['pi_hashes'])
+        # write reference & expansion spaces
+        np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
 
         # occupation
         np.save(os.path.join(RST, 'occup'), calc.occup)
@@ -378,25 +353,9 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                 mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']
                 mol.norb = dims['norb']; calc.nelec = dims['nelec']
 
-            # read expansion spaces
-            elif 'ref_space_occ' in files[i]:
-                calc.ref_space['occ'] = np.load(os.path.join(RST, files[i]))
-            elif 'ref_space_virt' in files[i]:
-                calc.ref_space['virt'] = np.load(os.path.join(RST, files[i]))
-            elif 'ref_space_tot' in files[i]:
-                calc.ref_space['tot'] = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space_occ' in files[i]:
-                calc.exp_space['occ'] = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space_virt' in files[i]:
-                calc.exp_space['virt'] = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space_seed' in files[i]:
-                calc.exp_space['seed'] = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space_tot' in files[i]:
-                calc.exp_space['tot'] = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space_pi_orbs' in files[i]:
-                calc.exp_space['pi_orbs'] = np.load(os.path.join(RST, files[i]))
-            elif 'exp_space_pi_hashes' in files[i]:
-                calc.exp_space['pi_hashes'] = np.load(os.path.join(RST, files[i]))
+            # read reference space
+            elif 'ref_space' in files[i]:
+                calc.ref_space = np.load(os.path.join(RST, files[i]))
 
             # read occupation
             elif 'occup' in files[i]:
@@ -408,7 +367,7 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
                 if mol.atom:
                     calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
                 else:
-                    calc.orbsym = np.zeros(mol.norb, dtype=np.int)
+                    calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
 
         return mol, calc
 
@@ -511,10 +470,5 @@ def settings() -> None:
 
         # mute scf checkpoint files
         scf.hf.MUTE_CHKFILE = True
-
-        # PYTHONHASHSEED = 0
-        pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)
-        tools.assertion(int(pythonhashseed) == 0, \
-                        'environment variable PYTHONHASHSEED must be set to zero')
 
 

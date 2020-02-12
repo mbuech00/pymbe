@@ -24,7 +24,7 @@ import tools
 
 
 # attributes
-ATTR = ['model', 'hf_ref', 'base', 'orbs', 'target', 'prot', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
+ATTR = ['model', 'hf_ref', 'base', 'orbs', 'target', 'thres', 'mpi', 'extra', 'misc', 'ref', 'state']
 
 
 class CalcCls:
@@ -40,14 +40,13 @@ class CalcCls:
                 self.hf_ref: Dict[str, Any] = {'symmetry': None, 'irrep_nelec': {}, \
                                                'init_guess': 'minao', 'newton': False}
                 self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
-                self.prot: Dict[str, str] = {'type': 'lambda', 'cond': 'max'}
                 self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
                                             'select': [i for i in range(ncore, nelectron // 2)], 'weights': [1.], \
                                             'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0]}
                 self.base: Dict[str, Union[None, str]] = {'method': None}
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
                 self.extra: Dict[str, bool] = {'pi_prune': False}
-                self.thres: Dict[str, float] = {'init': 1.e-10, 'relax': 1., 'start': 3}
+                self.thres: Dict[str, float] = {'inc': 1.e-10}
                 self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
                 self.orbs: Dict[str, str] = {'type': 'can'}
                 self.mpi: Dict[str, int] = {}
@@ -61,8 +60,7 @@ class CalcCls:
                 self.orbsym: np.ndarray = None
                 self.mo_coeff: np.ndarray = None
                 self.nelec: Tuple[int, ...] = ()
-                self.ref_space: Dict[str, np.ndarray] = {'tot': None}
-                self.exp_space: Dict[str, np.ndarray] = {'tot': None}
+                self.ref_space: np.ndarray = None
 
 
 def set_calc(calc: CalcCls) -> CalcCls:
@@ -168,7 +166,7 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'HF initial guess for CASSCF calc (hf_guess) must be a bool')
         tools.assertion(len(calc.ref['wfnsym']) == len(calc.ref['weights']), \
                         'list of wfnsym and weights for CASSCF calc (wfnsym/weights) must be of same length')
-        tools.assertion(isinstance(calc.ref['weights'], list), \
+        tools.assertion(isinstance(calc.ref['weights'], (tuple, list)), \
                         'weights for CASSCF calc (weights) must be a list of floats')
         tools.assertion(all(isinstance(i, float) for i in calc.ref['weights']), \
                         'weights for CASSCF calc (weights) must be floats')
@@ -227,29 +225,9 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
             tools.assertion(symm.addons.std_symb(symmetry) in ['D2h', 'C2v'], \
                             'pruning of pi-orbitals (pi_prune) is only implemented for linear D2h and C2v symmetries')
 
-        # screening protocol
-        tools.assertion(set(list(calc.prot.keys())) <= set(['type', 'cond']), \
-                        'valid input strings in prot dict are: type and cond')
-        tools.assertion(calc.prot['type'] == 'lambda', \
-                        'valid input options for screening protocol type (type) are: lambda')
-        tools.assertion(calc.prot['cond'] in ['min', 'max'], \
-                        'valid input options for screening protocol condition (cond) are: min and max')
-
         # expansion thresholds
-        tools.assertion(set(list(calc.thres.keys())) <= set(['init', 'relax', 'start']), \
-                        'valid input strings in thres dict are: init, relax, and start')
-        tools.assertion(isinstance(calc.thres['init'], float), \
-                        'initial threshold (init) must be a float')
-        tools.assertion(calc.thres['init'] >= 0., \
-                        'initial threshold (init) must be a float >= 0.0')
-        tools.assertion(isinstance(calc.thres['relax'], float), \
-                        'initial threshold (init) must be a float')
-        tools.assertion(calc.thres['relax'] >= 1., \
-                        'threshold relaxation (relax) must be a float >= 1.0')
-        tools.assertion(isinstance(calc.thres['start'], int), \
-                        'start threshold parameter (start) must be an int')
-        tools.assertion(calc.thres['start'] >= 1, \
-                        'start threshold parameter (start) must be an int >= 1')
+        tools.assertion(isinstance(calc.thres['inc'], float), \
+                        'increment threshold (inc) must be a float')
 
         # orbital representation
         tools.assertion(calc.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \

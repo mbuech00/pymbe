@@ -19,17 +19,17 @@ import traceback
 import subprocess
 from mpi4py import MPI
 import numpy as np
-import scipy.special
+import scipy.special as sc
 import functools
 import itertools
 import math
-from typing import Tuple, List, Union
+from typing import Tuple, Set, List, Dict, Any, Generator, Union
 
 # restart folder
 RST = os.getcwd()+'/rst'
 # pi-orbitals
 PI_SYMM_D2H = np.array([2, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27])
-PI_SYMM_C2V = np.array([10, 11, 12, 13, 20, 21, 22, 23])
+PI_SYMM_C2V = np.array([2, 3, 10, 11, 12, 13, 20, 21, 22, 23])
 
 
 class Logger:
@@ -98,14 +98,11 @@ def assertion(cond: bool, reason: str) -> None:
         this function returns an assertion of a given condition
         """
         if not cond:
-
             # get stack
             stack = ''.join(traceback.format_stack()[:-1])
-
             # print stack
             print('\n\n'+stack)
             print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
-
             # abort mpi
             MPI.COMM_WORLD.Abort()
 
@@ -129,12 +126,10 @@ def time_str(time: float) -> str:
 
         # write time string
         if hours > 0:
-
             string += '{:.0f}h '
             form += (hours,)
 
         if minutes > 0:
-
             string += '{:.0f}m '
             form += (minutes,)
 
@@ -185,6 +180,7 @@ def hash_1d(a: np.ndarray) -> int:
         return hash(a.astype(np.int64).tobytes())
 
 
+
 def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
         """
         this function finds occurences of b in a through a binary search
@@ -203,6 +199,238 @@ def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
             return left
         else:
             return None
+
+
+def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
+                ref_occ: bool, ref_virt: bool, order: int) -> Generator[np.ndarray, None, None]:
+        """
+        this function is the main generator for tuples
+
+        example:
+        >>> nocc = 4
+        >>> order = 3
+        >>> occup = np.array([2.] * 4 + [0.] * 4)
+        >>> ref_space = np.array([], dtype=np.int)
+        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
+        >>> gen = tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...              virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+        >>> gen # doctest: +ELLIPSIS
+        <generator object tuples at 0x...>
+        >>> sum(1 for _ in gen)
+        18
+        >>> ref_space = np.array([3, 4])
+        >>> gen = tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...              virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
+        >>> gen # doctest: +ELLIPSIS
+        <generator object tuples at 0x...>
+        >>> sum(1 for _ in gen)
+        20
+        """
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            for tup_occ in itertools.combinations(occ_space, k):
+                for tup_virt in itertools.combinations(virt_space, order - k):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+
+        # only occupied MOs
+        if ref_virt:
+            for tup_occ in itertools.combinations(occ_space, order):
+                yield np.array(tup_occ, dtype=np.int64)
+
+        # only virtual MOs
+        if ref_occ:
+            for tup_virt in itertools.combinations(virt_space, order):
+                yield np.array(tup_virt, dtype=np.int64)
+
+
+def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
+                ref_occ: bool, ref_virt: bool, order: int, mo: int) -> Generator[int, None, None]:
+        """
+        this function is a generator for indices of subtuples, all with an MO restriction
+
+        example:
+        >>> nocc = 4
+        >>> order = 3
+        >>> occup = np.array([2.] * 4 + [0.] * 4)
+        >>> ref_space = np.array([], dtype=np.int)
+        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
+        >>> gen = include_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...                   virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
+        >>> gen # doctest: +ELLIPSIS
+        <generator object include_idx at 0x...>
+        >>> sum(1 for _ in gen)
+        9
+        >>> ref_space = np.array([3, 4])
+        >>> gen = include_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...                   virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
+        >>> gen # doctest: +ELLIPSIS
+        <generator object include_idx at 0x...>
+        >>> sum(1 for _ in gen)
+        10
+        """
+        # init counter
+        idx = 0
+
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            if mo in occ_space:
+                for tup_occ in itertools.combinations(occ_space, k):
+                    if mo in tup_occ:
+                        for tup_virt in itertools.combinations(virt_space, order - k):
+                            yield idx
+                            idx += 1
+                    else:
+                        idx += int(sc.binom(virt_space.size, order - k))
+            else:
+                for tup_occ in itertools.combinations(occ_space, k):
+                    for tup_virt in itertools.combinations(virt_space, order - k):
+                        if mo in tup_virt:
+                            yield idx
+                        idx += 1
+
+        # only occupied MOs
+        if ref_virt:
+            for tup_occ in itertools.combinations(occ_space, order):
+                if mo in tup_occ:
+                    yield idx
+                idx += 1
+
+        # only virtual MOs
+        if ref_occ:
+            for tup_virt in itertools.combinations(virt_space, order):
+                if mo in tup_virt:
+                    yield idx
+                idx += 1
+
+
+def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
+                    tup_occ: np.ndarray, tup_virt: np.ndarray) -> int:
+        """
+        this function return the index of a given restricted subtuple
+
+        example:
+        >>> nocc = 4
+        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
+        >>> tup = np.array([1, 5, 7])
+        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
+        4
+        >>> tup = np.array([1])
+        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
+        1
+        >>> tup = np.array([5, 7])
+        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
+        13
+        """
+        # init counter
+        idx = 0.
+
+        # order
+        order = tup_occ.size + tup_virt.size
+
+        if 0 < exp_occ.size and 0 < exp_virt.size:
+            if 0 < tup_occ.size and 0 < tup_virt.size:
+                # scroll through combinations of occupied & virtual orbitals
+                idx += sum((sc.binom(exp_occ.size, k) * \
+                            sc.binom(exp_virt.size, order - k) for k in range(1, tup_occ.size)))
+                idx += _sub_idx(exp_occ, tup_occ) * sc.binom(exp_virt.size, tup_virt.size)
+                idx += _sub_idx(exp_virt, tup_virt)
+            else:
+                # skip all combinations of occupied & virtual orbitals
+                idx += sum((sc.binom(exp_occ.size, k) * \
+                            sc.binom(exp_virt.size, order - k) for k in range(1, order)))
+                if 0 < tup_occ.size and tup_virt.size == 0:
+                    # scroll through combinations of occupied orbitals
+                    idx += _sub_idx(exp_occ, tup_occ)
+                else:
+                    # skip all combinations occupied orbitals
+                    idx += sc.binom(exp_occ.size, order)
+                    # scroll through combinations of virtual orbitals
+                    idx += _sub_idx(exp_virt, tup_virt)
+        elif 0 < exp_occ.size and exp_virt.size == 0:
+            # scroll through combinations of occupied orbitals
+            idx += _sub_idx(exp_occ, tup_occ)
+        else:
+            # skip all combinations occupied orbitals
+            idx += sc.binom(exp_occ.size, order)
+            # scroll through combinations of virtual orbitals
+            idx += _sub_idx(exp_virt, tup_virt)
+
+        return int(idx)
+
+
+def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
+        """
+        this function return the index of a given (ordered) combination
+        returned from itertools.combinations
+
+        example:
+        >>> space = np.array([0, 1, 2, 5, 6, 7])
+        >>> tup = np.array([1, 2, 6, 7])
+        >>> _sub_idx(space, tup)
+        12.0
+        >>> tup = np.array([1, 2])
+        >>> _sub_idx(space, tup)
+        5.0
+        >>> tup = np.array([5, 7])
+        >>> _sub_idx(space, tup)
+        13.0
+        """
+        idx = _idx(space, tup[0], tup.size)
+        idx += sum((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)))
+        return idx
+
+
+def _idx(space: np.ndarray, idx: int, order: int) -> float:
+        """
+        this function return the start index of element space[idx] in
+        position (order+1) from the right in a given combination
+
+        example:
+        >>> space = np.array([0, 1, 2, 5, 6, 7])
+        >>> _idx(space, 5, 1)
+        3.0
+        >>> _idx(space, 5, 2)
+        12.0
+        >>> _idx(space, 5, 3)
+        19.0
+        """
+        return sum((sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
+
+
+def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
+                ref_occ: bool, ref_virt: bool, order: int) -> int:
+        """
+        this function returns the total number of tuples of a given order
+
+        example:
+        >>> order = 3
+        >>> occ_space = np.arange(10)
+        >>> virt_space = np.arange(10, 50)
+        >>> n_tuples(occ_space, virt_space, False, False, 5)
+        1460500
+        >>> n_tuples(occ_space, virt_space, True, False, 5)
+        2118508
+        >>> n_tuples(occ_space, virt_space, False, True, 5)
+        1460752
+        >>> n_tuples(occ_space, virt_space, True, True, 5)
+        2118760
+        """
+        # init n_tuples
+        n = 0.
+
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
+
+        # only occupied MOs
+        if ref_virt:
+            n += sc.binom(occ_space.size, order)
+
+        # only virtual MOs
+        if ref_occ:
+            n += sc.binom(virt_space.size, order)
+
+        return int(n)
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -289,9 +517,9 @@ def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.
 
         example:
         >>> orbsym_dooh = np.array([14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5])
-        >>> exp_space = np.arange(18, dtype=np.int16)
+        >>> exp_space = np.arange(18, dtype=np.int64)
         >>> pi_pairs, pi_hashes = pi_space('Dooh', orbsym_dooh, exp_space)
-        >>> pi_pairs_ref = np.array([12, 13,  7,  8,  3,  4,  0,  1,  9, 10, 15, 16], dtype=np.int16)
+        >>> pi_pairs_ref = np.array([12, 13,  7,  8,  3,  4,  0,  1,  9, 10, 15, 16], dtype=np.int64)
         >>> np.allclose(pi_pairs, pi_pairs_ref)
         True
         >>> pi_hashes_ref = np.array([-8471304755370577665, -7365615264797734692, -3932386661120954737,
@@ -316,56 +544,15 @@ def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.
         return pi_pairs.reshape(-1,), pi_hashes
 
 
-def non_deg_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
-        """
-        this function returns non-degenerate orbitals from tuple of orbitals
-
-        example:
-        >>> non_deg_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
-        array([0, 3, 6, 7], dtype=int16)
-        """
-        return tup[np.invert(np.in1d(tup, pi_space))]
-
-
 def _pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         """
         this function returns pi-orbitals from tuple of orbitals
 
         example:
-        >>> _pi_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
-        array([1, 2, 4, 5], dtype=int16)
+        >>> _pi_orbs(np.array([1, 2, 4, 5], dtype=np.int64), np.arange(8, dtype=np.int64))
+        array([1, 2, 4, 5])
         """
         return tup[np.in1d(tup, pi_space)]
-
-
-def n_pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
-        """
-        this function returns number of pi-orbitals in tuple of orbitals
-
-        example:
-        >>> n_pi_orbs(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
-        4
-        """
-        return _pi_orbs(pi_space, tup).size
-
-
-def pi_pairs_deg(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
-        """
-        this function returns pairs of degenerate pi-orbitals from tuple of orbitals
-
-        example:
-        >>> pi_pairs_deg(np.array([1, 2, 4, 5], dtype=np.int16), np.arange(8, dtype=np.int16))
-        array([[1, 2],
-               [4, 5]], dtype=int16)
-        """
-        # get all pi-orbitals in tup
-        tup_pi_orbs = _pi_orbs(pi_space, tup)
-
-        # return degenerate pairs
-        if tup_pi_orbs.size % 2 > 0:
-            return tup_pi_orbs[1:].reshape(-1, 2)
-        else:
-            return tup_pi_orbs.reshape(-1, 2)
 
 
 def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bool:
@@ -373,42 +560,36 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
         this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
 
         example:
-        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int16)
+        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int64)
         >>> pi_hashes = np.sort(np.array([-2163557957507198923, 1937934232745943291]))
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int16))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int64))
         True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int16))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int64))
         True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int16))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int64))
         False
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int16))
+        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int64))
         False
         """
         # get all pi-orbitals in tup
         tup_pi_orbs = _pi_orbs(pi_space, tup)
 
         if tup_pi_orbs.size == 0:
-
             # no pi-orbitals
             return True
 
-        else:
+        if tup_pi_orbs.size % 2 > 0:
+            # always prune tuples with an odd number of pi-orbitals
+            return False
 
-            if tup_pi_orbs.size % 2 > 0:
+        # get hashes of pi-pairs
+        tup_pi_hashes = hash_2d(tup_pi_orbs.reshape(-1, 2))
+        tup_pi_hashes.sort()
 
-                # always prune tuples with an odd number of pi-orbitals
-                return False
+        # get indices of pi-pairs
+        idx = hash_compare(pi_hashes, tup_pi_hashes)
 
-            else:
-
-                # get hashes of pi-pairs
-                tup_pi_hashes = hash_2d(tup_pi_orbs.reshape(-1, 2))
-                tup_pi_hashes.sort()
-
-                # get indices of pi-pairs
-                idx = hash_compare(pi_hashes, tup_pi_hashes)
-
-                return idx is not None
+        return idx is not None
 
 
 def occ_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
@@ -417,9 +598,9 @@ def occ_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> occ_prune(occup, np.arange(2, 7, dtype=np.int16))
+        >>> occ_prune(occup, np.arange(2, 7, dtype=np.int64))
         True
-        >>> occ_prune(occup, np.arange(3, 7, dtype=np.int16))
+        >>> occ_prune(occup, np.arange(3, 7, dtype=np.int64))
         False
         """
         return np.any(occup[tup] > 0.)
@@ -431,9 +612,9 @@ def virt_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> virt_prune(occup, np.arange(1, 4, dtype=np.int16))
+        >>> virt_prune(occup, np.arange(1, 4, dtype=np.int64))
         True
-        >>> virt_prune(occup, np.arange(1, 3, dtype=np.int16))
+        >>> virt_prune(occup, np.arange(1, 3, dtype=np.int64))
         False
         """
         return np.any(occup[tup] == 0.)
@@ -445,9 +626,9 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> nelec(occup, np.array([2, 4], dtype=np.int16))
+        >>> nelec(occup, np.array([2, 4], dtype=np.int64))
         (1, 1)
-        >>> nelec(occup, np.array([3, 4], dtype=np.int16))
+        >>> nelec(occup, np.array([3, 4], dtype=np.int64))
         (0, 0)
         """
         occup_tup = occup[tup]
@@ -461,13 +642,13 @@ def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
 
         example:
         >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> ndets(occup, np.arange(1, 5, dtype=np.int16))
+        >>> ndets(occup, np.arange(1, 5, dtype=np.int64))
         36
-        >>> ndets(occup, np.arange(1, 7, dtype=np.int16),
-        ...       ref_space=np.array([1, 2], dtype=np.int16))
+        >>> ndets(occup, np.arange(1, 7, dtype=np.int64),
+        ...       ref_space=np.array([1, 2], dtype=np.int64))
         4900
-        >>> ndets(occup, np.arange(1, 7, 2, dtype=np.int16),
-        ...       ref_space=np.array([1, 3], dtype=np.int16),
+        >>> ndets(occup, np.arange(1, 7, 2, dtype=np.int64),
+        ...       ref_space=np.array([1, 3], dtype=np.int64),
         ...       n_elec=(1, 1))
         100
         """
@@ -481,7 +662,7 @@ def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
             n_elec = tuple(map(sum, zip(n_elec, ref_n_elec)))
             n_orbs += ref_space.size
 
-        return int(scipy.special.binom(n_orbs, n_elec[0]) * scipy.special.binom(n_orbs, n_elec[1]))
+        return int(sc.binom(n_orbs, n_elec[0]) * sc.binom(n_orbs, n_elec[1]))
 
 
 def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
@@ -562,6 +743,22 @@ def _convert(txt: str) -> Union[int, str]:
         True
         """
         return int(txt) if txt.isdigit() else txt
+
+
+def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
+        """
+        this generator converts sequential numbers into intervals
+
+        example:
+        >>> [i for i in intervals(np.array([0, 1, 2, 5, 7, 8, 10, 11, 12, 13]))]
+        [[0, 2], [5], [7, 8], [10, 13]]
+        """
+        for key, group in itertools.groupby(enumerate(a), lambda x: x[1] - x[0]):
+            group_lst = list(group)
+            if len(group_lst) == 1:
+                yield [group_lst[0][1]]
+            else:
+                yield [group_lst[0][1], group_lst[-1][1]]
 
 
 if __name__ == "__main__":

@@ -56,9 +56,6 @@ class MPICls:
                 self.global_rank = self.global_comm.Get_rank()
                 self.global_master = (self.global_rank == 0)
 
-                if self.global_master:
-                    tools.assertion(self.global_size >= 2, 'PyMBE requires two or more MPI processes')
-
                 # local node communicator (memory sharing)
                 self.local_comm = self.global_comm.Split_type(MPI.COMM_TYPE_SHARED, self.global_rank)
                 self.local_rank = self.local_comm.Get_rank()
@@ -124,7 +121,7 @@ def calc_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
 
             # collect standard info (must be updated with new future attributes)
             info = {'model': calc.model, 'target_mbe': calc.target_mbe, 'base': calc.base, \
-                    'thres': calc.thres, 'prot': calc.prot, 'state': calc.state, \
+                    'thres': calc.thres, 'state': calc.state, \
                     'extra': calc.extra, 'misc': calc.misc, 'mpi': calc.mpi, \
                     'orbs': calc.orbs, 'restart': calc.restart}
 
@@ -157,7 +154,7 @@ def fund_dist(mpi: MPICls, mol: system.MolCls, \
             mpi.global_comm.bcast(info, root=0)
 
             # collect standard info (must be updated with new future attributes)
-            info = {'occup': calc.occup, 'ref_space': calc.ref_space, 'exp_space': calc.exp_space}
+            info = {'occup': calc.occup, 'ref_space': calc.ref_space}
 
             # bcast to slaves
             mpi.global_comm.bcast(info, root=0)
@@ -169,7 +166,7 @@ def fund_dist(mpi: MPICls, mol: system.MolCls, \
             if mol.atom:
                 calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
             else:
-                calc.orbsym = np.zeros(mol.norb, dtype=np.int)
+                calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
 
         else:
 
@@ -195,7 +192,7 @@ def fund_dist(mpi: MPICls, mol: system.MolCls, \
             if mol.atom:
                 calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
             else:
-                calc.orbsym = np.zeros(mol.norb, dtype=np.int)
+                calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
 
         return mol, calc
 
@@ -232,7 +229,7 @@ def bcast(comm: MPI.Comm, buff: np.ndarray) -> np.ndarray:
         return buff
 
 
-def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0) -> np.ndarray:
+def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0, op: MPI.Op = MPI.SUM) -> np.ndarray:
         """
         this function performs a tiled Reduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
@@ -254,14 +251,14 @@ def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0) -> np.ndarray:
         # reduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
             if rank == root:
-                comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM, root=root)
+                comm.Reduce(send_tile[p0:p1], recv_tile[p0:p1], op=op, root=root)
             else:
-                comm.Reduce(send_tile[p0:p1], None, op=MPI.SUM, root=root)
+                comm.Reduce(send_tile[p0:p1], None, op=op, root=root)
 
         return recv_buff
 
 
-def allreduce(comm: MPI.Comm, send_buff: np.ndarray) -> np.ndarray:
+def allreduce(comm: MPI.Comm, send_buff: np.ndarray, op: MPI.Op = MPI.SUM) -> np.ndarray:
         """
         this function performs a tiled Allreduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
@@ -275,7 +272,7 @@ def allreduce(comm: MPI.Comm, send_buff: np.ndarray) -> np.ndarray:
 
         # allreduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
-            comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=MPI.SUM)
+            comm.Allreduce(send_tile[p0:p1], recv_tile[p0:p1], op=op)
 
         return recv_buff
 
