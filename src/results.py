@@ -412,7 +412,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
+                    '{:<16s}{:1}{:1}{:7}{:23}{:1}{:1}{:2}{:.6f}\n'
             form += ('','frozen core','','=','',_frozen(mol), \
                         '','|','','ref. function','','=','',_ref(mol, calc), \
                         '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
