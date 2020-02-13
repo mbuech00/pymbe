@@ -144,8 +144,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # append n_tuples
                 exp.n_tuples.append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
                                                    exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                                   tools.virt_prune(calc.occup, calc.ref_space), \
-                                                   tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
+                                                   tools.occ_prune(calc.occup, calc.ref_space), \
+                                                   tools.virt_prune(calc.occup, calc.ref_space), exp.order + 1))
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
@@ -230,8 +230,8 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 # append n_tuples
                 exp.n_tuples.append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
                                                    exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                                   tools.virt_prune(calc.occup, calc.ref_space), \
-                                                   tools.occ_prune(calc.occup, calc.ref_space), exp.order + 1))
+                                                   tools.occ_prune(calc.occup, calc.ref_space), \
+                                                   tools.virt_prune(calc.occup, calc.ref_space), exp.order + 1))
 
             elif msg['task'] == 'exit':
 
