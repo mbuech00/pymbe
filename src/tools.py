@@ -327,33 +327,22 @@ def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
         # order
         order = tup_occ.size + tup_virt.size
 
-        if 0 < exp_occ.size and 0 < exp_virt.size:
-            if 0 < tup_occ.size and 0 < tup_virt.size:
-                # scroll through combinations of occupied & virtual orbitals
-                idx += sum((sc.binom(exp_occ.size, k) * \
-                            sc.binom(exp_virt.size, order - k) for k in range(1, tup_occ.size)))
-                idx += _sub_idx(exp_occ, tup_occ) * sc.binom(exp_virt.size, tup_virt.size)
-                idx += _sub_idx(exp_virt, tup_virt)
-            else:
-                # skip all combinations of occupied & virtual orbitals
-                idx += sum((sc.binom(exp_occ.size, k) * \
-                            sc.binom(exp_virt.size, order - k) for k in range(1, order)))
-                if 0 < tup_occ.size and tup_virt.size == 0:
-                    # scroll through combinations of occupied orbitals
-                    idx += _sub_idx(exp_occ, tup_occ)
-                else:
-                    # skip all combinations occupied orbitals
-                    idx += sc.binom(exp_occ.size, order)
-                    # scroll through combinations of virtual orbitals
-                    idx += _sub_idx(exp_virt, tup_virt)
-        elif 0 < exp_occ.size and exp_virt.size == 0:
-            # scroll through combinations of occupied orbitals
-            idx += _sub_idx(exp_occ, tup_occ)
-        else:
-            # skip all combinations occupied orbitals
-            idx += sc.binom(exp_occ.size, order)
-            # scroll through combinations of virtual orbitals
+        if 0 < tup_occ.size and 0 < tup_virt.size:
+            # scroll through combinations of occupied & virtual orbitals
+            idx += sum((sc.binom(exp_occ.size, k) * \
+                        sc.binom(exp_virt.size, order - k) for k in range(1, tup_occ.size)))
+            idx += _sub_idx(exp_occ, tup_occ) * sc.binom(exp_virt.size, tup_virt.size)
             idx += _sub_idx(exp_virt, tup_virt)
+        else:
+            # skip all combinations of occupied & virtual orbitals
+            idx += sum((sc.binom(exp_occ.size, k) * \
+                        sc.binom(exp_virt.size, order - k) for k in range(1, order)))
+            if 0 < tup_occ.size and tup_virt.size == 0:
+                # scroll through combinations of occupied orbitals
+                idx += _sub_idx(exp_occ, tup_occ)
+            elif tup_occ.size == 0 and 0 < tup_virt.size:
+                # scroll through combinations of virtual orbitals
+                idx += _sub_idx(exp_virt, tup_virt)
 
         return int(idx)
 
