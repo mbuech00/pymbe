@@ -165,7 +165,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                                 exp.order, inc, exp.exp_space, ref_occ, ref_virt, tup)
 
             # add inc_tup to list of increments
-            if np.abs(inc_tup) > calc.thres['sparse']:
+            if np.any(np.abs(inc_tup) > calc.thres['sparse']):
                 inc_tmp.append(inc_tup)
 
             # debug print
@@ -194,7 +194,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         # compute n_tuples
         n_tuples = int(np.sum(recv_counts))
         if calc.target_mbe in ['dipole', 'trans']:
-            n_tuples // 3
+            n_tuples //= 3
 
         # init increments for present order
         inc_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, 8, comm=mpi.local_comm)

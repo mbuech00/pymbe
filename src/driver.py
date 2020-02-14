@@ -39,11 +39,16 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         if calc.restart:
             for i in range(exp.start_order - exp.min_order):
 
+                n_tuples = tools.n_tuples(exp.exp_space[i][exp.exp_space[i] < mol.nocc], \
+                                            exp.exp_space[i][mol.nocc <= exp.exp_space[i]], \
+                                            tools.occ_prune(calc.occup, calc.ref_space), \
+                                            tools.virt_prune(calc.occup, calc.ref_space), i)
+
                 # print mbe header
-                print(output.mbe_header(exp.n_tuples[i], i + exp.min_order))
+                print(output.mbe_header(n_tuples, i + exp.min_order))
 
                 # print mbe end
-                print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i]))
+                print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i], exp.n_tuples[i]))
 
                 # print mbe results
                 print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
@@ -118,7 +123,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
 
             # print mbe end
-            print(output.mbe_end(exp.order, exp.time['mbe'][-1]))
+            print(output.mbe_end(exp.order, exp.time['mbe'][-1], exp.n_tuples[-1]))
 
             # print mbe results
             print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
