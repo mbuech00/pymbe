@@ -60,18 +60,26 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
+            n_tuples = tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                        exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
+                                        tools.occ_prune(calc.occup, calc.ref_space), \
+                                        tools.virt_prune(calc.occup, calc.ref_space), exp.order)
+
             # print mbe header
-            print(output.mbe_header(exp.n_tuples[-1], exp.order))
+            print(output.mbe_header(n_tuples, exp.order))
 
             # main mbe function
-            inc_win, tot, mean_ndets, min_ndets, max_ndets, \
-                mean_inc, min_inc, max_inc = mbe.main(mpi, mol, calc, exp)
+            inc_win, n_tuples, tot, mean_ndets, min_ndets, max_ndets, \
+                    mean_inc, min_inc, max_inc = mbe.main(mpi, mol, calc, exp)
 
             # append window to increments
             if len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot']):
                 exp.prop[calc.target_mbe]['inc'][-1] = inc_win
             else:
                 exp.prop[calc.target_mbe]['inc'].append(inc_win)
+
+            # append n_tuples
+            exp.n_tuples.append(n_tuples)
 
             # append determinant statistics
             if len(exp.mean_ndets) == len(exp.prop[calc.target_mbe]['inc']):
@@ -141,12 +149,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 for mo in screen_orbs:
                     exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
-                # append n_tuples
-                exp.n_tuples.append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                                   exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                                   tools.occ_prune(calc.occup, calc.ref_space), \
-                                                   tools.virt_prune(calc.occup, calc.ref_space), exp.order + 1))
-
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
@@ -206,13 +208,16 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main mbe function
-                inc_win = mbe.main(mpi, mol, calc, exp, rst_read=msg['rst_read'], tup_start=msg['tup_start'])
+                inc_win, n_tuples = mbe.main(mpi, mol, calc, exp, rst_read=msg['rst_read'], tup_start=msg['tup_start'])
 
                 # append window to increments
                 if msg['rst_read']:
                     exp.prop[calc.target_mbe]['inc'][-1] = inc_win # type: ignore
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(inc_win) # type: ignore
+
+                # append n_tuples
+                exp.n_tuples.append(n_tuples)
 
             elif msg['task'] == 'screen':
 
@@ -226,12 +231,6 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.exp_space.append(np.copy(exp.exp_space[-1]))
                 for mo in screen_orbs:
                     exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
-
-                # append n_tuples
-                exp.n_tuples.append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                                   exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                                   tools.occ_prune(calc.occup, calc.ref_space), \
-                                                   tools.virt_prune(calc.occup, calc.ref_space), exp.order + 1))
 
             elif msg['task'] == 'exit':
 

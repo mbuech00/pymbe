@@ -55,10 +55,7 @@ class ExpCls:
                 self.start_order: int = 0
                 self.final_order: int = 0
                 self.exp_space: List[np.ndarray] = [np.array([i for i in range(mol.ncore, mol.norb) if i not in calc.ref_space], dtype=np.int64)]
-                self.n_tuples: List[int] = [tools.n_tuples(self.exp_space[0][self.exp_space[0] < mol.nocc], \
-                                                           self.exp_space[0][mol.nocc <= self.exp_space[0]], \
-                                                           tools.occ_prune(calc.occup, calc.ref_space), \
-                                                           tools.virt_prune(calc.occup, calc.ref_space), self.min_order)]
+                self.n_tuples: List[int] = []
                 self.pi_orbs: np.ndarray = None
                 self.pi_hashes: np.ndarray = None
 

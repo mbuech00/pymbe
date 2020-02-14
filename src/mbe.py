@@ -44,16 +44,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # start index
             tup_start = np.asscalar(tools.read_file(exp.order, 'mbe_idx')) if rst_read else 0
 
-            if tup_start == exp.n_tuples[-1]:
-                # return if already done with mbe
-                print(output.mbe_status(1.))
-                return exp.prop[calc.target_mbe]['inc'][-1], exp.mean_inc[-1] * exp.n_tuples[-1], \
-                        exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1], \
-                        exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1]
-            else:
-                # wake up slaves
-                msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'tup_start': tup_start}
-                mpi.global_comm.bcast(msg, root=0)
+            # wake up slaves
+            msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'tup_start': tup_start}
+            mpi.global_comm.bcast(msg, root=0)
 
         # increment dimensions
         if calc.target_mbe in ['energy', 'excitation']:
@@ -83,15 +76,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[k], dim)))
 
-        # init increments for present order
-        if rst_read:
-            inc_win = exp.prop[calc.target_mbe]['inc'][-1]
-        else:
-            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples[-1] * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
-        buf = inc_win.Shared_query(0)[0] # type: ignore
-        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[-1], dim)))
-        if (not rst_read and mpi.local_master) or (rst_read and mpi.local_master and not mpi.global_master):
-            inc[-1][:].fill(0.)
+        # init list for storing increments at present order
+        inc_tmp: Any = []
 
         # init time
         if mpi.global_master:
@@ -121,7 +107,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # set rst_write
-        rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples[-1]
+        rst_write = calc.misc['rst'] and \
+                    mpi.global_size < calc.misc['rst_freq'] < tools.n_tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order)
 
         # loop until no tuples left
         for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
@@ -131,19 +118,19 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
-            # write restart files and re-init time
-            if rst_write and (tup_idx % calc.misc['rst_freq']) < mpi.global_size:
-
-                rst_write = _rst(mpi, inc[-1], min_inc, max_inc, sum_inc, \
-                                 min_ndets, max_ndets, sum_ndets, dim, calc.misc['rst_freq'], \
-                                 exp.n_tuples[-1], exp.order, tup_idx)
-
-                if mpi.global_master:
-                    # save timing
-                    exp.time['mbe'][-1] += MPI.Wtime() - time
-                    tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
-                    # re-init time
-                    time = MPI.Wtime()
+#            # write restart files and re-init time
+#            if rst_write and (tup_idx % calc.misc['rst_freq']) < mpi.global_size:
+#
+#                rst_write = _rst(mpi, inc[-1], min_inc, max_inc, sum_inc, \
+#                                 min_ndets, max_ndets, sum_ndets, dim, calc.misc['rst_freq'], \
+#                                 exp.n_tuples[-1], exp.order, tup_idx)
+#
+#                if mpi.global_master:
+#                    # save timing
+#                    exp.time['mbe'][-1] += MPI.Wtime() - time
+#                    tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
+#                    # re-init time
+#                    time = MPI.Wtime()
 
             # pi-pruning
             if calc.extra['pi_prune']:
@@ -177,14 +164,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 inc_tup -= _sum(mol.nocc, calc.occup, calc.target_mbe, exp.min_order, \
                                 exp.order, inc, exp.exp_space, ref_occ, ref_virt, tup)
 
+            # add inc_tup to list of increments
+            if np.abs(inc_tup) > calc.thres['sparse']:
+                inc_tmp.append(inc_tup)
 
             # debug print
             if mol.debug >= 1:
                 print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
                                         ndets_tup, nelec_tup, inc_tup, exp.order, cas_idx, tup))
-
-            # add to inc
-            inc[-1][tup_idx] = inc_tup
 
             # update increment statistics
             min_inc, max_inc, sum_inc = _update(min_inc, max_inc, sum_inc, inc_tup)
@@ -198,6 +185,35 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         if mpi.global_master:
             print(output.mbe_status(1.))
 
+        # recast inc_tmp as np.array
+        inc_tmp = np.asarray(inc_tmp).reshape(-1,)
+
+        # number of increments
+        recv_counts = np.array(mpi.global_comm.allgather(inc_tmp.size))
+
+        # compute n_tuples
+        n_tuples = int(np.sum(recv_counts))
+        if calc.target_mbe in ['dipole', 'trans']:
+            n_tuples // 3
+
+        # init increments for present order
+        inc_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, 8, comm=mpi.local_comm)
+        buf = inc_win.Shared_query(0)[0] # type: ignore
+        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(n_tuples, dim)))
+
+        # gatherv on global master
+        inc[-1][:] = parallel.gatherv(mpi.global_comm, inc_tmp, inc[-1], recv_counts)
+
+        # delete inc_tmp
+        del inc_tmp
+
+        # bcast among local masters
+        if mpi.local_master:
+            inc[-1][:] = parallel.bcast(mpi.master_comm, inc[-1])
+
+        # mpi barrier
+        mpi.global_comm.Barrier()
+
         # increment statistics
         min_inc = parallel.reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
         max_inc = parallel.reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
@@ -210,28 +226,21 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # mean increment
         if mpi.global_master:
-            mean_inc = sum_inc / exp.n_tuples[-1]
+            mean_inc = sum_inc / n_tuples
 
         # mean number of determinants
         if mpi.global_master:
-            mean_ndets = np.asarray(np.rint(sum_ndets / exp.n_tuples[-1]), dtype=np.int64)
-
-        # allreduce increments among local masters
-        if mpi.local_master:
-            inc[-1][:] = parallel.allreduce(mpi.master_comm, inc[-1], op=MPI.SUM)
-
-        # mpi barrier
-        mpi.global_comm.Barrier()
+            mean_ndets = np.asarray(np.rint(sum_ndets / n_tuples), dtype=np.int64)
 
         # collect results on global master
         if mpi.global_master:
 
-            # write restart files
-            if calc.misc['rst']:
-                # save idx
-                tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]), 'mbe_idx')
-                # save increments
-                tools.write_file(exp.order, inc[-1], 'mbe_inc')
+#            # write restart files
+#            if calc.misc['rst']:
+#                # save idx
+#                tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]), 'mbe_idx')
+#                # save increments
+#                tools.write_file(exp.order, inc[-1], 'mbe_inc')
 
             # total property
             tot = sum_inc
@@ -239,11 +248,11 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # save timing
             exp.time['mbe'][-1] += MPI.Wtime() - time
 
-            return inc_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
+            return inc_win, n_tuples, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
 
         else:
 
-            return inc_win
+            return inc_win, n_tuples
 
 
 def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int, \

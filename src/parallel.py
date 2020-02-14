@@ -277,7 +277,7 @@ def allreduce(comm: MPI.Comm, send_buff: np.ndarray, op: MPI.Op = MPI.SUM) -> np
         return recv_buff
 
 
-def gatherv(comm: MPI.Comm, send_buff: np.ndarray, \
+def gatherv(comm: MPI.Comm, send_buff: np.ndarray, recv_buff: np.ndarray, \
                 counts: np.ndarray, root: int = 0) -> np.ndarray:
         """
         this function performs a gatherv operation using point-to-point operations
@@ -286,32 +286,18 @@ def gatherv(comm: MPI.Comm, send_buff: np.ndarray, \
         # rank and size
         rank = comm.Get_rank()
         size = comm.Get_size()
-        # dtype
-        dtype = send_buff.dtype
 
         if rank == root:
-
-            # init recv_buff
-            recv_buff = np.empty(np.sum(counts), dtype=dtype)
-            recv_buff[:send_buff.size] = send_buff.reshape(-1,)
-
-            # gatherv all tiles
+            recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
+            recv_tile[:send_buff.size] = send_buff
+            # recv from all slaves
             for slave in range(1, size):
-
                 slave_idx = np.sum(counts[:slave])
-
-                for p0, p1 in lib.prange(0, counts[slave], BLKSIZE):
-                    comm.Recv(recv_buff[slave_idx+p0:slave_idx+p1], source=slave)
-
-            return recv_buff
-
+                comm.Recv(recv_tile[slave_idx:slave_idx+counts[slave]], source=slave)
         else:
+            comm.Send(send_buff, dest=root)
 
-            # gatherv all tiles
-            for p0, p1 in lib.prange(0, counts[rank], BLKSIZE):
-                comm.Send(send_buff[p0:p1], dest=root)
-
-            return send_buff
+        return recv_buff
 
 
 def finalize(mpi: MPICls) -> None:
