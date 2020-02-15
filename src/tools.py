@@ -174,27 +174,25 @@ def hash_1d(a: np.ndarray) -> int:
         this function converts a 1d numpy array to a hash
 
         example:
-        >>> hash_1d(np.arange(5, dtype=np.int16))
+        >>> hash_1d(np.arange(5, dtype=np.int64))
         1974765062269638978
         """
-        return hash(a.astype(np.int64).tobytes())
+        return hash(a.tobytes())
 
 
-
-def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
+def hash_lookup(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
         """
         this function finds occurences of b in a through a binary search
 
         example:
-        >>> a = np.arange(10, dtype=np.int16)
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 9], dtype=np.int16))
+        >>> a = np.arange(10, dtype=np.int64)
+        >>> hash_lookup(a, np.array([1, 3, 5, 7, 9], dtype=np.int64))
         array([1, 3, 5, 7, 9])
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 11], dtype=np.int16)) is None
+        >>> hash_lookup(a, np.array([1, 3, 5, 7, 11], dtype=np.int64)) is None
         True
         """
         left = a.searchsorted(b, side='left')
         right = a.searchsorted(b, side='right')
-
         if ((right - left) > 0).all():
             return left
         else:
@@ -576,7 +574,7 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
         tup_pi_hashes.sort()
 
         # get indices of pi-pairs
-        idx = hash_compare(pi_hashes, tup_pi_hashes)
+        idx = hash_lookup(pi_hashes, tup_pi_hashes)
 
         return idx is not None
 

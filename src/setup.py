@@ -471,4 +471,9 @@ def settings() -> None:
         # mute scf checkpoint files
         scf.hf.MUTE_CHKFILE = True
 
+        # PYTHONHASHSEED = 0
+        pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)
+        tools.assertion(int(pythonhashseed) == 0, \
+                        'environment variable PYTHONHASHSEED must be set to zero')
+
 

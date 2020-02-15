@@ -36,7 +36,8 @@ class ExpCls:
                 self.model = copy.deepcopy(calc.model)
 
                 # init prop dict
-                self.prop: Dict[str, Dict[str, Union[List[float], MPI.Win]]] = {str(calc.target_mbe): {'inc': [], 'tot': []}}
+                self.prop: Dict[str, Dict[str, Union[List[float], MPI.Win]]] = {str(calc.target_mbe): {'inc': [], 'tot': [], \
+                                                                                                       'hashes': []}}
 
                 # init timings and and statistics lists
                 self.time: Dict[str, Union[List[float], np.ndarray]] = {'mbe': [], 'screen': []}

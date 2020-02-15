@@ -74,17 +74,23 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             print(output.mbe_header(n_tuples, exp.order))
 
             # main mbe function
-            inc_win, n_tuples, tot, mean_ndets, min_ndets, max_ndets, \
-                    mean_inc, min_inc, max_inc = mbe.main(mpi, mol, calc, exp)
+            hashes_win, n_tuples, inc_win, tot, \
+                    mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc = mbe.main(mpi, mol, calc, exp)
+
+            # append window to hashes
+            if len(exp.prop[calc.target_mbe]['hashes']) > len(exp.prop[calc.target_mbe]['tot']):
+                exp.prop[calc.target_mbe]['hashes'][-1] = hashes_win
+            else:
+                exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
+
+            # append n_tuples
+            exp.n_tuples.append(n_tuples)
 
             # append window to increments
             if len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot']):
                 exp.prop[calc.target_mbe]['inc'][-1] = inc_win
             else:
                 exp.prop[calc.target_mbe]['inc'].append(inc_win)
-
-            # append n_tuples
-            exp.n_tuples.append(n_tuples)
 
             # append determinant statistics
             if len(exp.mean_ndets) == len(exp.prop[calc.target_mbe]['inc']):
@@ -113,6 +119,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # write restart files
             if calc.misc['rst']:
+                tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]), 'mbe_n_tuples')
                 tools.write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
                 tools.write_file(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
                 tools.write_file(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
@@ -160,7 +167,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # write restart files
                 if calc.misc['rst']:
                     tools.write_file(exp.order+1, exp.exp_space[-1], 'exp_space')
-                    tools.write_file(exp.order+1, np.asarray(exp.n_tuples[-1]), 'mbe_n_tuples')
                     tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
                 # print screen end
@@ -213,16 +219,24 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main mbe function
-                inc_win, n_tuples = mbe.main(mpi, mol, calc, exp, rst_read=msg['rst_read'], tup_start=msg['tup_start'])
+                hashes_win, n_tuples, inc_win = mbe.main(mpi, mol, calc, exp, \
+                                                         rst_read=msg['rst_read'], \
+                                                         tup_start=msg['tup_start'])
+
+                # append window to hashes
+                if msg['rst_read']:
+                    exp.prop[calc.target_mbe]['hashes'][-1] = hashes_win # type: ignore
+                else:
+                    exp.prop[calc.target_mbe]['hashes'].append(hashes_win) # type: ignore
+
+                # append n_tuples
+                exp.n_tuples.append(n_tuples)
 
                 # append window to increments
                 if msg['rst_read']:
                     exp.prop[calc.target_mbe]['inc'][-1] = inc_win # type: ignore
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(inc_win) # type: ignore
-
-                # append n_tuples
-                exp.n_tuples.append(n_tuples)
 
             elif msg['task'] == 'screen':
 

@@ -32,7 +32,7 @@ import tools
 
 def main(mpi: parallel.MPICls, mol: system.MolCls, \
             calc: calculation.CalcCls, exp: expansion.ExpCls, \
-            rst_read: bool = False, rst_write: bool = False, tup_start: int = 0) -> Union[Tuple[Any, ...], MPI.Win]:
+            rst_read: bool = False, rst_write: bool = False, tup_start: int = 0) -> Tuple[Any, ...]:
         """
         this function is the mbe main function
         """
@@ -70,12 +70,20 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         buf = mol.vhf.Shared_query(0)[0]
         vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
 
+        # load hashes for previous orders
+        hashes = []
+        for k in range(exp.order-exp.min_order):
+            buf = exp.prop[calc.target_mbe]['hashes'][k].Shared_query(0)[0] # type: ignore
+            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[k],)))
+
         # load increments for previous orders
         inc = []
         for k in range(exp.order-exp.min_order):
             buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
             inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[k], dim)))
 
+        # init list for storing hashes at present order
+        hashes_tmp: Any = []
         # init list for storing increments at present order
         inc_tmp: Any = []
 
@@ -135,7 +143,6 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # pi-pruning
             if calc.extra['pi_prune']:
                 if not tools.pi_prune(exp.pi_orbs, exp.pi_hashes, tup):
-                    inc[-1][tup_idx] = np.nan
                     continue
 
             # get core and cas indices
@@ -162,11 +169,12 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # calculate increment
             if exp.order > exp.min_order:
                 inc_tup -= _sum(mol.nocc, calc.occup, calc.target_mbe, exp.min_order, \
-                                exp.order, inc, exp.exp_space, ref_occ, ref_virt, tup)
+                                exp.order, inc, hashes, exp.exp_space, ref_occ, ref_virt, tup)
 
-            # add inc_tup to list of increments
+            # add inc_tup and its hash to lists of increments/hashes
             if np.any(np.abs(inc_tup) > calc.thres['sparse']):
                 inc_tmp.append(inc_tup)
+                hashes_tmp.append(tools.hash_1d(tup))
 
             # debug print
             if mol.debug >= 1:
@@ -185,31 +193,55 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         if mpi.global_master:
             print(output.mbe_status(1.))
 
-        # recast inc_tmp as np.array
-        inc_tmp = np.asarray(inc_tmp).reshape(-1,)
+        # recast hashes_tmp as np.array
+        hashes_tmp = np.asarray(hashes_tmp, dtype=np.int64)
 
-        # number of increments
-        recv_counts = np.array(mpi.global_comm.allgather(inc_tmp.size))
+        # number of hashes
+        recv_counts = np.array(mpi.global_comm.allgather(hashes_tmp.size))
 
         # compute n_tuples
         n_tuples = int(np.sum(recv_counts))
-        if calc.target_mbe in ['dipole', 'trans']:
-            n_tuples //= 3
+
+        # init hashes for present order
+        hashes_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, 8, comm=mpi.local_comm)
+        buf = hashes_win.Shared_query(0)[0] # type: ignore
+        hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,)))
+
+        # gatherv hashes on global master
+        hashes[-1][:] = parallel.gatherv(mpi.global_comm, hashes_tmp, hashes[-1], recv_counts)
+
+        # delete hashes_tmp
+        del hashes_tmp
+
+        # bcast hashes among local masters
+        if mpi.local_master:
+            hashes[-1][:] = parallel.bcast(mpi.master_comm, hashes[-1])
+
+        # recast inc_tmp as np.array
+        inc_tmp = np.asarray(inc_tmp, dtype=np.float64).reshape(-1,)
+
+        # number of increments
+        recv_counts = np.array(mpi.global_comm.allgather(inc_tmp.size))
 
         # init increments for present order
         inc_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, 8, comm=mpi.local_comm)
         buf = inc_win.Shared_query(0)[0] # type: ignore
         inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(n_tuples, dim)))
 
-        # gatherv on global master
+        # gatherv increments on global master
         inc[-1][:] = parallel.gatherv(mpi.global_comm, inc_tmp, inc[-1], recv_counts)
 
         # delete inc_tmp
         del inc_tmp
 
-        # bcast among local masters
+        # bcast increments among local masters
         if mpi.local_master:
             inc[-1][:] = parallel.bcast(mpi.master_comm, inc[-1])
+
+        # sort hashes and increments
+        if mpi.local_master:
+            inc[-1][:] = inc[-1][np.argsort(hashes[-1])]
+            hashes[-1][:].sort()
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -248,11 +280,12 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # save timing
             exp.time['mbe'][-1] += MPI.Wtime() - time
 
-            return inc_win, n_tuples, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
+            return hashes_win, n_tuples, inc_win, tot, \
+                    mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
 
         else:
 
-            return inc_win, n_tuples
+            return hashes_win, n_tuples, inc_win
 
 
 def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int, \
@@ -297,8 +330,8 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
 
 
 def _sum(nocc: int, occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
-            inc: List[np.ndarray], exp_space: List[np.ndarray], ref_occ: bool, ref_virt: bool, \
-            tup: np.ndarray) -> Union[float, np.ndarray]:
+            inc: List[np.ndarray], hashes: List[np.ndarray], exp_space: List[np.ndarray], \
+            ref_occ: bool, ref_virt: bool, tup: np.ndarray) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
 
@@ -326,9 +359,9 @@ def _sum(nocc: int, occup: np.ndarray, target_mbe: str, min_order: int, order: i
         """
         # init res
         if target_mbe in ['energy', 'excitation']:
-            res = np.empty(order - min_order, dtype=np.float64)
+            res = np.zeros(order - min_order, dtype=np.float64)
         else:
-            res = np.empty([order - min_order, 3], dtype=np.float64)
+            res = np.zeros([order - min_order, 3], dtype=np.float64)
 
         # occupied and virtual subspaces of tuple
         tup_occ = tup[tup < nocc]
@@ -337,18 +370,14 @@ def _sum(nocc: int, occup: np.ndarray, target_mbe: str, min_order: int, order: i
         # compute contributions from lower-order increments
         for k in range(order-1, min_order-1, -1):
 
-            # get indices of subtuples
-            idx = np.fromiter((tools.restricted_idx(exp_space[k-min_order][exp_space[k-min_order] < nocc], \
-                                                    exp_space[k-min_order][nocc <= exp_space[k-min_order]], \
-                                                    tup_sub[tup_sub < nocc], tup_sub[nocc <= tup_sub]) \
-                               for tup_sub in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k)), \
-                              dtype=np.int64, count=tools.n_tuples(tup_occ, tup_virt, ref_occ, ref_virt, k))
+            # loop over subtuples
+            for tup_sub in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k):
 
-            # sum up order increments
-            if target_mbe in ['energy', 'excitation']:
-                res[k-min_order] = tools.fsum(inc[k-min_order][idx][~np.isnan(inc[k-min_order][idx])])
-            else:
-                res[k-min_order] = tools.fsum(inc[k-min_order][idx][~np.any(np.isnan(inc[k-min_order][idx]), axis=1)])
+                idx = tools.hash_lookup(hashes[k-min_order], tools.hash_1d(tup_sub))
+
+                # sum up order increments
+                if idx is not None:
+                    res[k-min_order] += inc[k-min_order][idx]
 
         return tools.fsum(res)
 
