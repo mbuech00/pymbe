@@ -288,7 +288,7 @@ def _thres(calc: calculation.CalcCls) -> str:
         """
         this function returns the expansion threshold
         """
-        return '{:.0e}'.format(calc.thres['inc'])
+        return '{:.0e} / {:.0e}'.format(calc.thres['inc'], calc.thres['sparse'])
 
 
 def _symm(mol: system.MolCls, calc: calculation.CalcCls) -> str:
@@ -452,7 +452,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
         form += ('','FCI solver','','=','',_solver(calc), \
-                    '','|','','screen. thres.','','=','',_thres(calc), \
+                    '','|','','thres./sparsity','','=','',_thres(calc), \
                     '','|','','wave funct. symmetry','','=','',_symm(mol, calc),)
 
         string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'
