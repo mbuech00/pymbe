@@ -37,6 +37,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         if exp.order == exp.min_order:
             return np.array([], dtype=np.int64)
 
+        # load hashes for current order
+        buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
+        hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],))
+
         # load increments for current order
         buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
         if calc.target_mbe in ['energy', 'excitation']:
@@ -72,19 +76,21 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
                 continue
 
             # generate all possible tuples that include mo
-            for task_idx, tup_idx in enumerate(tools.include_idx(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, mo)):
+            for task_idx, tup in enumerate(tools.tuples_include(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, mo)):
 
                 # distribute tuples
                 if dist[mo_idx][task_idx % dist[mo_idx].size] != mpi.global_rank:
                     continue
 
+                # compute index
+                idx = tools.hash_lookup(hashes, tools.hash_1d(tup))
+
                 # screening procedure
-                if calc.target_mbe in ['energy', 'excitation']:
-                    if np.isfinite(inc[tup_idx]):
-                        screen[mo_idx] &= np.abs(inc[tup_idx]) < calc.thres['inc']
-                else:
-                    if np.all(np.isfinite(inc[tup_idx])):
-                        screen[mo_idx] &= np.all(np.abs(inc[tup_idx]) < calc.thres['inc'])
+                if idx is not None:
+                    if calc.target_mbe in ['energy', 'excitation']:
+                        screen[mo_idx] &= np.abs(inc[idx]) < calc.thres['inc']
+                    else:
+                        screen[mo_idx] &= np.all(np.abs(inc[idx]) < calc.thres['inc'])
 
                 # early break
                 if not screen[mo_idx]:

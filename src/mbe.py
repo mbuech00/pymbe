@@ -373,6 +373,7 @@ def _sum(nocc: int, occup: np.ndarray, target_mbe: str, min_order: int, order: i
             # loop over subtuples
             for tup_sub in tools.tuples(tup_occ, tup_virt, ref_occ, ref_virt, k):
 
+                # compute index
                 idx = tools.hash_lookup(hashes[k-min_order], tools.hash_1d(tup_sub))
 
                 # sum up order increments

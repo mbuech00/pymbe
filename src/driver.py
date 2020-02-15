@@ -65,6 +65,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
+            # number of tuples at current order
             n_tuples = tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
                                         exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
                                         tools.occ_prune(calc.occup, calc.ref_space), \
@@ -172,8 +173,14 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # print screen end
                 print(output.screen_end(exp.order, exp.time['screen'][-1], conv=exp.n_tuples[-1] == 0))
 
+            # number of tuples at next order
+            n_tuples = tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                        exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
+                                        tools.occ_prune(calc.occup, calc.ref_space), \
+                                        tools.virt_prune(calc.occup, calc.ref_space), exp.order + 1)
+
             # convergence check
-            if exp.n_tuples[-1] == 0 or exp.order == exp.max_order:
+            if n_tuples == 0 or exp.order == exp.max_order:
 
                 # final order
                 exp.final_order = exp.order

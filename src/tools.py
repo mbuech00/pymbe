@@ -241,10 +241,10 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
                 yield np.array(tup_virt, dtype=np.int64)
 
 
-def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
-                ref_occ: bool, ref_virt: bool, order: int, mo: int) -> Generator[int, None, None]:
+def tuples_include(occ_space: np.ndarray, virt_space: np.ndarray, \
+                   ref_occ: bool, ref_virt: bool, order: int, mo: int) -> Generator[np.ndarray, None, None]:
         """
-        this function is a generator for indices of subtuples, all with an MO restriction
+        this function is a generator for subtuples, all with an MO restriction
 
         example:
         >>> nocc = 4
@@ -252,136 +252,44 @@ def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
         >>> occup = np.array([2.] * 4 + [0.] * 4)
         >>> ref_space = np.array([], dtype=np.int)
         >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> gen = include_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...                   virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
+        >>> gen = tuples_include(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...                      virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
         >>> gen # doctest: +ELLIPSIS
         <generator object include_idx at 0x...>
         >>> sum(1 for _ in gen)
         9
         >>> ref_space = np.array([3, 4])
-        >>> gen = include_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...                   virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
+        >>> gen = tuples_include(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
+        ...                      virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
         >>> gen # doctest: +ELLIPSIS
         <generator object include_idx at 0x...>
         >>> sum(1 for _ in gen)
         10
         """
-        # init counter
-        idx = 0
-
         # combinations of occupied and virtual MOs
         for k in range(1, order):
             if mo in occ_space:
                 for tup_occ in itertools.combinations(occ_space, k):
                     if mo in tup_occ:
                         for tup_virt in itertools.combinations(virt_space, order - k):
-                            yield idx
-                            idx += 1
-                    else:
-                        idx += int(sc.binom(virt_space.size, order - k))
+                            yield np.array(tup_occ + tup_virt, dtype=np.int64)
             else:
                 for tup_occ in itertools.combinations(occ_space, k):
                     for tup_virt in itertools.combinations(virt_space, order - k):
                         if mo in tup_virt:
-                            yield idx
-                        idx += 1
+                            yield np.array(tup_occ + tup_virt, dtype=np.int64)
 
         # only occupied MOs
         if ref_virt:
             for tup_occ in itertools.combinations(occ_space, order):
                 if mo in tup_occ:
-                    yield idx
-                idx += 1
+                    yield np.array(tup_occ, dtype=np.int64)
 
         # only virtual MOs
         if ref_occ:
             for tup_virt in itertools.combinations(virt_space, order):
                 if mo in tup_virt:
-                    yield idx
-                idx += 1
-
-
-def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
-                    tup_occ: np.ndarray, tup_virt: np.ndarray) -> int:
-        """
-        this function return the index of a given restricted subtuple
-
-        example:
-        >>> nocc = 4
-        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> tup = np.array([1, 5, 7])
-        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
-        4
-        >>> tup = np.array([1])
-        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
-        1
-        >>> tup = np.array([5, 7])
-        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
-        13
-        """
-        # init counter
-        idx = 0.
-
-        # order
-        order = tup_occ.size + tup_virt.size
-
-        if 0 < tup_occ.size and 0 < tup_virt.size:
-            # scroll through combinations of occupied & virtual orbitals
-            idx += sum((sc.binom(exp_occ.size, k) * \
-                        sc.binom(exp_virt.size, order - k) for k in range(1, tup_occ.size)))
-            idx += _sub_idx(exp_occ, tup_occ) * sc.binom(exp_virt.size, tup_virt.size)
-            idx += _sub_idx(exp_virt, tup_virt)
-        else:
-            # skip all combinations of occupied & virtual orbitals
-            idx += sum((sc.binom(exp_occ.size, k) * \
-                        sc.binom(exp_virt.size, order - k) for k in range(1, order)))
-            if 0 < tup_occ.size and tup_virt.size == 0:
-                # scroll through combinations of occupied orbitals
-                idx += _sub_idx(exp_occ, tup_occ)
-            elif tup_occ.size == 0 and 0 < tup_virt.size:
-                # scroll through combinations of virtual orbitals
-                idx += _sub_idx(exp_virt, tup_virt)
-
-        return int(idx)
-
-
-def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
-        """
-        this function return the index of a given (ordered) combination
-        returned from itertools.combinations
-
-        example:
-        >>> space = np.array([0, 1, 2, 5, 6, 7])
-        >>> tup = np.array([1, 2, 6, 7])
-        >>> _sub_idx(space, tup)
-        12.0
-        >>> tup = np.array([1, 2])
-        >>> _sub_idx(space, tup)
-        5.0
-        >>> tup = np.array([5, 7])
-        >>> _sub_idx(space, tup)
-        13.0
-        """
-        idx = _idx(space, tup[0], tup.size)
-        idx += sum((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)))
-        return idx
-
-
-def _idx(space: np.ndarray, idx: int, order: int) -> float:
-        """
-        this function return the start index of element space[idx] in
-        position (order+1) from the right in a given combination
-
-        example:
-        >>> space = np.array([0, 1, 2, 5, 6, 7])
-        >>> _idx(space, 5, 1)
-        3.0
-        >>> _idx(space, 5, 2)
-        12.0
-        >>> _idx(space, 5, 3)
-        19.0
-        """
-        return sum((sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
+                    yield np.array(tup_virt, dtype=np.int64)
 
 
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
