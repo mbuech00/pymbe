@@ -259,6 +259,19 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
             if 'exp_space' in files[i]:
                 exp.exp_space.append(np.load(os.path.join(RST, files[i])))
 
+            # read hashes
+            elif 'mbe_hashes' in files[i]:
+                n_tuples = exp.n_tuples[len(exp.prop[calc.target_mbe]['hashes'])]
+                exp.prop[calc.target_mbe]['hashes'].append(MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, \
+                                                                                   8, comm=mpi.local_comm))
+                buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
+                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,))
+                if mpi.global_master:
+                    hashes[:] = np.load(os.path.join(RST, files[i]))
+                if mpi.num_masters > 1 and mpi.local_master:
+                    hashes[:] = parallel.bcast(mpi.master_comm, hashes)
+                mpi.local_comm.Barrier()
+
             # read increments
             elif 'mbe_inc' in files[i]:
                 n_tuples = exp.n_tuples[len(exp.prop[calc.target_mbe]['inc'])]
@@ -311,7 +324,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return exp.min_order + len(exp.n_tuples) - 1
+        return exp.min_order + len(exp.n_tuples)
 
 
 def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:

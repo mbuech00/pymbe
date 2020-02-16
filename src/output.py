@@ -71,16 +71,19 @@ def main_header(mpi: Union[None, parallel.MPICls] = None, method: Union[None, st
         return string.format(*form)
 
 
-def mbe_header(n_tuples: int, order: int) -> str:
+def mbe_header(order: int, n_tuples: int = -1) -> str:
         """
         this function prints the mbe header
         """
         # set string
         string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
+        form: Tuple[int, ...] = (order,)
+        if n_tuples < 0:
+            string += ' STATUS:  order k = {:d} MBE started\n'
+        else:
+            string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
+            form += (n_tuples,)
         string += DIVIDER
-
-        form: Tuple[int, int] = (order, n_tuples)
 
         return string.format(*form)
 
@@ -243,11 +246,15 @@ def screen_results(orbs) -> str:
         """
         this function prints the screened MOs
         """
-        string: str = ' RESULT:  screened MOs - {:}'
+        # init string
+        string: str = ' RESULT:  screened MOs - '
+        # divide orbs into intervals
+        orbs_ints = [i for i in tools.intervals(orbs)]
+        for idx, i in enumerate(orbs_ints):
+            elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
+            string += '[{:}]+'.format(elms) if idx < len(orbs_ints) - 1 else '[{:}]'.format(elms)
 
-        form: Tuple[List[int]] = (orbs.tolist(),)
-
-        return string.format(*form)
+        return string
 
 
 def screen_end(order: int, time: float, conv: bool = False) -> str:

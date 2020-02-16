@@ -267,12 +267,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         # collect results on global master
         if mpi.global_master:
 
-#            # write restart files
-#            if calc.misc['rst']:
-#                # save idx
-#                tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]), 'mbe_idx')
-#                # save increments
-#                tools.write_file(exp.order, inc[-1], 'mbe_inc')
+            # write restart files
+            if calc.misc['rst']:
+                # save idx
+                tools.write_file(exp.order, np.asarray(n_tuples), 'mbe_idx')
+                # save hashes
+                tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
+                # save increments
+                tools.write_file(exp.order, inc[-1], 'mbe_inc')
 
             # total property
             tot = sum_inc

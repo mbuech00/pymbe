@@ -39,13 +39,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         if calc.restart:
             for i in range(exp.start_order - exp.min_order):
 
-                n_tuples = tools.n_tuples(exp.exp_space[i][exp.exp_space[i] < mol.nocc], \
-                                            exp.exp_space[i][mol.nocc <= exp.exp_space[i]], \
-                                            tools.occ_prune(calc.occup, calc.ref_space), \
-                                            tools.virt_prune(calc.occup, calc.ref_space), i)
-
                 # print mbe header
-                print(output.mbe_header(n_tuples, i + exp.min_order))
+                print(output.mbe_header(i + exp.min_order))
 
                 # print mbe end
                 print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i], exp.n_tuples[i]))
@@ -58,6 +53,12 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # print header
                 print(output.screen_header(i + exp.min_order))
+
+                # print screening results
+                if 0 < i:
+                    screen_orbs = np.setdiff1d(exp.exp_space[i-1], exp.exp_space[i])
+                    if screen_orbs.size > 0:
+                        print(output.screen_results(screen_orbs))
 
                 # print screen end
                 print(output.screen_end(i + exp.min_order, exp.time['screen'][i]))
@@ -72,7 +73,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                                         tools.virt_prune(calc.occup, calc.ref_space), exp.order)
 
             # print mbe header
-            print(output.mbe_header(n_tuples, exp.order))
+            print(output.mbe_header(exp.order, n_tuples))
 
             # main mbe function
             hashes_win, n_tuples, inc_win, tot, \
