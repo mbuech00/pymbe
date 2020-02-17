@@ -241,57 +241,6 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
                 yield np.array(tup_virt, dtype=np.int64)
 
 
-def tuples_include(occ_space: np.ndarray, virt_space: np.ndarray, \
-                   ref_occ: bool, ref_virt: bool, order: int, mo: int) -> Generator[np.ndarray, None, None]:
-        """
-        this function is a generator for subtuples, all with an MO restriction
-
-        example:
-        >>> nocc = 4
-        >>> order = 3
-        >>> occup = np.array([2.] * 4 + [0.] * 4)
-        >>> ref_space = np.array([], dtype=np.int)
-        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> gen = tuples_include(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...                      virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
-        >>> gen # doctest: +ELLIPSIS
-        <generator object include_idx at 0x...>
-        >>> sum(1 for _ in gen)
-        9
-        >>> ref_space = np.array([3, 4])
-        >>> gen = tuples_include(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...                      virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
-        >>> gen # doctest: +ELLIPSIS
-        <generator object include_idx at 0x...>
-        >>> sum(1 for _ in gen)
-        10
-        """
-        # combinations of occupied and virtual MOs
-        for k in range(1, order):
-            if mo in occ_space:
-                for tup_occ in itertools.combinations(occ_space, k):
-                    if mo in tup_occ:
-                        for tup_virt in itertools.combinations(virt_space, order - k):
-                            yield np.array(tup_occ + tup_virt, dtype=np.int64)
-            else:
-                for tup_occ in itertools.combinations(occ_space, k):
-                    for tup_virt in itertools.combinations(virt_space, order - k):
-                        if mo in tup_virt:
-                            yield np.array(tup_occ + tup_virt, dtype=np.int64)
-
-        # only occupied MOs
-        if ref_virt:
-            for tup_occ in itertools.combinations(occ_space, order):
-                if mo in tup_occ:
-                    yield np.array(tup_occ, dtype=np.int64)
-
-        # only virtual MOs
-        if ref_occ:
-            for tup_virt in itertools.combinations(virt_space, order):
-                if mo in tup_virt:
-                    yield np.array(tup_virt, dtype=np.int64)
-
-
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
                 ref_occ: bool, ref_virt: bool, order: int) -> int:
         """

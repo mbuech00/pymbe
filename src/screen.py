@@ -60,46 +60,29 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # init screen array
-        screen = np.ones(exp.exp_space[-1].size, dtype=bool)
+        screen = np.ones(mol.norb, dtype=bool)
 
-        # init distributions
-        if exp.exp_space[-1].size <= mpi.global_size:
-            dist = np.array_split(np.arange(mpi.global_size), exp.exp_space[-1].size)
-        else:
-            dist = [np.array([mo % mpi.global_size]) for mo in range(exp.exp_space[-1].size)]
+        # generate all possible tuples that include mo
+        for tup_idx, tup in enumerate(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order)):
 
-        # loop over orbitals
-        for mo_idx, mo in enumerate(exp.exp_space[-1]):
-
-            # distribute orbitals
-            if mpi.global_rank not in dist[mo_idx]:
+            # distribute tuples
+            if tup_idx % mpi.global_size != mpi.global_rank:
                 continue
 
-            # generate all possible tuples that include mo
-            for task_idx, tup in enumerate(tools.tuples_include(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, mo)):
+            # compute index
+            idx = tools.hash_lookup(hashes, tools.hash_1d(tup))
 
-                # distribute tuples
-                if dist[mo_idx][task_idx % dist[mo_idx].size] != mpi.global_rank:
-                    continue
-
-                # compute index
-                idx = tools.hash_lookup(hashes, tools.hash_1d(tup))
-
-                # screening procedure
-                if idx is not None:
-                    if calc.target_mbe in ['energy', 'excitation']:
-                        screen[mo_idx] &= np.abs(inc[idx]) < calc.thres['inc']
-                    else:
-                        screen[mo_idx] &= np.all(np.abs(inc[idx]) < calc.thres['inc'])
-
-                # early break
-                if not screen[mo_idx]:
-                    break
+            # screening procedure
+            if idx is not None:
+                if calc.target_mbe in ['energy', 'excitation']:
+                    screen[tup] &= np.abs(inc[idx]) < calc.thres['inc']
+                else:
+                    screen[tup] &= np.all(np.abs(inc[idx]) < calc.thres['inc'])
 
         # allreduce screened orbitals
         tot_screen = parallel.allreduce(mpi.global_comm, screen, op=MPI.LAND)
 
-        return np.array([mo for mo in exp.exp_space[-1][tot_screen]], dtype=np.int64)
+        return np.array([mo for mo in np.arange(mol.norb)[tot_screen] if mo in exp.exp_space[-1]], dtype=np.int64)
 
 
 if __name__ == "__main__":
