@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-output module containing all print functions in pymbe
+output module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-calculation module containing all calculation attributes
+calculation module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

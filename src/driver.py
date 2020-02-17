@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-driver module containing main master and slave pymbe functions
+driver module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
@@ -20,6 +20,7 @@ import mbe
 import kernel
 import output
 import screen
+import purge
 import system
 import calculation
 import expansion
@@ -56,9 +57,9 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # print screening results
                 if 0 < i:
-                    screen_orbs = np.setdiff1d(exp.exp_space[i-1], exp.exp_space[i])
-                    if screen_orbs.size > 0:
-                        print(output.screen_results(screen_orbs))
+                    exp.screen_orbs = np.setdiff1d(exp.exp_space[i-1], exp.exp_space[i])
+                    if exp.screen_orbs.size > 0:
+                        print(output.screen_results(exp.screen_orbs))
 
                 # print screen end
                 print(output.screen_end(i + exp.min_order, exp.time['screen'][i]))
@@ -152,15 +153,15 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 time = MPI.Wtime()
 
                 # main screening function
-                screen_orbs = screen.main(mpi, mol, calc, exp)
+                exp.screen_orbs = screen.main(mpi, mol, calc, exp)
 
                 # print screening results
-                if screen_orbs.size > 0:
-                    print(output.screen_results(screen_orbs))
+                if exp.screen_orbs.size > 0:
+                    print(output.screen_results(exp.screen_orbs))
 
                 # update expansion space wrt screened orbitals
                 exp.exp_space.append(np.copy(exp.exp_space[-1]))
-                for mo in screen_orbs:
+                for mo in exp.screen_orbs:
                     exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
                 # collect time
@@ -174,14 +175,12 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # print screen end
                 print(output.screen_end(exp.order, exp.time['screen'][-1], conv=exp.n_tuples[-1] == 0))
 
-            # number of tuples at next order
-            n_tuples = tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                        exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                        tools.occ_prune(calc.occup, calc.ref_space), \
-                                        tools.virt_prune(calc.occup, calc.ref_space), exp.order + 1)
+                # main purging function
+                if exp.order + 1 <= exp.exp_space[-1].size and exp.order < exp.max_order:
+                    exp.prop[calc.target_mbe] = purge.main(mpi, mol, calc, exp)
 
             # convergence check
-            if n_tuples == 0 or exp.order == exp.max_order:
+            if exp.exp_space[-1].size < exp.order + 1 or exp.order == exp.max_order:
 
                 # final order
                 exp.final_order = exp.order
@@ -252,11 +251,24 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main screening function
-                screen_orbs = screen.main(mpi, mol, calc, exp)
+                exp.screen_orbs = screen.main(mpi, mol, calc, exp)
 
                 # update expansion space wrt screened orbitals
                 exp.exp_space.append(np.copy(exp.exp_space[-1]))
-                for mo in screen_orbs:
+                for mo in exp.screen_orbs:
+                    exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
+
+            elif msg['task'] == 'purge':
+
+                # receive order
+                exp.order = msg['order']
+
+                # main purging function
+                exp.prop[calc.target_mbe] = purge.main(mpi, mol, calc, exp)
+
+                # update expansion space wrt screened orbitals
+                exp.exp_space.append(np.copy(exp.exp_space[-1]))
+                for mo in exp.screen_orbs:
                     exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
             elif msg['task'] == 'exit':

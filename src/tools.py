@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-tools module containing all helper functions used in pymbe
+tools module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

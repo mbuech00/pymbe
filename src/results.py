@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-results module containing all summary and plotting functions
+results module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

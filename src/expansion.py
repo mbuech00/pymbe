@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-expansion module containing all expansion attributes
+expansion module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
@@ -55,6 +55,7 @@ class ExpCls:
                 self.min_order: int = 2 if calc.ref_space.size == 0 else 1
                 self.start_order: int = 0
                 self.final_order: int = 0
+                self.screen_orbs: np.ndarray = None
                 self.exp_space: List[np.ndarray] = [np.array([i for i in range(mol.ncore, mol.norb) if i not in calc.ref_space], dtype=np.int64)]
                 self.n_tuples: List[int] = []
                 self.pi_orbs: np.ndarray = None

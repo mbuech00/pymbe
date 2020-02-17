@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-screening module containing all input generation in pymbe
+screening module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

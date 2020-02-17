@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-parallel module containing all mpi operations in pymbe
+parallel module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

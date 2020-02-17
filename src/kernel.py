@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-kernel module containing all electronic structure kernels
+kernel module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

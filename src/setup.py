@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-setup module containing all initialization functions
+setup module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

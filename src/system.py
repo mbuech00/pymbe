@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-system module containing all ab initio / model hamiltonian attributes
+system module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'

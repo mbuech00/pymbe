@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-mbe module containing all functions related to MBEs in pymbe
+mbe module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
