@@ -180,10 +180,16 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 print(output.screen_end(exp.order, exp.time['screen'][-1], \
                                         purging, exp.exp_space[-1].size < exp.order + 1))
 
+            # init screening time
+            exp.time['purge'].append(0.)
+
             if purging:
 
                 # print header
                 print(output.purge_header(exp.order))
+
+                # start time
+                time = MPI.Wtime()
 
                 # main purging function
                 exp.prop[calc.target_mbe] = purge.main(mpi, mol, calc, exp)
@@ -191,8 +197,11 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # print purging results
                 print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
 
+                # collect time
+                exp.time['purge'][-1] = MPI.Wtime() - time
+
                 # print screen end
-                print(output.purge_end(exp.order, 0.))
+                print(output.purge_end(exp.order, exp.time['purge'][-1]))
 
             # convergence check
             if exp.exp_space[-1].size < exp.order + 1 or exp.order == exp.max_order:

@@ -40,7 +40,7 @@ class ExpCls:
                                                                                                        'hashes': []}}
 
                 # init timings and and statistics lists
-                self.time: Dict[str, Union[List[float], np.ndarray]] = {'mbe': [], 'screen': []}
+                self.time: Dict[str, Union[List[float], np.ndarray]] = {'mbe': [], 'screen': [], 'purge': []}
                 self.mean_inc: Union[List[float], np.ndarray] = []
                 self.min_inc: Union[List[float], np.ndarray] = []
                 self.max_inc: Union[List[float], np.ndarray] = []
