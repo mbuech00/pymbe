@@ -16,7 +16,7 @@ import os
 from datetime import datetime
 import numpy as np
 from pyscf import symm
-from typing import List, Tuple, Union, Any
+from typing import List, Tuple, Dict, Union, Any
 
 import parallel
 import kernel
@@ -242,7 +242,7 @@ def screen_header(order: int) -> str:
         return string.format(*form)
 
 
-def screen_results(orbs) -> str:
+def screen_results(orbs: np.ndarray, exp_space: List[np.ndarray]) -> str:
         """
         this function prints the screened MOs
         """
@@ -257,6 +257,8 @@ def screen_results(orbs) -> str:
             if 0 < idx:
                 string += '{:27s}'.format('')
             string += '[{:}]\n'.format(elms)
+        total_screen = np.setdiff1d(exp_space[0], exp_space[-1])
+        string += ' RESULT:  total number = {:} MOs\n'.format(total_screen.size)
         string += DIVIDER+'\n'
         string += FILL+'\n'
         string += DIVIDER
@@ -297,7 +299,7 @@ def purge_header(order: int) -> str:
         return string.format(*form)
 
 
-def purge_results(n_tuples: List[int], min_order: int, order: int) -> str:
+def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) -> str:
         """
         this function prints the updated number of tuples
         """
@@ -305,10 +307,13 @@ def purge_results(n_tuples: List[int], min_order: int, order: int) -> str:
         string: str = FILL+'\n'
         string += DIVIDER+'\n'
         string += ' RESULT:  after purging of tuples --- '
-        for k in range(min_order, order-1):
+        for k in range(min_order, order):
             if min_order < k:
                 string += '{:38s}'.format('')
-            string += 'k = {:2d} has no. of tuples = {:<d}\n'.format(k, n_tuples[k-min_order])
+            red = (1. - n_tuples['actual'][k-min_order] / n_tuples['theo'][k-min_order]) * 100.
+            string += 'no. of tuples at k = {:2d} has been reduced by {:6.2f} %\n'.format(k, red)
+        total_red = sum(n_tuples['theo'][:-1]) - sum(n_tuples['actual'][:-1])
+        string += ' RESULT:  total reduction = {:} tuples\n'.format(total_red)
         string += DIVIDER+'\n'
         string += FILL+'\n'
         string += DIVIDER

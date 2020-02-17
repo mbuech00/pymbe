@@ -44,7 +44,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 print(output.mbe_header(i + exp.min_order))
 
                 # print mbe end
-                print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i], exp.n_tuples[i]))
+                print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i], exp.n_tuples['actual'][i]))
 
                 # print mbe results
                 print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
@@ -68,14 +68,14 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
-            # number of tuples at current order
-            n_tuples = tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                        exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                        tools.occ_prune(calc.occup, calc.ref_space), \
-                                        tools.virt_prune(calc.occup, calc.ref_space), exp.order)
+            # theoretical number of tuples at current order
+            exp.n_tuples['theo'].append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                                       exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
+                                                       tools.occ_prune(calc.occup, calc.ref_space), \
+                                                       tools.virt_prune(calc.occup, calc.ref_space), exp.order))
 
             # print mbe header
-            print(output.mbe_header(exp.order, n_tuples))
+            print(output.mbe_header(exp.order, exp.n_tuples['theo'][-1]))
 
             # main mbe function
             hashes_win, n_tuples, inc_win, tot, \
@@ -88,7 +88,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
 
             # append n_tuples
-            exp.n_tuples.append(n_tuples)
+            exp.n_tuples['actual'].append(n_tuples)
 
             # append window to increments
             if len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot']):
@@ -123,7 +123,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # write restart files
             if calc.misc['rst']:
-                tools.write_file(exp.order, np.asarray(exp.n_tuples[-1]), 'mbe_n_tuples')
+                tools.write_file(exp.order, np.asarray(exp.n_tuples['actual'][-1]), 'mbe_n_tuples')
                 tools.write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
                 tools.write_file(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
                 tools.write_file(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
@@ -134,7 +134,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
 
             # print mbe end
-            print(output.mbe_end(exp.order, exp.time['mbe'][-1], exp.n_tuples[-1]))
+            print(output.mbe_end(exp.order, exp.time['mbe'][-1], exp.n_tuples['actual'][-1]))
 
             # print mbe results
             print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
@@ -156,14 +156,14 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # main screening function
                 exp.screen_orbs = screen.main(mpi, mol, calc, exp)
 
-                # print screening results
-                if exp.screen_orbs.size > 0:
-                    print(output.screen_results(exp.screen_orbs))
-
                 # update expansion space wrt screened orbitals
                 exp.exp_space.append(np.copy(exp.exp_space[-1]))
                 for mo in exp.screen_orbs:
                     exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
+
+                # print screening results
+                if exp.screen_orbs.size > 0:
+                    print(output.screen_results(exp.screen_orbs, exp.exp_space))
 
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
@@ -249,6 +249,9 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 # receive order
                 exp.order = msg['order']
 
+                # receive theoretical number of tuples at current order
+                exp.n_tuples['theo'].append(msg['n_tuples_theo'])
+
                 # main mbe function
                 hashes_win, n_tuples, inc_win = mbe.main(mpi, mol, calc, exp, \
                                                          rst_read=msg['rst_read'], \
@@ -261,7 +264,7 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                     exp.prop[calc.target_mbe]['hashes'].append(hashes_win) # type: ignore
 
                 # append n_tuples
-                exp.n_tuples.append(n_tuples)
+                exp.n_tuples['actual'].append(n_tuples)
 
                 # append window to increments
                 if msg['rst_read']:

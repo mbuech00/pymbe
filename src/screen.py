@@ -39,14 +39,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, ex
 
         # load hashes for current order
         buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
-        hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[-1],))
+        hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['actual'][-1],))
 
         # load increments for current order
         buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
         if calc.target_mbe in ['energy', 'excitation']:
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1],))
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples['actual'][-1],))
         else:
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples[-1], 3))
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples['actual'][-1], 3))
 
         # mpi barrier
         mpi.local_comm.barrier()

@@ -45,7 +45,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             tup_start = np.asscalar(tools.read_file(exp.order, 'mbe_idx')) if rst_read else 0
 
             # wake up slaves
-            msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, 'tup_start': tup_start}
+            msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, \
+                   'n_tuples_theo': exp.n_tuples['theo'][-1], 'tup_start': tup_start}
             mpi.global_comm.bcast(msg, root=0)
 
         # increment dimensions
@@ -74,13 +75,13 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         hashes = []
         for k in range(exp.order-exp.min_order):
             buf = exp.prop[calc.target_mbe]['hashes'][k].Shared_query(0)[0] # type: ignore
-            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples[k],)))
+            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['actual'][k],)))
 
         # load increments for previous orders
         inc = []
         for k in range(exp.order-exp.min_order):
             buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
-            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples[k], dim)))
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['actual'][k], dim)))
 
         # init list for storing hashes at present order
         hashes_tmp: Any = []
@@ -115,8 +116,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # set rst_write
-        rst_write = calc.misc['rst'] and \
-                    mpi.global_size < calc.misc['rst_freq'] < tools.n_tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order)
+        rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['theo'][-1]
 
         # loop until no tuples left
         for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
