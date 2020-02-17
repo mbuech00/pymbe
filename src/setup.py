@@ -241,11 +241,12 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         if mpi.global_master:
 
             for i in range(len(files)):
-
                 # read n_tuples
                 if 'mbe_n_tuples' in files[i]:
-                    exp.n_tuples.append(np.load(os.path.join(RST, files[i])))
-
+                    if 'theo' in files[i]:
+                        exp.n_tuples['theo'].append(np.load(os.path.join(RST, files[i])))
+                    if 'actual' in files[i]:
+                        exp.n_tuples['actual'].append(np.load(os.path.join(RST, files[i])))
             mpi.global_comm.bcast(exp.n_tuples, root=0)
 
         else:
@@ -261,7 +262,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
 
             # read hashes
             elif 'mbe_hashes' in files[i]:
-                n_tuples = exp.n_tuples[len(exp.prop[calc.target_mbe]['hashes'])]
+                n_tuples = exp.n_tuples['actual'][len(exp.prop[calc.target_mbe]['hashes'])]
                 exp.prop[calc.target_mbe]['hashes'].append(MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, \
                                                                                    8, comm=mpi.local_comm))
                 buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
@@ -274,7 +275,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
 
             # read increments
             elif 'mbe_inc' in files[i]:
-                n_tuples = exp.n_tuples[len(exp.prop[calc.target_mbe]['inc'])]
+                n_tuples = exp.n_tuples['actual'][len(exp.prop[calc.target_mbe]['inc'])]
                 if mpi.local_master:
                     if calc.target_mbe in ['energy', 'excitation']:
                         exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm))
@@ -320,11 +321,13 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
                     exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
                 elif 'mbe_time_screen' in files[i]:
                     exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
+                elif 'mbe_time_purge' in files[i]:
+                    exp.time['purge'].append(np.load(os.path.join(RST, files[i])).tolist())
 
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return exp.min_order + len(exp.n_tuples)
+        return exp.min_order + len(exp.n_tuples['actual'])
 
 
 def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:

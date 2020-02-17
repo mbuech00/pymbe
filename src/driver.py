@@ -38,32 +38,32 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # print output from restarted calculation
         if calc.restart:
-            for i in range(exp.start_order - exp.min_order):
+            for i in range(exp.min_order, exp.start_order):
 
                 # print mbe header
-                print(output.mbe_header(i + exp.min_order))
+                print(output.mbe_header(i, exp.n_tuples['theo'][i-exp.min_order]))
 
                 # print mbe end
-                print(output.mbe_end(i + exp.min_order, exp.time['mbe'][i], exp.n_tuples['actual'][i]))
+                print(output.mbe_end(i, exp.time['mbe'][i-exp.min_order], exp.n_tuples['actual'][i-exp.min_order]))
 
                 # print mbe results
                 print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
-                                            exp.max_order, i + exp.min_order, exp.prop[calc.target_mbe]['tot'], \
-                                            exp.mean_inc[i], exp.min_inc[i], exp.max_inc[i], \
-                                            exp.mean_ndets[i], exp.min_ndets[i], exp.max_ndets[i]))
+                                            exp.max_order, i, exp.prop[calc.target_mbe]['tot'], \
+                                            exp.mean_inc[i-exp.min_order], exp.min_inc[i-exp.min_order], \
+                                            exp.max_inc[i-exp.min_order], exp.mean_ndets[i-exp.min_order], \
+                                            exp.min_ndets[i-exp.min_order], exp.max_ndets[i-exp.min_order]))
 
                 # print header
-                print(output.screen_header(i + exp.min_order))
+                print(output.screen_header(i))
 
                 # print screening results
                 if 0 < i:
-                    exp.screen_orbs = np.setdiff1d(exp.exp_space[i-1], exp.exp_space[i])
+                    exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order-1], exp.exp_space[i-exp.min_order])
                     if exp.screen_orbs.size > 0:
-                        print(output.screen_results(exp.screen_orbs))
+                        print(output.screen_results(exp.screen_orbs, exp.exp_space[:i-exp.min_order+1]))
 
                 # print screen end
-                print(output.screen_end(i + exp.min_order, exp.time['screen'][i], \
-                                        calc.misc['purge']))
+                print(output.screen_end(i, exp.time['screen'][i-exp.min_order], False))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
@@ -121,18 +121,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             if exp.order > exp.min_order:
                 exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
 
-            # write restart files
-            if calc.misc['rst']:
-                tools.write_file(exp.order, np.asarray(exp.n_tuples['actual'][-1]), 'mbe_n_tuples')
-                tools.write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
-                tools.write_file(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
-                tools.write_file(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
-                tools.write_file(exp.order, exp.min_ndets[-1], 'mbe_min_ndets')
-                tools.write_file(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
-                tools.write_file(exp.order, exp.max_inc[-1], 'mbe_max_inc')
-                tools.write_file(exp.order, exp.min_inc[-1], 'mbe_min_inc')
-                tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
-
             # print mbe end
             print(output.mbe_end(exp.order, exp.time['mbe'][-1], exp.n_tuples['actual'][-1]))
 
@@ -168,11 +156,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # collect time
                 exp.time['screen'][-1] = MPI.Wtime() - time
 
-                # write restart files
-                if calc.misc['rst']:
-                    tools.write_file(exp.order+1, exp.exp_space[-1], 'exp_space')
-                    tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
-
                 # purging logical
                 purging = calc.misc['purge'] and 0 < exp.screen_orbs.size and exp.order + 1 <= exp.exp_space[-1].size
 
@@ -202,6 +185,22 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # print screen end
                 print(output.purge_end(exp.order, exp.time['purge'][-1]))
+
+            # write restart files
+            if calc.misc['rst']:
+                tools.write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
+                tools.write_file(exp.order, np.asarray(exp.n_tuples['actual'][-1]), 'mbe_n_tuples_actual')
+                tools.write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
+                tools.write_file(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
+                tools.write_file(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
+                tools.write_file(exp.order, exp.min_ndets[-1], 'mbe_min_ndets')
+                tools.write_file(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
+                tools.write_file(exp.order, exp.max_inc[-1], 'mbe_max_inc')
+                tools.write_file(exp.order, exp.min_inc[-1], 'mbe_min_inc')
+                tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
+                tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
+                tools.write_file(exp.order, np.asarray(exp.time['purge'][-1]), 'mbe_time_purge')
+                tools.write_file(exp.order+1, exp.exp_space[-1], 'exp_space')
 
             # convergence check
             if exp.exp_space[-1].size < exp.order + 1 or exp.order == exp.max_order:
