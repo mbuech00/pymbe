@@ -62,7 +62,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                         print(output.screen_results(exp.screen_orbs))
 
                 # print screen end
-                print(output.screen_end(i + exp.min_order, exp.time['screen'][i]))
+                print(output.screen_end(i + exp.min_order, exp.time['screen'][i], \
+                                        calc.misc['purge']))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
@@ -172,12 +173,26 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                     tools.write_file(exp.order+1, exp.exp_space[-1], 'exp_space')
                     tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
 
+                # purging logical
+                purging = calc.misc['purge'] and 0 < exp.screen_orbs.size and exp.order + 1 <= exp.exp_space[-1].size
+
                 # print screen end
-                print(output.screen_end(exp.order, exp.time['screen'][-1], conv=exp.n_tuples[-1] == 0))
+                print(output.screen_end(exp.order, exp.time['screen'][-1], \
+                                        purging, exp.exp_space[-1].size < exp.order + 1))
+
+            if purging:
+
+                # print header
+                print(output.purge_header(exp.order))
 
                 # main purging function
-                if exp.order + 1 <= exp.exp_space[-1].size and exp.order < exp.max_order:
-                    exp.prop[calc.target_mbe] = purge.main(mpi, mol, calc, exp)
+                exp.prop[calc.target_mbe] = purge.main(mpi, mol, calc, exp)
+
+                # print purging results
+                print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
+
+                # print screen end
+                print(output.purge_end(exp.order, 0.))
 
             # convergence check
             if exp.exp_space[-1].size < exp.order + 1 or exp.order == exp.max_order:

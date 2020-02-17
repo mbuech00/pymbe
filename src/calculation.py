@@ -47,7 +47,7 @@ class CalcCls:
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
                 self.extra: Dict[str, bool] = {'pi_prune': False}
                 self.thres: Dict[str, float] = {'inc': 1.e-6, 'sparse': 1.e-10}
-                self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
+                self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6), 'purge': True}
                 self.orbs: Dict[str, str] = {'type': 'can'}
                 self.mpi: Dict[str, int] = {}
                 self.prop: Dict[str, Dict[str, Union[float, np.ndarray]]] = {'hf': {}, 'base': {}, 'ref': {}}

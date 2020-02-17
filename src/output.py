@@ -247,17 +247,24 @@ def screen_results(orbs) -> str:
         this function prints the screened MOs
         """
         # init string
-        string: str = ' RESULT:  screened MOs - '
+        string: str = FILL+'\n'
+        string += DIVIDER+'\n'
+        string += ' RESULT:  screened MOs --- '
         # divide orbs into intervals
         orbs_ints = [i for i in tools.intervals(orbs)]
         for idx, i in enumerate(orbs_ints):
             elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
-            string += '[{:}]+'.format(elms) if idx < len(orbs_ints) - 1 else '[{:}]'.format(elms)
+            if 0 < idx:
+                string += '{:27s}'.format('')
+            string += '[{:}]\n'.format(elms)
+        string += DIVIDER+'\n'
+        string += FILL+'\n'
+        string += DIVIDER
 
         return string
 
 
-def screen_end(order: int, time: float, conv: bool = False) -> str:
+def screen_end(order: int, time: float, purge: bool, conv: bool = False) -> str:
         """
         this function prints the end screening information
         """
@@ -265,8 +272,56 @@ def screen_end(order: int, time: float, conv: bool = False) -> str:
         string += ' STATUS:  order k = {:d} screening done in {:s}\n'
 
         if conv:
-            string += ' STATUS:                  *** convergence has been reached ***                         \n'
+            string += ' STATUS:                  *** convergence has been reached ***\n'
 
+        string += DIVIDER
+        if not purge:
+            string += '\n\n'
+
+        form: Tuple[int, str] = (order, tools.time_str(time),)
+
+        return string.format(*form)
+
+
+def purge_header(order: int) -> str:
+        """
+        this function prints the purging header
+        """
+        # set string
+        string: str = DIVIDER+'\n'
+        string += ' STATUS:  order k = {:d} purging started\n'
+        string += DIVIDER
+
+        form: Tuple[int] = (order,)
+
+        return string.format(*form)
+
+
+def purge_results(n_tuples: List[int], min_order: int, order: int) -> str:
+        """
+        this function prints the updated number of tuples
+        """
+        # init string
+        string: str = FILL+'\n'
+        string += DIVIDER+'\n'
+        string += ' RESULT:  after purging of tuples --- '
+        for k in range(min_order, order-1):
+            if min_order < k:
+                string += '{:38s}'.format('')
+            string += 'k = {:2d} has no. of tuples = {:<d}\n'.format(k, n_tuples[k-min_order])
+        string += DIVIDER+'\n'
+        string += FILL+'\n'
+        string += DIVIDER
+
+        return string
+
+
+def purge_end(order: int, time: float) -> str:
+        """
+        this function prints the end purging information
+        """
+        string: str = DIVIDER+'\n'
+        string += ' STATUS:  order k = {:d} purging done in {:s}\n'
         string += DIVIDER+'\n\n'
 
         form: Tuple[int, str] = (order, tools.time_str(time),)
