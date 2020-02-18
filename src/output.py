@@ -266,7 +266,7 @@ def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) ->
         string: str = FILL+'\n'
         string += DIVIDER+'\n'
         string += ' RESULT:  after purging of tuples --- '
-        for k in range(min_order, order):
+        for k in range(min_order, order + 1):
             if min_order < k:
                 string += '{:38s}'.format('')
             red = (1. - n_tuples['actual'][k-min_order] / n_tuples['theo'][k-min_order]) * 100.

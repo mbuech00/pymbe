@@ -57,7 +57,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop over previous orders
-        for k in range(exp.min_order, exp.order-1):
+        for k in range(exp.min_order, exp.order + 1):
 
             # load k-th order hashes and increments
             buf = exp.prop[calc.target_mbe]['hashes'][k-exp.min_order].Shared_query(0)[0] # type: ignore
