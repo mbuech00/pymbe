@@ -27,14 +27,14 @@ import tools
 def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
             exp: expansion.ExpCls) -> Dict[str, Union[List[float], MPI.Win]]:
         """
-        this function returns the orbitals to be screened away
+        this function purges the lower-order hashes & increments
         """
         # wake up slaves
         if mpi.global_master:
             msg = {'task': 'purge', 'order': exp.order}
             mpi.global_comm.bcast(msg, root=0)
 
-        # do not screen at min_order or in case of no screened orbs
+        # do not purge at min_order or in case of no screened orbs
         if exp.order == exp.min_order or exp.screen_orbs.size == 0:
             return exp.prop[calc.target_mbe]
 

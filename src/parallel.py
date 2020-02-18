@@ -202,9 +202,7 @@ def prop_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
         this function bcasts properties to slaves
         """
         if mpi.global_master:
-####
-### fix this!!!
-####
+
             # bcast to slaves
             mpi.global_comm.bcast(calc.prop, root=0)
 
