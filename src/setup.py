@@ -7,7 +7,7 @@ setup module
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
-__version__ = '0.8'
+__version__ = '0.9'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
