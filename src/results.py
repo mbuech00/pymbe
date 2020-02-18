@@ -371,14 +371,14 @@ def _time(exp: expansion.ExpCls, comp: str, idx: int) -> str:
         this function returns the final timings in (HHH : MM : SS) format
         """
         # init time
-        if comp in ['mbe', 'screen', 'purge']:
+        if comp in ['mbe', 'purge']:
             time = exp.time[comp][idx]
         elif comp == 'sum':
-            time = exp.time['mbe'][idx] + exp.time['screen'][idx] + exp.time['purge'][idx]
-        elif comp in ['tot_mbe', 'tot_screen', 'tot_purge']:
+            time = exp.time['mbe'][idx] + exp.time['purge'][idx]
+        elif comp in ['tot_mbe', 'tot_purge']:
             time = np.sum(exp.time[comp[4:]])
         elif comp == 'tot_sum':
-            time = np.sum(exp.time['mbe']) + np.sum(exp.time['screen']) + np.sum(exp.time['purge'])
+            time = np.sum(exp.time['mbe']) + np.sum(exp.time['purge'])
         return tools.time_str(time)
 
 
@@ -472,42 +472,40 @@ def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         """
         this function returns the timings table
         """
-        string: str = DIVIDER[:118]+'\n'
-        string += '{:^118}\n'
+        string: str = DIVIDER[:98]+'\n'
+        string += '{:^98}\n'
         form: Tuple[Any, ...] = ('MBE-{:} timings'.format(calc.model['method'].upper()),)
 
-        string += DIVIDER[:118]+'\n'
-        string += '{:6}{:9}{:2}{:1}{:8}{:3}{:8}{:1}{:5}{:9}{:5}' \
+        string += DIVIDER[:98]+'\n'
+        string += '{:6}{:9}{:2}{:1}{:8}{:3}{:8}' \
                   '{:1}{:6}{:7}{:6}{:1}{:8}{:3}{:8}{:1}{:5}{:}\n'
-        form += ('','MBE order','','|','','MBE','','|','','screening', \
-                 '','|','','purging','','|','','sum','','|','','calculations',)
+        form += ('','MBE order','','|','','MBE','',
+                 '|','','purging','','|','','sum','','|','','calculations',)
 
-        string += DIVIDER[:118]+'\n'
+        string += DIVIDER[:98]+'\n'
         calcs = 0
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
             calc_i = exp.n_tuples['actual'][i]
             calcs += calc_i
-            string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
+            string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}' \
                       '{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'
             form += ('',j, \
                      '','|','',_time(exp, 'mbe', i), \
-                     '','|','',_time(exp, 'screen', i), \
                      '','|','',_time(exp, 'purge', i), \
                      '','|','',_time(exp, 'sum', i), \
                      '','|','',calc_i,)
 
-        string += DIVIDER[:118]+'\n'
-        string += '{:8}{:5s}{:4}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}' \
+        string += DIVIDER[:98]+'\n'
+        string += '{:8}{:5s}{:4}{:1}{:2}{:>15s}{:2}{:1}' \
                   '{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'
         form += ('','total', \
                  '','|','',_time(exp, 'tot_mbe', -1), \
-                 '','|','',_time(exp, 'tot_screen', -1), \
                  '','|','',_time(exp, 'tot_purge', -1), \
                  '','|','',_time(exp, 'tot_sum', -1), \
                  '','|','',calcs,)
 
-        string += DIVIDER[:118]+'\n'
+        string += DIVIDER[:98]+'\n'
 
         return string.format(*form)
 

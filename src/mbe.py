@@ -115,6 +115,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_occ = tools.occ_prune(calc.occup, calc.ref_space)
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
+        # init screen array
+        screen = np.ones(mol.norb, dtype=bool)
+
         # set rst_write
         rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['theo'][-1]
 
@@ -171,15 +174,22 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 inc_tup -= _sum(mol.nocc, calc.occup, calc.target_mbe, exp.min_order, \
                                 exp.order, inc, hashes, exp.exp_space, ref_occ, ref_virt, tup)
 
-            # add inc_tup and its hash to lists of increments/hashes
             if np.any(np.abs(inc_tup) > calc.thres['sparse']):
+
+                # add inc_tup and its hash to lists of increments/hashes
                 inc_tmp.append(inc_tup)
                 hashes_tmp.append(tools.hash_1d(tup))
 
-            # debug print
-            if mol.debug >= 1:
-                print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
-                                        ndets_tup, nelec_tup, inc_tup, exp.order, cas_idx, tup))
+                # screening procedure
+                if calc.target_mbe in ['energy', 'excitation']:
+                    screen[tup] &= np.abs(inc_tup) < calc.thres['inc']
+                else:
+                    screen[tup] &= np.all(np.abs(inc_tup) < calc.thres['inc'])
+
+                # debug print
+                if mol.debug >= 1:
+                    print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
+                                            ndets_tup, nelec_tup, inc_tup, exp.order, cas_idx, tup))
 
             # update increment statistics
             min_inc, max_inc, sum_inc = _update(min_inc, max_inc, sum_inc, inc_tup)
@@ -264,6 +274,12 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         if mpi.global_master:
             mean_ndets = np.asarray(np.rint(sum_ndets / n_tuples), dtype=np.int64)
 
+        # allreduce screened orbitals
+        tot_screen = parallel.allreduce(mpi.global_comm, screen, op=MPI.LAND)
+
+        # screen_orbs
+        screen_orbs = np.array([mo for mo in np.arange(mol.norb)[tot_screen] if mo in exp.exp_space[-1]], dtype=np.int64)
+
         # collect results on global master
         if mpi.global_master:
 
@@ -283,11 +299,11 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             exp.time['mbe'][-1] += MPI.Wtime() - time
 
             return hashes_win, n_tuples, inc_win, tot, \
-                    mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
+                    mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc, screen_orbs
 
         else:
 
-            return hashes_win, n_tuples, inc_win
+            return hashes_win, n_tuples, inc_win, screen_orbs
 
 
 def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int, \

@@ -19,7 +19,6 @@ from mpi4py import MPI
 import mbe
 import kernel
 import output
-import screen
 import purge
 import system
 import calculation
@@ -47,23 +46,17 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 print(output.mbe_end(i, exp.time['mbe'][i-exp.min_order], exp.n_tuples['actual'][i-exp.min_order]))
 
                 # print mbe results
-                print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
-                                            exp.max_order, i, exp.prop[calc.target_mbe]['tot'], \
+                print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
+                                            exp.min_order, i, exp.prop[calc.target_mbe]['tot'], \
                                             exp.mean_inc[i-exp.min_order], exp.min_inc[i-exp.min_order], \
                                             exp.max_inc[i-exp.min_order], exp.mean_ndets[i-exp.min_order], \
                                             exp.min_ndets[i-exp.min_order], exp.max_ndets[i-exp.min_order]))
-
-                # print header
-                print(output.screen_header(i))
 
                 # print screening results
                 if 0 < i:
                     exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order-1], exp.exp_space[i-exp.min_order])
                     if exp.screen_orbs.size > 0:
                         print(output.screen_results(exp.screen_orbs, exp.exp_space[:i-exp.min_order+1]))
-
-                # print screen end
-                print(output.screen_end(i, exp.time['screen'][i-exp.min_order], False))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
@@ -78,8 +71,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             print(output.mbe_header(exp.order, exp.n_tuples['theo'][-1]))
 
             # main mbe function
-            hashes_win, n_tuples, inc_win, tot, \
-                    mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc = mbe.main(mpi, mol, calc, exp)
+            hashes_win, n_tuples, inc_win, tot, mean_ndets, min_ndets, max_ndets, \
+                mean_inc, min_inc, max_inc, exp.screen_orbs = mbe.main(mpi, mol, calc, exp)
 
             # append window to hashes
             if len(exp.prop[calc.target_mbe]['hashes']) > len(exp.prop[calc.target_mbe]['tot']):
@@ -125,48 +118,24 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             print(output.mbe_end(exp.order, exp.time['mbe'][-1], exp.n_tuples['actual'][-1]))
 
             # print mbe results
-            print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], exp.min_order, \
-                                     exp.max_order, exp.order, exp.prop[calc.target_mbe]['tot'], \
+            print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
+                                     exp.min_order, exp.order, exp.prop[calc.target_mbe]['tot'], \
                                      exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
                                      exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
-            # init screening time
-            exp.time['screen'].append(0.)
+            # update expansion space wrt screened orbitals
+            exp.exp_space.append(np.copy(exp.exp_space[-1]))
+            for mo in exp.screen_orbs:
+                exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
-            if exp.order < exp.max_order:
-
-                # print header
-                print(output.screen_header(exp.order))
-
-                # start time
-                time = MPI.Wtime()
-
-                # main screening function
-                exp.screen_orbs = screen.main(mpi, mol, calc, exp)
-
-                # update expansion space wrt screened orbitals
-                exp.exp_space.append(np.copy(exp.exp_space[-1]))
-                for mo in exp.screen_orbs:
-                    exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
-
-                # print screening results
-                if exp.screen_orbs.size > 0:
-                    print(output.screen_results(exp.screen_orbs, exp.exp_space))
-
-                # collect time
-                exp.time['screen'][-1] = MPI.Wtime() - time
-
-                # purging logical
-                purging = calc.misc['purge'] and 0 < exp.screen_orbs.size and exp.order + 1 <= exp.exp_space[-1].size
-
-                # print screen end
-                print(output.screen_end(exp.order, exp.time['screen'][-1], \
-                                        purging, exp.exp_space[-1].size < exp.order + 1))
+            # print screening results
+            if exp.screen_orbs.size > 0:
+                print(output.screen_results(exp.screen_orbs, exp.exp_space))
 
             # init screening time
             exp.time['purge'].append(0.)
 
-            if purging:
+            if calc.misc['purge'] and 0 < exp.screen_orbs.size and exp.order + 1 <= exp.exp_space[-1].size:
 
                 # print header
                 print(output.purge_header(exp.order))
@@ -183,7 +152,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 # collect time
                 exp.time['purge'][-1] = MPI.Wtime() - time
 
-                # print screen end
+                # print purge end
                 print(output.purge_end(exp.order, exp.time['purge'][-1]))
 
             # write restart files
@@ -198,7 +167,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 tools.write_file(exp.order, exp.max_inc[-1], 'mbe_max_inc')
                 tools.write_file(exp.order, exp.min_inc[-1], 'mbe_min_inc')
                 tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
-                tools.write_file(exp.order, np.asarray(exp.time['screen'][-1]), 'mbe_time_screen')
                 tools.write_file(exp.order, np.asarray(exp.time['purge'][-1]), 'mbe_time_purge')
                 tools.write_file(exp.order+1, exp.exp_space[-1], 'exp_space')
 
@@ -210,8 +178,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # timings
                 exp.time['mbe'] = np.asarray(exp.time['mbe'])
-                exp.time['screen'] = np.asarray(exp.time['screen'])
-                exp.time['total'] = exp.time['mbe'] + exp.time['screen']
+                exp.time['purge'] = np.asarray(exp.time['purge'])
+                exp.time['total'] = exp.time['mbe'] + exp.time['purge']
 
                 # increments
                 exp.mean_inc = np.asarray(exp.mean_inc)
@@ -225,6 +193,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # final results
                 exp.prop[calc.target_mbe]['tot'] = np.asarray(exp.prop[calc.target_mbe]['tot'])
+                print('\n\n')
 
                 break
 
@@ -252,9 +221,9 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.n_tuples['theo'].append(msg['n_tuples_theo'])
 
                 # main mbe function
-                hashes_win, n_tuples, inc_win = mbe.main(mpi, mol, calc, exp, \
-                                                         rst_read=msg['rst_read'], \
-                                                         tup_start=msg['tup_start'])
+                hashes_win, n_tuples, inc_win, exp.screen_orbs = mbe.main(mpi, mol, calc, exp, \
+                                                                          rst_read=msg['rst_read'], \
+                                                                          tup_start=msg['tup_start'])
 
                 # append window to hashes
                 if msg['rst_read']:
@@ -271,14 +240,6 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(inc_win) # type: ignore
 
-            elif msg['task'] == 'screen':
-
-                # receive order
-                exp.order = msg['order']
-
-                # main screening function
-                exp.screen_orbs = screen.main(mpi, mol, calc, exp)
-
                 # update expansion space wrt screened orbitals
                 exp.exp_space.append(np.copy(exp.exp_space[-1]))
                 for mo in exp.screen_orbs:
@@ -291,11 +252,6 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # main purging function
                 exp.prop[calc.target_mbe] = purge.main(mpi, mol, calc, exp)
-
-                # update expansion space wrt screened orbitals
-                exp.exp_space.append(np.copy(exp.exp_space[-1]))
-                for mo in exp.screen_orbs:
-                    exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
 
             elif msg['task'] == 'exit':
 

@@ -319,8 +319,6 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
                 # read timings
                 elif 'mbe_time_mbe' in files[i]:
                     exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
-                elif 'mbe_time_screen' in files[i]:
-                    exp.time['screen'].append(np.load(os.path.join(RST, files[i])).tolist())
                 elif 'mbe_time_purge' in files[i]:
                     exp.time['purge'].append(np.load(os.path.join(RST, files[i])).tolist())
 

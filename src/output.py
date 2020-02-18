@@ -64,25 +64,22 @@ def main_header(mpi: Union[None, parallel.MPICls] = None, method: Union[None, st
 
             string += HEADER+'\n'
             string += '{:^87s}\n'
-            string += HEADER+'\n\n'
+            string += HEADER#+'\n\n'
 
             form += (method.upper()+' expansion',)
 
         return string.format(*form)
 
 
-def mbe_header(order: int, n_tuples: int = -1) -> str:
+def mbe_header(order: int, n_tuples: int) -> str:
         """
         this function prints the mbe header
         """
         # set string
-        string: str = DIVIDER+'\n'
+        string: str = '\n\n'+DIVIDER+'\n'
         form: Tuple[int, ...] = (order,)
-        if n_tuples < 0:
-            string += ' STATUS:  order k = {:d} MBE started\n'
-        else:
-            string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
-            form += (n_tuples,)
+        string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
+        form += (n_tuples,)
         string += DIVIDER
 
         return string.format(*form)
@@ -141,7 +138,7 @@ def mbe_end(order: int, time: float, n_tuples: int) -> str:
         return string.format(*form)
 
 
-def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_order: int, \
+def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, \
                 order: int, prop_tot: List[Union[float, np.ndarray]], \
                 mean_inc: np.ndarray, min_inc: np.ndarray, max_inc: np.ndarray, \
                 mean_ndets: np.ndarray, min_ndets: np.ndarray, max_ndets: np.ndarray) -> str:
@@ -218,26 +215,9 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_o
         string += DIVIDER+'\n'
         string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
         string += DIVIDER+'\n'
-        form += (np.asscalar(mean_ndets), np.asscalar(min_ndets), np.asscalar(max_ndets))
-
-        if order < max_order:
-            string += FILL
-        else:
-            string += '\n\n'
-
-        return string.format(*form)
-
-
-def screen_header(order: int) -> str:
-        """
-        this function prints the screening header
-        """
-        # set string
-        string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} screening started\n'
+        string += FILL+'\n'
         string += DIVIDER
-
-        form: Tuple[int] = (order,)
+        form += (np.asscalar(mean_ndets), np.asscalar(min_ndets), np.asscalar(max_ndets))
 
         return string.format(*form)
 
@@ -247,9 +227,7 @@ def screen_results(orbs: np.ndarray, exp_space: List[np.ndarray]) -> str:
         this function prints the screened MOs
         """
         # init string
-        string: str = FILL+'\n'
-        string += DIVIDER+'\n'
-        string += ' RESULT:  screened MOs --- '
+        string: str = ' RESULT:  screened MOs --- '
         # divide orbs into intervals
         orbs_ints = [i for i in tools.intervals(orbs)]
         for idx, i in enumerate(orbs_ints):
@@ -258,6 +236,7 @@ def screen_results(orbs: np.ndarray, exp_space: List[np.ndarray]) -> str:
                 string += '{:27s}'.format('')
             string += '[{:}]\n'.format(elms)
         total_screen = np.setdiff1d(exp_space[0], exp_space[-1])
+        string += DIVIDER+'\n'
         string += ' RESULT:  total number = {:} MOs\n'.format(total_screen.size)
         string += DIVIDER+'\n'
         string += FILL+'\n'
@@ -266,32 +245,12 @@ def screen_results(orbs: np.ndarray, exp_space: List[np.ndarray]) -> str:
         return string
 
 
-def screen_end(order: int, time: float, purge: bool, conv: bool = False) -> str:
-        """
-        this function prints the end screening information
-        """
-        string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} screening done in {:s}\n'
-
-        if conv:
-            string += ' STATUS:                  *** convergence has been reached ***\n'
-
-        string += DIVIDER
-        if not purge:
-            string += '\n\n'
-
-        form: Tuple[int, str] = (order, tools.time_str(time),)
-
-        return string.format(*form)
-
-
 def purge_header(order: int) -> str:
         """
         this function prints the purging header
         """
         # set string
-        string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} purging started\n'
+        string: str = ' STATUS:  order k = {:d} purging started\n'
         string += DIVIDER
 
         form: Tuple[int] = (order,)
@@ -313,6 +272,7 @@ def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) ->
             red = (1. - n_tuples['actual'][k-min_order] / n_tuples['theo'][k-min_order]) * 100.
             string += 'no. of tuples at k = {:2d} has been reduced by {:6.2f} %\n'.format(k, red)
         total_red = sum(n_tuples['theo'][:-1]) - sum(n_tuples['actual'][:-1])
+        string += DIVIDER+'\n'
         string += ' RESULT:  total reduction = {:} tuples\n'.format(total_red)
         string += DIVIDER+'\n'
         string += FILL+'\n'
@@ -325,9 +285,8 @@ def purge_end(order: int, time: float) -> str:
         """
         this function prints the end purging information
         """
-        string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} purging done in {:s}\n'
-        string += DIVIDER+'\n\n'
+        string: str = ' STATUS:  order k = {:d} purging done in {:s}\n'
+        string += DIVIDER
 
         form: Tuple[int, str] = (order, tools.time_str(time),)
 
