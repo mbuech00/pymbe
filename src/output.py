@@ -271,7 +271,7 @@ def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) ->
                 string += '{:38s}'.format('')
             red = (1. - n_tuples['actual'][k-min_order] / n_tuples['theo'][k-min_order]) * 100.
             string += 'no. of tuples at k = {:2d} has been reduced by {:6.2f} %\n'.format(k, red)
-        total_red = sum(n_tuples['theo'][:-1]) - sum(n_tuples['actual'][:-1])
+        total_red = sum(n_tuples['theo']) - sum(n_tuples['actual'])
         string += DIVIDER+'\n'
         string += ' RESULT:  total reduction = {:} tuples\n'.format(total_red)
         string += DIVIDER+'\n'
