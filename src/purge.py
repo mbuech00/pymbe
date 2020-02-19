@@ -25,7 +25,7 @@ import tools
 
 
 def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
-            exp: expansion.ExpCls) -> Dict[str, Union[List[float], MPI.Win]]:
+            exp: expansion.ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win]], Dict[str, List[int]]]:
         """
         this function purges the lower-order hashes & increments
         """
@@ -36,7 +36,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
 
         # do not purge at min_order or in case of no screened orbs
         if exp.order == exp.min_order or exp.screen_orbs.size == 0:
-            return exp.prop[calc.target_mbe]
+            return exp.prop[calc.target_mbe], exp.n_tuples
 
         # increment dimensions
         if calc.target_mbe in ['energy', 'excitation']:
@@ -57,7 +57,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # loop over previous orders
-        for k in range(exp.min_order, exp.order + 1):
+        for k in range(exp.min_order, exp.order):
 
             # load k-th order hashes and increments
             buf = exp.prop[calc.target_mbe]['hashes'][k-exp.min_order].Shared_query(0)[0] # type: ignore
@@ -145,7 +145,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
         # mpi barrier
         mpi.global_comm.barrier()
 
-        return exp.prop[calc.target_mbe]
+        return exp.prop[calc.target_mbe], exp.n_tuples
 
 
 if __name__ == "__main__":

@@ -78,7 +78,7 @@ def mbe_header(order: int, n_tuples: int) -> str:
         # set string
         string: str = '\n\n'+DIVIDER+'\n'
         form: Tuple[int, ...] = (order,)
-        string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples\n'
+        string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
         form += (n_tuples,)
         string += DIVIDER
 
@@ -130,7 +130,7 @@ def mbe_end(order: int, time: float, n_tuples_theo: int, n_tuples_actual: int) -
         """
         # set string
         string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} MBE done in {:s}  ---  {:d} tuples (sparsity reduction: {:.2f} %)\n'
+        string += ' STATUS:  order k = {:d} MBE done in {:s}  ---  {:d} tuples in total (reduction: {:.2f} %)\n'
         string += DIVIDER
 
         form: Tuple[int, str, int, float] = (order, tools.time_str(time), n_tuples_actual, \

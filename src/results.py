@@ -296,7 +296,7 @@ def _thres(calc: calculation.CalcCls) -> str:
         """
         this function returns the expansion threshold
         """
-        return '{:.0e} / {:.0e}'.format(calc.thres['inc'], calc.thres['sparse'])
+        return '{:.0e}'.format(calc.thres['inc'])
 
 
 def _symm(mol: system.MolCls, calc: calculation.CalcCls) -> str:
@@ -460,7 +460,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
         form += ('','FCI solver','','=','',_solver(calc), \
-                    '','|','','thres./sparsity','','=','',_thres(calc), \
+                    '','|','','inc. threshold','','=','',_thres(calc), \
                     '','|','','wave funct. symmetry','','=','',_symm(mol, calc),)
 
         string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'
@@ -486,7 +486,7 @@ def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         calcs = 0
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            calc_i = exp.n_tuples['actual'][i]
+            calc_i = exp.n_tuples['theo'][i]
             calcs += calc_i
             string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}' \
                       '{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'

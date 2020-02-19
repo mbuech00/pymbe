@@ -127,11 +127,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                                      exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
                                      exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
-            # update expansion space wrt screened orbitals
-            exp.exp_space.append(np.copy(exp.exp_space[-1]))
-            for mo in exp.screen_orbs:
-                exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
-
             # print screening results
             if exp.screen_orbs.size > 0:
                 print(output.screen_results(exp.screen_orbs, exp.exp_space))
@@ -148,7 +143,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 time = MPI.Wtime()
 
                 # main purging function
-                exp.prop[calc.target_mbe] = purge.main(mpi, mol, calc, exp)
+                exp.prop[calc.target_mbe], exp.n_tuples = purge.main(mpi, mol, calc, exp)
 
                 # print purging results
                 print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
@@ -244,18 +239,13 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(inc_win) # type: ignore
 
-                # update expansion space wrt screened orbitals
-                exp.exp_space.append(np.copy(exp.exp_space[-1]))
-                for mo in exp.screen_orbs:
-                    exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
-
             elif msg['task'] == 'purge':
 
                 # receive order
                 exp.order = msg['order']
 
                 # main purging function
-                exp.prop[calc.target_mbe] = purge.main(mpi, mol, calc, exp)
+                exp.prop[calc.target_mbe], exp.n_tuples = purge.main(mpi, mol, calc, exp)
 
             elif msg['task'] == 'exit':
 
