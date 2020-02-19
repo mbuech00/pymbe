@@ -135,7 +135,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             exp.prop[calc.target_mbe], exp.n_tuples = purge.main(mpi, mol, calc, exp)
 
             # print purging results
-            if exp.order + 1 <= exp.exp_space[-1].size:
+            if exp.order + 1 <= exp.exp_space[-1].size and exp.n_tuples['inc'][-1] < exp.n_tuples['prop'][-1]:
                 print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
 
             # print purge end
@@ -143,17 +143,29 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # write restart files
             if calc.misc['rst']:
-                buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
-                hashes = np.ndarray(buffer=buf, dtype=np.int64, \
-                                    shape=(exp.n_tuples['inc'][-1],))
-                tools.write_file(exp.order, hashes, 'mbe_hashes')
-                buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
-                inc = np.ndarray(buffer=buf, dtype=np.float64, \
-                                 shape=tools.inc_shape(exp.n_tuples['inc'][-1], tools.inc_dim(calc.target_mbe)))
-                tools.write_file(exp.order, inc, 'mbe_inc')
+                if exp.screen_orbs.size > 0:
+                    for k in range(exp.order-exp.min_order+1):
+                        buf = exp.prop[calc.target_mbe]['hashes'][k].Shared_query(0)[0] # type: ignore
+                        hashes = np.ndarray(buffer=buf, dtype=np.int64, \
+                                            shape=(exp.n_tuples['inc'][k],))
+                        tools.write_file(k + exp.min_order, hashes, 'mbe_hashes')
+                        buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
+                        inc = np.ndarray(buffer=buf, dtype=np.float64, \
+                                         shape=tools.inc_shape(exp.n_tuples['inc'][k], tools.inc_dim(calc.target_mbe)))
+                        tools.write_file(k + exp.min_order, inc, 'mbe_inc')
+                        tools.write_file(k + exp.min_order, np.asarray(exp.n_tuples['inc'][k]), 'mbe_n_tuples_inc')
+                else:
+                    buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
+                    hashes = np.ndarray(buffer=buf, dtype=np.int64, \
+                                        shape=(exp.n_tuples['inc'][-1],))
+                    tools.write_file(exp.order, hashes, 'mbe_hashes')
+                    buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, \
+                                     shape=tools.inc_shape(exp.n_tuples['inc'][-1], tools.inc_dim(calc.target_mbe)))
+                    tools.write_file(exp.order, inc, 'mbe_inc')
+                    tools.write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
                 tools.write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
                 tools.write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_n_tuples_prop')
-                tools.write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
                 tools.write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
                 tools.write_file(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
                 tools.write_file(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
@@ -221,22 +233,18 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 # main mbe function
                 hashes_win, n_tuples, inc_win, exp.screen_orbs = mbe.main(mpi, mol, calc, exp, \
                                                                           rst_read_prop=msg['rst_read_prop'], \
-                                                                          tup_start=msg['tup_start'])
+                                                                          rst_read_inc=msg['rst_read_inc'], \
+                                                                          tup_start_prop=msg['tup_start_prop'], \
+                                                                          tup_start_inc=msg['tup_start_inc'])
 
                 # append window to hashes
-                if msg['rst_read']:
-                    exp.prop[calc.target_mbe]['hashes'][-1] = hashes_win # type: ignore
-                else:
-                    exp.prop[calc.target_mbe]['hashes'].append(hashes_win) # type: ignore
+                exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
 
                 # append n_tuples
                 exp.n_tuples['inc'].append(n_tuples)
 
                 # append window to increments
-                if msg['rst_read']:
-                    exp.prop[calc.target_mbe]['inc'][-1] = inc_win # type: ignore
-                else:
-                    exp.prop[calc.target_mbe]['inc'].append(inc_win) # type: ignore
+                exp.prop[calc.target_mbe]['inc'].append(inc_win)
 
             elif msg['task'] == 'purge':
 

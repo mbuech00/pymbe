@@ -32,7 +32,9 @@ import tools
 
 def main(mpi: parallel.MPICls, mol: system.MolCls, \
             calc: calculation.CalcCls, exp: expansion.ExpCls, \
-            rst_read_prop: bool = False, rst_write: bool = False, tup_start: int = 0) -> Tuple[Any, ...]:
+            rst_read_prop: bool = False, rst_read_inc: bool = False, \
+            tup_start_prop: int = 0, tup_start_inc: int = 0, \
+            rst_write: bool = False) -> Tuple[Any, ...]:
         """
         this function is the mbe main function
         """
@@ -49,7 +51,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # wake up slaves
             msg = {'task': 'mbe', 'order': exp.order, \
                    'rst_read_prop': rst_read_prop, 'rst_read_inc': rst_read_inc, \
-                   'tup_start_prop': tup_start_prop, 'tup_start_prop': tup_start_prop}
+                   'tup_start_prop': tup_start_prop, 'tup_start_inc': tup_start_inc}
             mpi.global_comm.bcast(msg, root=0)
 
         # increment dimensions

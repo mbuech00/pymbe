@@ -239,9 +239,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
 
         # loop over n_tuples files
         if mpi.global_master:
-
             for i in range(len(files)):
-                # read n_tuples
                 if 'mbe_n_tuples' in files[i]:
                     if 'theo' in files[i]:
                         exp.n_tuples['theo'].append(np.load(os.path.join(RST, files[i])))
@@ -249,22 +247,15 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
                         exp.n_tuples['prop'].append(np.load(os.path.join(RST, files[i])))
                     if 'inc' in files[i]:
                         exp.n_tuples['inc'].append(np.load(os.path.join(RST, files[i])))
-
             mpi.global_comm.bcast(exp.n_tuples, root=0)
-
         else:
-
             exp.n_tuples = mpi.global_comm.bcast(None, root=0)
 
         # loop over all other files
         for i in range(len(files)):
 
-            # read expansion spaces
-            if 'exp_space' in files[i]:
-                exp.exp_space.append(np.load(os.path.join(RST, files[i])))
-
             # read hashes
-            elif 'mbe_hashes' in files[i]:
+            if 'mbe_hashes' in files[i]:
                 n_tuples = exp.n_tuples['inc'][len(exp.prop[calc.target_mbe]['hashes'])]
                 exp.prop[calc.target_mbe]['hashes'].append(MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, \
                                                                                    8, comm=mpi.local_comm))
@@ -299,8 +290,16 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
 
             if mpi.global_master:
 
+                # read expansion spaces
+                if 'exp_space' in files[i]:
+                    exp.exp_space.append(np.load(os.path.join(RST, files[i])))
+
                 # read total properties
-                if 'mbe_tot' in files[i]:
+                elif 'mbe_screen' in files[i]:
+                    exp.screen = np.load(os.path.join(RST, files[i]))
+
+                # read total properties
+                elif 'mbe_tot' in files[i]:
                     exp.prop[calc.target_mbe]['tot'].append(np.load(os.path.join(RST, files[i])))
 
                 # read ndets statistics
@@ -324,6 +323,14 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
                     exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
                 elif 'mbe_time_purge' in files[i]:
                     exp.time['purge'].append(np.load(os.path.join(RST, files[i])).tolist())
+
+        # bcast exp_space and screen
+        if mpi.global_master:
+            mpi.global_comm.bcast(exp.exp_space, root=0)
+            mpi.global_comm.bcast(exp.screen, root=0)
+        else:
+            exp.exp_space = mpi.global_comm.bcast(None, root=0)
+            exp.screen = mpi.global_comm.bcast(None, root=0)
 
         # mpi barrier
         mpi.global_comm.Barrier()
