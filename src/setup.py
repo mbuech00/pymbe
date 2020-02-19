@@ -242,11 +242,11 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
             for i in range(len(files)):
                 if 'mbe_n_tuples' in files[i]:
                     if 'theo' in files[i]:
-                        exp.n_tuples['theo'].append(np.load(os.path.join(RST, files[i])))
+                        exp.n_tuples['theo'].append(np.load(os.path.join(RST, files[i])).tolist())
                     if 'prop' in files[i]:
-                        exp.n_tuples['prop'].append(np.load(os.path.join(RST, files[i])))
+                        exp.n_tuples['prop'].append(np.load(os.path.join(RST, files[i])).tolist())
                     if 'inc' in files[i]:
-                        exp.n_tuples['inc'].append(np.load(os.path.join(RST, files[i])))
+                        exp.n_tuples['inc'].append(np.load(os.path.join(RST, files[i])).tolist())
             mpi.global_comm.bcast(exp.n_tuples, root=0)
         else:
             exp.n_tuples = mpi.global_comm.bcast(None, root=0)
@@ -335,7 +335,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return exp.min_order + len(exp.n_tuples['inc'])
+        return exp.min_order + len(exp.prop[calc.target_mbe]['tot'])
 
 
 def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:

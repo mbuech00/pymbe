@@ -123,7 +123,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 continue
 
             # write restart files and re-init time
-            if rst_write and (tup_idx % calc.misc['rst_freq']) < mpi.global_size:
+            if rst_write and tup_idx % calc.misc['rst_freq'] < mpi.global_size:
 
                 # reduce increment statistics onto global master
                 min_inc = parallel.reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
@@ -151,22 +151,18 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 # reduce mbe_idx_prop onto global master
                 mbe_idx_prop = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
                 # update rst_write
-                rst_write = (mbe_idx_prop + calc.misc['rst_freq']) < exp.n_tuples['prop'][-1] - mpi.global_size
+                rst_write = mbe_idx_prop + calc.misc['rst_freq'] < exp.n_tuples['prop'][-1] - mpi.global_size
 
                 if mpi.global_master:
-                    # save increment statistics
+                    # write restart files
                     tools.write_file(exp.order, max_inc, 'mbe_max_inc')
                     tools.write_file(exp.order, min_inc, 'mbe_min_inc')
                     tools.write_file(exp.order, sum_inc, 'mbe_mean_inc')
-                    # save determinant statistics
                     tools.write_file(exp.order, max_ndets, 'mbe_max_ndets')
                     tools.write_file(exp.order, min_ndets, 'mbe_min_ndets')
                     tools.write_file(exp.order, sum_ndets, 'mbe_mean_ndets')
-                    # save screen
                     tools.write_file(exp.order, screen, 'mbe_screen')
-                    # save mbe_idx_prop
                     tools.write_file(exp.order, np.asarray(mbe_idx_prop), 'mbe_idx_prop')
-                    # save timing
                     exp.time['mbe'][-1] += MPI.Wtime() - time
                     tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
                     # re-init time
@@ -252,7 +248,13 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # write restart files
             if calc.misc['rst']:
-                # save idx
+                tools.write_file(exp.order, max_inc, 'mbe_max_inc')
+                tools.write_file(exp.order, min_inc, 'mbe_min_inc')
+                tools.write_file(exp.order, sum_inc, 'mbe_mean_inc')
+                tools.write_file(exp.order, max_ndets, 'mbe_max_ndets')
+                tools.write_file(exp.order, min_ndets, 'mbe_min_ndets')
+                tools.write_file(exp.order, sum_ndets, 'mbe_mean_ndets')
+                tools.write_file(exp.order, screen, 'mbe_screen')
                 tools.write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_idx_prop')
 
             # total property
@@ -274,16 +276,29 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                                   exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
                                   tools.occ_prune(calc.occup, calc.ref_space), \
                                   tools.virt_prune(calc.occup, calc.ref_space), exp.order)
+        # write restart files
+        if mpi.global_master:
+            tools.write_file(exp.order, np.asarray(n_tuples), 'mbe_n_tuples_inc')
 
         # init hashes for present order
-        hashes_win = MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, 8, comm=mpi.local_comm)
+        if rst_read_inc:
+            hashes_win = exp.prop[calc.target_mbe]['hashes'][-1]
+        else:
+            hashes_win = MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, 8, comm=mpi.local_comm)
         buf = hashes_win.Shared_query(0)[0] # type: ignore
         hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,)))
+        if mpi.local_master and not mpi.global_master:
+            hashes[-1][:].fill(0)
 
         # init increments for present order
-        inc_win = MPI.Win.Allocate_shared(8 * n_tuples * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
+        if rst_read_inc:
+            inc_win = exp.prop[calc.target_mbe]['inc'][-1]
+        else:
+            inc_win = MPI.Win.Allocate_shared(8 * n_tuples * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
         buf = inc_win.Shared_query(0)[0] # type: ignore
         inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=tools.inc_shape(n_tuples, dim)))
+        if mpi.local_master and not mpi.global_master:
+            inc[-1][:].fill(0.)
 
         # update occupied and virtual expansion spaces
         exp_occ = exp.exp_space[-1][exp.exp_space[-1] < mol.nocc]
@@ -291,6 +306,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # set rst_write
         rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < n_tuples
+
+        # mpi barrier
+        mpi.local_comm.Barrier()
 
         # loop until no tuples left
         for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
@@ -303,6 +321,9 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # write restart files and re-init time
             if rst_write and (tup_idx % calc.misc['rst_freq']) < mpi.global_size:
 
+                # mpi barrier
+                mpi.local_comm.Barrier()
+
                 # reduce hashes & increments onto global master
                 if mpi.num_masters > 1 and mpi.local_master:
                     hashes[-1][:] = parallel.reduce(mpi.master_comm, hashes[-1], root=0, op=MPI.SUM)
@@ -312,18 +333,16 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     if not mpi.global_master:
                         inc[-1][:].fill(0.)
 
-                # reduce mbe_idx_prop onto global master
+                # reduce mbe_idx_inc onto global master
                 mbe_idx_inc = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
                 # update rst_write
-                rst_write = (mbe_idx_inc + calc.misc['rst_freq']) < n_tuples - mpi.global_size
+                rst_write = mbe_idx_inc + calc.misc['rst_freq'] < n_tuples - mpi.global_size
 
                 if mpi.global_master:
-                    # save hashes & increments
+                    # write restart files
                     tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
                     tools.write_file(exp.order, inc[-1], 'mbe_inc')
-                    # save mbe_idx_inc
                     tools.write_file(exp.order, np.asarray(mbe_idx_inc), 'mbe_idx_inc')
-                    # save timing
                     exp.time['mbe'][-1] += MPI.Wtime() - time
                     tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
                     # re-init time
@@ -396,7 +415,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # write restart files
             if calc.misc['rst']:
-                # save idx
+                tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
+                tools.write_file(exp.order, inc[-1], 'mbe_inc')
                 tools.write_file(exp.order, np.asarray(n_tuples), 'mbe_idx_inc')
 
             # save timing

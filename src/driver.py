@@ -35,39 +35,38 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
         # print expansion headers
         print(output.main_header(mpi=mpi, method=calc.model['method']))
 
-        # print output from restarted calculation
-        if calc.restart:
-            for i in range(exp.min_order, exp.start_order):
-
-                # print mbe header
-                print(output.mbe_header(i, exp.n_tuples['prop'][i-exp.min_order]))
-
-                # print mbe end
-                print(output.mbe_end(i, exp.time['mbe'][i-exp.min_order], \
-                                     exp.n_tuples['inc'][i-exp.min_order]))
-
-                # print mbe results
-                print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
-                                            exp.min_order, i, exp.prop[calc.target_mbe]['tot'], \
-                                            exp.mean_inc[i-exp.min_order], exp.min_inc[i-exp.min_order], \
-                                            exp.max_inc[i-exp.min_order], exp.mean_ndets[i-exp.min_order], \
-                                            exp.min_ndets[i-exp.min_order], exp.max_ndets[i-exp.min_order]))
-
-                # print screening results
-                if 0 < i:
-                    exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order-1], exp.exp_space[i-exp.min_order])
-                    if exp.screen_orbs.size > 0:
-                        print(output.screen_results(exp.screen_orbs, exp.exp_space[:i-exp.min_order+1]))
+#        # print output from restarted calculation
+#        if calc.restart:
+#            for i in range(exp.min_order, exp.start_order):
+#
+#                # print mbe header
+#                print(output.mbe_header(i, exp.n_tuples['prop'][i-exp.min_order]))
+#
+#                # print mbe end
+#                print(output.mbe_end(i, exp.time['mbe'][i-exp.min_order], \
+#                                     exp.n_tuples['inc'][i-exp.min_order]))
+#
+#                # print mbe results
+#                print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
+#                                            exp.min_order, i, exp.prop[calc.target_mbe]['tot'], \
+#                                            exp.mean_inc[i-exp.min_order], exp.min_inc[i-exp.min_order], \
+#                                            exp.max_inc[i-exp.min_order], exp.mean_ndets[i-exp.min_order], \
+#                                            exp.min_ndets[i-exp.min_order], exp.max_ndets[i-exp.min_order]))
+#
+#                # print screening results
+#                if 0 < i:
+#                    exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order-1], exp.exp_space[i-exp.min_order])
+#                    if exp.screen_orbs.size > 0:
+#                        print(output.screen_results(exp.screen_orbs, exp.exp_space[:i-exp.min_order+1]))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
-            # theoretical number of tuples at current order
+            # theoretical and actual number of tuples at current order
             exp.n_tuples['theo'].append(tools.n_tuples(exp.exp_space[0][exp.exp_space[0] < mol.nocc], \
                                                        exp.exp_space[0][mol.nocc <= exp.exp_space[0]], \
                                                        tools.occ_prune(calc.occup, calc.ref_space), \
                                                        tools.virt_prune(calc.occup, calc.ref_space), exp.order))
-            # actual number of tuples at current order
             exp.n_tuples['prop'].append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
                                                        exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
                                                        tools.occ_prune(calc.occup, calc.ref_space), \
@@ -81,13 +80,20 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 mean_inc, min_inc, max_inc, exp.screen_orbs = mbe.main(mpi, mol, calc, exp)
 
             # append window to hashes
-            exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
+            if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
+                exp.prop[calc.target_mbe]['hashes'][-1] = hashes_win
+            else:
+                exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
 
             # append n_tuples
-            exp.n_tuples['inc'].append(n_tuples)
+            if len(exp.n_tuples['inc']) < len(exp.n_tuples['prop']):
+                exp.n_tuples['inc'].append(n_tuples)
 
             # append window to increments
-            exp.prop[calc.target_mbe]['inc'].append(inc_win)
+            if len(exp.prop[calc.target_mbe]['inc']) == len(exp.n_tuples['prop']):
+                exp.prop[calc.target_mbe]['inc'][-1] = inc_win
+            else:
+                exp.prop[calc.target_mbe]['inc'].append(inc_win)
 
             # append total property
             exp.prop[calc.target_mbe]['tot'].append(tot)
@@ -95,7 +101,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
 
             # append determinant statistics
-            if len(exp.mean_ndets) == len(exp.prop[calc.target_mbe]['inc']):
+            if exp.order == exp.start_order and exp.min_order < exp.start_order:
                 exp.mean_ndets[-1] = mean_ndets
                 exp.min_ndets[-1] = min_ndets
                 exp.max_ndets[-1] = max_ndets
@@ -105,7 +111,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.max_ndets.append(max_ndets)
 
             # append increment statistics
-            if len(exp.mean_inc) == len(exp.prop[calc.target_mbe]['inc']):
+            if exp.order == exp.start_order and exp.min_order < exp.start_order:
                 exp.mean_inc[-1] = mean_inc
                 exp.min_inc[-1] = min_inc
                 exp.max_inc[-1] = max_inc
@@ -238,13 +244,20 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                                                                           tup_start_inc=msg['tup_start_inc'])
 
                 # append window to hashes
-                exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
+                if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
+                    exp.prop[calc.target_mbe]['hashes'][-1] = hashes_win
+                else:
+                    exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
 
                 # append n_tuples
-                exp.n_tuples['inc'].append(n_tuples)
+                if len(exp.n_tuples['inc']) < len(exp.n_tuples['prop']):
+                    exp.n_tuples['inc'].append(n_tuples)
 
                 # append window to increments
-                exp.prop[calc.target_mbe]['inc'].append(inc_win)
+                if len(exp.prop[calc.target_mbe]['inc']) == len(exp.n_tuples['prop']):
+                    exp.prop[calc.target_mbe]['inc'][-1] = inc_win
+                else:
+                    exp.prop[calc.target_mbe]['inc'].append(inc_win)
 
             elif msg['task'] == 'purge':
 
