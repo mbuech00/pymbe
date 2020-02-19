@@ -46,7 +46,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # wake up slaves
             msg = {'task': 'mbe', 'order': exp.order, 'rst_read': rst_read, \
-                   'n_tuples_theo': exp.n_tuples['theo'][-1], 'tup_start': tup_start}
+                   'n_tuples_prop': exp.n_tuples['prop'][-1], 'tup_start': tup_start}
             mpi.global_comm.bcast(msg, root=0)
 
         # increment dimensions
@@ -75,13 +75,13 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         hashes = []
         for k in range(exp.order-exp.min_order):
             buf = exp.prop[calc.target_mbe]['hashes'][k].Shared_query(0)[0] # type: ignore
-            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['actual'][k],)))
+            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k],)))
 
         # load increments for previous orders
         inc = []
         for k in range(exp.order-exp.min_order):
             buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
-            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['actual'][k], dim)))
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['inc'][k], dim)))
 
         # init time
         if mpi.global_master:
@@ -114,7 +114,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         screen = np.ones(mol.norb, dtype=bool)
 
         # set rst_write
-        rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['theo'][-1]
+        rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['prop'][-1]
 
         # loop until no tuples left
         for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
@@ -130,7 +130,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 # reduce mbe_idx onto global master
                 mbe_idx = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
                 # update rst_write
-                rst_write = (mbe_idx + calc.misc['rst_freq']) < exp.n_tuples['theo'][-1] - mpi.global_size
+                rst_write = (mbe_idx + calc.misc['rst_freq']) < exp.n_tuples['prop'][-1] - mpi.global_size
 
                 if mpi.global_master:
                     # save mbe_idx
@@ -203,11 +203,11 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # mean increment
         if mpi.global_master:
-            mean_inc = sum_inc / exp.n_tuples['theo'][-1]
+            mean_inc = sum_inc / exp.n_tuples['prop'][-1]
 
         # mean number of determinants
         if mpi.global_master:
-            mean_ndets = np.asarray(np.rint(sum_ndets / exp.n_tuples['theo'][-1]), dtype=np.int64)
+            mean_ndets = np.asarray(np.rint(sum_ndets / exp.n_tuples['prop'][-1]), dtype=np.int64)
 
         # print final status
         if mpi.global_master:
@@ -220,7 +220,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             # write restart files
             if calc.misc['rst']:
                 # save idx
-                tools.write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_idx')
+                tools.write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_idx')
 
             # total property
             tot = sum_inc

@@ -61,10 +61,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
 
             # load k-th order hashes and increments
             buf = exp.prop[calc.target_mbe]['hashes'][k-exp.min_order].Shared_query(0)[0] # type: ignore
-            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['actual'][k-exp.min_order],))
+            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k-exp.min_order],))
 
             buf = exp.prop[calc.target_mbe]['inc'][k-exp.min_order].Shared_query(0)[0] # type: ignore
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['actual'][k-exp.min_order], dim))
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['inc'][k-exp.min_order], dim))
 
             # mpi barrier
             mpi.local_comm.barrier()
@@ -101,14 +101,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
             recv_counts = np.array(mpi.global_comm.allgather(hashes_tmp.size))
 
             # update n_tuples
-            exp.n_tuples['actual'][k-exp.min_order] = int(np.sum(recv_counts))
+            exp.n_tuples['inc'][k-exp.min_order] = int(np.sum(recv_counts))
 
             # init hashes for present order
             hashes_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, \
                                                  8, comm=mpi.local_comm)
             exp.prop[calc.target_mbe]['hashes'][k-exp.min_order] = hashes_win
             buf = hashes_win.Shared_query(0)[0] # type: ignore
-            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['actual'][k-exp.min_order],))
+            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k-exp.min_order],))
 
             # gatherv hashes on global master
             hashes[:] = parallel.gatherv(mpi.global_comm, hashes_tmp, hashes, recv_counts)
@@ -128,7 +128,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
                                               8, comm=mpi.local_comm)
             exp.prop[calc.target_mbe]['inc'][k-exp.min_order] = inc_win
             buf = inc_win.Shared_query(0)[0] # type: ignore
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['actual'][k-exp.min_order], dim))
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['inc'][k-exp.min_order], dim))
 
             # gatherv increments on global master
             inc[:] = parallel.gatherv(mpi.global_comm, inc_tmp, inc, recv_counts)

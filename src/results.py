@@ -472,40 +472,42 @@ def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         """
         this function returns the timings table
         """
-        string: str = DIVIDER[:98]+'\n'
-        string += '{:^98}\n'
+        string: str = DIVIDER[:112]+'\n'
+        string += '{:^112}\n'
         form: Tuple[Any, ...] = ('MBE-{:} timings'.format(calc.model['method'].upper()),)
 
-        string += DIVIDER[:98]+'\n'
-        string += '{:6}{:9}{:2}{:1}{:8}{:3}{:8}' \
-                  '{:1}{:6}{:7}{:6}{:1}{:8}{:3}{:8}{:1}{:5}{:}\n'
+        string += DIVIDER[:112]+'\n'
+        string += '{:6}{:9}{:2}{:1}{:8}{:3}{:8}{:1}{:6}{:7}{:6}' \
+                  '{:1}{:8}{:3}{:8}{:1}{:4}{:12s}{:4}{:1}{:5}{:4}\n'
         form += ('','MBE order','','|','','MBE','',
-                 '|','','purging','','|','','sum','','|','','calculations',)
+                 '|','','purging','','|','','sum','',\
+                 '|','','calculations','','|','','in %',)
 
-        string += DIVIDER[:98]+'\n'
-        calcs = 0
+        string += DIVIDER[:112]+'\n'
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            calc_i = exp.n_tuples['theo'][i]
-            calcs += calc_i
-            string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}' \
-                      '{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'
+            calc_i = exp.n_tuples['prop'][i]
+            rel_i = exp.n_tuples['prop'][i] / exp.n_tuples['theo'][i] * 100.
+            calc_tot = sum(exp.n_tuples['prop'][:i+1])
+            rel_tot = calc_tot / sum(exp.n_tuples['theo'][:i+1]) * 100.
+            string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}' \
+                      '{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}{:5}{:1}{:4}{:6.2f}\n'
             form += ('',j, \
                      '','|','',_time(exp, 'mbe', i), \
                      '','|','',_time(exp, 'purge', i), \
                      '','|','',_time(exp, 'sum', i), \
-                     '','|','',calc_i,)
+                     '','|','',calc_i,'','|','',rel_i,)
 
-        string += DIVIDER[:98]+'\n'
-        string += '{:8}{:5s}{:4}{:1}{:2}{:>15s}{:2}{:1}' \
-                  '{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}\n'
+        string += DIVIDER[:112]+'\n'
+        string += '{:8}{:5s}{:4}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}' \
+                  '{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}{:5}{:1}{:4}{:6.2f}\n'
         form += ('','total', \
                  '','|','',_time(exp, 'tot_mbe', -1), \
                  '','|','',_time(exp, 'tot_purge', -1), \
                  '','|','',_time(exp, 'tot_sum', -1), \
-                 '','|','',calcs,)
+                 '','|','',calc_tot,'','|','',rel_tot,)
 
-        string += DIVIDER[:98]+'\n'
+        string += DIVIDER[:112]+'\n'
 
         return string.format(*form)
 
