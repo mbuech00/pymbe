@@ -81,19 +81,18 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 mean_inc, min_inc, max_inc, exp.screen_orbs = mbe.main(mpi, mol, calc, exp)
 
             # append window to hashes
-            if len(exp.prop[calc.target_mbe]['hashes']) > len(exp.prop[calc.target_mbe]['tot']):
-                exp.prop[calc.target_mbe]['hashes'][-1] = hashes_win
-            else:
-                exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
+            exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
 
             # append n_tuples
             exp.n_tuples['inc'].append(n_tuples)
 
             # append window to increments
-            if len(exp.prop[calc.target_mbe]['inc']) > len(exp.prop[calc.target_mbe]['tot']):
-                exp.prop[calc.target_mbe]['inc'][-1] = inc_win
-            else:
-                exp.prop[calc.target_mbe]['inc'].append(inc_win)
+            exp.prop[calc.target_mbe]['inc'].append(inc_win)
+
+            # append total property
+            exp.prop[calc.target_mbe]['tot'].append(tot)
+            if exp.order > exp.min_order:
+                exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
 
             # append determinant statistics
             if len(exp.mean_ndets) == len(exp.prop[calc.target_mbe]['inc']):
@@ -115,11 +114,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.min_inc.append(min_inc)
                 exp.max_inc.append(max_inc)
 
-            # append total property
-            exp.prop[calc.target_mbe]['tot'].append(tot)
-            if exp.order > exp.min_order:
-                exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
-
             # print mbe end
             print(output.mbe_end(exp.order, exp.time['mbe'][-1], \
                                  exp.n_tuples['inc'][-1]))
@@ -134,28 +128,17 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             if exp.screen_orbs.size > 0:
                 print(output.screen_results(exp.screen_orbs, exp.exp_space))
 
-            # init screening time
-            exp.time['purge'].append(0.)
+            # print header
+            print(output.purge_header(exp.order))
 
-            if calc.misc['purge'] and 0 < exp.screen_orbs.size and exp.order + 1 <= exp.exp_space[-1].size:
+            # main purging function
+            exp.prop[calc.target_mbe], exp.n_tuples = purge.main(mpi, mol, calc, exp)
 
-                # print header
-                print(output.purge_header(exp.order))
+            # print purging results
+            print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
 
-                # start time
-                time = MPI.Wtime()
-
-                # main purging function
-                exp.prop[calc.target_mbe], exp.n_tuples = purge.main(mpi, mol, calc, exp)
-
-                # print purging results
-                print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
-
-                # collect time
-                exp.time['purge'][-1] = MPI.Wtime() - time
-
-                # print purge end
-                print(output.purge_end(exp.order, exp.time['purge'][-1]))
+            # print purge end
+            print(output.purge_end(exp.order, exp.time['purge'][-1]))
 
             # write restart files
             if calc.misc['rst']:

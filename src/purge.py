@@ -48,6 +48,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
         def shape(n, dim):
             return (n,) if dim == 1 else (n, dim)
 
+        # init time
+        if mpi.global_master:
+            time = MPI.Wtime()
+
         # occupied and virtual expansion spaces
         exp_occ = exp.exp_space[-1][exp.exp_space[-1] < mol.nocc]
         exp_virt = exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]]
@@ -144,6 +148,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
 
         # mpi barrier
         mpi.global_comm.barrier()
+
+        # save timing
+        if mpi.global_master:
+            exp.time['purge'].append(MPI.Wtime() - time)
 
         return exp.prop[calc.target_mbe], exp.n_tuples
 
