@@ -212,12 +212,15 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 # receive order
                 exp.order = msg['order']
 
-                # receive theoretical number of tuples at current order
-                exp.n_tuples['prop'].append(msg['n_tuples_prop'])
+                # actual number of tuples at current order
+                exp.n_tuples['prop'].append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                                           exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
+                                                           tools.occ_prune(calc.occup, calc.ref_space), \
+                                                           tools.virt_prune(calc.occup, calc.ref_space), exp.order))
 
                 # main mbe function
                 hashes_win, n_tuples, inc_win, exp.screen_orbs = mbe.main(mpi, mol, calc, exp, \
-                                                                          rst_read=msg['rst_read'], \
+                                                                          rst_read_prop=msg['rst_read_prop'], \
                                                                           tup_start=msg['tup_start'])
 
                 # append window to hashes

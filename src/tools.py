@@ -541,9 +541,19 @@ def near_nbrs(site_xy: Tuple[int, int], nx: int, ny: int) -> List[Tuple[int, int
         return [up, down, left, right]
 
 
+def is_file(order: int, string: str) -> bool:
+        """
+        this function looks to see if a general restart file corresponding to the input string exists
+        """
+        if order is None:
+            return os.path.isfile(os.path.join(RST, '{:}.npy'.format(string)))
+        else:
+            return os.path.isfile(os.path.join(RST, '{:}_{:}.npy'.format(string, order)))
+
+
 def write_file(order: Union[None, int], arr: np.ndarray, string: str) -> None:
         """
-        this function writes a general restart file corresponding to input string
+        this function writes a general restart file corresponding to the input string
         """
         if order is None:
             np.save(os.path.join(RST, '{:}'.format(string)), arr)
@@ -553,7 +563,7 @@ def write_file(order: Union[None, int], arr: np.ndarray, string: str) -> None:
 
 def read_file(order: int, string: str) -> np.ndarray:
         """
-        this function reads a general restart file corresponding to input string
+        this function reads a general restart file corresponding to the input string
         """
         if order is None:
             return np.load(os.path.join(RST, '{:}.npy'.format(string)))
