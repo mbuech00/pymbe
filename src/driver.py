@@ -143,6 +143,14 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # write restart files
             if calc.misc['rst']:
+                buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
+                hashes = np.ndarray(buffer=buf, dtype=np.int64, \
+                                    shape=(exp.n_tuples['inc'][-1],))
+                tools.write_file(exp.order, hashes, 'mbe_hashes')
+                buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
+                inc = np.ndarray(buffer=buf, dtype=np.float64, \
+                                 shape=tools.inc_shape(exp.n_tuples['inc'][-1], tools.inc_dim(calc.target_mbe)))
+                tools.write_file(exp.order, inc, 'mbe_inc')
                 tools.write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
                 tools.write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_n_tuples_prop')
                 tools.write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')

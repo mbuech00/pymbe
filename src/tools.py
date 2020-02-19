@@ -605,6 +605,20 @@ def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
                 yield [group_lst[0][1], group_lst[-1][1]]
 
 
+def inc_dim(target: str) -> int:
+        """
+        this function returns the dimension of increments
+        """
+        return 1 if target in ['energy', 'excitation'] else 3
+
+
+def inc_shape(n: int, dim: int) -> Union[Tuple[int], Tuple[int, int]]:
+        """
+        this function returns the shape of increments
+        """
+        return (n,) if dim == 1 else (n, dim)
+
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

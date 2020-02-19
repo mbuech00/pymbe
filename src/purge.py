@@ -40,14 +40,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
             return exp.prop[calc.target_mbe], exp.n_tuples
 
         # increment dimensions
-        if calc.target_mbe in ['energy', 'excitation']:
-            dim = 1
-        elif calc.target_mbe in ['dipole', 'trans']:
-            dim = 3
-
-        # increment shape
-        def shape(n, dim):
-            return (n,) if dim == 1 else (n, dim)
+        dim = tools.inc_dim(calc.target_mbe)
 
         # init time
         if mpi.global_master:
@@ -69,7 +62,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
             hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k-exp.min_order],))
 
             buf = exp.prop[calc.target_mbe]['inc'][k-exp.min_order].Shared_query(0)[0] # type: ignore
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['inc'][k-exp.min_order], dim))
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=tools.inc_shape(exp.n_tuples['inc'][k-exp.min_order], dim))
 
             # mpi barrier
             mpi.local_comm.barrier()
@@ -133,7 +126,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
                                               8, comm=mpi.local_comm)
             exp.prop[calc.target_mbe]['inc'][k-exp.min_order] = inc_win
             buf = inc_win.Shared_query(0)[0] # type: ignore
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=shape(exp.n_tuples['inc'][k-exp.min_order], dim))
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape=tools.inc_shape(exp.n_tuples['inc'][k-exp.min_order], dim))
 
             # gatherv increments on global master
             inc[:] = parallel.gatherv(mpi.global_comm, inc_tmp, inc, recv_counts)
