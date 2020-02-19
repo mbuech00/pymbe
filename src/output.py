@@ -78,7 +78,7 @@ def mbe_header(order: int, n_tuples: int) -> str:
         # set string
         string: str = '\n\n'+DIVIDER+'\n'
         form: Tuple[int, ...] = (order,)
-        string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
+        string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples\n'
         form += (n_tuples,)
         string += DIVIDER
 
@@ -124,16 +124,17 @@ def mbe_status(prog: float) -> str:
             format('#' * status + '-' * remainder, prog * 100.)
 
 
-def mbe_end(order: int, time: float, n_tuples: int) -> str:
+def mbe_end(order: int, time: float, n_tuples_theo: int, n_tuples_actual: int) -> str:
         """
         this function prints the end mbe information
         """
         # set string
         string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} MBE done in {:s}  ---  {:d} tuples in total\n'
+        string += ' STATUS:  order k = {:d} MBE done in {:s}  ---  {:d} tuples (sparsity reduction: {:.2f} %)\n'
         string += DIVIDER
 
-        form: Tuple[int, str, int] = (order, tools.time_str(time), n_tuples,)
+        form: Tuple[int, str, int, float] = (order, tools.time_str(time), n_tuples_actual, \
+                                             (1. - n_tuples_actual / n_tuples_theo) * 100.,)
 
         return string.format(*form)
 
@@ -227,17 +228,17 @@ def screen_results(orbs: np.ndarray, exp_space: List[np.ndarray]) -> str:
         this function prints the screened MOs
         """
         # init string
-        string: str = ' RESULT:  screened MOs --- '
+        string: str = ' RESULT:  screened MOs  ---  '
         # divide orbs into intervals
         orbs_ints = [i for i in tools.intervals(orbs)]
         for idx, i in enumerate(orbs_ints):
             elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
             if 0 < idx:
-                string += '{:27s}'.format('')
+                string += '{:29s}'.format('')
             string += '[{:}]\n'.format(elms)
         total_screen = np.setdiff1d(exp_space[0], exp_space[-1])
         string += DIVIDER+'\n'
-        string += ' RESULT:  total number = {:} MOs\n'.format(total_screen.size)
+        string += ' RESULT:  total number of screened MOs: {:}\n'.format(total_screen.size)
         string += DIVIDER+'\n'
         string += FILL+'\n'
         string += DIVIDER
@@ -270,10 +271,11 @@ def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) ->
             if min_order < k:
                 string += '{:38s}'.format('')
             red = (1. - n_tuples['actual'][k-min_order] / n_tuples['theo'][k-min_order]) * 100.
-            string += 'no. of tuples at k = {:2d} has been reduced by {:6.2f} %\n'.format(k, red)
-        total_red = sum(n_tuples['theo']) - sum(n_tuples['actual'])
+            string += 'no. of tuples at k = {:2d} has been reduced by: {:6.2f} %\n'.format(k, red)
+        total_red_abs = sum(n_tuples['theo']) - sum(n_tuples['actual'])
+        total_red_rel = (1. - sum(n_tuples['actual']) / sum(n_tuples['theo'])) * 100.
         string += DIVIDER+'\n'
-        string += ' RESULT:  total reduction = {:} tuples\n'.format(total_red)
+        string += ' RESULT:  total number of reduced tuples: {:} ({:.2f} %)\n'.format(total_red_abs, total_red_rel)
         string += DIVIDER+'\n'
         string += FILL+'\n'
         string += DIVIDER

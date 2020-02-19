@@ -43,7 +43,9 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 print(output.mbe_header(i, exp.n_tuples['theo'][i-exp.min_order]))
 
                 # print mbe end
-                print(output.mbe_end(i, exp.time['mbe'][i-exp.min_order], exp.n_tuples['actual'][i-exp.min_order]))
+                print(output.mbe_end(i, exp.time['mbe'][i-exp.min_order], \
+                                     exp.n_tuples['theo'][i-exp.min_order], \
+                                     exp.n_tuples['actual'][i-exp.min_order]))
 
                 # print mbe results
                 print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
@@ -115,7 +117,9 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
 
             # print mbe end
-            print(output.mbe_end(exp.order, exp.time['mbe'][-1], exp.n_tuples['actual'][-1]))
+            print(output.mbe_end(exp.order, exp.time['mbe'][-1], \
+                                 exp.n_tuples['theo'][-1], \
+                                 exp.n_tuples['actual'][-1]))
 
             # print mbe results
             print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
