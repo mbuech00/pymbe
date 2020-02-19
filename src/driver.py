@@ -135,7 +135,8 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
             exp.prop[calc.target_mbe], exp.n_tuples = purge.main(mpi, mol, calc, exp)
 
             # print purging results
-            print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
+            if exp.order + 1 <= exp.exp_space[-1].size:
+                print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
 
             # print purge end
             print(output.purge_end(exp.order, exp.time['purge'][-1]))

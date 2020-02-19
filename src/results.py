@@ -110,46 +110,14 @@ def _atom(mol: system.MolCls) -> str:
         return string.format(*form)
 
 
-def _model_ref(mol: system.MolCls, calc: calculation.CalcCls, x2c: bool) -> str:
+def _model(calc: calculation.CalcCls, x2c: bool) -> str:
         """
         this function returns the expansion model
         """
-        # init string
-        string = ''
-        # model
+        string = '{:}'.format(calc.model['method'].upper())
         if x2c:
-            string += 'x2c-'
-        string += '{:} / '.format(calc.model['method'].upper())
-        # reference
-        if calc.ref['method'] == 'casci':
-            string += 'CASCI'
-        else:
-            if len(calc.ref['wfnsym']) == 1:
-                string += 'CASSCF'
-            else:
-                if 1. in calc.ref['weights']:
-                    typ = 'ss'
-                else:
-                    typ = 'sa'
-                for i in range(len(set(calc.ref['wfnsym']))):
-                    sym = symm.addons.irrep_id2name(mol.symmetry, list(set(calc.ref['wfnsym']))[i])
-                    num = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[i])
-                    if i == 0:
-                        syms = str(num)+'*'+sym
-                    else:
-                        syms += '/'+sym
-                string += typ+'-CASSCF('+syms+')'
+            string += ' (x2c)'
         return string
-
-
-def _purge(calc: calculation.CalcCls) -> str:
-        """
-        this function returns the choice of frozen core
-        """
-        if calc.misc['purge']:
-            return 'true'
-        else:
-            return 'false'
 
 
 def _basis(mol: system.MolCls) -> str:
@@ -190,6 +158,30 @@ def _state(mol: system.MolCls, calc: calculation.CalcCls) -> str:
         else:
             string += ' ({:})'.format(mol.spin+1)
         return string
+
+
+def _ref(mol: system.MolCls, calc: calculation.CalcCls) -> str:
+        """
+        this function returns the reference function
+        """
+        if calc.ref['method'] == 'casci':
+            return 'CASCI'
+        else:
+            if len(calc.ref['wfnsym']) == 1:
+                return 'CASSCF'
+            else:
+                if 1. in calc.ref['weights']:
+                    typ = 'ss'
+                else:
+                    typ = 'sa'
+                for i in range(len(set(calc.ref['wfnsym']))):
+                    sym = symm.addons.irrep_id2name(mol.symmetry, list(set(calc.ref['wfnsym']))[i])
+                    num = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[i])
+                    if i == 0:
+                        syms = str(num)+'*'+sym
+                    else:
+                        syms += '/'+sym
+                return typ+'-CASSCF('+syms+')'
 
 
 def _base(calc: calculation.CalcCls) -> str:
@@ -416,13 +408,13 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
             string += '{:9}{:18}{:2}{:1}{:2}{:<14s}{:1}{:1}{:7}{:15}{:2}{:1}{:2}' \
                         '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
             form += ('','basis set','','=','',_basis(mol), \
-                        '','|','','model / ref.','','=','',_model_ref(mol, calc, mol.x2c), \
+                        '','|','','expansion model','','=','',_model(calc, mol.x2c), \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                     '{:<16s}{:1}{:1}{:7}{:23}{:1}{:1}{:2}{:.6f}\n'
             form += ('','frozen core','','=','',_frozen(mol), \
-                        '','|','','purging','','=','',_purge(calc), \
+                        '','|','','reference','','=','',_ref(mol, calc), \
                         '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
 
         else:
@@ -430,13 +422,13 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                     '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
             form += ('','hubbard matrix','','=','',_hubbard(mol)[0], \
-                        '','|','','model / ref.','','=','',_model_ref(mol, calc, mol.x2c), \
+                        '','|','','expansion model','','=','',_model(calc, mol.x2c), \
                         '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
 
             string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                     '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
             form += ('','hubbard U/t & n','','=','',_hubbard(mol)[1], \
-                        '','|','','purging','','=','',_purge(calc), \
+                        '','|','','reference','','=','',_ref(mol, calc), \
                         '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
 
         string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \

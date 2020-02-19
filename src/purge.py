@@ -35,7 +35,8 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, calc: calculation.CalcCls, \
             mpi.global_comm.bcast(msg, root=0)
 
         # do not purge at min_order or in case of no screened orbs
-        if exp.order == exp.min_order or exp.screen_orbs.size == 0:
+        if exp.order == exp.min_order or exp.screen_orbs.size == 0 or exp.exp_space[-1].size < exp.order + 1:
+            exp.time['purge'].append(0.)
             return exp.prop[calc.target_mbe], exp.n_tuples
 
         # increment dimensions
