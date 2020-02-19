@@ -212,6 +212,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         # print final status
         if mpi.global_master:
             print(output.mbe_status(1.))
+            print(output.DIVIDER)
 
         # collect results on global master
         if mpi.global_master:

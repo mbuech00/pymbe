@@ -44,7 +44,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # print mbe end
                 print(output.mbe_end(i, exp.time['mbe'][i-exp.min_order], \
-                                     exp.n_tuples['theo'][i-exp.min_order], \
                                      exp.n_tuples['actual'][i-exp.min_order]))
 
                 # print mbe results
@@ -118,7 +117,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # print mbe end
             print(output.mbe_end(exp.order, exp.time['mbe'][-1], \
-                                 exp.n_tuples['theo'][-1], \
                                  exp.n_tuples['actual'][-1]))
 
             # print mbe results
