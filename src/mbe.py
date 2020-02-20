@@ -188,18 +188,15 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, ndets_tup, nelec_tup = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], mol.spin, \
-                                                 calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
-                                                 calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
-                                                 calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
-                                                 core_idx, cas_idx, mol.debug, \
-                                                 mol.dipole_ints if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                                 calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
+            inc_tup, ndets_tup, nelec_tup = _inc(calc.model, calc.base['method'], mol.spin, \
+                                                 calc.occup, calc.target_mbe, calc.state, calc.orbsym, \
+                                                 calc.prop, e_core, h1e_cas, h2e_cas, \
+                                                 core_idx, cas_idx, mol.debug, mol.dipole_ints)
 
             # calculate increment
             if exp.order > exp.min_order:
-                inc_tup -= _sum(mol.nocc, calc.occup, calc.target_mbe, exp.min_order, \
-                                exp.order, inc, hashes, exp.exp_space, ref_occ, ref_virt, tup)
+                inc_tup -= _sum(mol.nocc, calc.target_mbe, exp.min_order, exp.order, \
+                                inc, hashes, exp.exp_space, ref_occ, ref_virt, tup)
 
             # screening procedure
             if calc.target_mbe in ['energy', 'excitation']:
@@ -368,23 +365,15 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             e_core, h1e_cas = kernel.e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, ndets_tup, nelec_tup = _inc(calc.model['method'], calc.base['method'], calc.model['solver'], mol.spin, \
-                                                 calc.occup, calc.target_mbe, calc.state['wfnsym'], calc.orbsym, \
-                                                 calc.model['hf_guess'], calc.state['root'], calc.prop['hf']['energy'], \
-                                                 calc.prop['ref'][calc.target_mbe], e_core, h1e_cas, h2e_cas, \
-                                                 core_idx, cas_idx, mol.debug, \
-                                                 mol.dipole_ints if calc.target_mbe in ['dipole', 'trans'] else None, \
-                                                 calc.prop['hf']['dipole'] if calc.target_mbe in ['dipole', 'trans'] else None)
+            inc_tup = _inc(calc.model, calc.base['method'], mol.spin, \
+                           calc.occup, calc.target_mbe, calc.state, calc.orbsym, \
+                           calc.prop, e_core, h1e_cas, h2e_cas, \
+                           core_idx, cas_idx, mol.debug, mol.dipole_ints)[0]
 
             # calculate increment
             if exp.order > exp.min_order:
-                inc_tup -= _sum(mol.nocc, calc.occup, calc.target_mbe, exp.min_order, \
-                                exp.order, inc, hashes, exp.exp_space, ref_occ, ref_virt, tup)
-
-            # debug print
-            if mol.debug >= 1:
-                print(output.mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
-                                        ndets_tup, nelec_tup, inc_tup, exp.order, cas_idx, tup))
+                inc_tup -= _sum(mol.nocc, calc.target_mbe, exp.min_order, exp.order, \
+                                inc, hashes, exp.exp_space, ref_occ, ref_virt, tup)
 
             # add hash and increment
             hashes[-1][tup_idx] = tools.hash_1d(tup)
@@ -430,23 +419,25 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             return hashes_win, n_tuples, inc_win, screen_orbs
 
 
-def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int, \
-            occup: np.ndarray, target_mbe: str, state_wfnsym: str, orbsym: np.ndarray, hf_guess: bool, \
-            state_root: int, e_hf: float, res_ref: Union[float, np.ndarray], e_core: float, \
-            h1e_cas: np.ndarray, h2e_cas: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, debug: int, \
-            dipole_ints: Union[np.ndarray, None], dipole_hf: Union[np.ndarray, None]) -> Tuple[Union[float, np.ndarray], \
-                                                                                                int, Tuple[int, int]]:
+def _inc(model: Dict[str, Any], base: Union[str, None], spin: int, occup: np.ndarray, \
+         target_mbe: str, state: Dict[str, Any], orbsym: np.ndarray, prop: Dict[str, Any], \
+         e_core: float, h1e_cas: np.ndarray, h2e_cas: np.ndarray, core_idx: np.ndarray, \
+         cas_idx: np.ndarray, debug: int, dipole_ints: np.ndarray) -> Tuple[Union[float, np.ndarray], \
+                                                                            int, Tuple[int, int]]:
         """
         this function calculates the current-order contribution to the increment associated with a given tuple
 
         example:
         >>> n = 4
+        >>> model = {'method': 'fci', 'solver': 'pyscf_spin0', 'hf_guess': True}
+        >>> prop = {'hf': {'energy': 0., 'dipole': None}, 'ref': {'energy': 0.}}
+        >>> state = {'wfnsym': 'A', 'root': 0}
         >>> occup = np.array([2.] * (n // 2) + [0.] * (n // 2))
         >>> orbsym = np.zeros(n, dtype=np.int64)
         >>> h1e_cas, h2e_cas = kernel.hubbard_h1e((1, n), False), kernel.hubbard_eri((1, n), 2.)
         >>> core_idx, cas_idx = np.array([]), np.arange(n)
-        >>> e, ndets, nelec = _inc('fci', None, 'pyscf_spin0', 0, occup, 'energy', 'A', orbsym, True,
-        ...                        0, 0., 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, 0, None, None)
+        >>> e, ndets, nelec = _inc(model, None, 0, occup, 'energy', state, orbsym,
+        ...                        prop, 0, h1e_cas, h2e_cas, core_idx, cas_idx, 0, None)
         >>> np.isclose(e, -2.875942809005048)
         True
         >>> ndets
@@ -458,45 +449,52 @@ def _inc(main_method: str, base_method: Union[str, None], solver: str, spin: int
         nelec = tools.nelec(occup, cas_idx)
 
         # perform main calc
-        res_full, ndets = kernel.main(main_method, solver, spin, occup, target_mbe, state_wfnsym, orbsym, \
-                                        hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
-                                        core_idx, cas_idx, nelec, debug, dipole_ints, dipole_hf)
+        res_full, ndets = kernel.main(model['method'], model['solver'], spin, occup, target_mbe, state['wfnsym'], orbsym, \
+                                      model['hf_guess'], state['root'], prop['hf']['energy'], e_core, h1e_cas, h2e_cas, \
+                                      core_idx, cas_idx, nelec, debug, dipole_ints, prop['hf']['dipole'])
 
         # perform base calc
-        if base_method is not None:
-            res_full -= kernel.main(base_method, '', spin, occup, target_mbe, state_wfnsym, orbsym, \
-                                      hf_guess, state_root, e_hf, e_core, h1e_cas, h2e_cas, \
-                                      core_idx, cas_idx, nelec, debug, dipole_ints, dipole_hf)[0]
+        if base is not None:
+            res_full -= kernel.main(base, '', spin, occup, target_mbe, state['wfnsym'], orbsym, \
+                                    model['hf_guess'], state['root'], prop['hf']['energy'], e_core, h1e_cas, h2e_cas, \
+                                    core_idx, cas_idx, nelec, debug, dipole_ints, prop['hf']['dipole'])[0]
 
-        return res_full - res_ref, ndets, nelec
+        return res_full - prop['ref'][target_mbe], ndets, nelec
 
 
-def _sum(nocc: int, occup: np.ndarray, target_mbe: str, min_order: int, order: int, \
+def _sum(nocc: int, target_mbe: str, min_order: int, order: int, \
             inc: List[np.ndarray], hashes: List[np.ndarray], exp_space: List[np.ndarray], \
             ref_occ: bool, ref_virt: bool, tup: np.ndarray) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
 
         example:
-        >>> exp_space = [np.arange(10), np.array([1, 2, 3, 4, 5, 7, 8, 9]), np.array([1, 3, 5, 7, 8, 9])]
-        >>> occup = np.array([2.] * 3 + [0.] * 7)
+        >>> exp_space = [np.arange(10), np.array([1, 2, 3, 4, 5, 7, 8, 9])]
+        >>> nocc = 3
         >>> min_order = 2
-        >>> inc = []
-        >>> np.random.seed(1)
-        >>> inc.append(np.random.rand(45))
-        >>> np.random.seed(2)
-        >>> inc.append(np.random.rand(56))
-        >>> np.random.seed(3)
-        >>> inc.append(np.random.rand(15))
-        >>> order = 3
-        >>> tup = np.array([1, 7, 8])
         >>> ref_occ = False
         >>> ref_virt = False
-        >>> np.isclose(_sum(3, occup, 'energy', min_order, order, inc, exp_space, ref_occ, ref_virt, tup), 0.8896717501282769)
+        >>> hashes = []
+        >>> exp_occ = exp_space[0][exp_space[0] < nocc]
+        >>> exp_virt = exp_space[0][nocc <= exp_space[0]]
+        >>> hashes.append(tools.hash_2d(np.array([tup for tup in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, 2)])))
+        >>> hashes[0].sort()
+        >>> exp_occ = exp_space[1][exp_space[1] < nocc]
+        >>> exp_virt = exp_space[1][nocc <= exp_space[1]]
+        >>> hashes.append(tools.hash_2d(np.array([tup for tup in tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, 3)])))
+        >>> hashes[1].sort()
+        >>> inc = []
+        >>> np.random.seed(1)
+        >>> inc.append(np.random.rand(21))
+        >>> np.random.seed(2)
+        >>> inc.append(np.random.rand(36))
+        >>> order = 3
+        >>> tup = np.array([1, 7, 8])
+        >>> np.isclose(_sum(3, 'energy', min_order, order, inc, hashes, exp_space, ref_occ, ref_virt, tup), 1.2177665733781107)
         True
         >>> order = 4
         >>> tup = np.array([1, 7, 8, 9])
-        >>> np.isclose(_sum(3, occup, 'energy', min_order, order, inc, exp_space, ref_occ, ref_virt, tup), 2.6003871187768177)
+        >>> np.isclose(_sum(3, 'energy', min_order, order, inc, hashes, exp_space, ref_occ, ref_virt, tup), 2.7229882355444195)
         True
         """
         # init res
