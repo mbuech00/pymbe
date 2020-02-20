@@ -32,8 +32,8 @@ import tools
 
 def main(mpi: parallel.MPICls, mol: system.MolCls, \
             calc: calculation.CalcCls, exp: expansion.ExpCls, \
-            rst_read_prop: bool = False, rst_read_inc: bool = False, \
-            tup_start_prop: int = 0, tup_start_inc: int = 0, \
+            rst_read_a: bool = False, rst_read_b: bool = False, \
+            tup_start_a: int = 0, tup_start_b: int = 0, \
             rst_write: bool = False) -> Tuple[Any, ...]:
         """
         this function is the mbe main function
@@ -41,17 +41,17 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         if mpi.global_master:
 
             # read restart files
-            rst_read_prop = tools.is_file(exp.order, 'mbe_idx_prop')
-            rst_read_inc = tools.is_file(exp.order, 'mbe_idx_inc')
+            rst_read_a = tools.is_file(exp.order, 'mbe_idx_a')
+            rst_read_b = tools.is_file(exp.order, 'mbe_idx_b')
 
             # start indices
-            tup_start_prop = np.asscalar(tools.read_file(exp.order, 'mbe_idx_prop')) if rst_read_prop else 0
-            tup_start_inc = np.asscalar(tools.read_file(exp.order, 'mbe_idx_inc')) if rst_read_inc else 0
+            tup_start_a = np.asscalar(tools.read_file(exp.order, 'mbe_idx_a')) if rst_read_a else 0
+            tup_start_b = np.asscalar(tools.read_file(exp.order, 'mbe_idx_b')) if rst_read_b else 0
 
             # wake up slaves
             msg = {'task': 'mbe', 'order': exp.order, \
-                   'rst_read_prop': rst_read_prop, 'rst_read_inc': rst_read_inc, \
-                   'tup_start_prop': tup_start_prop, 'tup_start_inc': tup_start_inc}
+                   'rst_read_a': rst_read_a, 'rst_read_b': rst_read_b, \
+                   'tup_start_a': tup_start_a, 'tup_start_b': tup_start_b}
             mpi.global_comm.bcast(msg, root=0)
 
         # increment dimensions
@@ -83,19 +83,19 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # init time
         if mpi.global_master:
-            if not rst_read_prop and not rst_read_inc:
+            if not rst_read_a and not rst_read_b:
                 exp.time['mbe'].append(0.)
             time = MPI.Wtime()
 
         # init determinant statistics
-        min_ndets = exp.min_ndets[-1] if mpi.global_master and rst_read_prop else np.array([1e12], dtype=np.int64)
-        max_ndets = exp.max_ndets[-1] if mpi.global_master and rst_read_prop else np.array([0], dtype=np.int64)
-        sum_ndets = exp.mean_ndets[-1] if mpi.global_master and rst_read_prop else np.array([0], dtype=np.int64)
+        min_ndets = exp.min_ndets[-1] if mpi.global_master and rst_read_a else np.array([1e12], dtype=np.int64)
+        max_ndets = exp.max_ndets[-1] if mpi.global_master and rst_read_a else np.array([0], dtype=np.int64)
+        sum_ndets = exp.mean_ndets[-1] if mpi.global_master and rst_read_a else np.array([0], dtype=np.int64)
 
         # init increment statistics
-        min_inc = exp.min_inc[-1] if mpi.global_master and rst_read_prop else np.array([1.e12] * dim, dtype=np.float64)
-        max_inc = exp.max_inc[-1] if mpi.global_master and rst_read_prop else np.array([0.] * dim, dtype=np.float64)
-        sum_inc = exp.mean_inc[-1] if mpi.global_master and rst_read_prop else np.array([0.] * dim, dtype=np.float64)
+        min_inc = exp.min_inc[-1] if mpi.global_master and rst_read_a else np.array([1.e12] * dim, dtype=np.float64)
+        max_inc = exp.max_inc[-1] if mpi.global_master and rst_read_a else np.array([0.] * dim, dtype=np.float64)
+        sum_inc = exp.mean_inc[-1] if mpi.global_master and rst_read_a else np.array([0.] * dim, dtype=np.float64)
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -109,14 +109,14 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # init screen array
-        screen = exp.screen if mpi.global_master and rst_read_prop else np.ones(mol.norb, dtype=bool)
+        screen = exp.screen if mpi.global_master and rst_read_a else np.ones(mol.norb, dtype=bool)
 
         # set rst_write
         rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['prop'][-1]
 
         # loop until no tuples left
         for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
-                                        tup_start_prop, None), tup_start_prop):
+                                        tup_start_a, None), tup_start_a):
 
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
@@ -148,10 +148,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 if not mpi.global_master:
                     screen = np.ones(mol.norb, dtype=bool)
 
-                # reduce mbe_idx_prop onto global master
-                mbe_idx_prop = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
+                # reduce mbe_idx_a onto global master
+                mbe_idx_a = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
                 # update rst_write
-                rst_write = mbe_idx_prop + calc.misc['rst_freq'] < exp.n_tuples['prop'][-1] - mpi.global_size
+                rst_write = mbe_idx_a + calc.misc['rst_freq'] < exp.n_tuples['prop'][-1] - mpi.global_size
 
                 if mpi.global_master:
                     # write restart files
@@ -162,13 +162,13 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     tools.write_file(exp.order, min_ndets, 'mbe_min_ndets')
                     tools.write_file(exp.order, sum_ndets, 'mbe_mean_ndets')
                     tools.write_file(exp.order, screen, 'mbe_screen')
-                    tools.write_file(exp.order, np.asarray(mbe_idx_prop), 'mbe_idx_prop')
+                    tools.write_file(exp.order, np.asarray(mbe_idx_a), 'mbe_idx_a')
                     exp.time['mbe'][-1] += MPI.Wtime() - time
                     tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
                     # re-init time
                     time = MPI.Wtime()
                     # print status
-                    print(output.mbe_status(mbe_idx_prop / exp.n_tuples['prop'][-1]))
+                    print(output.mbe_status(mbe_idx_a / exp.n_tuples['prop'][-1]))
 
             # pi-pruning
             if calc.extra['pi_prune']:
@@ -255,7 +255,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                 tools.write_file(exp.order, min_ndets, 'mbe_min_ndets')
                 tools.write_file(exp.order, sum_ndets, 'mbe_mean_ndets')
                 tools.write_file(exp.order, screen, 'mbe_screen')
-                tools.write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_idx_prop')
+                tools.write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_idx_a')
 
             # total property
             tot = sum_inc
@@ -281,7 +281,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             tools.write_file(exp.order, np.asarray(n_tuples), 'mbe_n_tuples_inc')
 
         # init hashes for present order
-        if rst_read_inc:
+        if rst_read_b:
             hashes_win = exp.prop[calc.target_mbe]['hashes'][-1]
         else:
             hashes_win = MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, 8, comm=mpi.local_comm)
@@ -291,7 +291,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             hashes[-1][:].fill(0)
 
         # init increments for present order
-        if rst_read_inc:
+        if rst_read_b:
             inc_win = exp.prop[calc.target_mbe]['inc'][-1]
         else:
             inc_win = MPI.Win.Allocate_shared(8 * n_tuples * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
@@ -312,7 +312,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # loop until no tuples left
         for tup_idx, tup in enumerate(itertools.islice(tools.tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order), \
-                                        tup_start_inc, None), tup_start_inc):
+                                        tup_start_b, None), tup_start_b):
 
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
@@ -333,22 +333,22 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                     if not mpi.global_master:
                         inc[-1][:].fill(0.)
 
-                # reduce mbe_idx_inc onto global master
-                mbe_idx_inc = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
+                # reduce mbe_idx_b onto global master
+                mbe_idx_b = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
                 # update rst_write
-                rst_write = mbe_idx_inc + calc.misc['rst_freq'] < n_tuples - mpi.global_size
+                rst_write = mbe_idx_b + calc.misc['rst_freq'] < n_tuples - mpi.global_size
 
                 if mpi.global_master:
                     # write restart files
                     tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
                     tools.write_file(exp.order, inc[-1], 'mbe_inc')
-                    tools.write_file(exp.order, np.asarray(mbe_idx_inc), 'mbe_idx_inc')
+                    tools.write_file(exp.order, np.asarray(mbe_idx_b), 'mbe_idx_b')
                     exp.time['mbe'][-1] += MPI.Wtime() - time
                     tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
                     # re-init time
                     time = MPI.Wtime()
                     # print status
-                    print(output.mbe_status(mbe_idx_inc / n_tuples))
+                    print(output.mbe_status(mbe_idx_b / n_tuples))
 
             # pi-pruning
             if calc.extra['pi_prune']:
@@ -417,7 +417,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             if calc.misc['rst']:
                 tools.write_file(exp.order, hashes[-1], 'mbe_hashes')
                 tools.write_file(exp.order, inc[-1], 'mbe_inc')
-                tools.write_file(exp.order, np.asarray(n_tuples), 'mbe_idx_inc')
+                tools.write_file(exp.order, np.asarray(n_tuples), 'mbe_idx_b')
 
             # save timing
             exp.time['mbe'][-1] += MPI.Wtime() - time

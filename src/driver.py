@@ -173,12 +173,6 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 tools.write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
                 tools.write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_n_tuples_prop')
                 tools.write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
-                tools.write_file(exp.order, exp.mean_ndets[-1], 'mbe_mean_ndets')
-                tools.write_file(exp.order, exp.max_ndets[-1], 'mbe_max_ndets')
-                tools.write_file(exp.order, exp.min_ndets[-1], 'mbe_min_ndets')
-                tools.write_file(exp.order, exp.mean_inc[-1], 'mbe_mean_inc')
-                tools.write_file(exp.order, exp.max_inc[-1], 'mbe_max_inc')
-                tools.write_file(exp.order, exp.min_inc[-1], 'mbe_min_inc')
                 tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
                 tools.write_file(exp.order, np.asarray(exp.time['purge'][-1]), 'mbe_time_purge')
                 tools.write_file(exp.order+1, exp.exp_space[-1], 'exp_space')
@@ -238,10 +232,10 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # main mbe function
                 hashes_win, n_tuples, inc_win, exp.screen_orbs = mbe.main(mpi, mol, calc, exp, \
-                                                                          rst_read_prop=msg['rst_read_prop'], \
-                                                                          rst_read_inc=msg['rst_read_inc'], \
-                                                                          tup_start_prop=msg['tup_start_prop'], \
-                                                                          tup_start_inc=msg['tup_start_inc'])
+                                                                          rst_read_a=msg['rst_read_a'], \
+                                                                          rst_read_b=msg['rst_read_b'], \
+                                                                          tup_start_a=msg['tup_start_a'], \
+                                                                          tup_start_b=msg['tup_start_b'])
 
                 # append window to hashes
                 if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
