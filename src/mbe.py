@@ -109,7 +109,10 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
         ref_virt = tools.virt_prune(calc.occup, calc.ref_space)
 
         # init screen array
-        screen = exp.screen if mpi.global_master and rst_read_a else np.ones(mol.norb, dtype=bool)
+        if exp.order == exp.min_order:
+            screen = exp.screen if mpi.global_master and rst_read_a else np.zeros(mol.norb, dtype=bool)
+        else:
+            screen = exp.screen if mpi.global_master and rst_read_a else np.ones(mol.norb, dtype=bool)
 
         # set rst_write
         rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['prop'][-1]
