@@ -162,7 +162,7 @@ def hash_2d(a: np.ndarray) -> np.ndarray:
         this function converts a 2d numpy array to a 1d array of hashes
 
         example:
-        >>> hash_2d(np.arange(4 * 4, dtype=np.int16).reshape(4, 4))
+        >>> hash_2d(np.arange(4 * 4, dtype=np.int64).reshape(4, 4))
         array([-2930228190932741801,  1142744019865853604, -8951855736587463849,
                 4559082070288058232])
         """
