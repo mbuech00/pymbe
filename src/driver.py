@@ -234,8 +234,10 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 hashes_win, n_tuples, inc_win, exp.screen_orbs = mbe.main(mpi, mol, calc, exp, \
                                                                           rst_read_a=msg['rst_read_a'], \
                                                                           rst_read_b=msg['rst_read_b'], \
-                                                                          tup_start_a=msg['tup_start_a'], \
-                                                                          tup_start_b=msg['tup_start_b'])
+                                                                          tup_idx_a=msg['tup_idx_a'], \
+                                                                          tup_idx_b=msg['tup_idx_b'], \
+                                                                          tup_a=msg['tup_a'], \
+                                                                          tup_b=msg['tup_b'])
 
                 # append window to hashes
                 if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):

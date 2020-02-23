@@ -199,8 +199,9 @@ def hash_lookup(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
             return None
 
 
-def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
-                ref_occ: bool, ref_virt: bool, order: int) -> Generator[np.ndarray, None, None]:
+def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_virt: bool, order: int, \
+           tup_occ: Union[np.ndarray, None] = None, \
+           tup_virt: Union[np.ndarray, None] = None) -> Generator[np.ndarray, None, None]:
         """
         this function is the main generator for tuples
 
@@ -224,21 +225,78 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
         >>> sum(1 for _ in gen)
         20
         """
+        if tup_occ is None and tup_virt is None:
+            order_start = 1
+            occ_start = virt_start = 0
+        elif tup_occ is not None and tup_virt is not None:
+            order_start = int(tup_occ.size)
+            occ_start = int(_comb_idx(occ_space, tup_occ))
+            virt_start = int(_comb_idx(virt_space, tup_virt))
+        elif tup_occ is not None and tup_virt is None:
+            order_start = order
+            occ_start = int(_comb_idx(occ_space, tup_occ))
+            virt_start = 0
+        elif tup_occ is None and tup_virt is not None:
+            order_start = order
+            occ_start = -1
+            virt_start = int(_comb_idx(virt_space, tup_virt))
+
         # combinations of occupied and virtual MOs
-        for k in range(1, order):
-            for tup_occ in itertools.combinations(occ_space, k):
-                for tup_virt in itertools.combinations(virt_space, order - k):
+        for k in range(order_start, order):
+            for tup_occ in itertools.islice(itertools.combinations(occ_space, k), occ_start, None):
+                for tup_virt in itertools.islice(itertools.combinations(virt_space, order - k), virt_start, None):
                     yield np.array(tup_occ + tup_virt, dtype=np.int64)
+                virt_start = 0
+            occ_start = 0
 
         # only occupied MOs
-        if ref_virt:
-            for tup_occ in itertools.combinations(occ_space, order):
+        if ref_virt and 0 <= occ_start:
+            for tup_occ in itertools.islice(itertools.combinations(occ_space, order), occ_start, None):
                 yield np.array(tup_occ, dtype=np.int64)
 
         # only virtual MOs
-        if ref_occ:
-            for tup_virt in itertools.combinations(virt_space, order):
+        if ref_occ and 0 <= virt_start:
+            for tup_virt in itertools.islice(itertools.combinations(virt_space, order), virt_start, None):
                 yield np.array(tup_virt, dtype=np.int64)
+
+
+def _comb_idx(space: np.ndarray, tup: np.ndarray) -> float:
+        """
+        this function return the index of a given (ordered) combination
+        returned from itertools.combinations
+
+        example:
+        >>> space = np.array([0, 1, 2, 5, 6, 7])
+        >>> tup = np.array([1, 2, 6, 7])
+        >>> _comb_idx(space, tup)
+        12.0
+        >>> tup = np.array([1, 2])
+        >>> _comb_idx(space, tup)
+        5.0
+        >>> tup = np.array([5, 7])
+        >>> _comb_idx(space, tup)
+        13.0
+        """
+        idx = _idx(space, tup[0], tup.size)
+        idx += sum((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)))
+        return idx
+
+
+def _idx(space: np.ndarray, idx: int, order: int) -> float:
+        """
+        this function return the start index of element space[idx] in
+        position (order+1) from the right in a given combination
+
+        example:
+        >>> space = np.array([0, 1, 2, 5, 6, 7])
+        >>> _idx(space, 5, 1)
+        3.0
+        >>> _idx(space, 5, 2)
+        12.0
+        >>> _idx(space, 5, 3)
+        19.0
+        """
+        return sum((sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
 
 
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
