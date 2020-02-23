@@ -132,7 +132,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # print screening results
             if exp.screen_orbs.size > 0:
-                print(output.screen_results(exp.screen_orbs, exp.exp_space))
+                print(output.screen_results(exp.order, exp.screen_orbs, exp.exp_space))
 
             # print header
             print(output.purge_header(exp.order))

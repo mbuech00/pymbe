@@ -195,7 +195,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                         # re-init time
                         time = MPI.Wtime()
                         # print status
-                        print(output.mbe_status(mbe_idx_a / exp.n_tuples['prop'][-1]))
+                        print(output.mbe_status(exp.order, mbe_idx_a / exp.n_tuples['prop'][-1]))
 
                 # pi-pruning
                 if calc.extra['pi_prune']:
@@ -264,7 +264,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # print final status
         if mpi.global_master:
-            print(output.mbe_status(1.))
+            print(output.mbe_status(exp.order, 1.))
             print(output.DIVIDER)
 
         # collect results on global master
@@ -390,7 +390,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
                         # re-init time
                         time = MPI.Wtime()
                         # print status
-                        print(output.mbe_status(mbe_idx_b / n_tuples))
+                        print(output.mbe_status(exp.order, mbe_idx_b / n_tuples))
 
                 # pi-pruning
                 if calc.extra['pi_prune']:
@@ -429,7 +429,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # print final status
         if mpi.global_master:
-            print(output.mbe_status(1.))
+            print(output.mbe_status(exp.order, 1.))
 
         # allreduce hashes & increments among local masters
         if mpi.local_master:
