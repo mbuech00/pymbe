@@ -250,13 +250,14 @@ def _active_orbs(calc: calculation.CalcCls) -> str:
             return 'none'
 
         # init string
-        string = ''
+        string = '['
         # divide ref_space into intervals
         ref_space_ints = [i for i in tools.intervals(calc.ref_space)]
 
         for idx, i in enumerate(ref_space_ints):
             elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
-            string += '[{:}]+'.format(elms) if idx < len(ref_space_ints) - 1 else '[{:}]'.format(elms)
+            string += '{:},'.format(elms) if idx < len(ref_space_ints) - 1 else '{:}'.format(elms)
+        string += ']'
 
         return string
 
