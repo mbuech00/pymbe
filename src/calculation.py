@@ -43,7 +43,7 @@ class CalcCls:
                 self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
                                             'select': [i for i in range(ncore, nelectron // 2)], 'weights': [1.], \
                                             'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0], \
-                                            'pi-atoms': []}
+                                            'pi-atoms': [], 'ao-labels': []}
                 self.base: Dict[str, Union[None, str]] = {'method': None}
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
                 self.extra: Dict[str, bool] = {'pi_prune': False}
@@ -159,12 +159,14 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         # reference model
         tools.assertion(calc.ref['method'] in ['casci', 'casscf'], \
                         'valid reference models are: casci and casscf')
-        tools.assertion(calc.ref['active'] in ['manual', 'pios'], \
-                        'active space choices are currently: manual or pios')
+        tools.assertion(calc.ref['active'] in ['manual', 'avas', 'pios'], \
+                        'active space choices are currently: manuali, avas, or pios')
         tools.assertion(isinstance(calc.ref['select'], list), \
                         'select key (select) for active space must be a list of orbitals')
+        tools.assertion(isinstance(calc.ref['ao-labels'], list), \
+                        'list of ao labels (ao-labels) for avas space must be a list of ao strings')
         tools.assertion(isinstance(calc.ref['pi-atoms'], list), \
-                        'list of pi-atoms (pi-atoms) for pios space must be a list of atoms (index-1 based)')
+                        'list of pi-space atoms (pi-atoms) for pios space must be a list of atomic indices (index-1 based)')
         tools.assertion(isinstance(calc.ref['hf_guess'], bool), \
                         'HF initial guess for CASSCF calc (hf_guess) must be a bool')
         tools.assertion(len(calc.ref['wfnsym']) == len(calc.ref['weights']), \
@@ -186,6 +188,8 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                     calc.ref['wfnsym'][i] = symm.addons.irrep_name2id(symmetry, calc.ref['wfnsym'][i])
                 except Exception as err:
                     raise ValueError('illegal choice of ref wfnsym -- PySCF error: {:}'.format(err))
+        if calc.ref['active'] in ['avas', 'pios']:
+           tools.assertion(spin == 0, 'illegal active space selection algortihm for non-singlet system')
 
         # base model
         if calc.base['method'] is not None:

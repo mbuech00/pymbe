@@ -20,7 +20,7 @@ from pyscf import gto, symm, scf, ao2mo, lib, lo, ci, cc, mcscf, fci
 from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
-from pyscf.mcscf.PiOS import MakePiOS
+from pyscf.mcscf import avas, PiOS
 from typing import Tuple, List, Dict, Union, Any
 import warnings
 
@@ -646,16 +646,23 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         # active space
         if ref['active'] == 'manual':
 
-            # active orbitals & electrons
             ref['select'] = np.asarray(ref['select'], dtype=np.int64)
             act_nelec = tools.nelec(occup, ref['select'])
 
+        elif ref['active'] == 'avas':
+
+            tools.assertion(0 < len(ref['ao-labels']), 'empty ao-labels input')
+            norbs, nelec, mo_coeff_casscf = avas.avas(hf, ref['ao-labels'], ncore=mol.ncore)
+            ref['select'] = np.arange(mol.nocc - nelec // 2, mol.nocc - nelec // 2 + norbs, dtype=np.int64)
+            act_nelec = (int(nelec) // 2, int(nelec) // 2)
+
         elif ref['active'] == 'pios':
 
+            tools.assertion(0 < len(ref['pi-atoms']), 'empty pi-atoms input')
             with tools.suppress_stdout():
-                n_core_inact, act_orbs, _, _, mo_coeff_out = MakePiOS(mol, hf, ref['pi-atoms'])
-            ref['select'] = np.arange(n_core_inact, n_core_inact + act_orbs, dtype=np.int64)
-            act_nelec = tools.nelec(occup, ref['select'])
+                _, norbs, _, nelec, mo_coeff_casscf = PiOS.MakePiOS(mol, hf, ref['pi-atoms'])
+            ref['select'] = np.arange(mol.nocc - nelec // 2, mol.nocc - nelec // 2 + norbs, dtype=np.int64)
+            act_nelec = (int(nelec) // 2, int(nelec) // 2)
 
         # reference (primary) space
         ref_space = ref['select']
@@ -672,10 +679,11 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
                             'no virtual/singly occupied orbitals in CASSCF calculation')
 
             # sorter for active space
-            n_core_inact = np.array([i for i in range(mol.nocc) if i not in ref_space], dtype=np.int64)
-            n_virt_inact = np.array([a for a in range(mol.nocc, mol.norb) if a not in ref_space], dtype=np.int64)
-            sort_casscf = np.concatenate((n_core_inact, ref_space, n_virt_inact))
-            mo_coeff_casscf = mo_coeff_out[:, sort_casscf]
+            if ref['active'] == 'manual':
+                n_core_inact = np.array([i for i in range(mol.nocc) if i not in ref_space], dtype=np.int64)
+                n_virt_inact = np.array([a for a in range(mol.nocc, mol.norb) if a not in ref_space], dtype=np.int64)
+                sort_casscf = np.concatenate((n_core_inact, ref_space, n_virt_inact))
+                mo_coeff_casscf = mo_coeff_out[:, sort_casscf]
 
             # update orbsym
             if mol.atom:
@@ -686,7 +694,8 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
                                 ref['hf_guess'], hf, mo_coeff_casscf, ref_space, act_nelec)
 
             # reorder mo_coeff
-            mo_coeff_out = mo_coeff_out[:, np.argsort(sort_casscf)]
+            if ref['active'] == 'manual':
+                mo_coeff_out = mo_coeff_out[:, np.argsort(sort_casscf)]
 
         # debug print of reference and expansion spaces
         if mol.debug >= 1:

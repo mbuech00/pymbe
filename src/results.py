@@ -239,7 +239,10 @@ def _active_space(calc: calculation.CalcCls) -> str:
         """
         this function returns the active space
         """
-        return '{:} e in {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
+        string = '{:} e, {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
+        if calc.ref['active'] in ['avas', 'pios']:
+            string += ' ({:})'.format(calc.ref['active'])
+        return string
 
 
 def _active_orbs(calc: calculation.CalcCls) -> str:
