@@ -23,6 +23,7 @@ import scipy.special as sc
 import functools
 import itertools
 import math
+from contextlib import contextmanager
 from typing import Tuple, Set, List, Dict, Any, Generator, Union
 
 # restart folder
@@ -57,6 +58,21 @@ class Logger:
             define flush
             """
             pass
+
+
+@contextmanager
+def suppress_stdout():
+        """
+        this function suppresses stdout
+        see: https://stackoverflow.com/questions/2125702/how-to-suppress-console-output-in-python
+        """
+        with open(os.devnull, "w") as devnull:
+            old_stdout = sys.stdout
+            sys.stdout = devnull
+            try:
+                yield
+            finally:
+                sys.stdout = old_stdout
 
 
 def git_version() -> str:

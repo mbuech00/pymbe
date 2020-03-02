@@ -20,6 +20,7 @@ from pyscf import gto, symm, scf, ao2mo, lib, lo, ci, cc, mcscf, fci
 from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
+from pyscf.mcscf.PiOS import MakePiOS
 from typing import Tuple, List, Dict, Union, Any
 import warnings
 
@@ -645,10 +646,15 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
         # active space
         if ref['active'] == 'manual':
 
-            # active orbitals
+            # active orbitals & electrons
             ref['select'] = np.asarray(ref['select'], dtype=np.int64)
+            act_nelec = tools.nelec(occup, ref['select'])
 
-            # active electrons
+        elif ref['active'] == 'pios':
+
+            with tools.suppress_stdout():
+                n_core_inact, act_orbs, _, _, mo_coeff_out = MakePiOS(mol, hf, ref['pi-atoms'])
+            ref['select'] = np.arange(n_core_inact, n_core_inact + act_orbs, dtype=np.int64)
             act_nelec = tools.nelec(occup, ref['select'])
 
         # reference (primary) space
@@ -666,9 +672,10 @@ def ref_mo(mol: system.MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: 
                             'no virtual/singly occupied orbitals in CASSCF calculation')
 
             # sorter for active space
-            sort_casscf = np.concatenate((np.arange(mol.ncore), ref_space, exp_space))
-            # divide into inactive-reference-expansion
-            mo_coeff_casscf = mo_coeff[:, sort_casscf]
+            n_core_inact = np.array([i for i in range(mol.nocc) if i not in ref_space], dtype=np.int64)
+            n_virt_inact = np.array([a for a in range(mol.nocc, mol.norb) if a not in ref_space], dtype=np.int64)
+            sort_casscf = np.concatenate((n_core_inact, ref_space, n_virt_inact))
+            mo_coeff_casscf = mo_coeff_out[:, sort_casscf]
 
             # update orbsym
             if mol.atom:
