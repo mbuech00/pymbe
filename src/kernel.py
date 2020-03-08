@@ -1246,8 +1246,7 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.n
 
         # hf starting guess
         if hf_guess:
-            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
-            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
+            na, nb = fci.cistring.num_strings(cas_idx.size, nelec[0]), fci.cistring.num_strings(cas_idx.size, nelec[1])
             ci0 = np.zeros((na, nb))
             ci0[0, 0] = 1
         else:
@@ -1259,8 +1258,7 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.n
                 this function provides an interface to solver.kernel
                 """
                 # perform calc
-                e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, \
-                                        orbsym=solver.orbsym, ci0=ci0)
+                e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
 
                 # collect results
                 if solver.nroots == 1:
@@ -1390,7 +1388,6 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
 
         elif hf is not None:
 
-            tools.assertion(hf is not None, 'in the absence of h1e and h2e, hf object must be passed to cc solver')
             ccsd = cc.CCSD(hf)
             frozen_orbs = np.asarray([i for i in range(hf.mo_coeff.shape[1]) if i not in cas_idx])
             if frozen_orbs.size > 0:
@@ -1402,6 +1399,8 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
             ccsd.conv_tol_normt = ccsd.conv_tol
         ccsd.max_cycle = 500
         ccsd.async_io = False
+        ccsd.diis_start_cycle = 4
+        ccsd.diis_space = 12
         ccsd.incore_complete = True
         eris = ccsd.ao2mo()
 
