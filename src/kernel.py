@@ -555,10 +555,6 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
         >>> orbs = {'type': 'can'}
         >>> mo_coeff_casci, act_n_elec, ref_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym,
         ...                                                     orbs, ref, model, False, hf)
-        >>> np.isclose(np.sum(mo_coeff_casci), -4.995051198781287)
-        True
-        >>> np.isclose(np.amax(mo_coeff_casci), 4.954270427681284)
-        True
         >>> np.allclose(hf.mo_coeff, mo_coeff_casci)
         True
         >>> act_n_elec
@@ -567,10 +563,6 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
         True
         >>> orbs['type'] = 'ccsd'
         >>> mo_coeff_ccsd = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
-        >>> np.isclose(np.sum(mo_coeff_ccsd), 1.4521896109624048)
-        True
-        >>> np.isclose(np.amax(mo_coeff_ccsd), 6.953346258094149)
-        True
         >>> np.allclose(hf.mo_coeff, mo_coeff_ccsd)
         False
         >>> np.allclose(hf_rdm1, scf.hf.make_rdm1(mo_coeff_ccsd, hf.mo_occ))
@@ -585,10 +577,6 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
         >>> ref['method'] = 'casscf'
         >>> ref['select'] = [4, 5, 7, 8]
         >>> mo_coeff_casscf = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, False, hf)[0]
-        >>> np.isclose(np.sum(mo_coeff_casscf), -5.0278490212621385)
-        True
-        >>> np.isclose(np.amax(mo_coeff_casscf), 4.947394624365791)
-        True
         >>> np.allclose(hf.mo_coeff, mo_coeff_casscf)
         False
         >>> np.allclose(hf_rdm1, scf.hf.make_rdm1(mo_coeff_casscf, hf.mo_occ))
