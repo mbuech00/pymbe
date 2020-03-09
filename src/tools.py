@@ -105,7 +105,7 @@ def get_pymbe_path() -> str:
         """
         this function returns the path to pymbe
         """
-        return os.path.dirname(os.path.realpath(sys.argv[0]))
+        return os.path.dirname(__file__)
 
 
 def assertion(cond: bool, reason: str) -> None:
