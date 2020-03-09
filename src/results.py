@@ -169,10 +169,6 @@ def _ref(mol: MolCls, calc: CalcCls) -> str:
             if len(calc.ref['wfnsym']) == 1:
                 return 'CASSCF'
             else:
-                if 1. in calc.ref['weights']:
-                    typ = 'ss'
-                else:
-                    typ = 'sa'
                 for i in range(len(set(calc.ref['wfnsym']))):
                     sym = symm.addons.irrep_id2name(mol.symmetry, list(set(calc.ref['wfnsym']))[i])
                     num = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[i])
@@ -180,7 +176,7 @@ def _ref(mol: MolCls, calc: CalcCls) -> str:
                         syms = str(num)+'*'+sym
                     else:
                         syms += '/'+sym
-                return typ+'-CASSCF('+syms+')'
+                return 'CASSCF-'+syms
 
 
 def _base(calc: CalcCls) -> str:

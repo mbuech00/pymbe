@@ -175,6 +175,7 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, \
         string: str = FILL+'\n'
         string += DIVIDER+'\n'
         string += ' RESULT-{:d}:{:^81}\n'
+        form: Tuple[Any, ...] = (order, header,)
         string += DIVIDER+'\n'
 
         if target in ['energy', 'excitation']:
@@ -185,13 +186,12 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, \
             string += DIVIDER+'\n'
             string += ' RESULT-{:d}:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 
-            form: Tuple[Any, ...] = (order, header, order, order, np.asscalar(mean_inc), np.asscalar(min_inc), np.asscalar(max_inc))
+            form += (order, order, np.asscalar(mean_inc), np.asscalar(min_inc), np.asscalar(max_inc))
 
         elif target in ['dipole', 'trans']:
 
             # set components
             string += DIVIDER
-            form = (header,)
             comp = ('x-component', 'y-component', 'z-component')
 
             # loop over x, y, and z
@@ -202,7 +202,7 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, \
                 string += DIVIDER+'\n'
                 string += ' RESULT-{:d}:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
                 string += DIVIDER+'\n'
-                string += ' RESULT-{d:}:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+                string += ' RESULT-{:d}:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
                 if k < 2:
                     string += DIVIDER
                 form += (order, comp[k], order, order, mean_inc[k], min_inc[k], max_inc[k],) # type: ignore

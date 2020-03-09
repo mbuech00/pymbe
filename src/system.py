@@ -146,19 +146,17 @@ def translate_system(mol: MolCls) -> MolCls:
         for key, val in mol.system.items():
             setattr(mol, key, val)
 
-        # backwards compatibility for sym <-> symmetry
-        if hasattr(mol, 'sym'):
-            mol.symmetry = mol.sym
-
-        # recast symmetries as standard symbols
-        mol.symmetry = symm.addons.std_symb(mol.symmetry)
-
-        # hubbard hamiltonian
         if not mol.atom:
-
+            # hubbard hamiltonian
             mol.atom = []
             mol.symmetry = mol.hf_symmetry = False
             mol.nelectron = floor(mol.matrix[0] * mol.matrix[1] * mol.n)
+        else:
+            # backwards compatibility for sym <-> symmetry
+            if hasattr(mol, 'sym'):
+                mol.symmetry = mol.sym
+            # recast symmetries as standard symbols
+            mol.symmetry = symm.addons.std_symb(mol.symmetry)
 
         return mol
 

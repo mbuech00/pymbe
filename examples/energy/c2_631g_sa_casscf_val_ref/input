@@ -9,7 +9,7 @@ system = {'basis': '631g', 'symmetry': 'd2h', 'frozen': True, 'irrep_nelec': {'A
 
 model = {'method': 'fci'}
 target = {'energy': True}
-ref = {'method': 'casscf', 'active': 'manual', 'select': [2, 3, 4, 5, 6, 7, 8, 9], 'wfnsym': ('Ag', 'Ag', 'Ag', 'B1g'), 'hf_guess': False}
+ref = {'method': 'casscf', 'active': 'manual', 'select': [2, 3, 4, 5, 6, 7, 8, 9], 'wfnsym': ('Ag', 'Ag', 'Ag', 'B1g'), 'weights': (.25, .25, .25, .25), 'hf_guess': False}
 state = {'wfnsym': 'ag', 'root': 0}
-thres = {'init': 1.0e-10, 'relax': 5.0}
+thres = {'inc': 1e-5}
 
