@@ -16,7 +16,7 @@ import sys
 import os
 import os.path
 import numpy as np
-import json
+from json import load, dump
 from mpi4py import MPI
 try:
     from pyscf import lib, symm, scf
@@ -24,24 +24,24 @@ except ImportError:
     sys.stderr.write('\nImportError : pyscf module not found\n\n')
 from typing import Tuple
 
-import parallel
-import system
-import calculation
-import expansion
-import kernel
-import tools
+from parallel import MPICls, mol_dist, calc_dist, fund_dist, prop_dist, mpi_bcast
+from system import MolCls, set_system, translate_system, sanity_check as system_sanity_check
+from calculation import CalcCls, set_calc, sanity_check as calculation_sanity_check
+from expansion import ExpCls
+from kernel import gauge_origin, hf, ref_mo, ints, dipole_ints, base, ref_prop
+from tools import pi_space, natural_keys, assertion
 
 
 # restart folder
 RST = os.getcwd()+'/rst'
 
 
-def main() -> Tuple[parallel.MPICls, system.MolCls, calculation.CalcCls, expansion.ExpCls]:
+def main() -> Tuple[MPICls, MolCls, CalcCls, ExpCls]:
         """
         this function initializes and broadcasts mpi, mol, calc, and exp objects
         """
         # mpi object
-        mpi = parallel.MPICls()
+        mpi = MPICls()
 
         # mol object
         mol = _mol(mpi)
@@ -55,27 +55,27 @@ def main() -> Tuple[parallel.MPICls, system.MolCls, calculation.CalcCls, expansi
         return mpi, mol, calc, exp
 
 
-def _mol(mpi: parallel.MPICls) -> system.MolCls:
+def _mol(mpi: MPICls) -> MolCls:
         """
         this function initializes a mol object
         """
         # mol object
-        mol = system.MolCls()
+        mol = MolCls()
 
         # input handling
         if mpi.global_master:
 
             # read input
-            mol = system.set_system(mol)
+            mol = set_system(mol)
 
             # translate input
-            mol = system.translate_system(mol)
+            mol = translate_system(mol)
 
             # sanity check
-            system.sanity_chk(mol)
+            system_sanity_check(mol)
 
         # bcast info from master to slaves
-        mol = parallel.mol_dist(mpi, mol)
+        mol = mol_dist(mpi, mol)
 
         # make pyscf mol object
         mol.make()
@@ -83,18 +83,18 @@ def _mol(mpi: parallel.MPICls) -> system.MolCls:
         return mol
 
 
-def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
+def _calc(mpi: MPICls, mol: MolCls) -> CalcCls:
         """
         this function initializes a calc object
         """
         # calc object
-        calc = calculation.CalcCls(mol.ncore, mol.nelectron, mol.symmetry)
+        calc = CalcCls(mol.ncore, mol.nelectron, mol.symmetry)
 
         # input handling
         if mpi.global_master:
 
             # read input
-            calc = calculation.set_calc(calc)
+            calc = set_calc(calc)
 
             # set target
             calc.target_mbe = [x for x in calc.target.keys() if calc.target[x]][0]
@@ -104,7 +104,7 @@ def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
                 calc.hf_ref['symmetry'] = mol.symmetry
 
             # sanity check
-            calculation.sanity_chk(calc, mol.spin, mol.atom, mol.symmetry)
+            calculation_sanity_check(calc, mol.spin, mol.atom, mol.symmetry)
 
             # restart folder and logical
             if not os.path.isdir(RST):
@@ -114,13 +114,12 @@ def _calc(mpi: parallel.MPICls, mol: system.MolCls) -> calculation.CalcCls:
                 calc.restart = True
 
         # bcast info from master to slaves
-        calc = parallel.calc_dist(mpi, calc)
+        calc = calc_dist(mpi, calc)
 
         return calc
 
 
-def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
-            calc: calculation. CalcCls) -> Tuple[system.MolCls, calculation.CalcCls, expansion.ExpCls]:
+def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpCls]:
         """
         this function initializes an exp object
         """
@@ -129,7 +128,7 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
 
         # dipole gauge origin
         if mol.atom:
-            mol.gauge_origin = kernel.gauge_origin(mol)
+            mol.gauge_origin = gauge_origin(mol)
         else:
             mol.gauge_origin = None
 
@@ -148,23 +147,23 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                 # hf calculation
                 mol.nocc, mol.nvirt, mol.norb, calc.hf, \
                     calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_coeff = kernel.hf(mol, calc.hf_ref)
+                    calc.occup, calc.orbsym, calc.mo_coeff = hf(mol, calc.hf_ref)
 
                 # reference and expansion spaces and mo coefficients
-                calc.mo_coeff, calc.nelec, calc.ref_space = kernel.ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
-                                                                          calc.orbs, calc.ref, calc.model, \
-                                                                          calc.extra['pi_prune'], calc.hf)
+                calc.mo_coeff, calc.nelec, calc.ref_space = ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
+                                                                   calc.orbs, calc.ref, calc.model, \
+                                                                   calc.extra['pi_prune'], calc.hf)
 
         # bcast fundamental info
-        mol, calc = parallel.fund_dist(mpi, mol, calc)
+        mol, calc = fund_dist(mpi, mol, calc)
 
         # get handles to all integral windows
-        mol.hcore, mol.vhf, mol.eri = kernel.ints(mol, calc.mo_coeff, mpi.global_master, mpi.local_master, \
-                                                    mpi.global_comm, mpi.local_comm, mpi.master_comm, mpi.num_masters)
+        mol.hcore, mol.vhf, mol.eri = ints(mol, calc.mo_coeff, mpi.global_master, mpi.local_master, \
+                                           mpi.global_comm, mpi.local_comm, mpi.master_comm, mpi.num_masters)
 
         # get dipole integrals
         if mol.atom:
-            mol.dipole_ints = kernel.dipole_ints(mol, calc.mo_coeff)
+            mol.dipole_ints = dipole_ints(mol, calc.mo_coeff)
         else:
             mol.dipole_ints = None
 
@@ -181,28 +180,28 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
             # base energy
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = kernel.base(mol, calc.occup, calc.target_mbe, \
-                                                               calc.base['method'], calc.prop['hf']['dipole'])
+                    calc.prop['base']['dipole'] = base(mol, calc.occup, calc.target_mbe, \
+                                                       calc.base['method'], calc.prop['hf']['dipole'])
             else:
                 calc.prop['base']['energy'] = 0.
                 calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
 
             # reference space properties
-            calc.prop['ref'][calc.target_mbe] = kernel.ref_prop(mol, calc.occup, calc.target_mbe, \
-                                                                calc.orbsym, calc.model['hf_guess'], \
-                                                                calc.ref_space, calc.model, \
-                                                                calc.state, calc.prop['hf']['energy'], \
-                                                                calc.prop['hf']['dipole'], calc.base['method'])
+            calc.prop['ref'][calc.target_mbe] = ref_prop(mol, calc.occup, calc.target_mbe, \
+                                                         calc.orbsym, calc.model['hf_guess'], \
+                                                         calc.ref_space, calc.model, \
+                                                         calc.state, calc.prop['hf']['energy'], \
+                                                         calc.prop['hf']['dipole'], calc.base['method'])
 
         # bcast properties
-        calc = parallel.prop_dist(mpi, calc)
+        calc = prop_dist(mpi, calc)
 
         # write properties
         if not calc.restart and mpi.global_master and calc.misc['rst']:
             restart_write_prop(mol, calc)
 
         # exp object
-        exp = expansion.ExpCls(mol, calc)
+        exp = ExpCls(mol, calc)
 
         # possible restart
         if calc.restart:
@@ -222,12 +221,12 @@ def _exp(mpi: parallel.MPICls, mol: system.MolCls, \
                                                 mol_parent.symm_orb, calc.mo_coeff)
 
             # pi-space
-            exp.pi_orbs, exp.pi_hashes = tools.pi_space(parent_group, orbsym_parent, exp.exp_space[0])
+            exp.pi_orbs, exp.pi_hashes = pi_space(parent_group, orbsym_parent, exp.exp_space[0])
 
         return mol, calc, exp
 
 
-def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> int:
+def restart_main(mpi: MPICls, calc: CalcCls, exp: ExpCls) -> int:
         """
         this function reads in all expansion restart files and returns the start order
         """
@@ -235,7 +234,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
 
         # sort the list of files
-        files.sort(key=tools.natural_keys)
+        files.sort(key = natural_keys)
 
         # loop over n_tuples files
         if mpi.global_master:
@@ -264,7 +263,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
                 if mpi.global_master:
                     hashes[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
-                    hashes[:] = parallel.bcast(mpi.master_comm, hashes)
+                    hashes[:] = mpi_bcast(mpi.master_comm, hashes)
                 mpi.local_comm.Barrier()
 
             # read increments
@@ -285,7 +284,7 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
                 if mpi.global_master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
-                    inc[:] = parallel.bcast(mpi.master_comm, inc)
+                    inc[:] = mpi_bcast(mpi.master_comm, inc)
                 mpi.local_comm.Barrier()
 
             if mpi.global_master:
@@ -338,14 +337,14 @@ def restart_main(mpi: parallel.MPICls, calc: calculation.CalcCls, exp: expansion
         return exp.min_order + len(exp.prop[calc.target_mbe]['tot'])
 
 
-def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
+def restart_write_fund(mol: MolCls, calc: CalcCls) -> None:
         """
         this function writes all fundamental info restart files
         """
         # write dimensions
         dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'norb': mol.norb, 'nelec': calc.nelec}
         with open(os.path.join(RST, 'dims.rst'), 'w') as f:
-            json.dump(dims, f)
+            dump(dims, f)
 
         # write reference & expansion spaces
         np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
@@ -357,7 +356,7 @@ def restart_write_fund(mol: system.MolCls, calc: calculation.CalcCls) -> None:
         np.save(os.path.join(RST, 'mo_coeff'), calc.mo_coeff)
 
 
-def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[system.MolCls, calculation.CalcCls]:
+def restart_read_fund(mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]:
         """
         this function reads all fundamental info restart files
         """
@@ -365,7 +364,7 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
         files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
 
         # sort the list of files
-        files.sort(key=tools.natural_keys)
+        files.sort(key = natural_keys)
 
         # loop over files
         for i in range(len(files)):
@@ -373,7 +372,7 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
             # read dimensions
             if 'dims' in files[i]:
                 with open(os.path.join(RST, files[i]), 'r') as f:
-                    dims = json.load(f)
+                    dims = load(f)
                 mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']
                 mol.norb = dims['norb']; calc.nelec = dims['nelec']
 
@@ -396,7 +395,7 @@ def restart_read_fund(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
         return mol, calc
 
 
-def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
+def restart_write_prop(mol: MolCls, calc: CalcCls) -> None:
         """
         this function writes all property restart files
         """
@@ -410,13 +409,13 @@ def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
             energies['ref'] = calc.prop['ref']['energy']
 
         with open(os.path.join(RST, 'energies.rst'), 'w') as f:
-            json.dump(energies, f)
+            dump(energies, f)
 
         if calc.target_mbe == 'excitation':
 
             excitations = {'ref': calc.prop['ref']['excitation']}
             with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
-                json.dump(excitations, f)
+                dump(excitations, f)
 
         if calc.target_mbe == 'dipole':
 
@@ -424,16 +423,16 @@ def restart_write_prop(mol: system.MolCls, calc: calculation.CalcCls) -> None:
             dipoles['ref'] = calc.prop['ref']['dipole'].tolist() # type: ignore
 
         with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
-            json.dump(dipoles, f)
+            dump(dipoles, f)
 
         if calc.target_mbe == 'trans':
 
             transitions = {'ref': calc.prop['ref']['trans'].tolist()} # type: ignore
             with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
-                json.dump(transitions, f)
+                dump(transitions, f)
 
 
-def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[system.MolCls, calculation.CalcCls]:
+def restart_read_prop(mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]:
         """
         this function reads all property restart files
         """
@@ -441,7 +440,7 @@ def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
         files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
 
         # sort the list of files
-        files.sort(key=tools.natural_keys)
+        files.sort(key = natural_keys)
 
         # loop over files
         for i in range(len(files)):
@@ -450,7 +449,7 @@ def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
             if 'energies' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
-                    energies = json.load(f)
+                    energies = load(f)
                 calc.prop['hf']['energy'] = energies['hf']
 
                 if calc.target_mbe == 'energy':
@@ -460,13 +459,13 @@ def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
             if 'excitations' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
-                    excitations = json.load(f)
+                    excitations = load(f)
                 calc.prop['ref']['excitation'] = excitations['ref']
 
             if 'dipoles' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
-                    dipoles = json.load(f)
+                    dipoles = load(f)
                 calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
 
                 if calc.target_mbe == 'dipole':
@@ -476,7 +475,7 @@ def restart_read_prop(mol: system.MolCls, calc: calculation.CalcCls) -> Tuple[sy
             if 'transitions' in files[i]:
 
                 with open(os.path.join(RST, files[i]), 'r') as f:
-                    transitions = json.load(f)
+                    transitions = load(f)
                 calc.prop['ref']['trans'] = np.asarray(transitions['ref'])
 
         return mol, calc
@@ -487,7 +486,7 @@ def settings() -> None:
         this function sets and asserts some general settings
         """
         # only run with python3+
-        tools.assertion(3 <= sys.version_info[0], 'PyMBE only runs under python3+')
+        assertion(3 <= sys.version_info[0], 'PyMBE only runs under python3+')
 
         # force OMP_NUM_THREADS = 1
         lib.num_threads(1)
@@ -497,7 +496,7 @@ def settings() -> None:
 
         # PYTHONHASHSEED = 0
         pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)
-        tools.assertion(int(pythonhashseed) == 0, \
-                        'environment variable PYTHONHASHSEED must be set to zero')
+        assertion(int(pythonhashseed) == 0, \
+                  'environment variable PYTHONHASHSEED must be set to zero')
 
 

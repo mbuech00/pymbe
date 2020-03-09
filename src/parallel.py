@@ -26,9 +26,8 @@ except ImportError:
 from pyscf import symm, lib
 from typing import Tuple
 
-import system
-import calculation
-import tools
+from system import MolCls
+from calculation import CalcCls
 
 
 # restart folder
@@ -78,7 +77,7 @@ class MPICls:
                     self.num_masters = self.global_comm.bcast(None, root=0)
 
 
-def mol_dist(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
+def mol_dist(mpi: MPICls, mol: MolCls) -> MolCls:
         """
         this function bcast all standard mol info to slaves
         """
@@ -113,7 +112,7 @@ def mol_dist(mpi: MPICls, mol: system.MolCls) -> system.MolCls:
         return mol
 
 
-def calc_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
+def calc_dist(mpi: MPICls, calc: CalcCls) -> CalcCls:
         """
         this function bcast all standard calc info to slaves
         """
@@ -140,8 +139,7 @@ def calc_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
         return calc
 
 
-def fund_dist(mpi: MPICls, mol: system.MolCls, \
-            calc: calculation.CalcCls) -> Tuple[system.MolCls, calculation.CalcCls]:
+def fund_dist(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]:
         """
         this function bcasts all fundamental mol and calc info to slaves
         """
@@ -160,7 +158,7 @@ def fund_dist(mpi: MPICls, mol: system.MolCls, \
             mpi.global_comm.bcast(info, root=0)
 
             # bcast mo coefficients
-            calc.mo_coeff = bcast(mpi.global_comm, calc.mo_coeff)
+            calc.mo_coeff = mpi_bcast(mpi.global_comm, calc.mo_coeff)
 
             # update orbsym
             if mol.atom:
@@ -186,7 +184,7 @@ def fund_dist(mpi: MPICls, mol: system.MolCls, \
 
             # receive mo coefficients
             calc.mo_coeff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-            calc.mo_coeff = bcast(mpi.global_comm, calc.mo_coeff)
+            calc.mo_coeff = mpi_bcast(mpi.global_comm, calc.mo_coeff)
 
             # update orbsym
             if mol.atom:
@@ -197,7 +195,7 @@ def fund_dist(mpi: MPICls, mol: system.MolCls, \
         return mol, calc
 
 
-def prop_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
+def prop_dist(mpi: MPICls, calc: CalcCls) -> CalcCls:
         """
         this function bcasts properties to slaves
         """
@@ -214,7 +212,7 @@ def prop_dist(mpi: MPICls, calc: calculation.CalcCls) -> calculation.CalcCls:
         return calc
 
 
-def bcast(comm: MPI.Comm, buff: np.ndarray) -> np.ndarray:
+def mpi_bcast(comm: MPI.Comm, buff: np.ndarray) -> np.ndarray:
         """
         this function performs a tiled Bcast operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
@@ -229,7 +227,7 @@ def bcast(comm: MPI.Comm, buff: np.ndarray) -> np.ndarray:
         return buff
 
 
-def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0, op: MPI.Op = MPI.SUM) -> np.ndarray:
+def mpi_reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0, op: MPI.Op = MPI.SUM) -> np.ndarray:
         """
         this function performs a tiled Reduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
@@ -258,7 +256,7 @@ def reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0, op: MPI.Op = MP
         return recv_buff
 
 
-def allreduce(comm: MPI.Comm, send_buff: np.ndarray, op: MPI.Op = MPI.SUM) -> np.ndarray:
+def mpi_allreduce(comm: MPI.Comm, send_buff: np.ndarray, op: MPI.Op = MPI.SUM) -> np.ndarray:
         """
         this function performs a tiled Allreduce operation
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
@@ -277,7 +275,7 @@ def allreduce(comm: MPI.Comm, send_buff: np.ndarray, op: MPI.Op = MPI.SUM) -> np
         return recv_buff
 
 
-def gatherv(comm: MPI.Comm, send_buff: np.ndarray, recv_buff: np.ndarray, \
+def mpi_gatherv(comm: MPI.Comm, send_buff: np.ndarray, recv_buff: np.ndarray, \
                 counts: np.ndarray, root: int = 0) -> np.ndarray:
         """
         this function performs a gatherv operation using point-to-point operations
@@ -300,7 +298,7 @@ def gatherv(comm: MPI.Comm, send_buff: np.ndarray, recv_buff: np.ndarray, \
         return recv_buff
 
 
-def finalize(mpi: MPICls) -> None:
+def mpi_finalize(mpi: MPICls) -> None:
         """
         this function terminates a successful pymbe calculation
         """

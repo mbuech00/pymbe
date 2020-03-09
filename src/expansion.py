@@ -14,26 +14,23 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-import functools
-import copy
+from copy import deepcopy
 from typing import List, Dict, Tuple, Union, Any
 
-import parallel
-import system
-import calculation
-import tools
+from system import MolCls
+from calculation import CalcCls
 
 
 class ExpCls:
         """
         this class contains the pymbe expansion attributes
         """
-        def __init__(self, mol: system.MolCls, calc: calculation.CalcCls) -> None:
+        def __init__(self, mol: MolCls, calc: CalcCls) -> None:
                 """
                 init expansion attributes
                 """
                 # set expansion model dict
-                self.model = copy.deepcopy(calc.model)
+                self.model = deepcopy(calc.model)
 
                 # init prop dict
                 self.prop: Dict[str, Dict[str, Union[List[float], MPI.Win]]] = {str(calc.target_mbe): {'inc': [], 'tot': [], \

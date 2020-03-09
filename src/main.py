@@ -17,50 +17,50 @@ import os
 import os.path
 import shutil
 
-import setup
-import driver
-import tools
-import output
-import results
-import parallel
+from setup import settings, main as setup_main
+from driver import master as driver_master, slave as driver_slave
+from tools import Logger
+from output import OUT, OUT_FILE
+from results import RES_FILE, main as results_main
+from parallel import mpi_finalize
 
 
 def main():
         """ main program """
         # general settings
-        setup.settings()
+        settings()
 
         # init mpi, mol, calc, and exp objects
-        mpi, mol, calc, exp = setup.main()
+        mpi, mol, calc, exp = setup_main()
 
         if mpi.global_master:
 
             # rm out dir if present
-            if os.path.isdir(output.OUT):
-                shutil.rmtree(output.OUT, ignore_errors=True)
+            if os.path.isdir(OUT):
+                shutil.rmtree(OUT, ignore_errors=True)
 
             # make out dir
-            os.mkdir(output.OUT)
+            os.mkdir(OUT)
 
             # init logger
-            sys.stdout = tools.Logger(output.OUT_FILE)
+            sys.stdout = Logger(OUT_FILE)
 
             # main master driver
-            driver.master(mpi, mol, calc, exp)
+            driver_master(mpi, mol, calc, exp)
 
             # re-init logger
-            sys.stdout = tools.Logger(results.RES_FILE, both=False)
+            sys.stdout = Logger(RES_FILE, both=False)
 
             # print/plot results
-            results.main(mpi, mol, calc, exp)
+            results_main(mpi, mol, calc, exp)
 
             # finalize mpi
-            parallel.finalize(mpi)
+            mpi_finalize(mpi)
 
         else:
 
             # main slave driver
-            driver.slave(mpi, mol, calc, exp)
+            driver_slave(mpi, mol, calc, exp)
 
 
 if __name__ == '__main__':

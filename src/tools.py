@@ -15,14 +15,13 @@ __status__ = 'Development'
 import os
 import re
 import sys
-import traceback
-import subprocess
-from mpi4py import MPI
 import numpy as np
 import scipy.special as sc
-import functools
-import itertools
-import math
+from mpi4py import MPI
+from itertools import islice, combinations, groupby
+from math import floor, fsum as math_fsum
+from subprocess import Popen, PIPE
+from traceback import format_stack
 from contextlib import contextmanager
 from typing import Tuple, Set, List, Dict, Any, Generator, Union
 
@@ -90,7 +89,7 @@ def git_version() -> str:
             env['LANGUAGE'] = 'C'
             env['LANG'] = 'C'
             env['LC_ALL'] = 'C'
-            out = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env, cwd=get_pymbe_path()).communicate()[0]
+            out = Popen(cmd, stdout = PIPE, env=env, cwd=get_pymbe_path()).communicate()[0]
             return out
 
         try:
@@ -115,7 +114,7 @@ def assertion(cond: bool, reason: str) -> None:
         """
         if not cond:
             # get stack
-            stack = ''.join(traceback.format_stack()[:-1])
+            stack = ''.join(format_stack()[:-1])
             # print stack
             print('\n\n'+stack)
             print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
@@ -166,9 +165,9 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
         True
         """
         if a.ndim == 1:
-            return math.fsum(a)
+            return math_fsum(a)
         elif a.ndim == 2:
-            return np.fromiter(map(math.fsum, a.T), dtype=a.dtype, count=a.shape[1])
+            return np.fromiter(map(math_fsum, a.T), dtype=a.dtype, count=a.shape[1])
         else:
             raise NotImplementedError('tools.py: _fsum()')
 
@@ -259,20 +258,20 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_vir
 
         # combinations of occupied and virtual MOs
         for k in range(order_start, order):
-            for tup_occ in itertools.islice(itertools.combinations(occ_space, k), occ_start, None):
-                for tup_virt in itertools.islice(itertools.combinations(virt_space, order - k), virt_start, None):
+            for tup_occ in islice(combinations(occ_space, k), occ_start, None):
+                for tup_virt in islice(combinations(virt_space, order - k), virt_start, None):
                     yield np.array(tup_occ + tup_virt, dtype=np.int64)
                 virt_start = 0
             occ_start = 0
 
         # only occupied MOs
         if ref_virt and 0 <= occ_start:
-            for tup_occ in itertools.islice(itertools.combinations(occ_space, order), occ_start, None):
+            for tup_occ in islice(combinations(occ_space, order), occ_start, None):
                 yield np.array(tup_occ, dtype=np.int64)
 
         # only virtual MOs
         if ref_occ and 0 <= virt_start:
-            for tup_virt in itertools.islice(itertools.combinations(virt_space, order), virt_start, None):
+            for tup_virt in islice(combinations(virt_space, order), virt_start, None):
                 yield np.array(tup_virt, dtype=np.int64)
 
 
@@ -416,17 +415,17 @@ def _coor_to_idx(ij: Tuple[int, int]) -> int:
             return j * (j + 1) // 2 + i
 
 
-def cas_idx_tril(cas_idx: np.ndarray) -> np.ndarray:
+def idx_tril(cas_idx: np.ndarray) -> np.ndarray:
         """
         this function returns lower triangular cas indices
 
         example:
-        >>> cas_idx_tril(np.arange(2, 14, 3))
+        >>> idx_tril(np.arange(2, 14, 3))
         array([ 5, 17, 20, 38, 41, 44, 68, 71, 74, 77])
         """
         cas_idx_cart = _cas_idx_cart(cas_idx)
         return np.unique(np.fromiter(map(_coor_to_idx, cas_idx_cart), \
-                                        dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
+                                     dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
 def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -594,7 +593,7 @@ def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
         (4, 1)
         """
         y = site_idx % nx
-        x = int(math.floor(float(site_idx) / ny))
+        x = int(floor(float(site_idx) / ny))
         return x, y
 
 
@@ -681,7 +680,7 @@ def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
         >>> [i for i in intervals(np.array([0, 1, 2, 5, 7, 8, 10, 11, 12, 13]))]
         [[0, 2], [5], [7, 8], [10, 13]]
         """
-        for key, group in itertools.groupby(enumerate(a), lambda x: x[1] - x[0]):
+        for key, group in groupby(enumerate(a), lambda x: x[1] - x[0]):
             group_lst = list(group)
             if len(group_lst) == 1:
                 yield [group_lst[0][1]]

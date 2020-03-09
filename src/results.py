@@ -34,28 +34,27 @@ if PLT_FOUND:
         pass
         SNS_FOUND = False
 
-import parallel
-import system
-import calculation
-import expansion
-import output
-import tools
+from parallel import MPICls
+from system import MolCls
+from calculation import CalcCls
+from expansion import ExpCls
+from output import OUT, main_header
+from tools import intervals, time_str
 
 
 # results file
-RES_FILE = output.OUT+'/pymbe.results'
+RES_FILE = OUT+'/pymbe.results'
 # results parameters
 DIVIDER = '{:^143}'.format('-'*137)
 FILL = '{:^143}'.format('|'*137)
 
 
-def main(mpi: parallel.MPICls, mol: system.MolCls, \
-            calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
+def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         """
         this function handles all printing and plotting of results
         """
         # print header
-        print(output.main_header())
+        print(main_header())
 
         # print atom info
         if mol.atom:
@@ -90,7 +89,7 @@ def main(mpi: parallel.MPICls, mol: system.MolCls, \
             _max_ndets_plot(exp)
 
 
-def _atom(mol: system.MolCls) -> str:
+def _atom(mol: MolCls) -> str:
         """
         this function returns the molecular geometry
         """
@@ -110,7 +109,7 @@ def _atom(mol: system.MolCls) -> str:
         return string.format(*form)
 
 
-def _model(calc: calculation.CalcCls, x2c: bool) -> str:
+def _model(calc: CalcCls, x2c: bool) -> str:
         """
         this function returns the expansion model
         """
@@ -120,7 +119,7 @@ def _model(calc: calculation.CalcCls, x2c: bool) -> str:
         return string
 
 
-def _basis(mol: system.MolCls) -> str:
+def _basis(mol: MolCls) -> str:
         """
         this function returns the basis
         """
@@ -140,7 +139,7 @@ def _basis(mol: system.MolCls) -> str:
             return mol.basis
 
 
-def _state(mol: system.MolCls, calc: calculation.CalcCls) -> str:
+def _state(mol: MolCls, calc: CalcCls) -> str:
         """
         this function returns the state of interest
         """
@@ -160,7 +159,7 @@ def _state(mol: system.MolCls, calc: calculation.CalcCls) -> str:
         return string
 
 
-def _ref(mol: system.MolCls, calc: calculation.CalcCls) -> str:
+def _ref(mol: MolCls, calc: CalcCls) -> str:
         """
         this function returns the reference function
         """
@@ -184,7 +183,7 @@ def _ref(mol: system.MolCls, calc: calculation.CalcCls) -> str:
                 return typ+'-CASSCF('+syms+')'
 
 
-def _base(calc: calculation.CalcCls) -> str:
+def _base(calc: CalcCls) -> str:
         """
         this function returns the base model
         """
@@ -194,14 +193,14 @@ def _base(calc: calculation.CalcCls) -> str:
             return calc.base['method'].upper()
 
 
-def _system(mol: system.MolCls) -> str:
+def _system(mol: MolCls) -> str:
         """
         this function returns the system size
         """
         return '{:} e in {:} o'.format(mol.nelectron - 2 * mol.ncore, mol.norb - mol.ncore)
 
 
-def _hubbard(mol: system.MolCls) -> List[str]:
+def _hubbard(mol: MolCls) -> List[str]:
         """
         this function returns the hubbard model
         """
@@ -210,7 +209,7 @@ def _hubbard(mol: system.MolCls) -> List[str]:
         return hubbard
 
 
-def _solver(calc: calculation.CalcCls) -> str:
+def _solver(calc: CalcCls) -> str:
         """
         this function returns the chosen fci solver
         """
@@ -225,7 +224,7 @@ def _solver(calc: calculation.CalcCls) -> str:
                 raise NotImplementedError('unknown solver')
 
 
-def _frozen(mol: system.MolCls) -> str:
+def _frozen(mol: MolCls) -> str:
         """
         this function returns the choice of frozen core
         """
@@ -235,7 +234,7 @@ def _frozen(mol: system.MolCls) -> str:
             return 'false'
 
 
-def _active_space(calc: calculation.CalcCls) -> str:
+def _active_space(calc: CalcCls) -> str:
         """
         this function returns the active space
         """
@@ -245,7 +244,7 @@ def _active_space(calc: calculation.CalcCls) -> str:
         return string
 
 
-def _active_orbs(calc: calculation.CalcCls) -> str:
+def _active_orbs(calc: CalcCls) -> str:
         """
         this function returns the orbitals of the active space
         """
@@ -255,7 +254,7 @@ def _active_orbs(calc: calculation.CalcCls) -> str:
         # init string
         string = '['
         # divide ref_space into intervals
-        ref_space_ints = [i for i in tools.intervals(calc.ref_space)]
+        ref_space_ints = [i for i in intervals(calc.ref_space)]
 
         for idx, i in enumerate(ref_space_ints):
             elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
@@ -265,7 +264,7 @@ def _active_orbs(calc: calculation.CalcCls) -> str:
         return string
 
 
-def _orbs(calc: calculation.CalcCls) -> str:
+def _orbs(calc: CalcCls) -> str:
         """
         this function returns the choice of orbitals
         """
@@ -281,21 +280,21 @@ def _orbs(calc: calculation.CalcCls) -> str:
             raise NotImplementedError('unknown orbital basis')
 
 
-def _mpi(mpi: parallel.MPICls) -> str:
+def _mpi(mpi: MPICls) -> str:
         """
         this function returns the mpi information
         """
         return '{:} & {:}'.format(mpi.num_masters, mpi.global_size - mpi.num_masters)
 
 
-def _thres(calc: calculation.CalcCls) -> str:
+def _thres(calc: CalcCls) -> str:
         """
         this function returns the expansion threshold
         """
         return '{:.0e}'.format(calc.thres['inc'])
 
 
-def _symm(mol: system.MolCls, calc: calculation.CalcCls) -> str:
+def _symm(mol: MolCls, calc: CalcCls) -> str:
         """
         this function returns the molecular point group symmetry
         """
@@ -311,7 +310,7 @@ def _symm(mol: system.MolCls, calc: calculation.CalcCls) -> str:
             return 'unknown'
 
 
-def _energy(calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
+def _energy(calc: CalcCls, exp: ExpCls) -> np.ndarray:
         """
         this function returns the final total energy
         """
@@ -323,7 +322,7 @@ def _energy(calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
         return e_tot
 
 
-def _excitation(calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
+def _excitation(calc: CalcCls, exp: ExpCls) -> np.ndarray:
         """
         this function returns the final excitation energy
         """
@@ -333,8 +332,7 @@ def _excitation(calc: calculation.CalcCls, exp: expansion.ExpCls) -> np.ndarray:
         return exc_tot
 
 
-def _dipole(mol: system.MolCls, calc: calculation.CalcCls, \
-                exp: expansion.ExpCls) -> Tuple[np.ndarray, np.ndarray]:
+def _dipole(mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns the final molecular dipole moment
         """
@@ -351,8 +349,7 @@ def _dipole(mol: system.MolCls, calc: calculation.CalcCls, \
         return dipole_tot, nuc_dipole
 
 
-def _trans(mol: system.MolCls, calc: calculation.CalcCls, \
-            exp: expansion.ExpCls) -> np.ndarray:
+def _trans(mol: MolCls, calc: CalcCls, exp: ExpCls) -> np.ndarray:
         """
         this function returns the final molecular transition dipole moment
         """
@@ -362,7 +359,7 @@ def _trans(mol: system.MolCls, calc: calculation.CalcCls, \
         return trans_tot
 
 
-def _time(exp: expansion.ExpCls, comp: str, idx: int) -> str:
+def _time(exp: ExpCls, comp: str, idx: int) -> str:
         """
         this function returns the final timings in (HHH : MM : SS) format
         """
@@ -375,11 +372,10 @@ def _time(exp: expansion.ExpCls, comp: str, idx: int) -> str:
             time = np.sum(exp.time[comp[4:]])
         elif comp == 'tot_sum':
             time = np.sum(exp.time['mbe']) + np.sum(exp.time['purge'])
-        return tools.time_str(time)
+        return time_str(time)
 
 
-def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
-                    calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
+def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         """
         this function returns the summary table
         """
@@ -464,7 +460,7 @@ def _summary_prt(mpi: parallel.MPICls, mol: system.MolCls, \
         return string.format(*form)
 
 
-def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
+def _timings_prt(calc: CalcCls, exp: ExpCls) -> str:
         """
         this function returns the timings table
         """
@@ -508,7 +504,7 @@ def _timings_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         return string.format(*form)
 
 
-def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
+def _energy_prt(calc: CalcCls, exp: ExpCls) -> str:
         """
         this function returns the energies table
         """
@@ -540,7 +536,7 @@ def _energy_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         return string.format(*form)
 
 
-def _energies_plot(calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
+def _energies_plot(calc: CalcCls, exp: ExpCls) -> None:
         """
         this function plots the energies
         """
@@ -578,11 +574,11 @@ def _energies_plot(calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         ax.legend(loc=1, frameon=False)
 
         # save plot
-        plt.savefig(output.OUT+'/energy_state_{:}.pdf'. \
-                        format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
+        plt.savefig(OUT+'/energy_state_{:}.pdf'. \
+                    format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _excitation_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
+def _excitation_prt(calc: CalcCls, exp: ExpCls) -> str:
         """
         this function returns the excitation energies table
         """
@@ -611,7 +607,7 @@ def _excitation_prt(calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
         return string.format(*form)
 
 
-def _excitation_plot(calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
+def _excitation_plot(calc: CalcCls, exp: ExpCls) -> None:
         """
         this function plots the excitation energies
         """
@@ -649,11 +645,11 @@ def _excitation_plot(calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
         ax.legend(loc=1, frameon=False)
 
         # save plot
-        plt.savefig(output.OUT+'/excitation_states_{:}_{:}.pdf'. \
-                        format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+        plt.savefig(OUT+'/excitation_states_{:}_{:}.pdf'. \
+                    format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _dipole_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
+def _dipole_prt(mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         """
         this function returns the dipole moments table
         """
@@ -695,7 +691,7 @@ def _dipole_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Ex
         return string.format(*form)
 
 
-def _dipole_plot(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
+def _dipole_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         """
         this function plots the dipole moments
         """
@@ -739,11 +735,11 @@ def _dipole_plot(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.E
         ax.legend(loc=1, frameon=False)
 
         # save plot
-        plt.savefig(output.OUT+'/dipole_state_{:}.pdf'. \
-                        format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
+        plt.savefig(OUT+'/dipole_state_{:}.pdf'. \
+                    format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _trans_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> str:
+def _trans_prt(mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         """
         this function returns the transition dipole moments and oscillator strengths table
         """
@@ -782,7 +778,7 @@ def _trans_prt(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Exp
         return string.format(*form)
 
 
-def _trans_plot(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
+def _trans_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         """
         this function plots the transition dipole moments
         """
@@ -826,11 +822,11 @@ def _trans_plot(mol: system.MolCls, calc: calculation.CalcCls, exp: expansion.Ex
         ax.legend(loc=1, frameon=False)
 
         # save plot
-        plt.savefig(output.OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
-                        format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+        plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
+                    format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
 
 
-def _max_ndets_plot(exp: expansion.ExpCls) -> None:
+def _max_ndets_plot(exp: ExpCls) -> None:
         """
         this function plots the max number of determinants
         """
@@ -864,6 +860,6 @@ def _max_ndets_plot(exp: expansion.ExpCls) -> None:
             sns.despine()
 
         # save plot
-        plt.savefig(output.OUT+'/max_ndets.pdf', bbox_inches = 'tight', dpi=1000)
+        plt.savefig(OUT+'/max_ndets.pdf', bbox_inches = 'tight', dpi=1000)
 
 

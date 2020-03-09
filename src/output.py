@@ -13,14 +13,13 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import os
-from datetime import datetime
 import numpy as np
+from datetime import datetime
 from pyscf import symm
 from typing import List, Tuple, Dict, Union, Any
 
-import parallel
-import kernel
-import tools
+from parallel import MPICls
+from tools import git_version, time_str, intervals
 
 
 # output folder and files
@@ -33,7 +32,7 @@ FILL = ' '+'|'*92
 BAR_LENGTH = 50
 
 
-def main_header(mpi: Union[None, parallel.MPICls] = None, method: Union[None, str] = None) -> str:
+def main_header(mpi: Union[None, MPICls] = None, method: Union[None, str] = None) -> str:
         """
         this function prints the main pymbe header
         """
@@ -51,7 +50,7 @@ def main_header(mpi: Union[None, parallel.MPICls] = None, method: Union[None, st
         form: Tuple[Any, ...] = (datetime.now().strftime('%Y-%m-%d & %H:%M:%S'),)
         # git hash
         string += "   -- git version   : {:s}\n"
-        form += (tools.git_version(),)
+        form += (git_version(),)
         if mpi is not None:
             string += "   -- local masters :\n"
             for master_idx in range(mpi.num_masters):
@@ -133,7 +132,7 @@ def mbe_end(order: int, time: float, n_tuples: int) -> str:
         string += ' STATUS-{:d}:  order k = {:d} MBE done in {:s}  ---  {:d} tuples retained\n'
         string += DIVIDER
 
-        form: Tuple[Any, ...] = (order, order, tools.time_str(time), n_tuples,)
+        form: Tuple[Any, ...] = (order, order, time_str(time), n_tuples,)
 
         return string.format(*form)
 
@@ -229,7 +228,7 @@ def screen_results(order: int, orbs: np.ndarray, exp_space: List[np.ndarray]) ->
         # init string
         string: str = ' RESULT-{:d}:  screened MOs --- '.format(order)
         # divide orbs into intervals
-        orbs_ints = [i for i in tools.intervals(orbs)]
+        orbs_ints = [i for i in intervals(orbs)]
         for idx, i in enumerate(orbs_ints):
             elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
             if 0 < idx:
@@ -289,7 +288,7 @@ def purge_end(order: int, time: float) -> str:
         string: str = ' STATUS-{:d}:  order k = {:d} purging done in {:s}\n'
         string += DIVIDER
 
-        form: Tuple[Any, ...] = (order, order, tools.time_str(time),)
+        form: Tuple[Any, ...] = (order, order, time_str(time),)
 
         return string.format(*form)
 

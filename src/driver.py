@@ -12,72 +12,70 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
-import sys
 import numpy as np
 from mpi4py import MPI
 
-import mbe
-import kernel
-import output
-import purge
-import system
-import calculation
-import expansion
-import parallel
-import tools
+from mbe import main as mbe_main
+from output import main_header, mbe_header, mbe_results, mbe_end, \
+                    screen_results, purge_header, purge_results, purge_end
+from purge import main as purge_main
+from system import MolCls
+from calculation import CalcCls
+from expansion import ExpCls
+from parallel import MPICls, mpi_finalize
+from tools import n_tuples, occ_prune, virt_prune, inc_dim, inc_shape, write_file
 
 
-def master(mpi: parallel.MPICls, mol: system.MolCls, \
-            calc:calculation.CalcCls, exp: expansion.ExpCls) -> None:
+def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         """
         this function is the main pymbe master function
         """
         # print expansion headers
-        print(output.main_header(mpi=mpi, method=calc.model['method']))
+        print(main_header(mpi=mpi, method=calc.model['method']))
 
         # print output from restarted calculation
         if calc.restart:
             for i in range(exp.min_order, exp.start_order):
 
                 # print mbe header
-                print(output.mbe_header(i, exp.n_tuples['prop'][i-exp.min_order]))
+                print(mbe_header(i, exp.n_tuples['prop'][i-exp.min_order]))
 
                 # print mbe end
-                print(output.mbe_end(i, exp.time['mbe'][i-exp.min_order], \
-                                     exp.n_tuples['inc'][i-exp.min_order]))
+                print(mbe_end(i, exp.time['mbe'][i-exp.min_order], \
+                              exp.n_tuples['inc'][i-exp.min_order]))
 
                 # print mbe results
-                print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
-                                         exp.min_order, i, exp.prop[calc.target_mbe]['tot'], \
-                                         exp.mean_inc[i-exp.min_order], exp.min_inc[i-exp.min_order], \
-                                         exp.max_inc[i-exp.min_order], exp.mean_ndets[i-exp.min_order], \
-                                         exp.min_ndets[i-exp.min_order], exp.max_ndets[i-exp.min_order]))
+                print(mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
+                                  exp.min_order, i, exp.prop[calc.target_mbe]['tot'], \
+                                  exp.mean_inc[i-exp.min_order], exp.min_inc[i-exp.min_order], \
+                                  exp.max_inc[i-exp.min_order], exp.mean_ndets[i-exp.min_order], \
+                                  exp.min_ndets[i-exp.min_order], exp.max_ndets[i-exp.min_order]))
 
                 # print screening results
                 exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order], exp.exp_space[i-exp.min_order+1])
                 if 0 < exp.screen_orbs.size:
-                    print(output.screen_results(i, exp.screen_orbs, exp.exp_space))
+                    print(screen_results(i, exp.screen_orbs, exp.exp_space))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
 
             # theoretical and actual number of tuples at current order
-            exp.n_tuples['theo'].append(tools.n_tuples(exp.exp_space[0][exp.exp_space[0] < mol.nocc], \
-                                                       exp.exp_space[0][mol.nocc <= exp.exp_space[0]], \
-                                                       tools.occ_prune(calc.occup, calc.ref_space), \
-                                                       tools.virt_prune(calc.occup, calc.ref_space), exp.order))
+            exp.n_tuples['theo'].append(n_tuples(exp.exp_space[0][exp.exp_space[0] < mol.nocc], \
+                                                 exp.exp_space[0][mol.nocc <= exp.exp_space[0]], \
+                                                 occ_prune(calc.occup, calc.ref_space), \
+                                                 virt_prune(calc.occup, calc.ref_space), exp.order))
             if len(exp.n_tuples['prop']) == exp.order - exp.min_order:
-                exp.n_tuples['prop'].append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                                           exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                                           tools.occ_prune(calc.occup, calc.ref_space), \
-                                                           tools.virt_prune(calc.occup, calc.ref_space), exp.order))
+                exp.n_tuples['prop'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                                     exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
+                                                     occ_prune(calc.occup, calc.ref_space), \
+                                                     virt_prune(calc.occup, calc.ref_space), exp.order))
 
             # print mbe header
-            print(output.mbe_header(exp.order, exp.n_tuples['prop'][-1]))
+            print(mbe_header(exp.order, exp.n_tuples['prop'][-1]))
 
             # main mbe function
             hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, \
-                mean_inc, min_inc, max_inc = mbe.main(mpi, mol, calc, exp)
+                mean_inc, min_inc, max_inc = mbe_main(mpi, mol, calc, exp)
 
             # append window to hashes
             if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
@@ -117,14 +115,14 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.max_inc.append(max_inc)
 
             # print mbe end
-            print(output.mbe_end(exp.order, exp.time['mbe'][-1], \
-                                 exp.n_tuples['inc'][-1]))
+            print(mbe_end(exp.order, exp.time['mbe'][-1], \
+                          exp.n_tuples['inc'][-1]))
 
             # print mbe results
-            print(output.mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
-                                     exp.min_order, exp.order, exp.prop[calc.target_mbe]['tot'], \
-                                     exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
-                                     exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
+            print(mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
+                              exp.min_order, exp.order, exp.prop[calc.target_mbe]['tot'], \
+                              exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
+                              exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
             # update screen_orbs
             if exp.order == exp.min_order:
@@ -134,47 +132,47 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
 
             # print screening results
             if 0 < exp.screen_orbs.size:
-                print(output.screen_results(exp.order, exp.screen_orbs, exp.exp_space))
+                print(screen_results(exp.order, exp.screen_orbs, exp.exp_space))
 
             # print header
-            print(output.purge_header(exp.order))
+            print(purge_header(exp.order))
 
             # main purging function
-            exp.prop[calc.target_mbe], exp.n_tuples = purge.main(mpi, mol, calc, exp)
+            exp.prop[calc.target_mbe], exp.n_tuples = purge_main(mpi, mol, calc, exp)
 
             # print purging results
             if exp.order + 1 <= exp.exp_space[-1].size and exp.n_tuples['inc'][-1] < exp.n_tuples['prop'][-1]:
-                print(output.purge_results(exp.n_tuples, exp.min_order, exp.order))
+                print(purge_results(exp.n_tuples, exp.min_order, exp.order))
 
             # print purge end
-            print(output.purge_end(exp.order, exp.time['purge'][-1]))
+            print(purge_end(exp.order, exp.time['purge'][-1]))
 
             # write restart files
             if calc.misc['rst']:
                 if exp.screen_orbs.size > 0:
                     for k in range(exp.order-exp.min_order+1):
                         buf = exp.prop[calc.target_mbe]['hashes'][k].Shared_query(0)[0] # type: ignore
-                        hashes = np.ndarray(buffer=buf, dtype=np.int64, \
-                                            shape=(exp.n_tuples['inc'][k],))
-                        tools.write_file(k + exp.min_order, hashes, 'mbe_hashes')
+                        hashes = np.ndarray(buffer = buf, dtype=np.int64, \
+                                            shape = (exp.n_tuples['inc'][k],))
+                        write_file(k + exp.min_order, hashes, 'mbe_hashes')
                         buf = exp.prop[calc.target_mbe]['inc'][k].Shared_query(0)[0] # type: ignore
                         inc = np.ndarray(buffer=buf, dtype=np.float64, \
-                                         shape=tools.inc_shape(exp.n_tuples['inc'][k], tools.inc_dim(calc.target_mbe)))
-                        tools.write_file(k + exp.min_order, inc, 'mbe_inc')
-                        tools.write_file(k + exp.min_order, np.asarray(exp.n_tuples['inc'][k]), 'mbe_n_tuples_inc')
+                                         shape = inc_shape(exp.n_tuples['inc'][k], inc_dim(calc.target_mbe)))
+                        write_file(k + exp.min_order, inc, 'mbe_inc')
+                        write_file(k + exp.min_order, np.asarray(exp.n_tuples['inc'][k]), 'mbe_n_tuples_inc')
                 else:
                     buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
                     hashes = np.ndarray(buffer=buf, dtype=np.int64, \
                                         shape=(exp.n_tuples['inc'][-1],))
-                    tools.write_file(exp.order, hashes, 'mbe_hashes')
+                    write_file(exp.order, hashes, 'mbe_hashes')
                     buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
                     inc = np.ndarray(buffer=buf, dtype=np.float64, \
-                                     shape=tools.inc_shape(exp.n_tuples['inc'][-1], tools.inc_dim(calc.target_mbe)))
-                    tools.write_file(exp.order, inc, 'mbe_inc')
-                    tools.write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
-                tools.write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
-                tools.write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
-                tools.write_file(exp.order, np.asarray(exp.time['purge'][-1]), 'mbe_time_purge')
+                                     shape = inc_shape(exp.n_tuples['inc'][-1], inc_dim(calc.target_mbe)))
+                    write_file(exp.order, inc, 'mbe_inc')
+                    write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
+                write_file(exp.order, np.asarray(exp.prop[calc.target_mbe]['tot'][-1]), 'mbe_tot')
+                write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
+                write_file(exp.order, np.asarray(exp.time['purge'][-1]), 'mbe_time_purge')
 
             # convergence check
             if exp.exp_space[-1].size < exp.order + 1 or exp.order == exp.max_order:
@@ -204,8 +202,7 @@ def master(mpi: parallel.MPICls, mol: system.MolCls, \
                 break
 
 
-def slave(mpi: parallel.MPICls, mol: system.MolCls, \
-            calc: calculation.CalcCls, exp: expansion.ExpCls) -> None:
+def slave(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         """
         this function is the main pymbe slave function
         """
@@ -225,13 +222,13 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
 
                 # actual number of tuples at current order
                 if len(exp.n_tuples['prop']) == exp.order - exp.min_order:
-                    exp.n_tuples['prop'].append(tools.n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                                               exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                                               tools.occ_prune(calc.occup, calc.ref_space), \
-                                                               tools.virt_prune(calc.occup, calc.ref_space), exp.order))
+                    exp.n_tuples['prop'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                                         exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
+                                                         occ_prune(calc.occup, calc.ref_space), \
+                                                         virt_prune(calc.occup, calc.ref_space), exp.order))
 
                 # main mbe function
-                hashes_win, inc_win = mbe.main(mpi, mol, calc, exp, \
+                hashes_win, inc_win = mbe_main(mpi, mol, calc, exp, \
                                                rst_read_a=msg['rst_read_a'], \
                                                rst_read_b=msg['rst_read_b'], \
                                                tup_idx_a=msg['tup_idx_a'], \
@@ -263,13 +260,13 @@ def slave(mpi: parallel.MPICls, mol: system.MolCls, \
                 exp.order = msg['order']
 
                 # main purging function
-                exp.prop[calc.target_mbe], exp.n_tuples = purge.main(mpi, mol, calc, exp)
+                exp.prop[calc.target_mbe], exp.n_tuples = purge_main(mpi, mol, calc, exp)
 
             elif msg['task'] == 'exit':
 
                 slave = False
 
         # finalize mpi
-        parallel.finalize(mpi)
+        mpi_finalize(mpi)
 
 
