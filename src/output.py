@@ -2,25 +2,24 @@
 # -*- coding: utf-8 -*
 
 """
-output module containing all print functions in pymbe
+output module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
-__version__ = '0.8'
+__version__ = '0.9'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import os
-from datetime import datetime
 import numpy as np
+from datetime import datetime
 from pyscf import symm
-from typing import List, Tuple, Union, Any
+from typing import List, Tuple, Dict, Union, Any
 
-import parallel
-import kernel
-import tools
+from parallel import MPICls
+from tools import git_version, time_str, intervals
 
 
 # output folder and files
@@ -33,7 +32,7 @@ FILL = ' '+'|'*92
 BAR_LENGTH = 50
 
 
-def main_header(mpi: Union[None, parallel.MPICls] = None, method: Union[None, str] = None) -> str:
+def main_header(mpi: Union[None, MPICls] = None, method: Union[None, str] = None) -> str:
         """
         this function prints the main pymbe header
         """
@@ -51,7 +50,7 @@ def main_header(mpi: Union[None, parallel.MPICls] = None, method: Union[None, st
         form: Tuple[Any, ...] = (datetime.now().strftime('%Y-%m-%d & %H:%M:%S'),)
         # git hash
         string += "   -- git version   : {:s}\n"
-        form += (tools.git_version(),)
+        form += (git_version(),)
         if mpi is not None:
             string += "   -- local masters :\n"
             for master_idx in range(mpi.num_masters):
@@ -64,23 +63,23 @@ def main_header(mpi: Union[None, parallel.MPICls] = None, method: Union[None, st
 
             string += HEADER+'\n'
             string += '{:^87s}\n'
-            string += HEADER+'\n\n'
+            string += HEADER#+'\n\n'
 
             form += (method.upper()+' expansion',)
 
         return string.format(*form)
 
 
-def mbe_header(n_tuples: int, order: int) -> str:
+def mbe_header(order: int, n_tuples: int) -> str:
         """
         this function prints the mbe header
         """
         # set string
-        string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
+        string: str = '\n\n'+DIVIDER+'\n'
+        form: Tuple[int, ...] = ()
+        string += ' STATUS-{:d}:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
+        form += (order, order, n_tuples,)
         string += DIVIDER
-
-        form: Tuple[int, int] = (order, n_tuples)
 
         return string.format(*form)
 
@@ -99,9 +98,9 @@ def mbe_debug(atom: Union[List[str], str], symmetry: str, orbsym: np.ndarray, ro
         else:
             tup_sym = ['A'] * tup.size
 
-        string: str = ' INC: order = {:d} , tup = {:} , space = ({:d}e,{:d}o) , n_dets = {:.2e}\n'
+        string: str = ' INC-{:d}: order = {:d} , tup = {:} , space = ({:d}e,{:d}o) , n_dets = {:.2e}\n'
         string += '      symmetry = {:}\n'
-        form: Tuple[Any, ...] = (order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, ndets_tup, tup_sym)
+        form: Tuple[Any, ...] = (order, order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, ndets_tup, tup_sym)
 
         if np.isscalar(inc_tup):
             string += '      increment for root {:d} = {:.4e}\n'
@@ -113,32 +112,32 @@ def mbe_debug(atom: Union[List[str], str], symmetry: str, orbsym: np.ndarray, ro
         return string.format(*form)
 
 
-def mbe_status(prog: float) -> str:
+def mbe_status(order:int, prog: float) -> str:
         """
         this function prints the status of an mbe phase
         """
         status: int = int(round(BAR_LENGTH * prog))
         remainder: int = (BAR_LENGTH - status)
 
-        return ' STATUS:   [{:}]   ---  {:>6.2f} %'.\
-            format('#' * status + '-' * remainder, prog * 100.)
+        return ' STATUS-{:d}:   [{:}]   ---  {:>6.2f} %'.\
+            format(order, '#' * status + '-' * remainder, prog * 100.)
 
 
-def mbe_end(order: int, time: float) -> str:
+def mbe_end(order: int, time: float, n_tuples: int) -> str:
         """
         this function prints the end mbe information
         """
         # set string
         string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} MBE done in {:s}\n'
+        string += ' STATUS-{:d}:  order k = {:d} MBE done in {:s}  ---  {:d} tuples retained\n'
         string += DIVIDER
 
-        form: Tuple[int, str] = (order, tools.time_str(time),)
+        form: Tuple[Any, ...] = (order, order, time_str(time), n_tuples,)
 
         return string.format(*form)
 
 
-def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_order: int, \
+def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, \
                 order: int, prop_tot: List[Union[float, np.ndarray]], \
                 mean_inc: np.ndarray, min_inc: np.ndarray, max_inc: np.ndarray, \
                 mean_ndets: np.ndarray, min_ndets: np.ndarray, max_ndets: np.ndarray) -> str:
@@ -175,94 +174,121 @@ def mbe_results(occup: np.ndarray, target: str, root: int, min_order: int, max_o
         # set string
         string: str = FILL+'\n'
         string += DIVIDER+'\n'
-        string += ' RESULT:{:^81}\n'
+        string += ' RESULT-{:d}:{:^81}\n'
+        form: Tuple[Any, ...] = (order, header,)
         string += DIVIDER+'\n'
 
         if target in ['energy', 'excitation']:
 
             # set string
             string += DIVIDER+'\n'
-            string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+            string += ' RESULT-{:d}:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
             string += DIVIDER+'\n'
-            string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+            string += ' RESULT-{:d}:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
 
-            form: Tuple[Any, ...] = (header, np.asscalar(mean_inc), np.asscalar(min_inc), np.asscalar(max_inc))
+            form += (order, order, np.asscalar(mean_inc), np.asscalar(min_inc), np.asscalar(max_inc))
 
         elif target in ['dipole', 'trans']:
 
             # set components
             string += DIVIDER
-            form = (header,)
             comp = ('x-component', 'y-component', 'z-component')
 
             # loop over x, y, and z
             for k in range(3):
 
                 # set string
-                string += '\n RESULT:{:^81}\n'
+                string += '\n RESULT-{:d}:{:^81}\n'
                 string += DIVIDER+'\n'
-                string += ' RESULT:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
+                string += ' RESULT-{:d}:      mean increment     |      min. abs. increment     |     max. abs. increment\n'
                 string += DIVIDER+'\n'
-                string += ' RESULT:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
+                string += ' RESULT-{:d}:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
                 if k < 2:
                     string += DIVIDER
-                form += (comp[k], mean_inc[k], min_inc[k], max_inc[k],) # type: ignore
+                form += (order, comp[k], order, order, mean_inc[k], min_inc[k], max_inc[k],) # type: ignore
 
         # set string
         string += DIVIDER+'\n'
         string += DIVIDER+'\n'
-        string += ' RESULT:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
+        string += ' RESULT-{:d}:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
         string += DIVIDER+'\n'
-        string += ' RESULT:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
+        string += ' RESULT-{:d}:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
         string += DIVIDER+'\n'
-        form += (np.asscalar(mean_ndets), np.asscalar(min_ndets), np.asscalar(max_ndets))
-
-        if order < max_order:
-            string += FILL
-        else:
-            string += '\n\n'
-
-        return string.format(*form)
-
-
-def screen_header(order: int) -> str:
-        """
-        this function prints the screening header
-        """
-        # set string
-        string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} screening started\n'
+        string += FILL+'\n'
         string += DIVIDER
-
-        form: Tuple[int] = (order,)
+        form += (order, order, np.asscalar(mean_ndets), np.asscalar(min_ndets), np.asscalar(max_ndets))
 
         return string.format(*form)
 
 
-def screen_results(orbs) -> str:
+def screen_results(order: int, orbs: np.ndarray, exp_space: List[np.ndarray]) -> str:
         """
         this function prints the screened MOs
         """
-        string: str = ' RESULT:  screened MOs - {:}'
+        # init string
+        string: str = ' RESULT-{:d}:  screened MOs --- '.format(order)
+        # divide orbs into intervals
+        orbs_ints = [i for i in intervals(orbs)]
+        for idx, i in enumerate(orbs_ints):
+            elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
+            if 0 < idx:
+                string += ' RESULT-{:d}:{:19s}'.format(order, '')
+            string += '[{:}]\n'.format(elms)
+        total_screen = np.setdiff1d(exp_space[0], exp_space[-1])
+        string += DIVIDER+'\n'
+        string += ' RESULT-{:d}:  total number of screened MOs: {:}\n'.format(order, total_screen.size)
+        string += DIVIDER+'\n'
+        string += FILL+'\n'
+        string += DIVIDER
 
-        form: Tuple[List[int]] = (orbs.tolist(),)
+        return string
+
+
+def purge_header(order: int) -> str:
+        """
+        this function prints the purging header
+        """
+        # set string
+        string: str = ' STATUS-{:d}:  order k = {:d} purging started\n'
+        string += DIVIDER
+
+        form: Tuple[Any, ...] = (order, order,)
 
         return string.format(*form)
 
 
-def screen_end(order: int, time: float, conv: bool = False) -> str:
+def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) -> str:
         """
-        this function prints the end screening information
+        this function prints the updated number of tuples
         """
-        string: str = DIVIDER+'\n'
-        string += ' STATUS:  order k = {:d} screening done in {:s}\n'
+        # init string
+        string: str = FILL+'\n'
+        string += DIVIDER+'\n'
+        string += ' RESULT-{:d}:  after purging of tuples --- '.format(order)
+        for k in range(min_order, order + 1):
+            if min_order < k:
+                string += ' RESULT-{:d}:{:30s}'.format(order, '')
+            red = (1. - n_tuples['inc'][k-min_order] / n_tuples['prop'][k-min_order]) * 100.
+            string += 'no. of tuples at k = {:2d} has been reduced by: {:6.2f} %\n'.format(k, red)
+        total_red_abs = sum(n_tuples['prop']) - sum(n_tuples['inc'])
+        total_red_rel = (1. - sum(n_tuples['inc']) / sum(n_tuples['prop'])) * 100.
+        string += DIVIDER+'\n'
+        string += ' RESULT-{:d}:  total number of reduced tuples: {:} ({:.2f} %)\n'.format(order, total_red_abs, total_red_rel)
+        string += DIVIDER+'\n'
+        string += FILL+'\n'
+        string += DIVIDER
 
-        if conv:
-            string += ' STATUS:                  *** convergence has been reached ***                         \n'
+        return string
 
-        string += DIVIDER+'\n\n'
 
-        form: Tuple[int, str] = (order, tools.time_str(time),)
+def purge_end(order: int, time: float) -> str:
+        """
+        this function prints the end purging information
+        """
+        string: str = ' STATUS-{:d}:  order k = {:d} purging done in {:s}\n'
+        string += DIVIDER
+
+        form: Tuple[Any, ...] = (order, order, time_str(time),)
 
         return string.format(*form)
 

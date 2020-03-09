@@ -13,6 +13,6 @@ target = {'energy': True}
 ref = {'method': 'casci', 'select': [1, 2, 3, 4]}
 orbs = {'type': 'ccsd'}
 state = {'wfnsym': 'a1', 'root': 0}
-thres = {'init': 1.0e-10, 'relax': 5.0}
-misc = {'rst_freq': 3}
+thres = {'inc': 1e-5}
+misc = {'rst_freq': 9}
 

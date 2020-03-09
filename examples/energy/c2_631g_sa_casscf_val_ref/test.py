@@ -12,7 +12,7 @@ def configure(options, input_files, extra_args):
     at runtime for code specific launch command and file naming.
     """
     launcher = ''
-    full_command = 'mpiexec -np 4 python ../../../src/main.py'
+    full_command = 'mpiexec -np 8 python ../../../src/main.py'
     output_prefix = 'output/pymbe'
     relative_reference_path = 'ref'
     return launcher, full_command, output_prefix, relative_reference_path
@@ -21,10 +21,10 @@ assert version_info.major == 2
 
 f = [
     get_filter(from_string = 'MBE order  |        MBE',
-               num_lines = 12,
+               num_lines = 10,
                rel_tolerance = 1.0e-6),
     get_filter(from_string = 'MBE order  |     total energy',
-               num_lines = 12,
+               num_lines = 10,
                rel_tolerance = 1.0e-6)
 ]
 
