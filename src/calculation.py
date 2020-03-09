@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*
 
 """
-calculation module containing all calculation attributes
+calculation module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
-__version__ = '0.8'
+__version__ = '0.9'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
@@ -15,12 +15,12 @@ __status__ = 'Development'
 import re
 import sys
 import os
-import ast
 import numpy as np
+from ast import literal_eval
 from pyscf import symm, scf
 from typing import Dict, List, Tuple, Union, Any
 
-import tools
+from tools import assertion
 
 
 # attributes
@@ -42,12 +42,13 @@ class CalcCls:
                 self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
                 self.ref: Dict[str, Any] = {'method': 'casci', 'hf_guess': True, 'active': 'manual', \
                                             'select': [i for i in range(ncore, nelectron // 2)], 'weights': [1.], \
-                                            'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0]}
+                                            'wfnsym': [symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0], \
+                                            'pi-atoms': [], 'ao-labels': []}
                 self.base: Dict[str, Union[None, str]] = {'method': None}
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
                 self.extra: Dict[str, bool] = {'pi_prune': False}
-                self.thres: Dict[str, float] = {'inc': 1.e-10}
-                self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6)}
+                self.thres: Dict[str, float] = {'inc': 1.e-6}
+                self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6), 'purge': True}
                 self.orbs: Dict[str, str] = {'type': 'can'}
                 self.mpi: Dict[str, int] = {}
                 self.prop: Dict[str, Dict[str, Union[float, np.ndarray]]] = {'hf': {}, 'base': {}, 'ref': {}}
@@ -86,7 +87,7 @@ def set_calc(calc: CalcCls) -> CalcCls:
                             if attr in ATTR:
 
                                 try:
-                                    inp = ast.literal_eval(re.split('=',content[i])[1].strip())
+                                    inp = literal_eval(re.split('=',content[i])[1].strip())
                                 except ValueError:
                                     raise ValueError('wrong input -- error in reading in {:} dictionary'.format(attr))
 
@@ -117,76 +118,82 @@ def set_calc(calc: CalcCls) -> CalcCls:
         return calc
 
 
-def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
+def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                 symmetry: Union[bool, str]) -> None:
         """
         this function performs sanity checks of calc and mpi attributes
         """
         # expansion model
-        tools.assertion(isinstance(calc.model['method'], str), \
+        assertion(isinstance(calc.model['method'], str), \
                         'input electronic structure method (method) must be a string')
-        tools.assertion(calc.model['method'] in ['ccsd', 'ccsd(t)', 'fci'], \
+        assertion(calc.model['method'] in ['ccsd', 'ccsd(t)', 'fci'], \
                         'valid expansion methods (method) are: ccsd, ccsd(t), and fci')
-        tools.assertion(calc.model['solver'] in ['pyscf_spin0', 'pyscf_spin1'], \
+        assertion(calc.model['solver'] in ['pyscf_spin0', 'pyscf_spin1'], \
                         'valid FCI solvers (solver) are: pyscf_spin0 and pyscf_spin1')
-        tools.assertion(isinstance(calc.model['hf_guess'], bool), \
+        assertion(isinstance(calc.model['hf_guess'], bool), \
                         'HF initial guess for FCI calcs (hf_guess) must be a bool')
         if calc.model['method'] != 'fci':
-            tools.assertion(calc.model['solver'] == 'pyscf_spin0', \
+            assertion(calc.model['solver'] == 'pyscf_spin0', \
                             'setting a FCI solver for a non-FCI expansion model is not meaningful')
-            tools.assertion(calc.model['hf_guess'], \
+            assertion(calc.model['hf_guess'], \
                             'non-HF initial guess (hf_guess) only valid for FCI calcs')
         if spin > 0:
-            tools.assertion(calc.model['solver'] != 'pyscf_spin0', \
+            assertion(calc.model['solver'] != 'pyscf_spin0', \
                             'the pyscf_spin0 FCI solver is designed for spin singlets only')
 
         # hf reference
-        tools.assertion(isinstance(calc.hf_ref['newton'], bool), \
+        assertion(isinstance(calc.hf_ref['newton'], bool), \
                         'newton input in hf_ref dict (newton) must be a bool')
-        tools.assertion(isinstance(calc.hf_ref['symmetry'], (str, bool)), \
+        assertion(isinstance(calc.hf_ref['symmetry'], (str, bool)), \
                         'HF symmetry input in hf_ref dict (symmetry) must be a str or bool')
         if isinstance(calc.hf_ref['symmetry'], str):
-            tools.assertion(symm.addons.std_symb(calc.hf_ref['symmetry']) in symm.param.POINTGROUP, \
+            assertion(symm.addons.std_symb(calc.hf_ref['symmetry']) in symm.param.POINTGROUP, \
                             'illegal HF symmetry input in hf_ref dict (symmetry)')
-        tools.assertion(isinstance(calc.hf_ref['init_guess'], str), \
+        assertion(isinstance(calc.hf_ref['init_guess'], str), \
                         'HF initial guess in hf_ref dict (init_guess) must be a str')
-        tools.assertion(calc.hf_ref['init_guess'] in ['minao', 'atom', '1e'], \
+        assertion(calc.hf_ref['init_guess'] in ['minao', 'atom', '1e'], \
                         'valid HF initial guesses in hf_ref dict (init_guess) are: minao, atom, and 1e')
-        tools.assertion(isinstance(calc.hf_ref['irrep_nelec'], dict), \
+        assertion(isinstance(calc.hf_ref['irrep_nelec'], dict), \
                         'occupation input in hf_ref dict (irrep_nelec) must be a dict')
 
         # reference model
-        tools.assertion(calc.ref['method'] in ['casci', 'casscf'], \
+        assertion(calc.ref['method'] in ['casci', 'casscf'], \
                         'valid reference models are: casci and casscf')
-        tools.assertion(calc.ref['active'] == 'manual', \
-                        'active space choices are currently: manual')
-        tools.assertion(isinstance(calc.ref['select'], list), \
+        assertion(calc.ref['active'] in ['manual', 'avas', 'pios'], \
+                        'active space choices are currently: manuali, avas, or pios')
+        assertion(isinstance(calc.ref['select'], list), \
                         'select key (select) for active space must be a list of orbitals')
-        tools.assertion(isinstance(calc.ref['hf_guess'], bool), \
+        assertion(isinstance(calc.ref['ao-labels'], list), \
+                        'list of ao labels (ao-labels) for avas space must be a list of ao strings')
+        assertion(isinstance(calc.ref['pi-atoms'], list), \
+                        'list of pi-space atoms (pi-atoms) for pios space must be a list of atomic indices (index-1 based)')
+        assertion(isinstance(calc.ref['hf_guess'], bool), \
                         'HF initial guess for CASSCF calc (hf_guess) must be a bool')
-        tools.assertion(len(calc.ref['wfnsym']) == len(calc.ref['weights']), \
+        assertion(len(calc.ref['wfnsym']) == len(calc.ref['weights']), \
                         'list of wfnsym and weights for CASSCF calc (wfnsym/weights) must be of same length')
-        tools.assertion(isinstance(calc.ref['weights'], (tuple, list)), \
+        assertion(isinstance(calc.ref['weights'], (tuple, list)), \
                         'weights for CASSCF calc (weights) must be a list of floats')
-        tools.assertion(all(isinstance(i, float) for i in calc.ref['weights']), \
+        assertion(all(isinstance(i, float) for i in calc.ref['weights']), \
                         'weights for CASSCF calc (weights) must be floats')
-        tools.assertion(abs(sum(calc.ref['weights']) - 1.) < 1.e-3, \
+        assertion(abs(sum(calc.ref['weights']) - 1.) < 1.e-3, \
                         'sum of weights for CASSCF calc (weights) must be equal to 1.')
         if atom:
             if calc.ref['hf_guess']:
-                tools.assertion(len(set(calc.ref['wfnsym'])) == 1, \
+                assertion(len(set(calc.ref['wfnsym'])) == 1, \
                                 'illegal choice of ref wfnsym when enforcing hf initial guess')
-                tools.assertion(calc.ref['wfnsym'][0] == symm.addons.irrep_id2name(symmetry, 0), \
+                assertion(calc.ref['wfnsym'][0] == symm.addons.irrep_id2name(symmetry, 0), \
                                 'illegal choice of ref wfnsym when enforcing hf initial guess')
             for i in range(len(calc.ref['wfnsym'])):
                 try:
                     calc.ref['wfnsym'][i] = symm.addons.irrep_name2id(symmetry, calc.ref['wfnsym'][i])
                 except Exception as err:
                     raise ValueError('illegal choice of ref wfnsym -- PySCF error: {:}'.format(err))
+        if calc.ref['active'] in ['avas', 'pios']:
+           assertion(spin == 0, 'illegal active space selection algortihm for non-singlet system')
 
         # base model
         if calc.base['method'] is not None:
-            tools.assertion(calc.base['method'] in ['ccsd', 'ccsd(t)'], \
+            assertion(calc.base['method'] in ['ccsd', 'ccsd(t)'], \
                             'valid base models are currently: ccsd, and ccsd(t)')
 
         # state
@@ -195,67 +202,67 @@ def sanity_chk(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                 calc.state['wfnsym'] = symm.addons.irrep_name2id(symmetry, calc.state['wfnsym'])
             except Exception as err:
                 raise ValueError('illegal choice of state wfnsym -- PySCF error: {:}'.format(err))
-            tools.assertion(calc.state['root'] >= 0, \
+            assertion(calc.state['root'] >= 0, \
                             'choice of target state (root) must be an int >= 0')
             if calc.model['method'] != 'fci':
-                tools.assertion(calc.state['wfnsym'] == 0, \
+                assertion(calc.state['wfnsym'] == 0, \
                                 'illegal choice of wfnsym for chosen expansion model')
-                tools.assertion(calc.state['root'] == 0, \
+                assertion(calc.state['root'] == 0, \
                                 'excited states not implemented for chosen expansion model')
 
         # targets
-        tools.assertion(any(calc.target.values()) and len([x for x in calc.target.keys() if calc.target[x]]) == 1, \
+        assertion(any(calc.target.values()) and len([x for x in calc.target.keys() if calc.target[x]]) == 1, \
                         'one and only one target property must be requested')
-        tools.assertion(all(isinstance(i, bool) for i in calc.target.values()), \
+        assertion(all(isinstance(i, bool) for i in calc.target.values()), \
                         'values in target input (target) must be bools')
-        tools.assertion(set(list(calc.target.keys())) <= set(['energy', 'excitation', 'dipole', 'trans']), \
+        assertion(set(list(calc.target.keys())) <= set(['energy', 'excitation', 'dipole', 'trans']), \
                         'invalid choice for target property. valid choices are: '
                         'energy, excitation energy (excitation), dipole, and transition dipole (trans)')
         if calc.target['excitation']:
-            tools.assertion(calc.state['root'] > 0, \
+            assertion(calc.state['root'] > 0, \
                             'calculation of excitation energy (excitation) requires target state root >= 1')
         if calc.target['trans']:
-            tools.assertion(calc.state['root'] > 0, \
+            assertion(calc.state['root'] > 0, \
                             'calculation of transition dipole moment (trans) requires target state root >= 1')
 
         # extra
-        tools.assertion(isinstance(calc.extra['pi_prune'], bool), \
+        assertion(isinstance(calc.extra['pi_prune'], bool), \
                         'pruning of pi-orbitals (pi_prune) must be a bool')
         if calc.extra['pi_prune']:
-            tools.assertion(symm.addons.std_symb(symmetry) in ['D2h', 'C2v'], \
+            assertion(symm.addons.std_symb(symmetry) in ['D2h', 'C2v'], \
                             'pruning of pi-orbitals (pi_prune) is only implemented for linear D2h and C2v symmetries')
 
         # expansion thresholds
-        tools.assertion(isinstance(calc.thres['inc'], float), \
+        assertion(isinstance(calc.thres['inc'], float), \
                         'increment threshold (inc) must be a float')
 
         # orbital representation
-        tools.assertion(calc.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \
+        assertion(calc.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \
                         'valid occupied orbital representations (occ) are currently: '
                         'canonical (can), pipek-mezey (local), or natural orbs (ccsd or ccsd(t))')
         if calc.orbs['type'] != 'can':
-            tools.assertion(calc.ref['method'] == 'casci', \
+            assertion(calc.ref['method'] == 'casci', \
                             'non-canonical orbitals requires casci expansion reference')
         if atom and calc.orbs['type'] == 'local':
-            tools.assertion(symmetry == 'C1', \
+            assertion(symmetry == 'C1', \
                             'the combination of local orbs and point group symmetry '
                             'different from c1 is not allowed')
 
         # misc
-        tools.assertion(isinstance(calc.misc['order'], (int, type(None))), \
+        assertion(isinstance(calc.misc['order'], (int, type(None))), \
                         'maximum expansion order (order) must be an int >= 1')
         if calc.misc['order'] is not None:
-            tools.assertion(calc.misc['order'] >= 1, \
+            assertion(calc.misc['order'] >= 1, \
                             'maximum expansion order (order) must be an int >= 1')
             if len(calc.ref['select']) == 0:
-                tools.assertion(calc.misc['order'] >= 2, \
+                assertion(calc.misc['order'] >= 2, \
                                 'maximum expansion order (order) must be an int >= 2 '
                                 'for vacuum reference spaces')
-        tools.assertion(isinstance(calc.misc['rst'], bool), \
+        assertion(isinstance(calc.misc['rst'], bool), \
                         'restart logical (rst) must be a bool')
-        tools.assertion(isinstance(calc.misc['rst_freq'], int), \
+        assertion(isinstance(calc.misc['rst_freq'], int), \
                         'restart freqeuncy (rst_freq) must be an int')
-        tools.assertion(calc.misc['rst_freq'] >= 1, \
+        assertion(calc.misc['rst_freq'] >= 1, \
                         'restart frequency (rst_freq) must be an int >= 1')
 
 

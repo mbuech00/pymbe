@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*
 
 """
-tools module containing all helper functions used in pymbe
+tools module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
-__version__ = '0.8'
+__version__ = '0.9'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
@@ -15,14 +15,14 @@ __status__ = 'Development'
 import os
 import re
 import sys
-import traceback
-import subprocess
-from mpi4py import MPI
 import numpy as np
 import scipy.special as sc
-import functools
-import itertools
-import math
+from mpi4py import MPI
+from itertools import islice, combinations, groupby
+from math import floor, fsum as math_fsum
+from subprocess import Popen, PIPE
+from traceback import format_stack
+from contextlib import contextmanager
 from typing import Tuple, Set, List, Dict, Any, Generator, Union
 
 # restart folder
@@ -59,6 +59,21 @@ class Logger:
             pass
 
 
+@contextmanager
+def suppress_stdout():
+        """
+        this function suppresses stdout
+        see: https://stackoverflow.com/questions/2125702/how-to-suppress-console-output-in-python
+        """
+        with open(os.devnull, "w") as devnull:
+            old_stdout = sys.stdout
+            sys.stdout = devnull
+            try:
+                yield
+            finally:
+                sys.stdout = old_stdout
+
+
 def git_version() -> str:
         """
         this function returns the git revision as a string
@@ -74,7 +89,7 @@ def git_version() -> str:
             env['LANGUAGE'] = 'C'
             env['LANG'] = 'C'
             env['LC_ALL'] = 'C'
-            out = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env, cwd=get_pymbe_path()).communicate()[0]
+            out = Popen(cmd, stdout = PIPE, env=env, cwd=get_pymbe_path()).communicate()[0]
             return out
 
         try:
@@ -99,7 +114,7 @@ def assertion(cond: bool, reason: str) -> None:
         """
         if not cond:
             # get stack
-            stack = ''.join(traceback.format_stack()[:-1])
+            stack = ''.join(format_stack()[:-1])
             # print stack
             print('\n\n'+stack)
             print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
@@ -150,9 +165,9 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
         True
         """
         if a.ndim == 1:
-            return math.fsum(a)
+            return math_fsum(a)
         elif a.ndim == 2:
-            return np.fromiter(map(math.fsum, a.T), dtype=a.dtype, count=a.shape[1])
+            return np.fromiter(map(math_fsum, a.T), dtype=a.dtype, count=a.shape[1])
         else:
             raise NotImplementedError('tools.py: _fsum()')
 
@@ -162,7 +177,7 @@ def hash_2d(a: np.ndarray) -> np.ndarray:
         this function converts a 2d numpy array to a 1d array of hashes
 
         example:
-        >>> hash_2d(np.arange(4 * 4, dtype=np.int16).reshape(4, 4))
+        >>> hash_2d(np.arange(4 * 4, dtype=np.int64).reshape(4, 4))
         array([-2930228190932741801,  1142744019865853604, -8951855736587463849,
                 4559082070288058232])
         """
@@ -174,35 +189,34 @@ def hash_1d(a: np.ndarray) -> int:
         this function converts a 1d numpy array to a hash
 
         example:
-        >>> hash_1d(np.arange(5, dtype=np.int16))
+        >>> hash_1d(np.arange(5, dtype=np.int64))
         1974765062269638978
         """
-        return hash(a.astype(np.int64).tobytes())
+        return hash(a.tobytes())
 
 
-
-def hash_compare(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
+def hash_lookup(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
         """
         this function finds occurences of b in a through a binary search
 
         example:
-        >>> a = np.arange(10, dtype=np.int16)
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 9], dtype=np.int16))
+        >>> a = np.arange(10, dtype=np.int64)
+        >>> hash_lookup(a, np.array([1, 3, 5, 7, 9], dtype=np.int64))
         array([1, 3, 5, 7, 9])
-        >>> hash_compare(a, np.array([1, 3, 5, 7, 11], dtype=np.int16)) is None
+        >>> hash_lookup(a, np.array([1, 3, 5, 7, 11], dtype=np.int64)) is None
         True
         """
         left = a.searchsorted(b, side='left')
         right = a.searchsorted(b, side='right')
-
         if ((right - left) > 0).all():
             return left
         else:
             return None
 
 
-def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
-                ref_occ: bool, ref_virt: bool, order: int) -> Generator[np.ndarray, None, None]:
+def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_virt: bool, order: int, \
+           tup_occ: Union[np.ndarray, None] = None, \
+           tup_virt: Union[np.ndarray, None] = None) -> Generator[np.ndarray, None, None]:
         """
         this function is the main generator for tuples
 
@@ -226,139 +240,42 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
         >>> sum(1 for _ in gen)
         20
         """
+        if tup_occ is None and tup_virt is None:
+            order_start = 1
+            occ_start = virt_start = 0
+        elif tup_occ is not None and tup_virt is not None:
+            order_start = int(tup_occ.size)
+            occ_start = int(_comb_idx(occ_space, tup_occ))
+            virt_start = int(_comb_idx(virt_space, tup_virt))
+        elif tup_occ is not None and tup_virt is None:
+            order_start = order
+            occ_start = int(_comb_idx(occ_space, tup_occ))
+            virt_start = 0
+        elif tup_occ is None and tup_virt is not None:
+            order_start = order
+            occ_start = -1
+            virt_start = int(_comb_idx(virt_space, tup_virt))
+
         # combinations of occupied and virtual MOs
-        for k in range(1, order):
-            for tup_occ in itertools.combinations(occ_space, k):
-                for tup_virt in itertools.combinations(virt_space, order - k):
+        for k in range(order_start, order):
+            for tup_occ in islice(combinations(occ_space, k), occ_start, None):
+                for tup_virt in islice(combinations(virt_space, order - k), virt_start, None):
                     yield np.array(tup_occ + tup_virt, dtype=np.int64)
+                virt_start = 0
+            occ_start = 0
 
         # only occupied MOs
-        if ref_virt:
-            for tup_occ in itertools.combinations(occ_space, order):
+        if ref_virt and 0 <= occ_start:
+            for tup_occ in islice(combinations(occ_space, order), occ_start, None):
                 yield np.array(tup_occ, dtype=np.int64)
 
         # only virtual MOs
-        if ref_occ:
-            for tup_virt in itertools.combinations(virt_space, order):
+        if ref_occ and 0 <= virt_start:
+            for tup_virt in islice(combinations(virt_space, order), virt_start, None):
                 yield np.array(tup_virt, dtype=np.int64)
 
 
-def include_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
-                ref_occ: bool, ref_virt: bool, order: int, mo: int) -> Generator[int, None, None]:
-        """
-        this function is a generator for indices of subtuples, all with an MO restriction
-
-        example:
-        >>> nocc = 4
-        >>> order = 3
-        >>> occup = np.array([2.] * 4 + [0.] * 4)
-        >>> ref_space = np.array([], dtype=np.int)
-        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> gen = include_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...                   virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
-        >>> gen # doctest: +ELLIPSIS
-        <generator object include_idx at 0x...>
-        >>> sum(1 for _ in gen)
-        9
-        >>> ref_space = np.array([3, 4])
-        >>> gen = include_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...                   virt_prune(occup, ref_space), occ_prune(occup, ref_space), order, 2)
-        >>> gen # doctest: +ELLIPSIS
-        <generator object include_idx at 0x...>
-        >>> sum(1 for _ in gen)
-        10
-        """
-        # init counter
-        idx = 0
-
-        # combinations of occupied and virtual MOs
-        for k in range(1, order):
-            if mo in occ_space:
-                for tup_occ in itertools.combinations(occ_space, k):
-                    if mo in tup_occ:
-                        for tup_virt in itertools.combinations(virt_space, order - k):
-                            yield idx
-                            idx += 1
-                    else:
-                        idx += int(sc.binom(virt_space.size, order - k))
-            else:
-                for tup_occ in itertools.combinations(occ_space, k):
-                    for tup_virt in itertools.combinations(virt_space, order - k):
-                        if mo in tup_virt:
-                            yield idx
-                        idx += 1
-
-        # only occupied MOs
-        if ref_virt:
-            for tup_occ in itertools.combinations(occ_space, order):
-                if mo in tup_occ:
-                    yield idx
-                idx += 1
-
-        # only virtual MOs
-        if ref_occ:
-            for tup_virt in itertools.combinations(virt_space, order):
-                if mo in tup_virt:
-                    yield idx
-                idx += 1
-
-
-def restricted_idx(exp_occ: np.ndarray, exp_virt: np.ndarray, \
-                    tup_occ: np.ndarray, tup_virt: np.ndarray) -> int:
-        """
-        this function return the index of a given restricted subtuple
-
-        example:
-        >>> nocc = 4
-        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> tup = np.array([1, 5, 7])
-        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
-        4
-        >>> tup = np.array([1])
-        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
-        1
-        >>> tup = np.array([5, 7])
-        >>> restricted_idx(exp_space[exp_space < nocc], exp_space[nocc <= exp_space], tup[tup < nocc], tup[nocc <= tup])
-        13
-        """
-        # init counter
-        idx = 0.
-
-        # order
-        order = tup_occ.size + tup_virt.size
-
-        if 0 < exp_occ.size and 0 < exp_virt.size:
-            if 0 < tup_occ.size and 0 < tup_virt.size:
-                # scroll through combinations of occupied & virtual orbitals
-                idx += sum((sc.binom(exp_occ.size, k) * \
-                            sc.binom(exp_virt.size, order - k) for k in range(1, tup_occ.size)))
-                idx += _sub_idx(exp_occ, tup_occ) * sc.binom(exp_virt.size, tup_virt.size)
-                idx += _sub_idx(exp_virt, tup_virt)
-            else:
-                # skip all combinations of occupied & virtual orbitals
-                idx += sum((sc.binom(exp_occ.size, k) * \
-                            sc.binom(exp_virt.size, order - k) for k in range(1, order)))
-                if 0 < tup_occ.size and tup_virt.size == 0:
-                    # scroll through combinations of occupied orbitals
-                    idx += _sub_idx(exp_occ, tup_occ)
-                else:
-                    # skip all combinations occupied orbitals
-                    idx += sc.binom(exp_occ.size, order)
-                    # scroll through combinations of virtual orbitals
-                    idx += _sub_idx(exp_virt, tup_virt)
-        elif 0 < exp_occ.size and exp_virt.size == 0:
-            # scroll through combinations of occupied orbitals
-            idx += _sub_idx(exp_occ, tup_occ)
-        else:
-            # skip all combinations occupied orbitals
-            idx += sc.binom(exp_occ.size, order)
-            # scroll through combinations of virtual orbitals
-            idx += _sub_idx(exp_virt, tup_virt)
-
-        return int(idx)
-
-
-def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
+def _comb_idx(space: np.ndarray, tup: np.ndarray) -> float:
         """
         this function return the index of a given (ordered) combination
         returned from itertools.combinations
@@ -366,13 +283,13 @@ def _sub_idx(space: np.ndarray, tup: np.ndarray) -> float:
         example:
         >>> space = np.array([0, 1, 2, 5, 6, 7])
         >>> tup = np.array([1, 2, 6, 7])
-        >>> _sub_idx(space, tup)
+        >>> _comb_idx(space, tup)
         12.0
         >>> tup = np.array([1, 2])
-        >>> _sub_idx(space, tup)
+        >>> _comb_idx(space, tup)
         5.0
         >>> tup = np.array([5, 7])
-        >>> _sub_idx(space, tup)
+        >>> _comb_idx(space, tup)
         13.0
         """
         idx = _idx(space, tup[0], tup.size)
@@ -498,17 +415,17 @@ def _coor_to_idx(ij: Tuple[int, int]) -> int:
             return j * (j + 1) // 2 + i
 
 
-def cas_idx_tril(cas_idx: np.ndarray) -> np.ndarray:
+def idx_tril(cas_idx: np.ndarray) -> np.ndarray:
         """
         this function returns lower triangular cas indices
 
         example:
-        >>> cas_idx_tril(np.arange(2, 14, 3))
+        >>> idx_tril(np.arange(2, 14, 3))
         array([ 5, 17, 20, 38, 41, 44, 68, 71, 74, 77])
         """
         cas_idx_cart = _cas_idx_cart(cas_idx)
         return np.unique(np.fromiter(map(_coor_to_idx, cas_idx_cart), \
-                                        dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
+                                     dtype=cas_idx_cart.dtype, count=cas_idx_cart.shape[0]))
 
 
 def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -587,7 +504,7 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
         tup_pi_hashes.sort()
 
         # get indices of pi-pairs
-        idx = hash_compare(pi_hashes, tup_pi_hashes)
+        idx = hash_lookup(pi_hashes, tup_pi_hashes)
 
         return idx is not None
 
@@ -676,7 +593,7 @@ def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
         (4, 1)
         """
         y = site_idx % nx
-        x = int(math.floor(float(site_idx) / ny))
+        x = int(floor(float(site_idx) / ny))
         return x, y
 
 
@@ -697,9 +614,19 @@ def near_nbrs(site_xy: Tuple[int, int], nx: int, ny: int) -> List[Tuple[int, int
         return [up, down, left, right]
 
 
+def is_file(order: int, string: str) -> bool:
+        """
+        this function looks to see if a general restart file corresponding to the input string exists
+        """
+        if order is None:
+            return os.path.isfile(os.path.join(RST, '{:}.npy'.format(string)))
+        else:
+            return os.path.isfile(os.path.join(RST, '{:}_{:}.npy'.format(string, order)))
+
+
 def write_file(order: Union[None, int], arr: np.ndarray, string: str) -> None:
         """
-        this function writes a general restart file corresponding to input string
+        this function writes a general restart file corresponding to the input string
         """
         if order is None:
             np.save(os.path.join(RST, '{:}'.format(string)), arr)
@@ -709,7 +636,7 @@ def write_file(order: Union[None, int], arr: np.ndarray, string: str) -> None:
 
 def read_file(order: int, string: str) -> np.ndarray:
         """
-        this function reads a general restart file corresponding to input string
+        this function reads a general restart file corresponding to the input string
         """
         if order is None:
             return np.load(os.path.join(RST, '{:}.npy'.format(string)))
@@ -753,12 +680,26 @@ def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
         >>> [i for i in intervals(np.array([0, 1, 2, 5, 7, 8, 10, 11, 12, 13]))]
         [[0, 2], [5], [7, 8], [10, 13]]
         """
-        for key, group in itertools.groupby(enumerate(a), lambda x: x[1] - x[0]):
+        for key, group in groupby(enumerate(a), lambda x: x[1] - x[0]):
             group_lst = list(group)
             if len(group_lst) == 1:
                 yield [group_lst[0][1]]
             else:
                 yield [group_lst[0][1], group_lst[-1][1]]
+
+
+def inc_dim(target: str) -> int:
+        """
+        this function returns the dimension of increments
+        """
+        return 1 if target in ['energy', 'excitation'] else 3
+
+
+def inc_shape(n: int, dim: int) -> Union[Tuple[int], Tuple[int, int]]:
+        """
+        this function returns the shape of increments
+        """
+        return (n,) if dim == 1 else (n, dim)
 
 
 if __name__ == "__main__":

@@ -2,44 +2,42 @@
 # -*- coding: utf-8 -*
 
 """
-expansion module containing all expansion attributes
+expansion module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
-__version__ = '0.8'
+__version__ = '0.9'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-import functools
-import copy
+from copy import deepcopy
 from typing import List, Dict, Tuple, Union, Any
 
-import parallel
-import system
-import calculation
-import tools
+from system import MolCls
+from calculation import CalcCls
 
 
 class ExpCls:
         """
         this class contains the pymbe expansion attributes
         """
-        def __init__(self, mol: system.MolCls, calc: calculation.CalcCls) -> None:
+        def __init__(self, mol: MolCls, calc: CalcCls) -> None:
                 """
                 init expansion attributes
                 """
                 # set expansion model dict
-                self.model = copy.deepcopy(calc.model)
+                self.model = deepcopy(calc.model)
 
                 # init prop dict
-                self.prop: Dict[str, Dict[str, Union[List[float], MPI.Win]]] = {str(calc.target_mbe): {'inc': [], 'tot': []}}
+                self.prop: Dict[str, Dict[str, Union[List[float], MPI.Win]]] = {str(calc.target_mbe): {'inc': [], 'tot': [], \
+                                                                                                       'hashes': []}}
 
                 # init timings and and statistics lists
-                self.time: Dict[str, Union[List[float], np.ndarray]] = {'mbe': [], 'screen': []}
+                self.time: Dict[str, Union[List[float], np.ndarray]] = {'mbe': [], 'purge': []}
                 self.mean_inc: Union[List[float], np.ndarray] = []
                 self.min_inc: Union[List[float], np.ndarray] = []
                 self.max_inc: Union[List[float], np.ndarray] = []
@@ -54,11 +52,10 @@ class ExpCls:
                 self.min_order: int = 2 if calc.ref_space.size == 0 else 1
                 self.start_order: int = 0
                 self.final_order: int = 0
+                self.screen: np.ndarray = None
+                self.screen_orbs: np.ndarray = None
                 self.exp_space: List[np.ndarray] = [np.array([i for i in range(mol.ncore, mol.norb) if i not in calc.ref_space], dtype=np.int64)]
-                self.n_tuples: List[int] = [tools.n_tuples(self.exp_space[0][self.exp_space[0] < mol.nocc], \
-                                                           self.exp_space[0][mol.nocc <= self.exp_space[0]], \
-                                                           tools.virt_prune(calc.occup, calc.ref_space), \
-                                                           tools.occ_prune(calc.occup, calc.ref_space), self.min_order)]
+                self.n_tuples: Dict[str, List[int]] = {'theo': [], 'prop': [], 'inc': []}
                 self.pi_orbs: np.ndarray = None
                 self.pi_hashes: np.ndarray = None
 

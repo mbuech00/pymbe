@@ -11,5 +11,5 @@ system = {'basis': '631g', 'symmetry': 'c2v'}
 model = {'method': 'fci'}
 target = {'dipole': True}
 ref = {'method': 'casscf', 'select': [0, 1, 2, 3, 4, 5, 6]}
-thres = {'init': 1.0e-10, 'relax': 10.0}
+thres = {'inc': 5e-5}
 

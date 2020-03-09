@@ -12,5 +12,5 @@ model = {'method': 'fci'}
 target = {'energy': True}
 ref = {'method': 'casci', 'select': []}
 orbs = {'type': 'local'}
-thres = {'init': 1.0e-10, 'relax': 10.0}
+thres = {'inc': 5e-5}
 
