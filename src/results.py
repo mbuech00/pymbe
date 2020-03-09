@@ -13,7 +13,7 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import numpy as np
-from pyscf import symm
+from pyscf import gto, symm
 from typing import Tuple, List, Any
 try:
     import matplotlib
@@ -98,8 +98,8 @@ def _atom(mol: MolCls) -> str:
         string += '{:^43}\n'
         form: Tuple[Any] = ('geometry',)
         string += DIVIDER[:39]+'\n'
-        molecule = mol.atom.split('\n') # type: ignore
-        for i in range(len(molecule)-1):
+        molecule = gto.tostring(mol).split('\n')
+        for i in range(len(molecule)):
             atom = molecule[i].split()
             for j in range(1, 4):
                 atom[j] = float(atom[j]) # type: ignore
