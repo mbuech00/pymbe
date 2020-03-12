@@ -128,10 +128,12 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         if tup_a is not None:
             tup_occ_a = tup_a[tup_a < mol.nocc]
             tup_virt_a = tup_a[mol.nocc <= tup_a]
-        if tup_occ_a.size == 0:
-            tup_occ_a = None
-        if tup_virt_a.size == 0:
-            tup_virt_a = None
+            if tup_occ_a.size == 0:
+                tup_occ_a = None
+            if tup_virt_a.size == 0:
+                tup_virt_a = None
+        else:
+            tup_occ_a = tup_virt_a = None
 
         # loop until no tuples left
         if tup_idx_a < exp.n_tuples['prop'][-1]:
