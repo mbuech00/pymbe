@@ -342,11 +342,15 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['inc'][-1]
 
         # start tuples
-        if tup_b is None:
-            tup_occ_b = tup_virt_b = None
-        else:
+        if tup_b is not None:
             tup_occ_b = tup_b[tup_b < mol.nocc]
             tup_virt_b = tup_b[mol.nocc <= tup_b]
+            if tup_occ_b.size == 0:
+                tup_occ_b = None
+            if tup_virt_b.size == 0:
+                tup_virt_b = None
+        else:
+            tup_occ_b = tup_virt_b = None
 
         # mpi barrier
         mpi.local_comm.Barrier()
