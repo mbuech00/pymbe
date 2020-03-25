@@ -134,12 +134,13 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 tup_virt_a = None
         else:
             tup_occ_a = tup_virt_a = None
+        order_start, occ_start, virt_start = start_idx(exp_occ, exp_virt, tup_occ_a, tup_virt_a)
 
         # loop until no tuples left
         if tup_idx_a < exp.n_tuples['prop'][-1]:
 
             for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, \
-                                                 *start_idx(exp_occ, exp_virt, tup_occ_a, tup_virt_a)), tup_idx_a):
+                                                 order_start, occ_start, virt_start), tup_idx_a):
 
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
@@ -351,6 +352,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 tup_virt_b = None
         else:
             tup_occ_b = tup_virt_b = None
+        order_start, occ_start, virt_start = start_idx(exp_occ, exp_virt, tup_occ_b, tup_virt_b)
 
         # mpi barrier
         mpi.local_comm.Barrier()
@@ -358,7 +360,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         # loop until no tuples left
         if tup_idx_b < exp.n_tuples['inc'][-1]:
             for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, \
-                                                 *start_idx(exp_occ, exp_virt, tup_occ_b, tup_virt_b)), tup_idx_b):
+                                                 order_start, occ_start, virt_start), tup_idx_b):
 
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
