@@ -25,7 +25,7 @@ from system import MolCls
 from calculation import CalcCls
 from parallel import MPICls, mpi_reduce, mpi_allreduce
 from tools import is_file, read_file, write_file, inc_dim, inc_shape, \
-                    occ_prune, virt_prune, pi_prune, tuples, n_tuples, \
+                    occ_prune, virt_prune, pi_prune, tuples, n_tuples, start_idx, \
                     core_cas, idx_tril, nelec, hash_1d, hash_2d, hash_lookup, fsum
 
 
@@ -139,7 +139,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         if tup_idx_a < exp.n_tuples['prop'][-1]:
 
             for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, \
-                                                       tup_occ_a, tup_virt_a), tup_idx_a):
+                                                 *start_idx(exp_occ, exp_virt, tup_occ_a, tup_virt_a)), tup_idx_a):
 
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
@@ -358,7 +358,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         # loop until no tuples left
         if tup_idx_b < exp.n_tuples['inc'][-1]:
             for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, \
-                                                       tup_occ_b, tup_virt_b), tup_idx_b):
+                                                 *start_idx(exp_occ, exp_virt, tup_occ_b, tup_virt_b)), tup_idx_b):
 
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:

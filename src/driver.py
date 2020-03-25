@@ -60,11 +60,11 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         for exp.order in range(exp.start_order, exp.max_order+1):
 
             # theoretical and actual number of tuples at current order
-            exp.n_tuples['theo'].append(n_tuples(exp.exp_space[0][exp.exp_space[0] < mol.nocc], \
-                                                 exp.exp_space[0][mol.nocc <= exp.exp_space[0]], \
-                                                 occ_prune(calc.occup, calc.ref_space), \
-                                                 virt_prune(calc.occup, calc.ref_space), exp.order))
             if len(exp.n_tuples['prop']) == exp.order - exp.min_order:
+                exp.n_tuples['theo'].append(n_tuples(exp.exp_space[0][exp.exp_space[0] < mol.nocc], \
+                                                     exp.exp_space[0][mol.nocc <= exp.exp_space[0]], \
+                                                     occ_prune(calc.occup, calc.ref_space), \
+                                                     virt_prune(calc.occup, calc.ref_space), exp.order))
                 exp.n_tuples['prop'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
                                                      exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
                                                      occ_prune(calc.occup, calc.ref_space), \

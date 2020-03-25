@@ -215,8 +215,7 @@ def hash_lookup(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
 
 
 def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_virt: bool, order: int, \
-           tup_occ: Union[np.ndarray, None] = None, \
-           tup_virt: Union[np.ndarray, None] = None) -> Generator[np.ndarray, None, None]:
+           order_start: int = 1, occ_start: int = 0, virt_start: int = 0) -> Generator[np.ndarray, None, None]:
         """
         this function is the main generator for tuples
 
@@ -240,22 +239,6 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_vir
         >>> sum(1 for _ in gen)
         20
         """
-        if tup_occ is None and tup_virt is None:
-            order_start = 1
-            occ_start = virt_start = 0
-        elif tup_occ is not None and tup_virt is not None:
-            order_start = int(tup_occ.size)
-            occ_start = int(_comb_idx(occ_space, tup_occ))
-            virt_start = int(_comb_idx(virt_space, tup_virt))
-        elif tup_occ is not None and tup_virt is None:
-            order_start = order
-            occ_start = int(_comb_idx(occ_space, tup_occ))
-            virt_start = 0
-        elif tup_occ is None and tup_virt is not None:
-            order_start = order
-            occ_start = -1
-            virt_start = int(_comb_idx(virt_space, tup_virt))
-
         # combinations of occupied and virtual MOs
         for k in range(order_start, order):
             for tup_occ in islice(combinations(occ_space, k), occ_start, None):
@@ -273,6 +256,45 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_vir
         if ref_occ and 0 <= virt_start:
             for tup_virt in islice(combinations(virt_space, order), virt_start, None):
                 yield np.array(tup_virt, dtype=np.int64)
+
+
+def start_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
+              tup_occ: np.ndarray, tup_virt: np.ndarray) -> Tuple[int, int, int]:
+        """
+        this function return the start indices for a given occupied and virtual tuple
+
+        example:
+        >>> occ_space = np.array([0, 1, 2, 5])
+        >>> virt_space = np.array([6, 7, 9, 12])
+        >>> tup_occ = np.array([1, 2])
+        >>> tup_virt = np.array([6, 7, 12])
+        >>> start_idx(occ_space, virt_space, tup_occ, tup_virt)
+        (2, 3, 1)
+        >>> tup_occ = np.array([0, 1, 2])
+        >>> tup_virt = None
+        >>> start_idx(occ_space, virt_space, tup_occ, tup_virt)
+        (3, 0, 0)
+        >>> tup_occ = None
+        >>> tup_virt = np.array([6, 9, 12])
+        >>> start_idx(occ_space, virt_space, tup_occ, tup_virt)
+        (3, -1, 2)
+        """
+        if tup_occ is None and tup_virt is None:
+            order_start = 1
+            occ_start = virt_start = 0
+        elif tup_occ is not None and tup_virt is not None:
+            order_start = int(tup_occ.size)
+            occ_start = int(_comb_idx(occ_space, tup_occ))
+            virt_start = int(_comb_idx(virt_space, tup_virt))
+        elif tup_occ is not None and tup_virt is None:
+            order_start = int(tup_occ.size)
+            occ_start = int(_comb_idx(occ_space, tup_occ))
+            virt_start = 0
+        elif tup_occ is None and tup_virt is not None:
+            order_start = int(tup_virt.size)
+            occ_start = -1
+            virt_start = int(_comb_idx(virt_space, tup_virt))
+        return order_start, occ_start, virt_start
 
 
 def _comb_idx(space: np.ndarray, tup: np.ndarray) -> float:
