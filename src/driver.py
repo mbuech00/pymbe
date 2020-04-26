@@ -38,7 +38,7 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
             for i in range(exp.min_order, exp.start_order):
 
                 # print mbe header
-                print(mbe_header(i, exp.n_tuples['prop'][i-exp.min_order]))
+                print(mbe_header(i, exp.n_tuples['prop'][i-exp.min_order], calc.thres['perc'][exp.order - 1]))
 
                 # print mbe end
                 print(mbe_end(i, exp.time['mbe'][i-exp.min_order], \
@@ -71,7 +71,7 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                                                      virt_prune(calc.occup, calc.ref_space), exp.order))
 
             # print mbe header
-            print(mbe_header(exp.order, exp.n_tuples['prop'][-1]))
+            print(mbe_header(exp.order, exp.n_tuples['prop'][-1], calc.thres['perc'][exp.order - 1]))
 
             # main mbe function
             hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, \

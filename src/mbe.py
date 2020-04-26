@@ -281,12 +281,9 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             tot_screen = mpi_allreduce(mpi.global_comm, screen, op=MPI.MAX)
 
             # update expansion space wrt screened orbitals
-            if exp.order < calc.thres['start']:
-                exp.exp_space.append(np.copy(exp.exp_space[-1]))
-            else:
-                nonzero_screen = tot_screen[np.nonzero(tot_screen)[0]]
-                screen_idx = int(calc.thres['perc'] * exp.exp_space[-1].size)
-                exp.exp_space.append(exp.exp_space[-1][np.sort(np.argsort(nonzero_screen)[::-1][:screen_idx])])
+            nonzero_screen = tot_screen[np.nonzero(tot_screen)[0]]
+            screen_idx = int(calc.thres['perc'][exp.order - 1] * exp.exp_space[-1].size)
+            exp.exp_space.append(exp.exp_space[-1][np.sort(np.argsort(nonzero_screen)[::-1][:screen_idx])])
 
             # compute updated n_tuples
             exp.n_tuples['inc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \

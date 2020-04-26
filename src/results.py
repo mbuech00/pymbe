@@ -283,13 +283,6 @@ def _mpi(mpi: MPICls) -> str:
         return '{:} & {:}'.format(mpi.num_masters, mpi.global_size - mpi.num_masters)
 
 
-def _thres(calc: CalcCls) -> str:
-        """
-        this function returns the expansion threshold
-        """
-        return '{:.0f} % (start: {:d})'.format(calc.thres['perc'] * 100., calc.thres['start'])
-
-
 def _symm(mol: MolCls, calc: CalcCls) -> str:
         """
         this function returns the molecular point group symmetry
@@ -301,7 +294,7 @@ def _symm(mol: MolCls, calc: CalcCls) -> str:
                     string += ' (pi)'
                 return string
             else:
-                return 'C1(A)'
+                return 'A(C1)'
         else:
             return 'unknown'
 
@@ -448,7 +441,7 @@ def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
         form += ('','FCI solver','','=','',_solver(calc), \
-                    '','|','','thresholds','','=','',_thres(calc), \
+                    '','|','','','','','','', \
                     '','|','','wave funct. symmetry','','=','',_symm(mol, calc),)
 
         string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'
