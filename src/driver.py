@@ -38,7 +38,7 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
             for i in range(exp.min_order, exp.start_order):
 
                 # print mbe header
-                print(mbe_header(i, exp.n_tuples['prop'][i-exp.min_order], calc.thres['perc'][exp.order - 1]))
+                print(mbe_header(i, exp.n_tuples['prop'][i-exp.min_order], calc.thres['perc'][i-exp.min_order]))
 
                 # print mbe end
                 print(mbe_end(i, exp.time['mbe'][i-exp.min_order], \
