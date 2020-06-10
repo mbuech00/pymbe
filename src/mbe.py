@@ -25,7 +25,7 @@ from system import MolCls
 from calculation import CalcCls
 from parallel import MPICls, mpi_reduce, mpi_allreduce
 from tools import is_file, read_file, write_file, inc_dim, inc_shape, \
-                    occ_prune, virt_prune, pi_prune, tuples, n_tuples, \
+                    occ_prune, virt_prune, pi_prune, tuples, n_tuples, start_idx, \
                     core_cas, idx_tril, nelec, hash_1d, hash_2d, hash_lookup, fsum
 
 
@@ -113,10 +113,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         ref_virt = virt_prune(calc.occup, calc.ref_space)
 
         # init screen array
-        if exp.order == exp.min_order:
-            screen = np.zeros(mol.norb, dtype=bool)
-        else:
-            screen = np.ones(mol.norb, dtype=bool)
+        screen = np.zeros(mol.norb, dtype=np.float64)
         if rst_read_a:
             if mpi.global_master:
                 screen = exp.screen
@@ -125,17 +122,22 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['prop'][-1]
 
         # start tuples
-        if tup_a is None:
-            tup_occ_a = tup_virt_a = None
-        else:
+        if tup_a is not None:
             tup_occ_a = tup_a[tup_a < mol.nocc]
             tup_virt_a = tup_a[mol.nocc <= tup_a]
+            if tup_occ_a.size == 0:
+                tup_occ_a = None
+            if tup_virt_a.size == 0:
+                tup_virt_a = None
+        else:
+            tup_occ_a = tup_virt_a = None
+        order_start, occ_start, virt_start = start_idx(exp_occ, exp_virt, tup_occ_a, tup_virt_a)
 
         # loop until no tuples left
         if tup_idx_a < exp.n_tuples['prop'][-1]:
 
             for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, \
-                                                       tup_occ_a, tup_virt_a), tup_idx_a):
+                                                 order_start, occ_start, virt_start), tup_idx_a):
 
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:
@@ -163,9 +165,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                         mean_ndets = np.array([0], dtype=np.int64)
 
                     # reduce screen onto global master
-                    screen = mpi_reduce(mpi.global_comm, screen, root=0, op=MPI.LAND)
-                    if not mpi.global_master:
-                        screen = np.ones(mol.norb, dtype=bool)
+                    screen = mpi_reduce(mpi.global_comm, screen, root=0, op=MPI.MAX)
 
                     # reduce mbe_idx_a onto global master
                     mbe_idx_a = mpi.global_comm.allreduce(tup_idx, op=MPI.MIN)
@@ -229,9 +229,9 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
 
                 # screening procedure
                 if calc.target_mbe in ['energy', 'excitation']:
-                    screen[tup] &= np.abs(inc_tup) < calc.thres['inc']
+                    screen[tup] = np.maximum(screen[tup], np.abs(inc_tup))
                 else:
-                    screen[tup] &= np.all(np.abs(inc_tup) < calc.thres['inc'])
+                    screen[tup] = np.maximum(screen[tup], np.max(np.abs(inc_tup)))
 
                 # debug print
                 if mol.debug >= 1:
@@ -277,16 +277,13 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                     write_file(exp.order, mean_ndets, 'mbe_mean_ndets')
                     write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_idx_a')
 
-            # allreduce screened orbitals
-            tot_screen = mpi_allreduce(mpi.global_comm, screen, op=MPI.LAND)
-
-            # screen_orbs
-            screen_orbs = np.array([mo for mo in np.arange(mol.norb)[tot_screen] if mo in exp.exp_space[-1]], dtype=np.int64)
+            # allreduce screen
+            tot_screen = mpi_allreduce(mpi.global_comm, screen, op=MPI.MAX)
 
             # update expansion space wrt screened orbitals
-            exp.exp_space.append(np.copy(exp.exp_space[-1]))
-            for mo in screen_orbs:
-                exp.exp_space[-1] = exp.exp_space[-1][exp.exp_space[-1] != mo]
+            nonzero_screen = tot_screen[np.nonzero(tot_screen)[0]]
+            screen_idx = int(calc.thres['perc'][exp.order - 1] * exp.exp_space[-1].size)
+            exp.exp_space.append(exp.exp_space[-1][np.sort(np.argsort(nonzero_screen)[::-1][:screen_idx])])
 
             # compute updated n_tuples
             exp.n_tuples['inc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
@@ -338,11 +335,16 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['inc'][-1]
 
         # start tuples
-        if tup_b is None:
-            tup_occ_b = tup_virt_b = None
-        else:
+        if tup_b is not None:
             tup_occ_b = tup_b[tup_b < mol.nocc]
             tup_virt_b = tup_b[mol.nocc <= tup_b]
+            if tup_occ_b.size == 0:
+                tup_occ_b = None
+            if tup_virt_b.size == 0:
+                tup_virt_b = None
+        else:
+            tup_occ_b = tup_virt_b = None
+        order_start, occ_start, virt_start = start_idx(exp_occ, exp_virt, tup_occ_b, tup_virt_b)
 
         # mpi barrier
         mpi.local_comm.Barrier()
@@ -350,7 +352,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         # loop until no tuples left
         if tup_idx_b < exp.n_tuples['inc'][-1]:
             for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, \
-                                                       tup_occ_b, tup_virt_b), tup_idx_b):
+                                                 order_start, occ_start, virt_start), tup_idx_b):
 
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:

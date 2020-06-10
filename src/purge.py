@@ -87,13 +87,13 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
                     inc_tmp.append(inc[idx])
                     hashes_tmp.append(hash_1d(tup))
 
-            # deallocate k-th order hashes
-            exp.prop[calc.target_mbe]['hashes'][k-exp.min_order].Free() # type: ignore
-            # deallocate k-th order increments
-            exp.prop[calc.target_mbe]['inc'][k-exp.min_order].Free() # type: ignore
-
-            # recast hashes_tmp as np.array
+            # recast hashes_tmp and inc_tmp as np.array
             hashes_tmp = np.asarray(hashes_tmp, dtype=np.int64)
+            inc_tmp = np.asarray(inc_tmp, dtype=np.float64).reshape(-1,)
+
+            # deallocate k-th order hashes and increments
+            exp.prop[calc.target_mbe]['hashes'][k-exp.min_order].Free() # type: ignore
+            exp.prop[calc.target_mbe]['inc'][k-exp.min_order].Free() # type: ignore
 
             # number of hashes
             recv_counts = np.array(mpi.global_comm.allgather(hashes_tmp.size))
@@ -106,7 +106,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
                                                  8, comm=mpi.local_comm)
             exp.prop[calc.target_mbe]['hashes'][k-exp.min_order] = hashes_win
             buf = hashes_win.Shared_query(0)[0] # type: ignore
-            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k-exp.min_order],))
+            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape = (exp.n_tuples['inc'][k-exp.min_order],))
 
             # gatherv hashes on global master
             hashes[:] = mpi_gatherv(mpi.global_comm, hashes_tmp, hashes, recv_counts)
@@ -114,9 +114,6 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
             # bcast hashes among local masters
             if mpi.local_master:
                 hashes[:] = mpi_bcast(mpi.master_comm, hashes)
-
-            # recast inc_tmp as np.array
-            inc_tmp = np.asarray(inc_tmp, dtype=np.float64).reshape(-1,)
 
             # number of increments
             recv_counts = np.array(mpi.global_comm.allgather(inc_tmp.size))

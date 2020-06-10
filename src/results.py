@@ -13,7 +13,7 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import numpy as np
-from pyscf import symm
+from pyscf import gto, symm
 from typing import Tuple, List, Any
 try:
     import matplotlib
@@ -98,8 +98,8 @@ def _atom(mol: MolCls) -> str:
         string += '{:^43}\n'
         form: Tuple[Any] = ('geometry',)
         string += DIVIDER[:39]+'\n'
-        molecule = mol.atom.split('\n') # type: ignore
-        for i in range(len(molecule)-1):
+        molecule = gto.tostring(mol).split('\n')
+        for i in range(len(molecule)):
             atom = molecule[i].split()
             for j in range(1, 4):
                 atom[j] = float(atom[j]) # type: ignore
@@ -283,13 +283,6 @@ def _mpi(mpi: MPICls) -> str:
         return '{:} & {:}'.format(mpi.num_masters, mpi.global_size - mpi.num_masters)
 
 
-def _thres(calc: CalcCls) -> str:
-        """
-        this function returns the expansion threshold
-        """
-        return '{:.0e}'.format(calc.thres['inc'])
-
-
 def _symm(mol: MolCls, calc: CalcCls) -> str:
         """
         this function returns the molecular point group symmetry
@@ -301,7 +294,7 @@ def _symm(mol: MolCls, calc: CalcCls) -> str:
                     string += ' (pi)'
                 return string
             else:
-                return 'C1(A)'
+                return 'A(C1)'
         else:
             return 'unknown'
 
@@ -448,7 +441,7 @@ def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
         form += ('','FCI solver','','=','',_solver(calc), \
-                    '','|','','inc. threshold','','=','',_thres(calc), \
+                    '','|','','','','','','', \
                     '','|','','wave funct. symmetry','','=','',_symm(mol, calc),)
 
         string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'

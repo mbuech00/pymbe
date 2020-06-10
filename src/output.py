@@ -70,15 +70,14 @@ def main_header(mpi: Union[None, MPICls] = None, method: Union[None, str] = None
         return string.format(*form)
 
 
-def mbe_header(order: int, n_tuples: int) -> str:
+def mbe_header(order: int, n_tuples: int, thres: float) -> str:
         """
         this function prints the mbe header
         """
         # set string
         string: str = '\n\n'+DIVIDER+'\n'
-        form: Tuple[int, ...] = ()
-        string += ' STATUS-{:d}:  order k = {:d} MBE started  ---  {:d} tuples in total\n'
-        form += (order, order, n_tuples,)
+        string += ' STATUS-{:d}:  order k = {:d} MBE started  ---  {:d} tuples in total (thres: {:.2f})\n'
+        form: Tuple[int, int, int, float] = (order, order, n_tuples, thres,)
         string += DIVIDER
 
         return string.format(*form)

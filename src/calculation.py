@@ -47,7 +47,7 @@ class CalcCls:
                 self.base: Dict[str, Union[None, str]] = {'method': None}
                 self.state: Dict[str, Any] = {'wfnsym': symm.addons.irrep_id2name(symmetry, 0) if symmetry else 0, 'root': 0}
                 self.extra: Dict[str, bool] = {'pi_prune': False}
-                self.thres: Dict[str, float] = {'inc': 1.e-6}
+                self.thres: Dict[str, List[float]] = {'perc': [1., 1., 1.] + [.9] * 100}
                 self.misc: Dict[str, Any] = {'order': None, 'rst': True, 'rst_freq': int(1e6), 'purge': True}
                 self.orbs: Dict[str, str] = {'type': 'can'}
                 self.mpi: Dict[str, int] = {}
@@ -233,8 +233,12 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                             'pruning of pi-orbitals (pi_prune) is only implemented for linear D2h and C2v symmetries')
 
         # expansion thresholds
-        assertion(isinstance(calc.thres['inc'], float), \
-                        'increment threshold (inc) must be a float')
+        assertion(isinstance(calc.thres['perc'], (tuple, list)), \
+                        'screening thresholds (perc) must be a list of floats')
+        assertion(all(isinstance(i, float) for i in calc.thres['perc']), \
+                        'screening thresholds (perc) must be a list of floats')
+        assertion(all(i <= 1. for i in calc.thres['perc']), \
+                        'screening thresholds (perc) must be floats <= 1.')
 
         # orbital representation
         assertion(calc.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \
