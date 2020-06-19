@@ -28,6 +28,8 @@ from tools import is_file, read_file, write_file, inc_dim, inc_shape, \
                     occ_prune, virt_prune, pi_prune, tuples, n_tuples, start_idx, \
                     core_cas, idx_tril, nelec, hash_1d, hash_2d, hash_lookup, fsum
 
+PI_PRUNE_SCREEN = 1000.
+
 
 def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             rst_read_a: bool = False, rst_read_b: bool = False, \
@@ -202,6 +204,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 # pi-pruning
                 if calc.extra['pi_prune']:
                     if not pi_prune(exp.pi_orbs, exp.pi_hashes, tup):
+                        screen[tup] = PI_PRUNE_SCREEN
                         continue
 
                 # get core and cas indices
