@@ -61,6 +61,7 @@ def _mol(mpi: MPICls) -> MolCls:
         """
         # mol object
         mol = MolCls()
+        mol.defaults()
 
         # input handling
         if mpi.global_master:

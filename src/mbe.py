@@ -28,7 +28,7 @@ from tools import is_file, read_file, write_file, inc_dim, inc_shape, \
                     occ_prune, virt_prune, pi_prune, tuples, n_tuples, start_idx, \
                     core_cas, idx_tril, nelec, hash_1d, hash_2d, hash_lookup, fsum
 
-PI_PRUNE_SCREEN = 1000.
+PI_PRUNE_SCREEN = 1000. # random, non-sensical number
 
 
 def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
@@ -103,6 +103,9 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         max_inc = exp.max_inc[-1] if mpi.global_master and rst_read_a else np.array([0.] * dim, dtype=np.float64)
         mean_inc = exp.mean_inc[-1] if mpi.global_master and rst_read_a else np.array([0.] * dim, dtype=np.float64)
 
+        # init entanglement statistics
+        entangle = exp.entangle[-1] if mpi.global_master and rst_read_a else np.zeros([mol.norb] * 2, dtype=np.float64)
+
         # mpi barrier
         mpi.global_comm.Barrier()
 
@@ -166,6 +169,11 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                         max_ndets = np.array([0], dtype=np.int64)
                         mean_ndets = np.array([0], dtype=np.int64)
 
+                    # reduce entanglement statistics onto global master
+                    entangle = mpi_reduce(mpi.global_comm, entangle, root=0, op=MPI.SUM)
+                    if not mpi.global_master:
+                        entangle = np.zeros([mol.norb] * 2, dtype=np.float64)
+
                     # reduce screen onto global master
                     screen = mpi_reduce(mpi.global_comm, screen, root=0, op=MPI.MAX)
 
@@ -191,6 +199,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                         write_file(exp.order, max_ndets, 'mbe_max_ndets')
                         write_file(exp.order, min_ndets, 'mbe_min_ndets')
                         write_file(exp.order, mean_ndets, 'mbe_mean_ndets')
+                        write_file(exp.order, entangle, 'mbe_entanglement')
                         write_file(exp.order, screen, 'mbe_screen')
                         write_file(exp.order, np.asarray(mbe_idx_a), 'mbe_idx_a')
                         write_file(exp.order, mbe_tup_a, 'mbe_tup_a')
@@ -245,6 +254,11 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 min_inc, max_inc, mean_inc = _update(min_inc, max_inc, mean_inc, inc_tup)
                 # update determinant statistics
                 min_ndets, max_ndets, mean_ndets = _update(min_ndets, max_ndets, mean_ndets, ndets_tup)
+                # update determinant statistics
+                if calc.target_mbe in ['energy', 'excitation']:
+                    entangle[np.ix_(cas_idx, cas_idx)] += inc_tup # type: ignore
+                else:
+                    entangle[np.ix_(cas_idx, cas_idx)] += inc_tup[np.argmax(np.abs(inc_tup))] # type: ignore
 
             # mpi barrier
             mpi.global_comm.Barrier()
@@ -258,6 +272,9 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             min_ndets = mpi_reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
             max_ndets = mpi_reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
             mean_ndets = mpi_reduce(mpi.global_comm, mean_ndets, root=0, op=MPI.SUM)
+
+            # entanglement statistics
+            entangle = mpi_reduce(mpi.global_comm, entangle, root=0, op=MPI.SUM)
 
             # mean increment
             if mpi.global_master:
@@ -278,6 +295,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                     write_file(exp.order, max_ndets, 'mbe_max_ndets')
                     write_file(exp.order, min_ndets, 'mbe_min_ndets')
                     write_file(exp.order, mean_ndets, 'mbe_mean_ndets')
+                    write_file(exp.order, entangle, 'mbe_entanglement')
                     write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_idx_a')
 
             # allreduce screen
@@ -468,7 +486,8 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             exp.time['mbe'][-1] += MPI.Wtime() - time
 
             return hashes_win, inc_win, tot, \
-                    mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc
+                   mean_ndets, min_ndets, max_ndets, \
+                   mean_inc, min_inc, max_inc, entangle
 
         else:
 

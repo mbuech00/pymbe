@@ -44,6 +44,7 @@ class ExpCls:
                 self.mean_ndets: Union[List[int], np.ndarray] = []
                 self.min_ndets: Union[List[int], np.ndarray] = []
                 self.max_ndets: Union[List[int], np.ndarray] = []
+                self.entangle: Union[List[int], np.ndarray] = []
 
                 # init order
                 self.order: int = 0

@@ -52,7 +52,6 @@ class CalcCls:
                 self.orbs: Dict[str, str] = {'type': 'can'}
                 self.mpi: Dict[str, int] = {}
                 self.prop: Dict[str, Dict[str, Union[float, np.ndarray]]] = {'hf': {}, 'base': {}, 'ref': {}}
-
                 # init attributes
                 self.restart: bool = False
                 self.target_mbe: str = ''
@@ -70,51 +69,36 @@ def set_calc(calc: CalcCls) -> CalcCls:
         """
         # read input file
         try:
-
             with open(os.getcwd()+'/input') as f:
-
                 content = f.readlines()
-
                 for i in range(len(content)):
-
                     if content[i].strip():
-
                         if content[i].split()[0][0] == '#':
                             continue
                         else:
                             attr = re.split('=',content[i])[0].strip()
-
                             if attr in ATTR:
-
                                 try:
                                     inp = literal_eval(re.split('=',content[i])[1].strip())
                                 except ValueError:
                                     raise ValueError('wrong input -- error in reading in {:} dictionary'.format(attr))
-
                                 # make keys uniformly lower-case
                                 keys = [key.lower() for key in inp.keys()]
-
                                 # make string values lower-case as well
                                 vals = [val.lower() if isinstance(val, str) else val for val in inp.values()]
-
                                 # recast wfnsym as standard symbol
                                 if 'wfnsym' in inp.keys():
-
                                     if attr == 'state':
                                         inp['wfnsym'] = symm.addons.std_symb(inp['wfnsym'])
                                     elif attr == 'ref':
                                         if not isinstance(inp['wfnsym'], list):
                                             inp['wfnsym'] = list(inp['wfnsym'])
                                         inp['wfnsym'] = [symm.addons.std_symb(sym) for sym in inp['wfnsym']]
-
                                 # update calc attribute
                                 setattr(calc, attr, {**getattr(calc, attr), **inp})
-
         except IOError:
-
             sys.stderr.write('\nIOError : input file not found\n\n')
             raise
-
         return calc
 
 
@@ -140,7 +124,6 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         if spin > 0:
             assertion(calc.model['solver'] != 'pyscf_spin0', \
                             'the pyscf_spin0 FCI solver is designed for spin singlets only')
-
         # hf reference
         assertion(isinstance(calc.hf_ref['newton'], bool), \
                         'newton input in hf_ref dict (newton) must be a bool')
@@ -155,7 +138,6 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'valid HF initial guesses in hf_ref dict (init_guess) are: minao, atom, and 1e')
         assertion(isinstance(calc.hf_ref['irrep_nelec'], dict), \
                         'occupation input in hf_ref dict (irrep_nelec) must be a dict')
-
         # reference model
         assertion(calc.ref['method'] in ['casci', 'casscf'], \
                         'valid reference models are: casci and casscf')
@@ -190,12 +172,10 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                     raise ValueError('illegal choice of ref wfnsym -- PySCF error: {:}'.format(err))
         if calc.ref['active'] in ['avas', 'pios']:
            assertion(spin == 0, 'illegal active space selection algortihm for non-singlet system')
-
         # base model
         if calc.base['method'] is not None:
             assertion(calc.base['method'] in ['ccsd', 'ccsd(t)'], \
                             'valid base models are currently: ccsd, and ccsd(t)')
-
         # state
         if atom:
             try:
@@ -209,7 +189,6 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                                 'illegal choice of wfnsym for chosen expansion model')
                 assertion(calc.state['root'] == 0, \
                                 'excited states not implemented for chosen expansion model')
-
         # targets
         assertion(any(calc.target.values()) and len([x for x in calc.target.keys() if calc.target[x]]) == 1, \
                         'one and only one target property must be requested')
@@ -224,14 +203,12 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         if calc.target['trans']:
             assertion(calc.state['root'] > 0, \
                             'calculation of transition dipole moment (trans) requires target state root >= 1')
-
         # extra
         assertion(isinstance(calc.extra['pi_prune'], bool), \
                         'pruning of pi-orbitals (pi_prune) must be a bool')
         if calc.extra['pi_prune']:
             assertion(symm.addons.std_symb(symmetry) in ['D2h', 'C2v'], \
                             'pruning of pi-orbitals (pi_prune) is only implemented for linear D2h and C2v symmetries')
-
         # expansion thresholds
         assertion(isinstance(calc.thres['perc'], (tuple, list)), \
                         'screening thresholds (perc) must be a list of floats')
@@ -239,7 +216,6 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'screening thresholds (perc) must be a list of floats')
         assertion(all(i <= 1. for i in calc.thres['perc']), \
                         'screening thresholds (perc) must be floats <= 1.')
-
         # orbital representation
         assertion(calc.orbs['type'] in ['can', 'local', 'ccsd', 'ccsd(t)'], \
                         'valid occupied orbital representations (occ) are currently: '
@@ -251,7 +227,6 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
             assertion(symmetry == 'C1', \
                             'the combination of local orbs and point group symmetry '
                             'different from c1 is not allowed')
-
         # misc
         assertion(isinstance(calc.misc['order'], (int, type(None))), \
                         'maximum expansion order (order) must be an int >= 1')

@@ -75,7 +75,7 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
 
             # main mbe function
             hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, \
-                mean_inc, min_inc, max_inc = mbe_main(mpi, mol, calc, exp)
+                mean_inc, min_inc, max_inc, entangle = mbe_main(mpi, mol, calc, exp)
 
             # append window to hashes
             if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
@@ -113,6 +113,12 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                 exp.mean_inc.append(mean_inc)
                 exp.min_inc.append(min_inc)
                 exp.max_inc.append(max_inc)
+
+            # append entanglement statistics
+            if exp.order == exp.start_order and exp.min_order < exp.start_order:
+                exp.entangle[-1] = entangle
+            else:
+                exp.entangle.append(entangle)
 
             # print mbe end
             print(mbe_end(exp.order, exp.time['mbe'][-1], \
@@ -194,6 +200,9 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                 exp.mean_ndets = np.asarray(exp.mean_ndets)
                 exp.min_ndets = np.asarray(exp.min_ndets)
                 exp.max_ndets = np.asarray(exp.max_ndets)
+
+                # entanglement
+                exp.entangle = np.asarray(exp.entangle)
 
                 # final results
                 exp.prop[calc.target_mbe]['tot'] = np.asarray(exp.prop[calc.target_mbe]['tot'])

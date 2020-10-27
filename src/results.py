@@ -88,6 +88,10 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         if PLT_FOUND:
             _max_ndets_plot(exp)
 
+        # plot entanglement
+        if PLT_FOUND:
+            _entangle_plot(mol, calc, exp)
+
 
 def _atom(mol: MolCls) -> str:
         """
@@ -850,5 +854,68 @@ def _max_ndets_plot(exp: ExpCls) -> None:
 
         # save plot
         plt.savefig(OUT+'/max_ndets.pdf', bbox_inches = 'tight', dpi=1000)
+
+
+def _entangle_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
+        """
+        this function plots the entanglement
+        """
+        # set seaborn
+        if SNS_FOUND:
+            sns.set(style='white', palette='Set2', font='DejaVu Sans')
+        else:
+            return
+
+        # set subplot
+        fig, axes = plt.subplots(len(exp.entangle), 1, sharex=True, figsize=(5, 10))
+
+        # mask
+        mask = np.zeros([mol.nocc - mol.ncore, mol.norb - mol.nocc], dtype=bool)
+        mask[(calc.ref_space[calc.ref_space < mol.nocc] - mol.ncore)[:, None], \
+             (calc.ref_space[mol.nocc <= calc.ref_space] - mol.nocc)] = True
+
+        # loop over orders
+        for i, ax in enumerate(axes):
+
+            # entanglement
+            ent = np.sum(exp.entangle[:i+1], axis=0)[mol.ncore:mol.nocc, mol.nocc:]
+
+            # plot results
+            g = sns.heatmap(ent, \
+                            mask=mask, \
+                            vmin=np.amin(ent[~mask]), \
+                            vmax=np.amax(ent[~mask]), \
+                            xticklabels=max(ent.shape[1] // 8, 1), \
+                            yticklabels=max(ent.shape[0] // 4, 1), \
+                            cbar=False, cmap="YlGnBu", ax=ax)
+
+            # ylabels
+            ylabels = np.asarray([item.get_text() for item in ax.get_yticklabels()]).astype(int) + mol.ncore
+            ax.set_yticklabels(ylabels, rotation=0)
+
+            # invert y axis
+            g.invert_yaxis()
+
+            # write order
+            ax.text(0.85, 0.05, '$k={:}$'.format(i+exp.min_order), color='white', alpha=0.75, transform=ax.transAxes)
+
+        # xlabels
+        xlabels = np.asarray([item.get_text() for item in ax.get_xticklabels()]).astype(int) + mol.nocc
+        ax.set_xticklabels(xlabels)
+
+        # set labels
+        axes[-1].set_xlabel('Virtual MOs')
+        fig.text(.05, .5, 'Occupied MOs', ha='center', va='center', rotation='vertical')
+
+        # despine
+        if SNS_FOUND:
+            sns.despine()
+
+        # save plot
+        plt.subplots_adjust(hspace=0.05)
+        plt.savefig(OUT+'/entanglement.pdf', bbox_inches = 'tight', dpi=1000)
+
+        return
+
 
 
