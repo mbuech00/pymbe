@@ -19,7 +19,7 @@ import numpy as np
 from json import load, dump
 from mpi4py import MPI
 try:
-    from pyscf import lib, symm, scf
+    from pyscf import symm, scf
 except ImportError:
     sys.stderr.write('\nImportError : pyscf module not found\n\n')
 from typing import Tuple

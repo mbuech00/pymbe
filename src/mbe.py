@@ -344,7 +344,8 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
 
         # update expansion space wrt screened orbitals
         nonzero_screen = tot_screen[np.nonzero(tot_screen)[0]]
-        screen_idx = int(calc.thres['perc'][exp.order - 1] * exp.exp_space[-1].size)
+        thres = 1. if exp.order < calc.thres['start'] else calc.thres['perc']
+        screen_idx = int(thres * exp.exp_space[-1].size)
         exp.exp_space.append(exp.exp_space[-1][np.sort(np.argsort(nonzero_screen)[::-1][:screen_idx])])
 
         # compute updated n_tuples
