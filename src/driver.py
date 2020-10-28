@@ -238,12 +238,9 @@ def slave(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
 
                 # main mbe function
                 hashes_win, inc_win = mbe_main(mpi, mol, calc, exp, \
-                                               rst_read_a=msg['rst_read_a'], \
-                                               rst_read_b=msg['rst_read_b'], \
-                                               tup_idx_a=msg['tup_idx_a'], \
-                                               tup_idx_b=msg['tup_idx_b'], \
-                                               tup_a=msg['tup_a'], \
-                                               tup_b=msg['tup_b'])
+                                               rst_read=msg['rst_read'], \
+                                               tup_idx=msg['tup_idx'], \
+                                               tup=msg['tup'])
 
                 # append window to hashes
                 if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
