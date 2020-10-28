@@ -489,9 +489,6 @@ def settings() -> None:
         # only run with python3+
         assertion(3 <= sys.version_info[0], 'PyMBE only runs under python3+')
 
-        # force OMP_NUM_THREADS = 1
-        lib.num_threads(1)
-
         # mute scf checkpoint files
         scf.hf.MUTE_CHKFILE = True
 
