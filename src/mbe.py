@@ -113,8 +113,12 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         max_inc = exp.max_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
         mean_inc = exp.mean_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
 
-        # init entanglement statistics
-        entangle = exp.entangle[-1] if mpi.global_master and rst_read else np.zeros([mol.norb] * 2, dtype=np.float64)
+        # init pair_corr statistics
+        if calc.ref_space.size == 0 and exp.order == exp.min_order:
+            pair_corr = [np.zeros(exp.n_tuples['prop'][0], dtype=np.float64), \
+                         np.zeros([exp.n_tuples['prop'][0], 2], dtype=np.int32)] # type:ignore
+        else:
+            pair_corr = None # type:ignore
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -189,11 +193,6 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                     max_ndets = np.array([0], dtype=np.int64)
                     mean_ndets = np.array([0], dtype=np.int64)
 
-                # reduce entanglement statistics onto global master
-                entangle = mpi_reduce(mpi.global_comm, entangle, root=0, op=MPI.SUM)
-                if not mpi.global_master:
-                    entangle = np.zeros([mol.norb] * 2, dtype=np.float64)
-
                 # reduce screen onto global master
                 screen = mpi_reduce(mpi.global_comm, screen, root=0, op=MPI.MAX)
 
@@ -219,7 +218,6 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                     write_file(exp.order, max_ndets, 'mbe_max_ndets')
                     write_file(exp.order, min_ndets, 'mbe_min_ndets')
                     write_file(exp.order, mean_ndets, 'mbe_mean_ndets')
-                    write_file(exp.order, entangle, 'mbe_entanglement')
                     write_file(exp.order, screen, 'mbe_screen')
                     write_file(exp.order, np.asarray(mbe_idx), 'mbe_idx')
                     write_file(exp.order, mbe_tup, 'mbe_tup')
@@ -272,7 +270,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 screen[tup] = np.maximum(screen[tup], np.max(np.abs(inc_tup)))
 
             # debug print
-            if mol.debug >= 1:
+            if mol.debug >= 2:
                 print(mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
                                 ndets_tup, n_elec_tup, inc_tup, exp.order, cas_idx, tup))
 
@@ -280,11 +278,13 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             min_inc, max_inc, mean_inc = _update(min_inc, max_inc, mean_inc, inc_tup)
             # update determinant statistics
             min_ndets, max_ndets, mean_ndets = _update(min_ndets, max_ndets, mean_ndets, ndets_tup)
-            # update determinant statistics
-            if calc.target_mbe in ['energy', 'excitation']:
-                entangle[np.ix_(cas_idx, cas_idx)] += inc_tup # type: ignore
-            else:
-                entangle[np.ix_(cas_idx, cas_idx)] += inc_tup[np.argmax(np.abs(inc_tup))] # type: ignore
+            # update pair_corr statistics
+            if pair_corr is not None:
+                if calc.target_mbe in ['energy', 'excitation']:
+                    pair_corr[0][tup_idx] = inc_tup # type: ignore
+                else:
+                    pair_corr[0][tup_idx] = inc_tup[np.argmax(np.abs(inc_tup))] # type: ignore
+                pair_corr[1][tup_idx] = tup
 
         # mpi barrier
         mpi.global_comm.Barrier()
@@ -313,8 +313,10 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         max_ndets = mpi_reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
         mean_ndets = mpi_reduce(mpi.global_comm, mean_ndets, root=0, op=MPI.SUM)
 
-        # entanglement statistics
-        entangle = mpi_reduce(mpi.global_comm, entangle, root=0, op=MPI.SUM)
+        # pair_corr statistics
+        if pair_corr is not None:
+            pair_corr = [mpi_reduce(mpi.global_comm, pair_corr[0], root=0, op=MPI.SUM), \
+                         mpi_reduce(mpi.global_comm, pair_corr[1], root=0, op=MPI.SUM)]
 
         # mean increment
         if mpi.global_master:
@@ -333,7 +335,6 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 write_file(exp.order, max_ndets, 'mbe_max_ndets')
                 write_file(exp.order, min_ndets, 'mbe_min_ndets')
                 write_file(exp.order, mean_ndets, 'mbe_mean_ndets')
-                write_file(exp.order, entangle, 'mbe_entanglement')
                 write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_idx')
                 write_file(exp.order, hashes[-1], 'mbe_hashes')
                 write_file(exp.order, inc[-1], 'mbe_inc')
@@ -368,10 +369,25 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         # mpi barrier
         mpi.local_comm.Barrier()
 
+        if mpi.global_master and pair_corr is not None and mol.debug >= 1:
+            pair_corr[1] = pair_corr[1][np.argsort(np.abs(pair_corr[0]))[::-1]]
+            pair_corr[0] = pair_corr[0][np.argsort(np.abs(pair_corr[0]))[::-1]]
+            print('\n --------------------------------------------------------------------------')
+            print(f'{"pair correlation information":^75s}')
+            print(' --------------------------------------------------------------------------')
+            print(' orbital tuple  |  absolute corr.  |  relative corr.  |  cumulative corr.')
+            print(' --------------------------------------------------------------------------')
+            for i in range(10):
+                print(f'   [{pair_corr[1][i][0]:3d},{pair_corr[1][i][1]:3d}]    |' + \
+                      f'    {pair_corr[0][i]:.3e}    |' + \
+                      f'        {pair_corr[0][i] / pair_corr[0][0]:.2f}      |' + \
+                      f'        {np.sum(pair_corr[0][:i+1]) / np.sum(pair_corr[0]):.2f}')
+            print(' --------------------------------------------------------------------------\n')
+
         if mpi.global_master:
             return hashes_win, inc_win, tot, \
                    mean_ndets, min_ndets, max_ndets, \
-                   mean_inc, min_inc, max_inc, entangle
+                   mean_inc, min_inc, max_inc
         else:
             return hashes_win, inc_win
 

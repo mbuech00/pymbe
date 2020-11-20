@@ -433,7 +433,7 @@ def hf(mol: MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, flo
             hf = scf.RHF(mol_hf)
 
         # hf settings
-        if mol.debug >= 1:
+        if mol.debug >= 2:
             hf.verbose = 4
 
         hf.init_guess = hf_ref['init_guess']
@@ -500,7 +500,7 @@ def hf(mol: MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, flo
             orbsym = np.zeros(hf.mo_energy.size, dtype=np.int64)
 
         # debug print of orbital energies
-        if mol.debug >= 1:
+        if mol.debug >= 2:
             if mol.symmetry:
                 gpname = mol.symmetry
             else:
@@ -617,7 +617,7 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
                 else:
                     loc = _hubbard_PM(mol, mo_coeff[:, mol.ncore:mol.nocc])
                 loc.conv_tol = CONV_TOL
-                if mol.debug >= 1:
+                if mol.debug >= 2:
                     loc.verbose = 4
                 mo_coeff_out[:, mol.ncore:mol.nocc] = loc.kernel()
 
@@ -627,7 +627,7 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
                 else:
                     loc = _hubbard_PM(mol, mo_coeff[:, mol.nocc:])
                 loc.conv_tol = CONV_TOL
-                if mol.debug >= 1:
+                if mol.debug >= 2:
                     loc.verbose = 4
                 mo_coeff_out[:, mol.nocc:] = loc.kernel()
 
@@ -1051,7 +1051,7 @@ def _casscf(mol: MolCls, solver: str, wfnsym: List[str], \
         cas.conv_tol = CONV_TOL
         cas.max_cycle_macro = 500
         cas.frozen = mol.ncore
-        if mol.debug >= 1:
+        if mol.debug >= 2:
             cas.verbose = 4
 
         # init fcisolver
@@ -1153,7 +1153,7 @@ def _casscf(mol: MolCls, solver: str, wfnsym: List[str], \
         else:
             orbsym = np.zeros(cas.mo_energy.size, dtype=np.int64)
 
-        if mol.debug >= 1:
+        if mol.debug >= 2:
             if mol.symmetry:
                 gpname = mol.symmetry
             else:
