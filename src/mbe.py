@@ -28,7 +28,7 @@ from tools import is_file, read_file, write_file, inc_dim, inc_shape, \
                     occ_prune, virt_prune, pi_prune, tuples, n_tuples, start_idx, \
                     core_cas, idx_tril, nelec, hash_1d, hash_2d, hash_lookup, fsum
 
-PI_PRUNE_SCREEN = 1000. # random, non-sensical number
+SCREEN = 1000. # random, non-sensical number
 
 
 def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
@@ -136,6 +136,11 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         if rst_read:
             if mpi.global_master:
                 screen = exp.screen
+        if exp.order == exp.min_order:
+            if ref_occ and not ref_virt:
+                screen[exp_occ] = SCREEN
+            if not ref_occ and ref_virt:
+                screen[exp_virt] = SCREEN
 
         # set rst_write
         rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['prop'][-1]
@@ -233,7 +238,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             # pi-pruning
             if calc.extra['pi_prune']:
                 if not pi_prune(exp.pi_orbs, exp.pi_hashes, tup):
-                    screen[tup] = PI_PRUNE_SCREEN
+                    screen[tup] = SCREEN
                     continue
 
             # get core and cas indices
