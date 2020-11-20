@@ -19,7 +19,7 @@ import numpy as np
 from json import load, dump
 from mpi4py import MPI
 try:
-    from pyscf import lib, symm, scf
+    from pyscf import symm, scf
 except ImportError:
     sys.stderr.write('\nImportError : pyscf module not found\n\n')
 from typing import Tuple
@@ -61,6 +61,7 @@ def _mol(mpi: MPICls) -> MolCls:
         """
         # mol object
         mol = MolCls()
+        mol.defaults()
 
         # input handling
         if mpi.global_master:
@@ -487,9 +488,6 @@ def settings() -> None:
         """
         # only run with python3+
         assertion(3 <= sys.version_info[0], 'PyMBE only runs under python3+')
-
-        # force OMP_NUM_THREADS = 1
-        lib.num_threads(1)
 
         # mute scf checkpoint files
         scf.hf.MUTE_CHKFILE = True

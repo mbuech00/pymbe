@@ -38,7 +38,8 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
             for i in range(exp.min_order, exp.start_order):
 
                 # print mbe header
-                print(mbe_header(i, exp.n_tuples['prop'][i-exp.min_order], calc.thres['perc'][i-exp.min_order]))
+                print(mbe_header(i, exp.n_tuples['prop'][i-exp.min_order], \
+                                 1. if (i-exp.min_order) < calc.thres['start'] else calc.thres['perc']))
 
                 # print mbe end
                 print(mbe_end(i, exp.time['mbe'][i-exp.min_order], \
@@ -71,7 +72,8 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                                                      virt_prune(calc.occup, calc.ref_space), exp.order))
 
             # print mbe header
-            print(mbe_header(exp.order, exp.n_tuples['prop'][-1], calc.thres['perc'][exp.order - 1]))
+            print(mbe_header(exp.order, exp.n_tuples['prop'][-1], \
+                             1. if exp.order < calc.thres['start'] else calc.thres['perc']))
 
             # main mbe function
             hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, \
@@ -229,12 +231,9 @@ def slave(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
 
                 # main mbe function
                 hashes_win, inc_win = mbe_main(mpi, mol, calc, exp, \
-                                               rst_read_a=msg['rst_read_a'], \
-                                               rst_read_b=msg['rst_read_b'], \
-                                               tup_idx_a=msg['tup_idx_a'], \
-                                               tup_idx_b=msg['tup_idx_b'], \
-                                               tup_a=msg['tup_a'], \
-                                               tup_b=msg['tup_b'])
+                                               rst_read=msg['rst_read'], \
+                                               tup_idx=msg['tup_idx'], \
+                                               tup=msg['tup'])
 
                 # append window to hashes
                 if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
