@@ -65,6 +65,10 @@ Citing PyMBE
 
 The following papers document the development of the PyMBE code and the theory it implements:
 
+* Ground and Excited State First-Order Properties in Many-Body Expanded Full Configuration Interaction\
+Eriksen, J. J., Gauss, J.\
+[J. Chem. Phys., 153, 154107 (2020)](https://aip.scitation.org/doi/10.1063/5.0024791) ([arXiv:2008.03610](https://arxiv.org/abs/2008.03610))
+
 * Generalized Many-Body Expanded Full Configuration Interaction Theory\
 Eriksen, J. J., Gauss, J.\
 [J. Phys. Chem. Lett., 10, 7910 (2019)](https://pubs.acs.org/doi/abs/10.1021/acs.jpclett.9b02968) ([arXiv:1910.03527](https://arxiv.org/abs/1910.03527))
