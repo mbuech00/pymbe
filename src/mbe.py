@@ -75,9 +75,9 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         if rst_read:
             hashes_win = exp.prop[calc.target_mbe]['hashes'][-1]
         else:
-            hashes_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['prop'][-1] if mpi.local_master else 0, 8, comm=mpi.local_comm)
+            hashes_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][-1] if mpi.local_master else 0, 8, comm=mpi.local_comm)
         buf = hashes_win.Shared_query(0)[0] # type: ignore
-        hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['prop'][-1],)))
+        hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][-1],)))
         if mpi.local_master and not mpi.global_master:
             hashes[-1][:].fill(0)
 
@@ -91,9 +91,9 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         if rst_read:
             inc_win = exp.prop[calc.target_mbe]['inc'][-1]
         else:
-            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['prop'][-1] * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
+            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][-1] * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
         buf = inc_win.Shared_query(0)[0] # type: ignore
-        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['prop'][-1], dim)))
+        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][-1], dim)))
         if mpi.local_master and not mpi.global_master:
             inc[-1][:].fill(0.)
 
@@ -115,8 +115,8 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
 
         # init pair_corr statistics
         if calc.ref_space.size == 0 and exp.order == exp.min_order:
-            pair_corr = [np.zeros(exp.n_tuples['prop'][0], dtype=np.float64), \
-                         np.zeros([exp.n_tuples['prop'][0], 2], dtype=np.int32)] # type:ignore
+            pair_corr = [np.zeros(exp.n_tuples['inc'][0], dtype=np.float64), \
+                         np.zeros([exp.n_tuples['inc'][0], 2], dtype=np.int32)] # type:ignore
         else:
             pair_corr = None # type:ignore
 
@@ -143,7 +143,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 screen[exp_virt] = SCREEN
 
         # set rst_write
-        rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['prop'][-1]
+        rst_write = calc.misc['rst'] and mpi.global_size < calc.misc['rst_freq'] < exp.n_tuples['inc'][-1]
 
         # start tuples
         if tup is not None:
@@ -213,7 +213,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 elif tup_idx == mbe_idx:
                     mpi.global_comm.Send(tup, dest=0, tag=101)
                 # update rst_write
-                rst_write = mbe_idx + calc.misc['rst_freq'] < exp.n_tuples['prop'][-1] - mpi.global_size
+                rst_write = mbe_idx + calc.misc['rst_freq'] < exp.n_tuples['inc'][-1] - mpi.global_size
 
                 if mpi.global_master:
                     # write restart files
@@ -233,7 +233,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                     # re-init time
                     time = MPI.Wtime()
                     # print status
-                    print(mbe_status(exp.order, mbe_idx / exp.n_tuples['prop'][-1]))
+                    print(mbe_status(exp.order, mbe_idx / exp.n_tuples['inc'][-1]))
 
             # pi-pruning
             if calc.extra['pi_prune']:
@@ -325,11 +325,11 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
 
         # mean increment
         if mpi.global_master:
-            mean_inc /= exp.n_tuples['prop'][-1]
+            mean_inc /= exp.n_tuples['inc'][-1]
 
         # mean number of determinants
         if mpi.global_master:
-            mean_ndets = np.asarray(np.rint(mean_ndets / exp.n_tuples['prop'][-1]), dtype=np.int64)
+            mean_ndets = np.asarray(np.rint(mean_ndets / exp.n_tuples['inc'][-1]), dtype=np.int64)
 
         # write restart files & save timings
         if mpi.global_master:
@@ -340,7 +340,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
                 write_file(exp.order, max_ndets, 'mbe_max_ndets')
                 write_file(exp.order, min_ndets, 'mbe_min_ndets')
                 write_file(exp.order, mean_ndets, 'mbe_mean_ndets')
-                write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_idx')
+                write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_idx')
                 write_file(exp.order, hashes[-1], 'mbe_hashes')
                 write_file(exp.order, inc[-1], 'mbe_inc')
             exp.time['mbe'][-1] += MPI.Wtime() - time
@@ -354,22 +354,13 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         screen_idx = int(thres * exp.exp_space[-1].size)
         exp.exp_space.append(exp.exp_space[-1][np.sort(np.argsort(nonzero_screen)[::-1][:screen_idx])])
 
-        # compute updated n_tuples
-        exp.n_tuples['inc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                            exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                            occ_prune(calc.occup, calc.ref_space), \
-                                            virt_prune(calc.occup, calc.ref_space), exp.order))
-
         # write restart files
         if mpi.global_master:
             write_file(exp.order, tot_screen, 'mbe_screen')
             write_file(exp.order+1, exp.exp_space[-1], 'exp_space')
-            write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
-            write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
-            write_file(exp.order, np.asarray(exp.n_tuples['prop'][-1]), 'mbe_n_tuples_prop')
 
         # total property
-        tot = mean_inc * exp.n_tuples['prop'][-1]
+        tot = mean_inc * exp.n_tuples['inc'][-1]
 
         # mpi barrier
         mpi.local_comm.Barrier()

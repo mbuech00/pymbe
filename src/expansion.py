@@ -55,7 +55,7 @@ class ExpCls:
                 self.screen: np.ndarray = None
                 self.screen_orbs: np.ndarray = None
                 self.exp_space: List[np.ndarray] = [np.array([i for i in range(mol.ncore, mol.norb) if i not in calc.ref_space], dtype=np.int64)]
-                self.n_tuples: Dict[str, List[int]] = {'theo': [], 'prop': [], 'inc': []}
+                self.n_tuples: Dict[str, List[int]] = {'theo': [], 'inc': []}
                 self.pi_orbs: np.ndarray = None
                 self.pi_hashes: np.ndarray = None
 

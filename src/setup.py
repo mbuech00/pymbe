@@ -231,11 +231,16 @@ def restart_main(mpi: MPICls, calc: CalcCls, exp: ExpCls) -> int:
         """
         this function reads in all expansion restart files and returns the start order
         """
-        # list filenames in files list
-        files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
+        # list sorted filenames in files list
+        if mpi.global_master:
+            files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
+            files.sort(key = natural_keys)
 
-        # sort the list of files
-        files.sort(key = natural_keys)
+        # distribute filenames
+        if mpi.global_master:
+            mpi.global_comm.bcast(files, root=0)
+        else:
+            files = mpi.global_comm.bcast(None, root=0)
 
         # loop over n_tuples files
         if mpi.global_master:
@@ -243,8 +248,6 @@ def restart_main(mpi: MPICls, calc: CalcCls, exp: ExpCls) -> int:
                 if 'mbe_n_tuples' in files[i]:
                     if 'theo' in files[i]:
                         exp.n_tuples['theo'].append(np.load(os.path.join(RST, files[i])).tolist())
-                    if 'prop' in files[i]:
-                        exp.n_tuples['prop'].append(np.load(os.path.join(RST, files[i])).tolist())
                     if 'inc' in files[i]:
                         exp.n_tuples['inc'].append(np.load(os.path.join(RST, files[i])).tolist())
             mpi.global_comm.bcast(exp.n_tuples, root=0)
