@@ -38,7 +38,8 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
             for i in range(exp.min_order, exp.start_order):
 
                 # print mbe header
-                print(mbe_header(i, exp.n_tuples['prop'][i-exp.min_order], calc.thres['perc'][i-exp.min_order]))
+                print(mbe_header(i, exp.n_tuples['inc'][i-exp.min_order], \
+                                 1. if (i-exp.min_order) < calc.thres['start'] else calc.thres['perc']))
 
                 # print mbe end
                 print(mbe_end(i, exp.time['mbe'][i-exp.min_order], \
@@ -60,31 +61,34 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         for exp.order in range(exp.start_order, exp.max_order+1):
 
             # theoretical and actual number of tuples at current order
-            if len(exp.n_tuples['prop']) == exp.order - exp.min_order:
+            if len(exp.n_tuples['inc']) == exp.order - exp.min_order:
                 exp.n_tuples['theo'].append(n_tuples(exp.exp_space[0][exp.exp_space[0] < mol.nocc], \
                                                      exp.exp_space[0][mol.nocc <= exp.exp_space[0]], \
                                                      occ_prune(calc.occup, calc.ref_space), \
                                                      virt_prune(calc.occup, calc.ref_space), exp.order))
-                exp.n_tuples['prop'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                                     exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                                     occ_prune(calc.occup, calc.ref_space), \
-                                                     virt_prune(calc.occup, calc.ref_space), exp.order))
+                exp.n_tuples['inc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                                                    exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
+                                                    occ_prune(calc.occup, calc.ref_space), \
+                                                    virt_prune(calc.occup, calc.ref_space), exp.order))
+                write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
+                write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
 
             # print mbe header
-            print(mbe_header(exp.order, exp.n_tuples['prop'][-1], calc.thres['perc'][exp.order - 1]))
+            print(mbe_header(exp.order, exp.n_tuples['inc'][-1], \
+                             1. if exp.order < calc.thres['start'] else calc.thres['perc']))
 
             # main mbe function
             hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, \
                 mean_inc, min_inc, max_inc = mbe_main(mpi, mol, calc, exp)
 
             # append window to hashes
-            if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
+            if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['inc']):
                 exp.prop[calc.target_mbe]['hashes'][-1] = hashes_win
             else:
                 exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
 
             # append window to increments
-            if len(exp.prop[calc.target_mbe]['inc']) == len(exp.n_tuples['prop']):
+            if len(exp.prop[calc.target_mbe]['inc']) == len(exp.n_tuples['inc']):
                 exp.prop[calc.target_mbe]['inc'][-1] = inc_win
             else:
                 exp.prop[calc.target_mbe]['inc'].append(inc_win)
@@ -141,7 +145,7 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
             exp.prop[calc.target_mbe], exp.n_tuples = purge_main(mpi, mol, calc, exp)
 
             # print purging results
-            if exp.order + 1 <= exp.exp_space[-1].size and exp.n_tuples['inc'][-1] < exp.n_tuples['prop'][-1]:
+            if exp.order + 1 <= exp.exp_space[-1].size:
                 print(purge_results(exp.n_tuples, exp.min_order, exp.order))
 
             # print purge end
@@ -221,29 +225,26 @@ def slave(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                 exp.order = msg['order']
 
                 # actual number of tuples at current order
-                if len(exp.n_tuples['prop']) == exp.order - exp.min_order:
-                    exp.n_tuples['prop'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                if len(exp.n_tuples['inc']) == exp.order - exp.min_order:
+                    exp.n_tuples['inc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
                                                          exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
                                                          occ_prune(calc.occup, calc.ref_space), \
                                                          virt_prune(calc.occup, calc.ref_space), exp.order))
 
                 # main mbe function
                 hashes_win, inc_win = mbe_main(mpi, mol, calc, exp, \
-                                               rst_read_a=msg['rst_read_a'], \
-                                               rst_read_b=msg['rst_read_b'], \
-                                               tup_idx_a=msg['tup_idx_a'], \
-                                               tup_idx_b=msg['tup_idx_b'], \
-                                               tup_a=msg['tup_a'], \
-                                               tup_b=msg['tup_b'])
+                                               rst_read=msg['rst_read'], \
+                                               tup_idx=msg['tup_idx'], \
+                                               tup=msg['tup'])
 
                 # append window to hashes
-                if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['prop']):
+                if len(exp.prop[calc.target_mbe]['hashes']) == len(exp.n_tuples['inc']):
                     exp.prop[calc.target_mbe]['hashes'][-1] = hashes_win
                 else:
                     exp.prop[calc.target_mbe]['hashes'].append(hashes_win)
 
                 # append window to increments
-                if len(exp.prop[calc.target_mbe]['inc']) == len(exp.n_tuples['prop']):
+                if len(exp.prop[calc.target_mbe]['inc']) == len(exp.n_tuples['inc']):
                     exp.prop[calc.target_mbe]['inc'][-1] = inc_win
                 else:
                     exp.prop[calc.target_mbe]['inc'].append(inc_win)
