@@ -181,8 +181,9 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
             # base energy
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = base(mol, calc.occup, calc.target_mbe, \
-                                                       calc.base['method'], calc.prop['hf']['dipole'])
+                    calc.prop['base']['dipole'] = base(mol, calc.orbs['type'], calc.occup, calc.orbsym, \
+                                                       calc.target_mbe, calc.base['method'], \
+                                                       calc.model['cc_backend'], calc.prop['hf']['dipole'])
             else:
                 calc.prop['base']['energy'] = 0.
                 calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
@@ -190,7 +191,7 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
             # reference space properties
             calc.prop['ref'][calc.target_mbe] = ref_prop(mol, calc.occup, calc.target_mbe, \
                                                          calc.orbsym, calc.model['hf_guess'], \
-                                                         calc.ref_space, calc.model, \
+                                                         calc.ref_space, calc.model, calc.orbs['type'], \
                                                          calc.state, calc.prop['hf']['energy'], \
                                                          calc.prop['hf']['dipole'], calc.base['method'])
 

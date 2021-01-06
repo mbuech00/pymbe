@@ -36,7 +36,7 @@ class CalcCls:
                 init calculation attributes
                 """
                 # set defaults
-                self.model: Dict[str, Any] = {'method': 'fci', 'solver': 'pyscf_spin0', 'hf_guess': True}
+                self.model: Dict[str, Any] = {'method': 'fci', 'cc_backend': 'pyscf', 'solver': 'pyscf_spin0', 'hf_guess': True}
                 self.hf_ref: Dict[str, Any] = {'symmetry': None, 'irrep_nelec': {}, \
                                                'init_guess': 'minao', 'newton': False}
                 self.target: Dict[str, bool] = {'energy': False, 'excitation': False, 'dipole': False, 'trans': False}
@@ -110,8 +110,10 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         # expansion model
         assertion(isinstance(calc.model['method'], str), \
                         'input electronic structure method (method) must be a string')
-        assertion(calc.model['method'] in ['ccsd', 'ccsd(t)', 'fci'], \
-                        'valid expansion methods (method) are: ccsd, ccsd(t), and fci')
+        assertion(calc.model['method'] in ['ccsd', 'ccsd(t)', 'ccsdt', 'fci'], \
+                        'valid expansion methods (method) are: ccsd, ccsd(t), ccsdt and fci')
+        assertion(calc.model['cc_backend'] in ['pyscf', 'ecc'], \
+                        'valid cc backends (cc_backend) are: pyscf and ecc')
         assertion(calc.model['solver'] in ['pyscf_spin0', 'pyscf_spin1'], \
                         'valid FCI solvers (solver) are: pyscf_spin0 and pyscf_spin1')
         assertion(isinstance(calc.model['hf_guess'], bool), \
@@ -121,9 +123,14 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                             'setting a FCI solver for a non-FCI expansion model is not meaningful')
             assertion(calc.model['hf_guess'], \
                             'non-HF initial guess (hf_guess) only valid for FCI calcs')
+            if calc.model['method'] == 'ccsdt':
+                assertion(calc.model['cc_backend'] != 'pyscf', \
+                            'ccsdt is not available with pyscf set as cc_backend')
         if spin > 0:
             assertion(calc.model['solver'] != 'pyscf_spin0', \
                             'the pyscf_spin0 FCI solver is designed for spin singlets only')
+            assertion(calc.model['cc_backend'] != 'ecc', \
+                            'the ecc interface is designed for closed-shell systems only')
         # hf reference
         assertion(isinstance(calc.hf_ref['newton'], bool), \
                         'newton input in hf_ref dict (newton) must be a bool')
@@ -174,8 +181,11 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
            assertion(spin == 0, 'illegal active space selection algortihm for non-singlet system')
         # base model
         if calc.base['method'] is not None:
-            assertion(calc.base['method'] in ['ccsd', 'ccsd(t)'], \
-                            'valid base models are currently: ccsd, and ccsd(t)')
+            assertion(calc.base['method'] in ['ccsd', 'ccsd(t)', 'ccsdt'], \
+                            'valid base models are currently: ccsd, ccsd(t) and ccsdt')
+            if calc.base['method'] == 'ccsdt':
+                assertion(calc.model['cc_backend'] != 'pyscf', \
+                            'ccsdt is not available with pyscf set as cc_backend')
         # state
         if atom:
             try:
@@ -203,6 +213,9 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         if calc.target['trans']:
             assertion(calc.state['root'] > 0, \
                             'calculation of transition dipole moment (trans) requires target state root >= 1')
+        if calc.model['cc_backend'] == 'ecc':
+            assertion(calc.target['energy'], \
+                            'calculation of targets other than energy are not possible using the ecc backend')
         # extra
         assertion(isinstance(calc.extra['pi_prune'], bool), \
                         'pruning of pi-orbitals (pi_prune) must be a bool')

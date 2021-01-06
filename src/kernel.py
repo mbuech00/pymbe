@@ -27,6 +27,7 @@ from parallel import mpi_bcast
 from system import MolCls
 from tools import assertion, suppress_stdout, mat_idx, near_nbrs, \
                     idx_tril, core_cas, nelec, ndets
+from interface import mbecc_interface
 
 
 MAX_MEM = 1e10
@@ -698,7 +699,7 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
 
 def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
              orbsym: np.ndarray, hf_guess: bool, ref_space: np.ndarray, \
-             model: Dict[str, str], state: Dict[str, Any], e_hf: float, \
+             model: Dict[str, str], orb_type: str, state: Dict[str, Any], e_hf: float, \
              dipole_hf: np.ndarray, base_method: Union[str, None]) -> Union[float, np.ndarray]:
         """
         this function returns reference space properties
@@ -719,24 +720,24 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
         >>> ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10])
         >>> state = {'root': 0, 'wfnsym': 'A1'}
-        >>> model = {'method': 'fci', 'solver': 'pyscf_spin0'}
-        >>> e = ref_prop(mol, occup, 'energy', orbsym, True, ref_space, model, state, e_hf, dipole_hf, None)
+        >>> model = {'method': 'fci', 'cc_backend': 'pyscf', 'solver': 'pyscf_spin0'}
+        >>> e = ref_prop(mol, occup, 'energy', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, None)
         >>> np.isclose(e, -0.03769780809258805)
         True
-        >>> e = ref_prop(mol, occup, 'energy', orbsym, True, ref_space, model, state, e_hf, dipole_hf, 'ccsd')
+        >>> e = ref_prop(mol, occup, 'energy', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, 'ccsd')
         >>> np.isclose(e, -0.00036229313775759664)
         True
-        >>> dipole = ref_prop(mol, occup, 'dipole', orbsym, True, ref_space, model, state, e_hf, dipole_hf, None)
+        >>> dipole = ref_prop(mol, occup, 'dipole', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, None)
         >>> np.allclose(dipole, np.array([0., 0., -0.02732937]))
         True
-        >>> dipole = ref_prop(mol, occup, 'dipole', orbsym, True, ref_space, model, state, e_hf, dipole_hf, 'ccsd(t)')
+        >>> dipole = ref_prop(mol, occup, 'dipole', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, 'ccsd(t)')
         >>> np.allclose(dipole, np.array([0., 0., -5.09683894e-05]))
         True
         >>> state['root'] = 1
-        >>> exc = ref_prop(mol, occup, 'excitation', orbsym, True, ref_space, model, state, e_hf, dipole_hf, None)
+        >>> exc = ref_prop(mol, occup, 'excitation', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, None)
         >>> np.isclose(exc, 0.7060145137233889)
         True
-        >>> trans = ref_prop(mol, occup, 'trans', orbsym, True, ref_space, model, state, e_hf, dipole_hf, None)
+        >>> trans = ref_prop(mol, occup, 'trans', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, None)
         >>> np.allclose(trans, np.array([0., 0., 0.72582795]))
         True
         """
@@ -769,16 +770,16 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
             e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # exp model
-            ref = main(model['method'], model['solver'], mol.spin, occup, target_mbe, \
-                        state['wfnsym'], orbsym, hf_guess, state['root'], \
+            ref = main(model['method'], model['cc_backend'], model['solver'], orb_type, mol.spin, occup, target_mbe, \
+                        state['wfnsym'], mol.symmetry, orbsym, hf_guess, state['root'], \
                         e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, mol.debug, \
                         mol.dipole_ints if target_mbe in ['dipole', 'trans'] else None, \
                         dipole_hf if target_mbe in ['dipole', 'trans'] else None)[0]
 
             # base model
             if base_method is not None:
-                ref -= main(base_method, '', mol.spin, occup, target_mbe, \
-                            state['wfnsym'], orbsym, hf_guess, state['root'], \
+                ref -= main(base_method, model['cc_backend'], '', orb_type, mol.spin, occup, target_mbe, \
+                            state['wfnsym'], mol.symmetry, orbsym, hf_guess, state['root'], \
                             e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, mol.debug, \
                             mol.dipole_ints if target_mbe in ['dipole', 'trans'] else None, \
                             dipole_hf if target_mbe in ['dipole', 'trans'] else None)[0]
@@ -794,9 +795,9 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
         return ref
 
 
-def main(method: str, solver: str, spin: int, occup: np.ndarray, target_mbe: str, \
-            state_wfnsym: str, orbsym: np.ndarray, hf_guess: bool, \
-            state_root: int, e_hf: float, e_core: float, h1e: np.ndarray, \
+def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, occup: np.ndarray, \
+            target_mbe: str, state_wfnsym: str, point_group: str, orbsym: np.ndarray, \
+            hf_guess: bool, state_root: int, e_hf: float, e_core: float, h1e: np.ndarray, \
             h2e: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, \
             n_elec: Tuple[int, int], debug: int, dipole_ints: Union[np.ndarray, None], \
             dipole_hf: Union[np.ndarray, None]) -> Tuple[Union[float, np.ndarray], int]:
@@ -816,13 +817,13 @@ def main(method: str, solver: str, spin: int, occup: np.ndarray, target_mbe: str
         >>> cas_idx_tril = idx_tril(cas_idx)
         >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
         >>> n_elec = nelec(occup, cas_idx)
-        >>> e, n_dets = main('fci', 'pyscf_spin0', 0, occup, 'energy', 'A', orbsym, True, 0,
+        >>> e, n_dets = main('fci', 'pyscf', 'pyscf_spin0', 'can', 0, occup, 'energy', 'A', 'C1', orbsym, True, 0,
         ...                 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0, None, None)
         >>> np.isclose(e, -2.8759428090050676)
         True
         >>> n_dets
         36
-        >>> exc = main('fci', 'pyscf_spin0', 0, occup, 'excitation', 'A', orbsym, True, 1,
+        >>> exc = main('fci', 'pyscf', 'pyscf_spin0', 'can', 0, occup, 'excitation', 'A', 'C1', orbsym, True, 1,
         ...            0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0, None, None)[0]
         >>> np.isclose(exc, 1.850774199956839)
         True
@@ -843,7 +844,7 @@ def main(method: str, solver: str, spin: int, occup: np.ndarray, target_mbe: str
         >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
         >>> n_elec = nelec(hf.mo_occ, cas_idx)
         >>> e_core = mol.energy_nuc()
-        >>> e = main('ccsd', 'pyscf_spin0', 0, hf.mo_occ, 'energy', 'A1', orbsym, True, 0,
+        >>> e = main('ccsd', 'pyscf', 'pyscf_spin0', 'can', 0, hf.mo_occ, 'energy', 'A1', 'C2v', orbsym, True, 0,
         ...          hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0,
         ...          None, None)[0]
         >>> np.isclose(e, -0.014118607610972691)
@@ -852,21 +853,22 @@ def main(method: str, solver: str, spin: int, occup: np.ndarray, target_mbe: str
         >>> dipole_ints = dipole_ints(mol, hf.mo_coeff)
         >>> ao_dip = mol.intor_symmetric('int1e_r', comp=3)
         >>> dipole_hf = np.einsum('xij,ji->x', ao_dip, hf.make_rdm1())
-        >>> dipole = main('fci', 'pyscf_spin0', 0, hf.mo_occ, 'dipole', 'A1', orbsym, True, 0,
+        >>> dipole = main('fci', 'pyscf', 'pyscf_spin0', 'can', 0, hf.mo_occ, 'dipole', 'A1', 'C2v', orbsym, True, 0,
         ...               hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0,
         ...               dipole_ints, dipole_hf)[0]
         >>> np.allclose(dipole, np.array([0., 0., -7.97781259e-03]))
         True
-        >>> trans = main('fci', 'pyscf_spin0', 0, hf.mo_occ, 'trans', 'A1', orbsym, True, 1,
+        >>> trans = main('fci', 'pyscf', 'pyscf_spin0', 'can', 0, hf.mo_occ, 'trans', 'A1', 'C2v', orbsym, True, 1,
         ...              hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0,
         ...              dipole_ints, dipole_hf)[0]
         >>> np.allclose(trans, np.array([0., 0., -0.26497816]))
         True
         """
-        if method in ['ccsd', 'ccsd(t)']:
+        if method in ['ccsd', 'ccsd(t)', 'ccsdt']:
 
-            res_tmp = _cc(spin, occup, core_idx, cas_idx, method, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole')
-            n_dets = ndets(occup, cas_idx, n_elec = n_elec)
+            res_tmp = _cc(spin, occup, core_idx, cas_idx, method, cc_backend=cc_backend, n_elec=n_elec, orb_type=orb_type, \
+            point_group=point_group, orbsym=orbsym, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole', debug=debug)
+            n_dets = ndets(occup, cas_idx, n_elec=n_elec)
 
         elif method == 'fci':
 
@@ -949,8 +951,8 @@ def _trans(dipole_ints: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, \
                         * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
-def base(mol: MolCls, occup: np.ndarray, target_mbe: str, \
-         method: str, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
+def base(mol: MolCls, orb_type: str, occup: np.ndarray, orbsym: np.ndarray, target_mbe: str, \
+         method: str, cc_backend: str, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
         """
         this function returns base model energy
 
@@ -969,12 +971,12 @@ def base(mol: MolCls, occup: np.ndarray, target_mbe: str, \
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
-        >>> e, dipole = base(mol, occup, 'energy', 'ccsd(t)', dipole_hf)
+        >>> e, dipole = base(mol, 'can', occup, orbsym, 'energy', 'ccsd(t)', 'pyscf', dipole_hf)
         >>> np.isclose(e, -0.1353082155512597)
         True
         >>> np.allclose(dipole, np.zeros(3, dtype=np.float64))
         True
-        >>> e, dipole = base(mol, occup, 'dipole', 'ccsd', dipole_hf)
+        >>> e, dipole = base(mol, 'can', occup, orbsym, 'dipole', 'ccsd', 'pyscf', dipole_hf)
         >>> np.isclose(e, -0.13432841702437032)
         True
         >>> np.allclose(dipole, np.array([0., 0., -4.31202762e-02]))
@@ -1002,8 +1004,13 @@ def base(mol: MolCls, occup: np.ndarray, target_mbe: str, \
         # get e_core and h1e_cas
         e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
+        # n_elec
+        n_elec = nelec(occup, cas_idx)
+
         # run calc
-        res_tmp = _cc(mol.spin, occup, core_idx, cas_idx, method, h1e=h1e_cas, h2e=h2e_cas, rdm1=target_mbe == 'dipole')
+        res_tmp = _cc(mol.spin, occup, core_idx, cas_idx, method, cc_backend=cc_backend, n_elec=n_elec, \
+                      orb_type=orb_type, point_group=mol.symmetry, orbsym=orbsym, h1e=h1e_cas, h2e=h2e_cas, \
+                      rdm1=target_mbe == 'dipole')
 
         # collect results
         energy = res_tmp['energy']
@@ -1311,8 +1318,9 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.n
 
 
 def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: str, \
-            h1e: np.ndarray = None, h2e: np.ndarray = None, hf: scf.RHF = None, \
-            rdm1: bool = False) -> Dict[str, Any]:
+            cc_backend: str = 'pyscf', n_elec: Tuple[int, int] = None, orb_type: str = None, \
+            point_group: str = None, orbsym: np.ndarray = None, h1e: np.ndarray = None, \
+            h2e: np.ndarray = None, hf: scf.RHF = None, rdm1: bool = False, debug: int = 0) -> Dict[str, Any]:
         """
         this function returns the results of a ccsd / ccsd(t) calculation
 
@@ -1345,64 +1353,79 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
         assertion(spin_cas == spin, 'cascc wrong spin in space: {:}'.format(cas_idx))
         singlet = spin_cas == 0
 
-        # init ccsd solver
-        if h1e is not None and h2e is not None:
+        if cc_backend == 'pyscf':
 
-            mol_tmp = gto.M(verbose=0)
-            mol_tmp.max_memory = MAX_MEM
-            mol_tmp.incore_anyway = True
+            # init ccsd solver
+            if h1e is not None and h2e is not None:
 
-            if singlet:
-                hf = scf.RHF(mol_tmp)
-            else:
-                hf = scf.UHF(mol_tmp)
+                mol_tmp = gto.M(verbose=0)
+                mol_tmp.max_memory = MAX_MEM
+                mol_tmp.incore_anyway = True
 
-            hf.get_hcore = lambda *args: h1e
-            hf._eri = h2e
+                if singlet:
+                    hf = scf.RHF(mol_tmp)
+                else:
+                    hf = scf.UHF(mol_tmp)
 
-            if singlet:
-                ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(cas_idx.size), mo_occ=occup[cas_idx])
-            else:
-                ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))), \
-                                        mo_occ=np.array((occup[cas_idx] > 0., occup[cas_idx] == 2.), dtype=np.double))
+                hf.get_hcore = lambda *args: h1e
+                hf._eri = h2e
 
-        elif hf is not None:
+                if singlet:
+                    ccsd = cc.ccsd.CCSD(hf, mo_coeff=np.eye(cas_idx.size), mo_occ=occup[cas_idx])
+                else:
+                    ccsd = cc.uccsd.UCCSD(hf, mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))), \
+                                            mo_occ=np.array((occup[cas_idx] > 0., occup[cas_idx] == 2.), dtype=np.double))
 
-            ccsd = cc.CCSD(hf)
-            frozen_orbs = np.asarray([i for i in range(hf.mo_coeff.shape[1]) if i not in cas_idx])
-            if frozen_orbs.size > 0:
-                ccsd.frozen = frozen_orbs
+            elif hf is not None:
 
-        # settings
-        ccsd.conv_tol = CONV_TOL
-        if rdm1:
-            ccsd.conv_tol_normt = ccsd.conv_tol
-        ccsd.max_cycle = 500
-        ccsd.async_io = False
-        ccsd.diis_start_cycle = 4
-        ccsd.diis_space = 12
-        ccsd.incore_complete = True
-        eris = ccsd.ao2mo()
+                ccsd = cc.CCSD(hf)
+                frozen_orbs = np.asarray([i for i in range(hf.mo_coeff.shape[1]) if i not in cas_idx])
+                if frozen_orbs.size > 0:
+                    ccsd.frozen = frozen_orbs
 
-        # calculate ccsd energy
-        ccsd.kernel(eris=eris)
+            # settings
+            ccsd.conv_tol = CONV_TOL
+            if rdm1:
+                ccsd.conv_tol_normt = ccsd.conv_tol
+            ccsd.max_cycle = 500
+            ccsd.async_io = False
+            ccsd.diis_start_cycle = 4
+            ccsd.diis_space = 12
+            ccsd.incore_complete = True
+            eris = ccsd.ao2mo()
 
-        # convergence check
-        assertion(ccsd.converged, 'CCSD error: no convergence , core_idx = {:} , cas_idx = {:}'.format(core_idx, cas_idx))
+            # calculate ccsd energy
+            ccsd.kernel(eris=eris)
 
-        # e_corr
-        e_cc = ccsd.e_corr
+            # convergence check
+            assertion(ccsd.converged, 'CCSD error: no convergence, core_idx = {:} , cas_idx = {:}'.format(core_idx, cas_idx))
 
-        # calculate (t) correction
-        if method == 'ccsd(t)':
+            # e_corr
+            e_cc = ccsd.e_corr
 
-            if np.amin(occup[cas_idx]) == 1.:
-                if np.where(occup[cas_idx] == 1.)[0].size >= 3:
+            # calculate (t) correction
+            if method == 'ccsd(t)':
+
+                if np.amin(occup[cas_idx]) == 1.:
+                    if np.where(occup[cas_idx] == 1.)[0].size >= 3:
+                        e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
+
+                else:
+
                     e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 
-            else:
+        elif (cc_backend == 'ecc'):
 
-                e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
+            # calculate cc energy
+            cc_energy, success = mbecc_interface(method, orb_type, point_group, orbsym, h1e, h2e, \
+                                                 core_idx, cas_idx, n_elec, debug)
+
+            # convergence check
+            assertion(success == 1, \
+            'ECC error: no convergence, core_idx = {:} , cas_idx = {:}'.format(core_idx, cas_idx))
+
+            # e_corr
+            e_cc = cc_energy
 
         # collect results
         res: Dict[str, Union[float, np.ndarray]] = {'energy': e_cc}

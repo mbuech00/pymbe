@@ -254,9 +254,9 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             e_core, h1e_cas = e_core_h1e(mol.e_nuc, hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, ndets_tup, n_elec_tup = _inc(calc.model, calc.base['method'], mol.spin, \
-                                                  calc.occup, calc.target_mbe, calc.state, calc.orbsym, \
-                                                  calc.prop, e_core, h1e_cas, h2e_cas, \
+            inc_tup, ndets_tup, n_elec_tup = _inc(calc.model, calc.base['method'], calc.orbs['type'], mol.spin, \
+                                                  calc.occup, calc.target_mbe, calc.state, mol.symmetry, \
+                                                  calc.orbsym, calc.prop, e_core, h1e_cas, h2e_cas, \
                                                   core_idx, cas_idx, mol.debug, mol.dipole_ints)
 
             # calculate increment
@@ -388,8 +388,8 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             return hashes_win, inc_win
 
 
-def _inc(model: Dict[str, Any], base: Union[str, None], spin: int, occup: np.ndarray, \
-         target_mbe: str, state: Dict[str, Any], orbsym: np.ndarray, prop: Dict[str, Any], \
+def _inc(model: Dict[str, Any], base: Union[str, None], orb_type: str, spin: int, occup: np.ndarray, \
+         target_mbe: str, state: Dict[str, Any], point_group: str, orbsym: np.ndarray, prop: Dict[str, Any], \
          e_core: float, h1e_cas: np.ndarray, h2e_cas: np.ndarray, core_idx: np.ndarray, \
          cas_idx: np.ndarray, debug: int, dipole_ints: np.ndarray) -> Tuple[Union[float, np.ndarray], \
                                                                             int, Tuple[int, int]]:
@@ -398,14 +398,14 @@ def _inc(model: Dict[str, Any], base: Union[str, None], spin: int, occup: np.nda
 
         example:
         >>> n = 4
-        >>> model = {'method': 'fci', 'solver': 'pyscf_spin0', 'hf_guess': True}
+        >>> model = {'method': 'fci', 'cc_backend': 'pyscf', 'solver': 'pyscf_spin0', 'hf_guess': True}
         >>> prop = {'hf': {'energy': 0., 'dipole': None}, 'ref': {'energy': 0.}}
         >>> state = {'wfnsym': 'A', 'root': 0}
         >>> occup = np.array([2.] * (n // 2) + [0.] * (n // 2))
         >>> orbsym = np.zeros(n, dtype=np.int64)
         >>> h1e_cas, h2e_cas = hubbard_h1e((1, n), False), hubbard_eri((1, n), 2.)
         >>> core_idx, cas_idx = np.array([]), np.arange(n)
-        >>> e, ndets, n_elec = _inc(model, None, 0, occup, 'energy', state, orbsym,
+        >>> e, ndets, n_elec = _inc(model, None, 'can', 0, occup, 'energy', state, 'c1', orbsym,
         ...                         prop, 0, h1e_cas, h2e_cas, core_idx, cas_idx, 0, None)
         >>> np.isclose(e, -2.875942809005048)
         True
@@ -418,15 +418,16 @@ def _inc(model: Dict[str, Any], base: Union[str, None], spin: int, occup: np.nda
         n_elec = nelec(occup, cas_idx)
 
         # perform main calc
-        res_full, ndets = kernel_main(model['method'], model['solver'], spin, occup, target_mbe, state['wfnsym'], orbsym, \
-                                      model['hf_guess'], state['root'], prop['hf']['energy'], e_core, h1e_cas, h2e_cas, \
-                                      core_idx, cas_idx, n_elec, debug, dipole_ints, prop['hf']['dipole'])
+        res_full, ndets = kernel_main(model['method'], model['cc_backend'], model['solver'], orb_type, spin, occup, \
+                                      target_mbe, state['wfnsym'], point_group, orbsym, model['hf_guess'], state['root'], \
+                                      prop['hf']['energy'], e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, \
+                                      debug, dipole_ints, prop['hf']['dipole'])
 
         # perform base calc
         if base is not None:
-            res_full -= kernel_main(base, '', spin, occup, target_mbe, state['wfnsym'], orbsym, \
-                                    model['hf_guess'], state['root'], prop['hf']['energy'], e_core, h1e_cas, h2e_cas, \
-                                    core_idx, cas_idx, n_elec, debug, dipole_ints, prop['hf']['dipole'])[0]
+            res_full -= kernel_main(base, model['cc_backend'], '', orb_type, spin, occup, target_mbe, state['wfnsym'], \
+                                    point_group, orbsym, model['hf_guess'], state['root'], prop['hf']['energy'], e_core, \
+                                    h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, debug, dipole_ints, prop['hf']['dipole'])[0]
 
         return res_full - prop['ref'][target_mbe], ndets, n_elec
 
