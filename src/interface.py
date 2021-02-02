@@ -13,6 +13,7 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import os
+import sys
 import ctypes
 import numpy as np
 from pyscf import ao2mo, gto, scf, symm
