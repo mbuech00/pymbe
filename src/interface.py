@@ -28,12 +28,13 @@ except ImportError:
     ''' % os.path.join(os.path.dirname(__file__), 'settings.py')
     sys.stderr.write(msg)
 
-MAX_MEM = 1e10
+cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
+
+MAX_MEM = 1e7
 CONV_TOL = 10
 
-def mbecc_interface(method: str, orb_type: str, point_group: str, orbsym: np.ndarray, h1e: np.ndarray, \
-                    h2e: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, \
-                    n_elec: Tuple[int, int], debug: int) -> Tuple[float, int]:
+def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: str, orbsym: np.ndarray, \
+                    h1e: np.ndarray, h2e: np.ndarray, n_elec: Tuple[int, int], debug: int) -> Tuple[float, int]:
         """
         this function returns the results of a cc calculation using the mbecc
         interface
@@ -44,7 +45,6 @@ def mbecc_interface(method: str, orb_type: str, point_group: str, orbsym: np.nda
         ...               basis = '631g', symmetry = 'C2v', verbose=0)
         >>> hf = scf.RHF(mol)
         >>> _ = hf.kernel()
-        >>> core_idx = np.array([])
         >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
         >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
@@ -55,32 +55,32 @@ def mbecc_interface(method: str, orb_type: str, point_group: str, orbsym: np.nda
         >>> cas_idx_tril = idx_tril(cas_idx)
         >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
         >>> n_elec = nelec(hf.mo_occ, cas_idx)
-        >>> cc_energy, success = mbecc_interface('ccsd', 'can', 'C2v', orbsym, h1e_cas, \
-                                                 h2e_cas, core_idx, cas_idx, n_elec)
+        >>> cc_energy, success = mbecc_interface('ccsd', 'ecc', 'can', 'C2v', orbsym[cas_idx], h1e_cas, \
+                                                 h2e_cas, n_elec, 0)
         >>> np.isclose(cc_energy, -0.014118607610972705)
         True
         """
 
-        # initialize library
-        cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
-
         # method keys in cfour
-        method_dict = {'ccsd': 10, 'ccsd(t)': 22, 'ccsdt': 18}
+        method_dict = {'ccsd': 10, 'ccsd(t)': 22, 'ccsdt': 18, 'ccsdtq': 46}
+
+        # cc module
+        cc_module_dict = {'ecc': 0, 'ncc': 1}
 
         # point group
         point_group_dict = {'C1': 1, 'C2': 2, 'Ci': 3, 'Cs': 4, 'D2': 5, 'C2v': 6, 'C2h': 7, 'D2h': 8}
 
         # settings
         method = ctypes.c_int64(method_dict[method])
+        cc_module = ctypes.c_int64(cc_module_dict[cc_backend])
         point_group = ctypes.c_int64(point_group_dict[point_group])
         non_canonical = ctypes.c_int64(0 if orb_type == 'can' else 1)
-        maxcor = ctypes.c_int64(int(MAX_MEM)) # max memory
+        maxcor = ctypes.c_int64(int(MAX_MEM)) # max memory in integer words
         conv = ctypes.c_int64(CONV_TOL)
         max_cycle = ctypes.c_int64(500)
         verbose = ctypes.c_int64(1 if debug >= 3 else 0)
-        orbsym = orbsym[cas_idx]
 
-        n_act = cas_idx.size
+        n_act = orbsym.size
         h2e = ao2mo.restore(1, h2e, n_act)
 
         # intitialize variables
@@ -90,19 +90,14 @@ def mbecc_interface(method: str, orb_type: str, point_group: str, orbsym: np.nda
         success = ctypes.c_int64() # success flag
 
         # perform cc calculation
-        cclib.cc_interface(ctypes.byref(method), ctypes.byref(non_canonical),#
-            ctypes.byref(maxcor), n_elec.ctypes.data_as(ctypes.c_void_p),#
-            ctypes.byref(n_act), orbsym.ctypes.data_as(ctypes.c_void_p),#
-            ctypes.byref(point_group), h1e.ctypes.data_as(ctypes.c_void_p),#
+        cclib.cc_interface(ctypes.byref(method), ctypes.byref(cc_module),#
+            ctypes.byref(non_canonical), ctypes.byref(maxcor),#
+            n_elec.ctypes.data_as(ctypes.c_void_p), ctypes.byref(n_act),
+            orbsym.ctypes.data_as(ctypes.c_void_p), ctypes.byref(point_group),#
+            h1e.ctypes.data_as(ctypes.c_void_p),#
             h2e.ctypes.data_as(ctypes.c_void_p), ctypes.byref(conv),#
             ctypes.byref(max_cycle), ctypes.byref(verbose),#
             ctypes.byref(cc_energy), ctypes.byref(success))
-
-        # close library
-        dlclose_func = ctypes.CDLL(None).dlclose
-        dlclose_func.argtypes = [ctypes.c_void_p]
-
-        dlclose_func(cclib._handle)
 
         return cc_energy.value, success.value
 
