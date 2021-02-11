@@ -30,7 +30,7 @@ except ImportError:
 
 cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
 
-MAX_MEM = 1e7
+MAX_MEM = 1e8
 CONV_TOL = 10
 
 def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: str, orbsym: np.ndarray, \
