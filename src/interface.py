@@ -30,7 +30,7 @@ except ImportError:
 
 cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
 
-MAX_MEM = 1e8
+MAX_MEM = 131071906
 CONV_TOL = 10
 
 def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: str, orbsym: np.ndarray, \
@@ -75,7 +75,7 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
         cc_module = ctypes.c_int64(cc_module_dict[cc_backend])
         point_group = ctypes.c_int64(point_group_dict[point_group])
         non_canonical = ctypes.c_int64(0 if orb_type == 'can' else 1)
-        maxcor = ctypes.c_int64(int(MAX_MEM)) # max memory in integer words
+        maxcor = ctypes.c_int64(MAX_MEM) # max memory in integer words
         conv = ctypes.c_int64(CONV_TOL)
         max_cycle = ctypes.c_int64(500)
         verbose = ctypes.c_int64(1 if debug >= 3 else 0)
