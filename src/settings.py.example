@@ -5,4 +5,4 @@
 
 # Install the CFOUR interface MBECC
 # https://gitlab.com/jgreiner/mbecc
-MBECCLIB = '/path/to/mbecc/bin/cc_interface'
+MBECCLIB = '/path/to/mbecc/build/libmbecc.so'
