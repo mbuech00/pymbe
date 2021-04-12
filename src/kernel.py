@@ -26,7 +26,7 @@ from warnings import catch_warnings, simplefilter
 from parallel import mpi_bcast
 from system import MolCls
 from tools import assertion, suppress_stdout, mat_idx, near_nbrs, \
-                    idx_tril, core_cas, nelec, ndets
+                  idx_tril, core_cas, nelec, ndets
 from interface import mbecc_interface
 
 

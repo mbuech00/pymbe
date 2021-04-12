@@ -23,12 +23,11 @@ from tools import idx_tril, nelec
 
 try:
     import settings
+    cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
 except ImportError:
-    msg = '''settings.py not found for module interface. Please create %s
-    ''' % os.path.join(os.path.dirname(__file__), 'settings.py')
+    msg = 'settings.py not found for module interface. ' + \
+          f'Please create {os.path.join(os.path.dirname(__file__), "settings.py"):}\n'
     sys.stderr.write(msg)
-
-cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
 
 MAX_MEM = 131071906
 CONV_TOL = 10
