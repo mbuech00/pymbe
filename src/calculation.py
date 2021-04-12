@@ -110,10 +110,10 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         # expansion model
         assertion(isinstance(calc.model['method'], str), \
                         'input electronic structure method (method) must be a string')
-        assertion(calc.model['method'] in ['ccsd', 'ccsd(t)', 'ccsdt', 'fci'], \
-                        'valid expansion methods (method) are: ccsd, ccsd(t), ccsdt and fci')
-        assertion(calc.model['cc_backend'] in ['pyscf', 'ecc'], \
-                        'valid cc backends (cc_backend) are: pyscf and ecc')
+        assertion(calc.model['method'] in ['ccsd', 'ccsd(t)', 'ccsdt', 'ccsdtq', 'fci'], \
+                        'valid expansion methods (method) are: ccsd, ccsd(t), ccsdt, ccsdtq and fci')
+        assertion(calc.model['cc_backend'] in ['pyscf', 'ecc', 'ncc'], \
+                        'valid cc backends (cc_backend) are: pyscf, ecc and ncc')
         assertion(calc.model['solver'] in ['pyscf_spin0', 'pyscf_spin1'], \
                         'valid FCI solvers (solver) are: pyscf_spin0 and pyscf_spin1')
         assertion(isinstance(calc.model['hf_guess'], bool), \
@@ -126,11 +126,14 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
             if calc.model['method'] == 'ccsdt':
                 assertion(calc.model['cc_backend'] != 'pyscf', \
                             'ccsdt is not available with pyscf set as cc_backend')
+            if calc.model['method'] == 'ccsdtq':
+                assertion(calc.model['cc_backend'] == 'ncc', \
+                            'ccsdtq is not available with pyscf or ecc set as cc_backend')
         if spin > 0:
             assertion(calc.model['solver'] != 'pyscf_spin0', \
                             'the pyscf_spin0 FCI solver is designed for spin singlets only')
-            assertion(calc.model['cc_backend'] != 'ecc', \
-                            'the ecc interface is designed for closed-shell systems only')
+            assertion(calc.model['cc_backend'] == 'pyscf', \
+                            'the mbecc interface is designed for closed-shell systems only')
         # hf reference
         assertion(isinstance(calc.hf_ref['newton'], bool), \
                         'newton input in hf_ref dict (newton) must be a bool')
@@ -181,11 +184,14 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
            assertion(spin == 0, 'illegal active space selection algortihm for non-singlet system')
         # base model
         if calc.base['method'] is not None:
-            assertion(calc.base['method'] in ['ccsd', 'ccsd(t)', 'ccsdt'], \
-                            'valid base models are currently: ccsd, ccsd(t) and ccsdt')
+            assertion(calc.base['method'] in ['ccsd', 'ccsd(t)', 'ccsdt', 'ccsdtq'], \
+                            'valid base models are currently: ccsd, ccsd(t), ccsdt and ccsdtq')
             if calc.base['method'] == 'ccsdt':
                 assertion(calc.model['cc_backend'] != 'pyscf', \
                             'ccsdt is not available with pyscf set as cc_backend')
+            if calc.base['method'] == 'ccsdtq':
+                assertion(calc.model['cc_backend'] == 'ncc', \
+                            'ccsdtq is not available with pyscf or ecc set as cc_backend')
         # state
         if atom:
             try:

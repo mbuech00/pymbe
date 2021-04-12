@@ -864,7 +864,7 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, oc
         >>> np.allclose(trans, np.array([0., 0., -0.26497816]))
         True
         """
-        if method in ['ccsd', 'ccsd(t)', 'ccsdt']:
+        if method in ['ccsd', 'ccsd(t)', 'ccsdt', 'ccsdtq']:
 
             res_tmp = _cc(spin, occup, core_idx, cas_idx, method, cc_backend=cc_backend, n_elec=n_elec, orb_type=orb_type, \
             point_group=point_group, orbsym=orbsym, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole', debug=debug)
@@ -1414,11 +1414,11 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
 
                     e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 
-        elif (cc_backend == 'ecc'):
+        elif (cc_backend in ['ecc', 'ncc']):
 
             # calculate cc energy
-            cc_energy, success = mbecc_interface(method, orb_type, point_group, orbsym, h1e, h2e, \
-                                                 core_idx, cas_idx, n_elec, debug)
+            cc_energy, success = mbecc_interface(method, cc_backend, orb_type, point_group, orbsym[cas_idx], h1e, h2e, \
+                                                 n_elec, debug)
 
             # convergence check
             assertion(success == 1, \
