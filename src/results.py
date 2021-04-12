@@ -170,7 +170,7 @@ def _ref(mol: MolCls, calc: CalcCls) -> str:
                 return 'CASSCF'
             else:
                 for i in range(len(set(calc.ref['wfnsym']))):
-                    sym = symm.addons.irrep_id2name(mol.symmetry, list(set(calc.ref['wfnsym']))[i])
+                    sym = symm.addons.irrep_id2name(mol.groupname, list(set(calc.ref['wfnsym']))[i])
                     num = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[i])
                     if i == 0:
                         syms = str(num)+'*'+sym
@@ -289,7 +289,7 @@ def _symm(mol: MolCls, calc: CalcCls) -> str:
         """
         if calc.model['method'] == 'fci':
             if mol.atom:
-                string = symm.addons.irrep_id2name(mol.symmetry, calc.state['wfnsym'])+'('+mol.symmetry+')'
+                string = symm.addons.irrep_id2name(mol.groupname, calc.state['wfnsym'])+'('+mol.groupname+')'
                 if calc.extra['pi_prune']:
                     string += ' (pi)'
                 return string

@@ -82,7 +82,7 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
         n_act = orbsym.size
         h2e = ao2mo.restore(1, h2e, n_act)
 
-        # intitialize variables
+        # initialize variables
         n_elec = np.array(n_elec, dtype=np.int64) # number of occupied orbitals
         n_act = ctypes.c_int64(n_act) # number of orbitals
         cc_energy = ctypes.c_double() # cc-energy output

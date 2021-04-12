@@ -89,7 +89,7 @@ def _calc(mpi: MPICls, mol: MolCls) -> CalcCls:
         this function initializes a calc object
         """
         # calc object
-        calc = CalcCls(mol.ncore, mol.nelectron, mol.symmetry)
+        calc = CalcCls(mol.ncore, mol.nelectron, mol.groupname)
 
         # input handling
         if mpi.global_master:
@@ -105,7 +105,7 @@ def _calc(mpi: MPICls, mol: MolCls) -> CalcCls:
                 calc.hf_ref['symmetry'] = mol.symmetry
 
             # sanity check
-            calculation_sanity_check(calc, mol.spin, mol.atom, mol.symmetry)
+            calculation_sanity_check(calc, mol.spin, mol.atom, mol.groupname)
 
             # restart folder and logical
             if not os.path.isdir(RST):
@@ -216,7 +216,7 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
 
             # recast mol in parent point group (dooh/coov) - make pi-space based on those symmetries
             mol_parent = mol.copy()
-            parent_group = 'Dooh' if mol.symmetry == 'D2h' else 'Coov'
+            parent_group = 'Dooh' if mol.groupname == 'D2h' else 'Coov'
             mol_parent = mol_parent.build(0, 0, symmetry=parent_group)
 
             orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \

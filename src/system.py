@@ -159,9 +159,6 @@ def sanity_check(mol: MolCls) -> None:
         # symmetry
         assertion(isinstance(mol.symmetry, (str, bool)), \
                         'symmetry input in system dict (symmetry) must be a str or bool')
-        if isinstance(mol.symmetry, str):
-            assertion(symm.addons.std_symb(mol.symmetry) in symm.param.POINTGROUP, \
-                            'illegal symmetry input in system dict (symmetry)')
         # basis
         assertion(isinstance(mol.basis, (str, dict)), \
                         'basis set input in system dict (basis) must be a str or a dict')
