@@ -139,9 +139,6 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
                         'newton input in hf_ref dict (newton) must be a bool')
         assertion(isinstance(calc.hf_ref['symmetry'], (str, bool)), \
                         'HF symmetry input in hf_ref dict (symmetry) must be a str or bool')
-        if isinstance(calc.hf_ref['symmetry'], str):
-            assertion(symm.addons.std_symb(calc.hf_ref['symmetry']) in symm.param.POINTGROUP, \
-                            'illegal HF symmetry input in hf_ref dict (symmetry)')
         assertion(isinstance(calc.hf_ref['init_guess'], str), \
                         'HF initial guess in hf_ref dict (init_guess) must be a str')
         assertion(calc.hf_ref['init_guess'] in ['minao', 'atom', '1e'], \

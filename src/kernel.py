@@ -495,20 +495,16 @@ def hf(mol: MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, flo
         # store energy, occupation, and orbsym
         e_hf = hf.e_tot
         occup = hf.mo_occ
-        if mol.atom:
+        if mol.symmetry:
             orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
         else:
             orbsym = np.zeros(hf.mo_energy.size, dtype=np.int64)
 
         # debug print of orbital energies
         if mol.debug >= 2:
-            if mol.symmetry:
-                gpname = mol.symmetry
-            else:
-                gpname = 'C1'
             print('\n HF:  mo   symmetry    energy')
             for i in range(hf.mo_energy.size):
-                print('     {:>3d}   {:>5s}     {:>7.5f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), hf.mo_energy[i]))
+                print('     {:>3d}   {:>5s}     {:>7.5f}'.format(i, symm.addons.irrep_id2name(mol.groupname, orbsym[i]), hf.mo_energy[i]))
             print('\n')
 
         return nocc, nvirt, norb, hf, np.asscalar(e_hf), elec_dipole, occup, \
@@ -675,7 +671,7 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
                 mo_coeff_casscf = mo_coeff_out[:, sort_casscf]
 
             # update orbsym
-            if mol.atom:
+            if mol.symmetry:
                 orbsym_casscf = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff_casscf)
 
             # run casscf
@@ -771,7 +767,7 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
 
             # exp model
             ref = main(model['method'], model['cc_backend'], model['solver'], orb_type, mol.spin, occup, target_mbe, \
-                        state['wfnsym'], mol.symmetry, orbsym, hf_guess, state['root'], \
+                        state['wfnsym'], mol.groupname, orbsym, hf_guess, state['root'], \
                         e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, mol.debug, \
                         mol.dipole_ints if target_mbe in ['dipole', 'trans'] else None, \
                         dipole_hf if target_mbe in ['dipole', 'trans'] else None)[0]
@@ -779,7 +775,7 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
             # base model
             if base_method is not None:
                 ref -= main(base_method, model['cc_backend'], '', orb_type, mol.spin, occup, target_mbe, \
-                            state['wfnsym'], mol.symmetry, orbsym, hf_guess, state['root'], \
+                            state['wfnsym'], mol.groupname, orbsym, hf_guess, state['root'], \
                             e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, mol.debug, \
                             mol.dipole_ints if target_mbe in ['dipole', 'trans'] else None, \
                             dipole_hf if target_mbe in ['dipole', 'trans'] else None)[0]
@@ -1009,7 +1005,7 @@ def base(mol: MolCls, orb_type: str, occup: np.ndarray, orbsym: np.ndarray, targ
 
         # run calc
         res_tmp = _cc(mol.spin, occup, core_idx, cas_idx, method, cc_backend=cc_backend, n_elec=n_elec, \
-                      orb_type=orb_type, point_group=mol.symmetry, orbsym=orbsym, h1e=h1e_cas, h2e=h2e_cas, \
+                      orb_type=orb_type, point_group=mol.groupname, orbsym=orbsym, h1e=h1e_cas, h2e=h2e_cas, \
                       rdm1=target_mbe == 'dipole')
 
         # collect results
@@ -1155,19 +1151,15 @@ def _casscf(mol: MolCls, solver: str, wfnsym: List[str], \
         assertion(cas.converged, 'CASSCF error: no convergence')
 
         # debug print of orbital energies
-        if mol.atom:
+        if mol.symmetry:
             orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, cas.mo_coeff)
         else:
             orbsym = np.zeros(cas.mo_energy.size, dtype=np.int64)
 
         if mol.debug >= 2:
-            if mol.symmetry:
-                gpname = mol.symmetry
-            else:
-                gpname = 'C1'
             print('\n CASSCF:  mo   symmetry    energy')
             for i in range(cas.mo_energy.size):
-                print('         {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(gpname, orbsym[i]), cas.mo_energy[i]))
+                print('         {:>3d}   {:>5s}     {:>7.3f}'.format(i, symm.addons.irrep_id2name(mol.groupname, orbsym[i]), cas.mo_energy[i]))
             print('\n')
 
         return np.asarray(cas.mo_coeff, order='C')

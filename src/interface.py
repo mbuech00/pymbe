@@ -24,10 +24,9 @@ from tools import idx_tril, nelec
 try:
     import settings
     cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
+    CCLIB_AVAILABLE = True
 except ImportError:
-    msg = 'settings.py not found for module interface. ' + \
-          f'Please create {os.path.join(os.path.dirname(__file__), "settings.py"):}\n'
-    sys.stderr.write(msg)
+    CCLIB_AVAILABLE = False
 
 MAX_MEM = 131071906
 CONV_TOL = 10
@@ -60,6 +59,11 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
         True
         """
 
+        if not CCLIB_AVAILABLE:
+            msg = 'settings.py not found for module interface. ' + \
+            f'Please create {os.path.join(os.path.dirname(__file__), "settings.py"):}\n'
+            raise ModuleNotFoundError(msg)
+
         # method keys in cfour
         method_dict = {'ccsd': 10, 'ccsd(t)': 22, 'ccsdt': 18, 'ccsdtq': 46}
 
@@ -82,7 +86,7 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
         n_act = orbsym.size
         h2e = ao2mo.restore(1, h2e, n_act)
 
-        # intitialize variables
+        # initialize variables
         n_elec = np.array(n_elec, dtype=np.int64) # number of occupied orbitals
         n_act = ctypes.c_int64(n_act) # number of orbitals
         cc_energy = ctypes.c_double() # cc-energy output

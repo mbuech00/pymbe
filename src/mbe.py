@@ -255,7 +255,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
 
             # calculate increment
             inc_tup, ndets_tup, n_elec_tup = _inc(calc.model, calc.base['method'], calc.orbs['type'], mol.spin, \
-                                                  calc.occup, calc.target_mbe, calc.state, mol.symmetry, \
+                                                  calc.occup, calc.target_mbe, calc.state, mol.groupname, \
                                                   calc.orbsym, calc.prop, e_core, h1e_cas, h2e_cas, \
                                                   core_idx, cas_idx, mol.debug, mol.dipole_ints)
 
@@ -276,7 +276,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
 
             # debug print
             if mol.debug >= 2:
-                print(mbe_debug(mol.atom, mol.symmetry, calc.orbsym, calc.state['root'], \
+                print(mbe_debug(mol.atom, mol.groupname, calc.orbsym, calc.state['root'], \
                                 ndets_tup, n_elec_tup, inc_tup, exp.order, cas_idx, tup))
 
             # update increment statistics

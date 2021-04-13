@@ -161,7 +161,7 @@ def fund_dist(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]
             calc.mo_coeff = mpi_bcast(mpi.global_comm, calc.mo_coeff)
 
             # update orbsym
-            if mol.atom:
+            if mol.symmetry:
                 calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
             else:
                 calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
@@ -187,7 +187,7 @@ def fund_dist(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]
             calc.mo_coeff = mpi_bcast(mpi.global_comm, calc.mo_coeff)
 
             # update orbsym
-            if mol.atom:
+            if mol.symmetry:
                 calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
             else:
                 calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
