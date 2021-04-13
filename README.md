@@ -1,13 +1,19 @@
 ![](doc/logo/pymbe_logo.png "PyMBE")
 
-PyMBE: A Many-Body Expanded Correlation Code by Janus Juul Eriksen 
-==================================================================
+PyMBE: A Many-Body Expanded Correlation Code 
+============================================
 
 News
 ----
 
-* **October 2019**: The PyMBE code is now open source under the MIT license. More to follow.
+* **October 2019**: The PyMBE code is now open source under the MIT license.
 
+
+Authors
+-------
+
+* Dr. Janus Juul Eriksen (Technical University of Denmark, main author)
+* Jonas Greiner (Johannes Gutenberg University Mainz, contributor). 
 
 Prerequisites
 -------------
@@ -65,6 +71,10 @@ Citing PyMBE
 
 The following papers document the development of the PyMBE code and the theory it implements:
 
+* Incremental Treatments of the Full Configuration Interaction Problem\
+Eriksen, J. J., Gauss, J.\
+[WIREs Comput. Mol. Sci., e1525 (2021)](https://onlinelibrary.wiley.com/doi/full/10.1002/wcms.1525?af=R) ([arXiv:2012.07371](https://arxiv.org/abs/2012.07371))
+
 * Ground and Excited State First-Order Properties in Many-Body Expanded Full Configuration Interaction\
 Eriksen, J. J., Gauss, J.\
 [J. Chem. Phys., 153, 154107 (2020)](https://aip.scitation.org/doi/10.1063/5.0024791) ([arXiv:2008.03610](https://arxiv.org/abs/2008.03610))
@@ -88,5 +98,5 @@ Eriksen, J. J., Lipparini, F.; Gauss, J.\
 Bug reports
 -----------
 
-Janus Juul Eriksen: janus.eriksen [at] bristol [dot] ac [dot] uk or januseriksen [at] gmail [dot] com
+Janus Juul Eriksen: janus [at] kemi [dot] dtu [dot] dk
 
