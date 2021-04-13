@@ -139,7 +139,8 @@ def translate_system(mol: MolCls) -> MolCls:
             if hasattr(mol, 'sym'):
                 mol.symmetry = mol.sym
             # recast symmetries as standard symbols
-            mol.symmetry = symm.addons.std_symb(mol.symmetry)
+            if isinstance(mol.symmetry, str):
+                mol.symmetry = symm.addons.std_symb(mol.symmetry)
         return mol
 
 

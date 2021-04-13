@@ -495,7 +495,7 @@ def hf(mol: MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, flo
         # store energy, occupation, and orbsym
         e_hf = hf.e_tot
         occup = hf.mo_occ
-        if mol.atom:
+        if mol.symmetry:
             orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
         else:
             orbsym = np.zeros(hf.mo_energy.size, dtype=np.int64)
@@ -671,7 +671,7 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
                 mo_coeff_casscf = mo_coeff_out[:, sort_casscf]
 
             # update orbsym
-            if mol.atom:
+            if mol.symmetry:
                 orbsym_casscf = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff_casscf)
 
             # run casscf
@@ -1151,7 +1151,7 @@ def _casscf(mol: MolCls, solver: str, wfnsym: List[str], \
         assertion(cas.converged, 'CASSCF error: no convergence')
 
         # debug print of orbital energies
-        if mol.atom:
+        if mol.symmetry:
             orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, cas.mo_coeff)
         else:
             orbsym = np.zeros(cas.mo_energy.size, dtype=np.int64)

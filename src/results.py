@@ -283,9 +283,24 @@ def _mpi(mpi: MPICls) -> str:
         return '{:} & {:}'.format(mpi.num_masters, mpi.global_size - mpi.num_masters)
 
 
-def _symm(mol: MolCls, calc: CalcCls) -> str:
+def _point_group(mol: MolCls) -> str:
         """
         this function returns the molecular point group symmetry
+        """
+        return mol.topgroup
+
+
+def _comp_point_group(mol: MolCls) -> str:
+        """
+        this function returns the computational point group symmetry
+        """
+        return mol.groupname
+
+
+def _symm(mol: MolCls, calc: CalcCls) -> str:
+        """
+        this function returns the symmetry of the wavefunction in the
+        computational point group
         """
         if calc.model['method'] == 'fci':
             if mol.atom:
@@ -440,9 +455,21 @@ def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-        form += ('','FCI solver','','=','',_solver(calc), \
+        form += ('','Point group','','=','',_point_group(mol), \
                     '','|','','','','','','', \
                     '','|','','wave funct. symmetry','','=','',_symm(mol, calc),)
+
+        string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
+        form += ('','Comp. point group','','=','',_comp_point_group(mol), \
+                    '','|','','','','','','', \
+                    '','|','','','','','','',)
+
+        string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
+        form += ('','FCI solver','','=','',_solver(calc), \
+                    '','|','','','','','','', \
+                    '','|','','','','','','',)
 
         string += DIVIDER+'\n'+FILL+'\n'+DIVIDER+'\n'
 

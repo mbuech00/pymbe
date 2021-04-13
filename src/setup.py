@@ -392,7 +392,7 @@ def restart_read_fund(mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]:
             # read orbital coefficients
             elif 'mo_coeff' in files[i]:
                 calc.mo_coeff = np.load(os.path.join(RST, files[i]))
-                if mol.atom:
+                if mol.symmetry:
                     calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
                 else:
                     calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
