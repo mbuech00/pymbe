@@ -455,13 +455,13 @@ def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-        form += ('','Point group','','=','',_point_group(mol), \
+        form += ('','full point group','','=','',_point_group(mol), \
                     '','|','','','','','','', \
                     '','|','','wave funct. symmetry','','=','',_symm(mol, calc),)
 
         string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-        form += ('','Comp. point group','','=','',_comp_point_group(mol), \
+        form += ('','comp. point group','','=','',_comp_point_group(mol), \
                     '','|','','','','','','', \
                     '','|','','','','','','',)
 
