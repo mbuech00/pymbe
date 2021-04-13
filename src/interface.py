@@ -24,10 +24,9 @@ from tools import idx_tril, nelec
 try:
     import settings
     cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
+    CCLIB_AVAILABLE = True
 except ImportError:
-    msg = 'settings.py not found for module interface. ' + \
-          f'Please create {os.path.join(os.path.dirname(__file__), "settings.py"):}\n'
-    sys.stderr.write(msg)
+    CCLIB_AVAILABLE = False
 
 MAX_MEM = 131071906
 CONV_TOL = 10
@@ -59,6 +58,11 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
         >>> np.isclose(cc_energy, -0.014118607610972705)
         True
         """
+
+        if not CCLIB_AVAILABLE:
+            msg = 'settings.py not found for module interface. ' + \
+            f'Please create {os.path.join(os.path.dirname(__file__), "settings.py"):}\n'
+            raise ModuleNotFoundError(msg)
 
         # method keys in cfour
         method_dict = {'ccsd': 10, 'ccsd(t)': 22, 'ccsdt': 18, 'ccsdtq': 46}
