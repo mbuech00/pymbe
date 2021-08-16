@@ -1312,7 +1312,8 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.n
 def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: str, \
             cc_backend: str = 'pyscf', n_elec: Tuple[int, int] = None, orb_type: str = None, \
             point_group: str = None, orbsym: np.ndarray = None, h1e: np.ndarray = None, \
-            h2e: np.ndarray = None, hf: scf.RHF = None, rdm1: bool = False, debug: int = 0) -> Dict[str, Any]:
+            h2e: np.ndarray = None, hf: scf.RHF = None, higher_amp_extrap: bool = False, \
+            rdm1: bool = False, debug: int = 0) -> Dict[str, Any]:
         """
         this function returns the results of a ccsd / ccsd(t) calculation
 
@@ -1410,7 +1411,7 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
 
             # calculate cc energy
             cc_energy, success = mbecc_interface(method, cc_backend, orb_type, point_group, orbsym[cas_idx], h1e, h2e, \
-                                                 n_elec, debug)
+                                                 n_elec, higher_amp_extrap, debug)
 
             # convergence check
             assertion(success == 1, \
