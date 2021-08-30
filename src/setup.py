@@ -172,16 +172,12 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
         if not calc.restart and mpi.global_master and calc.misc['rst']:
             restart_write_fund(mol, calc)
 
-        # pyscf hf object not needed anymore
-        if mpi.global_master and not calc.restart:
-            del calc.hf
-
         if mpi.global_master:
 
             # base energy
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = base(mol, calc.occup, calc.orbsym, \
+                    calc.prop['base']['dipole'] = base(mol, calc.orbs['type'], calc.occup, calc.hf.mo_coeff, \
                                                        calc.target_mbe, calc.base['method'], \
                                                        calc.model['cc_backend'], calc.prop['hf']['dipole'])
             else:
@@ -194,6 +190,10 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
                                                          calc.ref_space, calc.model, calc.orbs['type'], \
                                                          calc.state, calc.prop['hf']['energy'], \
                                                          calc.prop['hf']['dipole'], calc.base['method'])
+
+        # pyscf hf object not needed anymore
+        if mpi.global_master and not calc.restart:
+            del calc.hf
 
         # bcast properties
         calc = prop_dist(mpi, calc)

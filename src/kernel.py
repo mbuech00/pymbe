@@ -24,7 +24,7 @@ from typing import Tuple, List, Dict, Union, Any
 from warnings import catch_warnings, simplefilter
 
 from parallel import mpi_bcast
-from system import MolCls
+from system import MolCls, set_system, translate_system
 from tools import assertion, suppress_stdout, mat_idx, near_nbrs, \
                   idx_tril, core_cas, nelec, ndets
 from interface import mbecc_interface
@@ -948,8 +948,8 @@ def _trans(dipole_ints: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, \
                         * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
-def base(mol: MolCls, occup: np.ndarray, orbsym: np.ndarray, target_mbe: str, method: str, \
-         cc_backend: str, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
+def base(mol: MolCls, orb_type: str, occup: np.ndarray, mo_coeff: np.ndarray, target_mbe: str, \
+         method: str, cc_backend: str, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
         """
         this function returns base model energy
 
@@ -965,31 +965,57 @@ def base(mol: MolCls, occup: np.ndarray, orbsym: np.ndarray, target_mbe: str, me
         >>> hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry, 'newton': True}
         >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, hf_ref)
         >>> mol.dipole_ints = dipole_ints(mol, mo_coeff)
-        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
-        >>> e, dipole = base(mol, occup, orbsym, 'energy', 'ccsd(t)', 'pyscf', dipole_hf)
+        >>> e, dipole = base(mol, 'can', occup, mo_coeff, 'energy', 'ccsd(t)', 'pyscf', dipole_hf)
         >>> np.isclose(e, -0.1353082155512597)
         True
         >>> np.allclose(dipole, np.zeros(3, dtype=np.float64))
         True
-        >>> e, dipole = base(mol, occup, orbsym, 'dipole', 'ccsd', 'pyscf', dipole_hf)
+        >>> e, dipole = base(mol, 'can', occup, mo_coeff, 'dipole', 'ccsd', 'pyscf', dipole_hf)
         >>> np.isclose(e, -0.13432841702437032)
         True
         >>> np.allclose(dipole, np.array([0., 0., -4.31202762e-02]))
         True
         """
-        # load hcore
-        buf = mol.hcore.Shared_query(0)[0]
-        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
+        # load integrals for canonical orbitals
+        if orb_type == 'can':
 
-        # load vhf
-        buf = mol.vhf.Shared_query(0)[0]
-        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
+            # load hcore
+            buf = mol.hcore.Shared_query(0)[0]
+            hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
 
-        # load eri
-        buf = mol.eri.Shared_query(0)[0]
-        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
+            # load vhf
+            buf = mol.vhf.Shared_query(0)[0]
+            vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
+
+            # load eri
+            buf = mol.eri.Shared_query(0)[0]
+            eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
+
+        # calculate integrals of canonical orbitals for other orbital types
+        else:
+
+            # hcore_ao and eri_ao w/o symmetry
+            hcore, eri = _ao_ints(mol)
+
+            # compute hcore
+            hcore = np.einsum('pi,pq,qj->ij', mo_coeff, hcore, mo_coeff)
+
+            # eri_mo w/o symmetry
+            eri = ao2mo.incore.full(eri, mo_coeff)
+
+            # allocate vhf
+            vhf = np.empty((mol.nocc, mol.norb, mol.norb), dtype=np.float64)
+
+            # compute vhf
+            for i in range(mol.nocc):
+                idx = np.asarray([i])
+                vhf[i] = np.einsum('pqrs->rs', eri[idx[:, None], idx, :, :]) * 2.
+                vhf[i] -= np.einsum('pqrs->ps', eri[:, idx[:, None], idx, :]) * 2. * .5
+
+            # restore 4-fold symmetry in eri_mo
+            eri = ao2mo.restore(4, eri, mol.norb)
 
         # set core and cas spaces
         core_idx, cas_idx = core_cas(mol.nocc, np.arange(mol.ncore, mol.nocc), np.arange(mol.nocc, mol.norb))
@@ -1004,9 +1030,43 @@ def base(mol: MolCls, occup: np.ndarray, orbsym: np.ndarray, target_mbe: str, me
         # n_elec
         n_elec = nelec(occup, cas_idx)
 
+        # use no symmetry for pyscf backend
+        if cc_backend == 'pyscf':
+            
+            # point group
+            point_group = mol.groupname
+
+            # orbital symmetries
+            orbsym = np.zeros(mol.norb, dtype=np.int64)
+
+        # create new mol object with point group symmetry for other backends
+        else:
+
+            # mol object
+            mol_fullsym = MolCls()
+            mol_fullsym.defaults()
+
+            # read input
+            mol_fullsym = set_system(mol_fullsym)
+
+            # translate input
+            mol_fullsym = translate_system(mol_fullsym)
+
+            # use symmetry
+            mol_fullsym.symmetry = True
+
+            # make pyscf mol object
+            mol_fullsym.make()
+
+            # point group
+            point_group = mol_fullsym.groupname
+
+            # orbital symmetries
+            orbsym = symm.label_orb_symm(mol_fullsym, mol_fullsym.irrep_id, mol_fullsym.symm_orb, mo_coeff)
+
         # run calc
         res_tmp = _cc(mol.spin, occup, core_idx, cas_idx, method, cc_backend=cc_backend, n_elec=n_elec, \
-                      orb_type='can', point_group=mol.groupname, orbsym=orbsym, h1e=h1e_cas, h2e=h2e_cas, \
+                      orb_type='can', point_group=point_group, orbsym=orbsym, h1e=h1e_cas, h2e=h2e_cas, \
                       higher_amp_extrap=False, rdm1=target_mbe == 'dipole')
 
         # collect results
