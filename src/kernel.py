@@ -507,7 +507,7 @@ def hf(mol: MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, flo
                 print('     {:>3d}   {:>5s}     {:>7.5f}'.format(i, symm.addons.irrep_id2name(mol.groupname, orbsym[i]), hf.mo_energy[i]))
             print('\n')
 
-        return nocc, nvirt, norb, hf, np.asscalar(e_hf), elec_dipole, occup, \
+        return nocc, nvirt, norb, hf, e_hf.item(), elec_dipole, occup, \
                 orbsym, np.asarray(hf.mo_coeff, order='C')
 
 

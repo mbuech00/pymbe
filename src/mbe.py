@@ -42,7 +42,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
             # read restart files
             rst_read = is_file(exp.order, 'mbe_idx') and is_file(exp.order, 'mbe_tup')
             # start indices
-            tup_idx = np.asscalar(read_file(exp.order, 'mbe_idx')) if rst_read else 0
+            tup_idx = read_file(exp.order, 'mbe_idx').item() if rst_read else 0
             # start tuples
             tup = read_file(exp.order, 'mbe_tup') if rst_read else None
             # wake up slaves

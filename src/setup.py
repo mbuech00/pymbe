@@ -125,7 +125,7 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
         this function initializes an exp object
         """
         # nuclear repulsion energy
-        mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.
+        mol.e_nuc = mol.energy_nuc().item() if mol.atom else 0.
 
         # dipole gauge origin
         if mol.atom:
