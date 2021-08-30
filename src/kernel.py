@@ -592,7 +592,7 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
             if orbs['type'] in ['ccsd', 'ccsd(t)']:
 
                 # compute rmd1
-                res = _cc(mol.spin, occup, core_idx, cas_idx, orbs['type'], hf=hf, rdm1=True)
+                res = _cc(mol.spin, occup, core_idx, cas_idx, orbs['type'], hf=hf, higher_amp_extrap=False, rdm1=True)
                 rdm1 = res['rdm1']
                 if mol.spin > 0:
                     rdm1 = rdm1[0] + rdm1[1]
@@ -770,7 +770,7 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
                         state['wfnsym'], mol.groupname, orbsym, hf_guess, state['root'], \
                         e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, mol.debug, \
                         mol.dipole_ints if target_mbe in ['dipole', 'trans'] else None, \
-                        dipole_hf if target_mbe in ['dipole', 'trans'] else None)[0]
+                        dipole_hf if target_mbe in ['dipole', 'trans'] else None, higher_amp_extrap=False)[0]
 
             # base model
             if base_method is not None:
@@ -778,7 +778,7 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
                             state['wfnsym'], mol.groupname, orbsym, hf_guess, state['root'], \
                             e_hf, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, mol.debug, \
                             mol.dipole_ints if target_mbe in ['dipole', 'trans'] else None, \
-                            dipole_hf if target_mbe in ['dipole', 'trans'] else None)[0]
+                            dipole_hf if target_mbe in ['dipole', 'trans'] else None, higher_amp_extrap=False)[0]
 
         else:
 
@@ -796,7 +796,7 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, oc
             hf_guess: bool, state_root: int, e_hf: float, e_core: float, h1e: np.ndarray, \
             h2e: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, \
             n_elec: Tuple[int, int], debug: int, dipole_ints: Union[np.ndarray, None], \
-            dipole_hf: Union[np.ndarray, None]) -> Tuple[Union[float, np.ndarray], int]:
+            dipole_hf: Union[np.ndarray, None], higher_amp_extrap: bool = False) -> Tuple[Union[float, np.ndarray], int]:
         """
         this function return the result property from a given method
 
@@ -862,8 +862,9 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, oc
         """
         if method in ['ccsd', 'ccsd(t)', 'ccsdt', 'ccsdtq']:
 
-            res_tmp = _cc(spin, occup, core_idx, cas_idx, method, cc_backend=cc_backend, n_elec=n_elec, orb_type=orb_type, \
-            point_group=point_group, orbsym=orbsym, h1e=h1e, h2e=h2e, rdm1=target_mbe == 'dipole', debug=debug)
+            res_tmp = _cc(spin, occup, core_idx, cas_idx, method, cc_backend=cc_backend, n_elec=n_elec, \
+            orb_type=orb_type, point_group=point_group, orbsym=orbsym, h1e=h1e, h2e=h2e, \
+            higher_amp_extrap=higher_amp_extrap, rdm1=target_mbe == 'dipole', debug=debug)
             n_dets = ndets(occup, cas_idx, n_elec=n_elec)
 
         elif method == 'fci':
@@ -947,8 +948,8 @@ def _trans(dipole_ints: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, \
                         * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
 
 
-def base(mol: MolCls, orb_type: str, occup: np.ndarray, orbsym: np.ndarray, target_mbe: str, \
-         method: str, cc_backend: str, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
+def base(mol: MolCls, occup: np.ndarray, orbsym: np.ndarray, target_mbe: str, method: str, \
+         cc_backend: str, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
         """
         this function returns base model energy
 
@@ -967,12 +968,12 @@ def base(mol: MolCls, orb_type: str, occup: np.ndarray, orbsym: np.ndarray, targ
         >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
         >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
         ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
-        >>> e, dipole = base(mol, 'can', occup, orbsym, 'energy', 'ccsd(t)', 'pyscf', dipole_hf)
+        >>> e, dipole = base(mol, occup, orbsym, 'energy', 'ccsd(t)', 'pyscf', dipole_hf)
         >>> np.isclose(e, -0.1353082155512597)
         True
         >>> np.allclose(dipole, np.zeros(3, dtype=np.float64))
         True
-        >>> e, dipole = base(mol, 'can', occup, orbsym, 'dipole', 'ccsd', 'pyscf', dipole_hf)
+        >>> e, dipole = base(mol, occup, orbsym, 'dipole', 'ccsd', 'pyscf', dipole_hf)
         >>> np.isclose(e, -0.13432841702437032)
         True
         >>> np.allclose(dipole, np.array([0., 0., -4.31202762e-02]))
@@ -1005,8 +1006,8 @@ def base(mol: MolCls, orb_type: str, occup: np.ndarray, orbsym: np.ndarray, targ
 
         # run calc
         res_tmp = _cc(mol.spin, occup, core_idx, cas_idx, method, cc_backend=cc_backend, n_elec=n_elec, \
-                      orb_type=orb_type, point_group=mol.groupname, orbsym=orbsym, h1e=h1e_cas, h2e=h2e_cas, \
-                      rdm1=target_mbe == 'dipole')
+                      orb_type='can', point_group=mol.groupname, orbsym=orbsym, h1e=h1e_cas, h2e=h2e_cas, \
+                      higher_amp_extrap=False, rdm1=target_mbe == 'dipole')
 
         # collect results
         energy = res_tmp['energy']
@@ -1312,7 +1313,7 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.n
 def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, method: str, \
             cc_backend: str = 'pyscf', n_elec: Tuple[int, int] = None, orb_type: str = None, \
             point_group: str = None, orbsym: np.ndarray = None, h1e: np.ndarray = None, \
-            h2e: np.ndarray = None, hf: scf.RHF = None, higher_amp_extrap: bool = False, \
+            h2e: np.ndarray = None, hf: scf.RHF = None, higher_amp_extrap: bool = True, \
             rdm1: bool = False, debug: int = 0) -> Dict[str, Any]:
         """
         this function returns the results of a ccsd / ccsd(t) calculation

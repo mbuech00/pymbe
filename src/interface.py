@@ -55,7 +55,7 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
         >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
         >>> n_elec = nelec(hf.mo_occ, cas_idx)
         >>> cc_energy, success = mbecc_interface('ccsd', 'ecc', 'can', 'C2v', orbsym[cas_idx], h1e_cas, \
-                                                 h2e_cas, n_elec, 0)
+                                                 h2e_cas, n_elec, False, 0)
         >>> np.isclose(cc_energy, -0.014118607610972705)
         True
         """

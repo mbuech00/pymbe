@@ -181,7 +181,7 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
             # base energy
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = base(mol, calc.orbs['type'], calc.occup, calc.orbsym, \
+                    calc.prop['base']['dipole'] = base(mol, calc.occup, calc.orbsym, \
                                                        calc.target_mbe, calc.base['method'], \
                                                        calc.model['cc_backend'], calc.prop['hf']['dipole'])
             else:
