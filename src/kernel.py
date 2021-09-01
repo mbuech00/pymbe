@@ -1473,13 +1473,19 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
 
         elif (cc_backend in ['ecc', 'ncc']):
 
+            # assume necessary variables are passed if MBECC is to be used
+            assert isinstance(orb_type, str)
+            assert isinstance(point_group, str)
+            assert isinstance(orbsym, np.ndarray)
+            assert isinstance(n_elec, tuple)
+
             # calculate cc energy
             cc_energy, success = mbecc_interface(method, cc_backend, orb_type, point_group, orbsym[cas_idx], h1e, h2e, \
                                                  n_elec, higher_amp_extrap, debug)
 
             # convergence check
             assertion(success == 1, \
-            'ECC error: no convergence, core_idx = {:} , cas_idx = {:}'.format(core_idx, cas_idx))
+            'MBECC error: no convergence, core_idx = {:} , cas_idx = {:}'.format(core_idx, cas_idx))
 
             # e_corr
             e_cc = cc_energy
