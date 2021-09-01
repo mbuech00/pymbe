@@ -756,7 +756,10 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
         n_elec = np.asarray((np.count_nonzero(occup[cas_idx] > 0.), \
                              np.count_nonzero(occup[cas_idx] > 1.)), dtype=np.int64)
 
-        if (ref_space[occup[ref_space] > 0.].size > 0 and ref_space[occup[ref_space] == 0.].size > 0) or (mol.spin > 0 and ref_space.size > 0):
+        if ((base_method is None and ref_space[occup[ref_space] > 0.].size > 0 and ref_space[occup[ref_space] == 0.].size > 0) or \
+            (base_method in ['ccsd', 'ccsd(t)', 'ccsdt'] and ref_space[occup[ref_space] > 0.].size > 1 and ref_space[occup[ref_space] == 0.].size > 1) or \
+            (base_method == 'ccsdtq' and ref_space[occup[ref_space] > 0.].size > 2 and ref_space[occup[ref_space] == 0.].size > 2) or \
+            (mol.spin > 0 and ref_space.size > 0)):
 
             # get cas space h2e
             cas_idx_tril = idx_tril(cas_idx)
