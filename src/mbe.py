@@ -114,7 +114,7 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls, \
         mean_inc = exp.mean_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
 
         # init pair_corr statistics
-        if calc.ref_space.size == 0 and exp.order == exp.min_order:
+        if calc.ref_space.size == 0 and exp.order == exp.min_order and calc.base['method'] is None:
             pair_corr = [np.zeros(exp.n_tuples['inc'][0], dtype=np.float64), \
                          np.zeros([exp.n_tuples['inc'][0], 2], dtype=np.int32)] # type:ignore
         else:
