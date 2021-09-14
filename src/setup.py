@@ -152,8 +152,7 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_coeff, calc.nelec, calc.ref_space = ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
-                                                                   calc.orbs, calc.ref, calc.model, \
-                                                                   calc.extra['pi_prune'], calc.hf)
+                                                                   calc.orbs, calc.ref, calc.model, calc.hf)
 
         # bcast fundamental info
         mol, calc = fund_dist(mpi, mol, calc)

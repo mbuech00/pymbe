@@ -69,9 +69,10 @@ class ExpCls:
 
                 # set max_order
                 if calc.misc['order'] is not None:
-                    self.max_order: int = min(self.exp_space[0].size, calc.misc['order'])
+                    max_order = min(self.exp_space[0].size, calc.misc['order'])
                 else:
-                    self.max_order: int = self.exp_space[0].size
+                    max_order = self.exp_space[0].size
+                self.max_order: int = max_order
 
 
 

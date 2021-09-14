@@ -45,11 +45,11 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                 print(mbe_end(i, exp.time['mbe'][i-exp.min_order]))
 
                 # print mbe results
-                print(mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
-                                  exp.min_order, i, exp.prop[calc.target_mbe]['tot'], \
-                                  exp.mean_inc[i-exp.min_order], exp.min_inc[i-exp.min_order], \
-                                  exp.max_inc[i-exp.min_order], exp.mean_ndets[i-exp.min_order], \
-                                  exp.min_ndets[i-exp.min_order], exp.max_ndets[i-exp.min_order]))
+                print(mbe_results(calc.target_mbe, calc.state['root'], exp.min_order, i, \
+                                  exp.prop[calc.target_mbe]['tot'], exp.mean_inc[i-exp.min_order], \
+                                  exp.min_inc[i-exp.min_order], exp.max_inc[i-exp.min_order], \
+                                  exp.mean_ndets[i-exp.min_order], exp.min_ndets[i-exp.min_order], \
+                                  exp.max_ndets[i-exp.min_order]))
 
                 # print screening results
                 exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order], exp.exp_space[i-exp.min_order+1])
@@ -123,8 +123,8 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
             print(mbe_end(exp.order, exp.time['mbe'][-1]))
 
             # print mbe results
-            print(mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
-                              exp.min_order, exp.order, exp.prop[calc.target_mbe]['tot'], \
+            print(mbe_results(calc.target_mbe, calc.state['root'], exp.min_order, \
+                              exp.order, exp.prop[calc.target_mbe]['tot'], \
                               exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
                               exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
