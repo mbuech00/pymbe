@@ -251,6 +251,8 @@ def restart_main(mpi: MPICls, calc: CalcCls, exp: ExpCls) -> int:
                         exp.n_tuples['theo'].append(np.load(os.path.join(RST, files[i])).tolist())
                     if 'inc' in files[i]:
                         exp.n_tuples['inc'].append(np.load(os.path.join(RST, files[i])).tolist())
+                    if 'calc' in files[i]:
+                        exp.n_tuples['calc'].append(np.load(os.path.join(RST, files[i])).tolist())
             mpi.global_comm.bcast(exp.n_tuples, root=0)
         else:
             exp.n_tuples = mpi.global_comm.bcast(None, root=0)

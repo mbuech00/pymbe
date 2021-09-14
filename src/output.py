@@ -122,16 +122,16 @@ def mbe_status(order:int, prog: float) -> str:
             format(order, '#' * status + '-' * remainder, prog * 100.)
 
 
-def mbe_end(order: int, time: float, n_tuples: int) -> str:
+def mbe_end(order: int, time: float) -> str:
         """
         this function prints the end mbe information
         """
         # set string
         string: str = DIVIDER+'\n'
-        string += ' STATUS-{:d}:  order k = {:d} MBE done in {:s}  ---  {:d} tuples retained\n'
+        string += ' STATUS-{:d}:  order k = {:d} MBE done in {:s}\n'
         string += DIVIDER
 
-        form: Tuple[Any, ...] = (order, order, time_str(time), n_tuples,)
+        form: Tuple[Any, ...] = (order, order, time_str(time),)
 
         return string.format(*form)
 
