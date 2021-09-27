@@ -5,7 +5,7 @@
 kernel testing module
 """
 
-__author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
+__author__ = 'Jonas Greiner, Johannes Gutenberg-Universität Mainz, Germany'
 __license__ = 'MIT'
 __version__ = '0.9'
 __maintainer__ = 'Dr. Janus Juul Eriksen'
@@ -30,13 +30,13 @@ from system import MolCls
 test_cases_ints = [('h2o', 'rnd')]
 
 test_cases_ao_ints = [
-    ('h2o', (13, 13), (13, 13, 13, 13)), 
-    ('hubbard', (6, 6), (6, 6, 6, 6)),
+    ('h2o', -241.43071004923337, 2.4535983000672585, 518.7407144449278, 4.7804457081113805), 
+    ('hubbard', -12., 0., 12., 2.),
 ]
 
 test_cases_gauge_origin = [
     ('h2o', 'zero', np.zeros(3, dtype=np.float64)),
-    ('h2o', 'charge', np.array([ 0.,  0., -0.01730611])),
+    ('h2o', 'charge', np.array([ 0.,  0., -0.01730611], dtype=np.float64)),
 ]
 
 test_cases_dipole_ints = [('h2o', 'rnd')]
@@ -45,42 +45,42 @@ test_cases_hubbard_h1e = [
     ((1, 4), False, np.array([[ 0., -1.,  0.,  0.],
                               [-1.,  0., -1.,  0.],
                               [ 0., -1.,  0., -1.],
-                              [ 0.,  0., -1.,  0.]])),
+                              [ 0.,  0., -1.,  0.]], dtype=np.float64)),
     ((1, 4), True, np.array([[ 0., -1.,  0.,  -1.],
                              [-1.,  0., -1.,  0.],
                              [ 0., -1.,  0., -1.],
-                             [-1.,  0., -1.,  0.]])),
+                             [-1.,  0., -1.,  0.]], dtype=np.float64)),
     ((2, 2), False, np.array([[ 0., -1., -1.,  0.],
                               [-1.,  0.,  0., -1.],
                               [-1.,  0.,  0., -1.],
-                              [ 0., -1., -1.,  0.]])),
+                              [ 0., -1., -1.,  0.]], dtype=np.float64)),
     ((2, 3), False, np.array([[ 0., -1.,  0.,  0., -1.,  0.],
                               [-1.,  0., -1., -1.,  0., -1.],
                               [ 0., -1.,  0.,  0., -1.,  0.],
                               [ 0., -1.,  0.,  0., -1.,  0.],
                               [-1.,  0., -1., -1.,  0., -1.],
-                              [ 0., -1.,  0.,  0., -1.,  0.]])),
+                              [ 0., -1.,  0.,  0., -1.,  0.]], dtype=np.float64)),
 ]
 
 test_cases_hf = [
-    ('h2o', 'h2o', False, False, False, -75.9838464521063, np.array([0., 0., 8.64255793e-01]), False, True),
-    ('h2o', 'h2o', True, False, False, -75.9838464521063, np.array([0., 0., 8.64255793e-01]), False, True),
-    ('h2o', 'h2o', False, False, True, -76.03260101758543, np.array([7.81125165e-13, -4.52461299e-13, 8.62876951e-01]), False, False),
-    ('h2o', 'h2o', False, True, False, -75.9838464521063, np.array([0., 0., 8.64255793e-01]), True, True),
-    ('h2o', 'h2o', True, True, False, -75.9838464521063, np.array([0., 0., 8.64255793e-01]), False, True),
-    ('h2o', 'h2o', False, True, True, -76.03260101758543, np.array([7.81125165e-13, -4.52461299e-13, 8.62876951e-01]), False, False)
+    ('h2o', 'h2o', False, False, False, -75.9838464521063, np.array([0., 0., 8.64255793e-01], dtype=np.float64), False, True),
+    ('h2o', 'h2o', True, False, False, -75.9838464521063, np.array([0., 0., 8.64255793e-01], dtype=np.float64), False, True),
+    ('h2o', 'h2o', False, False, True, -76.03260101758543, np.array([7.81125165e-13, -4.52461299e-13, 8.62876951e-01], dtype=np.float64), False, False),
+    ('h2o', 'h2o', False, True, False, -75.9838464521063, np.array([0., 0., 8.64255793e-01], dtype=np.float64), True, True),
+    ('h2o', 'h2o', True, True, False, -75.9838464521063, np.array([0., 0., 8.64255793e-01], dtype=np.float64), False, True),
+    ('h2o', 'h2o', False, True, True, -76.03260101758543, np.array([7.81125165e-13, -4.52461299e-13, 8.62876951e-01], dtype=np.float64), False, False)
 ]
 
 test_cases_dim = [
-    ('closed-shell', np.array([2.] * 4 + [0.] * 6), (10, 4, 6)),
-    ('open-shell', np.array([2.] * 4 + [1.] + [0.] * 6), (11, 5, 6)),
+    ('closed-shell', np.array([2.] * 4 + [0.] * 6, dtype=np.float64), (10, 4, 6)),
+    ('open-shell', np.array([2.] * 4 + [1.] + [0.] * 6, dtype=np.float64), (11, 5, 6)),
 ]
 
 test_cases_ref_mo = [
-    ('c2', 'casci', 'can', [i for i in range(2, 6)], True, True, (4, 4)),
-    ('c2', 'casscf', 'can', [4, 5, 7, 8], False, False, (2, 2)),
-    ('c2', 'casci', 'ccsd', [i for i in range(2, 6)], False, True, (4, 4)),
-    ('c2', 'casci', 'local', [i for i in range(2, 6)], False, True, (4, 4))
+    ('c2', 'casci', 'can', np.arange(2, 6, dtype=np.int64), True, True, (4, 4)),
+    ('c2', 'casscf', 'can', np.array([4, 5, 7, 8]), False, False, (2, 2)),
+    ('c2', 'casci', 'ccsd', np.arange(2, 6, dtype=np.int64), False, True, (4, 4)),
+    ('c2', 'casci', 'local', np.arange(2, 6, dtype=np.int64), False, True, (4, 4))
 ]
 
 test_cases_ref_prop = [
@@ -88,12 +88,12 @@ test_cases_ref_prop = [
     ('h2o', 'ccsd', None, 'energy', 'pyscf', 0, -0.03733551374348559),
     ('h2o', 'fci', 'ccsd', 'energy', 'pyscf', 0, -0.00036229313775759664),
     ('h2o', 'ccsd(t)', 'ccsd', 'energy', 'pyscf', 0, -0.0003336954549769955),
-    ('h2o', 'fci', None, 'dipole', 'pyscf', 0, np.array([0., 0., -0.02732937])),
-    ('h2o', 'ccsd', None, 'dipole', 'pyscf', 0, np.array([0.,  0., -2.87487935e-02])),
-    ('h2o', 'fci', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., 1.41941689e-03])),
-    ('h2o', 'ccsd(t)', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., 1.47038530e-03])),
+    ('h2o', 'fci', None, 'dipole', 'pyscf', 0, np.array([0., 0., -0.02732937], dtype=np.float64)),
+    ('h2o', 'ccsd', None, 'dipole', 'pyscf', 0, np.array([0.,  0., -2.87487935e-02], dtype=np.float64)),
+    ('h2o', 'fci', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., 1.41941689e-03], dtype=np.float64)),
+    ('h2o', 'ccsd(t)', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., 1.47038530e-03], dtype=np.float64)),
     ('h2o', 'fci', None, 'excitation', 'pyscf', 1, 0.7060145137233889),
-    ('h2o', 'fci', None, 'trans', 'pyscf', 1, np.array([0., 0., 0.72582795])),
+    ('h2o', 'fci', None, 'trans', 'pyscf', 1, np.array([0., 0., 0.72582795], dtype=np.float64)),
     ('h2o', 'ccsd', None, 'energy', 'ecc', 0, -0.03733551374348559),
     ('h2o', 'fci', 'ccsd', 'energy', 'ecc', 0, -0.0003622938195746786),
     ('h2o', 'ccsd(t)', 'ccsd', 'energy', 'ecc', 0, -0.0003336954549769955),
@@ -108,16 +108,16 @@ test_cases_main = [
     ('h2o', 'ccsd', 'energy', 'pyscf', 0, -0.014118607610972691, 441),
     ('h2o', 'ccsd', 'energy', 'ecc', 0, -0.014118607610972691, 441),
     ('h2o', 'ccsd', 'energy', 'ncc', 0, -0.014118607610972691, 441),
-    ('h2o', 'fci', 'dipole', 'pyscf', 0, np.array([0., 0., -7.97781259e-03]), 133),
-    ('h2o', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., -8.05212961e-03]), 441),
+    ('h2o', 'fci', 'dipole', 'pyscf', 0, np.array([0., 0., -7.97781259e-03], dtype=np.float64), 133),
+    ('h2o', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., -8.05212961e-03], dtype=np.float64), 441),
     ('h2o', 'fci', 'excitation', 'pyscf', 1, 1.314649936052632, 133),
     ('hubbard', 'fci', 'excitation', 'pyscf', 1, 1.850774199956839, 36),
-    ('h2o', 'fci', 'trans', 'pyscf', 1, np.array([0., 0., -0.26497816]), 133),
+    ('h2o', 'fci', 'trans', 'pyscf', 1, np.array([0., 0., -0.26497816], dtype=np.float64), 133),
 ]
 
 test_cases_base = [
     ('h2o', 'ccsd', 'energy', 'pyscf', -0.13432841702437032, np.zeros(3, dtype=np.float64)),
-    ('h2o', 'ccsd', 'dipole', 'pyscf', -0.13432841702437032, np.array([0., 0., -4.31202762e-02])),
+    ('h2o', 'ccsd', 'dipole', 'pyscf', -0.13432841702437032, np.array([0., 0., -4.31202762e-02], dtype=np.float64)),
     ('h2o', 'ccsd', 'energy', 'ecc', -0.13432841702437032, np.zeros(3, dtype=np.float64)),
     ('h2o', 'ccsd', 'energy', 'ncc', -0.13432841702437032, np.zeros(3, dtype=np.float64))
 ]
@@ -152,55 +152,6 @@ test_cases_cc = [
     ('h2o', 'ccsdt', False, 'ncc', -0.014122626346599783, None, None),
     ('h2o', 'ccsdtq', False, 'ncc', -0.014121463191623542, None, None),
 ]
-
-
-@pytest.fixture
-def mol(request: SubRequest) -> MolCls:
-        """
-        this fixture constructs the mol object for use in most tests
-        """
-        if request.param == 'h2o':
-
-            mol = gto.Mole()
-            mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943', \
-                      basis='631g', symmetry='C2v', verbose=0)
-
-            mol.norb = mol.nao_nr()
-            mol.nocc = mol.nelectron // 2
-            mol.nvirt = mol.norb - mol.nocc
-            mol.ncore = 1
-            mol.e_nuc = mol.energy_nuc()
-            mol.x2c = False
-            mol.gauge_origin = np.zeros(3)
-            mol.debug = 0
-
-        elif request.param == 'c2':
-
-            mol = gto.Mole()
-            mol.build(atom='C 0. 0. 0.625; C 0. 0. -0.625', basis='631g', \
-                      symmetry='D2h', verbose=0)
-
-            mol.norb = mol.nao_nr()
-            mol.nocc = mol.nelectron // 2
-            mol.nvirt = mol.norb - mol.nocc
-            mol.ncore = 2
-            mol.e_nuc = mol.energy_nuc()
-            mol.x2c = False
-            mol.gauge_origin = np.zeros(3)
-            mol.debug = 0
-
-        elif request.param == 'hubbard':
-
-            mol = gto.M()
-
-            mol.matrix = (1, 6)
-            mol.n = 1.
-            mol.u = 2.
-            mol.pbc = True
-
-        mol.system = request.param
-
-        return mol
 
 
 @pytest.fixture
@@ -257,33 +208,46 @@ def test_ints(mol: MolCls, mo_coeff: np.ndarray):
         assert isinstance(vhf_win, MPI.Win)
         assert isinstance(eri_win, MPI.Win)
 
+        hcore = np.ndarray(buffer=hcore_win, dtype=np.float64, shape=(mol.norb,) * 2)
+        vhf = np.ndarray(buffer=vhf_win, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
+        eri = np.ndarray(buffer=eri_win, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
 
-@pytest.mark.parametrize(argnames='mol, req_hcore, req_eri', \
+        assert np.sum(hcore) == pytest.approx(-12371.574250637233)
+        assert np.amax(hcore) == pytest.approx(-42.09685184826769)
+        assert np.sum(vhf) == pytest.approx(39687.423264678)
+        assert np.amax(vhf) == pytest.approx(95.00353546601883)
+        assert np.sum(eri) == pytest.approx(381205.21288377955)
+        assert np.amax(eri) == pytest.approx(149.4981150522994)
+
+
+@pytest.mark.parametrize(argnames='mol, ref_hcore_sum, ref_hcore_amax, ref_eri_sum, ref_eri_amax', \
                          argvalues=test_cases_ao_ints, \
                          ids=[case[0] for case in test_cases_ao_ints], \
                          indirect=['mol'])
-def test_ao_ints(mol: MolCls, req_hcore: Tuple[int, int], \
-                 req_eri: Tuple[int, int, int, int]):
+def test_ao_ints(mol: MolCls, ref_hcore_sum: float, ref_hcore_amax: float, \
+                 ref_eri_sum: float, ref_eri_amax):
         """
-        this function tests ao_ints
+        this function tests _ao_ints
         """
         hcore, eri = _ao_ints(mol)
 
-        assert hcore.shape == req_hcore
-        assert eri.shape == req_eri
+        assert np.sum(hcore) == pytest.approx(ref_hcore_sum)
+        assert np.amax(hcore) == pytest.approx(ref_hcore_amax)
+        assert np.sum(eri) == pytest.approx(ref_eri_sum)
+        assert np.amax(eri) == pytest.approx(ref_eri_amax)
 
 
-@pytest.mark.parametrize(argnames='mol, gauge, req_gauge_origin', \
+@pytest.mark.parametrize(argnames='mol, gauge, ref_gauge_origin', \
                          argvalues=test_cases_gauge_origin, \
                          ids=['-'.join(case[0:2]) for case in test_cases_gauge_origin], \
                          indirect=['mol'])
-def test_gauge_origin(mol: MolCls, gauge: str, req_gauge_origin: np.ndarray):
+def test_gauge_origin(mol: MolCls, gauge: str, ref_gauge_origin: np.ndarray):
         """
         this function tests gauge_origin
         """
         mol.gauge = gauge
 
-        assert gauge_origin(mol) == pytest.approx(req_gauge_origin)
+        assert gauge_origin(mol) == pytest.approx(ref_gauge_origin)
 
 
 @pytest.mark.parametrize(argnames='mol, mo_coeff', \
@@ -296,7 +260,8 @@ def test_dipole_ints(mol: MolCls, mo_coeff: np.ndarray):
         """
         ints = dipole_ints(mol, mo_coeff)
 
-        assert ints.shape == (3, 13, 13)
+        assert np.sum(ints) == pytest.approx(1455.7182550859516)
+        assert np.amax(ints) == pytest.approx(9.226332432385433)
 
 
 def test_e_core_h1e():
@@ -308,26 +273,26 @@ def test_e_core_h1e():
         hcore = np.random.rand(6, 6)
         np.random.seed(1234)
         vhf = np.random.rand(3, 6, 6)
-        core_idx = np.array([0])
-        cas_idx = np.array([2, 4, 5])
+        core_idx = np.array([0], dtype=np.int64)
+        cas_idx = np.array([2, 4, 5], dtype=np.int64)
         e_core, h1e_cas = e_core_h1e(e_nuc, hcore, vhf, core_idx, cas_idx)
 
         assert e_core == pytest.approx(0.5745583511366769)
         assert h1e_cas == pytest.approx(np.array([[0.74050151, 1.00616633, 0.02753690], \
                                                   [0.79440516, 0.63367224, 1.13619731], \
-                                                  [1.60429528, 1.40852194, 1.40916262]]))
+                                                  [1.60429528, 1.40852194, 1.40916262]], dtype=np.float64))
 
 
-@pytest.mark.parametrize(argnames='matrix, pbc, req_h1e', \
+@pytest.mark.parametrize(argnames='matrix, pbc, ref_h1e', \
                          argvalues=test_cases_hubbard_h1e, \
                          ids=[str(case[0]).replace(' ', '') + ('-pbc' if case[1] else '') for case in test_cases_hubbard_h1e])
-def test_hubbard_h1e(matrix: Tuple[int, int], pbc: bool, req_h1e: np.ndarray):
+def test_hubbard_h1e(matrix: Tuple[int, int], pbc: bool, ref_h1e: np.ndarray):
         """
         this function tests hubbard_h1e
         """
         h1e = hubbard_h1e(matrix, pbc)
 
-        assert h1e == pytest.approx(req_h1e)
+        assert (h1e == ref_h1e).all()
 
 
 def test_hubbard_eri():
@@ -337,23 +302,21 @@ def test_hubbard_eri():
         matrix = (1, 2)
         eri = hubbard_eri(matrix, 2.)
 
-        assert eri == pytest.approx(np.array([[[[2., 0.], [0., 0.]],
-                                               [[0., 0.], [0., 0.]]],
-                                              [[[0., 0.], [0., 0.]],
-                                               [[0., 0.], [0., 2.]]]]))
+        assert (eri == np.array([[[[2., 0.], [0., 0.]], [[0., 0.], [0., 0.]]],
+                                 [[[0., 0.], [0., 0.]], [[0., 0.], [0., 2.]]]], dtype=np.float64)).all()
 
 
-@pytest.mark.parametrize(argnames='mol, mo_coeff, newton, symmetry, x2c, req_e_hf, req_dipole, mo_coeff_eq, rdm1_eq', \
+@pytest.mark.parametrize(argnames='mol, mo_coeff, newton, symmetry, x2c, ref_e_hf, ref_dipole, mo_coeff_eq, rdm1_eq', \
                          argvalues=test_cases_hf, \
                          ids=[case[0] + ('-sym' if case[3] else '') + ('-newton' if case[2] else '') + ('-x2c' if case[4] else '') for case in test_cases_hf], \
                          indirect=['mol', 'mo_coeff'])
 def test_hf(mol: MolCls, mo_coeff: np.ndarray, newton: bool, symmetry: bool, \
-            x2c: bool, req_e_hf: float, req_dipole: np.ndarray, \
+            x2c: bool, ref_e_hf: float, ref_dipole: np.ndarray, \
             mo_coeff_eq: bool, rdm1_eq: bool):
         """
         this function tests hf
         """
-        req_mo_coeff = mo_coeff
+        ref_mo_coeff = mo_coeff
 
         hf_ref = {'init_guess': 'minao', 'symmetry': mol.symmetry,
                   'irrep_nelec': {'A1': 6, 'B1': 2, 'B2': 2}, 'newton': False}
@@ -367,37 +330,37 @@ def test_hf(mol: MolCls, mo_coeff: np.ndarray, newton: bool, symmetry: bool, \
         nocc, nvirt, norb, _, e_hf, dipole, occup, orbsym, mo_coeff = kernel_hf(mol, hf_ref)
 
         rdm1 = scf.hf.make_rdm1(mo_coeff, occup)
-        req_rdm1 = scf.hf.make_rdm1(req_mo_coeff, occup)
+        ref_rdm1 = scf.hf.make_rdm1(ref_mo_coeff, occup)
 
         assert nocc == mol.nocc
         assert nvirt == mol.nvirt
         assert norb == mol.norb
-        assert e_hf == pytest.approx(req_e_hf)
-        assert dipole == pytest.approx(req_dipole, rel=1e-5, abs=1e-12)
-        assert occup == pytest.approx(np.array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.]))
-        assert orbsym == pytest.approx(np.array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0]))
-        assert mo_coeff == pytest.approx(req_mo_coeff) if mo_coeff_eq else mo_coeff != pytest.approx(req_mo_coeff)
-        assert rdm1 == pytest.approx(req_rdm1, rel=1e-5, abs=1e-12) if rdm1_eq else rdm1 != pytest.approx(req_rdm1, rel=1e-5, abs=1e-12)
+        assert e_hf == pytest.approx(ref_e_hf)
+        assert dipole == pytest.approx(ref_dipole, rel=1e-5, abs=1e-12)
+        assert (occup == np.array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.], dtype=np.float64)).all()
+        assert (orbsym == np.array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0], dtype=np.float64)).all()
+        assert mo_coeff == pytest.approx(ref_mo_coeff) if mo_coeff_eq else mo_coeff != pytest.approx(ref_mo_coeff)
+        assert rdm1 == pytest.approx(ref_rdm1, rel=1e-5, abs=1e-12) if rdm1_eq else rdm1 != pytest.approx(ref_rdm1, rel=1e-5, abs=1e-12)
 
 
-@pytest.mark.parametrize(argnames='mo_occ, req_dims', \
+@pytest.mark.parametrize(argnames='mo_occ, ref_dims', \
                          argvalues=[case[1:] for case in test_cases_dim], \
                          ids=[case[0] for case in test_cases_dim])
-def test_dim(mo_occ: np.ndarray, req_dims: Tuple[int, int, int]):
+def test_dim(mo_occ: np.ndarray, ref_dims: Tuple[int, int, int]):
         """
         this function tests _dim
         """
         dims = _dim(mo_occ)
 
-        assert dims == pytest.approx(req_dims)
+        assert dims == ref_dims
 
 
-@pytest.mark.parametrize(argnames='mol, method, orb_type, select, mo_coeff_eq, rdm1_eq, req_act_n_elec', \
+@pytest.mark.parametrize(argnames='mol, method, orb_type, select, mo_coeff_eq, rdm1_eq, ref_act_n_elec', \
                          argvalues=test_cases_ref_mo, ids=['-'.join(case[0:3]) for case in test_cases_ref_mo], \
                          indirect=['mol'])
 def test_ref_mo(mol: MolCls, hf: scf.RHF, method: str, orb_type: str, \
                 select: List[int], mo_coeff_eq: bool, rdm1_eq: bool, \
-                req_act_n_elec: Tuple[int, int]):
+                ref_act_n_elec: Tuple[int, int]):
         """
         this function tests ref_mo
         """
@@ -416,17 +379,17 @@ def test_ref_mo(mol: MolCls, hf: scf.RHF, method: str, orb_type: str, \
 
         assert mo_coeff == pytest.approx(hf.mo_coeff) if mo_coeff_eq else mo_coeff != pytest.approx(hf.mo_coeff)
         assert rdm1 == pytest.approx(hf_rdm1) if rdm1_eq else rdm1 != pytest.approx(hf_rdm1)
-        assert act_n_elec == req_act_n_elec
-        assert ref_space == pytest.approx(np.array(select))
+        assert act_n_elec == ref_act_n_elec
+        assert (ref_space == select).all()
 
 
-@pytest.mark.parametrize(argnames='mol, method, base_method, target_mbe, cc_backend, root, req_res', \
+@pytest.mark.parametrize(argnames='mol, method, base_method, target_mbe, cc_backend, root, ref_res', \
                          argvalues=test_cases_ref_prop, \
                          ids=['-'.join([item for item in case[0:5] if item]) for case in test_cases_ref_prop], \
                          indirect=['mol'])
 def test_ref_prop(mol: MolCls, method: str, base_method: Optional[str], \
                   target_mbe: str, cc_backend: str, root: int, \
-                  req_res: Union[float, np.ndarray]):
+                  ref_res: Union[float, np.ndarray]):
         """
         this function tests ref_prop
         """
@@ -442,22 +405,22 @@ def test_ref_prop(mol: MolCls, method: str, base_method: Optional[str], \
                                            MPI.COMM_WORLD, MPI.COMM_WORLD, 
                                            MPI.COMM_WORLD, 1)
 
-        ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10])
+        ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
         state = {'root': root, 'wfnsym': 'A1'}
         model = {'method': method, 'cc_backend': cc_backend, 'solver': 'pyscf_spin0'}
 
         res = ref_prop(mol, occup, target_mbe, orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, base_method)
 
-        assert res == pytest.approx(req_res)
+        assert res == pytest.approx(ref_res)
 
 
-@pytest.mark.parametrize(argnames='mol, method, target_mbe, cc_backend, root, req_res, req_ndets', \
+@pytest.mark.parametrize(argnames='mol, method, target_mbe, cc_backend, root, ref_res, ref_ndets', \
                          argvalues=test_cases_main, \
                          ids=['-'.join([item for item in case[0:4] if item]) for case in test_cases_main], \
                          indirect=['mol'])
 def test_main(mol: MolCls, hf: scf.RHF, method: bool, target_mbe: bool, \
-              cc_backend: str, root: int, req_res: Union[float, np.ndarray], \
-              req_ndets: int):
+              cc_backend: str, root: int, ref_res: Union[float, np.ndarray], \
+              ref_ndets: int):
         """
         this function tests main
         """
@@ -473,8 +436,8 @@ def test_main(mol: MolCls, hf: scf.RHF, method: bool, target_mbe: bool, \
             h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
             eri_ao = mol.intor('int2e_sph', aosym=4)
             h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
-            core_idx = np.array([])
-            cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
+            core_idx = np.array([], dtype=np.int64)
+            cas_idx = np.array([0, 1, 2, 3, 4, 7, 9], dtype=np.int64)
             h1e_cas = h1e[cas_idx[:, None], cas_idx]
             cas_idx_tril = idx_tril(cas_idx)
             h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
@@ -485,7 +448,7 @@ def test_main(mol: MolCls, hf: scf.RHF, method: bool, target_mbe: bool, \
 
         elif mol.system == 'hubbard':
 
-            occup = np.array([2.] * 3 + [0.] * 3)
+            occup = np.array([2.] * 3 + [0.] * 3, dtype=np.float64)
             state_wfnsym = 'A'
             point_group = 'C1'
             orbsym = np.zeros(6, dtype=np.int64)
@@ -494,8 +457,8 @@ def test_main(mol: MolCls, hf: scf.RHF, method: bool, target_mbe: bool, \
             h1e = hubbard_h1e((1, 6), True)
             h2e = hubbard_eri((1, 6), 2.)
             h2e = ao2mo.restore(4, h2e, 6)
-            core_idx = np.array([0])
-            cas_idx = np.arange(1, 5)
+            core_idx = np.array([0], dtype=np.int64)
+            cas_idx = np.arange(1, 5, dtype=np.int64)
             h1e_cas = h1e[cas_idx[:, None], cas_idx]
             cas_idx_tril = idx_tril(cas_idx)
             h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
@@ -509,47 +472,47 @@ def test_main(mol: MolCls, hf: scf.RHF, method: bool, target_mbe: bool, \
                            core_idx, cas_idx, n_elec, 0, mol.dipole_ints, \
                            dipole_hf)
 
-        assert res == pytest.approx(req_res)
-        assert ndets == req_ndets
+        assert res == pytest.approx(ref_res)
+        assert ndets == ref_ndets
         
 
 def test_dipole():
         """
         this function tests _dipole
         """
-        occup = np.array([2.] * 3 + [0.] * 3)
+        occup = np.array([2.] * 3 + [0.] * 3, dtype=np.float64)
         hf_dipole = np.zeros(3, dtype=np.float64)
-        cas_idx = np.arange(1, 5)
+        cas_idx = np.arange(1, 5, dtype=np.int64)
         np.random.seed(1234)
         dipole_ints = np.random.rand(3, 6, 6)
         np.random.seed(1234)
         cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
         dipole = _dipole(dipole_ints, occup, hf_dipole, cas_idx, cas_rdm1)
 
-        assert dipole == pytest.approx(np.array([5.90055525, 5.36437348, 6.40001788]))
+        assert dipole == pytest.approx(np.array([5.90055525, 5.36437348, 6.40001788], dtype=np.float64))
         
 
 def test_trans():
         """
         this function tests _trans
         """
-        occup = np.array([2.] * 3 + [0.] * 3)
+        occup = np.array([2.] * 3 + [0.] * 3, dtype=np.float64)
         hf_dipole = np.zeros(3, dtype=np.float64)
-        cas_idx = np.arange(1, 5)
+        cas_idx = np.arange(1, 5, dtype=np.int64)
         np.random.seed(1234)
         dipole_ints = np.random.rand(3, 6, 6)
         np.random.seed(1234)
         cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
         trans = _trans(dipole_ints, occup, hf_dipole, cas_idx, cas_rdm1, .9, .4)
 
-        assert trans == pytest.approx(np.array([5.51751635, 4.92678927, 5.45675281]))
+        assert trans == pytest.approx(np.array([5.51751635, 4.92678927, 5.45675281], dtype=np.float64))
 
 
-@pytest.mark.parametrize(argnames='mol, method, target_mbe, cc_backend, req_energy, req_dipole', \
+@pytest.mark.parametrize(argnames='mol, method, target_mbe, cc_backend, ref_energy, ref_dipole', \
                          argvalues=test_cases_base, ids=['-'.join(case[0:4]) for case in test_cases_base], \
                          indirect=['mol'])
 def test_base(mol: MolCls, method: str, target_mbe: str, cc_backend: str, \
-              req_energy: float, req_dipole: np.ndarray):
+              ref_energy: float, ref_dipole: np.ndarray):
         """
         this function tests base
         """
@@ -570,38 +533,38 @@ def test_base(mol: MolCls, method: str, target_mbe: str, cc_backend: str, \
         assert nocc == mol.nocc
         assert nvirt == mol.nvirt
         assert norb == mol.norb
-        assert e == pytest.approx(req_energy)
-        assert dipole == pytest.approx(req_dipole)
+        assert e == pytest.approx(ref_energy)
+        assert dipole == pytest.approx(ref_dipole)
 
 
-@pytest.mark.parametrize(argnames='mol, wfnsym, weights, hf_guess, req_sum, req_amax', \
+@pytest.mark.parametrize(argnames='mol, wfnsym, weights, hf_guess, ref_sum, ref_amax', \
                          argvalues=test_cases_casscf, \
                          ids=['-'.join([case[0]] + ["{:02}{}".format(weight, wfnsym) for weight, wfnsym in zip(case[2], case[1])] + (['hf_guess'] if case[3] else [])) for case in test_cases_casscf], \
                          indirect=['mol'])
 def test_casscf(mol: MolCls, hf: scf.RHF, wfnsym: List[str], \
-                weights: List[float], hf_guess: bool, req_sum: float, \
-                req_amax: float):
+                weights: List[float], hf_guess: bool, ref_sum: float, \
+                ref_amax: float):
         """
         this function tests _casscf
         """
         orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
 
         mo_coeff = _casscf(mol, 'pyscf_spin0', wfnsym, weights, orbsym, hf_guess,
-                           hf, hf.mo_coeff, np.arange(2, 10), (4, 4))
+                           hf, hf.mo_coeff, np.arange(2, 10, dtype=np.int64), (4, 4))
 
-        assert np.sum(mo_coeff) == pytest.approx(req_sum)
-        assert np.amax(mo_coeff) == pytest.approx(req_amax)
+        assert np.sum(mo_coeff) == pytest.approx(ref_sum)
+        assert np.amax(mo_coeff) == pytest.approx(ref_amax)
 
 
-@pytest.mark.parametrize(argnames='mol, target_mbe, root, req_energy, req_n_dets, req_rdm1_sum, req_rdm1_amax, req_excitation, req_t_rdm1, req_hf_weight_sum', \
+@pytest.mark.parametrize(argnames='mol, target_mbe, root, ref_energy, ref_n_dets, ref_rdm1_sum, ref_rdm1_amax, ref_excitation, ref_t_rdm1, ref_hf_weight_sum', \
                          argvalues=test_cases_fci, \
                          ids=['-'.join(case[0:2]) for case in test_cases_fci], \
                          indirect=['mol'])
 def test_fci(mol: MolCls, hf: scf.RHF, target_mbe: str, root: int, \
-             req_energy: float, req_n_dets: int, \
-             req_rdm1_sum: Optional[float], req_rdm1_amax: Optional[float], \
-             req_excitation: Optional[float], req_t_rdm1: Optional[float], \
-             req_hf_weight_sum: Optional[float]):
+             ref_energy: float, ref_n_dets: int, \
+             ref_rdm1_sum: Optional[float], ref_rdm1_amax: Optional[float], \
+             ref_excitation: Optional[float], ref_t_rdm1: Optional[float], \
+             ref_hf_weight_sum: Optional[float]):
         """
         this function tests _fci
         """
@@ -615,7 +578,7 @@ def test_fci(mol: MolCls, hf: scf.RHF, target_mbe: str, root: int, \
             h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
             eri_ao = mol.intor('int2e_sph', aosym=4)
             h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
-            cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
+            cas_idx = np.array([0, 1, 2, 3, 4, 7, 9], dtype=np.int64)
             h1e_cas = h1e[cas_idx[:, None], cas_idx]
             cas_idx_tril = idx_tril(cas_idx)
             h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
@@ -631,42 +594,43 @@ def test_fci(mol: MolCls, hf: scf.RHF, target_mbe: str, root: int, \
             h1e = hubbard_h1e((2, 4), True)
             h2e = hubbard_eri((2, 4), 2.)
             h2e = ao2mo.restore(4, h2e, 8)
-            cas_idx = np.arange(1, 7)
+            cas_idx = np.arange(1, 7, dtype=np.int64)
             h1e_cas = h1e[cas_idx[:, None], cas_idx]
             cas_idx_tril = idx_tril(cas_idx)
             h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-            occup = np.array([2.] * 4 + [0.] * 4)
+            occup = np.array([2.] * 4 + [0.] * 4, dtype=np.float64)
             n_elec = nelec(occup, cas_idx)
 
-        res = _fci('pyscf_spin0', 0, target_mbe, wfnsym, orbsym, True, root, e_hf, e_core,
-                    h1e_cas, h2e_cas, occup, np.array([]), cas_idx, n_elec, 0)
+        res = _fci('pyscf_spin0', 0, target_mbe, wfnsym, orbsym, True, root, 
+                   e_hf, e_core, h1e_cas, h2e_cas, occup, 
+                   np.array([], dtype=np.int64), cas_idx, n_elec, 0)
 
-        assert res['energy'] == pytest.approx(req_energy)
-        assert res['n_dets'] == req_n_dets
-        if req_rdm1_sum:
-            assert np.sum(res['rdm1']) == pytest.approx(req_rdm1_sum)
-        if req_rdm1_amax:
-            assert np.amax(res['rdm1']) == pytest.approx(req_rdm1_amax, rel=1e-5, abs=1e-12)
-        if req_excitation:
-            assert res['excitation'] == pytest.approx(req_excitation)
-        if req_t_rdm1:
-            assert np.trace(res['t_rdm1']) == pytest.approx(req_t_rdm1)
-        if req_hf_weight_sum:
-            assert np.sum(res['hf_weight']) == pytest.approx(req_hf_weight_sum)
+        assert res['energy'] == pytest.approx(ref_energy)
+        assert res['n_dets'] == ref_n_dets
+        if ref_rdm1_sum:
+            assert np.sum(res['rdm1']) == pytest.approx(ref_rdm1_sum)
+        if ref_rdm1_amax:
+            assert np.amax(res['rdm1']) == pytest.approx(ref_rdm1_amax, rel=1e-5, abs=1e-12)
+        if ref_excitation:
+            assert res['excitation'] == pytest.approx(ref_excitation)
+        if ref_t_rdm1:
+            assert np.trace(res['t_rdm1']) == pytest.approx(ref_t_rdm1)
+        if ref_hf_weight_sum:
+            assert np.sum(res['hf_weight']) == pytest.approx(ref_hf_weight_sum)
 
 
-@pytest.mark.parametrize(argnames='mol, method, rdm1, cc_backend, req_energy, req_rdm1_sum, req_rdm1_amax', \
+@pytest.mark.parametrize(argnames='mol, method, rdm1, cc_backend, ref_energy, ref_rdm1_sum, ref_rdm1_amax', \
                          argvalues=test_cases_cc, \
                          ids=['-'.join(case[0:2]) + ('-rdm1' if case[2] else '') + '-' + case[3] for case in test_cases_cc], \
                          indirect=['mol'])
 def test_cc(mol: MolCls, hf: scf.RHF, method: str, rdm1: bool, \
-            cc_backend: str, req_energy: float, req_rdm1_sum: Optional[float], \
-            req_rdm1_amax: Optional[float]):
+            cc_backend: str, ref_energy: float, ref_rdm1_sum: Optional[float], \
+            ref_rdm1_amax: Optional[float]):
         """
         this function tests _cc
         """
-        core_idx = np.array([])
-        cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
+        core_idx = np.array([], dtype=np.int64)
+        cas_idx = np.array([0, 1, 2, 3, 4, 7, 9], dtype=np.int64)
         n_elec = nelec(hf.mo_occ, cas_idx)
         orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
         hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
@@ -680,8 +644,8 @@ def test_cc(mol: MolCls, hf: scf.RHF, method: str, rdm1: bool, \
         res = _cc(0, hf.mo_occ, core_idx, cas_idx, method, cc_backend=cc_backend,
                   n_elec=n_elec, orb_type='can', point_group='C2v', orbsym=orbsym, h1e=h1e_cas, h2e=h2e_cas, hf=hf, rdm1=rdm1)
 
-        assert res['energy'] == pytest.approx(req_energy)
-        if req_rdm1_sum:
-            assert np.sum(res['rdm1']) == pytest.approx(req_rdm1_sum)
-        if req_rdm1_amax:
-            assert np.amax(res['rdm1']) == pytest.approx(req_rdm1_amax, rel=1e-4, abs=1e-12)
+        assert res['energy'] == pytest.approx(ref_energy)
+        if ref_rdm1_sum:
+            assert np.sum(res['rdm1']) == pytest.approx(ref_rdm1_sum)
+        if ref_rdm1_amax:
+            assert np.amax(res['rdm1']) == pytest.approx(ref_rdm1_amax, rel=1e-4, abs=1e-12)
