@@ -145,9 +145,3 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
             exp.time['purge'].append(MPI.Wtime() - time)
 
         return exp.prop[calc.target_mbe], exp.n_tuples
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-

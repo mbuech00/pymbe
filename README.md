@@ -21,8 +21,7 @@ Prerequisites
 * [Python](https://www.python.org/) 3.7 or higher
 * [PySCF](https://pyscf.github.io/) 1.6 or higher and its requirements
 * [mpi4py](https://mpi4py.readthedocs.io/en/stable/) 3.0.0 or higher built upon an MPI-3 library
-* [doctest](https://docs.python.org/3/library/doctest.html) for unit tests and documentation
-* [runtest](https://github.com/bast/runtest) for regression tests
+* [pytest](https://docs.pytest.org/) for unit tests
 
 
 Features
@@ -57,7 +56,7 @@ The output and results of a calculation are stored in a dedicated directory `out
 Documentation
 -------------
 
-The PyMBE code is deliberately left undocumented, but [doctest](https://docs.python.org/2/library/doctest.html) is used throughout where applicable and the same is true with respect to type hints using the Python [typing](https://docs.python.org/3/library/typing.html) module.
+The PyMBE code is deliberately left undocumented, but the [pytest](https://docs.pytest.org/) unit tests and the type hints using the Python [typing](https://docs.python.org/3/library/typing.html) module can be used to comprehend the usage of the different functions and their arguments.
 
 
 Tutorials
