@@ -15,7 +15,8 @@ __status__ = 'Development'
 import pytest
 from _pytest.fixtures import SubRequest
 import numpy as np
-from pyscf import gto
+from pyscf import gto, scf
+from warnings import catch_warnings, simplefilter
 
 from system import MolCls
 
@@ -23,7 +24,7 @@ from system import MolCls
 @pytest.fixture
 def mol(request: SubRequest) -> MolCls:
         """
-        this fixture constructs the mol object for use in most tests
+        this fixture constructs the mol object for testing
         """
         if request.param == 'h2o':
 
@@ -81,3 +82,22 @@ def mol(request: SubRequest) -> MolCls:
         mol.system = request.param
 
         return mol
+
+
+@pytest.fixture
+def hf(mol: MolCls) -> scf.RHF:
+        """
+        this fixture constructs the hf object and executes a hf calculation
+        """
+        if mol.system in ['h2o', 'c2']:
+
+            hf = scf.RHF(mol)
+            with catch_warnings():
+                simplefilter("ignore")
+                hf.kernel()
+        
+        elif mol.system == 'hubbard':
+
+            hf = None
+
+        return hf

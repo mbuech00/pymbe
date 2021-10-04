@@ -14,13 +14,14 @@ __status__ = 'Development'
 
 import pytest
 import numpy as np
+import scipy.special as sc
 from mpi4py import MPI
-from typing import Union
+from pyscf import symm, scf, ao2mo
+from typing import Tuple, Union
 
 from mbe import main, _inc, _sum
-from kernel import hf, ref_mo, ints, dipole_ints, ref_prop, hubbard_h1e, \
-                   hubbard_eri
-from tools import n_tuples, occ_prune, virt_prune, tuples, hash_2d
+from kernel import hubbard_h1e, hubbard_eri
+from tools import tuples, hash_2d
 from system import MolCls
 from parallel import MPICls
 from calculation import CalcCls
@@ -28,10 +29,9 @@ from expansion import ExpCls
 
 
 test_cases_main = [
-    ('h2o', 1, -249055688365223385, 9199082625845137542, -0.0374123708341898, -0.0018267714680604286, np.array([-0.0374123708341898]), 10, 9, 11, np.array([-0.004676546354273725]), np.array([0.0018267714680604286]), np.array([0.010886635891736773])),
+    ('h2o', 1, -249055688365223385, 9199082625845137542, -0.0374123708341898, -0.0018267714680604286, np.array([-0.0374123708341898]), np.array([10]), np.array([9]), np.array([11]), np.array([-0.004676546354273725]), np.array([0.0018267714680604286]), np.array([0.010886635891736773])),
     ('h2o', 2, 8509729643108359722, 8290417336063232159, -0.11605435599270209, -0.0001698239845069338, np.array([-0.11605435599270209]), np.array([65]), np.array([57]), np.array([69]), np.array([-0.004144798428310789]), np.array([0.0001698239845069338]), np.array([0.009556269221292268]))
 ]
-
 
 test_cases_sum = [
     ('energy', np.array([1, 7, 8], dtype=np.int64), 1.2177665733781107),
@@ -45,56 +45,85 @@ test_cases_sum = [
 ]
 
 
+@pytest.fixture
+def objects(mol: MolCls, hf: scf.RHF) -> Tuple[MPICls, CalcCls, ExpCls]:
+        """
+        this fixture constructs the mpi, calc and exp objects for testing
+        """
+        mpi = MPICls()
+
+        hcore_tmp = hf.get_hcore()
+        mol.hcore = MPI.Win.Allocate_shared(8 * mol.norb**2, 8, comm=mpi.local_comm)
+        buf = mol.hcore.Shared_query(0)[0]
+        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb,) * 2)
+        hcore[:] = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_tmp, hf.mo_coeff)
+
+        eri_tmp = mol.intor('int2e_sph', aosym=1)
+        eri_tmp = ao2mo.incore.full(eri_tmp, hf.mo_coeff)
+
+        mol.vhf = MPI.Win.Allocate_shared(8 * mol.nocc*mol.norb**2, 8, comm=mpi.local_comm)
+        buf = mol.vhf.Shared_query(0)[0]
+        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.nocc, mol.norb, mol.norb))
+        for i in range(mol.nocc):
+            idx = np.asarray([i])
+            vhf[i] = np.einsum('pqrs->rs', eri_tmp[idx[:, None], idx, :, :]) * 2.
+            vhf[i] -= np.einsum('pqrs->ps', eri_tmp[:, idx[:, None], idx, :]) * 2. * .5
+
+        mol.eri = MPI.Win.Allocate_shared(8 * (mol.norb * (mol.norb + 1) // 2) ** 2, 8, comm=mpi.local_comm)
+        buf = mol.eri.Shared_query(0)[0]
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb * (mol.norb + 1) // 2,) * 2)
+        eri[:] = ao2mo.restore(4, eri_tmp, mol.norb)
+
+        ao_dip = mol.intor_symmetric('int1e_r', comp=3)
+        mol.dipole_ints = np.einsum('pi,xpq,qj->xij', hf.mo_coeff, ao_dip, hf.mo_coeff)
+
+        calc = CalcCls(mol.ncore, mol.nelectron, mol.groupname)
+        calc.target_mbe = 'energy'
+        calc.misc['rst'] = False
+        calc.prop['hf']['dipole'] = np.einsum('xij,ji->x', ao_dip, hf.make_rdm1())
+        calc.prop['hf']['energy'] = hf.e_tot
+        calc.occup = hf.mo_occ
+        calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+        calc.mo_coeff = hf.mo_coeff
+        calc.ref_space = np.asarray(calc.ref['select'], dtype=np.int64)
+        calc.prop['ref'][calc.target_mbe] = 0.
+
+        exp = ExpCls(mol, calc)
+
+        return mpi, calc, exp
+
+
 @pytest.mark.parametrize(argnames='mol, order, ref_hashes_sum, ref_hashes_amax, ref_inc_sum, ref_inc_amax, ref_tot, ref_mean_ndets, ref_min_ndets, ref_max_ndets, ref_mean_inc, ref_min_inc, ref_max_inc', \
                          argvalues=test_cases_main, \
                          ids=['-'.join([case[0], str(case[1])]) for case in test_cases_main], \
                          indirect=['mol'])
-def test_main(mol: MolCls, order: int, ref_hashes_sum: int, \
-              ref_hashes_amax: int, ref_inc_sum: float, ref_inc_amax: float, \
-              ref_tot: np.ndarray, ref_mean_ndets: int, ref_min_ndets: int, \
-              ref_max_ndets: int, ref_mean_inc: float, ref_min_inc: float, \
-              ref_max_inc: float):
+def test_main(mol: MolCls, objects: Tuple[MPICls, CalcCls, ExpCls], \
+              order: int, ref_hashes_sum: int, ref_hashes_amax: int, \
+              ref_inc_sum: float, ref_inc_amax: float, ref_tot: np.ndarray, \
+              ref_mean_ndets: int, ref_min_ndets: int, ref_max_ndets: int, \
+              ref_mean_inc: float, ref_min_inc: float, ref_max_inc: float):
         """
         this function tests main
         """
-        mpi = MPICls()
-
-        calc = CalcCls(mol.ncore, mol.nelectron, mol.groupname)
-
-        calc.target_mbe = 'energy'
-        calc.misc['rst'] = False
-
-        mol.nocc, mol.nvirt, mol.norb, calc.hf, calc.prop['hf']['energy'], \
-        calc.prop['hf']['dipole'], calc.occup, calc.orbsym, \
-        calc.mo_coeff = hf(mol, calc.hf_ref)
-
-        calc.mo_coeff, calc.nelec, calc.ref_space = ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
-                                                           calc.orbs, calc.ref, calc.model, calc.hf)
-
-        mol.hcore, mol.vhf, mol.eri = ints(mol, calc.mo_coeff, mpi.global_master, mpi.local_master, \
-                                           mpi.global_comm, mpi.local_comm, mpi.master_comm, mpi.num_masters)
-
-        mol.dipole_ints = dipole_ints(mol, calc.mo_coeff)
-
-        calc.prop['ref'][calc.target_mbe] = ref_prop(mol, calc.occup, calc.target_mbe, \
-                                                     calc.orbsym, calc.model['hf_guess'], \
-                                                     calc.ref_space, calc.model, calc.orbs['type'], \
-                                                     calc.state, calc.prop['hf']['energy'], \
-                                                     calc.prop['hf']['dipole'], calc.base['method'])
-
-        exp = ExpCls(mol, calc)
+        mpi, calc, exp = objects
 
         hashes = []
         inc = []
 
         for exp.order in range(1, order+1):
 
-            exp.n_tuples['inc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
-                                            exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
-                                            occ_prune(calc.occup, calc.ref_space), \
-                                            virt_prune(calc.occup, calc.ref_space), exp.order))
+            n_tuples = 0.
 
-            hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, mean_inc, min_inc, max_inc = main(mpi, mol, calc, exp)
+            for k in range(1, exp.order):
+                n_tuples += sc.binom(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc].size, k) * sc.binom(exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]].size, exp.order - k)
+
+            n_tuples += sc.binom(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc].size, exp.order)
+            n_tuples += sc.binom(exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]].size, exp.order)
+
+            exp.n_tuples['inc'].append(int(n_tuples))
+
+            hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, \
+            mean_inc, min_inc, max_inc = main(mpi, mol, calc, exp)
 
             hashes.append(np.ndarray(buffer=hashes_win, dtype=np.int64, shape=(exp.n_tuples['inc'][exp.order-1],)))
 
@@ -140,8 +169,9 @@ def test_inc():
         h1e_cas, h2e_cas = hubbard_h1e((1, n), False), hubbard_eri((1, n), 2.)
         core_idx, cas_idx = np.array([], dtype=np.int64), np.arange(n, dtype=np.int64)
 
-        e, ndets, n_elec = _inc(model, None, 'can', 0, occup, 'energy', state, 'c1', orbsym,
-                                prop, 0, h1e_cas, h2e_cas, core_idx, cas_idx, 0, None)
+        e, ndets, n_elec = _inc(model, None, 'can', 0, occup, 'energy', state, \
+                                'c1', orbsym, prop, 0, h1e_cas, h2e_cas, \
+                                core_idx, cas_idx, 0, None)
         
         assert e == pytest.approx(-2.875942809005048)
         assert ndets == 36
@@ -150,7 +180,8 @@ def test_inc():
 
 @pytest.mark.parametrize(argnames='target_mbe, tup, ref_res', argvalues=test_cases_sum, \
                          ids=[case[0] + '-' + str(case[1]) for case in test_cases_sum])
-def test_sum(target_mbe: str, tup: np.ndarray, ref_res: Union[float, np.ndarray]):
+def test_sum(target_mbe: str, tup: np.ndarray, \
+             ref_res: Union[float, np.ndarray]):
         """
         this function tests _sum
         """
@@ -174,6 +205,7 @@ def test_sum(target_mbe: str, tup: np.ndarray, ref_res: Union[float, np.ndarray]
         np.random.seed(2)
         inc.append(np.random.rand(36))
 
-        res = _sum(nocc, target_mbe, min_order, tup.size, inc, hashes, ref_occ, ref_virt, tup)
+        res = _sum(nocc, target_mbe, min_order, tup.size, inc, hashes, \
+                   ref_occ, ref_virt, tup)
 
         assert res == pytest.approx(ref_res)
