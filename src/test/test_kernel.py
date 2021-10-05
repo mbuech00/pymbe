@@ -16,12 +16,13 @@ import pytest
 from _pytest.fixtures import SubRequest
 import numpy as np
 from mpi4py import MPI
-from pyscf import scf, symm, ao2mo
+from pyscf import scf
 from typing import List, Tuple, Union, Optional
 
-from kernel import ints, _ao_ints, gauge_origin, dipole_ints, e_core_h1e, \
-                   hubbard_h1e, hubbard_eri, hf as kernel_hf, _dim, ref_mo, \
-                   ref_prop, main, _dipole, _trans, base, _casscf, _fci, _cc
+from kernel import ints as kernel_ints, _ao_ints, gauge_origin, dipole_ints, \
+                   e_core_h1e, hubbard_h1e, hubbard_eri, hf as kernel_hf, \
+                   _dim, ref_mo, ref_prop, main, _dipole, _trans, base, \
+                   _casscf, _fci, _cc
 from system import MolCls
 
 
@@ -106,16 +107,16 @@ test_cases_main = [
     ('h2o', 'ccsd', 'energy', 'pyscf', 0, -0.014118607610972691, 441),
     ('h2o', 'ccsd', 'energy', 'ecc', 0, -0.014118607610972691, 441),
     ('h2o', 'ccsd', 'energy', 'ncc', 0, -0.014118607610972691, 441),
-    ('h2o', 'fci', 'dipole', 'pyscf', 0, np.array([0., 0., -7.97781259e-03], dtype=np.float64), 133),
-    ('h2o', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., -8.05212961e-03], dtype=np.float64), 441),
+    ('h2o', 'fci', 'dipole', 'pyscf', 0, np.array([0., 0., -7.97786374e-03], dtype=np.float64), 133),
+    ('h2o', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., -8.05218072e-03], dtype=np.float64), 441),
     ('h2o', 'fci', 'excitation', 'pyscf', 1, 1.314649936052632, 133),
     ('hubbard', 'fci', 'excitation', 'pyscf', 1, 1.850774199956839, 36),
-    ('h2o', 'fci', 'trans', 'pyscf', 1, np.array([0., 0., -0.26497816], dtype=np.float64), 133),
+    ('h2o', 'fci', 'trans', 'pyscf', 1, np.array([0., 0., -2.64977135e-01], dtype=np.float64), 133),
 ]
 
 test_cases_base = [
     ('h2o', 'ccsd', 'energy', 'pyscf', -0.13432841702437032, np.zeros(3, dtype=np.float64)),
-    ('h2o', 'ccsd', 'dipole', 'pyscf', -0.13432841702437032, np.array([0., 0., -4.31202762e-02], dtype=np.float64)),
+    ('h2o', 'ccsd', 'dipole', 'pyscf', -0.13432841702437032, np.array([0., 0., -4.31213133e-02], dtype=np.float64)),
     ('h2o', 'ccsd', 'energy', 'ecc', -0.13432841702437032, np.zeros(3, dtype=np.float64)),
     ('h2o', 'ccsd', 'energy', 'ncc', -0.13432841702437032, np.zeros(3, dtype=np.float64))
 ]
@@ -128,13 +129,13 @@ test_cases_casscf = [
 
 test_cases_fci = [
     ('h2o', 'energy', 0, -0.014121462439547372, 133, None, None, None, None, None),
-    ('hubbard', 'energy', 0, -3.0307832514917887, 400, None, None, None, None, None),
+    ('hubbard', 'energy', 0, -2.875942809005066, 36, None, None, None, None, None),
     ('h2o', 'dipole', 0, -0.014121462439547372, 133, 9.978231697964103, 2., None, None, None),
-    ('hubbard', 'dipole', 0, -3.0307832514917887, 400, 11.474010037419035, 1., None, None, None),
+    ('hubbard', 'dipole', 0, -2.875942809005066, 36, 7.416665666590797, 1., None, None, None),
     ('h2o', 'excitation', 1, 1.3005284736130989,  133, None, None, 1.314649936052632, None, None),
-    ('hubbard', 'excitation', 1, -2.8722307292538862,  400, None, None, 0.15855252223787852, None, None),
+    ('hubbard', 'excitation', 1, -1.0251686090482313,  36, None, None, 1.8507741999568346, None, None),
     ('h2o', 'trans', 1, 1.3005284736130989, 133, None, None, None, 0., 0.),
-    ('hubbard', 'trans', 1, -2.8722307292542144, 400, None, None, None, 0., 0.)
+    ('hubbard', 'trans', 1, -1.0251686090482313, 36, None, None, None, 0., 0.)
 ]
 
 test_cases_cc = [
@@ -153,16 +154,13 @@ test_cases_cc = [
 
 
 @pytest.fixture
-def mo_coeff(request: SubRequest, mol: MolCls) -> np.ndarray:
+def mo_coeff(request: SubRequest, mol: MolCls, hf: scf.RHF) -> np.ndarray:
         """
         this fixture constructs mo coefficients
         """
         if request.param == 'h2o':
 
-            hf_ref = {'init_guess': 'minao', 'symmetry': mol.symmetry,
-                      'irrep_nelec': {'A1': 6, 'B1': 2, 'B2': 2}, 
-                      'newton': False}
-            _, _, _, _, _, _, _, _, mo_coeff = kernel_hf(mol, hf_ref)
+            mo_coeff = hf.mo_coeff
 
         elif request.param == 'rnd':
 
@@ -179,9 +177,9 @@ def test_ints(mol: MolCls, mo_coeff: np.ndarray):
         """
         this function tests ints
         """
-        hcore_win, vhf_win, eri_win = ints(mol, mo_coeff, True, True, 
-                                           MPI.COMM_WORLD, MPI.COMM_WORLD, 
-                                           MPI.COMM_WORLD, 1)
+        hcore_win, vhf_win, eri_win = kernel_ints(mol, mo_coeff, True, True, 
+                                                  MPI.COMM_WORLD, MPI.COMM_WORLD, 
+                                                  MPI.COMM_WORLD, 1)
 
         assert isinstance(hcore_win, MPI.Win)
         assert isinstance(vhf_win, MPI.Win)
@@ -337,21 +335,20 @@ def test_dim(mo_occ: np.ndarray, ref_dims: Tuple[int, int, int]):
 @pytest.mark.parametrize(argnames='mol, method, orb_type, select, mo_coeff_eq, rdm1_eq, ref_act_n_elec', \
                          argvalues=test_cases_ref_mo, ids=['-'.join(case[0:3]) for case in test_cases_ref_mo], \
                          indirect=['mol'])
-def test_ref_mo(mol: MolCls, hf: scf.RHF, method: str, orb_type: str, \
-                select: List[int], mo_coeff_eq: bool, rdm1_eq: bool, \
-                ref_act_n_elec: Tuple[int, int]):
+def test_ref_mo(mol: MolCls, hf: scf.RHF, orbsym: List[int], method: str, \
+                orb_type: str, select: List[int], mo_coeff_eq: bool, \
+                rdm1_eq: bool, ref_act_n_elec: Tuple[int, int]):
         """
         this function tests ref_mo
         """
-        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
         model = {'method': 'fci', 'solver': 'pyscf_spin0'}
         ref = {'method': method, 'hf_guess': True, 'active': 'manual',
                'select': select,
                'wfnsym': ['Ag'], 'weights': [1.]}
         orbs = {'type': orb_type}
 
-        mo_coeff, act_n_elec, ref_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym,
-                                                 orbs, ref, model, hf)
+        mo_coeff, act_n_elec, ref_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, \
+                                                 orbsym, orbs, ref, model, hf)
 
         rdm1 = scf.hf.make_rdm1(mo_coeff, hf.mo_occ)
         hf_rdm1 = scf.hf.make_rdm1(hf.mo_coeff, hf.mo_occ)
@@ -366,30 +363,25 @@ def test_ref_mo(mol: MolCls, hf: scf.RHF, method: str, orb_type: str, \
                          argvalues=test_cases_ref_prop, \
                          ids=['-'.join([item for item in case[0:5] if item]) for case in test_cases_ref_prop], \
                          indirect=['mol'])
-def test_ref_prop(mol: MolCls, method: str, base_method: Optional[str], \
+def test_ref_prop(mol: MolCls, hf: scf.RHF, \
+                  ints_win: Tuple[MPI.Win, MPI.Win, MPI.Win], 
+                  dipole_quantities: Tuple[np.ndarray, np.ndarray], \
+                  orbsym: List[int], method: str, base_method: Optional[str], \
                   target_mbe: str, cc_backend: str, root: int, \
                   ref_res: Union[float, np.ndarray]):
         """
         this function tests ref_prop
         """
-        hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry, 'newton': False}
+        mol.hcore, mol.eri, mol.vhf = ints_win
 
-        _, _, _, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = kernel_hf(mol, hf_ref)
-
-        ao_dip = mol.intor_symmetric('int1e_r', comp=3)
-        mol.dipole_ints = np.einsum('pi,xpq,qj->xij', mo_coeff, ao_dip, mo_coeff)
-
-        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
-
-        mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
-                                           MPI.COMM_WORLD, MPI.COMM_WORLD, 
-                                           MPI.COMM_WORLD, 1)
+        mol.dipole_ints, dipole_hf = dipole_quantities
 
         ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
         state = {'root': root, 'wfnsym': 'A1'}
         model = {'method': method, 'cc_backend': cc_backend, 'solver': 'pyscf_spin0'}
 
-        res = ref_prop(mol, occup, target_mbe, orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, base_method)
+        res = ref_prop(mol, hf.mo_occ, target_mbe, orbsym, True, ref_space, \
+                       model, 'can', state, hf.e_tot, dipole_hf, base_method)
 
         assert res == pytest.approx(ref_res)
 
@@ -398,9 +390,11 @@ def test_ref_prop(mol: MolCls, method: str, base_method: Optional[str], \
                          argvalues=test_cases_main, \
                          ids=['-'.join([item for item in case[0:4] if item]) for case in test_cases_main], \
                          indirect=['mol'])
-def test_main(mol: MolCls, hf: scf.RHF, method: bool, target_mbe: bool, \
-              cc_backend: str, root: int, ref_res: Union[float, np.ndarray], \
-              ref_ndets: int):
+def test_main(mol: MolCls, hf: scf.RHF, ints: Tuple[np.ndarray, np.ndarray], \
+              orbsym: List[int],  \
+              dipole_quantities: Tuple[np.ndarray, np.ndarray], method: bool, \
+              target_mbe: bool, cc_backend: str, root: int, \
+              ref_res: Union[float, np.ndarray], ref_ndets: int):
         """
         this function tests main
         """
@@ -409,44 +403,30 @@ def test_main(mol: MolCls, hf: scf.RHF, method: bool, target_mbe: bool, \
             occup = hf.mo_occ
             state_wfnsym = 'A1'
             point_group = 'C2v'
-            orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
             e_hf = hf.e_tot
             e_core = mol.e_nuc
-            hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
-            h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
-            eri_ao = mol.intor('int2e_sph', aosym=4)
-            h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
             core_idx = np.array([], dtype=np.int64)
             cas_idx = np.array([0, 1, 2, 3, 4, 7, 9], dtype=np.int64)
-            h1e_cas = h1e[cas_idx[:, None], cas_idx]
             cas_idx_tril = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, \
                                      13, 14, 28, 29, 30, 31, 32, 35, 45, 46, \
                                      47, 48, 49, 52, 54], dtype=np.int64)
-            h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-            n_elec = (np.count_nonzero(hf.mo_occ[cas_idx] > 0.), np.count_nonzero(hf.mo_occ[cas_idx] > 1.))
-            ao_dip = mol.intor_symmetric('int1e_r', comp=3)
-            mol.dipole_ints = np.einsum('pi,xpq,qj->xij', hf.mo_coeff, ao_dip, hf.mo_coeff)
-            dipole_hf = np.einsum('xij,ji->x', ao_dip, hf.make_rdm1())
 
         elif mol.system == 'hubbard':
 
             occup = np.array([2.] * 3 + [0.] * 3, dtype=np.float64)
             state_wfnsym = 'A'
             point_group = 'C1'
-            orbsym = np.zeros(6, dtype=np.int64)
             e_hf = 0.
             e_core = 0.
-            h1e = hubbard_h1e((1, 6), True)
-            h2e = hubbard_eri((1, 6), 2.)
-            h2e = ao2mo.restore(4, h2e, 6)
             core_idx = np.array([0], dtype=np.int64)
             cas_idx = np.arange(1, 5, dtype=np.int64)
-            h1e_cas = h1e[cas_idx[:, None], cas_idx]
             cas_idx_tril = np.array([2, 4, 5, 7, 8, 9, 11, 12, 13, 14], dtype=np.int64)
-            h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-            n_elec = (np.count_nonzero(occup[cas_idx] > 0.), np.count_nonzero(occup[cas_idx] > 1.))
-            mol.dipole_ints = None
-            dipole_hf = None
+            
+        h1e, h2e = ints
+        h1e_cas = h1e[cas_idx[:, None], cas_idx]
+        h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
+        n_elec = (np.count_nonzero(occup[cas_idx] > 0.), np.count_nonzero(occup[cas_idx] > 1.))
+        mol.dipole_ints, dipole_hf = dipole_quantities
 
         res, ndets = main(method, cc_backend, 'pyscf_spin0', 'can', 0, occup, \
                            target_mbe, state_wfnsym, point_group, orbsym, \
@@ -493,25 +473,23 @@ def test_trans():
 @pytest.mark.parametrize(argnames='mol, method, target_mbe, cc_backend, ref_energy, ref_dipole', \
                          argvalues=test_cases_base, ids=['-'.join(case[0:4]) for case in test_cases_base], \
                          indirect=['mol'])
-def test_base(mol: MolCls, method: str, target_mbe: str, cc_backend: str, \
-              ref_energy: float, ref_dipole: np.ndarray):
+def test_base(mol: MolCls, hf: scf.RHF, \
+              ints_win: Tuple[MPI.Win, MPI.Win, MPI.Win], \
+              dipole_quantities: Tuple[np.ndarray, np.ndarray], method: str, \
+              target_mbe: str, cc_backend: str, ref_energy: float, \
+              ref_dipole: np.ndarray):
         """
         this function tests base
         """
-        hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry, 'newton': True}
+        mol.hcore, mol.eri, mol.vhf = ints_win
 
-        _, _, _, _, _, dipole_hf, occup, _, mo_coeff = kernel_hf(mol, hf_ref)
-
-        ao_dip = mol.intor_symmetric('int1e_r', comp=3)
-        mol.dipole_ints = np.einsum('pi,xpq,qj->xij', mo_coeff, ao_dip, mo_coeff)
-
-        mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True, MPI.COMM_WORLD, \
-                                           MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
+        mol.dipole_ints, dipole_hf = dipole_quantities
 
         mol.system = {'charge': mol.charge, 'spin': mol.spin, 'basis': mol.basis, \
                       'frozen': True}
 
-        e, dipole = base(mol, 'can', occup, mo_coeff, target_mbe, method, cc_backend, dipole_hf)
+        e, dipole = base(mol, 'can', hf.mo_occ, hf.mo_coeff, target_mbe, \
+                         method, cc_backend, dipole_hf)
 
         assert e == pytest.approx(ref_energy)
         assert dipole == pytest.approx(ref_dipole)
@@ -521,14 +499,12 @@ def test_base(mol: MolCls, method: str, target_mbe: str, cc_backend: str, \
                          argvalues=test_cases_casscf, \
                          ids=['-'.join([case[0]] + ["{:02}{}".format(weight, wfnsym) for weight, wfnsym in zip(case[2], case[1])] + (['hf_guess'] if case[3] else [])) for case in test_cases_casscf], \
                          indirect=['mol'])
-def test_casscf(mol: MolCls, hf: scf.RHF, wfnsym: List[str], \
-                weights: List[float], hf_guess: bool, ref_sum: float, \
-                ref_amax: float):
+def test_casscf(mol: MolCls, hf: scf.RHF, orbsym: List[int], \
+                wfnsym: List[str], weights: List[float], hf_guess: bool, \
+                ref_sum: float, ref_amax: float):
         """
         this function tests _casscf
         """
-        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-
         mo_coeff = _casscf(mol, 'pyscf_spin0', wfnsym, weights, orbsym, \
                            hf_guess, hf, hf.mo_coeff, \
                            np.arange(2, 10, dtype=np.int64), (4, 4))
@@ -541,50 +517,38 @@ def test_casscf(mol: MolCls, hf: scf.RHF, wfnsym: List[str], \
                          argvalues=test_cases_fci, \
                          ids=['-'.join(case[0:2]) for case in test_cases_fci], \
                          indirect=['mol'])
-def test_fci(mol: MolCls, hf: scf.RHF, target_mbe: str, root: int, \
-             ref_energy: float, ref_n_dets: int, \
-             ref_rdm1_sum: Optional[float], ref_rdm1_amax: Optional[float], \
-             ref_excitation: Optional[float], ref_t_rdm1: Optional[float], \
-             ref_hf_weight_sum: Optional[float]):
+def test_fci(mol: MolCls, hf: scf.RHF, ints: Tuple[np.ndarray, np.ndarray], \
+             orbsym: List[int], target_mbe: str, root: int, ref_energy: float, \
+             ref_n_dets: int, ref_rdm1_sum: Optional[float], \
+             ref_rdm1_amax: Optional[float], ref_excitation: Optional[float], \
+             ref_t_rdm1: Optional[float], ref_hf_weight_sum: Optional[float]):
         """
         this function tests _fci
         """
         if mol.system == 'h2o':
 
             wfnsym = 'A1'
-            orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, \
-                                         hf.mo_coeff)
             e_hf = hf.e_tot
             e_core = mol.e_nuc
-            hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
-            h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
-            eri_ao = mol.intor('int2e_sph', aosym=4)
-            h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
             cas_idx = np.array([0, 1, 2, 3, 4, 7, 9], dtype=np.int64)
-            h1e_cas = h1e[cas_idx[:, None], cas_idx]
             cas_idx_tril = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, \
                                      13, 14, 28, 29, 30, 31, 32, 35, 45, 46, \
                                      47, 48, 49, 52, 54], dtype=np.int64)
-            h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
             occup = hf.mo_occ
-            n_elec = (np.count_nonzero(occup[cas_idx] > 0.), np.count_nonzero(occup[cas_idx] > 1.))
 
         elif mol.system == 'hubbard':
 
             wfnsym = 'A'
-            orbsym = np.zeros(8, dtype=np.int64)
             e_hf = 0.
             e_core = 0.
-            h1e = hubbard_h1e((2, 4), True)
-            h2e = hubbard_eri((2, 4), 2.)
-            h2e = ao2mo.restore(4, h2e, 8)
-            cas_idx = np.arange(1, 7, dtype=np.int64)
-            h1e_cas = h1e[cas_idx[:, None], cas_idx]
-            cas_idx_tril = np.array([2, 4, 5, 7, 8, 9, 11, 12, 13, 14, 16, 17, \
-                                     18, 19, 20, 22, 23, 24, 25, 26, 27], dtype=np.int64)
-            h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-            occup = np.array([2.] * 4 + [0.] * 4, dtype=np.float64)
-            n_elec = (np.count_nonzero(occup[cas_idx] > 0.), np.count_nonzero(occup[cas_idx] > 1.))
+            cas_idx = np.arange(1, 5, dtype=np.int64)
+            cas_idx_tril = np.array([2, 4, 5, 7, 8, 9, 11, 12, 13, 14], dtype=np.int64)
+            occup = np.array([2.] * 3 + [0.] * 3, dtype=np.float64)
+            
+        h1e, h2e = ints
+        h1e_cas = h1e[cas_idx[:, None], cas_idx]
+        h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
+        n_elec = (np.count_nonzero(occup[cas_idx] > 0.), np.count_nonzero(occup[cas_idx] > 1.))
 
         res = _fci('pyscf_spin0', 0, target_mbe, wfnsym, orbsym, True, root, 
                    e_hf, e_core, h1e_cas, h2e_cas, occup, 
@@ -608,7 +572,8 @@ def test_fci(mol: MolCls, hf: scf.RHF, target_mbe: str, root: int, \
                          argvalues=test_cases_cc, \
                          ids=['-'.join(case[0:2]) + ('-rdm1' if case[2] else '') + '-' + case[3] for case in test_cases_cc], \
                          indirect=['mol'])
-def test_cc(mol: MolCls, hf: scf.RHF, method: str, rdm1: bool, \
+def test_cc(hf: scf.RHF, orbsym: List[int], \
+            ints: Tuple[np.ndarray, np.ndarray], method: str, rdm1: bool, \
             cc_backend: str, ref_energy: float, ref_rdm1_sum: Optional[float], \
             ref_rdm1_amax: Optional[float]):
         """
@@ -617,11 +582,7 @@ def test_cc(mol: MolCls, hf: scf.RHF, method: str, rdm1: bool, \
         core_idx = np.array([], dtype=np.int64)
         cas_idx = np.array([0, 1, 2, 3, 4, 7, 9], dtype=np.int64)
         n_elec = (np.count_nonzero(hf.mo_occ[cas_idx] > 0.), np.count_nonzero(hf.mo_occ[cas_idx] > 1.))
-        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-        hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
-        h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
-        eri_ao = mol.intor('int2e_sph', aosym=4)
-        h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
+        h1e, h2e = ints
         h1e_cas = h1e[cas_idx[:, None], cas_idx]
         cas_idx_tril = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, \
                                  13, 14, 28, 29, 30, 31, 32, 35, 45, 46, \
