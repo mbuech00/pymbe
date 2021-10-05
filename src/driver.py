@@ -39,7 +39,7 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
 
                 # print mbe header
                 print(mbe_header(i, exp.n_tuples['calc'][i-exp.min_order], \
-                                 1. if (i-exp.min_order) < calc.thres['start'] else calc.thres['perc']))
+                                 1. if i < calc.thres['start'] else calc.thres['perc']))
 
                 # print mbe end
                 print(mbe_end(i, exp.time['mbe'][i-exp.min_order]))
