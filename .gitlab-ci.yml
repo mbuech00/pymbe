@@ -26,11 +26,13 @@ stages:
 pylint:
   stage: Static Analysis
   script:
+    - pip install pylint
     - pylint -d C0301 src/*.py
 
 pytest:
   stage: Test
   script:
+    - pip install pytest
     - pytest --junitxml=report.xml
   artifacts:
     when: always
