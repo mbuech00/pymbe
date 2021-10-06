@@ -1,9 +1,6 @@
 # Language image
 image: python:latest
 
-services: 
-  - dispel4py/docker.openmpi:latest
-
 # Change pip's cache directory to be inside the project directory since we can
 # only cache local items.
 variables:
@@ -17,6 +14,15 @@ cache:
     - .venv/
 
 before_script:
+  - wget http://www.mpich.org/static/downloads/3.2/mpich-3.2.tar.gz
+  - tar xfz mpich-3.2.tar.gz
+  - rm mpich-3.2.tar.gz
+  - cd mpich-3.2
+  - ./configure
+  - make
+  - make install
+  - cd ..
+  - rm -rf mpich-3.2
   - python -V  # Print out python version for debugging
   - pip install virtualenv
   - virtualenv .venv
