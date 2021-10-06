@@ -1,6 +1,9 @@
 # Language image
 image: python:latest
 
+services: 
+  - openmpi:latest
+
 # Change pip's cache directory to be inside the project directory since we can
 # only cache local items.
 variables:
@@ -18,7 +21,6 @@ before_script:
   - pip install virtualenv
   - virtualenv .venv
   - source .venv/bin/activate
-  - apt-get install openmpi-bin libopenmpi-dev
   - pip install mpi4py
   - pip install pyscf
   - pip install seaborn
