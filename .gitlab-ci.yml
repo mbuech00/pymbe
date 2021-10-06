@@ -18,7 +18,7 @@ before_script:
   - pip install virtualenv
   - virtualenv .venv
   - source .venv/bin/activate
-  - which mpicc
+  - apt-get install openmpi-bin libopenmpi-dev
   - pip install mpi4py
   - pip install pyscf
   - pip install seaborn
