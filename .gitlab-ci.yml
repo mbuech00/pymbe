@@ -18,6 +18,10 @@ before_script:
   - pip install virtualenv
   - virtualenv .venv
   - source .venv/bin/activate
+  - pip install mpi4py
+  - pip install pyscf
+  - pip install seaborn
+  - pip install pytest
 
 stages:
   - Static Analysis
@@ -39,7 +43,6 @@ mypy:
 pytest:
   stage: Test
   script:
-    - pip install pytest
     - pytest --junitxml=report.xml
   artifacts:
     when: always
