@@ -14,15 +14,15 @@ cache:
     - .venv/
 
 before_script:
-  - wget http://www.mpich.org/static/downloads/3.2/mpich-3.2.tar.gz
-  - tar xfz mpich-3.2.tar.gz
-  - rm mpich-3.2.tar.gz
-  - cd mpich-3.2
+  - wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.1.tar.gz
+  - tar xfz openmpi-4.1.1.tar.gz
+  - rm openmpi-4.1.1.tar.gz
+  - cd openmpi-4.1.1
   - ./configure
   - make
   - make install
   - cd ..
-  - rm -rf mpich-3.2
+  - rm -rf openmpi-4.1.1
   - python -V  # Print out python version for debugging
   - pip install virtualenv
   - virtualenv .venv
