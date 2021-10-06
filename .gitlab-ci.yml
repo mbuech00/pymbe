@@ -21,13 +21,20 @@ before_script:
 
 stages:
   - Static Analysis
+  - Type Checking
   - Test
 
-pylint:
-  stage: Static Analysis
+#pylint:
+#  stage: Static Analysis
+#  script:
+#    - pip install pylint
+#    - pylint -d C0301 src/*.py
+
+mypy:
+  stage: Type Checking
   script:
-    - pip install pylint
-    - pylint -d C0301 src/*.py
+    - pip install mypy
+    - mypy src/*.py
 
 pytest:
   stage: Test
