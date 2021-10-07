@@ -392,8 +392,8 @@ def test_ref_prop(mol: MolCls, hf: scf.RHF, \
                          indirect=['mol'])
 def test_main(mol: MolCls, hf: scf.RHF, ints: Tuple[np.ndarray, np.ndarray], \
               orbsym: List[int],  \
-              dipole_quantities: Tuple[np.ndarray, np.ndarray], method: bool, \
-              target_mbe: bool, cc_backend: str, root: int, \
+              dipole_quantities: Tuple[np.ndarray, np.ndarray], method: str, \
+              target_mbe: str, cc_backend: str, root: int, \
               ref_res: Union[float, np.ndarray], ref_ndets: int):
         """
         this function tests main
@@ -429,10 +429,10 @@ def test_main(mol: MolCls, hf: scf.RHF, ints: Tuple[np.ndarray, np.ndarray], \
         mol.dipole_ints, dipole_hf = dipole_quantities
 
         res, ndets = main(method, cc_backend, 'pyscf_spin0', 'can', 0, occup, \
-                           target_mbe, state_wfnsym, point_group, orbsym, \
-                           True, root, e_hf, e_core, h1e_cas, h2e_cas, \
-                           core_idx, cas_idx, n_elec, 0, mol.dipole_ints, \
-                           dipole_hf)
+                          target_mbe, state_wfnsym, point_group, orbsym, \
+                          True, root, e_hf, e_core, h1e_cas, h2e_cas, \
+                          core_idx, cas_idx, n_elec, 0, mol.dipole_ints, \
+                          dipole_hf)
 
         assert res == pytest.approx(ref_res)
         assert ndets == ref_ndets
