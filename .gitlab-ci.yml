@@ -15,7 +15,7 @@ stages:
 mypy:
   stage: Type Checking
   script:
-    - mypy --ignore-missing-imports --python-version=3.9 src/*.py
+    - mypy --ignore-missing-imports src
 
 pytest:
   stage: Test
