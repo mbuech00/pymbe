@@ -1,9 +1,6 @@
 # PyMBE environment image
 image: registry.gitlab.com/jgreiner/pymbe/pymbe_env_image:latest
 
-before_script:
-  - python -V  # Print out python version for debugging
-
 stages:
   - Static Analysis
   - Type Checking
