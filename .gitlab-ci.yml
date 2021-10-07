@@ -23,6 +23,7 @@ before_script:
   - make install
   - cd ..
   - rm -rf openmpi-4.1.1
+  - ldconfig
   - python -V  # Print out python version for debugging
   - pip install virtualenv
   - virtualenv .venv
