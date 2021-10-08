@@ -22,7 +22,7 @@ pytest:
   script:
     - cd src
     - echo "MBECCLIB = '${MBECC_DIR}/libmbecc.so'" > settings.py
-    - python3 -m pytest --junitxml=report.xml
+    - python3 -m pytest --junitxml=../report.xml
     - ls
   artifacts:
     when: always
