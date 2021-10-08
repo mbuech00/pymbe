@@ -20,8 +20,8 @@ mypy:
 pytest:
   stage: Test
   script:
-    - ls
-    - cd src && pytest --junitxml=report.xml
+    - python3 -m pytest --junitxml=report.xml
+    - cd src && python3 -m pytest --junitxml=report.xml
   artifacts:
     when: always
     reports:
