@@ -21,7 +21,7 @@ pytest:
   stage: Test
   script:
     - cd src
-    - echo "${MBECC_DIR}/libmbecc.so" > settings.py
+    - echo "'${MBECC_DIR}/libmbecc.so'" > settings.py
     - python3 -m pytest --junitxml=report.xml
   artifacts:
     when: always
