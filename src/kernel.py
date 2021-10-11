@@ -14,7 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto, symm, scf, ao2mo, lib, lo, ci, cc, mcscf, fci
+from pyscf import gto, symm, scf, ao2mo, lo, cc, mcscf, fci
 from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
@@ -24,7 +24,7 @@ from typing import Tuple, List, Dict, Union, Any
 from warnings import catch_warnings, simplefilter
 
 from parallel import mpi_bcast
-from system import MolCls, set_system, translate_system
+from system import MolCls
 from tools import assertion, suppress_stdout, mat_idx, near_nbrs, \
                   idx_tril, core_cas, nelec, ndets
 from interface import mbecc_interface

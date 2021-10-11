@@ -16,10 +16,8 @@ import os
 import sys
 import ctypes
 import numpy as np
-from pyscf import ao2mo, gto, scf, symm
+from pyscf import ao2mo
 from typing import Tuple
-
-from tools import idx_tril, nelec
 
 try:
     import settings

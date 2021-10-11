@@ -17,8 +17,8 @@ import sys
 import os
 from ast import literal_eval
 from math import floor
-from pyscf import gto, symm, ao2mo
-from typing import List, Tuple, Dict, Union, Any, Callable
+from pyscf import gto, symm
+from typing import List, Dict, Union, Any, Callable
 
 from tools import assertion
 

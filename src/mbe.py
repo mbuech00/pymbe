@@ -15,18 +15,17 @@ __status__ = 'Development'
 import sys
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto
-from typing import Tuple, Set, List, Dict, Union, Any
+from typing import Tuple, List, Dict, Union, Any
 
-from kernel import e_core_h1e, hubbard_h1e, hubbard_eri, main as kernel_main
+from kernel import e_core_h1e, main as kernel_main
 from output import mbe_status, mbe_debug, DIVIDER
 from expansion import ExpCls
 from system import MolCls
 from calculation import CalcCls
 from parallel import MPICls, mpi_reduce, mpi_allreduce
 from tools import is_file, read_file, write_file, inc_dim, inc_shape, \
-                    occ_prune, virt_prune, pi_prune, tuples, n_tuples, start_idx, \
-                    core_cas, idx_tril, nelec, hash_1d, hash_2d, hash_lookup, fsum
+                    occ_prune, virt_prune, pi_prune, tuples, start_idx, \
+                    core_cas, idx_tril, nelec, hash_1d, hash_lookup, fsum
 
 SCREEN = 1000. # random, non-sensical number
 
