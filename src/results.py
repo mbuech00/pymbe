@@ -386,7 +386,7 @@ def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         if calc.target_mbe == 'energy':
             hf_prop = calc.prop['hf']['energy']
             base_prop = calc.prop['hf']['energy']+calc.prop['base']['energy']
-            mbe_tot_prop = np.asscalar(_energy(calc, exp)[-1])
+            mbe_tot_prop = _energy(calc, exp)[-1].item()
         elif calc.target_mbe == 'dipole':
             dipole, nuc_dipole = _dipole(mol, calc, exp)
             hf_prop = np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole'])
@@ -395,7 +395,7 @@ def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         elif calc.target_mbe == 'excitation':
             hf_prop = 0.
             base_prop = 0.
-            mbe_tot_prop = np.asscalar(_excitation(calc, exp)[-1])
+            mbe_tot_prop = _excitation(calc, exp)[-1].item()
         else:
             hf_prop = 0.
             base_prop = 0.
@@ -494,9 +494,9 @@ def _timings_prt(calc: CalcCls, exp: ExpCls) -> str:
         string += DIVIDER[:112]+'\n'
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
-            calc_i = exp.n_tuples['inc'][i]
-            rel_i = exp.n_tuples['inc'][i] / exp.n_tuples['theo'][i] * 100.
-            calc_tot = sum(exp.n_tuples['inc'][:i+1])
+            calc_i = exp.n_tuples['calc'][i]
+            rel_i = exp.n_tuples['calc'][i] / exp.n_tuples['theo'][i] * 100.
+            calc_tot = sum(exp.n_tuples['calc'][:i+1])
             rel_tot = calc_tot / sum(exp.n_tuples['theo'][:i+1]) * 100.
             string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}' \
                       '{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}{:5}{:1}{:4}{:6.2f}\n'
@@ -544,8 +544,8 @@ def _energy_prt(calc: CalcCls, exp: ExpCls) -> str:
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
             form += ('',j, \
-                        '','|','',np.asscalar(energy[i]), \
-                        '','|','',np.asscalar(energy[i]) - calc.prop['hf']['energy'],)
+                        '','|','',energy[i].item(), \
+                        '','|','',energy[i].item() - calc.prop['hf']['energy'],)
 
         string += DIVIDER[:66]+'\n'
 
@@ -616,7 +616,7 @@ def _excitation_prt(calc: CalcCls, exp: ExpCls) -> str:
 
         for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:7}{:>.5e}\n'
-            form += ('',j,'','|','',np.asscalar(excitation[i]),)
+            form += ('',j,'','|','',excitation[i].item(),)
 
         string += DIVIDER[:43]+'\n'
 

@@ -109,7 +109,8 @@ def _calc(mpi: MPICls, mol: MolCls) -> CalcCls:
 
             # restart folder and logical
             if not os.path.isdir(RST):
-                os.mkdir(RST)
+                if calc.misc['rst']:
+                    os.mkdir(RST)
                 calc.restart = False
             else:
                 calc.restart = True
@@ -125,7 +126,7 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
         this function initializes an exp object
         """
         # nuclear repulsion energy
-        mol.e_nuc = np.asscalar(mol.energy_nuc()) if mol.atom else 0.
+        mol.e_nuc = mol.energy_nuc().item() if mol.atom else 0.
 
         # dipole gauge origin
         if mol.atom:
@@ -152,8 +153,7 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
 
                 # reference and expansion spaces and mo coefficients
                 calc.mo_coeff, calc.nelec, calc.ref_space = ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
-                                                                   calc.orbs, calc.ref, calc.model, \
-                                                                   calc.extra['pi_prune'], calc.hf)
+                                                                   calc.orbs, calc.ref, calc.model, calc.hf)
 
         # bcast fundamental info
         mol, calc = fund_dist(mpi, mol, calc)
@@ -172,16 +172,12 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
         if not calc.restart and mpi.global_master and calc.misc['rst']:
             restart_write_fund(mol, calc)
 
-        # pyscf hf object not needed anymore
-        if mpi.global_master and not calc.restart:
-            del calc.hf
-
         if mpi.global_master:
 
             # base energy
             if calc.base['method'] is not None:
                 calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = base(mol, calc.orbs['type'], calc.occup, calc.orbsym, \
+                    calc.prop['base']['dipole'] = base(mol, calc.orbs['type'], calc.occup, calc.hf.mo_coeff, \
                                                        calc.target_mbe, calc.base['method'], \
                                                        calc.model['cc_backend'], calc.prop['hf']['dipole'])
             else:
@@ -194,6 +190,10 @@ def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpC
                                                          calc.ref_space, calc.model, calc.orbs['type'], \
                                                          calc.state, calc.prop['hf']['energy'], \
                                                          calc.prop['hf']['dipole'], calc.base['method'])
+
+        # pyscf hf object not needed anymore
+        if mpi.global_master and not calc.restart:
+            del calc.hf
 
         # bcast properties
         calc = prop_dist(mpi, calc)
@@ -251,6 +251,8 @@ def restart_main(mpi: MPICls, calc: CalcCls, exp: ExpCls) -> int:
                         exp.n_tuples['theo'].append(np.load(os.path.join(RST, files[i])).tolist())
                     if 'inc' in files[i]:
                         exp.n_tuples['inc'].append(np.load(os.path.join(RST, files[i])).tolist())
+                    if 'calc' in files[i]:
+                        exp.n_tuples['calc'].append(np.load(os.path.join(RST, files[i])).tolist())
             mpi.global_comm.bcast(exp.n_tuples, root=0)
         else:
             exp.n_tuples = mpi.global_comm.bcast(None, root=0)

@@ -38,19 +38,18 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
             for i in range(exp.min_order, exp.start_order):
 
                 # print mbe header
-                print(mbe_header(i, exp.n_tuples['inc'][i-exp.min_order], \
-                                 1. if (i-exp.min_order) < calc.thres['start'] else calc.thres['perc']))
+                print(mbe_header(i, exp.n_tuples['calc'][i-exp.min_order], \
+                                 1. if i < calc.thres['start'] else calc.thres['perc']))
 
                 # print mbe end
-                print(mbe_end(i, exp.time['mbe'][i-exp.min_order], \
-                              exp.n_tuples['inc'][i-exp.min_order]))
+                print(mbe_end(i, exp.time['mbe'][i-exp.min_order]))
 
                 # print mbe results
-                print(mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
-                                  exp.min_order, i, exp.prop[calc.target_mbe]['tot'], \
-                                  exp.mean_inc[i-exp.min_order], exp.min_inc[i-exp.min_order], \
-                                  exp.max_inc[i-exp.min_order], exp.mean_ndets[i-exp.min_order], \
-                                  exp.min_ndets[i-exp.min_order], exp.max_ndets[i-exp.min_order]))
+                print(mbe_results(calc.target_mbe, calc.state['root'], exp.min_order, i, \
+                                  exp.prop[calc.target_mbe]['tot'], exp.mean_inc[i-exp.min_order], \
+                                  exp.min_inc[i-exp.min_order], exp.max_inc[i-exp.min_order], \
+                                  exp.mean_ndets[i-exp.min_order], exp.min_ndets[i-exp.min_order], \
+                                  exp.max_ndets[i-exp.min_order]))
 
                 # print screening results
                 exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order], exp.exp_space[i-exp.min_order+1])
@@ -66,15 +65,18 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                                                      exp.exp_space[0][mol.nocc <= exp.exp_space[0]], \
                                                      occ_prune(calc.occup, calc.ref_space), \
                                                      virt_prune(calc.occup, calc.ref_space), exp.order))
-                exp.n_tuples['inc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
+                exp.n_tuples['calc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < mol.nocc], \
                                                     exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]], \
                                                     occ_prune(calc.occup, calc.ref_space), \
                                                     virt_prune(calc.occup, calc.ref_space), exp.order))
-                write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
-                write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
+                exp.n_tuples['inc'].append(exp.n_tuples['calc'][-1])
+                if calc.misc['rst']:
+                    write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
+                    write_file(exp.order, np.asarray(exp.n_tuples['calc'][-1]), 'mbe_n_tuples_calc')
+                    write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
 
             # print mbe header
-            print(mbe_header(exp.order, exp.n_tuples['inc'][-1], \
+            print(mbe_header(exp.order, exp.n_tuples['calc'][-1], \
                              1. if exp.order < calc.thres['start'] else calc.thres['perc']))
 
             # main mbe function
@@ -99,7 +101,7 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                 exp.prop[calc.target_mbe]['tot'][-1] += exp.prop[calc.target_mbe]['tot'][-2]
 
             # append determinant statistics
-            if exp.order == exp.start_order and exp.min_order < exp.start_order:
+            if len(exp.mean_ndets) > exp.order - exp.min_order:
                 exp.mean_ndets[-1] = mean_ndets
                 exp.min_ndets[-1] = min_ndets
                 exp.max_ndets[-1] = max_ndets
@@ -109,7 +111,7 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                 exp.max_ndets.append(max_ndets)
 
             # append increment statistics
-            if exp.order == exp.start_order and exp.min_order < exp.start_order:
+            if len(exp.mean_inc) > exp.order - exp.min_order:
                 exp.mean_inc[-1] = mean_inc
                 exp.min_inc[-1] = min_inc
                 exp.max_inc[-1] = max_inc
@@ -119,12 +121,11 @@ def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                 exp.max_inc.append(max_inc)
 
             # print mbe end
-            print(mbe_end(exp.order, exp.time['mbe'][-1], \
-                          exp.n_tuples['inc'][-1]))
+            print(mbe_end(exp.order, exp.time['mbe'][-1]))
 
             # print mbe results
-            print(mbe_results(calc.occup, calc.target_mbe, calc.state['root'], \
-                              exp.min_order, exp.order, exp.prop[calc.target_mbe]['tot'], \
+            print(mbe_results(calc.target_mbe, calc.state['root'], exp.min_order, \
+                              exp.order, exp.prop[calc.target_mbe]['tot'], \
                               exp.mean_inc[-1], exp.min_inc[-1], exp.max_inc[-1], \
                               exp.mean_ndets[-1], exp.min_ndets[-1], exp.max_ndets[-1]))
 
@@ -268,6 +269,6 @@ def slave(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
                 slave = False
 
         # finalize mpi
-        mpi_finalize(mpi)
+        mpi_finalize(mpi, calc.misc['rst'])
 
 

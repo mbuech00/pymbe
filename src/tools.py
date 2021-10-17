@@ -678,7 +678,7 @@ def natural_keys(txt: str) -> List[Union[int, str]]:
         >>> natural_keys('mbe_test_string_1')
         ['mbe_test_string_', 1, '']
         """
-        return [_convert(c) for c in re.split('(\d+)', txt)]
+        return [_convert(c) for c in re.split(r'(\d+)', txt)]
 
 
 def _convert(txt: str) -> Union[int, str]:
