@@ -20,8 +20,8 @@ from parallel import MPICls, mpi_gatherv, mpi_bcast
 from system import MolCls
 from calculation import CalcCls
 from expansion import ExpCls
-from tools import inc_dim, inc_shape, occ_prune, virt_prune, \
-                    tuples, hash_1d, hash_lookup
+from tools import inc_dim, inc_shape, occ_prune, virt_prune, tuples, hash_1d, \
+                  hash_lookup
 
 
 def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win]], \
@@ -145,9 +145,3 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
             exp.time['purge'].append(MPI.Wtime() - time)
 
         return exp.prop[calc.target_mbe], exp.n_tuples
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-

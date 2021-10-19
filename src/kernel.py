@@ -14,7 +14,7 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto, symm, scf, ao2mo, lib, lo, ci, cc, mcscf, fci
+from pyscf import gto, symm, scf, ao2mo, lo, cc, mcscf, fci
 from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
@@ -24,7 +24,7 @@ from typing import Tuple, List, Dict, Union, Any
 from warnings import catch_warnings, simplefilter
 
 from parallel import mpi_bcast
-from system import MolCls, set_system, translate_system
+from system import MolCls
 from tools import assertion, suppress_stdout, mat_idx, near_nbrs, \
                   idx_tril, core_cas, nelec, ndets
 from interface import mbecc_interface
@@ -40,18 +40,6 @@ def ints(mol: MolCls, mo_coeff: np.ndarray, global_master: bool, local_master: b
          num_masters: int) -> Tuple[MPI.Win, ...]:
         """
         this function returns 1e and 2e mo integrals and effective fock potentials from individual occupied orbitals
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g')
-        >>> mol.norb = mol.nao_nr()
-        >>> mol.nocc = mol.nelectron // 2
-        >>> mol.x2c = False
-        >>> np.random.seed(1234)
-        >>> mo_coeff = np.random.rand(mol.norb, mol.norb)
-        >>> ints(mol, mo_coeff, True, True, MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1) # doctest: +ELLIPSIS
-        (<mpi4py.MPI.Win object at 0x...>, <mpi4py.MPI.Win object at 0x...>, <mpi4py.MPI.Win object at 0x...>)
         """
         # hcore_ao and eri_ao w/o symmetry
         if global_master:
@@ -121,27 +109,6 @@ def ints(mol: MolCls, mo_coeff: np.ndarray, global_master: bool, local_master: b
 def _ao_ints(mol: MolCls) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns 1e and 2e ao integrals
-
-        example:
-        >>> mol = gto.Mole()
-        >>> mol.x2c = True
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g')
-        >>> hcore, eri = _ao_ints(mol)
-        >>> hcore.shape
-        (13, 13)
-        >>> eri.shape
-        (13, 13, 13, 13)
-        >>> mol = gto.M()
-        >>> mol.matrix = (1, 6)
-        >>> mol.n = 1.
-        >>> mol.u = 2.
-        >>> mol.pbc = True
-        >>> hcore, eri = _ao_ints(mol)
-        >>> hcore.shape
-        (6, 6)
-        >>> eri.shape
-        (6, 6, 6, 6)
         """
         if mol.atom:
 
@@ -170,17 +137,6 @@ def _ao_ints(mol: MolCls) -> Tuple[np.ndarray, np.ndarray]:
 def gauge_origin(mol: MolCls) -> np.ndarray:
         """
         this function return dipole gauge origin
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g')
-        >>> mol.gauge = 'zero'
-        >>> np.allclose(gauge_origin(mol), np.array([0., 0., 0.]))
-        True
-        >>> mol.gauge = 'charge'
-        >>> np.allclose(gauge_origin(mol), np.array([ 0.,  0., -0.01730611]))
-        True
         """
         if mol.gauge == 'charge':
             charges = mol.atom_charges()
@@ -194,17 +150,6 @@ def gauge_origin(mol: MolCls) -> np.ndarray:
 def dipole_ints(mol: MolCls, mo: np.ndarray) -> np.ndarray:
         """
         this function returns dipole integrals (in AO basis)
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = 'sto-3g')
-        >>> mol.gauge_origin = np.zeros(3)
-        >>> np.random.seed(1234)
-        >>> mo_coeff = np.random.rand(7, 7)
-        >>> dipole_ints = dipole_ints(mol, mo_coeff)
-        >>> dipole_ints.shape
-        (3, 7, 7)
         """
         with mol.with_common_origin(mol.gauge_origin):
             dipole = mol.intor_symmetric('int1e_r', comp=3)
@@ -216,25 +161,6 @@ def e_core_h1e(e_nuc: float, hcore: np.ndarray, vhf: np.ndarray, \
                core_idx: np.ndarray, cas_idx: np.ndarray) -> Tuple[float, np.ndarray]:
         """
         this function returns core energy and cas space 1e integrals
-
-        example:
-        >>> e_nuc = 0.
-        >>> np.random.seed(1234)
-        >>> hcore = np.random.rand(6, 6)
-        >>> np.random.seed(1234)
-        >>> vhf = np.random.rand(3, 6, 6)
-        >>> core_idx = np.array([0])
-        >>> cas_idx = np.array([2, 4, 5])
-        >>> e_core, h1e_cas = e_core_h1e(e_nuc, hcore, vhf, core_idx, cas_idx)
-        >>> np.isclose(e_core, 0.5745583511366769)
-        True
-        >>> h1e_cas.shape
-        (3, 3)
-        >>> h1e_cas_ref = np.array([[0.74050151, 1.00616633, 0.02753690],
-        ...                         [0.79440516, 0.63367224, 1.13619731],
-        ...                         [1.60429528, 1.40852194, 1.40916262]])
-        >>> np.allclose(h1e_cas, h1e_cas_ref)
-        True
         """
         # init core energy
         e_core = e_nuc
@@ -257,38 +183,6 @@ def e_core_h1e(e_nuc: float, hcore: np.ndarray, vhf: np.ndarray, \
 def hubbard_h1e(matrix: Tuple[int, int], pbc: bool = False) -> np.ndarray:
         """
         this function returns the hubbard hopping hamiltonian
-
-        example:
-        >>> matrix = (1, 4)
-        >>> h1e = hubbard_h1e(matrix, False)
-        >>> h1e_ref = np.array([[ 0., -1.,  0.,  0.],
-        ...                     [-1.,  0., -1.,  0.],
-        ...                     [ 0., -1.,  0., -1.],
-        ...                     [ 0.,  0., -1.,  0.]])
-        >>> np.allclose(h1e, h1e_ref)
-        True
-        >>> h1e = hubbard_h1e(matrix, True)
-        >>> h1e_ref[-1, 0] = h1e_ref[0, -1] = -1.
-        >>> np.allclose(h1e, h1e_ref)
-        True
-        >>> matrix = (2, 2)
-        >>> h1e = hubbard_h1e(matrix)
-        >>> h1e_ref = np.array([[ 0., -1., -1.,  0.],
-        ...                     [-1.,  0.,  0., -1.],
-        ...                     [-1.,  0.,  0., -1.],
-        ...                     [ 0., -1., -1.,  0.]])
-        >>> np.allclose(h1e, h1e_ref)
-        True
-        >>> matrix = (2, 3)
-        >>> h1e = hubbard_h1e(matrix)
-        >>> h1e_ref = np.array([[ 0., -1.,  0.,  0., -1.,  0.],
-        ...                     [-1.,  0., -1., -1.,  0., -1.],
-        ...                     [ 0., -1.,  0.,  0., -1.,  0.],
-        ...                     [ 0., -1.,  0.,  0., -1.,  0.],
-        ...                     [-1.,  0., -1., -1.,  0., -1.],
-        ...                     [ 0., -1.,  0.,  0., -1.,  0.]])
-        >>> np.allclose(h1e, h1e_ref)
-        True
         """
         # dimension
         if 1 in matrix:
@@ -335,20 +229,6 @@ def hubbard_h1e(matrix: Tuple[int, int], pbc: bool = False) -> np.ndarray:
 def hubbard_eri(matrix: Tuple[int, int], u: float) -> np.ndarray:
         """
         this function returns the hubbard two-electron hamiltonian
-
-        example:
-        >>> matrix = (1, 2)
-        >>> eri = hubbard_eri(matrix, 2.)
-        >>> eri_ref = np.array([[[[2., 0.],
-        ...                       [0., 0.]],
-        ...                      [[0., 0.],
-        ...                       [0., 0.]]],
-        ...                     [[[0., 0.],
-        ...                       [0., 0.]],
-        ...                      [[0., 0.],
-        ...                       [0., 2.]]]])
-        >>> np.allclose(eri, eri_ref)
-        True
         """
         # nsites
         nsites = matrix[0] * matrix[1]
@@ -379,51 +259,6 @@ def hf(mol: MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, flo
                                                      np.ndarray, np.ndarray, np.ndarray]:
         """
         this function returns the results of a restricted (open-shell) hartree-fock calculation
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g', symmetry = 'C2v', verbose=0)
-        >>> mol.gauge_origin = np.zeros(3)
-        >>> mol.debug = 0
-        >>> mol.x2c = False
-        >>> hf_ref = {'init_guess': 'minao', 'symmetry': mol.symmetry,
-        ...           'irrep_nelec': {'A1': 6, 'B1': 2, 'B2': 2}, 'newton': False}
-        >>> nocc, nvirt, norb, pyscf_hf, e_hf, dipole, occup, orbsym, mo_coeff_c2v = hf(mol, hf_ref)
-        >>> nocc
-        5
-        >>> nvirt
-        8
-        >>> norb
-        13
-        >>> np.isclose(e_hf, -75.9838464521063)
-        True
-        >>> occup
-        array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.])
-        >>> orbsym
-        array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0])
-        >>> np.allclose(dipole, np.array([0., 0., 8.64255793e-01]))
-        True
-        >>> hf_ref['newton'] = True
-        >>> mo_coeff_soscf = hf(mol, hf_ref)[-1]
-        >>> np.allclose(mo_coeff_c2v, mo_coeff_soscf)
-        False
-        >>> np.allclose(scf.hf.make_rdm1(mo_coeff_c2v, occup), scf.hf.make_rdm1(mo_coeff_soscf, occup))
-        True
-        >>> hf_ref['newton'] = False
-        >>> hf_ref['symmetry'] = 'C1'
-        >>> hf_ref['irrep_nelec'] = {'A': 10}
-        >>> mo_coeff_c1 = hf(mol, hf_ref)[-1]
-        >>> np.allclose(mo_coeff_c2v, mo_coeff_c1)
-        False
-        >>> np.allclose(scf.hf.make_rdm1(mo_coeff_c2v, occup), scf.hf.make_rdm1(mo_coeff_c1, occup))
-        True
-        >>> mol.x2c = True
-        >>> mo_coeff_x2c = hf(mol, hf_ref)[-1]
-        >>> np.allclose(mo_coeff_c1, mo_coeff_x2c)
-        False
-        >>> np.allclose(scf.hf.make_rdm1(mo_coeff_c2v, occup), scf.hf.make_rdm1(mo_coeff_x2c, occup))
-        False
         """
         # initialize restricted hf calc
         mol_hf = mol.copy()
@@ -514,14 +349,6 @@ def hf(mol: MolCls, hf_ref: Dict[str, Any]) -> Tuple[int, int, int, scf.RHF, flo
 def _dim(mo_occ: np.ndarray) -> Tuple[int, ...]:
         """
         this function determines the involved dimensions (number of occupied, virtual, and total orbitals)
-
-        example:
-        >>> mo_occ = np.array([2.] * 4 + [0.] * 6)
-        >>> _dim(mo_occ)
-        (10, 4, 6)
-        >>> mo_occ = np.array([2.] * 4 + [1.] + [0.] * 6)
-        >>> _dim(mo_occ)
-        (11, 5, 6)
         """
         # occupied and virtual lists
         occ = np.where(mo_occ > 0.)[0]
@@ -534,50 +361,6 @@ def ref_mo(mol: MolCls, mo_coeff: np.ndarray, occup: np.ndarray, orbsym: np.ndar
            hf: scf.RHF) -> Tuple[np.ndarray, Tuple[int, int], np.ndarray]:
         """
         this function returns a set of reference mo coefficients and symmetries plus the associated spaces
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='C 0. 0. 0.625; C 0. 0. -0.625',
-        ...               basis = '631g', symmetry = 'D2h', verbose=0)
-        >>> mol.ncore, mol.nocc, mol.nvirt, mol.norb = 2, 6, 12, 18
-        >>> mol.debug = 0
-        >>> hf = scf.RHF(mol)
-        >>> _ = hf.kernel()
-        >>> hf_rdm1 = scf.hf.make_rdm1(hf.mo_coeff, hf.mo_occ)
-        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-        >>> model = {'method': 'fci', 'solver': 'pyscf_spin0'}
-        >>> ref = {'method': 'casci', 'hf_guess': True, 'active': 'manual',
-        ...        'select': [i for i in range(2, 6)],
-        ...        'wfnsym': ['Ag'], 'weights': [1.]}
-        >>> orbs = {'type': 'can'}
-        >>> mo_coeff_casci, act_n_elec, ref_space = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym,
-        ...                                                     orbs, ref, model, hf)
-        >>> np.allclose(hf.mo_coeff, mo_coeff_casci)
-        True
-        >>> act_n_elec
-        (4, 4)
-        >>> np.allclose(ref_space, np.array([2, 3, 4, 5], dtype=np.int64))
-        True
-        >>> orbs['type'] = 'ccsd'
-        >>> mo_coeff_ccsd = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, hf)[0]
-        >>> np.allclose(hf.mo_coeff, mo_coeff_ccsd)
-        False
-        >>> np.allclose(hf_rdm1, scf.hf.make_rdm1(mo_coeff_ccsd, hf.mo_occ))
-        True
-        >>> orbs['type'] = 'local'
-        >>> mo_coeff_local = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, hf)[0]
-        >>> np.allclose(hf.mo_coeff, mo_coeff_local)
-        False
-        >>> np.allclose(hf_rdm1, scf.hf.make_rdm1(mo_coeff_local, hf.mo_occ))
-        True
-        >>> orbs['type'] = 'can'
-        >>> ref['method'] = 'casscf'
-        >>> ref['select'] = [4, 5, 7, 8]
-        >>> mo_coeff_casscf = ref_mo(mol, hf.mo_coeff, hf.mo_occ, orbsym, orbs, ref, model, hf)[0]
-        >>> np.allclose(hf.mo_coeff, mo_coeff_casscf)
-        False
-        >>> np.allclose(hf_rdm1, scf.hf.make_rdm1(mo_coeff_casscf, hf.mo_occ))
-        False
         """
         # copy mo coefficients
         mo_coeff_out = np.copy(mo_coeff)
@@ -699,43 +482,6 @@ def ref_prop(mol: MolCls, occup: np.ndarray, target_mbe: str, \
              dipole_hf: np.ndarray, base_method: Union[str, None]) -> Union[float, np.ndarray]:
         """
         this function returns reference space properties
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g', symmetry = 'C2v', verbose=0)
-        >>> mol.debug = 0
-        >>> mol.gauge_origin = np.zeros(3)
-        >>> mol.e_nuc = mol.energy_nuc()
-        >>> mol.x2c = False
-        >>> hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry, 'newton': False}
-        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, hf_ref)
-        >>> mol.dipole_ints = dipole_ints(mol, mo_coeff)
-        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
-        >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
-        ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
-        >>> ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10])
-        >>> state = {'root': 0, 'wfnsym': 'A1'}
-        >>> model = {'method': 'fci', 'cc_backend': 'pyscf', 'solver': 'pyscf_spin0'}
-        >>> e = ref_prop(mol, occup, 'energy', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, None)
-        >>> np.isclose(e, -0.03769780809258805)
-        True
-        >>> e = ref_prop(mol, occup, 'energy', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, 'ccsd')
-        >>> np.isclose(e, -0.00036229313775759664)
-        True
-        >>> dipole = ref_prop(mol, occup, 'dipole', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, None)
-        >>> np.allclose(dipole, np.array([0., 0., -0.02732937]))
-        True
-        >>> dipole = ref_prop(mol, occup, 'dipole', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, 'ccsd(t)')
-        >>> np.allclose(dipole, np.array([0., 0., -5.09683894e-05]))
-        True
-        >>> state['root'] = 1
-        >>> exc = ref_prop(mol, occup, 'excitation', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, None)
-        >>> np.isclose(exc, 0.7060145137233889)
-        True
-        >>> trans = ref_prop(mol, occup, 'trans', orbsym, True, ref_space, model, 'can', state, e_hf, dipole_hf, None)
-        >>> np.allclose(trans, np.array([0., 0., 0.72582795]))
-        True
         """
         # load hcore
         buf = mol.hcore.Shared_query(0)[0]
@@ -802,66 +548,6 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, \
          higher_amp_extrap: bool = False) -> Tuple[Union[float, np.ndarray], int]:
         """
         this function return the result property from a given method
-
-        example:
-        >>> occup = np.array([2.] * 3 + [0.] * 3)
-        >>> orbsym = np.zeros(6, dtype=np.int64)
-        >>> e_hf = e_core = 0.
-        >>> h1e = hubbard_h1e((1, 6), True)
-        >>> h2e = hubbard_eri((1, 6), 2.)
-        >>> h2e = ao2mo.restore(4, h2e, 6)
-        >>> core_idx = np.array([0])
-        >>> cas_idx = np.arange(1, 5)
-        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
-        >>> cas_idx_tril = idx_tril(cas_idx)
-        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-        >>> n_elec = nelec(occup, cas_idx)
-        >>> e, n_dets = main('fci', 'pyscf', 'pyscf_spin0', 'can', 0, occup, 'energy', 'A', 'C1', orbsym, True, 0,
-        ...                 0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0, None, None)
-        >>> np.isclose(e, -2.8759428090050676)
-        True
-        >>> n_dets
-        36
-        >>> exc = main('fci', 'pyscf', 'pyscf_spin0', 'can', 0, occup, 'excitation', 'A', 'C1', orbsym, True, 1,
-        ...            0., 0., h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0, None, None)[0]
-        >>> np.isclose(exc, 1.850774199956839)
-        True
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g', symmetry = 'C2v', verbose=0)
-        >>> hf = scf.RHF(mol)
-        >>> _ = hf.kernel()
-        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-        >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
-        >>> h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
-        >>> eri_ao = mol.intor('int2e_sph', aosym=4)
-        >>> h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
-        >>> core_idx = np.array([])
-        >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
-        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
-        >>> cas_idx_tril = idx_tril(cas_idx)
-        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-        >>> n_elec = nelec(hf.mo_occ, cas_idx)
-        >>> e_core = mol.energy_nuc()
-        >>> e = main('ccsd', 'pyscf', 'pyscf_spin0', 'can', 0, hf.mo_occ, 'energy', 'A1', 'C2v', orbsym, True, 0,
-        ...          hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0,
-        ...          None, None)[0]
-        >>> np.isclose(e, -0.014118607610972691)
-        True
-        >>> mol.gauge_origin = np.zeros(3)
-        >>> dipole_ints = dipole_ints(mol, hf.mo_coeff)
-        >>> ao_dip = mol.intor_symmetric('int1e_r', comp=3)
-        >>> dipole_hf = np.einsum('xij,ji->x', ao_dip, hf.make_rdm1())
-        >>> dipole = main('fci', 'pyscf', 'pyscf_spin0', 'can', 0, hf.mo_occ, 'dipole', 'A1', 'C2v', orbsym, True, 0,
-        ...               hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0,
-        ...               dipole_ints, dipole_hf)[0]
-        >>> np.allclose(dipole, np.array([0., 0., -7.97781259e-03]))
-        True
-        >>> trans = main('fci', 'pyscf', 'pyscf_spin0', 'can', 0, hf.mo_occ, 'trans', 'A1', 'C2v', orbsym, True, 1,
-        ...              hf.e_tot, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0,
-        ...              dipole_ints, dipole_hf)[0]
-        >>> np.allclose(trans, np.array([0., 0., -0.26497816]))
-        True
         """
         if method in ['ccsd', 'ccsd(t)', 'ccsdt', 'ccsdtq']:
 
@@ -898,18 +584,6 @@ def _dipole(dipole_ints: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, \
             cas_idx: np.ndarray, cas_rdm1: np.ndarray, trans: bool = False) -> np.ndarray:
         """
         this function returns an electronic (transition) dipole moment
-
-        example:
-        >>> occup = np.array([2.] * 3 + [0.] * 3)
-        >>> hf_dipole = np.zeros(3, dtype=np.float64)
-        >>> cas_idx = np.arange(1, 5)
-        >>> np.random.seed(1234)
-        >>> dipole_ints = np.random.rand(3, 6, 6)
-        >>> np.random.seed(1234)
-        >>> cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
-        >>> dipole = _dipole(dipole_ints, occup, hf_dipole, cas_idx, cas_rdm1)
-        >>> np.allclose(dipole, np.array([5.90055525, 5.36437348, 6.40001788]))
-        True
         """
         # init (transition) rdm1
         if trans:
@@ -935,18 +609,6 @@ def _trans(dipole_ints: np.ndarray, occup: np.ndarray, hf_dipole: np.ndarray, \
            hf_weight_ex: float) -> np.ndarray:
         """
         this function returns an electronic transition dipole moment
-
-        example:
-        >>> occup = np.array([2.] * 3 + [0.] * 3)
-        >>> hf_dipole = np.zeros(3, dtype=np.float64)
-        >>> cas_idx = np.arange(1, 5)
-        >>> np.random.seed(1234)
-        >>> dipole_ints = np.random.rand(3, 6, 6)
-        >>> np.random.seed(1234)
-        >>> cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
-        >>> trans = _trans(dipole_ints, occup, hf_dipole, cas_idx, cas_rdm1, .9, .4)
-        >>> np.allclose(trans, np.array([5.51751635, 4.92678927, 5.45675281]))
-        True
         """
         return _dipole(dipole_ints, occup, hf_dipole, cas_idx, cas_rdm1, True) \
                         * np.sign(hf_weight_gs) * np.sign(hf_weight_ex)
@@ -956,31 +618,6 @@ def base(mol: MolCls, orb_type: str, occup: np.ndarray, mo_coeff: np.ndarray, ta
          method: str, cc_backend: str, dipole_hf: np.ndarray) -> Tuple[float, np.ndarray]:
         """
         this function returns base model energy
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g', symmetry = 'C2v', verbose=0)
-        >>> mol.ncore = 1
-        >>> mol.debug = 0
-        >>> mol.e_nuc = mol.energy_nuc()
-        >>> mol.gauge_origin = np.zeros(3)
-        >>> mol.x2c = False
-        >>> hf_ref = {'irrep_nelec': {}, 'init_guess': 'h1e', 'symmetry': mol.symmetry, 'newton': True}
-        >>> mol.nocc, mol.nvirt, mol.norb, _, e_hf, dipole_hf, occup, orbsym, mo_coeff = hf(mol, hf_ref)
-        >>> mol.dipole_ints = dipole_ints(mol, mo_coeff)
-        >>> mol.hcore, mol.vhf, mol.eri = ints(mol, mo_coeff, True, True,
-        ...                                    MPI.COMM_WORLD, MPI.COMM_WORLD, MPI.COMM_WORLD, 1)
-        >>> e, dipole = base(mol, 'can', occup, mo_coeff, 'energy', 'ccsd(t)', 'pyscf', dipole_hf)
-        >>> np.isclose(e, -0.1353082155512597)
-        True
-        >>> np.allclose(dipole, np.zeros(3, dtype=np.float64))
-        True
-        >>> e, dipole = base(mol, 'can', occup, mo_coeff, 'dipole', 'ccsd', 'pyscf', dipole_hf)
-        >>> np.isclose(e, -0.13432841702437032)
-        True
-        >>> np.allclose(dipole, np.array([0., 0., -4.31202762e-02]))
-        True
         """
         # load integrals for canonical orbitals
         if orb_type == 'can':
@@ -1089,29 +726,6 @@ def _casscf(mol: MolCls, solver: str, wfnsym: List[str], \
             mo_coeff: np.ndarray, ref_space: np.ndarray, n_elec: Tuple[int, int]) -> np.ndarray:
         """
         this function returns the results of a casscf calculation
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='C 0. 0. 0.625; C 0. 0. -0.625',
-        ...               basis = '631g', symmetry = 'D2h', verbose=0)
-        >>> mol.ncore, mol.nocc, mol.nvirt, mol.norb = 2, 6, 12, 18
-        >>> mol.debug = 0
-        >>> hf = scf.RHF(mol)
-        >>> _ = hf.kernel()
-        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-        >>> mo_coeff = _casscf(mol, 'pyscf_spin0', ['Ag'], [1.], orbsym, True,
-        ...                    hf, hf.mo_coeff, np.arange(2, 10), (4, 4))
-        >>> np.isclose(np.sum(mo_coeff), 2.2922857024683)
-        True
-        >>> np.isclose(np.amax(mo_coeff), 6.528333586540256)
-        True
-        >>> mo_coeff = _casscf(mol, 'pyscf_spin0', ['Ag', 'Ag', 'Ag', 'B1g'],
-        ...                    [.25, .25, .25, .25], orbsym, False,
-        ...                    hf, hf.mo_coeff, np.arange(2, 10), (4, 4))
-        >>> np.isclose(np.sum(mo_coeff), 2.700100458554667)
-        True
-        >>> np.isclose(np.amax(mo_coeff), 6.437087455128202)
-        True
         """
         # init casscf
         cas = mcscf.CASSCF(hf, ref_space.size, n_elec)
@@ -1237,37 +851,6 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: str, orbsym: np.n
          cas_idx: np.ndarray, n_elec: Tuple[int, int], debug: int) -> Dict[str, Any]:
         """
         this function returns the results of a fci calculation
-
-        example:
-        >>> occup = np.array([2.] * 4 + [0.] * 4)
-        >>> orbsym = np.zeros(8, dtype=np.int64)
-        >>> h1e = hubbard_h1e((2, 4), True)
-        >>> h2e = hubbard_eri((2, 4), 2.)
-        >>> h2e = ao2mo.restore(4, h2e, 8)
-        >>> res = _fci('pyscf_spin0', 0, 'energy', 'A', orbsym, True, 0, 0., 0.,
-        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
-        >>> res['n_dets']
-        4900
-        >>> np.isclose(res['energy'], -5.246918061)
-        True
-        >>> res = _fci('pyscf_spin0', 0, 'excitation', 'A', orbsym, True, 1, 0., 0.,
-        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
-        >>> np.isclose(res['energy'], -4.179698414)
-        True
-        >>> np.isclose(res['excitation'], 1.067219648)
-        True
-        >>> res = _fci('pyscf_spin0', 0, 'dipole', 'A', orbsym, True, 1, 0., 0.,
-        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
-        >>> np.isclose(np.sum(res['rdm1']), 15.544465598616451)
-        True
-        >>> np.isclose(np.amax(res['rdm1']), 1.)
-        True
-        >>> res = _fci('pyscf_spin0', 0, 'trans', 'A', orbsym, True, 1, 0., 0.,
-        ...          h1e, h2e, occup, np.array([]), np.arange(8), (4, 4), 0)
-        >>> np.isclose(np.trace(res['t_rdm1']), 0.)
-        True
-        >>> np.isclose(np.sum(res['hf_weight']), 0.)
-        True
         """
         # spin
         spin_cas = np.count_nonzero(occup[cas_idx] == 1.)
@@ -1381,31 +964,6 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
         rdm1: bool = False, debug: int = 0) -> Dict[str, Any]:
         """
         this function returns the results of a ccsd / ccsd(t) calculation
-
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g', symmetry = 'C2v', verbose=0)
-        >>> hf = scf.RHF(mol)
-        >>> _ = hf.kernel()
-        >>> core_idx = np.array([])
-        >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
-        >>> res = _cc(0, hf.mo_occ, core_idx, cas_idx, 'ccsd', hf=hf)
-        >>> np.isclose(res['energy'], -0.014118607610972705)
-        True
-        >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
-        >>> h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
-        >>> eri_ao = mol.intor('int2e_sph', aosym=4)
-        >>> h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
-        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
-        >>> cas_idx_tril = idx_tril(cas_idx)
-        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-        >>> res = _cc(0, hf.mo_occ, core_idx, cas_idx, 'ccsd', h1e=h1e_cas, h2e=h2e_cas, rdm1=True)
-        >>> np.isclose(res['energy'], -0.014118607610972705)
-        True
-        >>> np.isclose(np.sum(res['rdm1']), 9.978003347693397)
-        True
-        >>> np.isclose(np.amax(res['rdm1']), 2.)
-        True
         """
         spin_cas = np.count_nonzero(occup[cas_idx] == 1.)
         assertion(spin_cas == spin, 'cascc wrong spin in space: {:}'.format(cas_idx))
@@ -1504,10 +1062,3 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray,
                 res['rdm1'] = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
 
         return res
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-
-
