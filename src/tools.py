@@ -23,7 +23,7 @@ from math import floor, fsum as math_fsum
 from subprocess import Popen, PIPE
 from traceback import format_stack
 from contextlib import contextmanager
-from typing import Tuple, Set, List, Dict, Any, Generator, Union
+from typing import Tuple, List, Generator, Union
 
 # restart folder
 RST = os.getcwd()+'/rst'
@@ -125,10 +125,6 @@ def assertion(cond: bool, reason: str) -> None:
 def time_str(time: float) -> str:
         """
         this function returns time as a HH:MM:SS string
-
-        example:
-        >>> time_str(3742.4)
-        '1h 2m 22.40s'
         """
         # hours, minutes, and seconds
         hours = time // 3600.
@@ -157,12 +153,6 @@ def time_str(time: float) -> str:
 def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
         """
         this function uses math.fsum to safely sum 1d array or 2d array (column-wise)
-
-        example:
-        >>> np.isclose(fsum(np.arange(10.)), 45.)
-        True
-        >>> np.allclose(fsum(np.arange(4. ** 2).reshape(4, 4)), np.array([24., 28., 32., 36.]))
-        True
         """
         if a.ndim == 1:
             return math_fsum(a)
@@ -175,11 +165,6 @@ def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
 def hash_2d(a: np.ndarray) -> np.ndarray:
         """
         this function converts a 2d numpy array to a 1d array of hashes
-
-        example:
-        >>> hash_2d(np.arange(4 * 4, dtype=np.int64).reshape(4, 4))
-        array([-2930228190932741801,  1142744019865853604, -8951855736587463849,
-                4559082070288058232])
         """
         return np.fromiter(map(hash_1d, a), dtype=np.int64, count=a.shape[0])
 
@@ -187,10 +172,6 @@ def hash_2d(a: np.ndarray) -> np.ndarray:
 def hash_1d(a: np.ndarray) -> int:
         """
         this function converts a 1d numpy array to a hash
-
-        example:
-        >>> hash_1d(np.arange(5, dtype=np.int64))
-        1974765062269638978
         """
         return hash(a.tobytes())
 
@@ -198,13 +179,6 @@ def hash_1d(a: np.ndarray) -> int:
 def hash_lookup(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
         """
         this function finds occurences of b in a through a binary search
-
-        example:
-        >>> a = np.arange(10, dtype=np.int64)
-        >>> hash_lookup(a, np.array([1, 3, 5, 7, 9], dtype=np.int64))
-        array([1, 3, 5, 7, 9])
-        >>> hash_lookup(a, np.array([1, 3, 5, 7, 11], dtype=np.int64)) is None
-        True
         """
         left = a.searchsorted(b, side='left')
         right = a.searchsorted(b, side='right')
@@ -218,26 +192,6 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_vir
            order_start: int = 1, occ_start: int = 0, virt_start: int = 0) -> Generator[np.ndarray, None, None]:
         """
         this function is the main generator for tuples
-
-        example:
-        >>> nocc = 4
-        >>> order = 3
-        >>> occup = np.array([2.] * 4 + [0.] * 4)
-        >>> ref_space = np.array([], dtype=np.int)
-        >>> exp_space = np.array([0, 1, 2, 5, 6, 7])
-        >>> gen = tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...              virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
-        >>> gen # doctest: +ELLIPSIS
-        <generator object tuples at 0x...>
-        >>> sum(1 for _ in gen)
-        18
-        >>> ref_space = np.array([3, 4])
-        >>> gen = tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-        ...              virt_prune(occup, ref_space), occ_prune(occup, ref_space), order)
-        >>> gen # doctest: +ELLIPSIS
-        <generator object tuples at 0x...>
-        >>> sum(1 for _ in gen)
-        20
         """
         # combinations of occupied and virtual MOs
         for k in range(order_start, order):
@@ -262,22 +216,6 @@ def start_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
               tup_occ: np.ndarray, tup_virt: np.ndarray) -> Tuple[int, int, int]:
         """
         this function return the start indices for a given occupied and virtual tuple
-
-        example:
-        >>> occ_space = np.array([0, 1, 2, 5])
-        >>> virt_space = np.array([6, 7, 9, 12])
-        >>> tup_occ = np.array([1, 2])
-        >>> tup_virt = np.array([6, 7, 12])
-        >>> start_idx(occ_space, virt_space, tup_occ, tup_virt)
-        (2, 3, 1)
-        >>> tup_occ = np.array([0, 1, 2])
-        >>> tup_virt = None
-        >>> start_idx(occ_space, virt_space, tup_occ, tup_virt)
-        (3, 0, 0)
-        >>> tup_occ = None
-        >>> tup_virt = np.array([6, 9, 12])
-        >>> start_idx(occ_space, virt_space, tup_occ, tup_virt)
-        (3, -1, 2)
         """
         if tup_occ is None and tup_virt is None:
             order_start = 1
@@ -301,18 +239,6 @@ def _comb_idx(space: np.ndarray, tup: np.ndarray) -> float:
         """
         this function return the index of a given (ordered) combination
         returned from itertools.combinations
-
-        example:
-        >>> space = np.array([0, 1, 2, 5, 6, 7])
-        >>> tup = np.array([1, 2, 6, 7])
-        >>> _comb_idx(space, tup)
-        12.0
-        >>> tup = np.array([1, 2])
-        >>> _comb_idx(space, tup)
-        5.0
-        >>> tup = np.array([5, 7])
-        >>> _comb_idx(space, tup)
-        13.0
         """
         idx = _idx(space, tup[0], tup.size)
         idx += sum((_idx(space[tup[i-1] < space], tup[i], tup[i:].size) for i in range(1, tup.size)))
@@ -323,15 +249,6 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
         """
         this function return the start index of element space[idx] in
         position (order+1) from the right in a given combination
-
-        example:
-        >>> space = np.array([0, 1, 2, 5, 6, 7])
-        >>> _idx(space, 5, 1)
-        3.0
-        >>> _idx(space, 5, 2)
-        12.0
-        >>> _idx(space, 5, 3)
-        19.0
         """
         return sum((sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
 
@@ -340,19 +257,6 @@ def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
                 ref_occ: bool, ref_virt: bool, order: int) -> int:
         """
         this function returns the total number of tuples of a given order
-
-        example:
-        >>> order = 3
-        >>> occ_space = np.arange(10)
-        >>> virt_space = np.arange(10, 50)
-        >>> n_tuples(occ_space, virt_space, False, False, 5)
-        1460500
-        >>> n_tuples(occ_space, virt_space, True, False, 5)
-        2118508
-        >>> n_tuples(occ_space, virt_space, False, True, 5)
-        1460752
-        >>> n_tuples(occ_space, virt_space, True, True, 5)
-        2118760
         """
         # init n_tuples
         n = 0.
@@ -375,10 +279,6 @@ def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         """
         this function returns a cas space
-
-        example:
-        >>> cas(np.array([7, 13]), np.arange(5))
-        array([ 0,  1,  2,  3,  4,  7, 13])
         """
         return np.sort(np.append(ref_space, tup))
 
@@ -386,10 +286,6 @@ def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
 def core_cas(nocc: int, ref_space: np.ndarray, tup: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns a core and a cas space
-
-        example:
-        >>> core_cas(8, np.arange(3, 5), np.array([9, 21]))
-        (array([0, 1, 2, 5, 6, 7]), array([ 3,  4,  9, 21]))
         """
         cas_idx = cas(ref_space, tup)
         core_idx = np.setdiff1d(np.arange(nocc), cas_idx)
@@ -399,25 +295,6 @@ def core_cas(nocc: int, ref_space: np.ndarray, tup: np.ndarray) -> Tuple[np.ndar
 def _cas_idx_cart(cas_idx: np.ndarray) -> np.ndarray:
         """
         this function returns a cartesian product of (cas_idx, cas_idx)
-
-        example:
-        >>> _cas_idx_cart(np.arange(0, 10, 3))
-        array([[0, 0],
-               [0, 3],
-               [0, 6],
-               [0, 9],
-               [3, 0],
-               [3, 3],
-               [3, 6],
-               [3, 9],
-               [6, 0],
-               [6, 3],
-               [6, 6],
-               [6, 9],
-               [9, 0],
-               [9, 3],
-               [9, 6],
-               [9, 9]])
         """
         return np.array(np.meshgrid(cas_idx, cas_idx)).T.reshape(-1, 2)
 
@@ -425,10 +302,6 @@ def _cas_idx_cart(cas_idx: np.ndarray) -> np.ndarray:
 def _coor_to_idx(ij: Tuple[int, int]) -> int:
         """
         this function returns the lower triangular index corresponding to (i, j)
-
-        example:
-        >>> _coor_to_idx((4, 9))
-        49
         """
         i = ij[0]; j = ij[1]
         if i >= j:
@@ -440,10 +313,6 @@ def _coor_to_idx(ij: Tuple[int, int]) -> int:
 def idx_tril(cas_idx: np.ndarray) -> np.ndarray:
         """
         this function returns lower triangular cas indices
-
-        example:
-        >>> idx_tril(np.arange(2, 14, 3))
-        array([ 5, 17, 20, 38, 41, 44, 68, 71, 74, 77])
         """
         cas_idx_cart = _cas_idx_cart(cas_idx)
         return np.unique(np.fromiter(map(_coor_to_idx, cas_idx_cart), \
@@ -453,18 +322,6 @@ def idx_tril(cas_idx: np.ndarray) -> np.ndarray:
 def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns pi-orbitals and hashes from total expansion space
-
-        example:
-        >>> orbsym_dooh = np.array([14, 15, 5, 2, 3, 5, 0, 11, 10, 7, 6, 5, 3, 2, 0, 14, 15, 5])
-        >>> exp_space = np.arange(18, dtype=np.int64)
-        >>> pi_pairs, pi_hashes = pi_space('Dooh', orbsym_dooh, exp_space)
-        >>> pi_pairs_ref = np.array([12, 13,  7,  8,  3,  4,  0,  1,  9, 10, 15, 16], dtype=np.int64)
-        >>> np.allclose(pi_pairs, pi_pairs_ref)
-        True
-        >>> pi_hashes_ref = np.array([-8471304755370577665, -7365615264797734692, -3932386661120954737,
-        ...                           -3821038970866580488,  758718848004794914,   7528999078095043310])
-        >>> np.allclose(pi_hashes, pi_hashes_ref)
-        True
         """
         # all pi-orbitals
         if group == 'Dooh':
@@ -486,10 +343,6 @@ def pi_space(group: str, orbsym: np.ndarray, exp_space: np.ndarray) -> Tuple[np.
 def _pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
         """
         this function returns pi-orbitals from tuple of orbitals
-
-        example:
-        >>> _pi_orbs(np.array([1, 2, 4, 5], dtype=np.int64), np.arange(8, dtype=np.int64))
-        array([1, 2, 4, 5])
         """
         return tup[np.in1d(tup, pi_space)]
 
@@ -497,18 +350,6 @@ def _pi_orbs(pi_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
 def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bool:
         """
         this function returns True for a tuple of orbitals allowed under pruning wrt degenerate pi-orbitals
-
-        example:
-        >>> pi_space = np.array([1, 2, 4, 5], dtype=np.int64)
-        >>> pi_hashes = np.sort(np.array([-2163557957507198923, 1937934232745943291]))
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4, 5, 6, 7], dtype=np.int64))
-        True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2], dtype=np.int64))
-        True
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 4], dtype=np.int64))
-        False
-        >>> pi_prune(pi_space, pi_hashes, np.array([0, 1, 2, 5, 6], dtype=np.int64))
-        False
         """
         # get all pi-orbitals in tup
         tup_pi_orbs = _pi_orbs(pi_space, tup)
@@ -534,13 +375,6 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
 def occ_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         """
         this function returns True for a tuple of orbitals allowed under pruning wrt occupied orbitals
-
-        example:
-        >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> occ_prune(occup, np.arange(2, 7, dtype=np.int64))
-        True
-        >>> occ_prune(occup, np.arange(3, 7, dtype=np.int64))
-        False
         """
         return np.any(occup[tup] > 0.)
 
@@ -548,13 +382,6 @@ def occ_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
 def virt_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
         """
         this function returns True for a tuple of orbitals allowed under pruning wrt virtual orbitals
-
-        example:
-        >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> virt_prune(occup, np.arange(1, 4, dtype=np.int64))
-        True
-        >>> virt_prune(occup, np.arange(1, 3, dtype=np.int64))
-        False
         """
         return np.any(occup[tup] == 0.)
 
@@ -562,13 +389,6 @@ def virt_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
 def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
         """
         this function returns the number of electrons in a given tuple of orbitals
-
-        example:
-        >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> nelec(occup, np.array([2, 4], dtype=np.int64))
-        (1, 1)
-        >>> nelec(occup, np.array([3, 4], dtype=np.int64))
-        (0, 0)
         """
         occup_tup = occup[tup]
         return (np.count_nonzero(occup_tup > 0.), np.count_nonzero(occup_tup > 1.))
@@ -578,18 +398,6 @@ def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
             ref_space: np.ndarray = None, n_elec: Tuple[int, ...] = None) -> int:
         """
         this function returns the number of determinants in given casci calculation (ignoring point group symmetry)
-
-        example:
-        >>> occup = np.array([2.] * 3 + [0.] * 4)
-        >>> ndets(occup, np.arange(1, 5, dtype=np.int64))
-        36
-        >>> ndets(occup, np.arange(1, 7, dtype=np.int64),
-        ...       ref_space=np.array([1, 2], dtype=np.int64))
-        4900
-        >>> ndets(occup, np.arange(1, 7, 2, dtype=np.int64),
-        ...       ref_space=np.array([1, 3], dtype=np.int64),
-        ...       n_elec=(1, 1))
-        100
         """
         if n_elec is None:
             n_elec = nelec(occup, cas_idx)
@@ -607,12 +415,6 @@ def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
 def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
         """
         this function returns x and y indices of a matrix
-
-        example:
-        >>> mat_idx(6, 4, 4)
-        (1, 2)
-        >>> mat_idx(9, 8, 2)
-        (4, 1)
         """
         y = site_idx % nx
         x = int(floor(float(site_idx) / ny))
@@ -622,12 +424,6 @@ def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
 def near_nbrs(site_xy: Tuple[int, int], nx: int, ny: int) -> List[Tuple[int, int]]:
         """
         this function returns a list of nearest neighbour indices
-
-        example:
-        >>> near_nbrs((1, 2), 4, 4)
-        [(0, 2), (2, 2), (1, 3), (1, 1)]
-        >>> near_nbrs((4, 1), 8, 2)
-        [(3, 1), (5, 1), (4, 0), (4, 0)]
         """
         up = ((site_xy[0] - 1) % nx, site_xy[1])
         down = ((site_xy[0] + 1) % nx, site_xy[1])
@@ -671,12 +467,6 @@ def natural_keys(txt: str) -> List[Union[int, str]]:
         this function return keys to sort a string in human order (as alist.sort(key=natural_keys))
         see: http://nedbatchelder.com/blog/200712/human_sorting.html
         see: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
-
-        example:
-        >>> natural_keys('mbe_test_string')
-        ['mbe_test_string']
-        >>> natural_keys('mbe_test_string_1')
-        ['mbe_test_string_', 1, '']
         """
         return [_convert(c) for c in re.split(r'(\d+)', txt)]
 
@@ -684,12 +474,6 @@ def natural_keys(txt: str) -> List[Union[int, str]]:
 def _convert(txt: str) -> Union[int, str]:
         """
         this function converts strings with numbers in them
-
-        example:
-        >>> isinstance(_convert('string'), str)
-        True
-        >>> isinstance(_convert('1'), int)
-        True
         """
         return int(txt) if txt.isdigit() else txt
 
@@ -697,10 +481,6 @@ def _convert(txt: str) -> Union[int, str]:
 def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
         """
         this generator converts sequential numbers into intervals
-
-        example:
-        >>> [i for i in intervals(np.array([0, 1, 2, 5, 7, 8, 10, 11, 12, 13]))]
-        [[0, 2], [5], [7, 8], [10, 13]]
         """
         for key, group in groupby(enumerate(a), lambda x: x[1] - x[0]):
             group_lst = list(group)
@@ -722,10 +502,3 @@ def inc_shape(n: int, dim: int) -> Union[Tuple[int], Tuple[int, int]]:
         this function returns the shape of increments
         """
         return (n,) if dim == 1 else (n, dim)
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-
-

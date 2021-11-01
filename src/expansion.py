@@ -15,7 +15,7 @@ __status__ = 'Development'
 import numpy as np
 from mpi4py import MPI
 from copy import deepcopy
-from typing import List, Dict, Tuple, Union, Any
+from typing import List, Dict, Union
 
 from system import MolCls
 from calculation import CalcCls
@@ -73,11 +73,3 @@ class ExpCls:
                 else:
                     max_order = self.exp_space[0].size
                 self.max_order: int = max_order
-
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-
-
