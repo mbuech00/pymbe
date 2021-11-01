@@ -16,10 +16,8 @@ import os
 import sys
 import ctypes
 import numpy as np
-from pyscf import ao2mo, gto, scf, symm
+from pyscf import ao2mo
 from typing import Tuple
-
-from tools import idx_tril, nelec
 
 try:
     import settings
@@ -38,27 +36,6 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
         """
         this function returns the results of a cc calculation using the mbecc
         interface
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='O 0. 0. 0.10841; H -0.7539 0. -0.47943; H 0.7539 0. -0.47943',
-        ...               basis = '631g', symmetry = 'C2v', verbose=0)
-        >>> hf = scf.RHF(mol)
-        >>> _ = hf.kernel()
-        >>> cas_idx = np.array([0, 1, 2, 3, 4, 7, 9])
-        >>> orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
-        >>> hcore_ao = mol.intor_symmetric('int1e_kin') + mol.intor_symmetric('int1e_nuc')
-        >>> h1e = np.einsum('pi,pq,qj->ij', hf.mo_coeff, hcore_ao, hf.mo_coeff)
-        >>> eri_ao = mol.intor('int2e_sph', aosym=4)
-        >>> h2e = ao2mo.incore.full(eri_ao, hf.mo_coeff)
-        >>> h1e_cas = h1e[cas_idx[:, None], cas_idx]
-        >>> cas_idx_tril = idx_tril(cas_idx)
-        >>> h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
-        >>> n_elec = nelec(hf.mo_occ, cas_idx)
-        >>> cc_energy, success = mbecc_interface('ccsd', 'ecc', 'can', 'C2v', orbsym[cas_idx], h1e_cas, \
-                                                 h2e_cas, n_elec, False, 0)
-        >>> np.isclose(cc_energy, -0.014118607610972705)
-        True
         """
         # check for path to MBECC library
         if not CCLIB_AVAILABLE:
@@ -126,9 +103,3 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
                                ctypes.byref(cc_energy), ctypes.byref(success))
 
         return cc_energy.value, success.value
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-
-

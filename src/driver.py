@@ -13,7 +13,6 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import numpy as np
-from mpi4py import MPI
 
 from mbe import main as mbe_main
 from output import main_header, mbe_header, mbe_results, mbe_end, \

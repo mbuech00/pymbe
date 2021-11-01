@@ -15,18 +15,17 @@ __status__ = 'Development'
 import sys
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto
-from typing import Tuple, Set, List, Dict, Union, Any
+from typing import Tuple, List, Dict, Union, Any
 
-from kernel import e_core_h1e, hubbard_h1e, hubbard_eri, main as kernel_main
+from kernel import e_core_h1e, main as kernel_main
 from output import mbe_status, mbe_debug, DIVIDER
 from expansion import ExpCls
 from system import MolCls
 from calculation import CalcCls
 from parallel import MPICls, mpi_reduce, mpi_allreduce
 from tools import is_file, read_file, write_file, inc_dim, inc_shape, \
-                    occ_prune, virt_prune, pi_prune, tuples, n_tuples, start_idx, \
-                    core_cas, idx_tril, nelec, hash_1d, hash_2d, hash_lookup, fsum
+                    occ_prune, virt_prune, pi_prune, tuples, start_idx, \
+                    core_cas, idx_tril, nelec, hash_1d, hash_lookup, fsum
 
 SCREEN = 1000. # random, non-sensical number
 
@@ -395,24 +394,6 @@ def _inc(model: Dict[str, Any], base: Union[str, None], orb_type: str, spin: int
                                                                             int, Tuple[int, int]]:
         """
         this function calculates the current-order contribution to the increment associated with a given tuple
-
-        example:
-        >>> n = 4
-        >>> model = {'method': 'fci', 'cc_backend': 'pyscf', 'solver': 'pyscf_spin0', 'hf_guess': True}
-        >>> prop = {'hf': {'energy': 0., 'dipole': None}, 'ref': {'energy': 0.}}
-        >>> state = {'wfnsym': 'A', 'root': 0}
-        >>> occup = np.array([2.] * (n // 2) + [0.] * (n // 2))
-        >>> orbsym = np.zeros(n, dtype=np.int64)
-        >>> h1e_cas, h2e_cas = hubbard_h1e((1, n), False), hubbard_eri((1, n), 2.)
-        >>> core_idx, cas_idx = np.array([]), np.arange(n)
-        >>> e, ndets, n_elec = _inc(model, None, 'can', 0, occup, 'energy', state, 'c1', orbsym,
-        ...                         prop, 0, h1e_cas, h2e_cas, core_idx, cas_idx, 0, None)
-        >>> np.isclose(e, -2.875942809005048)
-        True
-        >>> ndets
-        36
-        >>> n_elec
-        (2, 2)
         """
         # n_elec
         n_elec = nelec(occup, cas_idx)
@@ -437,45 +418,6 @@ def _sum(nocc: int, target_mbe: str, min_order: int, order: int, \
          ref_virt: bool, tup: np.ndarray) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
-
-        example:
-        >>> exp_space = [np.arange(10), np.array([1, 2, 3, 4, 5, 7, 8, 9])]
-        >>> nocc = 3
-        >>> min_order = 2
-        >>> ref_occ = False
-        >>> ref_virt = False
-        >>> hashes = []
-        >>> exp_occ = exp_space[0][exp_space[0] < nocc]
-        >>> exp_virt = exp_space[0][nocc <= exp_space[0]]
-        >>> hashes.append(hash_2d(np.array([tup for tup in tuples(exp_occ, exp_virt, ref_occ, ref_virt, 2)])))
-        >>> hashes[0].sort()
-        >>> exp_occ = exp_space[1][exp_space[1] < nocc]
-        >>> exp_virt = exp_space[1][nocc <= exp_space[1]]
-        >>> hashes.append(hash_2d(np.array([tup for tup in tuples(exp_occ, exp_virt, ref_occ, ref_virt, 3)])))
-        >>> hashes[1].sort()
-        >>> inc = []
-        >>> np.random.seed(1)
-        >>> inc.append(np.random.rand(21))
-        >>> np.random.seed(2)
-        >>> inc.append(np.random.rand(36))
-        >>> tup = np.array([1, 7, 8])
-        >>> np.isclose(_sum(nocc, 'energy', min_order, tup.size, inc, hashes, ref_occ, ref_virt, tup), 1.2177665733781107)
-        True
-        >>> tup = np.array([1, 7, 8, 9])
-        >>> np.isclose(_sum(nocc, 'excitation', min_order, tup.size, inc, hashes, ref_occ, ref_virt, tup), 2.7229882355444195)
-        True
-        >>> np.random.seed(1)
-        >>> inc.append(np.random.rand(21, 3))
-        >>> np.random.seed(2)
-        >>> inc.append(np.random.rand(36, 3))
-        >>> tup = np.array([1, 7, 8])
-        >>> np.allclose(_sum(nocc, 'dipole', min_order, tup.size, inc, hashes, ref_occ, ref_virt, tup),
-        ...                 np.array([1.21776657, 1.21776657, 1.21776657]))
-        True
-        >>> tup = np.array([1, 7, 8, 9])
-        >>> np.allclose(_sum(3, 'trans', min_order, 4, inc, hashes, ref_occ, ref_virt, tup),
-        ...                 np.array([2.72298824, 2.72298824, 2.72298824]))
-        True
         """
         # init res
         if target_mbe in ['energy', 'excitation']:
@@ -509,11 +451,3 @@ def _update(min_prop: Union[float, int], max_prop: Union[float, int], \
         this function returns updated statistics
         """
         return np.minimum(min_prop, np.abs(tup_prop)), np.maximum(max_prop, np.abs(tup_prop)), sum_prop + tup_prop
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-
-
-

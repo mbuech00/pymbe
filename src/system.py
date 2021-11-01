@@ -17,8 +17,8 @@ import sys
 import os
 from ast import literal_eval
 from math import floor
-from pyscf import gto, symm, ao2mo
-from typing import List, Tuple, Dict, Union, Any, Callable
+from pyscf import gto, symm
+from typing import List, Dict, Union, Any, Callable
 
 from tools import assertion
 
@@ -68,12 +68,6 @@ class MolCls(gto.Mole):
 def _set_ncore(natm: int, atom_charge: Callable[[int], int]) -> int:
         """
         this function sets ncore
-
-        example:
-        >>> mol = gto.Mole()
-        >>> _ = mol.build(atom='H 0 0 0; Cl 0 0 1.')
-        >>> _set_ncore(mol.natm, mol.atom_charge)
-        5
         """
         # init ncore
         ncore: int = 0
@@ -204,10 +198,3 @@ def sanity_check(mol: MolCls) -> None:
             # periodic boundary conditions
             assertion(isinstance(mol.pbc, bool), \
                             'hubbard model pbc parameter (pbc) must be a bool')
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-
-
