@@ -17,8 +17,8 @@ from mpi4py import MPI
 from copy import deepcopy
 from typing import List, Dict, Union
 
-from system import MolCls
-from calculation import CalcCls
+from .system import MolCls
+from .calculation import CalcCls
 
 
 class ExpCls:

@@ -17,13 +17,13 @@ import numpy as np
 from mpi4py import MPI
 from typing import Tuple, List, Dict, Union, Any
 
-from kernel import e_core_h1e, main as kernel_main
-from output import mbe_status, mbe_debug, DIVIDER
-from expansion import ExpCls
-from system import MolCls
-from calculation import CalcCls
-from parallel import MPICls, mpi_reduce, mpi_allreduce
-from tools import is_file, read_file, write_file, inc_dim, inc_shape, \
+from .kernel import e_core_h1e, main as kernel_main
+from .output import mbe_status, mbe_debug, DIVIDER
+from .expansion import ExpCls
+from .system import MolCls
+from .calculation import CalcCls
+from .parallel import MPICls, mpi_reduce, mpi_allreduce
+from .tools import is_file, read_file, write_file, inc_dim, inc_shape, \
                     occ_prune, virt_prune, pi_prune, tuples, start_idx, \
                     core_cas, idx_tril, nelec, hash_1d, hash_lookup, fsum
 

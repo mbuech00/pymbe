@@ -20,7 +20,7 @@ from ast import literal_eval
 from pyscf import symm, scf
 from typing import Dict, List, Tuple, Union, Any
 
-from tools import assertion
+from .tools import assertion
 
 
 # attributes

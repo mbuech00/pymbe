@@ -16,11 +16,11 @@ import numpy as np
 from mpi4py import MPI
 from typing import Tuple, List, Dict, Union, Any
 
-from parallel import MPICls, mpi_gatherv, mpi_bcast
-from system import MolCls
-from calculation import CalcCls
-from expansion import ExpCls
-from tools import inc_dim, inc_shape, occ_prune, virt_prune, tuples, hash_1d, \
+from .parallel import MPICls, mpi_gatherv, mpi_bcast
+from .system import MolCls
+from .calculation import CalcCls
+from .expansion import ExpCls
+from .tools import inc_dim, inc_shape, occ_prune, virt_prune, tuples, hash_1d, \
                   hash_lookup
 
 

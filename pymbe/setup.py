@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-setup module
+start module
 """
 
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
@@ -24,12 +24,12 @@ except ImportError:
     sys.stderr.write('\nImportError : pyscf module not found\n\n')
 from typing import Tuple
 
-from parallel import MPICls, mol_dist, calc_dist, fund_dist, prop_dist, mpi_bcast
-from system import MolCls, set_system, translate_system, sanity_check as system_sanity_check
-from calculation import CalcCls, set_calc, sanity_check as calculation_sanity_check
-from expansion import ExpCls
-from kernel import gauge_origin, hf, ref_mo, ints, dipole_ints, base, ref_prop
-from tools import pi_space, natural_keys, assertion
+from .parallel import MPICls, mol_dist, calc_dist, fund_dist, prop_dist, mpi_bcast
+from .system import MolCls, set_system, translate_system, sanity_check as system_sanity_check
+from .calculation import CalcCls, set_calc, sanity_check as calculation_sanity_check
+from .expansion import ExpCls
+from .kernel import gauge_origin, hf, ref_mo, ints, dipole_ints, base, ref_prop
+from .tools import pi_space, natural_keys, assertion
 
 
 # restart folder

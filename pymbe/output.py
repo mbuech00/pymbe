@@ -18,8 +18,8 @@ from datetime import datetime
 from pyscf import symm
 from typing import List, Tuple, Dict, Union, Any
 
-from parallel import MPICls
-from tools import git_version, time_str, intervals
+from .parallel import MPICls
+from .tools import git_version, time_str, intervals
 
 
 # output folder and files

@@ -34,12 +34,12 @@ if PLT_FOUND:
         pass
         SNS_FOUND = False
 
-from parallel import MPICls
-from system import MolCls
-from calculation import CalcCls
-from expansion import ExpCls
-from output import OUT, main_header
-from tools import intervals, time_str
+from .parallel import MPICls
+from .system import MolCls
+from .calculation import CalcCls
+from .expansion import ExpCls
+from .output import OUT, main_header
+from .tools import intervals, time_str
 
 
 # results file

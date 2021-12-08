@@ -14,15 +14,15 @@ __status__ = 'Development'
 
 import numpy as np
 
-from mbe import main as mbe_main
-from output import main_header, mbe_header, mbe_results, mbe_end, \
+from .mbe import main as mbe_main
+from .output import main_header, mbe_header, mbe_results, mbe_end, \
                     screen_results, purge_header, purge_results, purge_end
-from purge import main as purge_main
-from system import MolCls
-from calculation import CalcCls
-from expansion import ExpCls
-from parallel import MPICls, mpi_finalize
-from tools import n_tuples, occ_prune, virt_prune, inc_dim, inc_shape, write_file
+from .purge import main as purge_main
+from .system import MolCls
+from .calculation import CalcCls
+from .expansion import ExpCls
+from .parallel import MPICls, mpi_finalize
+from .tools import n_tuples, occ_prune, virt_prune, inc_dim, inc_shape, write_file
 
 
 def master(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:

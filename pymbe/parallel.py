@@ -26,8 +26,8 @@ except ImportError:
 from pyscf import symm, lib
 from typing import Tuple
 
-from system import MolCls
-from calculation import CalcCls
+from .system import MolCls
+from .calculation import CalcCls
 
 
 # restart folder

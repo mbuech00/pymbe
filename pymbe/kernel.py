@@ -23,11 +23,11 @@ from copy import copy
 from typing import Tuple, List, Dict, Union, Any
 from warnings import catch_warnings, simplefilter
 
-from parallel import mpi_bcast
-from system import MolCls
-from tools import assertion, suppress_stdout, mat_idx, near_nbrs, \
+from .parallel import mpi_bcast
+from .system import MolCls
+from .tools import assertion, suppress_stdout, mat_idx, near_nbrs, \
                   idx_tril, core_cas, nelec, ndets
-from interface import mbecc_interface
+from .interface import mbecc_interface
 
 
 MAX_MEM = 1e10

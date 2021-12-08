@@ -20,7 +20,7 @@ from math import floor
 from pyscf import gto, symm
 from typing import List, Dict, Union, Any, Callable
 
-from tools import assertion
+from .tools import assertion
 
 
 class MolCls(gto.Mole):
