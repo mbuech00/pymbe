@@ -634,6 +634,9 @@ def base(mol: MolCls, orb_type: str, occup: np.ndarray, mo_coeff: np.ndarray, ta
             buf = mol.eri.Shared_query(0)[0]
             eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(mol.norb*(mol.norb + 1) // 2,) * 2)
 
+            # load dipole integrals
+            dip_ints = mol.dipole_ints
+
         # calculate integrals of canonical orbitals for other orbital types
         else:
 
@@ -657,6 +660,12 @@ def base(mol: MolCls, orb_type: str, occup: np.ndarray, mo_coeff: np.ndarray, ta
 
             # restore 4-fold symmetry in eri_mo
             eri = ao2mo.restore(4, eri, mol.norb)
+
+            # compute dipole integrals
+            if target_mbe == 'dipole' and mol.atom:
+                dip_ints = dipole_ints(mol, mo_coeff)
+            else:
+                dip_ints = None
 
         # set core and cas spaces
         core_idx, cas_idx = core_cas(mol.nocc, np.arange(mol.ncore, mol.nocc), np.arange(mol.nocc, mol.norb))
@@ -716,7 +725,7 @@ def base(mol: MolCls, orb_type: str, occup: np.ndarray, mo_coeff: np.ndarray, ta
         if target_mbe == 'energy':
             dipole = np.zeros(3, dtype=np.float64)
         else:
-            dipole = _dipole(mol.dipole_ints, occup, dipole_hf, cas_idx, res_tmp['rdm1'])
+            dipole = _dipole(dip_ints, occup, dipole_hf, cas_idx, res_tmp['rdm1'])
 
         return energy, dipole
 
