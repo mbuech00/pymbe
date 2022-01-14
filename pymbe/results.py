@@ -5,6 +5,8 @@
 results module
 """
 
+from __future__ import annotations
+
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
 __version__ = '0.9'
@@ -14,7 +16,7 @@ __status__ = 'Development'
 
 import numpy as np
 from pyscf import gto, symm
-from typing import Tuple, List, Any
+from typing import TYPE_CHECKING
 try:
     import matplotlib
     PLT_FOUND = True
@@ -34,22 +36,25 @@ if PLT_FOUND:
         pass
         SNS_FOUND = False
 
-from .parallel import MPICls
-from .system import MolCls
-from .calculation import CalcCls
-from .expansion import ExpCls
-from .output import OUT, main_header
-from .tools import intervals, time_str
+from pymbe.output import OUT, main_header
+from pymbe.tools import intervals, time_str, nelec
+
+if TYPE_CHECKING:
+
+    from typing import Tuple, Any, Dict, Union, List, Optional
+
+    from pymbe.parallel import MPICls
+    from pymbe.expansion import ExpCls
 
 
 # results file
-RES_FILE = OUT+'/pymbe.results'
+RES_FILE = OUT+'/pyexp.results'
 # results parameters
 DIVIDER = '{:^143}'.format('-'*137)
 FILL = '{:^143}'.format('|'*137)
 
 
-def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
+def main(mol: gto.Mole, mpi: MPICls, exp: ExpCls) -> None:
         """
         this function handles all printing and plotting of results
         """
@@ -57,39 +62,52 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         print(main_header())
 
         # print atom info
-        if mol.atom:
+        if mol and mol.atom:
             print(_atom(mol))
 
         # print summary
-        print(_summary_prt(mpi, mol, calc, exp))
+        print(_summary_prt(mpi, exp))
 
         # print timings
-        print(_timings_prt(calc, exp))
+        print(_timings_prt(exp, exp.method))
 
         # print and plot results
-        if calc.target_mbe == 'energy' :
-            print(_energy_prt(calc, exp))
+        if exp.target == 'energy' :
+            print(_energy_prt(exp.method, exp.fci_state_root, exp.prop['energy']['tot'], \
+                              exp.hf_prop, exp.base_prop, exp.ref_prop, exp.min_order, \
+                              exp.final_order))
             if PLT_FOUND:
-                _energies_plot(calc, exp)
-        if calc.target_mbe == 'excitation':
-            print(_excitation_prt(calc, exp))
+                _energies_plot(exp.fci_state_root, exp.prop['energy']['tot'], \
+                               exp.hf_prop, exp.base_prop, exp.ref_prop, exp.min_order, \
+                               exp.final_order)
+        if exp.target == 'excitation':
+            print(_excitation_prt(exp.fci_state_root, exp.prop['excitation']['tot'], \
+                                  exp.ref_prop, exp.min_order, exp.final_order))
             if PLT_FOUND:
-                _excitation_plot(calc, exp)
-        if calc.target_mbe == 'dipole' :
-            print(_dipole_prt(mol, calc, exp))
+                _excitation_plot(exp.fci_state_root, exp.prop['excitation']['tot'], \
+                                 exp.ref_prop, exp.min_order, exp.final_order)
+        if exp.target == 'dipole' :
+            print(_dipole_prt(exp.fci_state_root, exp.nuc_dipole, exp.prop['dipole']['tot'], \
+                              exp.hf_prop, exp.base_prop, exp.ref_prop, exp.min_order, \
+                              exp.final_order))
             if PLT_FOUND:
-                _dipole_plot(mol, calc, exp)
-        if calc.target_mbe == 'trans':
-            print(_trans_prt(mol, calc, exp))
+                _dipole_plot(exp.fci_state_root, exp.nuc_dipole, exp.prop['dipole']['tot'], \
+                             exp.hf_prop, exp.base_prop, exp.ref_prop, exp.min_order, \
+                             exp.final_order)
+        if exp.target == 'trans':
+            print(_trans_prt(exp.fci_state_root, exp.prop['trans']['tot'], \
+                             exp.ref_prop, exp.min_order, exp.final_order))
             if PLT_FOUND:
-                _trans_plot(mol, calc, exp)
+                _trans_plot(exp.fci_state_root, exp.prop['trans']['tot'], \
+                            exp.ref_prop, exp.min_order, exp.final_order)
 
-        # plot number of determinants
+        # plot number of determinants and close all open windows
         if PLT_FOUND:
-            _max_ndets_plot(exp)
+            _max_ndets_plot(exp.max_ndets, exp.min_order, exp.final_order)
+            plt.close('all')
 
 
-def _atom(mol: MolCls) -> str:
+def _atom(mol: gto.Mole) -> str:
         """
         this function returns the molecular geometry
         """
@@ -102,155 +120,94 @@ def _atom(mol: MolCls) -> str:
         for i in range(len(molecule)):
             atom = molecule[i].split()
             for j in range(1, 4):
-                atom[j] = float(atom[j]) # type: ignore
+                atom[j] = float(atom[j])
             string += '   {:<3s} {:>10.5f} {:>10.5f} {:>10.5f}\n'
             form += (*atom,) # type: ignore
         string += DIVIDER[:39]+'\n'
         return string.format(*form)
 
 
-def _model(calc: CalcCls, x2c: bool) -> str:
+def _model(method: str) -> str:
         """
         this function returns the expansion model
         """
-        string = '{:}'.format(calc.model['method'].upper())
-        if x2c:
-            string += ' (x2c)'
+        string = '{:}'.format(method.upper())
+
         return string
 
 
-def _basis(mol: MolCls) -> str:
-        """
-        this function returns the basis
-        """
-        if isinstance(mol.basis, dict):
-
-            for i, val in enumerate(mol.basis.items()):
-
-                if i == 0:
-                    basis = val[1]
-                else:
-                    basis += '/'+val[1]
-
-            return basis
-
-        else:
-
-            return mol.basis
-
-
-def _state(mol: MolCls, calc: CalcCls) -> str:
+def _state(spin: int, root: int) -> str:
         """
         this function returns the state of interest
         """
-        string = '{:}'.format(calc.state['root'])
-        if mol.spin == 0:
+        string = '{:}'.format(root)
+        if spin == 0:
             string += ' (singlet)'
-        elif mol.spin == 1:
+        elif spin == 1:
             string += ' (doublet)'
-        elif mol.spin == 2:
+        elif spin == 2:
             string += ' (triplet)'
-        elif mol.spin == 3:
+        elif spin == 3:
             string += ' (quartet)'
-        elif mol.spin == 4:
+        elif spin == 4:
             string += ' (quintet)'
         else:
-            string += ' ({:})'.format(mol.spin+1)
+            string += ' ({:})'.format(spin+1)
         return string
 
 
-def _ref(mol: MolCls, calc: CalcCls) -> str:
-        """
-        this function returns the reference function
-        """
-        if calc.ref['method'] == 'casci':
-            return 'CASCI'
-        else:
-            if len(calc.ref['wfnsym']) == 1:
-                return 'CASSCF'
-            else:
-                for i in range(len(set(calc.ref['wfnsym']))):
-                    sym = symm.addons.irrep_id2name(mol.groupname, list(set(calc.ref['wfnsym']))[i])
-                    num = np.count_nonzero(np.asarray(calc.ref['wfnsym']) == list(set(calc.ref['wfnsym']))[i])
-                    if i == 0:
-                        syms = str(num)+'*'+sym
-                    else:
-                        syms += '/'+sym
-                return 'CASSCF-'+syms
-
-
-def _base(calc: CalcCls) -> str:
+def _base(base_method: Optional[str]) -> str:
         """
         this function returns the base model
         """
-        if calc.base['method'] is None:
+        if base_method is None:
             return 'none'
         else:
-            return calc.base['method'].upper()
+            return base_method.upper()
 
 
-def _system(mol: MolCls) -> str:
+def _system(nocc: int, ncore: int, norb: int) -> str:
         """
         this function returns the system size
         """
-        return '{:} e in {:} o'.format(mol.nelectron - 2 * mol.ncore, mol.norb - mol.ncore)
+        return '{:} e in {:} o'.format(2 * (nocc - ncore), norb - ncore)
 
 
-def _hubbard(mol: MolCls) -> List[str]:
-        """
-        this function returns the hubbard model
-        """
-        hubbard = ['{:} x {:}'.format(mol.matrix[0], mol.matrix[1])]
-        hubbard.append('{:} & {:}'.format(mol.u, mol.n))
-        return hubbard
-
-
-def _solver(calc: CalcCls) -> str:
+def _solver(method: str, fci_solver: str) -> str:
         """
         this function returns the chosen fci solver
         """
-        if calc.model['method'] != 'fci':
+        if method != 'fci':
             return 'none'
         else:
-            if calc.model['solver'] == 'pyscf_spin0':
+            if fci_solver == 'pyscf_spin0':
                 return 'PySCF (spin0)'
-            elif calc.model['solver'] == 'pyscf_spin1':
+            elif fci_solver == 'pyscf_spin1':
                 return 'PySCF (spin1)'
             else:
                 raise NotImplementedError('unknown solver')
 
 
-def _frozen(mol: MolCls) -> str:
-        """
-        this function returns the choice of frozen core
-        """
-        if mol.frozen:
-            return 'true'
-        else:
-            return 'false'
-
-
-def _active_space(calc: CalcCls) -> str:
+def _active_space(occup: np.ndarray, ref_space: np.ndarray) -> str:
         """
         this function returns the active space
         """
-        string = '{:} e, {:} o'.format(calc.nelec[0] + calc.nelec[1], calc.ref_space.size)
-        if calc.ref['active'] in ['avas', 'pios']:
-            string += ' ({:})'.format(calc.ref['active'])
+        act_n_elec = nelec(occup, ref_space)
+        string = '{:} e, {:} o'.format(act_n_elec[0] + act_n_elec[1], ref_space.size)
         return string
 
 
-def _active_orbs(calc: CalcCls) -> str:
+def _active_orbs(ref_space: np.ndarray) -> str:
         """
         this function returns the orbitals of the active space
         """
-        if calc.ref_space.size == 0:
+        if ref_space.size == 0:
             return 'none'
 
         # init string
         string = '['
         # divide ref_space into intervals
-        ref_space_ints = [i for i in intervals(calc.ref_space)]
+        ref_space_ints = [i for i in intervals(ref_space)]
 
         for idx, i in enumerate(ref_space_ints):
             elms = '{:}-{:}'.format(i[0], i[1]) if len(i) > 1 else '{:}'.format(i[0])
@@ -260,146 +217,137 @@ def _active_orbs(calc: CalcCls) -> str:
         return string
 
 
-def _orbs(calc: CalcCls) -> str:
+def _orbs(orb_type: str) -> str:
         """
         this function returns the choice of orbitals
         """
-        if calc.orbs['type'] == 'can':
+        if orb_type == 'can':
             return 'canonical'
-        elif calc.orbs['type'] == 'ccsd':
+        elif orb_type == 'ccsd':
             return 'CCSD NOs'
-        elif calc.orbs['type'] == 'ccsd(t)':
+        elif orb_type == 'ccsd(t)':
             return 'CCSD(T) NOs'
-        elif calc.orbs['type'] == 'local':
+        elif orb_type == 'local':
             return 'pipek-mezey'
+        elif orb_type == 'casscf':
+            return 'casscf'
         else:
             raise NotImplementedError('unknown orbital basis')
 
 
-def _mpi(mpi: MPICls) -> str:
+def _mpi(num_masters: int, global_size: int) -> str:
         """
         this function returns the mpi information
         """
-        return '{:} & {:}'.format(mpi.num_masters, mpi.global_size - mpi.num_masters)
+        return '{:} & {:}'.format(num_masters, global_size - num_masters)
 
 
-def _point_group(mol: MolCls) -> str:
+def _point_group(point_group: str) -> str:
         """
-        this function returns the molecular point group symmetry
+        this function returns the point group symmetry
         """
-        return mol.topgroup
+        return point_group
 
 
-def _comp_point_group(mol: MolCls) -> str:
-        """
-        this function returns the computational point group symmetry
-        """
-        return mol.groupname
-
-
-def _symm(mol: MolCls, calc: CalcCls) -> str:
+def _symm(method: str, point_group: str, fci_state_sym: int, \
+          pi_prune: bool) -> str:
         """
         this function returns the symmetry of the wavefunction in the
         computational point group
         """
-        if calc.model['method'] == 'fci':
-            if mol.atom:
-                string = symm.addons.irrep_id2name(mol.groupname, calc.state['wfnsym'])+'('+mol.groupname+')'
-                if calc.extra['pi_prune']:
-                    string += ' (pi)'
-                return string
-            else:
-                return 'A(C1)'
+        if method == 'fci':
+            string = symm.addons.irrep_id2name(point_group, fci_state_sym)+'('+point_group+')'
+            if pi_prune:
+                string += ' (pi)'
+            return string
         else:
             return 'unknown'
 
 
-def _energy(calc: CalcCls, exp: ExpCls) -> np.ndarray:
+def _energy(corr_energy: List[float], hf_energy: float, base_energy: float, \
+            ref_energy: float) -> np.ndarray:
         """
         this function returns the final total energy
         """
-        e_tot = np.copy(exp.prop['energy']['tot'])
-        e_tot += calc.prop['hf']['energy']
-        e_tot += calc.prop['base']['energy']
-        e_tot += calc.prop['ref']['energy']
+        tot_energy = np.copy(corr_energy)
+        tot_energy += hf_energy
+        tot_energy += base_energy
+        tot_energy += ref_energy
 
-        return e_tot
+        return tot_energy
 
 
-def _excitation(calc: CalcCls, exp: ExpCls) -> np.ndarray:
+def _excitation(corr_exc: List[float], ref_exc: float) -> np.ndarray:
         """
         this function returns the final excitation energy
         """
-        exc_tot = np.copy(exp.prop['excitation']['tot'])
-        exc_tot += calc.prop['ref']['excitation']
+        tot_exc = np.copy(corr_exc)
+        tot_exc += ref_exc
 
-        return exc_tot
+        return tot_exc
 
 
-def _dipole(mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[np.ndarray, np.ndarray]:
+def _dipole(corr_dipole: List[np.ndarray], hf_dipole: np.ndarray, \
+            base_dipole: np.ndarray, ref_dipole: np.ndarray) -> np.ndarray:
         """
         this function returns the final molecular dipole moment
         """
-        # nuclear dipole moment
-        charges = mol.atom_charges()
-        coords  = mol.atom_coords()
-        nuc_dipole = np.einsum('i,ix->x', charges, coords)
+        tot_dipole = np.copy(corr_dipole)
+        tot_dipole += hf_dipole
+        tot_dipole += base_dipole
+        tot_dipole += ref_dipole
 
-        dipole_tot = np.copy(exp.prop['dipole']['tot'])
-        dipole_tot += calc.prop['hf']['dipole']
-        dipole_tot += calc.prop['base']['dipole']
-        dipole_tot += calc.prop['ref']['dipole']
-
-        return dipole_tot, nuc_dipole
+        return tot_dipole
 
 
-def _trans(mol: MolCls, calc: CalcCls, exp: ExpCls) -> np.ndarray:
+def _trans(corr_trans: List[np.ndarray], ref_trans: np.ndarray) -> np.ndarray:
         """
         this function returns the final molecular transition dipole moment
         """
-        trans_tot = np.copy(exp.prop['trans']['tot'])
-        trans_tot += calc.prop['ref']['trans']
+        tot_trans = np.copy(corr_trans)
+        tot_trans += ref_trans
 
-        return trans_tot
+        return tot_trans
 
 
-def _time(exp: ExpCls, comp: str, idx: int) -> str:
+def _time(time: Dict[str, Union[List[float], np.ndarray]], comp: str, \
+          idx: int) -> str:
         """
         this function returns the final timings in (HHH : MM : SS) format
         """
         # init time
         if comp in ['mbe', 'purge']:
-            time = exp.time[comp][idx]
+            req_time = time[comp][idx]
         elif comp == 'sum':
-            time = exp.time['mbe'][idx] + exp.time['purge'][idx]
+            req_time = time['mbe'][idx] + time['purge'][idx]
         elif comp in ['tot_mbe', 'tot_purge']:
-            time = np.sum(exp.time[comp[4:]])
+            req_time = np.sum(time[comp[4:]])
         elif comp == 'tot_sum':
-            time = np.sum(exp.time['mbe']) + np.sum(exp.time['purge'])
-        return time_str(time)
+            req_time = np.sum(time['mbe']) + np.sum(time['purge'])
+        return time_str(req_time)
 
 
-def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
+def _summary_prt(mpi: MPICls, exp: ExpCls) -> str:
         """
         this function returns the summary table
         """
-        if calc.target_mbe == 'energy':
-            hf_prop = calc.prop['hf']['energy']
-            base_prop = calc.prop['hf']['energy']+calc.prop['base']['energy']
-            mbe_tot_prop = _energy(calc, exp)[-1].item()
-        elif calc.target_mbe == 'dipole':
-            dipole, nuc_dipole = _dipole(mol, calc, exp)
-            hf_prop = np.linalg.norm(nuc_dipole - calc.prop['hf']['dipole'])
-            base_prop = np.linalg.norm(nuc_dipole - (calc.prop['hf']['dipole'] + calc.prop['base']['dipole']))
-            mbe_tot_prop = np.linalg.norm(nuc_dipole - dipole[-1, :])
-        elif calc.target_mbe == 'excitation':
+        if exp.target == 'energy':
+            hf_prop = exp.hf_prop
+            base_prop = exp.hf_prop + exp.base_prop
+            mbe_tot_prop = _energy(exp.prop['energy']['tot'], exp.hf_prop, exp.base_prop, exp.ref_prop)[-1].item()
+        elif exp.target == 'dipole':
+            dipole = _dipole(exp.prop['dipole']['tot'], exp.hf_prop, exp.base_prop, exp.ref_prop)
+            hf_prop = np.linalg.norm(exp.nuc_dipole - exp.hf_prop)
+            base_prop = np.linalg.norm(exp.nuc_dipole - (exp.hf_prop + exp.base_prop))
+            mbe_tot_prop = np.linalg.norm(exp.nuc_dipole - dipole[-1, :])
+        elif exp.target == 'excitation':
             hf_prop = 0.
             base_prop = 0.
-            mbe_tot_prop = _excitation(calc, exp)[-1].item()
+            mbe_tot_prop = _excitation(exp.prop['excitation']['tot'], exp.ref_prop)[-1].item()
         else:
             hf_prop = 0.
             base_prop = 0.
-            mbe_tot_prop = np.linalg.norm(_trans(mol, calc, exp)[-1, :])
+            mbe_tot_prop = np.linalg.norm(_trans(exp.prop['trans']['tot'], exp.ref_prop)[-1, :])
 
         string: str = DIVIDER+'\n'
         string += '{:14}{:21}{:12}{:1}{:12}{:21}{:11}{:1}{:13}{:}\n'
@@ -407,67 +355,39 @@ def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
                     'expansion information','','|','','calculation information',)
         string += DIVIDER+'\n'
 
-        if mol.atom:
-
-            string += '{:9}{:18}{:2}{:1}{:2}{:<14s}{:1}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                        '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-            form += ('','basis set','','=','',_basis(mol), \
-                        '','|','','expansion model','','=','',_model(calc, mol.x2c), \
-                        '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
-
-            string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                    '{:<16s}{:1}{:1}{:7}{:23}{:1}{:1}{:2}{:.6f}\n'
-            form += ('','frozen core','','=','',_frozen(mol), \
-                        '','|','','reference','','=','',_ref(mol, calc), \
-                        '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
-
-        else:
-
-            string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+        string += '{:7}{:20}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                     '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-            form += ('','hubbard matrix','','=','',_hubbard(mol)[0], \
-                        '','|','','expansion model','','=','',_model(calc, mol.x2c), \
-                        '','|','','mpi masters & slaves','','=','',_mpi(mpi),)
+        form += ('','system size','','=','',_system(exp.nocc, exp.ncore, exp.norb), \
+                    '','|','','expansion model','','=','',_model(exp.method), \
+                    '','|','','mpi masters & slaves','','=','',_mpi(mpi.num_masters, mpi.global_size),)
 
-            string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                    '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
-            form += ('','hubbard U/t & n','','=','',_hubbard(mol)[1], \
-                        '','|','','reference','','=','',_ref(mol, calc), \
-                        '','|','','Hartree-Fock '+calc.target_mbe,'','=','',hf_prop,)
+        string += '{:7}{:20}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+                '{:<16s}{:1}{:1}{:7}{:23}{:1}{:1}{:2}{:.6f}\n'
+        form += ('','state (mult.)','','=','',_state(exp.spin, exp.fci_state_root), \
+                    '','|','','reference space','','=','',_active_space(exp.occup, exp.ref_space), \
+                    '','|','','Hartree-Fock '+exp.target,'','=','',hf_prop,)
 
-        string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+        string += '{:7}{:20}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
-        form += ('','system size','','=','',_system(mol), \
-                    '','|','','reference space','','=','',_active_space(calc), \
-                    '','|','','base model '+calc.target_mbe,'','=','',base_prop,)
+        form += ('','orbitals','','=','',_orbs(exp.orb_type), \
+                    '','|','','reference orbs.','','=','',_active_orbs(exp.ref_space), \
+                    '','|','','base model '+exp.target,'','=','',base_prop,)
 
-        string += '{:9}{:18}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+        string += '{:7}{:20}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:.6f}\n'
-        form += ('','state (mult.)','','=','',_state(mol, calc), \
-                    '','|','','reference orbs.','','=','',_active_orbs(calc), \
-                    '','|','','MBE total '+calc.target_mbe,'','=','',mbe_tot_prop,)
+        form += ('','point group','','=','',_point_group(exp.point_group), \
+                    '','|','','base model','','=','',_base(exp.base_method), \
+                    '','|','','MBE total '+exp.target,'','=','',mbe_tot_prop,)
 
-        string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+        string += '{:7}{:20}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-        form += ('','orbitals','','=','',_orbs(calc), \
-                    '','|','','base model','','=','',_base(calc), \
-                    '','|','','total time','','=','',_time(exp, 'tot_sum', -1),)
-
-        string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-        form += ('','full point group','','=','',_point_group(mol), \
+        form += ('','FCI solver','','=','',_solver(exp.method, exp.fci_solver), \
                     '','|','','','','','','', \
-                    '','|','','wave funct. symmetry','','=','',_symm(mol, calc),)
+                    '','|','','total time','','=','',_time(exp.time, 'tot_sum', -1),)
 
-        string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
+        string += '{:7}{:20}{:2}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
                 '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-        form += ('','comp. point group','','=','',_comp_point_group(mol), \
-                    '','|','','','','','','', \
-                    '','|','','','','','','',)
-
-        string += '{:9}{:17}{:3}{:1}{:2}{:<13s}{:2}{:1}{:7}{:15}{:2}{:1}{:2}' \
-                '{:<16s}{:1}{:1}{:7}{:21}{:3}{:1}{:2}{:<s}\n'
-        form += ('','FCI solver','','=','',_solver(calc), \
+        form += ('','wave funct. symmetry','','=','',_symm(exp.method, exp.point_group, exp.fci_state_sym, exp.pi_prune), \
                     '','|','','','','','','', \
                     '','|','','','','','','',)
 
@@ -476,13 +396,13 @@ def _summary_prt(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         return string.format(*form)
 
 
-def _timings_prt(calc: CalcCls, exp: ExpCls) -> str:
+def _timings_prt(exp: ExpCls, method: str) -> str:
         """
         this function returns the timings table
         """
         string: str = DIVIDER[:112]+'\n'
         string += '{:^112}\n'
-        form: Tuple[Any, ...] = ('MBE-{:} timings'.format(calc.model['method'].upper()),)
+        form: Tuple[Any, ...] = ('MBE-{:} timings'.format(method.upper()),)
 
         string += DIVIDER[:112]+'\n'
         string += '{:6}{:9}{:2}{:1}{:8}{:3}{:8}{:1}{:6}{:7}{:6}' \
@@ -501,18 +421,18 @@ def _timings_prt(calc: CalcCls, exp: ExpCls) -> str:
             string += '{:7}{:>4d}{:6}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}' \
                       '{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}{:5}{:1}{:4}{:6.2f}\n'
             form += ('',j, \
-                     '','|','',_time(exp, 'mbe', i), \
-                     '','|','',_time(exp, 'purge', i), \
-                     '','|','',_time(exp, 'sum', i), \
+                     '','|','',_time(exp.time, 'mbe', i), \
+                     '','|','',_time(exp.time, 'purge', i), \
+                     '','|','',_time(exp.time, 'sum', i), \
                      '','|','',calc_i,'','|','',rel_i,)
 
         string += DIVIDER[:112]+'\n'
         string += '{:8}{:5s}{:4}{:1}{:2}{:>15s}{:2}{:1}{:2}{:>15s}{:2}' \
                   '{:1}{:2}{:>15s}{:2}{:1}{:5}{:>10d}{:5}{:1}{:4}{:6.2f}\n'
         form += ('','total', \
-                 '','|','',_time(exp, 'tot_mbe', -1), \
-                 '','|','',_time(exp, 'tot_purge', -1), \
-                 '','|','',_time(exp, 'tot_sum', -1), \
+                 '','|','',_time(exp.time, 'tot_mbe', -1), \
+                 '','|','',_time(exp.time, 'tot_purge', -1), \
+                 '','|','',_time(exp.time, 'tot_sum', -1), \
                  '','|','',calc_tot,'','|','',rel_tot,)
 
         string += DIVIDER[:112]+'\n'
@@ -520,12 +440,14 @@ def _timings_prt(calc: CalcCls, exp: ExpCls) -> str:
         return string.format(*form)
 
 
-def _energy_prt(calc: CalcCls, exp: ExpCls) -> str:
+def _energy_prt(method: str, root: int, corr_energy: List[float], \
+                hf_energy: float, base_energy: float, ref_energy: float, \
+                min_order: int, final_order: int) -> str:
         """
         this function returns the energies table
         """
         string: str = DIVIDER[:66]+'\n'
-        string_in = 'MBE-{:} energy (root = {:})'.format(calc.model['method'].upper(), calc.state['root'])
+        string_in = 'MBE-{:} energy (root = {:})'.format(method.upper(), root)
         string += '{:^66}\n'
         form: Tuple[Any, ...] = (string_in,)
 
@@ -535,24 +457,26 @@ def _energy_prt(calc: CalcCls, exp: ExpCls) -> str:
 
         string += DIVIDER[:66]+'\n'
         string += '{:9}{:>3s}{:5}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
-        form += ('','ref','','|','',calc.prop['hf']['energy'] + calc.prop['ref']['energy'], \
-                    '','|','',calc.prop['ref']['energy'],)
+        form += ('','ref','','|','',hf_energy + ref_energy, \
+                    '','|','',ref_energy,)
 
         string += DIVIDER[:66]+'\n'
-        energy = _energy(calc, exp)
+        energy = _energy(corr_energy, hf_energy, base_energy, ref_energy)
 
-        for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
+        for i, j in enumerate(range(min_order, final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
             form += ('',j, \
                         '','|','',energy[i].item(), \
-                        '','|','',energy[i].item() - calc.prop['hf']['energy'],)
+                        '','|','',energy[i].item() - hf_energy,)
 
         string += DIVIDER[:66]+'\n'
 
         return string.format(*form)
 
 
-def _energies_plot(calc: CalcCls, exp: ExpCls) -> None:
+def _energies_plot(root: int, corr_energy: List[float], hf_energy: float, \
+                   base_energy: float, ref_energy: float, min_order: int, \
+                   final_order: int) -> None:
         """
         this function plots the energies
         """
@@ -564,12 +488,13 @@ def _energies_plot(calc: CalcCls, exp: ExpCls) -> None:
         fig, ax = plt.subplots()
 
         # plot results
-        ax.plot(np.arange(exp.min_order, exp.final_order+1), \
-                _energy(calc, exp), marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
-                linestyle='-', label='state {:}'.format(calc.state['root']))
+        ax.plot(np.arange(min_order, final_order+1), \
+                _energy(corr_energy, hf_energy, base_energy, ref_energy), \
+                marker='x', linewidth=2, mew=1, color='xkcd:kelly green', \
+                linestyle='-', label='state {:}'.format(root))
 
         # set x limits
-        ax.set_xlim([0.5, exp.final_order+1 - 0.5])
+        ax.set_xlim([0.5, final_order+1 - 0.5])
 
         # turn off x-grid
         ax.xaxis.grid(False)
@@ -591,15 +516,16 @@ def _energies_plot(calc: CalcCls, exp: ExpCls) -> None:
 
         # save plot
         plt.savefig(OUT+'/energy_state_{:}.pdf'. \
-                    format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
+                    format(root), bbox_inches = 'tight', dpi=1000)
 
 
-def _excitation_prt(calc: CalcCls, exp: ExpCls) -> str:
+def _excitation_prt(root: int, corr_exc: List[float], ref_exc: float, \
+                    min_order: int, final_order: int) -> str:
         """
         this function returns the excitation energies table
         """
         string: str = DIVIDER[:43]+'\n'
-        string_in = 'MBE excitation energy (root = '+str(calc.state['root'])+')'
+        string_in = 'MBE excitation energy (root = '+str(root)+')'
         string += '{:^46}\n'
         form: Tuple[Any, ...] = (string_in,)
 
@@ -609,12 +535,12 @@ def _excitation_prt(calc: CalcCls, exp: ExpCls) -> str:
 
         string += DIVIDER[:43]+'\n'
         string += '{:9}{:>3s}{:5}{:1}{:7}{:>.5e}\n'
-        form += ('','ref','','|','',calc.prop['ref']['excitation'],)
+        form += ('','ref','','|','',root,)
 
         string += DIVIDER[:43]+'\n'
-        excitation = _excitation(calc, exp)
+        excitation = _excitation(corr_exc, ref_exc)
 
-        for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
+        for i, j in enumerate(range(min_order, final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:7}{:>.5e}\n'
             form += ('',j,'','|','',excitation[i].item(),)
 
@@ -623,7 +549,8 @@ def _excitation_prt(calc: CalcCls, exp: ExpCls) -> str:
         return string.format(*form)
 
 
-def _excitation_plot(calc: CalcCls, exp: ExpCls) -> None:
+def _excitation_plot(root: int, corr_exc: List[float], ref_exc: float, \
+                     min_order: int, final_order: int) -> None:
         """
         this function plots the excitation energies
         """
@@ -635,12 +562,12 @@ def _excitation_plot(calc: CalcCls, exp: ExpCls) -> None:
         fig, ax = plt.subplots()
 
         # plot results
-        ax.plot(np.arange(exp.min_order, exp.final_order+1), \
-                _excitation(calc, exp), marker='x', linewidth=2, mew=1, color='xkcd:dull blue', \
-                linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
+        ax.plot(np.arange(min_order, final_order+1), \
+                _excitation(corr_exc, ref_exc), marker='x', linewidth=2, mew=1, color='xkcd:dull blue', \
+                linestyle='-', label='excitation {:} -> {:}'.format(0, root))
 
         # set x limits
-        ax.set_xlim([0.5, exp.final_order+1 - 0.5])
+        ax.set_xlim([0.5, final_order+1 - 0.5])
 
         # turn off x-grid
         ax.xaxis.grid(False)
@@ -662,16 +589,19 @@ def _excitation_plot(calc: CalcCls, exp: ExpCls) -> None:
 
         # save plot
         plt.savefig(OUT+'/excitation_states_{:}_{:}.pdf'. \
-                    format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+                    format(0, root), bbox_inches = 'tight', dpi=1000)
 
 
-def _dipole_prt(mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
+def _dipole_prt(root: int, nuc_dipole: np.ndarray, \
+                corr_dipole: List[np.ndarray], hf_dipole: np.ndarray, \
+                base_dipole: np.ndarray, ref_dipole: np.ndarray, \
+                min_order: int, final_order: int) -> str:
         """
         this function returns the dipole moments table
         """
         string: str = DIVIDER[:82]+'\n'
-        string_in = 'MBE dipole moment (root = {:}) - gauge origin: ({:.3f}, {:.3f}, {:.3f})'.\
-                        format(calc.state['root'], *mol.gauge_origin)
+        string_in = 'MBE dipole moment (root = {:})'.\
+                        format(root)
         string += '{:^82}\n'
         form: Tuple[Any, ...] = (string_in,)
 
@@ -681,20 +611,18 @@ def _dipole_prt(mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
 
         string += DIVIDER[:82]+'\n'
 
-        dipole_ref: np.ndarray = calc.prop['hf']['dipole'] + \
-                                    calc.prop['base']['dipole'] + \
-                                    calc.prop['ref']['dipole']
-        dipole, nuc_dipole = _dipole(mol, calc, exp)
+        tot_ref_dipole: np.ndarray = hf_dipole + base_dipole + ref_dipole
+        dipole = _dipole(corr_dipole, hf_dipole, base_dipole, ref_dipole)
         string += '{:9}{:>3s}{:5}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
         form += ('','ref', \
-                    '','|','',nuc_dipole[0] - dipole_ref[0], \
-                    '',nuc_dipole[1] - dipole_ref[1], \
-                    '',nuc_dipole[2] - dipole_ref[2], \
-                    '','|','',np.linalg.norm(nuc_dipole - dipole_ref),)
+                    '','|','',nuc_dipole[0] - tot_ref_dipole[0], \
+                    '',nuc_dipole[1] - tot_ref_dipole[1], \
+                    '',nuc_dipole[2] - tot_ref_dipole[2], \
+                    '','|','',np.linalg.norm(nuc_dipole - tot_ref_dipole),)
 
         string += DIVIDER[:82]+'\n'
 
-        for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
+        for i, j in enumerate(range(min_order, final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
             form += ('',j, \
                         '','|','',nuc_dipole[0] - dipole[i, 0], \
@@ -707,7 +635,10 @@ def _dipole_prt(mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         return string.format(*form)
 
 
-def _dipole_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
+def _dipole_plot(root: int, nuc_dipole: np.ndarray, \
+                 corr_dipole: List[np.ndarray], hf_dipole: np.ndarray, \
+                 base_dipole: np.ndarray, ref_dipole: np.ndarray, \
+                 min_order: int, final_order: int) -> None:
         """
         this function plots the dipole moments
         """
@@ -719,18 +650,19 @@ def _dipole_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         fig, ax = plt.subplots()
 
         # array of total MBE dipole moment
-        dipole, nuc_dipole = _dipole(mol, calc, exp)
+        dipole = _dipole(corr_dipole, hf_dipole, base_dipole, \
+                                     ref_dipole)
         dipole_arr = np.empty(dipole.shape[0], dtype=np.float64)
         for i in range(dipole.shape[0]):
             dipole_arr[i] = np.linalg.norm(nuc_dipole - dipole[i, :])
 
         # plot results
-        ax.plot(np.arange(exp.min_order, exp.final_order+1), \
+        ax.plot(np.arange(min_order, final_order+1), \
                 dipole_arr, marker='*', linewidth=2, mew=1, color='xkcd:salmon', \
-                linestyle='-', label='state {:}'.format(calc.state['root']))
+                linestyle='-', label='state {:}'.format(root))
 
         # set x limits
-        ax.set_xlim([0.5, exp.final_order+1 - 0.5])
+        ax.set_xlim([0.5, final_order+1 - 0.5])
 
         # turn off x-grid
         ax.xaxis.grid(False)
@@ -752,36 +684,37 @@ def _dipole_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
 
         # save plot
         plt.savefig(OUT+'/dipole_state_{:}.pdf'. \
-                    format(calc.state['root']), bbox_inches = 'tight', dpi=1000)
+                    format(root), bbox_inches = 'tight', dpi=1000)
 
 
-def _trans_prt(mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
+def _trans_prt(root: int, corr_trans: List[np.ndarray], ref_trans: np.ndarray, \
+               min_order: int, final_order: int) -> str:
         """
         this function returns the transition dipole moments and oscillator strengths table
         """
         string: str = DIVIDER[:82]+'\n'
-        string_in = 'MBE trans. dipole moment (roots 0 > {:}) - gauge origin: ({:.3f}, {:.3f}, {:.3f})'.\
-                        format(calc.state['root'], *mol.gauge_origin)
+        string_in = 'MBE trans. dipole moment (roots 0 > {:})'.\
+                        format(root)
         string += '{:^84}\n'
         form: Tuple[Any, ...] = (string_in,)
 
         string += DIVIDER[:82]+'\n'
 
-        trans = _trans(mol, calc, exp)
+        trans = _trans(corr_trans, ref_trans)
 
         string += '{:6}{:9}{:2}{:1}{:8}{:25}{:9}{:1}{:5}{:}\n'
         form += ('','MBE order','','|','','dipole components (x,y,z)','','|','','dipole moment',)
 
-        trans_ref: np.ndarray = calc.prop['ref']['trans']
+        tot_ref_trans: np.ndarray = ref_trans
         string += DIVIDER[:82]+'\n'
         string += '{:9}{:>3s}{:5}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
         form += ('','ref', \
-                    '','|','',trans_ref[0], '', trans_ref[1], '', trans_ref[2], \
-                    '','|','',np.linalg.norm(trans_ref[:]),)
+                    '','|','',tot_ref_trans[0], '', tot_ref_trans[1], '', tot_ref_trans[2], \
+                    '','|','',np.linalg.norm(tot_ref_trans[:]),)
 
         string += DIVIDER[:82]+'\n'
 
-        for i, j in enumerate(range(exp.min_order, exp.final_order+1)):
+        for i, j in enumerate(range(min_order, final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:4}{:9.6f}{:^3}{:9.6f}{:^3}{:9.6f}{:5}{:1}{:6}{:9.6f}\n'
             form += ('',j, \
                         '','|','',trans[i, 0], \
@@ -794,7 +727,9 @@ def _trans_prt(mol: MolCls, calc: CalcCls, exp: ExpCls) -> str:
         return string.format(*form)
 
 
-def _trans_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
+def _trans_plot(root: int, corr_trans: List[np.ndarray], \
+                ref_trans: np.ndarray, min_order: int, \
+                final_order: int) -> None:
         """
         this function plots the transition dipole moments
         """
@@ -806,18 +741,18 @@ def _trans_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
         fig, ax = plt.subplots()
 
         # array of total MBE transition dipole moment
-        trans = _trans(mol, calc, exp)
+        trans = _trans(corr_trans, ref_trans)
         trans_arr = np.empty(trans.shape[0], dtype=np.float64)
         for i in range(trans.shape[0]):
             trans_arr[i] = np.linalg.norm(trans[i, :])
 
         # plot results
-        ax.plot(np.arange(exp.min_order, exp.final_order+1), \
+        ax.plot(np.arange(min_order, final_order+1), \
                 trans_arr, marker='s', linewidth=2, mew=1, color='xkcd:dark magenta', \
-                linestyle='-', label='excitation {:} -> {:}'.format(0, calc.state['root']))
+                linestyle='-', label='excitation {:} -> {:}'.format(0, root))
 
         # set x limits
-        ax.set_xlim([0.5, exp.final_order+1 - 0.5])
+        ax.set_xlim([0.5, final_order+1 - 0.5])
 
         # turn off x-grid
         ax.xaxis.grid(False)
@@ -839,10 +774,11 @@ def _trans_plot(mol: MolCls, calc: CalcCls, exp: ExpCls) -> None:
 
         # save plot
         plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
-                    format(0, calc.state['root']), bbox_inches = 'tight', dpi=1000)
+                    format(0, root), bbox_inches = 'tight', dpi=1000)
 
 
-def _max_ndets_plot(exp: ExpCls) -> None:
+def _max_ndets_plot(max_ndets: Union[List[int], np.ndarray], min_order: int, \
+                    final_order: int) -> None:
         """
         this function plots the max number of determinants
         """
@@ -854,11 +790,11 @@ def _max_ndets_plot(exp: ExpCls) -> None:
         fig, ax = plt.subplots()
 
         # plot results
-        ax.semilogy(np.arange(exp.min_order, exp.final_order+1), \
-                    exp.max_ndets, marker='x', linewidth=2, mew=1, color='red', linestyle='-')
+        ax.semilogy(np.arange(min_order, final_order+1), \
+                    max_ndets, marker='x', linewidth=2, mew=1, color='red', linestyle='-')
 
         # set x limits
-        ax.set_xlim([0.5, exp.final_order+1 - 0.5])
+        ax.set_xlim([0.5, final_order+1 - 0.5])
 
         # turn off x-grid
         ax.xaxis.grid(False)

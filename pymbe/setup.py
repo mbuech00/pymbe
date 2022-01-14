@@ -5,6 +5,8 @@
 start module
 """
 
+from __future__ import annotations
+
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
 __version__ = '0.9'
@@ -14,478 +16,418 @@ __status__ = 'Development'
 
 import sys
 import os
-import os.path
 import numpy as np
 from json import load, dump
-from mpi4py import MPI
-try:
-    from pyscf import symm, scf
-except ImportError:
-    sys.stderr.write('\nImportError : pyscf module not found\n\n')
-from typing import Tuple
+from pyscf import symm
+from typing import TYPE_CHECKING
 
-from .parallel import MPICls, mol_dist, calc_dist, fund_dist, prop_dist, mpi_bcast
-from .system import MolCls, set_system, translate_system, sanity_check as system_sanity_check
-from .calculation import CalcCls, set_calc, sanity_check as calculation_sanity_check
-from .expansion import ExpCls
-from .kernel import gauge_origin, hf, ref_mo, ints, dipole_ints, base, ref_prop
-from .tools import pi_space, natural_keys, assertion
+from pymbe.parallel import MPICls, kw_dist, system_dist
+from pymbe.expansion import ExpCls
+from pymbe.tools import RST, assertion, assume_int
+
+if TYPE_CHECKING:
+
+    from pymbe.pymbe import MBE
 
 
-# restart folder
-RST = os.getcwd()+'/rst'
+def main(mbe: MBE) -> MBE:
 
-
-def main() -> Tuple[MPICls, MolCls, CalcCls, ExpCls]:
-        """
-        this function initializes and broadcasts mpi, mol, calc, and exp objects
-        """
         # mpi object
-        mpi = MPICls()
-
-        # mol object
-        mol = _mol(mpi)
-
-        # calc object
-        calc = _calc(mpi, mol)
-
-        # exp object
-        mol, calc, exp = _exp(mpi, mol, calc)
-
-        return mpi, mol, calc, exp
-
-
-def _mol(mpi: MPICls) -> MolCls:
-        """
-        this function initializes a mol object
-        """
-        # mol object
-        mol = MolCls()
-        mol.defaults()
+        mbe.mpi = MPICls()
 
         # input handling
-        if mpi.global_master:
+        if mbe.mpi.global_master:
 
-            # read input
-            mol = set_system(mol)
-
-            # translate input
-            mol = translate_system(mol)
-
-            # sanity check
-            system_sanity_check(mol)
-
-        # bcast info from master to slaves
-        mol = mol_dist(mpi, mol)
-
-        # make pyscf mol object
-        mol.make()
-
-        return mol
-
-
-def _calc(mpi: MPICls, mol: MolCls) -> CalcCls:
-        """
-        this function initializes a calc object
-        """
-        # calc object
-        calc = CalcCls(mol.ncore, mol.nelectron, mol.groupname)
-
-        # input handling
-        if mpi.global_master:
-
-            # read input
-            calc = set_calc(calc)
-
-            # set target
-            calc.target_mbe = [x for x in calc.target.keys() if calc.target[x]][0]
-
-            # hf symmetry
-            if calc.hf_ref['symmetry'] is None:
-                calc.hf_ref['symmetry'] = mol.symmetry
-
-            # sanity check
-            calculation_sanity_check(calc, mol.spin, mol.atom, mol.groupname)
-
-            # restart folder and logical
+            # check for restart folder
             if not os.path.isdir(RST):
-                if calc.misc['rst']:
+
+                # copy attributes from mol object
+                if mbe.mol:
+
+                    # spin
+                    if mbe.spin is None:
+                        mbe.spin = mbe.mol.spin
+
+                    # point group
+                    if mbe.point_group is None and mbe.orb_type != 'local':
+                        mbe.point_group = mbe.mol.groupname
+
+                    # nuclear repulsion energy
+                    if mbe.nuc_energy is None:
+                        mbe.nuc_energy = mbe.mol.energy_nuc().item() if mbe.mol.atom else 0.
+
+                    # nuclear dipole moment
+                    if mbe.nuc_dipole is None and mbe.target == 'dipole':
+                        if mbe.mol.atom:
+                            charges = mbe.mol.atom_charges()
+                            coords  = mbe.mol.atom_coords()
+                            mbe.nuc_dipole = np.einsum('i,ix->x', charges, coords)
+                        else:
+                            mbe.nuc_dipole = np.zeros(3, dtype=np.float64)
+
+                # set default value for spin
+                if mbe.spin is None:
+                    mbe.spin = 0
+
+                # set default value for point group
+                if mbe.point_group is None:
+                    mbe.point_group = 'C1'
+                mbe.point_group = symm.addons.std_symb(mbe.point_group)
+
+                # set default value for orbital symmetry
+                if mbe.orbsym is None and mbe.point_group == 'C1':
+                    mbe.orbsym = np.zeros(mbe.norb, dtype=np.int64)
+
+                # set default value for fci wavefunction state symmetry
+                if mbe.fci_state_sym is None:
+                    mbe.fci_state_sym = 0
+
+                # set default value for fci wavefunction state root
+                if mbe.fci_state_root is None:
+                    if mbe.target in ['energy', 'dipole']:
+                        mbe.fci_state_root = 0
+                    elif mbe.target in ['excitation', 'trans']:
+                        mbe.fci_state_root = 1
+
+                # set default value for hartree-fock property
+                if mbe.target == 'excitation':
+                    mbe.hf_prop = 0.
+                elif mbe.target == 'trans':
+                    mbe.hf_prop = np.zeros(3, dtype=np.float64)
+
+                # set default value for reference space property
+                if mbe.ref_prop is None and mbe.occup is not None:
+                    if ((mbe.base_method is None and (mbe.ref_space[mbe.occup[mbe.ref_space] > 0.].size == 0 or mbe.ref_space[mbe.occup[mbe.ref_space] == 0.].size == 0)) or \
+                        (mbe.base_method in ['ccsd', 'ccsd(t)', 'ccsdt'] and (mbe.ref_space[mbe.occup[mbe.ref_space] > 0.].size <= 1 or mbe.ref_space[mbe.occup[mbe.ref_space] == 0.].size <= 1)) or \
+                        (mbe.base_method == 'ccsdtq' and (mbe.ref_space[mbe.occup[mbe.ref_space] > 0.].size <= 2 or mbe.ref_space[mbe.occup[mbe.ref_space] == 0.].size <= 2)) or \
+                        (mbe.spin > 0 and mbe.ref_space.size == 0)):
+                        if mbe.target in ['energy', 'excitation']:
+                            mbe.ref_prop = 0.
+                        elif mbe.target in ['dipole', 'trans']:
+                            mbe.ref_prop = np.zeros(3, dtype=np.float64)
+
+                # set default value for base model property
+                if mbe.base_prop is None and mbe.base_method is None:
+                    if mbe.target in ['energy', 'excitation']:
+                        mbe.base_prop = 0.
+                    elif mbe.target in ['dipole', 'trans']:
+                        mbe.base_prop = np.zeros(3, dtype=np.float64)
+
+                # create restart folder
+                if mbe.rst:
                     os.mkdir(RST)
-                calc.restart = False
-            else:
-                calc.restart = True
 
-        # bcast info from master to slaves
-        calc = calc_dist(mpi, calc)
-
-        return calc
-
-
-def _exp(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls, ExpCls]:
-        """
-        this function initializes an exp object
-        """
-        # nuclear repulsion energy
-        mol.e_nuc = mol.energy_nuc().item() if mol.atom else 0.
-
-        # dipole gauge origin
-        if mol.atom:
-            mol.gauge_origin = gauge_origin(mol)
-        else:
-            mol.gauge_origin = None
-
-        if mpi.global_master:
-
-            if calc.restart:
-
-                # read fundamental info
-                mol, calc = restart_read_fund(mol, calc)
-
-                # read properties
-                mol, calc = restart_read_prop(mol, calc)
+                # restart logical
+                mbe.restarted = False
 
             else:
 
-                # hf calculation
-                mol.nocc, mol.nvirt, mol.norb, calc.hf, \
-                    calc.prop['hf']['energy'], calc.prop['hf']['dipole'], \
-                    calc.occup, calc.orbsym, calc.mo_coeff = hf(mol, calc.hf_ref)
+                # read keywords
+                mbe = restart_read_kw(mbe)
 
-                # reference and expansion spaces and mo coefficients
-                calc.mo_coeff, calc.nelec, calc.ref_space = ref_mo(mol, calc.mo_coeff, calc.occup, calc.orbsym, \
-                                                                   calc.orbs, calc.ref, calc.model, calc.hf)
+                # read system quantities
+                mbe = restart_read_system(mbe)
 
-        # bcast fundamental info
-        mol, calc = fund_dist(mpi, mol, calc)
+                # restart logical
+                mbe.restarted = True
 
-        # get handles to all integral windows
-        mol.hcore, mol.vhf, mol.eri = ints(mol, calc.mo_coeff, mpi.global_master, mpi.local_master, \
-                                           mpi.global_comm, mpi.local_comm, mpi.master_comm, mpi.num_masters)
+            # sanity check
+            sanity_check(mbe)
 
-        # get dipole integrals
-        if mol.atom:
-            mol.dipole_ints = dipole_ints(mol, calc.mo_coeff)
-        else:
-            mol.dipole_ints = None
+        # bcast keywords
+        mbe = kw_dist(mbe)
 
-        # write fundamental info
-        if not calc.restart and mpi.global_master and calc.misc['rst']:
-            restart_write_fund(mol, calc)
+        # write keywords
+        if not mbe.restarted and mbe.mpi.global_master and mbe.rst:
+            restart_write_kw(mbe)
 
-        if mpi.global_master:
+        # bcast system quantities
+        mbe = system_dist(mbe)
 
-            # base energy
-            if calc.base['method'] is not None:
-                calc.prop['base']['energy'], \
-                    calc.prop['base']['dipole'] = base(mol, calc.orbs['type'], calc.occup, calc.hf.mo_coeff, \
-                                                       calc.target_mbe, calc.base['method'], \
-                                                       calc.model['cc_backend'], calc.prop['hf']['dipole'])
-            else:
-                calc.prop['base']['energy'] = 0.
-                calc.prop['base']['dipole'] = np.zeros(3, dtype=np.float64)
-
-            # reference space properties
-            calc.prop['ref'][calc.target_mbe] = ref_prop(mol, calc.occup, calc.target_mbe, \
-                                                         calc.orbsym, calc.model['hf_guess'], \
-                                                         calc.ref_space, calc.model, calc.orbs['type'], \
-                                                         calc.state, calc.prop['hf']['energy'], \
-                                                         calc.prop['hf']['dipole'], calc.base['method'])
-
-        # pyscf hf object not needed anymore
-        if mpi.global_master and not calc.restart:
-            del calc.hf
-
-        # bcast properties
-        calc = prop_dist(mpi, calc)
-
-        # write properties
-        if not calc.restart and mpi.global_master and calc.misc['rst']:
-            restart_write_prop(mol, calc)
+        # write system quantities
+        if not mbe.restarted and mbe.mpi.global_master and mbe.rst:
+            restart_write_system(mbe)
 
         # exp object
-        exp = ExpCls(mol, calc)
+        mbe.exp = ExpCls(mbe)
 
-        # possible restart
-        if calc.restart:
-            exp.start_order = restart_main(mpi, calc, exp)
-        else:
-            exp.start_order = exp.min_order
-
-        # pi-orbital space
-        if calc.extra['pi_prune']:
-
-            # recast mol in parent point group (dooh/coov) - make pi-space based on those symmetries
-            mol_parent = mol.copy()
-            parent_group = 'Dooh' if mol.groupname == 'D2h' else 'Coov'
-            mol_parent = mol_parent.build(0, 0, symmetry=parent_group)
-
-            orbsym_parent = symm.label_orb_symm(mol_parent, mol_parent.irrep_id, \
-                                                mol_parent.symm_orb, calc.mo_coeff)
-
-            # pi-space
-            exp.pi_orbs, exp.pi_hashes = pi_space(parent_group, orbsym_parent, exp.exp_space[0])
-
-        return mol, calc, exp
+        return mbe
 
 
-def restart_main(mpi: MPICls, calc: CalcCls, exp: ExpCls) -> int:
+def sanity_check(mbe: MBE) -> None:
         """
-        this function reads in all expansion restart files and returns the start order
+        this function performs sanity checks of all mbe attributes
         """
-        # list sorted filenames in files list
-        if mpi.global_master:
-            files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
-            files.sort(key = natural_keys)
+        # expansion model
+        assertion(isinstance(mbe.method, str), \
+                        'electronic structure method (method keyword argument) must be a string')
+        assertion(mbe.method in ['ccsd', 'ccsd(t)', 'ccsdt', 'ccsdtq', 'fci'], \
+                        'valid electronic structure methods (method keyword argument) are: ccsd, ccsd(t), ccsdt, ccsdtq and fci')
+        assertion(isinstance(mbe.cc_backend, str), \
+                        'coupled-cluster backend (cc_backend keyword argument) must be a string')
+        assertion(mbe.cc_backend in ['pyscf', 'ecc', 'ncc'], \
+                        'valid coupled-cluster backends (cc_backend keyword argument) are: pyscf, ecc and ncc')
+        assertion(isinstance(mbe.fci_solver, str), \
+                        'fci solver (fci_solver keyword argument) must be a string')
+        assertion(mbe.fci_solver in ['pyscf_spin0', 'pyscf_spin1'], \
+                        'valid fci solvers (fci_solver keyword argument) are: pyscf_spin0 and pyscf_spin1')
+        assertion(isinstance(mbe.hf_guess, bool), \
+                        'hf initial guess for fci calculations (hf_guess keyword argument) must be a bool')
+        if mbe.method != 'fci':
+            assertion(mbe.fci_solver == 'pyscf_spin0', \
+                            'setting a fci solver (fci_solver keyword argument) for a non-fci expansion model (method keyword argument) is not meaningful')
+            assertion(mbe.hf_guess, \
+                            'non-hf initial guess (hf_guess keyword argument) only valid for fci calcs (method keyword argument)')
+            if mbe.method == 'ccsdt':
+                assertion(mbe.cc_backend != 'pyscf', \
+                            'ccsdt (method keyword argument) is not available with the pyscf coupled-cluster backend (cc_backend keyword argument)')
+            if mbe.method == 'ccsdtq':
+                assertion(mbe.cc_backend == 'ncc', \
+                            'ccsdtq (method keyword argument) is not available with the pyscf and ecc coupled-cluster backends (cc_backend keyword argument)')
 
-        # distribute filenames
-        if mpi.global_master:
-            mpi.global_comm.bcast(files, root=0)
-        else:
-            files = mpi.global_comm.bcast(None, root=0)
+        # targets
+        assertion(isinstance(mbe.target, str), \
+                        'expansion target property (target keyword argument) must be a string')
+        assertion(mbe.target in ['energy', 'excitation', 'dipole', 'trans'], \
+                        'invalid choice for target property (target keyword argument). valid choices are: '
+                        'energy, excitation energy (excitation), dipole, and transition dipole (trans)')
+        if mbe.method != 'fci':
+            assertion(mbe.target in ['energy', 'dipole'], \
+                            'excited target states (target keyword argument) not implemented for chosen expansion model (method keyword argument)')
+            if mbe.cc_backend in ['ecc', 'ncc']:
+                assertion(mbe.target == 'energy', \
+                                'calculation of targets (target keyword argument) other than energy are not possible using the ecc and ncc backends (cc_backend keyword argument)')
 
-        # loop over n_tuples files
-        if mpi.global_master:
-            for i in range(len(files)):
-                if 'mbe_n_tuples' in files[i]:
-                    if 'theo' in files[i]:
-                        exp.n_tuples['theo'].append(np.load(os.path.join(RST, files[i])).tolist())
-                    if 'inc' in files[i]:
-                        exp.n_tuples['inc'].append(np.load(os.path.join(RST, files[i])).tolist())
-                    if 'calc' in files[i]:
-                        exp.n_tuples['calc'].append(np.load(os.path.join(RST, files[i])).tolist())
-            mpi.global_comm.bcast(exp.n_tuples, root=0)
-        else:
-            exp.n_tuples = mpi.global_comm.bcast(None, root=0)
+        # system
+        assertion(isinstance(mbe.nuc_energy, float), \
+                        'nuclear energy (nuc_energy keyword argument) must be a float')
+        if mbe.target == 'dipole':
+            assertion(isinstance(mbe.nuc_dipole, np.ndarray), \
+                            'nuclear dipole (nuc_dipole keyword argument) must be a np.ndarray')
+        assertion(isinstance(mbe.ncore, int) and mbe.ncore >= 0, \
+                        'number of core orbitals (ncore keyword argument) must be an int >= 0')
+        assertion(isinstance(mbe.nocc, int) and mbe.nocc > 0, \
+                        'number of occupied orbitals (nocc keyword argument) must be an int > 0')
+        assertion(isinstance(mbe.norb, int) and mbe.norb > 0, \
+                        'number of orbitals (norb keyword argument) must be an int > 0')
+        assertion(isinstance(mbe.spin, int) and mbe.spin >= 0, \
+                        'spin (spin keyword argument) must be an int >= 0')
+        if mbe.spin is not None and mbe.spin > 0:
+            assertion(mbe.fci_solver != 'pyscf_spin0', \
+                            'the pyscf_spin0 fci solver (fci_solver keyword argument) is designed for spin singlets only (spin keyword argument)')
+            assertion(mbe.cc_backend == 'pyscf', \
+                            'the ecc and ncc backends (cc_backend keyword argument) are designed for closed-shell systems only (spin keyword argument)')
+        assertion(isinstance(mbe.point_group, str), \
+                        'symmetry (point_group keyword argument) must be a str')
+        assertion(isinstance(mbe.orbsym, np.ndarray), \
+                        'orbital symmetry (orbsym keyword argument) must be a np.ndarray')
+        assertion(isinstance(mbe.fci_state_sym, (str, int)), \
+                        'state wavefunction symmetry (fci_state_sym keyword argument) must be a str or int')
+        if isinstance(mbe.fci_state_sym, str):
+            try:
+                mbe.fci_state_sym = symm.addons.irrep_name2id(mbe.point_group, mbe.fci_state_sym)
+            except Exception as err:
+                raise ValueError('illegal choice of state wavefunction symmetry (fci_state_sym keyword argument) -- PySCF error: {:}'.format(err))
+        assertion(isinstance(mbe.fci_state_root, int) and mbe.fci_state_root >= 0, \
+                        'target state (root keyword argument) must be an int >= 0')
+        if mbe.method != 'fci':
+            assertion(mbe.fci_state_sym == 0, \
+                            'illegal choice of state wavefunction symmetry (fci_state_sym keyword argument) for chosen expansion model (method keyword argument)')
+            assertion(mbe.fci_state_root == 0, \
+                            'excited target states (root keyword argument) not implemented for chosen expansion model (method keyword argument)')
+        if mbe.target in ['excitation', 'trans']:
+            assertion(assume_int(mbe.fci_state_root) > 0, \
+                            'calculation of excitation energies or transition dipole moments (target keyword argument) requires target state root (state_root keyword argument) >= 1')
 
-        # loop over all other files
-        for i in range(len(files)):
+        # hf calculation
+        if mbe.target == 'energy':
+            assertion(isinstance(mbe.hf_prop, float), \
+                            'hartree-fock energy (hf_prop keyword argument) must be a float')
+        elif mbe.target == 'dipole':
+            assertion(isinstance(mbe.hf_prop, np.ndarray), \
+                            'hartree-fock dipole moment (hf_prop keyword argument) must be a np.ndarray')
+        assertion(isinstance(mbe.occup, np.ndarray), \
+                        'orbital occupation (occup keyword argument) must be a np.ndarray')
 
-            # read hashes
-            if 'mbe_hashes' in files[i]:
-                n_tuples = exp.n_tuples['inc'][len(exp.prop[calc.target_mbe]['hashes'])]
-                exp.prop[calc.target_mbe]['hashes'].append(MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, \
-                                                                                   8, comm=mpi.local_comm))
-                buf = exp.prop[calc.target_mbe]['hashes'][-1].Shared_query(0)[0] # type: ignore
-                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,))
-                if mpi.global_master:
-                    hashes[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.num_masters > 1 and mpi.local_master:
-                    hashes[:] = mpi_bcast(mpi.master_comm, hashes)
-                mpi.local_comm.Barrier()
+        # orbital representation
+        assertion(isinstance(mbe.orb_type, str), \
+                        'orbital representation (orb_type keyword argument) must be a string')
+        assertion(mbe.orb_type in ['can', 'local', 'ccsd', 'ccsd(t)', 'casscf'], \
+                        'valid orbital representations (orb_type keyword argument) are currently: '
+                        'canonical (can), pipek-mezey (local), natural (ccsd or ccsd(t) or casscf orbs (casscf))')
+        if mbe.orb_type == 'local':
+            assertion(mbe.point_group == 'C1', \
+                            'the combination of local orbitals (orb_type keyword argument) and point group symmetry (point_group keyword argument) different from c1 is not allowed')
 
-            # read increments
-            elif 'mbe_inc' in files[i]:
-                n_tuples = exp.n_tuples['inc'][len(exp.prop[calc.target_mbe]['inc'])]
-                if mpi.local_master:
-                    if calc.target_mbe in ['energy', 'excitation']:
-                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm))
-                    elif calc.target_mbe in ['dipole', 'trans']:
-                        exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples * 3, 8, comm=mpi.local_comm))
-                else:
-                    exp.prop[calc.target_mbe]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
-                buf = exp.prop[calc.target_mbe]['inc'][-1].Shared_query(0)[0] # type: ignore
-                if calc.target_mbe in ['energy', 'excitation']:
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tuples,))
-                elif calc.target_mbe in ['dipole', 'trans']:
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tuples, 3))
-                if mpi.global_master:
-                    inc[:] = np.load(os.path.join(RST, files[i]))
-                if mpi.num_masters > 1 and mpi.local_master:
-                    inc[:] = mpi_bcast(mpi.master_comm, inc)
-                mpi.local_comm.Barrier()
+        # integrals
+        assertion(isinstance(mbe.hcore, np.ndarray), \
+                        'core hamiltonian integral (hcore keyword argument) must be a np.ndarray')
+        assertion(isinstance(mbe.vhf, np.ndarray), \
+                        'hartree-fock potential (vhf keyword argument) must be a np.ndarray')
+        assertion(isinstance(mbe.eri, np.ndarray), \
+                        'electron repulsion integral (eri keyword argument) must be a np.ndarray')
+        if mbe.target in ['dipole', 'trans']:
+            assertion(isinstance(mbe.dipole_ints, np.ndarray), \
+                            'dipole integrals (dipole_ints keyword argument) must be a np.ndarray')
 
-            if mpi.global_master:
+        # reference space
+        assertion(isinstance(mbe.ref_space, np.ndarray), \
+                        'reference space (ref_space keyword argument) must be a np.ndarray of orbital indices')
+        if mbe.target in ['energy', 'excitation']:
+            assertion(isinstance(mbe.ref_prop, float), \
+                            'reference (excitation) energy (ref_prop keyword argument) must be a float')
+        elif mbe.target in ['dipole', 'trans']:
+            assertion(isinstance(mbe.ref_prop, np.ndarray), \
+                            'reference (transition) dipole moment (ref_prop keyword argument) must be a np.ndarray')
+        
+        # base model
+        assertion(isinstance(mbe.base_method, (str, type(None))), \
+                        'base model electronic structure method (base_method keyword argument) must be a str or None')
+        if mbe.base_method is not None:
+            assertion(mbe.base_method in ['ccsd', 'ccsd(t)', 'ccsdt', 'ccsdtq'], \
+                            'valid base model electronic structure methods (base_method keyword argument) are currently: ccsd, ccsd(t), ccsdt and ccsdtq')
+            if mbe.base_method == 'ccsdt':
+                assertion(mbe.cc_backend != 'pyscf', \
+                            'ccsdt (base_method keyword argument) is not available with pyscf coupled-cluster backend (cc_backend keyword argument)')
+            if mbe.base_method == 'ccsdtq':
+                assertion(mbe.cc_backend == 'ncc', \
+                            'ccsdtq (base_method keyword argument) is not available with pyscf and ecc coupled-cluster backends (cc_backend keyword argument)')
+            assertion(mbe.target in ['energy', 'dipole'], \
+                            'excited target states (target keyword argument) not implemented for base model calculations (base_method keyword argument)')
+            if mbe.cc_backend in ['ecc', 'ncc']:
+                assertion(mbe.target == 'energy', \
+                            'calculation of targets (target keyword argument) other than energy are not possible using the ecc and ncc coupled-cluster backends (cc_backend keyword argument)')
+            assertion(mbe.fci_state_sym == 0, \
+                            'illegal choice of state wavefunction symmetry (fci_state_sym keyword argument) for base model (base_method keyword argument)')
+            assertion(mbe.fci_state_root == 0, \
+                            'excited target states (root keyword argument) not implemented for base model (base_method keyword argument)')
+            if mbe.target == 'energy':
+                assertion(isinstance(mbe.base_prop, float), \
+                            'base model energy (base_prop keyword argument) must be a float')
+            elif mbe.target == 'dipole':
+                assertion(isinstance(mbe.base_prop, np.ndarray), \
+                            'base model dipole moment (base_prop keyword argument) must be a np.ndarray')
 
-                # read expansion spaces
-                if 'exp_space' in files[i]:
-                    exp.exp_space.append(np.load(os.path.join(RST, files[i])))
+        # screening
+        assertion(isinstance(mbe.screen_start, int) and mbe.screen_start >= 2, \
+                        'screening start order (screen_start keyword argument) must be an int >= 2')
+        assertion(isinstance(mbe.screen_perc, float) and mbe.screen_perc <= 1., \
+                        'screening threshold (screen_perc keyword argument) must be a float <= 1.')
+        if mbe.max_order is not None:
+            assertion(isinstance(mbe.max_order, int) and mbe.max_order >= 1, \
+                            'maximum expansion order (max_order keyword argument) must be an int >= 1')
 
-                # read total properties
-                elif 'mbe_screen' in files[i]:
-                    exp.screen = np.load(os.path.join(RST, files[i]))
+        # restart
+        assertion(isinstance(mbe.rst, bool), \
+                        'restart logical (rst keyword argument) must be a bool')
+        assertion(isinstance(mbe.rst_freq, int) and mbe.rst_freq >= 1, \
+                        'restart frequency (rst_freq keyword argument) must be an int >= 1')
 
-                # read total properties
-                elif 'mbe_tot' in files[i]:
-                    exp.prop[calc.target_mbe]['tot'].append(np.load(os.path.join(RST, files[i])))
-
-                # read ndets statistics
-                elif 'mbe_mean_ndets' in files[i]:
-                    exp.mean_ndets.append(np.load(os.path.join(RST, files[i])))
-                elif 'mbe_min_ndets' in files[i]:
-                    exp.min_ndets.append(np.load(os.path.join(RST, files[i])))
-                elif 'mbe_max_ndets' in files[i]:
-                    exp.max_ndets.append(np.load(os.path.join(RST, files[i])))
-
-                # read inc statistics
-                elif 'mbe_mean_inc' in files[i]:
-                    exp.mean_inc.append(np.load(os.path.join(RST, files[i])))
-                elif 'mbe_min_inc' in files[i]:
-                    exp.min_inc.append(np.load(os.path.join(RST, files[i])))
-                elif 'mbe_max_inc' in files[i]:
-                    exp.max_inc.append(np.load(os.path.join(RST, files[i])))
-
-                # read timings
-                elif 'mbe_time_mbe' in files[i]:
-                    exp.time['mbe'].append(np.load(os.path.join(RST, files[i])).tolist())
-                elif 'mbe_time_purge' in files[i]:
-                    exp.time['purge'].append(np.load(os.path.join(RST, files[i])).tolist())
-
-        # bcast exp_space and screen
-        if mpi.global_master:
-            mpi.global_comm.bcast(exp.exp_space, root=0)
-            mpi.global_comm.bcast(exp.screen, root=0)
-        else:
-            exp.exp_space = mpi.global_comm.bcast(None, root=0)
-            exp.screen = mpi.global_comm.bcast(None, root=0)
-
-        # mpi barrier
-        mpi.global_comm.Barrier()
-
-        return exp.min_order + len(exp.prop[calc.target_mbe]['tot'])
+        # debug
+        assertion(isinstance(mbe.debug, int) and mbe.debug >= 0, \
+                        'debug option (debug keyword argument) must be an int >= 0')
+        
+        # pi pruning
+        assertion(isinstance(mbe.pi_prune, bool), \
+                        'pruning of pi-orbitals (pi_prune keyword argument) must be a bool')
+        if mbe.pi_prune:
+            assertion(mbe.point_group in ['D2h', 'C2v'], \
+                            'pruning of pi-orbitals (pi_prune keyword argument) is only implemented for linear D2h and C2v symmetries (point_group keyword argument)')
+            assertion(isinstance(mbe.orbsym_linear, np.ndarray), \
+                        'linear point group orbital symmetry (orbsym_linear keyword argument) must be a np.ndarray')
 
 
-def restart_write_fund(mol: MolCls, calc: CalcCls) -> None:
+def restart_write_kw(mbe: MBE) -> None:
         """
-        this function writes all fundamental info restart files
+        this function writes the keyword restart file
         """
-        # write dimensions
-        dims = {'nocc': mol.nocc, 'nvirt': mol.nvirt, 'norb': mol.norb, 'nelec': calc.nelec}
-        with open(os.path.join(RST, 'dims.rst'), 'w') as f:
-            dump(dims, f)
+        # define keywords
+        keywords = {'method': mbe.method, 'fci_solver': mbe.fci_solver, \
+                    'cc_backend': mbe.cc_backend, 'hf_guess': mbe.hf_guess, \
+                    'target': mbe.target, 'point_group': mbe.point_group, \
+                    'fci_state_sym': mbe.fci_state_sym, 'fci_state_root': mbe.fci_state_root, \
+                    'orb_type': mbe.orb_type, 'base_method': mbe.base_method, \
+                    'screen_start': mbe.screen_start, 'screen_perc': mbe.screen_perc, \
+                    'max_order': mbe.max_order, 'rst': mbe.rst, \
+                    'rst_freq': mbe.rst_freq, 'debug': mbe.debug, \
+                    'pi_prune': mbe.pi_prune}
 
-        # write reference & expansion spaces
-        np.save(os.path.join(RST, 'ref_space'), calc.ref_space)
-
-        # occupation
-        np.save(os.path.join(RST, 'occup'), calc.occup)
-
-        # write orbital coefficients
-        np.save(os.path.join(RST, 'mo_coeff'), calc.mo_coeff)
+        # write keywords
+        with open(os.path.join(RST, 'keywords.rst'), 'w') as f:
+            dump(keywords, f)
 
 
-def restart_read_fund(mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]:
+def restart_read_kw(mbe: MBE) -> MBE:
         """
-        this function reads all fundamental info restart files
+        this function reads the keyword restart file
         """
-        # list filenames in files list
-        files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
+        # read keywords
+        with open(os.path.join(RST, 'keywords.rst'), 'r') as f:
+            keywords = load(f)
+        
+        # set keywords as MBE attributes
+        for key, val in keywords.items():
+            setattr(mbe, key, val)
 
-        # sort the list of files
-        files.sort(key = natural_keys)
-
-        # loop over files
-        for i in range(len(files)):
-
-            # read dimensions
-            if 'dims' in files[i]:
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    dims = load(f)
-                mol.nocc = dims['nocc']; mol.nvirt = dims['nvirt']
-                mol.norb = dims['norb']; calc.nelec = dims['nelec']
-
-            # read reference space
-            elif 'ref_space' in files[i]:
-                calc.ref_space = np.load(os.path.join(RST, files[i]))
-
-            # read occupation
-            elif 'occup' in files[i]:
-                calc.occup = np.load(os.path.join(RST, files[i]))
-
-            # read orbital coefficients
-            elif 'mo_coeff' in files[i]:
-                calc.mo_coeff = np.load(os.path.join(RST, files[i]))
-                if mol.symmetry:
-                    calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
-                else:
-                    calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
-
-        return mol, calc
+        return mbe
 
 
-def restart_write_prop(mol: MolCls, calc: CalcCls) -> None:
+def restart_write_system(mbe: MBE) -> None:
         """
-        this function writes all property restart files
+        this function writes all system quantities restart files
         """
-        # write hf, reference, and base properties
-        energies = {'hf': calc.prop['hf']['energy']}
-        dipoles = {'hf': calc.prop['hf']['dipole'].tolist()} # type: ignore
+        # define system quantities
+        system = {'nuc_energy': mbe.nuc_energy, 'ncore': mbe.ncore, 'nocc': mbe.nocc, \
+                  'norb': mbe.norb, 'spin': mbe.spin, 'orbsym': mbe.orbsym, \
+                  'hf_prop': mbe.hf_prop, 'occup': mbe.occup, 'hcore': mbe.hcore, \
+                  'vhf': mbe.vhf, 'eri': mbe.eri, 'ref_space': mbe.ref_space, \
+                  'ref_prop': mbe.ref_prop, 'base_prop': mbe.base_prop}
 
-        if calc.target_mbe == 'energy':
+        if mbe.target == 'dipole':
+            system['nuc_dipole'] = mbe.nuc_dipole
 
-            energies['base'] = calc.prop['base']['energy']
-            energies['ref'] = calc.prop['ref']['energy']
+        if mbe.target in ['dipole', 'trans']:
+            system['dipole_ints'] = mbe.dipole_ints
 
-        with open(os.path.join(RST, 'energies.rst'), 'w') as f:
-            dump(energies, f)
+        if mbe.pi_prune:
+            system['orbsym_linear'] = mbe.orbsym_linear
 
-        if calc.target_mbe == 'excitation':
-
-            excitations = {'ref': calc.prop['ref']['excitation']}
-            with open(os.path.join(RST, 'excitations.rst'), 'w') as f:
-                dump(excitations, f)
-
-        if calc.target_mbe == 'dipole':
-
-            dipoles['base'] = calc.prop['base']['dipole'].tolist() # type: ignore
-            dipoles['ref'] = calc.prop['ref']['dipole'].tolist() # type: ignore
-
-        with open(os.path.join(RST, 'dipoles.rst'), 'w') as f:
-            dump(dipoles, f)
-
-        if calc.target_mbe == 'trans':
-
-            transitions = {'ref': calc.prop['ref']['trans'].tolist()} # type: ignore
-            with open(os.path.join(RST, 'transitions.rst'), 'w') as f:
-                dump(transitions, f)
+        # write system quantities
+        np.savez(os.path.join(RST, 'system'), **system)
 
 
-def restart_read_prop(mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]:
+def restart_read_system(mbe: MBE) -> MBE:
         """
-        this function reads all property restart files
+        this function reads all system quantities restart files
         """
-        # list filenames in files list
-        files = [f for f in os.listdir(RST) if os.path.isfile(os.path.join(RST, f))]
+        # read system quantities
+        system_npz = np.load(os.path.join(RST, 'system.npz'))
 
-        # sort the list of files
-        files.sort(key = natural_keys)
+        # create system dictionary
+        system = {}
+        for file in system_npz.files:
+            system[file] = system_npz[file]
 
-        # loop over files
-        for i in range(len(files)):
+        # close npz object
+        system_npz.close()
 
-            # read hf and base properties
-            if 'energies' in files[i]:
+        # define scalar values
+        scalars = ['nuc_energy', 'ncore', 'nocc', 'norb', 'spin']
 
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    energies = load(f)
-                calc.prop['hf']['energy'] = energies['hf']
+        if mbe.target in ['energy', 'excitation']:
+            scalars.append('hf_prop')
+            scalars.append('ref_prop')
+            scalars.append('base_prop')
 
-                if calc.target_mbe == 'energy':
-                    calc.prop['base']['energy'] = energies['base']
-                    calc.prop['ref']['energy'] = energies['ref']
+        # convert to scalars
+        for scalar in scalars:
+            system[scalar] = system[scalar].item()
 
-            if 'excitations' in files[i]:
+        # set system quantities as MBE attributes
+        for key, val in system.items():
+            setattr(mbe, key, val)
 
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    excitations = load(f)
-                calc.prop['ref']['excitation'] = excitations['ref']
-
-            if 'dipoles' in files[i]:
-
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    dipoles = load(f)
-                calc.prop['hf']['dipole'] = np.asarray(dipoles['hf'])
-
-                if calc.target_mbe == 'dipole':
-                    calc.prop['base']['dipole'] = np.asarray(dipoles['base'])
-                    calc.prop['ref']['dipole'] = np.asarray(dipoles['ref'])
-
-            if 'transitions' in files[i]:
-
-                with open(os.path.join(RST, files[i]), 'r') as f:
-                    transitions = load(f)
-                calc.prop['ref']['trans'] = np.asarray(transitions['ref'])
-
-        return mol, calc
+        return mbe
 
 
 def settings() -> None:
@@ -494,9 +436,6 @@ def settings() -> None:
         """
         # only run with python3+
         assertion(3 <= sys.version_info[0], 'PyMBE only runs under python3+')
-
-        # mute scf checkpoint files
-        scf.hf.MUTE_CHKFILE = True
 
         # PYTHONHASHSEED = 0
         pythonhashseed = os.environ.get('PYTHONHASHSEED', -1)

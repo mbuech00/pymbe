@@ -5,6 +5,8 @@
 parallel module
 """
 
+from __future__ import annotations
+
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
 __version__ = '0.9'
@@ -13,25 +15,19 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import sys
-import os
-import shutil
 try:
     from mpi4py import MPI
 except ImportError:
     sys.stderr.write('\nImportError : mpi4py module not found\n\n')
-try:
-    import numpy as np
-except ImportError:
-    sys.stderr.write('\nImportError : numpy module not found\n\n')
-from pyscf import symm, lib
-from typing import Tuple
+import numpy as np
+from pyscf import lib
+from typing import TYPE_CHECKING
 
-from .system import MolCls
-from .calculation import CalcCls
+if TYPE_CHECKING:
+
+    from pymbe.pymbe import MBE
 
 
-# restart folder
-RST = os.getcwd()+'/rst'
 # parameters for tiled mpi operations
 INT_MAX = 2147483647
 BLKSIZE = INT_MAX // 32 + 1
@@ -77,139 +73,65 @@ class MPICls:
                     self.num_masters = self.global_comm.bcast(None, root=0)
 
 
-def mol_dist(mpi: MPICls, mol: MolCls) -> MolCls:
+def kw_dist(mbe: MBE) -> MBE:
         """
-        this function bcast all standard mol info to slaves
+        this function bcast all keywords to slaves
         """
-        if mpi.global_master:
+        if mbe.mpi.global_master:
 
-            # collect standard info (must be updated with new future attributes)
-            info = {'atom': mol.atom, 'charge': mol.charge, 'spin': mol.spin, 'x2c': mol.x2c, \
-                    'ncore': mol.ncore, 'symmetry': mol.symmetry, 'basis': mol.basis, 'gauge': mol.gauge, \
-                    'cart': mol.cart, 'unit': mol.unit, 'frozen': mol.frozen, 'debug': mol.debug}
-
-            # add hubbard info if relevant (also needs to be updated with new future attributes)
-            if not mol.atom:
-
-                info['u'] = mol.u
-                info['n'] = mol.n
-                info['matrix'] = mol.matrix
-                info['pbc'] = mol.pbc
-                info['nelectron'] = mol.nelectron
+            # collect keywords (must be updated with new future attributes)
+            keywords = {'method': mbe.method, 'fci_solver': mbe.fci_solver, \
+                        'cc_backend': mbe.cc_backend, 'hf_guess': mbe.hf_guess, \
+                        'target': mbe.target, 'point_group': mbe.point_group, \
+                        'fci_state_sym': mbe.fci_state_sym, 'fci_state_root': mbe.fci_state_root, \
+                        'orb_type': mbe.orb_type, 'base_method': mbe.base_method, \
+                        'screen_start': mbe.screen_start, 'screen_perc': mbe.screen_perc, \
+                        'max_order': mbe.max_order, 'rst': mbe.rst, \
+                        'rst_freq': mbe.rst_freq, 'restarted': mbe.restarted, \
+                        'debug': mbe.debug, 'pi_prune': mbe.pi_prune}
 
             # bcast to slaves
-            mpi.global_comm.bcast(info, root=0)
+            mbe.mpi.global_comm.bcast(keywords, root=0)
 
         else:
 
             # receive info from master
-            info = mpi.global_comm.bcast(None, root=0)
+            keywords = mbe.mpi.global_comm.bcast(None, root=0)
 
-            # set mol attributes from info dict
-            for key, val in info.items():
-                setattr(mol, key, val)
+            # set mbe attributes from keywords
+            for key, val in keywords.items():
+                setattr(mbe, key, val)
 
-        return mol
+        return mbe
 
 
-def calc_dist(mpi: MPICls, calc: CalcCls) -> CalcCls:
+def system_dist(mbe: MBE) -> MBE:
         """
-        this function bcast all standard calc info to slaves
+        this function bcasts all system quantities to slaves
         """
-        if mpi.global_master:
+        if mbe.mpi.global_master:
 
-            # collect standard info (must be updated with new future attributes)
-            info = {'model': calc.model, 'target_mbe': calc.target_mbe, 'base': calc.base, \
-                    'thres': calc.thres, 'state': calc.state, \
-                    'extra': calc.extra, 'misc': calc.misc, 'mpi': calc.mpi, \
-                    'orbs': calc.orbs, 'restart': calc.restart}
+            # collect system quantites (must be updated with new future attributes)
+            system = {'nuc_energy': mbe.nuc_energy, 'ncore': mbe.ncore, 'nocc': mbe.nocc, \
+                      'norb': mbe.norb, 'spin': mbe.spin, 'orbsym': mbe.orbsym, \
+                      'hf_prop': mbe.hf_prop, 'occup': mbe.occup, \
+                      'dipole_ints': mbe.dipole_ints, 'ref_space': mbe.ref_space, \
+                      'ref_prop': mbe.ref_prop, 'base_prop': mbe.base_prop, \
+                      'orbsym_linear': mbe.orbsym_linear}
 
             # bcast to slaves
-            mpi.global_comm.bcast(info, root=0)
+            mbe.mpi.global_comm.bcast(system, root=0)
 
         else:
 
-            # receive info from master
-            info = mpi.global_comm.bcast(None, root=0)
+            # receive system quantites from master
+            system = mbe.mpi.global_comm.bcast(None, root=0)
 
-            # set calc attributes from info dict
-            for key, val in info.items():
-                setattr(calc, key, val)
+            # set mbe attributes from system dict
+            for key, val in system.items():
+                setattr(mbe, key, val)
 
-        return calc
-
-
-def fund_dist(mpi: MPICls, mol: MolCls, calc: CalcCls) -> Tuple[MolCls, CalcCls]:
-        """
-        this function bcasts all fundamental mol and calc info to slaves
-        """
-        if mpi.global_master:
-
-            # collect standard info (must be updated with new future attributes)
-            info = {'norb': mol.norb, 'nocc': mol.nocc, 'nvirt': mol.nvirt, 'e_nuc': mol.e_nuc}
-
-            # bcast to slaves
-            mpi.global_comm.bcast(info, root=0)
-
-            # collect standard info (must be updated with new future attributes)
-            info = {'occup': calc.occup, 'ref_space': calc.ref_space}
-
-            # bcast to slaves
-            mpi.global_comm.bcast(info, root=0)
-
-            # bcast mo coefficients
-            calc.mo_coeff = mpi_bcast(mpi.global_comm, calc.mo_coeff)
-
-            # update orbsym
-            if mol.symmetry:
-                calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
-            else:
-                calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
-
-        else:
-
-            # receive info from master
-            info = mpi.global_comm.bcast(None, root=0)
-
-            # set mol attributes from info dict
-            for key, val in info.items():
-                setattr(mol, key, val)
-
-            # receive info from master
-            info = mpi.global_comm.bcast(None, root=0)
-
-            # set calc attributes from info dict
-            for key, val in info.items():
-                setattr(calc, key, val)
-
-            # receive mo coefficients
-            calc.mo_coeff = np.zeros([mol.norb, mol.norb], dtype=np.float64)
-            calc.mo_coeff = mpi_bcast(mpi.global_comm, calc.mo_coeff)
-
-            # update orbsym
-            if mol.symmetry:
-                calc.orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, calc.mo_coeff)
-            else:
-                calc.orbsym = np.zeros(mol.norb, dtype=np.int64)
-
-        return mol, calc
-
-
-def prop_dist(mpi: MPICls, calc: CalcCls) -> CalcCls:
-        """
-        this function bcasts properties to slaves
-        """
-        if mpi.global_master:
-
-            # bcast to slaves
-            mpi.global_comm.bcast(calc.prop, root=0)
-
-        else:
-
-            # receive prop from master
-            calc.prop = mpi.global_comm.bcast(None, root=0)
-
-        return calc
+        return mbe
 
 
 def mpi_bcast(comm: MPI.Comm, buff: np.ndarray) -> np.ndarray:
@@ -298,14 +220,12 @@ def mpi_gatherv(comm: MPI.Comm, send_buff: np.ndarray, recv_buff: np.ndarray, \
         return recv_buff
 
 
-def mpi_finalize(mpi: MPICls, rst_write: bool) -> None:
+def mpi_finalize(mpi: MPICls) -> None:
         """
         this function terminates a successful pymbe calculation
         """
         # wake up slaves
         if mpi.global_master:
-            if rst_write:
-                shutil.rmtree(RST)
             mpi.global_comm.bcast({'task': 'exit'}, root=0)
 
         # finalize

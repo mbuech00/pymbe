@@ -5,6 +5,8 @@
 output module
 """
 
+from __future__ import annotations
+
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
 __version__ = '0.9'
@@ -16,10 +18,15 @@ import os
 import numpy as np
 from datetime import datetime
 from pyscf import symm
-from typing import List, Tuple, Dict, Union, Any
+from typing import TYPE_CHECKING
 
-from .parallel import MPICls
-from .tools import git_version, time_str, intervals
+from pymbe.tools import git_version, time_str, intervals
+
+if TYPE_CHECKING:
+
+    from typing import List, Tuple, Dict, Union, Any, Optional
+
+    from pymbe.parallel import MPICls
 
 
 # output folder and files
@@ -32,7 +39,7 @@ FILL = ' '+'|'*92
 BAR_LENGTH = 50
 
 
-def main_header(mpi: Union[None, MPICls] = None, method: Union[None, str] = None) -> str:
+def main_header(mpi: Optional[MPICls] = None, method: Optional[str] = None) -> str:
         """
         this function prints the main pymbe header
         """
@@ -83,8 +90,8 @@ def mbe_header(order: int, n_tuples: int, thres: float) -> str:
         return string.format(*form)
 
 
-def mbe_debug(atom: Union[List[str], str], symmetry: str, orbsym: np.ndarray, root: int, \
-              ndets_tup: int, nelec_tup: Tuple[int, int], inc_tup: Union[float, np.ndarray], \
+def mbe_debug(symmetry: str, orbsym: np.ndarray, root: int, ndets_tup: int, \
+              nelec_tup: Tuple[int, int], inc_tup: Union[float, np.ndarray], \
               order: int, cas_idx: np.ndarray, tup: np.ndarray) -> str:
         """
         this function prints mbe debug information
@@ -92,10 +99,7 @@ def mbe_debug(atom: Union[List[str], str], symmetry: str, orbsym: np.ndarray, ro
         # symmetry
         tup_lst = [i for i in tup]
 
-        if atom:
-            tup_sym = [symm.addons.irrep_id2name(symmetry, i) for i in orbsym[tup]]
-        else:
-            tup_sym = ['A'] * tup.size
+        tup_sym = [symm.addons.irrep_id2name(symmetry, i) for i in orbsym[tup]]
 
         string: str = ' INC-{:d}: order = {:d} , tup = {:} , space = ({:d}e,{:d}o) , n_dets = {:.2e}\n'
         string += '      symmetry = {:}\n'
@@ -204,7 +208,7 @@ def mbe_results(target: str, root: int, min_order: int, order: int, \
                 string += ' RESULT-{:d}:     {:>13.4e}       |        {:>13.4e}         |       {:>13.4e}\n'
                 if k < 2:
                     string += DIVIDER
-                form += (order, comp[k], order, order, mean_inc[k], min_inc[k], max_inc[k],) # type: ignore
+                form += (order, comp[k], order, order, mean_inc[k], min_inc[k], max_inc[k],)
 
         # set string
         string += DIVIDER+'\n'

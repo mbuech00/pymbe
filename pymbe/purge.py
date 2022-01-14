@@ -5,6 +5,8 @@
 purging module
 """
 
+from __future__ import annotations
+
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
 __version__ = '0.9'
@@ -14,18 +16,22 @@ __status__ = 'Development'
 
 import numpy as np
 from mpi4py import MPI
-from typing import Tuple, List, Dict, Union, Any
+from typing import TYPE_CHECKING
 
-from .parallel import MPICls, mpi_gatherv, mpi_bcast
-from .system import MolCls
-from .calculation import CalcCls
-from .expansion import ExpCls
-from .tools import inc_dim, inc_shape, occ_prune, virt_prune, tuples, hash_1d, \
-                  hash_lookup
+from pymbe.parallel import mpi_gatherv, mpi_bcast
+from pymbe.tools import inc_dim, inc_shape, occ_prune, virt_prune, tuples, \
+                        hash_1d, hash_lookup
+
+if TYPE_CHECKING:
+
+    from typing import Tuple, List, Dict, Union, Any
+
+    from pymbe.parallel import MPICls
+    from pymbe.expansion import ExpCls
 
 
-def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win]], \
-                                                                        Dict[str, List[int]]]:
+def main(mpi: MPICls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win]], \
+                                            Dict[str, List[int]]]:
         """
         this function purges the lower-order hashes & increments
         """
@@ -37,31 +43,31 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
         # do not purge at min_order or in case of no screened orbs
         if exp.order == exp.min_order or exp.screen_orbs.size == 0 or exp.exp_space[-1].size < exp.order + 1:
             exp.time['purge'].append(0.)
-            return exp.prop[calc.target_mbe], exp.n_tuples
+            return exp.prop[exp.target], exp.n_tuples
 
         # increment dimensions
-        dim = inc_dim(calc.target_mbe)
+        dim = inc_dim(exp.target)
 
         # init time
         if mpi.global_master:
             time = MPI.Wtime()
 
         # occupied and virtual expansion spaces
-        exp_occ = exp.exp_space[-1][exp.exp_space[-1] < mol.nocc]
-        exp_virt = exp.exp_space[-1][mol.nocc <= exp.exp_space[-1]]
+        exp_occ = exp.exp_space[-1][exp.exp_space[-1] < exp.nocc]
+        exp_virt = exp.exp_space[-1][exp.nocc <= exp.exp_space[-1]]
 
         # allow for tuples with only virtual or occupied MOs
-        ref_occ = occ_prune(calc.occup, calc.ref_space)
-        ref_virt = virt_prune(calc.occup, calc.ref_space)
+        ref_occ = occ_prune(exp.occup, exp.ref_space)
+        ref_virt = virt_prune(exp.occup, exp.ref_space)
 
         # loop over previous orders
         for k in range(exp.min_order, exp.order+1):
 
             # load k-th order hashes and increments
-            buf = exp.prop[calc.target_mbe]['hashes'][k-exp.min_order].Shared_query(0)[0] # type: ignore
+            buf = exp.prop[exp.target]['hashes'][k-exp.min_order].Shared_query(0)[0] # type: ignore
             hashes = np.ndarray(buffer=buf, dtype=np.int64, shape = (exp.n_tuples['inc'][k-exp.min_order],))
 
-            buf = exp.prop[calc.target_mbe]['inc'][k-exp.min_order].Shared_query(0)[0] # type: ignore
+            buf = exp.prop[exp.target]['inc'][k-exp.min_order].Shared_query(0)[0] # type: ignore
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k-exp.min_order], dim))
 
             # mpi barrier
@@ -92,8 +98,8 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
             inc_tmp = np.asarray(inc_tmp, dtype=np.float64).reshape(-1,)
 
             # deallocate k-th order hashes and increments
-            exp.prop[calc.target_mbe]['hashes'][k-exp.min_order].Free() # type: ignore
-            exp.prop[calc.target_mbe]['inc'][k-exp.min_order].Free() # type: ignore
+            exp.prop[exp.target]['hashes'][k-exp.min_order].Free() # type: ignore
+            exp.prop[exp.target]['inc'][k-exp.min_order].Free() # type: ignore
 
             # number of hashes
             recv_counts = np.array(mpi.global_comm.allgather(hashes_tmp.size))
@@ -104,8 +110,8 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
             # init hashes for present order
             hashes_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, \
                                                  8, comm=mpi.local_comm)
-            exp.prop[calc.target_mbe]['hashes'][k-exp.min_order] = hashes_win
-            buf = hashes_win.Shared_query(0)[0] # type: ignore
+            exp.prop[exp.target]['hashes'][k-exp.min_order] = hashes_win
+            buf = hashes_win.Shared_query(0)[0]
             hashes = np.ndarray(buffer=buf, dtype=np.int64, shape = (exp.n_tuples['inc'][k-exp.min_order],))
 
             # gatherv hashes on global master
@@ -121,8 +127,8 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
             # init increments for present order
             inc_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, \
                                               8, comm=mpi.local_comm)
-            exp.prop[calc.target_mbe]['inc'][k-exp.min_order] = inc_win
-            buf = inc_win.Shared_query(0)[0] # type: ignore
+            exp.prop[exp.target]['inc'][k-exp.min_order] = inc_win
+            buf = inc_win.Shared_query(0)[0]
             inc = np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k-exp.min_order], dim))
 
             # gatherv increments on global master
@@ -144,4 +150,4 @@ def main(mpi: MPICls, mol: MolCls, calc: CalcCls, exp: ExpCls) -> Tuple[Dict[str
         if mpi.global_master:
             exp.time['purge'].append(MPI.Wtime() - time)
 
-        return exp.prop[calc.target_mbe], exp.n_tuples
+        return exp.prop[exp.target], exp.n_tuples

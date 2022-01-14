@@ -5,6 +5,8 @@
 tools module
 """
 
+from __future__ import annotations
+
 __author__ = 'Dr. Janus Juul Eriksen, University of Bristol, UK'
 __license__ = 'MIT'
 __version__ = '0.9'
@@ -23,7 +25,14 @@ from math import floor, fsum as math_fsum
 from subprocess import Popen, PIPE
 from traceback import format_stack
 from contextlib import contextmanager
-from typing import Tuple, List, Generator, Union
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    
+    from typing import Tuple, List, Generator, Union, Optional, TextIO, TypeVar
+
+    T = TypeVar('T')
+    
 
 # restart folder
 RST = os.getcwd()+'/rst'
@@ -52,26 +61,27 @@ class Logger:
             if self.both:
                 self.terminal.write(message)
 
-        def flush(self):
+        def flush(self) -> None:
             """
             define flush
             """
             pass
 
+        def change(self, output_file: Optional[str] = None, \
+                   both: Optional[bool] = None) -> None:
+            """
+            change Logger
+            """
+            if output_file is not None:
+                self.log = open(output_file, 'a')
+            if both is not None:
+                self.both = both
 
-@contextmanager
-def suppress_stdout():
-        """
-        this function suppresses stdout
-        see: https://stackoverflow.com/questions/2125702/how-to-suppress-console-output-in-python
-        """
-        with open(os.devnull, "w") as devnull:
-            old_stdout = sys.stdout
-            sys.stdout = devnull
-            try:
-                yield
-            finally:
-                sys.stdout = old_stdout
+        def reset(self) -> TextIO:
+            """
+            reset Logger
+            """
+            return self.terminal
 
 
 def git_version() -> str:
@@ -120,6 +130,22 @@ def assertion(cond: bool, reason: str) -> None:
             print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
             # abort mpi
             MPI.COMM_WORLD.Abort()
+
+
+def cast_away_optional(arg: Optional[T]) -> T:
+        """
+        this function removes the optional type modifier
+        """
+        assert arg is not None
+        return arg
+
+
+def assume_int(arg: Union[T, int]) -> int:
+        """
+        this function assumes the argument is an integer
+        """
+        assert isinstance(arg, int)
+        return arg
 
 
 def time_str(time: float) -> str:
@@ -176,7 +202,7 @@ def hash_1d(a: np.ndarray) -> int:
         return hash(a.tobytes())
 
 
-def hash_lookup(a: np.ndarray, b: np.ndarray) -> Union[np.ndarray, None]:
+def hash_lookup(a: np.ndarray, b: np.ndarray) -> Optional[np.ndarray]:
         """
         this function finds occurences of b in a through a binary search
         """
@@ -395,7 +421,8 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
 
 
 def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
-            ref_space: np.ndarray = None, n_elec: Tuple[int, ...] = None) -> int:
+          ref_space: np.ndarray = None, \
+          n_elec: Optional[Tuple[int, ...]] = None) -> int:
         """
         this function returns the number of determinants in given casci calculation (ignoring point group symmetry)
         """
@@ -442,7 +469,7 @@ def is_file(order: int, string: str) -> bool:
             return os.path.isfile(os.path.join(RST, '{:}_{:}.npy'.format(string, order)))
 
 
-def write_file(order: Union[None, int], arr: np.ndarray, string: str) -> None:
+def write_file(order: Optional[int], arr: np.ndarray, string: str) -> None:
         """
         this function writes a general restart file corresponding to the input string
         """

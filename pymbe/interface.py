@@ -5,6 +5,8 @@
 interface module
 """
 
+from __future__ import annotations
+
 __author__ = 'Jonas Greiner, Johannes Gutenberg-Universität Mainz, Germany'
 __license__ = 'MIT'
 __version__ = '0.9'
@@ -13,26 +15,31 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import os
-import sys
 import ctypes
 import numpy as np
 from pyscf import ao2mo
-from typing import Tuple
+from typing import TYPE_CHECKING
 
 try:
-    import settings
-    cclib = ctypes.cdll.LoadLibrary(settings.MBECCLIB)
+    from pymbe.settings import MBECCLIB
+    cclib = ctypes.cdll.LoadLibrary(MBECCLIB)
     CCLIB_AVAILABLE = True
 except ImportError:
     CCLIB_AVAILABLE = False
 
+if TYPE_CHECKING:
+
+    from typing import Tuple
+
+
 MAX_MEM = 131071906
 CONV_TOL = 10
 
-def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: str, \
-                    orbsym: np.ndarray, h1e: np.ndarray, h2e: np.ndarray, \
-                    n_elec: Tuple[int, int], higher_amp_extrap: bool, \
-                    debug: int) -> Tuple[float, int]:
+
+def mbecc_interface(method: str, cc_backend: str, orb_type: str, \
+                    point_group: str, orbsym: np.ndarray, h1e: np.ndarray, \
+                    h2e: np.ndarray, n_elec: Tuple[int, int], \
+                    higher_amp_extrap: bool, debug: int) -> Tuple[float, int]:
         """
         this function returns the results of a cc calculation using the mbecc
         interface
@@ -50,7 +57,8 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, point_group: st
         cc_module_dict = {'ecc': 0, 'ncc': 1}
 
         # point group
-        point_group_dict = {'C1': 1, 'C2': 2, 'Ci': 3, 'Cs': 4, 'D2': 5, 'C2v': 6, 'C2h': 7, 'D2h': 8}
+        point_group_dict = {'C1': 1, 'C2': 2, 'Ci': 3, 'Cs': 4, \
+                            'D2': 5, 'C2v': 6, 'C2h': 7, 'D2h': 8}
 
         # settings
         method_val = ctypes.c_int64(method_dict[method])
