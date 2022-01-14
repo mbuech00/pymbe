@@ -16,15 +16,15 @@ mypy:
   stage: Type Checking
   needs: []
   script:
-    - mypy --ignore-missing-imports src
+    - mypy --ignore-missing-imports pymbe
 
 pytest:
   stage: Testing
   needs: []
   script:
-    - cd src
+    - cd pymbe
     - echo "MBECCLIB = '${MBECC_DIR}/libmbecc.so'" > settings.py
-    - python3 -m pytest --junitxml=../report.xml
+    - pytest --junitxml=../report.xml
   artifacts:
     when: always
     reports:
