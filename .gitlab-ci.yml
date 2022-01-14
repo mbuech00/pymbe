@@ -24,7 +24,7 @@ pytest:
   script:
     - cd pymbe
     - echo "MBECCLIB = '${MBECC_DIR}/libmbecc.so'" > settings.py
-    - pytest --junitxml=../report.xml
+    - python -m pytest --junitxml=../report.xml
   artifacts:
     when: always
     reports:
