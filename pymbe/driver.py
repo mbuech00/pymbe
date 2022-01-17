@@ -54,10 +54,7 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
                                   exp.prop[exp.target]['tot'], \
                                   exp.mean_inc[i-exp.min_order], \
                                   exp.min_inc[i-exp.min_order], \
-                                  exp.max_inc[i-exp.min_order], \
-                                  exp.mean_ndets[i-exp.min_order], \
-                                  exp.min_ndets[i-exp.min_order], \
-                                  exp.max_ndets[i-exp.min_order]))
+                                  exp.max_inc[i-exp.min_order]))
 
                 # print screening results
                 exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order], \
@@ -89,8 +86,7 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
                              1. if exp.order < exp.screen_start else exp.screen_perc))
 
             # main mbe function
-            hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, \
-                mean_inc, min_inc, max_inc = mbe_main(mpi, exp)
+            hashes_win, inc_win, tot, mean_inc, min_inc, max_inc = mbe_main(mpi, exp)
 
             # append window to hashes
             if len(exp.prop[exp.target]['hashes']) == len(exp.n_tuples['inc']):
@@ -109,16 +105,6 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
             if exp.order > exp.min_order:
                 exp.prop[exp.target]['tot'][-1] += exp.prop[exp.target]['tot'][-2]
 
-            # append determinant statistics
-            if len(exp.mean_ndets) > exp.order - exp.min_order:
-                exp.mean_ndets[-1] = mean_ndets
-                exp.min_ndets[-1] = min_ndets
-                exp.max_ndets[-1] = max_ndets
-            else:
-                exp.mean_ndets.append(mean_ndets)
-                exp.min_ndets.append(min_ndets)
-                exp.max_ndets.append(max_ndets)
-
             # append increment statistics
             if len(exp.mean_inc) > exp.order - exp.min_order:
                 exp.mean_inc[-1] = mean_inc
@@ -136,8 +122,7 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
             print(mbe_results(exp.target, exp.fci_state_root, exp.min_order, \
                               exp.order, exp.prop[exp.target]['tot'], \
                               exp.mean_inc[-1], exp.min_inc[-1], \
-                              exp.max_inc[-1], exp.mean_ndets[-1], \
-                              exp.min_ndets[-1], exp.max_ndets[-1]))
+                              exp.max_inc[-1]))
 
             # update screen_orbs
             if exp.order == exp.min_order:
@@ -206,16 +191,14 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
                 exp.min_inc = np.asarray(exp.min_inc)
                 exp.max_inc = np.asarray(exp.max_inc)
 
-                # ndets
-                exp.mean_ndets = np.asarray(exp.mean_ndets)
-                exp.min_ndets = np.asarray(exp.min_ndets)
-                exp.max_ndets = np.asarray(exp.max_ndets)
-
                 # final results
                 exp.prop[exp.target]['tot'] = np.asarray(exp.prop[exp.target]['tot'])
                 print('\n\n')
 
                 break
+
+        # wake up slaves
+        mpi.global_comm.bcast({'task': 'exit'}, root=0)
 
 
 def slave(mpi: MPICls, exp: ExpCls) -> None:

@@ -105,11 +105,6 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
                 exp.time['mbe'].append(0.)
             time = MPI.Wtime()
 
-        # init determinant statistics
-        min_ndets = exp.min_ndets[-1] if mpi.global_master and rst_read else np.array([1e12], dtype=np.int64)
-        max_ndets = exp.max_ndets[-1] if mpi.global_master and rst_read else np.array([0], dtype=np.int64)
-        mean_ndets = exp.mean_ndets[-1] if mpi.global_master and rst_read else np.array([0], dtype=np.int64)
-
         # init increment statistics
         min_inc = exp.min_inc[-1] if mpi.global_master and rst_read else np.array([1.e12] * dim, dtype=np.float64)
         max_inc = exp.max_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
@@ -191,15 +186,6 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
                     max_inc = np.array([0.] * dim, dtype=np.float64)
                     mean_inc = np.array([0.] * dim, dtype=np.float64)
 
-                # reduce determinant statistics onto global master
-                min_ndets = mpi_reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
-                max_ndets = mpi_reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
-                mean_ndets = mpi_reduce(mpi.global_comm, mean_ndets, root=0, op=MPI.SUM)
-                if not mpi.global_master:
-                    min_ndets = np.array([1e12], dtype=np.int64)
-                    max_ndets = np.array([0], dtype=np.int64)
-                    mean_ndets = np.array([0], dtype=np.int64)
-
                 # reduce screen onto global master
                 screen = mpi_reduce(mpi.global_comm, screen, root=0, op=MPI.MAX)
 
@@ -222,9 +208,6 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
                     write_file(exp.order, max_inc, 'mbe_max_inc')
                     write_file(exp.order, min_inc, 'mbe_min_inc')
                     write_file(exp.order, mean_inc, 'mbe_mean_inc')
-                    write_file(exp.order, max_ndets, 'mbe_max_ndets')
-                    write_file(exp.order, min_ndets, 'mbe_min_ndets')
-                    write_file(exp.order, mean_ndets, 'mbe_mean_ndets')
                     write_file(exp.order, screen, 'mbe_screen')
                     write_file(exp.order, np.asarray(mbe_idx), 'mbe_idx')
                     write_file(exp.order, mbe_tup, 'mbe_tup')
@@ -256,15 +239,15 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
             e_core, h1e_cas = e_core_h1e(exp.nuc_energy, hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, ndets_tup, n_elec_tup = _inc(exp.method, exp.base_method, \
-                                                  exp.cc_backend, exp.fci_solver, \
-                                                  exp.orb_type, exp.spin, exp.occup, \
-                                                  exp.target, exp.fci_state_sym, \
-                                                  exp.point_group, exp.orbsym, \
-                                                  exp.hf_guess, exp.fci_state_root, \
-                                                  exp.hf_prop, e_core, h1e_cas, h2e_cas, \
-                                                  core_idx, cas_idx, exp.debug, \
-                                                  exp.dipole_ints, exp.ref_prop)
+            inc_tup, n_elec_tup = _inc(exp.method, exp.base_method, \
+                                       exp.cc_backend, exp.fci_solver, \
+                                       exp.orb_type, exp.spin, exp.occup, \
+                                       exp.target, exp.fci_state_sym, \
+                                       exp.point_group, exp.orbsym, \
+                                       exp.hf_guess, exp.fci_state_root, \
+                                       exp.hf_prop, e_core, h1e_cas, h2e_cas, \
+                                       core_idx, cas_idx, exp.debug, \
+                                       exp.dipole_ints, exp.ref_prop)
 
             # calculate increment
             if exp.order > exp.min_order:
@@ -284,13 +267,11 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
             # debug print
             if exp.debug >= 2:
                 print(mbe_debug(exp.point_group, exp.orbsym, \
-                                exp.fci_state_root, ndets_tup, n_elec_tup, \
-                                inc_tup, exp.order, cas_idx, tup))
+                                exp.fci_state_root, n_elec_tup, inc_tup, \
+                                exp.order, cas_idx, tup))
 
             # update increment statistics
             min_inc, max_inc, mean_inc = _update(min_inc, max_inc, mean_inc, inc_tup)
-            # update determinant statistics
-            min_ndets, max_ndets, mean_ndets = _update(min_ndets, max_ndets, mean_ndets, ndets_tup)
             # update pair_corr statistics
             if pair_corr is not None:
                 if exp.target in ['energy', 'excitation']:
@@ -321,11 +302,6 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
         max_inc = mpi_reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
         mean_inc = mpi_reduce(mpi.global_comm, mean_inc, root=0, op=MPI.SUM)
 
-        # determinant statistics
-        min_ndets = mpi_reduce(mpi.global_comm, min_ndets, root=0, op=MPI.MIN)
-        max_ndets = mpi_reduce(mpi.global_comm, max_ndets, root=0, op=MPI.MAX)
-        mean_ndets = mpi_reduce(mpi.global_comm, mean_ndets, root=0, op=MPI.SUM)
-
         # pair_corr statistics
         if pair_corr is not None:
             pair_corr = [mpi_reduce(mpi.global_comm, pair_corr[0], root=0, op=MPI.SUM), \
@@ -335,19 +311,12 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
         if mpi.global_master:
             mean_inc /= exp.n_tuples['inc'][-1]
 
-        # mean number of determinants
-        if mpi.global_master:
-            mean_ndets = np.asarray(np.rint(mean_ndets / exp.n_tuples['inc'][-1]), dtype=np.int64)
-
         # write restart files & save timings
         if mpi.global_master:
             if exp.rst:
                 write_file(exp.order, max_inc, 'mbe_max_inc')
                 write_file(exp.order, min_inc, 'mbe_min_inc')
                 write_file(exp.order, mean_inc, 'mbe_mean_inc')
-                write_file(exp.order, max_ndets, 'mbe_max_ndets')
-                write_file(exp.order, min_ndets, 'mbe_min_ndets')
-                write_file(exp.order, mean_ndets, 'mbe_mean_ndets')
                 write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_idx')
                 write_file(exp.order, hashes[-1], 'mbe_hashes')
                 write_file(exp.order, inc[-1], 'mbe_inc')
@@ -390,9 +359,7 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
             print(' --------------------------------------------------------------------------\n')
 
         if mpi.global_master:
-            return hashes_win, inc_win, tot, \
-                   mean_ndets, min_ndets, max_ndets, \
-                   mean_inc, min_inc, max_inc
+            return hashes_win, inc_win, tot, mean_inc, min_inc, max_inc
         else:
             return hashes_win, inc_win
 
@@ -405,7 +372,7 @@ def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
          e_core: float, h1e_cas: np.ndarray, h2e_cas: np.ndarray, \
          core_idx: np.ndarray, cas_idx: np.ndarray, debug: int, \
          dipole_ints: Optional[np.ndarray], \
-         ref_prop: Union[float, np.ndarray]) -> Tuple[Union[float, np.ndarray], int, Tuple[int, int]]:
+         ref_prop: Union[float, np.ndarray]) -> Tuple[Union[float, np.ndarray], Tuple[int, int]]:
         """
         this function calculates the current-order contribution to the increment associated with a given tuple
         """
@@ -413,12 +380,11 @@ def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
         n_elec = nelec(occup, cas_idx)
 
         # perform main calc
-        res_full, ndets = kernel_main(method, cc_backend, fci_solver, \
-                                      orb_type, spin, occup, target_mbe, \
-                                      fci_state_sym, point_group, orbsym, \
-                                      hf_guess, fci_state_root, hf_prop, \
-                                      e_core, h1e_cas, h2e_cas, core_idx, \
-                                      cas_idx, n_elec, debug, dipole_ints)
+        res_full = kernel_main(method, cc_backend, fci_solver, orb_type, spin, \
+                               occup, target_mbe, fci_state_sym, point_group, \
+                               orbsym, hf_guess, fci_state_root, hf_prop, \
+                               e_core, h1e_cas, h2e_cas, core_idx, cas_idx, \
+                               n_elec, debug, dipole_ints)
 
         # perform base calc
         if base is not None:
@@ -427,9 +393,9 @@ def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
                                     point_group, orbsym, hf_guess, \
                                     fci_state_root, hf_prop, e_core, h1e_cas, \
                                     h2e_cas, core_idx, cas_idx, n_elec, debug, \
-                                    dipole_ints)[0]
+                                    dipole_ints)
 
-        return res_full - ref_prop, ndets, n_elec
+        return res_full - ref_prop, n_elec
 
 
 def _sum(nocc: int, target_mbe: str, min_order: int, order: int, \

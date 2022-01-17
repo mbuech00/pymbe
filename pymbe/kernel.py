@@ -21,7 +21,7 @@ from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from typing import TYPE_CHECKING
 
-from pymbe.tools import assertion, ndets
+from pymbe.tools import assertion
 from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
@@ -65,7 +65,7 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, \
          h1e: np.ndarray, h2e: np.ndarray, core_idx: np.ndarray, \
          cas_idx: np.ndarray, n_elec: Tuple[int, int], debug: int, \
          dipole_ints: Optional[np.ndarray], \
-         higher_amp_extrap: bool = False) -> Tuple[Union[float, np.ndarray], int]:
+         higher_amp_extrap: bool = False) -> Union[float, np.ndarray]:
         """
         this function return the result property from a given method
         """
@@ -74,14 +74,12 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, \
             res_tmp = _cc(spin, occup, core_idx, cas_idx, method, cc_backend, \
                           n_elec, orb_type, point_group, orbsym, h1e, h2e, \
                           higher_amp_extrap, target_mbe == 'dipole', debug)
-            n_dets = ndets(occup, cas_idx, n_elec=n_elec)
 
         elif method == 'fci':
 
             res_tmp = _fci(solver, spin, target_mbe, state_wfnsym, orbsym, \
                            hf_guess, state_root, hf_prop, e_core, h1e, h2e, \
                            occup, cas_idx, n_elec, debug)
-            n_dets = res_tmp['n_dets']
 
         if target_mbe in ['energy', 'excitation']:
 
@@ -97,7 +95,7 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, \
             res = _trans(dipole_ints, occup, cas_idx, res_tmp['t_rdm1'], \
                          res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
 
-        return res, n_dets
+        return res
 
 
 def _dipole(dipole_ints: np.ndarray, occup: np.ndarray, cas_idx: np.ndarray, \
@@ -237,7 +235,7 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: int, \
                           'state {:} not converged\ncas_idx = {:}\ncas_sym = {:}'.format(root, cas_idx, orbsym[cas_idx]))
 
         # collect results
-        res: Dict[str, Union[int, float, np.ndarray]] = {'n_dets': np.count_nonzero(civec[-1])}
+        res: Dict[str, Union[int, float, np.ndarray]] = {}
         if target_mbe == 'energy':
             res['energy'] = energy[-1] - hf_prop
         elif target_mbe == 'excitation':

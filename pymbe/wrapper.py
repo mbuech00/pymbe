@@ -822,7 +822,7 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
                                   orbsym, hf_guess, fci_state_root, hf_prop, \
                                   e_core, h1e_cas, h2e_cas, core_idx, cas_idx, \
                                   n_elec, 0, dipole_ints, \
-                                  higher_amp_extrap=False)[0]
+                                  higher_amp_extrap=False)
                         
             # base model
             if base_method is not None:
@@ -833,7 +833,7 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
                                         fci_state_root, hf_prop, e_core, \
                                         h1e_cas, h2e_cas, core_idx, cas_idx, \
                                         n_elec, 0, dipole_ints, \
-                                        higher_amp_extrap=False)[0]
+                                        higher_amp_extrap=False)
 
         else:
 

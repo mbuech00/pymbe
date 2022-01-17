@@ -23,8 +23,8 @@ from pymbe.tools import time_str, fsum, hash_2d, hash_1d, hash_lookup, tuples, \
                         start_idx, _comb_idx, _idx, n_tuples, cas, core_cas, \
                         _cas_idx_cart, _coor_to_idx, idx_tril, pi_space, \
                         _pi_orbs, pi_prune, occ_prune, virt_prune, nelec, \
-                        ndets, mat_idx, near_nbrs, natural_keys, _convert, \
-                        intervals, inc_dim, inc_shape
+                        mat_idx, near_nbrs, natural_keys, _convert, intervals, \
+                        inc_dim, inc_shape
 
 if TYPE_CHECKING:
 
@@ -91,12 +91,6 @@ test_cases_virt_prune = [
 test_cases_nelec = [
     ('2_elecs', np.array([2, 4], dtype=np.int64), (1, 1)),
     ('no_elecs', np.array([3, 4], dtype=np.int64), (0, 0))
-]
-
-test_cases_ndets = [
-    ('no_args', np.arange(1, 5, dtype=np.int64), None, None, 36),
-    ('ref_space', np.arange(1, 7, dtype=np.int64), np.array([1, 2], dtype=np.int64), None, 4900),
-    ('ref_space-no_elec', np.arange(1, 7, 2, dtype=np.int64), np.array([1, 3], dtype=np.int64), (1, 1), 100)
 ]
 
 test_cases_mat_idx = [
@@ -377,19 +371,6 @@ def test_nelec(tup: np.ndarray, ref_nelec: Tuple[int, int]) -> None:
         occup = np.array([2.] * 3 + [0.] * 4, dtype=np.float64)
 
         assert nelec(occup, tup) == ref_nelec
-
-
-@pytest.mark.parametrize(argnames='cas_idx, ref_space, n_elec, ref_ndets', \
-                         argvalues=[case[1:] for case in test_cases_ndets], \
-                         ids=[case[0] for case in test_cases_ndets])
-def test_ndets(cas_idx: np.ndarray, ref_space: np.ndarray, \
-               n_elec: Tuple[int, int], ref_ndets: int) -> None:
-        """
-        this function tests ndets
-        """
-        occup = np.array([2.] * 3 + [0.] * 4, dtype=np.float64)
-
-        assert ndets(occup, cas_idx, ref_space=ref_space, n_elec=n_elec) == ref_ndets
 
 
 @pytest.mark.parametrize(argnames='site_idx, nx, ny, ref_idx_tup', \

@@ -27,27 +27,27 @@ if TYPE_CHECKING:
 
 
 test_cases_main = [
-    ('h2o', 'fci', 'energy', 'pyscf', 0, -0.014121462439533161, 133),
-    ('hubbard', 'fci', 'energy', 'pyscf', 0, -2.8759428090050676, 36),
-    ('h2o', 'ccsd', 'energy', 'pyscf', 0, -0.014118607610972691, 441),
-    ('h2o', 'ccsd', 'energy', 'ecc', 0, -0.014118607610972691, 441),
-    ('h2o', 'ccsd', 'energy', 'ncc', 0, -0.014118607610972691, 441),
-    ('h2o', 'fci', 'dipole', 'pyscf', 0, np.array([0., 0., -7.97786374e-03], dtype=np.float64), 133),
-    ('h2o', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., -8.05218072e-03], dtype=np.float64), 441),
-    ('h2o', 'fci', 'excitation', 'pyscf', 1, 1.314649936052632, 133),
-    ('hubbard', 'fci', 'excitation', 'pyscf', 1, 1.850774199956839, 36),
-    ('h2o', 'fci', 'trans', 'pyscf', 1, np.array([0., 0., -2.64977135e-01], dtype=np.float64), 133),
+    ('h2o', 'fci', 'energy', 'pyscf', 0, -0.014121462439533161),
+    ('hubbard', 'fci', 'energy', 'pyscf', 0, -2.8759428090050676),
+    ('h2o', 'ccsd', 'energy', 'pyscf', 0, -0.014118607610972691),
+    ('h2o', 'ccsd', 'energy', 'ecc', 0, -0.014118607610972691),
+    ('h2o', 'ccsd', 'energy', 'ncc', 0, -0.014118607610972691),
+    ('h2o', 'fci', 'dipole', 'pyscf', 0, np.array([0., 0., -7.97786374e-03], dtype=np.float64)),
+    ('h2o', 'ccsd', 'dipole', 'pyscf', 0, np.array([0., 0., -8.05218072e-03], dtype=np.float64)),
+    ('h2o', 'fci', 'excitation', 'pyscf', 1, 1.314649936052632),
+    ('hubbard', 'fci', 'excitation', 'pyscf', 1, 1.850774199956839),
+    ('h2o', 'fci', 'trans', 'pyscf', 1, np.array([0., 0., -2.64977135e-01], dtype=np.float64)),
 ]
 
 test_cases_fci = [
-    ('h2o', 'energy', 0, {'energy': -0.014121462439547372, 'n_dets': 133}),
-    ('hubbard', 'energy', 0, {'energy': -2.875942809005066, 'n_dets': 36}),
-    ('h2o', 'dipole', 0, {'rdm1_sum': 9.978231697964103, 'rdm1_amax': 2., 'n_dets': 133}),
-    ('hubbard', 'dipole', 0, {'rdm1_sum': 7.416665666590797, 'rdm1_amax': 1., 'n_dets': 36}),
-    ('h2o', 'excitation', 1, {'excitation': 1.314649936052632, 'n_dets': 133}),
-    ('hubbard', 'excitation', 1, {'excitation': 1.8507741999568346, 'n_dets': 36}),
-    ('h2o', 'trans', 1, {'t_rdm1': 0., 'hf_weight_sum': 0.9918466871769327, 'n_dets': 133}),
-    ('hubbard', 'trans', 1, {'t_rdm1': 0., 'hf_weight_sum': -0.0101664409948010, 'n_dets': 36})
+    ('h2o', 'energy', 0, {'energy': -0.014121462439547372}),
+    ('hubbard', 'energy', 0, {'energy': -2.875942809005066}),
+    ('h2o', 'dipole', 0, {'rdm1_sum': 9.978231697964103, 'rdm1_amax': 2.}),
+    ('hubbard', 'dipole', 0, {'rdm1_sum': 7.416665666590797, 'rdm1_amax': 1.}),
+    ('h2o', 'excitation', 1, {'excitation': 1.314649936052632}),
+    ('hubbard', 'excitation', 1, {'excitation': 1.8507741999568346}),
+    ('h2o', 'trans', 1, {'t_rdm1': 0., 'hf_weight_sum': 0.9918466871769327}),
+    ('hubbard', 'trans', 1, {'t_rdm1': 0., 'hf_weight_sum': -0.0101664409948010})
 ]
 
 test_cases_cc = [
@@ -84,7 +84,7 @@ def test_e_core_h1e() -> None:
                                                   [1.60429528, 1.40852194, 1.40916262]], dtype=np.float64))
 
 
-@pytest.mark.parametrize(argnames='system, method, target, cc_backend, root, ref_res, ref_ndets', \
+@pytest.mark.parametrize(argnames='system, method, target, cc_backend, root, ref_res', \
                          argvalues=test_cases_main, \
                          ids=['-'.join([item for item in case[0:4] if item]) for case in test_cases_main], \
                          indirect=['system'])
@@ -92,7 +92,7 @@ def test_main(system: str, mol: gto.Mole, hf: scf.RHF, \
               ints: Tuple[np.ndarray, np.ndarray], orbsym: List[int],  \
               dipole_quantities: Tuple[np.ndarray, np.ndarray], method: str, \
               target: str, cc_backend: str, root: int, \
-              ref_res: Union[float, np.ndarray], ref_ndets: int) -> None:
+              ref_res: Union[float, np.ndarray]) -> None:
         """
         this function tests main
         """
@@ -142,13 +142,11 @@ def test_main(system: str, mol: gto.Mole, hf: scf.RHF, \
             dipole_ints, _ = dipole_quantities
             hf_prop = np.zeros(3, dtype=np.float64)
 
-        res, ndets = main(method, cc_backend, 'pyscf_spin0', 'can', 0, occup, \
-                          target, 0, point_group, orbsym, True, root, hf_prop, \
-                          e_core, h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, \
-                          0, dipole_ints)
+        res = main(method, cc_backend, 'pyscf_spin0', 'can', 0, occup, target, \
+                   0, point_group, orbsym, True, root, hf_prop, e_core, \
+                   h1e_cas, h2e_cas, core_idx, cas_idx, n_elec, 0, dipole_ints)
 
         assert res == pytest.approx(ref_res)
-        assert ndets == ref_ndets
         
 
 def test_dipole() -> None:
@@ -219,7 +217,6 @@ def test_fci(system: str, mol: gto.Mole, hf: scf.RHF, \
         res = _fci('pyscf_spin0', 0, target, 0, orbsym, True, root, hf_energy, \
                    e_core, h1e_cas, h2e_cas, occup, cas_idx, n_elec, 0)
 
-        assert res['n_dets'] == ref['n_dets']
         if target == 'energy':
             assert res['energy'] == pytest.approx(ref['energy'])
         elif target == 'dipole':

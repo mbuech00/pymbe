@@ -32,8 +32,8 @@ if TYPE_CHECKING:
 
 
 test_cases_main = [
-    ('h2o', 1, -249055688365223385, 9199082625845137542, -0.0374123708341898, -0.0018267714680604286, np.array([-0.0374123708341898]), np.array([10]), np.array([9]), np.array([11]), np.array([-0.004676546354273725]), np.array([0.0018267714680604286]), np.array([0.010886635891736773])),
-    ('h2o', 2, 8509729643108359722, 8290417336063232159, -0.11605435599270209, -0.0001698239845069338, np.array([-0.11605435599270209]), np.array([65]), np.array([57]), np.array([69]), np.array([-0.004144798428310789]), np.array([0.0001698239845069338]), np.array([0.009556269221292268]))
+    ('h2o', 1, -249055688365223385, 9199082625845137542, -0.0374123708341898, -0.0018267714680604286, np.array([-0.0374123708341898]), np.array([-0.004676546354273725]), np.array([0.0018267714680604286]), np.array([0.010886635891736773])),
+    ('h2o', 2, 8509729643108359722, 8290417336063232159, -0.11605435599270209, -0.0001698239845069338, np.array([-0.11605435599270209]), np.array([-0.004144798428310789]), np.array([0.0001698239845069338]), np.array([0.009556269221292268]))
 ]
 
 test_cases_sum = [
@@ -48,7 +48,7 @@ test_cases_sum = [
 ]
 
 
-@pytest.mark.parametrize(argnames='system, order, ref_hashes_sum, ref_hashes_amax, ref_inc_sum, ref_inc_amax, ref_tot, ref_mean_ndets, ref_min_ndets, ref_max_ndets, ref_mean_inc, ref_min_inc, ref_max_inc', \
+@pytest.mark.parametrize(argnames='system, order, ref_hashes_sum, ref_hashes_amax, ref_inc_sum, ref_inc_amax, ref_tot, ref_mean_inc, ref_min_inc, ref_max_inc', \
                          argvalues=test_cases_main, \
                          ids=['-'.join([case[0], str(case[1])]) for case in test_cases_main], \
                          indirect=['system'])
@@ -56,8 +56,7 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
               hf: scf.RHF, orbsym: np.ndarray, \
               ints_win: Tuple[MPI.Win, MPI.Win, MPI.Win], order: int, \
               ref_hashes_sum: int, ref_hashes_amax: int, ref_inc_sum: float, \
-              ref_inc_amax: float, ref_tot: np.ndarray, ref_mean_ndets: int, \
-              ref_min_ndets: int, ref_max_ndets: int, ref_mean_inc: float, \
+              ref_inc_amax: float, ref_tot: np.ndarray, ref_mean_inc: float, \
               ref_min_inc: float, ref_max_inc: float) -> None:
         """
         this function tests main
@@ -102,9 +101,6 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
         exp.mean_inc = []
         exp.min_inc = []
         exp.max_inc = []
-        exp.mean_ndets = []
-        exp.min_ndets = []
-        exp.max_ndets = []
 
         exp.n_tuples = {'inc': []}
 
@@ -133,8 +129,7 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
 
             exp.n_tuples['inc'].append(int(n_tuples))
 
-            hashes_win, inc_win, tot, mean_ndets, min_ndets, max_ndets, \
-            mean_inc, min_inc, max_inc = main(mpi, exp)
+            hashes_win, inc_win, tot,  mean_inc, min_inc, max_inc = main(mpi, exp)
 
             hashes.append(np.ndarray(buffer=hashes_win, dtype=np.int64, shape=(exp.n_tuples['inc'][exp.order-1],)))
 
@@ -143,10 +138,6 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
             exp.prop[exp.target]['hashes'].append(hashes_win)
 
             exp.prop[exp.target]['inc'].append(inc_win)
-
-            exp.mean_ndets.append(mean_ndets)
-            exp.min_ndets.append(min_ndets)
-            exp.max_ndets.append(max_ndets)
 
             exp.mean_inc.append(mean_inc)
             exp.min_inc.append(min_inc)
@@ -159,9 +150,6 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
         assert np.sum(inc[-1]) == pytest.approx(ref_inc_sum)
         assert np.amax(inc[-1]) == pytest.approx(ref_inc_amax)
         assert tot == pytest.approx(ref_tot)
-        assert mean_ndets == ref_mean_ndets
-        assert min_ndets == ref_min_ndets
-        assert max_ndets == ref_max_ndets
         assert mean_inc == pytest.approx(ref_mean_inc)
         assert min_inc == pytest.approx(ref_min_inc)
         assert max_inc == pytest.approx(ref_max_inc)
@@ -179,13 +167,11 @@ def test_inc(ints: Tuple[np.ndarray, np.ndarray]) -> None:
         h1e_cas, h2e_cas = ints
         core_idx, cas_idx = np.array([], dtype=np.int64), np.arange(n, dtype=np.int64)
 
-        e, ndets, n_elec = _inc('fci', None, 'pyscf', 'pyscf_spin0', 'can', 0, \
-                                occup, 'energy', 0, 'c1', orbsym, True, 0, 0., \
-                                0., h1e_cas, h2e_cas, core_idx, cas_idx, 0, \
-                                None, 0.)
+        e, n_elec = _inc('fci', None, 'pyscf', 'pyscf_spin0', 'can', 0, occup, \
+                         'energy', 0, 'c1', orbsym, True, 0, 0., 0., h1e_cas, \
+                         h2e_cas, core_idx, cas_idx, 0, None, 0.)
         
         assert e == pytest.approx(-5.409456845093448)
-        assert ndets == 400
         assert n_elec == (3, 3)
         
 

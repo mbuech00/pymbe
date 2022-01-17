@@ -90,7 +90,7 @@ def mbe_header(order: int, n_tuples: int, thres: float) -> str:
         return string.format(*form)
 
 
-def mbe_debug(symmetry: str, orbsym: np.ndarray, root: int, ndets_tup: int, \
+def mbe_debug(symmetry: str, orbsym: np.ndarray, root: int, \
               nelec_tup: Tuple[int, int], inc_tup: Union[float, np.ndarray], \
               order: int, cas_idx: np.ndarray, tup: np.ndarray) -> str:
         """
@@ -101,9 +101,9 @@ def mbe_debug(symmetry: str, orbsym: np.ndarray, root: int, ndets_tup: int, \
 
         tup_sym = [symm.addons.irrep_id2name(symmetry, i) for i in orbsym[tup]]
 
-        string: str = ' INC-{:d}: order = {:d} , tup = {:} , space = ({:d}e,{:d}o) , n_dets = {:.2e}\n'
+        string: str = ' INC-{:d}: order = {:d} , tup = {:} , space = ({:d}e,{:d}o)\n'
         string += '      symmetry = {:}\n'
-        form: Tuple[Any, ...] = (order, order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, ndets_tup, tup_sym)
+        form: Tuple[Any, ...] = (order, order, tup_lst, nelec_tup[0] + nelec_tup[1], cas_idx.size, tup_sym)
 
         if np.isscalar(inc_tup):
             string += '      increment for root {:d} = {:.4e}\n'
@@ -142,8 +142,7 @@ def mbe_end(order: int, time: float) -> str:
 
 def mbe_results(target: str, root: int, min_order: int, order: int, \
                 prop_tot: List[np.ndarray], mean_inc: np.ndarray, \
-                min_inc: np.ndarray, max_inc: np.ndarray, mean_ndets: np.ndarray, \
-                min_ndets: np.ndarray, max_ndets: np.ndarray) -> str:
+                min_inc: np.ndarray, max_inc: np.ndarray) -> str:
         """
         this function prints mbe results statistics
         """
@@ -212,14 +211,8 @@ def mbe_results(target: str, root: int, min_order: int, order: int, \
 
         # set string
         string += DIVIDER+'\n'
-        string += DIVIDER+'\n'
-        string += ' RESULT-{:d}:   mean # determinants   |      min. # determinants     |     max. # determinants\n'
-        string += DIVIDER+'\n'
-        string += ' RESULT-{:d}:        {:>9.3e}        |           {:>9.3e}          |          {:>9.3e}\n'
-        string += DIVIDER+'\n'
         string += FILL+'\n'
         string += DIVIDER
-        form += (order, order, mean_ndets.item(), min_ndets.item(), max_ndets.item())
 
         return string.format(*form)
 

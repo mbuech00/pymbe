@@ -101,9 +101,8 @@ def main(mol: gto.Mole, mpi: MPICls, exp: ExpCls) -> None:
                 _trans_plot(exp.fci_state_root, exp.prop['trans']['tot'], \
                             exp.ref_prop, exp.min_order, exp.final_order)
 
-        # plot number of determinants and close all open windows
+        # close all open windows
         if PLT_FOUND:
-            _max_ndets_plot(exp.max_ndets, exp.min_order, exp.final_order)
             plt.close('all')
 
 
@@ -775,43 +774,3 @@ def _trans_plot(root: int, corr_trans: List[np.ndarray], \
         # save plot
         plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
                     format(0, root), bbox_inches = 'tight', dpi=1000)
-
-
-def _max_ndets_plot(max_ndets: Union[List[int], np.ndarray], min_order: int, \
-                    final_order: int) -> None:
-        """
-        this function plots the max number of determinants
-        """
-        # set seaborn
-        if SNS_FOUND:
-            sns.set(style='darkgrid', palette='Set2', font='DejaVu Sans')
-
-        # set subplot
-        fig, ax = plt.subplots()
-
-        # plot results
-        ax.semilogy(np.arange(min_order, final_order+1), \
-                    max_ndets, marker='x', linewidth=2, mew=1, color='red', linestyle='-')
-
-        # set x limits
-        ax.set_xlim([0.5, final_order+1 - 0.5])
-
-        # turn off x-grid
-        ax.xaxis.grid(False)
-
-        # set labels
-        ax.set_xlabel('Expansion order')
-        ax.set_ylabel('Number of determinants')
-
-        # force integer ticks on x-axis
-        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2e'))
-
-        # despine
-        if SNS_FOUND:
-            sns.despine()
-
-        # save plot
-        plt.savefig(OUT+'/max_ndets.pdf', bbox_inches = 'tight', dpi=1000)
-
-

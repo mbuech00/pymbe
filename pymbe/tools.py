@@ -24,7 +24,6 @@ from itertools import islice, combinations, groupby
 from math import floor, fsum as math_fsum
 from subprocess import Popen, PIPE
 from traceback import format_stack
-from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -418,25 +417,6 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
         """
         occup_tup = occup[tup]
         return (np.count_nonzero(occup_tup > 0.), np.count_nonzero(occup_tup > 1.))
-
-
-def ndets(occup: np.ndarray, cas_idx: np.ndarray, \
-          ref_space: np.ndarray = None, \
-          n_elec: Optional[Tuple[int, ...]] = None) -> int:
-        """
-        this function returns the number of determinants in given casci calculation (ignoring point group symmetry)
-        """
-        if n_elec is None:
-            n_elec = nelec(occup, cas_idx)
-
-        n_orbs = cas_idx.size
-
-        if ref_space is not None:
-            ref_n_elec = nelec(occup, ref_space)
-            n_elec = tuple(map(sum, zip(n_elec, ref_n_elec)))
-            n_orbs += ref_space.size
-
-        return int(sc.binom(n_orbs, n_elec[0]) * sc.binom(n_orbs, n_elec[1]))
 
 
 def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:

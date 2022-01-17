@@ -66,9 +66,7 @@ class ExpCls:
                 self.occup: np.ndarray = cast_away_optional(mbe.occup)
 
                 # integrals
-                hcore, vhf, eri = int_wins(cast_away_optional(mbe.hcore), \
-                                           cast_away_optional(mbe.vhf), \
-                                           cast_away_optional(mbe.eri), \
+                hcore, vhf, eri = int_wins(mbe.hcore, mbe.vhf, mbe.eri, \
                                            mbe.mpi, self.norb, self.nocc)
                 self.hcore: MPI.Win = hcore
                 self.vhf: MPI.Win = vhf
@@ -103,9 +101,6 @@ class ExpCls:
                 self.mean_inc: Union[List[float], np.ndarray] = []
                 self.min_inc: Union[List[float], np.ndarray] = []
                 self.max_inc: Union[List[float], np.ndarray] = []
-                self.mean_ndets: Union[List[int], np.ndarray] = []
-                self.min_ndets: Union[List[int], np.ndarray] = []
-                self.max_ndets: Union[List[int], np.ndarray] = []
 
                 # number of tuples
                 self.n_tuples: Dict[str, List[int]] = {'theo': [], 'calc': [], \
@@ -165,8 +160,8 @@ class ExpCls:
                     self.pi_hashes: np.ndarray = pi_hashes
 
 
-def int_wins(hcore_in: np.ndarray, vhf_in: np.ndarray, eri_in: np.ndarray, \
-             mpi: MPICls, norb: int, \
+def int_wins(hcore_in: Optional[np.ndarray], vhf_in: Optional[np.ndarray], \
+             eri_in: Optional[np.ndarray], mpi: MPICls, norb: int, \
              nocc: int) -> Tuple[MPI.Win, MPI.Win, MPI.Win]:
         """
         this function created shared memory windows for integrals on every node
@@ -181,7 +176,7 @@ def int_wins(hcore_in: np.ndarray, vhf_in: np.ndarray, eri_in: np.ndarray, \
 
         # set hcore on global master
         if mpi.global_master:
-            hcore[:] = hcore_in
+            hcore[:] = cast_away_optional(hcore_in)
 
         # mpi_bcast hcore
         if mpi.num_masters > 1 and mpi.local_master:
@@ -197,7 +192,7 @@ def int_wins(hcore_in: np.ndarray, vhf_in: np.ndarray, eri_in: np.ndarray, \
         
         # set vhf on global master
         if mpi.global_master:
-            vhf[:] = vhf_in
+            vhf[:] = cast_away_optional(vhf_in)
 
         # mpi_bcast vhf
         if mpi.num_masters > 1 and mpi.local_master:
@@ -213,7 +208,7 @@ def int_wins(hcore_in: np.ndarray, vhf_in: np.ndarray, eri_in: np.ndarray, \
 
         # set eri on global master
         if mpi.global_master:
-            eri[:] = eri_in
+            eri[:] = cast_away_optional(eri_in)
 
         # mpi_bcast eri
         if mpi.num_masters > 1 and mpi.local_master:
@@ -304,14 +299,6 @@ def restart_main(mpi: MPICls, exp: ExpCls) -> int:
                 # read total properties
                 elif 'mbe_tot' in files[i]:
                     exp.prop[exp.target]['tot'].append(np.load(os.path.join(RST, files[i])))
-
-                # read ndets statistics
-                elif 'mbe_mean_ndets' in files[i]:
-                    exp.mean_ndets.append(np.load(os.path.join(RST, files[i])))
-                elif 'mbe_min_ndets' in files[i]:
-                    exp.min_ndets.append(np.load(os.path.join(RST, files[i])))
-                elif 'mbe_max_ndets' in files[i]:
-                    exp.max_ndets.append(np.load(os.path.join(RST, files[i])))
 
                 # read inc statistics
                 elif 'mbe_mean_inc' in files[i]:

@@ -218,18 +218,3 @@ def mpi_gatherv(comm: MPI.Comm, send_buff: np.ndarray, recv_buff: np.ndarray, \
             comm.Send(send_buff, dest=root)
 
         return recv_buff
-
-
-def mpi_finalize(mpi: MPICls) -> None:
-        """
-        this function terminates a successful pymbe calculation
-        """
-        # wake up slaves
-        if mpi.global_master:
-            mpi.global_comm.bcast({'task': 'exit'}, root=0)
-
-        # finalize
-        mpi.global_comm.Barrier()
-        MPI.Finalize()
-
-

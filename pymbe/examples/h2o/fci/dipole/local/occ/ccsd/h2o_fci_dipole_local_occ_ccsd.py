@@ -1,14 +1,12 @@
 import os
 import numpy as np
+from mpi4py import MPI
 from pyscf import gto
-from pymbe import MBE, MPICls, mpi_finalize, hf, base, ref_mo, ints, dipole_ints
+from pymbe import MBE, hf, base, ref_mo, ints, dipole_ints
 
 def mbe_example() -> MBE:
 
-    # create mpi object
-    mpi = MPICls()
-
-    if mpi.global_master and not os.path.isdir(os.getcwd()+'/rst'):
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
 
         # create mol object
         mol = gto.Mole()
@@ -78,4 +76,4 @@ if __name__ == '__main__':
     mbe = mbe_example()
 
     # finalize mpi
-    mpi_finalize(mbe.mpi)
+    MPI.Finalize()
