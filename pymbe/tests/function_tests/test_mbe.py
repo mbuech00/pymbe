@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from pyscf import gto, scf
     from typing import Tuple, Union
 
-    from pymbe.tests.function_tests.conftest import ExpCls
+    from pymbe.tests.conftest import ExpCls
 
 
 test_cases_main = [
@@ -110,7 +110,7 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
         
         exp.min_order = 1
 
-        exp.debug = 0
+        exp.verbose = 0
         
         exp.pi_prune = False
 

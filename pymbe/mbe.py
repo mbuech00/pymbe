@@ -14,6 +14,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
+import logging
 import numpy as np
 from mpi4py import MPI
 from typing import TYPE_CHECKING
@@ -31,6 +32,10 @@ if TYPE_CHECKING:
 
     from pymbe.parallel import MPICls
     from pymbe.expansion import ExpCls
+
+
+# get logger
+logger = logging.getLogger('pymbe_logger')
 
 SCREEN = 1000. # random, non-sensical number
 
@@ -218,7 +223,8 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
                     # re-init time
                     time = MPI.Wtime()
                     # print status
-                    print(mbe_status(exp.order, mbe_idx / exp.n_tuples['inc'][-1]))
+                    logger.info(mbe_status(exp.order, \
+                                           mbe_idx / exp.n_tuples['inc'][-1]))
 
             # pi-pruning
             if exp.pi_prune:
@@ -246,7 +252,7 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
                                        exp.point_group, exp.orbsym, \
                                        exp.hf_guess, exp.fci_state_root, \
                                        exp.hf_prop, e_core, h1e_cas, h2e_cas, \
-                                       core_idx, cas_idx, exp.debug, \
+                                       core_idx, cas_idx, exp.verbose, \
                                        exp.dipole_ints, exp.ref_prop)
 
             # calculate increment
@@ -265,10 +271,9 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
                 screen[tup] = np.maximum(screen[tup], np.max(np.abs(inc_tup)))
 
             # debug print
-            if exp.debug >= 2:
-                print(mbe_debug(exp.point_group, exp.orbsym, \
-                                exp.fci_state_root, n_elec_tup, inc_tup, \
-                                exp.order, cas_idx, tup))
+            logger.debug(mbe_debug(exp.point_group, exp.orbsym, \
+                                   exp.fci_state_root, n_elec_tup, inc_tup, \
+                                   exp.order, cas_idx, tup))
 
             # update increment statistics
             min_inc, max_inc, mean_inc = _update(min_inc, max_inc, mean_inc, inc_tup)
@@ -285,7 +290,7 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
 
         # print final status
         if mpi.global_master:
-            print(mbe_status(exp.order, 1.))
+            logger.info(mbe_status(exp.order, 1.))
 
         # allreduce hashes & increments among local masters
         if mpi.local_master:
@@ -343,20 +348,20 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
         # mpi barrier
         mpi.local_comm.Barrier()
 
-        if mpi.global_master and pair_corr is not None and exp.debug >= 1:
+        if mpi.global_master and pair_corr is not None:
             pair_corr[1] = pair_corr[1][np.argsort(np.abs(pair_corr[0]))[::-1]]
             pair_corr[0] = pair_corr[0][np.argsort(np.abs(pair_corr[0]))[::-1]]
-            print('\n --------------------------------------------------------------------------')
-            print(f'{"pair correlation information":^75s}')
-            print(' --------------------------------------------------------------------------')
-            print(' orbital tuple  |  absolute corr.  |  relative corr.  |  cumulative corr.')
-            print(' --------------------------------------------------------------------------')
+            logger.debug('\n --------------------------------------------------------------------------')
+            logger.debug(f'{"pair correlation information":^75s}')
+            logger.debug(' --------------------------------------------------------------------------')
+            logger.debug(' orbital tuple  |  absolute corr.  |  relative corr.  |  cumulative corr.')
+            logger.debug(' --------------------------------------------------------------------------')
             for i in range(10):
-                print(f'   [{pair_corr[1][i][0]:3d},{pair_corr[1][i][1]:3d}]    |' + \
+                logger.debug(f'   [{pair_corr[1][i][0]:3d},{pair_corr[1][i][1]:3d}]    |' + \
                       f'    {pair_corr[0][i]:.3e}    |' + \
                       f'        {pair_corr[0][i] / pair_corr[0][0]:.2f}      |' + \
                       f'        {np.sum(pair_corr[0][:i+1]) / np.sum(pair_corr[0]):.2f}')
-            print(' --------------------------------------------------------------------------\n')
+            logger.debug(' --------------------------------------------------------------------------\n')
 
         if mpi.global_master:
             return hashes_win, inc_win, tot, mean_inc, min_inc, max_inc
@@ -370,7 +375,7 @@ def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
          hf_guess: bool, fci_state_root: int, \
          hf_prop: Union[float, np.ndarray], \
          e_core: float, h1e_cas: np.ndarray, h2e_cas: np.ndarray, \
-         core_idx: np.ndarray, cas_idx: np.ndarray, debug: int, \
+         core_idx: np.ndarray, cas_idx: np.ndarray, verbose: int, \
          dipole_ints: Optional[np.ndarray], \
          ref_prop: Union[float, np.ndarray]) -> Tuple[Union[float, np.ndarray], Tuple[int, int]]:
         """
@@ -384,7 +389,7 @@ def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
                                occup, target_mbe, fci_state_sym, point_group, \
                                orbsym, hf_guess, fci_state_root, hf_prop, \
                                e_core, h1e_cas, h2e_cas, core_idx, cas_idx, \
-                               n_elec, debug, dipole_ints)
+                               n_elec, verbose, dipole_ints)
 
         # perform base calc
         if base is not None:
@@ -392,8 +397,8 @@ def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
                                     occup, target_mbe, fci_state_sym, \
                                     point_group, orbsym, hf_guess, \
                                     fci_state_root, hf_prop, e_core, h1e_cas, \
-                                    h2e_cas, core_idx, cas_idx, n_elec, debug, \
-                                    dipole_ints)
+                                    h2e_cas, core_idx, cas_idx, n_elec, \
+                                    verbose, dipole_ints)
 
         return res_full - ref_prop, n_elec
 

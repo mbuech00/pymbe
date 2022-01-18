@@ -14,7 +14,6 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
-import os
 import numpy as np
 from datetime import datetime
 from pyscf import symm
@@ -29,9 +28,6 @@ if TYPE_CHECKING:
     from pymbe.parallel import MPICls
 
 
-# output folder and files
-OUT = os.getcwd()+'/output'
-OUT_FILE = OUT+'/pymbe.output'
 # output parameters
 HEADER = '{0:^87}'.format('-'*45)
 DIVIDER = ' '+'-'*92

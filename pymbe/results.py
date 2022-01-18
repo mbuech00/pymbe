@@ -36,7 +36,7 @@ if PLT_FOUND:
         pass
         SNS_FOUND = False
 
-from pymbe.output import OUT, main_header
+from pymbe.output import main_header
 from pymbe.tools import intervals, time_str, nelec
 
 if TYPE_CHECKING:
@@ -47,63 +47,78 @@ if TYPE_CHECKING:
     from pymbe.expansion import ExpCls
 
 
-# results file
-RES_FILE = OUT+'/pyexp.results'
 # results parameters
 DIVIDER = '{:^143}'.format('-'*137)
 FILL = '{:^143}'.format('|'*137)
 
 
-def main(mol: gto.Mole, mpi: MPICls, exp: ExpCls) -> None:
+def print_results(mol: Optional[gto.Mole], mpi: MPICls, exp: ExpCls) -> str:
         """
-        this function handles all printing and plotting of results
+        this function handles printing of results
         """
         # print header
-        print(main_header())
+        string = main_header()+'\n'
 
         # print atom info
         if mol and mol.atom:
-            print(_atom(mol))
+            string += _atom(mol)+'\n'
 
         # print summary
-        print(_summary_prt(mpi, exp))
+        string += _summary_prt(mpi, exp)+'\n'
 
         # print timings
-        print(_timings_prt(exp, exp.method))
+        string += _timings_prt(exp, exp.method)+'\n'
 
         # print and plot results
         if exp.target == 'energy' :
-            print(_energy_prt(exp.method, exp.fci_state_root, exp.prop['energy']['tot'], \
-                              exp.hf_prop, exp.base_prop, exp.ref_prop, exp.min_order, \
-                              exp.final_order))
-            if PLT_FOUND:
-                _energies_plot(exp.fci_state_root, exp.prop['energy']['tot'], \
-                               exp.hf_prop, exp.base_prop, exp.ref_prop, exp.min_order, \
-                               exp.final_order)
+            string += _energy_prt(exp.method, exp.fci_state_root, \
+                                  exp.prop['energy']['tot'], exp.hf_prop, \
+                                  exp.base_prop, exp.ref_prop, exp.min_order, \
+                                  exp.final_order)
         if exp.target == 'excitation':
-            print(_excitation_prt(exp.fci_state_root, exp.prop['excitation']['tot'], \
-                                  exp.ref_prop, exp.min_order, exp.final_order))
-            if PLT_FOUND:
-                _excitation_plot(exp.fci_state_root, exp.prop['excitation']['tot'], \
-                                 exp.ref_prop, exp.min_order, exp.final_order)
+            string += _excitation_prt(exp.fci_state_root, \
+                                      exp.prop['excitation']['tot'], \
+                                      exp.ref_prop, exp.min_order, \
+                                      exp.final_order)
         if exp.target == 'dipole' :
-            print(_dipole_prt(exp.fci_state_root, exp.nuc_dipole, exp.prop['dipole']['tot'], \
-                              exp.hf_prop, exp.base_prop, exp.ref_prop, exp.min_order, \
-                              exp.final_order))
-            if PLT_FOUND:
-                _dipole_plot(exp.fci_state_root, exp.nuc_dipole, exp.prop['dipole']['tot'], \
-                             exp.hf_prop, exp.base_prop, exp.ref_prop, exp.min_order, \
-                             exp.final_order)
+            string += _dipole_prt(exp.fci_state_root, exp.nuc_dipole, \
+                                 exp.prop['dipole']['tot'], exp.hf_prop, \
+                                 exp.base_prop, exp.ref_prop, exp.min_order, \
+                                 exp.final_order)
         if exp.target == 'trans':
-            print(_trans_prt(exp.fci_state_root, exp.prop['trans']['tot'], \
-                             exp.ref_prop, exp.min_order, exp.final_order))
-            if PLT_FOUND:
-                _trans_plot(exp.fci_state_root, exp.prop['trans']['tot'], \
-                            exp.ref_prop, exp.min_order, exp.final_order)
+            string += _trans_prt(exp.fci_state_root, exp.prop['trans']['tot'], \
+                                 exp.ref_prop, exp.min_order, exp.final_order)
 
-        # close all open windows
-        if PLT_FOUND:
-            plt.close('all')
+        return string
+
+
+def plot_results(exp: ExpCls) -> matplotlib.figure.Figure:
+        """
+        this function handles plotting of results
+        """
+        # check if matplotlib is available
+        if not PLT_FOUND:
+            raise ModuleNotFoundError('No module named matplotlib')
+
+        # print and plot results
+        if exp.target == 'energy':
+            fig = _energy_plot(exp.fci_state_root, exp.prop['energy']['tot'], \
+                         exp.hf_prop, exp.base_prop, exp.ref_prop, \
+                         exp.min_order, exp.final_order)
+        if exp.target == 'excitation':
+            fig = _excitation_plot(exp.fci_state_root, \
+                             exp.prop['excitation']['tot'], exp.ref_prop, \
+                             exp.min_order, exp.final_order)
+        if exp.target == 'dipole':
+            fig = _dipole_plot(exp.fci_state_root, exp.nuc_dipole, \
+                         exp.prop['dipole']['tot'], exp.hf_prop, \
+                         exp.base_prop, exp.ref_prop, exp.min_order, \
+                         exp.final_order)
+        if exp.target == 'trans':
+            fig = _trans_plot(exp.fci_state_root, exp.prop['trans']['tot'], \
+                        exp.ref_prop, exp.min_order, exp.final_order)
+
+        return fig
 
 
 def _atom(mol: gto.Mole) -> str:
@@ -473,9 +488,9 @@ def _energy_prt(method: str, root: int, corr_energy: List[float], \
         return string.format(*form)
 
 
-def _energies_plot(root: int, corr_energy: List[float], hf_energy: float, \
-                   base_energy: float, ref_energy: float, min_order: int, \
-                   final_order: int) -> None:
+def _energy_plot(root: int, corr_energy: List[float], hf_energy: float, \
+                 base_energy: float, ref_energy: float, min_order: int, \
+                 final_order: int) -> matplotlib.figure.Figure:
         """
         this function plots the energies
         """
@@ -513,9 +528,7 @@ def _energies_plot(root: int, corr_energy: List[float], hf_energy: float, \
         # set legend
         ax.legend(loc=1, frameon=False)
 
-        # save plot
-        plt.savefig(OUT+'/energy_state_{:}.pdf'. \
-                    format(root), bbox_inches = 'tight', dpi=1000)
+        return fig
 
 
 def _excitation_prt(root: int, corr_exc: List[float], ref_exc: float, \
@@ -549,7 +562,8 @@ def _excitation_prt(root: int, corr_exc: List[float], ref_exc: float, \
 
 
 def _excitation_plot(root: int, corr_exc: List[float], ref_exc: float, \
-                     min_order: int, final_order: int) -> None:
+                     min_order: int, \
+                     final_order: int) -> matplotlib.figure.Figure:
         """
         this function plots the excitation energies
         """
@@ -586,9 +600,7 @@ def _excitation_plot(root: int, corr_exc: List[float], ref_exc: float, \
         # set legend
         ax.legend(loc=1, frameon=False)
 
-        # save plot
-        plt.savefig(OUT+'/excitation_states_{:}_{:}.pdf'. \
-                    format(0, root), bbox_inches = 'tight', dpi=1000)
+        return fig
 
 
 def _dipole_prt(root: int, nuc_dipole: np.ndarray, \
@@ -637,7 +649,7 @@ def _dipole_prt(root: int, nuc_dipole: np.ndarray, \
 def _dipole_plot(root: int, nuc_dipole: np.ndarray, \
                  corr_dipole: List[np.ndarray], hf_dipole: np.ndarray, \
                  base_dipole: np.ndarray, ref_dipole: np.ndarray, \
-                 min_order: int, final_order: int) -> None:
+                 min_order: int, final_order: int) -> matplotlib.figure.Figure:
         """
         this function plots the dipole moments
         """
@@ -681,9 +693,7 @@ def _dipole_plot(root: int, nuc_dipole: np.ndarray, \
         # set legend
         ax.legend(loc=1, frameon=False)
 
-        # save plot
-        plt.savefig(OUT+'/dipole_state_{:}.pdf'. \
-                    format(root), bbox_inches = 'tight', dpi=1000)
+        return fig
 
 
 def _trans_prt(root: int, corr_trans: List[np.ndarray], ref_trans: np.ndarray, \
@@ -728,7 +738,7 @@ def _trans_prt(root: int, corr_trans: List[np.ndarray], ref_trans: np.ndarray, \
 
 def _trans_plot(root: int, corr_trans: List[np.ndarray], \
                 ref_trans: np.ndarray, min_order: int, \
-                final_order: int) -> None:
+                final_order: int) -> matplotlib.figure.Figure:
         """
         this function plots the transition dipole moments
         """
@@ -771,6 +781,4 @@ def _trans_plot(root: int, corr_trans: List[np.ndarray], \
         # set legend
         ax.legend(loc=1, frameon=False)
 
-        # save plot
-        plt.savefig(OUT+'/trans_dipole_states_{:}_{:}.pdf'. \
-                    format(0, root), bbox_inches = 'tight', dpi=1000)
+        return fig

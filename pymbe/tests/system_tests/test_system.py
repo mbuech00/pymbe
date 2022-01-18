@@ -86,17 +86,6 @@ examples = [
 ]
 
 
-@pytest.fixture(autouse=True)
-def delete_output() -> Generator[None, None, None]:
-        """
-        this fixture deletes possible leftover restart files and deletes the
-        output files created by all system tests
-        """
-        shutil.rmtree(os.getcwd()+'/rst', ignore_errors=True)
-        yield
-        shutil.rmtree(os.getcwd()+'/output', ignore_errors=True)
-
-
 @pytest.mark.parametrize(argnames='example, ref', \
                          argvalues=examples, \
                          ids=['-'.join([string for string in example[0] if string]) for example in examples])

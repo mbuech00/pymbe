@@ -17,6 +17,7 @@ __status__ = 'Development'
 import os
 import re
 import sys
+import logging
 import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
@@ -28,59 +29,46 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     
-    from typing import Tuple, List, Generator, Union, Optional, TextIO, TypeVar
+    from typing import Tuple, List, Generator, Union, Optional, TypeVar
 
     T = TypeVar('T')
     
 
+# get logger
+logger = logging.getLogger('pymbe_logger')
+
 # restart folder
 RST = os.getcwd()+'/rst'
+
 # pi-orbitals
 PI_SYMM_D2H = np.array([2, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27])
 PI_SYMM_C2V = np.array([2, 3, 10, 11, 12, 13, 20, 21, 22, 23])
 
 
-class Logger:
+def logger_config(verbose: int) -> None:
         """
-        this class pipes all write statements to both stdout and output_file
+        this function configures the pymbe logger
         """
-        def __init__(self, output_file: str, both: bool = True) -> None:
-            """
-            init Logger
-            """
-            self.terminal = sys.stdout
-            self.log = open(output_file, 'a')
-            self.both = both
+        # corresponding logging level
+        verbose_level = {0: 40, 1: 20, 2: 10, 3: 10}
 
-        def write(self, message: str) -> None:
-            """
-            define write
-            """
-            self.log.write(message)
-            if self.both:
-                self.terminal.write(message)
+        # set level for logger
+        logger.setLevel(verbose_level[verbose])
 
-        def flush(self) -> None:
-            """
-            define flush
-            """
-            pass
+        # add new handler to log to stdout
+        handler = logging.StreamHandler(sys.stdout)
 
-        def change(self, output_file: Optional[str] = None, \
-                   both: Optional[bool] = None) -> None:
-            """
-            change Logger
-            """
-            if output_file is not None:
-                self.log = open(output_file, 'a')
-            if both is not None:
-                self.both = both
+        # create new formatter
+        formatter = logging.Formatter('%(message)s')
 
-        def reset(self) -> TextIO:
-            """
-            reset Logger
-            """
-            return self.terminal
+        # add formatter to handler
+        handler.setFormatter(formatter)
+
+        # add handler to logger
+        logger.addHandler(handler)
+
+        # prevent logger from propagating handlers from parent loggers
+        logger.propagate = False
 
 
 def git_version() -> str:
@@ -125,8 +113,8 @@ def assertion(cond: bool, reason: str) -> None:
             # get stack
             stack = ''.join(format_stack()[:-1])
             # print stack
-            print('\n\n'+stack)
-            print('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
+            logger.error('\n\n'+stack)
+            logger.error('\n\n*** PyMBE assertion error: '+reason+' ***\n\n')
             # abort mpi
             MPI.COMM_WORLD.Abort()
 

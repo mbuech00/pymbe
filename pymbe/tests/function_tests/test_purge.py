@@ -25,7 +25,7 @@ from pymbe.parallel import MPICls
 
 if TYPE_CHECKING:
 
-    from pymbe.tests.function_tests.conftest import ExpCls
+    from pymbe.tests.conftest import ExpCls
 
 
 def test_main(exp: ExpCls) -> None:

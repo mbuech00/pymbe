@@ -14,6 +14,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
+import logging
 import numpy as np
 from typing import TYPE_CHECKING
 
@@ -30,37 +31,41 @@ if TYPE_CHECKING:
     from pymbe.expansion import ExpCls
 
 
+# get logger
+logger = logging.getLogger('pymbe_logger')
+
+
 def master(mpi: MPICls, exp: ExpCls) -> None:
         """
         this function is the main pymbe master function
         """
         # print expansion headers
-        print(main_header(mpi=mpi, method=exp.method))
+        logger.info(main_header(mpi=mpi, method=exp.method))
 
         # print output from restarted calculation
         if exp.restarted:
             for i in range(exp.min_order, exp.start_order):
 
                 # print mbe header
-                print(mbe_header(i, exp.n_tuples['calc'][i-exp.min_order], \
-                                 1. if i < exp.screen_start else exp.screen_perc))
+                logger.info(mbe_header(i, exp.n_tuples['calc'][i-exp.min_order], \
+                                       1. if i < exp.screen_start else exp.screen_perc))
 
                 # print mbe end
-                print(mbe_end(i, exp.time['mbe'][i-exp.min_order]))
+                logger.info(mbe_end(i, exp.time['mbe'][i-exp.min_order]))
 
                 # print mbe results
-                print(mbe_results(exp.target, exp.fci_state_root, \
-                                  exp.min_order, i, \
-                                  exp.prop[exp.target]['tot'], \
-                                  exp.mean_inc[i-exp.min_order], \
-                                  exp.min_inc[i-exp.min_order], \
-                                  exp.max_inc[i-exp.min_order]))
+                logger.info(mbe_results(exp.target, exp.fci_state_root, \
+                                        exp.min_order, i, \
+                                        exp.prop[exp.target]['tot'], \
+                                        exp.mean_inc[i-exp.min_order], \
+                                        exp.min_inc[i-exp.min_order], \
+                                        exp.max_inc[i-exp.min_order]))
 
                 # print screening results
                 exp.screen_orbs = np.setdiff1d(exp.exp_space[i-exp.min_order], \
                                                exp.exp_space[i-exp.min_order+1])
                 if 0 < exp.screen_orbs.size:
-                    print(screen_results(i, exp.screen_orbs, exp.exp_space))
+                    logger.info(screen_results(i, exp.screen_orbs, exp.exp_space))
 
         # begin or resume mbe expansion depending
         for exp.order in range(exp.start_order, exp.max_order+1):
@@ -82,8 +87,8 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
                     write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
 
             # print mbe header
-            print(mbe_header(exp.order, exp.n_tuples['calc'][-1], \
-                             1. if exp.order < exp.screen_start else exp.screen_perc))
+            logger.info(mbe_header(exp.order, exp.n_tuples['calc'][-1], \
+                                   1. if exp.order < exp.screen_start else exp.screen_perc))
 
             # main mbe function
             hashes_win, inc_win, tot, mean_inc, min_inc, max_inc = mbe_main(mpi, exp)
@@ -116,13 +121,14 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
                 exp.max_inc.append(max_inc)
 
             # print mbe end
-            print(mbe_end(exp.order, exp.time['mbe'][-1]))
+            logger.info(mbe_end(exp.order, exp.time['mbe'][-1]))
 
             # print mbe results
-            print(mbe_results(exp.target, exp.fci_state_root, exp.min_order, \
-                              exp.order, exp.prop[exp.target]['tot'], \
-                              exp.mean_inc[-1], exp.min_inc[-1], \
-                              exp.max_inc[-1]))
+            logger.info(mbe_results(exp.target, exp.fci_state_root, \
+                                    exp.min_order, exp.order, \
+                                    exp.prop[exp.target]['tot'], \
+                                    exp.mean_inc[-1], exp.min_inc[-1], \
+                                    exp.max_inc[-1]))
 
             # update screen_orbs
             if exp.order == exp.min_order:
@@ -133,20 +139,22 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
 
             # print screening results
             if 0 < exp.screen_orbs.size:
-                print(screen_results(exp.order, exp.screen_orbs, exp.exp_space))
+                logger.info(screen_results(exp.order, exp.screen_orbs, \
+                                           exp.exp_space))
 
             # print header
-            print(purge_header(exp.order))
+            logger.info(purge_header(exp.order))
 
             # main purging function
             exp.prop[exp.target], exp.n_tuples = purge_main(mpi, exp)
 
             # print purging results
             if exp.order + 1 <= exp.exp_space[-1].size:
-                print(purge_results(exp.n_tuples, exp.min_order, exp.order))
+                logger.info(purge_results(exp.n_tuples, exp.min_order, \
+                                          exp.order))
 
             # print purge end
-            print(purge_end(exp.order, exp.time['purge'][-1]))
+            logger.info(purge_end(exp.order, exp.time['purge'][-1]))
 
             # write restart files
             if exp.rst:
@@ -193,7 +201,7 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
 
                 # final results
                 exp.prop[exp.target]['tot'] = np.asarray(exp.prop[exp.target]['tot'])
-                print('\n\n')
+                logger.info('\n\n')
 
                 break
 

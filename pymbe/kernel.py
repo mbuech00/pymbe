@@ -63,7 +63,7 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, \
          point_group: str, orbsym: np.ndarray, hf_guess: bool, \
          state_root: int, hf_prop: Union[float, np.ndarray], e_core: float, \
          h1e: np.ndarray, h2e: np.ndarray, core_idx: np.ndarray, \
-         cas_idx: np.ndarray, n_elec: Tuple[int, int], debug: int, \
+         cas_idx: np.ndarray, n_elec: Tuple[int, int], verbose: int, \
          dipole_ints: Optional[np.ndarray], \
          higher_amp_extrap: bool = False) -> Union[float, np.ndarray]:
         """
@@ -73,13 +73,13 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, \
 
             res_tmp = _cc(spin, occup, core_idx, cas_idx, method, cc_backend, \
                           n_elec, orb_type, point_group, orbsym, h1e, h2e, \
-                          higher_amp_extrap, target_mbe == 'dipole', debug)
+                          higher_amp_extrap, target_mbe == 'dipole', verbose)
 
         elif method == 'fci':
 
             res_tmp = _fci(solver, spin, target_mbe, state_wfnsym, orbsym, \
                            hf_guess, state_root, hf_prop, e_core, h1e, h2e, \
-                           occup, cas_idx, n_elec, debug)
+                           occup, cas_idx, n_elec, verbose)
 
         if target_mbe in ['energy', 'excitation']:
 
@@ -138,7 +138,7 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: int, \
          orbsym: np.ndarray, hf_guess: bool, root: int, \
          hf_prop: Union[float, np.ndarray], e_core: float, h1e: np.ndarray, \
          h2e: np.ndarray, occup: np.ndarray, cas_idx: np.ndarray, \
-         n_elec: Tuple[int, int], debug: int) -> Dict[str, Any]:
+         n_elec: Tuple[int, int], verbose: int) -> Dict[str, Any]:
         """
         this function returns the results of a fci calculation
         """
@@ -162,7 +162,7 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: int, \
         solver.max_space = 25
         solver.davidson_only = True
         solver.pspace_size = 0
-        if debug >= 3:
+        if verbose >= 3:
             solver.verbose = 10
         solver.wfnsym = wfnsym
         solver.orbsym = orbsym[cas_idx]
@@ -253,7 +253,7 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, \
         cas_idx: np.ndarray, method: str, cc_backend: str, \
         n_elec: Tuple[int, int], orb_type: str, point_group: str, \
         orbsym: np.ndarray, h1e: np.ndarray, h2e: np.ndarray, \
-        higher_amp_extrap: bool, rdm1: bool, debug: int) -> Dict[str, Any]:
+        higher_amp_extrap: bool, rdm1: bool, verbose: int) -> Dict[str, Any]:
         """
         this function returns the results of a ccsd / ccsd(t) calculation
         """
@@ -316,8 +316,10 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, \
         elif (cc_backend in ['ecc', 'ncc']):
 
             # calculate cc energy
-            cc_energy, success = mbecc_interface(method, cc_backend, orb_type, point_group, orbsym[cas_idx], h1e, h2e, \
-                                                 n_elec, higher_amp_extrap, debug)
+            cc_energy, success = mbecc_interface(method, cc_backend, orb_type, \
+                                                 point_group, orbsym[cas_idx], \
+                                                 h1e, h2e, n_elec, \
+                                                 higher_amp_extrap, verbose)
 
             # convergence check
             assertion(success == 1, \

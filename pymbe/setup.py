@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
 from pymbe.expansion import ExpCls
-from pymbe.tools import RST, assertion, assume_int
+from pymbe.tools import RST, logger_config, assertion, assume_int
 
 if TYPE_CHECKING:
 
@@ -37,6 +37,9 @@ def main(mbe: MBE) -> MBE:
 
         # input handling
         if mbe.mpi.global_master:
+
+            # configure logger on global master
+            logger_config(mbe.verbose)
 
             # check for restart folder
             if not os.path.isdir(RST):
@@ -147,6 +150,10 @@ def main(mbe: MBE) -> MBE:
         # write system quantities
         if not mbe.restarted and mbe.mpi.global_master and mbe.rst:
             restart_write_system(mbe)
+
+        # configure logging on slaves
+        if not mbe.mpi.global_master:
+            logger_config(mbe.verbose)
 
         # exp object
         mbe.exp = ExpCls(mbe)
@@ -323,9 +330,9 @@ def sanity_check(mbe: MBE) -> None:
         assertion(isinstance(mbe.rst_freq, int) and mbe.rst_freq >= 1, \
                         'restart frequency (rst_freq keyword argument) must be an int >= 1')
 
-        # debug
-        assertion(isinstance(mbe.debug, int) and mbe.debug >= 0, \
-                        'debug option (debug keyword argument) must be an int >= 0')
+        # verbose
+        assertion(isinstance(mbe.verbose, int) and mbe.verbose >= 0, \
+                        'verbose option (verbose keyword argument) must be an int >= 0')
         
         # pi pruning
         assertion(isinstance(mbe.pi_prune, bool), \
@@ -349,7 +356,7 @@ def restart_write_kw(mbe: MBE) -> None:
                     'orb_type': mbe.orb_type, 'base_method': mbe.base_method, \
                     'screen_start': mbe.screen_start, 'screen_perc': mbe.screen_perc, \
                     'max_order': mbe.max_order, 'rst': mbe.rst, \
-                    'rst_freq': mbe.rst_freq, 'debug': mbe.debug, \
+                    'rst_freq': mbe.rst_freq, 'verbose': mbe.verbose, \
                     'pi_prune': mbe.pi_prune}
 
         # write keywords

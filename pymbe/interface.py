@@ -39,7 +39,7 @@ CONV_TOL = 10
 def mbecc_interface(method: str, cc_backend: str, orb_type: str, \
                     point_group: str, orbsym: np.ndarray, h1e: np.ndarray, \
                     h2e: np.ndarray, n_elec: Tuple[int, int], \
-                    higher_amp_extrap: bool, debug: int) -> Tuple[float, int]:
+                    higher_amp_extrap: bool, verbose: int) -> Tuple[float, int]:
         """
         this function returns the results of a cc calculation using the mbecc
         interface
@@ -70,7 +70,7 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, \
         max_cycle = ctypes.c_int64(500)
         t3_extrapol = ctypes.c_int64(1 if higher_amp_extrap else 0)
         t4_extrapol = ctypes.c_int64(1 if higher_amp_extrap else 0)
-        verbose = ctypes.c_int64(1 if debug >= 3 else 0)
+        verbose_val = ctypes.c_int64(1 if verbose >= 3 else 0)
 
         n_act = orbsym.size
         h2e = ao2mo.restore(1, h2e, n_act)
@@ -90,14 +90,14 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, \
                            h1e.ctypes.data_as(ctypes.c_void_p), \
                            h2e.ctypes.data_as(ctypes.c_void_p), ctypes.byref(conv), \
                            ctypes.byref(max_cycle), ctypes.byref(t3_extrapol), \
-                           ctypes.byref(t4_extrapol), ctypes.byref(verbose), \
+                           ctypes.byref(t4_extrapol), ctypes.byref(verbose_val), \
                            ctypes.byref(cc_energy), ctypes.byref(success))
 
         # convergence check
         if success.value != 1:
 
             # redo calculation in debug mode if not converged
-            verbose = ctypes.c_int64(1)
+            verbose_val = ctypes.c_int64(1)
 
             cclib.cc_interface(ctypes.byref(method_val), ctypes.byref(cc_module_val), \
                                ctypes.byref(non_canonical), ctypes.byref(maxcor), \
@@ -107,7 +107,7 @@ def mbecc_interface(method: str, cc_backend: str, orb_type: str, \
                                h1e.ctypes.data_as(ctypes.c_void_p), \
                                h2e.ctypes.data_as(ctypes.c_void_p), ctypes.byref(conv), \
                                ctypes.byref(max_cycle), ctypes.byref(t3_extrapol), \
-                               ctypes.byref(t4_extrapol), ctypes.byref(verbose), \
+                               ctypes.byref(t4_extrapol), ctypes.byref(verbose_val), \
                                ctypes.byref(cc_energy), ctypes.byref(success))
 
         return cc_energy.value, success.value

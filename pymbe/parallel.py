@@ -14,11 +14,7 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
-import sys
-try:
-    from mpi4py import MPI
-except ImportError:
-    sys.stderr.write('\nImportError : mpi4py module not found\n\n')
+from mpi4py import MPI
 import numpy as np
 from pyscf import lib
 from typing import TYPE_CHECKING
@@ -88,7 +84,7 @@ def kw_dist(mbe: MBE) -> MBE:
                         'screen_start': mbe.screen_start, 'screen_perc': mbe.screen_perc, \
                         'max_order': mbe.max_order, 'rst': mbe.rst, \
                         'rst_freq': mbe.rst_freq, 'restarted': mbe.restarted, \
-                        'debug': mbe.debug, 'pi_prune': mbe.pi_prune}
+                        'verbose': mbe.verbose, 'pi_prune': mbe.pi_prune}
 
             # bcast to slaves
             mbe.mpi.global_comm.bcast(keywords, root=0)

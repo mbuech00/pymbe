@@ -144,8 +144,8 @@ class ExpCls:
 
                 self.final_order: int = 0
 
-                # debug
-                self.debug: int = mbe.debug
+                # verbose
+                self.verbose: int = mbe.verbose
                 
                 # pi pruning
                 self.pi_prune: bool = mbe.pi_prune

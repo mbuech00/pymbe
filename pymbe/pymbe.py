@@ -14,30 +14,21 @@ __maintainer__ = 'Dr. Janus Juul Eriksen'
 __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
-import sys
-import os
-import os.path
 import shutil
 from dataclasses import dataclass, field
-try:
-    from pyscf import gto
-except ImportError:
-    sys.stderr.write('\nImportError : pyscf module not found\n\n')
-try:
-    import numpy as np
-except ImportError:
-    sys.stderr.write('\nImportError : numpy module not found\n\n')
+from pyscf import gto
+import numpy as np
 from typing import TYPE_CHECKING
 
 from pymbe.setup import settings, main as setup_main
 from pymbe.driver import master as driver_master, slave as driver_slave
-from pymbe.tools import Logger, RST
-from pymbe.output import OUT, OUT_FILE
-from pymbe.results import RES_FILE, main as results_main
+from pymbe.tools import RST
+from pymbe.results import print_results, plot_results
 
 if TYPE_CHECKING:
 
     from typing import Union, Optional
+    from matplotlib import figure
     
     from pymbe.parallel import MPICls
     from pymbe.expansion import ExpCls
@@ -99,8 +90,8 @@ class MBE():
         rst_freq: int = int(1e6)
         restarted: bool = field(init=False)
 
-        # debug
-        debug: int = 0
+        # verbose
+        verbose: int = 0
 
         # pi-pruning
         pi_prune: bool = False
@@ -114,7 +105,7 @@ class MBE():
 
         def kernel(self) -> None:
                 """
-                main pymbe kernel
+                this function is the main pymbe kernel
                 """
                 # general settings
                 settings()
@@ -124,27 +115,8 @@ class MBE():
 
                 if self.mpi.global_master:
 
-                    # rm out dir if present
-                    if os.path.isdir(OUT):
-                        shutil.rmtree(OUT, ignore_errors=True)
-
-                    # make out dir
-                    os.mkdir(OUT)
-
-                    # init logger
-                    sys.stdout = Logger(OUT_FILE) # type: ignore
-
                     # main master driver
                     driver_master(self.mpi, self.exp)
-
-                    # change logger
-                    sys.stdout.change(output_file=RES_FILE, both=False) # type: ignore
-
-                    # print/plot results
-                    results_main(self.mol, self.mpi, self.exp)
-
-                    # reset logger
-                    sys.stdout = sys.stdout.reset() # type: ignore
 
                     # delete restart file
                     if self.rst:
@@ -154,3 +126,21 @@ class MBE():
 
                     # main slave driver
                     driver_slave(self.mpi, self.exp)
+
+
+        def results(self) -> str:
+                """
+                this function returns pymbe results as a string
+                """
+                output_str = print_results(self.mol, self.mpi, self.exp)
+
+                return output_str
+
+
+        def plot(self) -> figure.Figure:
+                """
+                this function plots pymbe results
+                """
+                fig = plot_results(self.exp)
+
+                return fig
