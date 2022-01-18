@@ -48,52 +48,53 @@ Once these requirements are satisfied, PyMBE can be started by importing the
 MBE class and creating a MBE object while passing input data and keywords as 
 keyword arguments. Possible keyword arguments are:
 
-* method: electronic structure method (fci, ccsdtq, ccsdt, ccsd(t), ccsd)
-* fci_solver: fci solver (pyscf_spin0 and pyscf_spin1)
-* cc_backend: coupled-cluster backend (pyscf, ecc, ncc)
-* hf_guess: hartree-fock initial guess
-
-* target: expansion target property (energy, dipole, excitation, trans)
-
-* mol: [pyscf](https://pyscf.github.io/) gto.Mole object
-* nuc_energy: nuclear energy
-* nuc_dipole: nuclear dipole moment
-* ncore: number of core orbitals
-* nocc: number of occupied orbitals
-* norb: number of orbitals
-* spin: spin
-* point_group: point group
-* orbsym: orbital symmetry
-* fci_state_sym: state wavefunction symmetry
-* fci_state_root: target state
-
-* hf_prop: hartree-fock property
-* occup: orbital occupation
-
-* orb_type: orbital representation
-
-* hcore: core hamiltonian integrals
-* vhf: hartree-fock potential
-* eri: electron repulsion integrals
-* dipole_ints: dipole integrals
-
-* ref_space: reference space
-* ref_prop: reference space property
-
-* base_method: base model electronic structure method (ccsdtq, ccsdt, ccsd(t), ccsd)
-* base_prop: base model property
-
-* screen_start: screening start order
-* screen_perc: screening threshold
-* max_order: maximum expansion order
-
-* rst: restart logical
-* rst_freq: restart frequency
-
-* verbose: verbose option (0: only error output, 1: standard output, 2: MBE debug output, 3: backend debug output)
-
-* pi_prune: pruning of pi-orbitals
-* orbsym_linear: linear point group orbital symmetry
+* **expansion model**
+    * method: electronic structure method (fci, ccsdtq, ccsdt, ccsd(t), ccsd)
+    * fci_solver: fci solver (pyscf_spin0 and pyscf_spin1)
+    * cc_backend: coupled-cluster backend (pyscf, ecc, ncc)
+    * hf_guess: hartree-fock initial guess
+- **target property**
+    - target: expansion target property (energy, dipole, excitation, trans)
+* **system**
+    * mol: [pyscf](https://pyscf.github.io/) gto.Mole object
+    * nuc_energy: nuclear energy
+    * nuc_dipole: nuclear dipole moment
+    * ncore: number of core orbitals
+    * nocc: number of occupied orbitals
+    * norb: number of orbitals
+    * spin: spin
+    * point_group: point group
+    * orbsym: orbital symmetry
+    * fci_state_sym: state wavefunction symmetry
+    * fci_state_root: target state
+- **hf calculation**
+    - hf_prop: hartree-fock property
+    - occup: orbital occupation
+* **orbital representation**
+    * orb_type: orbital representation
+- **integrals**
+    - hcore: core hamiltonian integrals
+    - vhf: hartree-fock potential
+    - eri: electron repulsion integrals
+    - dipole_ints: dipole integrals
+* **reference space**
+    * ref_space: reference space
+    * ref_prop: reference space property
+- **base model**
+    - base_method: base model electronic structure method (ccsdtq, ccsdt, ccsd(t), ccsd)
+    - base_prop: base model property
+* **screening**
+    * screen_start: screening start order
+    * screen_perc: screening threshold
+    * max_order: maximum expansion order
+- **restart**
+    - rst: restart logical
+    - rst_freq: restart frequency
+* **verbose**
+    * verbose: verbose option (0: only error output, 1: standard output, 2: MBE debug output, 3: backend debug output)
+- **pi-pruning**
+    - pi_prune: pruning of pi-orbitals
+    - orbsym_linear: linear point group orbital symmetry
 
 Many of these arguments have default values set or are optional depending on 
 the calculation type. See the [examples](examples/) section for a range of 
