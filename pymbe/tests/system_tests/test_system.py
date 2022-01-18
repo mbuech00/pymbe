@@ -15,15 +15,13 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import pytest
-import os
-import shutil
 import importlib
 import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
 
-    from typing import List, Union, Generator
+    from typing import List, Union
 
 examples = [
     (['h2o', 'ccsd', 'energy', 'can', 'vac', ''], -76.125789),
@@ -99,22 +97,6 @@ def test_system(example: List[str], ref: Union[float, np.ndarray]) -> None:
 
         example_module = importlib.import_module(string)
 
-        mbe = example_module.mbe_example()
+        prop = example_module.mbe_example()
 
-        if example[2] == 'energy':
-
-            tot_prop = (mbe.hf_prop + mbe.base_prop + mbe.ref_prop + mbe.exp.prop['energy']['tot'][-1]).item()
-
-        elif example[2] == 'dipole':
-
-            tot_prop = mbe.nuc_dipole - (mbe.hf_prop + mbe.base_prop + mbe.ref_prop + mbe.exp.prop['dipole']['tot'][-1])
-
-        elif example[2] == 'excitation':
-
-            tot_prop = (mbe.ref_prop + mbe.exp.prop['excitation']['tot'][-1]).item()
-
-        elif example[2] == 'trans':
-
-            tot_prop = mbe.ref_prop + mbe.exp.prop['trans']['tot'][-1]
-
-        assert tot_prop == pytest.approx(ref)
+        assert prop == pytest.approx(ref)

@@ -52,6 +52,26 @@ DIVIDER = '{:^143}'.format('-'*137)
 FILL = '{:^143}'.format('|'*137)
 
 
+def tot_prop(exp: ExpCls) -> Union[float, np.ndarray]:
+        """
+        this function returns the total property
+        """
+        if exp.target == 'energy':
+            prop = _energy(exp.prop['energy']['tot'], exp.hf_prop, \
+                           exp.base_prop, exp.ref_prop)[-1].item()
+        elif exp.target == 'excitation':
+            prop = _excitation(exp.prop['excitation']['tot'], \
+                               exp.ref_prop)[-1].item()
+        elif exp.target == 'dipole':
+            prop = exp.nuc_dipole - _dipole(exp.prop['dipole']['tot'], \
+                                            exp.hf_prop, exp.base_prop, \
+                                            exp.ref_prop)[-1, :]
+        elif exp.target == 'trans':
+            prop = _trans(exp.prop['trans']['tot'], exp.ref_prop)[-1, :]
+
+        return prop
+
+
 def print_results(mol: Optional[gto.Mole], mpi: MPICls, exp: ExpCls) -> str:
         """
         this function handles printing of results
@@ -70,22 +90,22 @@ def print_results(mol: Optional[gto.Mole], mpi: MPICls, exp: ExpCls) -> str:
         string += _timings_prt(exp, exp.method)+'\n'
 
         # print and plot results
-        if exp.target == 'energy' :
+        if exp.target == 'energy':
             string += _energy_prt(exp.method, exp.fci_state_root, \
                                   exp.prop['energy']['tot'], exp.hf_prop, \
                                   exp.base_prop, exp.ref_prop, exp.min_order, \
                                   exp.final_order)
-        if exp.target == 'excitation':
+        elif exp.target == 'excitation':
             string += _excitation_prt(exp.fci_state_root, \
                                       exp.prop['excitation']['tot'], \
                                       exp.ref_prop, exp.min_order, \
                                       exp.final_order)
-        if exp.target == 'dipole' :
+        elif exp.target == 'dipole':
             string += _dipole_prt(exp.fci_state_root, exp.nuc_dipole, \
                                  exp.prop['dipole']['tot'], exp.hf_prop, \
                                  exp.base_prop, exp.ref_prop, exp.min_order, \
                                  exp.final_order)
-        if exp.target == 'trans':
+        elif exp.target == 'trans':
             string += _trans_prt(exp.fci_state_root, exp.prop['trans']['tot'], \
                                  exp.ref_prop, exp.min_order, exp.final_order)
 
@@ -105,16 +125,16 @@ def plot_results(exp: ExpCls) -> matplotlib.figure.Figure:
             fig = _energy_plot(exp.fci_state_root, exp.prop['energy']['tot'], \
                          exp.hf_prop, exp.base_prop, exp.ref_prop, \
                          exp.min_order, exp.final_order)
-        if exp.target == 'excitation':
+        elif exp.target == 'excitation':
             fig = _excitation_plot(exp.fci_state_root, \
                              exp.prop['excitation']['tot'], exp.ref_prop, \
                              exp.min_order, exp.final_order)
-        if exp.target == 'dipole':
+        elif exp.target == 'dipole':
             fig = _dipole_plot(exp.fci_state_root, exp.nuc_dipole, \
                          exp.prop['dipole']['tot'], exp.hf_prop, \
                          exp.base_prop, exp.ref_prop, exp.min_order, \
                          exp.final_order)
-        if exp.target == 'trans':
+        elif exp.target == 'trans':
             fig = _trans_plot(exp.fci_state_root, exp.prop['trans']['tot'], \
                         exp.ref_prop, exp.min_order, exp.final_order)
 

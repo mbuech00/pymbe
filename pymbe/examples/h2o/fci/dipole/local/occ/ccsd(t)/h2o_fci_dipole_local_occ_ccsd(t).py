@@ -2,9 +2,10 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
+from typing import Optional, Union
 from pymbe import MBE, hf, base, ref_mo, ints, dipole_ints
 
-def mbe_example() -> MBE:
+def mbe_example() -> Optional[Union[float, np.ndarray]]:
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
 
@@ -58,7 +59,7 @@ def mbe_example() -> MBE:
                   base_method='ccsd(t)', base_prop=base_dipole)
 
         # perform calculation
-        mbe.kernel()
+        dipole = mbe.kernel()
 
     else:
 
@@ -66,14 +67,14 @@ def mbe_example() -> MBE:
         mbe = MBE()
 
         # perform calculation
-        mbe.kernel()
+        dipole = mbe.kernel()
 
-    return mbe
+    return dipole
 
 if __name__ == '__main__':
 
     # call example function
-    mbe = mbe_example()
+    dipole = mbe_example()
 
     # finalize mpi
     MPI.Finalize()

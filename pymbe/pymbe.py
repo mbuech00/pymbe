@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 from pymbe.setup import settings, main as setup_main
 from pymbe.driver import master as driver_master, slave as driver_slave
 from pymbe.tools import RST
-from pymbe.results import print_results, plot_results
+from pymbe.results import tot_prop, print_results, plot_results
 
 if TYPE_CHECKING:
 
@@ -103,7 +103,7 @@ class MBE():
         # exp object
         exp: ExpCls = field(init=False)
 
-        def kernel(self) -> None:
+        def kernel(self) -> Optional[Union[float, np.ndarray]]:
                 """
                 this function is the main pymbe kernel
                 """
@@ -122,10 +122,18 @@ class MBE():
                     if self.rst:
                         shutil.rmtree(RST)
 
+                    # calculate total property
+                    prop = tot_prop(self.exp)
+
                 else:
 
                     # main slave driver
                     driver_slave(self.mpi, self.exp)
+
+                    # calculate total property
+                    prop = None
+
+                return prop
 
 
         def results(self) -> str:
