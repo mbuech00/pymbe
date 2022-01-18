@@ -21,7 +21,7 @@ Prerequisites
 * [Python](https://www.python.org/) 3.7 or higher
 * [PySCF](https://pyscf.github.io/) 1.6 or higher and its requirements
 * [mpi4py](https://mpi4py.readthedocs.io/en/stable/) 3.0.0 or higher built upon an MPI-3 library
-* [pytest](https://docs.pytest.org/) for unit tests
+* [pytest](https://docs.pytest.org/) for unit and system tests
 
 
 Features
@@ -41,34 +41,114 @@ Features
 Usage
 -----
 
-PyMBE expects PySCF to be properly exported to Python, for which one needs to set environment variable `$PYTHONPATH`. Furthermore, the mpi4py implementation of the MPI standard needs to be installed, built upon an MPI-3 library.\
-Once these requirements are satisfied, PyMBE (located in `$PYMBEPATH`) is simply invoked by the following command:
+PyMBE expects PySCF to be properly exported to Python, for which one needs to 
+set environment variable `$PYTHONPATH`. Furthermore, the mpi4py implementation 
+of the MPI standard needs to be installed, built upon an MPI-3 library.\
+Once these requirements are satisfied, PyMBE can be started by importing the 
+MBE class and creating a MBE object while passing input data and keywords as 
+keyword arguments. Possible keyword arguments are:
 
-```
-mpiexec -np N $PYMBEPATH/src/main.py
-```
+* expansion model:
+    - method: electronic structure method (fci, ccsdtq, ccsdt, ccsd(t), ccsd)
+    - fci_solver: fci solver (pyscf_spin0 and pyscf_spin1)
+    - cc_backend: coupled-cluster backend (pyscf, ecc, ncc)
+    - hf_guess: hartree-fock initial guess
 
-with an input file `input` placed within the same directory. See the [examples](examples/) section for a range of example inputs.\
-Restart files are automatically generated unless otherwise requested in a dedicated directory `rst` within `$WORKDIR`, 
-which is deleted in case of successful termination of PyMBE. 
-The output and results of a calculation are stored in a dedicated directory `output` within `$WORKDIR`.
+* target property
+    - target: expansion target property (energy, dipole, excitation, trans)
+
+* system
+    - mol: [pyscf](https://pyscf.github.io/) gto.Mole object
+    - nuc_energy: nuclear energy
+    - nuc_dipole: nuclear dipole moment
+    - ncore: number of core orbitals
+    - nocc: number of occupied orbitals
+    - norb: number of orbitals
+    - spin: spin
+    - point_group: point group
+    - orbsym: orbital symmetry
+    - fci_state_sym: state wavefunction symmetry
+    - fci_state_root: target state
+
+* hf calculation
+    - hf_prop: hartree-fock property
+    - occup: orbital occupation
+
+* orbital representation
+    - orb_type: orbital representation
+
+* integrals
+    - hcore: core hamiltonian integrals
+    - vhf: hartree-fock potential
+    - eri: electron repulsion integrals
+    - dipole_ints: dipole integrals
+
+* reference space
+    - ref_space: reference space
+    - ref_prop: reference space property
+
+* base model
+    - base_method: base model electronic structure method (ccsdtq, ccsdt, ccsd(t), ccsd)
+    - base_prop: base model property
+
+* screening
+    - screen_start: screening start order
+    - screen_perc: screening threshold
+    - max_order: maximum expansion order
+
+* restart
+    - rst: restart logical
+    - rst_freq: restart frequency
+
+* verbose
+    - verbose: verbose option (0: only error output, 1: standard output, 2: MBE debug output, 3: backend debug output)
+
+* pi-pruning
+    - pi_prune: pruning of pi-orbitals
+    - orbsym_linear: linear point group orbital symmetry
+
+Many of these arguments have default values set or are optional depending on 
+the calculation type. See the [examples](examples/) section for a range of example scripts.
+
+The calculation is started by calling the kernel() member function of the MBE 
+object. Restart files are automatically generated unless otherwise requested in 
+a dedicated directory `rst` within `$WORKDIR`, which is deleted in case of 
+successful termination of PyMBE. When restarting a calulation from the restart 
+files, the kernel function can be called without passing any keyword arguments 
+to the MBE object. The kernel() returns the total target property. The program 
+can also be called in parallel by calling the kernel function in multiple MPI 
+processes (e.g. using the mpiexec command). Only the keyword arguments of the 
+MBE object on the global master will be used during the calculation.
+
+The results of a PyMBE caluculation can be printed using the results() member
+function of the MBE object. This function returns the calculation parameters 
+summarized in a string.
+
+The results can also be plotted using the plot() member function of the MBE
+object. This function returns a [matplotlib](https://matplotlib.org) 
+figure.Figure object.
 
 Documentation
 -------------
 
-The PyMBE code is deliberately left undocumented, but the [pytest](https://docs.pytest.org/) unit tests and the type hints using the Python [typing](https://docs.python.org/3/library/typing.html) module can be used to comprehend the usage of the different functions and their arguments.
+The PyMBE code is deliberately left undocumented, but the 
+[pytest](https://docs.pytest.org/) unit tests and the type hints using the 
+Python [typing](https://docs.python.org/3/library/typing.html) module can be 
+used to comprehend the usage of the different functions and their arguments.
 
 
 Tutorials
 ---------
 
-None at the moment, but please have a look at the various [examples](examples/) that accompany the code.
+None at the moment, but please have a look at the various [examples](examples/) 
+that accompany the code.
 
 
 Citing PyMBE
 ------------
 
-The following papers document the development of the PyMBE code and the theory it implements:
+The following papers document the development of the PyMBE code and the theory 
+it implements:
 
 * Incremental Treatments of the Full Configuration Interaction Problem\
 Eriksen, J. J., Gauss, J.\
