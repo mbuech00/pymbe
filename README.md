@@ -108,22 +108,21 @@ keyword arguments. Possible keyword arguments are:
     - orbsym_linear: linear point group orbital symmetry
 
 Many of these arguments have default values set or are optional depending on 
-the calculation type. See the [examples](examples/) section for a range of example scripts.
-
+the calculation type. See the [examples](examples/) section for a range of 
+example scripts.\
 The calculation is started by calling the kernel() member function of the MBE 
-object. Restart files are automatically generated unless otherwise requested in 
-a dedicated directory `rst` within `$WORKDIR`, which is deleted in case of 
-successful termination of PyMBE. When restarting a calulation from the restart 
-files, the kernel function can be called without passing any keyword arguments 
-to the MBE object. The kernel() returns the total target property. The program 
-can also be called in parallel by calling the kernel function in multiple MPI 
-processes (e.g. using the mpiexec command). Only the keyword arguments of the 
-MBE object on the global master will be used during the calculation.
-
+object. Restart files are automatically generated (unless otherwise requested 
+through the rst keyword argument) in a dedicated directory `rst` within 
+`$WORKDIR`, which is deleted in case of successful termination of PyMBE. When 
+restarting a calulation from the restart files, the kernel function can be 
+called without passing any keyword arguments to the MBE object. The kernel() 
+function returns the total target property. The program can also be called in 
+parallel by calling the kernel function in multiple MPI processes (e.g. using 
+the mpiexec command). Only the keyword arguments of the MBE object on the 
+global master will be used during the calculation.\
 The results of a PyMBE caluculation can be printed using the results() member
 function of the MBE object. This function returns the calculation parameters 
-summarized in a string.
-
+summarized in a string.\
 The results can also be plotted using the plot() member function of the MBE
 object. This function returns a [matplotlib](https://matplotlib.org) 
 figure.Figure object.
