@@ -216,9 +216,9 @@ def sanity_check(calc: CalcCls, spin: int, atom: Union[List[str], str], \
         if calc.target['trans']:
             assertion(calc.state['root'] > 0, \
                             'calculation of transition dipole moment (trans) requires target state root >= 1')
-        if calc.model['cc_backend'] == 'ecc':
+        if calc.model['cc_backend'] in ['ecc', 'ncc']:
             assertion(calc.target['energy'], \
-                            'calculation of targets other than energy are not possible using the ecc backend')
+                            'calculation of targets other than energy are not possible with ecc or ncc set as cc_backend')
         # extra
         assertion(isinstance(calc.extra['pi_prune'], bool), \
                         'pruning of pi-orbitals (pi_prune) must be a bool')
