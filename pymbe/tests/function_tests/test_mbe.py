@@ -26,7 +26,7 @@ from pymbe.parallel import MPICls
 if TYPE_CHECKING:
 
     from pyscf import gto, scf
-    from typing import Tuple, Union
+    from typing import Tuple, Union, List
 
     from pymbe.tests.conftest import ExpCls
 
@@ -62,13 +62,6 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
         this function tests main
         """
         mpi = MPICls()
-        
-        exp.method = 'fci'
-        exp.fci_solver = 'pyscf_spin0'
-        exp.cc_backend = 'pyscf'
-        exp.hf_guess = True
-
-        exp.target = 'energy'
 
         exp.nuc_energy = mol.energy_nuc()
         exp.nocc = nocc
@@ -76,46 +69,18 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
         exp.spin = mol.spin
         exp.point_group = mol.groupname
         exp.orbsym = orbsym
-        exp.fci_state_sym = 0
-        exp.fci_state_root = 0
 
         exp.hf_prop = hf.e_tot
         exp.occup = hf.mo_occ
 
         exp.hcore, exp.eri, exp.vhf = ints_win
-        exp.dipole_ints = None
-
-        exp.orb_type = 'can'
 
         exp.ref_space = np.array([i for i in range(ncore, nocc)])
-        exp.ref_prop = 0.
 
         exp.exp_space = [np.array([i for i in range(nocc, norb)])]
 
-        exp.base_method = None
-        
-        exp.prop = {exp.target: {'inc': [], 'hashes': []}}
-        
-        exp.time = {'mbe': []}
-
-        exp.mean_inc = []
-        exp.min_inc = []
-        exp.max_inc = []
-
-        exp.n_tuples = {'inc': []}
-
-        exp.screen_start = 4
-
-        exp.rst = False
-        
-        exp.min_order = 1
-
-        exp.verbose = 0
-        
-        exp.pi_prune = False
-
-        hashes = []
-        inc = []
+        hashes: List[np.ndarray] = []
+        inc: List[np.ndarray] = []
 
         for exp.order in range(1, order+1):
 
@@ -135,9 +100,9 @@ def test_main(exp: ExpCls, mol: gto.Mole, ncore: int, nocc: int, norb: int, \
 
             inc.append(np.ndarray(buffer=inc_win, dtype=np.float64, shape=(exp.n_tuples['inc'][exp.order-1], 1)))
 
-            exp.prop[exp.target]['hashes'].append(hashes_win)
+            exp.hashes.append(hashes_win)
 
-            exp.prop[exp.target]['inc'].append(inc_win)
+            exp.incs.append(inc_win)
 
             exp.mean_inc.append(mean_inc)
             exp.min_inc.append(min_inc)
@@ -168,8 +133,8 @@ def test_inc(ints: Tuple[np.ndarray, np.ndarray]) -> None:
         core_idx, cas_idx = np.array([], dtype=np.int64), np.arange(n, dtype=np.int64)
 
         e, n_elec = _inc('fci', None, 'pyscf', 'pyscf_spin0', 'can', 0, occup, \
-                         'energy', 0, 'c1', orbsym, True, 0, 0., 0., h1e_cas, \
-                         h2e_cas, core_idx, cas_idx, 0, None, 0.)
+                         'energy', 0, 'c1', orbsym, True, 0, np.array([0.]), \
+                         0., h1e_cas, h2e_cas, core_idx, cas_idx, 0, None, 0.)
         
         assert e == pytest.approx(-5.409456845093448)
         assert n_elec == (3, 3)

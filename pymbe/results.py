@@ -57,17 +57,15 @@ def tot_prop(exp: ExpCls) -> Union[float, np.ndarray]:
         this function returns the total property
         """
         if exp.target == 'energy':
-            prop = _energy(exp.prop['energy']['tot'], exp.hf_prop, \
-                           exp.base_prop, exp.ref_prop)[-1].item()
+            prop = _energy(exp.mbe_tot_prop, exp.hf_prop, exp.base_prop, \
+                           exp.ref_prop)[-1]
         elif exp.target == 'excitation':
-            prop = _excitation(exp.prop['excitation']['tot'], \
-                               exp.ref_prop)[-1].item()
+            prop = _excitation(exp.mbe_tot_prop, exp.ref_prop)[-1]
         elif exp.target == 'dipole':
-            prop = exp.nuc_dipole - _dipole(exp.prop['dipole']['tot'], \
-                                            exp.hf_prop, exp.base_prop, \
-                                            exp.ref_prop)[-1, :]
+            prop = exp.nuc_dipole - _dipole(exp.mbe_tot_prop, exp.hf_prop, \
+                                            exp.base_prop, exp.ref_prop)[-1, :]
         elif exp.target == 'trans':
-            prop = _trans(exp.prop['trans']['tot'], exp.ref_prop)[-1, :]
+            prop = _trans(exp.mbe_tot_prop, exp.ref_prop)[-1, :]
 
         return prop
 
@@ -92,21 +90,20 @@ def print_results(mol: Optional[gto.Mole], mpi: MPICls, exp: ExpCls) -> str:
         # print and plot results
         if exp.target == 'energy':
             string += _energy_prt(exp.method, exp.fci_state_root, \
-                                  exp.prop['energy']['tot'], exp.hf_prop, \
+                                  exp.mbe_tot_prop, exp.hf_prop, \
                                   exp.base_prop, exp.ref_prop, exp.min_order, \
                                   exp.final_order)
         elif exp.target == 'excitation':
-            string += _excitation_prt(exp.fci_state_root, \
-                                      exp.prop['excitation']['tot'], \
+            string += _excitation_prt(exp.fci_state_root, exp.mbe_tot_prop, \
                                       exp.ref_prop, exp.min_order, \
                                       exp.final_order)
         elif exp.target == 'dipole':
             string += _dipole_prt(exp.fci_state_root, exp.nuc_dipole, \
-                                 exp.prop['dipole']['tot'], exp.hf_prop, \
-                                 exp.base_prop, exp.ref_prop, exp.min_order, \
-                                 exp.final_order)
+                                  exp.mbe_tot_prop, exp.hf_prop, \
+                                  exp.base_prop, exp.ref_prop, exp.min_order, \
+                                  exp.final_order)
         elif exp.target == 'trans':
-            string += _trans_prt(exp.fci_state_root, exp.prop['trans']['tot'], \
+            string += _trans_prt(exp.fci_state_root, exp.mbe_tot_prop, \
                                  exp.ref_prop, exp.min_order, exp.final_order)
 
         return string
@@ -122,21 +119,19 @@ def plot_results(exp: ExpCls) -> matplotlib.figure.Figure:
 
         # print and plot results
         if exp.target == 'energy':
-            fig = _energy_plot(exp.fci_state_root, exp.prop['energy']['tot'], \
-                         exp.hf_prop, exp.base_prop, exp.ref_prop, \
-                         exp.min_order, exp.final_order)
+            fig = _energy_plot(exp.fci_state_root, exp.mbe_tot_prop, \
+                               exp.hf_prop, exp.base_prop, exp.ref_prop, \
+                               exp.min_order, exp.final_order)
         elif exp.target == 'excitation':
-            fig = _excitation_plot(exp.fci_state_root, \
-                             exp.prop['excitation']['tot'], exp.ref_prop, \
-                             exp.min_order, exp.final_order)
+            fig = _excitation_plot(exp.fci_state_root, exp.mbe_tot_prop, \
+                                   exp.ref_prop, exp.min_order, exp.final_order)
         elif exp.target == 'dipole':
             fig = _dipole_plot(exp.fci_state_root, exp.nuc_dipole, \
-                         exp.prop['dipole']['tot'], exp.hf_prop, \
-                         exp.base_prop, exp.ref_prop, exp.min_order, \
-                         exp.final_order)
+                               exp.mbe_tot_prop, exp.hf_prop, exp.base_prop, \
+                               exp.ref_prop, exp.min_order, exp.final_order)
         elif exp.target == 'trans':
-            fig = _trans_plot(exp.fci_state_root, exp.prop['trans']['tot'], \
-                        exp.ref_prop, exp.min_order, exp.final_order)
+            fig = _trans_plot(exp.fci_state_root, exp.mbe_tot_prop, \
+                              exp.ref_prop, exp.min_order, exp.final_order)
 
         return fig
 
@@ -298,27 +293,27 @@ def _symm(method: str, point_group: str, fci_state_sym: int, \
             return 'unknown'
 
 
-def _energy(corr_energy: List[float], hf_energy: float, base_energy: float, \
-            ref_energy: float) -> np.ndarray:
+def _energy(corr_energy: List[np.ndarray], hf_energy: np.ndarray, \
+            base_energy: np.ndarray, ref_energy: np.ndarray) -> np.ndarray:
         """
         this function returns the final total energy
         """
-        tot_energy = np.copy(corr_energy)
+        tot_energy = np.array(corr_energy)
         tot_energy += hf_energy
         tot_energy += base_energy
         tot_energy += ref_energy
 
-        return tot_energy
+        return tot_energy.flatten()
 
 
-def _excitation(corr_exc: List[float], ref_exc: float) -> np.ndarray:
+def _excitation(corr_exc: List[np.ndarray], ref_exc: np.ndarray) -> np.ndarray:
         """
         this function returns the final excitation energy
         """
-        tot_exc = np.copy(corr_exc)
+        tot_exc = np.array(corr_exc)
         tot_exc += ref_exc
 
-        return tot_exc
+        return tot_exc.flatten()
 
 
 def _dipole(corr_dipole: List[np.ndarray], hf_dipole: np.ndarray, \
@@ -326,7 +321,7 @@ def _dipole(corr_dipole: List[np.ndarray], hf_dipole: np.ndarray, \
         """
         this function returns the final molecular dipole moment
         """
-        tot_dipole = np.copy(corr_dipole)
+        tot_dipole = np.array(corr_dipole)
         tot_dipole += hf_dipole
         tot_dipole += base_dipole
         tot_dipole += ref_dipole
@@ -338,14 +333,13 @@ def _trans(corr_trans: List[np.ndarray], ref_trans: np.ndarray) -> np.ndarray:
         """
         this function returns the final molecular transition dipole moment
         """
-        tot_trans = np.copy(corr_trans)
+        tot_trans = np.array(corr_trans)
         tot_trans += ref_trans
 
         return tot_trans
 
 
-def _time(time: Dict[str, Union[List[float], np.ndarray]], comp: str, \
-          idx: int) -> str:
+def _time(time: Dict[str, List[float]], comp: str, idx: int) -> str:
         """
         this function returns the final timings in (HHH : MM : SS) format
         """
@@ -366,22 +360,25 @@ def _summary_prt(mpi: MPICls, exp: ExpCls) -> str:
         this function returns the summary table
         """
         if exp.target == 'energy':
-            hf_prop = exp.hf_prop
-            base_prop = exp.hf_prop + exp.base_prop
-            mbe_tot_prop = _energy(exp.prop['energy']['tot'], exp.hf_prop, exp.base_prop, exp.ref_prop)[-1].item()
+            hf_prop = exp.hf_prop.item()
+            base_prop = exp.hf_prop.item() + exp.base_prop.item()
+            mbe_tot_prop = _energy(exp.mbe_tot_prop, exp.hf_prop, \
+                                   exp.base_prop, exp.ref_prop)[-1]
         elif exp.target == 'dipole':
-            dipole = _dipole(exp.prop['dipole']['tot'], exp.hf_prop, exp.base_prop, exp.ref_prop)
-            hf_prop = np.linalg.norm(exp.nuc_dipole - exp.hf_prop)
-            base_prop = np.linalg.norm(exp.nuc_dipole - (exp.hf_prop + exp.base_prop))
+            dipole = _dipole(exp.mbe_tot_prop, exp.hf_prop, exp.base_prop, \
+                             exp.ref_prop)
+            hf_prop = np.linalg.norm(exp.nuc_dipole - exp.hf_prop) # type: ignore
+            base_prop = np.linalg.norm(exp.nuc_dipole - (exp.hf_prop + exp.base_prop)) # type: ignore
             mbe_tot_prop = np.linalg.norm(exp.nuc_dipole - dipole[-1, :])
         elif exp.target == 'excitation':
             hf_prop = 0.
             base_prop = 0.
-            mbe_tot_prop = _excitation(exp.prop['excitation']['tot'], exp.ref_prop)[-1].item()
+            mbe_tot_prop = _excitation(exp.mbe_tot_prop, exp.ref_prop)[-1]
         else:
             hf_prop = 0.
             base_prop = 0.
-            mbe_tot_prop = np.linalg.norm(_trans(exp.prop['trans']['tot'], exp.ref_prop)[-1, :])
+            mbe_tot_prop = np.linalg.norm(_trans(exp.mbe_tot_prop, \
+                                                 exp.ref_prop)[-1, :])
 
         string: str = DIVIDER+'\n'
         string += '{:14}{:21}{:12}{:1}{:12}{:21}{:11}{:1}{:13}{:}\n'
@@ -474,9 +471,10 @@ def _timings_prt(exp: ExpCls, method: str) -> str:
         return string.format(*form)
 
 
-def _energy_prt(method: str, root: int, corr_energy: List[float], \
-                hf_energy: float, base_energy: float, ref_energy: float, \
-                min_order: int, final_order: int) -> str:
+def _energy_prt(method: str, root: int, corr_energy: List[np.ndarray], \
+                hf_energy: np.ndarray, base_energy: np.ndarray, \
+                ref_energy: np.ndarray, min_order: int, \
+                final_order: int) -> str:
         """
         this function returns the energies table
         """
@@ -491,25 +489,25 @@ def _energy_prt(method: str, root: int, corr_energy: List[float], \
 
         string += DIVIDER[:66]+'\n'
         string += '{:9}{:>3s}{:5}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
-        form += ('','ref','','|','',hf_energy + ref_energy, \
-                    '','|','',ref_energy,)
+        form += ('','ref','','|','',hf_energy.item() + ref_energy.item(), \
+                 '','|','',ref_energy.item(),)
 
         string += DIVIDER[:66]+'\n'
         energy = _energy(corr_energy, hf_energy, base_energy, ref_energy)
 
         for i, j in enumerate(range(min_order, final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:5}{:>11.6f}{:6}{:1}{:6}{:>12.5e}\n'
-            form += ('',j, \
-                        '','|','',energy[i].item(), \
-                        '','|','',energy[i].item() - hf_energy,)
+            form += ('',j,'','|','',energy[i], \
+                     '','|','',energy[i] - hf_energy,)
 
         string += DIVIDER[:66]+'\n'
 
         return string.format(*form)
 
 
-def _energy_plot(root: int, corr_energy: List[float], hf_energy: float, \
-                 base_energy: float, ref_energy: float, min_order: int, \
+def _energy_plot(root: int, corr_energy: List[np.ndarray], \
+                 hf_energy: np.ndarray, base_energy: np.ndarray, \
+                 ref_energy: np.ndarray, min_order: int, \
                  final_order: int) -> matplotlib.figure.Figure:
         """
         this function plots the energies
@@ -551,8 +549,9 @@ def _energy_plot(root: int, corr_energy: List[float], hf_energy: float, \
         return fig
 
 
-def _excitation_prt(root: int, corr_exc: List[float], ref_exc: float, \
-                    min_order: int, final_order: int) -> str:
+def _excitation_prt(root: int, corr_exc: List[np.ndarray], \
+                    ref_exc: np.ndarray, min_order: int, \
+                    final_order: int) -> str:
         """
         this function returns the excitation energies table
         """
@@ -574,15 +573,15 @@ def _excitation_prt(root: int, corr_exc: List[float], ref_exc: float, \
 
         for i, j in enumerate(range(min_order, final_order+1)):
             string += '{:7}{:>4d}{:6}{:1}{:7}{:>.5e}\n'
-            form += ('',j,'','|','',excitation[i].item(),)
+            form += ('',j,'','|','',excitation[i],)
 
         string += DIVIDER[:43]+'\n'
 
         return string.format(*form)
 
 
-def _excitation_plot(root: int, corr_exc: List[float], ref_exc: float, \
-                     min_order: int, \
+def _excitation_plot(root: int, corr_exc: List[np.ndarray], \
+                     ref_exc: np.ndarray, min_order: int, \
                      final_order: int) -> matplotlib.figure.Figure:
         """
         this function plots the excitation energies

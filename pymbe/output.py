@@ -143,31 +143,29 @@ def mbe_results(target: str, root: int, min_order: int, order: int, \
         this function prints mbe results statistics
         """
         # calculate total inc
-        tot_inc: float = 0.
         if target in ['energy', 'excitation']:
             if order == min_order:
-                tot_inc += prop_tot[order-min_order].item()
+                tot_inc = prop_tot[order-min_order].item()
             else:
-                tot_inc += (prop_tot[order-min_order] - prop_tot[order-min_order-1]).item()
+                tot_inc = (prop_tot[order-min_order] - prop_tot[order-min_order-1]).item()
         elif target in ['dipole', 'trans']:
             if order == min_order:
-                tot_inc += np.linalg.norm(prop_tot[order-min_order])
+                tot_inc = np.linalg.norm(prop_tot[order-min_order])
             else:
-                tot_inc += np.linalg.norm(prop_tot[order-min_order]) - np.linalg.norm(prop_tot[order-min_order-1])
+                tot_inc = np.linalg.norm(prop_tot[order-min_order]) - np.linalg.norm(prop_tot[order-min_order-1])
 
         # set header
-        header: str = ''
         if target == 'energy':
-            header += 'energy for root {:} (total increment = {:.4e})'. \
+            header = 'energy for root {:} (total increment = {:.4e})'. \
                         format(root, tot_inc)
         elif target == 'excitation':
-            header += 'excitation energy for root {:} (total increment = {:.4e})'. \
+            header = 'excitation energy for root {:} (total increment = {:.4e})'. \
                         format(root, tot_inc)
         elif target == 'dipole':
-            header += 'dipole moment for root {:} (total increment = {:.4e})'. \
+            header = 'dipole moment for root {:} (total increment = {:.4e})'. \
                         format(root, tot_inc)
         elif target == 'trans':
-            header += 'transition dipole moment for excitation 0 -> {:} (total increment = {:.4e})'. \
+            header = 'transition dipole moment for excitation 0 -> {:} (total increment = {:.4e})'. \
                         format(root, tot_inc)
         # set string
         string: str = FILL+'\n'

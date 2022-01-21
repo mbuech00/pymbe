@@ -31,8 +31,6 @@ if TYPE_CHECKING:
     
     from typing import Tuple, List, Generator, Union, Optional, TypeVar
 
-    T = TypeVar('T')
-    
 
 # get logger
 logger = logging.getLogger('pymbe_logger')
@@ -119,22 +117,6 @@ def assertion(cond: bool, reason: str) -> None:
             MPI.COMM_WORLD.Abort()
 
 
-def cast_away_optional(arg: Optional[T]) -> T:
-        """
-        this function removes the optional type modifier
-        """
-        assert arg is not None
-        return arg
-
-
-def assume_int(arg: Union[T, int]) -> int:
-        """
-        this function assumes the argument is an integer
-        """
-        assert isinstance(arg, int)
-        return arg
-
-
 def time_str(time: float) -> str:
         """
         this function returns time as a HH:MM:SS string
@@ -189,7 +171,7 @@ def hash_1d(a: np.ndarray) -> int:
         return hash(a.tobytes())
 
 
-def hash_lookup(a: np.ndarray, b: np.ndarray) -> Optional[np.ndarray]:
+def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[np.ndarray]:
         """
         this function finds occurences of b in a through a binary search
         """
@@ -201,8 +183,10 @@ def hash_lookup(a: np.ndarray, b: np.ndarray) -> Optional[np.ndarray]:
             return None
 
 
-def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_virt: bool, order: int, \
-           order_start: int = 1, occ_start: int = 0, virt_start: int = 0) -> Generator[np.ndarray, None, None]:
+def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
+           ref_occ: Union[bool, np.bool_], ref_virt: Union[bool, np.bool_], \
+           order: int, order_start: int = 1, occ_start: int = 0, \
+           virt_start: int = 0) -> Generator[np.ndarray, None, None]:
         """
         this function is the main generator for tuples
         """
@@ -226,7 +210,8 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, ref_occ: bool, ref_vir
 
 
 def start_idx(occ_space: np.ndarray, virt_space: np.ndarray, \
-              tup_occ: np.ndarray, tup_virt: np.ndarray) -> Tuple[int, int, int]:
+              tup_occ: Optional[np.ndarray], \
+              tup_virt: Optional[np.ndarray]) -> Tuple[int, int, int]:
         """
         this function return the start indices for a given occupied and virtual tuple
         """
@@ -267,7 +252,8 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
 
 
 def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
-                ref_occ: bool, ref_virt: bool, order: int) -> int:
+             ref_occ: Union[bool, np.bool_], ref_virt: Union[bool, np.bool_], \
+             order: int) -> int:
         """
         this function returns the total number of tuples of a given order
         """
@@ -385,14 +371,14 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
         return idx is not None
 
 
-def occ_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
+def occ_prune(occup: np.ndarray, tup: np.ndarray) -> np.bool_:
         """
         this function returns True for a tuple of orbitals allowed under pruning wrt occupied orbitals
         """
         return np.any(occup[tup] > 0.)
 
 
-def virt_prune(occup: np.ndarray, tup: np.ndarray) -> bool:
+def virt_prune(occup: np.ndarray, tup: np.ndarray) -> np.bool_:
         """
         this function returns True for a tuple of orbitals allowed under pruning wrt virtual orbitals
         """

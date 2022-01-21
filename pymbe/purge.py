@@ -24,13 +24,13 @@ from pymbe.tools import inc_dim, inc_shape, occ_prune, virt_prune, tuples, \
 
 if TYPE_CHECKING:
 
-    from typing import Tuple, List, Dict, Union, Any
+    from typing import Tuple, List, Dict, Any
 
     from pymbe.parallel import MPICls
     from pymbe.expansion import ExpCls
 
 
-def main(mpi: MPICls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win]], \
+def main(mpi: MPICls, exp: ExpCls) -> Tuple[List[MPI.Win], List[MPI.Win], \
                                             Dict[str, List[int]]]:
         """
         this function purges the lower-order hashes & increments
@@ -43,7 +43,7 @@ def main(mpi: MPICls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win
         # do not purge at min_order or in case of no screened orbs
         if exp.order == exp.min_order or exp.screen_orbs.size == 0 or exp.exp_space[-1].size < exp.order + 1:
             exp.time['purge'].append(0.)
-            return exp.prop[exp.target], exp.n_tuples
+            return exp.incs, exp.hashes, exp.n_tuples
 
         # increment dimensions
         dim = inc_dim(exp.target)
@@ -64,11 +64,11 @@ def main(mpi: MPICls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win
         for k in range(exp.min_order, exp.order+1):
 
             # load k-th order hashes and increments
-            buf = exp.prop[exp.target]['hashes'][k-exp.min_order].Shared_query(0)[0] # type: ignore
-            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape = (exp.n_tuples['inc'][k-exp.min_order],))
+            buf = exp.hashes[k-exp.min_order].Shared_query(0)[0]
+            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape = (exp.n_tuples['inc'][k-exp.min_order],)) # type: ignore
 
-            buf = exp.prop[exp.target]['inc'][k-exp.min_order].Shared_query(0)[0] # type: ignore
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k-exp.min_order], dim))
+            buf = exp.incs[k-exp.min_order].Shared_query(0)[0]
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k-exp.min_order], dim)) # type: ignore
 
             # mpi barrier
             mpi.local_comm.barrier()
@@ -98,8 +98,8 @@ def main(mpi: MPICls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win
             inc_tmp = np.asarray(inc_tmp, dtype=np.float64).reshape(-1,)
 
             # deallocate k-th order hashes and increments
-            exp.prop[exp.target]['hashes'][k-exp.min_order].Free() # type: ignore
-            exp.prop[exp.target]['inc'][k-exp.min_order].Free() # type: ignore
+            exp.hashes[k-exp.min_order].Free()
+            exp.incs[k-exp.min_order].Free()
 
             # number of hashes
             recv_counts = np.array(mpi.global_comm.allgather(hashes_tmp.size))
@@ -108,11 +108,10 @@ def main(mpi: MPICls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win
             exp.n_tuples['inc'][k-exp.min_order] = int(np.sum(recv_counts))
 
             # init hashes for present order
-            hashes_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, \
-                                                 8, comm=mpi.local_comm)
-            exp.prop[exp.target]['hashes'][k-exp.min_order] = hashes_win
+            hashes_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, 8, comm=mpi.local_comm) # type: ignore
+            exp.hashes[k-exp.min_order] = hashes_win
             buf = hashes_win.Shared_query(0)[0]
-            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape = (exp.n_tuples['inc'][k-exp.min_order],))
+            hashes = np.ndarray(buffer=buf, dtype=np.int64, shape = (exp.n_tuples['inc'][k-exp.min_order],)) # type: ignore
 
             # gatherv hashes on global master
             hashes[:] = mpi_gatherv(mpi.global_comm, hashes_tmp, hashes, recv_counts)
@@ -125,11 +124,10 @@ def main(mpi: MPICls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win
             recv_counts = np.array(mpi.global_comm.allgather(inc_tmp.size))
 
             # init increments for present order
-            inc_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, \
-                                              8, comm=mpi.local_comm)
-            exp.prop[exp.target]['inc'][k-exp.min_order] = inc_win
+            inc_win = MPI.Win.Allocate_shared(8 * np.sum(recv_counts) if mpi.local_master else 0, 8, comm=mpi.local_comm) # type: ignore
+            exp.incs[k-exp.min_order] = inc_win
             buf = inc_win.Shared_query(0)[0]
-            inc = np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k-exp.min_order], dim))
+            inc = np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k-exp.min_order], dim)) # type: ignore
 
             # gatherv increments on global master
             inc[:] = mpi_gatherv(mpi.global_comm, inc_tmp, inc, recv_counts)
@@ -150,4 +148,4 @@ def main(mpi: MPICls, exp: ExpCls) -> Tuple[Dict[str, Union[List[float], MPI.Win
         if mpi.global_master:
             exp.time['purge'].append(MPI.Wtime() - time)
 
-        return exp.prop[exp.target], exp.n_tuples
+        return exp.incs, exp.hashes, exp.n_tuples

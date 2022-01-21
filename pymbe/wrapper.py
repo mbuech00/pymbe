@@ -19,12 +19,12 @@ from pyscf import gto, scf, symm, lo, cc, mcscf, fci, ao2mo
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from copy import copy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from warnings import catch_warnings, simplefilter
 
 from pymbe.kernel import main as kernel_main, e_core_h1e, _cc, _dipole
 from pymbe.tools import assertion, mat_idx, near_nbrs, core_cas, nelec, \
-                        idx_tril, assume_int
+                        idx_tril
 
 if TYPE_CHECKING:
 
@@ -796,6 +796,7 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
             hf_prop = 0.
         elif target == 'trans':
             hf_prop = np.zeros(3, dtype=np.float64)
+        hf_prop = np.asarray(hf_prop)
 
         # core_idx and cas_idx
         core_idx, cas_idx = core_cas(nocc, ref_space, np.array([], dtype=np.int64))
@@ -817,18 +818,18 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
 
             # exp model
             ref_prop = kernel_main(method, cc_backend, fci_solver, orb_type, \
-                                  mol.spin, occup, target, \
-                                  assume_int(fci_state_sym), mol.groupname, \
-                                  orbsym, hf_guess, fci_state_root, hf_prop, \
-                                  e_core, h1e_cas, h2e_cas, core_idx, cas_idx, \
-                                  n_elec, 0, dipole_ints, \
-                                  higher_amp_extrap=False)
+                                   mol.spin, occup, target, \
+                                   cast(int, fci_state_sym), mol.groupname, \
+                                   orbsym, hf_guess, fci_state_root, hf_prop, \
+                                   e_core, h1e_cas, h2e_cas, core_idx, cas_idx, \
+                                   n_elec, 0, dipole_ints, \
+                                   higher_amp_extrap=False)
                         
             # base model
             if base_method is not None:
                 ref_prop -= kernel_main(base_method, cc_backend, '', orb_type, \
                                         mol.spin, occup, target, \
-                                        assume_int(fci_state_sym), \
+                                        cast(int, fci_state_sym), \
                                         mol.groupname, orbsym, hf_guess, \
                                         fci_state_root, hf_prop, e_core, \
                                         h1e_cas, h2e_cas, core_idx, cas_idx, \
@@ -940,7 +941,8 @@ def base(method: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
 
         # compute dipole integrals
         if target == 'dipole' and mol.atom:
-            dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
+            dip_ints = dipole_ints(mol, mo_coeff, \
+                                   cast(np.ndarray, gauge_origin))
         else:
             dip_ints = None
 
@@ -965,9 +967,10 @@ def base(method: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
         # collect results
         if target == 'energy':
             base_prop = res['energy']
-        else:
-            base_prop = _dipole(dip_ints, occup, cas_idx, res['rdm1'], \
-                                hf_dipole=hf_dipole )
+        elif target == 'dipole':
+            base_prop = _dipole(cast(np.ndarray, dip_ints), occup, cas_idx, \
+                                res['rdm1'], hf_dipole=cast(np.ndarray, \
+                                                            hf_dipole))
 
         return base_prop
 

@@ -17,15 +17,14 @@ __status__ = 'Development'
 import os
 import numpy as np
 from mpi4py import MPI
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
-from pymbe.tools import RST, pi_space, natural_keys, cast_away_optional, \
-                        assume_int
+from pymbe.tools import RST, pi_space, natural_keys, inc_shape, inc_dim
 from pymbe.parallel import mpi_bcast
 
 if TYPE_CHECKING:
 
-    from typing import List, Dict, Union, Tuple, Optional
+    from typing import List, Dict, Tuple, Optional
 
     from pymbe.pymbe import MBE
     from pymbe.parallel import MPICls
@@ -49,21 +48,21 @@ class ExpCls:
                 self.target: str = mbe.target
 
                 # system
-                self.nuc_energy: float = cast_away_optional(mbe.nuc_energy)
+                self.nuc_energy = cast(float, mbe.nuc_energy)
                 if self.target == 'dipole':
-                    self.nuc_dipole: np.ndarray = cast_away_optional(mbe.nuc_dipole)
+                    self.nuc_dipole = cast(np.ndarray, mbe.nuc_dipole)
                 self.ncore: int = mbe.ncore
-                self.nocc: int = cast_away_optional(mbe.nocc)
-                self.norb: int = cast_away_optional(mbe.norb)
-                self.spin: int = cast_away_optional(mbe.spin)
-                self.point_group: str = cast_away_optional(mbe.point_group)
-                self.orbsym: np.ndarray = cast_away_optional(mbe.orbsym)
-                self.fci_state_sym: int = assume_int(mbe.fci_state_sym)
-                self.fci_state_root: int = cast_away_optional(mbe.fci_state_root)
+                self.nocc = cast(int, mbe.nocc)
+                self.norb = cast(int, mbe.norb)
+                self.spin = cast(int, mbe.spin)
+                self.point_group = cast(str, mbe.point_group)
+                self.orbsym = cast(np.ndarray, mbe.orbsym)
+                self.fci_state_sym = cast(int, mbe.fci_state_sym)
+                self.fci_state_root = cast(int, mbe.fci_state_root)
                 
                 # hf calculation
-                self.hf_prop: Union[float, np.ndarray] = cast_away_optional(mbe.hf_prop)
-                self.occup: np.ndarray = cast_away_optional(mbe.occup)
+                self.hf_prop = np.asarray(mbe.hf_prop, dtype=np.float64)
+                self.occup = cast(np.ndarray, mbe.occup)
 
                 # integrals
                 hcore, vhf, eri = int_wins(mbe.hcore, mbe.vhf, mbe.eri, \
@@ -78,29 +77,31 @@ class ExpCls:
 
                 # reference space
                 self.ref_space: np.ndarray = mbe.ref_space
-                self.ref_prop: Union[float, np.ndarray] = cast_away_optional(mbe.ref_prop)
+                self.ref_prop = np.asarray(mbe.ref_prop, dtype=np.float64)
 
                 # expansion space
                 self.exp_space: List[np.ndarray] = [np.array([i for i in range(self.ncore, self.norb) if i not in self.ref_space], dtype=np.int64)]
                 
                 # base model
                 self.base_method: Optional[str] = mbe.base_method
-                self.base_prop: Union[float, np.ndarray] = cast_away_optional(mbe.base_prop)
+                self.base_prop = np.asarray(mbe.base_prop, dtype=np.float64)
 
-                # property list dict
-                self.prop: Dict[str, Dict[str, Union[List[float], \
-                                MPI.Win]]] = {str(self.target): {'inc': [], \
-                                                                 'tot': [], \
-                                                                 'hashes': []}}
+                # total mbe property
+                self.mbe_tot_prop: List[np.ndarray] = []
+
+                # increment windows
+                self.incs: List[MPI.Win] = []
+
+                # hash windows
+                self.hashes: List[MPI.Win] = []
 
                 # timings
-                self.time: Dict[str, Union[List[float], \
-                                np.ndarray]] = {'mbe': [], 'purge': []}
+                self.time: Dict[str, List[float]] = {'mbe': [], 'purge': []}
 
                 # statistics
-                self.mean_inc: Union[List[float], np.ndarray] = []
-                self.min_inc: Union[List[float], np.ndarray] = []
-                self.max_inc: Union[List[float], np.ndarray] = []
+                self.min_inc: List[np.ndarray] = []
+                self.mean_inc: List[np.ndarray] = []
+                self.max_inc: List[np.ndarray] = []
 
                 # number of tuples
                 self.n_tuples: Dict[str, List[int]] = {'theo': [], 'calc': [], \
@@ -109,8 +110,8 @@ class ExpCls:
                 # screening
                 self.screen_start: int = mbe.screen_start
                 self.screen_perc: float = mbe.screen_perc
-                self.screen: np.ndarray = None
-                self.screen_orbs: np.ndarray = None
+                self.screen = np.zeros(self.norb, dtype=np.float64)
+                self.screen_orbs = np.array([], dtype=np.int64)
 
                 # restart
                 self.rst: bool = mbe.rst
@@ -137,7 +138,7 @@ class ExpCls:
                 self.start_order: int = start_order
 
                 if mbe.max_order is not None:
-                    max_order = min(self.exp_space[0].size, cast_away_optional(mbe.max_order))
+                    max_order = min(self.exp_space[0].size, mbe.max_order)
                 else:
                     max_order = self.exp_space[0].size
                 self.max_order: int = max_order
@@ -152,7 +153,7 @@ class ExpCls:
 
                 if self.pi_prune:
 
-                    self.orbsym_linear: np.ndarray = cast_away_optional(mbe.orbsym_linear)
+                    self.orbsym_linear = cast(np.ndarray, mbe.orbsym_linear)
 
                     pi_orbs, pi_hashes = pi_space('Dooh' if self.point_group == 'D2h' else 'Coov', \
                                                   self.orbsym_linear, self.exp_space[0])
@@ -167,48 +168,39 @@ def int_wins(hcore_in: Optional[np.ndarray], vhf_in: Optional[np.ndarray], \
         this function created shared memory windows for integrals on every node
         """
         # allocate hcore in shared mem
-        if mpi.local_master:
-            hcore_win = MPI.Win.Allocate_shared(8 * norb**2, 8, comm=mpi.local_comm)
-        else:
-            hcore_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+        hcore_win = MPI.Win.Allocate_shared(8 * norb ** 2 if mpi.local_master else 0, 8, comm=mpi.local_comm) # type: ignore
         buf = hcore_win.Shared_query(0)[0]
-        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(norb,) * 2)
+        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(norb,) * 2) # type: ignore
 
         # set hcore on global master
         if mpi.global_master:
-            hcore[:] = cast_away_optional(hcore_in)
+            hcore[:] = cast(np.ndarray, hcore_in)
 
         # mpi_bcast hcore
         if mpi.num_masters > 1 and mpi.local_master:
             hcore[:] = mpi_bcast(mpi.master_comm, hcore)
 
         # allocate vhf in shared mem
-        if mpi.local_master:
-            vhf_win = MPI.Win.Allocate_shared(8 * nocc*norb**2, 8, comm=mpi.local_comm)
-        else:
-            vhf_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+        vhf_win = MPI.Win.Allocate_shared(8 * nocc * norb ** 2 if mpi.local_master else 0, 8, comm=mpi.local_comm) # type: ignore
         buf = vhf_win.Shared_query(0)[0]
-        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(nocc, norb, norb))
+        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(nocc, norb, norb)) # type: ignore
         
         # set vhf on global master
         if mpi.global_master:
-            vhf[:] = cast_away_optional(vhf_in)
+            vhf[:] = cast(np.ndarray, vhf_in)
 
         # mpi_bcast vhf
         if mpi.num_masters > 1 and mpi.local_master:
             vhf[:] = mpi_bcast(mpi.master_comm, vhf)
 
         # allocate eri in shared mem
-        if mpi.local_master:
-            eri_win = MPI.Win.Allocate_shared(8 * (norb * (norb + 1) // 2) ** 2, 8, comm=mpi.local_comm)
-        else:
-            eri_win = MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm)
+        eri_win = MPI.Win.Allocate_shared(8 * (norb * (norb + 1) // 2) ** 2 if mpi.local_master else 0, 8, comm=mpi.local_comm) # type: ignore
         buf = eri_win.Shared_query(0)[0]
-        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(norb * (norb + 1) // 2,) * 2)
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(norb * (norb + 1) // 2,) * 2) # type: ignore
 
         # set eri on global master
         if mpi.global_master:
-            eri[:] = cast_away_optional(eri_in)
+            eri[:] = cast(np.ndarray, eri_in)
 
         # mpi_bcast eri
         if mpi.num_masters > 1 and mpi.local_master:
@@ -254,11 +246,10 @@ def restart_main(mpi: MPICls, exp: ExpCls) -> int:
 
             # read hashes
             if 'mbe_hashes' in files[i]:
-                n_tuples = exp.n_tuples['inc'][len(exp.prop[exp.target]['hashes'])]
-                exp.prop[exp.target]['hashes'].append(MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, \
-                                                                              8, comm=mpi.local_comm))
-                buf = exp.prop[exp.target]['hashes'][-1].Shared_query(0)[0] # type: ignore
-                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,))
+                n_tuples = exp.n_tuples['inc'][len(exp.hashes)]
+                exp.hashes.append(MPI.Win.Allocate_shared(8 * n_tuples if mpi.local_master else 0, 8, comm=mpi.local_comm)) # type: ignore
+                buf = exp.hashes[-1].Shared_query(0)[0]
+                hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(n_tuples,)) # type: ignore
                 if mpi.global_master:
                     hashes[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -267,19 +258,10 @@ def restart_main(mpi: MPICls, exp: ExpCls) -> int:
 
             # read increments
             elif 'mbe_inc' in files[i]:
-                n_tuples = exp.n_tuples['inc'][len(exp.prop[exp.target]['inc'])]
-                if mpi.local_master:
-                    if exp.target in ['energy', 'excitation']:
-                        exp.prop[exp.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples, 8, comm=mpi.local_comm))
-                    elif exp.target in ['dipole', 'trans']:
-                        exp.prop[exp.target]['inc'].append(MPI.Win.Allocate_shared(8 * n_tuples * 3, 8, comm=mpi.local_comm))
-                else:
-                    exp.prop[exp.target]['inc'].append(MPI.Win.Allocate_shared(0, 8, comm=mpi.local_comm))
-                buf = exp.prop[exp.target]['inc'][-1].Shared_query(0)[0] # type: ignore
-                if exp.target in ['energy', 'excitation']:
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tuples,))
-                elif exp.target in ['dipole', 'trans']:
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape=(n_tuples, 3))
+                n_tuples = exp.n_tuples['inc'][len(exp.incs)]
+                exp.incs.append(MPI.Win.Allocate_shared(8 * n_tuples * inc_dim(exp.target) if mpi.local_master else 0, 8, comm=mpi.local_comm)) # type: ignore
+                buf = exp.incs[-1].Shared_query(0)[0]
+                inc = np.ndarray(buffer=buf, dtype=np.float64, shape=inc_shape(n_tuples, inc_dim(exp.target))) # type: ignore
                 if mpi.global_master:
                     inc[:] = np.load(os.path.join(RST, files[i]))
                 if mpi.num_masters > 1 and mpi.local_master:
@@ -297,16 +279,15 @@ def restart_main(mpi: MPICls, exp: ExpCls) -> int:
                     exp.screen = np.load(os.path.join(RST, files[i]))
 
                 # read total properties
-                elif 'mbe_tot' in files[i]:
-                    exp.prop[exp.target]['tot'].append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_tot_prop' in files[i]:
+                    exp.mbe_tot_prop.append(np.load(os.path.join(RST, files[i])))
 
                 # read inc statistics
-                elif 'mbe_mean_inc' in files[i]:
-                    exp.mean_inc.append(np.load(os.path.join(RST, files[i])))
-                elif 'mbe_min_inc' in files[i]:
-                    exp.min_inc.append(np.load(os.path.join(RST, files[i])))
-                elif 'mbe_max_inc' in files[i]:
-                    exp.max_inc.append(np.load(os.path.join(RST, files[i])))
+                elif 'mbe_stats_inc' in files[i]:
+                    inc_stats = np.load(os.path.join(RST, files[i]))
+                    exp.min_inc.append(inc_stats[0])
+                    exp.mean_inc.append(inc_stats[1])
+                    exp.max_inc.append(inc_stats[2])
 
                 # read timings
                 elif 'mbe_time_mbe' in files[i]:
@@ -325,4 +306,4 @@ def restart_main(mpi: MPICls, exp: ExpCls) -> int:
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return exp.min_order + len(exp.prop[exp.target]['tot'])
+        return exp.min_order + len(exp.mbe_tot_prop)

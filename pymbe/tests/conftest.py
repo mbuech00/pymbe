@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from _pytest.fixtures import SubRequest
     from _pytest._code.code import ExceptionInfo
-    from typing import List, Tuple
+    from typing import List, Tuple, Dict, Optional
 
 
 def pytest_keyboard_interrupt(excinfo: ExceptionInfo) -> None:
@@ -199,17 +199,17 @@ def ints_win(norb: int, nocc: int, ints: Tuple[np.ndarray, np.ndarray], \
         """
         hcore_win = MPI.Win.Allocate_shared(8 * norb**2, 8, comm=MPI.COMM_WORLD)
         buf = hcore_win.Shared_query(0)[0]
-        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(norb,) * 2)
+        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(norb,) * 2) # type: ignore
 
         eri_win = MPI.Win.Allocate_shared(8 * (norb * (norb + 1) // 2) ** 2, 8, comm=MPI.COMM_WORLD)
         buf = eri_win.Shared_query(0)[0]
-        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(norb * (norb + 1) // 2,) * 2)
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(norb * (norb + 1) // 2,) * 2) # type: ignore
 
         hcore[:], eri[:] = ints
 
         vhf_win = MPI.Win.Allocate_shared(8 * nocc*norb**2, 8, comm=MPI.COMM_WORLD)
         buf = vhf_win.Shared_query(0)[0]
-        vhf_arr = np.ndarray(buffer=buf, dtype=np.float64, shape=(nocc, norb, norb))
+        vhf_arr = np.ndarray(buffer=buf, dtype=np.float64, shape=(nocc, norb, norb)) # type: ignore
 
         vhf_arr[:] = vhf
 
@@ -217,13 +217,13 @@ def ints_win(norb: int, nocc: int, ints: Tuple[np.ndarray, np.ndarray], \
 
 
 @pytest.fixture
-def orbsym(system: str, mol: gto.Mole, hf: scf.RHF) -> List[int]:
+def orbsym(system: str, mol: gto.Mole, hf: scf.RHF) -> np.ndarray:
         """
         this fixture determines orbital symmetries
         """
         if system in ['h2o', 'c2']:
 
-            orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
+            orbsym = np.array(symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff), dtype=np.int64)
         
         elif system == 'hubbard':
 
@@ -265,3 +265,61 @@ class ExpCls:
         """
         this class is a dummy ExpCls class
         """
+        def __init__(self) -> None:
+
+                self.method: str = 'fci'
+                self.fci_solver: str = 'pyscf_spin0'
+                self.cc_backend: str = 'pyscf'
+                self.hf_guess: bool = True
+
+                self.target: str = 'energy'
+
+                self.nuc_energy: float = 0.
+                self.nocc: int = 0
+                self.norb: int = 0
+                self.spin: int = 0
+                self.point_group: str = 'c1'
+                self.orbsym: np.ndarray = np.array([], dtype=np.int64)
+                self.fci_state_sym = 0
+                self.fci_state_root = 0
+
+                self.hf_prop = 0.
+                self.occup: np.ndarray = np.array([], dtype=np.float64)
+
+                self.hcore: MPI.Win = MPI.Win.Allocate_shared(0, 8, comm=MPI.COMM_WORLD)
+                self.eri: MPI.Win = MPI.Win.Allocate_shared(0, 8, comm=MPI.COMM_WORLD)
+                self.vhf: MPI.Win = MPI.Win.Allocate_shared(0, 8, comm=MPI.COMM_WORLD)
+                self.dipole_ints: Optional[np.ndarray] = None
+
+                self.orb_type: str = 'can'
+
+                self.ref_space: np.ndarray = np.array([], dtype=np.int64)
+                self.ref_prop: float = 0.
+
+                self.exp_space: List[np.ndarray] = [np.array([], dtype=np.int64)]
+
+                self.base_method: Optional[str] = None
+                
+                self.incs: List[MPI.Win] = []
+
+                self.hashes: List[MPI.Win] = []
+                
+                self.time: Dict[str, List[float]] = {'mbe': [], 'purge': []}
+
+                self.mean_inc: List[np.ndarray] = []
+                self.min_inc: List[np.ndarray] = []
+                self.max_inc: List[np.ndarray] = []
+
+                self.n_tuples: Dict[str, List[int]] = {'inc': []}
+
+                self.screen_start: int = 4
+                self.screen_orbs = np.array([], dtype=np.int64)
+
+                self.rst: bool = False
+                
+                self.order = 0
+                self.min_order: int = 1
+
+                self.verbose: int = 0
+                
+                self.pi_prune: bool = False

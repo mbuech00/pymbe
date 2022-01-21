@@ -74,7 +74,7 @@ test_cases_dim = [
 test_cases_ref_mo = [
     ('c2', 'ccsd', np.arange(2, 6, dtype=np.int64), {}, False, True),
     ('c2', 'local', np.arange(2, 6, dtype=np.int64), {}, False, True),
-    ('c2', 'casscf', np.array([4, 5, 7, 8]), {'wfnsym': ['Ag'], 'weights': [1.]}, False, False)
+    ('c2', 'casscf', np.array([4, 5, 7, 8], dtype=np.int64), {'wfnsym': ['Ag'], 'weights': [1.]}, False, False)
 ]
 
 test_cases_casscf = [
@@ -250,8 +250,8 @@ def test_dim(mo_occ: np.ndarray, ref_dims: Tuple[int, int, int]) -> None:
                          argvalues=test_cases_ref_mo, \
                          ids=['-'.join(case[0:2]) for case in test_cases_ref_mo], \
                          indirect=['system'])
-def test_ref_mo(mol: gto.Mole, hf: scf.RHF, orbsym: List[int], norb: int, \
-                ncore: int, nocc: int, orb_type: str, ref_space: List[int], \
+def test_ref_mo(mol: gto.Mole, hf: scf.RHF, orbsym: np.ndarray, norb: int, \
+                ncore: int, nocc: int, orb_type: str, ref_space: np.ndarray, \
                 casscf_kwargs: Dict[str, Any], mo_coeff_eq: bool, \
                 rdm1_eq: bool) -> None:
         """
@@ -272,7 +272,7 @@ def test_ref_mo(mol: gto.Mole, hf: scf.RHF, orbsym: List[int], norb: int, \
                          argvalues=test_cases_casscf, \
                          ids=['-'.join([case[0]] + ["{:02}{}".format(weight, wfnsym) for weight, wfnsym in zip(case[2], case[1])] + (['hf_guess'] if case[3] else [])) for case in test_cases_casscf], \
                          indirect=['system'])
-def test_casscf(mol: gto.Mole, hf: scf.RHF, orbsym: List[int], \
+def test_casscf(mol: gto.Mole, hf: scf.RHF, orbsym: np.ndarray, \
                 wfnsym: List[str], weights: List[float], hf_guess: bool, 
                 ncore: int, ref_sum: float, ref_amax: float) -> None:
         """
@@ -297,7 +297,7 @@ def test_casscf(mol: gto.Mole, hf: scf.RHF, orbsym: List[int], \
 def test_ref_prop(mol: gto.Mole, hf: scf.RHF, \
                   ints: Tuple[np.ndarray, np.ndarray], vhf: np.ndarray, \
                   dipole_quantities: Tuple[np.ndarray, np.ndarray], \
-                  orbsym: List[int], nocc: int, method: str, \
+                  orbsym: np.ndarray, nocc: int, method: str, \
                   base_method: Optional[str], target: str, cc_backend: str, \
                   root: int, ref_res: Union[float, np.ndarray]) -> None:
         """

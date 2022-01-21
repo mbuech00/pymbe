@@ -19,7 +19,7 @@ from pyscf import gto, scf, cc, fci
 from pyscf.cc import ccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pymbe.tools import assertion
 from pymbe.interface import mbecc_interface
@@ -61,9 +61,9 @@ def e_core_h1e(nuc_energy: float, hcore: np.ndarray, vhf: np.ndarray, \
 def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, \
          occup: np.ndarray, target_mbe: str, state_wfnsym: int, \
          point_group: str, orbsym: np.ndarray, hf_guess: bool, \
-         state_root: int, hf_prop: Union[float, np.ndarray], e_core: float, \
-         h1e: np.ndarray, h2e: np.ndarray, core_idx: np.ndarray, \
-         cas_idx: np.ndarray, n_elec: Tuple[int, int], verbose: int, \
+         state_root: int, hf_prop: np.ndarray, e_core: float, h1e: np.ndarray, \
+         h2e: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray, \
+         n_elec: Tuple[int, int], verbose: int, \
          dipole_ints: Optional[np.ndarray], \
          higher_amp_extrap: bool = False) -> Union[float, np.ndarray]:
         """
@@ -87,13 +87,14 @@ def main(method: str, cc_backend: str, solver: str, orb_type: str, spin: int, \
 
         elif target_mbe == 'dipole':
 
-            res = _dipole(dipole_ints, occup, cas_idx, res_tmp['rdm1'], \
-                          hf_dipole=hf_prop)
+            res = _dipole(cast(np.ndarray, dipole_ints), occup, cas_idx, \
+                          res_tmp['rdm1'], hf_dipole=hf_prop)
 
         elif target_mbe == 'trans':
 
-            res = _trans(dipole_ints, occup, cas_idx, res_tmp['t_rdm1'], \
-                         res_tmp['hf_weight'][0], res_tmp['hf_weight'][1])
+            res = _trans(cast(np.ndarray, dipole_ints), occup, cas_idx, \
+                         res_tmp['t_rdm1'], res_tmp['hf_weight'][0], \
+                         res_tmp['hf_weight'][1])
 
         return res
 
@@ -136,9 +137,9 @@ def _trans(dipole_ints: np.ndarray, occup: np.ndarray, cas_idx: np.ndarray, \
 
 def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: int, \
          orbsym: np.ndarray, hf_guess: bool, root: int, \
-         hf_prop: Union[float, np.ndarray], e_core: float, h1e: np.ndarray, \
-         h2e: np.ndarray, occup: np.ndarray, cas_idx: np.ndarray, \
-         n_elec: Tuple[int, int], verbose: int) -> Dict[str, Any]:
+         hf_prop: np.ndarray, e_core: float, h1e: np.ndarray, h2e: np.ndarray, \
+         occup: np.ndarray, cas_idx: np.ndarray, n_elec: Tuple[int, int], \
+         verbose: int) -> Dict[str, Any]:
         """
         this function returns the results of a fci calculation
         """
@@ -237,14 +238,14 @@ def _fci(solver_type: str, spin: int, target_mbe: str, wfnsym: int, \
         # collect results
         res: Dict[str, Union[int, float, np.ndarray]] = {}
         if target_mbe == 'energy':
-            res['energy'] = energy[-1] - hf_prop
+            res['energy'] = energy[-1] - hf_prop.item()
         elif target_mbe == 'excitation':
             res['excitation'] = energy[-1] - energy[0]
         elif target_mbe == 'dipole':
             res['rdm1'] = solver.make_rdm1(civec[-1], cas_idx.size, n_elec)
         elif target_mbe == 'trans':
             res['t_rdm1'] = solver.trans_rdm1(civec[0], civec[-1], cas_idx.size, n_elec)
-            res['hf_weight'] = [civec[i][0, 0] for i in range(2)]
+            res['hf_weight'] = np.array([civec[i][0, 0] for i in range(2)])
 
         return res
 

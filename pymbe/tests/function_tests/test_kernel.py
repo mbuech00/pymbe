@@ -23,7 +23,7 @@ from pymbe.kernel import e_core_h1e, main, _dipole, _trans, _fci, _cc
 if TYPE_CHECKING:
 
     from pyscf import gto, scf
-    from typing import List, Tuple, Union, Dict
+    from typing import Tuple, Union, Dict
 
 
 test_cases_main = [
@@ -89,7 +89,7 @@ def test_e_core_h1e() -> None:
                          ids=['-'.join([item for item in case[0:4] if item]) for case in test_cases_main], \
                          indirect=['system'])
 def test_main(system: str, mol: gto.Mole, hf: scf.RHF, \
-              ints: Tuple[np.ndarray, np.ndarray], orbsym: List[int],  \
+              ints: Tuple[np.ndarray, np.ndarray], orbsym: np.ndarray, \
               dipole_quantities: Tuple[np.ndarray, np.ndarray], method: str, \
               target: str, cc_backend: str, root: int, \
               ref_res: Union[float, np.ndarray]) -> None:
@@ -126,12 +126,12 @@ def test_main(system: str, mol: gto.Mole, hf: scf.RHF, \
         if target == 'energy':
 
             dipole_ints = None
-            hf_prop = hf_energy
+            hf_prop = np.array([hf_energy], dtype=np.float64)
 
         elif target == 'excitation':
 
             dipole_ints = None
-            hf_prop = 0.
+            hf_prop = np.array([0.], dtype=np.float64)
 
         elif target == 'dipole':
 
@@ -186,14 +186,14 @@ def test_trans() -> None:
                          ids=['-'.join(case[0:2]) for case in test_cases_fci], \
                          indirect=['system'])
 def test_fci(system: str, mol: gto.Mole, hf: scf.RHF, \
-             ints: Tuple[np.ndarray, np.ndarray], orbsym: List[int], \
+             ints: Tuple[np.ndarray, np.ndarray], orbsym: np.ndarray, \
              target: str, root: int, ref: Dict[str, Union[float, int]]) -> None:
         """
         this function tests _fci
         """
         if system == 'h2o':
 
-            hf_energy = hf.e_tot
+            hf_energy = np.array([hf.e_tot], dtype=np.float64)
             e_core = mol.energy_nuc()
             cas_idx = np.array([0, 1, 2, 3, 4, 7, 9], dtype=np.int64)
             cas_idx_tril = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, \
@@ -203,7 +203,7 @@ def test_fci(system: str, mol: gto.Mole, hf: scf.RHF, \
 
         elif system == 'hubbard':
 
-            hf_energy = 0.
+            hf_energy = np.array([0.], dtype=np.float64)
             e_core = 0.
             cas_idx = np.arange(1, 5, dtype=np.int64)
             cas_idx_tril = np.array([2, 4, 5, 7, 8, 9, 11, 12, 13, 14], dtype=np.int64)
@@ -233,8 +233,8 @@ def test_fci(system: str, mol: gto.Mole, hf: scf.RHF, \
                          argvalues=test_cases_cc, \
                          ids=['-'.join(case[0:3]) + '-' + case[3] for case in test_cases_cc], \
                          indirect=['system'])
-def test_cc(hf: scf.RHF, orbsym: List[int], \
-            ints: Tuple[np.ndarray, np.ndarray], method: str, target: str, 
+def test_cc(hf: scf.RHF, orbsym: np.ndarray, \
+            ints: Tuple[np.ndarray, np.ndarray], method: str, target: str, \
             cc_backend: str, ref: Dict[str, float]) -> None:
         """
         this function tests _cc
@@ -250,7 +250,7 @@ def test_cc(hf: scf.RHF, orbsym: List[int], \
         h2e_cas = h2e[cas_idx_tril[:, None], cas_idx_tril]
 
         res = _cc(0, hf.mo_occ, core_idx, cas_idx, method, cc_backend, n_elec,
-                  'can', 'C2v', orbsym, h1e_cas, h2e_cas, True, 
+                  'can', 'C2v', orbsym, h1e_cas, h2e_cas, True, \
                   target == 'dipole', 0)
 
         if target == 'energy':

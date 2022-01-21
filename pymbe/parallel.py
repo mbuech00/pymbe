@@ -136,7 +136,7 @@ def mpi_bcast(comm: MPI.Comm, buff: np.ndarray) -> np.ndarray:
         inspired by: https://github.com/pyscf/mpi4pyscf/blob/master/tools/mpi.py
         """
         # init buff_tile
-        buff_tile = np.ndarray(buff.size, dtype=buff.dtype, buffer=buff)
+        buff_tile: np.ndarray = np.ndarray(buff.size, dtype=buff.dtype, buffer=buff)
 
         # bcast all tiles
         for p0, p1 in lib.prange(0, buff.size, BLKSIZE):
@@ -160,9 +160,9 @@ def mpi_reduce(comm: MPI.Comm, send_buff: np.ndarray, root: int = 0, op: MPI.Op 
             recv_buff = send_buff
 
         # init send_tile and recv_tile
-        send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
+        send_tile: np.ndarray = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
         if rank == root:
-            recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
+            recv_tile: np.ndarray = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
 
         # reduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
@@ -183,8 +183,8 @@ def mpi_allreduce(comm: MPI.Comm, send_buff: np.ndarray, op: MPI.Op = MPI.SUM) -
         recv_buff = np.zeros_like(send_buff)
 
         # init send_tile and recv_tile
-        send_tile = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
-        recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
+        send_tile: np.ndarray = np.ndarray(send_buff.size, dtype=send_buff.dtype, buffer=send_buff)
+        recv_tile: np.ndarray = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
 
         # allreduce all tiles
         for p0, p1 in lib.prange(0, send_buff.size, BLKSIZE):
@@ -204,7 +204,7 @@ def mpi_gatherv(comm: MPI.Comm, send_buff: np.ndarray, recv_buff: np.ndarray, \
         size = comm.Get_size()
 
         if rank == root:
-            recv_tile = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
+            recv_tile: np.ndarray = np.ndarray(recv_buff.size, dtype=recv_buff.dtype, buffer=recv_buff)
             recv_tile[:send_buff.size] = send_buff
             # recv from all slaves
             for slave in range(1, size):

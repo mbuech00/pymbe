@@ -55,8 +55,7 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
 
                 # print mbe results
                 logger.info(mbe_results(exp.target, exp.fci_state_root, \
-                                        exp.min_order, i, \
-                                        exp.prop[exp.target]['tot'], \
+                                        exp.min_order, i, exp.mbe_tot_prop, \
                                         exp.mean_inc[i-exp.min_order], \
                                         exp.min_inc[i-exp.min_order], \
                                         exp.max_inc[i-exp.min_order]))
@@ -94,21 +93,21 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
             hashes_win, inc_win, tot, mean_inc, min_inc, max_inc = mbe_main(mpi, exp)
 
             # append window to hashes
-            if len(exp.prop[exp.target]['hashes']) == len(exp.n_tuples['inc']):
-                exp.prop[exp.target]['hashes'][-1] = hashes_win
+            if len(exp.hashes) == len(exp.n_tuples['inc']):
+                exp.hashes[-1] = hashes_win
             else:
-                exp.prop[exp.target]['hashes'].append(hashes_win)
+                exp.hashes.append(hashes_win)
 
             # append window to increments
-            if len(exp.prop[exp.target]['inc']) == len(exp.n_tuples['inc']):
-                exp.prop[exp.target]['inc'][-1] = inc_win
+            if len(exp.incs) == len(exp.n_tuples['inc']):
+                exp.incs[-1] = inc_win
             else:
-                exp.prop[exp.target]['inc'].append(inc_win)
+                exp.incs.append(inc_win)
 
             # append total property
-            exp.prop[exp.target]['tot'].append(tot)
+            exp.mbe_tot_prop.append(tot)
             if exp.order > exp.min_order:
-                exp.prop[exp.target]['tot'][-1] += exp.prop[exp.target]['tot'][-2]
+                exp.mbe_tot_prop[-1] += exp.mbe_tot_prop[-2]
 
             # append increment statistics
             if len(exp.mean_inc) > exp.order - exp.min_order:
@@ -126,14 +125,11 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
             # print mbe results
             logger.info(mbe_results(exp.target, exp.fci_state_root, \
                                     exp.min_order, exp.order, \
-                                    exp.prop[exp.target]['tot'], \
-                                    exp.mean_inc[-1], exp.min_inc[-1], \
-                                    exp.max_inc[-1]))
+                                    exp.mbe_tot_prop, exp.mean_inc[-1], \
+                                    exp.min_inc[-1], exp.max_inc[-1]))
 
             # update screen_orbs
-            if exp.order == exp.min_order:
-                exp.screen_orbs = np.array([], dtype=np.int64)
-            else:
+            if exp.order > exp.min_order:
                 exp.screen_orbs = np.setdiff1d(exp.exp_space[-2], \
                                                exp.exp_space[-1])
 
@@ -146,7 +142,7 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
             logger.info(purge_header(exp.order))
 
             # main purging function
-            exp.prop[exp.target], exp.n_tuples = purge_main(mpi, exp)
+            exp.incs, exp.hashes, exp.n_tuples = purge_main(mpi, exp)
 
             # print purging results
             if exp.order + 1 <= exp.exp_space[-1].size:
@@ -160,26 +156,22 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
             if exp.rst:
                 if exp.screen_orbs.size > 0:
                     for k in range(exp.order-exp.min_order+1):
-                        buf = exp.prop[exp.target]['hashes'][k].Shared_query(0)[0] # type: ignore
-                        hashes = np.ndarray(buffer = buf, dtype=np.int64, \
-                                            shape = (exp.n_tuples['inc'][k],))
+                        buf = exp.hashes[k].Shared_query(0)[0]
+                        hashes = np.ndarray(buffer=buf, dtype=np.int64, shape = (exp.n_tuples['inc'][k],)) # type: ignore
                         write_file(k + exp.min_order, hashes, 'mbe_hashes')
-                        buf = exp.prop[exp.target]['inc'][k].Shared_query(0)[0] # type: ignore
-                        inc = np.ndarray(buffer=buf, dtype=np.float64, \
-                                         shape = inc_shape(exp.n_tuples['inc'][k], inc_dim(exp.target)))
+                        buf = exp.incs[k].Shared_query(0)[0]
+                        inc = np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k], inc_dim(exp.target))) # type: ignore
                         write_file(k + exp.min_order, inc, 'mbe_inc')
                         write_file(k + exp.min_order, np.asarray(exp.n_tuples['inc'][k]), 'mbe_n_tuples_inc')
                 else:
-                    buf = exp.prop[exp.target]['hashes'][-1].Shared_query(0)[0] # type: ignore
-                    hashes = np.ndarray(buffer=buf, dtype=np.int64, \
-                                        shape=(exp.n_tuples['inc'][-1],))
+                    buf = exp.hashes[-1].Shared_query(0)[0]
+                    hashes = np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][-1],)) # type: ignore
                     write_file(exp.order, hashes, 'mbe_hashes')
-                    buf = exp.prop[exp.target]['inc'][-1].Shared_query(0)[0] # type: ignore
-                    inc = np.ndarray(buffer=buf, dtype=np.float64, \
-                                     shape = inc_shape(exp.n_tuples['inc'][-1], inc_dim(exp.target)))
+                    buf = exp.incs[-1].Shared_query(0)[0]
+                    inc = np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][-1], inc_dim(exp.target))) # type: ignore
                     write_file(exp.order, inc, 'mbe_inc')
                     write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_n_tuples_inc')
-                write_file(exp.order, np.asarray(exp.prop[exp.target]['tot'][-1]), 'mbe_tot')
+                write_file(exp.order, np.asarray(exp.mbe_tot_prop[-1]), 'mbe_tot')
                 write_file(exp.order, np.asarray(exp.time['mbe'][-1]), 'mbe_time_mbe')
                 write_file(exp.order, np.asarray(exp.time['purge'][-1]), 'mbe_time_purge')
 
@@ -189,18 +181,10 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
                 # final order
                 exp.final_order = exp.order
 
-                # timings
-                exp.time['mbe'] = np.asarray(exp.time['mbe'])
-                exp.time['purge'] = np.asarray(exp.time['purge'])
-                exp.time['total'] = exp.time['mbe'] + exp.time['purge']
-
-                # increments
-                exp.mean_inc = np.asarray(exp.mean_inc)
-                exp.min_inc = np.asarray(exp.min_inc)
-                exp.max_inc = np.asarray(exp.max_inc)
+                # total timing
+                exp.time['total'] = [mbe + purge for mbe, purge in zip(exp.time['mbe'], exp.time['purge'])]
 
                 # final results
-                exp.prop[exp.target]['tot'] = np.asarray(exp.prop[exp.target]['tot'])
                 logger.info('\n\n')
 
                 break
@@ -240,16 +224,16 @@ def slave(mpi: MPICls, exp: ExpCls) -> None:
                                                tup=msg['tup'])
 
                 # append window to hashes
-                if len(exp.prop[exp.target]['hashes']) == len(exp.n_tuples['inc']):
-                    exp.prop[exp.target]['hashes'][-1] = hashes_win
+                if len(exp.hashes) == len(exp.n_tuples['inc']):
+                    exp.hashes[-1] = hashes_win
                 else:
-                    exp.prop[exp.target]['hashes'].append(hashes_win)
+                    exp.hashes.append(hashes_win)
 
                 # append window to increments
-                if len(exp.prop[exp.target]['inc']) == len(exp.n_tuples['inc']):
-                    exp.prop[exp.target]['inc'][-1] = inc_win
+                if len(exp.incs) == len(exp.n_tuples['inc']):
+                    exp.incs[-1] = inc_win
                 else:
-                    exp.prop[exp.target]['inc'].append(inc_win)
+                    exp.incs.append(inc_win)
 
                 # update screen_orbs
                 if exp.order == exp.min_order:
@@ -263,7 +247,7 @@ def slave(mpi: MPICls, exp: ExpCls) -> None:
                 exp.order = msg['order']
 
                 # main purging function
-                exp.prop[exp.target], exp.n_tuples = purge_main(mpi, exp)
+                exp.incs, exp.hashes, exp.n_tuples = purge_main(mpi, exp)
 
             elif msg['task'] == 'exit':
 

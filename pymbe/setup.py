@@ -19,11 +19,11 @@ import os
 import numpy as np
 from json import load, dump
 from pyscf import symm
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
 from pymbe.expansion import ExpCls
-from pymbe.tools import RST, logger_config, assertion, assume_int
+from pymbe.tools import RST, logger_config, assertion
 
 if TYPE_CHECKING:
 
@@ -37,9 +37,6 @@ def main(mbe: MBE) -> MBE:
 
         # input handling
         if mbe.mpi.global_master:
-
-            # configure logger on global master
-            logger_config(mbe.verbose)
 
             # check for restart folder
             if not os.path.isdir(RST):
@@ -78,7 +75,7 @@ def main(mbe: MBE) -> MBE:
                 mbe.point_group = symm.addons.std_symb(mbe.point_group)
 
                 # set default value for orbital symmetry
-                if mbe.orbsym is None and mbe.point_group == 'C1':
+                if mbe.orbsym is None and mbe.point_group == 'C1' and mbe.norb is not None:
                     mbe.orbsym = np.zeros(mbe.norb, dtype=np.int64)
 
                 # set default value for fci wavefunction state symmetry
@@ -133,6 +130,9 @@ def main(mbe: MBE) -> MBE:
 
                 # restart logical
                 mbe.restarted = True
+
+            # configure logger on global master
+            logger_config(mbe.verbose)
 
             # sanity check
             sanity_check(mbe)
@@ -243,7 +243,7 @@ def sanity_check(mbe: MBE) -> None:
             assertion(mbe.fci_state_root == 0, \
                             'excited target states (root keyword argument) not implemented for chosen expansion model (method keyword argument)')
         if mbe.target in ['excitation', 'trans']:
-            assertion(assume_int(mbe.fci_state_root) > 0, \
+            assertion(cast(int, mbe.fci_state_root) > 0, \
                             'calculation of excitation energies or transition dipole moments (target keyword argument) requires target state root (state_root keyword argument) >= 1')
 
         # hf calculation
@@ -400,7 +400,7 @@ def restart_write_system(mbe: MBE) -> None:
             system['orbsym_linear'] = mbe.orbsym_linear
 
         # write system quantities
-        np.savez(os.path.join(RST, 'system'), **system)
+        np.savez(os.path.join(RST, 'system'), **system) # type: ignore
 
 
 def restart_read_system(mbe: MBE) -> MBE:

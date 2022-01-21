@@ -62,45 +62,45 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
 
         # load eri
         buf = exp.eri.Shared_query(0)[0]
-        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.norb * (exp.norb + 1) // 2,) * 2)
+        eri = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.norb * (exp.norb + 1) // 2,) * 2) # type: ignore
 
         # load hcore
         buf = exp.hcore.Shared_query(0)[0]
-        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.norb,) * 2)
+        hcore = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.norb,) * 2) # type: ignore
 
         # load vhf
         buf = exp.vhf.Shared_query(0)[0]
-        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.nocc, exp.norb, exp.norb))
+        vhf = np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.nocc, exp.norb, exp.norb)) # type: ignore
 
         # load hashes for previous orders
-        hashes = []
+        hashes: List[np.ndarray] = []
         for k in range(exp.order-exp.min_order):
-            buf = exp.prop[exp.target]['hashes'][k].Shared_query(0)[0] # type: ignore
-            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k],)))
+            buf = exp.hashes[k].Shared_query(0)[0]
+            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k],))) # type: ignore
 
         # init hashes for present order
         if rst_read:
-            hashes_win = exp.prop[exp.target]['hashes'][-1]
+            hashes_win = exp.hashes[-1]
         else:
-            hashes_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][-1] if mpi.local_master else 0, 8, comm=mpi.local_comm)
-        buf = hashes_win.Shared_query(0)[0] # type: ignore
-        hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][-1],)))
+            hashes_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][-1] if mpi.local_master else 0, 8, comm=mpi.local_comm) # type: ignore
+        buf = hashes_win.Shared_query(0)[0]
+        hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][-1],))) # type: ignore
         if mpi.local_master and not mpi.global_master:
             hashes[-1][:].fill(0)
 
         # load increments for previous orders
-        inc = []
+        inc: List[np.ndarray] = []
         for k in range(exp.order-exp.min_order):
-            buf = exp.prop[exp.target]['inc'][k].Shared_query(0)[0] # type: ignore
-            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k], dim)))
+            buf = exp.incs[k].Shared_query(0)[0]
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][k], dim))) # type: ignore
 
         # init increments for present order
         if rst_read:
-            inc_win = exp.prop[exp.target]['inc'][-1]
+            inc_win = exp.incs[-1]
         else:
-            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][-1] * dim if mpi.local_master else 0, 8, comm=mpi.local_comm)
-        buf = inc_win.Shared_query(0)[0] # type: ignore
-        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][-1], dim)))
+            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][-1] * dim if mpi.local_master else 0, 8, comm=mpi.local_comm) # type: ignore
+        buf = inc_win.Shared_query(0)[0]
+        inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape = inc_shape(exp.n_tuples['inc'][-1], dim))) # type: ignore
         if mpi.local_master and not mpi.global_master:
             inc[-1][:].fill(0.)
 
@@ -117,8 +117,8 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
 
         # init pair_corr statistics
         if exp.ref_space.size == 0 and exp.order == exp.min_order and exp.base_method is None:
-            pair_corr = [np.zeros(exp.n_tuples['inc'][0], dtype=np.float64), \
-                         np.zeros([exp.n_tuples['inc'][0], 2], dtype=np.int32)]
+            pair_corr: Optional[List[np.ndarray]] = [np.zeros(exp.n_tuples['inc'][0], dtype=np.float64), \
+                                                     np.zeros([exp.n_tuples['inc'][0], 2], dtype=np.int32)]
         else:
             pair_corr = None
 
@@ -210,9 +210,8 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
 
                 if mpi.global_master:
                     # write restart files
-                    write_file(exp.order, max_inc, 'mbe_max_inc')
-                    write_file(exp.order, min_inc, 'mbe_min_inc')
-                    write_file(exp.order, mean_inc, 'mbe_mean_inc')
+                    inc_stats = np.array([min_inc, mean_inc, max_inc], dtype=np.float64)
+                    write_file(exp.order, inc_stats, 'mbe_stats_inc')
                     write_file(exp.order, screen, 'mbe_screen')
                     write_file(exp.order, np.asarray(mbe_idx), 'mbe_idx')
                     write_file(exp.order, mbe_tup, 'mbe_tup')
@@ -279,10 +278,11 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
             min_inc, max_inc, mean_inc = _update(min_inc, max_inc, mean_inc, inc_tup)
             # update pair_corr statistics
             if pair_corr is not None:
+                inc_tup = np.asarray(inc_tup)
                 if exp.target in ['energy', 'excitation']:
-                    pair_corr[0][tup_idx] = inc_tup # type: ignore
+                    pair_corr[0][tup_idx] = inc_tup
                 else:
-                    pair_corr[0][tup_idx] = inc_tup[np.argmax(np.abs(inc_tup))] # type: ignore
+                    pair_corr[0][tup_idx] = inc_tup[np.argmax(np.abs(inc_tup))]
                 pair_corr[1][tup_idx] = tup
 
         # mpi barrier
@@ -319,9 +319,8 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
         # write restart files & save timings
         if mpi.global_master:
             if exp.rst:
-                write_file(exp.order, max_inc, 'mbe_max_inc')
-                write_file(exp.order, min_inc, 'mbe_min_inc')
-                write_file(exp.order, mean_inc, 'mbe_mean_inc')
+                inc_stats = np.array([min_inc, mean_inc, max_inc], dtype=np.float64)
+                write_file(exp.order, inc_stats, 'mbe_stats_inc')
                 write_file(exp.order, np.asarray(exp.n_tuples['inc'][-1]), 'mbe_idx')
                 write_file(exp.order, hashes[-1], 'mbe_hashes')
                 write_file(exp.order, inc[-1], 'mbe_inc')
@@ -372,8 +371,7 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
 def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
          orb_type: str, spin: int, occup: np.ndarray, target_mbe: str, \
          fci_state_sym: int, point_group: str, orbsym: np.ndarray, \
-         hf_guess: bool, fci_state_root: int, \
-         hf_prop: Union[float, np.ndarray], \
+         hf_guess: bool, fci_state_root: int, hf_prop: np.ndarray, \
          e_core: float, h1e_cas: np.ndarray, h2e_cas: np.ndarray, \
          core_idx: np.ndarray, cas_idx: np.ndarray, verbose: int, \
          dipole_ints: Optional[np.ndarray], \
@@ -404,8 +402,9 @@ def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
 
 
 def _sum(nocc: int, target_mbe: str, min_order: int, order: int, \
-         inc: List[np.ndarray], hashes: List[np.ndarray], ref_occ: bool, \
-         ref_virt: bool, tup: np.ndarray) -> Union[float, np.ndarray]:
+         inc: List[np.ndarray], hashes: List[np.ndarray], \
+         ref_occ: Union[bool, np.bool_], ref_virt: Union[bool, np.bool_], \
+         tup: np.ndarray) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
         """
@@ -435,9 +434,12 @@ def _sum(nocc: int, target_mbe: str, min_order: int, order: int, \
         return fsum(res)
 
 
-def _update(min_prop: Union[float, int], max_prop: Union[float, int], \
-            sum_prop: Union[float, int], tup_prop: Union[float, int]) -> Tuple[Union[float, int], ...]:
+def _update(min_prop: np.ndarray, max_prop: np.ndarray, \
+            sum_prop: np.ndarray, \
+            tup_prop: Union[float, np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         this function returns updated statistics
         """
-        return np.minimum(min_prop, np.abs(tup_prop)), np.maximum(max_prop, np.abs(tup_prop)), sum_prop + tup_prop
+        return np.asarray(np.minimum(min_prop, np.abs(tup_prop))), \
+               np.asarray(np.maximum(max_prop, np.abs(tup_prop))), \
+               np.asarray(sum_prop + tup_prop)

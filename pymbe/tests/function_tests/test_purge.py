@@ -25,6 +25,8 @@ from pymbe.parallel import MPICls
 
 if TYPE_CHECKING:
 
+    from typing import List
+
     from pymbe.tests.conftest import ExpCls
 
 
@@ -34,19 +36,11 @@ def test_main(exp: ExpCls) -> None:
         """
         mpi = MPICls()
 
-        exp.target = 'energy'
-
         exp.nocc = 3
 
         exp.occup = np.array([2., 2., 2., 0., 0., 0.], dtype=np.float64)
 
-        exp.ref_space = np.array([], dtype=np.int64)
-
         exp.exp_space = [np.array([0, 1, 2, 3, 5], dtype=np.int64)]
-
-        exp.prop = {exp.target: {'inc': [], 'hashes': []}}
-
-        exp.time = {'purge': []}
 
         exp.screen_orbs = np.array([4], dtype=np.int64)
 
@@ -70,33 +64,35 @@ def test_main(exp: ExpCls) -> None:
                                    1344711228121337165,  2515975357592924865,  2993709457496479298,
                                    4799605789003109011,  6975445416347248252,  7524854823186007981])]
 
-        hashes = []
-        inc = []
+        hashes: List[np.ndarray] = []
+        inc: List[np.ndarray] = []
 
         for k in range(0, 3):
 
-            hashes_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][k], 8, comm=mpi.local_comm)
+            hashes_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][k], 8, comm=mpi.local_comm) # type: ignore
             buf = hashes_win.Shared_query(0)[0]
-            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k],)))
+            hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k],))) # type: ignore
             hashes[-1][:] = start_hashes[k]
-            exp.prop[exp.target]['hashes'].append(hashes_win)
+            exp.hashes.append(hashes_win)
 
-            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][k], 8, comm=mpi.local_comm)
+            inc_win = MPI.Win.Allocate_shared(8 * exp.n_tuples['inc'][k], 8, comm=mpi.local_comm) # type: ignore
             buf = inc_win.Shared_query(0)[0]
-            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples['inc'][k],)))
+            inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples['inc'][k],))) # type: ignore
             inc[-1][:] = np.arange(1, exp.n_tuples['inc'][k]+1, dtype=np.float64)
-            exp.prop[exp.target]['inc'].append(inc_win)
+            exp.incs.append(inc_win)
 
-        exp.prop[exp.target], exp.n_tuples = main(mpi, exp)
+        exp.incs, exp.hashes, exp.n_tuples = main(mpi, exp)
 
-        purged_hashes = []
-        purged_inc = []
+        purged_hashes: List[np.ndarray] = []
+        purged_inc: List[np.ndarray] = []
 
         for k in range(0, 3):
 
-            purged_hashes.append(np.ndarray(buffer=exp.prop[exp.target]['hashes'][k], dtype=np.int64, shape=(exp.n_tuples['inc'][k],)))
+            buf = exp.hashes[k].Shared_query(0)[0]
+            purged_hashes.append(np.ndarray(buffer=buf, dtype=np.int64, shape=(exp.n_tuples['inc'][k],))) # type: ignore
 
-            purged_inc.append(np.ndarray(buffer=exp.prop[exp.target]['inc'][k], dtype=np.float64, shape=(exp.n_tuples['inc'][k],)))
+            buf = exp.incs[k].Shared_query(0)[0]
+            purged_inc.append(np.ndarray(buffer=buf, dtype=np.float64, shape=(exp.n_tuples['inc'][k],))) # type: ignore
 
         assert exp.n_tuples['inc'] == [6, 9, 5]
         assert (purged_hashes[0] == np.array([-6318372561352273418, -5475322122992870313, -1752257283205524125,
