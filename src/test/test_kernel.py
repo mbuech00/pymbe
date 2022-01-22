@@ -313,7 +313,7 @@ def test_hf(mol: MolCls, mo_coeff: np.ndarray, newton: bool, symmetry: bool, \
         assert nvirt == mol.nvirt
         assert norb == mol.norb
         assert e_hf == pytest.approx(ref_e_hf)
-        assert dipole == pytest.approx(ref_dipole, rel=1e-5, abs=1e-11)
+        assert dipole == pytest.approx(ref_dipole, rel=1e-5, abs=1e-10)
         assert (occup == np.array([2., 2., 2., 2., 2., 0., 0., 0., 0., 0., 0., 0., 0.], dtype=np.float64)).all()
         assert (orbsym == np.array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0], dtype=np.float64)).all()
         assert mo_coeff == pytest.approx(ref_mo_coeff) if mo_coeff_eq else mo_coeff != pytest.approx(ref_mo_coeff)
