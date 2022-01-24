@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     
-    from typing import Tuple, List, Generator, Union, Optional, TypeVar
+    from typing import Tuple, List, Generator, Union, Optional
 
 
 # get logger
