@@ -1,29 +1,21 @@
 # PyMBE environment image
-image: registry.gitlab.com/jgreiner/pymbe/pymbe_env_image:latest
+image: registry.gitlab.com/jgreiner/pymbe/pymbe_env:latest
 
 stages:
-  - Static Analysis
   - Type Checking
   - Testing
-
-#pylint:
-#  stage: Static Analysis
-#  script:
-#    - pip install pylint
-#    - pylint -d C0301 src/*.py
 
 mypy:
   stage: Type Checking
   needs: []
   script:
-    - mypy --ignore-missing-imports src
+    - mypy --ignore-missing-imports --ignore-missing-imports --warn-redundant-casts pymbe
 
 pytest:
   stage: Testing
   needs: []
   script:
-    - cd src
-    - echo "MBECCLIB = '${MBECC_DIR}/libmbecc.so'" > settings.py
+    - echo "MBECCLIB = '${MBECC_DIR}/libmbecc.so'" > pymbe/settings.py
     - python3 -m pytest --junitxml=../report.xml
   artifacts:
     when: always
