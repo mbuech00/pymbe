@@ -23,8 +23,8 @@ from pymbe.kernel import e_core_h1e, main as kernel_main
 from pymbe.output import mbe_status, mbe_debug
 from pymbe.parallel import mpi_reduce, mpi_allreduce
 from pymbe.tools import is_file, read_file, write_file, inc_dim, inc_shape, \
-                        occ_prune, virt_prune, pi_prune, tuples, start_idx, \
-                        core_cas, idx_tril, nelec, hash_1d, hash_lookup, fsum
+                        min_orbs, pi_prune, tuples, start_idx, core_cas, \
+                        idx_tril, nelec, hash_1d, hash_lookup, fsum
 
 if TYPE_CHECKING:
 
@@ -116,9 +116,9 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
         mean_inc = exp.mean_inc[-1] if mpi.global_master and rst_read else np.array([0.] * dim, dtype=np.float64)
 
         # init pair_corr statistics
-        if exp.ref_space.size == 0 and exp.order == exp.min_order and exp.base_method is None:
-            pair_corr: Optional[List[np.ndarray]] = [np.zeros(exp.n_tuples['inc'][0], dtype=np.float64), \
-                                                     np.zeros([exp.n_tuples['inc'][0], 2], dtype=np.int32)]
+        if exp.ref_space.size == 0 and exp.order == 2 and exp.base_method is None:
+            pair_corr: Optional[List[np.ndarray]] = [np.zeros(exp.n_tuples['theo'][exp.order-exp.min_order], dtype=np.float64), \
+                                                     np.zeros([exp.n_tuples['theo'][exp.order-exp.min_order], 2], dtype=np.int32)]
         else:
             pair_corr = None
 
@@ -129,20 +129,21 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
         exp_occ = exp.exp_space[-1][exp.exp_space[-1] < exp.nocc]
         exp_virt = exp.exp_space[-1][exp.nocc <= exp.exp_space[-1]]
 
-        # allow for tuples with only virtual or occupied MOs
-        ref_occ = occ_prune(exp.occup, exp.ref_space)
-        ref_virt = virt_prune(exp.occup, exp.ref_space)
+        # get minimum number of virtual or occupied MOs in tuple
+        min_occ, min_virt = min_orbs(exp.occup, exp.ref_space, exp.vanish_exc)
 
         # init screen array
         screen = np.zeros(exp.norb, dtype=np.float64)
         if rst_read:
             if mpi.global_master:
                 screen = exp.screen
-        if exp.order == exp.min_order:
-            if ref_occ and not ref_virt:
-                screen[exp_occ] = SCREEN
-            if not ref_occ and ref_virt:
-                screen[exp_virt] = SCREEN
+        if min_occ + min_virt > exp.order:
+            screen[exp_occ] = SCREEN
+            screen[exp_virt] = SCREEN
+        elif min_virt > exp.order:
+            screen[exp_occ] = SCREEN
+        elif min_occ > exp.order:
+            screen[exp_virt] = SCREEN
 
         # set rst_write
         rst_write = exp.rst and mpi.global_size < exp.rst_freq < exp.n_tuples['inc'][-1]
@@ -160,7 +161,7 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
         order_start, occ_start, virt_start = start_idx(exp_occ, exp_virt, tup_occ, tup_virt)
 
         # loop until no tuples left
-        for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, ref_occ, ref_virt, exp.order, \
+        for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, min_occ, min_virt, exp.order, \
                                              order_start, occ_start, virt_start), tup_idx):
 
             # distribute tuples
@@ -257,7 +258,7 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
             # calculate increment
             if exp.order > exp.min_order:
                 inc_tup -= _sum(exp.nocc, exp.target, exp.min_order, \
-                                exp.order, inc, hashes, ref_occ, ref_virt, tup)
+                                exp.order, inc, hashes, min_occ, min_virt, tup)
 
             # add hash and increment
             hashes[-1][tup_idx] = hash_1d(tup)
@@ -314,7 +315,8 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
 
         # mean increment
         if mpi.global_master:
-            mean_inc /= exp.n_tuples['inc'][-1]
+            if exp.n_tuples['inc'][-1] != 0:
+                mean_inc /= exp.n_tuples['inc'][-1]
 
         # write restart files & save timings
         if mpi.global_master:
@@ -402,9 +404,8 @@ def _inc(method: str, base: Optional[str], cc_backend: str, fci_solver: str, \
 
 
 def _sum(nocc: int, target_mbe: str, min_order: int, order: int, \
-         inc: List[np.ndarray], hashes: List[np.ndarray], \
-         ref_occ: Union[bool, np.bool_], ref_virt: Union[bool, np.bool_], \
-         tup: np.ndarray) -> Union[float, np.ndarray]:
+         inc: List[np.ndarray], hashes: List[np.ndarray], min_occ: int, \
+         min_virt: int, tup: np.ndarray) -> Union[float, np.ndarray]:
         """
         this function performs a recursive summation and returns the final increment associated with a given tuple
         """
@@ -422,7 +423,7 @@ def _sum(nocc: int, target_mbe: str, min_order: int, order: int, \
         for k in range(order-1, min_order-1, -1):
 
             # loop over subtuples
-            for tup_sub in tuples(tup_occ, tup_virt, ref_occ, ref_virt, k):
+            for tup_sub in tuples(tup_occ, tup_virt, min_occ, min_virt, k):
 
                 # compute index
                 idx = hash_lookup(hashes[k-min_order], hash_1d(tup_sub))

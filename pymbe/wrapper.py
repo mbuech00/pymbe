@@ -17,13 +17,15 @@ __status__ = 'Development'
 import numpy as np
 from pyscf import gto, scf, symm, lo, cc, mcscf, fci, ao2mo
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
+from pyscf.cc import uccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
+from pyscf.cc import uccsd_t_rdm
 from copy import copy
 from typing import TYPE_CHECKING, cast
 from warnings import catch_warnings, simplefilter
 
 from pymbe.kernel import main as kernel_main, e_core_h1e, _cc, _dipole
-from pymbe.tools import assertion, mat_idx, near_nbrs, core_cas, nelec, \
+from pymbe.tools import assertion, mat_idx, near_nbrs, core_cas, nelec, nexc, \
                         idx_tril
 
 if TYPE_CHECKING:
@@ -355,6 +357,8 @@ def ref_mo(orbs: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
         # occup
         assertion(isinstance(occup, np.ndarray), \
                         'ref_mo: orbital occupation (fifth argument) must be a np.ndarray')
+        assertion(np.sum(occup == 1.) == mol.spin, \
+                        'only high-spin open-shell systems are currently possible')
         # orbsym
         assertion(isinstance(orbsym, np.ndarray), \
                         'ref_mo: orbital symmetry (sixth argument) must be a np.ndarray')
@@ -378,9 +382,9 @@ def ref_mo(orbs: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
             # ref_space
             assertion(isinstance(ref_space, np.ndarray), \
                             'ref_mo: reference space (ref_space keyword argument) must be a np.ndarray of orbital indices')
-            assertion(ref_space[occup[ref_space] > 0.].size > 0, \
+            assertion(np.any(occup[ref_space] > 0.), \
                             'ref_mo: no singly/doubly occupied orbitals in cas space (ref_space keyword argument) of casscf calculation')
-            assertion(ref_space[occup[ref_space] == 0.].size > 0, \
+            assertion(np.any(occup[ref_space] < 2.), \
                             'ref_mo: no virtual orbitals in cas space (ref_space keyword argument) of casscf calculation')
             # fci_solver
             assertion(isinstance(fci_solver, str), \
@@ -414,9 +418,14 @@ def ref_mo(orbs: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
                             'ref_mo: hf initial guess (hf_guess keyword argument) must be a bool')
             if hf_guess:
                 assertion(len(set(wfnsym_int)) == 1, \
-                                'ref_mo: illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)')
-                assertion(wfnsym_int[0] == 0, \
-                                'ref_mo: illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)')
+                                'ref_mo: illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)'
+                                'wfnsym should be limited to one state')
+                hf_wfnsym = np.array([0])
+                for irrep in orbsym[occup == 1.]:
+                    hf_wfnsym = symm.addons.direct_prod(hf_wfnsym, irrep, groupname=mol.groupname)
+                assertion(wfnsym_int == hf_wfnsym, \
+                                'ref_mo: illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)'
+                                'wfnsym does not equal hf state symmetry')
 
         # copy mo coefficients
         mo_coeff_out = np.copy(mo_coeff)
@@ -455,19 +464,36 @@ def ref_mo(orbs: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
                 ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
                 rdm1 = ccsd.make_rdm1()
             elif orbs == 'ccsd(t)':
-                l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
-                rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                if mol.spin == 0:
+                    l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
+                    rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                else:
+                    l1, l2 = uccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
+                    rdm1 = uccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
 
             if mol.spin > 0:
                 rdm1 = rdm1[0] + rdm1[1]
 
-            # occ-occ block
-            no = symm.eigh(rdm1[:(nocc-ncore), :(nocc-ncore)], orbsym[ncore:nocc])[-1]
-            mo_coeff_out[:, ncore:nocc] = np.einsum('ip,pj->ij', mo_coeff[:, ncore:nocc], no[:, ::-1])
+            # occupied - occupied block
+            mask = occup == 2.
+            mask[:ncore] = False
+            if np.any(mask):
+                no = symm.eigh(rdm1[np.ix_(mask, mask)], orbsym[mask])[-1]
+                mo_coeff_out[:, mask] = np.einsum('ip,pj->ij', mo_coeff[:, mask], no[:, ::-1])
 
-            # virt-virt block
-            no = symm.eigh(rdm1[-nvirt:, -nvirt:], orbsym[nocc:])[-1]
-            mo_coeff_out[:, nocc:] = np.einsum('ip,pj->ij', mo_coeff[:, nocc:], no[:, ::-1])
+            # singly occupied - singly occupied block
+            mask = occup == 1.
+            mask[:ncore] = False
+            if np.any(mask):
+                no = symm.eigh(rdm1[np.ix_(mask, mask)], orbsym[mask])[-1]
+                mo_coeff_out[:, mask] = np.einsum('ip,pj->ij', mo_coeff[:, mask], no[:, ::-1])
+
+            # virtual - virtual block
+            mask = occup == 0.
+            mask[:ncore] = False
+            if np.any(mask):
+                no = symm.eigh(rdm1[np.ix_(mask, mask)], orbsym[mask])[-1]
+                mo_coeff_out[:, mask] = np.einsum('ip,pj->ij', mo_coeff[:, mask], no[:, ::-1])
 
             # orbital symmetries
             if mol.symmetry:
@@ -476,21 +502,38 @@ def ref_mo(orbs: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
         # pipek-mezey localized orbitals
         elif orbs == 'local':
 
-            # occ-occ block
-            if mol.atom:
-                loc = lo.PM(mol, mo_coeff[:, ncore:nocc])
-            else:
-                loc = _hubbard_PM(mol, mo_coeff[:, ncore:nocc])
-            loc.conv_tol = CONV_TOL
-            mo_coeff_out[:, ncore:nocc] = loc.kernel()
+            # occupied - occupied block
+            mask = occup == 2.
+            mask[:ncore] = False
+            if np.any(mask):
+                if mol.atom:
+                    loc = lo.PM(mol, mo_coeff[:, mask])
+                else:
+                    loc = _hubbard_PM(mol, mo_coeff[:, mask])
+                loc.conv_tol = CONV_TOL
+                mo_coeff_out[:, mask] = loc.kernel()
 
-            # virt-virt block
-            if mol.atom:
-                loc = lo.PM(mol, mo_coeff[:, nocc:])
-            else:
-                loc = _hubbard_PM(mol, mo_coeff[:, nocc:])
-            loc.conv_tol = CONV_TOL
-            mo_coeff_out[:, nocc:] = loc.kernel()
+            # singly occupied - singly occupied block
+            mask = occup == 1.
+            mask[:ncore] = False
+            if np.any(mask):
+                if mol.atom:
+                    loc = lo.PM(mol, mo_coeff[:, mask])
+                else:
+                    loc = _hubbard_PM(mol, mo_coeff[:, mask])
+                loc.conv_tol = CONV_TOL
+                mo_coeff_out[:, mask] = loc.kernel()
+
+            # virtual - virtual block
+            mask = occup == 0.
+            mask[:ncore] = False
+            if np.any(mask):
+                if mol.atom:
+                    loc = lo.PM(mol, mo_coeff[:, mask])
+                else:
+                    loc = _hubbard_PM(mol, mo_coeff[:, mask])
+                loc.conv_tol = CONV_TOL
+                mo_coeff_out[:, mask] = loc.kernel()
 
             # orbital symmetries
             if mol.symmetry:
@@ -660,9 +703,9 @@ def _casscf(mol: gto.Mole, solver: str, wfnsym: List[int], \
 
 
 def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
-             eri: np.ndarray, occup: np.ndarray, \
-             orbsym: np.ndarray, nocc: int, ref_space: np.ndarray,  \
-             method: str = 'fci', base_method: Optional[str] = None, \
+             eri: np.ndarray, occup: np.ndarray, orbsym: np.ndarray, \
+             nocc: int, ref_space: np.ndarray, method: str = 'fci', \
+             base_method: Optional[str] = None, \
              fci_solver: str = 'pyscf_spin0', cc_backend: str = 'pyscf', \
              fci_state_sym: Optional[Union[str, int]] = None, \
              fci_state_root: int = 0, hf_guess: bool = True, \
@@ -688,6 +731,8 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
         # occup
         assertion(isinstance(occup, np.ndarray), \
                         'ref_prop: orbital occupation (fifth argument) must be a np.ndarray')
+        assertion(np.sum(occup == 1.) == mol.spin, \
+                        'ref_prop: only high-spin open-shell systems are currently possible')
         # orbsym
         assertion(isinstance(orbsym, np.ndarray), \
                         'ref_prop: orbital symmetry (sixth argument) must be a np.ndarray')
@@ -712,7 +757,10 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
                             'ccsd, ccsd(t), ccsdt and ccsdtq')
         # fci
         if fci_state_sym is None:
-            fci_state_sym = 0
+            hf_wfnsym = np.array([0])
+            for irrep in orbsym[occup == 1.]:
+                hf_wfnsym = symm.addons.direct_prod(hf_wfnsym, irrep, groupname=mol.groupname)
+            fci_state_sym = hf_wfnsym.item()
         if method == 'fci':
             # fci_solver
             assertion(isinstance(fci_solver, str), \
@@ -740,8 +788,12 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
             assertion(isinstance(hf_guess, bool), \
                             'ref_prop: hf initial guess (hf_guess keyword argument) must be a bool')
             if hf_guess:
-                assertion(fci_state_sym == 0, \
-                                'ref_prop: illegal choice of fci state symmetry (fci_state_sym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)')
+                hf_wfnsym = np.array([0])
+                for irrep in orbsym[occup == 1.]:
+                    hf_wfnsym = symm.addons.direct_prod(hf_wfnsym, irrep, groupname=mol.groupname)
+                assertion(fci_state_sym == hf_wfnsym.item(), \
+                                'ref_prop: illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)'
+                                'wfnsym does not equal hf state symmetry')
         # cc methods
         elif method in ['ccsd', 'ccsd(t)', 'ccsdt', 'ccsdtq'] or base_method:
             assertion(isinstance(cc_backend, str), \
@@ -804,10 +856,24 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
         # n_elec
         n_elec = nelec(occup, cas_idx)
 
-        if ((base_method is None and ref_space[occup[ref_space] > 0.].size > 0 and ref_space[occup[ref_space] == 0.].size > 0) or \
-            (base_method in ['ccsd', 'ccsd(t)', 'ccsdt'] and ref_space[occup[ref_space] > 0.].size > 1 and ref_space[occup[ref_space] == 0.].size > 1) or \
-            (base_method == 'ccsdtq' and ref_space[occup[ref_space] > 0.].size > 2 and ref_space[occup[ref_space] == 0.].size > 2) or \
-            (mol.spin > 0 and ref_space.size > 0)):
+        # n_exc
+        n_exc = nexc(n_elec, cas_idx)
+
+        # ref_prop
+        ref_prop: Union[float, np.ndarray]
+
+        if n_exc <= 1 or \
+           (base_method in ['ccsd', 'ccsd(t)'] and n_exc <= 2) or \
+           (base_method == 'ccsdt' and n_exc <= 3) or \
+           (base_method == 'ccsdtq' and n_exc <= 4):
+
+            # no correlation in expansion reference space
+            if target in ['energy', 'excitation']:
+                ref_prop = 0.
+            else:
+                ref_prop = np.zeros(3, dtype=np.float64)
+
+        else:
 
             # get cas_space h2e
             cas_idx_tril = idx_tril(cas_idx)
@@ -835,14 +901,6 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
                                         h1e_cas, h2e_cas, core_idx, cas_idx, \
                                         n_elec, 0, dipole_ints, \
                                         higher_amp_extrap=False)
-
-        else:
-
-            # no correlation in expansion reference space
-            if target in ['energy', 'excitation']:
-                ref_prop = 0.
-            else:
-                ref_prop = np.zeros(3, dtype=np.float64)
 
         return ref_prop
 
@@ -873,8 +931,10 @@ def base(method: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
         # occup
         assertion(isinstance(occup, np.ndarray), \
                         'base: orbital occupation (fifth argument) must be a np.ndarray')
+        assertion(np.sum(occup == 1.) == mol.spin, \
+                        'only high-spin open-shell systems are currently possible')
         # orbsym
-        assertion(isinstance(occup, np.ndarray), \
+        assertion(isinstance(orbsym, np.ndarray), \
                         'base: orbital symmetry (sixth argument) must be a np.ndarray')
         # norb
         assertion(isinstance(norb, int) and norb > 0, \

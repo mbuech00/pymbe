@@ -22,9 +22,9 @@ from types import GeneratorType
 from pymbe.tools import time_str, fsum, hash_2d, hash_1d, hash_lookup, tuples, \
                         start_idx, _comb_idx, _idx, n_tuples, cas, core_cas, \
                         _cas_idx_cart, _coor_to_idx, idx_tril, pi_space, \
-                        _pi_orbs, pi_prune, occ_prune, virt_prune, nelec, \
-                        mat_idx, near_nbrs, natural_keys, _convert, intervals, \
-                        inc_dim, inc_shape
+                        _pi_orbs, pi_prune, min_orbs, nelec, mat_idx, \
+                        near_nbrs, natural_keys, _convert, intervals, inc_dim, \
+                        inc_shape
 
 if TYPE_CHECKING:
 
@@ -65,10 +65,10 @@ test_cases_idx = [
 ]
 
 test_cases_n_tuples = [
-    ('empty', False, False, 1460500),
-    ('ref_occ', True, False, 2118508),
-    ('ref_virt', False, True, 1460752),
-    ('ref_occ_virt', True, True, 2118760)
+    ('empty', 1, 1, 1460500),
+    ('ref_occ', 0, 1, 2118508),
+    ('ref_virt', 1, 0, 1460752),
+    ('ref_occ_virt', 0, 0, 2118760)
 ]
 
 test_cases_pi_prune = [
@@ -78,14 +78,19 @@ test_cases_pi_prune = [
     ('5_tot_3_pi', np.array([0, 1, 2, 5, 6], dtype=np.int64), False)
 ]
 
-test_cases_occ_prune = [
-    ('occ', np.arange(2, 7, dtype=np.int64), True),
-    ('no_occ', np.arange(3, 7, dtype=np.int64), False)
-]
-
-test_cases_virt_prune = [
-    ('virt', np.arange(1, 4, dtype=np.int64), True),
-    ('no_virt', np.arange(1, 3, dtype=np.int64), False)
+test_cases_min_orbs = [
+    ('both-1', np.arange(1, 7, dtype=np.int64), 1, 0, 0),
+    ('no_occ-1', np.arange(3, 7, dtype=np.int64), 1, 1, 0),
+    ('no_virt-1', np.arange(1, 3, dtype=np.int64), 1, 0, 1),
+    ('no_orbs-1', np.array([], dtype=np.int64), 1, 1, 1),
+    ('both-2', np.arange(1, 7, dtype=np.int64), 2, 0, 0),
+    ('no_occ-2', np.arange(3, 7, dtype=np.int64), 2, 2, 0),
+    ('no_virt-2', np.arange(1, 3, dtype=np.int64), 2, 0, 2),
+    ('no_orbs-2', np.array([], dtype=np.int64), 2, 2, 2),
+    ('both-3', np.arange(1, 7, dtype=np.int64), 3, 0, 0),
+    ('no_occ-3', np.arange(3, 7, dtype=np.int64), 3, 2, 0),
+    ('no_virt-3', np.arange(1, 3, dtype=np.int64), 3, 0, 2),
+    ('no_orbs-3', np.array([], dtype=np.int64), 3, 2, 2)
 ]
 
 test_cases_nelec = [
@@ -188,10 +193,10 @@ def test_tuples(ref_space: np.ndarray, ref_n_tuples: int) -> None:
         order = 3
         occup = np.array([2.] * 4 + [0.] * 4, dtype=np.float64)
         exp_space = np.array([0, 1, 2, 5, 6, 7], dtype=np.int64)
+        min_occ, min_virt = min_orbs(occup, ref_space, 1)
 
         gen = tuples(exp_space[exp_space < nocc], exp_space[nocc <= exp_space],
-                     virt_prune(occup, ref_space), occ_prune(occup, ref_space), 
-                     order)
+                     min_occ, min_virt, order)
 
         assert isinstance(gen, GeneratorType)
         assert sum(1 for _ in gen) == ref_n_tuples
@@ -331,34 +336,20 @@ def test_pi_prune(tup: np.ndarray, ref_bool: bool) -> None:
             assert not pi_prune(pi_space, pi_hashes, tup)
 
 
-@pytest.mark.parametrize(argnames='tup, ref_bool', \
-                         argvalues=[case[1:] for case in test_cases_occ_prune], \
-                         ids=[case[0] for case in test_cases_occ_prune])
-def test_occ_prune(tup: np.ndarray, ref_bool: bool) -> None:
+@pytest.mark.parametrize(argnames='tup, vanish_exc, ref_min_occ, ref_min_virt', \
+                         argvalues=[case[1:] for case in test_cases_min_orbs], \
+                         ids=[case[0] for case in test_cases_min_orbs])
+def test_min_orbs(tup: np.ndarray, vanish_exc: int, ref_min_occ: int, \
+                  ref_min_virt: int) -> None:
         """
-        this function tests occ_prune
-        """
-        occup = np.array([2.] * 3 + [0.] * 4, dtype=np.float64)
-
-        if ref_bool:
-            assert occ_prune(occup, tup)
-        else:
-            assert not occ_prune(occup, tup)
-        
-
-@pytest.mark.parametrize(argnames='tup, ref_bool', \
-                         argvalues=[case[1:] for case in test_cases_virt_prune], \
-                         ids=[case[0] for case in test_cases_virt_prune])
-def test_virt_prune(tup: np.ndarray, ref_bool: bool) -> None:
-        """
-        this function tests virt_prune
+        this function tests min_orbs
         """
         occup = np.array([2.] * 3 + [0.] * 4, dtype=np.float64)
 
-        if ref_bool:
-            assert virt_prune(occup, tup)
-        else:
-            assert not virt_prune(occup, tup)
+        min_occ, min_virt = min_orbs(occup, tup, vanish_exc)
+
+        assert min_occ == ref_min_occ
+        assert min_virt == ref_min_virt
         
 
 @pytest.mark.parametrize(argnames='tup, ref_nelec', \

@@ -19,8 +19,8 @@ from mpi4py import MPI
 from typing import TYPE_CHECKING
 
 from pymbe.parallel import mpi_gatherv, mpi_bcast
-from pymbe.tools import inc_dim, inc_shape, occ_prune, virt_prune, tuples, \
-                        hash_1d, hash_lookup
+from pymbe.tools import inc_dim, inc_shape, min_orbs, tuples, hash_1d, \
+                        hash_lookup
 
 if TYPE_CHECKING:
 
@@ -56,9 +56,8 @@ def main(mpi: MPICls, exp: ExpCls) -> Tuple[List[MPI.Win], List[MPI.Win], \
         exp_occ = exp.exp_space[-1][exp.exp_space[-1] < exp.nocc]
         exp_virt = exp.exp_space[-1][exp.nocc <= exp.exp_space[-1]]
 
-        # allow for tuples with only virtual or occupied MOs
-        ref_occ = occ_prune(exp.occup, exp.ref_space)
-        ref_virt = virt_prune(exp.occup, exp.ref_space)
+        # get minimum number of virtual or occupied MOs in tuple
+        min_occ, min_virt = min_orbs(exp.occup, exp.ref_space, exp.vanish_exc)
 
         # loop over previous orders
         for k in range(exp.min_order, exp.order+1):
@@ -79,7 +78,7 @@ def main(mpi: MPICls, exp: ExpCls) -> Tuple[List[MPI.Win], List[MPI.Win], \
             inc_tmp: Any = []
 
             # loop until no tuples left
-            for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, ref_occ, ref_virt, k)):
+            for tup_idx, tup in enumerate(tuples(exp_occ, exp_virt, min_occ, min_virt, k)):
 
                 # distribute tuples
                 if tup_idx % mpi.global_size != mpi.global_rank:

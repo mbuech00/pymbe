@@ -5,7 +5,7 @@ from pyscf import gto
 from typing import Optional, Union
 from pymbe import MBE, hf, ref_mo, ints, dipole_ints, ref_prop
 
-def mbe_example() -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
 
@@ -57,7 +57,7 @@ def mbe_example() -> Optional[Union[float, np.ndarray]]:
                   nocc=nocc, norb=norb, hf_prop=hf_dipole, occup=occup, \
                   orb_type='local', hcore=hcore, vhf=vhf, eri=eri, \
                   dipole_ints=dip_ints, ref_space=ref_space, \
-                  ref_prop=ref_dipole)
+                  ref_prop=ref_dipole, rst=rst)
 
         # perform calculation
         dipole = mbe.kernel()

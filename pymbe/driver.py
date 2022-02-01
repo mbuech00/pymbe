@@ -22,8 +22,7 @@ from pymbe.mbe import main as mbe_main
 from pymbe.output import main_header, mbe_header, mbe_results, mbe_end, \
                          screen_results, purge_header, purge_results, purge_end
 from pymbe.purge import main as purge_main
-from pymbe.tools import n_tuples, occ_prune, virt_prune, inc_dim, inc_shape, \
-                        write_file
+from pymbe.tools import n_tuples, min_orbs, inc_dim, inc_shape, write_file
 
 if TYPE_CHECKING:
 
@@ -71,14 +70,13 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
 
             # theoretical and actual number of tuples at current order
             if len(exp.n_tuples['inc']) == exp.order - exp.min_order:
+                min_occ, min_virt = min_orbs(exp.occup, exp.ref_space, exp.vanish_exc)
                 exp.n_tuples['theo'].append(n_tuples(exp.exp_space[0][exp.exp_space[0] < exp.nocc], \
                                                      exp.exp_space[0][exp.nocc <= exp.exp_space[0]], \
-                                                     occ_prune(exp.occup, exp.ref_space), \
-                                                     virt_prune(exp.occup, exp.ref_space), exp.order))
+                                                     0, 0, exp.order))
                 exp.n_tuples['calc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < exp.nocc], \
                                                     exp.exp_space[-1][exp.nocc <= exp.exp_space[-1]], \
-                                                    occ_prune(exp.occup, exp.ref_space), \
-                                                    virt_prune(exp.occup, exp.ref_space), exp.order))
+                                                    min_occ, min_virt, exp.order))
                 exp.n_tuples['inc'].append(exp.n_tuples['calc'][-1])
                 if exp.rst:
                     write_file(exp.order, np.asarray(exp.n_tuples['theo'][-1]), 'mbe_n_tuples_theo')
@@ -213,10 +211,10 @@ def slave(mpi: MPICls, exp: ExpCls) -> None:
 
                 # actual number of tuples at current order
                 if len(exp.n_tuples['inc']) == exp.order - exp.min_order:
+                    min_occ, min_virt = min_orbs(exp.occup, exp.ref_space, exp.vanish_exc)
                     exp.n_tuples['inc'].append(n_tuples(exp.exp_space[-1][exp.exp_space[-1] < exp.nocc], \
                                                          exp.exp_space[-1][exp.nocc <= exp.exp_space[-1]], \
-                                                         occ_prune(exp.occup, exp.ref_space), \
-                                                         virt_prune(exp.occup, exp.ref_space), exp.order))
+                                                         min_occ, min_virt, exp.order))
 
                 # main mbe function
                 hashes_win, inc_win = mbe_main(mpi, exp, rst_read=msg['rst_read'], \

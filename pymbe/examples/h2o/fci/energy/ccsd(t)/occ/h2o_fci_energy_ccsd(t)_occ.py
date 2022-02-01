@@ -5,7 +5,7 @@ from pyscf import gto
 from typing import Optional, Union
 from pymbe import MBE, hf, ref_mo, ints
 
-def mbe_example() -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
 
@@ -32,7 +32,7 @@ def mbe_example() -> Optional[Union[float, np.ndarray]]:
 
         # natural orbitals
         mo_coeff, orbsym = ref_mo('ccsd(t)', mol, hf_object, mo_coeff, occup, \
-        orbsym, norb, ncore, nocc, nvirt)
+                                  orbsym, norb, ncore, nocc, nvirt)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4], dtype=np.int64)
@@ -44,7 +44,7 @@ def mbe_example() -> Optional[Union[float, np.ndarray]]:
         mbe = MBE(method='fci', mol=mol, ncore=ncore, nocc=nocc, norb=norb, \
                   orbsym=orbsym, hf_prop=hf_energy, occup=occup, \
                   orb_type='ccsd(t)', hcore=hcore, vhf=vhf, eri=eri, \
-                  ref_space=ref_space)
+                  ref_space=ref_space, rst=rst)
 
         # perform calculation
         energy = mbe.kernel()
