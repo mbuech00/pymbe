@@ -24,6 +24,9 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         spin = 2
         )
 
+        # frozen core
+        ncore = 1
+
         # hf calculation
         nocc, _, norb, _, hf_energy, _, occup, orbsym, mo_coeff = hf(mol)
 
@@ -41,7 +44,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
         # create mbe object
         mbe = MBE(method='fci', target='excitation', fci_solver='pyscf_spin1', \
-                  mol=mol, ncore=1, nocc=nocc, norb=norb, orbsym=orbsym, \
+                  mol=mol, ncore=ncore, nocc=nocc, norb=norb, orbsym=orbsym, \
                   fci_state_sym='b2', fci_state_root=1, hf_prop=hf_energy, \
                   occup=occup, hcore=hcore, vhf=vhf, eri=eri, \
                   ref_space=ref_space, ref_prop=ref_exc, rst=rst)

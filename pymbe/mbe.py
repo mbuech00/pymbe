@@ -117,8 +117,8 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
 
         # init pair_corr statistics
         if exp.ref_space.size == 0 and exp.order == 2 and exp.base_method is None:
-            pair_corr: Optional[List[np.ndarray]] = [np.zeros(exp.n_tuples['theo'][exp.order-exp.min_order], dtype=np.float64), \
-                                                     np.zeros([exp.n_tuples['theo'][exp.order-exp.min_order], 2], dtype=np.int32)]
+            pair_corr: Optional[List[np.ndarray]] = [np.zeros(exp.n_tuples['inc'][exp.order-exp.min_order], dtype=np.float64), \
+                                                     np.zeros([exp.n_tuples['inc'][exp.order-exp.min_order], 2], dtype=np.int32)]
         else:
             pair_corr = None
 
@@ -140,9 +140,9 @@ def main(mpi: MPICls, exp: ExpCls, rst_read: bool = False, tup_idx: int = 0, \
         if min_occ + min_virt > exp.order:
             screen[exp_occ] = SCREEN
             screen[exp_virt] = SCREEN
-        elif min_virt > exp.order:
+        elif min_virt >= exp.order:
             screen[exp_occ] = SCREEN
-        elif min_occ > exp.order:
+        elif min_occ >= exp.order:
             screen[exp_virt] = SCREEN
 
         # set rst_write

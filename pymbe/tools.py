@@ -21,6 +21,7 @@ import logging
 import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
+from pyscf import symm
 from itertools import islice, combinations, groupby
 from math import floor, fsum as math_fsum
 from subprocess import Popen, PIPE
@@ -530,3 +531,15 @@ def inc_shape(n: int, dim: int) -> Union[Tuple[int], Tuple[int, int]]:
         this function returns the shape of increments
         """
         return (n,) if dim == 1 else (n, dim)
+
+
+def ground_state_sym(orbsym: np.ndarray, occup: np.ndarray, \
+                     point_group: str) -> int:
+        """
+        this function determines the symmetry of the hf ground state
+        """
+        wfnsym = np.array([0])
+        for irrep in orbsym[occup == 1.]:
+            wfnsym = symm.addons.direct_prod(wfnsym, irrep, \
+                                             groupname=point_group)
+        return wfnsym.item()

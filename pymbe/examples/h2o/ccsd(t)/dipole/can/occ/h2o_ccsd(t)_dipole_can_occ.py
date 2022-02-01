@@ -23,6 +23,9 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         symmetry = 'c2v'
         )
 
+        # frozen core
+        ncore = 1
+
         # hf calculation
         nocc, _, norb, _, _, hf_dipole, occup, orbsym, mo_coeff = hf(mol)
 
@@ -39,7 +42,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
 
         # create mbe object
-        mbe = MBE(method='ccsd(t)', target='dipole', mol=mol, ncore=1, \
+        mbe = MBE(method='ccsd(t)', target='dipole', mol=mol, ncore=ncore, \
                   nocc=nocc, norb=norb, orbsym=orbsym, hf_prop=hf_dipole, \
                   occup=occup, hcore=hcore, vhf=vhf, eri=eri, \
                   dipole_ints=dip_ints, ref_space=ref_space, rst=rst)

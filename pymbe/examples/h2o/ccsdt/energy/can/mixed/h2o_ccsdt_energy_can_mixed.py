@@ -23,6 +23,9 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         symmetry = 'c2v'
         )
 
+        # frozen core
+        ncore = 1
+
         # hf calculation
         nocc, _, norb, _, hf_energy, _, occup, orbsym, mo_coeff = hf(mol)
 
@@ -38,7 +41,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
                               hf_prop=hf_energy)
 
         # create mbe object
-        mbe = MBE(method='ccsdt', cc_backend='ecc', mol=mol, ncore=1, \
+        mbe = MBE(method='ccsdt', cc_backend='ecc', mol=mol, ncore=ncore, \
                   nocc=nocc, norb=norb, orbsym=orbsym, hf_prop=hf_energy, \
                   occup=occup, hcore=hcore, vhf=vhf, eri=eri, \
                   ref_space=ref_space, ref_prop=ref_energy, rst=rst)

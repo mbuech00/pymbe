@@ -23,7 +23,8 @@ from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
 from pymbe.expansion import ExpCls
-from pymbe.tools import RST, logger_config, assertion, nelec, nexc
+from pymbe.tools import RST, logger_config, assertion, nelec, nexc, \
+                        ground_state_sym
 
 if TYPE_CHECKING:
 
@@ -80,11 +81,12 @@ def main(mbe: MBE) -> MBE:
 
                 # set default value for fci wavefunction state symmetry
                 if mbe.fci_state_sym is None:
-                    hf_wfnsym = np.array([0])
                     if mbe.orbsym is not None and mbe.occup is not None:
-                        for irrep in mbe.orbsym[mbe.occup == 1.]:
-                            hf_wfnsym = symm.addons.direct_prod(hf_wfnsym, irrep, groupname=mbe.point_group)
-                    mbe.fci_state_sym = hf_wfnsym.item()
+                        mbe.fci_state_sym = ground_state_sym(mbe.orbsym, \
+                                                             mbe.occup, \
+                                                             cast(str, mbe.point_group))
+                    else:
+                        mbe.fci_state_sym = 0
 
                 # set default value for fci wavefunction state root
                 if mbe.fci_state_root is None:
@@ -250,16 +252,17 @@ def sanity_check(mbe: MBE) -> None:
                 raise ValueError('illegal choice of state wavefunction symmetry (fci_state_sym keyword argument) -- PySCF error: {:}'.format(err))
         assertion(isinstance(mbe.fci_state_root, int) and mbe.fci_state_root >= 0, \
                         'target state (root keyword argument) must be an int >= 0')
+        if mbe.occup is not None:
+            hf_wfnsym = ground_state_sym(cast(np.ndarray, mbe.orbsym), \
+                                         mbe.occup, cast(str, mbe.point_group))
+        else: 
+            hf_wfnsym = 0
         if mbe.method == 'fci' and mbe.hf_guess:
-            hf_wfnsym = np.array([0])
-            if mbe.occup is not None:
-                for irrep in cast(np.ndarray, mbe.orbsym)[mbe.occup == 1.]:
-                    hf_wfnsym = symm.addons.direct_prod(hf_wfnsym, irrep, groupname=mbe.point_group)
-                assertion(mbe.fci_state_sym == hf_wfnsym.item(), \
+                assertion(mbe.fci_state_sym == hf_wfnsym, \
                                 'illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)'
                                 'wfnsym does not equal hf state symmetry')
         if mbe.method != 'fci' or mbe.base_method is not None:
-                assertion(mbe.fci_state_sym == hf_wfnsym.item(), \
+                assertion(mbe.fci_state_sym == hf_wfnsym, \
                                 'illegal choice of reference wfnsym (wfnsym keyword argument) for chosen expansion model (method or base_method keyword argument)'
                                 'wfnsym does not equal hf state symmetry')
                 assertion(mbe.fci_state_root == 0, \

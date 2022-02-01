@@ -341,13 +341,17 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, \
         if rdm1:
             if method == 'ccsd' or n_exc <= 2:
                 ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-                res['rdm1'] = ccsd.make_rdm1()
+                rdm1s = ccsd.make_rdm1()
             elif method == 'ccsd(t)':
                 if singlet:
                     l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
-                    res['rdm1'] = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                    rdm1s = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
                 else:
                     l1, l2 = uccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
-                    res['rdm1'] = uccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                    rdm1s = uccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+            if singlet:
+                res['rdm1'] = rdm1s
+            else: 
+                res['rdm1'] = rdm1s[0] + rdm1s[1]
 
         return res

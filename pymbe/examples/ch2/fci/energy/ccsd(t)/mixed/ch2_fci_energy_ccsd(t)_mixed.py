@@ -48,11 +48,11 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
                               orb_type='ccsd(t)')
 
         # create mbe object
-        mbe = MBE(method='fci', fci_solver='pyscf_spin1', mol=mol, ncore=1, \
-                  nocc=nocc, norb=norb, orbsym=orbsym, fci_state_sym='b2', \
-                  hf_prop=hf_energy, occup=occup, orb_type='ccsd(t)', \
-                  hcore=hcore, vhf=vhf, eri=eri, ref_space=ref_space, \
-                  ref_prop=ref_energy, rst=rst)
+        mbe = MBE(method='fci', fci_solver='pyscf_spin1', mol=mol, \
+                  ncore=ncore, nocc=nocc, norb=norb, orbsym=orbsym, \
+                  fci_state_sym='b2', hf_prop=hf_energy, occup=occup, \
+                  orb_type='ccsd(t)', hcore=hcore, vhf=vhf, eri=eri, \
+                  ref_space=ref_space, ref_prop=ref_energy, rst=rst)
 
         # perform calculation
         energy = mbe.kernel()

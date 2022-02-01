@@ -23,6 +23,9 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         symmetry = 'c2v'
         )
 
+        # frozen core
+        ncore = 1
+
         # hf calculation
         nocc, _, norb, _, _, _, occup, orbsym, mo_coeff = hf(mol)
 
@@ -44,7 +47,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
                              dipole_ints=dip_ints)
 
         # create mbe object
-        mbe = MBE(method='fci', target='trans', mol=mol, ncore=1, nocc=nocc, \
+        mbe = MBE(method='fci', target='trans', mol=mol, ncore=ncore, nocc=nocc, \
                   norb=norb, orbsym=orbsym, fci_state_root=1, occup=occup, \
                   hcore=hcore, vhf=vhf, eri=eri, dipole_ints=dip_ints, \
                   ref_space=ref_space, ref_prop=ref_trans, rst=rst)

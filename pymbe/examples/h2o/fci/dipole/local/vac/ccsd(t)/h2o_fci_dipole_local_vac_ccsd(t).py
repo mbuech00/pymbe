@@ -49,10 +49,10 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
 
         # create mbe object
-        mbe = MBE(method='fci', target='dipole', mol=mol, ncore=1, nocc=nocc, \
-                  norb=norb, orbsym=orbsym, hf_prop=hf_dipole, occup=occup, \
-                  orb_type='local', hcore=hcore, vhf=vhf, eri=eri, \
-                  dipole_ints=dip_ints, base_method='ccsd(t)', \
+        mbe = MBE(method='fci', target='dipole', mol=mol, ncore=ncore, \
+                  nocc=nocc, norb=norb, orbsym=orbsym, hf_prop=hf_dipole, \
+                  occup=occup, orb_type='local', hcore=hcore, vhf=vhf, \
+                  eri=eri, dipole_ints=dip_ints, base_method='ccsd(t)', \
                   base_prop=base_dipole, rst=rst)
 
         # perform calculation
