@@ -13,7 +13,7 @@ Authors
 -------
 
 * Dr. Janus Juul Eriksen (Technical University of Denmark, main author)
-* Jonas Greiner (Johannes Gutenberg University Mainz, contributor). 
+* Jonas Greiner (Johannes Gutenberg University Mainz, author). 
 
 Prerequisites
 -------------
@@ -97,7 +97,7 @@ keyword arguments. Possible keyword arguments are:
     - orbsym_linear: linear point group orbital symmetry
 
 Many of these arguments have default values set or are optional depending on 
-the calculation type. See the [examples](examples/) section for a range of 
+the calculation type. See the [examples](pymbe/examples/) section for a range of 
 example scripts.\
 The calculation is started by calling the kernel() member function of the MBE 
 object. Restart files are automatically generated (unless otherwise requested 
@@ -128,7 +128,7 @@ used to comprehend the usage of the different functions and their arguments.
 Tutorials
 ---------
 
-None at the moment, but please have a look at the various [examples](examples/) 
+None at the moment, but please have a look at the various [examples](pymbe/examples/) 
 that accompany the code.
 
 
