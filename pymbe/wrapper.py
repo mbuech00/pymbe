@@ -26,7 +26,7 @@ from warnings import catch_warnings, simplefilter
 
 from pymbe.kernel import main as kernel_main, e_core_h1e, _cc, _dipole
 from pymbe.tools import assertion, mat_idx, near_nbrs, core_cas, nelec, nexc, \
-                        idx_tril
+                        idx_tril, ground_state_sym
 
 if TYPE_CHECKING:
 
@@ -420,10 +420,7 @@ def ref_mo(orbs: str, mol: gto.Mole, hf: scf.hf.SCF, mo_coeff: np.ndarray, \
                 assertion(len(set(wfnsym_int)) == 1, \
                                 'ref_mo: illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)'
                                 'wfnsym should be limited to one state')
-                hf_wfnsym = np.array([0])
-                for irrep in orbsym[occup == 1.]:
-                    hf_wfnsym = symm.addons.direct_prod(hf_wfnsym, irrep, groupname=mol.groupname)
-                assertion(wfnsym_int == hf_wfnsym, \
+                assertion(wfnsym_int[0] == ground_state_sym(orbsym, occup, mol.groupname), \
                                 'ref_mo: illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)'
                                 'wfnsym does not equal hf state symmetry')
 
@@ -757,10 +754,7 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
                             'ccsd, ccsd(t), ccsdt and ccsdtq')
         # fci
         if fci_state_sym is None:
-            hf_wfnsym = np.array([0])
-            for irrep in orbsym[occup == 1.]:
-                hf_wfnsym = symm.addons.direct_prod(hf_wfnsym, irrep, groupname=mol.groupname)
-            fci_state_sym = hf_wfnsym.item()
+            fci_state_sym = ground_state_sym(orbsym, occup, mol.groupname)
         if method == 'fci':
             # fci_solver
             assertion(isinstance(fci_solver, str), \
@@ -788,10 +782,7 @@ def ref_prop(mol: gto.Mole, hcore: np.ndarray, vhf: np.ndarray, \
             assertion(isinstance(hf_guess, bool), \
                             'ref_prop: hf initial guess (hf_guess keyword argument) must be a bool')
             if hf_guess:
-                hf_wfnsym = np.array([0])
-                for irrep in orbsym[occup == 1.]:
-                    hf_wfnsym = symm.addons.direct_prod(hf_wfnsym, irrep, groupname=mol.groupname)
-                assertion(fci_state_sym == hf_wfnsym.item(), \
+                assertion(fci_state_sym == ground_state_sym(orbsym, occup, mol.groupname), \
                                 'ref_prop: illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)'
                                 'wfnsym does not equal hf state symmetry')
         # cc methods

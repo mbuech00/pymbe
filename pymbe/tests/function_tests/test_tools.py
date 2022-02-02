@@ -24,7 +24,7 @@ from pymbe.tools import time_str, fsum, hash_2d, hash_1d, hash_lookup, tuples, \
                         _cas_idx_cart, _coor_to_idx, idx_tril, pi_space, \
                         _pi_orbs, pi_prune, min_orbs, nelec, mat_idx, \
                         near_nbrs, natural_keys, _convert, intervals, inc_dim, \
-                        inc_shape
+                        inc_shape, ground_state_sym
 
 if TYPE_CHECKING:
 
@@ -126,6 +126,11 @@ test_cases_inc_dim = [
 test_cases_inc_shape = [
     ('energy', 5, 1, (5, )),
     ('dipole', 5, 3, (5, 3))
+]
+
+test_cases_ground_state_sym = [
+    ('closed-shell', np.arange(0, 4, dtype=np.int64), np.array([2., 2., 0., 0.], dtype=np.float64), 'c2v', 0),
+    ('open-shell', np.arange(0, 4, dtype=np.int64), np.array([2., 1., 1., 0.], dtype=np.float64), 'c2v', 3)
 ]
 
 
@@ -433,3 +438,14 @@ def test_inc_shape(n: int, dim: int, \
         this function tests inc_dim
         """
         assert inc_shape(n, dim) == ref_shape
+
+
+@pytest.mark.parametrize(argnames='orbsym, occup, point_group, ref_wfnsym', \
+                         argvalues=[case[1:] for case in test_cases_ground_state_sym], \
+                         ids=[case[0] for case in test_cases_ground_state_sym])
+def test_ground_state_sym(orbsym: np.ndarray, occup: np.ndarray, \
+                          point_group: str, ref_wfnsym: int) -> None:
+        """
+        this function tests inc_dim
+        """
+        assert ground_state_sym(orbsym, occup, point_group) == ref_wfnsym

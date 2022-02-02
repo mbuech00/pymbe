@@ -49,7 +49,7 @@ def logger_config(verbose: int) -> None:
         this function configures the pymbe logger
         """
         # corresponding logging level
-        verbose_level = {0: 40, 1: 20, 2: 10, 3: 10}
+        verbose_level = {0: 30, 1: 20, 2: 10, 3: 10}
 
         # set level for logger
         logger.setLevel(verbose_level[verbose])

@@ -116,6 +116,10 @@ The results can also be plotted using the plot() member function of the MBE
 object. This function returns a [matplotlib](https://matplotlib.org) 
 figure.Figure object.
 
+Warning: All open-shell CC calculations with the pyscf backend directly estimate
+the unrestricted CC property on the basis of a ROHF reference function instead
+of the fully restricted CC property.
+
 Documentation
 -------------
 
@@ -128,8 +132,8 @@ used to comprehend the usage of the different functions and their arguments.
 Tutorials
 ---------
 
-None at the moment, but please have a look at the various [examples](pymbe/examples/) 
-that accompany the code.
+None at the moment, but please have a look at the various 
+[examples](pymbe/examples/) that accompany the code.
 
 
 Citing PyMBE

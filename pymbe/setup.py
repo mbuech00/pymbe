@@ -16,6 +16,7 @@ __status__ = 'Development'
 
 import sys
 import os
+import logging
 import numpy as np
 from json import load, dump
 from pyscf import symm
@@ -29,6 +30,10 @@ from pymbe.tools import RST, logger_config, assertion, nelec, nexc, \
 if TYPE_CHECKING:
 
     from pymbe.pymbe import MBE
+
+
+# get logger
+logger = logging.getLogger('pymbe_logger')
 
 
 def main(mbe: MBE) -> MBE:
@@ -239,6 +244,7 @@ def sanity_check(mbe: MBE) -> None:
             if mbe.method != 'fci' or mbe.base_method is not None:
                 assertion(mbe.cc_backend == 'pyscf', \
                                 'the ecc and ncc backends (cc_backend keyword argument) are designed for closed-shell systems only (spin keyword argument)')
+                logger.warning('Warning: All open-shell CC calculations with the pyscf backend estimate the unrestricted CC property on the basis of a ROHF reference function instead of the fully restricted CC property.')
         assertion(isinstance(mbe.point_group, str), \
                         'symmetry (point_group keyword argument) must be a str')
         assertion(isinstance(mbe.orbsym, np.ndarray), \
