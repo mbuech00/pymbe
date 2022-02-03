@@ -16,6 +16,7 @@ __status__ = 'Development'
 
 import sys
 import os
+import logging
 import numpy as np
 from json import load, dump
 from pyscf import symm
@@ -23,11 +24,16 @@ from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
 from pymbe.expansion import ExpCls
-from pymbe.tools import RST, logger_config, assertion
+from pymbe.tools import RST, logger_config, assertion, nelec, nexc, \
+                        ground_state_sym
 
 if TYPE_CHECKING:
 
     from pymbe.pymbe import MBE
+
+
+# get logger
+logger = logging.getLogger('pymbe_logger')
 
 
 def main(mbe: MBE) -> MBE:
@@ -80,7 +86,12 @@ def main(mbe: MBE) -> MBE:
 
                 # set default value for fci wavefunction state symmetry
                 if mbe.fci_state_sym is None:
-                    mbe.fci_state_sym = 0
+                    if mbe.orbsym is not None and mbe.occup is not None:
+                        mbe.fci_state_sym = ground_state_sym(mbe.orbsym, \
+                                                             mbe.occup, \
+                                                             cast(str, mbe.point_group))
+                    else:
+                        mbe.fci_state_sym = 0
 
                 # set default value for fci wavefunction state root
                 if mbe.fci_state_root is None:
@@ -97,10 +108,17 @@ def main(mbe: MBE) -> MBE:
 
                 # set default value for reference space property
                 if mbe.ref_prop is None and mbe.occup is not None:
-                    if ((mbe.base_method is None and (mbe.ref_space[mbe.occup[mbe.ref_space] > 0.].size == 0 or mbe.ref_space[mbe.occup[mbe.ref_space] == 0.].size == 0)) or \
-                        (mbe.base_method in ['ccsd', 'ccsd(t)', 'ccsdt'] and (mbe.ref_space[mbe.occup[mbe.ref_space] > 0.].size <= 1 or mbe.ref_space[mbe.occup[mbe.ref_space] == 0.].size <= 1)) or \
-                        (mbe.base_method == 'ccsdtq' and (mbe.ref_space[mbe.occup[mbe.ref_space] > 0.].size <= 2 or mbe.ref_space[mbe.occup[mbe.ref_space] == 0.].size <= 2)) or \
-                        (mbe.spin > 0 and mbe.ref_space.size == 0)):
+
+                    # n_elec
+                    n_elec = nelec(mbe.occup, mbe.ref_space)
+
+                    # n_exc
+                    n_exc = nexc(n_elec, mbe.ref_space)
+
+                    if n_exc <= 1 or \
+                       (mbe.base_method in ['ccsd', 'ccsd(t)'] and n_exc <= 2) or \
+                       (mbe.base_method == 'ccsdt' and n_exc <= 3) or \
+                       (mbe.base_method == 'ccsdtq' and n_exc <= 4):
                         if mbe.target in ['energy', 'excitation']:
                             mbe.ref_prop = 0.
                         elif mbe.target in ['dipole', 'trans']:
@@ -220,10 +238,13 @@ def sanity_check(mbe: MBE) -> None:
         assertion(isinstance(mbe.spin, int) and mbe.spin >= 0, \
                         'spin (spin keyword argument) must be an int >= 0')
         if mbe.spin is not None and mbe.spin > 0:
-            assertion(mbe.fci_solver != 'pyscf_spin0', \
-                            'the pyscf_spin0 fci solver (fci_solver keyword argument) is designed for spin singlets only (spin keyword argument)')
-            assertion(mbe.cc_backend == 'pyscf', \
-                            'the ecc and ncc backends (cc_backend keyword argument) are designed for closed-shell systems only (spin keyword argument)')
+            if mbe.method == 'fci':
+                assertion(mbe.fci_solver != 'pyscf_spin0', \
+                                'the pyscf_spin0 fci solver (fci_solver keyword argument) is designed for spin singlets only (spin keyword argument)')
+            if mbe.method != 'fci' or mbe.base_method is not None:
+                assertion(mbe.cc_backend == 'pyscf', \
+                                'the ecc and ncc backends (cc_backend keyword argument) are designed for closed-shell systems only (spin keyword argument)')
+                logger.warning('Warning: All open-shell CC calculations with the pyscf backend estimate the unrestricted CC property on the basis of a ROHF reference function instead of the fully restricted CC property.')
         assertion(isinstance(mbe.point_group, str), \
                         'symmetry (point_group keyword argument) must be a str')
         assertion(isinstance(mbe.orbsym, np.ndarray), \
@@ -237,11 +258,21 @@ def sanity_check(mbe: MBE) -> None:
                 raise ValueError('illegal choice of state wavefunction symmetry (fci_state_sym keyword argument) -- PySCF error: {:}'.format(err))
         assertion(isinstance(mbe.fci_state_root, int) and mbe.fci_state_root >= 0, \
                         'target state (root keyword argument) must be an int >= 0')
-        if mbe.method != 'fci':
-            assertion(mbe.fci_state_sym == 0, \
-                            'illegal choice of state wavefunction symmetry (fci_state_sym keyword argument) for chosen expansion model (method keyword argument)')
-            assertion(mbe.fci_state_root == 0, \
-                            'excited target states (root keyword argument) not implemented for chosen expansion model (method keyword argument)')
+        if mbe.occup is not None:
+            hf_wfnsym = ground_state_sym(cast(np.ndarray, mbe.orbsym), \
+                                         mbe.occup, cast(str, mbe.point_group))
+        else: 
+            hf_wfnsym = 0
+        if mbe.method == 'fci' and mbe.hf_guess:
+                assertion(mbe.fci_state_sym == hf_wfnsym, \
+                                'illegal choice of reference wfnsym (wfnsym keyword argument) when enforcing hf initial guess (hf_guess keyword argument)'
+                                'wfnsym does not equal hf state symmetry')
+        if mbe.method != 'fci' or mbe.base_method is not None:
+                assertion(mbe.fci_state_sym == hf_wfnsym, \
+                                'illegal choice of reference wfnsym (wfnsym keyword argument) for chosen expansion model (method or base_method keyword argument)'
+                                'wfnsym does not equal hf state symmetry')
+                assertion(mbe.fci_state_root == 0, \
+                                'excited target states (root keyword argument) not implemented for chosen expansion model (method or base_method keyword argument)')
         if mbe.target in ['excitation', 'trans']:
             assertion(cast(int, mbe.fci_state_root) > 0, \
                             'calculation of excitation energies or transition dipole moments (target keyword argument) requires target state root (state_root keyword argument) >= 1')
@@ -255,6 +286,8 @@ def sanity_check(mbe: MBE) -> None:
                             'hartree-fock dipole moment (hf_prop keyword argument) must be a np.ndarray')
         assertion(isinstance(mbe.occup, np.ndarray), \
                         'orbital occupation (occup keyword argument) must be a np.ndarray')
+        assertion(np.sum(mbe.occup == 1.) == mbe.spin, \
+                        'only high-spin open-shell systems are currently possible')
 
         # orbital representation
         assertion(isinstance(mbe.orb_type, str), \
@@ -280,6 +313,8 @@ def sanity_check(mbe: MBE) -> None:
         # reference space
         assertion(isinstance(mbe.ref_space, np.ndarray), \
                         'reference space (ref_space keyword argument) must be a np.ndarray of orbital indices')
+        assertion(not np.any(np.delete(cast(np.ndarray, mbe.occup), mbe.ref_space) == 1.), \
+                        'all partially occupied orbitals have to be included in the reference space (ref_space keyword argument)')
         if mbe.target in ['energy', 'excitation']:
             assertion(isinstance(mbe.ref_prop, float), \
                             'reference (excitation) energy (ref_prop keyword argument) must be a float')
@@ -304,8 +339,6 @@ def sanity_check(mbe: MBE) -> None:
             if mbe.cc_backend in ['ecc', 'ncc']:
                 assertion(mbe.target == 'energy', \
                             'calculation of targets (target keyword argument) other than energy are not possible using the ecc and ncc coupled-cluster backends (cc_backend keyword argument)')
-            assertion(mbe.fci_state_sym == 0, \
-                            'illegal choice of state wavefunction symmetry (fci_state_sym keyword argument) for base model (base_method keyword argument)')
             assertion(mbe.fci_state_root == 0, \
                             'excited target states (root keyword argument) not implemented for base model (base_method keyword argument)')
             if mbe.target == 'energy':

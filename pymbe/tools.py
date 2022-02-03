@@ -21,6 +21,7 @@ import logging
 import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
+from pyscf import symm
 from itertools import islice, combinations, groupby
 from math import floor, fsum as math_fsum
 from subprocess import Popen, PIPE
@@ -48,7 +49,7 @@ def logger_config(verbose: int) -> None:
         this function configures the pymbe logger
         """
         # corresponding logging level
-        verbose_level = {0: 40, 1: 20, 2: 10, 3: 10}
+        verbose_level = {0: 30, 1: 20, 2: 10, 3: 10}
 
         # set level for logger
         logger.setLevel(verbose_level[verbose])
@@ -103,7 +104,7 @@ def get_pymbe_path() -> str:
         return os.path.dirname(__file__)
 
 
-def assertion(cond: bool, reason: str) -> None:
+def assertion(cond: Union[bool, np.bool_], reason: str) -> None:
         """
         this function returns an assertion of a given condition
         """
@@ -183,15 +184,21 @@ def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[np.ndarray
             return None
 
 
-def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
-           ref_occ: Union[bool, np.bool_], ref_virt: Union[bool, np.bool_], \
-           order: int, order_start: int = 1, occ_start: int = 0, \
+def tuples(occ_space: np.ndarray, virt_space: np.ndarray, min_occ: int, \
+           min_virt: int, order: int, order_start: int = 1, \
+           occ_start: int = 0, \
            virt_start: int = 0) -> Generator[np.ndarray, None, None]:
         """
         this function is the main generator for tuples
         """
+        # minimum number of occupied MOs in combined tuple
+        min_occ_comb = max(order_start, min_occ)
+
+        # maximum number of occupied MOs in combined tuple
+        max_occ_comb = min(order - 1, order - min_virt)
+
         # combinations of occupied and virtual MOs
-        for k in range(order_start, order):
+        for k in range(min_occ_comb, max_occ_comb + 1):
             for tup_occ in islice(combinations(occ_space, k), occ_start, None):
                 for tup_virt in islice(combinations(virt_space, order - k), virt_start, None):
                     yield np.array(tup_occ + tup_virt, dtype=np.int64)
@@ -199,12 +206,12 @@ def tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
             occ_start = 0
 
         # only occupied MOs
-        if ref_virt and 0 <= occ_start:
+        if min_virt == 0 and 0 <= occ_start:
             for tup_occ in islice(combinations(occ_space, order), occ_start, None):
                 yield np.array(tup_occ, dtype=np.int64)
 
         # only virtual MOs
-        if ref_occ and 0 <= virt_start:
+        if min_occ == 0 and 0 <= virt_start:
             for tup_virt in islice(combinations(virt_space, order), virt_start, None):
                 yield np.array(tup_virt, dtype=np.int64)
 
@@ -251,25 +258,30 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
         return sum((sc.binom(space[i < space].size, (order - 1)) for i in space[space < idx]))
 
 
-def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, \
-             ref_occ: Union[bool, np.bool_], ref_virt: Union[bool, np.bool_], \
-             order: int) -> int:
+def n_tuples(occ_space: np.ndarray, virt_space: np.ndarray, min_occ: int, \
+             min_virt: int, order: int) -> int:
         """
         this function returns the total number of tuples of a given order
         """
+        # minimum number of occupied MOs in combined tuple
+        min_occ_comb = max(1, min_occ)
+
+        # maximum number of occupied MOs in combined tuple
+        max_occ_comb = min(order - 1, order - min_virt)
+
         # init n_tuples
         n = 0.
 
         # combinations of occupied and virtual MOs
-        for k in range(1, order):
+        for k in range(min_occ_comb, max_occ_comb + 1):
             n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
 
         # only occupied MOs
-        if ref_virt:
+        if min_virt == 0:
             n += sc.binom(occ_space.size, order)
 
         # only virtual MOs
-        if ref_occ:
+        if min_occ == 0:
             n += sc.binom(virt_space.size, order)
 
         return int(n)
@@ -371,18 +383,33 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
         return idx is not None
 
 
-def occ_prune(occup: np.ndarray, tup: np.ndarray) -> np.bool_:
+def min_orbs(occup: np.ndarray, tup: np.ndarray, \
+             vanish_exc: int) -> Tuple[int, int]:
         """
-        this function returns True for a tuple of orbitals allowed under pruning wrt occupied orbitals
+        this function returns the minimum number of occupied and virtual 
+        orbitals that need to be added to the tuple to produce a non-vanishing 
+        correlation energy
         """
-        return np.any(occup[tup] > 0.)
+        # number of electrons in tuple
+        tup_elecs = nelec(occup, tup)
 
+        # number of holes in tuple
+        tup_holes = nholes(tup_elecs, tup)
 
-def virt_prune(occup: np.ndarray, tup: np.ndarray) -> np.bool_:
+        # minimum number of spatial occupied orbitals that need to be added
+        min_occ = max(0, _ceildiv(vanish_exc - np.sum(tup_elecs) + 1, 2))
+
+        # minimum number of spatial virtual orbitals that need to be added
+        min_virt = max(0, _ceildiv(vanish_exc - np.sum(tup_holes) + 1, 2))
+
+        return min_occ, min_virt
+
+    
+def _ceildiv(a: int, b: int):
         """
-        this function returns True for a tuple of orbitals allowed under pruning wrt virtual orbitals
+        this function returns performs integer ceiling division
         """
-        return np.any(occup[tup] == 0.)
+        return -(a // -b)
 
 
 def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
@@ -391,6 +418,27 @@ def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
         """
         occup_tup = occup[tup]
         return (np.count_nonzero(occup_tup > 0.), np.count_nonzero(occup_tup > 1.))
+
+
+def nholes(n_elec: Tuple[int, int], tup: np.ndarray) -> np.ndarray:
+        """
+        this function returns the number of holes in a given tuple of orbitals
+        """
+        return tup.size - np.array(n_elec)
+
+
+def nexc(n_elec: Tuple[int, int], tup: np.ndarray) -> np.ndarray:
+        """
+        this function returns the number of possible excitations in a given 
+        tuple of orbitals
+        """
+        # number of electrons in tuple
+        tup_elecs = np.array(n_elec)
+
+        # number of holes in tuple
+        tup_holes = nholes(n_elec, tup)
+
+        return np.sum(np.minimum(tup_elecs, tup_holes))
 
 
 def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
@@ -483,3 +531,15 @@ def inc_shape(n: int, dim: int) -> Union[Tuple[int], Tuple[int, int]]:
         this function returns the shape of increments
         """
         return (n,) if dim == 1 else (n, dim)
+
+
+def ground_state_sym(orbsym: np.ndarray, occup: np.ndarray, \
+                     point_group: str) -> int:
+        """
+        this function determines the symmetry of the hf ground state
+        """
+        wfnsym = np.array([0])
+        for irrep in orbsym[occup == 1.]:
+            wfnsym = symm.addons.direct_prod(wfnsym, irrep, \
+                                             groupname=point_group)
+        return wfnsym.item()

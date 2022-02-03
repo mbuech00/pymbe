@@ -5,7 +5,7 @@ from pyscf import gto
 from typing import Optional, Union
 from pymbe import MBE, hf, base, ints, ref_prop
 
-def mbe_example() -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
 
@@ -50,7 +50,7 @@ def mbe_example() -> Optional[Union[float, np.ndarray]]:
                   nocc=nocc, norb=norb, orbsym=orbsym, hf_prop=hf_energy, \
                   occup=occup, hcore=hcore, vhf=vhf, eri=eri, \
                   ref_space=ref_space, ref_prop=ref_energy, \
-                  base_method='ccsdtq', base_prop=base_energy)
+                  base_method='ccsdtq', base_prop=base_energy, rst=rst)
 
         # perform calculation
         energy = mbe.kernel()

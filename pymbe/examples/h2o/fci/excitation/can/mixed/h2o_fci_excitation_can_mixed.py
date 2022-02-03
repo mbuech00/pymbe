@@ -5,7 +5,7 @@ from pyscf import gto
 from typing import Optional, Union
 from pymbe import MBE, hf, ints, ref_prop
 
-def mbe_example() -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
 
@@ -23,6 +23,9 @@ def mbe_example() -> Optional[Union[float, np.ndarray]]:
         symmetry = 'c2v'
         )
 
+        # frozen core
+        ncore = 1
+
         # hf calculation
         nocc, _, norb, _, _, _, occup, orbsym, mo_coeff = hf(mol)
 
@@ -37,10 +40,10 @@ def mbe_example() -> Optional[Union[float, np.ndarray]]:
                            ref_space, target='excitation', fci_state_root=1)
 
         # create mbe object
-        mbe = MBE(method='fci', target='excitation', mol=mol, ncore=1, \
+        mbe = MBE(method='fci', target='excitation', mol=mol, ncore=ncore, \
                   nocc=nocc, norb=norb, orbsym=orbsym, fci_state_root=1, \
                   occup=occup, hcore=hcore, vhf=vhf, eri=eri, \
-                  ref_space=ref_space, ref_prop=ref_exc)
+                  ref_space=ref_space, ref_prop=ref_exc, rst=rst)
 
         # perform calculation
         excitation = mbe.kernel()

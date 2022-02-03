@@ -17,11 +17,14 @@ __status__ = 'Development'
 import numpy as np
 from pyscf import gto, scf, cc, fci
 from pyscf.cc import ccsd_t
+from pyscf.cc import uccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
+from pyscf.cc import uccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
+from pyscf.cc import uccsd_t_rdm
 from typing import TYPE_CHECKING, cast
 
-from pymbe.tools import assertion
+from pymbe.tools import assertion, nexc
 from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
@@ -306,13 +309,15 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, \
             # calculate (t) correction
             if method == 'ccsd(t)':
 
-                if np.amin(occup[cas_idx]) == 1.:
-                    if np.where(occup[cas_idx] == 1.)[0].size >= 3:
+                # n_exc
+                n_exc = nexc(n_elec, cas_idx)
+
+                # ensure that more than two excitations are possible
+                if n_exc > 2:
+                    if singlet:
                         e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
-
-                else:
-
-                    e_cc += ccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
+                    else:
+                        e_cc += uccsd_t.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)
 
         elif (cc_backend in ['ecc', 'ncc']):
 
@@ -334,11 +339,19 @@ def _cc(spin: int, occup: np.ndarray, core_idx: np.ndarray, \
 
         # rdm1
         if rdm1:
-            if method == 'ccsd':
+            if method == 'ccsd' or n_exc <= 2:
                 ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-                res['rdm1'] = ccsd.make_rdm1()
+                rdm1s = ccsd.make_rdm1()
             elif method == 'ccsd(t)':
-                l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
-                res['rdm1'] = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                if singlet:
+                    l1, l2 = ccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
+                    rdm1s = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                else:
+                    l1, l2 = uccsd_t_lambda.kernel(ccsd, eris, ccsd.t1, ccsd.t2, verbose=0)[1:]
+                    rdm1s = uccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+            if singlet:
+                res['rdm1'] = rdm1s
+            else: 
+                res['rdm1'] = rdm1s[0] + rdm1s[1]
 
         return res

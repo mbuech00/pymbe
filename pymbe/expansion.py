@@ -120,16 +120,7 @@ class ExpCls:
 
                 # order
                 self.order: int = 0
-
-                if self.base_method in ['ccsd', 'ccsd(t)', 'ccsdt']:
-                    min_order = 4 - min(2, self.ref_space[self.ref_space < self.nocc].size) \
-                                - min(2, self.ref_space[self.nocc <= self.ref_space].size)
-                elif self.base_method == 'ccsdtq':
-                    min_order = 6 - min(3, self.ref_space[self.ref_space < self.nocc].size) \
-                                - min(3, self.ref_space[self.nocc <= self.ref_space].size)
-                else:
-                    min_order = 2 - self.ref_space.size
-                self.min_order: int = max(1, min_order)
+                self.min_order: int = 1
 
                 if self.restarted:
                     start_order = restart_main(mbe.mpi, self)
@@ -144,6 +135,17 @@ class ExpCls:
                 self.max_order: int = max_order
 
                 self.final_order: int = 0
+
+                # number of vanishing excitations for current model
+                self.vanish_exc: int = 0
+                if self.base_method is None:
+                    self.vanish_exc = 1
+                elif self.base_method in ['ccsd', 'ccsd(t)']:
+                    self.vanish_exc = 2
+                elif self.base_method == 'ccsdt':
+                    self.vanish_exc = 3
+                elif self.base_method == 'ccsdtq':
+                    self.vanish_exc = 4
 
                 # verbose
                 self.verbose: int = mbe.verbose

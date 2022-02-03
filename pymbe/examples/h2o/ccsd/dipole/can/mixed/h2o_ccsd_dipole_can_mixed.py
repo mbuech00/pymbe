@@ -5,7 +5,7 @@ from pyscf import gto
 from typing import Optional, Union
 from pymbe import MBE, hf, ints, dipole_ints, ref_prop
 
-def mbe_example() -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
 
@@ -22,6 +22,9 @@ def mbe_example() -> Optional[Union[float, np.ndarray]]:
         basis = '631g',
         symmetry = 'c2v'
         )
+
+        # frozen core
+        ncore = 1
 
         # hf calculation
         nocc, _, norb, _, _, hf_dipole, occup, orbsym, mo_coeff = hf(mol)
@@ -44,10 +47,11 @@ def mbe_example() -> Optional[Union[float, np.ndarray]]:
                               hf_prop=hf_dipole, dipole_ints=dip_ints)
 
         # create mbe object
-        mbe = MBE(method='ccsd', target='dipole', mol=mol, ncore=1, nocc=nocc, \
-                  norb=norb, orbsym=orbsym, hf_prop=hf_dipole, occup=occup, \
-                  hcore=hcore, vhf=vhf, eri=eri, dipole_ints=dip_ints, \
-                  ref_space=ref_space, ref_prop=ref_dipole)
+        mbe = MBE(method='ccsd', target='dipole', mol=mol, ncore=ncore, \
+                  nocc=nocc, norb=norb, orbsym=orbsym, hf_prop=hf_dipole, \
+                  occup=occup, hcore=hcore, vhf=vhf, eri=eri, \
+                  dipole_ints=dip_ints, ref_space=ref_space, \
+                  ref_prop=ref_dipole, rst=rst)
 
         # perform calculation
         dipole = mbe.kernel()

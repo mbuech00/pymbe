@@ -15,8 +15,6 @@ __email__ = 'janus.eriksen@bristol.ac.uk'
 __status__ = 'Development'
 
 import pytest
-import os
-import shutil
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto, scf, symm, ao2mo
@@ -28,14 +26,6 @@ if TYPE_CHECKING:
     from _pytest.fixtures import SubRequest
     from _pytest._code.code import ExceptionInfo
     from typing import List, Tuple, Dict, Optional
-
-
-def pytest_keyboard_interrupt(excinfo: ExceptionInfo) -> None:
-        """
-        this function replaces the pytest keyboard interrupt teardown function
-        and ensures any remaining files are removed
-        """
-        shutil.rmtree(os.getcwd()+'/rst', ignore_errors=True)
 
 
 @pytest.fixture
@@ -319,6 +309,8 @@ class ExpCls:
                 
                 self.order = 0
                 self.min_order: int = 1
+
+                self.vanish_exc: int = 1
 
                 self.verbose: int = 0
                 
