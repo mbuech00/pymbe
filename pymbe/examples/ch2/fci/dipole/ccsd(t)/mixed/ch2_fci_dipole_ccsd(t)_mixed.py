@@ -5,35 +5,36 @@ from pyscf import gto
 from typing import Optional, Union
 from pymbe import MBE, hf, ref_mo, ints, dipole_ints, ref_prop
 
+
 def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # create mol object
         mol = gto.Mole()
         mol.build(
-        verbose = 0,
-        output = None,
-        atom = '''
-        C  0.00000  0.00000  0.00000
-        H  0.98920  0.42714  0.00000
-        H -0.98920  0.42714  0.00000
-        ''',
-        basis = '631g',
-        symmetry = 'c2v',
-        spin = 2
+            verbose=0,
+            output=None,
+            atom="""
+            C  0.00000  0.00000  0.00000
+            H  0.98920  0.42714  0.00000
+            H -0.98920  0.42714  0.00000
+            """,
+            basis="631g",
+            symmetry="c2v",
+            spin=2,
         )
 
         # frozen core
         ncore = 1
 
         # hf calculation
-        nocc, nvirt, norb, hf_object, _, hf_dipole, occup, orbsym, \
-        mo_coeff = hf(mol)
+        nocc, nvirt, norb, hf_object, _, hf_dipole, occup, orbsym, mo_coeff = hf(mol)
 
         # natural orbitals
-        mo_coeff, orbsym = ref_mo('ccsd(t)', mol, hf_object, mo_coeff, occup, \
-                                  orbsym, norb, ncore, nocc, nvirt)
+        mo_coeff, orbsym = ref_mo(
+            "ccsd(t)", mol, hf_object, mo_coeff, occup, orbsym, norb, ncore, nocc, nvirt
+        )
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
@@ -42,25 +43,51 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc)
 
         # gauge origin
-        gauge_origin = np.array([0., 0., 0.])
+        gauge_origin = np.array([0.0, 0.0, 0.0])
 
         # dipole integral calculation
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
 
         # reference property
-        ref_dipole = ref_prop(mol, hcore, vhf, eri, occup, orbsym, nocc, \
-                              ref_space, fci_solver='pyscf_spin1', \
-                              fci_state_sym='b2', target='dipole', \
-                              hf_prop=hf_dipole, dipole_ints=dip_ints, \
-                              orb_type='ccsd(t)')
+        ref_dipole = ref_prop(
+            mol,
+            hcore,
+            vhf,
+            eri,
+            occup,
+            orbsym,
+            nocc,
+            ref_space,
+            fci_solver="pyscf_spin1",
+            fci_state_sym="b2",
+            target="dipole",
+            hf_prop=hf_dipole,
+            dipole_ints=dip_ints,
+            orb_type="ccsd(t)",
+        )
 
         # create mbe object
-        mbe = MBE(method='fci', fci_solver='pyscf_spin1', target='dipole', \
-                  mol=mol, ncore=ncore, nocc=nocc, norb=norb, orbsym=orbsym, \
-                  fci_state_sym='b2', hf_prop=hf_dipole, occup=occup, \
-                  orb_type='ccsd(t)', hcore=hcore, vhf=vhf, eri=eri, \
-                  dipole_ints=dip_ints, ref_space=ref_space, \
-                  ref_prop=ref_dipole, rst=rst)
+        mbe = MBE(
+            method="fci",
+            fci_solver="pyscf_spin1",
+            target="dipole",
+            mol=mol,
+            ncore=ncore,
+            nocc=nocc,
+            norb=norb,
+            orbsym=orbsym,
+            fci_state_sym="b2",
+            hf_prop=hf_dipole,
+            occup=occup,
+            orb_type="ccsd(t)",
+            hcore=hcore,
+            vhf=vhf,
+            eri=eri,
+            dipole_ints=dip_ints,
+            ref_space=ref_space,
+            ref_prop=ref_dipole,
+            rst=rst,
+        )
 
         # perform calculation
         dipole = mbe.kernel()
@@ -75,7 +102,8 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
     return dipole
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     # call example function
     dipole = mbe_example()
