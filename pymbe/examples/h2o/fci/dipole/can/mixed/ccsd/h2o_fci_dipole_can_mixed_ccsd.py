@@ -5,38 +5,49 @@ from pyscf import gto
 from typing import Optional, Union
 from pymbe import MBE, hf, base, ints, dipole_ints, ref_prop
 
+
 def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd()+'/rst'):
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # create mol object
         mol = gto.Mole()
         mol.build(
-        verbose = 0,
-        output = None,
-        atom = '''
-        O  0.00000000  0.00000000  0.10840502
-        H -0.75390364  0.00000000 -0.47943227
-        H  0.75390364  0.00000000 -0.47943227
-        ''',
-        basis = '631g',
-        symmetry = 'c2v'
+            verbose=0,
+            output=None,
+            atom="""
+            O  0.00000000  0.00000000  0.10840502
+            H -0.75390364  0.00000000 -0.47943227
+            H  0.75390364  0.00000000 -0.47943227
+            """,
+            basis="631g",
+            symmetry="c2v",
         )
 
         # frozen core
         ncore = 1
 
         # hf calculation
-        nocc, _, norb, hf_object, _, hf_dipole, occup, orbsym, \
-        mo_coeff = hf(mol)
+        nocc, _, norb, hf_object, _, hf_dipole, occup, orbsym, mo_coeff = hf(mol)
 
         # gauge origin
-        gauge_origin = np.array([0., 0., 0.])
+        gauge_origin = np.array([0.0, 0.0, 0.0])
 
         # base model
-        base_dipole = base('ccsd', mol, hf_object, mo_coeff, occup, orbsym, \
-                           norb, ncore, nocc, target='dipole', \
-                           hf_dipole=hf_dipole, gauge_origin=gauge_origin)
+        base_dipole = base(
+            "ccsd",
+            mol,
+            hf_object,
+            mo_coeff,
+            occup,
+            orbsym,
+            norb,
+            ncore,
+            nocc,
+            target="dipole",
+            hf_dipole=hf_dipole,
+            gauge_origin=gauge_origin,
+        )
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
@@ -48,17 +59,42 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
 
         # reference property
-        ref_dipole = ref_prop(mol, hcore, vhf, eri, occup, orbsym, nocc, \
-                              ref_space, base_method='ccsd', target='dipole', \
-                              hf_prop=hf_dipole, dipole_ints=dip_ints)
+        ref_dipole = ref_prop(
+            mol,
+            hcore,
+            vhf,
+            eri,
+            occup,
+            orbsym,
+            nocc,
+            ref_space,
+            base_method="ccsd",
+            target="dipole",
+            hf_prop=hf_dipole,
+            dipole_ints=dip_ints,
+        )
 
         # create mbe object
-        mbe = MBE(method='fci', target='dipole', mol=mol, ncore=ncore, \
-                  nocc=nocc, norb=norb, orbsym=orbsym, hf_prop=hf_dipole, \
-                  occup=occup, hcore=hcore, vhf=vhf, eri=eri, \
-                  dipole_ints=dip_ints, ref_space=ref_space, \
-                  ref_prop=ref_dipole, base_method='ccsd', \
-                  base_prop=base_dipole, rst=rst)
+        mbe = MBE(
+            method="fci",
+            target="dipole",
+            mol=mol,
+            ncore=ncore,
+            nocc=nocc,
+            norb=norb,
+            orbsym=orbsym,
+            hf_prop=hf_dipole,
+            occup=occup,
+            hcore=hcore,
+            vhf=vhf,
+            eri=eri,
+            dipole_ints=dip_ints,
+            ref_space=ref_space,
+            ref_prop=ref_dipole,
+            base_method="ccsd",
+            base_prop=base_dipole,
+            rst=rst,
+        )
 
         # perform calculation
         dipole = mbe.kernel()
@@ -73,7 +109,8 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
 
     return dipole
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     # call example function
     dipole = mbe_example()
