@@ -575,7 +575,7 @@ def _energy_prt(
     string += (
         f"{'':3}{'ref':^14s}{'|':1}"
         f"{(hf_energy.item() + ref_energy.item()):^22.6f}{'|':1}"
-        f"{ref_energy.item():^26.5e}\n"
+        f"{ref_energy.item():>19.5e}{'':7}\n"
     )
 
     string += DIVIDER[:67] + "\n"
@@ -584,7 +584,7 @@ def _energy_prt(
         string += (
             f"{'':3}{j:>8d}{'':6}{'|':1}"
             f"{energy[i]:^22.6f}{'|':1}"
-            f"{(energy[i] - hf_energy):^26.5e}\n"
+            f"{(energy[i] - hf_energy):>19.5e}{'':7}\n"
         )
 
     string += DIVIDER[:67] + "\n"
@@ -664,12 +664,12 @@ def _excitation_prt(
     string += f"{'':3}{'MBE order':^14}{'|':1}{'excitation energy':^25}\n"
 
     string += DIVIDER[:43] + "\n"
-    string += f"{'':3}{'ref':^14s}{'|':1}{ref_exc.item():^25.5e}\n"
+    string += f"{'':3}{'ref':^14s}{'|':1}{ref_exc.item():>18.5e}{'':7}\n"
 
     string += DIVIDER[:43] + "\n"
     excitation = _excitation(corr_exc, ref_exc)
     for i, j in enumerate(range(min_order, final_order + 1)):
-        string += f"{'':3}{j:>8d}{'':6}{'|':1}{excitation[i]:^25.5e}\n"
+        string += f"{'':3}{j:>8d}{'':6}{'|':1}{excitation[i]:>18.5e}{'':7}\n"
 
     string += DIVIDER[:43] + "\n"
 
@@ -742,38 +742,38 @@ def _dipole_prt(
     """
     this function returns the dipole moments table
     """
-    string: str = DIVIDER[:82] + "\n"
-    string += f"{f'MBE dipole moment (root = {root})':^86}\n"
+    string: str = DIVIDER[:83] + "\n"
+    string += f"{f'MBE dipole moment (root = {root})':^87}\n"
 
-    string += DIVIDER[:82] + "\n"
+    string += DIVIDER[:83] + "\n"
     string += (
         f"{'':3}{'MBE order':^14}{'|':1}"
-        f"{'dipole components (x,y,z)':^42}{'|':1}"
+        f"{'dipole components (x,y,z)':^43}{'|':1}"
         f"{'dipole moment':^21}\n"
     )
 
-    string += DIVIDER[:82] + "\n"
+    string += DIVIDER[:83] + "\n"
     tot_ref_dipole: np.ndarray = hf_dipole + base_dipole + ref_dipole
     string += (
         f"{'':3}{'ref':^14s}{'|':1}"
         f"{(nuc_dipole[0] - tot_ref_dipole[0]):>13.6f}"
-        f"{(nuc_dipole[1] - tot_ref_dipole[1]):^16.6f}"
-        f"{(nuc_dipole[2] - tot_ref_dipole[2]):<13.6f}{'|':1}"
-        f"{np.linalg.norm(nuc_dipole - tot_ref_dipole):^21.6f}\n"
+        f"{(nuc_dipole[1] - tot_ref_dipole[1]):>13.6f}"
+        f"{(nuc_dipole[2] - tot_ref_dipole[2]):>13.6f}{'':4}{'|':1}"
+        f"{np.linalg.norm(nuc_dipole - tot_ref_dipole):>14.6f}{'':7}\n"
     )
 
-    string += DIVIDER[:82] + "\n"
+    string += DIVIDER[:83] + "\n"
     dipole = _dipole(corr_dipole, hf_dipole, base_dipole, ref_dipole)
     for i, j in enumerate(range(min_order, final_order + 1)):
         string += (
             f"{'':3}{j:>8d}{'':6}{'|':1}"
             f"{(nuc_dipole[0] - dipole[i, 0]):>13.6f}"
-            f"{(nuc_dipole[1] - dipole[i, 1]):^16.6f}"
-            f"{(nuc_dipole[2] - dipole[i, 2]):<13.6f}{'|':1}"
-            f"{np.linalg.norm(nuc_dipole - dipole[i, :]):^21.6f}\n"
+            f"{(nuc_dipole[1] - dipole[i, 1]):>13.6f}"
+            f"{(nuc_dipole[2] - dipole[i, 2]):>13.6f}{'':4}{'|':1}"
+            f"{np.linalg.norm(nuc_dipole - dipole[i, :]):>14.6f}{'':7}\n"
         )
 
-    string += DIVIDER[:82] + "\n"
+    string += DIVIDER[:83] + "\n"
 
     return string
 
@@ -850,38 +850,38 @@ def _trans_prt(
     """
     this function returns the transition dipole moments and oscillator strengths table
     """
-    string: str = DIVIDER[:82] + "\n"
-    string += f"{f'MBE trans. dipole moment (roots 0 > {root})':^86}\n"
+    string: str = DIVIDER[:83] + "\n"
+    string += f"{f'MBE trans. dipole moment (roots 0 > {root})':^87}\n"
 
-    string += DIVIDER[:82] + "\n"
+    string += DIVIDER[:83] + "\n"
     string += (
         f"{'':3}{'MBE order':^14}{'|':1}"
-        f"{'dipole components (x,y,z)':^42}{'|':1}"
+        f"{'dipole components (x,y,z)':^43}{'|':1}"
         f"{'dipole moment':^21}\n"
     )
 
-    string += DIVIDER[:82] + "\n"
+    string += DIVIDER[:83] + "\n"
     tot_ref_trans: np.ndarray = ref_trans
     string += (
         f"{'':3}{'ref':^14s}{'|':1}"
         f"{tot_ref_trans[0]:>13.6f}"
-        f"{tot_ref_trans[1]:^16.6f}"
-        f"{tot_ref_trans[2]:<13.6f}{'|':1}"
-        f"{np.linalg.norm(tot_ref_trans[:]):^21.6f}\n"
+        f"{tot_ref_trans[1]:>13.6f}"
+        f"{tot_ref_trans[2]:>13.6f}{'':4}{'|':1}"
+        f"{np.linalg.norm(tot_ref_trans[:]):>14.6f}{'':7}\n"
     )
 
-    string += DIVIDER[:82] + "\n"
+    string += DIVIDER[:83] + "\n"
     trans = _trans(corr_trans, ref_trans)
     for i, j in enumerate(range(min_order, final_order + 1)):
         string += (
             f"{'':3}{j:>8d}{'':6}{'|':1}"
             f"{trans[i, 0]:>13.6f}"
-            f"{trans[i, 1]:^16.6f}"
-            f"{trans[i, 2]:<13.6f}{'|':1}"
-            f"{np.linalg.norm(trans[i, :]):^21.6f}\n"
+            f"{trans[i, 1]:>13.6f}"
+            f"{trans[i, 2]:>13.6f}{'':4}{'|':1}"
+            f"{np.linalg.norm(trans[i, :]):>14.6f}{'':7}\n"
         )
 
-    string += DIVIDER[:82] + "\n"
+    string += DIVIDER[:83] + "\n"
 
     return string
 
