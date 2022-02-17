@@ -18,7 +18,7 @@ import pytest
 import numpy as np
 from typing import TYPE_CHECKING
 
-from pymbe.kernel import e_core_h1e, main, _dipole, _trans, _fci, _cc
+from pymbe.kernel import e_core_h1e, main, _dipole, _fci, _cc
 
 if TYPE_CHECKING:
 
@@ -110,14 +110,62 @@ test_cases_main = [
 ]
 
 test_cases_fci = [
-    ("h2o", "energy", 0, {"energy": -0.00627368491326763}),
-    ("hubbard", "energy", 0, {"energy": -2.875942809005066}),
-    ("h2o", "dipole", 0, {"rdm1_sum": 9.996892589445256, "rdm1_amax": 2.0}),
-    ("hubbard", "dipole", 0, {"rdm1_sum": 7.416665666590797, "rdm1_amax": 1.0}),
-    ("h2o", "excitation", 1, {"excitation": 1.35065890634786}),
-    ("hubbard", "excitation", 1, {"excitation": 1.8507741999568346}),
-    ("h2o", "trans", 1, {"t_rdm1": 0.0, "hf_weight_sum": 1.0026284317641707}),
-    ("hubbard", "trans", 1, {"t_rdm1": 0.0, "hf_weight_sum": -0.0101664409948010}),
+    (
+        "h2o",
+        "energy",
+        0,
+        {"energy": -0.00627368491326763},
+    ),
+    (
+        "hubbard",
+        "energy",
+        0,
+        {"energy": -2.875942809005066},
+    ),
+    (
+        "h2o",
+        "dipole",
+        0,
+        {"rdm1_sum": 9.996892589445256, "rdm1_amax": 2.0},
+    ),
+    (
+        "hubbard",
+        "dipole",
+        0,
+        {"rdm1_sum": 7.416665666590797, "rdm1_amax": 1.0},
+    ),
+    (
+        "h2o",
+        "excitation",
+        1,
+        {"excitation": 1.35065890634786},
+    ),
+    (
+        "hubbard",
+        "excitation",
+        1,
+        {"excitation": 1.8507741999568346},
+    ),
+    (
+        "h2o",
+        "trans",
+        1,
+        {
+            "t_rdm1_sum": 1.4605282782265316,
+            "t_rdm1_amax": 1.405776909336337,
+            "t_rdm1_trace": 0.0,
+        },
+    ),
+    (
+        "hubbard",
+        "trans",
+        1,
+        {
+            "t_rdm1_sum": -0.4308198845268202,
+            "t_rdm1_amax": 0.3958365757196145,
+            "t_rdm1_trace": 0.0,
+        },
+    ),
 ]
 
 test_cases_cc = [
@@ -337,23 +385,6 @@ def test_dipole() -> None:
     )
 
 
-def test_trans() -> None:
-    """
-    this function tests _trans
-    """
-    occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
-    cas_idx = np.arange(1, 5, dtype=np.int64)
-    np.random.seed(1234)
-    dipole_ints = np.random.rand(3, 6, 6)
-    np.random.seed(1234)
-    cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
-    trans = _trans(dipole_ints, occup, cas_idx, cas_rdm1, 0.9, 0.4)
-
-    assert trans == pytest.approx(
-        np.array([5.51751635, 4.92678927, 5.45675281], dtype=np.float64)
-    )
-
-
 @pytest.mark.parametrize(
     argnames="system, target, root, ref",
     argvalues=test_cases_fci,
@@ -417,14 +448,13 @@ def test_fci(
         assert res["energy"] == pytest.approx(ref["energy"])
     elif target == "dipole":
         assert np.sum(res["rdm1"]) == pytest.approx(ref["rdm1_sum"])
-        assert np.amax(res["rdm1"]) == pytest.approx(
-            ref["rdm1_amax"], rel=1e-5, abs=1e-12
-        )
+        assert np.amax(res["rdm1"]) == pytest.approx(ref["rdm1_amax"])
     elif target == "excitation":
         assert res["excitation"] == pytest.approx(ref["excitation"])
     elif target == "trans":
-        assert np.trace(res["t_rdm1"]) == pytest.approx(ref["t_rdm1"])
-        assert np.sum(res["hf_weight"]) == pytest.approx(ref["hf_weight_sum"])
+        assert np.sum(res["t_rdm1"]) == pytest.approx(ref["t_rdm1_sum"])
+        assert np.amax(res["t_rdm1"]) == pytest.approx(ref["t_rdm1_amax"])
+        assert np.trace(res["t_rdm1"]) == pytest.approx(ref["t_rdm1_trace"])
 
 
 @pytest.mark.parametrize(
@@ -477,6 +507,4 @@ def test_cc(
         assert res["energy"] == pytest.approx(ref["energy"])
     elif target == "dipole":
         assert np.sum(res["rdm1"]) == pytest.approx(ref["rdm1_sum"])
-        assert np.amax(res["rdm1"]) == pytest.approx(
-            ref["rdm1_amax"], rel=1e-4, abs=1e-12
-        )
+        assert np.amax(res["rdm1"]) == pytest.approx(ref["rdm1_amax"])
