@@ -164,7 +164,7 @@ def mbe_results(
     root: int,
     min_order: int,
     order: int,
-    prop_tot: List[np.ndarray],
+    prop_tot: List[Any],
     mean_inc: np.ndarray,
     min_inc: np.ndarray,
     max_inc: np.ndarray,

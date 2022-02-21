@@ -427,9 +427,8 @@ def main(
     max_inc = mpi_reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
     if mpi.global_master:
         mean_inc = np.sum(inc[-1], axis=0)
+        tot = mean_inc if np.isscalar(mean_inc) else mean_inc.copy()
         mean_inc = np.asarray(mean_inc, dtype=np.float64)
-        tot = mean_inc.copy()
-        print(tot)
         if exp.n_tuples["inc"][-1] != 0:
             mean_inc /= exp.n_tuples["inc"][-1]
 
@@ -509,7 +508,7 @@ def _inc(
     orbsym: np.ndarray,
     hf_guess: bool,
     fci_state_root: int,
-    hf_prop: np.ndarray,
+    hf_prop: Any,
     e_core: float,
     h1e_cas: np.ndarray,
     h2e_cas: np.ndarray,
@@ -517,7 +516,7 @@ def _inc(
     cas_idx: np.ndarray,
     verbose: int,
     dipole_ints: Optional[np.ndarray],
-    ref_prop: Union[float, np.ndarray],
+    ref_prop: Any,
 ) -> Tuple[Union[float, np.ndarray], Tuple[int, int]]:
     """
     this function calculates the current-order contribution to the increment associated

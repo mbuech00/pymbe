@@ -24,7 +24,7 @@ from pymbe.parallel import mpi_bcast
 
 if TYPE_CHECKING:
 
-    from typing import List, Dict, Tuple, Optional
+    from typing import List, Dict, Tuple, Optional, Any
 
     from pymbe.pymbe import MBE
     from pymbe.parallel import MPICls
@@ -62,7 +62,7 @@ class ExpCls:
         self.fci_state_root = cast(int, mbe.fci_state_root)
 
         # hf calculation
-        self.hf_prop = np.asarray(mbe.hf_prop, dtype=np.float64)
+        self.hf_prop: Any = mbe.hf_prop
         self.occup = cast(np.ndarray, mbe.occup)
 
         # integrals
@@ -79,7 +79,7 @@ class ExpCls:
 
         # reference space
         self.ref_space: np.ndarray = mbe.ref_space
-        self.ref_prop = np.asarray(mbe.ref_prop, dtype=np.float64)
+        self.ref_prop: Any = mbe.ref_prop
 
         # expansion space
         self.exp_space: List[np.ndarray] = [
@@ -91,10 +91,10 @@ class ExpCls:
 
         # base model
         self.base_method: Optional[str] = mbe.base_method
-        self.base_prop = np.asarray(mbe.base_prop, dtype=np.float64)
+        self.base_prop: Any = mbe.base_prop
 
         # total mbe property
-        self.mbe_tot_prop: List[np.ndarray] = []
+        self.mbe_tot_prop: List[Any] = []
 
         # increment windows
         self.incs: List[MPI.Win] = []

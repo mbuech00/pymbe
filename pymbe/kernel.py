@@ -78,7 +78,7 @@ def main(
     orbsym: np.ndarray,
     hf_guess: bool,
     state_root: int,
-    hf_prop: np.ndarray,
+    hf_prop: Any,
     e_core: float,
     h1e: np.ndarray,
     h2e: np.ndarray,
@@ -193,7 +193,7 @@ def _fci(
     orbsym: np.ndarray,
     hf_guess: bool,
     root: int,
-    hf_prop: np.ndarray,
+    hf_prop: Any,
     e_core: float,
     h1e: np.ndarray,
     h2e: np.ndarray,
@@ -316,7 +316,7 @@ def _fci(
     # collect results
     res: Dict[str, Union[int, float, np.ndarray]] = {}
     if target_mbe == "energy":
-        res["energy"] = energy[-1] - hf_prop.item()
+        res["energy"] = energy[-1] - hf_prop
     elif target_mbe == "excitation":
         res["excitation"] = energy[-1] - energy[0]
     elif target_mbe == "dipole":

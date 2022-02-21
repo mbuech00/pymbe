@@ -346,10 +346,10 @@ def _symm(method: str, point_group: str, fci_state_sym: int, pi_prune: bool) -> 
 
 
 def _energy(
-    corr_energy: List[np.ndarray],
-    hf_energy: np.ndarray,
-    base_energy: np.ndarray,
-    ref_energy: np.ndarray,
+    corr_energy: List[float],
+    hf_energy: float,
+    base_energy: float,
+    ref_energy: float,
 ) -> np.ndarray:
     """
     this function returns the final total energy
@@ -359,17 +359,17 @@ def _energy(
     tot_energy += base_energy
     tot_energy += ref_energy
 
-    return tot_energy.flatten()
+    return tot_energy
 
 
-def _excitation(corr_exc: List[np.ndarray], ref_exc: np.ndarray) -> np.ndarray:
+def _excitation(corr_exc: List[float], ref_exc: float) -> np.ndarray:
     """
     this function returns the final excitation energy
     """
     tot_exc = np.array(corr_exc)
     tot_exc += ref_exc
 
-    return tot_exc.flatten()
+    return tot_exc
 
 
 def _dipole(
@@ -424,8 +424,8 @@ def _summary_prt(mpi: MPICls, exp: ExpCls) -> str:
     mbe_tot_prop: Union[float, np.floating]
 
     if exp.target == "energy":
-        hf_prop = exp.hf_prop.item()
-        base_prop = exp.hf_prop.item() + exp.base_prop.item()
+        hf_prop = exp.hf_prop
+        base_prop = exp.hf_prop + exp.base_prop
         energy = _energy(exp.mbe_tot_prop, exp.hf_prop, exp.base_prop, exp.ref_prop)
         mbe_tot_prop = energy[-1]
     elif exp.target == "dipole":
@@ -551,10 +551,10 @@ def _timings_prt(exp: ExpCls, method: str) -> str:
 def _energy_prt(
     method: str,
     root: int,
-    corr_energy: List[np.ndarray],
-    hf_energy: np.ndarray,
-    base_energy: np.ndarray,
-    ref_energy: np.ndarray,
+    corr_energy: List[float],
+    hf_energy: float,
+    base_energy: float,
+    ref_energy: float,
     min_order: int,
     final_order: int,
 ) -> str:
@@ -574,8 +574,8 @@ def _energy_prt(
     string += DIVIDER[:67] + "\n"
     string += (
         f"{'':3}{'ref':^14s}{'|':1}"
-        f"{(hf_energy.item() + ref_energy.item()):^22.6f}{'|':1}"
-        f"{ref_energy.item():>19.5e}{'':7}\n"
+        f"{(hf_energy + ref_energy):^22.6f}{'|':1}"
+        f"{ref_energy:>19.5e}{'':7}\n"
     )
 
     string += DIVIDER[:67] + "\n"
@@ -594,10 +594,10 @@ def _energy_prt(
 
 def _energy_plot(
     root: int,
-    corr_energy: List[np.ndarray],
-    hf_energy: np.ndarray,
-    base_energy: np.ndarray,
-    ref_energy: np.ndarray,
+    corr_energy: List[float],
+    hf_energy: float,
+    base_energy: float,
+    ref_energy: float,
     min_order: int,
     final_order: int,
 ) -> matplotlib.figure.Figure:
@@ -649,8 +649,8 @@ def _energy_plot(
 
 def _excitation_prt(
     root: int,
-    corr_exc: List[np.ndarray],
-    ref_exc: np.ndarray,
+    corr_exc: List[float],
+    ref_exc: float,
     min_order: int,
     final_order: int,
 ) -> str:
@@ -664,7 +664,7 @@ def _excitation_prt(
     string += f"{'':3}{'MBE order':^14}{'|':1}{'excitation energy':^25}\n"
 
     string += DIVIDER[:43] + "\n"
-    string += f"{'':3}{'ref':^14s}{'|':1}{ref_exc.item():>18.5e}{'':7}\n"
+    string += f"{'':3}{'ref':^14s}{'|':1}{ref_exc:>18.5e}{'':7}\n"
 
     string += DIVIDER[:43] + "\n"
     excitation = _excitation(corr_exc, ref_exc)
@@ -678,8 +678,8 @@ def _excitation_prt(
 
 def _excitation_plot(
     root: int,
-    corr_exc: List[np.ndarray],
-    ref_exc: np.ndarray,
+    corr_exc: List[float],
+    ref_exc: float,
     min_order: int,
     final_order: int,
 ) -> matplotlib.figure.Figure:

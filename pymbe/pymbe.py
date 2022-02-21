@@ -27,7 +27,7 @@ from pymbe.results import tot_prop, print_results, plot_results
 
 if TYPE_CHECKING:
 
-    from typing import Union, Optional
+    from typing import Union, Optional, Tuple
     from matplotlib import figure
 
     from pymbe.parallel import MPICls
@@ -60,7 +60,7 @@ class MBE:
     fci_state_root: Optional[int] = None
 
     # hf calculation
-    hf_prop: Optional[Union[float, np.ndarray]] = None
+    hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
     occup: Optional[np.ndarray] = None
 
     # orbital representation
@@ -74,11 +74,11 @@ class MBE:
 
     # reference space
     ref_space: np.ndarray = np.array([], dtype=np.int64)
-    ref_prop: Optional[Union[float, np.ndarray]] = None
+    ref_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
 
     # base model
     base_method: Optional[str] = None
-    base_prop: Optional[Union[float, np.ndarray]] = None
+    base_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
 
     # screening
     screen_start: int = 4
