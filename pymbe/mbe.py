@@ -165,7 +165,9 @@ def main(
             shape=inc_shape(exp.n_tuples["inc"][-1], dim),
         )
     )
-    if mpi.local_master and not mpi.global_master:
+    if (mpi.local_master and not mpi.global_master) or (
+        mpi.global_master and not rst_read
+    ):
         inc[-1][:].fill(0.0)
 
     # init time
@@ -175,21 +177,12 @@ def main(
         time = MPI.Wtime()
 
     # init increment statistics
-    min_inc = (
-        exp.min_inc[-1]
-        if mpi.global_master and rst_read
-        else np.array([1.0e12] * dim, dtype=np.float64)
-    )
-    max_inc = (
-        exp.max_inc[-1]
-        if mpi.global_master and rst_read
-        else np.array([0.0] * dim, dtype=np.float64)
-    )
-    mean_inc = (
-        exp.mean_inc[-1]
-        if mpi.global_master and rst_read
-        else np.array([0.0] * dim, dtype=np.float64)
-    )
+    if mpi.global_master and rst_read:
+        min_inc = exp.min_inc[-1]
+        max_inc = exp.max_inc[-1]
+    else:
+        min_inc = np.array(1.0e12 if dim == 1 else [1.0e12] * dim, dtype=np.float64)
+        max_inc = np.array(0.0 if dim == 1 else [0.0] * dim, dtype=np.float64)
 
     # init pair_corr statistics
     if exp.ref_space.size == 0 and exp.order == 2 and exp.base_method is None:
@@ -279,11 +272,9 @@ def main(
             # reduce increment statistics onto global master
             min_inc = mpi_reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
             max_inc = mpi_reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
-            mean_inc = mpi_reduce(mpi.global_comm, mean_inc, root=0, op=MPI.SUM)
             if not mpi.global_master:
                 min_inc = np.array([1.0e12] * dim, dtype=np.float64)
                 max_inc = np.array([0.0] * dim, dtype=np.float64)
-                mean_inc = np.array([0.0] * dim, dtype=np.float64)
 
             # reduce screen onto global master
             screen = mpi_reduce(mpi.global_comm, screen, root=0, op=MPI.MAX)
@@ -306,7 +297,7 @@ def main(
 
             if mpi.global_master:
                 # write restart files
-                inc_stats = np.array([min_inc, mean_inc, max_inc], dtype=np.float64)
+                inc_stats = np.array([min_inc, 0.0, max_inc], dtype=np.float64)
                 write_file(exp.order, inc_stats, "mbe_stats_inc")
                 write_file(exp.order, screen, "mbe_screen")
                 write_file(exp.order, np.asarray(mbe_idx), "mbe_idx")
@@ -403,7 +394,8 @@ def main(
         )
 
         # update increment statistics
-        min_inc, max_inc, mean_inc = _update(min_inc, max_inc, mean_inc, inc_tup)
+        min_inc = np.minimum(min_inc, np.abs(inc_tup))
+        max_inc = np.maximum(max_inc, np.abs(inc_tup))
         # update pair_corr statistics
         if pair_corr is not None:
             inc_tup = np.asarray(inc_tup)
@@ -433,7 +425,13 @@ def main(
     # increment statistics
     min_inc = mpi_reduce(mpi.global_comm, min_inc, root=0, op=MPI.MIN)
     max_inc = mpi_reduce(mpi.global_comm, max_inc, root=0, op=MPI.MAX)
-    mean_inc = mpi_reduce(mpi.global_comm, mean_inc, root=0, op=MPI.SUM)
+    if mpi.global_master:
+        mean_inc = np.sum(inc[-1], axis=0)
+        mean_inc = np.asarray(mean_inc, dtype=np.float64)
+        tot = mean_inc.copy()
+        print(tot)
+        if exp.n_tuples["inc"][-1] != 0:
+            mean_inc /= exp.n_tuples["inc"][-1]
 
     # pair_corr statistics
     if pair_corr is not None:
@@ -441,11 +439,6 @@ def main(
             mpi_reduce(mpi.global_comm, pair_corr[0], root=0, op=MPI.SUM),
             mpi_reduce(mpi.global_comm, pair_corr[1], root=0, op=MPI.SUM),
         ]
-
-    # mean increment
-    if mpi.global_master:
-        if exp.n_tuples["inc"][-1] != 0:
-            mean_inc /= exp.n_tuples["inc"][-1]
 
     # write restart files & save timings
     if mpi.global_master:
@@ -473,9 +466,6 @@ def main(
         if exp.rst:
             write_file(exp.order, tot_screen, "mbe_screen")
             write_file(exp.order + 1, exp.exp_space[-1], "exp_space")
-
-    # total property
-    tot = mean_inc * exp.n_tuples["inc"][-1]
 
     # mpi barrier
     mpi.local_comm.Barrier()
@@ -629,19 +619,3 @@ def _sum(
                 res[k - min_order] += inc[k - min_order][idx]
 
     return fsum(res)
-
-
-def _update(
-    min_prop: np.ndarray,
-    max_prop: np.ndarray,
-    sum_prop: np.ndarray,
-    tup_prop: Union[float, np.ndarray],
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    this function returns updated statistics
-    """
-    return (
-        np.asarray(np.minimum(min_prop, np.abs(tup_prop))),
-        np.asarray(np.maximum(max_prop, np.abs(tup_prop))),
-        np.asarray(sum_prop + tup_prop),
-    )

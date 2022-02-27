@@ -240,7 +240,7 @@ def master(mpi: MPICls, exp: ExpCls) -> None:
                 write_file(
                     exp.order, np.asarray(exp.n_tuples["inc"][-1]), "mbe_n_tuples_inc"
                 )
-            write_file(exp.order, np.asarray(exp.mbe_tot_prop[-1]), "mbe_tot")
+            write_file(exp.order, np.asarray(exp.mbe_tot_prop[-1]), "mbe_tot_prop")
             write_file(exp.order, np.asarray(exp.time["mbe"][-1]), "mbe_time_mbe")
             write_file(exp.order, np.asarray(exp.time["purge"][-1]), "mbe_time_purge")
 

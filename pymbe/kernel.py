@@ -148,13 +148,8 @@ def main(
 
     elif target_mbe == "trans":
 
-        res = _trans(
-            cast(np.ndarray, dipole_ints),
-            occup,
-            cas_idx,
-            res_tmp["t_rdm1"],
-            res_tmp["hf_weight"][0],
-            res_tmp["hf_weight"][1],
+        res = _dipole(
+            cast(np.ndarray, dipole_ints), occup, cas_idx, res_tmp["t_rdm1"], trans=True
         )
 
     return res
@@ -188,24 +183,6 @@ def _dipole(
         elec_dipole -= hf_dipole
 
     return elec_dipole
-
-
-def _trans(
-    dipole_ints: np.ndarray,
-    occup: np.ndarray,
-    cas_idx: np.ndarray,
-    cas_rdm1: np.ndarray,
-    hf_weight_gs: float,
-    hf_weight_ex: float,
-) -> np.ndarray:
-    """
-    this function returns an electronic transition dipole moment
-    """
-    return (
-        _dipole(dipole_ints, occup, cas_idx, cas_rdm1, trans=True)
-        * np.sign(hf_weight_gs)
-        * np.sign(hf_weight_ex)
-    )
 
 
 def _fci(
@@ -345,8 +322,12 @@ def _fci(
     elif target_mbe == "dipole":
         res["rdm1"] = solver.make_rdm1(civec[-1], cas_idx.size, n_elec)
     elif target_mbe == "trans":
-        res["t_rdm1"] = solver.trans_rdm1(civec[0], civec[-1], cas_idx.size, n_elec)
-        res["hf_weight"] = np.array([civec[i][0, 0] for i in range(2)])
+        res["t_rdm1"] = solver.trans_rdm1(
+            np.sign(civec[0][0, 0]) * civec[0],
+            np.sign(civec[-1][0, 0]) * civec[-1],
+            cas_idx.size,
+            n_elec,
+        )
 
     return res
 
