@@ -21,7 +21,6 @@ from types import GeneratorType
 
 from pymbe.tools import (
     time_str,
-    fsum,
     hash_2d,
     hash_1d,
     hash_lookup,
@@ -45,8 +44,6 @@ from pymbe.tools import (
     natural_keys,
     _convert,
     intervals,
-    inc_dim,
-    inc_shape,
     ground_state_sym,
 )
 
@@ -54,19 +51,6 @@ if TYPE_CHECKING:
 
     from typing import Union, Tuple, List, Optional
 
-
-test_cases_fsum = [
-    (
-        "1d",
-        np.arange(10.0, dtype=np.float64),
-        45.0,
-    ),
-    (
-        "2d",
-        np.arange(4.0**2, dtype=np.float64).reshape(4, 4),
-        np.array([24.0, 28.0, 32.0, 36.0], dtype=np.float64),
-    ),
-]
 
 test_cases_hash_lookup = [
     ("present", np.array([1, 3, 5, 7, 9], dtype=np.int64), True),
@@ -155,10 +139,6 @@ test_cases_natural_keys = [
 
 test_cases_convert = [("str", "string", str), ("int", "1", int)]
 
-test_cases_inc_dim = [("energy", 1), ("dipole", 3)]
-
-test_cases_inc_shape = [("energy", 5, 1, (5,)), ("dipole", 5, 3, (5, 3))]
-
 test_cases_ground_state_sym = [
     (
         "closed-shell",
@@ -182,18 +162,6 @@ def test_time_str() -> None:
     this function tests time_str
     """
     assert time_str(3742.4) == "1h 2m 22.40s"
-
-
-@pytest.mark.parametrize(
-    argnames="a, ref_sum",
-    argvalues=[case[1:] for case in test_cases_fsum],
-    ids=[case[0] for case in test_cases_fsum],
-)
-def test_fsum(a: np.ndarray, ref_sum: float) -> None:
-    """
-    this function tests fsum
-    """
-    assert fsum(a) == pytest.approx(ref_sum)
 
 
 def test_hash_2d() -> None:
@@ -532,32 +500,6 @@ def test_intervals() -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="target, ref_dim",
-    argvalues=test_cases_inc_dim,
-    ids=[case[0] for case in test_cases_inc_dim],
-)
-def test_inc_dim(target: str, ref_dim: int) -> None:
-    """
-    this function tests inc_dim
-    """
-    assert inc_dim(target) == ref_dim
-
-
-@pytest.mark.parametrize(
-    argnames="n, dim, ref_shape",
-    argvalues=[case[1:] for case in test_cases_inc_shape],
-    ids=[case[0] for case in test_cases_inc_shape],
-)
-def test_inc_shape(
-    n: int, dim: int, ref_shape: Union[Tuple[int], Tuple[int, int]]
-) -> None:
-    """
-    this function tests inc_dim
-    """
-    assert inc_shape(n, dim) == ref_shape
-
-
-@pytest.mark.parametrize(
     argnames="orbsym, occup, point_group, ref_wfnsym",
     argvalues=[case[1:] for case in test_cases_ground_state_sym],
     ids=[case[0] for case in test_cases_ground_state_sym],
@@ -566,6 +508,6 @@ def test_ground_state_sym(
     orbsym: np.ndarray, occup: np.ndarray, point_group: str, ref_wfnsym: int
 ) -> None:
     """
-    this function tests inc_dim
+    this function tests ground_state_sym
     """
     assert ground_state_sym(orbsym, occup, point_group) == ref_wfnsym

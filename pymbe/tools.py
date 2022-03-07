@@ -23,10 +23,12 @@ import scipy.special as sc
 from mpi4py import MPI
 from pyscf import symm
 from itertools import islice, combinations, groupby
-from math import floor, fsum as math_fsum
+from math import floor
 from subprocess import Popen, PIPE
 from traceback import format_stack
 from typing import TYPE_CHECKING
+
+from pymbe.parallel import open_shared_win
 
 if TYPE_CHECKING:
 
@@ -44,6 +46,288 @@ PI_SYMM_D2H = np.array(
     [2, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27]
 )
 PI_SYMM_C2V = np.array([2, 3, 10, 11, 12, 13, 20, 21, 22, 23])
+
+
+class RDMCls:
+    """
+    this class holds the 1- and 2-particle RDMs and defines all necessary operations
+    """
+
+    def __init__(self, rdm1: np.ndarray, rdm2: np.ndarray):
+        """
+        initializes a RDM object
+        """
+        self.rdm1 = rdm1
+        self.rdm2 = rdm2
+
+    def __getitem__(self, idx: np.ndarray) -> RDMCls:
+        """
+        this function ensures RDMCls can be retrieved using one-dimensional indexing of
+        RDMCls objects
+        """
+        return RDMCls(
+            self.rdm1[idx.reshape(-1, 1), idx],
+            self.rdm2[
+                idx.reshape(-1, 1, 1, 1),
+                idx.reshape(1, -1, 1, 1),
+                idx.reshape(1, 1, -1, 1),
+                idx,
+            ],
+        )
+
+    def __setitem__(
+        self,
+        idx: np.ndarray,
+        values: Union[RDMCls, Tuple[np.ndarray, np.ndarray]],
+    ) -> RDMCls:
+        """
+        this function implements setting RDMs through indexing for the RDMCls objects
+        this function ensures RDMCls indexed in one dimension can be set using RDMCls
+        or tuples of numpy arrays
+        """
+        if isinstance(values, RDMCls):
+            self.rdm1[idx.reshape(-1, 1), idx] = values.rdm1
+            self.rdm2[
+                idx.reshape(-1, 1, 1, 1),
+                idx.reshape(1, -1, 1, 1),
+                idx.reshape(1, 1, -1, 1),
+                idx,
+            ] = values.rdm2
+        elif isinstance(values, tuple):
+            self.rdm1[idx.reshape(-1, 1), idx] = values[0]
+            self.rdm2[
+                idx.reshape(-1, 1, 1, 1),
+                idx.reshape(1, -1, 1, 1),
+                idx.reshape(1, 1, -1, 1),
+                idx,
+            ] = values[1]
+        else:
+            return NotImplemented
+
+        return self
+
+    def __add__(self, other: RDMCls) -> RDMCls:
+        """
+        this function implements addition for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            return RDMCls(self.rdm1 + other.rdm1, self.rdm2 + other.rdm2)
+        else:
+            return NotImplemented
+
+    def __iadd__(self, other: Union[RDMCls, packedRDMCls]) -> RDMCls:
+        """
+        this function implements inplace addition for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            self.rdm1 += other.rdm1
+            self.rdm2 += other.rdm2
+            return self
+        else:
+            return NotImplemented
+
+    def __sub__(self, other: RDMCls) -> RDMCls:
+        """
+        this function implements subtraction for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            return RDMCls(self.rdm1 - other.rdm1, self.rdm2 - other.rdm2)
+        else:
+            return NotImplemented
+
+    def __isub__(self, other: Union[RDMCls, packedRDMCls]) -> RDMCls:
+        """
+        this function implements inplace subtraction for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            self.rdm1 -= other.rdm1
+            self.rdm2 -= other.rdm2
+            return self
+        else:
+            return NotImplemented
+
+    def __truediv__(self, other: Union[int, float]) -> RDMCls:
+        """
+        this function implements division for the RDMCls objects
+        """
+        if isinstance(other, (int, float)):
+            return RDMCls(self.rdm1 / other, self.rdm2 / other)
+        else:
+            return NotImplemented
+
+    def __itruediv__(self, other: Union[int, float]) -> RDMCls:
+        """
+        this function implements inplace division for the RDMCls objects
+        """
+        if isinstance(other, (int, float)):
+            self.rdm1 /= other
+            self.rdm2 /= other
+            return self
+        else:
+            return NotImplemented
+
+    def fill(self, value: float) -> None:
+        """
+        this function defines the fill function for RDMCls objects
+        """
+        self.rdm1.fill(value)
+        self.rdm2.fill(value)
+
+    def copy(self) -> RDMCls:
+        """
+        this function creates a copy of RDMCls objects
+        """
+        return RDMCls(self.rdm1.copy(), self.rdm2.copy())
+
+
+class packedRDMCls:
+    """
+    this class describes packed RDMs, instances of this class can either be created
+    normally using __init__() or by opening a shared memory instance with
+    open_shared_RDM
+    """
+
+    rdm1_size: List[int] = []
+    pack_rdm1: List[Tuple[np.ndarray, np.ndarray]] = []
+    unpack_rdm1: List[np.ndarray] = []
+    rdm2_size: List[int] = []
+    pack_rdm2: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
+    unpack_rdm2: List[np.ndarray] = []
+
+    def __init__(self, rdm1: np.ndarray, rdm2: np.ndarray, idx: int = -1) -> None:
+        """
+        this function initializes a packedRDMCls object
+        """
+        self.rdm1 = rdm1
+        self.rdm2 = rdm2
+        self.idx = idx
+
+    @classmethod
+    def open_shared_RDM(
+        cls, inc_win: Tuple[MPI.Win, MPI.Win], n_tuples: int, idx: int
+    ) -> packedRDMCls:
+        """
+        this factory function initializes a packedRDMCls object in shared memory
+        """
+        # open shared windows
+        rdm1 = open_shared_win(inc_win[0], np.float64, (n_tuples, cls.rdm1_size[idx]))
+        rdm2 = open_shared_win(inc_win[1], np.float64, (n_tuples, cls.rdm2_size[idx]))
+
+        return cls(rdm1, rdm2, idx)
+
+    @classmethod
+    def get_pack_idx(cls, norb) -> None:
+        """
+        this function generates packing and unpacking indices for the 1- and 2-particle
+        rdms and should be called at every order before a packedRDMCls object is
+        initialized at this order
+        """
+        pack_rdm1 = np.triu_indices(norb)
+        unpack_rdm1 = np.zeros((norb, norb), dtype=np.int64)
+        rdm1_size = pack_rdm1[0].size
+        indices = np.arange(rdm1_size)
+        unpack_rdm1[pack_rdm1] = indices
+        unpack_rdm1[pack_rdm1[1], pack_rdm1[0]] = indices
+
+        rdm2_size = (7 * norb**4 + 8 * norb**3 - norb**2 - 2 * norb) // 12
+        pack_rdm2 = np.empty((rdm2_size, 4), dtype=np.int64)
+        unpack_rdm2 = np.empty(4 * (norb,), dtype=np.int64)
+
+        i = 0
+        for s in range(norb):
+            for r in range(s + 1):
+                for q in range(s + 1):
+                    for p in range(norb):
+                        pack_rdm2[i, :] = np.array([p, q, r, s], dtype=np.int64)
+                        unpack_rdm2[p, q, r, s] = i
+                        unpack_rdm2[r, s, p, q] = i
+                        unpack_rdm2[q, p, s, r] = i
+                        unpack_rdm2[s, r, q, p] = i
+                        i += 1
+                for q in range(s + 1, norb):
+                    for p in range(r + 1):
+                        pack_rdm2[i, :] = np.array([p, q, r, s], dtype=np.int64)
+                        unpack_rdm2[p, q, r, s] = i
+                        unpack_rdm2[r, s, p, q] = i
+                        unpack_rdm2[q, p, s, r] = i
+                        unpack_rdm2[s, r, q, p] = i
+                        i += 1
+            for r in range(s + 1, norb):
+                for q in range(s + 1):
+                    for p in range(q + 1):
+                        pack_rdm2[i, :] = np.array([p, q, r, s], dtype=np.int64)
+                        unpack_rdm2[p, q, r, s] = i
+                        unpack_rdm2[r, s, p, q] = i
+                        unpack_rdm2[q, p, s, r] = i
+                        unpack_rdm2[s, r, q, p] = i
+                        i += 1
+                for q in range(s + 1, norb):
+                    for p in range(min(r + 1, q + 1)):
+                        pack_rdm2[i, :] = np.array([p, q, r, s], dtype=np.int64)
+                        unpack_rdm2[p, q, r, s] = i
+                        unpack_rdm2[r, s, p, q] = i
+                        unpack_rdm2[q, p, s, r] = i
+                        unpack_rdm2[s, r, q, p] = i
+                        i += 1
+
+        cls.rdm1_size.append(rdm1_size)
+        cls.pack_rdm1.append(pack_rdm1)
+        cls.unpack_rdm1.append(unpack_rdm1)
+        cls.rdm2_size.append(rdm2_size)
+        cls.pack_rdm2.append(
+            (pack_rdm2[:, 0], pack_rdm2[:, 1], pack_rdm2[:, 2], pack_rdm2[:, 3])
+        )
+        cls.unpack_rdm2.append(unpack_rdm2)
+
+    def __getitem__(self, idx: Union[int, np.int64, slice, np.ndarray]) -> packedRDMCls:
+        """
+        this function ensures packedRDMCls can be retrieved through indexing
+        packedRDMCls objects
+        """
+        if isinstance(idx, (int, np.integer, slice, np.ndarray)):
+            return packedRDMCls(self.rdm1[idx], self.rdm2[idx], self.idx)
+        else:
+            return NotImplemented
+
+    def __setitem__(
+        self,
+        idx: Union[int, np.int64, slice, np.ndarray],
+        values: Union[packedRDMCls, RDMCls, np.ndarray, float],
+    ) -> packedRDMCls:
+        """
+        this function ensures indexed packedRDMCls can be set using packedRDMCls or
+        RDMCls objects
+        """
+        if isinstance(idx, (slice, np.ndarray)) and isinstance(values, packedRDMCls):
+            self.rdm1[idx] = values.rdm1
+            self.rdm2[idx] = values.rdm2
+        elif isinstance(idx, (int, np.integer)) and isinstance(values, RDMCls):
+            self.rdm1[idx] = values.rdm1[self.pack_rdm1[self.idx]]
+            self.rdm2[idx] = values.rdm2[self.pack_rdm2[self.idx]]
+        else:
+            return NotImplemented
+
+        return self
+
+    def __radd__(self, other: RDMCls) -> RDMCls:
+        """
+        this function ensures the packedRDMCls object is unpacked when added to a RDMCls
+        object
+        """
+        if isinstance(other, RDMCls) and self.rdm1.ndim == 1 and self.rdm2.ndim == 1:
+            return other + RDMCls(
+                self.rdm1[self.unpack_rdm1[self.idx]],
+                self.rdm2[self.unpack_rdm2[self.idx]],
+            )
+        else:
+            return NotImplemented
+
+    def fill(self, value: float) -> None:
+        """
+        this function defines the fill function for packedRDMCls objects
+        """
+        self.rdm1.fill(value)
+        self.rdm2.fill(value)
 
 
 def logger_config(verbose: int) -> None:
@@ -143,18 +427,6 @@ def time_str(time: float) -> str:
     string += f"{seconds:.2f}s"
 
     return string
-
-
-def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
-    """
-    this function uses math.fsum to safely sum 1d array or 2d array (column-wise)
-    """
-    if a.ndim == 1:
-        return math_fsum(a)
-    elif a.ndim == 2:
-        return np.fromiter(map(math_fsum, a.T), dtype=a.dtype, count=a.shape[1])
-    else:
-        raise NotImplementedError("tools.py: _fsum()")
 
 
 def hash_2d(a: np.ndarray) -> np.ndarray:
@@ -550,20 +822,6 @@ def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
             yield [group_lst[0][1]]
         else:
             yield [group_lst[0][1], group_lst[-1][1]]
-
-
-def inc_dim(target: str) -> int:
-    """
-    this function returns the dimension of increments
-    """
-    return 1 if target in ["energy", "excitation"] else 3
-
-
-def inc_shape(n: int, dim: int) -> Union[Tuple[int], Tuple[int, int]]:
-    """
-    this function returns the shape of increments
-    """
-    return (n,) if dim == 1 else (n, dim)
 
 
 def ground_state_sym(orbsym: np.ndarray, occup: np.ndarray, point_group: str) -> int:

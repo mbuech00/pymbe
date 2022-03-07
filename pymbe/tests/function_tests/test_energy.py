@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-purge testing module
+expansion testing module
 """
 
 from __future__ import annotations
@@ -16,21 +16,138 @@ __status__ = "Development"
 
 import pytest
 import numpy as np
+import scipy.special as sc
 from mpi4py import MPI
 from typing import TYPE_CHECKING
-
-from pymbe.purge import main
-from pymbe.parallel import MPICls
-
 
 if TYPE_CHECKING:
 
     from typing import List
 
-    from pymbe.tests.conftest import ExpCls
+    from pymbe.pymbe import MBE
+    from pymbe.energy import EnergyExpCls
+
+test_cases_mbe = [
+    (
+        "h2o",
+        1,
+        -249055688365223385,
+        9199082625845137542,
+        -0.0374123708341898,
+        -0.0018267714680604286,
+        -0.0374123708341898,
+        -0.004676546354273725,
+        0.0018267714680604286,
+        0.010886635891736773,
+    ),
+    (
+        "h2o",
+        2,
+        8509729643108359722,
+        8290417336063232159,
+        -0.11605435599270209,
+        -0.0001698239845069338,
+        -0.15346672682557028,
+        -0.004144798428310789,
+        0.0001698239845069338,
+        0.009556269221292268,
+    ),
+]
 
 
-def test_main(exp: ExpCls) -> None:
+@pytest.mark.parametrize(
+    argnames="system, order, ref_hashes_sum, ref_hashes_amax, ref_inc_sum, "
+    "ref_inc_amax, ref_mbe_tot_prop, ref_mean_inc, ref_min_inc, ref_max_inc",
+    argvalues=test_cases_mbe,
+    ids=["-".join([case[0], str(case[1])]) for case in test_cases_mbe],
+    indirect=["system"],
+)
+def test_mbe(
+    mbe: MBE,
+    energyexpcls: EnergyExpCls,
+    nocc: int,
+    order: int,
+    ref_hashes_sum: int,
+    ref_hashes_amax: int,
+    ref_inc_sum: float,
+    ref_inc_amax: float,
+    ref_mbe_tot_prop: np.ndarray,
+    ref_mean_inc: float,
+    ref_min_inc: float,
+    ref_max_inc: float,
+) -> None:
+    """
+    this function tests main
+    """
+    exp = energyexpcls
+
+    hashes: List[np.ndarray] = []
+    inc: List[np.ndarray] = []
+
+    for exp.order in range(1, order + 1):
+
+        n_tuples = 0.0
+
+        for k in range(1, exp.order):
+            n_tuples += sc.binom(
+                exp.exp_space[-1][exp.exp_space[-1] < nocc].size, k
+            ) * sc.binom(
+                exp.exp_space[-1][nocc <= exp.exp_space[-1]].size, exp.order - k
+            )
+
+        n_tuples += sc.binom(
+            exp.exp_space[-1][exp.exp_space[-1] < nocc].size, exp.order
+        )
+        n_tuples += sc.binom(
+            exp.exp_space[-1][nocc <= exp.exp_space[-1]].size, exp.order
+        )
+
+        exp.n_tuples["inc"].append(int(n_tuples))
+
+        exp._mbe(mbe.mpi)
+
+        hashes.append(
+            np.ndarray(
+                buffer=exp.hashes[-1].Shared_query(0)[0],  # type: ignore
+                dtype=np.int64,
+                shape=(exp.n_tuples["inc"][exp.order - 1],),
+            )
+        )
+
+        inc.append(
+            np.ndarray(
+                buffer=exp.incs[-1].Shared_query(0)[0],  # type: ignore
+                dtype=np.float64,
+                shape=(exp.n_tuples["inc"][exp.order - 1], 1),
+            )
+        )
+
+        exp.hashes.append(exp.hashes[-1])
+
+        exp.incs.append(exp.incs[-1])
+
+        exp.mean_inc.append(exp.mean_inc[-1])
+        exp.min_inc.append(exp.min_inc[-1])
+        exp.max_inc.append(exp.max_inc[-1])
+
+    assert isinstance(exp.hashes[-1], MPI.Win)
+    assert isinstance(exp.incs[-1], MPI.Win)
+    assert np.sum(hashes[-1]) == ref_hashes_sum
+    assert np.amax(hashes[-1]) == ref_hashes_amax
+    assert np.sum(inc[-1]) == pytest.approx(ref_inc_sum)
+    assert np.amax(inc[-1]) == pytest.approx(ref_inc_amax)
+    assert exp.mbe_tot_prop[-1] == pytest.approx(ref_mbe_tot_prop)
+    assert exp.mean_inc[-1] == pytest.approx(ref_mean_inc)
+    assert exp.min_inc[-1] == pytest.approx(ref_min_inc)
+    assert exp.max_inc[-1] == pytest.approx(ref_max_inc)
+
+
+@pytest.mark.parametrize(
+    argnames="system",
+    argvalues=["h2o"],
+    indirect=["system"],
+)
+def test_purge(system: str, mbe: MBE, energyexpcls: EnergyExpCls) -> None:
     """
     this function tests main
     """
@@ -78,7 +195,7 @@ def test_main(exp: ExpCls) -> None:
         np.array([2.0, 4.0, 5.0, 7.0, 12.0], dtype=np.float64),
     ]
 
-    mpi = MPICls()
+    exp = energyexpcls
 
     exp.nocc = 3
 
@@ -156,7 +273,7 @@ def test_main(exp: ExpCls) -> None:
     for k in range(0, 3):
 
         hashes_win = MPI.Win.Allocate_shared(
-            8 * exp.n_tuples["inc"][k], 8, comm=mpi.local_comm  # type: ignore
+            8 * exp.n_tuples["inc"][k], 8, comm=mbe.mpi.local_comm  # type: ignore
         )
         buf = hashes_win.Shared_query(0)[0]
         hashes.append(
@@ -170,7 +287,7 @@ def test_main(exp: ExpCls) -> None:
         exp.hashes.append(hashes_win)
 
         inc_win = MPI.Win.Allocate_shared(
-            8 * exp.n_tuples["inc"][k], 8, comm=mpi.local_comm  # type: ignore
+            8 * exp.n_tuples["inc"][k], 8, comm=mbe.mpi.local_comm  # type: ignore
         )
         buf = inc_win.Shared_query(0)[0]
         inc.append(
@@ -183,7 +300,7 @@ def test_main(exp: ExpCls) -> None:
         inc[-1][:] = np.arange(1, exp.n_tuples["inc"][k] + 1, dtype=np.float64)
         exp.incs.append(inc_win)
 
-    exp.incs, exp.hashes, exp.n_tuples = main(mpi, exp)
+    exp._purge(mbe.mpi)
 
     purged_hashes: List[np.ndarray] = []
     purged_inc: List[np.ndarray] = []

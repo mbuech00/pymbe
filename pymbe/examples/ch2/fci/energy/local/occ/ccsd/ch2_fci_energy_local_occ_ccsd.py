@@ -2,11 +2,10 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from typing import Optional, Union
 from pymbe import MBE, hf, base, ref_mo, ints, ref_prop
 
 
-def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True):
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
@@ -29,7 +28,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         ncore = 1
 
         # hf calculation
-        nocc, nvirt, norb, hf_object, hf_energy, _, occup, orbsym, mo_coeff = hf(mol)
+        nocc, nvirt, norb, hf_object, hf_prop, occup, orbsym, mo_coeff = hf(mol)
 
         # base model
         base_energy = base(
@@ -60,7 +59,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             base_method="ccsd",
             fci_solver="pyscf_spin1",
             fci_state_sym="b2",
-            hf_prop=hf_energy,
+            hf_prop=hf_prop,
             orb_type="local",
         )
 
@@ -74,7 +73,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             norb=norb,
             orbsym=orbsym,
             fci_state_sym="b2",
-            hf_prop=hf_energy,
+            hf_prop=hf_prop,
             occup=occup,
             orb_type="local",
             hcore=hcore,

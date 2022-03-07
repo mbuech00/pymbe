@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
 
+    from typing import Tuple
+
     from pymbe.pymbe import MBE
 
 
@@ -260,3 +262,16 @@ def mpi_gatherv(
         comm.Send(send_buff, dest=root)
 
     return recv_buff
+
+
+def open_shared_win(window: MPI.Win, dtype: type, shape: Tuple[int, ...]) -> np.ndarray:
+    """
+    this function returns the numpy array to a MPI window
+    """
+    shared = np.ndarray(
+        buffer=window.Shared_query(0)[0],  # type: ignore
+        dtype=dtype,
+        shape=shape,
+    )
+
+    return shared

@@ -2,11 +2,10 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from typing import Optional, Union
 from pymbe import MBE, hf, base, ref_mo, ints, dipole_ints
 
 
-def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True):
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
@@ -28,7 +27,9 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         ncore = 1
 
         # hf calculation
-        nocc, nvirt, norb, hf_object, _, hf_dipole, occup, orbsym, mo_coeff = hf(mol)
+        nocc, nvirt, norb, hf_object, hf_prop, occup, orbsym, mo_coeff = hf(
+            mol, target="dipole"
+        )
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
@@ -45,7 +46,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             ncore,
             nocc,
             target="dipole",
-            hf_dipole=hf_dipole,
+            hf_prop=hf_prop,
             gauge_origin=gauge_origin,
         )
 
@@ -72,7 +73,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             nocc=nocc,
             norb=norb,
             orbsym=orbsym,
-            hf_prop=hf_dipole,
+            hf_prop=hf_prop,
             occup=occup,
             orb_type="local",
             hcore=hcore,

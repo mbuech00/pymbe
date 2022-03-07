@@ -2,11 +2,10 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from typing import Optional, Union
 from pymbe import MBE, hf, ref_mo, ints, dipole_ints, ref_prop
 
 
-def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True):
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
@@ -29,7 +28,9 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         ncore = 1
 
         # hf calculation
-        nocc, nvirt, norb, hf_object, _, hf_dipole, occup, orbsym, mo_coeff = hf(mol)
+        nocc, nvirt, norb, hf_object, hf_prop, occup, orbsym, mo_coeff = hf(
+            mol, target="dipole"
+        )
 
         # natural orbitals
         mo_coeff, orbsym = ref_mo(
@@ -61,7 +62,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             fci_solver="pyscf_spin1",
             fci_state_sym="b2",
             target="dipole",
-            hf_prop=hf_dipole,
+            hf_prop=hf_prop,
             dipole_ints=dip_ints,
             orb_type="ccsd",
         )
@@ -77,7 +78,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             norb=norb,
             orbsym=orbsym,
             fci_state_sym="b2",
-            hf_prop=hf_dipole,
+            hf_prop=hf_prop,
             occup=occup,
             orb_type="ccsd",
             hcore=hcore,

@@ -23,7 +23,7 @@ from pymbe.tools import git_version, time_str, intervals
 
 if TYPE_CHECKING:
 
-    from typing import List, Tuple, Dict, Union, Any, Optional
+    from typing import List, Tuple, Dict, Optional
 
     from pymbe.parallel import MPICls
 
@@ -97,9 +97,7 @@ def mbe_header(order: int, n_tuples: int, thres: float) -> str:
 def mbe_debug(
     symmetry: str,
     orbsym: np.ndarray,
-    root: int,
     nelec_tup: Tuple[int, int],
-    inc_tup: Union[float, np.ndarray],
     order: int,
     cas_idx: np.ndarray,
     tup: np.ndarray,
@@ -117,14 +115,6 @@ def mbe_debug(
         f"({(nelec_tup[0] + nelec_tup[1]):d}e,{cas_idx.size:d}o)\n"
     )
     string += f"      symmetry = {tup_sym}\n"
-
-    if isinstance(inc_tup, float):
-        string += f"      increment for root {root:d} = {inc_tup:.4e}\n"
-    else:
-        string += (
-            f"      increment for root {root:d} = ({inc_tup[0]:.4e}, {inc_tup[1]:.4e}, "
-            f"{inc_tup[2]:.4e})\n"
-        )
 
     return string
 
@@ -154,99 +144,6 @@ def mbe_end(order: int, time: float) -> str:
     string += (
         f" STATUS-{order:d}:  order k = {order:d} MBE done in {time_str(time):s}\n"
     )
-    string += DIVIDER
-
-    return string
-
-
-def mbe_results(
-    target: str,
-    root: int,
-    min_order: int,
-    order: int,
-    prop_tot: List[Any],
-    mean_inc: np.ndarray,
-    min_inc: np.ndarray,
-    max_inc: np.ndarray,
-) -> str:
-    """
-    this function prints mbe results statistics
-    """
-    # calculate total inc
-    if target in ["energy", "excitation"]:
-        if order == min_order:
-            tot_inc = prop_tot[order - min_order].item()
-        else:
-            tot_inc = (
-                prop_tot[order - min_order] - prop_tot[order - min_order - 1]
-            ).item()
-    elif target in ["dipole", "trans"]:
-        if order == min_order:
-            tot_inc = np.linalg.norm(prop_tot[order - min_order])
-        else:
-            tot_inc = np.linalg.norm(prop_tot[order - min_order]) - np.linalg.norm(
-                prop_tot[order - min_order - 1]
-            )
-
-    # set header
-    if target == "energy":
-        header = f"energy for root {root} (total increment = {tot_inc:.4e})"
-    elif target == "excitation":
-        header = f"excitation energy for root {root} (total increment = {tot_inc:.4e})"
-    elif target == "dipole":
-        header = f"dipole moment for root {root} (total increment = {tot_inc:.4e})"
-    elif target == "trans":
-        header = (
-            f"transition dipole moment for excitation 0 -> {root} (total increment = "
-            f"{tot_inc:.4e})"
-        )
-    # set string
-    string: str = FILL + "\n"
-    string += DIVIDER + "\n"
-    string += f" RESULT-{order:d}:{header:^81}\n"
-    string += DIVIDER + "\n"
-
-    if target in ["energy", "excitation"]:
-
-        # set string
-        string += DIVIDER + "\n"
-        string += (
-            f" RESULT-{order:d}:      mean increment     |      "
-            "min. abs. increment     |     max. abs. increment\n"
-        )
-        string += DIVIDER + "\n"
-        string += (
-            f" RESULT-{order:d}:     {mean_inc.item():>13.4e}       |        "
-            f"{min_inc.item():>13.4e}         |       {max_inc.item():>13.4e}\n"
-        )
-
-    elif target in ["dipole", "trans"]:
-
-        # set components
-        string += DIVIDER
-        comp = ("x-component", "y-component", "z-component")
-
-        # loop over x, y, and z
-        for k in range(3):
-
-            # set string
-            string += f"\n RESULT-{order:d}:{comp[k]:^81}\n"
-            string += DIVIDER + "\n"
-            string += (
-                f" RESULT-{order:d}:      mean increment     |      "
-                "min. abs. increment     |     max. abs. increment\n"
-            )
-            string += DIVIDER + "\n"
-            string += (
-                f" RESULT-{order:d}:     {mean_inc[k]:>13.4e}       |        "
-                f"{min_inc[k]:>13.4e}         |       {max_inc[k]:>13.4e}\n"
-            )
-            if k < 2:
-                string += DIVIDER
-
-    # set string
-    string += DIVIDER + "\n"
-    string += FILL + "\n"
     string += DIVIDER
 
     return string

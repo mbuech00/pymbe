@@ -23,7 +23,6 @@ from pyscf import symm
 from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
-from pymbe.expansion import ExpCls
 from pymbe.tools import RST, logger_config, assertion, nelec, nexc, ground_state_sym
 
 if TYPE_CHECKING:
@@ -126,10 +125,10 @@ def main(mbe: MBE) -> MBE:
                         mbe.ref_prop = 0.0
                     elif mbe.target in ["dipole", "trans"]:
                         mbe.ref_prop = np.zeros(3, dtype=np.float64)
-                    elif mbe.target == "rdm12" and mbe.norb is not None:
+                    elif mbe.target == "rdm12" and mbe.ref_space is not None:
                         mbe.ref_prop = (
-                            np.zeros(2 * (mbe.norb,), dtype=np.float64),
-                            np.zeros(4 * (mbe.norb,), dtype=np.float64),
+                            np.zeros(2 * (mbe.ref_space.size,), dtype=np.float64),
+                            np.zeros(4 * (mbe.ref_space.size,), dtype=np.float64),
                         )
 
             # set default value for base model property
@@ -185,9 +184,6 @@ def main(mbe: MBE) -> MBE:
     # configure logging on slaves
     if not mbe.mpi.global_master:
         logger_config(mbe.verbose)
-
-    # exp object
-    mbe.exp = ExpCls(mbe)
 
     return mbe
 
