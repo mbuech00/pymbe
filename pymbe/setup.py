@@ -318,6 +318,11 @@ def sanity_check(mbe: MBE) -> None:
                 "estimate the unrestricted CC property on the basis of a ROHF "
                 "reference function instead of the fully restricted CC property."
             )
+        assertion(
+            mbe.target != "rdm12",
+            "1- and 2-particle reduced density matrix calculations are currently not "
+            "implemented for open-shell systems.",
+        )
     assertion(
         isinstance(mbe.point_group, str),
         "symmetry (point_group keyword argument) must be a str",

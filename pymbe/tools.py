@@ -203,6 +203,19 @@ class packedRDMCls:
         self.idx = idx
 
     @classmethod
+    def reset(cls):
+        """
+        this function resets the class to ensure class attributes are not kept from
+        previous runs
+        """
+        cls.rdm1_size = []
+        cls.pack_rdm1 = []
+        cls.unpack_rdm1 = []
+        cls.rdm2_size = []
+        cls.pack_rdm2 = []
+        cls.unpack_rdm2 = []
+
+    @classmethod
     def open_shared_RDM(
         cls, inc_win: Tuple[MPI.Win, MPI.Win], n_tuples: int, idx: int
     ) -> packedRDMCls:

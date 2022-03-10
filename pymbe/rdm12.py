@@ -62,6 +62,13 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
             RDMCls(*cast(tuple, mbe.base_prop)),
         )
 
+    def __del__(self) -> None:
+        """
+        finalizes expansion attributes
+        """
+        # ensure the class attributes of packedRDMCls are reset
+        packedRDMCls.reset()
+
     def tot_prop(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function returns the total 1- and 2-particle reduced density matrices
