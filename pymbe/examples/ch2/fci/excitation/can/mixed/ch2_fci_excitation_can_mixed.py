@@ -85,7 +85,7 @@ def mbe_example(rst=True):
         # perform calculation
         excitation = mbe.kernel()
 
-    return energy
+    return excitation
 
 
 if __name__ == "__main__":

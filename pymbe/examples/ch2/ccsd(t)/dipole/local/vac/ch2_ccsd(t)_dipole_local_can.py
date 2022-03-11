@@ -79,7 +79,7 @@ def mbe_example(rst=True):
         # perform calculation
         dipole = mbe.kernel()
 
-    return energy
+    return dipole
 
 
 if __name__ == "__main__":

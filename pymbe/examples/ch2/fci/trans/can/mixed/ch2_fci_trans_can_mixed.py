@@ -93,7 +93,7 @@ def mbe_example(rst=True):
         # perform calculation
         trans = mbe.kernel()
 
-    return energy
+    return trans
 
 
 if __name__ == "__main__":
