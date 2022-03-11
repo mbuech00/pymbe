@@ -62,7 +62,7 @@ def mbe_example(rst=True):
         )
 
         # perform calculation
-        energy = mbe.kernel()
+        dipole = mbe.kernel()
 
     else:
 
@@ -70,7 +70,7 @@ def mbe_example(rst=True):
         mbe = MBE()
 
         # perform calculation
-        energy = mbe.kernel()
+        dipole = mbe.kernel()
 
     return energy
 
@@ -78,7 +78,7 @@ def mbe_example(rst=True):
 if __name__ == "__main__":
 
     # call example function
-    energy = mbe_example()
+    dipole = mbe_example()
 
     # finalize mpi
     MPI.Finalize()

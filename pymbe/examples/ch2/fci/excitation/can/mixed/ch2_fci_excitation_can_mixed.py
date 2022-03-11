@@ -75,7 +75,7 @@ def mbe_example(rst=True):
         )
 
         # perform calculation
-        energy = mbe.kernel()
+        excitation = mbe.kernel()
 
     else:
 
@@ -83,7 +83,7 @@ def mbe_example(rst=True):
         mbe = MBE()
 
         # perform calculation
-        energy = mbe.kernel()
+        excitation = mbe.kernel()
 
     return energy
 
@@ -91,7 +91,7 @@ def mbe_example(rst=True):
 if __name__ == "__main__":
 
     # call example function
-    energy = mbe_example()
+    excitation = mbe_example()
 
     # finalize mpi
     MPI.Finalize()

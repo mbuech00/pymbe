@@ -83,7 +83,7 @@ def mbe_example(rst=True):
         )
 
         # perform calculation
-        energy = mbe.kernel()
+        trans = mbe.kernel()
 
     else:
 
@@ -91,7 +91,7 @@ def mbe_example(rst=True):
         mbe = MBE()
 
         # perform calculation
-        energy = mbe.kernel()
+        trans = mbe.kernel()
 
     return energy
 
@@ -99,7 +99,7 @@ def mbe_example(rst=True):
 if __name__ == "__main__":
 
     # call example function
-    energy = mbe_example()
+    trans = mbe_example()
 
     # finalize mpi
     MPI.Finalize()
