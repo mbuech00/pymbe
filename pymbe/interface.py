@@ -45,7 +45,7 @@ def mbecc_interface(
     orbsym: np.ndarray,
     h1e: np.ndarray,
     h2e: np.ndarray,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     higher_amp_extrap: bool,
     verbose: int,
 ) -> Tuple[float, int]:
@@ -94,7 +94,6 @@ def mbecc_interface(
     h2e = ao2mo.restore(1, h2e, n_act)
 
     # initialize variables
-    n_elec_arr = np.array(n_elec, dtype=np.int64)  # number of occupied orbitals
     n_act_val = ctypes.c_int64(n_act)  # number of orbitals
     cc_energy = ctypes.c_double()  # cc-energy output
     success = ctypes.c_int64()  # success flag
@@ -105,7 +104,7 @@ def mbecc_interface(
         ctypes.byref(cc_module_val),
         ctypes.byref(non_canonical),
         ctypes.byref(maxcor),
-        n_elec_arr.ctypes.data_as(ctypes.c_void_p),
+        n_elecs.ctypes.data_as(ctypes.c_void_p),
         ctypes.byref(n_act_val),
         orbsym.ctypes.data_as(ctypes.c_void_p),
         ctypes.byref(point_group_val),
@@ -131,7 +130,7 @@ def mbecc_interface(
             ctypes.byref(cc_module_val),
             ctypes.byref(non_canonical),
             ctypes.byref(maxcor),
-            n_elec_arr.ctypes.data_as(ctypes.c_void_p),
+            n_elecs.ctypes.data_as(ctypes.c_void_p),
             ctypes.byref(n_act_val),
             orbsym.ctypes.data_as(ctypes.c_void_p),
             ctypes.byref(point_group_val),

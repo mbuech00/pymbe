@@ -37,8 +37,9 @@ from pymbe.tools import (
     pi_space,
     _pi_orbs,
     pi_prune,
-    min_orbs,
-    nelec,
+    nelecs,
+    nholes,
+    _valid_tup,
     mat_idx,
     near_nbrs,
     natural_keys,
@@ -93,10 +94,10 @@ test_cases_comb_idx = [
 test_cases_idx = [(1, 3.0), (2, 12.0), (3, 19.0)]
 
 test_cases_n_tuples = [
-    ("both", 0, 0, 2118760),
-    ("no-occ", 1, 0, 1460752),
-    ("no-virt", 0, 1, 2118508),
-    ("empty", 1, 1, 1460500),
+    ("both", np.array([1, 1]), np.array([1, 1]), 2118760),
+    ("no-occ", np.array([0, 0]), np.array([1, 1]), 1460752),
+    ("no-virt", np.array([1, 1]), np.array([0, 0]), 2118508),
+    ("empty", np.array([0, 0]), np.array([0, 0]), 1460500),
 ]
 
 test_cases_pi_prune = [
@@ -106,24 +107,43 @@ test_cases_pi_prune = [
     ("5_tot_3_pi", np.array([0, 1, 2, 5, 6], dtype=np.int64), False),
 ]
 
-test_cases_min_orbs = [
-    ("both-1", np.arange(1, 7, dtype=np.int64), 1, 0, 0),
-    ("no_occ-1", np.arange(3, 7, dtype=np.int64), 1, 1, 0),
-    ("no_virt-1", np.arange(1, 3, dtype=np.int64), 1, 0, 1),
-    ("no_orbs-1", np.array([], dtype=np.int64), 1, 1, 1),
-    ("both-2", np.arange(1, 7, dtype=np.int64), 2, 0, 0),
-    ("no_occ-2", np.arange(3, 7, dtype=np.int64), 2, 2, 0),
-    ("no_virt-2", np.arange(1, 3, dtype=np.int64), 2, 0, 2),
-    ("no_orbs-2", np.array([], dtype=np.int64), 2, 2, 2),
-    ("both-3", np.arange(1, 7, dtype=np.int64), 3, 0, 0),
-    ("no_occ-3", np.arange(3, 7, dtype=np.int64), 3, 2, 0),
-    ("no_virt-3", np.arange(1, 3, dtype=np.int64), 3, 0, 2),
-    ("no_orbs-3", np.array([], dtype=np.int64), 3, 2, 2),
+test_cases_valid_tup = [
+    ("none-occ-1", np.array([0, 0]), np.array([0, 0]), 1, 0, 1, False),
+    ("none-virt-1", np.array([0, 0]), np.array([0, 0]), 0, 1, 1, False),
+    ("none-both-1", np.array([0, 0]), np.array([0, 0]), 1, 1, 1, True),
+    ("occ-occ-1", np.array([1, 1]), np.array([0, 0]), 1, 0, 1, False),
+    ("occ-virt-1", np.array([1, 1]), np.array([0, 0]), 0, 1, 1, True),
+    ("occ-both-1", np.array([1, 1]), np.array([0, 0]), 1, 1, 1, True),
+    ("virt-occ-1", np.array([0, 0]), np.array([1, 1]), 1, 0, 1, True),
+    ("virt-virt-1", np.array([0, 0]), np.array([1, 1]), 0, 1, 1, False),
+    ("virt-both-1", np.array([0, 0]), np.array([1, 1]), 1, 1, 1, True),
+    ("both-occ-1", np.array([1, 1]), np.array([1, 1]), 1, 0, 1, True),
+    ("both-virt-1", np.array([1, 1]), np.array([1, 1]), 0, 1, 1, True),
+    ("both-both-1", np.array([1, 1]), np.array([1, 1]), 1, 1, 1, True),
+    ("none-occ-2", np.array([0, 0]), np.array([0, 0]), 1, 0, 2, False),
+    ("none-virt-2", np.array([0, 0]), np.array([0, 0]), 0, 1, 2, False),
+    ("none-both-2", np.array([0, 0]), np.array([0, 0]), 1, 1, 2, False),
+    ("occ-occ-2", np.array([1, 1]), np.array([0, 0]), 1, 0, 2, False),
+    ("occ-virt-2", np.array([1, 1]), np.array([0, 0]), 0, 1, 2, False),
+    ("occ-both-2", np.array([1, 1]), np.array([0, 0]), 1, 1, 2, False),
+    ("virt-occ-2", np.array([0, 0]), np.array([1, 1]), 1, 0, 2, False),
+    ("virt-virt-2", np.array([0, 0]), np.array([1, 1]), 0, 1, 2, False),
+    ("virt-both-2", np.array([0, 0]), np.array([1, 1]), 1, 1, 2, False),
+    ("both-occ-2", np.array([1, 1]), np.array([1, 1]), 1, 0, 2, False),
+    ("both-virt-2", np.array([1, 1]), np.array([1, 1]), 0, 1, 2, False),
+    ("both-both-2", np.array([1, 1]), np.array([1, 1]), 1, 1, 2, True),
 ]
 
-test_cases_nelec = [
-    ("2_elecs", np.array([2, 4], dtype=np.int64), (1, 1)),
-    ("no_elecs", np.array([3, 4], dtype=np.int64), (0, 0)),
+test_cases_nelecs = [
+    ("4_elecs", np.array([1, 2], dtype=np.int64), np.array([2, 2])),
+    ("2_elecs", np.array([2, 4], dtype=np.int64), np.array([1, 1])),
+    ("no_elecs", np.array([3, 4], dtype=np.int64), np.array([0, 0])),
+]
+
+test_cases_nholes = [
+    ("4_holes", np.array([0, 0]), np.array([3, 4], dtype=np.int64), np.array([2, 2])),
+    ("2_holes", np.array([1, 1]), np.array([2, 4], dtype=np.int64), np.array([1, 1])),
+    ("no_holes", np.array([2, 2]), np.array([3, 4], dtype=np.int64), np.array([0, 0])),
 ]
 
 test_cases_mat_idx = [(6, 4, 4, (1, 2)), (9, 8, 2, (4, 1))]
@@ -223,13 +243,15 @@ def test_tuples(ref_space: np.ndarray, ref_n_tuples: int) -> None:
     order = 3
     occup = np.array([2.0] * 4 + [0.0] * 4, dtype=np.float64)
     exp_space = np.array([0, 1, 2, 5, 6, 7], dtype=np.int64)
-    min_occ, min_virt = min_orbs(occup, ref_space, 1)
+    ref_n_elecs = nelecs(occup, ref_space)
+    ref_n_holes = nholes(ref_n_elecs, ref_space)
 
     gen = tuples(
         exp_space[exp_space < nocc],
         exp_space[nocc <= exp_space],
-        min_occ,
-        min_virt,
+        ref_n_elecs,
+        ref_n_holes,
+        1,
         order,
     )
 
@@ -285,11 +307,13 @@ def test_idx(order: int, ref_idx: float) -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="min_occ, min_virt, ref_n_tuples",
+    argnames="ref_n_elecs, ref_n_holes, ref_n_tuples",
     argvalues=[case[1:] for case in test_cases_n_tuples],
     ids=[case[0] for case in test_cases_n_tuples],
 )
-def test_n_tuples(min_occ: int, min_virt: int, ref_n_tuples: int) -> None:
+def test_n_tuples(
+    ref_n_elecs: np.ndarray, ref_n_holes: np.ndarray, ref_n_tuples: int
+) -> None:
     """
     this function tests n_tuples
     """
@@ -297,7 +321,10 @@ def test_n_tuples(min_occ: int, min_virt: int, ref_n_tuples: int) -> None:
     occ_space = np.arange(10, dtype=np.int64)
     virt_space = np.arange(10, 50, dtype=np.int64)
 
-    assert n_tuples(occ_space, virt_space, min_occ, min_virt, order) == ref_n_tuples
+    assert (
+        n_tuples(occ_space, virt_space, ref_n_elecs, ref_n_holes, 1, order)
+        == ref_n_tuples
+    )
 
 
 def test_cas() -> None:
@@ -410,36 +437,51 @@ def test_pi_prune(tup: np.ndarray, ref_bool: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="tup, vanish_exc, ref_min_occ, ref_min_virt",
-    argvalues=[case[1:] for case in test_cases_min_orbs],
-    ids=[case[0] for case in test_cases_min_orbs],
+    argnames="ref_n_elecs, ref_n_holes, tup_nocc, tup_nvirt, vanish_exc, ref_bool",
+    argvalues=[case[1:] for case in test_cases_valid_tup],
+    ids=[case[0] for case in test_cases_valid_tup],
 )
-def test_min_orbs(
-    tup: np.ndarray, vanish_exc: int, ref_min_occ: int, ref_min_virt: int
+def test_valid_tup(
+    ref_n_elecs: np.ndarray,
+    ref_n_holes: np.ndarray,
+    tup_nocc: int,
+    tup_nvirt: int,
+    vanish_exc: int,
+    ref_bool: bool,
 ) -> None:
     """
-    this function tests min_orbs
+    this function tests _valid_tup
     """
-    occup = np.array([2.0] * 3 + [0.0] * 4, dtype=np.float64)
-
-    min_occ, min_virt = min_orbs(occup, tup, vanish_exc)
-
-    assert min_occ == ref_min_occ
-    assert min_virt == ref_min_virt
+    assert (
+        _valid_tup(ref_n_elecs, ref_n_holes, tup_nocc, tup_nvirt, vanish_exc)
+        == ref_bool
+    )
 
 
 @pytest.mark.parametrize(
-    argnames="tup, ref_nelec",
-    argvalues=[case[1:] for case in test_cases_nelec],
-    ids=[case[0] for case in test_cases_nelec],
+    argnames="tup, ref_nelecs",
+    argvalues=[case[1:] for case in test_cases_nelecs],
+    ids=[case[0] for case in test_cases_nelecs],
 )
-def test_nelec(tup: np.ndarray, ref_nelec: Tuple[int, int]) -> None:
+def test_nelecs(tup: np.ndarray, ref_nelecs: np.ndarray) -> None:
     """
     this function tests nelec
     """
     occup = np.array([2.0] * 3 + [0.0] * 4, dtype=np.float64)
 
-    assert nelec(occup, tup) == ref_nelec
+    assert (nelecs(occup, tup) == ref_nelecs).all()
+
+
+@pytest.mark.parametrize(
+    argnames="n_elecs, tup, ref_nholes",
+    argvalues=[case[1:] for case in test_cases_nholes],
+    ids=[case[0] for case in test_cases_nholes],
+)
+def test_nholes(n_elecs: np.ndarray, tup: np.ndarray, ref_nholes: np.ndarray) -> None:
+    """
+    this function tests nholes
+    """
+    assert (nholes(n_elecs, tup) == ref_nholes).all()
 
 
 @pytest.mark.parametrize(

@@ -704,7 +704,7 @@ def test_casscf(
         hf,
         hf.mo_coeff,
         np.arange(2, 10, dtype=np.int64),
-        (4, 4),
+        np.array([4, 4]),
         ncore,
     )
 

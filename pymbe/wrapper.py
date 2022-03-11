@@ -32,7 +32,8 @@ from pymbe.tools import (
     near_nbrs,
     core_cas,
     get_vhf,
-    nelec,
+    nelecs,
+    nholes,
     nexc,
     idx_tril,
     ground_state_sym,
@@ -769,7 +770,7 @@ def ref_mo(
     elif orbs == "casscf":
 
         # electrons in active space
-        act_n_elec = nelec(occup, ref_space)
+        act_n_elecs = nelecs(occup, ref_space)
 
         # sorter for active space
         n_core_inact = np.array(
@@ -798,7 +799,7 @@ def ref_mo(
             hf,
             mo_coeff_casscf,
             ref_space,
-            act_n_elec,
+            act_n_elecs,
             ncore,
         )
 
@@ -837,14 +838,14 @@ def _casscf(
     hf: scf.hf.SCF,
     mo_coeff: np.ndarray,
     ref_space: np.ndarray,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     ncore: int,
 ) -> np.ndarray:
     """
     this function returns the results of a casscf calculation
     """
     # init casscf
-    cas = mcscf.CASSCF(hf, ref_space.size, n_elec)
+    cas = mcscf.CASSCF(hf, ref_space.size, n_elecs)
 
     # casscf settings
     cas.conv_tol = CONV_TOL
@@ -904,8 +905,8 @@ def _casscf(
 
     # hf starting guess
     if hf_guess:
-        na = fci.cistring.num_strings(ref_space.size, n_elec[0])
-        nb = fci.cistring.num_strings(ref_space.size, n_elec[1])
+        na = fci.cistring.num_strings(ref_space.size, n_elecs[0])
+        nb = fci.cistring.num_strings(ref_space.size, n_elecs[1])
         ci0 = np.zeros((na, nb))
         ci0[0, 0] = 1
     else:
@@ -923,12 +924,12 @@ def _casscf(
     # multiplicity check
     for root in range(len(c)):
 
-        s, mult = fcisolver.spin_square(c[root], ref_space.size, n_elec)
+        s, mult = fcisolver.spin_square(c[root], ref_space.size, n_elecs)
 
         if np.abs((mol.spin + 1) - mult) > SPIN_TOL:
 
             # fix spin by applyting level shift
-            sz = np.abs(n_elec[0] - n_elec[1]) * 0.5
+            sz = np.abs(n_elecs[0] - n_elecs[1]) * 0.5
             cas.fix_spin_(shift=0.25, ss=sz * (sz + 1.0))
 
             # run casscf calc
@@ -942,7 +943,7 @@ def _casscf(
 
             # verify correct spin
             for root in range(len(c)):
-                s, mult = fcisolver.spin_square(c[root], ref_space.size, n_elec)
+                s, mult = fcisolver.spin_square(c[root], ref_space.size, n_elecs)
                 assertion(
                     np.abs((mol.spin + 1) - mult) < SPIN_TOL,
                     f"spin contamination for root entry = {root}, 2*S + 1 = {mult:.6f}",
@@ -1227,8 +1228,14 @@ def ref_prop(
     if vhf is None:
         vhf = get_vhf(eri, nocc, norb)
 
+    # n_elecs
+    n_elecs = nelecs(occup, cas_idx)
+
+    # n_holes
+    n_holes = nholes(n_elecs, cas_idx)
+
     # n_exc
-    n_exc = nexc(n_elec, cas_idx)
+    n_exc = nexc(n_elecs, n_holes)
 
     # ref_prop
     ref_prop: Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
@@ -1284,7 +1291,7 @@ def ref_prop(
             h2e_cas,
             core_idx,
             cas_idx,
-            n_elec,
+            n_elecs,
             0,
             higher_amp_extrap=False,
         )
@@ -1327,7 +1334,7 @@ def ref_prop(
                 cas_idx,
                 base_method,
                 cc_backend,
-                n_elec,
+                n_elecs,
                 orb_type,
                 mol.groupname,
                 orbsym,
@@ -1528,8 +1535,8 @@ def base(
     # get effective h1e for correlated space
     h1e_corr = (hcore + core_vhf)[corr_idx[:, None], corr_idx]
 
-    # n_elec
-    n_elec = nelec(occup, corr_idx)
+    # n_elecs
+    n_elecs = nelecs(occup, corr_idx)
 
     # run calc
     res = cc_kernel(
@@ -1539,7 +1546,7 @@ def base(
         corr_idx,
         method,
         cc_backend,
-        n_elec,
+        n_elecs,
         "can",
         mol.groupname,
         orbsym,

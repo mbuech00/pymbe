@@ -40,7 +40,7 @@ if PLT_FOUND:
         pass
         SNS_FOUND = False
 
-from pymbe.tools import intervals, time_str, nelec
+from pymbe.tools import intervals, time_str, nelecs
 
 if TYPE_CHECKING:
 
@@ -139,8 +139,8 @@ def _active_space(occup: np.ndarray, ref_space: np.ndarray) -> str:
     """
     this function returns the active space
     """
-    act_n_elec = nelec(occup, ref_space)
-    string = f"{act_n_elec[0] + act_n_elec[1]} e, {ref_space.size} o"
+    act_n_elecs = nelecs(occup, ref_space)
+    string = f"{act_n_elecs[0] + act_n_elecs[1]} e, {ref_space.size} o"
     return string
 
 

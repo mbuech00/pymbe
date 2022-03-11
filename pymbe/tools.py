@@ -471,8 +471,9 @@ def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[np.ndarray
 def tuples(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
-    min_occ: int,
-    min_virt: int,
+    ref_n_elecs: np.ndarray,
+    ref_n_holes: np.ndarray,
+    vanish_exc: int,
     order: int,
     order_start: int = 1,
     occ_start: int = 0,
@@ -481,29 +482,24 @@ def tuples(
     """
     this function is the main generator for tuples
     """
-    # minimum number of occupied MOs in combined tuple
-    min_occ_comb = max(order_start, min_occ)
-
-    # maximum number of occupied MOs in combined tuple
-    max_occ_comb = min(order - 1, order - min_virt)
-
     # combinations of occupied and virtual MOs
-    for k in range(min_occ_comb, max_occ_comb + 1):
-        for tup_occ in islice(combinations(occ_space, k), occ_start, None):
-            for tup_virt in islice(
-                combinations(virt_space, order - k), virt_start, None
-            ):
-                yield np.array(tup_occ + tup_virt, dtype=np.int64)
-            virt_start = 0
-        occ_start = 0
+    for k in range(order_start, order):
+        if _valid_tup(ref_n_elecs, ref_n_holes, k, order - k, vanish_exc):
+            for tup_occ in islice(combinations(occ_space, k), occ_start, None):
+                for tup_virt in islice(
+                    combinations(virt_space, order - k), virt_start, None
+                ):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+                virt_start = 0
+            occ_start = 0
 
     # only occupied MOs
-    if min_virt == 0 and 0 <= occ_start:
+    if _valid_tup(ref_n_elecs, ref_n_holes, order, 0, vanish_exc) and 0 <= occ_start:
         for tup_occ in islice(combinations(occ_space, order), occ_start, None):
             yield np.array(tup_occ, dtype=np.int64)
 
     # only virtual MOs
-    if min_occ == 0 and 0 <= virt_start:
+    if _valid_tup(ref_n_elecs, ref_n_holes, 0, order, vanish_exc) and 0 <= virt_start:
         for tup_virt in islice(combinations(virt_space, order), virt_start, None):
             yield np.array(tup_virt, dtype=np.int64)
 
@@ -563,32 +559,28 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
 def n_tuples(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
-    min_occ: int,
-    min_virt: int,
+    ref_n_elecs: np.ndarray,
+    ref_n_holes: np.ndarray,
+    vanish_exc: int,
     order: int,
 ) -> int:
     """
     this function returns the total number of tuples of a given order
     """
-    # minimum number of occupied MOs in combined tuple
-    min_occ_comb = max(1, min_occ)
-
-    # maximum number of occupied MOs in combined tuple
-    max_occ_comb = min(order - 1, order - min_virt)
-
     # init n_tuples
     n = 0.0
 
     # combinations of occupied and virtual MOs
-    for k in range(min_occ_comb, max_occ_comb + 1):
-        n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
+    for k in range(1, order):
+        if _valid_tup(ref_n_elecs, ref_n_holes, k, order - k, vanish_exc):
+            n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
 
     # only occupied MOs
-    if min_virt == 0:
+    if _valid_tup(ref_n_elecs, ref_n_holes, order, 0, vanish_exc):
         n += sc.binom(occ_space.size, order)
 
     # only virtual MOs
-    if min_occ == 0:
+    if _valid_tup(ref_n_elecs, ref_n_holes, 0, order, vanish_exc):
         n += sc.binom(virt_space.size, order)
 
     return int(n)
@@ -701,60 +693,49 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
     return idx is not None
 
 
-def min_orbs(occup: np.ndarray, tup: np.ndarray, vanish_exc: int) -> Tuple[int, int]:
-    """
-    this function returns the minimum number of occupied and virtual orbitals that need
-    to be added to the tuple to produce a non-vanishing correlation energy
-    """
-    # number of electrons in tuple
-    tup_elecs = nelec(occup, tup)
-
-    # number of holes in tuple
-    tup_holes = nholes(tup_elecs, tup)
-
-    # minimum number of spatial occupied orbitals that need to be added
-    min_occ = max(0, _ceildiv(vanish_exc - np.sum(tup_elecs) + 1, 2))
-
-    # minimum number of spatial virtual orbitals that need to be added
-    min_virt = max(0, _ceildiv(vanish_exc - np.sum(tup_holes) + 1, 2))
-
-    return min_occ, min_virt
-
-
-def _ceildiv(a: int, b: int):
-    """
-    this function returns performs integer ceiling division
-    """
-    return -(a // -b)
-
-
-def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
+def nelecs(occup: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
     this function returns the number of electrons in a given tuple of orbitals
     """
     occup_tup = occup[tup]
-    return (np.count_nonzero(occup_tup > 0.0), np.count_nonzero(occup_tup > 1.0))
+    return np.array(
+        [np.count_nonzero(occup_tup > 0.0), np.count_nonzero(occup_tup > 1.0)]
+    )
 
 
-def nholes(n_elec: Tuple[int, int], tup: np.ndarray) -> np.ndarray:
+def nholes(n_elecs: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
     this function returns the number of holes in a given tuple of orbitals
     """
-    return tup.size - np.array(n_elec)
+    return tup.size - n_elecs
 
 
-def nexc(n_elec: Tuple[int, int], tup: np.ndarray) -> np.ndarray:
+def nexc(n_elecs: np.ndarray, n_holes: np.ndarray) -> int:
     """
     this function returns the number of possible excitations in a given tuple of
     orbitals
     """
-    # number of electrons in tuple
-    tup_elecs = np.array(n_elec)
+    return np.sum(np.minimum(n_elecs, n_holes))
 
-    # number of holes in tuple
-    tup_holes = nholes(n_elec, tup)
 
-    return np.sum(np.minimum(tup_elecs, tup_holes))
+def _valid_tup(
+    ref_n_elecs: np.ndarray,
+    ref_n_holes: np.ndarray,
+    tup_nocc: int,
+    tup_nvirt: int,
+    vanish_exc: int,
+) -> bool:
+    """
+    this function returns true if a tuple kind produces a non-vanishing correlation
+    energy
+    """
+    return (
+        nexc(
+            ref_n_elecs + np.array([tup_nocc, tup_nocc]),
+            ref_n_holes + np.array([tup_nvirt, tup_nvirt]),
+        )
+        > vanish_exc
+    )
 
 
 def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:

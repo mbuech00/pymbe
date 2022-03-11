@@ -27,7 +27,8 @@ from pymbe.tools import (
     RST,
     logger_config,
     assertion,
-    nelec,
+    nelecs,
+    nholes,
     nexc,
     ground_state_sym,
     get_vhf,
@@ -128,10 +129,13 @@ def main(mbe: MBE) -> MBE:
             if mbe.ref_prop is None and mbe.occup is not None:
 
                 # n_elec
-                n_elec = nelec(mbe.occup, mbe.ref_space)
+                n_elecs = nelecs(mbe.occup, mbe.ref_space)
+
+                # n_holes
+                n_holes = nholes(n_elecs, mbe.ref_space)
 
                 # n_exc
-                n_exc = nexc(n_elec, mbe.ref_space)
+                n_exc = nexc(n_elecs, n_holes)
 
                 if (
                     n_exc <= 1

@@ -24,7 +24,7 @@ from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import uccsd_t_rdm
 from typing import TYPE_CHECKING
 
-from pymbe.tools import RDMCls, assertion, nexc
+from pymbe.tools import RDMCls, assertion, nholes, nexc
 from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
@@ -84,7 +84,7 @@ def main_kernel(
     h2e: np.ndarray,
     core_idx: np.ndarray,
     cas_idx: np.ndarray,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     verbose: int,
     higher_amp_extrap: bool = False,
 ) -> Dict[str, Any]:
@@ -100,7 +100,7 @@ def main_kernel(
             cas_idx,
             method,
             cc_backend,
-            n_elec,
+            n_elecs,
             orb_type,
             point_group,
             orbsym,
@@ -127,7 +127,7 @@ def main_kernel(
             h2e,
             occup,
             cas_idx,
-            n_elec,
+            n_elecs,
             verbose,
         )
 
@@ -178,7 +178,7 @@ def fci_kernel(
     h2e: np.ndarray,
     occup: np.ndarray,
     cas_idx: np.ndarray,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     verbose: int,
 ) -> Dict[str, Any]:
     """
@@ -212,8 +212,8 @@ def fci_kernel(
 
     # hf starting guess
     if hf_guess:
-        na = fci.cistring.num_strings(cas_idx.size, n_elec[0])
-        nb = fci.cistring.num_strings(cas_idx.size, n_elec[1])
+        na = fci.cistring.num_strings(cas_idx.size, n_elecs[0])
+        nb = fci.cistring.num_strings(cas_idx.size, n_elecs[1])
         ci0 = np.zeros((na, nb))
         ci0[0, 0] = 1
     else:
@@ -225,7 +225,7 @@ def fci_kernel(
         this function provides an interface to solver.kernel
         """
         # perform calc
-        e, c = solver.kernel(h1e, h2e, cas_idx.size, n_elec, ecore=e_core, ci0=ci0)
+        e, c = solver.kernel(h1e, h2e, cas_idx.size, n_elecs, ecore=e_core, ci0=ci0)
 
         # collect results
         if solver.nroots == 1:
@@ -239,12 +239,12 @@ def fci_kernel(
     # multiplicity check
     for root in range(len(civec)):
 
-        s, mult = solver.spin_square(civec[root], cas_idx.size, n_elec)
+        s, mult = solver.spin_square(civec[root], cas_idx.size, n_elecs)
 
         if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
 
             # fix spin by applying level shift
-            sz = np.abs(n_elec[0] - n_elec[1]) * 0.5
+            sz = np.abs(n_elecs[0] - n_elecs[1]) * 0.5
             solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
 
             # perform calc
@@ -252,7 +252,7 @@ def fci_kernel(
 
             # verify correct spin
             for root in range(len(civec)):
-                s, mult = solver.spin_square(civec[root], cas_idx.size, n_elec)
+                s, mult = solver.spin_square(civec[root], cas_idx.size, n_elecs)
                 assertion(
                     np.abs((spin_cas + 1) - mult) < SPIN_TOL,
                     f"spin contamination for root entry = {root}\n"
@@ -299,16 +299,16 @@ def fci_kernel(
     elif target_mbe == "excitation":
         res["excitation"] = energy[-1] - energy[0]
     elif target_mbe == "dipole":
-        res["rdm1"] = solver.make_rdm1(civec[-1], cas_idx.size, n_elec)
+        res["rdm1"] = solver.make_rdm1(civec[-1], cas_idx.size, n_elecs)
     elif target_mbe == "trans":
         res["t_rdm1"] = solver.trans_rdm1(
             np.sign(civec[0][0, 0]) * civec[0],
             np.sign(civec[-1][0, 0]) * civec[-1],
             cas_idx.size,
-            n_elec,
+            n_elecs,
         )
     elif target_mbe == "rdm12":
-        res["rdm1"], res["rdm2"] = solver.make_rdm12(civec[-1], cas_idx.size, n_elec)
+        res["rdm1"], res["rdm2"] = solver.make_rdm12(civec[-1], cas_idx.size, n_elecs)
         # subtract hf 1-rdm
         np.einsum("ii->i", res["rdm1"])[...] -= occup[cas_idx]
         # subtract hf 2-rdm
@@ -334,7 +334,7 @@ def cc_kernel(
     cas_idx: np.ndarray,
     method: str,
     cc_backend: str,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     orb_type: str,
     point_group: str,
     orbsym: np.ndarray,
@@ -405,8 +405,11 @@ def cc_kernel(
         # calculate (t) correction
         if method == "ccsd(t)":
 
+            # number of holes in cas space
+            n_holes = nholes(n_elecs, cas_idx)
+
             # n_exc
-            n_exc = nexc(n_elec, cas_idx)
+            n_exc = nexc(n_elecs, n_holes)
 
             # ensure that more than two excitations are possible
             if n_exc > 2:
@@ -426,7 +429,7 @@ def cc_kernel(
             orbsym[cas_idx],
             h1e,
             h2e,
-            n_elec,
+            n_elecs,
             higher_amp_extrap,
             verbose,
         )

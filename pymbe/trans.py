@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from pymbe.dipole import DipoleExpCls
 from pymbe.kernel import main_kernel, dipole_kernel
-from pymbe.tools import nelec
+from pymbe.tools import nelecs
 from pymbe.results import DIVIDER, results_plt
 
 if TYPE_CHECKING:
@@ -68,13 +68,13 @@ class TransExpCls(DipoleExpCls):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         tup: np.ndarray,
-    ) -> Tuple[np.ndarray, Tuple[int, int]]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment associated
         with a given tuple
         """
-        # n_elec
-        n_elec = nelec(self.occup, cas_idx)
+        # n_elecs
+        n_elecs = nelecs(self.occup, cas_idx)
 
         # perform main calc
         res = main_kernel(
@@ -96,7 +96,7 @@ class TransExpCls(DipoleExpCls):
             h2e_cas,
             core_idx,
             cas_idx,
-            n_elec,
+            n_elecs,
             self.verbose,
         )
 
@@ -106,7 +106,7 @@ class TransExpCls(DipoleExpCls):
 
         res_full -= self.ref_prop
 
-        return res_full, n_elec
+        return res_full, n_elecs
 
     def _prop_summ(
         self,

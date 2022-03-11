@@ -39,13 +39,13 @@ from pymbe.tools import (
     pi_space,
     natural_keys,
     n_tuples,
-    min_orbs,
     is_file,
     read_file,
     write_file,
     pi_prune,
-    min_orbs,
     tuples,
+    nelecs,
+    nholes,
     start_idx,
     core_cas,
     idx_tril,
@@ -135,6 +135,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         # reference space
         self.ref_space: np.ndarray = mbe.ref_space
+        self.ref_n_elecs = nelecs(self.occup, self.ref_space)
+        self.ref_n_holes = nholes(self.ref_n_elecs, self.ref_space)
         self.ref_prop: TargetType = ref_prop
 
         # expansion space
@@ -266,15 +268,13 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
             # theoretical and actual number of tuples at current order
             if len(self.n_tuples["inc"]) == self.order - self.min_order:
-                min_occ, min_virt = min_orbs(
-                    self.occup, self.ref_space, self.vanish_exc
-                )
                 self.n_tuples["theo"].append(
                     n_tuples(
                         self.exp_space[0][self.exp_space[0] < self.nocc],
                         self.exp_space[0][self.nocc <= self.exp_space[0]],
-                        0,
-                        0,
+                        self.ref_n_elecs,
+                        self.ref_n_holes,
+                        -1,
                         self.order,
                     )
                 )
@@ -282,8 +282,9 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
                     n_tuples(
                         self.exp_space[-1][self.exp_space[-1] < self.nocc],
                         self.exp_space[-1][self.nocc <= self.exp_space[-1]],
-                        min_occ,
-                        min_virt,
+                        self.ref_n_elecs,
+                        self.ref_n_holes,
+                        self.vanish_exc,
                         self.order,
                     )
                 )
@@ -427,15 +428,13 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
                 # actual number of tuples at current order
                 if len(self.n_tuples["inc"]) == self.order - self.min_order:
-                    min_occ, min_virt = min_orbs(
-                        self.occup, self.ref_space, self.vanish_exc
-                    )
                     self.n_tuples["inc"].append(
                         n_tuples(
                             self.exp_space[-1][self.exp_space[-1] < self.nocc],
                             self.exp_space[-1][self.nocc <= self.exp_space[-1]],
-                            min_occ,
-                            min_virt,
+                            self.ref_n_elecs,
+                            self.ref_n_holes,
+                            self.vanish_exc,
                             self.order,
                         )
                     )
@@ -764,21 +763,11 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
         exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
 
-        # get minimum number of virtual or occupied MOs in tuple
-        min_occ, min_virt = min_orbs(self.occup, self.ref_space, self.vanish_exc)
-
         # init screen array
         screen = np.zeros(self.norb, dtype=np.float64)
         if rst_read:
             if mpi.global_master:
                 screen = self.screen
-        if min_occ + min_virt > self.order:
-            screen[exp_occ] = SCREEN
-            screen[exp_virt] = SCREEN
-        elif min_virt >= self.order:
-            screen[exp_occ] = SCREEN
-        elif min_occ >= self.order:
-            screen[exp_virt] = SCREEN
 
         # set rst_write
         rst_write = (
@@ -804,8 +793,9 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             tuples(
                 exp_occ,
                 exp_virt,
-                min_occ,
-                min_virt,
+                self.ref_n_elecs,
+                self.ref_n_holes,
+                self.vanish_exc,
                 self.order,
                 order_start,
                 occ_start,
@@ -903,13 +893,13 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             e_core, h1e_cas = e_core_h1e(self.nuc_energy, hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, n_elec_tup = self._inc(
+            inc_tup, n_elecs_tup = self._inc(
                 e_core, h1e_cas, h2e_cas, core_idx, cas_idx, tup
             )
 
             # calculate increment
             if self.order > self.min_order:
-                inc_tup -= self._sum(inc, hashes, min_occ, min_virt, tup)
+                inc_tup -= self._sum(inc, hashes, tup)
 
             # add hash and increment
             hashes[-1][tup_idx] = hash_1d(tup)
@@ -919,7 +909,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             screen[tup] = self._screen(inc_tup, screen, tup)
 
             # debug print
-            logger.debug(self._mbe_debug(n_elec_tup, inc_tup, cas_idx, tup))
+            logger.debug(self._mbe_debug(n_elecs_tup, inc_tup, cas_idx, tup))
 
             # update increment statistics
             min_inc, mean_inc, max_inc = self._update_inc_stats(
@@ -984,11 +974,11 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         tot_screen = mpi_allreduce(mpi.global_comm, screen, op=MPI.MAX)
 
         # update expansion space wrt screened orbitals
-        nonzero_screen = tot_screen[np.nonzero(tot_screen)[0]]
+        tot_screen = tot_screen[self.exp_space[-1]]
         thres = 1.0 if self.order < self.screen_start else self.screen_perc
         screen_idx = int(thres * self.exp_space[-1].size)
         self.exp_space.append(
-            self.exp_space[-1][np.sort(np.argsort(nonzero_screen)[::-1][:screen_idx])]
+            self.exp_space[-1][np.sort(np.argsort(tot_screen)[::-1][:screen_idx])]
         )
 
         # write restart files
@@ -1077,9 +1067,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
         exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
 
-        # get minimum number of virtual or occupied MOs in tuple
-        min_occ, min_virt = min_orbs(self.occup, self.ref_space, self.vanish_exc)
-
         # loop over previous orders
         for k in range(self.min_order, self.order + 1):
 
@@ -1106,7 +1093,14 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
             # loop until no tuples left
             for tup_idx, tup in enumerate(
-                tuples(exp_occ, exp_virt, min_occ, min_virt, k)
+                tuples(
+                    exp_occ,
+                    exp_virt,
+                    self.ref_n_elecs,
+                    self.ref_n_holes,
+                    self.vanish_exc,
+                    k,
+                )
             ):
 
                 # distribute tuples
@@ -1195,7 +1189,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
         tup: np.ndarray,
-    ) -> Tuple[TargetType, Tuple[int, int]]:
+    ) -> Tuple[TargetType, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
@@ -1206,8 +1200,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         self,
         inc: List[IncType],
         hashes: List[np.ndarray],
-        min_occ: int,
-        min_virt: int,
         tup: np.ndarray,
     ) -> TargetType:
         """
@@ -1423,7 +1415,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
     @abstractmethod
     def _mbe_debug(
         self,
-        nelec_tup: Tuple[int, int],
+        n_elecs_tup: np.ndarray,
         inc_tup: TargetType,
         cas_idx: np.ndarray,
         tup: np.ndarray,
@@ -1472,8 +1464,6 @@ class SingleTargetExpCls(
         self,
         inc: List[np.ndarray],
         hashes: List[np.ndarray],
-        min_occ: int,
-        min_virt: int,
         tup: np.ndarray,
     ) -> SingleTargetType:
         """
@@ -1491,7 +1481,14 @@ class SingleTargetExpCls(
         for k in range(self.order - 1, self.min_order - 1, -1):
 
             # loop over subtuples
-            for tup_sub in tuples(tup_occ, tup_virt, min_occ, min_virt, k):
+            for tup_sub in tuples(
+                tup_occ,
+                tup_virt,
+                self.ref_n_elecs,
+                self.ref_n_holes,
+                self.vanish_exc,
+                k,
+            ):
 
                 # compute index
                 idx = hash_lookup(hashes[k - self.min_order], hash_1d(tup_sub))
