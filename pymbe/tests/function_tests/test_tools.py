@@ -45,6 +45,7 @@ from pymbe.tools import (
     _convert,
     intervals,
     ground_state_sym,
+    get_vhf,
 )
 
 if TYPE_CHECKING:
@@ -511,3 +512,30 @@ def test_ground_state_sym(
     this function tests ground_state_sym
     """
     assert ground_state_sym(orbsym, occup, point_group) == ref_wfnsym
+
+
+def test_get_vhf() -> None:
+    """
+    this function tests get_vhf
+    """
+    vhf = get_vhf(np.arange(55, dtype=np.float64), 2, 4)
+
+    assert (
+        vhf
+        == np.array(
+            [
+                [
+                    [0.0, 1.0, 6.0, 21.0],
+                    [1.0, 4.0, 13.0, 34.0],
+                    [6.0, 13.0, 21.0, 48.0],
+                    [21.0, 34.0, 48.0, 63.0],
+                ],
+                [
+                    [4.0, 4.0, 5.0, 17.0],
+                    [4.0, 5.0, 12.0, 30.0],
+                    [5.0, 12.0, 20.0, 44.0],
+                    [17.0, 30.0, 44.0, 59.0],
+                ],
+            ]
+        )
+    ).all()

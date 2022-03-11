@@ -123,8 +123,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         self.occup = cast(np.ndarray, mbe.occup)
 
         # integrals
-        hcore, vhf, eri = self._int_wins(
-            mbe.hcore, mbe.vhf, mbe.eri, mbe.mpi, self.norb, self.nocc
+        hcore, eri, vhf = self._int_wins(
+            mbe.hcore, mbe.eri, mbe.vhf, mbe.mpi, self.norb, self.nocc
         )
         self.hcore: MPI.Win = hcore
         self.vhf: MPI.Win = vhf
@@ -493,14 +493,14 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
     def _int_wins(
         self,
         hcore_in: Optional[np.ndarray],
-        vhf_in: Optional[np.ndarray],
         eri_in: Optional[np.ndarray],
+        vhf_in: Optional[np.ndarray],
         mpi: MPICls,
         norb: int,
         nocc: int,
     ) -> Tuple[MPI.Win, MPI.Win, MPI.Win]:
         """
-        this function created shared memory windows for integrals on every node
+        this function creates shared memory windows for integrals on every node
         """
         # allocate hcore in shared mem
         hcore_win = MPI.Win.Allocate_shared(
@@ -518,22 +518,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         if mpi.num_masters > 1 and mpi.local_master:
             hcore[:] = mpi_bcast(mpi.master_comm, hcore)
 
-        # allocate vhf in shared mem
-        vhf_win = MPI.Win.Allocate_shared(
-            8 * nocc * norb**2 if mpi.local_master else 0,
-            8,
-            comm=mpi.local_comm,  # type: ignore
-        )
-        vhf = open_shared_win(vhf_win, np.float64, (nocc, norb, norb))
-
-        # set vhf on global master
-        if mpi.global_master:
-            vhf[:] = cast(np.ndarray, vhf_in)
-
-        # mpi_bcast vhf
-        if mpi.num_masters > 1 and mpi.local_master:
-            vhf[:] = mpi_bcast(mpi.master_comm, vhf)
-
         # allocate eri in shared mem
         eri_win = MPI.Win.Allocate_shared(
             8 * (norb * (norb + 1) // 2) ** 2 if mpi.local_master else 0,
@@ -550,10 +534,26 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         if mpi.num_masters > 1 and mpi.local_master:
             eri[:] = mpi_bcast(mpi.master_comm, eri)
 
+        # allocate vhf in shared mem
+        vhf_win = MPI.Win.Allocate_shared(
+            8 * nocc * norb**2 if mpi.local_master else 0,
+            8,
+            comm=mpi.local_comm,  # type: ignore
+        )
+        vhf = open_shared_win(vhf_win, np.float64, (nocc, norb, norb))
+
+        # set vhf on global master
+        if mpi.global_master:
+            vhf[:] = cast(np.ndarray, vhf_in)
+
+        # mpi_bcast vhf
+        if mpi.num_masters > 1 and mpi.local_master:
+            vhf[:] = mpi_bcast(mpi.master_comm, vhf)
+
         # mpi barrier
         mpi.global_comm.Barrier()
 
-        return hcore_win, vhf_win, eri_win
+        return hcore_win, eri_win, vhf_win
 
     def _restart_main(self, mpi: MPICls) -> int:
         """
@@ -701,13 +701,13 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             }
             mpi.global_comm.bcast(msg, root=0)
 
+        # load hcore
+        hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
+
         # load eri
         eri = open_shared_win(
             self.eri, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
         )
-
-        # load hcore
-        hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
 
         # load vhf
         vhf = open_shared_win(self.vhf, np.float64, (self.nocc, self.norb, self.norb))

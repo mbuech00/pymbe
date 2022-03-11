@@ -38,20 +38,21 @@ def mbe_example(rst=True):
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
         # integral calculation
-        hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
 
         # reference property
         ref_energy = ref_prop(
             mol,
             hcore,
-            vhf,
             eri,
             occup,
             orbsym,
             nocc,
+            norb,
             ref_space,
             base_method="ccsd",
             hf_prop=hf_prop,
+            vhf=vhf,
         )
 
         # create mbe object
@@ -65,8 +66,8 @@ def mbe_example(rst=True):
             hf_prop=hf_prop,
             occup=occup,
             hcore=hcore,
-            vhf=vhf,
             eri=eri,
+            vhf=vhf,
             ref_space=ref_space,
             ref_prop=ref_energy,
             base_method="ccsd",

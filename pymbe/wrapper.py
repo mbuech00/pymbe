@@ -31,6 +31,7 @@ from pymbe.tools import (
     mat_idx,
     near_nbrs,
     core_cas,
+    get_vhf,
     nelec,
     nexc,
     idx_tril,
@@ -125,16 +126,12 @@ def ints(
     eri = ao2mo.incore.full(eri_ao, mo_coeff)
 
     # compute vhf
-    vhf = np.empty((nocc, norb, norb), dtype=np.float64)
-    for i in range(nocc):
-        idx = np.asarray([i])
-        vhf[i] = np.einsum("pqrs->rs", eri[idx[:, None], idx, :, :]) * 2.0
-        vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
+    vhf = get_vhf(eri, nocc, norb)
 
     # restore 4-fold symmetry in eri
     eri = ao2mo.restore(4, eri, norb)
 
-    return hcore, vhf, eri
+    return hcore, eri, vhf
 
 
 def _ao_ints(
@@ -960,21 +957,22 @@ def _casscf(
 def ref_prop(
     mol: gto.Mole,
     hcore: np.ndarray,
-    vhf: np.ndarray,
     eri: np.ndarray,
     occup: np.ndarray,
     orbsym: np.ndarray,
     nocc: int,
+    norb: int,
     ref_space: np.ndarray,
     method: str = "fci",
     base_method: Optional[str] = None,
     fci_solver: str = "pyscf_spin0",
     cc_backend: str = "pyscf",
+    target: str = "energy",
     fci_state_sym: Optional[Union[str, int]] = None,
     fci_state_root: int = 0,
     hf_guess: bool = True,
-    target: str = "energy",
     hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
+    vhf: Optional[np.ndarray] = None,
     dipole_ints: Optional[np.ndarray] = None,
     orb_type: str = "can",
 ):
@@ -991,20 +989,15 @@ def ref_prop(
         isinstance(hcore, np.ndarray),
         "ref_prop: core hamiltonian integrals (second argument) must be a np.ndarray",
     )
-    # vhf
-    assertion(
-        isinstance(vhf, np.ndarray),
-        "ref_prop: hartree-fock potential (third argument) must be a np.ndarray",
-    )
     # eri
     assertion(
         isinstance(eri, np.ndarray),
-        "ref_prop: electron repulsion integrals (fourth argument) must be a np.ndarray",
+        "ref_prop: electron repulsion integrals (third argument) must be a np.ndarray",
     )
     # occup
     assertion(
         isinstance(occup, np.ndarray),
-        "ref_prop: orbital occupation (fifth argument) must be a np.ndarray",
+        "ref_prop: orbital occupation (fourth argument) must be a np.ndarray",
     )
     assertion(
         np.sum(occup == 1.0) == mol.spin,
@@ -1013,12 +1006,17 @@ def ref_prop(
     # orbsym
     assertion(
         isinstance(orbsym, np.ndarray),
-        "ref_prop: orbital symmetry (sixth argument) must be a np.ndarray",
+        "ref_prop: orbital symmetry (fifth argument) must be a np.ndarray",
     )
     # nocc
     assertion(
         isinstance(nocc, int) and nocc > 0,
-        "ref_prop: number of occupied orbitals (seventh argument) must be an int > 0",
+        "ref_prop: number of occupied orbitals (sixth argument) must be an int > 0",
+    )
+    # norb
+    assertion(
+        isinstance(norb, int) and norb > 0,
+        "ref_prop: number of orbitals (seventh argument) must be an int > 0",
     )
     # ref_space
     assertion(
@@ -1190,6 +1188,13 @@ def ref_prop(
             "ref_prop: hartree-fock 1- and 2-particle density matrices (hf_prop "
             "keyword argument) must be a tuple of np.ndarray with dimension 2",
         )
+    # vhf
+    if vhf is not None:
+        assertion(
+            isinstance(vhf, np.ndarray),
+            "ref_prop: hartree-fock potential (vhf keyword argument) must be a "
+            "np.ndarray",
+        )
     # dipole_ints
     if target in ["dipole", "trans"]:
         assertion(
@@ -1218,8 +1223,9 @@ def ref_prop(
     # core_idx and cas_idx
     core_idx, cas_idx = core_cas(nocc, ref_space, np.array([], dtype=np.int64))
 
-    # n_elec
-    n_elec = nelec(occup, cas_idx)
+    # compute vhf
+    if vhf is None:
+        vhf = get_vhf(eri, nocc, norb)
 
     # n_exc
     n_exc = nexc(n_elec, cas_idx)
@@ -1494,14 +1500,8 @@ def base(
     # eri_mo w/o symmetry
     eri = ao2mo.incore.full(eri_ao, mo_coeff)
 
-    # allocate vhf
-    vhf = np.empty((nocc, norb, norb), dtype=np.float64)
-
-    # compute vhf
-    for i in range(nocc):
-        idx = np.asarray([i])
-        vhf[i] = np.einsum("pqrs->rs", eri[idx[:, None], idx, :, :]) * 2.0
-        vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
+    # compute vhf for core orbitals
+    vhf = get_vhf(eri, ncore, norb)
 
     # restore 4-fold symmetry in eri_mo
     eri = ao2mo.restore(4, eri, norb)
@@ -1512,33 +1512,39 @@ def base(
     else:
         dip_ints = None
 
-    # set core and cas spaces
-    core_idx, cas_idx = core_cas(nocc, np.arange(ncore, nocc), np.arange(nocc, norb))
+    # set core and correlated spaces
+    core_idx, corr_idx = core_cas(nocc, np.arange(ncore, nocc), np.arange(nocc, norb))
 
-    # get cas space h2e
-    cas_idx_tril = idx_tril(cas_idx)
-    h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+    # get correlated space h2e
+    corr_idx_tril = idx_tril(corr_idx)
+    h2e_corr = eri[corr_idx_tril[:, None], corr_idx_tril]
 
-    # get e_core and h1e_cas
-    _, h1e_cas = e_core_h1e(mol.energy_nuc().item(), hcore, vhf, core_idx, cas_idx)
+    # determine effective core fock potential
+    if core_idx.size > 0:
+        core_vhf = np.sum(vhf, axis=0)
+    else:
+        core_vhf = 0.0
+
+    # get effective h1e for correlated space
+    h1e_corr = (hcore + core_vhf)[corr_idx[:, None], corr_idx]
 
     # n_elec
-    n_elec = nelec(occup, cas_idx)
+    n_elec = nelec(occup, corr_idx)
 
     # run calc
     res = cc_kernel(
         mol.spin,
         occup,
         core_idx,
-        cas_idx,
+        corr_idx,
         method,
         cc_backend,
         n_elec,
         "can",
         mol.groupname,
         orbsym,
-        h1e_cas,
-        h2e_cas,
+        h1e_corr,
+        h2e_corr,
         False,
         target,
         0,
@@ -1551,7 +1557,7 @@ def base(
         base_prop = dipole_kernel(
             cast(np.ndarray, dip_ints),
             occup,
-            cas_idx,
+            corr_idx,
             res["rdm1"],
             hf_dipole=cast(np.ndarray, hf_prop),
         )

@@ -52,21 +52,22 @@ def mbe_example(rst=True):
         )
 
         # integral calculation
-        hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
 
         # reference property
         ref_energy = ref_prop(
             mol,
             hcore,
-            vhf,
             eri,
             occup,
             orbsym,
             nocc,
+            norb,
             ref_space,
             fci_solver="pyscf_spin1",
             fci_state_sym="b2",
             hf_prop=hf_prop,
+            vhf=vhf,
             orb_type="casscf",
         )
 
@@ -84,8 +85,8 @@ def mbe_example(rst=True):
             occup=occup,
             orb_type="casscf",
             hcore=hcore,
-            vhf=vhf,
             eri=eri,
+            vhf=vhf,
             ref_space=ref_space,
             ref_prop=ref_energy,
             rst=rst,

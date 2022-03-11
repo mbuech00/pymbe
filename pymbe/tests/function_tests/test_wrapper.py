@@ -457,7 +457,7 @@ def test_ints(mol: gto.Mole, mo_coeff: np.ndarray, norb: int, nocc: int) -> None
     """
     this function tests ints
     """
-    hcore, vhf, eri = wrapper_ints(mol, mo_coeff, norb, nocc)
+    hcore, eri, vhf = wrapper_ints(mol, mo_coeff, norb, nocc)
 
     assert np.sum(hcore) == pytest.approx(-12371.574250637233)
     assert np.amax(hcore) == pytest.approx(-42.09685184826769)
@@ -728,6 +728,7 @@ def test_ref_prop(
     dipole_quantities: Tuple[np.ndarray, np.ndarray],
     orbsym: np.ndarray,
     nocc: int,
+    norb: int,
     method: str,
     base_method: Optional[str],
     target: str,
@@ -759,17 +760,18 @@ def test_ref_prop(
     res = ref_prop(
         mol,
         hcore,
-        vhf,
         eri,
         hf.mo_occ,
         orbsym,
         nocc,
+        norb,
         ref_space,
         method=method,
         base_method=base_method,
         cc_backend=cc_backend,
         fci_state_root=root,
         target=target,
+        vhf=vhf,
         **kwargs,
     )
 

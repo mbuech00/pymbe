@@ -70,8 +70,8 @@ class MBE:
 
     # integrals
     hcore: Optional[np.ndarray] = None
-    vhf: Optional[np.ndarray] = None
     eri: Optional[np.ndarray] = None
+    vhf: Optional[np.ndarray] = None
     dipole_ints: Optional[np.ndarray] = None
 
     # reference space

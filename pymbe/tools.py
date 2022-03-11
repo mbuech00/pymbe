@@ -21,7 +21,7 @@ import logging
 import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
-from pyscf import symm
+from pyscf import symm, ao2mo
 from itertools import islice, combinations, groupby
 from math import floor
 from subprocess import Popen, PIPE
@@ -845,3 +845,19 @@ def ground_state_sym(orbsym: np.ndarray, occup: np.ndarray, point_group: str) ->
     for irrep in orbsym[occup == 1.0]:
         wfnsym = symm.addons.direct_prod(wfnsym, irrep, groupname=point_group)
     return wfnsym.item()
+
+
+def get_vhf(eri: np.ndarray, nocc: int, norb: int):
+    """
+    this function determines the Hartree-Fock potential from the electron repulsion
+    integrals
+    """
+    eri = ao2mo.restore(1, eri, norb)
+
+    vhf = np.empty((nocc, norb, norb), dtype=np.float64)
+    for i in range(nocc):
+        idx = np.asarray([i])
+        vhf[i] = np.einsum("pqrs->rs", eri[idx[:, None], idx, :, :]) * 2.0
+        vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
+
+    return vhf

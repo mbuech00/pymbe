@@ -28,7 +28,7 @@ def mbe_example(rst=True):
         )
 
         # integral calculation
-        hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc, u=u, matrix=matrix, pbc=pbc)
+        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc, u=u, matrix=matrix, pbc=pbc)
 
         # create mbe object
         mbe = MBE(
@@ -39,8 +39,8 @@ def mbe_example(rst=True):
             occup=occup,
             orbsym=orbsym,
             hcore=hcore,
-            vhf=vhf,
             eri=eri,
+            vhf=vhf,
             rst=rst,
         )
 

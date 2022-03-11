@@ -19,11 +19,19 @@ import os
 import logging
 import numpy as np
 from json import load, dump
-from pyscf import symm
+from pyscf import symm, ao2mo
 from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
-from pymbe.tools import RST, logger_config, assertion, nelec, nexc, ground_state_sym
+from pymbe.tools import (
+    RST,
+    logger_config,
+    assertion,
+    nelec,
+    nexc,
+    ground_state_sym,
+    get_vhf,
+)
 
 if TYPE_CHECKING:
 
@@ -105,6 +113,16 @@ def main(mbe: MBE) -> MBE:
                 mbe.hf_prop = 0.0
             elif mbe.target == "trans":
                 mbe.hf_prop = np.zeros(3, dtype=np.float64)
+
+            # prepare integrals
+            if mbe.eri is not None and mbe.norb is not None:
+
+                # compute hartree-fock potential
+                if mbe.vhf is None and mbe.nocc is not None:
+                    mbe.vhf = get_vhf(mbe.eri, mbe.nocc, mbe.norb)
+
+                # reorder electron repulsion integrals
+                mbe.eri = ao2mo.restore(4, mbe.eri, mbe.norb)
 
             # set default value for reference space property
             if mbe.ref_prop is None and mbe.occup is not None:
@@ -438,12 +456,12 @@ def sanity_check(mbe: MBE) -> None:
         "core hamiltonian integral (hcore keyword argument) must be a np.ndarray",
     )
     assertion(
-        isinstance(mbe.vhf, np.ndarray),
-        "hartree-fock potential (vhf keyword argument) must be a np.ndarray",
-    )
-    assertion(
         isinstance(mbe.eri, np.ndarray),
         "electron repulsion integral (eri keyword argument) must be a np.ndarray",
+    )
+    assertion(
+        isinstance(mbe.vhf, np.ndarray),
+        "hartree-fock potential (vhf keyword argument) must be a np.ndarray",
     )
     if mbe.target in ["dipole", "trans"]:
         assertion(

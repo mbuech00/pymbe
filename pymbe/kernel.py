@@ -54,7 +54,7 @@ def e_core_h1e(
     if core_idx.size > 0:
         core_vhf = np.sum(vhf[core_idx], axis=0)
     else:
-        core_vhf = 0
+        core_vhf = 0.0
 
     # calculate core energy
     e_core += np.trace((hcore + 0.5 * core_vhf)[core_idx[:, None], core_idx]) * 2.0

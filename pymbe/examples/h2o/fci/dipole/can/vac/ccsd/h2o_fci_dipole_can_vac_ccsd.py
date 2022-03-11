@@ -51,7 +51,7 @@ def mbe_example(rst=True):
         )
 
         # integral calculation
-        hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
 
         # dipole integral calculation
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
@@ -68,8 +68,8 @@ def mbe_example(rst=True):
             hf_prop=hf_prop,
             occup=occup,
             hcore=hcore,
-            vhf=vhf,
             eri=eri,
+            vhf=vhf,
             dipole_ints=dip_ints,
             base_method="ccsd",
             base_prop=base_dipole,

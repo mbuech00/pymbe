@@ -41,7 +41,7 @@ def mbe_example(rst=True):
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
         # integral calculation
-        hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
@@ -53,16 +53,17 @@ def mbe_example(rst=True):
         ref_dipole = ref_prop(
             mol,
             hcore,
-            vhf,
             eri,
             occup,
             orbsym,
             nocc,
+            norb,
             ref_space,
             fci_solver="pyscf_spin1",
-            fci_state_sym="b2",
             target="dipole",
+            fci_state_sym="b2",
             hf_prop=hf_prop,
+            vhf=vhf,
             dipole_ints=dip_ints,
             orb_type="local",
         )
@@ -81,8 +82,8 @@ def mbe_example(rst=True):
             occup=occup,
             orb_type="local",
             hcore=hcore,
-            vhf=vhf,
             eri=eri,
+            vhf=vhf,
             dipole_ints=dip_ints,
             ref_space=ref_space,
             ref_prop=ref_dipole,
