@@ -913,7 +913,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
             # update increment statistics
             min_inc, mean_inc, max_inc = self._update_inc_stats(
-                inc_tup, min_inc, mean_inc, max_inc, tup
+                inc_tup, min_inc, mean_inc, max_inc, cas_idx
             )
 
             # update pair_corr statistics
@@ -1399,7 +1399,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         min_inc: TargetType,
         mean_inc: TargetType,
         max_inc: TargetType,
-        tup: np.ndarray,
+        cas_idx: np.ndarray,
     ) -> Tuple[TargetType, TargetType, TargetType]:
         """
         this function updates the increment statistics
@@ -1584,7 +1584,7 @@ class SingleTargetExpCls(
         min_inc: SingleTargetType,
         mean_inc: SingleTargetType,
         max_inc: SingleTargetType,
-        tup: np.ndarray,
+        cas_idx: np.ndarray,
     ) -> Tuple[SingleTargetType, SingleTargetType, SingleTargetType]:
         """
         this function updates the increment statistics

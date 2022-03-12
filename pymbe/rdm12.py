@@ -157,9 +157,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
 
             res_full -= res_base
 
-        ind = np.where(np.in1d(np.concatenate((self.ref_space, tup)), self.ref_space))[
-            0
-        ]
+        ind = np.where(np.in1d(cas_idx, self.ref_space))[0]
 
         res_full[ind] -= self.ref_prop
 
@@ -432,17 +430,13 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         min_inc: RDMCls,
         mean_inc: RDMCls,
         max_inc: RDMCls,
-        tup: np.ndarray,
+        cas_idx: np.ndarray,
     ) -> Tuple[RDMCls, RDMCls, RDMCls]:
         """
         this function updates the increment statistics
         """
-        # get indices in full rdm
-        idx_full = np.concatenate((self.ref_space, tup))
-        idx_full.sort()
-
         # add to total rdm
-        mean_inc[idx_full] += inc_tup
+        mean_inc[cas_idx] += inc_tup
 
         return min_inc, mean_inc, max_inc
 
