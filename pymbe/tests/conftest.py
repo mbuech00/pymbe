@@ -24,11 +24,28 @@ from warnings import catch_warnings, simplefilter
 from pymbe.pymbe import MBE
 from pymbe.parallel import MPICls
 from pymbe.energy import EnergyExpCls
+from pymbe.interface import CCLIB_AVAILABLE
 
 if TYPE_CHECKING:
 
     from _pytest.fixtures import SubRequest
     from typing import Tuple
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    this hook function ensures that tests relying on the MBECC library xfail when this
+    library is not available
+    """
+    for item in items:
+        if (
+            any(
+                substring in item.name
+                for substring in ["ecc", "ncc", "ccsdt", "ccsdtq"]
+            )
+            and not CCLIB_AVAILABLE
+        ):
+            item.add_marker(pytest.mark.xfail(reason="MBECC library not available"))
 
 
 @pytest.fixture
