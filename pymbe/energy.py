@@ -165,7 +165,7 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         """
         this function reads files of attributes with the target type
         """
-        raise np.load(os.path.join(RST, file)).item()
+        return np.load(os.path.join(RST, file)).item()
 
     @staticmethod
     def _init_target_inst(value: float, norb: int) -> float:
