@@ -354,7 +354,8 @@ def cc_kernel(
     if cc_backend == "pyscf":
 
         # init ccsd solver
-        mol_tmp = gto.M(verbose=0)
+        mol_tmp = gto.Mole(verbose=0)
+        mol_tmp._built = True
         mol_tmp.max_memory = MAX_MEM
         mol_tmp.incore_anyway = True
 
