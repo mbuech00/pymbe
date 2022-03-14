@@ -40,12 +40,11 @@ if PLT_FOUND:
         pass
         SNS_FOUND = False
 
-from pymbe.output import main_header
-from pymbe.tools import intervals, time_str, nelec
+from pymbe.tools import intervals, time_str, nelecs
 
 if TYPE_CHECKING:
 
-    from typing import Tuple, Any, Dict, Union, List, Optional
+    from typing import Dict, Union, List, Optional
 
     from pymbe.parallel import MPICls
     from pymbe.expansion import ExpCls
@@ -55,136 +54,7 @@ if TYPE_CHECKING:
 DIVIDER = f"{('-' * 137):^143}"
 
 
-def tot_prop(exp: ExpCls) -> Union[float, np.ndarray]:
-    """
-    this function returns the total property
-    """
-    if exp.target == "energy":
-        prop = _energy(exp.mbe_tot_prop, exp.hf_prop, exp.base_prop, exp.ref_prop)[-1]
-    elif exp.target == "excitation":
-        prop = _excitation(exp.mbe_tot_prop, exp.ref_prop)[-1]
-    elif exp.target == "dipole":
-        prop = (
-            exp.nuc_dipole
-            - _dipole(exp.mbe_tot_prop, exp.hf_prop, exp.base_prop, exp.ref_prop)[-1, :]
-        )
-    elif exp.target == "trans":
-        prop = _trans(exp.mbe_tot_prop, exp.ref_prop)[-1, :]
-
-    return prop
-
-
-def print_results(mol: Optional[gto.Mole], mpi: MPICls, exp: ExpCls) -> str:
-    """
-    this function handles printing of results
-    """
-    # print header
-    string = main_header() + "\n\n"
-
-    # print atom info
-    if mol and mol.atom:
-        string += _atom(mol) + "\n\n"
-
-    # print summary
-    string += _summary_prt(mpi, exp) + "\n\n"
-
-    # print timings
-    string += _timings_prt(exp, exp.method) + "\n\n"
-
-    # print and plot results
-    if exp.target == "energy":
-        string += _energy_prt(
-            exp.method,
-            exp.fci_state_root,
-            exp.mbe_tot_prop,
-            exp.hf_prop,
-            exp.base_prop,
-            exp.ref_prop,
-            exp.min_order,
-            exp.final_order,
-        )
-    elif exp.target == "excitation":
-        string += _excitation_prt(
-            exp.fci_state_root,
-            exp.mbe_tot_prop,
-            exp.ref_prop,
-            exp.min_order,
-            exp.final_order,
-        )
-    elif exp.target == "dipole":
-        string += _dipole_prt(
-            exp.fci_state_root,
-            exp.nuc_dipole,
-            exp.mbe_tot_prop,
-            exp.hf_prop,
-            exp.base_prop,
-            exp.ref_prop,
-            exp.min_order,
-            exp.final_order,
-        )
-    elif exp.target == "trans":
-        string += _trans_prt(
-            exp.fci_state_root,
-            exp.mbe_tot_prop,
-            exp.ref_prop,
-            exp.min_order,
-            exp.final_order,
-        )
-
-    return string
-
-
-def plot_results(exp: ExpCls) -> matplotlib.figure.Figure:
-    """
-    this function handles plotting of results
-    """
-    # check if matplotlib is available
-    if not PLT_FOUND:
-        raise ModuleNotFoundError("No module named matplotlib")
-
-    # print and plot results
-    if exp.target == "energy":
-        fig = _energy_plot(
-            exp.fci_state_root,
-            exp.mbe_tot_prop,
-            exp.hf_prop,
-            exp.base_prop,
-            exp.ref_prop,
-            exp.min_order,
-            exp.final_order,
-        )
-    elif exp.target == "excitation":
-        fig = _excitation_plot(
-            exp.fci_state_root,
-            exp.mbe_tot_prop,
-            exp.ref_prop,
-            exp.min_order,
-            exp.final_order,
-        )
-    elif exp.target == "dipole":
-        fig = _dipole_plot(
-            exp.fci_state_root,
-            exp.nuc_dipole,
-            exp.mbe_tot_prop,
-            exp.hf_prop,
-            exp.base_prop,
-            exp.ref_prop,
-            exp.min_order,
-            exp.final_order,
-        )
-    elif exp.target == "trans":
-        fig = _trans_plot(
-            exp.fci_state_root,
-            exp.mbe_tot_prop,
-            exp.ref_prop,
-            exp.min_order,
-            exp.final_order,
-        )
-
-    return fig
-
-
-def _atom(mol: gto.Mole) -> str:
+def atom_prt(mol: gto.Mole) -> str:
     """
     this function returns the molecular geometry
     """
@@ -269,8 +139,8 @@ def _active_space(occup: np.ndarray, ref_space: np.ndarray) -> str:
     """
     this function returns the active space
     """
-    act_n_elec = nelec(occup, ref_space)
-    string = f"{act_n_elec[0] + act_n_elec[1]} e, {ref_space.size} o"
+    act_n_elecs = nelecs(occup, ref_space)
+    string = f"{act_n_elecs[0] + act_n_elecs[1]} e, {ref_space.size} o"
     return string
 
 
@@ -345,60 +215,6 @@ def _symm(method: str, point_group: str, fci_state_sym: int, pi_prune: bool) -> 
         return "unknown"
 
 
-def _energy(
-    corr_energy: List[np.ndarray],
-    hf_energy: np.ndarray,
-    base_energy: np.ndarray,
-    ref_energy: np.ndarray,
-) -> np.ndarray:
-    """
-    this function returns the final total energy
-    """
-    tot_energy = np.array(corr_energy)
-    tot_energy += hf_energy
-    tot_energy += base_energy
-    tot_energy += ref_energy
-
-    return tot_energy.flatten()
-
-
-def _excitation(corr_exc: List[np.ndarray], ref_exc: np.ndarray) -> np.ndarray:
-    """
-    this function returns the final excitation energy
-    """
-    tot_exc = np.array(corr_exc)
-    tot_exc += ref_exc
-
-    return tot_exc.flatten()
-
-
-def _dipole(
-    corr_dipole: List[np.ndarray],
-    hf_dipole: np.ndarray,
-    base_dipole: np.ndarray,
-    ref_dipole: np.ndarray,
-) -> np.ndarray:
-    """
-    this function returns the final molecular dipole moment
-    """
-    tot_dipole = np.array(corr_dipole)
-    tot_dipole += hf_dipole
-    tot_dipole += base_dipole
-    tot_dipole += ref_dipole
-
-    return tot_dipole
-
-
-def _trans(corr_trans: List[np.ndarray], ref_trans: np.ndarray) -> np.ndarray:
-    """
-    this function returns the final molecular transition dipole moment
-    """
-    tot_trans = np.array(corr_trans)
-    tot_trans += ref_trans
-
-    return tot_trans
-
-
 def _time(time: Dict[str, List[float]], comp: str, idx: int) -> str:
     """
     this function returns the final timings in (HHH : MM : SS) format
@@ -415,33 +231,16 @@ def _time(time: Dict[str, List[float]], comp: str, idx: int) -> str:
     return time_str(req_time)
 
 
-def _summary_prt(mpi: MPICls, exp: ExpCls) -> str:
+def summary_prt(
+    mpi: MPICls,
+    exp: ExpCls,
+    hf_prop: Union[float, np.floating],
+    base_prop: Union[float, np.floating],
+    mbe_tot_prop: Union[float, np.floating],
+) -> str:
     """
     this function returns the summary table
     """
-    hf_prop: Union[float, np.floating]
-    base_prop: Union[float, np.floating]
-    mbe_tot_prop: Union[float, np.floating]
-
-    if exp.target == "energy":
-        hf_prop = exp.hf_prop.item()
-        base_prop = exp.hf_prop.item() + exp.base_prop.item()
-        energy = _energy(exp.mbe_tot_prop, exp.hf_prop, exp.base_prop, exp.ref_prop)
-        mbe_tot_prop = energy[-1]
-    elif exp.target == "dipole":
-        hf_prop = np.linalg.norm(exp.nuc_dipole - exp.hf_prop)
-        base_prop = np.linalg.norm(exp.nuc_dipole - (exp.hf_prop + exp.base_prop))
-        dipole = _dipole(exp.mbe_tot_prop, exp.hf_prop, exp.base_prop, exp.ref_prop)
-        mbe_tot_prop = np.linalg.norm(exp.nuc_dipole - dipole[-1, :])
-    elif exp.target == "excitation":
-        hf_prop = 0.0
-        base_prop = 0.0
-        mbe_tot_prop = _excitation(exp.mbe_tot_prop, exp.ref_prop)[-1]
-    else:
-        hf_prop = 0.0
-        base_prop = 0.0
-        mbe_tot_prop = np.linalg.norm(_trans(exp.mbe_tot_prop, exp.ref_prop)[-1, :])
-
     string: str = DIVIDER + "\n"
     string += (
         f"{'':3}{'molecular information':^45}{'|':1}"
@@ -505,7 +304,7 @@ def _summary_prt(mpi: MPICls, exp: ExpCls) -> str:
     return string
 
 
-def _timings_prt(exp: ExpCls, method: str) -> str:
+def timings_prt(exp: ExpCls, method: str) -> str:
     """
     this function returns the timings table
     """
@@ -548,62 +347,22 @@ def _timings_prt(exp: ExpCls, method: str) -> str:
     return string
 
 
-def _energy_prt(
-    method: str,
-    root: int,
-    corr_energy: List[np.ndarray],
-    hf_energy: np.ndarray,
-    base_energy: np.ndarray,
-    ref_energy: np.ndarray,
+def results_plt(
+    prop: np.ndarray,
     min_order: int,
     final_order: int,
-) -> str:
-    """
-    this function returns the energies table
-    """
-    string: str = DIVIDER[:67] + "\n"
-    string += f"{f'MBE-{method.upper()} energy (root = {root})':^73}\n"
-
-    string += DIVIDER[:67] + "\n"
-    string += (
-        f"{'':3}{'MBE order':^14}{'|':1}"
-        f"{'total energy':^22}{'|':1}"
-        f"{'correlation energy':^26}\n"
-    )
-
-    string += DIVIDER[:67] + "\n"
-    string += (
-        f"{'':3}{'ref':^14s}{'|':1}"
-        f"{(hf_energy.item() + ref_energy.item()):^22.6f}{'|':1}"
-        f"{ref_energy.item():>19.5e}{'':7}\n"
-    )
-
-    string += DIVIDER[:67] + "\n"
-    energy = _energy(corr_energy, hf_energy, base_energy, ref_energy)
-    for i, j in enumerate(range(min_order, final_order + 1)):
-        string += (
-            f"{'':3}{j:>8d}{'':6}{'|':1}"
-            f"{energy[i]:^22.6f}{'|':1}"
-            f"{(energy[i] - hf_energy):>19.5e}{'':7}\n"
-        )
-
-    string += DIVIDER[:67] + "\n"
-
-    return string
-
-
-def _energy_plot(
-    root: int,
-    corr_energy: List[np.ndarray],
-    hf_energy: np.ndarray,
-    base_energy: np.ndarray,
-    ref_energy: np.ndarray,
-    min_order: int,
-    final_order: int,
+    marker: str,
+    color: str,
+    label: str,
+    ylabel: str,
 ) -> matplotlib.figure.Figure:
     """
-    this function plots the energies
+    this function plots the target property
     """
+    # check if matplotlib is available
+    if not PLT_FOUND:
+        raise ModuleNotFoundError("No module named matplotlib")
+
     # set seaborn
     if SNS_FOUND:
         sns.set(style="darkgrid", palette="Set2", font="DejaVu Sans")
@@ -614,13 +373,13 @@ def _energy_plot(
     # plot results
     ax.plot(
         np.arange(min_order, final_order + 1),
-        _energy(corr_energy, hf_energy, base_energy, ref_energy),
-        marker="x",
+        prop,
+        marker=marker,
         linewidth=2,
         mew=1,
-        color="xkcd:kelly green",
+        color=color,
         linestyle="-",
-        label=f"state {root}",
+        label=label,
     )
 
     # set x limits
@@ -631,305 +390,7 @@ def _energy_plot(
 
     # set labels
     ax.set_xlabel("Expansion order")
-    ax.set_ylabel("Energy (in au)")
-
-    # force integer ticks on x-axis
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.yaxis.set_major_formatter(FormatStrFormatter("%.3f"))
-
-    # despine
-    if SNS_FOUND:
-        sns.despine()
-
-    # set legend
-    ax.legend(loc=1, frameon=False)
-
-    return fig
-
-
-def _excitation_prt(
-    root: int,
-    corr_exc: List[np.ndarray],
-    ref_exc: np.ndarray,
-    min_order: int,
-    final_order: int,
-) -> str:
-    """
-    this function returns the excitation energies table
-    """
-    string: str = DIVIDER[:43] + "\n"
-    string += f"{f'MBE excitation energy (roots = 0 > {root})':^49}\n"
-
-    string += DIVIDER[:43] + "\n"
-    string += f"{'':3}{'MBE order':^14}{'|':1}{'excitation energy':^25}\n"
-
-    string += DIVIDER[:43] + "\n"
-    string += f"{'':3}{'ref':^14s}{'|':1}{ref_exc.item():>18.5e}{'':7}\n"
-
-    string += DIVIDER[:43] + "\n"
-    excitation = _excitation(corr_exc, ref_exc)
-    for i, j in enumerate(range(min_order, final_order + 1)):
-        string += f"{'':3}{j:>8d}{'':6}{'|':1}{excitation[i]:>18.5e}{'':7}\n"
-
-    string += DIVIDER[:43] + "\n"
-
-    return string
-
-
-def _excitation_plot(
-    root: int,
-    corr_exc: List[np.ndarray],
-    ref_exc: np.ndarray,
-    min_order: int,
-    final_order: int,
-) -> matplotlib.figure.Figure:
-    """
-    this function plots the excitation energies
-    """
-    # set seaborn
-    if SNS_FOUND:
-        sns.set(style="darkgrid", palette="Set2", font="DejaVu Sans")
-
-    # set subplot
-    fig, ax = plt.subplots()
-
-    # plot results
-    ax.plot(
-        np.arange(min_order, final_order + 1),
-        _excitation(corr_exc, ref_exc),
-        marker="x",
-        linewidth=2,
-        mew=1,
-        color="xkcd:dull blue",
-        linestyle="-",
-        label=f"excitation 0 -> {root}",
-    )
-
-    # set x limits
-    ax.set_xlim([0.5, final_order + 1 - 0.5])
-
-    # turn off x-grid
-    ax.xaxis.grid(False)
-
-    # set labels
-    ax.set_xlabel("Expansion order")
-    ax.set_ylabel("Excitation energy (in au)")
-
-    # force integer ticks on x-axis
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.yaxis.set_major_formatter(FormatStrFormatter("%.3f"))
-
-    # despine
-    if SNS_FOUND:
-        sns.despine()
-
-    # set legend
-    ax.legend(loc=1, frameon=False)
-
-    return fig
-
-
-def _dipole_prt(
-    root: int,
-    nuc_dipole: np.ndarray,
-    corr_dipole: List[np.ndarray],
-    hf_dipole: np.ndarray,
-    base_dipole: np.ndarray,
-    ref_dipole: np.ndarray,
-    min_order: int,
-    final_order: int,
-) -> str:
-    """
-    this function returns the dipole moments table
-    """
-    string: str = DIVIDER[:83] + "\n"
-    string += f"{f'MBE dipole moment (root = {root})':^87}\n"
-
-    string += DIVIDER[:83] + "\n"
-    string += (
-        f"{'':3}{'MBE order':^14}{'|':1}"
-        f"{'dipole components (x,y,z)':^43}{'|':1}"
-        f"{'dipole moment':^21}\n"
-    )
-
-    string += DIVIDER[:83] + "\n"
-    tot_ref_dipole: np.ndarray = hf_dipole + base_dipole + ref_dipole
-    string += (
-        f"{'':3}{'ref':^14s}{'|':1}"
-        f"{(nuc_dipole[0] - tot_ref_dipole[0]):>13.6f}"
-        f"{(nuc_dipole[1] - tot_ref_dipole[1]):>13.6f}"
-        f"{(nuc_dipole[2] - tot_ref_dipole[2]):>13.6f}{'':4}{'|':1}"
-        f"{np.linalg.norm(nuc_dipole - tot_ref_dipole):>14.6f}{'':7}\n"
-    )
-
-    string += DIVIDER[:83] + "\n"
-    dipole = _dipole(corr_dipole, hf_dipole, base_dipole, ref_dipole)
-    for i, j in enumerate(range(min_order, final_order + 1)):
-        string += (
-            f"{'':3}{j:>8d}{'':6}{'|':1}"
-            f"{(nuc_dipole[0] - dipole[i, 0]):>13.6f}"
-            f"{(nuc_dipole[1] - dipole[i, 1]):>13.6f}"
-            f"{(nuc_dipole[2] - dipole[i, 2]):>13.6f}{'':4}{'|':1}"
-            f"{np.linalg.norm(nuc_dipole - dipole[i, :]):>14.6f}{'':7}\n"
-        )
-
-    string += DIVIDER[:83] + "\n"
-
-    return string
-
-
-def _dipole_plot(
-    root: int,
-    nuc_dipole: np.ndarray,
-    corr_dipole: List[np.ndarray],
-    hf_dipole: np.ndarray,
-    base_dipole: np.ndarray,
-    ref_dipole: np.ndarray,
-    min_order: int,
-    final_order: int,
-) -> matplotlib.figure.Figure:
-    """
-    this function plots the dipole moments
-    """
-    # set seaborn
-    if SNS_FOUND:
-        sns.set(style="darkgrid", palette="Set2", font="DejaVu Sans")
-
-    # set subplot
-    fig, ax = plt.subplots()
-
-    # array of total MBE dipole moment
-    dipole = _dipole(corr_dipole, hf_dipole, base_dipole, ref_dipole)
-    dipole_arr = np.empty(dipole.shape[0], dtype=np.float64)
-    for i in range(dipole.shape[0]):
-        dipole_arr[i] = np.linalg.norm(nuc_dipole - dipole[i, :])
-
-    # plot results
-    ax.plot(
-        np.arange(min_order, final_order + 1),
-        dipole_arr,
-        marker="*",
-        linewidth=2,
-        mew=1,
-        color="xkcd:salmon",
-        linestyle="-",
-        label=f"state {root}",
-    )
-
-    # set x limits
-    ax.set_xlim([0.5, final_order + 1 - 0.5])
-
-    # turn off x-grid
-    ax.xaxis.grid(False)
-
-    # set labels
-    ax.set_xlabel("Expansion order")
-    ax.set_ylabel("Dipole moment (in au)")
-
-    # force integer ticks on x-axis
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.yaxis.set_major_formatter(FormatStrFormatter("%.3f"))
-
-    # despine
-    if SNS_FOUND:
-        sns.despine()
-
-    # set legend
-    ax.legend(loc=1, frameon=False)
-
-    return fig
-
-
-def _trans_prt(
-    root: int,
-    corr_trans: List[np.ndarray],
-    ref_trans: np.ndarray,
-    min_order: int,
-    final_order: int,
-) -> str:
-    """
-    this function returns the transition dipole moments and oscillator strengths table
-    """
-    string: str = DIVIDER[:83] + "\n"
-    string += f"{f'MBE trans. dipole moment (roots 0 > {root})':^87}\n"
-
-    string += DIVIDER[:83] + "\n"
-    string += (
-        f"{'':3}{'MBE order':^14}{'|':1}"
-        f"{'dipole components (x,y,z)':^43}{'|':1}"
-        f"{'dipole moment':^21}\n"
-    )
-
-    string += DIVIDER[:83] + "\n"
-    tot_ref_trans: np.ndarray = ref_trans
-    string += (
-        f"{'':3}{'ref':^14s}{'|':1}"
-        f"{tot_ref_trans[0]:>13.6f}"
-        f"{tot_ref_trans[1]:>13.6f}"
-        f"{tot_ref_trans[2]:>13.6f}{'':4}{'|':1}"
-        f"{np.linalg.norm(tot_ref_trans[:]):>14.6f}{'':7}\n"
-    )
-
-    string += DIVIDER[:83] + "\n"
-    trans = _trans(corr_trans, ref_trans)
-    for i, j in enumerate(range(min_order, final_order + 1)):
-        string += (
-            f"{'':3}{j:>8d}{'':6}{'|':1}"
-            f"{trans[i, 0]:>13.6f}"
-            f"{trans[i, 1]:>13.6f}"
-            f"{trans[i, 2]:>13.6f}{'':4}{'|':1}"
-            f"{np.linalg.norm(trans[i, :]):>14.6f}{'':7}\n"
-        )
-
-    string += DIVIDER[:83] + "\n"
-
-    return string
-
-
-def _trans_plot(
-    root: int,
-    corr_trans: List[np.ndarray],
-    ref_trans: np.ndarray,
-    min_order: int,
-    final_order: int,
-) -> matplotlib.figure.Figure:
-    """
-    this function plots the transition dipole moments
-    """
-    # set seaborn
-    if SNS_FOUND:
-        sns.set(style="darkgrid", palette="Set2", font="DejaVu Sans")
-
-    # set subplot
-    fig, ax = plt.subplots()
-
-    # array of total MBE transition dipole moment
-    trans = _trans(corr_trans, ref_trans)
-    trans_arr = np.empty(trans.shape[0], dtype=np.float64)
-    for i in range(trans.shape[0]):
-        trans_arr[i] = np.linalg.norm(trans[i, :])
-
-    # plot results
-    ax.plot(
-        np.arange(min_order, final_order + 1),
-        trans_arr,
-        marker="s",
-        linewidth=2,
-        mew=1,
-        color="xkcd:dark magenta",
-        linestyle="-",
-        label=f"excitation 0 -> {root}",
-    )
-
-    # set x limits
-    ax.set_xlim([0.5, final_order + 1 - 0.5])
-
-    # turn off x-grid
-    ax.xaxis.grid(False)
-
-    # set labels
-    ax.set_xlabel("Expansion order")
-    ax.set_ylabel("Transition dipole (in au)")
+    ax.set_ylabel(ylabel)
 
     # force integer ticks on x-axis
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))

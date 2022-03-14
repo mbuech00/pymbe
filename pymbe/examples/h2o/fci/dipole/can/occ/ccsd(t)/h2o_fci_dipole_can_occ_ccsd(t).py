@@ -2,11 +2,10 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from typing import Optional, Union
 from pymbe import MBE, hf, base, ints, dipole_ints
 
 
-def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True):
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
@@ -28,7 +27,9 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         ncore = 1
 
         # hf calculation
-        nocc, _, norb, hf_object, _, hf_dipole, occup, orbsym, mo_coeff = hf(mol)
+        nocc, _, norb, hf_object, hf_prop, occup, orbsym, mo_coeff = hf(
+            mol, target="dipole"
+        )
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
@@ -45,7 +46,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             ncore,
             nocc,
             target="dipole",
-            hf_dipole=hf_dipole,
+            hf_prop=hf_prop,
             gauge_origin=gauge_origin,
         )
 
@@ -53,7 +54,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         ref_space = np.array([1, 2, 3, 4], dtype=np.int64)
 
         # integral calculation
-        hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
 
         # dipole integral calculation
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
@@ -67,11 +68,11 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             nocc=nocc,
             norb=norb,
             orbsym=orbsym,
-            hf_prop=hf_dipole,
+            hf_prop=hf_prop,
             occup=occup,
             hcore=hcore,
-            vhf=vhf,
             eri=eri,
+            vhf=vhf,
             dipole_ints=dip_ints,
             ref_space=ref_space,
             base_method="ccsd(t)",

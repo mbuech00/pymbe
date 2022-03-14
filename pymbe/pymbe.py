@@ -21,17 +21,19 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from pymbe.setup import settings, main as setup_main
-from pymbe.driver import master as driver_master, slave as driver_slave
+from pymbe.energy import EnergyExpCls
+from pymbe.excitation import ExcExpCls
+from pymbe.dipole import DipoleExpCls
+from pymbe.trans import TransExpCls
+from pymbe.rdm12 import RDMExpCls
 from pymbe.tools import RST
-from pymbe.results import tot_prop, print_results, plot_results
 
 if TYPE_CHECKING:
 
-    from typing import Union, Optional
+    from typing import Union, Optional, Tuple
     from matplotlib import figure
 
     from pymbe.parallel import MPICls
-    from pymbe.expansion import ExpCls
 
 
 @dataclass
@@ -60,7 +62,7 @@ class MBE:
     fci_state_root: Optional[int] = None
 
     # hf calculation
-    hf_prop: Optional[Union[float, np.ndarray]] = None
+    hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
     occup: Optional[np.ndarray] = None
 
     # orbital representation
@@ -68,17 +70,17 @@ class MBE:
 
     # integrals
     hcore: Optional[np.ndarray] = None
-    vhf: Optional[np.ndarray] = None
     eri: Optional[np.ndarray] = None
+    vhf: Optional[np.ndarray] = None
     dipole_ints: Optional[np.ndarray] = None
 
     # reference space
     ref_space: np.ndarray = np.array([], dtype=np.int64)
-    ref_prop: Optional[Union[float, np.ndarray]] = None
+    ref_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
 
     # base model
     base_method: Optional[str] = None
-    base_prop: Optional[Union[float, np.ndarray]] = None
+    base_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
 
     # screening
     screen_start: int = 4
@@ -101,9 +103,13 @@ class MBE:
     mpi: MPICls = field(init=False)
 
     # exp object
-    exp: ExpCls = field(init=False)
+    exp: Union[EnergyExpCls, ExcExpCls, DipoleExpCls, TransExpCls, RDMExpCls] = field(
+        init=False
+    )
 
-    def kernel(self) -> Optional[Union[float, np.ndarray]]:
+    def kernel(
+        self,
+    ) -> Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
         """
         this function is the main pymbe kernel
         """
@@ -113,22 +119,34 @@ class MBE:
         # calculation setup
         self = setup_main(self)
 
+        # initialize exp object
+        if self.target == "energy":
+            self.exp = EnergyExpCls(self)
+        elif self.target == "excitation":
+            self.exp = ExcExpCls(self)
+        elif self.target == "dipole":
+            self.exp = DipoleExpCls(self)
+        elif self.target == "trans":
+            self.exp = TransExpCls(self)
+        elif self.target == "rdm12":
+            self.exp = RDMExpCls(self)
+
         if self.mpi.global_master:
 
             # main master driver
-            driver_master(self.mpi, self.exp)
+            self.exp.driver_master(self.mpi)
 
             # delete restart file
             if self.rst:
                 shutil.rmtree(RST)
 
             # calculate total property
-            prop = tot_prop(self.exp)
+            prop = self.exp.tot_prop()
 
         else:
 
             # main slave driver
-            driver_slave(self.mpi, self.exp)
+            self.exp.driver_slave(self.mpi)
 
             # calculate total property
             prop = None
@@ -139,7 +157,7 @@ class MBE:
         """
         this function returns pymbe results as a string
         """
-        output_str = print_results(self.mol, self.mpi, self.exp)
+        output_str = self.exp.print_results(self.mol, self.mpi)
 
         return output_str
 
@@ -147,6 +165,6 @@ class MBE:
         """
         this function plots pymbe results
         """
-        fig = plot_results(self.exp)
+        fig = self.exp.plot_results()
 
         return fig

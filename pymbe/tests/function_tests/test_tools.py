@@ -21,7 +21,6 @@ from types import GeneratorType
 
 from pymbe.tools import (
     time_str,
-    fsum,
     hash_2d,
     hash_1d,
     hash_lookup,
@@ -38,35 +37,22 @@ from pymbe.tools import (
     pi_space,
     _pi_orbs,
     pi_prune,
-    min_orbs,
-    nelec,
+    nelecs,
+    nholes,
+    _valid_tup,
     mat_idx,
     near_nbrs,
     natural_keys,
     _convert,
     intervals,
-    inc_dim,
-    inc_shape,
     ground_state_sym,
+    get_vhf,
 )
 
 if TYPE_CHECKING:
 
     from typing import Union, Tuple, List, Optional
 
-
-test_cases_fsum = [
-    (
-        "1d",
-        np.arange(10.0, dtype=np.float64),
-        45.0,
-    ),
-    (
-        "2d",
-        np.arange(4.0**2, dtype=np.float64).reshape(4, 4),
-        np.array([24.0, 28.0, 32.0, 36.0], dtype=np.float64),
-    ),
-]
 
 test_cases_hash_lookup = [
     ("present", np.array([1, 3, 5, 7, 9], dtype=np.int64), True),
@@ -108,10 +94,10 @@ test_cases_comb_idx = [
 test_cases_idx = [(1, 3.0), (2, 12.0), (3, 19.0)]
 
 test_cases_n_tuples = [
-    ("both", 0, 0, 2118760),
-    ("no-occ", 1, 0, 1460752),
-    ("no-virt", 0, 1, 2118508),
-    ("empty", 1, 1, 1460500),
+    ("both", np.array([1, 1]), np.array([1, 1]), 2118760),
+    ("no-occ", np.array([0, 0]), np.array([1, 1]), 1460752),
+    ("no-virt", np.array([1, 1]), np.array([0, 0]), 2118508),
+    ("empty", np.array([0, 0]), np.array([0, 0]), 1460500),
 ]
 
 test_cases_pi_prune = [
@@ -121,24 +107,43 @@ test_cases_pi_prune = [
     ("5_tot_3_pi", np.array([0, 1, 2, 5, 6], dtype=np.int64), False),
 ]
 
-test_cases_min_orbs = [
-    ("both-1", np.arange(1, 7, dtype=np.int64), 1, 0, 0),
-    ("no_occ-1", np.arange(3, 7, dtype=np.int64), 1, 1, 0),
-    ("no_virt-1", np.arange(1, 3, dtype=np.int64), 1, 0, 1),
-    ("no_orbs-1", np.array([], dtype=np.int64), 1, 1, 1),
-    ("both-2", np.arange(1, 7, dtype=np.int64), 2, 0, 0),
-    ("no_occ-2", np.arange(3, 7, dtype=np.int64), 2, 2, 0),
-    ("no_virt-2", np.arange(1, 3, dtype=np.int64), 2, 0, 2),
-    ("no_orbs-2", np.array([], dtype=np.int64), 2, 2, 2),
-    ("both-3", np.arange(1, 7, dtype=np.int64), 3, 0, 0),
-    ("no_occ-3", np.arange(3, 7, dtype=np.int64), 3, 2, 0),
-    ("no_virt-3", np.arange(1, 3, dtype=np.int64), 3, 0, 2),
-    ("no_orbs-3", np.array([], dtype=np.int64), 3, 2, 2),
+test_cases_valid_tup = [
+    ("none-occ-1", np.array([0, 0]), np.array([0, 0]), 1, 0, 1, False),
+    ("none-virt-1", np.array([0, 0]), np.array([0, 0]), 0, 1, 1, False),
+    ("none-both-1", np.array([0, 0]), np.array([0, 0]), 1, 1, 1, True),
+    ("occ-occ-1", np.array([1, 1]), np.array([0, 0]), 1, 0, 1, False),
+    ("occ-virt-1", np.array([1, 1]), np.array([0, 0]), 0, 1, 1, True),
+    ("occ-both-1", np.array([1, 1]), np.array([0, 0]), 1, 1, 1, True),
+    ("virt-occ-1", np.array([0, 0]), np.array([1, 1]), 1, 0, 1, True),
+    ("virt-virt-1", np.array([0, 0]), np.array([1, 1]), 0, 1, 1, False),
+    ("virt-both-1", np.array([0, 0]), np.array([1, 1]), 1, 1, 1, True),
+    ("both-occ-1", np.array([1, 1]), np.array([1, 1]), 1, 0, 1, True),
+    ("both-virt-1", np.array([1, 1]), np.array([1, 1]), 0, 1, 1, True),
+    ("both-both-1", np.array([1, 1]), np.array([1, 1]), 1, 1, 1, True),
+    ("none-occ-2", np.array([0, 0]), np.array([0, 0]), 1, 0, 2, False),
+    ("none-virt-2", np.array([0, 0]), np.array([0, 0]), 0, 1, 2, False),
+    ("none-both-2", np.array([0, 0]), np.array([0, 0]), 1, 1, 2, False),
+    ("occ-occ-2", np.array([1, 1]), np.array([0, 0]), 1, 0, 2, False),
+    ("occ-virt-2", np.array([1, 1]), np.array([0, 0]), 0, 1, 2, False),
+    ("occ-both-2", np.array([1, 1]), np.array([0, 0]), 1, 1, 2, False),
+    ("virt-occ-2", np.array([0, 0]), np.array([1, 1]), 1, 0, 2, False),
+    ("virt-virt-2", np.array([0, 0]), np.array([1, 1]), 0, 1, 2, False),
+    ("virt-both-2", np.array([0, 0]), np.array([1, 1]), 1, 1, 2, False),
+    ("both-occ-2", np.array([1, 1]), np.array([1, 1]), 1, 0, 2, False),
+    ("both-virt-2", np.array([1, 1]), np.array([1, 1]), 0, 1, 2, False),
+    ("both-both-2", np.array([1, 1]), np.array([1, 1]), 1, 1, 2, True),
 ]
 
-test_cases_nelec = [
-    ("2_elecs", np.array([2, 4], dtype=np.int64), (1, 1)),
-    ("no_elecs", np.array([3, 4], dtype=np.int64), (0, 0)),
+test_cases_nelecs = [
+    ("4_elecs", np.array([1, 2], dtype=np.int64), np.array([2, 2])),
+    ("2_elecs", np.array([2, 4], dtype=np.int64), np.array([1, 1])),
+    ("no_elecs", np.array([3, 4], dtype=np.int64), np.array([0, 0])),
+]
+
+test_cases_nholes = [
+    ("4_holes", np.array([0, 0]), np.array([3, 4], dtype=np.int64), np.array([2, 2])),
+    ("2_holes", np.array([1, 1]), np.array([2, 4], dtype=np.int64), np.array([1, 1])),
+    ("no_holes", np.array([2, 2]), np.array([3, 4], dtype=np.int64), np.array([0, 0])),
 ]
 
 test_cases_mat_idx = [(6, 4, 4, (1, 2)), (9, 8, 2, (4, 1))]
@@ -154,10 +159,6 @@ test_cases_natural_keys = [
 ]
 
 test_cases_convert = [("str", "string", str), ("int", "1", int)]
-
-test_cases_inc_dim = [("energy", 1), ("dipole", 3)]
-
-test_cases_inc_shape = [("energy", 5, 1, (5,)), ("dipole", 5, 3, (5, 3))]
 
 test_cases_ground_state_sym = [
     (
@@ -182,18 +183,6 @@ def test_time_str() -> None:
     this function tests time_str
     """
     assert time_str(3742.4) == "1h 2m 22.40s"
-
-
-@pytest.mark.parametrize(
-    argnames="a, ref_sum",
-    argvalues=[case[1:] for case in test_cases_fsum],
-    ids=[case[0] for case in test_cases_fsum],
-)
-def test_fsum(a: np.ndarray, ref_sum: float) -> None:
-    """
-    this function tests fsum
-    """
-    assert fsum(a) == pytest.approx(ref_sum)
 
 
 def test_hash_2d() -> None:
@@ -254,13 +243,15 @@ def test_tuples(ref_space: np.ndarray, ref_n_tuples: int) -> None:
     order = 3
     occup = np.array([2.0] * 4 + [0.0] * 4, dtype=np.float64)
     exp_space = np.array([0, 1, 2, 5, 6, 7], dtype=np.int64)
-    min_occ, min_virt = min_orbs(occup, ref_space, 1)
+    ref_n_elecs = nelecs(occup, ref_space)
+    ref_n_holes = nholes(ref_n_elecs, ref_space)
 
     gen = tuples(
         exp_space[exp_space < nocc],
         exp_space[nocc <= exp_space],
-        min_occ,
-        min_virt,
+        ref_n_elecs,
+        ref_n_holes,
+        1,
         order,
     )
 
@@ -316,11 +307,13 @@ def test_idx(order: int, ref_idx: float) -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="min_occ, min_virt, ref_n_tuples",
+    argnames="ref_n_elecs, ref_n_holes, ref_n_tuples",
     argvalues=[case[1:] for case in test_cases_n_tuples],
     ids=[case[0] for case in test_cases_n_tuples],
 )
-def test_n_tuples(min_occ: int, min_virt: int, ref_n_tuples: int) -> None:
+def test_n_tuples(
+    ref_n_elecs: np.ndarray, ref_n_holes: np.ndarray, ref_n_tuples: int
+) -> None:
     """
     this function tests n_tuples
     """
@@ -328,7 +321,10 @@ def test_n_tuples(min_occ: int, min_virt: int, ref_n_tuples: int) -> None:
     occ_space = np.arange(10, dtype=np.int64)
     virt_space = np.arange(10, 50, dtype=np.int64)
 
-    assert n_tuples(occ_space, virt_space, min_occ, min_virt, order) == ref_n_tuples
+    assert (
+        n_tuples(occ_space, virt_space, ref_n_elecs, ref_n_holes, 1, order)
+        == ref_n_tuples
+    )
 
 
 def test_cas() -> None:
@@ -441,36 +437,51 @@ def test_pi_prune(tup: np.ndarray, ref_bool: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="tup, vanish_exc, ref_min_occ, ref_min_virt",
-    argvalues=[case[1:] for case in test_cases_min_orbs],
-    ids=[case[0] for case in test_cases_min_orbs],
+    argnames="ref_n_elecs, ref_n_holes, tup_nocc, tup_nvirt, vanish_exc, ref_bool",
+    argvalues=[case[1:] for case in test_cases_valid_tup],
+    ids=[case[0] for case in test_cases_valid_tup],
 )
-def test_min_orbs(
-    tup: np.ndarray, vanish_exc: int, ref_min_occ: int, ref_min_virt: int
+def test_valid_tup(
+    ref_n_elecs: np.ndarray,
+    ref_n_holes: np.ndarray,
+    tup_nocc: int,
+    tup_nvirt: int,
+    vanish_exc: int,
+    ref_bool: bool,
 ) -> None:
     """
-    this function tests min_orbs
+    this function tests _valid_tup
     """
-    occup = np.array([2.0] * 3 + [0.0] * 4, dtype=np.float64)
-
-    min_occ, min_virt = min_orbs(occup, tup, vanish_exc)
-
-    assert min_occ == ref_min_occ
-    assert min_virt == ref_min_virt
+    assert (
+        _valid_tup(ref_n_elecs, ref_n_holes, tup_nocc, tup_nvirt, vanish_exc)
+        == ref_bool
+    )
 
 
 @pytest.mark.parametrize(
-    argnames="tup, ref_nelec",
-    argvalues=[case[1:] for case in test_cases_nelec],
-    ids=[case[0] for case in test_cases_nelec],
+    argnames="tup, ref_nelecs",
+    argvalues=[case[1:] for case in test_cases_nelecs],
+    ids=[case[0] for case in test_cases_nelecs],
 )
-def test_nelec(tup: np.ndarray, ref_nelec: Tuple[int, int]) -> None:
+def test_nelecs(tup: np.ndarray, ref_nelecs: np.ndarray) -> None:
     """
     this function tests nelec
     """
     occup = np.array([2.0] * 3 + [0.0] * 4, dtype=np.float64)
 
-    assert nelec(occup, tup) == ref_nelec
+    assert (nelecs(occup, tup) == ref_nelecs).all()
+
+
+@pytest.mark.parametrize(
+    argnames="n_elecs, tup, ref_nholes",
+    argvalues=[case[1:] for case in test_cases_nholes],
+    ids=[case[0] for case in test_cases_nholes],
+)
+def test_nholes(n_elecs: np.ndarray, tup: np.ndarray, ref_nholes: np.ndarray) -> None:
+    """
+    this function tests nholes
+    """
+    assert (nholes(n_elecs, tup) == ref_nholes).all()
 
 
 @pytest.mark.parametrize(
@@ -532,32 +543,6 @@ def test_intervals() -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="target, ref_dim",
-    argvalues=test_cases_inc_dim,
-    ids=[case[0] for case in test_cases_inc_dim],
-)
-def test_inc_dim(target: str, ref_dim: int) -> None:
-    """
-    this function tests inc_dim
-    """
-    assert inc_dim(target) == ref_dim
-
-
-@pytest.mark.parametrize(
-    argnames="n, dim, ref_shape",
-    argvalues=[case[1:] for case in test_cases_inc_shape],
-    ids=[case[0] for case in test_cases_inc_shape],
-)
-def test_inc_shape(
-    n: int, dim: int, ref_shape: Union[Tuple[int], Tuple[int, int]]
-) -> None:
-    """
-    this function tests inc_dim
-    """
-    assert inc_shape(n, dim) == ref_shape
-
-
-@pytest.mark.parametrize(
     argnames="orbsym, occup, point_group, ref_wfnsym",
     argvalues=[case[1:] for case in test_cases_ground_state_sym],
     ids=[case[0] for case in test_cases_ground_state_sym],
@@ -566,6 +551,33 @@ def test_ground_state_sym(
     orbsym: np.ndarray, occup: np.ndarray, point_group: str, ref_wfnsym: int
 ) -> None:
     """
-    this function tests inc_dim
+    this function tests ground_state_sym
     """
     assert ground_state_sym(orbsym, occup, point_group) == ref_wfnsym
+
+
+def test_get_vhf() -> None:
+    """
+    this function tests get_vhf
+    """
+    vhf = get_vhf(np.arange(55, dtype=np.float64), 2, 4)
+
+    assert (
+        vhf
+        == np.array(
+            [
+                [
+                    [0.0, 1.0, 6.0, 21.0],
+                    [1.0, 4.0, 13.0, 34.0],
+                    [6.0, 13.0, 21.0, 48.0],
+                    [21.0, 34.0, 48.0, 63.0],
+                ],
+                [
+                    [4.0, 4.0, 5.0, 17.0],
+                    [4.0, 5.0, 12.0, 30.0],
+                    [5.0, 12.0, 20.0, 44.0],
+                    [17.0, 30.0, 44.0, 59.0],
+                ],
+            ]
+        )
+    ).all()

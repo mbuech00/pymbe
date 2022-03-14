@@ -21,11 +21,31 @@ from pyscf import gto, scf, symm, ao2mo
 from typing import TYPE_CHECKING
 from warnings import catch_warnings, simplefilter
 
+from pymbe.pymbe import MBE
+from pymbe.parallel import MPICls
+from pymbe.energy import EnergyExpCls
+from pymbe.interface import CCLIB_AVAILABLE
+
 if TYPE_CHECKING:
 
     from _pytest.fixtures import SubRequest
-    from _pytest._code.code import ExceptionInfo
-    from typing import List, Tuple, Dict, Optional
+    from typing import Tuple
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    this hook function ensures that tests relying on the MBECC library xfail when this
+    library is not available
+    """
+    for item in items:
+        if (
+            any(
+                substring in item.name
+                for substring in ["ecc", "ncc", "ccsdt", "ccsdtq"]
+            )
+            and not CCLIB_AVAILABLE
+        ):
+            item.add_marker(pytest.mark.xfail(reason="MBECC library not available"))
 
 
 @pytest.fixture
@@ -300,76 +320,50 @@ def dipole_quantities(
 
 
 @pytest.fixture
-def exp() -> ExpCls:
+def mbe(
+    mol: gto.Mole,
+    ncore: int,
+    nocc: int,
+    norb: int,
+    orbsym: np.ndarray,
+    hf: scf.RHF,
+    ints: Tuple[np.ndarray, np.ndarray],
+    vhf: np.ndarray,
+) -> MBE:
     """
-    this fixture constructs a dummy ExpCls object
+    this fixture constructs a MBE object
     """
-    exp = ExpCls()
-    return exp
+    hcore, eri = ints
+
+    mbe = MBE(
+        nuc_energy=mol.energy_nuc().item(),
+        ncore=ncore,
+        nocc=nocc,
+        norb=norb,
+        spin=mol.spin,
+        point_group=mol.groupname,
+        orbsym=orbsym,
+        fci_state_sym=0,
+        fci_state_root=0,
+        hf_prop=hf.e_tot,
+        occup=hf.mo_occ,
+        hcore=hcore,
+        eri=eri,
+        vhf=vhf,
+        ref_space=np.array([i for i in range(ncore, nocc)]),
+        ref_prop=0.0,
+        rst=False,
+    )
+
+    mbe.restarted = False
+    mbe.mpi = MPICls()
+
+    return mbe
 
 
-class ExpCls:
+@pytest.fixture
+def energyexpcls(mbe: MBE):
     """
-    this class is a dummy ExpCls class
+    this fixture constructs a EnergyExpCls object
     """
-
-    def __init__(self) -> None:
-
-        self.method: str = "fci"
-        self.fci_solver: str = "pyscf_spin0"
-        self.cc_backend: str = "pyscf"
-        self.hf_guess: bool = True
-
-        self.target: str = "energy"
-
-        self.nuc_energy: float = 0.0
-        self.nocc: int = 0
-        self.norb: int = 0
-        self.spin: int = 0
-        self.point_group: str = "c1"
-        self.orbsym: np.ndarray = np.array([], dtype=np.int64)
-        self.fci_state_sym = 0
-        self.fci_state_root = 0
-
-        self.hf_prop = 0.0
-        self.occup: np.ndarray = np.array([], dtype=np.float64)
-
-        self.hcore: MPI.Win = MPI.Win.Allocate_shared(0, 8, comm=MPI.COMM_WORLD)
-        self.eri: MPI.Win = MPI.Win.Allocate_shared(0, 8, comm=MPI.COMM_WORLD)
-        self.vhf: MPI.Win = MPI.Win.Allocate_shared(0, 8, comm=MPI.COMM_WORLD)
-        self.dipole_ints: Optional[np.ndarray] = None
-
-        self.orb_type: str = "can"
-
-        self.ref_space: np.ndarray = np.array([], dtype=np.int64)
-        self.ref_prop: float = 0.0
-
-        self.exp_space: List[np.ndarray] = [np.array([], dtype=np.int64)]
-
-        self.base_method: Optional[str] = None
-
-        self.incs: List[MPI.Win] = []
-
-        self.hashes: List[MPI.Win] = []
-
-        self.time: Dict[str, List[float]] = {"mbe": [], "purge": []}
-
-        self.mean_inc: List[np.ndarray] = []
-        self.min_inc: List[np.ndarray] = []
-        self.max_inc: List[np.ndarray] = []
-
-        self.n_tuples: Dict[str, List[int]] = {"inc": []}
-
-        self.screen_start: int = 4
-        self.screen_orbs = np.array([], dtype=np.int64)
-
-        self.rst: bool = False
-
-        self.order = 0
-        self.min_order: int = 1
-
-        self.vanish_exc: int = 1
-
-        self.verbose: int = 0
-
-        self.pi_prune: bool = False
+    return EnergyExpCls(mbe)

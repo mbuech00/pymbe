@@ -21,16 +21,19 @@ from pyscf.cc import uccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import uccsd_t_rdm
 from copy import copy
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, Union
 from warnings import catch_warnings, simplefilter
 
-from pymbe.kernel import main as kernel_main, e_core_h1e, _cc, _dipole
+from pymbe.kernel import main_kernel, dipole_kernel, cc_kernel, e_core_h1e
 from pymbe.tools import (
+    RDMCls,
     assertion,
     mat_idx,
     near_nbrs,
     core_cas,
-    nelec,
+    get_vhf,
+    nelecs,
+    nholes,
     nexc,
     idx_tril,
     ground_state_sym,
@@ -38,7 +41,7 @@ from pymbe.tools import (
 
 if TYPE_CHECKING:
 
-    from typing import Tuple, Dict, Union, List, Optional, Any
+    from typing import Tuple, Dict, List, Optional, Any
 
 
 CONV_TOL = 1.0e-10
@@ -124,16 +127,12 @@ def ints(
     eri = ao2mo.incore.full(eri_ao, mo_coeff)
 
     # compute vhf
-    vhf = np.empty((nocc, norb, norb), dtype=np.float64)
-    for i in range(nocc):
-        idx = np.asarray([i])
-        vhf[i] = np.einsum("pqrs->rs", eri[idx[:, None], idx, :, :]) * 2.0
-        vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
+    vhf = get_vhf(eri, nocc, norb)
 
     # restore 4-fold symmetry in eri
     eri = ao2mo.restore(4, eri, norb)
 
-    return hcore, vhf, eri
+    return hcore, eri, vhf
 
 
 def _ao_ints(
@@ -260,6 +259,7 @@ def dipole_ints(
 
 def hf(
     mol: gto.Mole,
+    target: str = "energy",
     init_guess: str = "minao",
     newton: bool = False,
     irrep_nelec: Dict[str, Any] = {},
@@ -269,7 +269,14 @@ def hf(
     pbc: bool = False,
     gauge_origin: np.ndarray = np.array([0.0, 0.0, 0.0]),
 ) -> Tuple[
-    int, int, int, scf.hf.SCF, float, np.ndarray, np.ndarray, np.ndarray, np.ndarray
+    int,
+    int,
+    int,
+    scf.hf.SCF,
+    Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]],
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
 ]:
     """
     this function returns the results of a restricted (open-shell) hartree-fock
@@ -383,35 +390,66 @@ def hf(
             simplefilter("ignore")
             hf.kernel(mo_coeff, mo_occ)
 
-    # dipole moment
-    if mol.atom:
-        dm = hf.make_rdm1()
-        if mol.spin > 0:
-            dm = dm[0] + dm[1]
-        with mol.with_common_orig(gauge_origin):
-            ao_dip = mol.intor_symmetric("int1e_r", comp=3)
-        elec_dipole = np.einsum("xij,ji->x", ao_dip, dm)
-    else:
-        elec_dipole = np.zeros(3, dtype=np.float64)
-
     # determine dimensions
     norb, nocc, nvirt = _dim(hf.mo_occ)
 
-    # store energy, occupation, and orbsym
-    hf_energy = hf.e_tot
+    # store occupation and orbsym
     occup = hf.mo_occ
     if mol.symmetry:
         orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
     else:
         orbsym = np.zeros(norb, dtype=np.int64)
 
+    hf_prop: Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
+
+    if target == "energy":
+
+        hf_prop = hf.e_tot.item()
+
+    elif target == "excitation":
+
+        hf_prop = 0.0
+
+    elif target == "dipole":
+
+        if mol.atom:
+            dm = hf.make_rdm1()
+            if mol.spin > 0:
+                dm = dm[0] + dm[1]
+            with mol.with_common_orig(gauge_origin):
+                ao_dip = mol.intor_symmetric("int1e_r", comp=3)
+            hf_prop = np.einsum("xij,ji->x", ao_dip, dm)
+        else:
+            hf_prop = np.zeros(3, dtype=np.float64)
+
+    elif target == "trans":
+
+        hf_prop = np.zeros(3, dtype=np.float64)
+
+    elif target == "rdm12":
+
+        rdm1 = np.zeros(2 * (norb,), dtype=np.float64)
+        np.einsum("ii->i", rdm1)[...] += occup
+
+        rdm2 = np.zeros(4 * (norb,), dtype=np.float64)
+        occup_a = occup.copy()
+        occup_a[occup_a > 0.0] = 1.0
+        occup_b = occup - occup_a
+        # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
+        np.einsum("iijj->ij", rdm2)[...] += np.einsum("i,j", occup, occup)
+        # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
+        np.einsum("ijji->ij", rdm2)[...] += np.einsum(
+            "i,j", occup_a, occup_a
+        ) + np.einsum("i,j", occup_b, occup_b)
+
+        hf_prop = (rdm1, rdm2)
+
     return (
         nocc,
         nvirt,
         norb,
         hf,
-        hf_energy.item(),
-        elec_dipole,
+        hf_prop,
         occup,
         orbsym,
         np.asarray(hf.mo_coeff, order="C"),
@@ -732,7 +770,7 @@ def ref_mo(
     elif orbs == "casscf":
 
         # electrons in active space
-        act_n_elec = nelec(occup, ref_space)
+        act_n_elecs = nelecs(occup, ref_space)
 
         # sorter for active space
         n_core_inact = np.array(
@@ -761,7 +799,7 @@ def ref_mo(
             hf,
             mo_coeff_casscf,
             ref_space,
-            act_n_elec,
+            act_n_elecs,
             ncore,
         )
 
@@ -800,14 +838,14 @@ def _casscf(
     hf: scf.hf.SCF,
     mo_coeff: np.ndarray,
     ref_space: np.ndarray,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     ncore: int,
 ) -> np.ndarray:
     """
     this function returns the results of a casscf calculation
     """
     # init casscf
-    cas = mcscf.CASSCF(hf, ref_space.size, n_elec)
+    cas = mcscf.CASSCF(hf, ref_space.size, n_elecs)
 
     # casscf settings
     cas.conv_tol = CONV_TOL
@@ -867,8 +905,8 @@ def _casscf(
 
     # hf starting guess
     if hf_guess:
-        na = fci.cistring.num_strings(ref_space.size, n_elec[0])
-        nb = fci.cistring.num_strings(ref_space.size, n_elec[1])
+        na = fci.cistring.num_strings(ref_space.size, n_elecs[0])
+        nb = fci.cistring.num_strings(ref_space.size, n_elecs[1])
         ci0 = np.zeros((na, nb))
         ci0[0, 0] = 1
     else:
@@ -886,12 +924,12 @@ def _casscf(
     # multiplicity check
     for root in range(len(c)):
 
-        s, mult = fcisolver.spin_square(c[root], ref_space.size, n_elec)
+        s, mult = fcisolver.spin_square(c[root], ref_space.size, n_elecs)
 
         if np.abs((mol.spin + 1) - mult) > SPIN_TOL:
 
             # fix spin by applyting level shift
-            sz = np.abs(n_elec[0] - n_elec[1]) * 0.5
+            sz = np.abs(n_elecs[0] - n_elecs[1]) * 0.5
             cas.fix_spin_(shift=0.25, ss=sz * (sz + 1.0))
 
             # run casscf calc
@@ -905,7 +943,7 @@ def _casscf(
 
             # verify correct spin
             for root in range(len(c)):
-                s, mult = fcisolver.spin_square(c[root], ref_space.size, n_elec)
+                s, mult = fcisolver.spin_square(c[root], ref_space.size, n_elecs)
                 assertion(
                     np.abs((mol.spin + 1) - mult) < SPIN_TOL,
                     f"spin contamination for root entry = {root}, 2*S + 1 = {mult:.6f}",
@@ -920,24 +958,25 @@ def _casscf(
 def ref_prop(
     mol: gto.Mole,
     hcore: np.ndarray,
-    vhf: np.ndarray,
     eri: np.ndarray,
     occup: np.ndarray,
     orbsym: np.ndarray,
     nocc: int,
+    norb: int,
     ref_space: np.ndarray,
     method: str = "fci",
     base_method: Optional[str] = None,
     fci_solver: str = "pyscf_spin0",
     cc_backend: str = "pyscf",
+    target: str = "energy",
     fci_state_sym: Optional[Union[str, int]] = None,
     fci_state_root: int = 0,
     hf_guess: bool = True,
-    target: str = "energy",
-    hf_prop: Optional[Union[float, np.ndarray]] = None,
+    hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
+    vhf: Optional[np.ndarray] = None,
     dipole_ints: Optional[np.ndarray] = None,
     orb_type: str = "can",
-) -> Union[float, np.ndarray]:
+):
     """
     this function returns reference space properties
     """
@@ -951,20 +990,15 @@ def ref_prop(
         isinstance(hcore, np.ndarray),
         "ref_prop: core hamiltonian integrals (second argument) must be a np.ndarray",
     )
-    # vhf
-    assertion(
-        isinstance(vhf, np.ndarray),
-        "ref_prop: hartree-fock potential (third argument) must be a np.ndarray",
-    )
     # eri
     assertion(
         isinstance(eri, np.ndarray),
-        "ref_prop: electron repulsion integrals (fourth argument) must be a np.ndarray",
+        "ref_prop: electron repulsion integrals (third argument) must be a np.ndarray",
     )
     # occup
     assertion(
         isinstance(occup, np.ndarray),
-        "ref_prop: orbital occupation (fifth argument) must be a np.ndarray",
+        "ref_prop: orbital occupation (fourth argument) must be a np.ndarray",
     )
     assertion(
         np.sum(occup == 1.0) == mol.spin,
@@ -973,12 +1007,17 @@ def ref_prop(
     # orbsym
     assertion(
         isinstance(orbsym, np.ndarray),
-        "ref_prop: orbital symmetry (sixth argument) must be a np.ndarray",
+        "ref_prop: orbital symmetry (fifth argument) must be a np.ndarray",
     )
     # nocc
     assertion(
         isinstance(nocc, int) and nocc > 0,
-        "ref_prop: number of occupied orbitals (seventh argument) must be an int > 0",
+        "ref_prop: number of occupied orbitals (sixth argument) must be an int > 0",
+    )
+    # norb
+    assertion(
+        isinstance(norb, int) and norb > 0,
+        "ref_prop: number of orbitals (seventh argument) must be an int > 0",
     )
     # ref_space
     assertion(
@@ -1104,7 +1143,7 @@ def ref_prop(
         "ref_prop: target property (target keyword argument) must be str",
     )
     assertion(
-        target in ["energy", "excitation", "dipole", "trans"],
+        target in ["energy", "excitation", "dipole", "trans", "rdm12"],
         "ref_prop: valid target properties (target keyword argument) are: energy, "
         "excitation energy (excitation), dipole, and transition dipole (trans)",
     )
@@ -1117,7 +1156,7 @@ def ref_prop(
         )
     if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"] or base_method:
         assertion(
-            target in ["energy", "dipole"],
+            target in ["energy", "dipole", "rdm12"],
             "ref_prop: calculation of excitation energies or transition dipole moments "
             "(target keyword argument) not possible with coupled-cluster methods "
             "(method keyword argument)",
@@ -1139,6 +1178,22 @@ def ref_prop(
         assertion(
             isinstance(hf_prop, np.ndarray),
             "ref_prop: hartree-fock dipole moment (hf_prop keyword argument) must be a "
+            "np.ndarray",
+        )
+    elif target == "rdm12":
+        assertion(
+            isinstance(hf_prop, tuple)
+            and len(hf_prop) == 2
+            and isinstance(hf_prop[0], np.ndarray)
+            and isinstance(hf_prop[1], np.ndarray),
+            "ref_prop: hartree-fock 1- and 2-particle density matrices (hf_prop "
+            "keyword argument) must be a tuple of np.ndarray with dimension 2",
+        )
+    # vhf
+    if vhf is not None:
+        assertion(
+            isinstance(vhf, np.ndarray),
+            "ref_prop: hartree-fock potential (vhf keyword argument) must be a "
             "np.ndarray",
         )
     # dipole_ints
@@ -1165,19 +1220,25 @@ def ref_prop(
         hf_prop = 0.0
     elif target == "trans":
         hf_prop = np.zeros(3, dtype=np.float64)
-    hf_prop = np.asarray(hf_prop)
 
     # core_idx and cas_idx
     core_idx, cas_idx = core_cas(nocc, ref_space, np.array([], dtype=np.int64))
 
-    # n_elec
-    n_elec = nelec(occup, cas_idx)
+    # compute vhf
+    if vhf is None:
+        vhf = get_vhf(eri, nocc, norb)
+
+    # n_elecs
+    n_elecs = nelecs(occup, cas_idx)
+
+    # n_holes
+    n_holes = nholes(n_elecs, cas_idx)
 
     # n_exc
-    n_exc = nexc(n_elec, cas_idx)
+    n_exc = nexc(n_elecs, n_holes)
 
     # ref_prop
-    ref_prop: Union[float, np.ndarray]
+    ref_prop: Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
 
     if (
         n_exc <= 1
@@ -1189,8 +1250,13 @@ def ref_prop(
         # no correlation in expansion reference space
         if target in ["energy", "excitation"]:
             ref_prop = 0.0
-        else:
+        elif target in ["dipole", "trans"]:
             ref_prop = np.zeros(3, dtype=np.float64)
+        elif target == "rdm12":
+            ref_prop = (
+                np.zeros(2 * (ref_space.size,), dtype=np.float64),
+                np.zeros(4 * (ref_space.size,), dtype=np.float64),
+            )
 
     else:
 
@@ -1204,7 +1270,7 @@ def ref_prop(
         )
 
         # exp model
-        ref_prop = kernel_main(
+        res = main_kernel(
             method,
             cc_backend,
             fci_solver,
@@ -1217,44 +1283,88 @@ def ref_prop(
             orbsym,
             hf_guess,
             fci_state_root,
-            hf_prop,
+            RDMCls(hf_prop[0], hf_prop[1])
+            if isinstance(hf_prop, tuple)
+            else cast(Union[float, np.ndarray], hf_prop),
             e_core,
             h1e_cas,
             h2e_cas,
             core_idx,
             cas_idx,
-            n_elec,
+            n_elecs,
             0,
-            dipole_ints,
             higher_amp_extrap=False,
         )
 
+        if target in ["energy", "excitation"]:
+
+            ref_prop = res[target]
+
+        elif target == "dipole":
+
+            ref_prop = dipole_kernel(
+                cast(np.ndarray, dipole_ints),
+                occup,
+                cas_idx,
+                res["rdm1"],
+                hf_dipole=cast(np.ndarray, hf_prop),
+            )
+
+        elif target == "trans":
+
+            ref_prop = dipole_kernel(
+                cast(np.ndarray, dipole_ints),
+                occup,
+                cas_idx,
+                res["t_rdm1"],
+                trans=True,
+            )
+
+        elif target == "rdm12":
+
+            ref_prop = (res["rdm1"], res["rdm2"])
+
         # base model
         if base_method is not None:
-            ref_prop -= kernel_main(
-                base_method,
-                cc_backend,
-                "",
-                orb_type,
+
+            res = cc_kernel(
                 mol.spin,
                 occup,
-                target,
-                cast(int, fci_state_sym),
-                mol.groupname,
-                orbsym,
-                hf_guess,
-                fci_state_root,
-                hf_prop,
-                e_core,
-                h1e_cas,
-                h2e_cas,
                 core_idx,
                 cas_idx,
-                n_elec,
+                base_method,
+                cc_backend,
+                n_elecs,
+                orb_type,
+                mol.groupname,
+                orbsym,
+                h1e_cas,
+                h2e_cas,
+                False,
+                target,
                 0,
-                dipole_ints,
-                higher_amp_extrap=False,
             )
+
+            if target == "energy":
+
+                ref_prop -= res[target]
+
+            elif target == "dipole":
+
+                ref_prop -= dipole_kernel(
+                    cast(np.ndarray, dipole_ints),
+                    occup,
+                    cas_idx,
+                    res["rdm1"],
+                    hf_dipole=cast(np.ndarray, hf_prop),
+                )
+
+            elif target == "rdm12":
+
+                ref_prop = (
+                    cast(tuple, ref_prop)[0] - res["rdm1"],
+                    cast(tuple, ref_prop)[1] - res["rdm2"],
+                )
 
     return ref_prop
 
@@ -1271,9 +1381,9 @@ def base(
     nocc: int,
     cc_backend: str = "pyscf",
     target: str = "energy",
-    hf_dipole: Optional[np.ndarray] = None,
+    hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
     gauge_origin: Optional[np.ndarray] = None,
-) -> Union[float, np.ndarray]:
+) -> Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """
     this function returns base model energy
     """
@@ -1360,7 +1470,7 @@ def base(
         "base: target property (target keyword argument) must be str",
     )
     assertion(
-        target in ["energy", "dipole"],
+        target in ["energy", "dipole", "rdm12"],
         "base: valid target properties (keyword argument) with coupled-cluster base "
         "methods are: energy (energy) and dipole moment (dipole)",
     )
@@ -1374,8 +1484,8 @@ def base(
     if target == "dipole":
         # hf_dipole
         assertion(
-            isinstance(hf_dipole, np.ndarray),
-            "base: hartree-fock dipole moment (hf_dipole keyword argument) must be a "
+            isinstance(hf_prop, np.ndarray),
+            "base: hartree-fock dipole moment (hf_prop keyword argument) must be a "
             "np.ndarray",
         )
         # gauge_dipole
@@ -1397,14 +1507,8 @@ def base(
     # eri_mo w/o symmetry
     eri = ao2mo.incore.full(eri_ao, mo_coeff)
 
-    # allocate vhf
-    vhf = np.empty((nocc, norb, norb), dtype=np.float64)
-
-    # compute vhf
-    for i in range(nocc):
-        idx = np.asarray([i])
-        vhf[i] = np.einsum("pqrs->rs", eri[idx[:, None], idx, :, :]) * 2.0
-        vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
+    # compute vhf for core orbitals
+    vhf = get_vhf(eri, ncore, norb)
 
     # restore 4-fold symmetry in eri_mo
     eri = ao2mo.restore(4, eri, norb)
@@ -1415,35 +1519,41 @@ def base(
     else:
         dip_ints = None
 
-    # set core and cas spaces
-    core_idx, cas_idx = core_cas(nocc, np.arange(ncore, nocc), np.arange(nocc, norb))
+    # set core and correlated spaces
+    core_idx, corr_idx = core_cas(nocc, np.arange(ncore, nocc), np.arange(nocc, norb))
 
-    # get cas space h2e
-    cas_idx_tril = idx_tril(cas_idx)
-    h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+    # get correlated space h2e
+    corr_idx_tril = idx_tril(corr_idx)
+    h2e_corr = eri[corr_idx_tril[:, None], corr_idx_tril]
 
-    # get e_core and h1e_cas
-    e_core, h1e_cas = e_core_h1e(mol.energy_nuc().item(), hcore, vhf, core_idx, cas_idx)
+    # determine effective core fock potential
+    if core_idx.size > 0:
+        core_vhf = np.sum(vhf, axis=0)
+    else:
+        core_vhf = 0.0
 
-    # n_elec
-    n_elec = nelec(occup, cas_idx)
+    # get effective h1e for correlated space
+    h1e_corr = (hcore + core_vhf)[corr_idx[:, None], corr_idx]
+
+    # n_elecs
+    n_elecs = nelecs(occup, corr_idx)
 
     # run calc
-    res = _cc(
+    res = cc_kernel(
         mol.spin,
         occup,
         core_idx,
-        cas_idx,
+        corr_idx,
         method,
         cc_backend,
-        n_elec,
+        n_elecs,
         "can",
         mol.groupname,
         orbsym,
-        h1e_cas,
-        h2e_cas,
+        h1e_corr,
+        h2e_corr,
         False,
-        target == "dipole",
+        target,
         0,
     )
 
@@ -1451,13 +1561,15 @@ def base(
     if target == "energy":
         base_prop = res["energy"]
     elif target == "dipole":
-        base_prop = _dipole(
+        base_prop = dipole_kernel(
             cast(np.ndarray, dip_ints),
             occup,
-            cas_idx,
+            corr_idx,
             res["rdm1"],
-            hf_dipole=cast(np.ndarray, hf_dipole),
+            hf_dipole=cast(np.ndarray, hf_prop),
         )
+    elif target == "rdm12":
+        base_prop = res["rdm1"], res["rdm2"]
 
     return base_prop
 

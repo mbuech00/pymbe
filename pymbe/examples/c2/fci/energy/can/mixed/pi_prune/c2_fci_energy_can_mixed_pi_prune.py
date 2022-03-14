@@ -2,11 +2,10 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from typing import Optional, Union
 from pymbe import MBE, hf, ints, ref_prop, linear_orbsym
 
 
-def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True):
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
@@ -27,17 +26,26 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         ncore = 2
 
         # hf calculation
-        nocc, _, norb, _, hf_energy, _, occup, orbsym, mo_coeff = hf(mol)
+        nocc, _, norb, _, hf_prop, occup, orbsym, mo_coeff = hf(mol)
 
         # reference space
         ref_space = np.array([2, 3, 4, 5, 6, 7, 8, 9], dtype=np.int64)
 
         # integral calculation
-        hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
 
         # reference property
         ref_energy = ref_prop(
-            mol, hcore, vhf, eri, occup, orbsym, nocc, ref_space, hf_prop=hf_energy
+            mol,
+            hcore,
+            eri,
+            occup,
+            orbsym,
+            nocc,
+            norb,
+            ref_space,
+            hf_prop=hf_prop,
+            vhf=vhf,
         )
 
         # pi_pruning
@@ -51,11 +59,11 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             nocc=nocc,
             norb=norb,
             orbsym=orbsym,
-            hf_prop=hf_energy,
+            hf_prop=hf_prop,
             occup=occup,
             hcore=hcore,
-            vhf=vhf,
             eri=eri,
+            vhf=vhf,
             ref_space=ref_space,
             ref_prop=ref_energy,
             rst=rst,

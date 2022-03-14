@@ -2,11 +2,10 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from typing import Optional, Union
 from pymbe import MBE, hf, ints, dipole_ints, ref_prop
 
 
-def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
+def mbe_example(rst=True):
 
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
@@ -29,13 +28,13 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         ncore = 1
 
         # hf calculation
-        nocc, _, norb, _, _, _, occup, orbsym, mo_coeff = hf(mol)
+        nocc, _, norb, _, _, occup, orbsym, mo_coeff = hf(mol)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
         # integral calculation
-        hcore, vhf, eri = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
@@ -47,16 +46,17 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         ref_trans = ref_prop(
             mol,
             hcore,
-            vhf,
             eri,
             occup,
             orbsym,
             nocc,
+            norb,
             ref_space,
-            target="trans",
             fci_solver="pyscf_spin1",
+            target="trans",
             fci_state_sym="b2",
             fci_state_root=1,
+            vhf=vhf,
             dipole_ints=dip_ints,
         )
 
@@ -74,8 +74,8 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
             fci_state_root=1,
             occup=occup,
             hcore=hcore,
-            vhf=vhf,
             eri=eri,
+            vhf=vhf,
             dipole_ints=dip_ints,
             ref_space=ref_space,
             ref_prop=ref_trans,
@@ -83,7 +83,7 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         )
 
         # perform calculation
-        energy = mbe.kernel()
+        trans = mbe.kernel()
 
     else:
 
@@ -91,15 +91,15 @@ def mbe_example(rst=True) -> Optional[Union[float, np.ndarray]]:
         mbe = MBE()
 
         # perform calculation
-        energy = mbe.kernel()
+        trans = mbe.kernel()
 
-    return energy
+    return trans
 
 
 if __name__ == "__main__":
 
     # call example function
-    energy = mbe_example()
+    trans = mbe_example()
 
     # finalize mpi
     MPI.Finalize()

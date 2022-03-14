@@ -22,14 +22,14 @@ from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import uccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import uccsd_t_rdm
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
-from pymbe.tools import assertion, nexc
+from pymbe.tools import RDMCls, assertion, nholes, nexc
 from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
 
-    from typing import Tuple, Dict, Union, Any, Optional, List
+    from typing import Tuple, Dict, Union, Any, List
 
 
 MAX_MEM = 1e10
@@ -54,7 +54,7 @@ def e_core_h1e(
     if core_idx.size > 0:
         core_vhf = np.sum(vhf[core_idx], axis=0)
     else:
-        core_vhf = 0
+        core_vhf = 0.0
 
     # calculate core energy
     e_core += np.trace((hcore + 0.5 * core_vhf)[core_idx[:, None], core_idx]) * 2.0
@@ -65,7 +65,7 @@ def e_core_h1e(
     return e_core, h1e_cas
 
 
-def main(
+def main_kernel(
     method: str,
     cc_backend: str,
     solver: str,
@@ -78,43 +78,42 @@ def main(
     orbsym: np.ndarray,
     hf_guess: bool,
     state_root: int,
-    hf_prop: np.ndarray,
+    hf_prop: Union[float, np.ndarray, RDMCls],
     e_core: float,
     h1e: np.ndarray,
     h2e: np.ndarray,
     core_idx: np.ndarray,
     cas_idx: np.ndarray,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     verbose: int,
-    dipole_ints: Optional[np.ndarray],
     higher_amp_extrap: bool = False,
-) -> Union[float, np.ndarray]:
+) -> Dict[str, Any]:
     """
     this function return the result property from a given method
     """
     if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
 
-        res_tmp = _cc(
+        res = cc_kernel(
             spin,
             occup,
             core_idx,
             cas_idx,
             method,
             cc_backend,
-            n_elec,
+            n_elecs,
             orb_type,
             point_group,
             orbsym,
             h1e,
             h2e,
             higher_amp_extrap,
-            target_mbe == "dipole",
+            target_mbe,
             verbose,
         )
 
     elif method == "fci":
 
-        res_tmp = _fci(
+        res = fci_kernel(
             solver,
             spin,
             target_mbe,
@@ -128,34 +127,14 @@ def main(
             h2e,
             occup,
             cas_idx,
-            n_elec,
+            n_elecs,
             verbose,
-        )
-
-    if target_mbe in ["energy", "excitation"]:
-
-        res = res_tmp[target_mbe]
-
-    elif target_mbe == "dipole":
-
-        res = _dipole(
-            cast(np.ndarray, dipole_ints),
-            occup,
-            cas_idx,
-            res_tmp["rdm1"],
-            hf_dipole=hf_prop,
-        )
-
-    elif target_mbe == "trans":
-
-        res = _dipole(
-            cast(np.ndarray, dipole_ints), occup, cas_idx, res_tmp["t_rdm1"], trans=True
         )
 
     return res
 
 
-def _dipole(
+def dipole_kernel(
     dipole_ints: np.ndarray,
     occup: np.ndarray,
     cas_idx: np.ndarray,
@@ -185,7 +164,7 @@ def _dipole(
     return elec_dipole
 
 
-def _fci(
+def fci_kernel(
     solver_type: str,
     spin: int,
     target_mbe: str,
@@ -193,13 +172,13 @@ def _fci(
     orbsym: np.ndarray,
     hf_guess: bool,
     root: int,
-    hf_prop: np.ndarray,
+    hf_prop: Any,
     e_core: float,
     h1e: np.ndarray,
     h2e: np.ndarray,
     occup: np.ndarray,
     cas_idx: np.ndarray,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     verbose: int,
 ) -> Dict[str, Any]:
     """
@@ -233,8 +212,8 @@ def _fci(
 
     # hf starting guess
     if hf_guess:
-        na = fci.cistring.num_strings(cas_idx.size, n_elec[0])
-        nb = fci.cistring.num_strings(cas_idx.size, n_elec[1])
+        na = fci.cistring.num_strings(cas_idx.size, n_elecs[0])
+        nb = fci.cistring.num_strings(cas_idx.size, n_elecs[1])
         ci0 = np.zeros((na, nb))
         ci0[0, 0] = 1
     else:
@@ -246,7 +225,7 @@ def _fci(
         this function provides an interface to solver.kernel
         """
         # perform calc
-        e, c = solver.kernel(h1e, h2e, cas_idx.size, n_elec, ecore=e_core, ci0=ci0)
+        e, c = solver.kernel(h1e, h2e, cas_idx.size, n_elecs, ecore=e_core, ci0=ci0)
 
         # collect results
         if solver.nroots == 1:
@@ -260,12 +239,12 @@ def _fci(
     # multiplicity check
     for root in range(len(civec)):
 
-        s, mult = solver.spin_square(civec[root], cas_idx.size, n_elec)
+        s, mult = solver.spin_square(civec[root], cas_idx.size, n_elecs)
 
         if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
 
             # fix spin by applying level shift
-            sz = np.abs(n_elec[0] - n_elec[1]) * 0.5
+            sz = np.abs(n_elecs[0] - n_elecs[1]) * 0.5
             solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
 
             # perform calc
@@ -273,7 +252,7 @@ def _fci(
 
             # verify correct spin
             for root in range(len(civec)):
-                s, mult = solver.spin_square(civec[root], cas_idx.size, n_elec)
+                s, mult = solver.spin_square(civec[root], cas_idx.size, n_elecs)
                 assertion(
                     np.abs((spin_cas + 1) - mult) < SPIN_TOL,
                     f"spin contamination for root entry = {root}\n"
@@ -316,37 +295,53 @@ def _fci(
     # collect results
     res: Dict[str, Union[int, float, np.ndarray]] = {}
     if target_mbe == "energy":
-        res["energy"] = energy[-1] - hf_prop.item()
+        res["energy"] = energy[-1] - hf_prop
     elif target_mbe == "excitation":
         res["excitation"] = energy[-1] - energy[0]
     elif target_mbe == "dipole":
-        res["rdm1"] = solver.make_rdm1(civec[-1], cas_idx.size, n_elec)
+        res["rdm1"] = solver.make_rdm1(civec[-1], cas_idx.size, n_elecs)
     elif target_mbe == "trans":
         res["t_rdm1"] = solver.trans_rdm1(
             np.sign(civec[0][0, 0]) * civec[0],
             np.sign(civec[-1][0, 0]) * civec[-1],
             cas_idx.size,
-            n_elec,
+            n_elecs,
         )
+    elif target_mbe == "rdm12":
+        res["rdm1"], res["rdm2"] = solver.make_rdm12(civec[-1], cas_idx.size, n_elecs)
+        # subtract hf 1-rdm
+        np.einsum("ii->i", res["rdm1"])[...] -= occup[cas_idx]
+        # subtract hf 2-rdm
+        occup_a = occup[cas_idx]
+        occup_a[occup_a > 0.0] = 1.0
+        occup_b = occup[cas_idx] - occup_a
+        # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
+        np.einsum("iijj->ij", res["rdm2"])[...] -= np.einsum(
+            "i,j", occup[cas_idx], occup[cas_idx]
+        )
+        # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
+        np.einsum("ijji->ij", res["rdm2"])[...] += np.einsum(
+            "i,j", occup_a, occup_a
+        ) + np.einsum("i,j", occup_b, occup_b)
 
     return res
 
 
-def _cc(
+def cc_kernel(
     spin: int,
     occup: np.ndarray,
     core_idx: np.ndarray,
     cas_idx: np.ndarray,
     method: str,
     cc_backend: str,
-    n_elec: Tuple[int, int],
+    n_elecs: np.ndarray,
     orb_type: str,
     point_group: str,
     orbsym: np.ndarray,
     h1e: np.ndarray,
     h2e: np.ndarray,
     higher_amp_extrap: bool,
-    rdm1: bool,
+    target: str,
     verbose: int,
 ) -> Dict[str, Any]:
     """
@@ -359,7 +354,8 @@ def _cc(
     if cc_backend == "pyscf":
 
         # init ccsd solver
-        mol_tmp = gto.M(verbose=0)
+        mol_tmp = gto.Mole(verbose=0)
+        mol_tmp._built = True
         mol_tmp.max_memory = MAX_MEM
         mol_tmp.incore_anyway = True
 
@@ -386,7 +382,7 @@ def _cc(
 
         # settings
         ccsd.conv_tol = CONV_TOL
-        if rdm1:
+        if target in ["dipole", "rdm12"]:
             ccsd.conv_tol_normt = ccsd.conv_tol
         ccsd.max_cycle = 500
         ccsd.async_io = False
@@ -410,8 +406,11 @@ def _cc(
         # calculate (t) correction
         if method == "ccsd(t)":
 
+            # number of holes in cas space
+            n_holes = nholes(n_elecs, cas_idx)
+
             # n_exc
-            n_exc = nexc(n_elec, cas_idx)
+            n_exc = nexc(n_elecs, n_holes)
 
             # ensure that more than two excitations are possible
             if n_exc > 2:
@@ -431,7 +430,7 @@ def _cc(
             orbsym[cas_idx],
             h1e,
             h2e,
-            n_elec,
+            n_elecs,
             higher_amp_extrap,
             verbose,
         )
@@ -448,21 +447,50 @@ def _cc(
     # collect results
     res: Dict[str, Union[float, np.ndarray]] = {"energy": e_cc}
 
-    # rdm1
-    if rdm1:
+    # rdms
+    if target in ["dipole", "rdm12"]:
         if method == "ccsd" or n_exc <= 2:
             ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
-            rdm1s = ccsd.make_rdm1()
+            rdm1 = ccsd.make_rdm1()
+            if target == "rdm12":
+                rdm2 = ccsd.make_rdm2()
         elif method == "ccsd(t)":
             if singlet:
                 l1, l2 = ccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
-                rdm1s = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                rdm1 = ccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                if target == "rdm12":
+                    rdm2 = ccsd_t_rdm.make_rdm2(
+                        ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
+                    )
             else:
                 l1, l2 = uccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
-                rdm1s = uccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                rdm1 = uccsd_t_rdm.make_rdm1(ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris)
+                if target == "rdm12":
+                    rdm2 = uccsd_t_rdm.make_rdm2(
+                        ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
+                    )
         if singlet:
-            res["rdm1"] = rdm1s
+            res["rdm1"] = rdm1
         else:
-            res["rdm1"] = rdm1s[0] + rdm1s[1]
+            res["rdm1"] = rdm1[0] + rdm1[1]
+        if target == "rdm12":
+            if singlet:
+                res["rdm2"] = rdm2
+            else:
+                res["rdm2"] = rdm2[0] + rdm2[1] + rdm2[2] + rdm2[3]
+            # subtract hf 1-rdm
+            np.einsum("ii->i", res["rdm1"])[...] -= occup[cas_idx]
+            # subtract hf 2-rdm
+            occup_a = occup[cas_idx]
+            occup_a[occup_a > 0.0] = 1.0
+            occup_b = occup[cas_idx] - occup_a
+            # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
+            np.einsum("iijj->ij", res["rdm2"])[...] -= np.einsum(
+                "i,j", occup[cas_idx], occup[cas_idx]
+            )
+            # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
+            np.einsum("ijji->ij", res["rdm2"])[...] += np.einsum(
+                "i,j", occup_a, occup_a
+            ) + np.einsum("i,j", occup_b, occup_b)
 
     return res

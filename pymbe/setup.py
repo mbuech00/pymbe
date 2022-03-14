@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 
 """
-start module
+setup module
 """
 
 from __future__ import annotations
@@ -19,12 +19,20 @@ import os
 import logging
 import numpy as np
 from json import load, dump
-from pyscf import symm
+from pyscf import symm, ao2mo
 from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
-from pymbe.expansion import ExpCls
-from pymbe.tools import RST, logger_config, assertion, nelec, nexc, ground_state_sym
+from pymbe.tools import (
+    RST,
+    logger_config,
+    assertion,
+    nelecs,
+    nholes,
+    nexc,
+    ground_state_sym,
+    get_vhf,
+)
 
 if TYPE_CHECKING:
 
@@ -96,7 +104,7 @@ def main(mbe: MBE) -> MBE:
 
             # set default value for fci wavefunction state root
             if mbe.fci_state_root is None:
-                if mbe.target in ["energy", "dipole"]:
+                if mbe.target in ["energy", "dipole", "rdm12"]:
                     mbe.fci_state_root = 0
                 elif mbe.target in ["excitation", "trans"]:
                     mbe.fci_state_root = 1
@@ -107,14 +115,27 @@ def main(mbe: MBE) -> MBE:
             elif mbe.target == "trans":
                 mbe.hf_prop = np.zeros(3, dtype=np.float64)
 
+            # prepare integrals
+            if mbe.eri is not None and mbe.norb is not None:
+
+                # compute hartree-fock potential
+                if mbe.vhf is None and mbe.nocc is not None:
+                    mbe.vhf = get_vhf(mbe.eri, mbe.nocc, mbe.norb)
+
+                # reorder electron repulsion integrals
+                mbe.eri = ao2mo.restore(4, mbe.eri, mbe.norb)
+
             # set default value for reference space property
             if mbe.ref_prop is None and mbe.occup is not None:
 
                 # n_elec
-                n_elec = nelec(mbe.occup, mbe.ref_space)
+                n_elecs = nelecs(mbe.occup, mbe.ref_space)
+
+                # n_holes
+                n_holes = nholes(n_elecs, mbe.ref_space)
 
                 # n_exc
-                n_exc = nexc(n_elec, mbe.ref_space)
+                n_exc = nexc(n_elecs, n_holes)
 
                 if (
                     n_exc <= 1
@@ -126,6 +147,11 @@ def main(mbe: MBE) -> MBE:
                         mbe.ref_prop = 0.0
                     elif mbe.target in ["dipole", "trans"]:
                         mbe.ref_prop = np.zeros(3, dtype=np.float64)
+                    elif mbe.target == "rdm12" and mbe.ref_space is not None:
+                        mbe.ref_prop = (
+                            np.zeros(2 * (mbe.ref_space.size,), dtype=np.float64),
+                            np.zeros(4 * (mbe.ref_space.size,), dtype=np.float64),
+                        )
 
             # set default value for base model property
             if mbe.base_prop is None and mbe.base_method is None:
@@ -133,6 +159,11 @@ def main(mbe: MBE) -> MBE:
                     mbe.base_prop = 0.0
                 elif mbe.target in ["dipole", "trans"]:
                     mbe.base_prop = np.zeros(3, dtype=np.float64)
+                elif mbe.target == "rdm12" and mbe.norb is not None:
+                    mbe.base_prop = (
+                        np.zeros(2 * (mbe.norb,), dtype=np.float64),
+                        np.zeros(4 * (mbe.norb,), dtype=np.float64),
+                    )
 
             # create restart folder
             if mbe.rst:
@@ -175,9 +206,6 @@ def main(mbe: MBE) -> MBE:
     # configure logging on slaves
     if not mbe.mpi.global_master:
         logger_config(mbe.verbose)
-
-    # exp object
-    mbe.exp = ExpCls(mbe)
 
     return mbe
 
@@ -249,14 +277,14 @@ def sanity_check(mbe: MBE) -> None:
         "expansion target property (target keyword argument) must be a string",
     )
     assertion(
-        mbe.target in ["energy", "excitation", "dipole", "trans"],
+        mbe.target in ["energy", "excitation", "dipole", "trans", "rdm12"],
         "invalid choice for target property (target keyword argument). valid choices "
-        "are: energy, excitation energy (excitation), dipole, and transition dipole "
-        "(trans)",
+        "are: energy, excitation energy (excitation), dipole, transition dipole "
+        "(trans) and 1- and 2-particle reduced density matrices (rdm12)",
     )
     if mbe.method != "fci":
         assertion(
-            mbe.target in ["energy", "dipole"],
+            mbe.target in ["energy", "dipole", "rdm12"],
             "excited target states (target keyword argument) not implemented for "
             "chosen expansion model (method keyword argument)",
         )
@@ -312,6 +340,11 @@ def sanity_check(mbe: MBE) -> None:
                 "estimate the unrestricted CC property on the basis of a ROHF "
                 "reference function instead of the fully restricted CC property."
             )
+        assertion(
+            mbe.target != "rdm12",
+            "1- and 2-particle reduced density matrix calculations are currently not "
+            "implemented for open-shell systems.",
+        )
     assertion(
         isinstance(mbe.point_group, str),
         "symmetry (point_group keyword argument) must be a str",
@@ -384,6 +417,15 @@ def sanity_check(mbe: MBE) -> None:
             "hartree-fock dipole moment (hf_prop keyword argument) must be a "
             "np.ndarray",
         )
+    elif mbe.target == "rdm12":
+        assertion(
+            isinstance(mbe.hf_prop, tuple)
+            and len(mbe.hf_prop) == 2
+            and isinstance(mbe.hf_prop[0], np.ndarray)
+            and isinstance(mbe.hf_prop[1], np.ndarray),
+            "hartree-fock 1- and 2-particle density matrices (hf_prop keyword argument) "
+            "must be a tuple of np.ndarray with dimension 2",
+        )
     assertion(
         isinstance(mbe.occup, np.ndarray),
         "orbital occupation (occup keyword argument) must be a np.ndarray",
@@ -418,12 +460,12 @@ def sanity_check(mbe: MBE) -> None:
         "core hamiltonian integral (hcore keyword argument) must be a np.ndarray",
     )
     assertion(
-        isinstance(mbe.vhf, np.ndarray),
-        "hartree-fock potential (vhf keyword argument) must be a np.ndarray",
-    )
-    assertion(
         isinstance(mbe.eri, np.ndarray),
         "electron repulsion integral (eri keyword argument) must be a np.ndarray",
+    )
+    assertion(
+        isinstance(mbe.vhf, np.ndarray),
+        "hartree-fock potential (vhf keyword argument) must be a np.ndarray",
     )
     if mbe.target in ["dipole", "trans"]:
         assertion(
@@ -453,6 +495,15 @@ def sanity_check(mbe: MBE) -> None:
             "reference (transition) dipole moment (ref_prop keyword argument) must be "
             "a np.ndarray",
         )
+    elif mbe.target == "rdm12":
+        assertion(
+            isinstance(mbe.ref_prop, tuple)
+            and len(mbe.ref_prop) == 2
+            and isinstance(mbe.ref_prop[0], np.ndarray)
+            and isinstance(mbe.ref_prop[1], np.ndarray),
+            "reference 1- and 2-particle density matrices (ref_prop keyword argument) "
+            "must be a tuple of np.ndarray with dimension 2",
+        )
 
     # base model
     assertion(
@@ -479,7 +530,7 @@ def sanity_check(mbe: MBE) -> None:
                 "ecc coupled-cluster backends (cc_backend keyword argument)",
             )
         assertion(
-            mbe.target in ["energy", "dipole"],
+            mbe.target in ["energy", "dipole", "rdm12"],
             "excited target states (target keyword argument) not implemented for base "
             "model calculations (base_method keyword argument)",
         )
@@ -505,6 +556,15 @@ def sanity_check(mbe: MBE) -> None:
                 isinstance(mbe.base_prop, np.ndarray),
                 "base model dipole moment (base_prop keyword argument) must be a "
                 "np.ndarray",
+            )
+        elif mbe.target == "rdm12":
+            assertion(
+                isinstance(mbe.base_prop, tuple)
+                and len(mbe.base_prop) == 2
+                and isinstance(mbe.base_prop[0], np.ndarray)
+                and isinstance(mbe.base_prop[1], np.ndarray),
+                "base model 1- and 2-particle density matrices (base_prop keyword argument) "
+                "must be a tuple of np.ndarray with dimension 2",
             )
 
     # screening
@@ -613,23 +673,40 @@ def restart_write_system(mbe: MBE) -> None:
         "norb": mbe.norb,
         "spin": mbe.spin,
         "orbsym": mbe.orbsym,
-        "hf_prop": mbe.hf_prop,
         "occup": mbe.occup,
         "hcore": mbe.hcore,
         "vhf": mbe.vhf,
         "eri": mbe.eri,
         "ref_space": mbe.ref_space,
-        "ref_prop": mbe.ref_prop,
-        "base_prop": mbe.base_prop,
     }
 
-    if mbe.target == "dipole":
+    if (
+        isinstance(mbe.hf_prop, (float, np.ndarray))
+        and isinstance(mbe.ref_prop, (float, np.ndarray))
+        and isinstance(mbe.base_prop, (float, np.ndarray))
+    ):
+        system["hf_prop"] = mbe.hf_prop
+        system["ref_prop"] = mbe.ref_prop
+        system["base_prop"] = mbe.base_prop
+    elif (
+        isinstance(mbe.hf_prop, tuple)
+        and isinstance(mbe.ref_prop, tuple)
+        and isinstance(mbe.base_prop, tuple)
+    ):
+        system["hf_prop1"] = mbe.hf_prop[0]
+        system["hf_prop2"] = mbe.hf_prop[1]
+        system["ref_prop1"] = mbe.ref_prop[0]
+        system["ref_prop2"] = mbe.ref_prop[1]
+        system["base_prop1"] = mbe.base_prop[0]
+        system["base_prop2"] = mbe.base_prop[1]
+
+    if mbe.nuc_dipole is not None:
         system["nuc_dipole"] = mbe.nuc_dipole
 
-    if mbe.target in ["dipole", "trans"]:
+    if mbe.dipole_ints is not None:
         system["dipole_ints"] = mbe.dipole_ints
 
-    if mbe.pi_prune:
+    if mbe.orbsym_linear is not None:
         system["orbsym_linear"] = mbe.orbsym_linear
 
     # write system quantities
@@ -658,6 +735,10 @@ def restart_read_system(mbe: MBE) -> MBE:
         scalars.append("hf_prop")
         scalars.append("ref_prop")
         scalars.append("base_prop")
+    elif mbe.target == "rdm12":
+        system["hf_prop"] = (system.pop("hf_prop1"), system.pop("hf_prop2"))
+        system["ref_prop"] = (system.pop("ref_prop1"), system.pop("ref_prop2"))
+        system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
 
     # convert to scalars
     for scalar in scalars:

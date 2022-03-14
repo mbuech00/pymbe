@@ -18,7 +18,7 @@ import pytest
 import numpy as np
 from typing import TYPE_CHECKING
 
-from pymbe.kernel import e_core_h1e, main, _dipole, _fci, _cc
+from pymbe.kernel import e_core_h1e, main_kernel, dipole_kernel, fci_kernel, cc_kernel
 
 if TYPE_CHECKING:
 
@@ -33,7 +33,7 @@ test_cases_main = [
         "energy",
         "pyscf",
         0,
-        -0.00627368491326763,
+        {"energy": -0.00627368491326763},
     ),
     (
         "hubbard",
@@ -41,7 +41,7 @@ test_cases_main = [
         "energy",
         "pyscf",
         0,
-        -2.8759428090050676,
+        {"energy": -2.8759428090050676},
     ),
     (
         "h2o",
@@ -49,7 +49,7 @@ test_cases_main = [
         "energy",
         "pyscf",
         0,
-        -0.006273684840715439,
+        {"energy": -0.006273684840715439},
     ),
     (
         "h2o",
@@ -57,7 +57,7 @@ test_cases_main = [
         "energy",
         "ecc",
         0,
-        -0.00627368488758955,
+        {"energy": -0.00627368488758955},
     ),
     (
         "h2o",
@@ -65,7 +65,7 @@ test_cases_main = [
         "energy",
         "ncc",
         0,
-        -0.006273684885561386,
+        {"energy": -0.006273684885561386},
     ),
     (
         "h2o",
@@ -73,7 +73,7 @@ test_cases_main = [
         "dipole",
         "pyscf",
         0,
-        np.array([0.0, 0.0, -1.02539818e-03], dtype=np.float64),
+        {"rdm1_sum": 9.996892589445256, "rdm1_amax": 2.0},
     ),
     (
         "h2o",
@@ -81,7 +81,7 @@ test_cases_main = [
         "dipole",
         "pyscf",
         0,
-        np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64),
+        {"rdm1_sum": 9.996892588820488, "rdm1_amax": 2.0},
     ),
     (
         "h2o",
@@ -89,7 +89,7 @@ test_cases_main = [
         "excitation",
         "pyscf",
         1,
-        1.3506589063482437,
+        {"excitation": 1.3506589063482437},
     ),
     (
         "hubbard",
@@ -97,7 +97,7 @@ test_cases_main = [
         "excitation",
         "pyscf",
         1,
-        1.850774199956839,
+        {"excitation": 1.850774199956839},
     ),
     (
         "h2o",
@@ -105,11 +105,15 @@ test_cases_main = [
         "trans",
         "pyscf",
         1,
-        np.array([0.0, 0.0, 4.37278322e-02], dtype=np.float64),
+        {
+            "t_rdm1_sum": 1.4605282782265316,
+            "t_rdm1_amax": 1.405776909336337,
+            "t_rdm1_trace": 0.0,
+        },
     ),
 ]
 
-test_cases_fci = [
+test_cases_fci_kernel = [
     (
         "h2o",
         "energy",
@@ -168,7 +172,7 @@ test_cases_fci = [
     ),
 ]
 
-test_cases_cc = [
+test_cases_cc_kernel = [
     (
         "h2o",
         "ccsd",
@@ -281,7 +285,7 @@ def test_e_core_h1e() -> None:
     ids=["-".join([item for item in case[0:4] if item]) for case in test_cases_main],
     indirect=["system"],
 )
-def test_main(
+def test_kernel_main(
     system: str,
     mol: gto.Mole,
     hf: scf.RHF,
@@ -293,10 +297,10 @@ def test_main(
     target: str,
     cc_backend: str,
     root: int,
-    ref_res: Union[float, np.ndarray],
+    ref_res: Dict[str, Union[float, int]],
 ) -> None:
     """
-    this function tests main
+    this function tests main_kernel
     """
     if system == "h2o":
 
@@ -316,31 +320,30 @@ def test_main(
 
     h1e_cas, h2e_cas = ints_cas
 
-    n_elec = (
-        np.count_nonzero(occup[cas_idx] > 0.0),
-        np.count_nonzero(occup[cas_idx] > 1.0),
+    n_elecs = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
     )
 
     if target == "energy":
 
-        dipole_ints = None
         hf_prop = np.array([hf_energy], dtype=np.float64)
 
     elif target == "excitation":
 
-        dipole_ints = None
         hf_prop = np.array([0.0], dtype=np.float64)
 
     elif target == "dipole":
 
-        dipole_ints, hf_prop = dipole_quantities
+        _, hf_prop = dipole_quantities
 
     elif target == "trans":
 
-        dipole_ints, _ = dipole_quantities
         hf_prop = np.zeros(3, dtype=np.float64)
 
-    res = main(
+    res = main_kernel(
         method,
         cc_backend,
         "pyscf_spin0",
@@ -359,17 +362,26 @@ def test_main(
         h2e_cas,
         core_idx,
         cas_idx,
-        n_elec,
+        n_elecs,
         0,
-        dipole_ints,
     )
 
-    assert res == pytest.approx(ref_res)
+    if target == "energy":
+        assert res["energy"] == pytest.approx(ref_res["energy"])
+    elif target == "dipole":
+        assert np.sum(res["rdm1"]) == pytest.approx(ref_res["rdm1_sum"])
+        assert np.amax(res["rdm1"]) == pytest.approx(ref_res["rdm1_amax"])
+    elif target == "excitation":
+        assert res["excitation"] == pytest.approx(ref_res["excitation"])
+    elif target == "trans":
+        assert np.sum(res["t_rdm1"]) == pytest.approx(ref_res["t_rdm1_sum"])
+        assert np.amax(res["t_rdm1"]) == pytest.approx(ref_res["t_rdm1_amax"])
+        assert np.trace(res["t_rdm1"]) == pytest.approx(ref_res["t_rdm1_trace"])
 
 
 def test_dipole() -> None:
     """
-    this function tests _dipole
+    this function tests dipole_kernel
     """
     occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
     hf_dipole = np.zeros(3, dtype=np.float64)
@@ -378,7 +390,7 @@ def test_dipole() -> None:
     dipole_ints = np.random.rand(3, 6, 6)
     np.random.seed(1234)
     cas_rdm1 = np.random.rand(cas_idx.size, cas_idx.size)
-    dipole = _dipole(dipole_ints, occup, cas_idx, cas_rdm1, hf_dipole=hf_dipole)
+    dipole = dipole_kernel(dipole_ints, occup, cas_idx, cas_rdm1, hf_dipole=hf_dipole)
 
     assert dipole == pytest.approx(
         np.array([5.90055525, 5.36437348, 6.40001788], dtype=np.float64)
@@ -387,8 +399,8 @@ def test_dipole() -> None:
 
 @pytest.mark.parametrize(
     argnames="system, target, root, ref",
-    argvalues=test_cases_fci,
-    ids=["-".join(case[0:2]) for case in test_cases_fci],
+    argvalues=test_cases_fci_kernel,
+    ids=["-".join(case[0:2]) for case in test_cases_fci_kernel],
     indirect=["system"],
 )
 def test_fci(
@@ -400,10 +412,10 @@ def test_fci(
     orbsym: np.ndarray,
     target: str,
     root: int,
-    ref: Dict[str, Union[float, int]],
+    ref: Dict[str, float],
 ) -> None:
     """
-    this function tests _fci
+    this function tests fci_kernel
     """
     if system == "h2o":
 
@@ -421,12 +433,14 @@ def test_fci(
 
     h1e_cas, h2e_cas = ints_cas
 
-    n_elec = (
-        np.count_nonzero(occup[cas_idx] > 0.0),
-        np.count_nonzero(occup[cas_idx] > 1.0),
+    n_elecs = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
     )
 
-    res = _fci(
+    res = fci_kernel(
         "pyscf_spin0",
         0,
         target,
@@ -440,7 +454,7 @@ def test_fci(
         h2e_cas,
         occup,
         cas_idx,
-        n_elec,
+        n_elecs,
         0,
     )
 
@@ -459,8 +473,8 @@ def test_fci(
 
 @pytest.mark.parametrize(
     argnames="system, method, target, cc_backend, ref",
-    argvalues=test_cases_cc,
-    ids=["-".join(case[0:3]) + "-" + case[3] for case in test_cases_cc],
+    argvalues=test_cases_cc_kernel,
+    ids=["-".join(case[0:3]) + "-" + case[3] for case in test_cases_cc_kernel],
     indirect=["system"],
 )
 def test_cc(
@@ -474,32 +488,34 @@ def test_cc(
     ref: Dict[str, float],
 ) -> None:
     """
-    this function tests _cc
+    this function tests cc_kernel
     """
     core_idx, cas_idx, _ = indices
 
     h1e_cas, h2e_cas = ints_cas
 
-    n_elec = (
-        np.count_nonzero(hf.mo_occ[cas_idx] > 0.0),
-        np.count_nonzero(hf.mo_occ[cas_idx] > 1.0),
+    n_elecs = np.array(
+        [
+            np.count_nonzero(hf.mo_occ[cas_idx] > 0.0),
+            np.count_nonzero(hf.mo_occ[cas_idx] > 1.0),
+        ]
     )
 
-    res = _cc(
+    res = cc_kernel(
         0,
         hf.mo_occ,
         core_idx,
         cas_idx,
         method,
         cc_backend,
-        n_elec,
+        n_elecs,
         "can",
         "C2v",
         orbsym,
         h1e_cas,
         h2e_cas,
         True,
-        target == "dipole",
+        target,
         0,
     )
 

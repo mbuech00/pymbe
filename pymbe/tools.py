@@ -21,12 +21,14 @@ import logging
 import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
-from pyscf import symm
+from pyscf import symm, ao2mo
 from itertools import islice, combinations, groupby
-from math import floor, fsum as math_fsum
+from math import floor
 from subprocess import Popen, PIPE
 from traceback import format_stack
 from typing import TYPE_CHECKING
+
+from pymbe.parallel import open_shared_win
 
 if TYPE_CHECKING:
 
@@ -44,6 +46,301 @@ PI_SYMM_D2H = np.array(
     [2, 3, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27]
 )
 PI_SYMM_C2V = np.array([2, 3, 10, 11, 12, 13, 20, 21, 22, 23])
+
+
+class RDMCls:
+    """
+    this class holds the 1- and 2-particle RDMs and defines all necessary operations
+    """
+
+    def __init__(self, rdm1: np.ndarray, rdm2: np.ndarray):
+        """
+        initializes a RDM object
+        """
+        self.rdm1 = rdm1
+        self.rdm2 = rdm2
+
+    def __getitem__(self, idx: np.ndarray) -> RDMCls:
+        """
+        this function ensures RDMCls can be retrieved using one-dimensional indexing of
+        RDMCls objects
+        """
+        return RDMCls(
+            self.rdm1[idx.reshape(-1, 1), idx],
+            self.rdm2[
+                idx.reshape(-1, 1, 1, 1),
+                idx.reshape(1, -1, 1, 1),
+                idx.reshape(1, 1, -1, 1),
+                idx,
+            ],
+        )
+
+    def __setitem__(
+        self,
+        idx: np.ndarray,
+        values: Union[RDMCls, Tuple[np.ndarray, np.ndarray]],
+    ) -> RDMCls:
+        """
+        this function implements setting RDMs through indexing for the RDMCls objects
+        this function ensures RDMCls indexed in one dimension can be set using RDMCls
+        or tuples of numpy arrays
+        """
+        if isinstance(values, RDMCls):
+            self.rdm1[idx.reshape(-1, 1), idx] = values.rdm1
+            self.rdm2[
+                idx.reshape(-1, 1, 1, 1),
+                idx.reshape(1, -1, 1, 1),
+                idx.reshape(1, 1, -1, 1),
+                idx,
+            ] = values.rdm2
+        elif isinstance(values, tuple):
+            self.rdm1[idx.reshape(-1, 1), idx] = values[0]
+            self.rdm2[
+                idx.reshape(-1, 1, 1, 1),
+                idx.reshape(1, -1, 1, 1),
+                idx.reshape(1, 1, -1, 1),
+                idx,
+            ] = values[1]
+        else:
+            return NotImplemented
+
+        return self
+
+    def __add__(self, other: RDMCls) -> RDMCls:
+        """
+        this function implements addition for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            return RDMCls(self.rdm1 + other.rdm1, self.rdm2 + other.rdm2)
+        else:
+            return NotImplemented
+
+    def __iadd__(self, other: Union[RDMCls, packedRDMCls]) -> RDMCls:
+        """
+        this function implements inplace addition for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            self.rdm1 += other.rdm1
+            self.rdm2 += other.rdm2
+            return self
+        else:
+            return NotImplemented
+
+    def __sub__(self, other: RDMCls) -> RDMCls:
+        """
+        this function implements subtraction for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            return RDMCls(self.rdm1 - other.rdm1, self.rdm2 - other.rdm2)
+        else:
+            return NotImplemented
+
+    def __isub__(self, other: Union[RDMCls, packedRDMCls]) -> RDMCls:
+        """
+        this function implements inplace subtraction for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            self.rdm1 -= other.rdm1
+            self.rdm2 -= other.rdm2
+            return self
+        else:
+            return NotImplemented
+
+    def __truediv__(self, other: Union[int, float]) -> RDMCls:
+        """
+        this function implements division for the RDMCls objects
+        """
+        if isinstance(other, (int, float)):
+            return RDMCls(self.rdm1 / other, self.rdm2 / other)
+        else:
+            return NotImplemented
+
+    def __itruediv__(self, other: Union[int, float]) -> RDMCls:
+        """
+        this function implements inplace division for the RDMCls objects
+        """
+        if isinstance(other, (int, float)):
+            self.rdm1 /= other
+            self.rdm2 /= other
+            return self
+        else:
+            return NotImplemented
+
+    def fill(self, value: float) -> None:
+        """
+        this function defines the fill function for RDMCls objects
+        """
+        self.rdm1.fill(value)
+        self.rdm2.fill(value)
+
+    def copy(self) -> RDMCls:
+        """
+        this function creates a copy of RDMCls objects
+        """
+        return RDMCls(self.rdm1.copy(), self.rdm2.copy())
+
+
+class packedRDMCls:
+    """
+    this class describes packed RDMs, instances of this class can either be created
+    normally using __init__() or by opening a shared memory instance with
+    open_shared_RDM
+    """
+
+    rdm1_size: List[int] = []
+    pack_rdm1: List[Tuple[np.ndarray, np.ndarray]] = []
+    unpack_rdm1: List[np.ndarray] = []
+    rdm2_size: List[int] = []
+    pack_rdm2: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
+    unpack_rdm2: List[np.ndarray] = []
+
+    def __init__(self, rdm1: np.ndarray, rdm2: np.ndarray, idx: int = -1) -> None:
+        """
+        this function initializes a packedRDMCls object
+        """
+        self.rdm1 = rdm1
+        self.rdm2 = rdm2
+        self.idx = idx
+
+    @classmethod
+    def reset(cls):
+        """
+        this function resets the class to ensure class attributes are not kept from
+        previous runs
+        """
+        cls.rdm1_size = []
+        cls.pack_rdm1 = []
+        cls.unpack_rdm1 = []
+        cls.rdm2_size = []
+        cls.pack_rdm2 = []
+        cls.unpack_rdm2 = []
+
+    @classmethod
+    def open_shared_RDM(
+        cls, inc_win: Tuple[MPI.Win, MPI.Win], n_tuples: int, idx: int
+    ) -> packedRDMCls:
+        """
+        this factory function initializes a packedRDMCls object in shared memory
+        """
+        # open shared windows
+        rdm1 = open_shared_win(inc_win[0], np.float64, (n_tuples, cls.rdm1_size[idx]))
+        rdm2 = open_shared_win(inc_win[1], np.float64, (n_tuples, cls.rdm2_size[idx]))
+
+        return cls(rdm1, rdm2, idx)
+
+    @classmethod
+    def get_pack_idx(cls, norb) -> None:
+        """
+        this function generates packing and unpacking indices for the 1- and 2-particle
+        rdms and should be called at every order before a packedRDMCls object is
+        initialized at this order
+        """
+        pack_rdm1 = np.triu_indices(norb)
+        unpack_rdm1 = np.zeros((norb, norb), dtype=np.int64)
+        rdm1_size = pack_rdm1[0].size
+        indices = np.arange(rdm1_size)
+        unpack_rdm1[pack_rdm1] = indices
+        unpack_rdm1[pack_rdm1[1], pack_rdm1[0]] = indices
+
+        rdm2_size = (7 * norb**4 + 8 * norb**3 - norb**2 - 2 * norb) // 12
+        pack_rdm2 = np.empty((rdm2_size, 4), dtype=np.int64)
+        unpack_rdm2 = np.empty(4 * (norb,), dtype=np.int64)
+
+        i = 0
+        for s in range(norb):
+            for r in range(s + 1):
+                for q in range(s + 1):
+                    for p in range(norb):
+                        pack_rdm2[i, :] = np.array([p, q, r, s], dtype=np.int64)
+                        unpack_rdm2[p, q, r, s] = i
+                        unpack_rdm2[r, s, p, q] = i
+                        unpack_rdm2[q, p, s, r] = i
+                        unpack_rdm2[s, r, q, p] = i
+                        i += 1
+                for q in range(s + 1, norb):
+                    for p in range(r + 1):
+                        pack_rdm2[i, :] = np.array([p, q, r, s], dtype=np.int64)
+                        unpack_rdm2[p, q, r, s] = i
+                        unpack_rdm2[r, s, p, q] = i
+                        unpack_rdm2[q, p, s, r] = i
+                        unpack_rdm2[s, r, q, p] = i
+                        i += 1
+            for r in range(s + 1, norb):
+                for q in range(s + 1):
+                    for p in range(q + 1):
+                        pack_rdm2[i, :] = np.array([p, q, r, s], dtype=np.int64)
+                        unpack_rdm2[p, q, r, s] = i
+                        unpack_rdm2[r, s, p, q] = i
+                        unpack_rdm2[q, p, s, r] = i
+                        unpack_rdm2[s, r, q, p] = i
+                        i += 1
+                for q in range(s + 1, norb):
+                    for p in range(min(r + 1, q + 1)):
+                        pack_rdm2[i, :] = np.array([p, q, r, s], dtype=np.int64)
+                        unpack_rdm2[p, q, r, s] = i
+                        unpack_rdm2[r, s, p, q] = i
+                        unpack_rdm2[q, p, s, r] = i
+                        unpack_rdm2[s, r, q, p] = i
+                        i += 1
+
+        cls.rdm1_size.append(rdm1_size)
+        cls.pack_rdm1.append(pack_rdm1)
+        cls.unpack_rdm1.append(unpack_rdm1)
+        cls.rdm2_size.append(rdm2_size)
+        cls.pack_rdm2.append(
+            (pack_rdm2[:, 0], pack_rdm2[:, 1], pack_rdm2[:, 2], pack_rdm2[:, 3])
+        )
+        cls.unpack_rdm2.append(unpack_rdm2)
+
+    def __getitem__(self, idx: Union[int, np.int64, slice, np.ndarray]) -> packedRDMCls:
+        """
+        this function ensures packedRDMCls can be retrieved through indexing
+        packedRDMCls objects
+        """
+        if isinstance(idx, (int, np.integer, slice, np.ndarray)):
+            return packedRDMCls(self.rdm1[idx], self.rdm2[idx], self.idx)
+        else:
+            return NotImplemented
+
+    def __setitem__(
+        self,
+        idx: Union[int, np.int64, slice, np.ndarray],
+        values: Union[packedRDMCls, RDMCls, np.ndarray, float],
+    ) -> packedRDMCls:
+        """
+        this function ensures indexed packedRDMCls can be set using packedRDMCls or
+        RDMCls objects
+        """
+        if isinstance(idx, (slice, np.ndarray)) and isinstance(values, packedRDMCls):
+            self.rdm1[idx] = values.rdm1
+            self.rdm2[idx] = values.rdm2
+        elif isinstance(idx, (int, np.integer)) and isinstance(values, RDMCls):
+            self.rdm1[idx] = values.rdm1[self.pack_rdm1[self.idx]]
+            self.rdm2[idx] = values.rdm2[self.pack_rdm2[self.idx]]
+        else:
+            return NotImplemented
+
+        return self
+
+    def __radd__(self, other: RDMCls) -> RDMCls:
+        """
+        this function ensures the packedRDMCls object is unpacked when added to a RDMCls
+        object
+        """
+        if isinstance(other, RDMCls) and self.rdm1.ndim == 1 and self.rdm2.ndim == 1:
+            return other + RDMCls(
+                self.rdm1[self.unpack_rdm1[self.idx]],
+                self.rdm2[self.unpack_rdm2[self.idx]],
+            )
+        else:
+            return NotImplemented
+
+    def fill(self, value: float) -> None:
+        """
+        this function defines the fill function for packedRDMCls objects
+        """
+        self.rdm1.fill(value)
+        self.rdm2.fill(value)
 
 
 def logger_config(verbose: int) -> None:
@@ -145,18 +442,6 @@ def time_str(time: float) -> str:
     return string
 
 
-def fsum(a: np.ndarray) -> Union[float, np.ndarray]:
-    """
-    this function uses math.fsum to safely sum 1d array or 2d array (column-wise)
-    """
-    if a.ndim == 1:
-        return math_fsum(a)
-    elif a.ndim == 2:
-        return np.fromiter(map(math_fsum, a.T), dtype=a.dtype, count=a.shape[1])
-    else:
-        raise NotImplementedError("tools.py: _fsum()")
-
-
 def hash_2d(a: np.ndarray) -> np.ndarray:
     """
     this function converts a 2d numpy array to a 1d array of hashes
@@ -186,8 +471,9 @@ def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[np.ndarray
 def tuples(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
-    min_occ: int,
-    min_virt: int,
+    ref_n_elecs: np.ndarray,
+    ref_n_holes: np.ndarray,
+    vanish_exc: int,
     order: int,
     order_start: int = 1,
     occ_start: int = 0,
@@ -196,29 +482,24 @@ def tuples(
     """
     this function is the main generator for tuples
     """
-    # minimum number of occupied MOs in combined tuple
-    min_occ_comb = max(order_start, min_occ)
-
-    # maximum number of occupied MOs in combined tuple
-    max_occ_comb = min(order - 1, order - min_virt)
-
     # combinations of occupied and virtual MOs
-    for k in range(min_occ_comb, max_occ_comb + 1):
-        for tup_occ in islice(combinations(occ_space, k), occ_start, None):
-            for tup_virt in islice(
-                combinations(virt_space, order - k), virt_start, None
-            ):
-                yield np.array(tup_occ + tup_virt, dtype=np.int64)
-            virt_start = 0
-        occ_start = 0
+    for k in range(order_start, order):
+        if _valid_tup(ref_n_elecs, ref_n_holes, k, order - k, vanish_exc):
+            for tup_occ in islice(combinations(occ_space, k), occ_start, None):
+                for tup_virt in islice(
+                    combinations(virt_space, order - k), virt_start, None
+                ):
+                    yield np.array(tup_occ + tup_virt, dtype=np.int64)
+                virt_start = 0
+            occ_start = 0
 
     # only occupied MOs
-    if min_virt == 0 and 0 <= occ_start:
+    if _valid_tup(ref_n_elecs, ref_n_holes, order, 0, vanish_exc) and 0 <= occ_start:
         for tup_occ in islice(combinations(occ_space, order), occ_start, None):
             yield np.array(tup_occ, dtype=np.int64)
 
     # only virtual MOs
-    if min_occ == 0 and 0 <= virt_start:
+    if _valid_tup(ref_n_elecs, ref_n_holes, 0, order, vanish_exc) and 0 <= virt_start:
         for tup_virt in islice(combinations(virt_space, order), virt_start, None):
             yield np.array(tup_virt, dtype=np.int64)
 
@@ -278,32 +559,28 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
 def n_tuples(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
-    min_occ: int,
-    min_virt: int,
+    ref_n_elecs: np.ndarray,
+    ref_n_holes: np.ndarray,
+    vanish_exc: int,
     order: int,
 ) -> int:
     """
     this function returns the total number of tuples of a given order
     """
-    # minimum number of occupied MOs in combined tuple
-    min_occ_comb = max(1, min_occ)
-
-    # maximum number of occupied MOs in combined tuple
-    max_occ_comb = min(order - 1, order - min_virt)
-
     # init n_tuples
     n = 0.0
 
     # combinations of occupied and virtual MOs
-    for k in range(min_occ_comb, max_occ_comb + 1):
-        n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
+    for k in range(1, order):
+        if _valid_tup(ref_n_elecs, ref_n_holes, k, order - k, vanish_exc):
+            n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
 
     # only occupied MOs
-    if min_virt == 0:
+    if _valid_tup(ref_n_elecs, ref_n_holes, order, 0, vanish_exc):
         n += sc.binom(occ_space.size, order)
 
     # only virtual MOs
-    if min_occ == 0:
+    if _valid_tup(ref_n_elecs, ref_n_holes, 0, order, vanish_exc):
         n += sc.binom(virt_space.size, order)
 
     return int(n)
@@ -416,60 +693,49 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
     return idx is not None
 
 
-def min_orbs(occup: np.ndarray, tup: np.ndarray, vanish_exc: int) -> Tuple[int, int]:
-    """
-    this function returns the minimum number of occupied and virtual orbitals that need
-    to be added to the tuple to produce a non-vanishing correlation energy
-    """
-    # number of electrons in tuple
-    tup_elecs = nelec(occup, tup)
-
-    # number of holes in tuple
-    tup_holes = nholes(tup_elecs, tup)
-
-    # minimum number of spatial occupied orbitals that need to be added
-    min_occ = max(0, _ceildiv(vanish_exc - np.sum(tup_elecs) + 1, 2))
-
-    # minimum number of spatial virtual orbitals that need to be added
-    min_virt = max(0, _ceildiv(vanish_exc - np.sum(tup_holes) + 1, 2))
-
-    return min_occ, min_virt
-
-
-def _ceildiv(a: int, b: int):
-    """
-    this function returns performs integer ceiling division
-    """
-    return -(a // -b)
-
-
-def nelec(occup: np.ndarray, tup: np.ndarray) -> Tuple[int, int]:
+def nelecs(occup: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
     this function returns the number of electrons in a given tuple of orbitals
     """
     occup_tup = occup[tup]
-    return (np.count_nonzero(occup_tup > 0.0), np.count_nonzero(occup_tup > 1.0))
+    return np.array(
+        [np.count_nonzero(occup_tup > 0.0), np.count_nonzero(occup_tup > 1.0)]
+    )
 
 
-def nholes(n_elec: Tuple[int, int], tup: np.ndarray) -> np.ndarray:
+def nholes(n_elecs: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
     this function returns the number of holes in a given tuple of orbitals
     """
-    return tup.size - np.array(n_elec)
+    return tup.size - n_elecs
 
 
-def nexc(n_elec: Tuple[int, int], tup: np.ndarray) -> np.ndarray:
+def nexc(n_elecs: np.ndarray, n_holes: np.ndarray) -> int:
     """
     this function returns the number of possible excitations in a given tuple of
     orbitals
     """
-    # number of electrons in tuple
-    tup_elecs = np.array(n_elec)
+    return np.sum(np.minimum(n_elecs, n_holes))
 
-    # number of holes in tuple
-    tup_holes = nholes(n_elec, tup)
 
-    return np.sum(np.minimum(tup_elecs, tup_holes))
+def _valid_tup(
+    ref_n_elecs: np.ndarray,
+    ref_n_holes: np.ndarray,
+    tup_nocc: int,
+    tup_nvirt: int,
+    vanish_exc: int,
+) -> bool:
+    """
+    this function returns true if a tuple kind produces a non-vanishing correlation
+    energy
+    """
+    return (
+        nexc(
+            ref_n_elecs + np.array([tup_nocc, tup_nocc]),
+            ref_n_holes + np.array([tup_nvirt, tup_nvirt]),
+        )
+        > vanish_exc
+    )
 
 
 def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
@@ -552,20 +818,6 @@ def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
             yield [group_lst[0][1], group_lst[-1][1]]
 
 
-def inc_dim(target: str) -> int:
-    """
-    this function returns the dimension of increments
-    """
-    return 1 if target in ["energy", "excitation"] else 3
-
-
-def inc_shape(n: int, dim: int) -> Union[Tuple[int], Tuple[int, int]]:
-    """
-    this function returns the shape of increments
-    """
-    return (n,) if dim == 1 else (n, dim)
-
-
 def ground_state_sym(orbsym: np.ndarray, occup: np.ndarray, point_group: str) -> int:
     """
     this function determines the symmetry of the hf ground state
@@ -574,3 +826,19 @@ def ground_state_sym(orbsym: np.ndarray, occup: np.ndarray, point_group: str) ->
     for irrep in orbsym[occup == 1.0]:
         wfnsym = symm.addons.direct_prod(wfnsym, irrep, groupname=point_group)
     return wfnsym.item()
+
+
+def get_vhf(eri: np.ndarray, nocc: int, norb: int):
+    """
+    this function determines the Hartree-Fock potential from the electron repulsion
+    integrals
+    """
+    eri = ao2mo.restore(1, eri, norb)
+
+    vhf = np.empty((nocc, norb, norb), dtype=np.float64)
+    for i in range(nocc):
+        idx = np.asarray([i])
+        vhf[i] = np.einsum("pqrs->rs", eri[idx[:, None], idx, :, :]) * 2.0
+        vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
+
+    return vhf

@@ -122,30 +122,60 @@ test_cases_hubbard_h1e = [
 test_cases_hf = [
     (
         "h2o",
+        "energy",
         "h2o",
         False,
         False,
         -75.9838464521063,
+        True,
+        True,
+    ),
+    (
+        "h2o",
+        "dipole",
+        "h2o",
+        False,
+        False,
         np.array([0.0, 0.0, 8.64255793e-01], dtype=np.float64),
         True,
         True,
     ),
     (
         "h2o",
+        "energy",
         "h2o",
         True,
         False,
         -75.9838464521063,
+        False,
+        True,
+    ),
+    (
+        "h2o",
+        "dipole",
+        "h2o",
+        True,
+        False,
         np.array([0.0, 0.0, 8.64255793e-01], dtype=np.float64),
         False,
         True,
     ),
     (
         "h2o",
+        "energy",
         "h2o",
         False,
         True,
         -76.03260101758543,
+        False,
+        False,
+    ),
+    (
+        "h2o",
+        "dipole",
+        "h2o",
+        False,
+        True,
         np.array([0.0, 0.0, 8.62876951e-01], dtype=np.float64),
         False,
         False,
@@ -427,7 +457,7 @@ def test_ints(mol: gto.Mole, mo_coeff: np.ndarray, norb: int, nocc: int) -> None
     """
     this function tests ints
     """
-    hcore, vhf, eri = wrapper_ints(mol, mo_coeff, norb, nocc)
+    hcore, eri, vhf = wrapper_ints(mol, mo_coeff, norb, nocc)
 
     assert np.sum(hcore) == pytest.approx(-12371.574250637233)
     assert np.amax(hcore) == pytest.approx(-42.09685184826769)
@@ -513,10 +543,10 @@ def test_hubbard_eri() -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="system, mo_coeff, newton, x2c, ref_e_hf, ref_dipole, mo_coeff_eq, rdm1_eq",
+    argnames="system, target, mo_coeff, newton, x2c, ref_hf_prop, mo_coeff_eq, rdm1_eq",
     argvalues=test_cases_hf,
     ids=[
-        case[0]
+        "-".join(case[0:2])
         + ("-sym" if case[3] else "")
         + ("-newton" if case[2] else "")
         + ("-x2c" if case[4] else "")
@@ -526,13 +556,13 @@ def test_hubbard_eri() -> None:
 )
 def test_hf(
     mol: gto.Mole,
+    target: str,
     nocc: int,
     norb: int,
     mo_coeff: np.ndarray,
     newton: bool,
     x2c: bool,
-    ref_e_hf: float,
-    ref_dipole: np.ndarray,
+    ref_hf_prop: Union[float, np.ndarray],
     mo_coeff_eq: bool,
     rdm1_eq: bool,
 ) -> None:
@@ -544,8 +574,8 @@ def test_hf(
     ref_norb = norb
     ref_mo_coeff = mo_coeff
 
-    nocc, nvirt, norb, _, e_hf, dipole, occup, orbsym, mo_coeff = wrapper_hf(
-        mol, newton=newton, x2c=x2c
+    nocc, nvirt, norb, _, hf_prop, occup, orbsym, mo_coeff = wrapper_hf(
+        mol, target=target, newton=newton, x2c=x2c
     )
 
     rdm1 = scf.hf.make_rdm1(mo_coeff, occup)
@@ -554,8 +584,7 @@ def test_hf(
     assert nocc == ref_nocc
     assert nvirt == ref_nvirt
     assert norb == ref_norb
-    assert e_hf == pytest.approx(ref_e_hf)
-    assert dipole == pytest.approx(ref_dipole, rel=1e-5, abs=1e-11)
+    assert hf_prop == pytest.approx(ref_hf_prop, rel=1e-5, abs=1e-11)
     assert (occup == np.array([2.0] * 5 + [0.0] * 8, dtype=np.float64)).all()
     assert (
         orbsym == np.array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0], dtype=np.float64)
@@ -675,7 +704,7 @@ def test_casscf(
         hf,
         hf.mo_coeff,
         np.arange(2, 10, dtype=np.int64),
-        (4, 4),
+        np.array([4, 4]),
         ncore,
     )
 
@@ -699,6 +728,7 @@ def test_ref_prop(
     dipole_quantities: Tuple[np.ndarray, np.ndarray],
     orbsym: np.ndarray,
     nocc: int,
+    norb: int,
     method: str,
     base_method: Optional[str],
     target: str,
@@ -730,17 +760,18 @@ def test_ref_prop(
     res = ref_prop(
         mol,
         hcore,
-        vhf,
         eri,
         hf.mo_occ,
         orbsym,
         nocc,
+        norb,
         ref_space,
         method=method,
         base_method=base_method,
         cc_backend=cc_backend,
         fci_state_root=root,
         target=target,
+        vhf=vhf,
         **kwargs,
     )
 
@@ -773,7 +804,7 @@ def test_base(
 
     if target == "dipole":
 
-        _, dipole_kwargs["hf_dipole"] = dipole_quantities
+        _, dipole_kwargs["hf_prop"] = dipole_quantities
         dipole_kwargs["gauge_origin"] = np.zeros(3, dtype=np.float64)
 
     base_prop = base(
