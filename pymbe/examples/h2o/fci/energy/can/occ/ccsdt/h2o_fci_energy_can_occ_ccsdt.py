@@ -27,39 +27,26 @@ def mbe_example(rst=True):
         ncore = 1
 
         # hf calculation
-        nocc, _, norb, hf_object, hf_prop, occup, orbsym, mo_coeff = hf(mol)
+        hf_object, hf_prop, orbsym, mo_coeff = hf(mol)
 
         # base model
         base_energy = base(
-            "ccsdt",
-            mol,
-            hf_object,
-            mo_coeff,
-            occup,
-            orbsym,
-            norb,
-            ncore,
-            nocc,
-            cc_backend="ecc",
+            "ccsdt", mol, hf_object, mo_coeff, orbsym, ncore, cc_backend="ecc"
         )
 
         # reference space
         ref_space = np.array([1, 2, 3, 4], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
-            method="fci",
             cc_backend="ecc",
             mol=mol,
             ncore=ncore,
-            nocc=nocc,
-            norb=norb,
             orbsym=orbsym,
             hf_prop=hf_prop,
-            occup=occup,
             hcore=hcore,
             eri=eri,
             vhf=vhf,

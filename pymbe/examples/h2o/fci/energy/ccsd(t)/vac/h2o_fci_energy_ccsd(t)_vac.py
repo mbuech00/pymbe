@@ -27,26 +27,20 @@ def mbe_example(rst=True):
         ncore = 1
 
         # hf calculation
-        nocc, nvirt, norb, hf_object, hf_prop, occup, orbsym, mo_coeff = hf(mol)
+        hf_object, hf_prop, orbsym, mo_coeff = hf(mol)
 
         # natural orbitals
-        mo_coeff, orbsym = ref_mo(
-            "ccsd(t)", mol, hf_object, mo_coeff, occup, orbsym, norb, ncore, nocc, nvirt
-        )
+        mo_coeff, orbsym = ref_mo("ccsd(t)", mol, hf_object, mo_coeff, orbsym, ncore)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
-            method="fci",
             mol=mol,
             ncore=ncore,
-            nocc=nocc,
-            norb=norb,
             orbsym=orbsym,
             hf_prop=hf_prop,
-            occup=occup,
             orb_type="ccsd(t)",
             hcore=hcore,
             eri=eri,

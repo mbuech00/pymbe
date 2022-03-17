@@ -37,8 +37,8 @@ from pymbe.tools import (
     pi_space,
     _pi_orbs,
     pi_prune,
-    nelecs,
-    nholes,
+    get_nelec,
+    get_nhole,
     _valid_tup,
     mat_idx,
     near_nbrs,
@@ -47,6 +47,7 @@ from pymbe.tools import (
     intervals,
     ground_state_sym,
     get_vhf,
+    get_occup,
 )
 
 if TYPE_CHECKING:
@@ -134,13 +135,13 @@ test_cases_valid_tup = [
     ("both-both-2", np.array([1, 1]), np.array([1, 1]), 1, 1, 2, True),
 ]
 
-test_cases_nelecs = [
+test_cases_get_nelec = [
     ("4_elecs", np.array([1, 2], dtype=np.int64), np.array([2, 2])),
     ("2_elecs", np.array([2, 4], dtype=np.int64), np.array([1, 1])),
     ("no_elecs", np.array([3, 4], dtype=np.int64), np.array([0, 0])),
 ]
 
-test_cases_nholes = [
+test_cases_get_nhole = [
     ("4_holes", np.array([0, 0]), np.array([3, 4], dtype=np.int64), np.array([2, 2])),
     ("2_holes", np.array([1, 1]), np.array([2, 4], dtype=np.int64), np.array([1, 1])),
     ("no_holes", np.array([2, 2]), np.array([3, 4], dtype=np.int64), np.array([0, 0])),
@@ -164,16 +165,31 @@ test_cases_ground_state_sym = [
     (
         "closed-shell",
         np.arange(0, 4, dtype=np.int64),
-        np.array([2.0, 2.0, 0.0, 0.0], dtype=np.float64),
+        np.array([2, 2], dtype=np.int64),
         "c2v",
         0,
     ),
     (
         "open-shell",
         np.arange(0, 4, dtype=np.int64),
-        np.array([2.0, 1.0, 1.0, 0.0], dtype=np.float64),
+        np.array([3, 1], dtype=np.int64),
         "c2v",
         3,
+    ),
+]
+
+test_cases_get_occup = [
+    (
+        "closed-shell",
+        4,
+        np.array([2, 2], dtype=np.int64),
+        np.array([2, 2, 0, 0], dtype=np.int64),
+    ),
+    (
+        "open-shell",
+        4,
+        np.array([3, 1], dtype=np.int64),
+        np.array([2, 1, 1, 0], dtype=np.int64),
     ),
 ]
 
@@ -243,14 +259,14 @@ def test_tuples(ref_space: np.ndarray, ref_n_tuples: int) -> None:
     order = 3
     occup = np.array([2.0] * 4 + [0.0] * 4, dtype=np.float64)
     exp_space = np.array([0, 1, 2, 5, 6, 7], dtype=np.int64)
-    ref_n_elecs = nelecs(occup, ref_space)
-    ref_n_holes = nholes(ref_n_elecs, ref_space)
+    ref_nelec = get_nelec(occup, ref_space)
+    ref_nhole = get_nhole(ref_nelec, ref_space)
 
     gen = tuples(
         exp_space[exp_space < nocc],
         exp_space[nocc <= exp_space],
-        ref_n_elecs,
-        ref_n_holes,
+        ref_nelec,
+        ref_nhole,
         1,
         order,
     )
@@ -307,12 +323,12 @@ def test_idx(order: int, ref_idx: float) -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="ref_n_elecs, ref_n_holes, ref_n_tuples",
+    argnames="ref_nelec, ref_nhole, ref_n_tuples",
     argvalues=[case[1:] for case in test_cases_n_tuples],
     ids=[case[0] for case in test_cases_n_tuples],
 )
 def test_n_tuples(
-    ref_n_elecs: np.ndarray, ref_n_holes: np.ndarray, ref_n_tuples: int
+    ref_nelec: np.ndarray, ref_nhole: np.ndarray, ref_n_tuples: int
 ) -> None:
     """
     this function tests n_tuples
@@ -322,8 +338,7 @@ def test_n_tuples(
     virt_space = np.arange(10, 50, dtype=np.int64)
 
     assert (
-        n_tuples(occ_space, virt_space, ref_n_elecs, ref_n_holes, 1, order)
-        == ref_n_tuples
+        n_tuples(occ_space, virt_space, ref_nelec, ref_nhole, 1, order) == ref_n_tuples
     )
 
 
@@ -437,13 +452,13 @@ def test_pi_prune(tup: np.ndarray, ref_bool: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="ref_n_elecs, ref_n_holes, tup_nocc, tup_nvirt, vanish_exc, ref_bool",
+    argnames="ref_nelec, ref_nhole, tup_nocc, tup_nvirt, vanish_exc, ref_bool",
     argvalues=[case[1:] for case in test_cases_valid_tup],
     ids=[case[0] for case in test_cases_valid_tup],
 )
 def test_valid_tup(
-    ref_n_elecs: np.ndarray,
-    ref_n_holes: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
     tup_nocc: int,
     tup_nvirt: int,
     vanish_exc: int,
@@ -452,36 +467,35 @@ def test_valid_tup(
     """
     this function tests _valid_tup
     """
-    assert (
-        _valid_tup(ref_n_elecs, ref_n_holes, tup_nocc, tup_nvirt, vanish_exc)
-        == ref_bool
-    )
+    assert _valid_tup(ref_nelec, ref_nhole, tup_nocc, tup_nvirt, vanish_exc) == ref_bool
 
 
 @pytest.mark.parametrize(
-    argnames="tup, ref_nelecs",
-    argvalues=[case[1:] for case in test_cases_nelecs],
-    ids=[case[0] for case in test_cases_nelecs],
+    argnames="tup, ref_get_nelec",
+    argvalues=[case[1:] for case in test_cases_get_nelec],
+    ids=[case[0] for case in test_cases_get_nelec],
 )
-def test_nelecs(tup: np.ndarray, ref_nelecs: np.ndarray) -> None:
+def test_get_nelec(tup: np.ndarray, ref_get_nelec: np.ndarray) -> None:
     """
     this function tests nelec
     """
     occup = np.array([2.0] * 3 + [0.0] * 4, dtype=np.float64)
 
-    assert (nelecs(occup, tup) == ref_nelecs).all()
+    assert (get_nelec(occup, tup) == ref_get_nelec).all()
 
 
 @pytest.mark.parametrize(
-    argnames="n_elecs, tup, ref_nholes",
-    argvalues=[case[1:] for case in test_cases_nholes],
-    ids=[case[0] for case in test_cases_nholes],
+    argnames="nelec, tup, ref_get_nhole",
+    argvalues=[case[1:] for case in test_cases_get_nhole],
+    ids=[case[0] for case in test_cases_get_nhole],
 )
-def test_nholes(n_elecs: np.ndarray, tup: np.ndarray, ref_nholes: np.ndarray) -> None:
+def test_get_nhole(
+    nelec: np.ndarray, tup: np.ndarray, ref_get_nhole: np.ndarray
+) -> None:
     """
-    this function tests nholes
+    this function tests get_nhole
     """
-    assert (nholes(n_elecs, tup) == ref_nholes).all()
+    assert (get_nhole(nelec, tup) == ref_get_nhole).all()
 
 
 @pytest.mark.parametrize(
@@ -581,3 +595,15 @@ def test_get_vhf() -> None:
             ]
         )
     ).all()
+
+
+@pytest.mark.parametrize(
+    argnames="norb, nelec, ref_occup",
+    argvalues=[case[1:] for case in test_cases_get_occup],
+    ids=[case[0] for case in test_cases_get_occup],
+)
+def test_get_occup(norb: int, nelec: np.ndarray, ref_occup: np.ndarray) -> None:
+    """
+    this function tests get_occup
+    """
+    assert (get_occup(norb, nelec) == ref_occup).all()

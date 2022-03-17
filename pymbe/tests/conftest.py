@@ -122,7 +122,7 @@ def norb(mol: gto.Mole) -> int:
     """
     this fixture extracts the number of orbitals from the mol object
     """
-    return mol.nao_nr().item()
+    return mol.nao.item()
 
 
 @pytest.fixture
@@ -338,15 +338,13 @@ def mbe(
     mbe = MBE(
         nuc_energy=mol.energy_nuc().item(),
         ncore=ncore,
-        nocc=nocc,
         norb=norb,
-        spin=mol.spin,
+        nelec=mol.nelec,
         point_group=mol.groupname,
         orbsym=orbsym,
         fci_state_sym=0,
         fci_state_root=0,
         hf_prop=hf.e_tot,
-        occup=hf.mo_occ,
         hcore=hcore,
         eri=eri,
         vhf=vhf,

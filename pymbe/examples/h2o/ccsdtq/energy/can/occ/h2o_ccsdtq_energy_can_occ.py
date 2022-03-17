@@ -27,13 +27,13 @@ def mbe_example(rst=True):
         ncore = 1
 
         # hf calculation
-        nocc, _, norb, _, hf_prop, occup, orbsym, mo_coeff = hf(mol)
+        _, hf_prop, orbsym, mo_coeff = hf(mol)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
@@ -41,11 +41,8 @@ def mbe_example(rst=True):
             cc_backend="ncc",
             mol=mol,
             ncore=ncore,
-            nocc=nocc,
-            norb=norb,
             orbsym=orbsym,
             hf_prop=hf_prop,
-            occup=occup,
             hcore=hcore,
             eri=eri,
             vhf=vhf,

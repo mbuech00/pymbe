@@ -44,13 +44,14 @@ from pymbe.tools import (
     write_file,
     pi_prune,
     tuples,
-    nelecs,
-    nholes,
+    get_nelec,
+    get_nhole,
     start_idx,
     core_cas,
     idx_tril,
     hash_1d,
     hash_lookup,
+    get_occup,
 )
 from pymbe.parallel import (
     mpi_reduce,
@@ -100,7 +101,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         """
         # expansion model
         self.method: str = mbe.method
-        self.fci_solver: str = mbe.fci_solver
         self.cc_backend: str = mbe.cc_backend
         self.hf_guess: bool = mbe.hf_guess
 
@@ -110,17 +110,18 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         # system
         self.nuc_energy = cast(float, mbe.nuc_energy)
         self.ncore: int = mbe.ncore
-        self.nocc = cast(int, mbe.nocc)
         self.norb = cast(int, mbe.norb)
-        self.spin = cast(int, mbe.spin)
+        self.nelec = cast(np.ndarray, mbe.nelec)
         self.point_group = cast(str, mbe.point_group)
         self.orbsym = cast(np.ndarray, mbe.orbsym)
         self.fci_state_sym = cast(int, mbe.fci_state_sym)
         self.fci_state_root = cast(int, mbe.fci_state_root)
+        self.nocc = np.max(self.nelec)
+        self.spin = abs(self.nelec[0] - self.nelec[1])
 
         # hf calculation
         self.hf_prop: TargetType = hf_prop
-        self.occup = cast(np.ndarray, mbe.occup)
+        self.occup = get_occup(self.norb, self.nelec)
 
         # integrals
         hcore, eri, vhf = self._int_wins(
@@ -135,9 +136,9 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         # reference space
         self.ref_space: np.ndarray = mbe.ref_space
-        self.ref_n_elecs = nelecs(self.occup, self.ref_space)
-        self.ref_n_holes = nholes(self.ref_n_elecs, self.ref_space)
         self.ref_prop: TargetType = ref_prop
+        self.ref_nelec = get_nelec(self.occup, self.ref_space)
+        self.ref_nhole = get_nhole(self.ref_nelec, self.ref_space)
 
         # expansion space
         self.exp_space: List[np.ndarray] = [
@@ -272,8 +273,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
                     n_tuples(
                         self.exp_space[0][self.exp_space[0] < self.nocc],
                         self.exp_space[0][self.nocc <= self.exp_space[0]],
-                        self.ref_n_elecs,
-                        self.ref_n_holes,
+                        self.ref_nelec,
+                        self.ref_nhole,
                         -1,
                         self.order,
                     )
@@ -282,8 +283,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
                     n_tuples(
                         self.exp_space[-1][self.exp_space[-1] < self.nocc],
                         self.exp_space[-1][self.nocc <= self.exp_space[-1]],
-                        self.ref_n_elecs,
-                        self.ref_n_holes,
+                        self.ref_nelec,
+                        self.ref_nhole,
                         self.vanish_exc,
                         self.order,
                     )
@@ -432,8 +433,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
                         n_tuples(
                             self.exp_space[-1][self.exp_space[-1] < self.nocc],
                             self.exp_space[-1][self.nocc <= self.exp_space[-1]],
-                            self.ref_n_elecs,
-                            self.ref_n_holes,
+                            self.ref_nelec,
+                            self.ref_nhole,
                             self.vanish_exc,
                             self.order,
                         )
@@ -793,8 +794,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             tuples(
                 exp_occ,
                 exp_virt,
-                self.ref_n_elecs,
-                self.ref_n_holes,
+                self.ref_nelec,
+                self.ref_nhole,
                 self.vanish_exc,
                 self.order,
                 order_start,
@@ -893,7 +894,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             e_core, h1e_cas = e_core_h1e(self.nuc_energy, hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, n_elecs_tup = self._inc(
+            inc_tup, nelec_tup = self._inc(
                 e_core, h1e_cas, h2e_cas, core_idx, cas_idx, tup
             )
 
@@ -909,7 +910,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             screen[tup] = self._screen(inc_tup, screen, tup)
 
             # debug print
-            logger.debug(self._mbe_debug(n_elecs_tup, inc_tup, cas_idx, tup))
+            logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
 
             # update increment statistics
             min_inc, mean_inc, max_inc = self._update_inc_stats(
@@ -1096,8 +1097,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
                 tuples(
                     exp_occ,
                     exp_virt,
-                    self.ref_n_elecs,
-                    self.ref_n_holes,
+                    self.ref_nelec,
+                    self.ref_nhole,
                     self.vanish_exc,
                     k,
                 )
@@ -1415,7 +1416,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
     @abstractmethod
     def _mbe_debug(
         self,
-        n_elecs_tup: np.ndarray,
+        nelec_tup: np.ndarray,
         inc_tup: TargetType,
         cas_idx: np.ndarray,
         tup: np.ndarray,
@@ -1484,8 +1485,8 @@ class SingleTargetExpCls(
             for tup_sub in tuples(
                 tup_occ,
                 tup_virt,
-                self.ref_n_elecs,
-                self.ref_n_holes,
+                self.ref_nelec,
+                self.ref_nhole,
                 self.vanish_exc,
                 k,
             ):

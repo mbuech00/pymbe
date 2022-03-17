@@ -27,7 +27,7 @@ from pymbe.tools import (
     RST,
     RDMCls,
     packedRDMCls,
-    nelecs,
+    get_nelec,
     tuples,
     hash_1d,
     hash_lookup,
@@ -99,14 +99,13 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # n_elecs
-        n_elecs = nelecs(self.occup, cas_idx)
+        # nelec
+        nelec = get_nelec(self.occup, cas_idx)
 
         # perform main calc
         res = main_kernel(
             self.method,
             self.cc_backend,
-            self.fci_solver,
             self.orb_type,
             self.spin,
             self.occup,
@@ -122,7 +121,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
             h2e_cas,
             core_idx,
             cas_idx,
-            n_elecs,
+            nelec,
             self.verbose,
         )
 
@@ -133,7 +132,6 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
             res = main_kernel(
                 self.base_method,
                 self.cc_backend,
-                self.fci_solver,
                 self.orb_type,
                 self.spin,
                 self.occup,
@@ -149,7 +147,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
                 h2e_cas,
                 core_idx,
                 cas_idx,
-                n_elecs,
+                nelec,
                 self.verbose,
             )
 
@@ -161,7 +159,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
 
         res_full[ind] -= self.ref_prop
 
-        return res_full, n_elecs
+        return res_full, nelec
 
     def _sum(
         self,
@@ -211,16 +209,16 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
                 tuples(
                     tup_occ,
                     tup_virt,
-                    self.ref_n_elecs,
-                    self.ref_n_holes,
+                    self.ref_nelec,
+                    self.ref_nhole,
                     self.vanish_exc,
                     k,
                 ),
                 tuples(
                     ind_tup_occ,
                     ind_tup_virt,
-                    self.ref_n_elecs,
-                    self.ref_n_holes,
+                    self.ref_nelec,
+                    self.ref_nhole,
                     self.vanish_exc,
                     k,
                 ),
@@ -449,7 +447,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
 
     def _mbe_debug(
         self,
-        n_elecs_tup: np.ndarray,
+        nelec_tup: np.ndarray,
         inc_tup: RDMCls,
         cas_idx: np.ndarray,
         tup: np.ndarray,
@@ -458,7 +456,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         this function prints mbe debug information
         """
         string = mbe_debug(
-            self.point_group, self.orbsym, n_elecs_tup, self.order, cas_idx, tup
+            self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
         )
         string += (
             f"      rdm1 increment for root {self.fci_state_root:d} = "

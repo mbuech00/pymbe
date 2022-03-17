@@ -27,11 +27,12 @@ from pymbe.tools import (
     RST,
     logger_config,
     assertion,
-    nelecs,
-    nholes,
-    nexc,
+    get_nelec,
+    get_nhole,
+    get_nexc,
     ground_state_sym,
     get_vhf,
+    get_occup,
 )
 
 if TYPE_CHECKING:
@@ -57,9 +58,13 @@ def main(mbe: MBE) -> MBE:
             # copy attributes from mol object
             if mbe.mol:
 
-                # spin
-                if mbe.spin is None:
-                    mbe.spin = mbe.mol.spin
+                # number of orbitals
+                if mbe.norb is None:
+                    mbe.norb = mbe.mol.nao.item()
+
+                # number of electrons
+                if mbe.nelec is None:
+                    mbe.nelec = mbe.mol.nelec
 
                 # point group
                 if mbe.point_group is None and mbe.orb_type != "local":
@@ -80,9 +85,11 @@ def main(mbe: MBE) -> MBE:
                     else:
                         mbe.nuc_dipole = np.zeros(3, dtype=np.float64)
 
-            # set default value for spin
-            if mbe.spin is None:
-                mbe.spin = 0
+            # convert number of electrons to numpy array
+            if isinstance(mbe.nelec, int):
+                mbe.nelec = (-(mbe.nelec // -2), mbe.nelec // 2)
+            if mbe.nelec is not None:
+                mbe.nelec = np.asarray(mbe.nelec, dtype=np.int64)
 
             # set default value for point group
             if mbe.point_group is None:
@@ -90,14 +97,20 @@ def main(mbe: MBE) -> MBE:
             mbe.point_group = symm.addons.std_symb(mbe.point_group)
 
             # set default value for orbital symmetry
-            if mbe.orbsym is None and mbe.point_group == "C1" and mbe.norb is not None:
+            if (
+                mbe.orbsym is None
+                and mbe.point_group == "C1"
+                and isinstance(mbe.norb, int)
+            ):
                 mbe.orbsym = np.zeros(mbe.norb, dtype=np.int64)
 
             # set default value for fci wavefunction state symmetry
             if mbe.fci_state_sym is None:
-                if mbe.orbsym is not None and mbe.occup is not None:
+                if isinstance(mbe.orbsym, np.ndarray) and isinstance(
+                    mbe.nelec, np.ndarray
+                ):
                     mbe.fci_state_sym = ground_state_sym(
-                        mbe.orbsym, mbe.occup, cast(str, mbe.point_group)
+                        mbe.orbsym, mbe.nelec, cast(str, mbe.point_group)
                     )
                 else:
                     mbe.fci_state_sym = 0
@@ -116,32 +129,39 @@ def main(mbe: MBE) -> MBE:
                 mbe.hf_prop = np.zeros(3, dtype=np.float64)
 
             # prepare integrals
-            if mbe.eri is not None and mbe.norb is not None:
+            if isinstance(mbe.eri, np.ndarray) and isinstance(mbe.norb, int):
 
                 # compute hartree-fock potential
-                if mbe.vhf is None and mbe.nocc is not None:
-                    mbe.vhf = get_vhf(mbe.eri, mbe.nocc, mbe.norb)
+                if mbe.vhf is None and isinstance(mbe.nelec, np.ndarray):
+                    mbe.vhf = get_vhf(mbe.eri, np.amax(mbe.nelec), mbe.norb)
 
                 # reorder electron repulsion integrals
                 mbe.eri = ao2mo.restore(4, mbe.eri, mbe.norb)
 
             # set default value for reference space property
-            if mbe.ref_prop is None and mbe.occup is not None:
+            if (
+                mbe.ref_prop is None
+                and isinstance(mbe.norb, int)
+                and isinstance(mbe.nelec, np.ndarray)
+            ):
 
-                # n_elec
-                n_elecs = nelecs(mbe.occup, mbe.ref_space)
+                # get occupation vector
+                occup = get_occup(mbe.norb, mbe.nelec)
 
-                # n_holes
-                n_holes = nholes(n_elecs, mbe.ref_space)
+                # nelec
+                nelec = get_nelec(occup, mbe.ref_space)
 
-                # n_exc
-                n_exc = nexc(n_elecs, n_holes)
+                # nhole
+                nhole = get_nhole(nelec, mbe.ref_space)
+
+                # nexc
+                nexc = get_nexc(nelec, nhole)
 
                 if (
-                    n_exc <= 1
-                    or (mbe.base_method in ["ccsd", "ccsd(t)"] and n_exc <= 2)
-                    or (mbe.base_method == "ccsdt" and n_exc <= 3)
-                    or (mbe.base_method == "ccsdtq" and n_exc <= 4)
+                    nexc <= 1
+                    or (mbe.base_method in ["ccsd", "ccsd(t)"] and nexc <= 2)
+                    or (mbe.base_method == "ccsdt" and nexc <= 3)
+                    or (mbe.base_method == "ccsdtq" and nexc <= 4)
                 ):
                     if mbe.target in ["energy", "excitation"]:
                         mbe.ref_prop = 0.0
@@ -234,25 +254,11 @@ def sanity_check(mbe: MBE) -> None:
         "and ncc",
     )
     assertion(
-        isinstance(mbe.fci_solver, str),
-        "fci solver (fci_solver keyword argument) must be a string",
-    )
-    assertion(
-        mbe.fci_solver in ["pyscf_spin0", "pyscf_spin1"],
-        "valid fci solvers (fci_solver keyword argument) are: pyscf_spin0 and "
-        "pyscf_spin1",
-    )
-    assertion(
         isinstance(mbe.hf_guess, bool),
         "hf initial guess for fci calculations (hf_guess keyword argument) must be a "
         "bool",
     )
     if mbe.method != "fci":
-        assertion(
-            mbe.fci_solver == "pyscf_spin0",
-            "setting a fci solver (fci_solver keyword argument) for a non-fci "
-            "expansion model (method keyword argument) is not meaningful",
-        )
         assertion(
             mbe.hf_guess,
             "non-hf initial guess (hf_guess keyword argument) only valid for fci calcs "
@@ -311,29 +317,26 @@ def sanity_check(mbe: MBE) -> None:
         "number of core orbitals (ncore keyword argument) must be an int >= 0",
     )
     assertion(
-        isinstance(mbe.nocc, int) and mbe.nocc > 0,
-        "number of occupied orbitals (nocc keyword argument) must be an int > 0",
-    )
-    assertion(
         isinstance(mbe.norb, int) and mbe.norb > 0,
         "number of orbitals (norb keyword argument) must be an int > 0",
     )
     assertion(
-        isinstance(mbe.spin, int) and mbe.spin >= 0,
-        "spin (spin keyword argument) must be an int >= 0",
+        (
+            isinstance(mbe.nelec, np.ndarray)
+            and mbe.nelec.size == 2
+            and isinstance(mbe.nelec[0], np.int64)
+            and isinstance(mbe.nelec[1], np.int64)
+            and (mbe.nelec[0] > 0 or mbe.nelec[1] > 0)
+        ),
+        "number of electrons (nelec keyword argument) must be an int > 0 or a tuple of "
+        "ints > 0 with dimension 2 or a np.ndarray of ints > 0 with dimension 2",
     )
-    if mbe.spin is not None and mbe.spin > 0:
-        if mbe.method == "fci":
-            assertion(
-                mbe.fci_solver != "pyscf_spin0",
-                "the pyscf_spin0 fci solver (fci_solver keyword argument) is designed "
-                "for spin singlets only (spin keyword argument)",
-            )
+    if cast(np.ndarray, mbe.nelec)[0] != cast(np.ndarray, mbe.nelec)[1]:
         if mbe.method != "fci" or mbe.base_method is not None:
             assertion(
                 mbe.cc_backend == "pyscf",
                 "the ecc and ncc backends (cc_backend keyword argument) are designed "
-                "for closed-shell systems only (spin keyword argument)",
+                "for closed-shell systems only",
             )
             logger.warning(
                 "Warning: All open-shell CC calculations with the pyscf backend "
@@ -372,12 +375,11 @@ def sanity_check(mbe: MBE) -> None:
         isinstance(mbe.fci_state_root, int) and mbe.fci_state_root >= 0,
         "target state (root keyword argument) must be an int >= 0",
     )
-    if mbe.occup is not None:
-        hf_wfnsym = ground_state_sym(
-            cast(np.ndarray, mbe.orbsym), mbe.occup, cast(str, mbe.point_group)
-        )
-    else:
-        hf_wfnsym = 0
+    hf_wfnsym = ground_state_sym(
+        cast(np.ndarray, mbe.orbsym),
+        cast(np.ndarray, mbe.nelec),
+        cast(str, mbe.point_group),
+    )
     if mbe.method == "fci" and mbe.hf_guess:
         assertion(
             mbe.fci_state_sym == hf_wfnsym,
@@ -423,17 +425,9 @@ def sanity_check(mbe: MBE) -> None:
             and len(mbe.hf_prop) == 2
             and isinstance(mbe.hf_prop[0], np.ndarray)
             and isinstance(mbe.hf_prop[1], np.ndarray),
-            "hartree-fock 1- and 2-particle density matrices (hf_prop keyword argument) "
-            "must be a tuple of np.ndarray with dimension 2",
+            "hartree-fock 1- and 2-particle density matrices (hf_prop keyword "
+            "argument) must be a tuple of np.ndarray with dimension 2",
         )
-    assertion(
-        isinstance(mbe.occup, np.ndarray),
-        "orbital occupation (occup keyword argument) must be a np.ndarray",
-    )
-    assertion(
-        np.sum(mbe.occup == 1.0) == mbe.spin,
-        "only high-spin open-shell systems are currently possible",
-    )
 
     # orbital representation
     assertion(
@@ -479,11 +473,20 @@ def sanity_check(mbe: MBE) -> None:
         "reference space (ref_space keyword argument) must be a np.ndarray of orbital "
         "indices",
     )
-    assertion(
-        not np.any(np.delete(cast(np.ndarray, mbe.occup), mbe.ref_space) == 1.0),
-        "all partially occupied orbitals have to be included in the reference space "
-        "(ref_space keyword argument)",
-    )
+    if cast(np.ndarray, mbe.nelec)[0] != cast(np.ndarray, mbe.nelec)[1]:
+        assertion(
+            np.all(
+                np.isin(
+                    np.arange(
+                        np.amin(cast(np.ndarray, mbe.nelec)),
+                        np.amax(cast(np.ndarray, mbe.nelec)),
+                    ),
+                    mbe.ref_space,
+                )
+            ),
+            "all partially occupied orbitals have to be included in the reference "
+            "space (ref_space keyword argument)",
+        )
     if mbe.target in ["energy", "excitation"]:
         assertion(
             isinstance(mbe.ref_prop, float),
@@ -623,7 +626,6 @@ def restart_write_kw(mbe: MBE) -> None:
     # define keywords
     keywords = {
         "method": mbe.method,
-        "fci_solver": mbe.fci_solver,
         "cc_backend": mbe.cc_backend,
         "hf_guess": mbe.hf_guess,
         "target": mbe.target,
@@ -669,11 +671,9 @@ def restart_write_system(mbe: MBE) -> None:
     system = {
         "nuc_energy": mbe.nuc_energy,
         "ncore": mbe.ncore,
-        "nocc": mbe.nocc,
         "norb": mbe.norb,
-        "spin": mbe.spin,
+        "nelec": mbe.nelec,
         "orbsym": mbe.orbsym,
-        "occup": mbe.occup,
         "hcore": mbe.hcore,
         "vhf": mbe.vhf,
         "eri": mbe.eri,
@@ -729,7 +729,7 @@ def restart_read_system(mbe: MBE) -> MBE:
     system_npz.close()
 
     # define scalar values
-    scalars = ["nuc_energy", "ncore", "nocc", "norb", "spin"]
+    scalars = ["nuc_energy", "ncore", "norb"]
 
     if mbe.target in ["energy", "excitation"]:
         scalars.append("hf_prop")

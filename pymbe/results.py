@@ -40,7 +40,7 @@ if PLT_FOUND:
         pass
         SNS_FOUND = False
 
-from pymbe.tools import intervals, time_str, nelecs
+from pymbe.tools import intervals, time_str, get_nelec
 
 if TYPE_CHECKING:
 
@@ -120,27 +120,25 @@ def _system(nocc: int, ncore: int, norb: int) -> str:
     return f"{2 * (nocc - ncore)} e in {norb - ncore} o"
 
 
-def _solver(method: str, fci_solver: str) -> str:
+def _solver(method: str, spin: int) -> str:
     """
     this function returns the chosen fci solver
     """
     if method != "fci":
         return "none"
     else:
-        if fci_solver == "pyscf_spin0":
+        if spin == 0:
             return "PySCF (spin0)"
-        elif fci_solver == "pyscf_spin1":
-            return "PySCF (spin1)"
         else:
-            raise NotImplementedError("unknown solver")
+            return "PySCF (spin1)"
 
 
 def _active_space(occup: np.ndarray, ref_space: np.ndarray) -> str:
     """
     this function returns the active space
     """
-    act_n_elecs = nelecs(occup, ref_space)
-    string = f"{act_n_elecs[0] + act_n_elecs[1]} e, {ref_space.size} o"
+    act_nelec = get_nelec(occup, ref_space)
+    string = f"{act_nelec[0] + act_nelec[1]} e, {ref_space.size} o"
     return string
 
 
@@ -283,7 +281,7 @@ def summary_prt(
     )
     string += (
         f"{'':5}{'FCI solver':<24}{'=':1}{'':2}"
-        f"{_solver(exp.method, exp.fci_solver):<16s}{'|':1}{'':2}"
+        f"{_solver(exp.method, exp.spin):<16s}{'|':1}{'':2}"
         f"{'':<24}{'':1}{'':2}"
         f"{'':<16s}{'|':1}{'':2}"
         f"{('total time'):<24}{'=':1}{'':2}"

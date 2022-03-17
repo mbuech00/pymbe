@@ -320,7 +320,7 @@ def test_kernel_main(
 
     h1e_cas, h2e_cas = ints_cas
 
-    n_elecs = np.array(
+    nelec = np.array(
         [
             np.count_nonzero(occup[cas_idx] > 0.0),
             np.count_nonzero(occup[cas_idx] > 1.0),
@@ -346,7 +346,6 @@ def test_kernel_main(
     res = main_kernel(
         method,
         cc_backend,
-        "pyscf_spin0",
         "can",
         0,
         occup,
@@ -362,7 +361,7 @@ def test_kernel_main(
         h2e_cas,
         core_idx,
         cas_idx,
-        n_elecs,
+        nelec,
         0,
     )
 
@@ -433,7 +432,7 @@ def test_fci(
 
     h1e_cas, h2e_cas = ints_cas
 
-    n_elecs = np.array(
+    nelec = np.array(
         [
             np.count_nonzero(occup[cas_idx] > 0.0),
             np.count_nonzero(occup[cas_idx] > 1.0),
@@ -441,7 +440,6 @@ def test_fci(
     )
 
     res = fci_kernel(
-        "pyscf_spin0",
         0,
         target,
         0,
@@ -454,7 +452,7 @@ def test_fci(
         h2e_cas,
         occup,
         cas_idx,
-        n_elecs,
+        nelec,
         0,
     )
 
@@ -494,7 +492,7 @@ def test_cc(
 
     h1e_cas, h2e_cas = ints_cas
 
-    n_elecs = np.array(
+    nelec = np.array(
         [
             np.count_nonzero(hf.mo_occ[cas_idx] > 0.0),
             np.count_nonzero(hf.mo_occ[cas_idx] > 1.0),
@@ -508,7 +506,7 @@ def test_cc(
         cas_idx,
         method,
         cc_backend,
-        n_elecs,
+        nelec,
         "can",
         "C2v",
         orbsym,

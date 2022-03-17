@@ -87,7 +87,6 @@ def kw_dist(mbe: MBE) -> MBE:
         # collect keywords (must be updated with new future attributes)
         keywords = {
             "method": mbe.method,
-            "fci_solver": mbe.fci_solver,
             "cc_backend": mbe.cc_backend,
             "hf_guess": mbe.hf_guess,
             "target": mbe.target,
@@ -131,12 +130,10 @@ def system_dist(mbe: MBE) -> MBE:
         system = {
             "nuc_energy": mbe.nuc_energy,
             "ncore": mbe.ncore,
-            "nocc": mbe.nocc,
             "norb": mbe.norb,
-            "spin": mbe.spin,
+            "nelec": mbe.nelec,
             "orbsym": mbe.orbsym,
             "hf_prop": mbe.hf_prop,
-            "occup": mbe.occup,
             "dipole_ints": mbe.dipole_ints,
             "ref_space": mbe.ref_space,
             "ref_prop": mbe.ref_prop,
