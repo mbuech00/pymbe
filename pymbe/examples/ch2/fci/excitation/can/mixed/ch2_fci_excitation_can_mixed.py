@@ -28,25 +28,21 @@ def mbe_example(rst=True):
         ncore = 1
 
         # hf calculation
-        nocc, _, norb, _, _, occup, orbsym, mo_coeff = hf(mol)
+        _, _, orbsym, mo_coeff = hf(mol)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff)
 
         # reference property
         ref_exc = ref_prop(
             mol,
             hcore,
             eri,
-            occup,
             orbsym,
-            nocc,
-            norb,
             ref_space,
-            fci_solver="pyscf_spin1",
             target="excitation",
             fci_state_sym="b2",
             fci_state_root=1,
@@ -55,17 +51,12 @@ def mbe_example(rst=True):
 
         # create mbe object
         mbe = MBE(
-            method="fci",
             target="excitation",
-            fci_solver="pyscf_spin1",
             mol=mol,
             ncore=ncore,
-            nocc=nocc,
-            norb=norb,
             orbsym=orbsym,
             fci_state_sym="b2",
             fci_state_root=1,
-            occup=occup,
             hcore=hcore,
             eri=eri,
             vhf=vhf,

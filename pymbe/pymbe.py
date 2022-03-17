@@ -41,7 +41,6 @@ class MBE:
 
     # expansion model
     method: str = "fci"
-    fci_solver: str = "pyscf_spin0"
     cc_backend: str = "pyscf"
     hf_guess: bool = True
 
@@ -53,9 +52,8 @@ class MBE:
     nuc_energy: Optional[float] = None
     nuc_dipole: Optional[np.ndarray] = None
     ncore: int = 0
-    nocc: Optional[int] = None
     norb: Optional[int] = None
-    spin: Optional[int] = None
+    nelec: Optional[Union[int, Tuple[int, int], np.ndarray]] = None
     point_group: Optional[str] = None
     orbsym: Optional[np.ndarray] = None
     fci_state_sym: Optional[Union[str, int]] = None
@@ -63,7 +61,6 @@ class MBE:
 
     # hf calculation
     hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
-    occup: Optional[np.ndarray] = None
 
     # orbital representation
     orb_type: str = "can"

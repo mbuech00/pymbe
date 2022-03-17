@@ -26,26 +26,17 @@ def mbe_example(rst=True):
         ncore = 2
 
         # hf calculation
-        nocc, _, norb, _, hf_prop, occup, orbsym, mo_coeff = hf(mol)
+        _, hf_prop, orbsym, mo_coeff = hf(mol)
 
         # reference space
         ref_space = np.array([2, 3, 4, 5, 6, 7, 8, 9], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff, norb, nocc)
+        hcore, eri, vhf = ints(mol, mo_coeff)
 
         # reference property
         ref_energy = ref_prop(
-            mol,
-            hcore,
-            eri,
-            occup,
-            orbsym,
-            nocc,
-            norb,
-            ref_space,
-            hf_prop=hf_prop,
-            vhf=vhf,
+            mol, hcore, eri, orbsym, ref_space, hf_prop=hf_prop, vhf=vhf
         )
 
         # pi_pruning
@@ -53,14 +44,10 @@ def mbe_example(rst=True):
 
         # create mbe object
         mbe = MBE(
-            method="fci",
             mol=mol,
             ncore=ncore,
-            nocc=nocc,
-            norb=norb,
             orbsym=orbsym,
             hf_prop=hf_prop,
-            occup=occup,
             hcore=hcore,
             eri=eri,
             vhf=vhf,

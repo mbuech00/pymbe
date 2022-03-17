@@ -471,8 +471,8 @@ def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[np.ndarray
 def tuples(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
-    ref_n_elecs: np.ndarray,
-    ref_n_holes: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
     vanish_exc: int,
     order: int,
     order_start: int = 1,
@@ -484,7 +484,7 @@ def tuples(
     """
     # combinations of occupied and virtual MOs
     for k in range(order_start, order):
-        if _valid_tup(ref_n_elecs, ref_n_holes, k, order - k, vanish_exc):
+        if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
             for tup_occ in islice(combinations(occ_space, k), occ_start, None):
                 for tup_virt in islice(
                     combinations(virt_space, order - k), virt_start, None
@@ -494,12 +494,12 @@ def tuples(
             occ_start = 0
 
     # only occupied MOs
-    if _valid_tup(ref_n_elecs, ref_n_holes, order, 0, vanish_exc) and 0 <= occ_start:
+    if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc) and 0 <= occ_start:
         for tup_occ in islice(combinations(occ_space, order), occ_start, None):
             yield np.array(tup_occ, dtype=np.int64)
 
     # only virtual MOs
-    if _valid_tup(ref_n_elecs, ref_n_holes, 0, order, vanish_exc) and 0 <= virt_start:
+    if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc) and 0 <= virt_start:
         for tup_virt in islice(combinations(virt_space, order), virt_start, None):
             yield np.array(tup_virt, dtype=np.int64)
 
@@ -559,8 +559,8 @@ def _idx(space: np.ndarray, idx: int, order: int) -> float:
 def n_tuples(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
-    ref_n_elecs: np.ndarray,
-    ref_n_holes: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
     vanish_exc: int,
     order: int,
 ) -> int:
@@ -572,15 +572,15 @@ def n_tuples(
 
     # combinations of occupied and virtual MOs
     for k in range(1, order):
-        if _valid_tup(ref_n_elecs, ref_n_holes, k, order - k, vanish_exc):
+        if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
             n += sc.binom(occ_space.size, k) * sc.binom(virt_space.size, order - k)
 
     # only occupied MOs
-    if _valid_tup(ref_n_elecs, ref_n_holes, order, 0, vanish_exc):
+    if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
         n += sc.binom(occ_space.size, order)
 
     # only virtual MOs
-    if _valid_tup(ref_n_elecs, ref_n_holes, 0, order, vanish_exc):
+    if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
         n += sc.binom(virt_space.size, order)
 
     return int(n)
@@ -693,7 +693,7 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
     return idx is not None
 
 
-def nelecs(occup: np.ndarray, tup: np.ndarray) -> np.ndarray:
+def get_nelec(occup: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
     this function returns the number of electrons in a given tuple of orbitals
     """
@@ -703,24 +703,24 @@ def nelecs(occup: np.ndarray, tup: np.ndarray) -> np.ndarray:
     )
 
 
-def nholes(n_elecs: np.ndarray, tup: np.ndarray) -> np.ndarray:
+def get_nhole(nelec: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
     this function returns the number of holes in a given tuple of orbitals
     """
-    return tup.size - n_elecs
+    return tup.size - nelec
 
 
-def nexc(n_elecs: np.ndarray, n_holes: np.ndarray) -> int:
+def get_nexc(nelec: np.ndarray, nhole: np.ndarray) -> int:
     """
     this function returns the number of possible excitations in a given tuple of
     orbitals
     """
-    return np.sum(np.minimum(n_elecs, n_holes))
+    return np.sum(np.minimum(nelec, nhole))
 
 
 def _valid_tup(
-    ref_n_elecs: np.ndarray,
-    ref_n_holes: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
     tup_nocc: int,
     tup_nvirt: int,
     vanish_exc: int,
@@ -730,9 +730,9 @@ def _valid_tup(
     energy
     """
     return (
-        nexc(
-            ref_n_elecs + np.array([tup_nocc, tup_nocc]),
-            ref_n_holes + np.array([tup_nvirt, tup_nvirt]),
+        get_nexc(
+            ref_nelec + np.array([tup_nocc, tup_nocc]),
+            ref_nhole + np.array([tup_nvirt, tup_nvirt]),
         )
         > vanish_exc
     )
@@ -818,12 +818,12 @@ def intervals(a: np.ndarray) -> Generator[List[int], None, None]:
             yield [group_lst[0][1], group_lst[-1][1]]
 
 
-def ground_state_sym(orbsym: np.ndarray, occup: np.ndarray, point_group: str) -> int:
+def ground_state_sym(orbsym: np.ndarray, nelec: np.ndarray, point_group: str) -> int:
     """
     this function determines the symmetry of the hf ground state
     """
     wfnsym = np.array([0])
-    for irrep in orbsym[occup == 1.0]:
+    for irrep in orbsym[np.amin(nelec) : np.amax(nelec)]:
         wfnsym = symm.addons.direct_prod(wfnsym, irrep, groupname=point_group)
     return wfnsym.item()
 
@@ -842,3 +842,14 @@ def get_vhf(eri: np.ndarray, nocc: int, norb: int):
         vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
 
     return vhf
+
+
+def get_occup(norb: int, nelec: np.ndarray) -> np.ndarray:
+    """
+    this function generates the Hartree-Fock occupation vector
+    """
+    occup = np.zeros(norb, dtype=np.int64)
+    occup[: np.amin(nelec)] = 2
+    occup[np.amin(nelec) : np.amax(nelec)] = 1
+
+    return occup

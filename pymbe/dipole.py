@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, cast
 from pymbe.expansion import ExpCls, SingleTargetExpCls
 from pymbe.kernel import main_kernel, dipole_kernel
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, nelecs
+from pymbe.tools import RST, write_file, get_nelec
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
@@ -101,14 +101,13 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
-        # n_elecs
-        n_elecs = nelecs(self.occup, cas_idx)
+        # nelec
+        nelec = get_nelec(self.occup, cas_idx)
 
         # perform main calc
         res = main_kernel(
             self.method,
             self.cc_backend,
-            self.fci_solver,
             self.orb_type,
             self.spin,
             self.occup,
@@ -124,7 +123,7 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
             h2e_cas,
             core_idx,
             cas_idx,
-            n_elecs,
+            nelec,
             self.verbose,
         )
 
@@ -138,7 +137,6 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
             res = main_kernel(
                 self.base_method,
                 self.cc_backend,
-                self.fci_solver,
                 self.orb_type,
                 self.spin,
                 self.occup,
@@ -154,7 +152,7 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
                 h2e_cas,
                 core_idx,
                 cas_idx,
-                n_elecs,
+                nelec,
                 self.verbose,
             )
 
@@ -170,7 +168,7 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
 
         res_full -= self.ref_prop
 
-        return res_full, n_elecs
+        return res_full, nelec
 
     @staticmethod
     def _write_target_file(order: Optional[int], prop: np.ndarray, string: str) -> None:
@@ -252,7 +250,7 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
 
     def _mbe_debug(
         self,
-        n_elecs_tup: np.ndarray,
+        nelec_tup: np.ndarray,
         inc_tup: np.ndarray,
         cas_idx: np.ndarray,
         tup: np.ndarray,
@@ -261,7 +259,7 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         this function prints mbe debug information
         """
         string = mbe_debug(
-            self.point_group, self.orbsym, n_elecs_tup, self.order, cas_idx, tup
+            self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
         )
         string += (
             f"      increment for root {self.fci_state_root:d} = ({inc_tup[0]:.4e}, "

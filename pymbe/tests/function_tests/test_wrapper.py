@@ -26,7 +26,6 @@ from pymbe.wrapper import (
     _hubbard_h1e,
     _hubbard_eri,
     hf as wrapper_hf,
-    _dim,
     ref_mo,
     ref_prop,
     base,
@@ -179,19 +178,6 @@ test_cases_hf = [
         np.array([0.0, 0.0, 8.62876951e-01], dtype=np.float64),
         False,
         False,
-    ),
-]
-
-test_cases_dim = [
-    (
-        "closed-shell",
-        np.array([2.0] * 4 + [0.0] * 6, dtype=np.float64),
-        (10, 4, 6),
-    ),
-    (
-        "open-shell",
-        np.array([2.0] * 4 + [1.0] + [0.0] * 6, dtype=np.float64),
-        (11, 5, 6),
     ),
 ]
 
@@ -453,11 +439,11 @@ def mo_coeff(request: SubRequest, hf: scf.RHF, norb: int) -> np.ndarray:
     ids=[case[0] for case in test_cases_ints],
     indirect=True,
 )
-def test_ints(mol: gto.Mole, mo_coeff: np.ndarray, norb: int, nocc: int) -> None:
+def test_ints(mol: gto.Mole, mo_coeff: np.ndarray) -> None:
     """
     this function tests ints
     """
-    hcore, eri, vhf = wrapper_ints(mol, mo_coeff, norb, nocc)
+    hcore, eri, vhf = wrapper_ints(mol, mo_coeff)
 
     assert np.sum(hcore) == pytest.approx(-12371.574250637233)
     assert np.amax(hcore) == pytest.approx(-42.09685184826769)
@@ -557,8 +543,6 @@ def test_hubbard_eri() -> None:
 def test_hf(
     mol: gto.Mole,
     target: str,
-    nocc: int,
-    norb: int,
     mo_coeff: np.ndarray,
     newton: bool,
     x2c: bool,
@@ -569,23 +553,16 @@ def test_hf(
     """
     this function tests hf
     """
-    ref_nocc = nocc
-    ref_nvirt = norb - nocc
-    ref_norb = norb
     ref_mo_coeff = mo_coeff
 
-    nocc, nvirt, norb, _, hf_prop, occup, orbsym, mo_coeff = wrapper_hf(
+    hf_object, hf_prop, orbsym, mo_coeff = wrapper_hf(
         mol, target=target, newton=newton, x2c=x2c
     )
 
-    rdm1 = scf.hf.make_rdm1(mo_coeff, occup)
-    ref_rdm1 = scf.hf.make_rdm1(ref_mo_coeff, occup)
+    rdm1 = scf.hf.make_rdm1(mo_coeff, hf_object.mo_occ)
+    ref_rdm1 = scf.hf.make_rdm1(ref_mo_coeff, hf_object.mo_occ)
 
-    assert nocc == ref_nocc
-    assert nvirt == ref_nvirt
-    assert norb == ref_norb
     assert hf_prop == pytest.approx(ref_hf_prop, rel=1e-5, abs=1e-11)
-    assert (occup == np.array([2.0] * 5 + [0.0] * 8, dtype=np.float64)).all()
     assert (
         orbsym == np.array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0], dtype=np.float64)
     ).all()
@@ -602,20 +579,6 @@ def test_hf(
 
 
 @pytest.mark.parametrize(
-    argnames="mo_occ, ref_dims",
-    argvalues=[case[1:] for case in test_cases_dim],
-    ids=[case[0] for case in test_cases_dim],
-)
-def test_dim(mo_occ: np.ndarray, ref_dims: Tuple[int, int, int]) -> None:
-    """
-    this function tests _dim
-    """
-    dims = _dim(mo_occ)
-
-    assert dims == ref_dims
-
-
-@pytest.mark.parametrize(
     argnames="system, orb_type, ref_space, casscf_kwargs, mo_coeff_eq, rdm1_eq",
     argvalues=test_cases_ref_mo,
     ids=["-".join(case[0:2]) for case in test_cases_ref_mo],
@@ -625,9 +588,7 @@ def test_ref_mo(
     mol: gto.Mole,
     hf: scf.RHF,
     orbsym: np.ndarray,
-    norb: int,
     ncore: int,
-    nocc: int,
     orb_type: str,
     ref_space: np.ndarray,
     casscf_kwargs: Dict[str, Any],
@@ -642,12 +603,8 @@ def test_ref_mo(
         mol,
         hf,
         hf.mo_coeff,
-        hf.mo_occ,
         orbsym,
-        norb,
         ncore,
-        nocc,
-        norb - nocc,
         ref_space,
         **casscf_kwargs,
     )
@@ -696,7 +653,6 @@ def test_casscf(
 
     mo_coeff = _casscf(
         mol,
-        "pyscf_spin0",
         wfnsym_int,
         weights,
         orbsym,
@@ -727,8 +683,6 @@ def test_ref_prop(
     vhf: np.ndarray,
     dipole_quantities: Tuple[np.ndarray, np.ndarray],
     orbsym: np.ndarray,
-    nocc: int,
-    norb: int,
     method: str,
     base_method: Optional[str],
     target: str,
@@ -761,10 +715,7 @@ def test_ref_prop(
         mol,
         hcore,
         eri,
-        hf.mo_occ,
         orbsym,
-        nocc,
-        norb,
         ref_space,
         method=method,
         base_method=base_method,
@@ -788,9 +739,7 @@ def test_base(
     mol: gto.Mole,
     hf: scf.RHF,
     orbsym: np.ndarray,
-    norb: int,
     ncore: int,
-    nocc: int,
     dipole_quantities: Tuple[np.ndarray, np.ndarray],
     method: str,
     target: str,
@@ -812,11 +761,8 @@ def test_base(
         mol,
         hf,
         hf.mo_coeff,
-        hf.mo_occ,
         orbsym,
-        norb,
         ncore,
-        nocc,
         cc_backend=cc_backend,
         target=target,
         **dipole_kwargs,

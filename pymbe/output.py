@@ -97,7 +97,7 @@ def mbe_header(order: int, n_tuples: int, thres: float) -> str:
 def mbe_debug(
     symmetry: str,
     orbsym: np.ndarray,
-    n_elecs_tup: np.ndarray,
+    nelec_tup: np.ndarray,
     order: int,
     cas_idx: np.ndarray,
     tup: np.ndarray,
@@ -112,7 +112,7 @@ def mbe_debug(
 
     string: str = (
         f" INC-{order:d}: order = {order:d}, tup = {tup_lst:}, space = "
-        f"({(n_elecs_tup[0] + n_elecs_tup[1]):d}e,{cas_idx.size:d}o)\n"
+        f"({(nelec_tup[0] + nelec_tup[1]):d}e,{cas_idx.size:d}o)\n"
     )
     string += f"      symmetry = {tup_sym}\n"
 

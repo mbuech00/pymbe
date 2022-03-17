@@ -41,35 +41,35 @@ Features
 Usage
 -----
 
-PyMBE expects PySCF to be properly exported to Python, for which one needs to 
-set environment variable `$PYTHONPATH`. Furthermore, the mpi4py implementation 
-of the MPI standard needs to be installed, built upon an MPI-3 library.\
+PyMBE expects both itself and PySCF to be properly exported to Python. This can either
+be achieved by installing through pip (in the case of PySCF), having a 
+pymbe.pth/pyscf.pth file with the corresponding path in the lib/Python3.X/site-packages 
+directory of your Python distribution or by including the paths in the environment 
+variable `$PYTHONPATH`. Furthermore, the mpi4py implementation of the MPI standard 
+needs to be installed, built upon an MPI-3 library.\
 Once these requirements are satisfied, PyMBE can be started by importing the 
 MBE class and creating a MBE object while passing input data and keywords as 
 keyword arguments. Possible keyword arguments are:
 
 * **expansion model**
     * method: electronic structure method (fci, ccsdtq, ccsdt, ccsd(t), ccsd)
-    * fci_solver: fci solver (pyscf_spin0 and pyscf_spin1)
     * cc_backend: coupled-cluster backend (pyscf, ecc, ncc)
     * hf_guess: hartree-fock initial guess
 - **target property**
-    - target: expansion target property (energy, dipole, excitation, trans)
+    - target: expansion target property (energy, dipole, excitation, trans, rdm12)
 * **system**
     * mol: [pyscf](https://pyscf.github.io/) gto.Mole object
     * nuc_energy: nuclear energy
     * nuc_dipole: nuclear dipole moment
     * ncore: number of core orbitals
-    * nocc: number of occupied orbitals
     * norb: number of orbitals
-    * spin: spin
+    * nelec: number of electrons
     * point_group: point group
     * orbsym: orbital symmetry
     * fci_state_sym: state wavefunction symmetry
     * fci_state_root: target state
 - **hf calculation**
     - hf_prop: hartree-fock property
-    - occup: orbital occupation
 * **orbital representation**
     * orb_type: orbital representation
 - **integrals**
