@@ -67,8 +67,11 @@ def main(mbe: MBE) -> MBE:
                     mbe.nelec = mbe.mol.nelec
 
                 # point group
-                if mbe.point_group is None and mbe.orb_type != "local":
-                    mbe.point_group = mbe.mol.groupname
+                if mbe.point_group is None:
+                    if mbe.orb_type == "local":
+                        mbe.point_group = mbe.mol.topgroup
+                    else:
+                        mbe.point_group = mbe.mol.groupname
 
                 # nuclear repulsion energy
                 if mbe.nuc_energy is None:
@@ -440,12 +443,11 @@ def sanity_check(mbe: MBE) -> None:
         "canonical (can), pipek-mezey (local), natural (ccsd or ccsd(t) or casscf "
         "orbs (casscf))",
     )
-    if mbe.orb_type == "local":
-        assertion(
-            mbe.point_group == "C1",
-            "the combination of local orbitals (orb_type keyword argument) and point "
-            "group symmetry (point_group keyword argument) different from c1 is not "
-            "allowed",
+    if mbe.orb_type == "local" and mbe.target == "rdm12" and mbe.point_group != "C1":
+        logger.warning(
+            "Warning: 1- and 2- particle density matrix calculations while exploiting "
+            "local orbital symmetry are currently not possible. The symmetry of the "
+            "local orbitals is not utilized in the current calculation."
         )
 
     # integrals

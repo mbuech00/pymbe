@@ -30,7 +30,7 @@ def mbe_example(rst=True):
         hf_object, hf_prop, orbsym, mo_coeff = hf(mol)
 
         # base model
-        base_energy = base("ccsd", mol, hf_object, mo_coeff, orbsym, ncore)
+        base_energy = base("ccsd", mol, hf_object, mo_coeff, ncore, orbsym=orbsym)
 
         # pipek-mezey localized orbitals
         mo_coeff, orbsym = ref_mo("local", mol, hf_object, mo_coeff, orbsym, ncore)
@@ -46,7 +46,6 @@ def mbe_example(rst=True):
             mol,
             hcore,
             eri,
-            orbsym,
             ref_space,
             base_method="ccsd",
             hf_prop=hf_prop,

@@ -38,9 +38,9 @@ def mbe_example(rst=True):
             mol,
             hf_object,
             mo_coeff,
-            orbsym,
             ncore,
             target="dipole",
+            orbsym=orbsym,
             hf_prop=hf_prop,
             gauge_origin=gauge_origin,
         )
@@ -62,7 +62,6 @@ def mbe_example(rst=True):
             mol,
             hcore,
             eri,
-            orbsym,
             ref_space,
             base_method="ccsd",
             target="dipole",

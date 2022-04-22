@@ -22,8 +22,9 @@ import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
 from pyscf import symm, ao2mo
+from pyscf.lib.exceptions import PointGroupSymmetryError
 from itertools import islice, combinations, groupby
-from math import floor
+from math import floor, sin, cos, pi, sqrt
 from subprocess import Popen, PIPE
 from traceback import format_stack
 from typing import TYPE_CHECKING
@@ -142,6 +143,28 @@ class RDMCls:
         if isinstance(other, RDMCls):
             self.rdm1 -= other.rdm1
             self.rdm2 -= other.rdm2
+            return self
+        else:
+            return NotImplemented
+
+    def __mul__(self, other: int) -> RDMCls:
+        """
+        this function implements multiplication for the RDMCls objects
+        """
+        if isinstance(other, int):
+            return RDMCls(other * self.rdm1, other * self.rdm2)
+        else:
+            return NotImplemented
+
+    __rmul__ = __mul__
+
+    def __imul__(self, other: int) -> RDMCls:
+        """
+        this function implements inplace multiplication for the RDMCls objects
+        """
+        if isinstance(other, RDMCls):
+            self.rdm1 *= other
+            self.rdm2 *= other
             return self
         else:
             return NotImplemented
@@ -693,6 +716,129 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
     return idx is not None
 
 
+def symm_eqv_tup(
+    cas_idx: np.ndarray, symm_orbs: np.ndarray, ref_space: np.ndarray
+) -> int:
+    """
+    this function returns the number of stabilizers for a tuple if it is the
+    lexicographically greatest with respect to all symmetry operations, otherwise
+    returns zero
+    """
+    # initialize number of stabilizers
+    nstab = 0
+
+    # initialize number of valid symmetry operations for this tuple
+    nsymm = 0
+
+    # loop over symmetry operations in point group
+    for symm_op in symm_orbs:
+
+        # get permuted cas space by applying symmetry operation
+        perm_cas = symm_op[cas_idx]
+
+        # check if any orbitals cannot be transformed
+        if (perm_cas == -1).any():
+
+            # skip this symmetry operation
+            continue
+
+        # increment number of symmetry operations
+        nsymm += 1
+
+        # sort permuted cas space
+        perm_cas.sort()
+
+        # check if reference space is included in permuted cas space
+        if not np.isin(ref_space, perm_cas, assume_unique=True).all():
+
+            # not a valid tuple
+            continue
+
+        # loop over orbs in cas space and permuted cas space
+        for orb, perm_orb in zip(cas_idx, perm_cas):
+
+            # check if orb in cas space is smaller than orb in permuted cas space
+            if orb < perm_orb:
+
+                # tuple is not unique and not lexicographically smaller
+                return 0
+
+            # check if orb in cas space is greater than orb in permuted cas space
+            elif orb > perm_orb:
+
+                # tuple is lexicographically greater
+                break
+
+        # symmetry operation is a stabilizer for this tuple
+        else:
+
+            # increment number of stabilizers
+            nstab += 1
+
+    # calculate number of equivalent tuples
+    neqvtups = nsymm // nstab
+
+    return neqvtups
+
+
+def get_lex_tup(
+    tup: np.ndarray, symm_orbs: np.ndarray, ref_space: np.ndarray
+) -> np.ndarray:
+    """
+    this function returns the symmetrically equivalent but lexicographically greater
+    tuple
+    """
+    # generate full cas space
+    cas_idx = cas(ref_space, tup)
+
+    # initialize current lexicographically greatest cas space
+    lex_cas = cas_idx.copy()
+
+    # loop over symmetry operations in point group
+    for symm_op in symm_orbs:
+
+        # get permuted cas space by applying symmetry operation
+        perm_cas = symm_op[cas_idx]
+
+        # check if any orbitals cannot be transformed
+        if (perm_cas == -1).any():
+
+            # skip this symmetry operation
+            continue
+
+        # sort permuted cas space
+        perm_cas.sort()
+
+        # check if reference space is included in permuted cas space
+        if not np.isin(ref_space, perm_cas, assume_unique=True).all():
+
+            # not a valid tuple
+            continue
+
+        # loop over orbs in lex_cas and perm_cas
+        for lex_orb, perm_orb in zip(lex_cas, perm_cas):
+
+            # check if orb in lex_cas is smaller than orb in perm_cas
+            if lex_orb < perm_orb:
+
+                # set permuted cas space as lexicographically greatest
+                lex_cas = perm_cas
+
+                # perm_cas is lexicographically greater
+                break
+
+            # check if orb in lex_cas is greater than orb in perm_cas
+            elif lex_orb > perm_orb:
+
+                # perm_cas is lexicographically smaller
+                break
+
+    # remove reference space
+    lex_tup = np.setdiff1d(lex_cas, ref_space, assume_unique=True)
+
+    return lex_tup
+
+
 def get_nelec(occup: np.ndarray, tup: np.ndarray) -> np.ndarray:
     """
     this function returns the number of electrons in a given tuple of orbitals
@@ -853,3 +999,566 @@ def get_occup(norb: int, nelec: np.ndarray) -> np.ndarray:
     occup[np.amin(nelec) : np.amax(nelec)] = 1
 
     return occup
+
+
+def get_symm_op_matrices(
+    point_group: str, l_max: int
+) -> List[Tuple[np.ndarray, List[np.ndarray]]]:
+    """
+    this function generates all cartesian and spherical symmetry operation matrices for
+    a given point group
+    """
+    symm_ops = [ident_matrix(l_max)]
+
+    # 3D rotation group
+    if point_group == "SO(3)":
+
+        # same-atom symmetries are currently not exploited
+        pass
+
+    # proper cyclic groups Cn
+    elif point_group[0] == "C" and point_group[1:].isnumeric():
+
+        tot_main_rot = int(point_group[1:])
+
+        # Cn
+        for i in range(1, tot_main_rot):
+
+            symm_ops.append(
+                rot_matrix(np.array([0.0, 0.0, 1.0]), i * 2 * pi / tot_main_rot, l_max)
+            )
+
+    # improper cyclic group Ci
+    elif point_group == "Ci":
+
+        # i
+        symm_ops.append(inv_matrix(l_max))
+
+    # improper cyclic group Cs
+    elif point_group == "Cs":
+
+        # sigma_h
+        symm_ops.append(reflect_matrix(np.array([0.0, 0.0, 1.0]), l_max))
+
+    # improper cyclic group Sn
+    elif point_group[0] == "S":
+
+        tot_main_rot = int(point_group[1:])
+
+        # Cn, Sn and i
+        for i in range(1, tot_main_rot):
+            rot_angle = (i / tot_main_rot) * 2 * pi
+            if i % 2 == 0:
+                symm_ops.append(rot_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max))
+            else:
+                if rot_angle == pi:
+                    symm_ops.append(inv_matrix(l_max))
+                else:
+                    symm_ops.append(
+                        rot_reflect_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max)
+                    )
+
+    # dihedral groups Dn
+    elif point_group[0] == "D" and point_group[1:].isnumeric():
+
+        tot_main_rot = int(point_group[1:])
+
+        # Cn
+        for i in range(1, tot_main_rot):
+            rot_angle = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(rot_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max))
+
+        # C2
+        for i in range(0, tot_main_rot):
+            theta = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(
+                rot_matrix(np.array([cos(theta), sin(theta), 0.0]), pi, l_max)
+            )
+
+    # Dnh
+    elif point_group[0] == "D" and point_group[-1] == "h":
+
+        # treat Dooh as D2h because same-atom symmetries are currently not exploited
+        if point_group[1:-1] == "oo":
+            tot_main_rot = 2
+        else:
+            tot_main_rot = int(point_group[1:-1])
+
+        # Cn
+        for i in range(1, tot_main_rot):
+            rot_angle = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(rot_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max))
+
+        # C2
+        for i in range(0, tot_main_rot):
+            theta = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(
+                rot_matrix(np.array([cos(theta), sin(theta), 0.0]), pi, l_max)
+            )
+
+        # Sn and i
+        for i in range(1, tot_main_rot):
+            rot_angle = (i / tot_main_rot) * 2 * pi
+            if rot_angle == pi:
+                symm_ops.append(inv_matrix(l_max))
+            else:
+                symm_ops.append(
+                    rot_reflect_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max)
+                )
+
+        # sigma_h
+        symm_ops.append(reflect_matrix(np.array([0.0, 0.0, 1.0]), l_max))
+
+        # sigma_v and sigma_d
+        for i in range(0, tot_main_rot):
+            theta = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(
+                reflect_matrix(np.array([cos(theta), sin(theta), 0.0]), l_max)
+            )
+
+    # Dnd
+    elif point_group[0] == "D" and point_group[-1] == "d":
+
+        tot_main_rot = int(point_group[1:-1])
+
+        # Cn
+        for i in range(1, tot_main_rot):
+            rot_angle = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(rot_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max))
+
+        # C2
+        for i in range(0, tot_main_rot):
+            theta = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(
+                rot_matrix(np.array([cos(theta), sin(theta), 0.0]), pi, l_max)
+            )
+
+        # S_2n
+        for i in range(0, tot_main_rot):
+            rot_angle = ((2 * i + 1) / (2 * tot_main_rot)) * 2 * pi
+            if rot_angle == pi:
+                symm_ops.append(inv_matrix(l_max))
+            else:
+                symm_ops.append(
+                    rot_reflect_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max)
+                )
+
+        # sigma_d
+        for i in range(0, tot_main_rot):
+            theta = ((2 * i + 1) / (2 * tot_main_rot)) * 2 * pi
+            symm_ops.append(
+                reflect_matrix(np.array([cos(theta), sin(theta), 0.0]), l_max)
+            )
+
+    # Cnv
+    elif point_group[0] == "C" and point_group[-1] == "v":
+
+        # treat Coov as C2v because same-atom symmetries are currently not exploited
+        if point_group[1:-1] == "oo":
+            tot_main_rot = 2
+        else:
+            tot_main_rot = int(point_group[1:-1])
+
+        # Cn
+        for i in range(1, tot_main_rot):
+            rot_angle = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(rot_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max))
+
+        # sigma_v and sigma_d
+        for i in range(0, tot_main_rot):
+            theta = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(
+                reflect_matrix(np.array([cos(theta), sin(theta), 0.0]), l_max)
+            )
+
+    # Cnh
+    elif point_group[0] == "C" and point_group[-1] == "h":
+
+        tot_main_rot = int(point_group[1:-1])
+
+        # Cn
+        for i in range(1, tot_main_rot):
+            rot_angle = (i / tot_main_rot) * 2 * pi
+            symm_ops.append(rot_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max))
+
+        # Sn and i
+        for i in range(1, tot_main_rot):
+            rot_angle = (i / tot_main_rot) * 2 * pi
+            if rot_angle == pi:
+                symm_ops.append(inv_matrix(l_max))
+            else:
+                symm_ops.append(
+                    rot_reflect_matrix(np.array([0.0, 0.0, 1.0]), rot_angle, l_max)
+                )
+
+        # sigma_h
+        symm_ops.append(reflect_matrix(np.array([0.0, 0.0, 1.0]), l_max))
+
+    # cubic group O
+    elif point_group == "O":
+
+        corners, edges, surfaces = cubic_coords()
+
+        # C3
+        for coord in corners:
+            symm_ops.append(rot_matrix(coord, 2 * pi / 3, l_max))
+            symm_ops.append(rot_matrix(coord, 4 * pi / 3, l_max))
+
+        # C4
+        tot_n_rot = 4
+        for i in range(1, tot_n_rot):
+            rot_angle = (i / tot_n_rot) * 2 * pi
+            for coord in surfaces:
+                symm_ops.append(rot_matrix(coord, rot_angle, l_max))
+
+        # C2
+        for coord in edges:
+            symm_ops.append(rot_matrix(coord, pi, l_max))
+
+    # cubic group T
+    elif point_group == "T":
+
+        corners, edges, surfaces = cubic_coords()
+
+        # C2
+        for coord in surfaces:
+            symm_ops.append(rot_matrix(coord, pi, l_max))
+
+        # C3
+        for coord in corners:
+            symm_ops.append(rot_matrix(coord, 2 * pi / 3, l_max))
+            symm_ops.append(rot_matrix(coord, 4 * pi / 3, l_max))
+
+    # cubic group Oh
+    elif point_group == "Oh":
+
+        corners, edges, surfaces = cubic_coords()
+
+        # C3
+        for coord in corners:
+            symm_ops.append(rot_matrix(coord, 2 * pi / 3, l_max))
+            symm_ops.append(rot_matrix(coord, 4 * pi / 3, l_max))
+
+        # C4
+        tot_n_rot = 4
+        for i in range(1, tot_n_rot):
+            rot_angle = (i / tot_n_rot) * 2 * pi
+            for coord in surfaces:
+                symm_ops.append(rot_matrix(coord, rot_angle, l_max))
+
+        # C2
+        for coord in edges:
+            symm_ops.append(rot_matrix(coord, pi, l_max))
+
+        # i
+        symm_ops.append(inv_matrix(l_max))
+
+        # sigma
+        for coord in surfaces:
+            symm_ops.append(reflect_matrix(coord, l_max))
+
+        # S6
+        for coord in corners:
+            symm_ops.append(rot_reflect_matrix(coord, pi / 6, l_max))
+            symm_ops.append(rot_reflect_matrix(coord, 5 * pi / 6, l_max))
+
+        # S4
+        tot_n_rot = 4
+        for i in range(1, tot_n_rot):
+            rot_angle = (i / tot_n_rot) * 2 * pi
+            if rot_angle != pi:
+                for coord in surfaces:
+                    symm_ops.append(rot_reflect_matrix(coord, rot_angle, l_max))
+
+        # sigma_d
+        for coord in edges:
+            symm_ops.append(reflect_matrix(coord, l_max))
+
+    # cubic group Th
+    elif point_group == "Th":
+
+        corners, edges, surfaces = cubic_coords()
+
+        # C2
+        for coord in surfaces:
+            symm_ops.append(rot_matrix(coord, pi, l_max))
+
+        # C3
+        for coord in corners:
+            symm_ops.append(rot_matrix(coord, 2 * pi / 3, l_max))
+            symm_ops.append(rot_matrix(coord, 4 * pi / 3, l_max))
+
+        # i
+        symm_ops.append(inv_matrix(l_max))
+
+        # sigma
+        for coord in surfaces:
+            symm_ops.append(reflect_matrix(coord, l_max))
+
+        # S6
+        for coord in corners:
+            symm_ops.append(rot_reflect_matrix(coord, pi / 6, l_max))
+            symm_ops.append(rot_reflect_matrix(coord, 5 * pi / 6, l_max))
+
+    # cubic group Td
+    elif point_group == "Td":
+
+        corners, edges, surfaces = cubic_coords()
+
+        # C2
+        for coord in surfaces:
+            symm_ops.append(rot_matrix(coord, pi, l_max))
+
+        # C3
+        for coord in corners:
+            symm_ops.append(rot_matrix(coord, 2 * pi / 3, l_max))
+            symm_ops.append(rot_matrix(coord, 4 * pi / 3, l_max))
+
+        # S4
+        for coord in surfaces:
+            symm_ops.append(rot_reflect_matrix(coord, pi / 2, l_max))
+            symm_ops.append(rot_reflect_matrix(coord, 3 * pi / 2, l_max))
+
+        # sigma_d
+        for coord in edges:
+            symm_ops.append(reflect_matrix(coord, l_max))
+
+    # icosahedral group I
+    elif point_group == "I":
+
+        corners, edges, surfaces = icosahedric_coords()
+
+        # C5
+        tot_n_rot = 5
+        for i in range(1, tot_n_rot):
+            rot_angle = (i / tot_n_rot) * 2 * pi
+            for coord in corners:
+                symm_ops.append(rot_matrix(coord, rot_angle, l_max))
+
+        # C3
+        tot_n_rot = 3
+        for i in range(1, tot_n_rot):
+            rot_angle = (i / tot_n_rot) * 2 * pi
+            for coord in surfaces:
+                symm_ops.append(rot_matrix(coord, rot_angle, l_max))
+
+        # C2
+        for coord in edges:
+            symm_ops.append(rot_matrix(coord, pi, l_max))
+
+    # icosahedral group Ih
+    elif point_group == "Ih":
+
+        corners, edges, surfaces = icosahedric_coords()
+
+        # C5
+        tot_n_rot = 5
+        for i in range(1, tot_n_rot):
+            rot_angle = (i / tot_n_rot) * 2 * pi
+            for coord in corners:
+                symm_ops.append(rot_matrix(coord, rot_angle, l_max))
+
+        # C3
+        tot_n_rot = 3
+        for i in range(1, tot_n_rot):
+            rot_angle = (i / tot_n_rot) * 2 * pi
+            for coord in surfaces:
+                symm_ops.append(rot_matrix(coord, rot_angle, l_max))
+
+        # C2
+        for coord in edges:
+            symm_ops.append(rot_matrix(coord, pi, l_max))
+
+        # i
+        symm_ops.append(inv_matrix(l_max))
+
+        # S10
+        tot_main_rot = 10
+        for i in range(0, tot_main_rot // 2):
+            rot_angle = ((2 * i + 1) / tot_main_rot) * 2 * pi
+            if rot_angle != pi:
+                for coord in corners:
+                    symm_ops.append(rot_reflect_matrix(coord, rot_angle, l_max))
+
+        # S6
+        tot_main_rot = 6
+        for i in range(0, tot_main_rot // 2):
+            rot_angle = ((2 * i + 1) / tot_main_rot) * 2 * pi
+            if rot_angle != pi:
+                for coord in surfaces:
+                    symm_ops.append(rot_reflect_matrix(coord, rot_angle, l_max))
+
+        # sigma
+        for coord in edges:
+            symm_ops.append(reflect_matrix(coord, l_max))
+
+    else:
+
+        raise PointGroupSymmetryError("Unknown Point Group.")
+
+    return symm_ops
+
+
+def cubic_coords() -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+    """
+    this function defines the coordinates of specific points within a cube
+    """
+    sqrt2d2 = sqrt(2) / 2
+
+    corners = [
+        np.array([0.0, sqrt2d2, -sqrt2d2]),
+        np.array([-sqrt2d2, 0.0, -sqrt2d2]),
+        np.array([0.0, sqrt2d2, sqrt2d2]),
+        np.array([-sqrt2d2, 0.0, sqrt2d2]),
+    ]
+
+    edges = [
+        np.array([sqrt2d2, 0.0, sqrt2d2]),
+        np.array([sqrt2d2, 0.0, -sqrt2d2]),
+        np.array([-sqrt2d2, 0.0, sqrt2d2]),
+        np.array([-sqrt2d2, 0.0, -sqrt2d2]),
+        np.array([sqrt2d2, sqrt2d2, 0.0]),
+        np.array([sqrt2d2, -sqrt2d2, 0.0]),
+    ]
+
+    surfaces = [
+        np.array([1.0, 0.0, 0.0]),
+        np.array([0.0, 1.0, 0.0]),
+        np.array([0.0, 0.0, 1.0]),
+    ]
+
+    return corners, edges, surfaces
+
+
+def icosahedric_coords() -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+    """
+    this function defines the coordinates of specific points within an icosahedron
+    """
+    gr = (1 + sqrt(5)) / 2
+
+    corners = [
+        np.array([gr, 0.0, 1.0]),
+        np.array([-gr, 0.0, 1.0]),
+        np.array([0.0, 1.0, gr]),
+        np.array([0.0, 1.0, -gr]),
+        np.array([1.0, gr, 0.0]),
+        np.array([1.0, -gr, 0.0]),
+    ]
+
+    onepgrd3 = (1 + gr) / 3
+    twopgrd3 = (1 + gr) / 3
+    edges = [
+        np.array([onepgrd3, onepgrd3, onepgrd3]),
+        np.array([onepgrd3, onepgrd3, -onepgrd3]),
+        np.array([-onepgrd3, onepgrd3, onepgrd3]),
+        np.array([onepgrd3, -onepgrd3, onepgrd3]),
+        np.array([-twopgrd3, 0.0, 1 / 3]),
+        np.array([0.0, 1 / 3, -twopgrd3]),
+        np.array([1 / 3, -twopgrd3, 0.0]),
+        np.array([twopgrd3, 0.0, 1 / 3]),
+        np.array([0.0, 1 / 3, twopgrd3]),
+        np.array([1 / 3, twopgrd3, 0.0]),
+    ]
+
+    onepgrd2 = (1 + gr) / 2
+    onemgrd2 = (1 - gr) / 2
+    surfaces = [
+        np.array([1.0, 0.0, 0.0]),
+        np.array([0.0, 1.0, 0.0]),
+        np.array([0.0, 0.0, 1.0]),
+        np.array([onepgrd2, gr / 2, 1 / 2]),
+        np.array([-1 / 2, onepgrd2, gr / 2]),
+        np.array([gr / 2, 1 / 2, -onepgrd2]),
+        np.array([gr / 2, 1 / 2, onepgrd2]),
+        np.array([1 / 2, -onepgrd2, gr / 2]),
+        np.array([onemgrd2, gr / 2, -1 / 2]),
+        np.array([-gr / 2, 1 / 2, onepgrd2]),
+        np.array([onepgrd2, -gr / 2, 1 / 2]),
+        np.array([1 / 2, onemgrd2, gr / 2]),
+        np.array([-onepgrd2, gr / 2, 1 / 2]),
+        np.array([gr / 2, -1 / 2, onepgrd2]),
+        np.array([1 / 2, onepgrd2, 1 / gr]),
+    ]
+
+    return corners, edges, surfaces
+
+
+def ident_matrix(l_max: int) -> Tuple[np.ndarray, List[np.ndarray]]:
+    """
+    this function constructs a cartesian identity matrix and identity matrices for all
+    spherical harmonics until l_max
+    """
+    return np.eye(3), [np.eye(2 * l + 1) for l in range(l_max + 1)]
+
+
+def inv_matrix(l_max: int) -> Tuple[np.ndarray, List[np.ndarray]]:
+    """
+    this function constructs a cartesian inversion matrix and inversion matrices for
+    all spherical harmonics until l_max
+    """
+    return -np.eye(3), [(-1) ** l * np.eye(2 * l + 1) for l in range(l_max + 1)]
+
+
+def rot_matrix(
+    axis: np.ndarray, angle: float, l_max: int
+) -> Tuple[np.ndarray, List[np.ndarray]]:
+    """
+    this function constructs a cartesian rotation matrix and rotation matrices using
+    the Wigner D-matrices for all spherical harmonics until l_max
+    """
+    axis = axis / np.linalg.norm(axis)
+
+    sin_a = sin(angle)
+    cos_a = cos(angle)
+
+    rot = np.zeros((3, 3), dtype=np.float64)
+
+    rot[0, 0] = cos_a + axis[0] ** 2 * (1 - cos_a)
+    rot[0, 1] = axis[0] * axis[1] * (1 - cos_a) - axis[2] * sin_a
+    rot[0, 2] = axis[0] * axis[2] * (1 - cos_a) + axis[1] * sin_a
+    rot[1, 0] = axis[1] * axis[0] * (1 - cos_a) + axis[2] * sin_a
+    rot[1, 1] = cos_a + axis[1] ** 2 * (1 - cos_a)
+    rot[1, 2] = axis[1] * axis[2] * (1 - cos_a) - axis[0] * sin_a
+    rot[2, 0] = axis[2] * axis[0] * (1 - cos_a) - axis[1] * sin_a
+    rot[2, 1] = axis[2] * axis[1] * (1 - cos_a) + axis[0] * sin_a
+    rot[2, 2] = cos_a + axis[2] ** 2 * (1 - cos_a)
+
+    alpha, beta, gamma = symm.Dmatrix.get_euler_angles(np.eye(3), rot)
+
+    D_mats = []
+
+    for l in range(l_max + 1):
+
+        D_mats.append(symm.Dmatrix.Dmatrix(l, alpha, beta, gamma, reorder_p=True))
+
+    return rot, D_mats
+
+
+def reflect_matrix(
+    normal: np.ndarray, l_max: int
+) -> Tuple[np.ndarray, List[np.ndarray]]:
+    """
+    this function constructs a reflection matrix and reflection matrices for all
+    spherical harmonics until l_max
+    """
+    cart_rot_mat, sph_rot_mats = rot_matrix(normal, pi, l_max)
+    cart_inv_mat, sph_inv_mats = inv_matrix(l_max)
+
+    return cart_rot_mat @ cart_inv_mat, [
+        rot @ inv for rot, inv in zip(sph_rot_mats, sph_inv_mats)
+    ]
+
+
+def rot_reflect_matrix(
+    axis: np.ndarray, angle: float, l_max: int
+) -> Tuple[np.ndarray, List[np.ndarray]]:
+    """
+    constructs a cartesian rotation-reflection matrix and rotation-reflection matrices
+    for all spherical harmonics until l_max
+    """
+    cart_rot_mat, sph_rot_mats = rot_matrix(axis, angle, l_max)
+    cart_reflect_mat, sph_reflect_mats = reflect_matrix(axis, l_max)
+
+    return cart_rot_mat @ cart_reflect_mat, [
+        rot @ reflect for rot, reflect in zip(sph_rot_mats, sph_reflect_mats)
+    ]

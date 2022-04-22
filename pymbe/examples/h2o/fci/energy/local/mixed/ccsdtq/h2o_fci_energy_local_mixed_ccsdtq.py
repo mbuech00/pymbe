@@ -31,7 +31,7 @@ def mbe_example(rst=True):
 
         # base model
         base_energy = base(
-            "ccsdtq", mol, hf_object, mo_coeff, orbsym, ncore, cc_backend="ncc"
+            "ccsdtq", mol, hf_object, mo_coeff, ncore, cc_backend="ncc", orbsym=orbsym
         )
 
         # pipek-mezey localized orbitals
@@ -48,7 +48,6 @@ def mbe_example(rst=True):
             mol,
             hcore,
             eri,
-            orbsym,
             ref_space,
             cc_backend="ncc",
             base_method="ccsdtq",

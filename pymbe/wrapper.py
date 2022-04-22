@@ -15,11 +15,13 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
+from math import isclose
 from pyscf import gto, scf, symm, lo, cc, mcscf, fci, ao2mo
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import uccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import uccsd_t_rdm
+from pyscf.lib.exceptions import PointGroupSymmetryError
 from copy import copy
 from typing import TYPE_CHECKING, cast, Union
 from warnings import catch_warnings, simplefilter
@@ -38,6 +40,7 @@ from pymbe.tools import (
     idx_tril,
     ground_state_sym,
     get_occup,
+    get_symm_op_matrices,
 )
 
 if TYPE_CHECKING:
@@ -45,8 +48,12 @@ if TYPE_CHECKING:
     from typing import Tuple, Dict, List, Optional, Any
 
 
-CONV_TOL = 1.0e-10
+HF_CONV_TOL = 1.0e-10
+CAS_CONV_TOL = 1.0e-10
+LOC_CONV_TOL = 1.0e-10
 SPIN_TOL = 1.0e-05
+COORD_TOL = 1.0e-05
+MO_SYMM_TOL = 1.0e-08
 
 
 def ints(
@@ -350,7 +357,7 @@ def hf(
     if newton:
         hf.conv_tol = 1.0e-01
     else:
-        hf.conv_tol = CONV_TOL
+        hf.conv_tol = HF_CONV_TOL
     hf.max_cycle = 1000
 
     if mol.atom:
@@ -375,7 +382,7 @@ def hf(
 
         # new so-hf object
         hf = hf.newton()
-        hf.conv_tol = CONV_TOL
+        hf.conv_tol = HF_CONV_TOL
 
         with catch_warnings():
             simplefilter("ignore")
@@ -477,7 +484,7 @@ def ref_mo(
         isinstance(mo_coeff, np.ndarray),
         "ref_mo: mo coefficients (fourth argument) must be a np.ndarray",
     )
-    # orbsym
+    # orbsym_can
     assertion(
         isinstance(orbsym, np.ndarray),
         "ref_mo: orbital symmetry (fifth argument) must be a np.ndarray",
@@ -670,7 +677,7 @@ def ref_mo(
                 loc = lo.PM(mol, mo_coeff[:, mask])
             else:
                 loc = _hubbard_PM(mol, mo_coeff[:, mask])
-            loc.conv_tol = CONV_TOL
+            loc.conv_tol = LOC_CONV_TOL
             mo_coeff_out[:, mask] = loc.kernel()
 
         # singly occupied - singly occupied block
@@ -681,7 +688,7 @@ def ref_mo(
                 loc = lo.PM(mol, mo_coeff[:, mask])
             else:
                 loc = _hubbard_PM(mol, mo_coeff[:, mask])
-            loc.conv_tol = CONV_TOL
+            loc.conv_tol = LOC_CONV_TOL
             mo_coeff_out[:, mask] = loc.kernel()
 
         # virtual - virtual block
@@ -692,12 +699,12 @@ def ref_mo(
                 loc = lo.PM(mol, mo_coeff[:, mask])
             else:
                 loc = _hubbard_PM(mol, mo_coeff[:, mask])
-            loc.conv_tol = CONV_TOL
+            loc.conv_tol = LOC_CONV_TOL
             mo_coeff_out[:, mask] = loc.kernel()
 
         # orbital symmetries
         if mol.symmetry:
-            orbsym = np.zeros(norb, dtype=np.int64)
+            orbsym = _symm_eqv_mo(mol, mo_coeff_out)
 
     # casscf
     elif orbs == "casscf":
@@ -779,7 +786,7 @@ def _casscf(
     cas = mcscf.CASSCF(hf, ref_space.size, nelec)
 
     # casscf settings
-    cas.conv_tol = CONV_TOL
+    cas.conv_tol = CAS_CONV_TOL
     cas.max_cycle_macro = 500
     cas.frozen = ncore
 
@@ -793,7 +800,7 @@ def _casscf(
     unique_wfnsym = list(dict.fromkeys(wfnsym))
 
     # fci settings
-    fcisolver.conv_tol = CONV_TOL
+    fcisolver.conv_tol = CAS_CONV_TOL
     fcisolver.orbsym = orbsym[ref_space]
     fcisolver.wfnsym = unique_wfnsym[0]
     cas.fcisolver = fcisolver
@@ -890,12 +897,12 @@ def ref_prop(
     mol: gto.Mole,
     hcore: np.ndarray,
     eri: np.ndarray,
-    orbsym: np.ndarray,
     ref_space: np.ndarray,
     method: str = "fci",
     base_method: Optional[str] = None,
     cc_backend: str = "pyscf",
     target: str = "energy",
+    orbsym: Optional[np.ndarray] = None,
     fci_state_sym: Optional[Union[str, int]] = None,
     fci_state_root: int = 0,
     hf_guess: bool = True,
@@ -922,15 +929,10 @@ def ref_prop(
         isinstance(eri, np.ndarray),
         "ref_prop: electron repulsion integrals (third argument) must be a np.ndarray",
     )
-    # orbsym
-    assertion(
-        isinstance(orbsym, np.ndarray),
-        "ref_prop: orbital symmetry (fourth argument) must be a np.ndarray",
-    )
     # ref_space
     assertion(
         isinstance(ref_space, np.ndarray),
-        "ref_prop: reference space (fifth argument) must be a np.ndarray of orbital "
+        "ref_prop: reference space (fourth argument) must be a np.ndarray of orbital "
         "indices",
     )
     # method
@@ -955,6 +957,13 @@ def ref_prop(
             "ref_prop: valid base model electronic structure methods (base_method "
             "keyword argument) are: ccsd, ccsd(t), ccsdt and ccsdtq",
         )
+    # orbsym
+    if orbsym is None:
+        orbsym = np.zeros(mol.nao.item(), dtype=np.int64)
+    assertion(
+        isinstance(orbsym, np.ndarray),
+        "ref_prop: orbital symmetry (orbsym keyword argument) must be a np.ndarray",
+    )
     # fci
     if fci_state_sym is None:
         fci_state_sym = ground_state_sym(orbsym, mol.nelec, mol.groupname)
@@ -1274,10 +1283,10 @@ def base(
     mol: gto.Mole,
     hf: scf.hf.SCF,
     mo_coeff: np.ndarray,
-    orbsym: np.ndarray,
     ncore: int,
     cc_backend: str = "pyscf",
     target: str = "energy",
+    orbsym: Optional[np.ndarray] = None,
     hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
     gauge_origin: Optional[np.ndarray] = None,
 ) -> Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]:
@@ -1309,15 +1318,10 @@ def base(
         isinstance(mo_coeff, np.ndarray),
         "base: mo coefficients (fourth argument) must be a np.ndarray",
     )
-    # orbsym
-    assertion(
-        isinstance(orbsym, np.ndarray),
-        "base: orbital symmetry (fifth argument) must be a np.ndarray",
-    )
     # ncore
     assertion(
         isinstance(ncore, int),
-        "base: number of core orbitals (sixth argument) must be an int",
+        "base: number of core orbitals (fifth argument) must be an int",
     )
     # cc_backend
     assertion(
@@ -1364,6 +1368,13 @@ def base(
             "are not possible with ecc and ncc coupled-cluster backends (cc_backend "
             "keyword argument)",
         )
+    # orbsym
+    if orbsym is None:
+        orbsym = np.zeros(mol.nao.item(), dtype=np.int64)
+    assertion(
+        isinstance(orbsym, np.ndarray),
+        "base: orbital symmetry (orbsym keyword argument) must be a np.ndarray",
+    )
     if target == "dipole":
         # hf_dipole
         assertion(
@@ -1495,3 +1506,147 @@ def linear_orbsym(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
     )
 
     return orbsym_parent
+
+
+def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
+    """
+    returns an array of permutations of symmetry equivalent orbitals for each
+    symmetry operation
+    """
+    # get different equivalent atom types
+    atom_types = [
+        np.array(atom_type)
+        for atom_type in gto.mole.atom_types(mol._atom, mol.basis).values()
+    ]
+
+    # get atom coords
+    coords = mol.atom_coords()
+
+    # shift coordinates to symmetry origin
+    coords = coords - mol._symm_orig
+
+    # rotate coordinates to symmetry axes
+    coords = (mol._symm_axes @ coords.T).T
+
+    # get maximum angular momentum in system
+    l_max = mol._bas[:, 1].max()
+
+    # get list of all symmetry operation matrices for point group
+    ops = get_symm_op_matrices(mol.topgroup, l_max)
+
+    # get ao shell offsets
+    ao_loc = mol.ao_loc_nr()
+
+    # get ao offset for every atom
+    _, _, ao_start_list, ao_stop_list = mol.offset_nr_by_atom().T
+
+    # initialize atom indices permutation array
+    permut_atom_idx = np.empty(mol.natm, dtype=np.int64)
+
+    # initialize ao indices permutation array
+    permut_ao_idx = np.empty(mol.nao, dtype=np.int64)
+
+    # initialize list of sets of equivalent mos
+    symm_eqv_mos = np.empty((len(ops), mo_coeff.shape[0]), dtype=np.int64)
+
+    # loop over symmetry operations
+    for op, (cart_op_mat, sph_op_mats) in enumerate(ops):
+
+        # loop over group of equivalent atoms with equivalent basis functions
+        for atom_type in atom_types:
+
+            # extract coordinates of atom type
+            atom_coords = coords[atom_type]
+
+            # get indices necessary to sort coords lexicographically
+            lex_idx = symm.geom.argsort_coords(atom_coords)
+
+            # sort coords lexicographically
+            lex_coords = atom_coords[lex_idx]
+
+            # get indices necessary to sort atom numbers
+            sort_idx = np.argsort(lex_idx)
+
+            # get new coordinates of atoms after applying symmetry operation
+            new_atom_coords = atom_coords @ cart_op_mat
+
+            # get indices necessary to sort new coords lexicographically
+            lex_idx = symm.geom.argsort_coords(new_atom_coords)
+
+            # check whether rearranged new coords are the same as rearranged
+            # original coords
+            if not np.allclose(lex_coords, new_atom_coords[lex_idx], atol=COORD_TOL):
+                raise PointGroupSymmetryError("Symmetry identical atoms not found")
+
+            # reorder indices according to sort order of original indices
+            op_atom_ids = lex_idx[sort_idx]
+
+            # add atom permutations for atom type
+            permut_atom_idx[atom_type] = atom_type[op_atom_ids]
+
+        # loop over atoms
+        for atom_id, permut_atom_id in enumerate(permut_atom_idx):
+
+            # add ao permutations for atom
+            permut_ao_idx[ao_start_list[atom_id] : ao_stop_list[atom_id]] = np.arange(
+                ao_start_list[permut_atom_id], ao_stop_list[permut_atom_id]
+            )
+
+        # loop over mo coefficients
+        for mo1_idx in range(mo_coeff.shape[0]):
+
+            # get mo
+            mo1 = mo_coeff[:, mo1_idx]
+
+            # permute aos
+            op_mo1 = mo1[permut_ao_idx]
+
+            # loop over shells
+            for shell in range(mol.nbas):
+
+                # get angular momentum
+                l = mol.bas_angular(shell)
+
+                # get ao index range for shell
+                ao_start = ao_loc[shell]
+                ao_stop = ao_loc[shell + 1]
+
+                # reshape into blocks of contracted GTOs in shell to allow broadcasting
+                mo_reshape = op_mo1[ao_start:ao_stop].reshape(
+                    sph_op_mats[l].shape[1], -1
+                )
+
+                # transform aos
+                op_mo1[ao_start:ao_stop] = (sph_op_mats[l] @ mo_reshape).reshape(-1)
+
+            # normalize transformed mo coefficients
+            op_mo1 = op_mo1 / np.linalg.norm(op_mo1)
+
+            # loop over mo coefficients
+            for mo2_idx in range(mo_coeff.shape[0]):
+
+                # get mo
+                mo2 = mo_coeff[:, mo2_idx]
+
+                # normalize mo
+                mo2 = mo2 / np.linalg.norm(mo2)
+
+                # get overlap of mos
+                overlap = np.dot(np.abs(op_mo1), np.abs(mo2))
+
+                # check if mos are equivalent
+                if isclose(overlap, 1.0, abs_tol=MO_SYMM_TOL):
+
+                    # set permutation index
+                    symm_eqv_mos[op, mo1_idx] = mo2_idx
+
+                    # equivalent mo found
+                    break
+
+            # no equivalent mo found
+            else:
+
+                # mo cannot be transformed with symmetry operation
+                symm_eqv_mos[op, mo1_idx] = -1
+
+    return symm_eqv_mos

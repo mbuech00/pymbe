@@ -429,6 +429,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         mean_inc: RDMCls,
         max_inc: RDMCls,
         cas_idx: np.ndarray,
+        neqv_tups: int,
     ) -> Tuple[RDMCls, RDMCls, RDMCls]:
         """
         this function updates the increment statistics

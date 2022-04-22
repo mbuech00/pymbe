@@ -50,7 +50,6 @@ def mbe_example(rst=True):
             mol,
             hcore,
             eri,
-            orbsym,
             ref_space,
             method="ccsd",
             target="dipole",

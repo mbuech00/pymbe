@@ -44,7 +44,6 @@ def mbe_example(rst=True):
             mol,
             hcore,
             eri,
-            orbsym,
             ref_space,
             fci_state_sym="b2",
             hf_prop=hf_prop,

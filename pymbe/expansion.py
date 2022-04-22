@@ -52,6 +52,8 @@ from pymbe.tools import (
     hash_1d,
     hash_lookup,
     get_occup,
+    symm_eqv_tup,
+    get_lex_tup,
 )
 from pymbe.parallel import (
     mpi_reduce,
@@ -113,7 +115,16 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         self.norb = cast(int, mbe.norb)
         self.nelec = cast(np.ndarray, mbe.nelec)
         self.point_group = cast(str, mbe.point_group)
-        self.orbsym = cast(np.ndarray, mbe.orbsym)
+        if (
+            mbe.orb_type == "local"
+            and self.point_group != "C1"
+            and self.target != "rdm12"
+        ):
+            self.orbsym = np.zeros(self.norb, dtype=np.int64)
+            self.symm_eqv_orbs = mbe.orbsym
+        else:
+            self.orbsym = cast(np.ndarray, mbe.orbsym)
+            self.symm_eqv_orbs = None
         self.fci_state_sym = cast(int, mbe.fci_state_sym)
         self.fci_state_root = cast(int, mbe.fci_state_root)
         self.nocc = np.max(self.nelec)
@@ -884,6 +895,23 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             # get core and cas indices
             core_idx, cas_idx = core_cas(self.nocc, self.ref_space, tup)
 
+            # symmetry-pruning
+            if self.symm_eqv_orbs is not None:
+
+                # check if tuple is last symmetrically equivalent tuple and retrieve
+                # number of equivalent tuples
+                neqvtups = symm_eqv_tup(cas_idx, self.symm_eqv_orbs, self.ref_space)
+
+                # skip calculation if symmetrically equivalent tuple will come later
+                if not neqvtups:
+
+                    continue
+
+            else:
+
+                # every tuple is unique without symmetry pruning
+                neqvtups = 1
+
             # get h2e indices
             cas_idx_tril = idx_tril(cas_idx)
 
@@ -914,7 +942,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
             # update increment statistics
             min_inc, mean_inc, max_inc = self._update_inc_stats(
-                inc_tup, min_inc, mean_inc, max_inc, cas_idx
+                inc_tup, min_inc, mean_inc, max_inc, cas_idx, neqvtups
             )
 
             # update pair_corr statistics
@@ -1401,6 +1429,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         mean_inc: TargetType,
         max_inc: TargetType,
         cas_idx: np.ndarray,
+        n_eqv_tups: int,
     ) -> Tuple[TargetType, TargetType, TargetType]:
         """
         this function updates the increment statistics
@@ -1491,6 +1520,12 @@ class SingleTargetExpCls(
                 k,
             ):
 
+                # symmetry-pruning
+                if self.symm_eqv_orbs is not None:
+
+                    # get lexicographically greatest tuple
+                    tup_sub = get_lex_tup(tup_sub, self.symm_eqv_orbs, self.ref_space)
+
                 # compute index
                 idx = hash_lookup(hashes[k - self.min_order], hash_1d(tup_sub))
 
@@ -1501,6 +1536,7 @@ class SingleTargetExpCls(
         return np.sum(res, axis=0)
 
     @staticmethod
+    @abstractmethod
     def _zero_target_arr(length: int):
         """
         this function initializes an array of the target type with value zero
@@ -1586,12 +1622,13 @@ class SingleTargetExpCls(
         mean_inc: SingleTargetType,
         max_inc: SingleTargetType,
         cas_idx: np.ndarray,
+        neqv_tups: int,
     ) -> Tuple[SingleTargetType, SingleTargetType, SingleTargetType]:
         """
         this function updates the increment statistics
         """
         min_inc = np.minimum(min_inc, np.abs(inc_tup))
-        mean_inc += inc_tup
+        mean_inc += neqv_tups * inc_tup
         max_inc = np.maximum(max_inc, np.abs(inc_tup))
 
         return min_inc, mean_inc, max_inc

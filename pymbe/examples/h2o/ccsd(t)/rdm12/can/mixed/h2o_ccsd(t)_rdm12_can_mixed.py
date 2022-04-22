@@ -40,10 +40,10 @@ def mbe_example(rst=True):
             mol,
             hcore,
             eri,
-            orbsym,
             ref_space,
             method="ccsd(t)",
             target="rdm12",
+            orbsym=orbsym,
             hf_prop=hf_prop,
             vhf=vhf,
         )

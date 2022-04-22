@@ -226,7 +226,7 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         """
         this function calculates the total increment at a certain order
         """
-        return np.sum(inc, axis=0)
+        return mean_inc
 
     def _mbe_debug(
         self,

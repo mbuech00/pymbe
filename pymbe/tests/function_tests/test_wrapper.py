@@ -598,7 +598,7 @@ def test_ref_mo(
     """
     this function tests ref_mo
     """
-    mo_coeff, orbsym = ref_mo(
+    mo_coeff, _ = ref_mo(
         orb_type,
         mol,
         hf,
@@ -715,13 +715,13 @@ def test_ref_prop(
         mol,
         hcore,
         eri,
-        orbsym,
         ref_space,
         method=method,
         base_method=base_method,
         cc_backend=cc_backend,
         fci_state_root=root,
         target=target,
+        orbsym=orbsym,
         vhf=vhf,
         **kwargs,
     )
@@ -761,10 +761,10 @@ def test_base(
         mol,
         hf,
         hf.mo_coeff,
-        orbsym,
         ncore,
         cc_backend=cc_backend,
         target=target,
+        orbsym=orbsym,
         **dipole_kwargs,
     )
 

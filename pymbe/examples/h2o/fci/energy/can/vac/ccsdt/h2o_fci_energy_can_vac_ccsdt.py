@@ -30,9 +30,7 @@ def mbe_example(rst=True):
         hf_object, hf_prop, orbsym, mo_coeff = hf(mol)
 
         # base model
-        base_energy = base(
-            "ccsdt", mol, hf_object, mo_coeff, orbsym, ncore, cc_backend="ecc"
-        )
+        base_energy = base("ccsdt", mol, hf_object, mo_coeff, ncore, cc_backend="ecc", orbsym=orbsym)
 
         # integral calculation
         hcore, eri, vhf = ints(mol, mo_coeff)

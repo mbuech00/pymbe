@@ -105,10 +105,14 @@ def mbe_debug(
     """
     this function prints mbe debug information
     """
-    # symmetry
+    # tuple
     tup_lst = [i for i in tup]
 
-    tup_sym = [symm.addons.irrep_id2name(symmetry, i) for i in orbsym[tup]]
+    # symmetry
+    try:
+        tup_sym = [symm.addons.irrep_id2name(symmetry, i) for i in orbsym[tup]]
+    except KeyError:
+        tup_sym = [symm.addons.irrep_id2name("C1", i) for i in orbsym[tup]]
 
     string: str = (
         f" INC-{order:d}: order = {order:d}, tup = {tup_lst:}, space = "

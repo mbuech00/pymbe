@@ -37,7 +37,14 @@ def mbe_example(rst=True):
 
         # reference property
         ref_rdm12 = ref_prop(
-            mol, hcore, eri, orbsym, ref_space, target="rdm12", hf_prop=hf_prop, vhf=vhf
+            mol,
+            hcore,
+            eri,
+            ref_space,
+            target="rdm12",
+            orbsym=orbsym,
+            hf_prop=hf_prop,
+            vhf=vhf,
         )
 
         # create mbe object

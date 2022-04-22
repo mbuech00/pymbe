@@ -49,7 +49,6 @@ def mbe_example(rst=True):
             mol,
             hcore,
             eri,
-            orbsym,
             ref_space,
             target="dipole",
             hf_prop=hf_prop,

@@ -30,7 +30,7 @@ def mbe_example(rst=True):
         hf_object, hf_prop, orbsym, mo_coeff = hf(mol)
 
         # base model
-        base_energy = base("ccsd", mol, hf_object, mo_coeff, orbsym, ncore)
+        base_energy = base("ccsd", mol, hf_object, mo_coeff, ncore, orbsym=orbsym)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4], dtype=np.int64)
