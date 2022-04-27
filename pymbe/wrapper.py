@@ -1523,22 +1523,47 @@ def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
     coords = mol.atom_coords()
 
     # shift coordinates to symmetry origin
-    coords = coords - mol._symm_orig
+    coords -= mol._symm_orig
 
     # rotate coordinates to symmetry axes
     coords = (mol._symm_axes @ coords.T).T
+
+    # get ao shell offsets
+    ao_loc = mol.ao_loc_nr()
+
+    # initialize rotated mo coefficients
+    rot_mo_coeff = np.empty_like(mo_coeff)
+
+    # get Wigner D matrices to rotate mo coefficients from input coordinate system to
+    # symmetry axes
+    Ds = symm.basis._ao_rotation_matrices(mol, mol._symm_axes)
+
+    # loop over shells
+    for shell in range(mol.nbas):
+
+        # get angular momentum
+        l = mol.bas_angular(shell)
+
+        # get ao index range for shell
+        ao_start = ao_loc[shell]
+        ao_stop = ao_loc[shell + 1]
+
+        # reshape into blocks of contracted GTOs in shell to allow broadcasting
+        mo_reshape = mo_coeff[ao_start:ao_stop].reshape(Ds[l].shape[1], -1)
+
+        # transform aos
+        rot_mo_coeff[ao_start:ao_stop] = (Ds[l] @ mo_reshape).reshape(
+            -1, rot_mo_coeff.shape[1]
+        )
+
+    # get ao offset for every atom
+    _, _, ao_start_list, ao_stop_list = mol.offset_nr_by_atom().T
 
     # get maximum angular momentum in system
     l_max = mol._bas[:, 1].max()
 
     # get list of all symmetry operation matrices for point group
     ops = get_symm_op_matrices(mol.topgroup, l_max)
-
-    # get ao shell offsets
-    ao_loc = mol.ao_loc_nr()
-
-    # get ao offset for every atom
-    _, _, ao_start_list, ao_stop_list = mol.offset_nr_by_atom().T
 
     # initialize atom indices permutation array
     permut_atom_idx = np.empty(mol.natm, dtype=np.int64)
@@ -1547,7 +1572,7 @@ def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
     permut_ao_idx = np.empty(mol.nao, dtype=np.int64)
 
     # initialize list of sets of equivalent mos
-    symm_eqv_mos = np.empty((len(ops), mo_coeff.shape[0]), dtype=np.int64)
+    symm_eqv_mos = np.empty((len(ops), rot_mo_coeff.shape[0]), dtype=np.int64)
 
     # loop over symmetry operations
     for op, (cart_op_mat, sph_op_mats) in enumerate(ops):
@@ -1573,8 +1598,8 @@ def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
             # get indices necessary to sort new coords lexicographically
             lex_idx = symm.geom.argsort_coords(new_atom_coords)
 
-            # check whether rearranged new coords are the same as rearranged
-            # original coords
+            # check whether rearranged new coords are the same as rearranged original
+            # coords
             if not np.allclose(lex_coords, new_atom_coords[lex_idx], atol=COORD_TOL):
                 raise PointGroupSymmetryError("Symmetry identical atoms not found")
 
@@ -1593,10 +1618,10 @@ def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
             )
 
         # loop over mo coefficients
-        for mo1_idx in range(mo_coeff.shape[0]):
+        for mo1_idx in range(rot_mo_coeff.shape[0]):
 
             # get mo
-            mo1 = mo_coeff[:, mo1_idx]
+            mo1 = rot_mo_coeff[:, mo1_idx]
 
             # permute aos
             op_mo1 = mo1[permut_ao_idx]
@@ -1623,19 +1648,19 @@ def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
             op_mo1 = op_mo1 / np.linalg.norm(op_mo1)
 
             # loop over mo coefficients
-            for mo2_idx in range(mo_coeff.shape[0]):
+            for mo2_idx in range(rot_mo_coeff.shape[0]):
 
                 # get mo
-                mo2 = mo_coeff[:, mo2_idx]
+                mo2 = rot_mo_coeff[:, mo2_idx]
 
                 # normalize mo
                 mo2 = mo2 / np.linalg.norm(mo2)
 
                 # get overlap of mos
-                overlap = np.dot(np.abs(op_mo1), np.abs(mo2))
+                overlap = np.dot(op_mo1, mo2)
 
                 # check if mos are equivalent
-                if isclose(overlap, 1.0, abs_tol=MO_SYMM_TOL):
+                if isclose(np.abs(overlap), 1.0, abs_tol=MO_SYMM_TOL):
 
                     # set permutation index
                     symm_eqv_mos[op, mo1_idx] = mo2_idx

@@ -115,13 +115,12 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         self.norb = cast(int, mbe.norb)
         self.nelec = cast(np.ndarray, mbe.nelec)
         self.point_group = cast(str, mbe.point_group)
-        if (
-            mbe.orb_type == "local"
-            and self.point_group != "C1"
-            and self.target != "rdm12"
-        ):
+        if mbe.orb_type == "local" and cast(np.ndarray, mbe.orbsym).ndim == 2:
             self.orbsym = np.zeros(self.norb, dtype=np.int64)
-            self.symm_eqv_orbs = mbe.orbsym
+            if cast(np.ndarray, mbe.orbsym).shape[0] > 1 and self.target != "rdm12":
+                self.symm_eqv_orbs = mbe.orbsym
+            else:
+                self.symm_eqv_orbs = None
         else:
             self.orbsym = cast(np.ndarray, mbe.orbsym)
             self.symm_eqv_orbs = None

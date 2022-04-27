@@ -1070,7 +1070,7 @@ def get_symm_op_matrices(
 
         # C2
         for i in range(0, tot_main_rot):
-            theta = (i / tot_main_rot) * 2 * pi
+            theta = (i / tot_main_rot) * pi
             symm_ops.append(
                 rot_matrix(np.array([cos(theta), sin(theta), 0.0]), pi, l_max)
             )
@@ -1091,7 +1091,7 @@ def get_symm_op_matrices(
 
         # C2
         for i in range(0, tot_main_rot):
-            theta = (i / tot_main_rot) * 2 * pi
+            theta = (i / tot_main_rot) * pi
             symm_ops.append(
                 rot_matrix(np.array([cos(theta), sin(theta), 0.0]), pi, l_max)
             )
@@ -1111,7 +1111,7 @@ def get_symm_op_matrices(
 
         # sigma_v and sigma_d
         for i in range(0, tot_main_rot):
-            theta = (i / tot_main_rot) * 2 * pi
+            theta = (i / tot_main_rot) * pi
             symm_ops.append(
                 reflect_matrix(np.array([cos(theta), sin(theta), 0.0]), l_max)
             )
@@ -1128,14 +1128,14 @@ def get_symm_op_matrices(
 
         # C2
         for i in range(0, tot_main_rot):
-            theta = (i / tot_main_rot) * 2 * pi
+            theta = (i / tot_main_rot) * pi
             symm_ops.append(
                 rot_matrix(np.array([cos(theta), sin(theta), 0.0]), pi, l_max)
             )
 
         # S_2n
         for i in range(0, tot_main_rot):
-            rot_angle = ((2 * i + 1) / (2 * tot_main_rot)) * 2 * pi
+            rot_angle = ((2 * i + 1) / (2 * tot_main_rot)) * pi
             if rot_angle == pi:
                 symm_ops.append(inv_matrix(l_max))
             else:
@@ -1145,7 +1145,7 @@ def get_symm_op_matrices(
 
         # sigma_d
         for i in range(0, tot_main_rot):
-            theta = ((2 * i + 1) / (2 * tot_main_rot)) * 2 * pi
+            theta = ((2 * i + 1) / (2 * tot_main_rot)) * pi
             symm_ops.append(
                 reflect_matrix(np.array([cos(theta), sin(theta), 0.0]), l_max)
             )
@@ -1166,7 +1166,7 @@ def get_symm_op_matrices(
 
         # sigma_v and sigma_d
         for i in range(0, tot_main_rot):
-            theta = (i / tot_main_rot) * 2 * pi
+            theta = (i / tot_main_rot) * pi
             symm_ops.append(
                 reflect_matrix(np.array([cos(theta), sin(theta), 0.0]), l_max)
             )
@@ -1404,21 +1404,22 @@ def cubic_coords() -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]
     this function defines the coordinates of specific points within a cube
     """
     sqrt2d2 = sqrt(2) / 2
+    sqrt3d3 = sqrt(3) / 3
 
     corners = [
-        np.array([0.0, sqrt2d2, -sqrt2d2]),
-        np.array([-sqrt2d2, 0.0, -sqrt2d2]),
-        np.array([0.0, sqrt2d2, sqrt2d2]),
-        np.array([-sqrt2d2, 0.0, sqrt2d2]),
+        np.array([sqrt3d3, sqrt3d3, sqrt3d3]),
+        np.array([-sqrt3d3, -sqrt3d3, sqrt3d3]),
+        np.array([sqrt3d3, -sqrt3d3, -sqrt3d3]),
+        np.array([-sqrt3d3, sqrt3d3, -sqrt3d3]),
     ]
 
     edges = [
-        np.array([sqrt2d2, 0.0, sqrt2d2]),
-        np.array([sqrt2d2, 0.0, -sqrt2d2]),
-        np.array([-sqrt2d2, 0.0, sqrt2d2]),
-        np.array([-sqrt2d2, 0.0, -sqrt2d2]),
         np.array([sqrt2d2, sqrt2d2, 0.0]),
         np.array([sqrt2d2, -sqrt2d2, 0.0]),
+        np.array([sqrt2d2, 0.0, sqrt2d2]),
+        np.array([sqrt2d2, 0.0, -sqrt2d2]),
+        np.array([0.0, sqrt2d2, sqrt2d2]),
+        np.array([0.0, sqrt2d2, -sqrt2d2]),
     ]
 
     surfaces = [
@@ -1525,13 +1526,12 @@ def rot_matrix(
 
     alpha, beta, gamma = symm.Dmatrix.get_euler_angles(np.eye(3), rot)
 
-    D_mats = []
+    Ds = [
+        symm.Dmatrix.Dmatrix(l, alpha, beta, gamma, reorder_p=True)
+        for l in range(l_max + 1)
+    ]
 
-    for l in range(l_max + 1):
-
-        D_mats.append(symm.Dmatrix.Dmatrix(l, alpha, beta, gamma, reorder_p=True))
-
-    return rot, D_mats
+    return rot, Ds
 
 
 def reflect_matrix(
