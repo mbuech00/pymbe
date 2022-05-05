@@ -2,7 +2,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from pymbe import MBE, hf, ints, dipole_ints, ref_prop
+from pymbe import MBE, hf, ints, dipole_ints
 
 
 def mbe_example(rst=True):
@@ -33,27 +33,13 @@ def mbe_example(rst=True):
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        hcore, eri = ints(mol, mo_coeff)
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
 
         # dipole integral calculation
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
-
-        # reference property
-        ref_dipole = ref_prop(
-            mol,
-            hcore,
-            eri,
-            orbsym,
-            ref_space,
-            method="ccsd(t)",
-            target="dipole",
-            hf_prop=hf_prop,
-            vhf=vhf,
-            dipole_ints=dip_ints,
-        )
 
         # create mbe object
         mbe = MBE(
@@ -65,10 +51,8 @@ def mbe_example(rst=True):
             hf_prop=hf_prop,
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             dipole_ints=dip_ints,
             ref_space=ref_space,
-            ref_prop=ref_dipole,
             rst=rst,
         )
 

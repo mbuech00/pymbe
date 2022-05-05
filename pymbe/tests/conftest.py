@@ -23,7 +23,6 @@ from warnings import catch_warnings, simplefilter
 
 from pymbe.pymbe import MBE
 from pymbe.parallel import MPICls
-from pymbe.energy import EnergyExpCls
 from pymbe.interface import CCLIB_AVAILABLE
 
 if TYPE_CHECKING:
@@ -326,7 +325,6 @@ def mbe(
     nocc: int,
     norb: int,
     orbsym: np.ndarray,
-    hf: scf.RHF,
     ints: Tuple[np.ndarray, np.ndarray],
     vhf: np.ndarray,
 ) -> MBE:
@@ -344,24 +342,14 @@ def mbe(
         orbsym=orbsym,
         fci_state_sym=0,
         fci_state_root=0,
-        hf_prop=hf.e_tot,
         hcore=hcore,
         eri=eri,
-        vhf=vhf,
         ref_space=np.array([i for i in range(ncore, nocc)]),
-        ref_prop=0.0,
         rst=False,
     )
 
+    mbe.vhf = vhf
     mbe.restarted = False
     mbe.mpi = MPICls()
 
     return mbe
-
-
-@pytest.fixture
-def energyexpcls(mbe: MBE):
-    """
-    this fixture constructs a EnergyExpCls object
-    """
-    return EnergyExpCls(mbe)

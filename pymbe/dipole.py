@@ -49,18 +49,17 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         """
         init expansion attributes
         """
-        super().__init__(
-            mbe,
-            cast(np.ndarray, mbe.hf_prop),
-            cast(np.ndarray, mbe.ref_prop),
-            cast(np.ndarray, mbe.base_prop),
-        )
-
         # system
         self.nuc_dipole = cast(np.ndarray, mbe.nuc_dipole)
 
         # integrals
         self.dipole_ints = cast(np.ndarray, mbe.dipole_ints)
+
+        super().__init__(
+            mbe,
+            cast(np.ndarray, mbe.hf_prop),
+            cast(np.ndarray, mbe.base_prop),
+        )
 
     def tot_prop(self) -> np.ndarray:
         """
@@ -95,7 +94,6 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment

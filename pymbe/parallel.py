@@ -136,7 +136,6 @@ def system_dist(mbe: MBE) -> MBE:
             "hf_prop": mbe.hf_prop,
             "dipole_ints": mbe.dipole_ints,
             "ref_space": mbe.ref_space,
-            "ref_prop": mbe.ref_prop,
             "base_prop": mbe.base_prop,
             "orbsym_linear": mbe.orbsym_linear,
         }

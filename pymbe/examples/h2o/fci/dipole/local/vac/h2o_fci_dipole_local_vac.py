@@ -33,7 +33,7 @@ def mbe_example(rst=True):
         mo_coeff, orbsym = ref_mo("local", mol, hf_object, mo_coeff, orbsym, ncore)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        hcore, eri = ints(mol, mo_coeff)
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
@@ -50,7 +50,6 @@ def mbe_example(rst=True):
             orb_type="local",
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             dipole_ints=dip_ints,
             rst=rst,
         )

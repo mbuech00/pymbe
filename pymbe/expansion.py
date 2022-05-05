@@ -46,6 +46,7 @@ from pymbe.tools import (
     tuples,
     get_nelec,
     get_nhole,
+    get_nexc,
     start_idx,
     core_cas,
     idx_tril,
@@ -93,9 +94,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
     this class contains the pymbe expansion attributes
     """
 
-    def __init__(
-        self, mbe: MBE, hf_prop: TargetType, ref_prop: TargetType, base_prop: TargetType
-    ) -> None:
+    def __init__(self, mbe: MBE, hf_prop: TargetType, base_prop: TargetType) -> None:
         """
         init expansion attributes
         """
@@ -136,7 +135,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         # reference space
         self.ref_space: np.ndarray = mbe.ref_space
-        self.ref_prop: TargetType = ref_prop
         self.ref_nelec = get_nelec(self.occup, self.ref_space)
         self.ref_nhole = get_nhole(self.ref_nelec, self.ref_space)
 
@@ -217,11 +215,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         # pi pruning
         self.pi_prune: bool = mbe.pi_prune
-
         if self.pi_prune:
-
             self.orbsym_linear = cast(np.ndarray, mbe.orbsym_linear)
-
             pi_orbs, pi_hashes = pi_space(
                 "Dooh" if self.point_group == "D2h" else "Coov",
                 self.orbsym_linear,
@@ -229,6 +224,16 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             )
             self.pi_orbs: np.ndarray = pi_orbs
             self.pi_hashes: np.ndarray = pi_hashes
+
+        # reference space property
+        self.ref_prop: TargetType = self._init_target_inst(0.0, self.ref_space.size)
+        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
+            self.ref_prop = self._ref_prop(
+                cast(np.ndarray, mbe.hcore),
+                cast(np.ndarray, mbe.eri),
+                mbe.vhf,
+                mbe.mpi,
+            )
 
     def driver_master(self, mpi: MPICls) -> None:
         """
@@ -494,7 +499,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         self,
         hcore_in: Optional[np.ndarray],
         eri_in: Optional[np.ndarray],
-        vhf_in: Optional[np.ndarray],
+        vhf_in: np.ndarray,
         mpi: MPICls,
         norb: int,
         nocc: int,
@@ -544,7 +549,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         # set vhf on global master
         if mpi.global_master:
-            vhf[:] = cast(np.ndarray, vhf_in)
+            vhf[:] = vhf_in
 
         # mpi_bcast vhf
         if mpi.num_masters > 1 and mpi.local_master:
@@ -554,6 +559,43 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         mpi.global_comm.Barrier()
 
         return hcore_win, eri_win, vhf_win
+
+    def _ref_prop(
+        self,
+        hcore: np.ndarray,
+        eri: np.ndarray,
+        vhf: np.ndarray,
+        mpi: MPICls,
+    ) -> TargetType:
+        """
+        this function returns reference space properties
+        """
+        # calculate reference space property on global master
+        if mpi.global_master:
+
+            # core_idx and cas_idx
+            core_idx, cas_idx = core_cas(
+                self.nocc, self.ref_space, np.array([], dtype=np.int64)
+            )
+
+            # get cas_space h2e
+            cas_idx_tril = idx_tril(cas_idx)
+            h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+
+            # compute e_core and h1e_cas
+            e_core, h1e_cas = e_core_h1e(self.nuc_energy, hcore, vhf, core_idx, cas_idx)
+
+            ref_prop, _ = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
+
+            # bcast ref_prop to slaves
+            mpi.global_comm.bcast(ref_prop, root=0)
+
+        else:
+
+            # receive ref_prop from master
+            ref_prop = mpi.global_comm.bcast(None, root=0)
+
+        return ref_prop
 
     def _restart_main(self, mpi: MPICls) -> int:
         """
@@ -894,9 +936,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             e_core, h1e_cas = e_core_h1e(self.nuc_energy, hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, nelec_tup = self._inc(
-                e_core, h1e_cas, h2e_cas, core_idx, cas_idx, tup
-            )
+            inc_tup, nelec_tup = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
 
             # calculate increment
             if self.order > self.min_order:
@@ -1189,7 +1229,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[TargetType, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment

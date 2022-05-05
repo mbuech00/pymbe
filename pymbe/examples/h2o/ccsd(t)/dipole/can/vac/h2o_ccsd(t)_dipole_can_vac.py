@@ -30,7 +30,7 @@ def mbe_example(rst=True):
         _, hf_prop, orbsym, mo_coeff = hf(mol, target="dipole")
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        hcore, eri = ints(mol, mo_coeff)
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
@@ -48,7 +48,6 @@ def mbe_example(rst=True):
             hf_prop=hf_prop,
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             dipole_ints=dip_ints,
             rst=rst,
         )

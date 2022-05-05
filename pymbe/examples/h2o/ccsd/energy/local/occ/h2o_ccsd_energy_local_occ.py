@@ -36,7 +36,7 @@ def mbe_example(rst=True):
         ref_space = np.array([1, 2, 3, 4], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        hcore, eri = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
@@ -47,7 +47,6 @@ def mbe_example(rst=True):
             orb_type="local",
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             ref_space=ref_space,
             rst=rst,
         )

@@ -74,12 +74,10 @@ keyword arguments. Possible keyword arguments are:
     * orb_type: orbital representation
 - **integrals**
     - hcore: core hamiltonian integrals
-    - vhf: hartree-fock potential
     - eri: electron repulsion integrals
     - dipole_ints: dipole integrals
 * **reference space**
     * ref_space: reference space
-    * ref_prop: reference space property
 - **base model**
     - base_method: base model electronic structure method (ccsdtq, ccsdt, ccsd(t), ccsd)
     - base_prop: base model property

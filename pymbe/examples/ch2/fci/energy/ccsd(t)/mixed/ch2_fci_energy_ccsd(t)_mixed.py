@@ -2,7 +2,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from pymbe import MBE, hf, ref_mo, ints, ref_prop
+from pymbe import MBE, hf, ref_mo, ints
 
 
 def mbe_example(rst=True):
@@ -37,20 +37,7 @@ def mbe_example(rst=True):
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
-
-        # reference property
-        ref_energy = ref_prop(
-            mol,
-            hcore,
-            eri,
-            orbsym,
-            ref_space,
-            fci_state_sym="b2",
-            hf_prop=hf_prop,
-            vhf=vhf,
-            orb_type="ccsd(t)",
-        )
+        hcore, eri = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
@@ -62,9 +49,7 @@ def mbe_example(rst=True):
             orb_type="ccsd(t)",
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             ref_space=ref_space,
-            ref_prop=ref_energy,
             rst=rst,
         )
 

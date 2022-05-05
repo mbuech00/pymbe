@@ -58,7 +58,6 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         super(RDMExpCls, self).__init__(
             mbe,
             RDMCls(*cast(tuple, mbe.hf_prop)),
-            RDMCls(*cast(tuple, mbe.ref_prop)),
             RDMCls(*cast(tuple, mbe.base_prop)),
         )
 
@@ -93,7 +92,6 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[RDMCls, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment

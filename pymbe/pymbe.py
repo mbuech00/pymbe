@@ -68,12 +68,11 @@ class MBE:
     # integrals
     hcore: Optional[np.ndarray] = None
     eri: Optional[np.ndarray] = None
-    vhf: Optional[np.ndarray] = None
+    vhf: np.ndarray = field(init=False)
     dipole_ints: Optional[np.ndarray] = None
 
     # reference space
     ref_space: np.ndarray = np.array([], dtype=np.int64)
-    ref_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
 
     # base model
     base_method: Optional[str] = None

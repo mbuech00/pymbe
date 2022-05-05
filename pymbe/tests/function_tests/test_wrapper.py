@@ -27,7 +27,6 @@ from pymbe.wrapper import (
     _hubbard_eri,
     hf as wrapper_hf,
     ref_mo,
-    ref_prop,
     base,
     _casscf,
     linear_orbsym,
@@ -235,153 +234,6 @@ test_cases_casscf = [
     ),
 ]
 
-test_cases_ref_prop = [
-    (
-        "h2o",
-        "fci",
-        None,
-        "energy",
-        "pyscf",
-        0,
-        -0.03769780809258805,
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "energy",
-        "pyscf",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "energy",
-        "pyscf",
-        0,
-        -0.00036229313775759664,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "energy",
-        "pyscf",
-        0,
-        -0.0003336954549769955,
-    ),
-    (
-        "h2o",
-        "fci",
-        None,
-        "dipole",
-        "pyscf",
-        0,
-        np.array([0.0, 0.0, -0.02732937], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "dipole",
-        "pyscf",
-        0,
-        np.array([0.0, 0.0, -2.87487935e-02], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "dipole",
-        "pyscf",
-        0,
-        np.array([0.0, 0.0, 1.41941689e-03], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "dipole",
-        "pyscf",
-        0,
-        np.array([0.0, 0.0, 1.47038530e-03], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "fci",
-        None,
-        "excitation",
-        "pyscf",
-        1,
-        0.7060145137233889,
-    ),
-    (
-        "h2o",
-        "fci",
-        None,
-        "trans",
-        "pyscf",
-        1,
-        np.array([0.0, 0.0, 0.72582795], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "energy",
-        "ecc",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "energy",
-        "ecc",
-        0,
-        -0.0003622938195746786,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "energy",
-        "ecc",
-        0,
-        -0.0003336954549769955,
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "energy",
-        "ncc",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "energy",
-        "ncc",
-        0,
-        -0.0003622938195746786,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "energy",
-        "ncc",
-        0,
-        -0.0003336954549769955,
-    ),
-]
-
 test_cases_base = [
     (
         "h2o",
@@ -443,12 +295,10 @@ def test_ints(mol: gto.Mole, mo_coeff: np.ndarray) -> None:
     """
     this function tests ints
     """
-    hcore, eri, vhf = wrapper_ints(mol, mo_coeff)
+    hcore, eri = wrapper_ints(mol, mo_coeff)
 
     assert np.sum(hcore) == pytest.approx(-12371.574250637233)
     assert np.amax(hcore) == pytest.approx(-42.09685184826769)
-    assert np.sum(vhf) == pytest.approx(39687.423264678)
-    assert np.amax(vhf) == pytest.approx(95.00353546601883)
     assert np.sum(eri) == pytest.approx(381205.21288377955)
     assert np.amax(eri) == pytest.approx(149.4981150522994)
 
@@ -666,67 +516,6 @@ def test_casscf(
 
     assert np.sum(mo_coeff) == pytest.approx(ref_sum)
     assert np.amax(mo_coeff) == pytest.approx(ref_amax)
-
-
-@pytest.mark.parametrize(
-    argnames="system, method, base_method, target, cc_backend, root, ref_res",
-    argvalues=test_cases_ref_prop,
-    ids=[
-        "-".join([item for item in case[0:5] if item]) for case in test_cases_ref_prop
-    ],
-    indirect=["system"],
-)
-def test_ref_prop(
-    mol: gto.Mole,
-    hf: scf.RHF,
-    ints: Tuple[np.ndarray, np.ndarray],
-    vhf: np.ndarray,
-    dipole_quantities: Tuple[np.ndarray, np.ndarray],
-    orbsym: np.ndarray,
-    method: str,
-    base_method: Optional[str],
-    target: str,
-    cc_backend: str,
-    root: int,
-    ref_res: Union[float, np.ndarray],
-) -> None:
-    """
-    this function tests ref_prop
-    """
-    hcore, eri = ints
-
-    ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
-
-    kwargs = {}
-
-    if target == "energy":
-
-        kwargs["hf_prop"] = hf.e_tot
-
-    elif target == "dipole":
-
-        kwargs["dipole_ints"], kwargs["hf_prop"] = dipole_quantities
-
-    elif target == "trans":
-
-        kwargs["dipole_ints"], _ = dipole_quantities
-
-    res = ref_prop(
-        mol,
-        hcore,
-        eri,
-        orbsym,
-        ref_space,
-        method=method,
-        base_method=base_method,
-        cc_backend=cc_backend,
-        fci_state_root=root,
-        target=target,
-        vhf=vhf,
-        **kwargs,
-    )
-
-    assert res == pytest.approx(ref_res)
 
 
 @pytest.mark.parametrize(

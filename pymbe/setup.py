@@ -23,17 +23,8 @@ from pyscf import symm, ao2mo
 from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
-from pymbe.tools import (
-    RST,
-    logger_config,
-    assertion,
-    get_nelec,
-    get_nhole,
-    get_nexc,
-    ground_state_sym,
-    get_vhf,
-    get_occup,
-)
+from pymbe.tools import RST, logger_config, assertion, ground_state_sym, get_vhf
+
 
 if TYPE_CHECKING:
 
@@ -132,46 +123,11 @@ def main(mbe: MBE) -> MBE:
             if isinstance(mbe.eri, np.ndarray) and isinstance(mbe.norb, int):
 
                 # compute hartree-fock potential
-                if mbe.vhf is None and isinstance(mbe.nelec, np.ndarray):
+                if isinstance(mbe.nelec, np.ndarray):
                     mbe.vhf = get_vhf(mbe.eri, np.amax(mbe.nelec), mbe.norb)
 
                 # reorder electron repulsion integrals
                 mbe.eri = ao2mo.restore(4, mbe.eri, mbe.norb)
-
-            # set default value for reference space property
-            if (
-                mbe.ref_prop is None
-                and isinstance(mbe.norb, int)
-                and isinstance(mbe.nelec, np.ndarray)
-            ):
-
-                # get occupation vector
-                occup = get_occup(mbe.norb, mbe.nelec)
-
-                # nelec
-                nelec = get_nelec(occup, mbe.ref_space)
-
-                # nhole
-                nhole = get_nhole(nelec, mbe.ref_space)
-
-                # nexc
-                nexc = get_nexc(nelec, nhole)
-
-                if (
-                    nexc <= 1
-                    or (mbe.base_method in ["ccsd", "ccsd(t)"] and nexc <= 2)
-                    or (mbe.base_method == "ccsdt" and nexc <= 3)
-                    or (mbe.base_method == "ccsdtq" and nexc <= 4)
-                ):
-                    if mbe.target in ["energy", "excitation"]:
-                        mbe.ref_prop = 0.0
-                    elif mbe.target in ["dipole", "trans"]:
-                        mbe.ref_prop = np.zeros(3, dtype=np.float64)
-                    elif mbe.target == "rdm12" and mbe.ref_space is not None:
-                        mbe.ref_prop = (
-                            np.zeros(2 * (mbe.ref_space.size,), dtype=np.float64),
-                            np.zeros(4 * (mbe.ref_space.size,), dtype=np.float64),
-                        )
 
             # set default value for base model property
             if mbe.base_prop is None and mbe.base_method is None:
@@ -457,10 +413,6 @@ def sanity_check(mbe: MBE) -> None:
         isinstance(mbe.eri, np.ndarray),
         "electron repulsion integral (eri keyword argument) must be a np.ndarray",
     )
-    assertion(
-        isinstance(mbe.vhf, np.ndarray),
-        "hartree-fock potential (vhf keyword argument) must be a np.ndarray",
-    )
     if mbe.target in ["dipole", "trans"]:
         assertion(
             isinstance(mbe.dipole_ints, np.ndarray),
@@ -486,26 +438,6 @@ def sanity_check(mbe: MBE) -> None:
             ),
             "all partially occupied orbitals have to be included in the reference "
             "space (ref_space keyword argument)",
-        )
-    if mbe.target in ["energy", "excitation"]:
-        assertion(
-            isinstance(mbe.ref_prop, float),
-            "reference (excitation) energy (ref_prop keyword argument) must be a float",
-        )
-    elif mbe.target in ["dipole", "trans"]:
-        assertion(
-            isinstance(mbe.ref_prop, np.ndarray),
-            "reference (transition) dipole moment (ref_prop keyword argument) must be "
-            "a np.ndarray",
-        )
-    elif mbe.target == "rdm12":
-        assertion(
-            isinstance(mbe.ref_prop, tuple)
-            and len(mbe.ref_prop) == 2
-            and isinstance(mbe.ref_prop[0], np.ndarray)
-            and isinstance(mbe.ref_prop[1], np.ndarray),
-            "reference 1- and 2-particle density matrices (ref_prop keyword argument) "
-            "must be a tuple of np.ndarray with dimension 2",
         )
 
     # base model
@@ -680,23 +612,14 @@ def restart_write_system(mbe: MBE) -> None:
         "ref_space": mbe.ref_space,
     }
 
-    if (
-        isinstance(mbe.hf_prop, (float, np.ndarray))
-        and isinstance(mbe.ref_prop, (float, np.ndarray))
-        and isinstance(mbe.base_prop, (float, np.ndarray))
+    if isinstance(mbe.hf_prop, (float, np.ndarray)) and isinstance(
+        mbe.base_prop, (float, np.ndarray)
     ):
         system["hf_prop"] = mbe.hf_prop
-        system["ref_prop"] = mbe.ref_prop
         system["base_prop"] = mbe.base_prop
-    elif (
-        isinstance(mbe.hf_prop, tuple)
-        and isinstance(mbe.ref_prop, tuple)
-        and isinstance(mbe.base_prop, tuple)
-    ):
+    elif isinstance(mbe.hf_prop, tuple) and isinstance(mbe.base_prop, tuple):
         system["hf_prop1"] = mbe.hf_prop[0]
         system["hf_prop2"] = mbe.hf_prop[1]
-        system["ref_prop1"] = mbe.ref_prop[0]
-        system["ref_prop2"] = mbe.ref_prop[1]
         system["base_prop1"] = mbe.base_prop[0]
         system["base_prop2"] = mbe.base_prop[1]
 

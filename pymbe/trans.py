@@ -67,7 +67,6 @@ class TransExpCls(DipoleExpCls):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment associated

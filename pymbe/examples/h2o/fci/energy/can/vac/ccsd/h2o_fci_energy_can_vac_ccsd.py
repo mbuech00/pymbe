@@ -33,7 +33,7 @@ def mbe_example(rst=True):
         base_energy = base("ccsd", mol, hf_object, mo_coeff, orbsym, ncore)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        hcore, eri = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
@@ -43,7 +43,6 @@ def mbe_example(rst=True):
             hf_prop=hf_prop,
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             base_method="ccsd",
             base_prop=base_energy,
             rst=rst,

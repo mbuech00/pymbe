@@ -38,7 +38,7 @@ def mbe_example(rst=True):
         mo_coeff, orbsym = ref_mo("local", mol, hf_object, mo_coeff, orbsym, ncore)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        hcore, eri = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
@@ -49,7 +49,6 @@ def mbe_example(rst=True):
             orb_type="local",
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             base_method="ccsdt",
             base_prop=base_energy,
             rst=rst,

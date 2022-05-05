@@ -52,7 +52,6 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         super().__init__(
             mbe,
             cast(float, mbe.hf_prop),
-            cast(float, mbe.ref_prop),
             cast(float, mbe.base_prop),
         )
 
@@ -83,7 +82,6 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[float, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment
