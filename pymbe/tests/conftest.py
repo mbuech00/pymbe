@@ -326,7 +326,6 @@ def mbe(
     norb: int,
     orbsym: np.ndarray,
     ints: Tuple[np.ndarray, np.ndarray],
-    vhf: np.ndarray,
 ) -> MBE:
     """
     this fixture constructs a MBE object
@@ -334,7 +333,6 @@ def mbe(
     hcore, eri = ints
 
     mbe = MBE(
-        nuc_energy=mol.energy_nuc().item(),
         ncore=ncore,
         norb=norb,
         nelec=mol.nelec,
@@ -348,7 +346,6 @@ def mbe(
         rst=False,
     )
 
-    mbe.vhf = vhf
     mbe.restarted = False
     mbe.mpi = MPICls()
 

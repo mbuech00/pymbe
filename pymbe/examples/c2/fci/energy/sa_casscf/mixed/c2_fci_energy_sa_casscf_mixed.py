@@ -7,26 +7,26 @@ from pymbe import MBE, hf, ref_mo, ints
 
 def mbe_example(rst=True):
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
+    # create mol object
+    mol = gto.Mole()
+    mol.build(
+        verbose=0,
+        output=None,
+        atom="""
+        C  0.  0.  .7
+        C  0.  0. -.7
+        """,
+        basis="631g",
+        symmetry="d2h",
+    )
 
-        # create mol object
-        mol = gto.Mole()
-        mol.build(
-            verbose=0,
-            output=None,
-            atom="""
-            C  0.  0.  .7
-            C  0.  0. -.7
-            """,
-            basis="631g",
-            symmetry="d2h",
-        )
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # frozen core
         ncore = 2
 
         # hf calculation
-        hf_object, hf_prop, orbsym, mo_coeff = hf(mol)
+        hf_object, orbsym, mo_coeff = hf(mol)
 
         # reference space
         ref_space = np.array([2, 3, 4, 5, 6, 7, 8, 9], dtype=np.int64)
@@ -53,7 +53,6 @@ def mbe_example(rst=True):
             mol=mol,
             ncore=ncore,
             orbsym=orbsym,
-            hf_prop=hf_prop,
             orb_type="casscf",
             hcore=hcore,
             eri=eri,
@@ -61,18 +60,18 @@ def mbe_example(rst=True):
             rst=rst,
         )
 
-        # perform calculation
-        energy = mbe.kernel()
-
     else:
 
         # create mbe object
         mbe = MBE()
 
-        # perform calculation
-        energy = mbe.kernel()
+    # perform calculation
+    elec_energy = mbe.kernel()
 
-    return energy
+    # get total energy
+    tot_energy = mbe.final_prop(prop_type="total", nuc_prop=mol.energy_nuc().item())
+
+    return tot_energy
 
 
 if __name__ == "__main__":

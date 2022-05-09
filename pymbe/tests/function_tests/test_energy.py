@@ -25,7 +25,7 @@ from pymbe.energy import EnergyExpCls
 if TYPE_CHECKING:
 
     from typing import List, Tuple, Optional
-    from pyscf import scf
+    from pyscf import gto, scf
 
     from pymbe.pymbe import MBE
 
@@ -141,12 +141,13 @@ test_cases_ref_prop = [
 
 
 @pytest.fixture
-def exp(mbe: MBE):
+def exp(mol: gto.Mole, hf: scf.RHF, mbe: MBE):
     """
     this fixture constructs a EnergyExpCls object
     """
     exp = EnergyExpCls(mbe)
     exp.target = "energy"
+    exp.hf_prop = hf.e_tot - mol.energy_nuc().item()
 
     return exp
 
@@ -176,8 +177,6 @@ def test_mbe(
     """
     this function tests _mbe
     """
-    exp.hf_prop = hf.e_tot
-
     hashes: List[np.ndarray] = []
     inc: List[np.ndarray] = []
 
@@ -428,17 +427,14 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
     argnames="system, method, base_method, cc_backend, root, ref_res",
     argvalues=test_cases_ref_prop,
     ids=[
-        "-".join([item for item in case[0:3] if item]) + "-energy-" + case[3]
-        for case in test_cases_ref_prop
+        "-".join([item for item in case[0:4] if item]) for case in test_cases_ref_prop
     ],
     indirect=["system"],
 )
 def test_ref_prop(
     mbe: MBE,
     exp: EnergyExpCls,
-    hf: scf.RHF,
-    ints: Tuple[np.ndarray, np.ndarray],
-    vhf: np.ndarray,
+    ints_win: Tuple[MPI.Win, MPI.Win, MPI.Win],
     orbsym: np.ndarray,
     method: str,
     base_method: Optional[str],
@@ -449,16 +445,14 @@ def test_ref_prop(
     """
     this function tests _ref_prop
     """
-    hcore, eri = ints
-
     exp.method = method
     exp.cc_backend = cc_backend
     exp.orbsym = orbsym
     exp.fci_state_root = root
-    exp.hf_prop = hf.e_tot
+    exp.hcore, exp.eri, exp.vhf = ints_win
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
     exp.base_method = base_method
 
-    res = exp._ref_prop(hcore, eri, vhf, mbe.mpi)
+    res = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)

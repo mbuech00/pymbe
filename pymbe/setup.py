@@ -23,10 +23,12 @@ from pyscf import symm, ao2mo
 from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
-from pymbe.tools import RST, logger_config, assertion, ground_state_sym, get_vhf
+from pymbe.tools import RST, logger_config, assertion, ground_state_sym
 
 
 if TYPE_CHECKING:
+
+    from typing import Dict, Union, Optional, Tuple
 
     from pymbe.pymbe import MBE
 
@@ -60,21 +62,6 @@ def main(mbe: MBE) -> MBE:
                 # point group
                 if mbe.point_group is None and mbe.orb_type != "local":
                     mbe.point_group = mbe.mol.groupname
-
-                # nuclear repulsion energy
-                if mbe.nuc_energy is None:
-                    mbe.nuc_energy = (
-                        mbe.mol.energy_nuc().item() if mbe.mol.atom else 0.0
-                    )
-
-                # nuclear dipole moment
-                if mbe.nuc_dipole is None and mbe.target == "dipole":
-                    if mbe.mol.atom:
-                        charges = mbe.mol.atom_charges()
-                        coords = mbe.mol.atom_coords()
-                        mbe.nuc_dipole = np.einsum("i,ix->x", charges, coords)
-                    else:
-                        mbe.nuc_dipole = np.zeros(3, dtype=np.float64)
 
             # convert number of electrons to numpy array
             if isinstance(mbe.nelec, int):
@@ -113,18 +100,8 @@ def main(mbe: MBE) -> MBE:
                 elif mbe.target in ["excitation", "trans"]:
                     mbe.fci_state_root = 1
 
-            # set default value for hartree-fock property
-            if mbe.target == "excitation":
-                mbe.hf_prop = 0.0
-            elif mbe.target == "trans":
-                mbe.hf_prop = np.zeros(3, dtype=np.float64)
-
             # prepare integrals
             if isinstance(mbe.eri, np.ndarray) and isinstance(mbe.norb, int):
-
-                # compute hartree-fock potential
-                if isinstance(mbe.nelec, np.ndarray):
-                    mbe.vhf = get_vhf(mbe.eri, np.amax(mbe.nelec), mbe.norb)
 
                 # reorder electron repulsion integrals
                 mbe.eri = ao2mo.restore(4, mbe.eri, mbe.norb)
@@ -260,15 +237,6 @@ def sanity_check(mbe: MBE) -> None:
 
     # system
     assertion(
-        isinstance(mbe.nuc_energy, float),
-        "nuclear energy (nuc_energy keyword argument) must be a float",
-    )
-    if mbe.target == "dipole":
-        assertion(
-            isinstance(mbe.nuc_dipole, np.ndarray),
-            "nuclear dipole (nuc_dipole keyword argument) must be a np.ndarray",
-        )
-    assertion(
         isinstance(mbe.ncore, int) and mbe.ncore >= 0,
         "number of core orbitals (ncore keyword argument) must be an int >= 0",
     )
@@ -361,28 +329,6 @@ def sanity_check(mbe: MBE) -> None:
             "calculation of excitation energies or transition dipole moments (target "
             "keyword argument) requires target state root (state_root keyword "
             "argument) >= 1",
-        )
-
-    # hf calculation
-    if mbe.target == "energy":
-        assertion(
-            isinstance(mbe.hf_prop, float),
-            "hartree-fock energy (hf_prop keyword argument) must be a float",
-        )
-    elif mbe.target == "dipole":
-        assertion(
-            isinstance(mbe.hf_prop, np.ndarray),
-            "hartree-fock dipole moment (hf_prop keyword argument) must be a "
-            "np.ndarray",
-        )
-    elif mbe.target == "rdm12":
-        assertion(
-            isinstance(mbe.hf_prop, tuple)
-            and len(mbe.hf_prop) == 2
-            and isinstance(mbe.hf_prop[0], np.ndarray)
-            and isinstance(mbe.hf_prop[1], np.ndarray),
-            "hartree-fock 1- and 2-particle density matrices (hf_prop keyword "
-            "argument) must be a tuple of np.ndarray with dimension 2",
         )
 
     # orbital representation
@@ -600,31 +546,21 @@ def restart_write_system(mbe: MBE) -> None:
     this function writes all system quantities restart files
     """
     # define system quantities
-    system = {
-        "nuc_energy": mbe.nuc_energy,
+    system: Dict[str, Union[Optional[int], Tuple[int, int], np.ndarray, float]] = {
         "ncore": mbe.ncore,
         "norb": mbe.norb,
         "nelec": mbe.nelec,
         "orbsym": mbe.orbsym,
         "hcore": mbe.hcore,
-        "vhf": mbe.vhf,
         "eri": mbe.eri,
         "ref_space": mbe.ref_space,
     }
 
-    if isinstance(mbe.hf_prop, (float, np.ndarray)) and isinstance(
-        mbe.base_prop, (float, np.ndarray)
-    ):
-        system["hf_prop"] = mbe.hf_prop
+    if isinstance(mbe.base_prop, (float, np.ndarray)):
         system["base_prop"] = mbe.base_prop
-    elif isinstance(mbe.hf_prop, tuple) and isinstance(mbe.base_prop, tuple):
-        system["hf_prop1"] = mbe.hf_prop[0]
-        system["hf_prop2"] = mbe.hf_prop[1]
+    elif isinstance(mbe.base_prop, tuple):
         system["base_prop1"] = mbe.base_prop[0]
         system["base_prop2"] = mbe.base_prop[1]
-
-    if mbe.nuc_dipole is not None:
-        system["nuc_dipole"] = mbe.nuc_dipole
 
     if mbe.dipole_ints is not None:
         system["dipole_ints"] = mbe.dipole_ints
@@ -652,15 +588,11 @@ def restart_read_system(mbe: MBE) -> MBE:
     system_npz.close()
 
     # define scalar values
-    scalars = ["nuc_energy", "ncore", "norb"]
+    scalars = ["ncore", "norb"]
 
     if mbe.target in ["energy", "excitation"]:
-        scalars.append("hf_prop")
-        scalars.append("ref_prop")
         scalars.append("base_prop")
     elif mbe.target == "rdm12":
-        system["hf_prop"] = (system.pop("hf_prop1"), system.pop("hf_prop2"))
-        system["ref_prop"] = (system.pop("ref_prop1"), system.pop("ref_prop2"))
         system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
 
     # convert to scalars

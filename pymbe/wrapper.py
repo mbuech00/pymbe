@@ -242,9 +242,25 @@ def dipole_ints(
     return np.einsum("pi,xpq,qj->xij", mo_coeff, dipole, mo_coeff)
 
 
+def nuc_dipole(mol: gto.Mole) -> np.ndarray:
+    """
+    this function returns the nuclear dipole moment
+    """
+    # mol
+    assertion(
+        isinstance(mol, gto.Mole),
+        "nuclear_dipole: mol (first argument) must be a gto.Mole object",
+    )
+
+    # get atomic charges and coordinates
+    charges = mol.atom_charges()
+    coords = mol.atom_coords()
+
+    return np.einsum("i,ix->x", charges, coords)
+
+
 def hf(
     mol: gto.Mole,
-    target: str = "energy",
     init_guess: str = "minao",
     newton: bool = False,
     irrep_nelec: Dict[str, Any] = {},
@@ -253,12 +269,7 @@ def hf(
     matrix: Tuple[int, int] = (1, 6),
     pbc: bool = False,
     gauge_origin: np.ndarray = np.array([0.0, 0.0, 0.0]),
-) -> Tuple[
-    scf.hf.SCF,
-    Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]],
-    np.ndarray,
-    np.ndarray,
-]:
+) -> Tuple[scf.hf.SCF, np.ndarray, np.ndarray]:
     """
     this function returns the results of a restricted (open-shell) hartree-fock
     calculation
@@ -379,51 +390,7 @@ def hf(
     else:
         orbsym = np.zeros(norb, dtype=np.int64)
 
-    hf_prop: Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
-
-    if target == "energy":
-
-        hf_prop = hf.e_tot.item()
-
-    elif target == "excitation":
-
-        hf_prop = 0.0
-
-    elif target == "dipole":
-
-        if mol.atom:
-            dm = hf.make_rdm1()
-            if mol.spin > 0:
-                dm = dm[0] + dm[1]
-            with mol.with_common_orig(gauge_origin):
-                ao_dip = mol.intor_symmetric("int1e_r", comp=3)
-            hf_prop = np.einsum("xij,ji->x", ao_dip, dm)
-        else:
-            hf_prop = np.zeros(3, dtype=np.float64)
-
-    elif target == "trans":
-
-        hf_prop = np.zeros(3, dtype=np.float64)
-
-    elif target == "rdm12":
-
-        rdm1 = np.zeros(2 * (norb,), dtype=np.float64)
-        np.einsum("ii->i", rdm1)[...] += occup
-
-        rdm2 = np.zeros(4 * (norb,), dtype=np.float64)
-        occup_a = occup.copy()
-        occup_a[occup_a > 0.0] = 1.0
-        occup_b = occup - occup_a
-        # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
-        np.einsum("iijj->ij", rdm2)[...] += np.einsum("i,j", occup, occup)
-        # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
-        np.einsum("ijji->ij", rdm2)[...] += np.einsum(
-            "i,j", occup_a, occup_a
-        ) + np.einsum("i,j", occup_b, occup_b)
-
-        hf_prop = (rdm1, rdm2)
-
-    return hf, hf_prop, orbsym, np.asarray(hf.mo_coeff, order="C")
+    return hf, orbsym, np.asarray(hf.mo_coeff, order="C")
 
 
 def ref_mo(
@@ -885,7 +852,6 @@ def base(
     ncore: int,
     cc_backend: str = "pyscf",
     target: str = "energy",
-    hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
     gauge_origin: Optional[np.ndarray] = None,
 ) -> Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """
@@ -972,12 +938,6 @@ def base(
             "keyword argument)",
         )
     if target == "dipole":
-        # hf_dipole
-        assertion(
-            isinstance(hf_prop, np.ndarray),
-            "base: hartree-fock dipole moment (hf_prop keyword argument) must be a "
-            "np.ndarray",
-        )
         # gauge_dipole
         assertion(
             isinstance(gauge_origin, np.ndarray),
@@ -1060,12 +1020,13 @@ def base(
     if target == "energy":
         base_prop = res["energy"]
     elif target == "dipole":
+        hf_dipole = np.einsum("p,xpp->x", occup, cast(np.ndarray, dip_ints))
         base_prop = dipole_kernel(
             cast(np.ndarray, dip_ints),
             occup,
             corr_idx,
             res["rdm1"],
-            hf_dipole=cast(np.ndarray, hf_prop),
+            hf_dipole=hf_dipole,
         )
     elif target == "rdm12":
         base_prop = res["rdm1"], res["rdm2"]

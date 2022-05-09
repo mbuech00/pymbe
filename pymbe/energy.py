@@ -18,12 +18,13 @@ import os
 import logging
 import numpy as np
 from mpi4py import MPI
+from pyscf import ao2mo
 from typing import TYPE_CHECKING, cast
 
 from pymbe.expansion import ExpCls, SingleTargetExpCls
 from pymbe.kernel import main_kernel
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, get_nelec
+from pymbe.tools import RST, write_file, get_nelec, idx_tril
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
@@ -49,24 +50,32 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         """
         init expansion attributes
         """
-        super().__init__(
-            mbe,
-            cast(float, mbe.hf_prop),
-            cast(float, mbe.base_prop),
-        )
+        super().__init__(mbe, cast(float, mbe.base_prop))
 
-    def tot_prop(self) -> float:
+    def prop(self, prop_type: str, nuc_prop: float = 0.0) -> float:
         """
-        this function returns the final total energy
+        this function returns the final energy
         """
-        return self._prop_conv()[-1]
+        return self._prop_conv(
+            nuc_prop,
+            self.hf_prop
+            if prop_type in ["electronic", "total"]
+            else self._init_target_inst(0.0, self.norb),
+        )[-1]
 
-    def plot_results(self) -> matplotlib.figure.Figure:
+    def plot_results(
+        self, y_axis: str, nuc_prop: float = 0.0
+    ) -> matplotlib.figure.Figure:
         """
         this function plots the energy
         """
         return results_plt(
-            self._prop_conv(),
+            self._prop_conv(
+                nuc_prop,
+                self.hf_prop
+                if y_axis in ["electronic", "total"]
+                else self._init_target_inst(0.0, self.norb),
+            ),
             self.min_order,
             self.final_order,
             "x",
@@ -74,6 +83,38 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
             f"state {self.fci_state_root}",
             "Energy (in au)",
         )
+
+    def _calc_hf_prop(
+        self, hcore: np.ndarray, eri: np.ndarray, vhf: np.ndarray
+    ) -> float:
+        """
+        this function calculates the hartree-fock property
+        """
+        # add one-electron integrals
+        hf_prop = np.sum(self.occup * np.diag(hcore))
+
+        # set closed- and open-shell indices
+        cs_idx = np.where(self.occup == 2)[0]
+        os_idx = np.where(self.occup == 1)[0]
+
+        # add closed-shell and coupling electron repulsion terms
+        hf_prop += np.trace((np.sum(vhf, axis=0))[cs_idx.reshape(-1, 1), cs_idx])
+
+        # check if system is open-shell
+        if self.spin > 0:
+
+            # get indices for eris that only include open-shell orbitals
+            os_eri_idx = idx_tril(os_idx)
+
+            # retrieve eris of open-shell orbitals and unpack these
+            os_eri = ao2mo.restore(
+                1, eri[os_eri_idx.reshape(-1, 1), os_eri_idx], os_idx.size
+            )
+
+            # add open-shell electron repulsion terms
+            hf_prop += 0.5 * (np.einsum("pqrr->", os_eri) - np.einsum("pqrp->", os_eri))
+
+        return hf_prop
 
     def _inc(
         self,
@@ -296,9 +337,13 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         Union[float, np.floating], Union[float, np.floating], Union[float, np.floating]
     ]:
         """
-        this function returns the hf, base and total energy
+        this function returns the hf, base and total electronic energy
         """
-        return self.hf_prop, self.hf_prop + self.base_prop, self._prop_conv()[-1]
+        return (
+            self.hf_prop,
+            self.hf_prop + self.base_prop,
+            self._prop_conv(hf_prop=self.hf_prop)[-1],
+        )
 
     def _results_prt(self) -> str:
         """
@@ -306,13 +351,13 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         """
         string: str = DIVIDER_RESULTS[:67] + "\n"
         string += (
-            f"MBE-{self.method.upper()} energy (root = {self.fci_state_root})"
+            f"MBE-{self.method.upper()} electronic energy (root = {self.fci_state_root})"
         ).center(73) + "\n"
 
         string += DIVIDER_RESULTS[:67] + "\n"
         string += (
             f"{'':3}{'MBE order':^14}{'|':1}"
-            f"{'total energy':^22}{'|':1}"
+            f"{'electronic energy':^22}{'|':1}"
             f"{'correlation energy':^26}\n"
         )
 
@@ -324,7 +369,7 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         )
 
         string += DIVIDER_RESULTS[:67] + "\n"
-        energy = self._prop_conv()
+        energy = self._prop_conv(hf_prop=self.hf_prop)
         for i, j in enumerate(range(self.min_order, self.final_order + 1)):
             string += (
                 f"{'':3}{j:>8d}{'':6}{'|':1}"
@@ -336,13 +381,14 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
 
         return string
 
-    def _prop_conv(self) -> np.ndarray:
+    def _prop_conv(self, nuc_prop: float = 0.0, hf_prop: float = 0.0) -> np.ndarray:
         """
         this function returns the total energy
         """
         tot_energy = np.array(self.mbe_tot_prop)
-        tot_energy += self.hf_prop
         tot_energy += self.base_prop
         tot_energy += self.ref_prop
+        tot_energy += hf_prop
+        tot_energy += nuc_prop
 
         return tot_energy

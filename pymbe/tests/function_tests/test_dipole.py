@@ -22,6 +22,7 @@ from pymbe.dipole import DipoleExpCls
 
 if TYPE_CHECKING:
 
+    from mpi4py import MPI
     from typing import Tuple, Optional
 
     from pymbe.pymbe import MBE
@@ -63,10 +64,11 @@ test_cases_ref_prop = [
 
 
 @pytest.fixture
-def exp(mbe: MBE):
+def exp(mbe: MBE, dipole_quantities: Tuple[np.ndarray, np.ndarray]):
     """
     this fixture constructs a DipoleExpCls object
     """
+    mbe.dipole_ints, _ = dipole_quantities
     exp = DipoleExpCls(mbe)
     exp.target = "dipole"
 
@@ -77,17 +79,14 @@ def exp(mbe: MBE):
     argnames="system, method, base_method, cc_backend, root, ref_res",
     argvalues=test_cases_ref_prop,
     ids=[
-        "-".join([item for item in case[0:3] if item]) + "-dipole-" + case[3]
-        for case in test_cases_ref_prop
+        "-".join([item for item in case[0:4] if item]) for case in test_cases_ref_prop
     ],
     indirect=["system"],
 )
 def test_ref_prop(
     mbe: MBE,
     exp: DipoleExpCls,
-    ints: Tuple[np.ndarray, np.ndarray],
-    vhf: np.ndarray,
-    dipole_quantities: Tuple[np.ndarray, np.ndarray],
+    ints_win: Tuple[MPI.Win, MPI.Win, MPI.Win],
     orbsym: np.ndarray,
     method: str,
     base_method: Optional[str],
@@ -98,16 +97,14 @@ def test_ref_prop(
     """
     this function tests ref_prop
     """
-    hcore, eri = ints
-
     exp.method = method
     exp.cc_backend = cc_backend
     exp.orbsym = orbsym
     exp.fci_state_root = root
-    exp.dipole_ints, exp.hf_prop = dipole_quantities
+    exp.hcore, exp.eri, exp.vhf = ints_win
     exp.ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
     exp.base_method = base_method
 
-    res = exp._ref_prop(hcore, eri, vhf, mbe.mpi)
+    res = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)

@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
     from _pytest.fixtures import SubRequest
     from pyscf import gto
-    from typing import List, Tuple, Union, Optional, Dict, Any
+    from typing import List, Tuple, Union, Dict, Any
 
 
 test_cases_ints = [("h2o", "rnd")]
@@ -120,61 +120,25 @@ test_cases_hubbard_h1e = [
 test_cases_hf = [
     (
         "h2o",
-        "energy",
         "h2o",
         False,
         False,
-        -75.9838464521063,
         True,
         True,
     ),
     (
         "h2o",
-        "dipole",
-        "h2o",
-        False,
-        False,
-        np.array([0.0, 0.0, 8.64255793e-01], dtype=np.float64),
-        True,
-        True,
-    ),
-    (
-        "h2o",
-        "energy",
         "h2o",
         True,
         False,
-        -75.9838464521063,
         False,
         True,
     ),
     (
         "h2o",
-        "dipole",
-        "h2o",
-        True,
-        False,
-        np.array([0.0, 0.0, 8.64255793e-01], dtype=np.float64),
-        False,
-        True,
-    ),
-    (
-        "h2o",
-        "energy",
         "h2o",
         False,
         True,
-        -76.03260101758543,
-        False,
-        False,
-    ),
-    (
-        "h2o",
-        "dipole",
-        "h2o",
-        False,
-        True,
-        np.array([0.0, 0.0, 8.62876951e-01], dtype=np.float64),
         False,
         False,
     ),
@@ -379,24 +343,19 @@ def test_hubbard_eri() -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="system, target, mo_coeff, newton, x2c, ref_hf_prop, mo_coeff_eq, rdm1_eq",
+    argnames="system, mo_coeff, newton, x2c, mo_coeff_eq, rdm1_eq",
     argvalues=test_cases_hf,
     ids=[
-        "-".join(case[0:2])
-        + ("-sym" if case[3] else "")
-        + ("-newton" if case[2] else "")
-        + ("-x2c" if case[4] else "")
+        case[0] + ("-newton" if case[2] else "") + ("-x2c" if case[3] else "")
         for case in test_cases_hf
     ],
     indirect=["system", "mo_coeff"],
 )
 def test_hf(
     mol: gto.Mole,
-    target: str,
     mo_coeff: np.ndarray,
     newton: bool,
     x2c: bool,
-    ref_hf_prop: Union[float, np.ndarray],
     mo_coeff_eq: bool,
     rdm1_eq: bool,
 ) -> None:
@@ -405,14 +364,11 @@ def test_hf(
     """
     ref_mo_coeff = mo_coeff
 
-    hf_object, hf_prop, orbsym, mo_coeff = wrapper_hf(
-        mol, target=target, newton=newton, x2c=x2c
-    )
+    hf_object, orbsym, mo_coeff = wrapper_hf(mol, newton=newton, x2c=x2c)
 
     rdm1 = scf.hf.make_rdm1(mo_coeff, hf_object.mo_occ)
     ref_rdm1 = scf.hf.make_rdm1(ref_mo_coeff, hf_object.mo_occ)
 
-    assert hf_prop == pytest.approx(ref_hf_prop, rel=1e-5, abs=1e-11)
     assert (
         orbsym == np.array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0], dtype=np.float64)
     ).all()
@@ -529,7 +485,6 @@ def test_base(
     hf: scf.RHF,
     orbsym: np.ndarray,
     ncore: int,
-    dipole_quantities: Tuple[np.ndarray, np.ndarray],
     method: str,
     target: str,
     cc_backend: str,
@@ -538,13 +493,6 @@ def test_base(
     """
     this function tests base
     """
-    dipole_kwargs = {}
-
-    if target == "dipole":
-
-        _, dipole_kwargs["hf_prop"] = dipole_quantities
-        dipole_kwargs["gauge_origin"] = np.zeros(3, dtype=np.float64)
-
     base_prop = base(
         method,
         mol,
@@ -554,7 +502,7 @@ def test_base(
         ncore,
         cc_backend=cc_backend,
         target=target,
-        **dipole_kwargs,
+        gauge_origin=np.zeros(3, dtype=np.float64),
     )
 
     assert base_prop == pytest.approx(ref)

@@ -128,12 +128,10 @@ def system_dist(mbe: MBE) -> MBE:
 
         # collect system quantites (must be updated with new future attributes)
         system = {
-            "nuc_energy": mbe.nuc_energy,
             "ncore": mbe.ncore,
             "norb": mbe.norb,
             "nelec": mbe.nelec,
             "orbsym": mbe.orbsym,
-            "hf_prop": mbe.hf_prop,
             "dipole_ints": mbe.dipole_ints,
             "ref_space": mbe.ref_space,
             "base_prop": mbe.base_prop,

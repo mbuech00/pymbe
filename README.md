@@ -59,8 +59,6 @@ keyword arguments. Possible keyword arguments are:
     - target: expansion target property (energy, dipole, excitation, trans, rdm12)
 * **system**
     * mol: [pyscf](https://pyscf.github.io/) gto.Mole object
-    * nuc_energy: nuclear energy
-    * nuc_dipole: nuclear dipole moment
     * ncore: number of core orbitals
     * norb: number of orbitals
     * nelec: number of electrons
@@ -68,8 +66,6 @@ keyword arguments. Possible keyword arguments are:
     * orbsym: orbital symmetry
     * fci_state_sym: state wavefunction symmetry
     * fci_state_root: target state
-- **hf calculation**
-    - hf_prop: hartree-fock property
 * **orbital representation**
     * orb_type: orbital representation
 - **integrals**
@@ -101,12 +97,15 @@ The calculation is started by calling the kernel() member function of the MBE
 object. Restart files are automatically generated (unless otherwise requested 
 through the rst keyword argument) in a dedicated directory `rst` within 
 `$WORKDIR`, which is deleted in case of successful termination of PyMBE. When 
-restarting a calulation from the restart files, the kernel function can be 
+restarting a calculation from the restart files, the kernel function can be 
 called without passing any keyword arguments to the MBE object. The kernel() 
 function returns the total target property. The program can also be called in 
 parallel by calling the kernel function in multiple MPI processes (e.g. using 
 the mpiexec command). Only the keyword arguments of the MBE object on the 
 global master will be used during the calculation.\
+Please note that all PyMBE functions only return the electronic part of the 
+calculated property. For energies and dipole moments the nuclear part has to be 
+added to get the total molecular property.
 The results of a PyMBE caluculation can be printed using the results() member
 function of the MBE object. This function returns the calculation parameters 
 summarized in a string.\

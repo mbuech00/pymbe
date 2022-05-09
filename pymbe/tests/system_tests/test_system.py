@@ -158,14 +158,13 @@ def test_system(example: List[str]) -> None:
         / "/".join([string for string in example])
     )
 
-    if example[2] in ["energy", "excitation", "dipole", "trans"]:
+    if example[2] in ["energy", "excitation", "dipole"]:
 
-        if example[2] in ["energy", "excitation", "dipole"]:
-            assert prop == pytest.approx(np.load(ref_path / "ref.npy"))
-        elif example[2] == "trans":
-            assert prop == pytest.approx(
-                np.load(ref_path / "ref.npy"), rel=1e-5, abs=1e-12
-            )
+        assert prop == pytest.approx(np.load(ref_path / "ref.npy"))
+
+    elif example[2] == "trans":
+
+        assert prop == pytest.approx(np.load(ref_path / "ref.npy"), rel=1e-5, abs=1e-12)
 
     elif example[2] == "rdm12":
 

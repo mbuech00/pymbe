@@ -7,27 +7,27 @@ from pymbe import MBE, hf, ints
 
 def mbe_example(rst=True):
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
+    # create mol object
+    mol = gto.Mole()
+    mol.build(
+        verbose=0,
+        output=None,
+        atom="""
+        O  0.00000000  0.00000000  0.10840502
+        H -0.75390364  0.00000000 -0.47943227
+        H  0.75390364  0.00000000 -0.47943227
+        """,
+        basis="631g",
+        symmetry="c2v",
+    )
 
-        # create mol object
-        mol = gto.Mole()
-        mol.build(
-            verbose=0,
-            output=None,
-            atom="""
-            O  0.00000000  0.00000000  0.10840502
-            H -0.75390364  0.00000000 -0.47943227
-            H  0.75390364  0.00000000 -0.47943227
-            """,
-            basis="631g",
-            symmetry="c2v",
-        )
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # frozen core
         ncore = 1
 
         # hf calculation
-        _, _, orbsym, mo_coeff = hf(mol)
+        _, orbsym, mo_coeff = hf(mol)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)

@@ -32,7 +32,9 @@ class ExcExpCls(EnergyExpCls):
     energy
     """
 
-    def plot_results(self) -> matplotlib.figure.Figure:
+    def plot_results(
+        self, y_axis: str, hf_prop: float = 0.0
+    ) -> matplotlib.figure.Figure:
         """
         this function plots the excitation energy
         """
@@ -45,6 +47,12 @@ class ExcExpCls(EnergyExpCls):
             f"excitation 0 -> {self.fci_state_root}",
             "Excitation energy (in au)",
         )
+
+    def _calc_hf_prop(self, *args: np.ndarray) -> float:
+        """
+        this function calculates the hartree-fock property
+        """
+        return 0.0
 
     def _prop_summ(
         self,
@@ -81,7 +89,7 @@ class ExcExpCls(EnergyExpCls):
 
         return string
 
-    def _prop_conv(self) -> np.ndarray:
+    def _prop_conv(self, nuc_prop: float = 0.0, hf_prop: float = 0.0) -> np.ndarray:
         """
         this function returns the total excitation energy
         """
