@@ -27,7 +27,6 @@ from pymbe.wrapper import (
     _hubbard_eri,
     hf as wrapper_hf,
     ref_mo,
-    ref_prop,
     base,
     _casscf,
     linear_orbsym,
@@ -37,7 +36,7 @@ if TYPE_CHECKING:
 
     from _pytest.fixtures import SubRequest
     from pyscf import gto
-    from typing import List, Tuple, Union, Optional, Dict, Any
+    from typing import List, Tuple, Union, Dict, Any
 
 
 test_cases_ints = [("h2o", "rnd")]
@@ -121,61 +120,25 @@ test_cases_hubbard_h1e = [
 test_cases_hf = [
     (
         "h2o",
-        "energy",
         "h2o",
         False,
         False,
-        -75.9838464521063,
         True,
         True,
     ),
     (
         "h2o",
-        "dipole",
-        "h2o",
-        False,
-        False,
-        np.array([0.0, 0.0, 8.64255793e-01], dtype=np.float64),
-        True,
-        True,
-    ),
-    (
-        "h2o",
-        "energy",
         "h2o",
         True,
         False,
-        -75.9838464521063,
         False,
         True,
     ),
     (
         "h2o",
-        "dipole",
-        "h2o",
-        True,
-        False,
-        np.array([0.0, 0.0, 8.64255793e-01], dtype=np.float64),
-        False,
-        True,
-    ),
-    (
-        "h2o",
-        "energy",
         "h2o",
         False,
         True,
-        -76.03260101758543,
-        False,
-        False,
-    ),
-    (
-        "h2o",
-        "dipole",
-        "h2o",
-        False,
-        True,
-        np.array([0.0, 0.0, 8.62876951e-01], dtype=np.float64),
         False,
         False,
     ),
@@ -232,153 +195,6 @@ test_cases_casscf = [
         False,
         3.042674374623752,
         6.377238595069308,
-    ),
-]
-
-test_cases_ref_prop = [
-    (
-        "h2o",
-        "fci",
-        None,
-        "energy",
-        "pyscf",
-        0,
-        -0.03769780809258805,
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "energy",
-        "pyscf",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "energy",
-        "pyscf",
-        0,
-        -0.00036229313775759664,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "energy",
-        "pyscf",
-        0,
-        -0.0003336954549769955,
-    ),
-    (
-        "h2o",
-        "fci",
-        None,
-        "dipole",
-        "pyscf",
-        0,
-        np.array([0.0, 0.0, -0.02732937], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "dipole",
-        "pyscf",
-        0,
-        np.array([0.0, 0.0, -2.87487935e-02], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "dipole",
-        "pyscf",
-        0,
-        np.array([0.0, 0.0, 1.41941689e-03], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "dipole",
-        "pyscf",
-        0,
-        np.array([0.0, 0.0, 1.47038530e-03], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "fci",
-        None,
-        "excitation",
-        "pyscf",
-        1,
-        0.7060145137233889,
-    ),
-    (
-        "h2o",
-        "fci",
-        None,
-        "trans",
-        "pyscf",
-        1,
-        np.array([0.0, 0.0, 0.72582795], dtype=np.float64),
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "energy",
-        "ecc",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "energy",
-        "ecc",
-        0,
-        -0.0003622938195746786,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "energy",
-        "ecc",
-        0,
-        -0.0003336954549769955,
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "energy",
-        "ncc",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "energy",
-        "ncc",
-        0,
-        -0.0003622938195746786,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "energy",
-        "ncc",
-        0,
-        -0.0003336954549769955,
     ),
 ]
 
@@ -443,12 +259,10 @@ def test_ints(mol: gto.Mole, mo_coeff: np.ndarray) -> None:
     """
     this function tests ints
     """
-    hcore, eri, vhf = wrapper_ints(mol, mo_coeff)
+    hcore, eri = wrapper_ints(mol, mo_coeff)
 
     assert np.sum(hcore) == pytest.approx(-12371.574250637233)
     assert np.amax(hcore) == pytest.approx(-42.09685184826769)
-    assert np.sum(vhf) == pytest.approx(39687.423264678)
-    assert np.amax(vhf) == pytest.approx(95.00353546601883)
     assert np.sum(eri) == pytest.approx(381205.21288377955)
     assert np.amax(eri) == pytest.approx(149.4981150522994)
 
@@ -529,24 +343,19 @@ def test_hubbard_eri() -> None:
 
 
 @pytest.mark.parametrize(
-    argnames="system, target, mo_coeff, newton, x2c, ref_hf_prop, mo_coeff_eq, rdm1_eq",
+    argnames="system, mo_coeff, newton, x2c, mo_coeff_eq, rdm1_eq",
     argvalues=test_cases_hf,
     ids=[
-        "-".join(case[0:2])
-        + ("-sym" if case[3] else "")
-        + ("-newton" if case[2] else "")
-        + ("-x2c" if case[4] else "")
+        case[0] + ("-newton" if case[2] else "") + ("-x2c" if case[3] else "")
         for case in test_cases_hf
     ],
     indirect=["system", "mo_coeff"],
 )
 def test_hf(
     mol: gto.Mole,
-    target: str,
     mo_coeff: np.ndarray,
     newton: bool,
     x2c: bool,
-    ref_hf_prop: Union[float, np.ndarray],
     mo_coeff_eq: bool,
     rdm1_eq: bool,
 ) -> None:
@@ -555,14 +364,11 @@ def test_hf(
     """
     ref_mo_coeff = mo_coeff
 
-    hf_object, hf_prop, orbsym, mo_coeff = wrapper_hf(
-        mol, target=target, newton=newton, x2c=x2c
-    )
+    hf_object, orbsym, mo_coeff = wrapper_hf(mol, newton=newton, x2c=x2c)
 
     rdm1 = scf.hf.make_rdm1(mo_coeff, hf_object.mo_occ)
     ref_rdm1 = scf.hf.make_rdm1(ref_mo_coeff, hf_object.mo_occ)
 
-    assert hf_prop == pytest.approx(ref_hf_prop, rel=1e-5, abs=1e-11)
     assert (
         orbsym == np.array([0, 0, 2, 0, 3, 0, 2, 2, 3, 0, 0, 2, 0], dtype=np.float64)
     ).all()
@@ -669,67 +475,6 @@ def test_casscf(
 
 
 @pytest.mark.parametrize(
-    argnames="system, method, base_method, target, cc_backend, root, ref_res",
-    argvalues=test_cases_ref_prop,
-    ids=[
-        "-".join([item for item in case[0:5] if item]) for case in test_cases_ref_prop
-    ],
-    indirect=["system"],
-)
-def test_ref_prop(
-    mol: gto.Mole,
-    hf: scf.RHF,
-    ints: Tuple[np.ndarray, np.ndarray],
-    vhf: np.ndarray,
-    dipole_quantities: Tuple[np.ndarray, np.ndarray],
-    orbsym: np.ndarray,
-    method: str,
-    base_method: Optional[str],
-    target: str,
-    cc_backend: str,
-    root: int,
-    ref_res: Union[float, np.ndarray],
-) -> None:
-    """
-    this function tests ref_prop
-    """
-    hcore, eri = ints
-
-    ref_space = np.array([0, 1, 2, 3, 4, 6, 8, 10], dtype=np.int64)
-
-    kwargs = {}
-
-    if target == "energy":
-
-        kwargs["hf_prop"] = hf.e_tot
-
-    elif target == "dipole":
-
-        kwargs["dipole_ints"], kwargs["hf_prop"] = dipole_quantities
-
-    elif target == "trans":
-
-        kwargs["dipole_ints"], _ = dipole_quantities
-
-    res = ref_prop(
-        mol,
-        hcore,
-        eri,
-        orbsym,
-        ref_space,
-        method=method,
-        base_method=base_method,
-        cc_backend=cc_backend,
-        fci_state_root=root,
-        target=target,
-        vhf=vhf,
-        **kwargs,
-    )
-
-    assert res == pytest.approx(ref_res)
-
-
-@pytest.mark.parametrize(
     argnames="system, method, target, cc_backend, ref",
     argvalues=test_cases_base,
     ids=["-".join(case[0:4]) for case in test_cases_base],
@@ -740,7 +485,6 @@ def test_base(
     hf: scf.RHF,
     orbsym: np.ndarray,
     ncore: int,
-    dipole_quantities: Tuple[np.ndarray, np.ndarray],
     method: str,
     target: str,
     cc_backend: str,
@@ -749,13 +493,6 @@ def test_base(
     """
     this function tests base
     """
-    dipole_kwargs = {}
-
-    if target == "dipole":
-
-        _, dipole_kwargs["hf_prop"] = dipole_quantities
-        dipole_kwargs["gauge_origin"] = np.zeros(3, dtype=np.float64)
-
     base_prop = base(
         method,
         mol,
@@ -765,7 +502,7 @@ def test_base(
         ncore,
         cc_backend=cc_backend,
         target=target,
-        **dipole_kwargs,
+        gauge_origin=np.zeros(3, dtype=np.float64),
     )
 
     assert base_prop == pytest.approx(ref)

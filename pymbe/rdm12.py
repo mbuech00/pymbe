@@ -55,12 +55,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         """
         init expansion attributes
         """
-        super(RDMExpCls, self).__init__(
-            mbe,
-            RDMCls(*cast(tuple, mbe.hf_prop)),
-            RDMCls(*cast(tuple, mbe.ref_prop)),
-            RDMCls(*cast(tuple, mbe.base_prop)),
-        )
+        super(RDMExpCls, self).__init__(mbe, RDMCls(*cast(tuple, mbe.base_prop)))
 
     def __del__(self) -> None:
         """
@@ -69,22 +64,46 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         # ensure the class attributes of packedRDMCls are reset
         packedRDMCls.reset()
 
-    def tot_prop(self) -> Tuple[np.ndarray, np.ndarray]:
+    def prop(self, prop_type: str) -> Tuple[np.ndarray, np.ndarray]:
         """
-        this function returns the total 1- and 2-particle reduced density matrices
+        this function returns the final 1- and 2-particle reduced density matrices
         """
         tot_rdm12 = self.mbe_tot_prop[-1]
-        tot_rdm12 += self.hf_prop
         tot_rdm12[self.ref_space] += self.ref_prop
         tot_rdm12 += self.base_prop
+        tot_rdm12 += (
+            self.hf_prop
+            if prop_type in ["electronic", "total"]
+            else self._init_target_inst(0.0, self.norb)
+        )
 
         return tot_rdm12.rdm1, tot_rdm12.rdm2
 
-    def plot_results(self) -> matplotlib.figure.Figure:
+    def plot_results(self, *args: str) -> matplotlib.figure.Figure:
         """
         this function plots the 1- and 2-particle reduced density matrices
         """
         raise NotImplementedError
+
+    def _calc_hf_prop(self, *args: np.ndarray) -> RDMCls:
+        """
+        this function calculates the hartree-fock property
+        """
+        rdm1 = np.zeros(2 * (self.norb,), dtype=np.float64)
+        np.einsum("ii->i", rdm1)[...] += self.occup
+
+        rdm2 = np.zeros(4 * (self.norb,), dtype=np.float64)
+        occup_a = self.occup.copy()
+        occup_a[occup_a > 0.0] = 1.0
+        occup_b = self.occup - occup_a
+        # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
+        np.einsum("iijj->ij", rdm2)[...] += np.einsum("i,j", self.occup, self.occup)
+        # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
+        np.einsum("ijji->ij", rdm2)[...] += np.einsum(
+            "i,j", occup_a, occup_a
+        ) + np.einsum("i,j", occup_b, occup_b)
+
+        return RDMCls(rdm1, rdm2)
 
     def _inc(
         self,
@@ -93,7 +112,6 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[RDMCls, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment

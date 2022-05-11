@@ -257,14 +257,13 @@ def test_e_core_h1e() -> None:
     """
     this function tests e_core_h1e
     """
-    e_nuc = 0.0
     np.random.seed(1234)
     hcore = np.random.rand(6, 6)
     np.random.seed(1234)
     vhf = np.random.rand(3, 6, 6)
     core_idx = np.array([0], dtype=np.int64)
     cas_idx = np.array([2, 4, 5], dtype=np.int64)
-    e_core, h1e_cas = e_core_h1e(e_nuc, hcore, vhf, core_idx, cas_idx)
+    e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
 
     assert e_core == pytest.approx(0.5745583511366769)
     assert h1e_cas == pytest.approx(

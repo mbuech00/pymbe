@@ -24,17 +24,14 @@ from copy import copy
 from typing import TYPE_CHECKING, cast, Union
 from warnings import catch_warnings, simplefilter
 
-from pymbe.kernel import main_kernel, dipole_kernel, cc_kernel, e_core_h1e
+from pymbe.kernel import dipole_kernel, cc_kernel
 from pymbe.tools import (
-    RDMCls,
     assertion,
     mat_idx,
     near_nbrs,
     core_cas,
     get_vhf,
     get_nelec,
-    get_nhole,
-    get_nexc,
     idx_tril,
     ground_state_sym,
     get_occup,
@@ -56,10 +53,9 @@ def ints(
     u: float = 1.0,
     matrix: Tuple[int, int] = (1, 6),
     pbc: bool = False,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    this function returns 1e and 2e mo integrals and effective fock potentials from
-    individual occupied orbitals
+    this function returns 1e and 2e mo integrals
     """
     # mol
     assertion(
@@ -106,9 +102,6 @@ def ints(
             "must be a bool",
         )
 
-    # nocc
-    nocc = max(mol.nelec)
-
     # norb
     norb = mol.nao.item()
 
@@ -121,13 +114,10 @@ def ints(
     # eri_mo w/o symmetry
     eri = ao2mo.incore.full(eri_ao, mo_coeff)
 
-    # compute vhf
-    vhf = get_vhf(eri, nocc, norb)
-
     # restore 4-fold symmetry in eri
     eri = ao2mo.restore(4, eri, norb)
 
-    return hcore, eri, vhf
+    return hcore, eri
 
 
 def _ao_ints(
@@ -252,9 +242,25 @@ def dipole_ints(
     return np.einsum("pi,xpq,qj->xij", mo_coeff, dipole, mo_coeff)
 
 
+def nuc_dipole(mol: gto.Mole) -> np.ndarray:
+    """
+    this function returns the nuclear dipole moment
+    """
+    # mol
+    assertion(
+        isinstance(mol, gto.Mole),
+        "nuclear_dipole: mol (first argument) must be a gto.Mole object",
+    )
+
+    # get atomic charges and coordinates
+    charges = mol.atom_charges()
+    coords = mol.atom_coords()
+
+    return np.einsum("i,ix->x", charges, coords)
+
+
 def hf(
     mol: gto.Mole,
-    target: str = "energy",
     init_guess: str = "minao",
     newton: bool = False,
     irrep_nelec: Dict[str, Any] = {},
@@ -263,12 +269,7 @@ def hf(
     matrix: Tuple[int, int] = (1, 6),
     pbc: bool = False,
     gauge_origin: np.ndarray = np.array([0.0, 0.0, 0.0]),
-) -> Tuple[
-    scf.hf.SCF,
-    Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]],
-    np.ndarray,
-    np.ndarray,
-]:
+) -> Tuple[scf.hf.SCF, np.ndarray, np.ndarray]:
     """
     this function returns the results of a restricted (open-shell) hartree-fock
     calculation
@@ -389,51 +390,7 @@ def hf(
     else:
         orbsym = np.zeros(norb, dtype=np.int64)
 
-    hf_prop: Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
-
-    if target == "energy":
-
-        hf_prop = hf.e_tot.item()
-
-    elif target == "excitation":
-
-        hf_prop = 0.0
-
-    elif target == "dipole":
-
-        if mol.atom:
-            dm = hf.make_rdm1()
-            if mol.spin > 0:
-                dm = dm[0] + dm[1]
-            with mol.with_common_orig(gauge_origin):
-                ao_dip = mol.intor_symmetric("int1e_r", comp=3)
-            hf_prop = np.einsum("xij,ji->x", ao_dip, dm)
-        else:
-            hf_prop = np.zeros(3, dtype=np.float64)
-
-    elif target == "trans":
-
-        hf_prop = np.zeros(3, dtype=np.float64)
-
-    elif target == "rdm12":
-
-        rdm1 = np.zeros(2 * (norb,), dtype=np.float64)
-        np.einsum("ii->i", rdm1)[...] += occup
-
-        rdm2 = np.zeros(4 * (norb,), dtype=np.float64)
-        occup_a = occup.copy()
-        occup_a[occup_a > 0.0] = 1.0
-        occup_b = occup - occup_a
-        # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
-        np.einsum("iijj->ij", rdm2)[...] += np.einsum("i,j", occup, occup)
-        # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
-        np.einsum("ijji->ij", rdm2)[...] += np.einsum(
-            "i,j", occup_a, occup_a
-        ) + np.einsum("i,j", occup_b, occup_b)
-
-        hf_prop = (rdm1, rdm2)
-
-    return hf, hf_prop, orbsym, np.asarray(hf.mo_coeff, order="C")
+    return hf, orbsym, np.asarray(hf.mo_coeff, order="C")
 
 
 def ref_mo(
@@ -886,389 +843,6 @@ def _casscf(
     return np.asarray(cas.mo_coeff, order="C")
 
 
-def ref_prop(
-    mol: gto.Mole,
-    hcore: np.ndarray,
-    eri: np.ndarray,
-    orbsym: np.ndarray,
-    ref_space: np.ndarray,
-    method: str = "fci",
-    base_method: Optional[str] = None,
-    cc_backend: str = "pyscf",
-    target: str = "energy",
-    fci_state_sym: Optional[Union[str, int]] = None,
-    fci_state_root: int = 0,
-    hf_guess: bool = True,
-    hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
-    vhf: Optional[np.ndarray] = None,
-    dipole_ints: Optional[np.ndarray] = None,
-    orb_type: str = "can",
-):
-    """
-    this function returns reference space properties
-    """
-    # mol
-    assertion(
-        isinstance(mol, gto.Mole),
-        "ref_prop: mol (first argument) must be a gto.Mole object",
-    )
-    # hcore
-    assertion(
-        isinstance(hcore, np.ndarray),
-        "ref_prop: core hamiltonian integrals (second argument) must be a np.ndarray",
-    )
-    # eri
-    assertion(
-        isinstance(eri, np.ndarray),
-        "ref_prop: electron repulsion integrals (third argument) must be a np.ndarray",
-    )
-    # orbsym
-    assertion(
-        isinstance(orbsym, np.ndarray),
-        "ref_prop: orbital symmetry (fourth argument) must be a np.ndarray",
-    )
-    # ref_space
-    assertion(
-        isinstance(ref_space, np.ndarray),
-        "ref_prop: reference space (fifth argument) must be a np.ndarray of orbital "
-        "indices",
-    )
-    # method
-    assertion(
-        isinstance(method, str),
-        "ref_prop: electronic structure method (method keyword argument) must be a str",
-    )
-    assertion(
-        method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq", "fci"],
-        "ref_prop: valid electronic structure methods (method keyword argument) are: "
-        "ccsd, ccsd(t), ccsdt, ccsdtq and fci",
-    )
-    # base_method
-    assertion(
-        isinstance(base_method, (str, type(None))),
-        "ref_prop: base model electronic structure method (base_method keyword "
-        "argument) must be a str or None",
-    )
-    if base_method is not None:
-        assertion(
-            base_method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"],
-            "ref_prop: valid base model electronic structure methods (base_method "
-            "keyword argument) are: ccsd, ccsd(t), ccsdt and ccsdtq",
-        )
-    # fci
-    if fci_state_sym is None:
-        fci_state_sym = ground_state_sym(orbsym, mol.nelec, mol.groupname)
-    if method == "fci":
-        # fci_state_sym
-        assertion(
-            isinstance(fci_state_sym, (str, int)),
-            "ref_prop: fci state symmetry (fci_state_sym keyword argument) must be a "
-            "str or int",
-        )
-        if isinstance(fci_state_sym, str):
-            try:
-                fci_state_sym = (
-                    symm.addons.irrep_name2id(mol.groupname, fci_state_sym)
-                    if mol.groupname
-                    else 0
-                )
-            except Exception as err:
-                raise ValueError(
-                    "ref_prop: illegal choice of fci state symmetry (fci_state_sym "
-                    f"keyword argument) -- PySCF error: {err}"
-                )
-        # fci_state_root
-        assertion(
-            isinstance(fci_state_root, int),
-            "ref_prop: fci state root (fci_state_root keyword argument) must be an int",
-        )
-        assertion(
-            fci_state_root >= 0,
-            "ref_prop: choice of fci target state (fci_state_root keyword argument) "
-            "must be an int >= 0",
-        )
-        # hf_guess
-        assertion(
-            isinstance(hf_guess, bool),
-            "ref_prop: hf initial guess (hf_guess keyword argument) must be a bool",
-        )
-        if hf_guess:
-            assertion(
-                fci_state_sym == ground_state_sym(orbsym, mol.nelec, mol.groupname),
-                "ref_prop: illegal choice of reference wfnsym (wfnsym keyword "
-                "argument) when enforcing hf initial guess (hf_guess keyword argument) "
-                "because wfnsym does not equal hf state symmetry",
-            )
-    # cc methods
-    elif method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"] or base_method:
-        assertion(
-            isinstance(cc_backend, str),
-            "ref_prop: coupled-cluster backend (cc_backend keyword argument) must be a "
-            "str",
-        )
-        assertion(
-            cc_backend in ["pyscf", "ecc", "ncc"],
-            "ref_prop: valid coupled-cluster backends (cc_backend keyword argument) "
-            "are: pyscf, ecc and ncc",
-        )
-        if base_method == "ccsdt":
-            assertion(
-                cc_backend != "pyscf",
-                "ref_prop: ccsdt is not available with pyscf coupled-cluster backend "
-                "(cc_backend keyword argument)",
-            )
-        if base_method == "ccsdtq":
-            assertion(
-                cc_backend == "ncc",
-                "ref_prop: ccsdtq is not available with pyscf and ecc coupled-cluster "
-                "backends (cc_backend keyword argument)",
-            )
-        if mol.spin > 0:
-            assertion(
-                cc_backend == "pyscf",
-                "ref_prop: open-shell systems are not available with ecc and ncc "
-                "coupled-cluster backends (cc_backend keyword argument)",
-            )
-    # target
-    assertion(
-        isinstance(target, str),
-        "ref_prop: target property (target keyword argument) must be str",
-    )
-    assertion(
-        target in ["energy", "excitation", "dipole", "trans", "rdm12"],
-        "ref_prop: valid target properties (target keyword argument) are: energy, "
-        "excitation energy (excitation), dipole, and transition dipole (trans)",
-    )
-    if target in ["excitation", "trans"]:
-        assertion(
-            fci_state_root > 0,
-            "ref_prop: calculation of excitation energies or transition dipole moments "
-            "(target keyword argument) requires target state root (state_root keyword "
-            "argument) >= 1",
-        )
-    if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"] or base_method:
-        assertion(
-            target in ["energy", "dipole", "rdm12"],
-            "ref_prop: calculation of excitation energies or transition dipole moments "
-            "(target keyword argument) not possible with coupled-cluster methods "
-            "(method keyword argument)",
-        )
-        if cc_backend in ["ecc", "ncc"]:
-            assertion(
-                target == "energy",
-                "ref_prop: calculation of targets (target keyword argument) other than "
-                "energy not possible with ecc and ncc coupled-cluster backends "
-                "(cc_backend keyword argument)",
-            )
-    # hf_prop
-    if target == "energy":
-        assertion(
-            isinstance(hf_prop, float),
-            "ref_prop: hartree-fock energy (hf_prop keyword argument) must be a float",
-        )
-    elif target == "dipole":
-        assertion(
-            isinstance(hf_prop, np.ndarray),
-            "ref_prop: hartree-fock dipole moment (hf_prop keyword argument) must be a "
-            "np.ndarray",
-        )
-    elif target == "rdm12":
-        assertion(
-            isinstance(hf_prop, tuple)
-            and len(hf_prop) == 2
-            and isinstance(hf_prop[0], np.ndarray)
-            and isinstance(hf_prop[1], np.ndarray),
-            "ref_prop: hartree-fock 1- and 2-particle density matrices (hf_prop "
-            "keyword argument) must be a tuple of np.ndarray with dimension 2",
-        )
-    # vhf
-    if vhf is not None:
-        assertion(
-            isinstance(vhf, np.ndarray),
-            "ref_prop: hartree-fock potential (vhf keyword argument) must be a "
-            "np.ndarray",
-        )
-    # dipole_ints
-    if target in ["dipole", "trans"]:
-        assertion(
-            isinstance(dipole_ints, np.ndarray),
-            "ref_prop: dipole integrals (dipole_ints keyword argument) must be a "
-            "np.ndarray",
-        )
-    # orbital representation
-    assertion(
-        isinstance(orb_type, str),
-        "ref_prop: orbital representation (orbs keyword argument) must be a str",
-    )
-    assertion(
-        orb_type in ["can", "ccsd", "ccsd(t)", "local", "casscf"],
-        "ref_prop: valid orbital representations (orbs keyword argument) are: "
-        "canonical (can), natural (ccsd or ccsd(t)), pipek-mezey (local), or casscf "
-        "orbs (casscf)",
-    )
-
-    # nocc
-    nocc = max(mol.nelec)
-
-    # norb
-    norb = mol.nao.item()
-
-    # occup
-    occup = get_occup(norb, mol.nelec)
-
-    # hf_prop
-    if target == "excitation":
-        hf_prop = 0.0
-    elif target == "trans":
-        hf_prop = np.zeros(3, dtype=np.float64)
-
-    # core_idx and cas_idx
-    core_idx, cas_idx = core_cas(nocc, ref_space, np.array([], dtype=np.int64))
-
-    # compute vhf
-    if vhf is None:
-        vhf = get_vhf(eri, nocc, norb)
-
-    # nelec
-    nelec = get_nelec(occup, cas_idx)
-
-    # nhole
-    nhole = get_nhole(nelec, cas_idx)
-
-    # nexc
-    nexc = get_nexc(nelec, nhole)
-
-    # ref_prop
-    ref_prop: Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]
-
-    if (
-        nexc <= 1
-        or (base_method in ["ccsd", "ccsd(t)"] and nexc <= 2)
-        or (base_method == "ccsdt" and nexc <= 3)
-        or (base_method == "ccsdtq" and nexc <= 4)
-    ):
-
-        # no correlation in expansion reference space
-        if target in ["energy", "excitation"]:
-            ref_prop = 0.0
-        elif target in ["dipole", "trans"]:
-            ref_prop = np.zeros(3, dtype=np.float64)
-        elif target == "rdm12":
-            ref_prop = (
-                np.zeros(2 * (ref_space.size,), dtype=np.float64),
-                np.zeros(4 * (ref_space.size,), dtype=np.float64),
-            )
-
-    else:
-
-        # get cas_space h2e
-        cas_idx_tril = idx_tril(cas_idx)
-        h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
-
-        # compute e_core and h1e_cas
-        e_core, h1e_cas = e_core_h1e(
-            mol.energy_nuc().item(), hcore, vhf, core_idx, cas_idx
-        )
-
-        # exp model
-        res = main_kernel(
-            method,
-            cc_backend,
-            orb_type,
-            mol.spin,
-            occup,
-            target,
-            cast(int, fci_state_sym),
-            mol.groupname,
-            orbsym,
-            hf_guess,
-            fci_state_root,
-            RDMCls(hf_prop[0], hf_prop[1])
-            if isinstance(hf_prop, tuple)
-            else cast(Union[float, np.ndarray], hf_prop),
-            e_core,
-            h1e_cas,
-            h2e_cas,
-            core_idx,
-            cas_idx,
-            nelec,
-            0,
-            higher_amp_extrap=False,
-        )
-
-        if target in ["energy", "excitation"]:
-
-            ref_prop = res[target]
-
-        elif target == "dipole":
-
-            ref_prop = dipole_kernel(
-                cast(np.ndarray, dipole_ints),
-                occup,
-                cas_idx,
-                res["rdm1"],
-                hf_dipole=cast(np.ndarray, hf_prop),
-            )
-
-        elif target == "trans":
-
-            ref_prop = dipole_kernel(
-                cast(np.ndarray, dipole_ints),
-                occup,
-                cas_idx,
-                res["t_rdm1"],
-                trans=True,
-            )
-
-        elif target == "rdm12":
-
-            ref_prop = (res["rdm1"], res["rdm2"])
-
-        # base model
-        if base_method is not None:
-
-            res = cc_kernel(
-                mol.spin,
-                occup,
-                core_idx,
-                cas_idx,
-                base_method,
-                cc_backend,
-                nelec,
-                orb_type,
-                mol.groupname,
-                orbsym,
-                h1e_cas,
-                h2e_cas,
-                False,
-                target,
-                0,
-            )
-
-            if target == "energy":
-
-                ref_prop -= res[target]
-
-            elif target == "dipole":
-
-                ref_prop -= dipole_kernel(
-                    cast(np.ndarray, dipole_ints),
-                    occup,
-                    cas_idx,
-                    res["rdm1"],
-                    hf_dipole=cast(np.ndarray, hf_prop),
-                )
-
-            elif target == "rdm12":
-
-                ref_prop = (
-                    cast(tuple, ref_prop)[0] - res["rdm1"],
-                    cast(tuple, ref_prop)[1] - res["rdm2"],
-                )
-
-    return ref_prop
-
-
 def base(
     method: str,
     mol: gto.Mole,
@@ -1278,7 +852,6 @@ def base(
     ncore: int,
     cc_backend: str = "pyscf",
     target: str = "energy",
-    hf_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
     gauge_origin: Optional[np.ndarray] = None,
 ) -> Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """
@@ -1365,12 +938,6 @@ def base(
             "keyword argument)",
         )
     if target == "dipole":
-        # hf_dipole
-        assertion(
-            isinstance(hf_prop, np.ndarray),
-            "base: hartree-fock dipole moment (hf_prop keyword argument) must be a "
-            "np.ndarray",
-        )
         # gauge_dipole
         assertion(
             isinstance(gauge_origin, np.ndarray),
@@ -1453,12 +1020,13 @@ def base(
     if target == "energy":
         base_prop = res["energy"]
     elif target == "dipole":
+        hf_dipole = np.einsum("p,xpp->x", occup, cast(np.ndarray, dip_ints))
         base_prop = dipole_kernel(
             cast(np.ndarray, dip_ints),
             occup,
             corr_idx,
             res["rdm1"],
-            hf_dipole=cast(np.ndarray, hf_prop),
+            hf_dipole=hf_dipole,
         )
     elif target == "rdm12":
         base_prop = res["rdm1"], res["rdm2"]

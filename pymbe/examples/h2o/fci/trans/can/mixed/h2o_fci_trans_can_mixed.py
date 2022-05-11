@@ -2,57 +2,44 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from pymbe import MBE, hf, ints, dipole_ints, ref_prop
+from pymbe import MBE, hf, ints, dipole_ints
 
 
 def mbe_example(rst=True):
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
+    # create mol object
+    mol = gto.Mole()
+    mol.build(
+        verbose=0,
+        output=None,
+        atom="""
+        O  0.00000000  0.00000000  0.10840502
+        H -0.75390364  0.00000000 -0.47943227
+        H  0.75390364  0.00000000 -0.47943227
+        """,
+        basis="631g",
+        symmetry="c2v",
+    )
 
-        # create mol object
-        mol = gto.Mole()
-        mol.build(
-            verbose=0,
-            output=None,
-            atom="""
-            O  0.00000000  0.00000000  0.10840502
-            H -0.75390364  0.00000000 -0.47943227
-            H  0.75390364  0.00000000 -0.47943227
-            """,
-            basis="631g",
-            symmetry="c2v",
-        )
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # frozen core
         ncore = 1
 
         # hf calculation
-        _, _, orbsym, mo_coeff = hf(mol)
+        _, orbsym, mo_coeff = hf(mol)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        hcore, eri = ints(mol, mo_coeff)
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
 
         # dipole integral calculation
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
-
-        # reference property
-        ref_trans = ref_prop(
-            mol,
-            hcore,
-            eri,
-            orbsym,
-            ref_space,
-            target="trans",
-            fci_state_root=1,
-            vhf=vhf,
-            dipole_ints=dip_ints,
-        )
 
         # create mbe object
         mbe = MBE(
@@ -63,10 +50,8 @@ def mbe_example(rst=True):
             fci_state_root=1,
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             dipole_ints=dip_ints,
             ref_space=ref_space,
-            ref_prop=ref_trans,
             rst=rst,
         )
 

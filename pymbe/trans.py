@@ -34,13 +34,9 @@ class TransExpCls(DipoleExpCls):
     dipole moment
     """
 
-    def tot_prop(self) -> np.ndarray:
-        """
-        this function returns the final total transition dipole moment
-        """
-        return self._prop_conv()[-1, :]
-
-    def plot_results(self) -> matplotlib.figure.Figure:
+    def plot_results(
+        self, y_axis: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
+    ) -> matplotlib.figure.Figure:
         """
         this function plots the transition dipole moment
         """
@@ -60,6 +56,12 @@ class TransExpCls(DipoleExpCls):
             "Transition dipole (in au)",
         )
 
+    def _calc_hf_prop(self, *args: np.ndarray) -> np.ndarray:
+        """
+        this function calculates the hartree-fock property
+        """
+        return np.zeros(3, dtype=np.float64)
+
     def _inc(
         self,
         e_core: float,
@@ -67,7 +69,6 @@ class TransExpCls(DipoleExpCls):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment associated
@@ -164,7 +165,11 @@ class TransExpCls(DipoleExpCls):
 
         return string
 
-    def _prop_conv(self) -> np.ndarray:
+    def _prop_conv(
+        self,
+        nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64),
+        hf_prop: np.ndarray = np.zeros(3, dtype=np.float64),
+    ) -> np.ndarray:
         """
         this function returns the total transition dipole moment
         """

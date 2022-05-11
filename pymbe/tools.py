@@ -828,7 +828,7 @@ def ground_state_sym(orbsym: np.ndarray, nelec: np.ndarray, point_group: str) ->
     return wfnsym.item()
 
 
-def get_vhf(eri: np.ndarray, nocc: int, norb: int):
+def get_vhf(eri: np.ndarray, nocc: int, norb: int) -> np.ndarray:
     """
     this function determines the Hartree-Fock potential from the electron repulsion
     integrals
@@ -837,9 +837,7 @@ def get_vhf(eri: np.ndarray, nocc: int, norb: int):
 
     vhf = np.empty((nocc, norb, norb), dtype=np.float64)
     for i in range(nocc):
-        idx = np.asarray([i])
-        vhf[i] = np.einsum("pqrs->rs", eri[idx[:, None], idx, :, :]) * 2.0
-        vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
+        vhf[i] = 2.0 * eri[i, i, :, :] - eri[:, i, i, :]
 
     return vhf
 

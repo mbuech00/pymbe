@@ -49,34 +49,40 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         """
         init expansion attributes
         """
-        super().__init__(
-            mbe,
-            cast(np.ndarray, mbe.hf_prop),
-            cast(np.ndarray, mbe.ref_prop),
-            cast(np.ndarray, mbe.base_prop),
-        )
-
-        # system
-        self.nuc_dipole = cast(np.ndarray, mbe.nuc_dipole)
-
         # integrals
         self.dipole_ints = cast(np.ndarray, mbe.dipole_ints)
 
-    def tot_prop(self) -> np.ndarray:
-        """
-        this function returns the final total dipole moment
-        """
-        return self.nuc_dipole - self._prop_conv()[-1, :]
+        super().__init__(mbe, cast(np.ndarray, mbe.base_prop))
 
-    def plot_results(self) -> matplotlib.figure.Figure:
+    def prop(
+        self, prop_type: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
+    ) -> np.ndarray:
+        """
+        this function returns the final dipole moment
+        """
+        return self._prop_conv(
+            nuc_prop,
+            self.hf_prop
+            if prop_type in ["electronic", "total"]
+            else self._init_target_inst(0.0, self.norb),
+        )[-1, :]
+
+    def plot_results(
+        self, y_axis: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
+    ) -> matplotlib.figure.Figure:
         """
         this function plots the dipole moment
         """
         # array of total MBE dipole moment
-        dipole = self._prop_conv()
+        dipole = self._prop_conv(
+            nuc_prop,
+            self.hf_prop
+            if y_axis in ["electronic", "total"]
+            else self._init_target_inst(0.0, self.norb),
+        )
         dipole_arr = np.empty(dipole.shape[0], dtype=np.float64)
         for i in range(dipole.shape[0]):
-            dipole_arr[i] = np.linalg.norm(self.nuc_dipole - dipole[i, :])
+            dipole_arr[i] = np.linalg.norm(dipole[i, :])
 
         return results_plt(
             dipole_arr,
@@ -88,6 +94,12 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
             "Dipole moment (in au)",
         )
 
+    def _calc_hf_prop(self, *args: np.ndarray) -> np.ndarray:
+        """
+        this function calculates the hartree-fock property
+        """
+        return np.einsum("p,xpp->x", self.occup, self.dipole_ints)
+
     def _inc(
         self,
         e_core: float,
@@ -95,7 +107,6 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment
@@ -333,11 +344,11 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         Union[float, np.floating], Union[float, np.floating], Union[float, np.floating]
     ]:
         """
-        this function returns the norm of the hf, base and total dipole moment
+        this function returns the norm of the hf, base and total electronic dipole moment
         """
-        hf_prop = np.linalg.norm(self.nuc_dipole - self.hf_prop)
-        base_prop = np.linalg.norm(self.nuc_dipole - (self.hf_prop + self.base_prop))
-        mbe_tot_prop = np.linalg.norm(self.nuc_dipole - self._prop_conv()[-1, :])
+        hf_prop = np.linalg.norm(self.hf_prop)
+        base_prop = np.linalg.norm(self.hf_prop + self.base_prop)
+        mbe_tot_prop = np.linalg.norm(self._prop_conv(hf_prop=self.hf_prop)[-1, :])
 
         return hf_prop, base_prop, mbe_tot_prop
 
@@ -346,47 +357,51 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         this function returns the dipole moments table
         """
         string: str = DIVIDER_RESULTS[:83] + "\n"
-        string += f"MBE dipole moment (root = {self.fci_state_root})".center(87) + "\n"
+        string += (
+            f"MBE electronic dipole moment (root = {self.fci_state_root})".center(87)
+            + "\n"
+        )
 
         string += DIVIDER_RESULTS[:83] + "\n"
         string += (
             f"{'':3}{'MBE order':^14}{'|':1}"
-            f"{'dipole components (x,y,z)':^43}{'|':1}"
-            f"{'dipole moment':^21}\n"
+            f"{'elec. dipole components (x,y,z)':^43}{'|':1}"
+            f"{'elec. dipole moment':^21}\n"
         )
 
         string += DIVIDER_RESULTS[:83] + "\n"
-        tot_ref_dipole: np.ndarray = self.hf_prop + self.base_prop + self.ref_prop
+        tot_ref_dipole: np.ndarray = -(self.hf_prop + self.base_prop + self.ref_prop)
         string += (
-            f"{'':3}{'ref':^14s}{'|':1}"
-            f"{(self.nuc_dipole[0] - tot_ref_dipole[0]):>13.6f}"
-            f"{(self.nuc_dipole[1] - tot_ref_dipole[1]):>13.6f}"
-            f"{(self.nuc_dipole[2] - tot_ref_dipole[2]):>13.6f}{'':4}{'|':1}"
-            f"{np.linalg.norm(self.nuc_dipole - tot_ref_dipole):>14.6f}{'':7}\n"
+            f"{'':3}{'ref':^14s}{'|':1}{tot_ref_dipole[0]:>13.6f}"
+            f"{tot_ref_dipole[1]:>13.6f}{tot_ref_dipole[2]:>13.6f}{'':4}{'|':1}"
+            f"{np.linalg.norm(tot_ref_dipole):>14.6f}{'':7}\n"
         )
 
         string += DIVIDER_RESULTS[:83] + "\n"
-        dipole = self._prop_conv()
+        dipole = self._prop_conv(hf_prop=self.hf_prop)
         for i, j in enumerate(range(self.min_order, self.final_order + 1)):
             string += (
-                f"{'':3}{j:>8d}{'':6}{'|':1}"
-                f"{(self.nuc_dipole[0] - dipole[i, 0]):>13.6f}"
-                f"{(self.nuc_dipole[1] - dipole[i, 1]):>13.6f}"
-                f"{(self.nuc_dipole[2] - dipole[i, 2]):>13.6f}{'':4}{'|':1}"
-                f"{np.linalg.norm(self.nuc_dipole - dipole[i, :]):>14.6f}{'':7}\n"
+                f"{'':3}{j:>8d}{'':6}{'|':1}{dipole[i, 0]:>13.6f}"
+                f"{dipole[i, 1]:>13.6f}{dipole[i, 2]:>13.6f}{'':4}{'|':1}"
+                f"{np.linalg.norm(dipole[i, :]):>14.6f}{'':7}\n"
             )
 
         string += DIVIDER_RESULTS[:83] + "\n"
 
         return string
 
-    def _prop_conv(self) -> np.ndarray:
+    def _prop_conv(
+        self,
+        nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64),
+        hf_prop: np.ndarray = np.zeros(3, dtype=np.float64),
+    ) -> np.ndarray:
         """
         this function returns the total dipole moment
         """
-        tot_dipole = np.array(self.mbe_tot_prop)
-        tot_dipole += self.hf_prop
-        tot_dipole += self.base_prop
-        tot_dipole += self.ref_prop
+        tot_dipole = -np.array(self.mbe_tot_prop)
+        tot_dipole -= self.base_prop
+        tot_dipole -= self.ref_prop
+        tot_dipole -= hf_prop
+        tot_dipole += nuc_prop
 
         return tot_dipole

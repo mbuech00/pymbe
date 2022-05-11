@@ -2,33 +2,33 @@ import os
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto
-from pymbe import MBE, hf, ref_mo, ints, dipole_ints, ref_prop
+from pymbe import MBE, hf, ref_mo, ints, dipole_ints, nuc_dipole
 
 
 def mbe_example(rst=True):
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
+    # create mol object
+    mol = gto.Mole()
+    mol.build(
+        verbose=0,
+        output=None,
+        atom="""
+        C  0.00000  0.00000  0.00000
+        H  0.98920  0.42714  0.00000
+        H -0.98920  0.42714  0.00000
+        """,
+        basis="631g",
+        symmetry="c2v",
+        spin=2,
+    )
 
-        # create mol object
-        mol = gto.Mole()
-        mol.build(
-            verbose=0,
-            output=None,
-            atom="""
-            C  0.00000  0.00000  0.00000
-            H  0.98920  0.42714  0.00000
-            H -0.98920  0.42714  0.00000
-            """,
-            basis="631g",
-            symmetry="c2v",
-            spin=2,
-        )
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # frozen core
         ncore = 1
 
         # hf calculation
-        hf_object, hf_prop, orbsym, mo_coeff = hf(mol, target="dipole")
+        hf_object, orbsym, mo_coeff = hf(mol)
 
         # pipek-mezey localized orbitals
         mo_coeff, orbsym = ref_mo("local", mol, hf_object, mo_coeff, orbsym, ncore)
@@ -37,7 +37,7 @@ def mbe_example(rst=True):
         ref_space = np.array([1, 2, 3, 4], dtype=np.int64)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        hcore, eri = ints(mol, mo_coeff)
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
@@ -45,50 +45,32 @@ def mbe_example(rst=True):
         # dipole integral calculation
         dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
 
-        # reference property
-        ref_dipole = ref_prop(
-            mol,
-            hcore,
-            eri,
-            orbsym,
-            ref_space,
-            method="ccsd",
-            target="dipole",
-            hf_prop=hf_prop,
-            vhf=vhf,
-            dipole_ints=dip_ints,
-            orb_type="local",
-        )
-
         # create mbe object
         mbe = MBE(
             method="ccsd",
             target="dipole",
             mol=mol,
             ncore=ncore,
-            hf_prop=hf_prop,
             orb_type="local",
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             dipole_ints=dip_ints,
             ref_space=ref_space,
-            ref_prop=ref_dipole,
             rst=rst,
         )
-
-        # perform calculation
-        dipole = mbe.kernel()
 
     else:
 
         # create mbe object
         mbe = MBE()
 
-        # perform calculation
-        dipole = mbe.kernel()
+    # perform calculation
+    elec_dipole = mbe.kernel()
 
-    return dipole
+    # get total dipole moment
+    tot_dipole = mbe.final_prop(prop_type="total", nuc_prop=nuc_dipole(mol))
+
+    return tot_dipole
 
 
 if __name__ == "__main__":

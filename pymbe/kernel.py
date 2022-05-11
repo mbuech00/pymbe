@@ -38,18 +38,11 @@ SPIN_TOL = 1.0e-05
 
 
 def e_core_h1e(
-    nuc_energy: float,
-    hcore: np.ndarray,
-    vhf: np.ndarray,
-    core_idx: np.ndarray,
-    cas_idx: np.ndarray,
+    hcore: np.ndarray, vhf: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray
 ) -> Tuple[float, np.ndarray]:
     """
     this function returns core energy and cas space 1e integrals
     """
-    # init core energy
-    e_core = nuc_energy
-
     # determine effective core fock potential
     if core_idx.size > 0:
         core_vhf = np.sum(vhf[core_idx], axis=0)
@@ -57,7 +50,7 @@ def e_core_h1e(
         core_vhf = 0.0
 
     # calculate core energy
-    e_core += np.trace((hcore + 0.5 * core_vhf)[core_idx[:, None], core_idx]) * 2.0
+    e_core = np.trace((hcore + 0.5 * core_vhf)[core_idx[:, None], core_idx]) * 2.0
 
     # extract cas integrals
     h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]

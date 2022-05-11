@@ -26,34 +26,23 @@ def mbe_example(rst=True):
         mol.nelectron = floor(matrix[0] * matrix[1] * n)
 
         # hf calculation
-        _, hf_prop, orbsym, mo_coeff = hf(mol, u=u, matrix=matrix, pbc=pbc)
+        _, orbsym, mo_coeff = hf(mol, u=u, matrix=matrix, pbc=pbc)
 
         # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff, u=u, matrix=matrix, pbc=pbc)
+        hcore, eri = ints(mol, mo_coeff, u=u, matrix=matrix, pbc=pbc)
 
         # create mbe object
-        mbe = MBE(
-            mol=mol,
-            hf_prop=hf_prop,
-            orbsym=orbsym,
-            hcore=hcore,
-            eri=eri,
-            vhf=vhf,
-            rst=rst,
-        )
-
-        # perform calculation
-        energy = mbe.kernel()
+        mbe = MBE(mol=mol, orbsym=orbsym, hcore=hcore, eri=eri, rst=rst)
 
     else:
 
         # create mbe object
         mbe = MBE()
 
-        # perform calculation
-        energy = mbe.kernel()
+    # perform calculation
+    elec_energy = mbe.kernel()
 
-    return energy
+    return elec_energy
 
 
 if __name__ == "__main__":
