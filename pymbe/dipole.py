@@ -21,7 +21,7 @@ from mpi4py import MPI
 from typing import TYPE_CHECKING, cast
 
 from pymbe.expansion import ExpCls, SingleTargetExpCls
-from pymbe.kernel import main_kernel, dipole_kernel
+from pymbe.kernel import main_kernel, dipole_kernel, hf_dipole_kernel
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import RST, write_file, get_nelec
 from pymbe.parallel import mpi_reduce, open_shared_win
@@ -98,7 +98,7 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         """
         this function calculates the hartree-fock property
         """
-        return np.einsum("p,xpp->x", self.occup, self.dipole_ints)
+        return hf_dipole_kernel(self.occup, self.dipole_ints)
 
     def _inc(
         self,

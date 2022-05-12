@@ -449,7 +449,6 @@ def test_fci(
         e_core,
         h1e_cas,
         h2e_cas,
-        occup,
         cas_idx,
         nelec,
         0,
@@ -514,6 +513,7 @@ def test_cc(
         True,
         target,
         0,
+        None,
     )
 
     if target == "energy":

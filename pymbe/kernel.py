@@ -15,7 +15,7 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-from pyscf import gto, scf, cc, fci
+from pyscf import gto, scf, cc, fci, ao2mo
 from pyscf.cc import ccsd_t
 from pyscf.cc import uccsd_t
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
@@ -24,7 +24,7 @@ from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import uccsd_t_rdm
 from typing import TYPE_CHECKING
 
-from pymbe.tools import RDMCls, assertion, get_nhole, get_nexc
+from pymbe.tools import RDMCls, assertion, get_nhole, get_nexc, idx_tril
 from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
@@ -101,6 +101,7 @@ def main_kernel(
             higher_amp_extrap,
             target_mbe,
             verbose,
+            hf_prop,
         )
 
     elif method == "fci":
@@ -116,7 +117,6 @@ def main_kernel(
             e_core,
             h1e,
             h2e,
-            occup,
             cas_idx,
             nelec,
             verbose,
@@ -166,7 +166,6 @@ def fci_kernel(
     e_core: float,
     h1e: np.ndarray,
     h2e: np.ndarray,
-    occup: np.ndarray,
     cas_idx: np.ndarray,
     nelec: np.ndarray,
     verbose: int,
@@ -299,20 +298,9 @@ def fci_kernel(
         )
     elif target_mbe == "rdm12":
         res["rdm1"], res["rdm2"] = solver.make_rdm12(civec[-1], cas_idx.size, nelec)
-        # subtract hf 1-rdm
-        np.einsum("ii->i", res["rdm1"])[...] -= occup[cas_idx]
-        # subtract hf 2-rdm
-        occup_a = occup[cas_idx]
-        occup_a[occup_a > 0.0] = 1.0
-        occup_b = occup[cas_idx] - occup_a
-        # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
-        np.einsum("iijj->ij", res["rdm2"])[...] -= np.einsum(
-            "i,j", occup[cas_idx], occup[cas_idx]
-        )
-        # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
-        np.einsum("ijji->ij", res["rdm2"])[...] += np.einsum(
-            "i,j", occup_a, occup_a
-        ) + np.einsum("i,j", occup_b, occup_b)
+        cas_hf_prop = hf_prop[cas_idx]
+        res["rdm1"] -= cas_hf_prop.rdm1
+        res["rdm2"] -= cas_hf_prop.rdm2
 
     return res
 
@@ -333,6 +321,7 @@ def cc_kernel(
     higher_amp_extrap: bool,
     target: str,
     verbose: int,
+    hf_prop: Any,
 ) -> Dict[str, Any]:
     """
     this function returns the results of a ccsd / ccsd(t) calculation
@@ -468,19 +457,72 @@ def cc_kernel(
                 res["rdm2"] = rdm2
             else:
                 res["rdm2"] = rdm2[0] + rdm2[1] + rdm2[2] + rdm2[3]
-            # subtract hf 1-rdm
-            np.einsum("ii->i", res["rdm1"])[...] -= occup[cas_idx]
-            # subtract hf 2-rdm
-            occup_a = occup[cas_idx]
-            occup_a[occup_a > 0.0] = 1.0
-            occup_b = occup[cas_idx] - occup_a
-            # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
-            np.einsum("iijj->ij", res["rdm2"])[...] -= np.einsum(
-                "i,j", occup[cas_idx], occup[cas_idx]
-            )
-            # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
-            np.einsum("ijji->ij", res["rdm2"])[...] += np.einsum(
-                "i,j", occup_a, occup_a
-            ) + np.einsum("i,j", occup_b, occup_b)
+            if hf_prop is not None:
+                cas_hf_prop = hf_prop[cas_idx]
+                res["rdm1"] -= cas_hf_prop.rdm1
+                res["rdm2"] -= cas_hf_prop.rdm2
+            else:
+                res["rdm1"], res["rdm2"] = hf_rdm12_kernel(cas_idx.size, occup[cas_idx])
 
     return res
+
+
+def hf_energy_kernel(
+    occup: np.ndarray, spin: int, hcore: np.ndarray, eri: np.ndarray, vhf: np.ndarray
+) -> float:
+    """
+    this function constructs the Hartree-Fock electronic energy
+    """
+    # add one-electron integrals
+    hf_energy = np.sum(occup * np.diag(hcore))
+
+    # set closed- and open-shell indices
+    cs_idx = np.where(occup == 2)[0]
+    os_idx = np.where(occup == 1)[0]
+
+    # add closed-shell and coupling electron repulsion terms
+    hf_energy += np.trace((np.sum(vhf, axis=0))[cs_idx.reshape(-1, 1), cs_idx])
+
+    # check if system is open-shell
+    if spin > 0:
+
+        # get indices for eris that only include open-shell orbitals
+        os_eri_idx = idx_tril(os_idx)
+
+        # retrieve eris of open-shell orbitals and unpack these
+        os_eri = ao2mo.restore(
+            1, eri[os_eri_idx.reshape(-1, 1), os_eri_idx], os_idx.size
+        )
+
+        # add open-shell electron repulsion terms
+        hf_energy += 0.5 * (np.einsum("pqrr->", os_eri) - np.einsum("pqrp->", os_eri))
+
+    return hf_energy
+
+
+def hf_dipole_kernel(occup: np.ndarray, dipole_ints: np.ndarray) -> np.ndarray:
+    """
+    this function constructs the Hartree-Fock electronic dipole moment
+    """
+    return np.einsum("p,xpp->x", occup, dipole_ints)
+
+
+def hf_rdm12_kernel(norb: int, occup: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    this function constructs the Hartree-Fock reduced density matrices
+    """
+    rdm1 = np.zeros(2 * (norb,), dtype=np.float64)
+    np.einsum("ii->i", rdm1)[...] += occup
+
+    rdm2 = np.zeros(4 * (norb,), dtype=np.float64)
+    occup_a = occup.copy()
+    occup_a[occup_a > 0.0] = 1.0
+    occup_b = occup - occup_a
+    # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
+    np.einsum("iijj->ij", rdm2)[...] += np.einsum("i,j", occup, occup)
+    # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
+    np.einsum("ijji->ij", rdm2)[...] -= np.einsum("i,j", occup_a, occup_a) + np.einsum(
+        "i,j", occup_b, occup_b
+    )
+
+    return rdm1, rdm2
