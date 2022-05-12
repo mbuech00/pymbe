@@ -24,7 +24,7 @@ from copy import copy
 from typing import TYPE_CHECKING, cast, Union
 from warnings import catch_warnings, simplefilter
 
-from pymbe.kernel import dipole_kernel, cc_kernel
+from pymbe.kernel import dipole_kernel, cc_kernel, hf_dipole_kernel
 from pymbe.tools import (
     assertion,
     mat_idx,
@@ -1014,19 +1014,19 @@ def base(
         False,
         target,
         0,
+        None,
     )
 
     # collect results
     if target == "energy":
         base_prop = res["energy"]
     elif target == "dipole":
-        hf_dipole = np.einsum("p,xpp->x", occup, cast(np.ndarray, dip_ints))
         base_prop = dipole_kernel(
             cast(np.ndarray, dip_ints),
             occup,
             corr_idx,
             res["rdm1"],
-            hf_dipole=hf_dipole,
+            hf_dipole=hf_dipole_kernel(occup, cast(np.ndarray, dip_ints)),
         )
     elif target == "rdm12":
         base_prop = res["rdm1"], res["rdm2"]

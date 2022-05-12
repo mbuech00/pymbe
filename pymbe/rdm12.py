@@ -21,7 +21,7 @@ from mpi4py import MPI
 from typing import TYPE_CHECKING, cast, Tuple
 
 from pymbe.expansion import ExpCls
-from pymbe.kernel import main_kernel
+from pymbe.kernel import main_kernel, hf_rdm12_kernel
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import (
     RST,
@@ -89,21 +89,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         """
         this function calculates the hartree-fock property
         """
-        rdm1 = np.zeros(2 * (self.norb,), dtype=np.float64)
-        np.einsum("ii->i", rdm1)[...] += self.occup
-
-        rdm2 = np.zeros(4 * (self.norb,), dtype=np.float64)
-        occup_a = self.occup.copy()
-        occup_a[occup_a > 0.0] = 1.0
-        occup_b = self.occup - occup_a
-        # d_ppqq = k_pa*k_qa + k_pb*k_qb + k_pa*k_qb + k_pb*k_qa = k_p*k_q
-        np.einsum("iijj->ij", rdm2)[...] += np.einsum("i,j", self.occup, self.occup)
-        # d_pqqp = - (k_pa*k_qa + k_pb*k_qb)
-        np.einsum("ijji->ij", rdm2)[...] += np.einsum(
-            "i,j", occup_a, occup_a
-        ) + np.einsum("i,j", occup_b, occup_b)
-
-        return RDMCls(rdm1, rdm2)
+        return RDMCls(*hf_rdm12_kernel(self.norb, self.occup))
 
     def _inc(
         self,

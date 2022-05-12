@@ -22,9 +22,9 @@ from pyscf import ao2mo
 from typing import TYPE_CHECKING, cast
 
 from pymbe.expansion import ExpCls, SingleTargetExpCls
-from pymbe.kernel import main_kernel
+from pymbe.kernel import main_kernel, hf_energy_kernel
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, get_nelec, idx_tril
+from pymbe.tools import RST, write_file, get_nelec
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
@@ -90,31 +90,7 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         """
         this function calculates the hartree-fock property
         """
-        # add one-electron integrals
-        hf_prop = np.sum(self.occup * np.diag(hcore))
-
-        # set closed- and open-shell indices
-        cs_idx = np.where(self.occup == 2)[0]
-        os_idx = np.where(self.occup == 1)[0]
-
-        # add closed-shell and coupling electron repulsion terms
-        hf_prop += np.trace((np.sum(vhf, axis=0))[cs_idx.reshape(-1, 1), cs_idx])
-
-        # check if system is open-shell
-        if self.spin > 0:
-
-            # get indices for eris that only include open-shell orbitals
-            os_eri_idx = idx_tril(os_idx)
-
-            # retrieve eris of open-shell orbitals and unpack these
-            os_eri = ao2mo.restore(
-                1, eri[os_eri_idx.reshape(-1, 1), os_eri_idx], os_idx.size
-            )
-
-            # add open-shell electron repulsion terms
-            hf_prop += 0.5 * (np.einsum("pqrr->", os_eri) - np.einsum("pqrp->", os_eri))
-
-        return hf_prop
+        return hf_energy_kernel(self.occup, self.spin, hcore, eri, vhf)
 
     def _inc(
         self,
