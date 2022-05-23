@@ -417,14 +417,16 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         inc_win[1].Free()
 
     @staticmethod
-    def _screen(inc_tup: RDMCls, screen: np.ndarray, tup: np.ndarray) -> np.ndarray:
+    def _screen(
+        inc_tup: RDMCls, screen: np.ndarray, tup: np.ndarray, screen_func: str
+    ) -> np.ndarray:
         """
         this function modifies the screening array
         """
-        return np.maximum(
-            screen[tup],
-            np.maximum(np.max(np.abs(inc_tup.rdm1)), np.max(np.abs(inc_tup.rdm2))),
-        )
+        if screen_func == "sum":
+            return screen[tup] + np.sum(np.abs(inc_tup.rdm1))
+        else:
+            return np.maximum(screen[tup], np.max(np.abs(inc_tup.rdm1)))
 
     def _update_inc_stats(
         self,

@@ -457,6 +457,15 @@ def sanity_check(mbe: MBE) -> None:
         isinstance(mbe.screen_perc, float) and mbe.screen_perc <= 1.0,
         "screening threshold (screen_perc keyword argument) must be a float <= 1.",
     )
+    assertion(
+        isinstance(mbe.screen_func, str),
+        "screening function (screen_func keyword argument) must be an str",
+    )
+    assertion(
+        mbe.screen_func in ["max", "sum", "rnd"],
+        "valid screening functions (screen_func keyword argument) are: max, "
+        "sum and rnd",
+    )
     if mbe.max_order is not None:
         assertion(
             isinstance(mbe.max_order, int) and mbe.max_order >= 1,

@@ -230,11 +230,16 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         return np.array(inc_lst, dtype=np.float64)
 
     @staticmethod
-    def _screen(inc_tup: float, screen: np.ndarray, tup: np.ndarray) -> np.ndarray:
+    def _screen(
+        inc_tup: float, screen: np.ndarray, tup: np.ndarray, screen_func: str
+    ) -> np.ndarray:
         """
         this function modifies the screening array
         """
-        return np.maximum(screen[tup], np.abs(inc_tup))
+        if screen_func == "sum":
+            return screen[tup] + np.abs(inc_tup)
+        else:
+            return np.maximum(screen[tup], np.abs(inc_tup))
 
     @staticmethod
     def _total_inc(inc: np.ndarray, mean_inc: float) -> float:
