@@ -75,6 +75,7 @@ class MBE:
     # screening
     screen_start: int = 4
     screen_perc: float = 0.9
+    screen_func: str = "max"
     max_order: Optional[int] = None
 
     # restart

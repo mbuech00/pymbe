@@ -168,6 +168,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         # screening
         self.screen_start: int = mbe.screen_start
         self.screen_perc: float = mbe.screen_perc
+        self.screen_func: str = mbe.screen_func
         self.screen = np.zeros(self.norb, dtype=np.float64)
         self.screen_orbs = np.array([], dtype=np.int64)
 
@@ -988,7 +989,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             inc[-1][tup_idx] = inc_tup
 
             # screening procedure
-            screen[tup] = self._screen(inc_tup, screen, tup)
+            screen[tup] = self._screen(inc_tup, screen, tup, self.screen_func)
 
             # debug print
             logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
@@ -1059,9 +1060,15 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         tot_screen = tot_screen[self.exp_space[-1]]
         thres = 1.0 if self.order < self.screen_start else self.screen_perc
         screen_idx = int(thres * self.exp_space[-1].size)
-        self.exp_space.append(
-            self.exp_space[-1][np.sort(np.argsort(tot_screen)[::-1][:screen_idx])]
-        )
+        if self.screen_func == "rnd":
+            rng = np.random.default_rng()
+            self.exp_space.append(
+                rng.choice(self.exp_space[-1], size=screen_idx, replace=False)
+            )
+        else:
+            self.exp_space.append(
+                self.exp_space[-1][np.sort(np.argsort(tot_screen)[::-1][:screen_idx])]
+            )
 
         # write restart files
         if mpi.global_master:
@@ -1468,7 +1475,9 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def _screen(inc_tup: TargetType, screen: np.ndarray, tup: np.ndarray) -> np.ndarray:
+    def _screen(
+        inc_tup: TargetType, screen: np.ndarray, tup: np.ndarray, screen_func: str
+    ) -> np.ndarray:
         """
         this function modifies the screening array
         """
