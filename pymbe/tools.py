@@ -736,23 +736,36 @@ def symm_eqv_tup(
         # get permuted cas space by applying symmetry operation
         perm_cas = symm_op[cas_idx]
 
-        # check if any orbitals cannot be transformed
-        if (perm_cas == -1).any():
+        # sort permuted cas space
+        perm_cas.sort()
 
-            # skip this symmetry operation
+        # initialize skip boolean
+        skip = False
+
+        # check if any orbitals cannot be transformed
+        for orb in perm_cas:
+            if orb == -1:
+                skip = True
+            break
+
+        # check if full reference space is not included in permuted cas space
+        if ref_space.size > 0:
+            i = 0
+            for orb in perm_cas:
+                if orb > ref_space[i]:
+                    skip = True
+                    break
+                elif orb == ref_space[i]:
+                    i += 1
+                    if i == len(ref_space):
+                        break
+
+        # skip this symmetry operation
+        if skip:
             continue
 
         # increment number of symmetry operations
         nsymm += 1
-
-        # sort permuted cas space
-        perm_cas.sort()
-
-        # check if reference space is included in permuted cas space
-        if not np.isin(ref_space, perm_cas, assume_unique=True).all():
-
-            # not a valid tuple
-            continue
 
         # loop over orbs in cas space and permuted cas space
         for orb, perm_orb in zip(cas_idx, perm_cas):
@@ -800,19 +813,32 @@ def get_lex_tup(
         # get permuted cas space by applying symmetry operation
         perm_cas = symm_op[cas_idx]
 
-        # check if any orbitals cannot be transformed
-        if (perm_cas == -1).any():
-
-            # skip this symmetry operation
-            continue
-
         # sort permuted cas space
         perm_cas.sort()
 
-        # check if reference space is included in permuted cas space
-        if not np.isin(ref_space, perm_cas, assume_unique=True).all():
+        # initialize skip boolean
+        skip = False
 
-            # not a valid tuple
+        # check if any orbitals cannot be transformed
+        for orb in perm_cas:
+            if orb == -1:
+                skip = True
+            break
+
+        # check if full reference space is not included in permuted cas space
+        if ref_space.size > 0:
+            i = 0
+            for orb in perm_cas:
+                if orb > ref_space[i]:
+                    skip = True
+                    break
+                elif orb == ref_space[i]:
+                    i += 1
+                    if i == len(ref_space):
+                        break
+
+        # skip this symmetry operation
+        if skip:
             continue
 
         # loop over orbs in lex_cas and perm_cas
@@ -1562,3 +1588,33 @@ def rot_reflect_matrix(
     return cart_rot_mat @ cart_reflect_mat, [
         rot @ reflect for rot, reflect in zip(sph_rot_mats, sph_reflect_mats)
     ]
+
+
+def transform_mos(
+    mo_coeff: np.ndarray,
+    sph_mats: List[np.ndarray],
+    l_shell: List[int],
+    ao_loc: List[int],
+) -> np.ndarray:
+    """
+    transforms mo coefficients using transformation matrices for spherical harmonics
+    """
+    # initialize rotated mo coefficients
+    rot_mo_coeff = np.empty_like(mo_coeff)
+
+    # loop over shells
+    for shell, l in enumerate(l_shell):
+
+        # get ao index range for shell
+        ao_start = ao_loc[shell]
+        ao_stop = ao_loc[shell + 1]
+
+        # reshape into blocks of contracted GTOs in shell to allow broadcasting
+        mo_reshape = mo_coeff[ao_start:ao_stop].reshape(sph_mats[l].shape[1], -1)
+
+        # transform aos
+        rot_mo_coeff[ao_start:ao_stop] = (sph_mats[l] @ mo_reshape).reshape(
+            -1, mo_coeff.shape[1]
+        )
+
+    return rot_mo_coeff

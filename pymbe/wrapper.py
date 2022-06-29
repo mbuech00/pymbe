@@ -15,7 +15,7 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-from math import isclose
+import scipy as sc
 from pyscf import gto, scf, symm, lo, cc, mcscf, fci, ao2mo
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import uccsd_t_lambda
@@ -41,6 +41,7 @@ from pymbe.tools import (
     ground_state_sym,
     get_occup,
     get_symm_op_matrices,
+    transform_mos,
 )
 
 if TYPE_CHECKING:
@@ -53,7 +54,8 @@ CAS_CONV_TOL = 1.0e-10
 LOC_CONV_TOL = 1.0e-10
 SPIN_TOL = 1.0e-05
 COORD_TOL = 1.0e-05
-MO_SYMM_TOL = 1.0e-08
+MO_SYMM_TOL = 1.0e-13
+DETECT_MO_SYMM_TOL = 1.0e-01
 
 
 def ints(
@@ -704,7 +706,7 @@ def ref_mo(
 
         # orbital symmetries
         if mol.symmetry:
-            orbsym = _symm_eqv_mo(mol, mo_coeff_out)
+            orbsym = np.zeros(norb, dtype=np.int64)
 
     # casscf
     elif orbs == "casscf":
@@ -1508,11 +1510,16 @@ def linear_orbsym(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
     return orbsym_parent
 
 
-def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
+def symm_eqv_mo(
+    mol: gto.Mole, mo_coeff: np.ndarray, point_group: str
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     returns an array of permutations of symmetry equivalent orbitals for each
     symmetry operation
     """
+    # convert point group to standard symbol
+    point_group = symm.std_symb(point_group)
+
     # get different equivalent atom types
     atom_types = [
         np.array(atom_type)
@@ -1522,57 +1529,60 @@ def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
     # get atom coords
     coords = mol.atom_coords()
 
+    # get symmetry origin and axes
+    symm_orig, symm_axes = _get_symm_coord(point_group, mol._atom, mol._basis)
+
     # shift coordinates to symmetry origin
-    coords -= mol._symm_orig
+    coords -= symm_orig
 
     # rotate coordinates to symmetry axes
-    coords = (mol._symm_axes @ coords.T).T
+    coords = (symm_axes.T @ coords.T).T
+
+    # get number of occupied orbitals
+    nocc = max(mol.nelec)
 
     # get ao shell offsets
     ao_loc = mol.ao_loc_nr()
 
-    # initialize rotated mo coefficients
-    rot_mo_coeff = np.empty_like(mo_coeff)
+    # get angular momentum for each shell
+    l_shell = [mol.bas_angular(shell) for shell in range(mol.nbas)]
 
     # get Wigner D matrices to rotate mo coefficients from input coordinate system to
     # symmetry axes
-    Ds = symm.basis._ao_rotation_matrices(mol, mol._symm_axes)
-
-    # loop over shells
-    for shell in range(mol.nbas):
-
-        # get angular momentum
-        l = mol.bas_angular(shell)
-
-        # get ao index range for shell
-        ao_start = ao_loc[shell]
-        ao_stop = ao_loc[shell + 1]
-
-        # reshape into blocks of contracted GTOs in shell to allow broadcasting
-        mo_reshape = mo_coeff[ao_start:ao_stop].reshape(Ds[l].shape[1], -1)
-
-        # transform aos
-        rot_mo_coeff[ao_start:ao_stop] = (Ds[l] @ mo_reshape).reshape(
-            -1, rot_mo_coeff.shape[1]
-        )
+    Ds = symm.basis._ao_rotation_matrices(mol, symm_axes)
 
     # get ao offset for every atom
     _, _, ao_start_list, ao_stop_list = mol.offset_nr_by_atom().T
 
-    # get maximum angular momentum in system
-    l_max = mol._bas[:, 1].max()
-
     # get list of all symmetry operation matrices for point group
-    ops = get_symm_op_matrices(mol.topgroup, l_max)
+    ops = get_symm_op_matrices(point_group, max(l_shell))
+
+    # get ao overlap matrix
+    sao = gto.intor_cross("int1e_ovlp", mol, mol)
+
+    # diagonalize ao overlap matrix
+    e, v = sc.linalg.eigh(sao)
+
+    # get all indices for non-zero eigenvalues
+    idx = e > 1e-15
+
+    # calculate root of ao overlap matrix
+    sqrt_sao = (v[:, idx] * np.sqrt(e[idx])) @ v[:, idx].conj().T
+
+    # calculate reciprocal root of ao overlap matrix
+    rec_sqrt_sao = (v[:, idx] / np.sqrt(e[idx])) @ v[:, idx].conj().T
+
+    # transform mo coefficients into orthogonal ao basis
+    mo_coeff = sqrt_sao @ mo_coeff
 
     # initialize atom indices permutation array
     permut_atom_idx = np.empty(mol.natm, dtype=np.int64)
 
-    # initialize ao indices permutation array
-    permut_ao_idx = np.empty(mol.nao, dtype=np.int64)
+    # initialize ao indices permutation array for every symmetry operation
+    permut_ao_idx = np.empty((len(ops), mol.nao), dtype=np.int64)
 
-    # initialize list of sets of equivalent mos
-    symm_eqv_mos = np.empty((len(ops), rot_mo_coeff.shape[0]), dtype=np.int64)
+    # initialize array of equivalent mos
+    symm_eqv_mos = np.empty((len(ops), mo_coeff.shape[0]), dtype=np.int64)
 
     # loop over symmetry operations
     for op, (cart_op_mat, sph_op_mats) in enumerate(ops):
@@ -1593,7 +1603,7 @@ def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
             sort_idx = np.argsort(lex_idx)
 
             # get new coordinates of atoms after applying symmetry operation
-            new_atom_coords = atom_coords @ cart_op_mat
+            new_atom_coords = (cart_op_mat.T @ atom_coords.T).T
 
             # get indices necessary to sort new coords lexicographically
             lex_idx = symm.geom.argsort_coords(new_atom_coords)
@@ -1613,65 +1623,305 @@ def _symm_eqv_mo(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
         for atom_id, permut_atom_id in enumerate(permut_atom_idx):
 
             # add ao permutations for atom
-            permut_ao_idx[ao_start_list[atom_id] : ao_stop_list[atom_id]] = np.arange(
-                ao_start_list[permut_atom_id], ao_stop_list[permut_atom_id]
-            )
+            permut_ao_idx[
+                op, ao_start_list[atom_id] : ao_stop_list[atom_id]
+            ] = np.arange(ao_start_list[permut_atom_id], ao_stop_list[permut_atom_id])
 
-        # loop over mo coefficients
-        for mo1_idx in range(rot_mo_coeff.shape[0]):
+    # loop over repeating symmetrization and orthogonalization steps until convergence
+    # an iterative procedure is needed because the symmetric (Löwdin) orthogonalization
+    # between blocks of symmetry equivalent orbitals destroys some symmetry
+    for _ in range(100):
 
-            # get mo
-            mo1 = rot_mo_coeff[:, mo1_idx]
+        # intitialze symmetrized mo coefficients
+        symm_mo_coeff = np.zeros_like(mo_coeff)
+
+        # initialize maximum deviation from symmetry
+        max_asymm = 0.0
+
+        # define outer product of occupied orbitals
+        project_occ = np.einsum("ij,kj->ik", mo_coeff[:, :nocc], mo_coeff[:, :nocc])
+
+        # define outer product of virtual orbitals
+        project_virt = np.einsum("ij,kj->ik", mo_coeff[:, nocc:], mo_coeff[:, nocc:])
+
+        # loop over symmetry operations
+        for op, (cart_op_mat, sph_op_mats) in enumerate(ops):
+
+            # rotate symmetry operation matrices for spherical harmonics to original
+            # coordinates and back
+            rot_sph_op_mats = [
+                rot_mat.T @ op_mat @ rot_mat for rot_mat, op_mat in zip(Ds, sph_op_mats)
+            ]
 
             # permute aos
-            op_mo1 = mo1[permut_ao_idx]
+            op_mo_coeff = mo_coeff[permut_ao_idx[op], :]
 
-            # loop over shells
-            for shell in range(mol.nbas):
+            # transform mos
+            op_mo_coeff = transform_mos(op_mo_coeff, rot_sph_op_mats, l_shell, ao_loc)
 
-                # get angular momentum
-                l = mol.bas_angular(shell)
+            # consider only occupied components of transformed occupied orbitals
+            op_mo_coeff[:, :nocc] = np.einsum(
+                "ij,jk->ik", project_occ, op_mo_coeff[:, :nocc]
+            )
 
-                # get ao index range for shell
-                ao_start = ao_loc[shell]
-                ao_stop = ao_loc[shell + 1]
+            # consider only virtual components of transformed virtual orbitals
+            op_mo_coeff[:, nocc:] = np.einsum(
+                "ij,jk->ik", project_virt, op_mo_coeff[:, nocc:]
+            )
 
-                # reshape into blocks of contracted GTOs in shell to allow broadcasting
-                mo_reshape = op_mo1[ao_start:ao_stop].reshape(
-                    sph_op_mats[l].shape[1], -1
-                )
+            # calculate overlaps between transformed mo coefficients and actual mo
+            # coefficients
+            overlaps = np.einsum("ij,ik->jk", op_mo_coeff.conj(), mo_coeff)
 
-                # transform aos
-                op_mo1[ao_start:ao_stop] = (sph_op_mats[l] @ mo_reshape).reshape(-1)
+            # get index of maximum overlap for every mo
+            symm_eqv_mos[op, :] = np.argmax(np.abs(overlaps), axis=1)
 
-            # normalize transformed mo coefficients
-            op_mo1 = op_mo1 / np.linalg.norm(op_mo1)
+            # get maximum overlaps
+            eqv_overlaps = np.abs(np.diag(overlaps[:, symm_eqv_mos[op, :]]))
 
-            # loop over mo coefficients
-            for mo2_idx in range(rot_mo_coeff.shape[0]):
+            # get boolean array for equivalent mos above threshold
+            eqv_idx = np.isclose(eqv_overlaps, 1.0, atol=DETECT_MO_SYMM_TOL)
 
-                # get mo
-                mo2 = rot_mo_coeff[:, mo2_idx]
+            # only consider equivalent mos above threshold
+            symm_eqv_mos[op, np.logical_not(eqv_idx)] = -1
 
-                # normalize mo
-                mo2 = mo2 / np.linalg.norm(mo2)
+            # get maximum deviation from symmetry for all symmetry equivalent orbitals
+            max_asymm = max(np.max(1.0 - eqv_overlaps[eqv_idx]), max_asymm)
 
-                # get overlap of mos
-                overlap = np.dot(op_mo1, mo2)
+            # average symmetry equivalent orbitals
+            symm_mo_coeff[:, symm_eqv_mos[op, eqv_idx]] += (
+                np.sign(overlaps[eqv_idx, symm_eqv_mos[op, eqv_idx]])
+                * op_mo_coeff[:, eqv_idx]
+            )
 
-                # check if mos are equivalent
-                if isclose(np.abs(overlap), 1.0, abs_tol=MO_SYMM_TOL):
+        # check if maximum deviation from symmetry is below threshold
+        if max_asymm < MO_SYMM_TOL:
 
-                    # set permutation index
-                    symm_eqv_mos[op, mo1_idx] = mo2_idx
+            # symmetrization finished
+            break
 
-                    # equivalent mo found
+        # normalize mo coefficients
+        symm_mo_coeff /= np.linalg.norm(symm_mo_coeff, axis=0)
+
+        # orthogonalize mo coefficients
+        symm_mo_coeff = lo.orth.vec_lowdin(symm_mo_coeff)
+
+        # set orthogonalized orbitals as new orbitals
+        mo_coeff = symm_mo_coeff
+
+    # symmetrization did not converge
+    else:
+
+        raise PointGroupSymmetryError(
+            "Symmetrization of localized orbitals did not converge."
+        )
+
+    # backtransform mo coefficients
+    mo_coeff = rec_sqrt_sao @ mo_coeff
+
+    return symm_eqv_mos, mo_coeff
+
+
+def _get_symm_coord(
+    point_group: str,
+    atoms: List[List[Union[str, float]]],
+    basis: Dict[str, List[List[Union[int, List[float]]]]],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    this function determines the charge center and symmetry axes for a given point group
+    """
+    # initialize symmetry object
+    rawsys = symm.SymmSys(atoms, basis)
+
+    # determine charge center of molecule
+    charge_center = rawsys.charge_center
+
+    # initialize boolean for correct point group
+    correct_symm = False
+
+    # 3D rotation group
+    if point_group == "SO3":
+
+        symm_axes = np.eye(3)
+
+    # proper cyclic groups Cn
+    elif point_group[0] == "C" and point_group[1:].isnumeric():
+
+        if point_group[1:] == 1:
+
+            correct_symm = True
+            symm_axes = np.eye(3)
+
+        else:
+
+            tot_main_rot = int(point_group[1:])
+
+            zaxis, n = rawsys.search_c_highest()
+
+            for axis in np.eye(3):
+                if not symm.parallel_vectors(axis, zaxis):
+                    symm_axes = symm.geom._make_axes(zaxis, axis)
                     break
 
-            # no equivalent mo found
-            else:
+            if n % tot_main_rot == 0:
+                correct_symm = True
+                symm_axes = symm.geom._refine(symm_axes)
 
-                # mo cannot be transformed with symmetry operation
-                symm_eqv_mos[op, mo1_idx] = -1
+    # improper cyclic group Ci
+    elif point_group == "Ci":
 
-    return symm_eqv_mos
+        if rawsys.has_icenter():
+            correct_symm = True
+            symm_axes = np.eye(3)
+
+    # improper cyclic group Cs
+    elif point_group == "Cs":
+
+        mirror = rawsys.search_mirrorx(None, 1)
+
+        if mirror is not None:
+            correct_symm = True
+            symm_axes = symm.geom._make_axes(mirror, np.array((1.0, 0.0, 0.0)))
+
+    # improper cyclic group Sn
+    elif point_group[0] == "S":
+
+        tot_main_rot = int(point_group[1:])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        for axis in np.eye(3):
+            if not symm.parallel_vectors(axis, zaxis):
+                symm_axes = symm.geom._make_axes(zaxis, axis)
+                break
+
+        if (2 * n) % tot_main_rot == 0 and rawsys.has_improper_rotation(
+            symm_axes[2], n
+        ):
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm_axes)
+
+    # dihedral groups Dn
+    elif point_group[0] == "D" and point_group[1:].isnumeric():
+
+        tot_main_rot = int(point_group[1:])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        c2x = rawsys.search_c2x(zaxis, n)
+
+        if n % tot_main_rot == 0 and c2x is not None:
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm.geom._make_axes(zaxis, c2x))
+
+    # Dnh
+    elif point_group[0] == "D" and point_group[-1] == "h":
+
+        if point_group[1:-1] == "oo":
+
+            w1, u1 = rawsys.cartesian_tensor(1)
+
+            if (
+                np.allclose(w1[:2], 0, atol=symm.TOLERANCE / np.sqrt(1 + len(atoms)))
+                and rawsys.has_icenter()
+            ):
+                correct_symm = True
+                symm_axes = u1.T
+
+        else:
+
+            tot_main_rot = int(point_group[1:-1])
+
+            zaxis, n = rawsys.search_c_highest()
+
+            c2x = rawsys.search_c2x(zaxis, n)
+
+            if n % tot_main_rot == 0 and c2x is not None:
+                symm_axes = symm.geom._make_axes(zaxis, c2x)
+                if rawsys.has_mirror(symm_axes[2]):
+                    correct_symm = True
+                    symm_axes = symm.geom._refine(symm_axes)
+
+    # Dnd
+    elif point_group[0] == "D" and point_group[-1] == "d":
+
+        tot_main_rot = int(point_group[1:-1])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        c2x = rawsys.search_c2x(zaxis, n)
+
+        if n % tot_main_rot == 0 and c2x is not None:
+            symm_axes = symm.geom._make_axes(zaxis, c2x)
+            if rawsys.has_improper_rotation(symm_axes[2], n):
+                correct_symm = True
+                symm_axes = symm.geom._refine(symm_axes)
+
+    # Cnv
+    elif point_group[0] == "C" and point_group[-1] == "v":
+
+        if point_group[1:-1] == "oo":
+
+            _, u1 = rawsys.cartesian_tensor(1)
+
+            if np.allclose(w1[:2], 0, atol=symm.TOLERANCE / np.sqrt(1 + len(atoms))):
+                correct_symm = True
+                symm_axes = u1.T
+
+        else:
+
+            tot_main_rot = int(point_group[1:-1])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        mirrorx = rawsys.search_mirrorx(zaxis, n)
+
+        if n % tot_main_rot == 0 and mirrorx is not None:
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm.geom._make_axes(zaxis, mirrorx))
+
+    # Cnh
+    elif point_group[0] == "C" and point_group[-1] == "h":
+
+        tot_main_rot = int(point_group[1:-1])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        for axis in np.eye(3):
+            if not symm.parallel_vectors(axis, zaxis):
+                symm_axes = symm.geom._make_axes(zaxis, axis)
+                break
+
+        if n % tot_main_rot == 0 and rawsys.has_mirror(symm_axes[2]):
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm_axes)
+
+    # cubic groups
+    elif point_group in ["T", "Th", "Td", "O", "Oh"]:
+
+        group_name, symm_axes = symm._search_ot_group(rawsys)
+
+        if group_name is not None:
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm_axes)
+
+    # icosahedral groups
+    elif point_group in ["I", "Ih"]:
+
+        group_name, symm_axes = symm._search_i_group(rawsys)
+
+        if group_name is not None:
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm_axes)
+
+    # check if molecule has symmetry of point group
+    if correct_symm:
+
+        return charge_center, symm_axes
+
+    else:
+
+        raise PointGroupSymmetryError(
+            "Molecule does not have supplied symmetry. Maybe try "
+            "reducing symmetry tolerance."
+        )
