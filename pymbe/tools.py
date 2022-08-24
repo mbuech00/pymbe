@@ -362,8 +362,9 @@ def logger_config(verbose: int) -> None:
     # add formatter to handler
     handler.setFormatter(formatter)
 
-    # add handler to logger
-    logger.addHandler(handler)
+    # add handler to logger if it does not already exist
+    if not len(logger.handlers):
+        logger.addHandler(handler)
 
     # prevent logger from propagating handlers from parent loggers
     logger.propagate = False
