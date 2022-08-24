@@ -68,7 +68,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         """
         this function returns the final 1- and 2-particle reduced density matrices
         """
-        tot_rdm12 = self.mbe_tot_prop[-1]
+        tot_rdm12 = self.mbe_tot_prop[-1].copy()
         tot_rdm12[self.ref_space] += self.ref_prop
         tot_rdm12 += self.base_prop
         tot_rdm12 += (
@@ -481,8 +481,29 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         """
         this function prints mbe results statistics for an rdm12 calculation
         """
+        # calculate total inc
+        if order == self.min_order:
+            tot_inc = self.mbe_tot_prop[order - self.min_order]
+        else:
+            tot_inc = (
+                self.mbe_tot_prop[order - self.min_order]
+                - self.mbe_tot_prop[order - self.min_order - 1]
+            )
+
+        # set headers
+        rdm1 = f"1-rdm for root {self.fci_state_root} (total increment norm = {np.linalg.norm(tot_inc.rdm1):.4e})"
+        rdm2 = f"2-rdm for root {self.fci_state_root} (total increment norm = {np.linalg.norm(tot_inc.rdm2):.4e})"
+
         # set string
-        string = FILL_OUTPUT + "\n"
+        string: str = FILL_OUTPUT + "\n"
+        string += DIVIDER_OUTPUT + "\n"
+        string += f" RESULT-{order:d}:{rdm1:^81}\n"
+        string += DIVIDER_OUTPUT + "\n"
+        string += f" RESULT-{order:d}:{rdm2:^81}\n"
+
+        # set string
+        string += DIVIDER_OUTPUT + "\n"
+        string += FILL_OUTPUT + "\n"
         string += DIVIDER_OUTPUT
 
         return string

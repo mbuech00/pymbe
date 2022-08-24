@@ -23,7 +23,7 @@ from pymbe.tools import git_version, time_str, intervals
 
 if TYPE_CHECKING:
 
-    from typing import List, Tuple, Dict, Optional
+    from typing import List, Dict, Optional
 
     from pymbe.parallel import MPICls
 
