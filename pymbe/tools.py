@@ -33,7 +33,7 @@ from pymbe.parallel import open_shared_win
 
 if TYPE_CHECKING:
 
-    from typing import Tuple, List, Generator, Union, Optional
+    from typing import Tuple, List, Generator, Union, Optional, Dict
 
 
 # get logger
@@ -1472,24 +1472,9 @@ def icosahedric_coords() -> Tuple[List[np.ndarray], List[np.ndarray], List[np.nd
         np.array([1.0, -gr, 0.0]),
     ]
 
-    onepgrd3 = (1 + gr) / 3
-    twopgrd3 = (1 + gr) / 3
-    edges = [
-        np.array([onepgrd3, onepgrd3, onepgrd3]),
-        np.array([onepgrd3, onepgrd3, -onepgrd3]),
-        np.array([-onepgrd3, onepgrd3, onepgrd3]),
-        np.array([onepgrd3, -onepgrd3, onepgrd3]),
-        np.array([-twopgrd3, 0.0, 1 / 3]),
-        np.array([0.0, 1 / 3, -twopgrd3]),
-        np.array([1 / 3, -twopgrd3, 0.0]),
-        np.array([twopgrd3, 0.0, 1 / 3]),
-        np.array([0.0, 1 / 3, twopgrd3]),
-        np.array([1 / 3, twopgrd3, 0.0]),
-    ]
-
     onepgrd2 = (1 + gr) / 2
     onemgrd2 = (1 - gr) / 2
-    surfaces = [
+    edges = [
         np.array([1.0, 0.0, 0.0]),
         np.array([0.0, 1.0, 0.0]),
         np.array([0.0, 0.0, 1.0]),
@@ -1505,6 +1490,21 @@ def icosahedric_coords() -> Tuple[List[np.ndarray], List[np.ndarray], List[np.nd
         np.array([-onepgrd2, gr / 2, 1 / 2]),
         np.array([gr / 2, -1 / 2, onepgrd2]),
         np.array([1 / 2, onepgrd2, 1 / gr]),
+    ]
+
+    onepgrd3 = (1 + gr) / 3
+    twopgrd3 = (1 + gr) / 3
+    surfaces = [
+        np.array([onepgrd3, onepgrd3, onepgrd3]),
+        np.array([onepgrd3, onepgrd3, -onepgrd3]),
+        np.array([-onepgrd3, onepgrd3, onepgrd3]),
+        np.array([onepgrd3, -onepgrd3, onepgrd3]),
+        np.array([-twopgrd3, 0.0, 1 / 3]),
+        np.array([0.0, 1 / 3, -twopgrd3]),
+        np.array([1 / 3, -twopgrd3, 0.0]),
+        np.array([twopgrd3, 0.0, 1 / 3]),
+        np.array([0.0, 1 / 3, twopgrd3]),
+        np.array([1 / 3, twopgrd3, 0.0]),
     ]
 
     return corners, edges, surfaces
@@ -1533,6 +1533,22 @@ def rot_matrix(
     this function constructs a cartesian rotation matrix and rotation matrices using
     the Wigner D-matrices for all spherical harmonics until l_max
     """
+    rot = cart_rot_matrix(axis, angle)
+
+    alpha, beta, gamma = symm.Dmatrix.get_euler_angles(np.eye(3), rot)
+
+    Ds = [
+        symm.Dmatrix.Dmatrix(l, alpha, beta, gamma, reorder_p=True)
+        for l in range(l_max + 1)
+    ]
+
+    return rot, Ds
+
+
+def cart_rot_matrix(axis: np.ndarray, angle: float) -> np.ndarray:
+    """
+    this function constructs a cartesian rotation matrix
+    """
     axis = axis / np.linalg.norm(axis)
 
     sin_a = sin(angle)
@@ -1550,14 +1566,7 @@ def rot_matrix(
     rot[2, 1] = axis[2] * axis[1] * (1 - cos_a) + axis[0] * sin_a
     rot[2, 2] = cos_a + axis[2] ** 2 * (1 - cos_a)
 
-    alpha, beta, gamma = symm.Dmatrix.get_euler_angles(np.eye(3), rot)
-
-    Ds = [
-        symm.Dmatrix.Dmatrix(l, alpha, beta, gamma, reorder_p=True)
-        for l in range(l_max + 1)
-    ]
-
-    return rot, Ds
+    return rot
 
 
 def reflect_matrix(
@@ -1618,3 +1627,329 @@ def transform_mos(
         )
 
     return rot_mo_coeff
+
+
+def get_symm_coord(
+    point_group: str,
+    atoms: List[List[Union[str, float]]],
+    basis: Dict[str, List[List[Union[int, List[float]]]]],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    this function determines the charge center and symmetry axes for a given point group
+    """
+    # initialize symmetry object
+    rawsys = symm.SymmSys(atoms, basis)
+
+    # determine charge center of molecule
+    charge_center = rawsys.charge_center
+
+    # initialize boolean for correct point group
+    correct_symm = False
+
+    # 3D rotation group
+    if point_group == "SO3":
+
+        symm_axes = np.eye(3)
+
+    # proper cyclic groups Cn
+    elif point_group[0] == "C" and point_group[1:].isnumeric():
+
+        if point_group[1:] == 1:
+
+            correct_symm = True
+            symm_axes = np.eye(3)
+
+        else:
+
+            tot_main_rot = int(point_group[1:])
+
+            zaxis, n = rawsys.search_c_highest()
+
+            for axis in np.eye(3):
+                if not symm.parallel_vectors(axis, zaxis):
+                    symm_axes = symm.geom._make_axes(zaxis, axis)
+                    break
+
+            if n % tot_main_rot == 0:
+                correct_symm = True
+                symm_axes = symm.geom._refine(symm_axes)
+
+    # improper cyclic group Ci
+    elif point_group == "Ci":
+
+        if rawsys.has_icenter():
+            correct_symm = True
+            symm_axes = np.eye(3)
+
+    # improper cyclic group Cs
+    elif point_group == "Cs":
+
+        mirror = rawsys.search_mirrorx(None, 1)
+
+        if mirror is not None:
+            correct_symm = True
+            symm_axes = symm.geom._make_axes(mirror, np.array((1.0, 0.0, 0.0)))
+
+    # improper cyclic group Sn
+    elif point_group[0] == "S":
+
+        tot_main_rot = int(point_group[1:])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        for axis in np.eye(3):
+            if not symm.parallel_vectors(axis, zaxis):
+                symm_axes = symm.geom._make_axes(zaxis, axis)
+                break
+
+        if (2 * n) % tot_main_rot == 0 and rawsys.has_improper_rotation(
+            symm_axes[2], n
+        ):
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm_axes)
+
+    # dihedral groups Dn
+    elif point_group[0] == "D" and point_group[1:].isnumeric():
+
+        tot_main_rot = int(point_group[1:])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        c2x = rawsys.search_c2x(zaxis, n)
+
+        if n % tot_main_rot == 0 and c2x is not None:
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm.geom._make_axes(zaxis, c2x))
+
+    # Dnh
+    elif point_group[0] == "D" and point_group[-1] == "h":
+
+        if point_group[1:-1] == "oo":
+
+            w1, u1 = rawsys.cartesian_tensor(1)
+
+            if (
+                np.allclose(w1[:2], 0, atol=symm.TOLERANCE / np.sqrt(1 + len(atoms)))
+                and rawsys.has_icenter()
+            ):
+                correct_symm = True
+                symm_axes = u1.T
+
+        else:
+
+            tot_main_rot = int(point_group[1:-1])
+
+            zaxis, n = rawsys.search_c_highest()
+
+            c2x = rawsys.search_c2x(zaxis, n)
+
+            if n % tot_main_rot == 0 and c2x is not None:
+                symm_axes = symm.geom._make_axes(zaxis, c2x)
+                if rawsys.has_mirror(symm_axes[2]):
+                    correct_symm = True
+                    symm_axes = symm.geom._refine(symm_axes)
+
+    # Dnd
+    elif point_group[0] == "D" and point_group[-1] == "d":
+
+        tot_main_rot = int(point_group[1:-1])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        c2x = rawsys.search_c2x(zaxis, n)
+
+        if n % tot_main_rot == 0 and c2x is not None:
+            symm_axes = symm.geom._make_axes(zaxis, c2x)
+            if rawsys.has_improper_rotation(symm_axes[2], n):
+                correct_symm = True
+                symm_axes = symm.geom._refine(symm_axes)
+
+    # Cnv
+    elif point_group[0] == "C" and point_group[-1] == "v":
+
+        if point_group[1:-1] == "oo":
+
+            _, u1 = rawsys.cartesian_tensor(1)
+
+            if np.allclose(w1[:2], 0, atol=symm.TOLERANCE / np.sqrt(1 + len(atoms))):
+                correct_symm = True
+                symm_axes = u1.T
+
+        else:
+
+            tot_main_rot = int(point_group[1:-1])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        mirrorx = rawsys.search_mirrorx(zaxis, n)
+
+        if n % tot_main_rot == 0 and mirrorx is not None:
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm.geom._make_axes(zaxis, mirrorx))
+
+    # Cnh
+    elif point_group[0] == "C" and point_group[-1] == "h":
+
+        tot_main_rot = int(point_group[1:-1])
+
+        zaxis, n = rawsys.search_c_highest()
+
+        for axis in np.eye(3):
+            if not symm.parallel_vectors(axis, zaxis):
+                symm_axes = symm.geom._make_axes(zaxis, axis)
+                break
+
+        if n % tot_main_rot == 0 and rawsys.has_mirror(symm_axes[2]):
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm_axes)
+
+    # cubic group O
+    elif point_group == "O":
+
+        possible_cn = rawsys.search_possible_rotations()
+        c4_axes = [c4 for c4, n in possible_cn if n == 4 and rawsys.has_rotation(c4, 4)]
+
+        c4_axes = oct_c4(c4_axes[0], c4_axes[1])
+
+        if all([rawsys.has_rotation(c4, 4) for c4 in c4_axes]):
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm.geom._make_axes(c4_axes[0], c4_axes[1]))
+
+    # cubic group T
+    elif point_group == "T":
+
+        possible_cn = rawsys.search_possible_rotations()
+        c3_axes = [c3 for c3, n in possible_cn if n == 3 and rawsys.has_rotation(c3, 3)]
+
+        c3_axes = tet_c3(c3_axes[0], c3_axes[1])
+
+        if all([rawsys.has_rotation(c3, 3) for c3 in c3_axes]):
+            correct_symm = True
+            symm_axes = symm.geom._refine(
+                symm.geom._make_axes(c3_axes[0] + c3_axes[1], c3_axes[0] + c3_axes[2])
+            )
+
+    # cubic group Oh
+    elif point_group == "Oh":
+
+        possible_cn = rawsys.search_possible_rotations()
+        c4_axes = [c4 for c4, n in possible_cn if n == 4 and rawsys.has_rotation(c4, 4)]
+
+        c4_axes = oct_c4(c4_axes[0], c4_axes[1])
+
+        if all([rawsys.has_rotation(c4, 4) for c4 in c4_axes]) and rawsys.has_icenter():
+            correct_symm = True
+            symm_axes = symm.geom._refine(symm.geom._make_axes(c4_axes[0], c4_axes[1]))
+
+    # cubic group Th
+    elif point_group == "Th":
+
+        possible_cn = rawsys.search_possible_rotations()
+        c3_axes = [c3 for c3, n in possible_cn if n == 3 and rawsys.has_rotation(c3, 3)]
+
+        c3_axes = tet_c3(c3_axes[0], c3_axes[1])
+
+        if all([rawsys.has_rotation(c3, 3) for c3 in c3_axes]) and rawsys.has_icenter():
+            correct_symm = True
+            symm_axes = symm.geom._refine(
+                symm.geom._make_axes(c3_axes[0] + c3_axes[1], c3_axes[0] + c3_axes[2])
+            )
+
+    # cubic group Td
+    elif point_group == "Td":
+
+        possible_cn = rawsys.search_possible_rotations()
+        c3_axes = [c3 for c3, n in possible_cn if n == 3 and rawsys.has_rotation(c3, 3)]
+
+        c3_axes = tet_c3(c3_axes[0], c3_axes[1])
+
+        if all([rawsys.has_rotation(c3, 3) for c3 in c3_axes]) and rawsys.has_mirror(
+            np.cross(c3_axes[0], c3_axes[1])
+        ):
+            correct_symm = True
+            symm_axes = symm.geom._refine(
+                symm.geom._make_axes(c3_axes[0] + c3_axes[1], c3_axes[0] + c3_axes[2])
+            )
+
+    # icosahedral group I
+    elif point_group == "I":
+
+        possible_cn = rawsys.search_possible_rotations()
+        c5_axes = [c5 for c5, n in possible_cn if n == 5 and rawsys.has_rotation(c5, 5)]
+
+        c5_axes = ico_c5(c5_axes[0], c5_axes[1])
+
+        if all([rawsys.has_rotation(c5, 5) for c5 in c5_axes]):
+            correct_symm = True
+            symm_axes = symm.geom._refine(
+                symm.geom._make_axes(c5_axes[0] + c5_axes[1], c5_axes[2] - c5_axes[5])
+            )
+
+    # icosahedral group Ih
+    elif point_group == "Ih":
+
+        possible_cn = rawsys.search_possible_rotations()
+        c5_axes = [c5 for c5, n in possible_cn if n == 5 and rawsys.has_rotation(c5, 5)]
+
+        c5_axes = ico_c5(c5_axes[0], c5_axes[1])
+
+        if all([rawsys.has_rotation(c5, 5) for c5 in c5_axes]) and rawsys.has_icenter():
+            correct_symm = True
+            symm_axes = symm.geom._refine(
+                symm.geom._make_axes(c5_axes[0] + c5_axes[1], c5_axes[2] - c5_axes[5])
+            )
+
+    # check if molecule has symmetry of point group
+    if correct_symm:
+
+        return charge_center, symm_axes
+
+    else:
+
+        raise PointGroupSymmetryError(
+            "Molecule does not have supplied symmetry. Maybe try "
+            "reducing symmetry tolerance."
+        )
+
+
+def tet_c3(c3_1: np.ndarray, c3_2: np.ndarray) -> List[np.ndarray]:
+    """
+    this function generates C3 axes in the tetrahedral point groups from two starting
+    axes
+    """
+    if np.dot(c3_2, c3_1) > 0:
+        c3_2 = -c3_2
+
+    c3_3 = np.dot(cart_rot_matrix(c3_1, np.pi * 2 / 3), c3_2)
+
+    c3_4 = np.dot(cart_rot_matrix(c3_1, 2 * np.pi * 2 / 3), c3_2)
+
+    return [c3_1, c3_2, c3_3, c3_4]
+
+
+def oct_c4(c4_1: np.ndarray, c4_2: np.ndarray) -> List[np.ndarray]:
+    """
+    this function generates C4 axes in the octahedral point group from two starting axes
+    """
+    c4_3 = np.cross(c4_1, c4_2)
+
+    return [c4_1, c4_2, c4_3]
+
+
+def ico_c5(c5_1: np.ndarray, c5_2: np.ndarray) -> List[np.ndarray]:
+    """
+    this function generates C5 axes in the icosahedral point group from two starting
+    axes
+    """
+    if np.dot(c5_2[1], c5_1[0]) < 0:
+        c5_2 = -c5_2
+
+    c5_3 = np.dot(cart_rot_matrix(c5_1, np.pi * 6 / 5), c5_2)
+
+    c5_4 = np.dot(cart_rot_matrix(c5_1, 2 * np.pi * 6 / 5), c5_2)
+
+    c5_5 = np.dot(cart_rot_matrix(c5_1, 3 * np.pi * 6 / 5), c5_2)
+
+    c5_6 = np.dot(cart_rot_matrix(c5_1, 4 * np.pi * 6 / 5), c5_2)
+
+    return [c5_1, c5_2, c5_3, c5_4, c5_5, c5_6]
