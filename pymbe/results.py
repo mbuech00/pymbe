@@ -113,11 +113,14 @@ def _base(base_method: Optional[str]) -> str:
         return base_method.upper()
 
 
-def _system(nocc: int, ncore: int, norb: int) -> str:
+def _system(ref_space: np.ndarray, exp_space: np.ndarray, occup: np.ndarray) -> str:
     """
     this function returns the system size
     """
-    return f"{2 * (nocc - ncore)} e in {norb - ncore} o"
+    return (
+        f"{get_nelec(occup, np.concatenate(ref_space + exp_space))} e in "
+        f"{ref_space.size + exp_space.size} o"
+    )
 
 
 def _solver(method: str, spin: int) -> str:
@@ -249,7 +252,7 @@ def summary_prt(
     string += DIVIDER + "\n"
     string += (
         f"{'':5}{'system size':<24}{'=':1}{'':2}"
-        f"{_system(exp.nocc, exp.ncore, exp.norb):<16s}{'|':1}{'':2}"
+        f"{_system(exp.ref_space, exp.exp_space[0], exp.occup):<16s}{'|':1}{'':2}"
         f"{'expansion model':<24}{'=':1}{'':2}"
         f"{_model(exp.method):<16s}{'|':1}{'':2}"
         f"{'mpi masters & slaves':<24}{'=':1}{'':2}"

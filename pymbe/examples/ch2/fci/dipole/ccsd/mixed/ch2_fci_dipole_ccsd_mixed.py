@@ -36,6 +36,12 @@ def mbe_example(rst=True):
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
+        # expansion space
+        exp_space = np.array(
+            [i for i in range(ncore, mol.nao) if i not in ref_space],
+            dtype=np.int64,
+        )
+
         # integral calculation
         hcore, eri = ints(mol, mo_coeff)
 
@@ -49,7 +55,6 @@ def mbe_example(rst=True):
         mbe = MBE(
             target="dipole",
             mol=mol,
-            ncore=ncore,
             orbsym=orbsym,
             fci_state_sym="b2",
             orb_type="ccsd",
@@ -57,6 +62,7 @@ def mbe_example(rst=True):
             eri=eri,
             dipole_ints=dip_ints,
             ref_space=ref_space,
+            exp_space=exp_space,
             rst=rst,
         )
 

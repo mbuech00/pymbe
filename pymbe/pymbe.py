@@ -49,7 +49,6 @@ class MBE:
 
     # system
     mol: Optional[gto.Mole] = None
-    ncore: int = 0
     norb: Optional[int] = None
     nelec: Optional[Union[int, Tuple[int, int], np.ndarray]] = None
     point_group: Optional[str] = None
@@ -67,6 +66,7 @@ class MBE:
 
     # reference space
     ref_space: np.ndarray = np.array([], dtype=np.int64)
+    exp_space: Optional[np.ndarray] = None
 
     # base model
     base_method: Optional[str] = None

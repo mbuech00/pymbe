@@ -108,7 +108,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         self.target: str = mbe.target
 
         # system
-        self.ncore: int = mbe.ncore
         self.norb = cast(int, mbe.norb)
         self.nelec = cast(np.ndarray, mbe.nelec)
         self.point_group = cast(str, mbe.point_group)
@@ -128,18 +127,11 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         # orbital representation
         self.orb_type: str = mbe.orb_type
 
-        # reference space
+        # reference and expansion spaces
         self.ref_space: np.ndarray = mbe.ref_space
         self.ref_nelec = get_nelec(self.occup, self.ref_space)
         self.ref_nhole = get_nhole(self.ref_nelec, self.ref_space)
-
-        # expansion space
-        self.exp_space: List[np.ndarray] = [
-            np.array(
-                [i for i in range(self.ncore, self.norb) if i not in self.ref_space],
-                dtype=np.int64,
-            )
-        ]
+        self.exp_space: List[np.ndarray] = [cast(np.ndarray, mbe.exp_space)]
 
         # base model
         self.base_method: Optional[str] = mbe.base_method

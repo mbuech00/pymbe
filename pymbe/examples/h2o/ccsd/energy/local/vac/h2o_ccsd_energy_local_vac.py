@@ -32,6 +32,9 @@ def mbe_example(rst=True):
         # pipek-mezey localized orbitals
         mo_coeff, orbsym = ref_mo("local", mol, hf_object, mo_coeff, orbsym, ncore)
 
+        # expansion space
+        exp_space = np.arange(ncore, mol.nao, dtype=np.int64)
+
         # integral calculation
         hcore, eri = ints(mol, mo_coeff)
 
@@ -39,10 +42,10 @@ def mbe_example(rst=True):
         mbe = MBE(
             method="ccsd",
             mol=mol,
-            ncore=ncore,
             orb_type="local",
             hcore=hcore,
             eri=eri,
+            exp_space=exp_space,
             rst=rst,
         )
 

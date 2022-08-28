@@ -45,8 +45,10 @@ PyMBE expects both itself and PySCF to be properly exported to Python. This can 
 be achieved by installing through pip (in the case of PySCF), having a 
 pymbe.pth/pyscf.pth file with the corresponding path in the lib/Python3.X/site-packages 
 directory of your Python distribution or by including the paths in the environment 
-variable `$PYTHONPATH`. Furthermore, the mpi4py implementation of the MPI standard 
-needs to be installed, built upon an MPI-3 library.\
+variable `$PYTHONPATH`. PyMBE also requires the PYTHON_HASH_SEED environment variable 
+to be set to 0 (export PYTHON_HASH_SEED=0) for reproducibility reasons and will 
+complain otherwise. Furthermore, the mpi4py implementation of the MPI standard needs to 
+be installed, built upon an MPI-3 library.\
 Once these requirements are satisfied, PyMBE can be started by importing the 
 MBE class and creating a MBE object while passing input data and keywords as 
 keyword arguments. Possible keyword arguments are:
@@ -59,7 +61,6 @@ keyword arguments. Possible keyword arguments are:
     - target: expansion target property (energy, dipole, excitation, trans, rdm12)
 * **system**
     * mol: [pyscf](https://pyscf.github.io/) gto.Mole object
-    * ncore: number of core orbitals
     * norb: number of orbitals
     * nelec: number of electrons
     * point_group: point group
@@ -72,8 +73,9 @@ keyword arguments. Possible keyword arguments are:
     - hcore: core hamiltonian integrals
     - eri: electron repulsion integrals
     - dipole_ints: dipole integrals
-* **reference space**
+* **reference space and expansion spaces**
     * ref_space: reference space
+    * exp_space: expansion space
 - **base model**
     - base_method: base model electronic structure method (ccsdtq, ccsdt, ccsd(t), ccsd)
     - base_prop: base model property

@@ -29,11 +29,16 @@ def mbe_example(rst=True):
         # hf calculation
         _, orbsym, mo_coeff = hf(mol)
 
+        # expansion space
+        exp_space = np.arange(ncore, mol.nao, dtype=np.int64)
+
         # integral calculation
         hcore, eri = ints(mol, mo_coeff)
 
         # create mbe object
-        mbe = MBE(mol=mol, ncore=ncore, orbsym=orbsym, hcore=hcore, eri=eri, rst=rst)
+        mbe = MBE(
+            mol=mol, orbsym=orbsym, hcore=hcore, eri=eri, exp_space=exp_space, rst=rst
+        )
 
     else:
 

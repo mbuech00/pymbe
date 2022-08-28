@@ -106,6 +106,13 @@ def main(mbe: MBE) -> MBE:
                 # reorder electron repulsion integrals
                 mbe.eri = ao2mo.restore(4, mbe.eri, mbe.norb)
 
+            # set default value for expansion space
+            if mbe.exp_space is None and isinstance(mbe.norb, int):
+                mbe.exp_space = np.array(
+                    [i for i in range(mbe.norb) if i not in mbe.ref_space],
+                    dtype=np.int64,
+                )
+
             # set default value for base model property
             if mbe.base_prop is None and mbe.base_method is None:
                 if mbe.target in ["energy", "excitation"]:
@@ -237,10 +244,6 @@ def sanity_check(mbe: MBE) -> None:
 
     # system
     assertion(
-        isinstance(mbe.ncore, int) and mbe.ncore >= 0,
-        "number of core orbitals (ncore keyword argument) must be an int >= 0",
-    )
-    assertion(
         isinstance(mbe.norb, int) and mbe.norb > 0,
         "number of orbitals (norb keyword argument) must be an int > 0",
     )
@@ -267,11 +270,6 @@ def sanity_check(mbe: MBE) -> None:
                 "estimate the unrestricted CC property on the basis of a ROHF "
                 "reference function instead of the fully restricted CC property."
             )
-        assertion(
-            mbe.target != "rdm12",
-            "1- and 2-particle reduced density matrix calculations are currently not "
-            "implemented for open-shell systems.",
-        )
     assertion(
         isinstance(mbe.point_group, str),
         "symmetry (point_group keyword argument) must be a str",
@@ -365,7 +363,7 @@ def sanity_check(mbe: MBE) -> None:
             "dipole integrals (dipole_ints keyword argument) must be a np.ndarray",
         )
 
-    # reference space
+    # reference and expansion spaces
     assertion(
         isinstance(mbe.ref_space, np.ndarray),
         "reference space (ref_space keyword argument) must be a np.ndarray of orbital "
@@ -385,6 +383,16 @@ def sanity_check(mbe: MBE) -> None:
             "all partially occupied orbitals have to be included in the reference "
             "space (ref_space keyword argument)",
         )
+    assertion(
+        isinstance(mbe.exp_space, np.ndarray),
+        "expansion space (exp_space keyword argument) must be a np.ndarray of orbital "
+        "indices",
+    )
+    assertion(
+        np.intersect1d(mbe.ref_space, cast(np.ndarray, mbe.exp_space)).size == 0,
+        "reference space (ref_space keyword argument) and expansion space (exp_space "
+        "keyword argument) must be mutually exclusive",
+    )
 
     # base model
     assertion(
@@ -556,13 +564,13 @@ def restart_write_system(mbe: MBE) -> None:
     """
     # define system quantities
     system: Dict[str, Union[Optional[int], Tuple[int, int], np.ndarray, float]] = {
-        "ncore": mbe.ncore,
         "norb": mbe.norb,
         "nelec": mbe.nelec,
         "orbsym": mbe.orbsym,
         "hcore": mbe.hcore,
         "eri": mbe.eri,
         "ref_space": mbe.ref_space,
+        "exp_space": mbe.exp_space,
     }
 
     if isinstance(mbe.base_prop, (float, np.ndarray)):
@@ -597,7 +605,7 @@ def restart_read_system(mbe: MBE) -> MBE:
     system_npz.close()
 
     # define scalar values
-    scalars = ["ncore", "norb"]
+    scalars = ["norb"]
 
     if mbe.target in ["energy", "excitation"]:
         scalars.append("base_prop")

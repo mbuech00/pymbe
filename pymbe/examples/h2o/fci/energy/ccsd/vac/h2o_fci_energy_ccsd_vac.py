@@ -32,17 +32,20 @@ def mbe_example(rst=True):
         # natural orbitals
         mo_coeff, orbsym = ref_mo("ccsd", mol, hf_object, mo_coeff, orbsym, ncore)
 
+        # expansion space
+        exp_space = np.arange(ncore, mol.nao, dtype=np.int64)
+
         # integral calculation
         hcore, eri = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
             mol=mol,
-            ncore=ncore,
             orbsym=orbsym,
             orb_type="ccsd",
             hcore=hcore,
             eri=eri,
+            exp_space=exp_space,
             rst=rst,
         )
 

@@ -31,6 +31,12 @@ def mbe_example(rst=True):
         # reference space
         ref_space = np.array([2, 3, 4, 5, 6, 7, 8, 9], dtype=np.int64)
 
+        # expansion space
+        exp_space = np.array(
+            [i for i in range(2, mol.nao) if i not in ref_space],
+            dtype=np.int64,
+        )
+
         # integral calculation
         hcore, eri = ints(mol, mo_coeff)
 
@@ -40,11 +46,11 @@ def mbe_example(rst=True):
         # create mbe object
         mbe = MBE(
             mol=mol,
-            ncore=ncore,
             orbsym=orbsym,
             hcore=hcore,
             eri=eri,
             ref_space=ref_space,
+            exp_space=exp_space,
             rst=rst,
             pi_prune=True,
             orbsym_linear=orbsym_linear,

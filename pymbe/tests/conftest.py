@@ -332,8 +332,13 @@ def mbe(
     """
     hcore, eri = ints
 
+    ref_space = np.array([i for i in range(ncore, nocc)])
+    exp_space = np.array(
+        [i for i in range(ncore, mol.nao) if i not in ref_space],
+        dtype=np.int64,
+    )
+
     mbe = MBE(
-        ncore=ncore,
         norb=norb,
         nelec=mol.nelec,
         point_group=mol.groupname,
@@ -342,7 +347,8 @@ def mbe(
         fci_state_root=0,
         hcore=hcore,
         eri=eri,
-        ref_space=np.array([i for i in range(ncore, nocc)]),
+        ref_space=ref_space,
+        exp_space=exp_space,
         rst=False,
     )
 

@@ -32,16 +32,19 @@ def mbe_example(rst=True):
         # base model
         base_energy = base("ccsd(t)", mol, hf_object, mo_coeff, orbsym, ncore)
 
+        # expansion space
+        exp_space = np.arange(ncore, mol.nao, dtype=np.int64)
+
         # integral calculation
         hcore, eri = ints(mol, mo_coeff)
 
         # create mbe object
         mbe = MBE(
             mol=mol,
-            ncore=ncore,
             orbsym=orbsym,
             hcore=hcore,
             eri=eri,
+            exp_space=exp_space,
             base_method="ccsd(t)",
             base_prop=base_energy,
             rst=rst,
