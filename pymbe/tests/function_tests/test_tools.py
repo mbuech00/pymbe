@@ -40,14 +40,13 @@ from pymbe.tools import (
     get_nelec,
     get_nhole,
     _valid_tup,
-    mat_idx,
-    near_nbrs,
     natural_keys,
     _convert,
     intervals,
     ground_state_sym,
     get_vhf,
     get_occup,
+    e_core_h1e,
 )
 
 if TYPE_CHECKING:
@@ -145,13 +144,6 @@ test_cases_get_nhole = [
     ("4_holes", np.array([0, 0]), np.array([3, 4], dtype=np.int64), np.array([2, 2])),
     ("2_holes", np.array([1, 1]), np.array([2, 4], dtype=np.int64), np.array([1, 1])),
     ("no_holes", np.array([2, 2]), np.array([3, 4], dtype=np.int64), np.array([0, 0])),
-]
-
-test_cases_mat_idx = [(6, 4, 4, (1, 2)), (9, 8, 2, (4, 1))]
-
-test_cases_near_nbrs = [
-    ((1, 2), 4, 4, [(0, 2), (2, 2), (1, 3), (1, 1)]),
-    ((4, 1), 8, 2, [(3, 1), (5, 1), (4, 0), (4, 0)]),
 ]
 
 test_cases_natural_keys = [
@@ -499,32 +491,6 @@ def test_get_nhole(
 
 
 @pytest.mark.parametrize(
-    argnames="site_idx, nx, ny, ref_idx_tup",
-    argvalues=test_cases_mat_idx,
-    ids=[str(case[3]) for case in test_cases_mat_idx],
-)
-def test_mat_idx(site_idx: int, nx: int, ny: int, ref_idx_tup: Tuple[int, int]) -> None:
-    """
-    this function tests mat_idx
-    """
-    assert mat_idx(site_idx, nx, ny) == ref_idx_tup
-
-
-@pytest.mark.parametrize(
-    argnames="site_xy, nx, ny, ref_nbrs",
-    argvalues=test_cases_near_nbrs,
-    ids=[str(case[0]) for case in test_cases_near_nbrs],
-)
-def test_near_nbrs(
-    site_xy: Tuple[int, int], nx: int, ny: int, ref_nbrs: List[Tuple[int, int]]
-) -> None:
-    """
-    this function tests near_nbrs
-    """
-    assert near_nbrs(site_xy, nx, ny) == ref_nbrs
-
-
-@pytest.mark.parametrize(
     argnames="test_string, ref_keys",
     argvalues=[case[1:] for case in test_cases_natural_keys],
     ids=[case[0] for case in test_cases_natural_keys],
@@ -607,3 +573,28 @@ def test_get_occup(norb: int, nelec: np.ndarray, ref_occup: np.ndarray) -> None:
     this function tests get_occup
     """
     assert (get_occup(norb, nelec) == ref_occup).all()
+
+
+def test_e_core_h1e() -> None:
+    """
+    this function tests e_core_h1e
+    """
+    np.random.seed(1234)
+    hcore = np.random.rand(6, 6)
+    np.random.seed(1234)
+    vhf = np.random.rand(3, 6, 6)
+    core_idx = np.array([0], dtype=np.int64)
+    cas_idx = np.array([2, 4, 5], dtype=np.int64)
+    e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
+
+    assert e_core == pytest.approx(0.5745583511366769)
+    assert h1e_cas == pytest.approx(
+        np.array(
+            [
+                [0.74050151, 1.00616633, 0.02753690],
+                [0.79440516, 0.63367224, 1.13619731],
+                [1.60429528, 1.40852194, 1.40916262],
+            ],
+            dtype=np.float64,
+        )
+    )

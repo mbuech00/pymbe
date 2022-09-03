@@ -21,7 +21,6 @@ from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, Union
 
-from pymbe.kernel import e_core_h1e
 from pymbe.output import (
     main_header,
     mbe_header,
@@ -54,6 +53,7 @@ from pymbe.tools import (
     hash_lookup,
     get_occup,
     get_vhf,
+    e_core_h1e,
 )
 from pymbe.parallel import (
     mpi_reduce,
@@ -88,6 +88,11 @@ logger = logging.getLogger("pymbe_logger")
 
 
 SCREEN = 1000.0  # random, non-sensical number
+
+
+MAX_MEM = 1e10
+CONV_TOL = 1.0e-10
+SPIN_TOL = 1.0e-05
 
 
 class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
@@ -1275,12 +1280,60 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         associated with a given tuple
         """
 
+    def _kernel(
+        self,
+        method: str,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+    ) -> TargetType:
+        """
+        this function return the result property from a given method
+        """
+        if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
+
+            res = self._cc_kernel(method, core_idx, cas_idx, nelec, h1e, h2e, False)
+
+        elif method == "fci":
+
+            res = self._fci_kernel(e_core, h1e, h2e, cas_idx, nelec)
+
+        return res
+
+    @abstractmethod
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+    ) -> TargetType:
+        """
+        this function returns the results of a fci calculation
+        """
+
+    @abstractmethod
+    def _cc_kernel(
+        self,
+        method: str,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        higher_amp_extrap: bool,
+    ) -> TargetType:
+        """
+        this function returns the results of a cc calculation
+        """
+
     @abstractmethod
     def _sum(
-        self,
-        inc: List[IncType],
-        hashes: List[np.ndarray],
-        tup: np.ndarray,
+        self, inc: List[IncType], hashes: List[np.ndarray], tup: np.ndarray
     ) -> TargetType:
         """
         this function performs a recursive summation and returns the final increment

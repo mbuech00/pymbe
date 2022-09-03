@@ -53,7 +53,10 @@ def main(mbe: MBE) -> MBE:
 
                 # number of orbitals
                 if mbe.norb is None:
-                    mbe.norb = mbe.mol.nao.item()
+                    if isinstance(mbe.mol.nao, int):
+                        mbe.norb = mbe.mol.nao
+                    else:
+                        mbe.norb = mbe.mol.nao.item()
 
                 # number of electrons
                 if mbe.nelec is None:

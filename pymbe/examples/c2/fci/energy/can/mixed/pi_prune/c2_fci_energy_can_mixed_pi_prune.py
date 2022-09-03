@@ -1,8 +1,8 @@
 import os
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto
-from pymbe import MBE, hf, ints, linear_orbsym
+from pyscf import gto, scf, symm, ao2mo, scf, symm
+from pymbe import MBE
 
 
 def mbe_example(rst=True):
@@ -26,22 +26,34 @@ def mbe_example(rst=True):
         ncore = 2
 
         # hf calculation
-        _, orbsym, mo_coeff = hf(mol)
+        hf = scf.RHF(mol).run(conv_tol=1e-10)
+
+        # orbsym
+        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
 
         # reference space
         ref_space = np.array([2, 3, 4, 5, 6, 7, 8, 9], dtype=np.int64)
 
         # expansion space
         exp_space = np.array(
-            [i for i in range(2, mol.nao) if i not in ref_space],
+            [i for i in range(ncore, mol.nao) if i not in ref_space],
             dtype=np.int64,
         )
 
-        # integral calculation
-        hcore, eri = ints(mol, mo_coeff)
+        # hcore
+        hcore_ao = hf.get_hcore()
+        hcore = np.einsum("pi,pq,qj->ij", hf.mo_coeff, hcore_ao, hf.mo_coeff)
 
-        # pi_pruning
-        orbsym_linear = linear_orbsym(mol, mo_coeff)
+        # eri
+        eri_ao = mol.intor("int2e_sph", aosym="s8")
+        eri = ao2mo.incore.full(eri_ao, hf.mo_coeff)
+
+        # orbsym of linear point group for pi-pruning
+        mol_linear = mol.copy()
+        mol_linear = mol_linear.build(0, 0, symmetry="Dooh")
+        orbsym_linear = symm.label_orb_symm(
+            mol_linear, mol_linear.irrep_id, mol_linear.symm_orb, hf.mo_coeff
+        )
 
         # create mbe object
         mbe = MBE(

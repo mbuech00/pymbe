@@ -23,6 +23,7 @@ from pymbe.dipole import DipoleExpCls
 if TYPE_CHECKING:
 
     from mpi4py import MPI
+    from pyscf import scf
     from typing import Tuple, Optional
 
     from pymbe.pymbe import MBE
@@ -59,6 +60,30 @@ test_cases_ref_prop = [
         "pyscf",
         0,
         np.array([0.0, 0.0, 1.47038530e-03], dtype=np.float64),
+    ),
+]
+
+test_cases_kernel = [
+    ("h2o", "fci", "pyscf", np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64)),
+    ("h2o", "ccsd", "pyscf", np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64)),
+]
+
+test_cases_fci_kernel = [
+    ("h2o", np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64)),
+]
+
+test_cases_cc_kernel = [
+    (
+        "h2o",
+        "ccsd",
+        "pyscf",
+        np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64),
+    ),
+    (
+        "h2o",
+        "ccsd(t)",
+        "pyscf",
+        np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64),
     ),
 ]
 
@@ -108,3 +133,123 @@ def test_ref_prop(
     res = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)
+
+
+@pytest.mark.parametrize(
+    argnames="system, method, cc_backend, ref_res",
+    argvalues=test_cases_kernel,
+    ids=["-".join([item for item in case[0:3] if item]) for case in test_cases_kernel],
+    indirect=["system"],
+)
+def test_kernel(
+    exp: DipoleExpCls,
+    hf: scf.RHF,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    orbsym: np.ndarray,
+    method: str,
+    cc_backend: str,
+    ref_res: np.ndarray,
+) -> None:
+    """
+    this function tests _kernel
+    """
+    exp.orbsym = orbsym
+
+    occup = hf.mo_occ
+
+    core_idx, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._kernel(method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+
+    assert res == pytest.approx(ref_res)
+
+
+@pytest.mark.parametrize(
+    argnames="system, ref",
+    argvalues=test_cases_fci_kernel,
+    ids=[case[0] for case in test_cases_fci_kernel],
+    indirect=["system"],
+)
+def test_fci_kernel(
+    exp: DipoleExpCls,
+    system: str,
+    hf: scf.RHF,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    orbsym: np.ndarray,
+    ref: np.ndarray,
+) -> None:
+    """
+    this function tests _fci_kernel
+    """
+    exp.orbsym = orbsym
+
+    if system == "h2o":
+
+        occup = hf.mo_occ
+
+    elif system == "hubbard":
+
+        occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+
+    _, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, cas_idx, nelec)
+
+    assert res == pytest.approx(ref)
+
+
+@pytest.mark.parametrize(
+    argnames="system, method, cc_backend, ref",
+    argvalues=test_cases_cc_kernel,
+    ids=["-".join(case[0:3]) for case in test_cases_cc_kernel],
+    indirect=["system"],
+)
+def test_cc_kernel(
+    exp: DipoleExpCls,
+    hf: scf.RHF,
+    orbsym: np.ndarray,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    method: str,
+    cc_backend: str,
+    ref: np.ndarray,
+) -> None:
+    """
+    this function tests _cc_kernel
+    """
+    exp.orbsym = orbsym
+
+    core_idx, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(hf.mo_occ[cas_idx] > 0.0),
+            np.count_nonzero(hf.mo_occ[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._cc_kernel(method, core_idx, cas_idx, nelec, h1e_cas, h2e_cas, False)
+
+    assert res == pytest.approx(ref)

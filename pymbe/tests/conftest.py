@@ -88,6 +88,7 @@ def mol(system: str) -> gto.Mole:
     elif system == "hubbard":
 
         mol = gto.M()
+        mol.nao = 6
 
     return mol
 
@@ -105,6 +106,10 @@ def ncore(system: str) -> int:
 
         ncore = 2
 
+    elif system == "hubbard":
+
+        ncore = 0
+
     return ncore
 
 
@@ -121,7 +126,10 @@ def norb(mol: gto.Mole) -> int:
     """
     this fixture extracts the number of orbitals from the mol object
     """
-    return mol.nao.item()
+    if isinstance(mol.nao, int):
+        return mol.nao
+    else:
+        return mol.nao.item()
 
 
 @pytest.fixture
@@ -198,15 +206,15 @@ def ints(system: str, mol: gto.Mole, hf: scf.RHF) -> Tuple[np.ndarray, np.ndarra
 
     elif system == "hubbard":
 
-        hcore = np.zeros([6] * 2, dtype=np.float64)
-        for i in range(5):
+        hcore = np.zeros([mol.nao] * 2, dtype=np.float64)
+        for i in range(mol.nao - 1):
             hcore[i, i + 1] = hcore[i + 1, i] = -1.0
         hcore[-1, 0] = hcore[0, -1] = -1.0
 
-        eri = np.zeros([6] * 4, dtype=np.float64)
-        for i in range(6):
+        eri = np.zeros([mol.nao] * 4, dtype=np.float64)
+        for i in range(mol.nao):
             eri[i, i, i, i] = 2.0
-        eri = ao2mo.restore(4, eri, 6)
+        eri = ao2mo.restore(4, eri, mol.nao)
 
     return hcore, eri
 
@@ -332,7 +340,7 @@ def mbe(
     """
     hcore, eri = ints
 
-    ref_space = np.array([i for i in range(ncore, nocc)])
+    ref_space = np.array([i for i in range(ncore, nocc)], dtype=np.int64)
     exp_space = np.array(
         [i for i in range(ncore, mol.nao) if i not in ref_space],
         dtype=np.int64,

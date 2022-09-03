@@ -739,26 +739,6 @@ def _valid_tup(
     )
 
 
-def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
-    """
-    this function returns x and y indices of a matrix
-    """
-    y = site_idx % nx
-    x = int(floor(float(site_idx) / ny))
-    return x, y
-
-
-def near_nbrs(site_xy: Tuple[int, int], nx: int, ny: int) -> List[Tuple[int, int]]:
-    """
-    this function returns a list of nearest neighbour indices
-    """
-    up = ((site_xy[0] - 1) % nx, site_xy[1])
-    down = ((site_xy[0] + 1) % nx, site_xy[1])
-    left = (site_xy[0], (site_xy[1] + 1) % ny)
-    right = (site_xy[0], (site_xy[1] - 1) % ny)
-    return [up, down, left, right]
-
-
 def is_file(order: int, string: str) -> bool:
     """
     this function looks to see if a general restart file corresponding to the input
@@ -852,3 +832,24 @@ def get_occup(norb: int, nelec: np.ndarray) -> np.ndarray:
     occup[np.amin(nelec) : np.amax(nelec)] = 1
 
     return occup
+
+
+def e_core_h1e(
+    hcore: np.ndarray, vhf: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray
+) -> Tuple[float, np.ndarray]:
+    """
+    this function returns core energy and cas space 1e integrals
+    """
+    # determine effective core fock potential
+    if core_idx.size > 0:
+        core_vhf = np.sum(vhf[core_idx], axis=0)
+    else:
+        core_vhf = 0.0
+
+    # calculate core energy
+    e_core = np.trace((hcore + 0.5 * core_vhf)[core_idx[:, None], core_idx]) * 2.0
+
+    # extract cas integrals
+    h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]
+
+    return e_core, h1e_cas

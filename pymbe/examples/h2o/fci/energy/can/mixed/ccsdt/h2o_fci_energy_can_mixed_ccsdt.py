@@ -1,8 +1,8 @@
 import os
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto
-from pymbe import MBE, hf, base, ints
+from pyscf import gto, scf, symm, ao2mo
+from pymbe import MBE
 
 
 def mbe_example(rst=True):
@@ -27,12 +27,10 @@ def mbe_example(rst=True):
         ncore = 1
 
         # hf calculation
-        hf_object, orbsym, mo_coeff = hf(mol)
+        hf = scf.RHF(mol).run(conv_tol=1e-10)
 
-        # base model
-        base_energy = base(
-            "ccsdt", mol, hf_object, mo_coeff, orbsym, ncore, cc_backend="ecc"
-        )
+        # orbsym
+        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
@@ -43,8 +41,13 @@ def mbe_example(rst=True):
             dtype=np.int64,
         )
 
-        # integral calculation
-        hcore, eri = ints(mol, mo_coeff)
+        # hcore
+        hcore_ao = hf.get_hcore()
+        hcore = np.einsum("pi,pq,qj->ij", hf.mo_coeff, hcore_ao, hf.mo_coeff)
+
+        # eri
+        eri_ao = mol.intor("int2e_sph", aosym="s8")
+        eri = ao2mo.incore.full(eri_ao, hf.mo_coeff)
 
         # create mbe object
         mbe = MBE(
@@ -56,7 +59,7 @@ def mbe_example(rst=True):
             ref_space=ref_space,
             exp_space=exp_space,
             base_method="ccsdt",
-            base_prop=base_energy,
+            base_prop=-0.1353909209,
             rst=rst,
         )
 

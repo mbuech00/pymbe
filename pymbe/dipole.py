@@ -18,12 +18,18 @@ import os
 import logging
 import numpy as np
 from mpi4py import MPI
+from pyscf import gto, scf, fci, cc
+from pyscf.cc import (
+    ccsd_t_lambda_slow as ccsd_t_lambda,
+    ccsd_t_rdm_slow as ccsd_t_rdm,
+    uccsd_t_lambda,
+    uccsd_t_rdm,
+)
 from typing import TYPE_CHECKING, cast
 
-from pymbe.expansion import ExpCls, SingleTargetExpCls
-from pymbe.kernel import main_kernel, dipole_kernel, hf_dipole_kernel
+from pymbe.expansion import ExpCls, SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, get_nelec
+from pymbe.tools import RST, write_file, get_nelec, get_nhole, get_nexc, assertion
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
 
@@ -96,9 +102,9 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
 
     def _calc_hf_prop(self, *args: np.ndarray) -> np.ndarray:
         """
-        this function calculates the hartree-fock property
+        this function calculates the hartree-fock electronic dipole moment
         """
-        return hf_dipole_kernel(self.occup, self.dipole_ints)
+        return np.einsum("p,xpp->x", self.occup, self.dipole_ints)
 
     def _inc(
         self,
@@ -116,70 +122,233 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         nelec = get_nelec(self.occup, cas_idx)
 
         # perform main calc
-        res = main_kernel(
-            self.method,
-            self.cc_backend,
-            self.orb_type,
-            self.spin,
-            self.occup,
-            self.target,
-            self.fci_state_sym,
-            self.point_group,
-            self.orbsym,
-            self.hf_guess,
-            self.fci_state_root,
-            self.hf_prop,
-            e_core,
-            h1e_cas,
-            h2e_cas,
-            core_idx,
-            cas_idx,
-            nelec,
-            self.verbose,
-        )
-
-        res_full = dipole_kernel(
-            self.dipole_ints, self.occup, cas_idx, res["rdm1"], hf_dipole=self.hf_prop
+        dipole = self._kernel(
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
         )
 
         # perform base calc
         if self.base_method is not None:
 
-            res = main_kernel(
-                self.base_method,
-                self.cc_backend,
-                self.orb_type,
-                self.spin,
-                self.occup,
-                self.target,
-                self.fci_state_sym,
-                self.point_group,
-                self.orbsym,
-                self.hf_guess,
-                self.fci_state_root,
-                self.hf_prop,
-                e_core,
-                h1e_cas,
-                h2e_cas,
-                core_idx,
-                cas_idx,
-                nelec,
-                self.verbose,
+            dipole -= self._kernel(
+                self.base_method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
             )
 
-            res_base = dipole_kernel(
-                self.dipole_ints,
-                self.occup,
-                cas_idx,
-                res["rdm1"],
-                hf_dipole=self.hf_prop,
+        dipole -= self.ref_prop
+
+        return dipole, nelec
+
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+    ) -> np.ndarray:
+        """
+        this function returns the results of a fci calculation
+        """
+        # spin
+        spin_cas = abs(nelec[0] - nelec[1])
+        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+
+        # init fci solver
+        if spin_cas == 0:
+            solver = fci.direct_spin0_symm.FCI()
+        else:
+            solver = fci.direct_spin1_symm.FCI()
+
+        # settings
+        solver.conv_tol = CONV_TOL * 1.0e-04
+        solver.lindep = solver.conv_tol * 1.0e-01
+        solver.max_memory = MAX_MEM
+        solver.max_cycle = 5000
+        solver.max_space = 25
+        solver.davidson_only = True
+        solver.pspace_size = 0
+        if self.verbose >= 3:
+            solver.verbose = 10
+        solver.wfnsym = self.fci_state_sym
+        solver.orbsym = self.orbsym[cas_idx]
+        solver.nroots = self.fci_state_root + 1
+
+        # hf starting guess
+        if self.hf_guess:
+            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
+            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
+            ci0 = np.zeros((na, nb))
+            ci0[0, 0] = 1
+        else:
+            ci0 = None
+
+        # interface
+        def _fci_interface() -> Tuple[float, np.ndarray]:
+            """
+            this function provides an interface to solver.kernel
+            """
+            # perform calc
+            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
+
+            # collect results
+            if solver.nroots == 1:
+                return e, c
+            else:
+                return e[-1], c[-1]
+
+        # perform calc
+        _, civec = _fci_interface()
+
+        # multiplicity check
+        s, mult = solver.spin_square(civec, cas_idx.size, nelec)
+
+        if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+
+            # fix spin by applying level shift
+            sz = np.abs(nelec[0] - nelec[1]) * 0.5
+            solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
+
+            # perform calc
+            _, civec = _fci_interface()
+
+            # verify correct spin
+            s, mult = solver.spin_square(civec, cas_idx.size, nelec)
+            assertion(
+                np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                f"spin contamination for root = {self.fci_state_root}\n"
+                f"2*S + 1 = {mult:.6f}\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
             )
 
-            res_full -= res_base
+        # convergence check
+        if solver.nroots == 1:
 
-        res_full -= self.ref_prop
+            assertion(
+                solver.converged,
+                f"state {self.fci_state_root} not converged\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
 
-        return res_full, nelec
+        else:
+
+            assertion(
+                solver.converged[-1],
+                f"state {self.fci_state_root} not converged\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
+
+        # init rdm1
+        rdm1 = np.diag(self.occup.astype(np.float64))
+
+        # insert correlated subblock
+        rdm1[cas_idx[:, None], cas_idx] = solver.make_rdm1(civec, cas_idx.size, nelec)
+
+        # compute elec_dipole
+        elec_dipole = np.einsum("xij,ji->x", self.dipole_ints, rdm1)
+
+        return elec_dipole - self.hf_prop
+
+    def _cc_kernel(
+        self,
+        method: str,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        higher_amp_extrap: bool,
+    ) -> np.ndarray:
+        """
+        this function returns the results of a cc calculation
+        """
+        spin_cas = abs(nelec[0] - nelec[1])
+        assertion(spin_cas == self.spin, f"cascc wrong spin in space: {cas_idx}")
+        singlet = spin_cas == 0
+
+        # number of holes in cas space
+        nhole = get_nhole(nelec, cas_idx)
+
+        # number of possible excitations in cas space
+        nexc = get_nexc(nelec, nhole)
+
+        # init ccsd solver
+        mol_tmp = gto.Mole(verbose=0)
+        mol_tmp._built = True
+        mol_tmp.max_memory = MAX_MEM
+        mol_tmp.incore_anyway = True
+
+        if singlet:
+            hf = scf.RHF(mol_tmp)
+        else:
+            hf = scf.UHF(mol_tmp)
+
+        hf.get_hcore = lambda *args: h1e
+        hf._eri = h2e
+
+        if singlet:
+            ccsd = cc.ccsd.CCSD(
+                hf, mo_coeff=np.eye(cas_idx.size), mo_occ=self.occup[cas_idx]
+            )
+        else:
+            ccsd = cc.uccsd.UCCSD(
+                hf,
+                mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))),
+                mo_occ=np.array(
+                    (self.occup[cas_idx] > 0.0, self.occup[cas_idx] == 2.0),
+                    dtype=np.double,
+                ),
+            )
+
+        # settings
+        ccsd.conv_tol = CONV_TOL
+        ccsd.conv_tol_normt = ccsd.conv_tol
+        ccsd.max_cycle = 500
+        ccsd.async_io = False
+        ccsd.diis_start_cycle = 4
+        ccsd.diis_space = 12
+        ccsd.incore_complete = True
+        eris = ccsd.ao2mo()
+
+        # calculate ccsd energy
+        ccsd.kernel(eris=eris)
+
+        # convergence check
+        assertion(
+            ccsd.converged,
+            f"CCSD error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
+        )
+
+        # rdms
+        if method == "ccsd" or nexc <= 2:
+            ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
+            cas_rdm1 = ccsd.make_rdm1()
+        elif method == "ccsd(t)":
+            if singlet:
+                l1, l2 = ccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
+                cas_rdm1 = ccsd_t_rdm.make_rdm1(
+                    ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
+                )
+            else:
+                l1, l2 = uccsd_t_lambda.kernel(ccsd, eris=eris, verbose=0)[1:]
+                cas_rdm1 = uccsd_t_rdm.make_rdm1(
+                    ccsd, ccsd.t1, ccsd.t2, l1, l2, eris=eris
+                )
+
+        if not singlet:
+            cas_rdm1 = cas_rdm1[0] + cas_rdm1[1]
+
+        # init rdm1
+        rdm1 = np.diag(self.occup.astype(np.float64))
+
+        # insert correlated subblock
+        rdm1[cas_idx[:, None], cas_idx] = cas_rdm1
+
+        # compute elec_dipole
+        elec_dipole = np.einsum("xij,ji->x", self.dipole_ints, rdm1)
+
+        return elec_dipole - self.hf_prop
 
     @staticmethod
     def _write_target_file(order: Optional[int], prop: np.ndarray, string: str) -> None:

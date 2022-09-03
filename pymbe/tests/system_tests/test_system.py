@@ -128,7 +128,6 @@ examples = [
     ["c2", "fci", "energy", "can", "mixed", "pi_prune"],
     ["c2", "fci", "energy", "sa_casscf", "mixed"],
     ["1d_hubbard", "fci", "energy", "can", "vac"],
-    ["1d_hubbard", "fci", "energy", "local", "vac"],
 ]
 
 

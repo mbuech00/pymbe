@@ -18,15 +18,23 @@ import os
 import logging
 import numpy as np
 from mpi4py import MPI
-from pyscf import ao2mo
+from pyscf import ao2mo, gto, scf, fci, cc
 from typing import TYPE_CHECKING, cast
 
-from pymbe.expansion import ExpCls, SingleTargetExpCls
-from pymbe.kernel import main_kernel, hf_energy_kernel
+from pymbe.expansion import ExpCls, SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, write_file, get_nelec
+from pymbe.tools import (
+    RST,
+    write_file,
+    get_nelec,
+    idx_tril,
+    get_nhole,
+    get_nexc,
+    assertion,
+)
 from pymbe.parallel import mpi_reduce, open_shared_win
 from pymbe.results import DIVIDER as DIVIDER_RESULTS, results_plt
+from pymbe.interface import mbecc_interface
 
 if TYPE_CHECKING:
 
@@ -88,9 +96,35 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         self, hcore: np.ndarray, eri: np.ndarray, vhf: np.ndarray
     ) -> float:
         """
-        this function calculates the hartree-fock property
+        this function calculates the hartree-fock electronic energy
         """
-        return hf_energy_kernel(self.occup, self.spin, hcore, eri, vhf)
+        # add one-electron integrals
+        hf_energy = np.sum(self.occup * np.diag(hcore))
+
+        # set closed- and open-shell indices
+        cs_idx = np.where(self.occup == 2)[0]
+        os_idx = np.where(self.occup == 1)[0]
+
+        # add closed-shell and coupling electron repulsion terms
+        hf_energy += np.trace((np.sum(vhf, axis=0))[cs_idx.reshape(-1, 1), cs_idx])
+
+        # check if system is open-shell
+        if self.spin > 0:
+
+            # get indices for eris that only include open-shell orbitals
+            os_eri_idx = idx_tril(os_idx)
+
+            # retrieve eris of open-shell orbitals and unpack these
+            os_eri = ao2mo.restore(
+                1, eri[os_eri_idx.reshape(-1, 1), os_eri_idx], os_idx.size
+            )
+
+            # add open-shell electron repulsion terms
+            hf_energy += 0.5 * (
+                np.einsum("pqrr->", os_eri) - np.einsum("pqrp->", os_eri)
+            )
+
+        return hf_energy
 
     def _inc(
         self,
@@ -108,62 +142,231 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         nelec = get_nelec(self.occup, cas_idx)
 
         # perform main calc
-        res = main_kernel(
-            self.method,
-            self.cc_backend,
-            self.orb_type,
-            self.spin,
-            self.occup,
-            self.target,
-            self.fci_state_sym,
-            self.point_group,
-            self.orbsym,
-            self.hf_guess,
-            self.fci_state_root,
-            self.hf_prop,
-            e_core,
-            h1e_cas,
-            h2e_cas,
-            core_idx,
-            cas_idx,
-            nelec,
-            self.verbose,
+        energy = self._kernel(
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
         )
-
-        res_full = res[self.target]
 
         # perform base calc
         if self.base_method is not None:
 
-            res = main_kernel(
-                self.base_method,
+            energy -= self._kernel(
+                self.base_method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
+            )
+
+        energy -= self.ref_prop
+
+        return energy, nelec
+
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+    ) -> float:
+        """
+        this function returns the results of a fci calculation
+        """
+        # spin
+        spin_cas = abs(nelec[0] - nelec[1])
+        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+
+        # init fci solver
+        if spin_cas == 0:
+            solver = fci.direct_spin0_symm.FCI()
+        else:
+            solver = fci.direct_spin1_symm.FCI()
+
+        # settings
+        solver.conv_tol = CONV_TOL
+        solver.max_memory = MAX_MEM
+        solver.max_cycle = 5000
+        solver.max_space = 25
+        solver.davidson_only = True
+        solver.pspace_size = 0
+        if self.verbose >= 3:
+            solver.verbose = 10
+        solver.wfnsym = self.fci_state_sym
+        solver.orbsym = self.orbsym[cas_idx]
+        solver.nroots = self.fci_state_root + 1
+
+        # hf starting guess
+        if self.hf_guess:
+            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
+            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
+            ci0 = np.zeros((na, nb))
+            ci0[0, 0] = 1
+        else:
+            ci0 = None
+
+        # interface
+        def _fci_interface() -> Tuple[float, np.ndarray]:
+            """
+            this function provides an interface to solver.kernel
+            """
+            # perform calc
+            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
+
+            # collect results
+            if solver.nroots == 1:
+                return e, c
+            else:
+                return e[-1], c[-1]
+
+        # perform calc
+        energy, civec = _fci_interface()
+
+        # multiplicity check
+        s, mult = solver.spin_square(civec, cas_idx.size, nelec)
+
+        if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+
+            # fix spin by applying level shift
+            sz = np.abs(nelec[0] - nelec[1]) * 0.5
+            solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
+
+            # perform calc
+            energy, civec = _fci_interface()
+
+            # verify correct spin
+            s, mult = solver.spin_square(civec, cas_idx.size, nelec)
+            assertion(
+                np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                f"spin contamination for root entry = {self.fci_state_root}\n"
+                f"2*S + 1 = {mult:.6f}\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
+
+        # convergence check
+        if solver.nroots == 1:
+
+            assertion(
+                solver.converged,
+                f"state {self.fci_state_root} not converged\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
+
+        else:
+
+            assertion(
+                solver.converged[-1],
+                f"state {self.fci_state_root} not converged\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
+
+        return energy - self.hf_prop
+
+    def _cc_kernel(
+        self,
+        method: str,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        higher_amp_extrap: bool,
+    ) -> float:
+        """
+        this function returns the results of a cc calculation
+        """
+        spin_cas = abs(nelec[0] - nelec[1])
+        assertion(spin_cas == self.spin, f"cascc wrong spin in space: {cas_idx}")
+        singlet = spin_cas == 0
+
+        if self.cc_backend == "pyscf":
+
+            # init ccsd solver
+            mol_tmp = gto.Mole(verbose=0)
+            mol_tmp._built = True
+            mol_tmp.max_memory = MAX_MEM
+            mol_tmp.incore_anyway = True
+
+            if singlet:
+                hf = scf.RHF(mol_tmp)
+            else:
+                hf = scf.UHF(mol_tmp)
+
+            hf.get_hcore = lambda *args: h1e
+            hf._eri = h2e
+
+            if singlet:
+                ccsd = cc.ccsd.CCSD(
+                    hf, mo_coeff=np.eye(cas_idx.size), mo_occ=self.occup[cas_idx]
+                )
+            else:
+                ccsd = cc.uccsd.UCCSD(
+                    hf,
+                    mo_coeff=np.array((np.eye(cas_idx.size), np.eye(cas_idx.size))),
+                    mo_occ=np.array(
+                        (self.occup[cas_idx] > 0.0, self.occup[cas_idx] == 2.0),
+                        dtype=np.double,
+                    ),
+                )
+
+            # settings
+            ccsd.conv_tol = CONV_TOL
+            ccsd.max_cycle = 500
+            ccsd.async_io = False
+            ccsd.diis_start_cycle = 4
+            ccsd.diis_space = 12
+            ccsd.incore_complete = True
+            eris = ccsd.ao2mo()
+
+            # calculate ccsd energy
+            ccsd.kernel(eris=eris)
+
+            # convergence check
+            assertion(
+                ccsd.converged,
+                f"CCSD error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
+            )
+
+            # e_corr
+            e_cc = ccsd.e_corr
+
+            # calculate (t) correction
+            if method == "ccsd(t)":
+
+                # number of holes in cas space
+                nhole = get_nhole(nelec, cas_idx)
+
+                # nexc
+                nexc = get_nexc(nelec, nhole)
+
+                # ensure that more than two excitations are possible
+                if nexc > 2:
+                    e_cc += ccsd.ccsd_t()
+
+        elif self.cc_backend in ["ecc", "ncc"]:
+
+            # calculate cc energy
+            cc_energy, success = mbecc_interface(
+                method,
                 self.cc_backend,
                 self.orb_type,
-                self.spin,
-                self.occup,
-                self.target,
-                self.fci_state_sym,
                 self.point_group,
-                self.orbsym,
-                self.hf_guess,
-                self.fci_state_root,
-                self.hf_prop,
-                e_core,
-                h1e_cas,
-                h2e_cas,
-                core_idx,
-                cas_idx,
+                self.orbsym[cas_idx],
+                h1e,
+                h2e,
                 nelec,
+                higher_amp_extrap,
                 self.verbose,
             )
 
-            res_base = res["energy"]
+            # convergence check
+            assertion(
+                success == 1,
+                f"MBECC error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
+            )
 
-            res_full -= res_base
+            # e_corr
+            e_cc = cc_energy
 
-        res_full -= self.ref_prop
-
-        return res_full, nelec
+        return e_cc
 
     @staticmethod
     def _write_target_file(order: Optional[int], prop: float, string: str) -> None:

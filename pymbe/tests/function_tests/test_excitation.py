@@ -23,19 +23,23 @@ from pymbe.excitation import ExcExpCls
 if TYPE_CHECKING:
 
     from mpi4py import MPI
+    from pyscf import scf
     from typing import Tuple, Optional
 
     from pymbe.pymbe import MBE
 
 test_cases_ref_prop = [
-    (
-        "h2o",
-        "fci",
-        None,
-        "pyscf",
-        1,
-        0.7060145137233889,
-    ),
+    ("h2o", "fci", None, "pyscf", 1, 0.7060145137233889),
+]
+
+test_cases_kernel = [
+    ("h2o", "fci", "pyscf", 1, 1.3506589063482437),
+    ("hubbard", "fci", "pyscf", 1, 1.850774199956839),
+]
+
+test_cases_fci_kernel = [
+    ("h2o", 1, 1.35065890634786),
+    ("hubbard", 1, 1.8507741999568346),
 ]
 
 
@@ -83,3 +87,97 @@ def test_ref_prop(
     res = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)
+
+
+@pytest.mark.parametrize(
+    argnames="system, method, cc_backend, root, ref_res",
+    argvalues=test_cases_kernel,
+    ids=["-".join([item for item in case[0:3] if item]) for case in test_cases_kernel],
+    indirect=["system"],
+)
+def test_kernel(
+    exp: ExcExpCls,
+    system: str,
+    hf: scf.RHF,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    orbsym: np.ndarray,
+    method: str,
+    cc_backend: str,
+    root: int,
+    ref_res: float,
+) -> None:
+    """
+    this function tests _kernel
+    """
+    exp.orbsym = orbsym
+    exp.fci_state_root = root
+
+    if system == "h2o":
+
+        occup = hf.mo_occ
+
+    elif system == "hubbard":
+
+        occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+
+    core_idx, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._kernel(method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+
+    assert res == pytest.approx(ref_res)
+
+
+@pytest.mark.parametrize(
+    argnames="system, root, ref",
+    argvalues=test_cases_fci_kernel,
+    ids=[case[0] for case in test_cases_fci_kernel],
+    indirect=["system"],
+)
+def test_fci_kernel(
+    exp: ExcExpCls,
+    system: str,
+    hf: scf.RHF,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    orbsym: np.ndarray,
+    root: int,
+    ref: float,
+) -> None:
+    """
+    this function tests _fci_kernel
+    """
+    exp.orbsym = orbsym
+    exp.fci_state_root = root
+
+    if system == "h2o":
+
+        occup = hf.mo_occ
+
+    elif system == "hubbard":
+
+        occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+
+    _, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, cas_idx, nelec)
+
+    assert res == pytest.approx(ref)

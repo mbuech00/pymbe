@@ -1,8 +1,8 @@
 import os
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto
-from pymbe import MBE, hf, ref_mo, ints
+from pyscf import gto, scf, lo, ao2mo
+from pymbe import MBE
 
 
 def mbe_example(rst=True):
@@ -28,10 +28,29 @@ def mbe_example(rst=True):
         ncore = 1
 
         # hf calculation
-        hf_object, orbsym, mo_coeff = hf(mol)
+        hf = scf.RHF(mol).run(conv_tol=1e-10)
 
-        # pipek-mezey localized orbitals
-        mo_coeff, orbsym = ref_mo("local", mol, hf_object, mo_coeff, orbsym, ncore)
+        # mo coefficients for pipek-mezey localized orbitals
+        mo_coeff = hf.mo_coeff.copy()
+
+        # occupied - occupied block
+        mask = hf.mo_occ == 2.0
+        mask[:ncore] = False
+        if np.any(mask):
+            loc = lo.PM(mol, mo_coeff=mo_coeff[:, mask]).set(conv_tol=1.0e-10)
+            mo_coeff[:, mask] = loc.kernel()
+
+        # singly occupied - singly occupied block
+        mask = hf.mo_occ == 1.0
+        if np.any(mask):
+            loc = lo.PM(mol, mo_coeff=mo_coeff[:, mask]).set(conv_tol=1.0e-10)
+            mo_coeff[:, mask] = loc.kernel()
+
+        # virtual - virtual block
+        mask = hf.mo_occ == 0.0
+        if np.any(mask):
+            loc = lo.PM(mol, mo_coeff=mo_coeff[:, mask]).set(conv_tol=1.0e-10)
+            mo_coeff[:, mask] = loc.kernel()
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
@@ -42,14 +61,17 @@ def mbe_example(rst=True):
             dtype=np.int64,
         )
 
-        # integral calculation
-        hcore, eri = ints(mol, mo_coeff)
+        # hcore
+        hcore_ao = hf.get_hcore()
+        hcore = np.einsum("pi,pq,qj->ij", mo_coeff, hcore_ao, mo_coeff)
+
+        # eri
+        eri_ao = mol.intor("int2e_sph", aosym="s8")
+        eri = ao2mo.incore.full(eri_ao, mo_coeff)
 
         # create mbe object
         mbe = MBE(
             mol=mol,
-            orbsym=orbsym,
-            fci_state_sym="b2",
             orb_type="local",
             hcore=hcore,
             eri=eri,

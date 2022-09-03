@@ -24,8 +24,8 @@ from pymbe.energy import EnergyExpCls
 
 if TYPE_CHECKING:
 
-    from typing import List, Tuple, Optional
     from pyscf import gto, scf
+    from typing import List, Tuple, Optional
 
     from pymbe.pymbe import MBE
 
@@ -57,86 +57,41 @@ test_cases_mbe = [
 ]
 
 test_cases_ref_prop = [
-    (
-        "h2o",
-        "fci",
-        None,
-        "pyscf",
-        0,
-        -0.03769780809258805,
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "pyscf",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "pyscf",
-        0,
-        -0.00036229313775759664,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "pyscf",
-        0,
-        -0.0003336954549769955,
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "ecc",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "ecc",
-        0,
-        -0.0003622938195746786,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "ecc",
-        0,
-        -0.0003336954549769955,
-    ),
-    (
-        "h2o",
-        "ccsd",
-        None,
-        "ncc",
-        0,
-        -0.03733551374348559,
-    ),
-    (
-        "h2o",
-        "fci",
-        "ccsd",
-        "ncc",
-        0,
-        -0.0003622938195746786,
-    ),
-    (
-        "h2o",
-        "ccsd(t)",
-        "ccsd",
-        "ncc",
-        0,
-        -0.0003336954549769955,
-    ),
+    ("h2o", "fci", None, "pyscf", 0, -0.03769780809258805),
+    ("h2o", "ccsd", None, "pyscf", 0, -0.03733551374348559),
+    ("h2o", "fci", "ccsd", "pyscf", 0, -0.00036229313775759664),
+    ("h2o", "ccsd(t)", "ccsd", "pyscf", 0, -0.0003336954549769955),
+    ("h2o", "ccsd", None, "ecc", 0, -0.03733551374348559),
+    ("h2o", "fci", "ccsd", "ecc", 0, -0.0003622938195746786),
+    ("h2o", "ccsd(t)", "ccsd", "ecc", 0, -0.0003336954549769955),
+    ("h2o", "ccsd", None, "ncc", 0, -0.03733551374348559),
+    ("h2o", "fci", "ccsd", "ncc", 0, -0.0003622938195746786),
+    ("h2o", "ccsd(t)", "ccsd", "ncc", 0, -0.0003336954549769955),
+]
+
+test_cases_kernel = [
+    ("h2o", "fci", "pyscf", -0.00627368491326763),
+    ("hubbard", "fci", "pyscf", -2.8759428090050676),
+    ("h2o", "ccsd", "pyscf", -0.006273684840715439),
+    ("h2o", "ccsd", "ecc", -0.00627368488758955),
+    ("h2o", "ccsd", "ncc", -0.006273684885561386),
+]
+
+test_cases_fci_kernel = [
+    ("h2o", -0.00627368491326763),
+    ("hubbard", -2.875942809005066),
+]
+
+test_cases_cc_kernel = [
+    ("h2o", "ccsd", "pyscf", -0.0062736848407002966),
+    ("h2o", "ccsd(t)", "pyscf", -0.0062736848407002966),
+    ("h2o", "ccsd", "ecc", -0.00627368488758955),
+    ("h2o", "ccsd(t)", "ecc", -0.006273684887573003),
+    ("h2o", "ccsdt", "ecc", -0.00627368488758955),
+    ("h2o", "ccsd", "ncc", -0.006273684885561386),
+    ("h2o", "ccsd(t)", "ncc", -0.006273684885577932),
+    ("h2o", "ccsdt", "ncc", -0.006273684885561386),
+    ("h2o", "ccsdtq", "ncc", -0.006273684885577932),
 ]
 
 
@@ -147,7 +102,6 @@ def exp(mol: gto.Mole, hf: scf.RHF, mbe: MBE):
     """
     exp = EnergyExpCls(mbe)
     exp.target = "energy"
-    exp.hf_prop = hf.e_tot - mol.energy_nuc().item()
 
     return exp
 
@@ -456,3 +410,134 @@ def test_ref_prop(
     res = exp._ref_prop(mbe.mpi)
 
     assert res == pytest.approx(ref_res)
+
+
+@pytest.mark.parametrize(
+    argnames="system, method, cc_backend, ref_res",
+    argvalues=test_cases_kernel,
+    ids=["-".join([item for item in case[0:3] if item]) for case in test_cases_kernel],
+    indirect=["system"],
+)
+def test_kernel(
+    system: str,
+    exp: EnergyExpCls,
+    hf: scf.RHF,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    orbsym: np.ndarray,
+    method: str,
+    cc_backend: str,
+    ref_res: float,
+) -> None:
+    """
+    this function tests _kernel
+    """
+    exp.orbsym = orbsym
+
+    if system == "h2o":
+
+        exp.point_group = "C2v"
+        occup = hf.mo_occ
+
+    elif system == "hubbard":
+
+        occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+        exp.point_group = "C1"
+
+    core_idx, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._kernel(method, 0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
+
+    assert res == pytest.approx(ref_res)
+
+
+@pytest.mark.parametrize(
+    argnames="system, ref",
+    argvalues=test_cases_fci_kernel,
+    ids=[case[0] for case in test_cases_fci_kernel],
+    indirect=["system"],
+)
+def test_fci_kernel(
+    exp: EnergyExpCls,
+    system: str,
+    hf: scf.RHF,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    orbsym: np.ndarray,
+    ref: float,
+) -> None:
+    """
+    this function tests _fci_kernel
+    """
+    exp.orbsym = orbsym
+
+    if system == "h2o":
+
+        occup = hf.mo_occ
+
+    elif system == "hubbard":
+
+        occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
+
+    _, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(occup[cas_idx] > 0.0),
+            np.count_nonzero(occup[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, cas_idx, nelec)
+
+    assert res == pytest.approx(ref)
+
+
+@pytest.mark.parametrize(
+    argnames="system, method, cc_backend, ref",
+    argvalues=test_cases_cc_kernel,
+    ids=["-".join(case[0:3]) for case in test_cases_cc_kernel],
+    indirect=["system"],
+)
+def test_cc_kernel(
+    exp: EnergyExpCls,
+    hf: scf.RHF,
+    orbsym: np.ndarray,
+    indices: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ints_cas: Tuple[np.ndarray, np.ndarray],
+    method: str,
+    cc_backend: str,
+    ref: float,
+) -> None:
+    """
+    this function tests _cc_kernel
+    """
+    exp.cc_backend = cc_backend
+    exp.point_group = "C2v"
+    exp.orbsym = orbsym
+
+    core_idx, cas_idx, _ = indices
+
+    h1e_cas, h2e_cas = ints_cas
+
+    nelec = np.array(
+        [
+            np.count_nonzero(hf.mo_occ[cas_idx] > 0.0),
+            np.count_nonzero(hf.mo_occ[cas_idx] > 1.0),
+        ]
+    )
+
+    res = exp._cc_kernel(method, core_idx, cas_idx, nelec, h1e_cas, h2e_cas, False)
+
+    assert res == pytest.approx(ref)

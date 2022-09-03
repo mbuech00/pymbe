@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto, scf, cc, lo, ao2mo
+from pyscf import gto, scf, lo, ao2mo
 from pymbe import MBE
 
 
@@ -29,12 +29,6 @@ def mbe_example(rst=True):
 
         # hf calculation
         hf = scf.RHF(mol).run(conv_tol=1e-10)
-
-        # base model
-        ccsd = cc.CCSD(hf).run(
-            conv_tol=1.0e-10, conv_tol_normt=1.0e-10, max_cycle=500, frozen=ncore
-        )
-        base_energy = ccsd.e_corr
 
         # mo coefficients for pipek-mezey localized orbitals
         mo_coeff = hf.mo_coeff.copy()
@@ -75,16 +69,27 @@ def mbe_example(rst=True):
         eri_ao = mol.intor("int2e_sph", aosym="s8")
         eri = ao2mo.incore.full(eri_ao, mo_coeff)
 
+        # gauge origin
+        gauge_origin = np.array([0.0, 0.0, 0.0])
+
+        # dipole integral calculation
+        with mol.with_common_origin(gauge_origin):
+            ao_dipole_ints = mol.intor_symmetric("int1e_r", comp=3)
+        dipole_ints = np.einsum(
+            "pi,xpq,qj->xij", hf.mo_coeff, ao_dipole_ints, hf.mo_coeff
+        )
+
         # create mbe object
         mbe = MBE(
+            method="ccsd",
+            target="dipole",
             mol=mol,
             orb_type="local",
             hcore=hcore,
             eri=eri,
+            dipole_ints=dipole_ints,
             ref_space=ref_space,
             exp_space=exp_space,
-            base_method="ccsd",
-            base_prop=base_energy,
             rst=rst,
         )
 
@@ -94,18 +99,21 @@ def mbe_example(rst=True):
         mbe = MBE()
 
     # perform calculation
-    elec_energy = mbe.kernel()
+    elec_dipole = mbe.kernel()
 
-    # get total energy
-    tot_energy = mbe.final_prop(prop_type="total", nuc_prop=mol.energy_nuc().item())
+    # get total dipole moment
+    tot_dipole = mbe.final_prop(
+        prop_type="total",
+        nuc_prop=np.einsum("i,ix->x", mol.atom_charges(), mol.atom_coords()),
+    )
 
-    return tot_energy
+    return tot_dipole
 
 
 if __name__ == "__main__":
 
     # call example function
-    energy = mbe_example()
+    dipole = mbe_example()
 
     # finalize mpi
     MPI.Finalize()
