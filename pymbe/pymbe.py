@@ -15,12 +15,14 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import shutil
+import logging
 from dataclasses import dataclass, field
 from pyscf import gto
 import numpy as np
 from typing import TYPE_CHECKING, cast
 
 from pymbe.setup import settings, main as setup_main
+from pymbe.output import DIVIDER
 from pymbe.energy import EnergyExpCls
 from pymbe.excitation import ExcExpCls
 from pymbe.dipole import DipoleExpCls
@@ -122,6 +124,10 @@ class MBE:
         elif self.target == "rdm12":
             self.exp = RDMExpCls(self)
 
+        # dump flags
+        if self.mpi.global_master:
+            self.dump_flags()
+
         if self.mpi.global_master:
 
             # main master driver
@@ -140,6 +146,25 @@ class MBE:
         prop = self.final_prop(prop_type="electronic")
 
         return prop
+
+    def dump_flags(self) -> None:
+        """
+        this function dumps all input flags
+        """
+        # get logger
+        logger = logging.getLogger("pymbe_logger")
+
+        # dump flags
+        logger.info("\n" + DIVIDER + "\n")
+        for key, value in vars(self).items():
+            if key in ["mol", "hcore", "eri", "dipole_ints", "mpi", "exp"]:
+                logger.debug(" " + key + " = " + str(value))
+            else:
+                logger.info(" " + key + " = " + str(value))
+        logger.debug("")
+        for key, value in vars(self.mpi).items():
+            logger.debug(" " + key + " = " + str(value))
+        logger.info("\n" + DIVIDER)
 
     def results(self) -> str:
         """

@@ -62,7 +62,7 @@ from pymbe.parallel import (
     mpi_gatherv,
     open_shared_win,
 )
-from pymbe.results import atom_prt, summary_prt, timings_prt
+from pymbe.results import timings_prt
 
 if TYPE_CHECKING:
 
@@ -470,13 +470,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         """
         # print header
         string = main_header() + "\n\n"
-
-        # print atom info
-        if mol and mol.atom:
-            string += atom_prt(mol) + "\n\n"
-
-        # print summary
-        string += summary_prt(mpi, self, *self._prop_summ()) + "\n\n"
 
         # print timings
         string += timings_prt(self, self.method) + "\n\n"
