@@ -9,7 +9,7 @@ mypy:
   stage: Type Checking
   needs: []
   script:
-    - mypy --ignore-missing-imports --ignore-missing-imports --warn-redundant-casts pymbe
+    - mypy --ignore-missing-imports --warn-redundant-casts pymbe
 
 pytest:
   stage: Testing
