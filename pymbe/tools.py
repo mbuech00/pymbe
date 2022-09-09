@@ -146,6 +146,28 @@ class RDMCls:
         else:
             return NotImplemented
 
+    def __mul__(self, other: Union[int, float]) -> RDMCls:
+        """
+        this function implements multiplication for the RDMCls objects
+        """
+        if isinstance(other, (int, float)):
+            return RDMCls(other * self.rdm1, other * self.rdm2)
+        else:
+            return NotImplemented
+
+    __rmul__ = __mul__
+
+    def __imul__(self, other: Union[int, float]) -> RDMCls:
+        """
+        this function implements inplace multiplication for the RDMCls objects
+        """
+        if isinstance(other, (int, float)):
+            self.rdm1 *= other
+            self.rdm2 *= other
+            return self
+        else:
+            return NotImplemented
+
     def __truediv__(self, other: Union[int, float]) -> RDMCls:
         """
         this function implements division for the RDMCls objects
@@ -154,6 +176,8 @@ class RDMCls:
             return RDMCls(self.rdm1 / other, self.rdm2 / other)
         else:
             return NotImplemented
+
+    __rtruediv__ = __truediv__
 
     def __itruediv__(self, other: Union[int, float]) -> RDMCls:
         """

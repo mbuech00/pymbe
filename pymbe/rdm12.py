@@ -19,9 +19,16 @@ import logging
 import numpy as np
 from mpi4py import MPI
 from pyscf import gto, scf, fci, cc
-from typing import TYPE_CHECKING, cast, Tuple
+from typing import TYPE_CHECKING, cast, TypedDict, Tuple, List
 
-from pymbe.expansion import ExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
+from pymbe.expansion import (
+    ExpCls,
+    StateIntType,
+    StateArrayType,
+    MAX_MEM,
+    CONV_TOL,
+    SPIN_TOL,
+)
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import (
     RST,
@@ -31,6 +38,7 @@ from pymbe.tools import (
     tuples,
     hash_1d,
     hash_lookup,
+    get_occup,
     get_nhole,
     get_nexc,
     assertion,
@@ -40,7 +48,7 @@ from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, mpi_gatherv
 if TYPE_CHECKING:
 
     import matplotlib
-    from typing import List, Optional, Union
+    from typing import Optional, Union
 
     from pymbe.pymbe import MBE
 
@@ -49,7 +57,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger("pymbe_logger")
 
 
-class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
+class RDMExpCls(
+    ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win], StateIntType, StateArrayType]
+):
     """
     this class contains the pymbe expansion attributes
     """
@@ -222,115 +232,6 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
                     res[ind_casci] += inc[k - self.min_order][idx]
 
         return res
-
-    def _fci_kernel(
-        self,
-        e_core: float,
-        h1e: np.ndarray,
-        h2e: np.ndarray,
-        cas_idx: np.ndarray,
-        nelec: np.ndarray,
-    ) -> RDMCls:
-        """
-        this function returns the results of a fci calculation
-        """
-        # spin
-        spin_cas = abs(nelec[0] - nelec[1])
-        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
-
-        # init fci solver
-        if spin_cas == 0:
-            solver = fci.direct_spin0_symm.FCI()
-        else:
-            solver = fci.direct_spin1_symm.FCI()
-
-        # settings
-        solver.conv_tol = CONV_TOL
-        solver.max_memory = MAX_MEM
-        solver.max_cycle = 5000
-        solver.max_space = 25
-        solver.davidson_only = True
-        solver.pspace_size = 0
-        if self.verbose >= 3:
-            solver.verbose = 10
-        solver.wfnsym = self.fci_state_sym
-        solver.orbsym = self.orbsym[cas_idx]
-        solver.nroots = self.fci_state_root + 1
-
-        # hf starting guess
-        if self.hf_guess:
-            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
-            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
-            ci0 = np.zeros((na, nb))
-            ci0[0, 0] = 1
-        else:
-            ci0 = None
-
-        # interface
-        def _fci_interface() -> Tuple[List[float], List[np.ndarray]]:
-            """
-            this function provides an interface to solver.kernel
-            """
-            # perform calc
-            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
-
-            # collect results
-            if solver.nroots == 1:
-                return [e], [c]
-            else:
-                return [e[0], e[-1]], [c[0], c[-1]]
-
-        # perform calc
-        _, civec = _fci_interface()
-
-        # multiplicity check
-        for root in range(len(civec)):
-
-            s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-
-            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
-
-                # fix spin by applying level shift
-                sz = np.abs(nelec[0] - nelec[1]) * 0.5
-                solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
-
-                # perform calc
-                _, civec = _fci_interface()
-
-                # verify correct spin
-                for root in range(len(civec)):
-                    s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
-                    assertion(
-                        np.abs((spin_cas + 1) - mult) < SPIN_TOL,
-                        f"spin contamination for root entry = {root}\n"
-                        f"2*S + 1 = {mult:.6f}\n"
-                        f"cas_idx = {cas_idx}\n"
-                        f"cas_sym = {self.orbsym[cas_idx]}",
-                    )
-
-        # convergence check
-        if solver.nroots == 1:
-
-            assertion(
-                solver.converged,
-                f"state {root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        else:
-
-            assertion(
-                solver.converged[-1],
-                f"state {root} not converged\n"
-                f"cas_idx = {cas_idx}\n"
-                f"cas_sym = {self.orbsym[cas_idx]}",
-            )
-
-        return (
-            RDMCls(*solver.make_rdm12(civec[-1], cas_idx.size, nelec))
-            - self.hf_prop[cas_idx]
-        )
 
     def _cc_kernel(
         self,
@@ -633,32 +534,6 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         """
         return mean_inc.copy()
 
-    def _mbe_debug(
-        self,
-        nelec_tup: np.ndarray,
-        inc_tup: RDMCls,
-        cas_idx: np.ndarray,
-        tup: np.ndarray,
-    ) -> str:
-        """
-        this function prints mbe debug information
-        """
-        string = mbe_debug(
-            self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
-        )
-        string += (
-            f"      rdm1 increment for root {self.fci_state_root:d} = "
-            + np.array2string(inc_tup.rdm1, max_line_width=59, precision=4)
-            + "\n"
-        )
-        string += (
-            f"      rdm2 increment for root {self.fci_state_root:d} = "
-            + np.array2string(inc_tup.rdm2, max_line_width=59, precision=4)
-            + "\n"
-        )
-
-        return string
-
     def _mbe_results(self, order: int) -> str:
         """
         this function prints mbe results statistics for an rdm12 calculation
@@ -706,3 +581,385 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         this function returns the 1- and 2-particle reduced density matrices table
         """
         raise NotImplementedError
+
+
+class ssRDMExpCls(RDMExpCls[int, np.ndarray]):
+    """
+    this class contains the pymbe expansion attributes
+    """
+
+    def _state_occup(self) -> None:
+        """
+        this function initializes certain state attributes for a single state
+        """
+        self.nocc = np.max(self.nelec)
+        self.spin = abs(self.nelec[0] - self.nelec[1])
+        self.occup = get_occup(self.norb, self.nelec)
+
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+    ) -> RDMCls:
+        """
+        this function returns the results of a fci calculation
+        """
+        # spin
+        spin_cas = abs(nelec[0] - nelec[1])
+        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+
+        # init fci solver
+        if spin_cas == 0:
+            solver = fci.direct_spin0_symm.FCI()
+        else:
+            solver = fci.direct_spin1_symm.FCI()
+
+        # settings
+        solver.conv_tol = CONV_TOL
+        solver.max_memory = MAX_MEM
+        solver.max_cycle = 5000
+        solver.max_space = 25
+        solver.davidson_only = True
+        solver.pspace_size = 0
+        if self.verbose >= 3:
+            solver.verbose = 10
+        solver.wfnsym = self.fci_state_sym
+        solver.orbsym = self.orbsym[cas_idx]
+        solver.nroots = self.fci_state_root + 1
+
+        # hf starting guess
+        if self.hf_guess:
+            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
+            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
+            ci0 = np.zeros((na, nb))
+            ci0[0, 0] = 1
+        else:
+            ci0 = None
+
+        # interface
+        def _fci_interface() -> Tuple[List[float], List[np.ndarray]]:
+            """
+            this function provides an interface to solver.kernel
+            """
+            # perform calc
+            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
+
+            # collect results
+            if solver.nroots == 1:
+                return [e], [c]
+            else:
+                return [e[0], e[-1]], [c[0], c[-1]]
+
+        # perform calc
+        _, civec = _fci_interface()
+
+        # multiplicity check
+        for root in range(len(civec)):
+
+            s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
+
+            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+
+                # fix spin by applying level shift
+                sz = np.abs(nelec[0] - nelec[1]) * 0.5
+                solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
+
+                # perform calc
+                _, civec = _fci_interface()
+
+                # verify correct spin
+                for root in range(len(civec)):
+                    s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
+                    assertion(
+                        np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                        f"spin contamination for root entry = {root}\n"
+                        f"2*S + 1 = {mult:.6f}\n"
+                        f"cas_idx = {cas_idx}\n"
+                        f"cas_sym = {self.orbsym[cas_idx]}",
+                    )
+
+        # convergence check
+        if solver.nroots == 1:
+
+            assertion(
+                solver.converged,
+                f"state {root} not converged\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
+
+        else:
+
+            assertion(
+                solver.converged[-1],
+                f"state {root} not converged\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
+
+        return (
+            RDMCls(*solver.make_rdm12(civec[-1], cas_idx.size, nelec))
+            - self.hf_prop[cas_idx]
+        )
+
+    def _mbe_debug(
+        self,
+        nelec_tup: np.ndarray,
+        inc_tup: RDMCls,
+        cas_idx: np.ndarray,
+        tup: np.ndarray,
+    ) -> str:
+        """
+        this function prints mbe debug information
+        """
+        string = mbe_debug(
+            self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
+        )
+        string += (
+            f"      rdm1 increment for root {self.fci_state_root:d} = "
+            + np.array2string(inc_tup.rdm1, max_line_width=59, precision=4)
+            + "\n"
+        )
+        string += (
+            f"      rdm2 increment for root {self.fci_state_root:d} = "
+            + np.array2string(inc_tup.rdm2, max_line_width=59, precision=4)
+            + "\n"
+        )
+
+        return string
+
+
+class saRDMExpCls(RDMExpCls[List[int], List[np.ndarray]]):
+    """
+    this class contains the pymbe expansion attributes
+    """
+
+    def _state_occup(self) -> None:
+        """
+        this function initializes certain state attributes for multiple states
+        """
+        self.nocc = max([np.max(self.nelec[0])])
+        self.spin = [abs(state[0] - state[1]) for state in self.nelec]
+        self.occup = get_occup(self.norb, self.nelec[0])
+
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        cas_idx: np.ndarray,
+        _: np.ndarray,
+    ) -> RDMCls:
+        """
+        this function returns the results of a fci calculation
+        """
+        rdm12 = RDMCls(
+            np.zeros(2 * (cas_idx.size,), dtype=np.float64),
+            np.zeros(4 * (cas_idx.size,), dtype=np.float64),
+        )
+
+        # get the total number of states
+        states = [
+            {"spin": spin, "sym": sym, "root": root}
+            for spin, sym, root in zip(
+                self.spin, self.fci_state_sym, self.fci_state_root
+            )
+        ]
+
+        # define dictionary for solver settings
+        class SolverDict(TypedDict):
+            spin: int
+            nelec: np.ndarray
+            sym: int
+            states: List[int]
+
+        # get unique solvers
+        solvers: List[SolverDict] = []
+
+        # loop over states
+        for n, state in enumerate(states):
+
+            # nelec
+            occup = np.zeros(self.norb, dtype=np.int64)
+            occup[: np.amin(self.nelec[n])] = 2
+            occup[np.amin(self.nelec[n]) : np.amax(self.nelec[n])] = 1
+            nelec = get_nelec(occup, cas_idx)
+
+            # spin
+            spin_cas = abs(nelec[0] - nelec[1])
+            assertion(
+                spin_cas == state["spin"], f"casci wrong spin in space: {cas_idx}"
+            )
+
+            # loop over solver settings
+            for solver_info in solvers:
+
+                # determine if state is already described by solver
+                if (
+                    state["spin"] == solver_info["spin"]
+                    and state["sym"] == solver_info["sym"]
+                ):
+
+                    # add state to solver
+                    solver_info["states"].append(n)
+                    break
+
+            # no solver describes state
+            else:
+
+                # add new solver
+                solvers.append(
+                    {
+                        "spin": state["spin"],
+                        "nelec": nelec,
+                        "sym": state["sym"],
+                        "states": [n],
+                    }
+                )
+
+        # loop over solvers
+        for solver_info in solvers:
+
+            # init fci solver
+            if solver_info["spin"] == 0:
+                solver = fci.direct_spin0_symm.FCI()
+            else:
+                solver = fci.direct_spin1_symm.FCI()
+
+            # get roots
+            roots = [states[state]["root"] for state in solver_info["states"]]
+
+            # settings
+            solver.conv_tol = CONV_TOL
+            solver.max_memory = MAX_MEM
+            solver.max_cycle = 5000
+            solver.max_space = 25
+            solver.davidson_only = True
+            solver.pspace_size = 0
+            if self.verbose >= 3:
+                solver.verbose = 10
+            solver.wfnsym = solver_info["sym"]
+            solver.orbsym = self.orbsym[cas_idx]
+            solver.nroots = max(roots) + 1
+
+            # hf starting guess
+            if self.hf_guess:
+                na = fci.cistring.num_strings(cas_idx.size, solver_info["nelec"][0])
+                nb = fci.cistring.num_strings(cas_idx.size, solver_info["nelec"][1])
+                ci0 = np.zeros((na, nb))
+                ci0[0, 0] = 1
+            else:
+                ci0 = None
+
+            # interface
+            def _fci_interface(roots: List[int]) -> List[np.ndarray]:
+                """
+                this function provides an interface to solver.kernel
+                """
+                # perform calc
+                _, c = solver.kernel(
+                    h1e, h2e, cas_idx.size, solver_info["nelec"], ecore=e_core, ci0=ci0
+                )
+
+                # collect results
+                if solver.nroots == 1:
+                    return [c]
+                else:
+                    return [c[root] for root in roots]
+
+            # perform calc
+            civec = _fci_interface(roots)
+
+            # multiplicity check
+            for root in range(len(civec)):
+
+                s, mult = solver.spin_square(
+                    civec[root], cas_idx.size, solver_info["nelec"]
+                )
+
+                if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+
+                    # fix spin by applying level shift
+                    sz = np.abs(solver_info["nelec"][0] - solver_info["nelec"][1]) * 0.5
+                    solver = fci.addons.fix_spin_(
+                        solver, shift=0.25, ss=sz * (sz + 1.0)
+                    )
+
+                    # perform calc
+                    civec = _fci_interface(roots)
+
+                    # verify correct spin
+                    for root in range(len(civec)):
+                        s, mult = solver.spin_square(
+                            civec[root], cas_idx.size, solver_info["nelec"]
+                        )
+                        assertion(
+                            np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                            f"spin contamination for root entry = {root}\n"
+                            f"2*S + 1 = {mult:.6f}\n"
+                            f"cas_idx = {cas_idx}\n"
+                            f"cas_sym = {self.orbsym[cas_idx]}",
+                        )
+
+            # convergence check
+            if solver.nroots == 1:
+
+                assertion(
+                    solver.converged,
+                    f"state {root} not converged\n"
+                    f"cas_idx = {cas_idx}\n"
+                    f"cas_sym = {self.orbsym[cas_idx]}",
+                )
+
+            else:
+
+                for root in roots:
+
+                    assertion(
+                        solver.converged[root],
+                        f"state {root} not converged\n"
+                        f"cas_idx = {cas_idx}\n"
+                        f"cas_sym = {self.orbsym[cas_idx]}",
+                    )
+
+            for root, state_idx in zip(roots, solver_info["states"]):
+
+                rdm12 += self.fci_state_weights[state_idx] * (
+                    RDMCls(
+                        *solver.make_rdm12(
+                            civec[root], cas_idx.size, solver_info["nelec"]
+                        )
+                    )
+                    - self.hf_prop[cas_idx]
+                )
+
+        return rdm12
+
+    def _mbe_debug(
+        self,
+        nelec_tup: np.ndarray,
+        inc_tup: RDMCls,
+        cas_idx: np.ndarray,
+        tup: np.ndarray,
+    ) -> str:
+        """
+        this function prints mbe debug information
+        """
+        string = mbe_debug(
+            self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
+        )
+        string += (
+            f"      rdm1 increment for averaged states = "
+            + np.array2string(inc_tup.rdm1, max_line_width=59, precision=4)
+            + "\n"
+        )
+        string += (
+            f"      rdm2 increment for averaged states = "
+            + np.array2string(inc_tup.rdm2, max_line_width=59, precision=4)
+            + "\n"
+        )
+
+        return string

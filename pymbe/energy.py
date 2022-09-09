@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("pymbe_logger")
 
 
-class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
+class EnergyExpCls(SingleTargetExpCls[float]):
     """
     this class contains the pymbe expansion attributes for expansions of the electronic
     energy

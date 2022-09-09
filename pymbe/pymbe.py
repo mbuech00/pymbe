@@ -27,12 +27,12 @@ from pymbe.energy import EnergyExpCls
 from pymbe.excitation import ExcExpCls
 from pymbe.dipole import DipoleExpCls
 from pymbe.trans import TransExpCls
-from pymbe.rdm12 import RDMExpCls
+from pymbe.rdm12 import ssRDMExpCls, saRDMExpCls
 from pymbe.tools import RST, assertion
 
 if TYPE_CHECKING:
 
-    from typing import Union, Optional, Tuple
+    from typing import Union, Optional, Tuple, List
     from matplotlib import figure
 
     from pymbe.parallel import MPICls
@@ -52,11 +52,14 @@ class MBE:
     # system
     mol: Optional[gto.Mole] = None
     norb: Optional[int] = None
-    nelec: Optional[Union[int, Tuple[int, int], np.ndarray]] = None
+    nelec: Optional[
+        Union[int, Tuple[int, int], np.ndarray, List[Tuple[int, int]], List[np.ndarray]]
+    ] = None
     point_group: Optional[str] = None
     orbsym: Optional[np.ndarray] = None
-    fci_state_sym: Optional[Union[str, int]] = None
-    fci_state_root: Optional[int] = None
+    fci_state_sym: Optional[Union[str, int, List[str], List[int]]] = None
+    fci_state_root: Optional[Union[int, List[int]]] = None
+    fci_state_weights: Optional[List[float]] = None
 
     # orbital representation
     orb_type: str = "can"
@@ -96,9 +99,9 @@ class MBE:
     mpi: MPICls = field(init=False)
 
     # exp object
-    exp: Union[EnergyExpCls, ExcExpCls, DipoleExpCls, TransExpCls, RDMExpCls] = field(
-        init=False
-    )
+    exp: Union[
+        EnergyExpCls, ExcExpCls, DipoleExpCls, TransExpCls, ssRDMExpCls, saRDMExpCls
+    ] = field(init=False)
 
     def kernel(
         self,
@@ -121,8 +124,20 @@ class MBE:
             self.exp = DipoleExpCls(self)
         elif self.target == "trans":
             self.exp = TransExpCls(self)
-        elif self.target == "rdm12":
-            self.exp = RDMExpCls(self)
+        elif (
+            self.target == "rdm12"
+            and isinstance(self.nelec, np.ndarray)
+            and isinstance(self.fci_state_sym, int)
+            and isinstance(self.fci_state_root, int)
+        ):
+            self.exp = ssRDMExpCls(self)
+        elif (
+            self.target == "rdm12"
+            and isinstance(self.nelec, list)
+            and isinstance(self.fci_state_sym, list)
+            and isinstance(self.fci_state_root, list)
+        ):
+            self.exp = saRDMExpCls(self)
 
         # dump flags
         if self.mpi.global_master:
