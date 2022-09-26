@@ -1080,7 +1080,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
                 "cumulative corr."
             )
             logger.debug(" " + "-" * 74)
-            for i in range(10):
+            for i in range(pair_corr[0].size):
                 logger.debug(
                     f"   [{pair_corr[1][i][0]:3d},{pair_corr[1][i][1]:3d}]    |"
                     f"    {pair_corr[0][i]:.3e}    |"
