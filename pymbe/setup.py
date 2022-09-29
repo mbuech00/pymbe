@@ -465,7 +465,6 @@ def sanity_check(mbe: MBE) -> None:
                 "with shape (norb, norb), rdm2 must be a np.ndarray with shape "
                 "(norb, norb, norb, norb)",
             )
-            )
 
     # screening
     assertion(
