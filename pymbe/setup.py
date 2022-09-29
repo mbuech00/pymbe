@@ -361,7 +361,7 @@ def sanity_check(mbe: MBE) -> None:
     assertion(
         isinstance(mbe.eri, np.ndarray)
         and (
-            mbe.eri.shape == 2 * (mbe.norb * (mbe.norb + 1) / 2,)
+            mbe.eri.shape == 2 * (cast(int, mbe.norb) * (cast(int, mbe.norb) + 1) / 2,)
             or mbe.eri.shape == 4 * (mbe.norb,)
         ),
         "electron repulsion integral (eri keyword argument) must be a np.ndarray with "
