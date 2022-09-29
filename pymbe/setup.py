@@ -533,8 +533,6 @@ def sanity_check(mbe: MBE) -> None:
             "shape (3, norb, norb)",
         )
 
-        )
-
 
 def restart_write_kw(mbe: MBE) -> None:
     """
