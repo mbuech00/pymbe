@@ -60,6 +60,14 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         """
         super(RDMExpCls, self).__init__(mbe, RDMCls(*cast(tuple, mbe.base_prop)))
 
+        # hartree fock property
+        self.hf_prop = self._hf_prop(mbe.mpi)
+
+        # reference space property
+        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
+        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
+            self.ref_prop = self._ref_prop(mbe.mpi)
+
     def __del__(self) -> None:
         """
         finalizes expansion attributes
@@ -451,8 +459,7 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         rdm_dict = np.load(os.path.join(RST, file))
         return RDMCls(rdm_dict["rdm1"], rdm_dict["rdm2"])
 
-    @staticmethod
-    def _init_target_inst(value: float, norb: int) -> RDMCls:
+    def _init_target_inst(self, value: float, norb: int) -> RDMCls:
         """
         this function initializes an instance of the target type
         """
@@ -518,11 +525,8 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
             ),
         )
 
-    @staticmethod
     def _open_shared_inc(
-        window: Tuple[MPI.Win, MPI.Win],
-        n_tuples: int,
-        idx: int,
+        self, window: Tuple[MPI.Win, MPI.Win], n_tuples: int, idx: int
     ) -> packedRDMCls:
         """
         this function opens a shared increment window

@@ -64,7 +64,6 @@ class MBE:
     # integrals
     hcore: Optional[np.ndarray] = None
     eri: Optional[np.ndarray] = None
-    dipole_ints: Optional[np.ndarray] = None
 
     # reference space
     ref_space: np.ndarray = np.array([], dtype=np.int64)
@@ -91,6 +90,9 @@ class MBE:
     # pi-pruning
     pi_prune: bool = False
     orbsym_linear: Optional[np.ndarray] = None
+
+    # optional integrals for (transition) dipole moment
+    dipole_ints: Optional[np.ndarray] = None
 
     # mpi object
     mpi: MPICls = field(init=False)

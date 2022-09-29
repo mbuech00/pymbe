@@ -60,6 +60,14 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         """
         super().__init__(mbe, cast(float, mbe.base_prop))
 
+        # hartree fock property
+        self.hf_prop = self._hf_prop(mbe.mpi)
+
+        # reference space property
+        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
+        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
+            self.ref_prop = self._ref_prop(mbe.mpi)
+
     def prop(self, prop_type: str, nuc_prop: float = 0.0) -> float:
         """
         this function returns the final energy
@@ -383,8 +391,7 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         """
         return np.load(os.path.join(RST, file)).item()
 
-    @staticmethod
-    def _init_target_inst(value: float, norb: int) -> float:
+    def _init_target_inst(self, value: float, *args: int) -> float:
         """
         this function initializes an instance of the target type
         """
@@ -416,9 +423,8 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
             8 * size if allocate else 0, 8, comm=comm  # type: ignore
         )
 
-    @staticmethod
     def _open_shared_inc(
-        window: MPI.Win, n_tuples: int, idx: Optional[int] = None
+        self, window: MPI.Win, n_tuples: int, *args: int
     ) -> np.ndarray:
         """
         this function opens a shared increment window

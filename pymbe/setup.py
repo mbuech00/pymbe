@@ -278,8 +278,9 @@ def sanity_check(mbe: MBE) -> None:
         "symmetry (point_group keyword argument) must be a str",
     )
     assertion(
-        isinstance(mbe.orbsym, np.ndarray),
-        "orbital symmetry (orbsym keyword argument) must be a np.ndarray",
+        isinstance(mbe.orbsym, np.ndarray) and mbe.orbsym.shape == (mbe.norb,),
+        "orbital symmetry (orbsym keyword argument) must be a np.ndarray with shape "
+        "(norb,)",
     )
     assertion(
         isinstance(mbe.fci_state_sym, (str, int)),
@@ -353,18 +354,20 @@ def sanity_check(mbe: MBE) -> None:
 
     # integrals
     assertion(
-        isinstance(mbe.hcore, np.ndarray),
-        "core hamiltonian integral (hcore keyword argument) must be a np.ndarray",
+        isinstance(mbe.hcore, np.ndarray) and mbe.hcore.shape == 2 * (mbe.norb,),
+        "core hamiltonian integral (hcore keyword argument) must be a np.ndarray with "
+        "shape (norb, norb)",
     )
     assertion(
-        isinstance(mbe.eri, np.ndarray),
-        "electron repulsion integral (eri keyword argument) must be a np.ndarray",
+        isinstance(mbe.eri, np.ndarray)
+        and (
+            mbe.eri.shape == 2 * (mbe.norb * (mbe.norb + 1) / 2,)
+            or mbe.eri.shape == 4 * (mbe.norb,)
+        ),
+        "electron repulsion integral (eri keyword argument) must be a np.ndarray with "
+        "shape (mbe.norb * (mbe.norb + 1) / 2, (mbe.norb * (mbe.norb + 1) / 2)) or "
+        "(norb, norb, norb, norb)",
     )
-    if mbe.target in ["dipole", "trans"]:
-        assertion(
-            isinstance(mbe.dipole_ints, np.ndarray),
-            "dipole integrals (dipole_ints keyword argument) must be a np.ndarray",
-        )
 
     # reference and expansion spaces
     assertion(
@@ -445,18 +448,23 @@ def sanity_check(mbe: MBE) -> None:
             )
         elif mbe.target == "dipole":
             assertion(
-                isinstance(mbe.base_prop, np.ndarray),
+                isinstance(mbe.base_prop, np.ndarray) and mbe.base_prop.shape == (3,),
                 "base model dipole moment (base_prop keyword argument) must be a "
-                "np.ndarray",
+                "np.ndarray with shape (3,)",
             )
         elif mbe.target == "rdm12":
             assertion(
                 isinstance(mbe.base_prop, tuple)
                 and len(mbe.base_prop) == 2
                 and isinstance(mbe.base_prop[0], np.ndarray)
-                and isinstance(mbe.base_prop[1], np.ndarray),
-                "base model 1- and 2-particle density matrices (base_prop keyword argument) "
-                "must be a tuple of np.ndarray with dimension 2",
+                and mbe.base_prop[0].shape == 2 * (mbe.norb,)
+                and isinstance(mbe.base_prop[1], np.ndarray)
+                and mbe.base_prop[1].shape == 4 * (mbe.norb,),
+                "base model 1- and 2-particle density matrices (base_prop keyword "
+                "argument) must be a tuple with dimension 2, rdm1 must be a np.ndarray "
+                "with shape (norb, norb), rdm2 must be a np.ndarray with shape "
+                "(norb, norb, norb, norb)",
+            )
             )
 
     # screening
@@ -511,9 +519,21 @@ def sanity_check(mbe: MBE) -> None:
             "for linear D2h and C2v symmetries (point_group keyword argument)",
         )
         assertion(
-            isinstance(mbe.orbsym_linear, np.ndarray),
+            isinstance(mbe.orbsym_linear, np.ndarray)
+            and mbe.orbsym_linear.shape == (mbe.norb,),
             "linear point group orbital symmetry (orbsym_linear keyword argument) must "
-            "be a np.ndarray",
+            "be a np.ndarray with shape (norb,)",
+        )
+
+    # optional integrals for (transition) dipole moment
+    if mbe.target in ["dipole", "trans"]:
+        assertion(
+            isinstance(mbe.dipole_ints, np.ndarray)
+            and mbe.dipole_ints.shape == (3, mbe.norb, mbe.norb),
+            "dipole integrals (dipole_ints keyword argument) must be a np.ndarray with "
+            "shape (3, norb, norb)",
+        )
+
         )
 
 
@@ -582,11 +602,11 @@ def restart_write_system(mbe: MBE) -> None:
         system["base_prop1"] = mbe.base_prop[0]
         system["base_prop2"] = mbe.base_prop[1]
 
-    if mbe.dipole_ints is not None:
-        system["dipole_ints"] = mbe.dipole_ints
-
     if mbe.orbsym_linear is not None:
         system["orbsym_linear"] = mbe.orbsym_linear
+
+    if mbe.dipole_ints is not None:
+        system["dipole_ints"] = mbe.dipole_ints
 
     # write system quantities
     np.savez(os.path.join(RST, "system"), **system)  # type: ignore

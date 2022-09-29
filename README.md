@@ -105,6 +105,14 @@ function returns the total target property. The program can also be called in
 parallel by calling the kernel function in multiple MPI processes (e.g. using 
 the mpiexec command). Only the keyword arguments of the MBE object on the 
 global master will be used during the calculation.\
+PyMBE can be used for CASCI calculations in two possible ways: The number of orbitals, 
+number of electrons and integrals for the whole system can be passed to PyMBE and the 
+CAS can be selected using the ref_space and exp_space keywords. If all integrals cannot 
+be kept in memory, only the number of orbitals, number of electrons and integrals of 
+the CAS can be passed to PyMBE. This requires the HF property of the occupied orbitals 
+outside the CAS to be added to the final property. Additionally, the one-electron 
+Hamilonian has to be modified by adding the HF potential of the occupied orbitals 
+outside the CAS.\
 Please note that all PyMBE functions only return the electronic part of the 
 calculated property. For energies and dipole moments the nuclear part has to be 
 added to get the total molecular property.

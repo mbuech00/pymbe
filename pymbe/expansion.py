@@ -45,7 +45,6 @@ from pymbe.tools import (
     tuples,
     get_nelec,
     get_nhole,
-    get_nexc,
     start_idx,
     core_cas,
     idx_tril,
@@ -219,12 +218,10 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             self.pi_hashes: np.ndarray = pi_hashes
 
         # hartree fock property
-        self.hf_prop: TargetType = self._hf_prop(mbe.mpi)
+        self.hf_prop: TargetType
 
         # reference space property
-        self.ref_prop: TargetType = self._init_target_inst(0.0, self.ref_space.size)
-        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
-            self.ref_prop = self._ref_prop(mbe.mpi)
+        self.ref_prop: TargetType
 
     def driver_master(self, mpi: MPICls) -> None:
         """
@@ -1348,9 +1345,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         this function reads files of attributes with the target type
         """
 
-    @staticmethod
     @abstractmethod
-    def _init_target_inst(value: float, norb: int) -> TargetType:
+    def _init_target_inst(self, value: float, norb: int) -> TargetType:
         """
         this function initializes an instance of the target type
         """
@@ -1456,13 +1452,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         this function allocates a shared increment window
         """
 
-    @staticmethod
     @abstractmethod
-    def _open_shared_inc(
-        window: MPIWinType,
-        n_tuples: int,
-        idx: int,
-    ) -> IncType:
+    def _open_shared_inc(self, window: MPIWinType, n_tuples: int, idx: int) -> IncType:
         """
         this function opens a shared increment window
         """
@@ -1633,6 +1624,12 @@ class SingleTargetExpCls(
         this function initializes an array of the target type with value zero
         """
 
+    @abstractmethod
+    def _init_target_inst(self, value: float, *args: int) -> SingleTargetType:
+        """
+        this function initializes an instance of the target type
+        """
+
     @staticmethod
     def _write_inc_file(order: Optional[int], inc: np.ndarray) -> None:
         """
@@ -1655,12 +1652,9 @@ class SingleTargetExpCls(
         this function allocates a shared increment window
         """
 
-    @staticmethod
     @abstractmethod
     def _open_shared_inc(
-        window: MPI.Win,
-        n_tuples: int,
-        idx: Optional[int] = None,
+        self, window: MPI.Win, n_tuples: int, *args: int
     ) -> np.ndarray:
         """
         this function opens a shared increment window
