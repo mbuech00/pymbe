@@ -397,8 +397,7 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         """
         return value
 
-    @staticmethod
-    def _zero_target_arr(length: int):
+    def _zero_target_arr(self, length: int):
         """
         this function initializes an array of the target type with value zero
         """

@@ -1618,8 +1618,8 @@ class SingleTargetExpCls(
 
         return np.sum(res, axis=0)
 
-    @staticmethod
-    def _zero_target_arr(length: int):
+    @abstractmethod
+    def _zero_target_arr(self, length: int):
         """
         this function initializes an array of the target type with value zero
         """

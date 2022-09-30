@@ -379,8 +379,7 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         """
         return np.full(3, value, dtype=np.float64)
 
-    @staticmethod
-    def _zero_target_arr(length: int):
+    def _zero_target_arr(self, length: int):
         """
         this function initializes an array of the target type with value zero
         """
