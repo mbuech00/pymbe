@@ -64,7 +64,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         self.eri_gaaa = cast(np.ndarray, mbe.eri_gaaa)
 
         # additional settings
-        self.no_singles = cast(bool, mbe.no_singles)
+        self.no_singles = mbe.no_singles
 
         # initialize dependent attributes
         self._init_dep_attrs(mbe)
