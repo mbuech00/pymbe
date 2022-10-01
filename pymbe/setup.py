@@ -549,6 +549,47 @@ def sanity_check(mbe: MBE) -> None:
             "shape (3, norb, norb)",
         )
 
+    # optional parameters for generalized Fock matrix
+    if mbe.target == "genfock":
+        assertion(
+            isinstance(mbe.full_norb, int) and mbe.full_norb > 0,
+            "number of orbitals in the full system (full_norb keyword argument) must "
+            "be an int > 0",
+        )
+        assertion(
+            isinstance(mbe.full_nocc, int) and mbe.full_nocc > 0,
+            "number of occupied orbitals in the full system (full_nocc keyword "
+            "argument) must be an int > 0",
+        )
+        assertion(
+            isinstance(mbe.inact_fock, np.ndarray)
+            and mbe.inact_fock.shape
+            == (mbe.full_norb, cast(int, mbe.full_nocc) + cast(int, mbe.norb)),
+            "inactive Fock matrix (inact_fock keyword argument) must be a np.ndarray "
+            "with shape (full_norb, full_nocc + norb)",
+        )
+        assertion(
+            isinstance(mbe.eri_goaa, np.ndarray)
+            and mbe.eri_goaa == (mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb),
+            "general-occupied-active-active electron repulsion integral (eri_goaa "
+            "keyword argument) must be a np.ndarray with shape "
+            "(mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb)",
+        )
+        assertion(
+            isinstance(mbe.eri_gaao, np.ndarray)
+            and mbe.eri_gaao == (mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc),
+            "general-active-active-occupied electron repulsion integral (eri_gaao "
+            "keyword argument) must be a np.ndarray with shape "
+            "(mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc)",
+        )
+        assertion(
+            isinstance(mbe.eri_gaaa, np.ndarray)
+            and mbe.eri_gaaa == (mbe.full_norb, mbe.norb, mbe.norb, mbe.norb),
+            "general-active-active-active electron repulsion integral (eri_gaaa "
+            "keyword argument) must be a np.ndarraywith shape "
+            "(mbe.full_norb, mbe.norb, mbe.norb, mbe.norb)",
+        )
+
 
 def restart_write_kw(mbe: MBE) -> None:
     """
