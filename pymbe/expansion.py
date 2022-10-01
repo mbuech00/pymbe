@@ -45,6 +45,7 @@ from pymbe.tools import (
     tuples,
     get_nelec,
     get_nhole,
+    get_nexc,
     start_idx,
     core_cas,
     idx_tril,
@@ -176,12 +177,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         # order
         self.order: int = 0
         self.min_order: int = 1
-
-        if self.restarted:
-            start_order = self._restart_main(mbe.mpi)
-        else:
-            start_order = self.min_order
-        self.start_order: int = start_order
 
         if mbe.max_order is not None:
             max_order = min(self.exp_space[0].size, mbe.max_order)
@@ -539,6 +534,25 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         mpi.global_comm.Barrier()
 
         return hcore_win, eri_win, vhf_win
+
+    def _init_dep_attrs(self, mbe: MBE) -> None:
+        """
+        this function inititializes attributes that depend on other attributes
+        """
+        # hartree fock property
+        self.hf_prop = self._hf_prop(mbe.mpi)
+
+        # reference space property
+        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
+        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
+            self.ref_prop = self._ref_prop(mbe.mpi)
+
+        # attributes from restarted calculation
+        if self.restarted:
+            start_order = self._restart_main(mbe.mpi)
+        else:
+            start_order = self.min_order
+        self.start_order: int = start_order
 
     def _hf_prop(self, mpi: MPICls) -> TargetType:
         """

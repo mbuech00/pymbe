@@ -60,13 +60,8 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         """
         super(RDMExpCls, self).__init__(mbe, RDMCls(*cast(tuple, mbe.base_prop)))
 
-        # hartree fock property
-        self.hf_prop = self._hf_prop(mbe.mpi)
-
-        # reference space property
-        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
-        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
-            self.ref_prop = self._ref_prop(mbe.mpi)
+        # initialize dependent attributes
+        self._init_dep_attrs(mbe)
 
     def __del__(self) -> None:
         """

@@ -60,13 +60,8 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
         # additional integrals
         self.dipole_ints = cast(np.ndarray, mbe.dipole_ints)
 
-        # hartree fock property
-        self.hf_prop = self._hf_prop(mbe.mpi)
-
-        # reference space property
-        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
-        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
-            self.ref_prop = self._ref_prop(mbe.mpi)
+        # initialize dependent attributes
+        self._init_dep_attrs(mbe)
 
     def prop(
         self, prop_type: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)

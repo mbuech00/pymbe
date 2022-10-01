@@ -708,6 +708,9 @@ def restart_read_system(mbe: MBE) -> MBE:
         scalars.append("base_prop")
     elif mbe.target == "rdm12":
         system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
+    elif mbe.target == "genfock":
+        scalars.append("full_norb")
+        scalars.append("full_nocc")
 
     # convert to scalars
     for scalar in scalars:
