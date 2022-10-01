@@ -99,6 +99,7 @@ def mbe_example(rst=True):
             eri_goaa=eri_goaa,
             eri_gaao=eri_gaao,
             eri_gaaa=eri_gaaa,
+            no_singles=False,
         )
 
         # perform calculation

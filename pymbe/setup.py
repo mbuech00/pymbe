@@ -591,6 +591,10 @@ def sanity_check(mbe: MBE) -> None:
             "keyword argument) must be a np.ndarraywith shape "
             "(mbe.full_norb, mbe.norb, mbe.norb, mbe.norb)",
         )
+        assertion(
+            isinstance(mbe.no_singles, bool),
+            "excluding single excitations (no_singles keyword argument) must be a bool",
+        )
 
 
 def restart_write_kw(mbe: MBE) -> None:
@@ -615,6 +619,7 @@ def restart_write_kw(mbe: MBE) -> None:
         "rst_freq": mbe.rst_freq,
         "verbose": mbe.verbose,
         "pi_prune": mbe.pi_prune,
+        "no_singles": mbe.no_singles,
     }
 
     # write keywords

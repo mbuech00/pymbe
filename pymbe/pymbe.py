@@ -102,6 +102,7 @@ class MBE:
     eri_goaa: Optional[np.ndarray] = None
     eri_gaao: Optional[np.ndarray] = None
     eri_gaaa: Optional[np.ndarray] = None
+    no_singles: bool = False
 
     # mpi object
     mpi: MPICls = field(init=False)

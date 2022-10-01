@@ -103,6 +103,7 @@ def kw_dist(mbe: MBE) -> MBE:
             "restarted": mbe.restarted,
             "verbose": mbe.verbose,
             "pi_prune": mbe.pi_prune,
+            "no_singles": mbe.no_singles,
         }
 
         # bcast to slaves

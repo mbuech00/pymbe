@@ -26,6 +26,7 @@ from pymbe.expansion import ExpCls, SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import RST, get_nelec, write_file, get_nhole, get_nexc, assertion
 from pymbe.parallel import mpi_reduce, open_shared_win
+from pymbe import direct_spin0_symm, direct_spin1_symm
 
 if TYPE_CHECKING:
 
@@ -62,8 +63,8 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         self.eri_gaao = cast(np.ndarray, mbe.eri_gaao)
         self.eri_gaaa = cast(np.ndarray, mbe.eri_gaaa)
 
-        # hartree fock property
-        self.hf_prop = self._hf_prop(mbe.mpi)
+        # additional settings
+        self.no_singles = cast(bool, mbe.no_singles)
 
         # initialize dependent attributes
         self._init_dep_attrs(mbe)
@@ -172,10 +173,16 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
 
         # init fci solver
-        if spin_cas == 0:
-            solver = fci.direct_spin0_symm.FCI()
+        if not self.no_singles:
+            if spin_cas == 0:
+                solver = fci.direct_spin0_symm.FCI()
+            else:
+                solver = fci.direct_spin1_symm.FCI()
         else:
-            solver = fci.direct_spin1_symm.FCI()
+            if spin_cas == 0:
+                solver = direct_spin0_symm.FCISolver()
+            else:
+                solver = direct_spin1_symm.FCISolver()
 
         # settings
         solver.conv_tol = CONV_TOL
