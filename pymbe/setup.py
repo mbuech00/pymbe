@@ -570,21 +570,23 @@ def sanity_check(mbe: MBE) -> None:
         )
         assertion(
             isinstance(mbe.eri_goaa, np.ndarray)
-            and mbe.eri_goaa == (mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb),
+            and mbe.eri_goaa.shape
+            == (mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb),
             "general-occupied-active-active electron repulsion integral (eri_goaa "
             "keyword argument) must be a np.ndarray with shape "
             "(mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb)",
         )
         assertion(
             isinstance(mbe.eri_gaao, np.ndarray)
-            and mbe.eri_gaao == (mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc),
+            and mbe.eri_gaao.shape
+            == (mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc),
             "general-active-active-occupied electron repulsion integral (eri_gaao "
             "keyword argument) must be a np.ndarray with shape "
             "(mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc)",
         )
         assertion(
             isinstance(mbe.eri_gaaa, np.ndarray)
-            and mbe.eri_gaaa == (mbe.full_norb, mbe.norb, mbe.norb, mbe.norb),
+            and mbe.eri_gaaa.shape == (mbe.full_norb, mbe.norb, mbe.norb, mbe.norb),
             "general-active-active-active electron repulsion integral (eri_gaaa "
             "keyword argument) must be a np.ndarraywith shape "
             "(mbe.full_norb, mbe.norb, mbe.norb, mbe.norb)",
