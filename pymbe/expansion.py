@@ -814,7 +814,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             self.ref_space.size == 0
             and self.order == 2
             and self.base_method is None
-            and self.target != "rdm12"
+            and self.target not in ["rdm12", "genfock"]
         ):
             pair_corr: Optional[List[np.ndarray]] = [
                 np.zeros(
