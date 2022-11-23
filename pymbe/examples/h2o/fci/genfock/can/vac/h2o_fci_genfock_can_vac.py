@@ -107,9 +107,29 @@ def mbe_example(rst=True):
 
         ###
 
-        # casci
-        mycas = mcscf.CASCI(hf, ncas, nelecas).run()
-        rdm1, rdm2 = mycas.fcisolver.make_rdm12(mycas.ci, ncas, nelecas)
+        # spin
+        spin_cas = abs(nelecas[0] - nelecas[1])
+
+        # init fci solver
+        if spin_cas == 0:
+            solver = fci.direct_spin0_symm.FCI()
+        else:
+            solver = fci.direct_spin1_symm.FCI()
+
+        # settings
+        solver.conv_tol = 1.0e-10
+        solver.max_memory = 1e10
+        solver.max_cycle = 5000
+        solver.max_space = 25
+        solver.davidson_only = True
+        solver.pspace_size = 0
+        solver.orbsym = orbsym
+
+        # perform calc
+        _, c = solver.kernel(hcore, eri, ncas, nelecas)
+
+        # calculate rdm12
+        rdm1, rdm2 = solver.make_rdm12(c, ncas, nelecas)
 
         # calculate active Fock matrix elements
         asymm_eri_piuv = eri_goaa - 0.5 * eri_gaao.transpose(0, 3, 2, 1)

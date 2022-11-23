@@ -121,7 +121,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
             + np.einsum("u,v,puvv->up", self.occup, self.occup, self.eri_gaaa)
             - (
                 np.einsum("u,v,pvvu->up", occup_a, occup_a, self.eri_gaaa)
-                - np.einsum("u,v,pvvu->up", occup_b, occup_b, self.eri_gaaa)
+                + np.einsum("u,v,pvvu->up", occup_b, occup_b, self.eri_gaaa)
             )
         )
 
