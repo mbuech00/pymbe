@@ -51,8 +51,14 @@ def mbe_example(rst=True):
         orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
         orbsym = orbsym[cas_idx]
 
+        # reference space
+        ref_space = np.array([1, 2, 3, 4], dtype=np.int64)
+
         # expansion space
-        exp_space = np.arange(ncas, dtype=np.int64)
+        exp_space = np.array(
+            [i for i in range(ncas) if i not in ref_space],
+            dtype=np.int64,
+        )
 
         # hcore
         hcore_ao = hf.get_hcore()

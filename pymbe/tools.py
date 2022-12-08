@@ -25,7 +25,7 @@ from pyscf import symm, ao2mo
 from itertools import islice, combinations, groupby
 from subprocess import Popen, PIPE
 from traceback import format_stack
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from pymbe.parallel import open_shared_win
 
@@ -304,7 +304,9 @@ class packedRDMCls:
     def __setitem__(
         self,
         idx: Union[int, np.int64, slice, np.ndarray],
-        values: Union[packedRDMCls, RDMCls, np.ndarray, float],
+        values: Union[
+            float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, GenFockArrayCls
+        ],
     ) -> packedRDMCls:
         """
         this function ensures indexed packedRDMCls can be set using packedRDMCls or
@@ -340,6 +342,160 @@ class packedRDMCls:
         """
         self.rdm1.fill(value)
         self.rdm2.fill(value)
+
+
+class GenFockCls:
+    """
+    this class holds the energy and generalized Fock matrix elements and defines all
+    necessary operations
+    """
+
+    def __init__(self, energy: float, gen_fock: np.ndarray):
+        """
+        initializes a GenFock object
+        """
+        self.energy = energy
+        self.gen_fock = gen_fock
+
+    def __add__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function implements addition for the GenFockCls objects
+        """
+        if isinstance(other, GenFockCls):
+            return GenFockCls(
+                self.energy + other.energy, self.gen_fock + other.gen_fock
+            )
+        else:
+            return NotImplemented
+
+    def __iadd__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function implements inplace addition for the GenFockCls objects
+        """
+        if isinstance(other, GenFockCls):
+            self.energy += other.energy
+            self.gen_fock += other.gen_fock
+            return self
+        else:
+            return NotImplemented
+
+    def __sub__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function implements subtraction for the GenFockCls objects
+        """
+        if isinstance(other, GenFockCls):
+            return GenFockCls(
+                self.energy - other.energy, self.gen_fock - other.gen_fock
+            )
+        else:
+            return NotImplemented
+
+    def __isub__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function implements inplace subtraction for the GenFockCls objects
+        """
+        if isinstance(other, GenFockCls):
+            self.energy -= other.energy
+            self.gen_fock -= other.gen_fock
+            return self
+        else:
+            return NotImplemented
+
+    def __truediv__(self, other: Union[int, float]) -> GenFockCls:
+        """
+        this function implements division for the GenFockCls objects
+        """
+        if isinstance(other, (int, float)):
+            return GenFockCls(self.energy / other, self.gen_fock / other)
+        else:
+            return NotImplemented
+
+    def __itruediv__(self, other: Union[int, float]) -> GenFockCls:
+        """
+        this function implements inplace division for the GenFockCls objects
+        """
+        if isinstance(other, (int, float)):
+            self.energy /= other
+            self.gen_fock /= other
+            return self
+        else:
+            return NotImplemented
+
+    def fill(self, value: float) -> None:
+        """
+        this function defines the fill function for GenFockCls objects
+        """
+        self.energy = value
+        self.gen_fock.fill(value)
+
+    def copy(self) -> GenFockCls:
+        """
+        this function creates a copy of GenFockCls objects
+        """
+        return GenFockCls(self.energy, self.gen_fock.copy())
+
+
+class GenFockArrayCls:
+    """
+    this class describes an array of generalized Fock matrices
+    """
+
+    def __init__(self, energy: np.ndarray, gen_fock: np.ndarray) -> None:
+        """
+        this function initializes a GenFockArrayCls object
+        """
+        self.energy = energy
+        self.gen_fock = gen_fock
+
+    @overload
+    def __getitem__(self, idx: Union[int, np.int64]) -> GenFockCls:
+        ...
+
+    @overload
+    def __getitem__(self, idx: Union[slice, np.ndarray]) -> GenFockArrayCls:
+        ...
+
+    def __getitem__(
+        self, idx: Union[int, np.int64, slice, np.ndarray]
+    ) -> Union[GenFockCls, GenFockArrayCls]:
+        """
+        this function ensures GenFockArrayCls can be retrieved through indexing
+        GenFockArrayCls objects
+        """
+        if isinstance(idx, (int, np.integer)):
+            return GenFockCls(self.energy[idx], self.gen_fock[idx])
+        elif isinstance(idx, (slice, np.ndarray)):
+            return GenFockArrayCls(self.energy[idx], self.gen_fock[idx])
+        else:
+            return NotImplemented
+
+    def __setitem__(
+        self,
+        idx: Union[int, np.int64, slice, np.ndarray],
+        values: Union[
+            float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, GenFockArrayCls
+        ],
+    ) -> GenFockArrayCls:
+        """
+        this function ensures indexed GenFockArrayCls can be set using GenFockArrayCls
+        or GenFockCls objects
+        """
+        if (
+            isinstance(idx, (slice, np.ndarray)) and isinstance(values, GenFockArrayCls)
+        ) or (isinstance(idx, (int, np.integer)) and isinstance(values, GenFockCls)):
+            self.energy[idx] = values.energy
+            self.gen_fock[idx] = values.gen_fock
+        else:
+            return NotImplemented
+
+        return self
+
+    def fill(self, value: float) -> None:
+        """
+        this function defines the fill function for GenFockArrayCls objects
+        """
+        self.energy.fill(value)
+        self.gen_fock.fill(value)
 
 
 def logger_config(verbose: int) -> None:

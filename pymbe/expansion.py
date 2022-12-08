@@ -35,6 +35,8 @@ from pymbe.tools import (
     RST,
     RDMCls,
     packedRDMCls,
+    GenFockCls,
+    GenFockArrayCls,
     pi_space,
     natural_keys,
     n_tuples,
@@ -74,10 +76,10 @@ if TYPE_CHECKING:
 
 
 # define variable type for target properties
-TargetType = TypeVar("TargetType", float, np.ndarray, RDMCls)
+TargetType = TypeVar("TargetType", float, np.ndarray, RDMCls, GenFockCls)
 
 # define variable type for increment arrays
-IncType = TypeVar("IncType", np.ndarray, packedRDMCls)
+IncType = TypeVar("IncType", np.ndarray, packedRDMCls, GenFockArrayCls)
 
 # define variable type for MPI windows of increment arrays
 MPIWinType = TypeVar("MPIWinType", MPI.Win, Tuple[MPI.Win, MPI.Win])

@@ -19,19 +19,37 @@ import os
 import logging
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto, scf, fci, cc
-from typing import TYPE_CHECKING, cast
+from pyscf import ao2mo, gto, scf, fci, cc
+from typing import TYPE_CHECKING, cast, Tuple
 
-from pymbe.expansion import ExpCls, SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
+from pymbe.expansion import ExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
-from pymbe.tools import RST, get_nelec, write_file, get_nhole, get_nexc, assertion
-from pymbe.parallel import mpi_reduce, open_shared_win
+from pymbe.tools import (
+    RST,
+    GenFockCls,
+    GenFockArrayCls,
+    get_nelec,
+    tuples,
+    hash_1d,
+    hash_lookup,
+    get_nhole,
+    get_nexc,
+    assertion,
+    idx_tril,
+)
+from pymbe.parallel import (
+    mpi_reduce,
+    mpi_allreduce,
+    mpi_bcast,
+    mpi_gatherv,
+    open_shared_win,
+)
 from pymbe import direct_spin0_symm, direct_spin1_symm
 
 if TYPE_CHECKING:
 
     import matplotlib
-    from typing import List, Optional, Union, Tuple
+    from typing import List, Optional, Union
 
     from pymbe.pymbe import MBE
 
@@ -40,7 +58,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("pymbe_logger")
 
 
-class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
+class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]):
     """
     this class contains the pymbe expansion attributes for the generalized Fock matrix
     elements
@@ -50,7 +68,9 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         """
         init expansion attributes
         """
-        super().__init__(mbe, cast(np.ndarray, mbe.base_prop))
+        super(GenFockExpCls, self).__init__(
+            mbe, GenFockCls(*cast(tuple, mbe.base_prop))
+        )
 
         # additional system parameters
         self.full_norb = cast(int, mbe.full_norb)
@@ -69,7 +89,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         # initialize dependent attributes
         self._init_dep_attrs(mbe)
 
-    def prop(self, prop_type: str) -> np.ndarray:
+    def prop(self, prop_type: str) -> Tuple[float, np.ndarray]:
         """
         this function returns the final generalized Fock matrix elements
         """
@@ -82,20 +102,48 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
             else self._init_target_inst(0.0, self.norb)
         )
 
-        return tot_gen_fock
+        return tot_gen_fock.energy, tot_gen_fock.gen_fock
 
     def plot_results(self, *args: str) -> matplotlib.figure.Figure:
         """
-        this function plots the 1- and 2-particle reduced density matrices
+        this function plots the generalized Fock matrix elements
         """
         raise NotImplementedError
 
-    def _calc_hf_prop(self, *args: np.ndarray) -> np.ndarray:
+    def _calc_hf_prop(
+        self, hcore: np.ndarray, eri: np.ndarray, vhf: np.ndarray
+    ) -> GenFockCls:
         """
         this function calculates the hartree-fock generalized fock matrix
         """
+        # add one-electron integrals
+        hf_energy = np.sum(self.occup * np.diag(hcore))
+
+        # set closed- and open-shell indices
+        cs_idx = np.where(self.occup == 2)[0]
+        os_idx = np.where(self.occup == 1)[0]
+
+        # add closed-shell and coupling electron repulsion terms
+        hf_energy += np.trace((np.sum(vhf, axis=0))[cs_idx.reshape(-1, 1), cs_idx])
+
+        # check if system is open-shell
+        if self.spin > 0:
+
+            # get indices for eris that only include open-shell orbitals
+            os_eri_idx = idx_tril(os_idx)
+
+            # retrieve eris of open-shell orbitals and unpack these
+            os_eri = ao2mo.restore(
+                1, eri[os_eri_idx.reshape(-1, 1), os_eri_idx], os_idx.size
+            )
+
+            # add open-shell electron repulsion terms
+            hf_energy += 0.5 * (
+                np.einsum("pqrr->", os_eri) - np.einsum("pqrp->", os_eri)
+            )
+
         # initialize generalized Fock matrix
-        gen_fock = np.empty(
+        hf_gen_fock = np.empty(
             (self.full_nocc + self.norb, self.full_norb), dtype=np.float64
         )
 
@@ -111,12 +159,12 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         act_fock_pi = np.einsum("u,piu->pi", self.occup, asymm_eri_piuu)
 
         # calculate occupied-general generalized Fock matrix elements
-        gen_fock[: self.full_nocc] = (
+        hf_gen_fock[: self.full_nocc] = (
             2 * (self.inact_fock[:, : self.full_nocc] + act_fock_pi).transpose()
         )
 
         # calculate occupied-active generalized Fock matrix elements
-        gen_fock[self.full_nocc :] = (
+        hf_gen_fock[self.full_nocc :] = (
             np.einsum("u,pu->up", self.occup, self.inact_fock[:, self.full_nocc :])
             + np.einsum("u,v,puvv->up", self.occup, self.occup, self.eri_gaaa)
             - (
@@ -125,7 +173,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
             )
         )
 
-        return gen_fock
+        return GenFockCls(hf_energy, hf_gen_fock)
 
     def _inc(
         self,
@@ -134,7 +182,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[GenFockCls, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
@@ -157,6 +205,42 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
 
         return gen_fock, nelec
 
+    def _sum(
+        self, inc: List[GenFockArrayCls], hashes: List[np.ndarray], tup: np.ndarray
+    ) -> GenFockCls:
+        """
+        this function performs a recursive summation and returns the final increment
+        associated with a given tuple
+        """
+        # init res
+        res = self._zero_target_arr(self.order - self.min_order)
+
+        # occupied and virtual subspaces of tuple
+        tup_occ = tup[tup < self.nocc]
+        tup_virt = tup[self.nocc <= tup]
+
+        # compute contributions from lower-order increments
+        for k in range(self.order - 1, self.min_order - 1, -1):
+
+            # loop over subtuples
+            for tup_sub in tuples(
+                tup_occ,
+                tup_virt,
+                self.ref_nelec,
+                self.ref_nhole,
+                self.vanish_exc,
+                k,
+            ):
+
+                # compute index
+                idx = hash_lookup(hashes[k - self.min_order], hash_1d(tup_sub))
+
+                # sum up order increments
+                if idx is not None:
+                    res[k - self.min_order] += inc[k - self.min_order][idx]
+
+        return GenFockCls(np.sum(res.energy), np.sum(res.gen_fock, axis=0))
+
     def _fci_kernel(
         self,
         e_core: float,
@@ -164,7 +248,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         h2e: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
-    ) -> np.ndarray:
+    ) -> GenFockCls:
         """
         this function returns the results of a fci calculation
         """
@@ -221,7 +305,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
                 return [e[0], e[-1]], [c[0], c[-1]]
 
         # perform calc
-        _, civec = _fci_interface()
+        energy, civec = _fci_interface()
 
         # multiplicity check
         for root in range(len(civec)):
@@ -235,7 +319,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
                 solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
 
                 # perform calc
-                _, civec = _fci_interface()
+                energy, civec = _fci_interface()
 
                 # verify correct spin
                 for root in range(len(civec)):
@@ -272,7 +356,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         # calculate generalized Fock matrix elements
         gen_fock = self._calc_gen_fock(cas_idx, rdm1, rdm2)
 
-        return gen_fock - self.hf_prop
+        return GenFockCls(energy[-1], gen_fock) - self.hf_prop
 
     def _cc_kernel(
         self,
@@ -283,7 +367,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         h1e: np.ndarray,
         h2e: np.ndarray,
         higher_amp_extrap: bool,
-    ) -> np.ndarray:
+    ) -> GenFockCls:
         """
         this function returns the results of a cc calculation
         """
@@ -344,6 +428,22 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
             f"CCSD error: no convergence, core_idx = {core_idx}, cas_idx = {cas_idx}",
         )
 
+        # e_corr
+        e_cc = ccsd.e_corr
+
+        # calculate (t) correction
+        if method == "ccsd(t)":
+
+            # number of holes in cas space
+            nhole = get_nhole(nelec, cas_idx)
+
+            # nexc
+            nexc = get_nexc(nelec, nhole)
+
+            # ensure that more than two excitations are possible
+            if nexc > 2:
+                e_cc += ccsd.ccsd_t()
+
         # rdms
         if method == "ccsd" or nexc <= 2:
             ccsd.l1, ccsd.l2 = ccsd.solve_lambda(ccsd.t1, ccsd.t2, eris=eris)
@@ -373,7 +473,7 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         # calculate generalized Fock matrix elements
         gen_fock = self._calc_gen_fock(cas_idx, rdm1, rdm2)
 
-        return gen_fock - self.hf_prop
+        return GenFockCls(e_cc, gen_fock) - self.hf_prop
 
     def _calc_gen_fock(self, cas_idx: np.ndarray, rdm1: np.ndarray, rdm2: np.ndarray):
         """
@@ -492,97 +592,240 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
         return gen_fock
 
     @staticmethod
-    def _write_target_file(order: Optional[int], prop: np.ndarray, string: str) -> None:
+    def _write_target_file(order: Optional[int], prop: GenFockCls, string: str) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
         """
-        write_file(order, prop, string)
+        if order is None:
+            np.savez(
+                os.path.join(RST, f"{string}"),
+                energy=prop.energy,
+                gen_fock=prop.gen_fock,
+            )
+        else:
+            np.savez(
+                os.path.join(RST, f"{string}_{order}"),
+                energy=prop.energy,
+                gen_fock=prop.gen_fock,
+            )
 
     @staticmethod
-    def _read_target_file(file: str) -> np.ndarray:
+    def _read_target_file(file: str) -> GenFockCls:
         """
         this function reads files of attributes with the target type
         """
-        return np.load(os.path.join(RST, file))
+        target_dict = np.load(os.path.join(RST, file))
+        return GenFockCls(target_dict["energy"], target_dict["gen_fock"])
 
-    def _init_target_inst(self, value: float, *args: int) -> np.ndarray:
+    def _init_target_inst(self, value: float, *args: int) -> GenFockCls:
         """
         this function initializes an instance of the target type
         """
-        return np.full(
-            (self.full_nocc + self.norb, self.full_norb), value, dtype=np.float64
+        return GenFockCls(
+            value,
+            np.full(
+                (self.full_nocc + self.norb, self.full_norb), value, dtype=np.float64
+            ),
         )
 
     def _zero_target_arr(self, length: int):
         """
         this function initializes an array of the target type with value zero
         """
-        return np.zeros(
-            (length, self.full_nocc + self.norb, self.full_norb), dtype=np.float64
+        return GenFockArrayCls(
+            np.zeros(length, dtype=np.float64),
+            np.zeros(
+                (length, self.full_nocc + self.norb, self.full_norb), dtype=np.float64
+            ),
         )
 
     @staticmethod
     def _mpi_reduce_target(
-        comm: MPI.Comm, values: np.ndarray, op: MPI.Op
-    ) -> np.ndarray:
+        comm: MPI.Comm, values: GenFockCls, op: MPI.Op
+    ) -> GenFockCls:
         """
         this function performs a MPI reduce operation on values of the target type
         """
-        return mpi_reduce(comm, values, root=0, op=op)
+        return GenFockCls(
+            mpi_reduce(
+                comm, np.array(values.energy, dtype=np.float64), root=0, op=op
+            ).item(),
+            mpi_reduce(comm, values.gen_fock, root=0, op=op),
+        )
+
+    @staticmethod
+    def _write_inc_file(order: Optional[int], inc: GenFockArrayCls) -> None:
+        """
+        this function defines how to write increment restart files
+        """
+        if order is None:
+            np.savez(
+                os.path.join(RST, "mbe_inc"), energy=inc.energy, gen_fock=inc.gen_fock
+            )
+        else:
+            np.savez(
+                os.path.join(RST, f"mbe_inc_{order}"),
+                energy=inc.energy,
+                gen_fock=inc.gen_fock,
+            )
+
+    @staticmethod
+    def _read_inc_file(file: str) -> GenFockArrayCls:
+        """
+        this function defines reads the increment restart files
+        """
+        target_dict = np.load(os.path.join(RST, file))
+
+        return GenFockArrayCls(target_dict["energy"], target_dict["gen_fock"])
 
     def _allocate_shared_inc(
         self, size: int, allocate: bool, comm: MPI.Comm
-    ) -> MPI.Win:
+    ) -> Tuple[MPI.Win, MPI.Win]:
         """
         this function allocates a shared increment window
         """
-        return MPI.Win.Allocate_shared(
-            8 * size * (self.full_nocc + self.norb) * self.full_norb if allocate else 0,
-            8,
-            comm=comm,  # type: ignore
+        return (
+            MPI.Win.Allocate_shared(
+                8 * size if allocate else 0,
+                8,
+                comm=comm,  # type: ignore
+            ),
+            MPI.Win.Allocate_shared(
+                8 * size * (self.full_nocc + self.norb) * self.full_norb
+                if allocate
+                else 0,
+                8,
+                comm=comm,  # type: ignore
+            ),
         )
 
     def _open_shared_inc(
-        self, window: MPI.Win, n_tuples: int, *args: int
-    ) -> np.ndarray:
+        self, window: Tuple[MPI.Win, MPI.Win], n_tuples: int, *args: int
+    ) -> GenFockArrayCls:
         """
         this function opens a shared increment window
         """
-        return open_shared_win(
-            window, np.float64, (n_tuples, self.full_nocc + self.norb, self.full_norb)
+        return GenFockArrayCls(
+            open_shared_win(window[0], np.float64, (n_tuples,)),
+            open_shared_win(
+                window[1],
+                np.float64,
+                (n_tuples, self.full_nocc + self.norb, self.full_norb),
+            ),
         )
 
     @staticmethod
-    def _flatten_inc(inc_lst: List[np.ndarray], order: int) -> np.ndarray:
+    def _mpi_bcast_inc(comm: MPI.Comm, inc: GenFockArrayCls) -> GenFockArrayCls:
+        """
+        this function bcasts the increments
+        """
+        return GenFockArrayCls(
+            mpi_bcast(comm, inc.energy),
+            mpi_bcast(comm, inc.gen_fock),
+        )
+
+    @staticmethod
+    def _mpi_reduce_inc(
+        comm: MPI.Comm, inc: GenFockArrayCls, op: MPI.Op
+    ) -> GenFockArrayCls:
+        """
+        this function performs a MPI reduce operation on the increments
+        """
+        return GenFockArrayCls(
+            mpi_reduce(comm, inc.energy, root=0, op=op),
+            mpi_reduce(comm, inc.gen_fock, root=0, op=op),
+        )
+
+    @staticmethod
+    def _mpi_allreduce_inc(
+        comm: MPI.Comm, inc: GenFockArrayCls, op: MPI.Op
+    ) -> GenFockArrayCls:
+        """
+        this function performs a MPI allreduce operation on the increments
+        """
+        return GenFockArrayCls(
+            mpi_allreduce(comm, inc.energy, op=op),
+            mpi_allreduce(comm, inc.gen_fock, op=op),
+        )
+
+    @staticmethod
+    def _mpi_gatherv_inc(
+        comm: MPI.Comm, send_inc: GenFockArrayCls, recv_inc: GenFockArrayCls
+    ) -> GenFockArrayCls:
+        """
+        this function performs a MPI gatherv operation on the increments
+        """
+        # number of increments for every rank
+        recv_counts = {
+            "energy": np.array(comm.allgather(send_inc.energy.size)),
+            "gen_fock": np.array(comm.allgather(send_inc.gen_fock.size)),
+        }
+
+        return GenFockArrayCls(
+            mpi_gatherv(comm, send_inc.energy, recv_inc.energy, recv_counts["energy"]),
+            mpi_gatherv(
+                comm, send_inc.gen_fock, recv_inc.gen_fock, recv_counts["gen_fock"]
+            ),
+        )
+
+    @staticmethod
+    def _flatten_inc(inc_lst: List[GenFockArrayCls], order: int) -> GenFockArrayCls:
         """
         this function flattens the supplied increment arrays
         """
-        return np.array(inc_lst, dtype=np.float64).reshape(-1)
+        return GenFockArrayCls(
+            np.array([inc.energy for inc in inc_lst]).reshape(-1),
+            np.array([inc.gen_fock for inc in inc_lst]).reshape(-1),
+        )
+
+    @staticmethod
+    def _free_inc(inc_win: Tuple[MPI.Win, MPI.Win]) -> None:
+        """
+        this function frees the supplied increment windows
+        """
+        inc_win[0].Free()
+        inc_win[1].Free()
 
     @staticmethod
     def _screen(
-        inc_tup: np.ndarray, screen: np.ndarray, tup: np.ndarray, screen_func: str
+        inc_tup: GenFockCls, screen: np.ndarray, tup: np.ndarray, screen_func: str
     ) -> np.ndarray:
         """
         this function modifies the screening array
         """
         if screen_func == "sum":
-            return screen[tup] + np.sum(np.abs(inc_tup))
+            return screen[tup] + np.sum(np.abs(inc_tup.gen_fock))
         else:
-            return np.maximum(screen[tup], np.max(np.abs(inc_tup)))
+            return np.maximum(screen[tup], np.max(np.abs(inc_tup.gen_fock)))
+
+    def _update_inc_stats(
+        self,
+        inc_tup: GenFockCls,
+        min_inc: GenFockCls,
+        mean_inc: GenFockCls,
+        max_inc: GenFockCls,
+        cas_idx: np.ndarray,
+    ) -> Tuple[GenFockCls, GenFockCls, GenFockCls]:
+        """
+        this function updates the increment statistics
+        """
+        # add to total rdm
+        mean_inc += inc_tup
+
+        return min_inc, mean_inc, max_inc
 
     @staticmethod
-    def _total_inc(inc: np.ndarray, mean_inc: np.ndarray) -> np.ndarray:
+    def _total_inc(inc: GenFockArrayCls, mean_inc: GenFockCls) -> GenFockCls:
         """
         this function calculates the total increment at a certain order
         """
-        return mean_inc.copy()
+        return GenFockCls(np.sum(inc.energy), mean_inc.gen_fock.copy())
 
     def _mbe_debug(
         self,
         nelec_tup: np.ndarray,
-        inc_tup: np.ndarray,
+        inc_tup: GenFockCls,
         cas_idx: np.ndarray,
         tup: np.ndarray,
     ) -> str:
@@ -593,9 +836,13 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
             self.point_group, self.orbsym, nelec_tup, self.order, cas_idx, tup
         )
         string += (
+            f"      energy increment for root {self.fci_state_root:d} "
+            + f"= {inc_tup.energy:.4e}\n"
+        )
+        string += (
             f"      generalized Fock matrix increment for root {self.fci_state_root:d} "
             + "= "
-            + np.array2string(inc_tup, max_line_width=59, precision=4)
+            + np.array2string(inc_tup.gen_fock, max_line_width=59, precision=4)
             + "\n"
         )
 
@@ -616,15 +863,21 @@ class GenFockExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win])
             )
 
         # set headers
-        gen_Fock = (
-            f"generalized Fock matrix for root {self.fci_state_root} (total "
-            + f"increment norm = {np.linalg.norm(tot_inc):.4e})"
+        energy = (
+            f"energy for root {self.fci_state_root} "
+            + f"(total increment = {tot_inc.energy:.4e})"
+        )
+        gen_fock = (
+            f"generalized Fock matrix for root {self.fci_state_root} "
+            + f"(total increment norm = {np.linalg.norm(tot_inc.gen_fock):.4e})"
         )
 
         # set string
         string: str = FILL_OUTPUT + "\n"
         string += DIVIDER_OUTPUT + "\n"
-        string += f" RESULT-{order:d}:{gen_Fock:^81}\n"
+        string += f" RESULT-{order:d}:{energy:^81}\n"
+        string += DIVIDER_OUTPUT + "\n"
+        string += f" RESULT-{order:d}:{gen_fock:^81}\n"
 
         # set string
         string += DIVIDER_OUTPUT + "\n"

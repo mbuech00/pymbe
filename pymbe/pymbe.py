@@ -72,7 +72,9 @@ class MBE:
 
     # base model
     base_method: Optional[str] = None
-    base_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
+    base_prop: Optional[
+        Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
+    ] = None
 
     # screening
     screen_start: int = 4
@@ -114,7 +116,9 @@ class MBE:
 
     def kernel(
         self,
-    ) -> Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
+    ) -> Optional[
+        Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
+    ]:
         """
         this function is the main pymbe kernel
         """
@@ -209,7 +213,9 @@ class MBE:
         self,
         prop_type: str = "total",
         nuc_prop: Optional[Union[float, np.ndarray]] = None,
-    ) -> Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
+    ) -> Optional[
+        Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
+    ]:
         """
         this function returns the total property
         """

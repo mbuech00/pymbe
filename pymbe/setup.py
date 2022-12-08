@@ -133,8 +133,11 @@ def main(mbe: MBE) -> MBE:
                     and isinstance(mbe.norb, int)
                     and isinstance(mbe.full_norb, int)
                 ):
-                    mbe.base_prop = np.zeros(
-                        (mbe.full_nocc + mbe.norb, mbe.full_norb), dtype=np.float64
+                    mbe.base_prop = (
+                        0.0,
+                        np.zeros(
+                            (mbe.full_nocc + mbe.norb, mbe.full_norb), dtype=np.float64
+                        ),
                     )
 
             # create restart folder
@@ -477,9 +480,17 @@ def sanity_check(mbe: MBE) -> None:
             )
         elif mbe.target == "genfock":
             assertion(
-                isinstance(mbe.base_prop, np.ndarray),
-                "base model generalized Fock matrix (base_prop keyword argument) must "
-                "be a np.ndarray",
+                isinstance(mbe.base_prop, tuple)
+                and len(mbe.base_prop) == 2
+                and isinstance(mbe.base_prop[0], float)
+                and isinstance(mbe.base_prop[1], np.ndarray)
+                and mbe.base_prop[1].shape
+                == (cast(int, mbe.full_nocc) + cast(int, mbe.norb), mbe.full_norb),
+                "base model for generalized fock matrix calculation (base_prop keyword "
+                "argument) must be a tuple with dimension 2, the first element "
+                "describes the energy and must be a float, the second element "
+                "describes the generalized fock matrix and must be a np.ndarray with "
+                "shape (full_nocc + norb, full_norb)",
             )
 
     # screening
@@ -716,6 +727,7 @@ def restart_read_system(mbe: MBE) -> MBE:
     elif mbe.target == "genfock":
         scalars.append("full_norb")
         scalars.append("full_nocc")
+        system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
 
     # convert to scalars
     for scalar in scalars:
