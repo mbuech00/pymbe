@@ -77,7 +77,7 @@ def mbe_example(rst=True):
             fcisolver=fci.direct_spin1_symm.FCI(mol).set(
                 conv_tol=1.0e-10,
                 orbsym=orbsym_cas[ref_space],
-                wfnsym="b2",
+                wfnsym="b1",
             ),
         )
 
@@ -108,7 +108,7 @@ def mbe_example(rst=True):
         mbe = MBE(
             mol=mol,
             orbsym=orbsym,
-            fci_state_sym="b2",
+            fci_state_sym="b1",
             orb_type="casscf",
             hcore=hcore,
             eri=eri,
