@@ -1,5 +1,5 @@
 # PyMBE environment image
-image: registry.gitlab.com/jgreiner/pymbe/pymbe_env:latest
+image: registry.gitlab.com/jgreiner/pymbe/pymbe_env_image:latest
 
 stages:
   - Type Checking
