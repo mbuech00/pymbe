@@ -1594,10 +1594,7 @@ class SingleTargetExpCls(
     """
 
     def _sum(
-        self,
-        inc: List[np.ndarray],
-        hashes: List[np.ndarray],
-        tup: np.ndarray,
+        self, inc: List[np.ndarray], hashes: List[np.ndarray], tup: np.ndarray
     ) -> SingleTargetType:
         """
         this function performs a recursive summation and returns the final increment
