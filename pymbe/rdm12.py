@@ -672,8 +672,14 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
             )
 
         # set headers
-        rdm1 = f"1-rdm for root {self.fci_state_root} (total increment norm = {np.linalg.norm(tot_inc.rdm1):.4e})"
-        rdm2 = f"2-rdm for root {self.fci_state_root} (total increment norm = {np.linalg.norm(tot_inc.rdm2):.4e})"
+        rdm1 = (
+            f"1-rdm for root {self.fci_state_root} "
+            + f"(total increment norm = {np.linalg.norm(tot_inc.rdm1):.4e})"
+        )
+        rdm2 = (
+            f"2-rdm for root {self.fci_state_root} "
+            f"(total increment norm = {np.linalg.norm(tot_inc.rdm2):.4e})"
+        )
 
         # set string
         string: str = FILL_OUTPUT + "\n"

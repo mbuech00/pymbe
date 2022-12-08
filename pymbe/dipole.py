@@ -468,11 +468,14 @@ class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
 
         # set header
         if self.target == "dipole":
-            header = f"dipole moment for root {self.fci_state_root} (total increment = {tot_inc:.4e})"
+            header = (
+                f"dipole moment for root {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
+            )
         elif self.target == "trans":
             header = (
-                f"transition dipole moment for excitation 0 -> {self.fci_state_root} (total increment = "
-                f"{tot_inc:.4e})"
+                f"transition dipole moment for excitation 0 -> {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
             )
 
         # set string

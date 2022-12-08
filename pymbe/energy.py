@@ -484,9 +484,15 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
 
         # set header
         if self.target == "energy":
-            header = f"energy for root {self.fci_state_root} (total increment = {tot_inc:.4e})"
+            header = (
+                f"energy for root {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
+            )
         elif self.target == "excitation":
-            header = f"excitation energy for root {self.fci_state_root} (total increment = {tot_inc:.4e})"
+            header = (
+                f"excitation energy for root {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
+            )
 
         # set string
         string: str = FILL_OUTPUT + "\n"

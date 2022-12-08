@@ -23,7 +23,6 @@ import scipy.special as sc
 from mpi4py import MPI
 from pyscf import symm, ao2mo
 from itertools import islice, combinations, groupby
-from math import floor
 from subprocess import Popen, PIPE
 from traceback import format_stack
 from typing import TYPE_CHECKING
