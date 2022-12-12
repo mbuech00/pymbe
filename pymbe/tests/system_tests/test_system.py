@@ -175,3 +175,10 @@ def test_system(example: List[str]) -> None:
         assert prop[1] == pytest.approx(
             np.load(ref_path / "ref_rdm2.npy"), rel=1e-5, abs=1e-8
         )
+
+    elif example[2] == "genfock":
+
+        assert prop[0] == pytest.approx(np.load(ref_path / "ref_energy.npy"))
+        assert prop[1] == pytest.approx(
+            np.load(ref_path / "ref_gen_fock.npy"), rel=1e-5, abs=1e-11
+        )
