@@ -44,6 +44,10 @@ def mbe_example(rst=True):
         hf.get_hcore = lambda *args: hcore_ao
         hf._eri = eri_ao
         hf.kernel()
+        # hubbard hamiltonians are highly symmetric and have many equivalent solutions
+        # what solution is obtained depends on the lapack distribution
+        # since screened MBE-FCI is not orbital-invariant these calculations will not
+        # yield a deterministic result
 
         # hcore
         hcore = np.einsum("pi,pq,qj->ij", hf.mo_coeff, hcore_ao, hf.mo_coeff)
