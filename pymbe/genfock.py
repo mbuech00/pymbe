@@ -101,6 +101,10 @@ class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]
             if prop_type in ["electronic", "total"]
             else self._init_target_inst(0.0, self.norb)
         )
+        # add inactive Fock matrix elements that were omitted until now
+        tot_gen_fock.gen_fock[: self.full_nocc] += (
+            2 * self.inact_fock[:, : self.full_nocc].T
+        )
 
         return tot_gen_fock.energy, tot_gen_fock.gen_fock
 
@@ -158,10 +162,11 @@ class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]
         asymm_eri_piuu = eri_piuu - 0.5 * eri_puui
         act_fock_pi = np.einsum("u,piu->pi", self.occup, asymm_eri_piuu)
 
+        # the inactive Fock matrix for orbitals outside CAS is omitted and added at the
+        # end of the calculation
+
         # calculate occupied-general generalized Fock matrix elements
-        hf_gen_fock[: self.full_nocc] = (
-            2 * (self.inact_fock[:, : self.full_nocc] + act_fock_pi).transpose()
-        )
+        hf_gen_fock[: self.full_nocc] = 2 * act_fock_pi.T
 
         # calculate occupied-active generalized Fock matrix elements
         hf_gen_fock[self.full_nocc :] = (
@@ -246,6 +251,7 @@ class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
     ) -> GenFockCls:
@@ -354,7 +360,7 @@ class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]
         rdm1, rdm2 = solver.make_rdm12(civec[-1], cas_idx.size, nelec)
 
         # calculate generalized Fock matrix elements
-        gen_fock = self._calc_gen_fock(cas_idx, rdm1, rdm2)
+        gen_fock = self._calc_gen_fock(core_idx, cas_idx, rdm1, rdm2)
 
         return GenFockCls(energy[-1], gen_fock) - self.hf_prop
 
@@ -471,86 +477,76 @@ class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]
             rdm2 = rdm2[0] + rdm2[1] + rdm2[2] + rdm2[3]
 
         # calculate generalized Fock matrix elements
-        gen_fock = self._calc_gen_fock(cas_idx, rdm1, rdm2)
+        gen_fock = self._calc_gen_fock(core_idx, cas_idx, rdm1, rdm2)
 
         return GenFockCls(e_cc, gen_fock) - self.hf_prop
 
-    def _calc_gen_fock(self, cas_idx: np.ndarray, rdm1: np.ndarray, rdm2: np.ndarray):
+    def _calc_gen_fock(
+        self,
+        occ_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        rdm1: np.ndarray,
+        rdm2: np.ndarray,
+    ):
         """
         this function calculates generalized Fock matrix elements from 1- and 2-particle
         reduced density matrices of a given CAS
-        this could also be done by viewing all orbitals in CAS space as active and
-        padding the 1-RDMs and 2-RDMs with HF values. Is this faster?
         """
-        # occupied orbitals inside CAS space but outside iCAS
-        occ_idx = np.setdiff1d(np.arange(self.nocc), cas_idx)
-
         # initialize inactive Fock matrix for all occupied orbitals outside iCAS, these
         # now include all contributions from occupied orbitals outside CAS
-        inact_fock_pi = np.concatenate(
-            (
-                self.inact_fock[:, : self.full_nocc],
-                self.inact_fock[:, self.full_nocc + occ_idx],
-            ),
-            axis=1,
+        inact_fock_pi = np.empty(
+            (self.full_norb, self.full_nocc + occ_idx.size), dtype=np.float64
         )
+
+        # the inactive Fock matrix for orbitals outside CAS is omitted and added at the
+        # end of the calculation
+
+        # add inactive Fock matrix for orbitals inside CAS but outside iCAS
+        inact_fock_pi[:, self.full_nocc :] = self.inact_fock[
+            :, self.full_nocc + occ_idx
+        ]
 
         # add occupied orbitals inside CAS but outside iCAS to inactive Fock matrix
         # elements for occupied orbitals outside CAS
-        eri_pijj = np.einsum(
-            "pijj->pij", self.eri_goaa[:, :, occ_idx.reshape(-1, 1), occ_idx]
+        eri_pim = self.eri_goaa[:, :, occ_idx, occ_idx]
+        eri_pmi = self.eri_gaao[:, occ_idx, occ_idx, :]
+        inact_fock_pi[:, : self.full_nocc] = 2 * np.sum(eri_pim, axis=2) - np.sum(
+            eri_pmi, axis=1
         )
-        eri_pjji = np.einsum(
-            "pjji->pij", self.eri_gaao[:, occ_idx.reshape(-1, 1), occ_idx, :]
-        )
-        asymm_eri_pijj = eri_pijj - 0.5 * eri_pjji
-        inact_fock_pi[:, : self.full_nocc] += 2 * np.einsum("pij->pi", asymm_eri_pijj)
 
         # add occupied orbitals inside CAS but outside iCAS to inactive Fock matrix
         # elements for occupied orbitals inside CAS but outside iCAS
-        eri_pijj = np.einsum(
-            "pijj->pij",
-            self.eri_gaaa[
-                :, occ_idx.reshape(-1, 1, 1), occ_idx.reshape(-1, 1), occ_idx
-            ],
+        eri_pmn1 = self.eri_gaaa[:, occ_idx.reshape(-1, 1), occ_idx, occ_idx]
+        eri_pmn2 = self.eri_gaaa[
+            :, occ_idx.reshape(-1, 1), occ_idx.reshape(-1, 1), occ_idx
+        ]
+        inact_fock_pi[:, self.full_nocc :] += 2 * np.sum(eri_pmn1, axis=2) - np.sum(
+            eri_pmn2, axis=1
         )
-        eri_pjji = np.einsum(
-            "pjji->pij",
-            self.eri_gaaa[
-                :, occ_idx.reshape(-1, 1, 1), occ_idx.reshape(-1, 1), occ_idx
-            ],
-        )
-        asymm_eri_pijj = eri_pijj - 0.5 * eri_pjji
-        inact_fock_pi[:, self.full_nocc :] += 2 * np.einsum("pij->pi", asymm_eri_pijj)
 
         # calculate active Fock matrix elements
-        eri_piuv = np.concatenate(
-            (
-                self.eri_goaa[:, :, cas_idx.reshape(-1, 1), cas_idx],
-                self.eri_gaaa[
-                    :, occ_idx.reshape(-1, 1, 1), cas_idx.reshape(-1, 1), cas_idx
-                ],
-            ),
-            axis=1,
+        act_fock_pi = np.empty(
+            (self.full_norb, self.full_nocc + occ_idx.size), dtype=np.float64
         )
-        eri_pvui = np.concatenate(
-            (
-                self.eri_gaao[:, cas_idx.reshape(-1, 1), cas_idx, :],
-                self.eri_gaaa[
-                    :, cas_idx.reshape(-1, 1, 1), cas_idx.reshape(-1, 1), occ_idx
-                ],
-            ),
-            axis=3,
+        eri_piuv = self.eri_goaa[:, :, cas_idx.reshape(-1, 1), cas_idx]
+        eri_puvi = self.eri_gaao[:, cas_idx.reshape(-1, 1), cas_idx, :]
+        act_fock_pi[:, : self.full_nocc] = np.einsum(
+            "uv,piuv->pi", rdm1, eri_piuv - 0.5 * eri_puvi.transpose(0, 3, 2, 1)
         )
-        asymm_eri_piuv = eri_piuv - 0.5 * eri_pvui.transpose(0, 3, 2, 1)
-        act_fock_pi = np.einsum("uv,piuv->pi", rdm1, asymm_eri_piuv)
+        eri_pmuv = self.eri_gaaa[
+            :, occ_idx.reshape(-1, 1, 1), cas_idx.reshape(-1, 1), cas_idx
+        ]
+        eri_puvm = self.eri_gaaa[
+            :, cas_idx.reshape(-1, 1, 1), cas_idx.reshape(-1, 1), occ_idx
+        ]
+        act_fock_pi[:, self.full_nocc :] = np.einsum(
+            "uv,pmuv->pm", rdm1, eri_pmuv - 0.5 * eri_puvm.transpose(0, 3, 2, 1)
+        )
 
         # calculate occupied-general generalized Fock matrix elements
-        gen_fock_ip = 2 * (inact_fock_pi + act_fock_pi).transpose()
+        gen_fock_ip = 2 * (inact_fock_pi + act_fock_pi).T
 
         # initialize generalized Fock matrix
-        # the size of this matrix could be reduced because contributions from virtuals
-        # inside CAS but outside iCAS are zero
         gen_fock = np.zeros(
             (self.full_nocc + self.norb, self.full_norb), dtype=np.float64
         )
@@ -559,28 +555,19 @@ class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]
 
         # initialize inactive Fock matrix for all active orbitals inside iCAS, these
         # now include all contributions from occupied orbitals outside CAS
-        inact_fock_pv = self.inact_fock[:, self.full_nocc + cas_idx]
+        inact_fock_pu = self.inact_fock[:, self.full_nocc + cas_idx]
 
         # add occupied orbitals inside CAS but outside iCAS to inactive Fock matrix
         # elements for active orbitals inside iCAS
-        eri_pxjj = np.einsum(
-            "pxjj->pxj",
-            self.eri_gaaa[
-                :, cas_idx.reshape(-1, 1, 1), occ_idx.reshape(-1, 1), occ_idx
-            ],
-        )
-        eri_pjjx = np.einsum(
-            "pjjx->pxj",
-            self.eri_gaaa[
-                :, occ_idx.reshape(-1, 1, 1), occ_idx.reshape(-1, 1), cas_idx
-            ],
-        )
-        asymm_eri_pxjj = eri_pxjj - 0.5 * eri_pjjx
-        inact_fock_pv += 2 * np.einsum("pxj->px", asymm_eri_pxjj)
+        eri_pum = self.eri_gaaa[:, cas_idx.reshape(-1, 1), occ_idx, occ_idx]
+        eri_pmu = self.eri_gaaa[
+            :, occ_idx.reshape(-1, 1), occ_idx.reshape(-1, 1), cas_idx
+        ]
+        inact_fock_pu += 2 * np.sum(eri_pum, axis=2) - np.sum(eri_pmu, axis=1)
 
         # calculate active-general generalized Fock matrix elements
         gen_fock[self.full_nocc + cas_idx] = np.einsum(
-            "uv,pv->up", rdm1, inact_fock_pv
+            "uv,pv->up", rdm1, inact_fock_pu
         ) + np.einsum(
             "uvxy,pvxy->up",
             rdm2,

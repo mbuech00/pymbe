@@ -1305,7 +1305,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         elif method == "fci":
 
-            res = self._fci_kernel(e_core, h1e, h2e, cas_idx, nelec)
+            res = self._fci_kernel(e_core, h1e, h2e, core_idx, cas_idx, nelec)
 
         return res
 
@@ -1315,6 +1315,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
     ) -> TargetType:

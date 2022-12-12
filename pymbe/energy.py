@@ -165,6 +165,7 @@ class EnergyExpCls(SingleTargetExpCls, ExpCls[float, np.ndarray, MPI.Win]):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
     ) -> float:
