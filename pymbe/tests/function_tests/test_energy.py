@@ -488,7 +488,7 @@ def test_fci_kernel(
 
         occup = np.array([2.0] * 3 + [0.0] * 3, dtype=np.float64)
 
-    _, cas_idx, _ = indices
+    core_idx, cas_idx, _ = indices
 
     h1e_cas, h2e_cas = ints_cas
 
@@ -499,7 +499,7 @@ def test_fci_kernel(
         ]
     )
 
-    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, cas_idx, nelec)
+    res = exp._fci_kernel(0.0, h1e_cas, h2e_cas, core_idx, cas_idx, nelec)
 
     assert res == pytest.approx(ref)
 
