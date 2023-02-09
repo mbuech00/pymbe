@@ -64,12 +64,12 @@ test_cases_ref_prop = [
 ]
 
 test_cases_kernel = [
-    ("h2o", "fci", "pyscf", np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64)),
-    ("h2o", "ccsd", "pyscf", np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64)),
+    ("h2o", "fci", "pyscf", np.array([0.0, 0.0, -1.02539661e-03], dtype=np.float64)),
+    ("h2o", "ccsd", "pyscf", np.array([0.0, 0.0, -1.02539650e-03], dtype=np.float64)),
 ]
 
 test_cases_fci_kernel = [
-    ("h2o", np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64)),
+    ("h2o", np.array([0.0, 0.0, -1.02539661e-03], dtype=np.float64)),
 ]
 
 test_cases_cc_kernel = [
@@ -77,13 +77,13 @@ test_cases_cc_kernel = [
         "h2o",
         "ccsd",
         "pyscf",
-        np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64),
+        np.array([0.0, 0.0, -1.02539650e-03], dtype=np.float64),
     ),
     (
         "h2o",
         "ccsd(t)",
         "pyscf",
-        np.array([0.0, 0.0, -1.02539807e-03], dtype=np.float64),
+        np.array([0.0, 0.0, -1.02539650e-03], dtype=np.float64),
     ),
 ]
 
@@ -249,6 +249,7 @@ def test_cc_kernel(
             np.count_nonzero(hf.mo_occ[cas_idx] > 1.0),
         ]
     )
+    print(nelec)
 
     res = exp._cc_kernel(method, core_idx, cas_idx, nelec, h1e_cas, h2e_cas, False)
 

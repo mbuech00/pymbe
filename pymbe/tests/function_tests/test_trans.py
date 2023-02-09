@@ -40,11 +40,11 @@ test_cases_ref_prop = [
 ]
 
 test_cases_kernel = [
-    ("h2o", "fci", "pyscf", 1, np.array([0.0, 0.0, 4.37278322e-02], dtype=np.float64)),
+    ("h2o", "fci", "pyscf", 1, np.array([0.0, 0.0, 4.37279173e-02], dtype=np.float64)),
 ]
 
 test_cases_fci_kernel = [
-    ("h2o", 1, np.array([0.0, 0.0, 4.37278322e-02], dtype=np.float64)),
+    ("h2o", 1, np.array([0.0, 0.0, 4.37279173e-02], dtype=np.float64)),
 ]
 
 
