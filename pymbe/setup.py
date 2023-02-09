@@ -28,7 +28,7 @@ from pymbe.tools import RST, logger_config, assertion, ground_state_sym
 
 if TYPE_CHECKING:
 
-    from typing import Dict, Union, Optional, Tuple
+    from typing import Dict, Union, List
 
     from pymbe.pymbe import MBE
 
@@ -68,9 +68,16 @@ def main(mbe: MBE) -> MBE:
 
             # convert number of electrons to numpy array
             if isinstance(mbe.nelec, int):
-                mbe.nelec = (-(mbe.nelec // -2), mbe.nelec // 2)
-            if mbe.nelec is not None:
+                mbe.nelec = np.asarray((mbe.nelec // 2, mbe.nelec // 2), dtype=np.int64)
+            elif isinstance(mbe.nelec, tuple):
                 mbe.nelec = np.asarray(mbe.nelec, dtype=np.int64)
+            elif isinstance(mbe.nelec, list):
+                mbe.nelec = [
+                    np.asarray(state, dtype=np.int64)
+                    if isinstance(state, tuple)
+                    else state
+                    for state in mbe.nelec
+                ]
 
             # set default value for point group
             if mbe.point_group is None:
@@ -87,12 +94,20 @@ def main(mbe: MBE) -> MBE:
 
             # set default value for fci wavefunction state symmetry
             if mbe.fci_state_sym is None:
-                if isinstance(mbe.orbsym, np.ndarray) and isinstance(
-                    mbe.nelec, np.ndarray
-                ):
-                    mbe.fci_state_sym = ground_state_sym(
-                        mbe.orbsym, mbe.nelec, cast(str, mbe.point_group)
-                    )
+                if isinstance(mbe.orbsym, np.ndarray):
+                    if isinstance(mbe.nelec, np.ndarray):
+                        mbe.fci_state_sym = ground_state_sym(
+                            mbe.orbsym, mbe.nelec, cast(str, mbe.point_group)
+                        )
+                    elif isinstance(mbe.nelec, list):
+                        mbe.fci_state_sym = [
+                            ground_state_sym(
+                                mbe.orbsym,
+                                cast(np.ndarray, state),
+                                cast(str, mbe.point_group),
+                            )
+                            for state in mbe.nelec
+                        ]
                 else:
                     mbe.fci_state_sym = 0
 
@@ -102,6 +117,64 @@ def main(mbe: MBE) -> MBE:
                     mbe.fci_state_root = 0
                 elif mbe.target in ["excitation", "trans"]:
                     mbe.fci_state_root = 1
+
+            # set default values for state-averaged rdm12 calculations
+            if mbe.target == "rdm12":
+                if isinstance(mbe.nelec, list):
+                    mbe.hf_guess = False
+                    if isinstance(mbe.fci_state_sym, int):
+                        mbe.fci_state_sym = [
+                            mbe.fci_state_sym for _ in range(len(mbe.nelec))
+                        ]
+                    if isinstance(mbe.fci_state_root, int):
+                        mbe.fci_state_root = [
+                            mbe.fci_state_root for _ in range(len(mbe.nelec))
+                        ]
+                    if mbe.fci_state_weights is None:
+                        mbe.fci_state_weights = [
+                            1 / len(mbe.nelec) for _ in range(len(mbe.nelec))
+                        ]
+                elif isinstance(mbe.fci_state_sym, list):
+                    mbe.hf_guess = False
+                    if isinstance(mbe.nelec, np.ndarray):
+                        mbe.nelec = [mbe.nelec for _ in range(len(mbe.fci_state_sym))]
+                    if isinstance(mbe.fci_state_root, int):
+                        mbe.fci_state_root = [
+                            mbe.fci_state_root for _ in range(len(mbe.fci_state_sym))
+                        ]
+                    if mbe.fci_state_weights is None:
+                        mbe.fci_state_weights = [
+                            1 / len(mbe.fci_state_sym)
+                            for _ in range(len(mbe.fci_state_sym))
+                        ]
+                elif isinstance(mbe.fci_state_root, list):
+                    mbe.hf_guess = False
+                    if isinstance(mbe.nelec, np.ndarray):
+                        mbe.nelec = [mbe.nelec for _ in range(len(mbe.fci_state_root))]
+                    if isinstance(mbe.fci_state_sym, int):
+                        mbe.fci_state_sym = [
+                            mbe.fci_state_sym for _ in range(len(mbe.fci_state_root))
+                        ]
+                    if mbe.fci_state_weights is None:
+                        mbe.fci_state_weights = [
+                            1 / len(mbe.fci_state_root)
+                            for _ in range(len(mbe.fci_state_root))
+                        ]
+                elif isinstance(mbe.fci_state_weights, list):
+                    mbe.hf_guess = False
+                    if isinstance(mbe.nelec, np.ndarray):
+                        mbe.nelec = [
+                            mbe.nelec for _ in range(len(mbe.fci_state_weights))
+                        ]
+                    if isinstance(mbe.fci_state_sym, int):
+                        mbe.fci_state_sym = [
+                            mbe.fci_state_sym for _ in range(len(mbe.fci_state_weights))
+                        ]
+                    if isinstance(mbe.fci_state_root, int):
+                        mbe.fci_state_root = [
+                            mbe.fci_state_root
+                            for _ in range(len(mbe.fci_state_weights))
+                        ]
 
             # prepare integrals
             if isinstance(mbe.eri, np.ndarray) and isinstance(mbe.norb, int):
@@ -252,16 +325,34 @@ def sanity_check(mbe: MBE) -> None:
     )
     assertion(
         (
-            isinstance(mbe.nelec, np.ndarray)
-            and mbe.nelec.size == 2
-            and isinstance(mbe.nelec[0], np.int64)
-            and isinstance(mbe.nelec[1], np.int64)
-            and (mbe.nelec[0] > 0 or mbe.nelec[1] > 0)
+            (
+                isinstance(mbe.nelec, np.ndarray)
+                and mbe.nelec.size == 2
+                and mbe.nelec.dtype == np.int64
+                and (mbe.nelec[0] > 0 or mbe.nelec[1] > 0)
+            )
+            or (
+                isinstance(mbe.nelec, list)
+                and all(
+                    [
+                        isinstance(state, np.ndarray)
+                        and state.size == 2
+                        and state.dtype == np.int64
+                        and (state[0] > 0 or state[1] > 0)
+                        for state in mbe.nelec
+                    ]
+                )
+            )
         ),
         "number of electrons (nelec keyword argument) must be an int > 0 or a tuple of "
-        "ints > 0 with dimension 2 or a np.ndarray of ints > 0 with dimension 2",
+        "ints > 0 with dimension 2 or a np.ndarray of ints > 0 with dimension 2 or a "
+        "list of tuples of ints > 0 with dimension 2 or a list of np.ndarray of "
+        "ints > 0 with dimension 2",
     )
-    if cast(np.ndarray, mbe.nelec)[0] != cast(np.ndarray, mbe.nelec)[1]:
+    if (isinstance(mbe.nelec, np.ndarray) and mbe.nelec[0] != mbe.nelec[1]) or (
+        isinstance(mbe.nelec, list)
+        and any([state[0] != state[1] for state in mbe.nelec])
+    ):
         if mbe.method != "fci" or mbe.base_method is not None:
             assertion(
                 mbe.cc_backend == "pyscf",
@@ -283,24 +374,91 @@ def sanity_check(mbe: MBE) -> None:
         "(norb,)",
     )
     assertion(
-        isinstance(mbe.fci_state_sym, (str, int)),
+        isinstance(mbe.fci_state_sym, (str, int))
+        or (
+            isinstance(mbe.fci_state_sym, list)
+            and all([isinstance(state, (str, int)) for state in mbe.fci_state_sym])
+        ),
         "state wavefunction symmetry (fci_state_sym keyword argument) must be a str or "
-        "int",
+        "int or a list of str or int",
     )
-    if isinstance(mbe.fci_state_sym, str):
-        try:
+    try:
+        if isinstance(mbe.fci_state_sym, str):
             mbe.fci_state_sym = symm.addons.irrep_name2id(
                 mbe.point_group, mbe.fci_state_sym
             )
-        except Exception as err:
-            raise ValueError(
-                "illegal choice of state wavefunction symmetry (fci_state_sym keyword "
-                f"argument) -- PySCF error: {err}"
-            )
+        elif isinstance(mbe.fci_state_sym, list) and all(
+            [isinstance(state, str) for state in mbe.fci_state_sym]
+        ):
+            mbe.fci_state_sym = [
+                symm.addons.irrep_name2id(mbe.point_group, state)
+                for state in mbe.fci_state_sym
+            ]
+    except Exception as err:
+        raise ValueError(
+            "illegal choice of state wavefunction symmetry (fci_state_sym keyword "
+            f"argument) -- PySCF error: {err}"
+        )
     assertion(
-        isinstance(mbe.fci_state_root, int) and mbe.fci_state_root >= 0,
+        (isinstance(mbe.fci_state_root, int) and mbe.fci_state_root >= 0)
+        or (
+            isinstance(mbe.fci_state_root, list)
+            and all(
+                [isinstance(state, int) and state >= 0 for state in mbe.fci_state_root]
+            )
+        ),
         "target state (root keyword argument) must be an int >= 0",
     )
+    if (
+        isinstance(mbe.nelec, list)
+        and isinstance(mbe.fci_state_sym, list)
+        and isinstance(mbe.fci_state_root, list)
+        and isinstance(mbe.fci_state_weights, list)
+    ):
+        assertion(
+            mbe.target == "rdm12",
+            "only 1- and 2-particle reduced density matrices can be determined as "
+            "state-averaged properties, all other mbe targets must only have keywords "
+            "describing a single state and can therefore not be lists (nelec, "
+            "fci_state_sym, fci_state_root, fci_state_weights keyword arguments)",
+        )
+        assertion(
+            mbe.method == "fci",
+            "only the fci method (method keyword argument) can be used to calculate "
+            "state-averaged 1- and 2-particle reduced density matrices, cc methods "
+            "must only have keywords describing a single state and can therefore not "
+            "be lists (nelec, fci_state_sym, fci_state_root, fci_state_weights keyword "
+            "arguments)",
+        )
+        assertion(
+            len(mbe.nelec)
+            == len(mbe.fci_state_sym)
+            == len(mbe.fci_state_root)
+            == len(mbe.fci_state_weights),
+            "keywords describing different states for the calculation of state-averaged "
+            "1- and 2-particle reduced density matrices (nelec, fci_state_sym, "
+            "fci_state_root, fci_state_weights keyword arguments) must all have the "
+            "same length",
+        )
+        states = [
+            state
+            for state in zip(
+                *[
+                    [tuple(nelec_state) for nelec_state in mbe.nelec],
+                    mbe.fci_state_sym,
+                    mbe.fci_state_root,
+                ]
+            )
+        ]
+        assertion(
+            len(set(states)) == len(states),
+            "keywords describing multiple states for the calculation of state-averaged "
+            "1- and 2-particle reduced density matrices (nelec, fci_state_sym, "
+            "fci_state_root keyword arguments) must describe different states, every "
+            "state must therefore differ from every other state in either "
+            "multiplicity, symmetry or root",
+        )
+
     hf_wfnsym = ground_state_sym(
         cast(np.ndarray, mbe.orbsym),
         cast(np.ndarray, mbe.nelec),
@@ -375,7 +533,10 @@ def sanity_check(mbe: MBE) -> None:
         "reference space (ref_space keyword argument) must be a np.ndarray of orbital "
         "indices",
     )
-    if cast(np.ndarray, mbe.nelec)[0] != cast(np.ndarray, mbe.nelec)[1]:
+    if (isinstance(mbe.nelec, np.ndarray) and mbe.nelec[0] != mbe.nelec[1]) or (
+        isinstance(mbe.nelec, list)
+        and any([state[0] != state[1] for state in mbe.nelec])
+    ):
         assertion(
             np.all(
                 np.isin(
@@ -583,15 +744,19 @@ def restart_write_system(mbe: MBE) -> None:
     this function writes all system quantities restart files
     """
     # define system quantities
-    system: Dict[str, Union[Optional[int], Tuple[int, int], np.ndarray, float]] = {
-        "norb": mbe.norb,
-        "nelec": mbe.nelec,
-        "orbsym": mbe.orbsym,
-        "hcore": mbe.hcore,
-        "eri": mbe.eri,
+    system: Dict[str, Union[int, np.ndarray, List[np.ndarray], float]] = {
+        "norb": cast(int, mbe.norb),
+        "orbsym": cast(np.ndarray, mbe.orbsym),
+        "hcore": cast(np.ndarray, mbe.hcore),
+        "eri": cast(np.ndarray, mbe.eri),
         "ref_space": mbe.ref_space,
-        "exp_space": mbe.exp_space,
+        "exp_space": cast(np.ndarray, mbe.exp_space),
     }
+
+    if isinstance(mbe.nelec, np.ndarray):
+        system["nelec"] = mbe.nelec
+    elif isinstance(mbe.nelec, list):
+        system["nelec"] = np.array(mbe.nelec)
 
     if isinstance(mbe.base_prop, (float, np.ndarray)):
         system["base_prop"] = mbe.base_prop
@@ -635,6 +800,10 @@ def restart_read_system(mbe: MBE) -> MBE:
     # convert to scalars
     for scalar in scalars:
         system[scalar] = system[scalar].item()
+
+    # convert to list
+    if system["nelec"].dim == 2:
+        system["nelec"] = list(system["nelec"])
 
     # set system quantities as MBE attributes
     for key, val in system.items():

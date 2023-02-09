@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("pymbe_logger")
 
 
-class DipoleExpCls(SingleTargetExpCls, ExpCls[np.ndarray, np.ndarray, MPI.Win]):
+class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
     """
     this class contains the pymbe expansion attributes for expansions of the dipole
     moment

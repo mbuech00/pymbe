@@ -19,7 +19,7 @@ import logging
 import numpy as np
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, Union
+from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union
 
 from pymbe.output import (
     main_header,
@@ -66,7 +66,7 @@ from pymbe.results import timings_prt
 if TYPE_CHECKING:
 
     from pyscf import gto
-    from typing import List, Dict, Optional
+    from typing import Dict, Optional
 
     from pymbe.pymbe import MBE
     from pymbe.parallel import MPICls
@@ -81,6 +81,12 @@ IncType = TypeVar("IncType", np.ndarray, packedRDMCls)
 # define variable type for MPI windows of increment arrays
 MPIWinType = TypeVar("MPIWinType", MPI.Win, Tuple[MPI.Win, MPI.Win])
 
+# define variable type for integers describing electronic states
+StateIntType = TypeVar("StateIntType", int, List[int])
+
+# define variable type for numpy arrays describing electronic states
+StateArrayType = TypeVar("StateArrayType", np.ndarray, List[np.ndarray])
+
 
 # get logger
 logger = logging.getLogger("pymbe_logger")
@@ -94,7 +100,10 @@ CONV_TOL = 1.0e-10
 SPIN_TOL = 1.0e-05
 
 
-class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
+class ExpCls(
+    Generic[TargetType, IncType, MPIWinType, StateIntType, StateArrayType],
+    metaclass=ABCMeta,
+):
     """
     this class contains the pymbe expansion attributes
     """
@@ -112,15 +121,14 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         self.target: str = mbe.target
 
         # system
-        self.norb = cast(int, mbe.norb)
-        self.nelec = cast(np.ndarray, mbe.nelec)
-        self.point_group = cast(str, mbe.point_group)
-        self.orbsym = cast(np.ndarray, mbe.orbsym)
-        self.fci_state_sym = cast(int, mbe.fci_state_sym)
-        self.fci_state_root = cast(int, mbe.fci_state_root)
-        self.nocc = np.max(self.nelec)
-        self.spin = abs(self.nelec[0] - self.nelec[1])
-        self.occup = get_occup(self.norb, self.nelec)
+        self.norb: int = cast(int, mbe.norb)
+        self.nelec: StateArrayType = cast(StateArrayType, mbe.nelec)
+        self.point_group: str = cast(str, mbe.point_group)
+        self.orbsym: np.ndarray = cast(np.ndarray, mbe.orbsym)
+        self.fci_state_sym: StateIntType = cast(StateIntType, mbe.fci_state_sym)
+        self.fci_state_root: StateIntType = cast(StateIntType, mbe.fci_state_root)
+        self.fci_state_weights: np.ndarray = cast(np.ndarray, mbe.fci_state_weights)
+        self._state_occup()
 
         # integrals
         hcore_win, eri_win, vhf_win = self._int_wins(mbe.hcore, mbe.eri, mbe.mpi)
@@ -475,6 +483,15 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         string += self._results_prt()
 
         return string
+
+    @abstractmethod
+    def _state_occup(self) -> None:
+        """
+        this function initializes certain state attributes
+        """
+        self.nocc: int
+        self.spin: StateIntType
+        self.occup: np.ndarray
 
     def _int_wins(
         self,
@@ -1572,12 +1589,20 @@ SingleTargetType = TypeVar("SingleTargetType", float, np.ndarray)
 
 
 class SingleTargetExpCls(
-    ExpCls[SingleTargetType, np.ndarray, MPI.Win], metaclass=ABCMeta
+    ExpCls[SingleTargetType, np.ndarray, MPI.Win, int, np.ndarray], metaclass=ABCMeta
 ):
     """
     this class holds all function definitions for single-target expansions irrespective
     of whether the target is a scalar or an array type
     """
+
+    def _state_occup(self) -> None:
+        """
+        this function initializes certain state attributes for a single state
+        """
+        self.nocc = np.max(self.nelec)
+        self.spin = abs(self.nelec[0] - self.nelec[1])
+        self.occup = get_occup(self.norb, self.nelec)
 
     def _sum(
         self,
