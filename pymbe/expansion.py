@@ -880,6 +880,8 @@ class ExpCls(
         )
 
         # start tuples
+        tup_occ: Optional[np.ndarray]
+        tup_virt: Optional[np.ndarray]
         if tup is not None:
             tup_occ = tup[tup < self.nocc]
             tup_virt = tup[self.nocc <= tup]
