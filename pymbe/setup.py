@@ -113,7 +113,7 @@ def main(mbe: MBE) -> MBE:
 
             # set default value for fci wavefunction state root
             if mbe.fci_state_root is None:
-                if mbe.target in ["energy", "dipole", "rdm12"]:
+                if mbe.target in ["energy", "dipole", "rdm12", "genfock"]:
                     mbe.fci_state_root = 0
                 elif mbe.target in ["excitation", "trans"]:
                     mbe.fci_state_root = 1
@@ -199,6 +199,18 @@ def main(mbe: MBE) -> MBE:
                     mbe.base_prop = (
                         np.zeros(2 * (mbe.norb,), dtype=np.float64),
                         np.zeros(4 * (mbe.norb,), dtype=np.float64),
+                    )
+                elif (
+                    mbe.target == "genfock"
+                    and isinstance(mbe.full_nocc, int)
+                    and isinstance(mbe.norb, int)
+                    and isinstance(mbe.full_norb, int)
+                ):
+                    mbe.base_prop = (
+                        0.0,
+                        np.zeros(
+                            (mbe.full_nocc + mbe.norb, mbe.full_norb), dtype=np.float64
+                        ),
                     )
 
             # create restart folder
@@ -299,14 +311,15 @@ def sanity_check(mbe: MBE) -> None:
         "expansion target property (target keyword argument) must be a string",
     )
     assertion(
-        mbe.target in ["energy", "excitation", "dipole", "trans", "rdm12"],
+        mbe.target in ["energy", "excitation", "dipole", "trans", "rdm12", "genfock"],
         "invalid choice for target property (target keyword argument). valid choices "
         "are: energy, excitation energy (excitation), dipole, transition dipole "
-        "(trans) and 1- and 2-particle reduced density matrices (rdm12)",
+        "(trans), 1- and 2-particle reduced density matrices (rdm12) and generalized "
+        "Fock matrix (genfock)",
     )
     if mbe.method != "fci":
         assertion(
-            mbe.target in ["energy", "dipole", "rdm12"],
+            mbe.target in ["energy", "dipole", "rdm12", "genfock"],
             "excited target states (target keyword argument) not implemented for "
             "chosen expansion model (method keyword argument)",
         )
@@ -586,7 +599,7 @@ def sanity_check(mbe: MBE) -> None:
                 "ecc coupled-cluster backends (cc_backend keyword argument)",
             )
         assertion(
-            mbe.target in ["energy", "dipole", "rdm12"],
+            mbe.target in ["energy", "dipole", "rdm12", "genfock"],
             "excited target states (target keyword argument) not implemented for base "
             "model calculations (base_method keyword argument)",
         )
@@ -625,6 +638,20 @@ def sanity_check(mbe: MBE) -> None:
                 "argument) must be a tuple with dimension 2, rdm1 must be a np.ndarray "
                 "with shape (norb, norb), rdm2 must be a np.ndarray with shape "
                 "(norb, norb, norb, norb)",
+            )
+        elif mbe.target == "genfock":
+            assertion(
+                isinstance(mbe.base_prop, tuple)
+                and len(mbe.base_prop) == 2
+                and isinstance(mbe.base_prop[0], float)
+                and isinstance(mbe.base_prop[1], np.ndarray)
+                and mbe.base_prop[1].shape
+                == (cast(int, mbe.full_nocc) + cast(int, mbe.norb), mbe.full_norb),
+                "base model for generalized fock matrix calculation (base_prop keyword "
+                "argument) must be a tuple with dimension 2, the first element "
+                "describes the energy and must be a float, the second element "
+                "describes the generalized fock matrix and must be a np.ndarray with "
+                "shape (full_nocc + norb, full_norb)",
             )
 
     # screening
@@ -694,6 +721,53 @@ def sanity_check(mbe: MBE) -> None:
             "shape (3, norb, norb)",
         )
 
+    # optional parameters for generalized Fock matrix
+    if mbe.target == "genfock":
+        assertion(
+            isinstance(mbe.full_norb, int) and mbe.full_norb > 0,
+            "number of orbitals in the full system (full_norb keyword argument) must "
+            "be an int > 0",
+        )
+        assertion(
+            isinstance(mbe.full_nocc, int) and mbe.full_nocc > 0,
+            "number of occupied orbitals in the full system (full_nocc keyword "
+            "argument) must be an int > 0",
+        )
+        assertion(
+            isinstance(mbe.inact_fock, np.ndarray)
+            and mbe.inact_fock.shape
+            == (mbe.full_norb, cast(int, mbe.full_nocc) + cast(int, mbe.norb)),
+            "inactive Fock matrix (inact_fock keyword argument) must be a np.ndarray "
+            "with shape (full_norb, full_nocc + norb)",
+        )
+        assertion(
+            isinstance(mbe.eri_goaa, np.ndarray)
+            and mbe.eri_goaa.shape
+            == (mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb),
+            "general-occupied-active-active electron repulsion integral (eri_goaa "
+            "keyword argument) must be a np.ndarray with shape "
+            "(mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb)",
+        )
+        assertion(
+            isinstance(mbe.eri_gaao, np.ndarray)
+            and mbe.eri_gaao.shape
+            == (mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc),
+            "general-active-active-occupied electron repulsion integral (eri_gaao "
+            "keyword argument) must be a np.ndarray with shape "
+            "(mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc)",
+        )
+        assertion(
+            isinstance(mbe.eri_gaaa, np.ndarray)
+            and mbe.eri_gaaa.shape == (mbe.full_norb, mbe.norb, mbe.norb, mbe.norb),
+            "general-active-active-active electron repulsion integral (eri_gaaa "
+            "keyword argument) must be a np.ndarraywith shape "
+            "(mbe.full_norb, mbe.norb, mbe.norb, mbe.norb)",
+        )
+        assertion(
+            isinstance(mbe.no_singles, bool),
+            "excluding single excitations (no_singles keyword argument) must be a bool",
+        )
+
 
 def restart_write_kw(mbe: MBE) -> None:
     """
@@ -717,6 +791,7 @@ def restart_write_kw(mbe: MBE) -> None:
         "rst_freq": mbe.rst_freq,
         "verbose": mbe.verbose,
         "pi_prune": mbe.pi_prune,
+        "no_singles": mbe.no_singles,
     }
 
     # write keywords
@@ -770,6 +845,24 @@ def restart_write_system(mbe: MBE) -> None:
     if mbe.dipole_ints is not None:
         system["dipole_ints"] = mbe.dipole_ints
 
+    if mbe.full_norb is not None:
+        system["full_norb"] = mbe.full_norb
+
+    if mbe.full_nocc is not None:
+        system["full_nocc"] = mbe.full_nocc
+
+    if mbe.inact_fock is not None:
+        system["inact_fock"] = mbe.inact_fock
+
+    if mbe.eri_goaa is not None:
+        system["eri_goaa"] = mbe.eri_goaa
+
+    if mbe.eri_gaao is not None:
+        system["eri_gaao"] = mbe.eri_gaao
+
+    if mbe.eri_gaaa is not None:
+        system["eri_gaaa"] = mbe.eri_gaaa
+
     # write system quantities
     np.savez(os.path.join(RST, "system"), **system)  # type: ignore
 
@@ -795,6 +888,10 @@ def restart_read_system(mbe: MBE) -> MBE:
     if mbe.target in ["energy", "excitation"]:
         scalars.append("base_prop")
     elif mbe.target == "rdm12":
+        system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
+    elif mbe.target == "genfock":
+        scalars.append("full_norb")
+        scalars.append("full_nocc")
         system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
 
     # convert to scalars

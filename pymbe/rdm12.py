@@ -42,6 +42,7 @@ from pymbe.tools import (
     get_nhole,
     get_nexc,
     assertion,
+    core_cas,
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, mpi_gatherv
 
@@ -70,13 +71,8 @@ class RDMExpCls(
         """
         super(RDMExpCls, self).__init__(mbe, RDMCls(*cast(tuple, mbe.base_prop)))
 
-        # hartree fock property
-        self.hf_prop = self._hf_prop(mbe.mpi)
-
-        # reference space property
-        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
-        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
-            self.ref_prop = self._ref_prop(mbe.mpi)
+        # initialize dependent attributes
+        self._init_dep_attrs(mbe)
 
     def __del__(self) -> None:
         """
@@ -92,11 +88,10 @@ class RDMExpCls(
         tot_rdm12 = self.mbe_tot_prop[-1].copy()
         tot_rdm12[self.ref_space] += self.ref_prop
         tot_rdm12 += self.base_prop
-        tot_rdm12 += (
-            self.hf_prop
-            if prop_type in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb)
-        )
+        if prop_type in ["electronic", "total"]:
+            core_idx, cas_idx = core_cas(self.nocc, self.ref_space, self.exp_space[0])
+            tot_rdm12[core_idx] += self.hf_prop[core_idx]
+            tot_rdm12[cas_idx] += self.hf_prop[cas_idx]
 
         return tot_rdm12.rdm1, tot_rdm12.rdm2
 
@@ -552,8 +547,14 @@ class RDMExpCls(
             )
 
         # set headers
-        rdm1 = f"1-rdm for root {self.fci_state_root} (total increment norm = {np.linalg.norm(tot_inc.rdm1):.4e})"
-        rdm2 = f"2-rdm for root {self.fci_state_root} (total increment norm = {np.linalg.norm(tot_inc.rdm2):.4e})"
+        rdm1 = (
+            f"1-rdm for root {self.fci_state_root} "
+            + f"(total increment norm = {np.linalg.norm(tot_inc.rdm1):.4e})"
+        )
+        rdm2 = (
+            f"2-rdm for root {self.fci_state_root} "
+            f"(total increment norm = {np.linalg.norm(tot_inc.rdm2):.4e})"
+        )
 
         # set string
         string: str = FILL_OUTPUT + "\n"
@@ -605,6 +606,7 @@ class ssRDMExpCls(RDMExpCls[int, np.ndarray]):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
     ) -> RDMCls:
@@ -754,6 +756,7 @@ class saRDMExpCls(RDMExpCls[List[int], List[np.ndarray]]):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         _: np.ndarray,
     ) -> RDMCls:

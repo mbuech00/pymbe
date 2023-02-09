@@ -28,6 +28,7 @@ from pymbe.excitation import ExcExpCls
 from pymbe.dipole import DipoleExpCls
 from pymbe.trans import TransExpCls
 from pymbe.rdm12 import ssRDMExpCls, saRDMExpCls
+from pymbe.genfock import GenFockExpCls
 from pymbe.tools import RST, assertion
 
 if TYPE_CHECKING:
@@ -74,7 +75,9 @@ class MBE:
 
     # base model
     base_method: Optional[str] = None
-    base_prop: Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None
+    base_prop: Optional[
+        Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
+    ] = None
 
     # screening
     screen_start: int = 4
@@ -97,17 +100,34 @@ class MBE:
     # optional integrals for (transition) dipole moment
     dipole_ints: Optional[np.ndarray] = None
 
+    # optional system parameters and integrals for generalized Fock matrix
+    full_norb: Optional[int] = None
+    full_nocc: Optional[int] = None
+    inact_fock: Optional[np.ndarray] = None
+    eri_goaa: Optional[np.ndarray] = None
+    eri_gaao: Optional[np.ndarray] = None
+    eri_gaaa: Optional[np.ndarray] = None
+    no_singles: bool = False
+
     # mpi object
     mpi: MPICls = field(init=False)
 
     # exp object
     exp: Union[
-        EnergyExpCls, ExcExpCls, DipoleExpCls, TransExpCls, ssRDMExpCls, saRDMExpCls
+        EnergyExpCls,
+        ExcExpCls,
+        DipoleExpCls,
+        TransExpCls,
+        ssRDMExpCls,
+        saRDMExpCls,
+        GenFockExpCls,
     ] = field(init=False)
 
     def kernel(
         self,
-    ) -> Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
+    ) -> Optional[
+        Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
+    ]:
         """
         this function is the main pymbe kernel
         """
@@ -140,6 +160,8 @@ class MBE:
             and isinstance(self.fci_state_root, list)
         ):
             self.exp = saRDMExpCls(self)
+        elif self.target == "genfock":
+            self.exp = GenFockExpCls(self)
 
         # dump flags
         if self.mpi.global_master:
@@ -174,7 +196,18 @@ class MBE:
         # dump flags
         logger.info("\n" + DIVIDER + "\n")
         for key, value in vars(self).items():
-            if key in ["mol", "hcore", "eri", "dipole_ints", "mpi", "exp"]:
+            if key in [
+                "mol",
+                "hcore",
+                "eri",
+                "mpi",
+                "exp",
+                "dipole_ints",
+                "inact_fock",
+                "eri_goaa",
+                "eri_gaao",
+                "eri_gaaa",
+            ]:
                 logger.debug(" " + key + " = " + str(value))
             else:
                 logger.info(" " + key + " = " + str(value))
@@ -201,7 +234,9 @@ class MBE:
         self,
         prop_type: str = "total",
         nuc_prop: Optional[Union[float, np.ndarray]] = None,
-    ) -> Optional[Union[float, np.ndarray, Tuple[np.ndarray, np.ndarray]]]:
+    ) -> Optional[
+        Union[float, np.ndarray, Tuple[Union[float, np.ndarray], np.ndarray]]
+    ]:
         """
         this function returns the total property
         """

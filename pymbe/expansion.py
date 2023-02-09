@@ -35,6 +35,8 @@ from pymbe.tools import (
     RST,
     RDMCls,
     packedRDMCls,
+    GenFockCls,
+    GenFockArrayCls,
     pi_space,
     natural_keys,
     n_tuples,
@@ -45,6 +47,7 @@ from pymbe.tools import (
     tuples,
     get_nelec,
     get_nhole,
+    get_nexc,
     start_idx,
     core_cas,
     idx_tril,
@@ -73,10 +76,10 @@ if TYPE_CHECKING:
 
 
 # define variable type for target properties
-TargetType = TypeVar("TargetType", float, np.ndarray, RDMCls)
+TargetType = TypeVar("TargetType", float, np.ndarray, RDMCls, GenFockCls)
 
 # define variable type for increment arrays
-IncType = TypeVar("IncType", np.ndarray, packedRDMCls)
+IncType = TypeVar("IncType", np.ndarray, packedRDMCls, GenFockArrayCls)
 
 # define variable type for MPI windows of increment arrays
 MPIWinType = TypeVar("MPIWinType", MPI.Win, Tuple[MPI.Win, MPI.Win])
@@ -184,12 +187,6 @@ class ExpCls(
         # order
         self.order: int = 0
         self.min_order: int = 1
-
-        if self.restarted:
-            start_order = self._restart_main(mbe.mpi)
-        else:
-            start_order = self.min_order
-        self.start_order: int = start_order
 
         if mbe.max_order is not None:
             max_order = min(self.exp_space[0].size, mbe.max_order)
@@ -557,6 +554,25 @@ class ExpCls(
 
         return hcore_win, eri_win, vhf_win
 
+    def _init_dep_attrs(self, mbe: MBE) -> None:
+        """
+        this function inititializes attributes that depend on other attributes
+        """
+        # hartree fock property
+        self.hf_prop = self._hf_prop(mbe.mpi)
+
+        # reference space property
+        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
+        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
+            self.ref_prop = self._ref_prop(mbe.mpi)
+
+        # attributes from restarted calculation
+        if self.restarted:
+            start_order = self._restart_main(mbe.mpi)
+        else:
+            start_order = self.min_order
+        self.start_order: int = start_order
+
     def _hf_prop(self, mpi: MPICls) -> TargetType:
         """
         this function calculates and bcasts the hartree-fock property
@@ -831,7 +847,7 @@ class ExpCls(
             self.ref_space.size == 0
             and self.order == 2
             and self.base_method is None
-            and self.target != "rdm12"
+            and self.target not in ["rdm12", "genfock"]
         ):
             pair_corr: Optional[List[np.ndarray]] = [
                 np.zeros(
@@ -1306,7 +1322,7 @@ class ExpCls(
 
         elif method == "fci":
 
-            res = self._fci_kernel(e_core, h1e, h2e, cas_idx, nelec)
+            res = self._fci_kernel(e_core, h1e, h2e, core_idx, cas_idx, nelec)
 
         return res
 
@@ -1316,6 +1332,7 @@ class ExpCls(
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
     ) -> TargetType:
@@ -1605,10 +1622,7 @@ class SingleTargetExpCls(
         self.occup = get_occup(self.norb, self.nelec)
 
     def _sum(
-        self,
-        inc: List[np.ndarray],
-        hashes: List[np.ndarray],
-        tup: np.ndarray,
+        self, inc: List[np.ndarray], hashes: List[np.ndarray], tup: np.ndarray
     ) -> SingleTargetType:
         """
         this function performs a recursive summation and returns the final increment

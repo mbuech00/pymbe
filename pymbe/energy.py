@@ -60,13 +60,8 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         super().__init__(mbe, cast(float, mbe.base_prop))
 
-        # hartree fock property
-        self.hf_prop = self._hf_prop(mbe.mpi)
-
-        # reference space property
-        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
-        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
-            self.ref_prop = self._ref_prop(mbe.mpi)
+        # initialize dependent attributes
+        self._init_dep_attrs(mbe)
 
     def prop(self, prop_type: str, nuc_prop: float = 0.0) -> float:
         """
@@ -170,6 +165,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
     ) -> float:
@@ -489,9 +485,15 @@ class EnergyExpCls(SingleTargetExpCls[float]):
 
         # set header
         if self.target == "energy":
-            header = f"energy for root {self.fci_state_root} (total increment = {tot_inc:.4e})"
+            header = (
+                f"energy for root {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
+            )
         elif self.target == "excitation":
-            header = f"excitation energy for root {self.fci_state_root} (total increment = {tot_inc:.4e})"
+            header = (
+                f"excitation energy for root {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
+            )
 
         # set string
         string: str = FILL_OUTPUT + "\n"

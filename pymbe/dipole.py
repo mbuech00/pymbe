@@ -60,13 +60,8 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         # additional integrals
         self.dipole_ints = cast(np.ndarray, mbe.dipole_ints)
 
-        # hartree fock property
-        self.hf_prop = self._hf_prop(mbe.mpi)
-
-        # reference space property
-        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
-        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
-            self.ref_prop = self._ref_prop(mbe.mpi)
+        # initialize dependent attributes
+        self._init_dep_attrs(mbe)
 
     def prop(
         self, prop_type: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
@@ -150,6 +145,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         e_core: float,
         h1e: np.ndarray,
         h2e: np.ndarray,
+        core_idx: np.ndarray,
         cas_idx: np.ndarray,
         nelec: np.ndarray,
     ) -> np.ndarray:
@@ -473,11 +469,14 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
 
         # set header
         if self.target == "dipole":
-            header = f"dipole moment for root {self.fci_state_root} (total increment = {tot_inc:.4e})"
+            header = (
+                f"dipole moment for root {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
+            )
         elif self.target == "trans":
             header = (
-                f"transition dipole moment for excitation 0 -> {self.fci_state_root} (total increment = "
-                f"{tot_inc:.4e})"
+                f"transition dipole moment for excitation 0 -> {self.fci_state_root} "
+                + f"(total increment = {tot_inc:.4e})"
             )
 
         # set string
