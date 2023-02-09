@@ -34,6 +34,7 @@ from pymbe.tools import (
     get_nhole,
     get_nexc,
     assertion,
+    core_cas,
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, mpi_gatherv
 
@@ -77,11 +78,10 @@ class RDMExpCls(ExpCls[RDMCls, packedRDMCls, Tuple[MPI.Win, MPI.Win]]):
         tot_rdm12 = self.mbe_tot_prop[-1].copy()
         tot_rdm12[self.ref_space] += self.ref_prop
         tot_rdm12 += self.base_prop
-        tot_rdm12 += (
-            self.hf_prop
-            if prop_type in ["electronic", "total"]
-            else self._init_target_inst(0.0, self.norb)
-        )
+        if prop_type in ["electronic", "total"]:
+            core_idx, cas_idx = core_cas(self.nocc, self.ref_space, self.exp_space[0])
+            tot_rdm12[core_idx] += self.hf_prop[core_idx]
+            tot_rdm12[cas_idx] += self.hf_prop[cas_idx]
 
         return tot_rdm12.rdm1, tot_rdm12.rdm2
 

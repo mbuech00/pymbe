@@ -510,8 +510,8 @@ class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]
         # elements for occupied orbitals outside CAS
         eri_pim = self.eri_goaa[:, :, occ_idx, occ_idx]
         eri_pmi = self.eri_gaao[:, occ_idx, occ_idx, :]
-        inact_fock_pi[:, : self.full_nocc] = 2 * np.sum(eri_pim, axis=2) - np.sum(
-            eri_pmi, axis=1
+        inact_fock_pi[:, : self.full_nocc] = np.sum(
+            2 * eri_pim - eri_pmi.transpose(0, 2, 1), axis=2
         )
 
         # add occupied orbitals inside CAS but outside iCAS to inactive Fock matrix
@@ -520,8 +520,8 @@ class GenFockExpCls(ExpCls[GenFockCls, GenFockArrayCls, Tuple[MPI.Win, MPI.Win]]
         eri_pmn2 = self.eri_gaaa[
             :, occ_idx.reshape(-1, 1), occ_idx.reshape(-1, 1), occ_idx
         ]
-        inact_fock_pi[:, self.full_nocc :] += 2 * np.sum(eri_pmn1, axis=2) - np.sum(
-            eri_pmn2, axis=1
+        inact_fock_pi[:, self.full_nocc :] += np.sum(
+            2 * eri_pmn1 - eri_pmn2.transpose(0, 2, 1), axis=2
         )
 
         # calculate active Fock matrix elements
