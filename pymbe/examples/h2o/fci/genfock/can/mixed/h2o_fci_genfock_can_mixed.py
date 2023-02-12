@@ -97,6 +97,7 @@ def mbe_example(rst=True):
             orbsym=orbsym,
             hcore=hcore,
             eri=eri,
+            ref_space=ref_space,
             exp_space=exp_space,
             rst=rst,
             full_norb=norb,
