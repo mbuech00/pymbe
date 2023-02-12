@@ -97,6 +97,9 @@ class MBE:
     pi_prune: bool = False
     orbsym_linear: Optional[np.ndarray] = None
 
+    # exclude single excitations
+    no_singles: bool = False
+
     # optional integrals for (transition) dipole moment
     dipole_ints: Optional[np.ndarray] = None
 
@@ -107,7 +110,6 @@ class MBE:
     eri_goaa: Optional[np.ndarray] = None
     eri_gaao: Optional[np.ndarray] = None
     eri_gaaa: Optional[np.ndarray] = None
-    no_singles: bool = False
 
     # mpi object
     mpi: MPICls = field(init=False)

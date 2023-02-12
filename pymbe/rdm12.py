@@ -45,6 +45,7 @@ from pymbe.tools import (
     core_cas,
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, mpi_gatherv
+from pymbe import direct_spin0_symm, direct_spin1_symm
 
 if TYPE_CHECKING:
 
@@ -70,6 +71,9 @@ class RDMExpCls(
         init expansion attributes
         """
         super(RDMExpCls, self).__init__(mbe, RDMCls(*cast(tuple, mbe.base_prop)))
+
+        # additional settings
+        self.no_singles = mbe.no_singles
 
         # initialize dependent attributes
         self._init_dep_attrs(mbe)
@@ -618,10 +622,16 @@ class ssRDMExpCls(RDMExpCls[int, np.ndarray]):
         assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
 
         # init fci solver
-        if spin_cas == 0:
-            solver = fci.direct_spin0_symm.FCI()
+        if not self.no_singles:
+            if spin_cas == 0:
+                solver = fci.direct_spin0_symm.FCI()
+            else:
+                solver = fci.direct_spin1_symm.FCI()
         else:
-            solver = fci.direct_spin1_symm.FCI()
+            if spin_cas == 0:
+                solver = direct_spin0_symm.FCISolver()
+            else:
+                solver = direct_spin1_symm.FCISolver()
 
         # settings
         solver.conv_tol = CONV_TOL
@@ -831,10 +841,16 @@ class saRDMExpCls(RDMExpCls[List[int], List[np.ndarray]]):
         for solver_info in solvers:
 
             # init fci solver
-            if solver_info["spin"] == 0:
-                solver = fci.direct_spin0_symm.FCI()
+            if not self.no_singles:
+                if solver_info["spin"] == 0:
+                    solver = fci.direct_spin0_symm.FCI()
+                else:
+                    solver = fci.direct_spin1_symm.FCI()
             else:
-                solver = fci.direct_spin1_symm.FCI()
+                if solver_info["spin"] == 0:
+                    solver = direct_spin0_symm.FCISolver()
+                else:
+                    solver = direct_spin1_symm.FCISolver()
 
             # get roots
             roots = [states[state]["root"] for state in solver_info["states"]]

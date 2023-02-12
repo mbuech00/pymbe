@@ -712,6 +712,13 @@ def sanity_check(mbe: MBE) -> None:
             "be a np.ndarray with shape (norb,)",
         )
 
+    # exclude single excitations
+    if mbe.target in ["rdm12", "genfock"]:
+        assertion(
+            isinstance(mbe.no_singles, bool),
+            "excluding single excitations (no_singles keyword argument) must be a bool",
+        )
+
     # optional integrals for (transition) dipole moment
     if mbe.target in ["dipole", "trans"]:
         assertion(
@@ -762,10 +769,6 @@ def sanity_check(mbe: MBE) -> None:
             "general-active-active-active electron repulsion integral (eri_gaaa "
             "keyword argument) must be a np.ndarraywith shape "
             "(mbe.full_norb, mbe.norb, mbe.norb, mbe.norb)",
-        )
-        assertion(
-            isinstance(mbe.no_singles, bool),
-            "excluding single excitations (no_singles keyword argument) must be a bool",
         )
 
 

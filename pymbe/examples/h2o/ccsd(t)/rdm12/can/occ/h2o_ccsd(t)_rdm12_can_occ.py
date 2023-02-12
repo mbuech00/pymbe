@@ -60,6 +60,7 @@ def mbe_example(rst=True):
             ref_space=ref_space,
             exp_space=exp_space,
             rst=rst,
+            no_singles=False,
         )
 
         # perform calculation
