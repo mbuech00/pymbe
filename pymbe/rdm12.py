@@ -773,7 +773,8 @@ class saRDMExpCls(RDMExpCls[List[int], List[np.ndarray]]):
         """
         this function returns the results of a fci calculation
         """
-        rdm12 = RDMCls(
+        # initialize state-averaged RDMs
+        sa_rdm12 = RDMCls(
             np.zeros(2 * (cas_idx.size,), dtype=np.float64),
             np.zeros(4 * (cas_idx.size,), dtype=np.float64),
         )
@@ -950,7 +951,7 @@ class saRDMExpCls(RDMExpCls[List[int], List[np.ndarray]]):
 
             for root, state_idx in zip(roots, solver_info["states"]):
 
-                rdm12 += self.fci_state_weights[state_idx] * (
+                sa_rdm12 += self.fci_state_weights[state_idx] * (
                     RDMCls(
                         *solver.make_rdm12(
                             civec[root], cas_idx.size, solver_info["nelec"]
@@ -959,7 +960,7 @@ class saRDMExpCls(RDMExpCls[List[int], List[np.ndarray]]):
                     - self.hf_prop[cas_idx]
                 )
 
-        return rdm12
+        return sa_rdm12
 
     def _mbe_debug(
         self,

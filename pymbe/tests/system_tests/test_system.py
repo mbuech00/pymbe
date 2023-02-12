@@ -86,6 +86,7 @@ examples = [
     ["h2o", "fci", "rdm12", "can", "occ"],
     ["h2o", "fci", "rdm12", "can", "mixed"],
     ["h2o", "fci", "sa_rdm12", "can", "mixed"],
+    ["h2o", "fci", "sa_genfock", "can", "mixed"],
     ["h2o", "fci", "genfock", "can", "vac"],
     ["h2o", "fci", "genfock", "can", "occ"],
     ["h2o", "fci", "genfock", "can", "mixed"],

@@ -28,7 +28,7 @@ from pymbe.excitation import ExcExpCls
 from pymbe.dipole import DipoleExpCls
 from pymbe.trans import TransExpCls
 from pymbe.rdm12 import ssRDMExpCls, saRDMExpCls
-from pymbe.genfock import GenFockExpCls
+from pymbe.genfock import ssGenFockExpCls, saGenFockExpCls
 from pymbe.tools import RST, assertion
 
 if TYPE_CHECKING:
@@ -122,7 +122,8 @@ class MBE:
         TransExpCls,
         ssRDMExpCls,
         saRDMExpCls,
-        GenFockExpCls,
+        ssGenFockExpCls,
+        saGenFockExpCls,
     ] = field(init=False)
 
     def kernel(
@@ -162,8 +163,20 @@ class MBE:
             and isinstance(self.fci_state_root, list)
         ):
             self.exp = saRDMExpCls(self)
-        elif self.target == "genfock":
-            self.exp = GenFockExpCls(self)
+        elif (
+            self.target == "genfock"
+            and isinstance(self.nelec, np.ndarray)
+            and isinstance(self.fci_state_sym, int)
+            and isinstance(self.fci_state_root, int)
+        ):
+            self.exp = ssGenFockExpCls(self)
+        elif (
+            self.target == "genfock"
+            and isinstance(self.nelec, list)
+            and isinstance(self.fci_state_sym, list)
+            and isinstance(self.fci_state_root, list)
+        ):
+            self.exp = saGenFockExpCls(self)
 
         # dump flags
         if self.mpi.global_master:

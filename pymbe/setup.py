@@ -118,8 +118,8 @@ def main(mbe: MBE) -> MBE:
                 elif mbe.target in ["excitation", "trans"]:
                     mbe.fci_state_root = 1
 
-            # set default values for state-averaged rdm12 calculations
-            if mbe.target == "rdm12":
+            # set default values for state-averaged rdm12 and genfock calculations
+            if mbe.target in ["rdm12", "genfock"]:
                 if isinstance(mbe.nelec, list):
                     mbe.hf_guess = False
                     if isinstance(mbe.fci_state_sym, int):
@@ -429,11 +429,12 @@ def sanity_check(mbe: MBE) -> None:
         and isinstance(mbe.fci_state_weights, list)
     ):
         assertion(
-            mbe.target == "rdm12",
-            "only 1- and 2-particle reduced density matrices can be determined as "
-            "state-averaged properties, all other mbe targets must only have keywords "
-            "describing a single state and can therefore not be lists (nelec, "
-            "fci_state_sym, fci_state_root, fci_state_weights keyword arguments)",
+            mbe.target in ["rdm12", "genfock"],
+            "only 1- and 2-particle reduced density matrices and generalized Fock "
+            "matrices can be determined as state-averaged properties, all other mbe "
+            "targets must only have keywords describing a single state and can "
+            "therefore not be lists (nelec, fci_state_sym, fci_state_root, "
+            "fci_state_weights keyword arguments)",
         )
         assertion(
             mbe.method == "fci",
