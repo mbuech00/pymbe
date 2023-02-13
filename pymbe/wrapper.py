@@ -15,13 +15,11 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
-import scipy as sc
 from pyscf import gto, scf, symm, lo, cc, mcscf, fci, ao2mo
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import uccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import uccsd_t_rdm
-from pyscf.lib.exceptions import PointGroupSymmetryError
 from copy import copy
 from typing import TYPE_CHECKING, cast, Union
 from warnings import catch_warnings, simplefilter
@@ -40,9 +38,6 @@ from pymbe.tools import (
     idx_tril,
     ground_state_sym,
     get_occup,
-    get_symm_op_matrices,
-    transform_mos,
-    get_symm_coord,
 )
 
 if TYPE_CHECKING:
@@ -54,9 +49,6 @@ HF_CONV_TOL = 1.0e-10
 CAS_CONV_TOL = 1.0e-10
 LOC_CONV_TOL = 1.0e-10
 SPIN_TOL = 1.0e-05
-COORD_TOL = 1.0e-05
-MO_SYMM_TOL = 1.0e-13
-DETECT_MO_SYMM_TOL = 1.0e-01
 
 
 def ints(
@@ -1509,215 +1501,3 @@ def linear_orbsym(mol: gto.Mole, mo_coeff: np.ndarray) -> np.ndarray:
     )
 
     return orbsym_parent
-
-
-def symm_eqv_mo(
-    mol: gto.Mole, mo_coeff: np.ndarray, point_group: str
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    returns an array of permutations of symmetry equivalent orbitals for each
-    symmetry operation
-    """
-    # convert point group to standard symbol
-    point_group = symm.std_symb(point_group)
-
-    # get different equivalent atom types
-    atom_types = [
-        np.array(atom_type)
-        for atom_type in gto.mole.atom_types(mol._atom, mol.basis).values()
-    ]
-
-    # get atom coords
-    coords = mol.atom_coords()
-
-    # get symmetry origin and axes
-    symm_orig, symm_axes = get_symm_coord(point_group, mol._atom, mol._basis)
-
-    # shift coordinates to symmetry origin
-    coords -= symm_orig
-
-    # rotate coordinates to symmetry axes
-    coords = (symm_axes.T @ coords.T).T
-
-    # get number of occupied orbitals
-    nocc = max(mol.nelec)
-
-    # get ao shell offsets
-    ao_loc = mol.ao_loc_nr()
-
-    # get angular momentum for each shell
-    l_shell = [mol.bas_angular(shell) for shell in range(mol.nbas)]
-
-    # get Wigner D matrices to rotate mo coefficients from input coordinate system to
-    # symmetry axes
-    Ds = symm.basis._ao_rotation_matrices(mol, symm_axes)
-
-    # get ao offset for every atom
-    _, _, ao_start_list, ao_stop_list = mol.offset_nr_by_atom().T
-
-    # get list of all symmetry operation matrices for point group
-    ops = get_symm_op_matrices(point_group, max(l_shell))
-
-    # get ao overlap matrix
-    sao = gto.intor_cross("int1e_ovlp", mol, mol)
-
-    # diagonalize ao overlap matrix
-    e, v = sc.linalg.eigh(sao)
-
-    # get all indices for non-zero eigenvalues
-    idx = e > 1e-15
-
-    # calculate root of ao overlap matrix
-    sqrt_sao = (v[:, idx] * np.sqrt(e[idx])) @ v[:, idx].conj().T
-
-    # calculate reciprocal root of ao overlap matrix
-    rec_sqrt_sao = (v[:, idx] / np.sqrt(e[idx])) @ v[:, idx].conj().T
-
-    # transform mo coefficients into orthogonal ao basis
-    mo_coeff = sqrt_sao @ mo_coeff
-
-    # initialize atom indices permutation array
-    permut_atom_idx = np.empty(mol.natm, dtype=np.int64)
-
-    # initialize ao indices permutation array for every symmetry operation
-    permut_ao_idx = np.empty((len(ops), mol.nao), dtype=np.int64)
-
-    # initialize array of equivalent mos
-    symm_eqv_mos = np.empty((len(ops), mo_coeff.shape[0]), dtype=np.int64)
-
-    # loop over symmetry operations
-    for op, (cart_op_mat, sph_op_mats) in enumerate(ops):
-
-        # loop over group of equivalent atoms with equivalent basis functions
-        for atom_type in atom_types:
-
-            # extract coordinates of atom type
-            atom_coords = coords[atom_type]
-
-            # get indices necessary to sort coords lexicographically
-            lex_idx = symm.geom.argsort_coords(atom_coords)
-
-            # sort coords lexicographically
-            lex_coords = atom_coords[lex_idx]
-
-            # get indices necessary to sort atom numbers
-            sort_idx = np.argsort(lex_idx)
-
-            # get new coordinates of atoms after applying symmetry operation
-            new_atom_coords = (cart_op_mat.T @ atom_coords.T).T
-
-            # get indices necessary to sort new coords lexicographically
-            lex_idx = symm.geom.argsort_coords(new_atom_coords)
-
-            # check whether rearranged new coords are the same as rearranged original
-            # coords
-            if not np.allclose(lex_coords, new_atom_coords[lex_idx], atol=COORD_TOL):
-                raise PointGroupSymmetryError("Symmetry identical atoms not found")
-
-            # reorder indices according to sort order of original indices
-            op_atom_ids = lex_idx[sort_idx]
-
-            # add atom permutations for atom type
-            permut_atom_idx[atom_type] = atom_type[op_atom_ids]
-
-        # loop over atoms
-        for atom_id, permut_atom_id in enumerate(permut_atom_idx):
-
-            # add ao permutations for atom
-            permut_ao_idx[
-                op, ao_start_list[atom_id] : ao_stop_list[atom_id]
-            ] = np.arange(ao_start_list[permut_atom_id], ao_stop_list[permut_atom_id])
-
-    # loop over repeating symmetrization and orthogonalization steps until convergence
-    # an iterative procedure is needed because the symmetric (Löwdin) orthogonalization
-    # between blocks of symmetry equivalent orbitals destroys some symmetry
-    for _ in range(100):
-
-        # intitialze symmetrized mo coefficients
-        symm_mo_coeff = np.zeros_like(mo_coeff)
-
-        # initialize maximum deviation from symmetry
-        max_asymm = 0.0
-
-        # define outer product of occupied orbitals
-        project_occ = np.einsum("ij,kj->ik", mo_coeff[:, :nocc], mo_coeff[:, :nocc])
-
-        # define outer product of virtual orbitals
-        project_virt = np.einsum("ij,kj->ik", mo_coeff[:, nocc:], mo_coeff[:, nocc:])
-
-        # loop over symmetry operations
-        for op, (cart_op_mat, sph_op_mats) in enumerate(ops):
-
-            # rotate symmetry operation matrices for spherical harmonics to original
-            # coordinates and back
-            rot_sph_op_mats = [
-                rot_mat.T @ op_mat @ rot_mat for rot_mat, op_mat in zip(Ds, sph_op_mats)
-            ]
-
-            # permute aos
-            op_mo_coeff = mo_coeff[permut_ao_idx[op], :]
-
-            # transform mos
-            op_mo_coeff = transform_mos(op_mo_coeff, rot_sph_op_mats, l_shell, ao_loc)
-
-            # consider only occupied components of transformed occupied orbitals
-            op_mo_coeff[:, :nocc] = np.einsum(
-                "ij,jk->ik", project_occ, op_mo_coeff[:, :nocc]
-            )
-
-            # consider only virtual components of transformed virtual orbitals
-            op_mo_coeff[:, nocc:] = np.einsum(
-                "ij,jk->ik", project_virt, op_mo_coeff[:, nocc:]
-            )
-
-            # calculate overlaps between transformed mo coefficients and actual mo
-            # coefficients
-            overlaps = np.einsum("ij,ik->jk", op_mo_coeff.conj(), mo_coeff)
-
-            # get index of maximum overlap for every mo
-            symm_eqv_mos[op, :] = np.argmax(np.abs(overlaps), axis=1)
-
-            # get maximum overlaps
-            eqv_overlaps = np.abs(np.diag(overlaps[:, symm_eqv_mos[op, :]]))
-
-            # get boolean array for equivalent mos above threshold
-            eqv_idx = np.isclose(eqv_overlaps, 1.0, atol=DETECT_MO_SYMM_TOL)
-
-            # only consider equivalent mos above threshold
-            symm_eqv_mos[op, np.logical_not(eqv_idx)] = -1
-
-            # get maximum deviation from symmetry for all symmetry equivalent orbitals
-            max_asymm = max(np.max(1.0 - eqv_overlaps[eqv_idx]), max_asymm)
-
-            # average symmetry equivalent orbitals
-            symm_mo_coeff[:, symm_eqv_mos[op, eqv_idx]] += (
-                np.sign(overlaps[eqv_idx, symm_eqv_mos[op, eqv_idx]])
-                * op_mo_coeff[:, eqv_idx]
-            )
-
-        # check if maximum deviation from symmetry is below threshold
-        if max_asymm < MO_SYMM_TOL:
-
-            # symmetrization finished
-            break
-
-        # normalize mo coefficients
-        symm_mo_coeff /= np.linalg.norm(symm_mo_coeff, axis=0)
-
-        # orthogonalize mo coefficients
-        symm_mo_coeff = lo.orth.vec_lowdin(symm_mo_coeff)
-
-        # set orthogonalized orbitals as new orbitals
-        mo_coeff = symm_mo_coeff
-
-    # symmetrization did not converge
-    else:
-
-        raise PointGroupSymmetryError(
-            "Symmetrization of localized orbitals did not converge."
-        )
-
-    # backtransform mo coefficients
-    mo_coeff = rec_sqrt_sao @ mo_coeff
-
-    return symm_eqv_mos, mo_coeff
