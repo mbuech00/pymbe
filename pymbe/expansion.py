@@ -19,9 +19,8 @@ import logging
 import numpy as np
 from mpi4py import MPI
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, Union
+from typing import TYPE_CHECKING, cast, TypeVar, Generic, Tuple, List, Union
 
-from pymbe.kernel import e_core_h1e
 from pymbe.output import (
     main_header,
     mbe_header,
@@ -36,6 +35,8 @@ from pymbe.tools import (
     RST,
     RDMCls,
     packedRDMCls,
+    GenFockCls,
+    GenFockArrayCls,
     pi_space,
     natural_keys,
     n_tuples,
@@ -46,12 +47,15 @@ from pymbe.tools import (
     tuples,
     get_nelec,
     get_nhole,
+    get_nexc,
     start_idx,
     core_cas,
     idx_tril,
     hash_1d,
     hash_lookup,
     get_occup,
+    get_vhf,
+    e_core_h1e,
     symm_eqv_tup,
     get_lex_tup,
 )
@@ -62,25 +66,31 @@ from pymbe.parallel import (
     mpi_gatherv,
     open_shared_win,
 )
-from pymbe.results import atom_prt, summary_prt, timings_prt
+from pymbe.results import timings_prt
 
 if TYPE_CHECKING:
 
     from pyscf import gto
-    from typing import List, Dict, Optional
+    from typing import Dict, Optional
 
     from pymbe.pymbe import MBE
     from pymbe.parallel import MPICls
 
 
 # define variable type for target properties
-TargetType = TypeVar("TargetType", float, np.ndarray, RDMCls)
+TargetType = TypeVar("TargetType", float, np.ndarray, RDMCls, GenFockCls)
 
 # define variable type for increment arrays
-IncType = TypeVar("IncType", np.ndarray, packedRDMCls)
+IncType = TypeVar("IncType", np.ndarray, packedRDMCls, GenFockArrayCls)
 
 # define variable type for MPI windows of increment arrays
 MPIWinType = TypeVar("MPIWinType", MPI.Win, Tuple[MPI.Win, MPI.Win])
+
+# define variable type for integers describing electronic states
+StateIntType = TypeVar("StateIntType", int, List[int])
+
+# define variable type for numpy arrays describing electronic states
+StateArrayType = TypeVar("StateArrayType", np.ndarray, List[np.ndarray])
 
 
 # get logger
@@ -90,14 +100,20 @@ logger = logging.getLogger("pymbe_logger")
 SCREEN = 1000.0  # random, non-sensical number
 
 
-class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
+MAX_MEM = 1e10
+CONV_TOL = 1.0e-10
+SPIN_TOL = 1.0e-05
+
+
+class ExpCls(
+    Generic[TargetType, IncType, MPIWinType, StateIntType, StateArrayType],
+    metaclass=ABCMeta,
+):
     """
     this class contains the pymbe expansion attributes
     """
 
-    def __init__(
-        self, mbe: MBE, hf_prop: TargetType, ref_prop: TargetType, base_prop: TargetType
-    ) -> None:
+    def __init__(self, mbe: MBE, base_prop: TargetType) -> None:
         """
         init expansion attributes
         """
@@ -110,11 +126,11 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         self.target: str = mbe.target
 
         # system
-        self.nuc_energy = cast(float, mbe.nuc_energy)
-        self.ncore: int = mbe.ncore
-        self.norb = cast(int, mbe.norb)
-        self.nelec = cast(np.ndarray, mbe.nelec)
-        self.point_group = cast(str, mbe.point_group)
+        self.norb: int = cast(int, mbe.norb)
+        self.nelec: StateArrayType = cast(StateArrayType, mbe.nelec)
+        self.point_group: str = cast(str, mbe.point_group)
+        self.orbsym: np.ndarray
+        self.symm_eqv_orbs: Optional[np.ndarray]
         if mbe.orb_type == "local" and cast(np.ndarray, mbe.orbsym).ndim == 2:
             self.orbsym = np.zeros(self.norb, dtype=np.int64)
             if cast(np.ndarray, mbe.orbsym).shape[0] > 1 and self.target != "rdm12":
@@ -124,39 +140,25 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         else:
             self.orbsym = cast(np.ndarray, mbe.orbsym)
             self.symm_eqv_orbs = None
-        self.fci_state_sym = cast(int, mbe.fci_state_sym)
-        self.fci_state_root = cast(int, mbe.fci_state_root)
-        self.nocc = np.max(self.nelec)
-        self.spin = abs(self.nelec[0] - self.nelec[1])
-
-        # hf calculation
-        self.hf_prop: TargetType = hf_prop
-        self.occup = get_occup(self.norb, self.nelec)
+        self.fci_state_sym: StateIntType = cast(StateIntType, mbe.fci_state_sym)
+        self.fci_state_root: StateIntType = cast(StateIntType, mbe.fci_state_root)
+        self.fci_state_weights: np.ndarray = cast(np.ndarray, mbe.fci_state_weights)
+        self._state_occup()
 
         # integrals
-        hcore, eri, vhf = self._int_wins(
-            mbe.hcore, mbe.eri, mbe.vhf, mbe.mpi, self.norb, self.nocc
-        )
-        self.hcore: MPI.Win = hcore
-        self.vhf: MPI.Win = vhf
-        self.eri: MPI.Win = eri
+        hcore_win, eri_win, vhf_win = self._int_wins(mbe.hcore, mbe.eri, mbe.mpi)
+        self.hcore: MPI.Win = hcore_win
+        self.eri: MPI.Win = eri_win
+        self.vhf: MPI.Win = vhf_win
 
         # orbital representation
         self.orb_type: str = mbe.orb_type
 
-        # reference space
+        # reference and expansion spaces
         self.ref_space: np.ndarray = mbe.ref_space
-        self.ref_prop: TargetType = ref_prop
         self.ref_nelec = get_nelec(self.occup, self.ref_space)
         self.ref_nhole = get_nhole(self.ref_nelec, self.ref_space)
-
-        # expansion space
-        self.exp_space: List[np.ndarray] = [
-            np.array(
-                [i for i in range(self.ncore, self.norb) if i not in self.ref_space],
-                dtype=np.int64,
-            )
-        ]
+        self.exp_space: List[np.ndarray] = [cast(np.ndarray, mbe.exp_space)]
 
         # base model
         self.base_method: Optional[str] = mbe.base_method
@@ -185,6 +187,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         # screening
         self.screen_start: int = mbe.screen_start
         self.screen_perc: float = mbe.screen_perc
+        self.screen_func: str = mbe.screen_func
         self.screen = np.zeros(self.norb, dtype=np.float64)
         self.screen_orbs = np.array([], dtype=np.int64)
 
@@ -196,12 +199,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         # order
         self.order: int = 0
         self.min_order: int = 1
-
-        if self.restarted:
-            start_order = self._restart_main(mbe.mpi)
-        else:
-            start_order = self.min_order
-        self.start_order: int = start_order
 
         if mbe.max_order is not None:
             max_order = min(self.exp_space[0].size, mbe.max_order)
@@ -227,11 +224,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         # pi pruning
         self.pi_prune: bool = mbe.pi_prune
-
         if self.pi_prune:
-
             self.orbsym_linear = cast(np.ndarray, mbe.orbsym_linear)
-
             pi_orbs, pi_hashes = pi_space(
                 "Dooh" if self.point_group == "D2h" else "Coov",
                 self.orbsym_linear,
@@ -239,6 +233,12 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             )
             self.pi_orbs: np.ndarray = pi_orbs
             self.pi_hashes: np.ndarray = pi_hashes
+
+        # hartree fock property
+        self.hf_prop: TargetType
+
+        # reference space property
+        self.ref_prop: TargetType
 
     def driver_master(self, mpi: MPICls) -> None:
         """
@@ -485,13 +485,6 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         # print header
         string = main_header() + "\n\n"
 
-        # print atom info
-        if mol and mol.atom:
-            string += atom_prt(mol) + "\n\n"
-
-        # print summary
-        string += summary_prt(mpi, self, *self._prop_summ()) + "\n\n"
-
         # print timings
         string += timings_prt(self, self.method) + "\n\n"
 
@@ -500,25 +493,31 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         return string
 
+    @abstractmethod
+    def _state_occup(self) -> None:
+        """
+        this function initializes certain state attributes
+        """
+        self.nocc: int
+        self.spin: StateIntType
+        self.occup: np.ndarray
+
     def _int_wins(
         self,
         hcore_in: Optional[np.ndarray],
         eri_in: Optional[np.ndarray],
-        vhf_in: Optional[np.ndarray],
         mpi: MPICls,
-        norb: int,
-        nocc: int,
     ) -> Tuple[MPI.Win, MPI.Win, MPI.Win]:
         """
         this function creates shared memory windows for integrals on every node
         """
         # allocate hcore in shared mem
         hcore_win = MPI.Win.Allocate_shared(
-            8 * norb**2 if mpi.local_master else 0,
+            8 * self.norb**2 if mpi.local_master else 0,
             8,
             comm=mpi.local_comm,  # type: ignore
         )
-        hcore = open_shared_win(hcore_win, np.float64, 2 * (norb,))
+        hcore = open_shared_win(hcore_win, np.float64, 2 * (self.norb,))
 
         # set hcore on global master
         if mpi.global_master:
@@ -530,11 +529,13 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         # allocate eri in shared mem
         eri_win = MPI.Win.Allocate_shared(
-            8 * (norb * (norb + 1) // 2) ** 2 if mpi.local_master else 0,
+            8 * (self.norb * (self.norb + 1) // 2) ** 2 if mpi.local_master else 0,
             8,
             comm=mpi.local_comm,  # type: ignore
         )
-        eri = open_shared_win(eri_win, np.float64, 2 * (norb * (norb + 1) // 2,))
+        eri = open_shared_win(
+            eri_win, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
+        )
 
         # set eri on global master
         if mpi.global_master:
@@ -546,15 +547,15 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
         # allocate vhf in shared mem
         vhf_win = MPI.Win.Allocate_shared(
-            8 * nocc * norb**2 if mpi.local_master else 0,
+            8 * self.nocc * self.norb**2 if mpi.local_master else 0,
             8,
             comm=mpi.local_comm,  # type: ignore
         )
-        vhf = open_shared_win(vhf_win, np.float64, (nocc, norb, norb))
+        vhf = open_shared_win(vhf_win, np.float64, (self.nocc, self.norb, self.norb))
 
-        # set vhf on global master
+        # compute and set hartree-fock potential on global master
         if mpi.global_master:
-            vhf[:] = cast(np.ndarray, vhf_in)
+            vhf[:] = get_vhf(eri, self.nocc, self.norb)
 
         # mpi_bcast vhf
         if mpi.num_masters > 1 and mpi.local_master:
@@ -564,6 +565,111 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         mpi.global_comm.Barrier()
 
         return hcore_win, eri_win, vhf_win
+
+    def _init_dep_attrs(self, mbe: MBE) -> None:
+        """
+        this function inititializes attributes that depend on other attributes
+        """
+        # hartree fock property
+        self.hf_prop = self._hf_prop(mbe.mpi)
+
+        # reference space property
+        self.ref_prop = self._init_target_inst(0.0, self.ref_space.size)
+        if get_nexc(self.ref_nelec, self.ref_nhole) > self.vanish_exc:
+            self.ref_prop = self._ref_prop(mbe.mpi)
+
+        # attributes from restarted calculation
+        if self.restarted:
+            start_order = self._restart_main(mbe.mpi)
+        else:
+            start_order = self.min_order
+        self.start_order: int = start_order
+
+    def _hf_prop(self, mpi: MPICls) -> TargetType:
+        """
+        this function calculates and bcasts the hartree-fock property
+        """
+        # calculate reference space property on global master
+        if mpi.global_master:
+
+            # load hcore
+            hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
+
+            # load eri
+            eri = open_shared_win(
+                self.eri, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
+            )
+
+            # load vhf
+            vhf = open_shared_win(
+                self.vhf, np.float64, (self.nocc, self.norb, self.norb)
+            )
+
+            # compute hartree-fock property
+            hf_prop = self._calc_hf_prop(hcore, eri, vhf)
+
+            # bcast ref_prop to slaves
+            mpi.global_comm.bcast(hf_prop, root=0)
+
+        else:
+
+            # receive ref_prop from master
+            hf_prop = mpi.global_comm.bcast(None, root=0)
+
+        return hf_prop
+
+    @abstractmethod
+    def _calc_hf_prop(
+        self, hcore: np.ndarray, eri: np.ndarray, vhf: np.ndarray
+    ) -> TargetType:
+        """
+        this function calculates the hartree-fock property
+        """
+
+    def _ref_prop(self, mpi: MPICls) -> TargetType:
+        """
+        this function returns reference space properties
+        """
+        # calculate reference space property on global master
+        if mpi.global_master:
+
+            # load hcore
+            hcore = open_shared_win(self.hcore, np.float64, 2 * (self.norb,))
+
+            # load eri
+            eri = open_shared_win(
+                self.eri, np.float64, 2 * (self.norb * (self.norb + 1) // 2,)
+            )
+
+            # load vhf
+            vhf = open_shared_win(
+                self.vhf, np.float64, (self.nocc, self.norb, self.norb)
+            )
+
+            # core_idx and cas_idx
+            core_idx, cas_idx = core_cas(
+                self.nocc, self.ref_space, np.array([], dtype=np.int64)
+            )
+
+            # get cas_space h2e
+            cas_idx_tril = idx_tril(cas_idx)
+            h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
+
+            # compute e_core and h1e_cas
+            e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
+
+            # compute reference space property
+            ref_prop, _ = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
+
+            # bcast ref_prop to slaves
+            mpi.global_comm.bcast(ref_prop, root=0)
+
+        else:
+
+            # receive ref_prop from master
+            ref_prop = mpi.global_comm.bcast(None, root=0)
+
+        return ref_prop
 
     def _restart_main(self, mpi: MPICls) -> int:
         """
@@ -753,7 +859,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             self.ref_space.size == 0
             and self.order == 2
             and self.base_method is None
-            and self.target != "rdm12"
+            and self.target not in ["rdm12", "genfock"]
         ):
             pair_corr: Optional[List[np.ndarray]] = [
                 np.zeros(
@@ -786,6 +892,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         )
 
         # start tuples
+        tup_occ: Optional[np.ndarray]
+        tup_virt: Optional[np.ndarray]
         if tup is not None:
             tup_occ = tup[tup < self.nocc]
             tup_virt = tup[self.nocc <= tup]
@@ -918,12 +1026,10 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             h2e_cas = eri[cas_idx_tril[:, None], cas_idx_tril]
 
             # compute e_core and h1e_cas
-            e_core, h1e_cas = e_core_h1e(self.nuc_energy, hcore, vhf, core_idx, cas_idx)
+            e_core, h1e_cas = e_core_h1e(hcore, vhf, core_idx, cas_idx)
 
             # calculate increment
-            inc_tup, nelec_tup = self._inc(
-                e_core, h1e_cas, h2e_cas, core_idx, cas_idx, tup
-            )
+            inc_tup, nelec_tup = self._inc(e_core, h1e_cas, h2e_cas, core_idx, cas_idx)
 
             # calculate increment
             if self.order > self.min_order:
@@ -934,7 +1040,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
             inc[-1][tup_idx] = inc_tup
 
             # screening procedure
-            screen[tup] = self._screen(inc_tup, screen, tup)
+            screen[tup] = self._screen(inc_tup, screen, tup, self.screen_func)
 
             # debug print
             logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
@@ -1005,9 +1111,15 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         tot_screen = tot_screen[self.exp_space[-1]]
         thres = 1.0 if self.order < self.screen_start else self.screen_perc
         screen_idx = int(thres * self.exp_space[-1].size)
-        self.exp_space.append(
-            self.exp_space[-1][np.sort(np.argsort(tot_screen)[::-1][:screen_idx])]
-        )
+        if self.screen_func == "rnd":
+            rng = np.random.default_rng()
+            self.exp_space.append(
+                rng.choice(self.exp_space[-1], size=screen_idx, replace=False)
+            )
+        else:
+            self.exp_space.append(
+                self.exp_space[-1][np.sort(np.argsort(tot_screen)[::-1][:screen_idx])]
+            )
 
         # write restart files
         if mpi.global_master:
@@ -1029,7 +1141,7 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
                 "cumulative corr."
             )
             logger.debug(" " + "-" * 74)
-            for i in range(10):
+            for i in range(pair_corr[0].size):
                 logger.debug(
                     f"   [{pair_corr[1][i][0]:3d},{pair_corr[1][i][1]:3d}]    |"
                     f"    {pair_corr[0][i]:.3e}    |"
@@ -1216,19 +1328,67 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[TargetType, np.ndarray]:
         """
         this function calculates the current-order contribution to the increment
         associated with a given tuple
         """
 
+    def _kernel(
+        self,
+        method: str,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+    ) -> TargetType:
+        """
+        this function return the result property from a given method
+        """
+        if method in ["ccsd", "ccsd(t)", "ccsdt", "ccsdtq"]:
+
+            res = self._cc_kernel(method, core_idx, cas_idx, nelec, h1e, h2e, False)
+
+        elif method == "fci":
+
+            res = self._fci_kernel(e_core, h1e, h2e, core_idx, cas_idx, nelec)
+
+        return res
+
+    @abstractmethod
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+    ) -> TargetType:
+        """
+        this function returns the results of a fci calculation
+        """
+
+    @abstractmethod
+    def _cc_kernel(
+        self,
+        method: str,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        higher_amp_extrap: bool,
+    ) -> TargetType:
+        """
+        this function returns the results of a cc calculation
+        """
+
     @abstractmethod
     def _sum(
-        self,
-        inc: List[IncType],
-        hashes: List[np.ndarray],
-        tup: np.ndarray,
+        self, inc: List[IncType], hashes: List[np.ndarray], tup: np.ndarray
     ) -> TargetType:
         """
         this function performs a recursive summation and returns the final increment
@@ -1250,9 +1410,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         this function reads files of attributes with the target type
         """
 
-    @staticmethod
     @abstractmethod
-    def _init_target_inst(value: float, norb: int) -> TargetType:
+    def _init_target_inst(self, value: float, norb: int) -> TargetType:
         """
         this function initializes an instance of the target type
         """
@@ -1358,13 +1517,8 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
         this function allocates a shared increment window
         """
 
-    @staticmethod
     @abstractmethod
-    def _open_shared_inc(
-        window: MPIWinType,
-        n_tuples: int,
-        idx: int,
-    ) -> IncType:
+    def _open_shared_inc(self, window: MPIWinType, n_tuples: int, idx: int) -> IncType:
         """
         this function opens a shared increment window
         """
@@ -1415,7 +1569,9 @@ class ExpCls(Generic[TargetType, IncType, MPIWinType], metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def _screen(inc_tup: TargetType, screen: np.ndarray, tup: np.ndarray) -> np.ndarray:
+    def _screen(
+        inc_tup: TargetType, screen: np.ndarray, tup: np.ndarray, screen_func: str
+    ) -> np.ndarray:
         """
         this function modifies the screening array
         """
@@ -1482,18 +1638,23 @@ SingleTargetType = TypeVar("SingleTargetType", float, np.ndarray)
 
 
 class SingleTargetExpCls(
-    ExpCls[SingleTargetType, np.ndarray, MPI.Win], metaclass=ABCMeta
+    ExpCls[SingleTargetType, np.ndarray, MPI.Win, int, np.ndarray], metaclass=ABCMeta
 ):
     """
     this class holds all function definitions for single-target expansions irrespective
     of whether the target is a scalar or an array type
     """
 
+    def _state_occup(self) -> None:
+        """
+        this function initializes certain state attributes for a single state
+        """
+        self.nocc = np.max(self.nelec)
+        self.spin = abs(self.nelec[0] - self.nelec[1])
+        self.occup = get_occup(self.norb, self.nelec)
+
     def _sum(
-        self,
-        inc: List[np.ndarray],
-        hashes: List[np.ndarray],
-        tup: np.ndarray,
+        self, inc: List[np.ndarray], hashes: List[np.ndarray], tup: np.ndarray
     ) -> SingleTargetType:
         """
         this function performs a recursive summation and returns the final increment
@@ -1534,11 +1695,16 @@ class SingleTargetExpCls(
 
         return np.sum(res, axis=0)
 
-    @staticmethod
     @abstractmethod
-    def _zero_target_arr(length: int):
+    def _zero_target_arr(self, length: int):
         """
         this function initializes an array of the target type with value zero
+        """
+
+    @abstractmethod
+    def _init_target_inst(self, value: float, *args: int) -> SingleTargetType:
+        """
+        this function initializes an instance of the target type
         """
 
     @staticmethod
@@ -1563,12 +1729,9 @@ class SingleTargetExpCls(
         this function allocates a shared increment window
         """
 
-    @staticmethod
     @abstractmethod
     def _open_shared_inc(
-        window: MPI.Win,
-        n_tuples: int,
-        idx: Optional[int] = None,
+        self, window: MPI.Win, n_tuples: int, *args: int
     ) -> np.ndarray:
         """
         this function opens a shared increment window

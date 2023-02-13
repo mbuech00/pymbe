@@ -1,72 +1,87 @@
 import os
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto
-from pymbe import MBE, hf, base, ints
+from pyscf import gto, scf, symm, cc, ao2mo
+from pymbe import MBE
 
 
 def mbe_example(rst=True):
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
+    # create mol object
+    mol = gto.Mole()
+    mol.build(
+        verbose=0,
+        output=None,
+        atom="""
+        C  0.00000  0.00000  0.00000
+        H  0.98920  0.42714  0.00000
+        H -0.98920  0.42714  0.00000
+        """,
+        basis="631g",
+        symmetry="c2v",
+        spin=2,
+    )
 
-        # create mol object
-        mol = gto.Mole()
-        mol.build(
-            verbose=0,
-            output=None,
-            atom="""
-            C  0.00000  0.00000  0.00000
-            H  0.98920  0.42714  0.00000
-            H -0.98920  0.42714  0.00000
-            """,
-            basis="631g",
-            symmetry="c2v",
-            spin=2,
-        )
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # frozen core
         ncore = 1
 
         # hf calculation
-        hf_object, hf_prop, orbsym, mo_coeff = hf(mol)
+        hf = scf.RHF(mol).run(conv_tol=1e-10)
+
+        # orbsym
+        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
 
         # base model
-        base_energy = base("ccsd", mol, hf_object, mo_coeff, ncore, orbsym=orbsym)
+        ccsd = cc.CCSD(hf).run(
+            conv_tol=1.0e-10, conv_tol_normt=1.0e-10, max_cycle=500, frozen=ncore
+        )
+        base_energy = ccsd.e_corr
 
         # reference space
         ref_space = np.array([3, 4], dtype=np.int64)
 
-        # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        # expansion space
+        exp_space = np.array(
+            [i for i in range(ncore, mol.nao) if i not in ref_space],
+            dtype=np.int64,
+        )
+
+        # hcore
+        hcore_ao = hf.get_hcore()
+        hcore = np.einsum("pi,pq,qj->ij", hf.mo_coeff, hcore_ao, hf.mo_coeff)
+
+        # eri
+        eri_ao = mol.intor("int2e_sph", aosym="s8")
+        eri = ao2mo.incore.full(eri_ao, hf.mo_coeff)
 
         # create mbe object
         mbe = MBE(
             mol=mol,
-            ncore=ncore,
             orbsym=orbsym,
-            fci_state_sym="b2",
-            hf_prop=hf_prop,
+            fci_state_sym="b1",
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             ref_space=ref_space,
+            exp_space=exp_space,
             base_method="ccsd",
             base_prop=base_energy,
             rst=rst,
         )
-
-        # perform calculation
-        energy = mbe.kernel()
 
     else:
 
         # create mbe object
         mbe = MBE()
 
-        # perform calculation
-        energy = mbe.kernel()
+    # perform calculation
+    elec_energy = mbe.kernel()
 
-    return energy
+    # get total energy
+    tot_energy = mbe.final_prop(prop_type="total", nuc_prop=mol.energy_nuc().item())
+
+    return tot_energy
 
 
 if __name__ == "__main__":

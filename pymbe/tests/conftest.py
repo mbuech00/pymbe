@@ -23,7 +23,6 @@ from warnings import catch_warnings, simplefilter
 
 from pymbe.pymbe import MBE
 from pymbe.parallel import MPICls
-from pymbe.energy import EnergyExpCls
 from pymbe.interface import CCLIB_AVAILABLE
 
 if TYPE_CHECKING:
@@ -89,6 +88,7 @@ def mol(system: str) -> gto.Mole:
     elif system == "hubbard":
 
         mol = gto.M()
+        mol.nao = 6
 
     return mol
 
@@ -106,6 +106,10 @@ def ncore(system: str) -> int:
 
         ncore = 2
 
+    elif system == "hubbard":
+
+        ncore = 0
+
     return ncore
 
 
@@ -122,7 +126,10 @@ def norb(mol: gto.Mole) -> int:
     """
     this fixture extracts the number of orbitals from the mol object
     """
-    return mol.nao.item()
+    if isinstance(mol.nao, int):
+        return mol.nao
+    else:
+        return mol.nao.item()
 
 
 @pytest.fixture
@@ -199,15 +206,15 @@ def ints(system: str, mol: gto.Mole, hf: scf.RHF) -> Tuple[np.ndarray, np.ndarra
 
     elif system == "hubbard":
 
-        hcore = np.zeros([6] * 2, dtype=np.float64)
-        for i in range(5):
+        hcore = np.zeros([mol.nao] * 2, dtype=np.float64)
+        for i in range(mol.nao - 1):
             hcore[i, i + 1] = hcore[i + 1, i] = -1.0
         hcore[-1, 0] = hcore[0, -1] = -1.0
 
-        eri = np.zeros([6] * 4, dtype=np.float64)
-        for i in range(6):
+        eri = np.zeros([mol.nao] * 4, dtype=np.float64)
+        for i in range(mol.nao):
             eri[i, i, i, i] = 2.0
-        eri = ao2mo.restore(4, eri, 6)
+        eri = ao2mo.restore(4, eri, mol.nao)
 
     return hcore, eri
 
@@ -326,30 +333,30 @@ def mbe(
     nocc: int,
     norb: int,
     orbsym: np.ndarray,
-    hf: scf.RHF,
     ints: Tuple[np.ndarray, np.ndarray],
-    vhf: np.ndarray,
 ) -> MBE:
     """
     this fixture constructs a MBE object
     """
     hcore, eri = ints
 
+    ref_space = np.array([i for i in range(ncore, nocc)], dtype=np.int64)
+    exp_space = np.array(
+        [i for i in range(ncore, mol.nao) if i not in ref_space],
+        dtype=np.int64,
+    )
+
     mbe = MBE(
-        nuc_energy=mol.energy_nuc().item(),
-        ncore=ncore,
         norb=norb,
         nelec=mol.nelec,
         point_group=mol.groupname,
         orbsym=orbsym,
         fci_state_sym=0,
         fci_state_root=0,
-        hf_prop=hf.e_tot,
         hcore=hcore,
         eri=eri,
-        vhf=vhf,
-        ref_space=np.array([i for i in range(ncore, nocc)]),
-        ref_prop=0.0,
+        ref_space=ref_space,
+        exp_space=exp_space,
         rst=False,
     )
 
@@ -357,11 +364,3 @@ def mbe(
     mbe.mpi = MPICls()
 
     return mbe
-
-
-@pytest.fixture
-def energyexpcls(mbe: MBE):
-    """
-    this fixture constructs a EnergyExpCls object
-    """
-    return EnergyExpCls(mbe)

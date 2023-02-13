@@ -45,8 +45,10 @@ PyMBE expects both itself and PySCF to be properly exported to Python. This can 
 be achieved by installing through pip (in the case of PySCF), having a 
 pymbe.pth/pyscf.pth file with the corresponding path in the lib/Python3.X/site-packages 
 directory of your Python distribution or by including the paths in the environment 
-variable `$PYTHONPATH`. Furthermore, the mpi4py implementation of the MPI standard 
-needs to be installed, built upon an MPI-3 library.\
+variable `$PYTHONPATH`. PyMBE also requires the PYTHON_HASH_SEED environment variable 
+to be set to 0 (export PYTHON_HASH_SEED=0) for reproducibility reasons and will 
+complain otherwise. Furthermore, the mpi4py implementation of the MPI standard needs to 
+be installed, built upon an MPI-3 library.\
 Once these requirements are satisfied, PyMBE can be started by importing the 
 MBE class and creating a MBE object while passing input data and keywords as 
 keyword arguments. Possible keyword arguments are:
@@ -59,27 +61,21 @@ keyword arguments. Possible keyword arguments are:
     - target: expansion target property (energy, dipole, excitation, trans, rdm12)
 * **system**
     * mol: [pyscf](https://pyscf.github.io/) gto.Mole object
-    * nuc_energy: nuclear energy
-    * nuc_dipole: nuclear dipole moment
-    * ncore: number of core orbitals
     * norb: number of orbitals
     * nelec: number of electrons
     * point_group: point group
     * orbsym: orbital symmetry
     * fci_state_sym: state wavefunction symmetry
     * fci_state_root: target state
-- **hf calculation**
-    - hf_prop: hartree-fock property
 * **orbital representation**
     * orb_type: orbital representation
 - **integrals**
     - hcore: core hamiltonian integrals
-    - vhf: hartree-fock potential
     - eri: electron repulsion integrals
     - dipole_ints: dipole integrals
-* **reference space**
+* **reference space and expansion spaces**
     * ref_space: reference space
-    * ref_prop: reference space property
+    * exp_space: expansion space
 - **base model**
     - base_method: base model electronic structure method (ccsdtq, ccsdt, ccsd(t), ccsd)
     - base_prop: base model property
@@ -103,12 +99,23 @@ The calculation is started by calling the kernel() member function of the MBE
 object. Restart files are automatically generated (unless otherwise requested 
 through the rst keyword argument) in a dedicated directory `rst` within 
 `$WORKDIR`, which is deleted in case of successful termination of PyMBE. When 
-restarting a calulation from the restart files, the kernel function can be 
+restarting a calculation from the restart files, the kernel function can be 
 called without passing any keyword arguments to the MBE object. The kernel() 
 function returns the total target property. The program can also be called in 
 parallel by calling the kernel function in multiple MPI processes (e.g. using 
 the mpiexec command). Only the keyword arguments of the MBE object on the 
 global master will be used during the calculation.\
+PyMBE can be used for CASCI calculations in two possible ways: The number of orbitals, 
+number of electrons and integrals for the whole system can be passed to PyMBE and the 
+CAS can be selected using the ref_space and exp_space keywords. If all integrals cannot 
+be kept in memory, only the number of orbitals, number of electrons and integrals of 
+the CAS can be passed to PyMBE. This requires the HF property of the occupied orbitals 
+outside the CAS to be added to the final property. Additionally, the one-electron 
+Hamilonian has to be modified by adding the HF potential of the occupied orbitals 
+outside the CAS.\
+Please note that all PyMBE functions only return the electronic part of the 
+calculated property. For energies and dipole moments the nuclear part has to be 
+added to get the total molecular property.
 The results of a PyMBE caluculation can be printed using the results() member
 function of the MBE object. This function returns the calculation parameters 
 summarized in a string.\

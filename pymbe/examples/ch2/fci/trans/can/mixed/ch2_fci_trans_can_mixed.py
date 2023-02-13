@@ -1,75 +1,77 @@
 import os
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto
-from pymbe import MBE, hf, ints, dipole_ints, ref_prop
+from pyscf import gto, scf, symm, ao2mo
+from pymbe import MBE
 
 
 def mbe_example(rst=True):
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
+    # create mol object
+    mol = gto.Mole()
+    mol.build(
+        verbose=0,
+        output=None,
+        atom="""
+        C  0.00000  0.00000  0.00000
+        H  0.98920  0.42714  0.00000
+        H -0.98920  0.42714  0.00000
+        """,
+        basis="631g",
+        symmetry="c2v",
+        spin=2,
+    )
 
-        # create mol object
-        mol = gto.Mole()
-        mol.build(
-            verbose=0,
-            output=None,
-            atom="""
-            C  0.00000  0.00000  0.00000
-            H  0.98920  0.42714  0.00000
-            H -0.98920  0.42714  0.00000
-            """,
-            basis="631g",
-            symmetry="c2v",
-            spin=2,
-        )
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # frozen core
         ncore = 1
 
         # hf calculation
-        _, _, orbsym, mo_coeff = hf(mol)
+        hf = scf.RHF(mol).run(conv_tol=1e-10)
+
+        # orbsym
+        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
-        # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        # expansion space
+        exp_space = np.array(
+            [i for i in range(ncore, mol.nao) if i not in ref_space],
+            dtype=np.int64,
+        )
+
+        # hcore
+        hcore_ao = hf.get_hcore()
+        hcore = np.einsum("pi,pq,qj->ij", hf.mo_coeff, hcore_ao, hf.mo_coeff)
+
+        # eri
+        eri_ao = mol.intor("int2e_sph", aosym="s8")
+        eri = ao2mo.incore.full(eri_ao, hf.mo_coeff)
 
         # gauge origin
         gauge_origin = np.array([0.0, 0.0, 0.0])
 
         # dipole integral calculation
-        dip_ints = dipole_ints(mol, mo_coeff, gauge_origin)
-
-        # reference property
-        ref_trans = ref_prop(
-            mol,
-            hcore,
-            eri,
-            ref_space,
-            target="trans",
-            orbsym=orbsym,
-            fci_state_sym="b2",
-            fci_state_root=1,
-            vhf=vhf,
-            dipole_ints=dip_ints,
+        with mol.with_common_origin(gauge_origin):
+            ao_dipole_ints = mol.intor_symmetric("int1e_r", comp=3)
+        dipole_ints = np.einsum(
+            "pi,xpq,qj->xij", hf.mo_coeff, ao_dipole_ints, hf.mo_coeff
         )
 
         # create mbe object
         mbe = MBE(
             target="trans",
             mol=mol,
-            ncore=ncore,
             orbsym=orbsym,
-            fci_state_sym="b2",
+            fci_state_sym="b1",
             fci_state_root=1,
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
-            dipole_ints=dip_ints,
+            dipole_ints=dipole_ints,
             ref_space=ref_space,
-            ref_prop=ref_trans,
+            exp_space=exp_space,
             rst=rst,
         )
 

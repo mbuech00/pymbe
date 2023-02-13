@@ -85,6 +85,11 @@ examples = [
     ["h2o", "fci", "rdm12", "can", "vac"],
     ["h2o", "fci", "rdm12", "can", "occ"],
     ["h2o", "fci", "rdm12", "can", "mixed"],
+    ["h2o", "fci", "sa_rdm12", "can", "mixed"],
+    ["h2o", "fci", "sa_genfock", "can", "mixed"],
+    ["h2o", "fci", "genfock", "can", "vac"],
+    ["h2o", "fci", "genfock", "can", "occ"],
+    ["h2o", "fci", "genfock", "can", "mixed"],
     ["ch2", "ccsd", "energy", "can", "vac"],
     ["ch2", "ccsd", "energy", "can", "occ"],
     ["ch2", "ccsd", "energy", "can", "mixed"],
@@ -127,8 +132,6 @@ examples = [
     ["ch2", "fci", "trans", "can", "mixed"],
     ["c2", "fci", "energy", "can", "mixed", "pi_prune"],
     ["c2", "fci", "energy", "sa_casscf", "mixed"],
-    ["1d_hubbard", "fci", "energy", "can", "vac"],
-    ["1d_hubbard", "fci", "energy", "local", "vac"],
 ]
 
 
@@ -158,14 +161,13 @@ def test_system(example: List[str]) -> None:
         / "/".join([string for string in example])
     )
 
-    if example[2] in ["energy", "excitation", "dipole", "trans"]:
+    if example[2] in ["energy", "excitation", "dipole"]:
 
-        if example[2] in ["energy", "excitation", "dipole"]:
-            assert prop == pytest.approx(np.load(ref_path / "ref.npy"))
-        elif example[2] == "trans":
-            assert prop == pytest.approx(
-                np.load(ref_path / "ref.npy"), rel=1e-5, abs=1e-12
-            )
+        assert prop == pytest.approx(np.load(ref_path / "ref.npy"))
+
+    elif example[2] == "trans":
+
+        assert prop == pytest.approx(np.load(ref_path / "ref.npy"), rel=1e-5, abs=1e-12)
 
     elif example[2] == "rdm12":
 
@@ -174,4 +176,11 @@ def test_system(example: List[str]) -> None:
         )
         assert prop[1] == pytest.approx(
             np.load(ref_path / "ref_rdm2.npy"), rel=1e-5, abs=1e-8
+        )
+
+    elif example[2] == "genfock":
+
+        assert prop[0] == pytest.approx(np.load(ref_path / "ref_energy.npy"))
+        assert prop[1] == pytest.approx(
+            np.load(ref_path / "ref_gen_fock.npy"), rel=1e-5, abs=1e-11
         )

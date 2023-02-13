@@ -1,92 +1,131 @@
 import os
 import numpy as np
 from mpi4py import MPI
-from pyscf import gto
-from pymbe import MBE, hf, ref_mo, ints, ref_prop
+from pyscf import gto, scf, symm, mcscf, fci, ao2mo
+from pymbe import MBE
 
 
 def mbe_example(rst=True):
 
-    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
+    # create mol object
+    mol = gto.Mole()
+    mol.build(
+        verbose=0,
+        output=None,
+        atom="""
+        O  0.00000000  0.00000000  0.10840502
+        H -0.75390364  0.00000000 -0.47943227
+        H  0.75390364  0.00000000 -0.47943227
+        """,
+        basis="631g",
+        symmetry="c2v",
+    )
 
-        # create mol object
-        mol = gto.Mole()
-        mol.build(
-            verbose=0,
-            output=None,
-            atom="""
-            O  0.00000000  0.00000000  0.10840502
-            H -0.75390364  0.00000000 -0.47943227
-            H  0.75390364  0.00000000 -0.47943227
-            """,
-            basis="631g",
-            symmetry="c2v",
-        )
+    if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(os.getcwd() + "/rst"):
 
         # frozen core
         ncore = 1
 
         # hf calculation
-        hf_object, hf_prop, orbsym, mo_coeff = hf(mol)
+        hf = scf.RHF(mol).run(conv_tol=1e-10)
+
+        # orbsym
+        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, hf.mo_coeff)
 
         # reference space
         ref_space = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64)
 
-        # casscf orbitals
-        mo_coeff, orbsym = ref_mo(
-            "casscf",
-            mol,
-            hf_object,
-            mo_coeff,
-            orbsym,
-            ncore,
-            ref_space,
-            wfnsym=["a1"],
-            weights=[1.0],
+        # expansion space
+        exp_space = np.array(
+            [i for i in range(ncore, mol.nao) if i not in ref_space],
+            dtype=np.int64,
         )
 
-        # integral calculation
-        hcore, eri, vhf = ints(mol, mo_coeff)
+        # mo coefficients for casscf orbitals
+        mo_coeff = hf.mo_coeff.copy()
 
-        # reference property
-        ref_energy = ref_prop(
-            mol,
-            hcore,
-            eri,
-            ref_space,
-            orbsym=orbsym,
-            hf_prop=hf_prop,
-            vhf=vhf,
-            orb_type="casscf",
+        # electrons in active space
+        act_nelec = np.array(
+            [
+                np.count_nonzero(hf.mo_occ[ref_space] > 0.0),
+                np.count_nonzero(hf.mo_occ[ref_space] > 1.0),
+            ]
         )
+
+        # sorter for active space
+        n_core_inact = np.array(
+            [i for i in range(max(mol.nelec)) if i not in ref_space], dtype=np.int64
+        )
+        n_virt_inact = np.array(
+            [a for a in range(max(mol.nelec), mol.nao) if a not in ref_space],
+            dtype=np.int64,
+        )
+        sort_casscf = np.concatenate((n_core_inact, ref_space, n_virt_inact))
+
+        # mo coefficients for active space
+        mo_coeff_cas = mo_coeff[:, sort_casscf]
+
+        # orbsym for active space
+        orbsym_cas = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff_cas)
+
+        # initialize casscf
+        cas = mcscf.CASSCF(hf, ref_space.size, act_nelec).set(
+            conv_tol=1.0e-10,
+            max_cycle_macro=500,
+            frozen=ncore,
+            fcisolver=fci.direct_spin0_symm.FCI(mol).set(
+                conv_tol=1.0e-10,
+                orbsym=orbsym_cas[ref_space],
+            ),
+        )
+
+        # hf starting guess
+        na = fci.cistring.num_strings(ref_space.size, act_nelec[0])
+        nb = fci.cistring.num_strings(ref_space.size, act_nelec[1])
+        ci0 = np.zeros((na, nb))
+        ci0[0, 0] = 1
+
+        # run casscf
+        cas.kernel(mo_coeff_cas, ci0=ci0)
+
+        # reorder mo_coeff
+        mo_coeff = cas.mo_coeff[:, np.argsort(sort_casscf)]
+
+        # orbital symmetries
+        orbsym = symm.label_orb_symm(mol, mol.irrep_id, mol.symm_orb, mo_coeff)
+
+        # hcore
+        hcore_ao = hf.get_hcore()
+        hcore = np.einsum("pi,pq,qj->ij", mo_coeff, hcore_ao, mo_coeff)
+
+        # eri
+        eri_ao = mol.intor("int2e_sph", aosym="s8")
+        eri = ao2mo.incore.full(eri_ao, mo_coeff)
 
         # create mbe object
         mbe = MBE(
             mol=mol,
-            ncore=ncore,
             orbsym=orbsym,
-            hf_prop=hf_prop,
             orb_type="casscf",
             hcore=hcore,
             eri=eri,
-            vhf=vhf,
             ref_space=ref_space,
-            ref_prop=ref_energy,
+            exp_space=exp_space,
             rst=rst,
         )
-
-        # perform calculation
-        energy = mbe.kernel()
 
     else:
 
         # create mbe object
         mbe = MBE()
 
-        # perform calculation
-        energy = mbe.kernel()
+    # perform calculation
+    elec_energy = mbe.kernel()
 
-    return energy
+    # get total energy
+    tot_energy = mbe.final_prop(prop_type="total", nuc_prop=mol.energy_nuc().item())
+
+    return tot_energy
 
 
 if __name__ == "__main__":

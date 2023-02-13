@@ -23,19 +23,12 @@ from pyscf import symm, ao2mo
 from typing import TYPE_CHECKING, cast
 
 from pymbe.parallel import MPICls, kw_dist, system_dist
-from pymbe.tools import (
-    RST,
-    logger_config,
-    assertion,
-    get_nelec,
-    get_nhole,
-    get_nexc,
-    ground_state_sym,
-    get_vhf,
-    get_occup,
-)
+from pymbe.tools import RST, logger_config, assertion, ground_state_sym
+
 
 if TYPE_CHECKING:
+
+    from typing import Dict, Union, List
 
     from pymbe.pymbe import MBE
 
@@ -60,7 +53,10 @@ def main(mbe: MBE) -> MBE:
 
                 # number of orbitals
                 if mbe.norb is None:
-                    mbe.norb = mbe.mol.nao.item()
+                    if isinstance(mbe.mol.nao, int):
+                        mbe.norb = mbe.mol.nao
+                    else:
+                        mbe.norb = mbe.mol.nao.item()
 
                 # number of electrons
                 if mbe.nelec is None:
@@ -73,26 +69,18 @@ def main(mbe: MBE) -> MBE:
                     else:
                         mbe.point_group = mbe.mol.groupname
 
-                # nuclear repulsion energy
-                if mbe.nuc_energy is None:
-                    mbe.nuc_energy = (
-                        mbe.mol.energy_nuc().item() if mbe.mol.atom else 0.0
-                    )
-
-                # nuclear dipole moment
-                if mbe.nuc_dipole is None and mbe.target == "dipole":
-                    if mbe.mol.atom:
-                        charges = mbe.mol.atom_charges()
-                        coords = mbe.mol.atom_coords()
-                        mbe.nuc_dipole = np.einsum("i,ix->x", charges, coords)
-                    else:
-                        mbe.nuc_dipole = np.zeros(3, dtype=np.float64)
-
             # convert number of electrons to numpy array
             if isinstance(mbe.nelec, int):
-                mbe.nelec = (-(mbe.nelec // -2), mbe.nelec // 2)
-            if mbe.nelec is not None:
+                mbe.nelec = np.asarray((mbe.nelec // 2, mbe.nelec // 2), dtype=np.int64)
+            elif isinstance(mbe.nelec, tuple):
                 mbe.nelec = np.asarray(mbe.nelec, dtype=np.int64)
+            elif isinstance(mbe.nelec, list):
+                mbe.nelec = [
+                    np.asarray(state, dtype=np.int64)
+                    if isinstance(state, tuple)
+                    else state
+                    for state in mbe.nelec
+                ]
 
             # set default value for point group
             if mbe.point_group is None:
@@ -109,72 +97,100 @@ def main(mbe: MBE) -> MBE:
 
             # set default value for fci wavefunction state symmetry
             if mbe.fci_state_sym is None:
-                if isinstance(mbe.orbsym, np.ndarray) and isinstance(
-                    mbe.nelec, np.ndarray
-                ):
-                    mbe.fci_state_sym = ground_state_sym(
-                        mbe.orbsym, mbe.nelec, cast(str, mbe.point_group)
-                    )
+                if isinstance(mbe.orbsym, np.ndarray):
+                    if isinstance(mbe.nelec, np.ndarray):
+                        mbe.fci_state_sym = ground_state_sym(
+                            mbe.orbsym, mbe.nelec, cast(str, mbe.point_group)
+                        )
+                    elif isinstance(mbe.nelec, list):
+                        mbe.fci_state_sym = [
+                            ground_state_sym(
+                                mbe.orbsym,
+                                cast(np.ndarray, state),
+                                cast(str, mbe.point_group),
+                            )
+                            for state in mbe.nelec
+                        ]
                 else:
                     mbe.fci_state_sym = 0
 
             # set default value for fci wavefunction state root
             if mbe.fci_state_root is None:
-                if mbe.target in ["energy", "dipole", "rdm12"]:
+                if mbe.target in ["energy", "dipole", "rdm12", "genfock"]:
                     mbe.fci_state_root = 0
                 elif mbe.target in ["excitation", "trans"]:
                     mbe.fci_state_root = 1
 
-            # set default value for hartree-fock property
-            if mbe.target == "excitation":
-                mbe.hf_prop = 0.0
-            elif mbe.target == "trans":
-                mbe.hf_prop = np.zeros(3, dtype=np.float64)
+            # set default values for state-averaged rdm12 and genfock calculations
+            if mbe.target in ["rdm12", "genfock"]:
+                if isinstance(mbe.nelec, list):
+                    mbe.hf_guess = False
+                    if isinstance(mbe.fci_state_sym, int):
+                        mbe.fci_state_sym = [
+                            mbe.fci_state_sym for _ in range(len(mbe.nelec))
+                        ]
+                    if isinstance(mbe.fci_state_root, int):
+                        mbe.fci_state_root = [
+                            mbe.fci_state_root for _ in range(len(mbe.nelec))
+                        ]
+                    if mbe.fci_state_weights is None:
+                        mbe.fci_state_weights = [
+                            1 / len(mbe.nelec) for _ in range(len(mbe.nelec))
+                        ]
+                elif isinstance(mbe.fci_state_sym, list):
+                    mbe.hf_guess = False
+                    if isinstance(mbe.nelec, np.ndarray):
+                        mbe.nelec = [mbe.nelec for _ in range(len(mbe.fci_state_sym))]
+                    if isinstance(mbe.fci_state_root, int):
+                        mbe.fci_state_root = [
+                            mbe.fci_state_root for _ in range(len(mbe.fci_state_sym))
+                        ]
+                    if mbe.fci_state_weights is None:
+                        mbe.fci_state_weights = [
+                            1 / len(mbe.fci_state_sym)
+                            for _ in range(len(mbe.fci_state_sym))
+                        ]
+                elif isinstance(mbe.fci_state_root, list):
+                    mbe.hf_guess = False
+                    if isinstance(mbe.nelec, np.ndarray):
+                        mbe.nelec = [mbe.nelec for _ in range(len(mbe.fci_state_root))]
+                    if isinstance(mbe.fci_state_sym, int):
+                        mbe.fci_state_sym = [
+                            mbe.fci_state_sym for _ in range(len(mbe.fci_state_root))
+                        ]
+                    if mbe.fci_state_weights is None:
+                        mbe.fci_state_weights = [
+                            1 / len(mbe.fci_state_root)
+                            for _ in range(len(mbe.fci_state_root))
+                        ]
+                elif isinstance(mbe.fci_state_weights, list):
+                    mbe.hf_guess = False
+                    if isinstance(mbe.nelec, np.ndarray):
+                        mbe.nelec = [
+                            mbe.nelec for _ in range(len(mbe.fci_state_weights))
+                        ]
+                    if isinstance(mbe.fci_state_sym, int):
+                        mbe.fci_state_sym = [
+                            mbe.fci_state_sym for _ in range(len(mbe.fci_state_weights))
+                        ]
+                    if isinstance(mbe.fci_state_root, int):
+                        mbe.fci_state_root = [
+                            mbe.fci_state_root
+                            for _ in range(len(mbe.fci_state_weights))
+                        ]
 
             # prepare integrals
             if isinstance(mbe.eri, np.ndarray) and isinstance(mbe.norb, int):
 
-                # compute hartree-fock potential
-                if mbe.vhf is None and isinstance(mbe.nelec, np.ndarray):
-                    mbe.vhf = get_vhf(mbe.eri, np.amax(mbe.nelec), mbe.norb)
-
                 # reorder electron repulsion integrals
                 mbe.eri = ao2mo.restore(4, mbe.eri, mbe.norb)
 
-            # set default value for reference space property
-            if (
-                mbe.ref_prop is None
-                and isinstance(mbe.norb, int)
-                and isinstance(mbe.nelec, np.ndarray)
-            ):
-
-                # get occupation vector
-                occup = get_occup(mbe.norb, mbe.nelec)
-
-                # nelec
-                nelec = get_nelec(occup, mbe.ref_space)
-
-                # nhole
-                nhole = get_nhole(nelec, mbe.ref_space)
-
-                # nexc
-                nexc = get_nexc(nelec, nhole)
-
-                if (
-                    nexc <= 1
-                    or (mbe.base_method in ["ccsd", "ccsd(t)"] and nexc <= 2)
-                    or (mbe.base_method == "ccsdt" and nexc <= 3)
-                    or (mbe.base_method == "ccsdtq" and nexc <= 4)
-                ):
-                    if mbe.target in ["energy", "excitation"]:
-                        mbe.ref_prop = 0.0
-                    elif mbe.target in ["dipole", "trans"]:
-                        mbe.ref_prop = np.zeros(3, dtype=np.float64)
-                    elif mbe.target == "rdm12" and mbe.ref_space is not None:
-                        mbe.ref_prop = (
-                            np.zeros(2 * (mbe.ref_space.size,), dtype=np.float64),
-                            np.zeros(4 * (mbe.ref_space.size,), dtype=np.float64),
-                        )
+            # set default value for expansion space
+            if mbe.exp_space is None and isinstance(mbe.norb, int):
+                mbe.exp_space = np.array(
+                    [i for i in range(mbe.norb) if i not in mbe.ref_space],
+                    dtype=np.int64,
+                )
 
             # set default value for base model property
             if mbe.base_prop is None and mbe.base_method is None:
@@ -186,6 +202,18 @@ def main(mbe: MBE) -> MBE:
                     mbe.base_prop = (
                         np.zeros(2 * (mbe.norb,), dtype=np.float64),
                         np.zeros(4 * (mbe.norb,), dtype=np.float64),
+                    )
+                elif (
+                    mbe.target == "genfock"
+                    and isinstance(mbe.full_nocc, int)
+                    and isinstance(mbe.norb, int)
+                    and isinstance(mbe.full_norb, int)
+                ):
+                    mbe.base_prop = (
+                        0.0,
+                        np.zeros(
+                            (mbe.full_nocc + mbe.norb, mbe.full_norb), dtype=np.float64
+                        ),
                     )
 
             # create restart folder
@@ -286,14 +314,15 @@ def sanity_check(mbe: MBE) -> None:
         "expansion target property (target keyword argument) must be a string",
     )
     assertion(
-        mbe.target in ["energy", "excitation", "dipole", "trans", "rdm12"],
+        mbe.target in ["energy", "excitation", "dipole", "trans", "rdm12", "genfock"],
         "invalid choice for target property (target keyword argument). valid choices "
         "are: energy, excitation energy (excitation), dipole, transition dipole "
-        "(trans) and 1- and 2-particle reduced density matrices (rdm12)",
+        "(trans), 1- and 2-particle reduced density matrices (rdm12) and generalized "
+        "Fock matrix (genfock)",
     )
     if mbe.method != "fci":
         assertion(
-            mbe.target in ["energy", "dipole", "rdm12"],
+            mbe.target in ["energy", "dipole", "rdm12", "genfock"],
             "excited target states (target keyword argument) not implemented for "
             "chosen expansion model (method keyword argument)",
         )
@@ -307,34 +336,39 @@ def sanity_check(mbe: MBE) -> None:
 
     # system
     assertion(
-        isinstance(mbe.nuc_energy, float),
-        "nuclear energy (nuc_energy keyword argument) must be a float",
-    )
-    if mbe.target == "dipole":
-        assertion(
-            isinstance(mbe.nuc_dipole, np.ndarray),
-            "nuclear dipole (nuc_dipole keyword argument) must be a np.ndarray",
-        )
-    assertion(
-        isinstance(mbe.ncore, int) and mbe.ncore >= 0,
-        "number of core orbitals (ncore keyword argument) must be an int >= 0",
-    )
-    assertion(
         isinstance(mbe.norb, int) and mbe.norb > 0,
         "number of orbitals (norb keyword argument) must be an int > 0",
     )
     assertion(
         (
-            isinstance(mbe.nelec, np.ndarray)
-            and mbe.nelec.size == 2
-            and isinstance(mbe.nelec[0], np.int64)
-            and isinstance(mbe.nelec[1], np.int64)
-            and (mbe.nelec[0] > 0 or mbe.nelec[1] > 0)
+            (
+                isinstance(mbe.nelec, np.ndarray)
+                and mbe.nelec.size == 2
+                and mbe.nelec.dtype == np.int64
+                and (mbe.nelec[0] > 0 or mbe.nelec[1] > 0)
+            )
+            or (
+                isinstance(mbe.nelec, list)
+                and all(
+                    [
+                        isinstance(state, np.ndarray)
+                        and state.size == 2
+                        and state.dtype == np.int64
+                        and (state[0] > 0 or state[1] > 0)
+                        for state in mbe.nelec
+                    ]
+                )
+            )
         ),
         "number of electrons (nelec keyword argument) must be an int > 0 or a tuple of "
-        "ints > 0 with dimension 2 or a np.ndarray of ints > 0 with dimension 2",
+        "ints > 0 with dimension 2 or a np.ndarray of ints > 0 with dimension 2 or a "
+        "list of tuples of ints > 0 with dimension 2 or a list of np.ndarray of "
+        "ints > 0 with dimension 2",
     )
-    if cast(np.ndarray, mbe.nelec)[0] != cast(np.ndarray, mbe.nelec)[1]:
+    if (isinstance(mbe.nelec, np.ndarray) and mbe.nelec[0] != mbe.nelec[1]) or (
+        isinstance(mbe.nelec, list)
+        and any([state[0] != state[1] for state in mbe.nelec])
+    ):
         if mbe.method != "fci" or mbe.base_method is not None:
             assertion(
                 mbe.cc_backend == "pyscf",
@@ -346,38 +380,102 @@ def sanity_check(mbe: MBE) -> None:
                 "estimate the unrestricted CC property on the basis of a ROHF "
                 "reference function instead of the fully restricted CC property."
             )
-        assertion(
-            mbe.target != "rdm12",
-            "1- and 2-particle reduced density matrix calculations are currently not "
-            "implemented for open-shell systems.",
-        )
     assertion(
         isinstance(mbe.point_group, str),
         "symmetry (point_group keyword argument) must be a str",
     )
     assertion(
-        isinstance(mbe.orbsym, np.ndarray),
-        "orbital symmetry (orbsym keyword argument) must be a np.ndarray",
+        isinstance(mbe.orbsym, np.ndarray) and mbe.orbsym.shape == (mbe.norb,),
+        "orbital symmetry (orbsym keyword argument) must be a np.ndarray with shape "
+        "(norb,)",
     )
     assertion(
-        isinstance(mbe.fci_state_sym, (str, int)),
+        isinstance(mbe.fci_state_sym, (str, int))
+        or (
+            isinstance(mbe.fci_state_sym, list)
+            and all([isinstance(state, (str, int)) for state in mbe.fci_state_sym])
+        ),
         "state wavefunction symmetry (fci_state_sym keyword argument) must be a str or "
-        "int",
+        "int or a list of str or int",
     )
-    if isinstance(mbe.fci_state_sym, str):
-        try:
+    try:
+        if isinstance(mbe.fci_state_sym, str):
             mbe.fci_state_sym = symm.addons.irrep_name2id(
                 mbe.point_group, mbe.fci_state_sym
             )
-        except Exception as err:
-            raise ValueError(
-                "illegal choice of state wavefunction symmetry (fci_state_sym keyword "
-                f"argument) -- PySCF error: {err}"
-            )
+        elif isinstance(mbe.fci_state_sym, list) and all(
+            [isinstance(state, str) for state in mbe.fci_state_sym]
+        ):
+            mbe.fci_state_sym = [
+                symm.addons.irrep_name2id(mbe.point_group, state)
+                for state in mbe.fci_state_sym
+            ]
+    except Exception as err:
+        raise ValueError(
+            "illegal choice of state wavefunction symmetry (fci_state_sym keyword "
+            f"argument) -- PySCF error: {err}"
+        )
     assertion(
-        isinstance(mbe.fci_state_root, int) and mbe.fci_state_root >= 0,
+        (isinstance(mbe.fci_state_root, int) and mbe.fci_state_root >= 0)
+        or (
+            isinstance(mbe.fci_state_root, list)
+            and all(
+                [isinstance(state, int) and state >= 0 for state in mbe.fci_state_root]
+            )
+        ),
         "target state (root keyword argument) must be an int >= 0",
     )
+    if (
+        isinstance(mbe.nelec, list)
+        and isinstance(mbe.fci_state_sym, list)
+        and isinstance(mbe.fci_state_root, list)
+        and isinstance(mbe.fci_state_weights, list)
+    ):
+        assertion(
+            mbe.target in ["rdm12", "genfock"],
+            "only 1- and 2-particle reduced density matrices and generalized Fock "
+            "matrices can be determined as state-averaged properties, all other mbe "
+            "targets must only have keywords describing a single state and can "
+            "therefore not be lists (nelec, fci_state_sym, fci_state_root, "
+            "fci_state_weights keyword arguments)",
+        )
+        assertion(
+            mbe.method == "fci",
+            "only the fci method (method keyword argument) can be used to calculate "
+            "state-averaged 1- and 2-particle reduced density matrices, cc methods "
+            "must only have keywords describing a single state and can therefore not "
+            "be lists (nelec, fci_state_sym, fci_state_root, fci_state_weights keyword "
+            "arguments)",
+        )
+        assertion(
+            len(mbe.nelec)
+            == len(mbe.fci_state_sym)
+            == len(mbe.fci_state_root)
+            == len(mbe.fci_state_weights),
+            "keywords describing different states for the calculation of state-averaged "
+            "1- and 2-particle reduced density matrices (nelec, fci_state_sym, "
+            "fci_state_root, fci_state_weights keyword arguments) must all have the "
+            "same length",
+        )
+        states = [
+            state
+            for state in zip(
+                *[
+                    [tuple(nelec_state) for nelec_state in mbe.nelec],
+                    mbe.fci_state_sym,
+                    mbe.fci_state_root,
+                ]
+            )
+        ]
+        assertion(
+            len(set(states)) == len(states),
+            "keywords describing multiple states for the calculation of state-averaged "
+            "1- and 2-particle reduced density matrices (nelec, fci_state_sym, "
+            "fci_state_root keyword arguments) must describe different states, every "
+            "state must therefore differ from every other state in either "
+            "multiplicity, symmetry or root",
+        )
+
     hf_wfnsym = ground_state_sym(
         cast(np.ndarray, mbe.orbsym),
         cast(np.ndarray, mbe.nelec),
@@ -410,28 +508,6 @@ def sanity_check(mbe: MBE) -> None:
             "argument) >= 1",
         )
 
-    # hf calculation
-    if mbe.target == "energy":
-        assertion(
-            isinstance(mbe.hf_prop, float),
-            "hartree-fock energy (hf_prop keyword argument) must be a float",
-        )
-    elif mbe.target == "dipole":
-        assertion(
-            isinstance(mbe.hf_prop, np.ndarray),
-            "hartree-fock dipole moment (hf_prop keyword argument) must be a "
-            "np.ndarray",
-        )
-    elif mbe.target == "rdm12":
-        assertion(
-            isinstance(mbe.hf_prop, tuple)
-            and len(mbe.hf_prop) == 2
-            and isinstance(mbe.hf_prop[0], np.ndarray)
-            and isinstance(mbe.hf_prop[1], np.ndarray),
-            "hartree-fock 1- and 2-particle density matrices (hf_prop keyword "
-            "argument) must be a tuple of np.ndarray with dimension 2",
-        )
-
     # orbital representation
     assertion(
         isinstance(mbe.orb_type, str),
@@ -452,30 +528,31 @@ def sanity_check(mbe: MBE) -> None:
 
     # integrals
     assertion(
-        isinstance(mbe.hcore, np.ndarray),
-        "core hamiltonian integral (hcore keyword argument) must be a np.ndarray",
+        isinstance(mbe.hcore, np.ndarray) and mbe.hcore.shape == 2 * (mbe.norb,),
+        "core hamiltonian integral (hcore keyword argument) must be a np.ndarray with "
+        "shape (norb, norb)",
     )
     assertion(
-        isinstance(mbe.eri, np.ndarray),
-        "electron repulsion integral (eri keyword argument) must be a np.ndarray",
+        isinstance(mbe.eri, np.ndarray)
+        and (
+            mbe.eri.shape == 2 * (cast(int, mbe.norb) * (cast(int, mbe.norb) + 1) / 2,)
+            or mbe.eri.shape == 4 * (mbe.norb,)
+        ),
+        "electron repulsion integral (eri keyword argument) must be a np.ndarray with "
+        "shape (mbe.norb * (mbe.norb + 1) / 2, (mbe.norb * (mbe.norb + 1) / 2)) or "
+        "(norb, norb, norb, norb)",
     )
-    assertion(
-        isinstance(mbe.vhf, np.ndarray),
-        "hartree-fock potential (vhf keyword argument) must be a np.ndarray",
-    )
-    if mbe.target in ["dipole", "trans"]:
-        assertion(
-            isinstance(mbe.dipole_ints, np.ndarray),
-            "dipole integrals (dipole_ints keyword argument) must be a np.ndarray",
-        )
 
-    # reference space
+    # reference and expansion spaces
     assertion(
         isinstance(mbe.ref_space, np.ndarray),
         "reference space (ref_space keyword argument) must be a np.ndarray of orbital "
         "indices",
     )
-    if cast(np.ndarray, mbe.nelec)[0] != cast(np.ndarray, mbe.nelec)[1]:
+    if (isinstance(mbe.nelec, np.ndarray) and mbe.nelec[0] != mbe.nelec[1]) or (
+        isinstance(mbe.nelec, list)
+        and any([state[0] != state[1] for state in mbe.nelec])
+    ):
         assertion(
             np.all(
                 np.isin(
@@ -489,26 +566,16 @@ def sanity_check(mbe: MBE) -> None:
             "all partially occupied orbitals have to be included in the reference "
             "space (ref_space keyword argument)",
         )
-    if mbe.target in ["energy", "excitation"]:
-        assertion(
-            isinstance(mbe.ref_prop, float),
-            "reference (excitation) energy (ref_prop keyword argument) must be a float",
-        )
-    elif mbe.target in ["dipole", "trans"]:
-        assertion(
-            isinstance(mbe.ref_prop, np.ndarray),
-            "reference (transition) dipole moment (ref_prop keyword argument) must be "
-            "a np.ndarray",
-        )
-    elif mbe.target == "rdm12":
-        assertion(
-            isinstance(mbe.ref_prop, tuple)
-            and len(mbe.ref_prop) == 2
-            and isinstance(mbe.ref_prop[0], np.ndarray)
-            and isinstance(mbe.ref_prop[1], np.ndarray),
-            "reference 1- and 2-particle density matrices (ref_prop keyword argument) "
-            "must be a tuple of np.ndarray with dimension 2",
-        )
+    assertion(
+        isinstance(mbe.exp_space, np.ndarray),
+        "expansion space (exp_space keyword argument) must be a np.ndarray of orbital "
+        "indices",
+    )
+    assertion(
+        np.intersect1d(mbe.ref_space, cast(np.ndarray, mbe.exp_space)).size == 0,
+        "reference space (ref_space keyword argument) and expansion space (exp_space "
+        "keyword argument) must be mutually exclusive",
+    )
 
     # base model
     assertion(
@@ -535,7 +602,7 @@ def sanity_check(mbe: MBE) -> None:
                 "ecc coupled-cluster backends (cc_backend keyword argument)",
             )
         assertion(
-            mbe.target in ["energy", "dipole", "rdm12"],
+            mbe.target in ["energy", "dipole", "rdm12", "genfock"],
             "excited target states (target keyword argument) not implemented for base "
             "model calculations (base_method keyword argument)",
         )
@@ -558,18 +625,36 @@ def sanity_check(mbe: MBE) -> None:
             )
         elif mbe.target == "dipole":
             assertion(
-                isinstance(mbe.base_prop, np.ndarray),
+                isinstance(mbe.base_prop, np.ndarray) and mbe.base_prop.shape == (3,),
                 "base model dipole moment (base_prop keyword argument) must be a "
-                "np.ndarray",
+                "np.ndarray with shape (3,)",
             )
         elif mbe.target == "rdm12":
             assertion(
                 isinstance(mbe.base_prop, tuple)
                 and len(mbe.base_prop) == 2
                 and isinstance(mbe.base_prop[0], np.ndarray)
-                and isinstance(mbe.base_prop[1], np.ndarray),
-                "base model 1- and 2-particle density matrices (base_prop keyword argument) "
-                "must be a tuple of np.ndarray with dimension 2",
+                and mbe.base_prop[0].shape == 2 * (mbe.norb,)
+                and isinstance(mbe.base_prop[1], np.ndarray)
+                and mbe.base_prop[1].shape == 4 * (mbe.norb,),
+                "base model 1- and 2-particle density matrices (base_prop keyword "
+                "argument) must be a tuple with dimension 2, rdm1 must be a np.ndarray "
+                "with shape (norb, norb), rdm2 must be a np.ndarray with shape "
+                "(norb, norb, norb, norb)",
+            )
+        elif mbe.target == "genfock":
+            assertion(
+                isinstance(mbe.base_prop, tuple)
+                and len(mbe.base_prop) == 2
+                and isinstance(mbe.base_prop[0], float)
+                and isinstance(mbe.base_prop[1], np.ndarray)
+                and mbe.base_prop[1].shape
+                == (cast(int, mbe.full_nocc) + cast(int, mbe.norb), mbe.full_norb),
+                "base model for generalized fock matrix calculation (base_prop keyword "
+                "argument) must be a tuple with dimension 2, the first element "
+                "describes the energy and must be a float, the second element "
+                "describes the generalized fock matrix and must be a np.ndarray with "
+                "shape (full_nocc + norb, full_norb)",
             )
 
     # screening
@@ -580,6 +665,15 @@ def sanity_check(mbe: MBE) -> None:
     assertion(
         isinstance(mbe.screen_perc, float) and mbe.screen_perc <= 1.0,
         "screening threshold (screen_perc keyword argument) must be a float <= 1.",
+    )
+    assertion(
+        isinstance(mbe.screen_func, str),
+        "screening function (screen_func keyword argument) must be an str",
+    )
+    assertion(
+        mbe.screen_func in ["max", "sum", "rnd"],
+        "valid screening functions (screen_func keyword argument) are: max, "
+        "sum and rnd",
     )
     if mbe.max_order is not None:
         assertion(
@@ -615,9 +709,69 @@ def sanity_check(mbe: MBE) -> None:
             "for linear D2h and C2v symmetries (point_group keyword argument)",
         )
         assertion(
-            isinstance(mbe.orbsym_linear, np.ndarray),
+            isinstance(mbe.orbsym_linear, np.ndarray)
+            and mbe.orbsym_linear.shape == (mbe.norb,),
             "linear point group orbital symmetry (orbsym_linear keyword argument) must "
-            "be a np.ndarray",
+            "be a np.ndarray with shape (norb,)",
+        )
+
+    # exclude single excitations
+    if mbe.target in ["rdm12", "genfock"]:
+        assertion(
+            isinstance(mbe.no_singles, bool),
+            "excluding single excitations (no_singles keyword argument) must be a bool",
+        )
+
+    # optional integrals for (transition) dipole moment
+    if mbe.target in ["dipole", "trans"]:
+        assertion(
+            isinstance(mbe.dipole_ints, np.ndarray)
+            and mbe.dipole_ints.shape == (3, mbe.norb, mbe.norb),
+            "dipole integrals (dipole_ints keyword argument) must be a np.ndarray with "
+            "shape (3, norb, norb)",
+        )
+
+    # optional parameters for generalized Fock matrix
+    if mbe.target == "genfock":
+        assertion(
+            isinstance(mbe.full_norb, int) and mbe.full_norb > 0,
+            "number of orbitals in the full system (full_norb keyword argument) must "
+            "be an int > 0",
+        )
+        assertion(
+            isinstance(mbe.full_nocc, int) and mbe.full_nocc > 0,
+            "number of occupied orbitals in the full system (full_nocc keyword "
+            "argument) must be an int > 0",
+        )
+        assertion(
+            isinstance(mbe.inact_fock, np.ndarray)
+            and mbe.inact_fock.shape
+            == (mbe.full_norb, cast(int, mbe.full_nocc) + cast(int, mbe.norb)),
+            "inactive Fock matrix (inact_fock keyword argument) must be a np.ndarray "
+            "with shape (full_norb, full_nocc + norb)",
+        )
+        assertion(
+            isinstance(mbe.eri_goaa, np.ndarray)
+            and mbe.eri_goaa.shape
+            == (mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb),
+            "general-occupied-active-active electron repulsion integral (eri_goaa "
+            "keyword argument) must be a np.ndarray with shape "
+            "(mbe.full_norb, mbe.full_nocc, mbe.norb, mbe.norb)",
+        )
+        assertion(
+            isinstance(mbe.eri_gaao, np.ndarray)
+            and mbe.eri_gaao.shape
+            == (mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc),
+            "general-active-active-occupied electron repulsion integral (eri_gaao "
+            "keyword argument) must be a np.ndarray with shape "
+            "(mbe.full_norb, mbe.norb, mbe.norb, mbe.full_nocc)",
+        )
+        assertion(
+            isinstance(mbe.eri_gaaa, np.ndarray)
+            and mbe.eri_gaaa.shape == (mbe.full_norb, mbe.norb, mbe.norb, mbe.norb),
+            "general-active-active-active electron repulsion integral (eri_gaaa "
+            "keyword argument) must be a np.ndarraywith shape "
+            "(mbe.full_norb, mbe.norb, mbe.norb, mbe.norb)",
         )
 
 
@@ -643,6 +797,7 @@ def restart_write_kw(mbe: MBE) -> None:
         "rst_freq": mbe.rst_freq,
         "verbose": mbe.verbose,
         "pi_prune": mbe.pi_prune,
+        "no_singles": mbe.no_singles,
     }
 
     # write keywords
@@ -670,46 +825,49 @@ def restart_write_system(mbe: MBE) -> None:
     this function writes all system quantities restart files
     """
     # define system quantities
-    system = {
-        "nuc_energy": mbe.nuc_energy,
-        "ncore": mbe.ncore,
-        "norb": mbe.norb,
-        "nelec": mbe.nelec,
-        "orbsym": mbe.orbsym,
-        "hcore": mbe.hcore,
-        "vhf": mbe.vhf,
-        "eri": mbe.eri,
+    system: Dict[str, Union[int, np.ndarray, List[np.ndarray], float]] = {
+        "norb": cast(int, mbe.norb),
+        "orbsym": cast(np.ndarray, mbe.orbsym),
+        "hcore": cast(np.ndarray, mbe.hcore),
+        "eri": cast(np.ndarray, mbe.eri),
         "ref_space": mbe.ref_space,
+        "exp_space": cast(np.ndarray, mbe.exp_space),
     }
 
-    if (
-        isinstance(mbe.hf_prop, (float, np.ndarray))
-        and isinstance(mbe.ref_prop, (float, np.ndarray))
-        and isinstance(mbe.base_prop, (float, np.ndarray))
-    ):
-        system["hf_prop"] = mbe.hf_prop
-        system["ref_prop"] = mbe.ref_prop
+    if isinstance(mbe.nelec, np.ndarray):
+        system["nelec"] = mbe.nelec
+    elif isinstance(mbe.nelec, list):
+        system["nelec"] = np.array(mbe.nelec)
+
+    if isinstance(mbe.base_prop, (float, np.ndarray)):
         system["base_prop"] = mbe.base_prop
-    elif (
-        isinstance(mbe.hf_prop, tuple)
-        and isinstance(mbe.ref_prop, tuple)
-        and isinstance(mbe.base_prop, tuple)
-    ):
-        system["hf_prop1"] = mbe.hf_prop[0]
-        system["hf_prop2"] = mbe.hf_prop[1]
-        system["ref_prop1"] = mbe.ref_prop[0]
-        system["ref_prop2"] = mbe.ref_prop[1]
+    elif isinstance(mbe.base_prop, tuple):
         system["base_prop1"] = mbe.base_prop[0]
         system["base_prop2"] = mbe.base_prop[1]
 
-    if mbe.nuc_dipole is not None:
-        system["nuc_dipole"] = mbe.nuc_dipole
+    if mbe.orbsym_linear is not None:
+        system["orbsym_linear"] = mbe.orbsym_linear
 
     if mbe.dipole_ints is not None:
         system["dipole_ints"] = mbe.dipole_ints
 
-    if mbe.orbsym_linear is not None:
-        system["orbsym_linear"] = mbe.orbsym_linear
+    if mbe.full_norb is not None:
+        system["full_norb"] = mbe.full_norb
+
+    if mbe.full_nocc is not None:
+        system["full_nocc"] = mbe.full_nocc
+
+    if mbe.inact_fock is not None:
+        system["inact_fock"] = mbe.inact_fock
+
+    if mbe.eri_goaa is not None:
+        system["eri_goaa"] = mbe.eri_goaa
+
+    if mbe.eri_gaao is not None:
+        system["eri_gaao"] = mbe.eri_gaao
+
+    if mbe.eri_gaaa is not None:
+        system["eri_gaaa"] = mbe.eri_gaaa
 
     # write system quantities
     np.savez(os.path.join(RST, "system"), **system)  # type: ignore
@@ -731,20 +889,24 @@ def restart_read_system(mbe: MBE) -> MBE:
     system_npz.close()
 
     # define scalar values
-    scalars = ["nuc_energy", "ncore", "norb"]
+    scalars = ["norb"]
 
     if mbe.target in ["energy", "excitation"]:
-        scalars.append("hf_prop")
-        scalars.append("ref_prop")
         scalars.append("base_prop")
     elif mbe.target == "rdm12":
-        system["hf_prop"] = (system.pop("hf_prop1"), system.pop("hf_prop2"))
-        system["ref_prop"] = (system.pop("ref_prop1"), system.pop("ref_prop2"))
+        system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
+    elif mbe.target == "genfock":
+        scalars.append("full_norb")
+        scalars.append("full_nocc")
         system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
 
     # convert to scalars
     for scalar in scalars:
         system[scalar] = system[scalar].item()
+
+    # convert to list
+    if system["nelec"].dim == 2:
+        system["nelec"] = list(system["nelec"])
 
     # set system quantities as MBE attributes
     for key, val in system.items():

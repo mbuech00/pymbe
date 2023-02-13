@@ -23,10 +23,9 @@ import scipy.special as sc
 from mpi4py import MPI
 from pyscf import symm, ao2mo
 from itertools import islice, combinations, groupby
-from math import floor
 from subprocess import Popen, PIPE
 from traceback import format_stack
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from pymbe.parallel import open_shared_win
 
@@ -146,22 +145,22 @@ class RDMCls:
         else:
             return NotImplemented
 
-    def __mul__(self, other: int) -> RDMCls:
+    def __mul__(self, other: Union[int, float]) -> RDMCls:
         """
         this function implements multiplication for the RDMCls objects
         """
-        if isinstance(other, int):
+        if isinstance(other, (int, float)):
             return RDMCls(other * self.rdm1, other * self.rdm2)
         else:
             return NotImplemented
 
     __rmul__ = __mul__
 
-    def __imul__(self, other: int) -> RDMCls:
+    def __imul__(self, other: Union[int, float]) -> RDMCls:
         """
         this function implements inplace multiplication for the RDMCls objects
         """
-        if isinstance(other, RDMCls):
+        if isinstance(other, (int, float)):
             self.rdm1 *= other
             self.rdm2 *= other
             return self
@@ -176,6 +175,8 @@ class RDMCls:
             return RDMCls(self.rdm1 / other, self.rdm2 / other)
         else:
             return NotImplemented
+
+    __rtruediv__ = __truediv__
 
     def __itruediv__(self, other: Union[int, float]) -> RDMCls:
         """
@@ -327,7 +328,9 @@ class packedRDMCls:
     def __setitem__(
         self,
         idx: Union[int, np.int64, slice, np.ndarray],
-        values: Union[packedRDMCls, RDMCls, np.ndarray, float],
+        values: Union[
+            float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, GenFockArrayCls
+        ],
     ) -> packedRDMCls:
         """
         this function ensures indexed packedRDMCls can be set using packedRDMCls or
@@ -365,6 +368,160 @@ class packedRDMCls:
         self.rdm2.fill(value)
 
 
+class GenFockCls:
+    """
+    this class holds the energy and generalized Fock matrix elements and defines all
+    necessary operations
+    """
+
+    def __init__(self, energy: float, gen_fock: np.ndarray):
+        """
+        initializes a GenFock object
+        """
+        self.energy = energy
+        self.gen_fock = gen_fock
+
+    def __add__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function implements addition for the GenFockCls objects
+        """
+        if isinstance(other, GenFockCls):
+            return GenFockCls(
+                self.energy + other.energy, self.gen_fock + other.gen_fock
+            )
+        else:
+            return NotImplemented
+
+    def __iadd__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function implements inplace addition for the GenFockCls objects
+        """
+        if isinstance(other, GenFockCls):
+            self.energy += other.energy
+            self.gen_fock += other.gen_fock
+            return self
+        else:
+            return NotImplemented
+
+    def __sub__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function implements subtraction for the GenFockCls objects
+        """
+        if isinstance(other, GenFockCls):
+            return GenFockCls(
+                self.energy - other.energy, self.gen_fock - other.gen_fock
+            )
+        else:
+            return NotImplemented
+
+    def __isub__(self, other: GenFockCls) -> GenFockCls:
+        """
+        this function implements inplace subtraction for the GenFockCls objects
+        """
+        if isinstance(other, GenFockCls):
+            self.energy -= other.energy
+            self.gen_fock -= other.gen_fock
+            return self
+        else:
+            return NotImplemented
+
+    def __truediv__(self, other: Union[int, float]) -> GenFockCls:
+        """
+        this function implements division for the GenFockCls objects
+        """
+        if isinstance(other, (int, float)):
+            return GenFockCls(self.energy / other, self.gen_fock / other)
+        else:
+            return NotImplemented
+
+    def __itruediv__(self, other: Union[int, float]) -> GenFockCls:
+        """
+        this function implements inplace division for the GenFockCls objects
+        """
+        if isinstance(other, (int, float)):
+            self.energy /= other
+            self.gen_fock /= other
+            return self
+        else:
+            return NotImplemented
+
+    def fill(self, value: float) -> None:
+        """
+        this function defines the fill function for GenFockCls objects
+        """
+        self.energy = value
+        self.gen_fock.fill(value)
+
+    def copy(self) -> GenFockCls:
+        """
+        this function creates a copy of GenFockCls objects
+        """
+        return GenFockCls(self.energy, self.gen_fock.copy())
+
+
+class GenFockArrayCls:
+    """
+    this class describes an array of generalized Fock matrices
+    """
+
+    def __init__(self, energy: np.ndarray, gen_fock: np.ndarray) -> None:
+        """
+        this function initializes a GenFockArrayCls object
+        """
+        self.energy = energy
+        self.gen_fock = gen_fock
+
+    @overload
+    def __getitem__(self, idx: Union[int, np.int64]) -> GenFockCls:
+        ...
+
+    @overload
+    def __getitem__(self, idx: Union[slice, np.ndarray]) -> GenFockArrayCls:
+        ...
+
+    def __getitem__(
+        self, idx: Union[int, np.int64, slice, np.ndarray]
+    ) -> Union[GenFockCls, GenFockArrayCls]:
+        """
+        this function ensures GenFockArrayCls can be retrieved through indexing
+        GenFockArrayCls objects
+        """
+        if isinstance(idx, (int, np.integer)):
+            return GenFockCls(self.energy[idx], self.gen_fock[idx])
+        elif isinstance(idx, (slice, np.ndarray)):
+            return GenFockArrayCls(self.energy[idx], self.gen_fock[idx])
+        else:
+            return NotImplemented
+
+    def __setitem__(
+        self,
+        idx: Union[int, np.int64, slice, np.ndarray],
+        values: Union[
+            float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, GenFockArrayCls
+        ],
+    ) -> GenFockArrayCls:
+        """
+        this function ensures indexed GenFockArrayCls can be set using GenFockArrayCls
+        or GenFockCls objects
+        """
+        if (
+            isinstance(idx, (slice, np.ndarray)) and isinstance(values, GenFockArrayCls)
+        ) or (isinstance(idx, (int, np.integer)) and isinstance(values, GenFockCls)):
+            self.energy[idx] = values.energy
+            self.gen_fock[idx] = values.gen_fock
+        else:
+            return NotImplemented
+
+        return self
+
+    def fill(self, value: float) -> None:
+        """
+        this function defines the fill function for GenFockArrayCls objects
+        """
+        self.energy.fill(value)
+        self.gen_fock.fill(value)
+
+
 def logger_config(verbose: int) -> None:
     """
     this function configures the pymbe logger
@@ -384,8 +541,9 @@ def logger_config(verbose: int) -> None:
     # add formatter to handler
     handler.setFormatter(formatter)
 
-    # add handler to logger
-    logger.addHandler(handler)
+    # add handler to logger if it does not already exist
+    if not len(logger.handlers):
+        logger.addHandler(handler)
 
     # prevent logger from propagating handlers from parent loggers
     logger.propagate = False
@@ -909,26 +1067,6 @@ def _valid_tup(
     )
 
 
-def mat_idx(site_idx: int, nx: int, ny: int) -> Tuple[int, int]:
-    """
-    this function returns x and y indices of a matrix
-    """
-    y = site_idx % nx
-    x = int(floor(float(site_idx) / ny))
-    return x, y
-
-
-def near_nbrs(site_xy: Tuple[int, int], nx: int, ny: int) -> List[Tuple[int, int]]:
-    """
-    this function returns a list of nearest neighbour indices
-    """
-    up = ((site_xy[0] - 1) % nx, site_xy[1])
-    down = ((site_xy[0] + 1) % nx, site_xy[1])
-    left = (site_xy[0], (site_xy[1] + 1) % ny)
-    right = (site_xy[0], (site_xy[1] - 1) % ny)
-    return [up, down, left, right]
-
-
 def is_file(order: int, string: str) -> bool:
     """
     this function looks to see if a general restart file corresponding to the input
@@ -999,7 +1137,7 @@ def ground_state_sym(orbsym: np.ndarray, nelec: np.ndarray, point_group: str) ->
     return wfnsym.item()
 
 
-def get_vhf(eri: np.ndarray, nocc: int, norb: int):
+def get_vhf(eri: np.ndarray, nocc: int, norb: int) -> np.ndarray:
     """
     this function determines the Hartree-Fock potential from the electron repulsion
     integrals
@@ -1008,9 +1146,7 @@ def get_vhf(eri: np.ndarray, nocc: int, norb: int):
 
     vhf = np.empty((nocc, norb, norb), dtype=np.float64)
     for i in range(nocc):
-        idx = np.asarray([i])
-        vhf[i] = np.einsum("pqrs->rs", eri[idx[:, None], idx, :, :]) * 2.0
-        vhf[i] -= np.einsum("pqrs->ps", eri[:, idx[:, None], idx, :]) * 2.0 * 0.5
+        vhf[i] = 2.0 * eri[i, i, :, :] - eri[:, i, i, :]
 
     return vhf
 
@@ -1024,3 +1160,24 @@ def get_occup(norb: int, nelec: np.ndarray) -> np.ndarray:
     occup[np.amin(nelec) : np.amax(nelec)] = 1
 
     return occup
+
+
+def e_core_h1e(
+    hcore: np.ndarray, vhf: np.ndarray, core_idx: np.ndarray, cas_idx: np.ndarray
+) -> Tuple[float, np.ndarray]:
+    """
+    this function returns core energy and cas space 1e integrals
+    """
+    # determine effective core fock potential
+    if core_idx.size > 0:
+        core_vhf = np.sum(vhf[core_idx], axis=0)
+    else:
+        core_vhf = 0.0
+
+    # calculate core energy
+    e_core = np.trace((hcore + 0.5 * core_vhf)[core_idx[:, None], core_idx]) * 2.0
+
+    # extract cas integrals
+    h1e_cas = (hcore + core_vhf)[cas_idx[:, None], cas_idx]
+
+    return e_core, h1e_cas

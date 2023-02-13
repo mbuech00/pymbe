@@ -15,17 +15,18 @@ __email__ = "janus.eriksen@bristol.ac.uk"
 __status__ = "Development"
 
 import numpy as np
+from pyscf import fci
 from typing import TYPE_CHECKING
 
+from pymbe.expansion import MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.dipole import DipoleExpCls
-from pymbe.kernel import main_kernel, dipole_kernel
-from pymbe.tools import get_nelec
+from pymbe.tools import get_nelec, assertion
 from pymbe.results import DIVIDER, results_plt
 
 if TYPE_CHECKING:
 
     import matplotlib
-    from typing import Tuple, Union
+    from typing import Tuple, Union, List
 
 
 class TransExpCls(DipoleExpCls):
@@ -34,13 +35,9 @@ class TransExpCls(DipoleExpCls):
     dipole moment
     """
 
-    def tot_prop(self) -> np.ndarray:
-        """
-        this function returns the final total transition dipole moment
-        """
-        return self._prop_conv()[-1, :]
-
-    def plot_results(self) -> matplotlib.figure.Figure:
+    def plot_results(
+        self, y_axis: str, nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64)
+    ) -> matplotlib.figure.Figure:
         """
         this function plots the transition dipole moment
         """
@@ -60,6 +57,12 @@ class TransExpCls(DipoleExpCls):
             "Transition dipole (in au)",
         )
 
+    def _calc_hf_prop(self, *args: np.ndarray) -> np.ndarray:
+        """
+        this function calculates the hartree-fock property
+        """
+        return np.zeros(3, dtype=np.float64)
+
     def _inc(
         self,
         e_core: float,
@@ -67,45 +70,143 @@ class TransExpCls(DipoleExpCls):
         h2e_cas: np.ndarray,
         core_idx: np.ndarray,
         cas_idx: np.ndarray,
-        tup: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        this function calculates the current-order contribution to the increment associated
-        with a given tuple
+        this function calculates the current-order contribution to the increment
+        associated with a given tuple
         """
         # nelec
         nelec = get_nelec(self.occup, cas_idx)
 
         # perform main calc
-        res = main_kernel(
-            self.method,
-            self.cc_backend,
-            self.orb_type,
-            self.spin,
-            self.occup,
-            self.target,
-            self.fci_state_sym,
-            self.point_group,
-            self.orbsym,
-            self.hf_guess,
-            self.fci_state_root,
-            self.hf_prop,
-            e_core,
-            h1e_cas,
-            h2e_cas,
-            core_idx,
-            cas_idx,
+        trans = self._kernel(
+            self.method, e_core, h1e_cas, h2e_cas, core_idx, cas_idx, nelec
+        )
+
+        trans -= self.ref_prop
+
+        return trans, nelec
+
+    def _fci_kernel(
+        self,
+        e_core: float,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+    ) -> np.ndarray:
+        """
+        this function returns the results of a fci calculation
+        """
+        # spin
+        spin_cas = abs(nelec[0] - nelec[1])
+        assertion(spin_cas == self.spin, f"casci wrong spin in space: {cas_idx}")
+
+        # init fci solver
+        if spin_cas == 0:
+            solver = fci.direct_spin0_symm.FCI()
+        else:
+            solver = fci.direct_spin1_symm.FCI()
+
+        # settings
+        solver.conv_tol = CONV_TOL * 1.0e-04
+        solver.lindep = solver.conv_tol * 1.0e-01
+        solver.max_memory = MAX_MEM
+        solver.max_cycle = 5000
+        solver.max_space = 25
+        solver.davidson_only = True
+        solver.pspace_size = 0
+        if self.verbose >= 3:
+            solver.verbose = 10
+        solver.wfnsym = self.fci_state_sym
+        solver.orbsym = self.orbsym[cas_idx]
+        solver.nroots = self.fci_state_root + 1
+
+        # hf starting guess
+        if self.hf_guess:
+            na = fci.cistring.num_strings(cas_idx.size, nelec[0])
+            nb = fci.cistring.num_strings(cas_idx.size, nelec[1])
+            ci0 = np.zeros((na, nb))
+            ci0[0, 0] = 1
+        else:
+            ci0 = None
+
+        # interface
+        def _fci_interface() -> Tuple[List[float], List[np.ndarray]]:
+            """
+            this function provides an interface to solver.kernel
+            """
+            # perform calc
+            e, c = solver.kernel(h1e, h2e, cas_idx.size, nelec, ecore=e_core, ci0=ci0)
+
+            # collect results
+            return [e[0], e[-1]], [c[0], c[-1]]
+
+        # perform calc
+        _, civec = _fci_interface()
+
+        # multiplicity check
+        for root in range(len(civec)):
+
+            s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
+
+            if np.abs((spin_cas + 1) - mult) > SPIN_TOL:
+
+                # fix spin by applying level shift
+                sz = np.abs(nelec[0] - nelec[1]) * 0.5
+                solver = fci.addons.fix_spin_(solver, shift=0.25, ss=sz * (sz + 1.0))
+
+                # perform calc
+                _, civec = _fci_interface()
+
+                # verify correct spin
+                for root in range(len(civec)):
+                    s, mult = solver.spin_square(civec[root], cas_idx.size, nelec)
+                    assertion(
+                        np.abs((spin_cas + 1) - mult) < SPIN_TOL,
+                        f"spin contamination for root entry = {root}\n"
+                        f"2*S + 1 = {mult:.6f}\n"
+                        f"cas_idx = {cas_idx}\n"
+                        f"cas_sym = {self.orbsym[cas_idx]}",
+                    )
+
+        # convergence check
+        for root in [0, solver.nroots - 1]:
+            assertion(
+                solver.converged[root],
+                f"state {root} not converged\n"
+                f"cas_idx = {cas_idx}\n"
+                f"cas_sym = {self.orbsym[cas_idx]}",
+            )
+
+        # init transition rdm1
+        t_rdm1 = np.zeros([self.occup.size, self.occup.size], dtype=np.float64)
+
+        # insert correlated subblock
+        t_rdm1[cas_idx[:, None], cas_idx] = solver.trans_rdm1(
+            np.sign(civec[0][0, 0]) * civec[0],
+            np.sign(civec[-1][0, 0]) * civec[-1],
+            cas_idx.size,
             nelec,
-            self.verbose,
         )
 
-        res_full = dipole_kernel(
-            self.dipole_ints, self.occup, cas_idx, res["t_rdm1"], trans=True
-        )
+        return np.einsum("xij,ji->x", self.dipole_ints, t_rdm1)
 
-        res_full -= self.ref_prop
-
-        return res_full, nelec
+    def _cc_kernel(
+        self,
+        method: str,
+        core_idx: np.ndarray,
+        cas_idx: np.ndarray,
+        nelec: np.ndarray,
+        h1e: np.ndarray,
+        h2e: np.ndarray,
+        higher_amp_extrap: bool,
+    ) -> np.ndarray:
+        """
+        this function returns the results of a cc calculation
+        """
+        raise NotImplementedError
 
     def _prop_summ(
         self,
@@ -164,7 +265,11 @@ class TransExpCls(DipoleExpCls):
 
         return string
 
-    def _prop_conv(self) -> np.ndarray:
+    def _prop_conv(
+        self,
+        nuc_prop: np.ndarray = np.zeros(3, dtype=np.float64),
+        hf_prop: np.ndarray = np.zeros(3, dtype=np.float64),
+    ) -> np.ndarray:
         """
         this function returns the total transition dipole moment
         """

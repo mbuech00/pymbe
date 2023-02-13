@@ -103,6 +103,7 @@ def kw_dist(mbe: MBE) -> MBE:
             "restarted": mbe.restarted,
             "verbose": mbe.verbose,
             "pi_prune": mbe.pi_prune,
+            "no_singles": mbe.no_singles,
         }
 
         # bcast to slaves
@@ -128,17 +129,20 @@ def system_dist(mbe: MBE) -> MBE:
 
         # collect system quantites (must be updated with new future attributes)
         system = {
-            "nuc_energy": mbe.nuc_energy,
-            "ncore": mbe.ncore,
             "norb": mbe.norb,
             "nelec": mbe.nelec,
             "orbsym": mbe.orbsym,
-            "hf_prop": mbe.hf_prop,
-            "dipole_ints": mbe.dipole_ints,
             "ref_space": mbe.ref_space,
-            "ref_prop": mbe.ref_prop,
+            "exp_space": mbe.exp_space,
             "base_prop": mbe.base_prop,
             "orbsym_linear": mbe.orbsym_linear,
+            "dipole_ints": mbe.dipole_ints,
+            "full_norb": mbe.full_norb,
+            "full_nocc": mbe.full_nocc,
+            "inact_fock": mbe.inact_fock,
+            "eri_goaa": mbe.eri_goaa,
+            "eri_gaao": mbe.eri_gaao,
+            "eri_gaaa": mbe.eri_gaaa,
         }
 
         # bcast to slaves
