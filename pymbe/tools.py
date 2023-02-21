@@ -22,7 +22,7 @@ import numpy as np
 import scipy.special as sc
 from mpi4py import MPI
 from pyscf import symm, ao2mo
-from itertools import islice, combinations, groupby
+from itertools import islice, combinations, groupby, chain
 from subprocess import Popen, PIPE
 from traceback import format_stack
 from typing import TYPE_CHECKING, overload
@@ -31,7 +31,7 @@ from pymbe.parallel import open_shared_win
 
 if TYPE_CHECKING:
 
-    from typing import Tuple, List, Generator, Union, Optional
+    from typing import Tuple, List, Generator, Union, Optional, Dict, Set
 
 
 # get logger
@@ -874,55 +874,34 @@ def pi_prune(pi_space: np.ndarray, pi_hashes: np.ndarray, tup: np.ndarray) -> bo
 
 
 def symm_eqv_tup(
-    cas_idx: np.ndarray, symm_orbs: np.ndarray, ref_space: np.ndarray
-) -> int:
+    cas_idx: np.ndarray,
+    symm_orbs: List[Dict[int, Tuple[int, ...]]],
+    ref_space: Optional[np.ndarray],
+) -> Optional[Set[Tuple[int, ...]]]:
     """
-    this function returns the number of stabilizers for a tuple if it is the
-    lexicographically greatest with respect to all symmetry operations, otherwise
-    returns zero
+    this function returns a set of symmetry-equivalent cas_idx that will yield the same
+    CASCI property if the supplied cas_idx is lexicographically greatest with respect
+    to all symmetry operations, otherwise returns None
     """
-    # initialize number of stabilizers
-    nstab = 0
-
-    # initialize number of valid symmetry operations for this tuple
-    nsymm = 0
+    # initialize set of symmetry-equivalent tuples
+    eqv_set = {tuple(cas_idx)}
 
     # loop over symmetry operations in point group
     for symm_op in symm_orbs:
 
         # get permuted cas space by applying symmetry operation
-        perm_cas = symm_op[cas_idx]
+        perm_cas = apply_symm_op(symm_op, cas_idx)
+
+        # skip this symmetry operation
+        if perm_cas is None or (
+            ref_space is not None
+            and np.intersect1d(ref_space, perm_cas, assume_unique=True).size
+            < ref_space.size
+        ):
+            continue
 
         # sort permuted cas space
         perm_cas.sort()
-
-        # initialize skip boolean
-        skip = False
-
-        # check if any orbitals cannot be transformed
-        for orb in perm_cas:
-            if orb == -1:
-                skip = True
-            break
-
-        # check if full reference space is not included in permuted cas space
-        if ref_space.size > 0:
-            i = 0
-            for orb in perm_cas:
-                if orb > ref_space[i]:
-                    skip = True
-                    break
-                elif orb == ref_space[i]:
-                    i += 1
-                    if i == len(ref_space):
-                        break
-
-        # skip this symmetry operation
-        if skip:
-            continue
-
-        # increment number of symmetry operations
-        nsymm += 1
 
         # loop over orbs in cas space and permuted cas space
         for orb, perm_orb in zip(cas_idx, perm_cas):
@@ -931,7 +910,7 @@ def symm_eqv_tup(
             if orb < perm_orb:
 
                 # tuple is not unique and not lexicographically smaller
-                return 0
+                return None
 
             # check if orb in cas space is greater than orb in permuted cas space
             elif orb > perm_orb:
@@ -939,63 +918,174 @@ def symm_eqv_tup(
                 # tuple is lexicographically greater
                 break
 
-        # symmetry operation is a stabilizer for this tuple
-        else:
+        eqv_set.add(tuple(perm_cas))
 
-            # increment number of stabilizers
-            nstab += 1
-
-    # calculate number of equivalent tuples
-    neqvtups = nsymm // nstab
-
-    return neqvtups
+    return eqv_set
 
 
-def get_lex_tup(
-    tup: np.ndarray, symm_orbs: np.ndarray, ref_space: np.ndarray
+def symm_eqv_inc(
+    symm_orbs: np.ndarray,
+    eqv_tup_set: Set[Tuple[int, ...]],
+    ref_space: Optional[np.ndarray],
+) -> Tuple[List[np.ndarray], List[List[np.ndarray]]]:
+    """
+    this function returns a list of sets of tuples that yield symmetrically equivalent
+    increments and returns the lexicographically greatest increment for every set
+    """
+    # initialize list of sets of tuples with the same increments
+    eqv_inc_sets = []
+
+    # initialize list of lexicographically greates increment for every set
+    lex_cas = []
+
+    # check if all tuples in set will produce the same increment
+    while len(eqv_tup_set) > 0:
+
+        # start with random tuple in set of equivalent tuples
+        curr_cas = eqv_tup_set.pop()
+
+        # add new set of equivalent increments
+        eqv_inc_sets.append({curr_cas})
+
+        # add new lexicographically greatest equivalent increment
+        lex_cas.append(np.array(curr_cas, dtype=np.int64))
+
+        # get permuted cas spaces by applying symmetry operations
+        perm_cas_spaces = symm_orbs[:, curr_cas]
+
+        # sort permuted cas spaces
+        perm_cas_spaces.sort()
+
+        # loop over symmetry operations
+        for perm_cas in perm_cas_spaces:
+
+            # skip this symmetry operation
+            if perm_cas[0] == -1 or (
+                ref_space is not None
+                and np.intersect1d(ref_space, perm_cas, assume_unique=True).size
+                < ref_space.size
+            ):
+                continue
+
+            # convert to tuple
+            tup_perm_cas = tuple(perm_cas)
+
+            # check if tuple has been added to set of tuples with the same increments
+            if tup_perm_cas not in eqv_inc_sets[-1]:
+
+                # add permuted tuple to set of tuples with the same increments
+                eqv_inc_sets[-1].add(tup_perm_cas)
+
+                # remove permuted tuple from set of symmetrically equivalent tuples
+                eqv_tup_set.remove(tup_perm_cas)
+
+                # loop over orbs in lex_cas and perm_cas
+                for lex_orb, perm_orb in zip(lex_cas[-1], perm_cas):
+
+                    # check if orb in lex_cas is smaller than orb in perm_cas
+                    if lex_orb < perm_orb:
+
+                        # set permuted cas space as lexicographically greatest
+                        lex_cas[-1] = perm_cas
+
+                        # perm_cas is lexicographically greater
+                        break
+
+                    # check if orb in lex_cas is greater than orb in perm_cas
+                    elif lex_orb > perm_orb:
+
+                        # perm_cas is lexicographically smaller
+                        break
+
+    # remove reference space
+    if ref_space is not None:
+        lex_tup = [
+            np.setdiff1d(cas_idx, ref_space, assume_unique=True) for cas_idx in lex_cas
+        ]
+        eqv_inc_tups = [
+            [
+                np.setdiff1d(cas_idx, ref_space, assume_unique=True)
+                for cas_idx in eqv_inc_set
+            ]
+            for eqv_inc_set in eqv_inc_sets
+        ]
+    else:
+        lex_tup = lex_cas
+        eqv_inc_tups = [
+            [np.array(cas_idx, dtype=np.int64) for cas_idx in eqv_inc_set]
+            for eqv_inc_set in eqv_inc_sets
+        ]
+
+    return lex_tup, eqv_inc_tups
+
+
+def is_lex_tup(
+    cas_idx: np.ndarray, symm_orbs: np.ndarray, ref_space: Optional[np.ndarray]
+) -> bool:
+    """
+    this function returns whether the supplied cas_idx is the lexicographically
+    greatest cas_idx
+    """
+    # get permuted cas spaces by applying symmetry operations
+    perm_cas_spaces = symm_orbs[:, cas_idx]
+
+    # sort permuted cas spaces
+    perm_cas_spaces.sort()
+
+    # loop over symmetry operations in point group
+    for perm_cas in perm_cas_spaces:
+
+        # skip this symmetry operation
+        if (
+            ref_space is not None
+            and np.intersect1d(ref_space, perm_cas, assume_unique=True).size
+            < ref_space.size
+        ):
+            continue
+
+        # loop over orbs in cas_idx and perm_cas
+        for curr_orb, perm_orb in zip(cas_idx, perm_cas):
+
+            # check if orb in cas_idx is smaller than orb in perm_cas
+            if curr_orb < perm_orb:
+
+                # perm_cas is lexicographically greater
+                return False
+
+            # check if orb in lex_cas is greater than orb in perm_cas
+            elif curr_orb > perm_orb:
+
+                # perm_cas is lexicographically smaller
+                break
+
+    return True
+
+
+def get_lex_cas(
+    cas_idx: np.ndarray, symm_orbs: np.ndarray, ref_space: Optional[np.ndarray]
 ) -> np.ndarray:
     """
     this function returns the symmetrically equivalent but lexicographically greater
-    tuple
+    cas_idx
     """
-    # generate full cas space
-    cas_idx = cas(ref_space, tup)
-
     # initialize current lexicographically greatest cas space
-    lex_cas = cas_idx.copy()
+    lex_cas = cas_idx
+
+    # get permuted cas spaces by applying symmetry operations
+    perm_cas_spaces = symm_orbs[:, cas_idx]
+
+    # sort permuted cas spaces
+    perm_cas_spaces.sort()
 
     # loop over symmetry operations in point group
-    for symm_op in symm_orbs:
-
-        # get permuted cas space by applying symmetry operation
-        perm_cas = symm_op[cas_idx]
-
-        # sort permuted cas space
-        perm_cas.sort()
-
-        # initialize skip boolean
-        skip = False
-
-        # check if any orbitals cannot be transformed
-        for orb in perm_cas:
-            if orb == -1:
-                skip = True
-            break
-
-        # check if full reference space is not included in permuted cas space
-        if ref_space.size > 0:
-            i = 0
-            for orb in perm_cas:
-                if orb > ref_space[i]:
-                    skip = True
-                    break
-                elif orb == ref_space[i]:
-                    i += 1
-                    if i == len(ref_space):
-                        break
+    for perm_cas in perm_cas_spaces:
 
         # skip this symmetry operation
-        if skip:
+        if (
+            ref_space is not None
+            and np.intersect1d(ref_space, perm_cas, assume_unique=True).size
+            < ref_space.size
+        ):
             continue
 
         # loop over orbs in lex_cas and perm_cas
@@ -1016,10 +1106,59 @@ def get_lex_tup(
                 # perm_cas is lexicographically smaller
                 break
 
-    # remove reference space
-    lex_tup = np.setdiff1d(lex_cas, ref_space, assume_unique=True)
+    return lex_cas
 
-    return lex_tup
+
+def apply_symm_op(
+    symm_op: Dict[int, Tuple[int, ...]], tup: np.ndarray
+) -> Optional[np.ndarray]:
+    """
+    this function applies a symmetry operation to a tuple of orbitals
+    """
+    try:
+        perm_set = set(chain.from_iterable(symm_op[orb] for orb in tup))
+    except KeyError:
+        return None
+    set_len = len(perm_set)
+    if set_len == tup.size:
+        return np.fromiter(perm_set, np.int64, count=set_len)
+    else:
+        return None
+
+
+def reduce_symm_eqv_orbs(
+    symm_eqv_orbs: List[Dict[int, Tuple[int, ...]]], space: np.ndarray
+) -> List[Dict[int, Tuple[int, ...]]]:
+    """
+    this function only returns symmetry-equivalent orbitals included in the supplied
+    space
+    """
+    return [
+        {
+            orb: tuple(tup_orb for tup_orb in tup)
+            for orb, tup in symm_op.items()
+            if orb in space and np.isin(tup, space).all()
+        }
+        for symm_op in symm_eqv_orbs
+    ]
+
+
+def get_eqv_inc_orbs(
+    symm_eqv_orbs: List[Dict[int, Tuple[int, ...]]], nsymm: int, norb: int
+) -> np.ndarray:
+    """
+    this function returns the orbital combinations necessary to produce a
+    symmetry-equivalent increment
+    """
+    eqv_inc_orbs = np.empty((nsymm, norb), dtype=np.int64)
+    for op, symm_op in enumerate(symm_eqv_orbs):
+        for orb1 in range(norb):
+            orb2 = symm_op.get(orb1, None)
+            if orb2 is not None and len(orb2) == 1:
+                eqv_inc_orbs[op, orb1] = orb2[0]
+            else:
+                eqv_inc_orbs[op, orb1] = -1
+    return eqv_inc_orbs
 
 
 def get_nelec(occup: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -1044,7 +1183,7 @@ def get_nexc(nelec: np.ndarray, nhole: np.ndarray) -> int:
     this function returns the number of possible excitations in a given tuple of
     orbitals
     """
-    return np.sum(np.minimum(nelec, nhole))
+    return np.add.reduce(np.minimum(nelec, nhole))
 
 
 def _valid_tup(
@@ -1056,15 +1195,13 @@ def _valid_tup(
 ) -> bool:
     """
     this function returns true if a tuple kind produces a non-vanishing correlation
-    energy
+    energy by calculating the number of excitations (equivalent to get_nexc but faster)
+    and comparing to the number of vanishing excitation for the used model
     """
     return (
-        get_nexc(
-            ref_nelec + np.array([tup_nocc, tup_nocc]),
-            ref_nhole + np.array([tup_nvirt, tup_nvirt]),
-        )
-        > vanish_exc
-    )
+        min(ref_nelec[0] + tup_nocc, ref_nhole[0] + tup_nvirt)
+        + min(ref_nelec[1] + tup_nocc, ref_nhole[1] + tup_nvirt)
+    ) > vanish_exc
 
 
 def is_file(order: int, string: str) -> bool:
@@ -1078,7 +1215,7 @@ def is_file(order: int, string: str) -> bool:
         return os.path.isfile(os.path.join(RST, f"{string}_{order}.npy"))
 
 
-def write_file(order: Optional[int], arr: np.ndarray, string: str) -> None:
+def write_file(arr: np.ndarray, string: str, order: Optional[int] = None) -> None:
     """
     this function writes a general restart file corresponding to the input string
     """
@@ -1088,7 +1225,7 @@ def write_file(order: Optional[int], arr: np.ndarray, string: str) -> None:
         np.save(os.path.join(RST, f"{string}_{order}"), arr)
 
 
-def read_file(order: int, string: str) -> np.ndarray:
+def read_file(string: str, order: Optional[int] = None) -> np.ndarray:
     """
     this function reads a general restart file corresponding to the input string
     """

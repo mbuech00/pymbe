@@ -478,7 +478,7 @@ class GenFockExpCls(
         return gen_fock
 
     @staticmethod
-    def _write_target_file(order: Optional[int], prop: GenFockCls, string: str) -> None:
+    def _write_target_file(prop: GenFockCls, string: str, order: Optional[int]) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
@@ -541,7 +541,7 @@ class GenFockExpCls(
         )
 
     @staticmethod
-    def _write_inc_file(order: Optional[int], inc: GenFockArrayCls) -> None:
+    def _write_inc_file(inc: GenFockArrayCls, order: Optional[int]) -> None:
         """
         this function defines how to write increment restart files
         """

@@ -153,12 +153,37 @@ def mbe_end(order: int, time: float) -> str:
     return string
 
 
+def redundant_results(
+    order: int, n_screen: int, n_van: int, n_calc: int, symm: bool
+) -> str:
+    """
+    this function prints the number of redundant increments
+    """
+    # set string
+    string: str
+    if not symm:
+        string = f" RESULT-{order:d}:  total number of vanishing increments skipped: "
+        string += f"{n_screen - n_calc:}\n"
+    else:
+        string = f" RESULT-{order:d}:  total number of redundant increments skipped: "
+        string += f"{n_screen - n_calc:}\n"
+        string += f" RESULT-{order:d}:  {n_screen - n_van:} increments are vanishing "
+        string += f"due to occupation\n"
+        string += f" RESULT-{order:d}:  {n_van - n_calc:} increments are redundant due "
+        string += f"to symmetry\n"
+    string += DIVIDER
+
+    return string
+
+
 def screen_results(order: int, orbs: np.ndarray, exp_space: List[np.ndarray]) -> str:
     """
     this function prints the screened MOs
     """
-    # init string
-    string: str = f" RESULT-{order:d}:  screened MOs --- "
+    # set string
+    string: str = FILL + "\n"
+    string += DIVIDER + "\n"
+    string += f" RESULT-{order:d}:  screened MOs --- "
     # divide orbs into intervals
     orbs_ints = [i for i in intervals(orbs)]
     for idx, i in enumerate(orbs_ints):
@@ -172,8 +197,6 @@ def screen_results(order: int, orbs: np.ndarray, exp_space: List[np.ndarray]) ->
         f" RESULT-{order:d}:  total number of screened MOs: {total_screen.size:}\n"
     )
     string += DIVIDER + "\n"
-    string += FILL + "\n"
-    string += DIVIDER
 
     return string
 
@@ -183,7 +206,9 @@ def purge_header(order: int) -> str:
     this function prints the purging header
     """
     # set string
-    string: str = f" STATUS-{order:d}:  order k = {order:d} purging started\n"
+    string: str = FILL + "\n"
+    string += DIVIDER + "\n"
+    string += f" STATUS-{order:d}:  order k = {order:d} purging started\n"
     string += DIVIDER
 
     return string
@@ -201,11 +226,14 @@ def purge_results(n_tuples: Dict[str, List[int]], min_order: int, order: int) ->
         if min_order < k:
             string += f" RESULT-{order:d}:{'':30s}"
         red = (
-            1.0 - n_tuples["inc"][k - min_order] / n_tuples["theo"][k - min_order]
-        ) * 100.0
+            (1.0 - n_tuples["inc"][k - min_order] / n_tuples["calc"][k - min_order])
+            * 100.0
+            if n_tuples["calc"][k - min_order] > 0
+            else 0.0
+        )
         string += f"no. of tuples at k = {k:2d} has been reduced by: {red:6.2f} %\n"
-    total_red_abs = sum(n_tuples["theo"]) - sum(n_tuples["inc"])
-    total_red_rel = (1.0 - sum(n_tuples["inc"]) / sum(n_tuples["theo"])) * 100.0
+    total_red_abs = sum(n_tuples["calc"]) - sum(n_tuples["inc"])
+    total_red_rel = (1.0 - sum(n_tuples["inc"]) / sum(n_tuples["calc"])) * 100.0
     string += DIVIDER + "\n"
     string += (
         f" RESULT-{order:d}:  total number of reduced tuples: {total_red_abs} "

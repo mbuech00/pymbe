@@ -339,7 +339,7 @@ class RDMExpCls(
         return rdm12 - self.hf_prop[cas_idx]
 
     @staticmethod
-    def _write_target_file(order: Optional[int], prop: RDMCls, string: str) -> None:
+    def _write_target_file(prop: RDMCls, string: str, order: Optional[int]) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
@@ -379,7 +379,7 @@ class RDMExpCls(
         )
 
     @staticmethod
-    def _write_inc_file(order: Optional[int], inc: packedRDMCls) -> None:
+    def _write_inc_file(inc: packedRDMCls, order: Optional[int]) -> None:
         """
         this function defines how to write increment restart files
         """

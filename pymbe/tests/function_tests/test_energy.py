@@ -210,6 +210,7 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
                 -669804309911520350,
                 1455941523185766351,
                 6981656516950638826,
+                7372096627385889923,
             ],
             dtype=np.int64,
         ),
@@ -240,7 +241,7 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
     ]
 
     ref_inc = [
-        np.array([1.0, 2.0, 4.0, 5.0, 6.0, 8.0], dtype=np.float64),
+        np.array([1.0, 2.0, 4.0, 5.0, 6.0, 8.0, 9.0], dtype=np.float64),
         np.array([1.0, 2.0, 4.0, 5.0, 8.0, 9.0, 10.0, 11.0, 15.0], dtype=np.float64),
         np.array([2.0, 4.0, 5.0, 7.0, 12.0], dtype=np.float64),
     ]
@@ -251,7 +252,7 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
     exp.screen_orbs = np.array([4], dtype=np.int64)
     exp.order = 4
     exp.min_order = 2
-    exp.n_tuples = {"inc": [9, 18, 15]}
+    exp.n_tuples = {"inc": [10, 18, 15]}
 
     start_hashes = [
         np.array(
@@ -264,6 +265,7 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
                 1455941523185766351,
                 2796798554289973955,
                 6981656516950638826,
+                7372096627385889923,
                 7504768460337078519,
             ]
         ),
@@ -368,13 +370,13 @@ def test_purge(mbe: MBE, exp: EnergyExpCls) -> None:
             )
         )
 
-    assert exp.n_tuples["inc"] == [6, 9, 5]
-    assert (purged_hashes[0] == ref_hashes[0]).all()
-    assert (purged_hashes[1] == ref_hashes[1]).all()
-    assert (purged_hashes[2] == ref_hashes[2]).all()
-    assert (purged_inc[0] == ref_inc[0]).all()
-    assert (purged_inc[1] == ref_inc[1]).all()
-    assert (purged_inc[2] == ref_inc[2]).all()
+    assert exp.n_tuples["inc"] == [7, 9, 5]
+    assert np.array_equal(purged_hashes[0], ref_hashes[0])
+    assert np.array_equal(purged_hashes[1], ref_hashes[1])
+    assert np.array_equal(purged_hashes[2], ref_hashes[2])
+    assert np.array_equal(purged_inc[0], ref_inc[0])
+    assert np.array_equal(purged_inc[1], ref_inc[1])
+    assert np.array_equal(purged_inc[2], ref_inc[2])
 
 
 @pytest.mark.parametrize(

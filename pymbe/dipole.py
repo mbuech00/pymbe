@@ -355,12 +355,12 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         return elec_dipole - self.hf_prop
 
     @staticmethod
-    def _write_target_file(order: Optional[int], prop: np.ndarray, string: str) -> None:
+    def _write_target_file(prop: np.ndarray, string: str, order: Optional[int]) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
         """
-        write_file(order, prop, string)
+        write_file(prop, string, order)
 
     @staticmethod
     def _read_target_file(file: str) -> np.ndarray:

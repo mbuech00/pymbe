@@ -373,12 +373,12 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         return e_cc
 
     @staticmethod
-    def _write_target_file(order: Optional[int], prop: float, string: str) -> None:
+    def _write_target_file(prop: float, string: str, order: Optional[int]) -> None:
         """
         this function defines how to write restart files for instances of the target
         type
         """
-        write_file(order, np.array(prop, dtype=np.float64), string)
+        write_file(np.array(prop, dtype=np.float64), string, order)
 
     @staticmethod
     def _read_target_file(file: str) -> float:

@@ -33,7 +33,7 @@ from pymbe.tools import RST, assertion
 
 if TYPE_CHECKING:
 
-    from typing import Union, Optional, Tuple, List
+    from typing import Union, Optional, Tuple, List, Dict
     from matplotlib import figure
 
     from pymbe.parallel import MPICls
@@ -57,7 +57,7 @@ class MBE:
         Union[int, Tuple[int, int], np.ndarray, List[Tuple[int, int]], List[np.ndarray]]
     ] = None
     point_group: Optional[str] = None
-    orbsym: Optional[np.ndarray] = None
+    orbsym: Optional[Union[np.ndarray, List[Dict[int, Tuple[int, ...]]]]] = None
     fci_state_sym: Optional[Union[str, int, List[str], List[int]]] = None
     fci_state_root: Optional[Union[int, List[int]]] = None
     fci_state_weights: Optional[List[float]] = None

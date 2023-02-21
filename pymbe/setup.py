@@ -28,7 +28,7 @@ from pymbe.tools import RST, logger_config, assertion, ground_state_sym
 
 if TYPE_CHECKING:
 
-    from typing import Dict, Union, List
+    from typing import Dict, Any
 
     from pymbe.pymbe import MBE
 
@@ -385,11 +385,6 @@ def sanity_check(mbe: MBE) -> None:
         "symmetry (point_group keyword argument) must be a str",
     )
     assertion(
-        isinstance(mbe.orbsym, np.ndarray) and mbe.orbsym.shape == (mbe.norb,),
-        "orbital symmetry (orbsym keyword argument) must be a np.ndarray with shape "
-        "(norb,)",
-    )
-    assertion(
         isinstance(mbe.fci_state_sym, (str, int))
         or (
             isinstance(mbe.fci_state_sym, list)
@@ -519,12 +514,57 @@ def sanity_check(mbe: MBE) -> None:
         "canonical (can), pipek-mezey (local), natural (ccsd or ccsd(t) or casscf "
         "orbs (casscf))",
     )
-    if mbe.orb_type == "local" and mbe.target == "rdm12" and mbe.point_group != "C1":
-        logger.warning(
-            "Warning: 1- and 2- particle density matrix calculations while exploiting "
-            "local orbital symmetry are currently not possible. The symmetry of the "
-            "local orbitals is not utilized in the current calculation."
+    if mbe.orb_type in ["can", "ccsd", "ccsd(t)", "casscf"]:
+        assertion(
+            isinstance(mbe.orbsym, np.ndarray) and mbe.orbsym.shape == (mbe.norb,),
+            "orbital symmetry (orbsym keyword argument) must be a np.ndarray with "
+            "shape (norb,)",
         )
+    elif mbe.orb_type == "local":
+        assertion(
+            (isinstance(mbe.orbsym, np.ndarray) and mbe.orbsym.shape == (mbe.norb,))
+            or (
+                isinstance(mbe.orbsym, list)
+                and all([isinstance(symm_op, dict) for symm_op in mbe.orbsym])
+                and all([len(symm_op) == mbe.norb for symm_op in mbe.orbsym])
+                and all(
+                    [
+                        [isinstance(orb, int) for orb in symm_op.keys()]
+                        for symm_op in mbe.orbsym
+                    ]
+                )
+                and all(
+                    [
+                        [isinstance(tup, tuple) for tup in symm_op.values()]
+                        for symm_op in mbe.orbsym
+                    ]
+                )
+                and all(
+                    [
+                        [
+                            [isinstance(orb, int) for orb in tup]
+                            for tup in symm_op.values()
+                        ]
+                        for symm_op in mbe.orbsym
+                    ]
+                )
+            ),
+            "orbital symmetry (orbsym keyword argument) must be a np.ndarray with "
+            "shape (norb,) or a list of symmetry operation dictionaries with orbital "
+            "indices as keys and tuples of orbitals that this orbital transforms into "
+            "as values.",
+        )
+        if (
+            mbe.orb_type == "local"
+            and mbe.target in ["rdm12", "genfock"]
+            and mbe.point_group != "C1"
+        ):
+            logger.warning(
+                "Warning: 1- and 2-particle reduced density matrix and generalized "
+                "Fock matrix calculations while exploiting local orbital symmetry are "
+                "currently not possible. The symmetry of the local orbitals is not "
+                "utilized in the current calculation."
+            )
 
     # integrals
     assertion(
@@ -825,52 +865,27 @@ def restart_write_system(mbe: MBE) -> None:
     this function writes all system quantities restart files
     """
     # define system quantities
-    system: Dict[str, Union[int, np.ndarray, List[np.ndarray], float]] = {
-        "norb": cast(int, mbe.norb),
-        "orbsym": cast(np.ndarray, mbe.orbsym),
-        "hcore": cast(np.ndarray, mbe.hcore),
-        "eri": cast(np.ndarray, mbe.eri),
+    system: Dict[str, Any] = {
+        "norb": mbe.norb,
+        "nelec": mbe.nelec,
+        "orbsym": mbe.orbsym,
+        "hcore": mbe.hcore,
+        "eri": mbe.eri,
         "ref_space": mbe.ref_space,
-        "exp_space": cast(np.ndarray, mbe.exp_space),
+        "exp_space": mbe.exp_space,
+        "base_prop": mbe.base_prop,
+        "orbsym_linear": mbe.orbsym_linear,
+        "dipole_ints": mbe.dipole_ints,
+        "full_norb": mbe.full_norb,
+        "full_nocc": mbe.full_nocc,
+        "inact_fock": mbe.inact_fock,
+        "eri_goaa": mbe.eri_goaa,
+        "eri_gaao": mbe.eri_gaao,
+        "eri_gaaa": mbe.eri_gaaa,
     }
 
-    if isinstance(mbe.nelec, np.ndarray):
-        system["nelec"] = mbe.nelec
-    elif isinstance(mbe.nelec, list):
-        system["nelec"] = np.array(mbe.nelec)
-
-    if isinstance(mbe.base_prop, (float, np.ndarray)):
-        system["base_prop"] = mbe.base_prop
-    elif isinstance(mbe.base_prop, tuple):
-        system["base_prop1"] = mbe.base_prop[0]
-        system["base_prop2"] = mbe.base_prop[1]
-
-    if mbe.orbsym_linear is not None:
-        system["orbsym_linear"] = mbe.orbsym_linear
-
-    if mbe.dipole_ints is not None:
-        system["dipole_ints"] = mbe.dipole_ints
-
-    if mbe.full_norb is not None:
-        system["full_norb"] = mbe.full_norb
-
-    if mbe.full_nocc is not None:
-        system["full_nocc"] = mbe.full_nocc
-
-    if mbe.inact_fock is not None:
-        system["inact_fock"] = mbe.inact_fock
-
-    if mbe.eri_goaa is not None:
-        system["eri_goaa"] = mbe.eri_goaa
-
-    if mbe.eri_gaao is not None:
-        system["eri_gaao"] = mbe.eri_gaao
-
-    if mbe.eri_gaaa is not None:
-        system["eri_gaaa"] = mbe.eri_gaaa
-
     # write system quantities
-    np.savez(os.path.join(RST, "system"), **system)  # type: ignore
+    np.savez(os.path.join(RST, "system"), **system)
 
 
 def restart_read_system(mbe: MBE) -> MBE:
@@ -878,7 +893,7 @@ def restart_read_system(mbe: MBE) -> MBE:
     this function reads all system quantities restart files
     """
     # read system quantities
-    system_npz = np.load(os.path.join(RST, "system.npz"))
+    system_npz = np.load(os.path.join(RST, "system.npz"), allow_pickle=True)
 
     # create system dictionary
     system = {}
@@ -888,25 +903,14 @@ def restart_read_system(mbe: MBE) -> MBE:
     # close npz object
     system_npz.close()
 
-    # define scalar values
-    scalars = ["norb"]
+    # revert to scalars
+    for key, value in system.items():
+        if value.ndim == 0:
+            system[key] = value.item()
 
-    if mbe.target in ["energy", "excitation"]:
-        scalars.append("base_prop")
-    elif mbe.target == "rdm12":
-        system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
-    elif mbe.target == "genfock":
-        scalars.append("full_norb")
-        scalars.append("full_nocc")
-        system["base_prop"] = (system.pop("base_prop1"), system.pop("base_prop2"))
-
-    # convert to scalars
-    for scalar in scalars:
-        system[scalar] = system[scalar].item()
-
-    # convert to list
-    if system["nelec"].dim == 2:
-        system["nelec"] = list(system["nelec"])
+    # revert to list
+    if system["orbsym"].dtype == object:
+        system["orbsym"] = list(system["orbsym"])
 
     # set system quantities as MBE attributes
     for key, val in system.items():
