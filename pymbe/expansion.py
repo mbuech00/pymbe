@@ -1017,6 +1017,9 @@ class ExpCls(
             exp_occ, exp_virt, tup_occ, tup_virt
         )
 
+        # initialize number of increments from for previous calculation
+        n_prev_tup_idx = 0
+
         # loop until no tuples left
         for tup in tuples(
             exp_occ,
@@ -1031,7 +1034,7 @@ class ExpCls(
         ):
 
             # write restart files and re-init time
-            if rst_write and tup_idx % self.rst_freq == 0:
+            if rst_write and tup_idx % self.rst_freq < n_prev_tup_idx:
 
                 # mpi barrier
                 mpi.local_comm.Barrier()
@@ -1107,12 +1110,16 @@ class ExpCls(
 
                 # skip calculation if symmetrically equivalent tuple will come later
                 if eqv_tup_set is None:
+                    n_prev_tup_idx = 0
                     continue
 
                 # check for symmetrically equivalent increments
                 eqv_inc_lex_tup, eqv_inc_set = symm_eqv_inc(
                     self.eqv_inc_orbs[-1], eqv_tup_set, ref_space
                 )
+
+                # save number of different increments for calculation
+                n_prev_tup_idx = len(eqv_inc_lex_tup)
 
             else:
 
@@ -1122,7 +1129,7 @@ class ExpCls(
 
             # distribute tuples
             if tup_idx % mpi.global_size != mpi.global_rank:
-                tup_idx += len(eqv_inc_lex_tup)
+                tup_idx += n_prev_tup_idx
                 continue
 
             # get core and cas indices
