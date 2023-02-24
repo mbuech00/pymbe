@@ -699,22 +699,41 @@ def sanity_check(mbe: MBE) -> None:
 
     # screening
     assertion(
+        isinstance(mbe.screen_type, str),
+        "screening type (screen_type keyword argument) must be a string",
+    )
+    assertion(
+        mbe.screen_type in ["fixed", "adaptive"],
+        "valid screening types (screen_type keyword argument) are: fixed and adaptive",
+    )
+    assertion(
         isinstance(mbe.screen_start, int) and mbe.screen_start >= 2,
         "screening start order (screen_start keyword argument) must be an int >= 2",
     )
     assertion(
         isinstance(mbe.screen_perc, float) and mbe.screen_perc <= 1.0,
-        "screening threshold (screen_perc keyword argument) must be a float <= 1.",
+        "screening percentage (screen_perc keyword argument) must be a float <= 1.",
+    )
+    assertion(
+        isinstance(mbe.screen_thres, float) and mbe.screen_thres > 0.0,
+        "screening threshold (screen_thres keyword argument) must be a float > 0.",
     )
     assertion(
         isinstance(mbe.screen_func, str),
         "screening function (screen_func keyword argument) must be an str",
     )
     assertion(
-        mbe.screen_func in ["max", "sum", "rnd"],
-        "valid screening functions (screen_func keyword argument) are: max, "
+        mbe.screen_func in ["max", "abs_sum", "sum", "rnd"],
+        "valid screening functions (screen_func keyword argument) are: max, abs_sum, "
         "sum and rnd",
     )
+    if mbe.screen_func == "sum":
+        assertion(
+            mbe.target in ["energy", "excitation"],
+            "screening with the sum screening function (screen_func keyword argument) "
+            "only works for scalar targets such as energy or excitation (target "
+            "keyword argument)",
+        )
     if mbe.max_order is not None:
         assertion(
             isinstance(mbe.max_order, int) and mbe.max_order >= 1,

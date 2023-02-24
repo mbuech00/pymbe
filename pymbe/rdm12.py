@@ -509,10 +509,12 @@ class RDMExpCls(
         """
         this function modifies the screening array
         """
-        if screen_func == "sum":
+        if screen_func == "max":
+            return np.maximum(screen[tup], np.max(np.abs(inc_tup.rdm1)))
+        elif screen_func == "abs_sum":
             return screen[tup] + np.sum(np.abs(inc_tup.rdm1))
         else:
-            return np.maximum(screen[tup], np.max(np.abs(inc_tup.rdm1)))
+            raise ValueError
 
     def _update_inc_stats(
         self,

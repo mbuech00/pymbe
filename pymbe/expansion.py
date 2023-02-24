@@ -192,8 +192,10 @@ class ExpCls(
         }
 
         # screening
+        self.screen_type: str = mbe.screen_type
         self.screen_start: int = mbe.screen_start
         self.screen_perc: float = mbe.screen_perc
+        self.screen_thres: float = mbe.screen_thres
         self.screen_func: str = mbe.screen_func
         self.screen = np.zeros(self.norb, dtype=np.float64)
         self.screen_orbs = np.array([], dtype=np.int64)
@@ -996,6 +998,14 @@ class ExpCls(
             if mpi.global_master:
                 screen = self.screen
 
+        # set screening function for mpi
+        if self.screen_func in ["abs_sum", "sum"]:
+            screen_mpi_func = MPI.SUM
+        elif self.screen_func == "max":
+            screen_mpi_func = MPI.MAX
+        else:
+            screen_mpi_func = None
+
         # set rst_write
         rst_write = (
             self.rst and mpi.global_size < self.rst_freq < self.n_tuples["inc"][-1]
@@ -1060,7 +1070,10 @@ class ExpCls(
                     max_inc = self._init_target_inst(0.0, self.norb)
 
                 # reduce screen onto global master
-                screen = mpi_reduce(mpi.global_comm, screen, root=0, op=MPI.MAX)
+                if screen_mpi_func is not None:
+                    screen = mpi_reduce(
+                        mpi.global_comm, screen, root=0, op=screen_mpi_func
+                    )
 
                 # update rst_write
                 rst_write = (
@@ -1163,10 +1176,11 @@ class ExpCls(
                 inc[-1][tup_idx] = inc_tup
 
                 # screening procedure
-                for eqv_tup in eqv_set:
-                    screen[eqv_tup] = self._screen(
-                        inc_tup, screen, eqv_tup, self.screen_func
-                    )
+                if screen_mpi_func is not None:
+                    for eqv_tup in eqv_set:
+                        screen[eqv_tup] = self._screen(
+                            inc_tup, screen, eqv_tup, self.screen_func
+                        )
 
                 # debug print
                 logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
@@ -1223,22 +1237,25 @@ class ExpCls(
             ]
 
         # allreduce screen
-        self.screen = mpi_allreduce(
-            mpi.global_comm,
-            screen,
-            op=MPI.SUM if self.screen_func == "sum" else MPI.MAX,
-        )
+        if screen_mpi_func is not None:
+            self.screen = mpi_allreduce(mpi.global_comm, screen, op=screen_mpi_func)
 
         # decide what orbitals should be screened
-        thres = 1.0 if self.order < self.screen_start else self.screen_perc
-        nkeep = int(thres * self.exp_space[-1].size)
-        if self.screen_func == "rnd":
-            rng = np.random.default_rng()
-            remain_exp_space = rng.choice(self.exp_space[-1], size=nkeep, replace=False)
-        else:
-            self.screen = self.screen[self.exp_space[-1]]
-            orb_significance = np.argsort(self.screen)[::-1]
-            remain_exp_space = self.exp_space[-1][np.sort(orb_significance[:nkeep])]
+        if self.screen_type == "fixed":
+            thres = 1.0 if self.order < self.screen_start else self.screen_perc
+            nkeep = int(thres * self.exp_space[-1].size)
+            if self.screen_func == "rnd":
+                rng = np.random.default_rng()
+                remain_exp_space = rng.choice(
+                    self.exp_space[-1], size=nkeep, replace=False
+                )
+            else:
+                screen = np.abs(self.screen[self.exp_space[-1]])
+                orb_significance = np.argsort(screen)[::-1]
+                remain_exp_space = self.exp_space[-1][np.sort(orb_significance[:nkeep])]
+        elif self.screen_type == "adaptive":
+            screen = self.screen[self.exp_space[-1]]
+            remain_exp_space = self.exp_space[-1][screen < self.screen_thres]
 
         # update symmetry-equivalent orbitals wrt screened orbitals
         if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:

@@ -440,10 +440,14 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         this function modifies the screening array
         """
-        if screen_func == "sum":
-            return screen[tup] + np.abs(inc_tup)
-        else:
+        if screen_func == "max":
             return np.maximum(screen[tup], np.abs(inc_tup))
+        elif screen_func == "abs_sum":
+            return screen[tup] + np.abs(inc_tup)
+        elif screen_func == "sum":
+            return screen[tup] + inc_tup
+        else:
+            raise ValueError
 
     @staticmethod
     def _total_inc(inc: np.ndarray, mean_inc: float) -> float:

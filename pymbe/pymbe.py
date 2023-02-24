@@ -80,8 +80,10 @@ class MBE:
     ] = None
 
     # screening
+    screen_type: str = "fixed"
     screen_start: int = 4
     screen_perc: float = 0.9
+    screen_thres: float = 1.0e-2
     screen_func: str = "max"
     max_order: Optional[int] = None
 
