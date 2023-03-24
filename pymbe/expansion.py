@@ -1486,31 +1486,32 @@ class ExpCls(
                         # loop over orbitals
                         for orb_idx, orb in enumerate(self.exp_space[-1]):
 
-                            # log transform mean absolute increments
-                            log_mean_abs_inc = np.log(
+                            # get mean absolute increments for orbital
+                            mean_abs_inc = np.array(
                                 [
                                     screen["mean_abs_inc"][orb]
                                     for screen in self.screen[self.vanish_exc - 1 :]
-                                ]
+                                ],
+                                dtype=np.float64,
                             )
 
+                            # log transform mean absolute increments
+                            log_mean_abs_inc = np.log(mean_abs_inc[mean_abs_inc > 0.0])
+
+                            # get orders for fit
+                            orders = self.min_order + np.argwhere(
+                                mean_abs_inc > 0.0
+                            ).reshape(-1)
+
                             r2_value = (
-                                np.corrcoef(
-                                    np.arange(self.vanish_exc, self.order + 1),
-                                    log_mean_abs_inc,
-                                )[0, 1]
-                                ** 2
+                                np.corrcoef(orders, log_mean_abs_inc,)[0, 1]** 2
                             )
 
                             # check if fit would be good enough
                             if r2_value > 0.9:
 
                                 # fit log-transformed mean absolute increments
-                                slope, const = np.polyfit(
-                                    np.arange(self.vanish_exc, self.order + 1),
-                                    log_mean_abs_inc,
-                                    1,
-                                )
+                                slope, const = np.polyfit(orders, log_mean_abs_inc, 1)
 
                             else:
 
