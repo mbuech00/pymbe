@@ -43,6 +43,7 @@ from pymbe.tools import (
     get_nexc,
     assertion,
     core_cas,
+    write_file_mult,
 )
 from pymbe.parallel import mpi_reduce, mpi_allreduce, mpi_bcast, mpi_gatherv
 from pymbe import direct_spin0_symm, direct_spin1_symm
@@ -344,12 +345,7 @@ class RDMExpCls(
         this function defines how to write restart files for instances of the target
         type
         """
-        if order is None:
-            np.savez(os.path.join(RST, f"{string}"), rdm1=prop.rdm1, rdm2=prop.rdm2)
-        else:
-            np.savez(
-                os.path.join(RST, f"{string}_{order}"), rdm1=prop.rdm1, rdm2=prop.rdm2
-            )
+        write_file_mult({"rdm1": prop.rdm1, "rdm2": prop.rdm2}, string, order)
 
     @staticmethod
     def _read_target_file(file: str) -> RDMCls:
@@ -503,7 +499,7 @@ class RDMExpCls(
         inc_win[1].Free()
 
     @staticmethod
-    def _screen(
+    def _add_screen(
         inc_tup: RDMCls, screen: np.ndarray, tup: np.ndarray, screen_func: str
     ) -> np.ndarray:
         """
@@ -511,7 +507,7 @@ class RDMExpCls(
         """
         if screen_func == "max":
             return np.maximum(screen[tup], np.max(np.abs(inc_tup.rdm1)))
-        elif screen_func == "abs_sum":
+        elif screen_func == "sum_abs":
             return screen[tup] + np.sum(np.abs(inc_tup.rdm1))
         else:
             raise ValueError

@@ -41,11 +41,14 @@ from pymbe.tools import (
     pi_space,
     natural_keys,
     n_tuples,
+    orb_n_tuples,
     is_file,
     read_file,
     write_file,
+    write_file_mult,
     pi_prune,
     tuples,
+    orb_tuples,
     get_nelec,
     get_nhole,
     get_nexc,
@@ -197,8 +200,9 @@ class ExpCls(
         self.screen_perc: float = mbe.screen_perc
         self.screen_thres: float = mbe.screen_thres
         self.screen_func: str = mbe.screen_func
-        self.screen = np.zeros(self.norb, dtype=np.float64)
+        self.screen: List[Dict[str, np.ndarray]] = []
         self.screen_orbs = np.array([], dtype=np.int64)
+        self.error: float = 0.0
 
         # restart
         self.rst: bool = mbe.rst
@@ -334,6 +338,12 @@ class ExpCls(
                 )
             )
 
+            # main screening function
+            if not self.restarted or (
+                self.order > self.start_order and len(self.exp_space) == self.order
+            ):
+                self._screen(mpi)
+
             # update screen_orbs
             if self.order > self.min_order:
                 self.screen_orbs = np.setdiff1d(
@@ -344,7 +354,13 @@ class ExpCls(
             # print screening results
             if self.screen_orbs.size > 0:
                 logger.info(
-                    screen_results(self.order, self.screen_orbs, self.exp_space)
+                    screen_results(
+                        self.order,
+                        self.screen_orbs,
+                        self.exp_space,
+                        self.screen_type,
+                        self.error,
+                    )
                 )
 
             # purge only if orbitals were screened away and if there is another order
@@ -415,7 +431,7 @@ class ExpCls(
                 # number of tuples
                 self._ntuples(mpi)
 
-            if msg["task"] == "mbe":
+            elif msg["task"] == "mbe":
 
                 # receive order
                 self.order = msg["order"]
@@ -428,13 +444,10 @@ class ExpCls(
                     tup=msg["tup"],
                 )
 
-                # update screen_orbs
-                if self.order == self.min_order:
-                    self.screen_orbs = np.array([], dtype=np.int64)
-                else:
-                    self.screen_orbs = np.setdiff1d(
-                        self.exp_space[-2], self.exp_space[-1]
-                    )
+            elif msg["task"] == "screen":
+
+                # main screening function
+                self._screen(mpi)
 
             elif msg["task"] == "purge":
 
@@ -709,7 +722,7 @@ class ExpCls(
 
                 # read screening array
                 elif "mbe_screen" in files[i]:
-                    self.screen = np.load(os.path.join(RST, files[i]))
+                    self.screen.append(dict(np.load(os.path.join(RST, files[i]))))
 
                 # read total properties
                 elif "mbe_tot_prop" in files[i]:
@@ -992,19 +1005,20 @@ class ExpCls(
         exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
         exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
 
-        # init screen array
-        screen = np.zeros(self.norb, dtype=np.float64)
+        # init screen arrays
+        screen = {
+            "sum": np.zeros(self.norb, dtype=np.float64),
+            "sum_abs": np.zeros(self.norb, dtype=np.float64),
+            "max": np.zeros(self.norb, dtype=np.float64),
+        }
         if rst_read:
             if mpi.global_master:
-                screen = self.screen
+                screen = self.screen[-1]
+        else:
+            self.screen.append(screen)
 
         # set screening function for mpi
-        if self.screen_func in ["abs_sum", "sum"]:
-            screen_mpi_func = MPI.SUM
-        elif self.screen_func == "max":
-            screen_mpi_func = MPI.MAX
-        else:
-            screen_mpi_func = None
+        screen_mpi_func = {"sum_abs": MPI.SUM, "sum": MPI.SUM, "max": MPI.MAX}
 
         # set rst_write
         rst_write = (
@@ -1071,9 +1085,19 @@ class ExpCls(
 
                 # reduce screen onto global master
                 if screen_mpi_func is not None:
-                    screen = mpi_reduce(
-                        mpi.global_comm, screen, root=0, op=screen_mpi_func
-                    )
+                    for screen_func, screen_array in screen.items():
+                        screen[screen_func] = mpi_reduce(
+                            mpi.global_comm,
+                            screen_array,
+                            root=0,
+                            op=screen_mpi_func[screen_func],
+                        )
+                    if not mpi.global_master:
+                        screen = {
+                            "sum": np.zeros(self.norb, dtype=np.float64),
+                            "sum_abs": np.zeros(self.norb, dtype=np.float64),
+                            "max": np.zeros(self.norb, dtype=np.float64),
+                        }
 
                 # update rst_write
                 rst_write = (
@@ -1085,7 +1109,7 @@ class ExpCls(
                     self._write_target_file(min_inc, "mbe_min_inc", self.order)
                     self._write_target_file(mean_inc, "mbe_mean_inc", self.order)
                     self._write_target_file(max_inc, "mbe_max_inc", self.order)
-                    write_file(screen, "mbe_screen", self.order)
+                    write_file_mult(screen, "mbe_screen", self.order)
                     write_file(np.asarray(tup_idx), "mbe_idx", self.order)
                     write_file(tup, "mbe_tup", self.order)
                     write_file(hashes[-1], "mbe_hashes", self.order)
@@ -1103,7 +1127,8 @@ class ExpCls(
 
             # pi-pruning
             if self.pi_prune and not pi_prune(self.pi_orbs, self.pi_hashes, tup):
-                screen[tup] = SCREEN
+                for screen_func in screen.keys():
+                    screen[screen_func][tup] = SCREEN
                 continue
 
             # symmetry-pruning
@@ -1117,8 +1142,7 @@ class ExpCls(
                     cas_idx = cas(self.ref_space, tup)
                     ref_space = self.ref_space
 
-                # check if tuple is last symmetrically equivalent tuple and retrieve
-                # number of equivalent tuples
+                # check if tuple is last symmetrically equivalent tuple
                 eqv_tup_set = symm_eqv_tup(cas_idx, self.symm_eqv_orbs[-1], ref_space)
 
                 # skip calculation if symmetrically equivalent tuple will come later
@@ -1178,9 +1202,10 @@ class ExpCls(
                 # screening procedure
                 if screen_mpi_func is not None:
                     for eqv_tup in eqv_set:
-                        screen[eqv_tup] = self._screen(
-                            inc_tup, screen, eqv_tup, self.screen_func
-                        )
+                        for screen_func in screen.keys():
+                            screen[screen_func][eqv_tup] = self._add_screen(
+                                inc_tup, screen[screen_func], eqv_tup, screen_func
+                            )
 
                 # debug print
                 logger.debug(self._mbe_debug(nelec_tup, inc_tup, cas_idx, tup))
@@ -1238,44 +1263,12 @@ class ExpCls(
 
         # allreduce screen
         if screen_mpi_func is not None:
-            self.screen = mpi_allreduce(mpi.global_comm, screen, op=screen_mpi_func)
-
-        # decide what orbitals should be screened
-        if self.screen_type == "fixed":
-            thres = 1.0 if self.order < self.screen_start else self.screen_perc
-            nkeep = int(thres * self.exp_space[-1].size)
-            if self.screen_func == "rnd":
-                rng = np.random.default_rng()
-                remain_exp_space = rng.choice(
-                    self.exp_space[-1], size=nkeep, replace=False
+            for screen_func, screen_array in screen.items():
+                self.screen[-1][screen_func] = mpi_allreduce(
+                    mpi.global_comm,
+                    screen_array,
+                    op=screen_mpi_func[screen_func],
                 )
-            else:
-                screen = np.abs(self.screen[self.exp_space[-1]])
-                orb_significance = np.argsort(screen)[::-1]
-                remain_exp_space = self.exp_space[-1][np.sort(orb_significance[:nkeep])]
-        elif self.screen_type == "adaptive":
-            screen = self.screen[self.exp_space[-1]]
-            remain_exp_space = self.exp_space[-1][screen < self.screen_thres]
-
-        # update symmetry-equivalent orbitals wrt screened orbitals
-        if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
-            self.symm_eqv_orbs.append(
-                reduce_symm_eqv_orbs(
-                    self.symm_eqv_orbs[-1],
-                    remain_exp_space
-                    if self.symm_inv_ref_space
-                    else cas(self.ref_space, remain_exp_space),
-                )
-            )
-            self.eqv_inc_orbs.append(
-                get_eqv_inc_orbs(self.symm_eqv_orbs[-1], self.nsymm, self.norb)
-            )
-
-        # update expansion space wrt screened orbitals
-        self.exp_space.append(remain_exp_space)
-
-        # mpi barrier
-        mpi.local_comm.Barrier()
 
         if mpi.global_master and pair_corr is not None:
             pair_corr[1] = pair_corr[1][np.argsort(np.abs(pair_corr[0]))[::-1]]
@@ -1347,11 +1340,365 @@ class ExpCls(
             self._write_target_file(self.min_inc[-1], "mbe_min_inc", self.order)
             self._write_target_file(self.mean_inc[-1], "mbe_mean_inc", self.order)
             self._write_target_file(self.max_inc[-1], "mbe_max_inc", self.order)
-            write_file(self.screen, "screen", self.order)
+            write_file_mult(self.screen[-1], "screen", self.order)
             write_file(np.asarray(self.n_tuples["inc"][-1]), "mbe_idx", self.order)
             write_file(np.asarray(self.time["mbe"][-1]), "mbe_time_mbe", self.order)
             self._write_target_file(self.mbe_tot_prop[-1], "mbe_tot_prop", self.order)
-            write_file(self.exp_space[-1], "exp_space", self.order + 1)
+
+        return
+
+    def _screen(self, mpi: MPICls) -> None:
+        """
+        this function decides what orbitals will be screened away
+        """
+        # wake up slaves
+        if mpi.global_master:
+            msg = {"task": "screen"}
+            mpi.global_comm.bcast(msg, root=0)
+
+        # fixed screening procedure
+        if self.screen_type == "fixed":
+
+            thres = 1.0 if self.order < self.screen_start else self.screen_perc
+            nkeep = int(thres * self.exp_space[-1].size)
+            if self.screen_func == "rnd":
+                rng = np.random.default_rng()
+                # update expansion space wrt screened orbitals
+                self.exp_space.append(
+                    rng.choice(self.exp_space[-1], size=nkeep, replace=False)
+                )
+            else:
+                orb_screen = np.abs(
+                    self.screen[-1][self.screen_func][self.exp_space[-1]]
+                )
+                orb_significance = np.argsort(orb_screen)[::-1]
+                # update expansion space wrt screened orbitals
+                self.exp_space.append(
+                    self.exp_space[-1][np.sort(orb_significance[:nkeep])]
+                )
+
+        # adaptive screening procedure
+        elif self.screen_type == "adaptive":
+
+            # add previous expansion space for current order
+            self.exp_space.append(self.exp_space[-1])
+
+            # occupied and virtual expansion spaces
+            exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
+            exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
+
+            # start screening
+            if mpi.global_master:
+
+                # initialize minimum orbital contribution
+                min_orb_contrib = 0.0
+
+                # get number of tuples per orbital
+                ntup_occ, ntup_virt = orb_n_tuples(
+                    self.exp_space[-1][self.exp_space[-1] < self.nocc],
+                    self.exp_space[-1][self.nocc <= self.exp_space[-1]],
+                    self.ref_nelec,
+                    self.ref_nhole,
+                    self.vanish_exc,
+                    self.order,
+                )
+
+                # calculate relative factor
+                self.screen[-1]["rel_factor"] = np.divide(
+                    np.abs(self.screen[-1]["sum"]),
+                    self.screen[-1]["sum_abs"],
+                    out=np.zeros(self.norb, dtype=np.float64),
+                    where=self.screen[-1]["sum_abs"] != 0.0,
+                )
+
+                # calculate mean absolute increment
+                self.screen[-1]["mean_abs_inc"] = np.empty(self.norb, dtype=np.float64)
+                self.screen[-1]["mean_abs_inc"][: self.nocc] = (
+                    (self.screen[-1]["sum_abs"][: self.nocc] / ntup_occ)
+                    if ntup_occ > 0
+                    else 0.0
+                )
+                self.screen[-1]["mean_abs_inc"][self.nocc :] = (
+                    (self.screen[-1]["sum_abs"][self.nocc :] / ntup_virt)
+                    if ntup_virt > 0
+                    else 0.0
+                )
+
+                # require at least three points for fit
+                if self.order > self.vanish_exc + 1:
+
+                    # initialize boolean to keep screening
+                    keep_screening = True
+
+                    # remove orbitals until minimum orbital contribution is larger than
+                    # threshold
+                    while keep_screening:
+
+                        # define maximum possible order
+                        max_order = self.exp_space[-1].size
+
+                        # check if expansion has ended
+                        if self.order >= max_order:
+                            self.exp_space[-1] = np.array([], dtype=np.int64)
+                            keep_screening = False
+                            mpi.global_comm.bcast(keep_screening, root=0)
+                            break
+
+                        # define error allowed per orbital
+                        error_thresh = self.screen_thres - self.error
+
+                        # initialize array for error estimate
+                        error_estimate = np.zeros(
+                            (self.exp_space[-1].size, max_order - self.order),
+                            dtype=np.float64,
+                        )
+
+                        # get number of tuples for remaining orders
+                        ntup_order_occ, ntup_order_virt = zip(
+                            *[
+                                orb_n_tuples(
+                                    self.exp_space[-1][self.exp_space[-1] < self.nocc],
+                                    self.exp_space[-1][self.nocc <= self.exp_space[-1]],
+                                    self.ref_nelec,
+                                    self.ref_nhole,
+                                    self.vanish_exc,
+                                    order,
+                                )
+                                for order in range(self.order + 1, max_order + 1)
+                            ]
+                        )
+                        ntup_order_tot = [
+                            n_tuples(
+                                self.exp_space[-1][self.exp_space[-1] < self.nocc],
+                                self.exp_space[-1][self.nocc <= self.exp_space[-1]],
+                                self.ref_nelec,
+                                self.ref_nhole,
+                                self.vanish_exc,
+                                order,
+                            )
+                            for order in range(self.order + 1, max_order + 1)
+                        ]
+
+                        # check if expansion has ended
+                        if np.sum(ntup_order_tot) == 0:
+                            self.exp_space[-1] = np.array([], dtype=np.int64)
+                            keep_screening = False
+                            mpi.global_comm.bcast(keep_screening, root=0)
+                            break
+
+                        # get maximum relative factor from last two orders
+                        rel_factor = np.max(
+                            [screen["rel_factor"] for screen in self.screen[-2:]]
+                        )
+
+                        # loop over orbitals
+                        for orb_idx, orb in enumerate(self.exp_space[-1]):
+
+                            # log transform mean absolute increments
+                            log_mean_abs_inc = np.log(
+                                [
+                                    screen["mean_abs_inc"][orb]
+                                    for screen in self.screen[self.vanish_exc - 1 :]
+                                ]
+                            )
+
+                            r2_value = (
+                                np.corrcoef(
+                                    np.arange(self.vanish_exc, self.order + 1),
+                                    log_mean_abs_inc,
+                                )[0, 1]
+                                ** 2
+                            )
+
+                            # check if fit would be good enough
+                            if r2_value > 0.9:
+
+                                # fit log-transformed mean absolute increments
+                                slope, const = np.polyfit(
+                                    np.arange(self.vanish_exc, self.order + 1),
+                                    log_mean_abs_inc,
+                                    1,
+                                )
+
+                            else:
+
+                                # assume mean absolute increment does not decrease
+                                slope, const = 0.0, log_mean_abs_inc[-1]
+
+                            # loop over remaining orders
+                            for order in range(self.order + 1, max_order + 1):
+
+                                if orb < self.nocc:
+                                    ntup_order = ntup_order_occ[
+                                        order - (self.order + 1)
+                                    ]
+                                else:
+                                    ntup_order = ntup_order_virt[
+                                        order - (self.order + 1)
+                                    ]
+
+                                # estimate error
+                                error_estimate[orb_idx, order - (self.order + 1)] = (
+                                    ntup_order
+                                    * rel_factor
+                                    * np.exp(slope * order + const)
+                                )
+
+                        if mpi.global_master:
+                            np.save("error_estimate_" + str(self.order), error_estimate)
+
+                        # calculate total error
+                        tot_error = np.sum(error_estimate, axis=1)
+
+                        # calculate difference to allowed error
+                        error_diff = np.zeros_like(tot_error)
+                        error_diff[: self.nocc] = (
+                            np.sum(ntup_order_occ) / np.sum(ntup_order_tot)
+                        ) * error_thresh - tot_error[: self.nocc]
+                        error_diff[self.nocc :] = (
+                            np.sum(ntup_order_virt) / np.sum(ntup_order_tot)
+                        ) * error_thresh - tot_error[self.nocc :]
+
+                        # get index in expansion space for minimum orbital contribution
+                        min_idx = np.argmax(error_diff)
+
+                        # get minimum orbital contribution
+                        min_orb_contrib = tot_error[min_idx]
+
+                        # screen orbital away if contribution is smaller than threshold
+                        if error_diff[min_idx] > 0.0:
+
+                            # add screened orbital contribution to error
+                            self.error += min_orb_contrib
+
+                            # signal other processes to continue screening
+                            mpi.global_comm.bcast(keep_screening, root=0)
+
+                            # bcast orbital to screen away
+                            mpi.global_comm.bcast(min_idx, root=0)
+
+                            # remove orbital contributions
+                            self._screen_remove_orb_contrib(
+                                mpi, exp_occ, exp_virt, self.exp_space[-1][min_idx]
+                            )
+
+                            # remove orbital from expansion space
+                            self.exp_space[-1] = np.delete(self.exp_space[-1], min_idx)
+
+                            # occupied and virtual expansion spaces
+                            exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
+                            exp_virt = self.exp_space[-1][
+                                self.nocc <= self.exp_space[-1]
+                            ]
+
+                            # loop over all orders
+                            for k in range(self.min_order, self.order + 1):
+
+                                # get number of tuples per orbital
+                                ntup_occ, ntup_virt = orb_n_tuples(
+                                    exp_occ,
+                                    exp_virt,
+                                    self.ref_nelec,
+                                    self.ref_nhole,
+                                    self.vanish_exc,
+                                    k,
+                                )
+
+                                # calculate relative factor
+                                self.screen[k - self.min_order][
+                                    "rel_factor"
+                                ] = np.divide(
+                                    np.abs(self.screen[k - self.min_order]["sum"]),
+                                    self.screen[k - self.min_order]["sum_abs"],
+                                    out=np.zeros(self.norb, dtype=np.float64),
+                                    where=self.screen[k - self.min_order]["sum_abs"]
+                                    != 0.0,
+                                )
+
+                                # calculate mean absolute increment
+                                self.screen[k - self.min_order]["mean_abs_inc"][
+                                    : self.nocc
+                                ] = (
+                                    (
+                                        self.screen[k - self.min_order]["sum_abs"][
+                                            : self.nocc
+                                        ]
+                                        / ntup_occ
+                                    )
+                                    if ntup_occ > 0
+                                    else 0.0
+                                )
+                                self.screen[k - self.min_order]["mean_abs_inc"][
+                                    self.nocc :
+                                ] = (
+                                    (
+                                        self.screen[k - self.min_order]["sum_abs"][
+                                            self.nocc :
+                                        ]
+                                        / ntup_virt
+                                    )
+                                    if ntup_virt > 0
+                                    else 0.0
+                                )
+
+                        else:
+
+                            keep_screening = False
+                            mpi.global_comm.bcast(keep_screening, root=0)
+
+            else:
+
+                # require at least three points for fit
+                if self.order > self.vanish_exc + 1:
+
+                    # initialize boolean to keep screening
+                    keep_screening = True
+
+                    # remove orbitals until minimum orbital contribution is larger than
+                    # threshold
+                    while keep_screening:
+
+                        # determine if still screening
+                        keep_screening = mpi.global_comm.bcast(None, root=0)
+
+                        if keep_screening:
+
+                            # get minimum orbital
+                            min_idx = mpi.global_comm.bcast(None, root=0)
+
+                            # remove orbital contributions
+                            self._screen_remove_orb_contrib(
+                                mpi, exp_occ, exp_virt, self.exp_space[-1][min_idx]
+                            )
+
+                            # remove orbital from expansion space
+                            self.exp_space[-1] = np.delete(self.exp_space[-1], min_idx)
+
+                            # occupied and virtual expansion spaces
+                            exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
+                            exp_virt = self.exp_space[-1][
+                                self.nocc <= self.exp_space[-1]
+                            ]
+
+        # update symmetry-equivalent orbitals wrt screened orbitals
+        if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
+            self.symm_eqv_orbs.append(
+                reduce_symm_eqv_orbs(
+                    self.symm_eqv_orbs[-1],
+                    self.exp_space[-1]
+                    if self.symm_inv_ref_space
+                    else cas(self.ref_space, self.exp_space[-1]),
+                )
+            )
+            self.eqv_inc_orbs.append(
+                get_eqv_inc_orbs(self.symm_eqv_orbs[-1], self.nsymm, self.norb)
+            )
+
+        if mpi.global_master:
+
+            # write restart files
+            if self.rst:
+                write_file(self.exp_space[-1], "exp_space", self.order + 1)
 
         return
 
@@ -1818,7 +2165,7 @@ class ExpCls(
 
     @staticmethod
     @abstractmethod
-    def _screen(
+    def _add_screen(
         inc_tup: TargetType, screen: np.ndarray, tup: np.ndarray, screen_func: str
     ) -> np.ndarray:
         """
@@ -1864,6 +2211,110 @@ class ExpCls(
         this function prints mbe results statistics for an energy or excitation energy
         calculation
         """
+
+    def _screen_remove_orb_contrib(
+        self, mpi: MPICls, exp_occ: np.ndarray, exp_virt: np.ndarray, orb: int
+    ) -> None:
+        """
+        this function removes orbital contributions to the screening arrays
+        """
+        # loop over all orders
+        for k in range(self.min_order, self.order + 1):
+
+            # initialize arrays for contributions to be removed
+            remove_sum_abs = np.zeros(self.norb, dtype=np.float64)
+            remove_sum = np.zeros(self.norb, dtype=np.float64)
+
+            # load k-th order hashes and increments
+            hashes = open_shared_win(
+                self.hashes[k - self.min_order],
+                np.int64,
+                (self.n_tuples["inc"][k - self.min_order],),
+            )
+            inc = self._open_shared_inc(
+                self.incs[k - self.min_order],
+                self.n_tuples["inc"][k - self.min_order],
+                k - self.min_order,
+            )
+
+            # mpi barrier
+            mpi.local_comm.barrier()
+
+            for tup_idx, tup in enumerate(
+                orb_tuples(
+                    exp_occ,
+                    exp_virt,
+                    self.ref_nelec,
+                    self.ref_nhole,
+                    self.vanish_exc,
+                    k,
+                    orb,
+                )
+            ):
+
+                # distribute tuples
+                if tup_idx % mpi.global_size != mpi.global_rank:
+                    continue
+
+                # pi-pruning
+                if self.pi_prune and not pi_prune(self.pi_orbs, self.pi_hashes, tup):
+                    continue
+
+                # symmetry-pruning
+                if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
+
+                    # add reference space if it is not symmetry-invariant
+                    if self.symm_inv_ref_space:
+                        cas_idx = tup
+                        ref_space = None
+                    else:
+                        cas_idx = cas(self.ref_space, tup)
+                        ref_space = self.ref_space
+
+                    # get lexicographically greatest tuple
+                    lex_cas = get_lex_cas(cas_idx, self.eqv_inc_orbs[-1], ref_space)
+
+                    # remove reference space if it is not symmetry-invariant
+                    if self.symm_inv_ref_space:
+                        tup_last = lex_cas
+                    else:
+                        tup_last = np.setdiff1d(
+                            lex_cas,
+                            self.ref_space,
+                            assume_unique=True,
+                        )
+
+                else:
+
+                    # no redundant tuples
+                    tup_last = tup
+
+                # compute index
+                idx = hash_lookup(hashes, hash_1d(tup_last))
+
+                # add inc_tup and its hash to lists of increments/hashes
+                if idx is not None:
+                    remove_sum_abs[tup] = self._add_screen(
+                        inc[idx.item()],
+                        remove_sum_abs,
+                        tup,
+                        "sum_abs",
+                    )
+                    remove_sum[tup] = self._add_screen(
+                        inc[idx.item()], remove_sum, tup, "sum"
+                    )
+                else:
+                    raise RuntimeError("Last order tuple not found:", tup_last)
+
+            # reduce contributions
+            remove_sum_abs = mpi_allreduce(mpi.global_comm, remove_sum_abs, op=MPI.SUM)
+            remove_sum = mpi_allreduce(mpi.global_comm, remove_sum, op=MPI.SUM)
+
+            # remove contributions to screening functions
+            self.screen[k - self.min_order]["sum_abs"] -= remove_sum_abs
+            self.screen[k - self.min_order]["sum"] -= remove_sum
+
+        return
 
     @abstractmethod
     def _prop_summ(

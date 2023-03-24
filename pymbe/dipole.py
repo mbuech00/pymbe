@@ -416,7 +416,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         return np.array(inc_lst, dtype=np.float64).reshape(-1)
 
     @staticmethod
-    def _screen(
+    def _add_screen(
         inc_tup: np.ndarray, screen: np.ndarray, tup: np.ndarray, screen_func: str
     ) -> np.ndarray:
         """
@@ -424,7 +424,7 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         """
         if screen_func == "max":
             return np.maximum(screen[tup], np.max(np.abs(inc_tup)))
-        elif screen_func == "abs_sum":
+        elif screen_func == "sum_abs":
             return screen[tup] + np.sum(np.abs(inc_tup))
         else:
             raise ValueError

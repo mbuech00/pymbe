@@ -23,6 +23,7 @@ import scipy.special as sc
 from mpi4py import MPI
 from pyscf import symm, ao2mo
 from itertools import islice, combinations, groupby, chain
+from bisect import insort
 from subprocess import Popen, PIPE
 from traceback import format_stack
 from typing import TYPE_CHECKING, overload
@@ -315,12 +316,27 @@ class packedRDMCls:
         )
         cls.unpack_rdm2.append(unpack_rdm2)
 
-    def __getitem__(self, idx: Union[int, np.int64, slice, np.ndarray]) -> packedRDMCls:
+    @overload
+    def __getitem__(self, idx: Union[int, np.int64]) -> RDMCls:
+        ...
+
+    @overload
+    def __getitem__(self, idx: Union[slice, np.ndarray]) -> packedRDMCls:
+        ...
+
+    def __getitem__(
+        self, idx: Union[int, np.int64, slice, np.ndarray]
+    ) -> Union[RDMCls, packedRDMCls]:
         """
         this function ensures packedRDMCls can be retrieved through indexing
         packedRDMCls objects
         """
-        if isinstance(idx, (int, np.integer, slice, np.ndarray)):
+        if isinstance(idx, (int, np.integer)):
+            return RDMCls(
+                self.rdm1[idx][self.unpack_rdm1[self.idx]],
+                self.rdm2[idx][self.unpack_rdm2[self.idx]],
+            )
+        elif isinstance(idx, (slice, np.ndarray)):
             return packedRDMCls(self.rdm1[idx], self.rdm2[idx], self.idx)
         else:
             return NotImplemented
@@ -684,6 +700,73 @@ def tuples(
             yield np.array(tup_virt, dtype=np.int64)
 
 
+def orb_tuples(
+    occ_space: np.ndarray,
+    virt_space: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
+    vanish_exc: int,
+    order: int,
+    orb: int,
+) -> Generator[np.ndarray, None, None]:
+    """
+    this function is the main generator for tuples that include a certain orbital
+    """
+    # orbital is occupied
+    if orb in occ_space:
+
+        # remove orbital
+        occ_space = np.delete(occ_space, occ_space == orb)
+
+        # combinations of occupied and virtual MOs
+        for k in range(1, order - 1):
+            if _valid_tup(ref_nelec, ref_nhole, k + 1, order - 1 - k, vanish_exc):
+                for tup_occ in (list(tup) for tup in combinations(occ_space, k)):
+                    insort(tup_occ, orb)
+                    for tup_virt in (
+                        list(tup) for tup in combinations(virt_space, order - 1 - k)
+                    ):
+                        yield np.array(tup_occ + tup_virt, dtype=np.int64)
+
+        # only occupied MOs
+        if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
+            for tup_occ in (list(tup) for tup in combinations(occ_space, order - 1)):
+                insort(tup_occ, orb)
+                yield np.array(tup_occ, dtype=np.int64)
+
+        # only virtual MOs
+        if _valid_tup(ref_nelec, ref_nhole, 1, order - 1, vanish_exc):
+            for tup_virt in (list(tup) for tup in combinations(virt_space, order - 1)):
+                yield np.array([orb] + tup_virt, dtype=np.int64)
+
+    # orbital is virtual
+    elif orb in virt_space:
+
+        # remove orbital
+        virt_space = np.delete(virt_space, virt_space == orb)
+
+        # combinations of occupied and virtual MOs
+        for k in range(1, order - 1):
+            if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+                for tup_occ in (list(tup) for tup in combinations(occ_space, k)):
+                    for tup_virt in (
+                        list(tup) for tup in combinations(virt_space, order - 1 - k)
+                    ):
+                        insort(tup_virt, orb)
+                        yield np.array(tup_occ + tup_virt, dtype=np.int64)
+
+        # only occupied MOs
+        if _valid_tup(ref_nelec, ref_nhole, order - 1, 1, vanish_exc):
+            for tup_occ in (list(tup) for tup in combinations(occ_space, order - 1)):
+                yield np.array(tup_occ + [orb], dtype=np.int64)
+
+        # only virtual MOs
+        if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
+            for tup_virt in (list(tup) for tup in combinations(virt_space, order - 1)):
+                insort(tup_virt, orb)
+                yield np.array(tup_virt, dtype=np.int64)
+
+
 def start_idx(
     occ_space: np.ndarray,
     virt_space: np.ndarray,
@@ -764,6 +847,55 @@ def n_tuples(
         n += sc.binom(virt_space.size, order)
 
     return int(n)
+
+
+def orb_n_tuples(
+    occ_space: np.ndarray,
+    virt_space: np.ndarray,
+    ref_nelec: np.ndarray,
+    ref_nhole: np.ndarray,
+    vanish_exc: int,
+    order: int,
+) -> Tuple[int, int]:
+    """
+    this function returns the both the total number of tuples of a given order that
+    include a specific occupied or a specific virtual orbital
+    """
+    # initialize ntup_occ
+    ntup_occ = 0.0
+
+    # check if occupied orbitals exist in expansion space
+    if occ_space.size > 0:
+
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+                ntup_occ += sc.binom(occ_space.size - 1, k - 1) * sc.binom(
+                    virt_space.size, order - k
+                )
+
+        # only occupied MOs
+        if _valid_tup(ref_nelec, ref_nhole, order, 0, vanish_exc):
+            ntup_occ += sc.binom(occ_space.size - 1, order - 1)
+
+    # initialize ntup_virt
+    ntup_virt = 0.0
+
+    # check if virtual orbitals exist in expansion space
+    if virt_space.size > 0:
+
+        # combinations of occupied and virtual MOs
+        for k in range(1, order):
+            if _valid_tup(ref_nelec, ref_nhole, k, order - k, vanish_exc):
+                ntup_virt += sc.binom(occ_space.size, k) * sc.binom(
+                    virt_space.size - 1, order - k - 1
+                )
+
+        # only virtual MOs
+        if _valid_tup(ref_nelec, ref_nhole, 0, order, vanish_exc):
+            ntup_virt += sc.binom(virt_space.size - 1, order - 1)
+
+    return int(ntup_occ), int(ntup_virt)
 
 
 def cas(ref_space: np.ndarray, tup: np.ndarray) -> np.ndarray:
@@ -1223,6 +1355,19 @@ def write_file(arr: np.ndarray, string: str, order: Optional[int] = None) -> Non
         np.save(os.path.join(RST, f"{string}"), arr)
     else:
         np.save(os.path.join(RST, f"{string}_{order}"), arr)
+
+
+def write_file_mult(
+    arrs: Dict[str, np.ndarray], string: str, order: Optional[int] = None
+) -> None:
+    """
+    this function writes a general restart file corresponding to the input string for
+    multiple arrays
+    """
+    if order is None:
+        np.savez(os.path.join(RST, f"{string}"), **arrs)
+    else:
+        np.savez(os.path.join(RST, f"{string}_{order}"), **arrs)
 
 
 def read_file(string: str, order: Optional[int] = None) -> np.ndarray:

@@ -176,7 +176,13 @@ def redundant_results(
     return string
 
 
-def screen_results(order: int, orbs: np.ndarray, exp_space: List[np.ndarray]) -> str:
+def screen_results(
+    order: int,
+    orbs: np.ndarray,
+    exp_space: List[np.ndarray],
+    screen_type: str,
+    error: float,
+) -> str:
     """
     this function prints the screened MOs
     """
@@ -197,6 +203,9 @@ def screen_results(order: int, orbs: np.ndarray, exp_space: List[np.ndarray]) ->
         f" RESULT-{order:d}:  total number of screened MOs: {total_screen.size:}\n"
     )
     string += DIVIDER + "\n"
+    if screen_type == "adaptive":
+        string += f" RESULT-{order:d}:  total error: {error:>13.4e}\n"
+        string += DIVIDER + "\n"
 
     return string
 

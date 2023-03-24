@@ -706,6 +706,12 @@ def sanity_check(mbe: MBE) -> None:
         mbe.screen_type in ["fixed", "adaptive"],
         "valid screening types (screen_type keyword argument) are: fixed and adaptive",
     )
+    if mbe.screen_type == "adaptive":
+        assertion(
+            mbe.target == "energy",
+            "adaptive screening (screen_type keyword argument) is currently only "
+            "implemented for energy expansions (target keyword argument)",
+        )
     assertion(
         isinstance(mbe.screen_start, int) and mbe.screen_start >= 2,
         "screening start order (screen_start keyword argument) must be an int >= 2",
@@ -723,8 +729,8 @@ def sanity_check(mbe: MBE) -> None:
         "screening function (screen_func keyword argument) must be an str",
     )
     assertion(
-        mbe.screen_func in ["max", "abs_sum", "sum", "rnd"],
-        "valid screening functions (screen_func keyword argument) are: max, abs_sum, "
+        mbe.screen_func in ["max", "sum_abs", "sum", "rnd"],
+        "valid screening functions (screen_func keyword argument) are: max, sum_abs, "
         "sum and rnd",
     )
     if mbe.screen_func == "sum":

@@ -45,6 +45,7 @@ from pymbe.tools import (
     get_nexc,
     assertion,
     idx_tril,
+    write_file_mult,
 )
 from pymbe.parallel import (
     mpi_reduce,
@@ -483,18 +484,9 @@ class GenFockExpCls(
         this function defines how to write restart files for instances of the target
         type
         """
-        if order is None:
-            np.savez(
-                os.path.join(RST, f"{string}"),
-                energy=prop.energy,
-                gen_fock=prop.gen_fock,
-            )
-        else:
-            np.savez(
-                os.path.join(RST, f"{string}_{order}"),
-                energy=prop.energy,
-                gen_fock=prop.gen_fock,
-            )
+        write_file_mult(
+            {"energy": np.array(prop.energy), "gen_fock": prop.gen_fock}, string, order
+        )
 
     @staticmethod
     def _read_target_file(file: str) -> GenFockCls:
@@ -674,15 +666,18 @@ class GenFockExpCls(
         inc_win[1].Free()
 
     @staticmethod
-    def _screen(
-        inc_tup: GenFockCls, screen: np.ndarray, tup: np.ndarray, screen_func: str
+    def _add_screen(
+        inc_tup: Union[GenFockCls, GenFockArrayCls],
+        screen: np.ndarray,
+        tup: np.ndarray,
+        screen_func: str,
     ) -> np.ndarray:
         """
         this function modifies the screening array
         """
         if screen_func == "max":
             return np.maximum(screen[tup], np.max(np.abs(inc_tup.gen_fock)))
-        elif screen_func == "abs_sum":
+        elif screen_func == "sum_abs":
             return screen[tup] + np.sum(np.abs(inc_tup.gen_fock))
         else:
             raise ValueError

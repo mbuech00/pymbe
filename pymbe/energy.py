@@ -434,7 +434,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         return np.array(inc_lst, dtype=np.float64)
 
     @staticmethod
-    def _screen(
+    def _add_screen(
         inc_tup: float, screen: np.ndarray, tup: np.ndarray, screen_func: str
     ) -> np.ndarray:
         """
@@ -442,7 +442,7 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         if screen_func == "max":
             return np.maximum(screen[tup], np.abs(inc_tup))
-        elif screen_func == "abs_sum":
+        elif screen_func == "sum_abs":
             return screen[tup] + np.abs(inc_tup)
         elif screen_func == "sum":
             return screen[tup] + inc_tup
