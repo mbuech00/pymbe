@@ -1416,51 +1416,36 @@ class ExpCls(
                     else 0.0
                 )
 
-                # require at least three points for fit
-                if self.order > self.vanish_exc + 1:
+                # initialize boolean to keep screening
+                keep_screening = True
 
-                    # initialize boolean to keep screening
-                    keep_screening = True
+                # remove orbitals until minimum orbital contribution is larger than
+                # threshold
+                while keep_screening:
 
-                    # remove orbitals until minimum orbital contribution is larger than
-                    # threshold
-                    while keep_screening:
+                    # define maximum possible order
+                    max_order = self.exp_space[-1].size
 
-                        # define maximum possible order
-                        max_order = self.exp_space[-1].size
+                    # check if expansion has ended
+                    if self.order >= max_order:
+                        self.exp_space[-1] = np.array([], dtype=np.int64)
+                        keep_screening = False
+                        mpi.global_comm.bcast(keep_screening, root=0)
+                        return
 
-                        # check if expansion has ended
-                        if self.order >= max_order:
-                            self.exp_space[-1] = np.array([], dtype=np.int64)
-                            keep_screening = False
-                            mpi.global_comm.bcast(keep_screening, root=0)
-                            break
+                    # define error allowed per orbital
+                    error_thresh = self.screen_thres - self.error
 
-                        # define error allowed per orbital
-                        error_thresh = self.screen_thres - self.error
+                    # initialize array for error estimate
+                    error_estimate = np.zeros(
+                        (self.exp_space[-1].size, max_order - self.order),
+                        dtype=np.float64,
+                    )
 
-                        # initialize array for error estimate
-                        error_estimate = np.zeros(
-                            (self.exp_space[-1].size, max_order - self.order),
-                            dtype=np.float64,
-                        )
-
-                        # get number of tuples for remaining orders
-                        ntup_order_occ, ntup_order_virt = zip(
-                            *[
-                                orb_n_tuples(
-                                    self.exp_space[-1][self.exp_space[-1] < self.nocc],
-                                    self.exp_space[-1][self.nocc <= self.exp_space[-1]],
-                                    self.ref_nelec,
-                                    self.ref_nhole,
-                                    self.vanish_exc,
-                                    order,
-                                )
-                                for order in range(self.order + 1, max_order + 1)
-                            ]
-                        )
-                        ntup_order_tot = [
-                            n_tuples(
+                    # get number of tuples for remaining orders
+                    ntup_order_occ, ntup_order_virt = zip(
+                        *[
+                            orb_n_tuples(
                                 self.exp_space[-1][self.exp_space[-1] < self.nocc],
                                 self.exp_space[-1][self.nocc <= self.exp_space[-1]],
                                 self.ref_nelec,
@@ -1470,44 +1455,64 @@ class ExpCls(
                             )
                             for order in range(self.order + 1, max_order + 1)
                         ]
+                    )
+                    ntup_order_tot = [
+                        n_tuples(
+                            self.exp_space[-1][self.exp_space[-1] < self.nocc],
+                            self.exp_space[-1][self.nocc <= self.exp_space[-1]],
+                            self.ref_nelec,
+                            self.ref_nhole,
+                            self.vanish_exc,
+                            order,
+                        )
+                        for order in range(self.order + 1, max_order + 1)
+                    ]
 
-                        # check if expansion has ended
-                        if np.sum(ntup_order_tot) == 0:
-                            self.exp_space[-1] = np.array([], dtype=np.int64)
-                            keep_screening = False
-                            mpi.global_comm.bcast(keep_screening, root=0)
-                            break
+                    # check if expansion has ended
+                    if np.sum(ntup_order_tot) == 0:
+                        self.exp_space[-1] = np.array([], dtype=np.int64)
+                        keep_screening = False
+                        mpi.global_comm.bcast(keep_screening, root=0)
+                        return
 
-                        # get maximum relative factor from last two orders
-                        rel_factor = np.max(
-                            [screen["rel_factor"] for screen in self.screen[-2:]]
+                    # get maximum relative factor from last two orders
+                    rel_factor = np.max(
+                        [screen["rel_factor"] for screen in self.screen[-2:]]
+                    )
+
+                    # loop over orbitals
+                    for orb_idx, orb in enumerate(self.exp_space[-1]):
+
+                        # get mean absolute increments for orbital
+                        mean_abs_inc = np.array(
+                            [
+                                screen["mean_abs_inc"][orb]
+                                for screen in self.screen[self.vanish_exc - 1 :]
+                            ],
+                            dtype=np.float64,
                         )
 
-                        # loop over orbitals
-                        for orb_idx, orb in enumerate(self.exp_space[-1]):
+                        # log transform mean absolute increments
+                        log_mean_abs_inc = np.log(mean_abs_inc[mean_abs_inc > 0.0])
 
-                            # get mean absolute increments for orbital
-                            mean_abs_inc = np.array(
-                                [
-                                    screen["mean_abs_inc"][orb]
-                                    for screen in self.screen[self.vanish_exc - 1 :]
-                                ],
-                                dtype=np.float64,
-                            )
+                        # get orders for fit
+                        orders = self.min_order + np.argwhere(
+                            mean_abs_inc > 0.0
+                        ).reshape(-1)
 
-                            # log transform mean absolute increments
-                            log_mean_abs_inc = np.log(mean_abs_inc[mean_abs_inc > 0.0])
+                        # require at least 3 points to fit
+                        if orders.size > 2:
 
-                            # get orders for fit
-                            orders = self.min_order + np.argwhere(
-                                mean_abs_inc > 0.0
-                            ).reshape(-1)
-
+                            # get pearson correlation coefficient
                             r2_value = (
-                                np.corrcoef(orders, log_mean_abs_inc,)[0, 1]** 2
+                                np.corrcoef(
+                                    orders,
+                                    log_mean_abs_inc,
+                                )[0, 1]
+                                ** 2
                             )
 
-                            # check if fit would be good enough
+                            # check if correlation is good enough
                             if r2_value > 0.9:
 
                                 # fit log-transformed mean absolute increments
@@ -1516,162 +1521,152 @@ class ExpCls(
                             else:
 
                                 # assume mean absolute increment does not decrease
-                                slope, const = 0.0, log_mean_abs_inc[-1]
-
-                            # loop over remaining orders
-                            for order in range(self.order + 1, max_order + 1):
-
-                                if orb < self.nocc:
-                                    ntup_order = ntup_order_occ[
-                                        order - (self.order + 1)
-                                    ]
-                                else:
-                                    ntup_order = ntup_order_virt[
-                                        order - (self.order + 1)
-                                    ]
-
-                                # estimate error
-                                error_estimate[orb_idx, order - (self.order + 1)] = (
-                                    ntup_order
-                                    * rel_factor
-                                    * np.exp(slope * order + const)
-                                )
-
-                        if mpi.global_master:
-                            np.save("error_estimate_" + str(self.order), error_estimate)
-
-                        # calculate total error
-                        tot_error = np.sum(error_estimate, axis=1)
-
-                        # calculate difference to allowed error
-                        error_diff = np.zeros_like(tot_error)
-                        error_diff[: self.nocc] = (
-                            np.sum(ntup_order_occ) / np.sum(ntup_order_tot)
-                        ) * error_thresh - tot_error[: self.nocc]
-                        error_diff[self.nocc :] = (
-                            np.sum(ntup_order_virt) / np.sum(ntup_order_tot)
-                        ) * error_thresh - tot_error[self.nocc :]
-
-                        # get index in expansion space for minimum orbital contribution
-                        min_idx = np.argmax(error_diff)
-
-                        # get minimum orbital contribution
-                        min_orb_contrib = tot_error[min_idx]
-
-                        # screen orbital away if contribution is smaller than threshold
-                        if error_diff[min_idx] > 0.0:
-
-                            # add screened orbital contribution to error
-                            self.error += min_orb_contrib
-
-                            # signal other processes to continue screening
-                            mpi.global_comm.bcast(keep_screening, root=0)
-
-                            # bcast orbital to screen away
-                            mpi.global_comm.bcast(min_idx, root=0)
-
-                            # remove orbital contributions
-                            self._screen_remove_orb_contrib(
-                                mpi, exp_occ, exp_virt, self.exp_space[-1][min_idx]
-                            )
-
-                            # remove orbital from expansion space
-                            self.exp_space[-1] = np.delete(self.exp_space[-1], min_idx)
-
-                            # occupied and virtual expansion spaces
-                            exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
-                            exp_virt = self.exp_space[-1][
-                                self.nocc <= self.exp_space[-1]
-                            ]
-
-                            # loop over all orders
-                            for k in range(self.min_order, self.order + 1):
-
-                                # get number of tuples per orbital
-                                ntup_occ, ntup_virt = orb_n_tuples(
-                                    exp_occ,
-                                    exp_virt,
-                                    self.ref_nelec,
-                                    self.ref_nhole,
-                                    self.vanish_exc,
-                                    k,
-                                )
-
-                                # calculate relative factor
-                                self.screen[k - self.min_order][
-                                    "rel_factor"
-                                ] = np.divide(
-                                    np.abs(self.screen[k - self.min_order]["sum"]),
-                                    self.screen[k - self.min_order]["sum_abs"],
-                                    out=np.zeros(self.norb, dtype=np.float64),
-                                    where=self.screen[k - self.min_order]["sum_abs"]
-                                    != 0.0,
-                                )
-
-                                # calculate mean absolute increment
-                                self.screen[k - self.min_order]["mean_abs_inc"][
-                                    : self.nocc
-                                ] = (
-                                    (
-                                        self.screen[k - self.min_order]["sum_abs"][
-                                            : self.nocc
-                                        ]
-                                        / ntup_occ
-                                    )
-                                    if ntup_occ > 0
-                                    else 0.0
-                                )
-                                self.screen[k - self.min_order]["mean_abs_inc"][
-                                    self.nocc :
-                                ] = (
-                                    (
-                                        self.screen[k - self.min_order]["sum_abs"][
-                                            self.nocc :
-                                        ]
-                                        / ntup_virt
-                                    )
-                                    if ntup_virt > 0
-                                    else 0.0
-                                )
+                                slope, const = 0.0, mean_abs_inc[-1]
 
                         else:
 
                             keep_screening = False
                             mpi.global_comm.bcast(keep_screening, root=0)
+                            return
+
+                        # loop over remaining orders
+                        for order in range(self.order + 1, max_order + 1):
+
+                            if orb < self.nocc:
+                                ntup_order = ntup_order_occ[order - (self.order + 1)]
+                            else:
+                                ntup_order = ntup_order_virt[order - (self.order + 1)]
+
+                            # estimate error
+                            error_estimate[orb_idx, order - (self.order + 1)] = (
+                                ntup_order * rel_factor * np.exp(slope * order + const)
+                            )
+
+                    if mpi.global_master:
+                        np.save("error_estimate_" + str(self.order), error_estimate)
+
+                    # calculate total error
+                    tot_error = np.sum(error_estimate, axis=1)
+
+                    # calculate difference to allowed error
+                    error_diff = np.zeros_like(tot_error)
+                    error_diff[: self.nocc] = (
+                        np.sum(ntup_order_occ) / np.sum(ntup_order_tot)
+                    ) * error_thresh - tot_error[: self.nocc]
+                    error_diff[self.nocc :] = (
+                        np.sum(ntup_order_virt) / np.sum(ntup_order_tot)
+                    ) * error_thresh - tot_error[self.nocc :]
+
+                    # get index in expansion space for minimum orbital contribution
+                    min_idx = np.argmax(error_diff)
+
+                    # get minimum orbital contribution
+                    min_orb_contrib = tot_error[min_idx]
+
+                    # screen orbital away if contribution is smaller than threshold
+                    if error_diff[min_idx] > 0.0:
+
+                        # add screened orbital contribution to error
+                        self.error += min_orb_contrib
+
+                        # signal other processes to continue screening
+                        mpi.global_comm.bcast(keep_screening, root=0)
+
+                        # bcast orbital to screen away
+                        mpi.global_comm.bcast(min_idx, root=0)
+
+                        # remove orbital contributions
+                        self._screen_remove_orb_contrib(
+                            mpi, exp_occ, exp_virt, self.exp_space[-1][min_idx]
+                        )
+
+                        # remove orbital from expansion space
+                        self.exp_space[-1] = np.delete(self.exp_space[-1], min_idx)
+
+                        # occupied and virtual expansion spaces
+                        exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
+                        exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
+
+                        # loop over all orders
+                        for k in range(self.min_order, self.order + 1):
+
+                            # get number of tuples per orbital
+                            ntup_occ, ntup_virt = orb_n_tuples(
+                                exp_occ,
+                                exp_virt,
+                                self.ref_nelec,
+                                self.ref_nhole,
+                                self.vanish_exc,
+                                k,
+                            )
+
+                            # calculate relative factor
+                            self.screen[k - self.min_order]["rel_factor"] = np.divide(
+                                np.abs(self.screen[k - self.min_order]["sum"]),
+                                self.screen[k - self.min_order]["sum_abs"],
+                                out=np.zeros(self.norb, dtype=np.float64),
+                                where=self.screen[k - self.min_order]["sum_abs"] != 0.0,
+                            )
+
+                            # calculate mean absolute increment
+                            self.screen[k - self.min_order]["mean_abs_inc"][
+                                : self.nocc
+                            ] = (
+                                (
+                                    self.screen[k - self.min_order]["sum_abs"][
+                                        : self.nocc
+                                    ]
+                                    / ntup_occ
+                                )
+                                if ntup_occ > 0
+                                else 0.0
+                            )
+                            self.screen[k - self.min_order]["mean_abs_inc"][
+                                self.nocc :
+                            ] = (
+                                (
+                                    self.screen[k - self.min_order]["sum_abs"][
+                                        self.nocc :
+                                    ]
+                                    / ntup_virt
+                                )
+                                if ntup_virt > 0
+                                else 0.0
+                            )
+
+                    else:
+
+                        keep_screening = False
+                        mpi.global_comm.bcast(keep_screening, root=0)
 
             else:
 
-                # require at least three points for fit
-                if self.order > self.vanish_exc + 1:
+                # initialize boolean to keep screening
+                keep_screening = True
 
-                    # initialize boolean to keep screening
-                    keep_screening = True
+                # remove orbitals until minimum orbital contribution is larger than
+                # threshold
+                while keep_screening:
 
-                    # remove orbitals until minimum orbital contribution is larger than
-                    # threshold
-                    while keep_screening:
+                    # determine if still screening
+                    keep_screening = mpi.global_comm.bcast(None, root=0)
 
-                        # determine if still screening
-                        keep_screening = mpi.global_comm.bcast(None, root=0)
+                    if keep_screening:
 
-                        if keep_screening:
+                        # get minimum orbital
+                        min_idx = mpi.global_comm.bcast(None, root=0)
 
-                            # get minimum orbital
-                            min_idx = mpi.global_comm.bcast(None, root=0)
+                        # remove orbital contributions
+                        self._screen_remove_orb_contrib(
+                            mpi, exp_occ, exp_virt, self.exp_space[-1][min_idx]
+                        )
 
-                            # remove orbital contributions
-                            self._screen_remove_orb_contrib(
-                                mpi, exp_occ, exp_virt, self.exp_space[-1][min_idx]
-                            )
+                        # remove orbital from expansion space
+                        self.exp_space[-1] = np.delete(self.exp_space[-1], min_idx)
 
-                            # remove orbital from expansion space
-                            self.exp_space[-1] = np.delete(self.exp_space[-1], min_idx)
-
-                            # occupied and virtual expansion spaces
-                            exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
-                            exp_virt = self.exp_space[-1][
-                                self.nocc <= self.exp_space[-1]
-                            ]
+                        # occupied and virtual expansion spaces
+                        exp_occ = self.exp_space[-1][self.exp_space[-1] < self.nocc]
+                        exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
 
         # update symmetry-equivalent orbitals wrt screened orbitals
         if self.symm_eqv_orbs is not None and self.eqv_inc_orbs is not None:
