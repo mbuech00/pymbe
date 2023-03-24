@@ -655,14 +655,14 @@ def hash_1d(a: np.ndarray) -> int:
     return hash(a.tobytes())
 
 
-def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[int]:
+def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[np.ndarray]:
     """
     this function finds occurences of b in a through a binary search
     """
     left = a.searchsorted(b, side="left")
     right = a.searchsorted(b, side="right")
     if ((right - left) > 0).all():
-        return left.item()
+        return left
     else:
         return None
 

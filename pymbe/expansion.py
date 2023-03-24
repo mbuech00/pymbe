@@ -1794,7 +1794,7 @@ class ExpCls(
 
                 # add inc_tup and its hash to lists of increments/hashes
                 if idx is not None:
-                    idx_lst.append(idx)
+                    idx_lst.append(idx.item())
                     hashes_lst.append(hash_1d(tup))
                 else:
                     raise RuntimeError("Last order tuple not found:", tup_last)
@@ -2289,11 +2289,11 @@ class ExpCls(
                 # remove inc_tup from the screen arrays
                 if idx is not None:
                     remove_sum_abs[tup] = self._add_screen(
-                        inc[idx], remove_sum_abs, tup, "sum_abs"  # type: ignore
+                        inc[idx.item()], remove_sum_abs, tup, "sum_abs"
                     )
                     remove_sum[tup] = self._add_screen(
-                        inc[idx], remove_sum, tup, "sum"  # type: ignore
-                    ) 
+                        inc[idx.item()], remove_sum, tup, "sum"
+                    )
                 else:
                     raise RuntimeError("Last order tuple not found:", tup_last)
 
@@ -2404,7 +2404,7 @@ class SingleTargetExpCls(
 
                 # sum up order increments
                 if idx is not None:
-                    res[k - self.min_order] += inc[k - self.min_order][idx]
+                    res[k - self.min_order] += inc[k - self.min_order][idx.item()]
                 else:
                     raise RuntimeError("Subtuple not found:", tup_sub)
 

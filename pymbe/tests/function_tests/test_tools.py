@@ -55,8 +55,8 @@ if TYPE_CHECKING:
 
 
 test_cases_hash_lookup = [
-    ("present", 5, True),
-    ("absent", 11, False),
+    ("present", np.array([1, 3, 5, 7, 9], dtype=np.int64), True),
+    ("absent", np.array([1, 3, 5, 7, 11], dtype=np.int64), False),
 ]
 
 test_cases_tuples = [
@@ -226,14 +226,14 @@ def test_hash_1d() -> None:
     argvalues=[case[1:] for case in test_cases_hash_lookup],
     ids=[case[0] for case in test_cases_hash_lookup],
 )
-def test_hash_lookup(b: int, present: bool) -> None:
+def test_hash_lookup(b: np.ndarray, present: bool) -> None:
     """
     this function tests hash_lookup
     """
     a = np.arange(10, dtype=np.int64)
 
     if present:
-        assert hash_lookup(a, b) == b
+        assert (hash_lookup(a, b) == b).all()
     else:
         assert hash_lookup(a, b) is None
 
