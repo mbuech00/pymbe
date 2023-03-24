@@ -27,7 +27,7 @@ from pyscf.cc import (
 )
 from typing import TYPE_CHECKING, cast
 
-from pymbe.expansion import ExpCls, SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
+from pymbe.expansion import SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import RST, write_file, get_nelec, get_nhole, get_nexc, assertion
 from pymbe.parallel import mpi_reduce, open_shared_win
@@ -407,13 +407,6 @@ class DipoleExpCls(SingleTargetExpCls[np.ndarray]):
         this function opens a shared increment window
         """
         return open_shared_win(window, np.float64, (n_tuples, 3))
-
-    @staticmethod
-    def _flatten_inc(inc_lst: List[np.ndarray], order: int) -> np.ndarray:
-        """
-        this function flattens the supplied increment arrays
-        """
-        return np.array(inc_lst, dtype=np.float64).reshape(-1)
 
     @staticmethod
     def _add_screen(

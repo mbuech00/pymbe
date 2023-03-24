@@ -21,7 +21,7 @@ from mpi4py import MPI
 from pyscf import ao2mo, gto, scf, fci, cc
 from typing import TYPE_CHECKING, cast
 
-from pymbe.expansion import ExpCls, SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
+from pymbe.expansion import SingleTargetExpCls, MAX_MEM, CONV_TOL, SPIN_TOL
 from pymbe.output import DIVIDER as DIVIDER_OUTPUT, FILL as FILL_OUTPUT, mbe_debug
 from pymbe.tools import (
     RST,
@@ -39,7 +39,7 @@ from pymbe.interface import mbecc_interface
 if TYPE_CHECKING:
 
     import matplotlib
-    from typing import List, Optional, Tuple, Union
+    from typing import List, Optional, Tuple, Union, Dict
 
     from pymbe.pymbe import MBE
 
@@ -393,6 +393,16 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         """
         return value
 
+    def _init_screen(self) -> Dict[str, np.ndarray]:
+        """
+        this function initializes the screening arrays
+        """
+        return {
+            "sum_abs": np.zeros(self.norb, dtype=np.float64),
+            "sum": np.zeros(self.norb, dtype=np.float64),
+            "max": np.zeros(self.norb, dtype=np.float64),
+        }
+
     def _zero_target_arr(self, length: int):
         """
         this function initializes an array of the target type with value zero
@@ -425,13 +435,6 @@ class EnergyExpCls(SingleTargetExpCls[float]):
         this function opens a shared increment window
         """
         return open_shared_win(window, np.float64, (n_tuples,))
-
-    @staticmethod
-    def _flatten_inc(inc_lst: List[np.ndarray], order: int) -> np.ndarray:
-        """
-        this function flattens the supplied increment arrays
-        """
-        return np.array(inc_lst, dtype=np.float64)
 
     @staticmethod
     def _add_screen(

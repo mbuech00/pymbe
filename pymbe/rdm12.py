@@ -475,19 +475,12 @@ class RDMExpCls(
         }
 
         return packedRDMCls(
-            mpi_gatherv(comm, send_inc.rdm1, recv_inc.rdm1, recv_counts["rdm1"]),
-            mpi_gatherv(comm, send_inc.rdm2, recv_inc.rdm2, recv_counts["rdm2"]),
-        )
-
-    @staticmethod
-    def _flatten_inc(inc_lst: List[packedRDMCls], order: int) -> packedRDMCls:
-        """
-        this function flattens the supplied increment arrays
-        """
-        return packedRDMCls(
-            np.array([inc.rdm1 for inc in inc_lst]).reshape(-1),
-            np.array([inc.rdm2 for inc in inc_lst]).reshape(-1),
-            order,
+            mpi_gatherv(
+                comm, send_inc.rdm1.ravel(), recv_inc.rdm1, recv_counts["rdm1"]
+            ),
+            mpi_gatherv(
+                comm, send_inc.rdm2.ravel(), recv_inc.rdm2, recv_counts["rdm2"]
+            ),
         )
 
     @staticmethod

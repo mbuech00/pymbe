@@ -321,11 +321,11 @@ class packedRDMCls:
         ...
 
     @overload
-    def __getitem__(self, idx: Union[slice, np.ndarray]) -> packedRDMCls:
+    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> packedRDMCls:
         ...
 
     def __getitem__(
-        self, idx: Union[int, np.int64, slice, np.ndarray]
+        self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]
     ) -> Union[RDMCls, packedRDMCls]:
         """
         this function ensures packedRDMCls can be retrieved through indexing
@@ -336,14 +336,14 @@ class packedRDMCls:
                 self.rdm1[idx][self.unpack_rdm1[self.idx]],
                 self.rdm2[idx][self.unpack_rdm2[self.idx]],
             )
-        elif isinstance(idx, (slice, np.ndarray)):
+        elif isinstance(idx, (slice, np.ndarray, list)):
             return packedRDMCls(self.rdm1[idx], self.rdm2[idx], self.idx)
         else:
             return NotImplemented
 
     def __setitem__(
         self,
-        idx: Union[int, np.int64, slice, np.ndarray],
+        idx: Union[int, np.int64, slice, np.ndarray, list],
         values: Union[
             float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, GenFockArrayCls
         ],
@@ -352,7 +352,9 @@ class packedRDMCls:
         this function ensures indexed packedRDMCls can be set using packedRDMCls or
         RDMCls objects
         """
-        if isinstance(idx, (slice, np.ndarray)) and isinstance(values, packedRDMCls):
+        if isinstance(idx, (slice, np.ndarray, list)) and isinstance(
+            values, packedRDMCls
+        ):
             self.rdm1[idx] = values.rdm1
             self.rdm2[idx] = values.rdm2
         elif isinstance(idx, (int, np.integer)) and isinstance(values, RDMCls):
@@ -492,11 +494,11 @@ class GenFockArrayCls:
         ...
 
     @overload
-    def __getitem__(self, idx: Union[slice, np.ndarray]) -> GenFockArrayCls:
+    def __getitem__(self, idx: Union[slice, np.ndarray, List[int]]) -> GenFockArrayCls:
         ...
 
     def __getitem__(
-        self, idx: Union[int, np.int64, slice, np.ndarray]
+        self, idx: Union[int, np.int64, slice, np.ndarray, List[int]]
     ) -> Union[GenFockCls, GenFockArrayCls]:
         """
         this function ensures GenFockArrayCls can be retrieved through indexing
@@ -504,14 +506,14 @@ class GenFockArrayCls:
         """
         if isinstance(idx, (int, np.integer)):
             return GenFockCls(self.energy[idx], self.gen_fock[idx])
-        elif isinstance(idx, (slice, np.ndarray)):
+        elif isinstance(idx, (slice, np.ndarray, list)):
             return GenFockArrayCls(self.energy[idx], self.gen_fock[idx])
         else:
             return NotImplemented
 
     def __setitem__(
         self,
-        idx: Union[int, np.int64, slice, np.ndarray],
+        idx: Union[int, np.int64, slice, np.ndarray, List[int]],
         values: Union[
             float, np.ndarray, RDMCls, packedRDMCls, GenFockCls, GenFockArrayCls
         ],
@@ -521,7 +523,8 @@ class GenFockArrayCls:
         or GenFockCls objects
         """
         if (
-            isinstance(idx, (slice, np.ndarray)) and isinstance(values, GenFockArrayCls)
+            isinstance(idx, (slice, np.ndarray, list))
+            and isinstance(values, GenFockArrayCls)
         ) or (isinstance(idx, (int, np.integer)) and isinstance(values, GenFockCls)):
             self.energy[idx] = values.energy
             self.gen_fock[idx] = values.gen_fock
@@ -652,14 +655,14 @@ def hash_1d(a: np.ndarray) -> int:
     return hash(a.tobytes())
 
 
-def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[np.ndarray]:
+def hash_lookup(a: np.ndarray, b: Union[int, np.ndarray]) -> Optional[int]:
     """
     this function finds occurences of b in a through a binary search
     """
     left = a.searchsorted(b, side="left")
     right = a.searchsorted(b, side="right")
     if ((right - left) > 0).all():
-        return left
+        return left.item()
     else:
         return None
 

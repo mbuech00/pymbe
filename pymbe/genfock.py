@@ -643,18 +643,11 @@ class GenFockExpCls(
         return GenFockArrayCls(
             mpi_gatherv(comm, send_inc.energy, recv_inc.energy, recv_counts["energy"]),
             mpi_gatherv(
-                comm, send_inc.gen_fock, recv_inc.gen_fock, recv_counts["gen_fock"]
+                comm,
+                send_inc.gen_fock.ravel(),
+                recv_inc.gen_fock,
+                recv_counts["gen_fock"],
             ),
-        )
-
-    @staticmethod
-    def _flatten_inc(inc_lst: List[GenFockArrayCls], order: int) -> GenFockArrayCls:
-        """
-        this function flattens the supplied increment arrays
-        """
-        return GenFockArrayCls(
-            np.array([inc.energy for inc in inc_lst]).reshape(-1),
-            np.array([inc.gen_fock for inc in inc_lst]).reshape(-1),
         )
 
     @staticmethod

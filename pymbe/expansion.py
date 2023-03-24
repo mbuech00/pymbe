@@ -1006,11 +1006,7 @@ class ExpCls(
         exp_virt = self.exp_space[-1][self.nocc <= self.exp_space[-1]]
 
         # init screen arrays
-        screen = {
-            "sum": np.zeros(self.norb, dtype=np.float64),
-            "sum_abs": np.zeros(self.norb, dtype=np.float64),
-            "max": np.zeros(self.norb, dtype=np.float64),
-        }
+        screen = self._init_screen()
         if rst_read:
             if mpi.global_master:
                 screen = self.screen[-1]
@@ -1093,11 +1089,7 @@ class ExpCls(
                             op=screen_mpi_func[screen_func],
                         )
                     if not mpi.global_master:
-                        screen = {
-                            "sum": np.zeros(self.norb, dtype=np.float64),
-                            "sum_abs": np.zeros(self.norb, dtype=np.float64),
-                            "max": np.zeros(self.norb, dtype=np.float64),
-                        }
+                        screen = self._init_screen()
 
                 # update rst_write
                 rst_write = (
@@ -1740,8 +1732,8 @@ class ExpCls(
             # init list for storing hashes at order k
             hashes_lst: List[int] = []
 
-            # init list for storing increments at order k
-            inc_lst: List[IncType] = []
+            # init list for storing indices for increments at order k
+            idx_lst: List[int] = []
 
             # loop until no tuples left
             for tup_idx, tup in enumerate(
@@ -1802,14 +1794,14 @@ class ExpCls(
 
                 # add inc_tup and its hash to lists of increments/hashes
                 if idx is not None:
-                    inc_lst.append(inc[idx])
+                    idx_lst.append(idx)
                     hashes_lst.append(hash_1d(tup))
                 else:
                     raise RuntimeError("Last order tuple not found:", tup_last)
 
             # recast hashes_lst and inc_lst as np.array and TargetType
             hashes_arr = np.array(hashes_lst, dtype=np.int64)
-            inc_arr = self._flatten_inc(inc_lst, k - self.min_order)
+            inc_arr = inc[idx_lst]
 
             # deallocate k-th order hashes and increments
             self.hashes[k - self.min_order].Free()
@@ -2012,6 +2004,15 @@ class ExpCls(
         this function initializes an instance of the target type
         """
 
+    def _init_screen(self) -> Dict[str, np.ndarray]:
+        """
+        this function initializes the screening arrays
+        """
+        return {
+            "sum_abs": np.zeros(self.norb, dtype=np.float64),
+            "max": np.zeros(self.norb, dtype=np.float64),
+        }
+
     @staticmethod
     @abstractmethod
     def _mpi_reduce_target(
@@ -2151,13 +2152,6 @@ class ExpCls(
 
     @staticmethod
     @abstractmethod
-    def _flatten_inc(inc_lst: List[IncType], order: int) -> IncType:
-        """
-        this function flattens the supplied increment arrays
-        """
-
-    @staticmethod
-    @abstractmethod
     def _free_inc(inc_win: MPIWinType) -> None:
         """
         this function frees the supplied increment windows
@@ -2292,17 +2286,14 @@ class ExpCls(
                 # compute index
                 idx = hash_lookup(hashes, hash_1d(tup_last))
 
-                # add inc_tup and its hash to lists of increments/hashes
+                # remove inc_tup from the screen arrays
                 if idx is not None:
                     remove_sum_abs[tup] = self._add_screen(
-                        inc[idx.item()],
-                        remove_sum_abs,
-                        tup,
-                        "sum_abs",
+                        inc[idx], remove_sum_abs, tup, "sum_abs"  # type: ignore
                     )
                     remove_sum[tup] = self._add_screen(
-                        inc[idx.item()], remove_sum, tup, "sum"
-                    )
+                        inc[idx], remove_sum, tup, "sum"  # type: ignore
+                    ) 
                 else:
                     raise RuntimeError("Last order tuple not found:", tup_last)
 
@@ -2492,7 +2483,7 @@ class SingleTargetExpCls(
         # number of increments for every rank
         recv_counts = np.array(comm.allgather(send_inc.size))
 
-        return mpi_gatherv(comm, send_inc, recv_inc, recv_counts)
+        return mpi_gatherv(comm, send_inc.ravel(), recv_inc, recv_counts)
 
     @staticmethod
     def _free_inc(inc_win: MPI.Win) -> None:
