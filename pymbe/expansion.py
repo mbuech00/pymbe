@@ -1521,7 +1521,7 @@ class ExpCls(
                             else:
 
                                 # assume mean absolute increment does not decrease
-                                slope, const = 0.0, mean_abs_inc[-1]
+                                slope, const = 0.0, log_mean_abs_inc[-1]
 
                         else:
 
